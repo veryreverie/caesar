@@ -1,6 +1,14 @@
 # This is a placeholder compile script, to be replaced by
 # CMake or Make in due course
 
+# Make directories which may not have been copied by git
+directories=(bin doc mod obj src)
+for directory in ${directories[@]}; do
+	if [ ! -d $directory ]; then
+		mkdir $directory
+	fi
+done
+
 # --------------------
 # harmonic
 # --------------------
