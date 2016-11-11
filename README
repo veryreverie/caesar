@@ -1,0 +1,20 @@
+CAESAR
+
+----------------------------------------
+Installation
+----------------------------------------
+To install Caesar in-directory, run
+
+	./compile.sh
+
+from the CAESAR/ directory. Out-of-directory installation not currently supported.
+
+----------------------------------------
+Running
+----------------------------------------
+All of the programs and scripts used in Caesar will be in CAESAR/bin after installation. This folder must be on path for the duration of use.
+
+----------------------------------------
+Inputs
+----------------------------------------
+Example input files can be found in CAESAR/doc/input_files
