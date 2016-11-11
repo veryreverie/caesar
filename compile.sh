@@ -9,14 +9,20 @@ for directory in ${directories[@]}; do
 	fi
 done
 
+# define directories
+src=src/
+mod=mod/
+obj=obj/
+bin=bin/
+
+# compile main caesar program
+gfortran ${src}caesar.f90 -J$mod -o ${bin}caesar -lblas -llapack
+
 # --------------------
 # harmonic
 # --------------------
 # define directories
 src=src/harmonic/
-mod=mod/
-obj=obj/
-bin=bin/
 
 # copy shell scripts
 cp src/harmonic/*.sh bin/
