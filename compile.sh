@@ -32,7 +32,8 @@ programs=(combine_forces compare_kpoints construct_finite_displacement construct
 
 # compile programs
 for program in ${programs[@]}; do
-	gfortran $src$program.f90 -J$mod -o $bin$program -lblas -llapack
+  gfortran -c $src$program.f90 -J$mod -o$obj$program.o
+	gfortran $obj$program.o -J$mod -o $bin$program -lblas -llapack
 done
 
 # --------------------
@@ -50,5 +51,6 @@ programs=(band_folding calculate_anharmonic calculate_bs calculate_gap generate_
 
 # compile programs
 for program in ${programs[@]}; do
-	gfortran $src$program.f90 -J$mod -o $bin$program -lblas -llapack
+  gfortran -c $src$program.f90 -J$mod -o$obj$program.o
+	gfortran $obj$program.o -J$mod -o $bin$program -lblas -llapack
 done
