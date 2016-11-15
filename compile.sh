@@ -24,9 +24,8 @@ gfortran ${src}caesar.f90 -J$mod -o ${bin}caesar -lblas -llapack
 # define directories
 src=src/harmonic/
 
-# copy shell and python scripts
+# copy shell scripts
 cp src/harmonic/*.sh bin/
-cp src/harmonic/*.py bin/
 
 # list programs
 programs=(combine_forces compare_kpoints construct_finite_displacement construct_matrix_force_cnsts construct_supercell convert_forces_from_Rybohr_to_eVang equilibrium_frac fourier_interpolation generate_kgrid generate_supercell_kpoint_mesh_qe generate_supercells lte lte_lower)
@@ -44,7 +43,7 @@ src=src/quadratic/
 
 # copy shell scripts
 cp src/quadratic/*.sh bin/
-cp src/quadratic/*.ph bin/
+cp src/quadratic/*.py bin/
 
 # list programs
 programs=(band_folding calculate_anharmonic calculate_bs calculate_gap generate_amplitudes generate_quadratic_configurations generate_sc_path quadratic_spline vscf_1d)
