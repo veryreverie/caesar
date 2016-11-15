@@ -15,7 +15,7 @@ for i in $(seq 1 ${TOTAL}) ; do
 
  rm -f list.dat
 
- compare_kpoints
+ caesar compare_kpoints
 
  if [[ ! -e "list.dat" ]] ; then
   echo "Unable to generate list.dat file."
@@ -33,7 +33,7 @@ for i in $(seq 1 ${TOTAL}) ; do
 
  cd lte/
 
- lte > lte2.out
+ caesar lte > lte2.out
  
  cp atoms_in_primitive_cell.dat ../../lte/atoms_in_primitive_cell.${i}.dat
 

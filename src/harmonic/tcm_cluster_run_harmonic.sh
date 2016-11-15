@@ -41,13 +41,13 @@ if [ "$code" = "castep" ];then
       cd positive
       rundft nnodes $num_cores
       rm *.castep_bin *.cst_esp *.usp machine_file *.bands *.bib
-      fetch_forces_castep.sh
+      caesar fetch_forces_castep
       cd ../ 
 
       cd negative
       rundft nnodes $num_cores
       rm *.castep_bin *.cst_esp *.usp machine_file *.bands *.bib
-      fetch_forces_castep.sh
+      caesar fetch_forces_castep
       cd ../ 
       
       cd ../
@@ -109,14 +109,14 @@ elif [ "$code" = "qe" ]; then
       echo $seedname
       mpirun -np $num_cores /rscratch/bm418/espresso-5.1.1/bin/pw.x -i $seedname.in > $seedname.out
       rm -r $seedname.save
-      fetch_forces_qe.sh
+      caesar fetch_forces_qe
       cd ../
 
       cd negative
       pwd
       mpirun -np $num_cores /rscratch/bm418/espresso-5.1.1/bin/pw.x -i $seedname.in > $seedname.out
       rm -r $seedname.save
-      fetch_forces_qe.sh
+      caesar fetch_forces_qe
       cd ../
 
       cd ../

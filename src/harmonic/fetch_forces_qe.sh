@@ -31,7 +31,7 @@ mv forces_global.dat forces.dat
 
 echo "$no_atoms" > no_atoms.txt
 
-convert_forces_from_Rybohr_to_eVang
+caesar convert_forces_from_Rybohr_to_eVang
 mv forces_temp.dat forces.dat
 rm no_atoms.txt
 

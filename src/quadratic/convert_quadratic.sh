@@ -58,10 +58,10 @@ if [ "$code" = "castep" ];then
       cp ../../castep/* .
       if [ "$bs_calculation" -eq "1" ];then
         cp ../supercell.dat .
-        generate_sc_path
+        caesar generate_sc_path
       fi
       mv ${seedname}.cell bottom.cell 
-      structure_to_castep.sh
+      caesar structure_to_castep
       mv structure.cell ${seedname}.cell
       rm bottom.cell
     cd ../  
@@ -79,7 +79,7 @@ if [ "$code" = "castep" ];then
           #echo $i $j $k "structure.${j}.${k}.dat"
           if [ -e "structure.${j}.${k}.dat" ];then 
             cp structure.${j}.${k}.dat structure.dat
-            structure_to_castep.sh 
+            caesar structure_to_castep
             mv structure.cell ${seedname}.${j}.${k}.cell
           fi # structure exists
         done # loop over sampling points per mode
@@ -125,7 +125,7 @@ elif [ "$code" = "vasp" ]; then
       cp ../../vasp/KPOINTS.band .
       cp ../KPOINTS.${i} KPOINTS
       cp ../../vasp/mpi_submit_static.sh .
-      structure_to_vasp.sh
+      caesar structure_to_vasp
       mv structure.POSCAR POSCAR
     cd ../
    
@@ -149,7 +149,7 @@ elif [ "$code" = "vasp" ]; then
 
           if [ -e "structure.${k}.${l}.dat" ];then
             cp structure.${k}.${l}.dat structure.dat
-            structure_to_vasp.sh
+            caesar structure_to_vasp
             mv structure.POSCAR POSCAR.${k}.${l}
           fi
         
@@ -221,13 +221,13 @@ elif [ "$code" = "qe" ];then
       if [ -f "$seedname.in" ]; then
         mv $seedname.in top.in
       fi
-      structure_to_qe.sh
+      caesar structure_to_qe
       mv structure.in $seedname.in
       cp ../kpoints.nscf.in kpoints.in
       if [ -f "$seedname_nscf.in" ]; then
         mv $seedname_nscf.in top.in
       fi
-      structure_to_qe.sh
+      caesar structure_to_qe
       mv structure.in $seedname_nscf.in
       if [ -f 'top.in' ]; then
         rm top.in
@@ -252,7 +252,7 @@ elif [ "$code" = "qe" ];then
         for k in `seq $sampling_point_init $sampling_point_final`; do
           if [ -e "structure.${j}.${k}.dat" ];then
             cp structure.${j}.${k}.dat structure.dat
-            structure_to_qe.sh
+            caesar structure_to_qe
             mv structure.in ${seedname}.${j}.${k}.in
           fi # structure exists
         done # loop over sampling points per mode
@@ -264,7 +264,7 @@ elif [ "$code" = "qe" ];then
           for k in `seq $sampling_point_init $sampling_point_final`; do
             if [ -e "structure.${j}.${k}.dat" ];then
               cp structure.${j}.${k}.dat structure.dat
-              structure_to_qe.sh
+              caesar structure_to_qe
               mv structure.in ${seedname_nscf}.${j}.${k}.in
             fi # structure exists
           done # loop over sampling points per mode

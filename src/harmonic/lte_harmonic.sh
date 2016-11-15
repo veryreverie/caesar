@@ -64,7 +64,7 @@ EOF
       cd atom.${atom}.disp.${disp}
       cp positive/forces.dat positive.dat
       cp negative/forces.dat negative.dat
-      combine_forces
+      caesar combine_forces
       cd ../
 
     done < force_constants.dat
@@ -79,7 +79,7 @@ EOF
     echo " Number of atoms in supercell" >> lte.dat
     echo $no_atoms >> lte.dat
     echo " Species ; mass (a.u.) ; position of atom in supercell (in terms of SC LVs)" >> lte.dat
-    equilibrium_frac
+    caesar equilibrium_frac
     awk '{if (NR!=1) {print}}' super_equilibrium_frac.dat > atoms.dat
     cat lte.dat atoms.dat > lte_temp.dat
     rm atoms.dat
@@ -113,7 +113,7 @@ EOF
     mkdir lte
     mv lte.dat lte
     cd lte
-    lte_lower > lte.out
+    caesar lte_lower > lte.out
     #lte > lte.out
     if [ -e "error.txt" ];then
       echo "There is an error in lte: check 'error.txt' file."
@@ -129,11 +129,11 @@ EOF
   # Collect relevant data
   mkdir lte
   cp lattice.dat equilibrium.dat symmetry.dat grid.dat ibz.dat kpoint_to_supercell.dat lte
-  dyn_mats.sh
+  caesar dyn_mats
   cd lte
   write_lte_path > path.dat
   echo $temperature > temperature.dat
-  fourier_interpolation > fourier_interpolation.out
+  caesar fourier_interpolation > fourier_interpolation.out
   cd ../
  
 

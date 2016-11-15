@@ -46,7 +46,7 @@ if [ "$code" = "castep" ];then
       if [ -f "$seedname.cell" ]; then
         mv $seedname.cell bottom.cell
       fi
-      structure_to_castep.sh 
+      caesar structure_to_castep
       mv structure.cell $seedname.cell
       if [ -f 'bottom.cell' ]; then
         rm bottom.cell
@@ -58,7 +58,7 @@ if [ "$code" = "castep" ];then
       if [ -f "$seedname.cell" ]; then
         mv $seedname.cell bottom.cell
       fi
-      structure_to_castep.sh 
+      caesar structure_to_castep
       mv structure.cell $seedname.cell
       if [ -f 'bottom.cell' ]; then
         rm bottom.cell
@@ -95,12 +95,12 @@ elif [ "$code" = "vasp" ]; then
       cd atom.${atom}.disp.${disp}
       cd positive
       cp ../../../vasp/* .
-      structure_to_vasp.sh
+      caesar structure_to_vasp
       mv structure.POSCAR POSCAR
       cd ../
       cd negative
       cp ../../../vasp/* .
-      structure_to_vasp.sh
+      caesar structure_to_vasp
       mv structure.POSCAR POSCAR
       cd ../
       cd ../
@@ -138,7 +138,7 @@ elif [ "$code" = "qe" ]; then
 
     # Generate supercell k-point mesh
     cp ../qe/kpoints.in .
-    generate_supercell_kpoint_mesh_qe
+    caesar generate_supercell_kpoint_mesh_qe
     awk 'NR==1,NR==1 {print}' kpoints.in > kpoints.in.temp
     cat kpoints.in.temp sc_kpoints.dat > kpoints.in.temp2
     mv kpoints.in.temp2 kpoints.in
@@ -158,7 +158,7 @@ elif [ "$code" = "qe" ]; then
       if [ -f "$seedname.in" ]; then
         mv $seedname.in top.in
       fi
-      structure_to_qe.sh
+      caesar structure_to_qe
       mv structure.in $seedname.in
       if [ -f 'top.in' ]; then
         rm top.in
@@ -177,7 +177,7 @@ elif [ "$code" = "qe" ]; then
       if [ -f "$seedname.in" ]; then
         mv $seedname.in top.in
       fi
-      structure_to_qe.sh
+      caesar structure_to_qe
       mv structure.in $seedname.in
       if [ -f 'top.in' ]; then
         rm top.in

@@ -112,14 +112,14 @@ while read line ; do
       cp energy.${big_point}.${j}.dat working_energy.dat
       cp frequency.${big_point}.${j}.dat working_frequency.dat
       cp size.${big_point}.dat working_size.dat
-      generate_amplitudes
+      caesar generate_amplitudes
       mv amplitude_energy.dat energy.${big_point}.${j}.dat 
       rm working_energy.dat working_frequency.dat working_size.dat
 
       # Fit splines
       echo $no_sampling_points $integration_points > fit_input.dat
       cp energy.${big_point}.${j}.dat fit_energy.dat
-      quadratic_spline
+      caesar quadratic_spline
       mv indep_pot.dat interp_energy.${big_point}.${j}.dat
       rm fit_input.dat fit_energy.dat 
 
@@ -130,7 +130,7 @@ while read line ; do
       #max_amplitude=$(( $max_amplitude*(-1) ))
       echo $max_amplitude > max_amplitude.dat
       echo $integration_points > integration_points.dat
-      vscf_1d
+      caesar vscf_1d
       mv eigenvals.dat eigenvals.${big_point}.${j}.dat
       mv eigenvecs.dat eigenvecs.${big_point}.${j}.dat
       mv anh_pot.dat anh_pot.${big_point}.${j}.dat
@@ -148,7 +148,7 @@ no_kpoints=$( wc -l < ibz.dat  )
 echo $no_kpoints $no_modes > input.dat
 
 echo $no_kpoints $no_modes > input.dat
-calculate_anharmonic
+caesar calculate_anharmonic
 rm input.dat
 
 

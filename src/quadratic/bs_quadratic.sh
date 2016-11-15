@@ -41,7 +41,7 @@ for i in `seq 1 $no_sc`;do
     cd static
       no_bands=$( wc -l < kpoint.${kpoint}.dat  )
       echo $band_energy $kpoint $no_bands > input.dat
-      band_folding
+      caesar band_folding
       rm input.dat
     cd ../
   cd ../
@@ -104,7 +104,7 @@ cd bs
       fi
     done 
   done 
-  calculate_bs
+  caesar calculate_bs
   rm input.dat
 cd ../
 

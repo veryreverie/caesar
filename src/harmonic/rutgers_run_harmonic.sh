@@ -41,13 +41,13 @@ if [ "$code" = "castep" ];then
       cd positive
       rundft nnodes $num_cores
       rm *.castep_bin *.cst_esp *.usp machine_file *.bands *.bib
-      fetch_forces_castep.sh
+      caesar fetch_forces_castep
       cd ../ 
 
       cd negative
       rundft nnodes $num_cores
       rm *.castep_bin *.cst_esp *.usp machine_file *.bands *.bib
-      fetch_forces_castep.sh
+      caesar fetch_forces_castep
       cd ../ 
       
       cd ../

@@ -125,7 +125,7 @@ for (( i=1; i<=$no_sc; i++ )) do
         awk -v awk_disp_patt_first_line=$disp_patt_first_line -v awk_disp_patt_last_line=$disp_patt_last_line 'NR==awk_disp_patt_first_line,NR==awk_disp_patt_last_line {print}' disp_patterns.dat > disp_patterns_temp.dat
         for k in `seq $sampling_point_init $sampling_point_final`; do
           echo $sampling_amplitude $k $no_sampling_points > configuration.dat
-          generate_quadratic_configurations 
+          caesar generate_quadratic_configurations 
           mv frequency.dat frequency.${big_point}.${j}.dat
           if [ -e 'positions.dat' ];then 
             cat lattice.txt super_lattice.dat atoms.txt positions.dat symmetry.txt end.txt > configurations/structure.${j}.${k}.dat    

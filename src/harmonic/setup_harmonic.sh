@@ -51,10 +51,10 @@ echo $(($end_line-($symmetry_line+1)))/4 | bc > symmetry.dat
 awk -v awk_symmetry_line=$symmetry_line -v awk_end_line=$end_line 'NR==(awk_symmetry_line+1), NR==(awk_end_line-1) {print $1 " " $2 " " $3} ' structure.dat >> symmetry.dat
 
 # Generate IBZ
-generate_kgrid
+caesar generate_kgrid
 
 # Generate non-diagonal supercells
-generate_supercells
+caesar generate_supercells
 
 CELL_COUNT=0
 KPOINT_COUNT=0
@@ -77,7 +77,7 @@ while read LINE ; do
   cp equilibrium.dat lattice.dat ${SUPERCELL_DIR}
 
   cd ${SUPERCELL_DIR}
-  construct_supercell
+  caesar construct_supercell
   cd ../
 
  fi
@@ -105,7 +105,7 @@ for (( i=1; i<=$CELL_COUNT; i++ ))do
   sed '1d' super_equilibrium.dat > tmp.dat 
   cat lattice.txt super_lattice.dat atoms.txt tmp.dat symmetry.txt end.txt > structure.dat
   rm lattice.txt atoms.txt tmp.dat symmetry.txt end.txt
-  structure_to_castep.sh
+  caesar structure_to_castep
   cellsym --symmetry structure.cell > symmetry.dat
   symmetry_start_line=$(awk -v IGNORECASE=1 '/%block SYMMETRY_OPS/{print NR}' symmetry.dat)
   symmetry_end_line=$(awk -v IGNORECASE=1 '/%endblock SYMMETRY_OPS/{print NR}' symmetry.dat)
@@ -117,7 +117,7 @@ for (( i=1; i<=$CELL_COUNT; i++ ))do
   rm symmetry_temp.dat symm_header.txt
   
   # Evaluate needed force constants
-  construct_matrix_force_cnsts 
+  caesar construct_matrix_force_cnsts 
   while read LINE ; do
 
     echo $LINE > disp.dat
@@ -128,7 +128,7 @@ for (( i=1; i<=$CELL_COUNT; i++ ))do
     cp super_lattice.dat super_equilibrium.dat atom.${atom}.disp.${disp}
     cd atom.${atom}.disp.${disp}
     echo $atom $disp > displacement.dat
-    construct_finite_displacement
+    caesar construct_finite_displacement
     mkdir positive negative
     mv positive.dat positive/structure.dat
     cp displacement.dat positive

@@ -25,7 +25,7 @@ do
   # Static calculation
   cd static
     cp ../seedname.txt .
-    eigenval_castep_to_bands.sh
+    caesar eigenval_castep_to_bands
     rm seedname.txt *.orbitals
   cd ../
 
@@ -40,7 +40,7 @@ do
             cd mode.${j}.${k}
               if [ -e "$seedname.castep" ]; then
                 cp ../../../seedname.txt .
-                eigenval_castep_to_bands.sh
+                caesar eigenval_castep_to_bands
                 rm seedname.txt *.orbitals
               fi
             cd ../
