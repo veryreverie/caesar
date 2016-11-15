@@ -42,8 +42,6 @@ program caesar
   else
     allocate(character(len=len(trim(args(1)))) :: arg)
     arg = trim(args(1))
-    write(*,*) len(arg)
-    write(*,*) arg
   endif
   
   if (arg == "-h" .or. arg == "--help") then
@@ -141,7 +139,7 @@ program caesar
   elseif (arg == "vscf_1d") then
     write(*,*) "option selected: ", arg
     return_status = system(arg)
-  ! shell scripts
+  ! wrappers for shell scripts
   elseif (arg == "anharmonic") then
     write(*,*) "option selected: ", arg
     return_status = system(arg//".sh")
@@ -208,7 +206,7 @@ program caesar
   elseif (arg == "tcm_cluster_run_quadratic") then
     write(*,*) "option selected: ", arg
     return_status = system(arg//".sh")
-  ! python scripts
+  ! wrappers for python scripts
   elseif (arg == "get_kpoints") then
     write(*,*) "option selected: ", arg
     write(*,*) arg//".py"
