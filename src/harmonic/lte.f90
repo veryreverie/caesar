@@ -97,7 +97,6 @@
 ! 17/06/11 Introduced BLAS & LAPACK.  Fixed bug in randomisation of theta for
 !          speed-of-sound calculation.
 
-
 MODULE rand_no_gen
   ! Pseudo-random number generator.
   USE utils,ONLY : dp
@@ -305,7 +304,6 @@ CONTAINS
     REAL(dp) :: t
     REAL(dp),PARAMETER :: tol=1.d-3
     t=DOT_PRODUCT(rvec,rec_vec(1:3,1))
-    !write(*,*)t,rvec,rec_vec(1:3,1)
     IF(ABS(ANINT(t)-t)<tol)THEN
       t=DOT_PRODUCT(rvec,rec_vec(1:3,2))
       IF(ABS(ANINT(t)-t)<tol)THEN
@@ -726,7 +724,6 @@ CONTAINS
           pos_atom1p(i)=offset(i,n)+ddot(3,rotation(i,1,n),3,atom_pos(1,atom1),1)
         ENDDO ! i
         atom1p=atom_at_pos(pos_atom1p)
-        !WRITE(*,*)pos_atom1p
         !WRITE(*,*)n,atom1,atom1p,atom_at_pos(pos_atom1p)
         IF(atom1p<=0)CALL errstop('POINT_SYMM','Please check that &
           &your atom coordinates satisfy the rotational symmetries that you &
@@ -1923,7 +1920,7 @@ CONTAINS
               prefactor=SQRT(2.d0)
             ENDIF
           ENDIF
-         WRITE(9,*)disp_pattern,prefactor
+          WRITE(9,*)disp_pattern,prefactor
           WRITE(10,*)kdisp_pattern,prefactor
           WRITE(11,*)REAL(non_mr_pol_vec(1:3,atom_in_prim(atom1)))
           WRITE(11,*)AIMAG(non_mr_pol_vec(1:3,atom_in_prim(atom1)))
