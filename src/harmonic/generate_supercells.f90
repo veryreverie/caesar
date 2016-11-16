@@ -1,13 +1,13 @@
- MODULE constants
-!--------------------------------------------------------------!
-! Numerical constants and constants for variable declarations. !
-!--------------------------------------------------------------!
- IMPLICIT NONE
- INTEGER,PARAMETER :: dp=kind(1.d0)
- END MODULE constants
+! MODULE constants
+!!--------------------------------------------------------------!
+!! Numerical constants and constants for variable declarations. !
+!!--------------------------------------------------------------!
+! IMPLICIT NONE
+! INTEGER,PARAMETER :: dp=kind(1.d0)
+! END MODULE constants
 
 
- MODULE utils
+ MODULE functions
 !--------------------------!
 ! Miscellaneous utilities. !
 !--------------------------!
@@ -45,30 +45,30 @@
  END FUNCTION gcd
 
 
- CHARACTER(12) FUNCTION i2s(n)
-!------------------------------------------------------------------------!
-! Convert integers to left justified strings that can be printed in the  !
-! middle of a sentence without introducing large amounts of white space. !
-!------------------------------------------------------------------------!
- IMPLICIT NONE
- INTEGER,INTENT(in) :: n
- INTEGER :: i,j
- INTEGER,PARAMETER :: ichar0=ICHAR('0')
-
- i2s=''
- i=abs(n)
- do j=len(i2s),1,-1
-  i2s(j:j)=achar(ichar0+mod(i,10))
-  i=i/10
-  if(i==0)exit
- enddo ! j
- if(n<0)then
-  i2s='-'//adjustl(i2s)
- else
-  i2s=adjustl(i2s)
- endif ! n<0
-
- END FUNCTION i2s
+! CHARACTER(12) FUNCTION i2s(n)
+!!------------------------------------------------------------------------!
+!! Convert integers to left justified strings that can be printed in the  !
+!! middle of a sentence without introducing large amounts of white space. !
+!!------------------------------------------------------------------------!
+! IMPLICIT NONE
+! INTEGER,INTENT(in) :: n
+! INTEGER :: i,j
+! INTEGER,PARAMETER :: ichar0=ICHAR('0')
+!
+! i2s=''
+! i=abs(n)
+! do j=len(i2s),1,-1
+!  i2s(j:j)=achar(ichar0+mod(i,10))
+!  i=i/10
+!  if(i==0)exit
+! enddo ! j
+! if(n<0)then
+!  i2s='-'//adjustl(i2s)
+! else
+!  i2s=adjustl(i2s)
+! endif ! n<0
+!
+! END FUNCTION i2s
 
 
  LOGICAL FUNCTION reduce_vec(vecs)
@@ -261,7 +261,7 @@
 
  END SUBROUTINE inv33
 
-END MODULE utils
+END MODULE functions
 
 
  PROGRAM generate_supercells
@@ -269,6 +269,7 @@ END MODULE utils
 ! GENERATE_SUPERCELLS !
 !---------------------!
  USE utils
+ use functions
  IMPLICIT NONE
  REAL(dp),PARAMETER :: tol=1.d-10
  INTEGER,ALLOCATABLE :: multiplicity(:),int_kpoints(:,:),numerator(:,:),&

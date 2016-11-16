@@ -1,9 +1,3 @@
-module utils
-  implicit none
-  integer,parameter :: dp=kind(1.d0)
-
-end module utils
-
 module numerical
   ! Numerical routines and constants
   use utils,only : dp
