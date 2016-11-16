@@ -1,4 +1,8 @@
-program equilibrium_frac
+module equilibrium_frac_module
+  implicit none
+contains
+
+subroutine equilibrium_frac()
   use constants
   use utils
   implicit none
@@ -36,5 +40,5 @@ program equilibrium_frac
     write(1,*)species(i),mass(i),frac_atoms(i,:)
   enddo ! i
   close(1)
-
-end program equilibrium_frac
+end subroutine
+end module

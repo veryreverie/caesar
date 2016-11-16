@@ -1,4 +1,8 @@
-program generate_sc_path
+module generate_sc_path_module
+  implicit none
+contains
+
+subroutine generate_sc_path
   implicit none
   integer :: i,no_points
   integer :: supercell(3,3)
@@ -23,6 +27,5 @@ program generate_sc_path
   enddo ! i
   close(1)
   close(2)
-
-
-end program generate_sc_path
+end subroutine
+end module

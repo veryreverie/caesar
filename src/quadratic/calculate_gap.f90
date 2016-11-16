@@ -1,4 +1,8 @@
-program calculate_gap
+module calculate_gap_module
+  implicit none
+contains
+
+subroutine calculate_gap()
   implicit none
   integer :: i,no_points
   character(80) :: filename1,filename2
@@ -25,6 +29,5 @@ program calculate_gap
   close(1)
   close(2)
   close(3)
-  
-  
-end program calculate_gap
+end subroutine
+end module

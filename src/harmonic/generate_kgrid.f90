@@ -1,42 +1,46 @@
-MODULE linear_algebra
-IMPLICIT NONE
-INTEGER,PARAMETER :: dp=KIND(1.d0)
-
-CONTAINS
-
-SUBROUTINE inv_33(A,B)
-! This subroutine calculates the inverse B of matrix A.
-! A and B are real, 3x3 matrices.
-IMPLICIT NONE
-REAL(dp),INTENT(in) :: A(3,3)
-REAL(dp),INTENT(out) :: B(3,3)
-REAL(dp) :: d
-
-d=A(1,1)*(A(2,2)*A(3,3)-A(2,3)*A(3,2))+ &
- &A(2,1)*(A(3,2)*A(1,3)-A(1,2)*A(3,3))+ &
- &A(3,1)*(A(1,2)*A(2,3)-A(1,3)*A(2,2))
-IF(d==0.d0)THEN
- WRITE(*,*)'Error in inv_33: singular matrix.'
- STOP
-ENDIF
-d=1.d0/d
-B(1,1)=(A(2,2)*A(3,3)-A(2,3)*A(3,2))*d
-B(1,2)=(A(3,2)*A(1,3)-A(1,2)*A(3,3))*d
-B(1,3)=(A(1,2)*A(2,3)-A(1,3)*A(2,2))*d
-B(2,1)=(A(3,1)*A(2,3)-A(2,1)*A(3,3))*d
-B(2,2)=(A(1,1)*A(3,3)-A(3,1)*A(1,3))*d
-B(2,3)=(A(2,1)*A(1,3)-A(1,1)*A(2,3))*d
-B(3,1)=(A(2,1)*A(3,2)-A(2,2)*A(3,1))*d
-B(3,2)=(A(3,1)*A(1,2)-A(1,1)*A(3,2))*d
-B(3,3)=(A(1,1)*A(2,2)-A(1,2)*A(2,1))*d
-
-END SUBROUTINE inv_33
-
-END MODULE linear_algebra
+!MODULE linear_algebra
+!IMPLICIT NONE
+!INTEGER,PARAMETER :: dp=KIND(1.d0)
+!
+!CONTAINS
+!
+!SUBROUTINE inv_33(A,B)
+!! This subroutine calculates the inverse B of matrix A.
+!! A and B are real, 3x3 matrices.
+!IMPLICIT NONE
+!REAL(dp),INTENT(in) :: A(3,3)
+!REAL(dp),INTENT(out) :: B(3,3)
+!REAL(dp) :: d
+!
+!d=A(1,1)*(A(2,2)*A(3,3)-A(2,3)*A(3,2))+ &
+! &A(2,1)*(A(3,2)*A(1,3)-A(1,2)*A(3,3))+ &
+! &A(3,1)*(A(1,2)*A(2,3)-A(1,3)*A(2,2))
+!IF(d==0.d0)THEN
+! WRITE(*,*)'Error in inv_33: singular matrix.'
+! STOP
+!ENDIF
+!d=1.d0/d
+!B(1,1)=(A(2,2)*A(3,3)-A(2,3)*A(3,2))*d
+!B(1,2)=(A(3,2)*A(1,3)-A(1,2)*A(3,3))*d
+!B(1,3)=(A(1,2)*A(2,3)-A(1,3)*A(2,2))*d
+!B(2,1)=(A(3,1)*A(2,3)-A(2,1)*A(3,3))*d
+!B(2,2)=(A(1,1)*A(3,3)-A(3,1)*A(1,3))*d
+!B(2,3)=(A(2,1)*A(1,3)-A(1,1)*A(2,3))*d
+!B(3,1)=(A(2,1)*A(3,2)-A(2,2)*A(3,1))*d
+!B(3,2)=(A(3,1)*A(1,2)-A(1,1)*A(3,2))*d
+!B(3,3)=(A(1,1)*A(2,2)-A(1,2)*A(2,1))*d
+!
+!END SUBROUTINE inv_33
+!
+!END MODULE linear_algebra
 
 
 ! Main program
-PROGRAM generate_kgrid
+module generate_kgrid_module
+  implicit none
+contains
+
+subroutine generate_kgrid()
  USE linear_algebra,ONLY : inv_33
 
  IMPLICIT NONE
@@ -156,5 +160,5 @@ PROGRAM generate_kgrid
  enddo ! i_vec
  close(3)
  close(4)
-
-END PROGRAM
+end subroutine
+end module

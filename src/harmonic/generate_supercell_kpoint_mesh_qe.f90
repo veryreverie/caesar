@@ -1,4 +1,8 @@
-program generate_supercell_kpoint_mesh_qe
+module generate_supercell_kpoint_mesh_qe_module
+  implicit none
+contains
+
+subroutine generate_supercell_kpoint_mesh_qe()
   use constants
   use utils
   implicit none
@@ -53,5 +57,5 @@ program generate_supercell_kpoint_mesh_qe
   write(1,*)int(prim_mesh(1)*sc_dist(1)/dist(1))+1,int(prim_mesh(2)*sc_dist(2)/dist(2))+1,&
           &int(prim_mesh(3)*sc_dist(3)/dist(3))+1,0,0,0
   close(1)
-
-end program generate_supercell_kpoint_mesh_qe
+end subroutine
+end module

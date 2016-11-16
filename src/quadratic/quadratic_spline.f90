@@ -13,8 +13,11 @@
 !                                                                         !
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !
-PROGRAM SPLINE
+module quadratic_spline_module
+  implicit none
+contains
 
+subroutine quadratic_spline()
 ! An example of creating cubic-spline approximation of
 ! a discrete function fi=f(xi).
 !
@@ -82,8 +85,7 @@ PROGRAM SPLINE
   END DO
   CLOSE(1)
 
-END PROGRAM SPLINE
-!
+end subroutine
 
 SUBROUTINE CUBIC_SPLINE (N, XI, FI, P2)
 !
@@ -157,4 +159,4 @@ SUBROUTINE TRIDIAGONAL_LINEAR_EQ (L, D, E, C, B, Z)
     Z(I) = Y(I) - T(I)*Z(I+1)
   END DO
 END SUBROUTINE TRIDIAGONAL_LINEAR_EQ
-
+end module

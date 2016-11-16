@@ -1,4 +1,8 @@
-program calculate_anharmonic
+module calculate_anharmonic_module
+  implicit none
+contains
+
+subroutine calculate_anharmonic()
   implicit none
   integer,parameter :: dp=kind(1.d0)
   real :: temperature=0.0,dtemperature=50.0,thermal
@@ -120,5 +124,5 @@ program calculate_anharmonic
     write(1,*)temperature,renormalised_harmonic,renormalised_eigenvals
   enddo ! l
   close(1)
-  
-end program calculate_anharmonic
+end subroutine
+end module

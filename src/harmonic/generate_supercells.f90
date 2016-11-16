@@ -1,11 +1,7 @@
- MODULE functions
-!--------------------------!
-! Miscellaneous utilities. !
-!--------------------------!
- USE constants
- IMPLICIT NONE
-
- CONTAINS
+module generate_supercells_module
+  USE constants
+  IMPLICIT NONE
+CONTAINS
 
  INTEGER FUNCTION gcd(int_1,int_2)
 !----------------------------------------------------------------------!
@@ -226,15 +222,12 @@
 
  END SUBROUTINE inv33
 
-END MODULE functions
 
-
- PROGRAM generate_supercells
+subroutine generate_supercells()
 !---------------------!
 ! GENERATE_SUPERCELLS !
 !---------------------!
  USE utils
- use functions
  IMPLICIT NONE
  REAL(dp),PARAMETER :: tol=1.d-10
  INTEGER,ALLOCATABLE :: multiplicity(:),int_kpoints(:,:),numerator(:,:),&
@@ -476,5 +469,5 @@ END MODULE functions
   write(*,*)'Unable to allocate each k-point to a supercell matrix.'
   stop
  endif ! found_kpoint
-
- END PROGRAM generate_supercells
+end subroutine
+end module

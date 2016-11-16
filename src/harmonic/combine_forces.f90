@@ -1,4 +1,8 @@
-program combine_forces
+module combine_forces_module
+  implicit none
+contains
+
+subroutine combine_forces()
   implicit none
   integer,parameter :: dp=kind(1.d0)
   real(dp),allocatable :: positive(:),negative(:)
@@ -32,4 +36,5 @@ program combine_forces
   enddo ! i
   close(1)
 
-end program combine_forces
+end subroutine
+end module

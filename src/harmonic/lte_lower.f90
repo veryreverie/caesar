@@ -97,7 +97,7 @@
 ! 17/06/11 Introduced BLAS & LAPACK.  Fixed bug in randomisation of theta for
 !          speed-of-sound calculation.
 
-MODULE rand_no_gen
+MODULE rand_no_gen_lower
   ! Pseudo-random number generator.
   USE utils,ONLY : dp
   IMPLICIT NONE
@@ -144,10 +144,10 @@ CONTAINS
   END FUNCTION ranx
 
 
-END MODULE rand_no_gen
+END MODULE rand_no_gen_lower
 
 
-MODULE linear_algebra
+MODULE linear_algebra_lower
   ! Assorted linear algebra / vector algebra subroutines.
   ! Interfaces for BLAS & LAPACK routines.
   USE utils,ONLY : dp
@@ -199,47 +199,47 @@ CONTAINS
 !!$  END SUBROUTINE cross_product
 
 
-  REAL(dp) FUNCTION determinant33(A)
-    ! Given a 3x3 matrix A, this function returns det(A)
-    IMPLICIT NONE
-    REAL(dp),INTENT(in) :: A(3,3)
-    determinant33=A(1,1)*(A(2,2)*A(3,3)-A(3,2)*A(2,3)) &
-      &+A(1,2)*(A(3,1)*A(2,3)-A(2,1)*A(3,3)) &
-      &+A(1,3)*(A(2,1)*A(3,2)-A(3,1)*A(2,2))
-  END FUNCTION determinant33
+!  REAL(dp) FUNCTION determinant33(A)
+!    ! Given a 3x3 matrix A, this function returns det(A)
+!    IMPLICIT NONE
+!    REAL(dp),INTENT(in) :: A(3,3)
+!    determinant33=A(1,1)*(A(2,2)*A(3,3)-A(3,2)*A(2,3)) &
+!      &+A(1,2)*(A(3,1)*A(2,3)-A(2,1)*A(3,3)) &
+!      &+A(1,3)*(A(2,1)*A(3,2)-A(3,1)*A(2,2))
+!  END FUNCTION determinant33
+!
+!
+!  SUBROUTINE inv_33(A,B)
+!    ! This subroutine calculates the inverse B of matrix A.
+!    ! A and B are real, 3x3 matrices.
+!    IMPLICIT NONE
+!    REAL(dp),INTENT(in) :: A(3,3)
+!    REAL(dp),INTENT(out) :: B(3,3)
+!    REAL(dp) :: d
+!    d=A(1,1)*(A(2,2)*A(3,3)-A(2,3)*A(3,2))+ &
+!      &A(2,1)*(A(3,2)*A(1,3)-A(1,2)*A(3,3))+ &
+!      &A(3,1)*(A(1,2)*A(2,3)-A(1,3)*A(2,2))
+!    IF(d==0.d0)THEN
+!      WRITE(*,*)'Error in inv_33: singular matrix.'
+!      STOP
+!    ENDIF
+!    d=1.d0/d
+!    B(1,1)=(A(2,2)*A(3,3)-A(2,3)*A(3,2))*d
+!    B(1,2)=(A(3,2)*A(1,3)-A(1,2)*A(3,3))*d
+!    B(1,3)=(A(1,2)*A(2,3)-A(1,3)*A(2,2))*d
+!    B(2,1)=(A(3,1)*A(2,3)-A(2,1)*A(3,3))*d
+!    B(2,2)=(A(1,1)*A(3,3)-A(3,1)*A(1,3))*d
+!    B(2,3)=(A(2,1)*A(1,3)-A(1,1)*A(2,3))*d
+!    B(3,1)=(A(2,1)*A(3,2)-A(2,2)*A(3,1))*d
+!    B(3,2)=(A(3,1)*A(1,2)-A(1,1)*A(3,2))*d
+!    B(3,3)=(A(1,1)*A(2,2)-A(1,2)*A(2,1))*d
+!  END SUBROUTINE inv_33
 
 
-  SUBROUTINE inv_33(A,B)
-    ! This subroutine calculates the inverse B of matrix A.
-    ! A and B are real, 3x3 matrices.
-    IMPLICIT NONE
-    REAL(dp),INTENT(in) :: A(3,3)
-    REAL(dp),INTENT(out) :: B(3,3)
-    REAL(dp) :: d
-    d=A(1,1)*(A(2,2)*A(3,3)-A(2,3)*A(3,2))+ &
-      &A(2,1)*(A(3,2)*A(1,3)-A(1,2)*A(3,3))+ &
-      &A(3,1)*(A(1,2)*A(2,3)-A(1,3)*A(2,2))
-    IF(d==0.d0)THEN
-      WRITE(*,*)'Error in inv_33: singular matrix.'
-      STOP
-    ENDIF
-    d=1.d0/d
-    B(1,1)=(A(2,2)*A(3,3)-A(2,3)*A(3,2))*d
-    B(1,2)=(A(3,2)*A(1,3)-A(1,2)*A(3,3))*d
-    B(1,3)=(A(1,2)*A(2,3)-A(1,3)*A(2,2))*d
-    B(2,1)=(A(3,1)*A(2,3)-A(2,1)*A(3,3))*d
-    B(2,2)=(A(1,1)*A(3,3)-A(3,1)*A(1,3))*d
-    B(2,3)=(A(2,1)*A(1,3)-A(1,1)*A(2,3))*d
-    B(3,1)=(A(2,1)*A(3,2)-A(2,2)*A(3,1))*d
-    B(3,2)=(A(3,1)*A(1,2)-A(1,1)*A(3,2))*d
-    B(3,3)=(A(1,1)*A(2,2)-A(1,2)*A(2,1))*d
-  END SUBROUTINE inv_33
+END MODULE linear_algebra_lower
 
 
-END MODULE linear_algebra
-
-
-MODULE min_images
+MODULE min_images_lower
   ! Subroutines for the calculation of minimum-image distances.
   USE utils,ONLY : dp,errstop
   IMPLICIT NONE
@@ -318,14 +318,14 @@ CONTAINS
   END FUNCTION is_lat_point
 
 
-END MODULE min_images
+END MODULE min_images_lower
 
 
-MODULE phonons
+MODULE phonons_lower
   ! Miscellaneous utilities etc.
   USE min_images,ONLY : is_lat_point,min_images_brute_force,maxim
   use constants, only : dp, third, twopi
-  USE utils,ONLY : i2s,errstop
+  USE utils,ONLY : i2s,errstop,determinant33,inv_33
   IMPLICIT NONE
   PRIVATE
   PUBLIC defined,read_lte,point_symm,point_symm_brute_force,newtons_law, &
@@ -2052,10 +2052,14 @@ CONTAINS
   END SUBROUTINE finalise
 
 
-END MODULE phonons
+END MODULE phonons_lower
 
 
-PROGRAM lte
+module lte_lower_module
+  implicit none
+contains
+
+subroutine lte_lower()
   ! Main program starts here.
   USE utils,ONLY : errstop,wordwrap
   USE phonons
@@ -2158,5 +2162,5 @@ PROGRAM lte
 
   WRITE(*,*)'Program finished.  Time taken: ',t2-t1
   WRITE(*,*)
-
-END PROGRAM lte
+end subroutine
+end module

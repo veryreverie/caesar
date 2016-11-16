@@ -1,6 +1,10 @@
 ! Program to construct supercell from primitive cell
 
-PROGRAM construct_supercell
+module construct_supercell_module
+  implicit none
+contains
+
+subroutine construct_supercell()
   USE utils
   USE constants
   IMPLICIT NONE
@@ -81,5 +85,5 @@ PROGRAM construct_supercell
     write(1,*)super_species(i),super_mass(i),super_atoms(i,:)
   enddo ! i
   close(1)
-
-END PROGRAM construct_supercell
+end subroutine
+end module

@@ -1,230 +1,3 @@
- module functions
- use constants
- use utils
- implicit none
- contains
-
- SUBROUTINE read_input_files(no_symm_ops,basis,grid,prim_latt_vecs,symm_ops)
-!-------------------------!
-! Read basic input files. !
-!-------------------------!
- IMPLICIT NONE
- INTEGER,INTENT(in) :: no_symm_ops
- INTEGER,INTENT(out) :: basis,grid(3)
- REAL(dp),INTENT(out) :: prim_latt_vecs(3,3),symm_ops(4,3,no_symm_ops)
- INTEGER :: ierr,i_symm,i_row
-
-! Read number of atoms in primitive cell (basis)
- open(unit=11,file='equilibrium.dat',status='old',iostat=ierr)
- if(ierr/=0)call errstop('READ_INPUT_FILES','Problem opening basis.dat file.')
- read(11,*,iostat=ierr)basis
- if(ierr/=0)call errstop('READ_INPUT_FILES','Problem reading basis.dat file.')
- close(11)
-
-! Read grid.dat file
- open(unit=11,file='grid.dat',status='old',iostat=ierr)
- if(ierr/=0)call errstop('READ_INPUT_FILES','Problem opening grid.dat file.')
- read(11,*,iostat=ierr)grid(1:3)
- if(ierr/=0)call errstop('READ_INPUT_FILES','Problem reading grid.dat file.')
- close(11)
-
-! Read primitive lattice
- open(unit=11,file='lattice.dat',status='old',iostat=ierr)
- if(ierr/=0)call errstop('READ_INPUT_FILES','Problem opening prim.dat file.')
- read(11,*,iostat=ierr)prim_latt_vecs(1,1:3)
- if(ierr==0)read(11,*,iostat=ierr)prim_latt_vecs(2,1:3)
- if(ierr==0)read(11,*,iostat=ierr)prim_latt_vecs(3,1:3)
- if(ierr/=0)call errstop('READ_INPUT_FILES','Problem reading prim.dat file.')
- close(11)
-
-! Read symmetry.dat file
- open(unit=11,file='symmetry.dat',status='old',iostat=ierr)
- if(ierr/=0)call errstop('READ_INPUT_FILES','Problem opening symmetry.dat &
-  &file.')
- read(11,*,iostat=ierr)
- do i_symm=1,no_symm_ops
-  do i_row=1,4
-   read(11,*,iostat=ierr)symm_ops(i_row,1:3,i_symm)
-   if(ierr/=0)call errstop('READ_INPUT_FILES','Problem reading symmetry.dat &
-    &file.')
-  enddo ! i_row
- enddo ! i_symm
- close(11)
-
- END SUBROUTINE read_input_files
-
-
- SUBROUTINE read_kpoints(no_kpoints,kpoints,multiplicity,kpoint_to_supercell)
-!--------------------------------------------------!
-! Read input files related to k-points in the IBZ. !
-!--------------------------------------------------!
- IMPLICIT NONE
- REAL(dp),PARAMETER :: tol=1.d-8
- INTEGER,INTENT(in) :: no_kpoints
- INTEGER,INTENT(out) :: multiplicity(no_kpoints),&
-  &kpoint_to_supercell(no_kpoints)
- REAL(dp),INTENT(out) :: kpoints(3,no_kpoints)
- INTEGER :: ierr,i_point
- REAL(dp) :: kpoint(3)
-
-! Read ibz.dat file
- open(unit=11,file='ibz.dat',status='old',iostat=ierr)
- if(ierr/=0)call errstop('READ_KPOINTS','Problem opening ibz.dat file.')
- do i_point=1,no_kpoints
-  read(11,*,iostat=ierr)kpoints(1:3,i_point),multiplicity(i_point)
-  if(ierr/=0)call errstop('READ_KPOINTS','Problem reading ibz.dat file.')
- enddo ! i_point
- close(11)
-
-! Read kpoint_to_supercell.dat file
- open(unit=11,file='kpoint_to_supercell.dat',status='old',iostat=ierr)
- if(ierr/=0)call errstop('READ_KPOINTS','Problem opening &
-  &kpoint_to_supercell.dat file.')
- do i_point=1,no_kpoints
-  read(11,*,iostat=ierr)kpoint(1:3),kpoint_to_supercell(i_point)
-  if(ierr/=0)call errstop('READ_KPOINTS','Problem reading &
-   &kpoint_to_supercell.dat file.')
-  if(any(abs(kpoint(1:3)-kpoints(1:3,i_point))>tol))then
-   call errstop('READ_KPOINTS','k-points in ibz.dat file and &
-    &kpoints_to_supercell.dat file disagree.')
-  endif ! tol
- enddo ! i_point
- close(11)
- 
-! Check k-points are in expected order
-! do i_point=2,no_kpoints
-!  if(.not.(kpoint_to_supercell(i_point)==kpoint_to_supercell(i_point-1)).and.&
-!   &.not.(kpoint_to_supercell(i_point)==kpoint_to_supercell(i_point-1)+1))then
-!   call errstop('READ_KPOINTS','k-points are not in expected order.')
-!  endif ! kpoint_to_supercell
-! enddo ! i_point
-
- do i_point=1,no_kpoints
-  kpoints(1:3,i_point)=modulo(kpoints(1:3,i_point)+0.5d0+tol,1.d0)-0.5d0-tol
- enddo ! i_points
-
- END SUBROUTINE read_kpoints
-
-
- SUBROUTINE read_dyn_mats(basis,mass,atom_prim_frac,no_kpoints,dyn_mats,&
-  &kpoint_to_supercell)
-!--------------------------------------------------------!
-! Read in dynamical matrices at each k-point in the IBZ. !
-!--------------------------------------------------------!
- IMPLICIT NONE
- INTEGER,INTENT(in) :: basis,no_kpoints,kpoint_to_supercell(no_kpoints)
- REAL(dp),INTENT(out) :: mass(basis),atom_prim_frac(3,basis)
- COMPLEX(dp),INTENT(out) :: dyn_mats(basis,3,basis,3,no_kpoints)
- REAL(dp),PARAMETER :: mass_tol=1.d-4,frac_tol=1.d-8
- INTEGER :: ierr,i_atom,i_cart,j_atom,j_cart,atom1,cart1,atom2,cart2,ibz_point,&
-  &supercell,atom_map(basis)
- REAL(dp) :: real_part,imag_part,temp_mass,temp_frac(3)
- LOGICAL :: found_atom(basis)
-
- open(unit=11,file='atoms_in_primitive_cell.1.dat',status='old',iostat=ierr)
- if(ierr/=0)call errstop('READ_DYN_MATS','Problem opening &
-  &atoms_in_primitive_cell.1.dat file.')
- do i_atom=1,basis
-  read(11,*,iostat=ierr)mass(i_atom),atom_prim_frac(1:3,i_atom)
-  if(ierr/=0)call errstop('READ_DYN_MATS','Problem reading &
-  &atoms_in_primitive_cell.1.dat file.')
- enddo ! i_atom
- if(any(atom_prim_frac(1:3,1:basis)<-1.d-4.or.&
-  &atom_prim_frac(1:3,1:basis)>=1.d0))call errstop('READ_DYN_MATS',&
-   &'Fractional atomic coordinates are not in range [0.0,1.0)')
- close(11)
-
- open(unit=11,file='dyn_mat.1.dat',status='old',iostat=ierr)
- if(ierr/=0)call errstop('READ_DYN_MATS','Problem opening dyn_mat.1.dat file.')
- do i_atom=1,basis
-  do i_cart=1,3
-   do j_atom=1,basis
-    do j_cart=1,3
-     read(11,*,iostat=ierr)atom1,cart1,atom2,cart2,real_part,imag_part
-     if(ierr/=0)call errstop('READ_DYN_MATS','Problem reading dyn_mat.1.dat &
-      &file.')
-     if(atom1/=i_atom.or.cart1/=i_cart.or.atom2/=j_atom.or.cart2/=j_cart)call &
-      errstop('READ_DYN_MATS','dyn_mat.1.dat file does not seem to be in the &
-       &expected order.')
-      dyn_mats(atom1,cart1,atom2,cart2,1)=cmplx(real_part,imag_part,dp)
-    enddo ! j_cart
-   enddo ! j_atom
-  enddo ! i_cart
- enddo ! i_atom
- close(11)
-
- do ibz_point=2,no_kpoints
-  supercell=kpoint_to_supercell(ibz_point)
-  open(unit=11,file='atoms_in_primitive_cell.'//trim(i2s(supercell))//'.dat',&
-   &status='old',iostat=ierr)
-  if(ierr/=0)call errstop('READ_DYN_MATS','Problem opening &
-   &atoms_in_primitive_cell.'//trim(i2s(supercell))//'.dat file.')
-  found_atom(1:basis)=.false.
-  atom_map(1:basis)=0
-  do i_atom=1,basis
-   read(11,*,iostat=ierr)temp_mass,temp_frac(1:3)
-   if(ierr/=0)call errstop('READ_DYN_MATS','Problem reading &
-    &atoms_in_primitive_cell.'//trim(i2s(supercell))//'.dat file.')
-   do j_atom=1,basis
-    if(abs(temp_mass-mass(j_atom))<mass_tol)then
-     if(all(abs(temp_frac(1:3)-atom_prim_frac(1:3,j_atom))<frac_tol))then
-      found_atom(j_atom)=.true.
-      atom_map(i_atom)=j_atom
-     endif ! frac_tol
-    endif ! mass_tol
-   enddo ! j_atom
-  enddo ! i_atom
-  if(.not.any(found_atom(1:basis)))call errstop('READ_DYN_MATS','Unable to &
-   &find all atoms in supercell '//trim(i2s(supercell))//'.')
-  close(11)
-  open(unit=11,file='dyn_mat.'//trim(i2s(ibz_point))//'.dat',status='old',&
-   &iostat=ierr)
-  if(ierr/=0)call errstop('READ_DYN_MATS','Problem opening dyn_mat.'//&
-   &trim(i2s(ibz_point))//'.dat file.')
-  do i_atom=1,basis
-   do i_cart=1,3
-    do j_atom=1,basis
-     do j_cart=1,3
-      read(11,*,iostat=ierr)atom1,cart1,atom2,cart2,real_part,imag_part
-      if(ierr/=0)call errstop('READ_DYN_MATS','Problem reading dyn_mat.'//&
-       &trim(i2s(ibz_point))//'.dat file.')
-      if(atom1/=i_atom.or.cart1/=i_cart.or.atom2/=j_atom.or.cart2/=j_cart)call &
-       errstop('READ_DYN_MATS','dyn_mat.'//trim(i2s(ibz_point))//'.dat file &
-        &does not seem to be in the expected order.')
-       dyn_mats(atom_map(atom1),cart1,atom_map(atom2),cart2,ibz_point)=&
-        &cmplx(real_part,imag_part,dp)
-     enddo ! j_cart
-    enddo ! j_atom
-   enddo ! i_cart
-  enddo ! i_atom
-  close(11)
- enddo ! ibz_point
-
- END SUBROUTINE read_dyn_mats
-
-
- SUBROUTINE read_path(no_points,path)
-!-----------------------------------------------------------------!
-! Read in the high symmetry points on the phonon dispersion path. !
-!-----------------------------------------------------------------!
- IMPLICIT NONE
- INTEGER,INTENT(in) :: no_points
- REAL(dp),INTENT(out) :: path(3,no_points)
- INTEGER :: ierr,i_point
-
- open(unit=11,file='path.dat',status='old',iostat=ierr)
- if(ierr/=0)call errstop('READ_PATH','Problem opening path.dat file.')
- do i_point=1,no_points
-  read(11,*,iostat=ierr)path(1:3,i_point)
-  if(ierr/=0)call errstop('READ_PATH','Problem reading path.dat file.')
- enddo ! i_point
- close(11)
-
- END SUBROUTINE read_path
-
- END MODULE functions
-
-
  MODULE linear_algebra
 !----------------!
 ! LINEAR_ALGEBRA !
@@ -865,14 +638,237 @@
 
  END MODULE phonon
 
+module fourier_interpolation_module
+  use constants
+  use utils
+  implicit none
+contains
 
- PROGRAM fourier_interpolation
+ SUBROUTINE read_input_files(no_symm_ops,basis,grid,prim_latt_vecs,symm_ops)
+!-------------------------!
+! Read basic input files. !
+!-------------------------!
+ IMPLICIT NONE
+ INTEGER,INTENT(in) :: no_symm_ops
+ INTEGER,INTENT(out) :: basis,grid(3)
+ REAL(dp),INTENT(out) :: prim_latt_vecs(3,3),symm_ops(4,3,no_symm_ops)
+ INTEGER :: ierr,i_symm,i_row
+
+! Read number of atoms in primitive cell (basis)
+ open(unit=11,file='equilibrium.dat',status='old',iostat=ierr)
+ if(ierr/=0)call errstop('READ_INPUT_FILES','Problem opening basis.dat file.')
+ read(11,*,iostat=ierr)basis
+ if(ierr/=0)call errstop('READ_INPUT_FILES','Problem reading basis.dat file.')
+ close(11)
+
+! Read grid.dat file
+ open(unit=11,file='grid.dat',status='old',iostat=ierr)
+ if(ierr/=0)call errstop('READ_INPUT_FILES','Problem opening grid.dat file.')
+ read(11,*,iostat=ierr)grid(1:3)
+ if(ierr/=0)call errstop('READ_INPUT_FILES','Problem reading grid.dat file.')
+ close(11)
+
+! Read primitive lattice
+ open(unit=11,file='lattice.dat',status='old',iostat=ierr)
+ if(ierr/=0)call errstop('READ_INPUT_FILES','Problem opening prim.dat file.')
+ read(11,*,iostat=ierr)prim_latt_vecs(1,1:3)
+ if(ierr==0)read(11,*,iostat=ierr)prim_latt_vecs(2,1:3)
+ if(ierr==0)read(11,*,iostat=ierr)prim_latt_vecs(3,1:3)
+ if(ierr/=0)call errstop('READ_INPUT_FILES','Problem reading prim.dat file.')
+ close(11)
+
+! Read symmetry.dat file
+ open(unit=11,file='symmetry.dat',status='old',iostat=ierr)
+ if(ierr/=0)call errstop('READ_INPUT_FILES','Problem opening symmetry.dat &
+  &file.')
+ read(11,*,iostat=ierr)
+ do i_symm=1,no_symm_ops
+  do i_row=1,4
+   read(11,*,iostat=ierr)symm_ops(i_row,1:3,i_symm)
+   if(ierr/=0)call errstop('READ_INPUT_FILES','Problem reading symmetry.dat &
+    &file.')
+  enddo ! i_row
+ enddo ! i_symm
+ close(11)
+
+ END SUBROUTINE read_input_files
+
+
+ SUBROUTINE read_kpoints(no_kpoints,kpoints,multiplicity,kpoint_to_supercell)
+!--------------------------------------------------!
+! Read input files related to k-points in the IBZ. !
+!--------------------------------------------------!
+ IMPLICIT NONE
+ REAL(dp),PARAMETER :: tol=1.d-8
+ INTEGER,INTENT(in) :: no_kpoints
+ INTEGER,INTENT(out) :: multiplicity(no_kpoints),&
+  &kpoint_to_supercell(no_kpoints)
+ REAL(dp),INTENT(out) :: kpoints(3,no_kpoints)
+ INTEGER :: ierr,i_point
+ REAL(dp) :: kpoint(3)
+
+! Read ibz.dat file
+ open(unit=11,file='ibz.dat',status='old',iostat=ierr)
+ if(ierr/=0)call errstop('READ_KPOINTS','Problem opening ibz.dat file.')
+ do i_point=1,no_kpoints
+  read(11,*,iostat=ierr)kpoints(1:3,i_point),multiplicity(i_point)
+  if(ierr/=0)call errstop('READ_KPOINTS','Problem reading ibz.dat file.')
+ enddo ! i_point
+ close(11)
+
+! Read kpoint_to_supercell.dat file
+ open(unit=11,file='kpoint_to_supercell.dat',status='old',iostat=ierr)
+ if(ierr/=0)call errstop('READ_KPOINTS','Problem opening &
+  &kpoint_to_supercell.dat file.')
+ do i_point=1,no_kpoints
+  read(11,*,iostat=ierr)kpoint(1:3),kpoint_to_supercell(i_point)
+  if(ierr/=0)call errstop('READ_KPOINTS','Problem reading &
+   &kpoint_to_supercell.dat file.')
+  if(any(abs(kpoint(1:3)-kpoints(1:3,i_point))>tol))then
+   call errstop('READ_KPOINTS','k-points in ibz.dat file and &
+    &kpoints_to_supercell.dat file disagree.')
+  endif ! tol
+ enddo ! i_point
+ close(11)
+ 
+! Check k-points are in expected order
+! do i_point=2,no_kpoints
+!  if(.not.(kpoint_to_supercell(i_point)==kpoint_to_supercell(i_point-1)).and.&
+!   &.not.(kpoint_to_supercell(i_point)==kpoint_to_supercell(i_point-1)+1))then
+!   call errstop('READ_KPOINTS','k-points are not in expected order.')
+!  endif ! kpoint_to_supercell
+! enddo ! i_point
+
+ do i_point=1,no_kpoints
+  kpoints(1:3,i_point)=modulo(kpoints(1:3,i_point)+0.5d0+tol,1.d0)-0.5d0-tol
+ enddo ! i_points
+
+ END SUBROUTINE read_kpoints
+
+
+ SUBROUTINE read_dyn_mats(basis,mass,atom_prim_frac,no_kpoints,dyn_mats,&
+  &kpoint_to_supercell)
+!--------------------------------------------------------!
+! Read in dynamical matrices at each k-point in the IBZ. !
+!--------------------------------------------------------!
+ IMPLICIT NONE
+ INTEGER,INTENT(in) :: basis,no_kpoints,kpoint_to_supercell(no_kpoints)
+ REAL(dp),INTENT(out) :: mass(basis),atom_prim_frac(3,basis)
+ COMPLEX(dp),INTENT(out) :: dyn_mats(basis,3,basis,3,no_kpoints)
+ REAL(dp),PARAMETER :: mass_tol=1.d-4,frac_tol=1.d-8
+ INTEGER :: ierr,i_atom,i_cart,j_atom,j_cart,atom1,cart1,atom2,cart2,ibz_point,&
+  &supercell,atom_map(basis)
+ REAL(dp) :: real_part,imag_part,temp_mass,temp_frac(3)
+ LOGICAL :: found_atom(basis)
+
+ open(unit=11,file='atoms_in_primitive_cell.1.dat',status='old',iostat=ierr)
+ if(ierr/=0)call errstop('READ_DYN_MATS','Problem opening &
+  &atoms_in_primitive_cell.1.dat file.')
+ do i_atom=1,basis
+  read(11,*,iostat=ierr)mass(i_atom),atom_prim_frac(1:3,i_atom)
+  if(ierr/=0)call errstop('READ_DYN_MATS','Problem reading &
+  &atoms_in_primitive_cell.1.dat file.')
+ enddo ! i_atom
+ if(any(atom_prim_frac(1:3,1:basis)<-1.d-4.or.&
+  &atom_prim_frac(1:3,1:basis)>=1.d0))call errstop('READ_DYN_MATS',&
+   &'Fractional atomic coordinates are not in range [0.0,1.0)')
+ close(11)
+
+ open(unit=11,file='dyn_mat.1.dat',status='old',iostat=ierr)
+ if(ierr/=0)call errstop('READ_DYN_MATS','Problem opening dyn_mat.1.dat file.')
+ do i_atom=1,basis
+  do i_cart=1,3
+   do j_atom=1,basis
+    do j_cart=1,3
+     read(11,*,iostat=ierr)atom1,cart1,atom2,cart2,real_part,imag_part
+     if(ierr/=0)call errstop('READ_DYN_MATS','Problem reading dyn_mat.1.dat &
+      &file.')
+     if(atom1/=i_atom.or.cart1/=i_cart.or.atom2/=j_atom.or.cart2/=j_cart)call &
+      errstop('READ_DYN_MATS','dyn_mat.1.dat file does not seem to be in the &
+       &expected order.')
+      dyn_mats(atom1,cart1,atom2,cart2,1)=cmplx(real_part,imag_part,dp)
+    enddo ! j_cart
+   enddo ! j_atom
+  enddo ! i_cart
+ enddo ! i_atom
+ close(11)
+
+ do ibz_point=2,no_kpoints
+  supercell=kpoint_to_supercell(ibz_point)
+  open(unit=11,file='atoms_in_primitive_cell.'//trim(i2s(supercell))//'.dat',&
+   &status='old',iostat=ierr)
+  if(ierr/=0)call errstop('READ_DYN_MATS','Problem opening &
+   &atoms_in_primitive_cell.'//trim(i2s(supercell))//'.dat file.')
+  found_atom(1:basis)=.false.
+  atom_map(1:basis)=0
+  do i_atom=1,basis
+   read(11,*,iostat=ierr)temp_mass,temp_frac(1:3)
+   if(ierr/=0)call errstop('READ_DYN_MATS','Problem reading &
+    &atoms_in_primitive_cell.'//trim(i2s(supercell))//'.dat file.')
+   do j_atom=1,basis
+    if(abs(temp_mass-mass(j_atom))<mass_tol)then
+     if(all(abs(temp_frac(1:3)-atom_prim_frac(1:3,j_atom))<frac_tol))then
+      found_atom(j_atom)=.true.
+      atom_map(i_atom)=j_atom
+     endif ! frac_tol
+    endif ! mass_tol
+   enddo ! j_atom
+  enddo ! i_atom
+  if(.not.any(found_atom(1:basis)))call errstop('READ_DYN_MATS','Unable to &
+   &find all atoms in supercell '//trim(i2s(supercell))//'.')
+  close(11)
+  open(unit=11,file='dyn_mat.'//trim(i2s(ibz_point))//'.dat',status='old',&
+   &iostat=ierr)
+  if(ierr/=0)call errstop('READ_DYN_MATS','Problem opening dyn_mat.'//&
+   &trim(i2s(ibz_point))//'.dat file.')
+  do i_atom=1,basis
+   do i_cart=1,3
+    do j_atom=1,basis
+     do j_cart=1,3
+      read(11,*,iostat=ierr)atom1,cart1,atom2,cart2,real_part,imag_part
+      if(ierr/=0)call errstop('READ_DYN_MATS','Problem reading dyn_mat.'//&
+       &trim(i2s(ibz_point))//'.dat file.')
+      if(atom1/=i_atom.or.cart1/=i_cart.or.atom2/=j_atom.or.cart2/=j_cart)call &
+       errstop('READ_DYN_MATS','dyn_mat.'//trim(i2s(ibz_point))//'.dat file &
+        &does not seem to be in the expected order.')
+       dyn_mats(atom_map(atom1),cart1,atom_map(atom2),cart2,ibz_point)=&
+        &cmplx(real_part,imag_part,dp)
+     enddo ! j_cart
+    enddo ! j_atom
+   enddo ! i_cart
+  enddo ! i_atom
+  close(11)
+ enddo ! ibz_point
+
+ END SUBROUTINE read_dyn_mats
+
+
+ SUBROUTINE read_path(no_points,path)
+!-----------------------------------------------------------------!
+! Read in the high symmetry points on the phonon dispersion path. !
+!-----------------------------------------------------------------!
+ IMPLICIT NONE
+ INTEGER,INTENT(in) :: no_points
+ REAL(dp),INTENT(out) :: path(3,no_points)
+ INTEGER :: ierr,i_point
+
+ open(unit=11,file='path.dat',status='old',iostat=ierr)
+ if(ierr/=0)call errstop('READ_PATH','Problem opening path.dat file.')
+ do i_point=1,no_points
+  read(11,*,iostat=ierr)path(1:3,i_point)
+  if(ierr/=0)call errstop('READ_PATH','Problem reading path.dat file.')
+ enddo ! i_point
+ close(11)
+
+ END SUBROUTINE read_path
+
+
+subroutine fourier_interpolation()
 !-----------------------!
 ! FOURIER_INTERPOLATION !
 !-----------------------!
  USE constants
  USE utils
- use functions
  USE linear_algebra
  USE minimum_image
  USE symmetry
@@ -1337,5 +1333,5 @@
 
  call generate_dos(prim_rec_vecs,basis,mass,no_grid_points,no_im_cells,&
   &min_im_cell_pos,force_consts)
-
- END PROGRAM fourier_interpolation
+end subroutine
+end module

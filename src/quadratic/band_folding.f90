@@ -1,4 +1,8 @@
-program band_folding
+module band_folding_module
+  implicit none
+contains
+
+subroutine band_folding()
   implicit none
   ! Working variables
   integer :: i,iref
@@ -33,5 +37,5 @@ program band_folding
   write(1,*)iref
   !write(*,*)'The final answer is:',iref
   close(1)
-
-end program band_folding
+end subroutine
+end module

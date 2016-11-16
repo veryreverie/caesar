@@ -1,4 +1,8 @@
-program convert_forces_from_Rybohr_to_eVang
+module convert_forces_from_Rybohr_to_eVang_module
+  implicit none
+contains
+
+subroutine convert_forces_from_Rybohr_to_eVang()
   implicit none
   integer :: i
   integer :: no_atoms,in1,in2,in3,in4
@@ -17,5 +21,5 @@ program convert_forces_from_Rybohr_to_eVang
   enddo ! i
   close(1)
   close(2)
-
-end program
+end subroutine
+end module

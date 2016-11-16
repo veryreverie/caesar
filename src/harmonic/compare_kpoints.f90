@@ -1,4 +1,8 @@
- PROGRAM compare_kpoints
+module compare_kpoints_module
+  implicit none
+contains
+
+ subroutine compare_kpoints()
 !-----------------!
 ! COMPARE_KPOINTS !
 !-----------------! 
@@ -38,4 +42,5 @@
 
  close(7) ; close(8) ; close(9)
 
- END PROGRAM compare_kpoints
+ end subroutine
+end module

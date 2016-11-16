@@ -4,7 +4,11 @@
 ! The symmetry operations to consider are nicely outlined here:
 ! http://www.homepages.ucl.ac.uk/~ucfbdxa/phon/node4.html
 
-program construct_matrix_force_cnsts
+module construct_matrix_force_cnsts_module
+  implicit none
+contains
+
+subroutine construct_matrix_force_cnsts()
   USE utils
   USE constants
   implicit none
@@ -117,4 +121,5 @@ program construct_matrix_force_cnsts
     endif
   enddo ! i
 
-end program construct_matrix_force_cnsts
+end subroutine
+end module

@@ -1,5 +1,37 @@
 program caesar
   use utils, only : command_line_args
+  
+  ! use harmonic modules
+  use combine_forces_module, only : combine_forces
+  use compare_kpoints_module, only : compare_kpoints
+  use construct_finite_displacement_module,&
+    &only : construct_finite_displacement
+  use construct_matrix_force_cnsts_module,&
+    &only : construct_matrix_force_cnsts
+  use construct_supercell_module, only : construct_supercell
+  use convert_forces_from_Rybohr_to_eVang_module,&
+    &only : convert_forces_from_Rybohr_to_eVang
+  use equilibrium_frac_module, only : equilibrium_frac
+  use fourier_interpolation_module, only : fourier_interpolation
+  use generate_kgrid_module, only : generate_kgrid
+  use generate_supercell_kpoint_mesh_qe_module,&
+    &only : generate_supercell_kpoint_mesh_qe
+  use generate_supercells_module, only : generate_supercells
+  use lte_module, only : lte
+  use lte_lower_module, only : lte_lower
+  
+  ! use quadratic modules
+  use band_folding_module, only : band_folding
+  use calculate_anharmonic_module, only : calculate_anharmonic
+  use calculate_bs_module, only : calculate_bs
+  use calculate_gap_module, only : calculate_gap
+  use generate_amplitudes_module, only : generate_amplitudes
+  use generate_quadratic_configurations_module,&
+    &only : generate_quadratic_configurations
+  use generate_sc_path_module, only : generate_sc_path
+  use quadratic_spline_module, only : quadratic_spline
+  use vscf_1d_module, only : vscf_1d
+  
   implicit none
   
   integer                        :: i             ! loop index
@@ -52,49 +84,49 @@ program caesar
     write(*,*) "  [quadratic help text yet to be written]"
   ! Wrappers for Fortran 
   elseif (arg == "band_folding") then
-    return_status = system(arg)
+    call band_folding()
   elseif (arg == "calculate_anharmonic") then
-    return_status = system(arg)
+    call calculate_anharmonic()
   elseif (arg == "calculate_bs") then
-    return_status = system(arg)
+    call calculate_bs()
   elseif (arg == "calculate_gap") then
-    return_status = system(arg)
+    call calculate_gap()
   elseif (arg == "combine_forces") then
-    return_status = system(arg)
+    call combine_forces()
   elseif (arg == "compare_kpoints") then
-    return_status = system(arg)
+    call compare_kpoints()
   elseif (arg == "construct_finite_displacement") then
-    return_status = system(arg)
+    call construct_finite_displacement()
   elseif (arg == "construct_matrix_force_cnsts") then
-    return_status = system(arg)
+    call construct_matrix_force_cnsts()
   elseif (arg == "construct_supercell") then
-    return_status = system(arg)
+    call construct_supercell()
   elseif (arg == "convert_forces_from_Rybohr_to_eVang") then
-    return_status = system(arg)
+    call convert_forces_from_Rybohr_to_eVang()
   elseif (arg == "equilibrium_frac") then
-    return_status = system(arg)
+    call equilibrium_frac()
   elseif (arg == "fourier_interpolation") then
-    return_status = system(arg)
+    call fourier_interpolation()
   elseif (arg == "generate_amplitudes") then
-    return_status = system(arg)
+    call generate_amplitudes()
   elseif (arg == "generate_kgrid") then
-    return_status = system(arg)
+    call generate_kgrid()
   elseif (arg == "generate_quadratic_configurations") then
-    return_status = system(arg)
+    call generate_quadratic_configurations()
   elseif (arg == "generate_sc_path") then
-    return_status = system(arg)
+    call generate_sc_path()
   elseif (arg == "generate_supercell_kpoint_mesh_qe") then
-    return_status = system(arg)
+    call generate_supercell_kpoint_mesh_qe()
   elseif (arg == "generate_supercells") then
-    return_status = system(arg)
+    call generate_supercells()
   elseif (arg == "lte") then
-    return_status = system(arg)
+    call lte()
   elseif (arg == "lte_lower") then
-    return_status = system(arg)
+    call lte_lower()
   elseif (arg == "quadratic_spline") then
-    return_status = system(arg)
+    call quadratic_spline()
   elseif (arg == "vscf_1d") then
-    return_status = system(arg)
+    call vscf_1d()
   ! wrappers for shell scripts
   elseif (arg == "anharmonic") then
     return_status = system(arg//".sh")

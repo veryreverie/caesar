@@ -1,15 +1,9 @@
-real function quad_amplitude(frequency)
-    ! The normal mode amplitudes to sample are calculated 
-    implicit none
-    real,parameter :: tolerance=1.d-6
-    real :: frequency, temperature, thermal_energy
-
-     quad_amplitude=sqrt(0.5/frequency)
-
-end function quad_amplitude
+module generate_amplitudes_module
+  implicit none
+contains
 
 ! Program to generate amplitudes for energy files
-program generate_amplitudes
+subroutine generate_amplitudes()
   implicit none
   ! Input variables
   real :: max_amplitude,frequency
@@ -17,7 +11,7 @@ program generate_amplitudes
   integer :: first_amplitude,last_amplitude,no_amplitudes,cell_size,mid_amplitude
   ! Working variables
   integer :: i
-  real :: amplitude,damplitude,quad_amplitude
+  real :: amplitude,damplitude
 
   open(1,file='mapping.dat')
   read(1,*)max_amplitude
@@ -43,13 +37,12 @@ program generate_amplitudes
   close(1)
 
   open(1,file='amplitude_energy.dat')
-  amplitude=-max_amplitude*quad_amplitude(abs(frequency))
+  amplitude=-max_amplitude*sqrt(0.5d0/abs(frequency))
   damplitude=abs(amplitude/first_amplitude)
   do i=1,no_amplitudes
     write(1,*)amplitude,(energy(i)-energy(mid_amplitude))/cell_size
     amplitude=amplitude+damplitude
   enddo ! i
   close(1)
-
-
-end program generate_amplitudes
+end subroutine
+end module

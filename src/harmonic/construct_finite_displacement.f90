@@ -1,4 +1,8 @@
-program construct_finite_displacement
+module construct_finite_displacement_module
+  implicit none
+contains
+
+subroutine construct_finite_displacement()
   implicit none
   integer,parameter :: dp=kind(1.d0)
   ! Working variables
@@ -58,4 +62,5 @@ program construct_finite_displacement
   close(1)
   close(2)
 
-end program construct_finite_displacement
+end subroutine
+end module

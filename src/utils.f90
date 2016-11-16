@@ -5,6 +5,10 @@ module utils
   use constants, only : dp
   implicit none
   
+  interface determinant33
+    module procedure determinant33_integer, determinant33_real
+  end interface
+
 contains
   
   ! ----------------------------------------
@@ -141,15 +145,26 @@ contains
   ! ----------------------------------------
   ! given a 3x3 matrix A, returns det(A)
   ! ----------------------------------------
-  function determinant33(A)
+  function determinant33_integer(A) result(determinant)
     implicit none
     
     integer, intent(in) :: A(3,3)
-    integer             :: determinant33
+    integer             :: determinant
     
-    determinant33 = A(1,1)*(A(2,2)*A(3,3)-A(3,2)*A(2,3))&
-                 &+ A(1,2)*(A(3,1)*A(2,3)-A(2,1)*A(3,3))&
-                 &+ A(1,3)*(A(2,1)*A(3,2)-A(3,1)*A(2,2))
+    determinant = A(1,1)*(A(2,2)*A(3,3)-A(3,2)*A(2,3))&
+               &+ A(1,2)*(A(3,1)*A(2,3)-A(2,1)*A(3,3))&
+               &+ A(1,3)*(A(2,1)*A(3,2)-A(3,1)*A(2,2))
+  end function
+  
+  function determinant33_real(A) result(determinant)
+    implicit none
+    
+    real(dp), intent(in) :: A(3,3)
+    real(dp)             :: determinant
+    
+    determinant = A(1,1)*(A(2,2)*A(3,3)-A(3,2)*A(2,3))&
+               &+ A(1,2)*(A(3,1)*A(2,3)-A(2,1)*A(3,3))&
+               &+ A(1,3)*(A(2,1)*A(3,2)-A(3,1)*A(2,2))
   end function
   
   ! ----------------------------------------

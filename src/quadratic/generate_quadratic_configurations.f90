@@ -1,25 +1,12 @@
 ! Program to generate configurations along normal modes
 
-REAL(KIND(1.d0)) FUNCTION quad_amplitude(frequency,temperature)
-    ! The normal mode amplitudes to sample are calculated 
-    IMPLICIT NONE
-    INTEGER,PARAMETER :: dp=KIND(1.d0) !To guarantee precision up to that of the machine-compiler-specific double precision real
-    REAL(dp),PARAMETER :: tolerance=1.d-6
-    REAL(dp) :: frequency, temperature, thermal_energy
-
-    IF(temperature<tolerance)THEN
-      quad_amplitude=sqrt(0.5/frequency) ! This is really the normal mode amplitude squared, with units of 1/(E_h) as required.
-    ELSE
-      thermal_energy=temperature/3.1577464E5 ! thermal energy in a.u.
-      quad_amplitude=sqrt((1/(EXP(frequency/thermal_energy)-1)+0.5)/frequency)
-    END IF
-
-END FUNCTION quad_amplitude
-
-
-program generate_quadratic_configurations
+module generate_quadratic_configurations_module
+  use constants, only : dp
   implicit none
-  integer,parameter :: dp=kind(1.d0)
+contains
+
+subroutine generate_quadratic_configurations()
+  implicit none
   ! Input variables
   integer :: sampling_point,no_sampling_points,no_atoms
   real(dp) :: frequency,max_amplitude
@@ -30,6 +17,7 @@ program generate_quadratic_configurations
   real(dp) :: amplitude,positions(3),quad_amplitude
   character(80) :: ch_dump
   real(dp) :: temperature=0.d0,tol=1.d-5
+  real(dp) :: thermal_energy
 
   ! Read in configuration
   open(1,file='configuration.dat')
@@ -60,9 +48,18 @@ program generate_quadratic_configurations
   open(1,file='frequency.dat')
   write(1,*)frequency*27.21138602d0
   close(1)
+  
+  ! calculate quad_amplitude
+  ! The normal mode amplitudes to sample are calculated 
+  IF(temperature<1.d-6)THEN
+    quad_amplitude=sqrt(0.5/abs(frequency)) ! This is really the normal mode amplitude squared, with units of 1/(E_h) as required.
+  ELSE
+    thermal_energy=temperature/3.1577464E5 ! thermal energy in a.u.
+    quad_amplitude=sqrt((1/(EXP(abs(frequency)/thermal_energy)-1)+0.5)/abs(frequency))
+  END IF
 
   ! Calculate amplitude
-  amplitude=max_amplitude*(sampling_point/(1.d0*no_sampling_points))*quad_amplitude(abs(frequency),temperature)
+  amplitude=max_amplitude*(sampling_point/(1.d0*no_sampling_points))*quad_amplitude
   
   ! Write out displacement pattern
   if(abs(frequency)>tol)then
@@ -77,6 +74,5 @@ program generate_quadratic_configurations
       close(1)
     endif ! skip equilibrium configuration
   endif ! skip acoustic modes
-
-end program generate_quadratic_configurations
-
+end subroutine
+end module

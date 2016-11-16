@@ -1,4 +1,8 @@
-program calculate_bs
+module calculate_bs_module
+  implicit none
+contains
+
+subroutine calculate_bs()
   implicit none
   integer,parameter :: dp=kind(1.d0)
   ! Hard-coded variables
@@ -136,8 +140,5 @@ program calculate_bs
   enddo ! k
   close(1)
   close(2)
-
-  
-  
-
-end program calculate_bs
+end subroutine
+end module

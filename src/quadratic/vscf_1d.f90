@@ -19,7 +19,11 @@ module numerical
 
 end module numerical
 
-program vscf_1d
+module vscf_1d_module
+  implicit none
+contains
+
+subroutine vscf_1d()
   use utils,only : dp
   use numerical
   implicit none
@@ -141,6 +145,5 @@ program vscf_1d
  enddo ! i
  close(1)
  close(2)
-
- 
-end program vscf_1d
+end subroutine
+end module
