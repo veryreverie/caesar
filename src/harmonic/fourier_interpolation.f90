@@ -1,29 +1,3 @@
-! MODULE linear_algebra
-!!----------------!
-!! LINEAR_ALGEBRA !
-!!----------------!
-! USE constants
-! USE utils
-!
-! IMPLICIT NONE
-!
-! INTERFACE
-! SUBROUTINE zheev(JOBZ,UPLO,N,A,LDA,W,WORK,LWORK,RWORK,INFO)
-! CHARACTER(1),INTENT(in) :: JOBZ,UPLO
-! INTEGER,INTENT(out) :: INFO
-! INTEGER,INTENT(in) :: LDA,LWORK,N
-! REAL(KIND(1.d0)),INTENT(out) :: W(*)
-! REAL(KIND(1.d0)),INTENT(inout) :: RWORK(*)
-! COMPLEX(KIND(1.d0)),INTENT(inout) :: A(LDA,*),WORK(*)
-! END SUBROUTINE zheev
-! END INTERFACE
-!
-! CONTAINS
-!
-!
-! END MODULE linear_algebra
-
-
  MODULE minimum_image
 !---------------!
 ! MINIMUM_IMAGE !

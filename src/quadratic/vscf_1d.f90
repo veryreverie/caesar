@@ -1,31 +1,10 @@
-module numerical
-  ! Numerical routines and constants
-  use utils,only : dp
-  implicit none
-  private
-  public pi, eV, thermal, dsyev
-  real(dp),parameter :: pi=3.14159265358979323844d0
-  real(dp),parameter :: eV=27.211396132d0
-  real(dp),parameter :: thermal=3.1577464E5
-  interface
-    subroutine DSYEV(JOBZ,UPLO,N,A,LDA,W,WORK,LWORK,INFO)
-      character(1),intent(in) :: JOBZ,UPLO
-      integer,intent(in) :: LDA,N,LWORK
-      integer,intent(out) :: INFO
-      real(kind(1.d0)),intent(inout) :: A(LDA,N),WORK(*)
-      real(kind(1.d0)),intent(out) :: W(*)
-    end subroutine DSYEV
-  end interface
-
-end module numerical
-
 module vscf_1d_module
   implicit none
 contains
 
 subroutine vscf_1d()
-  use utils,only : dp
-  use numerical
+  use constants,      only : dp, pi, eV, thermal
+  use linear_algebra, only : dsyev
   implicit none
  
   ! Hard coded numerical parameters

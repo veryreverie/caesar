@@ -82,6 +82,22 @@ interface
     real(dp),     intent(out)   :: RWORK(*) ! working array
     integer,      intent(out)   :: INFO     ! 0 on success
   end subroutine
+  
+  ! Finds the eigenvalues of a symmetric matrix
+  subroutine dsyev(JOBZ,UPLO,N,A,LDA,W,WORK,LWORK,INFO)
+    use constants, only : dp
+    implicit none
+    
+    character(1), intent(in)    :: JOBZ     ! N/V: if V, calculate eigenvectors
+    character(1), intent(in)    :: UPLO     ! U/L: store upper/lower triangle
+    integer,      intent(in)    :: N        ! the order of A
+    real(dp),     intent(inout) :: A(LDA,*) ! Hermitian matrix
+    integer,      intent(in)    :: LDA      ! the dimension of A
+    real(dp),     intent(out)   :: W(*)     ! eigenvalues of A
+    real(dp),     intent(out)   :: WORK(*)  ! WORK(1) = optimal LWORK
+    integer,      intent(in)    :: LWORK    ! the length of WORK
+    integer,      intent(out)   :: INFO     ! 0 on success
+  end subroutine
 end interface
 
 ! ----------------------------------------
