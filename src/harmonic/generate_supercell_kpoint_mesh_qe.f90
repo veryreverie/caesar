@@ -5,6 +5,7 @@ contains
 subroutine generate_supercell_kpoint_mesh_qe()
   use constants
   use utils
+  use linear_algebra, only : inv_33
   implicit none
   ! Working variables
   integer :: i,j,k

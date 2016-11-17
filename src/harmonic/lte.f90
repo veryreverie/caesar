@@ -97,146 +97,96 @@
 ! 17/06/11 Introduced BLAS & LAPACK.  Fixed bug in randomisation of theta for
 !          speed-of-sound calculation.
 
-MODULE rand_no_gen
-  ! Pseudo-random number generator.
-  USE utils,ONLY : dp
-  IMPLICIT NONE
-  PRIVATE
-  PUBLIC ranx
-  INTEGER :: iseed=-1 ! Seed.  Supply a negative integer.
-
-
-CONTAINS
-
-
-  REAL(dp) FUNCTION ranx()
-    ! Random number generator, adapted from ran2 in Numerical Recipes.
-    ! (Method of l'Ecuyer with Bays-Durham shuffle.)
-    IMPLICIT NONE
-    INTEGER,PARAMETER :: im1=2147483563,im2=2147483399,imm1=im1-1,ia1=40014, &
-      &ia2=40692,iq1=53668,iq2=52774,ir1=12211,ir2=3791,ntab=32, &
-      &ndiv=1+imm1/ntab,ntabp8=ntab+8
-    INTEGER :: j,k
-    INTEGER,SAVE :: iseed2=123456789,iv(ntab)=0,iy=0
-    REAL(dp),PARAMETER :: am=1.d0/im1,rnmx=1.d0-EPSILON(1.d0)
-    IF(iseed<=0)THEN
-      iseed=MAX(-iseed,1)
-      iseed2=iseed
-      DO j=ntabp8,1,-1
-        k=iseed/iq1
-        iseed=ia1*(iseed-k*iq1)-k*ir1
-        IF(iseed<0)iseed=iseed+im1
-        IF(j<=ntab)iv(j)=iseed
-      ENDDO ! j
-      iy=iv(1)
-    ENDIF ! iseed<=0
-    k=iseed/iq1
-    iseed=ia1*(iseed-k*iq1)-k*ir1
-    IF(iseed<0)iseed=iseed+im1
-    k=iseed2/iq2
-    iseed2=ia2*(iseed2-k*iq2)-k*ir2
-    IF(iseed2<0)iseed2=iseed2+im2
-    j=1+iy/ndiv
-    iy=iv(j)-iseed2
-    iv(j)=iseed
-    IF(iy<1)iy=iy+imm1
-    ranx=MIN(am*iy,rnmx)
-  END FUNCTION ranx
-
-
-END MODULE rand_no_gen
-
-
-MODULE linear_algebra
-  ! Assorted linear algebra / vector algebra subroutines.
-  ! Interfaces for BLAS & LAPACK routines.
-  USE utils,ONLY : dp
-  IMPLICIT NONE
-  INTERFACE
-    REAL(KIND(1.d0)) FUNCTION ddot(N,DX,INCX,DY,INCY)
-      INTEGER,INTENT(in) :: N,INCX,INCY
-      REAL(KIND(1.d0)),INTENT(in) :: DX(*),DY(*)
-    END FUNCTION ddot
-    SUBROUTINE dscal(N,DA,DX,INCX)
-      INTEGER,INTENT(in) :: N,INCX
-      REAL(KIND(1.d0)),INTENT(in) :: DA,DX(*)
-    END SUBROUTINE dscal
-    SUBROUTINE zscal(N,ZA,ZX,INCX)
-      INTEGER,INTENT(in) :: N,INCX
-      COMPLEX(KIND(1.d0)),INTENT(in) :: ZA,ZX(*)
-    END SUBROUTINE zscal
-    SUBROUTINE zcopy(N,ZX,INCX,ZY,INCY)
-      INTEGER,INTENT(in) :: INCX,INCY,N
-      COMPLEX(KIND(1.d0)),INTENT(in) :: ZX(*)
-      COMPLEX(KIND(1.d0)),INTENT(out) :: ZY(*)
-    END SUBROUTINE zcopy
-    REAL(KIND(1.d0)) FUNCTION DZNRM2(N,X,INCX)
-      INTEGER,INTENT(in) :: INCX,N
-      COMPLEX(KIND(1.d0)),INTENT(in) :: X(*)
-    END FUNCTION DZNRM2
-    SUBROUTINE zheev(JOBZ,UPLO,N,A,LDA,W,WORK,LWORK,RWORK,INFO)
-      CHARACTER(1),INTENT(in) :: JOBZ,UPLO
-      INTEGER,INTENT(out) :: INFO
-      INTEGER,INTENT(in) :: LDA,LWORK,N
-      REAL(KIND(1.d0)),INTENT(out) :: W(*)
-      REAL(KIND(1.d0)),INTENT(inout) :: RWORK(*)
-      COMPLEX(KIND(1.d0)),INTENT(inout) :: A(LDA,*),WORK(*)
-    END SUBROUTINE zheev
-  END INTERFACE
-
-
-CONTAINS
-
-
-!!$  SUBROUTINE cross_product(a,b,c)
-!!$    ! Given vectors a and b, this subroutine returns c = a x b.
-!!$    IMPLICIT NONE
-!!$    REAL(dp),INTENT(in) :: a(3),b(3)
-!!$    REAL(dp),INTENT(out) :: c(3)
-!!$    c(1)=a(2)*b(3)-a(3)*b(2)
-!!$    c(2)=a(3)*b(1)-a(1)*b(3)
-!!$    c(3)=a(1)*b(2)-a(2)*b(1)
-!!$  END SUBROUTINE cross_product
-
-
-!  REAL(dp) FUNCTION determinant33(A)
-!    ! Given a 3x3 matrix A, this function returns det(A)
-!    IMPLICIT NONE
-!    REAL(dp),INTENT(in) :: A(3,3)
-!    determinant33=A(1,1)*(A(2,2)*A(3,3)-A(3,2)*A(2,3)) &
-!      &+A(1,2)*(A(3,1)*A(2,3)-A(2,1)*A(3,3)) &
-!      &+A(1,3)*(A(2,1)*A(3,2)-A(3,1)*A(2,2))
-!  END FUNCTION determinant33
+!MODULE linear_algebra
+!  ! Assorted linear algebra / vector algebra subroutines.
+!  ! Interfaces for BLAS & LAPACK routines.
+!  USE utils,ONLY : dp
+!  IMPLICIT NONE
+!  INTERFACE
+!    REAL(KIND(1.d0)) FUNCTION ddot(N,DX,INCX,DY,INCY)
+!      INTEGER,INTENT(in) :: N,INCX,INCY
+!      REAL(KIND(1.d0)),INTENT(in) :: DX(*),DY(*)
+!    END FUNCTION ddot
+!    SUBROUTINE dscal(N,DA,DX,INCX)
+!      INTEGER,INTENT(in) :: N,INCX
+!      REAL(KIND(1.d0)),INTENT(in) :: DA,DX(*)
+!    END SUBROUTINE dscal
+!    SUBROUTINE zscal(N,ZA,ZX,INCX)
+!      INTEGER,INTENT(in) :: N,INCX
+!      COMPLEX(KIND(1.d0)),INTENT(in) :: ZA,ZX(*)
+!    END SUBROUTINE zscal
+!    SUBROUTINE zcopy(N,ZX,INCX,ZY,INCY)
+!      INTEGER,INTENT(in) :: INCX,INCY,N
+!      COMPLEX(KIND(1.d0)),INTENT(in) :: ZX(*)
+!      COMPLEX(KIND(1.d0)),INTENT(out) :: ZY(*)
+!    END SUBROUTINE zcopy
+!    REAL(KIND(1.d0)) FUNCTION DZNRM2(N,X,INCX)
+!      INTEGER,INTENT(in) :: INCX,N
+!      COMPLEX(KIND(1.d0)),INTENT(in) :: X(*)
+!    END FUNCTION DZNRM2
+!    SUBROUTINE zheev(JOBZ,UPLO,N,A,LDA,W,WORK,LWORK,RWORK,INFO)
+!      CHARACTER(1),INTENT(in) :: JOBZ,UPLO
+!      INTEGER,INTENT(out) :: INFO
+!      INTEGER,INTENT(in) :: LDA,LWORK,N
+!      REAL(KIND(1.d0)),INTENT(out) :: W(*)
+!      REAL(KIND(1.d0)),INTENT(inout) :: RWORK(*)
+!      COMPLEX(KIND(1.d0)),INTENT(inout) :: A(LDA,*),WORK(*)
+!    END SUBROUTINE zheev
+!  END INTERFACE
 !
 !
-!  SUBROUTINE inv_33(A,B)
-!    ! This subroutine calculates the inverse B of matrix A.
-!    ! A and B are real, 3x3 matrices.
-!    IMPLICIT NONE
-!    REAL(dp),INTENT(in) :: A(3,3)
-!    REAL(dp),INTENT(out) :: B(3,3)
-!    REAL(dp) :: d
-!    d=A(1,1)*(A(2,2)*A(3,3)-A(2,3)*A(3,2))+ &
-!      &A(2,1)*(A(3,2)*A(1,3)-A(1,2)*A(3,3))+ &
-!      &A(3,1)*(A(1,2)*A(2,3)-A(1,3)*A(2,2))
-!    IF(d==0.d0)THEN
-!      WRITE(*,*)'Error in inv_33: singular matrix.'
-!      STOP
-!    ENDIF
-!    d=1.d0/d
-!    B(1,1)=(A(2,2)*A(3,3)-A(2,3)*A(3,2))*d
-!    B(1,2)=(A(3,2)*A(1,3)-A(1,2)*A(3,3))*d
-!    B(1,3)=(A(1,2)*A(2,3)-A(1,3)*A(2,2))*d
-!    B(2,1)=(A(3,1)*A(2,3)-A(2,1)*A(3,3))*d
-!    B(2,2)=(A(1,1)*A(3,3)-A(3,1)*A(1,3))*d
-!    B(2,3)=(A(2,1)*A(1,3)-A(1,1)*A(2,3))*d
-!    B(3,1)=(A(2,1)*A(3,2)-A(2,2)*A(3,1))*d
-!    B(3,2)=(A(3,1)*A(1,2)-A(1,1)*A(3,2))*d
-!    B(3,3)=(A(1,1)*A(2,2)-A(1,2)*A(2,1))*d
-!  END SUBROUTINE inv_33
-
-
-END MODULE linear_algebra
+!CONTAINS
+!
+!
+!!!$  SUBROUTINE cross_product(a,b,c)
+!!!$    ! Given vectors a and b, this subroutine returns c = a x b.
+!!!$    IMPLICIT NONE
+!!!$    REAL(dp),INTENT(in) :: a(3),b(3)
+!!!$    REAL(dp),INTENT(out) :: c(3)
+!!!$    c(1)=a(2)*b(3)-a(3)*b(2)
+!!!$    c(2)=a(3)*b(1)-a(1)*b(3)
+!!!$    c(3)=a(1)*b(2)-a(2)*b(1)
+!!!$  END SUBROUTINE cross_product
+!
+!
+!!  REAL(dp) FUNCTION determinant33(A)
+!!    ! Given a 3x3 matrix A, this function returns det(A)
+!!    IMPLICIT NONE
+!!    REAL(dp),INTENT(in) :: A(3,3)
+!!    determinant33=A(1,1)*(A(2,2)*A(3,3)-A(3,2)*A(2,3)) &
+!!      &+A(1,2)*(A(3,1)*A(2,3)-A(2,1)*A(3,3)) &
+!!      &+A(1,3)*(A(2,1)*A(3,2)-A(3,1)*A(2,2))
+!!  END FUNCTION determinant33
+!!
+!!
+!!  SUBROUTINE inv_33(A,B)
+!!    ! This subroutine calculates the inverse B of matrix A.
+!!    ! A and B are real, 3x3 matrices.
+!!    IMPLICIT NONE
+!!    REAL(dp),INTENT(in) :: A(3,3)
+!!    REAL(dp),INTENT(out) :: B(3,3)
+!!    REAL(dp) :: d
+!!    d=A(1,1)*(A(2,2)*A(3,3)-A(2,3)*A(3,2))+ &
+!!      &A(2,1)*(A(3,2)*A(1,3)-A(1,2)*A(3,3))+ &
+!!      &A(3,1)*(A(1,2)*A(2,3)-A(1,3)*A(2,2))
+!!    IF(d==0.d0)THEN
+!!      WRITE(*,*)'Error in inv_33: singular matrix.'
+!!      STOP
+!!    ENDIF
+!!    d=1.d0/d
+!!    B(1,1)=(A(2,2)*A(3,3)-A(2,3)*A(3,2))*d
+!!    B(1,2)=(A(3,2)*A(1,3)-A(1,2)*A(3,3))*d
+!!    B(1,3)=(A(1,2)*A(2,3)-A(1,3)*A(2,2))*d
+!!    B(2,1)=(A(3,1)*A(2,3)-A(2,1)*A(3,3))*d
+!!    B(2,2)=(A(1,1)*A(3,3)-A(3,1)*A(1,3))*d
+!!    B(2,3)=(A(2,1)*A(1,3)-A(1,1)*A(2,3))*d
+!!    B(3,1)=(A(2,1)*A(3,2)-A(2,2)*A(3,1))*d
+!!    B(3,2)=(A(3,1)*A(1,2)-A(1,1)*A(3,2))*d
+!!    B(3,3)=(A(1,1)*A(2,2)-A(1,2)*A(2,1))*d
+!!  END SUBROUTINE inv_33
+!
+!
+!END MODULE linear_algebra
 
 
 MODULE min_images
@@ -323,9 +273,10 @@ END MODULE min_images
 
 MODULE phonons
   ! Miscellaneous utilities etc.
-  USE min_images,ONLY : is_lat_point,min_images_brute_force,maxim
-  use constants, only : dp, third, twopi
-  USE utils,ONLY : i2s,errstop,determinant33,inv_33
+  use min_images,     only : is_lat_point, min_images_brute_force, maxim
+  use constants,      only : dp, third, twopi
+  use utils,          only : i2s, errstop
+  use linear_algebra, only : determinant33, inv_33
   IMPLICIT NONE
   PRIVATE
   PUBLIC defined,read_lte,point_symm,point_symm_brute_force,newtons_law, &

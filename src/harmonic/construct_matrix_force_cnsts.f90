@@ -9,8 +9,9 @@ module construct_matrix_force_cnsts_module
 contains
 
 subroutine construct_matrix_force_cnsts()
-  USE utils
-  USE constants
+  use utils
+  use constants
+  use linear_algebra, only : inv_33
   implicit none
   ! Working variables
   integer :: i,j,k

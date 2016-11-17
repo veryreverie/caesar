@@ -5,8 +5,9 @@ module construct_supercell_module
 contains
 
 subroutine construct_supercell()
-  USE utils
   USE constants
+  USE utils
+  use linear_algebra, only : determinant33
   IMPLICIT NONE
   ! Working variables
   INTEGER :: i,j,k,atom_counter,delta

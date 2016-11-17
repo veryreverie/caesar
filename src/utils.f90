@@ -2,12 +2,13 @@
 ! various utilities
 ! ------------------------------------------------------------
 module utils
-  use constants, only : dp
+  use constants,      only : dp
+  use linear_algebra, only : inv_33
   implicit none
   
-  interface determinant33
-    module procedure determinant33_integer, determinant33_real
-  end interface
+!  interface determinant33
+!    module procedure determinant33_integer, determinant33_real
+!  end interface
 
 contains
   
@@ -142,64 +143,64 @@ contains
     endif
   end function
   
-  ! ----------------------------------------
-  ! given a 3x3 matrix A, returns det(A)
-  ! ----------------------------------------
-  function determinant33_integer(A) result(determinant)
-    implicit none
-    
-    integer, intent(in) :: A(3,3)
-    integer             :: determinant
-    
-    determinant = A(1,1)*(A(2,2)*A(3,3)-A(3,2)*A(2,3))&
-               &+ A(1,2)*(A(3,1)*A(2,3)-A(2,1)*A(3,3))&
-               &+ A(1,3)*(A(2,1)*A(3,2)-A(3,1)*A(2,2))
-  end function
-  
-  function determinant33_real(A) result(determinant)
-    implicit none
-    
-    real(dp), intent(in) :: A(3,3)
-    real(dp)             :: determinant
-    
-    determinant = A(1,1)*(A(2,2)*A(3,3)-A(3,2)*A(2,3))&
-               &+ A(1,2)*(A(3,1)*A(2,3)-A(2,1)*A(3,3))&
-               &+ A(1,3)*(A(2,1)*A(3,2)-A(3,1)*A(2,2))
-  end function
-  
-  ! ----------------------------------------
-  ! calculates the inverse, B, of matrix A
-  ! A and B are real, 3x3 matrices
-  ! ----------------------------------------
-  ! TODO: |d|<epsilon would be a more stable check than d==0
-  subroutine inv_33(A,B)
-    implicit none
-    
-    real(dp), intent(in)  :: A(3,3)
-    real(dp), intent(out) :: B(3,3)
-    real(dp)              :: d      ! det(A)
-    
-    d = A(1,1)*(A(2,2)*A(3,3)-A(3,2)*A(2,3))&
-     &+ A(1,2)*(A(3,1)*A(2,3)-A(2,1)*A(3,3))&
-     &+ A(1,3)*(A(2,1)*A(3,2)-A(3,1)*A(2,2))
-    
-    if (d==0.d0) then
-      write(*,*) 'Error in inv_33: singular matrix.'
-      stop
-    endif
-    
-    d = 1.d0/d
-    
-    B(1,1) = (A(2,2)*A(3,3)-A(2,3)*A(3,2))*d
-    B(1,2) = (A(3,2)*A(1,3)-A(1,3)*A(3,2))*d
-    B(1,3) = (A(1,2)*A(2,3)-A(1,3)*A(3,2))*d
-    B(2,1) = (A(3,1)*A(2,3)-A(2,3)*A(3,2))*d
-    B(2,2) = (A(1,1)*A(3,3)-A(2,3)*A(3,2))*d
-    B(2,3) = (A(2,1)*A(1,3)-A(2,3)*A(3,2))*d
-    B(3,1) = (A(2,1)*A(3,2)-A(2,3)*A(3,2))*d
-    B(3,2) = (A(3,1)*A(1,2)-A(2,3)*A(3,2))*d
-    B(3,3) = (A(1,1)*A(2,2)-A(2,3)*A(3,2))*d
-  end subroutine
+!  ! ----------------------------------------
+!  ! given a 3x3 matrix A, returns det(A)
+!  ! ----------------------------------------
+!  function determinant33_integer(A) result(determinant)
+!    implicit none
+!    
+!    integer, intent(in) :: A(3,3)
+!    integer             :: determinant
+!    
+!    determinant = A(1,1)*(A(2,2)*A(3,3)-A(3,2)*A(2,3))&
+!               &+ A(1,2)*(A(3,1)*A(2,3)-A(2,1)*A(3,3))&
+!               &+ A(1,3)*(A(2,1)*A(3,2)-A(3,1)*A(2,2))
+!  end function
+!  
+!  function determinant33_real(A) result(determinant)
+!    implicit none
+!    
+!    real(dp), intent(in) :: A(3,3)
+!    real(dp)             :: determinant
+!    
+!    determinant = A(1,1)*(A(2,2)*A(3,3)-A(3,2)*A(2,3))&
+!               &+ A(1,2)*(A(3,1)*A(2,3)-A(2,1)*A(3,3))&
+!               &+ A(1,3)*(A(2,1)*A(3,2)-A(3,1)*A(2,2))
+!  end function
+!  
+!  ! ----------------------------------------
+!  ! calculates the inverse, B, of matrix A
+!  ! A and B are real, 3x3 matrices
+!  ! ----------------------------------------
+!  ! TODO: |d|<epsilon would be a more stable check than d==0
+!  subroutine inv_33(A,B)
+!    implicit none
+!    
+!    real(dp), intent(in)  :: A(3,3)
+!    real(dp), intent(out) :: B(3,3)
+!    real(dp)              :: d      ! det(A)
+!    
+!    d = A(1,1)*(A(2,2)*A(3,3)-A(3,2)*A(2,3))&
+!     &+ A(1,2)*(A(3,1)*A(2,3)-A(2,1)*A(3,3))&
+!     &+ A(1,3)*(A(2,1)*A(3,2)-A(3,1)*A(2,2))
+!    
+!    if (d==0.d0) then
+!      write(*,*) 'Error in inv_33: singular matrix.'
+!      stop
+!    endif
+!    
+!    d = 1.d0/d
+!    
+!    B(1,1) = (A(2,2)*A(3,3)-A(2,3)*A(3,2))*d
+!    B(1,2) = (A(3,2)*A(1,3)-A(1,3)*A(3,2))*d
+!    B(1,3) = (A(1,2)*A(2,3)-A(1,3)*A(3,2))*d
+!    B(2,1) = (A(3,1)*A(2,3)-A(2,3)*A(3,2))*d
+!    B(2,2) = (A(1,1)*A(3,3)-A(2,3)*A(3,2))*d
+!    B(2,3) = (A(2,1)*A(1,3)-A(2,3)*A(3,2))*d
+!    B(3,1) = (A(2,1)*A(3,2)-A(2,3)*A(3,2))*d
+!    B(3,2) = (A(3,1)*A(1,2)-A(2,3)*A(3,2))*d
+!    B(3,3) = (A(1,1)*A(2,2)-A(2,3)*A(3,2))*d
+!  end subroutine
   
   ! ----------------------------------------
   ! checks if pos is in the supercell

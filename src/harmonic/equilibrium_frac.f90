@@ -5,6 +5,7 @@ contains
 subroutine equilibrium_frac()
   use constants
   use utils
+  use linear_algebra, only : inv_33
   implicit none
   integer :: i,no_atoms
   real(dp) :: lattice(3,3),trans_lattice(3,3),inv_lattice(3,3)
