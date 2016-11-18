@@ -91,7 +91,7 @@ interface
     character(1), intent(in)    :: JOBZ     ! N/V: if V, calculate eigenvectors
     character(1), intent(in)    :: UPLO     ! U/L: store upper/lower triangle
     integer,      intent(in)    :: N        ! the order of A
-    real(dp),     intent(inout) :: A(LDA,*) ! Hermitian matrix
+    real(dp),     intent(inout) :: A(LDA,*) ! symmetric matrix
     integer,      intent(in)    :: LDA      ! the dimension of A
     real(dp),     intent(out)   :: W(*)     ! eigenvalues of A
     real(dp),     intent(out)   :: WORK(*)  ! WORK(1) = optimal LWORK
