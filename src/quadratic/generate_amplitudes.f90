@@ -45,4 +45,31 @@ subroutine generate_amplitudes()
   enddo ! i
   close(1)
 end subroutine
+
+! as above, but takes arguments instead of reading from files
+pure function generate_amplitudes2(map,energy,frequency,cell_size) result(output)
+  use constants,      only : dp
+  use mapping_module, only : Mapping
+  implicit none
+  
+  type(Mapping),         intent(in) :: map
+  real(dp), allocatable, intent(in) :: energy(:)
+  real(dp),              intent(in) :: frequency
+  integer,               intent(in) :: cell_size
+  real(dp), allocatable             :: output(:,:)
+  
+  ! Working variables
+  integer :: i
+  real :: amplitude,damplitude
+  
+  allocate(output(2,map%count))
+  amplitude=-map%max*sqrt(0.5d0/abs(frequency/27.21138602))
+  damplitude=abs(amplitude/map%first)
+  do i=1,map%count
+    output(1,i) = amplitude
+    output(2,i) = (energy(i)-energy(map%mid))/cell_size
+    amplitude=amplitude+damplitude
+  enddo ! i
+end function
+
 end module

@@ -116,7 +116,12 @@ end subroutine
 ! converts integers to left justified strings that can be printed in the
 ! middle of a sentence without introducing large amounts of white space.
 ! ----------------------------------------
-! TODO: There are much better ways of doing this.
+! TODO: There are much simpler ways of doing this, e.g.
+! function i2s(n) result(output)
+!   integer, intent(in) :: n
+!   character(12)       :: output
+!   write(output,"(I0)") n
+! end function
 character(12) function i2s(n)
   implicit none
   
@@ -177,7 +182,7 @@ logical function is_in_supercell(pos, super_lattice)
 end function
 
 ! ----------------------------------------
-! returns an array containing the command line arguments
+! Returns an array containing the command line arguments
 ! ----------------------------------------
 function command_line_args() result(args)
   implicit none
@@ -196,6 +201,42 @@ function command_line_args() result(args)
   enddo
 
   return
+end function
+
+! ----------------------------------------
+! Checks if a file exists
+! ----------------------------------------
+function file_exists(filename) result(output)
+  implicit none
+  
+  character(*), intent(in) :: filename
+  logical                  :: output
+  
+  inquire(file=filename, exist=output)
+end function
+
+
+! ----------------------------------------
+! Gets the number of lines remaining in a file
+! Rewinds the file back to beginning
+! ----------------------------------------
+function count_lines(file_unit) result(output)
+  implicit none
+  
+  integer, intent(in) :: file_unit
+  integer             :: output
+  
+  integer       :: eof_reached
+  character(80) :: line
+  
+  output = 0
+  do while (eof_reached==0)
+    read(file_unit, *, iostat=eof_reached) line
+    if (eof_reached==0) then
+      output = output+1
+    endif
+  enddo
+  rewind(file_unit)
 end function
 
 end module

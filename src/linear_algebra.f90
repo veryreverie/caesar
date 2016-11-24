@@ -11,7 +11,7 @@ module linear_algebra
 ! ----------------------------------------
 interface
   ! Real dot product. Returns DX.DY
-  real(dp) function ddot(N,DX,INCX,DY,INCY)
+  pure real(dp) function ddot(N,DX,INCX,DY,INCY)
     use constants, only : dp
     implicit none
     
@@ -23,7 +23,7 @@ interface
   end function
   
   ! Multiplies real vector by real scalar. Equivalent to DX *= DA
-  subroutine dscal(N,DA,DX,INCX)
+  pure subroutine dscal(N,DA,DX,INCX)
     use constants, only : dp
     implicit none
     
@@ -34,7 +34,7 @@ interface
   end subroutine
   
   ! Multiplies complex vector by complex scalar. Equivalent to ZX *= ZA
-  subroutine zscal(N,ZA,ZX,INCX)
+  pure subroutine zscal(N,ZA,ZX,INCX)
     use constants, only : dp
     implicit none
     
@@ -45,7 +45,7 @@ interface
   end subroutine
   
   ! Copies complex vector. Equivalent to ZY = ZX
-  subroutine zcopy(N,ZX,INCX,ZY,INCY)
+  pure subroutine zcopy(N,ZX,INCX,ZY,INCY)
     use constants, only : dp
     implicit none
     
@@ -57,7 +57,7 @@ interface
   end subroutine
   
   ! Complex norm. Returns sqrt(X.X)
-  real(kind(1.d0)) function dznrm2(N,X,INCX)
+  pure real(kind(1.d0)) function dznrm2(N,X,INCX)
     use constants, only : dp
     implicit none
     
@@ -67,7 +67,7 @@ interface
   end function
   
   ! Finds the eigenvalues of a hermitian matrix
-  subroutine zheev(JOBZ,UPLO,N,A,LDA,W,WORK,LWORK,RWORK,INFO)
+  pure subroutine zheev(JOBZ,UPLO,N,A,LDA,W,WORK,LWORK,RWORK,INFO)
     use constants, only : dp
     implicit none
     
@@ -84,7 +84,7 @@ interface
   end subroutine
   
   ! Finds the eigenvalues of a symmetric matrix
-  subroutine dsyev(JOBZ,UPLO,N,A,LDA,W,WORK,LWORK,INFO)
+  pure subroutine dsyev(JOBZ,UPLO,N,A,LDA,W,WORK,LWORK,INFO)
     use constants, only : dp
     implicit none
     

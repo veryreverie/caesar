@@ -22,6 +22,7 @@ program caesar
   use lte_lower_module, only : lte_lower
   
   ! use quadratic modules
+  use anharmonic_module, only : anharmonic
   use band_folding_module, only : band_folding
   use calculate_anharmonic_module, only : calculate_anharmonic
   use calculate_bs_module, only : calculate_bs
@@ -84,6 +85,9 @@ program caesar
     write(*,*) ''
     write(*,*) 'option : quadratic calculations :'
     write(*,*) '  [quadratic help text yet to be written]'
+  ! test
+  elseif (arg == 'test') then
+    call anharmonic()
   ! Wrappers for Fortran 
   elseif (arg == 'band_folding') then
     call band_folding()

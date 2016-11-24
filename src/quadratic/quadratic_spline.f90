@@ -18,14 +18,15 @@ module quadratic_spline_module
 contains
 
 subroutine quadratic_spline()
+  use constants, only : dp
 ! An example of creating cubic-spline approximation of
 ! a discrete function fi=f(xi).
 !
   IMPLICIT NONE
   INTEGER :: N, M, P
   INTEGER :: I, K
-  REAL :: X, F, DX, H, ALPHA, BETA, GAMMA, ETA
-  REAL,ALLOCATABLE  :: XI(:), FI(:), P2(:)
+  REAL(dp) :: X, F, DX, H, ALPHA, BETA, GAMMA, ETA
+  REAL(dp),ALLOCATABLE  :: XI(:), FI(:), P2(:)
   ! For reading input data
   INTEGER :: ierr,j
   CHARACTER(200) :: char200
@@ -87,17 +88,91 @@ subroutine quadratic_spline()
 
 end subroutine
 
-SUBROUTINE CUBIC_SPLINE (N, XI, FI, P2)
+
+! as above, but takes arguments rather than reading files
+! n.b. n is 'N+1' above.
+! An example of creating cubic-spline approximation of
+! a discrete function fi=f(xi).
+pure function quadratic_spline2(m,xifi) result(output)
+  use constants, only : dp
+  implicit none
+  
+  integer,               intent(in) :: m           ! no. points to spline to
+  real(dp), allocatable, intent(in) :: xifi(:,:)   ! {(x,f)} at n points
+  real(dp), allocatable             :: output(:,:) ! {(x,f)} at m points
+  
+  integer :: n ! = size(xi) = size(xifi,2)
+  real(dp), allocatable :: xi(:)
+  real(dp), allocatable :: fi(:)
+  
+  integer :: p
+  integer :: i, k
+  real(dp) :: x, f, dx, h, alpha, beta, gamma, eta
+  real(dp),allocatable  :: p2(:)
+
+  n = size(xifi,2)
+  
+  allocate(xi(n))
+  allocate(fi(n))
+  allocate(p2(n))
+  allocate(output(2,m))
+  
+  xi = xifi(1,:)
+  fi = xifi(2,:)
+
+  call cubic_spline(n-1, xi, fi, p2)
+
+  ! find the approximation of the function
+  
+  output(1,1) = xi(1)
+  output(2,1) = fi(1)
+  
+  h = (xi(n)-xi(1))/m 
+  x = xi(1)
+  
+  p=m-1
+  
+  do i = 1, p
+    x = x + h
+    ! find the interval that x resides
+    k = 1
+    dx = x-xi(1)
+    do while (dx .ge. 0)
+      k = k + 1
+      dx = x-xi(k)
+    end do
+    k = k - 1
+  
+    ! find the value of function f(x)
+    dx = xi(k+1) - xi(k)
+    alpha = p2(k+1)/(6*dx)
+    beta = -p2(k)/(6*dx)
+    gamma = fi(k+1)/dx - dx*p2(k+1)/6
+    eta = dx*p2(k)/6 - fi(k)/dx
+    f = alpha*(x-xi(k))*(x-xi(k))*(x-xi(k)) &
+       +beta*(x-xi(k+1))*(x-xi(k+1))*(x-xi(k+1)) &
+       +gamma*(x-xi(k))+eta*(x-xi(k+1))
+    output(1,i+1) = x
+    output(2,i+1) = f
+  end do
+
+end function
+
+
+pure SUBROUTINE CUBIC_SPLINE (N, XI, FI, P2)
+  use constants, only : dp
+  implicit none
+  
 !
 ! Function to carry out the cubic-spline approximation
 ! with the second-order derivatives returned.
 !
   INTEGER :: I
   INTEGER, INTENT (IN) :: N
-  REAL, INTENT (IN), DIMENSION (N+1):: XI, FI
-  REAL, INTENT (OUT), DIMENSION (N+1):: P2
-  REAL, DIMENSION (N):: G, H
-  REAL, DIMENSION (N-1):: D, B, C
+  REAL(dp), INTENT (IN), DIMENSION (N+1):: XI, FI
+  REAL(dp), INTENT (OUT), DIMENSION (N+1):: P2
+  REAL(dp), DIMENSION (N):: G, H
+  REAL(dp), DIMENSION (N-1):: D, B, C
 !
 ! Assign the intervals and function differences
 !
@@ -123,16 +198,19 @@ SUBROUTINE CUBIC_SPLINE (N, XI, FI, P2)
   END DO
 END SUBROUTINE CUBIC_SPLINE
 !
-SUBROUTINE TRIDIAGONAL_LINEAR_EQ (L, D, E, C, B, Z)
+pure SUBROUTINE TRIDIAGONAL_LINEAR_EQ (L, D, E, C, B, Z)
+  use constants, only : dp
+  implicit none
+  
 !
 ! Functione to solve the tridiagonal linear equation set.
 !
   INTEGER, INTENT (IN) :: L
   INTEGER :: I
-  REAL, INTENT (IN), DIMENSION (L):: D, E, C, B
-  REAL, INTENT (OUT), DIMENSION (L):: Z
-  REAL, DIMENSION (L):: Y, W
-  REAL, DIMENSION (L-1):: V, T
+  REAL(dp), INTENT (IN), DIMENSION (L):: D, E, C, B
+  REAL(dp), INTENT (OUT), DIMENSION (L):: Z
+  REAL(dp), DIMENSION (L):: Y, W
+  REAL(dp), DIMENSION (L-1):: V, T
 !
 ! Evaluate the elements in the LU decomposition
 !
