@@ -76,7 +76,6 @@ if [ "$code" = "castep" ];then
       fi
       for j in `seq 1 $no_modes`; do
         for k in `seq $sampling_point_init $sampling_point_final`; do
-          #echo $i $j $k "structure.${j}.${k}.dat"
           if [ -e "structure.${j}.${k}.dat" ];then 
             cp structure.${j}.${k}.dat structure.dat
             caesar structure_to_castep

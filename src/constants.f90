@@ -13,8 +13,10 @@ module constants
   real(dp), parameter :: third = 1.d0/3.d0
   
   ! physical constants
-  real(dp), parameter :: eV = 27.211396132d0   ! Hartree energy / e
-  real(dp), parameter :: thermal = 3.1577464E5 ! Hartree energy / kB
+  ! n.b. eV was defined variously as 27.211396132 and 27.21138602
+  real(dp), parameter :: eV = 27.211396132d0   ! Hartree energy eV
+  real(dp), parameter :: thermal = 3.1577464E5 ! Hartree temperature K
+  real(dp), parameter :: kB = 8.6173324E-5     ! Boltzmann's constant eV/K
   
 contains
 

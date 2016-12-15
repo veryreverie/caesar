@@ -2,12 +2,21 @@ module vscf_1d_module
   use constants, only : dp
   implicit none
   
+  ! holds anharmonic potential data
+  type Potential
+    real(dp) :: q
+    real(dp) :: harmonic   ! harmonic f(q) = 0.5*(frequency*q)^2
+    real(dp) :: anharmonic ! anharmonic f(q)
+    real(dp) :: difference ! anharmonic f(q) - harmonic f(q)
+  end type
+  
   ! holds output data for vscf_1d
   type VscfReturn
-    real(dp), allocatable :: anh_pot(:,:)
-    real(dp), allocatable :: hamiltonian(:,:)
-    real(dp), allocatable :: eigenvals(:,:)
-    real(dp), allocatable :: eigenvecs(:,:)
+    type(Potential), allocatable :: anh_pot(:)
+    real(dp),        allocatable :: hamiltonian(:,:)
+    real(dp),        allocatable :: harmonic(:)
+    real(dp),        allocatable :: eigenvals(:)
+    real(dp),        allocatable :: eigenvecs(:,:)
   end type
   
 contains
@@ -137,85 +146,73 @@ subroutine vscf_1d()
 end subroutine
 
 ! as above, but takes arguments rather than reading files
-pure function vscf_1d_2(frequency_ev,max_amplitude_nve,spline_potential, Nbasis) &
-  &result(output)
+function vscf_1d_2(frequency_ev, potential, Nbasis) result(output)
   use constants,      only : dp, pi, eV, thermal
-  use linear_algebra, only : dsyev
+  use linear_algebra, only : Eigenstuff, calculate_eigenstuff, size
   implicit none
   
-  real(dp), intent(in) :: frequency_ev        ! frequency in eV
-  real(dp), intent(in) :: max_amplitude_nve   ! max amplitude (negative)
-  real(dp), intent(in) :: spline_potential(:) ! 
+  real(dp), intent(in) :: frequency_ev   ! frequency in eV
+  real(dp), intent(in) :: potential(:,:) ! anharmonic potential, {q,V(q)}
   integer,  intent(in) :: Nbasis
   type(VscfReturn)     :: output
   
-  real(dp) :: frequency          ! frequency in a.u.
-  real(dp) :: max_amplitude      ! -1*max_amplitude_nve
-  integer  :: integration_points ! size(spline_potential)
+  integer  :: Npoints   ! size(potential,2)
+  real(dp) :: frequency ! frequency in a.u.
   
   ! Working variables
   integer :: i,j,k
-  integer :: lwork,info
-  real(dp) :: bfp,q,dq,dump_real,mat_element,basis_frequency
+  real(dp) :: bfp,q,dq,mat_element,basis_frequency
   real(dp),allocatable :: root_two_over_i(:),root_i_over_two(:)
-  real(dp),allocatable :: basis(:,:),potential(:),potential_bare(:)
-  real(dp),allocatable :: Hamiltonian(:,:),E(:)
-  real(dp),allocatable :: work(:)
+  real(dp),allocatable :: basis(:,:)
+  real(dp),allocatable :: Hamiltonian(:,:)
+  type(Eigenstuff)     :: estuff ! evals and evecs of Hamiltonian
+  
+  Npoints = size(potential,2)
+  dq = (potential(1,Npoints)-potential(1,1))/Npoints
   
   ! Convert frequency to a.u.
   frequency=frequency_ev/eV 
 
-  ! The maximum amplitude is read in as negative, turn positive
-  max_amplitude=-max_amplitude_nve
-  
-  ! get integration_points
-  integration_points = size(spline_potential)
-  
   ! Allocate output
-  allocate(output%anh_pot(4,integration_points))
+  allocate(output%anh_pot(Npoints))
   allocate(output%hamiltonian(Nbasis,Nbasis))
-  allocate(output%eigenvals(3,Nbasis))
-  allocate(output%eigenvecs(3,Nbasis*Nbasis))
+  allocate(output%harmonic(Nbasis))
+  allocate(output%eigenvals(Nbasis))
+  allocate(output%eigenvecs(Nbasis,Nbasis))
 
   ! Allocate various arrays
   allocate(root_two_over_i(Nbasis),root_i_over_two(Nbasis))
-  allocate(Hamiltonian(Nbasis,Nbasis),E(Nbasis))
-  allocate(basis(integration_points,Nbasis))
-  allocate(potential(integration_points),potential_bare(integration_points))
+  allocate(Hamiltonian(Nbasis,Nbasis))
+  allocate(basis(Npoints,Nbasis))
 
   ! Calculate basis functions
-  basis_frequency=abs(frequency)
+  basis_frequency=dabs(frequency)
   bfp=(basis_frequency/pi)**0.25
+  
   do i=1,Nbasis
-    root_i_over_two(i)=SQRT(0.5d0*REAL(i,dp))
+    root_i_over_two(i)=dsqrt(0.5d0*real(i,dp))
     root_two_over_i(i)=1.d0/root_i_over_two(i)
   enddo ! i
-  q=-max_amplitude
-  dq=2.d0*max_amplitude/integration_points
-  do i=1,integration_points
-    basis(i,1)=bfp*exp(-0.5d0*q*q*basis_frequency)
-    basis(i,2)=sqrt(basis_frequency)*q*root_two_over_i(1)*basis(i,1)
+  
+  do i=1,Npoints
+    q = potential(1,i)
+    basis(i,1)=bfp*dexp(-0.5d0*q*q*basis_frequency)
+    basis(i,2)=dsqrt(basis_frequency)*q*root_two_over_i(1)*basis(i,1)
     do j=3,Nbasis
-      basis(i,j)=root_two_over_i(j-1)*(sqrt(basis_frequency)*q*basis(i,j-1) &
+      basis(i,j)=root_two_over_i(j-1)*(dsqrt(basis_frequency)*q*basis(i,j-1) &
        &-root_i_over_two(j-2)*basis(i,j-2))
     enddo ! j
-    q=q+dq
   enddo ! i
 
   ! write anh_pot
-  q=-max_amplitude
-  dq=2.d0*max_amplitude/integration_points
-  do i=1,integration_points
-    potential_bare(i) = spline_potential(i)/eV
-    potential(i)=potential_bare(i)-0.5d0*frequency*frequency*q*q
-    output%anh_pot(1,i) = q
-    output%anh_pot(2,i) = potential(i)
-    output%anh_pot(3,i) = potential_bare(i)
-    output%anh_pot(4,i) = 0.5d0*frequency*frequency*q*q
-    q=q+dq
+  do i=1,Npoints
+    q = potential(1,i)
+    output%anh_pot(i)%q = q
+    output%anh_pot(i)%harmonic = 0.5d0*frequency*frequency*q*q
+    output%anh_pot(i)%anharmonic = potential(2,i)/eV
+    output%anh_pot(i)%difference = output%anh_pot(i)%anharmonic &
+                               & - output%anh_pot(i)%harmonic
   enddo ! i
-
-  
 
   ! Construct and diagonalise Hamiltonian matrix
   Hamiltonian=0.d0
@@ -223,35 +220,29 @@ pure function vscf_1d_2(frequency_ev,max_amplitude_nve,spline_potential, Nbasis)
   do i=1,Nbasis
     Hamiltonian(i,i)=Hamiltonian(i,i)+(real(i-1,dp)+0.5d0)*basis_frequency
   enddo ! i
+  
   ! Add on matrix elements of anharmonic potential w.r.t. SHO eigenfunctions.
   do i=1,Nbasis
     do j=1,Nbasis
-      dq=2.d0*max_amplitude/integration_points
       mat_element=0.d0
-      do k=1,integration_points
-        mat_element=mat_element+basis(k,i)*basis(k,j)*potential(k)*dq
-        !write(*,*)mat_element,basis(k,i),basis(k,j),potential(k),dq
+      do k=1,Npoints
+        mat_element=mat_element+basis(k,i)*basis(k,j)*potential(2,k)*dq/eV
       enddo ! k
       Hamiltonian(i,j)=Hamiltonian(i,j)+mat_element
     enddo ! j
   enddo ! i
+  
   output%hamiltonian = Hamiltonian
-  ! Diagonalise Hamiltonian matrix
-  lwork=3*Nbasis-1
-  allocate(work(lwork))
-  call dsyev('V','U',Nbasis,Hamiltonian(1,1),Nbasis,E(1),work(1),lwork,info)
-  deallocate(work)
+  
+  estuff = calculate_eigenstuff(Hamiltonian)
 
   ! Output anharmonic eigenvalues and eigenvectors
   do i=1,Nbasis
-    output%eigenvals(1,i) = i
-    output%eigenvals(2,i) = frequency*(real(i-1,dp)+0.5d0)*eV
-    output%eigenvals(3,i) = E(i)*eV
-    do j=1,Nbasis
-      output%eigenvecs(1,(i-1)*Nbasis+j) = i
-      output%eigenvecs(2,(i-1)*Nbasis+j) = j
-      output%eigenvecs(3,(i-1)*Nbasis+j) = Hamiltonian(j,i)
-    enddo ! j
+    output%harmonic(i) = frequency*(real(i-1,dp)+0.5d0)*eV
+    output%eigenvals(i) = estuff%evals(i)*eV
   enddo ! i
+  
+  output%eigenvecs = estuff%evecs
+  
 end function
 end module

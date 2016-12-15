@@ -12,37 +12,39 @@ contains
 
 ! calls system(input), returning a ProcessResult
 function system_process(input) result(output)
+  use file_io, only : open_read_file
   implicit none
   
   character(len=*), intent(in) :: input
   type(ProcessResult)          :: output
   
-  character(32)                :: temp_char
-  integer                      :: io_stat
+  character(32) :: temp_char
+  integer       :: file_unit
+  integer       :: iostat
   
   ! run process
   output%status = system(input//' >system_process_o 2>system_process_e')
   
   ! read stdout
-  open(unit=2, file='system_process_o')
-  read(2,*,iostat=io_stat) temp_char
-  if (io_stat==0) then
-    output%stdout = temp_char
-  else
-    output%stdout = ''
-  endif
-  close(2)
+  file_unit = open_read_file('system_process_o')
+  read(file_unit,*,iostat=iostat) temp_char
+  close(file_unit)
   call system('rm system_process_o')
+  if (iostat==0) then
+    output%stdout=temp_char
+  else
+    output%stdout=''
+  endif
   
   ! read sterr
-  open(unit=2, file='system_process_e')
-  read(2,*,iostat=io_stat) temp_char
-  if (io_stat==0) then
-    output%stderr = temp_char
-  else
-    output%stderr = ''
-  endif
-  close(2)
+  file_unit = open_read_file('system_process_e')
+  read(file_unit,*,iostat=iostat) temp_char
+  close(file_unit)
   call system('rm system_process_e')
+  if (iostat==0) then
+    output%stderr=temp_char
+  else
+    output%stderr=''
+  endif
 end function
 end module

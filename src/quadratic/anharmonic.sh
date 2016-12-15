@@ -23,12 +23,7 @@ for i in `seq 1 $no_sc`;do
 
   cd Supercell_$i
 
-    if [ "$i" -eq 1 ]; then
-      cp list.dat ../anharmonic
-    else
-      cat ../anharmonic/list.dat list.dat > tomeu.dat
-      mv tomeu.dat ../anharmonic/list.dat
-    fi
+    cat list.dat >> ../anharmonic/list.dat
 
     echo "Working with Supercell" $i
     if [ ! -f "acoustic.dat" ]; then
@@ -42,33 +37,22 @@ for i in `seq 1 $no_sc`;do
     while read line ; do
 
       big_point=$(echo ${line} | awk '{print $1}')
-      echo $no_cells > size.${big_point}.dat
-      mv size.${big_point}.dat ../anharmonic
+      echo $no_cells > ../anharmonic/size.${big_point}.dat
       cd kpoint.$big_point/configurations
 
       for j in `seq 1 $no_modes`; do
         if [ -d "mode.${j}.$sampling_point_init" ];then
           for k in `seq $sampling_point_init $sampling_point_final`; do
             if [ -d "mode.${j}.${k}" ];then
-              cd mode.${j}.${k}
-                if [ -e "$seedname.castep" ]; then
-                  if [ "$k" -eq "$sampling_point_init" ]; then
-                    cp energy.dat ../
-                  else
-                    cat ../energy.dat energy.dat > tomeu.dat
-                    mv tomeu.dat ../energy.dat
-                  fi
-                else
-                  cat ../energy.dat ../../../static/energy.dat > tomeu.dat
-                  mv tomeu.dat ../energy.dat
-                fi
-              cd ../
+              if [ -e "mode.$j.$k/$seedname.castep" ]; then
+                cat mode.$j.$k/energy.dat >> energy.${big_point}.${j}.dat
+              else
+                cat ../../static/energy.dat >> energy.${big_point}.${j}.dat
+              fi
             elif [ "$k" -eq "0" ]; then
-              cat energy.dat ../../static/energy.dat > tomeu.dat  
-              mv tomeu.dat energy.dat
+              cat ../../static/energy.dat >> energy.${big_point}.${j}.dat  
             fi
           done # loop over sampling points per mode
-          mv energy.dat energy.${big_point}.${j}.dat
         fi
       done # loop over modes
     

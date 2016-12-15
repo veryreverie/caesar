@@ -2,48 +2,40 @@
 
 # Script to set-up a generic quadratic calculation 
 
-# Functions
-function write_lattice
-{
-cat <<EOF
-Lattice
-EOF
-}
-
-function write_atoms
-{
-cat <<EOF
-Atoms
-EOF
-}
-
-function write_symmetry
-{
-cat <<EOF
-Symmetry
-EOF
-}
-
-function write_end
-{
-cat <<EOF
-End
-EOF
-}
-
-
-
-
 #######################################
 ####        MAIN   PROGRAM         ####
 #######################################
 
-# Define some useful variables
+# Read in harmonic path
 echo "What is the path to the harmonic directory?"
 read harmonic_path
 
+# Read in number of supercells
 no_sc=$(ls -1d $harmonic_path/Supercell_* | wc -l)
+if [[ $no_sc == 0 ]] then
+  echo 'Error! No Supercell_* directories exist.'
+  exit
+fi
 
+# Check relevant files exist
+required_files=()
+required_files+=("mapping.dat")
+required_files+=("$harmonic_path/ibz.dat")
+for i in `seq 1 $no_sc`; do
+  sdir=Supercell_$i
+  required_files+=("$harmonic_path/$sdir/list.dat")
+  required_files+=("$harmonic_path/$sdir/supercell.dat")
+  required_files+=("$harmonic_path/$sdir/lte/disp_patterns.dat")
+done
+
+for required_file in $required_files; do
+  if [ ! -e $required_file ]; then
+    echo "Error! the file $required_file does not exist."
+    exit
+  fi
+done
+
+# Define some useful variables
 sampling_amplitude=$( awk 'NR==1 {print $1}' mapping.dat)
 sampling_point_init=$( awk 'NR==2 {print $1}' mapping.dat)
 sampling_point_final=$( awk 'NR==2 {print $2}' mapping.dat)
@@ -53,94 +45,85 @@ temperature=$( awk 'NR==3 {print $1}' mapping.dat)
 cp $harmonic_path/ibz.dat .
 
 # Loop over supercells
-for (( i=1; i<=$no_sc; i++ )) do
+for i in `seq 1 $no_sc`; do
 
-  mkdir Supercell_$i
-  if [ -e "$harmonic_path/Supercell_$i/list.dat" ]; then
-    cp $harmonic_path/Supercell_$i/list.dat Supercell_$i
-  else
-    echo 'Error! The file list.dat does not exist for supercell' $i
-    exit
+  sdir=Supercell_$i
+  mkdir $sdir
+  
+  # copy files into Supercell_$i
+  cp $harmonic_path/$sdir/list.dat $sdir
+  cp $harmonic_path/$sdir/supercell.dat $sdir
+  cp $harmonic_path/$sdir/lattice.dat $sdir
+  cp $harmonic_path/$sdir/equilibrium.dat $sdir
+  cp $harmonic_path/$sdir/super_lattice.dat $sdir
+  cp $harmonic_path/$sdir/super_equilibrium.dat $sdir
+  cp $harmonic_path/$sdir/super_equilibrium.dat $sdir
+  if [ -e "$harmonic_path/$sdir/KPOINTS.${i}" ]; then
+    cp $harmonic_path/$sdir/KPOINTS.${i} $sdir
   fi
-  if [ -e "$harmonic_path/Supercell_$i/supercell.dat" ]; then
-    cp $harmonic_path/Supercell_$i/supercell.dat Supercell_$i
-  else
-    echo 'Error! The file supercell.dat does not exist for supercell' $i
-    exit
-  fi
-  cp $harmonic_path/Supercell_$i/lattice.dat Supercell_$i
-  cp $harmonic_path/Supercell_$i/equilibrium.dat Supercell_$i
-  no_atoms=$( awk 'NR==1 {print $1}' Supercell_$i/equilibrium.dat )
+  cp $harmonic_path/$sdir/lte/disp_patterns.dat $sdir
+  
+  no_atoms=$( awk 'NR==1 {print $1}' $sdir/equilibrium.dat )
   no_modes=$(( $no_atoms*3 ))
-  cp $harmonic_path/Supercell_$i/super_lattice.dat Supercell_$i
-  cp $harmonic_path/Supercell_$i/super_equilibrium.dat Supercell_$i
-  cp $harmonic_path/Supercell_$i/super_equilibrium.dat Supercell_$i
-  if [ -e "$harmonic_path/Supercell_$i/KPOINTS.${i}" ]; then
-    cp $harmonic_path/Supercell_$i/KPOINTS.${i} Supercell_$i
-  fi
-  no_atoms_sc=$( awk 'NR==1 {print $1}' Supercell_$i/super_equilibrium.dat )
-  if [ -e "$harmonic_path/Supercell_$i/lte/disp_patterns.dat" ]; then
-    cp $harmonic_path/Supercell_$i/lte/disp_patterns.dat Supercell_$i
-  else
-    echo 'Error! The file disp_patterns.dat do not exist for supercell' $i
-    exit
-  fi
+  no_atoms_sc=$( awk 'NR==1 {print $1}' $sdir/super_equilibrium.dat )
+  no_sc_atoms=$( awk 'NR==1 {print}' $sdir/super_equilibrium.dat )
   
   # Generate configurations
-  cd Supercell_$i
 
   # Generate static calculation
-  mkdir static
-  cp super_equilibrium.dat super_lattice.dat static
-  cd static
-    write_lattice > lattice.txt
-    write_atoms > atoms.txt
-    write_symmetry > symmetry.txt
-    write_end > end.txt
-    no_sc_atoms=$( awk 'NR==1 {print}' super_equilibrium.dat )
-    awk -v awk_last_line=$(( $no_sc_atoms+1 )) 'NR==2,NR==awk_last_line {print}' super_equilibrium.dat > positions.dat
-    cat lattice.txt super_lattice.dat atoms.txt positions.dat symmetry.txt end.txt > structure.dat
-    rm positions.dat lattice.txt atoms.txt symmetry.txt end.txt 
-  cd ../ # static
+  mkdir $sdir/static
+  cp $sdir/super_equilibrium.dat $sdir/super_lattice.dat $sdir/static
+  f=$sdir/static/structure.dat
+  echo Lattice > $f
+  cat $sdir/super_lattice.dat >> $f
+  echo Atoms >> $f
+  awk "NR==2,NR==$(( $no_sc_atoms+1 )) {print}" $sdir/super_equilibrium.dat>>$f
+  echo Symmetry >> $f
+  echo End >> $f
 
-
-  while read line ; do
-    big_point=$(echo ${line} | awk '{print $1}')
-    small_point=$(echo ${line} | awk '{print $2}')
-    mkdir kpoint.$big_point
-    cp ../mapping.dat super_equilibrium.dat super_lattice.dat kpoint.$big_point
-    disp_patt_first_line=$(( (4+$no_atoms_sc)*($no_modes*($small_point-1))+1 ))
-    disp_patt_last_line=$(( $disp_patt_first_line+(4+$no_atoms_sc)*$no_modes ))
-    awk -v awk_disp_patt_first_line=$disp_patt_first_line -v awk_disp_patt_last_line=$disp_patt_last_line 'NR==awk_disp_patt_first_line,NR==awk_disp_patt_last_line {print}' disp_patterns.dat > disp_patterns_temp.dat
-    mv disp_patterns_temp.dat kpoint.$big_point/disp_patterns.dat
-    cd kpoint.$big_point
-      write_lattice > lattice.txt
-      write_atoms > atoms.txt
-      write_symmetry > symmetry.txt
-      write_end > end.txt
-      mkdir configurations
-      for j in `seq 1 $no_modes`; do
-        disp_patt_first_line=$(( (4+$no_atoms_sc)*($j-1)+1 ))
-        disp_patt_last_line=$(( (4+$no_atoms_sc)*($j-1)+1+(4+$no_atoms_sc) ))
-        awk -v awk_disp_patt_first_line=$disp_patt_first_line -v awk_disp_patt_last_line=$disp_patt_last_line 'NR==awk_disp_patt_first_line,NR==awk_disp_patt_last_line {print}' disp_patterns.dat > disp_patterns_temp.dat
-        for k in `seq $sampling_point_init $sampling_point_final`; do
-          echo $sampling_amplitude $k $no_sampling_points > configuration.dat
-          caesar generate_quadratic_configurations 
-          mv frequency.dat frequency.${big_point}.${j}.dat
-          if [ -e 'positions.dat' ];then 
-            cat lattice.txt super_lattice.dat atoms.txt positions.dat symmetry.txt end.txt > configurations/structure.${j}.${k}.dat    
-            rm positions.dat
-          fi
-          rm configuration.dat 
-        done # loop over sampling points per mode
-        rm disp_patterns_temp.dat
-      done # loop over modes
-      rm lattice.txt atoms.txt symmetry.txt end.txt
-    cd ../
-
-  done < list.dat
- 
-  cd ../
-
+  while read fline ; do # list.dat
+    line=$(fline)
+    big_point=${line[0]}
+    small_point=${line[1]}
+    kdir=kpoint.$big_point
+    mkdir $kdir
+    cp mapping.dat $sdir/super_equilibrium.dat $sdir/super_lattice.dat $kdir
+    first_line=$(( (4+$no_atoms_sc)*($no_modes*($small_point-1))+1 ))
+    last_line=$(( $first_line+(4+$no_atoms_sc)*$no_modes ))
+    awk "NR==$first_line,NR==$last_line {print}" disp_patterns.dat > \
+      $kdir/disp_patterns.dat
+    mkdir $kdir/configurations
+    for j in `seq 1 $no_modes`; do
+      frequency_line=$(( (4+$no_atoms_sc)*($j-1)+1 ))
+      
+      # write frequency in a.u. to frequency.$big_point.$j.dat
+      frequency=$(awk "NR=$frequency_line {print\$3} $kdir/disp_patterns.dat")
+      python -c "print($frequency*27.211396132)" > \
+        $kdir/frequency.$big_point.$j.dat
+      
+      # write structure.$j.$k.dat
+      for k in `seq $sampling_point_init $sampling_point_final`; do
+        caesar generate_quadratic_configurations \
+               $sampling_amplitude               \
+               $k                                \
+               $no_sampling_points               \
+               $frequency                        \
+               $frequency_line                   \
+               $kdir/configuration.dat           \
+               $kdir/super_equilibrium.dat       \
+               $kdir/disp_patterns.dat           \
+               $kdir/positions.dat
+        if [ -e "$kdir/positions.dat" ];then # if k.ne.0 and |frequency|>tol
+          f=$kdir/configurations/structure.$j.$k.dat
+          echo Lattice > $f
+          cat $kdir/super_lattice.dat >> $f
+          echo Atoms >> $f
+          cat $kdir/positions.dat >> $f
+          echo Symmetry >> $f
+          echo End >> $f
+          rm $kdir/positions.dat
+        fi
+      done # loop over sampling points per mode
+    done # loop over modes
+  done < $sdir/list.dat
 done # Loop over supercells
-

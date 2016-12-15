@@ -44,15 +44,10 @@ if [ "$code" = "castep" ];then
       rm *.castep_bin *.cst_esp *.usp machine_file *.bib *.orbitals
     cd ../
 
-    #cat list.dat |
-    #{
-    while read -u 3 line ; do
-
-      big_point=$(echo ${line} | awk '{print $1}')
-      echo "Big point" $big_point
+    while read fline ; do
+      line=($fline)
+      big_point=${line[0]}
       cd kpoint.$big_point/configurations
-
-      echo "In big point" $big_point
 
       for j in `seq 1 $no_modes`; do
         for k in `seq $sampling_point_init $sampling_point_final`; do
@@ -71,9 +66,7 @@ if [ "$code" = "castep" ];then
 
       cd ../../  # cd kpoint.$big_point/configurations
 
-    done 3< list.dat
-    #}
-
+    done < list.dat
 
     cd ../  # cd Supercell_$i
 

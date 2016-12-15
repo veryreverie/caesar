@@ -1,3 +1,5 @@
+#!/bin/bash
+
 echo "Input energy in Hartree:"
 read energy
 

@@ -4,14 +4,16 @@ contains
 
 ! Program to generate amplitudes for energy files
 subroutine generate_amplitudes()
+  use constants, only : dp
   implicit none
+  
   ! Input variables
-  real :: max_amplitude,frequency
-  real,allocatable :: energy(:)
+  real(dp) :: max_amplitude,frequency
+  real(dp),allocatable :: energy(:)
   integer :: first_amplitude,last_amplitude,no_amplitudes,cell_size,mid_amplitude
   ! Working variables
   integer :: i
-  real :: amplitude,damplitude
+  real(dp) :: amplitude,damplitude
 
   open(1,file='mapping.dat')
   read(1,*)max_amplitude
@@ -37,8 +39,8 @@ subroutine generate_amplitudes()
   close(1)
 
   open(1,file='amplitude_energy.dat')
-  amplitude=-max_amplitude*sqrt(0.5d0/abs(frequency))
-  damplitude=abs(amplitude/first_amplitude)
+  amplitude=-max_amplitude*sqrt(0.5d0/dabs(frequency))
+  damplitude=dabs(amplitude/first_amplitude)
   do i=1,no_amplitudes
     write(1,*)amplitude,(energy(i)-energy(mid_amplitude))/cell_size
     amplitude=amplitude+damplitude
@@ -47,24 +49,26 @@ subroutine generate_amplitudes()
 end subroutine
 
 ! as above, but takes arguments instead of reading from files
-pure function generate_amplitudes2(map,energy,frequency,cell_size) result(output)
-  use constants,      only : dp
+pure function generate_amplitudes2(map,energy,frequency,cell_size)&
+    & result(output)
+  use constants,      only : dp, eV
   use mapping_module, only : Mapping
   implicit none
   
-  type(Mapping),         intent(in) :: map
-  real(dp), allocatable, intent(in) :: energy(:)
-  real(dp),              intent(in) :: frequency
-  integer,               intent(in) :: cell_size
-  real(dp), allocatable             :: output(:,:)
+  type(Mapping), intent(in) :: map
+  real(dp),      intent(in) :: energy(:)
+  real(dp),      intent(in) :: frequency
+  integer,       intent(in) :: cell_size
+  real(dp), allocatable     :: output(:,:)
   
   ! Working variables
   integer :: i
-  real :: amplitude,damplitude
+  real(dp) :: amplitude
+  real(dp) :: damplitude
   
   allocate(output(2,map%count))
-  amplitude=-map%max*sqrt(0.5d0/abs(frequency/27.21138602))
-  damplitude=abs(amplitude/map%first)
+  amplitude=-map%max*sqrt(0.5d0/dabs(frequency/eV))
+  damplitude=dabs(amplitude/map%first)
   do i=1,map%count
     output(1,i) = amplitude
     output(2,i) = (energy(i)-energy(map%mid))/cell_size

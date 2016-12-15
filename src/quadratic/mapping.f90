@@ -13,16 +13,14 @@ module mapping_module
 contains
 
 ! reads a file ('mapping.dat'), and returns a Mapping
-function read_mapping(input) result(output)
+function read_mapping(mapping_file_unit) result(output)
   implicit none
   
-  character(*), intent(in) :: input
-  type(Mapping)            :: output
+  integer, intent(in) :: mapping_file_unit
+  type(Mapping)       :: output
   
-  open(100, file=input, status='old', action='read')
-  read(100,*) output%max
-  read(100,*) output%first, output%last
-  close(100)
+  read(mapping_file_unit,*) output%max
+  read(mapping_file_unit,*) output%first, output%last
   output%count = output%last-output%first+1
   output%mid = (output%count-1)/2+1
 end function

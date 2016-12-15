@@ -9,7 +9,8 @@ subroutine calculate_bs()
   real :: temperature=0.0,dtemperature=50.0,thermal
   ! Input variables
   integer :: no_kpoints,no_modes,degeneracy
-  real,allocatable :: bands(:,:),multiplicity(:),frequency(:,:),deformation(:,:)
+  integer, allocatable :: multiplicity(:)
+  real,allocatable :: bands(:,:),frequency(:,:),deformation(:,:)
   real :: mapping_amplitude
   ! Working variables
   integer :: i,j,k,total_kpoints

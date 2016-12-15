@@ -5,11 +5,50 @@
 module linear_algebra
   use constants, only : dp
   implicit none
+  
+  ! The eigen(values and vectors) of a matrix
+  ! degeneracy(i) = 0 if eigenvector(i) is non-degenerate
+  !               = j if eigenvector(i) is degenerate,
+  ! where j is an arbitrary but unique id
+  type Eigenstuff
+    real(dp), allocatable :: evals(:)
+    real(dp), allocatable :: evecs(:,:)
+    integer,  allocatable :: degeneracy(:)
+  end type
 
+interface size
+  module procedure eigenstuff_size
+end interface
+  
 ! ----------------------------------------
 ! BLAS / LAPACK interface
 ! ----------------------------------------
 interface
+  
+  ! Copies a real vector. Equivalent to DY = DX
+  pure subroutine dcopy(N,DX,INCX,DY,INCY)
+    use constants, only : dp
+    implicit none
+    
+    integer,  intent(in)  :: N     ! length of vectors
+    real(dp), intent(in)  :: DX(*) ! input vector
+    integer,  intent(in)  :: INCX  ! increment along DX
+    real(dp), intent(out) :: DY(*) ! output vector
+    integer,  intent(in)  :: INCY  ! increment along DY
+  end subroutine
+  
+  ! Copies complex vector. Equivalent to ZY = ZX
+  pure subroutine zcopy(N,ZX,INCX,ZY,INCY)
+    use constants, only : dp
+    implicit none
+    
+    integer,     intent(in)  :: N     ! length of vectors
+    complex(dp), intent(in)  :: ZX(*) ! input vector
+    integer,     intent(in)  :: INCX  ! increment along ZX
+    complex(dp), intent(out) :: ZY(*) ! output vector
+    integer,     intent(in)  :: INCY  ! increment along ZY
+  end subroutine
+  
   ! Real dot product. Returns DX.DY
   pure real(dp) function ddot(N,DX,INCX,DY,INCY)
     use constants, only : dp
@@ -42,18 +81,6 @@ interface
     complex(dp), intent(in)    :: ZA    ! scalar
     complex(dp), intent(inout) :: ZX(*) ! vector
     integer,     intent(in)    :: INCX  ! increment along ZX
-  end subroutine
-  
-  ! Copies complex vector. Equivalent to ZY = ZX
-  pure subroutine zcopy(N,ZX,INCX,ZY,INCY)
-    use constants, only : dp
-    implicit none
-    
-    integer,     intent(in)  :: N     ! length of vectors
-    complex(dp), intent(in)  :: ZX(*) ! input vector
-    integer,     intent(in)  :: INCX  ! increment along ZX
-    complex(dp), intent(out) :: ZY(*) ! output vector
-    integer,     intent(in)  :: INCY  ! increment along ZY
   end subroutine
   
   ! Complex norm. Returns sqrt(X.X)
@@ -108,6 +135,18 @@ interface determinant33
 end interface
 
 contains
+
+! ----------------------------------------
+! Returns the number of states of an Eigenstuff
+! ----------------------------------------
+pure function eigenstuff_size(estuff) result(output)
+  implicit none
+  
+  type(Eigenstuff), intent(in) :: estuff
+  integer                      :: output
+  
+  output = size(estuff%evals)
+end function
 
 ! ----------------------------------------
 ! given a 3x3 matrix A, returns det(A)
@@ -167,5 +206,47 @@ subroutine inv_33(A,B)
   B(3,2) = (A(3,1)*A(1,2)-A(2,3)*A(3,2))*d
   B(3,3) = (A(1,1)*A(2,2)-A(2,3)*A(3,2))*d
 end subroutine
+
+! Calculates the eigenvalues and eigenvectors of a real, symmetric matrix
+function calculate_eigenstuff(input) result(output)
+  use utils, only : i2s
+  implicit none
+  
+  real(dp), intent(in) :: input(:,:)  ! a real, symmetric matrix
+  type(Eigenstuff)     :: output      ! the eigenvalues and eigenstates of a
+  
+  ! working variables
+  integer               :: n
+  real(dp), allocatable :: a(:,:)
+  real(dp), allocatable :: work(:)
+  integer               :: lwork
+  integer               :: info
+  
+  n = size(input,1)
+  allocate(output%evals(n))
+  allocate(output%evecs(n,n))
+  output%evecs = input
+  
+  ! calculate optimal lwork
+  allocate(work(3*n-1))
+  call dsyev('V', 'U', n, output%evecs(1,1), n, output%evals, &
+    & work(1), -1, info)
+  if (info /= 0) then
+    write(*,*) "dsyev failed, info=",trim(i2s(info))
+    stop
+  endif
+  lwork = work(1)
+  deallocate(work)
+  allocate(work(lwork))
+  
+  ! calculate eigenstuff
+  call dsyev('V', 'U', n, output%evecs(1,1), n, output%evals, &
+    & work(1), lwork, info)
+  if (info /= 0) then
+    write(*,*) "dsyev failed, info=",trim(i2s(info))
+    stop
+  endif
+  deallocate(work)
+end function
 
 end module

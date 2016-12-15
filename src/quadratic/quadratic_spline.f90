@@ -28,9 +28,7 @@ subroutine quadratic_spline()
   REAL(dp) :: X, F, DX, H, ALPHA, BETA, GAMMA, ETA
   REAL(dp),ALLOCATABLE  :: XI(:), FI(:), P2(:)
   ! For reading input data
-  INTEGER :: ierr,j
-  CHARACTER(200) :: char200
-  CHARACTER(80) :: in_file,mode
+  INTEGER :: j
 
   ! Read in number of integration points
   OPEN(1,FILE='fit_input.dat')

@@ -9,215 +9,272 @@ subroutine anharmonic()
   use constants,                   only : dp
   use utils,                       only : i2s, file_exists, count_lines
   use process,                     only : ProcessResult, system_process
-  use supercell_module,            only : Supercell, read_supercell
   use mapping_module,              only : Mapping, read_mapping
   use generate_amplitudes_module,  only : generate_amplitudes2
   use calculate_anharmonic_module, only : calculate_anharmonic2
   use quadratic_spline_module,     only : quadratic_spline2
   use vscf_1d_module,              only : VscfReturn, vscf_1d_2
+  use file_io,                     only : open_read_file, open_write_file
   implicit none
   
-  ! --------------------
-  ! parameters
-  ! --------------------
+  ! ----------------------------------------
+  ! Parameters
+  ! ----------------------------------------
   integer, parameter :: integration_points = 5000
   integer, parameter :: Nbasis = 20
   
-  ! --------------------
-  ! working variables
-  ! --------------------
-  integer                      :: no_sc           ! no. of supercells
-  character(32)                :: castep          ! seedname.castep
-  type(Mapping)                :: map             ! mapping.dat
-  type(Supercell), allocatable :: supercells(:)   ! Supercell_* info
-  integer                      :: big_point
-  integer                      :: no_kpoints      ! number of lines in ibz.dat
-  integer, allocatable         :: multiplicity(:) ! fourth column of ibz.dat
-  real(dp), allocatable        :: energy(:)
-  real(dp)                     :: frequency
-  integer                      :: cell_size
-  real(dp), allocatable        :: amplitudes(:,:)
-  real(dp), allocatable        :: spline(:,:)
-  type(VscfReturn)             :: vscf
-  logical                      :: acoustic
+  ! ----------------------------------------
+  ! Working variables
+  ! ----------------------------------------
+  ! TODO: multiplicity and no_bigpoints might be the same thing.
+  integer               :: no_supercells   ! no. of supercells
+  integer               :: no_atoms        ! no. atoms in unit cell
+  integer               :: no_modes        ! no_atoms*3
+  integer, allocatable  :: no_atoms_sc(:)  ! no. atoms in supercell
+  integer, allocatable  :: no_cells(:)     ! no_atoms_sc/no_atoms
+  character(32)         :: castep          ! seedname.castep
+  type(Mapping)         :: map             ! mapping.dat
+  integer, allocatable  :: big_points(:)   ! first column of all list.dats
+  integer               :: big_point
+  integer, allocatable  :: no_bigpoints(:) ! no. lines in Supercell_*/list.dat
+  integer, allocatable  :: sizes(:)
+  integer, allocatable  :: multiplicity(:) ! fourth column of ibz.dat
+  real(dp), allocatable :: energies(:,:,:)
+  real(dp)              :: static_energy
+  real(dp), allocatable :: frequencies(:,:) ! harmonic frequencies
+  real(dp), allocatable :: amplitudes(:,:)
+  real(dp), allocatable :: spline(:,:)
+  type(VscfReturn)      :: vscf
+  logical, allocatable  :: acoustics(:)    ! if Supercell_i/acoustic.dat exists
+  logical               :: acoustic        ! if any */acoustic.dat exists
   
   character(32)        :: k_str
   character(32)        :: l_str
   
-  ! --------------------
-  ! temporary variables
-  ! --------------------
-  integer             :: i, j, k, l  ! loop variables
-  type(ProcessResult) :: proc        ! temporary process result
-  logical             :: temp_bool
-  integer             :: no_lines    ! length of file
-  real(dp)            :: temp_real
-  character(80)       :: temp_string
-  character(80)       :: filename
-  character(80)       :: efile       ! energy file name
+  real(dp), allocatable :: eigenvals(:,:,:)
+  real(dp), allocatable :: harmonic(:,:,:)
+  
   character(80)       :: sdir        ! Supercell_*/ directory name
   
-  ! read the number of Supercell_* directories into no_sc
+  ! ----------------------------------------
+  ! Temporary variables
+  ! ----------------------------------------
+  integer             :: i, j, k, l  ! loop variables
+  type(ProcessResult) :: proc        ! temporary process result
+  real(dp)            :: temp_real
+  character(80)       :: filename
+  
+  ! ----------------------------------------
+  ! File units
+  ! ----------------------------------------
+  integer :: equilibrium_file
+  integer :: seedname_file
+  integer :: mapping_file
+  integer :: list_file
+  integer :: super_file
+  integer :: energy_file
+  integer :: frequency_file
+  integer :: ibz_file
+  integer :: result_file
+  integer :: static_energy_file
+  
+  ! ----------------------------------------
+  ! Read initial data
+  ! ----------------------------------------
+  ! read the number of Supercell_* directories into no_supercells
   proc = system_process('ls -1d Supercell_* | wc -l')
-  read(proc%stdout,*) no_sc
-  allocate(supercells(no_sc))
+  read(proc%stdout,*) no_supercells
+  
+  ! allocate arrays of size no_supercells
+  allocate(acoustics(no_supercells))
+  allocate(no_atoms_sc(no_supercells))
+  allocate(no_cells(no_supercells))
+  
+  ! read the number of atoms and modes
+  equilibrium_file = open_read_file('Supercell_1/equilibrium.dat')
+  read(equilibrium_file,*) no_atoms
+  close(equilibrium_file)
+  no_modes = no_atoms*3
   
   ! read the castep seedname into castep variable
-  open(100, file='Supercell_1/seedname.txt', status='old', action='read')
-  read(100,*) castep
-  close(100)
+  seedname_file = open_read_file('Supercell_1/seedname.txt')
+  read(seedname_file,*) castep
+  close(seedname_file)
   castep = trim(castep)//'.castep'
   
   ! read sampling data from mapping.dat
-  map = read_mapping('mapping.dat')
+  mapping_file = open_read_file('mapping.dat')
+  map = read_mapping(mapping_file)
+  close(mapping_file)
   
-  ! make anharmonic directory, and copy mapping.dat into it
-  call system('mkdir anharmonic')
-  call system('cp mapping.dat anharmonic')
-  
-  ! loop over supercells
-  do i=1,no_sc
+  ! check for Supercell_*/acoustic.dat
+  acoustic=.false.
+  do i=1,no_supercells
     sdir = 'Supercell_'//trim(i2s(i))
-    call system('cat '//trim(sdir)//'/list.dat >> anharmonic/list.dat')
-    
-    write(*,*)'Working with Supercell ',trim(i2s(i))
-    
     if (file_exists(trim(sdir)//'/acoustic.dat')) then
+      acoustics(i) = .true.
       acoustic = .true.
       call system('cp '//trim(sdir)//'/acoustic.dat anharmonic')
     else
-      acoustic = .false.
-      ! read supercell info from equilibrium.dat and super_equilibrium.dat
-      filename = trim(sdir)//'/equilibrium.dat'
-      open(unit=100, file=filename, status='old', action='read')
-      filename = trim(sdir)//'/super_equilibrium.dat'
-      open(unit=101, file=filename, status='old', action='read')
-      supercells(i) = read_supercell(100, 101)
-      close(101)
-      close(100)
-      
-      ! read list.dat line by line
-      filename = trim(sdir)//'/list.dat'
-      open(unit=100, file=filename, status='old', action='read')
-      no_lines = count_lines(100)
-      do j=1,no_lines
-        read(100,*) big_point
-        open(unit=101,&
-            &file='anharmonic/size.'//trim(i2s(big_point))//'.dat',&
-            &action='write')
-        write(101,*) supercells(i)%no_cells
-        close(101)
-        
-        do k=1,supercells(i)%no_modes
-          k_str = trim(sdir)//'/&
-            &kpoint.'//trim(i2s(big_point))//'/&
-            &configurations/&
-            &mode.'//trim(i2s(j))//'.'
-          filename = trim(k_str)//trim(i2s(map%first))//'/'//trim(castep)
-          if (file_exists(filename)) then
-            efile = 'anharmonic/&
-              &energy.'//trim(i2s(big_point))//'.'//trim(i2s(j))//'.dat'
-            do l=map%first,map%last
-              l_str = trim(k_str)//trim(i2s(k))
-              if (file_exists(trim(l_str)//'/'//trim(castep))) then
-                call system('cat '//trim(l_str)//'/energy.dat >>'//efile)
-              elseif (l==0) then ! TODO: bug? l==map%first?
-                call system('cat '//trim(sdir)//'/static/energy.dat >> &
-                  &'//efile)
-              endif
-            enddo ! loop over sampling points per mode
-          endif
-        enddo ! loop over modes
-        
-        call system('cp '//&
-          &trim(sdir)//'/kpoint.'//trim(i2s(big_point))//'/frequency.*.dat &
-          &anharmonic/')
-      enddo ! loop over list.dat
-      close(100)
-      
+      acoustics(i) = .false.
     endif
   enddo
   
-  ! Calculate anharmonic 1-dimensional correction
-  call system('cp ibz.dat anharmonic')
-  call system('cd anharmonic')
+  ! count big_points from Supercell_*/list.dat
+  allocate(no_bigpoints(no_supercells))
+  do i=1,no_supercells
+    if (acoustics(i)) then
+      no_bigpoints(i) = 0
+    else
+      sdir = 'Supercell_'//trim(i2s(i))
+      list_file = open_read_file(trim(sdir)//'/list.dat')
+      no_bigpoints(i) = count_lines(list_file)
+      close(list_file)
+    endif
+  enddo
   
-  ! read list.dat line by line
-  open(unit=100, file='list.dat', status='old', action='read')
-  no_lines = count_lines(100)
-  do i=1,no_lines
-    read(100,*) big_point
+  ! allocate arrays with size no_bigpoints
+  allocate(big_points(sum(no_bigpoints)))
+  allocate(sizes(size(big_points)))
+  
+  ! read big_points from Supercell_*/list.dat
+  j = 1
+  do i=1,no_supercells
+    if (.not. acoustics(i)) then
+      sdir = 'Supercell_'//trim(i2s(i))
+      list_file = open_read_file(trim(sdir)//'/list.dat')
+      do k=1,no_bigpoints(i)
+        read(list_file,*) big_points(j)
+        j = j + 1
+      enddo
+      close(list_file)
+    endif
+  enddo
+  
+  ! read no_atoms_sc and no_cells from Supercell_*/super_equilibrium.dat
+  do i=1,no_supercells
+    if (.not. acoustics(i)) then
+      sdir = 'Supercell_'//trim(i2s(i))
+      super_file = open_read_file(trim(sdir)//'/super_equilibrium.dat')
+      read(super_file,*) no_atoms_sc(i)
+      close(super_file)
+      no_cells(i) = no_atoms_sc(i)/no_atoms
+    endif
+  enddo
+  
+  ! allocate arguments for calculate_anharmonic
+  allocate(energies(size(big_points),no_modes,map%count))
+  allocate(frequencies(size(big_points),no_modes))
+  allocate(harmonic(size(big_points),no_modes,Nbasis))
+  allocate(eigenvals(size(big_points),no_modes,Nbasis))
+  
+  ! read multiplicity from ibz.dat
+  ibz_file = open_read_file('ibz.dat')
+  allocate(multiplicity(count_lines(ibz_file)))
+  do i=1,size(multiplicity)
+    read(ibz_file,*) temp_real, temp_real, temp_real, multiplicity(i)
+  enddo
+  close(ibz_file)
+  
+  ! read data from supercells
+  j=1
+  do i=1,no_supercells
+    if (.not. acoustics(i)) then
+      sdir = 'Supercell_'//trim(i2s(i))
+      static_energy_file = open_read_file(trim(sdir)//'/static/energy.dat')
+      read(static_energy_file,*) static_energy
+      close(static_energy_file)
       
-    ! write big_point to kpoint.dat for bs_quadratic.sh
-    ! TODO: bug? this will be overwritten many times
-    open(unit=101, file='kpoint.dat', action='write')
-    write(101,*) big_point
-    close(101)
-    
-    if (big_point/=1 .or. .not. acoustic) then
-      do j=1,supercells(no_sc)%no_modes ! TODO: bug? (also lower down)
-        ! --------------------
+      ! j is a cumulative sum of big_points
+      do j=j,j+no_bigpoints(i)-1
+        big_point = big_points(j)
+        
+        ! set sizes
+        sizes(j) = no_cells(i)
+        
+        ! read energies
+        do k=1,no_modes
+          k_str = trim(sdir)//'/&
+            &kpoint.'//trim(i2s(big_point))//'/&
+            &configurations/&
+            &mode.'//trim(i2s(k))//'.'
+          filename = trim(k_str)//trim(i2s(map%first))//'/'//trim(castep)
+          if (file_exists(filename)) then
+            do l=map%first,map%last
+              l_str = trim(k_str)//trim(i2s(l))
+              if (file_exists(trim(l_str)//'/'//trim(castep))) then
+                energy_file = open_read_file(trim(l_str)//'/energy.dat')
+                read(energy_file,*) energies(j,k,l)
+                close(energy_file)
+              else
+                energies(j,k,l) = static_energy
+              endif
+            enddo ! loop over sampling points per mode
+          endif
+          
+          ! read frequencies
+          k_str = trim(sdir)//'/kpoint.'//trim(i2s(big_point))
+          frequency_file = open_read_file(k_str//'/&
+            &frequency.'//trim(i2s(big_point))//'.'//trim(i2s(k))//'.dat')
+          read(frequency_file,*) frequencies(j,k)
+          close(frequency_file)
+          
+        enddo
+      enddo ! loop over big points
+    endif
+  enddo ! loop over supercells
+  
+  ! ----------------------------------------
+  ! Calculate anharmonic 1-dimensional correction
+  ! ----------------------------------------
+  
+  do i=1,size(big_points)
+    if (big_points(i)/=1 .or. .not. acoustic) then
+      do j=1,no_modes
+        
         ! generate amplitudes
-        ! --------------------
-        temp_string = '.'//trim(i2s(big_point))//'.'//trim(i2s(j))//'.dat'
-        if (file_exists('energy'//trim(temp_string))) then
-          allocate(energy(map%count))
-          open(unit=101, file='energy'//trim(temp_string), status='old',&
-            &action='read')
-          do k=1,map%count
-            read(101,*) energy(k)
-          enddo
-          close(101)
-          
-          open(unit=101, file='frequency'//trim(temp_string), status='old',&
-            &action='read')
-          read(101,*) frequency
-          close(101)
-          
-          open(unit=101, file='size'//trim(temp_string), status='old',&
-            &action='read')
-          read(101,*) cell_size
-          close(101)
-          
-          amplitudes = generate_amplitudes2(map,energy,frequency,cell_size)
-          deallocate(energy)
-          
-          ! --------------------
-          ! fit splines
-          ! --------------------
-          spline = quadratic_spline2(integration_points, amplitudes)
-          deallocate(amplitudes)
-          
-          ! --------------------
-          ! calculate 1-d anharmonic energy
-          ! --------------------
-          vscf = vscf_1d_2(frequency, spline(1,1), spline(2,:), Nbasis)
-          
-          deallocate(spline)
-          deallocate(vscf%anh_pot)
-          deallocate(vscf%hamiltonian)
-          deallocate(vscf%eigenvals)
-          deallocate(vscf%eigenvecs)
-          
-        endif
+        ! generate potential at {q} defined by map
+        amplitudes = generate_amplitudes2(map, energies(i,j,:),&
+          &frequencies(i,j),sizes(i))
+        
+        ! fit splines
+        ! interpolate potential onto integration_points points
+        ! min(q) and max(q) are unchanged
+        spline = quadratic_spline2(integration_points, amplitudes)
+        
+        ! calculate 1-d anharmonic energy
+        vscf = vscf_1d_2(frequencies(i,j), spline, Nbasis)
+        
+        harmonic(i,j,:) = vscf%harmonic
+        eigenvals(i,j,:) = vscf%eigenvals
+        
+        deallocate(amplitudes)
+        deallocate(spline)
+        deallocate(vscf%anh_pot)
+        deallocate(vscf%hamiltonian)
+        deallocate(vscf%harmonic)
+        deallocate(vscf%eigenvals)
+        deallocate(vscf%eigenvecs)
+        
       enddo ! loop over modes
     endif
   enddo ! loop over list.dat
   
-  ! read multiplicity and no_kpoints from ibz.dat
-  open(100, file='ibz.dat', status='old', action='read')
-  no_kpoints = count_lines(100)
-  allocate(multiplicity(no_kpoints))
-  do i=1,no_kpoints
-    read(100,*) temp_real, temp_real, temp_real, multiplicity(no_kpoints)
-  enddo
-  close(100)
+  ! ----------------------------------------
+  ! calculate free energy, F(T), for harmonic and anharmonic cases
+  ! write output to anharmonic_correction.dat
+  ! ----------------------------------------
+  call system('mkdir anharmonic')
+  result_file = open_write_file('anharmonic/anharmonic_correction.dat')
+  call calculate_anharmonic2(multiplicity,no_modes,Nbasis,harmonic,&
+    &eigenvals,result_file)
+  close(result_file)
   
-  ! call calculate_anharmonic
-  call calculate_anharmonic2(multiplicity, supercells(no_sc)%no_modes, Nbasis)
-  
+  deallocate(eigenvals)
+  deallocate(harmonic)
+  deallocate(frequencies)
+  deallocate(energies)
   deallocate(multiplicity)
-  deallocate(supercells)
 end subroutine
 
 end module

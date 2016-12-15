@@ -1,3 +1,4 @@
+#!/bin/bash
 echo "Are you sure (y/n)?"
 read answer
 

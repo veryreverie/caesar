@@ -3,11 +3,20 @@ module generate_kgrid_module
   implicit none
 contains
 
-subroutine generate_kgrid()
- USE linear_algebra,ONLY : inv_33
+subroutine generate_kgrid(filenames)
+ use linear_algebra, only : inv_33
+ use file_io,        only : open_read_file, open_write_file
 
  IMPLICIT NONE
 
+ character(32), intent(in) :: filenames(:)
+ 
+ integer :: symmetry_file
+ integer :: grid_file
+ integer :: lattice_file
+ integer :: ibz_file
+ integer :: rotated_gvectors_file
+ 
  INTEGER,PARAMETER :: dp=KIND(1.d0)
  REAL(dp),PARAMETER :: tol=1.d-8
  INTEGER :: i_symm,no_symm,no_gvectors,grid1,grid2,grid3,i_frac,j_frac,k_frac,&
@@ -16,24 +25,25 @@ subroutine generate_kgrid()
  REAL(dp),ALLOCATABLE :: ibz(:,:)
  REAL(dp) :: prim(3,3),recip(3,3),temp_frac(3),rvec(3)
  INTEGER,ALLOCATABLE :: rot_operation(:),multiplicity(:)
- INTEGER :: counter,multiplicity_total
+ INTEGER :: counter
 
 ! Read in rotation matrices for the point group
- open(1,file='symmetry.dat')
- read(1,*)no_symm
+ symmetry_file = open_read_file(filenames(1))
+ read(symmetry_file,*)no_symm
  allocate(rot_matrix(3,3,no_symm))
  do i_symm=1,no_symm
-  read(1,*)rot_matrix(1,1:3,i_symm)
-  read(1,*)rot_matrix(2,1:3,i_symm)
-  read(1,*)rot_matrix(3,1:3,i_symm)
-  read(1,*)
+  read(symmetry_file,*)rot_matrix(1,1:3,i_symm)
+  read(symmetry_file,*)rot_matrix(2,1:3,i_symm)
+  read(symmetry_file,*)rot_matrix(3,1:3,i_symm)
+  read(symmetry_file,*)
  enddo ! i_symm
- close(1)
+ close(symmetry_file)
 
 ! Generate G-vectors 
- open(1,file='grid.dat')
- read(1,*)grid1,grid2,grid3
- close(1)
+ grid_file = open_read_file(filenames(2))
+ read(grid_file,*)grid1,grid2,grid3
+ close(grid_file)
+ 
  no_gvectors=grid1*grid2*grid3
  allocate(gvecs_cart(3,no_gvectors))
  allocate(ibz(3,no_gvectors))
@@ -62,11 +72,12 @@ subroutine generate_kgrid()
  enddo ! i_vec 
 
 ! Read in primitive cell vectors
- open(1,file='lattice.dat')
- read(1,*)prim(1,1:3)
- read(1,*)prim(2,1:3)
- read(1,*)prim(3,1:3)
- close(1)
+ lattice_file = open_read_file(filenames(3))
+ read(lattice_file,*)prim(1,1:3)
+ read(lattice_file,*)prim(2,1:3)
+ read(lattice_file,*)prim(3,1:3)
+ close(lattice_file)
+ 
  call inv_33(prim,recip)
  recip=transpose(recip)
  do i_vec=1,no_gvectors
@@ -111,17 +122,15 @@ subroutine generate_kgrid()
   enddo ! j_vec
  enddo ! i_vec
 
- open(3,file='ibz.dat')
- open(4,file='rotated_gvectors.dat')
- multiplicity_total=0
+ ibz_file = open_write_file(filenames(4))
+ rotated_gvectors_file = open_write_file(filenames(5))
  do i_vec=1,no_gvectors
   if(rot_operation(i_vec)==1)then
-   write(3,*)ibz(1:3,i_vec),multiplicity(i_vec)
-   multiplicity_total=multiplicity_total+multiplicity(i_vec)
+   write(ibz_file,*)ibz(1:3,i_vec),multiplicity(i_vec)
   endif ! rot_operation
-  write(4,*)ibz(1:3,i_vec),rot_operation(i_vec)
+  write(rotated_gvectors_file,*)ibz(1:3,i_vec),rot_operation(i_vec)
  enddo ! i_vec
- close(3)
- close(4)
+ close(ibz_file)
+ close(rotated_gvectors_file)
 end subroutine
 end module

@@ -3,33 +3,39 @@ module generate_supercells_module
   IMPLICIT NONE
 CONTAINS
 
- INTEGER FUNCTION gcd(int_1,int_2)
-!----------------------------------------------------------------------!
-! Calculate the greatest common divisor of two positive integers using !
-! Euclid's algorithm.                                                  !
-!----------------------------------------------------------------------!
- IMPLICIT NONE
- INTEGER,INTENT(in) :: int_1,int_2
- INTEGER :: a,b,temp
+! ----------------------------------------------------------------------
+! Calculate the greatest common divisor of two positive integers using
+! Euclid's algorithm.
+! ----------------------------------------------------------------------
+pure function gcd(int_1,int_2) result(output)
+  implicit none
+  
+  integer, intent(in) :: int_1
+  integer, intent(in) :: int_2
+  integer             :: output
+  
+  integer :: a
+  integer :: b
+  integer :: temp
+  
+  if (a>=b) then
+    a = int_1
+    b = int_2
+  else
+    a = int_2
+    b = int_1
+  endif
+  
+  do
+    temp=mod(a,b)
+    if(temp==0)exit
+    a=b
+    b=temp
+  enddo
+  
+  output=b
 
- a=int_1 ; b=int_2
-
- if(a<b)then
-  temp=a
-  a=b
-  b=temp
- endif ! a<b
-
- do
-  temp=mod(a,b)
-  if(temp==0)exit
-  a=b
-  b=temp
- enddo
-
- gcd=b
-
- END FUNCTION gcd
+end function
 
 
  LOGICAL FUNCTION reduce_vec(vecs)
@@ -77,21 +83,6 @@ CONTAINS
  ENDDO ! i
 
  END FUNCTION reduce_vec
-
-
- FUNCTION determinant33(A)
-!-----------------------------------------------------!
-! Given a 3x3 matrix A, this function returns det(A). !
-!-----------------------------------------------------!
- IMPLICIT NONE
- REAL(dp),INTENT(in) :: A(3,3)
- REAL(dp) :: determinant33
-
- determinant33=A(1,1)*(A(2,2)*A(3,3)-A(3,2)*A(2,3))&
-  &+A(1,2)*(A(3,1)*A(2,3)-A(2,1)*A(3,3))&
-  &+A(1,3)*(A(2,1)*A(3,2)-A(3,1)*A(2,2))
-
- END FUNCTION determinant33
 
 
  SUBROUTINE supercells_generator(num_pcells,num_hnf,hnf)
@@ -194,192 +185,109 @@ CONTAINS
 
  END SUBROUTINE minkowski_reduce
 
-
- SUBROUTINE inv33(v,inv)
-!-----------------------!
-! Inverts 3x3 matrices. !
-!-----------------------!
- IMPLICIT NONE
- REAL(dp),INTENT(in) :: v(3,3)
- REAL(dp),INTENT(out) :: inv(3,3)
- REAL(dp) :: d
-
- d=determinant33(v)
- if(d==0.d0)then
-  write(*,*)'Trying to invert a singular determinant.'
-  stop
- endif ! d
- d=1.d0/d
- inv(1,1)=(v(2,2)*v(3,3)-v(2,3)*v(3,2))*d
- inv(1,2)=(v(3,2)*v(1,3)-v(1,2)*v(3,3))*d
- inv(1,3)=(v(1,2)*v(2,3)-v(1,3)*v(2,2))*d
- inv(2,1)=(v(3,1)*v(2,3)-v(2,1)*v(3,3))*d
- inv(2,2)=(v(1,1)*v(3,3)-v(3,1)*v(1,3))*d
- inv(2,3)=(v(2,1)*v(1,3)-v(1,1)*v(2,3))*d
- inv(3,1)=(v(2,1)*v(3,2)-v(2,2)*v(3,1))*d
- inv(3,2)=(v(3,1)*v(1,2)-v(1,1)*v(3,2))*d
- inv(3,3)=(v(1,1)*v(2,2)-v(1,2)*v(2,1))*d
-
- END SUBROUTINE inv33
-
-
+! ----------------------------------------
+! GENERATE_SUPERCELLS
+! ----------------------------------------
 subroutine generate_supercells()
-!---------------------!
-! GENERATE_SUPERCELLS !
-!---------------------!
- USE utils
- IMPLICIT NONE
- REAL(dp),PARAMETER :: tol=1.d-10
- INTEGER,ALLOCATABLE :: multiplicity(:),int_kpoints(:,:),numerator(:,:),&
-  &denominator(:,:),super_size(:),label(:)
- INTEGER :: i,j,k,p,q,r,grid(1:3),ialloc,ierr,istat,lcm,num_kpoints,count,&
-  &s11,s12,s13,s22,s23,s33,quotient,hnf(3,3),size_count
- REAL(dp),ALLOCATABLE :: kpoints(:,:)
- REAL(dp) :: prim_latt_vecs(3,3),rec_latt_vecs(3,3),temp_latt_vecs(3,3),&
-  &temp_scell(3,3),prim(3)
- LOGICAL,ALLOCATABLE :: found_kpoint(:)
- LOGICAL :: found
+  use utils
+  use linear_algebra, only : inv_33
+  use file_io,        only : open_read_file, open_write_file
+  IMPLICIT NONE
+  
+  REAL(dp),PARAMETER :: tol=1.d-10
+  INTEGER,ALLOCATABLE :: multiplicity(:),int_kpoints(:,:),numerator(:,:),&
+    &denominator(:,:),super_size(:),label(:)
+  INTEGER :: i,j,k,grid(1:3),ialloc,ierr,istat,lcm,num_kpoints,count,&
+    &s11,s12,s13,s22,s23,s33,quotient,hnf(3,3),size_count
+  REAL(dp),ALLOCATABLE :: kpoints(:,:)
+  REAL(dp) :: prim_latt_vecs(3,3),rec_latt_vecs(3,3),temp_latt_vecs(3,3),&
+    &temp_scell(3,3),prim(3)
+  LOGICAL,ALLOCATABLE :: found_kpoint(:)
+  
+  ! file units
+  integer :: lattice_file   ! lattice.dat
+  integer :: grid_file      ! grid.dat
+  integer :: ibz_file       ! ibz.dat
+  integer :: k_t_s_file     ! kpoint_to_supercell.dat
+  integer :: supercell_file ! Supercell_*/supercell.dat
+  integer :: size_file      ! Supercell_*/size.dat
+  
+  ! Get the primitice cell lattice vectors
+  lattice_file = open_read_file('lattice.dat')
+  read(lattice_file,*)prim_latt_vecs(1,1:3)
+  read(lattice_file,*)prim_latt_vecs(2,1:3)
+  read(lattice_file,*)prim_latt_vecs(3,1:3)
+  close(lattice_file)
+  
+  ! Get the dimensions of the k-point grid
+  grid_file = open_read_file('grid.dat')
+  read(grid_file,*)grid(1:3)
+  close(grid_file)
+  
+  call inv_33(prim_latt_vecs,rec_latt_vecs)
+  rec_latt_vecs=transpose(rec_latt_vecs)
 
-! Get the primitice cell lattice vectors
- open(unit=11,file='lattice.dat',status='old',iostat=ierr)
- if(ierr/=0)then
-  write(*,*)'Problem opening lattice.dat file.'
-  stop
- endif ! ierr
- read(11,*,iostat=ierr)prim_latt_vecs(1,1:3)
- if(ierr==0)read(11,*,iostat=ierr)prim_latt_vecs(2,1:3)
- if(ierr==0)read(11,*,iostat=ierr)prim_latt_vecs(3,1:3)
- if(ierr/=0)then
-  write(*,*)'Problem reading lattice.dat file.'
-  stop
- endif ! ierr
- close(11)
-
-! Get the dimensions of the k-point grid
- open(unit=11,file='grid.dat',status='old',iostat=ierr)
- if(ierr/=0)then
-  write(*,*)'Problem opening grid.dat file.'
-  stop
- endif ! ierr
- read(11,*,iostat=ierr)grid(1:3)
- if(ierr/=0.or.any(grid(1:3)==0))then
-  write(*,*)'Problem reading grid.dat file.'
-  stop
- endif ! ierr
- close(11)
-
- call inv33(prim_latt_vecs,rec_latt_vecs)
- rec_latt_vecs=transpose(rec_latt_vecs)
-
-! Get the number of k-points in the ibz.dat file
- call system("echo $(wc -l ibz.dat | awk '{print $1}') > tempfile.dat",istat)
- if(istat/=0)then
-  write(*,*)'Problem counting the number of lines in ibz.dat.'
-  stop
- endif
- open(unit=10,file='tempfile.dat',status='old',iostat=ierr)
- if(ierr/=0)then
-  write(*,*)'Problem opening tempfile.dat.'
-  stop
- endif
- read(10,*,iostat=ierr)num_kpoints
- if(ierr/=0)then
-  write(*,*)'Problem reading tempfile.dat.'
-  stop
- endif
- close(10,status='delete')
-
-! Allocate some arrays
- allocate(kpoints(3,num_kpoints),multiplicity(num_kpoints),stat=ialloc)
- if(ialloc/=0)then
-  write(*,*)'Problem allocating kpoints and multiplicity arrays.'
-  stop
- endif
-
-! Read ibz.dat file
- open(unit=11,file='ibz.dat',status='old',iostat=ierr)
- if(ierr/=0)then
-  write(*,*)'Problem opening ibz.dat.'
-  stop
- endif ! ierr
- do i=1,num_kpoints
-  read(11,*,iostat=ierr)kpoints(1:3,i),multiplicity(i)
-  if(ierr/=0)then
-   write(*,*)'Problem reading ibz.dat.'
-   stop
-  endif ! ierr
- enddo ! i
- close(11)
-
-! Allocate some more arrays
- allocate(int_kpoints(3,num_kpoints),numerator(3,num_kpoints),&
-  &denominator(3,num_kpoints),super_size(num_kpoints),&
-  &found_kpoint(num_kpoints),label(num_kpoints),stat=ialloc)
- if(ialloc/=0)then
-  write(*,*)'Problem allocating int_kpoints array.'
-  stop
- endif ! ialloc
-
-! Express k-points as fractions
- do i=1,num_kpoints
-  found=.false.
-  do p=-grid(1),grid(1)
-   do q=-grid(2),grid(2)
-    do r=-grid(3),grid(3)
-     if(abs(dble(p)/dble(grid(1))-kpoints(1,i))<tol)then
-      if(abs(dble(q)/dble(grid(2))-kpoints(2,i))<tol)then
-       if(abs(dble(r)/dble(grid(3))-kpoints(3,i))<tol)then
-        int_kpoints(1,i)=p
-        int_kpoints(2,i)=q
-        int_kpoints(3,i)=r
-        found=.true.
-       endif ! r      
-      endif ! q
-     endif ! p
-     if(found)exit
-    enddo ! r
-    if(found)exit
-   enddo ! q
-   if(found)exit
-  enddo ! p
-  if(.not.found)then
-   write(*,*)'Unable to find fractional representation of k-point.'
-   stop
-  endif ! found
- enddo ! i
-
- numerator(1:3,1:num_kpoints)=0
- denominator(1:3,1:num_kpoints)=1
-
-! Reduce fractions
- do i=1,num_kpoints
-  do j=1,3
-   if(int_kpoints(j,i)/=0)then
-    numerator(j,i)=int_kpoints(j,i)/gcd(abs(int_kpoints(j,i)),grid(j))
-    denominator(j,i)=grid(j)/gcd(abs(int_kpoints(j,i)),grid(j))
-   endif ! int_kpoints
-  enddo ! j
-  lcm=denominator(2,i)*denominator(3,i)/gcd(denominator(2,i),denominator(3,i))
-  lcm=denominator(1,i)*lcm/gcd(denominator(1,i),lcm)
-  super_size(i)=lcm
- enddo ! i
-
- found_kpoint(1:num_kpoints)=.false.
- label(1:num_kpoints)=0
- count=0
-
- open(unit=13,file='kpoint_to_supercell.dat',status='replace',iostat=ierr)
- if(ierr/=0)then
-  write(*,*)'Problem opening kpoint_to_supercell.dat file.'
-  stop
- endif ! ierr
-
- open(unit=14,file='ibz.dat',status='replace',iostat=ierr)
- if(ierr/=0)then
-  write(*,*)'Problem opening ibz.dat file.'
-  stop
- endif ! ierr
-
+  ! Get the number of k-points in the ibz.dat file
+  ibz_file = open_read_file('ibz.dat')
+  num_kpoints = count_lines(ibz_file)
+  
+  ! Allocate arrays
+  allocate( kpoints(3,num_kpoints),     &
+          & multiplicity(num_kpoints),  &
+          & int_kpoints(3,num_kpoints), &
+          & numerator(3,num_kpoints),   &
+          & denominator(3,num_kpoints), &
+          & super_size(num_kpoints),    &
+          & found_kpoint(num_kpoints),  &
+          & label(num_kpoints),         &
+          & stat=ialloc)
+  if(ialloc/=0)then
+    write(*,*)'Problem allocating arrays.'
+    stop
+  endif
+  
+  ! Read ibz.dat file
+  do i=1,num_kpoints
+    read(ibz_file,*) kpoints(1:3,i),multiplicity(i)
+  enddo
+  close(ibz_file)
+  
+  ! Express k-points as fractions
+  do i=1,num_kpoints
+    do j=1,3
+      int_kpoints(j,i) = nint(kpoints(j,i)*grid(j))
+      if (dabs(dble(int_kpoints(j,i))/dble(grid(j))-kpoints(j,i)) >= tol) then
+        write(*,*) 'Unable to find fractional representation of k-point.'
+        stop
+      endif
+    enddo
+  enddo
+  
+  numerator(1:3,1:num_kpoints)=0
+  denominator(1:3,1:num_kpoints)=1
+  
+  ! Reduce fractions
+  do i=1,num_kpoints
+    do j=1,3
+      if(int_kpoints(j,i)/=0)then
+        numerator(j,i)=int_kpoints(j,i)/gcd(abs(int_kpoints(j,i)),grid(j))
+        denominator(j,i)=grid(j)/gcd(abs(int_kpoints(j,i)),grid(j))
+      endif ! int_kpoints
+    enddo ! j
+    lcm = denominator(2,i)*denominator(3,i) &
+      & / gcd(denominator(2,i),denominator(3,i))
+    lcm = denominator(1,i)*lcm &
+      & / gcd(denominator(1,i),lcm)
+    super_size(i)=lcm
+  enddo ! i
+  
+  found_kpoint(1:num_kpoints)=.false.
+  label(1:num_kpoints)=0
+  count=0
+  
+  k_t_s_file = open_write_file('kpoint_to_supercell.dat')
+  ibz_file = open_write_file('ibz.dat')
+  
  do size_count=1,maxval(super_size(1:num_kpoints))
   do i=1,num_kpoints
    if(super_size(i)/=size_count)cycle
@@ -405,8 +313,8 @@ subroutine generate_supercells()
          count=count+1
          found_kpoint(i)=.true.
          label(i)=count
-         write(13,*)kpoints(1:3,i),label(i)
-         write(14,*)kpoints(1:3,i),multiplicity(i)
+         write(k_t_s_file,*)kpoints(1:3,i),label(i)
+         write(ibz_file,*)kpoints(1:3,i),multiplicity(i)
          do j=i+1,num_kpoints
           if(found_kpoint(j))cycle
           if(super_size(j)/=super_size(i))cycle
@@ -416,8 +324,8 @@ subroutine generate_supercells()
           if(all(abs(prim(1:3)-dble(nint(prim(1:3))))<tol))then
            found_kpoint(j)=.true.
            label(j)=count
-           write(13,*)kpoints(1:3,j),label(j)
-           write(14,*)kpoints(1:3,j),multiplicity(j)
+           write(k_t_s_file,*)kpoints(1:3,j),label(j)
+           write(ibz_file,*)kpoints(1:3,j),multiplicity(j)
           endif ! tol
          enddo ! j
          do k=1,3
@@ -431,24 +339,19 @@ subroutine generate_supercells()
            hnf(k,j)=nint(sum(temp_latt_vecs(k,1:3)*rec_latt_vecs(j,1:3)))  
           enddo ! j
          enddo ! k
-         open(unit=12,file='supercell.'//trim(i2s(count))//'.dat',&
-          &status='replace',iostat=ierr)
-         if(ierr/=0)then
-          write(*,*)'Problem opening supercell.'//trim(i2s(count))//'.dat file.'
-          stop
-         endif ! ierr
-         write(12,*)hnf(1,1:3)
-         write(12,*)hnf(2,1:3)
-         write(12,*)hnf(3,1:3)
-         close(12)
-         open(unit=12,file='size.'//trim(i2s(count))//'.dat',&
-          &status='replace',iostat=ierr)
-         if(ierr/=0)then
-          write(*,*)'Problem opening size.'//trim(i2s(count))//'.dat file.'
-          stop
-         endif ! ierr
-         write(12,*)super_size(i)
-         close(12)
+         
+         call system('mkdir Supercell_'//trim(i2s(count)))
+         supercell_file = open_write_file('Supercell_'//trim(i2s(count))//&
+          &'/supercell.dat')
+         write(supercell_file,*)hnf(1,1:3)
+         write(supercell_file,*)hnf(2,1:3)
+         write(supercell_file,*)hnf(3,1:3)
+         close(supercell_file)
+         size_file = open_write_file('Supercell_'//trim(i2s(count))//&
+          &'/size.dat')
+         write(size_file,*)super_size(i)
+         close(size_file)
+         
         endif ! tol
         if(found_kpoint(i))exit
        enddo ! s23
@@ -463,11 +366,12 @@ subroutine generate_supercells()
   enddo ! i
  enddo ! size_count
 
- close(13) ; close(14)
+  close(ibz_file)
+  close(k_t_s_file)
 
- if(any(.not.found_kpoint(1:num_kpoints)))then
-  write(*,*)'Unable to allocate each k-point to a supercell matrix.'
-  stop
- endif ! found_kpoint
+  if(any(.not.found_kpoint(1:num_kpoints)))then
+    write(*,*)'Unable to allocate each k-point to a supercell matrix.'
+    stop
+  endif ! found_kpoint
 end subroutine
 end module

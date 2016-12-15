@@ -2,65 +2,77 @@ module construct_finite_displacement_module
   implicit none
 contains
 
-subroutine construct_finite_displacement()
+subroutine construct_finite_displacement(filenames)
+  use constants, only : dp
+  use file_io,   only : open_read_file, open_write_file
   implicit none
-  integer,parameter :: dp=kind(1.d0)
-  ! Working variables
-  integer :: i
+  
+  character(32), intent(in) :: filenames(:)
+  
   ! Input variables
   integer :: atom,disp,no_atoms
   real(dp) :: lattice(3,3)
   real(dp),allocatable :: atoms(:,:),mass(:)
   character(2),allocatable :: species(:)
+  
+  ! file units
+  integer :: disp_file              ! disp.dat
+  integer :: super_lattice_file     ! super_lattice.dat
+  integer :: super_equilibrium_file ! super_equilibrium.dat
+  integer :: positive_file          ! positive/structure.dat
+  integer :: negative_file          ! negative/structure.dat
+  
+  integer :: i ! loop index
 
   ! Read in displacement
-  open(1,file='disp.dat')
-  read(1,*)atom,disp 
-  close(1)
+  disp_file = open_read_file(filenames(1))
+  read(disp_file,*) atom, disp
+  close(disp_file)
 
   ! Read in structure
-  open(1,file='super_lattice.dat')
-  read(1,*)lattice(1,:)
-  read(1,*)lattice(2,:)
-  read(1,*)lattice(3,:)
-  close(1)
-  open(1,file='super_equilibrium.dat')
-  read(1,*)no_atoms
+  super_lattice_file = open_read_file(filenames(2))
+  read(super_lattice_file,*) lattice(1,:)
+  read(super_lattice_file,*) lattice(2,:)
+  read(super_lattice_file,*) lattice(3,:)
+  close(super_lattice_file)
+  
+  super_equilibrium_file = open_read_file(filenames(3))
+  read(super_equilibrium_file,*) no_atoms
   allocate(atoms(no_atoms,3),mass(no_atoms),species(no_atoms))
   do i=1,no_atoms 
-    read(1,*)species(i),mass(i),atoms(i,:)
-  enddo ! i
-  close(1)
+    read(super_equilibrium_file,*)species(i),mass(i),atoms(i,:)
+  enddo
+  close(super_equilibrium_file)
 
   ! Generate distorted structure
-  open(1,file='positive.dat')
-  open(2,file='negative.dat')
-  write(1,*)'Lattice'
-  write(2,*)'Lattice'
+  positive_file = open_write_file(filenames(4))
+  negative_file = open_write_file(filenames(5))
+  write(positive_file,*)'Lattice'
+  write(negative_file,*)'Lattice'
   do i=1,3
-    write(1,*)lattice(i,:)
-    write(2,*)lattice(i,:)
+    write(positive_file,*)lattice(i,:)
+    write(negative_file,*)lattice(i,:)
   enddo ! i
-  write(1,*)'Atoms'
-  write(2,*)'Atoms'
+  write(positive_file,*)'Atoms'
+  write(negative_file,*)'Atoms'
   do i=1,no_atoms
     if(i==atom)then
       atoms(i,disp)=atoms(i,disp)+0.01d0
     endif ! i==atom
-    write(1,*)species(i),mass(i),atoms(i,:)
+    write(positive_file,*)species(i),mass(i),atoms(i,:)
   enddo ! i
   do i=1,no_atoms
     if(i==atom)then
       atoms(i,disp)=atoms(i,disp)-0.02d0
     endif ! i==atom
-    write(2,*)species(i),mass(i),atoms(i,:)
+    write(negative_file,*)species(i),mass(i),atoms(i,:)
   enddo ! i
-  write(1,*)'Symmetry'
-  write(2,*)'Symmetry'
-  write(1,*)'End'
-  write(2,*)'End'
-  close(1)
-  close(2)
+  write(positive_file,*)'Symmetry'
+  write(negative_file,*)'Symmetry'
+  write(positive_file,*)'End'
+  write(negative_file,*)'End'
+  close(positive_file)
+  close(negative_file)
 
 end subroutine
 end module

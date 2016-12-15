@@ -130,65 +130,53 @@ subroutine calculate_anharmonic()
 end subroutine
 
 ! as above, but takes arguments rather than reading from files
-subroutine calculate_anharmonic2(multiplicity, no_modes, Nbasis)
-  use utils, only : i2s
+subroutine calculate_anharmonic2(multiplicity, no_modes, Nbasis, harmonic,&
+    &eigenvals, result_file_unit)
+  use utils,     only : i2s
+  use constants, only : kB
   implicit none
   
-  integer, allocatable, intent(in) :: multiplicity(:)
-  integer,              intent(in) :: no_modes
-  integer,              intent(in) :: Nbasis
+  integer,  intent(in) :: multiplicity(:)
+  integer,  intent(in) :: no_modes
+  integer,  intent(in) :: Nbasis
+  real(dp), intent(in) :: harmonic(:,:,:)
+  real(dp), intent(in) :: eigenvals(:,:,:)
+  integer,  intent(in) :: result_file_unit
   
   integer :: no_kpoints ! number of kpoints, = size(multiplicity)
   
-  real(dp) :: temperature=0.0,dtemperature=50.0,thermal
-
-  ! Input variables
-  real(dp),allocatable :: eigenvals(:,:,:),harmonic(:,:,:)
+  ! temperature variables
+  real(dp), parameter :: dtemperature=50.0d0       ! delta T (K)
+  integer,  parameter :: no_temperatures=21
+  real(dp)            :: thermals(no_temperatures) ! {kB*T}
+  real(dp)            :: thermal
 
   ! Working variables
   integer :: i,j,k,l
-  integer :: total_kpoints,dump_int
-  real(dp) :: dump_real,renormalised_eigenvals,renormalised_harmonic
+  integer :: total_kpoints
+  real(dp) :: renormalised_eigenvals,renormalised_harmonic
   real(dp),allocatable :: part_fn(:,:,:),har_part_fn(:,:,:)
-  character(80) :: filename,c_kp,c_at
-  logical :: file_exists
   
   ! get the number of kpoints
   no_kpoints = size(multiplicity)
   
   ! calculate total kpoints
-  total_kpoints=0
-  do i=1,no_kpoints
-    total_kpoints=total_kpoints+multiplicity(i)
-  enddo ! i
+  total_kpoints = sum(multiplicity)
 
   ! Allocate various arrays
-  allocate(eigenvals(no_kpoints,no_modes,Nbasis))
-  allocate(harmonic(no_kpoints,no_modes,Nbasis))
   allocate(part_fn(no_kpoints,no_modes,21))
   allocate(har_part_fn(no_kpoints,no_modes,21))
-
-  ! Read in anharmonic eigenvals
-  harmonic=0.d0; eigenvals=0.d0
-  do i=1,no_kpoints
-    do j=1,no_modes
-      filename=trim('eigenvals.')//trim(i2s(i))//trim('.')//trim(i2s(j))//&
-        &trim('.dat')
-      open(1,file=filename)
-      do k=1,Nbasis
-        read(1,*)dump_int,harmonic(i,j,k),eigenvals(i,j,k)
-      enddo ! k
-      close(1)
-    enddo ! j
-  enddo ! i
+  
+  ! calculate thermal energies
+  do i=1,size(thermals)
+    thermals(i) = (i-1)*dtemperature*kB
+  enddo
 
   ! Calculate partition function
-  temperature=-dtemperature
   part_fn=0.d0
   har_part_fn=0.d0
-  do l=1,21
-    temperature=temperature+dtemperature
-    thermal=temperature*8.6173324E-5
+  do l=1,size(thermals)
+    thermal = thermals(l)
     do i=1,no_kpoints
       do j=1,no_modes
         do k=1,Nbasis
@@ -200,12 +188,11 @@ subroutine calculate_anharmonic2(multiplicity, no_modes, Nbasis)
   enddo ! l
 
   ! Calculate anharmonic vibrational correction
-  open(1,file='anharmonic_correction.dat')
-  temperature=-dtemperature
-  do l=1,21 ! loop over temperature
-    renormalised_eigenvals=0.d0; renormalised_harmonic=0.d0
-    temperature=temperature+dtemperature
-    if(temperature<1.d-5)then
+  do l=1,size(thermals)
+    thermal = thermals(l)
+    renormalised_eigenvals=0.d0
+    renormalised_harmonic=0.d0
+    if (l==1) then ! T=0
       do i=1,no_kpoints
         do j=1,no_modes
           renormalised_eigenvals=renormalised_eigenvals+&
@@ -214,8 +201,7 @@ subroutine calculate_anharmonic2(multiplicity, no_modes, Nbasis)
            &harmonic(i,j,1)*multiplicity(i)/total_kpoints
         enddo ! j
       enddo ! i
-    else
-       thermal=temperature*8.6173324E-5
+    else ! T /= 0
        do i=1,no_kpoints
          do j=1,no_modes
            renormalised_eigenvals=renormalised_eigenvals+&
@@ -225,8 +211,9 @@ subroutine calculate_anharmonic2(multiplicity, no_modes, Nbasis)
          enddo ! j
        enddo ! i
     endif ! T>0
-    write(1,*)temperature,renormalised_harmonic,renormalised_eigenvals
+    write(result_file_unit,*) thermal/kB,&
+                            & renormalised_harmonic,&
+                            & renormalised_eigenvals
   enddo ! l
-  close(1)
 end subroutine
 end module
