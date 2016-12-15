@@ -17,81 +17,9 @@ module quadratic_spline_module
   implicit none
 contains
 
-subroutine quadratic_spline()
-  use constants, only : dp
 ! An example of creating cubic-spline approximation of
 ! a discrete function fi=f(xi).
-!
-  IMPLICIT NONE
-  INTEGER :: N, M, P
-  INTEGER :: I, K
-  REAL(dp) :: X, F, DX, H, ALPHA, BETA, GAMMA, ETA
-  REAL(dp),ALLOCATABLE  :: XI(:), FI(:), P2(:)
-  ! For reading input data
-  INTEGER :: j
-
-  ! Read in number of integration points
-  OPEN(1,FILE='fit_input.dat')
-  READ(1,*)N,M
-  CLOSE(1)
-  !N=N-1
- 
-  ALLOCATE(XI(N+1),FI(N+1),P2(N+1))
-
-  OPEN(1,FILE='fit_energy.dat')
-  DO j=1,N+1
-    READ(1,*)XI(j),FI(j)
-  !  WRITE(*,*)XI(j),FI(j)
-  ENDDO ! N
-
-
-  CALL CUBIC_SPLINE(N, XI, FI, P2)
-
-!
-! Find the approximation of the function
-!
-  
-  
-  OPEN(1,FILE='indep_pot.dat')
-  write(1,*)XI(1),FI(1)
-  H = (XI(N+1)-XI(1))/M 
-  X = XI(1)
-  
-  P=M-1
-  
-  DO I = 1, P
-      X = X + H
-!
-! Find the interval that x resides
-    K = 1
-    DX = X-XI(1)
-    DO WHILE (DX .GE. 0)
-      K = K + 1
-      DX = X-XI(K)
-    END DO
-    K = K - 1
-!
-! Find the value of function f(x)
-    DX = XI(K+1) - XI(K)
-    ALPHA = P2(K+1)/(6*DX)
-    BETA = -P2(K)/(6*DX)
-    GAMMA = FI(K+1)/DX - DX*P2(K+1)/6
-    ETA = DX*P2(K)/6 - FI(K)/DX
-    F = ALPHA*(X-XI(K))*(X-XI(K))*(X-XI(K)) &
-       +BETA*(X-XI(K+1))*(X-XI(K+1))*(X-XI(K+1)) &
-       +GAMMA*(X-XI(K))+ETA*(X-XI(K+1))
-    WRITE (1, *) X, F
-  END DO
-  CLOSE(1)
-
-end subroutine
-
-
-! as above, but takes arguments rather than reading files
-! n.b. n is 'N+1' above.
-! An example of creating cubic-spline approximation of
-! a discrete function fi=f(xi).
-pure function quadratic_spline2(m,xifi) result(output)
+pure function quadratic_spline(m,xifi) result(output)
   use constants, only : dp
   implicit none
   

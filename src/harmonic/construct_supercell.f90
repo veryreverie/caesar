@@ -8,6 +8,7 @@ subroutine construct_supercell()
   USE constants
   USE utils
   use linear_algebra, only : determinant33
+  use is_in_supercell_module, only : is_in_supercell
   IMPLICIT NONE
   ! Working variables
   INTEGER :: i,j,k,atom_counter,delta

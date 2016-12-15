@@ -33,7 +33,7 @@ for i in $(seq 1 ${TOTAL}) ; do
 
  cd lte/
 
- caesar lte > lte2.out
+ caesar lte 0.00001 0.00001 0.01 > lte2.out
  
  cp atoms_in_primitive_cell.dat ../../lte/atoms_in_primitive_cell.${i}.dat
 

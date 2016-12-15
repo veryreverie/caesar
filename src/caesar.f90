@@ -1,7 +1,8 @@
 program caesar
-  use utils,   only : command_line_args, i2s
-  use process, only : ProcessResult, system_process
-  use file_io, only : open_write_file, open_read_file
+  use constants, only : dp
+  use utils,     only : command_line_args, i2s
+  use process,   only : ProcessResult, system_process
+  use file_io,   only : open_write_file, open_read_file
   
   ! use harmonic modules
   use combine_forces_module,        only : combine_forces
@@ -25,15 +26,15 @@ program caesar
   ! use quadratic modules
   use anharmonic_module,           only : anharmonic
   use band_folding_module,         only : band_folding
-  use calculate_anharmonic_module, only : calculate_anharmonic
+!  use calculate_anharmonic_module, only : calculate_anharmonic
   use calculate_bs_module,         only : calculate_bs
   use calculate_gap_module,        only : calculate_gap
-  use generate_amplitudes_module,  only : generate_amplitudes
+!  use generate_amplitudes_module,  only : generate_amplitudes
   use generate_quadratic_configurations_module,&
     &only : generate_quadratic_configurations
   use generate_sc_path_module,     only : generate_sc_path
-  use quadratic_spline_module,     only : quadratic_spline
-  use vscf_1d_module,              only : vscf_1d
+!  use quadratic_spline_module,     only : quadratic_spline
+!  use vscf_1d_module,              only : vscf_1d
   
   implicit none
   
@@ -41,7 +42,10 @@ program caesar
   character(32), allocatable :: args(:)       ! command line arguments
   character(:),  allocatable :: arg           ! command line argument
   integer                    :: return_status ! system() status
-
+  
+  ! lte variables
+  real(dp) :: tol,tol2,delta
+  
   ! read in command line arguments
   args = command_line_args()
   
@@ -97,8 +101,8 @@ program caesar
   ! Wrappers for Fortran 
   elseif (arg == 'band_folding') then
     call band_folding()
-  elseif (arg == 'calculate_anharmonic') then
-    call calculate_anharmonic()
+!  elseif (arg == 'calculate_anharmonic') then
+!    call calculate_anharmonic()
   elseif (arg == 'calculate_bs') then
     call calculate_bs()
   elseif (arg == 'calculate_gap') then
@@ -119,8 +123,8 @@ program caesar
     call equilibrium_frac()
   elseif (arg == 'fourier_interpolation') then
     call fourier_interpolation()
-  elseif (arg == 'generate_amplitudes') then
-    call generate_amplitudes()
+!  elseif (arg == 'generate_amplitudes') then
+!    call generate_amplitudes()
   elseif (arg == 'generate_kgrid') then
     call generate_kgrid(args(2:))
   elseif (arg == 'generate_quadratic_configurations') then
@@ -132,13 +136,19 @@ program caesar
   elseif (arg == 'generate_supercells') then
     call generate_supercells()
   elseif (arg == 'lte') then
-    call lte()
+    read(args(2),*) tol
+    read(args(3),*) tol2
+    read(args(4),*) delta
+    call lte(tol,tol2,delta)
   elseif (arg == 'lte_lower') then
-    call lte_lower()
-  elseif (arg == 'quadratic_spline') then
-    call quadratic_spline()
-  elseif (arg == 'vscf_1d') then
-    call vscf_1d()
+    read(args(2),*) tol
+    read(args(3),*) tol2
+    read(args(4),*) delta
+    call lte_lower(tol,tol2,delta)
+!  elseif (arg == 'quadratic_spline') then
+!    call quadratic_spline()
+!  elseif (arg == 'vscf_1d') then
+!    call vscf_1d()
   ! wrappers for shell scripts
   elseif (arg == 'anharmonic') then
     return_status = system(arg//'.sh')

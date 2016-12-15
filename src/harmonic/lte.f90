@@ -97,88 +97,6 @@
 ! 17/06/11 Introduced BLAS & LAPACK.  Fixed bug in randomisation of theta for
 !          speed-of-sound calculation.
 
-MODULE min_images
-  ! Subroutines for the calculation of minimum-image distances.
-  USE utils,ONLY : dp,errstop
-  IMPLICIT NONE
-  ! Maximum possible number of images.
-  INTEGER,PARAMETER :: maxim=8
-
-
-CONTAINS
-
-
-  SUBROUTINE min_images_brute_force(a,lat_vec,rec_vec,b,nim)
-    ! This subroutine computes the minimum image vector(s) b of
-    ! vector a with respect to the lattice specified by the columns of 
-    ! lat_vec.  rec_vec are the reciprocal lattice vectors (w/o 2pi).
-    ! -b is the vector from a to its closest lattice point.  nim is the number
-    ! of image vectors.
-    IMPLICIT NONE
-    REAL(dp),INTENT(in) :: a(3),lat_vec(3,3),rec_vec(3,3)
-    REAL(dp),INTENT(out) :: b(3,maxim)
-    INTEGER,INTENT(out) :: nim
-    REAL(dp) :: Delta1(3),Delta2(3),Delta3(3),mag_b_sq,dist2,tol_L2
-    INTEGER :: n(3),i,j,k
-    ! Number of "shells" of lattice points to check.  Only used in setup, so
-    ! may as well overkill.
-    INTEGER,PARAMETER :: check_shell=3
-    REAL(dp),PARAMETER :: tol=1.d-9
-    tol_L2=tol*DOT_PRODUCT(lat_vec(1:3,1),lat_vec(1:3,1))
-    n(1)=FLOOR(DOT_PRODUCT(a(1:3),rec_vec(1:3,1)))
-    n(2)=FLOOR(DOT_PRODUCT(a(1:3),rec_vec(1:3,2)))
-    n(3)=FLOOR(DOT_PRODUCT(a(1:3),rec_vec(1:3,3)))
-    mag_b_sq=-1.d0
-    nim=-1
-    DO i=n(1)-check_shell,n(1)+check_shell+1
-      Delta1=a-DBLE(i)*lat_vec(1:3,1)
-      DO j=n(2)-check_shell,n(2)+check_shell+1
-        Delta2=Delta1-DBLE(j)*lat_vec(1:3,2)
-        DO k=n(3)-check_shell,n(3)+check_shell+1
-          Delta3=Delta2-DBLE(k)*lat_vec(1:3,3)
-          dist2=DOT_PRODUCT(Delta3,Delta3)
-          IF(ABS(dist2-mag_b_sq)<=tol_L2)THEN
-            nim=nim+1
-            IF(nim>maxim)CALL errstop('MIN_IMAGES_BRUTE_FORCE', &
-              &'Need to increase maxim parameter.')
-            b(1:3,nim)=Delta3(1:3)
-          ELSEIF(dist2<mag_b_sq.OR.nim==-1)THEN
-            mag_b_sq=dist2
-            nim=1
-            b(1:3,1)=Delta3(1:3)
-          ENDIF
-        ENDDO ! k
-      ENDDO ! j
-    ENDDO ! i
-    IF(nim<=0)CALL errstop('MIN_IMAGES_BRUTE_FORCE','Bug.')
-  END SUBROUTINE min_images_brute_force
-
-
-  LOGICAL FUNCTION is_lat_point(rvec,rec_vec)
-    ! This function returns T if and only if rvec is a lattice vector.  rec_vec
-    ! holds the reciprocal lattice vectors.
-    IMPLICIT NONE
-    REAL(dp),INTENT(in) :: rvec(3),rec_vec(3,3)
-    REAL(dp) :: t
-    REAL(dp),PARAMETER :: tol=1.d-3
-    t=DOT_PRODUCT(rvec,rec_vec(1:3,1))
-    IF(ABS(ANINT(t)-t)<tol)THEN
-      t=DOT_PRODUCT(rvec,rec_vec(1:3,2))
-      IF(ABS(ANINT(t)-t)<tol)THEN
-        t=DOT_PRODUCT(rvec,rec_vec(1:3,3))
-        is_lat_point=(ABS(ANINT(t)-t)<tol)
-      ELSE
-        is_lat_point=.FALSE.
-      ENDIF ! 2nd component integer
-    ELSE
-      is_lat_point=.FALSE.
-    ENDIF ! 1st component integer
-  END FUNCTION is_lat_point
-
-
-END MODULE min_images
-
-
 MODULE phonons
   ! Miscellaneous utilities etc.
   use min_images,     only : is_lat_point, min_images_brute_force, maxim
@@ -213,19 +131,19 @@ MODULE phonons
   INTEGER,PARAMETER :: no_samples=50000
   ! Number of frequency DoS sets (for calculating error bars).
   INTEGER,PARAMETER :: no_fdos_sets=20
-  ! Tolerance for several different numerical procedures throughout module.
-  REAL(dp),PARAMETER :: tol=1.d-5
-
 
 CONTAINS
 
 
-  SUBROUTINE setup_geometry
+  SUBROUTINE setup_geometry(tol)
     ! The reciprocal lattice vectors of the primitive cell and the supercell
     ! are calculated here.
     ! NOTE THAT RECIPROCAL LATTICE VECTORS DO NOT CONTAIN THE FACTOR OF 2*pi.
     USE linear_algebra
     IMPLICIT NONE
+    
+    real(dp), intent(in) :: tol
+    
     REAL(dp) :: prim_cell_volume,sc_cell_volume
 
     ! Define the "length scale" to be the average of the lengths of the
@@ -284,9 +202,12 @@ CONTAINS
   END FUNCTION atom_at_pos
 
 
-  SUBROUTINE read_lte
+  SUBROUTINE read_lte(tol)
     ! Read in the data in lte.dat and allocate arrays, etc.
     IMPLICIT NONE
+    
+    real(dp), intent(in) :: tol
+    
     INTEGER :: ierr,n,i,j,no_force_c_supplied,atom1,atom2,dir1,dir2,ialloc
     REAL(dp) :: fc,check_matrix
 
@@ -316,7 +237,7 @@ CONTAINS
     WRITE(*,*)
 
     ! Construct reciprocal lattice vectors, etc.
-    CALL setup_geometry
+    CALL setup_geometry(tol)
     WRITE(*,*)'Number of primitive unit cells     : '//TRIM(i2s(no_prim_cells))
     WRITE(*,*)
     WRITE(*,*)'Prim. rec. latt. vectors (Cart. cmpnts &
@@ -420,7 +341,7 @@ CONTAINS
     DO i=1,no_force_c_supplied
       READ(8,*,err=20,END=20)atom1,dir1,atom2,dir2,fc
       fc_scale=fc_scale+ABS(fc)
-      CALL trans_symm(atom1,dir1,atom2,dir2,fc)
+      CALL trans_symm(atom1,dir1,atom2,dir2,fc,tol)
     ENDDO ! i
     fc_scale=fc_scale/DBLE(no_force_c_supplied)
     WRITE(*,*)fc_scale
@@ -492,11 +413,14 @@ CONTAINS
   END SUBROUTINE read_lte
 
 
-  SUBROUTINE trans_symm(atom1,dir1,atom2,dir2,fc)
+  SUBROUTINE trans_symm(atom1,dir1,atom2,dir2,fc,tol)
     ! Take the force constant fc supplied for (atom1,dir1,atom2,dir2),
     ! place it in all translationally equivalent elements of the matrix of
     ! force constants.
     IMPLICIT NONE
+    
+    real(dp), intent(in) :: tol
+    
     INTEGER,INTENT(in) :: atom1,dir1,atom2,dir2
     REAL(dp),INTENT(in) :: fc
     INTEGER :: atom1p,atom2p,no_translations
@@ -539,7 +463,7 @@ CONTAINS
   END SUBROUTINE trans_symm
 
 
-  SUBROUTINE point_symm
+  SUBROUTINE point_symm(tol)
     ! Apply all of the point symmetry operations in turn in order to complete
     ! the matrix of force constants.  Give a pair of atoms atom1 and atom2, we
     ! find the corresponding pair of atoms atom1p and atom2p after the 
@@ -551,6 +475,9 @@ CONTAINS
     ! still work out the corresponding elements of Phi'.
     USE linear_algebra,ONLY : ddot
     IMPLICIT NONE
+    
+    real(dp), intent(in) :: tol
+    
     INTEGER :: atom1,atom1p,atom2,atom2p,i,j,n,ip,jp,ierr,&
       &weight(no_atoms_in_sc,3,no_atoms_in_sc,3)
     REAL(dp) :: fc,product,pos_atom1p(3),pos_atom2p(3)
@@ -673,13 +600,16 @@ CONTAINS
   END SUBROUTINE point_symm
 
 
-  SUBROUTINE point_symm_brute_force
+  SUBROUTINE point_symm_brute_force(tol)
     ! Apply all of the point symmetry operations in turn in order to complete
     ! the matrix of force constants.  This is done iteratively until
     ! the changes to the matrix of force constants have converged to within
     ! some tolerance.  This approach is valid for any geometry.
     USE linear_algebra,ONLY : ddot
     IMPLICIT NONE
+    
+    real(dp), intent(in) :: tol
+    
     INTEGER :: atom1,atom1p,atom2,atom2p,i,j,n,ip,t,three_noDoFprim_sq
     REAL(dp) :: fc,pos_atom1p(3),pos_atom2p(3),max_diff
     LOGICAL :: last_iteration
@@ -757,13 +687,15 @@ CONTAINS
   END SUBROUTINE point_symm_brute_force
 
 
-  SUBROUTINE newtons_law
+  SUBROUTINE newtons_law(tol)
     ! Impose Newton's third law on the matrix of force constants.
     IMPLICIT NONE
+    
+    real(dp), intent(in) :: tol
+    
     INTEGER :: atom1,atom2,i,j,t
     REAL(dp) :: fc,sum1,rescale,max_diff
     INTEGER,PARAMETER :: min_t=10,max_t=100000 ! Max & min number of impositions.
-    REAL(dp) :: tol=1.d-5
 
     DO t=1,max_t
 
@@ -866,19 +798,19 @@ CONTAINS
   END SUBROUTINE mass_reduce
 
 
-  SUBROUTINE find_prim_cell
+  SUBROUTINE find_prim_cell(delta)
     ! This subroutine evaluates and stores the primitive lattice vector
     ! associated with each atom.  It also evaluates an array holding the
     ! label of each atom as a function of the label of the primitive cell
     ! in which an atom is found and the label of the atom within the
     ! primitive cell.
     IMPLICIT NONE
+    
+    real(dp), intent(in) :: delta
+    
     INTEGER :: n,n1,n1p,n1pp,n2,n2p,n2pp,n3,n3p,n3pp,m,label,im, &
       &prim_n(3,no_atoms_in_sc),p,atom1,ialloc
-    REAL(dp) :: delta_vect(3,3),r_temp(3),delta_r_ims(3,maxim),delta_r_corr(3),&
-      &delta
-
-    delta=1000.d0*tol
+    REAL(dp) :: delta_vect(3,3),r_temp(3),delta_r_ims(3,maxim),delta_r_corr(3)
 
     ALLOCATE(atom_in_prim(no_atoms_in_sc),prim_cell_for_atom(no_atoms_in_sc), &
       &stat=ialloc)
@@ -1151,12 +1083,15 @@ CONTAINS
   END SUBROUTINE calculate_eigenfreqs_and_vecs
 
 
-  SUBROUTINE calculate_freq_dos
+  SUBROUTINE calculate_freq_dos(tol)
     ! Calculate the frequency density-of-states by Monte Carlo sampling of
     ! the Brillouin zone.
     USE linear_algebra,ONLY : dscal
     USE rand_no_gen,ONLY : ranx
     IMPLICIT NONE
+    
+    real(dp), intent(in) :: tol
+    
     REAL(dp) :: omega(no_DoF_prim),kvec(3),rec_bin_width,max_freq,min_freq, &
       &rec_no_fdos_sets
     INTEGER :: j,i,n,bin,ialloc,ierr
@@ -1927,11 +1862,17 @@ module lte_module
   implicit none
 contains
 
-subroutine lte()
+subroutine lte(tol,tol2,delta)
   ! Main program starts here.
+  use constants, only : dp
   USE utils,ONLY : errstop,wordwrap
   USE phonons
   IMPLICIT NONE
+  
+  real(dp), intent(in) :: tol
+  real(dp), intent(in) :: tol2
+  real(dp), intent(in) :: delta
+  
   REAL :: t1,t2
 
   CALL CPU_TIME(t1)
@@ -1943,19 +1884,19 @@ subroutine lte()
 
   WRITE(*,*)'Reading data from lte.dat...'
   WRITE(*,*)
-  CALL read_lte
+  CALL read_lte(tol)
   WRITE(*,*)'Finished reading input data.'
   WRITE(*,*)
 
   WRITE(*,*)'Applying point symmetries to the matrix of force constants...'
-  CALL point_symm
+  CALL point_symm(tol)
   WRITE(*,*)'Done.'
   WRITE(*,*)
 
   IF(ANY(.NOT.defined))THEN
     CALL wordwrap('WARNING: will impose symmetries on the matrix of force &
       &constants iteratively...')
-    CALL point_symm_brute_force
+    CALL point_symm_brute_force(tol)
     WRITE(*,*)'Done.'
     WRITE(*,*)
   ENDIF
@@ -1964,7 +1905,7 @@ subroutine lte()
 
   CALL wordwrap('Imposing Newton''s third law and symmetry on the matrix of &
     &force constants...')
-  CALL newtons_law
+  CALL newtons_law(tol2)
   WRITE(*,*)'Done.'
   WRITE(*,*)
 
@@ -1975,14 +1916,14 @@ subroutine lte()
 
   WRITE(*,*)'Establishing the primitive lattice vector associated with &
     &each atom...'
-  CALL find_prim_cell
+  CALL find_prim_cell(delta)
   WRITE(*,*)'Done.'
   WRITE(*,*)
 
   IF(prog_function==1)THEN
 
     WRITE(*,*)'Calculating the frequency density-of-states function...'
-    CALL calculate_freq_dos
+    CALL calculate_freq_dos(tol)
     CALL wordwrap('Done.  Frequency density-of-states function written to &
       &freq_dos.dat.  (Please view this file using XMGrace.)')
     WRITE(*,*)
