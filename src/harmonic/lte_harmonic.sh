@@ -113,7 +113,7 @@ EOF
     mkdir lte
     mv lte.dat lte
     cd lte
-    caesar lte_lower > lte.out
+    caesar lte 0.00000001 0.001 0.000001 > lte.out
     #lte > lte.out
     if [ -e "error.txt" ];then
       echo "There is an error in lte: check 'error.txt' file."
