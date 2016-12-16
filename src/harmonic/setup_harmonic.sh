@@ -25,7 +25,12 @@ awk "NR==$(($symmetry_line + 1)), NR==$(($end_line - 1)) "\
   '{print $1 " " $2 " " $3}' structure.dat >> symmetry.dat
 
 # Generate IBZ
-caesar generate_kgrid symmetry.dat grid.dat lattice.dat ibz.dat rotated_gvectors.dat
+caesar generate_kgrid \
+       symmetry.dat   \
+       grid.dat       \
+       lattice.dat    \
+       ibz.dat        \
+       rotated_gvectors.dat
 
 # Generate non-diagonal supercells
 caesar generate_supercells
@@ -45,12 +50,15 @@ while read fline ; do
   
     CELL_COUNT=$(( ${CELL_COUNT} + 1 ))
     OLD_CELL=${NEW_CELL}
-    SUPERCELL_DIR=Supercell_${CELL_COUNT}
-    cp equilibrium.dat lattice.dat ${SUPERCELL_DIR}
+    sdir=Supercell_${CELL_COUNT}
+    cp equilibrium.dat lattice.dat $sdir
     
-    cd ${SUPERCELL_DIR}
-    caesar construct_supercell
-    cd ../
+    caesar construct_supercell     \
+           $sdir/lattice.dat       \
+           $sdir/equilibrium.dat   \
+           $sdir/supercell.dat     \
+           $sdir/super_lattice.dat \
+           $sdir/super_equilibrium.dat
     
   fi
   
@@ -58,7 +66,7 @@ while read fline ; do
   KPOINT_2=${line[1]}
   KPOINT_3=${line[2]}
   
-  echo ${KPOINT_COUNT} ${KPOINT_1} ${KPOINT_2} ${KPOINT_3} >> ${SUPERCELL_DIR}/kpoints.dat
+  echo ${KPOINT_COUNT} ${KPOINT_1} ${KPOINT_2} ${KPOINT_3} >> $sdir/kpoints.dat
   
 done < kpoint_to_supercell.dat
 
@@ -67,47 +75,47 @@ echo $CELL_COUNT > no_sc.dat
 # Generate Force Constants 
 for (( i=1; i<=$CELL_COUNT; i++ ))do
 
-  cd Supercell_$i
+  sdir=Supercell_$i
 
   # Construct symmetry operations
   
-  echo Lattice > structure.dat
-  cat super_lattice.dat >> structure.dat
-  echo Atoms >> structure.dat
-  sed '1d' super_equilibrium.dat >> structure.dat # all but first line
-  echo Symmetry >> structure.dat
-  echo End >> structure.dat
+  echo Lattice > $sdir/structure.dat
+  cat $sdir/super_lattice.dat >> $sdir/structure.dat
+  echo Atoms >> $sdir/structure.dat
+  sed '1d' $sdir/super_equilibrium.dat >> $sdir/structure.dat #all but 1st line
+  echo Symmetry >> $sdir/structure.dat
+  echo End >> $sdir/structure.dat
   
-  caesar structure_to_castep
-  cellsym --symmetry structure.cell > symmetry.dat
-  symmetry_start_line=$(awk -v IGNORECASE=1 '/%block SYMMETRY_OPS/{print NR}' symmetry.dat)
-  symmetry_end_line=$(awk -v IGNORECASE=1 '/%endblock SYMMETRY_OPS/{print NR}' symmetry.dat)
+  caesar structure_to_castep $sdir
+  cellsym --symmetry $sdir/structure.cell > $sdir/symmetry.dat
+  symmetry_start_line=$(awk -v IGNORECASE=1 '/%block SYMMETRY_OPS/{print NR}' $sdir/symmetry.dat)
+  symmetry_end_line=$(awk -v IGNORECASE=1 '/%endblock SYMMETRY_OPS/{print NR}' $sdir/symmetry.dat)
   awk "NR==$(($symmetry_start_line + 1)),NR==$(($symmetry_end_line - 1)) "\
-    '{print $1 " " $2 " " $3}' symmetry.dat > symmetry_temp.dat
-  echo $(( $symmetry_end_line-$symmetry_start_line ))/5 | bc > symmetry.dat
-  cat symmetry_temp.dat | awk NF >> symmetry.dat
-  rm symmetry_temp.dat
+    '{print $1 " " $2 " " $3}' $sdir/symmetry.dat > $sdir/symmetry_temp.dat
+  echo $(( $symmetry_end_line-$symmetry_start_line ))/5 | bc > $sdir/symmetry.dat
+  cat $sdir/symmetry_temp.dat | awk NF >> $sdir/symmetry.dat
+  rm $sdir/symmetry_temp.dat
   
   # Evaluate needed force constants
   caesar construct_matrix_force_cnsts \
-         symmetry.dat                 \
-         lattice.dat                  \
-         supercell.dat                \
-         super_equilibrium.dat        \
-         force_constants.dat
+         $sdir/symmetry.dat           \
+         $sdir/lattice.dat            \
+         $sdir/supercell.dat          \
+         $sdir/super_equilibrium.dat  \
+         $sdir/force_constants.dat
   while read fline ; do
     # TODO : disp.dat and {displacement.dat} are the same files
     line=($fline)
     atom=${line[0]}
     disp=${line[1]}
-    ddir=atom.$atom.disp.$disp
+    ddir=$sdir/atom.$atom.disp.$disp
     mkdir $ddir
     mkdir $ddir/positive $ddir/negative
     echo $fline > $ddir/disp.dat
     echo $fline > $ddir/displacement.dat
     echo $fline > $ddir/positive/displacement.dat
     echo $fline > $ddir/negative/displacement.dat
-    cp super_lattice.dat super_equilibrium.dat $ddir
+    cp $sdir/super_lattice.dat $sdir/super_equilibrium.dat $ddir
     caesar construct_finite_displacement \
            $ddir/disp.dat                \
            $ddir/super_lattice.dat       \
@@ -115,8 +123,5 @@ for (( i=1; i<=$CELL_COUNT; i++ ))do
            $ddir/positive/structure.dat  \
            $ddir/negative/structure.dat
 
-  done < force_constants.dat
-  
-  cd ../
-
+  done < $sdir/force_constants.dat
 done

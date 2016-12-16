@@ -17,58 +17,43 @@ if [ "$code" = "castep" ];then
   echo "What is the castep seedname?"
   read seedname
   
-  cd castep
-  if [ ! -f "$seedname.param" ];then
+  if [ ! -f "castep/$seedname.param" ];then
     echo "Error! The castep 'param' file does not exist." 
     exit 1
   fi
-  cd ../
   
   no_sc=$(awk '{print}' no_sc.dat )
   
   # Loop over 
   for (( i=1; i<=$no_sc; i++ )) do
- 
-    cd Supercell_$i
-    echo $seedname > seedname.txt
-  
+    
+    sdir=Supercell_$i
+    echo $seedname > $sdir/seedname.txt
  
     echo "Converting supercell" $i
   
-    while read LINE ; do
-      echo $LINE > disp.dat
-      atom=$(awk '{print $1}' disp.dat)
-      disp=$(awk '{print $2}' disp.dat)
-      cd atom.${atom}.disp.${disp}
-      cd positive
-      cp ../../../castep/* .
-      cp ../../seedname.txt .
-      if [ -f "$seedname.cell" ]; then
-        mv $seedname.cell bottom.cell
-      fi
-      caesar structure_to_castep
-      mv structure.cell $seedname.cell
-      if [ -f 'bottom.cell' ]; then
-        rm bottom.cell
-      fi
-      cd ../
-      cd negative
-      cp ../../../castep/* .
-      cp ../../seedname.txt .
-      if [ -f "$seedname.cell" ]; then
-        mv $seedname.cell bottom.cell
-      fi
-      caesar structure_to_castep
-      mv structure.cell $seedname.cell
-      if [ -f 'bottom.cell' ]; then
-        rm bottom.cell
-      fi
-      cd ../
-      cd ../
-    done < force_constants.dat
-    
-    cd ../
-
+    while read fline ; do
+      line=($fline)
+      echo $fline > $sdir/disp.dat
+      atom=${line[0]}
+      disp=${line[1]}
+      
+      paths=(positive negative)
+      for path in ${paths[@]}; do
+        dir=$sdir/atom.$atom.disp.$disp/$path
+        cp castep/* $dir
+        cp $sdir/seedname.txt $dir
+        if [ -f "$dir/$seedname.cell" ]; then
+          mv $dir/$seedname.cell $dir/bottom.cell
+        fi
+        caesar structure_to_castep $dir
+        mv $dir/structure.cell $dir/$seedname.cell
+        if [ -f "$dir/bottom.cell" ]; then
+          rm $dir/bottom.cell
+        fi
+      done
+    done < $sdir/force_constants.dat
+      
   done
   echo "Done."
 
@@ -83,30 +68,25 @@ elif [ "$code" = "vasp" ]; then
 
   # Loop over 
   for (( i=1; i<=$no_sc; i++ )) do
-
-    cd Supercell_$i
+    
+    sdir=Supercell_$i
 
     echo "Converting supercell" $i
 
-    while read LINE ; do
-      echo $LINE > disp.dat
-      atom=$(awk '{print $1}' disp.dat)
-      disp=$(awk '{print $2}' disp.dat)
-      cd atom.${atom}.disp.${disp}
-      cd positive
-      cp ../../../vasp/* .
-      caesar structure_to_vasp
-      mv structure.POSCAR POSCAR
-      cd ../
-      cd negative
-      cp ../../../vasp/* .
-      caesar structure_to_vasp
-      mv structure.POSCAR POSCAR
-      cd ../
-      cd ../
-    done < force_constants.dat
-
-    cd ../
+    while read fline ; do
+      line=($fline)
+      echo $fline > $sdir/disp.dat
+      atom=${line[0]}
+      disp=${line[1]}
+      
+      paths=(positive negative)
+      for path in ${paths[@]}; do
+        dir=$sdir/atom.$atom.disp.$disp/$path
+        cp vasp/* $dir
+        caesar structure_to_vasp $dir
+        mv $dir/structure.POSCAR $dir/POSCAR
+      done
+    done < $sdir/force_constants.dat
 
   done
   echo "Done."
@@ -121,86 +101,66 @@ elif [ "$code" = "qe" ]; then
   echo "What is the qe seedname?"
   read seedname
 
-  cd qe
-  if [ ! -f "$seedname.in" ];then
+  if [ ! -f "qe/$seedname.in" ];then
     echo "Error! The qe 'in' file does not exist." 
     exit 1
   fi
-  cd ../
 
   no_sc=$(awk '{print}' no_sc.dat )
 
   # Loop over 
   for (( i=1; i<=$no_sc; i++ )) do
-
-    cd Supercell_$i
-    echo $seedname > seedname.txt
+    
+    sdir=Supercell_$i
+    echo $seedname > $sdir/seedname.txt
 
     # Generate supercell k-point mesh
-    cp ../qe/kpoints.in .
-    caesar generate_supercell_kpoint_mesh_qe
-    awk 'NR==1,NR==1 {print}' kpoints.in > kpoints.in.temp
-    cat kpoints.in.temp sc_kpoints.dat > kpoints.in.temp2
-    mv kpoints.in.temp2 kpoints.in
- 
+    cp qe/kpoints.in $sdir
+    caesar generate_supercell_kpoint_mesh_qe \
+           $sdir/kpoints.in                  \
+           $sdir/lattice.dat                 \
+           $sdir/super_lattice.dat           \
+           $sdir/sc_kpoints.dat
+    awk 'NR==1,NR==1 {print}' $sdir/kpoints.in > $sdir/kpoints.in.temp
+    mv $sdir/kpoints.in.temp $sdir/kpoints.in
+    cat $sdir/sc_kpoints.dat >> $sdir/kpoints.in
 
     echo "Converting supercell" $i
 
-    while read LINE ; do
-      echo $LINE > disp.dat
-      atom=$(awk '{print $1}' disp.dat)
-      disp=$(awk '{print $2}' disp.dat)
-      cd atom.${atom}.disp.${disp}
-      cd positive
-      cp ../../../qe/* .
-      cp ../../seedname.txt .
-      cp ../../kpoints.in .
-      if [ -f "$seedname.in" ]; then
-        mv $seedname.in top.in
-      fi
-      caesar structure_to_qe
-      mv structure.in $seedname.in
-      if [ -f 'top.in' ]; then
-        rm top.in
-      fi
-      if [ -f 'kpoints.in' ]; then
-        rm kpoints.in
-      fi
-      if [ -f 'pseudo.in' ]; then
-        rm pseudo.in 
-      fi
-      cd ../
-      cd negative
-      cp ../../../qe/* .
-      cp ../../seedname.txt .
-      cp ../../kpoints.in .
-      if [ -f "$seedname.in" ]; then
-        mv $seedname.in top.in
-      fi
-      caesar structure_to_qe
-      mv structure.in $seedname.in
-      if [ -f 'top.in' ]; then
-        rm top.in
-      fi
-      if [ -f 'kpoints.in' ]; then
-        rm kpoints.in 
-      fi
-      if [ -f 'pseudo.in' ]; then
-        rm pseudo.in 
-      fi
-      cd ../
-      cd ../
-    done < force_constants.dat
-
-    cd ../
+    while read fline ; do
+      line=($fline)
+      echo $fline > $sdir/disp.dat
+      atom=${line[0]}
+      disp=${line[1]}
+      
+      paths=(positive negative)
+      for path in ${paths[@]}; do
+        dir=$sdir/atom.$atom.disp.$disp/$path
+        
+        cp qe/* $dir
+        cp $sdir/seedname.txt $dir
+        cp $sdir/kpoints.in $dir
+        if [ -f "$dir/$seedname.in" ]; then
+          mv $dir/$seedname.in $dir/top.in
+        fi
+        caesar structure_to_qe $dir
+        mv $dir/structure.in $dir/$seedname.in
+        if [ -f "$dir/top.in" ]; then
+          rm $dir/top.in
+        fi
+        if [ -f "$dir/kpoints.in" ]; then
+          rm $dir/kpoints.in
+        fi
+        if [ -f "$dir/pseudo.in" ]; then
+          rm $dir/pseudo.in 
+        fi
+        
+      done
+      
+    done < $sdir/force_constants.dat
 
   done
   echo "Done."
-
-
-
-
-
 
 else 
 

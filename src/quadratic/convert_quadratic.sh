@@ -61,7 +61,7 @@ if [ "$code" = "castep" ];then
         caesar generate_sc_path
       fi
       mv ${seedname}.cell bottom.cell 
-      caesar structure_to_castep
+      caesar structure_to_castep .
       mv structure.cell ${seedname}.cell
       rm bottom.cell
     cd ../  
@@ -78,7 +78,7 @@ if [ "$code" = "castep" ];then
         for k in `seq $sampling_point_init $sampling_point_final`; do
           if [ -e "structure.${j}.${k}.dat" ];then 
             cp structure.${j}.${k}.dat structure.dat
-            caesar structure_to_castep
+            caesar structure_to_castep .
             mv structure.cell ${seedname}.${j}.${k}.cell
           fi # structure exists
         done # loop over sampling points per mode
@@ -124,7 +124,7 @@ elif [ "$code" = "vasp" ]; then
       cp ../../vasp/KPOINTS.band .
       cp ../KPOINTS.${i} KPOINTS
       cp ../../vasp/mpi_submit_static.sh .
-      caesar structure_to_vasp
+      caesar structure_to_vasp .
       mv structure.POSCAR POSCAR
     cd ../
    
@@ -148,7 +148,7 @@ elif [ "$code" = "vasp" ]; then
 
           if [ -e "structure.${k}.${l}.dat" ];then
             cp structure.${k}.${l}.dat structure.dat
-            caesar structure_to_vasp
+            caesar structure_to_vasp .
             mv structure.POSCAR POSCAR.${k}.${l}
           fi
         
@@ -205,8 +205,12 @@ elif [ "$code" = "qe" ];then
     # Generate supercell k-point mesh
     cp ../qe/kpoints.in .
     cp ../qe/kpoints.nscf.in .
-    generate_supercell_kpoint_mesh_qe
-    generate_supercell_kpoint_mesh_qe_nscf
+    caesar generate_supercell_kpoint_mesh_qe \
+           kpoints.in                        \
+           lattice.dat                       \
+           super_lattice.dat                 \
+           sc_kpoints.dat
+    caesar generate_supercell_kpoint_mesh_qe_nscf # TODO : bug!
     awk 'NR==1,NR==1 {print}' kpoints.in > kpoints.in.temp
     cat kpoints.in.temp sc_kpoints.dat > kpoints.in.temp2
     mv kpoints.in.temp2 kpoints.in
@@ -220,13 +224,13 @@ elif [ "$code" = "qe" ];then
       if [ -f "$seedname.in" ]; then
         mv $seedname.in top.in
       fi
-      caesar structure_to_qe
+      caesar structure_to_qe .
       mv structure.in $seedname.in
       cp ../kpoints.nscf.in kpoints.in
       if [ -f "$seedname_nscf.in" ]; then
         mv $seedname_nscf.in top.in
       fi
-      caesar structure_to_qe
+      caesar structure_to_qe .
       mv structure.in $seedname_nscf.in
       if [ -f 'top.in' ]; then
         rm top.in
@@ -251,7 +255,7 @@ elif [ "$code" = "qe" ];then
         for k in `seq $sampling_point_init $sampling_point_final`; do
           if [ -e "structure.${j}.${k}.dat" ];then
             cp structure.${j}.${k}.dat structure.dat
-            caesar structure_to_qe
+            caesar structure_to_qe .
             mv structure.in ${seedname}.${j}.${k}.in
           fi # structure exists
         done # loop over sampling points per mode
@@ -263,7 +267,7 @@ elif [ "$code" = "qe" ];then
           for k in `seq $sampling_point_init $sampling_point_final`; do
             if [ -e "structure.${j}.${k}.dat" ];then
               cp structure.${j}.${k}.dat structure.dat
-              caesar structure_to_qe
+              caesar structure_to_qe .
               mv structure.in ${seedname_nscf}.${j}.${k}.in
             fi # structure exists
           done # loop over sampling points per mode

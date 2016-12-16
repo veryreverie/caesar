@@ -21,7 +21,6 @@ program caesar
     &only : generate_supercell_kpoint_mesh_qe
   use generate_supercells_module,   only : generate_supercells
   use lte_module,                   only : lte
-  use lte_lower_module,             only : lte_lower
   
   ! use quadratic modules
   use anharmonic_module,           only : anharmonic
@@ -88,7 +87,33 @@ program caesar
     write(*,*) '    Deletes all temporary files and folders'
     write(*,*) ''
     write(*,*) 'option : quadratic calculations :'
-    write(*,*) '  [quadratic help text yet to be written]'
+    write(*,*) '  setup_quadratic :'
+    write(*,*) '    Sets up quadratic calculation'
+    write(*,*) '    Should be run after lte_harmonic'
+    write(*,*) '  convert_quadratic :'
+    write(*,*) '    Converts calculation to specific code'
+    write(*,*) '    Choices are castep, vasp and quantum espresso'
+    write(*,*) '    Should be called after setup_quadratic'
+    write(*,*) '  tcm_cluster_run_quadratic :'
+    write(*,*) '    Runs calculation on the TCM cluster'
+    write(*,*) '    Should be called after convert_quadratic'
+    write(*,*) '  tcm_cleanup_anharmonic :'
+    write(*,*) '    Collates energies from anharmonic calculations'
+    write(*,*) '    Should be called after tcm_cluster_run_quadratic'
+    write(*,*) '  anharmonic :'
+    write(*,*) '    Runs anharmonic calculations'
+    write(*,*) '    Should be called after tcm_cleanup_anharmonic'
+    write(*,*) '  bs_quadratic :'
+    write(*,*) '    Runs band structure calculations'
+    write(*,*) '    Should be called after tcm_cleanup_anharmonic'
+    write(*,*) '  get_kpoints :'
+    write(*,*) '    [Help text pending]'
+    write(*,*) '  tcm_cleanup_bs'
+    write(*,*) '    [Help text pending]'
+    write(*,*) '  eigenval_vasp_to_bands'
+    write(*,*) '    [Help text pending]'
+    write(*,*) '  calculate_gap'
+    write(*,*) '    [Help text pending]'
   ! test
   elseif (arg == 'test') then
     i=1
@@ -116,7 +141,7 @@ program caesar
   elseif (arg == 'construct_matrix_force_cnsts') then
     call construct_matrix_force_cnsts(args(2:))
   elseif (arg == 'construct_supercell') then
-    call construct_supercell()
+    call construct_supercell(args(2:))
   elseif (arg == 'convert_forces_from_Rybohr_to_eVang') then
     call convert_forces_from_Rybohr_to_eVang()
   elseif (arg == 'equilibrium_frac') then
@@ -132,7 +157,7 @@ program caesar
   elseif (arg == 'generate_sc_path') then
     call generate_sc_path()
   elseif (arg == 'generate_supercell_kpoint_mesh_qe') then
-    call generate_supercell_kpoint_mesh_qe()
+    call generate_supercell_kpoint_mesh_qe(args(2:))
   elseif (arg == 'generate_supercells') then
     call generate_supercells()
   elseif (arg == 'lte') then
@@ -140,11 +165,6 @@ program caesar
     read(args(3),*) tol2
     read(args(4),*) delta
     call lte(tol,tol2,delta)
-  elseif (arg == 'lte_lower') then
-    read(args(2),*) tol
-    read(args(3),*) tol2
-    read(args(4),*) delta
-    call lte_lower(tol,tol2,delta)
 !  elseif (arg == 'quadratic_spline') then
 !    call quadratic_spline()
 !  elseif (arg == 'vscf_1d') then
@@ -181,11 +201,11 @@ program caesar
   elseif (arg == 'setup_quadratic') then
     return_status = system(arg//'.sh')
   elseif (arg == 'structure_to_castep') then
-    return_status = system(arg//'.sh')
+    return_status = system(arg//'.sh '//trim(args(2)))
   elseif (arg == 'structure_to_qe') then
-    return_status = system(arg//'.sh')
+    return_status = system(arg//'.sh '//trim(args(2)))
   elseif (arg == 'structure_to_vasp') then
-    return_status = system(arg//'.sh')
+    return_status = system(arg//'.sh '//trim(args(2)))
   elseif (arg == 'tcm_cleanup_anharmonic') then
     return_status = system(arg//'.sh')
   elseif (arg == 'tcm_cleanup_bs') then
