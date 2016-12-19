@@ -12,8 +12,6 @@ program caesar
   use construct_matrix_force_cnsts_module,&
     &only : construct_matrix_force_cnsts
   use construct_supercell_module,   only : construct_supercell
-  use convert_forces_from_Rybohr_to_eVang_module,&
-    &only : convert_forces_from_Rybohr_to_eVang
   use equilibrium_frac_module,      only : equilibrium_frac
   use fourier_interpolation_module, only : fourier_interpolation
   use generate_kgrid_module,        only : generate_kgrid
@@ -142,8 +140,6 @@ program caesar
     call construct_matrix_force_cnsts(args(2:))
   elseif (arg == 'construct_supercell') then
     call construct_supercell(args(2:))
-  elseif (arg == 'convert_forces_from_Rybohr_to_eVang') then
-    call convert_forces_from_Rybohr_to_eVang()
   elseif (arg == 'equilibrium_frac') then
     call equilibrium_frac()
   elseif (arg == 'fourier_interpolation') then
