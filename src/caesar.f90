@@ -148,7 +148,7 @@ program caesar
   elseif (arg == 'generate_quadratic_configurations') then
     call generate_quadratic_configurations(args(2:))
   elseif (arg == 'generate_sc_path') then
-    call generate_sc_path()
+    call generate_sc_path(args(2:))
   elseif (arg == 'generate_supercell_kpoint_mesh_qe') then
     call generate_supercell_kpoint_mesh_qe(args(2:))
   elseif (arg == 'generate_supercells') then

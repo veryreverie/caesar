@@ -51,12 +51,13 @@ EOF
   
     # Prepare force constants
     force_const=0
-    while read LINE ; do
-
+    while read fline ; do
       force_const=$(( $force_const + 1 ))
-      echo $LINE > disp.dat
-      atom=$(awk '{print $1}' disp.dat)
-      disp=$(awk '{print $2}' disp.dat)
+      
+      line=($fline)
+      disp=${line[0]}
+      atom=${line[1]}
+      echo $fline > disp.dat
       atoms_line=$(awk -v IGNORECASE=1 '/Atoms/{print NR}' structure.dat)
       symmetry_line=$(awk -v IGNORECASE=1 '/Symmetry/{print NR}' structure.dat)
       no_atoms=$(( $(( $symmetry_line-($atoms_line+1))) | bc ))
@@ -135,5 +136,3 @@ EOF
   echo $temperature > temperature.dat
   caesar fourier_interpolation > fourier_interpolation.out
   cd ../
- 
-

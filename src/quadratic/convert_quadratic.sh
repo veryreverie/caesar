@@ -27,15 +27,14 @@ if [ "$code" = "castep" ];then
   
   # Get primitive cell path 
   bs_calculation=0
-  cd castep
-    if [ -e "path.dat" ];then
-      bs_calculation=1
-      bs_path_init=$(awk -v IGNORECASE=1 '/block bs_kpoint_path/{print NR; exit}' path.dat )
-      bs_path_final=$(awk -v IGNORECASE=1 '/endblock bs_kpoint_path/{print NR}' path.dat )
-      echo $(( $bs_path_final-$bs_path_init-1 )) > bs_path.dat
-      awk -v awk_bs_path_init=$bs_path_init -v awk_bs_path_final=$bs_path_final 'NR==(awk_bs_path_init+1), NR==(awk_bs_path_final-1) {print $1 " " $2 " " $3 }' path.dat >> bs_path.dat
-    fi
-  cd ../
+  if [ -e "castep/path.dat" ];then
+    bs_calculation=1
+    bs_path_init=$(awk -v IGNORECASE=1 '/block bs_kpoint_path/{print NR; exit}' castep/path.dat )
+    bs_path_final=$(awk -v IGNORECASE=1 '/endblock bs_kpoint_path/{print NR}' castep/path.dat )
+    echo $(( $bs_path_final-$bs_path_init-1 )) > castep/bs_path.dat
+    awk "NR=$(($bs_path_init + 1)),NR==$(($bs_path_final - 1)) " \
+      '{print $1 " " $2 " " $3}' castep/path.dat >> castep/bs_path.dat
+  fi
   
   no_sc=$(ls -1d Supercell_* | wc -l)
   sampling_amplitude=$( awk 'NR==1 {print $1}' mapping.dat)
@@ -45,53 +44,49 @@ if [ "$code" = "castep" ];then
   
   # Loop over 
   for (( i=1; i<=$no_sc; i++ )) do
- 
-    cd Supercell_$i
-    echo $seedname > seedname.txt
-    no_atoms=$( awk 'NR==1 {print $1}' equilibrium.dat )
+    sdir=Supercell_$i
+    echo $seedname > $sdir/seedname.txt
+    no_atoms=$( awk 'NR==1 {print $1}' $sdir/equilibrium.dat )
     no_modes=$(( $no_atoms*3 ))
-    no_atoms_sc=$( awk 'NR==1 {print $1}' super_equilibrium.dat )
+    no_atoms_sc=$( awk 'NR==1 {print $1}' $sdir/super_equilibrium.dat )
   
     echo "Converting supercell" $i
- 
-    cd static
-      cp ../../castep/* .
-      if [ "$bs_calculation" -eq "1" ];then
-        cp ../supercell.dat .
-        caesar generate_sc_path
-      fi
-      mv ${seedname}.cell bottom.cell 
-      caesar structure_to_castep .
-      mv structure.cell ${seedname}.cell
-      rm bottom.cell
-    cd ../  
-
-    while read line ; do
-      big_point=$(echo ${line} | awk '{print $1}')
-      cd kpoint.$big_point/configurations
-      cp ../../../castep/* .
-      mv ${seedname}.cell bottom.cell
-      if [ "$bs_calculation" -eq "1" ];then
-        cp ../../static/sc_bs_path.dat .
+    
+    static_dir=$sdir/static
+    cp castep/* $static_dir
+    if [ "$bs_calculateion" -eq "1" ]; then
+      cp $sdir/supercell.dat $static_dir
+      caesar generate_sc_path          \
+             $static_dir/supercell.dat \
+             $static_dir/bs_path.dat   \
+             $static_dir/sc_bs_path.dat
+    fi
+    mv $static_dir/$seedname.cell $static_dir/bottom.cell
+    caesar structure_to_castep $static_dir
+    mv $static_dir/structure.cell $static_dir/$seedname.cell
+    rm $static_dir/bottom.cell
+    
+    while read fline ; do
+      line=($fline)
+      big_point=${line[0]}
+      kdir=$sdir/kpoint.$big_point/configurations
+      cp castep/* $kdir
+      mv $kdir/$seedname.cell $kdir/bottom.cell
+      if [ "$bs_calculateion" -eq "1" ]; then
+        cp $static_dir/sc_bs_path.dat $kdir
       fi
       for j in `seq 1 $no_modes`; do
         for k in `seq $sampling_point_init $sampling_point_final`; do
-          if [ -e "structure.${j}.${k}.dat" ];then 
-            cp structure.${j}.${k}.dat structure.dat
-            caesar structure_to_castep .
-            mv structure.cell ${seedname}.${j}.${k}.cell
-          fi # structure exists
-        done # loop over sampling points per mode
-      done # loop over modes
-
-      rm bottom.cell
- 
-      cd ../../
-
-    done < list.dat
-
-    cd ../
-
+          if [-e "$kdir/structure.$j.$k.dat" ]; then
+            cp $kdir/structure.$j.$k.dat $kdir/structure.dat
+            caesar structure_to_castep $kdir
+            mv $kdir/structure.cell $kdir/$seedname.$j.$k.cell
+          fi
+        done
+      done
+      
+      rm $kdir/bottom.cell
+    done < $sdir/list.dat
   done
   echo "Done."
 
@@ -110,59 +105,46 @@ elif [ "$code" = "vasp" ]; then
   no_sc=$(ls -1d Supercell_* | wc -l)
   kpoint_counter=1
   for (( i=1; i<=$no_sc; i++ )) do
-
-    cd Supercell_$i
+    sdir=Supercell_$i
 
     echo "Converting supercell" $i
 
-    no_atoms=$( awk 'NR==1 {print $1}' equilibrium.dat )
+    no_atoms=$( awk 'NR==1 {print $1}' $sdir/equilibrium.dat )
     no_modes=$(( $no_atoms*3 ))
 
-    cd static
-      cp ../../vasp/INCAR* .
-      cp ../../vasp/POTCAR .
-      cp ../../vasp/KPOINTS.band .
-      cp ../KPOINTS.${i} KPOINTS
-      cp ../../vasp/mpi_submit_static.sh .
-      caesar structure_to_vasp .
-      mv structure.POSCAR POSCAR
-    cd ../
-   
+    static_dir=$sdir/static
+    cp vasp/INCAR* $static_dir
+    cp vasp/POTCAR $static_dir
+    cp vasp/KPOINTS.band $static_dir
+    cp $sdir/KPOINTS.$i $static_dir/KPOINTS
+    cp vasp/mpi_submit_static.sh $static_dir
+    caesar structure_to_vasp $static_dir
+    mv $static_dir/structure.POSCAR $static_dir/POSCAR
+    
     # Loop over k-points
     no_kpoints=$(ls -1d kpoint.* | wc -l)
     for (( j=$kpoint_counter; j<=$(( $kpoint_counter+($no_kpoints-1) )); j++ )) do
-
-      cd kpoint.$j
-      cd configurations
-      cp ../mapping.dat ../../equilibrium.dat .
-      cp ../../../vasp/INCAR* .
-      cp ../../../vasp/POTCAR .
-      cp ../../../vasp/KPOINTS.band .
-      cp ../../../vasp/mpi_submit_quadratic.sh .
-      cp ../../KPOINTS.${i} KPOINTS
-     
+      kdir=$sdir/kpoint.$j/configurations
+      cp $sdir/kpoint.$j/mapping.dat $sdir/equilibrium.dat $kdir
+      cp vasp/INCAR* $kdir
+      cp vasp/POTCAR $kdir
+      cp vasp/KPOINTS.band $kdir
+      cp vasp/mpi_submit_quadratic.sh $kdir
+      cp $sdir/KPOINTS.$i $kdir/KPOINTS
+      
       # Loop over number of modes
       for (( k=1; k<=$no_modes; k++ )) do
- 
         for l in `seq $sampling_point_init $sampling_point_final`; do
-
-          if [ -e "structure.${k}.${l}.dat" ];then
-            cp structure.${k}.${l}.dat structure.dat
-            caesar structure_to_vasp .
-            mv structure.POSCAR POSCAR.${k}.${l}
+          if [ -e "$kdir/structure.$k.$l.dat" ]; then
+            cp $kdir/structure.$k.$l.dat $kdir/structure.dat
+            caesar structure_to_vasp $kdir
+            mv $kdir/$structure.POSCAR $kdir/POSCAR.$k.$l
           fi
-        
-        done # Loop over sampling points
-
-      done # Loop over modes
-      
-      cd ../
-      cd ../
-
+        done
+      done
     done # Loop over k-points
-    kpoint_counter=$(( $kpoint_counter+$no_kpoints ))
     
-    cd ../
+    kpoint_counter=$(( $kpoint_counter+$no_kpoints ))
 
   done # Loop over supercells
 
@@ -176,12 +158,10 @@ elif [ "$code" = "qe" ];then
   echo "What is the qe seedname?" 
   read seedname
 
-  cd qe
-  if [ ! -f "$seedname.in" ];then
+  if [ ! -f "qe/$seedname.in" ];then
     echo "Error! The qe 'in' file does not exist." 
     exit 1
   fi
-  cd ../
   seedname_nscf=${seedname}.nscf
 
   no_sc=$(ls -1d Supercell_* | wc -l)
@@ -192,102 +172,94 @@ elif [ "$code" = "qe" ];then
 
   # Loop over 
   for (( i=1; i<=$no_sc; i++ )) do
-
-    cd Supercell_$i
-    echo $seedname > seedname.txt
-    echo $seedname_nscf > seedname.nscf.txt
-    no_atoms=$( awk 'NR==1 {print $1}' equilibrium.dat )
+    sdir=Supercell_$i
+    
+    echo $seedname > $sdir/seedname.txt
+    echo $seedname_nscf > $sdir/seedname.nscf.txt
+    no_atoms=$( awk 'NR==1 {print $1}' $sdir/equilibrium.dat )
     no_modes=$(( $no_atoms*3 ))
-    no_atoms_sc=$( awk 'NR==1 {print $1}' super_equilibrium.dat )
+    no_atoms_sc=$( awk 'NR==1 {print $1}' $sdir/super_equilibrium.dat )
 
     echo "Converting supercell" $i
 
     # Generate supercell k-point mesh
-    cp ../qe/kpoints.in .
-    cp ../qe/kpoints.nscf.in .
+    cp qe/kpoints.in $sdir
+    cp qe/kpoints.nscf.in $sdir
     caesar generate_supercell_kpoint_mesh_qe \
-           kpoints.in                        \
-           lattice.dat                       \
-           super_lattice.dat                 \
-           sc_kpoints.dat
-    caesar generate_supercell_kpoint_mesh_qe_nscf # TODO : bug!
-    awk 'NR==1,NR==1 {print}' kpoints.in > kpoints.in.temp
-    cat kpoints.in.temp sc_kpoints.dat > kpoints.in.temp2
-    mv kpoints.in.temp2 kpoints.in
-    awk 'NR==1,NR==1 {print}' kpoints.nscf.in > kpoints.nscf.in.temp
-    cat kpoints.nscf.in.temp sc_kpoints.nscf.dat > kpoints.nscf.in.temp2
-    mv kpoints.nscf.in.temp2 kpoints.nscf.in
+           $sdir/kpoints.in                  \
+           $sdir/lattice.dat                 \
+           $sdir/super_lattice.dat           \
+           $sdir/sc_kpoints.dat
+    header=$(awk 'NR==1,NR==1 {print}' $sdir/kpoints.in)
+    echo $header > $sdir/kpoints.in
+    cat $sdir/sc_kpoints.dat >> $sdir/kpoints.in
+    header=$(awk 'NR==1,NR==1 {print}' $sdir/kpoints.nscf.in)
+    echo $header > $sdir/kpoints.nscf.in
+    cat $sdir/sc_kpoints.nscf.dat >> $sdir/kpoints.nscf.in
 
-    cd static
-      cp ../../qe/* .
-      cp ../kpoints.in .
-      if [ -f "$seedname.in" ]; then
-        mv $seedname.in top.in
-      fi
-      caesar structure_to_qe .
-      mv structure.in $seedname.in
-      cp ../kpoints.nscf.in kpoints.in
-      if [ -f "$seedname_nscf.in" ]; then
-        mv $seedname_nscf.in top.in
-      fi
-      caesar structure_to_qe .
-      mv structure.in $seedname_nscf.in
-      if [ -f 'top.in' ]; then
-        rm top.in
-      fi
-      if [ -f 'kpoints.in' ]; then
-        rm kpoints.in
-      fi
-      if [ -f 'pseudo.in' ]; then
-        rm pseudo.in
-      fi
-    cd ../
-
-    while read line ; do
-      big_point=$(echo ${line} | awk '{print $1}')
-      cd kpoint.$big_point/configurations
-      cp ../../../qe/* .
-      cp ../../kpoints.in .
-      if [ -f "$seedname.in" ]; then
-        mv $seedname.in top.in
-      fi
+    static_dir=$sdir/static
+    cp qe/* $static_dir
+    caesar structure_to_qe           \
+           $static_dir/structure.dat \
+           $static_dir/pseudo.in     \
+           $sdir/kpoints.in          \
+           $static_dir/$seedname.in
+    caesar structure_to_qe           \
+           $static_dir/structure.dat \
+           $static_dir/pseudo.in     \
+           $sdir/kpoints.nscf.in     \
+           $static_dir/$seedname_nscf.in
+    if [ -f "$static_dir/pseudo.in" ]; then
+      rm $static_dir/pseudo.in
+    fi
+    
+    while read fline ; do
+      line=($fline)
+      big_point=${line[0]}
+      kdir=$sdir/kpoint.$big_point/configurations
+      
+      cp qe/* $kdir
+      
+      cp $sdir/kpoints.in $kdir
       for j in `seq 1 $no_modes`; do
         for k in `seq $sampling_point_init $sampling_point_final`; do
-          if [ -e "structure.${j}.${k}.dat" ];then
-            cp structure.${j}.${k}.dat structure.dat
-            caesar structure_to_qe .
-            mv structure.in ${seedname}.${j}.${k}.in
+          if [ -e "$kdir/structure.${j}.${k}.dat" ];then
+            cp $kdir/structure.${j}.${k}.dat $kdir/structure.dat
+            if [ -f "$kdir/$seedname.in" ]; then
+              cp $kdir/$seedname.in $kdir/$seedname.$j.$k.in
+            fi
+            caesar structure_to_qe     \
+                   $kdir/structure.dat \
+                   $kdir/pseudo.in     \
+                   $kdir/kpoints.in    \
+                   $kdir/$seedname.$j.$k.in
           fi # structure exists
         done # loop over sampling points per mode
       done # loop over modes
-      cp ../../kpoints.nscf.in kpoints.in
-      if [ -f "$seedname_nscf.in" ]; then
-        mv $seedname_nscf.in top.in
+      rm $kdir/$seedname.in
+      
+      cp $sdir/kpoints.nscf.in $kdir/kpoints.in
+      if [ -f "$kdir/$seedname_nscf.in" ]; then
         for j in `seq 1 $no_modes`; do
           for k in `seq $sampling_point_init $sampling_point_final`; do
-            if [ -e "structure.${j}.${k}.dat" ];then
-              cp structure.${j}.${k}.dat structure.dat
-              caesar structure_to_qe .
-              mv structure.in ${seedname_nscf}.${j}.${k}.in
+            if [ -e "$kdir/structure.${j}.${k}.dat" ];then
+              cp $kdir/structure.${j}.${k}.dat $kdir/structure.dat
+              cp $kdir/$seedname_nscf.in $kdir/$seedname_nscf.$j.$k.in
+              caesar structure_to_qe     \
+                     $kdir/structure.dat \
+                     $kdir/pseudo.in     \
+                     $kdir/kpoints.in    \
+                     $kdir/$seedname_nscf.$j.$k.in
             fi # structure exists
           done # loop over sampling points per mode
         done # loop over modes
+        rm $kdir/$seedname_nscf.in
       fi
 
-      cd ../../
-
-    done < list.dat
-
-    cd ../
+    done < $sdir/list.dat
 
   done
   echo "Done."
-
-
-     
-
-
-
 
 else 
 

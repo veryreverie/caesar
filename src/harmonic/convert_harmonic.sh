@@ -121,8 +121,8 @@ elif [ "$code" = "qe" ]; then
            $sdir/lattice.dat                 \
            $sdir/super_lattice.dat           \
            $sdir/sc_kpoints.dat
-    awk 'NR==1,NR==1 {print}' $sdir/kpoints.in > $sdir/kpoints.in.temp
-    mv $sdir/kpoints.in.temp $sdir/kpoints.in
+    header=$(awk 'NR==1,NR==1 {print}' $sdir/kpoints.in)
+    echo $header > $sdir/kpoints.in
     cat $sdir/sc_kpoints.dat >> $sdir/kpoints.in
 
     echo "Converting supercell" $i
@@ -139,18 +139,11 @@ elif [ "$code" = "qe" ]; then
         
         cp qe/* $dir
         cp $sdir/seedname.txt $dir
-        cp $sdir/kpoints.in $dir
-        if [ -f "$dir/$seedname.in" ]; then
-          mv $dir/$seedname.in $dir/top.in
-        fi
-        caesar structure_to_qe $dir
-        mv $dir/structure.in $dir/$seedname.in
-        if [ -f "$dir/top.in" ]; then
-          rm $dir/top.in
-        fi
-        if [ -f "$dir/kpoints.in" ]; then
-          rm $dir/kpoints.in
-        fi
+        caesar structure_to_qe    \
+               $dir/structure.dat \
+               $dir/pseudo.in     \
+               $sdir/kpoints.in   \
+               $dir/seedname.in
         if [ -f "$dir/pseudo.in" ]; then
           rm $dir/pseudo.in 
         fi
