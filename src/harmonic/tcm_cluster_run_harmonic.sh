@@ -22,39 +22,25 @@ if [ "$code" = "castep" ];then
   # Loop over supercells
   for i in `seq $first_sc $last_sc`;
   do
- 
-    cd Supercell_$i
-
-    lines=$( awk 'END {print NR}' force_constants.dat )
+    sdir=Supercell_$i 
 
     # Loop over force constants
-    for i in `seq 1 $lines`;
-    do
-
-      awk -v awk_line=$i 'NR==awk_line {print}' force_constants.dat > disp.dat
-      atom=$(awk '{print $1}' disp.dat)
-      disp=$(awk '{print $2}' disp.dat)
-
-  
-      cd atom.${atom}.disp.${disp}
-
-      cd positive
-      rundft nnodes $num_cores
-      rm *.castep_bin *.cst_esp *.usp machine_file *.bands *.bib
-      caesar fetch_forces_castep
-      cd ../ 
-
-      cd negative
-      rundft nnodes $num_cores
-      rm *.castep_bin *.cst_esp *.usp machine_file *.bands *.bib
-      caesar fetch_forces_castep
-      cd ../ 
+    while read fline ; do
+      line=($fline)
+      atom=${line[0]}
+      disp=${line[1]}
+      echo $fline > $sdir/disp.dat
       
-      cd ../
-
-    done 
-    
-    cd ../
+      paths=(positive negative)
+      for path in ${paths[@]}; do
+        cd $sdir/atom.$atom.disp.$disp/$path
+        rundft nnodes $num_cores
+        rm *.castep_bin *.cst_esp *.usp machine_file *.bands *.bib
+        caesar fetch_forces_castep
+        cd ../../..
+      done
+  
+    done < $sdir/force_constants.dat 
 
   done
   echo "Done."
@@ -81,49 +67,32 @@ elif [ "$code" = "qe" ]; then
   read num_cores
 
   # Get seedname
-  cd Supercell_$first_sc
-    seedname=$( awk '{print}' seedname.txt )
-  cd ../
+  seedname=$( awk '{print}' Supercell+$first_sc/seedname.txt )
 
   # Loop over supercells
   for i in `seq $first_sc $last_sc`;
   do
-
-    cd Supercell_$i
-
-    lines=$( awk 'END {print NR}' force_constants.dat )
+    sdir=Supercell_$i
 
     # Loop over force constants
-    for i in `seq 1 $lines`;
-    do
+    while read fline; do
+      line=($fline)
+      atom=${line[0]}
+      disp=${line[1]}
+      echo $fline > $sdir/disp.dat
+      
+      paths=(positive negative)
+      for path in ${paths[@]}; do
+        cd $sdir/atom.$atom.disp.$disp/path
+        pwd
+        echo $seedname
+        mpirun -np $num_cores /rscratch/bm418/espresso-5.1.1/bin/pw.x -i $seedname.in > $seedname.out
+        rm -r $seedname.save
+        caesar fetch_forces_qe
+        cd ../..
+      done
 
-      awk -v awk_line=$i 'NR==awk_line {print}' force_constants.dat > disp.dat
-      atom=$(awk '{print $1}' disp.dat)
-      disp=$(awk '{print $2}' disp.dat)
-
-
-      cd atom.${atom}.disp.${disp}
-
-      cd positive
-      pwd
-      echo $seedname
-      mpirun -np $num_cores /rscratch/bm418/espresso-5.1.1/bin/pw.x -i $seedname.in > $seedname.out
-      rm -r $seedname.save
-      caesar fetch_forces_qe
-      cd ../
-
-      cd negative
-      pwd
-      mpirun -np $num_cores /rscratch/bm418/espresso-5.1.1/bin/pw.x -i $seedname.in > $seedname.out
-      rm -r $seedname.save
-      caesar fetch_forces_qe
-      cd ../
-
-      cd ../
-
-    done
-
-    cd ../
+    done < $sdir/force_constants.dat
 
   done
   echo "Done."

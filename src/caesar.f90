@@ -75,9 +75,6 @@ program caesar
     write(*,*) '  tcm_cluster_run_harmonic :'
     write(*,*) '    Runs calculation on the TCM cluster'
     write(*,*) '    Should be called after convert_harmonic'
-    write(*,*) '  rutgers_run_harmonic :'
-    write(*,*) '    Runs calculations'
-    write(*,*) '    Should be called after convert_harmonic'
     write(*,*) '  lte_harmonic :'
     write(*,*) '    Runs harmonic calculations'
     write(*,*) '    Should be run after one of the run_harmonic options'
@@ -189,8 +186,6 @@ program caesar
   elseif (arg == 'hartree_to_eV') then
     return_status = system(arg//'.sh')
   elseif (arg == 'lte_harmonic') then
-    return_status = system(arg//'.sh')
-  elseif (arg == 'rutgers_run_harmonic') then
     return_status = system(arg//'.sh')
   elseif (arg == 'setup_harmonic') then
     return_status = system(arg//'.sh')
