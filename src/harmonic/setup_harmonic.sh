@@ -107,14 +107,12 @@ for (( i=1; i<=$CELL_COUNT; i++ ))do
          $sdir/super_equilibrium.dat  \
          $sdir/force_constants.dat
   while read fline ; do
-    # TODO : disp.dat and {displacement.dat} are the same files
     line=($fline)
     atom=${line[0]}
     disp=${line[1]}
     ddir=$sdir/atom.$atom.disp.$disp
     mkdir $ddir
     mkdir $ddir/positive $ddir/negative
-    echo $fline > $ddir/disp.dat
     echo $fline > $ddir/displacement.dat
     echo $fline > $ddir/positive/displacement.dat
     echo $fline > $ddir/negative/displacement.dat

@@ -29,7 +29,6 @@ if [ "$code" = "castep" ];then
       line=($fline)
       atom=${line[0]}
       disp=${line[1]}
-      echo $fline > $sdir/disp.dat
       
       paths=(positive negative)
       for path in ${paths[@]}; do
@@ -79,7 +78,6 @@ elif [ "$code" = "qe" ]; then
       line=($fline)
       atom=${line[0]}
       disp=${line[1]}
-      echo $fline > $sdir/disp.dat
       
       paths=(positive negative)
       for path in ${paths[@]}; do

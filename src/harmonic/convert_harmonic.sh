@@ -34,7 +34,6 @@ if [ "$code" = "castep" ];then
   
     while read fline ; do
       line=($fline)
-      echo $fline > $sdir/disp.dat
       atom=${line[0]}
       disp=${line[1]}
       
@@ -71,7 +70,6 @@ elif [ "$code" = "vasp" ]; then
 
     while read fline ; do
       line=($fline)
-      echo $fline > $sdir/disp.dat
       atom=${line[0]}
       disp=${line[1]}
       
@@ -124,7 +122,6 @@ elif [ "$code" = "qe" ]; then
 
     while read fline ; do
       line=($fline)
-      echo $fline > $sdir/disp.dat
       atom=${line[0]}
       disp=${line[1]}
       

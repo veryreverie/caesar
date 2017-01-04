@@ -56,7 +56,6 @@ EOF
       line=($fline)
       disp=${line[0]}
       atom=${line[1]}
-      echo $fline > $sdir/disp.dat
       atoms_line=$(awk -v IGNORECASE=1 '/Atoms/{print NR}' $sdir/structure.dat)
       symmetry_line=$(awk -v IGNORECASE=1 '/Symmetry/{print NR}' $sdir/structure.dat)
       no_atoms=$(( $(( $symmetry_line-($atoms_line+1))) | bc ))
@@ -99,7 +98,6 @@ EOF
       line=($fline)
       atom=${line[0]}
       disp=${line[1]}
-      echo $fline > $sdir/disp.dat
       cat atom.${atom}.disp.${disp}/forces.dat >> $f
     done < $sdir/force_constants.dat
     write_lte_bottom >> $f
