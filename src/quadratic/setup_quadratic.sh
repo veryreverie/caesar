@@ -42,6 +42,9 @@ sampling_point_final=$( awk 'NR==2 {print $2}' mapping.dat)
 no_sampling_points=$(( $sampling_point_final-$sampling_point_init ))
 temperature=$( awk 'NR==3 {print $1}' mapping.dat)
 
+# Write harmonic_path.dat
+echo $harmonic_path > harmonic_path.dat
+
 cp $harmonic_path/ibz.dat .
 
 # Loop over supercells

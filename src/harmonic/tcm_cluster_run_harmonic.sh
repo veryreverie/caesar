@@ -18,6 +18,9 @@ if [ "$code" = "castep" ];then
   read last_sc
   echo "How many cores per run?"
   read num_cores
+  
+  # Get seedname
+  seedname=$( awk '{print}' seedname.txt )
 
   # Loop over supercells
   for i in `seq $first_sc $last_sc`;
@@ -35,8 +38,13 @@ if [ "$code" = "castep" ];then
         cd $sdir/atom.$atom.disp.$disp/$path
         rundft nnodes $num_cores
         rm *.castep_bin *.cst_esp *.usp machine_file *.bands *.bib
-        caesar fetch_forces_castep
-        cd ../../..
+        caesar fetch_forces_castep \
+               $seedname.castep    \
+               structure.dat       \
+               $atom               \
+               $disp               \
+               forces.dat
+        cd -
       done
   
     done < $sdir/force_constants.dat 
@@ -66,7 +74,7 @@ elif [ "$code" = "qe" ]; then
   read num_cores
 
   # Get seedname
-  seedname=$( awk '{print}' Supercell+$first_sc/seedname.txt )
+  seedname=$( awk '{print}' seedname.txt )
 
   # Loop over supercells
   for i in `seq $first_sc $last_sc`;
@@ -86,8 +94,13 @@ elif [ "$code" = "qe" ]; then
         echo $seedname
         mpirun -np $num_cores /rscratch/bm418/espresso-5.1.1/bin/pw.x -i $seedname.in > $seedname.out
         rm -r $seedname.save
-        caesar fetch_forces_qe
-        cd ../..
+        caesar fetch_forces_qe \
+               $seedname.out   \
+               structure.dat   \
+               $atom           \
+               $disp           \
+               forces.out
+        cd -
       done
 
     done < $sdir/force_constants.dat

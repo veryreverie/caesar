@@ -14,7 +14,7 @@ subroutine construct_matrix_force_cnsts(filenames)
   use file_io,        only : open_read_file, open_write_file
   implicit none
   
-  character(32), intent(in) :: filenames(:)
+  character(100), intent(in) :: filenames(:)
   
   ! Input variables
   integer :: no_symm,no_atoms

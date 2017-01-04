@@ -7,7 +7,7 @@ subroutine construct_finite_displacement(args)
   use file_io,   only : open_read_file, open_write_file
   implicit none
   
-  character(32), intent(in) :: args(:)
+  character(100), intent(in) :: args(:)
   
   ! Input variables
   integer :: atom,disp,no_atoms

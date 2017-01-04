@@ -9,7 +9,7 @@ subroutine generate_supercell_kpoint_mesh_qe(filenames)
   use file_io,        only : open_read_file, open_write_file
   implicit none
   
-  character(32), intent(in) :: filenames(:)
+  character(100), intent(in) :: filenames(:)
   
   ! Working variables
   integer :: i,j,k

@@ -8,14 +8,14 @@ subroutine band_folding(args)
   use file_io, only : open_read_file, open_write_file
   implicit none
   
-  character(32), intent(in) :: args(:)
+  character(100), intent(in) :: args(:)
   
   ! Working variables
   integer :: i,iref
   real,allocatable :: bands(:)
   real :: band_ref
   integer :: no_bands
-  character(32) :: input_file, output_file
+  character(100) :: input_file, output_file
   
   ! file units
   integer :: ifile, ofile

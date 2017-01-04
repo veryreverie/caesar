@@ -22,14 +22,13 @@ if [ "$code" = "castep" ];then
     exit 1
   fi
   
+  echo $seedname > seedname.txt
+  
   no_sc=$(awk '{print}' no_sc.dat )
   
   # Loop over 
   for (( i=1; i<=$no_sc; i++ )) do
-    
     sdir=Supercell_$i
-    echo $seedname > $sdir/seedname.txt
- 
     echo "Converting supercell" $i
   
     while read fline ; do
@@ -41,7 +40,6 @@ if [ "$code" = "castep" ];then
       for path in ${paths[@]}; do
         dir=$sdir/atom.$atom.disp.$disp/$path
         cp castep/* $dir
-        cp $sdir/seedname.txt $dir
         caesar structure_to_castep \
                $dir/structure.dat  \
                $dir/sc_bs_path.dat \
@@ -99,13 +97,13 @@ elif [ "$code" = "qe" ]; then
     exit 1
   fi
 
+  echo $seedname > seedname.txt
   no_sc=$(awk '{print}' no_sc.dat )
 
   # Loop over 
   for (( i=1; i<=$no_sc; i++ )) do
     
     sdir=Supercell_$i
-    echo $seedname > $sdir/seedname.txt
 
     # Generate supercell k-point mesh
     cp qe/kpoints.in $sdir
@@ -130,7 +128,6 @@ elif [ "$code" = "qe" ]; then
         dir=$sdir/atom.$atom.disp.$disp/$path
         
         cp qe/* $dir
-        cp $sdir/seedname.txt $dir
         caesar structure_to_qe    \
                $dir/structure.dat \
                $dir/pseudo.in     \

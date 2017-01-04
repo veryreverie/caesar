@@ -149,9 +149,9 @@ end function
 function command_line_args() result(args)
   implicit none
 
-  integer                        :: i         ! loop index
-  integer                        :: arg_count ! no. of command line args
-  character(len=32), allocatable :: args(:)   ! return value
+  integer                     :: i         ! loop index
+  integer                     :: arg_count ! no. of command line args
+  character(100), allocatable :: args(:)   ! return value
 
   ! read in the number of arguments
   arg_count = iargc()

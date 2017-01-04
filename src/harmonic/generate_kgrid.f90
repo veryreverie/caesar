@@ -6,10 +6,9 @@ contains
 subroutine generate_kgrid(filenames)
  use linear_algebra, only : inv_33
  use file_io,        only : open_read_file, open_write_file
+ implicit none
 
- IMPLICIT NONE
-
- character(32), intent(in) :: filenames(:)
+ character(100), intent(in) :: filenames(:)
  
  integer :: symmetry_file
  integer :: grid_file

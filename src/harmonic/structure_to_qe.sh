@@ -19,5 +19,5 @@ awk "NR==$(($lattice_line + 1)),NR==$(($atoms_line - 1)) " \
   '{print $1 " " $2 " " $3}' $1 >> $4
 echo 'ATOMIC_POSITIONS bohr' >> $4
 awk "NR==$(($atoms_line + 1)),NR==$(($symmetry_line - 1)) " \
-  '{print $1 " " $3 " " $4 " " $5}' $1 $4
+  '{print $1 " " $3 " " $4 " " $5}' $1 >> $4
 cat $3 >> $4

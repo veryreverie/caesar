@@ -35,16 +35,22 @@ program caesar
   
   implicit none
   
-  integer                    :: i             ! loop index
-  character(32), allocatable :: args(:)       ! command line arguments
-  character(:),  allocatable :: arg           ! command line argument
-  integer                    :: return_status ! system() status
+  integer                      :: i             ! loop index
+  character(100),  allocatable :: args(:)       ! command line arguments
+  character(:),    allocatable :: arg           ! command line argument
+  character(1000), allocatable :: argstring     ! command line arguments
+  integer                      :: return_status ! system() status
   
   ! lte variables
   real(dp) :: tol,tol2,delta
   
   ! read in command line arguments
   args = command_line_args()
+  
+  argstring = ''
+  do i=2,size(args)
+    argstring = trim(argstring)//' '//args(i)
+  enddo
   
   if (size(args) == 0) then
     write(*,*) 'No arguments given. For help, call caesar -h'
@@ -131,7 +137,7 @@ program caesar
   elseif (arg == 'combine_forces') then
     call combine_forces(args(2:))
   elseif (arg == 'compare_kpoints') then
-    call compare_kpoints()
+    call compare_kpoints(args(2:))
   elseif (arg == 'construct_finite_displacement') then
     call construct_finite_displacement(args(2:))
   elseif (arg == 'construct_matrix_force_cnsts') then
@@ -165,47 +171,47 @@ program caesar
 !    call vscf_1d()
   ! wrappers for shell scripts
   elseif (arg == 'anharmonic') then
-    return_status = system(arg//'.sh')
+    return_status = system(arg//'.sh '//trim(argstring))
   elseif (arg == 'bs_quadratic') then
-    return_status = system(arg//'.sh')
+    return_status = system(arg//'.sh '//trim(argstring))
   elseif (arg == 'clear_all') then
-    return_status = system(arg//'.sh')
+    return_status = system(arg//'.sh '//trim(argstring))
   elseif (arg == 'convert_harmonic') then
-    return_status = system(arg//'.sh')
+    return_status = system(arg//'.sh '//trim(argstring))
   elseif (arg == 'convert_quadratic') then
-    return_status = system(arg//'.sh')
+    return_status = system(arg//'.sh '//trim(argstring))
   elseif (arg == 'dyn_mats') then
-    return_status = system(arg//'.sh')
+    return_status = system(arg//'.sh '//trim(argstring))
   elseif (arg == 'eigenval_castep_to_bands') then
-    return_status = system(arg//'.sh')
+    return_status = system(arg//'.sh '//trim(argstring))
   elseif (arg == 'eigenval_vasp_to_bands') then
-    return_status = system(arg//'.sh')
+    return_status = system(arg//'.sh '//trim(argstring))
   elseif (arg == 'fetch_forces_castep') then
-    return_status = system(arg//'.sh')
+    return_status = system(arg//'.sh '//trim(argstring))
   elseif (arg == 'fetch_forces_qe') then
-    return_status = system(arg//'.sh')
+    return_status = system(arg//'.sh '//trim(argstring))
   elseif (arg == 'hartree_to_eV') then
-    return_status = system(arg//'.sh')
+    return_status = system(arg//'.sh '//trim(argstring))
   elseif (arg == 'lte_harmonic') then
-    return_status = system(arg//'.sh')
+    return_status = system(arg//'.sh '//trim(argstring))
   elseif (arg == 'setup_harmonic') then
-    return_status = system(arg//'.sh')
+    return_status = system(arg//'.sh '//trim(argstring))
   elseif (arg == 'setup_quadratic') then
-    return_status = system(arg//'.sh')
+    return_status = system(arg//'.sh '//trim(argstring))
   elseif (arg == 'structure_to_castep') then
-    return_status = system(arg//'.sh '//trim(args(2)))
+    return_status = system(arg//'.sh '//trim(argstring))
   elseif (arg == 'structure_to_qe') then
-    return_status = system(arg//'.sh '//trim(args(2)))
+    return_status = system(arg//'.sh '//trim(argstring))
   elseif (arg == 'structure_to_vasp') then
-    return_status = system(arg//'.sh '//trim(args(2)))
+    return_status = system(arg//'.sh '//trim(argstring))
   elseif (arg == 'tcm_cleanup_anharmonic') then
-    return_status = system(arg//'.sh')
+    return_status = system(arg//'.sh '//trim(argstring))
   elseif (arg == 'tcm_cleanup_bs') then
-    return_status = system(arg//'.sh')
+    return_status = system(arg//'.sh '//trim(argstring))
   elseif (arg == 'tcm_cluster_run_harmonic') then
-    return_status = system(arg//'.sh')
+    return_status = system(arg//'.sh '//trim(argstring))
   elseif (arg == 'tcm_cluster_run_quadratic') then
-    return_status = system(arg//'.sh')
+    return_status = system(arg//'.sh '//trim(argstring))
   ! wrappers for python scripts
   elseif (arg == 'get_kpoints') then
     return_status = system(arg//'.py')

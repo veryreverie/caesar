@@ -16,13 +16,12 @@ if [ "$code" = "castep" ];then
  
   echo "What is the castep seedname?"
   read seedname
+  echo $seedname > seedname.txt
   
-  cd castep
-  if [ ! -f "$seedname.param" ];then
+  if [ ! -f "castep/$seedname.param" ];then
     echo "Error! The castep 'param' file does not exist." 
     exit 1
   fi
-  cd ../
 
   
   # Get primitive cell path 
@@ -42,10 +41,9 @@ if [ "$code" = "castep" ];then
   sampling_point_final=$( awk 'NR==2 {print $2}' mapping.dat)
   no_sampling_points=$(( $sampling_point_final-$sampling_point_init ))
   
-  # Loop over 
+  # Loop over supercells
   for (( i=1; i<=$no_sc; i++ )) do
     sdir=Supercell_$i
-    echo $seedname > $sdir/seedname.txt
     no_atoms=$( awk 'NR==1 {print $1}' $sdir/equilibrium.dat )
     no_modes=$(( $no_atoms*3 ))
     no_atoms_sc=$( awk 'NR==1 {print $1}' $sdir/super_equilibrium.dat )
@@ -165,6 +163,9 @@ elif [ "$code" = "qe" ];then
     exit 1
   fi
   seedname_nscf=${seedname}.nscf
+  
+  echo $seedname > seedname.txt
+  echo $seedname_nscf > seedname.nscf.txt
 
   no_sc=$(ls -1d Supercell_* | wc -l)
   sampling_amplitude=$( awk 'NR==1 {print $1}' mapping.dat)
@@ -176,8 +177,6 @@ elif [ "$code" = "qe" ];then
   for (( i=1; i<=$no_sc; i++ )) do
     sdir=Supercell_$i
     
-    echo $seedname > $sdir/seedname.txt
-    echo $seedname_nscf > $sdir/seedname.nscf.txt
     no_atoms=$( awk 'NR==1 {print $1}' $sdir/equilibrium.dat )
     no_modes=$(( $no_atoms*3 ))
     no_atoms_sc=$( awk 'NR==1 {print $1}' $sdir/super_equilibrium.dat )

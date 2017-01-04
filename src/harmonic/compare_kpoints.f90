@@ -2,44 +2,48 @@ module compare_kpoints_module
   implicit none
 contains
 
-subroutine compare_kpoints()
-  use constants
-  use utils
+subroutine compare_kpoints(filenames)
+  use constants, only : dp
+  use file_io,   only : open_read_file, open_write_file
+  use utils,     only : count_lines
   implicit none
   
+  character(100), intent(in) :: filenames(:)
+  
   real(dp),parameter :: tol=1.d-10
-  integer :: i,ierr,size,label,list
+  integer :: i,j,ierr,size,label,list
   real(dp) :: kpoint(3),gvec_frac(3)
+  integer :: no_lines
+  
+  ! file units
+  integer :: kpoints_file
+  integer :: gvectors_frac_file
+  integer :: list_file
+  
+  kpoints_file = open_read_file(filenames(1))
+  gvectors_frac_file = open_read_file(filenames(2))
+  list_file = open_write_file(filenames(3))
 
-  open(unit=7,file='kpoints.dat',status='old',iostat=ierr)
-  if (ierr/=0) call errstop('','unable to open kpoints.dat file.')
-  open(unit=8,file='gvectors_frac.dat',status='old',iostat=ierr)
-  if (ierr/=0) call errstop('','unable to open gvectors_frac.dat file.')
-  open(unit=9,file='list.dat',status='new',iostat=ierr)
-  if (ierr/=0) call errstop('','unable to open list.dat file.')
-
-  read(8,*,iostat=ierr) size
-  if (ierr/=0) stop
-
+  read(gvectors_frac_file,*) size
+  
+  no_lines = count_lines(kpoints_file)
+  
   do i=1,size
-    read(8,*,iostat=ierr) label, gvec_frac(1:3)
-    if(ierr/=0) call errstop('','problem reading gvectors_frac.dat file.')
+    read(gvectors_frac_file,*) label, gvec_frac(1:3)
     gvec_frac(1:3)=modulo(0.5d0+gvec_frac(1:3)+tol,1.d0)-0.5d0-tol
-    do while (ierr==0)
-      read(7,*,iostat=ierr)list,kpoint(1:3)
-      if(ierr>0)then
-        call errstop('','problem reading kpoints.dat file.')
-      elseif (ierr==0)then
-        kpoint(1:3)=modulo(0.5d0+kpoint(1:3)+tol,1.d0)-0.5d0-tol
-        if (all(abs(gvec_frac(1:3)-kpoint(1:3))<tol)) then
-          write(9,*) list, label
-        endif
-      endif ! ierr
+    do j=1,no_lines
+      read(kpoints_file,*)list,kpoint(1:3)
+      kpoint(1:3)=modulo(0.5d0+kpoint(1:3)+tol,1.d0)-0.5d0-tol
+      if (all(dabs(gvec_frac(1:3)-kpoint(1:3))<tol)) then
+        write(list_file,*) list, label
+      endif
     enddo
-    rewind(7)
+    rewind(kpoints_file)
   enddo
 
-  close(7) ; close(8) ; close(9)
+  close(kpoints_file)
+  close(gvectors_frac_file)
+  close(list_file)
 
   end subroutine
 end module

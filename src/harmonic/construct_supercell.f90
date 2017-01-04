@@ -10,9 +10,9 @@ subroutine construct_supercell(filenames)
   use linear_algebra,         only : determinant33
   use is_in_supercell_module, only : is_in_supercell
   use file_io,                only : open_read_file, open_write_file
-  IMPLICIT NONE
+  implicit none
   
-  character(32), intent(in) :: filenames(:)
+  character(100), intent(in) :: filenames(:)
   
   ! Working variables
   INTEGER :: i,j,k,atom_counter,delta

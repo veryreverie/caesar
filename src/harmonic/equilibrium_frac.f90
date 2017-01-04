@@ -8,7 +8,7 @@ subroutine equilibrium_frac(filenames)
   use linear_algebra, only : inv_33
   implicit none
   
-  character(32), intent(in) :: filenames(:)
+  character(100), intent(in) :: filenames(:)
   
   integer :: i,no_atoms
   real(dp) :: lattice(3,3),trans_lattice(3,3),inv_lattice(3,3)

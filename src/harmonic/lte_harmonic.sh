@@ -121,4 +121,4 @@ EOF
   echo $temperature > lte/temperature.dat
   cd lte
     caesar fourier_interpolation > fourier_interpolation.out
-  cd ../
+  cd -

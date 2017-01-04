@@ -9,7 +9,7 @@ subroutine calculate_bs(args)
   implicit none
   
   ! input variables
-  character(32), intent(in) :: args(:)
+  character(100), intent(in) :: args(:)
   
   ! Parameters
   real(dp), parameter :: dtemperature = 50.0d0
@@ -28,11 +28,11 @@ subroutine calculate_bs(args)
   real(dp) :: b1,b2,b0,dump_r
   
   ! filenames
-  character(32) :: ibz_filename
-  character(32) :: in_dir
-  character(32) :: file_end
-  character(32) :: band_gap_correction_filename
-  character(32) :: bg_correction_kp_filename
+  character(100) :: ibz_filename
+  character(100) :: in_dir
+  character(100) :: file_end
+  character(100) :: band_gap_correction_filename
+  character(100) :: bg_correction_kp_filename
   
   ! file units
   integer :: ibz_file

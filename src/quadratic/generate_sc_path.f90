@@ -7,7 +7,7 @@ subroutine generate_sc_path(filenames)
   use file_io,   only : open_read_file, open_write_file
   implicit none
   
-  character(32), intent(in) :: filenames(:)
+  character(100), intent(in) :: filenames(:)
   
   integer :: i,no_points
   integer :: supercell(3,3)

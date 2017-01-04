@@ -32,7 +32,7 @@ subroutine anharmonic()
   integer               :: no_modes        ! no_atoms*3
   integer, allocatable  :: no_atoms_sc(:)  ! no. atoms in supercell
   integer, allocatable  :: no_cells(:)     ! no_atoms_sc/no_atoms
-  character(32)         :: castep          ! seedname.castep
+  character(100)        :: castep          ! seedname.castep
   type(Mapping)         :: map             ! mapping.dat
   integer, allocatable  :: kpoints(:)      ! first column of all list.dats
   integer               :: kpoint
@@ -47,13 +47,13 @@ subroutine anharmonic()
   type(VscfReturn)      :: vscf
   logical, allocatable  :: sc_acoustic(:)  ! if Supercell_i/acoustic.dat exists
   
-  character(32)        :: k_str
-  character(32)        :: l_str
+  character(100)        :: k_str
+  character(100)        :: l_str
   
   real(dp), allocatable :: eigenvals(:,:,:)
   real(dp), allocatable :: harmonic(:,:,:)
   
-  character(80)       :: sdir        ! Supercell_*/ directory name
+  character(100)        :: sdir        ! Supercell_*/ directory name
   
   ! ----------------------------------------
   ! Temporary variables
@@ -61,7 +61,7 @@ subroutine anharmonic()
   integer             :: i, j, k, l  ! loop variables
   type(ProcessResult) :: proc        ! temporary process result
   real(dp)            :: temp_real
-  character(80)       :: filename
+  character(100)      :: filename
   
   ! ----------------------------------------
   ! File units
@@ -97,7 +97,7 @@ subroutine anharmonic()
   no_modes = no_atoms*3
   
   ! read the castep seedname into castep variable
-  seedname_file = open_read_file('Supercell_1/seedname.txt')
+  seedname_file = open_read_file('seedname.txt')
   read(seedname_file,*) castep
   close(seedname_file)
   castep = trim(castep)//'.castep'

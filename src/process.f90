@@ -3,9 +3,9 @@ module process
   
   ! holds the status, stderr and stdout of a system process
   type ProcessResult
-    integer       :: status
-    character(32) :: stdout
-    character(32) :: stderr
+    integer        :: status
+    character(100) :: stdout
+    character(100)  :: stderr
   end type
   
 contains
@@ -18,9 +18,9 @@ function system_process(input) result(output)
   character(len=*), intent(in) :: input
   type(ProcessResult)          :: output
   
-  character(32) :: temp_char
-  integer       :: file_unit
-  integer       :: iostat
+  character(100) :: temp_char
+  integer        :: file_unit
+  integer        :: iostat
   
   ! run process
   output%status = system(input//' >system_process_o 2>system_process_e')

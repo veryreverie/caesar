@@ -4,7 +4,7 @@
 
 
 no_sc=$(ls -1d Supercell_* | wc -l)
-seedname=$( awk '{print $1}' Supercell_1/seedname.txt )
+seedname=$( awk '{print $1}' seedname.txt )
 sampling_amplitude=$( awk 'NR==1 {print $1}' mapping.dat)
 sampling_point_init=$( awk 'NR==2 {print $1}' mapping.dat)
 sampling_point_final=$( awk 'NR==2 {print $2}' mapping.dat)
