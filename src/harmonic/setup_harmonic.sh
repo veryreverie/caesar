@@ -120,7 +120,8 @@ for (( i=1; i<=$CELL_COUNT; i++ ))do
     echo $fline > $ddir/negative/displacement.dat
     cp $sdir/super_lattice.dat $sdir/super_equilibrium.dat $ddir
     caesar construct_finite_displacement \
-           $ddir/disp.dat                \
+           $atom                         \
+           $disp                         \
            $ddir/super_lattice.dat       \
            $ddir/super_equilibrium.dat   \
            $ddir/positive/structure.dat  \

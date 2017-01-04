@@ -46,8 +46,7 @@ EOF
   
   # Loop over 
   for (( i=1; i<=$no_sc; i++ )) do
- 
-    cd Supercell_$i
+    sdir=Supercell_$i
   
     # Prepare force constants
     force_const=0
@@ -57,73 +56,62 @@ EOF
       line=($fline)
       disp=${line[0]}
       atom=${line[1]}
-      echo $fline > disp.dat
-      atoms_line=$(awk -v IGNORECASE=1 '/Atoms/{print NR}' structure.dat)
-      symmetry_line=$(awk -v IGNORECASE=1 '/Symmetry/{print NR}' structure.dat)
+      echo $fline > $sdir/disp.dat
+      atoms_line=$(awk -v IGNORECASE=1 '/Atoms/{print NR}' $sdir/structure.dat)
+      symmetry_line=$(awk -v IGNORECASE=1 '/Symmetry/{print NR}' $sdir/structure.dat)
       no_atoms=$(( $(( $symmetry_line-($atoms_line+1))) | bc ))
-      
-      cd atom.${atom}.disp.${disp}
-      cp positive/forces.dat positive.dat
-      cp negative/forces.dat negative.dat
-      caesar combine_forces
-      cd ../
+      dir=$sdir/atom.$atom.disp.$disp
+      caesar combine_forces                  \
+             $dir/super_equilibrium_file.dat \
+             $dir/positive/forces.dat        \
+             $dir/negative/forces.dat        \
+             $dir/forces.dat
+      cp $dir/positive/forces.dat $dir/positive.dat
+      cp $dir/negative/forces.dat $dir/negative.dat
 
-    done < force_constants.dat
+    done < $sdir/force_constants.dat
 
+    caesar equilibrium_frac            \
+           $sdir/super_equilibrium.dat \
+           $sdir/super_lattice.dat     \
+           $sdir/super_equiibrium_frac.dat
+    
     # Construct LTE
-    echo "Primitive cell lattice vectors (rows, in a.u.)" > lte.dat
-    cat lte.dat lattice.dat > lte_temp.dat
-    mv lte_temp.dat lte.dat
-    echo "Supercell lattice vectors (rows, in a.u.)" >> lte.dat
-    cat lte.dat super_lattice.dat > lte_temp.dat
-    mv lte_temp.dat lte.dat
-    echo " Number of atoms in supercell" >> lte.dat
-    echo $no_atoms >> lte.dat
-    echo " Species ; mass (a.u.) ; position of atom in supercell (in terms of SC LVs)" >> lte.dat
-    caesar equilibrium_frac
-    awk '{if (NR!=1) {print}}' super_equilibrium_frac.dat > atoms.dat
-    cat lte.dat atoms.dat > lte_temp.dat
-    rm atoms.dat
-    mv lte_temp.dat lte.dat
-    echo "Number of point symmetry operations" >> lte.dat
-    awk '{if (NR==1) {print}}' symmetry.dat > symm.dat
-    cat lte.dat symm.dat > lte_temp.dat
-    rm symm.dat
-    mv lte_temp.dat lte.dat
-    echo "Rotation matrices (3 rows) and translations (1 row, fraction of SC LV)" >> lte.dat
-    awk '{if (NR!=1) {print}}' symmetry.dat > symm.dat
-    cat lte.dat symm.dat > lte_temp.dat
-    rm symm.dat
-    mv lte_temp.dat lte.dat
-    echo "Number of force constants" >> lte.dat
-    echo $(( $force_const*$no_atoms*3 )) >> lte.dat
-    echo "Atom 1 ; Cartes'n direction ; Atom 2 ; C. direction ; force constant (a.u.)" >> lte.dat
-    while read LINE ; do
-      echo $LINE > disp.dat
-      atom=$(awk '{print $1}' disp.dat)
-      disp=$(awk '{print $2}' disp.dat)
-      cat lte.dat atom.${atom}.disp.${disp}/forces.dat > lte_temp.dat
-      mv lte_temp.dat lte.dat
-    done < force_constants.dat
-    write_lte_bottom > lte_bottom.dat
-    cat lte.dat lte_bottom.dat > lte_temp.dat
-    mv lte_temp.dat lte.dat
-    rm lte_bottom.dat
+    mkdir $sdir/lte
+    f=$sdir/lte/lte.dat
+    
+    echo "Primitive cell lattice vectors (rows, in a.u.)" > $f
+    cat $sdir/lattice.dat >> $f
+    echo "Supercell lattice vectors (rows, in a.u.)" >> $f
+    cat $sdir/super_lattice.dat >> $f
+    echo " Number of atoms in supercell" >> $f
+    echo $no_atoms >> $f
+    echo " Species ; mass (a.u.) ; position of atom in supercell (in terms of SC LVs)" >> $f
+    awk '{if (NR!=1) {print}}' $sdir/super_equilibrium_frac.dat >> $f
+    echo "Number of point symmetry operations" >> $f
+    awk '{if (NR==1) {print}}' $sdir/symmetry.dat >> $f
+    echo "Rotation matrices (3 rows) and translations (1 row, fraction of SC LV)" >> $f
+    awk '{if (NR!=1) {print}}' $sdir/symmetry.dat >> $f
+    echo "Number of force constants" >> $f
+    echo $(( $force_const*$no_atoms*3 )) >> $f
+    echo "Atom 1 ; Cartes'n direction ; Atom 2 ; C. direction ; force constant (a.u.)" >> $f
+    while read fline ; do
+      line=($fline)
+      atom=${line[0]}
+      disp=${line[1]}
+      echo $fline > $sdir/disp.dat
+      cat atom.${atom}.disp.${disp}/forces.dat >> $f
+    done < $sdir/force_constants.dat
+    write_lte_bottom >> $f
 
     # Execute LTE
-    mkdir lte
-    mv lte.dat lte
-    cd lte
-    caesar lte 0.00000001 0.001 0.000001 > lte.out
-    #lte > lte.out
-    if [ -e "error.txt" ];then
-      echo "There is an error in lte: check 'error.txt' file."
-      exit 1
-    fi
-    cd ../
-
-    cd ../
-
+    cd $sdir/lte
+      caesar lte 0.00000001 0.001 0.000001 > lte.out
+      if [ -e "error.txt" ];then
+        echo "There is an error in lte: check 'error.txt' file."
+        exit 1
+      fi
+    cd -
   done  # Loop over supercells
 
 
@@ -131,8 +119,8 @@ EOF
   mkdir lte
   cp lattice.dat equilibrium.dat symmetry.dat grid.dat ibz.dat kpoint_to_supercell.dat lte
   caesar dyn_mats
+  write_lte_path > lte/path.dat
+  echo $temperature > lte/temperature.dat
   cd lte
-  write_lte_path > path.dat
-  echo $temperature > temperature.dat
-  caesar fourier_interpolation > fourier_interpolation.out
+    caesar fourier_interpolation > fourier_interpolation.out
   cd ../

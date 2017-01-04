@@ -14,46 +14,34 @@ no_sampling_points=$(( $sampling_point_final-$sampling_point_init ))
 kpoint_counter=1
 for i in `seq 1 $no_sc`;
 do
+  sdir=Supercell_$i
+  if [ ! -f "$sdir/acoustic.dat" ]; then
 
-  cd Supercell_$i
-  
-  if [ ! -f "acoustic.dat" ]; then
+    no_atoms=$( awk 'NR==1 {print $1}' $sdir/equilibrium.dat )
+    no_modes=$(( $no_atoms*3 ))
 
-  no_atoms=$( awk 'NR==1 {print $1}' equilibrium.dat )
-  no_modes=$(( $no_atoms*3 ))
+    # Static calculation
+    static_dir=$sdir/static
+    caesar eigenval_castep_to_bands $static_dir/$seedname.bands $static_dir
+    rm $static_dir/*.orbitals
 
-  # Static calculation
-  cd static
-    cp ../seedname.txt .
-    caesar eigenval_castep_to_bands
-    rm seedname.txt *.orbitals
-  cd ../
-
-    while read line ; do
-
-      big_point=$(echo ${line} | awk '{print $1}')
-      cd kpoint.$big_point/configurations
-
+    while read fline ; do
+      line=($fline)
+      big_point=${line[0]}
+      kdir=$sdir/kpoint/$big_point/configurations
+      cd $kdir
+      
       for j in `seq 1 $no_modes`; do
         for k in `seq $sampling_point_init $sampling_point_final`; do
-          if [ -d "mode.${j}.${k}" ];then
-            cd mode.${j}.${k}
-              if [ -e "$seedname.castep" ]; then
-                cp ../../../seedname.txt .
-                caesar eigenval_castep_to_bands
-                rm seedname.txt *.orbitals
-              fi
-            cd ../
+          mdir=$kdir/mode.$j.$k
+          if [ -d "$mdir" ];then
+            if [ -e "$mdir/$seedname.castep" ]; then
+              caesar eigenval_castep_to_bands $mdir/$seedname.bands $mdir
+              rm $mdir/*.orbitals
+            fi
           fi
         done # loop over sampling points per mode
       done # loop over modes
-
-      cd ../../  # cd kpoint.$big_point/configurations
-
-    done < list.dat
-
-
+    done < $sdir/list.dat
   fi
-  cd ../  # cd Supercell_$i
-
 done  # Loop over supercells

@@ -2,12 +2,12 @@ module construct_finite_displacement_module
   implicit none
 contains
 
-subroutine construct_finite_displacement(filenames)
+subroutine construct_finite_displacement(args)
   use constants, only : dp
   use file_io,   only : open_read_file, open_write_file
   implicit none
   
-  character(32), intent(in) :: filenames(:)
+  character(32), intent(in) :: args(:)
   
   ! Input variables
   integer :: atom,disp,no_atoms
@@ -16,7 +16,6 @@ subroutine construct_finite_displacement(filenames)
   character(2),allocatable :: species(:)
   
   ! file units
-  integer :: disp_file              ! disp.dat
   integer :: super_lattice_file     ! super_lattice.dat
   integer :: super_equilibrium_file ! super_equilibrium.dat
   integer :: positive_file          ! positive/structure.dat
@@ -25,18 +24,17 @@ subroutine construct_finite_displacement(filenames)
   integer :: i ! loop index
 
   ! Read in displacement
-  disp_file = open_read_file(filenames(1))
-  read(disp_file,*) atom, disp
-  close(disp_file)
-
+  read(args(1),*) atom
+  read(args(2),*) disp
+  
   ! Read in structure
-  super_lattice_file = open_read_file(filenames(2))
+  super_lattice_file = open_read_file(args(3))
   read(super_lattice_file,*) lattice(1,:)
   read(super_lattice_file,*) lattice(2,:)
   read(super_lattice_file,*) lattice(3,:)
   close(super_lattice_file)
   
-  super_equilibrium_file = open_read_file(filenames(3))
+  super_equilibrium_file = open_read_file(args(4))
   read(super_equilibrium_file,*) no_atoms
   allocate(atoms(no_atoms,3),mass(no_atoms),species(no_atoms))
   do i=1,no_atoms 
@@ -45,8 +43,8 @@ subroutine construct_finite_displacement(filenames)
   close(super_equilibrium_file)
 
   ! Generate distorted structure
-  positive_file = open_write_file(filenames(4))
-  negative_file = open_write_file(filenames(5))
+  positive_file = open_write_file(args(5))
+  negative_file = open_write_file(args(6))
   write(positive_file,*)'Lattice'
   write(negative_file,*)'Lattice'
   do i=1,3

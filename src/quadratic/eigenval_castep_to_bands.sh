@@ -1,22 +1,17 @@
 #!/bin/bash
 
-# Script to transform vasp EIGENVAL file to bands file
+# Script to transform castep bands file to bands file
+# $1=input bands file, $2=output directory
 
-#######################################
-####        MAIN   PROGRAM         ####
-#######################################
-
-seedname=$(awk '{print $1}' seedname.txt)
-
-# Read in EIGENVAL
-no_kpoints=$(awk 'NR==1 {print $4}' $seedname.bands)
-no_bands=$(awk 'NR==4 {print $4}' $seedname.bands)
+# Read in bands file
+no_kpoints=$(awk 'NR==1 {print $4}' $1)
+no_bands=$(awk 'NR==4 {print $4}' $1)
 
 for i in `seq 1 $no_kpoints`; do
   first_line=$(( 9+($no_bands+2)*($i-1)+3 ))
   last_line=$(( 9+($no_bands+2)*($i-1)+2+$no_bands ))
   for j in `seq 1 $no_bands`; do
-    awk -v awk_first_line=$first_line -v awk_last_line=$last_line 'NR==awk_first_line,NR==awk_last_line {print $1}' $seedname.bands > kpoint.${i}.dat
+    awk "NR==$first_line,NR==$last_line {print \$1}" $1 > $2/kpoint.$i.dat
   done
 done
 

@@ -98,12 +98,13 @@ program caesar
     write(*,*) '  anharmonic :'
     write(*,*) '    Runs anharmonic calculations'
     write(*,*) '    Should be called after tcm_cleanup_anharmonic'
+    write(*,*) '  tcm_cleanup_bs'
+    write(*,*) '    Collates bands from anharmonic calculations'
+    write(*,*) '    Should be called after tcm_cluster_run_quadratic'
     write(*,*) '  bs_quadratic :'
     write(*,*) '    Runs band structure calculations'
-    write(*,*) '    Should be called after tcm_cleanup_anharmonic'
+    write(*,*) '    Should be called after tcm_cleanup_bs'
     write(*,*) '  get_kpoints :'
-    write(*,*) '    [Help text pending]'
-    write(*,*) '  tcm_cleanup_bs'
     write(*,*) '    [Help text pending]'
     write(*,*) '  eigenval_vasp_to_bands'
     write(*,*) '    [Help text pending]'
@@ -120,15 +121,15 @@ program caesar
     enddo
   ! Wrappers for Fortran 
   elseif (arg == 'band_folding') then
-    call band_folding()
+    call band_folding(args(2:))
 !  elseif (arg == 'calculate_anharmonic') then
 !    call calculate_anharmonic()
   elseif (arg == 'calculate_bs') then
-    call calculate_bs()
+    call calculate_bs(args(2:))
   elseif (arg == 'calculate_gap') then
     call calculate_gap()
   elseif (arg == 'combine_forces') then
-    call combine_forces()
+    call combine_forces(args(2:))
   elseif (arg == 'compare_kpoints') then
     call compare_kpoints()
   elseif (arg == 'construct_finite_displacement') then
@@ -138,7 +139,7 @@ program caesar
   elseif (arg == 'construct_supercell') then
     call construct_supercell(args(2:))
   elseif (arg == 'equilibrium_frac') then
-    call equilibrium_frac()
+    call equilibrium_frac(args(2:))
   elseif (arg == 'fourier_interpolation') then
     call fourier_interpolation()
 !  elseif (arg == 'generate_amplitudes') then

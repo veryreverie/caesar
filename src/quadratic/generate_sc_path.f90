@@ -3,13 +3,15 @@ module generate_sc_path_module
 contains
 
 subroutine generate_sc_path(filenames)
+  use constants, only : dp
+  use file_io,   only : open_read_file, open_write_file
   implicit none
   
   character(32), intent(in) :: filenames(:)
   
   integer :: i,no_points
   integer :: supercell(3,3)
-  real,allocatable :: path(:,:),sc_path(:,:)
+  real(dp),allocatable :: path(:,:),sc_path(:,:)
   
   ! file units
   integer :: supercell_file

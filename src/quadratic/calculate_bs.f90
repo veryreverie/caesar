@@ -2,27 +2,56 @@ module calculate_bs_module
   implicit none
 contains
 
-subroutine calculate_bs()
+subroutine calculate_bs(args)
+  use constants, only : dp, kB
+  use utils,     only : i2s
+  use file_io,   only : open_read_file, open_write_file
   implicit none
-  integer,parameter :: dp=kind(1.d0)
-  ! Hard-coded variables
-  real :: temperature=0.0,dtemperature=50.0,thermal
+  
+  ! input variables
+  character(32), intent(in) :: args(:)
+  
+  ! Parameters
+  real(dp), parameter :: dtemperature = 50.0d0
+  
   ! Input variables
   integer :: no_kpoints,no_modes,degeneracy
   integer, allocatable :: multiplicity(:)
-  real,allocatable :: bands(:,:),frequency(:,:),deformation(:,:)
-  real :: mapping_amplitude
+  real(dp),allocatable :: bands(:,:),frequency(:,:),deformation(:,:)
+  real(dp) :: mapping_amplitude
+  
   ! Working variables
+  real(dp) :: temperature
   integer :: i,j,k,total_kpoints
-  real :: renormalised_band,renormalised_band_kpoint
-  real,allocatable :: db1(:),db2(:)
-  real :: b1,b2,b0,dump_r
-  character(80) :: filename1,filename2,c_kp,c_at
-
-  ! Read in general input
-  open(1,file='input.dat')
-  read(1,*)no_kpoints,no_modes,degeneracy
-  close(1)
+  real(dp) :: renormalised_band,renormalised_band_kpoint
+  real(dp), allocatable :: db1(:),db2(:)
+  real(dp) :: b1,b2,b0,dump_r
+  
+  ! filenames
+  character(32) :: ibz_filename
+  character(32) :: in_dir
+  character(32) :: file_end
+  character(32) :: band_gap_correction_filename
+  character(32) :: bg_correction_kp_filename
+  
+  ! file units
+  integer :: ibz_file
+  integer :: freq_file
+  integer :: bs_file
+  integer :: bgc_file
+  integer :: bck_file
+  
+  ! Process inputs
+  read(args(1),*) no_kpoints
+  read(args(2),*) no_modes
+  read(args(3),*) degeneracy
+  read(args(4),*) mapping_amplitude
+  ibz_filename = args(5)
+  in_dir = args(6)
+  band_gap_correction_filename = args(7)
+  bg_correction_kp_filename = args(8)
+  
+  ! allocate and initialise arrays
   allocate(bands(no_kpoints,no_modes))
   allocate(multiplicity(no_kpoints))
   allocate(frequency(no_kpoints,no_modes))
@@ -30,116 +59,115 @@ subroutine calculate_bs()
   bands=0.0
   frequency=1.0
   deformation=0.0
-  allocate(db1(degeneracy),db2(degeneracy))
+  allocate(db1(degeneracy))
+  allocate(db2(degeneracy))
   
-  open(1,file='mapping.dat')
-  read(1,*)mapping_amplitude
-  close(1)
-  !write(*,*)'The mapping amplitude is',mapping_amplitude
-  
-  open(1,file='ibz.dat')
+  ! read ibz file
+  ibz_file = open_read_file(ibz_filename)
   do i=1,no_kpoints 
-    read(1,*)dump_r,dump_r,dump_r,multiplicity(i)
-  enddo ! i
-  close(1)
-  total_kpoints=0
-  do i=1,no_kpoints
-    total_kpoints=total_kpoints+multiplicity(i)
-  enddo ! i
-  !write(*,*)'The total number of k-points is:',total_kpoints
+    read(ibz_file,*)dump_r,dump_r,dump_r,multiplicity(i)
+  enddo
+  close(ibz_file)
+  
+  total_kpoints = sum(multiplicity)
 
   ! Read in bands
   do i=1,no_kpoints
     if(i==1)then
       do j=4,no_modes
-        write(c_kp,*)i; c_kp=adjustl(c_kp)
-        write(c_at,*)j; c_at=adjustl(c_at)
-        filename1=trim('bs.')//trim(c_kp)//trim('.')//trim(c_at)//trim('.dat')
-        filename2=trim('frequency.')//trim(c_kp)//trim('.')//trim(c_at)//trim('.dat')
-        open(1,file=filename2)
-        read(1,*)frequency(i,j)
-        close(1)
-        open(1,file=filename1)
+        file_end = '.'//trim(i2s(i))//'.'//trim(i2s(j))//'.dat'
+        
+        freq_file = open_read_file(trim(in_dir)//'/frequency'//trim(file_end))
+        read(freq_file,*) frequency(i,j)
+        close(freq_file)
+        
+        bs_file = open_read_file(trim(in_dir)//'/bs'//trim(file_end))
         b1=0.0
         do k=1,degeneracy
-          read(1,*)db1(k) 
+          read(bs_file,*)db1(k) 
           b1=b1+(db1(k)/degeneracy)
-        enddo ! k
+        enddo
         b2=0.0
         do k=1,degeneracy
-          read(1,*)db2(k) 
+          read(bs_file,*)db2(k) 
           b2=b2+(db2(k)/degeneracy)
-        enddo ! k
-        read(1,*)b0 
-        close(1)
+        enddo
+        read(bs_file,*)b0 
+        close(bs_file)
+        
         bands(i,j)=(b1+b2)/2.0-b0      
-        !write(*,*)i,j,bands(i,j),frequency(i,j),multiplicity(i)
-      enddo ! j
+      enddo
     else
       do j=1,no_modes
-        write(c_kp,*)i; c_kp=adjustl(c_kp)
-        write(c_at,*)j; c_at=adjustl(c_at)
-        filename1=trim('bs.')//trim(c_kp)//trim('.')//trim(c_at)//trim('.dat')
-        filename2=trim('frequency.')//trim(c_kp)//trim('.')//trim(c_at)//trim('.dat')
-        open(1,file=filename2)
-        read(1,*)frequency(i,j)
-        close(1)
-        open(1,file=filename1)
+        file_end = '.'//trim(i2s(i))//'.'//trim(i2s(j))//'.dat'
+        
+        freq_file = open_read_file(trim(in_dir)//'/frequency'//trim(file_end))
+        read(freq_file,*) frequency(i,j)
+        close(freq_file)
+        
+        bs_file = open_read_file(trim(in_dir)//'/bs'//trim(file_end))
         b1=0.0
         do k=1,degeneracy
-          read(1,*)db1(k) 
+          read(bs_file,*)db1(k) 
           b1=b1+(db1(k)/degeneracy)
-        enddo ! k
+        enddo
         b2=0.0
         do k=1,degeneracy
-          read(1,*)db2(k) 
+          read(bs_file,*)db2(k) 
           b2=b2+(db1(k)/degeneracy)
-        enddo ! k
-        read(1,*)b0 
-        close(1)
+        enddo
+        read(bs_file,*)b0 
+        close(bs_file)
+        
         bands(i,j)=(b1+b2)/2.0-b0      
-      enddo ! j
+      enddo
     endif ! skip acoustic modes
-  enddo ! i
+  enddo
 
   ! Calculate deformation potential
   do i=1,no_kpoints
     do j=1,no_modes
-      deformation(i,j)=bands(i,j)/((mapping_amplitude/sqrt(2.0*abs(frequency(i,j))))**2)/(2.0*abs(frequency(i,j))) !/27.21138602
-      !write(*,*)i,j,deformation(i,j)
-    enddo ! j
-  enddo ! i
-
+      deformation(i,j) = bands(i,j)                        &
+                     & / ( mapping_amplitude               &
+                     &   / dsqrt(2.0*dabs(frequency(i,j))) &
+                     &   )**2                              &
+                     & / (2.0*dabs(frequency(i,j)))
+    enddo
+  enddo
+  
   ! Calculate quadratic vibrational correction
-  open(1,file='band_gap_correction.dat')
-  open(2,file='bg_correction_kp.dat')
-  temperature=-dtemperature
+  bgc_file = open_write_file(band_gap_correction_filename)
+  bck_file = open_write_file(bg_correction_kp_filename)
   do k=1,21  ! loop over temperature
     renormalised_band=0.0
-    temperature=temperature+dtemperature
+    temperature = (k-1)*dtemperature
     if(temperature<1.d-5)then
       do i=1,no_kpoints
-        write(2,*)'k-point',i
+        write(bck_file,*)'k-point',i
         renormalised_band_kpoint=0.0
         do j=1,no_modes
-          renormalised_band=renormalised_band+deformation(i,j)*multiplicity(i)/total_kpoints
-          renormalised_band_kpoint=renormalised_band_kpoint+deformation(i,j)
-          write(2,*)i,j,deformation(i,j)
-        enddo ! j
-        write(2,*)i,renormalised_band_kpoint
-      enddo ! i
+          renormalised_band = renormalised_band &
+                          & + deformation(i,j)*multiplicity(i)/total_kpoints
+          renormalised_band_kpoint = renormalised_band_kpoint+deformation(i,j)
+          write(bck_file,*)i,j,deformation(i,j)
+        enddo
+        write(bck_file,*)i,renormalised_band_kpoint
+      enddo
     else
-      thermal=temperature*8.6173324E-5!/3.1577464E5
       do i=1,no_kpoints
         do j=1,no_modes
-          renormalised_band=renormalised_band+&
-          &deformation(i,j)*(1.0+2.0/(exp(frequency(i,j)/thermal)-1))*multiplicity(i)/total_kpoints
-        enddo ! j
-      enddo ! i
+          renormalised_band = renormalised_band                               &
+                          & + deformation(i,j)                                &
+                          & * (1.0                                            &
+                          &   +2.0/(dexp(frequency(i,j)/(temperature*kB))-1)) &
+                          & * multiplicity(i)                                 &
+                          & / total_kpoints
+        enddo
+      enddo
     endif ! temperature
-    write(1,*)temperature,renormalised_band 
-  enddo ! k
-  close(1)
-  close(2)
+    write(bgc_file,*)temperature,renormalised_band 
+  enddo
+  close(bgc_file)
+  close(bck_file)
 end subroutine
 end module
