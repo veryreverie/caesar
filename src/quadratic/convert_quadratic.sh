@@ -61,17 +61,16 @@ if [ "$code" = "castep" ];then
              $static_dir/bs_path.dat   \
              $static_dir/sc_bs_path.dat
     fi
-    mv $static_dir/$seedname.cell $static_dir/bottom.cell
-    caesar structure_to_castep $static_dir
-    mv $static_dir/structure.cell $static_dir/$seedname.cell
-    rm $static_dir/bottom.cell
+    caesar structure_to_castep        \
+           $static_dir/structure.dat  \
+           $static_dir/sc_bs_path.dat \
+           $static_dir/$seedname.cell
     
     while read fline ; do
       line=($fline)
       big_point=${line[0]}
       kdir=$sdir/kpoint.$big_point/configurations
       cp castep/* $kdir
-      mv $kdir/$seedname.cell $kdir/bottom.cell
       if [ "$bs_calculateion" -eq "1" ]; then
         cp $static_dir/sc_bs_path.dat $kdir
       fi
@@ -79,13 +78,16 @@ if [ "$code" = "castep" ];then
         for k in `seq $sampling_point_init $sampling_point_final`; do
           if [-e "$kdir/structure.$j.$k.dat" ]; then
             cp $kdir/structure.$j.$k.dat $kdir/structure.dat
-            caesar structure_to_castep $kdir
-            mv $kdir/structure.cell $kdir/$seedname.$j.$k.cell
+            cp $kdir/$seedname.cell $kdir/$seedname.$j.$k.cell
+            caesar structure_to_castep  \
+                   $kdir/structure.dat  \
+                   $kdir/sc_bs_path.dat \
+                   $kdir/$seedname.$j.$k.cell
           fi
         done
       done
       
-      rm $kdir/bottom.cell
+      rm $kdir/$seedname.cell
     done < $sdir/list.dat
   done
   echo "Done."
@@ -118,8 +120,9 @@ elif [ "$code" = "vasp" ]; then
     cp vasp/KPOINTS.band $static_dir
     cp $sdir/KPOINTS.$i $static_dir/KPOINTS
     cp vasp/mpi_submit_static.sh $static_dir
-    caesar structure_to_vasp $static_dir
-    mv $static_dir/structure.POSCAR $static_dir/POSCAR
+    caesar structure_to_vasp         \
+           $static_dir/structure.dat \
+           $static_dir/POSCAR
     
     # Loop over k-points
     no_kpoints=$(ls -1d kpoint.* | wc -l)
@@ -137,8 +140,7 @@ elif [ "$code" = "vasp" ]; then
         for l in `seq $sampling_point_init $sampling_point_final`; do
           if [ -e "$kdir/structure.$k.$l.dat" ]; then
             cp $kdir/structure.$k.$l.dat $kdir/structure.dat
-            caesar structure_to_vasp $kdir
-            mv $kdir/$structure.POSCAR $kdir/POSCAR.$k.$l
+            caesar structure_to_vasp $kdir/structure.dat $kdir/POSCAR.$k.$l
           fi
         done
       done

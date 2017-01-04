@@ -86,7 +86,10 @@ for (( i=1; i<=$CELL_COUNT; i++ ))do
   echo Symmetry >> $sdir/structure.dat
   echo End >> $sdir/structure.dat
   
-  caesar structure_to_castep $sdir
+  caesar structure_to_castep  \
+         $sdir/structure.dat  \
+         $sdir/sc_bs_path.dat \
+         $sdir/structure.cell
   cellsym --symmetry $sdir/structure.cell > $sdir/symmetry.dat
   symmetry_start_line=$(awk -v IGNORECASE=1 '/%block SYMMETRY_OPS/{print NR}' $sdir/symmetry.dat)
   symmetry_end_line=$(awk -v IGNORECASE=1 '/%endblock SYMMETRY_OPS/{print NR}' $sdir/symmetry.dat)

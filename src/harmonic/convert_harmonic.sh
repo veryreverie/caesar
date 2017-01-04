@@ -43,14 +43,10 @@ if [ "$code" = "castep" ];then
         dir=$sdir/atom.$atom.disp.$disp/$path
         cp castep/* $dir
         cp $sdir/seedname.txt $dir
-        if [ -f "$dir/$seedname.cell" ]; then
-          mv $dir/$seedname.cell $dir/bottom.cell
-        fi
-        caesar structure_to_castep $dir
-        mv $dir/structure.cell $dir/$seedname.cell
-        if [ -f "$dir/bottom.cell" ]; then
-          rm $dir/bottom.cell
-        fi
+        caesar structure_to_castep \
+               $dir/structure.dat  \
+               $dir/sc_bs_path.dat \
+               $dir/seedname.cell
       done
     done < $sdir/force_constants.dat
       
@@ -83,8 +79,7 @@ elif [ "$code" = "vasp" ]; then
       for path in ${paths[@]}; do
         dir=$sdir/atom.$atom.disp.$disp/$path
         cp vasp/* $dir
-        caesar structure_to_vasp $dir
-        mv $dir/structure.POSCAR $dir/POSCAR
+        caesar structure_to_vasp $dir/structure.dat $dir/POSCAR
       done
     done < $sdir/force_constants.dat
 
