@@ -164,7 +164,13 @@ program caesar
     read(args(2),*) tol
     read(args(3),*) tol2
     read(args(4),*) delta
-    call lte(tol,tol2,delta)
+    call lte(tol,tol2,delta,args(5),args(6),args(7),args(8),args(9),args(10),&
+      & args(11),args(12),args(13),args(14),args(15),args(16),args(17),      &
+      & args(18),args(19))
+    !call lte(tol,tol2,delta,'lte.dat','freq_dos.dat','tdependence1.dat',        &
+    !  & 'tdependence2.dat','dispersion_curve.dat','kpairs.dat','freq_grids.dat',&
+    !  & 'disp_patterns.dat','kdisp_patterns.dat','pol_vec.dat','gvectors.dat',  &
+    !  & 'gvectors_frac.dat','error.txt','dyn_mat.','atoms_in_primitive_cell.dat')
 !  elseif (arg == 'quadratic_spline') then
 !    call quadratic_spline()
 !  elseif (arg == 'vscf_1d') then

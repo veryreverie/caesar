@@ -97,18 +97,25 @@
 ! 17/06/11 Introduced BLAS & LAPACK.  Fixed bug in randomisation of theta for
 !          speed-of-sound calculation.
 
-MODULE phonons
-  ! Miscellaneous utilities etc.
+
+! Miscellaneous utilities etc.
+module phonons
   use min_images,     only : is_lat_point, min_images_brute_force, maxim
-  use constants,      only : dp, third, twopi
+  use constants,      only : dp, third, twopi, kB_au_per_K
   use utils,          only : i2s, errstop
+  use file_io,        only : open_read_file, open_write_file
   use linear_algebra, only : determinant33, inv_33
-  IMPLICIT NONE
+  implicit none
+  
   PRIVATE
+  
+  ! subroutines and functions
   PUBLIC defined,read_lte,point_symm,point_symm_brute_force,newtons_law, &
     &mass_reduce,find_prim_cell,calculate_freq_dos,calc_lte,calc_ltfe, &
     &prog_function,generate_disp_curve,calculate_speed_sound,finalise, &
     &evaluate_freqs_on_grid,write_dynamical_matrix,write_atoms_in_primitive_cell
+  
+  ! Global variables
   REAL(dp) :: prim_lat_vec(3,3),sc_lat_vec(3,3),prim_rec_vec(3,3), &
     &sc_rec_vec(3,3),length_scale,vol_scale,small_k_scale,fc_scale,bin_width, &
     &temperature
@@ -121,18 +128,8 @@ MODULE phonons
   INTEGER,ALLOCATABLE :: atom(:,:),no_equiv_ims(:,:,:),atom_in_prim(:), &
     &prim_cell_for_atom(:)
   LOGICAL,ALLOCATABLE :: defined(:,:,:,:)
-  ! Boltzmann's constant in Hartrees per Kelvin.
-  REAL(dp),PARAMETER :: kB_au_per_K=3.16679002948702D-006
 
-  ! *** USEFUL (ADJUSTABLE) PARAMETERS *** !
-  ! Number of bins into which the frequency range is divided.
-  INTEGER,PARAMETER :: max_bin=1500
-  ! Number of random samples of Brillouin zone to be made in each DoS set.
-  INTEGER,PARAMETER :: no_samples=50000
-  ! Number of frequency DoS sets (for calculating error bars).
-  INTEGER,PARAMETER :: no_fdos_sets=20
-
-CONTAINS
+contains
 
 
   SUBROUTINE setup_geometry(tol)
@@ -202,16 +199,18 @@ CONTAINS
   END FUNCTION atom_at_pos
 
 
-  SUBROUTINE read_lte(tol)
+  SUBROUTINE read_lte(tol,lte_filename)
     ! Read in the data in lte.dat and allocate arrays, etc.
     IMPLICIT NONE
     
-    real(dp), intent(in) :: tol
+    ! inputs
+    real(dp)    , intent(in) :: tol
+    character(*), intent(in) :: lte_filename
     
     INTEGER :: ierr,n,i,j,no_force_c_supplied,atom1,atom2,dir1,dir2,ialloc
     REAL(dp) :: fc,check_matrix
 
-    OPEN(unit=8,file='lte.dat',status='old',iostat=ierr)
+    OPEN(unit=8,file=lte_filename,status='old',iostat=ierr)
     IF(ierr/=0)CALL errstop('READ_LTE','Problem opening lte.dat.')
 
     ! Primitive lattice vectors
@@ -1083,14 +1082,17 @@ CONTAINS
   END SUBROUTINE calculate_eigenfreqs_and_vecs
 
 
-  SUBROUTINE calculate_freq_dos(tol)
-    ! Calculate the frequency density-of-states by Monte Carlo sampling of
-    ! the Brillouin zone.
-    USE linear_algebra,ONLY : dscal
-    USE rand_no_gen,ONLY : ranx
-    IMPLICIT NONE
+  ! Calculate the frequency density-of-states by Monte Carlo sampling of
+  ! the Brillouin zone.
+  subroutine calculate_freq_dos(tol,freq_dos_filename)
+    use constants,      only : max_bin, no_samples, no_fdos_sets
+    use linear_algebra, only : dscal
+    use rand_no_gen,    only : ranx
+    implicit none
     
-    real(dp), intent(in) :: tol
+    ! inputs
+    real(dp),     intent(in) :: tol
+    character(*), intent(in) :: freq_dos_filename
     
     REAL(dp) :: omega(no_DoF_prim),kvec(3),rec_bin_width,max_freq,min_freq, &
       &rec_no_fdos_sets
@@ -1168,7 +1170,7 @@ CONTAINS
 
     ! Write out the frequency DoS.
     rec_no_fdos_sets=1.d0/DBLE(no_fdos_sets)
-    OPEN(unit=8,file='freq_dos.dat',status='replace',iostat=ierr)
+    OPEN(unit=8,file=freq_dos_filename,status='replace',iostat=ierr)
     IF(ierr/=0)CALL errstop('CALCULATE_FREQ_DOS','Error opening freq_dos.dat.')
     DO bin=0,max_bin
       WRITE(8,*)(DBLE(bin)+0.5d0)*bin_width, &
@@ -1179,15 +1181,21 @@ CONTAINS
   END SUBROUTINE calculate_freq_dos
 
 
-  SUBROUTINE calc_lte
-    ! Use the frequency density-of-states to evaluate the lattice thermal
-    ! energy of the crystal as a function of the temperature in Kelvin.
-    ! Repeat this for each set of frequency DoS data, to estimate the error
-    ! in the LTFE.
-    USE linear_algebra,ONLY : ddot
-    IMPLICIT NONE
+  ! Use the frequency density-of-states to evaluate the lattice thermal
+  ! energy of the crystal as a function of the temperature in Kelvin.
+  ! Repeat this for each set of frequency DoS data, to estimate the error
+  ! in the LTFE.
+  SUBROUTINE calc_lte(tdependence1_filename)
+    use constants,      only : max_bin, no_fdos_sets
+    use linear_algebra, only : ddot
+    implicit none
+    
+    ! inputs
+    character(*), intent(in) :: tdependence1_filename
+    
     INTEGER :: bin,j
     REAL(dp) :: omega,lte_val,lte_sq,E_H(0:max_bin),lte,lte_err
+    
     DO bin=0,max_bin
       ! omega is the frequency in the middle of the corresponding bin.
       omega=(DBLE(bin)+0.5d0)*bin_width
@@ -1206,7 +1214,7 @@ CONTAINS
       &lte,' +/- ',lte_err
     WRITE(*,'(1x,a,es18.10,a,es10.2)')'Done.  LTE per primitive cell (eV) : ', &
       &lte*27.211396132d0,' +/- ',lte_err*27.211396132d0
-    OPEN(1,FILE='tdependence1.dat')
+    OPEN(1,FILE=tdependence1_filename)
     WRITE(1,*)lte*27.211396132d0
     CLOSE(1)
   END SUBROUTINE calc_lte
@@ -1234,14 +1242,20 @@ CONTAINS
   END FUNCTION harmonic_energy
 
 
-  SUBROUTINE calc_ltfe
-    ! Use the frequency density-of-states to evaluate the lattice thermal
-    ! free energy of the crystal as a function of the temperature in Kelvin.
-    ! Repeat this for each set of frequency DoS data, to estimate the error
-    ! in the LTFE.
+  ! Use the frequency density-of-states to evaluate the lattice thermal
+  ! free energy of the crystal as a function of the temperature in Kelvin.
+  ! Repeat this for each set of frequency DoS data, to estimate the error
+  ! in the LTFE.
+  SUBROUTINE calc_ltfe(tdependence2_filename)
+    use constants, only : max_bin, no_fdos_sets
     IMPLICIT NONE
+    
+    ! inputs
+    character(*), intent(in) :: tdependence2_filename
+    
     INTEGER :: bin,j
     REAL(dp) :: omega,ltfe_sq,ltfe_val,FE_H(0:max_bin),ltfe,ltfe_err
+    
     DO bin=0,max_bin
       ! omega is the frequency in the middle of the corresponding bin.
       omega=(DBLE(bin)+0.5d0)*bin_width
@@ -1260,7 +1274,7 @@ CONTAINS
       &ltfe,' +/- ',ltfe_err
     WRITE(*,'(1x,a,es18.10,a,es10.2)')'and LTFE per primitive cell (eV)  : ', &
       &ltfe*27.211396132d0,' +/- ',ltfe_err*27.211396132d0
-    OPEN(1,FILE='tdependence2.dat')
+    OPEN(1,FILE=tdependence2_filename)
     WRITE(1,*)ltfe*27.211396132d0
     CLOSE(1)
   END SUBROUTINE calc_ltfe
@@ -1288,12 +1302,16 @@ CONTAINS
   END FUNCTION harmonic_free_energy
 
 
-  SUBROUTINE generate_disp_curve
-    ! This subroutine generates a dispersion_curve.dat file, which contains
-    ! all the branches of the dispersion curve in a format that xmgrace 
-    ! can read.  The branches of the dispersion curve are plotted against
-    ! the total distance travelled along the specified lines.
-    IMPLICIT NONE
+  ! This subroutine generates a dispersion_curve.dat file, which contains
+  ! all the branches of the dispersion curve in a format that xmgrace 
+  ! can read.  The branches of the dispersion curve are plotted against
+  ! the total distance travelled along the specified lines.
+  subroutine generate_disp_curve(dispersion_curve_filename)
+    implicit none
+    
+    ! inputs
+    character(*), intent(in) :: dispersion_curve_filename
+    
     REAL(dp) :: k_dist,kvec(3),delta_k(3),k_step,omega(no_DoF_prim)
     INTEGER :: i,j,k,total_no_kpoints,ialloc,ierr
     REAL(dp),ALLOCATABLE :: disp_k_dist(:),branch(:,:)
@@ -1341,7 +1359,7 @@ CONTAINS
     k_dist=k_dist-k_step
     WRITE(*,*)'Final line ends at k-space distance   : ',k_dist
 
-    OPEN(unit=8,file='dispersion_curve.dat',status='replace',iostat=ierr)
+    OPEN(unit=8,file=dispersion_curve_filename,status='replace',iostat=ierr)
     IF(ierr/=0)CALL errstop('GENERATE_DISP_CURVE', &
       &'Error opening dispersion_curve.dat.')
     DO j=1,no_DoF_prim
@@ -1501,12 +1519,26 @@ CONTAINS
   END SUBROUTINE calculate_speed_sound
 
 
-  SUBROUTINE evaluate_freqs_on_grid
-! Evaluate the set of phonon frequencies on the supercell G vectors.
-! Average the corresponding energies (for testing purposes).
-! Write out the real part of the non-mass-reduced polarisation vector, which
-! is the pattern of displacement corresponding to the normal mode.
-    IMPLICIT NONE
+  ! Evaluate the set of phonon frequencies on the supercell G vectors.
+  ! Average the corresponding energies (for testing purposes).
+  ! Write out the real part of the non-mass-reduced polarisation vector, which
+  ! is the pattern of displacement corresponding to the normal mode.
+  subroutine evaluate_freqs_on_grid(kpairs_filename,freq_grids_filename, &
+      & disp_patterns_filename,kdisp_patterns_filename,pol_vec_filename, &
+      & gvectors_filename,gvectors_frac_filename,error_filename)
+    implicit none
+    
+    ! inputs
+    character(*), intent(in) :: kpairs_filename
+    character(*), intent(in) :: freq_grids_filename
+    character(*), intent(in) :: disp_patterns_filename
+    character(*), intent(in) :: kdisp_patterns_filename
+    character(*), intent(in) :: pol_vec_filename
+    character(*), intent(in) :: gvectors_filename
+    character(*), intent(in) :: gvectors_frac_filename
+    character(*), intent(in) :: error_filename
+    
+    
     INTEGER :: ng,i,j,k,ig,ierr,index1,index2,p,n,atom1
     LOGICAL :: found,soft_modes
     REAL(dp) :: gnew(3),gnew1(3),gnew2(3),gvec(3,no_prim_cells),R0(3), &
@@ -1591,18 +1623,18 @@ CONTAINS
       ENDIF
       ENDDO ! j
     ENDDO ! k
-    OPEN(1,FILE='kpairs.dat')
+    OPEN(1,FILE=kpairs_filename)
     DO i=1,no_prim_cells
       WRITE(1,*)i,reference(i)
     ENDDO ! i
     CLOSE(1)
 
-    OPEN(unit=8,file='freqs_grid.dat',status='replace',iostat=ierr)
+    OPEN(unit=8,file=freq_grids_filename,status='replace',iostat=ierr)
     IF(ierr/=0)CALL errstop('EVALUATE_FREQS_ON_GRID', &
       &'Problem opening freqs_grid.dat.')
-    OPEN(unit=9,file='disp_patterns.dat',status='replace',iostat=ierr)
-    OPEN(unit=10,file='kdisp_patterns.dat',status='replace',iostat=ierr)
-    OPEN(unit=11,file='pol_vec.dat',status='replace',iostat=ierr)
+    OPEN(unit=9,file=disp_patterns_filename,status='replace',iostat=ierr)
+    OPEN(unit=10,file=kdisp_patterns_filename,status='replace',iostat=ierr)
+    OPEN(unit=11,file=pol_vec_filename,status='replace',iostat=ierr)
     IF(ierr/=0)CALL errstop('EVALUATE_FREQS_ON_GRID', &
       &'Problem opening disp_patterns.dat.')
 
@@ -1611,8 +1643,8 @@ CONTAINS
     ENDDO ! n
 
 ! Modified by B. Monserrat to output G vectors to file
-    OPEN(19,FILE="gvectors.dat")
-    OPEN(20,FILE="gvectors_frac.dat")
+    OPEN(19,FILE=gvectors_filename)
+    OPEN(20,FILE=gvectors_frac_filename)
     WRITE(19,*) no_prim_cells
     WRITE(20,*) no_prim_cells
 
@@ -1725,7 +1757,7 @@ CONTAINS
       ENDDO ! index2
       WRITE(*,*)
       IF(tot_disp_patt<1.d-8)THEN
-        OPEN(111,file='error.txt')
+        OPEN(111,file=error_filename)
         WRITE(111,*)'The total displacement is:',tot_disp_patt
         CLOSE(111)
       ENDIF
@@ -1751,9 +1783,13 @@ CONTAINS
   END SUBROUTINE evaluate_freqs_on_grid
 
 
-  SUBROUTINE write_dynamical_matrix
-! Write out the dynamical matrix at each supercell G-vector to a file
-    IMPLICIT NONE
+  ! Write out the dynamical matrix at each supercell G-vector to a file
+  subroutine write_dynamical_matrix(dyn_mat_fileroot)
+    implicit none
+    
+    ! inputs
+    character(*), intent(in) :: dyn_mat_fileroot
+    
     INTEGER :: ierr,ng,k,j,i,ig,atom1,cart1,index1,atom2,cart2,index2
     REAL(dp) :: gnew2(3),gnew1(3),gnew(3),gvec(3,no_prim_cells)
     COMPLEX(dp) :: dyn_mat(no_DoF_prim,no_DoF_prim)
@@ -1788,7 +1824,7 @@ CONTAINS
     dyn_mat(1:no_DoF_prim,1:no_DoF_prim)=CMPLX(0.d0,0.d0,dp)
 
     DO ig=1,ng
-      OPEN(unit=101,file='dyn_mat.'//TRIM(i2s(ig))//'.dat',status='replace',iostat=ierr)
+      OPEN(unit=101,file=dyn_mat_fileroot//TRIM(i2s(ig))//'.dat',status='replace',iostat=ierr)
       IF(ierr/=0)CALL errstop('WRITE_DYNAMICAL_MATRIX','Problem opening &
        &dyn_mat.'//TRIM(i2s(ig))//'.dat file.')
       CALL construct_dyn_matrix(twopi*gvec(1:3,ig),dyn_mat)
@@ -1815,14 +1851,18 @@ CONTAINS
   END SUBROUTINE write_dynamical_matrix
 
 
-  SUBROUTINE write_atoms_in_primitive_cell
-! Write out atoms in primitive cell in order.
-    IMPLICIT NONE
+  ! Write out atoms in primitive cell in order.
+  subroutine write_atoms_in_primitive_cell(atoms_in_primitive_cell_filename)
+    implicit none
+    
+    ! inputs
+    character(*), intent(in) :: atoms_in_primitive_cell_filename
+    
     REAL(dp),PARAMETER :: tol=1.d-10
     INTEGER :: ierr,n,atom1,i
     REAL(dp) :: pos(3),frac(3)
 
-    OPEN(unit=102,file='atoms_in_primitive_cell.dat',status='replace',&
+    OPEN(unit=102,file=atoms_in_primitive_cell_filename,status='replace',&
      &iostat=ierr)
     IF(ierr/=0)CALL errstop('WRITE_ATOMS_IN_PRIMITIVE_CELL','Problem opening &
      &atoms_in_primitive_cell.dat file.')
@@ -1862,17 +1902,49 @@ module lte_module
   implicit none
 contains
 
-subroutine lte(tol,tol2,delta)
-  ! Main program starts here.
+! ------------------------------------------------------------
+! Main program starts here.
+! ------------------------------------------------------------
+subroutine lte(tol,tol2,delta,lte_filename,freq_dos_filename,                &
+    & tdependence1_filename,tdependence2_filename,dispersion_curve_filename, &
+    & kpairs_filename,freq_grids_filename,disp_patterns_filename,            &
+    & kdisp_patterns_filename,pol_vec_filename,gvectors_filename,            &
+    & gvectors_frac_filename,error_filename,dyn_mat_fileroot,                &
+    & atoms_in_primitive_cell_filename)
   use constants, only : dp
-  USE utils,ONLY : errstop,wordwrap
-  USE phonons
+  use utils,     only : errstop, wordwrap
+  use phonons
   IMPLICIT NONE
   
+  ! ----------------------------------------
+  ! Inputs
+  ! ----------------------------------------
   real(dp), intent(in) :: tol
   real(dp), intent(in) :: tol2
   real(dp), intent(in) :: delta
   
+  ! ----------------------------------------
+  ! filenames
+  ! ----------------------------------------
+  character(*), intent(in) :: lte_filename
+  character(*), intent(in) :: freq_dos_filename
+  character(*), intent(in) :: tdependence1_filename
+  character(*), intent(in) :: tdependence2_filename
+  character(*), intent(in) :: dispersion_curve_filename
+  character(*), intent(in) :: kpairs_filename
+  character(*), intent(in) :: freq_grids_filename
+  character(*), intent(in) :: disp_patterns_filename
+  character(*), intent(in) :: kdisp_patterns_filename
+  character(*), intent(in) :: pol_vec_filename
+  character(*), intent(in) :: gvectors_filename
+  character(*), intent(in) :: gvectors_frac_filename
+  character(*), intent(in) :: error_filename
+  character(*), intent(in) :: dyn_mat_fileroot ! will have *.dat appended
+  character(*), intent(in) :: atoms_in_primitive_cell_filename
+  
+  ! ----------------------------------------
+  ! times
+  ! ----------------------------------------
   REAL :: t1,t2
 
   CALL CPU_TIME(t1)
@@ -1884,7 +1956,7 @@ subroutine lte(tol,tol2,delta)
 
   WRITE(*,*)'Reading data from lte.dat...'
   WRITE(*,*)
-  CALL read_lte(tol)
+  CALL read_lte(tol, lte_filename)
   WRITE(*,*)'Finished reading input data.'
   WRITE(*,*)
 
@@ -1923,21 +1995,21 @@ subroutine lte(tol,tol2,delta)
   IF(prog_function==1)THEN
 
     WRITE(*,*)'Calculating the frequency density-of-states function...'
-    CALL calculate_freq_dos(tol)
+    CALL calculate_freq_dos(tol, freq_dos_filename)
     CALL wordwrap('Done.  Frequency density-of-states function written to &
       &freq_dos.dat.  (Please view this file using XMGrace.)')
     WRITE(*,*)
 
     WRITE(*,*)'Calculating the lattice thermal energy (LTE) and free energy &
       &(LTFE)...'
-    CALL calc_lte
-    CALL calc_ltfe
+    CALL calc_lte(tdependence1_filename)
+    CALL calc_ltfe(tdependence2_filename)
     WRITE(*,*)
 
   ELSEIF(prog_function==2)THEN
 
     WRITE(*,*)'Calculating the requested dispersion curve.'
-    CALL generate_disp_curve
+    CALL generate_disp_curve(dispersion_curve_filename)
     CALL wordwrap('Done.  dispersion_curve.dat has been generated.  (Please &
       &view this file using XMGrace.)')
     WRITE(*,*)
@@ -1953,11 +2025,13 @@ subroutine lte(tol,tol2,delta)
 
     WRITE(*,*)'Calculating the frequencies and displacement patterns on the &
       &G-vector grid.'
-    CALL evaluate_freqs_on_grid
+    CALL evaluate_freqs_on_grid(kpairs_filename,freq_grids_filename,     &
+      & disp_patterns_filename,kdisp_patterns_filename,pol_vec_filename, &
+      & gvectors_filename,gvectors_frac_filename,error_filename)
     WRITE(*,*)'Done.  Frequencies and displacement patterns calculated.'
     WRITE(*,*)
-    CALL write_dynamical_matrix
-    CALL write_atoms_in_primitive_cell
+    CALL write_dynamical_matrix(dyn_mat_fileroot)
+    CALL write_atoms_in_primitive_cell(atoms_in_primitive_cell_filename)
 
   ELSE
 

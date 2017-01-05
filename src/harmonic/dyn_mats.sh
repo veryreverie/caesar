@@ -10,11 +10,26 @@ for i in `seq 1 $no_sc` ; do
          $sdir/lte/gvectors_frac.dat \
          $sdir/list.dat
   
-  cd $sdir/lte/
-    caesar lte 0.00001 0.00001 0.01 > lte2.out
-  cd -
-  
-  cp $sdir/lte/atoms_in_primitive_cell.dat lte/atoms_in_primitive_cell.$i.dat
+  caesar lte                                      \
+         0.00001                                  \
+         0.00001                                  \
+         0.01                                     \
+         $sdir/lte/lte.dat                        \
+         $sdir/lte/freq_dos.dat                   \
+         $sdir/lte/tdependence1.dat               \
+         $sdir/lte/tdependence2.dat               \
+         $sdir/lte/dispersion_curve.dat           \
+         $sdir/lte/kpairs.dat                     \
+         $sdir/lte/freq_grids.dat                 \
+         $sdir/lte/disp_patterns.dat              \
+         $sdir/lte/kdisp_patterns.dat             \
+         $sdir/lte/pol_vec.dat                    \
+         $sdir/lte/gvectors.dat                   \
+         $sdir/lte/gvectors_frac.dat              \
+         $sdir/lte/error.txt                      \
+         $sdir/lte/dyn_mat.                       \
+         $sdir/lte/atoms_in_primitive_cell.$i.dat \
+         > $sdir/lte/lte2.out
   
   while read fline ; do
     line=($fline)

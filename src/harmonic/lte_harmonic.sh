@@ -103,13 +103,30 @@ EOF
     write_lte_bottom >> $f
 
     # Execute LTE
-    cd $sdir/lte
-      caesar lte 0.00000001 0.001 0.000001 > lte.out
-      if [ -e "error.txt" ];then
-        echo "There is an error in lte: check 'error.txt' file."
-        exit 1
-      fi
-    cd -
+    caesar lte                                   \
+           0.00000001                            \
+           0.001                                 \
+           0.000001                              \
+           $sdir/lte/lte.dat                     \
+           $sdir/lte/freq_dos.dat                \
+           $sdir/lte/tdependence1.dat            \
+           $sdir/lte/tdependence2.dat            \
+           $sdir/lte/dispersion_curve.dat        \
+           $sdir/lte/kpairs.dat                  \
+           $sdir/lte/freq_grids.dat              \
+           $sdir/lte/disp_patterns.dat           \
+           $sdir/lte/kdisp_patterns.dat          \
+           $sdir/lte/pol_vec.dat                 \
+           $sdir/lte/gvectors.dat                \
+           $sdir/lte/gvectors_frac.dat           \
+           $sdir/lte/error.txt                   \
+           $sdir/lte/dyn_mat.                    \
+           $sdir/lte/atoms_in_primitive_cell.dat \
+           > $sdir/lte/lte.out
+    if [ -e "error.txt" ];then
+      echo "There is an error in lte: check 'error.txt' file."
+      exit 1
+    fi
   done  # Loop over supercells
 
 
