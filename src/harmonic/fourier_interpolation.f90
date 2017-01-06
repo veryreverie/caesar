@@ -1,23 +1,20 @@
- MODULE phonon
-!--------!
-! PHONON !
-!--------!
- USE constants
- USE utils
- USE linear_algebra
- USE symmetry
+module phonon
+  use constants
+  use utils
+  use linear_algebra
+  use symmetry
+  implicit none
 
- IMPLICIT NONE
+contains
 
- CONTAINS
-
- SUBROUTINE construct_dyn_mat(kpoint,basis,mass,no_cells,no_ims,cell_vecs,&
-  &force_consts,dyn_mat)
 !--------------------------------------------------------------------------!
 ! Construct the dynamical matrix at an arbitrary wave vector. We take into !
 ! account all minimum image primitive cells in the supercell.              !
 !--------------------------------------------------------------------------!
- IMPLICIT NONE
+subroutine construct_dyn_mat(kpoint,basis,mass,no_cells,no_ims,cell_vecs,&
+  &force_consts,dyn_mat)
+ implicit none
+ 
  INTEGER,INTENT(in) :: basis,no_cells,no_ims(no_cells)
  REAL(dp),INTENT(in) :: kpoint(3),mass(basis),cell_vecs(3,8,no_cells),&
   &force_consts(basis,3,basis,3,no_cells)
@@ -50,15 +47,15 @@
    enddo ! j_atom
   enddo ! i_cart
  enddo ! i_atom
+end subroutine
 
- END SUBROUTINE construct_dyn_mat
 
-
- SUBROUTINE calculate_frequencies(basis,dyn_mat,freqs)
 !-----------------------------------------------------------------!
 ! Diagonalise the dynamical matrix and calculate its eigenvalues. !
 !-----------------------------------------------------------------!
- IMPLICIT NONE
+subroutine calculate_frequencies(basis,dyn_mat,freqs)
+ implicit none
+ 
  INTEGER,INTENT(in) :: basis
  COMPLEX(dp),INTENT(in) :: dyn_mat(basis,3,basis,3)
  REAL(dp),INTENT(out) :: freqs(3*basis)
@@ -102,14 +99,13 @@
   endif ! minus_freqs_sq
   i_index=i_index-1
  enddo ! j_index
-
- ENDSUBROUTINE calculate_frequencies
+end subroutine
 
 
 !---------------------!
 ! GENERATE_DISPERSION !
 !---------------------!
- subroutine generate_dispersion(rec_vecs,basis,mass,no_cells,no_ims,         &
+subroutine generate_dispersion(rec_vecs,basis,mass,no_cells,no_ims,          &
    & cell_vecs,force_consts,no_points,path,phonon_dispersion_curve_filename, &
    & high_symmetry_points_filename)
  implicit none
@@ -173,14 +169,13 @@
 
  close(14)
  close(15)
-
- ENDSUBROUTINE generate_dispersion
+end subroutine
 
 
 !--------------!
 ! GENERATE_DOS !
 !--------------!
- subroutine generate_dos(rec_vecs,basis,mass,no_cells,no_ims,cell_vecs,&
+subroutine generate_dos(rec_vecs,basis,mass,no_cells,no_ims,cell_vecs, &
   &force_consts,temperature_filename,free_energy_filename,freq_dos_filename)
  implicit none
  
@@ -271,15 +266,15 @@
  close(16)
 
  if(soft_modes)write(*,*)'Soft modes present.'
+end subroutine
 
- END SUBROUTINE generate_dos
 
-
- REAL(dp) FUNCTION harmonic_free_energy(T,omega)
 !----------------------!
 ! HARMONIC_FREE_ENERGY !
 !----------------------!
- IMPLICIT NONE
+real(dp) function harmonic_free_energy(T,omega)
+ implicit none
+ 
  REAL(dp),PARAMETER :: tol=1.d-8
  REAL(dp),PARAMETER :: kB_au_per_K=3.16679002948702D-006
  REAL(dp),INTENT(in) :: T,omega
@@ -296,10 +291,10 @@
    harmonic_free_energy=-huge(0.d0)
   endif
  endif
+end function
+end module
 
- END FUNCTION harmonic_free_energy
 
- END MODULE phonon
 
 module fourier_interpolation_module
   use constants
@@ -310,7 +305,7 @@ contains
 !-------------------------!
 ! Read basic input files. !
 !-------------------------!
- subroutine read_input_files(no_symm_ops,basis,grid,prim_latt_vecs,symm_ops, &
+subroutine read_input_files(no_symm_ops,basis,grid,prim_latt_vecs,symm_ops, &
    & equilibrium_filename,grid_filename,lattice_filename,symmetry_filename)
  implicit none
  
@@ -361,14 +356,13 @@ contains
   enddo ! i_row
  enddo ! i_symm
  close(11)
-
- END SUBROUTINE read_input_files
+end subroutine
 
 
 !--------------------------------------------------!
 ! Read input files related to k-points in the IBZ. !
 !--------------------------------------------------!
- subroutine read_kpoints(no_kpoints,kpoints,multiplicity,kpoint_to_supercell,&
+subroutine read_kpoints(no_kpoints,kpoints,multiplicity,kpoint_to_supercell,&
    & ibz_filename,kpoint_to_supercell_filename)
  implicit none
  
@@ -419,14 +413,13 @@ contains
  do i_point=1,no_kpoints
   kpoints(1:3,i_point)=modulo(kpoints(1:3,i_point)+0.5d0+tol,1.d0)-0.5d0-tol
  enddo ! i_points
-
- END SUBROUTINE read_kpoints
+end subroutine read_kpoints
 
 
 !--------------------------------------------------------!
 ! Read in dynamical matrices at each k-point in the IBZ. !
 !--------------------------------------------------------!
- subroutine read_dyn_mats(basis,mass,atom_prim_frac,no_kpoints,dyn_mats, &
+subroutine read_dyn_mats(basis,mass,atom_prim_frac,no_kpoints,dyn_mats, &
    & kpoint_to_supercell,atoms_in_primitive_cell_fileroot,dyn_mat_fileroot)
  implicit none
  
@@ -521,14 +514,13 @@ contains
   enddo ! i_atom
   close(11)
  enddo ! ibz_point
-
- END SUBROUTINE read_dyn_mats
+end subroutine
 
 
 !-----------------------------------------------------------------!
 ! Read in the high symmetry points on the phonon dispersion path. !
 !-----------------------------------------------------------------!
- subroutine read_path(no_points,path,path_filename)
+subroutine read_path(no_points,path,path_filename)
  implicit none
  
  ! inputs
@@ -545,8 +537,7 @@ contains
   if(ierr/=0)call errstop('READ_PATH','Problem reading path.dat file.')
  enddo ! i_point
  close(11)
-
- END SUBROUTINE read_path
+end subroutine
 
 
 !-----------------------!

@@ -188,8 +188,6 @@ program caesar
     return_status = system(arg//'.sh '//trim(argstring))
   elseif (arg == 'convert_quadratic') then
     return_status = system(arg//'.sh '//trim(argstring))
-  elseif (arg == 'dyn_mats') then
-    return_status = system(arg//'.sh '//trim(argstring))
   elseif (arg == 'eigenval_castep_to_bands') then
     return_status = system(arg//'.sh '//trim(argstring))
   elseif (arg == 'eigenval_vasp_to_bands') then
