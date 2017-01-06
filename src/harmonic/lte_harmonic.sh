@@ -132,12 +132,6 @@ done  # Loop over supercells
 
 # Collect relevant data
 mkdir lte
-cp lattice.dat lte
-cp equilibrium.dat lte
-cp symmetry.dat lte
-cp grid.dat lte
-cp ibz.dat lte
-cp kpoint_to_supercell.dat lte
 
 for i in `seq 1 $no_sc` ; do
   sdir=Supercell_$i
@@ -178,18 +172,19 @@ done
 
 write_lte_path > lte/path.dat
 echo $temperature > lte/temperature.dat
+
 caesar fourier_interpolation           \
        lte/phonon_dispersion_curve.dat \
        lte/high_symmetry_points.dat    \
        lte/temperature.dat             \
        lte/free_energy.dat             \
        lte/freq_dos.dat                \
-       lte/equilibrium.dat             \
-       lte/grid.dat                    \
-       lte/lattice.dat                 \
-       lte/symmetry.dat                \
-       lte/ibz.dat                     \
-       lte/kpoint_to_supercell.dat     \
+       equilibrium.dat                 \
+       grid.dat                        \
+       lattice.dat                     \
+       symmetry.dat                    \
+       ibz.dat                         \
+       kpoint_to_supercell.dat         \
        lte/atoms_in_primitive_cell.    \
        lte/dyn_mat.                    \
        lte/path.dat                    \

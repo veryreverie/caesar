@@ -35,16 +35,17 @@ if [ "$code" = "castep" ];then
       
       paths=(positive negative)
       for path in ${paths[@]}; do
-        cd $sdir/atom.$atom.disp.$disp/$path
-        rundft nnodes $num_cores
-        rm *.castep_bin *.cst_esp *.usp machine_file *.bands *.bib
-        caesar fetch_forces_castep \
-               $seedname.castep    \
-               structure.dat       \
-               $atom               \
-               $disp               \
-               forces.dat
+        dir=$sdir/atom.$atom.disp.$disp/$path
+        cd $dir
+          rundft nnodes $num_cores
+          rm *.castep_bin *.cst_esp *.usp machine_file *.bands *.bib
         cd -
+        caesar fetch_forces_castep \
+               $dir/$seedname.castep    \
+               $dir/structure.dat       \
+               $atom                    \
+               $disp                    \
+               $dir/forces.dat
       done
   
     done < $sdir/force_constants.dat 
