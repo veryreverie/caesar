@@ -136,6 +136,20 @@ EOF
   caesar dyn_mats
   write_lte_path > lte/path.dat
   echo $temperature > lte/temperature.dat
-  cd lte
-    caesar fourier_interpolation > fourier_interpolation.out
-  cd -
+  caesar fourier_interpolation           \
+         lte/phonon_dispersion_curve.dat \
+         lte/high_symmetry_points.dat    \
+         lte/temperature.dat             \
+         lte/free_energy.dat             \
+         lte/freq_dos.dat                \
+         lte/equilibrium.dat             \
+         lte/grid.dat                    \
+         lte/lattice.dat                 \
+         lte/symmetry.dat                \
+         lte/ibz.dat                     \
+         lte/kpoint_to_supercell.dat     \
+         lte/atoms_in_primitive_cell.    \
+         lte/dyn_mat.                    \
+         lte/path.dat                    \
+         lte/tempfile.dat                \
+         > lte/fourier_interpolation.out

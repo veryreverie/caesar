@@ -147,7 +147,9 @@ program caesar
   elseif (arg == 'equilibrium_frac') then
     call equilibrium_frac(args(2:))
   elseif (arg == 'fourier_interpolation') then
-    call fourier_interpolation()
+    call fourier_interpolation(args(2),args(3),args(4),args(5),args(6),args(7),&
+      & args(8),args(9),args(10),args(11),args(12),args(13),args(14),args(15), &
+      & args(16))
 !  elseif (arg == 'generate_amplitudes') then
 !    call generate_amplitudes()
   elseif (arg == 'generate_kgrid') then
