@@ -112,7 +112,7 @@ contains
 ! ----------------------------------------------------------------------
 ! The reciprocal lattice vectors of the primitive cell and the supercell
 ! are calculated here.
-! NOTE THAT RECIPROCAL LATTICE VECTORS DO NOT CONTAIN THE FACTOR OF 2*pi.
+! NOTE THAT RECIPROCAL LATTICE VECTORS do NOT CONTAIN THE FACTOR OF 2*pi.
 ! ----------------------------------------------------------------------
 subroutine setup_geometry(tol,prim_lat_vec,sc_lat_vec,                 &
    & length_scale,no_prim_cells,prim_rec_vec,sc_rec_vec,small_k_scale, &
@@ -145,19 +145,17 @@ subroutine setup_geometry(tol,prim_lat_vec,sc_lat_vec,                 &
 
   ! Primitive-cell reciprocal lattice vectors and volume.
   prim_cell_volume=ABS(determinant33(prim_lat_vec))
-  IF(prim_cell_volume<tol*vol_scale)CALL errstop('SETUP_GEOMETRY', &
+  if(prim_cell_volume<tol*vol_scale)call errstop('SETUP_GEOMETRY', &
     &'Primitive lattice vectors should be linearly independent.  Please &
     &check your lattice vectors.')
-  CALL inv_33(prim_lat_vec,prim_rec_vec)
-  prim_rec_vec=TRANSPOSE(prim_rec_vec)
+  prim_rec_vec = TRANSPOSE(inv_33(prim_lat_vec))
 
   ! Supercell reciprocal lattice vectors and volume.
   sc_cell_volume=ABS(determinant33(sc_lat_vec))
-  IF(sc_cell_volume<tol*vol_scale)CALL errstop('SETUP_GEOMETRY', &
+  if(sc_cell_volume<tol*vol_scale)call errstop('SETUP_GEOMETRY', &
     &'Supercell lattice vectors should be linearly independent.  Please &
     &check your lattice vectors.')
-  CALL inv_33(sc_lat_vec,sc_rec_vec)
-  sc_rec_vec=TRANSPOSE(sc_rec_vec)
+  sc_rec_vec = transpose(inv_33(sc_lat_vec))
 
   ! "Small" distance in k space, determined by size of supercell.
   ! Factor of 2pi included.
@@ -165,8 +163,8 @@ subroutine setup_geometry(tol,prim_lat_vec,sc_lat_vec,                 &
 
   ! Number of unit cells.
   no_prim_cells=NINT(sc_cell_volume/prim_cell_volume)
-  IF(ABS(DBLE(no_prim_cells)*prim_cell_volume-sc_cell_volume) &
-    &>tol*vol_scale)CALL errstop('SETUP_GEOMETRY','Supercell volume should &
+  if(ABS(DBLE(no_prim_cells)*prim_cell_volume-sc_cell_volume) &
+    &>tol*vol_scale)call errstop('SETUP_GEOMETRY','Supercell volume should &
     &be an integer multiple of primitive-cell volume.  Please check your &
     &lattice vectors.')
 end subroutine
@@ -236,211 +234,211 @@ subroutine read_lte(tol,lte_filename,prim_rec_vec,sc_rec_vec,fc_scale,      &
   integer,                   intent(out) :: prog_function
   real(dp),                  intent(out) :: temperature
   
-  INTEGER :: ierr,n,i,j,no_force_c_supplied,atom1,atom2,dir1,dir2,ialloc
-  REAL(dp) :: fc,check_matrix
+  integer :: ierr,n,i,j,no_force_c_supplied,atom1,atom2,dir1,dir2,ialloc
+  real(dp) :: fc,check_matrix
 
-  OPEN(unit=8,file=lte_filename,status='old',iostat=ierr)
-  IF(ierr/=0)CALL errstop('READ_LTE','Problem opening lte.dat.')
+  open(unit=8,file=lte_filename,status='old',iostat=ierr)
+  if(ierr/=0)call errstop('READ_LTE','Problem opening lte.dat.')
 
   ! Primitive lattice vectors
-  READ(8,*,err=20,END=20)
-  READ(8,*,err=20,END=20)prim_lat_vec(1:3,1)
-  READ(8,*,err=20,END=20)prim_lat_vec(1:3,2)
-  READ(8,*,err=20,END=20)prim_lat_vec(1:3,3)
-  WRITE(*,*)'Primitive lattice vectors (Cartesian components in rows, a.u.):'
-  WRITE(*,*)prim_lat_vec(1:3,1)
-  WRITE(*,*)prim_lat_vec(1:3,2)
-  WRITE(*,*)prim_lat_vec(1:3,3)
-  WRITE(*,*)
+  READ(8,*,err=20,end=20)
+  READ(8,*,err=20,end=20)prim_lat_vec(1:3,1)
+  READ(8,*,err=20,end=20)prim_lat_vec(1:3,2)
+  READ(8,*,err=20,end=20)prim_lat_vec(1:3,3)
+  write(*,*)'Primitive lattice vectors (Cartesian components in rows, a.u.):'
+  write(*,*)prim_lat_vec(1:3,1)
+  write(*,*)prim_lat_vec(1:3,2)
+  write(*,*)prim_lat_vec(1:3,3)
+  write(*,*)
 
   ! Supercell lattice vectors
-  READ(8,*,err=20,END=20)
-  READ(8,*,err=20,END=20)sc_lat_vec(1:3,1)
-  READ(8,*,err=20,END=20)sc_lat_vec(1:3,2)
-  READ(8,*,err=20,END=20)sc_lat_vec(1:3,3)
-  WRITE(*,*)'Supercell lattice vectors (Cartesian components in rows, a.u.):'
-  WRITE(*,*)sc_lat_vec(1:3,1)
-  WRITE(*,*)sc_lat_vec(1:3,2)
-  WRITE(*,*)sc_lat_vec(1:3,3)
-  WRITE(*,*)
+  READ(8,*,err=20,end=20)
+  READ(8,*,err=20,end=20)sc_lat_vec(1:3,1)
+  READ(8,*,err=20,end=20)sc_lat_vec(1:3,2)
+  READ(8,*,err=20,end=20)sc_lat_vec(1:3,3)
+  write(*,*)'Supercell lattice vectors (Cartesian components in rows, a.u.):'
+  write(*,*)sc_lat_vec(1:3,1)
+  write(*,*)sc_lat_vec(1:3,2)
+  write(*,*)sc_lat_vec(1:3,3)
+  write(*,*)
 
   ! Construct reciprocal lattice vectors, etc.
   call setup_geometry(tol,prim_lat_vec,sc_lat_vec,                       &
      & length_scale,no_prim_cells,prim_rec_vec,sc_rec_vec,small_k_scale, &
      & vol_scale)
-  WRITE(*,*)'Number of primitive unit cells     : '//TRIM(i2s(no_prim_cells))
-  WRITE(*,*)
-  WRITE(*,*)'Prim. rec. latt. vectors (Cart. cmpnts &
+  write(*,*)'Number of primitive unit cells     : '//TRIM(i2s(no_prim_cells))
+  write(*,*)
+  write(*,*)'Prim. rec. latt. vectors (Cart. cmpnts &
     &in rows, factor of 2pi inc., a.u.):'
-  WRITE(*,*)prim_rec_vec(1:3,1)*twopi
-  WRITE(*,*)prim_rec_vec(1:3,2)*twopi
-  WRITE(*,*)prim_rec_vec(1:3,3)*twopi
-  WRITE(*,*)
+  write(*,*)prim_rec_vec(1:3,1)*twopi
+  write(*,*)prim_rec_vec(1:3,2)*twopi
+  write(*,*)prim_rec_vec(1:3,3)*twopi
+  write(*,*)
 
-  WRITE(*,*)'Supercell rec. latt. vectors(Cart. cmpnts &
+  write(*,*)'Supercell rec. latt. vectors(Cart. cmpnts &
    &in rows, factor of 2pi inc., a.u.):'
-  WRITE(*,*)sc_rec_vec(1:3,1)*twopi
-  WRITE(*,*)sc_rec_vec(1:3,2)*twopi
-  WRITE(*,*)sc_rec_vec(1:3,3)*twopi
-  WRITE(*,*)
+  write(*,*)sc_rec_vec(1:3,1)*twopi
+  write(*,*)sc_rec_vec(1:3,2)*twopi
+  write(*,*)sc_rec_vec(1:3,3)*twopi
+  write(*,*)
 
   ! Number of atoms.
-  READ(8,*,err=20,END=20)
-  READ(8,*,err=20,END=20)no_atoms_in_sc
-  WRITE(*,*)'Number of atoms in supercell       : '//TRIM(i2s(no_atoms_in_sc))
-  IF(no_atoms_in_sc<no_prim_cells)CALL errstop('READ_LTE', &
+  READ(8,*,err=20,end=20)
+  READ(8,*,err=20,end=20)no_atoms_in_sc
+  write(*,*)'Number of atoms in supercell       : '//TRIM(i2s(no_atoms_in_sc))
+  if(no_atoms_in_sc<no_prim_cells)call errstop('READ_LTE', &
     &'Need more atoms in the supercell!')
-  IF(MOD(no_atoms_in_sc,no_prim_cells)/=0)CALL errstop('READ_LTE', &
+  if(MOD(no_atoms_in_sc,no_prim_cells)/=0)call errstop('READ_LTE', &
     &'Number of atoms in supercell should be a multiple of the number of &
     &primitive cells.')
   no_atoms_in_prim=no_atoms_in_sc/no_prim_cells
-  ALLOCATE(species(no_atoms_in_sc),                   &
+  allocate(species(no_atoms_in_sc),                   &
     & mass(no_atoms_in_sc),                           &
     & atom_pos(3,no_atoms_in_sc),                     &
     & force_const(no_atoms_in_sc,3,no_atoms_in_sc,3), &
     & defined(no_atoms_in_sc,3,no_atoms_in_sc,3),     &
     & atom(no_prim_cells,no_atoms_in_prim),           &
     & stat=ialloc)
-  IF(ialloc/=0)CALL errstop('READ_LTE','Allocation error: species, etc.')
+  if(ialloc/=0)call errstop('READ_LTE','Allocation error: species, etc.')
   defined(:,:,:,:)=.FALSE.
   force_const(:,:,:,:)=0.d0
   no_DoF_prim=3*no_atoms_in_prim
-  WRITE(*,*)
+  write(*,*)
 
   ! Read in atom positions, species and masses.
   ! Convert atom position from fractional coordinates (in file) to
   ! Cartesian coordinates (used in program).  Translate the atom
   ! coordinates into the supercell at the origin.
-  READ(8,*,err=20,END=20)
-  WRITE(*,*)'Species ; Mass (a.u.) ; Position (Cartesian coordinates, a.u.)'
-  DO i=1,no_atoms_in_sc
-    READ(8,*,err=20,END=20)species(i),mass(i),atom_pos(1:3,i)
+  READ(8,*,err=20,end=20)
+  write(*,*)'Species ; Mass (a.u.) ; Position (Cartesian coordinates, a.u.)'
+  do i=1,no_atoms_in_sc
+    READ(8,*,err=20,end=20)species(i),mass(i),atom_pos(1:3,i)
     atom_pos(1:3,i)=atom_pos(1,i)*sc_lat_vec(1:3,1)+atom_pos(2,i) &
       &*sc_lat_vec(1:3,2)+atom_pos(3,i)*sc_lat_vec(1:3,3)
-    WRITE(*,'(" ",a,"  ",f14.6," ",3("  ",f14.6))')species(i),mass(i), &
+    write(*,'(" ",a,"  ",f14.6," ",3("  ",f14.6))')species(i),mass(i), &
       &atom_pos(1:3,i)
-    IF(mass(i)<=0.d0)CALL errstop('READ_LTE','Mass should be positive.')
-  ENDDO ! i
+    if(mass(i)<=0.d0)call errstop('READ_LTE','Mass should be positive.')
+  enddo ! i
   ! Check atoms aren't on top of each other.
-  DO i=1,no_atoms_in_sc-1
-    DO j=i+1,no_atoms_in_sc
-      IF(is_lat_point(atom_pos(1:3,j)-atom_pos(1:3,i),sc_rec_vec))CALL &
+  do i=1,no_atoms_in_sc-1
+    do j=i+1,no_atoms_in_sc
+      if(is_lat_point(atom_pos(1:3,j)-atom_pos(1:3,i),sc_rec_vec))call &
         &errstop('READ_LTE','Atoms '//TRIM(i2s(i))//' and '//TRIM(i2s(j)) &
         &//' appear to be on top of one another.')
-    ENDDO ! j
-  ENDDO ! i
-  WRITE(*,*)
+    enddo ! j
+  enddo ! i
+  write(*,*)
 
   ! Read in point-symmetry operations.
-  READ(8,*,err=20,END=20)
-  READ(8,*,err=20,END=20)no_point_symms
-  WRITE(*,*)'Number of point symmetries         : '//TRIM(i2s(no_point_symms))
-  IF(no_point_symms<1)CALL errstop('READ_LTE','At least one point-symmetry &
+  READ(8,*,err=20,end=20)
+  READ(8,*,err=20,end=20)no_point_symms
+  write(*,*)'Number of point symmetries         : '//TRIM(i2s(no_point_symms))
+  if(no_point_symms<1)call errstop('READ_LTE','At least one point-symmetry &
     &rotation matrix (identity) must be supplied.')
-  ALLOCATE(rotation(3,3,no_point_symms),offset(3,no_point_symms),stat=ialloc)
-  IF(ialloc/=0)CALL errstop('READ_LTE','Allocation error: rotation, etc.')
-  READ(8,*,err=20,END=20)
-  DO n=1,no_point_symms
-    READ(8,*,err=20,END=20)rotation(1:3,1,n)
-    READ(8,*,err=20,END=20)rotation(1:3,2,n)
-    READ(8,*,err=20,END=20)rotation(1:3,3,n)
-    DO i=1,3
-      DO j=i,3
+  allocate(rotation(3,3,no_point_symms),offset(3,no_point_symms),stat=ialloc)
+  if(ialloc/=0)call errstop('READ_LTE','Allocation error: rotation, etc.')
+  READ(8,*,err=20,end=20)
+  do n=1,no_point_symms
+    READ(8,*,err=20,end=20)rotation(1:3,1,n)
+    READ(8,*,err=20,end=20)rotation(1:3,2,n)
+    READ(8,*,err=20,end=20)rotation(1:3,3,n)
+    do i=1,3
+      do j=i,3
         check_matrix=DOT_PRODUCT(rotation(1:3,i,n),rotation(1:3,j,n))
-        IF((i==j.AND.ABS(check_matrix-1.d0)>tol) &
-          &.OR.(i/=j.AND.ABS(check_matrix)>tol))CALL &
+        if((i==j.AND.ABS(check_matrix-1.d0)>tol) &
+          &.OR.(i/=j.AND.ABS(check_matrix)>tol))call &
           &errstop('READ_LTE','Rotation matrix '//TRIM(i2s(n)) &
           &//' is not orthogonal!')
-      ENDDO ! j
-    ENDDO ! i
-    READ(8,*,err=20,END=20)offset(1:3,n)
+      enddo ! j
+    enddo ! i
+    READ(8,*,err=20,end=20)offset(1:3,n)
     ! Convert translation to Cartesians.
     offset(1:3,n)=offset(1,n)*sc_lat_vec(1:3,1) &
       &+offset(2,n)*sc_lat_vec(1:3,2)+offset(3,n)*sc_lat_vec(1:3,3)
-  ENDDO ! n
-  WRITE(*,*)'Have read in rotation matrices and translation vectors.'
-  WRITE(*,*)
+  enddo ! n
+  write(*,*)'Have read in rotation matrices and translation vectors.'
+  write(*,*)
 
   ! Read in force constants supplied.
-  READ(8,*,err=20,END=20)
-  READ(8,*,err=20,END=20)no_force_c_supplied
-  WRITE(*,*)'Number of force constants supplied : ' &
+  READ(8,*,err=20,end=20)
+  READ(8,*,err=20,end=20)no_force_c_supplied
+  write(*,*)'Number of force constants supplied : ' &
     &//TRIM(i2s(no_force_c_supplied))
-  IF(no_force_c_supplied<=0)CALL errstop('READ_LTE', &
+  if(no_force_c_supplied<=0)call errstop('READ_LTE', &
     &'Need to supply more force data!')
-  READ(8,*,err=20,END=20)
+  READ(8,*,err=20,end=20)
   fc_scale=0.d0
-  DO i=1,no_force_c_supplied
-    READ(8,*,err=20,END=20)atom1,dir1,atom2,dir2,fc
+  do i=1,no_force_c_supplied
+    READ(8,*,err=20,end=20)atom1,dir1,atom2,dir2,fc
     fc_scale=fc_scale+ABS(fc)
     call trans_symm(atom1,dir1,atom2,dir2,fc,tol,atom_pos,no_atoms_in_sc, &
        & no_prim_cells,prim_rec_vec,sc_rec_vec,mass,defined,force_const)
-  ENDDO ! i
+  enddo ! i
   fc_scale=fc_scale/DBLE(no_force_c_supplied)
-  WRITE(*,*)fc_scale
-  WRITE(*,*)'Have read in the force-constant data and applied &
+  write(*,*)fc_scale
+  write(*,*)'Have read in the force-constant data and applied &
     &translational symmetry.'
-  WRITE(*,*)
+  write(*,*)
 
-  READ(8,*,err=20,END=20)
-  READ(8,*,err=20,END=20)prog_function
-  IF(prog_function==1)THEN
-    WRITE(*,*)'The mean thermal energy and the free energy will &
+  READ(8,*,err=20,end=20)
+  READ(8,*,err=20,end=20)prog_function
+  if(prog_function==1)then
+    write(*,*)'The mean thermal energy and the free energy will &
       &be calculated.'
-  ELSEIF(prog_function==2)THEN
-    WRITE(*,*)'A dispersion curve will be calculated.'
-  ELSEIF(prog_function==3)THEN
-    WRITE(*,*)'The speed of sound will be calculated.'
-  ELSEIF(prog_function==4)THEN
-    WRITE(*,*)'The phonon frequencies at the supercell G vectors will be &
+  elseif(prog_function==2)then
+    write(*,*)'A dispersion curve will be calculated.'
+  elseif(prog_function==3)then
+    write(*,*)'The speed of sound will be calculated.'
+  elseif(prog_function==4)then
+    write(*,*)'The phonon frequencies at the supercell G vectors will be &
       &calculated.'
-  ELSE
-    CALL errstop('READ_LTE','Program function must be either 1, 2, 3 or 4.')
-  ENDIF ! prog_function
+  else
+    call errstop('READ_LTE','Program function must be either 1, 2, 3 or 4.')
+  endif ! prog_function
 
-  READ(8,*,err=20,END=20)
-  READ(8,*,err=20,END=20)temperature
-  IF(prog_function==1)THEN
-    WRITE(*,*)'Temperature (K)                    :',temperature
-    IF(temperature==0.d0)WRITE(*,*)'(i.e. the zero-point energy is to be &
-      &calculated.)'
-    IF(temperature<0.d0)CALL errstop('READ_LTE', &
+  READ(8,*,err=20,end=20)
+  READ(8,*,err=20,end=20)temperature
+  if(prog_function==1)then
+    write(*,*)'Temperature (K)                    :',temperature
+    if(temperature<0.d0)call errstop('READ_LTE', &
       &'Temperature should be non-negative.')
-    WRITE(*,*)
-  ENDIF ! LTE to be calculated.
+    if(temperature<=0.d0)write(*,*)'(i.e. the zero-point energy is to be &
+      &calculated.)'
+    write(*,*)
+  endif ! LTE to be calculated.
 
-  READ(8,*,err=20,END=20)
-  READ(8,*,err=20,END=20)no_kspace_lines
-  IF(prog_function==2)THEN
-    WRITE(*,*)'Number of lines in k-space to plot     : ' &
+  READ(8,*,err=20,end=20)
+  READ(8,*,err=20,end=20)no_kspace_lines
+  if(prog_function==2)then
+    write(*,*)'Number of lines in k-space to plot     : ' &
       &//TRIM(i2s(no_kspace_lines))
-    IF(no_kspace_lines<1)CALL errstop('READ_LTE', &
+    if(no_kspace_lines<1)call errstop('READ_LTE', &
       &'Need to supply more lines in k-space!')
-    ALLOCATE(disp_kpoints(3,0:no_kspace_lines),stat=ialloc)
-    IF(ialloc/=0)CALL errstop('READ_LTE','Allocation error: disp_kpoints.')
-  ENDIF
-  READ(8,*,err=20,END=20)
-  IF(prog_function==2)WRITE(*,*)'Points along walk in reciprocal space &
+    allocate(disp_kpoints(3,0:no_kspace_lines),stat=ialloc)
+    if(ialloc/=0)call errstop('READ_LTE','Allocation error: disp_kpoints.')
+  endif
+  READ(8,*,err=20,end=20)
+  if(prog_function==2)write(*,*)'Points along walk in reciprocal space &
     &(Cartesian components in a.u.):'
-  DO i=0,no_kspace_lines
-    IF(prog_function==2)THEN
-      READ(8,*,err=20,END=20)disp_kpoints(1:3,i)
+  do i=0,no_kspace_lines
+    if(prog_function==2)then
+      READ(8,*,err=20,end=20)disp_kpoints(1:3,i)
       disp_kpoints(1:3,i)=twopi*(disp_kpoints(1,i)*prim_rec_vec(1:3,1) &
         &+disp_kpoints(2,i)*prim_rec_vec(1:3,2) &
         &+disp_kpoints(3,i)*prim_rec_vec(1:3,3))
-      WRITE(*,'(3(" ",f16.8))')disp_kpoints(1:3,i)
-    ELSE
-      READ(8,*,err=20,END=20)
-    ENDIF ! prog_function=2
-  ENDDO ! i
-  IF(prog_function==2)WRITE(*,*)'Have read in points for dispersion curve.'
+      write(*,'(3(" ",f16.8))')disp_kpoints(1:3,i)
+    else
+      READ(8,*,err=20,end=20)
+    endif ! prog_function=2
+  enddo ! i
+  if(prog_function==2)write(*,*)'Have read in points for dispersion curve.'
 
-  CLOSE(8)
+  close(8)
 
   RETURN
 
   ! Error reading file...
-20  CALL errstop('READ_LTE','Problem reading lte.dat.  Please check the format &
+20  call errstop('READ_LTE','Problem reading lte.dat.  Please check the format &
     &of the file.')
 end subroutine
 
@@ -466,42 +464,42 @@ subroutine trans_symm(atom1,dir1,atom2,dir2,fc,tol,atom_pos,no_atoms_in_sc, &
   logical,  intent(inout) :: defined(:,:,:,:)
   real(dp), intent(inout) :: force_const(:,:,:,:)
   
-  INTEGER :: atom1p,atom2p,no_translations
-  REAL(dp) :: pos_atom2p(3),relpos_atom2_atom1(3)
+  integer :: atom1p,atom2p,no_translations
+  real(dp) :: pos_atom2p(3),relpos_atom2_atom1(3)
   
   relpos_atom2_atom1(1:3)=atom_pos(1:3,atom2)-atom_pos(1:3,atom1)
   no_translations=0
-  DO atom1p=1,no_atoms_in_sc
-    IF(is_lat_point(atom_pos(1:3,atom1p)-atom_pos(1:3,atom1), &
-      &prim_rec_vec))THEN
+  do atom1p=1,no_atoms_in_sc
+    if(is_lat_point(atom_pos(1:3,atom1p)-atom_pos(1:3,atom1), &
+      &prim_rec_vec))then
       ! atom1p and atom1 are equivalent under trans. symm.
-      IF(ABS(mass(atom1p)-mass(atom1))>tol*mass(atom1))CALL &
+      if(ABS(mass(atom1p)-mass(atom1))>tol*mass(atom1))call &
         &errstop('TRANS_SYMM','Atoms '//TRIM(i2s(atom1))//' and ' &
         &//TRIM(i2s(atom1p))//' are equivalent by translational symmetry, &
         &but they have different masses.')
       pos_atom2p(1:3)=atom_pos(1:3,atom1p)+relpos_atom2_atom1(1:3)
       atom2p=atom_at_pos(pos_atom2p,no_atoms_in_sc,atom_pos,sc_rec_vec)
-      IF(atom2p<=0)CALL errstop('TRANS_SYMM','Please check that your atom &
+      if(atom2p<=0)call errstop('TRANS_SYMM','Please check that your atom &
         &coordinates satisfy the translational symmetry they should have.')
       ! atom2p and atom2 are related to each other by the same translation
       ! as atom1p and atom1.
-      IF(ABS(mass(atom2p)-mass(atom2))>tol*mass(atom2))CALL &
+      if(ABS(mass(atom2p)-mass(atom2))>tol*mass(atom2))call &
         &errstop('TRANS_SYMM','Atoms '//TRIM(i2s(atom2))//' and ' &
         &//TRIM(i2s(atom2p))//' are equivalent by translational &
         &symmetry, but they have different masses.')
-      IF(defined(atom1p,dir1,atom2p,dir2))THEN
-        WRITE(*,*)atom1p,dir1,atom2p,dir2
-        CALL errstop('TRANS_SYMM', &
+      if(defined(atom1p,dir1,atom2p,dir2))then
+        write(*,*)atom1p,dir1,atom2p,dir2
+        call errstop('TRANS_SYMM', &
         &'Please check your atom coordinates -- you may have a repeated &
         &atom.  Alternatively, you may have conflicting force data for &
         &atoms that are equivalent under translational symmetry.')
-      ENDIF
+      endif
       force_const(atom1p,dir1,atom2p,dir2)=fc
       defined(atom1p,dir1,atom2p,dir2)=.TRUE.
       no_translations=no_translations+1
-    ENDIF ! atom1p equiv to atom1
-  ENDDO ! atom1p
-  IF(no_translations/=no_prim_cells)CALL errstop('TRANS_SYMM', &
+    endif ! atom1p equiv to atom1
+  enddo ! atom1p
+  if(no_translations/=no_prim_cells)call errstop('TRANS_SYMM', &
     &'Number of translationally equivalent atoms found differs from the &
     &number of primitive cells.  Please check the atom coordinates!')
 end subroutine
@@ -534,65 +532,65 @@ subroutine point_symm(tol,no_atoms_in_sc,no_point_symms,rotation, &
   logical,  intent(inout) :: defined(:,:,:,:)
   real(dp), intent(inout) :: force_const(:,:,:,:)
   
-  INTEGER :: atom1,atom1p,atom2,atom2p,i,j,n,ip,jp,ierr,&
+  integer :: atom1,atom1p,atom2,atom2p,i,j,n,ip,jp,&
     &weight(no_atoms_in_sc,3,no_atoms_in_sc,3)
-  REAL(dp) :: fc,product,pos_atom1p(3),pos_atom2p(3)
-  LOGICAL :: well_defined
+  real(dp) :: fc,product,pos_atom1p(3),pos_atom2p(3)
+  logical :: well_defined
 
   ! We average over all the force constants that ought, by the full
   ! symmetry of the supercell, to be identical.  The weight array is
   ! used to perform this average.
-  DO j=1,3
-    DO atom2=1,no_atoms_in_sc
-      DO i=1,3
-        DO atom1=1,no_atoms_in_sc
-          IF(defined(atom1,i,atom2,j))THEN
+  do j=1,3
+    do atom2=1,no_atoms_in_sc
+      do i=1,3
+        do atom1=1,no_atoms_in_sc
+          if(defined(atom1,i,atom2,j))then
             weight(atom1,i,atom2,j)=1
-          ELSE
+          else
             weight(atom1,i,atom2,j)=0
-          ENDIF ! defined
-  !        WRITE(*,*)atom1,i,atom2,j,weight(atom1,i,atom2,j)
-        ENDDO ! atom1
-      ENDDO ! i
-    ENDDO ! atom2
-  ENDDO ! j
+          endif ! defined
+  !        write(*,*)atom1,i,atom2,j,weight(atom1,i,atom2,j)
+        enddo ! atom1
+      enddo ! i
+    enddo ! atom2
+  enddo ! j
 
-  DO n=1,no_point_symms
+  do n=1,no_point_symms
 
-    DO atom1=1,no_atoms_in_sc
+    do atom1=1,no_atoms_in_sc
 
       ! Rotate atom coordinates and identify equivalent atom.
-      DO i=1,3
+      do i=1,3
         ! LAPACK commented out because it isn't working. 9/1/2017
         ! pos_atom1p(i) = offset(i,n) &
         !             & + ddot(3,rotation(i,1,n),3,atom_pos(1,atom1),1)
         pos_atom1p(i) = offset(i,n) &
                     & + dot_product(rotation(i,:,n),atom_pos(:,atom1))
-      ENDDO ! i
+      enddo ! i
       atom1p=atom_at_pos(pos_atom1p,no_atoms_in_sc,atom_pos,sc_rec_vec)
-      !WRITE(*,*)n,atom1,atom1p,atom_at_pos(pos_atom1p,atom_pos)
-      IF(atom1p<=0)CALL errstop('POINT_SYMM','Please check that &
+      !write(*,*)n,atom1,atom1p,atom_at_pos(pos_atom1p,atom_pos)
+      if(atom1p<=0)call errstop('POINT_SYMM','Please check that &
         &your atom coordinates satisfy the rotational symmetries that you &
         &have supplied.  NB, I have assumed that r''=b+Rr, where R is the &
         &rotation matrix and b is the translation.  This may be wrong.')
-      IF(ABS(mass(atom1)-mass(atom1p))>tol*mass(atom1))CALL &
+      if(ABS(mass(atom1)-mass(atom1p))>tol*mass(atom1))call &
         &errstop('POINT_SYMM','Atoms '//TRIM(i2s(atom1))//' and ' &
         &//TRIM(i2s(atom1p))//' are equivalent by rotational symmetry, &
         &but they have different masses.')
 
-      DO atom2=1,no_atoms_in_sc
+      do atom2=1,no_atoms_in_sc
 
         ! Rotate atom coordinates and identify equivalent atom.
-        DO i=1,3
+        do i=1,3
           ! LAPACK commented out because it isn't working. 9/1/2017
           ! pos_atom2p(i)=offset(i,n)+ddot(3,rotation(i,1,n),3, &
           !   &atom_pos(1,atom2),1)
           pos_atom2p(i) = offset(i,n) &
                       & + dot_product(rotation(i,:,n),atom_pos(:,atom2))
-        ENDDO ! i
+        enddo ! i
         atom2p=atom_at_pos(pos_atom2p,no_atoms_in_sc,atom_pos,sc_rec_vec)
-        !WRITE(*,*)n,atom2,atom2p,atom_at_pos(pos_atom2p,atom_pos),pos_atom2p(1),pos_atom2p(2),pos_atom2p(3)
-        IF(atom2p<=0)CALL errstop('POINT_SYMM','Please check that &
+        !write(*,*)n,atom2,atom2p,atom_at_pos(pos_atom2p,atom_pos),pos_atom2p(1),pos_atom2p(2),pos_atom2p(3)
+        if(atom2p<=0)call errstop('POINT_SYMM','Please check that &
           &your atom coordinates satisfy the rotational symmetries that &
           &you have supplied.  NB, I have assumed that r''=b+Rr, where R &
           &is the rotation matrix and b is the translation.  This may be &
@@ -600,65 +598,65 @@ subroutine point_symm(tol,no_atoms_in_sc,no_point_symms,rotation, &
 
         ! Apply rotation to maxtrix of force constants.  Record whether or
         ! not each force constant is well-defined.
-        DO i=1,3
-          DO j=1,3
+        do i=1,3
+          do j=1,3
             fc=0.d0
             well_defined=.TRUE.
-            ip_loop : DO ip=1,3
-              IF(ABS(rotation(i,ip,n))>tol)THEN
+            ip_loop : do ip=1,3
+              if(ABS(rotation(i,ip,n))>tol)then
                 product=0.d0
-                DO jp=1,3
-                  IF(ABS(rotation(j,jp,n))>tol)THEN
-                    IF(defined(atom1,ip,atom2,jp))THEN
+                do jp=1,3
+                  if(ABS(rotation(j,jp,n))>tol)then
+                    if(defined(atom1,ip,atom2,jp))then
                       product=product+rotation(j,jp,n) &
                         &*force_const(atom1,ip,atom2,jp)
-                    ELSE
+                    else
                       well_defined=.FALSE.
-                      EXIT ip_loop
-                    ENDIF ! Force constant defined
-                  ENDIF ! Rotation non-zero.
-                ENDDO ! jp
+                      exit ip_loop
+                    endif ! Force constant defined
+                  endif ! Rotation non-zero.
+                enddo ! jp
                 fc=fc+product*rotation(i,ip,n)
-              ENDIF ! Rotation non-zero.
-            ENDDO ip_loop ! ip
-            IF(well_defined)THEN
-              IF(.NOT.defined(atom1p,i,atom2p,j))THEN
+              endif ! Rotation non-zero.
+            enddo ip_loop ! ip
+            if(well_defined)then
+              if(.NOT.defined(atom1p,i,atom2p,j))then
                 ! A previously undefined force constant...
                 force_const(atom1p,i,atom2p,j)=fc
                 defined(atom1p,i,atom2p,j)=.TRUE.
                 weight(atom1p,i,atom2p,j)=1
-              ELSE
+              else
                 ! A previously defined force constant.  Average.
                 force_const(atom1p,i,atom2p,j)=(weight(atom1p,i, &
                   &atom2p,j)*force_const(atom1p,i,atom2p,j)+fc) &
                   &/DBLE(weight(atom1p,i,atom2p,j)+1)
                 weight(atom1p,i,atom2p,j)=weight(atom1p,i,atom2p,j)+1
-              ENDIF ! Element already defined.
-            ENDIF ! product well-defined
-          ENDDO ! j
-        ENDDO ! i
+              endif ! Element already defined.
+            endif ! product well-defined
+          enddo ! j
+        enddo ! i
 
-      ENDDO ! atom2
+      enddo ! atom2
 
-    ENDDO ! atom1
+    enddo ! atom1
 
-  ENDDO ! n
+  enddo ! n
 
-!    DO atom1=1,no_atoms_in_sc
-!      DO atom2=1,no_atoms_in_sc
-!        DO i=1,3
-!          DO j=1,3
-!            IF(.NOT.defined(atom1,i,atom2,j))THEN
-!              OPEN(unit=7,file='next.dat',status='new',iostat=ierr)
-!              IF(ierr/=0)CALL errstop('POINT_SYMM','Unable to open next.dat.')
-!              WRITE(7,*)atom1,i
-!              CLOSE(7)
+!    do atom1=1,no_atoms_in_sc
+!      do atom2=1,no_atoms_in_sc
+!        do i=1,3
+!          do j=1,3
+!            if(.NOT.defined(atom1,i,atom2,j))then
+!              open(unit=7,file='next.dat',status='new',iostat=ierr)
+!              if(ierr/=0)call errstop('POINT_SYMM','Unable to open next.dat.')
+!              write(7,*)atom1,i
+!              close(7)
 !              STOP
-!            ENDIF ! defined
-!          ENDDO ! j
-!        ENDDO ! i
-!      ENDDO ! atom2
-!    ENDDO ! atom1
+!            endif ! defined
+!          enddo ! j
+!        enddo ! i
+!      enddo ! atom2
+!    enddo ! atom1
 end subroutine
 
 ! ----------------------------------------------------------------------
@@ -696,51 +694,51 @@ subroutine point_symm_brute_force(tol,fc_scale,no_atoms_in_sc, &
 
   last_iteration=.FALSE.
 
-  DO t=1,max_t
+  do t=1,max_t
 
     max_diff=0.d0
 
-    DO n=1,no_point_symms
+    do n=1,no_point_symms
 
-      DO atom1=1,no_atoms_in_sc
+      do atom1=1,no_atoms_in_sc
 
         ! Rotate atom coordinates and identify equivalent atom.
-        DO i=1,3
+        do i=1,3
           ! LAPACK commented out because it isn't working. 9/1/2017
           ! pos_atom1p(i)=offset(i,n)+ddot(3,rotation(i,1,n),3, &
           !   &atom_pos(1,atom1),1)
           pos_atom1p(i) = offset(i,n) &
                       & + dot_product(rotation(i,:,n),atom_pos(:,atom1))
-        ENDDO ! i
+        enddo ! i
         atom1p=atom_at_pos(pos_atom1p,no_atoms_in_sc,atom_pos,sc_rec_vec)
-        IF(atom1p<=0)CALL errstop('POINT_SYMM_BRUTE_FORCE','Please check &
+        if(atom1p<=0)call errstop('POINT_SYMM_BRUTE_FORCE','Please check &
           &that your atom coordinates satisfy the rotational symmetries that &
           &you have supplied.  NB, I have assumed that r''=b+Rr, where R is &
           &the rotation matrix and b is the translation.  This may be &
           &wrong.')
 
-        DO atom2=1,no_atoms_in_sc
+        do atom2=1,no_atoms_in_sc
 
           ! Rotate atom coordinates and identify equivalent atom.
-          DO i=1,3
+          do i=1,3
             ! LAPACK commented out because it isn't working. 9/1/2017
             ! pos_atom2p(i)=offset(i,n)+ddot(3,rotation(i,1,n),3, &
             !   &atom_pos(1,atom2),1)
             pos_atom2p(i) = offset(i,n) &
                         & + dot_product(rotation(i,:,n),atom_pos(:,atom2))
-          ENDDO ! i
+          enddo ! i
           atom2p=atom_at_pos(pos_atom2p,no_atoms_in_sc,atom_pos,sc_rec_vec)
-          IF(atom2p<=0)CALL errstop('POINT_SYMM_BRUTE_FORCE','Please check &
+          if(atom2p<=0)call errstop('POINT_SYMM_BRUTE_FORCE','Please check &
             &that your atom coordinates satisfy the rotational symmetries &
             &that you have supplied.  NB, I have assumed that r''=b+Rr, &
             &where R is the rotation matrix and b is the translation.  &
             &This may be wrong.')
 
-          DO i=1,3
-            DO j=1,3
-              IF(.NOT.defined(atom1p,i,atom2p,j))THEN
+          do i=1,3
+            do j=1,3
+              if(.NOT.defined(atom1p,i,atom2p,j))then
                 fc=0.d0
-                DO ip=1,3
+                do ip=1,3
                   ! LAPACK commented out because it isn't working. 9/1/2017
                   ! fc=fc+ddot(3,rotation(j,1,n),3, &
                   !   &force_const(atom1,ip,atom2,1),three_noDoFprim_sq) &
@@ -749,28 +747,28 @@ subroutine point_symm_brute_force(tol,fc_scale,no_atoms_in_sc, &
                    & + dot_product(rotation(j,:,n),              &
                    &               force_const(atom1,ip,atom2,:)) &
                    & * rotation(i,ip,n)
-                ENDDO ! ip
-                IF(ABS(force_const(atom1p,i,atom2p,j)-fc)>max_diff)THEN 
+                enddo ! ip
+                if(ABS(force_const(atom1p,i,atom2p,j)-fc)>max_diff)then 
                   max_diff=ABS(force_const(atom1p,i,atom2p,j)-fc)
-                ENDIF
+                endif
                 force_const(atom1p,i,atom2p,j)=fc
-                IF(last_iteration)defined(atom1p,i,atom2p,j)=.TRUE.
-              ENDIF ! undefined
-            ENDDO ! j
-          ENDDO ! i
+                if(last_iteration)defined(atom1p,i,atom2p,j)=.TRUE.
+              endif ! undefined
+            enddo ! j
+          enddo ! i
 
-        ENDDO ! atom2
+        enddo ! atom2
 
-      ENDDO ! atom1
+      enddo ! atom1
 
-    ENDDO ! n
+    enddo ! n
 
-    IF(last_iteration)EXIT
-    IF(max_diff<tol*fc_scale.AND.t>=min_t)last_iteration=.TRUE.
-    IF(t==max_t)CALL errstop('POINT_SYMM_BRUTE_FORCE','Unable to impose &
+    if(last_iteration)exit
+    if(max_diff<tol*fc_scale.AND.t>=min_t)last_iteration=.TRUE.
+    if(t==max_t)call errstop('POINT_SYMM_BRUTE_FORCE','Unable to impose &
       &point symmetry on the matrix of force constants.')
 
-  ENDDO ! Iterative impositions of symmetry.
+  enddo ! Iterative impositions of symmetry.
 end subroutine
 
 ! ----------------------------------------------------------------------
@@ -793,83 +791,83 @@ subroutine newtons_law(tol,fc_scale,no_atoms_in_prim,no_atoms_in_sc, &
   integer :: atom1,atom2,i,j,t
   real(dp) :: fc,sum1,rescale,max_diff
 
-  DO t=1,max_t
+  do t=1,max_t
 
     max_diff=0.d0
 
     ! Impose Newton's third law on matrix of force consts.
-    DO atom1=1,no_atoms_in_sc
-      DO i=1,3
-        DO j=1,3
+    do atom1=1,no_atoms_in_sc
+      do i=1,3
+        do j=1,3
           sum1=0.d0
-          DO atom2=1,atom1-1
+          do atom2=1,atom1-1
             sum1=sum1+force_const(atom1,i,atom2,j)
-          ENDDO
-          DO atom2=atom1+1,no_atoms_in_sc
+          enddo
+          do atom2=atom1+1,no_atoms_in_sc
             sum1=sum1+force_const(atom1,i,atom2,j)
-          ENDDO
+          enddo
           rescale=(force_const(atom1,i,atom1,j)+sum1) &
             &/DBLE(no_atoms_in_sc-1)
-          IF(ABS(rescale)>max_diff)max_diff=ABS(rescale)
-          DO atom2=1,atom1-1
+          if(ABS(rescale)>max_diff)max_diff=ABS(rescale)
+          do atom2=1,atom1-1
             force_const(atom1,i,atom2,j)=force_const(atom1,i,atom2,j) &
               &-rescale
-          ENDDO ! atom2
-          DO atom2=atom1+1,no_atoms_in_sc
+          enddo ! atom2
+          do atom2=atom1+1,no_atoms_in_sc
             force_const(atom1,i,atom2,j)=force_const(atom1,i,atom2,j) &
               &-rescale
-          ENDDO ! atom2
-        ENDDO ! j
-      ENDDO ! i
-    ENDDO ! atom1
+          enddo ! atom2
+        enddo ! j
+      enddo ! i
+    enddo ! atom1
 
     ! Impose symmetry on the matrix of force constants.
-    DO atom1=1,no_atoms_in_sc
-      DO i=1,3
-        DO atom2=1,no_atoms_in_sc
-          DO j=1,3
+    do atom1=1,no_atoms_in_sc
+      do i=1,3
+        do atom2=1,no_atoms_in_sc
+          do j=1,3
             fc=0.5d0*(force_const(atom1,i,atom2,j) &
               &+force_const(atom2,j,atom1,i))
-            IF(ABS(fc-force_const(atom1,i,atom2,j))>max_diff) &
+            if(ABS(fc-force_const(atom1,i,atom2,j))>max_diff) &
               &max_diff=ABS(fc-force_const(atom1,i,atom2,j))
-            IF(ABS(fc-force_const(atom2,j,atom1,i))>max_diff) &
+            if(ABS(fc-force_const(atom2,j,atom1,i))>max_diff) &
               &max_diff=ABS(fc-force_const(atom2,j,atom1,i))
             force_const(atom1,i,atom2,j)=fc
             force_const(atom2,j,atom1,i)=fc
-          ENDDO ! j
-        ENDDO ! atom2
-      ENDDO ! i
-    ENDDO ! atom1
+          enddo ! j
+        enddo ! atom2
+      enddo ! i
+    enddo ! atom1
 
     ! For monatomic crystals we have inversion symmetry too.
     ! See Ashcroft & Mermin, p438.
-    IF(no_atoms_in_prim==1)THEN
-      DO atom1=1,no_atoms_in_sc
-        DO i=1,3
-          DO atom2=1,no_atoms_in_sc
-            DO j=1,3
+    if(no_atoms_in_prim==1)then
+      do atom1=1,no_atoms_in_sc
+        do i=1,3
+          do atom2=1,no_atoms_in_sc
+            do j=1,3
               fc=0.5d0*(force_const(atom1,i,atom2,j) &
                 &+force_const(atom1,j,atom2,i))
-              IF(ABS(fc-force_const(atom1,i,atom2,j))>max_diff) &
+              if(ABS(fc-force_const(atom1,i,atom2,j))>max_diff) &
                 &max_diff=ABS(fc-force_const(atom1,i,atom2,j))
-              IF(ABS(fc-force_const(atom1,j,atom2,i))>max_diff) &
+              if(ABS(fc-force_const(atom1,j,atom2,i))>max_diff) &
                 &max_diff=ABS(fc-force_const(atom1,j,atom2,i))
               force_const(atom1,i,atom2,j)=fc
               force_const(atom1,j,atom2,i)=fc
-            ENDDO ! j
-          ENDDO ! atom2
-        ENDDO ! i
-      ENDDO ! atom1
-    ENDIF ! monatomic lattice
+            enddo ! j
+          enddo ! atom2
+        enddo ! i
+      enddo ! atom1
+    endif ! monatomic lattice
 
-!      WRITE(*,*)max_diff,tol,fc_scale,tol*fc_scale
+!      write(*,*)max_diff,tol,fc_scale,tol*fc_scale
 
-    IF(max_diff<(tol*fc_scale+tol*1.d-4).AND.t>=min_t)EXIT
+    if(max_diff<(tol*fc_scale+tol*1.d-4).AND.t>=min_t)exit
 
-    IF(t==max_t)CALL errstop('NEWTONS_LAW', &
+    if(t==max_t)call errstop('NEWTONS_LAW', &
       &'Unable to impose Newton''s 3rd law. on matrix of force constants')
 
-  ENDDO ! Iterative impositions of Newton's 3d law, etc.
+  enddo ! Iterative impositions of Newton's 3d law, etc.
 end subroutine
 
 ! ----------------------------------------------------------------------
@@ -932,13 +930,13 @@ subroutine find_prim_cell(delta,no_atoms_in_sc,atom_pos,prim_lat_vec,   &
   integer,  allocatable, intent(out) :: no_equiv_ims(:,:,:)
   real(dp), allocatable, intent(out) :: delta_prim(:,:,:,:,:)
   
-  INTEGER :: n,n1,n1p,n1pp,n2,n2p,n2pp,n3,n3p,n3pp,m,label,im, &
+  integer :: n,n1,n1p,n1pp,n2,n2p,n2pp,n3,n3p,n3pp,m,label,im, &
     &prim_n(3,no_atoms_in_sc),p,atom1,ialloc
-  REAL(dp) :: delta_vect(3,3),r_temp(3),delta_r_ims(3,maxim),delta_r_corr(3)
+  real(dp) :: delta_vect(3,3),r_temp(3),delta_r_ims(3,maxim),delta_r_corr(3)
 
-  ALLOCATE(atom_in_prim(no_atoms_in_sc),prim_cell_for_atom(no_atoms_in_sc), &
+  allocate(atom_in_prim(no_atoms_in_sc),prim_cell_for_atom(no_atoms_in_sc), &
     &stat=ialloc)
-  IF(ialloc/=0)CALL errstop('FIND_PRIM_CELL','Allocation error: &
+  if(ialloc/=0)call errstop('FIND_PRIM_CELL','Allocation error: &
     &atom_in_prim, etc.')
 
   ! Calculate the primitive-lattice point corresponding to the 
@@ -946,7 +944,7 @@ subroutine find_prim_cell(delta,no_atoms_in_sc,atom_pos,prim_lat_vec,   &
   ! We try to make sure that there is no uncertainty in the primitive
   ! cell due to atoms sitting on the boundary between two primitive cells.
   delta_vect(1:3,1:3)=delta*prim_lat_vec(1:3,1:3)
-  DO n=1,no_atoms_in_sc
+  do n=1,no_atoms_in_sc
     r_temp(1:3)=atom_pos(1:3,n)+2.d0*delta_vect(1:3,1) &
       &+2.d0*delta_vect(1:3,2)+2.d0*delta_vect(1:3,3)
     n1=FLOOR(DOT_PRODUCT(r_temp(1:3),prim_rec_vec(1:3,1)))
@@ -954,7 +952,7 @@ subroutine find_prim_cell(delta,no_atoms_in_sc,atom_pos,prim_lat_vec,   &
       &prim_rec_vec(1:3,1)))
     n1pp=FLOOR(DOT_PRODUCT(r_temp(1:3)-delta_vect(1:3,1), &
       &prim_rec_vec(1:3,1)))
-    IF(n1/=n1p.OR.n1/=n1pp)CALL errstop('FIND_PRIM_CELL','Problem &
+    if(n1/=n1p.OR.n1/=n1pp)call errstop('FIND_PRIM_CELL','Problem &
       &identifying unit cell in which atom lies [1].  Please try increasing &
       &the "delta" parameter in subroutine FIND_PRIM_CELL.')
     n2=FLOOR(DOT_PRODUCT(r_temp(1:3),prim_rec_vec(1:3,2)))
@@ -962,7 +960,7 @@ subroutine find_prim_cell(delta,no_atoms_in_sc,atom_pos,prim_lat_vec,   &
       &prim_rec_vec(1:3,2)))
     n2pp=FLOOR(DOT_PRODUCT(r_temp(1:3)-delta_vect(1:3,2), &
       &prim_rec_vec(1:3,2)))
-    IF(n2/=n2p.OR.n2/=n2pp)CALL errstop('FIND_PRIM_CELL','Problem &
+    if(n2/=n2p.OR.n2/=n2pp)call errstop('FIND_PRIM_CELL','Problem &
       &identifying unit cell in which atom lies [2].  Please try increasing &
       &the "delta" parameter in subroutine FIND_PRIM_CELL.')
     n3=FLOOR(DOT_PRODUCT(r_temp(1:3),prim_rec_vec(1:3,3)))
@@ -970,83 +968,83 @@ subroutine find_prim_cell(delta,no_atoms_in_sc,atom_pos,prim_lat_vec,   &
       &prim_rec_vec(1:3,3)))
     n3pp=FLOOR(DOT_PRODUCT(r_temp(1:3)-delta_vect(1:3,3), &
       &prim_rec_vec(1:3,3)))
-    IF(n3/=n3p.OR.n3/=n3pp)CALL errstop('FIND_PRIM_CELL','Problem &
+    if(n3/=n3p.OR.n3/=n3pp)call errstop('FIND_PRIM_CELL','Problem &
       &identifying unit cell in which atom lies [3].  Please try increasing &
       &the "delta" parameter in subroutine FIND_PRIM_CELL.')
     prim_n(1,n)=n1 ; prim_n(2,n)=n2 ; prim_n(3,n)=n3
-  ENDDO ! n
+  enddo ! n
 
   ! Establish a label for each different atom in the primitive cell,
   ! and evaluate this label for each atom.
   atom_in_prim(1:no_atoms_in_sc)=-1
   label=0
-  DO n=1,no_atoms_in_sc
-    IF(atom_in_prim(n)==-1)THEN
+  do n=1,no_atoms_in_sc
+    if(atom_in_prim(n)==-1)then
       label=label+1
       atom_in_prim(n)=label
-      DO m=n+1,no_atoms_in_sc
+      do m=n+1,no_atoms_in_sc
         ! Is difference of atom positions an integer multiple of the
         ! primitive reciprocal lattice vectors?  If so, same label.
-        IF(is_lat_point(atom_pos(1:3,m)-atom_pos(1:3,n),prim_rec_vec)) &
+        if(is_lat_point(atom_pos(1:3,m)-atom_pos(1:3,n),prim_rec_vec)) &
           &atom_in_prim(m)=label
-      ENDDO ! m
-    ENDIF ! Atom not yet labelled by number within prim cell.
-  ENDDO ! n
-  IF(label/=no_atoms_in_prim)CALL errstop('FIND_PRIM_CELL','Problem &
+      enddo ! m
+    endif ! Atom not yet labelled by number within prim cell.
+  enddo ! n
+  if(label/=no_atoms_in_prim)call errstop('FIND_PRIM_CELL','Problem &
     &labelling the atoms in the primitive cell.')
 
   ! Establish a label for each different primitive cell, and evaluate
   ! this label for each atom.
   prim_cell_for_atom(1:no_atoms_in_sc)=-1
   label=0
-  DO n=1,no_atoms_in_sc
-    IF(prim_cell_for_atom(n)==-1)THEN
+  do n=1,no_atoms_in_sc
+    if(prim_cell_for_atom(n)==-1)then
       label=label+1
       prim_cell_for_atom(n)=label
-      DO m=n+1,no_atoms_in_sc
+      do m=n+1,no_atoms_in_sc
         r_temp=DBLE(prim_n(1,m)-prim_n(1,n))*prim_lat_vec(1:3,1) &
           &+DBLE(prim_n(2,m)-prim_n(2,n))*prim_lat_vec(1:3,2) &
           &+DBLE(prim_n(3,m)-prim_n(3,n))*prim_lat_vec(1:3,3)
-        IF(is_lat_point(r_temp,sc_rec_vec))prim_cell_for_atom(m)=label
-      ENDDO ! m
-    ENDIF ! Atom not yet labelled by number of primitive cell.
-  ENDDO ! n
-  IF(label/=no_prim_cells)CALL errstop('FIND_PRIM_CELL','Problem labelling &
+        if(is_lat_point(r_temp,sc_rec_vec))prim_cell_for_atom(m)=label
+      enddo ! m
+    endif ! Atom not yet labelled by number of primitive cell.
+  enddo ! n
+  if(label/=no_prim_cells)call errstop('FIND_PRIM_CELL','Problem labelling &
     &the primitive cells.')
 
   ! Construct array holding atom number for a given primitive cell and
   ! atom within the primitive cell.
   atom(:,:)=-1
-  DO n=1,no_atoms_in_sc
+  do n=1,no_atoms_in_sc
     atom(prim_cell_for_atom(n),atom_in_prim(n))=n
-  ENDDO ! n
-  IF(ANY(atom(:,:)==-1))CALL errstop('FIND_PRIM_CELL','Problem defining atom &
+  enddo ! n
+  if(ANY(atom(:,:)==-1))call errstop('FIND_PRIM_CELL','Problem defining atom &
     &labels.')
 
   ! Work out number of equivalent images and Delta Prim. Lattice Vectors
   ! for pairs of atoms (used in evaluation of force-constant matrix).
-  ALLOCATE(no_equiv_ims(no_prim_cells,no_atoms_in_prim,no_atoms_in_prim), &
+  allocate(no_equiv_ims(no_prim_cells,no_atoms_in_prim,no_atoms_in_prim), &
     &delta_prim(3,maxim,no_prim_cells,no_atoms_in_prim, &
     &no_atoms_in_prim),stat=ialloc)
-  IF(ialloc/=0)CALL errstop('FIND_PRIM_CELL','Allocation error: &
+  if(ialloc/=0)call errstop('FIND_PRIM_CELL','Allocation error: &
     &no_equiv_ims, etc.')
   delta_prim=0.d0
-  DO n=1,no_atoms_in_prim
+  do n=1,no_atoms_in_prim
     atom1=atom(1,n)
-    DO m=1,no_atoms_in_prim
+    do m=1,no_atoms_in_prim
       delta_r_corr=atom_pos(1:3,atom1)-atom_pos(1:3,atom(1,m))
-      DO p=1,no_prim_cells
+      do p=1,no_prim_cells
         ! Work out min. image distance(s) between atoms (1,n) and (p,m).
-        CALL min_images_brute_force(atom_pos(1:3,atom(p,m)) &
+        call min_images_brute_force(atom_pos(1:3,atom(p,m)) &
           &-atom_pos(1:3,atom1),sc_lat_vec,sc_rec_vec,delta_r_ims, &
           &no_equiv_ims(p,m,n))
         ! Turn this into the corresponding difference(s) of latt. vects.
-        DO im=1,no_equiv_ims(p,m,n)
+        do im=1,no_equiv_ims(p,m,n)
           delta_prim(1:3,im,p,m,n)=delta_r_ims(1:3,im)+delta_r_corr
-        ENDDO ! im
-      ENDDO ! p
-    ENDDO ! m
-  ENDDO ! n
+        enddo ! im
+      enddo ! p
+    enddo ! m
+  enddo ! n
 end subroutine
 
 ! ----------------------------------------------------------------------
@@ -1067,59 +1065,59 @@ subroutine construct_dyn_matrix(kvec,delta_prim,no_DoF_prim,no_prim_cells, &
   
   complex(dp), intent(inout) :: dyn_mat(no_DoF_prim,no_DoF_prim)
   
-  INTEGER :: p,n,m,i,j,index1,index2,atom1,im
-  COMPLEX(dp) :: dm,tempc,expikdotD(no_prim_cells,no_atoms_in_prim,&
+  integer :: p,n,m,i,j,index1,index2,atom1,im
+  complex(dp) :: dm,tempc,expikdotD(no_prim_cells,no_atoms_in_prim,&
     &no_atoms_in_prim)
-  REAL(dp) :: k_dot_D
+  real(dp) :: k_dot_D
 
   ! Precompute exp(-ik.(R-R')) to go in the dynamical matrix.
-  DO n=1,no_atoms_in_prim
+  do n=1,no_atoms_in_prim
     atom1=atom(1,n)
-    DO m=1,no_atoms_in_prim
-      DO p=1,no_prim_cells
+    do m=1,no_atoms_in_prim
+      do p=1,no_prim_cells
         tempc=CMPLX(0.d0,0.d0,dp)
-        DO im=1,no_equiv_ims(p,m,n)
+        do im=1,no_equiv_ims(p,m,n)
           k_dot_D=-DOT_PRODUCT(kvec,delta_prim(1:3,im,p,m,n))
           tempc=tempc+CMPLX(COS(k_dot_D),SIN(k_dot_D),dp)
-        ENDDO ! im
-        IF(no_equiv_ims(p,m,n)>1)THEN
+        enddo ! im
+        if(no_equiv_ims(p,m,n)>1)then
           expikdotD(p,m,n)=tempc/DBLE(no_equiv_ims(p,m,n))
-        ELSE
+        else
           expikdotD(p,m,n)=tempc
-        ENDIF ! number of images > 1.
-      ENDDO ! p
-    ENDDO ! m
-  ENDDO ! n
+        endif ! number of images > 1.
+      enddo ! p
+    enddo ! m
+  enddo ! n
 
   ! Evaluate the dynamical matrix.
   index1=0
-  DO n=1,no_atoms_in_prim
+  do n=1,no_atoms_in_prim
     atom1=atom(1,n)
-    DO i=1,3
+    do i=1,3
       index1=index1+1
       index2=0
-      DO m=1,no_atoms_in_prim
-        DO j=1,3
+      do m=1,no_atoms_in_prim
+        do j=1,3
           index2=index2+1
           dm=CMPLX(0.d0,0.d0,dp)
-          DO p=1,no_prim_cells
+          do p=1,no_prim_cells
             dm=dm+force_const(atom(p,m),j,atom1,i)*expikdotD(p,m,n)
-          ENDDO ! p
+          enddo ! p
           dyn_mat(index1,index2)=dm
-        ENDDO ! j
-      ENDDO ! i
-    ENDDO ! m
-  ENDDO ! n
+        enddo ! j
+      enddo ! i
+    enddo ! m
+  enddo ! n
 
   ! Enforce Hermiticity on the dynamical matrix.
-  DO index1=1,no_DoF_prim
-    dyn_mat(index1,index1)=CMPLX(REAL(dyn_mat(index1,index1),dp),0.d0,dp)
-    DO index2=index1+1,no_DoF_prim
+  do index1=1,no_DoF_prim
+    dyn_mat(index1,index1)=CMPLX(real(dyn_mat(index1,index1),dp),0.d0,dp)
+    do index2=index1+1,no_DoF_prim
       dm=0.5d0*(dyn_mat(index1,index2)+CONJG(dyn_mat(index2,index1)))
       dyn_mat(index1,index2)=dm
       dyn_mat(index2,index1)=CONJG(dm)
-    ENDDO ! index2
-  ENDDO ! index 1
+    enddo ! index2
+  enddo ! index 1
 end subroutine
 
 ! ----------------------------------------------------------------------
@@ -1149,23 +1147,23 @@ subroutine calculate_eigenfreqs(kvec,delta_prim,no_DoF_prim, &
   call construct_dyn_matrix(kvec,delta_prim,no_DoF_prim,no_prim_cells, &
      & no_atoms_in_prim,atom,no_equiv_ims,force_const,dyn_mat)
 
-  CALL zheev('N','U',no_DoF_prim,dyn_mat(1,1),no_DoF_prim,minusomegasq(1), &
+  call zheev('N','U',no_DoF_prim,dyn_mat(1,1),no_DoF_prim,minusomegasq(1), &
     &work(1),2*no_DoF_prim-1,rwork(1),info)
-  IF(info/=0)CALL errstop('CALCULATE_EIGENFREQS','ZHEEV failed (1).  Error &
+  if(info/=0)call errstop('CALCULATE_EIGENFREQS','ZHEEV failed (1).  Error &
     &code: '//TRIM(i2s(info))//'.')
 
   ! Eigenvalues of dynamical matrix are minus the frequencies squared.
   ! The eigenvalues are in ascending order, so the +ve frequencies
   ! will be in ascending order.
   m=no_DoF_prim
-  DO n=1,no_DoF_prim
-    IF(minusomegasq(m)>=0.d0)THEN
+  do n=1,no_DoF_prim
+    if(minusomegasq(m)>=0.d0)then
       omega(n)=-SQRT(minusomegasq(m)) ! Unstable mode.
-    ELSE
+    else
       omega(n)=SQRT(-minusomegasq(m)) ! Stable mode.
-    ENDIF
+    endif
     m=m-1
-  ENDDO ! n
+  enddo ! n
 end subroutine
 
 ! ----------------------------------------------------------------------
@@ -1191,54 +1189,53 @@ subroutine calculate_eigenfreqs_and_vecs(kvec,no_DoF_prim,delta_prim, &
   real(dp),    intent(out) :: omega(no_DoF_prim)
   complex(dp), intent(out) :: pol_vec(no_DoF_prim,no_DoF_prim)
   
-  REAL(dp) :: largest_mag2,mag2_element,rwork(3*no_DoF_prim-2), &
+  real(dp) :: rwork(3*no_DoF_prim-2), &
     &minusomegasq(no_DoF_prim)
-  COMPLEX(dp) :: dyn_mat(no_DoF_prim,no_DoF_prim),work(2*no_DoF_prim-1), &
-    &scalefactor
-  INTEGER :: n,m,k,largest_k,info
+  complex(dp) :: dyn_mat(no_DoF_prim,no_DoF_prim),work(2*no_DoF_prim-1)
+  integer :: n,m,info
 
   ! Construct dynamical matrix.
   call construct_dyn_matrix(kvec,delta_prim,no_DoF_prim,no_prim_cells, &
      & no_atoms_in_prim,atom,no_equiv_ims,force_const,dyn_mat)
 
-  CALL zheev('V','U',no_DoF_prim,dyn_mat(1,1),no_DoF_prim,minusomegasq(1), &
+  call zheev('V','U',no_DoF_prim,dyn_mat(1,1),no_DoF_prim,minusomegasq(1), &
     &work(1),2*no_DoF_prim-1,rwork(1),info)
-  IF(info/=0)CALL errstop('CALCULATE_EIGENFREQS_AND_VECS', &
+  if(info/=0)call errstop('CALCULATE_EIGENFREQS_AND_VECS', &
     &'ZHEEV failed (1).  Error code: '//TRIM(i2s(info))//'.')
 
   m=no_DoF_prim
-  DO n=1,no_DoF_prim 
+  do n=1,no_DoF_prim 
 ! Modified by B. Monserrat to output the correct 'omega' and 'pol_vec'
-    IF(minusomegasq(m)>=0.d0)THEN
+    if(minusomegasq(m)>=0.d0)then
       omega(n)=-SQRT(minusomegasq(m)) ! Unstable mode.
-    ELSE
+    else
       omega(n)=SQRT(-minusomegasq(m)) ! Stable mode.
-    ENDIF
-    CALL zcopy(no_DoF_prim,dyn_mat(1,m),1,pol_vec(1,n),1)
+    endif
+    call zcopy(no_DoF_prim,dyn_mat(1,m),1,pol_vec(1,n),1)
     m=m-1
-  ENDDO ! n
+  enddo ! n
 
     ! Attempt to make the eigenvectors real by multiplying
     ! each eigenvector by the conjugate of the largest element.
     ! Then normalise the eigenvectors to the number of atoms in the
     ! primitive cell.  So the polarisation vector for a monatomic
     ! lattice should be normalised to unity.
-   !DO n=1,no_DoF_prim
+   !do n=1,no_DoF_prim
    ! largest_mag2=0.d0
    ! largest_k=-1
-   ! DO k=1,no_DoF_prim
+   ! do k=1,no_DoF_prim
    !   mag2_element=DBLE(pol_vec(k,n))**2+AIMAG(pol_vec(k,n))**2
-   !   IF(mag2_element>largest_mag2)THEN
+   !   if(mag2_element>largest_mag2)then
    !     largest_mag2=mag2_element
    !     largest_k=k
-   !   ENDIF
-   ! ENDDO ! k
-   ! IF(largest_k==-1)CALL errstop('CALCULATE_EIGENFREQS_AND_VECS', &
+   !   endif
+   ! enddo ! k
+   ! if(largest_k==-1)call errstop('CALCULATE_EIGENFREQS_AND_VECS', &
    !   &'Eigenvector appears to be zero!')
    ! scalefactor=(DBLE(no_atoms_in_prim)/(ABS(pol_vec(largest_k,n)) &
    !   &*dznrm2(no_DoF_prim,pol_vec(1,n),1)))*CONJG(pol_vec(largest_k,n))
-   ! CALL zscal(no_DoF_prim,scalefactor,pol_vec(1,n),1)
-   !ENDDO ! n
+   ! call zscal(no_DoF_prim,scalefactor,pol_vec(1,n),1)
+   !enddo ! n
 end subroutine
 
 ! ----------------------------------------------------------------------
@@ -1276,84 +1273,84 @@ subroutine calculate_freq_dos(tol,prim_rec_vec,no_DoF_prim,        &
   ! highest frequency bin.
   real(dp),parameter :: safety_factor=1.15d0
   
-  REAL(dp) :: omega(no_DoF_prim),kvec(3),rec_bin_width,max_freq,min_freq, &
+  real(dp) :: omega(no_DoF_prim),kvec(3),rec_bin_width,max_freq,min_freq, &
     &rec_no_fdos_sets
-  INTEGER :: j,i,n,bin,ialloc,ierr
-  LOGICAL :: soft_modes,soft_modes_prelim
+  integer :: j,i,n,bin,ialloc,ierr
+  logical :: soft_modes,soft_modes_prelim
 
   ! Establish (approximate) maximum and minimum frequencies and hence
   ! choose the bin width.
   max_freq=-1.d0
   min_freq=HUGE(1.d0)
-  DO i=1,no_samples_trial
+  do i=1,no_samples_trial
     kvec(1:3)=twopi*(ranx()*prim_rec_vec(1:3,1) &
       &+ranx()*prim_rec_vec(1:3,2)+ranx()*prim_rec_vec(1:3,3))
     call calculate_eigenfreqs(kvec,delta_prim,no_DoF_prim,no_atoms_in_prim, &
       & no_prim_cells,atom,no_equiv_ims,force_const,omega)
-    IF(omega(1)<min_freq)min_freq=omega(1)
-    IF(omega(no_DoF_prim)>max_freq)max_freq=omega(no_DoF_prim)
-  ENDDO ! i
+    if(omega(1)<min_freq)min_freq=omega(1)
+    if(omega(no_DoF_prim)>max_freq)max_freq=omega(no_DoF_prim)
+  enddo ! i
   soft_modes_prelim=(min_freq<-tol)
-  IF(soft_modes_prelim)WRITE(*,*)'WARNING: soft modes present.'
-  WRITE(*,*)'In preliminary sampling, largest frequency is : ',max_freq
-  WRITE(*,*)'and lowest frequency is                       : ',min_freq
-  IF(max_freq<=0)CALL errstop('CALCULATE_FREQ_DOS','The crystal lattice is &
+  if(soft_modes_prelim)write(*,*)'WARNING: soft modes present.'
+  write(*,*)'In preliminary sampling, largest frequency is : ',max_freq
+  write(*,*)'and lowest frequency is                       : ',min_freq
+  if(max_freq<=0)call errstop('CALCULATE_FREQ_DOS','The crystal lattice is &
     &pathologically unstable.')
   bin_width=safety_factor*max_freq/DBLE(max_bin)
   rec_bin_width=1.d0/bin_width
 
-  WRITE(*,*)'Number of random k vectors                    : ' &
+  write(*,*)'Number of random k vectors                    : ' &
     &//TRIM(i2s(no_samples))
-  WRITE(*,*)'Number of frequency bins                      : ' &
+  write(*,*)'Number of frequency bins                      : ' &
     &//TRIM(i2s(max_bin+1))
-  WRITE(*,*)'Frequency bin width                           : ',bin_width
-  WRITE(*,*)'Number of DoS sets (for computing error bars) : ' &
+  write(*,*)'Frequency bin width                           : ',bin_width
+  write(*,*)'Number of DoS sets (for computing error bars) : ' &
     &//TRIM(i2s(no_fdos_sets))
 
-  ALLOCATE(freq_dos(0:max_bin,1:no_fdos_sets),stat=ialloc)
-  IF(ialloc/=0)CALL errstop('CALCULATE_FREQ_DOS','Allocation error: &
+  allocate(freq_dos(0:max_bin,1:no_fdos_sets),stat=ialloc)
+  if(ialloc/=0)call errstop('CALCULATE_FREQ_DOS','Allocation error: &
     &freq_dos.')
   freq_dos(0:max_bin,1:no_fdos_sets)=0.d0
   soft_modes=.FALSE.
 
-  DO j=1,no_fdos_sets
-    DO i=1,no_samples
+  do j=1,no_fdos_sets
+    do i=1,no_samples
       kvec(1:3)=twopi*(ranx()*prim_rec_vec(1:3,1) &
         &+ranx()*prim_rec_vec(1:3,2)+ranx()*prim_rec_vec(1:3,3))
       call calculate_eigenfreqs(kvec,delta_prim,no_DoF_prim, &
         & no_atoms_in_prim,no_prim_cells,atom,no_equiv_ims,force_const,omega)
-      IF(omega(1)<-tol)soft_modes=.TRUE.
-      DO n=1,no_DoF_prim
-        IF(omega(n)>0.d0)THEN ! Only bin positive frequencies.
+      if(omega(1)<-tol)soft_modes=.TRUE.
+      do n=1,no_DoF_prim
+        if(omega(n)>0.d0)then ! Only bin positive frequencies.
           bin=MAX(0,FLOOR(rec_bin_width*omega(n)))
-          IF(bin>max_bin)CALL errstop('CALCULATE_FREQ_DOS', &
+          if(bin>max_bin)call errstop('CALCULATE_FREQ_DOS', &
             &'Have encountered a frequency too high to be binned.  Try &
             &increasing the no_samples_trial or safety_factor parameters &
             &in the code.')
           freq_dos(bin,j)=freq_dos(bin,j)+1.d0
-        ENDIF ! positive frequency.
-      ENDDO ! n
-    ENDDO ! i
-  ENDDO ! j
-  IF(soft_modes.AND..NOT.soft_modes_prelim)WRITE(*,*)'WARNING: soft modes &
+        endif ! positive frequency.
+      enddo ! n
+    enddo ! i
+  enddo ! j
+  if(soft_modes.AND..NOT.soft_modes_prelim)write(*,*)'WARNING: soft modes &
     &present.'
 
   ! Normalise frequency DoS so that its integral is the number of
   ! degrees of freedom in the primitive cell.  Note that the total
   ! number of frequencies sampled is 3*no_samples*no_atoms_in_prim.
   ! (Imaginary frequencies are ignored, however.)
-  CALL dscal((max_bin+1)*no_fdos_sets,1.d0/(DBLE(no_samples)*bin_width), &
+  call dscal((max_bin+1)*no_fdos_sets,1.d0/(DBLE(no_samples)*bin_width), &
     &freq_dos(0,1),1)
 
   ! Write out the frequency DoS.
   rec_no_fdos_sets=1.d0/DBLE(no_fdos_sets)
-  OPEN(unit=8,file=freq_dos_filename,status='replace',iostat=ierr)
-  IF(ierr/=0)CALL errstop('CALCULATE_FREQ_DOS','Error opening freq_dos.dat.')
-  DO bin=0,max_bin
-    WRITE(8,*)(DBLE(bin)+0.5d0)*bin_width, &
+  open(unit=8,file=freq_dos_filename,status='replace',iostat=ierr)
+  if(ierr/=0)call errstop('CALCULATE_FREQ_DOS','Error opening freq_dos.dat.')
+  do bin=0,max_bin
+    write(8,*)(DBLE(bin)+0.5d0)*bin_width, &
       &SUM(freq_dos(bin,1:no_fdos_sets))*rec_no_fdos_sets
-  ENDDO ! bin
-  CLOSE(8)
+  enddo ! bin
+  close(8)
 end subroutine
 
 ! ----------------------------------------------------------------------
@@ -1373,32 +1370,32 @@ subroutine calc_lte(bin_width,temperature,freq_dos,tdependence1_filename)
   
   character(*), intent(in) :: tdependence1_filename
   
-  INTEGER :: bin,j
-  REAL(dp) :: omega,lte_val,lte_sq,E_H(0:max_bin),lte,lte_err
+  integer :: bin,j
+  real(dp) :: omega,lte_val,lte_sq,E_H(0:max_bin),lte,lte_err
   
-  DO bin=0,max_bin
+  do bin=0,max_bin
     ! omega is the frequency in the middle of the corresponding bin.
     omega=(DBLE(bin)+0.5d0)*bin_width
     ! Array of harmonic energies at each frequency.
     E_H(bin)=harmonic_energy(temperature,omega) 
-  ENDDO ! bin
+  enddo ! bin
   lte=0.d0 ; lte_sq=0.d0
-  DO j=1,no_fdos_sets
+  do j=1,no_fdos_sets
     ! LAPACK commented out because it isn't working. 9/1/2017
     ! lte_val=ddot(max_bin+1,freq_dos(0,j),1,E_H(0),1)
     lte_val = dot_product(freq_dos(:,j),E_H(:))
     lte=lte+lte_val ; lte_sq=lte_sq+lte_val**2
-  ENDDO ! j
+  enddo ! j
   lte=bin_width*lte/DBLE(no_fdos_sets)
   lte_sq=bin_width**2*lte_sq/DBLE(no_fdos_sets)
   lte_err=SQRT((lte_sq-lte**2)/DBLE(no_fdos_sets-1))
-  WRITE(*,'(1x,a,es18.10,a,es10.2)')'Done.  LTE per primitive cell : ', &
+  write(*,'(1x,a,es18.10,a,es10.2)')'Done.  LTE per primitive cell : ', &
     &lte,' +/- ',lte_err
-  WRITE(*,'(1x,a,es18.10,a,es10.2)')'Done.  LTE per primitive cell (eV) : ', &
+  write(*,'(1x,a,es18.10,a,es10.2)')'Done.  LTE per primitive cell (eV) : ', &
     &lte*27.211396132d0,' +/- ',lte_err*27.211396132d0
-  OPEN(1,FILE=tdependence1_filename)
-  WRITE(1,*)lte*27.211396132d0
-  CLOSE(1)
+  open(1,FILE=tdependence1_filename)
+  write(1,*)lte*27.211396132d0
+  close(1)
 end subroutine
 
 ! ----------------------------------------------------------------------
@@ -1411,21 +1408,21 @@ real(dp) function harmonic_energy(t,omega)
   real(dp), intent(in) :: T
   real(dp), intent(in) :: omega
   
-  REAL(dp) :: denominator
+  real(dp) :: denominator
   
-  IF(T<=0.d0)THEN
+  if(T<=0.d0)then
     ! Zero-point energy.
     harmonic_energy=0.5d0*omega
-  ELSE
+  else
     denominator=EXP(omega/(kB_au_per_K*T))-1.d0
-    IF(denominator>0.d0)THEN
+    if(denominator>0.d0)then
       ! General case.
       harmonic_energy=(1.d0/denominator+0.5d0)*omega
-    ELSE
+    else
       ! High-temperature limit.
       harmonic_energy=kB_au_per_K*T
-    ENDIF ! denominator>0
-  ENDIF ! T=0
+    endif ! denominator>0
+  endif ! T=0
 end function
 
 ! ----------------------------------------------------------------------
@@ -1444,30 +1441,30 @@ subroutine calc_ltfe(bin_width,temperature,freq_dos,tdependence2_filename)
   
   character(*), intent(in) :: tdependence2_filename
   
-  INTEGER :: bin,j
-  REAL(dp) :: omega,ltfe_sq,ltfe_val,FE_H(0:max_bin),ltfe,ltfe_err
+  integer :: bin,j
+  real(dp) :: omega,ltfe_sq,ltfe_val,FE_H(0:max_bin),ltfe,ltfe_err
   
-  DO bin=0,max_bin
+  do bin=0,max_bin
     ! omega is the frequency in the middle of the corresponding bin.
     omega=(DBLE(bin)+0.5d0)*bin_width
     ! Array of harmonic energies at each frequency.
     FE_H(bin)=harmonic_free_energy(temperature,omega)
-  ENDDO ! bin
+  enddo ! bin
   ltfe=0.d0 ; ltfe_sq=0.d0
-  DO j=1,no_fdos_sets
+  do j=1,no_fdos_sets
     ltfe_val=DOT_PRODUCT(freq_dos(:,j),FE_H(:))
     ltfe=ltfe+ltfe_val ; ltfe_sq=ltfe_sq+ltfe_val**2
-  ENDDO ! j
+  enddo ! j
   ltfe=bin_width*ltfe/DBLE(no_fdos_sets)
   ltfe_sq=bin_width**2*ltfe_sq/DBLE(no_fdos_sets)
   ltfe_err=SQRT((ltfe_sq-ltfe**2)/DBLE(no_fdos_sets-1))
-  WRITE(*,'(1x,a,es18.10,a,es10.2)')'and LTFE per primitive cell   : ', &
+  write(*,'(1x,a,es18.10,a,es10.2)')'and LTFE per primitive cell   : ', &
     &ltfe,' +/- ',ltfe_err
-  WRITE(*,'(1x,a,es18.10,a,es10.2)')'and LTFE per primitive cell (eV)  : ', &
+  write(*,'(1x,a,es18.10,a,es10.2)')'and LTFE per primitive cell (eV)  : ', &
     &ltfe*27.211396132d0,' +/- ',ltfe_err*27.211396132d0
-  OPEN(1,FILE=tdependence2_filename)
-  WRITE(1,*)ltfe*27.211396132d0
-  CLOSE(1)
+  open(1,FILE=tdependence2_filename)
+  write(1,*)ltfe*27.211396132d0
+  close(1)
 end subroutine
 
 ! ----------------------------------------------------------------------
@@ -1476,21 +1473,21 @@ end subroutine
 ! ----------------------------------------------------------------------
 real(dp) function harmonic_free_energy(T,omega)
   IMPLICIT NONE
-  REAL(dp),INTENT(in) :: T,omega
-  REAL(dp) :: difference,kT
-  IF(T<=0.d0)THEN
+  real(dp),INTENT(in) :: T,omega
+  real(dp) :: difference,kT
+  if(T<=0.d0)then
     ! Zero-point energy.
     harmonic_free_energy=0.5d0*omega
-  ELSE
+  else
     kT=kB_au_per_K*T
     difference=1.d0-EXP(-omega/kT)
-    IF(difference>0.d0)THEN
+    if(difference>0.d0)then
       harmonic_free_energy=0.5d0*omega+kT*LOG(difference)
-    ELSE
+    else
       ! High-temperature limit.
       harmonic_free_energy=-HUGE(0.d0)
-    ENDIF
-  ENDIF
+    endif
+  endif
 end function
 
 ! ----------------------------------------------------------------------
@@ -1517,21 +1514,21 @@ subroutine generate_disp_curve(no_DoF_prim,delta_prim,no_kspace_lines, &
   
   character(*), intent(in) :: dispersion_curve_filename
   
-  REAL(dp) :: k_dist,kvec(3),delta_k(3),k_step,omega(no_DoF_prim)
-  INTEGER :: i,j,k,total_no_kpoints,ialloc,ierr
-  REAL(dp),ALLOCATABLE :: disp_k_dist(:),branch(:,:)
-  INTEGER,PARAMETER :: no_kpoints_per_line=1000
+  real(dp) :: k_dist,kvec(3),delta_k(3),k_step,omega(no_DoF_prim)
+  integer :: i,j,k,total_no_kpoints,ialloc,ierr
+  real(dp),allocatable :: disp_k_dist(:),branch(:,:)
+  integer,parameter :: no_kpoints_per_line=1000
 
-  WRITE(*,*)
-  WRITE(*,*)'Number of k points per line in k space : ' &
+  write(*,*)
+  write(*,*)'Number of k points per line in k space : ' &
     &//TRIM(i2s(no_kpoints_per_line))
-  WRITE(*,*)
+  write(*,*)
 
   ! Total number of k points at which the dispersion curve is to be calc'd.
   total_no_kpoints=no_kspace_lines*no_kpoints_per_line
-  ALLOCATE(disp_k_dist(total_no_kpoints), &
+  allocate(disp_k_dist(total_no_kpoints), &
     &branch(no_DoF_prim,total_no_kpoints),stat=ialloc)
-  IF(ialloc/=0)CALL errstop('GENERATE_DISP_CURVE','Allocation error: &
+  if(ialloc/=0)call errstop('GENERATE_DISP_CURVE','Allocation error: &
     &disp_k_dist, etc.')
 
   ! The step-size in all but the last line is |k_stop-k_start|/no_steps,
@@ -1541,18 +1538,18 @@ subroutine generate_disp_curve(no_DoF_prim,delta_prim,no_kspace_lines, &
   ! point plotted.
   k=0
   k_dist=0.d0
-  DO i=1,no_kspace_lines
-    WRITE(*,*)'Start of new line at k-space distance : ',k_dist
+  do i=1,no_kspace_lines
+    write(*,*)'Start of new line at k-space distance : ',k_dist
     kvec(1:3)=disp_kpoints(1:3,i-1)
-    IF(i<no_kspace_lines)THEN
+    if(i<no_kspace_lines)then
       delta_k(1:3)=(disp_kpoints(1:3,i)-disp_kpoints(1:3,i-1)) &
         &/DBLE(no_kpoints_per_line)
-    ELSE
+    else
       delta_k(1:3)=(disp_kpoints(1:3,i)-disp_kpoints(1:3,i-1)) &
         &/DBLE(no_kpoints_per_line-1)
-    ENDIF ! Last line or not
+    endif ! Last line or not
     k_step=SQRT(DOT_PRODUCT(delta_k,delta_k))
-    DO j=1,no_kpoints_per_line
+    do j=1,no_kpoints_per_line
       k=k+1
       call calculate_eigenfreqs(kvec,delta_prim,no_DoF_prim, &
         & no_atoms_in_prim,no_prim_cells,atom,no_equiv_ims,force_const,omega)
@@ -1560,23 +1557,23 @@ subroutine generate_disp_curve(no_DoF_prim,delta_prim,no_kspace_lines, &
       disp_k_dist(k)=k_dist
       kvec(1:3)=kvec(1:3)+delta_k(1:3)
       k_dist=k_dist+k_step
-    ENDDO ! j
-  ENDDO ! i
+    enddo ! j
+  enddo ! i
   k_dist=k_dist-k_step
-  WRITE(*,*)'Final line ends at k-space distance   : ',k_dist
+  write(*,*)'Final line ends at k-space distance   : ',k_dist
 
-  OPEN(unit=8,file=dispersion_curve_filename,status='replace',iostat=ierr)
-  IF(ierr/=0)CALL errstop('GENERATE_DISP_CURVE', &
+  open(unit=8,file=dispersion_curve_filename,status='replace',iostat=ierr)
+  if(ierr/=0)call errstop('GENERATE_DISP_CURVE', &
     &'Error opening dispersion_curve.dat.')
-  DO j=1,no_DoF_prim
-    DO k=1,total_no_kpoints
-      WRITE(8,*)disp_k_dist(k),branch(j,k)
-    ENDDO ! k
-    WRITE(8,*)'&'
-  ENDDO ! j
-  CLOSE(8)
+  do j=1,no_DoF_prim
+    do k=1,total_no_kpoints
+      write(8,*)disp_k_dist(k),branch(j,k)
+    enddo ! k
+    write(8,*)'&'
+  enddo ! j
+  close(8)
 
-  DEALLOCATE(disp_k_dist,branch)
+  deallocate(disp_k_dist,branch)
 end subroutine
 
 ! ----------------------------------------------------------------------
@@ -1604,16 +1601,16 @@ subroutine calculate_speed_sound(no_atoms_in_prim,no_prim_cells,no_DoF_prim, &
   integer,  intent(in) :: no_equiv_ims(:,:,:)
   real(dp), intent(in) :: force_const(:,:,:,:)
   
-  REAL(dp) :: kvec(3),kmag,omega(3),cos_theta,sin_theta,phi,c_tr_tot,c_tr, &
+  real(dp) :: kvec(3),kmag,omega(3),cos_theta,sin_theta,phi,c_tr_tot,c_tr, &
     &c2_tr_tot,c2_tr,c_ln_tot,c_ln,c2_ln_tot,c2_ln,err_tr,err_ln,c(3), &
     &kunit(3),pol_vec_real(3,3),dot_prod(3),temp,c_tr_old,c_ln_old
-  COMPLEX(dp) :: pol_vec(3,3)
-  INTEGER :: i,no_samples,k,k2
-  REAL(dp),PARAMETER :: err_tol=1.d-3
-  INTEGER,PARAMETER :: max_samples=1000000
-  LOGICAL,PARAMETER :: verbose=.FALSE.
+  complex(dp) :: pol_vec(3,3)
+  integer :: i,no_samples,k,k2
+  real(dp),parameter :: err_tol=1.d-3
+  integer,parameter :: max_samples=1000000
+  logical,parameter :: verbose=.FALSE.
 
-  IF(no_atoms_in_prim/=1)CALL errstop('CALCULATE_SPEED_SOUND', &
+  if(no_atoms_in_prim/=1)call errstop('CALCULATE_SPEED_SOUND', &
     &'At the moment this program can only work out the speed of sound in &
     &materials with a single atom per primitive cell.  Sorry about that.')
 
@@ -1625,13 +1622,13 @@ subroutine calculate_speed_sound(no_atoms_in_prim,no_prim_cells,no_DoF_prim, &
 
   ! Reduce kmag until the calculated sound speeds have converged.
 
-  DO
+  do
 
     c_tr_tot=0.d0  ; c_ln_tot=0.d0
     c2_tr_tot=0.d0 ; c2_ln_tot=0.d0
     no_samples=max_samples
 
-    DO i=1,max_samples
+    do i=1,max_samples
 
       ! Choose random k vector on sphere of radius kmag.
       cos_theta=1.d0-2.d0*ranx() ; phi=ranx()*twopi
@@ -1640,28 +1637,28 @@ subroutine calculate_speed_sound(no_atoms_in_prim,no_prim_cells,no_DoF_prim, &
       kvec(1:3)=kmag*kunit
 
       ! Calculate corresponding eigenfrequencies.
-      CALL calculate_eigenfreqs_and_vecs(kvec,no_DoF_prim,delta_prim,   &
+      call calculate_eigenfreqs_and_vecs(kvec,no_DoF_prim,delta_prim,   &
         & no_atoms_in_prim,no_prim_cells,atom,no_equiv_ims,force_const, &
         & omega,pol_vec)
-      IF(ANY(omega<0.d0))THEN
-        WRITE(*,*)'Imaginary frequencies found.'
-        WRITE(*,*)'In terms of the primitive reciprocal lattice vectors, &
+      if(ANY(omega<0.d0))then
+        write(*,*)'Imaginary frequencies found.'
+        write(*,*)'In terms of the primitive reciprocal lattice vectors, &
           &the k-point is:'
-        WRITE(*,*)DOT_PRODUCT(kvec,prim_lat_vec(1:3,1)), &
+        write(*,*)DOT_PRODUCT(kvec,prim_lat_vec(1:3,1)), &
           &DOT_PRODUCT(kvec,prim_lat_vec(1:3,2)), &
           &DOT_PRODUCT(kvec,prim_lat_vec(1:3,3))
-        WRITE(*,*)'The frequencies are:'
-        WRITE(*,*)omega
-        CALL errstop('CALCULATE_SPEED_SOUND','Cannot calculate speed of &
+        write(*,*)'The frequencies are:'
+        write(*,*)omega
+        call errstop('CALCULATE_SPEED_SOUND','Cannot calculate speed of &
           &sound for unstable lattices.')
-      ENDIF ! Soft modes.
+      endif ! Soft modes.
 
       ! Speed of sound corresponding to first three (acoustic) branches.
       c(1:3)=omega(1:3)/kmag
 
       ! Work out dot products of corresponding polarisation vectors
       ! with unit vector in direction of wave vector.
-      pol_vec_real(:,:)=REAL(pol_vec(:,:),dp)
+      pol_vec_real(:,:)=real(pol_vec(:,:),dp)
       dot_prod(1)=ABS(DOT_PRODUCT(kunit,pol_vec_real(1:3,1)))
       dot_prod(2)=ABS(DOT_PRODUCT(kunit,pol_vec_real(1:3,2)))
       dot_prod(3)=ABS(DOT_PRODUCT(kunit,pol_vec_real(1:3,3)))
@@ -1670,14 +1667,14 @@ subroutine calculate_speed_sound(no_atoms_in_prim,no_prim_cells,no_DoF_prim, &
       ! product of k with polarisation vector.  The third component
       ! should be the longitudinal one, the first two should be
       ! the transverse components.
-      DO k=1,2
-        DO k2=k+1,3
-          IF(dot_prod(k)>dot_prod(k2))THEN
+      do k=1,2
+        do k2=k+1,3
+          if(dot_prod(k)>dot_prod(k2))then
             temp=dot_prod(k) ; dot_prod(k)=dot_prod(k2) ; dot_prod(k2)=temp
             temp=c(k) ; c(k)=c(k2) ; c(k2)=temp
-          ENDIF ! Swap needed
-        ENDDO ! k2
-      ENDDO ! k
+          endif ! Swap needed
+        enddo ! k2
+      enddo ! k
 
       ! Accumulate sound-speed statistics.
       c_tr_tot=c_tr_tot+c(1)+c(2)
@@ -1686,17 +1683,17 @@ subroutine calculate_speed_sound(no_atoms_in_prim,no_prim_cells,no_DoF_prim, &
       c2_ln_tot=c2_ln_tot+c(3)**2
 
       ! Check whether we have desired accuracy level.
-      IF(i>=20)THEN
+      if(i>=20)then
         c2_ln=c2_ln_tot/DBLE(i)
         c_ln=c_ln_tot/DBLE(i)
         err_ln=SQRT((c2_ln-c_ln**2)/DBLE(i-1))
-        IF(err_ln<err_tol*c_ln)THEN
+        if(err_ln<err_tol*c_ln)then
           no_samples=i
-          EXIT
-        ENDIF
-      ENDIF ! i>20
+          exit
+        endif
+      endif ! i>20
 
-    ENDDO ! i
+    enddo ! i
 
     ! Mean & standard error in mean for transverse speed.
     c_tr=c_tr_tot/DBLE(2*no_samples)
@@ -1708,33 +1705,33 @@ subroutine calculate_speed_sound(no_atoms_in_prim,no_prim_cells,no_DoF_prim, &
     c2_ln=c2_ln_tot/DBLE(no_samples)
     err_ln=SQRT((c2_ln-c_ln**2)/DBLE(no_samples-1))
 
-    IF(verbose)THEN
-      IF(no_samples==max_samples)WRITE(*,*)'Warning: have not reached &
+    if(verbose)then
+      if(no_samples==max_samples)write(*,*)'Warning: have not reached &
         &desired error bar.'
-      WRITE(*,*)'Radius of k-space sphere : ',kmag
-      WRITE(*,*)'Speed of sound (a.u.)'
-      WRITE(*,*)'Transverse   : ',c_tr,' +/- ',err_tr
-      WRITE(*,*)'Longitudinal : ',c_ln,' +/- ',err_ln
-      WRITE(*,*)
-    ENDIF ! verbose
+      write(*,*)'Radius of k-space sphere : ',kmag
+      write(*,*)'Speed of sound (a.u.)'
+      write(*,*)'Transverse   : ',c_tr,' +/- ',err_tr
+      write(*,*)'Longitudinal : ',c_ln,' +/- ',err_ln
+      write(*,*)
+    endif ! verbose
 
-    IF(ABS(c_tr-c_tr_old)<2.d0*err_tr.AND.ABS(c_ln-c_ln_old)<2.d0*err_ln)EXIT
+    if(ABS(c_tr-c_tr_old)<2.d0*err_tr.AND.ABS(c_ln-c_ln_old)<2.d0*err_ln)exit
     c_tr_old=c_tr
     c_ln_old=c_ln
 
     kmag=kmag*0.75d0
 
-  ENDDO ! reduce kmag
+  enddo ! reduce kmag
 
-  IF(verbose)WRITE(*,*)'Final results:'
-  WRITE(*,*)'Radius of k-space sphere : ',kmag
-  WRITE(*,*)'Please check this is sensible by examining a dispersion curve.'
-  WRITE(*,*)
+  if(verbose)write(*,*)'Final results:'
+  write(*,*)'Radius of k-space sphere : ',kmag
+  write(*,*)'Please check this is sensible by examining a dispersion curve.'
+  write(*,*)
 
-  WRITE(*,*)'Speed of sound (a.u.)'
-  WRITE(*,*)'Transverse   : ',c_tr,' +/- ',err_tr
-  WRITE(*,*)'Longitudinal : ',c_ln,' +/- ',err_ln
-  WRITE(*,*)
+  write(*,*)'Speed of sound (a.u.)'
+  write(*,*)'Transverse   : ',c_tr,' +/- ',err_tr
+  write(*,*)'Longitudinal : ',c_ln,' +/- ',err_ln
+  write(*,*)
 end subroutine
 
 ! ----------------------------------------------------------------------
@@ -1778,253 +1775,253 @@ subroutine evaluate_freqs_on_grid(no_prim_cells,no_atoms_in_prim,    &
   character(*), intent(in) :: gvectors_frac_filename
   character(*), intent(in) :: error_filename
   
-  INTEGER :: ng,i,j,k,ig,ierr,index1,index2,p,n,atom1
-  LOGICAL :: found,soft_modes
-  REAL(dp) :: gnew(3),gnew1(3),gnew2(3),gvec(3,no_prim_cells),R0(3), &
+  integer :: ng,i,j,k,ig,ierr,index1,index2,p,n,atom1
+  logical :: found,soft_modes
+  real(dp) :: gnew(3),gnew1(3),gnew2(3),gvec(3,no_prim_cells),R0(3), &
     &omega(no_DoF_prim),E,F,rec_root_mass(no_atoms_in_prim),GdotR, &
     &disp_pattern(3),kdisp_pattern(3),tot_disp_patt
-  COMPLEX(dp) :: pol_vec(no_DoF_prim,no_DoF_prim), &
+  complex(dp) :: pol_vec(no_DoF_prim,no_DoF_prim), &
     &non_mr_pol_vec(3,no_atoms_in_prim),expiGdotR(no_prim_cells), &
     &kpol_vec(3,no_atoms_in_prim)
-  REAL(dp),PARAMETER :: tol_omega=1.d-6 ! For judging whether modes are soft.
-  REAL(dp),PARAMETER :: tol_g=1.d-8 ! For equivalent +/- G-points.
-  INTEGER :: reference(no_prim_cells) ! For equivalent +/- G-points.
-  REAL(dp) :: gfrac(3,no_prim_cells),gdir(3) ! Fractional G vectors
-  REAL(dp) :: prefactor
+  real(dp),parameter :: tol_omega=1.d-6 ! For judging whether modes are soft.
+  real(dp),parameter :: tol_g=1.d-8 ! For equivalent +/- G-points.
+  integer :: reference(no_prim_cells) ! For equivalent +/- G-points.
+  real(dp) :: gfrac(3,no_prim_cells) ! Fractional G vectors
+  real(dp) :: prefactor
 
-  WRITE(*,*)'Frequencies at each supercell G vector:'
-  WRITE(*,*)
+  write(*,*)'Frequencies at each supercell G vector:'
+  write(*,*)
 
   ! Evaluate the set of supercell G vectors in the Brillouin zone of the
   ! primitive cell.
   ng=0
-  DO k=0,no_prim_cells-1
+  do k=0,no_prim_cells-1
     gnew2=DBLE(k)*sc_rec_vec(1:3,3)
-    DO j=0,no_prim_cells-1
+    do j=0,no_prim_cells-1
       gnew1=gnew2+DBLE(j)*sc_rec_vec(1:3,2)
-      DO i=0,no_prim_cells-1
+      do i=0,no_prim_cells-1
         gnew=gnew1+DBLE(i)*sc_rec_vec(1:3,1)
         found=.TRUE.
-        DO ig=1,ng
-          IF(is_lat_point(gnew(1:3)-gvec(1:3,ig),prim_lat_vec))THEN
+        do ig=1,ng
+          if(is_lat_point(gnew(1:3)-gvec(1:3,ig),prim_lat_vec))then
             found=.FALSE.
-            EXIT
-          ENDIF ! ig
-        ENDDO ! ig
-        IF(found)THEN
+            exit
+          endif ! ig
+        enddo ! ig
+        if(found)then
           ng=ng+1
-          IF(ng>no_prim_cells)CALL errstop('EVALUATE_FREQS_ON_GRID', &
+          if(ng>no_prim_cells)call errstop('EVALUATE_FREQS_ON_GRID', &
             &'Bug: too many G vectors.')
           gvec(1:3,ng)=gnew(1:3)
-        ENDIF ! found
-      ENDDO ! i
-    ENDDO ! j
-  ENDDO ! k
-  IF(ng/=no_prim_cells)CALL errstop('EVALUATE_FREQS_ON_GRID', &
+        endif ! found
+      enddo ! i
+    enddo ! j
+  enddo ! k
+  if(ng/=no_prim_cells)call errstop('EVALUATE_FREQS_ON_GRID', &
     &'Bug: too few G vectors.')
   
 
 ! Calculate +/- G-vector pairs
 ! First, write G-vectors as fractions of rec. latt. vecs.
-  DO ig=1,no_prim_cells
+  do ig=1,no_prim_cells
     gfrac(1,ig)=DOT_PRODUCT(gvec(1:3,ig),prim_lat_vec(1:3,1))
     gfrac(2,ig)=DOT_PRODUCT(gvec(1:3,ig),prim_lat_vec(1:3,2))
     gfrac(3,ig)=DOT_PRODUCT(gvec(1:3,ig),prim_lat_vec(1:3,3))
-    DO WHILE(gfrac(1,ig)+0.01*gfrac(1,ig)>0.5d0.AND.ABS(gfrac(1,ig)-0.5d0)>tol_g)
+    do while(gfrac(1,ig)+0.01*gfrac(1,ig)>0.5d0.AND.ABS(gfrac(1,ig)-0.5d0)>tol_g)
       gfrac(1,ig)=gfrac(1,ig)-1.d0
-    ENDDO  
-    DO WHILE(gfrac(1,ig)-0.01*gfrac(1,ig)<-0.5d0.AND.ABS(gfrac(1,ig)+0.5d0)>tol_g)
+    enddo  
+    do while(gfrac(1,ig)-0.01*gfrac(1,ig)<-0.5d0.AND.ABS(gfrac(1,ig)+0.5d0)>tol_g)
       gfrac(1,ig)=gfrac(1,ig)+1.d0
-    ENDDO  
-    DO WHILE(gfrac(2,ig)+0.01*gfrac(2,ig)>0.5d0.AND.ABS(gfrac(2,ig)-0.5d0)>tol_g)
+    enddo  
+    do while(gfrac(2,ig)+0.01*gfrac(2,ig)>0.5d0.AND.ABS(gfrac(2,ig)-0.5d0)>tol_g)
       gfrac(2,ig)=gfrac(2,ig)-1.d0
-    ENDDO  
-    DO WHILE(gfrac(2,ig)-0.01*gfrac(2,ig)<-0.5d0.AND.ABS(gfrac(2,ig)+0.5d0)>tol_g)
+    enddo  
+    do while(gfrac(2,ig)-0.01*gfrac(2,ig)<-0.5d0.AND.ABS(gfrac(2,ig)+0.5d0)>tol_g)
       gfrac(2,ig)=gfrac(2,ig)+1.d0
-    ENDDO  
-    DO WHILE(gfrac(3,ig)+0.01*gfrac(3,ig)>0.5d0.AND.ABS(gfrac(3,ig)-0.5d0)>tol_g)
+    enddo  
+    do while(gfrac(3,ig)+0.01*gfrac(3,ig)>0.5d0.AND.ABS(gfrac(3,ig)-0.5d0)>tol_g)
       gfrac(3,ig)=gfrac(3,ig)-1.d0
-    ENDDO  
-    DO WHILE(gfrac(3,ig)-0.01*gfrac(3,ig)<-0.5d0.AND.ABS(gfrac(3,ig)+0.5d0)>tol_g)
+    enddo  
+    do while(gfrac(3,ig)-0.01*gfrac(3,ig)<-0.5d0.AND.ABS(gfrac(3,ig)+0.5d0)>tol_g)
       gfrac(3,ig)=gfrac(3,ig)+1.d0
-    ENDDO  
-  ENDDO ! ig
+    enddo  
+  enddo ! ig
   ! Second, pair them up
   reference=0
-  DO k=1,no_prim_cells
-    DO j=1,k-1
-    IF((ABS(gfrac(1,k)+gfrac(1,j))<tol_g.OR.ABS(gfrac(1,k)+gfrac(1,j)-1)<tol_g.OR.ABS(gfrac(1,k)+gfrac(1,j)+1)<tol_g).AND.&
+  do k=1,no_prim_cells
+    do j=1,k-1
+    if((ABS(gfrac(1,k)+gfrac(1,j))<tol_g.OR.ABS(gfrac(1,k)+gfrac(1,j)-1)<tol_g.OR.ABS(gfrac(1,k)+gfrac(1,j)+1)<tol_g).AND.&
       &(ABS(gfrac(2,k)+gfrac(2,j))<tol_g.OR.ABS(gfrac(2,k)+gfrac(2,j)-1)<tol_g.OR.ABS(gfrac(2,k)+gfrac(2,j)+1)<tol_g).AND.&
-      &(ABS(gfrac(3,k)+gfrac(3,j))<tol_g.OR.ABS(gfrac(3,k)+gfrac(3,j)-1)<tol_g.OR.ABS(gfrac(3,k)+gfrac(3,j)+1)<tol_g))THEN
+      &(ABS(gfrac(3,k)+gfrac(3,j))<tol_g.OR.ABS(gfrac(3,k)+gfrac(3,j)-1)<tol_g.OR.ABS(gfrac(3,k)+gfrac(3,j)+1)<tol_g))then
       reference(k)=j 
       reference(j)=k
-      EXIT
-    ENDIF
-    ENDDO ! j
-  ENDDO ! k
-  OPEN(1,FILE=kpairs_filename)
-  DO i=1,no_prim_cells
-    WRITE(1,*)i,reference(i)
-  ENDDO ! i
-  CLOSE(1)
+      exit
+    endif
+    enddo ! j
+  enddo ! k
+  open(1,FILE=kpairs_filename)
+  do i=1,no_prim_cells
+    write(1,*)i,reference(i)
+  enddo ! i
+  close(1)
 
-  OPEN(unit=8,file=freq_grids_filename,status='replace',iostat=ierr)
-  IF(ierr/=0)CALL errstop('EVALUATE_FREQS_ON_GRID', &
+  open(unit=8,file=freq_grids_filename,status='replace',iostat=ierr)
+  if(ierr/=0)call errstop('EVALUATE_FREQS_ON_GRID', &
     &'Problem opening freqs_grid.dat.')
-  OPEN(unit=9,file=disp_patterns_filename,status='replace',iostat=ierr)
-  OPEN(unit=10,file=kdisp_patterns_filename,status='replace',iostat=ierr)
-  OPEN(unit=11,file=pol_vec_filename,status='replace',iostat=ierr)
-  IF(ierr/=0)CALL errstop('EVALUATE_FREQS_ON_GRID', &
+  open(unit=9,file=disp_patterns_filename,status='replace',iostat=ierr)
+  open(unit=10,file=kdisp_patterns_filename,status='replace',iostat=ierr)
+  open(unit=11,file=pol_vec_filename,status='replace',iostat=ierr)
+  if(ierr/=0)call errstop('EVALUATE_FREQS_ON_GRID', &
     &'Problem opening disp_patterns.dat.')
 
-  DO n=1,no_atoms_in_prim
+  do n=1,no_atoms_in_prim
     rec_root_mass(n)=1.d0/SQRT(mass(atom(1,n))) ! 1/sqrt(m) in prim. cell.
-  ENDDO ! n
+  enddo ! n
 
 ! Modified by B. Monserrat to output G vectors to file
-  OPEN(19,FILE=gvectors_filename)
-  OPEN(20,FILE=gvectors_frac_filename)
-  WRITE(19,*) no_prim_cells
-  WRITE(20,*) no_prim_cells
+  open(19,FILE=gvectors_filename)
+  open(20,FILE=gvectors_frac_filename)
+  write(19,*) no_prim_cells
+  write(20,*) no_prim_cells
 
 ! Evaluate the frequencies at each supercell G vector.
   E=0.d0  ;  F=0.d0
   soft_modes=.FALSE.
   R0=atom_pos(1:3,atom(1,1))
-  DO ig=1,no_prim_cells
-    WRITE(*,'(" G = (",es20.12,",",es20.12,",",es20.12,")")')twopi*gvec(1:3,ig)
-    WRITE(*,'(" G = (",es20.12,",",es20.12,",",es20.12,")")')gfrac(1:3,ig)
-    WRITE(19,*)twopi*gvec(1:3,ig)
+  do ig=1,no_prim_cells
+    write(*,'(" G = (",es20.12,",",es20.12,",",es20.12,")")')twopi*gvec(1:3,ig)
+    write(*,'(" G = (",es20.12,",",es20.12,",",es20.12,")")')gfrac(1:3,ig)
+    write(19,*)twopi*gvec(1:3,ig)
     ! G-vectors as a fraction of the primitive reciprocal lattice vectors
-    WRITE(20,*)ig,gfrac(1,ig),gfrac(2,ig),gfrac(3,ig)
-    IF(reference(ig)==0)THEN
-      CALL calculate_eigenfreqs_and_vecs(twopi*gvec(1:3,ig),no_DoF_prim, &
+    write(20,*)ig,gfrac(1,ig),gfrac(2,ig),gfrac(3,ig)
+    if(reference(ig)==0)then
+      call calculate_eigenfreqs_and_vecs(twopi*gvec(1:3,ig),no_DoF_prim, &
         & delta_prim,no_atoms_in_prim,no_prim_cells,atom,no_equiv_ims,   &
         & force_const,omega,pol_vec)
-    ELSE
-      IF(reference(ig)>ig)THEN
-        CALL calculate_eigenfreqs_and_vecs(twopi*gvec(1:3,ig),no_DoF_prim, &
+    else
+      if(reference(ig)>ig)then
+        call calculate_eigenfreqs_and_vecs(twopi*gvec(1:3,ig),no_DoF_prim, &
           & delta_prim,no_atoms_in_prim,no_prim_cells,atom,no_equiv_ims,   &
           & force_const,omega,pol_vec)
-      ELSE
-        CALL calculate_eigenfreqs_and_vecs(twopi*gvec(1:3,reference(ig)), &
+      else
+        call calculate_eigenfreqs_and_vecs(twopi*gvec(1:3,reference(ig)), &
           & no_DoF_prim,                                                  &
           & delta_prim,no_atoms_in_prim,no_prim_cells,atom,no_equiv_ims,  &
           & force_const,omega,pol_vec)
-      ENDIF
-    ENDIF
+      endif
+    endif
 
 ! The negative is used because the matrix of force constants is the transpose of
 ! the usual expression in derivations that lead to a positive exponential
-    DO p=1,no_prim_cells
-      IF(reference(ig)==0)THEN
+    do p=1,no_prim_cells
+      if(reference(ig)==0)then
         GdotR=-DOT_PRODUCT(twopi*gvec(1:3,ig),atom_pos(1:3,atom(p,1))-R0)
-      ELSE
-        IF(reference(ig)>ig)THEN
+      else
+        if(reference(ig)>ig)then
           GdotR=-DOT_PRODUCT(twopi*gvec(1:3,ig),atom_pos(1:3,atom(p,1))-R0)
-        ELSE
+        else
           GdotR=-DOT_PRODUCT(twopi*gvec(1:3,reference(ig)),atom_pos(1:3,atom(p,1))-R0)
-        ENDIF
-      ENDIF
+        endif
+      endif
       expiGdotR(p)=CMPLX(COS(GdotR),SIN(GdotR),dp) ! Store exp(iG.R_p).
-    ENDDO ! p
+    enddo ! p
 
-    DO index2=1,no_DoF_prim
-      WRITE(*,*)'  omega = ',omega(index2)
-      IF(omega(index2)>tol_omega)THEN
+    do index2=1,no_DoF_prim
+      write(*,*)'  omega = ',omega(index2)
+      if(omega(index2)>tol_omega)then
 ! Ignore contributions from imaginary or zero frequencies.
         E=E+harmonic_energy(temperature,omega(index2))
         F=F+harmonic_free_energy(temperature,omega(index2))
-      ELSEIF(omega(index2)<-tol_omega)THEN
+      elseif(omega(index2)<-tol_omega)then
         soft_modes=.TRUE.
-      ENDIF ! omega>0
-      WRITE(8,*)omega(index2),1.d0
+      endif ! omega>0
+      write(8,*)omega(index2),1.d0
 ! Compute the non-mass-reduced polarisation vector.
       index1=0
-      DO n=1,no_atoms_in_prim
-        DO i=1,3
+      do n=1,no_atoms_in_prim
+        do i=1,3
           index1=index1+1
           non_mr_pol_vec(i,n)=pol_vec(index1,index2)*rec_root_mass(n)
           kpol_vec(i,n)=pol_vec(index1,index2)
-        ENDDO ! i
-      ENDDO ! n
-      IF(omega(index2)<-tol_omega)THEN
-        WRITE(9,*)'Frequency           : ',omega(index2),' (SOFT)'
-        WRITE(10,*)'Frequency           : ',omega(index2),' (SOFT)'
-        WRITE(11,*)'Mode number     :',index2, '   Frequency           : ',omega(index2),' (SOFT)'
-      ELSE
-        WRITE(9,*)'Frequency           : ',omega(index2)
-        WRITE(10,*)'Frequency           : ',omega(index2)
-        WRITE(11,*)'Mode number     :',index2, '   Frequency           : ',omega(index2)
-      ENDIF ! soft freq.
-      WRITE(9,*)gvec(1:3,ig)*twopi
-      WRITE(10,*)gvec(1:3,ig)*twopi
-      WRITE(11,*)gvec(1:3,ig)*twopi
-      WRITE(9,*)'Displacement pattern for each atom:'
-      WRITE(10,*)'Displacement pattern for each atom:'
-      WRITE(11,*)'Polarisation vector:'
+        enddo ! i
+      enddo ! n
+      if(omega(index2)<-tol_omega)then
+        write(9,*)'Frequency           : ',omega(index2),' (SOFT)'
+        write(10,*)'Frequency           : ',omega(index2),' (SOFT)'
+        write(11,*)'Mode number     :',index2, '   Frequency           : ',omega(index2),' (SOFT)'
+      else
+        write(9,*)'Frequency           : ',omega(index2)
+        write(10,*)'Frequency           : ',omega(index2)
+        write(11,*)'Mode number     :',index2, '   Frequency           : ',omega(index2)
+      endif ! soft freq.
+      write(9,*)gvec(1:3,ig)*twopi
+      write(10,*)gvec(1:3,ig)*twopi
+      write(11,*)gvec(1:3,ig)*twopi
+      write(9,*)'Displacement pattern for each atom:'
+      write(10,*)'Displacement pattern for each atom:'
+      write(11,*)'Polarisation vector:'
       disp_pattern=0.d0
       kdisp_pattern=0.d0
       tot_disp_patt=0.d0
-      DO atom1=1,no_atoms_in_sc
+      do atom1=1,no_atoms_in_sc
 ! Displacement pattern: polarisation vector times exp(iG.R).
-        IF(reference(ig)==0)THEN
-          disp_pattern=REAL(non_mr_pol_vec(1:3,atom_in_prim(atom1)) & ! Note only the real part is taken
+        if(reference(ig)==0)then
+          disp_pattern=real(non_mr_pol_vec(1:3,atom_in_prim(atom1)) & ! Note only the real part is taken
             &*expiGdotR(prim_cell_for_atom(atom1)),dp)
           tot_disp_patt=tot_disp_patt+sqrt(disp_pattern(1)**2+disp_pattern(2)**2+disp_pattern(3)**2)
-          kdisp_pattern=kpol_vec(1:3,atom_in_prim(atom1))! & ! Note only the real part is taken
+          kdisp_pattern=real(kpol_vec(1:3,atom_in_prim(atom1))) ! & 
             !&*expiGdotR(prim_cell_for_atom(atom1))
           prefactor=1.d0
-        ELSE
-          IF(reference(ig)>ig)THEN
-            disp_pattern=REAL(non_mr_pol_vec(1:3,atom_in_prim(atom1)) &
+        else
+          if(reference(ig)>ig)then
+            disp_pattern=real(non_mr_pol_vec(1:3,atom_in_prim(atom1)) &
              &*expiGdotR(prim_cell_for_atom(atom1)),dp)
             tot_disp_patt=tot_disp_patt+sqrt(disp_pattern(1)**2+disp_pattern(2)**2+disp_pattern(3)**2)
-            kdisp_pattern=REAL(kpol_vec(1:3,atom_in_prim(atom1)) &
+            kdisp_pattern=real(kpol_vec(1:3,atom_in_prim(atom1)) &
              &*expiGdotR(prim_cell_for_atom(atom1)),dp)
             prefactor=SQRT(2.d0)
-          ELSE
+          else
             disp_pattern=AIMAG(non_mr_pol_vec(1:3,atom_in_prim(atom1)) &
              &*expiGdotR(prim_cell_for_atom(atom1)))
             tot_disp_patt=tot_disp_patt+sqrt(disp_pattern(1)**2+disp_pattern(2)**2+disp_pattern(3)**2)
             kdisp_pattern=AIMAG(kpol_vec(1:3,atom_in_prim(atom1)) &
              &*expiGdotR(prim_cell_for_atom(atom1)))
             prefactor=SQRT(2.d0)
-          ENDIF
-        ENDIF
-        WRITE(9,*)disp_pattern,prefactor
-        WRITE(10,*)kdisp_pattern,prefactor
-        WRITE(11,*)REAL(non_mr_pol_vec(1:3,atom_in_prim(atom1)))
-        WRITE(11,*)AIMAG(non_mr_pol_vec(1:3,atom_in_prim(atom1)))
-      ENDDO ! atom1
-      WRITE(9,*)
-      WRITE(10,*)
-      WRITE(11,*)
-    ENDDO ! index2
-    WRITE(*,*)
-    IF(tot_disp_patt<1.d-8)THEN
-      OPEN(111,file=error_filename)
-      WRITE(111,*)'The total displacement is:',tot_disp_patt
-      CLOSE(111)
-    ENDIF
-  ENDDO ! ig
+          endif
+        endif
+        write(9,*)disp_pattern,prefactor
+        write(10,*)kdisp_pattern,prefactor
+        write(11,*)real(non_mr_pol_vec(1:3,atom_in_prim(atom1)))
+        write(11,*)AIMAG(non_mr_pol_vec(1:3,atom_in_prim(atom1)))
+      enddo ! atom1
+      write(9,*)
+      write(10,*)
+      write(11,*)
+    enddo ! index2
+    write(*,*)
+    if(tot_disp_patt<1.d-8)then
+      open(111,file=error_filename)
+      write(111,*)'The total displacement is:',tot_disp_patt
+      close(111)
+    endif
+  enddo ! ig
   E=E/DBLE(no_prim_cells)  ;  F=F/DBLE(no_prim_cells)
 
-  CLOSE(8)
-  CLOSE(9)
-  CLOSE(10)
-  CLOSE(11)
-  CLOSE(19)
-  CLOSE(20)
+  close(8)
+  close(9)
+  close(10)
+  close(11)
+  close(19)
+  close(20)
 
-  WRITE(*,*)'Mean LTE per primitive cell  : ',E
-  WRITE(*,*)'Mean LTE per primitive cell (eV)  : ',E*27.211396132d0
-  WRITE(*,*)'Mean LTFE per primitive cell : ',F
-  WRITE(*,*)'Mean LTFE per primitive cell (eV): ',F*27.211396132d0
-  IF(soft_modes)WRITE(*,*)'WARNING: soft modes are present.'
-  WRITE(*,*)'Frequencies written to freqs_grid.dat.'
-  WRITE(*,*)'Displacement patterns written to disp_patterns.dat.'
-  WRITE(*,*)
+  write(*,*)'Mean LTE per primitive cell  : ',E
+  write(*,*)'Mean LTE per primitive cell (eV)  : ',E*27.211396132d0
+  write(*,*)'Mean LTFE per primitive cell : ',F
+  write(*,*)'Mean LTFE per primitive cell (eV): ',F*27.211396132d0
+  if(soft_modes)write(*,*)'WARNING: soft modes are present.'
+  write(*,*)'Frequencies written to freqs_grid.dat.'
+  write(*,*)'Displacement patterns written to disp_patterns.dat.'
+  write(*,*)
 end subroutine
 
 ! ----------------------------------------------------------------------
@@ -2048,64 +2045,64 @@ subroutine write_dynamical_matrix(sc_rec_vec,prim_lat_vec,no_DoF_prim, &
   
   character(*), intent(in) :: dyn_mat_fileroot
   
-  INTEGER :: ierr,ng,k,j,i,ig,atom1,cart1,index1,atom2,cart2,index2
-  REAL(dp) :: gnew2(3),gnew1(3),gnew(3),gvec(3,no_prim_cells)
-  COMPLEX(dp) :: dyn_mat(no_DoF_prim,no_DoF_prim)
-  LOGICAL :: found
+  integer :: ierr,ng,k,j,i,ig,atom1,cart1,index1,atom2,cart2,index2
+  real(dp) :: gnew2(3),gnew1(3),gnew(3),gvec(3,no_prim_cells)
+  complex(dp) :: dyn_mat(no_DoF_prim,no_DoF_prim)
+  logical :: found
 
   ng=0
-  DO k=0,no_prim_cells-1
+  do k=0,no_prim_cells-1
     gnew2=DBLE(k)*sc_rec_vec(1:3,3)
-    DO j=0,no_prim_cells-1
+    do j=0,no_prim_cells-1
       gnew1=gnew2+DBLE(j)*sc_rec_vec(1:3,2)
-      DO i=0,no_prim_cells-1
+      do i=0,no_prim_cells-1
         gnew=gnew1+DBLE(i)*sc_rec_vec(1:3,1)
         found=.TRUE.
-        DO ig=1,ng
-          IF(is_lat_point(gnew(1:3)-gvec(1:3,ig),prim_lat_vec))THEN
+        do ig=1,ng
+          if(is_lat_point(gnew(1:3)-gvec(1:3,ig),prim_lat_vec))then
             found=.FALSE.
-            EXIT
-          ENDIF ! ig
-        ENDDO ! ig
-        IF(found)THEN
+            exit
+          endif ! ig
+        enddo ! ig
+        if(found)then
           ng=ng+1
-          IF(ng>no_prim_cells)CALL errstop('WRITE_DYNAMICAL_MATRIX','Too &
+          if(ng>no_prim_cells)call errstop('WRITE_DYNAMICAL_MATRIX','Too &
            &many G-vectors.')
           gvec(1:3,ng)=gnew(1:3)
-        ENDIF ! found
-      ENDDO ! i
-    ENDDO ! j
-  ENDDO ! k
-  IF(ng/=no_prim_cells)CALL errstop('WRITE_DYNAMICAL_MATRIX','Too few &
+        endif ! found
+      enddo ! i
+    enddo ! j
+  enddo ! k
+  if(ng/=no_prim_cells)call errstop('WRITE_DYNAMICAL_MATRIX','Too few &
    &G-vectors.')
 
   dyn_mat(1:no_DoF_prim,1:no_DoF_prim)=CMPLX(0.d0,0.d0,dp)
 
-  DO ig=1,ng
-    OPEN(unit=101,file=dyn_mat_fileroot//TRIM(i2s(ig))//'.dat',status='replace',iostat=ierr)
-    IF(ierr/=0)CALL errstop('WRITE_DYNAMICAL_MATRIX','Problem opening &
+  do ig=1,ng
+    open(unit=101,file=dyn_mat_fileroot//TRIM(i2s(ig))//'.dat',status='replace',iostat=ierr)
+    if(ierr/=0)call errstop('WRITE_DYNAMICAL_MATRIX','Problem opening &
      &dyn_mat.'//TRIM(i2s(ig))//'.dat file.')
     call construct_dyn_matrix(twopi*gvec(:,ig),delta_prim,no_DoF_prim, &
       & no_prim_cells,no_atoms_in_prim,atom,no_equiv_ims,force_const,dyn_mat)
     atom1=0
-    DO index1=1,no_DoF_prim
+    do index1=1,no_DoF_prim
       atom2=0
-      IF(MOD(index1,3)==1)THEN
+      if(MOD(index1,3)==1)then
         atom1=atom1+1
         cart1=1
-      ENDIF ! MOD(index1,3)==1
-      DO index2=1,no_DoF_prim
-        IF(MOD(index2,3)==1)THEN
+      endif ! MOD(index1,3)==1
+      do index2=1,no_DoF_prim
+        if(MOD(index2,3)==1)then
           atom2=atom2+1
           cart2=1
-        ENDIF ! MOD(index2,3)==1
-        WRITE(101,*)atom1,cart1,atom2,cart2,REAL(dyn_mat(index1,index2)),AIMAG(dyn_mat(index1,index2))
+        endif ! MOD(index2,3)==1
+        write(101,*)atom1,cart1,atom2,cart2,real(dyn_mat(index1,index2)),AIMAG(dyn_mat(index1,index2))
         cart2=cart2+1
-      ENDDO ! index2
+      enddo ! index2
       cart1=cart1+1
-    ENDDO ! index1
-    CLOSE(101)
-  END DO ! ig
+    enddo ! index1
+    close(101)
+  end do ! ig
 end subroutine
 
 ! ----------------------------------------------------------------------
@@ -2219,120 +2216,140 @@ subroutine lte(tol,tol2,delta,lte_filename,freq_dos_filename,                &
   ! ----------------------------------------
   ! times
   ! ----------------------------------------
-  REAL :: t1,t2
+  real :: t1,t2
   
   ! ----------------------------------------
   ! previously global variables
   ! ----------------------------------------
-  REAL(dp) :: prim_lat_vec(3,3),sc_lat_vec(3,3),prim_rec_vec(3,3), &
-    &sc_rec_vec(3,3),length_scale,vol_scale,small_k_scale,fc_scale,bin_width, &
-    &temperature
-  INTEGER :: prog_function,no_atoms_in_sc,no_prim_cells,no_atoms_in_prim, &
-    &no_point_symms,no_kspace_lines,no_DoF_prim
-  CHARACTER(2),ALLOCATABLE :: species(:)
-  REAL(dp),ALLOCATABLE :: mass(:),atom_pos(:,:),rotation(:,:,:), &
-    &force_const(:,:,:,:),offset(:,:),freq_dos(:,:),disp_kpoints(:,:), &
-    &delta_prim(:,:,:,:,:)
-  INTEGER,ALLOCATABLE :: atom(:,:),no_equiv_ims(:,:,:),atom_in_prim(:), &
-    &prim_cell_for_atom(:)
-  LOGICAL,ALLOCATABLE :: defined(:,:,:,:)
+  real(dp) :: prim_lat_vec(3,3)
+  real(dp) :: sc_lat_vec(3,3)
+  real(dp) :: prim_rec_vec(3,3)
+  real(dp) :: sc_rec_vec(3,3)
+  real(dp) :: length_scale
+  real(dp) :: vol_scale
+  real(dp) :: small_k_scale
+  real(dp) :: fc_scale
+  real(dp) :: bin_width
+  real(dp) :: temperature
+  integer  :: prog_function
+  integer  :: no_atoms_in_sc
+  integer  :: no_prim_cells
+  integer  :: no_atoms_in_prim
+  integer  :: no_point_symms
+  integer  :: no_kspace_lines
+  integer  :: no_DoF_prim
+  
+  character(2), allocatable :: species(:)
+  real(dp),     allocatable :: mass(:)
+  real(dp),     allocatable :: atom_pos(:,:)
+  real(dp),     allocatable :: rotation(:,:,:) 
+  real(dp),     allocatable ::  force_const(:,:,:,:)
+  real(dp),     allocatable :: offset(:,:)
+  real(dp),     allocatable :: freq_dos(:,:)
+  real(dp),     allocatable :: disp_kpoints(:,:)
+  real(dp),     allocatable :: delta_prim(:,:,:,:,:)
+  integer,      allocatable :: atom(:,:)
+  integer,      allocatable :: no_equiv_ims(:,:,:)
+  integer,      allocatable :: atom_in_prim(:)
+  integer,      allocatable :: prim_cell_for_atom(:)
+  logical,      allocatable :: defined(:,:,:,:)
 
-  CALL CPU_TIME(t1)
+  call CPU_TIME(t1)
 
-  WRITE(*,*)
-  WRITE(*,*)'LATTICE THERMAL ENERGY'
-  WRITE(*,*)'======================'
-  WRITE(*,*)
+  write(*,*)
+  write(*,*)'LATTICE THERMAL ENERGY'
+  write(*,*)'======================'
+  write(*,*)
 
-  WRITE(*,*)'Reading data from lte.dat...'
-  WRITE(*,*)
+  write(*,*)'Reading data from lte.dat...'
+  write(*,*)
   call read_lte(tol,lte_filename,prim_rec_vec,sc_rec_vec,fc_scale,           &
      & no_atoms_in_prim,no_DoF_prim,no_prim_cells,length_scale,small_k_scale,&
      & vol_scale,                                                            &
      & prim_lat_vec,sc_lat_vec,no_atoms_in_sc,species,mass,atom_pos,         &
      & force_const,defined,atom,rotation,offset,disp_kpoints,no_kspace_lines,&
      & no_point_symms,prog_function,temperature)
-  WRITE(*,*)'Finished reading input data.'
-  WRITE(*,*)
+  write(*,*)'Finished reading input data.'
+  write(*,*)
 
-  WRITE(*,*)'Applying point symmetries to the matrix of force constants...'
+  write(*,*)'Applying point symmetries to the matrix of force constants...'
   call point_symm(tol,no_atoms_in_sc,no_point_symms,rotation, &
      & atom_pos,offset,sc_rec_vec,mass,defined,force_const)
-  WRITE(*,*)'Done.'
-  WRITE(*,*)
+  write(*,*)'Done.'
+  write(*,*)
 
-  IF(ANY(.NOT.defined))THEN
-    CALL wordwrap('WARNING: will impose symmetries on the matrix of force &
+  if(ANY(.NOT.defined))then
+    call wordwrap('WARNING: will impose symmetries on the matrix of force &
       &constants iteratively...')
     call point_symm_brute_force(tol,fc_scale,no_atoms_in_sc,     &
        & no_DoF_prim,no_point_symms,sc_rec_vec,rotation,atom_pos,offset, &
        & force_const,defined)
-    WRITE(*,*)'Done.'
-    WRITE(*,*)
-  ENDIF
-  IF(ANY(.NOT.defined))CALL errstop('LTE','Some elements of the matrix of &
+    write(*,*)'Done.'
+    write(*,*)
+  endif
+  if(ANY(.NOT.defined))call errstop('LTE','Some elements of the matrix of &
     &force constants are still undefined.')
 
-  CALL wordwrap('Imposing Newton''s third law and symmetry on the matrix of &
+  call wordwrap('Imposing Newton''s third law and symmetry on the matrix of &
     &force constants...')
-  call newtons_law(tol,fc_scale,no_atoms_in_prim,no_atoms_in_sc, &
+  call newtons_law(tol2,fc_scale,no_atoms_in_prim,no_atoms_in_sc, &
     & force_const)
-  WRITE(*,*)'Done.'
-  WRITE(*,*)
+  write(*,*)'Done.'
+  write(*,*)
 
-  WRITE(*,*)'Performing mass reduction on the matrix of force constants...'
+  write(*,*)'Performing mass reduction on the matrix of force constants...'
   call mass_reduce(no_atoms_in_sc,mass,force_const)
-  WRITE(*,*)'Done.'
-  WRITE(*,*)
+  write(*,*)'Done.'
+  write(*,*)
 
-  WRITE(*,*)'Establishing the primitive lattice vector associated with &
+  write(*,*)'Establishing the primitive lattice vector associated with &
     &each atom...'
   call find_prim_cell(delta,no_atoms_in_sc,atom_pos,prim_lat_vec,         &
      & prim_rec_vec,sc_lat_vec,sc_rec_vec,no_prim_cells,no_atoms_in_prim, &
      & atom,atom_in_prim,prim_cell_for_atom,no_equiv_ims,                 &
      & delta_prim)
-  WRITE(*,*)'Done.'
-  WRITE(*,*)
+  write(*,*)'Done.'
+  write(*,*)
 
-  IF(prog_function==1)THEN
+  if(prog_function==1)then
 
-    WRITE(*,*)'Calculating the frequency density-of-states function...'
+    write(*,*)'Calculating the frequency density-of-states function...'
     call calculate_freq_dos(tol,prim_rec_vec,no_DoF_prim,   &
        & delta_prim,no_atoms_in_prim,no_prim_cells,atom,no_equiv_ims, &
        & force_const,                                                 &
        & freq_dos_filename,bin_width,freq_dos)
-    CALL wordwrap('Done.  Frequency density-of-states function written to &
+    call wordwrap('Done.  Frequency density-of-states function written to &
       &freq_dos.dat.  (Please view this file using XMGrace.)')
-    WRITE(*,*)
+    write(*,*)
 
-    WRITE(*,*)'Calculating the lattice thermal energy (LTE) and free energy &
+    write(*,*)'Calculating the lattice thermal energy (LTE) and free energy &
       &(LTFE)...'
-    CALL calc_lte(bin_width,temperature,freq_dos,tdependence1_filename)
+    call calc_lte(bin_width,temperature,freq_dos,tdependence1_filename)
     call calc_ltfe(bin_width,temperature,freq_dos,tdependence2_filename)
-    WRITE(*,*)
+    write(*,*)
 
-  ELSEIF(prog_function==2)THEN
+  elseif(prog_function==2)then
 
-    WRITE(*,*)'Calculating the requested dispersion curve.'
+    write(*,*)'Calculating the requested dispersion curve.'
     call generate_disp_curve(no_DoF_prim,delta_prim,no_kspace_lines,    &
        & disp_kpoints,no_atoms_in_prim,no_prim_cells,atom,no_equiv_ims, &
        & force_const,                                                   &
        & dispersion_curve_filename)
-    CALL wordwrap('Done.  dispersion_curve.dat has been generated.  (Please &
+    call wordwrap('Done.  dispersion_curve.dat has been generated.  (Please &
       &view this file using XMGrace.)')
-    WRITE(*,*)
+    write(*,*)
 
-  ELSEIF(prog_function==3)THEN
+  elseif(prog_function==3)then
 
-    WRITE(*,*)'Calculating the speed of sound.'
+    write(*,*)'Calculating the speed of sound.'
     call calculate_speed_sound(no_atoms_in_prim,no_prim_cells,no_DoF_prim, &
        & small_k_scale,prim_lat_vec,delta_prim,atom,no_equiv_ims,force_const)
-    WRITE(*,*)'Done.  Speed of sound calculated.'
-    WRITE(*,*)
+    write(*,*)'Done.  Speed of sound calculated.'
+    write(*,*)
 
-  ELSEIF(prog_function==4)THEN
-
-    WRITE(*,*)'Calculating the frequencies and displacement patterns on the &
+  elseif(prog_function==4)then
+    
+    write(*,*)'Calculating the frequencies and displacement patterns on the &
       &G-vector grid.'
     call evaluate_freqs_on_grid(no_prim_cells,no_atoms_in_prim,          &
        & no_atoms_in_sc,no_DoF_prim,temperature,sc_rec_vec,prim_lat_vec, &
@@ -2341,28 +2358,28 @@ subroutine lte(tol,tol2,delta,lte_filename,freq_dos_filename,                &
        & kpairs_filename,freq_grids_filename,disp_patterns_filename,     &
        & kdisp_patterns_filename,pol_vec_filename,gvectors_filename,     &
        & gvectors_frac_filename,error_filename)
-    WRITE(*,*)'Done.  Frequencies and displacement patterns calculated.'
-    WRITE(*,*)
+    write(*,*)'Done.  Frequencies and displacement patterns calculated.'
+    write(*,*)
     call write_dynamical_matrix(sc_rec_vec,prim_lat_vec,no_DoF_prim,  &
        & no_prim_cells,delta_prim,no_atoms_in_prim,atom,no_equiv_ims, &
        &force_const,                                                  &
        & dyn_mat_fileroot)
-    CALL write_atoms_in_primitive_cell(atom_pos,prim_rec_vec, &
+    call write_atoms_in_primitive_cell(atom_pos,prim_rec_vec, &
       & no_atoms_in_prim,atom,mass,atoms_in_primitive_cell_filename)
-
-  ELSE
-
-    CALL errstop('LTE','Program function should be 1, 2, 3 or 4.')
-
-  ENDIF ! prog_function.
-
+    
+  else
+    
+    call errstop('LTE','Program function should be 1, 2, 3 or 4.')
+    
+  endif ! prog_function.
+  
   call finalise(species,mass,atom_pos,force_const,defined,atom, &
      & no_equiv_ims,delta_prim,rotation,offset,disp_kpoints,freq_dos, &
      & atom_in_prim,prim_cell_for_atom)
-
-  CALL CPU_TIME(t2)
-
-  WRITE(*,*)'Program finished.  Time taken: ',t2-t1
-  WRITE(*,*)
+  
+  call CPU_TIME(t2)
+  
+  write(*,*)'Program finished.  Time taken: ',t2-t1
+  write(*,*)
 end subroutine
 end module

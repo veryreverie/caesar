@@ -24,7 +24,7 @@ pure function gcd(int_1,int_2) result(output)
   integer :: b
   integer :: temp
   
-  if (a>=b) then
+  if (int_1>=int_2) then
     a = int_1
     b = int_2
   else
@@ -247,7 +247,7 @@ subroutine generate_supercells(args)
   
   INTEGER,ALLOCATABLE :: multiplicity(:),int_kpoints(:,:),numerator(:,:),&
     &denominator(:,:),super_size(:),label(:)
-  INTEGER :: i,j,k,grid(1:3),ialloc,ierr,istat,num_kpoints,count,&
+  INTEGER :: i,j,k,grid(1:3),ialloc,num_kpoints,count,&
     &s11,s12,s13,s22,s23,s33,quotient,hnf(3,3),size_count
   REAL(dp),ALLOCATABLE :: kpoints(:,:)
   REAL(dp) :: prim_latt_vecs(3,3),rec_latt_vecs(3,3),temp_latt_vecs(3,3),&
@@ -275,8 +275,7 @@ subroutine generate_supercells(args)
   read(grid_file,*)grid(1:3)
   close(grid_file)
   
-  call inv_33(prim_latt_vecs,rec_latt_vecs)
-  rec_latt_vecs=transpose(rec_latt_vecs)
+  rec_latt_vecs = transpose(inv_33(prim_latt_vecs))
 
   ! Get the number of k-points in the ibz.dat file
   ibz_file = open_read_file(args(3))

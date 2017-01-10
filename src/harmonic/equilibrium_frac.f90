@@ -11,7 +11,7 @@ subroutine equilibrium_frac(filenames)
   character(100), intent(in) :: filenames(:)
   
   integer :: i,no_atoms
-  real(dp) :: lattice(3,3),trans_lattice(3,3),inv_lattice(3,3)
+  real(dp) :: lattice(3,3),inv_lattice(3,3)
   real(dp),allocatable :: atoms(:,:),mass(:),frac_atoms(:,:)
   character(2),allocatable :: species(:)
   
@@ -39,8 +39,7 @@ subroutine equilibrium_frac(filenames)
   enddo
   close(super_lattice_file) 
   
-  trans_lattice=transpose(lattice)
-  call inv_33(trans_lattice,inv_lattice)
+  inv_lattice = inv_33(transpose(lattice))
   do i=1,no_atoms
     frac_atoms(i,1:3) = atoms(i,1)*inv_lattice(1:3,1) &
                     & + atoms(i,2)*inv_lattice(1:3,2) &

@@ -117,7 +117,7 @@ subroutine generate_dispersion(rec_vecs,basis,mass,no_cells,no_ims,          &
  INTEGER,INTENT(in) :: basis,no_cells,no_ims(no_cells),no_points
  REAL(dp),INTENT(in) :: rec_vecs(3,3),mass(basis),cell_vecs(3,8,no_cells),&
   &force_consts(basis,3,basis,3,no_cells),path(3,no_points)
- INTEGER :: ialloc,ierr,i_path,i_cart,path_length,i_point,j_point,i_dof
+ INTEGER :: ierr,i_path,i_cart,path_length,i_point
  REAL(dp) :: k_start(3),k_stop(3),k_diff(3),k_dist,total_k_dist,delta_k,&
   &kpoint(3),omega(3*basis)
  COMPLEX(dp) :: dyn_mat(basis,3,basis,3)
@@ -190,7 +190,7 @@ subroutine generate_dos(rec_vecs,basis,mass,no_cells,no_ims,cell_vecs, &
  INTEGER,INTENT(in) :: basis,no_cells,no_ims(no_cells)
  REAL(dp),INTENT(in) :: rec_vecs(3,3),mass(basis),cell_vecs(3,8,no_cells),&
   &force_consts(basis,3,basis,3,no_cells)
- INTEGER :: ialloc,ierr,i_sample,i_cart,i_freq,i_bin
+ INTEGER :: ierr,i_sample,i_cart,i_freq,i_bin
  REAL(dp) :: max_freq,min_freq,frac(3),kpoint(3),freqs(3*basis),bin_width,&
   &rec_bin_width,freq_dos(no_bins),free_energy,omega
  COMPLEX(dp) :: dyn_mat(basis,3,basis,3)
@@ -593,7 +593,6 @@ subroutine fourier_interpolation(phonon_dispersion_curve_filename,           &
  REAL(dp),ALLOCATABLE :: atom_pos_frac(:,:)
  REAL(dp),ALLOCATABLE :: cell_pos_cart(:,:)
  REAL(dp),ALLOCATABLE :: min_im_cell_pos(:,:,:)
- REAL(dp),ALLOCATABLE :: freqs(:,:)
  REAL(dp),ALLOCATABLE :: force_consts(:,:,:,:,:)
  REAL(dp),ALLOCATABLE :: grid_points_cart(:,:)
  REAL(dp),ALLOCATABLE :: grid_points_frac(:,:)
@@ -628,7 +627,7 @@ subroutine fourier_interpolation(phonon_dispersion_curve_filename,           &
  INTEGER :: counter
  INTEGER :: i_atom,j_atom
  INTEGER :: i_back
- INTEGER :: i_cart,j_cart,k_cart
+ INTEGER :: i_cart,j_cart
  INTEGER :: i_cell
  INTEGER :: i_grid
  INTEGER :: i_point
@@ -722,19 +721,15 @@ subroutine fourier_interpolation(phonon_dispersion_curve_filename,           &
 
  do i_atom=1,basis
   identity_map(i_atom)=i_atom
- enddo ! i_atom
-
- call inv_33(prim_latt_vecs,prim_rec_vecs)
- prim_rec_vecs=transpose(prim_rec_vecs)
- prim_rec_vecs=twopi*prim_rec_vecs
+ enddo
+ 
+ prim_rec_vecs = twopi*transpose(inv_33(prim_latt_vecs))
 
  super_latt_vecs(1,1:3)=dble(grid(1))*prim_latt_vecs(1,1:3)
  super_latt_vecs(2,1:3)=dble(grid(2))*prim_latt_vecs(2,1:3)
  super_latt_vecs(3,1:3)=dble(grid(3))*prim_latt_vecs(3,1:3)
 
- call inv_33(super_latt_vecs,super_rec_vecs)
- super_rec_vecs=transpose(super_rec_vecs)
- super_rec_vecs=twopi*super_rec_vecs
+ super_rec_vecs = twopi*transpose(inv_33(super_latt_vecs))
 
  i_grid=0
  do m1=0,grid(1)-1

@@ -177,24 +177,25 @@ end function
 ! calculates the inverse, B, of matrix A
 ! A and B are real, 3x3 matrices
 ! ----------------------------------------
-! TODO: |d|<epsilon would be a more stable check than d==0
-subroutine inv_33(A,B)
+function inv_33(A) result(B)
   implicit none
   
   real(dp), intent(in)  :: A(3,3)
-  real(dp), intent(out) :: B(3,3)
+  real(dp)              :: B(3,3)
+  
   real(dp)              :: d      ! det(A)
   
   d = A(1,1)*(A(2,2)*A(3,3)-A(3,2)*A(2,3))&
    &+ A(1,2)*(A(3,1)*A(2,3)-A(2,1)*A(3,3))&
    &+ A(1,3)*(A(2,1)*A(3,2)-A(3,1)*A(2,2))
   
-  if (d==0.d0) then
+  d = 1.d0/d
+  
+  ! check for d=infinity or d=NaN
+  if (dabs(d)>huge(0.d0) .or. d<d) then
     write(*,*) 'Error in inv_33: singular matrix.'
     stop
   endif
-  
-  d = 1.d0/d
   
   B(1,1) = (A(2,2)*A(3,3)-A(2,3)*A(3,2))*d
   B(1,2) = (A(3,2)*A(1,3)-A(1,3)*A(3,2))*d
@@ -205,7 +206,7 @@ subroutine inv_33(A,B)
   B(3,1) = (A(2,1)*A(3,2)-A(2,3)*A(3,2))*d
   B(3,2) = (A(3,1)*A(1,2)-A(2,3)*A(3,2))*d
   B(3,3) = (A(1,1)*A(2,2)-A(2,3)*A(3,2))*d
-end subroutine
+end function
 
 ! Calculates the eigenvalues and eigenvectors of a real, symmetric matrix
 function calculate_eigenstuff(input) result(output)
@@ -217,7 +218,6 @@ function calculate_eigenstuff(input) result(output)
   
   ! working variables
   integer               :: n
-  real(dp), allocatable :: a(:,:)
   real(dp), allocatable :: work(:)
   integer               :: lwork
   integer               :: info
@@ -235,7 +235,7 @@ function calculate_eigenstuff(input) result(output)
     write(*,*) "dsyev failed, info=",trim(i2s(info))
     stop
   endif
-  lwork = work(1)
+  lwork = nint(work(1))
   deallocate(work)
   allocate(work(lwork))
   

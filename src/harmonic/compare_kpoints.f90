@@ -11,7 +11,7 @@ subroutine compare_kpoints(filenames)
   character(100), intent(in) :: filenames(:)
   
   real(dp),parameter :: tol=1.d-10
-  integer :: i,j,ierr,size,label,list
+  integer :: i,j,size,label,list
   real(dp) :: kpoint(3),gvec_frac(3)
   integer :: no_lines
   

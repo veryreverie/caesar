@@ -22,7 +22,7 @@ module vscf_1d_module
 contains
 
 function vscf_1d(frequency_ev, potential, Nbasis) result(output)
-  use constants,      only : dp, pi, eV, thermal
+  use constants,      only : dp, pi, eV
   use linear_algebra, only : Eigenstuff, calculate_eigenstuff, size
   implicit none
   
@@ -38,7 +38,6 @@ function vscf_1d(frequency_ev, potential, Nbasis) result(output)
   integer :: i,j,k
   real(dp) :: bfp,q,dq,basis_frequency
   real(dp),allocatable :: basis(:,:)
-  real(dp),allocatable :: Hamiltonian(:,:)
   type(Eigenstuff)     :: estuff ! evals and evecs of Hamiltonian
   
   Npoints = size(potential,2)

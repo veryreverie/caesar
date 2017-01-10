@@ -12,15 +12,10 @@ subroutine generate_supercell_kpoint_mesh_qe(filenames)
   character(100), intent(in) :: filenames(:)
   
   ! Working variables
-  integer :: i,j,k
-!  real,parameter :: pi=3.14159265358979324d0
+  integer :: i
+  
   ! Input variables
-  integer :: prim_mesh(3),sc_mesh(3),supercell(3,3)
-  real(dp),allocatable :: directed_mesh1(:,:),directed_mesh2(:,:),directed_mesh3(:,:)
-  real(dp),allocatable :: mesh(:,:)
-  real(dp),allocatable :: sc_directed_mesh1(:,:),sc_directed_mesh2(:,:),sc_directed_mesh3(:,:)
-  real(dp) :: rec_distance1(3),rec_distance2(3),rec_distance3(3)
-  real(dp) :: sc_rec_distance1(3),sc_rec_distance2(3),sc_rec_distance3(3)
+  integer :: prim_mesh(3)
   real(dp) :: sc_dist(3),super_lattice(3,3),rec_super_lattice(3,3)
   real(dp) :: dist(3),lattice(3,3),rec_lattice(3,3)
   
@@ -44,8 +39,7 @@ subroutine generate_supercell_kpoint_mesh_qe(filenames)
   close(lattice_file)
 
   ! Construct reciprocal primitive lattice
-  call inv_33(lattice,rec_lattice)
-  rec_lattice=2.d0*pi*transpose(rec_lattice)
+  rec_lattice=2.d0*pi*transpose(inv_33(lattice))
   do i=1,3
     dist(i)=sqrt(dot_product(rec_lattice(i,:),rec_lattice(i,:)))
   enddo ! i
@@ -58,8 +52,7 @@ subroutine generate_supercell_kpoint_mesh_qe(filenames)
   close(super_lattice_file)
 
   ! Construct reciprocal SC lattice
-  call inv_33(super_lattice,rec_super_lattice)
-  rec_super_lattice=2.d0*pi*transpose(rec_super_lattice)
+  rec_super_lattice=2.d0*pi*transpose(inv_33(super_lattice))
   do i=1,3
     sc_dist(i)=sqrt(dot_product(rec_super_lattice(i,:),rec_super_lattice(i,:)))
   enddo ! i

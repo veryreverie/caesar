@@ -4,14 +4,13 @@ module generate_quadratic_configurations_module
 contains
 
 subroutine generate_quadratic_configurations(args)
-  use constants, only : dp,eV,thermal
+  use constants, only : dp,thermal
   use file_io,   only : open_read_file, open_write_file
   implicit none
   
   character(*), intent(in) :: args(:)
   
   ! file units
-  integer :: configuration_file ! configuration.dat
   integer :: super_eqm_file     ! super_equilibrium.dat
   integer :: disp_patt_file     ! disp_patterns_temp.dat
   integer :: positions_file     ! positions.dat

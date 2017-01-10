@@ -19,7 +19,7 @@ subroutine construct_matrix_force_cnsts(filenames)
   ! Input variables
   integer :: no_symm,no_atoms
   real(dp),allocatable :: rotation(:,:,:),offset(:,:),atom_pos(:,:),atom_pos_frac(:,:),mass(:)
-  real(dp) :: lattice(3,3),inv_lattice(3,3),trans_lattice(3,3),supercell(3,3)
+  real(dp) :: lattice(3,3),inv_lattice(3,3),supercell(3,3)
   character(2) :: dump_ch
   
   ! Parameters
@@ -62,8 +62,7 @@ subroutine construct_matrix_force_cnsts(filenames)
   read(lattice_file,*)lattice(3,:)
   close(lattice_file)
   
-  trans_lattice=transpose(lattice)
-  call inv_33(trans_lattice,inv_lattice)
+  inv_lattice = inv_33(transpose(lattice))
 
   ! Read in supercell matrix
   supercell_file = open_read_file(filenames(3))
@@ -72,8 +71,7 @@ subroutine construct_matrix_force_cnsts(filenames)
   read(supercell_file,*)supercell(3,:)
   close(supercell_file)
   
-  supercell=transpose(supercell)
-  call inv_33(supercell,supercell)
+  supercell = inv_33(transpose(supercell))
   ! Transform offsets to primitive cell coordinates
   do i=1,no_symm
     offset(i,:)=matmul(supercell,offset(i,:))  

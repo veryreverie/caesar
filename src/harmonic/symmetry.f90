@@ -22,8 +22,7 @@
  INTEGER :: i_cart
  REAL(dp) :: frac(3),rec_vecs(3,3)
 
- call inv_33(latt_vecs,rec_vecs)
- rec_vecs=transpose(rec_vecs)
+ rec_vecs = transpose(inv_33(latt_vecs))
 
  do i_cart=1,3
   frac(i_cart)=dot_product(rec_vecs(i_cart,1:3),cart(1:3))
@@ -43,7 +42,6 @@
 ! grid.                                                                       !
 !-----------------------------------------------------------------------------!
  IMPLICIT NONE
- REAL(dp),PARAMETER :: tol=1.d-8
  INTEGER,INTENT(in) :: no_points,no_symms
  REAL(dp),INTENT(in) :: rec_vecs(3,3),points_cart(3,no_points),&
   &point_symms(3,3,no_symms)

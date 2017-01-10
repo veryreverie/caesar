@@ -281,7 +281,7 @@ function mp1_state(estuff,v) result(p1)
   real(dp), allocatable :: m(:,:) ! m(i,j) = <i|v|j>
   real(dp), allocatable :: d(:,:) ! d(i,j) = 1/(ei-ej)
   
-  integer :: i,j,k ! loop indices
+  integer :: i,j ! loop indices
   
   ! allocate p1
   allocate(p1(size(estuff),size(estuff)))

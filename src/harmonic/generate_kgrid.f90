@@ -77,8 +77,7 @@ subroutine generate_kgrid(filenames)
  read(lattice_file,*)prim(3,1:3)
  close(lattice_file)
  
- call inv_33(prim,recip)
- recip=transpose(recip)
+ recip = transpose(inv_33(prim))
  do i_vec=1,no_gvectors
   gvecs_cart(1,i_vec)=dot_product(gvecs_frac(1:3,i_vec),recip(1:3,1))
   gvecs_cart(2,i_vec)=dot_product(gvecs_frac(1:3,i_vec),recip(1:3,2))

@@ -78,8 +78,7 @@ SUBROUTINE min_images_brute_force_b(a,lat_vec,b,nim)
   INTEGER,PARAMETER :: check_shell=3
   REAL(dp),PARAMETER :: tol=1.d-8
   
-  call inv_33(lat_vec,rec_vec)
-  rec_vec=transpose(rec_vec)
+  rec_vec = transpose(inv_33(lat_vec))
   
   tol_L2=tol*dot_product(lat_vec(1,1:3),lat_vec(1,1:3))
   n(1)=floor(dot_product(a(1:3),rec_vec(1,1:3)))

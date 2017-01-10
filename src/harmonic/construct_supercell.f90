@@ -7,20 +7,25 @@ contains
 subroutine construct_supercell(filenames)
   USE constants
   USE utils
-  use linear_algebra,         only : determinant33
-  use is_in_supercell_module, only : is_in_supercell
+  use linear_algebra,         only : determinant33, inv_33
   use file_io,                only : open_read_file, open_write_file
   implicit none
   
   character(100), intent(in) :: filenames(:)
   
+  ! Parameters
+  real(dp), parameter :: tol=1.d-2
+  
   ! Working variables
-  INTEGER :: i,j,k,atom_counter,delta
+  INTEGER :: i,atom_counter,delta
   INTEGER :: dira,dirb,dirc
   REAL(dp) :: pos(3)
+  
   ! Input variables
   INTEGER :: no_atoms,supercell(3,3),sc_size
   REAL(dp) :: lattice(3,3),super_lattice(3,3)
+  real(dp) :: inv_super_lattice(3,3) ! inv_33(transpose(super_lattice))
+  real(dp) :: frac_pos(3)
   REAL(dp),ALLOCATABLE :: atoms(:,:),mass(:),super_atoms(:,:),super_mass(:)
   CHARACTER(2),ALLOCATABLE :: species(:),super_species(:)
   
@@ -80,7 +85,11 @@ subroutine construct_supercell(filenames)
                & + dira*lattice(1,:) &
                & + dirb*lattice(2,:) &
                & + dirc*lattice(3,:)
-          if(is_in_supercell(pos,super_lattice))then
+          inv_super_lattice = inv_33(transpose(super_lattice))
+          frac_pos = matmul(inv_super_lattice,pos)
+          if ( frac_pos(1)>-tol .and. frac_pos(1)<(1.d0-tol) .and. &
+             & frac_pos(2)>-tol .and. frac_pos(2)<(1.d0-tol) .and. &
+             & frac_pos(3)>-tol .and. frac_pos(3)<(1.d0-tol) ) then
             atom_counter=atom_counter+1
             super_atoms(atom_counter,:)=pos(:)
             super_mass(atom_counter)=mass(i)
