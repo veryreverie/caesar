@@ -103,6 +103,10 @@ for (( i=1; i<=$no_sc; i++ )) do
   write_lte_bottom >> $f
 
   # Execute LTE
+  # Executes with mode 4.
+  # Reads lte.dat
+  # Writes all other files
+  # Writes dyn_mat.*.dat for * in [1,number of gvectors]
   caesar lte                                   \
          0.00000001                            \
          0.001                                 \
@@ -141,6 +145,11 @@ for i in `seq 1 $no_sc` ; do
          $sdir/lte/gvectors_frac.dat \
          $sdir/list.dat
   
+  # Execute LTE
+  # Executes with mode 4.
+  # Reads lte.dat
+  # Writes all other files
+  # Writes dyn_mat.*.dat for * in [1,number of gvectors]
   caesar lte                                      \
          0.00001                                  \
          0.00001                                  \

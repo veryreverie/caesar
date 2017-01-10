@@ -33,7 +33,13 @@ caesar generate_kgrid \
        rotated_gvectors.dat
 
 # Generate non-diagonal supercells
-caesar generate_supercells
+# Makes Supercell_* directories, and Supercell_*/supercell.dat and -"-/size.dat
+caesar generate_supercells     \
+       lattice.dat             \
+       grid.dat                \
+       ibz.dat                 \
+       kpoint_to_supercell.dat \
+       Supercell_
 
 CELL_COUNT=0
 KPOINT_COUNT=0

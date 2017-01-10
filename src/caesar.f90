@@ -128,8 +128,6 @@ program caesar
   ! Wrappers for Fortran 
   elseif (arg == 'band_folding') then
     call band_folding(args(2:))
-!  elseif (arg == 'calculate_anharmonic') then
-!    call calculate_anharmonic()
   elseif (arg == 'calculate_bs') then
     call calculate_bs(args(2:))
   elseif (arg == 'calculate_gap') then
@@ -150,8 +148,6 @@ program caesar
     call fourier_interpolation(args(2),args(3),args(4),args(5),args(6),args(7),&
       & args(8),args(9),args(10),args(11),args(12),args(13),args(14),args(15), &
       & args(16))
-!  elseif (arg == 'generate_amplitudes') then
-!    call generate_amplitudes()
   elseif (arg == 'generate_kgrid') then
     call generate_kgrid(args(2:))
   elseif (arg == 'generate_quadratic_configurations') then
@@ -161,7 +157,7 @@ program caesar
   elseif (arg == 'generate_supercell_kpoint_mesh_qe') then
     call generate_supercell_kpoint_mesh_qe(args(2:))
   elseif (arg == 'generate_supercells') then
-    call generate_supercells()
+    call generate_supercells(args(2:))
   elseif (arg == 'lte') then
     read(args(2),*) tol
     read(args(3),*) tol2
@@ -169,14 +165,6 @@ program caesar
     call lte(tol,tol2,delta,args(5),args(6),args(7),args(8),args(9),args(10),&
       & args(11),args(12),args(13),args(14),args(15),args(16),args(17),      &
       & args(18),args(19))
-    !call lte(tol,tol2,delta,'lte.dat','freq_dos.dat','tdependence1.dat',        &
-    !  & 'tdependence2.dat','dispersion_curve.dat','kpairs.dat','freq_grids.dat',&
-    !  & 'disp_patterns.dat','kdisp_patterns.dat','pol_vec.dat','gvectors.dat',  &
-    !  & 'gvectors_frac.dat','error.txt','dyn_mat.','atoms_in_primitive_cell.dat')
-!  elseif (arg == 'quadratic_spline') then
-!    call quadratic_spline()
-!  elseif (arg == 'vscf_1d') then
-!    call vscf_1d()
   ! wrappers for shell scripts
   elseif (arg == 'anharmonic') then
     return_status = system(arg//'.sh '//trim(argstring))
