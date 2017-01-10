@@ -241,10 +241,10 @@ subroutine read_lte(tol,lte_filename,prim_rec_vec,sc_rec_vec,fc_scale,      &
   if(ierr/=0)call errstop('READ_LTE','Problem opening lte.dat.')
 
   ! Primitive lattice vectors
-  READ(8,*,err=20,end=20)
-  READ(8,*,err=20,end=20)prim_lat_vec(1:3,1)
-  READ(8,*,err=20,end=20)prim_lat_vec(1:3,2)
-  READ(8,*,err=20,end=20)prim_lat_vec(1:3,3)
+  read(8,*,err=20,end=20)
+  read(8,*,err=20,end=20)prim_lat_vec(1:3,1)
+  read(8,*,err=20,end=20)prim_lat_vec(1:3,2)
+  read(8,*,err=20,end=20)prim_lat_vec(1:3,3)
   write(*,*)'Primitive lattice vectors (Cartesian components in rows, a.u.):'
   write(*,*)prim_lat_vec(1:3,1)
   write(*,*)prim_lat_vec(1:3,2)
@@ -252,10 +252,10 @@ subroutine read_lte(tol,lte_filename,prim_rec_vec,sc_rec_vec,fc_scale,      &
   write(*,*)
 
   ! Supercell lattice vectors
-  READ(8,*,err=20,end=20)
-  READ(8,*,err=20,end=20)sc_lat_vec(1:3,1)
-  READ(8,*,err=20,end=20)sc_lat_vec(1:3,2)
-  READ(8,*,err=20,end=20)sc_lat_vec(1:3,3)
+  read(8,*,err=20,end=20)
+  read(8,*,err=20,end=20)sc_lat_vec(1:3,1)
+  read(8,*,err=20,end=20)sc_lat_vec(1:3,2)
+  read(8,*,err=20,end=20)sc_lat_vec(1:3,3)
   write(*,*)'Supercell lattice vectors (Cartesian components in rows, a.u.):'
   write(*,*)sc_lat_vec(1:3,1)
   write(*,*)sc_lat_vec(1:3,2)
@@ -283,8 +283,8 @@ subroutine read_lte(tol,lte_filename,prim_rec_vec,sc_rec_vec,fc_scale,      &
   write(*,*)
 
   ! Number of atoms.
-  READ(8,*,err=20,end=20)
-  READ(8,*,err=20,end=20)no_atoms_in_sc
+  read(8,*,err=20,end=20)
+  read(8,*,err=20,end=20)no_atoms_in_sc
   write(*,*)'Number of atoms in supercell       : '//TRIM(i2s(no_atoms_in_sc))
   if(no_atoms_in_sc<no_prim_cells)call errstop('READ_LTE', &
     &'Need more atoms in the supercell!')
@@ -309,10 +309,10 @@ subroutine read_lte(tol,lte_filename,prim_rec_vec,sc_rec_vec,fc_scale,      &
   ! Convert atom position from fractional coordinates (in file) to
   ! Cartesian coordinates (used in program).  Translate the atom
   ! coordinates into the supercell at the origin.
-  READ(8,*,err=20,end=20)
+  read(8,*,err=20,end=20)
   write(*,*)'Species ; Mass (a.u.) ; Position (Cartesian coordinates, a.u.)'
   do i=1,no_atoms_in_sc
-    READ(8,*,err=20,end=20)species(i),mass(i),atom_pos(1:3,i)
+    read(8,*,err=20,end=20)species(i),mass(i),atom_pos(1:3,i)
     atom_pos(1:3,i)=atom_pos(1,i)*sc_lat_vec(1:3,1)+atom_pos(2,i) &
       &*sc_lat_vec(1:3,2)+atom_pos(3,i)*sc_lat_vec(1:3,3)
     write(*,'(" ",a,"  ",f14.6," ",3("  ",f14.6))')species(i),mass(i), &
@@ -330,18 +330,18 @@ subroutine read_lte(tol,lte_filename,prim_rec_vec,sc_rec_vec,fc_scale,      &
   write(*,*)
 
   ! Read in point-symmetry operations.
-  READ(8,*,err=20,end=20)
-  READ(8,*,err=20,end=20)no_point_symms
+  read(8,*,err=20,end=20)
+  read(8,*,err=20,end=20)no_point_symms
   write(*,*)'Number of point symmetries         : '//TRIM(i2s(no_point_symms))
   if(no_point_symms<1)call errstop('READ_LTE','At least one point-symmetry &
     &rotation matrix (identity) must be supplied.')
   allocate(rotation(3,3,no_point_symms),offset(3,no_point_symms),stat=ialloc)
   if(ialloc/=0)call errstop('READ_LTE','Allocation error: rotation, etc.')
-  READ(8,*,err=20,end=20)
+  read(8,*,err=20,end=20)
   do n=1,no_point_symms
-    READ(8,*,err=20,end=20)rotation(1:3,1,n)
-    READ(8,*,err=20,end=20)rotation(1:3,2,n)
-    READ(8,*,err=20,end=20)rotation(1:3,3,n)
+    read(8,*,err=20,end=20)rotation(1:3,1,n)
+    read(8,*,err=20,end=20)rotation(1:3,2,n)
+    read(8,*,err=20,end=20)rotation(1:3,3,n)
     do i=1,3
       do j=i,3
         check_matrix=DOT_PRODUCT(rotation(1:3,i,n),rotation(1:3,j,n))
@@ -351,7 +351,7 @@ subroutine read_lte(tol,lte_filename,prim_rec_vec,sc_rec_vec,fc_scale,      &
           &//' is not orthogonal!')
       enddo ! j
     enddo ! i
-    READ(8,*,err=20,end=20)offset(1:3,n)
+    read(8,*,err=20,end=20)offset(1:3,n)
     ! Convert translation to Cartesians.
     offset(1:3,n)=offset(1,n)*sc_lat_vec(1:3,1) &
       &+offset(2,n)*sc_lat_vec(1:3,2)+offset(3,n)*sc_lat_vec(1:3,3)
@@ -360,16 +360,16 @@ subroutine read_lte(tol,lte_filename,prim_rec_vec,sc_rec_vec,fc_scale,      &
   write(*,*)
 
   ! Read in force constants supplied.
-  READ(8,*,err=20,end=20)
-  READ(8,*,err=20,end=20)no_force_c_supplied
+  read(8,*,err=20,end=20)
+  read(8,*,err=20,end=20)no_force_c_supplied
   write(*,*)'Number of force constants supplied : ' &
     &//TRIM(i2s(no_force_c_supplied))
   if(no_force_c_supplied<=0)call errstop('READ_LTE', &
     &'Need to supply more force data!')
-  READ(8,*,err=20,end=20)
+  read(8,*,err=20,end=20)
   fc_scale=0.d0
   do i=1,no_force_c_supplied
-    READ(8,*,err=20,end=20)atom1,dir1,atom2,dir2,fc
+    read(8,*,err=20,end=20)atom1,dir1,atom2,dir2,fc
     fc_scale=fc_scale+ABS(fc)
     call trans_symm(atom1,dir1,atom2,dir2,fc,tol,atom_pos,no_atoms_in_sc, &
        & no_prim_cells,prim_rec_vec,sc_rec_vec,mass,defined,force_const)
@@ -380,8 +380,8 @@ subroutine read_lte(tol,lte_filename,prim_rec_vec,sc_rec_vec,fc_scale,      &
     &translational symmetry.'
   write(*,*)
 
-  READ(8,*,err=20,end=20)
-  READ(8,*,err=20,end=20)prog_function
+  read(8,*,err=20,end=20)
+  read(8,*,err=20,end=20)prog_function
   if(prog_function==1)then
     write(*,*)'The mean thermal energy and the free energy will &
       &be calculated.'
@@ -396,8 +396,8 @@ subroutine read_lte(tol,lte_filename,prim_rec_vec,sc_rec_vec,fc_scale,      &
     call errstop('READ_LTE','Program function must be either 1, 2, 3 or 4.')
   endif ! prog_function
 
-  READ(8,*,err=20,end=20)
-  READ(8,*,err=20,end=20)temperature
+  read(8,*,err=20,end=20)
+  read(8,*,err=20,end=20)temperature
   if(prog_function==1)then
     write(*,*)'Temperature (K)                    :',temperature
     if(temperature<0.d0)call errstop('READ_LTE', &
@@ -407,8 +407,8 @@ subroutine read_lte(tol,lte_filename,prim_rec_vec,sc_rec_vec,fc_scale,      &
     write(*,*)
   endif ! LTE to be calculated.
 
-  READ(8,*,err=20,end=20)
-  READ(8,*,err=20,end=20)no_kspace_lines
+  read(8,*,err=20,end=20)
+  read(8,*,err=20,end=20)no_kspace_lines
   if(prog_function==2)then
     write(*,*)'Number of lines in k-space to plot     : ' &
       &//TRIM(i2s(no_kspace_lines))
@@ -417,18 +417,18 @@ subroutine read_lte(tol,lte_filename,prim_rec_vec,sc_rec_vec,fc_scale,      &
     allocate(disp_kpoints(3,0:no_kspace_lines),stat=ialloc)
     if(ialloc/=0)call errstop('READ_LTE','Allocation error: disp_kpoints.')
   endif
-  READ(8,*,err=20,end=20)
+  read(8,*,err=20,end=20)
   if(prog_function==2)write(*,*)'Points along walk in reciprocal space &
     &(Cartesian components in a.u.):'
   do i=0,no_kspace_lines
     if(prog_function==2)then
-      READ(8,*,err=20,end=20)disp_kpoints(1:3,i)
+      read(8,*,err=20,end=20)disp_kpoints(1:3,i)
       disp_kpoints(1:3,i)=twopi*(disp_kpoints(1,i)*prim_rec_vec(1:3,1) &
         &+disp_kpoints(2,i)*prim_rec_vec(1:3,2) &
         &+disp_kpoints(3,i)*prim_rec_vec(1:3,3))
       write(*,'(3(" ",f16.8))')disp_kpoints(1:3,i)
     else
-      READ(8,*,err=20,end=20)
+      read(8,*,err=20,end=20)
     endif ! prog_function=2
   enddo ! i
   if(prog_function==2)write(*,*)'Have read in points for dispersion curve.'

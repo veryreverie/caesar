@@ -2,6 +2,8 @@ module compare_kpoints_module
   implicit none
 contains
 
+! Reads kpoints and gvectors, and writes a list of all instances when the two 
+! are equal
 subroutine compare_kpoints(filenames)
   use constants, only : dp
   use file_io,   only : open_read_file, open_write_file
@@ -11,39 +13,59 @@ subroutine compare_kpoints(filenames)
   character(100), intent(in) :: filenames(:)
   
   real(dp),parameter :: tol=1.d-10
-  integer :: i,j,size,label,list
-  real(dp) :: kpoint(3),gvec_frac(3)
-  integer :: no_lines
+  
+  ! kpoint variables
+  integer               :: no_kpoints
+  integer,  allocatable :: list(:)
+  real(dp), allocatable :: kpoint(:,:)
+  
+  ! gvector variables
+  integer               :: no_gvectors
+  integer,  allocatable :: label(:)
+  real(dp), allocatable :: gvec_frac(:,:)
+  
+  ! loop indices
+  integer :: i,j
   
   ! file units
   integer :: kpoints_file
   integer :: gvectors_frac_file
   integer :: list_file
   
+  ! read kpoints_file
   kpoints_file = open_read_file(filenames(1))
+  no_kpoints = count_lines(kpoints_file)
+  allocate(list(no_kpoints))
+  allocate(kpoint(3,no_kpoints))
+  do i=1,no_kpoints
+    read(kpoints_file,*) list(i), kpoint(:,i)
+  enddo
+  close(kpoints_file)
+  
+  ! read gvectors_frac_file
   gvectors_frac_file = open_read_file(filenames(2))
+  read(gvectors_frac_file,*) no_gvectors
+  allocate(label(no_gvectors))
+  allocate(gvec_frac(3,no_gvectors))
+  do i=1,no_gvectors
+    read(gvectors_frac_file,*) label(i), gvec_frac(:,i)
+  enddo
+  close(gvectors_frac_file)
+  
   list_file = open_write_file(filenames(3))
-
-  read(gvectors_frac_file,*) size
-  
-  no_lines = count_lines(kpoints_file)
-  
-  do i=1,size
-    read(gvectors_frac_file,*) label, gvec_frac(1:3)
-    gvec_frac(1:3)=modulo(0.5d0+gvec_frac(1:3)+tol,1.d0)-0.5d0-tol
-    do j=1,no_lines
-      read(kpoints_file,*)list,kpoint(1:3)
-      kpoint(1:3)=modulo(0.5d0+kpoint(1:3)+tol,1.d0)-0.5d0-tol
-      if (all(dabs(gvec_frac(1:3)-kpoint(1:3))<tol)) then
-        write(list_file,*) list, label
+  do i=1,no_gvectors
+    do j=1,no_kpoints
+      if (all(nint(gvec_frac(:,i))-nint(kpoint(:,j))==0)) then
+        write(list_file,*) list(j), label(i)
       endif
     enddo
-    rewind(kpoints_file)
   enddo
-
-  close(kpoints_file)
-  close(gvectors_frac_file)
   close(list_file)
+  
+  deallocate(list)
+  deallocate(kpoint)
+  deallocate(label)
+  deallocate(gvec_frac)
 
   end subroutine
 end module
