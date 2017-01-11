@@ -86,8 +86,6 @@ logical function reduce_vec(vecs)
   
   real(dp), intent(inout) :: vecs(3,3)
   
-  real(dp), parameter :: tol_zero=1.d-7
-  
   integer  :: longest
   integer  :: i
   real(dp) :: newvecs(4,3)
@@ -97,29 +95,27 @@ logical function reduce_vec(vecs)
   ! Determine which of the three input vectors is the longest.
   maxlen=0
   do i=1,3
-    nlen=vecs(i,1)**2+vecs(i,2)**2+vecs(i,3)**2
-    ! Test nlen>maxlen within some tolerance to avoid floating point problems.
-    if (nlen-maxlen>tol_zero*maxlen) then
+    nlen = norm2(vecs(i,:))
+    if (nlen>maxlen) then
       maxlen=nlen
       longest=i
     endif
   enddo
   
   ! Construct the four linear combinations
-  newvecs(1,1:3)=vecs(1,1:3)+vecs(2,1:3)-vecs(3,1:3)
-  newvecs(2,1:3)=vecs(1,1:3)-vecs(2,1:3)+vecs(3,1:3)
-  newvecs(3,1:3)=-vecs(1,1:3)+vecs(2,1:3)+vecs(3,1:3)
-  newvecs(4,1:3)=vecs(1,1:3)+vecs(2,1:3)+vecs(3,1:3)
+  newvecs(1,:) =  vecs(1,:)+vecs(2,:)-vecs(3,:)
+  newvecs(2,:) =  vecs(1,:)-vecs(2,:)+vecs(3,:)
+  newvecs(3,:) = -vecs(1,:)+vecs(2,:)+vecs(3,:)
+  newvecs(4,:) =  vecs(1,:)+vecs(2,:)+vecs(3,:)
   
   ! Check if any of the four new vectors is shorter than longest of
   ! input vectors
   reduce_vec=.false.
   do i=1,4
-    nlen=newvecs(i,1)**2+newvecs(i,2)**2+newvecs(i,3)**2
-    ! Test nlen<maxlen within some tolerance to avoid floating point problems.
-    if(nlen-maxlen<-tol_zero*maxlen)then
-      vecs(longest,1:3)=newvecs(i,1:3)
-      reduce_vec=.true.
+    nlen = norm2(newvecs(i,:))
+    if(nlen<maxlen)then
+      vecs(longest,:) = newvecs(i,:)
+      reduce_vec = .true.
       exit
     endif
   enddo
@@ -193,7 +189,7 @@ end subroutine
 
 
 !-----------------------------------------------------------------------------!
-! Given n vectors a(i) that form a basis for a lattice L in n dimensions, the ! 
+! Given n vectors a(i) that form a basis for a lattice L in n dimensions, the !
 ! a(i) are said to be Minkowski-reduced if the following conditions are met:  !
 !                                                                             !
 ! - a(1) is the shortest non-zero vector in L                                 !
@@ -210,16 +206,16 @@ subroutine minkowski_reduce(vecs)
   real(dp),intent(inout) :: vecs(3,3)
   
   integer  :: i
-  real(dp) :: tempvec(3,3)
+  real(dp) :: tempvec(3)
   logical  :: changed
   
   iter: do
     ! First check linear combinations involving two vectors.
-    tempvec=vecs
     do i=1,3
-      vecs(i,1:3)=0
-      changed=reduce_vec(vecs)
-      vecs(i,1:3)=tempvec(i,1:3)
+      tempvec = vecs(i,:)
+      vecs(i,:) = 0
+      changed = reduce_vec(vecs)
+      vecs(i,:) = tempvec
       if(changed)cycle iter
     enddo
     
@@ -230,55 +226,64 @@ subroutine minkowski_reduce(vecs)
   enddo iter
 end subroutine minkowski_reduce
 
-! ----------------------------------------
-! GENERATE_SUPERCELLS
-! ----------------------------------------
 subroutine generate_supercells(args)
-  use utils
-  use linear_algebra, only : inv_33
-  use file_io,        only : open_read_file, open_write_file
+  use constants,        only : dp
+  use utils,            only : count_lines, i2s
+  use linear_algebra,   only : inv_33
+  use file_io,          only : open_read_file, open_write_file
+  use structure_module, only : StructureData, read_structure_file, drop
   implicit none
   
   ! inputs
   character(100), intent(in) :: args(:)
   
   ! parameters
-  REAL(dp),PARAMETER :: tol=1.d-10
+  real(dp),parameter :: tol=1.d-10
   
-  INTEGER,ALLOCATABLE :: multiplicity(:),int_kpoints(:,:),numerator(:,:),&
+  type(StructureData) :: structure
+  
+  integer,allocatable :: multiplicity(:),int_kpoints(:,:),numerator(:,:),&
     &denominator(:,:),super_size(:),label(:)
-  INTEGER :: i,j,k,grid(1:3),ialloc,num_kpoints,count,&
+  integer :: i,j,k,grid(1:3),ialloc,num_kpoints,count,&
     &s11,s12,s13,s22,s23,s33,quotient,hnf(3,3),size_count
-  REAL(dp),ALLOCATABLE :: kpoints(:,:)
-  REAL(dp) :: prim_latt_vecs(3,3),rec_latt_vecs(3,3),temp_latt_vecs(3,3),&
-    &temp_scell(3,3),prim(3)
-  LOGICAL,ALLOCATABLE :: found_kpoint(:)
+  real(dp),allocatable :: kpoints(:,:)
+  real(dp) :: temp_latt_vecs(3,3)
+  real(dp) :: temp_scell(3,3)
+  real(dp) :: prim(3)
+  logical,allocatable :: found_kpoint(:)
   character(100) :: sdir ! Supercell directory
   
-  ! file units
-  integer :: lattice_file   ! lattice.dat
-  integer :: grid_file      ! grid.dat
-  integer :: ibz_file       ! ibz.dat
-  integer :: k_t_s_file     ! kpoint_to_supercell.dat
-  integer :: supercell_file ! Supercell_*/supercell.dat
-  integer :: size_file      ! Supercell_*/size.dat
+  ! file names
+  character(100) :: structure_filename
+  character(100) :: grid_filename
+  character(100) :: ibz_filename
+  character(100) :: kpoint_to_supercell_filename
+  character(100) :: supercell_directory_root
   
-  ! Get the primitice cell lattice vectors
-  lattice_file = open_read_file(args(1))
-  read(lattice_file,*)prim_latt_vecs(1,1:3)
-  read(lattice_file,*)prim_latt_vecs(2,1:3)
-  read(lattice_file,*)prim_latt_vecs(3,1:3)
-  close(lattice_file)
+  ! file units
+  integer :: grid_file
+  integer :: ibz_file
+  integer :: k_t_s_file
+  integer :: supercell_file
+  integer :: size_file
+  
+  ! read filenames from input
+  structure_filename = args(1)
+  grid_filename = args(2)
+  ibz_filename = args(3)
+  kpoint_to_supercell_filename = args(4)
+  supercell_directory_root = args(5)
+  
+  ! Read the structure file
+  structure = read_structure_file(structure_filename)
   
   ! Get the dimensions of the k-point grid
-  grid_file = open_read_file(args(2))
+  grid_file = open_read_file(grid_filename)
   read(grid_file,*)grid(1:3)
   close(grid_file)
-  
-  rec_latt_vecs = transpose(inv_33(prim_latt_vecs))
 
   ! Get the number of k-points in the ibz.dat file
-  ibz_file = open_read_file(args(3))
+  ibz_file = open_read_file(ibz_filename)
   num_kpoints = count_lines(ibz_file)
   
   ! Allocate arrays
@@ -331,7 +336,7 @@ subroutine generate_supercells(args)
   label = 0
   count = 0
   
-  k_t_s_file = open_write_file(args(4))
+  k_t_s_file = open_write_file(kpoint_to_supercell_filename)
   ibz_file = open_write_file(args(3))
   
   do size_count=1,maxval(super_size(1:num_kpoints))
@@ -376,19 +381,20 @@ subroutine generate_supercells(args)
                   enddo ! j
                   do k=1,3
                     do j=1,3
-                      temp_latt_vecs(k,j) = sum( dble(hnf(k,1:3)) &
-                                             & * prim_latt_vecs(1:3,j))
+                      temp_latt_vecs(k,j) = sum( dble(hnf(k,:)) &
+                                             & * structure%lattice(:,j))
                     enddo ! j
                   enddo ! k
                   call minkowski_reduce(temp_latt_vecs)
                   do k=1,3
                     do j=1,3
-                      hnf(k,j) = nint(sum( temp_latt_vecs(k,1:3) &
-                                       & * rec_latt_vecs(j,1:3)))    
+                      hnf(k,j) = nint(sum( temp_latt_vecs(k,:) &
+                                       & * structure%recip_lattice(j,:)))
                     enddo ! j
                   enddo ! k
                   
-                  sdir=trim(args(5))//trim(i2s(count)) ! Supercell_*
+                  ! sdir="Supercell_*
+                  sdir=trim(supercell_directory_root)//trim(i2s(count))
                   call system('mkdir '//trim(sdir))
                   
                   supercell_file =open_write_file(trim(sdir)//'/supercell.dat')
@@ -418,5 +424,7 @@ subroutine generate_supercells(args)
     write(*,*)'Unable to allocate each k-point to a supercell matrix.'
     stop
   endif ! found_kpoint
+  
+  call drop(structure)
 end subroutine
 end module

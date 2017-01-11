@@ -2,10 +2,6 @@
 
 # Script to set-up a generic quadratic calculation 
 
-#######################################
-####        MAIN   PROGRAM         ####
-#######################################
-
 # Read in harmonic path
 echo "What is the path to the harmonic directory?"
 read harmonic_path
@@ -42,6 +38,13 @@ sampling_point_final=$( awk 'NR==2 {print $2}' mapping.dat)
 no_sampling_points=$(( $sampling_point_final-$sampling_point_init ))
 temperature=$( awk 'NR==3 {print $1}' mapping.dat)
 
+atoms_line=$(awk -v IGNORECASE=1 '$1~/Atoms/{print NR}' \
+   $harmonic_path/structure.dat)
+symmetry_line=$(awk -v IGNORECASE=1 '$1~/Lattice/{print NR}' \
+   $harmonic_path/structure.dat)
+no_atoms=$($symmetry_line-$atoms_line-1)
+no_modes=$(( $no_atoms*3 ))
+
 # Write harmonic_path.dat
 echo $harmonic_path > harmonic_path.dat
 
@@ -56,18 +59,13 @@ for i in `seq 1 $no_sc`; do
   # copy files into Supercell_$i
   cp $harmonic_path/$sdir/list.dat $sdir
   cp $harmonic_path/$sdir/supercell.dat $sdir
-  cp $harmonic_path/$sdir/lattice.dat $sdir
-  cp $harmonic_path/$sdir/equilibrium.dat $sdir
   cp $harmonic_path/$sdir/super_lattice.dat $sdir
-  cp $harmonic_path/$sdir/super_equilibrium.dat $sdir
   cp $harmonic_path/$sdir/super_equilibrium.dat $sdir
   if [ -e "$harmonic_path/$sdir/KPOINTS.${i}" ]; then
     cp $harmonic_path/$sdir/KPOINTS.${i} $sdir
   fi
   cp $harmonic_path/$sdir/lte/disp_patterns.dat $sdir
   
-  no_atoms=$( awk 'NR==1 {print $1}' $sdir/equilibrium.dat )
-  no_modes=$(( $no_atoms*3 ))
   no_atoms_sc=$( awk 'NR==1 {print $1}' $sdir/super_equilibrium.dat )
   no_sc_atoms=$( awk 'NR==1 {print}' $sdir/super_equilibrium.dat )
   

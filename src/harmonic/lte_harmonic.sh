@@ -44,6 +44,11 @@ read temperature
 
 no_sc=$(awk '{print}' no_sc.dat )
 
+lattice_line=$(awk -v IGNORECASE=1 '$1~/Lattice/{print NR}' structure.dat) 
+atoms_line=$(awk -v IGNORECASE=1 '/Atoms/{print NR}' $sdir/structure.dat)
+symmetry_line=$(awk -v IGNORECASE=1 '/Symmetry/{print NR}' $sdir/structure.dat)
+no_atoms=$(( $(( $symmetry_line-($atoms_line+1))) | bc ))
+
 # Loop over 
 for (( i=1; i<=$no_sc; i++ )) do
   sdir=Supercell_$i
@@ -56,14 +61,11 @@ for (( i=1; i<=$no_sc; i++ )) do
     line=($fline)
     disp=${line[0]}
     atom=${line[1]}
-    atoms_line=$(awk -v IGNORECASE=1 '/Atoms/{print NR}' $sdir/structure.dat)
-    symmetry_line=$(awk -v IGNORECASE=1 '/Symmetry/{print NR}' $sdir/structure.dat)
-    no_atoms=$(( $(( $symmetry_line-($atoms_line+1))) | bc ))
     dir=$sdir/atom.$atom.disp.$disp
-    caesar combine_forces                  \
-           $dir/super_equilibrium_file.dat \
-           $dir/positive/forces.dat        \
-           $dir/negative/forces.dat        \
+    caesar combine_forces             \
+           $dir/super_equilibrium.dat \
+           $dir/positive/forces.dat   \
+           $dir/negative/forces.dat   \
            $dir/forces.dat
     cp $dir/positive/forces.dat $dir/positive.dat
     cp $dir/negative/forces.dat $dir/negative.dat
@@ -80,7 +82,8 @@ for (( i=1; i<=$no_sc; i++ )) do
   f=$sdir/lte/lte.dat
   
   echo "Primitive cell lattice vectors (rows, in a.u.)" > $f
-  cat $sdir/lattice.dat >> $f
+  awk "NR==$(($lattice_line + 1)), NR==$(($atoms_line - 1)) "\
+     '{print $1 " " $2 " " $3} ' structure.dat >> $f
   echo "Supercell lattice vectors (rows, in a.u.)" >> $f
   cat $sdir/super_lattice.dat >> $f
   echo " Number of atoms in supercell" >> $f
@@ -183,19 +186,16 @@ write_lte_path > lte/path.dat
 echo $temperature > lte/temperature.dat
 
 caesar fourier_interpolation           \
+       structure.dat                   \
        lte/phonon_dispersion_curve.dat \
        lte/high_symmetry_points.dat    \
        lte/temperature.dat             \
        lte/free_energy.dat             \
        lte/freq_dos.dat                \
-       equilibrium.dat                 \
        grid.dat                        \
-       lattice.dat                     \
-       symmetry.dat                    \
        ibz.dat                         \
        kpoint_to_supercell.dat         \
        lte/atoms_in_primitive_cell.    \
        lte/dyn_mat.                    \
        lte/path.dat                    \
-       lte/tempfile.dat                \
        > lte/fourier_interpolation.out

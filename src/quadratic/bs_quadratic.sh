@@ -15,11 +15,20 @@ read band_degeneracy
 #echo "What is the equilibrium band value?"
 #read band_energy
 
+harmonic_path=$( awk '{print $1}' harmonic_path.dat)
+
 no_sc=$(ls -1d Supercell_* | wc -l)
 
 sampling_point_amplitude=$( awk 'NR==1 {print $1}' mapping.dat)
 sampling_point_init=$( awk 'NR==2 {print $1}' mapping.dat)
 sampling_point_final=$( awk 'NR==2 {print $2}' mapping.dat)
+
+atoms_line=$(awk -v IGNORECASE=1 '$1~/Atoms/{print NR}' \
+   $harmonic_path/structure.dat)
+symmetry_line=$(awk -v IGNORECASE=1 '$1~/Lattice/{print NR}' \
+   $harmonic_path/structure.dat)
+no_atoms=$($symmetry_line-$atoms_line-1)
+no_modes=$(( $no_atoms*3 ))
 
 mkdir bs
 
@@ -38,7 +47,6 @@ for i in `seq 1 $no_sc`;do
          $static_dir/band_number.dat
 done # loop over static supercells
 
-
 # Loop over supercells
 kpoint_counter=1
 for i in `seq 1 $no_sc`;do
@@ -48,8 +56,6 @@ for i in `seq 1 $no_sc`;do
   
   # Collect quadratic results
   no_kpoints=$(ls -1d $sdir/kpoint.* | wc -l)
-  no_atoms=$(awk 'NR==1 {print}' $sdir/equilibrium.dat)
-  no_modes=$(( $no_atoms*3 ))
   no_atoms_sc=$(awk 'NR==1 {print}' $sdir/super_equilibrium.dat)
   sc_size=$(( $(( $no_atoms_sc/$no_atoms )) | bc ))
   

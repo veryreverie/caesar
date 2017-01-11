@@ -42,7 +42,7 @@ if [ "$code" = "castep" ];then
         cp castep/* $dir
         caesar structure_to_castep \
                $dir/structure.dat  \
-               $dir/sc_bs_path.dat \
+               dummy_argument      \
                $dir/seedname.cell
       done
     done < $sdir/force_constants.dat
@@ -109,7 +109,7 @@ elif [ "$code" = "qe" ]; then
     cp qe/kpoints.in $sdir
     caesar generate_supercell_kpoint_mesh_qe \
            $sdir/kpoints.in                  \
-           $sdir/lattice.dat                 \
+           structure.dat                     \
            $sdir/super_lattice.dat           \
            $sdir/sc_kpoints.dat
     header=$(awk 'NR==1,NR==1 {print}' $sdir/kpoints.in)

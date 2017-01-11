@@ -12,7 +12,7 @@ subroutine compare_kpoints(filenames)
   
   character(100), intent(in) :: filenames(:)
   
-  real(dp),parameter :: tol=1.d-10
+  real(dp), parameter :: tol = 1.d-10
   
   ! kpoint variables
   integer               :: no_kpoints
@@ -42,6 +42,14 @@ subroutine compare_kpoints(filenames)
   enddo
   close(kpoints_file)
   
+  do i=1,no_kpoints
+    do j=1,3
+      if (kpoint(j,i)>0.5d0+tol) then
+        kpoint(j,i) = kpoint(j,i)-1.d0
+      endif
+    enddo
+  do j=1,3
+  
   ! read gvectors_frac_file
   gvectors_frac_file = open_read_file(filenames(2))
   read(gvectors_frac_file,*) no_gvectors
@@ -52,10 +60,18 @@ subroutine compare_kpoints(filenames)
   enddo
   close(gvectors_frac_file)
   
+  do i=1,no_gvectors
+    do j=1,3
+      if (gvec_frac(j,i)>0.5d0+tol) then
+        gvec_frac(j,i) = gvec_frac(j,i)-1.d0
+      endif
+    do j=1,3
+  do j=1,3
+  
   list_file = open_write_file(filenames(3))
   do i=1,no_gvectors
     do j=1,no_kpoints
-      if (all(nint(gvec_frac(:,i))-nint(kpoint(:,j))==0)) then
+      if (all(abs(gvec_frac(:,i)-kpoint(:,j))<tol)) then
         write(list_file,*) list(j), label(i)
       endif
     enddo

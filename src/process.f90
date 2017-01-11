@@ -5,7 +5,7 @@ module process
   type ProcessResult
     integer        :: status
     character(100) :: stdout
-    character(100)  :: stderr
+    character(100) :: stderr
   end type
   
 contains

@@ -16,10 +16,10 @@ subroutine construct_finite_displacement(args)
   character(2),allocatable :: species(:)
   
   ! file units
-  integer :: super_lattice_file     ! super_lattice.dat
-  integer :: super_equilibrium_file ! super_equilibrium.dat
-  integer :: positive_file          ! positive/structure.dat
-  integer :: negative_file          ! negative/structure.dat
+  integer :: super_lattice_file
+  integer :: super_equilibrium_file
+  integer :: positive_file
+  integer :: negative_file
   
   integer :: i ! loop index
 

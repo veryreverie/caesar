@@ -15,6 +15,8 @@ subroutine anharmonic()
   use quadratic_spline_module,     only : quadratic_spline
   use vscf_1d_module,              only : VscfReturn, vscf_1d, drop
   use file_io,                     only : open_read_file, open_write_file
+  use structure_module,            only : StructureData, read_structure_file, &
+                                        & drop
   implicit none
   
   ! ----------------------------------------
@@ -28,8 +30,6 @@ subroutine anharmonic()
   ! ----------------------------------------
   ! TODO: multiplicity and sc_n_kpoints might be the same thing.
   integer               :: no_supercells   ! no. of supercells
-  integer               :: no_atoms        ! no. atoms in unit cell
-  integer               :: no_modes        ! no_atoms*3
   integer, allocatable  :: no_atoms_sc(:)  ! no. atoms in supercell
   integer, allocatable  :: no_cells(:)     ! no_atoms_sc/no_atoms
   character(100)        :: castep          ! seedname.castep
@@ -55,6 +55,8 @@ subroutine anharmonic()
   
   character(100)        :: sdir        ! Supercell_*/ directory name
   
+  type(StructureData)   :: structure
+  
   ! ----------------------------------------
   ! Temporary variables
   ! ----------------------------------------
@@ -62,11 +64,12 @@ subroutine anharmonic()
   type(ProcessResult) :: proc        ! temporary process result
   real(dp)            :: temp_real
   character(100)      :: filename
+  character(100)      :: harmonic_path
   
   ! ----------------------------------------
   ! File units
   ! ----------------------------------------
-  integer :: equilibrium_file
+  integer :: harmonic_path_file
   integer :: seedname_file
   integer :: mapping_file
   integer :: list_file
@@ -81,6 +84,11 @@ subroutine anharmonic()
   ! Read in data
   ! ----------------------------------------
   
+  ! read in harmonic_path
+  harmonic_path_file = open_read_file('harmonic_path.dat')
+  read(harmonic_path_file,*) harmonic_path
+  close(harmonic_path_file)
+  
   ! read the number of Supercell_* directories into no_supercells
   proc = system_process('ls -1d Supercell_* | wc -l')
   read(proc%stdout,*) no_supercells
@@ -90,11 +98,8 @@ subroutine anharmonic()
   allocate(no_atoms_sc(no_supercells))
   allocate(no_cells(no_supercells))
   
-  ! read the number of atoms and modes
-  equilibrium_file = open_read_file('Supercell_1/equilibrium.dat')
-  read(equilibrium_file,*) no_atoms
-  close(equilibrium_file)
-  no_modes = no_atoms*3
+  ! read structure data
+  structure = read_structure_file(trim(harmonic_path)//'/structure.dat')
   
   ! read the castep seedname into castep variable
   seedname_file = open_read_file('seedname.txt')
@@ -148,15 +153,15 @@ subroutine anharmonic()
       super_file = open_read_file(trim(sdir)//'/super_equilibrium.dat')
       read(super_file,*) no_atoms_sc(i)
       close(super_file)
-      no_cells(i) = no_atoms_sc(i)/no_atoms
+      no_cells(i) = no_atoms_sc(i)/structure%no_atoms
     endif
   enddo
   
   ! allocate arguments for calculate_anharmonic
-  allocate(energies(size(kpoints),no_modes,map%count))
-  allocate(frequencies(size(kpoints),no_modes))
-  allocate(harmonic(size(kpoints),no_modes,Nbasis))
-  allocate(eigenvals(size(kpoints),no_modes,Nbasis))
+  allocate(energies(size(kpoints),structure%no_modes,map%count))
+  allocate(frequencies(size(kpoints),structure%no_modes))
+  allocate(harmonic(size(kpoints),structure%no_modes,Nbasis))
+  allocate(eigenvals(size(kpoints),structure%no_modes,Nbasis))
   
   ! read multiplicity from ibz.dat
   ibz_file = open_read_file('ibz.dat')
@@ -183,7 +188,7 @@ subroutine anharmonic()
         sizes(j) = no_cells(i)
         
         ! read energies
-        do k=1,no_modes
+        do k=1,structure%no_modes
           k_str = trim(sdir)//'/&
             &kpoint.'//trim(i2s(kpoint))//'/&
             &configurations/&
@@ -221,7 +226,7 @@ subroutine anharmonic()
   ! Calculate anharmonic 1-dimensional correction
   do i=1,size(kpoints)
     if (kpoints(i)/=1 .or. .not. any(sc_acoustic)) then
-      do j=1,no_modes
+      do j=1,structure%no_modes
         
         ! generate amplitudes
         ! generate potential at {q} defined by map
@@ -262,7 +267,7 @@ subroutine anharmonic()
   ! calculate free energy, F(T), for harmonic and anharmonic cases
   ! write output to anharmonic_correction.dat
   result_file = open_write_file('anharmonic/anharmonic_correction.dat')
-  call calculate_anharmonic(multiplicity,no_modes,Nbasis,harmonic,&
+  call calculate_anharmonic(multiplicity,structure%no_modes,Nbasis,harmonic,&
     &eigenvals,result_file)
   close(result_file)
   
@@ -271,6 +276,8 @@ subroutine anharmonic()
   deallocate(frequencies)
   deallocate(energies)
   deallocate(multiplicity)
+  
+  call drop(structure)
 end subroutine
 
 end module

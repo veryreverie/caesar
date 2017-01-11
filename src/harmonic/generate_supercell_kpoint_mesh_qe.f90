@@ -5,8 +5,9 @@ contains
 subroutine generate_supercell_kpoint_mesh_qe(filenames)
   use constants
   use utils
-  use linear_algebra, only : inv_33
-  use file_io,        only : open_read_file, open_write_file
+  use linear_algebra,   only : inv_33
+  use file_io,          only : open_read_file, open_write_file
+  use structure_module, only : StructureData, read_structure_file, drop
   implicit none
   
   character(100), intent(in) :: filenames(:)
@@ -17,35 +18,41 @@ subroutine generate_supercell_kpoint_mesh_qe(filenames)
   ! Input variables
   integer :: prim_mesh(3)
   real(dp) :: sc_dist(3),super_lattice(3,3),rec_super_lattice(3,3)
-  real(dp) :: dist(3),lattice(3,3),rec_lattice(3,3)
+  real(dp) :: dist(3),rec_lattice(3,3)
+  
+  type(StructureData) :: structure
   
   ! file units
   integer :: kpoints_file
-  integer :: lattice_file
   integer :: super_lattice_file
   integer :: sc_kpoints_file
   
+  ! filenames
+  character(100) :: kpoints_filename
+  character(100) :: structure_filename
+  character(100) :: super_lattice_filename
+  character(100) :: sc_kpoints_filename
+  
+  ! Read filenames from input
+  kpoints_filename = filenames(1)
+  structure_filename = filenames(2)
+  super_lattice_filename = filenames(3)
+  sc_kpoints_filename = filenames(4)
+  
   ! Read in mesh of primitive cell
-  kpoints_file = open_read_file(filenames(1))
+  kpoints_file = open_read_file(kpoints_filename)
   read(kpoints_file,*)
   read(kpoints_file,*) prim_mesh(:)
   close(kpoints_file)
 
-  ! Read in primitive lattice
-  lattice_file = open_read_file(filenames(2))
-  do i=1,3
-    read(lattice_file,*) lattice(i,:)
-  enddo
-  close(lattice_file)
-
   ! Construct reciprocal primitive lattice
-  rec_lattice=2.d0*pi*transpose(inv_33(lattice))
+  rec_lattice = 2.d0*pi*structure%recip_lattice
   do i=1,3
-    dist(i)=sqrt(dot_product(rec_lattice(i,:),rec_lattice(i,:)))
-  enddo ! i
+    dist(i) = norm2(rec_lattice(i,:))
+  enddo
 
   ! Read in SC lattice
-  super_lattice_file = open_read_file(filenames(3))
+  super_lattice_file = open_read_file(super_lattice_filename)
   do i=1,3
     read(super_lattice_file,*) super_lattice(i,:)
   enddo
@@ -57,7 +64,7 @@ subroutine generate_supercell_kpoint_mesh_qe(filenames)
     sc_dist(i)=sqrt(dot_product(rec_super_lattice(i,:),rec_super_lattice(i,:)))
   enddo ! i
   
-  sc_kpoints_file = open_write_file(filenames(4))
+  sc_kpoints_file = open_write_file(sc_kpoints_filename)
   write(sc_kpoints_file,*) int(prim_mesh(1)*sc_dist(1)/dist(1))+1, &
                          & int(prim_mesh(2)*sc_dist(2)/dist(2))+1, &
                          & int(prim_mesh(3)*sc_dist(3)/dist(3))+1, &
@@ -65,5 +72,7 @@ subroutine generate_supercell_kpoint_mesh_qe(filenames)
                          & 0,                                      &
                          & 0
   close(sc_kpoints_file)
+  
+  call drop(structure)
 end subroutine
 end module

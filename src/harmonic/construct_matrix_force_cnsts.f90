@@ -9,9 +9,10 @@ module construct_matrix_force_cnsts_module
 contains
 
 subroutine construct_matrix_force_cnsts(filenames)
-  use constants,      only : dp
-  use linear_algebra, only : inv_33
-  use file_io,        only : open_read_file, open_write_file
+  use constants,        only : dp
+  use linear_algebra,   only : inv_33
+  use file_io,          only : open_read_file, open_write_file
+  use structure_module, only : StructureData, read_structure_file, drop
   implicit none
   
   character(100), intent(in) :: filenames(:)
@@ -19,7 +20,7 @@ subroutine construct_matrix_force_cnsts(filenames)
   ! Input variables
   integer :: no_symm,no_atoms
   real(dp),allocatable :: rotation(:,:,:),offset(:,:),atom_pos(:,:),atom_pos_frac(:,:),mass(:)
-  real(dp) :: lattice(3,3),inv_lattice(3,3),supercell(3,3)
+  real(dp) :: supercell(3,3)
   character(2) :: dump_ch
   
   ! Parameters
@@ -35,15 +36,30 @@ subroutine construct_matrix_force_cnsts(filenames)
   logical :: related,yrelated,zrelated
   real(dp) :: roty(3),rotz(3)
   
+  type(StructureData) :: structure
+  
   ! file units
   integer :: symmetry_file
-  integer :: lattice_file
   integer :: supercell_file
   integer :: super_equilibrium_file
   integer :: force_constants_file
   
+  ! filenames
+  character(100) :: symmetry_filename
+  character(100) :: structure_filename
+  character(100) :: supercell_filename
+  character(100) :: super_equilibrium_filename
+  character(100) :: force_constants_filename
+  
+  ! Read filenames from input
+  symmetry_filename = filenames(1)
+  structure_filename = filenames(2)
+  supercell_filename = filenames(3)
+  super_equilibrium_filename = filenames(4)
+  force_constants_filename = filenames(5)
+  
   ! Read in symmetry operations
-  symmetry_file = open_read_file(filenames(1))
+  symmetry_file = open_read_file(symmetry_filename)
   read(symmetry_file,*)no_symm
   allocate(rotation(no_symm,3,3))
   allocate(offset(no_symm,3))
@@ -56,16 +72,10 @@ subroutine construct_matrix_force_cnsts(filenames)
   close(symmetry_file)
 
   ! Read in lattice
-  lattice_file = open_read_file(filenames(2))
-  read(lattice_file,*)lattice(1,:)
-  read(lattice_file,*)lattice(2,:)
-  read(lattice_file,*)lattice(3,:)
-  close(lattice_file)
-  
-  inv_lattice = inv_33(transpose(lattice))
+  structure = read_structure_file(structure_filename)
 
   ! Read in supercell matrix
-  supercell_file = open_read_file(filenames(3))
+  supercell_file = open_read_file(supercell_filename)
   read(supercell_file,*)supercell(1,:)
   read(supercell_file,*)supercell(2,:)
   read(supercell_file,*)supercell(3,:)
@@ -78,7 +88,7 @@ subroutine construct_matrix_force_cnsts(filenames)
   enddo ! i
 
   ! Read in atomic positions
-  super_equilibrium_file = open_read_file(filenames(4))
+  super_equilibrium_file = open_read_file(super_equilibrium_filename)
   read(super_equilibrium_file,*)no_atoms
   allocate(atom_pos(no_atoms,3),mass(no_atoms))
   allocate(atom_pos_frac(no_atoms,3))
@@ -88,9 +98,9 @@ subroutine construct_matrix_force_cnsts(filenames)
   close(super_equilibrium_file)
 
   do i=1,no_atoms
-    atom_pos_frac(i,:) = atom_pos(i,1)*inv_lattice(:,1) &
-                     & + atom_pos(i,2)*inv_lattice(:,2) &
-                     & + atom_pos(i,3)*inv_lattice(:,3)
+    atom_pos_frac(i,:) = atom_pos(i,1)*structure%recip_lattice(:,1) &
+                     & + atom_pos(i,2)*structure%recip_lattice(:,2) &
+                     & + atom_pos(i,3)*structure%recip_lattice(:,3)
   enddo ! i
 
   ! Check which Cartesian directions are needed
@@ -108,16 +118,16 @@ subroutine construct_matrix_force_cnsts(filenames)
   enddo ! i
   
   ! Prepare output file
-  force_constants_file = open_write_file(filenames(5))
+  force_constants_file = open_write_file(force_constants_filename)
 
   ! Apply point group to atomic positions
   do i=1,no_atoms
     related=.false.
     do j=1,no_symm 
       rot_pos=matmul(rotation(j,:,:),atom_pos(i,:))
-      rot_pos_frac(:) = rot_pos(1)*inv_lattice(:,1) &
-                    & + rot_pos(2)*inv_lattice(:,2) &
-                    & + rot_pos(3)*inv_lattice(:,3) &
+      rot_pos_frac(:) = rot_pos(1)*structure%recip_lattice(:,1) &
+                    & + rot_pos(2)*structure%recip_lattice(:,2) &
+                    & + rot_pos(3)*structure%recip_lattice(:,3) &
                     & + offset(j,:)
       do k=1,i-1
         reduced_pos = rot_pos_frac(:)-atom_pos_frac(k,:)-tol_mod
@@ -140,6 +150,7 @@ subroutine construct_matrix_force_cnsts(filenames)
   enddo ! i
   
   close(force_constants_file)
-
+  
+  call drop(structure)
 end subroutine
 end module

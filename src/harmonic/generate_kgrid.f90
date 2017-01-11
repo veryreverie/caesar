@@ -1,134 +1,133 @@
-! Main program
 module generate_kgrid_module
-  implicit none
+    implicit none
 contains
 
 subroutine generate_kgrid(filenames)
- use linear_algebra, only : inv_33
- use file_io,        only : open_read_file, open_write_file
- implicit none
-
- character(100), intent(in) :: filenames(:)
- 
- integer :: symmetry_file
- integer :: grid_file
- integer :: lattice_file
- integer :: ibz_file
- integer :: rotated_gvectors_file
- 
- INTEGER,PARAMETER :: dp=KIND(1.d0)
- REAL(dp),PARAMETER :: tol=1.d-8
- INTEGER :: i_symm,no_symm,no_gvectors,grid1,grid2,grid3,i_frac,j_frac,k_frac,&
-   &i_vec,j_vec
- REAL(dp),ALLOCATABLE :: gvecs_cart(:,:),gvecs_frac(:,:),rot_matrix(:,:,:)
- REAL(dp),ALLOCATABLE :: ibz(:,:)
- REAL(dp) :: prim(3,3),recip(3,3),temp_frac(3),rvec(3)
- INTEGER,ALLOCATABLE :: rot_operation(:),multiplicity(:)
- INTEGER :: counter
-
-! Read in rotation matrices for the point group
- symmetry_file = open_read_file(filenames(1))
- read(symmetry_file,*)no_symm
- allocate(rot_matrix(3,3,no_symm))
- do i_symm=1,no_symm
-  read(symmetry_file,*)rot_matrix(1,1:3,i_symm)
-  read(symmetry_file,*)rot_matrix(2,1:3,i_symm)
-  read(symmetry_file,*)rot_matrix(3,1:3,i_symm)
-  read(symmetry_file,*)
- enddo ! i_symm
- close(symmetry_file)
-
-! Generate G-vectors 
- grid_file = open_read_file(filenames(2))
- read(grid_file,*)grid1,grid2,grid3
- close(grid_file)
- 
- no_gvectors=grid1*grid2*grid3
- allocate(gvecs_cart(3,no_gvectors))
- allocate(ibz(3,no_gvectors))
- allocate(gvecs_frac(3,no_gvectors))
- allocate(rot_operation(no_gvectors))
- allocate(multiplicity(no_gvectors))
- counter=0
- do i_frac=0,grid1-1
-  do j_frac=0,grid2-1
-   do k_frac=0,grid3-1
-    counter=counter+1
-    gvecs_frac(1,counter)=dble(i_frac)/dble(grid1)
-    gvecs_frac(2,counter)=dble(j_frac)/dble(grid2)
-    gvecs_frac(3,counter)=dble(k_frac)/dble(grid3)
-   enddo ! k
-  enddo ! j
- enddo ! i
-
- if(counter/=no_gvectors)then
-  write(*,*)'Problem'
-  stop
- endif ! counter
-
- do i_vec=1,no_gvectors
-  gvecs_frac(1:3,i_vec)=modulo(gvecs_frac(1:3,i_vec)+0.5d0+tol,1.d0)-0.5d0-tol
- enddo ! i_vec 
-
-! Read in primitive cell vectors
- lattice_file = open_read_file(filenames(3))
- read(lattice_file,*)prim(1,1:3)
- read(lattice_file,*)prim(2,1:3)
- read(lattice_file,*)prim(3,1:3)
- close(lattice_file)
- 
- recip = transpose(inv_33(prim))
- do i_vec=1,no_gvectors
-  gvecs_cart(1,i_vec)=dot_product(gvecs_frac(1:3,i_vec),recip(1:3,1))
-  gvecs_cart(2,i_vec)=dot_product(gvecs_frac(1:3,i_vec),recip(1:3,2))
-  gvecs_cart(3,i_vec)=dot_product(gvecs_frac(1:3,i_vec),recip(1:3,3))
- enddo ! i_vec
-
-! Rotate all G-vectors to the IBZ
- ibz=0.d0
- multiplicity=0
- do i_vec=1,no_gvectors
+  use constants,        only : dp
+  use linear_algebra,   only : inv_33
+  use file_io,          only : open_read_file, open_write_file
+  use structure_module, only : StructureData, read_structure_file, drop
+  implicit none
+  
+  character(100), intent(in) :: filenames(:)
+  
+  character(100) :: structure_filename
+  character(100) :: grid_filename
+  character(100) :: ibz_filename
+  character(100) :: rotated_gvectors_filename
+  
+  integer :: grid_file
+  integer :: ibz_file
+  integer :: rotated_gvectors_file
+  
+  real(dp),parameter :: tol=1.d-8
+  
+  type(StructureData) :: structure
+  
+  integer               :: i_symm
+  integer               :: no_gvectors
+  integer               :: grid1
+  integer               :: grid2
+  integer               :: grid3
+  integer               :: i_frac
+  integer               :: j_frac
+  integer               :: k_frac
+  integer               :: i_vec
+  integer               :: j_vec
+  real(dp), allocatable :: gvecs_cart(:,:)
+  real(dp), allocatable :: gvecs_frac(:,:)
+  real(dp), allocatable :: ibz(:,:)
+  real(dp)              :: temp_frac(3)
+  real(dp)              :: rvec(3)
+  integer,  allocatable :: rot_operation(:)
+  integer,  allocatable :: multiplicity(:)
+  integer               :: counter
+  
+  ! Read filenames from input
+  structure_filename = filenames(1)
+  grid_filename = filenames(2)
+  ibz_filename = filenames(3)
+  rotated_gvectors_filename = filenames(4)
+  
+  ! Read in structure file
+  structure = read_structure_file(structure_filename)
+  
+  ! Generate G-vectors 
+  grid_file = open_read_file(grid_filename)
+  read(grid_file,*)grid1,grid2,grid3
+  close(grid_file)
+  
+  no_gvectors=grid1*grid2*grid3
+  allocate(gvecs_cart(3,no_gvectors))
+  allocate(ibz(3,no_gvectors))
+  allocate(gvecs_frac(3,no_gvectors))
+  allocate(rot_operation(no_gvectors))
+  allocate(multiplicity(no_gvectors))
   counter=0
-  if(i_vec==1)then
-   ibz(1:3,i_vec)=gvecs_frac(1:3,i_vec)
-   rot_operation(i_vec)=1
-   multiplicity(i_vec)=multiplicity(i_vec)+1
-  endif ! i_vec
-  do j_vec=1,i_vec-1
-   do i_symm=1,no_symm
-    rvec(1)=dot_product(rot_matrix(1,1:3,i_symm),gvecs_cart(1:3,i_vec))
-    rvec(2)=dot_product(rot_matrix(2,1:3,i_symm),gvecs_cart(1:3,i_vec))
-    rvec(3)=dot_product(rot_matrix(3,1:3,i_symm),gvecs_cart(1:3,i_vec))
-    temp_frac(1)=dot_product(prim(1,1:3),rvec(1:3))
-    temp_frac(2)=dot_product(prim(2,1:3),rvec(1:3))
-    temp_frac(3)=dot_product(prim(3,1:3),rvec(1:3))
-    temp_frac(1:3)=modulo(temp_frac(1:3)+0.5d0+tol,1.d0)-0.5d0-tol
-    if(all(abs(temp_frac(1:3)-gvecs_frac(1:3,j_vec))<tol))then
-     ibz(1:3,i_vec)=gvecs_frac(1:3,j_vec)
-     rot_operation(i_vec)=i_symm
-     multiplicity(j_vec)=multiplicity(j_vec)+1
-     counter=1
-     exit
-    endif ! tol
-   enddo ! i_symm
-   if(j_vec==i_vec-1.and.counter==0)then
-    ibz(1:3,i_vec)=gvecs_frac(1:3,i_vec)
-    rot_operation(i_vec)=1
-    multiplicity(i_vec)=multiplicity(i_vec)+1
-   endif
-   if(counter==1)exit
-  enddo ! j_vec
- enddo ! i_vec
-
- ibz_file = open_write_file(filenames(4))
- rotated_gvectors_file = open_write_file(filenames(5))
- do i_vec=1,no_gvectors
-  if(rot_operation(i_vec)==1)then
-   write(ibz_file,*)ibz(1:3,i_vec),multiplicity(i_vec)
-  endif ! rot_operation
-  write(rotated_gvectors_file,*)ibz(1:3,i_vec),rot_operation(i_vec)
- enddo ! i_vec
- close(ibz_file)
- close(rotated_gvectors_file)
+  do i_frac=0,grid1-1
+    do j_frac=0,grid2-1
+      do k_frac=0,grid3-1
+        counter=counter+1
+        gvecs_frac(1,counter)=dble(i_frac)/dble(grid1)
+        gvecs_frac(2,counter)=dble(j_frac)/dble(grid2)
+        gvecs_frac(3,counter)=dble(k_frac)/dble(grid3)
+      enddo ! k
+    enddo ! j
+  enddo ! i
+  
+  do i_frac=1,no_gvectors
+    do j_frac=1,3
+      if (gvecs_frac(j_frac,i_frac)>0.5d0+tol) then
+        gvecs_frac(j_frac,i_frac) = gvecs_frac(j_frac,i_frac)-1.d0
+      endif
+    do
+  enddo
+  
+  do i_vec=1,no_gvectors
+    gvecs_cart(:,i_vec) = matmul(gvecs_frac(:,i_vec),structure%recip_lattice)
+  enddo
+  
+  ! Rotate all G-vectors to the IBZ
+  ibz=0.d0
+  multiplicity=0
+  do_i : do i_vec=1,no_gvectors
+    if(i_vec==1)then
+      ibz(:,i_vec) = gvecs_frac(:,i_vec)
+      rot_operation(i_vec)=1
+      multiplicity(i_vec)=multiplicity(i_vec)+1
+    endif ! i_vec
+    do j_vec=1,i_vec-1
+      do i_symm=1,structure%no_symmetries
+        rvec = matmul( structure%rotation_matrices(:,:,i_symm), &
+                     & gvecs_cart(:,i_vec))
+        temp_frac = matmul(structure%lattice,rvec)
+        temp_frac(1:3)=modulo(temp_frac(1:3)+0.5d0+tol,1.d0)-0.5d0-tol
+        if(all(abs(temp_frac(1:3)-gvecs_frac(1:3,j_vec))<tol))then
+          ibz(:,i_vec) = gvecs_frac(:,j_vec)
+          rot_operation(i_vec)=i_symm
+          multiplicity(j_vec)=multiplicity(j_vec)+1
+          cycle do_i
+        endif ! tol
+      enddo ! i_symm
+      if(j_vec==i_vec-1)then
+        ibz(:,i_vec)=gvecs_frac(:,i_vec)
+        rot_operation(i_vec)=1
+        multiplicity(i_vec)=multiplicity(i_vec)+1
+      endif
+    enddo ! j_vec
+  enddo do_i
+  
+  ibz_file = open_write_file(ibz_filename)
+  rotated_gvectors_file = open_write_file(rotated_gvectors_filename)
+  do i_vec=1,no_gvectors
+    if(rot_operation(i_vec)==1)then
+      write(ibz_file,*)ibz(:,i_vec),multiplicity(i_vec)
+    endif ! rot_operation
+    write(rotated_gvectors_file,*)ibz(:,i_vec),rot_operation(i_vec)
+  enddo ! i_vec
+  close(ibz_file)
+  close(rotated_gvectors_file)
+  
+  call drop(structure)
 end subroutine
 end module

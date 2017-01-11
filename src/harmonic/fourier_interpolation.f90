@@ -287,61 +287,6 @@ module fourier_interpolation_module
 contains
 
 ! ----------------------------------------------------------------------
-! Read basic input files.
-! ----------------------------------------------------------------------
-subroutine read_input_files(no_symm_ops,basis,grid,prim_latt_vecs,symm_ops, &
-   & equilibrium_filename,grid_filename,lattice_filename,symmetry_filename)
-  implicit none
-  
-  character(*), intent(in) :: equilibrium_filename
-  character(*), intent(in) :: grid_filename
-  character(*), intent(in) :: lattice_filename
-  character(*), intent(in) :: symmetry_filename
-  
-  INTEGER,INTENT(in) :: no_symm_ops
-  INTEGER,INTENT(out) :: basis,grid(3)
-  REAL(dp),INTENT(out) :: prim_latt_vecs(3,3),symm_ops(4,3,no_symm_ops)
-  INTEGER :: ierr,i_symm,i_row
-  
-  ! Read number of atoms in primitive cell (basis)
-  open(unit=11,file=equilibrium_filename,status='old',iostat=ierr)
-  if(ierr/=0)call errstop('READ_INPUT_FILES','Problem opening basis.dat file.')
-  read(11,*,iostat=ierr)basis
-  if(ierr/=0)call errstop('READ_INPUT_FILES','Problem reading basis.dat file.')
-  close(11)
-  
-  ! Read grid.dat file
-  open(unit=11,file=grid_filename,status='old',iostat=ierr)
-  if(ierr/=0)call errstop('READ_INPUT_FILES','Problem opening grid.dat file.')
-  read(11,*,iostat=ierr)grid(1:3)
-  if(ierr/=0)call errstop('READ_INPUT_FILES','Problem reading grid.dat file.')
-  close(11)
-  
-  ! Read primitive lattice
-  open(unit=11,file=lattice_filename,status='old',iostat=ierr)
-  if(ierr/=0)call errstop('READ_INPUT_FILES','Problem opening prim.dat file.')
-  read(11,*,iostat=ierr)prim_latt_vecs(1,1:3)
-  if(ierr==0)read(11,*,iostat=ierr)prim_latt_vecs(2,1:3)
-  if(ierr==0)read(11,*,iostat=ierr)prim_latt_vecs(3,1:3)
-  if(ierr/=0)call errstop('READ_INPUT_FILES','Problem reading prim.dat file.')
-  close(11)
-  
-  ! Read symmetry.dat file
-  open(unit=11,file=symmetry_filename,status='old',iostat=ierr)
-  if(ierr/=0)call errstop('READ_INPUT_FILES','Problem opening symmetry.dat &
-    &file.')
-  read(11,*,iostat=ierr)
-  do i_symm=1,no_symm_ops
-    do i_row=1,4
-      read(11,*,iostat=ierr)symm_ops(i_row,1:3,i_symm)
-      if(ierr/=0)call errstop('READ_INPUT_FILES','Problem reading symmetry.dat &
-        &file.')
-    enddo ! i_row
-  enddo ! i_symm
-  close(11)
-end subroutine
-
-! ----------------------------------------------------------------------
 ! Read input files related to k-points in the IBZ.
 ! ----------------------------------------------------------------------
 subroutine read_kpoints(no_kpoints,kpoints,multiplicity,kpoint_to_supercell,&
@@ -517,40 +462,42 @@ subroutine read_path(no_points,path,path_filename)
   close(11)
 end subroutine
 
-subroutine fourier_interpolation(phonon_dispersion_curve_filename,            &
+subroutine fourier_interpolation(structure_filename,                          &
+   & phonon_dispersion_curve_filename,                                        &
    & high_symmetry_points_filename,temperature_filename,free_energy_filename, &
-   & freq_dos_filename,equilibrium_filename,grid_filename,lattice_filename,   &
-   & symmetry_filename,ibz_filename,kpoint_to_supercell_filename,             &
-   & atoms_in_primitive_cell_fileroot,dyn_mat_fileroot,path_filename,         &
-   & tempfile_filename)
+   & freq_dos_filename,grid_filename,                                         &
+   & ibz_filename,kpoint_to_supercell_filename,                               &
+   & atoms_in_primitive_cell_fileroot,dyn_mat_fileroot,path_filename)
   use constants
-  use utils
+  use utils, only : count_lines
   use linear_algebra
   use min_images
   use symmetry
   use phonon
+  use file_io,          only : open_read_file
+  use structure_module, only : StructureData, read_structure_file, drop
   implicit none
   
-  character, intent(in) :: phonon_dispersion_curve_filename
-  character, intent(in) :: high_symmetry_points_filename
-  character, intent(in) :: temperature_filename
-  character, intent(in) :: free_energy_filename
-  character, intent(in) :: freq_dos_filename
-  character, intent(in) :: equilibrium_filename
-  character, intent(in) :: grid_filename
-  character, intent(in) :: lattice_filename
-  character, intent(in) :: symmetry_filename
-  character, intent(in) :: ibz_filename
-  character, intent(in) :: kpoint_to_supercell_filename
-  character, intent(in) :: atoms_in_primitive_cell_fileroot ! will append *.dat
-  character, intent(in) :: dyn_mat_fileroot                                  ! will append *.dat
-  character, intent(in) :: path_filename
-  character, intent(in) :: tempfile_filename
+  ! filenames
+  character(*), intent(in) :: structure_filename
+  character(*), intent(in) :: phonon_dispersion_curve_filename
+  character(*), intent(in) :: high_symmetry_points_filename
+  character(*), intent(in) :: temperature_filename
+  character(*), intent(in) :: free_energy_filename
+  character(*), intent(in) :: freq_dos_filename
+  character(*), intent(in) :: grid_filename
+  character(*), intent(in) :: ibz_filename
+  character(*), intent(in) :: kpoint_to_supercell_filename
+  character(*), intent(in) :: atoms_in_primitive_cell_fileroot! append *.dat
+  character(*), intent(in) :: dyn_mat_fileroot                ! append *.dat
+  character(*), intent(in) :: path_filename
   
   ! parameter
   REAL(dp),PARAMETER :: tol=1.d-8 
   
   ! variables
+  integer :: i,j
+  
   INTEGER,ALLOCATABLE :: atom_map_symm_backwards(:,:)
   INTEGER,ALLOCATABLE :: atom_map_symm_forwards(:,:)
   INTEGER,ALLOCATABLE :: grid_map_symm_backwards(:,:)
@@ -594,8 +541,6 @@ subroutine fourier_interpolation(phonon_dispersion_curve_filename,            &
   INTEGER :: no_symm_ops
   
   INTEGER :: ialloc
-  INTEGER :: ierr
-  INTEGER :: istat
   
   INTEGER :: counter
   INTEGER :: i_atom,j_atom
@@ -616,18 +561,22 @@ subroutine fourier_interpolation(phonon_dispersion_curve_filename,            &
   REAL(dp) :: super_latt_vecs(3,3)
   REAL(dp) :: super_rec_vecs(3,3)
   
-  ! Get total number of symmetry operations and allocate corresponding arrays
-  open(unit=10,file=symmetry_filename,status='old',iostat=ierr)
-  if(ierr/=0)then
-    write(*,*)'Problem opening symmetry.dat file in main program.'
-    stop
-  endif ! ierr
-  read(10,*,iostat=ierr)no_symm_ops
-  if(ierr/=0)then
-    write(*,*)'Problem reading symmetry.dat file in main program.'
-    stop
-  endif ! ierr
-  close(10)
+  type(StructureData) :: structure
+  
+  ! file units
+  integer :: grid_file
+  integer :: path_file
+  integer :: ibz_file
+  
+  ! Read basic input files and allocate corresponding arrays
+  grid_file = open_read_file(grid_filename)
+  read(grid_file,*) grid
+  close(grid_file)
+  
+  structure = read_structure_file(structure_filename)
+  prim_latt_vecs = structure%lattice
+  basis = structure%no_atoms
+  no_symm_ops = structure%no_symmetries
   
   allocate(symm_ops(4,3,no_symm_ops),stat=ialloc)
   if(ialloc/=0)call erralloc('SYMM_OPS')
@@ -636,9 +585,11 @@ subroutine fourier_interpolation(phonon_dispersion_curve_filename,            &
   allocate(trans_symms(3,no_symm_ops),stat=ialloc)
   if(ialloc/=0)call erralloc('TRANS_SYMMS')
   
-  ! Read basic input files and allocate corresponding arrays
-  call read_input_files(no_symm_ops,basis,grid,prim_latt_vecs,symm_ops, &
-      & equilibrium_filename,grid_filename,lattice_filename,symmetry_filename)
+  do i=1,no_symm_ops
+    do j=1,4
+      symm_ops(i,:,j) = structure%symmetries(:,4*(i-1)+j)
+    enddo
+  enddo
   
   dof_prim=3*basis
   no_grid_points=product(grid(1:3))
@@ -788,23 +739,9 @@ subroutine fourier_interpolation(phonon_dispersion_curve_filename,            &
   endif ! i_cell
   
   ! Get the number of k-points in the IBZ and allocate corresponding arrays
-  call system("echo $(wc -l "//trim(ibz_filename)//" | awk '{print $1}') > " &
-            & //trim(tempfile_filename),istat)
-  if(istat/=0)then
-    write(*,*)'Problem counting the number of lines in ibz.dat.'
-    stop
-  endif ! istat
-  open(unit=10,file=tempfile_filename,status='old',iostat=ierr)
-  if(ierr/=0)then
-    write(*,*)'Problem opening tempfile.dat file.'
-    stop
-  endif ! ierr
-  read(10,*,iostat=ierr)no_ibz_points
-  if(ierr/=0)then
-    write(*,*)'Problem reading tempfile.dat file.'
-    stop
-  endif ! ierr
-  close(10,status='delete')
+  ibz_file = open_read_file(ibz_filename)
+  no_ibz_points = count_lines(ibz_file)
+  close(ibz_file)
   
   allocate(ibz_points_cart(3,no_ibz_points),stat=ialloc)
   if(ialloc/=0)call erralloc('IBZ_POINTS_CART')
@@ -976,23 +913,9 @@ subroutine fourier_interpolation(phonon_dispersion_curve_filename,            &
 
   ! Get the number of high symmetry points on the dispersion path and allocate 
   ! corresponding arrays
-  call system("echo $(wc -l "//trim(path_filename)//" | awk '{print $1}') > " &
-                      & //trim(tempfile_filename),istat)
-  if(istat/=0)then
-    write(*,*)'Problem counting the number of lines in path.dat file.'
-    stop
-  endif ! istat
-  open(unit=10,file=tempfile_filename,status='old',iostat=ierr)
-  if(ierr/=0)then
-    write(*,*)'Problem opening tempfile.dat file.'
-    stop
-  endif ! ierr
-  read(10,*,iostat=ierr)no_kpoints_path
-  if(ierr/=0)then
-    write(*,*)'Problem reading tempfile.dat file.'
-    stop
-  endif ! ierr
-  close(10,status='delete')
+  path_file = open_read_file(path_filename)
+  no_kpoints_path = count_lines(path_file)
+  close(path_file)
   
   allocate(path(3,no_kpoints_path),stat=ialloc)
   if(ialloc/=0)call erralloc('PATH')
@@ -1006,5 +929,7 @@ subroutine fourier_interpolation(phonon_dispersion_curve_filename,            &
   call generate_dos(prim_rec_vecs,basis,mass,no_grid_points,no_im_cells,      &
     & min_im_cell_pos,force_consts,temperature_filename,free_energy_filename, &
     & freq_dos_filename)
+  
+  call drop(structure)
 end subroutine
 end module

@@ -204,4 +204,28 @@ function count_lines(file_unit) result(output)
   rewind(file_unit)
 end function
 
+! ----------------------------------------------------------------------
+! Converts a string to lower case
+! ----------------------------------------------------------------------
+function lower_case(input) result(output)
+  implicit none
+  
+  character(*), intent(in) :: input
+  character(len(input))    :: output
+  
+  character(*), parameter :: lower_chars = "abcdefghijklmnopqrstuvwxyz"
+  character(*), parameter :: upper_chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+  
+  integer :: i,j
+  
+  output = input
+  
+  do i=1,len(output)
+    j = index(upper_chars, output(i:i))
+    if (j/=0) then
+      output(i:i) = lower_chars(j:j)
+    endif
+  enddo
+end function
+
 end module

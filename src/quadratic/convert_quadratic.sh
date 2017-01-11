@@ -4,6 +4,21 @@
 # CASTEP
 # VASP 
 
+harmonic_path=$( awk '{print $1}' harmonic_path.dat)
+
+no_sc=$(ls -1d Supercell_* | wc -l)
+sampling_amplitude=$( awk 'NR==1 {print $1}' mapping.dat)
+sampling_point_init=$( awk 'NR==2 {print $1}' mapping.dat)
+sampling_point_final=$( awk 'NR==2 {print $2}' mapping.dat)
+no_sampling_points=$(( $sampling_point_final-$sampling_point_init ))
+
+atoms_line=$(awk -v IGNORECASE=1 '$1~/Atoms/{print NR}' \
+   $harmonic_path/structure.dat)
+symmetry_line=$(awk -v IGNORECASE=1 '$1~/Lattice/{print NR}' \
+   $harmonic_path/structure.dat)
+no_atoms=$($symmetry_line-$atoms_line-1)
+no_modes=$(( $no_atoms*3 ))
+
 echo "What code do you want to use (castep,vasp,qe)?"
 read code
 
@@ -22,7 +37,6 @@ if [ "$code" = "castep" ];then
     echo "Error! The castep 'param' file does not exist." 
     exit 1
   fi
-
   
   # Get primitive cell path 
   bs_calculation=0
@@ -35,17 +49,10 @@ if [ "$code" = "castep" ];then
       '{print $1 " " $2 " " $3}' castep/path.dat >> castep/bs_path.dat
   fi
   
-  no_sc=$(ls -1d Supercell_* | wc -l)
-  sampling_amplitude=$( awk 'NR==1 {print $1}' mapping.dat)
-  sampling_point_init=$( awk 'NR==2 {print $1}' mapping.dat)
-  sampling_point_final=$( awk 'NR==2 {print $2}' mapping.dat)
-  no_sampling_points=$(( $sampling_point_final-$sampling_point_init ))
   
   # Loop over supercells
   for (( i=1; i<=$no_sc; i++ )) do
     sdir=Supercell_$i
-    no_atoms=$( awk 'NR==1 {print $1}' $sdir/equilibrium.dat )
-    no_modes=$(( $no_atoms*3 ))
     no_atoms_sc=$( awk 'NR==1 {print $1}' $sdir/super_equilibrium.dat )
   
     echo "Converting supercell" $i
@@ -96,10 +103,6 @@ elif [ "$code" = "vasp" ]; then
     echo "Error! The directory 'vasp' does not exist." 
     exit 1
   fi 
-
-  sampling_point_init=$( awk 'NR==2 {print $1}' mapping.dat)
-  sampling_point_final=$( awk 'NR==2 {print $2}' mapping.dat)
-
   
   # Loop over supercells
   no_sc=$(ls -1d Supercell_* | wc -l)
@@ -108,9 +111,6 @@ elif [ "$code" = "vasp" ]; then
     sdir=Supercell_$i
 
     echo "Converting supercell" $i
-
-    no_atoms=$( awk 'NR==1 {print $1}' $sdir/equilibrium.dat )
-    no_modes=$(( $no_atoms*3 ))
 
     static_dir=$sdir/static
     cp vasp/INCAR* $static_dir
@@ -126,7 +126,7 @@ elif [ "$code" = "vasp" ]; then
     no_kpoints=$(ls -1d kpoint.* | wc -l)
     for (( j=$kpoint_counter; j<=$(( $kpoint_counter+($no_kpoints-1) )); j++ )) do
       kdir=$sdir/kpoint.$j/configurations
-      cp $sdir/kpoint.$j/mapping.dat $sdir/equilibrium.dat $kdir
+      cp $sdir/kpoint.$j/mapping.dat $kdir
       cp vasp/INCAR* $kdir
       cp vasp/POTCAR $kdir
       cp vasp/KPOINTS.band $kdir
@@ -167,18 +167,10 @@ elif [ "$code" = "qe" ];then
   echo $seedname > seedname.txt
   echo $seedname_nscf > seedname.nscf.txt
 
-  no_sc=$(ls -1d Supercell_* | wc -l)
-  sampling_amplitude=$( awk 'NR==1 {print $1}' mapping.dat)
-  sampling_point_init=$( awk 'NR==2 {print $1}' mapping.dat)
-  sampling_point_final=$( awk 'NR==2 {print $2}' mapping.dat)
-  no_sampling_points=$(( $sampling_point_final-$sampling_point_init ))
-
   # Loop over 
   for (( i=1; i<=$no_sc; i++ )) do
     sdir=Supercell_$i
     
-    no_atoms=$( awk 'NR==1 {print $1}' $sdir/equilibrium.dat )
-    no_modes=$(( $no_atoms*3 ))
     no_atoms_sc=$( awk 'NR==1 {print $1}' $sdir/super_equilibrium.dat )
 
     echo "Converting supercell" $i
@@ -188,7 +180,7 @@ elif [ "$code" = "qe" ];then
     cp qe/kpoints.nscf.in $sdir
     caesar generate_supercell_kpoint_mesh_qe \
            $sdir/kpoints.in                  \
-           $sdir/lattice.dat                 \
+           $harmonic_path/structure.dat      \
            $sdir/super_lattice.dat           \
            $sdir/sc_kpoints.dat
     header=$(awk 'NR==1,NR==1 {print}' $sdir/kpoints.in)

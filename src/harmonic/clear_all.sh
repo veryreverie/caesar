@@ -4,6 +4,6 @@ read answer
 
 if [ $answer == 'y' ]; then
 
-  rm -r Supercell_* equilibrium.dat ibz.dat kpoint_to_supercell.dat lattice.dat no_sc.dat rotated_gvectors.dat symmetry.dat
+  rm -r Supercell_* ibz.dat kpoint_to_supercell.dat no_sc.dat rotated_gvectors.dat symmetry.dat
 
 fi

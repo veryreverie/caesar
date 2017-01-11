@@ -1,41 +1,22 @@
 #!/bin/bash
 
+# ======================================================================
 # Script to set-up a generic harmonic calculation to use with LTE
-
-#######################################
-####        MAIN   PROGRAM         ####
-#######################################
-
-# Read in 'structure.dat'
-lattice_line=$(awk -v IGNORECASE=1 '$1~/Lattice/{print NR}' structure.dat) 
-atoms_line=$(awk -v IGNORECASE=1 '$1~/Atoms/{print NR}' structure.dat)
-symmetry_line=$(awk -v IGNORECASE=1 '$1~/Symmetry/{print NR}' structure.dat)
-end_line=$(awk -v IGNORECASE=1 '$1~/End/{print NR}' structure.dat)
-
-# break structure.dat into lattice.dat, equilibrium.dat and symmetry.dat
-awk "NR==$(($lattice_line + 1)), NR==$(($atoms_line - 1)) "\
-  '{print $1 " " $2 " " $3} ' structure.dat > lattice.dat
-
-echo $(($symmetry_line-($atoms_line+1))) | bc > equilibrium.dat
-awk "NR==$(($atoms_line + 1)), NR==$(($symmetry_line - 1)) "\
-  '{print $1 " " $2 " " $3 " " $4 " " $5}' structure.dat >> equilibrium.dat
-
-echo $(($end_line-($symmetry_line+1)))/4 | bc > symmetry.dat
-awk "NR==$(($symmetry_line + 1)), NR==$(($end_line - 1)) "\
-  '{print $1 " " $2 " " $3}' structure.dat >> symmetry.dat
+# ======================================================================
 
 # Generate IBZ
+# Reads Caesar input files. Writes ibz.dat and rotated_gvectors.dat
 caesar generate_kgrid \
-       symmetry.dat   \
+       structure.dat  \
        grid.dat       \
-       lattice.dat    \
        ibz.dat        \
        rotated_gvectors.dat
 
 # Generate non-diagonal supercells
 # Makes Supercell_* directories, and Supercell_*/supercell.dat and -"-/size.dat
+# Reads and writes ibz.dat
 caesar generate_supercells     \
-       lattice.dat             \
+       structure.dat           \
        grid.dat                \
        ibz.dat                 \
        kpoint_to_supercell.dat \
@@ -57,11 +38,9 @@ while read fline ; do
     CELL_COUNT=$(( ${CELL_COUNT} + 1 ))
     OLD_CELL=${NEW_CELL}
     sdir=Supercell_${CELL_COUNT}
-    cp equilibrium.dat lattice.dat $sdir
     
     caesar construct_supercell     \
-           $sdir/lattice.dat       \
-           $sdir/equilibrium.dat   \
+           structure.dat           \
            $sdir/supercell.dat     \
            $sdir/super_lattice.dat \
            $sdir/super_equilibrium.dat
@@ -94,8 +73,10 @@ for (( i=1; i<=$CELL_COUNT; i++ ))do
   
   caesar structure_to_castep  \
          $sdir/structure.dat  \
-         $sdir/sc_bs_path.dat \
+         dummy_argument       \
          $sdir/structure.cell
+  
+  # write $sdir/symmetry.dat
   cellsym --symmetry $sdir/structure.cell > $sdir/symmetry.dat
   symmetry_start_line=$(awk -v IGNORECASE=1 '/%block SYMMETRY_OPS/{print NR}' $sdir/symmetry.dat)
   symmetry_end_line=$(awk -v IGNORECASE=1 '/%endblock SYMMETRY_OPS/{print NR}' $sdir/symmetry.dat)
@@ -108,10 +89,11 @@ for (( i=1; i<=$CELL_COUNT; i++ ))do
   # Evaluate needed force constants
   caesar construct_matrix_force_cnsts \
          $sdir/symmetry.dat           \
-         $sdir/lattice.dat            \
+         structure.dat                \
          $sdir/supercell.dat          \
          $sdir/super_equilibrium.dat  \
          $sdir/force_constants.dat
+  
   while read fline ; do
     line=($fline)
     atom=${line[0]}

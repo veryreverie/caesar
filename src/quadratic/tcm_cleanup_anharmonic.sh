@@ -2,6 +2,7 @@
 
 # Script to clean-up quadratic at Rutgers
 
+harmonic_path=$( awk '{print $1}' harmonic_path.dat)
 
 no_sc=$(ls -1d Supercell_* | wc -l)
 seedname=$( awk '{print $1}' seedname.txt )
@@ -10,6 +11,13 @@ sampling_point_init=$( awk 'NR==2 {print $1}' mapping.dat)
 sampling_point_final=$( awk 'NR==2 {print $2}' mapping.dat)
 no_sampling_points=$(( $sampling_point_final-$sampling_point_init ))
 
+atoms_line=$(awk -v IGNORECASE=1 '$1~/Atoms/{print NR}' \
+   $harmonic_path/structure.dat)
+symmetry_line=$(awk -v IGNORECASE=1 '$1~/Lattice/{print NR}' \
+   $harmonic_path/structure.dat)
+no_atoms=$($symmetry_line-$atoms_line-1)
+no_modes=$(( $no_atoms*3 ))
+
 # Loop over supercells
 for i in `seq 1 $no_sc`;
 do
@@ -17,9 +25,6 @@ do
   echo "Supercell" $i
 
   if [ ! -f "$sdir/acoustic.dat" ]; then
-
-    no_atoms=$( awk 'NR==1 {print $1}' $sdir/equilibrium.dat )
-    no_modes=$(( $no_atoms*3 ))
 
     # Static calculation
     f=$sdir/static/$seedname.castep

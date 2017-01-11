@@ -18,6 +18,10 @@ module vscf_1d_module
     real(dp),        allocatable :: eigenvals(:)
     real(dp),        allocatable :: eigenvecs(:,:)
   end type
+
+interface drop
+  module procedure drop_vscf
+end interface
   
 contains
 
@@ -110,7 +114,7 @@ function vscf_1d(frequency_ev, potential, Nbasis) result(output)
 end function
 
 ! deallocate(VscfReturn)
-pure subroutine drop(this)
+pure subroutine drop_vscf(this)
   implicit none
   
   type(VscfReturn), intent(inout) :: this

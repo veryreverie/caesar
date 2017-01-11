@@ -2,6 +2,20 @@
 
 # Script to run quadratic in TCM cluster
 
+harmonic_path=$( awk '{print $1}' harmonic_path.dat)
+
+sampling_amplitude=$( awk 'NR==1 {print $1}' mapping.dat)
+sampling_point_init=$( awk 'NR==2 {print $1}' mapping.dat)
+sampling_point_final=$( awk 'NR==2 {print $2}' mapping.dat)
+no_sampling_points=$(( $sampling_point_final-$sampling_point_init ))
+
+atoms_line=$(awk -v IGNORECASE=1 '$1~/Atoms/{print NR}' \
+   $harmonic_path/structure.dat)
+symmetry_line=$(awk -v IGNORECASE=1 '$1~/Lattice/{print NR}' \
+   $harmonic_path/structure.dat)
+no_atoms=$($symmetry_line-$atoms_line-1)
+no_modes=$(( $no_atoms*3 ))
+
 echo "What code do you want to use (castep,vasp,qe)?"
 read code
 
@@ -21,19 +35,12 @@ if [ "$code" = "castep" ];then
   echo "How many cores per run?"
   read num_cores
 
-  sampling_amplitude=$( awk 'NR==1 {print $1}' mapping.dat)
-  sampling_point_init=$( awk 'NR==2 {print $1}' mapping.dat)
-  sampling_point_final=$( awk 'NR==2 {print $2}' mapping.dat)
-  no_sampling_points=$(( $sampling_point_final-$sampling_point_init ))
-
 
   # Loop over supercells
   for i in `seq $first_sc $last_sc`;
   do
     sdir=Supercell_$i
 
-    no_atoms=$( awk 'NR==1 {print $1}' $sdir/equilibrium.dat )
-    no_modes=$(( $no_atoms*3 ))
     no_atoms_sc=$( awk 'NR==1 {print $1}' $sdir/super_equilibrium.dat )
 
     # Run static first
@@ -90,18 +97,11 @@ elif [ "$code" = "qe" ]; then
   echo "How many cores per run?"
   read num_cores
 
-  sampling_amplitude=$( awk 'NR==1 {print $1}' mapping.dat)
-  sampling_point_init=$( awk 'NR==2 {print $1}' mapping.dat)
-  sampling_point_final=$( awk 'NR==2 {print $2}' mapping.dat)
-  no_sampling_points=$(( $sampling_point_final-$sampling_point_init ))
-
   # Loop over supercells
   for i in `seq $first_sc $last_sc`;
   do
     sdir=Supercell_$i
 
-    no_atoms=$( awk 'NR==1 {print $1}' $sdir/equilibrium.dat )
-    no_modes=$(( $no_atoms*3 ))
     no_atoms_sc=$( awk 'NR==1 {print $1}' $sdir/super_equilibrium.dat )
 
     # Run static first
