@@ -1,10 +1,14 @@
 program caesar
+  ! use utility modules
   use constants, only : dp
   use utils,     only : command_line_args, i2s
   use file_io,   only : open_write_file, open_read_file
   
+  ! use class modules
   use string_module
-  use rundft_module, only : rundft
+  
+  ! use common modules
+  use rundft_module,        only : rundft
   
   ! use harmonic modules
   use combine_forces_module,        only : combine_forces
@@ -21,6 +25,7 @@ program caesar
     &only : generate_supercell_kpoint_mesh_qe
   use generate_supercells_module,   only : generate_supercells
   use lte_module,                   only : lte
+  use hartree_to_eV_module, only : hartree_to_eV
   
   ! use quadratic modules
   use anharmonic_module,           only : anharmonic
@@ -164,6 +169,8 @@ program caesar
     call generate_supercell_kpoint_mesh_qe(args(2:))
   elseif (arg == 'generate_supercells') then
     call generate_supercells(args(2:))
+  elseif (arg == 'hartree_to_eV') then
+    call hartree_to_eV()
   elseif (arg == 'lte') then
     read(args(2),*) tol
     read(args(3),*) tol2
@@ -191,8 +198,6 @@ program caesar
   elseif (arg == 'fetch_forces_castep') then
     return_status = system(arg//'.sh '//trim(argstring))
   elseif (arg == 'fetch_forces_qe') then
-    return_status = system(arg//'.sh '//trim(argstring))
-  elseif (arg == 'hartree_to_eV') then
     return_status = system(arg//'.sh '//trim(argstring))
   elseif (arg == 'lte_harmonic') then
     return_status = system(arg//'.sh '//trim(argstring))
