@@ -3,6 +3,8 @@
 # Script to convert a generic harmonic calculation to:
 # CASTEP
 # VASP 
+  
+no_sc=$(awk '{print}' no_sc.dat )
 
 echo "What code do you want to use (castep,vasp,qe)?"
 read code
@@ -24,7 +26,6 @@ if [ "$code" = "castep" ];then
   
   echo $seedname > seedname.txt
   
-  no_sc=$(awk '{print}' no_sc.dat )
   
   # Loop over 
   for (( i=1; i<=$no_sc; i++ )) do
@@ -56,8 +57,6 @@ elif [ "$code" = "vasp" ]; then
     echo "Error! The directory 'vasp' does not exist." 
     exit 1
   fi 
-
-  no_sc=$(awk '{print}' no_sc.dat )
 
   # Loop over 
   for (( i=1; i<=$no_sc; i++ )) do
@@ -98,7 +97,6 @@ elif [ "$code" = "qe" ]; then
   fi
 
   echo $seedname > seedname.txt
-  no_sc=$(awk '{print}' no_sc.dat )
 
   # Loop over 
   for (( i=1; i<=$no_sc; i++ )) do

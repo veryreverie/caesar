@@ -1,4 +1,4 @@
-module process
+module process_module
   implicit none
   
   ! holds the status, stderr and stdout of a system process

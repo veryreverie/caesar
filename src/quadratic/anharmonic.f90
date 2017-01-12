@@ -6,17 +6,18 @@ module anharmonic_module
 contains
 
 subroutine anharmonic()
-  use constants,                   only : dp
-  use utils,                       only : i2s, file_exists, count_lines
-  use process,                     only : ProcessResult, system_process
-  use mapping_module,              only : Mapping, read_mapping
+  use constants, only : dp
+  use utils,     only : i2s
+  use file_io
+  
+  use mapping_module
+  use structure_module
+  use string_module
+  
   use generate_amplitudes_module,  only : generate_amplitudes
   use calculate_anharmonic_module, only : calculate_anharmonic
   use quadratic_spline_module,     only : quadratic_spline
   use vscf_1d_module,              only : VscfReturn, vscf_1d, drop
-  use file_io,                     only : open_read_file, open_write_file
-  use structure_module,            only : StructureData, read_structure_file, &
-                                        & drop
   implicit none
   
   ! ----------------------------------------
@@ -32,7 +33,7 @@ subroutine anharmonic()
   integer               :: no_supercells   ! no. of supercells
   integer, allocatable  :: no_atoms_sc(:)  ! no. atoms in supercell
   integer, allocatable  :: no_cells(:)     ! no_atoms_sc/no_atoms
-  character(100)        :: castep          ! seedname.castep
+  type(String)          :: castep          ! seedname.castep
   type(Mapping)         :: map             ! mapping.dat
   integer, allocatable  :: kpoints(:)      ! first column of all list.dats
   integer               :: kpoint
@@ -47,29 +48,32 @@ subroutine anharmonic()
   type(VscfReturn)      :: vscf
   logical, allocatable  :: sc_acoustic(:)  ! if Supercell_i/acoustic.dat exists
   
-  character(100)        :: k_str
-  character(100)        :: l_str
+  type(String)          :: sdir          ! Supercell_*/ directory name
+  type(String)          :: k_str
+  type(String)          :: l_str
   
   real(dp), allocatable :: eigenvals(:,:,:)
   real(dp), allocatable :: harmonic(:,:,:)
   
-  character(100)        :: sdir        ! Supercell_*/ directory name
   
-  type(StructureData)   :: structure
+  type(StructureData)   :: structure     ! the contents of structure.dat
+  
+  type(String)          :: harmonic_path ! the path to the harmonic directory
+  type(String)          :: filename
   
   ! ----------------------------------------
   ! Temporary variables
   ! ----------------------------------------
   integer             :: i, j, k, l  ! loop variables
-  type(ProcessResult) :: proc        ! temporary process result
   real(dp)            :: temp_real
-  character(100)      :: filename
-  character(100)      :: harmonic_path
+  character(100)      :: temp_char
+  
   
   ! ----------------------------------------
   ! File units
   ! ----------------------------------------
   integer :: harmonic_path_file
+  integer :: no_sc_file
   integer :: seedname_file
   integer :: mapping_file
   integer :: list_file
@@ -86,12 +90,14 @@ subroutine anharmonic()
   
   ! read in harmonic_path
   harmonic_path_file = open_read_file('harmonic_path.dat')
-  read(harmonic_path_file,*) harmonic_path
+  read(harmonic_path_file,*) temp_char
   close(harmonic_path_file)
+  harmonic_path = temp_char
   
   ! read the number of Supercell_* directories into no_supercells
-  proc = system_process('ls -1d Supercell_* | wc -l')
-  read(proc%stdout,*) no_supercells
+  no_sc_file = open_read_file(harmonic_path//'/no_sc.dat')
+  read(no_sc_file,*) no_supercells
+  close(no_sc_file)
   
   ! allocate arrays of size no_supercells
   allocate(sc_acoustic(no_supercells))
@@ -99,13 +105,13 @@ subroutine anharmonic()
   allocate(no_cells(no_supercells))
   
   ! read structure data
-  structure = read_structure_file(trim(harmonic_path)//'/structure.dat')
+  structure = read_structure_file(harmonic_path//'/structure.dat')
   
   ! read the castep seedname into castep variable
   seedname_file = open_read_file('seedname.txt')
-  read(seedname_file,*) castep
+  read(seedname_file,*) temp_char
   close(seedname_file)
-  castep = trim(castep)//'.castep'
+  castep = trim(temp_char)//'.castep'
   
   ! read sampling data from mapping.dat
   mapping_file = open_read_file('mapping.dat')
@@ -114,16 +120,16 @@ subroutine anharmonic()
   
   ! check for Supercell_*/acoustic.dat
   do i=1,no_supercells
-    sc_acoustic(i) = file_exists('Supercell_'//trim(i2s(i))//'/acoustic.dat')
+    sc_acoustic(i) = file_exists(str('Supercell_')//i//'/acoustic.dat')
   enddo
   
-  ! count kpoints from Supercell_*/list.dat
+  ! count kpoints
   allocate(sc_n_kpoints(no_supercells))
   do i=1,no_supercells
     if (sc_acoustic(i)) then
       sc_n_kpoints(i) = 0
     else
-      list_file = open_read_file('Supercell_'//trim(i2s(i))//'/list.dat')
+      list_file = open_read_file(harmonic_path//'/Supercell_'//i//'/list.dat')
       sc_n_kpoints(i) = count_lines(list_file)
       close(list_file)
     endif
@@ -133,11 +139,11 @@ subroutine anharmonic()
   allocate(kpoints(sum(sc_n_kpoints)))
   allocate(sizes(size(kpoints)))
   
-  ! read kpoints from Supercell_*/list.dat
+  ! read kpoints
   j = 1
   do i=1,no_supercells
     if (.not. sc_acoustic(i)) then
-      list_file = open_read_file('Supercell_'//trim(i2s(i))//'/list.dat')
+      list_file = open_read_file(harmonic_path//'/Supercell_'//i//'/list.dat')
       do k=1,sc_n_kpoints(i)
         read(list_file,*) kpoints(j)
         j = j + 1
@@ -146,11 +152,11 @@ subroutine anharmonic()
     endif
   enddo
   
-  ! read no_atoms_sc and no_cells from Supercell_*/super_equilibrium.dat
+  ! read no_atoms_sc and no_cells
   do i=1,no_supercells
     if (.not. sc_acoustic(i)) then
-      sdir = 'Supercell_'//trim(i2s(i))
-      super_file = open_read_file(trim(sdir)//'/super_equilibrium.dat')
+      sdir = str('Supercell_')//i
+      super_file =open_read_file(harmonic_path//sdir//'/super_equilibrium.dat')
       read(super_file,*) no_atoms_sc(i)
       close(super_file)
       no_cells(i) = no_atoms_sc(i)/structure%no_atoms
@@ -164,7 +170,7 @@ subroutine anharmonic()
   allocate(eigenvals(size(kpoints),structure%no_modes,Nbasis))
   
   ! read multiplicity from ibz.dat
-  ibz_file = open_read_file('ibz.dat')
+  ibz_file = open_read_file(harmonic_path//'/ibz.dat')
   allocate(multiplicity(count_lines(ibz_file)))
   do i=1,size(multiplicity)
     read(ibz_file,*) temp_real, temp_real, temp_real, multiplicity(i)
@@ -175,8 +181,8 @@ subroutine anharmonic()
   j=1
   do i=1,no_supercells
     if (.not. sc_acoustic(i)) then
-      sdir = 'Supercell_'//trim(i2s(i))
-      static_energy_file = open_read_file(trim(sdir)//'/static/energy.dat')
+      sdir = str('Supercell_')//i
+      static_energy_file = open_read_file(sdir//'/static/energy.dat')
       read(static_energy_file,*) static_energy
       close(static_energy_file)
       
@@ -189,16 +195,13 @@ subroutine anharmonic()
         
         ! read energies
         do k=1,structure%no_modes
-          k_str = trim(sdir)//'/&
-            &kpoint.'//trim(i2s(kpoint))//'/&
-            &configurations/&
-            &mode.'//trim(i2s(k))//'.'
-          filename = trim(k_str)//trim(i2s(map%first))//'/'//trim(castep)
+          k_str = sdir//'/kpoint.'//kpoint//'/configurations/mode.'//k//'.'
+          filename = k_str//map%first//'/'//castep
           if (file_exists(filename)) then
             do l=map%first,map%last
-              l_str = trim(k_str)//trim(i2s(l))
-              if (file_exists(trim(l_str)//'/'//trim(castep))) then
-                energy_file = open_read_file(trim(l_str)//'/energy.dat')
+              l_str = k_str//l
+              if (file_exists(l_str//'/'//castep)) then
+                energy_file = open_read_file(l_str//'/energy.dat')
                 read(energy_file,*) energies(j,k,l)
                 close(energy_file)
               else
@@ -208,9 +211,9 @@ subroutine anharmonic()
           endif
           
           ! read frequencies
-          k_str = trim(sdir)//'/kpoint.'//trim(i2s(kpoint))
+          k_str = sdir//'/kpoint.'//kpoint
           frequency_file = open_read_file(k_str//'/&
-            &frequency.'//trim(i2s(kpoint))//'.'//trim(i2s(k))//'.dat')
+            &frequency.'//kpoint//'.'//k//'.dat')
           read(frequency_file,*) frequencies(j,k)
           close(frequency_file)
           
@@ -270,14 +273,6 @@ subroutine anharmonic()
   call calculate_anharmonic(multiplicity,structure%no_modes,Nbasis,harmonic,&
     &eigenvals,result_file)
   close(result_file)
-  
-  deallocate(eigenvals)
-  deallocate(harmonic)
-  deallocate(frequencies)
-  deallocate(energies)
-  deallocate(multiplicity)
-  
-  call drop(structure)
 end subroutine
 
 end module

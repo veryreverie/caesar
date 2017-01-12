@@ -80,7 +80,7 @@ subroutine generate_kgrid(filenames)
       if (gvecs_frac(j_frac,i_frac)>0.5d0+tol) then
         gvecs_frac(j_frac,i_frac) = gvecs_frac(j_frac,i_frac)-1.d0
       endif
-    do
+    enddo
   enddo
   
   do i_vec=1,no_gvectors

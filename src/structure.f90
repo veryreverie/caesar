@@ -3,6 +3,7 @@
 ! ======================================================================
 module structure_module
   use constants, only : dp
+  use string_module
   implicit none
   
   ! the structure class
@@ -19,17 +20,22 @@ module structure_module
     real(dp),     allocatable :: rotation_matrices(:,:,:)
     real(dp),     allocatable :: offsets(:,:)
   end type
+  
+  interface read_structure_file
+    module procedure read_structure_file_character
+    module procedure read_structure_file_string
+  end interface
 
-interface drop
-  module procedure drop_structure
-end interface
+  interface drop
+    module procedure drop_structure
+  end interface
   
 contains
 
 ! reads structure.dat
-function read_structure_file(filename) result(output)
-  use utils,          only : count_lines, lower_case
-  use file_io,        only : open_read_file
+function read_structure_file_character(filename) result(output)
+  use utils,          only : lower_case
+  use file_io,        only : open_read_file, count_lines
   use linear_algebra, only : inv_33
   implicit none
   
@@ -129,7 +135,15 @@ function read_structure_file(filename) result(output)
     output%rotation_matrices(3,:,i) = output%symmetries(:,4*i-1)
     output%offsets(:,i)             = output%symmetries(:,4*i)
   enddo
+end function
+
+function read_structure_file_string(filename) result(output)
+  implicit none
   
+  type(String), intent(in) :: filename
+  type(StructureData)      :: output
+  
+  output = read_structure_file(char(filename))
 end function
 
 ! Deallocates a Structure

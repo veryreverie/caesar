@@ -4,6 +4,7 @@
 
 harmonic_path=$( awk '{print $1}' harmonic_path.dat)
 
+no_sc=$( awk '{print $1}' $harmonic_path/no_sc.dat)
 no_sc=$(ls -1d Supercell_* | wc -l)
 seedname=$( awk '{print $1}' seedname.txt )
 sampling_amplitude=$( awk 'NR==1 {print $1}' mapping.dat)
@@ -47,6 +48,6 @@ do
           fi
         done # loop over sampling points per mode
       done # loop over modes
-    done < $sdir/list.dat
+    done < $harmonic_path/$sdir/list.dat
   fi
 done  # Loop over supercells

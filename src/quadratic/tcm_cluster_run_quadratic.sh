@@ -41,13 +41,11 @@ if [ "$code" = "castep" ];then
   do
     sdir=Supercell_$i
 
-    no_atoms_sc=$( awk 'NR==1 {print $1}' $sdir/super_equilibrium.dat )
+    no_atoms_sc=$( awk 'NR==1 {print $1}' \
+       $harmonic_path/$sdir/super_equilibrium.dat )
 
     # Run static first
-    cd $sdir/static
-      rundft nnodes $num_cores
-      rm *.castep_bin *.cst_esp *.usp machine_file *.bib *.orbitals
-    cd -
+    caesar rundft castep $sdir $num_cores
 
     while read fline ; do
       line=($fline)
@@ -61,14 +59,11 @@ if [ "$code" = "castep" ];then
             mkdir $mdir
             cp $kdir/$seedname.param $mdir
             mv $kdir/$seedname.$j.$k.cell $mdir/$seedname.cell
-            cd $mdir
-              rundft nnodes $num_cores 
-              rm *.castep_bin *.cst_esp *.usp machine_file *.bib *.orbitals
-            cd -
+            caesar rundft castep $mdir $num_cores
           fi
         done # loop over sampling points per mode
       done # loop over modes
-    done < $sdir/list.dat
+    done < $harmonic_path/$sdir/list.dat
 
   done
   echo "Done."
@@ -105,14 +100,10 @@ elif [ "$code" = "qe" ]; then
     no_atoms_sc=$( awk 'NR==1 {print $1}' $sdir/super_equilibrium.dat )
 
     # Run static first
-    cd $sdir/static
-      mpirun -np $num_cores /rscratch/bm418/espresso-5.1.1/bin/pw.x -i $seedname.in > $seedname.out
-      if [ -e "$seedname_nscf.in" ];then
-        mv $seedname_nscf.in $seedname.in 
-        mpirun -np $num_cores /rscratch/bm418/espresso-5.1.1/bin/pw.x -i $seedname.in > $seedname_nscf.out
-      fi
-      rm -r $seedname.save
-    cd -
+    caesar rundft qe $sdir/static $num_cores $seedname
+    if [ -e "$sdir/$seedname_nscf.in" ]; then
+      caesar rundft qe $sdir/static $num_cores $seedname_nscf
+    fi
     
     while read line ; do
       line=($fline)
@@ -129,18 +120,14 @@ elif [ "$code" = "qe" ]; then
               mv $kdir/$seedname_nscf.$j.$k.in $mdir
             fi
             cp $kdir/*UPF $mdir
-            cd $mdir
-              mpirun -np $num_cores /rscratch/bm418/espresso-5.1.1/bin/pw.x -i $seedname.in > $seedname.out
-              if [ -e "$seedname_nscf.in" ];then
-                mv $seedname_nscf.$j.$k.in $seedname.in 
-                mpirun -np $num_cores /rscratch/bm418/espresso-5.1.1/bin/pw.x -i $seedname.in > $seedname_nscf.out
-              fi
-              rm -r $seedname.save
-            cd -
+            caesar rundft qe $mdir $num_cores $seedname
+            if [ -e "$mdir/$seedname_nscf.in" ]; then
+              caesar rundft qe $mdir $num_cores $seedname_nscf
+            fi
           fi
         done # loop over sampling points per mode
       done # loop over modes
-    done < $sdir/list.dat
+    done < $harmonic_path/$sdir/list.dat
   done
   echo "Done."
   

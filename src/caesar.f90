@@ -1,8 +1,10 @@
 program caesar
   use constants, only : dp
   use utils,     only : command_line_args, i2s
-  use process,   only : ProcessResult, system_process
   use file_io,   only : open_write_file, open_read_file
+  
+  use string_module
+  use rundft_module, only : rundft
   
   ! use harmonic modules
   use combine_forces_module,        only : combine_forces
@@ -23,15 +25,11 @@ program caesar
   ! use quadratic modules
   use anharmonic_module,           only : anharmonic
   use band_folding_module,         only : band_folding
-!  use calculate_anharmonic_module, only : calculate_anharmonic
   use calculate_bs_module,         only : calculate_bs
   use calculate_gap_module,        only : calculate_gap
-!  use generate_amplitudes_module,  only : generate_amplitudes
   use generate_quadratic_configurations_module,&
     &only : generate_quadratic_configurations
   use generate_sc_path_module,     only : generate_sc_path
-!  use quadratic_spline_module,     only : quadratic_spline
-!  use vscf_1d_module,              only : vscf_1d
   
   implicit none
   
@@ -43,6 +41,11 @@ program caesar
   
   ! lte variables
   real(dp) :: tol,tol2,delta
+  
+  ! testing variables
+  type(String) :: temp_string
+  type(String) :: temp_string2
+  type(String) :: temp_string3
   
   ! read in command line arguments
   args = command_line_args()
@@ -118,13 +121,17 @@ program caesar
     write(*,*) '    [Help text pending]'
   ! test
   elseif (arg == 'test') then
-    i=1
-    do return_status=1,10
-      write(*,*) 'Testing: no.loops = '//trim(i2s(return_status))
-      do i=i,i+return_status-1
-        write(*,*) 'i = '//trim(i2s(i))
-      enddo
-    enddo
+    temp_string = 'test'
+    write(*,*) char(temp_string)
+    temp_string = 'test2'
+    write(*,*) char(temp_string)
+    temp_string2 = temp_string
+    write(*,*) char(temp_string2)
+    temp_string2 = 12
+    write(*,*) char(temp_string2)
+    temp_string3 = temp_string//' '//temp_string2//' '//143
+    write(*,*) char(temp_string3)
+    call drop(temp_string)
   ! Wrappers for Fortran 
   elseif (arg == 'band_folding') then
     call band_folding(args(2:))
@@ -164,6 +171,8 @@ program caesar
     call lte(tol,tol2,delta,args(5),args(6),args(7),args(8),args(9),args(10),&
       & args(11),args(12),args(13),args(14),args(15),args(16),args(17),      &
       & args(18),args(19))
+  elseif (arg == 'rundft') then
+    call rundft(args(2:))
   ! wrappers for shell scripts
   elseif (arg == 'anharmonic') then
     return_status = system(arg//'.sh '//trim(argstring))

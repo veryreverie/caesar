@@ -6,8 +6,7 @@ contains
 ! are equal
 subroutine compare_kpoints(filenames)
   use constants, only : dp
-  use file_io,   only : open_read_file, open_write_file
-  use utils,     only : count_lines
+  use file_io,   only : open_read_file, open_write_file, count_lines
   implicit none
   
   character(100), intent(in) :: filenames(:)
@@ -48,7 +47,7 @@ subroutine compare_kpoints(filenames)
         kpoint(j,i) = kpoint(j,i)-1.d0
       endif
     enddo
-  do j=1,3
+  enddo
   
   ! read gvectors_frac_file
   gvectors_frac_file = open_read_file(filenames(2))
@@ -65,8 +64,8 @@ subroutine compare_kpoints(filenames)
       if (gvec_frac(j,i)>0.5d0+tol) then
         gvec_frac(j,i) = gvec_frac(j,i)-1.d0
       endif
-    do j=1,3
-  do j=1,3
+    enddo
+  enddo
   
   list_file = open_write_file(filenames(3))
   do i=1,no_gvectors

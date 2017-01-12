@@ -1,19 +1,24 @@
 ! Program to generate configurations along normal modes
-
 module generate_quadratic_configurations_module
 contains
 
 subroutine generate_quadratic_configurations(args)
   use constants, only : dp,thermal
   use file_io,   only : open_read_file, open_write_file
+  use string_module
   implicit none
   
   character(*), intent(in) :: args(:)
   
   ! file units
-  integer :: super_eqm_file     ! super_equilibrium.dat
-  integer :: disp_patt_file     ! disp_patterns_temp.dat
-  integer :: positions_file     ! positions.dat
+  integer :: super_eqm_file
+  integer :: disp_patt_file
+  integer :: positions_file
+  
+  ! filenames
+  type(String) :: super_equilibrium_filename
+  type(String) :: disp_patterns_filename
+  type(String) :: positions_filename
 
   ! Input variables
   integer :: sampling_point,no_sampling_points,no_atoms
@@ -29,12 +34,15 @@ subroutine generate_quadratic_configurations(args)
   ! temporary variables
   integer       :: i
   
-  ! read non-filename input arguments
+  ! read input arguments
   read(args(1),*) max_amplitude
   read(args(2),*) sampling_point
   read(args(3),*) no_sampling_points
   read(args(4),*) frequency
   read(args(5),*) frequency_line
+  super_equilibrium_filename = args(6)
+  disp_patterns_filename = args(7)
+  positions_filename = args(8)
   
   ! Number of sampling points as read in is last_point-first_point, but we only
   ! want number of sampling points on each side of 0, as sampling_point goes
@@ -45,7 +53,7 @@ subroutine generate_quadratic_configurations(args)
   frequency = dabs(frequency)
   
   ! Read in atoms
-  super_eqm_file = open_read_file(args(6))
+  super_eqm_file = open_read_file(super_equilibrium_filename)
   read(super_eqm_file,*) no_atoms
   allocate(atoms(no_atoms,3),mass(no_atoms),species(no_atoms))
   allocate(disp_patt(no_atoms,4))
@@ -55,7 +63,7 @@ subroutine generate_quadratic_configurations(args)
   close(super_eqm_file)
   
   ! Read in displacement pattern
-  disp_patt_file = open_read_file(args(7))
+  disp_patt_file = open_read_file(disp_patterns_filename)
   do i=1,frequency_line+2
     read(disp_patt_file,*) ! scroll forwards to the relevant lines
   enddo
@@ -84,11 +92,9 @@ subroutine generate_quadratic_configurations(args)
           & * quad_amplitude
   
   ! Write out displacement pattern
-  positions_file = open_write_file(args(8))
+  positions_file = open_write_file(positions_filename)
   do i=1,no_atoms
-    positions(1)=atoms(i,1)+amplitude*disp_patt(i,1)*disp_patt(i,4)
-    positions(2)=atoms(i,2)+amplitude*disp_patt(i,2)*disp_patt(i,4)
-    positions(3)=atoms(i,3)+amplitude*disp_patt(i,3)*disp_patt(i,4)
+    positions = atoms(i,:) + amplitude*disp_patt(i,1:3)*disp_patt(i,4:6)
     write(positions_file,*) species(i),mass(i),positions(:)
   enddo ! i
   close(positions_file)

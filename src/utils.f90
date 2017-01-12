@@ -169,42 +169,6 @@ function command_line_args() result(args)
 end function
 
 ! ----------------------------------------------------------------------
-! Checks if a file exists
-! ----------------------------------------------------------------------
-function file_exists(filename) result(output)
-  implicit none
-  
-  character(*), intent(in) :: filename
-  logical                  :: output
-  
-  inquire(file=filename, exist=output)
-end function
-
-
-! ----------------------------------------------------------------------
-! Gets the number of lines remaining in a file
-! Rewinds the file back to beginning
-! ----------------------------------------------------------------------
-function count_lines(file_unit) result(output)
-  implicit none
-  
-  integer, intent(in) :: file_unit
-  integer             :: output
-  
-  integer       :: eof_reached
-  character(80) :: line
-  
-  output = 0
-  do while (eof_reached==0)
-    read(file_unit, *, iostat=eof_reached) line
-    if (eof_reached==0) then
-      output = output+1
-    endif
-  enddo
-  rewind(file_unit)
-end function
-
-! ----------------------------------------------------------------------
 ! Converts a string to lower case
 ! ----------------------------------------------------------------------
 function lower_case(input) result(output)

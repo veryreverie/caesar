@@ -17,7 +17,7 @@ read band_degeneracy
 
 harmonic_path=$( awk '{print $1}' harmonic_path.dat)
 
-no_sc=$(ls -1d Supercell_* | wc -l)
+no_sc=$( awk '{print $1}' no_sc.dat)
 
 sampling_point_amplitude=$( awk 'NR==1 {print $1}' mapping.dat)
 sampling_point_init=$( awk 'NR==2 {print $1}' mapping.dat)
@@ -56,7 +56,8 @@ for i in `seq 1 $no_sc`;do
   
   # Collect quadratic results
   no_kpoints=$(ls -1d $sdir/kpoint.* | wc -l)
-  no_atoms_sc=$(awk 'NR==1 {print}' $sdir/super_equilibrium.dat)
+  no_atoms_sc=$(awk 'NR==1 {print}' \
+     $harmonic_path/$sdir/super_equilibrium.dat)
   sc_size=$(( $(( $no_atoms_sc/$no_atoms )) | bc ))
   
   # Loop over k-points
@@ -81,13 +82,13 @@ for i in `seq 1 $no_sc`;do
 done
 
 # Calculatee renormalised band
-no_kpoints=$( wc -l < ibz.dat  )
+no_kpoints=$( wc -l < $harmonic_path/ibz.dat  )
 for i in `seq 1 $no_kpoints`; do
   for j in `seq 1 $no_modes`; do
     if [ -e "bs/bs.$i.$j.$sampling_point_init.dat" ];then
-      cat bs/bs.$i.$j.$sampling_point_init.dat > bs/bs/$i.$j.dat
+      cat bs/bs.$i.$j.$sampling_point_init.dat   > bs/bs/$i.$j.dat
       cat bs/bs.$i.$j.$sampling_point_final.dat >> bs/bs.$i.$j.dat            
-      echo $band_energy >> bs/bs.$i.$j.dat
+      echo $band_energy                         >> bs/bs.$i.$j.dat
       rm bs/bs.$i.$j.$sampling_point_init.dat
       rm bs/bs.$i.$j.$sampling_point_final.dat
     fi
@@ -99,7 +100,7 @@ caesar calculate_bs               \
        $no_modes                  \
        $band_degeneracy           \
        $sampling_point_amplitude  \
-       ibz.dat                    \
+       $harmonic_path/ibz.dat     \
        bs                         \
        bs/band_gap_correction.dat \
        bs/bg_correction_kp.dat

@@ -228,10 +228,11 @@ end subroutine minkowski_reduce
 
 subroutine generate_supercells(args)
   use constants,        only : dp
-  use utils,            only : count_lines, i2s
+  use utils,            only : i2s
   use linear_algebra,   only : inv_33
-  use file_io,          only : open_read_file, open_write_file
-  use structure_module, only : StructureData, read_structure_file, drop
+  use file_io,          only : open_read_file, open_write_file, count_lines
+  
+  use structure_module
   implicit none
   
   ! inputs

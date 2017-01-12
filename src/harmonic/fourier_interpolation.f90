@@ -469,12 +469,11 @@ subroutine fourier_interpolation(structure_filename,                          &
    & ibz_filename,kpoint_to_supercell_filename,                               &
    & atoms_in_primitive_cell_fileroot,dyn_mat_fileroot,path_filename)
   use constants
-  use utils, only : count_lines
   use linear_algebra
   use min_images
   use symmetry
   use phonon
-  use file_io,          only : open_read_file
+  use file_io,          only : open_read_file, count_lines
   use structure_module, only : StructureData, read_structure_file, drop
   implicit none
   

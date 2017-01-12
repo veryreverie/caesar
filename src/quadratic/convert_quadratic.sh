@@ -6,7 +6,7 @@
 
 harmonic_path=$( awk '{print $1}' harmonic_path.dat)
 
-no_sc=$(ls -1d Supercell_* | wc -l)
+no_sc=$( awk '{print $1}' $harmonic_path/no_sc.dat)
 sampling_amplitude=$( awk 'NR==1 {print $1}' mapping.dat)
 sampling_point_init=$( awk 'NR==2 {print $1}' mapping.dat)
 sampling_point_final=$( awk 'NR==2 {print $2}' mapping.dat)
@@ -53,17 +53,17 @@ if [ "$code" = "castep" ];then
   # Loop over supercells
   for (( i=1; i<=$no_sc; i++ )) do
     sdir=Supercell_$i
-    no_atoms_sc=$( awk 'NR==1 {print $1}' $sdir/super_equilibrium.dat )
+    no_atoms_sc=$( awk 'NR==1 {print $1}' \
+       $harmonic_path/$sdir/super_equilibrium.dat )
   
     echo "Converting supercell" $i
     
     static_dir=$sdir/static
     cp castep/* $static_dir
     if [ "$bs_calculateion" -eq "1" ]; then
-      cp $sdir/supercell.dat $static_dir
-      caesar generate_sc_path          \
-             $static_dir/supercell.dat \
-             $static_dir/bs_path.dat   \
+      caesar generate_sc_path                   \
+             $harmonic_path/$sdir/supercell.dat \
+             $static_dir/bs_path.dat            \
              $static_dir/sc_bs_path.dat
     fi
     caesar structure_to_castep        \
@@ -93,7 +93,7 @@ if [ "$code" = "castep" ];then
       done
       
       rm $kdir/$seedname.cell
-    done < $sdir/list.dat
+    done < $harmonic_path/$sdir/list.dat
   done
   echo "Done."
 
@@ -105,9 +105,8 @@ elif [ "$code" = "vasp" ]; then
   fi 
   
   # Loop over supercells
-  no_sc=$(ls -1d Supercell_* | wc -l)
   kpoint_counter=1
-  for (( i=1; i<=$no_sc; i++ )) do
+  for i in $(seq 1 $no_sc); do
     sdir=Supercell_$i
 
     echo "Converting supercell" $i
@@ -116,7 +115,7 @@ elif [ "$code" = "vasp" ]; then
     cp vasp/INCAR* $static_dir
     cp vasp/POTCAR $static_dir
     cp vasp/KPOINTS.band $static_dir
-    cp $sdir/KPOINTS.$i $static_dir/KPOINTS
+    cp $harmonic_path/$sdir/KPOINTS.$i $static_dir/KPOINTS
     cp vasp/mpi_submit_static.sh $static_dir
     caesar structure_to_vasp         \
            $static_dir/structure.dat \
@@ -124,14 +123,13 @@ elif [ "$code" = "vasp" ]; then
     
     # Loop over k-points
     no_kpoints=$(ls -1d kpoint.* | wc -l)
-    for (( j=$kpoint_counter; j<=$(( $kpoint_counter+($no_kpoints-1) )); j++ )) do
+    for j in $(seq $kpoint_counter $(( $kpoint_counter+($no_kpoints-1) ))); do
       kdir=$sdir/kpoint.$j/configurations
-      cp $sdir/kpoint.$j/mapping.dat $kdir
       cp vasp/INCAR* $kdir
       cp vasp/POTCAR $kdir
       cp vasp/KPOINTS.band $kdir
       cp vasp/mpi_submit_quadratic.sh $kdir
-      cp $sdir/KPOINTS.$i $kdir/KPOINTS
+      cp $harmonic_path/$sdir/KPOINTS.$i $kdir/KPOINTS
       
       # Loop over number of modes
       for (( k=1; k<=$no_modes; k++ )) do
@@ -171,24 +169,24 @@ elif [ "$code" = "qe" ];then
   for (( i=1; i<=$no_sc; i++ )) do
     sdir=Supercell_$i
     
-    no_atoms_sc=$( awk 'NR==1 {print $1}' $sdir/super_equilibrium.dat )
+    no_atoms_sc=$( awk 'NR==1 {print $1}' \
+       $harmonic_path/$sdir/super_equilibrium.dat )
 
     echo "Converting supercell" $i
 
     # Generate supercell k-point mesh
-    cp qe/kpoints.in $sdir
-    cp qe/kpoints.nscf.in $sdir
-    caesar generate_supercell_kpoint_mesh_qe \
-           $sdir/kpoints.in                  \
-           $harmonic_path/structure.dat      \
-           $sdir/super_lattice.dat           \
+    caesar generate_supercell_kpoint_mesh_qe      \
+           qe/kpoints.in                          \
+           $harmonic_path/structure.dat           \
+           $harmonic_path/$sdir/super_lattice.dat \
            $sdir/sc_kpoints.dat
-    header=$(awk 'NR==1,NR==1 {print}' $sdir/kpoints.in)
-    echo $header > $sdir/kpoints.in
-    cat $sdir/sc_kpoints.dat >> $sdir/kpoints.in
-    header=$(awk 'NR==1,NR==1 {print}' $sdir/kpoints.nscf.in)
-    echo $header > $sdir/kpoints.nscf.in
-    cat $sdir/sc_kpoints.nscf.dat >> $sdir/kpoints.nscf.in
+    
+    awk 'NR==1,NR==1 {print}' qe/kpoints.in  > $sdir/kpoints.in
+    cat $sdir/sc_kpoints.dat                >> $sdir/kpoints.in
+    
+    awk 'NR==1,NR==1 {print}' qe/kpoints.nscf.in  > $sdir/kpoints.nscf.in
+    cat $sdir/sc_kpoints.nscf.dat                >> $sdir/kpoints.nscf.in
+    # TODO : sc_kpoints.nscf.dat is never created
 
     static_dir=$sdir/static
     cp qe/* $static_dir
@@ -249,7 +247,7 @@ elif [ "$code" = "qe" ];then
         rm $kdir/$seedname_nscf.in
       fi
 
-    done < $sdir/list.dat
+    done < $harmonic_path/$sdir/list.dat
 
   done
   echo "Done."

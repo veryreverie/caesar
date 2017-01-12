@@ -36,10 +36,7 @@ if [ "$code" = "castep" ];then
       paths=(positive negative)
       for path in ${paths[@]}; do
         dir=$sdir/atom.$atom.disp.$disp/$path
-        cd $dir
-          rundft nnodes $num_cores
-          rm *.castep_bin *.cst_esp *.usp machine_file *.bands *.bib
-        cd -
+        caesar rundft castep $dir $num_cores
         caesar fetch_forces_castep \
                $dir/$seedname.castep    \
                $dir/structure.dat       \
@@ -90,18 +87,14 @@ elif [ "$code" = "qe" ]; then
       
       paths=(positive negative)
       for path in ${paths[@]}; do
-        cd $sdir/atom.$atom.disp.$disp/path
-        pwd
-        echo $seedname
-        mpirun -np $num_cores /rscratch/bm418/espresso-5.1.1/bin/pw.x -i $seedname.in > $seedname.out
-        rm -r $seedname.save
-        caesar fetch_forces_qe \
-               $seedname.out   \
-               structure.dat   \
-               $atom           \
-               $disp           \
-               forces.out
-        cd -
+        dir=$sdir/atom.$atom.disp.$disp/path
+        caesar rundft qe $dir $num_cores $seedname
+        caesar fetch_forces_qe      \
+               $dir/$seedname.out   \
+               $dir/structure.dat   \
+               $atom                \
+               $disp                \
+               $dir/forces.out
       done
 
     done < $sdir/force_constants.dat
