@@ -4,16 +4,18 @@ contains
 
 ! returns the id of the band closest to band_ref
 subroutine band_folding(args)
-  use utils,   only : i2s
-  use file_io, only : open_read_file, open_write_file
+  use constants, only : dp
+  use utils,     only : i2s
+  use file_io,   only : open_read_file, open_write_file
+  use string_module
   implicit none
   
-  character(100), intent(in) :: args(:)
+  type(String), intent(in) :: args(:)
   
   ! Working variables
   integer :: i,iref
   real,allocatable :: bands(:)
-  real :: band_ref
+  real(dp) :: band_ref
   integer :: no_bands
   character(100) :: input_file, output_file
   
@@ -21,8 +23,8 @@ subroutine band_folding(args)
   integer :: ifile, ofile
   
   input_file = args(1)
-  read(args(2),*) band_ref
-  read(args(3),*) no_bands
+  band_ref = dble(args(2))
+  no_bands = int(args(3))
   output_file = args(4)
   
   allocate(bands(no_bands))

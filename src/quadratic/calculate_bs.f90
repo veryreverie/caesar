@@ -6,10 +6,11 @@ subroutine calculate_bs(args)
   use constants, only : dp, kB
   use utils,     only : i2s
   use file_io,   only : open_read_file, open_write_file
+  use string_module
   implicit none
   
   ! input variables
-  character(100), intent(in) :: args(:)
+  type(String), intent(in) :: args(:)
   
   ! Parameters
   real(dp), parameter :: dtemperature = 50.0d0
@@ -42,10 +43,10 @@ subroutine calculate_bs(args)
   integer :: bck_file
   
   ! Process inputs
-  read(args(1),*) no_kpoints
-  read(args(2),*) no_modes
-  read(args(3),*) degeneracy
-  read(args(4),*) mapping_amplitude
+  no_kpoints = int(args(1))
+  no_modes = int(args(2))
+  degeneracy = int(args(3))
+  mapping_amplitude = dble(args(4))
   ibz_filename = args(5)
   in_dir = args(6)
   band_gap_correction_filename = args(7)

@@ -8,9 +8,10 @@ subroutine generate_supercell_kpoint_mesh_qe(filenames)
   use linear_algebra,   only : inv_33
   use file_io,          only : open_read_file, open_write_file
   use structure_module, only : StructureData, read_structure_file, drop
+  use string_module
   implicit none
   
-  character(100), intent(in) :: filenames(:)
+  type(String), intent(in) :: filenames(:)
   
   ! Working variables
   integer :: i

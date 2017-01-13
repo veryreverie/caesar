@@ -7,7 +7,7 @@ subroutine rundft(args)
   use string_module
   implicit none
   
-  character(100), intent(in) :: args(:)
+  type(String), intent(in) :: args(:)
   
   type(String) :: codename
   type(String) :: directory

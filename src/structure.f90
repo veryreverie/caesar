@@ -63,8 +63,8 @@ function read_structure_file_character(filename) result(output)
   file_unit = open_read_file(filename)
   file_length = count_lines(file_unit)
   do i=1,file_length
-    read(file_unit,*) line
-    line = lower_case(line)
+    read(file_unit,"(a)") line
+    line = lower_case(trim(line))
     if (line=="lattice") then
       lattice_line = i
     elseif (line=="atoms") then

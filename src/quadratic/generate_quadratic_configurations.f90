@@ -8,7 +8,7 @@ subroutine generate_quadratic_configurations(args)
   use string_module
   implicit none
   
-  character(*), intent(in) :: args(:)
+  type(String), intent(in) :: args(:)
   
   ! file units
   integer :: super_eqm_file
@@ -35,11 +35,11 @@ subroutine generate_quadratic_configurations(args)
   integer       :: i
   
   ! read input arguments
-  read(args(1),*) max_amplitude
-  read(args(2),*) sampling_point
-  read(args(3),*) no_sampling_points
-  read(args(4),*) frequency
-  read(args(5),*) frequency_line
+  max_amplitude = dble(args(1))
+  sampling_point = int(args(2))
+  no_sampling_points = int(args(3))
+  frequency = dble(args(4))
+  frequency_line = int(args(5))
   super_equilibrium_filename = args(6)
   disp_patterns_filename = args(7)
   positions_filename = args(8)

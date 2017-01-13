@@ -232,11 +232,12 @@ subroutine generate_supercells(args)
   use linear_algebra,   only : inv_33
   use file_io,          only : open_read_file, open_write_file, count_lines
   
+  use string_module
   use structure_module
   implicit none
   
   ! inputs
-  character(100), intent(in) :: args(:)
+  type(String), intent(in) :: args(:)
   
   ! parameters
   real(dp),parameter :: tol=1.d-10

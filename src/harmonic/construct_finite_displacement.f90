@@ -5,9 +5,10 @@ contains
 subroutine construct_finite_displacement(args)
   use constants, only : dp
   use file_io,   only : open_read_file, open_write_file
+  use string_module
   implicit none
   
-  character(100), intent(in) :: args(:)
+  type(String), intent(in) :: args(:)
   
   ! Input variables
   integer :: atom,disp,no_atoms
@@ -24,8 +25,8 @@ subroutine construct_finite_displacement(args)
   integer :: i ! loop index
 
   ! Read in displacement
-  read(args(1),*) atom
-  read(args(2),*) disp
+  atom = int(args(1))
+  disp = int(args(2))
   
   ! Read in structure
   super_lattice_file = open_read_file(args(3))

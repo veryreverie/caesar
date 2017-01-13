@@ -5,9 +5,10 @@ contains
 subroutine combine_forces(filenames)
   use constants, only : dp, eV_per_A_to_au
   use file_io,   only : open_read_file, open_write_file
+  use string_module
   implicit none
   
-  character(100), intent(in) :: filenames(:)
+  type(String), intent(in) :: filenames(:)
   
   real(dp),allocatable :: positive(:),negative(:)
   integer,allocatable :: atom1(:),disp1(:),atom2(:),disp2(:)

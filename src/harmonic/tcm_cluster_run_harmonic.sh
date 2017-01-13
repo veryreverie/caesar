@@ -37,11 +37,11 @@ if [ "$code" = "castep" ];then
       for path in ${paths[@]}; do
         dir=$sdir/atom.$atom.disp.$disp/$path
         caesar rundft castep $dir $num_cores
-        caesar fetch_forces_castep \
-               $dir/$seedname.castep    \
-               $dir/structure.dat       \
-               $atom                    \
-               $disp                    \
+        caesar fetch_forces_castep   \
+               $dir/$seedname.castep \
+               $dir/structure.dat    \
+               $atom                 \
+               $disp                 \
                $dir/forces.dat
       done
   
@@ -91,7 +91,6 @@ elif [ "$code" = "qe" ]; then
         caesar rundft qe $dir $num_cores $seedname
         caesar fetch_forces_qe      \
                $dir/$seedname.out   \
-               $dir/structure.dat   \
                $atom                \
                $disp                \
                $dir/forces.out

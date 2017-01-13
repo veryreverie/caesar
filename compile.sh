@@ -38,9 +38,9 @@ cp $sdir/quadratic/*.py $bdir/
 
 # list programs
 # programs should be added so they are to the right of their dependencies
-programs=(constants string utils linear_algebra rand_no_gen file process moller_plesset structure rundft)
+programs=(constants string utils linear_algebra rand_no_gen file process moller_plesset structure rundft qe_output_file)
 
-harmonic_programs=(combine_forces compare_kpoints construct_finite_displacement construct_matrix_force_cnsts construct_supercell equilibrium_frac min_images symmetry fourier_interpolation generate_kgrid generate_supercell_kpoint_mesh_qe generate_supercells lte hartree_to_eV)
+harmonic_programs=(combine_forces compare_kpoints construct_finite_displacement construct_matrix_force_cnsts construct_supercell equilibrium_frac min_images symmetry fourier_interpolation generate_kgrid generate_supercell_kpoint_mesh_qe generate_supercells lte hartree_to_eV fetch_forces_qe)
 
 quadratic_programs=(mapping band_folding calculate_anharmonic calculate_bs calculate_gap generate_amplitudes generate_quadratic_configurations generate_sc_path quadratic_spline vscf_1d anharmonic)
 

@@ -5,9 +5,10 @@ contains
 subroutine generate_sc_path(filenames)
   use constants, only : dp
   use file_io,   only : open_read_file, open_write_file
+  use string_module
   implicit none
   
-  character(100), intent(in) :: filenames(:)
+  type(String), intent(in) :: filenames(:)
   
   integer :: i,no_points
   integer :: supercell(3,3)

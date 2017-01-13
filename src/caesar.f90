@@ -38,11 +38,9 @@ program caesar
   
   implicit none
   
-  integer                      :: i             ! loop index
-  character(100),  allocatable :: args(:)       ! command line arguments
-  character(:),    allocatable :: arg           ! command line argument
-  character(1000), allocatable :: argstring     ! command line arguments
-  integer                      :: return_status ! system() status
+  integer                   :: i             ! loop index
+  type(String), allocatable :: args(:)       ! command line arguments
+  type(String)              :: argstring     ! command line arguments
   
   ! lte variables
   real(dp) :: tol,tol2,delta
@@ -51,25 +49,23 @@ program caesar
   type(String) :: temp_string
   type(String) :: temp_string2
   type(String) :: temp_string3
+  real(dp)     :: temp_real
+  real(dp)     :: temp_real2
   
   ! read in command line arguments
   args = command_line_args()
   
-  argstring = ''
-  do i=2,size(args)
-    argstring = trim(argstring)//' '//args(i)
-  enddo
-  
   if (size(args) == 0) then
     write(*,*) 'No arguments given. For help, call caesar -h'
-    deallocate(args)
     stop
-  else
-    allocate(character(len=len(trim(args(1)))) :: arg)
-    arg = trim(args(1))
   endif
   
-  if (arg == '-h' .or. arg == '--help') then
+  argstring = ''
+  do i=2,size(args)
+    argstring = argstring//' '//args(i)
+  enddo
+  
+  if (args(1) == '-h' .or. args(1) == '--help') then
     write(*,*) 'caesar [-h] [option]'
     write(*,*) ''
     write(*,*) '-h :'
@@ -125,7 +121,7 @@ program caesar
     write(*,*) '  calculate_gap'
     write(*,*) '    [Help text pending]'
   ! test
-  elseif (arg == 'test') then
+  elseif (args(1) == 'test') then
     temp_string = 'test'
     write(*,*) char(temp_string)
     temp_string = 'test2'
@@ -137,97 +133,101 @@ program caesar
     temp_string3 = temp_string//' '//temp_string2//' '//143
     write(*,*) char(temp_string3)
     call drop(temp_string)
+    temp_real = huge(1.d0)
+    temp_real = -1.21313852748395029384e25
+    temp_string = temp_real
+    write(*,*) temp_real
+    write(*,*) char(temp_string)
+    temp_real2 = dble(temp_string)
+    write(*,*) temp_real2
   ! Wrappers for Fortran 
-  elseif (arg == 'band_folding') then
+  elseif (args(1) == 'band_folding') then
     call band_folding(args(2:))
-  elseif (arg == 'calculate_bs') then
+  elseif (args(1) == 'calculate_bs') then
     call calculate_bs(args(2:))
-  elseif (arg == 'calculate_gap') then
+  elseif (args(1) == 'calculate_gap') then
     call calculate_gap()
-  elseif (arg == 'combine_forces') then
+  elseif (args(1) == 'combine_forces') then
     call combine_forces(args(2:))
-  elseif (arg == 'compare_kpoints') then
+  elseif (args(1) == 'compare_kpoints') then
     call compare_kpoints(args(2:))
-  elseif (arg == 'construct_finite_displacement') then
+  elseif (args(1) == 'construct_finite_displacement') then
     call construct_finite_displacement(args(2:))
-  elseif (arg == 'construct_matrix_force_cnsts') then
+  elseif (args(1) == 'construct_matrix_force_cnsts') then
     call construct_matrix_force_cnsts(args(2:))
-  elseif (arg == 'construct_supercell') then
+  elseif (args(1) == 'construct_supercell') then
     call construct_supercell(args(2:))
-  elseif (arg == 'equilibrium_frac') then
+  elseif (args(1) == 'equilibrium_frac') then
     call equilibrium_frac(args(2:))
-  elseif (arg == 'fourier_interpolation') then
+  elseif (args(1) == 'fourier_interpolation') then
     call fourier_interpolation(args(2),args(3),args(4),args(5),args(6),args(7),&
       & args(8),args(9),args(10),args(11),args(12),args(13))
-  elseif (arg == 'generate_kgrid') then
+  elseif (args(1) == 'generate_kgrid') then
     call generate_kgrid(args(2:))
-  elseif (arg == 'generate_quadratic_configurations') then
+  elseif (args(1) == 'generate_quadratic_configurations') then
     call generate_quadratic_configurations(args(2:))
-  elseif (arg == 'generate_sc_path') then
+  elseif (args(1) == 'generate_sc_path') then
     call generate_sc_path(args(2:))
-  elseif (arg == 'generate_supercell_kpoint_mesh_qe') then
+  elseif (args(1) == 'generate_supercell_kpoint_mesh_qe') then
     call generate_supercell_kpoint_mesh_qe(args(2:))
-  elseif (arg == 'generate_supercells') then
+  elseif (args(1) == 'generate_supercells') then
     call generate_supercells(args(2:))
-  elseif (arg == 'hartree_to_eV') then
+  elseif (args(1) == 'hartree_to_eV') then
     call hartree_to_eV()
-  elseif (arg == 'lte') then
-    read(args(2),*) tol
-    read(args(3),*) tol2
-    read(args(4),*) delta
-    call lte(tol,tol2,delta,args(5),args(6),args(7),args(8),args(9),args(10),&
-      & args(11),args(12),args(13),args(14),args(15),args(16),args(17),      &
-      & args(18),args(19))
-  elseif (arg == 'rundft') then
+  elseif (args(1) == 'lte') then
+    tol = dble(args(2))
+    tol2 = dble(args(3))
+    delta = dble(args(4))
+    call lte(tol,tol2,delta,char(args(5)),char(args(6)),char(args(7)), &
+      & char(args(8)),char(args(9)),char(args(10)),char(args(11)),     &
+      & char(args(12)),char(args(13)),char(args(14)),char(args(15)),   &
+      & char(args(16)),char(args(17)),char(args(18)),char(args(19)))
+  elseif (args(1) == 'rundft') then
     call rundft(args(2:))
+  elseif (args(1) == 'fetch_forces_qe') then
+    call fetch_forces_qe(args(2),int(args(3)),int(args(4)),args(5))
   ! wrappers for shell scripts
-  elseif (arg == 'anharmonic') then
-    return_status = system(arg//'.sh '//trim(argstring))
-  elseif (arg == 'bs_quadratic') then
-    return_status = system(arg//'.sh '//trim(argstring))
-  elseif (arg == 'clear_all') then
-    return_status = system(arg//'.sh '//trim(argstring))
-  elseif (arg == 'convert_harmonic') then
-    return_status = system(arg//'.sh '//trim(argstring))
-  elseif (arg == 'convert_quadratic') then
-    return_status = system(arg//'.sh '//trim(argstring))
-  elseif (arg == 'eigenval_castep_to_bands') then
-    return_status = system(arg//'.sh '//trim(argstring))
-  elseif (arg == 'eigenval_vasp_to_bands') then
-    return_status = system(arg//'.sh '//trim(argstring))
-  elseif (arg == 'fetch_forces_castep') then
-    return_status = system(arg//'.sh '//trim(argstring))
-  elseif (arg == 'fetch_forces_qe') then
-    return_status = system(arg//'.sh '//trim(argstring))
-  elseif (arg == 'lte_harmonic') then
-    return_status = system(arg//'.sh '//trim(argstring))
-  elseif (arg == 'setup_harmonic') then
-    return_status = system(arg//'.sh '//trim(argstring))
-  elseif (arg == 'setup_quadratic') then
-    return_status = system(arg//'.sh '//trim(argstring))
-  elseif (arg == 'structure_to_castep') then
-    return_status = system(arg//'.sh '//trim(argstring))
-  elseif (arg == 'structure_to_qe') then
-    return_status = system(arg//'.sh '//trim(argstring))
-  elseif (arg == 'structure_to_vasp') then
-    return_status = system(arg//'.sh '//trim(argstring))
-  elseif (arg == 'tcm_cleanup_anharmonic') then
-    return_status = system(arg//'.sh '//trim(argstring))
-  elseif (arg == 'tcm_cleanup_bs') then
-    return_status = system(arg//'.sh '//trim(argstring))
-  elseif (arg == 'tcm_cluster_run_harmonic') then
-    return_status = system(arg//'.sh '//trim(argstring))
-  elseif (arg == 'tcm_cluster_run_quadratic') then
-    return_status = system(arg//'.sh '//trim(argstring))
+  elseif (args(1) == 'anharmonic') then
+    call system(args(1)//'.sh '//argstring)
+  elseif (args(1) == 'bs_quadratic') then
+    call system(args(1)//'.sh '//argstring)
+  elseif (args(1) == 'clear_all') then
+    call system(args(1)//'.sh '//argstring)
+  elseif (args(1) == 'convert_harmonic') then
+    call system(args(1)//'.sh '//argstring)
+  elseif (args(1) == 'convert_quadratic') then
+    call system(args(1)//'.sh '//argstring)
+  elseif (args(1) == 'eigenval_castep_to_bands') then
+    call system(args(1)//'.sh '//argstring)
+  elseif (args(1) == 'eigenval_vasp_to_bands') then
+    call system(args(1)//'.sh '//argstring)
+  elseif (args(1) == 'fetch_forces_castep') then
+    call system(args(1)//'.sh '//argstring)
+  elseif (args(1) == 'lte_harmonic') then
+    call system(args(1)//'.sh '//argstring)
+  elseif (args(1) == 'setup_harmonic') then
+    call system(args(1)//'.sh '//argstring)
+  elseif (args(1) == 'setup_quadratic') then
+    call system(args(1)//'.sh '//argstring)
+  elseif (args(1) == 'structure_to_castep') then
+    call system(args(1)//'.sh '//argstring)
+  elseif (args(1) == 'structure_to_qe') then
+    call system(args(1)//'.sh '//argstring)
+  elseif (args(1) == 'structure_to_vasp') then
+    call system(args(1)//'.sh '//argstring)
+  elseif (args(1) == 'tcm_cleanup_anharmonic') then
+    call system(args(1)//'.sh '//argstring)
+  elseif (args(1) == 'tcm_cleanup_bs') then
+    call system(args(1)//'.sh '//argstring)
+  elseif (args(1) == 'tcm_cluster_run_harmonic') then
+    call system(args(1)//'.sh '//argstring)
+  elseif (args(1) == 'tcm_cluster_run_quadratic') then
+    call system(args(1)//'.sh '//argstring)
   ! wrappers for python scripts
-  elseif (arg == 'get_kpoints') then
-    return_status = system(arg//'.py')
+  elseif (args(1) == 'get_kpoints') then
+    call system(args(1)//'.py')
   ! unrecognised argument
   else
-    write(*,*) 'Unrecognised argument : '//arg
+    write(*,*) char('Unrecognised argument : '//args(1))
   endif
-  
-  deallocate(arg)
-  deallocate(args)
-
 end program

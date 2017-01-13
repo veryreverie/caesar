@@ -6,9 +6,10 @@ subroutine equilibrium_frac(filenames)
   use constants,      only : dp
   use file_io,        only : open_read_file, open_write_file
   use linear_algebra, only : inv_33
+  use string_module
   implicit none
   
-  character(100), intent(in) :: filenames(:)
+  type(String), intent(in) :: filenames(:)
   
   integer :: i,no_atoms
   real(dp) :: lattice(3,3),inv_lattice(3,3)

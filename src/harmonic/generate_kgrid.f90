@@ -7,14 +7,15 @@ subroutine generate_kgrid(filenames)
   use linear_algebra,   only : inv_33
   use file_io,          only : open_read_file, open_write_file
   use structure_module, only : StructureData, read_structure_file, drop
+  use string_module
   implicit none
   
-  character(100), intent(in) :: filenames(:)
+  type(String), intent(in) :: filenames(:)
   
-  character(100) :: structure_filename
-  character(100) :: grid_filename
-  character(100) :: ibz_filename
-  character(100) :: rotated_gvectors_filename
+  type(String) :: structure_filename
+  type(String) :: grid_filename
+  type(String) :: ibz_filename
+  type(String) :: rotated_gvectors_filename
   
   integer :: grid_file
   integer :: ibz_file

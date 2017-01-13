@@ -150,11 +150,14 @@ end function
 ! Returns an array containing the command line arguments
 ! ----------------------------------------------------------------------
 function command_line_args() result(args)
+  use string_module
   implicit none
 
-  integer                     :: i         ! loop index
-  integer                     :: arg_count ! no. of command line args
-  character(100), allocatable :: args(:)   ! return value
+  integer                   :: i         ! loop index
+  integer                   :: arg_count ! no. of command line args
+  type(String), allocatable :: args(:)   ! return value
+  
+  character(1000) :: temp_char
 
   ! read in the number of arguments
   arg_count = iargc()
@@ -162,7 +165,8 @@ function command_line_args() result(args)
   allocate (args(arg_count))
   ! read the arguments into the array
   do i=1,arg_count
-    call getarg(i, args(i))
+    call getarg(i, temp_char)
+    args(i) = trim(temp_char)
   enddo
 
   return

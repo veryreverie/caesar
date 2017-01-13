@@ -13,9 +13,10 @@ subroutine construct_matrix_force_cnsts(filenames)
   use linear_algebra,   only : inv_33
   use file_io,          only : open_read_file, open_write_file
   use structure_module, only : StructureData, read_structure_file, drop
+  use string_module
   implicit none
   
-  character(100), intent(in) :: filenames(:)
+  type(String), intent(in) :: filenames(:)
   
   ! Input variables
   integer :: no_symm,no_atoms

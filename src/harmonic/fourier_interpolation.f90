@@ -103,19 +103,25 @@ end subroutine
 subroutine generate_dispersion(rec_vecs,basis,mass,no_cells,no_ims,          &
    & cell_vecs,force_consts,no_points,path,phonon_dispersion_curve_filename, &
    & high_symmetry_points_filename)
+  use file_io
+  use string_module
   implicit none
   
   ! inputs
-  character(*), intent(in) :: phonon_dispersion_curve_filename
-  character(*), intent(in) :: high_symmetry_points_filename
+  type(String), intent(in) :: phonon_dispersion_curve_filename
+  type(String), intent(in) :: high_symmetry_points_filename
   
   INTEGER,INTENT(in) :: basis,no_cells,no_ims(no_cells),no_points
   REAL(dp),INTENT(in) :: rec_vecs(3,3),mass(basis),cell_vecs(3,8,no_cells),&
     &force_consts(basis,3,basis,3,no_cells),path(3,no_points)
-  INTEGER :: ierr,i_path,i_cart,path_length,i_point
+  INTEGER :: i_path,i_cart,path_length,i_point
   REAL(dp) :: k_start(3),k_stop(3),k_diff(3),k_dist,total_k_dist,delta_k,&
     &kpoint(3),omega(3*basis)
   COMPLEX(dp) :: dyn_mat(basis,3,basis,3)
+  
+  ! file units
+  integer :: phonon_dispersion_curve_file
+  integer :: high_symmetry_points_file
   
   total_k_dist=0.d0
   do i_point=1,no_points-1
@@ -129,17 +135,12 @@ subroutine generate_dispersion(rec_vecs,basis,mass,no_cells,no_ims,          &
 
   delta_k=total_k_dist/1000.d0
 
-  open(unit=14,file=phonon_dispersion_curve_filename,status='replace',iostat=ierr)
-  if(ierr/=0)call errstop('GENERATE_DISPERSION','Problem opening &
-    &phonon_dispersion_curve.dat file')
-
-  open(unit=15,file=high_symmetry_points_filename,status='replace',iostat=ierr)
-  if(ierr/=0)call errstop('GENERATE_DISPERSION','Problem opening &
-    &high_symmetry_points.dat file.')
+  phonon_dispersion_curve_file = open_write_file(phonon_dispersion_curve_filename)
+  high_symmetry_points_file = open_write_file(high_symmetry_points_filename)
 
   total_k_dist=0.d0
   do i_point=1,no_points-1
-    write(15,*)i_point,total_k_dist
+    write(high_symmetry_points_file,*)i_point,total_k_dist
     do i_cart=1,3
       k_start(i_cart)=dot_product(path(1:3,i_point),rec_vecs(1:3,i_cart))
       k_stop(i_cart)=dot_product(path(1:3,i_point+1),rec_vecs(1:3,i_cart))
@@ -152,27 +153,29 @@ subroutine generate_dispersion(rec_vecs,basis,mass,no_cells,no_ims,          &
       call construct_dyn_mat(kpoint,basis,mass,no_cells,no_ims,cell_vecs,&
         &force_consts,dyn_mat)
       call calculate_frequencies(basis,dyn_mat,omega)
-      write(14,*)total_k_dist,omega
+      write(phonon_dispersion_curve_file,*)total_k_dist,omega
       total_k_dist=total_k_dist+k_dist/dble(path_length)
     enddo ! i_path
   enddo ! i_point
   call construct_dyn_mat(k_stop,basis,mass,no_cells,no_ims,cell_vecs,&
     &force_consts,dyn_mat)
   call calculate_frequencies(basis,dyn_mat,omega)
-  write(14,*)total_k_dist,omega
-  write(15,*)no_points,total_k_dist
+  write(phonon_dispersion_curve_file,*)total_k_dist,omega
+  write(high_symmetry_points_file,*)no_points,total_k_dist
   
-  close(14)
-  close(15)
+  close(phonon_dispersion_curve_file)
+  close(high_symmetry_points_file)
 end subroutine
 
 subroutine generate_dos(rec_vecs,basis,mass,no_cells,no_ims,cell_vecs, &
    &force_consts,temperature_filename,free_energy_filename,freq_dos_filename)
+  use string_module
+  use file_io
   implicit none
   
-  character(*), intent(in) :: temperature_filename
-  character(*), intent(in) :: free_energy_filename
-  character(*), intent(in) :: freq_dos_filename
+  type(String), intent(in) :: temperature_filename
+  type(String), intent(in) :: free_energy_filename
+  type(String), intent(in) :: freq_dos_filename
   
   INTEGER,PARAMETER :: no_bins=1000,no_prelims=10000,no_samples=1000000
   REAL(dp),PARAMETER :: freq_tol=1.d-8,safety_factor=1.1d0
@@ -180,19 +183,24 @@ subroutine generate_dos(rec_vecs,basis,mass,no_cells,no_ims,cell_vecs, &
   INTEGER,INTENT(in) :: basis,no_cells,no_ims(no_cells)
   REAL(dp),INTENT(in) :: rec_vecs(3,3),mass(basis),cell_vecs(3,8,no_cells),&
     &force_consts(basis,3,basis,3,no_cells)
-  INTEGER :: ierr,i_sample,i_cart,i_freq,i_bin
+  INTEGER :: i_sample,i_cart,i_freq,i_bin
   REAL(dp) :: max_freq,min_freq,frac(3),kpoint(3),freqs(3*basis),bin_width,&
     &rec_bin_width,freq_dos(no_bins),free_energy,omega
   COMPLEX(dp) :: dyn_mat(basis,3,basis,3)
   LOGICAL :: soft_modes
   
+  ! file units
+  integer :: temperature_file
+  integer :: free_energy_file
+  integer :: freq_dos_file
+  
   ! Initialise the random number generator
   call random_seed()
   
   ! Read in temperature
-  open(1,file=temperature_filename)
-  read(1,*)T
-  close(1)
+  temperature_file = open_read_file(temperature_filename)
+  read(temperature_file,*) T
+  close(temperature_file)
   
   max_freq=-1.d0
   min_freq=huge(1.d0)
@@ -241,19 +249,18 @@ subroutine generate_dos(rec_vecs,basis,mass,no_cells,no_ims,cell_vecs, &
     free_energy=freq_dos(i_bin)*harmonic_free_energy(T,omega)/dble(no_samples)+&
       &free_energy
   enddo ! i_bin
-  open(unit=16,file=free_energy_filename,status='replace',iostat=ierr)
-  if(ierr/=0)call errstop('GENERATE_DOS','Problem opening free_energy.dat file.')
-  write(16,*)free_energy
-  close(16)
+  
+  free_energy_file = open_write_file(free_energy_filename)
+  write(free_energy_file,*) free_energy
+  close(free_energy_file)
   
   freq_dos=freq_dos*rec_bin_width/dble(no_samples)
   
-  open(unit=16,file=freq_dos_filename,status='replace',iostat=ierr)
-  if(ierr/=0)call errstop('GENERATE_DOS','Problem opening freq_dos.dat file.')
+  freq_dos_file = open_write_file(freq_dos_filename)
   do i_bin=1,no_bins
-    write(16,*)bin_width*(dble(i_bin)-0.5d0),freq_dos(i_bin)
-  enddo ! i_bin
-  close(16)
+    write(freq_dos_file,*)bin_width*(dble(i_bin)-0.5d0),freq_dos(i_bin)
+  enddo
+  close(freq_dos_file)
   
   if(soft_modes)write(*,*)'Soft modes present.'
 end subroutine
@@ -291,11 +298,13 @@ contains
 ! ----------------------------------------------------------------------
 subroutine read_kpoints(no_kpoints,kpoints,multiplicity,kpoint_to_supercell,&
    & ibz_filename,kpoint_to_supercell_filename)
+  use file_io
+  use string_module
   implicit none
   
   ! inputs
-  character(*), intent(in) :: ibz_filename
-  character(*), intent(in) :: kpoint_to_supercell_filename
+  type(String), intent(in) :: ibz_filename
+  type(String), intent(in) :: kpoint_to_supercell_filename
   
   REAL(dp),PARAMETER :: tol=1.d-8
   INTEGER,INTENT(in) :: no_kpoints
@@ -305,21 +314,23 @@ subroutine read_kpoints(no_kpoints,kpoints,multiplicity,kpoint_to_supercell,&
   INTEGER :: ierr,i_point
   REAL(dp) :: kpoint(3)
   
+  ! file units
+  integer :: ibz_file
+  integer :: kpoint_to_supercell_file
+  
   ! Read ibz.dat file
-  open(unit=11,file=ibz_filename,status='old',iostat=ierr)
-  if(ierr/=0)call errstop('READ_KPOINTS','Problem opening ibz.dat file.')
+  ibz_file = open_read_file(ibz_filename)
   do i_point=1,no_kpoints
-    read(11,*,iostat=ierr)kpoints(1:3,i_point),multiplicity(i_point)
+    read(ibz_file,*,iostat=ierr)kpoints(1:3,i_point),multiplicity(i_point)
     if(ierr/=0)call errstop('READ_KPOINTS','Problem reading ibz.dat file.')
-  enddo ! i_point
-  close(11)
+  enddo
+  close(ibz_file)
   
   ! Read kpoint_to_supercell.dat file
-  open(unit=11,file=kpoint_to_supercell_filename,status='old',iostat=ierr)
-  if(ierr/=0)call errstop('READ_KPOINTS','Problem opening &
-    &kpoint_to_supercell.dat file.')
+  kpoint_to_supercell_file = open_read_file(kpoint_to_supercell_filename)
   do i_point=1,no_kpoints
-    read(11,*,iostat=ierr)kpoint(1:3),kpoint_to_supercell(i_point)
+    read(kpoint_to_supercell_file,*,iostat=ierr) kpoint(1:3), &
+                                               & kpoint_to_supercell(i_point)
     if(ierr/=0)call errstop('READ_KPOINTS','Problem reading &
       &kpoint_to_supercell.dat file.')
     if(any(abs(kpoint(1:3)-kpoints(1:3,i_point))>tol))then
@@ -327,7 +338,7 @@ subroutine read_kpoints(no_kpoints,kpoints,multiplicity,kpoint_to_supercell,&
         &kpoints_to_supercell.dat file disagree.')
     endif ! tol
   enddo ! i_point
-  close(11)
+  close(kpoint_to_supercell_file)
  
 ! Check k-points are in expected order
 ! do i_point=2,no_kpoints
@@ -347,10 +358,16 @@ end subroutine read_kpoints
 ! ----------------------------------------------------------------------
 subroutine read_dyn_mats(basis,mass,atom_prim_frac,no_kpoints,dyn_mats, &
    & kpoint_to_supercell,atoms_in_primitive_cell_fileroot,dyn_mat_fileroot)
+  use file_io
+  use string_module
   implicit none
   
-  character(*), intent(in) :: atoms_in_primitive_cell_fileroot
-  character(*), intent(in) :: dyn_mat_fileroot
+  type(String), intent(in) :: atoms_in_primitive_cell_fileroot
+  type(String), intent(in) :: dyn_mat_fileroot
+  
+  ! file units
+  integer :: atoms_in_primitive_cell_file
+  integer :: dyn_mat_file
   
   INTEGER,INTENT(in) :: basis,no_kpoints,kpoint_to_supercell(no_kpoints)
   REAL(dp),INTENT(out) :: mass(basis),atom_prim_frac(3,basis)
@@ -361,26 +378,30 @@ subroutine read_dyn_mats(basis,mass,atom_prim_frac,no_kpoints,dyn_mats, &
   REAL(dp) :: real_part,imag_part,temp_mass,temp_frac(3)
   LOGICAL :: found_atom(basis)
   
-  open(unit=11,file=trim(atoms_in_primitive_cell_fileroot)//'1.dat',status='old',iostat=ierr)
-  if(ierr/=0)call errstop('READ_DYN_MATS','Problem opening &
-    &atoms_in_primitive_cell.1.dat file.')
+  atoms_in_primitive_cell_file = open_read_file( atoms_in_primitive_cell_fileroot&
+                                            & // '1.dat')
   do i_atom=1,basis
-    read(11,*,iostat=ierr)mass(i_atom),atom_prim_frac(1:3,i_atom)
+    read(atoms_in_primitive_cell_file,*,iostat=ierr) mass(i_atom), &
+                                                   & atom_prim_frac(1:3,i_atom)
     if(ierr/=0)call errstop('READ_DYN_MATS','Problem reading &
     &atoms_in_primitive_cell.1.dat file.')
   enddo ! i_atom
   if(any(atom_prim_frac(1:3,1:basis)<-1.d-4.or.&
     &atom_prim_frac(1:3,1:basis)>=1.d0))call errstop('READ_DYN_MATS',&
       &'Fractional atomic coordinates are not in range [0.0,1.0)')
-  close(11)
+  close(atoms_in_primitive_cell_file)
   
-  open(unit=11,file=trim(dyn_mat_fileroot)//'1.dat',status='old',iostat=ierr)
-  if(ierr/=0)call errstop('READ_DYN_MATS','Problem opening dyn_mat.1.dat file.')
+  dyn_mat_file = open_read_file(dyn_mat_fileroot//'1.dat')
   do i_atom=1,basis
     do i_cart=1,3
       do j_atom=1,basis
         do j_cart=1,3
-          read(11,*,iostat=ierr)atom1,cart1,atom2,cart2,real_part,imag_part
+          read(dyn_mat_file,*,iostat=ierr) atom1,     &
+                                         & cart1,     &
+                                         & atom2,     &
+                                         & cart2,     &
+                                         & real_part, &
+                                         & imag_part
           if(ierr/=0)call errstop('READ_DYN_MATS','Problem reading dyn_mat.1.dat &
             &file.')
           if(atom1/=i_atom.or.cart1/=i_cart.or.atom2/=j_atom.or.cart2/=j_cart)call &
@@ -391,18 +412,16 @@ subroutine read_dyn_mats(basis,mass,atom_prim_frac,no_kpoints,dyn_mats, &
       enddo ! j_atom
     enddo ! i_cart
   enddo ! i_atom
-  close(11)
+  close(dyn_mat_file)
   
   do ibz_point=2,no_kpoints
     supercell=kpoint_to_supercell(ibz_point)
-    open(unit=11,file=trim(atoms_in_primitive_cell_fileroot)//trim(i2s(supercell))//'.dat',&
-      &status='old',iostat=ierr)
-    if(ierr/=0)call errstop('READ_DYN_MATS','Problem opening &
-      &atoms_in_primitive_cell.'//trim(i2s(supercell))//'.dat file.')
+    atoms_in_primitive_cell_file = open_read_file( atoms_in_primitive_cell_fileroot&
+                                              & // supercell//'.dat')
     found_atom(1:basis)=.false.
     atom_map(1:basis)=0
     do i_atom=1,basis
-      read(11,*,iostat=ierr)temp_mass,temp_frac(1:3)
+      read(atoms_in_primitive_cell_file,*,iostat=ierr)temp_mass,temp_frac(1:3)
       if(ierr/=0)call errstop('READ_DYN_MATS','Problem reading &
         &atoms_in_primitive_cell.'//trim(i2s(supercell))//'.dat file.')
       do j_atom=1,basis
@@ -416,16 +435,19 @@ subroutine read_dyn_mats(basis,mass,atom_prim_frac,no_kpoints,dyn_mats, &
     enddo ! i_atom
     if(.not.any(found_atom(1:basis)))call errstop('READ_DYN_MATS','Unable to &
       &find all atoms in supercell '//trim(i2s(supercell))//'.')
-    close(11)
-    open(unit=11,file=trim(dyn_mat_fileroot)//trim(i2s(ibz_point))//'.dat',status='old',&
-      &iostat=ierr)
-    if(ierr/=0)call errstop('READ_DYN_MATS','Problem opening dyn_mat.'//&
-      &trim(i2s(ibz_point))//'.dat file.')
+    close(atoms_in_primitive_cell_file)
+    
+    dyn_mat_file = open_read_file(dyn_mat_fileroot//ibz_point//'.dat')
     do i_atom=1,basis
       do i_cart=1,3
         do j_atom=1,basis
           do j_cart=1,3
-            read(11,*,iostat=ierr)atom1,cart1,atom2,cart2,real_part,imag_part
+            read(dyn_mat_file,*,iostat=ierr) atom1,     &
+                                           & cart1,     &
+                                           & atom2,     &
+                                           & cart2,     &
+                                           & real_part, &
+                                           & imag_part
             if(ierr/=0)call errstop('READ_DYN_MATS','Problem reading dyn_mat.'//&
               &trim(i2s(ibz_point))//'.dat file.')
             if(atom1/=i_atom.or.cart1/=i_cart.or.atom2/=j_atom.or.cart2/=j_cart)call &
@@ -437,7 +459,7 @@ subroutine read_dyn_mats(basis,mass,atom_prim_frac,no_kpoints,dyn_mats, &
         enddo ! j_atom
       enddo ! i_cart
     enddo ! i_atom
-    close(11)
+    close(dyn_mat_file)
   enddo ! ibz_point
 end subroutine
 
@@ -445,21 +467,25 @@ end subroutine
 ! Read in the high symmetry points on the phonon dispersion path.
 ! ----------------------------------------------------------------------
 subroutine read_path(no_points,path,path_filename)
+  use file_io
+  use string_module
   implicit none
   
-  character(*), intent(in) :: path_filename
+  type(String), intent(in) :: path_filename
+  
+  ! file units
+  integer :: path_file
   
   INTEGER,INTENT(in) :: no_points
   REAL(dp),INTENT(out) :: path(3,no_points)
-  INTEGER :: ierr,i_point
+  INTEGER :: i, ierr
   
-  open(unit=11,file=path_filename,status='old',iostat=ierr)
-  if(ierr/=0)call errstop('READ_PATH','Problem opening path.dat file.')
-  do i_point=1,no_points
-    read(11,*,iostat=ierr)path(1:3,i_point)
+  path_file = open_read_file(path_filename)
+  do i=1,no_points
+    read(path_file,*,iostat=ierr) path(:,i)
     if(ierr/=0)call errstop('READ_PATH','Problem reading path.dat file.')
-  enddo ! i_point
-  close(11)
+  enddo
+  close(path_file)
 end subroutine
 
 subroutine fourier_interpolation(structure_filename,                          &
@@ -475,21 +501,22 @@ subroutine fourier_interpolation(structure_filename,                          &
   use phonon
   use file_io,          only : open_read_file, count_lines
   use structure_module, only : StructureData, read_structure_file, drop
+  use string_module
   implicit none
   
   ! filenames
-  character(*), intent(in) :: structure_filename
-  character(*), intent(in) :: phonon_dispersion_curve_filename
-  character(*), intent(in) :: high_symmetry_points_filename
-  character(*), intent(in) :: temperature_filename
-  character(*), intent(in) :: free_energy_filename
-  character(*), intent(in) :: freq_dos_filename
-  character(*), intent(in) :: grid_filename
-  character(*), intent(in) :: ibz_filename
-  character(*), intent(in) :: kpoint_to_supercell_filename
-  character(*), intent(in) :: atoms_in_primitive_cell_fileroot! append *.dat
-  character(*), intent(in) :: dyn_mat_fileroot                ! append *.dat
-  character(*), intent(in) :: path_filename
+  type(String), intent(in) :: structure_filename
+  type(String), intent(in) :: phonon_dispersion_curve_filename
+  type(String), intent(in) :: high_symmetry_points_filename
+  type(String), intent(in) :: temperature_filename
+  type(String), intent(in) :: free_energy_filename
+  type(String), intent(in) :: freq_dos_filename
+  type(String), intent(in) :: grid_filename
+  type(String), intent(in) :: ibz_filename
+  type(String), intent(in) :: kpoint_to_supercell_filename
+  type(String), intent(in) :: atoms_in_primitive_cell_fileroot! append *.dat
+  type(String), intent(in) :: dyn_mat_fileroot                ! append *.dat
+  type(String), intent(in) :: path_filename
   
   ! parameter
   REAL(dp),PARAMETER :: tol=1.d-8 

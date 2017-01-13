@@ -7,9 +7,10 @@ contains
 subroutine compare_kpoints(filenames)
   use constants, only : dp
   use file_io,   only : open_read_file, open_write_file, count_lines
+  use string_module
   implicit none
   
-  character(100), intent(in) :: filenames(:)
+  type(String), intent(in) :: filenames(:)
   
   real(dp), parameter :: tol = 1.d-10
   
