@@ -193,6 +193,8 @@ program caesar
       call structure_to_dft(args(2),args(3),args(4))
     elseif (size(args) == 5) then
       call structure_to_dft(args(2),args(3),args(4),args(5))
+    elseif (size(args) == 6) then
+      call structure_to_dft(args(2),args(3),args(4),args(5),args(6))
     endif
   ! wrappers for shell scripts
   elseif (args(1) == 'anharmonic') then
@@ -214,8 +216,6 @@ program caesar
   elseif (args(1) == 'setup_harmonic') then
     call system(args(1)//'.sh '//argstring)
   elseif (args(1) == 'setup_quadratic') then
-    call system(args(1)//'.sh '//argstring)
-  elseif (args(1) == 'structure_to_qe') then
     call system(args(1)//'.sh '//argstring)
   elseif (args(1) == 'tcm_cleanup_anharmonic') then
     call system(args(1)//'.sh '//argstring)

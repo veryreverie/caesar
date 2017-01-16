@@ -591,8 +591,6 @@ subroutine fourier_interpolation(structure_filename,                          &
   
   ! file units
   integer :: grid_file
-  integer :: path_file
-  integer :: ibz_file
   
   ! Read basic input files and allocate corresponding arrays
   grid_file = open_read_file(grid_filename)
@@ -765,9 +763,7 @@ subroutine fourier_interpolation(structure_filename,                          &
   endif ! i_cell
   
   ! Get the number of k-points in the IBZ and allocate corresponding arrays
-  ibz_file = open_read_file(ibz_filename)
-  no_ibz_points = count_lines(ibz_file)
-  close(ibz_file)
+  no_ibz_points = count_lines(ibz_filename)
   
   allocate(ibz_points_cart(3,no_ibz_points),stat=ialloc)
   if(ialloc/=0)call erralloc('IBZ_POINTS_CART')
@@ -939,9 +935,7 @@ subroutine fourier_interpolation(structure_filename,                          &
 
   ! Get the number of high symmetry points on the dispersion path and allocate 
   ! corresponding arrays
-  path_file = open_read_file(path_filename)
-  no_kpoints_path = count_lines(path_file)
-  close(path_file)
+  no_kpoints_path = count_lines(path_filename)
   
   allocate(path(3,no_kpoints_path),stat=ialloc)
   if(ialloc/=0)call erralloc('PATH')

@@ -185,23 +185,24 @@ elif [ "$code" = "qe" ];then
            qe/kpoints.in                          \
            $harmonic_path/structure.dat           \
            $harmonic_path/$sdir/super_lattice.dat \
-           $sdir/sc_kpoints.dat
+           $sdir/kpoints.in
     
-    awk 'NR==1,NR==1 {print}' qe/kpoints.in  > $sdir/kpoints.in
-    cat $sdir/sc_kpoints.dat                >> $sdir/kpoints.in
-    
-    awk 'NR==1,NR==1 {print}' qe/kpoints.nscf.in  > $sdir/kpoints.nscf.in
-    cat $sdir/sc_kpoints.nscf.dat                >> $sdir/kpoints.nscf.in
-    # TODO : sc_kpoints.nscf.dat is never created
+    caesar generate_supercell_kpoint_mesh_qe      \
+           qe/kpoints.nscf.in                     \
+           $harmonic_path/structure.dat           \
+           $harmonic_path/$sdir/super_lattice.dat \
+           $sdir/kpoints.nscf.in
 
     static_dir=$sdir/static
     cp qe/* $static_dir
-    caesar structure_to_qe           \
+    caesar structure_to_dft          \
+           $code                     \
            $static_dir/structure.dat \
            $static_dir/pseudo.in     \
            $sdir/kpoints.in          \
            $static_dir/$seedname.in
-    caesar structure_to_qe           \
+    caesar structure_to_dft          \
+           $code                     \
            $static_dir/structure.dat \
            $static_dir/pseudo.in     \
            $sdir/kpoints.nscf.in     \
@@ -225,7 +226,8 @@ elif [ "$code" = "qe" ];then
             if [ -f "$kdir/$seedname.in" ]; then
               cp $kdir/$seedname.in $kdir/$seedname.$j.$k.in
             fi
-            caesar structure_to_qe     \
+            caesar structure_to_dft    \
+                   $code               \
                    $kdir/structure.dat \
                    $kdir/pseudo.in     \
                    $kdir/kpoints.in    \
@@ -242,7 +244,8 @@ elif [ "$code" = "qe" ];then
             if [ -e "$kdir/structure.${j}.${k}.dat" ];then
               cp $kdir/structure.${j}.${k}.dat $kdir/structure.dat
               cp $kdir/$seedname_nscf.in $kdir/$seedname_nscf.$j.$k.in
-              caesar structure_to_qe     \
+              caesar structure_to_dft    \
+                     $code               \
                      $kdir/structure.dat \
                      $kdir/pseudo.in     \
                      $kdir/kpoints.in    \

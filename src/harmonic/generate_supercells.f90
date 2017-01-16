@@ -284,9 +284,7 @@ subroutine generate_supercells(args)
   read(grid_file,*)grid(1:3)
   close(grid_file)
 
-  ! Get the number of k-points in the ibz.dat file
-  ibz_file = open_read_file(ibz_filename)
-  num_kpoints = count_lines(ibz_file)
+  num_kpoints = count_lines(ibz_filename)
   
   ! Allocate arrays
   allocate( kpoints(3,num_kpoints),     &
@@ -304,6 +302,7 @@ subroutine generate_supercells(args)
   endif
   
   ! Read ibz.dat file
+  ibz_file = open_read_file(ibz_filename)
   do i=1,num_kpoints
     read(ibz_file,*) kpoints(1:3,i),multiplicity(i)
   enddo

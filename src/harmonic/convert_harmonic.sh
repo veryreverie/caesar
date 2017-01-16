@@ -30,93 +30,51 @@ if [ "$code" = "castep" ] || [ "$code" = "qe" ]; then
   echo $seedname > seedname.txt
 fi
 
+for (( i=1; i<=$no_sc; i++ )) do
+  sdir=Supercell_$i
+  if [ "$code" = "qe" ]; then
+    # Generate supercell k-point mesh
+    caesar generate_supercell_kpoint_mesh_qe \
+           $code/kpoints.in                  \
+           structure.dat                     \
+           $sdir/super_lattice.dat           \
+           $sdir/kpoints.in
+  fi
 
-if [ "$code" = "castep" ];then
-  # Loop over 
-  for (( i=1; i<=$no_sc; i++ )) do
-    sdir=Supercell_$i
-    echo "Converting supercell" $i
-  
-    while read fline ; do
-      line=($fline)
-      atom=${line[0]}
-      disp=${line[1]}
-      
-      paths=(positive negative)
-      for path in ${paths[@]}; do
-        ddir=$sdir/atom.$atom.disp.$disp/$path
-        cp $code/* $dir
+  echo "Converting supercell" $i
+
+  while read fline ; do
+    line=($fline)
+    atom=${line[0]}
+    disp=${line[1]}
+    
+    paths=(positive negative)
+    for path in ${paths[@]}; do
+      ddir=$sdir/atom.$atom.disp.$disp/$path
+      cp $code/* $ddir
+      if [ "$code" = "castep" ]; then
         caesar structure_to_dft    \
                $code               \
                $ddir/structure.dat \
                $ddir/seedname.cell
-      done
-    done < $sdir/force_constants.dat
-  done
-  echo "Done."
-elif [ "$code" = "vasp" ]; then
-  for (( i=1; i<=$no_sc; i++ )) do
-    sdir=Supercell_$i
-    echo "Converting supercell" $i
-
-    while read fline ; do
-      line=($fline)
-      atom=${line[0]}
-      disp=${line[1]}
-      
-      paths=(positive negative)
-      for path in ${paths[@]}; do
-        ddir=$sdir/atom.$atom.disp.$disp/$path
-        cp $code/* $ddir
-        caesar structure_to_dft $code $ddir/structure.dat $ddir/POSCAR
-      done
-    done < $sdir/force_constants.dat
-
-  done
-  echo "Done."
-elif [ "$code" = "qe" ]; then
-  for (( i=1; i<=$no_sc; i++ )) do
-    sdir=Supercell_$i
-    # Generate supercell k-point mesh
-    cp $code/kpoints.in $sdir
-    caesar generate_supercell_kpoint_mesh_qe \
-           $sdir/kpoints.in                  \
-           structure.dat                     \
-           $sdir/super_lattice.dat           \
-           $sdir/sc_kpoints.dat
-    header=$(awk 'NR==1,NR==1 {print}' $sdir/kpoints.in)
-    echo $header > $sdir/kpoints.in
-    cat $sdir/sc_kpoints.dat >> $sdir/kpoints.in
-
-    echo "Converting supercell" $i
-
-    while read fline ; do
-      line=($fline)
-      atom=${line[0]}
-      disp=${line[1]}
-      
-      paths=(positive negative)
-      for path in ${paths[@]}; do
-        ddir=$sdir/atom.$atom.disp.$disp/$path
-        cp $code/* $ddir
-        caesar structure_to_qe    \
+      else if [ "$code" = "vasp" ]; then
+        caesar structure_to_dft    \
+               $code               \
+               $ddir/structure.dat \
+               $ddir/POSCAR
+      else if [ "$code" = "qe" ]; then
+        caesar structure_to_dft    \
+               $code               \
                $ddir/structure.dat \
                $ddir/pseudo.in     \
-               $sdir/kpoints.in   \
+               $sdir/kpoints.in    \
                $ddir/seedname.in
-        if [ -f "$ddir/pseudo.in" ]; then
-          rm $ddir/pseudo.in 
-        fi
-        
-      done
+      fi
       
-    done < $sdir/force_constants.dat
-
-  done
-  echo "Done."
-
-else 
-
-  echo "Error! This code is not supported."
-
-fi
+      if [ "$code" = "qe" ] && [ -f "$ddir/pseudo.in" ]; then
+        rm $ddir/pseudo.in 
+      fi
+    done
+  done < $sdir/force_constants.dat
+done
+echo "Done."

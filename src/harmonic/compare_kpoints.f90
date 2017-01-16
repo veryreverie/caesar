@@ -27,16 +27,25 @@ subroutine compare_kpoints(filenames)
   ! loop indices
   integer :: i,j
   
+  ! file names
+  type(String) :: kpoints_filename
+  type(String) :: gvectors_frac_filename
+  type(String) :: list_filename
+  
   ! file units
   integer :: kpoints_file
   integer :: gvectors_frac_file
   integer :: list_file
   
+  kpoints_filename = filenames(1)
+  gvectors_frac_filename = filenames(2)
+  list_filename = filenames(3)
+  
   ! read kpoints_file
-  kpoints_file = open_read_file(filenames(1))
-  no_kpoints = count_lines(kpoints_file)
+  no_kpoints = count_lines(kpoints_filename)
   allocate(list(no_kpoints))
   allocate(kpoint(3,no_kpoints))
+  kpoints_file = open_read_file(kpoints_filename)
   do i=1,no_kpoints
     read(kpoints_file,*) list(i), kpoint(:,i)
   enddo
@@ -51,7 +60,7 @@ subroutine compare_kpoints(filenames)
   enddo
   
   ! read gvectors_frac_file
-  gvectors_frac_file = open_read_file(filenames(2))
+  gvectors_frac_file = open_read_file(gvectors_frac_filename)
   read(gvectors_frac_file,*) no_gvectors
   allocate(label(no_gvectors))
   allocate(gvec_frac(3,no_gvectors))
@@ -68,7 +77,7 @@ subroutine compare_kpoints(filenames)
     enddo
   enddo
   
-  list_file = open_write_file(filenames(3))
+  list_file = open_write_file(list_filename)
   do i=1,no_gvectors
     do j=1,no_kpoints
       if (all(abs(gvec_frac(:,i)-kpoint(:,j))<tol)) then
@@ -77,11 +86,5 @@ subroutine compare_kpoints(filenames)
     enddo
   enddo
   close(list_file)
-  
-  deallocate(list)
-  deallocate(kpoint)
-  deallocate(label)
-  deallocate(gvec_frac)
-
   end subroutine
 end module

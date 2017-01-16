@@ -60,6 +60,7 @@ subroutine anharmonic()
   
   type(String)          :: harmonic_path ! the path to the harmonic directory
   type(String)          :: filename
+  type(String)          :: ibz_filename
   
   ! ----------------------------------------
   ! Temporary variables
@@ -129,9 +130,7 @@ subroutine anharmonic()
     if (sc_acoustic(i)) then
       sc_n_kpoints(i) = 0
     else
-      list_file = open_read_file(harmonic_path//'/Supercell_'//i//'/list.dat')
-      sc_n_kpoints(i) = count_lines(list_file)
-      close(list_file)
+      sc_n_kpoints(i)=count_lines(harmonic_path//'/Supercell_'//i//'/list.dat')
     endif
   enddo
   
@@ -170,8 +169,9 @@ subroutine anharmonic()
   allocate(eigenvals(size(kpoints),structure%no_modes,Nbasis))
   
   ! read multiplicity from ibz.dat
-  ibz_file = open_read_file(harmonic_path//'/ibz.dat')
-  allocate(multiplicity(count_lines(ibz_file)))
+  ibz_filename = harmonic_path//'/ibz.dat'
+  allocate(multiplicity(count_lines(ibz_filename)))
+  ibz_file = open_read_file(ibz_filename)
   do i=1,size(multiplicity)
     read(ibz_file,*) temp_real, temp_real, temp_real, multiplicity(i)
   enddo

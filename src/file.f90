@@ -9,6 +9,7 @@ module file_io
   public :: open_append_file ! open a file for appending to
   public :: file_exists      ! checks if a file exists
   public :: count_lines      ! counts the number of lines in a file
+  public :: read_to_String   ! reads a file into a String(:) array
   
   interface open_read_file
     module procedure open_read_file_character
@@ -28,6 +29,16 @@ module file_io
   interface file_exists
     module procedure file_exists_character
     module procedure file_exists_string
+  end interface
+  
+  interface count_lines
+    module procedure count_lines_character
+    module procedure count_lines_string
+  end interface
+  
+  interface read_to_String
+    module procedure read_to_String_character
+    module procedure read_to_String_String
   end interface
 
 contains
@@ -145,17 +156,18 @@ end function
 
 ! ----------------------------------------------------------------------
 ! Gets the number of lines remaining in a file
-! Rewinds the file back to beginning
 ! ----------------------------------------------------------------------
-function count_lines(file_unit) result(output)
+function count_lines_character(filename) result(output)
   implicit none
   
-  integer, intent(in) :: file_unit
-  integer             :: output
+  character(*), intent(in) :: filename
+  integer                  :: output
   
-  integer       :: eof_reached
-  character(80) :: line
+  integer        :: file_unit
+  integer        :: eof_reached
+  character(100) :: line
   
+  file_unit = open_read_file(filename)
   output = 0
   do while (eof_reached==0)
     read(file_unit, *, iostat=eof_reached) line
@@ -163,7 +175,50 @@ function count_lines(file_unit) result(output)
       output = output+1
     endif
   enddo
-  rewind(file_unit)
+  close(file_unit)
+end function
+
+function count_lines_String(filename) result(output)
+  use string_module
+  implicit none
+  
+  type(String), intent(in) :: filename
+  integer                  :: output
+  
+  output = count_lines(char(filename))
+end function
+
+! ----------------------------------------------------------------------
+! Reads the file into a String(:) array
+! ----------------------------------------------------------------------
+function read_to_String_character(filename) result(output)
+  implicit none
+  
+  character(*), intent(in)  :: filename
+  type(String), allocatable :: output(:)
+  
+  integer        :: file_length
+  integer        :: file_unit
+  character(100) :: line
+  integer        :: i
+  
+  file_length = count_lines(filename)
+  allocate(output(file_length))
+  file_unit = open_read_file(filename)
+  do i=1,file_length
+    read(file_unit,"(a)") line
+    output(i) = trim(line)
+  enddo
+  close(file_unit)
+end function
+
+function read_to_String_String(filename) result(output)
+  implicit none
+  
+  type(String), intent(in)  :: filename
+  type(String), allocatable :: output(:)
+  
+  output = read_to_String(char(filename))
 end function
 
 end module

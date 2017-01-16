@@ -35,7 +35,7 @@ contains
 ! reads structure.dat
 function read_structure_file_character(filename) result(output)
   use utils,          only : lower_case
-  use file_io,        only : open_read_file, count_lines
+  use file_io
   use linear_algebra, only : inv_33
   implicit none
   
@@ -60,8 +60,8 @@ function read_structure_file_character(filename) result(output)
   end_line = 0
   
   ! work out layout of file
+  file_length = count_lines(filename)
   file_unit = open_read_file(filename)
-  file_length = count_lines(file_unit)
   do i=1,file_length
     read(file_unit,"(a)") line
     line = lower_case(trim(line))

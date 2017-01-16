@@ -58,8 +58,8 @@ function read_castep_output_file_character(filename) result(output)
   character(100) :: line
   character(100) :: temp_char
   
+  file_length = count_lines(filename)
   castep_file = open_read_file(filename)
-  file_length = count_lines(castep_file)
   
   forces_start_line = 0
   do i=1,file_length
@@ -128,8 +128,8 @@ function read_qe_output_file_character(filename) result(output)
   character(100) :: line
   character(100) :: temp_char
   
+  file_length = count_lines(filename)
   qe_file = open_read_file(filename)
-  file_length = count_lines(qe_file)
   
   species_start_line = 0
   do i=1,file_length

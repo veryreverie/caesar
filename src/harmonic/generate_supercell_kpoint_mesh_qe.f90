@@ -34,6 +34,9 @@ subroutine generate_supercell_kpoint_mesh_qe(filenames)
   character(100) :: super_lattice_filename
   character(100) :: sc_kpoints_filename
   
+  ! The first line of kpoints_filename
+  character(100) :: header
+  
   ! Read filenames from input
   kpoints_filename = filenames(1)
   structure_filename = filenames(2)
@@ -42,7 +45,7 @@ subroutine generate_supercell_kpoint_mesh_qe(filenames)
   
   ! Read in mesh of primitive cell
   kpoints_file = open_read_file(kpoints_filename)
-  read(kpoints_file,*)
+  read(kpoints_file,"(a)") header
   read(kpoints_file,*) prim_mesh(:)
   close(kpoints_file)
 
@@ -66,6 +69,7 @@ subroutine generate_supercell_kpoint_mesh_qe(filenames)
   enddo ! i
   
   sc_kpoints_file = open_write_file(sc_kpoints_filename)
+  write(sc_kpoints_file,"(a)") trim(header)
   write(sc_kpoints_file,*) int(prim_mesh(1)*sc_dist(1)/dist(1))+1, &
                          & int(prim_mesh(2)*sc_dist(2)/dist(2))+1, &
                          & int(prim_mesh(3)*sc_dist(3)/dist(3))+1, &
