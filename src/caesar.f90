@@ -25,7 +25,8 @@ program caesar
     &only : generate_supercell_kpoint_mesh_qe
   use generate_supercells_module,   only : generate_supercells
   use lte_module,                   only : lte
-  use hartree_to_eV_module, only : hartree_to_eV
+  use hartree_to_eV_module,         only : hartree_to_eV
+  use fetch_forces_module,          only : fetch_forces
   
   ! use quadratic modules
   use anharmonic_module,           only : anharmonic
@@ -184,8 +185,8 @@ program caesar
       & char(args(16)),char(args(17)),char(args(18)),char(args(19)))
   elseif (args(1) == 'rundft') then
     call rundft(args(2:))
-  elseif (args(1) == 'fetch_forces_qe') then
-    call fetch_forces_qe(args(2),int(args(3)),int(args(4)),args(5))
+  elseif (args(1) == 'fetch_forces') then
+    call fetch_forces(args(2),args(3),int(args(4)),int(args(5)),args(6))
   ! wrappers for shell scripts
   elseif (args(1) == 'anharmonic') then
     call system(args(1)//'.sh '//argstring)
@@ -200,8 +201,6 @@ program caesar
   elseif (args(1) == 'eigenval_castep_to_bands') then
     call system(args(1)//'.sh '//argstring)
   elseif (args(1) == 'eigenval_vasp_to_bands') then
-    call system(args(1)//'.sh '//argstring)
-  elseif (args(1) == 'fetch_forces_castep') then
     call system(args(1)//'.sh '//argstring)
   elseif (args(1) == 'lte_harmonic') then
     call system(args(1)//'.sh '//argstring)
