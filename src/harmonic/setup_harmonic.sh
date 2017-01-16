@@ -64,19 +64,19 @@ for (( i=1; i<=$CELL_COUNT; i++ ))do
 
   # Construct symmetry operations
   
-  echo Lattice > $sdir/structure.dat
-  cat $sdir/super_lattice.dat >> $sdir/structure.dat
-  echo Atoms >> $sdir/structure.dat
+  echo Lattice                          > $sdir/structure.dat
+  cat $sdir/super_lattice.dat          >> $sdir/structure.dat
+  echo Atoms                           >> $sdir/structure.dat
   sed '1d' $sdir/super_equilibrium.dat >> $sdir/structure.dat #all but 1st line
-  echo Symmetry >> $sdir/structure.dat
-  echo End >> $sdir/structure.dat
-  
-  caesar structure_to_castep  \
-         $sdir/structure.dat  \
-         dummy_argument       \
-         $sdir/structure.cell
+  echo Symmetry                        >> $sdir/structure.dat
+  echo End                             >> $sdir/structure.dat
   
   # write $sdir/symmetry.dat
+  caesar structure_to_dft    \
+         castep              \
+         $sdir/structure.dat \
+         $sdir/structure.cell
+  
   cellsym --symmetry $sdir/structure.cell > $sdir/symmetry.dat
   symmetry_start_line=$(awk -v IGNORECASE=1 '/%block SYMMETRY_OPS/{print NR}' $sdir/symmetry.dat)
   symmetry_end_line=$(awk -v IGNORECASE=1 '/%endblock SYMMETRY_OPS/{print NR}' $sdir/symmetry.dat)
@@ -84,6 +84,7 @@ for (( i=1; i<=$CELL_COUNT; i++ ))do
     '{print $1 " " $2 " " $3}' $sdir/symmetry.dat > $sdir/symmetry_temp.dat
   echo $(( $symmetry_end_line-$symmetry_start_line ))/5 | bc > $sdir/symmetry.dat
   cat $sdir/symmetry_temp.dat | awk NF >> $sdir/symmetry.dat
+  rm structure.cell
   rm $sdir/symmetry_temp.dat
   
   # Evaluate needed force constants
@@ -101,9 +102,6 @@ for (( i=1; i<=$CELL_COUNT; i++ ))do
     ddir=$sdir/atom.$atom.disp.$disp
     mkdir $ddir
     mkdir $ddir/positive $ddir/negative
-    echo $fline > $ddir/displacement.dat
-    echo $fline > $ddir/positive/displacement.dat
-    echo $fline > $ddir/negative/displacement.dat
     cp $sdir/super_lattice.dat $sdir/super_equilibrium.dat $ddir
     caesar construct_finite_displacement \
            $atom                         \

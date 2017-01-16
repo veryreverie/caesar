@@ -39,9 +39,7 @@ if [ "$code" = "castep" ];then
   fi
   
   # Get primitive cell path 
-  bs_calculation=0
   if [ -e "castep/path.dat" ];then
-    bs_calculation=1
     bs_path_init=$(awk -v IGNORECASE=1 '/block bs_kpoint_path/{print NR; exit}' castep/path.dat )
     bs_path_final=$(awk -v IGNORECASE=1 '/endblock bs_kpoint_path/{print NR}' castep/path.dat )
     echo $(( $bs_path_final-$bs_path_init-1 )) > castep/bs_path.dat
@@ -60,23 +58,29 @@ if [ "$code" = "castep" ];then
     
     static_dir=$sdir/static
     cp castep/* $static_dir
-    if [ "$bs_calculateion" -eq "1" ]; then
+    if [ -e "castep/path.dat" ];then
       caesar generate_sc_path                   \
              $harmonic_path/$sdir/supercell.dat \
              $static_dir/bs_path.dat            \
              $static_dir/sc_bs_path.dat
+      caesar structure_to_dft           \
+             castep                     \
+             $static_dir/structure.dat  \
+             $static_dir/sc_bs_path.dat \
+             $static_dir/$seedname.cell
+    else
+      caesar structure_to_dft           \
+             castep                     \
+             $static_dir/structure.dat  \
+             $static_dir/$seedname.cell
     fi
-    caesar structure_to_castep        \
-           $static_dir/structure.dat  \
-           $static_dir/sc_bs_path.dat \
-           $static_dir/$seedname.cell
     
     while read fline ; do
       line=($fline)
       big_point=${line[0]}
       kdir=$sdir/kpoint.$big_point/configurations
       cp castep/* $kdir
-      if [ "$bs_calculateion" -eq "1" ]; then
+      if [ -e "castep/path.dat" ];then
         cp $static_dir/sc_bs_path.dat $kdir
       fi
       for j in `seq 1 $no_modes`; do
@@ -84,7 +88,8 @@ if [ "$code" = "castep" ];then
           if [-e "$kdir/structure.$j.$k.dat" ]; then
             cp $kdir/structure.$j.$k.dat $kdir/structure.dat
             cp $kdir/$seedname.cell $kdir/$seedname.$j.$k.cell
-            caesar structure_to_castep  \
+            caesar structure_to_dft     \
+                   castep               \
                    $kdir/structure.dat  \
                    $kdir/sc_bs_path.dat \
                    $kdir/$seedname.$j.$k.cell
@@ -117,7 +122,8 @@ elif [ "$code" = "vasp" ]; then
     cp vasp/KPOINTS.band $static_dir
     cp $harmonic_path/$sdir/KPOINTS.$i $static_dir/KPOINTS
     cp vasp/mpi_submit_static.sh $static_dir
-    caesar structure_to_vasp         \
+    caesar structure_to_dft          \
+           vasp                      \
            $static_dir/structure.dat \
            $static_dir/POSCAR
     
@@ -136,7 +142,7 @@ elif [ "$code" = "vasp" ]; then
         for l in `seq $sampling_point_init $sampling_point_final`; do
           if [ -e "$kdir/structure.$k.$l.dat" ]; then
             cp $kdir/structure.$k.$l.dat $kdir/structure.dat
-            caesar structure_to_vasp $kdir/structure.dat $kdir/POSCAR.$k.$l
+            caesar structure_to_dft vasp $kdir/structure.dat $kdir/POSCAR.$k.$l
           fi
         done
       done

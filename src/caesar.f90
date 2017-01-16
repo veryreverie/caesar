@@ -8,7 +8,8 @@ program caesar
   use string_module
   
   ! use common modules
-  use rundft_module,        only : rundft
+  use rundft_module,           only : rundft
+  use structure_to_dft_module, only : structure_to_dft
   
   ! use harmonic modules
   use combine_forces_module,        only : combine_forces
@@ -187,6 +188,12 @@ program caesar
     call rundft(args(2:))
   elseif (args(1) == 'fetch_forces') then
     call fetch_forces(args(2),args(3),int(args(4)),int(args(5)),args(6))
+  elseif (args(1) == 'structure_to_dft') then
+    if (size(args) == 4) then
+      call structure_to_dft(args(2),args(3),args(4))
+    elseif (size(args) == 5) then
+      call structure_to_dft(args(2),args(3),args(4),args(5))
+    endif
   ! wrappers for shell scripts
   elseif (args(1) == 'anharmonic') then
     call system(args(1)//'.sh '//argstring)
@@ -208,11 +215,7 @@ program caesar
     call system(args(1)//'.sh '//argstring)
   elseif (args(1) == 'setup_quadratic') then
     call system(args(1)//'.sh '//argstring)
-  elseif (args(1) == 'structure_to_castep') then
-    call system(args(1)//'.sh '//argstring)
   elseif (args(1) == 'structure_to_qe') then
-    call system(args(1)//'.sh '//argstring)
-  elseif (args(1) == 'structure_to_vasp') then
     call system(args(1)//'.sh '//argstring)
   elseif (args(1) == 'tcm_cleanup_anharmonic') then
     call system(args(1)//'.sh '//argstring)

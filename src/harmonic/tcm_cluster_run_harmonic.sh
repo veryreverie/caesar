@@ -5,12 +5,10 @@
 echo "What code do you want to use (castep,vasp,qe)?"
 read code
 
-if [ "$code" = "castep" ]; then
-elif [ "$code" = "vasp" ]; then
+if [ "$code" = "vasp" ]; then
   echo "Error! vasp is not currently supported."
   exit 1
-elif [ "$code" = "qe"]; then
-else
+elif [ ! "$code" = "castep"] && [ ! "$code" = "qe"]; then
   echo "Error! The code $code is not supported."
   echo "Please choose one of: castep vasp qe"
   exit 1

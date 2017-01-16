@@ -9,24 +9,29 @@ no_sc=$(awk '{print}' no_sc.dat )
 echo "What code do you want to use (castep,vasp,qe)?"
 read code
 
+if [ ! "$code"="castep" ] && [ ! "$code"="vasp" ] && [ ! "$code"="qe" ]; then
+  echo "Error! The code $code is not supported."
+  echo "Please choose one of: castep vasp qe"
+  exit 1
+fi
+
+if [ ! -d "$code" ]; then
+  echo "Error! The directory '$code' does not exist." 
+  exit 1
+fi 
+
+if [ "$code" = "castep" ] || [ "$code" = "qe" ]; then
+  echo "What is the $code seedname?"
+  read seedname
+  if [ ! -f "$code/$seedname.param" ];then
+    echo "Error! The $code input file (.param or .in) does not exist." 
+    exit 1
+  fi
+  echo $seedname > seedname.txt
+fi
+
+
 if [ "$code" = "castep" ];then
-
-  if [ ! -d "castep" ];then
-    echo "Error! The directory 'castep' does not exist." 
-    exit 1
-  fi 
- 
-  echo "What is the castep seedname?"
-  read seedname
-  
-  if [ ! -f "castep/$seedname.param" ];then
-    echo "Error! The castep 'param' file does not exist." 
-    exit 1
-  fi
-  
-  echo $seedname > seedname.txt
-  
-  
   # Loop over 
   for (( i=1; i<=$no_sc; i++ )) do
     sdir=Supercell_$i
@@ -39,30 +44,19 @@ if [ "$code" = "castep" ];then
       
       paths=(positive negative)
       for path in ${paths[@]}; do
-        dir=$sdir/atom.$atom.disp.$disp/$path
-        cp castep/* $dir
-        caesar structure_to_castep \
-               $dir/structure.dat  \
-               dummy_argument      \
-               $dir/seedname.cell
+        ddir=$sdir/atom.$atom.disp.$disp/$path
+        cp $code/* $dir
+        caesar structure_to_dft    \
+               $code               \
+               $ddir/structure.dat \
+               $ddir/seedname.cell
       done
     done < $sdir/force_constants.dat
-      
   done
   echo "Done."
-
 elif [ "$code" = "vasp" ]; then
-
-  if [ ! -d "vasp" ];then
-    echo "Error! The directory 'vasp' does not exist." 
-    exit 1
-  fi 
-
-  # Loop over 
   for (( i=1; i<=$no_sc; i++ )) do
-    
     sdir=Supercell_$i
-
     echo "Converting supercell" $i
 
     while read fline ; do
@@ -72,39 +66,19 @@ elif [ "$code" = "vasp" ]; then
       
       paths=(positive negative)
       for path in ${paths[@]}; do
-        dir=$sdir/atom.$atom.disp.$disp/$path
-        cp vasp/* $dir
-        caesar structure_to_vasp $dir/structure.dat $dir/POSCAR
+        ddir=$sdir/atom.$atom.disp.$disp/$path
+        cp $code/* $ddir
+        caesar structure_to_dft $code $ddir/structure.dat $ddir/POSCAR
       done
     done < $sdir/force_constants.dat
 
   done
   echo "Done."
-
 elif [ "$code" = "qe" ]; then
-
-  if [ ! -d "qe" ];then
-    echo "Error! The directory 'qe' does not exist." 
-    exit 1
-  fi
- 
-  echo "What is the qe seedname?"
-  read seedname
-
-  if [ ! -f "qe/$seedname.in" ];then
-    echo "Error! The qe 'in' file does not exist." 
-    exit 1
-  fi
-
-  echo $seedname > seedname.txt
-
-  # Loop over 
   for (( i=1; i<=$no_sc; i++ )) do
-    
     sdir=Supercell_$i
-
     # Generate supercell k-point mesh
-    cp qe/kpoints.in $sdir
+    cp $code/kpoints.in $sdir
     caesar generate_supercell_kpoint_mesh_qe \
            $sdir/kpoints.in                  \
            structure.dat                     \
@@ -123,16 +97,15 @@ elif [ "$code" = "qe" ]; then
       
       paths=(positive negative)
       for path in ${paths[@]}; do
-        dir=$sdir/atom.$atom.disp.$disp/$path
-        
-        cp qe/* $dir
+        ddir=$sdir/atom.$atom.disp.$disp/$path
+        cp $code/* $ddir
         caesar structure_to_qe    \
-               $dir/structure.dat \
-               $dir/pseudo.in     \
+               $ddir/structure.dat \
+               $ddir/pseudo.in     \
                $sdir/kpoints.in   \
-               $dir/seedname.in
-        if [ -f "$dir/pseudo.in" ]; then
-          rm $dir/pseudo.in 
+               $ddir/seedname.in
+        if [ -f "$ddir/pseudo.in" ]; then
+          rm $ddir/pseudo.in 
         fi
         
       done

@@ -26,7 +26,7 @@ module constants
   real(dp), parameter :: eV_per_A_to_au = 0.01944689814638725057d0
   real(dp), parameter :: kB_au_per_K = 3.16679002948702D-006 ! kB in Hartrees/K
   real(dp), parameter :: Ry = 13.605698066 ! Rydberg energy eV
-  real(dp), parameter :: bohr = 0.529117 ! Bohr radius in Angstrom
+  real(dp), parameter :: bohr = 0.52911721092 ! Bohr radius in Angstrom
   
   ! ----------------------------------------
   ! lte parameters
