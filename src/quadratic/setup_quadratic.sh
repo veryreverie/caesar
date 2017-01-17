@@ -47,7 +47,8 @@ for i in `seq 1 $no_sc`; do
   echo Symmetry                                 >> $sdir/static/structure.dat
   echo End                                      >> $sdir/static/structure.dat
 
-  while read fline ; do # list.dat
+  # loop over kpoints
+  while read fline ; do
     line=$(fline)
     big_point=${line[0]}
     small_point=${line[1]}

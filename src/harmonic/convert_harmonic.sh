@@ -9,7 +9,10 @@ no_sc=$(awk '{print}' no_sc.dat )
 echo "What code do you want to use (castep,vasp,qe)?"
 read code
 
-if [ ! "$code"="castep" ] && [ ! "$code"="vasp" ] && [ ! "$code"="qe" ]; then
+if [ "$code" = "vasp" ]; then
+  echo "Error! vasp is not currently supported."
+  exit 1
+elif [ ! "$code" = "castep"] && [ ! "$code" = "qe"]; then
   echo "Error! The code $code is not supported."
   echo "Please choose one of: castep vasp qe"
   exit 1
@@ -21,14 +24,20 @@ if [ ! -d "$code" ]; then
 fi 
 
 if [ "$code" = "castep" ] || [ "$code" = "qe" ]; then
-  echo "What is the $code seedname?"
-  read seedname
-  if [ ! -f "$code/$seedname.param" ];then
-    echo "Error! The $code input file (.param or .in) does not exist." 
+  if [ "$code" = "castep" ] && [ ! -f "$code/$seedname.param" ];then
+    echo "Error! The $code input file (.param) does not exist." 
+    exit 1
+  else if [ "$code" = "qe" ] && [ ! -f "$code/$seedname.in" ];then
+    echo "Error! The $code input file (.in) does not exist." 
     exit 1
   fi
+  
+  echo "What is the $code seedname?"
+  read seedname
   echo $seedname > seedname.txt
 fi
+
+echo $code > code.txt
 
 for (( i=1; i<=$no_sc; i++ )) do
   sdir=Supercell_$i
@@ -57,12 +66,12 @@ for (( i=1; i<=$no_sc; i++ )) do
                $code               \
                $ddir/structure.dat \
                $ddir/seedname.cell
-      else if [ "$code" = "vasp" ]; then
+      elif [ "$code" = "vasp" ]; then
         caesar structure_to_dft    \
                $code               \
                $ddir/structure.dat \
                $ddir/POSCAR
-      else if [ "$code" = "qe" ]; then
+      elif [ "$code" = "qe" ]; then
         caesar structure_to_dft    \
                $code               \
                $ddir/structure.dat \
