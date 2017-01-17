@@ -80,16 +80,14 @@ program caesar
     write(*,*) 'option : harmonic calculations :'
     write(*,*) '  setup_harmonic :'
     write(*,*) '    Sets up calculation'
-    write(*,*) '  convert_harmonic :'
     write(*,*) '    Converts calculation to specific code'
     write(*,*) '    Choices are castep, vasp and quantum espresso'
-    write(*,*) '    Should be called after setup_harmonic'
     write(*,*) '  tcm_cluster_run_harmonic :'
     write(*,*) '    Runs calculation on the TCM cluster'
-    write(*,*) '    Should be called after convert_harmonic'
+    write(*,*) '    Should be called after setup_harmonic'
     write(*,*) '  lte_harmonic :'
     write(*,*) '    Runs harmonic calculations'
-    write(*,*) '    Should be run after one of the run_harmonic options'
+    write(*,*) '    Should be run after tcm_cluster_run_harmonic'
     write(*,*) '  clear_all :'
     write(*,*) '    Deletes all temporary files and folders'
     write(*,*) ''
@@ -202,8 +200,6 @@ program caesar
   elseif (args(1) == 'bs_quadratic') then
     call system(args(1)//'.sh '//argstring)
   elseif (args(1) == 'clear_all') then
-    call system(args(1)//'.sh '//argstring)
-  elseif (args(1) == 'convert_harmonic') then
     call system(args(1)//'.sh '//argstring)
   elseif (args(1) == 'convert_quadratic') then
     call system(args(1)//'.sh '//argstring)
