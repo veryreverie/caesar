@@ -52,10 +52,12 @@ for i in `seq 1 $no_sc`; do
     line=$(fline)
     big_point=${line[0]}
     small_point=${line[1]}
-    kdir=kpoint.$big_point
-    mkdir $kdir
+    
     first_line=$(( (4+$no_atoms_sc)*($no_modes*($small_point-1))+1 ))
     last_line=$(( $first_line+(4+$no_atoms_sc)*$no_modes ))
+    
+    kdir=kpoint.$big_point
+    mkdir $kdir
     awk "NR==$first_line,NR==$last_line {print}" \
        $harmonic_path/$sdir/lte/disp_patterns.dat > $kdir/disp_patterns.dat
     mkdir $kdir/configurations
@@ -67,8 +69,10 @@ for i in `seq 1 $no_sc`; do
       python -c "print($frequency*27.211396132)" > \
         $kdir/frequency.$big_point.$j.dat
       
-      # write structure.$j.$k.dat
+      # write kpoint.$big_point/configurations/mode.j.k/structure.dat
       for k in `seq $sampling_point_init $sampling_point_final`; do
+        mdir=$kdir/mode.$j.$k
+        mkdir $mdir
         caesar generate_quadratic_configurations          \
                $sampling_amplitude                        \
                $k                                         \
@@ -76,18 +80,9 @@ for i in `seq 1 $no_sc`; do
                $frequency                                 \
                $frequency_line                            \
                $harmonic_path/$sdir/super_equilibrium.dat \
+               $harmonic_path/$sdir/super_lattice.dat     \
                $kdir/disp_patterns.dat                    \
-               $kdir/positions.dat
-        if [ -e "$kdir/positions.dat" ];then # if k.ne.0 and |frequency|>tol
-          f=$kdir/configurations/structure.$j.$k.dat
-          echo Lattice                                > $f
-          cat $harmonic_path/$sdir/super_lattice.dat >> $f
-          echo Atoms                                 >> $f
-          cat $kdir/positions.dat                    >> $f
-          echo Symmetry                              >> $f
-          echo End                                   >> $f
-          rm $kdir/positions.dat
-        fi
+               $mdir/structure.dat
       done # loop over sampling points per mode
     done # loop over modes
   done < $harmonic_path/$sdir/list.dat

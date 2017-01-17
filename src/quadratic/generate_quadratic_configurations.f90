@@ -12,13 +12,15 @@ subroutine generate_quadratic_configurations(args)
   
   ! file units
   integer :: super_eqm_file
+  integer :: super_lattice_file
   integer :: disp_patt_file
-  integer :: positions_file
+  integer :: structure_file
   
   ! filenames
   type(String) :: super_equilibrium_filename
+  type(String) :: super_lattice_filename
   type(String) :: disp_patterns_filename
-  type(String) :: positions_filename
+  type(String) :: structure_filename
 
   ! Input variables
   integer :: sampling_point,no_sampling_points,no_atoms
@@ -26,6 +28,8 @@ subroutine generate_quadratic_configurations(args)
   integer :: frequency_line ! the line in disp_patt.dat where freqency appears
   real(dp),allocatable :: atoms(:,:),mass(:),disp_patt(:,:)
   character(2),allocatable :: species(:)
+  real(dp) :: super_lattice(3,3)
+  
   ! Working variables
   real(dp) :: amplitude,positions(3),quad_amplitude
   real(dp), parameter :: temperature=0.d0,tol=1.d-5
@@ -41,8 +45,9 @@ subroutine generate_quadratic_configurations(args)
   frequency = dble(args(4))
   frequency_line = int(args(5))
   super_equilibrium_filename = args(6)
-  disp_patterns_filename = args(7)
-  positions_filename = args(8)
+  super_lattice_filename = args(7)
+  disp_patterns_filename = args(8)
+  structure_filename = args(9)
   
   ! Number of sampling points as read in is last_point-first_point, but we only
   ! want number of sampling points on each side of 0, as sampling_point goes
@@ -61,6 +66,13 @@ subroutine generate_quadratic_configurations(args)
     read(super_eqm_file,*) species(i),mass(i), atoms(i,:)
   enddo ! i
   close(super_eqm_file)
+  
+  ! Read in lattice
+  super_lattice_file = open_read_file(super_lattice_filename)
+  do i=1,3
+    read(super_lattice_file,*) super_lattice(i,:)
+  enddo
+  close(super_lattice_file)
   
   ! Read in displacement pattern
   disp_patt_file = open_read_file(disp_patterns_filename)
@@ -92,11 +104,18 @@ subroutine generate_quadratic_configurations(args)
           & * quad_amplitude
   
   ! Write out displacement pattern
-  positions_file = open_write_file(positions_filename)
+  structure_file = open_write_file(structure_filename)
+  write(structure_file,"(a)") 'Lattice'
+  do i=1,3
+    write(structure_file,*) super_lattice(i,:)
+  enddo
+  write(structure_file,"(a)") 'Atoms'
   do i=1,no_atoms
     positions = atoms(i,:) + amplitude*disp_patt(i,1:3)*disp_patt(i,4:6)
-    write(positions_file,*) species(i),mass(i),positions(:)
+    write(structure_file,*) species(i),mass(i),positions(:)
   enddo ! i
-  close(positions_file)
+  write(structure_file,"(a)") 'Symmetry'
+  write(structure_file,"(a)") 'End'
+  close(structure_file)
 end subroutine
 end module

@@ -52,8 +52,8 @@ for i in `seq $first_sc $last_sc`; do
     kdir=$sdir/kpoint.$big_point/configurations
     for j in `seq 1 $no_modes`; do
       for k in `seq $sampling_point_init $sampling_point_final`; do
-        if [ -e "$kdir/structure.$j.$k.dat" ]; then
-          mdir=$kdir/mode.$j.$k
+        mdir=$kdir/mode.$j.$k
+        if [ -e "$mdir/structure.dat" ]; then
           if [ "$code" = "castep" ]; then
             caesar rundft $code $mdir $num_cores
           elif [ "$code" = "qe" ]; then

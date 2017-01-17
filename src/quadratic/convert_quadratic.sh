@@ -137,16 +137,14 @@ for (( i=1; i<=$no_sc; i++ )) do
     
     for j in `seq 1 $no_modes`; do
       for k in `seq $sampling_point_init $sampling_point_final`; do
-        if [-e "$kdir/structure.$j.$k.dat" ]; then
-          mdir=$kdir/mode.$j.$k
-          mkdir $mdir
-          
+        mdir=$kdir/mode.$j.$k
+        if [-e "$mdir/structure.dat" ]; then
           if [ "$code" = "castep" ];then
             cp $code/seedname.param $mdir
             cp $code/$seedname.cell $mdir
             caesar structure_to_dft           \
                    $code                      \
-                   $kdir/structure.$j.$k.dat  \
+                   $mdir/structure.dat        \
                    $static_dir/sc_bs_path.dat \
                    $mdir/$seedname.cell
           elif [ "$code" = "vasp" ]; then
@@ -155,26 +153,26 @@ for (( i=1; i<=$no_sc; i++ )) do
             cp $code/KPOINTS.band $mdir
             cp $code/mpi_submit_quadratic.sh $mdir
             cp $harmonic_path/$sdir/KPOINTS.$i $mdir/KPOINTS
-            caesar structure_to_dft          \
-                   $code                     \
-                   $kdir/structure.$j.$k.dat \
-                   $kdir/POSCAR.$j.$k
+            caesar structure_to_dft    \
+                   $code               \
+                   $mdir/structure.dat \
+                   $mdir/POSCAR.$j.$k
           elif [ "$code" = "qe" ];then
             cp $code/*UPF $mdir
             cp $code/$seedname.in $mdir
-            caesar structure_to_dft          \
-                   $code                     \
-                   $kdir/structure.$j.$k.dat \
-                   $code/pseudo.in           \
-                   $code/kpoints.in          \
+            caesar structure_to_dft    \
+                   $code               \
+                   $mdir/structure.dat \
+                   $code/pseudo.in     \
+                   $code/kpoints.in    \
                    $mdir/$seedname.in
-            if [ -f "$kdir/$seedname_nscf.in" ]; then
-              cp $kdir/$seedname_nscf.in $mdir
-              caesar structure_to_dft          \
-                     $code                     \
-                     $kdir/structure.$j.$k.dat \
-                     $code/pseudo.in           \
-                     $code/kpoints.nscf.in     \
+            if [ -f "$code/$seedname_nscf.in" ]; then
+              cp $code/$seedname_nscf.in $mdir
+              caesar structure_to_dft      \
+                     $code                 \
+                     $mdir/structure.dat   \
+                     $code/pseudo.in       \
+                     $code/kpoints.nscf.in \
                      $mdir/$seedname_nscf.in
             fi
           fi
