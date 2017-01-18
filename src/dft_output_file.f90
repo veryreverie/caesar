@@ -14,6 +14,7 @@ module dft_output_file_module
   type DftOutputFile
     integer                   :: no_atoms
     character(2), allocatable :: species(:)
+    real(dp)                  :: energy
     real(dp),     allocatable :: forces(:,:)
   end type
   
@@ -50,41 +51,51 @@ function read_castep_output_file_character(filename) result(output)
   
   ! line numbers
   integer        :: file_length
+  integer        :: energy_line
   integer        :: forces_start_line
   integer        :: forces_end_line
   
   ! temporary variables
-  integer        :: i
+  integer        :: i,j
   character(100) :: line
-  character(100) :: temp_char
+  character(100) :: dump
   
   file_length = count_lines(filename)
   castep_file = open_read_file(filename)
   
+  ! Work out line numbers
   forces_start_line = 0
   do i=1,file_length
     read(castep_file,"(a)") line
     line = lower_case(trim(line))
-    if (line=="*********************** Forces ***********************") then
+    ! energy
+    if (line(1:12)=="final energy") then
+      energy_line = i
+    ! forces
+    elseif (line=="*********************** Forces ***********************") then
       forces_start_line = i
     elseif (forces_start_line/=0 .and. &
-       & line=="******************************************************") then
+          & line=="******************************************************") then
       forces_end_line = i
     endif
   enddo
   
+  ! Allocate output
   call new(output,forces_end_line-forces_start_line-7)
   
   rewind(castep_file)
   
-  do i=1,forces_start_line+5
-    read(castep_file,*)
-  enddo
-  do i=1,output%no_atoms
-    read(castep_file,*) temp_char,         &
-                      & output%species(i), &
-                      & temp_char,         &
-                      & output%forces(:,i)
+  ! Read data
+  do i=1,file_length
+    read(castep_file,"(a)") line
+    ! energy
+    if (i==energy_line) then
+      read(line,*) dump,dump,dump,dump,output%energy
+    ! forces
+    elseif (i>forces_start_line+5 .and. i<forces_end_line) then
+      j = i-(forces_start_line+5)
+      read(line,*) dump, output%species(j), dump, output%forces(:,j)
+    endif
   enddo
   
   close(castep_file)
@@ -115,6 +126,7 @@ function read_qe_output_file_character(filename) result(output)
   integer        :: file_length
   integer        :: species_start_line
   integer        :: species_end_line
+  integer        :: energy_line
   integer        :: forces_start_line
   integer        :: forces_end_line
   
@@ -124,21 +136,27 @@ function read_qe_output_file_character(filename) result(output)
   integer                   :: species_type
   
   ! temporary variables
-  integer        :: i
+  integer        :: i,j
   character(100) :: line
-  character(100) :: temp_char
+  character(100) :: dump
   
   file_length = count_lines(filename)
   qe_file = open_read_file(filename)
   
+  ! Work out line numbers
   species_start_line = 0
   do i=1,file_length
     read(qe_file,"(a)") line
     line = lower_case(trim(line))
+    ! species
     if (line(1:14)=="atomic species") then
       species_start_line = i
     elseif (species_start_line/=0 .and. line=="") then
       species_end_line = i
+    ! energy
+    elseif (line(1:1)=="!") then
+      energy_line=i
+    ! forces
     elseif (line(1:13)=="forces acting") then
       forces_start_line = i
     elseif (line(1:11)=="total force") then
@@ -149,28 +167,27 @@ function read_qe_output_file_character(filename) result(output)
   no_species = species_end_line-species_start_line-1
   allocate(species(no_species))
   
+  ! Allocate output
   call new(output,forces_end_line-forces_start_line-3)
   
   rewind(qe_file)
   
-  do i=1,species_start_line
-    read(qe_file,*)
-  enddo
-  do i=1,no_species
-    read(qe_file,*) species(i)
-  enddo
-  do i=species_end_line,forces_start_line+1
-    read(qe_file,*)
-  enddo
-  do i=1,output%no_atoms
-    read(qe_file,*) temp_char,    &
-                  & temp_char,    &
-                  & temp_char,    &
-                  & species_type, &
-                  & temp_char,    &
-                  & temp_char,    &
-                  & output%forces(:,i)
-    output%species(i) = species(species_type)
+  ! Read data
+  do i=1,file_length
+    read(qe_file,"(a)") line
+    ! species
+    if (i>species_start_line .and. i<species_end_line) then
+      j = i-species_start_line
+      read(line,*) species(j)
+    ! energy
+    elseif (i==energy_line) then
+      read(line,*) dump,dump,dump,dump, output%energy
+    ! forces
+    elseif (i>forces_start_line+1 .and. i<forces_end_line-1) then
+      j = i-(forces_start_line+1)
+      read(line,*) dump,dump,dump, species_type, dump,dump, output%forces(:,j)
+      output%species(j) = species(species_type)
+    endif
   enddo
   
   close(qe_file)

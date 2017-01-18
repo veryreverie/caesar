@@ -18,6 +18,9 @@ subroutine anharmonic()
   use calculate_anharmonic_module, only : calculate_anharmonic
   use quadratic_spline_module,     only : quadratic_spline
   use vscf_1d_module,              only : VscfReturn, vscf_1d, drop
+  
+  use dft_output_file_module
+  
   implicit none
   
   ! ----------------------------------------
@@ -48,9 +51,8 @@ subroutine anharmonic()
   type(VscfReturn)      :: vscf
   logical, allocatable  :: sc_acoustic(:)  ! if Supercell_i/acoustic.dat exists
   
-  type(String)          :: sdir          ! Supercell_*/ directory name
-  type(String)          :: k_str
-  type(String)          :: l_str
+  type(String)          :: sdir          ! Supercell_*          directory name
+  type(String)          :: kpoint_dir    ! Supercell_*/kpoint.* directory name
   
   real(dp), allocatable :: eigenvals(:,:,:)
   real(dp), allocatable :: harmonic(:,:,:)
@@ -61,6 +63,8 @@ subroutine anharmonic()
   type(String)          :: harmonic_path ! the path to the harmonic directory
   type(String)          :: filename
   type(String)          :: ibz_filename
+  
+  type(DftOutputFile)   :: dft_output_file
   
   ! ----------------------------------------
   ! Temporary variables
@@ -79,11 +83,9 @@ subroutine anharmonic()
   integer :: mapping_file
   integer :: list_file
   integer :: super_file
-  integer :: energy_file
   integer :: frequency_file
   integer :: ibz_file
   integer :: result_file
-  integer :: static_energy_file
   
   ! ----------------------------------------
   ! Read in data
@@ -91,9 +93,9 @@ subroutine anharmonic()
   
   ! read in harmonic_path
   harmonic_path_file = open_read_file('harmonic_path.dat')
-  read(harmonic_path_file,*) temp_char
+  read(harmonic_path_file,"(a)") temp_char
   close(harmonic_path_file)
-  harmonic_path = temp_char
+  harmonic_path = trim(temp_char)
   
   ! read the number of Supercell_* directories into no_supercells
   no_sc_file = open_read_file(harmonic_path//'/no_sc.dat')
@@ -110,7 +112,7 @@ subroutine anharmonic()
   
   ! read the castep seedname into castep variable
   seedname_file = open_read_file('seedname.txt')
-  read(seedname_file,*) temp_char
+  read(seedname_file,"(a)") temp_char
   close(seedname_file)
   castep = trim(temp_char)//'.castep'
   
@@ -179,48 +181,46 @@ subroutine anharmonic()
   
   ! read data from supercells
   j=1
-  do i=1,no_supercells
+  do i=1,size(kpoints)
+    sdir=str('Supercell_')//i
     if (.not. sc_acoustic(i)) then
-      sdir = str('Supercell_')//i
-      static_energy_file = open_read_file(sdir//'/static/energy.dat')
-      read(static_energy_file,*) static_energy
-      close(static_energy_file)
       
-      ! j is a cumulative sum of kpoints
+      ! Static calculation
+      filename = sdir//'/static/'//castep
+      dft_output_file = read_castep_output_file(filename)
+      static_energy = dft_output_file%energy
+      
+      ! loop over the kpoints in this supercell
       do j=j,j+sc_n_kpoints(i)-1
         kpoint = kpoints(j)
+        
+        kpoint_dir = sdir//'/kpoint.'//kpoint
         
         ! set sizes
         sizes(j) = no_cells(i)
         
-        ! read energies
         do k=1,structure%no_modes
-          k_str = sdir//'/kpoint.'//kpoint//'/configurations/mode.'//k//'.'
-          filename = k_str//map%first//'/'//castep
-          if (file_exists(filename)) then
-            do l=map%first,map%last
-              l_str = k_str//l
-              if (file_exists(l_str//'/'//castep)) then
-                energy_file = open_read_file(l_str//'/energy.dat')
-                read(energy_file,*) energies(j,k,l)
-                close(energy_file)
-              else
-                energies(j,k,l) = static_energy
-              endif
-            enddo ! loop over sampling points per mode
-          endif
           
           ! read frequencies
-          k_str = sdir//'/kpoint.'//kpoint
-          frequency_file = open_read_file(k_str//'/&
-            &frequency.'//kpoint//'.'//k//'.dat')
+          frequency_file = open_read_file(kpoint_dir//'/frequency.'//k//'.dat')
           read(frequency_file,*) frequencies(j,k)
           close(frequency_file)
           
+          ! read energies
+          do l=map%first,map%last
+            filename = kpoint_dir// &
+                     & '/configurations/mode.'//k//'.'//l//'/'//castep
+            if (file_exists(filename)) then
+              dft_output_file = read_castep_output_file(filename)
+              energies(j,k,l) = dft_output_file%energy
+            else
+              energies(j,k,l) = static_energy
+            endif
+          enddo
         enddo
-      enddo ! loop over big points
+      enddo
     endif
-  enddo ! loop over supercells
+  enddo
   
   ! ----------------------------------------
   ! Process data.

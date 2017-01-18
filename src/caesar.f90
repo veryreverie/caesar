@@ -95,25 +95,20 @@ program caesar
     write(*,*) '  setup_quadratic :'
     write(*,*) '    Sets up quadratic calculation'
     write(*,*) '    Should be run after lte_harmonic'
-    write(*,*) '  convert_quadratic :'
     write(*,*) '    Converts calculation to specific code'
     write(*,*) '    Choices are castep, vasp and quantum espresso'
     write(*,*) '    Should be called after setup_quadratic'
     write(*,*) '  tcm_cluster_run_quadratic :'
     write(*,*) '    Runs calculation on the TCM cluster'
-    write(*,*) '    Should be called after convert_quadratic'
-    write(*,*) '  tcm_cleanup_anharmonic :'
-    write(*,*) '    Collates energies from anharmonic calculations'
-    write(*,*) '    Should be called after tcm_cluster_run_quadratic'
+    write(*,*) '    Should be called after setup_quadratic'
     write(*,*) '  anharmonic :'
+    write(*,*) '    Collates energies from anharmonic dft runs'
     write(*,*) '    Runs anharmonic calculations'
-    write(*,*) '    Should be called after tcm_cleanup_anharmonic'
-    write(*,*) '  tcm_cleanup_bs'
-    write(*,*) '    Collates bands from anharmonic calculations'
     write(*,*) '    Should be called after tcm_cluster_run_quadratic'
     write(*,*) '  bs_quadratic :'
+    write(*,*) '    Collates bands from anharmonic dft runs'
     write(*,*) '    Runs band structure calculations'
-    write(*,*) '    Should be called after tcm_cleanup_bs'
+    write(*,*) '    Should be called after tcm_cluster_run_quadratic'
     write(*,*) '  get_kpoints :'
     write(*,*) '    [Help text pending]'
     write(*,*) '  eigenval_vasp_to_bands'
@@ -195,31 +190,25 @@ program caesar
       call structure_to_dft(args(2),args(3),args(4),args(5),args(6))
     endif
   ! wrappers for shell scripts
+  elseif (args(1) == 'setup_harmonic') then
+    call system(args(1)//'.sh '//argstring)
+  elseif (args(1) == 'tcm_cluster_run_harmonic') then
+    call system(args(1)//'.sh '//argstring)
+  elseif (args(1) == 'lte_harmonic') then
+    call system(args(1)//'.sh '//argstring)
+  elseif (args(1) == 'clear_all') then
+    call system(args(1)//'.sh '//argstring)
+  elseif (args(1) == 'setup_quadratic') then
+    call system(args(1)//'.sh '//argstring)
+  elseif (args(1) == 'tcm_cluster_run_quadratic') then
+    call system(args(1)//'.sh '//argstring)
   elseif (args(1) == 'anharmonic') then
     call system(args(1)//'.sh '//argstring)
   elseif (args(1) == 'bs_quadratic') then
     call system(args(1)//'.sh '//argstring)
-  elseif (args(1) == 'clear_all') then
-    call system(args(1)//'.sh '//argstring)
-  elseif (args(1) == 'convert_quadratic') then
-    call system(args(1)//'.sh '//argstring)
   elseif (args(1) == 'eigenval_castep_to_bands') then
     call system(args(1)//'.sh '//argstring)
   elseif (args(1) == 'eigenval_vasp_to_bands') then
-    call system(args(1)//'.sh '//argstring)
-  elseif (args(1) == 'lte_harmonic') then
-    call system(args(1)//'.sh '//argstring)
-  elseif (args(1) == 'setup_harmonic') then
-    call system(args(1)//'.sh '//argstring)
-  elseif (args(1) == 'setup_quadratic') then
-    call system(args(1)//'.sh '//argstring)
-  elseif (args(1) == 'tcm_cleanup_anharmonic') then
-    call system(args(1)//'.sh '//argstring)
-  elseif (args(1) == 'tcm_cleanup_bs') then
-    call system(args(1)//'.sh '//argstring)
-  elseif (args(1) == 'tcm_cluster_run_harmonic') then
-    call system(args(1)//'.sh '//argstring)
-  elseif (args(1) == 'tcm_cluster_run_quadratic') then
     call system(args(1)//'.sh '//argstring)
   ! wrappers for python scripts
   elseif (args(1) == 'get_kpoints') then

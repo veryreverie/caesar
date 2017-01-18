@@ -73,7 +73,6 @@ while read fline ; do
   NEW_CELL=${line[3]}
   
   if (( ${NEW_CELL} != ${OLD_CELL} )) ; then
-  
     CELL_COUNT=$(( ${CELL_COUNT} + 1 ))
     OLD_CELL=${NEW_CELL}
     sdir=Supercell_${CELL_COUNT}
@@ -83,7 +82,6 @@ while read fline ; do
            $sdir/supercell.dat     \
            $sdir/super_lattice.dat \
            $sdir/super_equilibrium.dat
-    
   fi
   
   KPOINT_1=${line[0]}
@@ -180,19 +178,19 @@ for (( i=1; i<=$CELL_COUNT; i++ ))do
         caesar structure_to_dft    \
                $code               \
                $ddir/structure.dat \
-               $ddir/seedname.cell
+               $code/seedname.cell
       elif [ "$code" = "vasp" ]; then
         caesar structure_to_dft    \
                $code               \
                $ddir/structure.dat \
-               $ddir/POSCAR
+               $code/POSCAR
       elif [ "$code" = "qe" ]; then
         caesar structure_to_dft    \
                $code               \
                $ddir/structure.dat \
                $ddir/pseudo.in     \
                $sdir/kpoints.in    \
-               $ddir/seedname.in
+               $code/seedname.in
       fi
       
       if [ "$code" = "qe" ] && [ -f "$ddir/pseudo.in" ]; then

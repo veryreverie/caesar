@@ -26,23 +26,11 @@ do
     
     paths=(positive negative)
     for path in ${paths[@]}; do
-      dir=$sdir/atom.$atom.disp.$disp/$path
+      ddir=$sdir/atom.$atom.disp.$disp/$path
       if [ "$code" = "castep" ]; then
-        caesar rundft $code $dir $num_cores
-        caesar fetch_forces          \
-               $code                 \
-               $dir/$seedname.castep \
-               $atom                 \
-               $disp                 \
-               $dir/forces.dat
+        caesar rundft $code $ddir $num_cores
       elif [ "$code" = "qe" ]; then
-        caesar rundft $code $dir $num_cores $seedname
-        caesar fetch_forces       \
-               $code              \
-               $dir/$seedname.out \
-               $atom              \
-               $disp              \
-               $dir/forces.dat
+        caesar rundft $code $ddir $num_cores $seedname
       fi
     done
 

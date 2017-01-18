@@ -49,6 +49,8 @@ atoms_line=$(awk -v IGNORECASE=1 '/Atoms/{print NR}' $sdir/structure.dat)
 symmetry_line=$(awk -v IGNORECASE=1 '/Symmetry/{print NR}' $sdir/structure.dat)
 no_atoms=$(( $(( $symmetry_line-($atoms_line+1))) | bc ))
 
+code=$(awk '{print}' code.txt)
+
 # Loop over 
 for (( i=1; i<=$no_sc; i++ )) do
   sdir=Supercell_$i
@@ -62,13 +64,31 @@ for (( i=1; i<=$no_sc; i++ )) do
     disp=${line[0]}
     atom=${line[1]}
     dir=$sdir/atom.$atom.disp.$disp
+    
+    paths=(positive negative)
+    for path in ${paths[@]}; do
+      if [ "$code" = "castep" ]; then
+        caesar fetch_forces                \
+               $code                       \
+               $dir/$path/$seedname.castep \
+               $atom                       \
+               $disp                       \
+               $dir/$path.dat
+      elif [ "$code" = "qe" ]; then
+        caesar fetch_forces             \
+               $code                    \
+               $dir/$path/$seedname.out \
+               $atom                    \
+               $disp                    \
+               $dir/$path.dat
+      fi
+    done
+    
     caesar combine_forces             \
            $dir/super_equilibrium.dat \
-           $dir/positive/forces.dat   \
-           $dir/negative/forces.dat   \
+           $dir/positive.dat          \
+           $dir/negative.dat          \
            $dir/forces.dat
-    cp $dir/positive/forces.dat $dir/positive.dat
-    cp $dir/negative/forces.dat $dir/negative.dat
 
   done < $sdir/force_constants.dat
 

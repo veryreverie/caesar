@@ -30,6 +30,39 @@ symmetry_line=$(awk -v IGNORECASE=1 '$1~/Lattice/{print NR}' \
 no_atoms=$($symmetry_line-$atoms_line-1)
 no_modes=$(( $no_atoms*3 ))
 
+seedname=$( awk '{print $1}' seedname.txt )
+
+# Loop over supercells
+for i in `seq 1 $no_sc`; do
+  sdir=Supercell_$i
+  if [ ! -f "$sdir/acoustic.dat" ]; then
+
+    # Static calculation
+    static_dir=$sdir/static
+    caesar eigenval_castep_to_bands $static_dir/$seedname.bands $static_dir
+    rm $static_dir/*.orbitals
+
+    while read fline ; do
+      line=($fline)
+      big_point=${line[0]}
+      kdir=$sdir/kpoint.$big_point/configurations
+      cd $kdir
+      
+      for j in `seq 1 $no_modes`; do
+        for k in `seq $sampling_point_init $sampling_point_final`; do
+          mdir=$kdir/mode.$j.$k
+          if [ -d "$mdir" ];then
+            if [ -e "$mdir/$seedname.castep" ]; then
+              caesar eigenval_castep_to_bands $mdir/$seedname.bands $mdir
+              rm $mdir/*.orbitals
+            fi
+          fi
+        done # loop over sampling points per mode
+      done # loop over modes
+    done < $harmonic_path/$sdir/list.dat
+  fi
+done  # Loop over supercells
+
 mkdir bs
 
 # Obtain relevant band for each supercell
@@ -62,10 +95,9 @@ for i in `seq 1 $no_sc`;do
   
   # Loop over k-points
   for j in `seq $kpoint_counter $(( $kpoint_counter+($no_kpoints-1) ))`; do
-    cp $sdir/kpoint.$j/frequency.*.dat bs
-    
     kdir=$sdir/kpoint.$j/configurations
     for k in `seq 1 $no_modes`; do
+      cp $sdir/kpoint.$j/frequency.$k.dat bs
       for l in `seq $sampling_point_init $sampling_point_final`; do
         mdir=$kdir/mode.$k.$l
         if [ -e "$mdir" ] && [ "$l" -ne "0" ]; then
