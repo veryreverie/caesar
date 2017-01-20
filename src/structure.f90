@@ -21,16 +21,57 @@ module structure_module
     real(dp),     allocatable :: offsets(:,:)
   end type
   
+  interface new
+    module procedure new_StructureData
+  end interface
+  
+  interface drop
+    module procedure drop_StructureData
+  end interface
+  
   interface read_structure_file
     module procedure read_structure_file_character
     module procedure read_structure_file_string
   end interface
-
-  interface drop
-    module procedure drop_structure
-  end interface
   
+  interface write_structure_file
+    module procedure write_structure_file_character
+    module procedure write_structure_file_string
+  end interface
+
 contains
+
+subroutine new_StructureData(this,no_atoms,no_symmetries)
+  implicit none
+  
+  type(StructureData) :: this
+  integer             :: no_atoms
+  integer             :: no_symmetries
+  
+  this%no_atoms = no_atoms
+  this%no_modes = no_atoms*3
+  this%no_symmetries = no_symmetries
+  allocate(this%species(no_atoms))
+  allocate(this%mass(no_atoms))
+  allocate(this%atoms(3,no_atoms))
+  allocate(this%symmetries(3,no_symmetries*4))
+  allocate(this%rotation_matrices(3,3,no_symmetries))
+  allocate(this%offsets(3,no_symmetries))
+end subroutine
+
+! Deallocates a Structure
+subroutine drop_StructureData(this)
+  implicit none
+  
+  type(StructureData), intent(inout) :: this
+  
+  deallocate(this%species)
+  deallocate(this%mass)
+  deallocate(this%atoms)
+  deallocate(this%symmetries)
+  deallocate(this%rotation_matrices)
+  deallocate(this%offsets)
+end subroutine
 
 ! reads structure.dat
 function read_structure_file_character(filename) result(output)
@@ -46,6 +87,8 @@ function read_structure_file_character(filename) result(output)
   integer        :: file_unit
   character(100) :: line
   integer        :: i
+  integer        :: no_atoms
+  integer        :: no_symmetries
   
   ! line numbers
   integer :: lattice_line  ! The line "Lattice"
@@ -97,15 +140,10 @@ function read_structure_file_character(filename) result(output)
     stop
   endif
   
-  ! set counts, and allocate arrays
-  output%no_atoms = symmetry_line-atoms_line-1
-  output%no_symmetries = (end_line-symmetry_line-1)/4
-  allocate(output%species(output%no_atoms))
-  allocate(output%mass(output%no_atoms))
-  allocate(output%atoms(3,output%no_atoms))
-  allocate(output%symmetries(3,output%no_symmetries*4))
-  allocate(output%rotation_matrices(3,3,output%no_symmetries))
-  allocate(output%offsets(3,output%no_symmetries))
+  ! set counts, and allocate structure
+  no_atoms = symmetry_line-atoms_line-1
+  no_symmetries = (end_line-symmetry_line-1)/4
+  call new(output,no_atoms,no_symmetries)
   
   ! read file into arrays
   rewind(file_unit)
@@ -114,11 +152,11 @@ function read_structure_file_character(filename) result(output)
     read(file_unit,*) output%lattice(i,:)
   enddo
   read(file_unit,*) ! atoms_line
-  do i=1,output%no_atoms
+  do i=1,no_atoms
     read(file_unit,*) output%species(i),output%mass(i),output%atoms(:,i)
   enddo
   read(file_unit,*) ! symmetry_line
-  do i=1,4*output%no_symmetries
+  do i=1,4*no_symmetries
     read(file_unit,*) output%symmetries(:,i)
   enddo
   
@@ -127,9 +165,7 @@ function read_structure_file_character(filename) result(output)
   ! calculate derived quantities
   output%recip_lattice = transpose(inv_33(output%lattice))
   
-  output%no_modes = output%no_atoms*3
-  
-  do i=1,output%no_symmetries
+  do i=1,no_symmetries
     output%rotation_matrices(1,:,i) = output%symmetries(:,4*i-3)
     output%rotation_matrices(2,:,i) = output%symmetries(:,4*i-2)
     output%rotation_matrices(3,:,i) = output%symmetries(:,4*i-1)
@@ -146,15 +182,42 @@ function read_structure_file_string(filename) result(output)
   output = read_structure_file(char(filename))
 end function
 
-! Deallocates a Structure
-subroutine drop_structure(this)
+subroutine write_structure_file_character(structure,filename)
+  use string_module
+  use file_io
   implicit none
   
-  type(StructureData), intent(inout) :: this
+  type(StructureData), intent(in) :: structure
+  character(*),        intent(in) :: filename
   
-  deallocate(this%species)
-  deallocate(this%atoms)
-  deallocate(this%symmetries)
-  deallocate(this%rotation_matrices)
+  integer :: structure_file
+  integer :: i
+  
+  structure_file = open_write_file(filename)
+  write(structure_file,"(a)") "Lattice"
+  do i=1,3
+    write(structure_file,*) structure%lattice(i,:)
+  enddo
+  write(structure_file,"(a)") "Atoms"
+  do i=1,structure%no_atoms
+    write(structure_file,*) structure%species(i), &
+                          & structure%mass(i),    &
+                          & structure%atoms(:,i)
+  enddo
+  write(structure_file,"(a)") "Symmetry"
+  do i=1,4*structure%no_symmetries
+    write(structure_file,*) structure%symmetries(:,i)
+  enddo
+  write(structure_file,"(a)") "End"
+  close(structure_file)
+end subroutine
+
+subroutine write_structure_file_string(structure,filename)
+  implicit none
+  
+  type(StructureData), intent(in) :: structure
+  type(String),        intent(in) :: filename
+  
+  call write_structure_file(structure,char(filename))
 end subroutine
 end module

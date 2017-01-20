@@ -59,6 +59,7 @@ subroutine anharmonic()
   
   
   type(StructureData)   :: structure     ! the contents of structure.dat
+  type(StructureData)   :: superstructure
   
   type(String)          :: harmonic_path ! the path to the harmonic directory
   type(String)          :: filename
@@ -82,7 +83,6 @@ subroutine anharmonic()
   integer :: seedname_file
   integer :: mapping_file
   integer :: list_file
-  integer :: super_file
   integer :: frequency_file
   integer :: ibz_file
   integer :: result_file
@@ -157,9 +157,9 @@ subroutine anharmonic()
   do i=1,no_supercells
     if (.not. sc_acoustic(i)) then
       sdir = str('Supercell_')//i
-      super_file =open_read_file(harmonic_path//sdir//'/super_equilibrium.dat')
-      read(super_file,*) no_atoms_sc(i)
-      close(super_file)
+      filename = harmonic_path//'/'//sdir//'/structure.dat' 
+      superstructure = read_structure_file(filename)
+      no_atoms_sc(i) = superstructure%no_atoms
       no_cells(i) = no_atoms_sc(i)/structure%no_atoms
     endif
   enddo

@@ -6,32 +6,29 @@ subroutine generate_quadratic_configurations(args)
   use constants, only : dp,thermal
   use file_io,   only : open_read_file, open_write_file
   use string_module
+  use structure_module
   implicit none
   
   type(String), intent(in) :: args(:)
   
   ! file units
-  integer :: super_eqm_file
-  integer :: super_lattice_file
   integer :: disp_patt_file
-  integer :: structure_file
   
   ! filenames
-  type(String) :: super_equilibrium_filename
-  type(String) :: super_lattice_filename
+  type(String) :: input_structure_filename
   type(String) :: disp_patterns_filename
-  type(String) :: structure_filename
+  type(String) :: output_structure_filename
 
   ! Input variables
-  integer :: sampling_point,no_sampling_points,no_atoms
+  integer :: sampling_point,no_sampling_points
   real(dp) :: frequency,max_amplitude
   integer :: frequency_line ! the line in disp_patt.dat where freqency appears
-  real(dp),allocatable :: atoms(:,:),mass(:),disp_patt(:,:)
-  character(2),allocatable :: species(:)
-  real(dp) :: super_lattice(3,3)
+  real(dp),allocatable :: disp_patt(:,:)
+  
+  type(StructureData) :: structure
   
   ! Working variables
-  real(dp) :: amplitude,positions(3),quad_amplitude
+  real(dp) :: amplitude,quad_amplitude
   real(dp), parameter :: temperature=0.d0,tol=1.d-5
   real(dp), parameter :: thermal_energy=temperature/thermal
   
@@ -44,10 +41,9 @@ subroutine generate_quadratic_configurations(args)
   no_sampling_points = int(args(3))
   frequency = dble(args(4))
   frequency_line = int(args(5))
-  super_equilibrium_filename = args(6)
-  super_lattice_filename = args(7)
-  disp_patterns_filename = args(8)
-  structure_filename = args(9)
+  input_structure_filename = args(6)
+  disp_patterns_filename = args(7)
+  output_structure_filename = args(8)
   
   ! Number of sampling points as read in is last_point-first_point, but we only
   ! want number of sampling points on each side of 0, as sampling_point goes
@@ -57,29 +53,15 @@ subroutine generate_quadratic_configurations(args)
   ! take |frequency|
   frequency = dabs(frequency)
   
-  ! Read in atoms
-  super_eqm_file = open_read_file(super_equilibrium_filename)
-  read(super_eqm_file,*) no_atoms
-  allocate(atoms(no_atoms,3),mass(no_atoms),species(no_atoms))
-  allocate(disp_patt(no_atoms,4))
-  do i=1,no_atoms
-    read(super_eqm_file,*) species(i),mass(i), atoms(i,:)
-  enddo ! i
-  close(super_eqm_file)
-  
-  ! Read in lattice
-  super_lattice_file = open_read_file(super_lattice_filename)
-  do i=1,3
-    read(super_lattice_file,*) super_lattice(i,:)
-  enddo
-  close(super_lattice_file)
+  ! Read in input structure
+  structure = read_structure_file(input_structure_filename)
   
   ! Read in displacement pattern
   disp_patt_file = open_read_file(disp_patterns_filename)
   do i=1,frequency_line+2
     read(disp_patt_file,*) ! scroll forwards to the relevant lines
   enddo
-  do i=1,no_atoms
+  do i=1,structure%no_atoms
     read(disp_patt_file,*) disp_patt(i,:)
   enddo ! i
   close(disp_patt_file)
@@ -89,33 +71,26 @@ subroutine generate_quadratic_configurations(args)
   
   ! calculate quad_amplitude
   ! The normal mode amplitudes to sample are calculated 
-  IF(temperature<1.d-6)THEN
+  if(temperature<1.d-6)then
     ! This is really the normal mode amplitude squared,
     ! with units of 1/(E_h) as required.
     quad_amplitude = dsqrt(0.5d0/frequency)
-  ELSE
+  else
     quad_amplitude = dsqrt( (1.d0/(dexp(frequency/thermal_energy)-1.d0)+0.5d0)&
                           & /frequency)
-  END IF
+  end if
 
   ! Calculate amplitude
   amplitude = max_amplitude                              &
           & * (sampling_point/(1.d0*no_sampling_points)) &
           & * quad_amplitude
   
-  ! Write out displacement pattern
-  structure_file = open_write_file(structure_filename)
-  write(structure_file,"(a)") 'Lattice'
-  do i=1,3
-    write(structure_file,*) super_lattice(i,:)
+  ! Calculate new positions
+  do i=1,structure%no_atoms
+    structure%atoms(:,i) = structure%atoms(:,i) &
+                       & + amplitude*disp_patt(i,1:3)*disp_patt(i,4:6)
   enddo
-  write(structure_file,"(a)") 'Atoms'
-  do i=1,no_atoms
-    positions = atoms(i,:) + amplitude*disp_patt(i,1:3)*disp_patt(i,4:6)
-    write(structure_file,*) species(i),mass(i),positions(:)
-  enddo ! i
-  write(structure_file,"(a)") 'Symmetry'
-  write(structure_file,"(a)") 'End'
-  close(structure_file)
+  
+  call write_structure_file(structure,output_structure_filename)
 end subroutine
 end module

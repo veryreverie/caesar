@@ -89,9 +89,6 @@ for i in `seq 1 $no_sc`;do
   
   # Collect quadratic results
   no_kpoints=$(ls -1d $sdir/kpoint.* | wc -l)
-  no_atoms_sc=$(awk 'NR==1 {print}' \
-     $harmonic_path/$sdir/super_equilibrium.dat)
-  sc_size=$(( $(( $no_atoms_sc/$no_atoms )) | bc ))
   
   # Loop over k-points
   for j in `seq $kpoint_counter $(( $kpoint_counter+($no_kpoints-1) ))`; do

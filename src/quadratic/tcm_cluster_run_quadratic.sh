@@ -31,8 +31,6 @@ seedname_nscf=$seedname.nscf
 # Loop over supercells
 for i in `seq $first_sc $last_sc`; do
   sdir=Supercell_$i
-  no_atoms_sc=$(awk 'NR==1 {print $1}' \
-     $harmonic_path/$sdir/super_equilibrium.dat)
 
   # Run static first
   static_dir=$sdir/static

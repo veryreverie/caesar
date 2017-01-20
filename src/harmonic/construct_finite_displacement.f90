@@ -3,75 +3,41 @@ module construct_finite_displacement_module
 contains
 
 subroutine construct_finite_displacement(args)
-  use constants, only : dp
-  use file_io,   only : open_read_file, open_write_file
   use string_module
+  use structure_module
   implicit none
   
   type(String), intent(in) :: args(:)
   
   ! Input variables
-  integer :: atom,disp,no_atoms
-  real(dp) :: lattice(3,3)
-  real(dp),allocatable :: atoms(:,:),mass(:)
-  character(2),allocatable :: species(:)
+  integer :: atom
+  integer :: disp
   
-  ! file units
-  integer :: super_lattice_file
-  integer :: super_equilibrium_file
-  integer :: positive_file
-  integer :: negative_file
+  ! file names
+  type(String) :: structure_filename
+  type(String) :: positive_filename
+  type(String) :: negative_filename
   
-  integer :: i ! loop index
+  type(StructureData) :: positive_structure
+  type(StructureData) :: negative_structure
 
-  ! Read in displacement
+  ! Read in arguments
   atom = int(args(1))
   disp = int(args(2))
+  structure_filename = args(3)
+  positive_filename = args(4)
+  negative_filename = args(5)
   
   ! Read in structure
-  super_lattice_file = open_read_file(args(3))
-  read(super_lattice_file,*) lattice(1,:)
-  read(super_lattice_file,*) lattice(2,:)
-  read(super_lattice_file,*) lattice(3,:)
-  close(super_lattice_file)
+  positive_structure = read_structure_file(structure_filename)
+  negative_structure = read_structure_file(structure_filename)
   
-  super_equilibrium_file = open_read_file(args(4))
-  read(super_equilibrium_file,*) no_atoms
-  allocate(atoms(no_atoms,3),mass(no_atoms),species(no_atoms))
-  do i=1,no_atoms 
-    read(super_equilibrium_file,*)species(i),mass(i),atoms(i,:)
-  enddo
-  close(super_equilibrium_file)
-
-  ! Generate distorted structure
-  positive_file = open_write_file(args(5))
-  negative_file = open_write_file(args(6))
-  write(positive_file,*)'Lattice'
-  write(negative_file,*)'Lattice'
-  do i=1,3
-    write(positive_file,*)lattice(i,:)
-    write(negative_file,*)lattice(i,:)
-  enddo ! i
-  write(positive_file,*)'Atoms'
-  write(negative_file,*)'Atoms'
-  do i=1,no_atoms
-    if(i==atom)then
-      atoms(i,disp)=atoms(i,disp)+0.01d0
-    endif ! i==atom
-    write(positive_file,*)species(i),mass(i),atoms(i,:)
-  enddo ! i
-  do i=1,no_atoms
-    if(i==atom)then
-      atoms(i,disp)=atoms(i,disp)-0.02d0
-    endif ! i==atom
-    write(negative_file,*)species(i),mass(i),atoms(i,:)
-  enddo ! i
-  write(positive_file,*)'Symmetry'
-  write(negative_file,*)'Symmetry'
-  write(positive_file,*)'End'
-  write(negative_file,*)'End'
-  close(positive_file)
-  close(negative_file)
-
+  positive_structure%atoms(disp,atom) = positive_structure%atoms(disp,atom) &
+                                    & + 0.01d0
+  negative_structure%atoms(disp,atom) = negative_structure%atoms(disp,atom) &
+                                    & - 0.02d0
+  
+  call write_structure_file(positive_structure,positive_filename)
+  call write_structure_file(negative_structure,negative_filename)
 end subroutine
 end module

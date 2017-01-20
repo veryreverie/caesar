@@ -75,13 +75,6 @@ while read fline ; do
   if (( ${NEW_CELL} != ${OLD_CELL} )) ; then
     CELL_COUNT=$(( ${CELL_COUNT} + 1 ))
     OLD_CELL=${NEW_CELL}
-    sdir=Supercell_${CELL_COUNT}
-    
-    caesar construct_supercell     \
-           structure.dat           \
-           $sdir/supercell.dat     \
-           $sdir/super_lattice.dat \
-           $sdir/super_equilibrium.dat
   fi
   
   KPOINT_1=${line[0]}
@@ -96,17 +89,12 @@ echo $CELL_COUNT > no_sc.dat
 
 # Generate Force Constants 
 for (( i=1; i<=$CELL_COUNT; i++ ))do
-
   sdir=Supercell_$i
-
-  # Construct symmetry operations
   
-  echo Lattice                          > $sdir/structure.dat
-  cat $sdir/super_lattice.dat          >> $sdir/structure.dat
-  echo Atoms                           >> $sdir/structure.dat
-  sed '1d' $sdir/super_equilibrium.dat >> $sdir/structure.dat #all but 1st line
-  echo Symmetry                        >> $sdir/structure.dat
-  echo End                             >> $sdir/structure.dat
+  caesar construct_supercell     \
+         structure.dat           \
+         $sdir/supercell.dat     \
+         $sdir/structure.dat
   
   # write $sdir/symmetry.dat
   caesar structure_to_dft    \
@@ -129,7 +117,7 @@ for (( i=1; i<=$CELL_COUNT; i++ ))do
          $sdir/symmetry.dat           \
          structure.dat                \
          $sdir/supercell.dat          \
-         $sdir/super_equilibrium.dat  \
+         $sdir/structure.dat          \
          $sdir/force_constants.dat
   
   while read fline ; do
@@ -139,12 +127,10 @@ for (( i=1; i<=$CELL_COUNT; i++ ))do
     ddir=$sdir/atom.$atom.disp.$disp
     mkdir $ddir
     mkdir $ddir/positive $ddir/negative
-    cp $sdir/super_lattice.dat $sdir/super_equilibrium.dat $ddir
     caesar construct_finite_displacement \
            $atom                         \
            $disp                         \
-           $ddir/super_lattice.dat       \
-           $ddir/super_equilibrium.dat   \
+           $sdir/structure.dat           \
            $ddir/positive/structure.dat  \
            $ddir/negative/structure.dat
 
@@ -161,7 +147,7 @@ for (( i=1; i<=$CELL_COUNT; i++ ))do
     caesar generate_supercell_kpoint_mesh_qe \
            $code/kpoints.in                  \
            structure.dat                     \
-           $sdir/super_lattice.dat           \
+           $sdir/structure.dat               \
            $sdir/kpoints.in
   fi
 

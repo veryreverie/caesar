@@ -45,8 +45,8 @@ read temperature
 no_sc=$(awk '{print}' no_sc.dat )
 
 lattice_line=$(awk -v IGNORECASE=1 '$1~/Lattice/{print NR}' structure.dat) 
-atoms_line=$(awk -v IGNORECASE=1 '/Atoms/{print NR}' $sdir/structure.dat)
-symmetry_line=$(awk -v IGNORECASE=1 '/Symmetry/{print NR}' $sdir/structure.dat)
+atoms_line=$(awk -v IGNORECASE=1 '/Atoms/{print NR}' structure.dat)
+symmetry_line=$(awk -v IGNORECASE=1 '/Symmetry/{print NR}' structure.dat)
 no_atoms=$(( $(( $symmetry_line-($atoms_line+1))) | bc ))
 
 code=$(awk '{print}' code.txt)
@@ -54,6 +54,11 @@ code=$(awk '{print}' code.txt)
 # Loop over 
 for (( i=1; i<=$no_sc; i++ )) do
   sdir=Supercell_$i
+  
+  super_lattice_line=$(awk -v IGNORECASE=1 '$1~/Lattice/{print NR}' $sdir/structure.dat) 
+  super_atoms_line=$(awk -v IGNORECASE=1 '/Atoms/{print NR}' $sdir/structure.dat)
+  super_symmetry_line=$(awk -v IGNORECASE=1 '/Symmetry/{print NR}' $sdir/structure.dat)
+  super_no_atoms=$(( $(( $super_symmetry_line-($super_atoms_line+1))) | bc ))
 
   # Prepare force constants
   force_const=0
@@ -63,38 +68,37 @@ for (( i=1; i<=$no_sc; i++ )) do
     line=($fline)
     disp=${line[0]}
     atom=${line[1]}
-    dir=$sdir/atom.$atom.disp.$disp
+    ddir=$sdir/atom.$atom.disp.$disp
     
     paths=(positive negative)
     for path in ${paths[@]}; do
       if [ "$code" = "castep" ]; then
-        caesar fetch_forces                \
-               $code                       \
-               $dir/$path/$seedname.castep \
-               $atom                       \
-               $disp                       \
-               $dir/$path.dat
+        caesar fetch_forces                 \
+               $code                        \
+               $ddir/$path/$seedname.castep \
+               $atom                        \
+               $disp                        \
+               $ddir/$path.dat
       elif [ "$code" = "qe" ]; then
-        caesar fetch_forces             \
-               $code                    \
-               $dir/$path/$seedname.out \
-               $atom                    \
-               $disp                    \
-               $dir/$path.dat
+        caesar fetch_forces              \
+               $code                     \
+               $ddir/$path/$seedname.out \
+               $atom                     \
+               $disp                     \
+               $ddir/$path.dat
       fi
     done
     
-    caesar combine_forces             \
-           $dir/super_equilibrium.dat \
-           $dir/positive.dat          \
-           $dir/negative.dat          \
-           $dir/forces.dat
+    caesar combine_forces      \
+           $sdir/structure.dat \
+           $ddir/positive.dat  \
+           $ddir/negative.dat  \
+           $ddir/forces.dat
 
   done < $sdir/force_constants.dat
 
-  caesar equilibrium_frac            \
-         $sdir/super_equilibrium.dat \
-         $sdir/super_lattice.dat     \
+  caesar equilibrium_frac    \
+         $sdir/structure.dat \
          $sdir/super_equiibrium_frac.dat
   
   # Construct LTE
@@ -105,9 +109,10 @@ for (( i=1; i<=$no_sc; i++ )) do
   awk "NR==$(($lattice_line + 1)), NR==$(($atoms_line - 1)) "\
      '{print $1 " " $2 " " $3} ' structure.dat >> $f
   echo "Supercell lattice vectors (rows, in a.u.)" >> $f
-  cat $sdir/super_lattice.dat >> $f
+  awk "NR==$(($super-lattice_line + 1)), NR==$(($super_atoms_line - 1)) "\
+     '{print $1 " " $2 " " $3} ' $sdir/structure.dat >> $f
   echo " Number of atoms in supercell" >> $f
-  echo $no_atoms >> $f
+  echo $super_no_atoms >> $f
   echo " Species ; mass (a.u.) ; position of atom in supercell (in terms of SC LVs)" >> $f
   awk '{if (NR!=1) {print}}' $sdir/super_equilibrium_frac.dat >> $f
   echo "Number of point symmetry operations" >> $f
@@ -115,7 +120,7 @@ for (( i=1; i<=$no_sc; i++ )) do
   echo "Rotation matrices (3 rows) and translations (1 row, fraction of SC LV)" >> $f
   awk '{if (NR!=1) {print}}' $sdir/symmetry.dat >> $f
   echo "Number of force constants" >> $f
-  echo $(( $force_const*$no_atoms*3 )) >> $f
+  echo $(( $force_const*$super_no_atoms*3 )) >> $f
   echo "Atom 1 ; Cartes'n direction ; Atom 2 ; C. direction ; force constant (a.u.)" >> $f
   while read fline ; do
     line=($fline)

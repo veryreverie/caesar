@@ -19,10 +19,9 @@ subroutine construct_matrix_force_cnsts(filenames)
   type(String), intent(in) :: filenames(:)
   
   ! Input variables
-  integer :: no_symm,no_atoms
-  real(dp),allocatable :: rotation(:,:,:),offset(:,:),atom_pos(:,:),atom_pos_frac(:,:),mass(:)
+  integer :: no_symm
+  real(dp),allocatable :: rotation(:,:,:),offset(:,:),atom_pos_frac(:,:)
   real(dp) :: supercell(3,3)
-  character(2) :: dump_ch
   
   ! Parameters
   real(dp), parameter :: x(3) = (/ 1.d0, 0.d0, 0.d0 /)
@@ -38,25 +37,25 @@ subroutine construct_matrix_force_cnsts(filenames)
   real(dp) :: roty(3),rotz(3)
   
   type(StructureData) :: structure
+  type(StructureData) :: superstructure
   
   ! file units
   integer :: symmetry_file
   integer :: supercell_file
-  integer :: super_equilibrium_file
   integer :: force_constants_file
   
   ! filenames
   character(100) :: symmetry_filename
   character(100) :: structure_filename
   character(100) :: supercell_filename
-  character(100) :: super_equilibrium_filename
+  character(100) :: superstructure_filename
   character(100) :: force_constants_filename
   
   ! Read filenames from input
   symmetry_filename = filenames(1)
   structure_filename = filenames(2)
   supercell_filename = filenames(3)
-  super_equilibrium_filename = filenames(4)
+  superstructure_filename = filenames(4)
   force_constants_filename = filenames(5)
   
   ! Read in symmetry operations
@@ -89,20 +88,9 @@ subroutine construct_matrix_force_cnsts(filenames)
   enddo ! i
 
   ! Read in atomic positions
-  super_equilibrium_file = open_read_file(super_equilibrium_filename)
-  read(super_equilibrium_file,*)no_atoms
-  allocate(atom_pos(no_atoms,3),mass(no_atoms))
-  allocate(atom_pos_frac(no_atoms,3))
-  do i=1,no_atoms
-    read(super_equilibrium_file,*)dump_ch,mass(i),atom_pos(i,:)
-  enddo ! i
-  close(super_equilibrium_file)
+  superstructure = read_structure_file(superstructure_filename)
 
-  do i=1,no_atoms
-    atom_pos_frac(i,:) = atom_pos(i,1)*structure%recip_lattice(:,1) &
-                     & + atom_pos(i,2)*structure%recip_lattice(:,2) &
-                     & + atom_pos(i,3)*structure%recip_lattice(:,3)
-  enddo ! i
+  atom_pos_frac = matmul(structure%recip_lattice,superstructure%atoms)
 
   ! Check which Cartesian directions are needed
   yrelated=.false.
@@ -122,16 +110,16 @@ subroutine construct_matrix_force_cnsts(filenames)
   force_constants_file = open_write_file(force_constants_filename)
 
   ! Apply point group to atomic positions
-  do i=1,no_atoms
+  do i=1,superstructure%no_atoms
     related=.false.
     do j=1,no_symm 
-      rot_pos=matmul(rotation(j,:,:),atom_pos(i,:))
+      rot_pos=matmul(rotation(j,:,:),superstructure%atoms(:,i))
       rot_pos_frac(:) = rot_pos(1)*structure%recip_lattice(:,1) &
                     & + rot_pos(2)*structure%recip_lattice(:,2) &
                     & + rot_pos(3)*structure%recip_lattice(:,3) &
                     & + offset(j,:)
       do k=1,i-1
-        reduced_pos = rot_pos_frac(:)-atom_pos_frac(k,:)-tol_mod
+        reduced_pos = rot_pos_frac(:)-atom_pos_frac(:,k)-tol_mod
         reduced_pos = dabs(reduced_pos-nint(reduced_pos))
         if ( reduced_pos(1)<tol .and. &
            & reduced_pos(2)<tol .and. &

@@ -67,22 +67,17 @@ for i in `seq 1 $no_sc`; do
   sdir=Supercell_$i
   mkdir $sdir
   
-  no_atoms_sc=$( awk 'NR==1 {print $1}' \
-     $harmonic_path/$sdir/super_equilibrium.dat )
+  atoms_line_sc=$(awk -v IGNORECASE=1 '$1~/Atoms/{print NR}' \
+     $harmonic_path/$sdir/structure.dat)
+  symmetry_line_sc=$(awk -v IGNORECASE=1 '$1~/Lattice/{print NR}' \
+     $harmonic_path/$sdir/structure.dat)
+  no_atoms_sc=$($symmetry_line_sc-$atoms_line_sc-1)
   
   # Generate configurations
 
   # Generate static calculation
   mkdir $sdir/static
   
-  echo Lattice                                   > $sdir/static/structure.dat
-  cat $harmonic_path/$sdir/super_lattice.dat    >> $sdir/static/structure.dat
-  echo Atoms                                    >> $sdir/static/structure.dat
-  awk "NR==2,NR==$(( $no_atoms_sc+1 )) {print}" \
-     $harmonic_path/$sdir/super_equilibrium.dat >> $sdir/static/structure.dat
-  echo Symmetry                                 >> $sdir/static/structure.dat
-  echo End                                      >> $sdir/static/structure.dat
-
   # loop over kpoints
   while read fline ; do
     line=$(fline)
@@ -114,33 +109,16 @@ for i in `seq 1 $no_sc`; do
                $no_sampling_points                        \
                $frequency                                 \
                $frequency_line                            \
-               $harmonic_path/$sdir/super_equilibrium.dat \
-               $harmonic_path/$sdir/super_lattice.dat     \
+               $harmonic_path/$sdir/structure.dat         \
                $kdir/disp_patterns.dat                    \
                $mdir/structure.dat
       done # loop over sampling points per mode
     done # loop over modes
   done < $harmonic_path/$sdir/list.dat
-done # Loop over supercells
-
-# ----------------------------------------------------------------------
-# Convert to specific code
-# ----------------------------------------------------------------------
-if [ "$code" = "castep" ] && [ -e "$code/path.dat" ]; then
-  # Get primitive cell path 
-  bs_path_init=$(awk -v IGNORECASE=1 '/block bs_kpoint_path/{print NR; exit}' $code/path.dat )
-  bs_path_final=$(awk -v IGNORECASE=1 '/endblock bs_kpoint_path/{print NR}' $code/path.dat )
-  echo $(( $bs_path_final-$bs_path_init-1 )) > $code/bs_path.dat
-  awk "NR=$(($bs_path_init + 1)),NR==$(($bs_path_final - 1)) " \
-    '{print $1 " " $2 " " $3}' $code/path.dat >> $code/bs_path.dat
-fi
   
-# Loop over supercells
-for (( i=1; i<=$no_sc; i++ )) do
-  sdir=Supercell_$i
-  no_atoms_sc=$( awk 'NR==1 {print $1}' \
-     $harmonic_path/$sdir/super_equilibrium.dat )
-  echo "Converting supercell" $i
+  # ----------------------------------------------------------------------
+  # Convert to specific code
+  # ----------------------------------------------------------------------
   
   # Run static calculation
   static_dir=$sdir/static
@@ -149,17 +127,17 @@ for (( i=1; i<=$no_sc; i++ )) do
     if [ -e "$code/path.dat" ];then
       caesar generate_sc_path                   \
              $harmonic_path/$sdir/supercell.dat \
-             $static_dir/bs_path.dat            \
+             $code/path.dat                     \
              $static_dir/sc_bs_path.dat
-      caesar structure_to_dft           \
-             $code                      \
-             $static_dir/structure.dat  \
-             $static_dir/sc_bs_path.dat \
+      caesar structure_to_dft                    \
+             $code                               \
+             $harmonic_path/$sdir/structure.dat  \
+             $static_dir/sc_bs_path.dat          \
              $static_dir/$seedname.cell
     else
-      caesar structure_to_dft           \
-             $code                      \
-             $static_dir/structure.dat  \
+      caesar structure_to_dft                    \
+             $code                               \
+             $harmonic_path/$sdir/structure.dat  \
              $static_dir/$seedname.cell
     fi
   elif [ "$code" = "vasp" ]; then
@@ -168,36 +146,36 @@ for (( i=1; i<=$no_sc; i++ )) do
     cp $code/KPOINTS.band $static_dir
     cp $code/mpi_submit_static.sh $static_dir
     cp $harmonic_path/$sdir/KPOINTS.$i $static_dir/KPOINTS
-    caesar structure_to_dft          \
-           $code                     \
-           $static_dir/structure.dat \
+    caesar structure_to_dft                    \
+           $code                               \
+           $harmonic_path/$sdir/structure.dat  \
            $static_dir/POSCAR
   elif [ "$code" = "qe" ]; then
     # Generate supercell k-point mesh
-    caesar generate_supercell_kpoint_mesh_qe      \
-           $code/kpoints.in                       \
-           $harmonic_path/structure.dat           \
-           $harmonic_path/$sdir/super_lattice.dat \
+    caesar generate_supercell_kpoint_mesh_qe  \
+           $code/kpoints.in                   \
+           $harmonic_path/structure.dat       \
+           $harmonic_path/$sdir/structure.dat \
            $sdir/kpoints.in
     
-    caesar generate_supercell_kpoint_mesh_qe      \
-           $code/kpoints.nscf.in                  \
-           $harmonic_path/structure.dat           \
-           $harmonic_path/$sdir/super_lattice.dat \
+    caesar generate_supercell_kpoint_mesh_qe  \
+           $code/kpoints.nscf.in              \
+           $harmonic_path/structure.dat       \
+           $harmonic_path/$sdir/structure.dat \
            $sdir/kpoints.nscf.in
 
     cp $code/* $static_dir
-    caesar structure_to_dft          \
-           $code                     \
-           $static_dir/structure.dat \
-           $code/pseudo.in           \
-           $sdir/kpoints.in          \
+    caesar structure_to_dft                   \
+           $code                              \
+           $harmonic_path/$sdir/structure.dat \
+           $code/pseudo.in                    \
+           $sdir/kpoints.in                   \
            $static_dir/$seedname.in
-    caesar structure_to_dft          \
-           $code                     \
-           $static_dir/structure.dat \
-           $code/pseudo.in           \
-           $sdir/kpoints.nscf.in     \
+    caesar structure_to_dft                   \
+           $code                              \
+           $harmonic_path/$sdir/structure.dat \
+           $code/pseudo.in                    \
+           $sdir/kpoints.nscf.in              \
            $static_dir/$seedname_nscf.in
     if [ -f "$static_dir/pseudo.in" ]; then
       rm $static_dir/pseudo.in
