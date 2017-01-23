@@ -58,7 +58,9 @@ for (( i=1; i<=$no_sc; i++ )) do
   super_lattice_line=$(awk -v IGNORECASE=1 '$1~/Lattice/{print NR}' $sdir/structure.dat) 
   super_atoms_line=$(awk -v IGNORECASE=1 '/Atoms/{print NR}' $sdir/structure.dat)
   super_symmetry_line=$(awk -v IGNORECASE=1 '/Symmetry/{print NR}' $sdir/structure.dat)
-  super_no_atoms=$(( $(( $super_symmetry_line-($super_atoms_line+1))) | bc ))
+  super_end_line=$(awk -v IGNORECASE=1 '/End/{print NR}' $sdir/structure.dat)
+  super_no_atoms=$(($super_symmetry_line-$super_atoms_line-1))
+  super_no_symmetries=$(($(($super_end_line-$super_symmetry_line-1))/5 | bc))
 
   # Prepare force constants
   force_const=0
@@ -116,9 +118,10 @@ for (( i=1; i<=$no_sc; i++ )) do
   echo " Species ; mass (a.u.) ; position of atom in supercell (in terms of SC LVs)" >> $f
   awk '{if (NR!=1) {print}}' $sdir/super_equilibrium_frac.dat >> $f
   echo "Number of point symmetry operations" >> $f
-  awk '{if (NR==1) {print}}' $sdir/symmetry.dat >> $f
+  echo $super_no_symmetries >> $f
   echo "Rotation matrices (3 rows) and translations (1 row, fraction of SC LV)" >> $f
-  awk '{if (NR!=1) {print}}' $sdir/symmetry.dat >> $f
+  awk "NR==$(($super_symmetry_line + 1)), NR==$(($super_end_line - 1)) "\
+     '{print $1 " " $2 " " $3} ' $sdir/structure.dat >> $f
   echo "Number of force constants" >> $f
   echo $(( $force_const*$super_no_atoms*3 )) >> $f
   echo "Atom 1 ; Cartes'n direction ; Atom 2 ; C. direction ; force constant (a.u.)" >> $f

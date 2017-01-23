@@ -8,8 +8,9 @@ program caesar
   use string_module
   
   ! use common modules
-  use rundft_module,           only : rundft
-  use structure_to_dft_module, only : structure_to_dft
+  use rundft_module,                    only : rundft
+  use structure_to_dft_module,          only : structure_to_dft
+  use calculate_symmetry_helper_module, only : calculate_symmetry_helper
   
   ! use harmonic modules
   use combine_forces_module,        only : combine_forces
@@ -189,7 +190,9 @@ program caesar
     elseif (size(args) == 6) then
       call structure_to_dft(args(2),args(3),args(4),args(5),args(6))
     endif
-  ! wrappers for shell scripts
+  elseif (args(1) == 'calculate_symmetry_helper') then
+    call calculate_symmetry_helper(args(2:))
+  ! wrappers for main shell scripts
   elseif (args(1) == 'setup_harmonic') then
     call system(args(1)//'.sh '//argstring)
   elseif (args(1) == 'tcm_cluster_run_harmonic') then
@@ -209,6 +212,9 @@ program caesar
   elseif (args(1) == 'eigenval_castep_to_bands') then
     call system(args(1)//'.sh '//argstring)
   elseif (args(1) == 'eigenval_vasp_to_bands') then
+    call system(args(1)//'.sh '//argstring)
+  ! wrappers for subsidiary shell scripts
+  elseif (args(1) == 'calculate_symmetry') then
     call system(args(1)//'.sh '//argstring)
   ! wrappers for python scripts
   elseif (args(1) == 'get_kpoints') then

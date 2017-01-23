@@ -253,19 +253,22 @@ subroutine generate_supercells(args)
   real(dp) :: temp_scell(3,3)
   real(dp) :: prim(3)
   logical,allocatable :: found_kpoint(:)
-  character(100) :: sdir ! Supercell directory
+  type(String) :: sdir ! Supercell directory
   
   ! file names
-  character(100) :: structure_filename
-  character(100) :: grid_filename
-  character(100) :: ibz_filename
-  character(100) :: kpoint_to_supercell_filename
-  character(100) :: supercell_directory_root
+  type(String) :: structure_filename
+  type(String) :: grid_filename
+  type(String) :: ibz_filename
+  type(String) :: no_sc_filename
+  type(String) :: kpoint_to_supercell_filename
+  type(String) :: supercell_directory_root
   
   ! file units
   integer :: grid_file
   integer :: ibz_file
+  integer :: no_sc_file
   integer :: k_t_s_file
+  integer :: kpoints_file
   integer :: supercell_file
   integer :: size_file
   
@@ -273,8 +276,9 @@ subroutine generate_supercells(args)
   structure_filename = args(1)
   grid_filename = args(2)
   ibz_filename = args(3)
-  kpoint_to_supercell_filename = args(4)
-  supercell_directory_root = args(5)
+  no_sc_filename = args(4)
+  kpoint_to_supercell_filename = args(5)
+  supercell_directory_root = args(6)
   
   ! Read the structure file
   structure = read_structure_file(structure_filename)
@@ -363,10 +367,20 @@ subroutine generate_supercells(args)
                 enddo ! k
                 if(all(abs(prim(1:3)-dble(nint(prim(1:3))))<tol))then
                   count=count+1
+                  
+                  ! sdir="Supercell_*
+                  sdir=supercell_directory_root//count
+                  call system('mkdir '//sdir)
+                  
                   found_kpoint(i)=.true.
                   label(i)=count
-                  write(k_t_s_file,*)kpoints(1:3,i),label(i)
-                  write(ibz_file,*)kpoints(1:3,i),multiplicity(i)
+                  
+                  write(k_t_s_file,*) kpoints(:,i), label(i)
+                  write(ibz_file,*) kpoints(:,i), multiplicity(i)
+                  kpoints_file = open_write_file(sdir//'/kpoints.dat')
+                  write(kpoints_file,*) count, kpoints(:,i)
+                  close(kpoints_file)
+                  
                   do j=i+1,num_kpoints
                     if(found_kpoint(j))cycle
                     if(super_size(j)/=super_size(i))cycle
@@ -376,8 +390,12 @@ subroutine generate_supercells(args)
                     if(all(abs(prim(1:3)-dble(nint(prim(1:3))))<tol))then
                       found_kpoint(j)=.true.
                       label(j)=count
-                      write(k_t_s_file,*)kpoints(1:3,j),label(j)
-                      write(ibz_file,*)kpoints(1:3,j),multiplicity(j)
+                      
+                      write(k_t_s_file,*) kpoints(1:3,j), label(j)
+                      write(ibz_file,*) kpoints(1:3,j), multiplicity(j)
+                      kpoints_file = open_write_file(sdir//'/kpoints.dat')
+                      write(kpoints_file,*) count, kpoints(:,j)
+                      close(kpoints_file)
                     endif ! tol
                   enddo ! j
                   do k=1,3
@@ -394,18 +412,14 @@ subroutine generate_supercells(args)
                     enddo ! j
                   enddo ! k
                   
-                  ! sdir="Supercell_*
-                  sdir=trim(supercell_directory_root)//trim(i2s(count))
-                  call system('mkdir '//trim(sdir))
-                  
-                  supercell_file =open_write_file(trim(sdir)//'/supercell.dat')
-                  write(supercell_file,*)hnf(1,1:3)
-                  write(supercell_file,*)hnf(2,1:3)
-                  write(supercell_file,*)hnf(3,1:3)
+                  supercell_file = open_write_file(sdir//'/supercell.dat')
+                  write(supercell_file,*) hnf(1,:)
+                  write(supercell_file,*) hnf(2,:)
+                  write(supercell_file,*) hnf(3,:)
                   close(supercell_file)
                   
-                  size_file =open_write_file(trim(sdir)//'/size.dat')
-                  write(size_file,*)super_size(i)
+                  size_file = open_write_file(sdir//'/size.dat')
+                  write(size_file,*) super_size(i)
                   close(size_file)
                   
                 endif ! tol
@@ -420,12 +434,14 @@ subroutine generate_supercells(args)
   
   close(ibz_file)
   close(k_t_s_file)
+  
+  no_sc_file = open_write_file(no_sc_filename)
+  write(no_sc_file,*) count
+  close(no_sc_file)
 
   if(any(.not.found_kpoint(1:num_kpoints)))then
     write(*,*)'Unable to allocate each k-point to a supercell matrix.'
     stop
   endif ! found_kpoint
-  
-  call drop(structure)
 end subroutine
 end module

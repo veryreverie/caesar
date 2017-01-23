@@ -32,13 +32,14 @@ cflags="$cflags -J${mdir}/"     # set .mod files to exist in mod/
 cflags="$cflags -fmax-errors=1" # make compilation stop on first error
 
 # copy shell and python scripts
+cp $sdir/scripts/*.sh $bdir/
 cp $sdir/harmonic/*.sh $bdir/
 cp $sdir/quadratic/*.sh $bdir/
 cp $sdir/quadratic/*.py $bdir/
 
 # list programs
 # programs should be added so they are to the right of their dependencies
-programs=(constants string utils linear_algebra rand_no_gen file process moller_plesset structure rundft dft_output_file structure_to_dft)
+programs=(constants string utils linear_algebra rand_no_gen file process moller_plesset structure rundft dft_output_file structure_to_dft calculate_symmetry)
 
 harmonic_programs=(combine_forces compare_kpoints construct_finite_displacement construct_matrix_force_cnsts construct_supercell equilibrium_frac min_images symmetry fourier_interpolation generate_kgrid generate_supercell_kpoint_mesh_qe generate_supercells lte hartree_to_eV fetch_forces)
 

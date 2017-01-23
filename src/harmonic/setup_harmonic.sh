@@ -43,6 +43,9 @@ echo $code > code.txt
 # Generate generic calculation
 # ----------------------------------------------------------------------
 
+# Add symmetries to structure.dat
+caesar calculate_symmetry structure.dat
+
 # Generate IBZ
 # Reads Caesar input files. Writes ibz.dat and rotated_gvectors.dat
 caesar generate_kgrid \
@@ -52,43 +55,24 @@ caesar generate_kgrid \
        rotated_gvectors.dat
 
 # Generate non-diagonal supercells
-# Makes Supercell_* directories, and Supercell_*/supercell.dat and -"-/size.dat
+# Makes Supercell_* directories
+# Adds to Supercell_* directories:
+#   supercell.dat
+#   size.dat
+#   kpoints.dat
 # Reads and writes ibz.dat
 caesar generate_supercells     \
        structure.dat           \
        grid.dat                \
        ibz.dat                 \
+       no_sc.dat               \
        kpoint_to_supercell.dat \
        Supercell_
 
-CELL_COUNT=0
-KPOINT_COUNT=0
-OLD_CELL=0
-NEW_CELL=0
-
-while read fline ; do
-  line=($fline)
-  
-  KPOINT_COUNT=$(( ${KPOINT_COUNT} + 1 ))
-  NEW_CELL=${line[3]}
-  
-  if (( ${NEW_CELL} != ${OLD_CELL} )) ; then
-    CELL_COUNT=$(( ${CELL_COUNT} + 1 ))
-    OLD_CELL=${NEW_CELL}
-  fi
-  
-  KPOINT_1=${line[0]}
-  KPOINT_2=${line[1]}
-  KPOINT_3=${line[2]}
-  
-  echo ${KPOINT_COUNT} ${KPOINT_1} ${KPOINT_2} ${KPOINT_3} >> $sdir/kpoints.dat
-  
-done < kpoint_to_supercell.dat
-
-echo $CELL_COUNT > no_sc.dat
+no_sc=$(awk '{print}' no_sc.dat)
 
 # Generate Force Constants 
-for (( i=1; i<=$CELL_COUNT; i++ ))do
+for (( i=1; i<=$no_sc; i++ ))do
   sdir=Supercell_$i
   
   caesar construct_supercell     \
@@ -96,25 +80,11 @@ for (( i=1; i<=$CELL_COUNT; i++ ))do
          $sdir/supercell.dat     \
          $sdir/structure.dat
   
-  # write $sdir/symmetry.dat
-  caesar structure_to_dft    \
-         castep              \
-         $sdir/structure.dat \
-         $sdir/structure.cell
-  
-  cellsym --symmetry $sdir/structure.cell > $sdir/symmetry.dat
-  symmetry_start_line=$(awk -v IGNORECASE=1 '/%block SYMMETRY_OPS/{print NR}' $sdir/symmetry.dat)
-  symmetry_end_line=$(awk -v IGNORECASE=1 '/%endblock SYMMETRY_OPS/{print NR}' $sdir/symmetry.dat)
-  awk "NR==$(($symmetry_start_line + 1)),NR==$(($symmetry_end_line - 1)) "\
-    '{print $1 " " $2 " " $3}' $sdir/symmetry.dat > $sdir/symmetry_temp.dat
-  echo $(( $symmetry_end_line-$symmetry_start_line ))/5 | bc > $sdir/symmetry.dat
-  cat $sdir/symmetry_temp.dat | awk NF >> $sdir/symmetry.dat
-  rm structure.cell
-  rm $sdir/symmetry_temp.dat
+  # Add symmetries to structure.dat files
+  caesar calculate_symmetry $sdir/structure.dat
   
   # Evaluate needed force constants
   caesar construct_matrix_force_cnsts \
-         $sdir/symmetry.dat           \
          structure.dat                \
          $sdir/supercell.dat          \
          $sdir/structure.dat          \

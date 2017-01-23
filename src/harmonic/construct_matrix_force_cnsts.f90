@@ -19,8 +19,7 @@ subroutine construct_matrix_force_cnsts(filenames)
   type(String), intent(in) :: filenames(:)
   
   ! Input variables
-  integer :: no_symm
-  real(dp),allocatable :: rotation(:,:,:),offset(:,:),atom_pos_frac(:,:)
+  real(dp),allocatable :: offset(:,:),atom_pos_frac(:,:)
   real(dp) :: supercell(3,3)
   
   ! Parameters
@@ -40,37 +39,21 @@ subroutine construct_matrix_force_cnsts(filenames)
   type(StructureData) :: superstructure
   
   ! file units
-  integer :: symmetry_file
   integer :: supercell_file
   integer :: force_constants_file
   
   ! filenames
-  character(100) :: symmetry_filename
-  character(100) :: structure_filename
-  character(100) :: supercell_filename
-  character(100) :: superstructure_filename
-  character(100) :: force_constants_filename
+  type(String) :: structure_filename
+  type(String) :: supercell_filename
+  type(String) :: superstructure_filename
+  type(String) :: force_constants_filename
   
   ! Read filenames from input
-  symmetry_filename = filenames(1)
-  structure_filename = filenames(2)
-  supercell_filename = filenames(3)
-  superstructure_filename = filenames(4)
-  force_constants_filename = filenames(5)
+  structure_filename = filenames(1)
+  supercell_filename = filenames(2)
+  superstructure_filename = filenames(3)
+  force_constants_filename = filenames(4)
   
-  ! Read in symmetry operations
-  symmetry_file = open_read_file(symmetry_filename)
-  read(symmetry_file,*)no_symm
-  allocate(rotation(no_symm,3,3))
-  allocate(offset(no_symm,3))
-  do i=1,no_symm
-    read(symmetry_file,*)rotation(i,1,:)
-    read(symmetry_file,*)rotation(i,2,:)
-    read(symmetry_file,*)rotation(i,3,:)
-    read(symmetry_file,*)offset(i,:)
-  enddo ! i
-  close(symmetry_file)
-
   ! Read in lattice
   structure = read_structure_file(structure_filename)
 
@@ -82,10 +65,10 @@ subroutine construct_matrix_force_cnsts(filenames)
   close(supercell_file)
   
   supercell = inv_33(transpose(supercell))
+  
   ! Transform offsets to primitive cell coordinates
-  do i=1,no_symm
-    offset(i,:)=matmul(supercell,offset(i,:))  
-  enddo ! i
+  allocate(offset(3,superstructure%no_symmetries))
+  offset = matmul(supercell,superstructure%offsets)  
 
   ! Read in atomic positions
   superstructure = read_structure_file(superstructure_filename)
@@ -95,9 +78,9 @@ subroutine construct_matrix_force_cnsts(filenames)
   ! Check which Cartesian directions are needed
   yrelated=.false.
   zrelated=.false.
-  do i=1,no_symm
-    roty=matmul(rotation(i,:,:),y)
-    rotz=matmul(rotation(i,:,:),z)
+  do i=1,superstructure%no_symmetries
+    roty=matmul(superstructure%rotation_matrices(:,:,i),y)
+    rotz=matmul(superstructure%rotation_matrices(:,:,i),z)
     if( abs(roty(1)-x(1))<tol .and. &
       & abs(roty(2)-x(2))<tol .and. &
       & abs(roty(3)-x(3))<tol ) yrelated=.true.
@@ -112,12 +95,13 @@ subroutine construct_matrix_force_cnsts(filenames)
   ! Apply point group to atomic positions
   do i=1,superstructure%no_atoms
     related=.false.
-    do j=1,no_symm 
-      rot_pos=matmul(rotation(j,:,:),superstructure%atoms(:,i))
+    do j=1,superstructure%no_symmetries
+      rot_pos=matmul( superstructure%rotation_matrices(:,:,j), &
+                    & superstructure%atoms(:,i))
       rot_pos_frac(:) = rot_pos(1)*structure%recip_lattice(:,1) &
                     & + rot_pos(2)*structure%recip_lattice(:,2) &
                     & + rot_pos(3)*structure%recip_lattice(:,3) &
-                    & + offset(j,:)
+                    & + offset(:,j)
       do k=1,i-1
         reduced_pos = rot_pos_frac(:)-atom_pos_frac(:,k)-tol_mod
         reduced_pos = dabs(reduced_pos-nint(reduced_pos))
