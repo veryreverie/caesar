@@ -8,36 +8,31 @@ program caesar
   use string_module
   
   ! use common modules
-  use rundft_module,                    only : rundft
-  use structure_to_dft_module,          only : structure_to_dft
-  use calculate_symmetry_helper_module, only : calculate_symmetry_helper
+  use rundft_module
+  use structure_to_dft_module
+  use calculate_symmetry_helper_module
   
   ! use harmonic modules
-  use combine_forces_module,        only : combine_forces
-  use compare_kpoints_module,       only : compare_kpoints
-  use construct_finite_displacement_module,&
-    &only : construct_finite_displacement
-  use construct_matrix_force_cnsts_module,&
-    &only : construct_matrix_force_cnsts
-  use construct_supercell_module,   only : construct_supercell
-  use equilibrium_frac_module,      only : equilibrium_frac
-  use fourier_interpolation_module, only : fourier_interpolation
-  use generate_kgrid_module,        only : generate_kgrid
-  use generate_supercell_kpoint_mesh_qe_module,&
-    &only : generate_supercell_kpoint_mesh_qe
-  use generate_supercells_module,   only : generate_supercells
-  use lte_module,                   only : lte
-  use hartree_to_eV_module,         only : hartree_to_eV
-  use fetch_forces_module,          only : fetch_forces
+  use combine_forces_module
+  use compare_kpoints_module
+  use construct_finite_displacement_module
+  use construct_matrix_force_cnsts_module
+  use construct_supercell_module
+  use equilibrium_frac_module
+  use fourier_interpolation_module
+  use generate_kgrid_module
+  use generate_supercell_kpoint_mesh_qe_module
+  use generate_supercells_module
+  use lte_module
+  use hartree_to_eV_module
+  use fetch_forces_module
   
   ! use quadratic modules
-  use anharmonic_module,           only : anharmonic
-  use band_folding_module,         only : band_folding
-  use calculate_bs_module,         only : calculate_bs
-  use calculate_gap_module,        only : calculate_gap
-  use generate_quadratic_configurations_module,&
-    &only : generate_quadratic_configurations
-  use generate_sc_path_module,     only : generate_sc_path
+  use anharmonic_module
+  use calculate_gap_module
+  use generate_quadratic_configurations_module
+  use generate_sc_path_module
+  use bs_quadratic_module
   
   implicit none
   
@@ -136,11 +131,12 @@ program caesar
     write(*,*) char(temp_string)
     temp_real2 = dble(temp_string)
     write(*,*) temp_real2
-  ! Wrappers for Fortran 
-  elseif (args(1) == 'band_folding') then
-    call band_folding(args(2:))
-  elseif (args(1) == 'calculate_bs') then
-    call calculate_bs(args(2:))
+  ! Wrappers for top-level Fortran
+  elseif (args(1) == 'anharmonic') then
+    call anharmonic()
+  elseif (args(1) == 'bs_quadratic') then
+    call bs_quadratic()
+  ! Wrappers for subsidiary Fortran 
   elseif (args(1) == 'calculate_gap') then
     call calculate_gap()
   elseif (args(1) == 'combine_forces') then
@@ -204,10 +200,6 @@ program caesar
   elseif (args(1) == 'setup_quadratic') then
     call system(args(1)//'.sh '//argstring)
   elseif (args(1) == 'tcm_cluster_run_quadratic') then
-    call system(args(1)//'.sh '//argstring)
-  elseif (args(1) == 'anharmonic') then
-    call system(args(1)//'.sh '//argstring)
-  elseif (args(1) == 'bs_quadratic') then
     call system(args(1)//'.sh '//argstring)
   elseif (args(1) == 'eigenval_castep_to_bands') then
     call system(args(1)//'.sh '//argstring)

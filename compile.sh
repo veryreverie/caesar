@@ -43,7 +43,7 @@ programs=(constants string utils linear_algebra rand_no_gen file process moller_
 
 harmonic_programs=(combine_forces compare_kpoints construct_finite_displacement construct_matrix_force_cnsts construct_supercell equilibrium_frac min_images symmetry fourier_interpolation generate_kgrid generate_supercell_kpoint_mesh_qe generate_supercells lte hartree_to_eV fetch_forces)
 
-quadratic_programs=(mapping band_folding calculate_anharmonic calculate_bs calculate_gap generate_amplitudes generate_quadratic_configurations generate_sc_path quadratic_spline vscf_1d anharmonic bs_quadratic)
+quadratic_programs=(mapping calculate_anharmonic calculate_gap generate_amplitudes generate_quadratic_configurations generate_sc_path quadratic_spline vscf_1d anharmonic bs_quadratic)
 
 # compile objects
 for program in ${programs[@]}; do
