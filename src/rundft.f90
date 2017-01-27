@@ -20,15 +20,15 @@ subroutine rundft(args)
   codename = args(1)
   directory = args(2)
   num_cores = args(3)
+  seedname = args(4)
   
   call system('cd '//directory)
   
   if (codename=='castep') then
-    call system('rundft nnodes '//num_cores)
+    call system('rundft nnodes '//num_cores//' seedname '//seedname)
     call system('rm *.castep_bin *.cst_esp *.usp machine_file *.bib *orbitals')
   elseif (codename=='vasp') then
   elseif (codename=='qe') then
-    seedname = args(4)
     call system('mpirun -np '//num_cores//&
        & ' /rscratch/bm418/espresso-5.1.1/bin/pw.x -i '//&
        & seedname//'.in > '//seedname//'.out')

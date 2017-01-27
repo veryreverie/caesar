@@ -12,7 +12,7 @@ contains
 
 ! calls system(input), returning a ProcessResult
 function system_process(input) result(output)
-  use file_io, only : open_read_file
+  use file_module, only : open_read_file
   implicit none
   
   character(len=*), intent(in) :: input

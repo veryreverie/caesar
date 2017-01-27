@@ -58,15 +58,14 @@ caesar generate_kgrid \
 # Makes Supercell_* directories
 # Adds to Supercell_* directories:
 #   supercell.dat
-#   size.dat
-#   kpoints.dat
 # Reads and writes ibz.dat
+#   Adds sc_id to each kpoint
+#   Orders kpoints by supercell
 caesar generate_supercells     \
        structure.dat           \
        grid.dat                \
        ibz.dat                 \
        no_sc.dat               \
-       kpoint_to_supercell.dat \
        Supercell_
 
 no_sc=$(awk '{print}' no_sc.dat)
@@ -129,28 +128,25 @@ for (( i=1; i<=$no_sc; i++ ))do
     paths=(positive negative)
     for path in ${paths[@]}; do
       ddir=$sdir/atom.$atom.disp.$disp/$path
-      cp $code/* $ddir
       if [ "$code" = "castep" ]; then
-        caesar structure_to_dft    \
-               $code               \
-               $ddir/structure.dat \
-               $code/seedname.cell
+        caesar structure_to_dft     \
+               $code                \
+               $ddir/structure.dat  \
+               $code/$seedname.cell \
+               $ddir/$seedname.cell
       elif [ "$code" = "vasp" ]; then
         caesar structure_to_dft    \
                $code               \
                $ddir/structure.dat \
-               $code/POSCAR
+               $ddir/POSCAR
       elif [ "$code" = "qe" ]; then
         caesar structure_to_dft    \
                $code               \
                $ddir/structure.dat \
-               $ddir/pseudo.in     \
+               $code/$seedname.in  \
+               $code/pseudo.in     \
                $sdir/kpoints.in    \
-               $code/seedname.in
-      fi
-      
-      if [ "$code" = "qe" ] && [ -f "$ddir/pseudo.in" ]; then
-        rm $ddir/pseudo.in 
+               $ddir/$seedname.in
       fi
     done
   done < $sdir/force_constants.dat

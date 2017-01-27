@@ -16,123 +16,123 @@ module linear_algebra
     integer,  allocatable :: degeneracy(:)
   end type
 
-interface size
-  module procedure eigenstuff_size
-end interface
+  interface size
+    module procedure eigenstuff_size
+  end interface
   
-! ----------------------------------------
-! BLAS / LAPACK interface
-! ----------------------------------------
-interface
-  
-  ! Copies a real vector. Equivalent to DY = DX
-  pure subroutine dcopy(N,DX,INCX,DY,INCY)
-    use constants, only : dp
-    implicit none
+  ! ----------------------------------------
+  ! BLAS / LAPACK interface
+  ! ----------------------------------------
+  interface
     
-    integer,  intent(in)  :: N     ! length of vectors
-    real(dp), intent(in)  :: DX(*) ! input vector
-    integer,  intent(in)  :: INCX  ! increment along DX
-    real(dp), intent(out) :: DY(*) ! output vector
-    integer,  intent(in)  :: INCY  ! increment along DY
-  end subroutine
-  
-  ! Copies complex vector. Equivalent to ZY = ZX
-  pure subroutine zcopy(N,ZX,INCX,ZY,INCY)
-    use constants, only : dp
-    implicit none
+    ! Copies a real vector. Equivalent to DY = DX
+    pure subroutine dcopy(N,DX,INCX,DY,INCY)
+      use constants, only : dp
+      implicit none
+      
+      integer,  intent(in)  :: N     ! length of vectors
+      real(dp), intent(in)  :: DX(*) ! input vector
+      integer,  intent(in)  :: INCX  ! increment along DX
+      real(dp), intent(out) :: DY(*) ! output vector
+      integer,  intent(in)  :: INCY  ! increment along DY
+    end subroutine
     
-    integer,     intent(in)  :: N     ! length of vectors
-    complex(dp), intent(in)  :: ZX(*) ! input vector
-    integer,     intent(in)  :: INCX  ! increment along ZX
-    complex(dp), intent(out) :: ZY(*) ! output vector
-    integer,     intent(in)  :: INCY  ! increment along ZY
-  end subroutine
-  
-  ! Real dot product. Returns DX.DY
-  pure real(dp) function ddot(N,DX,INCX,DY,INCY)
-    use constants, only : dp
-    implicit none
+    ! Copies complex vector. Equivalent to ZY = ZX
+    pure subroutine zcopy(N,ZX,INCX,ZY,INCY)
+      use constants, only : dp
+      implicit none
+      
+      integer,     intent(in)  :: N     ! length of vectors
+      complex(dp), intent(in)  :: ZX(*) ! input vector
+      integer,     intent(in)  :: INCX  ! increment along ZX
+      complex(dp), intent(out) :: ZY(*) ! output vector
+      integer,     intent(in)  :: INCY  ! increment along ZY
+    end subroutine
     
-    integer,  intent(in) :: N     ! length of vectors
-    real(dp), intent(in) :: DX(*) ! first vector
-    integer,  intent(in) :: INCX  ! increment along DX
-    real(dp), intent(in) :: DY(*) ! second vector
-    integer,  intent(in) :: INCY  ! increment along DY
-  end function
-  
-  ! Multiplies real vector by real scalar. Equivalent to DX *= DA
-  pure subroutine dscal(N,DA,DX,INCX)
-    use constants, only : dp
-    implicit none
+    ! Real dot product. Returns DX.DY
+    pure real(dp) function ddot(N,DX,INCX,DY,INCY)
+      use constants, only : dp
+      implicit none
+      
+      integer,  intent(in) :: N     ! length of vectors
+      real(dp), intent(in) :: DX(*) ! first vector
+      integer,  intent(in) :: INCX  ! increment along DX
+      real(dp), intent(in) :: DY(*) ! second vector
+      integer,  intent(in) :: INCY  ! increment along DY
+    end function
     
-    integer,  intent(in)    :: N     ! length of vector
-    real(dp), intent(in)    :: DA    ! scalar
-    real(dp), intent(inout) :: DX(*) ! vector
-    integer,  intent(in)    :: INCX  ! increment along DX
-  end subroutine
-  
-  ! Multiplies complex vector by complex scalar. Equivalent to ZX *= ZA
-  pure subroutine zscal(N,ZA,ZX,INCX)
-    use constants, only : dp
-    implicit none
+    ! Multiplies real vector by real scalar. Equivalent to DX *= DA
+    pure subroutine dscal(N,DA,DX,INCX)
+      use constants, only : dp
+      implicit none
+      
+      integer,  intent(in)    :: N     ! length of vector
+      real(dp), intent(in)    :: DA    ! scalar
+      real(dp), intent(inout) :: DX(*) ! vector
+      integer,  intent(in)    :: INCX  ! increment along DX
+    end subroutine
     
-    integer,     intent(in)    :: N     ! length of vector
-    complex(dp), intent(in)    :: ZA    ! scalar
-    complex(dp), intent(inout) :: ZX(*) ! vector
-    integer,     intent(in)    :: INCX  ! increment along ZX
-  end subroutine
-  
-  ! Complex norm. Returns sqrt(X.X)
-  pure real(kind(1.d0)) function dznrm2(N,X,INCX)
-    use constants, only : dp
-    implicit none
+    ! Multiplies complex vector by complex scalar. Equivalent to ZX *= ZA
+    pure subroutine zscal(N,ZA,ZX,INCX)
+      use constants, only : dp
+      implicit none
+      
+      integer,     intent(in)    :: N     ! length of vector
+      complex(dp), intent(in)    :: ZA    ! scalar
+      complex(dp), intent(inout) :: ZX(*) ! vector
+      integer,     intent(in)    :: INCX  ! increment along ZX
+    end subroutine
     
-    integer,     intent(in) :: N    ! length of vector
-    complex(dp), intent(in) :: X(*) ! vector
-    integer,     intent(in) :: INCX ! increment along X
-  end function
-  
-  ! Finds the eigenvalues of a hermitian matrix
-  pure subroutine zheev(JOBZ,UPLO,N,A,LDA,W,WORK,LWORK,RWORK,INFO)
-    use constants, only : dp
-    implicit none
+    ! Complex norm. Returns sqrt(X.X)
+    pure real(kind(1.d0)) function dznrm2(N,X,INCX)
+      use constants, only : dp
+      implicit none
+      
+      integer,     intent(in) :: N    ! length of vector
+      complex(dp), intent(in) :: X(*) ! vector
+      integer,     intent(in) :: INCX ! increment along X
+    end function
     
-    character(1), intent(in)    :: JOBZ     ! N/V: if V, calculate eigenvectors
-    character(1), intent(in)    :: UPLO     ! U/L: store upper/lower triangle
-    integer,      intent(in)    :: N        ! the order of A
-    complex(dp),  intent(inout) :: A(LDA,*) ! Hermitian matrix
-    integer,      intent(in)    :: LDA      ! the dimension of A
-    real(dp),     intent(out)   :: W(*)     ! eigenvalues of A
-    complex(dp),  intent(out)   :: WORK(*)  ! WORK(1) = optimal LWORK
-    integer,      intent(in)    :: LWORK    ! the length of WORK
-    real(dp),     intent(out)   :: RWORK(*) ! working array
-    integer,      intent(out)   :: INFO     ! 0 on success
-  end subroutine
-  
-  ! Finds the eigenvalues of a symmetric matrix
-  pure subroutine dsyev(JOBZ,UPLO,N,A,LDA,W,WORK,LWORK,INFO)
-    use constants, only : dp
-    implicit none
+    ! Finds the eigenvalues of a hermitian matrix
+    pure subroutine zheev(JOBZ,UPLO,N,A,LDA,W,WORK,LWORK,RWORK,INFO)
+      use constants, only : dp
+      implicit none
+      
+      character(1), intent(in)    :: JOBZ     ! N/V: if V, calculate eigenvectors
+      character(1), intent(in)    :: UPLO     ! U/L: store upper/lower triangle
+      integer,      intent(in)    :: N        ! the order of A
+      complex(dp),  intent(inout) :: A(LDA,*) ! Hermitian matrix
+      integer,      intent(in)    :: LDA      ! the dimension of A
+      real(dp),     intent(out)   :: W(*)     ! eigenvalues of A
+      complex(dp),  intent(out)   :: WORK(*)  ! WORK(1) = optimal LWORK
+      integer,      intent(in)    :: LWORK    ! the length of WORK
+      real(dp),     intent(out)   :: RWORK(*) ! working array
+      integer,      intent(out)   :: INFO     ! 0 on success
+    end subroutine
     
-    character(1), intent(in)    :: JOBZ     ! N/V: if V, calculate eigenvectors
-    character(1), intent(in)    :: UPLO     ! U/L: store upper/lower triangle
-    integer,      intent(in)    :: N        ! the order of A
-    real(dp),     intent(inout) :: A(LDA,*) ! symmetric matrix
-    integer,      intent(in)    :: LDA      ! the dimension of A
-    real(dp),     intent(out)   :: W(*)     ! eigenvalues of A
-    real(dp),     intent(out)   :: WORK(*)  ! WORK(1) = optimal LWORK
-    integer,      intent(in)    :: LWORK    ! the length of WORK
-    integer,      intent(out)   :: INFO     ! 0 on success
-  end subroutine
-end interface
+    ! Finds the eigenvalues of a symmetric matrix
+    pure subroutine dsyev(JOBZ,UPLO,N,A,LDA,W,WORK,LWORK,INFO)
+      use constants, only : dp
+      implicit none
+      
+      character(1), intent(in)    :: JOBZ     ! N/V: if V, calculate eigenvectors
+      character(1), intent(in)    :: UPLO     ! U/L: store upper/lower triangle
+      integer,      intent(in)    :: N        ! the order of A
+      real(dp),     intent(inout) :: A(LDA,*) ! symmetric matrix
+      integer,      intent(in)    :: LDA      ! the dimension of A
+      real(dp),     intent(out)   :: W(*)     ! eigenvalues of A
+      real(dp),     intent(out)   :: WORK(*)  ! WORK(1) = optimal LWORK
+      integer,      intent(in)    :: LWORK    ! the length of WORK
+      integer,      intent(out)   :: INFO     ! 0 on success
+    end subroutine
+  end interface
 
-! ----------------------------------------
-! determinant interface
-! ----------------------------------------
-interface determinant33
-  module procedure determinant33_integer, determinant33_real
-end interface
+  ! ----------------------------------------
+  ! determinant interface
+  ! ----------------------------------------
+  interface determinant33
+    module procedure determinant33_integer, determinant33_real
+  end interface
 
 contains
 
@@ -246,7 +246,6 @@ function calculate_eigenstuff(input) result(output)
     write(*,*) "dsyev failed, info=",trim(i2s(info))
     stop
   endif
-  deallocate(work)
 end function
 
 end module

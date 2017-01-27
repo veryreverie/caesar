@@ -90,7 +90,7 @@ end subroutine
 ! reads structure.dat
 function read_structure_file_character(filename) result(this)
   use utils,          only : lower_case
-  use file_io
+  use file_module
   use linear_algebra, only : inv_33
   implicit none
   
@@ -200,7 +200,7 @@ end function
 
 subroutine write_structure_file_character(this,filename)
   use string_module
-  use file_io
+  use file_module
   implicit none
   
   type(StructureData), intent(in) :: this
@@ -244,7 +244,7 @@ end subroutine
 ! ----------------------------------------------------------------------
 subroutine read_symmetry_file_character(this,filename)
   use utils, only : lower_case
-  use file_io
+  use file_module
   implicit none
   
   type(StructureData), intent(inout) :: this

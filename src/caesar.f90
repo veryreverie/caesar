@@ -2,7 +2,7 @@ program caesar
   ! use utility modules
   use constants, only : dp
   use utils,     only : command_line_args, i2s
-  use file_io,   only : open_write_file, open_read_file
+  use file_module,   only : open_write_file, open_read_file
   
   ! use class modules
   use string_module
@@ -157,7 +157,7 @@ program caesar
     call equilibrium_frac(args(2:))
   elseif (args(1) == 'fourier_interpolation') then
     call fourier_interpolation(args(2),args(3),args(4),args(5),args(6),args(7),&
-      & args(8),args(9),args(10),args(11),args(12),args(13))
+      & args(8),args(9),args(10),args(11),args(12))
   elseif (args(1) == 'generate_kgrid') then
     call generate_kgrid(args(2:))
   elseif (args(1) == 'generate_quadratic_configurations') then

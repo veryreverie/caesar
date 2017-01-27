@@ -28,10 +28,9 @@ do
     for path in ${paths[@]}; do
       ddir=$sdir/atom.$atom.disp.$disp/$path
       if [ "$code" = "castep" ]; then
-        caesar rundft $code $ddir $num_cores
-      elif [ "$code" = "qe" ]; then
-        caesar rundft $code $ddir $num_cores $seedname
+        cp $code/$seedname.param $ddir
       fi
+      caesar rundft $code $ddir $num_cores $seedname
     done
 
   done < $sdir/force_constants.dat 

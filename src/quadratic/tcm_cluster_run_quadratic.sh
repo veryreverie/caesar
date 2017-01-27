@@ -29,31 +29,38 @@ seedname=$( awk '{print}' seedname.txt )
 seedname_nscf=$seedname.nscf
 
 # Loop over supercells
-for i in `seq $first_sc $last_sc`; do
-  sdir=Supercell_$i
+for sc_id in `seq $first_sc $last_sc`; do
+  sdir=Supercell_$sc_id
 
   # Run static first
   static_dir=$sdir/static
   if [ "$code" = "castep" ]; then
-    caesar rundft $code $static_dir $num_cores
+    cp $code/$seedname.param $static_dir
+    caesar rundft $code $static_dir $num_cores $seedname
   elif [ "$code" = "qe" ]; then
     caesar rundft $code $static_dir $num_cores $seedname
     if [ -e "$static_dir/$seedname_nscf.in" ]; then
       caesar rundft $code $static_dir $num_cores $seedname_nscf
     fi
   fi
-    
-  # loop over kpoints
-  while read fline ; do
-    line=($fline)
-    big_point=${line[0]}
-    kdir=$sdir/kpoint.$big_point/configurations
+done
+
+# loop over kpoints
+while read fline ; do
+  line=($fline)
+  kpoint=${line[0]}
+  sc_id=${line[2]}
+  kdir=kpoint.$kpoint/configurations
+  
+  # Skip kpoints in other supercells
+  if ["$sc_id" -ge "$first_sc"] && ["$sc_id" -le "$last_sc"]; then
     for j in `seq 1 $no_modes`; do
       for k in `seq $sampling_point_init $sampling_point_final`; do
         mdir=$kdir/mode.$j.$k
         if [ -e "$mdir/structure.dat" ]; then
           if [ "$code" = "castep" ]; then
-            caesar rundft $code $mdir $num_cores
+            cp $code/$seedname.param $mdir
+            caesar rundft $code $mdir $num_cores $seedname
           elif [ "$code" = "qe" ]; then
             caesar rundft $code $mdir $num_cores $seedname
             if [ -e "$mdir/$seedname_nscf.in" ]; then
@@ -63,6 +70,6 @@ for i in `seq $first_sc $last_sc`; do
         fi
       done # loop over sampling points per mode
     done # loop over modes
-  done < $harmonic_path/$sdir/list.dat
-done
+  fi
+done < $harmonic_path/list.dat
 echo "Done."

@@ -111,26 +111,4 @@ SUBROUTINE min_images_brute_force_b(a,lat_vec,b,nim)
   
   if(nim<=0)call errstop('MIN_IMAGES_BRUTE_FORCE','Bug.')
 end subroutine
-
-LOGICAL FUNCTION is_lat_point(rvec,rec_vec)
-  ! This function returns T if and only if rvec is a lattice vector.  rec_vec
-  ! holds the reciprocal lattice vectors.
-  IMPLICIT NONE
-  REAL(dp),INTENT(in) :: rvec(3),rec_vec(3,3)
-  REAL(dp) :: t
-  REAL(dp),PARAMETER :: tol=1.d-3
-  t=DOT_PRODUCT(rvec,rec_vec(1:3,1))
-  IF(ABS(ANINT(t)-t)<tol)THEN
-    t=DOT_PRODUCT(rvec,rec_vec(1:3,2))
-    IF(ABS(ANINT(t)-t)<tol)THEN
-      t=DOT_PRODUCT(rvec,rec_vec(1:3,3))
-      is_lat_point=(ABS(ANINT(t)-t)<tol)
-    ELSE
-      is_lat_point=.FALSE.
-    ENDIF ! 2nd component integer
-  ELSE
-    is_lat_point=.FALSE.
-  ENDIF ! 1st component integer
-END FUNCTION is_lat_point
-
 END MODULE min_images

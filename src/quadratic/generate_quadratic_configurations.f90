@@ -4,67 +4,75 @@ contains
 
 subroutine generate_quadratic_configurations(args)
   use constants, only : dp,thermal
-  use file_io,   only : open_read_file, open_write_file
+  use file_module
   use string_module
   use structure_module
+  use displacement_patterns_module
   implicit none
   
   type(String), intent(in) :: args(:)
   
-  ! file units
-  integer :: disp_patt_file
-  
-  ! filenames
-  type(String) :: input_structure_filename
-  type(String) :: disp_patterns_filename
-  type(String) :: output_structure_filename
-
-  ! Input variables
-  integer :: sampling_point,no_sampling_points
-  real(dp) :: frequency,max_amplitude
-  integer :: frequency_line ! the line in disp_patt.dat where freqency appears
-  real(dp),allocatable :: disp_patt(:,:)
-  
-  type(StructureData) :: structure
-  
-  ! Working variables
-  real(dp) :: amplitude,quad_amplitude
-  real(dp), parameter :: temperature=0.d0,tol=1.d-5
+  ! Parameters
+  real(dp), parameter :: temperature=0.d0
+  real(dp), parameter :: tol=1.d-5
   real(dp), parameter :: thermal_energy=temperature/thermal
   
+  ! filenames
+  type(String) :: structure_filename
+  type(String) :: structure_sc_filename
+  type(String) :: disp_patterns_filename
+  type(String) :: mode_structure_filename
+
+  ! Input variables
+  real(dp) :: frequency,max_amplitude
+  real(dp),allocatable :: disp_patt(:,:)
+  
+  integer             :: gvector
+  integer             :: mode
+  integer             :: sampling_point
+  integer             :: no_sampling_points
+  
+  ! Structure data
+  type(StructureData) :: structure
+  type(StructureData) :: structure_sc
+  
+  ! Displacement patterns data
+  type(DispPatterns) :: disp_patterns
+  
+  ! Working variables
+  real(dp)       :: amplitude
+  real(dp)       :: quad_amplitude
+  
   ! temporary variables
-  integer       :: i
+  integer :: i
   
   ! read input arguments
   max_amplitude = dble(args(1))
-  sampling_point = int(args(2))
-  no_sampling_points = int(args(3))
-  frequency = dble(args(4))
-  frequency_line = int(args(5))
-  input_structure_filename = args(6)
-  disp_patterns_filename = args(7)
-  output_structure_filename = args(8)
+  gvector = int(args(2))
+  mode = int(args(3))
+  sampling_point = int(args(4))
+  no_sampling_points = int(args(5))
+  structure_filename = args(9)
+  structure_sc_filename = args(10)
+  disp_patterns_filename = args(11)
+  mode_structure_filename = args(12)
   
   ! Number of sampling points as read in is last_point-first_point, but we only
   ! want number of sampling points on each side of 0, as sampling_point goes
   ! from negative to positive
   no_sampling_points=no_sampling_points/2 
   
-  ! take |frequency|
-  frequency = dabs(frequency)
+  ! Read in input structures
+  structure = read_structure_file(structure_filename)
+  structure_sc = read_structure_file(structure_sc_filename)
   
-  ! Read in input structure
-  structure = read_structure_file(input_structure_filename)
+  ! Allocate disp_patt
+  allocate(disp_patt(6,structure_sc%no_atoms))
   
-  ! Read in displacement pattern
-  disp_patt_file = open_read_file(disp_patterns_filename)
-  do i=1,frequency_line+2
-    read(disp_patt_file,*) ! scroll forwards to the relevant lines
-  enddo
-  do i=1,structure%no_atoms
-    read(disp_patt_file,*) disp_patt(i,:)
-  enddo ! i
-  close(disp_patt_file)
+  disp_patterns = read_disp_patterns_file( disp_patterns_filename, &
+                                         & structure_sc%no_modes)
+  frequency = disp_patterns%frequencies(mode,gvector)
+  disp_patt = disp_patterns%disp_patterns(:,:,mode,gvector)
   
   ! skip acoustic modes and equilibrium configuration
   if (frequency<=tol .or. sampling_point==0) stop
@@ -86,11 +94,11 @@ subroutine generate_quadratic_configurations(args)
           & * quad_amplitude
   
   ! Calculate new positions
-  do i=1,structure%no_atoms
-    structure%atoms(:,i) = structure%atoms(:,i) &
-                       & + amplitude*disp_patt(i,1:3)*disp_patt(i,4:6)
+  do i=1,structure_sc%no_atoms
+    structure_sc%atoms(:,i) = structure_sc%atoms(:,i) &
+                          & + amplitude*disp_patt(1:3,i)*disp_patt(4:6,i)
   enddo
   
-  call write_structure_file(structure,output_structure_filename)
+  call write_structure_file(structure_sc,mode_structure_filename)
 end subroutine
 end module

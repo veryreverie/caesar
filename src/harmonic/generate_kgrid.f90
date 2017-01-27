@@ -3,10 +3,11 @@ module generate_kgrid_module
 contains
 
 subroutine generate_kgrid(filenames)
-  use constants,        only : dp
-  use linear_algebra,   only : inv_33
-  use file_io,          only : open_read_file, open_write_file
-  use structure_module, only : StructureData, read_structure_file, drop
+  use constants,      only : dp
+  use linear_algebra, only : inv_33
+  use utils,          only : reduce_interval
+  use file_module
+  use structure_module
   use string_module
   implicit none
   
@@ -76,13 +77,7 @@ subroutine generate_kgrid(filenames)
     enddo ! j
   enddo ! i
   
-  do i_frac=1,no_gvectors
-    do j_frac=1,3
-      if (gvecs_frac(j_frac,i_frac)>0.5d0+tol) then
-        gvecs_frac(j_frac,i_frac) = gvecs_frac(j_frac,i_frac)-1.d0
-      endif
-    enddo
-  enddo
+  gvecs_frac = reduce_interval(gvecs_frac,tol)
   
   do i_vec=1,no_gvectors
     gvecs_cart(:,i_vec) = matmul(gvecs_frac(:,i_vec),structure%recip_lattice)
@@ -101,8 +96,7 @@ subroutine generate_kgrid(filenames)
       do i_symm=1,structure%no_symmetries
         rvec = matmul( structure%rotation_matrices(:,:,i_symm), &
                      & gvecs_cart(:,i_vec))
-        temp_frac = matmul(structure%lattice,rvec)
-        temp_frac(1:3)=modulo(temp_frac(1:3)+0.5d0+tol,1.d0)-0.5d0-tol
+        temp_frac = reduce_interval(matmul(structure%lattice,rvec),tol)
         if(all(abs(temp_frac(1:3)-gvecs_frac(1:3,j_vec))<tol))then
           ibz(:,i_vec) = gvecs_frac(:,j_vec)
           rot_operation(i_vec)=i_symm
@@ -128,7 +122,5 @@ subroutine generate_kgrid(filenames)
   enddo ! i_vec
   close(ibz_file)
   close(rotated_gvectors_file)
-  
-  call drop(structure)
 end subroutine
 end module

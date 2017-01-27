@@ -5,6 +5,12 @@ module utils
   use constants,      only : dp
   implicit none
   
+  interface reduce_interval
+    module procedure reduce_interval_0d
+    module procedure reduce_interval_1d
+    module procedure reduce_interval_2d
+  end interface
+  
 contains
 
 ! ----------------------------------------------------------------------
@@ -196,4 +202,43 @@ function lower_case(input) result(output)
   enddo
 end function
 
+! ----------------------------------------------------------------------
+! Makes all values lie in [-0.5+t,0.5+t], by adding or subtracting integers
+! ----------------------------------------------------------------------
+function reduce_interval_0d(input,t) result(output)
+  use constants, only : dp
+  implicit none
+  
+  real(dp), intent(in) :: input
+  real(dp)             :: t
+  real(dp)             :: output
+  
+  output = modulo(input+0.5d0+t,1.d0)-0.5d0-t
+end function
+
+function reduce_interval_1d(input,t) result(output)
+  use constants, only : dp
+  implicit none
+  
+  real(dp), intent(in)  :: input(:)
+  real(dp)              :: t
+  real(dp), allocatable :: output(:)
+  
+  allocate(output(size(input)))
+  
+  output = modulo(input+0.5d0+t,1.d0)-0.5d0-t
+end function
+
+function reduce_interval_2d(input,t) result(output)
+  use constants, only : dp
+  implicit none
+  
+  real(dp), intent(in)  :: input(:,:)
+  real(dp), intent(in)  :: t
+  real(dp), allocatable :: output(:,:)
+  
+  allocate(output(size(input),size(input)))
+  
+  output = modulo(input+0.5d0+t,1.d0)-0.5d0-t
+end function
 end module

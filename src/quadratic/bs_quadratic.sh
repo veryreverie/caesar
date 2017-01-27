@@ -32,58 +32,49 @@ no_modes=$(( $no_atoms*3 ))
 
 seedname=$( awk '{print $1}' seedname.txt )
 
-# Loop over supercells
-for i in `seq 1 $no_sc`; do
-  sdir=Supercell_$i
-  if [ ! -f "$sdir/acoustic.dat" ]; then
+kpoint_counter=1
+mkdir bs
 
+# Loop over supercells
+for sc_id in `seq 1 $no_sc`; do
+  sdir=Supercell_$sc_id
+  if [ ! -f "$sdir/acoustic.dat" ]; then
     # Static calculation
     static_dir=$sdir/static
     caesar eigenval_castep_to_bands $static_dir/$seedname.bands $static_dir
-    rm $static_dir/*.orbitals
-
-    while read fline ; do
-      line=($fline)
-      big_point=${line[0]}
-      kdir=$sdir/kpoint.$big_point/configurations
-      cd $kdir
-      
-      for j in `seq 1 $no_modes`; do
-        for k in `seq $sampling_point_init $sampling_point_final`; do
-          mdir=$kdir/mode.$j.$k
-          if [ -d "$mdir" ];then
-            if [ -e "$mdir/$seedname.castep" ]; then
-              caesar eigenval_castep_to_bands $mdir/$seedname.bands $mdir
-              rm $mdir/*.orbitals
-            fi
-          fi
-        done # loop over sampling points per mode
-      done # loop over modes
-    done < $harmonic_path/$sdir/list.dat
   fi
-done  # Loop over supercells
+done
 
-mkdir bs
-
-# Obtain relevant band for each supercell
-band_energy=$(awk "NR==$band {print}" Supercell_1/static/kpoint.$kpoint.dat)
-
-# Loop over static supercells
-for i in `seq 1 $no_sc`;do
-  static_dir=Supercell_$i/static
-  f=$static_dir/kpoint.$kpoint.dat
-  no_bands=$( wc -l < $f  )
-  caesar band_folding       \
-         $f                 \
-         $band_energy       \
-         $no_bands          \
-         $static_dir/band_number.dat
-done # loop over static supercells
+# Loop over kpoints
+while read fline ; do
+  line=($fline)
+  kpoint2=${line[0]}
+  sc_id=${line[2]}
+  sdir=Supercell_$sc_id
+  
+  if [ ! -f "$sdir/acoustic.dat" ]; then
+    for j in `seq 1 $no_modes`; do
+      for k in `seq $sampling_point_init $sampling_point_final`; do
+        mdir=$sdir/kpoint.$kpoint2/configurations/mode.$j.$k
+        if [ -e "$mdir/$seedname.castep" ]; then
+          caesar eigenval_castep_to_bands $mdir/$seedname.bands $mdir
+        fi
+      done # loop over sampling points per mode
+    done # loop over modes
+  fi
+done < $harmonic_path/list.dat
 
 # Loop over supercells
-kpoint_counter=1
-for i in `seq 1 $no_sc`;do
-  sdir=Supercell_$i
+for sc_id in `seq 1 $no_sc`; do
+  sdir=Supercell_$sc_id
+  
+  # Obtain relevant band for each supercell
+  band_energy=$(awk "NR==$band {print}" $sdir/static/kpoint.$kpoint.dat)
+  
+  caesar band_folding                   \
+         $static_dir/kpoint.$kpoint.dat \
+         $band_energy                   \
+         $static_dir/band_number.dat
   
   band_ref=$( awk '{print}' $sdir/static/band_number.dat )
   
@@ -92,40 +83,30 @@ for i in `seq 1 $no_sc`;do
   
   # Loop over k-points
   for j in `seq $kpoint_counter $(( $kpoint_counter+($no_kpoints-1) ))`; do
-    kdir=$sdir/kpoint.$j/configurations
+    kdir=kpoint.$j/configurations
     for k in `seq 1 $no_modes`; do
-      cp $sdir/kpoint.$j/frequency.$k.dat bs
+      cp kpoint.$j/frequency.$k.dat bs
       for l in `seq $sampling_point_init $sampling_point_final`; do
         mdir=$kdir/mode.$k.$l
-        if [ -e "$mdir" ] && [ "$l" -ne "0" ]; then
+        if [ -e "$mdir/$seedname.castep" ] && [ "$l" -ne "0" ]; then
           first_line=$(( $band_ref-($band_degeneracy-1) )) 
           last_line=$(( $band_ref ))
-          awk "NR==$first_line,NR==$last_line" $mdir/kpoint.$kpoint.dat \
-            > bs/bs.$j.$k.$l.dat
+          if [ "$l" = "$sampling_point_init" ]; then
+            awk "NR==$first_line,NR==$last_line" $mdir/kpoint.$kpoint.dat \
+              > kpoint.$j/bs.$k.dat
+          elif [ "$l" = "$sampling_point_final" ]; then
+            awk "NR==$first_line,NR==$last_line" $mdir/kpoint.$kpoint.dat \
+              >> kpoint.$j/bs.$k.dat
+            echo $band_energy >> kpoint.$j/bs.$k.dat
+          fi
         fi
       done
     done
-  done # Loop over k-points
+  done
   kpoint_counter=$(( $kpoint_counter+$no_kpoints ))
-
-done
-
-# Calculatee renormalised band
-no_kpoints=$( wc -l < $harmonic_path/ibz.dat  )
-for i in `seq 1 $no_kpoints`; do
-  for j in `seq 1 $no_modes`; do
-    if [ -e "bs/bs.$i.$j.$sampling_point_init.dat" ];then
-      cat bs/bs.$i.$j.$sampling_point_init.dat   > bs/bs/$i.$j.dat
-      cat bs/bs.$i.$j.$sampling_point_final.dat >> bs/bs.$i.$j.dat            
-      echo $band_energy                         >> bs/bs.$i.$j.dat
-      rm bs/bs.$i.$j.$sampling_point_init.dat
-      rm bs/bs.$i.$j.$sampling_point_final.dat
-    fi
-  done 
 done
 
 caesar calculate_bs               \
-       $no_kpoints                \
        $no_modes                  \
        $band_degeneracy           \
        $sampling_point_amplitude  \

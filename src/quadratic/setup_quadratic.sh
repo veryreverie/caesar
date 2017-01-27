@@ -63,9 +63,20 @@ no_modes=$(( $no_atoms*3 ))
 # Set up generic calculation
 # ----------------------------------------------------------------------
 # Loop over supercells
-for i in `seq 1 $no_sc`; do
-  sdir=Supercell_$i
+for sc_id in `seq 1 $no_sc`; do
+  sdir=Supercell_$sc_id
   mkdir $sdir
+  mkdir $sdir/static
+done
+
+# loop over kpoints
+while read fline ; do
+  line=($fline)
+  kpoint=${line[0]}
+  gvector=${line[1]}
+  sc_id=${line[2]}
+  
+  sdir=Supercell_$sc_id
   
   atoms_line_sc=$(awk -v IGNORECASE=1 '$1~/Atoms/{print NR}' \
      $harmonic_path/$sdir/structure.dat)
@@ -73,57 +84,51 @@ for i in `seq 1 $no_sc`; do
      $harmonic_path/$sdir/structure.dat)
   no_atoms_sc=$($symmetry_line_sc-$atoms_line_sc-1)
   
-  # Generate configurations
+  first_line=$(( (4+$no_atoms_sc)*($no_modes*($gvector-1))+1 ))
+  last_line=$(( $first_line+(4+$no_atoms_sc)*$no_modes ))
+  
+  kdir=kpoint.$kpoint
+  mkdir $kdir
+  mkdir $kdir/configurations
+  
+  awk "NR==$first_line,NR==$last_line {print}" \
+     $harmonic_path/$sdir/lte/disp_patterns.dat > $kdir/disp_patterns.dat
+  
+  for j in `seq 1 $no_modes`; do
+    frequency_line=$(( (4+$no_atoms_sc)*($j-1)+1 ))
+    
+    # write frequency in a.u. to frequency.$j.dat
+    frequency=$(awk "NR=$frequency_line {print\$3} $kdir/disp_patterns.dat")
+    python -c "print($frequency*27.211396132)" > $kdir/frequency.$j.dat
+    
+    # write kpoint.$kpoint/configurations/mode.j.k/structure.dat
+    for k in `seq $sampling_point_init $sampling_point_final`; do
+      mdir=$kdir/mode.$j.$k
+      mkdir $mdir
+      caesar generate_quadratic_configurations          \
+             $sampling_amplitude                        \
+             $gvector                                   \
+             $j                                         \
+             $k                                         \
+             $no_sampling_points                        \
+             $harmonic_path/structure.dat               \
+             $harmonic_path/$sdir/structure.dat         \
+             $harmonic_path/$sdir/lte/disp_patterns.dat \
+             $mdir/structure.dat
+    done # loop over sampling points per mode
+  done # loop over modes
+done < $harmonic_path/list.dat
 
-  # Generate static calculation
-  mkdir $sdir/static
-  
-  # loop over kpoints
-  while read fline ; do
-    line=$(fline)
-    big_point=${line[0]}
-    small_point=${line[1]}
-    
-    first_line=$(( (4+$no_atoms_sc)*($no_modes*($small_point-1))+1 ))
-    last_line=$(( $first_line+(4+$no_atoms_sc)*$no_modes ))
-    
-    kdir=kpoint.$big_point
-    mkdir $kdir
-    awk "NR==$first_line,NR==$last_line {print}" \
-       $harmonic_path/$sdir/lte/disp_patterns.dat > $kdir/disp_patterns.dat
-    mkdir $kdir/configurations
-    for j in `seq 1 $no_modes`; do
-      frequency_line=$(( (4+$no_atoms_sc)*($j-1)+1 ))
-      
-      # write frequency in a.u. to frequency.$big_point.$j.dat
-      frequency=$(awk "NR=$frequency_line {print\$3} $kdir/disp_patterns.dat")
-      python -c "print($frequency*27.211396132)" > $kdir/frequency.$j.dat
-      
-      # write kpoint.$big_point/configurations/mode.j.k/structure.dat
-      for k in `seq $sampling_point_init $sampling_point_final`; do
-        mdir=$kdir/mode.$j.$k
-        mkdir $mdir
-        caesar generate_quadratic_configurations          \
-               $sampling_amplitude                        \
-               $k                                         \
-               $no_sampling_points                        \
-               $frequency                                 \
-               $frequency_line                            \
-               $harmonic_path/$sdir/structure.dat         \
-               $kdir/disp_patterns.dat                    \
-               $mdir/structure.dat
-      done # loop over sampling points per mode
-    done # loop over modes
-  done < $harmonic_path/$sdir/list.dat
-  
-  # ----------------------------------------------------------------------
-  # Convert to specific code
-  # ----------------------------------------------------------------------
-  
+# ----------------------------------------------------------------------
+# Convert to specific code
+# ----------------------------------------------------------------------
+
+# Loop over supercells
+for sc_id in `seq 1 $no_sc`; do
+  sdir=Supercell_$sc_id
   # Run static calculation
   static_dir=$sdir/static
   if [ "$code" = "castep" ];then
-    cp $code/* $static_dir
     if [ -e "$code/path.dat" ];then
       caesar generate_sc_path                   \
              $harmonic_path/$sdir/supercell.dat \
@@ -132,20 +137,17 @@ for i in `seq 1 $no_sc`; do
       caesar structure_to_dft                    \
              $code                               \
              $harmonic_path/$sdir/structure.dat  \
+             $code/$seedname.cell                \
              $static_dir/sc_bs_path.dat          \
              $static_dir/$seedname.cell
     else
       caesar structure_to_dft                    \
              $code                               \
              $harmonic_path/$sdir/structure.dat  \
+             $code/$seedname.cell
              $static_dir/$seedname.cell
     fi
   elif [ "$code" = "vasp" ]; then
-    cp $code/INCAR* $static_dir
-    cp $code/POTCAR $static_dir
-    cp $code/KPOINTS.band $static_dir
-    cp $code/mpi_submit_static.sh $static_dir
-    cp $harmonic_path/$sdir/KPOINTS.$i $static_dir/KPOINTS
     caesar structure_to_dft                    \
            $code                               \
            $harmonic_path/$sdir/structure.dat  \
@@ -164,73 +166,63 @@ for i in `seq 1 $no_sc`; do
            $harmonic_path/$sdir/structure.dat \
            $sdir/kpoints.nscf.in
 
-    cp $code/* $static_dir
     caesar structure_to_dft                   \
            $code                              \
            $harmonic_path/$sdir/structure.dat \
+           $code/$seedname.in                 \
            $code/pseudo.in                    \
            $sdir/kpoints.in                   \
            $static_dir/$seedname.in
     caesar structure_to_dft                   \
            $code                              \
            $harmonic_path/$sdir/structure.dat \
+           $code/$seedname_nscf.in            \
            $code/pseudo.in                    \
            $sdir/kpoints.nscf.in              \
            $static_dir/$seedname_nscf.in
-    if [ -f "$static_dir/pseudo.in" ]; then
-      rm $static_dir/pseudo.in
-    fi
   fi
-    
-  # Loop over kpoints
-  while read fline ; do
-    line=($fline)
-    big_point=${line[0]}
-    kdir=$sdir/kpoint.$big_point/configurations
-    
-    for j in `seq 1 $no_modes`; do
-      for k in `seq $sampling_point_init $sampling_point_final`; do
-        mdir=$kdir/mode.$j.$k
-        if [-e "$mdir/structure.dat" ]; then
-          if [ "$code" = "castep" ];then
-            cp $code/seedname.param $mdir
-            cp $code/$seedname.cell $mdir
-            caesar structure_to_dft           \
-                   $code                      \
-                   $mdir/structure.dat        \
-                   $static_dir/sc_bs_path.dat \
-                   $mdir/$seedname.cell
-          elif [ "$code" = "vasp" ]; then
-            cp $code/INCAR* $mdir
-            cp $code/POTCAR $mdir
-            cp $code/KPOINTS.band $mdir
-            cp $code/mpi_submit_quadratic.sh $mdir
-            cp $harmonic_path/$sdir/KPOINTS.$i $mdir/KPOINTS
-            caesar structure_to_dft    \
-                   $code               \
-                   $mdir/structure.dat \
-                   $mdir/POSCAR.$j.$k
-          elif [ "$code" = "qe" ];then
-            cp $code/*UPF $mdir
-            cp $code/$seedname.in $mdir
-            caesar structure_to_dft    \
-                   $code               \
-                   $mdir/structure.dat \
-                   $code/pseudo.in     \
-                   $code/kpoints.in    \
-                   $mdir/$seedname.in
-            if [ -f "$code/$seedname_nscf.in" ]; then
-              cp $code/$seedname_nscf.in $mdir
-              caesar structure_to_dft      \
-                     $code                 \
-                     $mdir/structure.dat   \
-                     $code/pseudo.in       \
-                     $code/kpoints.nscf.in \
-                     $mdir/$seedname_nscf.in
-            fi
-          fi
-        fi # structure exists
-      done # loop over sampling points per mode
-    done # loop over modes
-  done < $harmonic_path/$sdir/list.dat
 done
+
+# Loop over kpoints
+while read fline ; do
+  line=($fline)
+  kpoint=${line[0]}
+  kdir=kpoint.$kpoint/configurations
+  for j in `seq 1 $no_modes`; do
+    for k in `seq $sampling_point_init $sampling_point_final`; do
+      mdir=$kdir/mode.$j.$k
+      if [-e "$mdir/structure.dat" ]; then
+        if [ "$code" = "castep" ];then
+          caesar structure_to_dft           \
+                 $code                      \
+                 $mdir/structure.dat        \
+                 $code/$seedname.cell       \
+                 $static_dir/sc_bs_path.dat \
+                 $mdir/$seedname.cell
+        elif [ "$code" = "vasp" ]; then
+          caesar structure_to_dft    \
+                 $code               \
+                 $mdir/structure.dat \
+                 $mdir/POSCAR.$j.$k
+        elif [ "$code" = "qe" ];then
+          caesar structure_to_dft    \
+                 $code               \
+                 $mdir/structure.dat \
+                 $code/$seedname.in  \
+                 $code/pseudo.in     \
+                 $code/kpoints.in    \
+                 $mdir/$seedname.in
+          if [ -f "$code/$seedname_nscf.in" ]; then
+            caesar structure_to_dft      \
+                   $code                 \
+                   $mdir/structure.dat   \
+                   $code/$seedname.in    \
+                   $code/pseudo.in       \
+                   $code/kpoints.nscf.in \
+                   $mdir/$seedname_nscf.in
+          fi
+        fi
+      fi # structure exists
+    done # loop over sampling points per mode
+  done # loop over modes
+done < $harmonic_path/list.dat

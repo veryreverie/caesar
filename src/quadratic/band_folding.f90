@@ -6,7 +6,7 @@ contains
 subroutine band_folding(args)
   use constants, only : dp
   use utils,     only : i2s
-  use file_io,   only : open_read_file, open_write_file
+  use file_module
   use string_module
   implicit none
   
@@ -17,16 +17,20 @@ subroutine band_folding(args)
   real,allocatable :: bands(:)
   real(dp) :: band_ref
   integer :: no_bands
-  character(100) :: input_file, output_file
   
-  ! file units
-  integer :: ifile, ofile
+  ! File names
+  type(String) :: input_file
+  type(String) :: output_file
+  
+  ! File units
+  integer :: ifile
+  integer :: ofile
   
   input_file = args(1)
   band_ref = dble(args(2))
-  no_bands = int(args(3))
-  output_file = args(4)
+  output_file = args(3)
   
+  no_bands = count_lines(input_file)
   allocate(bands(no_bands))
   
   ifile = open_read_file(input_file)

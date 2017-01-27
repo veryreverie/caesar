@@ -98,10 +98,10 @@
 !          speed-of-sound calculation.
 
 module lte_module
-  use min_images,     only : is_lat_point, min_images_brute_force, maxim
+  use min_images,     only : min_images_brute_force, maxim
   use constants,      only : dp, third, twopi, kB_au_per_K
   use utils,          only : i2s, errstop
-  use file_io,        only : open_read_file, open_write_file
+  use file_module,        only : open_read_file, open_write_file
   use linear_algebra, only : determinant33, inv_33
   implicit none
   
@@ -192,6 +192,25 @@ integer function atom_at_pos(rvec,no_atoms_in_sc,atom_pos,sc_rec_vec)
   enddo ! atom1
   atom_at_pos=0
 end function
+
+! ----------------------------------------------------------------------
+! This function returns T if and only if rvec is a lattice vector.
+! rec_vec holds the reciprocal lattice vectors.
+! ----------------------------------------------------------------------
+function is_lat_point(rvec,rec_vec) result(output)
+  implicit none
+  
+  real(dp), intent(in) :: rvec(3)
+  real(dp), intent(in) :: rec_vec(3,3)
+  logical              :: output
+  
+  real(dp), parameter :: tol=1.d-3
+  
+  real(dp) :: t(3)
+  
+  t = matmul(rvec,rec_vec)
+  output = all(nint(t)-t<tol)
+end function is_lat_point
 
 ! ----------------------------------------------------------------------
 ! Read in the data in lte.dat and allocate arrays, etc.
@@ -1747,6 +1766,7 @@ subroutine evaluate_freqs_on_grid(no_prim_cells,no_atoms_in_prim,    &
    & kpairs_filename,freq_grids_filename,disp_patterns_filename,     &
    & kdisp_patterns_filename,pol_vec_filename,gvectors_filename,     &
    & gvectors_frac_filename,error_filename)
+  use utils, only : reduce_interval
   implicit none
   
   integer,  intent(in) :: no_prim_cells
@@ -1777,7 +1797,7 @@ subroutine evaluate_freqs_on_grid(no_prim_cells,no_atoms_in_prim,    &
   
   integer :: ng,i,j,k,ig,ierr,index1,index2,p,n,atom1
   logical :: found,soft_modes
-  real(dp) :: gnew(3),gnew1(3),gnew2(3),gvec(3,no_prim_cells),R0(3), &
+  real(dp) :: gnew(3),gvec(3,no_prim_cells),R0(3), &
     &omega(no_DoF_prim),E,F,rec_root_mass(no_atoms_in_prim),GdotR, &
     &disp_pattern(3),kdisp_pattern(3),tot_disp_patt
   complex(dp) :: pol_vec(no_DoF_prim,no_DoF_prim), &
@@ -1796,14 +1816,12 @@ subroutine evaluate_freqs_on_grid(no_prim_cells,no_atoms_in_prim,    &
   ! primitive cell.
   ng=0
   do k=0,no_prim_cells-1
-    gnew2=DBLE(k)*sc_rec_vec(1:3,3)
     do j=0,no_prim_cells-1
-      gnew1=gnew2+DBLE(j)*sc_rec_vec(1:3,2)
       do i=0,no_prim_cells-1
-        gnew=gnew1+DBLE(i)*sc_rec_vec(1:3,1)
+        gnew = matmul(sc_rec_vec,(/i,j,k/))
         found=.TRUE.
         do ig=1,ng
-          if(is_lat_point(gnew(1:3)-gvec(1:3,ig),prim_lat_vec))then
+          if(is_lat_point(gnew-gvec(:,ig),prim_lat_vec))then
             found=.FALSE.
             exit
           endif ! ig
@@ -1812,7 +1830,7 @@ subroutine evaluate_freqs_on_grid(no_prim_cells,no_atoms_in_prim,    &
           ng=ng+1
           if(ng>no_prim_cells)call errstop('EVALUATE_FREQS_ON_GRID', &
             &'Bug: too many G vectors.')
-          gvec(1:3,ng)=gnew(1:3)
+          gvec(:,ng) = gnew
         endif ! found
       enddo ! i
     enddo ! j
@@ -1821,48 +1839,25 @@ subroutine evaluate_freqs_on_grid(no_prim_cells,no_atoms_in_prim,    &
     &'Bug: too few G vectors.')
   
 
-! Calculate +/- G-vector pairs
-! First, write G-vectors as fractions of rec. latt. vecs.
-  do ig=1,no_prim_cells
-    gfrac(1,ig)=DOT_PRODUCT(gvec(1:3,ig),prim_lat_vec(1:3,1))
-    gfrac(2,ig)=DOT_PRODUCT(gvec(1:3,ig),prim_lat_vec(1:3,2))
-    gfrac(3,ig)=DOT_PRODUCT(gvec(1:3,ig),prim_lat_vec(1:3,3))
-    do while(gfrac(1,ig)+0.01*gfrac(1,ig)>0.5d0.AND.ABS(gfrac(1,ig)-0.5d0)>tol_g)
-      gfrac(1,ig)=gfrac(1,ig)-1.d0
-    enddo  
-    do while(gfrac(1,ig)-0.01*gfrac(1,ig)<-0.5d0.AND.ABS(gfrac(1,ig)+0.5d0)>tol_g)
-      gfrac(1,ig)=gfrac(1,ig)+1.d0
-    enddo  
-    do while(gfrac(2,ig)+0.01*gfrac(2,ig)>0.5d0.AND.ABS(gfrac(2,ig)-0.5d0)>tol_g)
-      gfrac(2,ig)=gfrac(2,ig)-1.d0
-    enddo  
-    do while(gfrac(2,ig)-0.01*gfrac(2,ig)<-0.5d0.AND.ABS(gfrac(2,ig)+0.5d0)>tol_g)
-      gfrac(2,ig)=gfrac(2,ig)+1.d0
-    enddo  
-    do while(gfrac(3,ig)+0.01*gfrac(3,ig)>0.5d0.AND.ABS(gfrac(3,ig)-0.5d0)>tol_g)
-      gfrac(3,ig)=gfrac(3,ig)-1.d0
-    enddo  
-    do while(gfrac(3,ig)-0.01*gfrac(3,ig)<-0.5d0.AND.ABS(gfrac(3,ig)+0.5d0)>tol_g)
-      gfrac(3,ig)=gfrac(3,ig)+1.d0
-    enddo  
-  enddo ! ig
+  ! Calculate +/- G-vector pairs
+  ! First, write G-vectors as fractions of rec. latt. vecs.
+  gfrac = reduce_interval(matmul(transpose(prim_lat_vec),gvec),tol_g)
   ! Second, pair them up
   reference=0
   do k=1,no_prim_cells
     do j=1,k-1
-    if((ABS(gfrac(1,k)+gfrac(1,j))<tol_g.OR.ABS(gfrac(1,k)+gfrac(1,j)-1)<tol_g.OR.ABS(gfrac(1,k)+gfrac(1,j)+1)<tol_g).AND.&
-      &(ABS(gfrac(2,k)+gfrac(2,j))<tol_g.OR.ABS(gfrac(2,k)+gfrac(2,j)-1)<tol_g.OR.ABS(gfrac(2,k)+gfrac(2,j)+1)<tol_g).AND.&
-      &(ABS(gfrac(3,k)+gfrac(3,j))<tol_g.OR.ABS(gfrac(3,k)+gfrac(3,j)-1)<tol_g.OR.ABS(gfrac(3,k)+gfrac(3,j)+1)<tol_g))then
-      reference(k)=j 
-      reference(j)=k
-      exit
-    endif
-    enddo ! j
-  enddo ! k
+      if (all(abs(reduce_interval(gfrac(:,j)+gfrac(:,k),tol_g))<tol_g)) then
+        reference(k)=j 
+        reference(j)=k
+        exit
+      endif
+    enddo
+  enddo
+  
   open(1,FILE=kpairs_filename)
   do i=1,no_prim_cells
     write(1,*)i,reference(i)
-  enddo ! i
+  enddo
   close(1)
 
   open(unit=8,file=freq_grids_filename,status='replace',iostat=ierr)
@@ -1878,22 +1873,26 @@ subroutine evaluate_freqs_on_grid(no_prim_cells,no_atoms_in_prim,    &
     rec_root_mass(n)=1.d0/SQRT(mass(atom(1,n))) ! 1/sqrt(m) in prim. cell.
   enddo ! n
 
-! Modified by B. Monserrat to output G vectors to file
-  open(19,FILE=gvectors_filename)
-  open(20,FILE=gvectors_frac_filename)
+  ! Modified by B. Monserrat to output G vectors to file
+  open(19,file=gvectors_filename)
+  open(20,file=gvectors_frac_filename)
   write(19,*) no_prim_cells
   write(20,*) no_prim_cells
+  do ig=1,no_prim_cells
+    write(*,'(" G = (",es20.12,",",es20.12,",",es20.12,")")')twopi*gvec(:,ig)
+    write(*,'(" G = (",es20.12,",",es20.12,",",es20.12,")")')gfrac(:,ig)
+    write(19,*)twopi*gvec(:,ig)
+    ! G-vectors as a fraction of the primitive reciprocal lattice vectors
+    write(20,*)ig,gfrac(:,ig)
+  enddo
+  close(19)
+  close(20)
 
-! Evaluate the frequencies at each supercell G vector.
+  ! Evaluate the frequencies at each supercell G vector.
   E=0.d0  ;  F=0.d0
   soft_modes=.FALSE.
-  R0=atom_pos(1:3,atom(1,1))
+  R0=atom_pos(:,atom(1,1))
   do ig=1,no_prim_cells
-    write(*,'(" G = (",es20.12,",",es20.12,",",es20.12,")")')twopi*gvec(1:3,ig)
-    write(*,'(" G = (",es20.12,",",es20.12,",",es20.12,")")')gfrac(1:3,ig)
-    write(19,*)twopi*gvec(1:3,ig)
-    ! G-vectors as a fraction of the primitive reciprocal lattice vectors
-    write(20,*)ig,gfrac(1,ig),gfrac(2,ig),gfrac(3,ig)
     if(reference(ig)==0)then
       call calculate_eigenfreqs_and_vecs(twopi*gvec(1:3,ig),no_DoF_prim, &
         & delta_prim,no_atoms_in_prim,no_prim_cells,atom,no_equiv_ims,   &
@@ -1911,8 +1910,8 @@ subroutine evaluate_freqs_on_grid(no_prim_cells,no_atoms_in_prim,    &
       endif
     endif
 
-! The negative is used because the matrix of force constants is the transpose of
-! the usual expression in derivations that lead to a positive exponential
+    ! The negative is used because the matrix of force constants is the transpose of
+    ! the usual expression in derivations that lead to a positive exponential
     do p=1,no_prim_cells
       if(reference(ig)==0)then
         GdotR=-DOT_PRODUCT(twopi*gvec(1:3,ig),atom_pos(1:3,atom(p,1))-R0)
@@ -1929,7 +1928,7 @@ subroutine evaluate_freqs_on_grid(no_prim_cells,no_atoms_in_prim,    &
     do index2=1,no_DoF_prim
       write(*,*)'  omega = ',omega(index2)
       if(omega(index2)>tol_omega)then
-! Ignore contributions from imaginary or zero frequencies.
+    ! Ignore contributions from imaginary or zero frequencies.
         E=E+harmonic_energy(temperature,omega(index2))
         F=F+harmonic_free_energy(temperature,omega(index2))
       elseif(omega(index2)<-tol_omega)then
@@ -1964,7 +1963,7 @@ subroutine evaluate_freqs_on_grid(no_prim_cells,no_atoms_in_prim,    &
       kdisp_pattern=0.d0
       tot_disp_patt=0.d0
       do atom1=1,no_atoms_in_sc
-! Displacement pattern: polarisation vector times exp(iG.R).
+      ! Displacement pattern: polarisation vector times exp(iG.R).
         if(reference(ig)==0)then
           disp_pattern=real(non_mr_pol_vec(1:3,atom_in_prim(atom1)) & ! Note only the real part is taken
             &*expiGdotR(prim_cell_for_atom(atom1)),dp)
@@ -2011,8 +2010,6 @@ subroutine evaluate_freqs_on_grid(no_prim_cells,no_atoms_in_prim,    &
   close(9)
   close(10)
   close(11)
-  close(19)
-  close(20)
 
   write(*,*)'Mean LTE per primitive cell  : ',E
   write(*,*)'Mean LTE per primitive cell (eV)  : ',E*27.211396132d0
@@ -2046,20 +2043,18 @@ subroutine write_dynamical_matrix(sc_rec_vec,prim_lat_vec,no_DoF_prim, &
   character(*), intent(in) :: dyn_mat_fileroot
   
   integer :: ierr,ng,k,j,i,ig,atom1,cart1,index1,atom2,cart2,index2
-  real(dp) :: gnew2(3),gnew1(3),gnew(3),gvec(3,no_prim_cells)
+  real(dp) :: gnew(3),gvec(3,no_prim_cells)
   complex(dp) :: dyn_mat(no_DoF_prim,no_DoF_prim)
   logical :: found
 
   ng=0
   do k=0,no_prim_cells-1
-    gnew2=DBLE(k)*sc_rec_vec(1:3,3)
     do j=0,no_prim_cells-1
-      gnew1=gnew2+DBLE(j)*sc_rec_vec(1:3,2)
       do i=0,no_prim_cells-1
-        gnew=gnew1+DBLE(i)*sc_rec_vec(1:3,1)
+        gnew = matmul(sc_rec_vec,(/i,j,k/))
         found=.TRUE.
         do ig=1,ng
-          if(is_lat_point(gnew(1:3)-gvec(1:3,ig),prim_lat_vec))then
+          if(is_lat_point(gnew-gvec(:,ig),prim_lat_vec))then
             found=.FALSE.
             exit
           endif ! ig
@@ -2068,7 +2063,7 @@ subroutine write_dynamical_matrix(sc_rec_vec,prim_lat_vec,no_DoF_prim, &
           ng=ng+1
           if(ng>no_prim_cells)call errstop('WRITE_DYNAMICAL_MATRIX','Too &
            &many G-vectors.')
-          gvec(1:3,ng)=gnew(1:3)
+          gvec(:,ng)=gnew(:)
         endif ! found
       enddo ! i
     enddo ! j

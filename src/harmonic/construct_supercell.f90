@@ -7,7 +7,7 @@ contains
 subroutine construct_supercell(filenames)
   use constants,        only : dp
   use linear_algebra,   only : determinant33, inv_33
-  use file_io
+  use file_module
   use structure_module
   use string_module
   implicit none
@@ -24,21 +24,17 @@ subroutine construct_supercell(filenames)
   
   ! Input variables
   INTEGER :: supercell(3,3),sc_size
-  REAL(dp) :: super_lattice(3,3)
-  real(dp) :: inv_super_lattice(3,3)
   real(dp) :: frac_pos(3)
-  REAL(dp),ALLOCATABLE :: super_atoms(:,:),super_mass(:)
-  CHARACTER(2),ALLOCATABLE :: super_species(:)
   
   type(StructureData) :: structure
-  type(StructureData) :: superstructure
+  type(StructureData) :: structure_sc
   
-  integer :: super_no_atoms
+  integer :: no_atoms_sc
   
   ! filenames
   type(String) :: structure_filename
   type(String) :: supercell_filename
-  type(String) :: superstructure_filename
+  type(String) :: structure_sc_filename
   
   ! file units
   integer :: supercell_file
@@ -46,7 +42,7 @@ subroutine construct_supercell(filenames)
   ! Read filenames from input
   structure_filename = filenames(1)
   supercell_filename = filenames(2)
-  superstructure_filename = filenames(3)
+  structure_sc_filename = filenames(3)
   
   ! Read in structure data
   structure = read_structure_file(structure_filename)
@@ -59,14 +55,16 @@ subroutine construct_supercell(filenames)
   close(supercell_file)
   
   sc_size = abs(determinant33(supercell))
-  super_no_atoms = structure%no_atoms*sc_size
+  no_atoms_sc = structure%no_atoms*sc_size
 
-  allocate(super_atoms(3,super_no_atoms))
-  allocate(super_mass(super_no_atoms)) 
-  allocate(super_species(super_no_atoms))
+  allocate(structure_sc%atoms(3,no_atoms_sc))
+  allocate(structure_sc%mass(no_atoms_sc)) 
+  allocate(structure_sc%species(no_atoms_sc))
+  call new(structure_sc,no_atoms_sc,0)
 
   ! Generate supercell lattice
-  super_lattice = matmul(supercell,structure%lattice)
+  structure_sc%lattice = matmul(supercell,structure%lattice)
+  structure_sc%recip_lattice = inv_33(transpose(structure_sc%lattice))
 
   ! Generate supercell atoms
   atom_counter=0
@@ -76,36 +74,25 @@ subroutine construct_supercell(filenames)
       do dirb=-delta,delta
         do dirc=-delta,delta
           pos(:) = structure%atoms(i,:)        &
-               & + dira*structure%lattice(1,:) &
-               & + dirb*structure%lattice(2,:) &
-               & + dirc*structure%lattice(3,:)
-          inv_super_lattice = inv_33(transpose(super_lattice))
-          frac_pos = matmul(inv_super_lattice,pos)
-          if ( frac_pos(1)>-tol .and. frac_pos(1)<(1.d0-tol) .and. &
-             & frac_pos(2)>-tol .and. frac_pos(2)<(1.d0-tol) .and. &
-             & frac_pos(3)>-tol .and. frac_pos(3)<(1.d0-tol) ) then
+               & + matmul((/dira,dirb,dirc/),structure%lattice)
+          frac_pos = matmul(structure%recip_lattice,pos)
+          if (all(frac_pos>-tol) .and. all(frac_pos<1.d0-tol)) then
             atom_counter=atom_counter+1
-            super_atoms(:,atom_counter)=pos(:)
-            super_mass(atom_counter)=structure%mass(i)
-            super_species(atom_counter)=structure%species(i)
+            structure_sc%atoms(:,atom_counter)=pos(:)
+            structure_sc%mass(atom_counter)=structure%mass(i)
+            structure_sc%species(atom_counter)=structure%species(i)
           endif ! is in supercell          
         enddo ! dirc
       enddo ! dirb
     enddo ! dira
   enddo ! Loop over primitive cell atoms
 
-  if(atom_counter/=(super_no_atoms))then
+  if(atom_counter/=(no_atoms_sc))then
     write(*,*)'Error in placing atoms in supercell! Please, try increasing delta.'
     STOP
   endif ! error in generating supercell 
   
   ! Write output
-  call new(superstructure,super_no_atoms,0)
-  superstructure%lattice = super_lattice
-  superstructure%species = super_species
-  superstructure%mass = super_mass
-  superstructure%atoms = super_atoms
-  
-  call write_structure_file(structure,superstructure_filename)
+  call write_structure_file(structure,structure_sc_filename)
 end subroutine
 end module

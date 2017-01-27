@@ -39,7 +39,7 @@ module dft_output_file_module
 contains
 
 function read_castep_output_file_character(filename) result(output)
-  use file_io
+  use file_module
   use utils, only : lower_case
   implicit none
   
@@ -112,7 +112,7 @@ function read_castep_output_file_string(filename) result(output)
 end function
 
 function read_qe_output_file_character(filename) result(output)
-  use file_io
+  use file_module
   use utils, only : lower_case
   implicit none
   
@@ -168,7 +168,8 @@ function read_qe_output_file_character(filename) result(output)
   allocate(species(no_species))
   
   ! Allocate output
-  call new(output,forces_end_line-forces_start_line-3)
+  allocate(output%species(forces_end_line-forces_start_line-3))
+  allocate(output%forces(3,forces_end_line-forces_start_line-3))
   
   rewind(qe_file)
   

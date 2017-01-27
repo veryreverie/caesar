@@ -103,7 +103,7 @@ end subroutine
 subroutine generate_dispersion(rec_vecs,basis,mass,no_cells,no_ims,          &
    & cell_vecs,force_consts,no_points,path,phonon_dispersion_curve_filename, &
    & high_symmetry_points_filename)
-  use file_io
+  use file_module
   use string_module
   implicit none
   
@@ -170,7 +170,7 @@ end subroutine
 subroutine generate_dos(rec_vecs,basis,mass,no_cells,no_ims,cell_vecs, &
    &force_consts,temperature_filename,free_energy_filename,freq_dos_filename)
   use string_module
-  use file_io
+  use file_module
   implicit none
   
   type(String), intent(in) :: temperature_filename
@@ -297,56 +297,32 @@ contains
 ! Read input files related to k-points in the IBZ.
 ! ----------------------------------------------------------------------
 subroutine read_kpoints(no_kpoints,kpoints,multiplicity,kpoint_to_supercell,&
-   & ibz_filename,kpoint_to_supercell_filename)
-  use file_io
+   & ibz_filename)
+  use file_module
   use string_module
   implicit none
   
   ! inputs
   type(String), intent(in) :: ibz_filename
-  type(String), intent(in) :: kpoint_to_supercell_filename
   
   REAL(dp),PARAMETER :: tol=1.d-8
   INTEGER,INTENT(in) :: no_kpoints
   INTEGER,INTENT(out) :: multiplicity(no_kpoints),&
     &kpoint_to_supercell(no_kpoints)
   REAL(dp),INTENT(out) :: kpoints(3,no_kpoints)
-  INTEGER :: ierr,i_point
-  REAL(dp) :: kpoint(3)
+  INTEGER :: i_point
   
   ! file units
   integer :: ibz_file
-  integer :: kpoint_to_supercell_file
   
   ! Read ibz.dat file
   ibz_file = open_read_file(ibz_filename)
   do i_point=1,no_kpoints
-    read(ibz_file,*,iostat=ierr)kpoints(1:3,i_point),multiplicity(i_point)
-    if(ierr/=0)call errstop('READ_KPOINTS','Problem reading ibz.dat file.')
+    read(ibz_file,*) kpoints(:,i_point),    &
+                   & multiplicity(i_point), &
+                   & kpoint_to_supercell(i_point)
   enddo
   close(ibz_file)
-  
-  ! Read kpoint_to_supercell.dat file
-  kpoint_to_supercell_file = open_read_file(kpoint_to_supercell_filename)
-  do i_point=1,no_kpoints
-    read(kpoint_to_supercell_file,*,iostat=ierr) kpoint(1:3), &
-                                               & kpoint_to_supercell(i_point)
-    if(ierr/=0)call errstop('READ_KPOINTS','Problem reading &
-      &kpoint_to_supercell.dat file.')
-    if(any(abs(kpoint(1:3)-kpoints(1:3,i_point))>tol))then
-      call errstop('READ_KPOINTS','k-points in ibz.dat file and &
-        &kpoints_to_supercell.dat file disagree.')
-    endif ! tol
-  enddo ! i_point
-  close(kpoint_to_supercell_file)
- 
-! Check k-points are in expected order
-! do i_point=2,no_kpoints
-!    if(.not.(kpoint_to_supercell(i_point)==kpoint_to_supercell(i_point-1)).and.&
-!      &.not.(kpoint_to_supercell(i_point)==kpoint_to_supercell(i_point-1)+1))then
-!      call errstop('READ_KPOINTS','k-points are not in expected order.')
-!    endif ! kpoint_to_supercell
-! enddo ! i_point
 
   do i_point=1,no_kpoints
     kpoints(1:3,i_point)=modulo(kpoints(1:3,i_point)+0.5d0+tol,1.d0)-0.5d0-tol
@@ -358,7 +334,7 @@ end subroutine read_kpoints
 ! ----------------------------------------------------------------------
 subroutine read_dyn_mats(basis,mass,atom_prim_frac,no_kpoints,dyn_mats, &
    & kpoint_to_supercell,atoms_in_primitive_cell_fileroot,dyn_mat_fileroot)
-  use file_io
+  use file_module
   use string_module
   implicit none
   
@@ -467,7 +443,7 @@ end subroutine
 ! Read in the high symmetry points on the phonon dispersion path.
 ! ----------------------------------------------------------------------
 subroutine read_path(no_points,path,path_filename)
-  use file_io
+  use file_module
   use string_module
   implicit none
   
@@ -492,14 +468,14 @@ subroutine fourier_interpolation(structure_filename,                          &
    & phonon_dispersion_curve_filename,                                        &
    & high_symmetry_points_filename,temperature_filename,free_energy_filename, &
    & freq_dos_filename,grid_filename,                                         &
-   & ibz_filename,kpoint_to_supercell_filename,                               &
+   & ibz_filename,                                                            &
    & atoms_in_primitive_cell_fileroot,dyn_mat_fileroot,path_filename)
   use constants
   use linear_algebra
   use min_images
   use symmetry
   use phonon
-  use file_io,          only : open_read_file, count_lines
+  use file_module,          only : open_read_file, count_lines
   use structure_module, only : StructureData, read_structure_file, drop
   use string_module
   implicit none
@@ -513,7 +489,6 @@ subroutine fourier_interpolation(structure_filename,                          &
   type(String), intent(in) :: freq_dos_filename
   type(String), intent(in) :: grid_filename
   type(String), intent(in) :: ibz_filename
-  type(String), intent(in) :: kpoint_to_supercell_filename
   type(String), intent(in) :: atoms_in_primitive_cell_fileroot! append *.dat
   type(String), intent(in) :: dyn_mat_fileroot                ! append *.dat
   type(String), intent(in) :: path_filename
@@ -782,7 +757,7 @@ subroutine fourier_interpolation(structure_filename,                          &
   
   ! Read input files related to k-points in the IBZ
   call read_kpoints(no_ibz_points,ibz_points_frac,multiplicity,&
-    &ibz_to_supercell_map,ibz_filename,kpoint_to_supercell_filename)
+    &ibz_to_supercell_map,ibz_filename)
   
   ! Convert IBZ points from fractional to Cartesian coodinates
   do i_point=1,no_ibz_points

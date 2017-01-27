@@ -4,8 +4,7 @@ contains
 
 subroutine calculate_bs(args)
   use constants, only : dp, kB
-  use utils,     only : i2s
-  use file_io,   only : open_read_file, open_write_file
+  use file_module
   use string_module
   implicit none
   
@@ -23,17 +22,17 @@ subroutine calculate_bs(args)
   
   ! Working variables
   real(dp) :: temperature
-  integer :: i,j,k,total_kpoints
+  integer  :: i,j,k,total_kpoints
   real(dp) :: renormalised_band,renormalised_band_kpoint
-  real(dp), allocatable :: db1(:),db2(:)
-  real(dp) :: b1,b2,b0,dump_r
+  real(dp) :: db
+  real(dp) :: dump_r
   
   ! filenames
-  character(100) :: ibz_filename
-  character(100) :: in_dir
-  character(100) :: file_end
-  character(100) :: band_gap_correction_filename
-  character(100) :: bg_correction_kp_filename
+  type(String) :: ibz_filename
+  type(String) :: in_dir
+  type(String) :: file_end
+  type(String) :: band_gap_correction_filename
+  type(String) :: bg_correction_kp_filename
   
   ! file units
   integer :: ibz_file
@@ -43,14 +42,15 @@ subroutine calculate_bs(args)
   integer :: bck_file
   
   ! Process inputs
-  no_kpoints = int(args(1))
-  no_modes = int(args(2))
-  degeneracy = int(args(3))
-  mapping_amplitude = dble(args(4))
-  ibz_filename = args(5)
-  in_dir = args(6)
-  band_gap_correction_filename = args(7)
-  bg_correction_kp_filename = args(8)
+  no_modes = int(args(1))
+  degeneracy = int(args(2))
+  mapping_amplitude = dble(args(3))
+  ibz_filename = args(4)
+  in_dir = args(5)
+  band_gap_correction_filename = args(6)
+  bg_correction_kp_filename = args(7)
+  
+  no_kpoints = count_lines(ibz_filename)
   
   ! allocate and initialise arrays
   allocate(bands(no_kpoints,no_modes))
@@ -60,8 +60,6 @@ subroutine calculate_bs(args)
   bands=0.0
   frequency=1.0
   deformation=0.0
-  allocate(db1(degeneracy))
-  allocate(db2(degeneracy))
   
   ! read ibz file
   ibz_file = open_read_file(ibz_filename)
@@ -74,67 +72,41 @@ subroutine calculate_bs(args)
 
   ! Read in bands
   do i=1,no_kpoints
-    if(i==1)then
-      do j=4,no_modes
-        file_end = '.'//trim(i2s(i))//'.'//trim(i2s(j))//'.dat'
-        
-        freq_file = open_read_file(trim(in_dir)//'/frequency'//trim(file_end))
-        read(freq_file,*) frequency(i,j)
-        close(freq_file)
-        
-        bs_file = open_read_file(trim(in_dir)//'/bs'//trim(file_end))
-        b1=0.0
-        do k=1,degeneracy
-          read(bs_file,*)db1(k) 
-          b1=b1+(db1(k)/degeneracy)
-        enddo
-        b2=0.0
-        do k=1,degeneracy
-          read(bs_file,*)db2(k) 
-          b2=b2+(db2(k)/degeneracy)
-        enddo
-        read(bs_file,*)b0 
-        close(bs_file)
-        
-        bands(i,j)=(b1+b2)/2.0-b0      
+    do j=1,no_modes
+      if (i==1 .and. j<4) cycle ! skip acoustic modes
+      
+      file_end = str('.')//i//'.'//j//'.dat'
+      
+      freq_file = open_read_file(in_dir//'/frequency'//file_end)
+      read(freq_file,*) frequency(i,j)
+      close(freq_file)
+      
+      bands(i,j) = 0
+      bs_file = open_read_file(in_dir//'/bs'//file_end)
+      
+      ! b1
+      do k=1,degeneracy
+        read(bs_file,*) db
+        bands(i,j) = bands(i,j)+db/(2.d0*degeneracy)
       enddo
-    else
-      do j=1,no_modes
-        file_end = '.'//trim(i2s(i))//'.'//trim(i2s(j))//'.dat'
-        
-        freq_file = open_read_file(trim(in_dir)//'/frequency'//trim(file_end))
-        read(freq_file,*) frequency(i,j)
-        close(freq_file)
-        
-        bs_file = open_read_file(trim(in_dir)//'/bs'//trim(file_end))
-        b1=0.0
-        do k=1,degeneracy
-          read(bs_file,*)db1(k) 
-          b1=b1+(db1(k)/degeneracy)
-        enddo
-        b2=0.0
-        do k=1,degeneracy
-          read(bs_file,*)db2(k) 
-          b2=b2+(db1(k)/degeneracy)
-        enddo
-        read(bs_file,*)b0 
-        close(bs_file)
-        
-        bands(i,j)=(b1+b2)/2.0-b0      
+      
+      ! b2
+      do k=1,degeneracy
+        ! TODO: for the i/=1 case, this used the db value above. Bug?
+        read(bs_file,*) db 
+        bands(i,j) = bands(i,j)+db/(2.d0*degeneracy)
       enddo
-    endif ! skip acoustic modes
+      
+      ! b0
+      read(bs_file,*) db
+      bands(i,j) = bands(i,j)-db
+      
+      close(bs_file)
+    enddo
   enddo
 
   ! Calculate deformation potential
-  do i=1,no_kpoints
-    do j=1,no_modes
-      deformation(i,j) = bands(i,j)                        &
-                     & / ( mapping_amplitude               &
-                     &   / dsqrt(2.0*dabs(frequency(i,j))) &
-                     &   )**2                              &
-                     & / (2.0*dabs(frequency(i,j)))
-    enddo
-  enddo
+  deformation = bands/mapping_amplitude**2
   
   ! Calculate quadratic vibrational correction
   bgc_file = open_write_file(band_gap_correction_filename)

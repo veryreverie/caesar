@@ -4,7 +4,7 @@ contains
 
 subroutine combine_forces(filenames)
   use constants, only : dp, eV_per_A_to_au
-  use file_io,   only : open_read_file, open_write_file
+  use file_module,   only : open_read_file, open_write_file
   use string_module
   use structure_module
   implicit none

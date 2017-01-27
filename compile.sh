@@ -27,23 +27,23 @@ sdir=src
 # define compiler and flags
 cf90=gfortran
 cflags=""
+#cflags="$cflags -std=f95"       # force standards compliance
 cflags="$cflags -W -Wall"       # turn on compiler warnings
 cflags="$cflags -J${mdir}/"     # set .mod files to exist in mod/
 cflags="$cflags -fmax-errors=1" # make compilation stop on first error
 
 # copy shell and python scripts
-cp $sdir/scripts/*.sh $bdir/
 cp $sdir/harmonic/*.sh $bdir/
 cp $sdir/quadratic/*.sh $bdir/
 cp $sdir/quadratic/*.py $bdir/
 
 # list programs
 # programs should be added so they are to the right of their dependencies
-programs=(constants string utils linear_algebra rand_no_gen file process moller_plesset structure rundft dft_output_file structure_to_dft calculate_symmetry)
+programs=(constants string utils linear_algebra rand_no_gen file process moller_plesset structure rundft dft_output_file structure_to_dft calculate_symmetry bands displacement_patterns)
 
 harmonic_programs=(combine_forces compare_kpoints construct_finite_displacement construct_matrix_force_cnsts construct_supercell equilibrium_frac min_images symmetry fourier_interpolation generate_kgrid generate_supercell_kpoint_mesh_qe generate_supercells lte hartree_to_eV fetch_forces)
 
-quadratic_programs=(mapping band_folding calculate_anharmonic calculate_bs calculate_gap generate_amplitudes generate_quadratic_configurations generate_sc_path quadratic_spline vscf_1d anharmonic)
+quadratic_programs=(mapping band_folding calculate_anharmonic calculate_bs calculate_gap generate_amplitudes generate_quadratic_configurations generate_sc_path quadratic_spline vscf_1d anharmonic bs_quadratic)
 
 # compile objects
 for program in ${programs[@]}; do

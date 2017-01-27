@@ -230,7 +230,7 @@ subroutine generate_supercells(args)
   use constants,        only : dp
   use utils,            only : i2s
   use linear_algebra,   only : inv_33
-  use file_io,          only : open_read_file, open_write_file, count_lines
+  use file_module,          only : open_read_file, open_write_file, count_lines
   
   use string_module
   use structure_module
@@ -246,7 +246,7 @@ subroutine generate_supercells(args)
   
   integer,allocatable :: multiplicity(:),int_kpoints(:,:),numerator(:,:),&
     &denominator(:,:),super_size(:),label(:)
-  integer :: i,j,k,grid(1:3),ialloc,num_kpoints,count,&
+  integer :: i,j,k,grid(1:3),ialloc,num_kpoints,sc_id,&
     &s11,s12,s13,s22,s23,s33,quotient,hnf(3,3),size_count
   real(dp),allocatable :: kpoints(:,:)
   real(dp) :: temp_latt_vecs(3,3)
@@ -260,25 +260,20 @@ subroutine generate_supercells(args)
   type(String) :: grid_filename
   type(String) :: ibz_filename
   type(String) :: no_sc_filename
-  type(String) :: kpoint_to_supercell_filename
   type(String) :: supercell_directory_root
   
   ! file units
   integer :: grid_file
   integer :: ibz_file
   integer :: no_sc_file
-  integer :: k_t_s_file
-  integer :: kpoints_file
   integer :: supercell_file
-  integer :: size_file
   
   ! read filenames from input
   structure_filename = args(1)
   grid_filename = args(2)
   ibz_filename = args(3)
   no_sc_filename = args(4)
-  kpoint_to_supercell_filename = args(5)
-  supercell_directory_root = args(6)
+  supercell_directory_root = args(5)
   
   ! Read the structure file
   structure = read_structure_file(structure_filename)
@@ -308,14 +303,14 @@ subroutine generate_supercells(args)
   ! Read ibz.dat file
   ibz_file = open_read_file(ibz_filename)
   do i=1,num_kpoints
-    read(ibz_file,*) kpoints(1:3,i),multiplicity(i)
+    read(ibz_file,*) kpoints(:,i),multiplicity(i)
   enddo
   close(ibz_file)
   
   ! Express k-points as fractions
   do i=1,num_kpoints
+    int_kpoints(:,i) = nint(grid*kpoints(:,i))
     do j=1,3
-      int_kpoints(j,i) = nint(kpoints(j,i)*grid(j))
       if (dabs(dble(int_kpoints(j,i))/dble(grid(j))-kpoints(j,i)) >= tol) then
         write(*,*) 'Unable to find fractional representation of k-point.'
         stop
@@ -339,12 +334,11 @@ subroutine generate_supercells(args)
   
   found_kpoint = .false.
   label = 0
-  count = 0
+  sc_id = 0
   
-  k_t_s_file = open_write_file(kpoint_to_supercell_filename)
   ibz_file = open_write_file(args(3))
   
-  do size_count=1,maxval(super_size(1:num_kpoints))
+  do size_count=1,maxval(super_size)
     do_i : do i=1,num_kpoints
       if(super_size(i)/=size_count)cycle
       if(found_kpoint(i))cycle
@@ -366,20 +360,18 @@ subroutine generate_supercells(args)
                   prim(k)=sum(temp_scell(k,1:3)*kpoints(1:3,i))
                 enddo ! k
                 if(all(abs(prim(1:3)-dble(nint(prim(1:3))))<tol))then
-                  count=count+1
+                  sc_id=sc_id+1
                   
                   ! sdir="Supercell_*
-                  sdir=supercell_directory_root//count
+                  sdir=supercell_directory_root//sc_id
                   call system('mkdir '//sdir)
                   
                   found_kpoint(i)=.true.
-                  label(i)=count
+                  label(i)=sc_id
                   
-                  write(k_t_s_file,*) kpoints(:,i), label(i)
-                  write(ibz_file,*) kpoints(:,i), multiplicity(i)
-                  kpoints_file = open_write_file(sdir//'/kpoints.dat')
-                  write(kpoints_file,*) count, kpoints(:,i)
-                  close(kpoints_file)
+                  write(ibz_file,*) kpoints(:,i),    &
+                                  & multiplicity(i), &
+                                  & sc_id
                   
                   do j=i+1,num_kpoints
                     if(found_kpoint(j))cycle
@@ -389,13 +381,11 @@ subroutine generate_supercells(args)
                     enddo ! k
                     if(all(abs(prim(1:3)-dble(nint(prim(1:3))))<tol))then
                       found_kpoint(j)=.true.
-                      label(j)=count
+                      label(j)=sc_id
                       
-                      write(k_t_s_file,*) kpoints(1:3,j), label(j)
-                      write(ibz_file,*) kpoints(1:3,j), multiplicity(j)
-                      kpoints_file = open_write_file(sdir//'/kpoints.dat')
-                      write(kpoints_file,*) count, kpoints(:,j)
-                      close(kpoints_file)
+                      write(ibz_file,*) kpoints(:,j),    &
+                                      & multiplicity(j), &
+                                      & sc_id
                     endif ! tol
                   enddo ! j
                   do k=1,3
@@ -418,10 +408,6 @@ subroutine generate_supercells(args)
                   write(supercell_file,*) hnf(3,:)
                   close(supercell_file)
                   
-                  size_file = open_write_file(sdir//'/size.dat')
-                  write(size_file,*) super_size(i)
-                  close(size_file)
-                  
                 endif ! tol
                 if (found_kpoint(i)) cycle do_i
               enddo ! s23
@@ -433,10 +419,9 @@ subroutine generate_supercells(args)
   enddo ! size_count
   
   close(ibz_file)
-  close(k_t_s_file)
   
   no_sc_file = open_write_file(no_sc_filename)
-  write(no_sc_file,*) count
+  write(no_sc_file,*) sc_id
   close(no_sc_file)
 
   if(any(.not.found_kpoint(1:num_kpoints)))then

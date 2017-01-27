@@ -40,6 +40,4 @@ module constants
   ! Number of frequency DoS sets (for calculating error bars)
   integer, parameter :: no_fdos_sets = 20
   
-contains
-
 end module

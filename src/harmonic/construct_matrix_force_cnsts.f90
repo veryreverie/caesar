@@ -11,7 +11,7 @@ contains
 subroutine construct_matrix_force_cnsts(filenames)
   use constants,        only : dp
   use linear_algebra,   only : inv_33
-  use file_io,          only : open_read_file, open_write_file
+  use file_module,          only : open_read_file, open_write_file
   use structure_module, only : StructureData, read_structure_file, drop
   use string_module
   implicit none
@@ -24,8 +24,6 @@ subroutine construct_matrix_force_cnsts(filenames)
   
   ! Parameters
   real(dp), parameter :: x(3) = (/ 1.d0, 0.d0, 0.d0 /)
-  real(dp), parameter :: y(3) = (/ 0.d0, 1.d0, 0.d0 /)
-  real(dp), parameter :: z(3) = (/ 0.d0, 0.d0, 1.d0 /)
   real(dp), parameter :: tol=1.d-5
   real(dp), parameter :: tol_mod=1.d-8
   
@@ -33,10 +31,9 @@ subroutine construct_matrix_force_cnsts(filenames)
   integer :: i,j,k
   real(dp) :: rot_pos(3),reduced_pos(3),rot_pos_frac(3)
   logical :: related,yrelated,zrelated
-  real(dp) :: roty(3),rotz(3)
   
   type(StructureData) :: structure
-  type(StructureData) :: superstructure
+  type(StructureData) :: structure_sc
   
   ! file units
   integer :: supercell_file
@@ -45,13 +42,13 @@ subroutine construct_matrix_force_cnsts(filenames)
   ! filenames
   type(String) :: structure_filename
   type(String) :: supercell_filename
-  type(String) :: superstructure_filename
+  type(String) :: structure_sc_filename
   type(String) :: force_constants_filename
   
   ! Read filenames from input
   structure_filename = filenames(1)
   supercell_filename = filenames(2)
-  superstructure_filename = filenames(3)
+  structure_sc_filename = filenames(3)
   force_constants_filename = filenames(4)
   
   ! Read in lattice
@@ -67,63 +64,52 @@ subroutine construct_matrix_force_cnsts(filenames)
   supercell = inv_33(transpose(supercell))
   
   ! Transform offsets to primitive cell coordinates
-  allocate(offset(3,superstructure%no_symmetries))
-  offset = matmul(supercell,superstructure%offsets)  
+  allocate(offset(3,structure_sc%no_symmetries))
+  offset = matmul(supercell,structure_sc%offsets)  
 
   ! Read in atomic positions
-  superstructure = read_structure_file(superstructure_filename)
+  structure_sc = read_structure_file(structure_sc_filename)
 
-  atom_pos_frac = matmul(structure%recip_lattice,superstructure%atoms)
+  atom_pos_frac = matmul(structure%recip_lattice,structure_sc%atoms)
 
   ! Check which Cartesian directions are needed
   yrelated=.false.
   zrelated=.false.
-  do i=1,superstructure%no_symmetries
-    roty=matmul(superstructure%rotation_matrices(:,:,i),y)
-    rotz=matmul(superstructure%rotation_matrices(:,:,i),z)
-    if( abs(roty(1)-x(1))<tol .and. &
-      & abs(roty(2)-x(2))<tol .and. &
-      & abs(roty(3)-x(3))<tol ) yrelated=.true.
-    if( abs(rotz(1)-x(1))<tol .and. &
-      & abs(rotz(2)-x(2))<tol .and. &
-      & abs(rotz(3)-x(3))<tol ) zrelated=.true.
+  do i=1,structure_sc%no_symmetries
+    if (all(abs(structure_sc%rotation_matrices(:,2,i)-x)<tol)) then
+      yrelated = .true.
+    endif
+    if (all(abs(structure_sc%rotation_matrices(:,3,i)-x)<tol)) then
+      zrelated = .true.
+    endif
   enddo ! i
   
   ! Prepare output file
   force_constants_file = open_write_file(force_constants_filename)
 
   ! Apply point group to atomic positions
-  do i=1,superstructure%no_atoms
+  do i=1,structure_sc%no_atoms
     related=.false.
-    do j=1,superstructure%no_symmetries
-      rot_pos=matmul( superstructure%rotation_matrices(:,:,j), &
-                    & superstructure%atoms(:,i))
-      rot_pos_frac(:) = rot_pos(1)*structure%recip_lattice(:,1) &
-                    & + rot_pos(2)*structure%recip_lattice(:,2) &
-                    & + rot_pos(3)*structure%recip_lattice(:,3) &
-                    & + offset(:,j)
+    do_j : do j=1,structure_sc%no_symmetries
+      rot_pos=matmul( structure_sc%rotation_matrices(:,:,j), &
+                    & structure_sc%atoms(:,i))
+      rot_pos_frac = matmul(structure%recip_lattice,rot_pos) + offset(:,j)
       do k=1,i-1
         reduced_pos = rot_pos_frac(:)-atom_pos_frac(:,k)-tol_mod
-        reduced_pos = dabs(reduced_pos-nint(reduced_pos))
-        if ( reduced_pos(1)<tol .and. &
-           & reduced_pos(2)<tol .and. &
-           & reduced_pos(3)<tol) then
+        if (all(dabs(reduced_pos-nint(reduced_pos))<tol)) then
           related=.true.
-          exit
+          exit do_j
         endif 
-      enddo ! k
-      if (related) exit
-    enddo ! j
+      enddo
+    enddo do_j
     
     if (.not. related) then
       write(force_constants_file,*) i, 1 
       if (.not. yrelated) write(force_constants_file,*) i, 2
       if (.not. zrelated) write(force_constants_file,*) i, 3
     endif
-  enddo ! i
+  enddo
   
   close(force_constants_file)
-  
-  call drop(structure)
 end subroutine
 end module

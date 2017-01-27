@@ -4,7 +4,7 @@ contains
 
 subroutine equilibrium_frac(filenames)
   use constants,      only : dp
-  use file_io,        only : open_read_file, open_write_file
+  use file_module,        only : open_read_file, open_write_file
   use linear_algebra, only : inv_33
   use string_module
   use structure_module

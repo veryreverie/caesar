@@ -4,59 +4,58 @@ contains
 
 ! Reads kpoints and gvectors, and writes a list of all instances when the two 
 ! are equal
-subroutine compare_kpoints(filenames)
+subroutine compare_kpoints(args)
   use constants, only : dp
-  use file_io,   only : open_read_file, open_write_file, count_lines
+  use utils,     only : reduce_interval
+  use file_module
   use string_module
   implicit none
   
-  type(String), intent(in) :: filenames(:)
+  type(String), intent(in) :: args(:)
   
   real(dp), parameter :: tol = 1.d-10
   
-  ! kpoint variables
+  ! Input variables
+  integer :: sc_id ! supercell id
+  
+  ! k-point variables
   integer               :: no_kpoints
   integer,  allocatable :: list(:)
-  real(dp), allocatable :: kpoint(:,:)
   
-  ! gvector variables
+  real(dp), allocatable :: kpoints(:,:)
+  integer,  allocatable :: sc_ids(:)
+  
+  ! g-vector variables
   integer               :: no_gvectors
   integer,  allocatable :: label(:)
   real(dp), allocatable :: gvec_frac(:,:)
   
-  ! loop indices
-  integer :: i,j
-  
-  ! file names
-  type(String) :: kpoints_filename
+  ! File names
+  type(String) :: ibz_filename
   type(String) :: gvectors_frac_filename
   type(String) :: list_filename
   
-  ! file units
-  integer :: kpoints_file
+  ! File units
+  integer :: ibz_file
   integer :: gvectors_frac_file
   integer :: list_file
   
-  kpoints_filename = filenames(1)
-  gvectors_frac_filename = filenames(2)
-  list_filename = filenames(3)
+  ! Temporary variables
+  integer        :: i,j
+  character(100) :: dump
   
-  ! read kpoints_file
-  no_kpoints = count_lines(kpoints_filename)
-  allocate(list(no_kpoints))
-  allocate(kpoint(3,no_kpoints))
-  kpoints_file = open_read_file(kpoints_filename)
-  do i=1,no_kpoints
-    read(kpoints_file,*) list(i), kpoint(:,i)
-  enddo
-  close(kpoints_file)
+  sc_id = int(args(1))
+  ibz_filename = args(2)
+  gvectors_frac_filename = args(3)
+  list_filename = args(4)
   
+  ! Read kpoints from ibz.dat
+  no_kpoints = count_lines(ibz_filename)
+  allocate(kpoints(3,no_kpoints))
+  allocate(sc_ids(no_kpoints))
+  ibz_file = open_read_file(ibz_filename)
   do i=1,no_kpoints
-    do j=1,3
-      if (kpoint(j,i)>0.5d0+tol) then
-        kpoint(j,i) = kpoint(j,i)-1.d0
-      endif
-    enddo
+    read(ibz_file,*) kpoints(:,i),dump,sc_ids(i)
   enddo
   
   ! read gvectors_frac_file
@@ -69,19 +68,12 @@ subroutine compare_kpoints(filenames)
   enddo
   close(gvectors_frac_file)
   
-  do i=1,no_gvectors
-    do j=1,3
-      if (gvec_frac(j,i)>0.5d0+tol) then
-        gvec_frac(j,i) = gvec_frac(j,i)-1.d0
-      endif
-    enddo
-  enddo
-  
-  list_file = open_write_file(list_filename)
+  list_file = open_append_file(list_filename)
   do i=1,no_gvectors
     do j=1,no_kpoints
-      if (all(abs(gvec_frac(:,i)-kpoint(:,j))<tol)) then
-        write(list_file,*) list(j), label(i)
+      if (sc_ids(j)/=sc_id) cycle ! skip kpoints not in this unit cell
+      if (all(abs(gvec_frac(:,i)-kpoints(:,j))<tol)) then
+        write(list_file,*) list(j), label(i), sc_id
       endif
     enddo
   enddo

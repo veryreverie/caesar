@@ -5,7 +5,7 @@ contains
 subroutine generate_sc_path(filenames)
   use constants, only : dp
   use utils,     only : lower_case
-  use file_io
+  use file_module
   use string_module
   implicit none
   

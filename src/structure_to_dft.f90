@@ -10,21 +10,24 @@ module structure_to_dft_module
     module procedure structure_to_dft_no_args
     module procedure structure_to_dft_one_arg
     module procedure structure_to_dft_two_args
+    module procedure structure_to_dft_three_args
   end interface
 
 contains
 
-subroutine structure_to_castep_no_bs(structure_filename,cell_filename)
+subroutine structure_to_castep_no_bs(structure_filename,input_filename, &
+   & cell_filename)
   use string_module
   use structure_module
-  use file_io
+  use file_module
   implicit none
   
   type(String), intent(in) :: structure_filename
+  type(String), intent(in) :: input_filename
   type(String), intent(in) :: cell_filename
   
   ! The contents of the old cell file
-  type(String), allocatable :: old_cell_file_contents(:)
+  type(String), allocatable :: input_file_contents(:)
   
   ! The contents of the structure file
   type(StructureData) :: structure
@@ -34,10 +37,6 @@ subroutine structure_to_castep_no_bs(structure_filename,cell_filename)
   
   ! File units
   integer :: cell_file
-  
-  if (file_exists(cell_filename)) then
-    old_cell_file_contents = read_to_String(cell_filename)
-  endif
   
   structure = read_structure_file(structure_filename)
   
@@ -57,23 +56,26 @@ subroutine structure_to_castep_no_bs(structure_filename,cell_filename)
   write(cell_file,"(a)") '%endblock positions_abs'
   write(cell_file,"(a)") ''
   
-  if (allocated(old_cell_file_contents)) then
-    do i=1,size(old_cell_file_contents)
-      write(cell_file,"(a)") char(old_cell_file_contents(i))
+  ! Copy the contents of input_file to cell_file
+  if (file_exists(input_filename)) then
+    input_file_contents = read_to_String(input_filename)
+    do i=1,size(input_file_contents)
+      write(cell_file,"(a)") char(input_file_contents(i))
     enddo
   endif
   
   close(cell_file)
 end subroutine
  
-subroutine structure_to_castep_bs(structure_filename,sc_bs_path_filename, &
-   & cell_filename)
+subroutine structure_to_castep_bs(structure_filename,input_cell_filename, &
+   & sc_bs_path_filename,cell_filename)
   use constants, only : dp
   use string_module
-  use file_io
+  use file_module
   implicit none
   
   type(String), intent(in) :: structure_filename
+  type(String), intent(in) :: input_cell_filename
   type(String), intent(in) :: sc_bs_path_filename
   type(String), intent(in) :: cell_filename
   
@@ -88,6 +90,7 @@ subroutine structure_to_castep_bs(structure_filename,sc_bs_path_filename, &
   ! temporary variables
   integer :: i
   
+  ! Read in band structure data
   no_points = count_lines(sc_bs_path_filename)
   allocate(sc_bs_path(no_points,3))
   sc_bs_path_file = open_read_file(sc_bs_path_filename)
@@ -96,8 +99,11 @@ subroutine structure_to_castep_bs(structure_filename,sc_bs_path_filename, &
   enddo
   close(sc_bs_path_file)
   
-  call structure_to_castep_no_bs(structure_filename,cell_filename)
+  ! Run structure_to_castep without band structure data
+  call structure_to_castep_no_bs(structure_filename,input_cell_filename, &
+    & cell_filename)
   
+  ! Append band structure data to file
   cell_file = open_append_file(cell_filename)
   write(cell_file,"(a)") ''
   write(cell_file,"(a)") '%block_bs_kpoints_path'
@@ -113,7 +119,7 @@ subroutine structure_to_vasp(structure_filename,poscar_filename)
   use string_module
   use structure_module
   use constants, only : bohr
-  use file_io
+  use file_module
   implicit none
   
   type(String), intent(in) :: structure_filename
@@ -182,14 +188,15 @@ subroutine structure_to_vasp(structure_filename,poscar_filename)
   close(poscar_file)
 end subroutine
 
-subroutine structure_to_qe(structure_filename,pseudo_filename, &
+subroutine structure_to_qe(structure_filename,input_filename,pseudo_filename, &
    & kpoints_filename,output_filename)
   use string_module
   use structure_module
-  use file_io
+  use file_module
   implicit none
   
   type(String), intent(in) :: structure_filename
+  type(String), intent(in) :: input_filename
   type(String), intent(in) :: pseudo_filename
   type(String), intent(in) :: kpoints_filename
   type(String), intent(in) :: output_filename
@@ -198,6 +205,9 @@ subroutine structure_to_qe(structure_filename,pseudo_filename, &
   type(StructureData)       :: structure
   type(String), allocatable :: pseudo_contents(:)
   type(String), allocatable :: kpoints_contents(:)
+  
+  ! The contents of the old .in file
+  type(String), allocatable :: input_file_contents(:)
   
   ! file units
   integer :: output_file
@@ -211,7 +221,15 @@ subroutine structure_to_qe(structure_filename,pseudo_filename, &
   
   kpoints_contents = read_to_String(kpoints_filename)
   
-  output_file = open_append_file(output_filename)
+  output_file = open_write_file(output_filename)
+  ! write input_file to output_file
+  if (file_exists(input_filename)) then
+    input_file_contents = read_to_String(input_filename)
+    do i=1,size(input_file_contents)
+      write(output_file,"(a)") char(input_file_contents(i))
+    enddo
+  endif
+  
   write(output_file,"(a)") char(str('nat=')//structure%no_atoms)
   write(output_file,"(a)") '/&end'
   do i=1,size(pseudo_contents)
@@ -240,43 +258,75 @@ subroutine structure_to_dft_no_args(codename,structure_filename, &
   type(String), intent(in) :: structure_filename
   type(String), intent(in) :: output_filename
   
-  if (codename=="castep") then
-    call structure_to_castep_no_bs(structure_filename,output_filename)
-  elseif (codename=="vasp") then
+  if (codename=="vasp") then
     call structure_to_vasp(structure_filename,output_filename)
+  else
+    write(*,*) "structure_to_dft called with the wrong number of arguments for " &
+      & //char(codename)
+    stop
   endif
 end subroutine
 
 subroutine structure_to_dft_one_arg(codename,structure_filename, &
-   & sc_bs_path_filename,cell_filename)
+   & input_cell_filename,cell_filename)
   use string_module
   implicit none
   
   type(String), intent(in) :: codename
   type(String), intent(in) :: structure_filename
-  type(String), intent(in) :: sc_bs_path_filename
+  type(String), intent(in) :: input_cell_filename
   type(String), intent(in) :: cell_filename
   
   if (codename=="castep") then
-    call structure_to_castep_bs(structure_filename,sc_bs_path_filename, &
+    call structure_to_castep_no_bs(structure_filename,input_cell_filename, &
       & cell_filename)
+  else
+    write(*,*) "structure_to_dft called with the wrong number of arguments for " &
+      & //char(codename)
+    stop
   endif
 end subroutine
 
 subroutine structure_to_dft_two_args(codename,structure_filename, &
-   & pseudo_filename,kpoints_filename,output_filename)
+   & input_filename,sc_bs_path_filename,output_filename)
   use string_module
   implicit none
   
   type(String), intent(in) :: codename
   type(String), intent(in) :: structure_filename
+  type(String), intent(in) :: input_filename
+  type(String), intent(in) :: sc_bs_path_filename
+  type(String), intent(in) :: output_filename
+  
+  if (codename=="castep") then
+    call structure_to_castep_bs(structure_filename,input_filename, &
+      & sc_bs_path_filename,output_filename)
+  else
+    write(*,*) "structure_to_dft called with the wrong number of arguments for " &
+      & //char(codename)
+    stop
+  endif
+end subroutine
+
+subroutine structure_to_dft_three_args(codename,structure_filename, &
+   & input_filename,pseudo_filename,kpoints_filename,output_filename)
+  use string_module
+  implicit none
+  
+  type(String), intent(in) :: codename
+  type(String), intent(in) :: structure_filename
+  type(String), intent(in) :: input_filename
   type(String), intent(in) :: pseudo_filename
   type(String), intent(in) :: kpoints_filename
   type(String), intent(in) :: output_filename
   
   if (codename=="qe") then
-    call structure_to_qe(structure_filename,pseudo_filename,kpoints_filename, &
-      & output_filename)
+    call structure_to_qe(structure_filename,input_filename,pseudo_filename, &
+      & kpoints_filename,output_filename)
+  else
+    write(*,*) "structure_to_dft called with the wrong number of arguments for " &
+      & //char(codename)
+    stop
   endif
 end subroutine
 end module

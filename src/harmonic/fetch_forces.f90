@@ -6,7 +6,7 @@ subroutine fetch_forces(codename,dft_output_filename,atom,disp,forces_filename)
   use string_module
   use dft_output_file_module
   use constants, only : dp, Ry, bohr
-  use file_io,   only : open_write_file
+  use file_module,   only : open_write_file
   implicit none
   
   type(String), intent(in) :: codename

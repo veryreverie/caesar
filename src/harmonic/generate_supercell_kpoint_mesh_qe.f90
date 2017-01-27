@@ -6,7 +6,7 @@ subroutine generate_supercell_kpoint_mesh_qe(filenames)
   use constants
   use utils
   use linear_algebra,   only : inv_33
-  use file_io,          only : open_read_file, open_write_file
+  use file_module,          only : open_read_file, open_write_file
   use structure_module, only : StructureData, read_structure_file, drop
   use string_module
   implicit none
@@ -22,7 +22,7 @@ subroutine generate_supercell_kpoint_mesh_qe(filenames)
   real(dp) :: dist(3)
   
   type(StructureData) :: structure
-  type(StructureData) :: superstructure
+  type(StructureData) :: structure_sc
   
   ! file units
   integer :: kpoints_file
@@ -31,7 +31,7 @@ subroutine generate_supercell_kpoint_mesh_qe(filenames)
   ! filenames
   type(String) :: kpoints_filename
   type(String) :: structure_filename
-  type(String) :: superstructure_filename
+  type(String) :: structure_sc_filename
   type(String) :: sc_kpoints_filename
   
   ! The first line of kpoints_filename
@@ -40,7 +40,7 @@ subroutine generate_supercell_kpoint_mesh_qe(filenames)
   ! Read filenames from input
   kpoints_filename = filenames(1)
   structure_filename = filenames(2)
-  superstructure_filename = filenames(3)
+  structure_sc_filename = filenames(3)
   sc_kpoints_filename = filenames(4)
   
   ! Read in mesh of primitive cell
@@ -56,19 +56,14 @@ subroutine generate_supercell_kpoint_mesh_qe(filenames)
   enddo
 
   ! Construct reciprocal SC lattice
-  superstructure = read_structure_file(superstructure_filename)
+  structure_sc = read_structure_file(structure_sc_filename)
   do i=1,3
-    sc_dist(i) = 2.d0*pi*norm2(superstructure%recip_lattice(i,:))
+    sc_dist(i) = 2.d0*pi*norm2(structure_sc%recip_lattice(i,:))
   enddo
   
   sc_kpoints_file = open_write_file(sc_kpoints_filename)
   write(sc_kpoints_file,"(a)") trim(header)
-  write(sc_kpoints_file,*) int(prim_mesh(1)*sc_dist(1)/dist(1))+1, &
-                         & int(prim_mesh(2)*sc_dist(2)/dist(2))+1, &
-                         & int(prim_mesh(3)*sc_dist(3)/dist(3))+1, &
-                         & 0,                                      &
-                         & 0,                                      &
-                         & 0
+  write(sc_kpoints_file,*) int(prim_mesh*sc_dist/dist)+1,0,0,0
   close(sc_kpoints_file)
 end subroutine
 end module
