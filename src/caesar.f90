@@ -23,14 +23,16 @@ program caesar
   use generate_kgrid_module
   use generate_supercells_module
   use lte_module
-  use hartree_to_eV_module
   use fetch_forces_module
   
   ! use quadratic modules
+  use setup_quadratic_module
   use anharmonic_module
-  use calculate_gap_module
-  use generate_quadratic_configurations_module
   use bs_quadratic_module
+  
+  ! use misc modules
+  use calculate_gap_module
+  use hartree_to_eV_module
   
   implicit none
   
@@ -130,6 +132,8 @@ program caesar
     temp_real2 = dble(temp_string)
     write(*,*) temp_real2
   ! Wrappers for top-level Fortran
+  elseif (args(1) == 'setup_quadratic') then
+    call setup_quadratic()
   elseif (args(1) == 'anharmonic') then
     call anharmonic()
   elseif (args(1) == 'bs_quadratic') then
@@ -154,8 +158,6 @@ program caesar
       & args(8),args(9),args(10),args(11),args(12))
   elseif (args(1) == 'generate_kgrid') then
     call generate_kgrid(args(2:))
-  elseif (args(1) == 'generate_quadratic_configurations') then
-    call generate_quadratic_configurations(args(2:))
   elseif (args(1) == 'generate_supercells') then
     call generate_supercells(args(2:))
   elseif (args(1) == 'hartree_to_eV') then
@@ -214,8 +216,6 @@ program caesar
   elseif (args(1) == 'lte_harmonic') then
     call system(args(1)//'.sh '//argstring)
   elseif (args(1) == 'clear_all') then
-    call system(args(1)//'.sh '//argstring)
-  elseif (args(1) == 'setup_quadratic') then
     call system(args(1)//'.sh '//argstring)
   elseif (args(1) == 'tcm_cluster_run_quadratic') then
     call system(args(1)//'.sh '//argstring)
