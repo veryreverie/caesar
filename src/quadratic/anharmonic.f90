@@ -30,12 +30,18 @@ subroutine anharmonic()
   integer, parameter :: Nbasis = 20
   
   ! ----------------------------------------
+  ! Input variables
+  ! ----------------------------------------
+  type(String) :: dft_code      ! The dft code name (castep,vasp,qe)
+  type(String) :: seedname      ! The dft input file seedname
+  type(String) :: harmonic_path ! The path to the harmonic directory
+  
+  ! ----------------------------------------
   ! Working variables
   ! ----------------------------------------
   integer               :: no_supercells   ! no. of supercells
   integer, allocatable  :: no_atoms_sc(:)  ! no. atoms in supercell
   integer, allocatable  :: no_cells(:)     ! no_atoms_sc/no_atoms
-  type(String)          :: castep          ! seedname.castep
   type(MappingData)     :: mapping         ! mapping.dat
   
   ! kpoint data
@@ -67,22 +73,23 @@ subroutine anharmonic()
   type(StructureData)   :: structure_sc
   type(DispPatterns)    :: disp_patterns
   
-  type(String)          :: harmonic_path ! the path to the harmonic directory
   type(String)          :: filename
   type(String)          :: ibz_filename
   
   type(DftOutputFile)   :: dft_output_file
   
+  ! ----------------------------------------
+  ! Temporary variables
+  ! ----------------------------------------
   integer               :: i,j,k
-  character(100)        :: temp_char
+  character(100)        :: line
   character(100)        :: dump
   
   ! ----------------------------------------
   ! File units
   ! ----------------------------------------
-  integer :: harmonic_path_file
+  integer :: user_input_file
   integer :: no_sc_file
-  integer :: seedname_file
   integer :: list_file
   integer :: ibz_file
   integer :: result_file
@@ -90,12 +97,15 @@ subroutine anharmonic()
   ! ----------------------------------------
   ! Read in data
   ! ----------------------------------------
-  
-  ! read in harmonic_path
-  harmonic_path_file = open_read_file('harmonic_path.dat')
-  read(harmonic_path_file,"(a)") temp_char
-  close(harmonic_path_file)
-  harmonic_path = trim(temp_char)
+  ! Read in previous user inputs
+  user_input_file = open_read_file('user_input.txt')
+  read(user_input_file,"(a)") line
+  dft_code = trim(line)
+  read(user_input_file,"(a)") line
+  seedname = trim(line)
+  read(user_input_file,"(a)") line
+  harmonic_path = trim(line)
+  close(user_input_file)
   
   ! read the number of Supercell_* directories into no_supercells
   no_sc_file = open_read_file(harmonic_path//'/no_sc.dat')
@@ -110,12 +120,6 @@ subroutine anharmonic()
   
   ! read structure data
   structure = read_structure_file(harmonic_path//'/structure.dat')
-  
-  ! read the castep seedname into castep variable
-  seedname_file = open_read_file('seedname.txt')
-  read(seedname_file,"(a)") temp_char
-  close(seedname_file)
-  castep = trim(temp_char)//'.castep'
   
   ! read sampling data from mapping.dat
   mapping = read_mapping_file('mapping.dat')
@@ -167,7 +171,7 @@ subroutine anharmonic()
   ! read data from supercells
   do i=1,no_supercells
     if (.not. sc_acoustic(i)) then
-      filename = str('Supercell_')//i//'/static/'//castep
+      filename = str('Supercell_')//i//'/static/'//seedname//'.castep'
       dft_output_file = read_castep_output_file(filename)
       static_energies(i) = dft_output_file%energy
     endif
@@ -189,8 +193,7 @@ subroutine anharmonic()
       do j=1,structure%no_modes
         ! read energies
         do k=mapping%first,mapping%last
-          filename = kpoint_dir// &
-                   & '/configurations/mode.'//j//'.'//k//'/'//castep
+          filename = kpoint_dir//'/mode.'//j//'.'//k//'/'//seedname//'.castep'
           if (file_exists(filename)) then
             dft_output_file = read_castep_output_file(filename)
             energies(i,j,k) = dft_output_file%energy

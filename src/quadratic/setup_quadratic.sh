@@ -84,24 +84,11 @@ while read fline ; do
      $harmonic_path/$sdir/structure.dat)
   no_atoms_sc=$($symmetry_line_sc-$atoms_line_sc-1)
   
-  first_line=$(( (4+$no_atoms_sc)*($no_modes*($gvector-1))+1 ))
-  last_line=$(( $first_line+(4+$no_atoms_sc)*$no_modes ))
-  
   kdir=kpoint.$kpoint
   mkdir $kdir
-  mkdir $kdir/configurations
-  
-  awk "NR==$first_line,NR==$last_line {print}" \
-     $harmonic_path/$sdir/lte/disp_patterns.dat > $kdir/disp_patterns.dat
   
   for j in `seq 1 $no_modes`; do
-    frequency_line=$(( (4+$no_atoms_sc)*($j-1)+1 ))
-    
-    # write frequency in a.u. to frequency.$j.dat
-    frequency=$(awk "NR=$frequency_line {print\$3} $kdir/disp_patterns.dat")
-    python -c "print($frequency*27.211396132)" > $kdir/frequency.$j.dat
-    
-    # write kpoint.$kpoint/configurations/mode.j.k/structure.dat
+    # write kpoint.$kpoint/mode.j.k/structure.dat
     for k in `seq $sampling_point_init $sampling_point_final`; do
       mdir=$kdir/mode.$j.$k
       mkdir $mdir
@@ -129,56 +116,34 @@ for sc_id in `seq 1 $no_sc`; do
   # Run static calculation
   static_dir=$sdir/static
   if [ "$code" = "castep" ];then
-    if [ -e "$code/path.dat" ];then
-      caesar generate_sc_path                   \
-             $harmonic_path/$sdir/supercell.dat \
-             $code/path.dat                     \
-             $static_dir/sc_bs_path.dat
-      caesar structure_to_dft                    \
-             $code                               \
-             $harmonic_path/$sdir/structure.dat  \
-             $code/$seedname.cell                \
-             $static_dir/sc_bs_path.dat          \
-             $static_dir/$seedname.cell
-    else
-      caesar structure_to_dft                    \
-             $code                               \
-             $harmonic_path/$sdir/structure.dat  \
-             $code/$seedname.cell
-             $static_dir/$seedname.cell
-    fi
+    caesar structure_to_dft                   \
+           $code                              \
+           $harmonic_path/$sdir/structure.dat \
+           $code/$seedname.cell               \
+           $harmonic_path/$sdir/supercell.dat \
+           $code/path.dat                     \
+           $static_dir/$seedname.cell
   elif [ "$code" = "vasp" ]; then
     caesar structure_to_dft                    \
            $code                               \
            $harmonic_path/$sdir/structure.dat  \
            $static_dir/POSCAR
   elif [ "$code" = "qe" ]; then
-    # Generate supercell k-point mesh
-    caesar generate_supercell_kpoint_mesh_qe  \
-           $code/kpoints.in                   \
-           $harmonic_path/structure.dat       \
-           $harmonic_path/$sdir/structure.dat \
-           $sdir/kpoints.in
-    
-    caesar generate_supercell_kpoint_mesh_qe  \
-           $code/kpoints.nscf.in              \
-           $harmonic_path/structure.dat       \
-           $harmonic_path/$sdir/structure.dat \
-           $sdir/kpoints.nscf.in
-
     caesar structure_to_dft                   \
            $code                              \
            $harmonic_path/$sdir/structure.dat \
            $code/$seedname.in                 \
            $code/pseudo.in                    \
-           $sdir/kpoints.in                   \
+           $code/kpoints.in                   \
+           $harmonic_path/structure.dat       \
            $static_dir/$seedname.in
     caesar structure_to_dft                   \
            $code                              \
            $harmonic_path/$sdir/structure.dat \
            $code/$seedname_nscf.in            \
            $code/pseudo.in                    \
-           $sdir/kpoints.nscf.in              \
+           $code/kpoints.nscf.in              \
+           $harmonic_path/structure.dat       \
            $static_dir/$seedname_nscf.in
   fi
 done
@@ -187,17 +152,18 @@ done
 while read fline ; do
   line=($fline)
   kpoint=${line[0]}
-  kdir=kpoint.$kpoint/configurations
+  kdir=kpoint.$kpoint
   for j in `seq 1 $no_modes`; do
     for k in `seq $sampling_point_init $sampling_point_final`; do
       mdir=$kdir/mode.$j.$k
       if [-e "$mdir/structure.dat" ]; then
         if [ "$code" = "castep" ];then
-          caesar structure_to_dft           \
-                 $code                      \
-                 $mdir/structure.dat        \
-                 $code/$seedname.cell       \
-                 $static_dir/sc_bs_path.dat \
+          caesar structure_to_dft                   \
+                 $code                              \
+                 $mdir/structure.dat                \
+                 $code/$seedname.cell               \
+                 $harmonic_path/$sdir/supercell.dat \
+                 $code/path.dat                     \
                  $mdir/$seedname.cell
         elif [ "$code" = "vasp" ]; then
           caesar structure_to_dft    \
@@ -205,20 +171,22 @@ while read fline ; do
                  $mdir/structure.dat \
                  $mdir/POSCAR.$j.$k
         elif [ "$code" = "qe" ];then
-          caesar structure_to_dft    \
-                 $code               \
-                 $mdir/structure.dat \
-                 $code/$seedname.in  \
-                 $code/pseudo.in     \
-                 $code/kpoints.in    \
+          caesar structure_to_dft             \
+                 $code                        \
+                 $mdir/structure.dat          \
+                 $code/$seedname.in           \
+                 $code/pseudo.in              \
+                 $code/kpoints.in             \
+                 $harmonic_path/structure.dat \
                  $mdir/$seedname.in
           if [ -f "$code/$seedname_nscf.in" ]; then
-            caesar structure_to_dft      \
-                   $code                 \
-                   $mdir/structure.dat   \
-                   $code/$seedname.in    \
-                   $code/pseudo.in       \
-                   $code/kpoints.nscf.in \
+            caesar structure_to_dft             \
+                   $code                        \
+                   $mdir/structure.dat          \
+                   $code/$seedname.in           \
+                   $code/pseudo.in              \
+                   $code/kpoints.nscf.in        \
+                   $harmonic_path/structure.dat \
                    $mdir/$seedname_nscf.in
           fi
         fi

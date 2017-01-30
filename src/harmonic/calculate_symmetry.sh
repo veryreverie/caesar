@@ -35,7 +35,6 @@
 caesar structure_to_dft \
        castep           \
        $1               \
-       dummy_argument   \
        calculate_symmetry.cell
 
 cellsym --symmetry calculate_symmetry.cell > calculate_symmetry.dat

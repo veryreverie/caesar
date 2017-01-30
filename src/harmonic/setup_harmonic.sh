@@ -110,15 +110,6 @@ for (( i=1; i<=$no_sc; i++ ))do
   # ----------------------------------------------------------------------
   
   echo "Converting supercell" $i
-  
-  if [ "$code" = "qe" ]; then
-    # Generate supercell k-point mesh
-    caesar generate_supercell_kpoint_mesh_qe \
-           $code/kpoints.in                  \
-           structure.dat                     \
-           $sdir/structure.dat               \
-           $sdir/kpoints.in
-  fi
 
   while read fline ; do
     line=($fline)
@@ -145,7 +136,8 @@ for (( i=1; i<=$no_sc; i++ ))do
                $ddir/structure.dat \
                $code/$seedname.in  \
                $code/pseudo.in     \
-               $sdir/kpoints.in    \
+               $code/kpoints.in    \
+               structure.dat       \
                $ddir/$seedname.in
       fi
     done

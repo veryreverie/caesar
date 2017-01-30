@@ -7,131 +7,156 @@ module structure_to_dft_module
   public :: structure_to_dft
 
   interface structure_to_dft
-    module procedure structure_to_dft_no_args
-    module procedure structure_to_dft_one_arg
-    module procedure structure_to_dft_two_args
-    module procedure structure_to_dft_three_args
+    ! For use with StructureData type
+    module procedure structure_to_dft_StructureData
+    ! For use with structure file
+    module procedure structure_to_dft_filename
   end interface
 
 contains
 
-subroutine structure_to_castep_no_bs(structure_filename,input_filename, &
-   & cell_filename)
+subroutine structure_to_castep(structure_sc,input_filename,supercell_filename, &
+   & path_filename,output_filename)
+  use utils, only : lower_case
   use string_module
   use structure_module
   use file_module
   implicit none
   
-  type(String), intent(in) :: structure_filename
-  type(String), intent(in) :: input_filename
-  type(String), intent(in) :: cell_filename
+  type(StructureData), intent(in)           :: structure_sc
+  type(String),        intent(in), optional :: input_filename
+  type(String),        intent(in), optional :: supercell_filename
+  type(String),        intent(in), optional :: path_filename
+  type(String),        intent(in)           :: output_filename
   
   ! The contents of the old cell file
   type(String), allocatable :: input_file_contents(:)
   
-  ! The contents of the structure file
-  type(StructureData) :: structure
+  ! The contents of the supercell file
+  integer :: supercell(3,3)
+  
+  ! Band structure path data
+  integer               :: no_points
+  real(dp), allocatable :: path(:,:)
+  real(dp), allocatable :: sc_bs_path(:,:)
+  
+  ! Line numbers
+  integer :: path_file_length
+  integer :: path_start_line
+  integer :: path_end_line
   
   ! Temporary variables
   integer        :: i
+  character(100) :: line
   
   ! File units
+  integer :: supercell_file
+  integer :: path_file
   integer :: cell_file
   
-  structure = read_structure_file(structure_filename)
+  ! Whether or not path exists
+  logical :: path_wanted
   
-  cell_file = open_write_file(cell_filename)
+  path_wanted = .false.
+  if (present(supercell_filename) .and. present(path_filename)) then
+    if (file_exists(path_filename)) then
+      path_wanted = .true.
+    endif
+  endif
+  
+  if (path_wanted) then
+    ! Read in supercell data
+    supercell_file = open_read_file(supercell_filename)
+    do i=1,3
+      read(supercell_file,*) supercell(i,:)
+    enddo
+    close(supercell_file)
+  
+    ! Parse path file
+    path_file_length = count_lines(path_filename)
+    path_file = open_read_file(path_filename)
+    do i=1,path_file_length
+      read(path_file,"(a)") line
+      line = lower_case(line)
+      if (line(1:5)=="block") then
+        path_start_line = i
+      elseif (line(1:8)=="endblock") then
+        path_end_line = i
+      endif
+    enddo
+    
+    no_points = path_end_line-path_start_line-1
+    allocate(path(3,no_points))
+    rewind(path_file)
+    
+    do i=1,path_file_length
+      read(path_file,"(a)") line
+      if(i>path_start_line .and. i<path_end_line) then
+        read(line,*) path(:,i-path_start_line)
+      endif
+    enddo
+    close(path_file)
+    
+    allocate(sc_bs_path(3,no_points))
+    sc_bs_path = matmul(supercell,path)
+  endif
+  
+  ! Write cell file
+  cell_file = open_write_file(output_filename)
   write(cell_file,"(a)") '%block lattice_cart'
   write(cell_file,"(a)") 'bohr'
   do i=1,3
-    write(cell_file,*) structure%lattice(i,:)
+    write(cell_file,*) structure_sc%lattice(i,:)
   enddo
   write(cell_file,"(a)") '%endblock lattice_cart'
   write(cell_file,"(a)") ''
   write(cell_file,"(a)") 'block positions_abs'
   write(cell_file,"(a)") 'bohr'
-  do i=1,structure%no_atoms
-    write(cell_file,*) structure%species(i),structure%atoms(:,i)
+  do i=1,structure_sc%no_atoms
+    write(cell_file,*) structure_sc%species(i),structure_sc%atoms(:,i)
   enddo
   write(cell_file,"(a)") '%endblock positions_abs'
   write(cell_file,"(a)") ''
   
-  ! Copy the contents of input_file to cell_file
-  if (file_exists(input_filename)) then
-    input_file_contents = read_to_String(input_filename)
-    do i=1,size(input_file_contents)
-      write(cell_file,"(a)") char(input_file_contents(i))
+  ! Copy the contents of input file to cell file
+  if (present(input_filename)) then
+    if (file_exists(input_filename)) then
+      input_file_contents = read_to_String(input_filename)
+      do i=1,size(input_file_contents)
+        write(cell_file,"(a)") char(input_file_contents(i))
+      enddo
+    endif
+  endif
+  
+  if (path_wanted) then
+    ! Append band structure data to cell file
+    write(cell_file,"(a)") ''
+    write(cell_file,"(a)") '%block_bs_kpoints_path'
+    do i=1,no_points
+      write(cell_file,*) sc_bs_path(:,i)
     enddo
+    write(cell_file,"(a)") '%endblock_bs_kpoint_path'
+    write(cell_file,"(a)") ''
+    write(cell_file,"(a)") 'bs_kpoints_path_spacing = 10.0'
   endif
   
   close(cell_file)
 end subroutine
- 
-subroutine structure_to_castep_bs(structure_filename,input_cell_filename, &
-   & sc_bs_path_filename,cell_filename)
-  use constants, only : dp
-  use string_module
-  use file_module
-  implicit none
-  
-  type(String), intent(in) :: structure_filename
-  type(String), intent(in) :: input_cell_filename
-  type(String), intent(in) :: sc_bs_path_filename
-  type(String), intent(in) :: cell_filename
-  
-  ! file units
-  integer :: sc_bs_path_file
-  integer :: cell_file
-  
-  ! bs_path data
-  integer               :: no_points
-  real(dp), allocatable :: sc_bs_path(:,:)
-  
-  ! temporary variables
-  integer :: i
-  
-  ! Read in band structure data
-  no_points = count_lines(sc_bs_path_filename)
-  allocate(sc_bs_path(no_points,3))
-  sc_bs_path_file = open_read_file(sc_bs_path_filename)
-  do i=1,no_points
-    read(sc_bs_path_file,*) sc_bs_path(i,:)
-  enddo
-  close(sc_bs_path_file)
-  
-  ! Run structure_to_castep without band structure data
-  call structure_to_castep_no_bs(structure_filename,input_cell_filename, &
-    & cell_filename)
-  
-  ! Append band structure data to file
-  cell_file = open_append_file(cell_filename)
-  write(cell_file,"(a)") ''
-  write(cell_file,"(a)") '%block_bs_kpoints_path'
-  do i=1,no_points
-    write(cell_file,*) sc_bs_path(i,:)
-  enddo
-  write(cell_file,"(a)") '%endblock_bs_kpoint_path'
-  write(cell_file,"(a)") ''
-  write(cell_file,"(a)") 'bs_kpoints_path_spacing = 10.0'
-end subroutine
 
-subroutine structure_to_vasp(structure_filename,poscar_filename)
+subroutine structure_to_vasp(structure_sc,poscar_filename)
   use string_module
   use structure_module
   use constants, only : bohr
   use file_module
   implicit none
   
-  type(String), intent(in) :: structure_filename
-  type(String), intent(in) :: poscar_filename
+  type(StructureData), intent(in) :: structure_sc
+  type(String),        intent(in) :: poscar_filename
   
-  ! Structure file data
-  type(StructureData) :: structure
-  
-  ! file units
+  ! File units
   integer :: poscar_file
   
-  ! species data
+  ! Species data
   character(2)              :: previous_species
   integer                   :: no_species
   character(2), allocatable :: species(:)
@@ -140,38 +165,37 @@ subroutine structure_to_vasp(structure_filename,poscar_filename)
   ! Temporary variables
   integer :: i
   
-  structure = read_structure_file(structure_filename)
-  
-  ! count the number of species
+  ! Count the number of species
   no_species = 0
   previous_species='XX'
-  do i=1,structure%no_atoms
-    if (structure%species(i)/=previous_species) then
-      previous_species = structure%species(i)
+  do i=1,structure_sc%no_atoms
+    if (structure_sc%species(i)/=previous_species) then
+      previous_species = structure_sc%species(i)
       no_species = no_species+1
     endif
   enddo
   
-  ! generate species lists
+  ! Generate species lists
   allocate(species(no_species))
   allocate(species_counts(no_species))
   no_species = 0
   previous_species='XX'
   species_counts = 0
-  do i=1,structure%no_atoms
-    if (structure%species(i)/=previous_species) then
-      previous_species = structure%species(i)
+  do i=1,structure_sc%no_atoms
+    if (structure_sc%species(i)/=previous_species) then
+      previous_species = structure_sc%species(i)
       no_species = no_species+1
-      species(no_species) = structure%species(i)
+      species(no_species) = structure_sc%species(i)
     endif
     species_counts(no_species) = species_counts(no_species)+1
   enddo
   
+  ! Write output file
   poscar_file = open_write_file(poscar_filename)
   write(poscar_file,"(a)") 'Structure'
   write(poscar_file,*) bohr
   do i=1,3
-    write(poscar_file,*) structure%lattice(:,i)
+    write(poscar_file,*) structure_sc%lattice(:,i)
   enddo
   do i=1,no_species
     write(poscar_file,"(a)",advance="no") species(i)//" "
@@ -182,47 +206,66 @@ subroutine structure_to_vasp(structure_filename,poscar_filename)
   enddo
   write(poscar_file,*)
   write(poscar_file,"(a)") 'Cartesian'
-  do i=1,structure%no_atoms
-    write(poscar_file,*) structure%atoms(:,i)
+  do i=1,structure_sc%no_atoms
+    write(poscar_file,*) structure_sc%atoms(:,i)
   enddo
   close(poscar_file)
 end subroutine
 
-subroutine structure_to_qe(structure_filename,input_filename,pseudo_filename, &
-   & kpoints_filename,output_filename)
+subroutine structure_to_qe(structure_sc,input_filename,pseudo_filename, &
+   & kpoints_filename,structure,output_filename)
   use string_module
   use structure_module
   use file_module
   implicit none
   
-  type(String), intent(in) :: structure_filename
-  type(String), intent(in) :: input_filename
-  type(String), intent(in) :: pseudo_filename
-  type(String), intent(in) :: kpoints_filename
-  type(String), intent(in) :: output_filename
+  type(StructureData), intent(in) :: structure_sc
+  type(String),        intent(in) :: input_filename
+  type(String),        intent(in) :: pseudo_filename
+  type(String),        intent(in) :: kpoints_filename
+  type(StructureData), intent(in) :: structure
+  type(String),        intent(in) :: output_filename
   
   ! File contents
-  type(StructureData)       :: structure
   type(String), allocatable :: pseudo_contents(:)
-  type(String), allocatable :: kpoints_contents(:)
   
   ! The contents of the old .in file
   type(String), allocatable :: input_file_contents(:)
   
-  ! file units
+  ! kpoints.in data
+  character(100) :: kpoints_header
+  integer        :: primitive_mesh(3)
+  real(dp)       :: sc_distance(3)
+  real(dp)       :: distance(3)
+  
+  ! File units
+  integer :: kpoints_file
   integer :: output_file
   
-  ! temporary variables
+  ! Temporary variables
   integer        :: i
   
-  structure = read_structure_file(structure_filename)
-  
+  ! Read in pseudo file
   pseudo_contents = read_to_String(pseudo_filename)
   
-  kpoints_contents = read_to_String(kpoints_filename)
+  ! Read in kpoints file
+  kpoints_file = open_read_file(kpoints_filename)
+  read(kpoints_file,"(a)") kpoints_header
+  read(kpoints_file,*) primitive_mesh
+  close(kpoints_file)
+  
+  ! Construct reciprocal primitive lattice
+  do i=1,3
+    distance(i) = norm2(structure%recip_lattice(i,:))
+  enddo
+  
+  ! Construct reciprocal supercell lattice
+  do i=1,3
+    sc_distance(i) = norm2(structure_sc%recip_lattice(i,:))
+  enddo
   
   output_file = open_write_file(output_filename)
-  ! write input_file to output_file
+  ! Write input file to output file
   if (file_exists(input_filename)) then
     input_file_contents = read_to_String(input_filename)
     do i=1,size(input_file_contents)
@@ -230,103 +273,95 @@ subroutine structure_to_qe(structure_filename,input_filename,pseudo_filename, &
     enddo
   endif
   
-  write(output_file,"(a)") char(str('nat=')//structure%no_atoms)
+  ! Write output file
+  write(output_file,"(a)") char(str('nat=')//structure_sc%no_atoms)
   write(output_file,"(a)") '/&end'
   do i=1,size(pseudo_contents)
     write(output_file,"(a)") char(pseudo_contents(i))
   enddo
   write(output_file,"(a)") 'CELL_PARAMETERS bohr'
   do i=1,3
-    write(output_file,"(a)") structure%lattice(i,:)
+    write(output_file,"(a)") structure_sc%lattice(i,:)
   enddo
   write(output_file,"(a)") 'ATOMIC_POSITIONS bohr'
-  do i=1,structure%no_atoms
-    write(output_file,*) structure%species(i),structure%atoms(:,i)
+  do i=1,structure_sc%no_atoms
+    write(output_file,*) structure_sc%species(i),structure_sc%atoms(:,i)
   enddo
-  do i=1,size(kpoints_contents)
-    write(output_file,"(a)") char(kpoints_contents(i))
-  enddo
+  write(output_file,"(a)") kpoints_header
+  write(output_file,*) int(primitive_mesh*sc_distance/distance)+1,0,0,0
   close(output_file)
 end subroutine
 
-subroutine structure_to_dft_no_args(codename,structure_filename, &
-   & output_filename)
+subroutine structure_to_dft_StructureData(dft_code,structure_sc,      &
+   & input_filename,supercell_filename,path_filename,pseudo_filename, &
+   & kpoints_filename,structure,output_filename)
   use string_module
+  use structure_module
   implicit none
   
-  type(String), intent(in) :: codename
-  type(String), intent(in) :: structure_filename
-  type(String), intent(in) :: output_filename
+  type(String),        intent(in)           :: dft_code
+  type(StructureData), intent(in)           :: structure_sc
+  type(String),        intent(in), optional :: input_filename     ! castep & qe
+  type(String),        intent(in), optional :: supercell_filename ! castep only
+  type(String),        intent(in), optional :: path_filename      ! castep only
+  type(String),        intent(in), optional :: pseudo_filename    ! qe only
+  type(String),        intent(in), optional :: kpoints_filename   ! qe only
+  type(StructureData), intent(in), optional :: structure          ! qe only
+  type(String),        intent(in)           :: output_filename
   
-  if (codename=="vasp") then
-    call structure_to_vasp(structure_filename,output_filename)
-  else
-    write(*,*) "structure_to_dft called with the wrong number of arguments for " &
-      & //char(codename)
-    stop
+  if (dft_code=="castep") then
+    call structure_to_castep(structure_sc,input_filename,supercell_filename, &
+       & path_filename,output_filename)
+  elseif (dft_code=="vasp") then
+    call structure_to_vasp(structure_sc,output_filename)
+  elseif (dft_code=="qe") then
+    call structure_to_qe(structure_sc,input_filename,pseudo_filename, &
+       & kpoints_filename,structure,output_filename)
   endif
 end subroutine
 
-subroutine structure_to_dft_one_arg(codename,structure_filename, &
-   & input_cell_filename,cell_filename)
+subroutine structure_to_dft_filename(dft_code,structure_sc_filename,  &
+   & input_filename,supercell_filename,path_filename,pseudo_filename, &
+   & kpoints_filename,structure_filename,output_filename)
   use string_module
+  use structure_module
   implicit none
   
-  type(String), intent(in) :: codename
-  type(String), intent(in) :: structure_filename
-  type(String), intent(in) :: input_cell_filename
-  type(String), intent(in) :: cell_filename
+  type(String), intent(in)           :: dft_code
+  type(String), intent(in)           :: structure_sc_filename
+  type(String), intent(in), optional :: input_filename     ! castep and qe only
+  type(String), intent(in), optional :: supercell_filename ! castep only
+  type(String), intent(in), optional :: path_filename      ! castep only
+  type(String), intent(in), optional :: pseudo_filename    ! qe only
+  type(String), intent(in), optional :: kpoints_filename   ! qe only
+  type(String), intent(in), optional :: structure_filename ! qe only
+  type(String), intent(in)           :: output_filename
   
-  if (codename=="castep") then
-    call structure_to_castep_no_bs(structure_filename,input_cell_filename, &
-      & cell_filename)
+  type(StructureData) :: structure_sc
+  type(StructureData) :: structure
+  
+  structure_sc = read_structure_file(structure_sc_filename)
+  
+  if (present(structure_filename)) then
+    structure = read_structure_file(structure_filename)
+    call structure_to_dft( dft_code=dft_code, &
+                         & structure_sc=structure_sc, &
+                         & input_filename=input_filename, &
+                         & supercell_filename=supercell_filename, &
+                         & path_filename=path_filename, &
+                         & pseudo_filename=pseudo_filename, &
+                         & kpoints_filename=kpoints_filename, &
+                         & structure=structure, &
+                         & output_filename=output_filename)
   else
-    write(*,*) "structure_to_dft called with the wrong number of arguments for " &
-      & //char(codename)
-    stop
-  endif
-end subroutine
-
-subroutine structure_to_dft_two_args(codename,structure_filename, &
-   & input_filename,sc_bs_path_filename,output_filename)
-  use string_module
-  implicit none
-  
-  type(String), intent(in) :: codename
-  type(String), intent(in) :: structure_filename
-  type(String), intent(in) :: input_filename
-  type(String), intent(in) :: sc_bs_path_filename
-  type(String), intent(in) :: output_filename
-  
-  if (codename=="castep") then
-    call structure_to_castep_bs(structure_filename,input_filename, &
-      & sc_bs_path_filename,output_filename)
-  else
-    write(*,*) "structure_to_dft called with the wrong number of arguments for " &
-      & //char(codename)
-    stop
-  endif
-end subroutine
-
-subroutine structure_to_dft_three_args(codename,structure_filename, &
-   & input_filename,pseudo_filename,kpoints_filename,output_filename)
-  use string_module
-  implicit none
-  
-  type(String), intent(in) :: codename
-  type(String), intent(in) :: structure_filename
-  type(String), intent(in) :: input_filename
-  type(String), intent(in) :: pseudo_filename
-  type(String), intent(in) :: kpoints_filename
-  type(String), intent(in) :: output_filename
-  
-  if (codename=="qe") then
-    call structure_to_qe(structure_filename,input_filename,pseudo_filename, &
-      & kpoints_filename,output_filename)
-  else
-    write(*,*) "structure_to_dft called with the wrong number of arguments for " &
-      & //char(codename)
-    stop
+    call structure_to_dft( dft_code=dft_code, &
+                         & structure_sc=structure_sc, &
+                         & input_filename=input_filename, &
+                         & supercell_filename=supercell_filename, &
+                         & path_filename=path_filename, &
+                         & pseudo_filename=pseudo_filename, &
+                         & kpoints_filename=kpoints_filename, &
+                         & output_filename=output_filename)
   endif
 end subroutine
 end module

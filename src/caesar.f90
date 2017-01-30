@@ -21,7 +21,6 @@ program caesar
   use equilibrium_frac_module
   use fourier_interpolation_module
   use generate_kgrid_module
-  use generate_supercell_kpoint_mesh_qe_module
   use generate_supercells_module
   use lte_module
   use hartree_to_eV_module
@@ -31,7 +30,6 @@ program caesar
   use anharmonic_module
   use calculate_gap_module
   use generate_quadratic_configurations_module
-  use generate_sc_path_module
   use bs_quadratic_module
   
   implicit none
@@ -158,10 +156,6 @@ program caesar
     call generate_kgrid(args(2:))
   elseif (args(1) == 'generate_quadratic_configurations') then
     call generate_quadratic_configurations(args(2:))
-  elseif (args(1) == 'generate_sc_path') then
-    call generate_sc_path(args(2:))
-  elseif (args(1) == 'generate_supercell_kpoint_mesh_qe') then
-    call generate_supercell_kpoint_mesh_qe(args(2:))
   elseif (args(1) == 'generate_supercells') then
     call generate_supercells(args(2:))
   elseif (args(1) == 'hartree_to_eV') then
@@ -179,12 +173,36 @@ program caesar
   elseif (args(1) == 'fetch_forces') then
     call fetch_forces(args(2),args(3),int(args(4)),int(args(5)),args(6))
   elseif (args(1) == 'structure_to_dft') then
-    if (size(args) == 4) then
-      call structure_to_dft(args(2),args(3),args(4))
-    elseif (size(args) == 5) then
-      call structure_to_dft(args(2),args(3),args(4),args(5))
-    elseif (size(args) == 6) then
-      call structure_to_dft(args(2),args(3),args(4),args(5),args(6))
+    if (args(2) == "castep") then
+      if (size(args) == 4) then
+        call structure_to_dft( dft_code=args(2),              &
+                             & structure_sc_filename=args(3), &
+                             & output_filename=args(4))
+      elseif (size(args) == 5) then
+        call structure_to_dft( dft_code=args(2),              &
+                             & structure_sc_filename=args(3), &
+                             & input_filename=args(4),        &
+                             & output_filename=args(5))
+      elseif (size(args) == 7) then
+        call structure_to_dft( dft_code=args(2),              &
+                             & structure_sc_filename=args(3), &
+                             & input_filename=args(4),        &
+                             & supercell_filename=args(5),    &
+                             & path_filename=args(6),         &
+                             & output_filename=args(7))
+      endif
+    elseif (args(2) == "vasp") then
+      call structure_to_dft( dft_code=args(2),              &
+                           & structure_sc_filename=args(3), &
+                           & output_filename=args(4))
+    elseif (args(2) == "qe") then
+      call structure_to_dft( dft_code=args(2),              &
+                           & structure_sc_filename=args(3), &
+                           & input_filename=args(4),        &
+                           & pseudo_filename=args(5),       &
+                           & kpoints_filename=args(6),      &
+                           & structure_filename=args(7),    &
+                           & output_filename=args(8))
     endif
   elseif (args(1) == 'calculate_symmetry_helper') then
     call calculate_symmetry_helper(args(2:))

@@ -23,9 +23,12 @@ subroutine bs_quadratic()
   integer :: band
   integer :: degeneracy
   
+  ! Previous user inputs
+  type(String)        :: dft_code      ! The dft code name (castep,vasp,qe)
+  type(String)        :: seedname      ! The dft input file seedname
+  type(String)        :: harmonic_path ! The path to the harmonic directory
+  
   ! Starting data
-  type(String)        :: harmonic_path
-  type(String)        :: seedname
   integer             :: no_sc
   integer             :: no_kpoints
   type(MappingData)   :: mapping
@@ -50,16 +53,15 @@ subroutine bs_quadratic()
   integer              :: ref
   
   ! File units
-  integer :: harmonic_path_file
+  integer :: user_input_file
   integer :: no_sc_file
-  integer :: seedname_file
   integer :: list_file
   integer :: ibz_file
   integer :: bgc_file
   integer :: bck_file
   
   ! Temporary variables
-  character(100) :: temp_char
+  character(100) :: line
   integer        :: i,j,k
   type(String)   :: sdir
   type(String)   :: mdir
@@ -91,15 +93,14 @@ subroutine bs_quadratic()
   ! --------------------------------------------------
   ! Read basic data
   ! --------------------------------------------------
-  harmonic_path_file = open_read_file('harmonic_path.dat')
-  read(harmonic_path_file,*) temp_char
-  close(harmonic_path_file)
-  harmonic_path = temp_char
-  
-  seedname_file = open_read_file('seedname.txt')
-  read(seedname_file,*) temp_char
-  close(seedname_file)
-  seedname = temp_char
+  user_input_file = open_read_file('user_input.txt')
+  read(user_input_file,"(a)") line
+  dft_code = trim(line)
+  read(user_input_file,"(a)") line
+  seedname = trim(line)
+  read(user_input_file,"(a)") line
+  harmonic_path = trim(line)
+  close(user_input_file)
   
   no_sc_file = open_read_file('no_sc.dat')
   read(no_sc_file,*) no_sc
@@ -156,7 +157,7 @@ subroutine bs_quadratic()
       do k=1,2
         config = configs(k)
         if (config/=0) then
-          mdir=str('kpoint.')//kpoint//'/configurations/mode.'//j//'.'//config
+          mdir=str('kpoint.')//kpoint//'/mode.'//j//'.'//config
           if (file_exists(mdir//'/'//seedname//'.castep')) then
             bands = read_castep_bands_file(mdir//'/'//seedname//'.bands')
             bs(j,i) = bs(j,i)                                  &

@@ -24,10 +24,11 @@ module string_module
   public :: dble          ! Conversion from String to real(dp)
   
   ! Binary operators
-  public :: operator(//)  ! Concatenation
+  public :: operator(//)
   
   ! Comparison operators
-  public :: operator(==)  ! Equality comparison
+  public :: operator(==)
+  public :: operator(/=)
   
   ! Unary operators
   public :: len           ! character-like len
@@ -87,6 +88,12 @@ module string_module
     module procedure equality_String_String
     module procedure equality_String_character
     module procedure equality_character_String
+  end interface
+  
+  interface operator(/=)
+    module procedure non_equality_String_String
+    module procedure non_equality_String_character
+    module procedure non_equality_character_String
   end interface
   
   interface len
@@ -379,6 +386,42 @@ pure function equality_character_String(a,b) result(output)
   logical                  :: output
   
   output = a==b%contents
+end function
+
+! ----------------------------------------------------------------------
+! Non-equality
+! ----------------------------------------------------------------------
+! String==String
+pure function non_equality_String_String(a,b) result(output)
+  implicit none
+  
+  type(String), intent(in) :: a
+  type(String), intent(in) :: b
+  logical                  :: output
+  
+  output = a%contents/=b%contents
+end function
+
+! String==character
+pure function non_equality_String_character(a,b) result(output)
+  implicit none
+  
+  type(String), intent(in) :: a
+  character(*), intent(in) :: b
+  logical                  :: output
+  
+  output = a%contents/=b
+end function
+
+! character==String
+pure function non_equality_character_String(a,b) result(output)
+  implicit none
+  
+  character(*), intent(in) :: a
+  type(String), intent(in) :: b
+  logical                  :: output
+  
+  output = a/=b%contents
 end function
 
 ! ----------------------------------------------------------------------
