@@ -13,17 +13,13 @@ program caesar
   use calculate_symmetry_helper_module
   
   ! use harmonic modules
-  use combine_forces_module
+  use lte_harmonic_module
   use compare_kpoints_module
   use construct_finite_displacement_module
   use construct_matrix_force_cnsts_module
   use construct_supercell_module
-  use equilibrium_frac_module
-  use fourier_interpolation_module
   use generate_kgrid_module
   use generate_supercells_module
-  use lte_module
-  use fetch_forces_module
   
   ! use quadratic modules
   use setup_quadratic_module
@@ -39,10 +35,6 @@ program caesar
   integer                   :: i             ! loop index
   type(String), allocatable :: args(:)       ! command line arguments
   type(String)              :: argstring     ! command line arguments
-  
-  ! lte variables
-  integer  :: prog_function
-  real(dp) :: tol,tol2,delta
   
   ! testing variables
   type(String) :: temp_string
@@ -133,6 +125,8 @@ program caesar
     temp_real2 = dble(temp_string)
     write(*,*) temp_real2
   ! Wrappers for top-level Fortran
+  elseif (args(1) == 'lte_harmonic') then
+    call lte_harmonic()
   elseif (args(1) == 'setup_quadratic') then
     call setup_quadratic()
   elseif (args(1) == 'anharmonic') then
@@ -142,8 +136,6 @@ program caesar
   ! Wrappers for subsidiary Fortran 
   elseif (args(1) == 'calculate_gap') then
     call calculate_gap()
-  elseif (args(1) == 'combine_forces') then
-    call combine_forces(args(2:))
   elseif (args(1) == 'compare_kpoints') then
     call compare_kpoints(args(2:))
   elseif (args(1) == 'construct_finite_displacement') then
@@ -152,30 +144,14 @@ program caesar
     call construct_matrix_force_cnsts(args(2:))
   elseif (args(1) == 'construct_supercell') then
     call construct_supercell(args(2:))
-  elseif (args(1) == 'equilibrium_frac') then
-    call equilibrium_frac(args(2:))
-  elseif (args(1) == 'fourier_interpolation') then
-    call fourier_interpolation(args(2),args(3),args(4),dble(args(5)),args(6), &
-       & args(7),args(8),args(9),args(10),args(11),args(12))
   elseif (args(1) == 'generate_kgrid') then
     call generate_kgrid(args(2:))
   elseif (args(1) == 'generate_supercells') then
     call generate_supercells(args(2:))
   elseif (args(1) == 'hartree_to_eV') then
     call hartree_to_eV()
-  elseif (args(1) == 'lte') then
-    prog_function = int(args(2))
-    tol = dble(args(3))
-    tol2 = dble(args(4))
-    delta = dble(args(5))
-    call lte(prog_function,tol,tol2,delta,args(6),args(7), &
-      & args(8),args(9),args(10),args(11),     &
-      & args(12),args(13),args(14),args(15),   &
-      & args(16),args(17),args(18),args(19),args(20))
   elseif (args(1) == 'rundft') then
     call rundft(args(2:))
-  elseif (args(1) == 'fetch_forces') then
-    call fetch_forces(args(2),args(3),args(4),int(args(5)),int(args(6)),args(7))
   elseif (args(1) == 'structure_to_dft') then
     if (args(2) == "castep") then
       if (size(args) == 4) then
@@ -214,8 +190,6 @@ program caesar
   elseif (args(1) == 'setup_harmonic') then
     call system(args(1)//'.sh '//argstring)
   elseif (args(1) == 'tcm_cluster_run_harmonic') then
-    call system(args(1)//'.sh '//argstring)
-  elseif (args(1) == 'lte_harmonic') then
     call system(args(1)//'.sh '//argstring)
   elseif (args(1) == 'clear_all') then
     call system(args(1)//'.sh '//argstring)
