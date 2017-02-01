@@ -62,8 +62,10 @@ subroutine anharmonic()
   type(VscfReturn)      :: vscf
   logical, allocatable  :: sc_acoustic(:)  ! if Supercell_i/acoustic.dat exists
   
-  type(String)          :: sdir          ! Supercell_*          directory name
-  type(String)          :: kpoint_dir    ! Supercell_*/kpoint.* directory name
+  ! Directory names
+  type(String) :: sdir       ! Supercell_*
+  type(String) :: kpoint_dir ! kpoint.*
+  type(String) :: ddir       ! kpoint.*/mode.*.*
   
   real(dp), allocatable :: eigenvals(:,:,:)
   real(dp), allocatable :: harmonic(:,:,:)
@@ -170,9 +172,9 @@ subroutine anharmonic()
   
   ! read data from supercells
   do i=1,no_supercells
+    sdir = str('Supercell_')//i
     if (.not. sc_acoustic(i)) then
-      filename = str('Supercell_')//i//'/static/'//seedname//'.castep'
-      dft_output_file = read_castep_output_file(filename)
+      dft_output_file = read_dft_output_file(dft_code,sdir//'/static',seedname)
       static_energies(i) = dft_output_file%energy
     endif
   enddo
@@ -193,9 +195,16 @@ subroutine anharmonic()
       do j=1,structure%no_modes
         ! read energies
         do k=mapping%first,mapping%last
-          filename = kpoint_dir//'/mode.'//j//'.'//k//'/'//seedname//'.castep'
+          ddir = kpoint_dir//'/mode.'//j//'.'//k
+          
+          if (dft_code=='castep') then
+            filename = ddir//'/'//seedname//'.castep'
+          elseif (dft_code=='qe') then
+            filename = ddir//'/'//seedname//'.out'
+          endif
+          
           if (file_exists(filename)) then
-            dft_output_file = read_castep_output_file(filename)
+            dft_output_file = read_dft_output_file(dft_code,ddir,seedname)
             energies(i,j,k) = dft_output_file%energy
           else
             energies(i,j,k) = static_energies(sc_ids(i))

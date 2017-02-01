@@ -24,9 +24,9 @@ subroutine bs_quadratic()
   integer :: degeneracy
   
   ! Previous user inputs
-  type(String)        :: dft_code      ! The dft code name (castep,vasp,qe)
-  type(String)        :: seedname      ! The dft input file seedname
-  type(String)        :: harmonic_path ! The path to the harmonic directory
+  type(String) :: dft_code      ! The dft code name (castep,vasp,qe)
+  type(String) :: seedname      ! The dft input file seedname
+  type(String) :: harmonic_path ! The path to the harmonic directory
   
   ! Starting data
   integer             :: no_sc

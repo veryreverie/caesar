@@ -7,26 +7,24 @@ module constants
   ! ----------------------------------------
   ! double precision
   ! ----------------------------------------
-  integer,  parameter :: dp = kind(1.d0) ! defines double precision
+  integer, parameter :: dp = selected_real_kind(15,300)
   
   ! ----------------------------------------
   ! mathematical constants
   ! ----------------------------------------
-  real(dp), parameter :: pi = 3.14159265358979324d0
-  real(dp), parameter :: twopi = 2.d0*pi
-  real(dp), parameter :: third = 1.d0/3.d0
+  real(dp), parameter :: pi = 3.14159265358979324_dp
   
   ! ----------------------------------------
   ! physical constants and unit conversions
   ! ----------------------------------------
   ! n.b. eV was defined variously as 27.211396132 and 27.21138602
-  real(dp), parameter :: eV = 27.211396132d0   ! Hartree energy eV
-  real(dp), parameter :: thermal = 3.1577464E5 ! Hartree temperature K
-  real(dp), parameter :: kB = 8.6173324E-5     ! Boltzmann's constant eV/K
-  real(dp), parameter :: eV_per_A_to_au = 0.01944689814638725057d0
-  real(dp), parameter :: kB_au_per_K = 3.16679002948702D-006 ! kB in Hartrees/K
-  real(dp), parameter :: Ry = 13.605698066 ! Rydberg energy eV
-  real(dp), parameter :: bohr = 0.52911721092 ! Bohr radius in Angstrom
+  real(dp), parameter :: eV = 27.211396132_dp     ! Hartree energy eV
+  real(dp), parameter :: thermal = 3.1577464e5_dp ! Hartree temperature K
+  real(dp), parameter :: kB = 8.6173324e-5_dp     ! Boltzmann's constant eV/K
+  real(dp), parameter :: eV_per_A_to_au = 0.01944689814638725057_dp
+  real(dp), parameter :: kB_au_per_K = 3.16679002948702e-6_dp ! kB in Hartrees/K
+  real(dp), parameter :: Ry = 13.605698066_dp     ! Rydberg energy eV
+  real(dp), parameter :: bohr = 0.52911721092_dp  ! Bohr radius in Angstrom
   
   ! ----------------------------------------
   ! lte parameters

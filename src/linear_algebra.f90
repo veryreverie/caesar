@@ -84,13 +84,14 @@ module linear_algebra
     end subroutine
     
     ! Complex norm. Returns sqrt(X.X)
-    pure real(kind(1.d0)) function dznrm2(N,X,INCX)
+    pure function dznrm2(N,X,INCX) result(output)
       use constants, only : dp
       implicit none
       
-      integer,     intent(in) :: N    ! length of vector
-      complex(dp), intent(in) :: X(*) ! vector
-      integer,     intent(in) :: INCX ! increment along X
+      integer,     intent(in) :: N      ! length of vector
+      complex(dp), intent(in) :: X(*)   ! vector
+      integer,     intent(in) :: INCX   ! increment along X
+      real(dp)                :: output ! result
     end function
     
     ! Finds the eigenvalues of a hermitian matrix
@@ -189,10 +190,10 @@ function inv_33(A) result(B)
    &+ A(1,2)*(A(3,1)*A(2,3)-A(2,1)*A(3,3))&
    &+ A(1,3)*(A(2,1)*A(3,2)-A(3,1)*A(2,2))
   
-  d = 1.d0/d
+  d = 1.0_dp/d
   
   ! check for d=infinity or d=NaN
-  if (dabs(d)>huge(0.d0) .or. d<d) then
+  if (dabs(d)>huge(0.0_dp) .or. d<d) then
     write(*,*) 'Error in inv_33: singular matrix.'
     stop
   endif

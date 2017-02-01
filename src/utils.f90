@@ -213,7 +213,7 @@ function reduce_interval_0d(input,t) result(output)
   real(dp)             :: t
   real(dp)             :: output
   
-  output = modulo(input+0.5d0+t,1.d0)-0.5d0-t
+  output = modulo(input+0.5_dp+t,1.0_dp)-0.5_dp-t
 end function
 
 function reduce_interval_1d(input,t) result(output)
@@ -226,7 +226,7 @@ function reduce_interval_1d(input,t) result(output)
   
   allocate(output(size(input)))
   
-  output = modulo(input+0.5d0+t,1.d0)-0.5d0-t
+  output = modulo(input+0.5_dp+t,1.0_dp)-0.5_dp-t
 end function
 
 function reduce_interval_2d(input,t) result(output)
@@ -239,6 +239,6 @@ function reduce_interval_2d(input,t) result(output)
   
   allocate(output(size(input),size(input)))
   
-  output = modulo(input+0.5d0+t,1.d0)-0.5d0-t
+  output = modulo(input+0.5_dp+t,1.0_dp)-0.5_dp-t
 end function
 end module

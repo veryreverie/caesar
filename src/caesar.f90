@@ -41,6 +41,7 @@ program caesar
   type(String)              :: argstring     ! command line arguments
   
   ! lte variables
+  integer  :: prog_function
   real(dp) :: tol,tol2,delta
   
   ! testing variables
@@ -124,7 +125,7 @@ program caesar
     temp_string3 = temp_string//' '//temp_string2//' '//143
     write(*,*) char(temp_string3)
     call drop(temp_string)
-    temp_real = huge(1.d0)
+    temp_real = huge(1.0_dp)
     temp_real = -1.21313852748395029384e25
     temp_string = temp_real
     write(*,*) temp_real
@@ -154,8 +155,8 @@ program caesar
   elseif (args(1) == 'equilibrium_frac') then
     call equilibrium_frac(args(2:))
   elseif (args(1) == 'fourier_interpolation') then
-    call fourier_interpolation(args(2),args(3),args(4),args(5),args(6),args(7),&
-      & args(8),args(9),args(10),args(11),args(12))
+    call fourier_interpolation(args(2),args(3),args(4),dble(args(5)),args(6), &
+       & args(7),args(8),args(9),args(10),args(11),args(12))
   elseif (args(1) == 'generate_kgrid') then
     call generate_kgrid(args(2:))
   elseif (args(1) == 'generate_supercells') then
@@ -163,17 +164,18 @@ program caesar
   elseif (args(1) == 'hartree_to_eV') then
     call hartree_to_eV()
   elseif (args(1) == 'lte') then
-    tol = dble(args(2))
-    tol2 = dble(args(3))
-    delta = dble(args(4))
-    call lte(tol,tol2,delta,char(args(5)),char(args(6)),char(args(7)), &
-      & char(args(8)),char(args(9)),char(args(10)),char(args(11)),     &
-      & char(args(12)),char(args(13)),char(args(14)),char(args(15)),   &
-      & char(args(16)),char(args(17)),char(args(18)),char(args(19)))
+    prog_function = int(args(2))
+    tol = dble(args(3))
+    tol2 = dble(args(4))
+    delta = dble(args(5))
+    call lte(prog_function,tol,tol2,delta,args(6),args(7), &
+      & args(8),args(9),args(10),args(11),     &
+      & args(12),args(13),args(14),args(15),   &
+      & args(16),args(17),args(18),args(19),args(20))
   elseif (args(1) == 'rundft') then
     call rundft(args(2:))
   elseif (args(1) == 'fetch_forces') then
-    call fetch_forces(args(2),args(3),int(args(4)),int(args(5)),args(6))
+    call fetch_forces(args(2),args(3),args(4),int(args(5)),int(args(6)),args(7))
   elseif (args(1) == 'structure_to_dft') then
     if (args(2) == "castep") then
       if (size(args) == 4) then

@@ -99,7 +99,7 @@
 
 module lte_module
   use min_images,     only : min_images_brute_force, maxim
-  use constants,      only : dp, third, twopi, kB_au_per_K
+  use constants,      only : dp, kB_au_per_K
   use utils,          only : i2s, errstop
   use file_module,        only : open_read_file, open_write_file
   use linear_algebra, only : determinant33, inv_33
@@ -117,6 +117,7 @@ contains
 subroutine setup_geometry(tol,prim_lat_vec,sc_lat_vec,                 &
    & length_scale,no_prim_cells,prim_rec_vec,sc_rec_vec,small_k_scale, &
    & vol_scale)
+  use constants, only : pi
   use linear_algebra
   implicit none
   
@@ -140,7 +141,7 @@ subroutine setup_geometry(tol,prim_lat_vec,sc_lat_vec,                 &
   length_scale=(SQRT(DOT_PRODUCT(prim_lat_vec(1:3,1), &
     &prim_lat_vec(1:3,1)))+SQRT(DOT_PRODUCT(prim_lat_vec(1:3,2), &
     &prim_lat_vec(1:3,2)))+SQRT(DOT_PRODUCT(prim_lat_vec(1:3,3), &
-    &prim_lat_vec(1:3,3))))*third
+    &prim_lat_vec(1:3,3))))/3.0_dp
   vol_scale=length_scale**3
 
   ! Primitive-cell reciprocal lattice vectors and volume.
@@ -159,7 +160,7 @@ subroutine setup_geometry(tol,prim_lat_vec,sc_lat_vec,                 &
 
   ! "Small" distance in k space, determined by size of supercell.
   ! Factor of 2pi included.
-  small_k_scale=twopi*sc_cell_volume**(-third)
+  small_k_scale=2*pi*sc_cell_volume**(-1/3.0_dp)
 
   ! Number of unit cells.
   no_prim_cells=NINT(sc_cell_volume/prim_cell_volume)
@@ -215,17 +216,19 @@ end function is_lat_point
 ! ----------------------------------------------------------------------
 ! Read in the data in lte.dat and allocate arrays, etc.
 ! ----------------------------------------------------------------------
-subroutine read_lte(tol,lte_filename,prim_rec_vec,sc_rec_vec,fc_scale,      &
+subroutine read_lte(prog_function,tol,lte_filename,prim_rec_vec,sc_rec_vec,fc_scale,      &
    & no_atoms_in_prim,no_DoF_prim,no_prim_cells,length_scale,small_k_scale, &
    & vol_scale,                                                             &
    & prim_lat_vec,sc_lat_vec,no_atoms_in_sc,species,mass,atom_pos,          &
    & force_const,defined,atom,rotation,offset,disp_kpoints,no_kspace_lines, &
-   & no_point_symms,prog_function,temperature)
+   & no_point_symms,temperature)
+  use constants, only : pi
+  use string_module
   implicit none
   
+  integer,      intent(in) :: prog_function
   real(dp),     intent(in) :: tol
-  
-  character(*), intent(in) :: lte_filename
+  type(String), intent(in) :: lte_filename
   
   real(dp),                  intent(out) :: prim_rec_vec(3,3)
   real(dp),                  intent(out) :: sc_rec_vec(3,3)
@@ -247,93 +250,175 @@ subroutine read_lte(tol,lte_filename,prim_rec_vec,sc_rec_vec,fc_scale,      &
   integer,      allocatable, intent(out) :: atom(:,:)
   real(dp),     allocatable, intent(out) :: rotation(:,:,:)
   real(dp),     allocatable, intent(out) :: offset(:,:)
+  ! n.b. : disp_kpoints is only needed for prog_function=2
   real(dp),     allocatable, intent(out) :: disp_kpoints(:,:)
   integer,                   intent(out) :: no_kspace_lines
   integer,                   intent(out) :: no_point_symms
-  integer,                   intent(out) :: prog_function
   real(dp),                  intent(out) :: temperature
   
-  integer :: ierr,n,i,j,no_force_c_supplied,atom1,atom2,dir1,dir2,ialloc
+  integer  :: n,i,j,k
+  integer  :: no_force_constants,atom1,atom2,dir1,dir2
   real(dp) :: fc,check_matrix
-
-  open(unit=8,file=lte_filename,status='old',iostat=ierr)
-  if(ierr/=0)call errstop('READ_LTE','Problem opening lte.dat.')
-
+  real(dp) :: force(3)
+  
+  integer :: lte_file
+  
+  lte_file = open_read_file(lte_filename)
+  
+  ! ----------------------------------------------------------------------
+  ! Read in data
+  ! ----------------------------------------------------------------------
+  
   ! Primitive lattice vectors
-  read(8,*,err=20,end=20)
-  read(8,*,err=20,end=20)prim_lat_vec(1:3,1)
-  read(8,*,err=20,end=20)prim_lat_vec(1:3,2)
-  read(8,*,err=20,end=20)prim_lat_vec(1:3,3)
-  write(*,*)'Primitive lattice vectors (Cartesian components in rows, a.u.):'
-  write(*,*)prim_lat_vec(1:3,1)
-  write(*,*)prim_lat_vec(1:3,2)
-  write(*,*)prim_lat_vec(1:3,3)
-  write(*,*)
-
+  read(lte_file,*) 
+  read(lte_file,*) prim_lat_vec(1:3,1)
+  read(lte_file,*) prim_lat_vec(1:3,2)
+  read(lte_file,*) prim_lat_vec(1:3,3)
+  
   ! Supercell lattice vectors
-  read(8,*,err=20,end=20)
-  read(8,*,err=20,end=20)sc_lat_vec(1:3,1)
-  read(8,*,err=20,end=20)sc_lat_vec(1:3,2)
-  read(8,*,err=20,end=20)sc_lat_vec(1:3,3)
-  write(*,*)'Supercell lattice vectors (Cartesian components in rows, a.u.):'
-  write(*,*)sc_lat_vec(1:3,1)
-  write(*,*)sc_lat_vec(1:3,2)
-  write(*,*)sc_lat_vec(1:3,3)
-  write(*,*)
-
+  read(lte_file,*) 
+  read(lte_file,*) sc_lat_vec(1:3,1)
+  read(lte_file,*) sc_lat_vec(1:3,2)
+  read(lte_file,*) sc_lat_vec(1:3,3)
+  
   ! Construct reciprocal lattice vectors, etc.
   call setup_geometry(tol,prim_lat_vec,sc_lat_vec,                       &
      & length_scale,no_prim_cells,prim_rec_vec,sc_rec_vec,small_k_scale, &
      & vol_scale)
-  write(*,*)'Number of primitive unit cells     : '//TRIM(i2s(no_prim_cells))
-  write(*,*)
-  write(*,*)'Prim. rec. latt. vectors (Cart. cmpnts &
-    &in rows, factor of 2pi inc., a.u.):'
-  write(*,*)prim_rec_vec(1:3,1)*twopi
-  write(*,*)prim_rec_vec(1:3,2)*twopi
-  write(*,*)prim_rec_vec(1:3,3)*twopi
-  write(*,*)
-
-  write(*,*)'Supercell rec. latt. vectors(Cart. cmpnts &
-   &in rows, factor of 2pi inc., a.u.):'
-  write(*,*)sc_rec_vec(1:3,1)*twopi
-  write(*,*)sc_rec_vec(1:3,2)*twopi
-  write(*,*)sc_rec_vec(1:3,3)*twopi
-  write(*,*)
-
+  
   ! Number of atoms.
-  read(8,*,err=20,end=20)
-  read(8,*,err=20,end=20)no_atoms_in_sc
-  write(*,*)'Number of atoms in supercell       : '//TRIM(i2s(no_atoms_in_sc))
-  if(no_atoms_in_sc<no_prim_cells)call errstop('READ_LTE', &
-    &'Need more atoms in the supercell!')
-  if(MOD(no_atoms_in_sc,no_prim_cells)/=0)call errstop('READ_LTE', &
-    &'Number of atoms in supercell should be a multiple of the number of &
-    &primitive cells.')
+  read(lte_file,*) 
+  read(lte_file,*) no_atoms_in_sc
+  
   no_atoms_in_prim=no_atoms_in_sc/no_prim_cells
   allocate(species(no_atoms_in_sc),                   &
     & mass(no_atoms_in_sc),                           &
     & atom_pos(3,no_atoms_in_sc),                     &
     & force_const(no_atoms_in_sc,3,no_atoms_in_sc,3), &
     & defined(no_atoms_in_sc,3,no_atoms_in_sc,3),     &
-    & atom(no_prim_cells,no_atoms_in_prim),           &
-    & stat=ialloc)
-  if(ialloc/=0)call errstop('READ_LTE','Allocation error: species, etc.')
+    & atom(no_prim_cells,no_atoms_in_prim))
   defined(:,:,:,:)=.FALSE.
   force_const(:,:,:,:)=0.d0
   no_DoF_prim=3*no_atoms_in_prim
-  write(*,*)
-
+  
   ! Read in atom positions, species and masses.
   ! Convert atom position from fractional coordinates (in file) to
   ! Cartesian coordinates (used in program).  Translate the atom
   ! coordinates into the supercell at the origin.
-  read(8,*,err=20,end=20)
-  write(*,*)'Species ; Mass (a.u.) ; Position (Cartesian coordinates, a.u.)'
+  read(lte_file,*) 
   do i=1,no_atoms_in_sc
-    read(8,*,err=20,end=20)species(i),mass(i),atom_pos(1:3,i)
+    read(lte_file,*) species(i),mass(i),atom_pos(1:3,i)
     atom_pos(1:3,i)=atom_pos(1,i)*sc_lat_vec(1:3,1)+atom_pos(2,i) &
       &*sc_lat_vec(1:3,2)+atom_pos(3,i)*sc_lat_vec(1:3,3)
+    if(mass(i)<=0.d0)call errstop('READ_LTE','Mass should be positive.')
+  enddo ! i
+  
+  ! Read in point-symmetry operations.
+  read(lte_file,*) 
+  read(lte_file,*) no_point_symms
+  allocate(rotation(3,3,no_point_symms),offset(3,no_point_symms))
+  read(lte_file,*) 
+  do n=1,no_point_symms
+    read(lte_file,*) rotation(1:3,1,n)
+    read(lte_file,*) rotation(1:3,2,n)
+    read(lte_file,*) rotation(1:3,3,n)
+    read(lte_file,*) offset(1:3,n)
+    ! Convert translation to Cartesians.
+    offset(1:3,n)=offset(1,n)*sc_lat_vec(1:3,1) &
+      &+offset(2,n)*sc_lat_vec(1:3,2)+offset(3,n)*sc_lat_vec(1:3,3)
+  enddo
+
+  ! Read in force constants supplied.
+  read(lte_file,*) 
+  read(lte_file,*) no_force_constants
+  read(lte_file,*) 
+  fc_scale=0.d0
+  do i=1,no_force_constants
+    do j=1,no_atoms_in_sc
+      read(lte_file,*) atom1,dir1,atom2,dir2,fc
+      read(lte_file,*) atom1, dir1, force
+      fc_scale=fc_scale+sum(abs(force))
+      do k=1,3
+        atom2 = j
+        dir2  = k
+        call trans_symm(atom1,dir1,atom2,dir2,force(k), &
+           & tol,atom_pos,no_atoms_in_sc, &
+           & no_prim_cells,prim_rec_vec,sc_rec_vec,mass,defined,force_const)
+      enddo
+    enddo
+  enddo
+  fc_scale=fc_scale/(no_force_constants*3*no_atoms_in_sc)
+
+  read(lte_file,*) 
+  read(lte_file,*) temperature
+  
+  read(lte_file,*) 
+  read(lte_file,*) no_kspace_lines
+  read(lte_file,*) 
+  if(prog_function==2)then
+    allocate(disp_kpoints(3,0:no_kspace_lines))
+  endif
+  do i=0,no_kspace_lines
+    if(prog_function==2)then
+      read(lte_file,*) disp_kpoints(1:3,i)
+      disp_kpoints(1:3,i)=2*pi*(disp_kpoints(1,i)*prim_rec_vec(1:3,1) &
+        &+disp_kpoints(2,i)*prim_rec_vec(1:3,2) &
+        &+disp_kpoints(3,i)*prim_rec_vec(1:3,3))
+    else
+      read(lte_file,*) 
+    endif
+  enddo
+
+  ! ----------------------------------------------------------------------
+  ! Copy data to terminal
+  ! ----------------------------------------------------------------------
+  
+  ! Primitive lattice vectors
+  write(*,*)'Primitive lattice vectors (Cartesian components in rows, a.u.):'
+  write(*,*)prim_lat_vec(1:3,1)
+  write(*,*)prim_lat_vec(1:3,2)
+  write(*,*)prim_lat_vec(1:3,3)
+  write(*,*)
+  
+  ! Supercell lattice vectors
+  write(*,*)'Supercell lattice vectors (Cartesian components in rows, a.u.):'
+  write(*,*)sc_lat_vec(1:3,1)
+  write(*,*)sc_lat_vec(1:3,2)
+  write(*,*)sc_lat_vec(1:3,3)
+  write(*,*)
+  
+  ! Reciprocal lattice vectors, etc.
+  write(*,*)'Number of primitive unit cells     : '//TRIM(i2s(no_prim_cells))
+  write(*,*)
+  write(*,*)'Prim. rec. latt. vectors (Cart. cmpnts &
+    &in rows, factor of 2pi inc., a.u.):'
+  write(*,*)prim_rec_vec(1:3,1)*2*pi
+  write(*,*)prim_rec_vec(1:3,2)*2*pi
+  write(*,*)prim_rec_vec(1:3,3)*2*pi
+  write(*,*)
+
+  write(*,*)'Supercell rec. latt. vectors(Cart. cmpnts &
+   &in rows, factor of 2pi inc., a.u.):'
+  write(*,*)sc_rec_vec(1:3,1)*2*pi
+  write(*,*)sc_rec_vec(1:3,2)*2*pi
+  write(*,*)sc_rec_vec(1:3,3)*2*pi
+  write(*,*)
+  
+  ! Number of atoms.
+  write(*,*)'Number of atoms in supercell       : '//TRIM(i2s(no_atoms_in_sc))
+  if(no_atoms_in_sc<no_prim_cells)call errstop('READ_LTE', &
+    &'Need more atoms in the supercell!')
+  if(MOD(no_atoms_in_sc,no_prim_cells)/=0)call errstop('READ_LTE', &
+    &'Number of atoms in supercell should be a multiple of the number of &
+    &primitive cells.')
+  write(*,*)
+  
+  ! Read in atom positions, species and masses.
+  ! Convert atom position from fractional coordinates (in file) to
+  ! Cartesian coordinates (used in program).  Translate the atom
+  ! coordinates into the supercell at the origin.
+  write(*,*)'Species ; Mass (a.u.) ; Position (Cartesian coordinates, a.u.)'
+  do i=1,no_atoms_in_sc
     write(*,'(" ",a,"  ",f14.6," ",3("  ",f14.6))')species(i),mass(i), &
       &atom_pos(1:3,i)
     if(mass(i)<=0.d0)call errstop('READ_LTE','Mass should be positive.')
@@ -347,20 +432,12 @@ subroutine read_lte(tol,lte_filename,prim_rec_vec,sc_rec_vec,fc_scale,      &
     enddo ! j
   enddo ! i
   write(*,*)
-
-  ! Read in point-symmetry operations.
-  read(8,*,err=20,end=20)
-  read(8,*,err=20,end=20)no_point_symms
+  
+  ! Point-symmetry operations.
   write(*,*)'Number of point symmetries         : '//TRIM(i2s(no_point_symms))
   if(no_point_symms<1)call errstop('READ_LTE','At least one point-symmetry &
     &rotation matrix (identity) must be supplied.')
-  allocate(rotation(3,3,no_point_symms),offset(3,no_point_symms),stat=ialloc)
-  if(ialloc/=0)call errstop('READ_LTE','Allocation error: rotation, etc.')
-  read(8,*,err=20,end=20)
   do n=1,no_point_symms
-    read(8,*,err=20,end=20)rotation(1:3,1,n)
-    read(8,*,err=20,end=20)rotation(1:3,2,n)
-    read(8,*,err=20,end=20)rotation(1:3,3,n)
     do i=1,3
       do j=i,3
         check_matrix=DOT_PRODUCT(rotation(1:3,i,n),rotation(1:3,j,n))
@@ -368,55 +445,22 @@ subroutine read_lte(tol,lte_filename,prim_rec_vec,sc_rec_vec,fc_scale,      &
           &.OR.(i/=j.AND.ABS(check_matrix)>tol))call &
           &errstop('READ_LTE','Rotation matrix '//TRIM(i2s(n)) &
           &//' is not orthogonal!')
-      enddo ! j
-    enddo ! i
-    read(8,*,err=20,end=20)offset(1:3,n)
-    ! Convert translation to Cartesians.
-    offset(1:3,n)=offset(1,n)*sc_lat_vec(1:3,1) &
-      &+offset(2,n)*sc_lat_vec(1:3,2)+offset(3,n)*sc_lat_vec(1:3,3)
-  enddo ! n
+      enddo
+    enddo
+  enddo
   write(*,*)'Have read in rotation matrices and translation vectors.'
   write(*,*)
 
-  ! Read in force constants supplied.
-  read(8,*,err=20,end=20)
-  read(8,*,err=20,end=20)no_force_c_supplied
+  ! Force constants supplied.
   write(*,*)'Number of force constants supplied : ' &
-    &//TRIM(i2s(no_force_c_supplied))
-  if(no_force_c_supplied<=0)call errstop('READ_LTE', &
+    &//TRIM(i2s(no_force_constants*3*no_atoms_in_sc))
+  if(no_force_constants*3*no_atoms_in_sc<=0)call errstop('READ_LTE', &
     &'Need to supply more force data!')
-  read(8,*,err=20,end=20)
-  fc_scale=0.d0
-  do i=1,no_force_c_supplied
-    read(8,*,err=20,end=20)atom1,dir1,atom2,dir2,fc
-    fc_scale=fc_scale+ABS(fc)
-    call trans_symm(atom1,dir1,atom2,dir2,fc,tol,atom_pos,no_atoms_in_sc, &
-       & no_prim_cells,prim_rec_vec,sc_rec_vec,mass,defined,force_const)
-  enddo ! i
-  fc_scale=fc_scale/DBLE(no_force_c_supplied)
   write(*,*)fc_scale
   write(*,*)'Have read in the force-constant data and applied &
     &translational symmetry.'
   write(*,*)
 
-  read(8,*,err=20,end=20)
-  read(8,*,err=20,end=20)prog_function
-  if(prog_function==1)then
-    write(*,*)'The mean thermal energy and the free energy will &
-      &be calculated.'
-  elseif(prog_function==2)then
-    write(*,*)'A dispersion curve will be calculated.'
-  elseif(prog_function==3)then
-    write(*,*)'The speed of sound will be calculated.'
-  elseif(prog_function==4)then
-    write(*,*)'The phonon frequencies at the supercell G vectors will be &
-      &calculated.'
-  else
-    call errstop('READ_LTE','Program function must be either 1, 2, 3 or 4.')
-  endif ! prog_function
-
-  read(8,*,err=20,end=20)
-  read(8,*,err=20,end=20)temperature
   if(prog_function==1)then
     write(*,*)'Temperature (K)                    :',temperature
     if(temperature<0.d0)call errstop('READ_LTE', &
@@ -424,41 +468,22 @@ subroutine read_lte(tol,lte_filename,prim_rec_vec,sc_rec_vec,fc_scale,      &
     if(temperature<=0.d0)write(*,*)'(i.e. the zero-point energy is to be &
       &calculated.)'
     write(*,*)
-  endif ! LTE to be calculated.
-
-  read(8,*,err=20,end=20)
-  read(8,*,err=20,end=20)no_kspace_lines
+  endif
+  
   if(prog_function==2)then
     write(*,*)'Number of lines in k-space to plot     : ' &
       &//TRIM(i2s(no_kspace_lines))
     if(no_kspace_lines<1)call errstop('READ_LTE', &
       &'Need to supply more lines in k-space!')
-    allocate(disp_kpoints(3,0:no_kspace_lines),stat=ialloc)
-    if(ialloc/=0)call errstop('READ_LTE','Allocation error: disp_kpoints.')
-  endif
-  read(8,*,err=20,end=20)
-  if(prog_function==2)write(*,*)'Points along walk in reciprocal space &
-    &(Cartesian components in a.u.):'
-  do i=0,no_kspace_lines
-    if(prog_function==2)then
-      read(8,*,err=20,end=20)disp_kpoints(1:3,i)
-      disp_kpoints(1:3,i)=twopi*(disp_kpoints(1,i)*prim_rec_vec(1:3,1) &
-        &+disp_kpoints(2,i)*prim_rec_vec(1:3,2) &
-        &+disp_kpoints(3,i)*prim_rec_vec(1:3,3))
+    write(*,*)'Points along walk in reciprocal space &
+      &(Cartesian components in a.u.):'
+    do i=0,no_kspace_lines
       write(*,'(3(" ",f16.8))')disp_kpoints(1:3,i)
-    else
-      read(8,*,err=20,end=20)
-    endif ! prog_function=2
-  enddo ! i
-  if(prog_function==2)write(*,*)'Have read in points for dispersion curve.'
+    enddo
+    write(*,*)'Have read in points for dispersion curve.'
+  endif
 
-  close(8)
-
-  RETURN
-
-  ! Error reading file...
-20  call errstop('READ_LTE','Problem reading lte.dat.  Please check the format &
-    &of the file.')
+  close(lte_file)
 end subroutine
 
 ! ----------------------------------------------------------------------
@@ -1264,9 +1289,10 @@ end subroutine
 subroutine calculate_freq_dos(tol,prim_rec_vec,no_DoF_prim,        &
    & delta_prim,no_atoms_in_prim,no_prim_cells,atom,no_equiv_ims,force_const,&
    & freq_dos_filename,bin_width,freq_dos)
-  use constants,      only : max_bin, no_samples, no_fdos_sets
+  use constants,      only : max_bin, no_samples, no_fdos_sets, pi
   use linear_algebra, only : dscal
   use rand_no_gen,    only : ranx
+  use string_module
   implicit none
   
   real(dp), intent(in) :: tol
@@ -1279,7 +1305,11 @@ subroutine calculate_freq_dos(tol,prim_rec_vec,no_DoF_prim,        &
   integer,  intent(in) :: no_equiv_ims(:,:,:)
   real(dp), intent(in) :: force_const(:,:,:,:)
   
-  character(*), intent(in) :: freq_dos_filename
+  ! Filename
+  type(String), intent(in) :: freq_dos_filename
+  
+  ! File unit
+  integer :: freq_dos_file
   
   real(dp),              intent(out) :: bin_width
   real(dp), allocatable, intent(out) :: freq_dos(:,:)
@@ -1294,7 +1324,7 @@ subroutine calculate_freq_dos(tol,prim_rec_vec,no_DoF_prim,        &
   
   real(dp) :: omega(no_DoF_prim),kvec(3),rec_bin_width,max_freq,min_freq, &
     &rec_no_fdos_sets
-  integer :: j,i,n,bin,ialloc,ierr
+  integer :: j,i,n,bin,ialloc
   logical :: soft_modes,soft_modes_prelim
 
   ! Establish (approximate) maximum and minimum frequencies and hence
@@ -1302,7 +1332,7 @@ subroutine calculate_freq_dos(tol,prim_rec_vec,no_DoF_prim,        &
   max_freq=-1.d0
   min_freq=HUGE(1.d0)
   do i=1,no_samples_trial
-    kvec(1:3)=twopi*(ranx()*prim_rec_vec(1:3,1) &
+    kvec(1:3)=2*pi*(ranx()*prim_rec_vec(1:3,1) &
       &+ranx()*prim_rec_vec(1:3,2)+ranx()*prim_rec_vec(1:3,3))
     call calculate_eigenfreqs(kvec,delta_prim,no_DoF_prim,no_atoms_in_prim, &
       & no_prim_cells,atom,no_equiv_ims,force_const,omega)
@@ -1334,7 +1364,7 @@ subroutine calculate_freq_dos(tol,prim_rec_vec,no_DoF_prim,        &
 
   do j=1,no_fdos_sets
     do i=1,no_samples
-      kvec(1:3)=twopi*(ranx()*prim_rec_vec(1:3,1) &
+      kvec(1:3)=2*pi*(ranx()*prim_rec_vec(1:3,1) &
         &+ranx()*prim_rec_vec(1:3,2)+ranx()*prim_rec_vec(1:3,3))
       call calculate_eigenfreqs(kvec,delta_prim,no_DoF_prim, &
         & no_atoms_in_prim,no_prim_cells,atom,no_equiv_ims,force_const,omega)
@@ -1363,13 +1393,12 @@ subroutine calculate_freq_dos(tol,prim_rec_vec,no_DoF_prim,        &
 
   ! Write out the frequency DoS.
   rec_no_fdos_sets=1.d0/DBLE(no_fdos_sets)
-  open(unit=8,file=freq_dos_filename,status='replace',iostat=ierr)
-  if(ierr/=0)call errstop('CALCULATE_FREQ_DOS','Error opening freq_dos.dat.')
+  freq_dos_file = open_write_file(freq_dos_filename)
   do bin=0,max_bin
-    write(8,*)(DBLE(bin)+0.5d0)*bin_width, &
-      &SUM(freq_dos(bin,1:no_fdos_sets))*rec_no_fdos_sets
-  enddo ! bin
-  close(8)
+    write(freq_dos_file,*) (bin+0.5_dp)*bin_width, &
+                         & sum(freq_dos(bin,1:no_fdos_sets))*rec_no_fdos_sets
+  enddo
+  close(freq_dos_file)
 end subroutine
 
 ! ----------------------------------------------------------------------
@@ -1381,13 +1410,18 @@ end subroutine
 subroutine calc_lte(bin_width,temperature,freq_dos,tdependence1_filename)
   use constants,      only : max_bin, no_fdos_sets
   use linear_algebra, only : ddot
+  use string_module
   implicit none
   
   real(dp), intent(in) :: bin_width
   real(dp), intent(in) :: temperature
   real(dp), intent(in) :: freq_dos(:,:)
   
-  character(*), intent(in) :: tdependence1_filename
+  ! File name
+  type(String), intent(in) :: tdependence1_filename
+  
+  ! File unit
+  integer :: tdependence1_file
   
   integer :: bin,j
   real(dp) :: omega,lte_val,lte_sq,E_H(0:max_bin),lte,lte_err
@@ -1412,9 +1446,10 @@ subroutine calc_lte(bin_width,temperature,freq_dos,tdependence1_filename)
     &lte,' +/- ',lte_err
   write(*,'(1x,a,es18.10,a,es10.2)')'Done.  LTE per primitive cell (eV) : ', &
     &lte*27.211396132d0,' +/- ',lte_err*27.211396132d0
-  open(1,FILE=tdependence1_filename)
-  write(1,*)lte*27.211396132d0
-  close(1)
+   
+  tdependence1_file = open_write_file(tdependence1_filename)
+  write(tdependence1_file,*) lte*27.211396132d0
+  close(tdependence1_file)
 end subroutine
 
 ! ----------------------------------------------------------------------
@@ -1452,13 +1487,18 @@ end function
 ! ----------------------------------------------------------------------
 subroutine calc_ltfe(bin_width,temperature,freq_dos,tdependence2_filename)
   use constants, only : max_bin, no_fdos_sets
+  use string_module
   implicit none
   
   real(dp), intent(in) :: bin_width
   real(dp), intent(in) :: temperature
   real(dp), intent(in) :: freq_dos(:,:)
   
-  character(*), intent(in) :: tdependence2_filename
+  ! File name
+  type(String), intent(in) :: tdependence2_filename
+  
+  ! File unit
+  integer :: tdependence2_file
   
   integer :: bin,j
   real(dp) :: omega,ltfe_sq,ltfe_val,FE_H(0:max_bin),ltfe,ltfe_err
@@ -1481,9 +1521,10 @@ subroutine calc_ltfe(bin_width,temperature,freq_dos,tdependence2_filename)
     &ltfe,' +/- ',ltfe_err
   write(*,'(1x,a,es18.10,a,es10.2)')'and LTFE per primitive cell (eV)  : ', &
     &ltfe*27.211396132d0,' +/- ',ltfe_err*27.211396132d0
-  open(1,FILE=tdependence2_filename)
-  write(1,*)ltfe*27.211396132d0
-  close(1)
+  
+  tdependence2_file = open_write_file(tdependence2_filename)
+  write(tdependence2_file,*) ltfe*27.211396132d0
+  close(tdependence2_file)
 end subroutine
 
 ! ----------------------------------------------------------------------
@@ -1519,6 +1560,7 @@ subroutine generate_disp_curve(no_DoF_prim,delta_prim,no_kspace_lines, &
    & disp_kpoints,no_atoms_in_prim,no_prim_cells,atom,no_equiv_ims,    &
    & force_const,                                                      &
    & dispersion_curve_filename)
+  use string_module
   implicit none
   
   integer,  intent(in) :: no_DoF_prim
@@ -1531,10 +1573,14 @@ subroutine generate_disp_curve(no_DoF_prim,delta_prim,no_kspace_lines, &
   integer,  intent(in) :: no_equiv_ims(:,:,:)
   real(dp), intent(in) :: force_const(:,:,:,:)
   
-  character(*), intent(in) :: dispersion_curve_filename
+  ! File name
+  type(String), intent(in) :: dispersion_curve_filename
+  
+  ! File unit
+  integer :: dispersion_curve_file
   
   real(dp) :: k_dist,kvec(3),delta_k(3),k_step,omega(no_DoF_prim)
-  integer :: i,j,k,total_no_kpoints,ialloc,ierr
+  integer :: i,j,k,total_no_kpoints,ialloc
   real(dp),allocatable :: disp_k_dist(:),branch(:,:)
   integer,parameter :: no_kpoints_per_line=1000
 
@@ -1580,17 +1626,15 @@ subroutine generate_disp_curve(no_DoF_prim,delta_prim,no_kspace_lines, &
   enddo ! i
   k_dist=k_dist-k_step
   write(*,*)'Final line ends at k-space distance   : ',k_dist
-
-  open(unit=8,file=dispersion_curve_filename,status='replace',iostat=ierr)
-  if(ierr/=0)call errstop('GENERATE_DISP_CURVE', &
-    &'Error opening dispersion_curve.dat.')
+  
+  dispersion_curve_file = open_write_file(dispersion_curve_filename)
   do j=1,no_DoF_prim
     do k=1,total_no_kpoints
-      write(8,*)disp_k_dist(k),branch(j,k)
-    enddo ! k
-    write(8,*)'&'
-  enddo ! j
-  close(8)
+      write(dispersion_curve_file,*) disp_k_dist(k), branch(j,k)
+    enddo
+    write(dispersion_curve_file,*) '&'
+  enddo
+  close(dispersion_curve_file)
 
   deallocate(disp_k_dist,branch)
 end subroutine
@@ -1607,7 +1651,8 @@ end subroutine
 ! ----------------------------------------------------------------------
 subroutine calculate_speed_sound(no_atoms_in_prim,no_prim_cells,no_DoF_prim, &
    & small_k_scale,prim_lat_vec,delta_prim,atom,no_equiv_ims,force_const)
-  use rand_no_gen,only : ranx
+  use constants,   only : pi
+  use rand_no_gen, only : ranx
   implicit none
   
   integer,  intent(in) :: no_atoms_in_prim
@@ -1650,7 +1695,8 @@ subroutine calculate_speed_sound(no_atoms_in_prim,no_prim_cells,no_DoF_prim, &
     do i=1,max_samples
 
       ! Choose random k vector on sphere of radius kmag.
-      cos_theta=1.d0-2.d0*ranx() ; phi=ranx()*twopi
+      cos_theta=1.d0-2.d0*ranx()
+      phi=ranx()*2*pi
       sin_theta=SQRT(1.d0-cos_theta**2)
       kunit(1:3)=(/sin_theta*COS(phi),sin_theta*SIN(phi),cos_theta/)
       kvec(1:3)=kmag*kunit
@@ -1766,7 +1812,9 @@ subroutine evaluate_freqs_on_grid(no_prim_cells,no_atoms_in_prim,    &
    & kpairs_filename,freq_grids_filename,disp_patterns_filename,     &
    & kdisp_patterns_filename,pol_vec_filename,gvectors_filename,     &
    & gvectors_frac_filename,error_filename)
-  use utils, only : reduce_interval
+  use constants, only : pi
+  use utils,     only : reduce_interval
+  use string_module
   implicit none
   
   integer,  intent(in) :: no_prim_cells
@@ -1785,17 +1833,27 @@ subroutine evaluate_freqs_on_grid(no_prim_cells,no_atoms_in_prim,    &
   integer,  intent(in) :: prim_cell_for_atom(:)
   integer,  intent(in) :: atom_in_prim(:)
   
-  ! filenames
-  character(*), intent(in) :: kpairs_filename
-  character(*), intent(in) :: freq_grids_filename
-  character(*), intent(in) :: disp_patterns_filename
-  character(*), intent(in) :: kdisp_patterns_filename
-  character(*), intent(in) :: pol_vec_filename
-  character(*), intent(in) :: gvectors_filename
-  character(*), intent(in) :: gvectors_frac_filename
-  character(*), intent(in) :: error_filename
+  ! File names
+  type(String), intent(in) :: kpairs_filename
+  type(String), intent(in) :: freq_grids_filename
+  type(String), intent(in) :: disp_patterns_filename
+  type(String), intent(in) :: kdisp_patterns_filename
+  type(String), intent(in) :: pol_vec_filename
+  type(String), intent(in) :: gvectors_filename
+  type(String), intent(in) :: gvectors_frac_filename
+  type(String), intent(in) :: error_filename
   
-  integer :: ng,i,j,k,ig,ierr,index1,index2,p,n,atom1
+  ! File units
+  integer :: kpairs_file
+  integer :: freq_grids_file
+  integer :: disp_patterns_file
+  integer :: kdisp_patterns_file
+  integer :: pol_vec_file
+  integer :: gvectors_file
+  integer :: gvectors_frac_file
+  integer :: error_file
+  
+  integer :: ng,i,j,k,ig,index1,index2,p,n,atom1
   logical :: found,soft_modes
   real(dp) :: gnew(3),gvec(3,no_prim_cells),R0(3), &
     &omega(no_DoF_prim),E,F,rec_root_mass(no_atoms_in_prim),GdotR, &
@@ -1854,39 +1912,38 @@ subroutine evaluate_freqs_on_grid(no_prim_cells,no_atoms_in_prim,    &
     enddo
   enddo
   
-  open(1,FILE=kpairs_filename)
+  ! Scale gvec by 2 pi
+  gvec = 2*pi*gvec
+  
+  kpairs_file = open_write_file(kpairs_filename)
   do i=1,no_prim_cells
-    write(1,*)i,reference(i)
+    write(kpairs_file,*)i,reference(i)
   enddo
-  close(1)
-
-  open(unit=8,file=freq_grids_filename,status='replace',iostat=ierr)
-  if(ierr/=0)call errstop('EVALUATE_FREQS_ON_GRID', &
-    &'Problem opening freqs_grid.dat.')
-  open(unit=9,file=disp_patterns_filename,status='replace',iostat=ierr)
-  open(unit=10,file=kdisp_patterns_filename,status='replace',iostat=ierr)
-  open(unit=11,file=pol_vec_filename,status='replace',iostat=ierr)
-  if(ierr/=0)call errstop('EVALUATE_FREQS_ON_GRID', &
-    &'Problem opening disp_patterns.dat.')
+  close(kpairs_file)
+  
+  freq_grids_file = open_write_file(freq_grids_filename)
+  disp_patterns_file = open_write_file(disp_patterns_filename)
+  kdisp_patterns_file = open_write_file(kdisp_patterns_filename)
+  pol_vec_file = open_write_file(pol_vec_filename)
 
   do n=1,no_atoms_in_prim
     rec_root_mass(n)=1.d0/SQRT(mass(atom(1,n))) ! 1/sqrt(m) in prim. cell.
   enddo ! n
 
   ! Modified by B. Monserrat to output G vectors to file
-  open(19,file=gvectors_filename)
-  open(20,file=gvectors_frac_filename)
-  write(19,*) no_prim_cells
-  write(20,*) no_prim_cells
+  gvectors_file = open_write_file(gvectors_filename)
+  gvectors_frac_file = open_write_file(gvectors_frac_filename)
+  write(gvectors_file,*) no_prim_cells
+  write(gvectors_frac_file,*) no_prim_cells
   do ig=1,no_prim_cells
-    write(*,'(" G = (",es20.12,",",es20.12,",",es20.12,")")')twopi*gvec(:,ig)
-    write(*,'(" G = (",es20.12,",",es20.12,",",es20.12,")")')gfrac(:,ig)
-    write(19,*)twopi*gvec(:,ig)
+    write(*,'(" G = (",es20.12,",",es20.12,",",es20.12,")")') gvec(:,ig)
+    write(*,'(" G = (",es20.12,",",es20.12,",",es20.12,")")') gfrac(:,ig)
+    write(gvectors_file,*) gvec(:,ig)
     ! G-vectors as a fraction of the primitive reciprocal lattice vectors
-    write(20,*)ig,gfrac(:,ig)
+    write(gvectors_frac_file,*) ig, gfrac(:,ig)
   enddo
-  close(19)
-  close(20)
+  close(gvectors_file)
+  close(gvectors_frac_file)
 
   ! Evaluate the frequencies at each supercell G vector.
   E=0.d0  ;  F=0.d0
@@ -1894,16 +1951,16 @@ subroutine evaluate_freqs_on_grid(no_prim_cells,no_atoms_in_prim,    &
   R0=atom_pos(:,atom(1,1))
   do ig=1,no_prim_cells
     if(reference(ig)==0)then
-      call calculate_eigenfreqs_and_vecs(twopi*gvec(1:3,ig),no_DoF_prim, &
+      call calculate_eigenfreqs_and_vecs(gvec(:,ig),no_DoF_prim, &
         & delta_prim,no_atoms_in_prim,no_prim_cells,atom,no_equiv_ims,   &
         & force_const,omega,pol_vec)
     else
       if(reference(ig)>ig)then
-        call calculate_eigenfreqs_and_vecs(twopi*gvec(1:3,ig),no_DoF_prim, &
+        call calculate_eigenfreqs_and_vecs(gvec(:,ig),no_DoF_prim, &
           & delta_prim,no_atoms_in_prim,no_prim_cells,atom,no_equiv_ims,   &
           & force_const,omega,pol_vec)
       else
-        call calculate_eigenfreqs_and_vecs(twopi*gvec(1:3,reference(ig)), &
+        call calculate_eigenfreqs_and_vecs(gvec(:,reference(ig)), &
           & no_DoF_prim,                                                  &
           & delta_prim,no_atoms_in_prim,no_prim_cells,atom,no_equiv_ims,  &
           & force_const,omega,pol_vec)
@@ -1914,12 +1971,12 @@ subroutine evaluate_freqs_on_grid(no_prim_cells,no_atoms_in_prim,    &
     ! the usual expression in derivations that lead to a positive exponential
     do p=1,no_prim_cells
       if(reference(ig)==0)then
-        GdotR=-DOT_PRODUCT(twopi*gvec(1:3,ig),atom_pos(1:3,atom(p,1))-R0)
+        GdotR=-DOT_PRODUCT(gvec(:,ig),atom_pos(1:3,atom(p,1))-R0)
       else
         if(reference(ig)>ig)then
-          GdotR=-DOT_PRODUCT(twopi*gvec(1:3,ig),atom_pos(1:3,atom(p,1))-R0)
+          GdotR=-DOT_PRODUCT(gvec(:,ig),atom_pos(1:3,atom(p,1))-R0)
         else
-          GdotR=-DOT_PRODUCT(twopi*gvec(1:3,reference(ig)),atom_pos(1:3,atom(p,1))-R0)
+          GdotR=-DOT_PRODUCT(gvec(:,reference(ig)),atom_pos(1:3,atom(p,1))-R0)
         endif
       endif
       expiGdotR(p)=CMPLX(COS(GdotR),SIN(GdotR),dp) ! Store exp(iG.R_p).
@@ -1934,7 +1991,7 @@ subroutine evaluate_freqs_on_grid(no_prim_cells,no_atoms_in_prim,    &
       elseif(omega(index2)<-tol_omega)then
         soft_modes=.TRUE.
       endif ! omega>0
-      write(8,*)omega(index2),1.d0
+      write(freq_grids_file,*)omega(index2),1.d0
 ! Compute the non-mass-reduced polarisation vector.
       index1=0
       do n=1,no_atoms_in_prim
@@ -1945,20 +2002,20 @@ subroutine evaluate_freqs_on_grid(no_prim_cells,no_atoms_in_prim,    &
         enddo ! i
       enddo ! n
       if(omega(index2)<-tol_omega)then
-        write(9,*)'Frequency           : ',omega(index2),' (SOFT)'
-        write(10,*)'Frequency           : ',omega(index2),' (SOFT)'
-        write(11,*)'Mode number     :',index2, '   Frequency           : ',omega(index2),' (SOFT)'
+        write(disp_patterns_file,*)'Frequency           : ',omega(index2),' (SOFT)'
+        write(kdisp_patterns_file,*)'Frequency           : ',omega(index2),' (SOFT)'
+        write(pol_vec_file,*)'Mode number     :',index2, '   Frequency           : ',omega(index2),' (SOFT)'
       else
-        write(9,*)'Frequency           : ',omega(index2)
-        write(10,*)'Frequency           : ',omega(index2)
-        write(11,*)'Mode number     :',index2, '   Frequency           : ',omega(index2)
+        write(disp_patterns_file,*)'Frequency           : ',omega(index2)
+        write(kdisp_patterns_file,*)'Frequency           : ',omega(index2)
+        write(pol_vec_file,*)'Mode number     :',index2, '   Frequency           : ',omega(index2)
       endif ! soft freq.
-      write(9,*)gvec(1:3,ig)*twopi
-      write(10,*)gvec(1:3,ig)*twopi
-      write(11,*)gvec(1:3,ig)*twopi
-      write(9,*)'Displacement pattern for each atom:'
-      write(10,*)'Displacement pattern for each atom:'
-      write(11,*)'Polarisation vector:'
+      write(disp_patterns_file,*) gvec(:,ig)
+      write(kdisp_patterns_file,*) gvec(:,ig)
+      write(pol_vec_file,*) gvec(:,ig)
+      write(disp_patterns_file,*)'Displacement pattern for each atom:'
+      write(kdisp_patterns_file,*)'Displacement pattern for each atom:'
+      write(pol_vec_file,*)'Polarisation vector:'
       disp_pattern=0.d0
       kdisp_pattern=0.d0
       tot_disp_patt=0.d0
@@ -1988,28 +2045,28 @@ subroutine evaluate_freqs_on_grid(no_prim_cells,no_atoms_in_prim,    &
             prefactor=SQRT(2.d0)
           endif
         endif
-        write(9,*)disp_pattern,prefactor
-        write(10,*)kdisp_pattern,prefactor
-        write(11,*)real(non_mr_pol_vec(1:3,atom_in_prim(atom1)))
-        write(11,*)AIMAG(non_mr_pol_vec(1:3,atom_in_prim(atom1)))
+        write(disp_patterns_file,*)disp_pattern,prefactor
+        write(kdisp_patterns_file,*)kdisp_pattern,prefactor
+        write(pol_vec_file,*)real(non_mr_pol_vec(1:3,atom_in_prim(atom1)))
+        write(pol_vec_file,*)AIMAG(non_mr_pol_vec(1:3,atom_in_prim(atom1)))
       enddo ! atom1
-      write(9,*)
-      write(10,*)
-      write(11,*)
+      write(disp_patterns_file,*)
+      write(kdisp_patterns_file,*)
+      write(pol_vec_file,*)
     enddo ! index2
     write(*,*)
     if(tot_disp_patt<1.d-8)then
-      open(111,file=error_filename)
-      write(111,*)'The total displacement is:',tot_disp_patt
-      close(111)
+      error_file = open_write_file(error_filename)
+      write(error_file,*)'The total displacement is:',tot_disp_patt
+      close(error_file)
     endif
   enddo ! ig
   E=E/DBLE(no_prim_cells)  ;  F=F/DBLE(no_prim_cells)
 
-  close(8)
-  close(9)
-  close(10)
-  close(11)
+  close(freq_grids_file)
+  close(disp_patterns_file)
+  close(kdisp_patterns_file)
+  close(pol_vec_file)
 
   write(*,*)'Mean LTE per primitive cell  : ',E
   write(*,*)'Mean LTE per primitive cell (eV)  : ',E*27.211396132d0
@@ -2028,6 +2085,8 @@ subroutine write_dynamical_matrix(sc_rec_vec,prim_lat_vec,no_DoF_prim, &
    & no_prim_cells,delta_prim,no_atoms_in_prim,atom,no_equiv_ims,      &
    & force_const,                                                      &
    & dyn_mat_fileroot)
+  use constants, only : pi
+  use string_module
   implicit none
   
   real(dp), intent(in) :: sc_rec_vec(3,3)
@@ -2040,9 +2099,13 @@ subroutine write_dynamical_matrix(sc_rec_vec,prim_lat_vec,no_DoF_prim, &
   integer,  intent(in) :: no_equiv_ims(:,:,:)
   real(dp), intent(in) :: force_const(:,:,:,:)
   
-  character(*), intent(in) :: dyn_mat_fileroot
+  ! File root (file name minus ending)
+  type(String), intent(in) :: dyn_mat_fileroot
   
-  integer :: ierr,ng,k,j,i,ig,atom1,cart1,index1,atom2,cart2,index2
+  ! File unit
+  integer :: dyn_mat_file
+  
+  integer :: ng,k,j,i,ig,atom1,cart1,index1,atom2,cart2,index2
   real(dp) :: gnew(3),gvec(3,no_prim_cells)
   complex(dp) :: dyn_mat(no_DoF_prim,no_DoF_prim)
   logical :: found
@@ -2071,13 +2134,12 @@ subroutine write_dynamical_matrix(sc_rec_vec,prim_lat_vec,no_DoF_prim, &
   if(ng/=no_prim_cells)call errstop('WRITE_DYNAMICAL_MATRIX','Too few &
    &G-vectors.')
 
-  dyn_mat(1:no_DoF_prim,1:no_DoF_prim)=CMPLX(0.d0,0.d0,dp)
+  dyn_mat = cmplx(0.0_dp,0.0_dp,dp)
+  gvec = 2*pi*gvec
 
   do ig=1,ng
-    open(unit=101,file=dyn_mat_fileroot//TRIM(i2s(ig))//'.dat',status='replace',iostat=ierr)
-    if(ierr/=0)call errstop('WRITE_DYNAMICAL_MATRIX','Problem opening &
-     &dyn_mat.'//TRIM(i2s(ig))//'.dat file.')
-    call construct_dyn_matrix(twopi*gvec(:,ig),delta_prim,no_DoF_prim, &
+    dyn_mat_file = open_write_file(dyn_mat_fileroot//ig//'.dat')
+    call construct_dyn_matrix(gvec(:,ig),delta_prim,no_DoF_prim, &
       & no_prim_cells,no_atoms_in_prim,atom,no_equiv_ims,force_const,dyn_mat)
     atom1=0
     do index1=1,no_DoF_prim
@@ -2091,12 +2153,17 @@ subroutine write_dynamical_matrix(sc_rec_vec,prim_lat_vec,no_DoF_prim, &
           atom2=atom2+1
           cart2=1
         endif ! MOD(index2,3)==1
-        write(101,*)atom1,cart1,atom2,cart2,real(dyn_mat(index1,index2)),AIMAG(dyn_mat(index1,index2))
+        write(dyn_mat_file,*) atom1,                        &
+                            & cart1,                        &
+                            & atom2,                        &
+                            & cart2,                        &
+                            & real(dyn_mat(index1,index2)), &
+                            & AIMAG(dyn_mat(index1,index2))
         cart2=cart2+1
       enddo ! index2
       cart1=cart1+1
     enddo ! index1
-    close(101)
+    close(dyn_mat_file)
   end do ! ig
 end subroutine
 
@@ -2105,6 +2172,7 @@ end subroutine
 ! ----------------------------------------------------------------------
 subroutine write_atoms_in_primitive_cell(atom_pos,prim_rec_vec, &
    & no_atoms_in_prim,atom,mass,atoms_in_primitive_cell_filename)
+  use string_module
   implicit none
   
   real(dp), intent(in) :: atom_pos(:,:)
@@ -2113,17 +2181,18 @@ subroutine write_atoms_in_primitive_cell(atom_pos,prim_rec_vec, &
   integer,  intent(in) :: atom(:,:)
   real(dp), intent(in) :: mass(:)
   
-  character(*), intent(in) :: atoms_in_primitive_cell_filename
+  ! File name
+  type(String), intent(in) :: atoms_in_primitive_cell_filename
+  
+  ! File unit
+  integer :: atoms_in_primitive_cell_file
   
   real(dp),parameter :: tol=1.d-10
   
-  integer :: ierr,n,atom1,i
+  integer :: n,atom1,i
   real(dp) :: pos(3),frac(3)
-
-  open(unit=102,file=atoms_in_primitive_cell_filename,status='replace',&
-   &iostat=ierr)
-  if(ierr/=0)call errstop('write_atoms_in_primitive_cell','problem opening &
-   &atoms_in_primitive_cell.dat file.')
+  
+  atoms_in_primitive_cell_file = open_write_file(atoms_in_primitive_cell_filename)
 
   do n=1,no_atoms_in_prim
     atom1=atom(1,n)
@@ -2132,59 +2201,30 @@ subroutine write_atoms_in_primitive_cell(atom_pos,prim_rec_vec, &
       frac(i)=dot_product(pos(1:3),prim_rec_vec(1:3,i))
     enddo
     frac(1:3)=modulo(frac(1:3)+tol,1.d0)-tol
-    write(102,*)mass(atom1),frac(1:3)
+    write(atoms_in_primitive_cell_file,*) mass(atom1), frac(1:3)
   enddo
 
-  close(102)
+  close(atoms_in_primitive_cell_file)
 end subroutine
 
 ! ----------------------------------------------------------------------
-! Deallocate arrays.
+! Set up lte
 ! ----------------------------------------------------------------------
-subroutine finalise(species,mass,atom_pos,force_const,defined,atom, &
-   & no_equiv_ims,delta_prim,rotation,offset,disp_kpoints,freq_dos, &
-   & atom_in_prim,prim_cell_for_atom)
-  implicit none
-  
-  character(2), allocatable, intent(inout) :: species(:)
-  real(dp),     allocatable, intent(inout) :: mass(:)
-  real(dp),     allocatable, intent(inout) :: atom_pos(:,:)
-  real(dp),     allocatable, intent(inout) :: force_const(:,:,:,:)
-  logical,      allocatable, intent(inout) :: defined(:,:,:,:)
-  integer,      allocatable, intent(inout) :: atom(:,:)
-  integer,      allocatable, intent(inout) :: no_equiv_ims(:,:,:)
-  real(dp),     allocatable, intent(inout) :: delta_prim(:,:,:,:,:)
-  real(dp),     allocatable, intent(inout) :: rotation(:,:,:)
-  real(dp),     allocatable, intent(inout) :: offset(:,:)
-  real(dp),     allocatable, intent(inout) :: disp_kpoints(:,:)
-  real(dp),     allocatable, intent(inout) :: freq_dos(:,:)
-  integer,      allocatable, intent(inout) :: atom_in_prim(:)
-  integer,      allocatable, intent(inout) :: prim_cell_for_atom(:)
-  
-  if(allocated(species))deallocate(species,mass,atom_pos,force_const, &
-    &defined,atom,no_equiv_ims,delta_prim)
-  if(allocated(rotation))deallocate(rotation,offset)
-  if(allocated(disp_kpoints))deallocate(disp_kpoints)
-  if(allocated(freq_dos))deallocate(freq_dos)
-  if(allocated(atom_in_prim))deallocate(atom_in_prim,prim_cell_for_atom)
-end subroutine
-
-! ----------------------------------------------------------------------
-! Main program.
-! ----------------------------------------------------------------------
-subroutine lte(tol,tol2,delta,lte_filename,freq_dos_filename,                &
-    & tdependence1_filename,tdependence2_filename,dispersion_curve_filename, &
-    & kpairs_filename,freq_grids_filename,disp_patterns_filename,            &
-    & kdisp_patterns_filename,pol_vec_filename,gvectors_filename,            &
-    & gvectors_frac_filename,error_filename,dyn_mat_fileroot,                &
-    & atoms_in_primitive_cell_filename)
+subroutine initialise(prog_function,tol,tol2,delta,lte_filename,prim_lat_vec,sc_lat_vec,  &
+   & prim_rec_vec,sc_rec_vec,length_scale,vol_scale,small_k_scale,fc_scale, &
+   & temperature,no_atoms_in_sc,no_prim_cells,                &
+   & no_atoms_in_prim,no_point_symms,no_kspace_lines,no_DoF_prim,species,   &
+   & mass,atom_pos,rotation,force_const,offset,disp_kpoints,delta_prim,     &
+   & atom,no_equiv_ims,atom_in_prim,prim_cell_for_atom,defined)
   use constants, only : dp
   use utils,     only : errstop, wordwrap
+  use string_module
   implicit none
   
   ! ----------------------------------------
   ! Inputs
   ! ----------------------------------------
+  integer,  intent(in) :: prog_function
   real(dp), intent(in) :: tol
   real(dp), intent(in) :: tol2
   real(dp), intent(in) :: delta
@@ -2192,65 +2232,41 @@ subroutine lte(tol,tol2,delta,lte_filename,freq_dos_filename,                &
   ! ----------------------------------------
   ! filenames
   ! ----------------------------------------
-  character(*), intent(in) :: lte_filename
-  character(*), intent(in) :: freq_dos_filename
-  character(*), intent(in) :: tdependence1_filename
-  character(*), intent(in) :: tdependence2_filename
-  character(*), intent(in) :: dispersion_curve_filename
-  character(*), intent(in) :: kpairs_filename
-  character(*), intent(in) :: freq_grids_filename
-  character(*), intent(in) :: disp_patterns_filename
-  character(*), intent(in) :: kdisp_patterns_filename
-  character(*), intent(in) :: pol_vec_filename
-  character(*), intent(in) :: gvectors_filename
-  character(*), intent(in) :: gvectors_frac_filename
-  character(*), intent(in) :: error_filename
-  character(*), intent(in) :: dyn_mat_fileroot ! will have *.dat appended
-  character(*), intent(in) :: atoms_in_primitive_cell_filename
-  
-  ! ----------------------------------------
-  ! times
-  ! ----------------------------------------
-  real :: t1,t2
+  type(String), intent(in) :: lte_filename
   
   ! ----------------------------------------
   ! previously global variables
   ! ----------------------------------------
-  real(dp) :: prim_lat_vec(3,3)
-  real(dp) :: sc_lat_vec(3,3)
-  real(dp) :: prim_rec_vec(3,3)
-  real(dp) :: sc_rec_vec(3,3)
-  real(dp) :: length_scale
-  real(dp) :: vol_scale
-  real(dp) :: small_k_scale
-  real(dp) :: fc_scale
-  real(dp) :: bin_width
-  real(dp) :: temperature
-  integer  :: prog_function
-  integer  :: no_atoms_in_sc
-  integer  :: no_prim_cells
-  integer  :: no_atoms_in_prim
-  integer  :: no_point_symms
-  integer  :: no_kspace_lines
-  integer  :: no_DoF_prim
+  real(dp), intent(out) :: prim_lat_vec(3,3)
+  real(dp), intent(out) :: sc_lat_vec(3,3)
+  real(dp), intent(out) :: prim_rec_vec(3,3)
+  real(dp), intent(out) :: sc_rec_vec(3,3)
+  real(dp), intent(out) :: length_scale
+  real(dp), intent(out) :: vol_scale
+  real(dp), intent(out) :: small_k_scale
+  real(dp), intent(out) :: fc_scale
+  real(dp), intent(out) :: temperature
+  integer,  intent(out)  :: no_atoms_in_sc
+  integer,  intent(out)  :: no_prim_cells
+  integer,  intent(out)  :: no_atoms_in_prim
+  integer,  intent(out)  :: no_point_symms
+  integer,  intent(out)  :: no_kspace_lines
+  integer,  intent(out)  :: no_DoF_prim
   
-  character(2), allocatable :: species(:)
-  real(dp),     allocatable :: mass(:)
-  real(dp),     allocatable :: atom_pos(:,:)
-  real(dp),     allocatable :: rotation(:,:,:) 
-  real(dp),     allocatable ::  force_const(:,:,:,:)
-  real(dp),     allocatable :: offset(:,:)
-  real(dp),     allocatable :: freq_dos(:,:)
-  real(dp),     allocatable :: disp_kpoints(:,:)
-  real(dp),     allocatable :: delta_prim(:,:,:,:,:)
-  integer,      allocatable :: atom(:,:)
-  integer,      allocatable :: no_equiv_ims(:,:,:)
-  integer,      allocatable :: atom_in_prim(:)
-  integer,      allocatable :: prim_cell_for_atom(:)
-  logical,      allocatable :: defined(:,:,:,:)
-
-  call CPU_TIME(t1)
-
+  character(2), allocatable, intent(out) :: species(:)
+  real(dp),     allocatable, intent(out) :: mass(:)
+  real(dp),     allocatable, intent(out) :: atom_pos(:,:)
+  real(dp),     allocatable, intent(out) :: rotation(:,:,:) 
+  real(dp),     allocatable, intent(out) :: force_const(:,:,:,:)
+  real(dp),     allocatable, intent(out) :: offset(:,:)
+  real(dp),     allocatable, intent(out) :: disp_kpoints(:,:)
+  real(dp),     allocatable, intent(out) :: delta_prim(:,:,:,:,:)
+  integer,      allocatable, intent(out) :: atom(:,:)
+  integer,      allocatable, intent(out) :: no_equiv_ims(:,:,:)
+  integer,      allocatable, intent(out) :: atom_in_prim(:)
+  integer,      allocatable, intent(out) :: prim_cell_for_atom(:)
+  logical,      allocatable, intent(out) :: defined(:,:,:,:)
+  
   write(*,*)
   write(*,*)'LATTICE THERMAL ENERGY'
   write(*,*)'======================'
@@ -2258,12 +2274,12 @@ subroutine lte(tol,tol2,delta,lte_filename,freq_dos_filename,                &
 
   write(*,*)'Reading data from lte.dat...'
   write(*,*)
-  call read_lte(tol,lte_filename,prim_rec_vec,sc_rec_vec,fc_scale,           &
+  call read_lte(prog_function,tol,lte_filename,prim_rec_vec,sc_rec_vec,fc_scale,           &
      & no_atoms_in_prim,no_DoF_prim,no_prim_cells,length_scale,small_k_scale,&
      & vol_scale,                                                            &
      & prim_lat_vec,sc_lat_vec,no_atoms_in_sc,species,mass,atom_pos,         &
      & force_const,defined,atom,rotation,offset,disp_kpoints,no_kspace_lines,&
-     & no_point_symms,prog_function,temperature)
+     & no_point_symms,temperature)
   write(*,*)'Finished reading input data.'
   write(*,*)
 
@@ -2305,7 +2321,143 @@ subroutine lte(tol,tol2,delta,lte_filename,freq_dos_filename,                &
      & delta_prim)
   write(*,*)'Done.'
   write(*,*)
+end subroutine
 
+! ----------------------------------------------------------------------
+! Deallocate arrays.
+! ----------------------------------------------------------------------
+subroutine finalise(species,mass,atom_pos,force_const,defined,atom, &
+   & no_equiv_ims,delta_prim,rotation,offset,disp_kpoints,freq_dos, &
+   & atom_in_prim,prim_cell_for_atom)
+  implicit none
+  
+  character(2), allocatable, intent(inout) :: species(:)
+  real(dp),     allocatable, intent(inout) :: mass(:)
+  real(dp),     allocatable, intent(inout) :: atom_pos(:,:)
+  real(dp),     allocatable, intent(inout) :: force_const(:,:,:,:)
+  logical,      allocatable, intent(inout) :: defined(:,:,:,:)
+  integer,      allocatable, intent(inout) :: atom(:,:)
+  integer,      allocatable, intent(inout) :: no_equiv_ims(:,:,:)
+  real(dp),     allocatable, intent(inout) :: delta_prim(:,:,:,:,:)
+  real(dp),     allocatable, intent(inout) :: rotation(:,:,:)
+  real(dp),     allocatable, intent(inout) :: offset(:,:)
+  real(dp),     allocatable, intent(inout) :: disp_kpoints(:,:)
+  real(dp),     allocatable, intent(inout) :: freq_dos(:,:)
+  integer,      allocatable, intent(inout) :: atom_in_prim(:)
+  integer,      allocatable, intent(inout) :: prim_cell_for_atom(:)
+  
+  if(allocated(species))deallocate(species,mass,atom_pos,force_const, &
+    &defined,atom,no_equiv_ims,delta_prim)
+  if(allocated(rotation))deallocate(rotation,offset)
+  if(allocated(disp_kpoints))deallocate(disp_kpoints)
+  if(allocated(freq_dos))deallocate(freq_dos)
+  if(allocated(atom_in_prim))deallocate(atom_in_prim,prim_cell_for_atom)
+end subroutine
+
+! ----------------------------------------------------------------------
+! Main program.
+! ----------------------------------------------------------------------
+subroutine lte(prog_function,tol,tol2,delta,lte_filename,freq_dos_filename, &
+   & tdependence1_filename,tdependence2_filename,dispersion_curve_filename, &
+   & kpairs_filename,freq_grids_filename,disp_patterns_filename,            &
+   & kdisp_patterns_filename,pol_vec_filename,gvectors_filename,            &
+   & gvectors_frac_filename,error_filename,dyn_mat_fileroot,                &
+   & atoms_in_primitive_cell_filename)
+  use constants, only : dp
+  use utils,     only : errstop, wordwrap
+  use string_module
+  implicit none
+  
+  ! ----------------------------------------
+  ! Inputs
+  ! ----------------------------------------
+  integer,  intent(in) :: prog_function
+  real(dp), intent(in) :: tol
+  real(dp), intent(in) :: tol2
+  real(dp), intent(in) :: delta
+  
+  ! ----------------------------------------
+  ! filenames
+  ! ----------------------------------------
+  type(String), intent(in) :: lte_filename
+  type(String), intent(in) :: freq_dos_filename
+  type(String), intent(in) :: tdependence1_filename
+  type(String), intent(in) :: tdependence2_filename
+  type(String), intent(in) :: dispersion_curve_filename
+  type(String), intent(in) :: kpairs_filename
+  type(String), intent(in) :: freq_grids_filename
+  type(String), intent(in) :: disp_patterns_filename
+  type(String), intent(in) :: kdisp_patterns_filename
+  type(String), intent(in) :: pol_vec_filename
+  type(String), intent(in) :: gvectors_filename
+  type(String), intent(in) :: gvectors_frac_filename
+  type(String), intent(in) :: error_filename
+  type(String), intent(in) :: dyn_mat_fileroot ! will have *.dat appended
+  type(String), intent(in) :: atoms_in_primitive_cell_filename
+  
+  ! ----------------------------------------
+  ! times
+  ! ----------------------------------------
+  real :: t1,t2
+  
+  ! ----------------------------------------
+  ! previously global variables
+  ! ----------------------------------------
+  real(dp) :: prim_lat_vec(3,3)
+  real(dp) :: sc_lat_vec(3,3)
+  real(dp) :: prim_rec_vec(3,3)
+  real(dp) :: sc_rec_vec(3,3)
+  real(dp) :: length_scale
+  real(dp) :: vol_scale
+  real(dp) :: small_k_scale
+  real(dp) :: fc_scale
+  real(dp) :: bin_width
+  real(dp) :: temperature
+  integer  :: no_atoms_in_sc
+  integer  :: no_prim_cells
+  integer  :: no_atoms_in_prim
+  integer  :: no_point_symms
+  integer  :: no_kspace_lines
+  integer  :: no_DoF_prim
+  
+  character(2), allocatable :: species(:)
+  real(dp),     allocatable :: mass(:)
+  real(dp),     allocatable :: atom_pos(:,:)
+  real(dp),     allocatable :: rotation(:,:,:) 
+  real(dp),     allocatable :: force_const(:,:,:,:)
+  real(dp),     allocatable :: offset(:,:)
+  real(dp),     allocatable :: freq_dos(:,:)
+  real(dp),     allocatable :: disp_kpoints(:,:)
+  real(dp),     allocatable :: delta_prim(:,:,:,:,:)
+  integer,      allocatable :: atom(:,:)
+  integer,      allocatable :: no_equiv_ims(:,:,:)
+  integer,      allocatable :: atom_in_prim(:)
+  integer,      allocatable :: prim_cell_for_atom(:)
+  logical,      allocatable :: defined(:,:,:,:)
+  
+  call CPU_TIME(t1)
+  
+  call initialise(prog_function,tol,tol2,delta,lte_filename,prim_lat_vec,sc_lat_vec,  &
+     & prim_rec_vec,sc_rec_vec,length_scale,vol_scale,small_k_scale,fc_scale,&
+     & temperature,no_atoms_in_sc,no_prim_cells,               &
+     & no_atoms_in_prim,no_point_symms,no_kspace_lines,no_DoF_prim,species,  &
+     & mass,atom_pos,rotation,force_const,offset,disp_kpoints,delta_prim,    &
+     & atom,no_equiv_ims,atom_in_prim,prim_cell_for_atom,defined)
+  
+  if(prog_function==1)then
+    write(*,*)'The mean thermal energy and the free energy will &
+      &be calculated.'
+  elseif(prog_function==2)then
+    write(*,*)'A dispersion curve will be calculated.'
+  elseif(prog_function==3)then
+    write(*,*)'The speed of sound will be calculated.'
+  elseif(prog_function==4)then
+    write(*,*)'The phonon frequencies at the supercell G vectors will be &
+      &calculated.'
+  else
+    call errstop('READ_LTE','Program function must be either 1, 2, 3 or 4.')
+  endif
+  
   if(prog_function==1)then
 
     write(*,*)'Calculating the frequency density-of-states function...'

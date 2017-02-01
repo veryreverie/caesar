@@ -17,6 +17,7 @@ module structure_module
     character(2), allocatable :: species(:)
     real(dp),     allocatable :: mass(:)
     real(dp),     allocatable :: atoms(:,:)
+    real(dp),     allocatable :: frac_atoms(:,:)
     ! Symmetry data
     integer                   :: no_symmetries
     real(dp),     allocatable :: symmetries(:,:)
@@ -61,6 +62,7 @@ subroutine new_StructureData(this,no_atoms,no_symmetries)
   allocate(this%species(no_atoms))
   allocate(this%mass(no_atoms))
   allocate(this%atoms(3,no_atoms))
+  allocate(this%frac_atoms(3,no_atoms))
   
   this%no_symmetries = no_symmetries
   if (no_symmetries /= 0) then
@@ -79,6 +81,7 @@ subroutine drop_StructureData(this)
   deallocate(this%species)
   deallocate(this%mass)
   deallocate(this%atoms)
+  deallocate(this%frac_atoms)
   
   if (this%no_symmetries /= 0) then
     deallocate(this%symmetries)
@@ -180,6 +183,7 @@ function read_structure_file_character(filename) result(this)
   
   ! calculate derived quantities
   this%recip_lattice = transpose(inv_33(this%lattice))
+  this%frac_atoms    = matmul(this%recip_lattice,this%atoms)
   
   do i=1,no_symmetries
     this%rotation_matrices(1,:,i) = this%symmetries(:,4*i-3)

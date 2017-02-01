@@ -20,14 +20,13 @@ subroutine compare_kpoints(args)
   
   ! k-point variables
   integer               :: no_kpoints
-  integer,  allocatable :: list(:)
   
   real(dp), allocatable :: kpoints(:,:)
   integer,  allocatable :: sc_ids(:)
   
   ! g-vector variables
   integer               :: no_gvectors
-  integer,  allocatable :: label(:)
+  integer,  allocatable :: gvector_ids(:)
   real(dp), allocatable :: gvec_frac(:,:)
   
   ! File names
@@ -61,10 +60,10 @@ subroutine compare_kpoints(args)
   ! read gvectors_frac_file
   gvectors_frac_file = open_read_file(gvectors_frac_filename)
   read(gvectors_frac_file,*) no_gvectors
-  allocate(label(no_gvectors))
+  allocate(gvector_ids(no_gvectors))
   allocate(gvec_frac(3,no_gvectors))
   do i=1,no_gvectors
-    read(gvectors_frac_file,*) label(i), gvec_frac(:,i)
+    read(gvectors_frac_file,*) gvector_ids(i), gvec_frac(:,i)
   enddo
   close(gvectors_frac_file)
   
@@ -73,10 +72,10 @@ subroutine compare_kpoints(args)
     do j=1,no_kpoints
       if (sc_ids(j)/=sc_id) cycle ! skip kpoints not in this unit cell
       if (all(abs(gvec_frac(:,i)-kpoints(:,j))<tol)) then
-        write(list_file,*) list(j), label(i), sc_id
+        write(list_file,*) j, gvector_ids(i), sc_id
       endif
     enddo
   enddo
   close(list_file)
-  end subroutine
+end subroutine
 end module

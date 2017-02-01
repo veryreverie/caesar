@@ -168,12 +168,12 @@ subroutine generate_dispersion(rec_vecs,basis,mass,no_cells,no_ims,          &
 end subroutine
 
 subroutine generate_dos(rec_vecs,basis,mass,no_cells,no_ims,cell_vecs, &
-   &force_consts,temperature_filename,free_energy_filename,freq_dos_filename)
+   &force_consts,temperature,free_energy_filename,freq_dos_filename)
   use string_module
   use file_module
   implicit none
   
-  type(String), intent(in) :: temperature_filename
+  real(dp),     intent(in) :: temperature
   type(String), intent(in) :: free_energy_filename
   type(String), intent(in) :: freq_dos_filename
   
@@ -190,7 +190,6 @@ subroutine generate_dos(rec_vecs,basis,mass,no_cells,no_ims,cell_vecs, &
   LOGICAL :: soft_modes
   
   ! file units
-  integer :: temperature_file
   integer :: free_energy_file
   integer :: freq_dos_file
   
@@ -198,9 +197,7 @@ subroutine generate_dos(rec_vecs,basis,mass,no_cells,no_ims,cell_vecs, &
   call random_seed()
   
   ! Read in temperature
-  temperature_file = open_read_file(temperature_filename)
-  read(temperature_file,*) T
-  close(temperature_file)
+  T = temperature
   
   max_freq=-1.d0
   min_freq=huge(1.d0)
@@ -466,17 +463,17 @@ end subroutine
 
 subroutine fourier_interpolation(structure_filename,                          &
    & phonon_dispersion_curve_filename,                                        &
-   & high_symmetry_points_filename,temperature_filename,free_energy_filename, &
+   & high_symmetry_points_filename,temperature,free_energy_filename, &
    & freq_dos_filename,grid_filename,                                         &
    & ibz_filename,                                                            &
    & atoms_in_primitive_cell_fileroot,dyn_mat_fileroot,path_filename)
-  use constants
+  use constants, only : dp, pi
   use linear_algebra
   use min_images
   use symmetry
   use phonon
-  use file_module,          only : open_read_file, count_lines
-  use structure_module, only : StructureData, read_structure_file, drop
+  use file_module
+  use structure_module
   use string_module
   implicit none
   
@@ -484,7 +481,7 @@ subroutine fourier_interpolation(structure_filename,                          &
   type(String), intent(in) :: structure_filename
   type(String), intent(in) :: phonon_dispersion_curve_filename
   type(String), intent(in) :: high_symmetry_points_filename
-  type(String), intent(in) :: temperature_filename
+  real(dp),     intent(in) :: temperature
   type(String), intent(in) :: free_energy_filename
   type(String), intent(in) :: freq_dos_filename
   type(String), intent(in) :: grid_filename
@@ -646,13 +643,13 @@ subroutine fourier_interpolation(structure_filename,                          &
     identity_map(i_atom)=i_atom
   enddo
   
-  prim_rec_vecs = twopi*transpose(inv_33(prim_latt_vecs))
+  prim_rec_vecs = 2*pi*transpose(inv_33(prim_latt_vecs))
   
   super_latt_vecs(1,1:3)=dble(grid(1))*prim_latt_vecs(1,1:3)
   super_latt_vecs(2,1:3)=dble(grid(2))*prim_latt_vecs(2,1:3)
   super_latt_vecs(3,1:3)=dble(grid(3))*prim_latt_vecs(3,1:3)
   
-  super_rec_vecs = twopi*transpose(inv_33(super_latt_vecs))
+  super_rec_vecs = 2*pi*transpose(inv_33(super_latt_vecs))
   
   i_grid=0
   do m1=0,grid(1)-1
@@ -922,7 +919,7 @@ subroutine fourier_interpolation(structure_filename,                          &
       & phonon_dispersion_curve_filename,high_symmetry_points_filename)
 
   call generate_dos(prim_rec_vecs,basis,mass,no_grid_points,no_im_cells,      &
-    & min_im_cell_pos,force_consts,temperature_filename,free_energy_filename, &
+    & min_im_cell_pos,force_consts,temperature,free_energy_filename, &
     & freq_dos_filename)
   
   call drop(structure)

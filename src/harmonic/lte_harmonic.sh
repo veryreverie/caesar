@@ -39,21 +39,13 @@ for (( i=1; i<=$no_sc; i++ )) do
     
     paths=(positive negative)
     for path in ${paths[@]}; do
-      if [ "$code" = "castep" ]; then
-        caesar fetch_forces                 \
-               $code                        \
-               $ddir/$path/$seedname.castep \
-               $atom                        \
-               $disp                        \
-               $ddir/$path.dat
-      elif [ "$code" = "qe" ]; then
-        caesar fetch_forces              \
-               $code                     \
-               $ddir/$path/$seedname.out \
-               $atom                     \
-               $disp                     \
-               $ddir/$path.dat
-      fi
+      caesar fetch_forces \
+             $code        \
+             $ddir/$path  \
+             $seedname    \
+             $atom        \
+             $disp        \
+             $ddir/$path.dat
     done
     
     caesar combine_forces      \
@@ -96,8 +88,6 @@ for (( i=1; i<=$no_sc; i++ )) do
     disp=${line[1]}
     cat atom.${atom}.disp.${disp}/forces.dat                             >> $f
   done < $sdir/force_constants.dat
-  echo " Program function: (1) calculate thermal energy; (2) calculate dispersion" >> $f
-  echo "  4"                                                             >> $f
   echo " Temperature (K)"                                                >> $f
   echo "  0.0"                                                           >> $f
   echo " Number of lines in k-space to plot"                             >> $f
@@ -116,25 +106,26 @@ for (( i=1; i<=$no_sc; i++ )) do
   # Reads lte.dat
   # Writes all other files
   # Writes dyn_mat.*.dat for * in [1,number of gvectors]
-  caesar lte                                      \
-         0.00001                                  \
-         0.00001                                  \
-         0.01                                     \
-         $sdir/lte/lte.dat                        \
-         $sdir/lte/freq_dos.dat                   \
-         $sdir/lte/tdependence1.dat               \
-         $sdir/lte/tdependence2.dat               \
-         $sdir/lte/dispersion_curve.dat           \
-         $sdir/lte/kpairs.dat                     \
-         $sdir/lte/freq_grids.dat                 \
-         $sdir/lte/disp_patterns.dat              \
-         $sdir/lte/kdisp_patterns.dat             \
-         $sdir/lte/pol_vec.dat                    \
-         $sdir/lte/gvectors.dat                   \
-         $sdir/lte/gvectors_frac.dat              \
-         $sdir/lte/error.txt                      \
-         $sdir/lte/dyn_mat.                       \
-         $sdir/lte/atoms_in_primitive_cell.$i.dat \
+  caesar lte                                   \
+         4                                     \
+         0.00001                               \
+         0.00001                               \
+         0.01                                  \
+         $sdir/lte/lte.dat                     \
+         $sdir/lte/freq_dos.dat                \
+         $sdir/lte/tdependence1.dat            \
+         $sdir/lte/tdependence2.dat            \
+         $sdir/lte/dispersion_curve.dat        \
+         $sdir/lte/kpairs.dat                  \
+         $sdir/lte/freq_grids.dat              \
+         $sdir/lte/disp_patterns.dat           \
+         $sdir/lte/kdisp_patterns.dat          \
+         $sdir/lte/pol_vec.dat                 \
+         $sdir/lte/gvectors.dat                \
+         $sdir/lte/gvectors_frac.dat           \
+         $sdir/lte/error.txt                   \
+         $sdir/lte/dyn_mat.                    \
+         $sdir/lte/atoms_in_primitive_cell.dat \
          > $sdir/lte/lte2.out
   if [ -e "error.txt" ];then
     echo "There is an error in lte: check 'error.txt' file."
@@ -148,7 +139,7 @@ for (( i=1; i<=$no_sc; i++ )) do
          $sdir/lte/gvectors_frac.dat \
          list.dat
 done
-  
+
 while read fline ; do
   line=($fline)
   kpoint=${line[0]}
@@ -163,13 +154,11 @@ echo "0.000000 0.500000 0.500000  # FB" >> lte/path.dat
 echo "0.000000 0.000000 0.000000  # GM" >> lte/path.dat
 echo "0.000000 0.500000 0.000000  # L"  >> lte/path.dat
 
-echo $temperature > lte/temperature.dat
-
 caesar fourier_interpolation           \
        structure.dat                   \
        lte/phonon_dispersion_curve.dat \
        lte/high_symmetry_points.dat    \
-       lte/temperature.dat             \
+       $temperature                    \
        lte/free_energy.dat             \
        lte/freq_dos.dat                \
        grid.dat                        \

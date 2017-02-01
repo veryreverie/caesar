@@ -6,8 +6,7 @@ module dft_output_file_module
   private
   
   public :: DftOutputFile
-  public :: read_castep_output_file
-  public :: read_qe_output_file
+  public :: read_dft_output_file
   public :: new
   public :: drop
   
@@ -17,16 +16,6 @@ module dft_output_file_module
     real(dp)                  :: energy
     real(dp),     allocatable :: forces(:,:)
   end type
-  
-  interface read_castep_output_file
-    module procedure read_castep_output_file_character
-    module procedure read_castep_output_file_string
-  end interface
-  
-  interface read_qe_output_file
-    module procedure read_qe_output_file_character
-    module procedure read_qe_output_file_string
-  end interface
   
   interface new
     module procedure new_DftOutputFile
@@ -38,12 +27,13 @@ module dft_output_file_module
     
 contains
 
-function read_castep_output_file_character(filename) result(output)
-  use file_module
+function read_castep_output_file(filename) result(output)
   use utils, only : lower_case
+  use string_module
+  use file_module
   implicit none
   
-  character(*), intent(in) :: filename
+  type(String), intent(in) :: filename
   type(DftOutputFile)      :: output
   
   ! file unit
@@ -101,22 +91,14 @@ function read_castep_output_file_character(filename) result(output)
   close(castep_file)
 end function
 
-function read_castep_output_file_string(filename) result(output)
+function read_qe_output_file(filename) result(output)
+  use constants, only : Ry,bohr
+  use utils,     only : lower_case
   use string_module
+  use file_module
   implicit none
   
   type(String), intent(in) :: filename
-  type(DftOutputFile)      :: output
-  
-  output = read_castep_output_file(char(filename))
-end function
-
-function read_qe_output_file_character(filename) result(output)
-  use file_module
-  use utils, only : lower_case
-  implicit none
-  
-  character(*), intent(in) :: filename
   type(DftOutputFile)      :: output
   
   ! file unit
@@ -191,17 +173,25 @@ function read_qe_output_file_character(filename) result(output)
     endif
   enddo
   
+  output%forces = output%forces*Ry/bohr
+  
   close(qe_file)
 end function
 
-function read_qe_output_file_string(filename) result(output)
+function read_dft_output_file(dft_code,dft_dir,seedname) result(output)
   use string_module
   implicit none
   
-  type(String), intent(in) :: filename
+  type(String), intent(in) :: dft_code
+  type(String), intent(in) :: dft_dir
+  type(String), intent(in) :: seedname
   type(DftOutputFile)      :: output
   
-  output = read_qe_output_file(char(filename))
+  if (dft_code=="castep") then
+    output = read_castep_output_file(dft_dir//'/'//seedname//'.castep')
+  elseif (dft_code=="qe") then
+    output = read_qe_output_file(dft_dir//'/'//seedname//'.out')
+  endif
 end function
 
 subroutine new_DftOutputFile(this, no_atoms)

@@ -2,15 +2,15 @@
 module fetch_forces_module
 contains
 
-subroutine fetch_forces(codename,dft_output_filename,atom,disp,forces_filename)
+subroutine fetch_forces(dft_code,dft_dir,seedname,atom,disp,forces_filename)
   use string_module
   use dft_output_file_module
-  use constants, only : dp, Ry, bohr
-  use file_module,   only : open_write_file
+  use file_module
   implicit none
   
-  type(String), intent(in) :: codename
-  type(String), intent(in) :: dft_output_filename
+  type(String), intent(in) :: dft_code
+  type(String), intent(in) :: dft_dir
+  type(String), intent(in) :: seedname
   integer,      intent(in) :: atom
   integer,      intent(in) :: disp
   type(String), intent(in) :: forces_filename
@@ -23,21 +23,14 @@ subroutine fetch_forces(codename,dft_output_filename,atom,disp,forces_filename)
   
   ! temporary variables
   integer  :: i,j
-  real(dp) :: conversion
   
-  if (codename=="castep") then
-    conversion = 1.d0
-    dft_output = read_castep_output_file(dft_output_filename)
-  elseif (codename=="qe") then
-    conversion = Ry/bohr
-    dft_output = read_qe_output_file(dft_output_filename)
-  endif
+  dft_output = read_dft_output_file(dft_code,dft_dir,seedname)
   
   forces_file = open_write_file(forces_filename)
   do i=1,dft_output%no_atoms
     do j=1,3
       write(forces_file,*) char(str(atom)//' '//disp//' '//i//' '//j//' '//&
-        & dft_output%forces(j,i)*conversion)
+        & dft_output%forces(j,i))
     enddo
   enddo
   close(forces_file)
