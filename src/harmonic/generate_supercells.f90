@@ -1,11 +1,11 @@
 module generate_supercells_module
   use constants
   implicit none
-
-interface lcm
-  module procedure lcm_2 ! lowest common multiple of two positive integers
-  module procedure lcm_3 ! lowest common multiple of three positive integers
-end interface
+  
+  interface lcm
+    module procedure lcm_2 ! lowest common multiple of two positive integers
+    module procedure lcm_3 ! lowest common multiple of three positive integers
+  end interface
 
 contains
 
@@ -226,63 +226,45 @@ subroutine minkowski_reduce(vecs)
   enddo iter
 end subroutine minkowski_reduce
 
-subroutine generate_supercells(args)
+subroutine generate_supercells(structure,grid,ibz_filename,no_sc_filename, &
+   & supercell_directory_root)
   use constants,        only : dp
   use utils,            only : i2s
   use linear_algebra,   only : inv_33
-  use file_module,          only : open_read_file, open_write_file, count_lines
+  use file_module,      only : open_read_file, open_write_file, count_lines
   
   use string_module
   use structure_module
   implicit none
   
   ! inputs
-  type(String), intent(in) :: args(:)
+  type(StructureData), intent(in) :: structure
+  integer,             intent(in) :: grid(:)
+  type(String),        intent(in) :: ibz_filename
+  type(String),        intent(in) :: no_sc_filename
+  type(String),        intent(in) :: supercell_directory_root
   
   ! parameters
   real(dp),parameter :: tol=1.d-10
   
-  type(StructureData) :: structure
-  
+  ! Working variables
   integer,allocatable :: multiplicity(:),int_kpoints(:,:),numerator(:,:),&
     &denominator(:,:),super_size(:),label(:)
-  integer :: i,j,k,grid(1:3),ialloc,num_kpoints,sc_id,&
-    &s11,s12,s13,s22,s23,s33,quotient,hnf(3,3),size_count
+  integer :: i,j,ialloc,num_kpoints,sc_id,&
+    &s11,s12,s13,s22,s23,s33,quotient,hnf(3,3)
   real(dp),allocatable :: kpoints(:,:)
   real(dp) :: temp_latt_vecs(3,3)
-  real(dp) :: temp_scell(3,3)
   real(dp) :: prim(3)
   logical,allocatable :: found_kpoint(:)
-  type(String) :: sdir ! Supercell directory
   
-  ! file names
-  type(String) :: structure_filename
-  type(String) :: grid_filename
-  type(String) :: ibz_filename
-  type(String) :: no_sc_filename
-  type(String) :: supercell_directory_root
+  ! Supercell directory
+  type(String) :: sdir
   
   ! file units
-  integer :: grid_file
   integer :: ibz_file
   integer :: no_sc_file
   integer :: supercell_file
   
-  ! read filenames from input
-  structure_filename = args(1)
-  grid_filename = args(2)
-  ibz_filename = args(3)
-  no_sc_filename = args(4)
-  supercell_directory_root = args(5)
-  
-  ! Read the structure file
-  structure = read_structure_file(structure_filename)
-  
-  ! Get the dimensions of the k-point grid
-  grid_file = open_read_file(grid_filename)
-  read(grid_file,*)grid(1:3)
-  close(grid_file)
-
   num_kpoints = count_lines(ibz_filename)
   
   ! Allocate arrays
@@ -311,7 +293,7 @@ subroutine generate_supercells(args)
   do i=1,num_kpoints
     int_kpoints(:,i) = nint(grid*kpoints(:,i))
     do j=1,3
-      if (dabs(dble(int_kpoints(j,i))/dble(grid(j))-kpoints(j,i)) >= tol) then
+      if (dabs(dble(int_kpoints(j,i))/grid(j)-kpoints(j,i)) >= tol) then
         write(*,*) 'Unable to find fractional representation of k-point.'
         stop
       endif
@@ -336,87 +318,76 @@ subroutine generate_supercells(args)
   label = 0
   sc_id = 0
   
-  ibz_file = open_write_file(args(3))
+  ibz_file = open_write_file(ibz_filename)
   
-  do size_count=1,maxval(super_size)
-    do_i : do i=1,num_kpoints
-      if(super_size(i)/=size_count)cycle
-      if(found_kpoint(i))cycle
-      do s11=1,super_size(i)
-        if(.not.mod(super_size(i),s11)==0)cycle
-        quotient=super_size(i)/s11
-        do s22=1,quotient
-          if(.not.mod(quotient,s22)==0)cycle
-          s33=quotient/s22
-          do s12=0,s22-1
-            do s13=0,s33-1
-              do s23=0,s33-1
-                hnf(1:3,1:3)=0
-                hnf(1,1)=s11 ; hnf(1,2)=s12 ; hnf(1,3)=s13
-                hnf(2,2)=s22 ; hnf(2,3)=s23
-                hnf(3,3)=s33
-                temp_scell(1:3,1:3)=dble(hnf(1:3,1:3))
-                do k=1,3
-                  prim(k)=sum(temp_scell(k,1:3)*kpoints(1:3,i))
-                enddo ! k
-                if(all(abs(prim(1:3)-dble(nint(prim(1:3))))<tol))then
-                  sc_id=sc_id+1
-                  
-                  ! sdir="Supercell_*
-                  sdir=supercell_directory_root//sc_id
-                  call system('mkdir '//sdir)
-                  
-                  found_kpoint(i)=.true.
-                  label(i)=sc_id
-                  
-                  write(ibz_file,*) kpoints(:,i),    &
-                                  & multiplicity(i), &
-                                  & sc_id
-                  
-                  do j=i+1,num_kpoints
-                    if(found_kpoint(j))cycle
-                    if(super_size(j)/=super_size(i))cycle
-                    do k=1,3
-                      prim(k)=sum(temp_scell(k,1:3)*kpoints(1:3,j))
-                    enddo ! k
-                    if(all(abs(prim(1:3)-dble(nint(prim(1:3))))<tol))then
-                      found_kpoint(j)=.true.
-                      label(j)=sc_id
-                      
-                      write(ibz_file,*) kpoints(:,j),    &
-                                      & multiplicity(j), &
-                                      & sc_id
-                    endif ! tol
-                  enddo ! j
-                  do k=1,3
-                    do j=1,3
-                      temp_latt_vecs(k,j) = sum( dble(hnf(k,:)) &
-                                             & * structure%lattice(:,j))
-                    enddo ! j
-                  enddo ! k
-                  call minkowski_reduce(temp_latt_vecs)
-                  do k=1,3
-                    do j=1,3
-                      hnf(k,j) = nint(sum( temp_latt_vecs(k,:) &
-                                       & * structure%recip_lattice(j,:)))
-                    enddo ! j
-                  enddo ! k
-                  
-                  supercell_file = open_write_file(sdir//'/supercell.dat')
-                  write(supercell_file,*) hnf(1,:)
-                  write(supercell_file,*) hnf(2,:)
-                  write(supercell_file,*) hnf(3,:)
-                  close(supercell_file)
-                  
-                endif ! tol
-                if (found_kpoint(i)) cycle do_i
-              enddo ! s23
-            enddo ! s13
-          enddo ! s12
-        enddo ! s22
-      enddo ! s11
-    enddo do_i
-  enddo ! size_count
+  hnf = 0
+  
+  do_i : do i=1,num_kpoints
+    if(found_kpoint(i))cycle
+    
+    do s11=1,super_size(i)
+      if(.not.mod(super_size(i),s11)==0)cycle
+      
+      quotient=super_size(i)/s11
+      do s22=1,quotient
+        if(.not.mod(quotient,s22)==0)cycle
+        s33=quotient/s22
+        do s12=0,s22-1
+          do s13=0,s33-1
+            do s23=0,s33-1
+              hnf(1,:) = (/ s11, s12, s13 /)
+              hnf(2,:) = (/ s22, s23, 0   /)
+              hnf(3,:) = (/ s33, 0  , 0   /)
+              prim = matmul(hnf,kpoints(:,i))
+              if(all(abs(prim(:)-nint(prim(:)))<tol))then
+                sc_id=sc_id+1
+                
+                ! sdir="Supercell_*
+                sdir=supercell_directory_root//sc_id
+                call system('mkdir '//sdir)
+                
+                found_kpoint(i)=.true.
+                label(i)=sc_id
+                
+                write(ibz_file,*) kpoints(:,i),    &
+                                & multiplicity(i), &
+                                & sc_id
+                
+                do j=i+1,num_kpoints
+                  if(found_kpoint(j))cycle
+                  if(super_size(j)/=super_size(i))cycle
+                  prim = matmul(hnf,kpoints(:,j))
+                  if(all(abs(prim(:)-nint(prim(:)))<tol))then
+                    found_kpoint(j)=.true.
+                    label(j)=sc_id
+                    
+                    write(ibz_file,*) kpoints(:,j),    &
+                                    & multiplicity(j), &
+                                    & sc_id
+                  endif
+                enddo
+                
+                temp_latt_vecs = matmul(hnf,structure%lattice)
+                
+                call minkowski_reduce(temp_latt_vecs)
+                
+                hnf = nint(matmul( temp_latt_vecs, &
+                                 & transpose(structure%recip_lattice)))
+                
+                supercell_file = open_write_file(sdir//'/supercell.dat')
+                do j=1,3
+                  write(supercell_file,*) hnf(j,:)
+                enddo
+                close(supercell_file)
+                
+              endif ! tol
+              if (found_kpoint(i)) cycle do_i
+            enddo ! s23
+          enddo ! s13
+        enddo ! s12
+      enddo ! s22
+    enddo ! s11
+  enddo do_i
   
   close(ibz_file)
   

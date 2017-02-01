@@ -13,13 +13,8 @@ program caesar
   use calculate_symmetry_helper_module
   
   ! use harmonic modules
+  use setup_harmonic_module
   use lte_harmonic_module
-  use compare_kpoints_module
-  use construct_finite_displacement_module
-  use construct_matrix_force_cnsts_module
-  use construct_supercell_module
-  use generate_kgrid_module
-  use generate_supercells_module
   
   ! use quadratic modules
   use setup_quadratic_module
@@ -125,6 +120,8 @@ program caesar
     temp_real2 = dble(temp_string)
     write(*,*) temp_real2
   ! Wrappers for top-level Fortran
+  elseif (args(1) == 'setup_harmonic') then
+    call setup_harmonic()
   elseif (args(1) == 'lte_harmonic') then
     call lte_harmonic()
   elseif (args(1) == 'setup_quadratic') then
@@ -136,18 +133,6 @@ program caesar
   ! Wrappers for subsidiary Fortran 
   elseif (args(1) == 'calculate_gap') then
     call calculate_gap()
-  elseif (args(1) == 'compare_kpoints') then
-    call compare_kpoints(args(2:))
-  elseif (args(1) == 'construct_finite_displacement') then
-    call construct_finite_displacement(args(2:))
-  elseif (args(1) == 'construct_matrix_force_cnsts') then
-    call construct_matrix_force_cnsts(args(2:))
-  elseif (args(1) == 'construct_supercell') then
-    call construct_supercell(args(2:))
-  elseif (args(1) == 'generate_kgrid') then
-    call generate_kgrid(args(2:))
-  elseif (args(1) == 'generate_supercells') then
-    call generate_supercells(args(2:))
   elseif (args(1) == 'hartree_to_eV') then
     call hartree_to_eV()
   elseif (args(1) == 'rundft') then
@@ -187,17 +172,11 @@ program caesar
   elseif (args(1) == 'calculate_symmetry_helper') then
     call calculate_symmetry_helper(args(2:))
   ! wrappers for main shell scripts
-  elseif (args(1) == 'setup_harmonic') then
-    call system(args(1)//'.sh '//argstring)
   elseif (args(1) == 'tcm_cluster_run_harmonic') then
     call system(args(1)//'.sh '//argstring)
   elseif (args(1) == 'clear_all') then
     call system(args(1)//'.sh '//argstring)
   elseif (args(1) == 'tcm_cluster_run_quadratic') then
-    call system(args(1)//'.sh '//argstring)
-  elseif (args(1) == 'eigenval_castep_to_bands') then
-    call system(args(1)//'.sh '//argstring)
-  elseif (args(1) == 'eigenval_vasp_to_bands') then
     call system(args(1)//'.sh '//argstring)
   ! wrappers for subsidiary shell scripts
   elseif (args(1) == 'calculate_symmetry') then

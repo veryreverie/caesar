@@ -4,7 +4,7 @@ module construct_supercell_module
   implicit none
 contains
 
-subroutine construct_supercell(filenames)
+subroutine construct_supercell(structure,supercell,structure_sc_filename)
   use constants,        only : dp
   use linear_algebra,   only : determinant33, inv_33
   use file_module
@@ -12,7 +12,10 @@ subroutine construct_supercell(filenames)
   use string_module
   implicit none
   
-  type(String), intent(in) :: filenames(:)
+  ! Inputs
+  type(StructureData), intent(in) :: structure
+  integer,             intent(in) :: supercell(3,3)
+  type(String),        intent(in) :: structure_sc_filename
   
   ! Parameters
   real(dp), parameter :: tol=1.d-2
@@ -23,43 +26,16 @@ subroutine construct_supercell(filenames)
   REAL(dp) :: pos(3)
   
   ! Input variables
-  INTEGER :: supercell(3,3),sc_size
+  INTEGER :: sc_size
   real(dp) :: frac_pos(3)
   
-  type(StructureData) :: structure
   type(StructureData) :: structure_sc
   
   integer :: no_atoms_sc
   
-  ! filenames
-  type(String) :: structure_filename
-  type(String) :: supercell_filename
-  type(String) :: structure_sc_filename
-  
-  ! file units
-  integer :: supercell_file
-  
-  ! Read filenames from input
-  structure_filename = filenames(1)
-  supercell_filename = filenames(2)
-  structure_sc_filename = filenames(3)
-  
-  ! Read in structure data
-  structure = read_structure_file(structure_filename)
-  
-  ! Read in supercell matrix
-  supercell_file = open_read_file(supercell_filename)
-  do i=1,3
-    read(supercell_file,*) supercell(i,1:3)
-  enddo
-  close(supercell_file)
-  
   sc_size = abs(determinant33(supercell))
   no_atoms_sc = structure%no_atoms*sc_size
 
-  allocate(structure_sc%atoms(3,no_atoms_sc))
-  allocate(structure_sc%mass(no_atoms_sc)) 
-  allocate(structure_sc%species(no_atoms_sc))
   call new(structure_sc,no_atoms_sc,0)
 
   ! Generate supercell lattice
