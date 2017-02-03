@@ -47,6 +47,10 @@ subroutine lte_harmonic()
   integer,  allocatable :: gvector_ids(:)
   real(dp), allocatable :: gvec_frac(:,:)
   
+  ! lte input data
+  integer               :: no_kspace_lines
+  real(dp), allocatable :: disp_kpoints(:,:)
+  
   ! Temporary variables
   integer        :: i,j,k
   character(100) :: line
@@ -118,16 +122,11 @@ subroutine lte_harmonic()
     sdir = str('Supercell_')//i
     
     ! --------------------------------------------------
-    ! Write forces to lte input file
+    ! Read forces
     ! --------------------------------------------------
     no_force_constants = count_lines(sdir//'force_constants.dat')
     allocate(atoms(no_force_constants))
     allocate(displacements(no_force_constants))
-    
-    write(f,s) "Number of force constants"
-    write(f,*) no_force_constants
-    write(f,*) structure_scs(i)%no_atoms
-    write(f,s) "Atom 1 ; Cartes'n direction ; Atom 2 ; C. direction ; force constant (a.u.)"
     
     allocate(forces(3,structure_scs(i)%no_atoms,no_force_constants))
     do j=1,no_force_constants
@@ -139,60 +138,26 @@ subroutine lte_harmonic()
       forces(:,:,j) = (positive%forces-negative%forces)/(0.02d0*eV_per_A_to_au)
     enddo
     
-    ! ----------------------------------------------------------------------
-    ! Write top of lte input file
-    ! ----------------------------------------------------------------------
-    f = open_write_file(sdir//'/lte/lte.dat')
-    write(f,s) "Primitive cell lattice vectors (rows, in a.u.)"
-    do j=1,3
-      write(f,*) structure%lattice(j,:)
-    enddo
-    write(f,s) "Supercell lattice vectors (rows, in a.u.)"
-    do j=1,3
-      write(f,*) structure_scs(i)%lattice(j,:)
-    enddo
-    write(f,s) " Number of atoms in supercell"
-    write(f,*) structure_scs(i)%no_atoms
-    write(f,s) " Species ; mass (a.u.) ; position of atom in supercell (in terms of SC LVs)"
-    do j=1,structure_scs(i)%no_atoms
-      write(f,*) structure_scs(i)%species(j), &
-               & structure_scs(i)%mass(j),    &
-               & structure_scs(i)%frac_atoms(:,j)
-    enddo
-    write(f,s) "Number of point symmetry operations"
-    write(f,*) structure_scs(i)%no_symmetries
-    write(f,s) "Rotation matrices (3 rows) and translations (1 row, fraction of SC LV)"
-    do j=1,size(structure_scs(i)%symmetries,2)
-      write(f,*) structure_scs(i)%symmetries(:,j)
-    enddo
-    write(f,s) "Number of force constants"
-    write(f,*) no_force_constants
-    write(f,s) "Atom 1 ; Cartes'n direction ; Atom 2 ; C. direction ; force constant (a.u.)"
-    do j=1,no_force_constants
-      do k=1,structure_scs(i)%no_atoms
-        write(f,*) atoms(j), displacements(j), forces(:,k,j)
-      enddo
-    enddo
-    write(f,s)" Temperature (K)"
-    write(f,s)"  0.0"
-    write(f,s)" Number of lines in k-space to plot"
-    write(f,s)"  4"
-    write(f,s)" Points in journey through k-space (in terms of rec. prim. LVs)"
-    write(f,s)"0.000000 0.000000 0.000000  # GM"
-    write(f,s)"0.500000 0.500000 0.500000  # T"
-    write(f,s)"0.000000 0.500000 0.500000  # FB"
-    write(f,s)"0.000000 0.000000 0.000000  # GM"
-    write(f,s)"0.000000 0.500000 0.000000  # L"
-    write(f,s)" Number of points per line"
-    write(f,s)"  400"
-    
-    close(f)
+    no_kspace_lines = 4
+    allocate(disp_kpoints(3,0:no_kspace_lines))
+    disp_kpoints(:,0) = (/ 0.0_dp, 0.0_dp, 0.0_dp /) ! GM
+    disp_kpoints(:,1) = (/ 0.5_dp, 0.5_dp, 0.5_dp /) ! T
+    disp_kpoints(:,2) = (/ 0.0_dp, 0.5_dp, 0.5_dp /) ! FB
+    disp_kpoints(:,3) = (/ 0.0_dp, 0.0_dp, 0.0_dp /) ! GM
+    disp_kpoints(:,4) = (/ 0.0_dp, 0.5_dp, 0.0_dp /) ! L
     
     call lte( 4,                                 &
             & 1e-5_dp,                           &
             & 1e-5_dp,                           &
             & 1e-2_dp,                           &
-            & sdir//'/lte/lte.dat',              &
+            & structure,                         &
+            & structure_scs(i),                  &
+            & atoms,                             &
+            & displacements,                     &
+            & forces,                            &
+            & 0.0_dp,                            &
+            & no_kspace_lines,                   &
+            & disp_kpoints,                      &
             & sdir//'/lte/freq_dos.dat',         &
             & sdir//'/lte/tdependence1.dat',     &
             & sdir//'/lte/tdependence2.dat',     &

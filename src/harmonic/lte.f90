@@ -216,7 +216,9 @@ end function is_lat_point
 ! ----------------------------------------------------------------------
 ! Read in the data in lte.dat and allocate arrays, etc.
 ! ----------------------------------------------------------------------
-subroutine read_lte(prog_function,tol,lte_filename,prim_rec_vec,sc_rec_vec,fc_scale,      &
+subroutine read_lte(prog_function,tol,structure,structure_sc,atoms, &
+   & displacements,forces,temperature_in,no_kspace_lines_in,disp_kpoints_in, &
+   & prim_rec_vec,sc_rec_vec,fc_scale,      &
    & no_atoms_in_prim,no_DoF_prim,no_prim_cells,length_scale,small_k_scale, &
    & vol_scale,                                                             &
    & prim_lat_vec,sc_lat_vec,no_atoms_in_sc,species,mass,atom_pos,          &
@@ -224,11 +226,19 @@ subroutine read_lte(prog_function,tol,lte_filename,prim_rec_vec,sc_rec_vec,fc_sc
    & no_point_symms,temperature)
   use constants, only : pi
   use string_module
+  use structure_module
   implicit none
   
   integer,      intent(in) :: prog_function
   real(dp),     intent(in) :: tol
-  type(String), intent(in) :: lte_filename
+  type(StructureData), intent(in) :: structure
+  type(StructureData), intent(in) :: structure_sc
+  integer,             intent(in) :: atoms(:)
+  integer,             intent(in) :: displacements(:)
+  real(dp),            intent(in) :: forces(:,:,:)
+  real(dp),            intent(in) :: temperature_in
+  integer,             intent(in) :: no_kspace_lines_in
+  real(dp),            intent(in) :: disp_kpoints_in(:,:)
   
   real(dp),                  intent(out) :: prim_rec_vec(3,3)
   real(dp),                  intent(out) :: sc_rec_vec(3,3)
@@ -258,37 +268,22 @@ subroutine read_lte(prog_function,tol,lte_filename,prim_rec_vec,sc_rec_vec,fc_sc
   
   integer  :: n,i,j,k
   integer  :: no_force_constants,atom1,atom2,dir1,dir2
-  real(dp) :: fc,check_matrix
+  real(dp) :: check_matrix
   real(dp) :: force(3)
-  
-  integer :: lte_file
-  
-  lte_file = open_read_file(lte_filename)
   
   ! ----------------------------------------------------------------------
   ! Read in data
   ! ----------------------------------------------------------------------
   
-  ! Primitive lattice vectors
-  read(lte_file,*) 
-  read(lte_file,*) prim_lat_vec(1:3,1)
-  read(lte_file,*) prim_lat_vec(1:3,2)
-  read(lte_file,*) prim_lat_vec(1:3,3)
-  
-  ! Supercell lattice vectors
-  read(lte_file,*) 
-  read(lte_file,*) sc_lat_vec(1:3,1)
-  read(lte_file,*) sc_lat_vec(1:3,2)
-  read(lte_file,*) sc_lat_vec(1:3,3)
+  prim_lat_vec = structure%lattice
+  sc_lat_vec = structure_sc%lattice
   
   ! Construct reciprocal lattice vectors, etc.
   call setup_geometry(tol,prim_lat_vec,sc_lat_vec,                       &
      & length_scale,no_prim_cells,prim_rec_vec,sc_rec_vec,small_k_scale, &
      & vol_scale)
   
-  ! Number of atoms.
-  read(lte_file,*) 
-  read(lte_file,*) no_atoms_in_sc
+  no_atoms_in_sc = structure_sc%no_atoms
   
   no_atoms_in_prim=no_atoms_in_sc/no_prim_cells
   allocate(species(no_atoms_in_sc),                   &
@@ -305,42 +300,27 @@ subroutine read_lte(prog_function,tol,lte_filename,prim_rec_vec,sc_rec_vec,fc_sc
   ! Convert atom position from fractional coordinates (in file) to
   ! Cartesian coordinates (used in program).  Translate the atom
   ! coordinates into the supercell at the origin.
-  read(lte_file,*) 
-  do i=1,no_atoms_in_sc
-    read(lte_file,*) species(i),mass(i),atom_pos(1:3,i)
-    atom_pos(1:3,i)=atom_pos(1,i)*sc_lat_vec(1:3,1)+atom_pos(2,i) &
-      &*sc_lat_vec(1:3,2)+atom_pos(3,i)*sc_lat_vec(1:3,3)
-    if(mass(i)<=0.d0)call errstop('READ_LTE','Mass should be positive.')
-  enddo ! i
+  species = structure_sc%species
+  mass = structure_sc%mass
+  atom_pos = structure_sc%frac_atoms
+  atom_pos = matmul(sc_lat_vec,atom_pos)
   
-  ! Read in point-symmetry operations.
-  read(lte_file,*) 
-  read(lte_file,*) no_point_symms
+  no_point_symms = structure_sc%no_symmetries
   allocate(rotation(3,3,no_point_symms),offset(3,no_point_symms))
-  read(lte_file,*) 
-  do n=1,no_point_symms
-    read(lte_file,*) rotation(1:3,1,n)
-    read(lte_file,*) rotation(1:3,2,n)
-    read(lte_file,*) rotation(1:3,3,n)
-    read(lte_file,*) offset(1:3,n)
-    ! Convert translation to Cartesians.
-    offset(1:3,n)=offset(1,n)*sc_lat_vec(1:3,1) &
-      &+offset(2,n)*sc_lat_vec(1:3,2)+offset(3,n)*sc_lat_vec(1:3,3)
-  enddo
-
-  ! Read in force constants supplied.
-  read(lte_file,*) 
-  read(lte_file,*) no_force_constants
-  read(lte_file,*) 
-  fc_scale=0.d0
+  rotation = structure_sc%rotation_matrices
+  offset = structure_sc%offsets
+  offset = matmul(sc_lat_vec,offset)
+  
+  no_force_constants = size(atoms)
+  fc_scale = 0.d0
   do i=1,no_force_constants
+    atom1 = atoms(i)
+    dir1 = displacements(i)
     do j=1,no_atoms_in_sc
-      read(lte_file,*) atom1,dir1,atom2,dir2,fc
-      read(lte_file,*) atom1, dir1, force
-      fc_scale=fc_scale+sum(abs(force))
+      atom2 = j
+      force = forces(:,j,i)
       do k=1,3
-        atom2 = j
-        dir2  = k
+        dir2 = k
         call trans_symm(atom1,dir1,atom2,dir2,force(k), &
            & tol,atom_pos,no_atoms_in_sc, &
            & no_prim_cells,prim_rec_vec,sc_rec_vec,mass,defined,force_const)
@@ -348,27 +328,13 @@ subroutine read_lte(prog_function,tol,lte_filename,prim_rec_vec,sc_rec_vec,fc_sc
     enddo
   enddo
   fc_scale=fc_scale/(no_force_constants*3*no_atoms_in_sc)
-
-  read(lte_file,*) 
-  read(lte_file,*) temperature
   
-  read(lte_file,*) 
-  read(lte_file,*) no_kspace_lines
-  read(lte_file,*) 
-  if(prog_function==2)then
-    allocate(disp_kpoints(3,0:no_kspace_lines))
-  endif
-  do i=0,no_kspace_lines
-    if(prog_function==2)then
-      read(lte_file,*) disp_kpoints(1:3,i)
-      disp_kpoints(1:3,i)=2*pi*(disp_kpoints(1,i)*prim_rec_vec(1:3,1) &
-        &+disp_kpoints(2,i)*prim_rec_vec(1:3,2) &
-        &+disp_kpoints(3,i)*prim_rec_vec(1:3,3))
-    else
-      read(lte_file,*) 
-    endif
-  enddo
-
+  temperature = temperature_in
+  no_kspace_lines = no_kspace_lines_in
+  allocate(disp_kpoints(3,0:no_kspace_lines))
+  disp_kpoints = disp_kpoints_in
+  disp_kpoints = 2*pi*matmul(prim_rec_vec,disp_kpoints)
+  
   ! ----------------------------------------------------------------------
   ! Copy data to terminal
   ! ----------------------------------------------------------------------
@@ -482,8 +448,6 @@ subroutine read_lte(prog_function,tol,lte_filename,prim_rec_vec,sc_rec_vec,fc_sc
     enddo
     write(*,*)'Have read in points for dispersion curve.'
   endif
-
-  close(lte_file)
 end subroutine
 
 ! ----------------------------------------------------------------------
@@ -2210,7 +2174,9 @@ end subroutine
 ! ----------------------------------------------------------------------
 ! Set up lte
 ! ----------------------------------------------------------------------
-subroutine initialise(prog_function,tol,tol2,delta,lte_filename,prim_lat_vec,sc_lat_vec,  &
+subroutine initialise(prog_function,tol,tol2,delta,structure,structure_sc, &
+   & atoms,displacements,forces,temperature_in,no_kspace_lines_in,disp_kpoints_in, &
+   & prim_lat_vec,sc_lat_vec,  &
    & prim_rec_vec,sc_rec_vec,length_scale,vol_scale,small_k_scale,fc_scale, &
    & temperature,no_atoms_in_sc,no_prim_cells,                &
    & no_atoms_in_prim,no_point_symms,no_kspace_lines,no_DoF_prim,species,   &
@@ -2219,6 +2185,7 @@ subroutine initialise(prog_function,tol,tol2,delta,lte_filename,prim_lat_vec,sc_
   use constants, only : dp
   use utils,     only : errstop, wordwrap
   use string_module
+  use structure_module
   implicit none
   
   ! ----------------------------------------
@@ -2228,11 +2195,14 @@ subroutine initialise(prog_function,tol,tol2,delta,lte_filename,prim_lat_vec,sc_
   real(dp), intent(in) :: tol
   real(dp), intent(in) :: tol2
   real(dp), intent(in) :: delta
-  
-  ! ----------------------------------------
-  ! filenames
-  ! ----------------------------------------
-  type(String), intent(in) :: lte_filename
+  type(StructureData), intent(in) :: structure
+  type(StructureData), intent(in) :: structure_sc
+  integer,             intent(in) :: atoms(:)
+  integer,             intent(in) :: displacements(:)
+  real(dp),            intent(in) :: forces(:,:,:)
+  real(dp),            intent(in) :: temperature_in
+  integer,             intent(in) :: no_kspace_lines_in
+  real(dp),            intent(in) :: disp_kpoints_in(:,:)
   
   ! ----------------------------------------
   ! previously global variables
@@ -2274,7 +2244,9 @@ subroutine initialise(prog_function,tol,tol2,delta,lte_filename,prim_lat_vec,sc_
 
   write(*,*)'Reading data from lte.dat...'
   write(*,*)
-  call read_lte(prog_function,tol,lte_filename,prim_rec_vec,sc_rec_vec,fc_scale,           &
+  call read_lte(prog_function,tol,structure,structure_sc,atoms,displacements, &
+     & forces,temperature_in,no_kspace_lines_in,disp_kpoints_in, &
+     & prim_rec_vec,sc_rec_vec,fc_scale,           &
      & no_atoms_in_prim,no_DoF_prim,no_prim_cells,length_scale,small_k_scale,&
      & vol_scale,                                                            &
      & prim_lat_vec,sc_lat_vec,no_atoms_in_sc,species,mass,atom_pos,         &
@@ -2357,7 +2329,8 @@ end subroutine
 ! ----------------------------------------------------------------------
 ! Main program.
 ! ----------------------------------------------------------------------
-subroutine lte(prog_function,tol,tol2,delta,lte_filename,freq_dos_filename, &
+subroutine lte(prog_function,tol,tol2,delta,structure,structure_sc,atoms, &
+   & displacements,forces,temperature_in,no_kspace_lines_in,disp_kpoints_in,freq_dos_filename, &
    & tdependence1_filename,tdependence2_filename,dispersion_curve_filename, &
    & kpairs_filename,freq_grids_filename,disp_patterns_filename,            &
    & kdisp_patterns_filename,pol_vec_filename,gvectors_filename,            &
@@ -2366,20 +2339,28 @@ subroutine lte(prog_function,tol,tol2,delta,lte_filename,freq_dos_filename, &
   use constants, only : dp
   use utils,     only : errstop, wordwrap
   use string_module
+  use structure_module
   implicit none
   
   ! ----------------------------------------
   ! Inputs
   ! ----------------------------------------
-  integer,  intent(in) :: prog_function
-  real(dp), intent(in) :: tol
-  real(dp), intent(in) :: tol2
-  real(dp), intent(in) :: delta
+  integer,             intent(in) :: prog_function
+  real(dp),            intent(in) :: tol
+  real(dp),            intent(in) :: tol2
+  real(dp),            intent(in) :: delta
+  type(StructureData), intent(in) :: structure
+  type(StructureData), intent(in) :: structure_sc
+  integer,             intent(in) :: atoms(:)
+  integer,             intent(in) :: displacements(:)
+  real(dp),            intent(in) :: forces(:,:,:)
+  real(dp),            intent(in) :: temperature_in
+  integer,             intent(in) :: no_kspace_lines_in
+  real(dp),            intent(in) :: disp_kpoints_in(:,:)
   
   ! ----------------------------------------
   ! filenames
   ! ----------------------------------------
-  type(String), intent(in) :: lte_filename
   type(String), intent(in) :: freq_dos_filename
   type(String), intent(in) :: tdependence1_filename
   type(String), intent(in) :: tdependence2_filename
@@ -2437,7 +2418,9 @@ subroutine lte(prog_function,tol,tol2,delta,lte_filename,freq_dos_filename, &
   
   call CPU_TIME(t1)
   
-  call initialise(prog_function,tol,tol2,delta,lte_filename,prim_lat_vec,sc_lat_vec,  &
+  call initialise(prog_function,tol,tol2,delta,structure,structure_sc,atoms, &
+     & displacements,forces,temperature_in,no_kspace_lines_in,disp_kpoints_in, &
+     & prim_lat_vec,sc_lat_vec,  &
      & prim_rec_vec,sc_rec_vec,length_scale,vol_scale,small_k_scale,fc_scale,&
      & temperature,no_atoms_in_sc,no_prim_cells,               &
      & no_atoms_in_prim,no_point_symms,no_kspace_lines,no_DoF_prim,species,  &
