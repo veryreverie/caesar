@@ -8,22 +8,17 @@ contains
 ! Extracts the symmetries operations
 ! Appends these symmetry operations to the original structure file
 ! ----------------------------------------------------------------------
-subroutine calculate_symmetry_helper(filenames)
+subroutine calculate_symmetry_helper(symmetry_filename,structure_filename)
   use string_module
   use structure_module
   implicit none
   
-  type(String), intent(in) :: filenames(:)
-  
   ! filenames
-  type(String) :: symmetry_filename ! The output of cellsym
-  type(String) :: structure_filename ! A structure file
+  type(String), intent(in) :: symmetry_filename ! The output of cellsym
+  type(String), intent(in) :: structure_filename ! A structure file
   
   ! file contents
   type(StructureData) :: structure
-  
-  symmetry_filename = filenames(1)
-  structure_filename = filenames(2)
   
   ! Read structure data without symmetries
   structure = read_structure_file(structure_filename)

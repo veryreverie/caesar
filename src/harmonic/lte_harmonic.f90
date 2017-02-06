@@ -146,32 +146,27 @@ subroutine lte_harmonic()
     disp_kpoints(:,3) = (/ 0.0_dp, 0.0_dp, 0.0_dp /) ! GM
     disp_kpoints(:,4) = (/ 0.0_dp, 0.5_dp, 0.0_dp /) ! L
     
-    call lte( 4,                                 &
-            & 1e-5_dp,                           &
-            & 1e-5_dp,                           &
-            & 1e-2_dp,                           &
-            & structure,                         &
-            & structure_scs(i),                  &
-            & atoms,                             &
-            & displacements,                     &
-            & forces,                            &
-            & 0.0_dp,                            &
-            & no_kspace_lines,                   &
-            & disp_kpoints,                      &
-            & sdir//'/lte/freq_dos.dat',         &
-            & sdir//'/lte/tdependence1.dat',     &
-            & sdir//'/lte/tdependence2.dat',     &
-            & sdir//'/lte/dispersion_curve.dat', &
-            & sdir//'/lte/kpairs.dat',           &
-            & sdir//'/lte/freq_grids.dat',       &
-            & sdir//'/lte/disp_patterns.dat',    &
-            & sdir//'/lte/kdisp_patterns.dat',   &
-            & sdir//'/lte/pol_vec.dat',          &
-            & sdir//'/lte/gvectors.dat',         &
-            & sdir//'/lte/gvectors_frac.dat',    &
-            & sdir//'/lte/error.txt',            &
-            & sdir//'/lte/dyn_mat.',             &
-            & sdir//'/lte/atoms_in_primitive_cell.dat')
+    call lte_4( 1e-5_dp,                           &
+              & 1e-5_dp,                           &
+              & 1e-2_dp,                           &
+              & structure,                         &
+              & structure_scs(i),                  &
+              & atoms,                             &
+              & displacements,                     &
+              & forces,                            &
+              & 0.0_dp,                            &
+              & no_kspace_lines,                   &
+              & 2*pi*disp_kpoints,                 &
+              & sdir//'/lte/kpairs.dat',           &
+              & sdir//'/lte/freq_grids.dat',       &
+              & sdir//'/lte/disp_patterns.dat',    &
+              & sdir//'/lte/kdisp_patterns.dat',   &
+              & sdir//'/lte/pol_vec.dat',          &
+              & sdir//'/lte/gvectors.dat',         &
+              & sdir//'/lte/gvectors_frac.dat',    &
+              & sdir//'/lte/error.txt',            &
+              & sdir//'/lte/dyn_mat.',             &
+              & sdir//'/lte/atoms_in_primitive_cell.dat')
     
     if (file_exists(sdir//'/lte/error.txt')) then
       write(*,"(a)") "There is an error in lte: check error.txt file."

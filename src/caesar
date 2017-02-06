@@ -8,6 +8,8 @@ function main {
     run_harmonic
   elif [  "$1" = "run_quadratic" ]; then
     run_quadratic
+  elif [  "$1" = "clear_all" ]; then
+    clear_all
   elif [  "$1" = "calculate_symmetry" ]; then
     calculate_symmetry
   else
@@ -20,10 +22,6 @@ function main {
     # Call .caesar
     $dir/.caesar $@
   fi
-}
-
-function tesst {
-  echo Hi there, this is a test
 }
 
 # ======================================================================
@@ -225,18 +223,19 @@ function calculate_symmetry {
   #   ...
   #  ~ ~ ~
   # End
-
-  caesar structure_to_dft \
-         castep           \
-         $1               \
-         calculate_symmetry.cell
-
+  
+  structure_file=$1
+  
+  # Create a .cell file from the structure file
+  caesar structure_to_dft castep $structure_file calculate_symmetry.cell
+  
+  # Use cellsym to calculate symmetries from the .cell file
   cellsym --symmetry calculate_symmetry.cell > calculate_symmetry.dat
-
-  caesar calculate_symmetry_helper \
-         calculate_symmetry.dat    \
-         $1
-         
+  
+  # Add symmetries to the structure file
+  caesar calculate_symmetry_helper calculate_symmetry.dat $structure_file
+  
+  # Clean up temporary files
   rm calculate_symmetry.cell
   rm calculate_symmetry.dat
 }

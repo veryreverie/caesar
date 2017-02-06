@@ -9,55 +9,6 @@
 ! monatomic crystal by averaging the gradients of the acoustic branches
 ! over all directions.
 
-! The program requires an lte.dat file of the form:
-
-!    Primitive lattice vectors (rows, in a.u.)
-!    0.d0 3.25 3.25
-!    3.25 0.d0 3.25
-!    3.25 3.25 0.d0
-!    Supercell lattice vectors (rows, in a.u.)
-!    0.d0 6.5 6.5
-!    6.5 0.d0 6.5
-!    6.5 6.5 0.d0
-!    Number of atoms in supercell
-!    8
-!    Species ; mass (a.u.) ; position of atom in supercell (in terms of SC LVs)
-!    Ne  36784.8   0.0  0.0  0.0
-!    Ne  36784.8   0.0  0.0  0.5
-!      (etc)
-!    Ne  36784.8   0.5  0.5  0.5
-!    Number of point-symmetry operations
-!    48
-!    Rotation matrices (3 rows) and translations (1 row, in terms of SC LVs)
-!    1.0   0.0   0.0
-!    0.0   1.0   0.0
-!    0.0   0.0   1.0
-!    0.0 0.0 0.0
-!      (etc)
-!    0.0   0.0   1.0
-!    0.0  -1.0   0.0
-!   -1.0   0.0   0.0
-!    0.0 0.0 0.0
-!   Number of force constants supplied
-!   24
-!   Atom 1 ; Cartes'n direction ; Atom 2 ; C. direction ; force constant (a.u.)
-!   1 1 1 1 -0.05
-!   1 1 1 2 0.0
-!     (etc)
-!   1 1 8 3 0.0
-!   Program fn: (1) calc thermal en.; (2) calc disp; (3) calc speed of snd
-!   1
-!   Temperature (K)
-!   4.2
-!   Number of lines in k space to plot
-!   4
-!   Points in journey through k space (in terms of 2pi * rec. prim. LVs)
-!   0.0 0.0 0.0
-!   0.5 0.5 0.0
-!   1.0 0.5 0.5
-!   0.0 0.0 0.0
-!   0.5 0.5 0.5
-
 ! Only a limited number of force constants need to be supplied: the program
 ! will use translational symmetry and the point-symmetry matrices supplied
 ! in order to complete as many elements of the matrix of force constants as
@@ -98,39 +49,39 @@
 !          speed-of-sound calculation.
 
 module lte_module
-  use min_images,     only : min_images_brute_force, maxim
   use constants,      only : dp, kB_au_per_K
   use utils,          only : i2s, errstop
-  use file_module,        only : open_read_file, open_write_file
   use linear_algebra, only : determinant33, inv_33
+  use min_images,     only : min_images_brute_force, maxim
+  use file_module
   implicit none
   
   private
-  public :: lte ! The main function.
+  public :: lte_1,lte_2,lte_3,lte_4
 contains
 
 ! ----------------------------------------------------------------------
 ! This function returns the number of the atom at rvec (up to translations
 ! through a supercell lattice vector.
 ! ----------------------------------------------------------------------
-integer function atom_at_pos(rvec,structure_sc,atom_pos)
+integer function atom_at_pos(rvec,structure_sc)
   use structure_module
   implicit none
   
-  real(dp), intent(in) :: rvec(3)
-  type(StructureData),  intent(in) :: structure_sc
-  real(dp), intent(in) :: atom_pos(:,:)
+  real(dp),            intent(in) :: rvec(3)
+  type(StructureData), intent(in) :: structure_sc
   
   integer :: atom1
   
+  atom_at_pos=0
   do atom1=1,structure_sc%no_atoms
     ! Separation of rvec and atom posn. Is a sc lattice vector.
-    if(is_lat_point(atom_pos(:,atom1)-rvec(:),structure_sc%recip_lattice))then
-      atom_at_pos=atom1
-      return
+    if (is_lat_point( structure_sc%cart_atoms(:,atom1)-rvec(:), &
+                    & structure_sc%recip_lattice)) then
+      atom_at_pos = atom1
+      exit
     endif
   enddo
-  atom_at_pos=0
 end function
 
 ! ----------------------------------------------------------------------
@@ -156,60 +107,38 @@ end function is_lat_point
 ! Read in the data in lte.dat and allocate arrays, etc.
 ! ----------------------------------------------------------------------
 subroutine read_lte(prog_function,tol,structure,structure_sc,atoms, &
-   & displacements,forces,temperature_in,no_kspace_lines_in,disp_kpoints_in, &
+   & displacements,forces,temperature,no_kspace_lines,disp_kpoints, &
    & fc_scale,      &
-   & no_atoms_in_prim,no_DoF_prim,no_prim_cells,length_scale, &
-   & vol_scale,                                                             &
-   & species,mass,atom_pos,          &
-   & force_const,defined,atom,rotation,offset,disp_kpoints,no_kspace_lines, &
-   & no_point_symms,temperature)
+   & no_prim_cells,length_scale, &
+   & vol_scale,                                                     &
+   & force_const,defined,atom)
   use constants, only : pi
   use string_module
   use structure_module
   implicit none
   
-  integer,      intent(in) :: prog_function
-  real(dp),     intent(in) :: tol
+  integer,             intent(in) :: prog_function
+  real(dp),            intent(in) :: tol
   type(StructureData), intent(in) :: structure
   type(StructureData), intent(in) :: structure_sc
   integer,             intent(in) :: atoms(:)
   integer,             intent(in) :: displacements(:)
   real(dp),            intent(in) :: forces(:,:,:)
-  real(dp),            intent(in) :: temperature_in
-  integer,             intent(in) :: no_kspace_lines_in
-  real(dp),            intent(in) :: disp_kpoints_in(:,:)
+  real(dp),            intent(in) :: temperature
+  integer,             intent(in) :: no_kspace_lines
+  real(dp),            intent(in) :: disp_kpoints(:,:)
   
-  real(dp),                  intent(out) :: fc_scale
-  integer,                   intent(out) :: no_atoms_in_prim
-  integer,                   intent(out) :: no_DoF_prim
-  integer,                   intent(out) :: no_prim_cells
-  real(dp),                  intent(out) :: length_scale
-  real(dp),                  intent(out) :: vol_scale
-  character(2), allocatable, intent(out) :: species(:)
-  real(dp),     allocatable, intent(out) :: mass(:)
-  real(dp),     allocatable, intent(out) :: atom_pos(:,:)
-  real(dp),     allocatable, intent(out) :: force_const(:,:,:,:)
-  logical,      allocatable, intent(out) :: defined(:,:,:,:)
-  integer,      allocatable, intent(out) :: atom(:,:)
-  real(dp),     allocatable, intent(out) :: rotation(:,:,:)
-  real(dp),     allocatable, intent(out) :: offset(:,:)
-  ! n.b. : disp_kpoints is only needed for prog_function=2
-  real(dp),     allocatable, intent(out) :: disp_kpoints(:,:)
-  integer,                   intent(out) :: no_kspace_lines
-  integer,                   intent(out) :: no_point_symms
-  real(dp),                  intent(out) :: temperature
+  real(dp),              intent(out) :: fc_scale
+  integer,               intent(out) :: no_prim_cells
+  real(dp),              intent(out) :: length_scale
+  real(dp),              intent(out) :: vol_scale
+  real(dp), allocatable, intent(out) :: force_const(:,:,:,:)
+  logical,  allocatable, intent(out) :: defined(:,:,:,:)
+  integer,  allocatable, intent(out) :: atom(:,:)
   
   integer  :: n,i,j,k
   integer  :: atom1,atom2,dir1,dir2
   real(dp) :: check_matrix
-  
-  real(dp) :: prim_cell_volume
-  real(dp) :: sc_cell_volume
-  
-  ! Construct reciprocal lattice vectors, etc.
-  ! The reciprocal lattice vectors of the primitive cell and the supercell
-  ! are calculated here.
-  ! NOTE THAT RECIPROCAL LATTICE VECTORS do NOT CONTAIN THE FACTOR OF 2*pi.
   
   ! Define the "length scale" to be the average of the lengths of the
   ! primitive lattice vectors and the reciprocal length scale to be the
@@ -220,38 +149,14 @@ subroutine read_lte(prog_function,tol,structure,structure_sc,atoms, &
   enddo
   vol_scale=length_scale**3
 
-  ! Primitive-cell reciprocal lattice vectors and volume.
-  prim_cell_volume=ABS(determinant33(structure%lattice))
-  
-  ! Supercell reciprocal lattice vectors and volume.
-  sc_cell_volume=ABS(determinant33(structure_sc%lattice))
-
   ! Number of unit cells.
-  no_prim_cells=NINT(sc_cell_volume/prim_cell_volume)
+  no_prim_cells = structure_sc%no_atoms/structure%no_atoms
   
-  no_atoms_in_prim=structure_sc%no_atoms/no_prim_cells
-  allocate(species(structure_sc%no_atoms),                   &
-    & mass(structure_sc%no_atoms),                           &
-    & atom_pos(3,structure_sc%no_atoms),                     &
-    & force_const(structure_sc%no_atoms,3,structure_sc%no_atoms,3), &
-    & defined(structure_sc%no_atoms,3,structure_sc%no_atoms,3),     &
-    & atom(no_prim_cells,no_atoms_in_prim))
-  no_DoF_prim=3*no_atoms_in_prim
+  allocate( force_const(structure_sc%no_atoms,3,structure_sc%no_atoms,3), &
+          & defined(structure_sc%no_atoms,3,structure_sc%no_atoms,3),     &
+          & atom(no_prim_cells,structure%no_atoms))
   
   ! Read in atom positions, species and masses.
-  ! Convert atom position from fractional coordinates (in file) to
-  ! Cartesian coordinates (used in program).  Translate the atom
-  ! coordinates into the supercell at the origin.
-  species = structure_sc%species
-  mass = structure_sc%mass
-  atom_pos = structure_sc%frac_atoms
-  atom_pos = matmul(structure_sc%lattice,atom_pos)
-  
-  no_point_symms = structure_sc%no_symmetries
-  allocate(rotation(3,3,no_point_symms),offset(3,no_point_symms))
-  rotation = structure_sc%rotation_matrices
-  offset = structure_sc%offsets
-  offset = matmul(structure_sc%lattice,offset)
   
   fc_scale = 0.d0
   defined(:,:,:,:)=.FALSE.
@@ -264,18 +169,12 @@ subroutine read_lte(prog_function,tol,structure,structure_sc,atoms, &
       do k=1,3
         dir2 = k
         call trans_symm(atom1,dir1,atom2,dir2,forces(k,j,i), &
-           & tol,atom_pos,structure_sc, &
-           & no_prim_cells,structure,mass,defined,force_const)
+           & tol,structure_sc, &
+           & no_prim_cells,structure,defined,force_const)
       enddo
     enddo
   enddo
   fc_scale=fc_scale/(size(atoms)*3*structure_sc%no_atoms)
-  
-  temperature = temperature_in
-  no_kspace_lines = no_kspace_lines_in
-  allocate(disp_kpoints(3,0:no_kspace_lines))
-  disp_kpoints = disp_kpoints_in
-  disp_kpoints = 2*pi*matmul(structure%recip_lattice,disp_kpoints)
   
   ! ----------------------------------------------------------------------
   ! Copy data to terminal
@@ -312,15 +211,15 @@ subroutine read_lte(prog_function,tol,structure,structure_sc,atoms, &
   write(*,*) structure_sc%recip_lattice(1:3,3)*2*pi
   write(*,*)
   
-  if(prim_cell_volume<tol*vol_scale)call errstop('READ_LTE', &
+  if(structure%volume<tol*vol_scale)call errstop('READ_LTE', &
     &'Primitive lattice vectors should be linearly independent.  Please &
     &check your lattice vectors.')
 
-  if(sc_cell_volume<tol*vol_scale)call errstop('READ_LTE', &
+  if(structure_sc%volume<tol*vol_scale)call errstop('READ_LTE', &
     &'Supercell lattice vectors should be linearly independent.  Please &
     &check your lattice vectors.')
   
-  if(ABS(DBLE(no_prim_cells)*prim_cell_volume-sc_cell_volume) &
+  if(ABS(DBLE(no_prim_cells)*structure%volume-structure_sc%volume) &
     &>tol*vol_scale)call errstop('READ_LTE','Supercell volume should &
     &be an integer multiple of primitive-cell volume.  Please check your &
     &lattice vectors.')
@@ -334,20 +233,18 @@ subroutine read_lte(prog_function,tol,structure,structure_sc,atoms, &
     &primitive cells.')
   write(*,*)
   
-  ! Read in atom positions, species and masses.
-  ! Convert atom position from fractional coordinates (in file) to
-  ! Cartesian coordinates (used in program).  Translate the atom
-  ! coordinates into the supercell at the origin.
+  ! Atom positions, species and masses.
   write(*,*)'Species ; Mass (a.u.) ; Position (Cartesian coordinates, a.u.)'
   do i=1,structure_sc%no_atoms
-    write(*,'(" ",a,"  ",f14.6," ",3("  ",f14.6))')species(i),mass(i), &
-      &atom_pos(1:3,i)
-    if(mass(i)<=0.d0)call errstop('READ_LTE','Mass should be positive.')
-  enddo ! i
+    write(*,'(" ",a,"  ",f14.6," ",3("  ",f14.6))')structure_sc%species(i),structure_sc%mass(i), &
+      &structure_sc%cart_atoms(1:3,i)
+    if(structure_sc%mass(i)<=0.d0)call errstop('READ_LTE','Mass should be positive.')
+  enddo
+  
   ! Check atoms aren't on top of each other.
   do i=1,structure_sc%no_atoms-1
     do j=i+1,structure_sc%no_atoms
-      if(is_lat_point(atom_pos(1:3,j)-atom_pos(1:3,i),structure_sc%recip_lattice))call &
+      if(is_lat_point(structure_sc%cart_atoms(1:3,j)-structure_sc%cart_atoms(1:3,i),structure_sc%recip_lattice))call &
         &errstop('READ_LTE','Atoms '//TRIM(i2s(i))//' and '//TRIM(i2s(j)) &
         &//' appear to be on top of one another.')
     enddo ! j
@@ -355,13 +252,13 @@ subroutine read_lte(prog_function,tol,structure,structure_sc,atoms, &
   write(*,*)
   
   ! Point-symmetry operations.
-  write(*,*)'Number of point symmetries         : '//TRIM(i2s(no_point_symms))
-  if(no_point_symms<1)call errstop('READ_LTE','At least one point-symmetry &
-    &rotation matrix (identity) must be supplied.')
-  do n=1,no_point_symms
+  write(*,*)'Number of point symmetries         : '//TRIM(i2s(structure_sc%no_symmetries))
+  if(structure_sc%no_symmetries<1)call errstop('READ_LTE','At least one point-symmetry &
+    &structure_sc%rotation_matrices matrix (identity) must be supplied.')
+  do n=1,structure_sc%no_symmetries
     do i=1,3
       do j=i,3
-        check_matrix=DOT_PRODUCT(rotation(1:3,i,n),rotation(1:3,j,n))
+        check_matrix=DOT_PRODUCT(structure_sc%rotation_matrices(1:3,i,n),structure_sc%rotation_matrices(1:3,j,n))
         if((i==j.AND.ABS(check_matrix-1.d0)>tol) &
           &.OR.(i/=j.AND.ABS(check_matrix)>tol))call &
           &errstop('READ_LTE','Rotation matrix '//TRIM(i2s(n)) &
@@ -369,7 +266,7 @@ subroutine read_lte(prog_function,tol,structure,structure_sc,atoms, &
       enddo
     enddo
   enddo
-  write(*,*)'Have read in rotation matrices and translation vectors.'
+  write(*,*)'Have read in structure_sc%rotation_matrices matrices and translation vectors.'
   write(*,*)
 
   ! Force constants supplied.
@@ -410,19 +307,17 @@ end subroutine
 ! place it in all translationally equivalent elements of the matrix of
 ! force constants.
 ! ----------------------------------------------------------------------
-subroutine trans_symm(atom1,dir1,atom2,dir2,fc,tol,atom_pos,structure_sc, &
-   & no_prim_cells,structure,mass,defined,force_const)
+subroutine trans_symm(atom1,dir1,atom2,dir2,fc,tol,structure_sc, &
+   & no_prim_cells,structure,defined,force_const)
   use structure_module
   implicit none
   
   real(dp), intent(in) :: tol
   integer , intent(in) :: atom1,dir1,atom2,dir2
   real(dp), intent(in) :: fc
-  real(dp), intent(in) :: atom_pos(:,:)
   type(StructureData),  intent(in) :: structure_sc
   integer,  intent(in) :: no_prim_cells
   type(StructureData), intent(in) :: structure
-  real(dp), intent(in) :: mass(:)
   
   logical,  intent(inout) :: defined(:,:,:,:)
   real(dp), intent(inout) :: force_const(:,:,:,:)
@@ -430,26 +325,28 @@ subroutine trans_symm(atom1,dir1,atom2,dir2,fc,tol,atom_pos,structure_sc, &
   integer :: atom1p,atom2p,no_translations
   real(dp) :: pos_atom2p(3),relpos_atom2_atom1(3)
   
-  relpos_atom2_atom1(1:3)=atom_pos(1:3,atom2)-atom_pos(1:3,atom1)
+  relpos_atom2_atom1(1:3)=structure_sc%cart_atoms(1:3,atom2)-structure_sc%cart_atoms(1:3,atom1)
   no_translations=0
   do atom1p=1,structure_sc%no_atoms
-    if(is_lat_point(atom_pos(1:3,atom1p)-atom_pos(1:3,atom1), &
+    if(is_lat_point(structure_sc%cart_atoms(1:3,atom1p)-structure_sc%cart_atoms(1:3,atom1), &
       &structure%recip_lattice))then
       ! atom1p and atom1 are equivalent under trans. symm.
-      if(ABS(mass(atom1p)-mass(atom1))>tol*mass(atom1))call &
-        &errstop('TRANS_SYMM','Atoms '//TRIM(i2s(atom1))//' and ' &
+      if (abs(structure_sc%mass(atom1p)/structure_sc%mass(atom1)-1)>tol) then
+        call errstop('TRANS_SYMM','Atoms '//TRIM(i2s(atom1))//' and ' &
         &//TRIM(i2s(atom1p))//' are equivalent by translational symmetry, &
         &but they have different masses.')
-      pos_atom2p(1:3)=atom_pos(1:3,atom1p)+relpos_atom2_atom1(1:3)
-      atom2p=atom_at_pos(pos_atom2p,structure_sc,atom_pos)
+      endif
+      pos_atom2p(1:3)=structure_sc%cart_atoms(1:3,atom1p)+relpos_atom2_atom1(1:3)
+      atom2p=atom_at_pos(pos_atom2p,structure_sc)
       if(atom2p<=0)call errstop('TRANS_SYMM','Please check that your atom &
         &coordinates satisfy the translational symmetry they should have.')
       ! atom2p and atom2 are related to each other by the same translation
       ! as atom1p and atom1.
-      if(ABS(mass(atom2p)-mass(atom2))>tol*mass(atom2))call &
-        &errstop('TRANS_SYMM','Atoms '//TRIM(i2s(atom2))//' and ' &
+      if (abs(structure_sc%mass(atom2p)/structure_sc%mass(atom2)-1)>tol) then
+        call errstop('TRANS_SYMM','Atoms '//TRIM(i2s(atom2))//' and ' &
         &//TRIM(i2s(atom2p))//' are equivalent by translational &
         &symmetry, but they have different masses.')
+      endif
       if(defined(atom1p,dir1,atom2p,dir2))then
         write(*,*)atom1p,dir1,atom2p,dir2
         call errstop('TRANS_SYMM', &
@@ -471,26 +368,20 @@ end subroutine
 ! Apply all of the point symmetry operations in turn in order to complete
 ! the matrix of force constants.  Give a pair of atoms atom1 and atom2, we
 ! find the corresponding pair of atoms atom1p and atom2p after the 
-! symmetry translation and rotation have been applied.  The matrix of
+! symmetry translation and structure_sc%rotation_matrices have been applied.  The matrix of
 ! force constants Phi then transforms as Phi' = R Phi R^T, where R is the
-! rotation matrix and Phi and Phi' are the matrices of force constants
+! structure_sc%rotation_matrices matrix and Phi and Phi' are the matrices of force constants
 ! between atom1 & atom2 and atom1p & atom2p, respectively.  Some elements
 ! of Phi may be unknown, but so long as they are multiplied by zero we can
 ! still work out the corresponding elements of Phi'.
 ! ----------------------------------------------------------------------
-subroutine point_symm(tol,structure_sc,no_point_symms,rotation, &
-   & atom_pos,offset,mass,defined,force_const)
+subroutine point_symm(tol,structure_sc,defined,force_const)
   use linear_algebra, only : ddot
   use structure_module
   implicit none
   
-  real(dp), intent(in) :: tol
-  type(StructureData),  intent(in) :: structure_sc
-  integer,  intent(in) :: no_point_symms
-  real(dp), intent(in) :: rotation(:,:,:)
-  real(dp), intent(in) :: atom_pos(:,:)
-  real(dp), intent(in) :: offset(:,:)
-  real(dp), intent(in) :: mass(:)
+  real(dp),            intent(in) :: tol
+  type(StructureData), intent(in) :: structure_sc
   
   logical,  intent(inout) :: defined(:,:,:,:)
   real(dp), intent(inout) :: force_const(:,:,:,:)
@@ -518,25 +409,25 @@ subroutine point_symm(tol,structure_sc,no_point_symms,rotation, &
     enddo ! atom2
   enddo ! j
 
-  do n=1,no_point_symms
+  do n=1,structure_sc%no_symmetries
 
     do atom1=1,structure_sc%no_atoms
 
       ! Rotate atom coordinates and identify equivalent atom.
       do i=1,3
         ! LAPACK commented out because it isn't working. 9/1/2017
-        ! pos_atom1p(i) = offset(i,n) &
-        !             & + ddot(3,rotation(i,1,n),3,atom_pos(1,atom1),1)
-        pos_atom1p(i) = offset(i,n) &
-                    & + dot_product(rotation(i,:,n),atom_pos(:,atom1))
+        ! pos_atom1p(i) = structure_sc%offsets_cart(i,n) &
+        !             & + ddot(3,structure_sc%rotation_matrices(i,1,n),3,structure_sc%cart_atoms(1,atom1),1)
+        pos_atom1p(i) = structure_sc%offsets_cart(i,n) &
+                    & + dot_product(structure_sc%rotation_matrices(i,:,n),structure_sc%cart_atoms(:,atom1))
       enddo ! i
-      atom1p=atom_at_pos(pos_atom1p,structure_sc,atom_pos)
-      !write(*,*)n,atom1,atom1p,atom_at_pos(pos_atom1p,atom_pos)
+      atom1p=atom_at_pos(pos_atom1p,structure_sc)
+      !write(*,*)n,atom1,atom1p,atom_at_pos(pos_atom1p,structure_sc%cart_atoms)
       if(atom1p<=0)call errstop('POINT_SYMM','Please check that &
         &your atom coordinates satisfy the rotational symmetries that you &
         &have supplied.  NB, I have assumed that r''=b+Rr, where R is the &
-        &rotation matrix and b is the translation.  This may be wrong.')
-      if(ABS(mass(atom1)-mass(atom1p))>tol*mass(atom1))call &
+        &structure_sc%rotation_matrices matrix and b is the translation.  This may be wrong.')
+      if(ABS(structure_sc%mass(atom1)-structure_sc%mass(atom1p))>tol*structure_sc%mass(atom1))call &
         &errstop('POINT_SYMM','Atoms '//TRIM(i2s(atom1))//' and ' &
         &//TRIM(i2s(atom1p))//' are equivalent by rotational symmetry, &
         &but they have different masses.')
@@ -546,32 +437,32 @@ subroutine point_symm(tol,structure_sc,no_point_symms,rotation, &
         ! Rotate atom coordinates and identify equivalent atom.
         do i=1,3
           ! LAPACK commented out because it isn't working. 9/1/2017
-          ! pos_atom2p(i)=offset(i,n)+ddot(3,rotation(i,1,n),3, &
-          !   &atom_pos(1,atom2),1)
-          pos_atom2p(i) = offset(i,n) &
-                      & + dot_product(rotation(i,:,n),atom_pos(:,atom2))
+          ! pos_atom2p(i)=structure_sc%offsets_cart(i,n)+ddot(3,structure_sc%rotation_matrices(i,1,n),3, &
+          !   &structure_sc%cart_atoms(1,atom2),1)
+          pos_atom2p(i) = structure_sc%offsets_cart(i,n) &
+                      & + dot_product(structure_sc%rotation_matrices(i,:,n),structure_sc%cart_atoms(:,atom2))
         enddo ! i
-        atom2p=atom_at_pos(pos_atom2p,structure_sc,atom_pos)
-        !write(*,*)n,atom2,atom2p,atom_at_pos(pos_atom2p,atom_pos),pos_atom2p(1),pos_atom2p(2),pos_atom2p(3)
+        atom2p=atom_at_pos(pos_atom2p,structure_sc)
+        !write(*,*)n,atom2,atom2p,atom_at_pos(pos_atom2p,structure_sc%cart_atoms),pos_atom2p(1),pos_atom2p(2),pos_atom2p(3)
         if(atom2p<=0)call errstop('POINT_SYMM','Please check that &
           &your atom coordinates satisfy the rotational symmetries that &
           &you have supplied.  NB, I have assumed that r''=b+Rr, where R &
-          &is the rotation matrix and b is the translation.  This may be &
+          &is the structure_sc%rotation_matrices matrix and b is the translation.  This may be &
           &wrong.')
 
-        ! Apply rotation to maxtrix of force constants.  Record whether or
+        ! Apply structure_sc%rotation_matrices to maxtrix of force constants.  Record whether or
         ! not each force constant is well-defined.
         do i=1,3
           do j=1,3
             fc=0.d0
             well_defined=.TRUE.
             ip_loop : do ip=1,3
-              if(ABS(rotation(i,ip,n))>tol)then
+              if(ABS(structure_sc%rotation_matrices(i,ip,n))>tol)then
                 product=0.d0
                 do jp=1,3
-                  if(ABS(rotation(j,jp,n))>tol)then
+                  if(ABS(structure_sc%rotation_matrices(j,jp,n))>tol)then
                     if(defined(atom1,ip,atom2,jp))then
-                      product=product+rotation(j,jp,n) &
+                      product=product+structure_sc%rotation_matrices(j,jp,n) &
                         &*force_const(atom1,ip,atom2,jp)
                     else
                       well_defined=.FALSE.
@@ -579,7 +470,7 @@ subroutine point_symm(tol,structure_sc,no_point_symms,rotation, &
                     endif ! Force constant defined
                   endif ! Rotation non-zero.
                 enddo ! jp
-                fc=fc+product*rotation(i,ip,n)
+                fc=fc+product*structure_sc%rotation_matrices(i,ip,n)
               endif ! Rotation non-zero.
             enddo ip_loop ! ip
             if(well_defined)then
@@ -629,7 +520,7 @@ end subroutine
 ! some tolerance.  This approach is valid for any geometry.
 ! ----------------------------------------------------------------------
 subroutine point_symm_brute_force(tol,fc_scale,structure_sc, &
-   & no_DoF_prim,no_point_symms,rotation,atom_pos,offset,   &
+   & structure,   &
    & force_const,defined)
   use linear_algebra,only : ddot
   use structure_module
@@ -638,11 +529,7 @@ subroutine point_symm_brute_force(tol,fc_scale,structure_sc, &
   real(dp), intent(in) :: tol
   real(dp), intent(in) :: fc_scale
   type(StructureData),  intent(in) :: structure_sc
-  integer,  intent(in) :: no_DoF_prim
-  integer,  intent(in) :: no_point_symms
-  real(dp), intent(in) :: rotation(:,:,:)
-  real(dp), intent(in) :: atom_pos(:,:)
-  real(dp), intent(in) :: offset(:,:)
+  type(StructureData),  intent(in) :: structure
   
   real(dp), intent(inout) :: force_const(:,:,:,:)
   logical,  intent(inout) :: defined(:,:,:,:)
@@ -653,7 +540,7 @@ subroutine point_symm_brute_force(tol,fc_scale,structure_sc, &
   real(dp) :: fc,pos_atom1p(3),pos_atom2p(3),max_diff
   logical :: last_iteration
 
-  three_noDoFprim_sq=3*no_DoF_prim**2
+  three_noDoFprim_sq=3*structure%no_modes**2
 
   last_iteration=.FALSE.
 
@@ -661,23 +548,23 @@ subroutine point_symm_brute_force(tol,fc_scale,structure_sc, &
 
     max_diff=0.d0
 
-    do n=1,no_point_symms
+    do n=1,structure_sc%no_symmetries
 
       do atom1=1,structure_sc%no_atoms
 
         ! Rotate atom coordinates and identify equivalent atom.
         do i=1,3
           ! LAPACK commented out because it isn't working. 9/1/2017
-          ! pos_atom1p(i)=offset(i,n)+ddot(3,rotation(i,1,n),3, &
-          !   &atom_pos(1,atom1),1)
-          pos_atom1p(i) = offset(i,n) &
-                      & + dot_product(rotation(i,:,n),atom_pos(:,atom1))
+          ! pos_atom1p(i)=structure_sc%offsets_cart(i,n)+ddot(3,structure_sc%rotation_matrices(i,1,n),3, &
+          !   &structure_sc%cart_atoms(1,atom1),1)
+          pos_atom1p(i) = structure_sc%offsets_cart(i,n) &
+                      & + dot_product(structure_sc%rotation_matrices(i,:,n),structure_sc%cart_atoms(:,atom1))
         enddo ! i
-        atom1p=atom_at_pos(pos_atom1p,structure_sc,atom_pos)
+        atom1p=atom_at_pos(pos_atom1p,structure_sc)
         if(atom1p<=0)call errstop('POINT_SYMM_BRUTE_FORCE','Please check &
           &that your atom coordinates satisfy the rotational symmetries that &
           &you have supplied.  NB, I have assumed that r''=b+Rr, where R is &
-          &the rotation matrix and b is the translation.  This may be &
+          &the structure_sc%rotation_matrices matrix and b is the translation.  This may be &
           &wrong.')
 
         do atom2=1,structure_sc%no_atoms
@@ -685,16 +572,16 @@ subroutine point_symm_brute_force(tol,fc_scale,structure_sc, &
           ! Rotate atom coordinates and identify equivalent atom.
           do i=1,3
             ! LAPACK commented out because it isn't working. 9/1/2017
-            ! pos_atom2p(i)=offset(i,n)+ddot(3,rotation(i,1,n),3, &
-            !   &atom_pos(1,atom2),1)
-            pos_atom2p(i) = offset(i,n) &
-                        & + dot_product(rotation(i,:,n),atom_pos(:,atom2))
+            ! pos_atom2p(i)=structure_sc%offsets_cart(i,n)+ddot(3,structure_sc%rotation_matrices(i,1,n),3, &
+            !   &structure_sc%cart_atoms(1,atom2),1)
+            pos_atom2p(i) = structure_sc%offsets_cart(i,n) &
+                        & + dot_product(structure_sc%rotation_matrices(i,:,n),structure_sc%cart_atoms(:,atom2))
           enddo ! i
-          atom2p=atom_at_pos(pos_atom2p,structure_sc,atom_pos)
+          atom2p=atom_at_pos(pos_atom2p,structure_sc)
           if(atom2p<=0)call errstop('POINT_SYMM_BRUTE_FORCE','Please check &
             &that your atom coordinates satisfy the rotational symmetries &
             &that you have supplied.  NB, I have assumed that r''=b+Rr, &
-            &where R is the rotation matrix and b is the translation.  &
+            &where R is the structure_sc%rotation_matrices matrix and b is the translation.  &
             &This may be wrong.')
 
           do i=1,3
@@ -703,13 +590,13 @@ subroutine point_symm_brute_force(tol,fc_scale,structure_sc, &
                 fc=0.d0
                 do ip=1,3
                   ! LAPACK commented out because it isn't working. 9/1/2017
-                  ! fc=fc+ddot(3,rotation(j,1,n),3, &
+                  ! fc=fc+ddot(3,structure_sc%rotation_matrices(j,1,n),3, &
                   !   &force_const(atom1,ip,atom2,1),three_noDoFprim_sq) &
-                  !   &*rotation(i,ip,n)
+                  !   &*structure_sc%rotation_matrices(i,ip,n)
                   fc = fc                                        &
-                   & + dot_product(rotation(j,:,n),              &
+                   & + dot_product(structure_sc%rotation_matrices(j,:,n),              &
                    &               force_const(atom1,ip,atom2,:)) &
-                   & * rotation(i,ip,n)
+                   & * structure_sc%rotation_matrices(i,ip,n)
                 enddo ! ip
                 if(ABS(force_const(atom1p,i,atom2p,j)-fc)>max_diff)then 
                   max_diff=ABS(force_const(atom1p,i,atom2p,j)-fc)
@@ -737,14 +624,13 @@ end subroutine
 ! ----------------------------------------------------------------------
 ! Impose Newton's third law on the matrix of force constants.
 ! ----------------------------------------------------------------------
-subroutine newtons_law(tol,fc_scale,no_atoms_in_prim,structure_sc, &
-   & force_const)
+subroutine newtons_law(tol,fc_scale,structure,structure_sc,force_const)
   use structure_module
   implicit none
   
   real(dp), intent(in) :: tol
   real(dp), intent(in) :: fc_scale
-  integer,  intent(in) :: no_atoms_in_prim
+  type(StructureData),  intent(in) :: structure
   type(StructureData),  intent(in) :: structure_sc
   
   real(dp), intent(inout) :: force_const(:,:,:,:)
@@ -805,7 +691,7 @@ subroutine newtons_law(tol,fc_scale,no_atoms_in_prim,structure_sc, &
 
     ! For monatomic crystals we have inversion symmetry too.
     ! See Ashcroft & Mermin, p438.
-    if(no_atoms_in_prim==1)then
+    if(structure%no_atoms==1)then
       do atom1=1,structure_sc%no_atoms
         do i=1,3
           do atom2=1,structure_sc%no_atoms
@@ -837,13 +723,12 @@ end subroutine
 ! ----------------------------------------------------------------------
 ! Mass-reduce the matrix of force constants.
 ! ----------------------------------------------------------------------
-subroutine mass_reduce(structure_sc,mass,force_const)
+subroutine mass_reduce(structure_sc,force_const)
   use linear_algebra, only : dscal
   use structure_module
   implicit none
   
-  type(StructureData),  intent(in) :: structure_sc
-  real(dp), intent(in) :: mass(:)
+  type(StructureData), intent(in) :: structure_sc
   
   real(dp), intent(inout) :: force_const(:,:,:,:)
   
@@ -851,7 +736,7 @@ subroutine mass_reduce(structure_sc,mass,force_const)
   real(dp) :: rec_root_mass(structure_sc%no_atoms),rec_root_m1m2
   
   do atom1=1,structure_sc%no_atoms
-    rec_root_mass(atom1)=1.d0/sqrt(mass(atom1))
+    rec_root_mass(atom1)=1.d0/sqrt(structure_sc%mass(atom1))
   enddo ! atom1
   do atom2=1,structure_sc%no_atoms
     do atom1=1,structure_sc%no_atoms
@@ -873,18 +758,16 @@ end subroutine
 ! in which an atom is found and the label of the atom within the
 ! primitive cell.
 ! ----------------------------------------------------------------------
-subroutine find_prim_cell(delta,structure_sc,atom_pos,structure,   &
-   & no_prim_cells,no_atoms_in_prim, &
+subroutine find_prim_cell(delta,structure_sc,structure,   &
+   & no_prim_cells, &
    & atom,atom_in_prim,prim_cell_for_atom,no_equiv_ims,delta_prim)
   use structure_module
   implicit none
   
   real(dp), intent(in) :: delta
-  type(StructureData),  intent(in) :: structure_sc
-  real(dp), intent(in) :: atom_pos(:,:)
+  type(StructureData), intent(in) :: structure_sc
   type(StructureData), intent(in) :: structure
   integer,  intent(in) :: no_prim_cells
-  integer,  intent(in) :: no_atoms_in_prim
   
   integer,  intent(inout) :: atom(:,:)
   
@@ -908,7 +791,7 @@ subroutine find_prim_cell(delta,structure_sc,atom_pos,structure,   &
   ! cell due to atoms sitting on the boundary between two primitive cells.
   delta_vect(1:3,1:3)=delta*structure%lattice(1:3,1:3)
   do n=1,structure_sc%no_atoms
-    r_temp(1:3)=atom_pos(1:3,n)+2.d0*delta_vect(1:3,1) &
+    r_temp(1:3)=structure_sc%cart_atoms(1:3,n)+2.d0*delta_vect(1:3,1) &
       &+2.d0*delta_vect(1:3,2)+2.d0*delta_vect(1:3,3)
     n1=FLOOR(DOT_PRODUCT(r_temp(1:3),structure%recip_lattice(1:3,1)))
     n1p=FLOOR(DOT_PRODUCT(r_temp(1:3)+delta_vect(1:3,1), &
@@ -948,12 +831,12 @@ subroutine find_prim_cell(delta,structure_sc,atom_pos,structure,   &
       do m=n+1,structure_sc%no_atoms
         ! Is difference of atom positions an integer multiple of the
         ! primitive reciprocal lattice vectors?  If so, same label.
-        if(is_lat_point(atom_pos(1:3,m)-atom_pos(1:3,n),structure%recip_lattice)) &
+        if(is_lat_point(structure_sc%cart_atoms(1:3,m)-structure_sc%cart_atoms(1:3,n),structure%recip_lattice)) &
           &atom_in_prim(m)=label
       enddo ! m
     endif ! Atom not yet labelled by number within prim cell.
   enddo ! n
-  if(label/=no_atoms_in_prim)call errstop('FIND_PRIM_CELL','Problem &
+  if(label/=structure%no_atoms)call errstop('FIND_PRIM_CELL','Problem &
     &labelling the atoms in the primitive cell.')
 
   ! Establish a label for each different primitive cell, and evaluate
@@ -986,20 +869,20 @@ subroutine find_prim_cell(delta,structure_sc,atom_pos,structure,   &
 
   ! Work out number of equivalent images and Delta Prim. Lattice Vectors
   ! for pairs of atoms (used in evaluation of force-constant matrix).
-  allocate(no_equiv_ims(no_prim_cells,no_atoms_in_prim,no_atoms_in_prim), &
-    &delta_prim(3,maxim,no_prim_cells,no_atoms_in_prim, &
-    &no_atoms_in_prim),stat=ialloc)
+  allocate(no_equiv_ims(no_prim_cells,structure%no_atoms,structure%no_atoms), &
+    &delta_prim(3,maxim,no_prim_cells,structure%no_atoms, &
+    &structure%no_atoms),stat=ialloc)
   if(ialloc/=0)call errstop('FIND_PRIM_CELL','Allocation error: &
     &no_equiv_ims, etc.')
   delta_prim=0.d0
-  do n=1,no_atoms_in_prim
+  do n=1,structure%no_atoms
     atom1=atom(1,n)
-    do m=1,no_atoms_in_prim
-      delta_r_corr=atom_pos(1:3,atom1)-atom_pos(1:3,atom(1,m))
+    do m=1,structure%no_atoms
+      delta_r_corr=structure_sc%cart_atoms(1:3,atom1)-structure_sc%cart_atoms(1:3,atom(1,m))
       do p=1,no_prim_cells
         ! Work out min. image distance(s) between atoms (1,n) and (p,m).
-        call min_images_brute_force(atom_pos(1:3,atom(p,m)) &
-          &-atom_pos(1:3,atom1),structure_sc%lattice,delta_r_ims, &
+        call min_images_brute_force(structure_sc%cart_atoms(1:3,atom(p,m)) &
+          &-structure_sc%cart_atoms(1:3,atom1),structure_sc%lattice,delta_r_ims, &
           &no_equiv_ims(p,m,n))
         ! Turn this into the corresponding difference(s) of latt. vects.
         do im=1,no_equiv_ims(p,m,n)
@@ -1013,30 +896,30 @@ end subroutine
 ! ----------------------------------------------------------------------
 ! Construct the dynamical matrix for a given k vector.
 ! ----------------------------------------------------------------------
-subroutine construct_dyn_matrix(kvec,delta_prim,no_DoF_prim,no_prim_cells, &
-   & no_atoms_in_prim,atom,no_equiv_ims,force_const,dyn_mat)
+subroutine construct_dyn_matrix(kvec,delta_prim,structure,no_prim_cells, &
+   & atom,no_equiv_ims,force_const,dyn_mat)
+  use structure_module
   implicit none
   
   real(dp), intent(in) :: kvec(3)
   real(dp), intent(in) :: delta_prim(:,:,:,:,:)
-  integer,  intent(in) :: no_DOF_prim
+  type(StructureData), intent(in) :: structure
   integer,  intent(in) :: no_prim_cells
-  integer,  intent(in) :: no_atoms_in_prim
   integer,  intent(in) :: atom(:,:)
   integer,  intent(in) :: no_equiv_ims(:,:,:)
   real(dp), intent(in) :: force_const(:,:,:,:)
   
-  complex(dp), intent(inout) :: dyn_mat(no_DoF_prim,no_DoF_prim)
+  complex(dp), intent(inout) :: dyn_mat(structure%no_modes,structure%no_modes)
   
   integer :: p,n,m,i,j,index1,index2,atom1,im
-  complex(dp) :: dm,tempc,expikdotD(no_prim_cells,no_atoms_in_prim,&
-    &no_atoms_in_prim)
+  complex(dp) :: dm,tempc,expikdotD(no_prim_cells,structure%no_atoms,&
+    &structure%no_atoms)
   real(dp) :: k_dot_D
 
   ! Precompute exp(-ik.(R-R')) to go in the dynamical matrix.
-  do n=1,no_atoms_in_prim
+  do n=1,structure%no_atoms
     atom1=atom(1,n)
-    do m=1,no_atoms_in_prim
+    do m=1,structure%no_atoms
       do p=1,no_prim_cells
         tempc=CMPLX(0.d0,0.d0,dp)
         do im=1,no_equiv_ims(p,m,n)
@@ -1054,12 +937,12 @@ subroutine construct_dyn_matrix(kvec,delta_prim,no_DoF_prim,no_prim_cells, &
 
   ! Evaluate the dynamical matrix.
   index1=0
-  do n=1,no_atoms_in_prim
+  do n=1,structure%no_atoms
     atom1=atom(1,n)
     do i=1,3
       index1=index1+1
       index2=0
-      do m=1,no_atoms_in_prim
+      do m=1,structure%no_atoms
         do j=1,3
           index2=index2+1
           dm=CMPLX(0.d0,0.d0,dp)
@@ -1073,9 +956,9 @@ subroutine construct_dyn_matrix(kvec,delta_prim,no_DoF_prim,no_prim_cells, &
   enddo ! n
 
   ! Enforce Hermiticity on the dynamical matrix.
-  do index1=1,no_DoF_prim
+  do index1=1,structure%no_modes
     dyn_mat(index1,index1)=CMPLX(real(dyn_mat(index1,index1),dp),0.d0,dp)
-    do index2=index1+1,no_DoF_prim
+    do index2=index1+1,structure%no_modes
       dm=0.5d0*(dyn_mat(index1,index2)+CONJG(dyn_mat(index2,index1)))
       dyn_mat(index1,index2)=dm
       dyn_mat(index2,index1)=CONJG(dm)
@@ -1086,40 +969,40 @@ end subroutine
 ! ----------------------------------------------------------------------
 ! For a given k, construct and diagonalise the dynamical matrix.
 ! ----------------------------------------------------------------------
-subroutine calculate_eigenfreqs(kvec,delta_prim,no_DoF_prim, &
-   & no_atoms_in_prim,no_prim_cells,atom,no_equiv_ims,force_const,omega)
+subroutine calculate_eigenfreqs(kvec,delta_prim,structure, &
+   & no_prim_cells,atom,no_equiv_ims,force_const,omega)
   use linear_algebra, only : zheev
+  use structure_module
   implicit none
   
   real(dp), intent(in) :: kvec(3)
   real(dp), intent(in) :: delta_prim(:,:,:,:,:)
-  integer,  intent(in) :: no_DoF_prim
-  integer,  intent(in) :: no_atoms_in_prim
+  type(StructureData), intent(in) :: structure
   integer,  intent(in) :: no_prim_cells
   integer,  intent(in) :: atom(:,:)
   integer,  intent(in) :: no_equiv_ims(:,:,:)
   real(dp), intent(in) :: force_const(:,:,:,:)
   
-  real(dp),intent(out) :: omega(no_DoF_prim)
+  real(dp),intent(out) :: omega(structure%no_modes)
   
-  complex(dp) :: dyn_mat(no_DoF_prim,no_DoF_prim),work(2*no_DoF_prim-1)
-  real(dp) :: rwork(3*no_DoF_prim-2),minusomegasq(no_DoF_prim)
+  complex(dp) :: dyn_mat(structure%no_modes,structure%no_modes),work(2*structure%no_modes-1)
+  real(dp) :: rwork(3*structure%no_modes-2),minusomegasq(structure%no_modes)
   integer :: n,m,info
   
   ! Construct dynamical matrix.
-  call construct_dyn_matrix(kvec,delta_prim,no_DoF_prim,no_prim_cells, &
-     & no_atoms_in_prim,atom,no_equiv_ims,force_const,dyn_mat)
+  call construct_dyn_matrix(kvec,delta_prim,structure,no_prim_cells, &
+     & atom,no_equiv_ims,force_const,dyn_mat)
 
-  call zheev('N','U',no_DoF_prim,dyn_mat(1,1),no_DoF_prim,minusomegasq(1), &
-    &work(1),2*no_DoF_prim-1,rwork(1),info)
+  call zheev('N','U',structure%no_modes,dyn_mat(1,1),structure%no_modes,minusomegasq(1), &
+    &work(1),2*structure%no_modes-1,rwork(1),info)
   if(info/=0)call errstop('CALCULATE_EIGENFREQS','ZHEEV failed (1).  Error &
     &code: '//TRIM(i2s(info))//'.')
 
   ! Eigenvalues of dynamical matrix are minus the frequencies squared.
   ! The eigenvalues are in ascending order, so the +ve frequencies
   ! will be in ascending order.
-  m=no_DoF_prim
-  do n=1,no_DoF_prim
+  m=structure%no_modes
+  do n=1,structure%no_modes
     if(minusomegasq(m)>=0.d0)then
       omega(n)=-SQRT(minusomegasq(m)) ! Unstable mode.
     else
@@ -1134,47 +1017,47 @@ end subroutine
 ! This subroutine returns the polarisation vectors as well.
 ! It is not optimised for speed.
 ! ----------------------------------------------------------------------
-subroutine calculate_eigenfreqs_and_vecs(kvec,no_DoF_prim,delta_prim, &
-   & no_atoms_in_prim,no_prim_cells,atom,no_equiv_ims,force_const,    &
+subroutine calculate_eigenfreqs_and_vecs(kvec,structure,delta_prim, &
+   & no_prim_cells,atom,no_equiv_ims,force_const,    &
    & omega,pol_vec)
   use linear_algebra,only : zscal,dznrm2,zheev,zcopy
+  use structure_module
   implicit none
   
   real(dp), intent(in) :: kvec(3)
-  integer,  intent(in) :: no_DoF_prim
+  type(StructureData), intent(in) :: structure
   real(dp), intent(in) :: delta_prim(:,:,:,:,:)
-  integer,  intent(in) :: no_atoms_in_prim
   integer,  intent(in) :: no_prim_cells
   integer,  intent(in) :: atom(:,:)
   integer,  intent(in) :: no_equiv_ims(:,:,:)
   real(dp), intent(in) :: force_const(:,:,:,:)
   
-  real(dp),    intent(out) :: omega(no_DoF_prim)
-  complex(dp), intent(out) :: pol_vec(no_DoF_prim,no_DoF_prim)
+  real(dp),    intent(out) :: omega(structure%no_modes)
+  complex(dp), intent(out) :: pol_vec(structure%no_modes,structure%no_modes)
   
-  real(dp) :: rwork(3*no_DoF_prim-2), &
-    &minusomegasq(no_DoF_prim)
-  complex(dp) :: dyn_mat(no_DoF_prim,no_DoF_prim),work(2*no_DoF_prim-1)
+  real(dp) :: rwork(3*structure%no_modes-2), &
+    &minusomegasq(structure%no_modes)
+  complex(dp) :: dyn_mat(structure%no_modes,structure%no_modes),work(2*structure%no_modes-1)
   integer :: n,m,info
 
   ! Construct dynamical matrix.
-  call construct_dyn_matrix(kvec,delta_prim,no_DoF_prim,no_prim_cells, &
-     & no_atoms_in_prim,atom,no_equiv_ims,force_const,dyn_mat)
+  call construct_dyn_matrix(kvec,delta_prim,structure,no_prim_cells, &
+     & atom,no_equiv_ims,force_const,dyn_mat)
 
-  call zheev('V','U',no_DoF_prim,dyn_mat(1,1),no_DoF_prim,minusomegasq(1), &
-    &work(1),2*no_DoF_prim-1,rwork(1),info)
+  call zheev('V','U',structure%no_modes,dyn_mat(1,1),structure%no_modes,minusomegasq(1), &
+    &work(1),2*structure%no_modes-1,rwork(1),info)
   if(info/=0)call errstop('CALCULATE_EIGENFREQS_AND_VECS', &
     &'ZHEEV failed (1).  Error code: '//TRIM(i2s(info))//'.')
 
-  m=no_DoF_prim
-  do n=1,no_DoF_prim 
+  m=structure%no_modes
+  do n=1,structure%no_modes 
 ! Modified by B. Monserrat to output the correct 'omega' and 'pol_vec'
     if(minusomegasq(m)>=0.d0)then
       omega(n)=-SQRT(minusomegasq(m)) ! Unstable mode.
     else
       omega(n)=SQRT(-minusomegasq(m)) ! Stable mode.
     endif
-    call zcopy(no_DoF_prim,dyn_mat(1,m),1,pol_vec(1,n),1)
+    call zcopy(structure%no_modes,dyn_mat(1,m),1,pol_vec(1,n),1)
     m=m-1
   enddo ! n
 
@@ -1183,10 +1066,10 @@ subroutine calculate_eigenfreqs_and_vecs(kvec,no_DoF_prim,delta_prim, &
     ! Then normalise the eigenvectors to the number of atoms in the
     ! primitive cell.  So the polarisation vector for a monatomic
     ! lattice should be normalised to unity.
-   !do n=1,no_DoF_prim
+   !do n=1,structure%no_modes
    ! largest_mag2=0.d0
    ! largest_k=-1
-   ! do k=1,no_DoF_prim
+   ! do k=1,structure%no_modes
    !   mag2_element=DBLE(pol_vec(k,n))**2+AIMAG(pol_vec(k,n))**2
    !   if(mag2_element>largest_mag2)then
    !     largest_mag2=mag2_element
@@ -1195,9 +1078,9 @@ subroutine calculate_eigenfreqs_and_vecs(kvec,no_DoF_prim,delta_prim, &
    ! enddo ! k
    ! if(largest_k==-1)call errstop('CALCULATE_EIGENFREQS_AND_VECS', &
    !   &'Eigenvector appears to be zero!')
-   ! scalefactor=(DBLE(no_atoms_in_prim)/(ABS(pol_vec(largest_k,n)) &
-   !   &*dznrm2(no_DoF_prim,pol_vec(1,n),1)))*CONJG(pol_vec(largest_k,n))
-   ! call zscal(no_DoF_prim,scalefactor,pol_vec(1,n),1)
+   ! scalefactor=(DBLE(structure%no_atoms)/(ABS(pol_vec(largest_k,n)) &
+   !   &*dznrm2(structure%no_modes,pol_vec(1,n),1)))*CONJG(pol_vec(largest_k,n))
+   ! call zscal(structure%no_modes,scalefactor,pol_vec(1,n),1)
    !enddo ! n
 end subroutine
 
@@ -1205,8 +1088,8 @@ end subroutine
 ! Calculate the frequency density-of-states by Monte Carlo sampling of
 ! the Brillouin zone.
 ! ----------------------------------------------------------------------
-subroutine calculate_freq_dos(tol,structure,no_DoF_prim,        &
-   & delta_prim,no_atoms_in_prim,no_prim_cells,atom,no_equiv_ims,force_const,&
+subroutine calculate_freq_dos(tol,structure,        &
+   & delta_prim,no_prim_cells,atom,no_equiv_ims,force_const,&
    & freq_dos_filename,bin_width,freq_dos)
   use constants,      only : max_bin, no_samples, no_fdos_sets, pi
   use linear_algebra, only : dscal
@@ -1217,9 +1100,7 @@ subroutine calculate_freq_dos(tol,structure,no_DoF_prim,        &
   
   real(dp), intent(in) :: tol
   type(StructureData), intent(in) :: structure
-  integer,  intent(in) :: no_DoF_prim
   real(dp), intent(in) :: delta_prim(:,:,:,:,:)
-  integer,  intent(in) :: no_atoms_in_prim
   integer,  intent(in) :: no_prim_cells
   integer,  intent(in) :: atom(:,:)
   integer,  intent(in) :: no_equiv_ims(:,:,:)
@@ -1242,7 +1123,7 @@ subroutine calculate_freq_dos(tol,structure,no_DoF_prim,        &
   ! highest frequency bin.
   real(dp),parameter :: safety_factor=1.15d0
   
-  real(dp) :: omega(no_DoF_prim),kvec(3),rec_bin_width,max_freq,min_freq, &
+  real(dp) :: omega(structure%no_modes),kvec(3),rec_bin_width,max_freq,min_freq, &
     &rec_no_fdos_sets
   integer :: j,i,n,bin,ialloc
   logical :: soft_modes,soft_modes_prelim
@@ -1254,10 +1135,10 @@ subroutine calculate_freq_dos(tol,structure,no_DoF_prim,        &
   do i=1,no_samples_trial
     kvec(1:3)=2*pi*(ranx()*structure%recip_lattice(1:3,1) &
       &+ranx()*structure%recip_lattice(1:3,2)+ranx()*structure%recip_lattice(1:3,3))
-    call calculate_eigenfreqs(kvec,delta_prim,no_DoF_prim,no_atoms_in_prim, &
+    call calculate_eigenfreqs(kvec,delta_prim,structure, &
       & no_prim_cells,atom,no_equiv_ims,force_const,omega)
     if(omega(1)<min_freq)min_freq=omega(1)
-    if(omega(no_DoF_prim)>max_freq)max_freq=omega(no_DoF_prim)
+    if(omega(structure%no_modes)>max_freq)max_freq=omega(structure%no_modes)
   enddo ! i
   soft_modes_prelim=(min_freq<-tol)
   if(soft_modes_prelim)write(*,*)'WARNING: soft modes present.'
@@ -1286,10 +1167,10 @@ subroutine calculate_freq_dos(tol,structure,no_DoF_prim,        &
     do i=1,no_samples
       kvec(1:3)=2*pi*(ranx()*structure%recip_lattice(1:3,1) &
         &+ranx()*structure%recip_lattice(1:3,2)+ranx()*structure%recip_lattice(1:3,3))
-      call calculate_eigenfreqs(kvec,delta_prim,no_DoF_prim, &
-        & no_atoms_in_prim,no_prim_cells,atom,no_equiv_ims,force_const,omega)
+      call calculate_eigenfreqs(kvec,delta_prim,structure, &
+        & no_prim_cells,atom,no_equiv_ims,force_const,omega)
       if(omega(1)<-tol)soft_modes=.TRUE.
-      do n=1,no_DoF_prim
+      do n=1,structure%no_modes
         if(omega(n)>0.d0)then ! Only bin positive frequencies.
           bin=MAX(0,FLOOR(rec_bin_width*omega(n)))
           if(bin>max_bin)call errstop('CALCULATE_FREQ_DOS', &
@@ -1306,7 +1187,7 @@ subroutine calculate_freq_dos(tol,structure,no_DoF_prim,        &
 
   ! Normalise frequency DoS so that its integral is the number of
   ! degrees of freedom in the primitive cell.  Note that the total
-  ! number of frequencies sampled is 3*no_samples*no_atoms_in_prim.
+  ! number of frequencies sampled is 3*no_samples*structure%no_atoms.
   ! (Imaginary frequencies are ignored, however.)
   call dscal((max_bin+1)*no_fdos_sets,1.d0/(DBLE(no_samples)*bin_width), &
     &freq_dos(0,1),1)
@@ -1376,7 +1257,7 @@ end subroutine
 ! This function returns the mean thermal energy of an isolated harmonic
 ! oscillator of frequency omega (in a.u.).  T is the temperature in Kelvin.
 ! ----------------------------------------------------------------------
-real(dp) function harmonic_energy(t,omega)
+real(dp) function harmonic_energy(T,omega)
   implicit none
   
   real(dp), intent(in) :: T
@@ -1476,18 +1357,18 @@ end function
 ! can read.  The branches of the dispersion curve are plotted against
 ! the total distance travelled along the specified lines.
 ! ----------------------------------------------------------------------
-subroutine generate_disp_curve(no_DoF_prim,delta_prim,no_kspace_lines, &
-   & disp_kpoints,no_atoms_in_prim,no_prim_cells,atom,no_equiv_ims,    &
+subroutine generate_disp_curve(structure,delta_prim,no_kspace_lines, &
+   & disp_kpoints,no_prim_cells,atom,no_equiv_ims,    &
    & force_const,                                                      &
    & dispersion_curve_filename)
   use string_module
+  use structure_module
   implicit none
   
-  integer,  intent(in) :: no_DoF_prim
+  type(StructureData), intent(in) :: structure
   real(dp), intent(in) :: delta_prim(:,:,:,:,:)
   integer,  intent(in) :: no_kspace_lines
   real(dp), intent(in) :: disp_kpoints(:,:)
-  integer,  intent(in) :: no_atoms_in_prim
   integer,  intent(in) :: no_prim_cells
   integer,  intent(in) :: atom(:,:)
   integer,  intent(in) :: no_equiv_ims(:,:,:)
@@ -1499,7 +1380,7 @@ subroutine generate_disp_curve(no_DoF_prim,delta_prim,no_kspace_lines, &
   ! File unit
   integer :: dispersion_curve_file
   
-  real(dp) :: k_dist,kvec(3),delta_k(3),k_step,omega(no_DoF_prim)
+  real(dp) :: k_dist,kvec(3),delta_k(3),k_step,omega(structure%no_modes)
   integer :: i,j,k,total_no_kpoints,ialloc
   real(dp),allocatable :: disp_k_dist(:),branch(:,:)
   integer,parameter :: no_kpoints_per_line=1000
@@ -1512,7 +1393,7 @@ subroutine generate_disp_curve(no_DoF_prim,delta_prim,no_kspace_lines, &
   ! Total number of k points at which the dispersion curve is to be calc'd.
   total_no_kpoints=no_kspace_lines*no_kpoints_per_line
   allocate(disp_k_dist(total_no_kpoints), &
-    &branch(no_DoF_prim,total_no_kpoints),stat=ialloc)
+    &branch(structure%no_modes,total_no_kpoints),stat=ialloc)
   if(ialloc/=0)call errstop('GENERATE_DISP_CURVE','Allocation error: &
     &disp_k_dist, etc.')
 
@@ -1536,9 +1417,9 @@ subroutine generate_disp_curve(no_DoF_prim,delta_prim,no_kspace_lines, &
     k_step=SQRT(DOT_PRODUCT(delta_k,delta_k))
     do j=1,no_kpoints_per_line
       k=k+1
-      call calculate_eigenfreqs(kvec,delta_prim,no_DoF_prim, &
-        & no_atoms_in_prim,no_prim_cells,atom,no_equiv_ims,force_const,omega)
-      branch(1:no_DoF_prim,k)=omega(1:no_DoF_prim)
+      call calculate_eigenfreqs(kvec,delta_prim,structure, &
+        & no_prim_cells,atom,no_equiv_ims,force_const,omega)
+      branch(1:structure%no_modes,k)=omega(1:structure%no_modes)
       disp_k_dist(k)=k_dist
       kvec(1:3)=kvec(1:3)+delta_k(1:3)
       k_dist=k_dist+k_step
@@ -1548,7 +1429,7 @@ subroutine generate_disp_curve(no_DoF_prim,delta_prim,no_kspace_lines, &
   write(*,*)'Final line ends at k-space distance   : ',k_dist
   
   dispersion_curve_file = open_write_file(dispersion_curve_filename)
-  do j=1,no_DoF_prim
+  do j=1,structure%no_modes
     do k=1,total_no_kpoints
       write(dispersion_curve_file,*) disp_k_dist(k), branch(j,k)
     enddo
@@ -1569,16 +1450,14 @@ end subroutine
 ! product is the longitudinal branch, whilst the other two branches
 ! are the transverse modes.
 ! ----------------------------------------------------------------------
-subroutine calculate_speed_sound(no_atoms_in_prim,no_prim_cells,no_DoF_prim, &
+subroutine calculate_speed_sound(no_prim_cells, &
    & structure,structure_sc,delta_prim,atom,no_equiv_ims,force_const)
   use constants,   only : pi
   use rand_no_gen, only : ranx
   use structure_module
   implicit none
   
-  integer,  intent(in) :: no_atoms_in_prim
   integer,  intent(in) :: no_prim_cells
-  integer,  intent(in) :: no_DoF_prim
   type(StructureData), intent(in) :: structure
   type(StructureData), intent(in) :: structure_sc
   real(dp), intent(in) :: delta_prim(:,:,:,:,:)
@@ -1595,20 +1474,16 @@ subroutine calculate_speed_sound(no_atoms_in_prim,no_prim_cells,no_DoF_prim, &
   integer,parameter :: max_samples=1000000
   logical,parameter :: verbose=.FALSE.
   
-  real(dp) :: sc_cell_volume
   real(dp) :: small_k_scale
   real(dp) :: kmag
 
-  if(no_atoms_in_prim/=1)call errstop('CALCULATE_SPEED_SOUND', &
+  if(structure%no_atoms/=1)call errstop('CALCULATE_SPEED_SOUND', &
     &'At the moment this program can only work out the speed of sound in &
     &materials with a single atom per primitive cell.  Sorry about that.')
   
-  ! Supercell reciprocal lattice vectors and volume.
-  sc_cell_volume=ABS(determinant33(structure_sc%lattice))
-
   ! "Small" distance in k space, determined by size of supercell.
   ! Factor of 2pi included.
-  small_k_scale=2*pi*sc_cell_volume**(-1/3.0_dp)
+  small_k_scale=2*pi*structure_sc%volume**(-1/3.0_dp)
 
   ! First guess at a suitable radius of sphere in k-space for computing
   ! derivatives of omega w.r.t. k.
@@ -1634,8 +1509,8 @@ subroutine calculate_speed_sound(no_atoms_in_prim,no_prim_cells,no_DoF_prim, &
       kvec(1:3)=kmag*kunit
 
       ! Calculate corresponding eigenfrequencies.
-      call calculate_eigenfreqs_and_vecs(kvec,no_DoF_prim,delta_prim,   &
-        & no_atoms_in_prim,no_prim_cells,atom,no_equiv_ims,force_const, &
+      call calculate_eigenfreqs_and_vecs(kvec,structure,delta_prim,   &
+        & no_prim_cells,atom,no_equiv_ims,force_const, &
         & omega,pol_vec)
       if(ANY(omega<0.d0))then
         write(*,*)'Imaginary frequencies found.'
@@ -1737,9 +1612,9 @@ end subroutine
 ! Write out the real part of the non-mass-reduced polarisation vector, which
 ! is the pattern of displacement corresponding to the normal mode.
 ! ----------------------------------------------------------------------
-subroutine evaluate_freqs_on_grid(no_prim_cells,no_atoms_in_prim,    &
-   & structure_sc,no_DoF_prim,temperature,structure, &
-   & atom_pos,delta_prim,atom,mass,no_equiv_ims,force_const,         &
+subroutine evaluate_freqs_on_grid(no_prim_cells,    &
+   & structure_sc,temperature,structure, &
+   & delta_prim,atom,no_equiv_ims,force_const,         &
    & prim_cell_for_atom,atom_in_prim,                                &
    & kpairs_filename,freq_grids_filename,disp_patterns_filename,     &
    & kdisp_patterns_filename,pol_vec_filename,gvectors_filename,     &
@@ -1751,15 +1626,11 @@ subroutine evaluate_freqs_on_grid(no_prim_cells,no_atoms_in_prim,    &
   implicit none
   
   integer,  intent(in) :: no_prim_cells
-  integer,  intent(in) :: no_atoms_in_prim
   type(StructureData),  intent(in) :: structure_sc
-  integer,  intent(in) :: no_DoF_prim
   real(dp), intent(in) :: temperature
   type(StructureData), intent(in) :: structure
-  real(dp), intent(in) :: atom_pos(:,:)
   real(dp), intent(in) :: delta_prim(:,:,:,:,:)
   integer,  intent(in) :: atom(:,:)
-  real(dp), intent(in) :: mass(:)
   integer,  intent(in) :: no_equiv_ims(:,:,:)
   real(dp), intent(in) :: force_const(:,:,:,:)
   integer,  intent(in) :: prim_cell_for_atom(:)
@@ -1788,11 +1659,11 @@ subroutine evaluate_freqs_on_grid(no_prim_cells,no_atoms_in_prim,    &
   integer :: ng,i,j,k,ig,index1,index2,p,n,atom1
   logical :: found,soft_modes
   real(dp) :: gnew(3),gvec(3,no_prim_cells),R0(3), &
-    &omega(no_DoF_prim),E,F,rec_root_mass(no_atoms_in_prim),GdotR, &
+    &omega(structure%no_modes),E,F,rec_root_mass(structure%no_atoms),GdotR, &
     &disp_pattern(3),kdisp_pattern(3),tot_disp_patt
-  complex(dp) :: pol_vec(no_DoF_prim,no_DoF_prim), &
-    &non_mr_pol_vec(3,no_atoms_in_prim),expiGdotR(no_prim_cells), &
-    &kpol_vec(3,no_atoms_in_prim)
+  complex(dp) :: pol_vec(structure%no_modes,structure%no_modes), &
+    &non_mr_pol_vec(3,structure%no_atoms),expiGdotR(no_prim_cells), &
+    &kpol_vec(3,structure%no_atoms)
   real(dp),parameter :: tol_omega=1.d-6 ! For judging whether modes are soft.
   real(dp),parameter :: tol_g=1.d-8 ! For equivalent +/- G-points.
   integer :: reference(no_prim_cells) ! For equivalent +/- G-points.
@@ -1858,8 +1729,8 @@ subroutine evaluate_freqs_on_grid(no_prim_cells,no_atoms_in_prim,    &
   kdisp_patterns_file = open_write_file(kdisp_patterns_filename)
   pol_vec_file = open_write_file(pol_vec_filename)
 
-  do n=1,no_atoms_in_prim
-    rec_root_mass(n)=1.d0/SQRT(mass(atom(1,n))) ! 1/sqrt(m) in prim. cell.
+  do n=1,structure%no_atoms
+    rec_root_mass(n)=1.d0/SQRT(structure_sc%mass(atom(1,n))) ! 1/sqrt(m) in prim. cell.
   enddo ! n
 
   ! Modified by B. Monserrat to output G vectors to file
@@ -1880,21 +1751,21 @@ subroutine evaluate_freqs_on_grid(no_prim_cells,no_atoms_in_prim,    &
   ! Evaluate the frequencies at each supercell G vector.
   E=0.d0  ;  F=0.d0
   soft_modes=.FALSE.
-  R0=atom_pos(:,atom(1,1))
+  R0=structure_sc%cart_atoms(:,atom(1,1))
   do ig=1,no_prim_cells
     if(reference(ig)==0)then
-      call calculate_eigenfreqs_and_vecs(gvec(:,ig),no_DoF_prim, &
-        & delta_prim,no_atoms_in_prim,no_prim_cells,atom,no_equiv_ims,   &
+      call calculate_eigenfreqs_and_vecs(gvec(:,ig),structure, &
+        & delta_prim,no_prim_cells,atom,no_equiv_ims,   &
         & force_const,omega,pol_vec)
     else
       if(reference(ig)>ig)then
-        call calculate_eigenfreqs_and_vecs(gvec(:,ig),no_DoF_prim, &
-          & delta_prim,no_atoms_in_prim,no_prim_cells,atom,no_equiv_ims,   &
+        call calculate_eigenfreqs_and_vecs(gvec(:,ig),structure, &
+          & delta_prim,no_prim_cells,atom,no_equiv_ims,   &
           & force_const,omega,pol_vec)
       else
         call calculate_eigenfreqs_and_vecs(gvec(:,reference(ig)), &
-          & no_DoF_prim,                                                  &
-          & delta_prim,no_atoms_in_prim,no_prim_cells,atom,no_equiv_ims,  &
+          & structure,                                                  &
+          & delta_prim,no_prim_cells,atom,no_equiv_ims,  &
           & force_const,omega,pol_vec)
       endif
     endif
@@ -1903,18 +1774,18 @@ subroutine evaluate_freqs_on_grid(no_prim_cells,no_atoms_in_prim,    &
     ! the usual expression in derivations that lead to a positive exponential
     do p=1,no_prim_cells
       if(reference(ig)==0)then
-        GdotR=-DOT_PRODUCT(gvec(:,ig),atom_pos(1:3,atom(p,1))-R0)
+        GdotR=-DOT_PRODUCT(gvec(:,ig),structure_sc%cart_atoms(1:3,atom(p,1))-R0)
       else
         if(reference(ig)>ig)then
-          GdotR=-DOT_PRODUCT(gvec(:,ig),atom_pos(1:3,atom(p,1))-R0)
+          GdotR=-DOT_PRODUCT(gvec(:,ig),structure_sc%cart_atoms(1:3,atom(p,1))-R0)
         else
-          GdotR=-DOT_PRODUCT(gvec(:,reference(ig)),atom_pos(1:3,atom(p,1))-R0)
+          GdotR=-DOT_PRODUCT(gvec(:,reference(ig)),structure_sc%cart_atoms(1:3,atom(p,1))-R0)
         endif
       endif
       expiGdotR(p)=CMPLX(COS(GdotR),SIN(GdotR),dp) ! Store exp(iG.R_p).
     enddo ! p
 
-    do index2=1,no_DoF_prim
+    do index2=1,structure%no_modes
       write(*,*)'  omega = ',omega(index2)
       if(omega(index2)>tol_omega)then
     ! Ignore contributions from imaginary or zero frequencies.
@@ -1926,7 +1797,7 @@ subroutine evaluate_freqs_on_grid(no_prim_cells,no_atoms_in_prim,    &
       write(freq_grids_file,*)omega(index2),1.d0
 ! Compute the non-mass-reduced polarisation vector.
       index1=0
-      do n=1,no_atoms_in_prim
+      do n=1,structure%no_atoms
         do i=1,3
           index1=index1+1
           non_mr_pol_vec(i,n)=pol_vec(index1,index2)*rec_root_mass(n)
@@ -2013,8 +1884,8 @@ end subroutine
 ! ----------------------------------------------------------------------
 ! Write out the dynamical matrix at each supercell G-vector to a file
 ! ----------------------------------------------------------------------
-subroutine write_dynamical_matrix(structure_sc,structure,no_DoF_prim, &
-   & no_prim_cells,delta_prim,no_atoms_in_prim,atom,no_equiv_ims,      &
+subroutine write_dynamical_matrix(structure_sc,structure, &
+   & no_prim_cells,delta_prim,atom,no_equiv_ims,      &
    & force_const,                                                      &
    & dyn_mat_fileroot)
   use constants, only : pi
@@ -2024,10 +1895,8 @@ subroutine write_dynamical_matrix(structure_sc,structure,no_DoF_prim, &
   
   type(StructureData), intent(in) :: structure_sc
   type(StructureData), intent(in) :: structure
-  integer,  intent(in) :: no_DoF_prim
   integer,  intent(in) :: no_prim_cells
   real(dp), intent(in) :: delta_prim(:,:,:,:,:)
-  integer,  intent(in) :: no_atoms_in_prim
   integer,  intent(in) :: atom(:,:)
   integer,  intent(in) :: no_equiv_ims(:,:,:)
   real(dp), intent(in) :: force_const(:,:,:,:)
@@ -2040,7 +1909,7 @@ subroutine write_dynamical_matrix(structure_sc,structure,no_DoF_prim, &
   
   integer :: ng,k,j,i,ig,atom1,cart1,index1,atom2,cart2,index2
   real(dp) :: gnew(3),gvec(3,no_prim_cells)
-  complex(dp) :: dyn_mat(no_DoF_prim,no_DoF_prim)
+  complex(dp) :: dyn_mat(structure%no_modes,structure%no_modes)
   logical :: found
 
   ng=0
@@ -2072,16 +1941,16 @@ subroutine write_dynamical_matrix(structure_sc,structure,no_DoF_prim, &
 
   do ig=1,ng
     dyn_mat_file = open_write_file(dyn_mat_fileroot//'.'//ig//'.dat')
-    call construct_dyn_matrix(gvec(:,ig),delta_prim,no_DoF_prim, &
-      & no_prim_cells,no_atoms_in_prim,atom,no_equiv_ims,force_const,dyn_mat)
+    call construct_dyn_matrix(gvec(:,ig),delta_prim,structure, &
+      & no_prim_cells,atom,no_equiv_ims,force_const,dyn_mat)
     atom1=0
-    do index1=1,no_DoF_prim
+    do index1=1,structure%no_modes
       atom2=0
       if(MOD(index1,3)==1)then
         atom1=atom1+1
         cart1=1
       endif ! MOD(index1,3)==1
-      do index2=1,no_DoF_prim
+      do index2=1,structure%no_modes
         if(MOD(index2,3)==1)then
           atom2=atom2+1
           cart2=1
@@ -2103,17 +1972,15 @@ end subroutine
 ! ----------------------------------------------------------------------
 ! Write out atoms in primitive cell in order.
 ! ----------------------------------------------------------------------
-subroutine write_atoms_in_primitive_cell(atom_pos,structure, &
-   & no_atoms_in_prim,atom,mass,atoms_in_primitive_cell_filename)
+subroutine write_atoms_in_primitive_cell(structure,structure_sc, &
+   & atom,atoms_in_primitive_cell_filename)
   use string_module
   use structure_module
   implicit none
   
-  real(dp), intent(in) :: atom_pos(:,:)
   type(StructureData), intent(in) :: structure
-  integer,  intent(in) :: no_atoms_in_prim
+  type(StructureData), intent(in) :: structure_sc
   integer,  intent(in) :: atom(:,:)
-  real(dp), intent(in) :: mass(:)
   
   ! File name
   type(String), intent(in) :: atoms_in_primitive_cell_filename
@@ -2128,14 +1995,14 @@ subroutine write_atoms_in_primitive_cell(atom_pos,structure, &
   
   atoms_in_primitive_cell_file = open_write_file(atoms_in_primitive_cell_filename)
 
-  do n=1,no_atoms_in_prim
+  do n=1,structure%no_atoms
     atom1=atom(1,n)
-    pos=atom_pos(1:3,atom1)
+    pos=structure_sc%cart_atoms(1:3,atom1)
     do i=1,3
       frac(i)=dot_product(pos(1:3),structure%recip_lattice(1:3,i))
     enddo
     frac(1:3)=modulo(frac(1:3)+tol,1.d0)-tol
-    write(atoms_in_primitive_cell_file,*) mass(atom1), frac(1:3)
+    write(atoms_in_primitive_cell_file,*) structure_sc%mass(atom1), frac(1:3)
   enddo
 
   close(atoms_in_primitive_cell_file)
@@ -2145,11 +2012,10 @@ end subroutine
 ! Set up lte
 ! ----------------------------------------------------------------------
 subroutine initialise(prog_function,tol,tol2,delta,structure,structure_sc, &
-   & atoms,displacements,forces,temperature_in,no_kspace_lines_in,disp_kpoints_in, &
+   & atoms,displacements,forces,temperature,no_kspace_lines,disp_kpoints, &
    & length_scale,vol_scale,fc_scale, &
-   & temperature,no_prim_cells,                &
-   & no_atoms_in_prim,no_point_symms,no_kspace_lines,no_DoF_prim,species,   &
-   & mass,atom_pos,rotation,force_const,offset,disp_kpoints,delta_prim,     &
+   & no_prim_cells,                &
+   & force_const,delta_prim,     &
    & atom,no_equiv_ims,atom_in_prim,prim_cell_for_atom,defined)
   use constants, only : dp
   use utils,     only : errstop, wordwrap
@@ -2169,9 +2035,9 @@ subroutine initialise(prog_function,tol,tol2,delta,structure,structure_sc, &
   integer,             intent(in) :: atoms(:)
   integer,             intent(in) :: displacements(:)
   real(dp),            intent(in) :: forces(:,:,:)
-  real(dp),            intent(in) :: temperature_in
-  integer,             intent(in) :: no_kspace_lines_in
-  real(dp),            intent(in) :: disp_kpoints_in(:,:)
+  real(dp),            intent(in) :: temperature
+  integer,             intent(in) :: no_kspace_lines
+  real(dp),            intent(in) :: disp_kpoints(:,:)
   
   ! ----------------------------------------
   ! previously global variables
@@ -2179,20 +2045,9 @@ subroutine initialise(prog_function,tol,tol2,delta,structure,structure_sc, &
   real(dp), intent(out) :: length_scale
   real(dp), intent(out) :: vol_scale
   real(dp), intent(out) :: fc_scale
-  real(dp), intent(out) :: temperature
   integer,  intent(out)  :: no_prim_cells
-  integer,  intent(out)  :: no_atoms_in_prim
-  integer,  intent(out)  :: no_point_symms
-  integer,  intent(out)  :: no_kspace_lines
-  integer,  intent(out)  :: no_DoF_prim
   
-  character(2), allocatable, intent(out) :: species(:)
-  real(dp),     allocatable, intent(out) :: mass(:)
-  real(dp),     allocatable, intent(out) :: atom_pos(:,:)
-  real(dp),     allocatable, intent(out) :: rotation(:,:,:) 
   real(dp),     allocatable, intent(out) :: force_const(:,:,:,:)
-  real(dp),     allocatable, intent(out) :: offset(:,:)
-  real(dp),     allocatable, intent(out) :: disp_kpoints(:,:)
   real(dp),     allocatable, intent(out) :: delta_prim(:,:,:,:,:)
   integer,      allocatable, intent(out) :: atom(:,:)
   integer,      allocatable, intent(out) :: no_equiv_ims(:,:,:)
@@ -2208,19 +2063,16 @@ subroutine initialise(prog_function,tol,tol2,delta,structure,structure_sc, &
   write(*,*)'Reading data from lte.dat...'
   write(*,*)
   call read_lte(prog_function,tol,structure,structure_sc,atoms,displacements, &
-     & forces,temperature_in,no_kspace_lines_in,disp_kpoints_in, &
+     & forces,temperature,no_kspace_lines,disp_kpoints, &
      & fc_scale,           &
-     & no_atoms_in_prim,no_DoF_prim,no_prim_cells,length_scale,&
+     & no_prim_cells,length_scale,&
      & vol_scale,                                                            &
-     & species,mass,atom_pos,         &
-     & force_const,defined,atom,rotation,offset,disp_kpoints,no_kspace_lines,&
-     & no_point_symms,temperature)
+     & force_const,defined,atom)
   write(*,*)'Finished reading input data.'
   write(*,*)
 
   write(*,*)'Applying point symmetries to the matrix of force constants...'
-  call point_symm(tol,structure_sc,no_point_symms,rotation, &
-     & atom_pos,offset,mass,defined,force_const)
+  call point_symm(tol,structure_sc,defined,force_const)
   write(*,*)'Done.'
   write(*,*)
 
@@ -2228,8 +2080,7 @@ subroutine initialise(prog_function,tol,tol2,delta,structure,structure_sc, &
     call wordwrap('WARNING: will impose symmetries on the matrix of force &
       &constants iteratively...')
     call point_symm_brute_force(tol,fc_scale,structure_sc,     &
-       & no_DoF_prim,no_point_symms,rotation,atom_pos,offset, &
-       & force_const,defined)
+       & structure,force_const,defined)
     write(*,*)'Done.'
     write(*,*)
   endif
@@ -2238,20 +2089,19 @@ subroutine initialise(prog_function,tol,tol2,delta,structure,structure_sc, &
 
   call wordwrap('Imposing Newton''s third law and symmetry on the matrix of &
     &force constants...')
-  call newtons_law(tol2,fc_scale,no_atoms_in_prim,structure_sc, &
-    & force_const)
+  call newtons_law(tol2,fc_scale,structure,structure_sc,force_const)
   write(*,*)'Done.'
   write(*,*)
 
   write(*,*)'Performing mass reduction on the matrix of force constants...'
-  call mass_reduce(structure_sc,mass,force_const)
+  call mass_reduce(structure_sc,force_const)
   write(*,*)'Done.'
   write(*,*)
 
   write(*,*)'Establishing the primitive lattice vector associated with &
     &each atom...'
-  call find_prim_cell(delta,structure_sc,atom_pos,structure,         &
-     & no_prim_cells,no_atoms_in_prim, &
+  call find_prim_cell(delta,structure_sc,structure,         &
+     & no_prim_cells, &
      & atom,atom_in_prim,prim_cell_for_atom,no_equiv_ims,                 &
      & delta_prim)
   write(*,*)'Done.'
@@ -2259,46 +2109,11 @@ subroutine initialise(prog_function,tol,tol2,delta,structure,structure_sc, &
 end subroutine
 
 ! ----------------------------------------------------------------------
-! Deallocate arrays.
+! Main program. (Split into four modes)
 ! ----------------------------------------------------------------------
-subroutine finalise(species,mass,atom_pos,force_const,defined,atom, &
-   & no_equiv_ims,delta_prim,rotation,offset,disp_kpoints,freq_dos, &
-   & atom_in_prim,prim_cell_for_atom)
-  implicit none
-  
-  character(2), allocatable, intent(inout) :: species(:)
-  real(dp),     allocatable, intent(inout) :: mass(:)
-  real(dp),     allocatable, intent(inout) :: atom_pos(:,:)
-  real(dp),     allocatable, intent(inout) :: force_const(:,:,:,:)
-  logical,      allocatable, intent(inout) :: defined(:,:,:,:)
-  integer,      allocatable, intent(inout) :: atom(:,:)
-  integer,      allocatable, intent(inout) :: no_equiv_ims(:,:,:)
-  real(dp),     allocatable, intent(inout) :: delta_prim(:,:,:,:,:)
-  real(dp),     allocatable, intent(inout) :: rotation(:,:,:)
-  real(dp),     allocatable, intent(inout) :: offset(:,:)
-  real(dp),     allocatable, intent(inout) :: disp_kpoints(:,:)
-  real(dp),     allocatable, intent(inout) :: freq_dos(:,:)
-  integer,      allocatable, intent(inout) :: atom_in_prim(:)
-  integer,      allocatable, intent(inout) :: prim_cell_for_atom(:)
-  
-  if(allocated(species))deallocate(species,mass,atom_pos,force_const, &
-    &defined,atom,no_equiv_ims,delta_prim)
-  if(allocated(rotation))deallocate(rotation,offset)
-  if(allocated(disp_kpoints))deallocate(disp_kpoints)
-  if(allocated(freq_dos))deallocate(freq_dos)
-  if(allocated(atom_in_prim))deallocate(atom_in_prim,prim_cell_for_atom)
-end subroutine
-
-! ----------------------------------------------------------------------
-! Main program.
-! ----------------------------------------------------------------------
-subroutine lte(prog_function,tol,tol2,delta,structure,structure_sc,atoms, &
-   & displacements,forces,temperature_in,no_kspace_lines_in,disp_kpoints_in,freq_dos_filename, &
-   & tdependence1_filename,tdependence2_filename,dispersion_curve_filename, &
-   & kpairs_filename,freq_grids_filename,disp_patterns_filename,            &
-   & kdisp_patterns_filename,pol_vec_filename,gvectors_filename,            &
-   & gvectors_frac_filename,error_filename,dyn_mat_fileroot,                &
-   & atoms_in_primitive_cell_filename)
+subroutine lte_1(tol,tol2,delta,structure,structure_sc,atoms, &
+   & displacements,forces,temperature,no_kspace_lines,disp_kpoints,freq_dos_filename, &
+   & tdependence1_filename,tdependence2_filename)
   use constants, only : dp
   use utils,     only : errstop, wordwrap
   use string_module
@@ -2308,7 +2123,6 @@ subroutine lte(prog_function,tol,tol2,delta,structure,structure_sc,atoms, &
   ! ----------------------------------------
   ! Inputs
   ! ----------------------------------------
-  integer,             intent(in) :: prog_function
   real(dp),            intent(in) :: tol
   real(dp),            intent(in) :: tol2
   real(dp),            intent(in) :: delta
@@ -2317,9 +2131,9 @@ subroutine lte(prog_function,tol,tol2,delta,structure,structure_sc,atoms, &
   integer,             intent(in) :: atoms(:)
   integer,             intent(in) :: displacements(:)
   real(dp),            intent(in) :: forces(:,:,:)
-  real(dp),            intent(in) :: temperature_in
-  integer,             intent(in) :: no_kspace_lines_in
-  real(dp),            intent(in) :: disp_kpoints_in(:,:)
+  real(dp),            intent(in) :: temperature
+  integer,             intent(in) :: no_kspace_lines
+  real(dp),            intent(in) :: disp_kpoints(:,:)
   
   ! ----------------------------------------
   ! filenames
@@ -2327,17 +2141,11 @@ subroutine lte(prog_function,tol,tol2,delta,structure,structure_sc,atoms, &
   type(String), intent(in) :: freq_dos_filename
   type(String), intent(in) :: tdependence1_filename
   type(String), intent(in) :: tdependence2_filename
-  type(String), intent(in) :: dispersion_curve_filename
-  type(String), intent(in) :: kpairs_filename
-  type(String), intent(in) :: freq_grids_filename
-  type(String), intent(in) :: disp_patterns_filename
-  type(String), intent(in) :: kdisp_patterns_filename
-  type(String), intent(in) :: pol_vec_filename
-  type(String), intent(in) :: gvectors_filename
-  type(String), intent(in) :: gvectors_frac_filename
-  type(String), intent(in) :: error_filename
-  type(String), intent(in) :: dyn_mat_fileroot ! will have *.dat appended
-  type(String), intent(in) :: atoms_in_primitive_cell_filename
+  
+  ! ----------------------------------------
+  ! Program mode
+  ! ----------------------------------------
+  integer :: prog_function = 1
   
   ! ----------------------------------------
   ! times
@@ -2351,21 +2159,10 @@ subroutine lte(prog_function,tol,tol2,delta,structure,structure_sc,atoms, &
   real(dp) :: vol_scale
   real(dp) :: fc_scale
   real(dp) :: bin_width
-  real(dp) :: temperature
   integer  :: no_prim_cells
-  integer  :: no_atoms_in_prim
-  integer  :: no_point_symms
-  integer  :: no_kspace_lines
-  integer  :: no_DoF_prim
   
-  character(2), allocatable :: species(:)
-  real(dp),     allocatable :: mass(:)
-  real(dp),     allocatable :: atom_pos(:,:)
-  real(dp),     allocatable :: rotation(:,:,:) 
   real(dp),     allocatable :: force_const(:,:,:,:)
-  real(dp),     allocatable :: offset(:,:)
   real(dp),     allocatable :: freq_dos(:,:)
-  real(dp),     allocatable :: disp_kpoints(:,:)
   real(dp),     allocatable :: delta_prim(:,:,:,:,:)
   integer,      allocatable :: atom(:,:)
   integer,      allocatable :: no_equiv_ims(:,:,:)
@@ -2373,97 +2170,288 @@ subroutine lte(prog_function,tol,tol2,delta,structure,structure_sc,atoms, &
   integer,      allocatable :: prim_cell_for_atom(:)
   logical,      allocatable :: defined(:,:,:,:)
   
-  call CPU_TIME(t1)
+  call cpu_time(t1)
   
   call initialise(prog_function,tol,tol2,delta,structure,structure_sc,atoms, &
-     & displacements,forces,temperature_in,no_kspace_lines_in,disp_kpoints_in, &
+     & displacements,forces,temperature,no_kspace_lines,disp_kpoints, &
      & length_scale,vol_scale,fc_scale,&
-     & temperature,no_prim_cells,               &
-     & no_atoms_in_prim,no_point_symms,no_kspace_lines,no_DoF_prim,species,  &
-     & mass,atom_pos,rotation,force_const,offset,disp_kpoints,delta_prim,    &
+     & no_prim_cells,               &
+     & force_const,delta_prim,    &
+     & atom,no_equiv_ims,atom_in_prim,prim_cell_for_atom,defined)
+
+  write(*,*)'The mean thermal energy and the free energy will &
+    &be calculated.'
+  write(*,*)'Calculating the frequency density-of-states function...'
+  call calculate_freq_dos(tol,structure,   &
+     & delta_prim,no_prim_cells,atom,no_equiv_ims, &
+     & force_const,                                                 &
+     & freq_dos_filename,bin_width,freq_dos)
+  call wordwrap('Done.  Frequency density-of-states function written to &
+    &freq_dos.dat.  (Please view this file using XMGrace.)')
+  write(*,*)
+
+  write(*,*)'Calculating the lattice thermal energy (LTE) and free energy &
+    &(LTFE)...'
+  call calc_lte(bin_width,temperature,freq_dos,tdependence1_filename)
+  call calc_ltfe(bin_width,temperature,freq_dos,tdependence2_filename)
+  write(*,*)
+  
+  call cpu_time(t2)
+  
+  write(*,*)'Program finished.  Time taken: ',t2-t1
+  write(*,*)
+end subroutine
+
+subroutine lte_2(tol,tol2,delta,structure,structure_sc,atoms, &
+   & displacements,forces,temperature,no_kspace_lines,disp_kpoints, &
+   & dispersion_curve_filename)
+  use constants, only : dp
+  use utils,     only : errstop, wordwrap
+  use string_module
+  use structure_module
+  implicit none
+  
+  ! ----------------------------------------
+  ! Inputs
+  ! ----------------------------------------
+  real(dp),            intent(in) :: tol
+  real(dp),            intent(in) :: tol2
+  real(dp),            intent(in) :: delta
+  type(StructureData), intent(in) :: structure
+  type(StructureData), intent(in) :: structure_sc
+  integer,             intent(in) :: atoms(:)
+  integer,             intent(in) :: displacements(:)
+  real(dp),            intent(in) :: forces(:,:,:)
+  real(dp),            intent(in) :: temperature
+  integer,             intent(in) :: no_kspace_lines
+  real(dp),            intent(in) :: disp_kpoints(:,:)
+  
+  ! ----------------------------------------
+  ! filenames
+  ! ----------------------------------------
+  type(String), intent(in) :: dispersion_curve_filename
+  
+  ! ----------------------------------------
+  ! Program mode
+  ! ----------------------------------------
+  integer :: prog_function = 2
+  
+  ! ----------------------------------------
+  ! times
+  ! ----------------------------------------
+  real :: t1,t2
+  
+  ! ----------------------------------------
+  ! previously global variables
+  ! ----------------------------------------
+  real(dp) :: length_scale
+  real(dp) :: vol_scale
+  real(dp) :: fc_scale
+  integer  :: no_prim_cells
+  
+  real(dp),     allocatable :: force_const(:,:,:,:)
+  real(dp),     allocatable :: delta_prim(:,:,:,:,:)
+  integer,      allocatable :: atom(:,:)
+  integer,      allocatable :: no_equiv_ims(:,:,:)
+  integer,      allocatable :: atom_in_prim(:)
+  integer,      allocatable :: prim_cell_for_atom(:)
+  logical,      allocatable :: defined(:,:,:,:)
+  
+  call cpu_time(t1)
+  
+  call initialise(prog_function,tol,tol2,delta,structure,structure_sc,atoms, &
+     & displacements,forces,temperature,no_kspace_lines,disp_kpoints, &
+     & length_scale,vol_scale,fc_scale,&
+     & no_prim_cells,               &
+     & force_const,delta_prim,    &
+     & atom,no_equiv_ims,atom_in_prim,prim_cell_for_atom,defined)
+
+  write(*,*)'A dispersion curve will be calculated.'
+  write(*,*)'Calculating the requested dispersion curve.'
+  call generate_disp_curve(structure,delta_prim,no_kspace_lines,    &
+     & disp_kpoints,no_prim_cells,atom,no_equiv_ims, &
+     & force_const,                                                   &
+     & dispersion_curve_filename)
+  call wordwrap('Done.  dispersion_curve.dat has been generated.  (Please &
+    &view this file using XMGrace.)')
+  write(*,*)
+  
+  call cpu_time(t2)
+  
+  write(*,*)'Program finished.  Time taken: ',t2-t1
+  write(*,*)
+end subroutine
+
+subroutine lte_3(tol,tol2,delta,structure,structure_sc,atoms, &
+   & displacements,forces,temperature,no_kspace_lines,disp_kpoints)
+  use constants, only : dp
+  use utils,     only : errstop, wordwrap
+  use string_module
+  use structure_module
+  implicit none
+  
+  ! ----------------------------------------
+  ! Inputs
+  ! ----------------------------------------
+  real(dp),            intent(in) :: tol
+  real(dp),            intent(in) :: tol2
+  real(dp),            intent(in) :: delta
+  type(StructureData), intent(in) :: structure
+  type(StructureData), intent(in) :: structure_sc
+  integer,             intent(in) :: atoms(:)
+  integer,             intent(in) :: displacements(:)
+  real(dp),            intent(in) :: forces(:,:,:)
+  real(dp),            intent(in) :: temperature
+  integer,             intent(in) :: no_kspace_lines
+  real(dp),            intent(in) :: disp_kpoints(:,:)
+  
+  ! ----------------------------------------
+  ! Program mode
+  ! ----------------------------------------
+  integer :: prog_function = 3
+  
+  ! ----------------------------------------
+  ! times
+  ! ----------------------------------------
+  real :: t1,t2
+  
+  ! ----------------------------------------
+  ! previously global variables
+  ! ----------------------------------------
+  real(dp) :: length_scale
+  real(dp) :: vol_scale
+  real(dp) :: fc_scale
+  integer  :: no_prim_cells
+  
+  real(dp),     allocatable :: force_const(:,:,:,:)
+  real(dp),     allocatable :: delta_prim(:,:,:,:,:)
+  integer,      allocatable :: atom(:,:)
+  integer,      allocatable :: no_equiv_ims(:,:,:)
+  integer,      allocatable :: atom_in_prim(:)
+  integer,      allocatable :: prim_cell_for_atom(:)
+  logical,      allocatable :: defined(:,:,:,:)
+  
+  call cpu_time(t1)
+  
+  call initialise(prog_function,tol,tol2,delta,structure,structure_sc,atoms, &
+     & displacements,forces,temperature,no_kspace_lines,disp_kpoints, &
+     & length_scale,vol_scale,fc_scale,&
+     & no_prim_cells,               &
+     & force_const,delta_prim,    &
+     & atom,no_equiv_ims,atom_in_prim,prim_cell_for_atom,defined)
+
+  write(*,*)'The speed of sound will be calculated.'
+  write(*,*)'Calculating the speed of sound.'
+  call calculate_speed_sound(no_prim_cells, &
+     & structure,structure_sc,delta_prim,atom,no_equiv_ims,force_const)
+  write(*,*)'Done.  Speed of sound calculated.'
+  write(*,*)
+
+  
+  call cpu_time(t2)
+  
+  write(*,*)'Program finished.  Time taken: ',t2-t1
+  write(*,*)
+end subroutine
+
+subroutine lte_4(tol,tol2,delta,structure,structure_sc,atoms, &
+   & displacements,forces,temperature,no_kspace_lines,disp_kpoints, &
+   & kpairs_filename,freq_grids_filename,disp_patterns_filename,            &
+   & kdisp_patterns_filename,pol_vec_filename,gvectors_filename,            &
+   & gvectors_frac_filename,error_filename,dyn_mat_fileroot,                &
+   & atoms_in_primitive_cell_filename)
+  use constants, only : dp
+  use utils,     only : errstop, wordwrap
+  use string_module
+  use structure_module
+  implicit none
+  
+  ! ----------------------------------------
+  ! Inputs
+  ! ----------------------------------------
+  real(dp),            intent(in) :: tol
+  real(dp),            intent(in) :: tol2
+  real(dp),            intent(in) :: delta
+  type(StructureData), intent(in) :: structure
+  type(StructureData), intent(in) :: structure_sc
+  integer,             intent(in) :: atoms(:)
+  integer,             intent(in) :: displacements(:)
+  real(dp),            intent(in) :: forces(:,:,:)
+  real(dp),            intent(in) :: temperature
+  integer,             intent(in) :: no_kspace_lines
+  real(dp),            intent(in) :: disp_kpoints(:,:)
+  
+  ! ----------------------------------------
+  ! filenames
+  ! ----------------------------------------
+  type(String), intent(in) :: kpairs_filename
+  type(String), intent(in) :: freq_grids_filename
+  type(String), intent(in) :: disp_patterns_filename
+  type(String), intent(in) :: kdisp_patterns_filename
+  type(String), intent(in) :: pol_vec_filename
+  type(String), intent(in) :: gvectors_filename
+  type(String), intent(in) :: gvectors_frac_filename
+  type(String), intent(in) :: error_filename
+  type(String), intent(in) :: dyn_mat_fileroot ! will have *.dat appended
+  type(String), intent(in) :: atoms_in_primitive_cell_filename
+  
+  ! ----------------------------------------
+  ! Program mode
+  ! ----------------------------------------
+  integer :: prog_function = 4
+  
+  ! ----------------------------------------
+  ! times
+  ! ----------------------------------------
+  real :: t1,t2
+  
+  ! ----------------------------------------
+  ! previously global variables
+  ! ----------------------------------------
+  real(dp) :: length_scale
+  real(dp) :: vol_scale
+  real(dp) :: fc_scale
+  integer  :: no_prim_cells
+  
+  real(dp),     allocatable :: force_const(:,:,:,:)
+  real(dp),     allocatable :: delta_prim(:,:,:,:,:)
+  integer,      allocatable :: atom(:,:)
+  integer,      allocatable :: no_equiv_ims(:,:,:)
+  integer,      allocatable :: atom_in_prim(:)
+  integer,      allocatable :: prim_cell_for_atom(:)
+  logical,      allocatable :: defined(:,:,:,:)
+  
+  call cpu_time(t1)
+  
+  call initialise(prog_function,tol,tol2,delta,structure,structure_sc,atoms, &
+     & displacements,forces,temperature,no_kspace_lines,disp_kpoints, &
+     & length_scale,vol_scale,fc_scale,&
+     & no_prim_cells,               &
+     & force_const,delta_prim,    &
      & atom,no_equiv_ims,atom_in_prim,prim_cell_for_atom,defined)
   
-  if(prog_function==1)then
-    write(*,*)'The mean thermal energy and the free energy will &
-      &be calculated.'
-  elseif(prog_function==2)then
-    write(*,*)'A dispersion curve will be calculated.'
-  elseif(prog_function==3)then
-    write(*,*)'The speed of sound will be calculated.'
-  elseif(prog_function==4)then
-    write(*,*)'The phonon frequencies at the supercell G vectors will be &
-      &calculated.'
-  else
-    call errstop('READ_LTE','Program function must be either 1, 2, 3 or 4.')
-  endif
+    
+  write(*,*)'The phonon frequencies at the supercell G vectors will be &
+    &calculated.'
+  write(*,*)'Calculating the frequencies and displacement patterns on the &
+    &G-vector grid.'
+  call evaluate_freqs_on_grid(no_prim_cells,         &
+     & structure_sc,temperature,structure, &
+     & delta_prim,atom,no_equiv_ims,force_const,         &
+     & prim_cell_for_atom,atom_in_prim,                                &
+     & kpairs_filename,freq_grids_filename,disp_patterns_filename,     &
+     & kdisp_patterns_filename,pol_vec_filename,gvectors_filename,     &
+     & gvectors_frac_filename,error_filename)
+  write(*,*)'Done.  Frequencies and displacement patterns calculated.'
+  write(*,*)
+  call write_dynamical_matrix(structure_sc,structure,  &
+     & no_prim_cells,delta_prim,atom,no_equiv_ims, &
+     &force_const,                                                  &
+     & dyn_mat_fileroot)
+  call write_atoms_in_primitive_cell(structure_sc,structure, &
+    & atom,atoms_in_primitive_cell_filename)
   
-  if(prog_function==1)then
-
-    write(*,*)'Calculating the frequency density-of-states function...'
-    call calculate_freq_dos(tol,structure,no_DoF_prim,   &
-       & delta_prim,no_atoms_in_prim,no_prim_cells,atom,no_equiv_ims, &
-       & force_const,                                                 &
-       & freq_dos_filename,bin_width,freq_dos)
-    call wordwrap('Done.  Frequency density-of-states function written to &
-      &freq_dos.dat.  (Please view this file using XMGrace.)')
-    write(*,*)
-
-    write(*,*)'Calculating the lattice thermal energy (LTE) and free energy &
-      &(LTFE)...'
-    call calc_lte(bin_width,temperature,freq_dos,tdependence1_filename)
-    call calc_ltfe(bin_width,temperature,freq_dos,tdependence2_filename)
-    write(*,*)
-
-  elseif(prog_function==2)then
-
-    write(*,*)'Calculating the requested dispersion curve.'
-    call generate_disp_curve(no_DoF_prim,delta_prim,no_kspace_lines,    &
-       & disp_kpoints,no_atoms_in_prim,no_prim_cells,atom,no_equiv_ims, &
-       & force_const,                                                   &
-       & dispersion_curve_filename)
-    call wordwrap('Done.  dispersion_curve.dat has been generated.  (Please &
-      &view this file using XMGrace.)')
-    write(*,*)
-
-  elseif(prog_function==3)then
-
-    write(*,*)'Calculating the speed of sound.'
-    call calculate_speed_sound(no_atoms_in_prim,no_prim_cells,no_DoF_prim, &
-       & structure,structure_sc,delta_prim,atom,no_equiv_ims,force_const)
-    write(*,*)'Done.  Speed of sound calculated.'
-    write(*,*)
-
-  elseif(prog_function==4)then
-    
-    write(*,*)'Calculating the frequencies and displacement patterns on the &
-      &G-vector grid.'
-    call evaluate_freqs_on_grid(no_prim_cells,no_atoms_in_prim,          &
-       & structure_sc,no_DoF_prim,temperature,structure, &
-       & atom_pos,delta_prim,atom,mass,no_equiv_ims,force_const,         &
-       & prim_cell_for_atom,atom_in_prim,                                &
-       & kpairs_filename,freq_grids_filename,disp_patterns_filename,     &
-       & kdisp_patterns_filename,pol_vec_filename,gvectors_filename,     &
-       & gvectors_frac_filename,error_filename)
-    write(*,*)'Done.  Frequencies and displacement patterns calculated.'
-    write(*,*)
-    call write_dynamical_matrix(structure_sc,structure,no_DoF_prim,  &
-       & no_prim_cells,delta_prim,no_atoms_in_prim,atom,no_equiv_ims, &
-       &force_const,                                                  &
-       & dyn_mat_fileroot)
-    call write_atoms_in_primitive_cell(atom_pos,structure, &
-      & no_atoms_in_prim,atom,mass,atoms_in_primitive_cell_filename)
-    
-  else
-    
-    call errstop('LTE','Program function should be 1, 2, 3 or 4.')
-    
-  endif ! prog_function.
-  
-  call finalise(species,mass,atom_pos,force_const,defined,atom, &
-     & no_equiv_ims,delta_prim,rotation,offset,disp_kpoints,freq_dos, &
-     & atom_in_prim,prim_cell_for_atom)
-  
-  call CPU_TIME(t2)
+  call cpu_time(t2)
   
   write(*,*)'Program finished.  Time taken: ',t2-t1
   write(*,*)

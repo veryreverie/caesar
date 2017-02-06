@@ -1,7 +1,6 @@
 program caesar
   ! use utility modules
-  use constants, only : dp
-  use utils,     only : command_line_args, i2s
+  use utils,     only : command_line_args
   use file_module,   only : open_write_file, open_read_file
   
   ! use class modules
@@ -26,16 +25,8 @@ program caesar
   
   implicit none
   
-  integer                   :: i             ! loop index
-  type(String), allocatable :: args(:)       ! command line arguments
-  type(String)              :: argstring     ! command line arguments
-  
-  ! testing variables
-  type(String) :: temp_string
-  type(String) :: temp_string2
-  type(String) :: temp_string3
-  real(dp)     :: temp_real
-  real(dp)     :: temp_real2
+  ! Command line arguments
+  type(String), allocatable :: args(:)
   
   ! read in command line arguments
   args = command_line_args()
@@ -44,11 +35,6 @@ program caesar
     write(*,*) 'No arguments given. For help, call caesar -h'
     stop
   endif
-  
-  argstring = ''
-  do i=2,size(args)
-    argstring = argstring//' '//args(i)
-  enddo
   
   if (args(1) == '-h' .or. args(1) == '--help') then
     write(*,*) 'caesar [-h] [option]'
@@ -63,61 +49,35 @@ program caesar
     write(*,*) 'option : harmonic calculations :'
     write(*,*) '  setup_harmonic :'
     write(*,*) '    Sets up calculation'
-    write(*,*) '    Converts calculation to specific code'
-    write(*,*) '    Choices are castep, vasp and quantum espresso'
-    write(*,*) '  tcm_cluster_run_harmonic :'
+    write(*,*) '    Converts calculation to specific DFT code'
+    write(*,*) '    DFT code choices are castep, vasp and qe'
+    write(*,*) '  run_harmonic :'
     write(*,*) '    Runs calculation on the TCM cluster'
     write(*,*) '    Should be called after setup_harmonic'
     write(*,*) '  lte_harmonic :'
     write(*,*) '    Runs harmonic calculations'
-    write(*,*) '    Should be run after tcm_cluster_run_harmonic'
+    write(*,*) '    Should be called after run_harmonic'
     write(*,*) '  clear_all :'
     write(*,*) '    Deletes all temporary files and folders'
     write(*,*) ''
     write(*,*) 'option : quadratic calculations :'
     write(*,*) '  setup_quadratic :'
-    write(*,*) '    Sets up quadratic calculation'
-    write(*,*) '    Should be run after lte_harmonic'
-    write(*,*) '    Converts calculation to specific code'
-    write(*,*) '    Choices are castep, vasp and quantum espresso'
-    write(*,*) '    Should be called after setup_quadratic'
-    write(*,*) '  tcm_cluster_run_quadratic :'
+    write(*,*) '    Sets up quadratic calculation for use with a DFT code'
+    write(*,*) '    DFT code choices are castep, vasp and qe'
+    write(*,*) '    Should be called after lte_harmonic'
+    write(*,*) '  run_quadratic :'
     write(*,*) '    Runs calculation on the TCM cluster'
     write(*,*) '    Should be called after setup_quadratic'
     write(*,*) '  anharmonic :'
-    write(*,*) '    Collates energies from anharmonic dft runs'
     write(*,*) '    Runs anharmonic calculations'
-    write(*,*) '    Should be called after tcm_cluster_run_quadratic'
+    write(*,*) '    Should be called after run_quadratic'
     write(*,*) '  bs_quadratic :'
-    write(*,*) '    Collates bands from anharmonic dft runs'
     write(*,*) '    Runs band structure calculations'
-    write(*,*) '    Should be called after tcm_cluster_run_quadratic'
+    write(*,*) '    Should be called after run_quadratic'
     write(*,*) '  get_kpoints :'
-    write(*,*) '    [Help text pending]'
-    write(*,*) '  eigenval_vasp_to_bands'
     write(*,*) '    [Help text pending]'
     write(*,*) '  calculate_gap'
     write(*,*) '    [Help text pending]'
-  ! test
-  elseif (args(1) == 'test') then
-    temp_string = 'test'
-    write(*,*) char(temp_string)
-    temp_string = 'test2'
-    write(*,*) char(temp_string)
-    temp_string2 = temp_string
-    write(*,*) char(temp_string2)
-    temp_string2 = 12
-    write(*,*) char(temp_string2)
-    temp_string3 = temp_string//' '//temp_string2//' '//143
-    write(*,*) char(temp_string3)
-    call drop(temp_string)
-    temp_real = huge(1.0_dp)
-    temp_real = -1.21313852748395029384e25
-    temp_string = temp_real
-    write(*,*) temp_real
-    write(*,*) char(temp_string)
-    temp_real2 = dble(temp_string)
-    write(*,*) temp_real2
   ! Wrappers for top-level Fortran
   elseif (args(1) == 'setup_harmonic') then
     call setup_harmonic()
@@ -135,42 +95,11 @@ program caesar
   elseif (args(1) == 'hartree_to_eV') then
     call hartree_to_eV()
   elseif (args(1) == 'structure_to_dft') then
-    if (args(2) == "castep") then
-      if (size(args) == 4) then
-        call structure_to_dft( dft_code=args(2),              &
-                             & structure_sc_filename=args(3), &
-                             & output_filename=args(4))
-      elseif (size(args) == 5) then
-        call structure_to_dft( dft_code=args(2),              &
-                             & structure_sc_filename=args(3), &
-                             & input_filename=args(4),        &
-                             & output_filename=args(5))
-      elseif (size(args) == 7) then
-        call structure_to_dft( dft_code=args(2),              &
-                             & structure_sc_filename=args(3), &
-                             & input_filename=args(4),        &
-                             & supercell_filename=args(5),    &
-                             & path_filename=args(6),         &
-                             & output_filename=args(7))
-      endif
-    elseif (args(2) == "vasp") then
-      call structure_to_dft( dft_code=args(2),              &
-                           & structure_sc_filename=args(3), &
-                           & output_filename=args(4))
-    elseif (args(2) == "qe") then
-      call structure_to_dft( dft_code=args(2),              &
-                           & structure_sc_filename=args(3), &
-                           & input_filename=args(4),        &
-                           & pseudo_filename=args(5),       &
-                           & kpoints_filename=args(6),      &
-                           & structure_filename=args(7),    &
-                           & output_filename=args(8))
-    endif
+    call structure_to_dft( dft_code=args(2),              &
+                         & structure_sc_filename=args(3), &
+                         & output_filename=args(4))
   elseif (args(1) == 'calculate_symmetry_helper') then
-    call calculate_symmetry_helper(args(2:))
-  ! wrappers for python scripts
-  elseif (args(1) == 'get_kpoints') then
-    call system(args(1)//'.py')
+    call calculate_symmetry_helper(args(2),args(3))
   ! unrecognised argument
   else
     write(*,*) char('Unrecognised argument : '//args(1))

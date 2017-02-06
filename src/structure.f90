@@ -11,6 +11,7 @@ module structure_module
     ! Lattice data
     real(dp)                  :: lattice(3,3)
     real(dp)                  :: recip_lattice(3,3)
+    real(dp)                  :: volume
     ! Atom data
     integer                   :: no_atoms
     integer                   :: no_modes
@@ -18,11 +19,13 @@ module structure_module
     real(dp),     allocatable :: mass(:)
     real(dp),     allocatable :: atoms(:,:)
     real(dp),     allocatable :: frac_atoms(:,:)
+    real(dp),     allocatable :: cart_atoms(:,:)
     ! Symmetry data
     integer                   :: no_symmetries
     real(dp),     allocatable :: symmetries(:,:)
     real(dp),     allocatable :: rotation_matrices(:,:,:)
     real(dp),     allocatable :: offsets(:,:)
+    real(dp),     allocatable :: offsets_cart(:,:)
   end type
   
   interface new
@@ -63,12 +66,14 @@ subroutine new_StructureData(this,no_atoms,no_symmetries)
   allocate(this%mass(no_atoms))
   allocate(this%atoms(3,no_atoms))
   allocate(this%frac_atoms(3,no_atoms))
+  allocate(this%cart_atoms(3,no_atoms))
   
   this%no_symmetries = no_symmetries
   if (no_symmetries /= 0) then
     allocate(this%symmetries(3,no_symmetries*4))
     allocate(this%rotation_matrices(3,3,no_symmetries))
     allocate(this%offsets(3,no_symmetries))
+    allocate(this%offsets_cart(3,no_symmetries))
   endif
 end subroutine
 
@@ -82,11 +87,13 @@ subroutine drop_StructureData(this)
   deallocate(this%mass)
   deallocate(this%atoms)
   deallocate(this%frac_atoms)
+  deallocate(this%cart_atoms)
   
   if (this%no_symmetries /= 0) then
     deallocate(this%symmetries)
     deallocate(this%rotation_matrices)
     deallocate(this%offsets)
+    deallocate(this%offsets_cart)
   endif
 end subroutine
 
@@ -94,7 +101,7 @@ end subroutine
 function read_structure_file_character(filename) result(this)
   use utils,          only : lower_case
   use file_module
-  use linear_algebra, only : inv_33
+  use linear_algebra, only : inv_33, determinant33
   implicit none
   
   character(*), intent(in) :: filename
@@ -183,7 +190,9 @@ function read_structure_file_character(filename) result(this)
   
   ! calculate derived quantities
   this%recip_lattice = transpose(inv_33(this%lattice))
+  this%volume        = abs(determinant33(this%lattice))
   this%frac_atoms    = matmul(this%recip_lattice,this%atoms)
+  this%cart_atoms    = matmul(this%lattice,this%frac_atoms)
   
   do i=1,no_symmetries
     this%rotation_matrices(1,:,i) = this%symmetries(:,4*i-3)
@@ -191,6 +200,8 @@ function read_structure_file_character(filename) result(this)
     this%rotation_matrices(3,:,i) = this%symmetries(:,4*i-1)
     this%offsets(:,i)             = this%symmetries(:,4*i)
   enddo
+  
+  this%offsets_cart = matmul(this%lattice,this%offsets)
 end function
 
 function read_structure_file_string(filename) result(this)
