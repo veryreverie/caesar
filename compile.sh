@@ -33,15 +33,13 @@ cflags="$cflags -J${mdir}/"     # set .mod files to exist in mod/
 cflags="$cflags -fmax-errors=1" # make compilation stop on first error
 
 # copy shell and python scripts
-cp $sdir/harmonic/*.sh $bdir
-cp $sdir/quadratic/*.sh $bdir
 cp $sdir/quadratic/*.py $bdir
 cp $sdir/caesar $bdir
 chmod u+x $bdir/caesar
 
 # list programs
 # programs should be added so they are to the right of their dependencies
-programs=(constants string utils linear_algebra rand_no_gen file process moller_plesset structure rundft dft_output_file structure_to_dft calculate_symmetry bands displacement_patterns)
+programs=(constants string utils linear_algebra rand_no_gen file process moller_plesset structure dft_output_file structure_to_dft calculate_symmetry_helper bands displacement_patterns)
 
 harmonic_programs=(construct_matrix_force_cnsts construct_supercell min_images symmetry fourier_interpolation generate_kgrid generate_supercells lte hartree_to_eV setup_harmonic lte_harmonic)
 
@@ -76,17 +74,6 @@ done
 for program in ${quadratic_programs[@]}; do
   objs="$odir/$program.o $objs"
 done
-
-# compile caesar sub-programs
-#for program in ${harmonic_programs[@]}; do
-#  if [ ! "$program" = "combine_forces" ]; then
-#    $cf90 $odir/$program.o $objs $cflags -o $bdir/$program -lblas -llapack
-#  fi
-#done
-#
-#for program in ${quadratic_programs[@]}; do
-#  $cf90 $odir/$program.o $objs $cflags -o $bdir/$program -lblas -llapack
-#done
 
 # compile main caesar program
 program=caesar

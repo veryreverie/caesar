@@ -25,10 +25,13 @@ subroutine calculate_symmetry_helper(filenames)
   symmetry_filename = filenames(1)
   structure_filename = filenames(2)
   
+  ! Read structure data without symmetries
   structure = read_structure_file(structure_filename)
   
+  ! Read symmetry data
   call read_symmetry_file(structure,symmetry_filename)
   
+  ! Write both to file
   call write_structure_file(structure,structure_filename)
 end subroutine
 end module

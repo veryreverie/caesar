@@ -8,7 +8,6 @@ program caesar
   use string_module
   
   ! use common modules
-  use rundft_module
   use structure_to_dft_module
   use calculate_symmetry_helper_module
   
@@ -135,8 +134,6 @@ program caesar
     call calculate_gap()
   elseif (args(1) == 'hartree_to_eV') then
     call hartree_to_eV()
-  elseif (args(1) == 'rundft') then
-    call rundft(args(2:))
   elseif (args(1) == 'structure_to_dft') then
     if (args(2) == "castep") then
       if (size(args) == 4) then
@@ -171,9 +168,6 @@ program caesar
     endif
   elseif (args(1) == 'calculate_symmetry_helper') then
     call calculate_symmetry_helper(args(2:))
-  ! wrappers for subsidiary shell scripts
-  elseif (args(1) == 'calculate_symmetry') then
-    call system(args(1)//'.sh '//argstring)
   ! wrappers for python scripts
   elseif (args(1) == 'get_kpoints') then
     call system(args(1)//'.py')

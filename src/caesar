@@ -8,6 +8,8 @@ function main {
     run_harmonic
   elif [  "$1" = "run_quadratic" ]; then
     run_quadratic
+  elif [  "$1" = "calculate_symmetry" ]; then
+    calculate_symmetry
   else
     # Anything not handled by this script is passed to .caesar
     
@@ -57,7 +59,7 @@ function run_harmonic {
         if [ "$code" = "castep" ]; then
           cp $code/$seedname.param $ddir
         fi
-        caesar rundft $code $ddir $num_cores $seedname
+        run_dft $code $ddir $num_cores $seedname
       done
 
     done < $sdir/force_constants.dat 
@@ -69,7 +71,7 @@ function run_harmonic {
 # ======================================================================
 # Script to run quadratic calculation on TCM cluster.
 # ======================================================================
-function run_harmonic {
+function run_quadratic {
   # Read in user inputs
   echo "What is the first supercell to run?"
   read first_sc
@@ -106,11 +108,11 @@ function run_harmonic {
     static_dir=$sdir/static
     if [ "$dft_code" = "castep" ]; then
       cp $dft_code/$seedname.param $static_dir
-      caesar rundft $dft_code $static_dir $num_cores $seedname
+      run_dft $dft_code $static_dir $num_cores $seedname
     elif [ "$dft_code" = "qe" ]; then
-      caesar rundft $dft_code $static_dir $num_cores $seedname
+      run_dft $dft_code $static_dir $num_cores $seedname
       if [ -e "$static_dir/$seedname_nscf.in" ]; then
-        caesar rundft $dft_code $static_dir $num_cores $seedname_nscf
+        run_dft $dft_code $static_dir $num_cores $seedname_nscf
       fi
     fi
   done
@@ -134,11 +136,11 @@ function run_harmonic {
             # Run dft
             if [ "$dft_code" = "castep" ]; then
               cp $dft_code/$seedname.param $mdir
-              caesar rundft $dft_code $mdir $num_cores $seedname
+              run_dft $dft_code $mdir $num_cores $seedname
             elif [ "$dft_code" = "qe" ]; then
-              caesar rundft $dft_code $mdir $num_cores $seedname
+              run_dft $dft_code $mdir $num_cores $seedname
               if [ -e "$mdir/$seedname_nscf.in" ]; then
-                caesar rundft $dft_code $mdir $num_cores $seedname_nscf
+                run_dft $dft_code $mdir $num_cores $seedname_nscf
               fi
             fi
           fi
@@ -159,6 +161,84 @@ function clear_all {
   if [ $answer == 'y' ]; then
     rm -r Supercell_* ibz.dat no_sc.dat rotated_gvectors.dat
   fi
+}
+
+# ======================================================================
+# Script to run dft
+# ======================================================================
+function run_dft {
+  dft_code=$1
+  directory=$2
+  num_cores=$3
+  seedname=$4
+  
+  cd $directory
+  
+  if [ "$dft_code" = "castep" ]; then
+    rundft nnodes $num_cores seedname $seedname
+    rm *.castep_bin *.cst_esp *.usp machine_file *.bib *orbitals
+  elif [ "$dft_code" = "vasp" ]; then
+    # vasp run script not yet written
+    echo "Error! vasp run script not yet written."
+    exit
+  elif [ "$dft_code" = "qe" ]; then
+    mpirun -np $num_cores /rscratch/bm418/espresso-5.1.1/bin/pw.x \
+       -i $seedname.in > $seedname.out
+    rm -r $seedname.save
+  fi
+  
+  cd -
+}
+
+# ======================================================================
+# Script to add symmetry data to structure file
+# ======================================================================
+function calculate_symmetry {
+  # Takes a structure.dat file with no symmetry, and appends symmetry operators
+
+  # $1=structure.dat
+
+  # Input:
+
+  # Lattice
+  #  ~ ~ ~
+  #  ~ ~ ~
+  #  ~ ~ ~
+  # Atoms
+  #  ~ ~ ~
+  #   ...
+  #  ~ ~ ~
+  # End
+
+  # Output:
+
+  # Lattice
+  #  ~ ~ ~
+  #  ~ ~ ~
+  #  ~ ~ ~
+  # Atoms
+  #  ~ ~ ~
+  #   ...
+  #  ~ ~ ~
+  # Symmetry
+  #  ~ ~ ~
+  #   ...
+  #  ~ ~ ~
+  # End
+
+  caesar structure_to_dft \
+         castep           \
+         $1               \
+         calculate_symmetry.cell
+
+  cellsym --symmetry calculate_symmetry.cell > calculate_symmetry.dat
+
+  caesar calculate_symmetry_helper \
+         calculate_symmetry.dat    \
+         $1
+         
+  rm calculate_symmetry.cell
+  rm calculate_symmetry.dat
 }
 
 main $@
