@@ -101,27 +101,36 @@ subroutine calculate_frequencies(basis,dyn_mat,freqs)
 end subroutine
 
 subroutine generate_dispersion(rec_vecs,basis,mass,no_cells,no_ims,          &
-   & cell_vecs,force_consts,no_points,path,phonon_dispersion_curve_filename, &
+   & cell_vecs,force_consts,path,phonon_dispersion_curve_filename, &
    & high_symmetry_points_filename)
   use file_module
   use string_module
   implicit none
   
   ! inputs
+  real(dp),     intent(in) :: rec_vecs(3,3)
+  integer,      intent(in) :: basis
+  real(dp),     intent(in) :: mass(:)
+  integer,      intent(in) :: no_cells
+  integer,      intent(in) :: no_ims(:)
+  real(dp),     intent(in) :: cell_vecs(:,:,:)
+  real(dp),     intent(in) :: force_consts(:,:,:,:,:)
+  real(dp),     intent(in) :: path(:,:)
   type(String), intent(in) :: phonon_dispersion_curve_filename
   type(String), intent(in) :: high_symmetry_points_filename
   
-  INTEGER,INTENT(in) :: basis,no_cells,no_ims(no_cells),no_points
-  REAL(dp),INTENT(in) :: rec_vecs(3,3),mass(basis),cell_vecs(3,8,no_cells),&
-    &force_consts(basis,3,basis,3,no_cells),path(3,no_points)
-  INTEGER :: i_path,i_cart,path_length,i_point
-  REAL(dp) :: k_start(3),k_stop(3),k_diff(3),k_dist,total_k_dist,delta_k,&
+  integer :: i_path,i_cart,path_length,i_point
+  real(dp) :: k_start(3),k_stop(3),k_diff(3),k_dist,total_k_dist,delta_k,&
     &kpoint(3),omega(3*basis)
-  COMPLEX(dp) :: dyn_mat(basis,3,basis,3)
+  complex(dp) :: dyn_mat(basis,3,basis,3)
+  
+  integer :: no_points
   
   ! file units
   integer :: phonon_dispersion_curve_file
   integer :: high_symmetry_points_file
+  
+  no_points = size(path,2)
   
   total_k_dist=0.d0
   do i_point=1,no_points-1
@@ -291,42 +300,6 @@ module fourier_interpolation_module
 contains
 
 ! ----------------------------------------------------------------------
-! Read input files related to k-points in the IBZ.
-! ----------------------------------------------------------------------
-subroutine read_kpoints(no_kpoints,kpoints,multiplicity,kpoint_to_supercell,&
-   & ibz_filename)
-  use file_module
-  use string_module
-  implicit none
-  
-  ! inputs
-  type(String), intent(in) :: ibz_filename
-  
-  REAL(dp),PARAMETER :: tol=1.d-8
-  INTEGER,INTENT(in) :: no_kpoints
-  INTEGER,INTENT(out) :: multiplicity(no_kpoints),&
-    &kpoint_to_supercell(no_kpoints)
-  REAL(dp),INTENT(out) :: kpoints(3,no_kpoints)
-  INTEGER :: i_point
-  
-  ! file units
-  integer :: ibz_file
-  
-  ! Read ibz.dat file
-  ibz_file = open_read_file(ibz_filename)
-  do i_point=1,no_kpoints
-    read(ibz_file,*) kpoints(:,i_point),    &
-                   & multiplicity(i_point), &
-                   & kpoint_to_supercell(i_point)
-  enddo
-  close(ibz_file)
-
-  do i_point=1,no_kpoints
-    kpoints(1:3,i_point)=modulo(kpoints(1:3,i_point)+0.5d0+tol,1.d0)-0.5d0-tol
-  enddo ! i_points
-end subroutine read_kpoints
-
-! ----------------------------------------------------------------------
 ! Read in dynamical matrices at each k-point in the IBZ.
 ! ----------------------------------------------------------------------
 subroutine read_dyn_mats(basis,mass,atom_prim_frac,no_kpoints,dyn_mats, &
@@ -364,7 +337,7 @@ subroutine read_dyn_mats(basis,mass,atom_prim_frac,no_kpoints,dyn_mats, &
       &'Fractional atomic coordinates are not in range [0.0,1.0)')
   close(atoms_in_primitive_cell_file)
   
-  dyn_mat_file = open_read_file(dyn_mat_fileroot//'1.dat')
+  dyn_mat_file = open_read_file(dyn_mat_fileroot//'.1.dat')
   do i_atom=1,basis
     do i_cart=1,3
       do j_atom=1,basis
@@ -410,7 +383,7 @@ subroutine read_dyn_mats(basis,mass,atom_prim_frac,no_kpoints,dyn_mats, &
       &find all atoms in supercell '//trim(i2s(supercell))//'.')
     close(atoms_in_primitive_cell_file)
     
-    dyn_mat_file = open_read_file(dyn_mat_fileroot//ibz_point//'.dat')
+    dyn_mat_file = open_read_file(dyn_mat_fileroot//'.'//ibz_point//'.dat')
     do i_atom=1,basis
       do i_cart=1,3
         do j_atom=1,basis
@@ -436,38 +409,14 @@ subroutine read_dyn_mats(basis,mass,atom_prim_frac,no_kpoints,dyn_mats, &
   enddo ! ibz_point
 end subroutine
 
-! ----------------------------------------------------------------------
-! Read in the high symmetry points on the phonon dispersion path.
-! ----------------------------------------------------------------------
-subroutine read_path(no_points,path,path_filename)
-  use file_module
-  use string_module
-  implicit none
-  
-  type(String), intent(in) :: path_filename
-  
-  ! file units
-  integer :: path_file
-  
-  INTEGER,INTENT(in) :: no_points
-  REAL(dp),INTENT(out) :: path(3,no_points)
-  INTEGER :: i, ierr
-  
-  path_file = open_read_file(path_filename)
-  do i=1,no_points
-    read(path_file,*,iostat=ierr) path(:,i)
-    if(ierr/=0)call errstop('READ_PATH','Problem reading path.dat file.')
-  enddo
-  close(path_file)
-end subroutine
-
-subroutine fourier_interpolation(structure_filename,                          &
-   & phonon_dispersion_curve_filename,                                        &
+subroutine fourier_interpolation(structure,                          &
+   & phonon_dispersion_curve_filename,                               &
    & high_symmetry_points_filename,temperature,free_energy_filename, &
-   & freq_dos_filename,grid_filename,                                         &
-   & ibz_filename,                                                            &
+   & freq_dos_filename,grid_filename,                                &
+   & kpoints,sc_ids,                                    &
    & atoms_in_primitive_cell_fileroot,dyn_mat_fileroot,path_filename)
   use constants, only : dp, pi
+  use utils,     only : reduce_interval
   use linear_algebra
   use min_images
   use symmetry
@@ -478,14 +427,15 @@ subroutine fourier_interpolation(structure_filename,                          &
   implicit none
   
   ! filenames
-  type(String), intent(in) :: structure_filename
+  type(StructureData), intent(in) :: structure
   type(String), intent(in) :: phonon_dispersion_curve_filename
   type(String), intent(in) :: high_symmetry_points_filename
   real(dp),     intent(in) :: temperature
   type(String), intent(in) :: free_energy_filename
   type(String), intent(in) :: freq_dos_filename
   type(String), intent(in) :: grid_filename
-  type(String), intent(in) :: ibz_filename
+  real(dp),     intent(in) :: kpoints(:,:)
+  integer,      intent(in) :: sc_ids(:)
   type(String), intent(in) :: atoms_in_primitive_cell_fileroot! append *.dat
   type(String), intent(in) :: dyn_mat_fileroot                ! append *.dat
   type(String), intent(in) :: path_filename
@@ -494,7 +444,7 @@ subroutine fourier_interpolation(structure_filename,                          &
   REAL(dp),PARAMETER :: tol=1.d-8 
   
   ! variables
-  integer :: i,j
+  integer :: i
   
   INTEGER,ALLOCATABLE :: atom_map_symm_backwards(:,:)
   INTEGER,ALLOCATABLE :: atom_map_symm_forwards(:,:)
@@ -504,7 +454,6 @@ subroutine fourier_interpolation(structure_filename,                          &
   INTEGER,ALLOCATABLE :: ibz_to_grid_symm(:)
   INTEGER,ALLOCATABLE :: ibz_to_supercell_map(:)
   INTEGER,ALLOCATABLE :: identity_map(:)
-  INTEGER,ALLOCATABLE :: multiplicity(:)
   INTEGER,ALLOCATABLE :: no_im_cells(:)
   
   REAL(dp),ALLOCATABLE :: atom_pos_cart(:,:)
@@ -517,10 +466,6 @@ subroutine fourier_interpolation(structure_filename,                          &
   REAL(dp),ALLOCATABLE :: ibz_points_cart(:,:)
   REAL(dp),ALLOCATABLE :: ibz_points_frac(:,:)
   REAL(dp),ALLOCATABLE :: mass(:)
-  REAL(dp),ALLOCATABLE :: path(:,:)
-  REAL(dp),ALLOCATABLE :: point_symms(:,:,:)
-  REAL(dp),ALLOCATABLE :: symm_ops(:,:,:)
-  REAL(dp),ALLOCATABLE :: trans_symms(:,:)
   
   COMPLEX(dp),ALLOCATABLE :: dyn_mats_grid(:,:,:,:,:)
   COMPLEX(dp),ALLOCATABLE :: dyn_mats_ibz(:,:,:,:,:)
@@ -530,15 +475,10 @@ subroutine fourier_interpolation(structure_filename,                          &
   
   LOGICAL,ALLOCATABLE :: time_reversal(:)
   
-  INTEGER :: basis
   INTEGER :: grid(3)
-  INTEGER :: dof_prim
   INTEGER :: no_grid_points
-  INTEGER :: no_ibz_points
-  INTEGER :: no_kpoints_path
-  INTEGER :: no_symm_ops
   
-  INTEGER :: ialloc
+  integer :: no_kpoints
   
   INTEGER :: counter
   INTEGER :: i_atom,j_atom
@@ -554,100 +494,51 @@ subroutine fourier_interpolation(structure_filename,                          &
   REAL(dp) :: k_dot_r
   REAL(dp) :: kpoint(3)
   REAL(dp) :: prefactor
-  REAL(dp) :: prim_latt_vecs(3,3)
   REAL(dp) :: prim_rec_vecs(3,3)
   REAL(dp) :: super_latt_vecs(3,3)
   REAL(dp) :: super_rec_vecs(3,3)
   
-  type(StructureData) :: structure
+  ! path data
+  integer :: no_kpoints_path
+  real(dp),allocatable :: path(:,:)
   
   ! file units
   integer :: grid_file
+  integer :: path_file
   
   ! Read basic input files and allocate corresponding arrays
   grid_file = open_read_file(grid_filename)
   read(grid_file,*) grid
   close(grid_file)
   
-  structure = read_structure_file(structure_filename)
-  prim_latt_vecs = structure%lattice
-  basis = structure%no_atoms
-  no_symm_ops = structure%no_symmetries
+  no_grid_points=product(grid(:))
   
-  allocate(symm_ops(4,3,no_symm_ops),stat=ialloc)
-  if(ialloc/=0)call erralloc('SYMM_OPS')
-  allocate(point_symms(3,3,no_symm_ops),stat=ialloc)
-  if(ialloc/=0)call erralloc('POINT_SYMMS')
-  allocate(trans_symms(3,no_symm_ops),stat=ialloc)
-  if(ialloc/=0)call erralloc('TRANS_SYMMS')
+  allocate(identity_map(structure%no_atoms))
+  allocate(grid_to_ibz_map(no_grid_points))
+  allocate(ibz_to_grid_symm(no_grid_points))
+  allocate(time_reversal(no_grid_points))
+  allocate(grid_map_symm_backwards(no_grid_points,structure%no_symmetries))
+  allocate(grid_map_symm_forwards(no_grid_points,structure%no_symmetries))
+  allocate(grid_points_cart(3,no_grid_points))
+  allocate(grid_points_frac(3,no_grid_points))
+  allocate(dyn_mats_grid(structure%no_atoms,3,structure%no_atoms,3,no_grid_points))
+  allocate(temp_dyn_mat(structure%no_atoms,3,structure%no_atoms,3))
+  allocate(dyn_mats_symm(structure%no_atoms,3,structure%no_atoms,3,no_grid_points))
+  allocate(force_consts(structure%no_atoms,3,structure%no_atoms,3,no_grid_points))
   
-  do i=1,no_symm_ops
-    do j=1,4
-      symm_ops(i,:,j) = structure%symmetries(:,4*(i-1)+j)
-    enddo
-  enddo
+  identity(1,:) = (/ 1.0_dp, 0.0_dp, 0.0_dp /)
+  identity(2,:) = (/ 0.0_dp, 1.0_dp, 0.0_dp /)
+  identity(3,:) = (/ 0.0_dp, 0.0_dp, 1.0_dp /)
   
-  dof_prim=3*basis
-  no_grid_points=product(grid(1:3))
-  
-  do i_symm=1,no_symm_ops
-    point_symms(1:3,1:3,i_symm)=symm_ops(1:3,1:3,i_symm)
-    do i_cart=1,3
-      trans_symms(i_cart,i_symm)=dot_product(symm_ops(4,1:3,i_symm),&
-        &prim_latt_vecs(1:3,i_cart))
-    enddo ! i_cart
-  enddo ! i_symm
-  
-  allocate(identity_map(basis),stat=ialloc)
-  if(ialloc/=0)call erralloc('IDENTITY_MAP')
-  
-  allocate(grid_to_ibz_map(no_grid_points),stat=ialloc)
-  if(ialloc/=0)call erralloc('GRID_TO_IBZ_MAP')
-  
-  allocate(ibz_to_grid_symm(no_grid_points),stat=ialloc)
-  if(ialloc/=0)call erralloc('IBZ_TO_GRID_SYMM')
-  
-  allocate(time_reversal(no_grid_points),stat=ialloc)
-  if(ialloc/=0)call erralloc('TIME_REVERSAL')
-  
-  allocate(grid_map_symm_backwards(no_grid_points,no_symm_ops),stat=ialloc)
-  if(ialloc/=0)call erralloc('GRID_MAP_SYMM_BACKWARDS')
-  
-  allocate(grid_map_symm_forwards(no_grid_points,no_symm_ops),stat=ialloc)
-  if(ialloc/=0)call erralloc('GRID_MAP_SYMM_FORWARDS')
-  
-  allocate(grid_points_cart(3,no_grid_points),stat=ialloc)
-  if(ialloc/=0)call erralloc('GRID_POINTS_CART')
-  
-  allocate(grid_points_frac(3,no_grid_points),stat=ialloc)
-  if(ialloc/=0)call erralloc('GRID_POINTS_FRAC')
-  
-  allocate(dyn_mats_grid(basis,3,basis,3,no_grid_points),stat=ialloc)
-  if(ialloc/=0)call erralloc('DYN_MATS_GRID')
-  
-  allocate(temp_dyn_mat(basis,3,basis,3),stat=ialloc)
-  if(ialloc/=0)call erralloc('TEMP_DYN_MAT')
-  
-  allocate(dyn_mats_symm(basis,3,basis,3,no_grid_points),stat=ialloc)
-  if(ialloc/=0)call erralloc('DYN_MATS_SYMM')
-  
-  allocate(force_consts(basis,3,basis,3,no_grid_points),stat=ialloc)
-  if(ialloc/=0)call erralloc('FORCE_CONSTS')
-  
-  identity=0.d0
-  identity(1,1)=1.d0
-  identity(2,2)=1.d0
-  identity(3,3)=1.d0
-  
-  do i_atom=1,basis
+  do i_atom=1,structure%no_atoms
     identity_map(i_atom)=i_atom
   enddo
   
-  prim_rec_vecs = 2*pi*transpose(inv_33(prim_latt_vecs))
+  prim_rec_vecs = 2*pi*structure%recip_lattice
   
-  super_latt_vecs(1,1:3)=dble(grid(1))*prim_latt_vecs(1,1:3)
-  super_latt_vecs(2,1:3)=dble(grid(2))*prim_latt_vecs(2,1:3)
-  super_latt_vecs(3,1:3)=dble(grid(3))*prim_latt_vecs(3,1:3)
+  do i=1,3
+    super_latt_vecs(i,:) = grid(i)*structure%lattice(i,:)
+  enddo
   
   super_rec_vecs = 2*pi*transpose(inv_33(super_latt_vecs))
   
@@ -656,133 +547,71 @@ subroutine fourier_interpolation(structure_filename,                          &
     do m2=0,grid(2)-1
       do m3=0,grid(3)-1
         i_grid=i_grid+1
-        if(i_grid>no_grid_points)then
-          write(*,*)'Found more k-points than on grid.'
-          stop
-        endif ! i_grid
-        grid_points_frac(1,i_grid)=dble(m1)/dble(grid(1))
-        grid_points_frac(2,i_grid)=dble(m2)/dble(grid(2))
-        grid_points_frac(3,i_grid)=dble(m3)/dble(grid(3))
-        grid_points_frac(1:3,i_grid)=&
-          &modulo(0.5d0+grid_points_frac(1:3,i_grid)+tol,1.d0)-0.5d0-tol
-      enddo ! m3
-    enddo ! m2
-  enddo ! m1
-  if(i_grid<no_grid_points)then
-    write(*,*)'Not found all k-points on grid.'
-    stop
-  endif ! i_grid
+        grid_points_frac(:,i_grid) = reduce_interval( (/m1,m2,m3/)/dble(grid),&
+                                                    & tol)
+      enddo
+    enddo
+  enddo
   
   ! Convert grid points from fractional to Cartesian coodinates
-  do i_grid=1,no_grid_points
-    do i_cart=1,3
-      grid_points_cart(i_cart,i_grid)=dot_product(grid_points_frac(1:3,i_grid),&
-        &prim_rec_vecs(1:3,i_cart))
-    enddo ! i_cart
-  enddo ! i_grid
+  grid_points_cart = matmul(transpose(prim_rec_vecs),grid_points_frac)
   
-  ! Determine which symmetry operations are in the point group and inverse group
-  ! for each wave vector
+  ! Determine which symmetry operations are in the point group and inverse
+  ! group for each wave vector
   call kpoint_symmetry_maps(prim_rec_vecs,no_grid_points,grid_points_cart,&
-    &no_symm_ops,point_symms,grid_map_symm_forwards,grid_map_symm_backwards)
+    &structure%no_symmetries,structure%rotation_matrices,grid_map_symm_forwards,grid_map_symm_backwards)
   
-  allocate(atom_pos_frac(3,basis),stat=ialloc)
-  if(ialloc/=0)call erralloc('ATOM_POS_FRAC')
-  
-  allocate(atom_pos_cart(3,basis),stat=ialloc)
-  if(ialloc/=0)call erralloc('ATOM_POS_CART')
-  
-  allocate(mass(basis),stat=ialloc)
-  if(ialloc/=0)call erralloc('MASS')
-  
-  allocate(atom_map_symm_forwards(basis,no_symm_ops),stat=ialloc)
-  if(ialloc/=0)call erralloc('ATOM_MAP_SYMM_FORWARDS')
-  
-  allocate(atom_map_symm_backwards(basis,no_symm_ops),stat=ialloc)
-  if(ialloc/=0)call erralloc('ATOM_MAP_SYMM_BACKWARDS')
-  
-  allocate(phase(basis,basis),stat=ialloc)
-  if(ialloc/=0)call erralloc('PHASE')
-  
-  allocate(cell_pos_cart(3,no_grid_points),stat=ialloc)
-  if(ialloc/=0)call erralloc('CELL_POS_CART')
-  
-  allocate(no_im_cells(no_grid_points),stat=ialloc)
-  if(ialloc/=0)call erralloc('NO_IM_CELLS')
-  
-  allocate(min_im_cell_pos(3,8,no_grid_points),stat=ialloc)
-  if(ialloc/=0)call erralloc('MIN_IM_CELL_POS')
+  allocate(atom_pos_frac(3,structure%no_atoms))
+  allocate(atom_pos_cart(3,structure%no_atoms))
+  allocate(mass(structure%no_atoms))
+  allocate(atom_map_symm_forwards(structure%no_atoms,structure%no_symmetries))
+  allocate(atom_map_symm_backwards(structure%no_atoms,structure%no_symmetries))
+  allocate(phase(structure%no_atoms,structure%no_atoms))
+  allocate(cell_pos_cart(3,no_grid_points))
+  allocate(no_im_cells(no_grid_points))
+  allocate(min_im_cell_pos(3,8,no_grid_points))
   
   i_cell=0
   do m1=0,grid(1)-1
     do m2=0,grid(2)-1
       do m3=0,grid(3)-1
         i_cell=i_cell+1
-        if(i_cell>no_grid_points)then
-          write(*,*)'Found more primitive cells than in supercell.'
-          stop
-        endif ! i_cell
-        cell_pos_cart(:,i_cell)=dble(m1)*prim_latt_vecs(1,:)+&
-          &dble(m2)*prim_latt_vecs(2,:)+dble(m3)*prim_latt_vecs(3,:)
+        cell_pos_cart(:,i_cell) = matmul((/m1,m2,m3/),structure%lattice)
         call min_images_brute_force(cell_pos_cart(:,i_cell),super_latt_vecs,&
           &min_im_cell_pos(:,:,i_cell),no_im_cells(i_cell))
       enddo ! m3
     enddo ! m2
   enddo ! m1
-  if(i_cell<no_grid_points)then
-    write(*,*)'Not found all primitive cells in supercell.'
-    stop
-  endif ! i_cell
   
   ! Get the number of k-points in the IBZ and allocate corresponding arrays
-  no_ibz_points = count_lines(ibz_filename)
+  no_kpoints = size(sc_ids)
   
-  allocate(ibz_points_cart(3,no_ibz_points),stat=ialloc)
-  if(ialloc/=0)call erralloc('IBZ_POINTS_CART')
-  
-  allocate(ibz_points_frac(3,no_ibz_points),stat=ialloc)
-  if(ialloc/=0)call erralloc('IBZ_POINTS_FRAC')
-  
-  allocate(ibz_to_supercell_map(no_ibz_points),stat=ialloc)
-  if(ialloc/=0)call erralloc('IBZ_TO_SUPERCELL_MAP')
-  
-  allocate(multiplicity(no_ibz_points),stat=ialloc)
-  if(ialloc/=0)call erralloc('MULTIPLICITY')
-  
-  allocate(dyn_mats_ibz(basis,3,basis,3,no_ibz_points),stat=ialloc)
-  if(ialloc/=0)call erralloc('DYN_MATS_IBZ')
+  allocate(ibz_points_cart(3,no_kpoints))
+  allocate(ibz_points_frac(3,no_kpoints))
+  allocate(ibz_to_supercell_map(no_kpoints))
+  allocate(dyn_mats_ibz(structure%no_atoms,3,structure%no_atoms,3,no_kpoints))
   
   ! Read input files related to k-points in the IBZ
-  call read_kpoints(no_ibz_points,ibz_points_frac,multiplicity,&
-    &ibz_to_supercell_map,ibz_filename)
+  ibz_points_frac = kpoints
+  ibz_to_supercell_map = sc_ids
   
   ! Convert IBZ points from fractional to Cartesian coodinates
-  do i_point=1,no_ibz_points
-    do i_cart=1,3
-      ibz_points_cart(i_cart,i_point)=dot_product(ibz_points_frac(1:3,i_point),&
-        &prim_rec_vecs(1:3,i_cart))
-    enddo ! i_cart
-  enddo ! i_point
+  ibz_points_cart = matmul(transpose(prim_rec_vecs),ibz_points_frac)
   
   ! Read in the dynamical matrix at each k-point in the IBZ
-  call read_dyn_mats(basis,mass,atom_pos_frac,no_ibz_points,dyn_mats_ibz, &
+  call read_dyn_mats(structure%no_atoms,mass,atom_pos_frac,no_kpoints,dyn_mats_ibz, &
       & ibz_to_supercell_map,atoms_in_primitive_cell_fileroot,dyn_mat_fileroot)
   
-  do i_atom=1,basis
-    do i_cart=1,3
-      atom_pos_cart(i_cart,i_atom)=dot_product(atom_pos_frac(1:3,i_atom),&
-        &prim_latt_vecs(1:3,i_cart))
-    enddo ! i_cart
-  enddo ! i_atom
+  atom_pos_cart = matmul(transpose(structure%lattice),atom_pos_frac)
   
   ! Determine the mapping of the atoms in the primitive cell under each symmetry
   ! operation
-    call atom_symmetry_maps(prim_latt_vecs,basis,atom_pos_cart,no_symm_ops,&
-    &point_symms,trans_symms,atom_map_symm_forwards,atom_map_symm_backwards)
+    call atom_symmetry_maps(structure%lattice,structure%no_atoms,atom_pos_cart,structure%no_symmetries,&
+    &structure%rotation_matrices,structure%offsets,atom_map_symm_forwards,atom_map_symm_backwards)
 
   ! Map each k-point on the grid to one in the IBZ
   call match_kpoints(prim_rec_vecs,no_grid_points,grid_points_cart,&
-    &no_ibz_points,ibz_points_cart,no_symm_ops,point_symms,grid_to_ibz_map,&
+    &no_kpoints,ibz_points_cart,structure%no_symmetries,structure%rotation_matrices,grid_to_ibz_map,&
     &ibz_to_grid_symm,time_reversal)
 
   ! Determine the dynamical matrix at each point on the k-point grid by applying 
@@ -792,10 +621,10 @@ subroutine fourier_interpolation(structure_filename,                          &
     i_point=grid_to_ibz_map(i_grid)
     kpoint=ibz_points_cart(1:3,i_point)
     i_symm=ibz_to_grid_symm(i_grid)
-    call g_matrix_phases(kpoint,point_symms(:,:,i_symm),trans_symms(:,i_symm),&
-      &basis,atom_pos_cart,phase)
-    call apply_symmetry_to_dyn_mat(basis,atom_map_symm_forwards(:,i_symm),phase,&
-      &dyn_mats_ibz(:,:,:,:,i_point),point_symms(:,:,i_symm),&
+    call g_matrix_phases(kpoint,structure%rotation_matrices(:,:,i_symm),structure%offsets(:,i_symm),&
+      &structure%no_atoms,atom_pos_cart,phase)
+    call apply_symmetry_to_dyn_mat(structure%no_atoms,atom_map_symm_forwards(:,i_symm),phase,&
+      &dyn_mats_ibz(:,:,:,:,i_point),structure%rotation_matrices(:,:,i_symm),&
       &dyn_mats_grid(:,:,:,:,i_grid))
     if(time_reversal(i_grid))then
       dyn_mats_grid(:,:,:,:,i_grid)=&
@@ -809,9 +638,9 @@ subroutine fourier_interpolation(structure_filename,                          &
   do i_grid=1,no_grid_points
     kpoint=grid_points_cart(1:3,i_grid)
     do i_cell=1,no_grid_points
-      call g_matrix_phases(kpoint,identity,cell_pos_cart(:,i_cell),basis,&
+      call g_matrix_phases(kpoint,identity,cell_pos_cart(:,i_cell),structure%no_atoms,&
         &atom_pos_cart,phase)
-      call apply_symmetry_to_dyn_mat(basis,identity_map,phase,&
+      call apply_symmetry_to_dyn_mat(structure%no_atoms,identity_map,phase,&
         &dyn_mats_grid(:,:,:,:,i_grid),identity,temp_dyn_mat)
       dyn_mats_symm(:,:,:,:,i_grid)=temp_dyn_mat+dyn_mats_symm(:,:,:,:,i_grid)
     enddo ! i_cell
@@ -829,15 +658,15 @@ subroutine fourier_interpolation(structure_filename,                          &
   dyn_mats_symm=cmplx(0.d0,0.d0,dp)
   do i_grid=1,no_grid_points
     counter=0
-    do i_symm=1,no_symm_ops
+    do i_symm=1,structure%no_symmetries
       if(grid_map_symm_backwards(i_grid,i_symm)>0)then
         counter=counter+1
         i_back=grid_map_symm_backwards(i_grid,i_symm)
         kpoint=grid_points_cart(1:3,i_back)
-        call g_matrix_phases(kpoint,point_symms(:,:,i_symm),trans_symms(:,i_symm),&
-          &basis,atom_pos_cart,phase)
-        call apply_symmetry_to_dyn_mat(basis,atom_map_symm_forwards(:,i_symm),&
-          &phase,dyn_mats_grid(:,:,:,:,i_back),point_symms(:,:,i_symm),temp_dyn_mat)
+        call g_matrix_phases(kpoint,structure%rotation_matrices(:,:,i_symm),structure%offsets(:,i_symm),&
+          &structure%no_atoms,atom_pos_cart,phase)
+        call apply_symmetry_to_dyn_mat(structure%no_atoms,atom_map_symm_forwards(:,i_symm),&
+          &phase,dyn_mats_grid(:,:,:,:,i_back),structure%rotation_matrices(:,:,i_symm),temp_dyn_mat)
         dyn_mats_symm(:,:,:,:,i_grid)=temp_dyn_mat+dyn_mats_symm(:,:,:,:,i_grid)
       endif ! grid_map_symm_backwards
     enddo ! i_symm
@@ -849,28 +678,12 @@ subroutine fourier_interpolation(structure_filename,                          &
   enddo ! i_grid
   dyn_mats_grid=dyn_mats_symm
   
-! do i_grid=1,no_grid_points
-!    open(unit=10,file='dyn_mat_symm.'//trim(i2s(i_grid))//'.dat',status='replace')
-!    do i_atom=1,basis
-!      do i_cart=1,3
-!        do j_atom=1,basis
-!          do j_cart=1,3
-!            write(10,*)i_atom,i_cart,j_atom,j_cart,&
-!              &real(dyn_mats_grid(i_atom,i_cart,j_atom,j_cart,i_grid)),&
-!              &aimag(dyn_mats_grid(i_atom,i_cart,j_atom,j_cart,i_grid))
-!          enddo ! j_cart
-!        enddo ! j_atom
-!      enddo ! i_cart
-!    enddo ! i_atom
-!    close(10)
-! enddo ! i_grid
-  
   ! Construct the matrix of force constants
   force_consts=0.d0
   do i_cell=1,no_grid_points
-    do i_atom=1,basis
+    do i_atom=1,structure%no_atoms
       do i_cart=1,3
-        do j_atom=1,basis
+        do j_atom=1,structure%no_atoms
           do j_cart=1,3
             prefactor=sqrt(mass(i_atom)*mass(j_atom))/&
               &dble(no_grid_points)
@@ -888,40 +701,26 @@ subroutine fourier_interpolation(structure_filename,                          &
         enddo ! j_atom
       enddo ! i_cart
     enddo ! i_atom
-!    open(unit=10,file='force_consts.'//trim(i2s(i_cell))//'.dat',status='replace')
-!    do i_atom=1,basis
-!      do i_cart=1,3
-!        do j_atom=1,basis
-!          do j_cart=1,3
-!            write(10,*)i_atom,i_cart,j_atom,j_cart,&
-!              &force_consts(i_atom,i_cart,j_atom,j_cart,i_cell)
-!          enddo ! j_cart
-!        enddo ! j_atom
-!      enddo ! i_cart
-!    enddo ! i_atom
-!    close(10)
   enddo ! i_cell
-
-! allocate(freqs(dof_prim,no_grid_points),stat=ialloc)
-! if(ialloc/=0)call erralloc('FREQS')
-
+  
   ! Get the number of high symmetry points on the dispersion path and allocate 
   ! corresponding arrays
   no_kpoints_path = count_lines(path_filename)
   
-  allocate(path(3,no_kpoints_path),stat=ialloc)
-  if(ialloc/=0)call erralloc('PATH')
+  allocate(path(3,no_kpoints_path))
   
-  call read_path(no_kpoints_path,path,path_filename)
+  path_file = open_read_file(path_filename)
+  do i=1,no_kpoints_path
+    read(path_file,*) path(:,i)
+  enddo
+  close(path_file)
   
-  call generate_dispersion(prim_rec_vecs,basis,mass,no_grid_points,    &
-      & no_im_cells,min_im_cell_pos,force_consts,no_kpoints_path,path, &
+  call generate_dispersion(prim_rec_vecs,structure%no_atoms,mass,no_grid_points,    &
+      & no_im_cells,min_im_cell_pos,force_consts,path, &
       & phonon_dispersion_curve_filename,high_symmetry_points_filename)
 
-  call generate_dos(prim_rec_vecs,basis,mass,no_grid_points,no_im_cells,      &
+  call generate_dos(prim_rec_vecs,structure%no_atoms,mass,no_grid_points,no_im_cells,      &
     & min_im_cell_pos,force_consts,temperature,free_energy_filename, &
     & freq_dos_filename)
-  
-  call drop(structure)
 end subroutine
 end module

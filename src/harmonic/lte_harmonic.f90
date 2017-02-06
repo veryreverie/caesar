@@ -219,15 +219,15 @@ subroutine lte_harmonic()
   write(f,s) "0.000000 0.500000 0.000000  # L"
   close(f)
   
-  call fourier_interpolation(             &
-     & str('structure.dat'),                   &
+  call fourier_interpolation(                  &
+     & structure,                              &
      & str('lte/phonon_dispersion_curve.dat'), &
      & str('lte/high_symmetry_points.dat'),    &
-     & temperature,                       &
+     & temperature,                            &
      & str('lte/free_energy.dat'),             &
      & str('lte/freq_dos.dat'),                &
      & str('grid.dat'),                        &
-     & str('ibz.dat'),                         &
+     & kpoints, sc_ids,                        &
      & str('lte/atoms_in_primitive_cell.'),    &
      & str('lte/dyn_mat.'),                    &
      & str('lte/path.dat'))

@@ -171,13 +171,6 @@ program caesar
     endif
   elseif (args(1) == 'calculate_symmetry_helper') then
     call calculate_symmetry_helper(args(2:))
-  ! wrappers for main shell scripts
-  elseif (args(1) == 'tcm_cluster_run_harmonic') then
-    call system(args(1)//'.sh '//argstring)
-  elseif (args(1) == 'clear_all') then
-    call system(args(1)//'.sh '//argstring)
-  elseif (args(1) == 'tcm_cluster_run_quadratic') then
-    call system(args(1)//'.sh '//argstring)
   ! wrappers for subsidiary shell scripts
   elseif (args(1) == 'calculate_symmetry') then
     call system(args(1)//'.sh '//argstring)

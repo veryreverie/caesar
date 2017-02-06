@@ -16,7 +16,6 @@ subroutine setup_harmonic()
   use generate_supercells_module
   use construct_supercell_module
   use construct_matrix_force_cnsts_module
-  use construct_finite_displacement_module
   implicit none
   
   ! User input variables

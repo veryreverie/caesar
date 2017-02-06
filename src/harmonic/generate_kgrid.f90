@@ -54,7 +54,6 @@ subroutine generate_kgrid(structure,grid,ibz_filename, &
       do k=0,grid(3)-1
         counter=counter+1
         gvecs_frac(:,counter) = dble((/i,j,k/)) / grid
-        !gvecs_frac(:,counter) = reduce_interval(dble((/i,j,k/)) / grid)
       enddo
     enddo
   enddo

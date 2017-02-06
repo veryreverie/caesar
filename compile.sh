@@ -33,9 +33,11 @@ cflags="$cflags -J${mdir}/"     # set .mod files to exist in mod/
 cflags="$cflags -fmax-errors=1" # make compilation stop on first error
 
 # copy shell and python scripts
-cp $sdir/harmonic/*.sh $bdir/
-cp $sdir/quadratic/*.sh $bdir/
-cp $sdir/quadratic/*.py $bdir/
+cp $sdir/harmonic/*.sh $bdir
+cp $sdir/quadratic/*.sh $bdir
+cp $sdir/quadratic/*.py $bdir
+cp $sdir/caesar $bdir
+chmod u+x $bdir/caesar
 
 # list programs
 # programs should be added so they are to the right of their dependencies
@@ -88,4 +90,4 @@ done
 
 # compile main caesar program
 program=caesar
-$cf90 $odir/$program.o $cflags -o$bdir/$program $objs -lblas -llapack
+$cf90 $odir/$program.o $cflags -o$bdir/.$program $objs -lblas -llapack
