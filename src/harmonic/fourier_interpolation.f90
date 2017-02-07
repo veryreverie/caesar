@@ -53,14 +53,17 @@ end subroutine
 ! Diagonalise the dynamical matrix and calculate its eigenvalues.
 ! ----------------------------------------------------------------------
 subroutine calculate_frequencies(basis,dyn_mat,freqs)
+  use linear_algebra
   implicit none
   
   INTEGER,INTENT(in) :: basis
   COMPLEX(dp),INTENT(in) :: dyn_mat(basis,3,basis,3)
   REAL(dp),INTENT(out) :: freqs(3*basis)
-  INTEGER :: i_atom,j_atom,i_cart,j_cart,i_index,j_index,info
-  REAL(dp) :: rwork(9*basis-2),minus_freqs_sq(3*basis)
-  COMPLEX(dp) :: temp,temp_mat(3*basis,3*basis),work(6*basis-1)
+  INTEGER :: i_atom,j_atom,i_cart,j_cart,i_index,j_index
+  REAL(dp) :: minus_freqs_sq(3*basis)
+  COMPLEX(dp) :: temp,temp_mat(3*basis,3*basis)
+  
+  type(ComplexEigenstuff) :: estuff
 
   i_index=0
   do i_atom=1,basis
@@ -84,10 +87,9 @@ subroutine calculate_frequencies(basis,dyn_mat,freqs)
       temp_mat(j_index,i_index)=conjg(temp)
     enddo ! j_index
   enddo ! i_index
-
-  call zheev('N','U',3*basis,temp_mat(1,1),3*basis,minus_freqs_sq(1),work(1),&
-    &6*basis-1,rwork(1),info)
-  if(info/=0)call errstop('CALCULATE_FREQUENCIES','ZHEEV failed.')
+  
+  estuff = calculate_eigenstuff(temp_mat)
+  minus_freqs_sq = estuff%evals
 
   i_index=3*basis
   do j_index=1,3*basis
@@ -303,13 +305,16 @@ contains
 ! Read in dynamical matrices at each k-point in the IBZ.
 ! ----------------------------------------------------------------------
 subroutine read_dyn_mats(basis,mass,atom_prim_frac,no_kpoints,dyn_mats, &
-   & kpoint_to_supercell,atoms_in_primitive_cell_fileroot,dyn_mat_fileroot)
+   & kpoint_to_supercell,atoms_in_primitive_cell_fileroot,dyn_mat_fileroot,gvector_ids)
   use file_module
   use string_module
   implicit none
   
   type(String), intent(in) :: atoms_in_primitive_cell_fileroot
   type(String), intent(in) :: dyn_mat_fileroot
+  integer,      intent(in) :: gvector_ids(:)
+  
+  type(String) :: filename
   
   ! file units
   integer :: atoms_in_primitive_cell_file
@@ -337,7 +342,9 @@ subroutine read_dyn_mats(basis,mass,atom_prim_frac,no_kpoints,dyn_mats, &
       &'Fractional atomic coordinates are not in range [0.0,1.0)')
   close(atoms_in_primitive_cell_file)
   
-  dyn_mat_file = open_read_file(dyn_mat_fileroot//'.1.dat')
+  filename = str('Supercell_')//kpoint_to_supercell(1)//'/' &
+     & //dyn_mat_fileroot//gvector_ids(1)//'/dat'
+  dyn_mat_file = open_read_file(filename)
   do i_atom=1,basis
     do i_cart=1,3
       do j_atom=1,basis
@@ -348,11 +355,11 @@ subroutine read_dyn_mats(basis,mass,atom_prim_frac,no_kpoints,dyn_mats, &
                                          & cart2,     &
                                          & real_part, &
                                          & imag_part
-          if(ierr/=0)call errstop('READ_DYN_MATS','Problem reading dyn_mat.1.dat &
-            &file.')
+          if(ierr/=0)call errstop('READ_DYN_MATS','Problem reading '// &
+             & char(filename)//' file.')
           if(atom1/=i_atom.or.cart1/=i_cart.or.atom2/=j_atom.or.cart2/=j_cart)call &
-            errstop('READ_DYN_MATS','dyn_mat.1.dat file does not seem to be in the &
-              &expected order.')
+            errstop('READ_DYN_MATS',char(filename)// &
+               & ' file does not seem to be in the expected order.')
             dyn_mats(atom1,cart1,atom2,cart2,1)=cmplx(real_part,imag_part,dp)
         enddo ! j_cart
       enddo ! j_atom
@@ -383,7 +390,9 @@ subroutine read_dyn_mats(basis,mass,atom_prim_frac,no_kpoints,dyn_mats, &
       &find all atoms in supercell '//trim(i2s(supercell))//'.')
     close(atoms_in_primitive_cell_file)
     
-    dyn_mat_file = open_read_file(dyn_mat_fileroot//'.'//ibz_point//'.dat')
+    filename = str('Supercell_')//kpoint_to_supercell(ibz_point)//'/'// &
+       & dyn_mat_fileroot//gvector_ids(ibz_point)//'.dat'
+    dyn_mat_file = open_read_file(filename)
     do i_atom=1,basis
       do i_cart=1,3
         do j_atom=1,basis
@@ -394,8 +403,8 @@ subroutine read_dyn_mats(basis,mass,atom_prim_frac,no_kpoints,dyn_mats, &
                                            & cart2,     &
                                            & real_part, &
                                            & imag_part
-            if(ierr/=0)call errstop('READ_DYN_MATS','Problem reading dyn_mat.'//&
-              &trim(i2s(ibz_point))//'.dat file.')
+            if(ierr/=0)call errstop('READ_DYN_MATS','Problem reading '// &
+               & char(filename)//' file')
             if(atom1/=i_atom.or.cart1/=i_cart.or.atom2/=j_atom.or.cart2/=j_cart)call &
               errstop('READ_DYN_MATS','dyn_mat.'//trim(i2s(ibz_point))//'.dat file &
                 &does not seem to be in the expected order.')
@@ -409,12 +418,10 @@ subroutine read_dyn_mats(basis,mass,atom_prim_frac,no_kpoints,dyn_mats, &
   enddo ! ibz_point
 end subroutine
 
-subroutine fourier_interpolation(structure,                          &
-   & phonon_dispersion_curve_filename,                               &
-   & high_symmetry_points_filename,temperature,free_energy_filename, &
-   & freq_dos_filename,grid_filename,                                &
-   & kpoints,sc_ids,                                    &
-   & atoms_in_primitive_cell_fileroot,dyn_mat_fileroot,path_filename)
+subroutine fourier_interpolation(structure,grid,temperature,kpoints,sc_ids, &
+   & gvector_ids, atoms_in_primitive_cell_fileroot,dyn_mat_fileroot,path,   &
+   & phonon_dispersion_curve_filename,high_symmetry_points_filename,        &
+   & free_energy_filename,freq_dos_filename)
   use constants, only : dp, pi
   use utils,     only : reduce_interval
   use linear_algebra
@@ -428,17 +435,18 @@ subroutine fourier_interpolation(structure,                          &
   
   ! filenames
   type(StructureData), intent(in) :: structure
-  type(String), intent(in) :: phonon_dispersion_curve_filename
-  type(String), intent(in) :: high_symmetry_points_filename
-  real(dp),     intent(in) :: temperature
-  type(String), intent(in) :: free_energy_filename
-  type(String), intent(in) :: freq_dos_filename
-  type(String), intent(in) :: grid_filename
-  real(dp),     intent(in) :: kpoints(:,:)
-  integer,      intent(in) :: sc_ids(:)
-  type(String), intent(in) :: atoms_in_primitive_cell_fileroot! append *.dat
-  type(String), intent(in) :: dyn_mat_fileroot                ! append *.dat
-  type(String), intent(in) :: path_filename
+  integer,             intent(in) :: grid(3)
+  real(dp),            intent(in) :: temperature
+  real(dp),            intent(in) :: kpoints(:,:)
+  integer,             intent(in) :: sc_ids(:)
+  integer,             intent(in) :: gvector_ids(:)
+  type(String),        intent(in) :: atoms_in_primitive_cell_fileroot! append *.dat
+  type(String),        intent(in) :: dyn_mat_fileroot                ! append *.dat
+  real(dp),            intent(in) :: path(:,:)
+  type(String),        intent(in) :: phonon_dispersion_curve_filename
+  type(String),        intent(in) :: high_symmetry_points_filename
+  type(String),        intent(in) :: free_energy_filename
+  type(String),        intent(in) :: freq_dos_filename
   
   ! parameter
   REAL(dp),PARAMETER :: tol=1.d-8 
@@ -475,11 +483,6 @@ subroutine fourier_interpolation(structure,                          &
   
   LOGICAL,ALLOCATABLE :: time_reversal(:)
   
-  INTEGER :: grid(3)
-  INTEGER :: no_grid_points
-  
-  integer :: no_kpoints
-  
   INTEGER :: counter
   INTEGER :: i_atom,j_atom
   INTEGER :: i_back
@@ -498,18 +501,12 @@ subroutine fourier_interpolation(structure,                          &
   REAL(dp) :: super_latt_vecs(3,3)
   REAL(dp) :: super_rec_vecs(3,3)
   
-  ! path data
+  ! Input array lengths
   integer :: no_kpoints_path
-  real(dp),allocatable :: path(:,:)
-  
-  ! file units
-  integer :: grid_file
-  integer :: path_file
+  integer :: no_grid_points
+  integer :: no_kpoints
   
   ! Read basic input files and allocate corresponding arrays
-  grid_file = open_read_file(grid_filename)
-  read(grid_file,*) grid
-  close(grid_file)
   
   no_grid_points=product(grid(:))
   
@@ -600,7 +597,7 @@ subroutine fourier_interpolation(structure,                          &
   
   ! Read in the dynamical matrix at each k-point in the IBZ
   call read_dyn_mats(structure%no_atoms,mass,atom_pos_frac,no_kpoints,dyn_mats_ibz, &
-      & ibz_to_supercell_map,atoms_in_primitive_cell_fileroot,dyn_mat_fileroot)
+      & ibz_to_supercell_map,atoms_in_primitive_cell_fileroot,dyn_mat_fileroot,gvector_ids)
   
   atom_pos_cart = matmul(transpose(structure%lattice),atom_pos_frac)
   
@@ -703,17 +700,7 @@ subroutine fourier_interpolation(structure,                          &
     enddo ! i_atom
   enddo ! i_cell
   
-  ! Get the number of high symmetry points on the dispersion path and allocate 
-  ! corresponding arrays
-  no_kpoints_path = count_lines(path_filename)
-  
-  allocate(path(3,no_kpoints_path))
-  
-  path_file = open_read_file(path_filename)
-  do i=1,no_kpoints_path
-    read(path_file,*) path(:,i)
-  enddo
-  close(path_file)
+  no_kpoints_path = size(path,2)
   
   call generate_dispersion(prim_rec_vecs,structure%no_atoms,mass,no_grid_points,    &
       & no_im_cells,min_im_cell_pos,force_consts,path, &

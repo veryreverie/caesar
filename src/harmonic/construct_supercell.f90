@@ -4,7 +4,7 @@ module construct_supercell_module
   implicit none
 contains
 
-subroutine construct_supercell(structure,supercell,structure_sc_filename)
+function construct_supercell(structure,supercell) result(structure_sc)
   use constants,        only : dp
   use linear_algebra,   only : determinant33, inv_33
   use file_module
@@ -15,7 +15,7 @@ subroutine construct_supercell(structure,supercell,structure_sc_filename)
   ! Inputs
   type(StructureData), intent(in) :: structure
   integer,             intent(in) :: supercell(3,3)
-  type(String),        intent(in) :: structure_sc_filename
+  type(StructureData)             :: structure_sc
   
   ! Parameters
   real(dp), parameter :: tol=1.d-2
@@ -28,8 +28,6 @@ subroutine construct_supercell(structure,supercell,structure_sc_filename)
   ! Input variables
   INTEGER :: sc_size
   real(dp) :: frac_pos(3)
-  
-  type(StructureData) :: structure_sc
   
   integer :: no_atoms_sc
   
@@ -68,7 +66,5 @@ subroutine construct_supercell(structure,supercell,structure_sc_filename)
     STOP
   endif ! error in generating supercell 
   
-  ! Write output
-  call write_structure_file(structure,structure_sc_filename)
-end subroutine
+end function
 end module

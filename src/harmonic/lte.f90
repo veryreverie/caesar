@@ -47,6 +47,7 @@
 ! 20/04/10 Enabled calculation of pattern of atomic displacement at each G.
 ! 17/06/11 Introduced BLAS & LAPACK.  Fixed bug in randomisation of theta for
 !          speed-of-sound calculation.
+! 2016     Integrated into Caesar. See Caesar git history.
 
 module lte_module
   use constants,      only : dp, kB_au_per_K
@@ -64,21 +65,22 @@ contains
 ! This function returns the number of the atom at rvec (up to translations
 ! through a supercell lattice vector.
 ! ----------------------------------------------------------------------
-integer function atom_at_pos(rvec,structure_sc)
+function atom_at_pos(rvec,structure_sc) result(output)
   use structure_module
   implicit none
   
   real(dp),            intent(in) :: rvec(3)
   type(StructureData), intent(in) :: structure_sc
+  integer                         :: output
   
-  integer :: atom1
+  integer :: i
   
-  atom_at_pos=0
-  do atom1=1,structure_sc%no_atoms
+  output = 0
+  do i=1,structure_sc%no_atoms
     ! Separation of rvec and atom posn. Is a sc lattice vector.
-    if (is_lat_point( structure_sc%cart_atoms(:,atom1)-rvec(:), &
+    if (is_lat_point( structure_sc%cart_atoms(:,i)-rvec(:), &
                     & structure_sc%recip_lattice)) then
-      atom_at_pos = atom1
+      output = i
       exit
     endif
   enddo
@@ -89,6 +91,7 @@ end function
 ! rec_vec holds the reciprocal lattice vectors.
 ! ----------------------------------------------------------------------
 function is_lat_point(rvec,rec_vec) result(output)
+  use utils, only : is_int
   implicit none
   
   real(dp), intent(in) :: rvec(3)
@@ -97,17 +100,14 @@ function is_lat_point(rvec,rec_vec) result(output)
   
   real(dp), parameter :: tol=1.d-3
   
-  real(dp) :: t(3)
-  
-  t = matmul(rvec,rec_vec)
-  output = all(nint(t)-t<tol)
+  output = all(is_int(matmul(rvec,rec_vec),tol))
 end function is_lat_point
 
 ! ----------------------------------------------------------------------
 ! Read in the data in lte.dat and allocate arrays, etc.
 ! ----------------------------------------------------------------------
-subroutine read_lte(prog_function,tol,structure,structure_sc,atoms, &
-   & displacements,forces,temperature,no_kspace_lines,disp_kpoints, &
+subroutine read_lte(tol,structure,structure_sc,atoms, &
+   & displacements,forces, &
    & fc_scale,      &
    & no_prim_cells,length_scale, &
    & vol_scale,                                                     &
@@ -117,16 +117,12 @@ subroutine read_lte(prog_function,tol,structure,structure_sc,atoms, &
   use structure_module
   implicit none
   
-  integer,             intent(in) :: prog_function
   real(dp),            intent(in) :: tol
   type(StructureData), intent(in) :: structure
   type(StructureData), intent(in) :: structure_sc
   integer,             intent(in) :: atoms(:)
   integer,             intent(in) :: displacements(:)
   real(dp),            intent(in) :: forces(:,:,:)
-  real(dp),            intent(in) :: temperature
-  integer,             intent(in) :: no_kspace_lines
-  real(dp),            intent(in) :: disp_kpoints(:,:)
   
   real(dp),              intent(out) :: fc_scale
   integer,               intent(out) :: no_prim_cells
@@ -278,28 +274,6 @@ subroutine read_lte(prog_function,tol,structure,structure_sc,atoms, &
   write(*,*)'Have read in the force-constant data and applied &
     &translational symmetry.'
   write(*,*)
-
-  if(prog_function==1)then
-    write(*,*)'Temperature (K)                    :',temperature
-    if(temperature<0.d0)call errstop('READ_LTE', &
-      &'Temperature should be non-negative.')
-    if(temperature<=0.d0)write(*,*)'(i.e. the zero-point energy is to be &
-      &calculated.)'
-    write(*,*)
-  endif
-  
-  if(prog_function==2)then
-    write(*,*)'Number of lines in k-space to plot     : ' &
-      &//TRIM(i2s(no_kspace_lines))
-    if(no_kspace_lines<1)call errstop('READ_LTE', &
-      &'Need to supply more lines in k-space!')
-    write(*,*)'Points along walk in reciprocal space &
-      &(Cartesian components in a.u.):'
-    do i=0,no_kspace_lines
-      write(*,'(3(" ",f16.8))')disp_kpoints(1:3,i)
-    enddo
-    write(*,*)'Have read in points for dispersion curve.'
-  endif
 end subroutine
 
 ! ----------------------------------------------------------------------
@@ -971,7 +945,7 @@ end subroutine
 ! ----------------------------------------------------------------------
 subroutine calculate_eigenfreqs(kvec,delta_prim,structure, &
    & no_prim_cells,atom,no_equiv_ims,force_const,omega)
-  use linear_algebra, only : zheev
+  use linear_algebra
   use structure_module
   implicit none
   
@@ -985,18 +959,18 @@ subroutine calculate_eigenfreqs(kvec,delta_prim,structure, &
   
   real(dp),intent(out) :: omega(structure%no_modes)
   
-  complex(dp) :: dyn_mat(structure%no_modes,structure%no_modes),work(2*structure%no_modes-1)
-  real(dp) :: rwork(3*structure%no_modes-2),minusomegasq(structure%no_modes)
-  integer :: n,m,info
+  complex(dp) :: dyn_mat(structure%no_modes,structure%no_modes)
+  real(dp) :: minusomegasq(structure%no_modes)
+  integer :: n,m
+  
+  type(ComplexEigenstuff) :: estuff
   
   ! Construct dynamical matrix.
   call construct_dyn_matrix(kvec,delta_prim,structure,no_prim_cells, &
      & atom,no_equiv_ims,force_const,dyn_mat)
-
-  call zheev('N','U',structure%no_modes,dyn_mat(1,1),structure%no_modes,minusomegasq(1), &
-    &work(1),2*structure%no_modes-1,rwork(1),info)
-  if(info/=0)call errstop('CALCULATE_EIGENFREQS','ZHEEV failed (1).  Error &
-    &code: '//TRIM(i2s(info))//'.')
+  
+  estuff = calculate_eigenstuff(dyn_mat)
+  minusomegasq = estuff%evals
 
   ! Eigenvalues of dynamical matrix are minus the frequencies squared.
   ! The eigenvalues are in ascending order, so the +ve frequencies
@@ -1020,7 +994,7 @@ end subroutine
 subroutine calculate_eigenfreqs_and_vecs(kvec,structure,delta_prim, &
    & no_prim_cells,atom,no_equiv_ims,force_const,    &
    & omega,pol_vec)
-  use linear_algebra,only : zscal,dznrm2,zheev,zcopy
+  use linear_algebra
   use structure_module
   implicit none
   
@@ -1035,19 +1009,19 @@ subroutine calculate_eigenfreqs_and_vecs(kvec,structure,delta_prim, &
   real(dp),    intent(out) :: omega(structure%no_modes)
   complex(dp), intent(out) :: pol_vec(structure%no_modes,structure%no_modes)
   
-  real(dp) :: rwork(3*structure%no_modes-2), &
-    &minusomegasq(structure%no_modes)
-  complex(dp) :: dyn_mat(structure%no_modes,structure%no_modes),work(2*structure%no_modes-1)
-  integer :: n,m,info
+  real(dp) :: minusomegasq(structure%no_modes)
+  complex(dp) :: dyn_mat(structure%no_modes,structure%no_modes)
+  integer :: n,m
+  
+  type(ComplexEigenstuff) :: estuff
 
   ! Construct dynamical matrix.
   call construct_dyn_matrix(kvec,delta_prim,structure,no_prim_cells, &
      & atom,no_equiv_ims,force_const,dyn_mat)
-
-  call zheev('V','U',structure%no_modes,dyn_mat(1,1),structure%no_modes,minusomegasq(1), &
-    &work(1),2*structure%no_modes-1,rwork(1),info)
-  if(info/=0)call errstop('CALCULATE_EIGENFREQS_AND_VECS', &
-    &'ZHEEV failed (1).  Error code: '//TRIM(i2s(info))//'.')
+  
+  estuff = calculate_eigenstuff(dyn_mat)
+  minusomegasq = estuff%evals
+  dyn_mat = estuff%evecs
 
   m=structure%no_modes
   do n=1,structure%no_modes 
@@ -2011,8 +1985,8 @@ end subroutine
 ! ----------------------------------------------------------------------
 ! Set up lte
 ! ----------------------------------------------------------------------
-subroutine initialise(prog_function,tol,tol2,delta,structure,structure_sc, &
-   & atoms,displacements,forces,temperature,no_kspace_lines,disp_kpoints, &
+subroutine initialise(tol,tol2,delta,structure,structure_sc, &
+   & atoms,displacements,forces, &
    & length_scale,vol_scale,fc_scale, &
    & no_prim_cells,                &
    & force_const,delta_prim,     &
@@ -2026,7 +2000,6 @@ subroutine initialise(prog_function,tol,tol2,delta,structure,structure_sc, &
   ! ----------------------------------------
   ! Inputs
   ! ----------------------------------------
-  integer,  intent(in) :: prog_function
   real(dp), intent(in) :: tol
   real(dp), intent(in) :: tol2
   real(dp), intent(in) :: delta
@@ -2035,9 +2008,6 @@ subroutine initialise(prog_function,tol,tol2,delta,structure,structure_sc, &
   integer,             intent(in) :: atoms(:)
   integer,             intent(in) :: displacements(:)
   real(dp),            intent(in) :: forces(:,:,:)
-  real(dp),            intent(in) :: temperature
-  integer,             intent(in) :: no_kspace_lines
-  real(dp),            intent(in) :: disp_kpoints(:,:)
   
   ! ----------------------------------------
   ! previously global variables
@@ -2045,7 +2015,7 @@ subroutine initialise(prog_function,tol,tol2,delta,structure,structure_sc, &
   real(dp), intent(out) :: length_scale
   real(dp), intent(out) :: vol_scale
   real(dp), intent(out) :: fc_scale
-  integer,  intent(out)  :: no_prim_cells
+  integer,  intent(out) :: no_prim_cells
   
   real(dp),     allocatable, intent(out) :: force_const(:,:,:,:)
   real(dp),     allocatable, intent(out) :: delta_prim(:,:,:,:,:)
@@ -2062,8 +2032,8 @@ subroutine initialise(prog_function,tol,tol2,delta,structure,structure_sc, &
 
   write(*,*)'Reading data from lte.dat...'
   write(*,*)
-  call read_lte(prog_function,tol,structure,structure_sc,atoms,displacements, &
-     & forces,temperature,no_kspace_lines,disp_kpoints, &
+  call read_lte(tol,structure,structure_sc,atoms,displacements, &
+     & forces, &
      & fc_scale,           &
      & no_prim_cells,length_scale,&
      & vol_scale,                                                            &
@@ -2112,7 +2082,7 @@ end subroutine
 ! Main program. (Split into four modes)
 ! ----------------------------------------------------------------------
 subroutine lte_1(tol,tol2,delta,structure,structure_sc,atoms, &
-   & displacements,forces,temperature,no_kspace_lines,disp_kpoints,freq_dos_filename, &
+   & displacements,forces,temperature,freq_dos_filename, &
    & tdependence1_filename,tdependence2_filename)
   use constants, only : dp
   use utils,     only : errstop, wordwrap
@@ -2132,8 +2102,6 @@ subroutine lte_1(tol,tol2,delta,structure,structure_sc,atoms, &
   integer,             intent(in) :: displacements(:)
   real(dp),            intent(in) :: forces(:,:,:)
   real(dp),            intent(in) :: temperature
-  integer,             intent(in) :: no_kspace_lines
-  real(dp),            intent(in) :: disp_kpoints(:,:)
   
   ! ----------------------------------------
   ! filenames
@@ -2141,11 +2109,6 @@ subroutine lte_1(tol,tol2,delta,structure,structure_sc,atoms, &
   type(String), intent(in) :: freq_dos_filename
   type(String), intent(in) :: tdependence1_filename
   type(String), intent(in) :: tdependence2_filename
-  
-  ! ----------------------------------------
-  ! Program mode
-  ! ----------------------------------------
-  integer :: prog_function = 1
   
   ! ----------------------------------------
   ! times
@@ -2172,12 +2135,19 @@ subroutine lte_1(tol,tol2,delta,structure,structure_sc,atoms, &
   
   call cpu_time(t1)
   
-  call initialise(prog_function,tol,tol2,delta,structure,structure_sc,atoms, &
-     & displacements,forces,temperature,no_kspace_lines,disp_kpoints, &
+  call initialise(tol,tol2,delta,structure,structure_sc,atoms, &
+     & displacements,forces, &
      & length_scale,vol_scale,fc_scale,&
      & no_prim_cells,               &
      & force_const,delta_prim,    &
      & atom,no_equiv_ims,atom_in_prim,prim_cell_for_atom,defined)
+
+  write(*,*)'Temperature (K)                    :',temperature
+  if(temperature<0.d0)call errstop('READ_LTE', &
+    &'Temperature should be non-negative.')
+  if(temperature<=0.d0)write(*,*)'(i.e. the zero-point energy is to be &
+    &calculated.)'
+  write(*,*)
 
   write(*,*)'The mean thermal energy and the free energy will &
     &be calculated.'
@@ -2203,7 +2173,7 @@ subroutine lte_1(tol,tol2,delta,structure,structure_sc,atoms, &
 end subroutine
 
 subroutine lte_2(tol,tol2,delta,structure,structure_sc,atoms, &
-   & displacements,forces,temperature,no_kspace_lines,disp_kpoints, &
+   & displacements,forces,no_kspace_lines,disp_kpoints, &
    & dispersion_curve_filename)
   use constants, only : dp
   use utils,     only : errstop, wordwrap
@@ -2222,7 +2192,6 @@ subroutine lte_2(tol,tol2,delta,structure,structure_sc,atoms, &
   integer,             intent(in) :: atoms(:)
   integer,             intent(in) :: displacements(:)
   real(dp),            intent(in) :: forces(:,:,:)
-  real(dp),            intent(in) :: temperature
   integer,             intent(in) :: no_kspace_lines
   real(dp),            intent(in) :: disp_kpoints(:,:)
   
@@ -2230,11 +2199,6 @@ subroutine lte_2(tol,tol2,delta,structure,structure_sc,atoms, &
   ! filenames
   ! ----------------------------------------
   type(String), intent(in) :: dispersion_curve_filename
-  
-  ! ----------------------------------------
-  ! Program mode
-  ! ----------------------------------------
-  integer :: prog_function = 2
   
   ! ----------------------------------------
   ! times
@@ -2257,15 +2221,28 @@ subroutine lte_2(tol,tol2,delta,structure,structure_sc,atoms, &
   integer,      allocatable :: prim_cell_for_atom(:)
   logical,      allocatable :: defined(:,:,:,:)
   
+  integer :: i
+  
   call cpu_time(t1)
   
-  call initialise(prog_function,tol,tol2,delta,structure,structure_sc,atoms, &
-     & displacements,forces,temperature,no_kspace_lines,disp_kpoints, &
+  call initialise(tol,tol2,delta,structure,structure_sc,atoms, &
+     & displacements,forces, &
      & length_scale,vol_scale,fc_scale,&
      & no_prim_cells,               &
      & force_const,delta_prim,    &
      & atom,no_equiv_ims,atom_in_prim,prim_cell_for_atom,defined)
 
+  write(*,*)'Number of lines in k-space to plot     : ' &
+    &//TRIM(i2s(no_kspace_lines))
+  if(no_kspace_lines<1)call errstop('READ_LTE', &
+    &'Need to supply more lines in k-space!')
+  write(*,*)'Points along walk in reciprocal space &
+    &(Cartesian components in a.u.):'
+  do i=0,no_kspace_lines
+    write(*,'(3(" ",f16.8))')disp_kpoints(1:3,i)
+  enddo
+  write(*,*)'Have read in points for dispersion curve.'
+  
   write(*,*)'A dispersion curve will be calculated.'
   write(*,*)'Calculating the requested dispersion curve.'
   call generate_disp_curve(structure,delta_prim,no_kspace_lines,    &
@@ -2283,7 +2260,7 @@ subroutine lte_2(tol,tol2,delta,structure,structure_sc,atoms, &
 end subroutine
 
 subroutine lte_3(tol,tol2,delta,structure,structure_sc,atoms, &
-   & displacements,forces,temperature,no_kspace_lines,disp_kpoints)
+   & displacements,forces)
   use constants, only : dp
   use utils,     only : errstop, wordwrap
   use string_module
@@ -2301,14 +2278,6 @@ subroutine lte_3(tol,tol2,delta,structure,structure_sc,atoms, &
   integer,             intent(in) :: atoms(:)
   integer,             intent(in) :: displacements(:)
   real(dp),            intent(in) :: forces(:,:,:)
-  real(dp),            intent(in) :: temperature
-  integer,             intent(in) :: no_kspace_lines
-  real(dp),            intent(in) :: disp_kpoints(:,:)
-  
-  ! ----------------------------------------
-  ! Program mode
-  ! ----------------------------------------
-  integer :: prog_function = 3
   
   ! ----------------------------------------
   ! times
@@ -2333,8 +2302,8 @@ subroutine lte_3(tol,tol2,delta,structure,structure_sc,atoms, &
   
   call cpu_time(t1)
   
-  call initialise(prog_function,tol,tol2,delta,structure,structure_sc,atoms, &
-     & displacements,forces,temperature,no_kspace_lines,disp_kpoints, &
+  call initialise(tol,tol2,delta,structure,structure_sc,atoms, &
+     & displacements,forces, &
      & length_scale,vol_scale,fc_scale,&
      & no_prim_cells,               &
      & force_const,delta_prim,    &
@@ -2355,7 +2324,7 @@ subroutine lte_3(tol,tol2,delta,structure,structure_sc,atoms, &
 end subroutine
 
 subroutine lte_4(tol,tol2,delta,structure,structure_sc,atoms, &
-   & displacements,forces,temperature,no_kspace_lines,disp_kpoints, &
+   & displacements,forces,temperature, &
    & kpairs_filename,freq_grids_filename,disp_patterns_filename,            &
    & kdisp_patterns_filename,pol_vec_filename,gvectors_filename,            &
    & gvectors_frac_filename,error_filename,dyn_mat_fileroot,                &
@@ -2378,8 +2347,6 @@ subroutine lte_4(tol,tol2,delta,structure,structure_sc,atoms, &
   integer,             intent(in) :: displacements(:)
   real(dp),            intent(in) :: forces(:,:,:)
   real(dp),            intent(in) :: temperature
-  integer,             intent(in) :: no_kspace_lines
-  real(dp),            intent(in) :: disp_kpoints(:,:)
   
   ! ----------------------------------------
   ! filenames
@@ -2394,11 +2361,6 @@ subroutine lte_4(tol,tol2,delta,structure,structure_sc,atoms, &
   type(String), intent(in) :: error_filename
   type(String), intent(in) :: dyn_mat_fileroot ! will have *.dat appended
   type(String), intent(in) :: atoms_in_primitive_cell_filename
-  
-  ! ----------------------------------------
-  ! Program mode
-  ! ----------------------------------------
-  integer :: prog_function = 4
   
   ! ----------------------------------------
   ! times
@@ -2423,13 +2385,12 @@ subroutine lte_4(tol,tol2,delta,structure,structure_sc,atoms, &
   
   call cpu_time(t1)
   
-  call initialise(prog_function,tol,tol2,delta,structure,structure_sc,atoms, &
-     & displacements,forces,temperature,no_kspace_lines,disp_kpoints, &
+  call initialise(tol,tol2,delta,structure,structure_sc,atoms, &
+     & displacements,forces, &
      & length_scale,vol_scale,fc_scale,&
      & no_prim_cells,               &
      & force_const,delta_prim,    &
      & atom,no_equiv_ims,atom_in_prim,prim_cell_for_atom,defined)
-  
     
   write(*,*)'The phonon frequencies at the supercell G vectors will be &
     &calculated.'

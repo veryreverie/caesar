@@ -14,7 +14,7 @@ subroutine setup_harmonic()
   use structure_to_dft_module
   use generate_supercells_module
   use construct_supercell_module
-  use construct_matrix_force_cnsts_module
+  use calculate_force_constants_module
   implicit none
   
   ! User input variables
@@ -26,9 +26,9 @@ subroutine setup_harmonic()
   integer             :: grid(3)
   
   ! Supercell data
-  integer             :: no_supercells
-  type(StructureData) :: structure_sc
-  integer             :: supercell(3,3)
+  integer              :: no_supercells
+  integer, allocatable :: supercells(:,:,:)
+  type(StructureData)  :: structure_sc
   
   ! Directories
   type(String) :: sdir
@@ -36,6 +36,7 @@ subroutine setup_harmonic()
   type(String) :: paths(2)
   
   ! Force constants data
+  integer, allocatable :: force_constants(:,:)
   integer :: atom
   integer :: disp
   
@@ -43,14 +44,13 @@ subroutine setup_harmonic()
   integer        :: i,j,k
   character(100) :: line
   type(String)   :: filename
-  integer        :: file_length
   
   ! File units
   integer :: dft_code_file
   integer :: seedname_file
   integer :: grid_file
+  integer :: supercells_file
   integer :: no_supercells_file
-  integer :: supercell_file
   integer :: force_constants_file
   
   ! ----------------------------------------------------------------------
@@ -104,7 +104,7 @@ subroutine setup_harmonic()
   close(seedname_file)
   
   ! ----------------------------------------------------------------------
-  ! Generate generic calculation
+  ! Generate supercells
   ! ----------------------------------------------------------------------
   
   ! Add symmetries to structure.dat
@@ -118,14 +118,22 @@ subroutine setup_harmonic()
   close(grid_file)
   
   ! Generate IBZ and non-diagonal supercells
-  ! Reads Caesar input files.
-  ! Writes ibz.dat and rotated_gvectors.dat
-  ! Makes Supercell_* directories
-  ! Adds supercell.dat to Supercell_* directories
-  call generate_supercells(structure,grid,str('ibz.dat'),str('no_sc.dat'),str('Supercell_'))
+  call generate_supercells(structure,grid,str('ibz.dat'),str('supercells.dat'))
   
-  no_supercells_file = open_read_file('no_sc.dat')
-  read(no_supercells_file,*) no_supercells
+  ! Read in supercell data
+  no_supercells = count_lines('supercells.dat')/4
+  allocate(supercells(3,3,no_supercells))
+  supercells_file = open_read_file('supercells.dat')
+  do i=1,no_supercells
+    read(supercells_file,*)
+    do j=1,3
+      read(supercells_file,*) supercells(j,:,i)
+    enddo
+  enddo
+  close(supercells_file)
+  
+  no_supercells_file = open_write_file('no_sc.dat')
+  write(no_supercells_file,*) no_supercells
   close(no_supercells_file)
   
   ! ----------------------------------------------------------------------
@@ -134,31 +142,29 @@ subroutine setup_harmonic()
   do i=1,no_supercells
     sdir=str('Supercell_')//i
     
-    ! Read in supercell data
-    supercell_file = open_read_file(sdir//'/supercell.dat')
-    do j=1,3
-      read(supercell_file,*) supercell(j,:)
-    enddo
-    close(supercell_file)
+    call system('mkdir '//sdir)
     
     ! Make supercell structure.dat file
-    call construct_supercell(structure, supercell, sdir//'/structure.dat')
+    structure_sc = construct_supercell(structure, supercells(:,:,i))
     
     ! Add symmetries to supercell structure.dat
+    call write_structure_file(structure_sc, sdir//'/structure.dat')
     call system('caesar calculate_symmetry '//sdir//'/structure.dat')
-    
-    ! Read in supercell structure data
     structure_sc = read_structure_file(sdir//'/structure.dat')
     
-    call construct_matrix_force_cnsts( structure,    &
-                                     & supercell,    &
-                                     & structure_sc, &
-                                     & sdir//'/force_constants.dat')
+    force_constants = calculate_force_constants( structure,         &
+                                               & supercells(:,:,i), &
+                                               & structure_sc)
     
-    file_length = count_lines(sdir//'/force_constants.dat')
-    force_constants_file = open_read_file(sdir//'/force_constants.dat')
-    do j=1,file_length
-      read(force_constants_file,*) atom,disp
+    force_constants_file = open_write_file(sdir//'/force_constants.dat')
+    do j=1,size(force_constants,2)
+      write(force_constants_file,*) force_constants(:,j)
+    enddo
+    close(force_constants_file)
+    
+    do j=1,size(force_constants,2)
+      atom = force_constants(1,j)
+      disp = force_constants(2,j)
       ddir = sdir//'/atom.'//atom//'.disp.'//disp
       paths = (/ ddir//'/positive', ddir//'/negative' /)
       call system('mkdir '//ddir)
@@ -166,15 +172,8 @@ subroutine setup_harmonic()
         call system('mkdir '//paths(k))
       enddo
       
-      ! Write structures with atoms moved by +- 0.01
-      structure_sc%atoms(disp,atom) = structure_sc%atoms(disp,atom) + 0.01_dp
-      call write_structure_file(structure_sc,paths(1)//'/structure.dat')
-      structure_sc%atoms(disp,atom) = structure_sc%atoms(disp,atom) - 0.02_dp
-      call write_structure_file(structure_sc,paths(2)//'/structure.dat')
-      structure_sc%atoms(disp,atom) = structure_sc%atoms(disp,atom) + 0.01_dp
-      
       ! ----------------------------------------------------------------------
-      ! Convert generic calculation to specific dft code
+      ! Write DFT code input files
       ! ----------------------------------------------------------------------
       
       do k=1,2
@@ -212,10 +211,9 @@ subroutine setup_harmonic()
         endif
       enddo
       
-      ! Reset structure
+      ! Reset moved atom
       structure_sc%atoms(disp,atom) = structure_sc%atoms(disp,atom) + 0.01_dp
     enddo
-    close(force_constants_file)
   enddo
 end subroutine
 end module

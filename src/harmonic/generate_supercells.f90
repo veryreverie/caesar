@@ -226,8 +226,7 @@ subroutine minkowski_reduce(vecs)
   enddo iter
 end subroutine minkowski_reduce
 
-subroutine generate_supercells(structure,grid,ibz_filename,no_sc_filename, &
-   & supercell_directory_root)
+subroutine generate_supercells(structure,grid,ibz_filename,supercells_filename)
   use constants,        only : dp
   use utils,            only : i2s, reduce_interval
   use linear_algebra,   only : inv_33
@@ -241,8 +240,7 @@ subroutine generate_supercells(structure,grid,ibz_filename,no_sc_filename, &
   type(StructureData), intent(in) :: structure
   integer,             intent(in) :: grid(:)
   type(String),        intent(in) :: ibz_filename
-  type(String),        intent(in) :: no_sc_filename
-  type(String),        intent(in) :: supercell_directory_root
+  type(String),        intent(in) :: supercells_filename
   
   ! parameters
   real(dp),parameter :: tol=1.d-10
@@ -282,16 +280,12 @@ subroutine generate_supercells(structure,grid,ibz_filename,no_sc_filename, &
   integer,  allocatable :: rot_operation(:)
   integer               :: counter
   
-  ! Supercell directory
-  type(String) :: sdir
-  
   ! Temporary variables
   integer :: i,j,k
   
   ! file units
   integer :: ibz_file
-  integer :: no_sc_file
-  integer :: supercell_file
+  integer :: supercells_file
   
   ! Generate G-vectors 
   no_gvectors = product(grid)
@@ -329,13 +323,10 @@ subroutine generate_supercells(structure,grid,ibz_filename,no_sc_filename, &
   ! Rotate all G-vectors to the IBZ
   kpoints=0.d0
   multiplicity=0
+  kpoints(:,1) = gvecs_frac(:,1)
+  rot_operation(1) = 1
+  multiplicity(1) = 1
   do_i_vec : do i_vec=1,no_gvectors
-    if(i_vec==1)then
-      kpoints(:,i_vec) = gvecs_frac(:,i_vec)
-      rot_operation(i_vec)=1
-      multiplicity(i_vec)=multiplicity(i_vec)+1
-    endif
-    
     do j_vec=1,i_vec-1
       do i_symm=1,structure%no_symmetries
         rvec = matmul( structure%rotation_matrices(:,:,i_symm), &
@@ -349,13 +340,11 @@ subroutine generate_supercells(structure,grid,ibz_filename,no_sc_filename, &
           cycle do_i_vec
         endif
       enddo
-      
-      if(j_vec==i_vec-1)then
-        kpoints(:,i_vec)=gvecs_frac(:,i_vec)
-        rot_operation(i_vec)=1
-        multiplicity(i_vec)=multiplicity(i_vec)+1
-      endif
     enddo
+      
+    kpoints(:,i_vec)=gvecs_frac(:,i_vec)
+    rot_operation(i_vec)=1
+    multiplicity(i_vec)=multiplicity(i_vec)+1
   enddo do_i_vec
   
   ! Generate supercells
@@ -390,15 +379,15 @@ subroutine generate_supercells(structure,grid,ibz_filename,no_sc_filename, &
   sc_id = 0
   
   ibz_file = open_write_file(ibz_filename)
+  supercells_file = open_write_file(supercells_filename)
   
   hnf = 0
   
-  do_i : do i=1,no_gvectors
-    if(found_kpoint(i))cycle
-    
+  ! Loop over gvectors in ascending order of super_size
+  do_i : do while (any(.not.found_kpoint))
+    i = minloc(super_size,1,.not.found_kpoint)
     do s11=1,super_size(i)
       if(.not.mod(super_size(i),s11)==0)cycle
-      
       quotient=super_size(i)/s11
       do s22=1,quotient
         if(.not.mod(quotient,s22)==0)cycle
@@ -412,10 +401,6 @@ subroutine generate_supercells(structure,grid,ibz_filename,no_sc_filename, &
               prim = matmul(hnf,kpoints(:,i))
               if(all(abs(prim(:)-nint(prim(:)))<tol))then
                 sc_id=sc_id+1
-                
-                ! sdir="Supercell_*
-                sdir=supercell_directory_root//sc_id
-                call system('mkdir '//sdir)
                 
                 found_kpoint(i)=.true.
                 label(i)=sc_id
@@ -445,11 +430,10 @@ subroutine generate_supercells(structure,grid,ibz_filename,no_sc_filename, &
                 hnf = nint(matmul( temp_latt_vecs, &
                                  & transpose(structure%recip_lattice)))
                 
-                supercell_file = open_write_file(sdir//'/supercell.dat')
+                write(supercells_file,*) char(str('Supercell ')//sc_id)
                 do j=1,3
-                  write(supercell_file,*) hnf(j,:)
+                  write(supercells_file,*) hnf(j,:)
                 enddo
-                close(supercell_file)
                 
               endif ! tol
               if (found_kpoint(i)) cycle do_i
@@ -461,10 +445,7 @@ subroutine generate_supercells(structure,grid,ibz_filename,no_sc_filename, &
   enddo do_i
   
   close(ibz_file)
-  
-  no_sc_file = open_write_file(no_sc_filename)
-  write(no_sc_file,*) sc_id
-  close(no_sc_file)
+  close(supercells_file)
 
   if(any(.not.found_kpoint(1:no_gvectors)))then
     write(*,*)'Unable to allocate each k-point to a supercell matrix.'

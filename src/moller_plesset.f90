@@ -24,7 +24,7 @@
 ! For convenience, the powers of x are dropped from here on.
 module perturbation_theory
   use constants, only : dp
-  use linear_algebra, only : Eigenstuff, calculate_eigenstuff, size
+  use linear_algebra, only : RealEigenstuff, calculate_eigenstuff, size
   implicit none
   
   ! Moller-Plesset corrections
@@ -48,8 +48,8 @@ contains
 function calculate_d(estuff) result(d)
   implicit none
   
-  type(Eigenstuff), intent(in) :: estuff ! unperturbed evals and evecs
-  real(dp), allocatable        :: d(:,:) ! denominators, d(i,j) = 1/(ei-ej)
+  type(RealEigenstuff), intent(in) :: estuff ! unperturbed evals and evecs
+  real(dp), allocatable            :: d(:,:) ! denominators, d(i,j) = 1/(ei-ej)
   
   integer :: i,j ! loop indices
   
@@ -78,9 +78,9 @@ end function
 function calculate_m(estuff,v) result(m)
   implicit none
   
-  type(Eigenstuff), intent(in) :: estuff ! unperturbed evals and evecs
-  real(dp),         intent(in) :: v(:,:) ! perturbation
-  real(dp), allocatable        :: m(:,:) ! matrix elements, m(i,j) = <i|v|j>
+  type(RealEigenstuff), intent(in) :: estuff ! unperturbed evals and evecs
+  real(dp),             intent(in) :: v(:,:) ! perturbation
+  real(dp), allocatable            :: m(:,:) ! matrix elements, m(i,j)=<i|v|j>
   
   integer :: i,j ! loop indices
   
@@ -109,10 +109,10 @@ end function
 function lift_degeneracy(estuff,v,threshold) result(output)
   implicit none
   
-  type(Eigenstuff), intent(in) :: estuff    ! unperturbed evals and evecs
-  real(dp),         intent(in) :: v(:,:)    ! perturbation
-  real(dp),         intent(in) :: threshold ! degeneracy threshold
-  type(Eigenstuff)             :: output    ! output evals and evecs
+  type(RealEigenstuff), intent(in) :: estuff    ! unperturbed evals and evecs
+  real(dp),             intent(in) :: v(:,:)    ! perturbation
+  real(dp),             intent(in) :: threshold ! degeneracy threshold
+  type(RealEigenstuff)             :: output    ! output evals and evecs
   
   integer :: no_states ! number of states. = size(estuff%evals)
   
@@ -122,9 +122,9 @@ function lift_degeneracy(estuff,v,threshold) result(output)
   integer, allocatable :: which_list(:) ! the list in which ei is a member
   
   ! degenerate objects
-  real(dp), allocatable :: m(:,:) ! m(i,j) = <i|v|j>
-  real(dp), allocatable :: h(:,:) ! degenerate hamiltonian
-  type(Eigenstuff)      :: hstuff ! evals and evecs of h
+  real(dp), allocatable     :: m(:,:) ! m(i,j) = <i|v|j>
+  real(dp), allocatable     :: h(:,:) ! degenerate hamiltonian
+  type(RealEigenstuff)      :: hstuff ! evals and evecs of h
   
   ! temporary variables
   integer :: i,j,k ! loop indices
@@ -246,9 +246,9 @@ end function
 function mp1_energy(estuff,v) result(e1)
   implicit none
   
-  type(Eigenstuff), intent(in) :: estuff ! unperturbed eigenvals and eigenvecs
-  real(dp),         intent(in) :: v(:,:) ! perturbation
-  real(dp), allocatable        :: e1(:)
+  type(RealEigenstuff), intent(in) :: estuff ! unperturbed eigenvals and eigenvecs
+  real(dp),             intent(in) :: v(:,:) ! perturbation
+  real(dp), allocatable            :: e1(:)
   
   integer :: i ! loop index
   
@@ -274,9 +274,9 @@ end function
 function mp1_state(estuff,v) result(p1)
   implicit none
   
-  type(Eigenstuff), intent(in) :: estuff ! unperturbed evals and evecs
-  real(dp),         intent(in) :: v(:,:) ! perturbation, v
-  real(dp), allocatable        :: p1(:,:)
+  type(RealEigenstuff), intent(in) :: estuff ! unperturbed evals and evecs
+  real(dp),             intent(in) :: v(:,:) ! perturbation, v
+  real(dp), allocatable            :: p1(:,:)
   
   real(dp), allocatable :: m(:,:) ! m(i,j) = <i|v|j>
   real(dp), allocatable :: d(:,:) ! d(i,j) = 1/(ei-ej)
@@ -307,9 +307,9 @@ end function
 function mp2_energy(estuff,v) result(e2)
   implicit none
   
-  type(Eigenstuff), intent(in) :: estuff ! unperturbed evals and evecs
-  real(dp),         intent(in) :: v(:,:) ! perturbation
-  real(dp), allocatable        :: e2(:)
+  type(RealEigenstuff), intent(in) :: estuff ! unperturbed evals and evecs
+  real(dp),             intent(in) :: v(:,:) ! perturbation
+  real(dp), allocatable            :: e2(:)
   
   real(dp), allocatable :: m(:,:) ! m(i,j) = <i|v|j>
   real(dp), allocatable :: d(:,:) ! d(i,j) = 1/(ei-ej)
@@ -339,9 +339,9 @@ end function
 function mp2_state(estuff,v) result(p2)
   implicit none
   
-  type(Eigenstuff), intent(in) :: estuff  ! unperturbed evals and evecs
-  real(dp),         intent(in) :: v(:,:)  ! perturbation
-  real(dp), allocatable        :: p2(:,:)
+  type(RealEigenstuff), intent(in) :: estuff  ! unperturbed evals and evecs
+  real(dp),             intent(in) :: v(:,:)  ! perturbation
+  real(dp), allocatable            :: p2(:,:)
   
   real(dp), allocatable :: m(:,:) ! m(i,j) = <i|v|j>
   real(dp), allocatable :: d(:,:) ! d(i,j) = 1/(ei-ej)
@@ -383,9 +383,9 @@ end function
 function mp3_energy(estuff,v) result(e3)
   implicit none
   
-  type(Eigenstuff), intent(in) :: estuff ! unperturbed evals and evecs
-  real(dp),         intent(in) :: v(:,:) ! perturbation
-  real(dp), allocatable        :: e3(:)
+  type(RealEigenstuff), intent(in) :: estuff ! unperturbed evals and evecs
+  real(dp),             intent(in) :: v(:,:) ! perturbation
+  real(dp), allocatable            :: e3(:)
   
   real(dp), allocatable :: m(:,:) ! m(i,j) = <i|v|j>
   real(dp), allocatable :: d(:,:) ! d(i,j) = 1/(ei-ej)

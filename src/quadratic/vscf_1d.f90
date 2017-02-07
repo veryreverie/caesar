@@ -27,7 +27,7 @@ contains
 
 function vscf_1d(frequency_ev, potential, Nbasis) result(output)
   use constants,      only : dp, pi, eV
-  use linear_algebra, only : Eigenstuff, calculate_eigenstuff, size
+  use linear_algebra, only : RealEigenstuff, calculate_eigenstuff, size
   implicit none
   
   real(dp), intent(in) :: frequency_ev   ! frequency in eV
@@ -42,7 +42,7 @@ function vscf_1d(frequency_ev, potential, Nbasis) result(output)
   integer :: i,j,k
   real(dp) :: bfp,q,dq,basis_frequency
   real(dp),allocatable :: basis(:,:)
-  type(Eigenstuff)     :: estuff ! evals and evecs of Hamiltonian
+  type(RealEigenstuff) :: estuff ! evals and evecs of Hamiltonian
   
   Npoints = size(potential,2)
   dq = (potential(1,Npoints)-potential(1,1))/Npoints

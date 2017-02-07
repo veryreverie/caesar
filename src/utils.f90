@@ -5,11 +5,11 @@ module utils
   use constants,      only : dp
   implicit none
   
-  interface reduce_interval
-    module procedure reduce_interval_0d
-    module procedure reduce_interval_1d
-    module procedure reduce_interval_2d
-  end interface
+  !interface reduce_interval
+  !  module procedure reduce_interval_0d
+  !  module procedure reduce_interval_1d
+  !  module procedure reduce_interval_2d
+  !end interface
   
 contains
 
@@ -203,42 +203,30 @@ function lower_case(input) result(output)
 end function
 
 ! ----------------------------------------------------------------------
-! Makes all values lie in [-0.5+t,0.5+t], by adding or subtracting integers
+! Makes all values lie in [-0.5+tol,0.5+tol], by adding or subtracting integers
 ! ----------------------------------------------------------------------
-function reduce_interval_0d(input,t) result(output)
+elemental function reduce_interval(input,tol) result(output)
   use constants, only : dp
   implicit none
   
   real(dp), intent(in) :: input
-  real(dp)             :: t
+  real(dp), intent(in) :: tol
   real(dp)             :: output
   
-  output = modulo(input+0.5_dp+t,1.0_dp)-0.5_dp-t
+  output = modulo(input+0.5_dp+tol,1.0_dp)-0.5_dp-tol
 end function
 
-function reduce_interval_1d(input,t) result(output)
+! ----------------------------------------------------------------------
+! Returns true if input is less than tol from an integer
+! ----------------------------------------------------------------------
+elemental function is_int(input,tol) result(output)
   use constants, only : dp
   implicit none
   
-  real(dp), intent(in)  :: input(:)
-  real(dp)              :: t
-  real(dp), allocatable :: output(:)
+  real(dp), intent(in) :: input
+  real(dp), intent(in) :: tol
+  logical              :: output
   
-  allocate(output(size(input)))
-  
-  output = modulo(input+0.5_dp+t,1.0_dp)-0.5_dp-t
-end function
-
-function reduce_interval_2d(input,t) result(output)
-  use constants, only : dp
-  implicit none
-  
-  real(dp), intent(in)  :: input(:,:)
-  real(dp), intent(in)  :: t
-  real(dp), allocatable :: output(:,:)
-  
-  allocate(output(size(input),size(input)))
-  
-  output = modulo(input+0.5_dp+t,1.0_dp)-0.5_dp-t
+  output = abs(nint(input)-input) < tol
 end function
 end module

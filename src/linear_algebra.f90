@@ -10,14 +10,26 @@ module linear_algebra
   ! degeneracy(i) = 0 if eigenvector(i) is non-degenerate
   !               = j if eigenvector(i) is degenerate,
   ! where j is an arbitrary but unique id
-  type Eigenstuff
+  type RealEigenstuff
     real(dp), allocatable :: evals(:)
     real(dp), allocatable :: evecs(:,:)
     integer,  allocatable :: degeneracy(:)
   end type
+  
+  type ComplexEigenstuff
+    real(dp),    allocatable :: evals(:)
+    complex(dp), allocatable :: evecs(:,:)
+    integer,     allocatable :: degeneracy(:)
+  end type
 
   interface size
-    module procedure eigenstuff_size
+    module procedure size_RealEigenstuff
+    module procedure size_ComplexEigenstuff
+  end interface
+  
+  interface calculate_eigenstuff
+    module procedure calculate_RealEigenstuff
+    module procedure calculate_ComplexEigenstuff
   end interface
   
   ! ----------------------------------------
@@ -140,11 +152,20 @@ contains
 ! ----------------------------------------
 ! Returns the number of states of an Eigenstuff
 ! ----------------------------------------
-pure function eigenstuff_size(estuff) result(output)
+pure function size_RealEigenstuff(estuff) result(output)
   implicit none
   
-  type(Eigenstuff), intent(in) :: estuff
-  integer                      :: output
+  type(RealEigenstuff), intent(in) :: estuff
+  integer                          :: output
+  
+  output = size(estuff%evals)
+end function
+
+pure function size_ComplexEigenstuff(estuff) result(output)
+  implicit none
+  
+  type(ComplexEigenstuff), intent(in) :: estuff
+  integer                             :: output
   
   output = size(estuff%evals)
 end function
@@ -210,12 +231,12 @@ function inv_33(A) result(B)
 end function
 
 ! Calculates the eigenvalues and eigenvectors of a real, symmetric matrix
-function calculate_eigenstuff(input) result(output)
+function calculate_RealEigenstuff(input) result(output)
   use utils, only : i2s
   implicit none
   
   real(dp), intent(in) :: input(:,:)  ! a real, symmetric matrix
-  type(Eigenstuff)     :: output      ! the eigenvalues and eigenstates of a
+  type(RealEigenstuff) :: output      ! the eigenvalues and eigenstates of a
   
   ! working variables
   integer               :: n
@@ -249,4 +270,46 @@ function calculate_eigenstuff(input) result(output)
   endif
 end function
 
+! Calculates the eigenvalues and eigenvectors of a complex, hermitian matrix
+function calculate_ComplexEigenstuff(input) result(output)
+  use utils, only : i2s
+  implicit none
+  
+  complex(dp), intent(in) :: input(:,:)  ! a complex, hermitian matrix
+  type(ComplexEigenstuff) :: output      ! the eigenvalues and eigenstates of a
+  
+  ! working variables
+  integer               :: n
+  complex(dp), allocatable :: work(:)
+  integer               :: lwork
+  real(dp), allocatable :: rwork(:)
+  integer               :: info
+  
+  n = size(input,1)
+  allocate(output%evals(n))
+  allocate(output%evecs(n,n))
+  output%evecs = input
+  
+  allocate(rwork(3*n-2))
+  
+  ! calculate optimal lwork
+  allocate(work(3*n-1))
+  call zheev('V', 'U', n, output%evecs(1,1), n, output%evals, &
+    & work(1), -1, rwork, info)
+  if (info /= 0) then
+    write(*,*) "dsyev failed, info=",trim(i2s(info))
+    stop
+  endif
+  lwork = nint(real(work(1)))
+  deallocate(work)
+  allocate(work(lwork))
+  
+  ! calculate eigenstuff
+  call zheev('V', 'U', n, output%evecs(1,1), n, output%evals, &
+    & work(1), lwork, rwork, info)
+  if (info /= 0) then
+    write(*,*) "zheev failed, info=",trim(i2s(info))
+    stop
+  endif
+end function
 end module
