@@ -15,8 +15,8 @@ module structure_to_dft_module
 
 contains
 
-subroutine structure_to_castep(structure_sc,input_filename,supercell_filename, &
-   & path_filename,output_filename)
+subroutine structure_to_castep(structure_sc,input_filename, &
+   & path_filename,structure,output_filename)
   use utils, only : lower_case
   use string_module
   use structure_module
@@ -25,20 +25,16 @@ subroutine structure_to_castep(structure_sc,input_filename,supercell_filename, &
   
   type(StructureData), intent(in)           :: structure_sc
   type(String),        intent(in), optional :: input_filename
-  type(String),        intent(in), optional :: supercell_filename
   type(String),        intent(in), optional :: path_filename
+  type(StructureData), intent(in), optional :: structure
   type(String),        intent(in)           :: output_filename
   
   ! The contents of the old cell file
   type(String), allocatable :: input_file_contents(:)
   
-  ! The contents of the supercell file
-  integer :: supercell(3,3)
-  
   ! Band structure path data
   integer               :: no_points
   real(dp), allocatable :: path(:,:)
-  real(dp), allocatable :: sc_bs_path(:,:)
   
   ! Line numbers
   integer :: path_file_length
@@ -50,7 +46,6 @@ subroutine structure_to_castep(structure_sc,input_filename,supercell_filename, &
   character(100) :: line
   
   ! File units
-  integer :: supercell_file
   integer :: path_file
   integer :: cell_file
   
@@ -58,20 +53,13 @@ subroutine structure_to_castep(structure_sc,input_filename,supercell_filename, &
   logical :: path_wanted
   
   path_wanted = .false.
-  if (present(supercell_filename) .and. present(path_filename)) then
+  if (present(structure) .and. present(path_filename)) then
     if (file_exists(path_filename)) then
       path_wanted = .true.
     endif
   endif
   
   if (path_wanted) then
-    ! Read in supercell data
-    supercell_file = open_read_file(supercell_filename)
-    do i=1,3
-      read(supercell_file,*) supercell(i,:)
-    enddo
-    close(supercell_file)
-  
     ! Parse path file
     path_file_length = count_lines(path_filename)
     path_file = open_read_file(path_filename)
@@ -97,8 +85,8 @@ subroutine structure_to_castep(structure_sc,input_filename,supercell_filename, &
     enddo
     close(path_file)
     
-    allocate(sc_bs_path(3,no_points))
-    sc_bs_path = matmul(supercell,path)
+    path = matmul(transpose(structure%recip_lattice),path)
+    path = matmul(structure_sc%lattice,path)
   endif
   
   ! Write cell file
@@ -133,7 +121,7 @@ subroutine structure_to_castep(structure_sc,input_filename,supercell_filename, &
     write(cell_file,"(a)") ''
     write(cell_file,"(a)") '%block_bs_kpoints_path'
     do i=1,no_points
-      write(cell_file,*) sc_bs_path(:,i)
+      write(cell_file,*) path(:,i)
     enddo
     write(cell_file,"(a)") '%endblock_bs_kpoint_path'
     write(cell_file,"(a)") ''
@@ -293,7 +281,7 @@ subroutine structure_to_qe(structure_sc,input_filename,pseudo_filename, &
 end subroutine
 
 subroutine structure_to_dft_StructureData(dft_code,structure_sc,      &
-   & input_filename,supercell_filename,path_filename,pseudo_filename, &
+   & input_filename,path_filename,pseudo_filename, &
    & kpoints_filename,structure,output_filename)
   use string_module
   use structure_module
@@ -302,16 +290,15 @@ subroutine structure_to_dft_StructureData(dft_code,structure_sc,      &
   type(String),        intent(in)           :: dft_code
   type(StructureData), intent(in)           :: structure_sc
   type(String),        intent(in), optional :: input_filename     ! castep & qe
-  type(String),        intent(in), optional :: supercell_filename ! castep only
   type(String),        intent(in), optional :: path_filename      ! castep only
   type(String),        intent(in), optional :: pseudo_filename    ! qe only
   type(String),        intent(in), optional :: kpoints_filename   ! qe only
-  type(StructureData), intent(in), optional :: structure          ! qe only
+  type(StructureData), intent(in), optional :: structure          ! castep & qe
   type(String),        intent(in)           :: output_filename
   
   if (dft_code=="castep") then
-    call structure_to_castep(structure_sc,input_filename,supercell_filename, &
-       & path_filename,output_filename)
+    call structure_to_castep(structure_sc,input_filename, &
+       & path_filename,structure,output_filename)
   elseif (dft_code=="vasp") then
     call structure_to_vasp(structure_sc,output_filename)
   elseif (dft_code=="qe") then
@@ -321,7 +308,7 @@ subroutine structure_to_dft_StructureData(dft_code,structure_sc,      &
 end subroutine
 
 subroutine structure_to_dft_filename(dft_code,structure_sc_filename,  &
-   & input_filename,supercell_filename,path_filename,pseudo_filename, &
+   & input_filename,path_filename,pseudo_filename, &
    & kpoints_filename,structure_filename,output_filename)
   use string_module
   use structure_module
@@ -330,11 +317,10 @@ subroutine structure_to_dft_filename(dft_code,structure_sc_filename,  &
   type(String), intent(in)           :: dft_code
   type(String), intent(in)           :: structure_sc_filename
   type(String), intent(in), optional :: input_filename     ! castep and qe only
-  type(String), intent(in), optional :: supercell_filename ! castep only
   type(String), intent(in), optional :: path_filename      ! castep only
   type(String), intent(in), optional :: pseudo_filename    ! qe only
   type(String), intent(in), optional :: kpoints_filename   ! qe only
-  type(String), intent(in), optional :: structure_filename ! qe only
+  type(String), intent(in), optional :: structure_filename ! castep and qe only
   type(String), intent(in)           :: output_filename
   
   type(StructureData) :: structure_sc
@@ -347,7 +333,6 @@ subroutine structure_to_dft_filename(dft_code,structure_sc_filename,  &
     call structure_to_dft( dft_code=dft_code, &
                          & structure_sc=structure_sc, &
                          & input_filename=input_filename, &
-                         & supercell_filename=supercell_filename, &
                          & path_filename=path_filename, &
                          & pseudo_filename=pseudo_filename, &
                          & kpoints_filename=kpoints_filename, &
@@ -357,7 +342,6 @@ subroutine structure_to_dft_filename(dft_code,structure_sc_filename,  &
     call structure_to_dft( dft_code=dft_code, &
                          & structure_sc=structure_sc, &
                          & input_filename=input_filename, &
-                         & supercell_filename=supercell_filename, &
                          & path_filename=path_filename, &
                          & pseudo_filename=pseudo_filename, &
                          & kpoints_filename=kpoints_filename, &

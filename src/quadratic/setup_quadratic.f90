@@ -166,12 +166,12 @@ subroutine setup_quadratic()
   do i=1,no_sc
     sdir = str('Supercell_')//i
     if (dft_code=="caesar") then
-      call structure_to_dft(                                                &
-         & dft_code           = dft_code,                                   &
-         & structure_sc       = structure_scs(i),                           &
-         & input_filename     = dft_code//'/'//seedname//'.cell',           &
-         & supercell_filename = harmonic_path//'/'//sdir//'/supercell.dat', &
-         & path_filename      = dft_code//'/path.dat',                      &
+      call structure_to_dft(                                      &
+         & dft_code           = dft_code,                         &
+         & structure_sc       = structure_scs(i),                 &
+         & input_filename     = dft_code//'/'//seedname//'.cell', &
+         & path_filename      = dft_code//'/path.dat',            &
+         & structure          = structure,                        &
          & output_filename    = sdir//'/static/'//seedname//'.cell')
     elseif (dft_code=="vasp") then
       call structure_to_dft(                   &
@@ -240,12 +240,12 @@ subroutine setup_quadratic()
         mdir = str('kpoint.')//i//'/mode.'//j//'.'//k
         
         if (dft_code=="castep") then
-          call structure_to_dft(                                              &
-             & dft_code          = dft_code,                                  &
-             & structure_sc      = structure_mode,                            &
-             & input_filename    = dft_code//'/'//seedname//'.cell',          &
-             & supercell_filename= harmonic_path//'/'//sdir//'/supercell.dat',&
-             & path_filename     = dft_code//'/path.dat',                     &
+          call structure_to_dft(                                     &
+             & dft_code          = dft_code,                         &
+             & structure_sc      = structure_mode,                   &
+             & input_filename    = dft_code//'/'//seedname//'.cell', &
+             & path_filename     = dft_code//'/path.dat',            &
+             & structure         = structure,                        &
              & output_filename   = mdir//'/'//seedname//'.cell')
         elseif (dft_code=="vasp") then
           call structure_to_dft(                 &

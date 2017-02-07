@@ -229,7 +229,7 @@ end subroutine minkowski_reduce
 subroutine generate_supercells(structure,grid,ibz_filename,no_sc_filename, &
    & supercell_directory_root)
   use constants,        only : dp
-  use utils,            only : i2s
+  use utils,            only : i2s, reduce_interval
   use linear_algebra,   only : inv_33
   use file_module,      only : open_read_file, open_write_file, count_lines
   
@@ -248,49 +248,120 @@ subroutine generate_supercells(structure,grid,ibz_filename,no_sc_filename, &
   real(dp),parameter :: tol=1.d-10
   
   ! Working variables
-  integer,allocatable :: multiplicity(:),int_kpoints(:,:),numerator(:,:),&
-    &denominator(:,:),super_size(:),label(:)
-  integer :: i,j,ialloc,num_kpoints,sc_id,&
-    &s11,s12,s13,s22,s23,s33,quotient,hnf(3,3)
-  real(dp),allocatable :: kpoints(:,:)
-  real(dp) :: temp_latt_vecs(3,3)
-  real(dp) :: prim(3)
-  logical,allocatable :: found_kpoint(:)
+  integer,  allocatable :: multiplicity(:)
+  integer,  allocatable :: int_kpoints(:,:)
+  integer,  allocatable :: numerator(:,:)
+  integer,  allocatable :: denominator(:,:)
+  integer,  allocatable :: super_size(:)
+  integer,  allocatable :: label(:)
+  integer               :: ialloc
+  integer               :: no_gvectors
+  integer               :: sc_id
+  integer               :: s11
+  integer               :: s12
+  integer               :: s13
+  integer               :: s22
+  integer               :: s23
+  integer               :: s33
+  integer               :: quotient
+  integer               :: hnf(3,3)
+  real(dp), allocatable :: kpoints(:,:)
+  real(dp)              :: temp_latt_vecs(3,3)
+  real(dp)              :: prim(3)
+  logical,  allocatable :: found_kpoint(:)
+  
+  ! generate kgrid variables
+  real(dp), parameter   :: tol_g = 1.d-10
+  integer               :: i_symm
+  integer               :: i_vec
+  integer               :: j_vec
+  real(dp), allocatable :: gvecs_cart(:,:)
+  real(dp), allocatable :: gvecs_frac(:,:)
+  real(dp)              :: temp_frac(3)
+  real(dp)              :: rvec(3)
+  integer,  allocatable :: rot_operation(:)
+  integer               :: counter
   
   ! Supercell directory
   type(String) :: sdir
+  
+  ! Temporary variables
+  integer :: i,j,k
   
   ! file units
   integer :: ibz_file
   integer :: no_sc_file
   integer :: supercell_file
   
-  num_kpoints = count_lines(ibz_filename)
+  ! Generate G-vectors 
+  no_gvectors = product(grid)
   
   ! Allocate arrays
-  allocate( kpoints(3,num_kpoints),     &
-          & multiplicity(num_kpoints),  &
-          & int_kpoints(3,num_kpoints), &
-          & numerator(3,num_kpoints),   &
-          & denominator(3,num_kpoints), &
-          & super_size(num_kpoints),    &
-          & found_kpoint(num_kpoints),  &
-          & label(num_kpoints),         &
+  allocate( gvecs_cart(3,no_gvectors),  &
+          & kpoints(3,no_gvectors),     &
+          & gvecs_frac(3,no_gvectors),  &
+          & rot_operation(no_gvectors), &
+          & multiplicity(no_gvectors),  &
+          & int_kpoints(3,no_gvectors), &
+          & numerator(3,no_gvectors),   &
+          & denominator(3,no_gvectors), &
+          & super_size(no_gvectors),    &
+          & found_kpoint(no_gvectors),  &
+          & label(no_gvectors),         &
           & stat=ialloc)
   if(ialloc/=0)then
     write(*,*)'Problem allocating arrays.'
     stop
   endif
   
-  ! Read ibz.dat file
-  ibz_file = open_read_file(ibz_filename)
-  do i=1,num_kpoints
-    read(ibz_file,*) kpoints(:,i),multiplicity(i)
+  counter=0
+  do i=0,grid(1)-1
+    do j=0,grid(2)-1
+      do k=0,grid(3)-1
+        counter=counter+1
+        gvecs_frac(:,counter) = dble((/i,j,k/)) / grid
+      enddo
+    enddo
   enddo
-  close(ibz_file)
+  
+  gvecs_cart = matmul(structure%recip_lattice, gvecs_frac)
+  
+  ! Rotate all G-vectors to the IBZ
+  kpoints=0.d0
+  multiplicity=0
+  do_i_vec : do i_vec=1,no_gvectors
+    if(i_vec==1)then
+      kpoints(:,i_vec) = gvecs_frac(:,i_vec)
+      rot_operation(i_vec)=1
+      multiplicity(i_vec)=multiplicity(i_vec)+1
+    endif
+    
+    do j_vec=1,i_vec-1
+      do i_symm=1,structure%no_symmetries
+        rvec = matmul( structure%rotation_matrices(:,:,i_symm), &
+                     & gvecs_cart(:,i_vec))
+        temp_frac = reduce_interval(matmul(structure%lattice,rvec),tol_g)
+        
+        if(all(abs(temp_frac(:)-gvecs_frac(:,j_vec))<tol_g))then
+          kpoints(:,i_vec) = gvecs_frac(:,j_vec)
+          rot_operation(i_vec)=i_symm
+          multiplicity(j_vec)=multiplicity(j_vec)+1
+          cycle do_i_vec
+        endif
+      enddo
+      
+      if(j_vec==i_vec-1)then
+        kpoints(:,i_vec)=gvecs_frac(:,i_vec)
+        rot_operation(i_vec)=1
+        multiplicity(i_vec)=multiplicity(i_vec)+1
+      endif
+    enddo
+  enddo do_i_vec
+  
+  ! Generate supercells
   
   ! Express k-points as fractions
-  do i=1,num_kpoints
+  do i=1,no_gvectors
     int_kpoints(:,i) = nint(grid*kpoints(:,i))
     do j=1,3
       if (dabs(dble(int_kpoints(j,i))/grid(j)-kpoints(j,i)) >= tol) then
@@ -304,7 +375,7 @@ subroutine generate_supercells(structure,grid,ibz_filename,no_sc_filename, &
   denominator = 1
   
   ! Reduce fractions
-  do i=1,num_kpoints
+  do i=1,no_gvectors
     do j=1,3
       if(int_kpoints(j,i)/=0)then
         numerator(j,i)=int_kpoints(j,i)/gcd(abs(int_kpoints(j,i)),grid(j))
@@ -322,7 +393,7 @@ subroutine generate_supercells(structure,grid,ibz_filename,no_sc_filename, &
   
   hnf = 0
   
-  do_i : do i=1,num_kpoints
+  do_i : do i=1,no_gvectors
     if(found_kpoint(i))cycle
     
     do s11=1,super_size(i)
@@ -353,7 +424,7 @@ subroutine generate_supercells(structure,grid,ibz_filename,no_sc_filename, &
                                 & multiplicity(i), &
                                 & sc_id
                 
-                do j=i+1,num_kpoints
+                do j=i+1,no_gvectors
                   if(found_kpoint(j))cycle
                   if(super_size(j)/=super_size(i))cycle
                   prim = matmul(hnf,kpoints(:,j))
@@ -395,7 +466,7 @@ subroutine generate_supercells(structure,grid,ibz_filename,no_sc_filename, &
   write(no_sc_file,*) sc_id
   close(no_sc_file)
 
-  if(any(.not.found_kpoint(1:num_kpoints)))then
+  if(any(.not.found_kpoint(1:no_gvectors)))then
     write(*,*)'Unable to allocate each k-point to a supercell matrix.'
     stop
   endif ! found_kpoint

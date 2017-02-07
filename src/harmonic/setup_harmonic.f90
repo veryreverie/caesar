@@ -12,7 +12,6 @@ subroutine setup_harmonic()
   use structure_module
   
   use structure_to_dft_module
-  use generate_kgrid_module
   use generate_supercells_module
   use construct_supercell_module
   use construct_matrix_force_cnsts_module
@@ -118,25 +117,12 @@ subroutine setup_harmonic()
   read(grid_file,*) grid
   close(grid_file)
   
-  ! Generate IBZ
-  ! Reads Caesar input files. Writes ibz.dat and rotated_gvectors.dat
-  call generate_kgrid( structure,      &
-                     & grid,           &
-                     & str('ibz.dat'), &
-                     & str('rotated_gvectors.dat'))
-  
-  ! Generate non-diagonal supercells
+  ! Generate IBZ and non-diagonal supercells
+  ! Reads Caesar input files.
+  ! Writes ibz.dat and rotated_gvectors.dat
   ! Makes Supercell_* directories
-  ! Adds to Supercell_* directories:
-  !   supercell.dat
-  ! Reads and writes ibz.dat
-  !   Adds sc_id to each kpoint
-  !   Orders kpoints by supercell
-  call generate_supercells( structure,        &
-                          & grid,             &
-                          & str('ibz.dat'),   &
-                          & str('no_sc.dat'), &
-                          & str('Supercell_'))
+  ! Adds supercell.dat to Supercell_* directories
+  call generate_supercells(structure,grid,str('ibz.dat'),str('no_sc.dat'),str('Supercell_'))
   
   no_supercells_file = open_read_file('no_sc.dat')
   read(no_supercells_file,*) no_supercells
