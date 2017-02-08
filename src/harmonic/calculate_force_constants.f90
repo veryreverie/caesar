@@ -10,10 +10,9 @@ contains
 
 function calculate_force_constants(structure,supercell_int,structure_sc) &
    & result(force_constants)
-  use constants,        only : dp
-  use linear_algebra,   only : inv_33
-  use file_module,      only : open_read_file, open_write_file
-  use structure_module, only : StructureData, read_structure_file, drop
+  use constants,      only : dp
+  use linear_algebra, only : inv_33
+  use structure_module
   use string_module
   implicit none
   

@@ -37,9 +37,8 @@ subroutine setup_quadratic()
   
   ! List data
   integer              :: no_kpoints
-  integer, allocatable :: kpoints(:)
-  integer, allocatable :: gvectors(:)
   integer, allocatable :: sc_ids(:)
+  integer, allocatable :: gvectors(:)
   
   ! Working variables
   real(dp)            :: frequency
@@ -55,6 +54,7 @@ subroutine setup_quadratic()
   type(String)   :: filename
   type(String)   :: sdir
   type(String)   :: mdir
+  character(100) :: dump
   
   ! File units
   integer :: user_input_file
@@ -121,12 +121,11 @@ subroutine setup_quadratic()
   
   ! Read in kpoint data
   no_kpoints = count_lines(harmonic_path//'/list.dat')
-  allocate(kpoints(no_kpoints))
-  allocate(gvectors(no_kpoints))
   allocate(sc_ids(no_kpoints))
+  allocate(gvectors(no_kpoints))
   list_file = open_read_file(harmonic_path//'/list.dat')
   do i=1,no_kpoints
-    read(list_file,*) kpoints(i), gvectors(i), sc_ids(i)
+    read(list_file,*) dump,dump,dump,dump, sc_ids(i), gvectors(i)
   enddo
   close(list_file)
   

@@ -2,7 +2,7 @@ module vscf_1d_module
   use constants, only : dp
   implicit none
   
-  ! holds anharmonic potential data
+  ! Holds anharmonic potential data
   type Potential
     real(dp) :: q
     real(dp) :: harmonic   ! harmonic f(q) = 0.5*(frequency*q)^2
@@ -10,8 +10,8 @@ module vscf_1d_module
     real(dp) :: difference ! anharmonic f(q) - harmonic f(q)
   end type
   
-  ! holds output data for vscf_1d
-  type VscfReturn
+  ! Holds output data for vscf_1d
+  type VscfData
     type(Potential), allocatable :: anh_pot(:)
     real(dp),        allocatable :: hamiltonian(:,:)
     real(dp),        allocatable :: harmonic(:)
@@ -19,9 +19,13 @@ module vscf_1d_module
     real(dp),        allocatable :: eigenvecs(:,:)
   end type
 
-interface drop
-  module procedure drop_vscf
-end interface
+  interface new
+    module procedure new_VscfData
+  end interface
+  
+  interface drop
+    module procedure drop_VscfData
+  end interface
   
 contains
 
@@ -30,13 +34,13 @@ function vscf_1d(frequency_ev, potential, Nbasis) result(output)
   use linear_algebra, only : RealEigenstuff, calculate_eigenstuff, size
   implicit none
   
-  real(dp), intent(in) :: frequency_ev   ! frequency in eV
-  real(dp), intent(in) :: potential(:,:) ! anharmonic potential, {q,V(q)}
+  real(dp), intent(in) :: frequency_ev   ! Frequency in eV
+  real(dp), intent(in) :: potential(:,:) ! Anharmonic potential, {q,V(q)}
   integer,  intent(in) :: Nbasis
-  type(VscfReturn)     :: output
+  type(VscfData)       :: output
   
-  integer  :: Npoints   ! size(potential,2)
-  real(dp) :: frequency ! frequency in a.u.
+  integer  :: Npoints   ! Size(potential,2)
+  real(dp) :: frequency ! Frequency in a.u.
   
   ! Working variables
   integer :: i,j,k
@@ -51,19 +55,13 @@ function vscf_1d(frequency_ev, potential, Nbasis) result(output)
   frequency=frequency_ev/eV 
 
   ! Allocate output
-  allocate(output%anh_pot(Npoints))
-  allocate(output%hamiltonian(Nbasis,Nbasis))
-  allocate(output%harmonic(Nbasis))
-  allocate(output%eigenvals(Nbasis))
-  allocate(output%eigenvecs(Nbasis,Nbasis))
-
-  ! Allocate various arrays
-  allocate(basis(Npoints,Nbasis))
+  call new(output,Npoints,Nbasis)
 
   ! Calculate basis functions
   basis_frequency=dabs(frequency)
   bfp=(basis_frequency/pi)**0.25
   
+  allocate(basis(Npoints,Nbasis))
   do i=1,Npoints
     q = potential(1,i)
     basis(i,1)=bfp*dexp(-q*q*basis_frequency/2)
@@ -113,11 +111,26 @@ function vscf_1d(frequency_ev, potential, Nbasis) result(output)
   
 end function
 
-! deallocate(VscfReturn)
-pure subroutine drop_vscf(this)
+! allocate(VscfData)
+pure subroutine new_VscfData(this,Npoints,Nbasis)
   implicit none
   
-  type(VscfReturn), intent(inout) :: this
+  type(VscfData), intent(out) :: this
+  integer,        intent(in)  :: Npoints
+  integer,        intent(in)  :: Nbasis
+  
+  allocate(this%anh_pot(Npoints))
+  allocate(this%hamiltonian(Nbasis,Nbasis))
+  allocate(this%harmonic(Nbasis))
+  allocate(this%eigenvals(Nbasis))
+  allocate(this%eigenvecs(Nbasis,Nbasis))
+end subroutine
+
+! deallocate(VscfData)
+pure subroutine drop_VscfData(this)
+  implicit none
+  
+  type(VscfData), intent(inout) :: this
   
   deallocate(this%anh_pot)
   deallocate(this%hamiltonian)

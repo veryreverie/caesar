@@ -43,9 +43,8 @@ subroutine bs_quadratic()
   real(dp), allocatable :: bs(:,:)
   
   ! Kpoint data
-  integer, allocatable :: kpoints(:)
-  integer, allocatable :: gvectors(:)
   integer, allocatable :: sc_ids(:)
+  integer, allocatable :: gvectors(:)
   
   integer, allocatable :: multiplicity(:)
   
@@ -56,7 +55,6 @@ subroutine bs_quadratic()
   integer :: user_input_file
   integer :: no_sc_file
   integer :: list_file
-  integer :: ibz_file
   integer :: bgc_file
   integer :: bck_file
   
@@ -106,20 +104,18 @@ subroutine bs_quadratic()
   read(no_sc_file,*) no_sc
   close(no_sc_file)
   
-  no_kpoints = count_lines(harmonic_path//'/ibz.dat')
-  
   mapping = read_mapping_file('mapping.dat')
   
   structure = read_structure_file(harmonic_path//'/structure.dat')
   
   filename = harmonic_path//'/list.dat'
   no_kpoints = count_lines(filename)
-  allocate(kpoints(no_kpoints))
-  allocate(gvectors(no_kpoints))
+  allocate(multiplicity(no_kpoints))
   allocate(sc_ids(no_kpoints))
+  allocate(gvectors(no_kpoints))
   list_file = open_read_file(filename)
   do i=1,no_kpoints
-    read(list_file,*) kpoints(i),gvectors(i),sc_ids(i)
+    read(list_file,*) dump,dump,dump,multiplicity(i),sc_ids(i),gvectors(i)
   enddo
   close(list_file)
   
@@ -169,14 +165,6 @@ subroutine bs_quadratic()
       bs(j,i) = bs(j,i) - band_energy
     enddo
   enddo
-  
-  ! read ibz file
-  allocate(multiplicity(no_kpoints))
-  ibz_file = open_read_file(harmonic_path//'/ibz.dat')
-  do i=1,no_kpoints 
-    read(ibz_file,*)dump,dump,dump,multiplicity(i)
-  enddo
-  close(ibz_file)
   
   ! Calculate deformation potential
   allocate(deformation(structure%no_modes,no_kpoints))

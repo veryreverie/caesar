@@ -40,6 +40,7 @@ subroutine lte_harmonic()
   ! kpoint data
   integer               :: no_kpoints
   real(dp), allocatable :: kpoints(:,:)
+  integer,  allocatable :: multiplicity(:)
   integer,  allocatable :: sc_ids(:)
   
   ! gvector data
@@ -57,7 +58,6 @@ subroutine lte_harmonic()
   character(100) :: line
   type(String)   :: sdir
   type(String)   :: ddir
-  character(100) :: dump
   
   ! File units
   integer :: no_sc_file
@@ -67,6 +67,7 @@ subroutine lte_harmonic()
   integer :: gvectors_frac_file
   integer :: list_file
   integer :: grid_file
+  integer :: force_constants_file
   
   ! ----------------------------------------------------------------------
   ! Get temperature from user
@@ -101,15 +102,14 @@ subroutine lte_harmonic()
   ! Read kpoints from ibz.dat
   no_kpoints = count_lines('ibz.dat')
   allocate(kpoints(3,no_kpoints))
+  allocate(multiplicity(no_kpoints))
   allocate(sc_ids(no_kpoints))
   ibz_file = open_read_file('ibz.dat')
   do i=1,no_kpoints
-    read(ibz_file,*) kpoints(:,i), dump, sc_ids(i)
+    read(ibz_file,*) kpoints(:,i), multiplicity(i), sc_ids(i)
   enddo
   
-  ! ----------------------------------------------------------------------
   ! Read in supercell structures
-  ! ----------------------------------------------------------------------
   allocate(structure_scs(no_sc))
   do i=1,no_sc
     sdir = str('Supercell_')//i
@@ -130,11 +130,17 @@ subroutine lte_harmonic()
   do i=1,no_sc
     sdir = str('Supercell_')//i
     
-    ! Read forces from DFT output files
-    no_force_constants = count_lines(sdir//'force_constants.dat')
+    ! Read in force constants
+    no_force_constants = count_lines(sdir//'/force_constants.dat')
     allocate(atoms(no_force_constants))
     allocate(displacements(no_force_constants))
+    force_constants_file = open_read_file(sdir//'/force_constants.dat')
+    do j=1,no_force_constants
+      read(force_constants_file,*) atoms(j), displacements(j)
+    enddo
+    close(force_constants_file)
     
+    ! Read forces from DFT output files
     allocate(forces(3,structure_scs(i)%no_atoms,no_force_constants))
     do j=1,no_force_constants
       ddir = sdir//'/atom.'//atoms(j)//'/disp.'//displacements(j)
@@ -175,8 +181,7 @@ subroutine lte_harmonic()
     deallocate(forces)
   enddo
   
-  ! Write list.dat, a mapping between kpoints, gvectors and supercells
-  list_file = open_write_file('list.dat')
+  ! Locate the corresponding gvector for each kpoint
   allocate(gvector_ids(no_kpoints))
   do i=1,no_kpoints
     sdir = str('Supercell_')//sc_ids(i)
@@ -186,16 +191,20 @@ subroutine lte_harmonic()
       read(gvectors_frac_file,*) gvector_id, gvec_frac
       if (all(abs(gvec_frac-kpoints(:,i))<tol)) then
         gvector_ids(i) = gvector_id
-        write(list_file,*) i, gvector_id, sc_ids(i)
-        call system('cp ' &
-           & //sdir//'/lte/dyn_mat.'//gvector_id//'.dat ' &
-           & //'lte/dyn_mat.'//i//'.dat')
       endif
     enddo
     close(gvectors_frac_file)
   enddo
+  
+  ! Write list.dat, a mapping between kpoints, supercells and gvectors
+  list_file = open_write_file('list.dat')
+    write(list_file,*) kpoints(:,i),    &
+                     & multiplicity(i), &
+                     & sc_ids(i),       &
+                     & gvector_ids(i)
   close(list_file)
   
+  ! Write path for fourier interpolation
   no_kspace_lines = 4
   allocate(disp_kpoints(3,0:no_kspace_lines))
   disp_kpoints(:,0) = (/ 0.0_dp, 0.0_dp, 0.0_dp /) ! GM

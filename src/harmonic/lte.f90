@@ -1631,7 +1631,7 @@ subroutine evaluate_freqs_on_grid(no_prim_cells,    &
   integer :: error_file
   
   integer :: ng,i,j,k,ig,index1,index2,p,n,atom1
-  logical :: found,soft_modes
+  logical :: soft_modes
   real(dp) :: gnew(3),gvec(3,no_prim_cells),R0(3), &
     &omega(structure%no_modes),E,F,rec_root_mass(structure%no_atoms),GdotR, &
     &disp_pattern(3),kdisp_pattern(3),tot_disp_patt
@@ -1652,22 +1652,21 @@ subroutine evaluate_freqs_on_grid(no_prim_cells,    &
   ng=0
   do k=0,no_prim_cells-1
     do j=0,no_prim_cells-1
-      do i=0,no_prim_cells-1
+      do_i : do i=0,no_prim_cells-1
         gnew = matmul(structure_sc%recip_lattice,(/i,j,k/))
-        found=.TRUE.
+        
+        ! Check if gnew has already been found.
         do ig=1,ng
           if(is_lat_point(gnew-gvec(:,ig),structure%lattice))then
-            found=.FALSE.
-            exit
-          endif ! ig
-        enddo ! ig
-        if(found)then
-          ng=ng+1
-          if(ng>no_prim_cells)call errstop('EVALUATE_FREQS_ON_GRID', &
-            &'Bug: too many G vectors.')
-          gvec(:,ng) = gnew
-        endif ! found
-      enddo ! i
+            cycle do_i
+          endif
+        enddo
+        
+        ng=ng+1
+        if(ng>no_prim_cells)call errstop('EVALUATE_FREQS_ON_GRID', &
+          &'Bug: too many G vectors.')
+        gvec(:,ng) = gnew
+      enddo do_i
     enddo ! j
   enddo ! k
   if(ng/=no_prim_cells)call errstop('EVALUATE_FREQS_ON_GRID', &

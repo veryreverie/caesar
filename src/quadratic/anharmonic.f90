@@ -16,9 +16,9 @@ subroutine anharmonic()
   use dft_output_file_module
   use displacement_patterns_module
   
-  use calculate_anharmonic_module, only : calculate_anharmonic
-  use quadratic_spline_module,     only : quadratic_spline
-  use vscf_1d_module,              only : VscfReturn, vscf_1d, drop
+  use calculate_anharmonic_module
+  use quadratic_spline_module
+  use vscf_1d_module
   
   implicit none
   
@@ -42,14 +42,12 @@ subroutine anharmonic()
   type(MappingData)     :: mapping         ! mapping.dat
   
   ! kpoint data
-  integer, allocatable  :: kpoints(:)      ! kpoint ids
-  integer, allocatable  :: gvectors(:)     ! gvector ids
-  integer, allocatable  :: sc_ids(:)       ! supercell ids
   integer               :: no_kpoints
-  integer, allocatable  :: sizes(:)
+  integer, allocatable  :: multiplicity(:)
+  integer, allocatable  :: sc_ids(:)       ! supercell ids
+  integer, allocatable  :: gvectors(:)     ! gvector ids
   
-  ! ibz data
-  integer, allocatable  :: multiplicity(:) ! fourth column of ibz.dat
+  integer, allocatable  :: sizes(:)
   
   real(dp), allocatable :: energies(:,:,:)
   real(dp), allocatable :: static_energies(:)
@@ -57,7 +55,7 @@ subroutine anharmonic()
   real(dp)              :: amplitude
   real(dp), allocatable :: amplitudes(:,:)
   real(dp), allocatable :: spline(:,:)
-  type(VscfReturn)      :: vscf
+  type(VscfData)        :: vscf
   logical, allocatable  :: sc_acoustic(:)  ! if Supercell_i/acoustic.dat exists
   
   ! Directory names
@@ -68,13 +66,11 @@ subroutine anharmonic()
   real(dp), allocatable :: eigenvals(:,:,:)
   real(dp), allocatable :: harmonic(:,:,:)
   
-  
   type(StructureData)   :: structure     ! the contents of structure.dat
   type(StructureData), allocatable :: structure_scs(:)
   type(DispPatterns)    :: disp_patterns
   
   type(String)          :: filename
-  type(String)          :: ibz_filename
   
   type(DftOutputFile)   :: dft_output_file
   
@@ -91,7 +87,6 @@ subroutine anharmonic()
   integer :: user_input_file
   integer :: no_sc_file
   integer :: list_file
-  integer :: ibz_file
   integer :: result_file
   
   ! ----------------------------------------
@@ -129,12 +124,12 @@ subroutine anharmonic()
   
   ! Read kpoints
   no_kpoints = count_lines(harmonic_path//'/list.dat')
-  allocate(kpoints(no_kpoints))
+  allocate(multiplicity(no_kpoints))
   allocate(gvectors(no_kpoints))
   allocate(sc_ids(no_kpoints))
   list_file = open_read_file(harmonic_path//'/list.dat')
   do i=1,no_kpoints
-    read(list_file,*) kpoints(i),gvectors(i),sc_ids(i)
+    read(list_file,*) dump,dump,dump,multiplicity(i),sc_ids(i),gvectors(i)
   enddo
   close(list_file)
   
@@ -145,15 +140,6 @@ subroutine anharmonic()
     filename = harmonic_path//'/'//sdir//'/structure.dat' 
     structure_scs(i) = read_structure_file(filename)
   enddo
-  
-  ! read multiplicity from ibz.dat
-  ibz_filename = harmonic_path//'/ibz.dat'
-  allocate(multiplicity(count_lines(ibz_filename)))
-  ibz_file = open_read_file(ibz_filename)
-  do i=1,size(multiplicity)
-    read(ibz_file,*) dump, dump, dump, multiplicity(i)
-  enddo
-  close(ibz_file)
   
   ! read data from supercells
   do i=1,no_supercells
@@ -170,14 +156,16 @@ subroutine anharmonic()
   allocate(energies(mapping%count,structure%no_modes,no_kpoints))
   do i=1,no_kpoints
     if (.not. sc_acoustic(sc_ids(i))) then
-      kpoint_dir = str('kpoint.')//kpoints(i)
+      kpoint_dir = str('kpoint.')//i
       
       ! set sizes
       sizes(i) = structure_scs(sc_ids(i))%no_atoms/structure%no_atoms
       
       ! Read frequencies
-      filename = harmonic_path//'/Supercell_'//sc_ids(i)//'/lte/disp_patterns.dat'
-      disp_patterns = read_disp_patterns_file(filename,structure_scs(sc_ids(i))%no_modes)
+      filename = harmonic_path//'/Supercell_'//sc_ids(i)// &
+         & '/lte/disp_patterns.dat'
+      disp_patterns = read_disp_patterns_file( filename, &
+         & structure_scs(sc_ids(i))%no_modes)
       frequencies(:,i) = disp_patterns%frequencies(:,gvectors(i))
       
       do j=1,structure%no_modes
@@ -210,10 +198,10 @@ subroutine anharmonic()
   allocate(harmonic(Nbasis,structure%no_modes,no_kpoints))
   allocate(eigenvals(Nbasis,structure%no_modes,no_kpoints))
   do i=1,no_kpoints
-    if (kpoints(i)/=1 .or. .not. any(sc_acoustic)) then
+    if (i/=1 .or. .not. any(sc_acoustic)) then
       do j=1,structure%no_modes
         
-        ! generate amplitudes, {x,V(x)}
+        ! generate amplitudes, {(x,V(x))}
         ! generate potential at {q} defined by map
         allocate(amplitudes(2,mapping%count))
         amplitude = -mapping%max*eV/(2*dabs(frequencies(j,i)))

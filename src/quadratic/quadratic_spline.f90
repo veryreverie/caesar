@@ -12,7 +12,6 @@
 !  (2) No warranties, express or implied, are made for this program.      !
 !                                                                         !
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!
 module quadratic_spline_module
   implicit none
 contains
@@ -27,9 +26,10 @@ pure function quadratic_spline(m,xifi) result(output)
   real(dp), allocatable, intent(in) :: xifi(:,:)   ! {(x,f)} at n points
   real(dp), allocatable             :: output(:,:) ! {(x,f)} at m points
   
-  integer :: n ! = size(xi) = size(xifi,2)
-  real(dp), allocatable :: xi(:)
-  real(dp), allocatable :: fi(:)
+  ! Input data
+  integer               :: n     ! = size(xi) = size(xifi,2)
+  real(dp), allocatable :: xi(:) ! = xifi(1,:)
+  real(dp), allocatable :: fi(:) ! = xifi(2,:)
   
   integer :: p
   integer :: i, k
@@ -46,7 +46,7 @@ pure function quadratic_spline(m,xifi) result(output)
   xi = xifi(1,:)
   fi = xifi(2,:)
 
-  call cubic_spline(n-1, xi, fi, p2)
+  p2 = cubic_spline(n-1, xi, fi)
 
   ! find the approximation of the function
   
@@ -81,86 +81,79 @@ pure function quadratic_spline(m,xifi) result(output)
     output(1,i+1) = x
     output(2,i+1) = f
   end do
-
 end function
 
-
-pure SUBROUTINE CUBIC_SPLINE (N, XI, FI, P2)
-  use constants, only : dp
-  implicit none
-  
-!
 ! Function to carry out the cubic-spline approximation
 ! with the second-order derivatives returned.
-!
-  INTEGER :: I
-  INTEGER, INTENT (IN) :: N
-  REAL(dp), INTENT (IN), DIMENSION (N+1):: XI, FI
-  REAL(dp), INTENT (OUT), DIMENSION (N+1):: P2
-  REAL(dp), DIMENSION (N):: G, H
-  REAL(dp), DIMENSION (N-1):: D, B, C
-!
-! Assign the intervals and function differences
-!
-  DO I = 1, N
-    H(I) = XI(I+1) - XI(I)
-    G(I) = FI(I+1) - FI(I)
-  END DO
-!
-! Evaluate the coefficient matrix elements
-  DO I = 1, N-1
-    D(I) = 2*(H(I+1)+H(I))
-    B(I) = 6*(G(I+1)/H(I+1)-G(I)/H(I))
-    C(I) = H(I+1)
-  END DO
-!
-! Obtain the second-order derivatives
-!
-  CALL TRIDIAGONAL_LINEAR_EQ (N-1, D, C, C, B, G)
-  P2(1) = 0
-  P2(N+1) = 0
-  DO I = 2, N 
-    P2(I) = G(I-1)
-  END DO
-END SUBROUTINE CUBIC_SPLINE
-!
-pure SUBROUTINE TRIDIAGONAL_LINEAR_EQ (L, D, E, C, B, Z)
+pure function cubic_spline (n, xi, fi) result(p2)
   use constants, only : dp
   implicit none
   
-!
-! Functione to solve the tridiagonal linear equation set.
-!
-  INTEGER, INTENT (IN) :: L
-  INTEGER :: I
-  REAL(dp), INTENT (IN), DIMENSION (L):: D, E, C, B
-  REAL(dp), INTENT (OUT), DIMENSION (L):: Z
-  REAL(dp), DIMENSION (L):: Y, W
-  REAL(dp), DIMENSION (L-1):: V, T
-!
-! Evaluate the elements in the LU decomposition
-!
-  W(1) = D(1)
-  V(1)  = C(1)
-  T(1)  = E(1)/W(1)
-  DO I = 2, L - 1
-    W(I) = D(I)-V(I-1)*T(I-1)
-    V(I) = C(I)
-    T(I) = E(I)/W(I)
-  END DO
-  W(L) = D(L)-V(L-1)*T(L-1)
-!
-! Forward substitution to obtain y
-!
-  Y(1) = B(1)/W(1)
-  DO I = 2, L
-    Y(I) = (B(I)-V(I-1)*Y(I-1))/W(I)
-  END DO
-!
-! Backward substitution to obtain z
-  Z(L) = Y(L)
-  DO I = L-1, 1, -1
-    Z(I) = Y(I) - T(I)*Z(I+1)
-  END DO
-END SUBROUTINE TRIDIAGONAL_LINEAR_EQ
+  integer,  intent(in) :: n
+  real(dp), intent(in) :: xi(n+1)
+  real(dp), intent(in) :: fi(n+1)
+  real(dp)             :: p2(n+1)
+  
+  integer  :: i
+  real(dp) :: g(n), h(n)
+  real(dp) :: d(n-1), b(n-1), c(n-1)
+  
+  ! Assign the intervals and function differences
+  do i = 1, n
+    h(i) = xi(i+1) - xi(i)
+    g(i) = fi(i+1) - fi(i)
+  end do
+  
+  ! Evaluate the coefficient matrix elements
+  do i = 1, n-1
+    d(i) = 2*(h(i+1)+h(i))
+    b(i) = 6*(g(i+1)/h(i+1)-g(i)/h(i))
+    c(i) = h(i+1)
+  end do
+  
+  ! Obtain the second-order derivatives
+  g = tridiagonal_linear_eq (n-1, d, c, c, b)
+  p2(1) = 0
+  p2(n+1) = 0
+  do i = 2, n 
+    p2(i) = g(i-1)
+  end do
+end function
+
+! Function to solve the tridiagonal linear equation set.
+pure function tridiagonal_linear_eq (l, d, e, c, b) result(z)
+  use constants, only : dp
+  implicit none
+  
+  integer,  intent(in) :: l
+  real(dp), intent(in) :: d(l), e(l), c(l), b(l)
+  real(dp)             :: z(l)
+  
+  integer  :: i
+  real(dp) :: y(l), w(l)
+  real(dp) :: v(l-1), t(l-1)
+  
+  ! Evaluate the elements in the LU decomposition
+  w(1) = d(1)
+  v(1)  = c(1)
+  t(1)  = e(1)/w(1)
+  do i = 2, l - 1
+    w(i) = d(i)-v(i-1)*t(i-1)
+    v(i) = c(i)
+    t(i) = e(i)/w(i)
+  end do
+  w(l) = d(l)-v(l-1)*t(l-1)
+  
+  ! Forward substitution to obtain y
+  y(1) = b(1)/w(1)
+  do i = 2, l
+    y(i) = (b(i)-v(i-1)*y(i-1))/w(i)
+  end do
+  
+  ! Backward substitution to obtain z
+  z(l) = y(l)
+  do i = l-1, 1, -1
+    z(i) = y(i) - t(i)*z(i+1)
+  end do
+end function
 end module
