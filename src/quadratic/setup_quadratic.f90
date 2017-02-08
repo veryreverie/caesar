@@ -13,9 +13,9 @@ subroutine setup_quadratic()
   implicit none
   
   ! Parameters
-  real(dp), parameter :: frequency_tol   = 1.d-5 ! frequency<=tol if acoustic
-  real(dp), parameter :: temperature     = 0.d0
-  real(dp), parameter :: temperature_tol = 1.d-6
+  real(dp), parameter :: frequency_tol   = 1.0e-5_dp!frequency<=tol if acoustic
+  real(dp), parameter :: temperature     = 0.0_dp
+  real(dp), parameter :: temperature_tol = 1.0e-6_dp
   real(dp), parameter :: thermal_energy  = temperature/thermal
   
   ! User inputs
@@ -25,11 +25,11 @@ subroutine setup_quadratic()
   type(String) :: harmonic_path ! The path to the harmonic directory
   
   ! File contents
-  type(MappingData)                :: mapping
+  type(MappingData) :: mapping
   
   ! Harmonic file contents
-  type(StructureData)              :: structure
-  integer                          :: no_sc
+  type(StructureData) :: structure
+  integer             :: no_sc
   
   ! Harmonic supercell file contents
   type(StructureData), allocatable :: structure_scs(:)
