@@ -5,12 +5,6 @@ module utils
   use constants,      only : dp
   implicit none
   
-  !interface reduce_interval
-  !  module procedure reduce_interval_0d
-  !  module procedure reduce_interval_1d
-  !  module procedure reduce_interval_2d
-  !end interface
-  
 contains
 
 ! ----------------------------------------------------------------------
@@ -203,7 +197,7 @@ function lower_case(input) result(output)
 end function
 
 ! ----------------------------------------------------------------------
-! Makes all values lie in [-0.5+tol,0.5+tol], by adding or subtracting integers
+! Makes all values lie in [-0.5-tol,0.5-tol], by adding or subtracting integers
 ! ----------------------------------------------------------------------
 elemental function reduce_interval(input,tol) result(output)
   use constants, only : dp
@@ -214,6 +208,19 @@ elemental function reduce_interval(input,tol) result(output)
   real(dp)             :: output
   
   output = modulo(input+0.5_dp+tol,1.0_dp)-0.5_dp-tol
+end function
+
+! ----------------------------------------------------------------------
+! As above, but for vec*grid -> [-0.5,0.5)*grid
+! ----------------------------------------------------------------------
+pure function reduce_to_ibz(input,grid) result(output)
+  implicit none
+  
+  integer, intent(in) :: input(3)
+  integer, intent(in) :: grid(3)
+  integer             :: output(3)
+  
+  output = modulo(input+grid/2,grid)-grid/2
 end function
 
 ! ----------------------------------------------------------------------

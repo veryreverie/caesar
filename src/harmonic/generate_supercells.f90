@@ -74,13 +74,13 @@ pure function lcm_3(int_1,int_2,int_3) result(output)
   output = lcm(int_1,lcm_2)
 end function
 
-!------------------------------------------------------------------------------
+! ----------------------------------------------------------------------
 ! Given three linearly independent input vectors a, b and c, construct the
 ! following linear combinations: a+b-c, a-b+c, -a+b+c, a+b+c and  check if any
 ! of the four new vectors is shorter than any of a, b or c. If so, replace the
 ! longest of a, b and c with the new (shorter) vector. The resulting three
 ! vectors are also linearly independent.
-!------------------------------------------------------------------------------
+! ----------------------------------------------------------------------
 logical function reduce_vec(vecs)
   implicit none
   
@@ -121,12 +121,11 @@ logical function reduce_vec(vecs)
   enddo
 end function
 
-
-!-------------------------------------------------------------------------!
-! Generate all unique supercells that contain a given number of primitive !
-! unit cells. See 'Hart and Forcade, Phys. Rev. B 77, 224115 (2008)' for  !
-! details of the algorithm.                                               !
-!-------------------------------------------------------------------------!
+! ----------------------------------------------------------------------
+! Generate all unique supercells that contain a given number of primitive
+! unit cells. See 'Hart and Forcade, Phys. Rev. B 77, 224115 (2008)' for
+! details of the algorithm.
+! ----------------------------------------------------------------------
 subroutine supercells_generator(num_pcells,num_hnf,hnf)
  implicit none
  
@@ -188,18 +187,18 @@ subroutine supercells_generator(num_pcells,num_hnf,hnf)
 end subroutine
 
 
-!-----------------------------------------------------------------------------!
-! Given n vectors a(i) that form a basis for a lattice L in n dimensions, the !
-! a(i) are said to be Minkowski-reduced if the following conditions are met:  !
-!                                                                             !
-! - a(1) is the shortest non-zero vector in L                                 !
-! - for i>1, a(i) is the shortest possible vector in L such that a(i)>=a(i-1) !
-!   and the set of vectors a(1) to a(i) are linearly independent              !
-!                                                                             !
-! In other words the a(i) are the shortest possible basis vectors for L. This !
-! routine, given a set of input vectors a'(i) that are possibly not           !
-! Minkowski-reduced, returns the vectors a(i) that are.                       !
-!-----------------------------------------------------------------------------!
+! ----------------------------------------------------------------------
+! Given n vectors a(i) that form a basis for a lattice L in n dimensions, the
+! a(i) are said to be Minkowski-reduced if the following conditions are met:
+!
+! - a(1) is the shortest non-zero vector in L
+! - for i>1, a(i) is the shortest possible vector in L such that a(i)>=a(i-1)
+!   and the set of vectors a(1) to a(i) are linearly independent
+!
+! In other words the a(i) are the shortest possible basis vectors for L. This
+! routine, given a set of input vectors a'(i) that are possibly not
+! Minkowski-reduced, returns the vectors a(i) that are.
+! ----------------------------------------------------------------------
 subroutine minkowski_reduce(vecs)
   implicit none
   
@@ -228,7 +227,7 @@ end subroutine minkowski_reduce
 
 subroutine generate_supercells(structure,grid,ibz_filename,supercells_filename)
   use constants,        only : dp
-  use utils,            only : i2s, reduce_interval
+  use utils,            only : i2s, reduce_interval, reduce_to_ibz
   use linear_algebra,   only : inv_33
   use file_module,      only : open_read_file, open_write_file, count_lines
   
@@ -242,13 +241,9 @@ subroutine generate_supercells(structure,grid,ibz_filename,supercells_filename)
   type(String),        intent(in) :: ibz_filename
   type(String),        intent(in) :: supercells_filename
   
-  ! parameters
-  real(dp),parameter :: tol=1.d-10
-  
   ! Working variables
   integer,  allocatable :: multiplicity(:)
   integer,  allocatable :: int_kpoints(:,:)
-  integer,  allocatable :: numerator(:,:)
   integer,  allocatable :: denominator(:,:)
   integer,  allocatable :: super_size(:)
   integer,  allocatable :: label(:)
@@ -265,20 +260,19 @@ subroutine generate_supercells(structure,grid,ibz_filename,supercells_filename)
   integer               :: hnf(3,3)
   real(dp), allocatable :: kpoints(:,:)
   real(dp)              :: temp_latt_vecs(3,3)
-  real(dp)              :: prim(3)
   logical,  allocatable :: found_kpoint(:)
   
   ! generate kgrid variables
-  real(dp), parameter   :: tol_g = 1.d-10
   integer               :: i_symm
   integer               :: i_vec
   integer               :: j_vec
-  real(dp), allocatable :: gvecs_cart(:,:)
+  integer,  allocatable :: gvecs(:,:)
   real(dp), allocatable :: gvecs_frac(:,:)
-  real(dp)              :: temp_frac(3)
-  real(dp)              :: rvec(3)
   integer,  allocatable :: rot_operation(:)
   integer               :: counter
+  
+  real(dp) :: rotation(3,3)
+  integer  :: rvec(3)
   
   ! Temporary variables
   integer :: i,j,k
@@ -291,13 +285,10 @@ subroutine generate_supercells(structure,grid,ibz_filename,supercells_filename)
   no_gvectors = product(grid)
   
   ! Allocate arrays
-  allocate( gvecs_cart(3,no_gvectors),  &
-          & kpoints(3,no_gvectors),     &
-          & gvecs_frac(3,no_gvectors),  &
+  allocate( kpoints(3,no_gvectors),     &
           & rot_operation(no_gvectors), &
           & multiplicity(no_gvectors),  &
           & int_kpoints(3,no_gvectors), &
-          & numerator(3,no_gvectors),   &
           & denominator(3,no_gvectors), &
           & super_size(no_gvectors),    &
           & found_kpoint(no_gvectors),  &
@@ -308,32 +299,41 @@ subroutine generate_supercells(structure,grid,ibz_filename,supercells_filename)
     stop
   endif
   
+  ! Generate gvecs and gvecs_frac list
+  allocate(gvecs(3,no_gvectors))
+  allocate(gvecs_frac(3,no_gvectors))
   counter=0
-  do i=0,grid(1)-1
-    do j=0,grid(2)-1
-      do k=0,grid(3)-1
+  ! Loop over integer gvectors, such that gvec/grid in [-0.5,0.5)
+  ! n.b. integer floor division intentional
+  do i=-grid(1)/2,(grid(1)-1)/2
+    do j=-grid(2)/2,(grid(2)-1)/2
+      do k=-grid(3)/2,(grid(3)-1)/2
         counter=counter+1
-        gvecs_frac(:,counter) = dble((/i,j,k/)) / grid
+        gvecs(:,counter) = (/i,j,k/)
+        gvecs_frac(:,counter) = dble(gvecs(:,counter)) / grid
       enddo
     enddo
   enddo
   
-  gvecs_cart = matmul(structure%recip_lattice, gvecs_frac)
-  
   ! Rotate all G-vectors to the IBZ
   kpoints=0.d0
   multiplicity=0
-  kpoints(:,1) = gvecs_frac(:,1)
-  rot_operation(1) = 1
-  multiplicity(1) = 1
   do_i_vec : do i_vec=1,no_gvectors
+    
+    ! Check if an equivalent kpoint has already been found
     do j_vec=1,i_vec-1
       do i_symm=1,structure%no_symmetries
-        rvec = matmul( structure%rotation_matrices(:,:,i_symm), &
-                     & gvecs_cart(:,i_vec))
-        temp_frac = reduce_interval(matmul(structure%lattice,rvec),tol_g)
+        ! Work out rotation in "lattice space"
+        rotation = matmul(matmul( structure%lattice, &
+                                & structure%rotation_matrices(:,:,i_symm)), &
+                                & transpose(structure%recip_lattice))
         
-        if(all(abs(temp_frac(:)-gvecs_frac(:,j_vec))<tol_g))then
+        ! Rotate the G-vector, and map it back to the IBZ
+        rvec = reduce_to_ibz(nint(matmul(rotation,gvecs(:,i_vec))),grid)
+        
+        ! If the rotated gvec = gvec(j)
+        if (all(rvec == gvecs(:,j_vec))) then
+          int_kpoints(:,i_vec) = gvecs(:,j_vec)
           kpoints(:,i_vec) = gvecs_frac(:,j_vec)
           rot_operation(i_vec)=i_symm
           multiplicity(j_vec)=multiplicity(j_vec)+1
@@ -341,38 +341,26 @@ subroutine generate_supercells(structure,grid,ibz_filename,supercells_filename)
         endif
       enddo
     enddo
-      
+    
+    ! If kpoint not already found, assign it to the new gvec
+    int_kpoints(:,i_vec) = gvecs(:,i_vec)
     kpoints(:,i_vec)=gvecs_frac(:,i_vec)
     rot_operation(i_vec)=1
-    multiplicity(i_vec)=multiplicity(i_vec)+1
+    multiplicity(i_vec)=1
   enddo do_i_vec
   
   ! Generate supercells
   
-  ! Express k-points as fractions
-  do i=1,no_gvectors
-    int_kpoints(:,i) = nint(grid*kpoints(:,i))
-    do j=1,3
-      if (dabs(dble(int_kpoints(j,i))/grid(j)-kpoints(j,i)) >= tol) then
-        write(*,*) 'Unable to find fractional representation of k-point.'
-        stop
-      endif
-    enddo
-  enddo
-  
-  numerator = 0
   denominator = 1
-  
   ! Reduce fractions
   do i=1,no_gvectors
     do j=1,3
       if(int_kpoints(j,i)/=0)then
-        numerator(j,i)=int_kpoints(j,i)/gcd(abs(int_kpoints(j,i)),grid(j))
         denominator(j,i)=grid(j)/gcd(abs(int_kpoints(j,i)),grid(j))
-      endif ! int_kpoints
-    enddo ! j
+      endif
+    enddo
     super_size(i)=lcm(denominator(1,i),denominator(2,i),denominator(3,i))
-  enddo ! i
+  enddo
   
   found_kpoint = .false.
   label = 0
@@ -396,30 +384,24 @@ subroutine generate_supercells(structure,grid,ibz_filename,supercells_filename)
           do s13=0,s33-1
             do s23=0,s33-1
               hnf(1,:) = (/ s11, s12, s13 /)
-              hnf(2,:) = (/ s22, s23, 0   /)
-              hnf(3,:) = (/ s33, 0  , 0   /)
-              prim = matmul(hnf,kpoints(:,i))
-              if(all(abs(prim(:)-nint(prim(:)))<tol))then
+              hnf(2,:) = (/ 0  , s22, s23 /)
+              hnf(3,:) = (/ 0  , 0  , s33 /)
+              if (all(modulo(matmul(hnf,int_kpoints(:,i)),grid)==0)) then
                 sc_id=sc_id+1
                 
                 found_kpoint(i)=.true.
                 label(i)=sc_id
                 
-                write(ibz_file,*) kpoints(:,i),    &
-                                & multiplicity(i), &
-                                & sc_id
+                write(ibz_file,*) int_kpoints(:,i), multiplicity(i), sc_id
                 
                 do j=i+1,no_gvectors
                   if(found_kpoint(j))cycle
                   if(super_size(j)/=super_size(i))cycle
-                  prim = matmul(hnf,kpoints(:,j))
-                  if(all(abs(prim(:)-nint(prim(:)))<tol))then
+                  if (all(modulo(matmul(hnf,int_kpoints(:,j)),grid)==0)) then
                     found_kpoint(j)=.true.
                     label(j)=sc_id
                     
-                    write(ibz_file,*) kpoints(:,j),    &
-                                    & multiplicity(j), &
-                                    & sc_id
+                    write(ibz_file,*) int_kpoints(:,j), multiplicity(j), sc_id
                   endif
                 enddo
                 
@@ -435,7 +417,7 @@ subroutine generate_supercells(structure,grid,ibz_filename,supercells_filename)
                   write(supercells_file,*) hnf(j,:)
                 enddo
                 
-              endif ! tol
+              endif
               if (found_kpoint(i)) cycle do_i
             enddo ! s23
           enddo ! s13

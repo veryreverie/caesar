@@ -13,9 +13,6 @@ subroutine lte_harmonic()
   use fourier_interpolation_module
   implicit none
   
-  ! Parameters
-  real(dp),     parameter :: tol = 1.0e-10_dp
-  
   ! User-input temperature
   real(dp) :: temperature
   
@@ -39,14 +36,14 @@ subroutine lte_harmonic()
   
   ! kpoint data
   integer               :: no_kpoints
-  real(dp), allocatable :: kpoints(:,:)
+  integer,  allocatable :: kpoints(:,:)
   integer,  allocatable :: multiplicity(:)
   integer,  allocatable :: sc_ids(:)
   
   ! gvector data
   integer              :: no_gvectors
   integer              :: gvector_id
-  real(dp)             :: gvec_frac(3)
+  integer              :: gvec(3)
   integer, allocatable :: gvector_ids(:)
   
   ! lte input data
@@ -64,7 +61,7 @@ subroutine lte_harmonic()
   integer :: dft_code_file
   integer :: seedname_file
   integer :: ibz_file
-  integer :: gvectors_frac_file
+  integer :: gvectors_file
   integer :: list_file
   integer :: grid_file
   integer :: force_constants_file
@@ -166,7 +163,6 @@ subroutine lte_harmonic()
               & sdir//'/lte/kdisp_patterns.dat',   &
               & sdir//'/lte/pol_vec.dat',          &
               & sdir//'/lte/gvectors.dat',         &
-              & sdir//'/lte/gvectors_frac.dat',    &
               & sdir//'/lte/error.txt',            &
               & sdir//'/lte/dyn_mat.',             &
               & sdir//'/lte/atoms_in_primitive_cell.dat')
@@ -185,15 +181,15 @@ subroutine lte_harmonic()
   allocate(gvector_ids(no_kpoints))
   do i=1,no_kpoints
     sdir = str('Supercell_')//sc_ids(i)
-    gvectors_frac_file = open_read_file(sdir//'/lte/gvectors_frac.dat')
-    read(gvectors_frac_file,*) no_gvectors
+    gvectors_file = open_read_file(sdir//'/lte/gvectors.dat')
+    read(gvectors_file,*) no_gvectors
     do j=1,no_gvectors
-      read(gvectors_frac_file,*) gvector_id, gvec_frac
-      if (all(abs(gvec_frac-kpoints(:,i))<tol)) then
+      read(gvectors_file,*) gvector_id, gvec
+      if (all(nint(matmul(gvec,structure%lattice))==kpoints(:,i))) then
         gvector_ids(i) = gvector_id
       endif
     enddo
-    close(gvectors_frac_file)
+    close(gvectors_file)
   enddo
   
   ! Write list.dat, a mapping between kpoints, supercells and gvectors

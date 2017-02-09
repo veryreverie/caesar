@@ -437,7 +437,7 @@ subroutine fourier_interpolation(structure,grid,temperature,kpoints,sc_ids, &
   type(StructureData), intent(in) :: structure
   integer,             intent(in) :: grid(3)
   real(dp),            intent(in) :: temperature
-  real(dp),            intent(in) :: kpoints(:,:)
+  integer,             intent(in) :: kpoints(:,:)
   integer,             intent(in) :: sc_ids(:)
   integer,             intent(in) :: gvector_ids(:)
   type(String),        intent(in) :: atoms_in_primitive_cell_fileroot! append *.dat
@@ -589,7 +589,9 @@ subroutine fourier_interpolation(structure,grid,temperature,kpoints,sc_ids, &
   allocate(dyn_mats_ibz(structure%no_atoms,3,structure%no_atoms,3,no_kpoints))
   
   ! Read input files related to k-points in the IBZ
-  ibz_points_frac = kpoints
+  do i=1,size(kpoints)
+    ibz_points_frac(:,i) = kpoints(:,i)/grid
+  enddo
   ibz_to_supercell_map = sc_ids
   
   ! Convert IBZ points from fractional to Cartesian coodinates

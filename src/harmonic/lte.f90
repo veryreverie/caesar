@@ -1592,7 +1592,7 @@ subroutine evaluate_freqs_on_grid(no_prim_cells,    &
    & prim_cell_for_atom,atom_in_prim,                                &
    & kpairs_filename,freq_grids_filename,disp_patterns_filename,     &
    & kdisp_patterns_filename,pol_vec_filename,gvectors_filename,     &
-   & gvectors_frac_filename,error_filename)
+   & error_filename)
   use constants, only : pi
   use utils,     only : reduce_interval
   use string_module
@@ -1617,7 +1617,6 @@ subroutine evaluate_freqs_on_grid(no_prim_cells,    &
   type(String), intent(in) :: kdisp_patterns_filename
   type(String), intent(in) :: pol_vec_filename
   type(String), intent(in) :: gvectors_filename
-  type(String), intent(in) :: gvectors_frac_filename
   type(String), intent(in) :: error_filename
   
   ! File units
@@ -1627,22 +1626,26 @@ subroutine evaluate_freqs_on_grid(no_prim_cells,    &
   integer :: kdisp_patterns_file
   integer :: pol_vec_file
   integer :: gvectors_file
-  integer :: gvectors_frac_file
   integer :: error_file
   
   integer :: ng,i,j,k,ig,index1,index2,p,n,atom1
   logical :: soft_modes
-  real(dp) :: gnew(3),gvec(3,no_prim_cells),R0(3), &
+  integer :: gint(3,no_prim_cells)
+  real(dp) :: gvec(3,no_prim_cells),R0(3), &
     &omega(structure%no_modes),E,F,rec_root_mass(structure%no_atoms),GdotR, &
     &disp_pattern(3),kdisp_pattern(3),tot_disp_patt
   complex(dp) :: pol_vec(structure%no_modes,structure%no_modes), &
     &non_mr_pol_vec(3,structure%no_atoms),expiGdotR(no_prim_cells), &
     &kpol_vec(3,structure%no_atoms)
   real(dp),parameter :: tol_omega=1.d-6 ! For judging whether modes are soft.
-  real(dp),parameter :: tol_g=1.d-8 ! For equivalent +/- G-points.
   integer :: reference(no_prim_cells) ! For equivalent +/- G-points.
-  real(dp) :: gfrac(3,no_prim_cells) ! Fractional G vectors
   real(dp) :: prefactor
+  
+  integer :: prim(3)
+  
+  prim = nint(matmul(matmul( transpose(structure%recip_lattice), &
+                           & structure_sc%lattice),              &
+                           & (/ 1,1,1 /)))
 
   write(*,*)'Frequencies at each supercell G vector:'
   write(*,*)
@@ -1653,11 +1656,9 @@ subroutine evaluate_freqs_on_grid(no_prim_cells,    &
   do k=0,no_prim_cells-1
     do j=0,no_prim_cells-1
       do_i : do i=0,no_prim_cells-1
-        gnew = matmul(structure_sc%recip_lattice,(/i,j,k/))
-        
         ! Check if gnew has already been found.
         do ig=1,ng
-          if(is_lat_point(gnew-gvec(:,ig),structure%lattice))then
+          if (all(modulo((/i,j,k/)-gint(:,ig),prim) == 0)) then
             cycle do_i
           endif
         enddo
@@ -1665,22 +1666,19 @@ subroutine evaluate_freqs_on_grid(no_prim_cells,    &
         ng=ng+1
         if(ng>no_prim_cells)call errstop('EVALUATE_FREQS_ON_GRID', &
           &'Bug: too many G vectors.')
-        gvec(:,ng) = gnew
+        gint(:,ng) = (/i,j,k/)
+        gvec(:,ng) = matmul(structure_sc%recip_lattice,(/i,j,k/))
       enddo do_i
     enddo ! j
   enddo ! k
   if(ng/=no_prim_cells)call errstop('EVALUATE_FREQS_ON_GRID', &
     &'Bug: too few G vectors.')
   
-
   ! Calculate +/- G-vector pairs
-  ! First, write G-vectors as fractions of rec. latt. vecs.
-  gfrac = reduce_interval(matmul(transpose(structure%lattice),gvec),tol_g)
-  ! Second, pair them up
   reference=0
   do k=1,no_prim_cells
     do j=1,k-1
-      if (all(abs(reduce_interval(gfrac(:,j)+gfrac(:,k),tol_g))<tol_g)) then
+      if (all(modulo(gint(:,j)+gint(:,k),prim)==0)) then
         reference(k)=j 
         reference(j)=k
         exit
@@ -1708,18 +1706,12 @@ subroutine evaluate_freqs_on_grid(no_prim_cells,    &
 
   ! Modified by B. Monserrat to output G vectors to file
   gvectors_file = open_write_file(gvectors_filename)
-  gvectors_frac_file = open_write_file(gvectors_frac_filename)
   write(gvectors_file,*) no_prim_cells
-  write(gvectors_frac_file,*) no_prim_cells
   do ig=1,no_prim_cells
     write(*,'(" G = (",es20.12,",",es20.12,",",es20.12,")")') gvec(:,ig)
-    write(*,'(" G = (",es20.12,",",es20.12,",",es20.12,")")') gfrac(:,ig)
     write(gvectors_file,*) gvec(:,ig)
-    ! G-vectors as a fraction of the primitive reciprocal lattice vectors
-    write(gvectors_frac_file,*) ig, gfrac(:,ig)
   enddo
   close(gvectors_file)
-  close(gvectors_frac_file)
 
   ! Evaluate the frequencies at each supercell G vector.
   E=0.d0  ;  F=0.d0
@@ -2326,7 +2318,7 @@ subroutine lte_4(tol,tol2,delta,structure,structure_sc,atoms, &
    & displacements,forces,temperature, &
    & kpairs_filename,freq_grids_filename,disp_patterns_filename,            &
    & kdisp_patterns_filename,pol_vec_filename,gvectors_filename,            &
-   & gvectors_frac_filename,error_filename,dyn_mat_fileroot,                &
+   & error_filename,dyn_mat_fileroot,                &
    & atoms_in_primitive_cell_filename)
   use constants, only : dp
   use utils,     only : errstop, wordwrap
@@ -2356,7 +2348,6 @@ subroutine lte_4(tol,tol2,delta,structure,structure_sc,atoms, &
   type(String), intent(in) :: kdisp_patterns_filename
   type(String), intent(in) :: pol_vec_filename
   type(String), intent(in) :: gvectors_filename
-  type(String), intent(in) :: gvectors_frac_filename
   type(String), intent(in) :: error_filename
   type(String), intent(in) :: dyn_mat_fileroot ! will have *.dat appended
   type(String), intent(in) :: atoms_in_primitive_cell_filename
@@ -2401,7 +2392,7 @@ subroutine lte_4(tol,tol2,delta,structure,structure_sc,atoms, &
      & prim_cell_for_atom,atom_in_prim,                                &
      & kpairs_filename,freq_grids_filename,disp_patterns_filename,     &
      & kdisp_patterns_filename,pol_vec_filename,gvectors_filename,     &
-     & gvectors_frac_filename,error_filename)
+     & error_filename)
   write(*,*)'Done.  Frequencies and displacement patterns calculated.'
   write(*,*)
   call write_dynamical_matrix(structure_sc,structure,  &
