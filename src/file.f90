@@ -9,7 +9,8 @@ module file_module
   public :: open_append_file ! open a file for appending to
   public :: file_exists      ! checks if a file exists
   public :: count_lines      ! counts the number of lines in a file
-  public :: read_to_String   ! reads a file into a String(:) array
+  public :: read_line        ! reads a single line of a file to String
+  public :: read_lines       ! reads a file into a String(:) array
   
   interface open_read_file
     module procedure open_read_file_character
@@ -36,9 +37,9 @@ module file_module
     module procedure count_lines_string
   end interface
   
-  interface read_to_String
-    module procedure read_to_String_character
-    module procedure read_to_String_String
+  interface read_lines
+    module procedure read_lines_character
+    module procedure read_lines_String
   end interface
 
 contains
@@ -189,9 +190,25 @@ function count_lines_String(filename) result(output)
 end function
 
 ! ----------------------------------------------------------------------
+! Effectively read(file,"(a)"), but for String type
+! ----------------------------------------------------------------------
+function read_line(file_unit) result(output)
+  use string_module
+  implicit none
+  
+  integer, intent(in) :: file_unit
+  type(String)        :: output
+  
+  character(100) :: line
+  
+  read(file_unit,"(a)") line
+  output = trim(line)
+end function
+
+! ----------------------------------------------------------------------
 ! Reads the file into a String(:) array
 ! ----------------------------------------------------------------------
-function read_to_String_character(filename) result(output)
+function read_lines_character(filename) result(output)
   implicit none
   
   character(*), intent(in)  :: filename
@@ -212,13 +229,13 @@ function read_to_String_character(filename) result(output)
   close(file_unit)
 end function
 
-function read_to_String_String(filename) result(output)
+function read_lines_String(filename) result(output)
   implicit none
   
   type(String), intent(in)  :: filename
   type(String), allocatable :: output(:)
   
-  output = read_to_String(char(filename))
+  output = read_lines(char(filename))
 end function
 
 end module

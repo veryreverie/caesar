@@ -22,7 +22,6 @@ module structure_module
     real(dp),     allocatable :: cart_atoms(:,:)
     ! Symmetry data
     integer                   :: no_symmetries
-    real(dp),     allocatable :: symmetries(:,:)
     real(dp),     allocatable :: rotation_matrices(:,:,:)
     real(dp),     allocatable :: offsets(:,:)
     real(dp),     allocatable :: offsets_cart(:,:)
@@ -70,7 +69,6 @@ subroutine new_StructureData(this,no_atoms,no_symmetries)
   
   this%no_symmetries = no_symmetries
   if (no_symmetries /= 0) then
-    allocate(this%symmetries(3,no_symmetries*4))
     allocate(this%rotation_matrices(3,3,no_symmetries))
     allocate(this%offsets(3,no_symmetries))
     allocate(this%offsets_cart(3,no_symmetries))
@@ -90,7 +88,6 @@ subroutine drop_StructureData(this)
   deallocate(this%cart_atoms)
   
   if (this%no_symmetries /= 0) then
-    deallocate(this%symmetries)
     deallocate(this%rotation_matrices)
     deallocate(this%offsets)
     deallocate(this%offsets_cart)
@@ -99,20 +96,20 @@ end subroutine
 
 ! reads structure.dat
 function read_structure_file_character(filename) result(this)
-  use utils,          only : lower_case
   use file_module
   use linear_algebra, only : inv_33, determinant33
+  use string_module
   implicit none
   
   character(*), intent(in) :: filename
   type(StructureData)      :: this
   
-  integer        :: file_length
-  integer        :: file_unit
-  character(100) :: line
-  integer        :: i, j
-  integer        :: no_atoms
-  integer        :: no_symmetries
+  type(String), allocatable :: contents(:)
+  type(String)              :: line
+  character(100)            :: line_char
+  integer                   :: i,j
+  integer                   :: no_atoms
+  integer                   :: no_symmetries
   
   ! line numbers
   integer :: lattice_line  ! The line "Lattice"
@@ -127,11 +124,9 @@ function read_structure_file_character(filename) result(this)
   end_line = 0
   
   ! work out layout of file
-  file_length = count_lines(filename)
-  file_unit = open_read_file(filename)
-  do i=1,file_length
-    read(file_unit,"(a)") line
-    line = lower_case(trim(line))
+  contents = read_lines(filename)
+  do i=1,size(contents)
+    line = lower_case(contents(i))
     if (line=="lattice") then
       lattice_line = i
     elseif (line=="atoms") then
@@ -147,7 +142,7 @@ function read_structure_file_character(filename) result(this)
   if (lattice_line/=1) then
     write(*,*) "Line 1 of structure.dat is not 'Lattice'"
     stop
-  elseif (atoms_line/=4) then
+  elseif (atoms_line/=5) then
     write(*,*) "Line 5 of structure.dat is not 'Atoms'"
     stop
   elseif (end_line==0) then
@@ -164,44 +159,35 @@ function read_structure_file_character(filename) result(this)
     no_atoms = symmetry_line-atoms_line-1
     no_symmetries = (end_line-symmetry_line-1)/4
   endif
+  
   call new(this,no_atoms,no_symmetries)
   
   ! read file into arrays
-  rewind(file_unit)
-  
-  do i=1,file_length
-    read(file_unit,"(a)") line
-    if (i>lattice_line .and. i<=lattice_line+3) then
-      ! Read in lattice
-      j=i-lattice_line
-      read(line,*) this%lattice(j,:)
-    elseif (i>atoms_line .and. i<=atoms_line+this%no_atoms) then
-      ! Read in atoms
-      j=i-atoms_line
-      read(line,*) this%species(j), this%mass(j), this%atoms(:,j)
-    elseif (i>symmetry_line .and. i<= symmetry_line+this%no_symmetries) then
-      ! Read in symmetries
-      j=i-symmetry_line
-      read(line,*) this%symmetries(:,i)
-    endif
+  do i=1,3
+    line_char = char(contents(lattice_line+i))
+    read(line_char,*) this%lattice(i,:)
   enddo
   
-  close(file_unit)
+  do i=1,this%no_atoms
+    line_char = char(contents(atoms_line+i))
+    read(line_char,*) this%species(i), this%mass(i), this%atoms(:,i)
+  enddo
+  
+  do i=1,this%no_symmetries*4
+    do j=1,3
+      line_char = char(contents(symmetry_line+(i-1)*4+j))
+      read(line_char,*) this%rotation_matrices(j,:,i)
+    enddo
+    line_char = char(contents(symmetry_line+(i-1)*4+4))
+    read(line_char,*) this%offsets(:,i)
+  enddo
   
   ! calculate derived quantities
-  this%recip_lattice = transpose(inv_33(this%lattice))
-  this%volume        = abs(determinant33(this%lattice))
-  this%frac_atoms    = matmul(this%recip_lattice,this%atoms)
-  this%cart_atoms    = matmul(this%lattice,this%frac_atoms)
+  call calculate_derived_atom_quantities(this)
   
-  do i=1,no_symmetries
-    this%rotation_matrices(1,:,i) = this%symmetries(:,4*i-3)
-    this%rotation_matrices(2,:,i) = this%symmetries(:,4*i-2)
-    this%rotation_matrices(3,:,i) = this%symmetries(:,4*i-1)
-    this%offsets(:,i)             = this%symmetries(:,4*i)
-  enddo
-  
-  this%offsets_cart = matmul(this%lattice,this%offsets)
+  if (this%no_symmetries>0) then
+    call calculate_derived_symmetry_quantities(this)
+  endif
 end function
 
 function read_structure_file_string(filename) result(this)
@@ -222,7 +208,7 @@ subroutine write_structure_file_character(this,filename)
   character(*),        intent(in) :: filename
   
   integer :: structure_file
-  integer :: i
+  integer :: i,j
   
   structure_file = open_write_file(filename)
   write(structure_file,"(a)") "Lattice"
@@ -231,15 +217,16 @@ subroutine write_structure_file_character(this,filename)
   enddo
   write(structure_file,"(a)") "Atoms"
   do i=1,this%no_atoms
-    write(structure_file,*) this%species(i), &
-                          & this%mass(i),    &
-                          & this%atoms(:,i)
+    write(structure_file,*) this%species(i), this%mass(i), this%atoms(:,i)
   enddo
   if (this%no_symmetries/=0) then
     write(structure_file,"(a)") "Symmetry"
   endif
   do i=1,4*this%no_symmetries
-    write(structure_file,*) this%symmetries(:,i)
+    do j=1,3
+      write(structure_file,*) this%rotation_matrices(j,:,i)
+    enddo
+    write(structure_file,*) this%offsets(:,i)
   enddo
   write(structure_file,"(a)") "End"
   close(structure_file)
@@ -265,56 +252,46 @@ subroutine read_symmetry_file_character(this,filename)
   type(StructureData), intent(inout) :: this
   character(*),        intent(in)    :: filename
   
+  ! File contents
+  type(String), allocatable :: contents(:)
+  
   ! line numbers
   integer :: file_length
   integer :: start_line
   integer :: end_line
   
-  ! file unit
-  integer :: symmetry_file
-  
   ! working variables
   integer        :: i, j
-  character(100) :: line
+  character(100) :: line_char
   
+  contents = read_lines(filename)
   file_length = count_lines(filename)
-  symmetry_file = open_read_file(filename)
   
   ! Work out line numbers
-  do i=1,file_length
-    read(symmetry_file,"(a)") line
-    line = lower_case(trim(line))
-    if (line(1:19)=="%block symmetry_ops") then
+  do i=1,size(contents)
+    line_char = char(lower_case(contents(i)))
+    if (line_char(1:19)=="%block symmetry_ops") then
       start_line = i
-    elseif (line(1:22)=="%endblock symmetry_ops") then
+    elseif (line_char(1:22)=="%endblock symmetry_ops") then
       end_line = i
     endif
   enddo
   
   this%no_symmetries = (end_line-start_line)/5
-  allocate(this%symmetries(3,4*this%no_symmetries))
-  
-  rewind(symmetry_file)
+  allocate(this%rotation_matrices(3,3,this%no_symmetries))
+  allocate(this%offsets(3,this%no_symmetries))
   
   ! Read in symmetries
-  do i=1,file_length
-    read(symmetry_file,"(a)") line
-    if (i>start_line .and. i<end_line) then
-      j = i-start_line
-      if (modulo(j,5)/=0) then
-        read(line,*) this%symmetries(:,(j/5)*4+modulo(j,5))
-      endif
-    endif
-  enddo
-  
-  close(symmetry_file)
-  
   do i=1,this%no_symmetries
-    this%rotation_matrices(1,:,i) = this%symmetries(:,4*i-3)
-    this%rotation_matrices(2,:,i) = this%symmetries(:,4*i-2)
-    this%rotation_matrices(3,:,i) = this%symmetries(:,4*i-1)
-    this%offsets(:,i)             = this%symmetries(:,4*i)
+    do j=1,3
+      line_char = char(contents(start_line+(i-1)*5+j))
+      read(line_char,*) this%rotation_matrices(j,:,i)
+    enddo
+    line_char = char(contents(start_line+(i-1)*5+4))
+    read(line_char,*) this%offsets(:,i)
   enddo
+  
+  call calculate_derived_symmetry_quantities(this)
 end subroutine
 
 subroutine read_symmetry_file_String(this,filename)
@@ -324,5 +301,27 @@ subroutine read_symmetry_file_String(this,filename)
   type(String),        intent(in)    :: filename
   
   call read_symmetry_file(this,char(filename))
+end subroutine
+
+! calculate derived quantities relating to lattice and atoms
+subroutine calculate_derived_atom_quantities(this)
+  use linear_algebra, only : inv_33, determinant33
+  implicit none
+  
+  type(StructureData), intent(inout) :: this
+  
+  this%recip_lattice = transpose(inv_33(this%lattice))
+  this%volume        = abs(determinant33(this%lattice))
+  this%frac_atoms    = matmul(this%recip_lattice,this%atoms)
+  this%cart_atoms    = matmul(this%lattice,this%frac_atoms)
+end subroutine
+
+! calculate derived quantities relating to symmetries
+subroutine calculate_derived_symmetry_quantities(this)
+  implicit none
+  
+  type(StructureData), intent(inout) :: this
+  
+  this%offsets_cart = matmul(this%lattice,this%offsets)
 end subroutine
 end module

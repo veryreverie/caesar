@@ -1643,6 +1643,8 @@ subroutine evaluate_freqs_on_grid(no_prim_cells,    &
   
   integer :: prim(3)
   
+  ! Checking that modulo(v,prim)=0 is equivalent to checking that
+  ! (structure_sc%lattice)^-1 . structure%lattice . v is a vector of integers
   prim = nint(matmul(matmul( transpose(structure%recip_lattice), &
                            & structure_sc%lattice),              &
                            & (/ 1,1,1 /)))
@@ -1718,21 +1720,15 @@ subroutine evaluate_freqs_on_grid(no_prim_cells,    &
   soft_modes=.FALSE.
   R0=structure_sc%cart_atoms(:,atom(1,1))
   do ig=1,no_prim_cells
-    if(reference(ig)==0)then
+    if(reference(ig)==0 .or. reference(ig)>ig)then
       call calculate_eigenfreqs_and_vecs(gvec(:,ig),structure, &
         & delta_prim,no_prim_cells,atom,no_equiv_ims,   &
         & force_const,omega,pol_vec)
     else
-      if(reference(ig)>ig)then
-        call calculate_eigenfreqs_and_vecs(gvec(:,ig),structure, &
-          & delta_prim,no_prim_cells,atom,no_equiv_ims,   &
-          & force_const,omega,pol_vec)
-      else
-        call calculate_eigenfreqs_and_vecs(gvec(:,reference(ig)), &
-          & structure,                                                  &
-          & delta_prim,no_prim_cells,atom,no_equiv_ims,  &
-          & force_const,omega,pol_vec)
-      endif
+      call calculate_eigenfreqs_and_vecs(gvec(:,reference(ig)), &
+        & structure,                                                  &
+        & delta_prim,no_prim_cells,atom,no_equiv_ims,  &
+        & force_const,omega,pol_vec)
     endif
 
     ! The negative is used because the matrix of force constants is the transpose of

@@ -37,8 +37,8 @@ function run_harmonic {
   read num_cores
 
   # Read code and seedname
-  code=$( awk '{print}' code.txt )
-  seedname=$( awk '{print}' seedname.txt )
+  code=$( awk '{NR==1, print}' user_input.txt )
+  seedname=$( awk '{NR==2, print}' user_input.txt )
 
   # Loop over supercells
   for i in `seq $first_sc $last_sc`;

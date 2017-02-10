@@ -46,8 +46,7 @@ subroutine setup_harmonic()
   type(String)   :: filename
   
   ! File units
-  integer :: dft_code_file
-  integer :: seedname_file
+  integer :: user_input_file
   integer :: grid_file
   integer :: supercells_file
   integer :: no_supercells_file
@@ -58,9 +57,10 @@ subroutine setup_harmonic()
   ! ----------------------------------------------------------------------
   
   ! Get dft code
+  write(*,*)
   write(*,"(a)") "What dft code do you want to use (castep,vasp,qe)?"
   read(*,"(a)") line
-  dft_code = line
+  dft_code = trim(line)
   
   ! Check dft code is supported
   if (dft_code=="vasp") then
@@ -73,10 +73,11 @@ subroutine setup_harmonic()
   endif
   
   ! Get seedname
-  if (dft_code=="castep" .or. dft_code=="vasp") then
+  if (dft_code=="castep" .or. dft_code=="qe") then
+    write(*,*)
     write(*,"(a)") "What is the "//char(dft_code)//" seedname?"
     read(*,*) line
-    seedname = line
+    seedname = trim(line)
   endif
   
   ! Check dft input files exist
@@ -94,14 +95,10 @@ subroutine setup_harmonic()
   ! ----------------------------------------------------------------------
   ! Write user settings to file
   ! ----------------------------------------------------------------------
-  
-  dft_code_file = open_write_file('code.txt')
-  write(dft_code_file,"(a)") char(dft_code)
-  close(dft_code_file)
-  
-  seedname_file = open_write_file('seedname.txt')
-  write(seedname_file,"(a)") char(seedname)
-  close(seedname_file)
+  user_input_file = open_write_file('user_input.txt')
+  write(user_input_file,"(a)") char(dft_code)
+  write(user_input_file,"(a)") char(seedname)
+  close(user_input_file)
   
   ! ----------------------------------------------------------------------
   ! Generate supercells
@@ -122,6 +119,7 @@ subroutine setup_harmonic()
   
   ! Read in supercell data
   no_supercells = count_lines('supercells.dat')/4
+  write(*,*) no_supercells
   allocate(supercells(3,3,no_supercells))
   supercells_file = open_read_file('supercells.dat')
   do i=1,no_supercells

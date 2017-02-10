@@ -57,9 +57,8 @@ subroutine lte_harmonic()
   type(String)   :: ddir
   
   ! File units
+  integer :: user_input_file
   integer :: no_sc_file
-  integer :: dft_code_file
-  integer :: seedname_file
   integer :: ibz_file
   integer :: gvectors_file
   integer :: list_file
@@ -75,19 +74,16 @@ subroutine lte_harmonic()
   ! ----------------------------------------------------------------------
   ! Read in initial data
   ! ----------------------------------------------------------------------
+  user_input_file = open_read_file('user_input.txt')
+  read(user_input_file,"(a)") line
+  dft_code = trim(line)
+  read(user_input_file,"(a)") line
+  seedname = trim(line)
+  close(user_input_file)
+  
   no_sc_file = open_read_file('no_sc.dat')
   read(no_sc_file,*) no_sc
   close(no_sc_file)
-  
-  dft_code_file = open_read_file('code.txt')
-  read(dft_code_file,"(a)") line
-  close(dft_code_file)
-  dft_code = line
-  
-  seedname_file = open_read_file('seedname.txt')
-  read(seedname_file,"(a)") line
-  close(seedname_file)
-  seedname = line
   
   structure = read_structure_file('structure.dat')
   

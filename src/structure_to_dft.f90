@@ -109,7 +109,7 @@ subroutine structure_to_castep(structure_sc,input_filename, &
   ! Copy the contents of input file to cell file
   if (present(input_filename)) then
     if (file_exists(input_filename)) then
-      input_file_contents = read_to_String(input_filename)
+      input_file_contents = read_lines(input_filename)
       do i=1,size(input_file_contents)
         write(cell_file,"(a)") char(input_file_contents(i))
       enddo
@@ -234,7 +234,7 @@ subroutine structure_to_qe(structure_sc,input_filename,pseudo_filename, &
   integer        :: i
   
   ! Read in pseudo file
-  pseudo_contents = read_to_String(pseudo_filename)
+  pseudo_contents = read_lines(pseudo_filename)
   
   ! Read in kpoints file
   kpoints_file = open_read_file(kpoints_filename)
@@ -255,7 +255,7 @@ subroutine structure_to_qe(structure_sc,input_filename,pseudo_filename, &
   output_file = open_write_file(output_filename)
   ! Write input file to output file
   if (file_exists(input_filename)) then
-    input_file_contents = read_to_String(input_filename)
+    input_file_contents = read_lines(input_filename)
     do i=1,size(input_file_contents)
       write(output_file,"(a)") char(input_file_contents(i))
     enddo

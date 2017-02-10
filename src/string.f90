@@ -32,6 +32,7 @@ module string_module
   
   ! Unary operators
   public :: len           ! character-like len
+  public :: lower_case    ! convert to lower case
   
   ! Operators with side-effects
   public :: system
@@ -98,6 +99,10 @@ module string_module
   
   interface len
     module procedure len_String
+  end interface
+  
+  interface lower_case
+    module procedure lower_case_String
   end interface
   
   interface system
@@ -437,6 +442,18 @@ pure function len_String(this) result(output)
   output = len(this%contents)
 end function
 
+! String = lower_case(String)
+pure function lower_case_String(this) result(output)
+  use utils, only : lower_case
+  implicit none
+  
+  type(String), intent(in) :: this
+  type(String)             :: output
+  
+  output = str(lower_case(char(this)))
+end function
+
+! call system(String)
 subroutine system_String(this)
   implicit none
   

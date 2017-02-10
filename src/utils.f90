@@ -5,6 +5,10 @@ module utils
   use constants,      only : dp
   implicit none
   
+  interface lower_case
+    module procedure lower_case_character
+  end interface
+  
 contains
 
 ! ----------------------------------------------------------------------
@@ -175,7 +179,7 @@ end function
 ! ----------------------------------------------------------------------
 ! Converts a string to lower case
 ! ----------------------------------------------------------------------
-function lower_case(input) result(output)
+pure function lower_case_character(input) result(output)
   implicit none
   
   character(*), intent(in) :: input
