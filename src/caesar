@@ -20,7 +20,7 @@ function main {
     dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
     
     # Call .caesar
-    $dir/.caesar $@
+    $dir/.caesar dir $@
   fi
 }
 

@@ -6,7 +6,7 @@ contains
 ! Program to set up a generic harmonic calculation to use with LTE
 ! Also converts the generic calculateion to castep vasp or qe
 ! ======================================================================
-subroutine setup_harmonic()
+subroutine setup_harmonic(caesar_dir)
   use string_module
   use file_module
   use structure_module
@@ -16,6 +16,9 @@ subroutine setup_harmonic()
   use construct_supercell_module
   use calculate_force_constants_module
   implicit none
+  
+  ! The path to caesar
+  type(String) :: caesar_dir
   
   ! User input variables
   type(String) :: dft_code
@@ -105,7 +108,7 @@ subroutine setup_harmonic()
   ! ----------------------------------------------------------------------
   
   ! Add symmetries to structure.dat
-  call system('caesar calculate_symmetry structure.dat')
+  call system(caesar_dir//'/caesar calculate_symmetry structure.dat')
   
   ! Read in input files
   structure = read_structure_file('structure.dat')
@@ -147,7 +150,8 @@ subroutine setup_harmonic()
     
     ! Add symmetries to supercell structure.dat
     call write_structure_file(structure_sc, sdir//'/structure.dat')
-    call system('caesar calculate_symmetry '//sdir//'/structure.dat')
+    call system(caesar_dir//'/caesar calculate_symmetry '// &
+       & sdir//'/structure.dat')
     structure_sc = read_structure_file(sdir//'/structure.dat')
     
     force_constants = calculate_force_constants( structure,         &

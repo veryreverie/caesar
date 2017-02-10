@@ -1,7 +1,7 @@
 program caesar
   ! use utility modules
-  use utils,     only : command_line_args
-  use file_module,   only : open_write_file, open_read_file
+  use utils,       only : command_line_args
+  use file_module, only : open_write_file, open_read_file
   
   ! use class modules
   use string_module
@@ -31,12 +31,12 @@ program caesar
   ! read in command line arguments
   args = command_line_args()
   
-  if (size(args) == 0) then
+  if (size(args) == 1) then
     write(*,*) 'No arguments given. For help, call caesar -h'
     stop
   endif
   
-  if (args(1) == '-h' .or. args(1) == '--help') then
+  if (args(2) == '-h' .or. args(2) == '--help') then
     write(*,*) 'caesar [-h] [option]'
     write(*,*) ''
     write(*,*) '-h :'
@@ -79,29 +79,29 @@ program caesar
     write(*,*) '  calculate_gap'
     write(*,*) '    [Help text pending]'
   ! Wrappers for top-level Fortran
-  elseif (args(1) == 'setup_harmonic') then
-    call setup_harmonic()
-  elseif (args(1) == 'lte_harmonic') then
+  elseif (args(2) == 'setup_harmonic') then
+    call setup_harmonic(args(1))
+  elseif (args(2) == 'lte_harmonic') then
     call lte_harmonic()
-  elseif (args(1) == 'setup_quadratic') then
+  elseif (args(2) == 'setup_quadratic') then
     call setup_quadratic()
-  elseif (args(1) == 'anharmonic') then
+  elseif (args(2) == 'anharmonic') then
     call anharmonic()
-  elseif (args(1) == 'bs_quadratic') then
+  elseif (args(2) == 'bs_quadratic') then
     call bs_quadratic()
   ! Wrappers for subsidiary Fortran 
-  elseif (args(1) == 'calculate_gap') then
+  elseif (args(2) == 'calculate_gap') then
     call calculate_gap()
-  elseif (args(1) == 'hartree_to_eV') then
+  elseif (args(2) == 'hartree_to_eV') then
     call hartree_to_eV()
-  elseif (args(1) == 'structure_to_dft') then
-    call structure_to_dft( dft_code=args(2),              &
-                         & structure_sc_filename=args(3), &
-                         & output_filename=args(4))
-  elseif (args(1) == 'calculate_symmetry_helper') then
-    call calculate_symmetry_helper(args(2),args(3))
+  elseif (args(2) == 'structure_to_dft') then
+    call structure_to_dft( dft_code=args(3),              &
+                         & structure_sc_filename=args(4), &
+                         & output_filename=args(5))
+  elseif (args(2) == 'calculate_symmetry_helper') then
+    call calculate_symmetry_helper(args(3),args(4))
   ! unrecognised argument
   else
-    write(*,*) char('Unrecognised argument : '//args(1))
+    write(*,*) char('Unrecognised argument : '//args(2))
   endif
 end program
