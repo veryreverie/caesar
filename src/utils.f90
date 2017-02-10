@@ -5,10 +5,6 @@ module utils
   use constants,      only : dp
   implicit none
   
-  interface lower_case
-    module procedure lower_case_character
-  end interface
-  
 contains
 
 ! ----------------------------------------------------------------------
@@ -174,30 +170,6 @@ function command_line_args() result(args)
   enddo
 
   return
-end function
-
-! ----------------------------------------------------------------------
-! Converts a string to lower case
-! ----------------------------------------------------------------------
-pure function lower_case_character(input) result(output)
-  implicit none
-  
-  character(*), intent(in) :: input
-  character(len(input))    :: output
-  
-  character(*), parameter :: lower_chars = "abcdefghijklmnopqrstuvwxyz"
-  character(*), parameter :: upper_chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-  
-  integer :: i,j
-  
-  output = input
-  
-  do i=1,len(output)
-    j = index(upper_chars, output(i:i))
-    if (j/=0) then
-      output(i:i) = lower_chars(j:j)
-    endif
-  enddo
 end function
 
 ! ----------------------------------------------------------------------

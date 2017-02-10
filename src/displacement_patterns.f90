@@ -61,7 +61,7 @@ end subroutine
 
 function read_disp_patterns_file_character(filename,no_modes) result(this)
   use constants, only : eV
-  use utils,     only : lower_case
+  use string_module
   use file_module
   implicit none
   

@@ -245,7 +245,6 @@ end subroutine
 ! Reads the symmetry operations from the output of cellsym
 ! ----------------------------------------------------------------------
 subroutine read_symmetry_file_character(this,filename)
-  use utils, only : lower_case
   use file_module
   implicit none
   

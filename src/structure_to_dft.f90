@@ -17,7 +17,6 @@ contains
 
 subroutine structure_to_castep(structure_sc,input_filename, &
    & path_filename,structure,output_filename)
-  use utils, only : lower_case
   use string_module
   use structure_module
   use file_module

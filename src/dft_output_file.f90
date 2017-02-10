@@ -28,7 +28,6 @@ module dft_output_file_module
 contains
 
 function read_castep_output_file(filename) result(output)
-  use utils, only : lower_case
   use string_module
   use file_module
   implicit none
@@ -93,7 +92,6 @@ end function
 
 function read_qe_output_file(filename) result(output)
   use constants, only : Ry,bohr
-  use utils,     only : lower_case
   use string_module
   use file_module
   implicit none
