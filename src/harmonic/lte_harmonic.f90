@@ -52,12 +52,13 @@ subroutine lte_harmonic()
   
   ! Temporary variables
   integer        :: i,j
-  character(100) :: line
   type(String)   :: sdir
   type(String)   :: ddir
   
+  ! File contents
+  type(String), allocatable :: user_inputs(:)
+  
   ! File units
-  integer :: user_input_file
   integer :: no_sc_file
   integer :: ibz_file
   integer :: gvectors_file
@@ -74,12 +75,9 @@ subroutine lte_harmonic()
   ! ----------------------------------------------------------------------
   ! Read in initial data
   ! ----------------------------------------------------------------------
-  user_input_file = open_read_file('user_input.txt')
-  read(user_input_file,"(a)") line
-  dft_code = trim(line)
-  read(user_input_file,"(a)") line
-  seedname = trim(line)
-  close(user_input_file)
+  user_inputs = read_lines('user_input.txt')
+  dft_code = user_inputs(1)
+  seedname = user_inputs(2)
   
   no_sc_file = open_read_file('no_sc.dat')
   read(no_sc_file,*) no_sc

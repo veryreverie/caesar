@@ -73,56 +73,41 @@ end subroutine
 !  ~
 ! ...
 function read_castep_bands_file_character(filename) result(this)
+  use string_module
   use file_module
   implicit none
   
   character(*), intent(in) :: filename
   type(BandsData)          :: this
   
-  ! kpoint and band data
+  ! kpoint and band counts
   integer :: no_kpoints
   integer :: no_bands
-  integer :: kpoint
-  integer :: band
   
-  ! Line numbers
-  integer :: bands_file_length
-  
-  ! File unit
-  integer :: bands_file
+  ! File contents
+  type(String), allocatable :: bands_file(:)
+  type(String), allocatable :: line(:)
   
   ! Temporary variables
-  integer        :: i
-  character(100) :: line
-  character(100) :: dump
+  integer        :: i, j
   
-  bands_file_length = count_lines(filename)
-  bands_file = open_read_file(filename)
+  ! Read in bands file
+  bands_file = read_lines(filename)
   
   ! Get no_kpoints and no_bands
-  do i=1,bands_file_length
-    read(bands_file,"(a)") line
-    if (i==1) then
-      read(line,*) dump,dump,dump,no_kpoints
-    elseif (i==4) then
-      read(line,*) dump,dump,dump,no_bands
-    endif
-  enddo
+  line = split(bands_file(1))
+  no_kpoints = int(line(4))
+  
+  line = split(bands_file(4))
+  no_bands = int(line(4))
   
   call new(this,no_kpoints,no_bands)
   
-  rewind(bands_file)
-  
-  do i=1,bands_file_length
-    read(bands_file,"(a)") line
-    kpoint = (i-10)/(no_bands+2)+1
-    band = modulo(i-10,no_bands+2)-1
-    if (kpoint > 0 .and. band > 0) then
-      read(line,*) this%bands(band,kpoint)
-    endif
+  do i=1,no_kpoints
+    do j=1,no_bands
+      this%bands(j,i) = dble(bands_file(11+(no_bands+2)*(i-1)+j))
+    enddo
   enddo
-  
-  close(bands_file)
 end function
 
 function read_castep_bands_file_String(filename) result(this)
@@ -136,54 +121,41 @@ function read_castep_bands_file_String(filename) result(this)
 end function
 
 function read_vasp_bands_file_character(filename) result(this)
+  use string_module
   use file_module
   implicit none
   
   character(*), intent(in) :: filename
   type(BandsData)          :: this
   
-  ! kpoint and band data
+  ! kpoint and band counts
   integer :: no_kpoints
   integer :: no_bands
-  integer :: kpoint
-  integer :: band
   
-  ! Line numbers
-  integer :: bands_file_length
-  
-  ! File unit
-  integer :: bands_file
+  ! File contents
+  type(String), allocatable :: bands_file(:)
+  type(String), allocatable :: line(:)
   
   ! Temporary variables
-  integer        :: i
-  character(100) :: line
-  character(100) :: dump
+  integer        :: i, j
   
-  bands_file_length = count_lines(filename)
-  bands_file = open_read_file(filename)
+  ! Read in bands file
+  bands_file = read_lines(filename)
   
   ! Get no_kpoints and no_bands
-  do i=1,bands_file_length
-    read(bands_file,"(a)") line
-    if (i==6) then
-      read(line,*) dump,no_kpoints,no_bands
-    endif
-  enddo
+  line = split(bands_file(6))
+  no_kpoints = int(line(2))
+  no_bands = int(line(3))
   
   call new(this,no_kpoints,no_bands)
   
-  rewind(bands_file)
-  
-  do i=1,bands_file_length
-    read(bands_file,"(a)") line
-    kpoint = (i-7)/(no_bands+2)+1
-    band = modulo(i-7,no_bands+2)-1
-    if (kpoint > 0 .and. band > 0) then
-      read(line,*) dump, this%bands(band,kpoint)
-    endif
+  do i=1,no_kpoints
+    do j=1,no_bands
+      write(*,*) "Vasp bands file parser needs updating"
+      stop
+      this%bands(j,i) = dble(bands_file(11+(no_bands+2)*(i-1)+j))
+    enddo
   enddo
-  
-  close(bands_file)
 end function
 
 function read_vasp_bands_file_String(filename) result(this)

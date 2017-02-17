@@ -70,48 +70,44 @@ function read_disp_patterns_file_character(filename,no_modes) result(this)
   type(DispPatterns)       :: this
   
   ! Sizes
-  integer        :: file_length
   integer        :: lines_per_mode
   integer        :: no_gvectors
   integer        :: no_atoms
   
-  ! File unit
-  integer        :: disp_patterns_file
+  ! File contents
+  type(String), allocatable :: disp_patterns_file(:)
+  type(String), allocatable :: line(:)
   
   ! Temporary variables
   integer        :: i, j, k
-  character(100) :: line
-  character(100) :: dump
   
-  file_length = count_lines(filename)
-  disp_patterns_file = open_read_file(filename)
-  do i=1,file_length
-    read(disp_patterns_file,"(a)") line
-    line = lower_case(trim(line))
-    if (i/=1 .and. line(1:9)=="frequency") then
+  disp_patterns_file = read_lines(filename)
+  
+  ! Find no_atoms and no_gvectors
+  do i=1,size(disp_patterns_file)
+    line = split(lower_case(disp_patterns_file(i)))
+    if (i/=1 .and. line(1)=="frequency") then
       lines_per_mode = i-1
       no_atoms = lines_per_mode-4
-      no_gvectors = file_length/(no_modes*lines_per_mode)
+      no_gvectors = size(disp_patterns_file)/(no_modes*lines_per_mode)
       exit
     endif
   enddo
   
   call new(this,no_atoms,no_modes,no_gvectors)
-  rewind(disp_patterns_file)
   
   do i=1,no_gvectors
     do j=1,no_modes
-      read(disp_patterns_file,*) dump,dump,this%frequencies(j,i)
-      read(disp_patterns_file,*)
-      read(disp_patterns_file,*)
+      line = split(disp_patterns_file(((i-1)*no_modes+(j-1))*(no_atoms+4)+1))
+      this%frequencies(j,i) = dble(line(3))
       do k=1,no_atoms
-        read(disp_patterns_file,*) this%disp_patterns(:,k,j,i)
+        line = split(disp_patterns_file(   ((i-1)*no_modes+(j-1)) &
+                                       & * (no_atoms+4) &
+                                       & + k + 3))
+        this%disp_patterns(:,k,j,i) = dble(line)
       enddo
-      read(disp_patterns_file,*)
     enddo
   enddo
-  
-  close(disp_patterns_file)
   
   this%frequencies = this%frequencies*eV
 end function

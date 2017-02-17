@@ -22,7 +22,7 @@
  INTEGER :: i_cart
  REAL(dp) :: frac(3),rec_vecs(3,3)
 
- rec_vecs = transpose(inv_33(latt_vecs))
+ rec_vecs = transpose(invert(latt_vecs))
 
  do i_cart=1,3
   frac(i_cart)=dot_product(rec_vecs(i_cart,1:3),cart(1:3))

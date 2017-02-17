@@ -35,36 +35,32 @@ function read_castep_output_file(filename) result(output)
   type(String), intent(in) :: filename
   type(DftOutputFile)      :: output
   
-  ! file unit
-  integer        :: castep_file
+  ! file contents
+  type(String), allocatable :: castep_file(:)
+  type(String), allocatable :: line(:)
   
   ! line numbers
-  integer        :: file_length
   integer        :: energy_line
   integer        :: forces_start_line
   integer        :: forces_end_line
   
   ! temporary variables
-  integer        :: i,j
-  character(100) :: line
-  character(100) :: dump
+  integer        :: i
   
-  file_length = count_lines(filename)
-  castep_file = open_read_file(filename)
+  castep_file = read_lines(filename)
   
   ! Work out line numbers
   forces_start_line = 0
-  do i=1,file_length
-    read(castep_file,"(a)") line
-    line = lower_case(trim(line))
+  do i=1,size(castep_file)
+    line = split(lower_case(castep_file(i)))
     ! energy
-    if (line(1:12)=="final energy") then
+    if (line(1)=="final" .and. line(2)=="energy") then
       energy_line = i
     ! forces
-    elseif (line=="*********************** Forces ***********************") then
+    elseif (line(1)=="***********************" .and. line(2)=="Forces") then
       forces_start_line = i
     elseif (forces_start_line/=0 .and. &
-          & line=="******************************************************") then
+       &line(1)=="******************************************************") then
       forces_end_line = i
     endif
   enddo
@@ -72,22 +68,15 @@ function read_castep_output_file(filename) result(output)
   ! Allocate output
   call new(output,forces_end_line-forces_start_line-7)
   
-  rewind(castep_file)
-  
   ! Read data
-  do i=1,file_length
-    read(castep_file,"(a)") line
-    ! energy
-    if (i==energy_line) then
-      read(line,*) dump,dump,dump,dump,output%energy
-    ! forces
-    elseif (i>forces_start_line+5 .and. i<forces_end_line) then
-      j = i-(forces_start_line+5)
-      read(line,*) dump, output%species(j), dump, output%forces(:,j)
-    endif
-  enddo
+  line = split(castep_file(energy_line))
+  output%energy = dble(line(5))
   
-  close(castep_file)
+  do i=1,output%no_atoms
+    line = split(castep_file(forces_start_line+5+i))
+    output%species(i) = char(line(2))
+    output%forces(:,i) = dble(line(4:6))
+  enddo
 end function
 
 function read_qe_output_file(filename) result(output)
@@ -99,11 +88,11 @@ function read_qe_output_file(filename) result(output)
   type(String), intent(in) :: filename
   type(DftOutputFile)      :: output
   
-  ! file unit
-  integer        :: qe_file
+  ! file contents
+  type(String), allocatable :: qe_file(:)
+  type(String), allocatable :: line(:)
   
   ! line numbers
-  integer        :: file_length
   integer        :: species_start_line
   integer        :: species_end_line
   integer        :: energy_line
@@ -113,33 +102,30 @@ function read_qe_output_file(filename) result(output)
   ! qe "type" to species conversion
   integer                   :: no_species
   character(2), allocatable :: species(:)
-  integer                   :: species_type
   
   ! temporary variables
-  integer        :: i,j
-  character(100) :: line
-  character(100) :: dump
+  integer        :: i
   
-  file_length = count_lines(filename)
-  qe_file = open_read_file(filename)
+  qe_file = read_lines(filename)
   
   ! Work out line numbers
   species_start_line = 0
-  do i=1,file_length
-    read(qe_file,"(a)") line
-    line = lower_case(trim(line))
+  do i=1,size(qe_file)
+    line = split(lower_case(qe_file(i)))
     ! species
-    if (line(1:14)=="atomic species") then
+    if (line(1)=="atomic" .and. line(2)=="species") then
       species_start_line = i
-    elseif (species_start_line/=0 .and. line=="") then
+    elseif ( species_start_line/=0 .and. &
+           & species_end_line==0   .and. &
+           & size(line)==0) then
       species_end_line = i
     ! energy
-    elseif (line(1:1)=="!") then
+    elseif (line(1)=="!") then
       energy_line=i
     ! forces
-    elseif (line(1:13)=="forces acting") then
+    elseif (line(1)=="forces" .and. line(2)=="acting") then
       forces_start_line = i
-    elseif (line(1:11)=="total force") then
+    elseif (line(1)=="total" .and. line(2)=="force") then
       forces_end_line = i
     endif
   enddo
@@ -151,29 +137,22 @@ function read_qe_output_file(filename) result(output)
   allocate(output%species(forces_end_line-forces_start_line-3))
   allocate(output%forces(3,forces_end_line-forces_start_line-3))
   
-  rewind(qe_file)
-  
   ! Read data
-  do i=1,file_length
-    read(qe_file,"(a)") line
-    ! species
-    if (i>species_start_line .and. i<species_end_line) then
-      j = i-species_start_line
-      read(line,*) species(j)
-    ! energy
-    elseif (i==energy_line) then
-      read(line,*) dump,dump,dump,dump, output%energy
-    ! forces
-    elseif (i>forces_start_line+1 .and. i<forces_end_line-1) then
-      j = i-(forces_start_line+1)
-      read(line,*) dump,dump,dump, species_type, dump,dump, output%forces(:,j)
-      output%species(j) = species(species_type)
-    endif
+  do i=1,species_end_line-species_start_line-1
+    line = split(qe_file(species_start_line+1))
+    species(i) = char(line(0))
+  enddo
+  
+  line = split(qe_file(energy_line))
+  output%energy = dble(line(5))
+  
+  do i=1,forces_end_line-forces_start_line-3
+    line = split(qe_file(forces_start_line+1+i))
+    output%species(i) = species(int(line(4)))
+    output%forces(:,i) = dble(line(7:9))
   enddo
   
   output%forces = output%forces*Ry/bohr
-  
-  close(qe_file)
 end function
 
 function read_dft_output_file(dft_code,dft_dir,seedname) result(output)

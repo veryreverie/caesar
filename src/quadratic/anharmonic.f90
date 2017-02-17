@@ -78,13 +78,16 @@ subroutine anharmonic()
   ! Temporary variables
   ! ----------------------------------------
   integer               :: i,j,k
-  character(100)        :: line
   character(100)        :: dump
+  
+  ! ----------------------------------------
+  ! File contents
+  ! ----------------------------------------
+  type(String), allocatable :: user_inputs(:)
   
   ! ----------------------------------------
   ! File units
   ! ----------------------------------------
-  integer :: user_input_file
   integer :: no_sc_file
   integer :: list_file
   integer :: result_file
@@ -93,14 +96,10 @@ subroutine anharmonic()
   ! Read in data
   ! ----------------------------------------
   ! Read in previous user inputs
-  user_input_file = open_read_file('user_input.txt')
-  read(user_input_file,"(a)") line
-  dft_code = trim(line)
-  read(user_input_file,"(a)") line
-  seedname = trim(line)
-  read(user_input_file,"(a)") line
-  harmonic_path = trim(line)
-  close(user_input_file)
+  user_inputs = read_lines('user_input.txt')
+  dft_code = user_inputs(1)
+  seedname = user_inputs(2)
+  harmonic_path = user_inputs(3)
   
   ! read the number of Supercell_* directories into no_supercells
   no_sc_file = open_read_file(harmonic_path//'/no_sc.dat')

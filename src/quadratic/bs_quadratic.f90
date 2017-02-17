@@ -51,15 +51,7 @@ subroutine bs_quadratic()
   integer, allocatable :: band_refs(:)
   integer              :: ref
   
-  ! File units
-  integer :: user_input_file
-  integer :: no_sc_file
-  integer :: list_file
-  integer :: bgc_file
-  integer :: bck_file
-  
   ! Temporary variables
-  character(100) :: line
   integer        :: i,j,k
   type(String)   :: sdir
   type(String)   :: mdir
@@ -73,6 +65,15 @@ subroutine bs_quadratic()
   real(dp)              :: renormalised_band_kpoint
   real(dp), allocatable :: deformation(:,:)
   real(dp)              :: temperature
+  
+  ! File contents
+  type(String), allocatable :: user_inputs(:)
+  
+  ! File units
+  integer :: no_sc_file
+  integer :: list_file
+  integer :: bgc_file
+  integer :: bck_file
   
   ! --------------------------------------------------
   ! Get user inputs
@@ -91,14 +92,10 @@ subroutine bs_quadratic()
   ! --------------------------------------------------
   ! Read basic data
   ! --------------------------------------------------
-  user_input_file = open_read_file('user_input.txt')
-  read(user_input_file,"(a)") line
-  dft_code = trim(line)
-  read(user_input_file,"(a)") line
-  seedname = trim(line)
-  read(user_input_file,"(a)") line
-  harmonic_path = trim(line)
-  close(user_input_file)
+  user_inputs = read_lines('user_input.txt')
+  dft_code = user_inputs(1)
+  seedname = user_inputs(2)
+  harmonic_path = user_inputs(3)
   
   no_sc_file = open_read_file('no_sc.dat')
   read(no_sc_file,*) no_sc

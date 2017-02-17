@@ -537,7 +537,7 @@ subroutine fourier_interpolation(structure,grid,temperature,kpoints,sc_ids, &
     super_latt_vecs(i,:) = grid(i)*structure%lattice(i,:)
   enddo
   
-  super_rec_vecs = 2*pi*transpose(inv_33(super_latt_vecs))
+  super_rec_vecs = 2*pi*transpose(invert(super_latt_vecs))
   
   i_grid=0
   do m1=0,grid(1)-1

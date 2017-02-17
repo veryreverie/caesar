@@ -4,23 +4,26 @@
 # Main caesar script.
 # ======================================================================
 function main {
+  # Get the location of this script
+  # Lets caesar and .caesar be called without necessarily being on path
+  dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+  
+  # Split iput arguments into first argument, arg, and everything else, args
+  arg=$1
+  args=($@)
+  args=${args[@]:1:$(($#-1))}
+  
   if [ "$1" = "run_harmonic" ]; then
-    run_harmonic
+    run_harmonic $dir $args
   elif [  "$1" = "run_quadratic" ]; then
-    run_quadratic
+    run_quadratic $dir $args
   elif [  "$1" = "clear_all" ]; then
-    clear_all
+    clear_all $dir $args
   elif [  "$1" = "calculate_symmetry" ]; then
-    calculate_symmetry
+    calculate_symmetry $dir $args
   else
     # Anything not handled by this script is passed to .caesar
-    
-    # Get the location of this script
-    # Lets .caesar be called without necessarily being on path
-    dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-    
-    # Call .caesar
-    $dir/.caesar dir $@
+    $dir/.caesar $dir $@
   fi
 }
 
@@ -156,8 +159,8 @@ function clear_all {
   echo "Are you sure (y/n)?"
   read answer
 
-  if [ $answer == 'y' ]; then
-    rm -r Supercell_* ibz.dat no_sc.dat
+  if [ "$answer" = "y" ]; then
+    rm -r Supercell_* ibz.dat supercells.dat no_sc.dat
   fi
 }
 
@@ -224,20 +227,21 @@ function calculate_symmetry {
   #  ~ ~ ~
   # End
   
-  structure_file=$1
+  dir=$1
+  structure_file=$2
   
   # Create a .cell file from the structure file
-  caesar structure_to_dft castep $structure_file calculate_symmetry.cell
+  $dir/caesar structure_to_dft castep $structure_file $structure_file.cell
   
   # Use cellsym to calculate symmetries from the .cell file
-  cellsym --symmetry calculate_symmetry.cell > calculate_symmetry.dat
+  cellsym --symmetry $structure_file.cell > $structure_file.dat
   
   # Add symmetries to the structure file
-  caesar calculate_symmetry_helper calculate_symmetry.dat $structure_file
+  $dir/caesar calculate_symmetry_helper $structure_file.dat $structure_file
   
   # Clean up temporary files
-  rm calculate_symmetry.cell
-  rm calculate_symmetry.dat
+  rm $structure_file.cell
+  rm $structure_file.dat
 }
 
 main $@

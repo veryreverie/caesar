@@ -23,10 +23,19 @@ program caesar
   use calculate_gap_module
   use hartree_to_eV_module
   
+  use constants, only : dp
+  use linear_algebra
+  
   implicit none
   
   ! Command line arguments
   type(String), allocatable :: args(:)
+  
+  integer  :: i
+  real(dp) :: a(3,3)
+  real(dp) :: b(3,3)
+  real(dp) :: c(3,3)
+  real(dp) :: d(3,3)
   
   ! read in command line arguments
   args = command_line_args()
@@ -78,6 +87,36 @@ program caesar
     write(*,*) '    [Help text pending]'
     write(*,*) '  calculate_gap'
     write(*,*) '    [Help text pending]'
+  ! Test
+  elseif (args(2) == 'test') then
+    a(1,:) = (/ 1,0,0 /)
+    a(2,:) = (/ 0,1,0 /)
+    a(3,:) = (/ 0,0,1 /)
+    
+    b(1,:) = (/ 1,0,0 /)
+    b(2,:) = (/ 0,1,0 /)
+    b(3,:) = (/ 0,0,1 /)
+    
+    c = invert(a)
+    d = matmul(b,c)
+    
+    write(*,*)
+    do i=1,3
+      write(*,*) a(i,:)
+    enddo
+    
+    write(*,*)
+    write(*,*) determinant(a)
+    
+    write(*,*)
+    do i=1,3
+      write(*,*) c(i,:)
+    enddo
+    
+    write(*,*)
+    do i=1,3
+      write(*,*) d(i,:)
+    enddo
   ! Wrappers for top-level Fortran
   elseif (args(2) == 'setup_harmonic') then
     call setup_harmonic(args(1))

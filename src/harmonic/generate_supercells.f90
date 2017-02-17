@@ -228,7 +228,6 @@ end subroutine minkowski_reduce
 subroutine generate_supercells(structure,grid,ibz_filename,supercells_filename)
   use constants,        only : dp
   use utils,            only : i2s, reduce_interval, reduce_to_ibz
-  use linear_algebra,   only : inv_33
   use file_module,      only : open_read_file, open_write_file, count_lines
   
   use string_module

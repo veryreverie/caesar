@@ -48,6 +48,8 @@ subroutine setup_harmonic(caesar_dir)
   character(100) :: line
   type(String)   :: filename
   
+  type(String), allocatable :: contents(:)
+  
   ! File units
   integer :: user_input_file
   integer :: grid_file
@@ -59,11 +61,26 @@ subroutine setup_harmonic(caesar_dir)
   ! Get settings from user
   ! ----------------------------------------------------------------------
   
-  ! Get dft code
-  write(*,*)
-  write(*,"(a)") "What dft code do you want to use (castep,vasp,qe)?"
-  read(*,"(a)") line
-  dft_code = trim(line)
+  if (file_exists('user_input.txt')) then
+    ! Get dft code and seedname from file
+    contents = read_lines('user_input.txt')
+    dft_code = contents(1)
+    seedname = contents(2)
+  else
+    ! Get dft code from command line
+    write(*,*)
+    write(*,"(a)") "What dft code do you want to use (castep,vasp,qe)?"
+    read(*,"(a)") line
+    dft_code = trim(line)
+    
+    ! Get seedname from command line
+    if (dft_code=="castep" .or. dft_code=="qe") then
+      write(*,*)
+      write(*,"(a)") "What is the "//char(dft_code)//" seedname?"
+      read(*,*) line
+      seedname = trim(line)
+    endif
+  endif
   
   ! Check dft code is supported
   if (dft_code=="vasp") then
@@ -71,16 +88,8 @@ subroutine setup_harmonic(caesar_dir)
     stop
   elseif (dft_code/="castep" .and. dft_code/="qe") then
     write(*,"(a)") "Error! The code "//char(dft_code)//" is not supported."
-    write(*,"(a)") "Please choose one of: castep vap qe."
+    write(*,"(a)") "Please choose one of: castep vasp qe."
     stop
-  endif
-  
-  ! Get seedname
-  if (dft_code=="castep" .or. dft_code=="qe") then
-    write(*,*)
-    write(*,"(a)") "What is the "//char(dft_code)//" seedname?"
-    read(*,*) line
-    seedname = trim(line)
   endif
   
   ! Check dft input files exist
@@ -107,12 +116,18 @@ subroutine setup_harmonic(caesar_dir)
   ! Generate supercells
   ! ----------------------------------------------------------------------
   
-  ! Add symmetries to structure.dat
-  call system(caesar_dir//'/caesar calculate_symmetry structure.dat')
-  
-  ! Read in input files
+  ! Read in input file
   structure = read_structure_file('structure.dat')
   
+  ! Add symmetries to structure.dat
+  if (structure%no_symmetries == 0) then
+    call system(caesar_dir//'/caesar calculate_symmetry structure.dat')
+    
+    ! Read in input file with symmetries
+    structure = read_structure_file('structure.dat')
+  endif
+  
+  ! Read grid file
   grid_file = open_read_file('grid.dat')
   read(grid_file,*) grid
   close(grid_file)
@@ -122,7 +137,6 @@ subroutine setup_harmonic(caesar_dir)
   
   ! Read in supercell data
   no_supercells = count_lines('supercells.dat')/4
-  write(*,*) no_supercells
   allocate(supercells(3,3,no_supercells))
   supercells_file = open_read_file('supercells.dat')
   do i=1,no_supercells
@@ -154,6 +168,7 @@ subroutine setup_harmonic(caesar_dir)
        & sdir//'/structure.dat')
     structure_sc = read_structure_file(sdir//'/structure.dat')
     
+    ! Calculate which forces need calculating
     force_constants = calculate_force_constants( structure,         &
                                                & supercells(:,:,i), &
                                                & structure_sc)
@@ -164,6 +179,7 @@ subroutine setup_harmonic(caesar_dir)
     enddo
     close(force_constants_file)
     
+    ! Make harmonic run directories
     do j=1,size(force_constants,2)
       atom = force_constants(1,j)
       disp = force_constants(2,j)

@@ -27,6 +27,8 @@ sdir=src
 # define compiler and flags
 cf90=gfortran
 cflags=""
+cflags="$cflags -g"             # turn on debugging
+cflags="$cflags -O0"            # turn off optimisation
 #cflags="$cflags -std=f95"       # force standards compliance
 cflags="$cflags -W -Wall"       # turn on compiler warnings
 cflags="$cflags -J${mdir}/"     # set .mod files to exist in mod/
@@ -39,7 +41,7 @@ chmod u+x $bdir/caesar
 
 # list programs
 # programs should be added so they are to the right of their dependencies
-programs=(constants string utils linear_algebra rand_no_gen file process moller_plesset structure dft_output_file structure_to_dft calculate_symmetry_helper bands displacement_patterns)
+programs=(constants string utils linear_algebra algebra rand_no_gen file moller_plesset structure dft_output_file structure_to_dft calculate_symmetry_helper bands displacement_patterns)
 
 harmonic_programs=(calculate_force_constants construct_supercell min_images symmetry fourier_interpolation generate_supercells lte hartree_to_eV setup_harmonic lte_harmonic)
 

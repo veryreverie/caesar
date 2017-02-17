@@ -72,7 +72,7 @@ function open_file(filename,status,action,access) result(unit_num)
   open(unit=unit_num,file=filename,status=status,action=action,&
     &access=access,iostat=iostat)
   if (iostat /= 0) then
-    write(*,*) 'Problem opening '//trim(filename)//' file.'
+    write(*,*) 'Error opening '//trim(filename)//' file.'
     stop
   endif
 end function
@@ -164,16 +164,20 @@ function count_lines_character(filename) result(output)
   character(*), intent(in) :: filename
   integer                  :: output
   
-  integer        :: file_unit
-  integer        :: eof_reached
-  character(100) :: line
+  integer      :: file_unit
+  integer      :: iostat
+  character(1) :: line
   
   file_unit = open_read_file(filename)
   output = 0
-  do while (eof_reached==0)
-    read(file_unit, *, iostat=eof_reached) line
-    if (eof_reached==0) then
+  iostat = 0
+  do while (iostat==0)
+    read(file_unit, "(a)", iostat=iostat) line
+    if (iostat==0) then
       output = output+1
+    elseif (iostat>0) then
+      write(*,*) "Error counting lines of "//filename
+      stop
     endif
   enddo
   close(file_unit)
@@ -199,7 +203,7 @@ function read_line(file_unit) result(output)
   integer, intent(in) :: file_unit
   type(String)        :: output
   
-  character(100) :: line
+  character(1000) :: line
   
   read(file_unit,"(a)") line
   output = trim(line)
@@ -214,16 +218,28 @@ function read_lines_character(filename) result(output)
   character(*), intent(in)  :: filename
   type(String), allocatable :: output(:)
   
-  integer        :: file_length
-  integer        :: file_unit
-  character(100) :: line
-  integer        :: i
+  integer         :: file_length
+  integer         :: file_unit
+  character(1000) :: line
+  integer         :: i
+  
+  integer :: ierr
   
   file_length = count_lines(filename)
-  allocate(output(file_length))
+  
+  allocate(output(file_length),stat=ierr)
+  if (ierr/=0) then
+    write(*,*) "Error allocating output for read_lines"
+    stop
+  endif
+  
   file_unit = open_read_file(filename)
   do i=1,file_length
-    read(file_unit,"(a)") line
+    read(file_unit,"(a)",iostat=ierr) line
+    if (ierr/=0) then
+      write(*,*) "Error reading from "//filename
+      stop
+    endif
     output(i) = trim(line)
   enddo
   close(file_unit)

@@ -36,16 +36,17 @@ subroutine structure_to_castep(structure_sc,input_filename, &
   real(dp), allocatable :: path(:,:)
   
   ! Line numbers
-  integer :: path_file_length
   integer :: path_start_line
   integer :: path_end_line
   
   ! Temporary variables
   integer        :: i
-  character(100) :: line
+  
+  ! File contents
+  type(String), allocatable :: path_file(:)
+  type(String), allocatable :: line(:)
   
   ! File units
-  integer :: path_file
   integer :: cell_file
   
   ! Whether or not path exists
@@ -60,29 +61,23 @@ subroutine structure_to_castep(structure_sc,input_filename, &
   
   if (path_wanted) then
     ! Parse path file
-    path_file_length = count_lines(path_filename)
-    path_file = open_read_file(path_filename)
-    do i=1,path_file_length
-      read(path_file,"(a)") line
-      line = lower_case(line)
-      if (line(1:5)=="block") then
+    path_file = read_lines(path_filename)
+    do i=1,size(path_file)
+      line = split(lower_case(path_file(i)))
+      if (line(1)=="block") then
         path_start_line = i
-      elseif (line(1:8)=="endblock") then
+      elseif (line(1)=="endblock") then
         path_end_line = i
       endif
     enddo
     
     no_points = path_end_line-path_start_line-1
     allocate(path(3,no_points))
-    rewind(path_file)
     
-    do i=1,path_file_length
-      read(path_file,"(a)") line
-      if(i>path_start_line .and. i<path_end_line) then
-        read(line,*) path(:,i-path_start_line)
-      endif
+    do i=1,path_end_line-path_start_line-1
+      line = split(path_file(path_start_line+i))
+      path(:,i) = dble(line)
     enddo
-    close(path_file)
     
     path = matmul(transpose(structure%recip_lattice),path)
     path = matmul(structure_sc%lattice,path)
@@ -97,7 +92,7 @@ subroutine structure_to_castep(structure_sc,input_filename, &
   enddo
   write(cell_file,"(a)") '%endblock lattice_cart'
   write(cell_file,"(a)") ''
-  write(cell_file,"(a)") 'block positions_abs'
+  write(cell_file,"(a)") '%block positions_abs'
   write(cell_file,"(a)") 'bohr'
   do i=1,structure_sc%no_atoms
     write(cell_file,*) structure_sc%species(i),structure_sc%atoms(:,i)
@@ -220,13 +215,14 @@ subroutine structure_to_qe(structure_sc,input_filename,pseudo_filename, &
   type(String), allocatable :: input_file_contents(:)
   
   ! kpoints.in data
-  character(100) :: kpoints_header
   integer        :: primitive_mesh(3)
   real(dp)       :: sc_distance(3)
   real(dp)       :: distance(3)
   
+  ! File contents
+  type(String), allocatable :: kpoints_file(:)
+  
   ! File units
-  integer :: kpoints_file
   integer :: output_file
   
   ! Temporary variables
@@ -236,10 +232,8 @@ subroutine structure_to_qe(structure_sc,input_filename,pseudo_filename, &
   pseudo_contents = read_lines(pseudo_filename)
   
   ! Read in kpoints file
-  kpoints_file = open_read_file(kpoints_filename)
-  read(kpoints_file,"(a)") kpoints_header
-  read(kpoints_file,*) primitive_mesh
-  close(kpoints_file)
+  kpoints_file = read_lines(kpoints_filename)
+  primitive_mesh = int(split(kpoints_file(2)))
   
   ! Construct reciprocal primitive lattice
   do i=1,3
@@ -274,7 +268,7 @@ subroutine structure_to_qe(structure_sc,input_filename,pseudo_filename, &
   do i=1,structure_sc%no_atoms
     write(output_file,*) structure_sc%species(i),structure_sc%atoms(:,i)
   enddo
-  write(output_file,"(a)") kpoints_header
+  write(output_file,"(a)") char(kpoints_file(1))
   write(output_file,*) int(primitive_mesh*sc_distance/distance)+1,0,0,0
   close(output_file)
 end subroutine

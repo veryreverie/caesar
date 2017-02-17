@@ -143,8 +143,8 @@ module linear_algebra
   ! ----------------------------------------
   ! determinant interface
   ! ----------------------------------------
-  interface determinant33
-    module procedure determinant33_integer, determinant33_real
+  interface determinant
+    module procedure determinant_integer, determinant_real
   end interface
 
 contains
@@ -173,61 +173,85 @@ end function
 ! ----------------------------------------
 ! given a 3x3 matrix A, returns det(A)
 ! ----------------------------------------
-function determinant33_integer(A) result(determinant)
+function determinant_integer(A) result(determinant)
   implicit none
   
   integer, intent(in) :: A(3,3)
   integer             :: determinant
   
-  determinant = A(1,1)*(A(2,2)*A(3,3)-A(3,2)*A(2,3))&
-             &+ A(1,2)*(A(3,1)*A(2,3)-A(2,1)*A(3,3))&
-             &+ A(1,3)*(A(2,1)*A(3,2)-A(3,1)*A(2,2))
+  determinant = A(1,1)*(A(2,2)*A(3,3)-A(2,3)*A(3,2))&
+             &+ A(1,2)*(A(2,3)*A(3,1)-A(2,1)*A(3,3))&
+             &+ A(1,3)*(A(2,1)*A(3,2)-A(2,2)*A(3,1))
 end function
 
-function determinant33_real(A) result(determinant)
+function determinant_real(A) result(determinant)
   implicit none
   
   real(dp), intent(in) :: A(3,3)
   real(dp)             :: determinant
   
-  determinant = A(1,1)*(A(2,2)*A(3,3)-A(3,2)*A(2,3))&
-             &+ A(1,2)*(A(3,1)*A(2,3)-A(2,1)*A(3,3))&
-             &+ A(1,3)*(A(2,1)*A(3,2)-A(3,1)*A(2,2))
+  determinant = A(1,1)*(A(2,2)*A(3,3)-A(2,3)*A(3,2))&
+             &+ A(1,2)*(A(2,3)*A(3,1)-A(2,1)*A(3,3))&
+             &+ A(1,3)*(A(2,1)*A(3,2)-A(2,2)*A(3,1))
 end function
 
 ! ----------------------------------------
 ! calculates the inverse, B, of matrix A
 ! A and B are real, 3x3 matrices
 ! ----------------------------------------
-function inv_33(A) result(B)
+function invert(A) result(B)
   implicit none
   
   real(dp), intent(in)  :: A(3,3)
   real(dp)              :: B(3,3)
   
-  real(dp)              :: d      ! det(A)
+  real(dp) :: d      ! 1/det(A)
+  real(dp) :: C(3,3) ! transpose(A)
   
-  d = A(1,1)*(A(2,2)*A(3,3)-A(3,2)*A(2,3))&
-   &+ A(1,2)*(A(3,1)*A(2,3)-A(2,1)*A(3,3))&
-   &+ A(1,3)*(A(2,1)*A(3,2)-A(3,1)*A(2,2))
-  
-  d = 1.0_dp/d
+  d = 1.0_dp/determinant(A)
   
   ! check for d=infinity or d=NaN
   if (dabs(d)>huge(0.0_dp) .or. d<d) then
-    write(*,*) 'Error in inv_33: singular matrix.'
+    write(*,*) 'Error in invert: singular matrix.'
     stop
   endif
   
-  B(1,1) = (A(2,2)*A(3,3)-A(2,3)*A(3,2))*d
-  B(1,2) = (A(3,2)*A(1,3)-A(1,3)*A(3,2))*d
-  B(1,3) = (A(1,2)*A(2,3)-A(1,3)*A(3,2))*d
-  B(2,1) = (A(3,1)*A(2,3)-A(2,3)*A(3,2))*d
-  B(2,2) = (A(1,1)*A(3,3)-A(2,3)*A(3,2))*d
-  B(2,3) = (A(2,1)*A(1,3)-A(2,3)*A(3,2))*d
-  B(3,1) = (A(2,1)*A(3,2)-A(2,3)*A(3,2))*d
-  B(3,2) = (A(3,1)*A(1,2)-A(2,3)*A(3,2))*d
-  B(3,3) = (A(1,1)*A(2,2)-A(2,3)*A(3,2))*d
+  C = transpose(A)
+  
+  B(1,1) = (C(2,2)*C(3,3)-C(2,3)*C(3,2))*d
+  B(1,2) = (C(2,3)*C(3,1)-C(2,1)*C(3,3))*d
+  B(1,3) = (C(2,1)*C(3,2)-C(2,2)*C(3,1))*d
+  B(2,1) = (C(3,2)*C(1,3)-C(3,3)*C(1,2))*d
+  B(2,2) = (C(3,3)*C(1,1)-C(3,1)*C(1,3))*d
+  B(2,3) = (C(3,1)*C(1,2)-C(3,2)*C(1,1))*d
+  B(3,1) = (C(1,2)*C(2,3)-C(1,3)*C(2,2))*d
+  B(3,2) = (C(1,3)*C(2,1)-C(1,1)*C(2,3))*d
+  B(3,3) = (C(1,1)*C(2,2)-C(1,2)*C(2,1))*d
+end function
+
+! ----------------------------------------
+! Calculates B=inverse(A)*det(A)
+! A and B are 3x3 integer matrices
+! ----------------------------------------
+function invert_int(A) result(B)
+  implicit none
+  
+  integer, intent(in)  :: A(3,3)
+  integer              :: B(3,3)
+  
+  integer :: C(3,3) ! transpose(A)
+  
+  C = transpose(A)
+  
+  B(1,1) = C(2,2)*C(3,3)-C(2,3)*C(3,2)
+  B(1,2) = C(2,3)*C(3,1)-C(2,1)*C(3,3)
+  B(1,3) = C(2,1)*C(3,2)-C(2,2)*C(3,1)
+  B(2,1) = C(3,2)*C(1,3)-C(3,3)*C(1,2)
+  B(2,2) = C(3,3)*C(1,1)-C(3,1)*C(1,3)
+  B(2,3) = C(3,1)*C(1,2)-C(3,2)*C(1,1)
+  B(3,1) = C(1,2)*C(2,3)-C(1,3)*C(2,2)
+  B(3,2) = C(1,3)*C(2,1)-C(1,1)*C(2,3)
+  B(3,3) = C(1,1)*C(2,2)-C(1,2)*C(2,1)
 end function
 
 ! Calculates the eigenvalues and eigenvectors of a real, symmetric matrix

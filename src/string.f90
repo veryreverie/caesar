@@ -33,6 +33,7 @@ module string_module
   ! Unary operators
   public :: len           ! character-like len
   public :: lower_case    ! convert to lower case
+  public :: split         ! split by spaces
   
   ! Operators with side-effects
   public :: system
@@ -50,6 +51,7 @@ module string_module
     module procedure assign_String_String
     module procedure assign_String_integer
     module procedure assign_String_real
+    module procedure assign_String_logical
     module procedure assign_character_String
   end interface
 
@@ -61,6 +63,7 @@ module string_module
     module procedure str_character
     module procedure str_integer
     module procedure str_real
+    module procedure str_logical
   end interface
 
   interface char
@@ -83,6 +86,8 @@ module string_module
     module procedure concatenate_integer_String
     module procedure concatenate_String_real
     module procedure concatenate_real_String
+    module procedure concatenate_String_logical
+    module procedure concatenate_logical_String
   end interface
   
   interface operator(==)
@@ -104,6 +109,11 @@ module string_module
   interface lower_case
     module procedure lower_case_character
     module procedure lower_case_String
+  end interface
+  
+  interface split
+    module procedure split_character
+    module procedure split_String
   end interface
   
   interface system
@@ -174,6 +184,20 @@ pure subroutine assign_String_real(output,input)
   output = temp
 end subroutine
 
+! String = logical
+pure subroutine assign_String_logical(output,input)
+  implicit none
+  
+  logical,      intent(in)    :: input
+  type(String), intent(inout) :: output
+  
+  if (input) then
+    output = "T"
+  else
+    output = "F"
+  endif
+end subroutine
+
 ! character = String
 pure subroutine assign_character_String(output,input)
   implicit none
@@ -198,7 +222,7 @@ end subroutine
 ! ----------------------------------------------------------------------
 ! Conversion to String
 ! ----------------------------------------------------------------------
-pure function str_character(this) result(output)
+elemental function str_character(this) result(output)
   implicit none
   
   character(*), intent(in) :: this
@@ -207,7 +231,7 @@ pure function str_character(this) result(output)
   output = this
 end function
 
-pure function str_integer(this) result(output)
+elemental function str_integer(this) result(output)
   implicit none
   
   integer, intent(in) :: this
@@ -216,12 +240,21 @@ pure function str_integer(this) result(output)
   output = this
 end function
 
-pure function str_real(this) result(output)
+elemental function str_real(this) result(output)
   use constants, only : dp
   implicit none
   
   real(dp), intent(in) :: this
   type(String)         :: output
+  
+  output = this
+end function
+
+elemental function str_logical(this) result(output)
+  implicit none
+  
+  logical, intent(in) :: this
+  type(String)        :: output
   
   output = this
 end function
@@ -240,7 +273,7 @@ pure function char_String(this) result(output)
 end function
 
 ! integer = int(String)
-pure function int_String(this) result(output)
+elemental function int_String(this) result(output)
   implicit none
   
   type(String), intent(in) :: this
@@ -250,7 +283,7 @@ pure function int_String(this) result(output)
 end function
 
 ! real(dp) = dble(String)
-pure function dble_String(this) result(output)
+elemental function dble_String(this) result(output)
   use constants, only : dp
   implicit none
   
@@ -264,7 +297,7 @@ end function
 ! Concatenation
 ! ----------------------------------------------------------------------
 ! String = String//String
-pure function concatenate_String_String(a,b) result(output)
+elemental function concatenate_String_String(a,b) result(output)
   implicit none
   
   type(String), intent(in) :: a
@@ -275,7 +308,7 @@ pure function concatenate_String_String(a,b) result(output)
 end function
 
 ! String = String//character
-pure function concatenate_String_character(a,b) result(output)
+elemental function concatenate_String_character(a,b) result(output)
   implicit none
   
   type(String), intent(in) :: a
@@ -286,7 +319,7 @@ pure function concatenate_String_character(a,b) result(output)
 end function
 
 ! String = character//String
-pure function concatenate_character_String(a,b) result(output)
+elemental function concatenate_character_String(a,b) result(output)
   implicit none
   
   character(*), intent(in) :: a
@@ -297,7 +330,7 @@ pure function concatenate_character_String(a,b) result(output)
 end function
 
 ! String = String//integer
-pure function concatenate_String_integer(a,b) result(output)
+elemental function concatenate_String_integer(a,b) result(output)
   implicit none
   
   type(String), intent(in) :: a
@@ -312,7 +345,7 @@ pure function concatenate_String_integer(a,b) result(output)
 end function
 
 ! String = integer//String
-pure function concatenate_integer_String(a,b) result(output)
+elemental function concatenate_integer_String(a,b) result(output)
   implicit none
   
   integer,      intent(in) :: a
@@ -327,7 +360,7 @@ pure function concatenate_integer_String(a,b) result(output)
 end function
 
 ! String = String//real(dp)
-pure function concatenate_String_real(a,b) result(output)
+elemental function concatenate_String_real(a,b) result(output)
   use constants, only : dp
   implicit none
   
@@ -343,7 +376,7 @@ pure function concatenate_String_real(a,b) result(output)
 end function
 
 ! String = real(dp)//String
-pure function concatenate_real_String(a,b) result(output)
+elemental function concatenate_real_String(a,b) result(output)
   use constants, only : dp
   implicit none
   
@@ -358,11 +391,41 @@ pure function concatenate_real_String(a,b) result(output)
   output = temp//b%contents
 end function
 
+! String = String//logical
+elemental function concatenate_String_logical(a,b) result(output)
+  implicit none
+  
+  type(String), intent(in) :: a
+  logical,      intent(in) :: b
+  type(String) :: output
+  
+  type(String) :: temp
+  
+  temp = b
+  
+  output = a%contents//temp
+end function
+
+! String = logical//String
+elemental function concatenate_logical_String(a,b) result(output)
+  implicit none
+  
+  logical,      intent(in) :: a
+  type(String), intent(in) :: b
+  type(String) :: output
+  
+  type(String) :: temp
+  
+  temp = a
+  
+  output = temp//b%contents
+end function
+
 ! ----------------------------------------------------------------------
 ! Equality
 ! ----------------------------------------------------------------------
 ! String==String
-pure function equality_String_String(a,b) result(output)
+elemental function equality_String_String(a,b) result(output)
   implicit none
   
   type(String), intent(in) :: a
@@ -373,7 +436,7 @@ pure function equality_String_String(a,b) result(output)
 end function
 
 ! String==character
-pure function equality_String_character(a,b) result(output)
+elemental function equality_String_character(a,b) result(output)
   implicit none
   
   type(String), intent(in) :: a
@@ -384,7 +447,7 @@ pure function equality_String_character(a,b) result(output)
 end function
 
 ! character==String
-pure function equality_character_String(a,b) result(output)
+elemental function equality_character_String(a,b) result(output)
   implicit none
   
   character(*), intent(in) :: a
@@ -398,7 +461,7 @@ end function
 ! Non-equality
 ! ----------------------------------------------------------------------
 ! String==String
-pure function non_equality_String_String(a,b) result(output)
+elemental function non_equality_String_String(a,b) result(output)
   implicit none
   
   type(String), intent(in) :: a
@@ -409,7 +472,7 @@ pure function non_equality_String_String(a,b) result(output)
 end function
 
 ! String==character
-pure function non_equality_String_character(a,b) result(output)
+elemental function non_equality_String_character(a,b) result(output)
   implicit none
   
   type(String), intent(in) :: a
@@ -420,7 +483,7 @@ pure function non_equality_String_character(a,b) result(output)
 end function
 
 ! character==String
-pure function non_equality_character_String(a,b) result(output)
+elemental function non_equality_character_String(a,b) result(output)
   implicit none
   
   character(*), intent(in) :: a
@@ -434,7 +497,7 @@ end function
 ! Unary operators
 ! ----------------------------------------------------------------------
 ! integer = len(String)
-pure function len_String(this) result(output)
+elemental function len_String(this) result(output)
   implicit none
   
   type(String), intent(in) :: this
@@ -446,7 +509,7 @@ end function
 ! ----------------------------------------------------------------------
 ! Converts a string to lower case
 ! ----------------------------------------------------------------------
-pure function lower_case_character(input) result(output)
+elemental function lower_case_character(input) result(output)
   implicit none
   
   character(*), intent(in) :: input
@@ -468,13 +531,77 @@ pure function lower_case_character(input) result(output)
 end function
 
 ! String = lower_case(String)
-pure function lower_case_String(this) result(output)
+elemental function lower_case_String(this) result(output)
   implicit none
   
   type(String), intent(in) :: this
   type(String)             :: output
   
   output = str(lower_case(char(this)))
+end function
+
+pure function split_character(this,delimiter_in) result(output)
+  implicit none
+  
+  character(*),           intent(in) :: this
+  character(1), optional, intent(in) :: delimiter_in
+  type(String), allocatable          :: output(:)
+  
+  ! Working variables
+  character(1) :: delimiter
+  integer      :: first     ! The position of a delimiter
+  integer      :: second    ! The posiition of the next delimiter after 'first'
+  integer      :: count     ! The number of tokens
+  
+  if (present(delimiter_in)) then
+    delimiter = delimiter_in
+  else
+    delimiter = ' '
+  endif
+  
+  ! Count the number of tokens in the string
+  first = 0
+  second = 0
+  count = 0
+  do
+    first = second ! Search after previously found delimiter
+    if (first == len(this)+1) exit ! Exit if entire word split
+    second = first+index(this(first+1:),delimiter) ! Find the next delimiter
+    if (second == first) second = len(this)+1 ! Split the final token
+    if (second == first+1) cycle ! Ignore multiple delimiters in a row
+    count = count + 1
+  enddo
+  
+  ! Allocate output
+  allocate(output(count))
+  
+  ! Split string
+  first = 0
+  second = 0
+  count = 0
+  do
+    first = second
+    if (first == len(this)+1) exit
+    second = first + index(this(first+1:),delimiter)
+    if (second == first) second = len(this)+1
+    if (second == first+1) cycle
+    count = count + 1
+    output(count) = this(first+1:second-1)
+  enddo
+end function
+
+pure function split_String(this,delimiter_in) result(output)
+  implicit none
+  
+  type(String),           intent(in) :: this
+  character(1), optional, intent(in) :: delimiter_in
+  type(String), allocatable          :: output(:)
+  
+  if (present(delimiter_in)) then
+    output = split(char(this),delimiter_in)
+  else
+    output = split(char(this))
+  endif
 end function
 
 ! call system(String)

@@ -6,7 +6,7 @@ contains
 
 function construct_supercell(structure,supercell) result(structure_sc)
   use constants,        only : dp
-  use linear_algebra,   only : determinant33, inv_33
+  use linear_algebra,   only : determinant, invert
   use file_module
   use structure_module
   use string_module
@@ -31,15 +31,19 @@ function construct_supercell(structure,supercell) result(structure_sc)
   
   integer :: no_atoms_sc
   
-  sc_size = abs(determinant33(supercell))
+  real(dp) :: inv_supercell(3,3)
+  
+  sc_size = abs(determinant(supercell))
   no_atoms_sc = structure%no_atoms*sc_size
 
   call new(structure_sc,no_atoms_sc,0)
 
   ! Generate supercell lattice
   structure_sc%lattice = matmul(supercell,structure%lattice)
-  structure_sc%recip_lattice = inv_33(transpose(structure_sc%lattice))
-
+  structure_sc%recip_lattice = invert(transpose(structure_sc%lattice))
+  
+  inv_supercell = invert(dble(supercell))
+  
   ! Generate supercell atoms
   atom_counter=0
   delta=sc_size*3
@@ -47,10 +51,10 @@ function construct_supercell(structure,supercell) result(structure_sc)
     do dira=-delta,delta
       do dirb=-delta,delta
         do dirc=-delta,delta
-          pos(:) = structure%atoms(i,:)        &
-               & + matmul((/dira,dirb,dirc/),structure%lattice)
-          frac_pos = matmul(structure%recip_lattice,pos)
-          if (all(frac_pos>-tol) .and. all(frac_pos<1.d0-tol)) then
+          pos(:) = structure%atoms(:,i) &
+               & + matmul(transpose(structure%lattice),(/dira,dirb,dirc/))
+          frac_pos = matmul(structure_sc%recip_lattice,pos)
+          if (all(-tol<frac_pos .and. frac_pos<1.d0-tol)) then
             atom_counter=atom_counter+1
             structure_sc%atoms(:,atom_counter)=pos(:)
             structure_sc%mass(atom_counter)=structure%mass(i)
@@ -62,7 +66,7 @@ function construct_supercell(structure,supercell) result(structure_sc)
   enddo ! Loop over primitive cell atoms
 
   if(atom_counter/=(no_atoms_sc))then
-    write(*,*)'Error in placing atoms in supercell! Please, try increasing delta.'
+    write(*,*)'Error placing atoms in supercell. Please try increasing delta.'
     STOP
   endif ! error in generating supercell 
   

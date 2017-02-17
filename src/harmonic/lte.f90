@@ -52,7 +52,6 @@
 module lte_module
   use constants,      only : dp, kB_au_per_K
   use utils,          only : i2s, errstop
-  use linear_algebra, only : determinant33, inv_33
   use min_images,     only : min_images_brute_force, maxim
   use file_module
   implicit none
@@ -78,7 +77,7 @@ function atom_at_pos(rvec,structure_sc) result(output)
   output = 0
   do i=1,structure_sc%no_atoms
     ! Separation of rvec and atom posn. Is a sc lattice vector.
-    if (is_lat_point( structure_sc%cart_atoms(:,i)-rvec(:), &
+    if (is_lat_point( structure_sc%atoms(:,i)-rvec(:), &
                     & structure_sc%recip_lattice)) then
       output = i
       exit
@@ -233,14 +232,14 @@ subroutine read_lte(tol,structure,structure_sc,atoms, &
   write(*,*)'Species ; Mass (a.u.) ; Position (Cartesian coordinates, a.u.)'
   do i=1,structure_sc%no_atoms
     write(*,'(" ",a,"  ",f14.6," ",3("  ",f14.6))')structure_sc%species(i),structure_sc%mass(i), &
-      &structure_sc%cart_atoms(1:3,i)
+      &structure_sc%atoms(1:3,i)
     if(structure_sc%mass(i)<=0.d0)call errstop('READ_LTE','Mass should be positive.')
   enddo
   
   ! Check atoms aren't on top of each other.
   do i=1,structure_sc%no_atoms-1
     do j=i+1,structure_sc%no_atoms
-      if(is_lat_point(structure_sc%cart_atoms(1:3,j)-structure_sc%cart_atoms(1:3,i),structure_sc%recip_lattice))call &
+      if(is_lat_point(structure_sc%atoms(1:3,j)-structure_sc%atoms(1:3,i),structure_sc%recip_lattice))call &
         &errstop('READ_LTE','Atoms '//TRIM(i2s(i))//' and '//TRIM(i2s(j)) &
         &//' appear to be on top of one another.')
     enddo ! j
@@ -299,10 +298,10 @@ subroutine trans_symm(atom1,dir1,atom2,dir2,fc,tol,structure_sc, &
   integer :: atom1p,atom2p,no_translations
   real(dp) :: pos_atom2p(3),relpos_atom2_atom1(3)
   
-  relpos_atom2_atom1(1:3)=structure_sc%cart_atoms(1:3,atom2)-structure_sc%cart_atoms(1:3,atom1)
+  relpos_atom2_atom1(1:3)=structure_sc%atoms(1:3,atom2)-structure_sc%atoms(1:3,atom1)
   no_translations=0
   do atom1p=1,structure_sc%no_atoms
-    if(is_lat_point(structure_sc%cart_atoms(1:3,atom1p)-structure_sc%cart_atoms(1:3,atom1), &
+    if(is_lat_point(structure_sc%atoms(1:3,atom1p)-structure_sc%atoms(1:3,atom1), &
       &structure%recip_lattice))then
       ! atom1p and atom1 are equivalent under trans. symm.
       if (abs(structure_sc%mass(atom1p)/structure_sc%mass(atom1)-1)>tol) then
@@ -310,7 +309,7 @@ subroutine trans_symm(atom1,dir1,atom2,dir2,fc,tol,structure_sc, &
         &//TRIM(i2s(atom1p))//' are equivalent by translational symmetry, &
         &but they have different masses.')
       endif
-      pos_atom2p(1:3)=structure_sc%cart_atoms(1:3,atom1p)+relpos_atom2_atom1(1:3)
+      pos_atom2p(1:3)=structure_sc%atoms(1:3,atom1p)+relpos_atom2_atom1(1:3)
       atom2p=atom_at_pos(pos_atom2p,structure_sc)
       if(atom2p<=0)call errstop('TRANS_SYMM','Please check that your atom &
         &coordinates satisfy the translational symmetry they should have.')
@@ -391,12 +390,12 @@ subroutine point_symm(tol,structure_sc,defined,force_const)
       do i=1,3
         ! LAPACK commented out because it isn't working. 9/1/2017
         ! pos_atom1p(i) = structure_sc%offsets_cart(i,n) &
-        !             & + ddot(3,structure_sc%rotation_matrices(i,1,n),3,structure_sc%cart_atoms(1,atom1),1)
+        !             & + ddot(3,structure_sc%rotation_matrices(i,1,n),3,structure_sc%atoms(1,atom1),1)
         pos_atom1p(i) = structure_sc%offsets_cart(i,n) &
-                    & + dot_product(structure_sc%rotation_matrices(i,:,n),structure_sc%cart_atoms(:,atom1))
+                    & + dot_product(structure_sc%rotation_matrices(i,:,n),structure_sc%atoms(:,atom1))
       enddo ! i
       atom1p=atom_at_pos(pos_atom1p,structure_sc)
-      !write(*,*)n,atom1,atom1p,atom_at_pos(pos_atom1p,structure_sc%cart_atoms)
+      !write(*,*)n,atom1,atom1p,atom_at_pos(pos_atom1p,structure_sc%atoms)
       if(atom1p<=0)call errstop('POINT_SYMM','Please check that &
         &your atom coordinates satisfy the rotational symmetries that you &
         &have supplied.  NB, I have assumed that r''=b+Rr, where R is the &
@@ -412,12 +411,12 @@ subroutine point_symm(tol,structure_sc,defined,force_const)
         do i=1,3
           ! LAPACK commented out because it isn't working. 9/1/2017
           ! pos_atom2p(i)=structure_sc%offsets_cart(i,n)+ddot(3,structure_sc%rotation_matrices(i,1,n),3, &
-          !   &structure_sc%cart_atoms(1,atom2),1)
+          !   &structure_sc%atoms(1,atom2),1)
           pos_atom2p(i) = structure_sc%offsets_cart(i,n) &
-                      & + dot_product(structure_sc%rotation_matrices(i,:,n),structure_sc%cart_atoms(:,atom2))
+                      & + dot_product(structure_sc%rotation_matrices(i,:,n),structure_sc%atoms(:,atom2))
         enddo ! i
         atom2p=atom_at_pos(pos_atom2p,structure_sc)
-        !write(*,*)n,atom2,atom2p,atom_at_pos(pos_atom2p,structure_sc%cart_atoms),pos_atom2p(1),pos_atom2p(2),pos_atom2p(3)
+        !write(*,*)n,atom2,atom2p,atom_at_pos(pos_atom2p,structure_sc%atoms),pos_atom2p(1),pos_atom2p(2),pos_atom2p(3)
         if(atom2p<=0)call errstop('POINT_SYMM','Please check that &
           &your atom coordinates satisfy the rotational symmetries that &
           &you have supplied.  NB, I have assumed that r''=b+Rr, where R &
@@ -530,9 +529,9 @@ subroutine point_symm_brute_force(tol,fc_scale,structure_sc, &
         do i=1,3
           ! LAPACK commented out because it isn't working. 9/1/2017
           ! pos_atom1p(i)=structure_sc%offsets_cart(i,n)+ddot(3,structure_sc%rotation_matrices(i,1,n),3, &
-          !   &structure_sc%cart_atoms(1,atom1),1)
+          !   &structure_sc%atoms(1,atom1),1)
           pos_atom1p(i) = structure_sc%offsets_cart(i,n) &
-                      & + dot_product(structure_sc%rotation_matrices(i,:,n),structure_sc%cart_atoms(:,atom1))
+                      & + dot_product(structure_sc%rotation_matrices(i,:,n),structure_sc%atoms(:,atom1))
         enddo ! i
         atom1p=atom_at_pos(pos_atom1p,structure_sc)
         if(atom1p<=0)call errstop('POINT_SYMM_BRUTE_FORCE','Please check &
@@ -547,9 +546,9 @@ subroutine point_symm_brute_force(tol,fc_scale,structure_sc, &
           do i=1,3
             ! LAPACK commented out because it isn't working. 9/1/2017
             ! pos_atom2p(i)=structure_sc%offsets_cart(i,n)+ddot(3,structure_sc%rotation_matrices(i,1,n),3, &
-            !   &structure_sc%cart_atoms(1,atom2),1)
+            !   &structure_sc%atoms(1,atom2),1)
             pos_atom2p(i) = structure_sc%offsets_cart(i,n) &
-                        & + dot_product(structure_sc%rotation_matrices(i,:,n),structure_sc%cart_atoms(:,atom2))
+                        & + dot_product(structure_sc%rotation_matrices(i,:,n),structure_sc%atoms(:,atom2))
           enddo ! i
           atom2p=atom_at_pos(pos_atom2p,structure_sc)
           if(atom2p<=0)call errstop('POINT_SYMM_BRUTE_FORCE','Please check &
@@ -765,7 +764,7 @@ subroutine find_prim_cell(delta,structure_sc,structure,   &
   ! cell due to atoms sitting on the boundary between two primitive cells.
   delta_vect(1:3,1:3)=delta*structure%lattice(1:3,1:3)
   do n=1,structure_sc%no_atoms
-    r_temp(1:3)=structure_sc%cart_atoms(1:3,n)+2.d0*delta_vect(1:3,1) &
+    r_temp(1:3)=structure_sc%atoms(1:3,n)+2.d0*delta_vect(1:3,1) &
       &+2.d0*delta_vect(1:3,2)+2.d0*delta_vect(1:3,3)
     n1=FLOOR(DOT_PRODUCT(r_temp(1:3),structure%recip_lattice(1:3,1)))
     n1p=FLOOR(DOT_PRODUCT(r_temp(1:3)+delta_vect(1:3,1), &
@@ -805,7 +804,7 @@ subroutine find_prim_cell(delta,structure_sc,structure,   &
       do m=n+1,structure_sc%no_atoms
         ! Is difference of atom positions an integer multiple of the
         ! primitive reciprocal lattice vectors?  If so, same label.
-        if(is_lat_point(structure_sc%cart_atoms(1:3,m)-structure_sc%cart_atoms(1:3,n),structure%recip_lattice)) &
+        if(is_lat_point(structure_sc%atoms(1:3,m)-structure_sc%atoms(1:3,n),structure%recip_lattice)) &
           &atom_in_prim(m)=label
       enddo ! m
     endif ! Atom not yet labelled by number within prim cell.
@@ -852,11 +851,11 @@ subroutine find_prim_cell(delta,structure_sc,structure,   &
   do n=1,structure%no_atoms
     atom1=atom(1,n)
     do m=1,structure%no_atoms
-      delta_r_corr=structure_sc%cart_atoms(1:3,atom1)-structure_sc%cart_atoms(1:3,atom(1,m))
+      delta_r_corr=structure_sc%atoms(1:3,atom1)-structure_sc%atoms(1:3,atom(1,m))
       do p=1,no_prim_cells
         ! Work out min. image distance(s) between atoms (1,n) and (p,m).
-        call min_images_brute_force(structure_sc%cart_atoms(1:3,atom(p,m)) &
-          &-structure_sc%cart_atoms(1:3,atom1),structure_sc%lattice,delta_r_ims, &
+        call min_images_brute_force(structure_sc%atoms(1:3,atom(p,m)) &
+          &-structure_sc%atoms(1:3,atom1),structure_sc%lattice,delta_r_ims, &
           &no_equiv_ims(p,m,n))
         ! Turn this into the corresponding difference(s) of latt. vects.
         do im=1,no_equiv_ims(p,m,n)
@@ -1718,7 +1717,7 @@ subroutine evaluate_freqs_on_grid(no_prim_cells,    &
   ! Evaluate the frequencies at each supercell G vector.
   E=0.d0  ;  F=0.d0
   soft_modes=.FALSE.
-  R0=structure_sc%cart_atoms(:,atom(1,1))
+  R0=structure_sc%atoms(:,atom(1,1))
   do ig=1,no_prim_cells
     if(reference(ig)==0 .or. reference(ig)>ig)then
       call calculate_eigenfreqs_and_vecs(gvec(:,ig),structure, &
@@ -1735,12 +1734,12 @@ subroutine evaluate_freqs_on_grid(no_prim_cells,    &
     ! the usual expression in derivations that lead to a positive exponential
     do p=1,no_prim_cells
       if(reference(ig)==0)then
-        GdotR=-DOT_PRODUCT(gvec(:,ig),structure_sc%cart_atoms(1:3,atom(p,1))-R0)
+        GdotR=-DOT_PRODUCT(gvec(:,ig),structure_sc%atoms(1:3,atom(p,1))-R0)
       else
         if(reference(ig)>ig)then
-          GdotR=-DOT_PRODUCT(gvec(:,ig),structure_sc%cart_atoms(1:3,atom(p,1))-R0)
+          GdotR=-DOT_PRODUCT(gvec(:,ig),structure_sc%atoms(1:3,atom(p,1))-R0)
         else
-          GdotR=-DOT_PRODUCT(gvec(:,reference(ig)),structure_sc%cart_atoms(1:3,atom(p,1))-R0)
+          GdotR=-DOT_PRODUCT(gvec(:,reference(ig)),structure_sc%atoms(1:3,atom(p,1))-R0)
         endif
       endif
       expiGdotR(p)=CMPLX(COS(GdotR),SIN(GdotR),dp) ! Store exp(iG.R_p).
@@ -1958,7 +1957,7 @@ subroutine write_atoms_in_primitive_cell(structure,structure_sc, &
 
   do n=1,structure%no_atoms
     atom1=atom(1,n)
-    pos=structure_sc%cart_atoms(1:3,atom1)
+    pos=structure_sc%atoms(1:3,atom1)
     do i=1,3
       frac(i)=dot_product(pos(1:3),structure%recip_lattice(1:3,i))
     enddo
