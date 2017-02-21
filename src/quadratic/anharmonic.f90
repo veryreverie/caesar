@@ -6,7 +6,7 @@ module anharmonic_module
 contains
 
 subroutine anharmonic()
-  use constants, only : dp, eV
+  use constants, only : dp, eV, identity
   use utils,     only : i2s
   use file_module
   
@@ -15,6 +15,7 @@ subroutine anharmonic()
   use string_module
   use dft_output_file_module
   use displacement_patterns_module
+  use supercells_module
   
   use calculate_anharmonic_module
   use quadratic_spline_module
@@ -40,6 +41,7 @@ subroutine anharmonic()
   ! ----------------------------------------
   integer               :: no_supercells   ! no. of supercells
   type(MappingData)     :: mapping         ! mapping.dat
+  integer, allocatable  :: supercells(:,:,:)
   
   ! kpoint data
   integer               :: no_kpoints
@@ -111,7 +113,7 @@ subroutine anharmonic()
   allocate(static_energies(no_supercells))
   
   ! read structure data
-  structure = read_structure_file(harmonic_path//'/structure.dat')
+  structure = read_structure_file(harmonic_path//'/structure.dat',identity)
   
   ! read sampling data from mapping.dat
   mapping = read_mapping_file('mapping.dat')
@@ -133,11 +135,12 @@ subroutine anharmonic()
   close(list_file)
   
   ! Read supercell structures
+  supercells = read_supercells(str('supercells.dat'))
   allocate(structure_scs(no_supercells))
   do i=1,no_supercells
     sdir = str('Supercell_')//i
     filename = harmonic_path//'/'//sdir//'/structure.dat' 
-    structure_scs(i) = read_structure_file(filename)
+    structure_scs(i) = read_structure_file(filename,supercells(:,:,i))
   enddo
   
   ! read data from supercells

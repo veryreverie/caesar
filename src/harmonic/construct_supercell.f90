@@ -21,13 +21,13 @@ function construct_supercell(structure,supercell) result(structure_sc)
   real(dp), parameter :: tol=1.d-2
   
   ! Working variables
-  INTEGER :: i,atom_counter,delta
-  INTEGER :: dira,dirb,dirc
-  REAL(dp) :: pos(3)
+  integer :: i,atom_counter,delta
+  integer :: dira,dirb,dirc
+  real(dp) :: pos(3)
   
-  ! Input variables
-  INTEGER :: sc_size
+  integer :: sc_size
   real(dp) :: frac_pos(3)
+  real(dp) :: sc_frac_pos(3)
   
   integer :: no_atoms_sc
   
@@ -48,13 +48,16 @@ function construct_supercell(structure,supercell) result(structure_sc)
   atom_counter=0
   delta=sc_size*3
   do i=1,structure%no_atoms
+    sc_frac_pos = matmul(structure_sc%recip_lattice,structure%atoms(:,i)) &
+              & * sc_size
     do dira=-delta,delta
       do dirb=-delta,delta
         do dirc=-delta,delta
           pos(:) = structure%atoms(:,i) &
                & + matmul(transpose(structure%lattice),(/dira,dirb,dirc/))
-          frac_pos = matmul(structure_sc%recip_lattice,pos)
-          if (all(-tol<frac_pos .and. frac_pos<1.d0-tol)) then
+          frac_pos = matmul(structure_sc%recip_supercell,(/dira,dirb,dirc/)) &
+                 & + sc_frac_pos
+          if (all(-tol*sc_size<frac_pos .and. frac_pos<(1.d0-tol)*sc_size)) then
             atom_counter=atom_counter+1
             structure_sc%atoms(:,atom_counter)=pos(:)
             structure_sc%mass(atom_counter)=structure%mass(i)

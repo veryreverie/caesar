@@ -493,7 +493,6 @@ subroutine fourier_interpolation(structure,grid,temperature,kpoints,sc_ids, &
   INTEGER :: i_symm
   INTEGER :: m1,m2,m3
   
-  REAL(dp) :: identity(3,3)
   REAL(dp) :: k_dot_r
   REAL(dp) :: kpoint(3)
   REAL(dp) :: prefactor
@@ -522,10 +521,6 @@ subroutine fourier_interpolation(structure,grid,temperature,kpoints,sc_ids, &
   allocate(temp_dyn_mat(structure%no_atoms,3,structure%no_atoms,3))
   allocate(dyn_mats_symm(structure%no_atoms,3,structure%no_atoms,3,no_grid_points))
   allocate(force_consts(structure%no_atoms,3,structure%no_atoms,3,no_grid_points))
-  
-  identity(1,:) = (/ 1.0_dp, 0.0_dp, 0.0_dp /)
-  identity(2,:) = (/ 0.0_dp, 1.0_dp, 0.0_dp /)
-  identity(3,:) = (/ 0.0_dp, 0.0_dp, 1.0_dp /)
   
   do i_atom=1,structure%no_atoms
     identity_map(i_atom)=i_atom
@@ -637,10 +632,10 @@ subroutine fourier_interpolation(structure,grid,temperature,kpoints,sc_ids, &
   do i_grid=1,no_grid_points
     kpoint=grid_points_cart(1:3,i_grid)
     do i_cell=1,no_grid_points
-      call g_matrix_phases(kpoint,identity,cell_pos_cart(:,i_cell),structure%no_atoms,&
+      call g_matrix_phases(kpoint,dble(identity),cell_pos_cart(:,i_cell),structure%no_atoms,&
         &atom_pos_cart,phase)
       call apply_symmetry_to_dyn_mat(structure%no_atoms,identity_map,phase,&
-        &dyn_mats_grid(:,:,:,:,i_grid),identity,temp_dyn_mat)
+        &dyn_mats_grid(:,:,:,:,i_grid),dble(identity),temp_dyn_mat)
       dyn_mats_symm(:,:,:,:,i_grid)=temp_dyn_mat+dyn_mats_symm(:,:,:,:,i_grid)
     enddo ! i_cell
     dyn_mats_symm(:,:,:,:,i_grid)=1.d0/dble(no_grid_points)*&

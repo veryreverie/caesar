@@ -4,13 +4,14 @@ contains
 
 ! Program to construct and execute LTE
 subroutine lte_harmonic()
-  use constants, only : dp, eV_per_A_to_au
+  use constants, only : dp, eV_per_A_to_au, identity
   use file_module
   use string_module
   use structure_module
   use dft_output_file_module
   use lte_module
   use fourier_interpolation_module
+  use supercells_module
   implicit none
   
   ! User-input temperature
@@ -31,6 +32,7 @@ subroutine lte_harmonic()
   integer,  allocatable :: atoms(:)
   integer,  allocatable :: displacements(:)
   real(dp), allocatable :: forces(:,:,:)
+  real(dp), allocatable :: force_const(:,:,:,:)
   type(DftOutputFile)   :: positive
   type(DftOutputFile)   :: negative
   
@@ -51,12 +53,13 @@ subroutine lte_harmonic()
   real(dp), allocatable :: disp_kpoints(:,:)
   
   ! Temporary variables
-  integer        :: i,j
+  integer        :: i,j,k,l
   type(String)   :: sdir
   type(String)   :: ddir
   
   ! File contents
   type(String), allocatable :: user_inputs(:)
+  integer,      allocatable :: supercells(:,:,:)
   
   ! File units
   integer :: no_sc_file
@@ -65,6 +68,7 @@ subroutine lte_harmonic()
   integer :: list_file
   integer :: grid_file
   integer :: force_constants_file
+  integer :: forces_test_file
   
   ! ----------------------------------------------------------------------
   ! Get temperature from user
@@ -83,7 +87,7 @@ subroutine lte_harmonic()
   read(no_sc_file,*) no_sc
   close(no_sc_file)
   
-  structure = read_structure_file('structure.dat')
+  structure = read_structure_file('structure.dat',identity)
   
   ! Read grid file
   grid_file = open_read_file('grid.dat')
@@ -100,11 +104,15 @@ subroutine lte_harmonic()
     read(ibz_file,*) kpoints(:,i), multiplicity(i), sc_ids(i)
   enddo
   
+  ! Read in supercells
+  supercells = read_supercells(str('supercells.dat'))
+  
   ! Read in supercell structures
   allocate(structure_scs(no_sc))
   do i=1,no_sc
     sdir = str('Supercell_')//i
-    structure_scs(i) = read_structure_file(sdir//'/structure.dat')
+    structure_scs(i) = read_structure_file( sdir//'/structure.dat', &
+                                          & supercells(:,:,i))
   enddo
   
   ! ----------------------------------------------------------------------
@@ -112,6 +120,7 @@ subroutine lte_harmonic()
   ! ----------------------------------------------------------------------
   call system('mkdir lte')
   do i=1,no_sc
+    sdir = str('Supercell_')//i
     call system('mkdir '//sdir//'/lte')
   enddo
   
@@ -133,14 +142,25 @@ subroutine lte_harmonic()
     
     ! Read forces from DFT output files
     allocate(forces(3,structure_scs(i)%no_atoms,no_force_constants))
+    allocate(force_const( structure_scs(i)%no_atoms,3, &
+                        & structure_scs(i)%no_atoms,3))
+    forces_test_file = open_write_file(sdir//'/forces_test.dat')
     do j=1,no_force_constants
-      ddir = sdir//'/atom.'//atoms(j)//'/disp.'//displacements(j)
+      ddir = sdir//'/atom.'//atoms(j)//'.disp.'//displacements(j)
       
       positive = read_dft_output_file(dft_code,ddir//'/positive',seedname)
       negative = read_dft_output_file(dft_code,ddir//'/negative',seedname)
       
-      forces(:,:,j) = (positive%forces-negative%forces)/(0.02d0*eV_per_A_to_au)
+      forces(:,:,j) = (positive%forces-negative%forces)*eV_per_A_to_au/0.02_dp
+      
+      do k=1,size(forces,2)
+        do l=1,3
+          write(forces_test_file,*) char(str(atoms(j))//' '//displacements(j) &
+             & //' '//k//' '//l//' '//forces(l,k,j))
+        enddo
+      enddo
     enddo
+    close(forces_test_file)
     
     call lte_4( 1e-5_dp,                           &
               & 1e-5_dp,                           &
@@ -158,8 +178,7 @@ subroutine lte_harmonic()
               & sdir//'/lte/pol_vec.dat',          &
               & sdir//'/lte/gvectors.dat',         &
               & sdir//'/lte/error.txt',            &
-              & sdir//'/lte/dyn_mat.',             &
-              & sdir//'/lte/atoms_in_primitive_cell.dat')
+              & sdir//'/lte/dyn_mat.')
     
     if (file_exists(sdir//'/lte/error.txt')) then
       write(*,"(a)") "There is an error in lte: check error.txt file."

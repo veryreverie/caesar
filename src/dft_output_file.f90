@@ -50,20 +50,33 @@ function read_castep_output_file(filename) result(output)
   castep_file = read_lines(filename)
   
   ! Work out line numbers
+  energy_line = 0
   forces_start_line = 0
+  forces_end_line = 0
   do i=1,size(castep_file)
     line = split(lower_case(castep_file(i)))
     ! energy
-    if (line(1)=="final" .and. line(2)=="energy") then
+    if (size(line)>=2 .and. line(1)=="final" .and. line(2)=="energy,") then
       energy_line = i
     ! forces
-    elseif (line(1)=="***********************" .and. line(2)=="Forces") then
+    elseif (size(line)>=2 .and. line(1)=="***********************" .and. &
+       & line(2)=="forces") then
       forces_start_line = i
-    elseif (forces_start_line/=0 .and. &
+    elseif (size(line)>=1 .and. forces_start_line/=0 .and. &
        &line(1)=="******************************************************") then
       forces_end_line = i
     endif
   enddo
+  
+  if (energy_line==0) then
+    write(*,"(a)") "Error: Energy not found in "//char(filename)
+  endif
+  if (forces_start_line==0) then
+    write(*,"(a)") "Error: Start of forces not found in "//char(filename)
+  endif
+  if (forces_end_line==0) then
+    write(*,"(a)") "Error: End of forces not found in "//char(filename)
+  endif
   
   ! Allocate output
   call new(output,forces_end_line-forces_start_line-7)
@@ -177,6 +190,7 @@ subroutine new_DftOutputFile(this, no_atoms)
   type(DftOutputFile), intent(out) :: this
   integer,             intent(in)  :: no_atoms
   
+  this%no_atoms = no_atoms
   allocate(this%species(no_atoms))
   allocate(this%forces(3,no_atoms))
 end subroutine

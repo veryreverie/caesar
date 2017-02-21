@@ -7,9 +7,11 @@ contains
 ! Also converts the generic calculateion to castep vasp or qe
 ! ======================================================================
 subroutine setup_harmonic(caesar_dir)
+  use constants, only : identity
   use string_module
   use file_module
   use structure_module
+  use supercells_module
   
   use structure_to_dft_module
   use generate_supercells_module
@@ -53,7 +55,6 @@ subroutine setup_harmonic(caesar_dir)
   ! File units
   integer :: user_input_file
   integer :: grid_file
-  integer :: supercells_file
   integer :: no_supercells_file
   integer :: force_constants_file
   
@@ -117,14 +118,14 @@ subroutine setup_harmonic(caesar_dir)
   ! ----------------------------------------------------------------------
   
   ! Read in input file
-  structure = read_structure_file('structure.dat')
+  structure = read_structure_file('structure.dat',identity)
   
   ! Add symmetries to structure.dat
   if (structure%no_symmetries == 0) then
     call system(caesar_dir//'/caesar calculate_symmetry structure.dat')
     
     ! Read in input file with symmetries
-    structure = read_structure_file('structure.dat')
+    structure = read_structure_file('structure.dat',identity)
   endif
   
   ! Read grid file
@@ -136,17 +137,10 @@ subroutine setup_harmonic(caesar_dir)
   call generate_supercells(structure,grid,str('ibz.dat'),str('supercells.dat'))
   
   ! Read in supercell data
-  no_supercells = count_lines('supercells.dat')/4
-  allocate(supercells(3,3,no_supercells))
-  supercells_file = open_read_file('supercells.dat')
-  do i=1,no_supercells
-    read(supercells_file,*)
-    do j=1,3
-      read(supercells_file,*) supercells(j,:,i)
-    enddo
-  enddo
-  close(supercells_file)
+  supercells = read_supercells(str('supercells.dat'))
+  no_supercells = size(supercells)
   
+  ! Write no_supercells to file
   no_supercells_file = open_write_file('no_sc.dat')
   write(no_supercells_file,*) no_supercells
   close(no_supercells_file)
@@ -166,7 +160,8 @@ subroutine setup_harmonic(caesar_dir)
     call write_structure_file(structure_sc, sdir//'/structure.dat')
     call system(caesar_dir//'/caesar calculate_symmetry '// &
        & sdir//'/structure.dat')
-    structure_sc = read_structure_file(sdir//'/structure.dat')
+    structure_sc = read_structure_file( sdir//'/structure.dat', &
+                                      & supercells(:,:,i))
     
     ! Calculate which forces need calculating
     force_constants = calculate_force_constants( structure,         &

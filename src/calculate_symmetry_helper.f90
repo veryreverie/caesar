@@ -20,7 +20,8 @@ subroutine calculate_symmetry_helper(symmetry_filename,structure_filename)
   ! file contents
   type(StructureData) :: structure
   
-  ! Read structure data without symmetries
+  ! Read structure data without symmetries.
+  ! n.b. supercell is not used here, so a dummy is provided.
   structure = read_structure_file(structure_filename)
   
   ! Read symmetry data

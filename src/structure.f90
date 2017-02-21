@@ -23,6 +23,11 @@ module structure_module
     real(dp),     allocatable :: rotation_matrices(:,:,:)
     real(dp),     allocatable :: offsets(:,:)
     real(dp),     allocatable :: offsets_cart(:,:)
+    ! Superell data
+    ! n.b. matmul(supercell,transpose(recip_supercell))=determinant(supercell)
+    ! This it to keep both matrices as integers
+    integer                   :: supercell(3,3)
+    integer                   :: recip_supercell(3,3)
   end type
   
   interface new
@@ -89,14 +94,16 @@ subroutine drop_StructureData(this)
 end subroutine
 
 ! reads structure.dat
-function read_structure_file_character(filename) result(this)
+function read_structure_file_character(filename,supercell) result(this)
+  use constants, only : identity
   use file_module
-  use linear_algebra, only : invert
+  use linear_algebra, only : invert, invert_int
   use string_module
   implicit none
   
-  character(*), intent(in) :: filename
-  type(StructureData)      :: this
+  character(*), intent(in)           :: filename
+  integer,      intent(in), optional :: supercell(3,3)
+  type(StructureData)                :: this
   
   type(String), allocatable :: structure_file(:)
   type(String), allocatable :: line(:)
@@ -155,6 +162,17 @@ function read_structure_file_character(filename) result(this)
   
   call new(this,no_atoms,no_symmetries)
   
+  ! Store supercell data
+  ! TODO: change input file format to include supercell data
+  if (present(supercell)) then
+    this%supercell = supercell
+    this%recip_supercell = invert_int(transpose(supercell))
+  else
+    this%supercell = identity
+    this%recip_supercell = identity
+  endif
+  
+  
   ! read file into arrays
   do i=1,3
     this%lattice(i,:) = dble(split(structure_file(lattice_line+i)))
@@ -184,13 +202,18 @@ function read_structure_file_character(filename) result(this)
   endif
 end function
 
-function read_structure_file_string(filename) result(this)
+function read_structure_file_string(filename,supercell) result(this)
   implicit none
   
-  type(String), intent(in) :: filename
-  type(StructureData)      :: this
+  type(String), intent(in)           :: filename
+  integer,      intent(in), optional :: supercell(3,3)
+  type(StructureData)                :: this
   
-  this = read_structure_file(char(filename))
+  if (present(supercell)) then
+    this = read_structure_file(char(filename),supercell)
+  else
+    this = read_structure_file(char(filename))
+  endif
 end function
 
 subroutine write_structure_file_character(this,filename)

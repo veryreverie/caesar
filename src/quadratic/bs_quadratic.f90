@@ -6,13 +6,14 @@ contains
 ! Program to calculate quadratic band gap correction
 ! ----------------------------------------------------------------------
 subroutine bs_quadratic()
-  use constants, only : dp,kB
+  use constants, only : dp, kB, identity
   use mapping_module
   use string_module
   use structure_module
   use file_module
   use bands_module
   use displacement_patterns_module
+  use supercells_module
   implicit none
   
   ! Parameters
@@ -29,12 +30,13 @@ subroutine bs_quadratic()
   type(String) :: harmonic_path ! The path to the harmonic directory
   
   ! Starting data
-  integer             :: no_sc
-  integer             :: no_kpoints
-  type(MappingData)   :: mapping
-  type(StructureData) :: structure
-  type(StructureData) :: structure_sc
-  type(DispPatterns)  :: disp_patterns
+  integer              :: no_sc
+  integer              :: no_kpoints
+  type(MappingData)    :: mapping
+  type(StructureData)  :: structure
+  type(StructureData)  :: structure_sc
+  type(DispPatterns)   :: disp_patterns
+  integer, allocatable :: supercells(:,:,:)
   
   ! Band data
   type(BandsData)       :: bands
@@ -103,7 +105,7 @@ subroutine bs_quadratic()
   
   mapping = read_mapping_file('mapping.dat')
   
-  structure = read_structure_file(harmonic_path//'/structure.dat')
+  structure = read_structure_file(harmonic_path//'/structure.dat',identity)
   
   filename = harmonic_path//'/list.dat'
   no_kpoints = count_lines(filename)
@@ -124,9 +126,11 @@ subroutine bs_quadratic()
   band_energy = bands%bands(1,1)
   
   allocate(band_refs(no_sc))
+  supercells = read_supercells(str('supercells.dat'))
   do i=1,no_sc
+    sdir = str('Supercell_')//i
     ! Obtain relevant band for each supercell
-    filename = str('Supercell_')//i//'/static/kpoint.'//kpoint//'.dat'
+    filename = sdir//'/static/kpoint.'//kpoint//'.dat'
     bands = read_castep_bands_file(filename)
     band_refs(i) = minloc(abs(bands%bands(:,1)-band_energy),dim=1)
   enddo

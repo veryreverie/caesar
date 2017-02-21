@@ -305,6 +305,7 @@ subroutine structure_to_dft_filename(dft_code,structure_sc_filename,  &
    & kpoints_filename,structure_filename,output_filename)
   use string_module
   use structure_module
+  use supercells_module
   implicit none
   
   type(String), intent(in)           :: dft_code

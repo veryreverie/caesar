@@ -10,6 +10,11 @@ module constants
   integer, parameter :: dp = selected_real_kind(15,300)
   
   ! ----------------------------------------
+  ! Identity matrix
+  ! ----------------------------------------
+  integer, parameter :: identity(3,3) = reshape((/1,0,0,0,1,0,0,0,1/),(/3,3/))
+  
+  ! ----------------------------------------
   ! mathematical constants
   ! ----------------------------------------
   real(dp), parameter :: pi = 3.14159265358979324_dp
