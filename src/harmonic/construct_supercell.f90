@@ -6,7 +6,7 @@ contains
 
 function construct_supercell(structure,supercell) result(structure_sc)
   use constants,        only : dp
-  use linear_algebra,   only : determinant, invert
+  use linear_algebra,   only : determinant, invert, invert_int
   use file_module
   use structure_module
   use string_module
@@ -33,6 +33,10 @@ function construct_supercell(structure,supercell) result(structure_sc)
   
   real(dp) :: inv_supercell(3,3)
   
+  ! Testing variables
+  real(dp) :: temp(3,3)
+  integer  :: j
+  
   sc_size = abs(determinant(supercell))
   no_atoms_sc = structure%no_atoms*sc_size
 
@@ -42,6 +46,8 @@ function construct_supercell(structure,supercell) result(structure_sc)
   structure_sc%lattice = matmul(supercell,structure%lattice)
   structure_sc%recip_lattice = invert(transpose(structure_sc%lattice))
   
+  structure_sc%supercell = supercell
+  structure_sc%recip_supercell = invert_int(transpose(supercell))
   inv_supercell = invert(dble(supercell))
   
   ! Generate supercell atoms
@@ -55,8 +61,19 @@ function construct_supercell(structure,supercell) result(structure_sc)
         do dirc=-delta,delta
           pos(:) = structure%atoms(:,i) &
                & + matmul(transpose(structure%lattice),(/dira,dirb,dirc/))
+          write(*,*)
+          frac_pos = matmul(structure_sc%recip_lattice,pos)
+          write(*,*) frac_pos
           frac_pos = matmul(structure_sc%recip_supercell,(/dira,dirb,dirc/)) &
                  & + sc_frac_pos
+          write(*,*) frac_pos
+          temp = matmul(structure_sc%recip_lattice,structure%lattice)
+          do j=1,3
+            write(*,*) temp(j,:)
+          enddo
+          do j=1,3
+            write(*,*) structure_sc%recip_supercell(j,:)
+          enddo
           if (all(-tol*sc_size<frac_pos .and. frac_pos<(1.d0-tol)*sc_size)) then
             atom_counter=atom_counter+1
             structure_sc%atoms(:,atom_counter)=pos(:)

@@ -18,7 +18,7 @@ function read_supercells(filename) result(this)
   
   do i=1,size(file_contents)/4
     do j=1,3
-      this(j,:,i) = int(split(file_contents(4*(i-1)+j)))
+      this(j,:,i) = int(split(file_contents(4*(i-1)+j+1)))
     enddo
   enddo
 end function

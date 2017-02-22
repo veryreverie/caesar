@@ -32,7 +32,7 @@ subroutine lte_harmonic()
   integer,  allocatable :: atoms(:)
   integer,  allocatable :: displacements(:)
   real(dp), allocatable :: forces(:,:,:)
-  real(dp), allocatable :: force_const(:,:,:,:)
+  real(dp), allocatable :: force_constants(:,:,:,:)
   type(DftOutputFile)   :: positive
   type(DftOutputFile)   :: negative
   
@@ -142,8 +142,8 @@ subroutine lte_harmonic()
     
     ! Read forces from DFT output files
     allocate(forces(3,structure_scs(i)%no_atoms,no_force_constants))
-    allocate(force_const( structure_scs(i)%no_atoms,3, &
-                        & structure_scs(i)%no_atoms,3))
+    allocate(force_constants( structure_scs(i)%no_atoms,3, &
+                            & structure_scs(i)%no_atoms,3))
     forces_test_file = open_write_file(sdir//'/forces_test.dat')
     do j=1,no_force_constants
       ddir = sdir//'/atom.'//atoms(j)//'.disp.'//displacements(j)
@@ -188,6 +188,7 @@ subroutine lte_harmonic()
     deallocate(atoms)
     deallocate(displacements)
     deallocate(forces)
+    deallocate(force_constants)
   enddo
   
   ! Locate the corresponding gvector for each kpoint
