@@ -3,14 +3,14 @@ module setup_quadratic_module
 contains
 
 subroutine setup_quadratic()
-  use constants, only : dp, thermal, identity
+  use constants, only : dp, thermal
   use string_module
   use file_module
   use mapping_module
   use structure_module
   use displacement_patterns_module
   use structure_to_dft_module
-  use supercells_module
+  use supercell_module
   implicit none
   
   ! Parameters
@@ -27,13 +27,13 @@ subroutine setup_quadratic()
   
   ! File contents
   type(MappingData)    :: mapping
-  integer, allocatable :: supercells(:,:,:)
   
   ! Harmonic file contents
   type(StructureData) :: structure
   integer             :: no_sc
   
   ! Harmonic supercell file contents
+  type(SupercellData), allocatable :: supercells(:)
   type(StructureData), allocatable :: structure_scs(:)
   type(DispPatterns),  allocatable :: disp_patterns(:)
   
@@ -114,7 +114,8 @@ subroutine setup_quadratic()
   ! Read in data from harmonic calculation
   ! ------------------------------------------------------------
   ! Read in structure file
-  structure = read_structure_file(harmonic_path//'/structure.dat',identity)
+  structure = read_structure_file( harmonic_path//'/structure.dat', &
+                                 & identity_supercell())
   
   ! Read in number of supercells
   no_sc_file = open_read_file(harmonic_path//'/no_sc.dat')
@@ -134,13 +135,13 @@ subroutine setup_quadratic()
   ! ------------------------------------------------------------
   ! Read in supercell structure and disp_patterns files
   ! ------------------------------------------------------------
-  supercells = read_supercells(str('supercells.dat'))
+  supercells = read_supercells_file(str('supercells.dat'))
   
   allocate(structure_scs(no_sc))
   allocate(disp_patterns(i))
   do i=1,no_sc
     filename = harmonic_path//'/Structure_'//i//'/structure.dat'
-    structure_scs(i) = read_structure_file(filename,supercells(:,:,i))
+    structure_scs(i) = read_structure_file(filename,supercells(i))
     
     filename = harmonic_path//'/Structure_'//i//'/lte/disp_patterns.dat'
     disp_patterns(i) = read_disp_patterns_file(filename, structure%no_modes)

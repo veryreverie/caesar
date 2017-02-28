@@ -8,7 +8,7 @@ module calculate_force_constants_module
   implicit none
 contains
 
-function calculate_force_constants(structure,supercell_int,structure_sc) &
+function calculate_force_constants(structure,structure_sc) &
    & result(force_constants)
   use constants,      only : dp
   use linear_algebra, only : invert
@@ -18,7 +18,6 @@ function calculate_force_constants(structure,supercell_int,structure_sc) &
   
   ! Inputs
   type(StructureData), intent(in) :: structure
-  integer,             intent(in) :: supercell_int(3,3)
   type(StructureData), intent(in) :: structure_sc
   integer, allocatable            :: force_constants(:,:)
   
@@ -35,7 +34,6 @@ function calculate_force_constants(structure,supercell_int,structure_sc) &
   integer, allocatable :: related(:)
   integer              :: y_related
   integer              :: z_related
-  real(dp)             :: supercell(3,3)
   integer              :: no_constants
   
   real(dp), allocatable :: frac_atoms(:,:)
@@ -43,12 +41,10 @@ function calculate_force_constants(structure,supercell_int,structure_sc) &
   ! Temporary variables
   integer :: i,j,k
   
-  supercell = supercell_int
-  supercell = invert(transpose(supercell))
-  
   ! Transform offsets to primitive cell coordinates
   allocate(offset(3,structure_sc%no_symmetries))
-  offset = matmul(supercell,structure_sc%offsets)  
+  offset = matmul(structure_sc%supercell%recip_supercell,structure_sc%offsets) &
+         & / structure_sc%supercell%sc_size
   
   allocate(frac_atoms(3,structure_sc%no_atoms))
   frac_atoms = matmul(structure%recip_lattice,structure_sc%atoms)
@@ -86,12 +82,6 @@ function calculate_force_constants(structure,supercell_int,structure_sc) &
         endif 
       enddo
     enddo do_j
-  enddo
-  
-  write(*,*)
-  write(*,*) "Related:"
-  do i=1,structure_sc%no_atoms
-    write(*,*) related(i)
   enddo
   
   no_constants = (3-y_related-z_related)*(size(related)-sum(related))

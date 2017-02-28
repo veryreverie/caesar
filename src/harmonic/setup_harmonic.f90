@@ -7,11 +7,10 @@ contains
 ! Also converts the generic calculateion to castep vasp or qe
 ! ======================================================================
 subroutine setup_harmonic(caesar_dir)
-  use constants, only : identity
   use string_module
   use file_module
   use structure_module
-  use supercells_module
+  use supercell_module
   
   use structure_to_dft_module
   use generate_supercells_module
@@ -31,9 +30,9 @@ subroutine setup_harmonic(caesar_dir)
   integer             :: grid(3)
   
   ! Supercell data
-  integer              :: no_supercells
-  integer, allocatable :: supercells(:,:,:)
-  type(StructureData)  :: structure_sc
+  integer                          :: no_supercells
+  type(SupercellData), allocatable :: supercells(:)
+  type(StructureData)              :: structure_sc
   
   ! Directories
   type(String) :: sdir
@@ -106,6 +105,16 @@ subroutine setup_harmonic(caesar_dir)
   endif
   
   ! ----------------------------------------------------------------------
+  ! Read in input files.
+  ! ----------------------------------------------------------------------
+  structure = read_structure_file('structure.dat',identity_supercell())
+  
+  ! Read grid file
+  grid_file = open_read_file('grid.dat')
+  read(grid_file,*) grid
+  close(grid_file)
+  
+  ! ----------------------------------------------------------------------
   ! Write user settings to file
   ! ----------------------------------------------------------------------
   user_input_file = open_write_file('user_input.txt')
@@ -114,30 +123,23 @@ subroutine setup_harmonic(caesar_dir)
   close(user_input_file)
   
   ! ----------------------------------------------------------------------
-  ! Generate supercells
+  ! Add symmetries to structure.dat if not already present.
   ! ----------------------------------------------------------------------
-  
-  ! Read in input file
-  structure = read_structure_file('structure.dat',identity)
-  
-  ! Add symmetries to structure.dat
   if (structure%no_symmetries == 0) then
     call system(caesar_dir//'/caesar calculate_symmetry structure.dat')
     
-    ! Read in input file with symmetries
-    structure = read_structure_file('structure.dat',identity)
+    ! Re-read in structure file, now with symmetries.
+    structure = read_structure_file('structure.dat',identity_supercell())
   endif
   
-  ! Read grid file
-  grid_file = open_read_file('grid.dat')
-  read(grid_file,*) grid
-  close(grid_file)
-  
+  ! ----------------------------------------------------------------------
+  ! Generate supercells.
+  ! ----------------------------------------------------------------------
   ! Generate IBZ and non-diagonal supercells
   call generate_supercells(structure,grid,str('ibz.dat'),str('supercells.dat'))
   
   ! Read in supercell data
-  supercells = read_supercells(str('supercells.dat'))
+  supercells = read_supercells_file(str('supercells.dat'))
   no_supercells = size(supercells)
   
   ! Write no_supercells to file
@@ -146,27 +148,28 @@ subroutine setup_harmonic(caesar_dir)
   close(no_supercells_file)
   
   ! ----------------------------------------------------------------------
-  ! Generate force constants
+  ! Generate supercell structures.
   ! ----------------------------------------------------------------------
   do i=1,no_supercells
     sdir=str('Supercell_')//i
     
     call system('mkdir '//sdir)
     
-    ! Make supercell structure.dat file
-    structure_sc = construct_supercell(structure, supercells(:,:,i))
+    ! Generate supercell structure.
+    structure_sc = construct_supercell(structure, supercells(i))
     
     ! Add symmetries to supercell structure.dat
     call write_structure_file(structure_sc, sdir//'/structure.dat')
     call system(caesar_dir//'/caesar calculate_symmetry '// &
        & sdir//'/structure.dat')
     structure_sc = read_structure_file( sdir//'/structure.dat', &
-                                      & supercells(:,:,i))
+                                      & supercells(i))
     
+    ! ----------------------------------------------------------------------
+    ! Generate force constants
+    ! ----------------------------------------------------------------------
     ! Calculate which forces need calculating
-    force_constants = calculate_force_constants( structure,         &
-                                               & supercells(:,:,i), &
-                                               & structure_sc)
+    force_constants = calculate_force_constants(structure,structure_sc)
     
     force_constants_file = open_write_file(sdir//'/force_constants.dat')
     do j=1,size(force_constants,2)
@@ -188,7 +191,6 @@ subroutine setup_harmonic(caesar_dir)
       ! ----------------------------------------------------------------------
       ! Write DFT code input files
       ! ----------------------------------------------------------------------
-      
       do k=1,2
         
         ! Move relevant atom

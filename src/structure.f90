@@ -3,7 +3,7 @@
 ! ======================================================================
 module structure_module
   use constants, only : dp
-  use string_module
+  use supercell_module
   implicit none
   
   ! the structure class
@@ -24,10 +24,7 @@ module structure_module
     real(dp),     allocatable :: offsets(:,:)
     real(dp),     allocatable :: offsets_cart(:,:)
     ! Superell data
-    ! n.b. matmul(supercell,transpose(recip_supercell))=determinant(supercell)
-    ! This it to keep both matrices as integers
-    integer                   :: supercell(3,3)
-    integer                   :: recip_supercell(3,3)
+    type(SupercellData)       :: supercell
   end type
   
   interface new
@@ -55,12 +52,13 @@ module structure_module
 
 contains
 
-subroutine new_StructureData(this,no_atoms,no_symmetries)
+subroutine new_StructureData(this,no_atoms,no_symmetries,sc_size)
   implicit none
   
-  type(StructureData) :: this
-  integer             :: no_atoms
-  integer             :: no_symmetries
+  type(StructureData), intent(out) :: this
+  integer,             intent(in)  :: no_atoms
+  integer,             intent(in)  :: no_symmetries
+  integer,             intent(in)  :: sc_size
   
   this%no_atoms = no_atoms
   this%no_modes = no_atoms*3
@@ -74,6 +72,8 @@ subroutine new_StructureData(this,no_atoms,no_symmetries)
     allocate(this%offsets(3,no_symmetries))
     allocate(this%offsets_cart(3,no_symmetries))
   endif
+  
+  call new(this%supercell,sc_size)
 end subroutine
 
 ! Deallocates a Structure
@@ -91,19 +91,20 @@ subroutine drop_StructureData(this)
     deallocate(this%offsets)
     deallocate(this%offsets_cart)
   endif
+  
+  call drop(this%supercell)
 end subroutine
 
 ! reads structure.dat
 function read_structure_file_character(filename,supercell) result(this)
-  use constants, only : identity
   use file_module
   use linear_algebra, only : invert, invert_int
   use string_module
   implicit none
   
-  character(*), intent(in)           :: filename
-  integer,      intent(in), optional :: supercell(3,3)
-  type(StructureData)                :: this
+  character(*),        intent(in) :: filename
+  type(SupercellData), intent(in) :: supercell
+  type(StructureData)             :: this
   
   type(String), allocatable :: structure_file(:)
   type(String), allocatable :: line(:)
@@ -160,18 +161,11 @@ function read_structure_file_character(filename,supercell) result(this)
     no_symmetries = (end_line-symmetry_line-1)/4
   endif
   
-  call new(this,no_atoms,no_symmetries)
+  call new(this,no_atoms,no_symmetries,supercell%sc_size)
   
   ! Store supercell data
   ! TODO: change input file format to include supercell data
-  if (present(supercell)) then
-    this%supercell = supercell
-    this%recip_supercell = invert_int(transpose(supercell))
-  else
-    this%supercell = identity
-    this%recip_supercell = identity
-  endif
-  
+  this%supercell = supercell
   
   ! read file into arrays
   do i=1,3
@@ -203,17 +197,14 @@ function read_structure_file_character(filename,supercell) result(this)
 end function
 
 function read_structure_file_string(filename,supercell) result(this)
+  use string_module
   implicit none
   
-  type(String), intent(in)           :: filename
-  integer,      intent(in), optional :: supercell(3,3)
-  type(StructureData)                :: this
+  type(String),        intent(in) :: filename
+  type(SupercellData), intent(in) :: supercell
+  type(StructureData)             :: this
   
-  if (present(supercell)) then
-    this = read_structure_file(char(filename),supercell)
-  else
-    this = read_structure_file(char(filename))
-  endif
+  this = read_structure_file(char(filename),supercell)
 end function
 
 subroutine write_structure_file_character(this,filename)
@@ -250,6 +241,7 @@ subroutine write_structure_file_character(this,filename)
 end subroutine
 
 subroutine write_structure_file_string(this,filename)
+  use string_module
   implicit none
   
   type(StructureData), intent(in) :: this
@@ -262,6 +254,7 @@ end subroutine
 ! Reads the symmetry operations from the output of cellsym
 ! ----------------------------------------------------------------------
 subroutine read_symmetry_file_character(this,filename)
+  use string_module
   use file_module
   implicit none
   
@@ -312,6 +305,7 @@ subroutine read_symmetry_file_character(this,filename)
 end subroutine
 
 subroutine read_symmetry_file_String(this,filename)
+  use string_module
   implicit none
   
   type(StructureData), intent(inout) :: this

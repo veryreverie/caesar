@@ -305,7 +305,7 @@ subroutine structure_to_dft_filename(dft_code,structure_sc_filename,  &
    & kpoints_filename,structure_filename,output_filename)
   use string_module
   use structure_module
-  use supercells_module
+  use supercell_module
   implicit none
   
   type(String), intent(in)           :: dft_code
@@ -320,10 +320,13 @@ subroutine structure_to_dft_filename(dft_code,structure_sc_filename,  &
   type(StructureData) :: structure_sc
   type(StructureData) :: structure
   
-  structure_sc = read_structure_file(structure_sc_filename)
+  ! n.b. supercell is not used here, so a dummy is provided.
+  structure_sc = read_structure_file( structure_sc_filename, &
+                                    & identity_supercell())
   
   if (present(structure_filename)) then
-    structure = read_structure_file(structure_filename)
+    ! n.b. supercell is not used here, so a dummy is provided.
+    structure = read_structure_file(structure_filename, identity_supercell())
     call structure_to_dft( dft_code=dft_code, &
                          & structure_sc=structure_sc, &
                          & input_filename=input_filename, &

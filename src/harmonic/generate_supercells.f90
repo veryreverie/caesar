@@ -215,23 +215,29 @@ subroutine minkowski_reduce(vecs)
       vecs(i,:) = 0
       changed = reduce_vec(vecs)
       vecs(i,:) = tempvec
-      if(changed)cycle iter
+      if (changed) then
+        cycle iter
+      endif
     enddo
     
     ! Then check linear combinations involving all three.
-    if(reduce_vec(vecs))cycle
+    if (reduce_vec(vecs)) then
+      cycle
+    endif
     
     exit
   enddo iter
 end subroutine minkowski_reduce
 
 subroutine generate_supercells(structure,grid,ibz_filename,supercells_filename)
-  use constants,        only : dp
-  use utils,            only : i2s, reduce_interval, reduce_to_ibz
-  use file_module,      only : open_read_file, open_write_file, count_lines
+  use constants,      only : dp
+  use utils,          only : reduce_interval, reduce_to_ibz
+  use file_module,    only : open_read_file, open_write_file, count_lines
+  use linear_algebra, only : invert_int
   
   use string_module
   use structure_module
+  use supercell_module
   implicit none
   
   ! inputs
@@ -240,15 +246,30 @@ subroutine generate_supercells(structure,grid,ibz_filename,supercells_filename)
   type(String),        intent(in) :: ibz_filename
   type(String),        intent(in) :: supercells_filename
   
+  ! K-point variables
+  integer, allocatable :: multiplicity(:)
+  integer, allocatable :: kpoints(:,:)
+  integer, allocatable :: sc_size(:)
+  integer, allocatable :: sc_ids(:)
+  integer, allocatable :: gvector_ids(:)
+  
+  ! Supercell variables
+  type(SupercellData), allocatable :: supercells(:)
+  integer               :: hnf(3,3) ! Supercell in lattice space in normal form
+  real(dp)              :: supercell_cart(3,3) ! The supercell in real space
+  
+  ! G-vector and K-point variables
+  integer :: gvector_id
+  integer :: delta_gvec(3)
+  integer :: gvector(3)
+  integer :: gvector_cart(3)
+  integer :: kpoint_cart(3)
+  
   ! Working variables
-  integer,  allocatable :: multiplicity(:)
-  integer,  allocatable :: int_kpoints(:,:)
   integer,  allocatable :: denominator(:,:)
-  integer,  allocatable :: super_size(:)
-  integer,  allocatable :: label(:)
   integer               :: ialloc
-  integer               :: no_gvectors
-  integer               :: sc_id
+  integer               :: grid_size
+  integer               :: sc_num
   integer               :: s11
   integer               :: s12
   integer               :: s13
@@ -256,17 +277,12 @@ subroutine generate_supercells(structure,grid,ibz_filename,supercells_filename)
   integer               :: s23
   integer               :: s33
   integer               :: quotient
-  integer               :: hnf(3,3)
-  real(dp), allocatable :: kpoints(:,:)
-  real(dp)              :: temp_latt_vecs(3,3)
-  logical,  allocatable :: found_kpoint(:)
   
   ! generate kgrid variables
   integer               :: i_symm
   integer               :: i_vec
   integer               :: j_vec
-  integer,  allocatable :: gvecs(:,:)
-  real(dp), allocatable :: gvecs_frac(:,:)
+  integer,  allocatable :: kpoints_grid(:,:)
   integer,  allocatable :: rot_operation(:)
   integer               :: counter
   
@@ -274,66 +290,85 @@ subroutine generate_supercells(structure,grid,ibz_filename,supercells_filename)
   integer  :: rvec(3)
   
   ! Temporary variables
-  integer :: i,j,k
+  integer :: i,j,k,l,m
   
   ! file units
   integer :: ibz_file
-  integer :: supercells_file
   
   ! Generate G-vectors 
-  no_gvectors = product(grid)
+  grid_size = product(grid)
   
   ! Allocate arrays
-  allocate( kpoints(3,no_gvectors),     &
-          & rot_operation(no_gvectors), &
-          & multiplicity(no_gvectors),  &
-          & int_kpoints(3,no_gvectors), &
-          & denominator(3,no_gvectors), &
-          & super_size(no_gvectors),    &
-          & found_kpoint(no_gvectors),  &
-          & label(no_gvectors),         &
+  allocate( rot_operation(grid_size), &
+          & multiplicity(grid_size),  &
+          & kpoints(3,grid_size),     &
+          & denominator(3,grid_size), &
+          & sc_size(grid_size),       &
+          & sc_ids(grid_size),        &
+          & gvector_ids(grid_size),   &
+          & supercells(grid_size),    & ! Length of worst case.
           & stat=ialloc)
   if(ialloc/=0)then
     write(*,*)'Problem allocating arrays.'
     stop
   endif
   
-  ! Generate gvecs and gvecs_frac list
-  allocate(gvecs(3,no_gvectors))
-  allocate(gvecs_frac(3,no_gvectors))
+  ! ----------------------------------------------------------------------
+  ! Generate all k-points in the grid.
+  ! ----------------------------------------------------------------------
+  allocate(kpoints_grid(3,grid_size))
   counter=0
-  ! Loop over integer gvectors, such that gvec/grid in [-0.5,0.5)
+  ! Loop over integer vectors, such that k-point/grid in [-0.5,0.5)
   ! n.b. integer floor division intentional
-  do i=-grid(1)/2,(grid(1)-1)/2
-    do j=-grid(2)/2,(grid(2)-1)/2
-      do k=-grid(3)/2,(grid(3)-1)/2
-        counter=counter+1
-        gvecs(:,counter) = (/i,j,k/)
-        gvecs_frac(:,counter) = dble(gvecs(:,counter)) / grid
+  
+  ! This is the method used in the old code. It is in place for testing.
+  do i=0,grid(1)-1
+    do j=0,grid(2)-1
+      do k=0,grid(3)-1
+      counter = counter + 1
+      kpoints_grid(:,counter) = (/i,j,k/)
       enddo
     enddo
   enddo
   
-  ! Rotate all G-vectors to the IBZ
-  kpoints=0.d0
-  multiplicity=0
-  do_i_vec : do i_vec=1,no_gvectors
+  do i=1,counter
+    do j=1,3
+      if (kpoints_grid(j,i) > (grid(j)-1)/2) then
+        kpoints_grid(j,i) = kpoints_grid(j,i) - grid(j)
+      endif
+    enddo
+  enddo
+  
+  ! This method gives the k-points in a more sensible order.
+  !do i=-grid(1)/2,(grid(1)-1)/2
+  !  do j=-grid(2)/2,(grid(2)-1)/2
+  !    do k=-grid(3)/2,(grid(3)-1)/2
+  !      counter=counter+1
+  !      kpoints_grid(:,counter) = (/i,j,k/)
+  !    enddo
+  !  enddo
+  !enddo
+  
+  ! ----------------------------------------------------------------------
+  ! Find equivalent k-points by rotating all k-points into the IBZ.
+  ! ----------------------------------------------------------------------
+  multiplicity=1
+  do_i_vec : do i_vec=1,grid_size
     
-    ! Check if an equivalent kpoint has already been found
+    ! Check if an equivalent k-point has already been found.
     do j_vec=1,i_vec-1
       do i_symm=1,structure%no_symmetries
-        ! Work out rotation in "lattice space"
+        ! Work out rotation in fractional lattice coordinates.
         rotation = matmul(matmul( structure%lattice, &
                                 & structure%rotation_matrices(:,:,i_symm)), &
                                 & transpose(structure%recip_lattice))
         
-        ! Rotate the G-vector, and map it back to the IBZ
-        rvec = reduce_to_ibz(nint(matmul(rotation,gvecs(:,i_vec))),grid)
+        ! Rotate the k-point, and map it back to the IBZ.
+        rvec = reduce_to_ibz(nint(matmul(rotation,kpoints_grid(:,i_vec))),grid)
         
-        ! If the rotated gvec = gvec(j)
-        if (all(rvec == gvecs(:,j_vec))) then
-          int_kpoints(:,i_vec) = gvecs(:,j_vec)
-          kpoints(:,i_vec) = gvecs_frac(:,j_vec)
+        ! If the rotated k-point = k-point(j)
+        if (all(rvec == kpoints_grid(:,j_vec))) then
+          kpoints(:,i_vec) = kpoints_grid(:,j_vec)
           rot_operation(i_vec)=i_symm
           multiplicity(j_vec)=multiplicity(j_vec)+1
           cycle do_i_vec
@@ -342,40 +377,34 @@ subroutine generate_supercells(structure,grid,ibz_filename,supercells_filename)
     enddo
     
     ! If kpoint not already found, assign it to the new gvec
-    int_kpoints(:,i_vec) = gvecs(:,i_vec)
-    kpoints(:,i_vec)=gvecs_frac(:,i_vec)
+    kpoints(:,i_vec) = kpoints_grid(:,i_vec)
     rot_operation(i_vec)=1
-    multiplicity(i_vec)=1
   enddo do_i_vec
   
-  ! Generate supercells
+  ! ----------------------------------------------------------------------
+  ! Find supercells which match each k-point.
+  ! ----------------------------------------------------------------------
   
+  ! Calculate minimum supercell size for each k-point.
   denominator = 1
-  ! Reduce fractions
-  do i=1,no_gvectors
+  do i=1,grid_size
     do j=1,3
-      if(int_kpoints(j,i)/=0)then
-        denominator(j,i)=grid(j)/gcd(abs(int_kpoints(j,i)),grid(j))
+      if(kpoints(j,i)/=0)then
+        denominator(j,i)=grid(j)/gcd(abs(kpoints(j,i)),grid(j))
       endif
     enddo
-    super_size(i)=lcm(denominator(1,i),denominator(2,i),denominator(3,i))
+    sc_size(i)=lcm(denominator(1,i),denominator(2,i),denominator(3,i))
   enddo
   
-  found_kpoint = .false.
-  label = 0
-  sc_id = 0
-  
-  ibz_file = open_write_file(ibz_filename)
-  supercells_file = open_write_file(supercells_filename)
-  
-  hnf = 0
-  
-  ! Loop over gvectors in ascending order of super_size
-  do_i : do while (any(.not.found_kpoint))
-    i = minloc(super_size,1,.not.found_kpoint)
-    do s11=1,super_size(i)
-      if(.not.mod(super_size(i),s11)==0)cycle
-      quotient=super_size(i)/s11
+  sc_ids = 0
+  sc_num = 0
+  ! Loop over k-points in ascending order of sc_size.
+  ! Find a supercell matching each k-point.
+  do_i : do while (any(sc_ids==0))
+    i = minloc(sc_size,1,sc_ids==0)
+    do s11=1,sc_size(i)
+      if(.not.mod(sc_size(i),s11)==0)cycle
+      quotient=sc_size(i)/s11
       do s22=1,quotient
         if(.not.mod(quotient,s22)==0)cycle
         s33=quotient/s22
@@ -385,39 +414,39 @@ subroutine generate_supercells(structure,grid,ibz_filename,supercells_filename)
               hnf(1,:) = (/ s11, s12, s13 /)
               hnf(2,:) = (/ 0  , s22, s23 /)
               hnf(3,:) = (/ 0  , 0  , s33 /)
-              if (all(modulo(matmul(hnf,int_kpoints(:,i)),grid)==0)) then
-                sc_id=sc_id+1
+              if (all(modulo(matmul(hnf,kpoints(:,i)),grid)==0)) then
+                ! --------------------------------------------------
+                ! Add the new supercell.
+                ! --------------------------------------------------
+                sc_num=sc_num+1
                 
-                found_kpoint(i)=.true.
-                label(i)=sc_id
+                ! Reduce the supercell to minimise its real-space volume.
+                supercell_cart = matmul(hnf,structure%lattice)
+                call minkowski_reduce(supercell_cart)
                 
-                write(ibz_file,*) int_kpoints(:,i), multiplicity(i), sc_id
+                ! Allocate space for the supercell,
+                !    and calculate the supercell matrix.
+                call new(supercells(sc_num),sc_size(i))
+                supercells(sc_num)%supercell = nint(matmul( supercell_cart, &
+                   & transpose(structure%recip_lattice)))
+                supercells(sc_num)%recip_supercell = invert_int(transpose( &
+                   & supercells(sc_num)%supercell))
                 
-                do j=i+1,no_gvectors
-                  if(found_kpoint(j))cycle
-                  if(super_size(j)/=super_size(i))cycle
-                  if (all(modulo(matmul(hnf,int_kpoints(:,j)),grid)==0)) then
-                    found_kpoint(j)=.true.
-                    label(j)=sc_id
-                    
-                    write(ibz_file,*) int_kpoints(:,j), multiplicity(j), sc_id
+                ! --------------------------------------------------
+                ! Assign matching k-points to the supercell.
+                ! --------------------------------------------------
+                sc_ids(i)=sc_num
+                
+                do j=i+1,grid_size
+                  if(sc_ids(j) /= 0)cycle
+                  if(sc_size(j)/=sc_size(i))cycle
+                  if (all(modulo(matmul(hnf,kpoints(:,j)),grid)==0)) then
+                    sc_ids(j)=sc_num
                   endif
                 enddo
                 
-                temp_latt_vecs = matmul(hnf,structure%lattice)
-                
-                call minkowski_reduce(temp_latt_vecs)
-                
-                hnf = nint(matmul( temp_latt_vecs, &
-                                 & transpose(structure%recip_lattice)))
-                
-                write(supercells_file,*) char(str('Supercell ')//sc_id)
-                do j=1,3
-                  write(supercells_file,*) hnf(j,:)
-                enddo
-                
+                cycle do_i
               endif
-              if (found_kpoint(i)) cycle do_i
             enddo ! s23
           enddo ! s13
         enddo ! s12
@@ -425,12 +454,112 @@ subroutine generate_supercells(structure,grid,ibz_filename,supercells_filename)
     enddo ! s11
   enddo do_i
   
-  close(ibz_file)
-  close(supercells_file)
-
-  if(any(.not.found_kpoint(1:no_gvectors)))then
+  ! Check that all kpoints have been assigned to supercells.
+  if(any(sc_ids==0))then
     write(*,*)'Unable to allocate each k-point to a supercell matrix.'
     stop
-  endif ! found_kpoint
+  endif
+  
+  ! ----------------------------------------------------------------------
+  ! Calculate the supercell G-vectors in the IBZ of the primitive cell.
+  ! ----------------------------------------------------------------------
+  ! N.B. recip_supercell transforms G-vectors into a representation where
+  !   the IBZ of the prim. cell is a cartesian cube with side length sc_size.
+  ! In this space, supercell BZs are parallelapipeds of volume sc_size*sc_size,
+  !    with integer recip. latt. vectors.
+  do i=1,sc_num
+    ! Loop over all possible G-vectors in the primitive cell.
+    gvector_id = 1
+    do_j : do j=0,supercells(i)%sc_size-1
+      do k=0,supercells(i)%sc_size-1
+        do_l : do l=0,supercells(i)%sc_size-1
+          gvector = (/l,k,j/)
+          
+          ! Check if gvector has already been found.
+          do m=1,gvector_id-1
+            delta_gvec = matmul( transpose(supercells(i)%recip_supercell), &
+                               & gvector - supercells(i)%gvectors(:,m))
+            if (all(modulo(delta_gvec,supercells(i)%sc_size)==0)) then
+              cycle do_l
+            endif
+          enddo
+          
+          supercells(i)%gvectors(:,gvector_id) = gvector
+          gvector_id = gvector_id + 1
+          
+          if (gvector_id > supercells(i)%sc_size) then
+            exit do_l
+          endif
+        enddo do_l
+      enddo
+    enddo do_j
+    
+    ! Map G-vectors to [-0.5,0.5).
+    do j=1,supercells(i)%sc_size
+      gvector_cart = matmul( transpose(supercells(i)%recip_supercell), &
+                           & supercells(i)%gvectors(:,j))
+      gvector_cart = modulo(gvector_cart,supercells(i)%sc_size)
+      do k=1,3
+        if (gvector_cart(k) > (supercells(i)%sc_size-1)/2) then
+          gvector_cart(k) = gvector_cart(k) - supercells(i)%sc_size
+        endif
+      enddo
+      supercells(i)%gvectors(:,j) = matmul( supercells(i)%supercell, &
+                                &           gvector_cart)            &
+                                & / supercells(i)%sc_size
+    enddo
+    
+    ! Check that the correct number of gvectors have been found.
+    if (gvector_id<=supercells(i)%sc_size) then
+      write(*,*) 'Error: Wrong number of G-vectors found.'
+      write(*,*) char(str('Supercell size: ')//supercells(i)%sc_size)
+      write(*,*) char(str('No. G-vectors found: ')//gvector_id-1)
+      stop
+    endif
+  enddo
+  
+  ! ----------------------------------------------------------------------
+  ! Match K-points and G-vectors.
+  ! ----------------------------------------------------------------------
+  ! To convert to real-space cartesian representation:
+  !   kpoint_cart = kpoint/grid
+  !   gvec_cart   = matmul(transpose(recip_supercell),gvec)/sc_size
+  ! These are paired when kpoint_cart = gvec_cart, down to unit translations.
+  ! To keep calculation in integer representation,
+  !   grid and sc_size are multiplied through.
+  gvector_ids = 0
+  do i=1,grid_size
+    ! Calculate k-point in scaled real space.
+    kpoint_cart = kpoints(:,i)*sc_size(i)
+    do j=1,sc_size(i)
+      ! Calculate g-vector in scaled real space.
+      gvector_cart = matmul( transpose(supercells(sc_ids(i))%recip_supercell),&
+                 &           supercells(sc_ids(i))%gvectors(:,j))             &
+                 & * grid
+      ! Check if the k-point and g-vector are equivalent down to translations.
+      if (all(modulo(kpoint_cart-gvector_cart,sc_size(i)*grid)==0)) then
+        gvector_ids(i) = j
+        exit
+      endif
+    enddo
+    
+    ! Check that the corresponding gvector has been found.
+    if (gvector_ids(i) == 0) then
+      write(*,*) "Error: could not locate G-vector."
+      stop
+    endif
+  enddo
+  
+  ! ----------------------------------------------------------------------
+  ! Write data to file
+  ! ----------------------------------------------------------------------
+  
+  ibz_file = open_write_file(ibz_filename)
+  do i=1,grid_size
+    write(ibz_file,*) kpoints(:,i), multiplicity(i), sc_ids(i), gvector_ids(i)
+  enddo
+  close(ibz_file)
+  
+  call write_supercells_file(supercells(1:sc_num),supercells_filename)
 end subroutine
 end module

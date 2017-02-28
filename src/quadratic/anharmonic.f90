@@ -6,8 +6,7 @@ module anharmonic_module
 contains
 
 subroutine anharmonic()
-  use constants, only : dp, eV, identity
-  use utils,     only : i2s
+  use constants, only : dp, eV
   use file_module
   
   use mapping_module
@@ -15,7 +14,7 @@ subroutine anharmonic()
   use string_module
   use dft_output_file_module
   use displacement_patterns_module
-  use supercells_module
+  use supercell_module
   
   use calculate_anharmonic_module
   use quadratic_spline_module
@@ -41,7 +40,11 @@ subroutine anharmonic()
   ! ----------------------------------------
   integer               :: no_supercells   ! no. of supercells
   type(MappingData)     :: mapping         ! mapping.dat
-  integer, allocatable  :: supercells(:,:,:)
+  
+  type(StructureData)              :: structure
+  type(SupercellData), allocatable :: supercells(:)
+  type(StructureData), allocatable :: structure_scs(:)
+  type(DispPatterns)    :: disp_patterns
   
   ! kpoint data
   integer               :: no_kpoints
@@ -67,10 +70,6 @@ subroutine anharmonic()
   
   real(dp), allocatable :: eigenvals(:,:,:)
   real(dp), allocatable :: harmonic(:,:,:)
-  
-  type(StructureData)   :: structure     ! the contents of structure.dat
-  type(StructureData), allocatable :: structure_scs(:)
-  type(DispPatterns)    :: disp_patterns
   
   type(String)          :: filename
   
@@ -113,7 +112,8 @@ subroutine anharmonic()
   allocate(static_energies(no_supercells))
   
   ! read structure data
-  structure = read_structure_file(harmonic_path//'/structure.dat',identity)
+  structure = read_structure_file( harmonic_path//'/structure.dat', &
+                                 & identity_supercell())
   
   ! read sampling data from mapping.dat
   mapping = read_mapping_file('mapping.dat')
@@ -135,12 +135,12 @@ subroutine anharmonic()
   close(list_file)
   
   ! Read supercell structures
-  supercells = read_supercells(str('supercells.dat'))
+  supercells = read_supercells_file(str('supercells.dat'))
   allocate(structure_scs(no_supercells))
   do i=1,no_supercells
     sdir = str('Supercell_')//i
     filename = harmonic_path//'/'//sdir//'/structure.dat' 
-    structure_scs(i) = read_structure_file(filename,supercells(:,:,i))
+    structure_scs(i) = read_structure_file(filename,supercells(i))
   enddo
   
   ! read data from supercells
@@ -240,7 +240,7 @@ subroutine anharmonic()
   call system('mkdir anharmonic')
   do i=1,no_supercells
     if (sc_acoustic(i)) then
-      call system('cp Supercell_'//trim(i2s(i))//'/acoustic.dat anharmonic')
+      call system(str('cp Supercell_')//i//'/acoustic.dat anharmonic')
     endif
   enddo
   

@@ -6,14 +6,14 @@ contains
 ! Program to calculate quadratic band gap correction
 ! ----------------------------------------------------------------------
 subroutine bs_quadratic()
-  use constants, only : dp, kB, identity
+  use constants, only : dp, kB
   use mapping_module
   use string_module
   use structure_module
   use file_module
   use bands_module
   use displacement_patterns_module
-  use supercells_module
+  use supercell_module
   implicit none
   
   ! Parameters
@@ -32,11 +32,11 @@ subroutine bs_quadratic()
   ! Starting data
   integer              :: no_sc
   integer              :: no_kpoints
-  type(MappingData)    :: mapping
-  type(StructureData)  :: structure
-  type(StructureData)  :: structure_sc
-  type(DispPatterns)   :: disp_patterns
-  integer, allocatable :: supercells(:,:,:)
+  type(MappingData)                 :: mapping
+  type(StructureData)               :: structure
+  type(SupercellData), allocatable  :: supercells(:)
+  type(StructureData), allocatable  :: structure_scs(:)
+  type(DispPatterns)                :: disp_patterns
   
   ! Band data
   type(BandsData)       :: bands
@@ -105,7 +105,8 @@ subroutine bs_quadratic()
   
   mapping = read_mapping_file('mapping.dat')
   
-  structure = read_structure_file(harmonic_path//'/structure.dat',identity)
+  structure = read_structure_file( harmonic_path//'/structure.dat', &
+                                 & identity_supercell())
   
   filename = harmonic_path//'/list.dat'
   no_kpoints = count_lines(filename)
@@ -126,7 +127,6 @@ subroutine bs_quadratic()
   band_energy = bands%bands(1,1)
   
   allocate(band_refs(no_sc))
-  supercells = read_supercells(str('supercells.dat'))
   do i=1,no_sc
     sdir = str('Supercell_')//i
     ! Obtain relevant band for each supercell
@@ -134,17 +134,23 @@ subroutine bs_quadratic()
     bands = read_castep_bands_file(filename)
     band_refs(i) = minloc(abs(bands%bands(:,1)-band_energy),dim=1)
   enddo
+  
+  ! Read in supercell data
+  supercells = read_supercells_file(str('supercells.dat'))
+  allocate(structure_scs(size(supercells)))
+  do i=1,size(structure_scs)
+    sdir = str('Supercell_')//i
+    structure_scs(i) = read_structure_file(sdir//'/structure.dat',supercells(i))
+  enddo
     
   ! Loop over kpoints
   allocate(frequencies(structure%no_modes,no_kpoints))
   allocate(bs(structure%no_modes,no_kpoints))
   do i=1,no_kpoints
-    ! Read in supercell structure
-    structure_sc = read_structure_file(sdir//'/structure.dat')
-    
     ! Read frequencies
     filename = sdir//'/lte/disp_patterns.dat'
-    disp_patterns = read_disp_patterns_file(filename,structure_sc%no_modes)
+    disp_patterns = read_disp_patterns_file( filename, &
+                                           & structure_scs(sc_ids(i))%no_modes)
     frequencies(:,i) = disp_patterns%frequencies(:,gvectors(i))
     
     ! Read bands

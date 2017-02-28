@@ -230,7 +230,7 @@ function invert(A) result(B)
 end function
 
 ! ----------------------------------------
-! Calculates B=inverse(A)*det(A)
+! Calculates B=inverse(A)*|det(A)|
 ! A and B are 3x3 integer matrices
 ! ----------------------------------------
 function invert_int(A) result(B)
@@ -240,18 +240,21 @@ function invert_int(A) result(B)
   integer              :: B(3,3)
   
   integer :: C(3,3) ! transpose(A)
+  integer :: d      ! 1 if det(A)>=0, -1 otherwise
+  
+  d = sign(1,determinant(A))
   
   C = transpose(A)
   
-  B(1,1) = C(2,2)*C(3,3)-C(2,3)*C(3,2)
-  B(1,2) = C(2,3)*C(3,1)-C(2,1)*C(3,3)
-  B(1,3) = C(2,1)*C(3,2)-C(2,2)*C(3,1)
-  B(2,1) = C(3,2)*C(1,3)-C(3,3)*C(1,2)
-  B(2,2) = C(3,3)*C(1,1)-C(3,1)*C(1,3)
-  B(2,3) = C(3,1)*C(1,2)-C(3,2)*C(1,1)
-  B(3,1) = C(1,2)*C(2,3)-C(1,3)*C(2,2)
-  B(3,2) = C(1,3)*C(2,1)-C(1,1)*C(2,3)
-  B(3,3) = C(1,1)*C(2,2)-C(1,2)*C(2,1)
+  B(1,1) = (C(2,2)*C(3,3)-C(2,3)*C(3,2))*d
+  B(1,2) = (C(2,3)*C(3,1)-C(2,1)*C(3,3))*d
+  B(1,3) = (C(2,1)*C(3,2)-C(2,2)*C(3,1))*d
+  B(2,1) = (C(3,2)*C(1,3)-C(3,3)*C(1,2))*d
+  B(2,2) = (C(3,3)*C(1,1)-C(3,1)*C(1,3))*d
+  B(2,3) = (C(3,1)*C(1,2)-C(3,2)*C(1,1))*d
+  B(3,1) = (C(1,2)*C(2,3)-C(1,3)*C(2,2))*d
+  B(3,2) = (C(1,3)*C(2,1)-C(1,1)*C(2,3))*d
+  B(3,3) = (C(1,1)*C(2,2)-C(1,2)*C(2,1))*d
 end function
 
 ! Calculates the eigenvalues and eigenvectors of a real, symmetric matrix

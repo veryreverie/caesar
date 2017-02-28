@@ -11,6 +11,7 @@ contains
 subroutine calculate_symmetry_helper(symmetry_filename,structure_filename)
   use string_module
   use structure_module
+  use supercell_module
   implicit none
   
   ! filenames
@@ -22,7 +23,7 @@ subroutine calculate_symmetry_helper(symmetry_filename,structure_filename)
   
   ! Read structure data without symmetries.
   ! n.b. supercell is not used here, so a dummy is provided.
-  structure = read_structure_file(structure_filename)
+  structure = read_structure_file(structure_filename,identity_supercell())
   
   ! Read symmetry data
   call read_symmetry_file(structure,symmetry_filename)

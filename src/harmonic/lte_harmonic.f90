@@ -4,14 +4,14 @@ contains
 
 ! Program to construct and execute LTE
 subroutine lte_harmonic()
-  use constants, only : dp, eV_per_A_to_au, identity
+  use constants, only : dp, eV_per_A_to_au
   use file_module
   use string_module
   use structure_module
   use dft_output_file_module
   use lte_module
   use fourier_interpolation_module
-  use supercells_module
+  use supercell_module
   implicit none
   
   ! User-input temperature
@@ -25,6 +25,7 @@ subroutine lte_harmonic()
   integer             :: grid(3)
   
   ! Supercell-specific setup data
+  type(SupercellData), allocatable :: supercells(:)
   type(StructureData), allocatable :: structure_scs(:)
   
   ! Force constant data
@@ -59,7 +60,6 @@ subroutine lte_harmonic()
   
   ! File contents
   type(String), allocatable :: user_inputs(:)
-  integer,      allocatable :: supercells(:,:,:)
   
   ! File units
   integer :: no_sc_file
@@ -87,7 +87,7 @@ subroutine lte_harmonic()
   read(no_sc_file,*) no_sc
   close(no_sc_file)
   
-  structure = read_structure_file('structure.dat',identity)
+  structure = read_structure_file('structure.dat',identity_supercell())
   
   ! Read grid file
   grid_file = open_read_file('grid.dat')
@@ -105,14 +105,13 @@ subroutine lte_harmonic()
   enddo
   
   ! Read in supercells
-  supercells = read_supercells(str('supercells.dat'))
+  supercells = read_supercells_file(str('supercells.dat'))
   
   ! Read in supercell structures
   allocate(structure_scs(no_sc))
   do i=1,no_sc
     sdir = str('Supercell_')//i
-    structure_scs(i) = read_structure_file( sdir//'/structure.dat', &
-                                          & supercells(:,:,i))
+    structure_scs(i) = read_structure_file( sdir//'/structure.dat',supercells(i))
   enddo
   
   ! ----------------------------------------------------------------------
