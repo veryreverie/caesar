@@ -350,9 +350,9 @@ end subroutine
 ! Apply all of the point symmetry operations in turn in order to complete
 ! the matrix of force constants.  Give a pair of atoms atom1 and atom2, we
 ! find the corresponding pair of atoms atom1p and atom2p after the 
-! symmetry translation and structure_sc%rotation_matrices have been applied.  The matrix of
+! symmetry translation and rotation have been applied.  The matrix of
 ! force constants Phi then transforms as Phi' = R Phi R^T, where R is the
-! structure_sc%rotation_matrices matrix and Phi and Phi' are the matrices of force constants
+! rotation matrix and Phi and Phi' are the matrices of force constants
 ! between atom1 & atom2 and atom1p & atom2p, respectively.  Some elements
 ! of Phi may be unknown, but so long as they are multiplied by zero we can
 ! still work out the corresponding elements of Phi'.

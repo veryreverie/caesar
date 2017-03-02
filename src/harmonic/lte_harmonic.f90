@@ -12,6 +12,8 @@ subroutine lte_harmonic()
   use lte_module
   use fourier_interpolation_module
   use supercell_module
+  use unique_directions_module
+  use group_module
   implicit none
   
   ! User-input temperature
@@ -29,25 +31,22 @@ subroutine lte_harmonic()
   type(StructureData), allocatable :: structure_scs(:)
   
   ! Force constant data
-  integer               :: no_force_constants
-  integer,  allocatable :: atoms(:)
-  integer,  allocatable :: displacements(:)
-  real(dp), allocatable :: forces(:,:,:)
-  real(dp), allocatable :: force_constants(:,:,:,:)
-  type(DftOutputFile)   :: positive
-  type(DftOutputFile)   :: negative
+  type(Group)            :: symmetry_group
+  type(UniqueDirections) :: unique_directions
+  real(dp),  allocatable :: force_constants(:,:,:,:)
+  integer                :: xy,xz,yz
+  integer                :: atom_1,atom_2,atom_1p,atom_2p
+  real(dp)               :: force_consts_symm(3,3)
+  real(dp)               :: transformation(3,3)
+  logical                :: forces_calculated(3)
+  logical,   allocatable :: atom_calculated(:)
   
   ! kpoint data
   integer               :: no_kpoints
   integer,  allocatable :: kpoints(:,:)
   integer,  allocatable :: multiplicity(:)
   integer,  allocatable :: sc_ids(:)
-  
-  ! gvector data
-  integer              :: no_gvectors
-  integer              :: gvector_id
-  integer              :: gvec(3)
-  integer, allocatable :: gvector_ids(:)
+  integer, allocatable  :: gvector_ids(:)
   
   ! lte input data
   integer               :: no_kspace_lines
@@ -67,8 +66,6 @@ subroutine lte_harmonic()
   integer :: gvectors_file
   integer :: list_file
   integer :: grid_file
-  integer :: force_constants_file
-  integer :: forces_test_file
   
   ! ----------------------------------------------------------------------
   ! Get temperature from user
@@ -99,9 +96,10 @@ subroutine lte_harmonic()
   allocate(kpoints(3,no_kpoints))
   allocate(multiplicity(no_kpoints))
   allocate(sc_ids(no_kpoints))
+  allocate(gvector_ids(no_kpoints))
   ibz_file = open_read_file('ibz.dat')
   do i=1,no_kpoints
-    read(ibz_file,*) kpoints(:,i), multiplicity(i), sc_ids(i)
+    read(ibz_file,*) kpoints(:,i), multiplicity(i), sc_ids(i), gvector_ids(i)
   enddo
   
   ! Read in supercells
@@ -111,7 +109,8 @@ subroutine lte_harmonic()
   allocate(structure_scs(no_sc))
   do i=1,no_sc
     sdir = str('Supercell_')//i
-    structure_scs(i) = read_structure_file( sdir//'/structure.dat',supercells(i))
+    structure_scs(i) = read_structure_file( sdir//'/structure.dat', &
+                                          & supercells(i))
   enddo
   
   ! ----------------------------------------------------------------------
@@ -128,39 +127,105 @@ subroutine lte_harmonic()
   ! ----------------------------------------------------------------------
   do i=1,no_sc
     sdir = str('Supercell_')//i
+    sc_size = structure_scs(i)%supercell%sc_size
     
-    ! Read in force constants
-    no_force_constants = count_lines(sdir//'/force_constants.dat')
-    allocate(atoms(no_force_constants))
-    allocate(displacements(no_force_constants))
-    force_constants_file = open_read_file(sdir//'/force_constants.dat')
-    do j=1,no_force_constants
-      read(force_constants_file,*) atoms(j), displacements(j)
+    ! Read in symmetry group and unique atoms.
+    symmetry_group = read_group_file(sdir//'/symmetry_group.dat')
+    unique_directions = read_unique_directions_file( &
+       & sdir//'/unique_directions.dat')
+    
+    ! Read forces from DFT output files.
+    allocate(force_constants(3,3,structure_scs(i)%no_atoms, &
+                                &structure_scs(i)%no_atoms))
+    force_constants = 1e100_dp ! To make uninitialised values obvious.
+    do j=1,size(unique_directions)
+      atom_1 = unique_directions%unique_atoms(j)
+      forces_calculated = (/ .true.,.true.,.true. /)
+      if (unique_directions%xy_symmetry(j)/=0) then
+        forces_calculated(2) = .false.
+      endif
+      if ( unique_directions%xz_symmetry/=0 .or. &
+         & unique_directions%yz_symmetry(j)/=0) then
+        forces_calculated(3) = .false.
+      endif
+      
+      do k=1,3
+        if (.not. forces_cacluated(k)) then
+          cycle
+        endif
+        direction = directions(j)
+        
+        ! Calculate second derivatives of energy, using finite differences
+        !    of force data.
+        force_constants(k,:,:,atom_1) = (                                     &
+           &   read_dft_output_file(dft_code,                                 &
+           &                        sdir//'/atom.'//atom_1//'.+d'//direction) &
+           & - read_dft_output_file(dft_code,                                 &
+           &                        sdir//'/atom.'//atom_1//'.-d'//direction) &
+           & ) * eV_per_A_to_au / 0.02_dp
+      enddo
     enddo
-    close(force_constants_file)
     
-    ! Read forces from DFT output files
-    allocate(forces(3,structure_scs(i)%no_atoms,no_force_constants))
-    allocate(force_constants( structure_scs(i)%no_atoms,3, &
-                            & structure_scs(i)%no_atoms,3))
-    forces_test_file = open_write_file(sdir//'/forces_test.dat')
-    do j=1,no_force_constants
-      ddir = sdir//'/atom.'//atoms(j)//'.disp.'//displacements(j)
+    ! Reconstruct missing directions from symmetry.
+    do j=1,size(unique_directions)
+      atom_1 = unique_directions%unique_atoms(j)
       
-      positive = read_dft_output_file(dft_code,ddir//'/positive',seedname)
-      negative = read_dft_output_file(dft_code,ddir//'/negative',seedname)
+      xy = unique_directions%xy_symmetry(j)
+      xz = unique_directions%xz_symmetry(j)
+      yz = unique_directions%yz_symmetry(j)
       
-      forces(:,:,j) = (positive%forces-negative%forces)*eV_per_A_to_au/0.02_dp
-      
-      do k=1,size(forces,2)
-        do l=1,3
-          write(forces_test_file,*) char(str(atoms(j))//' '//displacements(j) &
-             & //' '//k//' '//l//' '//forces(l,k,j))
+      do atom_2=1,structure_scs(i)%no_atoms
+        ! Construct force constants in the space of independent vectors
+        !    produced by the symmetry operations, and the transformation from
+        !    cartesian co-ordinates to this basis.
+        force_consts_symm(1,:) = force_constants(1,:,atom_2,atom_1)
+        transformation(:,1) = (/ 1.0_dp,0.0_dp,0.0_dp /)
+        
+        if (xy==0) then
+          force_consts_symm(2,:) = force_constants(2,:,atom_2,atom_1)
+          transformation(:,2) = (/ 0.0_dp,1.0_dp,0.0_dp /)
+        else
+          force_consts_symm(2,:) = force_consts_symm(1,:)
+          transformation(:,2) = structure_scs(i)%rotation_matrices(:,1,xy)
+        endif
+        
+        if (xz==0 .and. yz==0) then
+          force_consts_symm(3,:) = force_constants(3,:,atom_2,atom_1)
+          transformation(:,3) = (/ 0.0_dp,0.0_dp,1.0_dp /)
+        elseif (xz/=0) then
+          force_consts_symm(3,:) = force_consts_symm(1,:)
+          transformation(:,3) = structure_scs(i)%rotation_matrices(:,1,xz)
+        else
+          force_consts_symm(3,:) = force_consts_symm(2,:)
+          transformation(:,3) = structure_scs(i)%rotation_matrices(:,2,yz)
+        endif
+        
+        ! Transform force constants into cartesian co-ordinates.
+        force_constants(:,:,atom_2,atom_1) = matmul( force_consts_symm, &
+                                                   & invert(transformation))
+      enddo
+    enddo
+    
+    ! Copy force constants to all positions related by symmetry.
+    atom_calculated = .false.
+    do j=1,size(unique_directions)
+      atom_1 = unique_directions%unique_atoms(j)
+      atom_calculated(atom_1) = .true.
+      do k=1,size(symmetry_group)
+        atom_1p = operate(atom_1,symmetry_group,k)
+        if (atom_calculated(atom_1)) then
+          cycle
+        endif
+        do atom_2=1,structure_scs(i)%no_atoms
+          atom_2p = operate(atom_2,symmetry_group,k)
+          force_constants(:,:,atom_2p,atom_1p) = matmul(matmul( &
+             & structure_scs(i)%rotation_matrices(:,:,k),       &
+             & force_constants(:,:,atom_2,atom_1)),             &
+             & transpose(structure_scs(i)%rotation_matrices(:,:,k)))
         enddo
       enddo
     enddo
-    close(forces_test_file)
-    
+        
     call lte_4( 1e-5_dp,                           &
               & 1e-5_dp,                           &
               & 1e-2_dp,                           &
@@ -184,34 +249,8 @@ subroutine lte_harmonic()
       stop
     endif
     
-    deallocate(atoms)
-    deallocate(displacements)
-    deallocate(forces)
     deallocate(force_constants)
   enddo
-  
-  ! Locate the corresponding gvector for each kpoint
-  allocate(gvector_ids(no_kpoints))
-  do i=1,no_kpoints
-    sdir = str('Supercell_')//sc_ids(i)
-    gvectors_file = open_read_file(sdir//'/lte/gvectors.dat')
-    read(gvectors_file,*) no_gvectors
-    do j=1,no_gvectors
-      read(gvectors_file,*) gvector_id, gvec
-      if (all(nint(matmul(gvec,structure%lattice))==kpoints(:,i))) then
-        gvector_ids(i) = gvector_id
-      endif
-    enddo
-    close(gvectors_file)
-  enddo
-  
-  ! Write list.dat, a mapping between kpoints, supercells and gvectors
-  list_file = open_write_file('list.dat')
-    write(list_file,*) kpoints(:,i),    &
-                     & multiplicity(i), &
-                     & sc_ids(i),       &
-                     & gvector_ids(i)
-  close(list_file)
   
   ! Write path for fourier interpolation
   no_kspace_lines = 4

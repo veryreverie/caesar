@@ -1,26 +1,31 @@
 ! ------------------------------------------------------------
-! global constants
+! Global constants.
 ! ------------------------------------------------------------
 module constants
   implicit none
   
   ! ----------------------------------------
-  ! double precision
+  ! Double precision.
   ! ----------------------------------------
   integer, parameter :: dp = selected_real_kind(15,300)
   
   ! ----------------------------------------
-  ! Identity matrix
+  ! Identity matrix.
   ! ----------------------------------------
   integer, parameter :: identity(3,3) = reshape((/1,0,0,0,1,0,0,0,1/),(/3,3/))
   
   ! ----------------------------------------
-  ! mathematical constants
+  ! Mathematical constants.
   ! ----------------------------------------
   real(dp), parameter :: pi = 3.14159265358979324_dp
   
   ! ----------------------------------------
-  ! physical constants and unit conversions
+  ! Cartesian directions.
+  ! ----------------------------------------
+  character(1), parameter :: directions(3) = (/ 'x','y','z' /)
+  
+  ! ----------------------------------------
+  ! Physical constants and unit conversions.
   ! ----------------------------------------
   ! n.b. eV was defined variously as 27.211396132 and 27.21138602
   real(dp), parameter :: eV = 27.211396132_dp     ! Hartree energy eV
@@ -32,7 +37,7 @@ module constants
   real(dp), parameter :: bohr = 0.52911721092_dp  ! Bohr radius in Angstrom
   
   ! ----------------------------------------
-  ! lte parameters
+  ! lte parameters.
   ! ----------------------------------------
   ! Number of bins into which the frequency range is divided.
   integer, parameter :: max_bin = 1500

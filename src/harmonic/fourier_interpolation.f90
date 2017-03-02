@@ -2,7 +2,7 @@ module phonon
   use constants
   use utils
   use linear_algebra
-  use symmetry
+  use fourier_interpolation_symmetry_module
   implicit none
 
 contains
@@ -426,7 +426,6 @@ subroutine fourier_interpolation(structure,grid,temperature,kpoints,sc_ids, &
   use utils,     only : reduce_interval
   use linear_algebra
   use min_images
-  use symmetry
   use phonon
   use file_module
   use structure_module

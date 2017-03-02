@@ -73,7 +73,7 @@ function construct_supercell(structure,supercell) result(structure_sc)
                   & + matmul(transpose(structure%lattice),gvector_prim)
       
       ! Add the copy to the supercell.
-      atom_counter = (i-1)*supercell%sc_size + j
+      atom_counter = (j-1)*structure%no_atoms + i
       structure_sc%atoms(:,atom_counter) = copy_pos_cart
       structure_sc%mass(atom_counter) = structure%mass(i)
       structure_sc%species(atom_counter) = structure%species(i)

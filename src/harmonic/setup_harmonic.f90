@@ -7,15 +7,18 @@ contains
 ! Also converts the generic calculateion to castep vasp or qe
 ! ======================================================================
 subroutine setup_harmonic(caesar_dir)
+  use constants, only : directions
   use string_module
   use file_module
   use structure_module
   use supercell_module
+  use group_module
   
   use structure_to_dft_module
   use generate_supercells_module
   use construct_supercell_module
-  use calculate_force_constants_module
+  use unique_directions_module
+  use calculate_symmetry_group_module
   implicit none
   
   ! The path to caesar
@@ -34,18 +37,20 @@ subroutine setup_harmonic(caesar_dir)
   type(SupercellData), allocatable :: supercells(:)
   type(StructureData)              :: structure_sc
   
+  ! Symmetry group data
+  type(Group) :: symmetry_group
+  
   ! Directories
   type(String) :: sdir
-  type(String) :: ddir
   type(String) :: paths(2)
   
   ! Force constants data
-  integer, allocatable :: force_constants(:,:)
+  type(UniqueDirections) :: unique_directions
   integer :: atom
-  integer :: disp
+  character(1) :: direction
   
   ! Temporary variables
-  integer        :: i,j,k
+  integer        :: i,j,k,l
   character(100) :: line
   type(String)   :: filename
   
@@ -55,7 +60,6 @@ subroutine setup_harmonic(caesar_dir)
   integer :: user_input_file
   integer :: grid_file
   integer :: no_supercells_file
-  integer :: force_constants_file
   
   ! ----------------------------------------------------------------------
   ! Get settings from user
@@ -164,70 +168,77 @@ subroutine setup_harmonic(caesar_dir)
        & sdir//'/structure.dat')
     structure_sc = read_structure_file( sdir//'/structure.dat', &
                                       & supercells(i))
+    ! ----------------------------------------------------------------------
+    ! Calculate symmetry group.
+    ! ----------------------------------------------------------------------
+    symmetry_group = calculate_symmetry_group(structure_sc)
+    call write_group_file(symmetry_group,sdir//'/symmetry_group.dat')
     
     ! ----------------------------------------------------------------------
     ! Generate force constants
     ! ----------------------------------------------------------------------
     ! Calculate which forces need calculating
-    force_constants = calculate_force_constants(structure,structure_sc)
+    unique_directions = calculate_unique_directions(structure_sc,symmetry_group)
+    call write_unique_directions_file( unique_directions, &
+                                     & sdir//'/unique_directions.dat')
     
-    force_constants_file = open_write_file(sdir//'/force_constants.dat')
-    do j=1,size(force_constants,2)
-      write(force_constants_file,*) force_constants(:,j)
-    enddo
-    close(force_constants_file)
-    
-    ! Make harmonic run directories
-    do j=1,size(force_constants,2)
-      atom = force_constants(1,j)
-      disp = force_constants(2,j)
-      ddir = sdir//'/atom.'//atom//'.disp.'//disp
-      paths = (/ ddir//'/positive', ddir//'/negative' /)
-      call system('mkdir '//ddir)
-      do k=1,2
-        call system('mkdir '//paths(k))
-      enddo
-      
-      ! ----------------------------------------------------------------------
-      ! Write DFT code input files
-      ! ----------------------------------------------------------------------
-      do k=1,2
+    ! ----------------------------------------------------------------------
+    ! Write DFT code input files
+    ! ----------------------------------------------------------------------
+    do k=1,size(unique_directions)
+      atom = unique_directions%unique_atoms(k)
+      do j=1,3
+        ! Skip directions which are covered by symmetry.
+        if (j==2 .and. unique_directions%xy_symmetry(k)>0) then
+          cycle
+        endif
+        if (j==3 .and. ( unique_directions%xz_symmetry(k)>0 .or. &
+                       & unique_directions%yz_symmetry(k)>0)) then
+          cycle
+        endif
         
-        ! Move relevant atom
-        if(k==1) then
-          structure_sc%atoms(disp,atom) = structure_sc%atoms(disp,atom) &
-                                      & + 0.01_dp
-        elseif(k==2) then
-          structure_sc%atoms(disp,atom) = structure_sc%atoms(disp,atom) &
-                                      & - 0.02_dp
-        endif
+        direction = directions(j)
+        paths = (/ sdir//'/atom.'//atom//'.+d'//direction, &
+                 & sdir//'/atom.'//atom//'.-d'//direction /)
+        
+        ! Make harmonic run directories
+        do l=1,2
+          call system('mkdir '//paths(l))
           
-        ! Write dft input files
-        if (dft_code=="castep") then
-          call structure_to_dft(                                   &
-             & dft_code        = dft_code,                         &
-             & structure_sc    = structure_sc,                     &
-             & input_filename  = dft_code//'/'//seedname//'.cell', &
-             & output_filename = paths(k)//'/'//seedname//'.cell')
-        elseif (dft_code=="vasp") then
-          call structure_to_dft(               &
-             & dft_code        = dft_code,     &
-             & structure_sc    = structure_sc, &
-             & output_filename = paths(k)//'/POSCAR')
-        elseif (dft_code=="qe") then
-          call structure_to_dft(                                  &
-             & dft_code         = dft_code,                       &
-             & structure_sc     = structure_sc,                   &
-             & input_filename   = dft_code//'/'//seedname//'.in', &
-             & pseudo_filename  = dft_code//'/pseudo.in',         &
-             & kpoints_filename = dft_code//'/kpoints.in',        &
-             & structure        = structure,                      &
-             & output_filename  = paths(k)//'/'//seedname//'.in')
-        endif
+          ! Move relevant atom
+          if(l==1) then
+            structure_sc%atoms(k,atom) = structure_sc%atoms(k,atom) + 0.01_dp
+          elseif(l==2) then
+            structure_sc%atoms(k,atom) = structure_sc%atoms(k,atom) - 0.02_dp
+          endif
+            
+          ! Write dft input files
+          if (dft_code=="castep") then
+            call structure_to_dft(                                   &
+               & dft_code        = dft_code,                         &
+               & structure_sc    = structure_sc,                     &
+               & input_filename  = dft_code//'/'//seedname//'.cell', &
+               & output_filename = paths(l)//'/'//seedname//'.cell')
+          elseif (dft_code=="vasp") then
+            call structure_to_dft(               &
+               & dft_code        = dft_code,     &
+               & structure_sc    = structure_sc, &
+               & output_filename = paths(l)//'/POSCAR')
+          elseif (dft_code=="qe") then
+            call structure_to_dft(                                  &
+               & dft_code         = dft_code,                       &
+               & structure_sc     = structure_sc,                   &
+               & input_filename   = dft_code//'/'//seedname//'.in', &
+               & pseudo_filename  = dft_code//'/pseudo.in',         &
+               & kpoints_filename = dft_code//'/kpoints.in',        &
+               & structure        = structure,                      &
+               & output_filename  = paths(l)//'/'//seedname//'.in')
+          endif
+        enddo
+        
+        ! Reset moved atom
+        structure_sc%atoms(k,atom) = structure_sc%atoms(k,atom) + 0.01_dp
       enddo
-      
-      ! Reset moved atom
-      structure_sc%atoms(disp,atom) = structure_sc%atoms(disp,atom) + 0.01_dp
     enddo
   enddo
 end subroutine

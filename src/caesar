@@ -40,31 +40,41 @@ function run_harmonic {
   read num_cores
 
   # Read code and seedname
-  code=$( awk '{NR==1, print}' user_input.txt )
-  seedname=$( awk '{NR==2, print}' user_input.txt )
+  code=$( awk 'NR==1 {print}' user_input.txt )
+  seedname=$( awk 'NR==2 {print}' user_input.txt )
 
   # Loop over supercells
   for i in `seq $first_sc $last_sc`;
   do
     sdir=Supercell_$i 
 
-    # Loop over force constants
-    while read fline ; do
+    # Loop over atoms to be displaced.
+    j=0
+    while read fline; do
       line=($fline)
       atom=${line[0]}
-      disp=${line[1]}
-      
-      paths=(positive negative)
-      for path in ${paths[@]}; do
-        ddir=$sdir/atom.$atom.disp.$disp/$path
-        if [ "$code" = "castep" ]; then
-          cp $code/$seedname.param $ddir
-        fi
-        run_dft $code $ddir $num_cores $seedname
+      xy_symmetry=${line[1]}
+      xz_symmetry=${line[2]}
+      yz_symmetry=${line[3]}
+      directions=('x')
+      if [ ! "$xy_symmetry" = "0"]; then
+        directions+='y'
+      fi
+      if [ ! "$xz_symmetry" = "0"] || [ ! "$yz_symmetry" = "0"]; then
+        directions+='z'
+      fi
+      for direction in ${directions[@]}; do
+        signs=(+ -)
+        for sign in ${signs[@]}; do
+          dir=$sdir/atom.$atom.${sign}d$direction
+          echo $dir
+          #if [ "$code" = "castep" ]; then
+          #  cp $code/$seedname.param $ddir
+          #fi
+          run_dft $code $ddir $num_cores $seedname
+        done
       done
-
-    done < $sdir/force_constants.dat 
-
+    done < $sdir/related_atoms.dat 
   done
   echo "Done."
 }
