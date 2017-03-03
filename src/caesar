@@ -14,7 +14,9 @@ function main {
   args=${args[@]:1:$(($#-1))}
   
   if [ "$1" = "run_harmonic" ]; then
-    run_harmonic $dir $args
+    run_harmonic $dir run $args
+  elif [ "$1" = "copy_harmonic" ]; then
+    run_harmonic $dir copy $args
   elif [  "$1" = "run_quadratic" ]; then
     run_quadratic $dir $args
   elif [  "$1" = "clear_all" ]; then
@@ -30,14 +32,28 @@ function main {
 # ======================================================================
 # Script to run harmonic calculation on TCM cluster.
 # ======================================================================
+# Can also be used to copy the results of previous harmonic runs.
+# This should only be used for unit testing.
 function run_harmonic {
-  # Read in user inputs
-  echo "What is the first supercell to run?"
-  read first_sc
-  echo "What is the last supercell to run?"
-  read last_sc
-  echo "How many cores per run?"
-  read num_cores
+  if [ "$2" = "run" ]; then
+    # Read in user inputs.
+    echo "What is the first supercell to run?"
+    read first_sc
+    echo "What is the last supercell to run?"
+    read last_sc
+    echo "How many cores per run?"
+    read num_cores
+  else
+    # Read in directory to copy from.
+    echo "WARNING: running in copy mode!"
+    echo "This should only be used for unit testing."
+    echo ""
+    echo "Where is the harmonic directory to copy from?"
+    read harmonic_path
+    
+    first_sc=1
+    last_sc=$( awk '{print}' no_sc.dat )
+  fi
 
   # Read code and seedname
   code=$( awk 'NR==1 {print}' user_input.txt )
@@ -57,24 +73,42 @@ function run_harmonic {
       xz_symmetry=${line[2]}
       yz_symmetry=${line[3]}
       directions=('x')
-      if [ ! "$xy_symmetry" = "0"]; then
-        directions+='y'
+      if [ "$xy_symmetry" = "0" ]; then
+        directions+=' y'
       fi
-      if [ ! "$xz_symmetry" = "0"] || [ ! "$yz_symmetry" = "0"]; then
-        directions+='z'
+      if [ "$xz_symmetry" = "0" ] && [ "$yz_symmetry" = "0" ]; then
+        directions+=' z'
       fi
       for direction in ${directions[@]}; do
         signs=(+ -)
         for sign in ${signs[@]}; do
           dir=$sdir/atom.$atom.${sign}d$direction
+          echo "Working in directory:"
           echo $dir
-          #if [ "$code" = "castep" ]; then
-          #  cp $code/$seedname.param $ddir
-          #fi
-          run_dft $code $ddir $num_cores $seedname
+          if [ "$2" = "run" ]; then
+            if [ "$code" = "castep" ]; then
+              cp $code/$seedname.param $ddir
+            fi
+            run_dft $code $ddir $num_cores $seedname
+          else
+            if [ "$direction" = "x" ]; then
+              disp=1
+            elif [ "$direction" = "y" ]; then
+              disp=2
+            else
+              disp=3
+            fi
+            if [ "$sign" = "+" ]; then
+              sign2=positive
+            else
+              sign2=negative
+            fi
+            dir2=$harmonic_path/$sdir/atom.$atom.disp.$disp/$sign2
+            cp $dir2/$seedname.castep $dir
+          fi
         done
       done
-    done < $sdir/related_atoms.dat 
+    done < $sdir/unique_directions.dat 
   done
   echo "Done."
 }

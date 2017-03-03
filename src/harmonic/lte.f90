@@ -1098,7 +1098,7 @@ subroutine initialise(structure,structure_sc, &
   
   do i=1,structure_sc%supercell%sc_size
     do j=1,structure%no_atoms
-      atom_id = (i-1)*structure%no_atoms + j
+      atom_id = (j-1)*structure_sc%supercell%sc_size + i
       atom(i,j) = atom_id
       atom_in_prim(atom_id) = j
       prim_cell_for_atom = i

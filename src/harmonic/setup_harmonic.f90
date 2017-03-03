@@ -178,7 +178,8 @@ subroutine setup_harmonic(caesar_dir)
     ! Generate force constants
     ! ----------------------------------------------------------------------
     ! Calculate which forces need calculating
-    unique_directions = calculate_unique_directions(structure_sc,symmetry_group)
+    unique_directions = calculate_unique_directions( structure_sc, &
+                                                   & symmetry_group)
     call write_unique_directions_file( unique_directions, &
                                      & sdir//'/unique_directions.dat')
     

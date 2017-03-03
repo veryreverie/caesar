@@ -98,19 +98,19 @@ subroutine write_group_file(this,filename)
   type(Group),  intent(in)  :: this
   type(String), intent(in) :: filename
   
-  integer      :: file_unit
+  integer      :: group_file
   type(String) :: line
   
   integer :: i,j
   
-  file_unit = open_write_file(filename)
+  group_file = open_write_file(filename)
   do i=1,size(this%operations,2)
     line = ''
     do j=1,size(this%operations,1)
       line = line//' '//this%operations(j,i)
     enddo
-    write(*,'(a)') char(line)
+    write(group_file,'(a)') char(line)
   enddo
-  close(file_unit)
+  close(group_file)
 end subroutine
 end module

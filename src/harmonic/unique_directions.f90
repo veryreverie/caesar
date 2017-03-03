@@ -151,9 +151,9 @@ function calculate_unique_directions(structure,symmetry_group) result(this)
           cycle do_i
         endif
       enddo
-      no_unique_atoms = no_unique_atoms + 1
-      unique_atoms(no_unique_atoms) = i
     enddo
+    no_unique_atoms = no_unique_atoms + 1
+    unique_atoms(no_unique_atoms) = i
   enddo do_i
   
   call new(this,no_unique_atoms)
