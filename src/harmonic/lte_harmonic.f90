@@ -4,7 +4,8 @@ contains
 
 ! Program to construct and execute LTE
 subroutine lte_harmonic()
-  use constants, only : dp, eV_per_A_to_au
+  use constants,      only : dp, eV_per_A_to_au
+  use linear_algebra, only : invert
   use file_module
   use string_module
   use structure_module
@@ -31,8 +32,10 @@ subroutine lte_harmonic()
   type(StructureData), allocatable :: structure_scs(:)
   
   ! Force constant data
+  character(1)           :: direction
   type(Group)            :: symmetry_group
   type(UniqueDirections) :: unique_directions
+  type(DftOutputFile)    :: dft
   real(dp),  allocatable :: force_constants(:,:,:,:)
   integer                :: xy,xz,yz
   integer                :: atom_1,atom_2,atom_1p,atom_2p
@@ -40,6 +43,10 @@ subroutine lte_harmonic()
   real(dp)               :: transformation(3,3)
   logical                :: forces_calculated(3)
   logical,   allocatable :: atom_calculated(:)
+  real(dp),  allocatable :: row_avgs(:,:,:)
+  real(dp),  allocatable :: col_avgs(:,:,:)
+  real(dp)               :: avg(3,3)
+  integer                :: sc_size
   
   ! kpoint data
   integer               :: no_kpoints
@@ -53,9 +60,8 @@ subroutine lte_harmonic()
   real(dp), allocatable :: disp_kpoints(:,:)
   
   ! Temporary variables
-  integer        :: i,j,k,l
+  integer        :: i,j,k
   type(String)   :: sdir
-  type(String)   :: ddir
   
   ! File contents
   type(String), allocatable :: user_inputs(:)
@@ -63,8 +69,6 @@ subroutine lte_harmonic()
   ! File units
   integer :: no_sc_file
   integer :: ibz_file
-  integer :: gvectors_file
-  integer :: list_file
   integer :: grid_file
   
   ! ----------------------------------------------------------------------
@@ -144,25 +148,38 @@ subroutine lte_harmonic()
       if (unique_directions%xy_symmetry(j)/=0) then
         forces_calculated(2) = .false.
       endif
-      if ( unique_directions%xz_symmetry/=0 .or. &
+      if ( unique_directions%xz_symmetry(j)/=0 .or. &
          & unique_directions%yz_symmetry(j)/=0) then
         forces_calculated(3) = .false.
       endif
       
       do k=1,3
-        if (.not. forces_cacluated(k)) then
+        if (.not. forces_calculated(k)) then
           cycle
         endif
         direction = directions(j)
         
         ! Calculate second derivatives of energy, using finite differences
         !    of force data.
-        force_constants(k,:,:,atom_1) = (                                     &
-           &   read_dft_output_file(dft_code,                                 &
-           &                        sdir//'/atom.'//atom_1//'.+d'//direction) &
-           & - read_dft_output_file(dft_code,                                 &
-           &                        sdir//'/atom.'//atom_1//'.-d'//direction) &
-           & ) * eV_per_A_to_au / 0.02_dp
+        dft = read_dft_output_file(dft_code, &
+           &                       sdir//'/atom.'//atom_1//'.+d'//direction, &
+           &                       seedname)
+        force_constants(k,:,:,atom_1) = dft%forces
+        dft = read_dft_output_file(dft_code, &
+           &                       sdir//'/atom.'//atom_1//'.-d'//direction, &
+           &                       seedname)
+        force_constants(k,:,:,atom_1) = force_constants(k,:,:,atom_1) &
+                                    & - dft%forces
+        force_constants(k,:,:,atom_1) = force_constants(k,:,:,atom_1) &
+                                    & *eV_per_A_to_au / 0.02_dp
+        
+        ! Mass-reduce force constants.
+        do atom_2=1,structure_scs(i)%no_atoms
+          force_constants(:,:,atom_2,atom_1) =        &
+             &   force_constants(:,:,atom_2,atom_1)   &
+             & / dsqrt( structure_scs(i)%mass(atom_1) &
+             &        * structure_scs(i)%mass(atom_2))
+        enddo
       enddo
     enddo
     
@@ -225,22 +242,46 @@ subroutine lte_harmonic()
         enddo
       enddo
     enddo
+    
+    ! Impose order-of-differentiation symmetry.
+    do atom_1=1,structure_scs(i)%no_atoms
+      do atom_2=1,structure_scs(i)%no_atoms
+        force_constants(:,:,atom_2,atom_1) = (               &
+           & force_constants(:,:,atom_2,atom_1)              &
+           & + transpose(force_constants(:,:,atom_1,atom_2)) &
+           & ) / 2
+        force_constants(:,:,atom_1,atom_2) = &
+           & transpose(force_constants(:,:,atom_2,atom_1))
+      enddo
+    enddo
+    
+    ! Impose Newton III symmetry.
+    allocate(row_avgs(3,3,structure_scs(i)%no_atoms))
+    allocate(col_avgs(3,3,structure_scs(i)%no_atoms))
+    row_avgs = sum(force_constants,3)/structure_scs(i)%no_atoms
+    col_avgs = sum(force_constants,4)/structure_scs(i)%no_atoms
+    avg = sum(row_avgs,3)
+    do atom_1=1,structure_scs(i)%no_atoms
+      do atom_2=1,structure_scs(i)%no_atoms
+        force_constants(:,:,atom_2,atom_1) =    &
+           & force_constants(:,:,atom_2,atom_1) &
+           & - row_avgs(:,:,atom_1)             &
+           & - col_avgs(:,:,atom_2)             &
+           & + avg
+      enddo
+    enddo
+    deallocate(row_avgs)
+    deallocate(col_avgs)
         
-    call lte_4( 1e-5_dp,                           &
-              & 1e-5_dp,                           &
-              & 1e-2_dp,                           &
-              & structure,                         &
+    call lte_4( structure,                         &
               & structure_scs(i),                  &
-              & atoms,                             &
-              & displacements,                     &
-              & forces,                            &
+              & force_constants,                   &
               & 0.0_dp,                            &
               & sdir//'/lte/kpairs.dat',           &
               & sdir//'/lte/freq_grids.dat',       &
               & sdir//'/lte/disp_patterns.dat',    &
               & sdir//'/lte/kdisp_patterns.dat',   &
               & sdir//'/lte/pol_vec.dat',          &
-              & sdir//'/lte/gvectors.dat',         &
               & sdir//'/lte/error.txt',            &
               & sdir//'/lte/dyn_mat.')
     

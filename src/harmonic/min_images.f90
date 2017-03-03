@@ -25,34 +25,31 @@ subroutine min_images_brute_force_a(a,lat_vec,rec_vec,b,nim)
   REAL(dp),INTENT(out) :: b(3,maxim)
   INTEGER,INTENT(out) :: nim
   
-  REAL(dp) :: Delta1(3),Delta2(3),Delta3(3),mag_b_sq,dist2,tol_L2
+  real(dp) :: mag_b_sq,dist2,tol_l2
+  real(dp) :: delta(3)
   INTEGER :: n(3),i,j,k
   ! Number of "shells" of lattice points to check.  Only used in setup, so
   ! may as well overkill.
-  INTEGER,PARAMETER :: check_shell=3
-  REAL(dp),PARAMETER :: tol=1.d-9
-  tol_L2=tol*DOT_PRODUCT(lat_vec(1:3,1),lat_vec(1:3,1))
-  n(1)=FLOOR(DOT_PRODUCT(a(1:3),rec_vec(1:3,1)))
-  n(2)=FLOOR(DOT_PRODUCT(a(1:3),rec_vec(1:3,2)))
-  n(3)=FLOOR(DOT_PRODUCT(a(1:3),rec_vec(1:3,3)))
+  integer,parameter :: check_shell=3
+  real(dp),parameter :: tol=1.d-9
+  tol_L2=tol*dot_product(lat_vec(:,1),lat_vec(:,1))
+  n = floor(matmul(a,rec_vec))
   mag_b_sq=-1.d0
   nim=-1
-  DO i=n(1)-check_shell,n(1)+check_shell+1
-    Delta1=a-DBLE(i)*lat_vec(1:3,1)
-    DO j=n(2)-check_shell,n(2)+check_shell+1
-      Delta2=Delta1-DBLE(j)*lat_vec(1:3,2)
-      DO k=n(3)-check_shell,n(3)+check_shell+1
-        Delta3=Delta2-DBLE(k)*lat_vec(1:3,3)
-        dist2=DOT_PRODUCT(Delta3,Delta3)
-        IF(ABS(dist2-mag_b_sq)<=tol_L2)THEN
+  do i=n(1)-check_shell,n(1)+check_shell+1
+    do j=n(2)-check_shell,n(2)+check_shell+1
+      do k=n(3)-check_shell,n(3)+check_shell+1
+        delta = a-matmul(lat_vec,(/i,j,k/))
+        dist2=dot_product(delta,delta)
+        if(abs(dist2-mag_b_sq)<=tol_l2)then
           nim=nim+1
           IF(nim>maxim)CALL errstop('MIN_IMAGES_BRUTE_FORCE', &
             &'Need to increase maxim parameter.')
-          b(1:3,nim)=Delta3(1:3)
-        ELSEIF(dist2<mag_b_sq.OR.nim==-1)THEN
+          b(1:3,nim)=delta(1:3)
+        elseif(dist2<mag_b_sq.or.nim==-1)then
           mag_b_sq=dist2
           nim=1
-          b(1:3,1)=Delta3(1:3)
+          b(1:3,1)=delta(1:3)
         ENDIF
       ENDDO ! k
     ENDDO ! j
