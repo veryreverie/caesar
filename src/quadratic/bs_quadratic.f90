@@ -80,16 +80,16 @@ subroutine bs_quadratic()
   ! --------------------------------------------------
   ! Get user inputs
   ! --------------------------------------------------
-  write(*,"(a)") "What is the k-point of interest?"
-  read(*,*) kpoint
+  call print_line("What is the k-point of interest?")
+  kpoint = int(read_line_from_user())
   
-  write(*,"(a)") "What is the band number of interest &
-     &(for the primitive cell)?"
-  write(*,"(a)") "(In case of band degeneracy, the highest band is required)"
-  read(*,*) band
+  call print_line("What is the band number of interest &
+     &(for the primitive cell)?")
+  call print_line("(In case of band degeneracy, the highest band is required)")
+  band = int(read_line_from_user())
   
-  write(*,"(a)") "What is the band degeneracy?"
-  read(*,*) degeneracy
+  call print_line("What is the band degeneracy?")
+  degeneracy = int(read_line_from_user())
   
   ! --------------------------------------------------
   ! Read basic data
@@ -185,15 +185,15 @@ subroutine bs_quadratic()
     temperature = k*dtemperature
     if(temperature<1.d-5)then
       do i=1,no_kpoints
-        write(bck_file,*)'k-point',i
+        call print_line(bck_file,str('k-point ')//i)
         renormalised_band_kpoint=0.0
         do j=1,structure%no_modes
           renormalised_band = renormalised_band &
                           & + deformation(i,j)*multiplicity(i)/no_kpoints
           renormalised_band_kpoint = renormalised_band_kpoint+deformation(i,j)
-          write(bck_file,*)i,j,deformation(i,j)
+          call print_line(bck_file,str(i)//' '//j//' '//deformation(i,j))
         enddo
-        write(bck_file,*)i,renormalised_band_kpoint
+        call print_line(bck_file,str(i)//' '//renormalised_band_kpoint)
       enddo
     else
       do i=1,no_kpoints
@@ -208,7 +208,7 @@ subroutine bs_quadratic()
         enddo
       enddo
     endif ! temperature
-    write(bgc_file,*)temperature,renormalised_band 
+    call print_line(bgc_file,str(temperature)//' '//renormalised_band)
   enddo
   close(bgc_file)
   close(bck_file)

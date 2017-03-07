@@ -105,7 +105,7 @@ subroutine write_unique_directions_file(this,filename)
                 & //this%xy_symmetry(i) //' ' &
                 & //this%xz_symmetry(i) //' ' &
                 & //this%yz_symmetry(i)
-    write(unique_directions_file,'(a)') char(line)
+    call print_line(unique_directions_file,line)
   enddo
   close(unique_directions_file)
 end subroutine

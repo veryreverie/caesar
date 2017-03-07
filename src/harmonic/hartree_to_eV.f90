@@ -5,13 +5,14 @@ contains
 
 subroutine hartree_to_eV()
   use constants, only : dp, eV
+  use string_module
   implicit none
   
   real(dp) :: input
   
-  write(*,"(a)") "Input energy in Hartree:"
-  read(*,*) input
-  write(*,*) input*eV
+  call print_line('Input energy in Hartree:')
+  input = dble(read_line_from_user())
+  call print_line(str(input*eV))
 end subroutine
 
 end module

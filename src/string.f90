@@ -31,12 +31,15 @@ module string_module
   public :: operator(/=)
   
   ! Unary operators
-  public :: len           ! character-like len
-  public :: lower_case    ! convert to lower case
-  public :: split         ! split by spaces
+  public :: len        ! Character-like len.
+  public :: lower_case ! Convert to lower case.
+  public :: split      ! Split into String(:) by spaces
+  public :: join       ! Join into single String by spaces.
   
   ! Operators with side-effects
-  public :: system
+  public :: system              ! Makes a system call.
+  public :: read_line_from_user ! Reads a line from the terminal.
+  public :: print_line          ! write(*,'(a)')
   
   type String
     character(:), allocatable, private :: contents
@@ -65,7 +68,7 @@ module string_module
     module procedure str_real
     module procedure str_logical
   end interface
-
+  
   interface char
     module procedure char_String
   end interface
@@ -82,12 +85,20 @@ module string_module
     module procedure concatenate_String_String
     module procedure concatenate_String_character
     module procedure concatenate_character_String
+    
     module procedure concatenate_String_integer
     module procedure concatenate_integer_String
     module procedure concatenate_String_real
     module procedure concatenate_real_String
     module procedure concatenate_String_logical
     module procedure concatenate_logical_String
+    
+    module procedure concatenate_character_integer
+    module procedure concatenate_integer_character
+    module procedure concatenate_character_real
+    module procedure concatenate_real_character
+    module procedure concatenate_character_logical
+    module procedure concatenate_logical_character
   end interface
   
   interface operator(==)
@@ -116,8 +127,20 @@ module string_module
     module procedure split_String
   end interface
   
+  interface join
+    module procedure join_String
+    module procedure join_real
+    module procedure join_integer
+  end interface
+  
   interface system
     module procedure system_String
+  end interface
+  
+  interface print_line
+    module procedure print_line_character
+    module procedure print_line_String
+    module procedure print_line_none
   end interface
 
 contains
@@ -337,11 +360,7 @@ elemental function concatenate_String_integer(a,b) result(output)
   integer,      intent(in) :: b
   type(String) :: output
   
-  type(String) :: temp
-  
-  temp = b
-  
-  output = a%contents//temp
+  output = a//str(b)
 end function
 
 ! String = integer//String
@@ -352,11 +371,7 @@ elemental function concatenate_integer_String(a,b) result(output)
   type(String), intent(in) :: b
   type(String) :: output
   
-  type(String) :: temp
-  
-  temp = a
-  
-  output = temp//b%contents
+  output = str(a)//b
 end function
 
 ! String = String//real(dp)
@@ -368,11 +383,7 @@ elemental function concatenate_String_real(a,b) result(output)
   real(dp),     intent(in) :: b
   type(String) :: output
   
-  type(String) :: temp
-  
-  temp = b
-  
-  output = a%contents//temp
+  output = a//str(b)
 end function
 
 ! String = real(dp)//String
@@ -384,11 +395,7 @@ elemental function concatenate_real_String(a,b) result(output)
   type(String), intent(in) :: b
   type(String) :: output
   
-  type(String) :: temp
-  
-  temp = a
-  
-  output = temp//b%contents
+  output = str(a)//b
 end function
 
 ! String = String//logical
@@ -399,11 +406,7 @@ elemental function concatenate_String_logical(a,b) result(output)
   logical,      intent(in) :: b
   type(String) :: output
   
-  type(String) :: temp
-  
-  temp = b
-  
-  output = a%contents//temp
+  output = a//str(b)
 end function
 
 ! String = logical//String
@@ -414,11 +417,75 @@ elemental function concatenate_logical_String(a,b) result(output)
   type(String), intent(in) :: b
   type(String) :: output
   
-  type(String) :: temp
+  output = str(a)//b
+end function
+
+! String = character//integer
+elemental function concatenate_character_integer(a,b) result(output)
+  implicit none
   
-  temp = a
+  character(*), intent(in) :: a
+  integer,      intent(in) :: b
+  type(String) :: output
   
-  output = temp//b%contents
+  output = a//str(b)
+end function
+
+! String = integer//character
+elemental function concatenate_integer_character(a,b) result(output)
+  implicit none
+  
+  integer,      intent(in) :: a
+  character(*), intent(in) :: b
+  type(String) :: output
+  
+  output = str(a)//b
+end function
+
+! String = character//real(dp)
+elemental function concatenate_character_real(a,b) result(output)
+  use constants, only : dp
+  implicit none
+  
+  character(*), intent(in) :: a
+  real(dp),     intent(in) :: b
+  type(String) :: output
+  
+  output = a//str(b)
+end function
+
+! String = real(dp)//character
+elemental function concatenate_real_character(a,b) result(output)
+  use constants, only : dp
+  implicit none
+  
+  real(dp),     intent(in) :: a
+  character(*), intent(in) :: b
+  type(String) :: output
+  
+  output = str(a)//b
+end function
+
+! String = character//logical
+elemental function concatenate_character_logical(a,b) result(output)
+  implicit none
+  
+  character(*), intent(in) :: a
+  logical,      intent(in) :: b
+  type(String) :: output
+  
+  output = a//str(b)
+end function
+
+! String = logical//character
+elemental function concatenate_logical_character(a,b) result(output)
+  implicit none
+  
+  logical,      intent(in) :: a
+  character(*), intent(in) :: b
+  type(String) :: output
+  
+  output = str(a)//b
 end function
 
 ! ----------------------------------------------------------------------
@@ -604,6 +671,57 @@ pure function split_String(this,delimiter_in) result(output)
   endif
 end function
 
+! Joins a String(:) array into one String.
+pure function join_String(this) result(output)
+  implicit none
+  
+  type(String), intent(in) :: this(:)
+  type(String)             :: output
+  
+  integer :: i
+  
+  if (size(this)==0) then
+    output = ''
+  else
+    output = this(1)
+    do i=2,size(this)
+      output = output//' '//this(i)
+    enddo
+  endif
+end function
+
+! Converts real(:) to String(:) and then joins.
+pure function join_real(this) result(output)
+  use constants, only : dp
+  implicit none
+  
+  real(dp), intent(in) :: this(:)
+  type(String)         :: output
+  
+  output = join(str(this))
+end function
+
+! Converts integer(:) to String(:), pads positive numbers with a space, and joins.
+pure function join_integer(this) result(output)
+  implicit none
+  
+  integer, intent(in) :: this(:)
+  type(String)        :: output
+  
+  type(String), allocatable :: temp(:)
+  integer                   :: i
+  
+  temp = str(this)
+  do i=1,size(temp)
+    if (temp(i)%contents(1:1)/='-') then
+      ! Pad positive numbers with a single space.
+      temp(i) = ' '//temp(i)
+    endif
+  enddo
+  
+  output = join(temp)
+end function
+
 ! call system(String)
 subroutine system_String(this)
   implicit none
@@ -611,6 +729,45 @@ subroutine system_String(this)
   type(String), intent(in) :: this
   
   call system(char(this))
+end subroutine
+
+function read_line_from_user() result(line)
+  implicit none
+  
+  type(String) :: line
+  
+  character(1000) :: char_line
+  
+  read(*,'(a)') char_line
+  line = trim(char_line)
+end function
+
+subroutine print_line_character(line)
+  implicit none
+  
+  character(*), intent(in) :: line
+  
+  integer :: ierr
+  
+  write(*,'(a)',iostat=ierr) line
+  if (ierr /= 0) then
+    write(*,*) 'Error in print_line to terminal.'
+    stop
+  endif
+end subroutine
+
+subroutine print_line_String(line)
+  implicit none
+  
+  type(String), intent(in) :: line
+  
+  call print_line(char(line))
+end subroutine
+
+subroutine print_line_none()
+  implicit none
+  
+  call print_line('')
 end subroutine
 
 end module

@@ -151,7 +151,7 @@ function read_vasp_bands_file_character(filename) result(this)
   
   do i=1,no_kpoints
     do j=1,no_bands
-      write(*,*) "Vasp bands file parser needs updating"
+      call print_line("Vasp bands file parser needs updating")
       stop
       this%bands(j,i) = dble(bands_file(11+(no_bands+2)*(i-1)+j))
     enddo

@@ -114,8 +114,8 @@ module linear_algebra
       character(1), intent(in)    :: JOBZ     ! N/V: if V, calculate eigenvectors
       character(1), intent(in)    :: UPLO     ! U/L: store upper/lower triangle
       integer,      intent(in)    :: N        ! the order of A
-      complex(dp),  intent(inout) :: A(LDA,*) ! Hermitian matrix
       integer,      intent(in)    :: LDA      ! the dimension of A
+      complex(dp),  intent(inout) :: A(LDA,*) ! Hermitian matrix
       real(dp),     intent(out)   :: W(*)     ! eigenvalues of A
       complex(dp),  intent(out)   :: WORK(*)  ! WORK(1) = optimal LWORK
       integer,      intent(in)    :: LWORK    ! the length of WORK
@@ -131,8 +131,8 @@ module linear_algebra
       character(1), intent(in)    :: JOBZ     ! N/V: if V, calculate eigenvectors
       character(1), intent(in)    :: UPLO     ! U/L: store upper/lower triangle
       integer,      intent(in)    :: N        ! the order of A
-      real(dp),     intent(inout) :: A(LDA,*) ! symmetric matrix
       integer,      intent(in)    :: LDA      ! the dimension of A
+      real(dp),     intent(inout) :: A(LDA,*) ! symmetric matrix
       real(dp),     intent(out)   :: W(*)     ! eigenvalues of A
       real(dp),     intent(out)   :: WORK(*)  ! WORK(1) = optimal LWORK
       integer,      intent(in)    :: LWORK    ! the length of WORK
@@ -200,6 +200,7 @@ end function
 ! A and B are real, 3x3 matrices
 ! ----------------------------------------
 function invert(A) result(B)
+  use string_module
   implicit none
   
   real(dp), intent(in)  :: A(3,3)
@@ -212,7 +213,7 @@ function invert(A) result(B)
   
   ! check for d=infinity or d=NaN
   if (dabs(d)>huge(0.0_dp) .or. d<d) then
-    write(*,*) 'Error in invert: singular matrix.'
+    call print_line('Error in invert: singular matrix.')
     stop
   endif
   
@@ -259,7 +260,7 @@ end function
 
 ! Calculates the eigenvalues and eigenvectors of a real, symmetric matrix
 function calculate_RealEigenstuff(input) result(output)
-  use utils, only : i2s
+  use string_module
   implicit none
   
   real(dp), intent(in) :: input(:,:)  ! a real, symmetric matrix
@@ -281,7 +282,7 @@ function calculate_RealEigenstuff(input) result(output)
   call dsyev('V', 'U', n, output%evecs(1,1), n, output%evals, &
     & work(1), -1, info)
   if (info /= 0) then
-    write(*,*) "dsyev failed, info=",trim(i2s(info))
+    call print_line("dsyev failed, info= "//str(info))
     stop
   endif
   lwork = nint(work(1))
@@ -292,14 +293,14 @@ function calculate_RealEigenstuff(input) result(output)
   call dsyev('V', 'U', n, output%evecs(1,1), n, output%evals, &
     & work(1), lwork, info)
   if (info /= 0) then
-    write(*,*) "dsyev failed, info=",trim(i2s(info))
+    call print_line("dsyev failed, info= "//str(info))
     stop
   endif
 end function
 
 ! Calculates the eigenvalues and eigenvectors of a complex, hermitian matrix
 function calculate_ComplexEigenstuff(input) result(output)
-  use utils, only : i2s
+  use string_module
   implicit none
   
   complex(dp), intent(in) :: input(:,:)  ! a complex, hermitian matrix
@@ -324,7 +325,7 @@ function calculate_ComplexEigenstuff(input) result(output)
   call zheev('V', 'U', n, output%evecs(1,1), n, output%evals, &
     & work(1), -1, rwork, info)
   if (info /= 0) then
-    write(*,*) "dsyev failed, info=",trim(i2s(info))
+    call print_line("dsyev failed, info= "//str(info))
     stop
   endif
   lwork = nint(real(work(1)))
@@ -335,7 +336,7 @@ function calculate_ComplexEigenstuff(input) result(output)
   call zheev('V', 'U', n, output%evecs(1,1), n, output%evals, &
     & work(1), lwork, rwork, info)
   if (info /= 0) then
-    write(*,*) "zheev failed, info=",trim(i2s(info))
+    call print_line("zheev failed, info= "//str(info))
     stop
   endif
 end function

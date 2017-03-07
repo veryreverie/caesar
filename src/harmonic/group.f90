@@ -109,7 +109,7 @@ subroutine write_group_file(this,filename)
     do j=1,size(this%operations,1)
       line = line//' '//this%operations(j,i)
     enddo
-    write(group_file,'(a)') char(line)
+    call print_line(group_file,line)
   enddo
   close(group_file)
 end subroutine

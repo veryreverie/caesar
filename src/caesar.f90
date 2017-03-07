@@ -1,7 +1,6 @@
 program caesar
   ! use utility modules
-  use utils,       only : command_line_args
-  use file_module, only : open_write_file, open_read_file
+  use utils, only : command_line_args
   
   ! use class modules
   use string_module
@@ -18,6 +17,9 @@ program caesar
   use setup_quadratic_module
   use anharmonic_module
   use bs_quadratic_module
+  
+  ! use testing modules
+  use test_copy_harmonic_module
   
   ! use misc modules
   use calculate_gap_module
@@ -41,52 +43,52 @@ program caesar
   args = command_line_args()
   
   if (size(args) == 1) then
-    write(*,*) 'No arguments given. For help, call caesar -h'
+    call print_line('No arguments given. For help, call caesar -h')
     stop
   endif
   
   if (args(2) == '-h' .or. args(2) == '--help') then
-    write(*,*) 'caesar [-h] [option]'
-    write(*,*) ''
-    write(*,*) '-h :'
-    write(*,*) '  Displays this help text'
-    write(*,*) ''
-    write(*,*) 'option : utilities :'
-    write(*,*) '  hartree_to_eV :'
-    write(*,*) '    Provides a Hartree to eV calculator'
-    write(*,*) ''
-    write(*,*) 'option : harmonic calculations :'
-    write(*,*) '  setup_harmonic :'
-    write(*,*) '    Sets up calculation'
-    write(*,*) '    Converts calculation to specific DFT code'
-    write(*,*) '    DFT code choices are castep, vasp and qe'
-    write(*,*) '  run_harmonic :'
-    write(*,*) '    Runs calculation on the TCM cluster'
-    write(*,*) '    Should be called after setup_harmonic'
-    write(*,*) '  lte_harmonic :'
-    write(*,*) '    Runs harmonic calculations'
-    write(*,*) '    Should be called after run_harmonic'
-    write(*,*) '  clear_all :'
-    write(*,*) '    Deletes all temporary files and folders'
-    write(*,*) ''
-    write(*,*) 'option : quadratic calculations :'
-    write(*,*) '  setup_quadratic :'
-    write(*,*) '    Sets up quadratic calculation for use with a DFT code'
-    write(*,*) '    DFT code choices are castep, vasp and qe'
-    write(*,*) '    Should be called after lte_harmonic'
-    write(*,*) '  run_quadratic :'
-    write(*,*) '    Runs calculation on the TCM cluster'
-    write(*,*) '    Should be called after setup_quadratic'
-    write(*,*) '  anharmonic :'
-    write(*,*) '    Runs anharmonic calculations'
-    write(*,*) '    Should be called after run_quadratic'
-    write(*,*) '  bs_quadratic :'
-    write(*,*) '    Runs band structure calculations'
-    write(*,*) '    Should be called after run_quadratic'
-    write(*,*) '  get_kpoints :'
-    write(*,*) '    [Help text pending]'
-    write(*,*) '  calculate_gap'
-    write(*,*) '    [Help text pending]'
+    call print_line('caesar [-h] [option]')
+    call print_line('')
+    call print_line('-h :')
+    call print_line('  Displays this help text')
+    call print_line('')
+    call print_line('option : utilities :')
+    call print_line('  hartree_to_eV :')
+    call print_line('    Provides a Hartree to eV calculator')
+    call print_line('')
+    call print_line('option : harmonic calculations :')
+    call print_line('  setup_harmonic :')
+    call print_line('    Sets up calculation')
+    call print_line('    Converts calculation to specific DFT code')
+    call print_line('    DFT code choices are castep, vasp and qe')
+    call print_line('  run_harmonic :')
+    call print_line('    Runs calculation on the TCM cluster')
+    call print_line('    Should be called after setup_harmonic')
+    call print_line('  lte_harmonic :')
+    call print_line('    Runs harmonic calculations')
+    call print_line('    Should be called after run_harmonic')
+    call print_line('  clear_all :')
+    call print_line('    Deletes all temporary files and folders')
+    call print_line('')
+    call print_line('option : quadratic calculations :')
+    call print_line('  setup_quadratic :')
+    call print_line('    Sets up quadratic calculation for use with a DFT code')
+    call print_line('    DFT code choices are castep, vasp and qe')
+    call print_line('    Should be called after lte_harmonic')
+    call print_line('  run_quadratic :')
+    call print_line('    Runs calculation on the TCM cluster')
+    call print_line('    Should be called after setup_quadratic')
+    call print_line('  anharmonic :')
+    call print_line('    Runs anharmonic calculations')
+    call print_line('    Should be called after run_quadratic')
+    call print_line('  bs_quadratic :')
+    call print_line('    Runs band structure calculations')
+    call print_line('    Should be called after run_quadratic')
+    call print_line('  get_kpoints :')
+    call print_line('    [Help text pending]')
+    call print_line('  calculate_gap')
+    call print_line('    [Help text pending]')
   ! Test
   elseif (args(2) == 'test') then
     a(1,:) = (/ 1,0,0 /)
@@ -100,22 +102,22 @@ program caesar
     c = invert(a)
     d = matmul(b,c)
     
-    write(*,*)
+    call print_line()
     do i=1,3
-      write(*,*) a(i,:)
+      call print_line(join(a(i,:)))
     enddo
     
-    write(*,*)
-    write(*,*) determinant(a)
+    call print_line()
+    call print_line(str(determinant(a)))
     
-    write(*,*)
+    call print_line()
     do i=1,3
-      write(*,*) c(i,:)
+      call print_line(join(c(i,:)))
     enddo
     
-    write(*,*)
+    call print_line()
     do i=1,3
-      write(*,*) d(i,:)
+      call print_line(join(d(i,:)))
     enddo
   ! Wrappers for top-level Fortran
   elseif (args(2) == 'setup_harmonic') then
@@ -139,8 +141,11 @@ program caesar
                          & output_filename=args(5))
   elseif (args(2) == 'calculate_symmetry_helper') then
     call calculate_symmetry_helper(args(3),args(4))
+  ! Wrappers for testing modules
+  elseif (args(2) == 'test_copy_harmonic') then
+    call test_copy_harmonic()
   ! unrecognised argument
   else
-    write(*,*) char('Unrecognised argument : '//args(2))
+    call print_line(char('Unrecognised argument : '//args(2)))
   endif
 end program

@@ -1071,7 +1071,7 @@ end subroutine
 ! ----------------------------------------------------------------------
 subroutine initialise(structure,structure_sc, &
    & atom,atom_in_prim,prim_cell_for_atom)
-  use utils,     only : errstop, wordwrap
+  use utils,     only : errstop
   use string_module
   use structure_module
   implicit none
@@ -1113,7 +1113,7 @@ subroutine lte_1(structure,structure_sc,force_constants, &
    & temperature,freq_dos_filename, &
    & tdependence1_filename,tdependence2_filename)
   use constants, only : dp
-  use utils,     only : errstop, wordwrap
+  use utils,     only : errstop
   use string_module
   use structure_module
   implicit none
@@ -1160,8 +1160,8 @@ subroutine lte_1(structure,structure_sc,force_constants, &
      & structure_sc,atom, &
      & force_constants,                                                 &
      & freq_dos_filename,bin_width,freq_dos)
-  call wordwrap('Done.  Frequency density-of-states function written to &
-    &freq_dos.dat.  (Please view this file using XMGrace.)')
+  write(*,*)'Done.  Frequency density-of-states function written to &
+    &freq_dos.dat.  (Please view this file using XMGrace.)'
   write(*,*)
 
   write(*,*)'Calculating the lattice thermal energy (LTE) and free energy &
@@ -1175,7 +1175,7 @@ subroutine lte_2(structure,structure_sc,force_constants, &
    & no_kspace_lines,disp_kpoints, &
    & dispersion_curve_filename)
   use constants, only : dp
-  use utils,     only : errstop, wordwrap
+  use utils,     only : errstop
   use string_module
   use structure_module
   implicit none
@@ -1224,14 +1224,14 @@ subroutine lte_2(structure,structure_sc,force_constants, &
      & disp_kpoints,structure_sc,atom, &
      & force_constants,                                                   &
      & dispersion_curve_filename)
-  call wordwrap('Done.  dispersion_curve.dat has been generated.  (Please &
-    &view this file using XMGrace.)')
+  write(*,*)'Done.  dispersion_curve.dat has been generated.  (Please &
+    &view this file using XMGrace.)'
   write(*,*)
 end subroutine
 
 subroutine lte_3(structure,structure_sc,force_constants)
   use constants, only : dp
-  use utils,     only : errstop, wordwrap
+  use utils,     only : errstop
   use string_module
   use structure_module
   implicit none
@@ -1268,7 +1268,7 @@ subroutine lte_4(structure,structure_sc,force_constants, &
    & kdisp_patterns_filename,pol_vec_filename,            &
    & error_filename,dyn_mat_fileroot)
   use constants, only : dp
-  use utils,     only : errstop, wordwrap
+  use utils,     only : errstop
   use string_module
   use structure_module
   implicit none

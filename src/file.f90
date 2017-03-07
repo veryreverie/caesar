@@ -9,8 +9,8 @@ module file_module
   public :: open_append_file ! open a file for appending to
   public :: file_exists      ! checks if a file exists
   public :: count_lines      ! counts the number of lines in a file
-  public :: read_line        ! reads a single line of a file to String
   public :: read_lines       ! reads a file into a String(:) array
+  public :: print_line       ! Writes a single line to a file.
   
   interface open_read_file
     module procedure open_read_file_character
@@ -40,6 +40,11 @@ module file_module
   interface read_lines
     module procedure read_lines_character
     module procedure read_lines_String
+  end interface
+  
+  interface print_line
+    module procedure print_line_character
+    module procedure print_line_String
   end interface
 
 contains
@@ -72,7 +77,7 @@ function open_file(filename,status,action,access) result(unit_num)
   open(unit=unit_num,file=filename,status=status,action=action,&
     &access=access,iostat=iostat)
   if (iostat /= 0) then
-    write(*,*) 'Error opening '//trim(filename)//' file.'
+    call print_line('Error opening '//filename//' file.')
     stop
   endif
 end function
@@ -172,11 +177,11 @@ function count_lines_character(filename) result(output)
   output = 0
   iostat = 0
   do while (iostat==0)
-    read(file_unit, "(a)", iostat=iostat) line
+    read(file_unit, '(a)', iostat=iostat) line
     if (iostat==0) then
       output = output+1
     elseif (iostat>0) then
-      write(*,*) "Error counting lines of "//filename
+      call print_line('Error counting lines of '//filename)
       stop
     endif
   enddo
@@ -191,22 +196,6 @@ function count_lines_String(filename) result(output)
   integer                  :: output
   
   output = count_lines(char(filename))
-end function
-
-! ----------------------------------------------------------------------
-! Effectively read(file,"(a)"), but for String type
-! ----------------------------------------------------------------------
-function read_line(file_unit) result(output)
-  use string_module
-  implicit none
-  
-  integer, intent(in) :: file_unit
-  type(String)        :: output
-  
-  character(1000) :: line
-  
-  read(file_unit,"(a)") line
-  output = trim(line)
 end function
 
 ! ----------------------------------------------------------------------
@@ -229,15 +218,15 @@ function read_lines_character(filename) result(output)
   
   allocate(output(file_length),stat=ierr)
   if (ierr/=0) then
-    write(*,*) "Error allocating output for read_lines"
+    call print_line('Error allocating output for read_lines')
     stop
   endif
   
   file_unit = open_read_file(filename)
   do i=1,file_length
-    read(file_unit,"(a)",iostat=ierr) line
+    read(file_unit,'(a)',iostat=ierr) line
     if (ierr/=0) then
-      write(*,*) "Error reading from "//filename
+      call print_line('Error reading from '//filename)
       stop
     endif
     output(i) = trim(line)
@@ -253,5 +242,32 @@ function read_lines_String(filename) result(output)
   
   output = read_lines(char(filename))
 end function
+
+! ----------------------------------------------------------------------
+! Writes a line to file.
+! ----------------------------------------------------------------------
+subroutine print_line_character(file_unit,line)
+  implicit none
+  
+  integer,      intent(in) :: file_unit
+  character(*), intent(in) :: line
+  
+  integer :: ierr
+  
+  write(file_unit,'(a)',iostat=ierr) line
+  if (ierr /= 0) then
+    call print_line('Error in print_line to file.')
+    stop
+  endif
+end subroutine
+
+subroutine print_line_String(file_unit,line)
+  implicit none
+  
+  integer,      intent(in) :: file_unit
+  type(String), intent(in) :: line
+  
+  call print_line(file_unit,char(line))
+end subroutine
 
 end module

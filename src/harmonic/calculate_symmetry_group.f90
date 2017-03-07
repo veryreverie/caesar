@@ -5,6 +5,7 @@ function calculate_symmetry_group(structure) result(output)
   use constants, only : dp
   use structure_module
   use group_module
+  use string_module
   implicit none
   
   type(StructureData), intent(in) :: structure
@@ -60,12 +61,12 @@ function calculate_symmetry_group(structure) result(output)
   do i=1,structure%no_symmetries
     do j=1,structure%no_atoms
       if (count(operations(:,i)==j)/=1) then
-        write(*,'(a)') 'Error: symmetry operation not one-to-one.'
+        call print_line('Error: symmetry operation not one-to-one.')
         stop
       endif
       
       if (structure%species(operations(j,i))/=structure%species(j)) then
-        write(*,'(a)') 'Error: symmetry operation between different species.'
+        call print_line('Error: symmetry operation between different species.')
         stop
       endif
     enddo

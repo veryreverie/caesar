@@ -85,41 +85,42 @@ subroutine structure_to_castep(structure_sc,input_filename, &
   
   ! Write cell file
   cell_file = open_write_file(output_filename)
-  write(cell_file,"(a)") '%block lattice_cart'
-  write(cell_file,"(a)") 'bohr'
+  call print_line(cell_file,'%block lattice_cart')
+  call print_line(cell_file,'bohr')
   do i=1,3
-    write(cell_file,*) structure_sc%lattice(i,:)
+    call print_line(cell_file,join(structure_sc%lattice(i,:)))
   enddo
-  write(cell_file,"(a)") '%endblock lattice_cart'
-  write(cell_file,"(a)") ''
-  write(cell_file,"(a)") '%block positions_abs'
-  write(cell_file,"(a)") 'bohr'
+  call print_line(cell_file,'%endblock lattice_cart')
+  call print_line(cell_file,'')
+  call print_line(cell_file,'%block positions_abs')
+  call print_line(cell_file,'bohr')
   do i=1,structure_sc%no_atoms
-    write(cell_file,*) structure_sc%species(i),structure_sc%atoms(:,i)
+    call print_line(cell_file, structure_sc%species(i)//' '// &
+                             & join(structure_sc%atoms(:,i)))
   enddo
-  write(cell_file,"(a)") '%endblock positions_abs'
-  write(cell_file,"(a)") ''
+  call print_line(cell_file,'%endblock positions_abs')
+  call print_line(cell_file,'')
   
   ! Copy the contents of input file to cell file
   if (present(input_filename)) then
     if (file_exists(input_filename)) then
       input_file_contents = read_lines(input_filename)
       do i=1,size(input_file_contents)
-        write(cell_file,"(a)") char(input_file_contents(i))
+        call print_line(cell_file,char(input_file_contents(i)))
       enddo
     endif
   endif
   
   if (path_wanted) then
     ! Append band structure data to cell file
-    write(cell_file,"(a)") ''
-    write(cell_file,"(a)") '%block_bs_kpoints_path'
+    call print_line(cell_file,'')
+    call print_line(cell_file,'%block_bs_kpoints_path')
     do i=1,no_points
-      write(cell_file,*) path(:,i)
+      call print_line(cell_file,join(path(:,i)))
     enddo
-    write(cell_file,"(a)") '%endblock_bs_kpoint_path'
-    write(cell_file,"(a)") ''
-    write(cell_file,"(a)") 'bs_kpoints_path_spacing = 10.0'
+    call print_line(cell_file,'%endblock_bs_kpoint_path')
+    call print_line(cell_file,'')
+    call print_line(cell_file,'bs_kpoints_path_spacing = 10.0')
   endif
   
   close(cell_file)
@@ -145,7 +146,8 @@ subroutine structure_to_vasp(structure_sc,poscar_filename)
   integer,      allocatable :: species_counts(:)
   
   ! Temporary variables
-  integer :: i
+  integer      :: i
+  type(String) :: line
   
   ! Count the number of species
   no_species = 0
@@ -174,22 +176,28 @@ subroutine structure_to_vasp(structure_sc,poscar_filename)
   
   ! Write output file
   poscar_file = open_write_file(poscar_filename)
-  write(poscar_file,"(a)") 'Structure'
-  write(poscar_file,*) bohr
+  
+  call print_line(poscar_file,'Structure')
+  call print_line(poscar_file,str(bohr))
   do i=1,3
-    write(poscar_file,*) structure_sc%lattice(:,i)
+    call print_line(poscar_file, join(structure_sc%lattice(:,i)))
   enddo
-  do i=1,no_species
-    write(poscar_file,"(a)",advance="no") species(i)//" "
+  
+  line = species(1)
+  do i=2,no_species
+    line = line//' '//species(i)
   enddo
-  write(poscar_file,*)
-  do i=1,no_species
-    write(poscar_file,"(a)",advance="no") char(str(species_counts(i))//" ")
+  call print_line(poscar_file, line)
+  
+  line = str(species_counts(1))
+  do i=2,no_species
+    line = line//' '//species_counts(i)
   enddo
-  write(poscar_file,*)
-  write(poscar_file,"(a)") 'Cartesian'
+  call print_line(poscar_file, line)
+  
+  call print_line(poscar_file,'Cartesian')
   do i=1,structure_sc%no_atoms
-    write(poscar_file,*) structure_sc%atoms(:,i)
+    call print_line(poscar_file, join(structure_sc%atoms(:,i)))
   enddo
   close(poscar_file)
 end subroutine
@@ -226,7 +234,8 @@ subroutine structure_to_qe(structure_sc,input_filename,pseudo_filename, &
   integer :: output_file
   
   ! Temporary variables
-  integer        :: i
+  integer      :: i
+  type(String) :: line
   
   ! Read in pseudo file
   pseudo_contents = read_lines(pseudo_filename)
@@ -250,26 +259,28 @@ subroutine structure_to_qe(structure_sc,input_filename,pseudo_filename, &
   if (file_exists(input_filename)) then
     input_file_contents = read_lines(input_filename)
     do i=1,size(input_file_contents)
-      write(output_file,"(a)") char(input_file_contents(i))
+      call print_line(output_file,input_file_contents(i))
     enddo
   endif
   
   ! Write output file
-  write(output_file,"(a)") char(str('nat=')//structure_sc%no_atoms)
-  write(output_file,"(a)") '/&end'
+  call print_line(output_file,str('nat=')//structure_sc%no_atoms)
+  call print_line(output_file,'/&end')
   do i=1,size(pseudo_contents)
-    write(output_file,"(a)") char(pseudo_contents(i))
+    call print_line(output_file,pseudo_contents(i))
   enddo
-  write(output_file,"(a)") 'CELL_PARAMETERS bohr'
+  call print_line(output_file,'CELL_PARAMETERS bohr')
   do i=1,3
-    write(output_file,"(a)") structure_sc%lattice(i,:)
+    call print_line(output_file, join(structure_sc%lattice(i,:)))
   enddo
-  write(output_file,"(a)") 'ATOMIC_POSITIONS bohr'
+  call print_line(output_file,'ATOMIC_POSITIONS bohr')
   do i=1,structure_sc%no_atoms
-    write(output_file,*) structure_sc%species(i),structure_sc%atoms(:,i)
+    call print_line(output_file, structure_sc%species(i)//' '// &
+                               & join(structure_sc%atoms(:,i)))
   enddo
-  write(output_file,"(a)") char(kpoints_file(1))
-  write(output_file,*) int(primitive_mesh*sc_distance/distance)+1,0,0,0
+  call print_line(output_file,kpoints_file(1))
+  line = join(int(primitive_mesh*sc_distance/distance))//' 0 0 0'
+  call print_line(output_file,line)
   close(output_file)
 end subroutine
 

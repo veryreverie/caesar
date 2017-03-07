@@ -11,16 +11,17 @@ contains
 ! reports an error and stops
 ! ----------------------------------------------------------------------
 subroutine errstop(subroutine_name, message)
+  use string_module
   implicit none
   
   character(*), intent(in) :: subroutine_name ! where errstop is called
   character(*), intent(in) :: message         ! error message
   
-  write(*,*) ''
-  write(*,*) 'error in subroutine '//trim(adjustl(subroutine_name))//'.'
-  write(*,*) ''
-  call wordwrap(trim(adjustl(message)))
-  write(*,*) ''
+  call print_line()
+  call print_line('error in subroutine '//trim(adjustl(subroutine_name))//'.')
+  call print_line('')
+  call print_line(trim(adjustl(message)))
+  call print_line('')
   stop
 end subroutine
 
@@ -28,87 +29,14 @@ end subroutine
 ! reports an allocation error and stops
 ! ----------------------------------------------------------------------
 subroutine erralloc(arg)
+  use string_module
   implicit none
   
   character(*), intent(in) :: arg
   
-  write(*,*) ''
-  write(*,*) 'Problem allocating '//trim(adjustl(arg))//' array.'
-  write(*,*)
-end subroutine
-
-! ----------------------------------------------------------------------
-! prints out the contents of the character string 'text',
-! ensuring that line breaks only occur at space characters. The output
-! is written to unit unit_in if this parameter is supplies; otherwise the
-! output is written to unit o. The maximum length of each line is given
-! by linelength_in if this is supplied; otherwise the default line length
-! is 79 characters.
-! ----------------------------------------------------------------------
-subroutine wordwrap(text, unit_in, linelength_in)
-  implicit none
-  
-  integer, intent(in), optional :: unit_in
-  integer, intent(in), optional :: linelength_in
-  character(*), intent(in)      :: text
-  character(260)                :: temp
-  integer                       :: i
-  integer                       :: unit
-  integer                       :: lentext
-  integer                       :: startpoint
-  integer                       :: stoppoint
-  integer                       :: lastpos
-  integer                       :: linelength
-  
-  ! check if unit_in is supplied
-  if (present(unit_in)) then
-    unit = unit_in
-  else
-    unit=6
-  endif
-  
-  lentext = len(trim(text))
-  if (lentext<1) then ! text is empty
-    write(unit,*) ""
-    return
-  endif
-  
-  ! check if linelength_in is supplied
-  if (present(linelength_in)) then
-    if (linelength_in>=2) then
-      linelength=linelength_in
-    else
-      linelength=2
-    endif
-  else
-    linelength=79
-  endif
-  
-  startpoint=1
-  do i=1, huge(1) ! loop over lines
-    stoppoint = startpoint+linelength-1
-    if (stoppoint<=lentext) then
-      lastpos = index(trim(text(startpoint:stoppoint)),' ',.true.)
-      if (lastpos>0) stoppoint = startpoint+lastpos-1
-    else
-      stoppoint = lentext
-    endif
-    
-    if (i==1) then
-      ! allow the user to indent the first line, if they wish
-      temp = text(startpoint:stoppoint) ! or pathscale.f90 fails to compile
-      write(unit,*) trim(temp)
-    else
-      temp = text(startpoint:stoppoint) ! or pathscale.f90 fails to compile
-      write(unit,*) trim(adjustl(temp))
-    endif
-    
-    if (stoppoint==lentext) then
-      exit
-    else
-      startpoint = stoppoint+1
-    endif ! finished text?
-  enddo
+  call print_line()
+  call print_line('Problem allocating '//trim(adjustl(arg))//' array.')
+  call print_line()
 end subroutine
 
 ! ----------------------------------------------------------------------
@@ -116,9 +44,13 @@ end subroutine
 ! middle of a sentence without introducing large amounts of white space.
 ! ----------------------------------------------------------------------
 function i2s(n) result(output)
+  use string_module
+  implicit none
+  
   integer, intent(in) :: n
   character(12)       :: output
-  write(output,"(I0)") n
+  
+  output = char(str(n))
 end function
 
 ! ----------------------------------------------------------------------

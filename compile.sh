@@ -31,6 +31,7 @@ cflags="$cflags -g"             # turn on debugging
 cflags="$cflags -O0"            # turn off optimisation
 #cflags="$cflags -std=f95"       # force standards compliance
 cflags="$cflags -W -Wall"       # turn on compiler warnings
+cflags="$cflags -pedantic"      # turn on pedantic mode
 cflags="$cflags -J${mdir}/"     # set .mod files to exist in mod/
 cflags="$cflags -fmax-errors=1" # make compilation stop on first error
 
@@ -41,11 +42,13 @@ chmod u+x $bdir/caesar
 
 # list programs
 # programs should be added so they are to the right of their dependencies
-programs=(constants string utils linear_algebra algebra file supercell rand_no_gen moller_plesset structure dft_output_file structure_to_dft calculate_symmetry_helper bands displacement_patterns)
+programs=(constants string file utils linear_algebra algebra supercell rand_no_gen moller_plesset structure dft_output_file structure_to_dft calculate_symmetry_helper bands displacement_patterns)
 
 harmonic_programs=(group calculate_symmetry_group unique_directions construct_supercell min_images fourier_interpolation_symmetry fourier_interpolation generate_supercells lte hartree_to_eV setup_harmonic lte_harmonic)
 
 quadratic_programs=(mapping calculate_anharmonic calculate_gap quadratic_spline vscf_1d anharmonic bs_quadratic setup_quadratic)
+
+testing_programs=(test_copy_harmonic)
 
 # compile objects
 for program in ${programs[@]}; do
@@ -58,6 +61,10 @@ done
 
 for program in ${quadratic_programs[@]}; do
   $cf90 -c $sdir/quadratic/$program.f90 $cflags -o$odir/$program.o
+done
+
+for program in ${testing_programs[@]}; do
+  $cf90 -c $sdir/testing/$program.f90 $cflags -o$odir/$program.o
 done
 
 program=caesar
@@ -74,6 +81,10 @@ for program in ${harmonic_programs[@]}; do
 done
 
 for program in ${quadratic_programs[@]}; do
+  objs="$odir/$program.o $objs"
+done
+
+for program in ${testing_programs[@]}; do
   objs="$odir/$program.o $objs"
 done
 

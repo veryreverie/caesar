@@ -5,9 +5,10 @@ module calculate_anharmonic_module
 contains
 
 subroutine calculate_anharmonic(multiplicity, no_modes, Nbasis, harmonic,&
-    &eigenvals, result_file_unit)
-  use utils,     only : i2s
+    &eigenvals, result_file)
   use constants, only : kB
+  use string_module
+  use file_module
   implicit none
   
   integer,  intent(in) :: multiplicity(:)
@@ -15,7 +16,7 @@ subroutine calculate_anharmonic(multiplicity, no_modes, Nbasis, harmonic,&
   integer,  intent(in) :: Nbasis
   real(dp), intent(in) :: harmonic(:,:,:)
   real(dp), intent(in) :: eigenvals(:,:,:)
-  integer,  intent(in) :: result_file_unit
+  integer,  intent(in) :: result_file
   
   ! Temperature parameters
   real(dp), parameter :: dtemperature    = 50.0_dp ! delta T (K)
@@ -81,9 +82,9 @@ subroutine calculate_anharmonic(multiplicity, no_modes, Nbasis, harmonic,&
          enddo
        enddo
     endif
-    write(result_file_unit,*) 1.0_dp/(kB*betas(i)),&
-                            & renormalised_harmonic,&
-                            & renormalised_eigenvals
+    call print_line(result_file, str(1.0_dp/(kB*betas(i)))//' '// &
+                               & renormalised_harmonic//' '//     &
+                               & renormalised_eigenvals)
   enddo
 end subroutine
 end module

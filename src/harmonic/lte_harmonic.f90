@@ -74,8 +74,8 @@ subroutine lte_harmonic()
   ! ----------------------------------------------------------------------
   ! Get temperature from user
   ! ----------------------------------------------------------------------
-  write(*,"(a)") "What temperature (K)?"
-  read(*,*) temperature
+  call print_line('What temperature (K)?')
+  temperature = dble(read_line_from_user())
   
   ! ----------------------------------------------------------------------
   ! Read in initial data
@@ -286,7 +286,7 @@ subroutine lte_harmonic()
               & sdir//'/lte/dyn_mat.')
     
     if (file_exists(sdir//'/lte/error.txt')) then
-      write(*,"(a)") "There is an error in lte: check error.txt file."
+      call print_line('There is an error in lte: check error.txt file.')
       stop
     endif
     

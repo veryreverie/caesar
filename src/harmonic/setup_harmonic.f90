@@ -22,7 +22,7 @@ subroutine setup_harmonic(caesar_dir)
   implicit none
   
   ! The path to caesar
-  type(String) :: caesar_dir
+  type(String), intent(in) :: caesar_dir
   
   ! User input variables
   type(String) :: dft_code
@@ -51,7 +51,6 @@ subroutine setup_harmonic(caesar_dir)
   
   ! Temporary variables
   integer        :: i,j,k,l
-  character(100) :: line
   type(String)   :: filename
   
   type(String), allocatable :: contents(:)
@@ -72,39 +71,37 @@ subroutine setup_harmonic(caesar_dir)
     seedname = contents(2)
   else
     ! Get dft code from command line
-    write(*,*)
-    write(*,"(a)") "What dft code do you want to use (castep,vasp,qe)?"
-    read(*,"(a)") line
-    dft_code = trim(line)
+    call print_line()
+    call print_line('Whar dft code do you want to use (castep,vasp,qe)?')
+    dft_code = read_line_from_user()
     
     ! Get seedname from command line
-    if (dft_code=="castep" .or. dft_code=="qe") then
-      write(*,*)
-      write(*,"(a)") "What is the "//char(dft_code)//" seedname?"
-      read(*,*) line
-      seedname = trim(line)
+    if (dft_code=='castep' .or. dft_code=='qe') then
+      call print_line()
+      call print_line('Whar is the '//dft_code//' seedname?')
+      seedname = read_line_from_user()
     endif
   endif
   
   ! Check dft code is supported
-  if (dft_code=="vasp") then
-    write(*,"(a)") "Error! vasp is not currently supported."
+  if (dft_code=='vasp') then
+    call print_line('Error! vasp is not currently supported.')
     stop
-  elseif (dft_code/="castep" .and. dft_code/="qe") then
-    write(*,"(a)") "Error! The code "//char(dft_code)//" is not supported."
-    write(*,"(a)") "Please choose one of: castep vasp qe."
+  elseif (dft_code/='castep' .and. dft_code/='qe') then
+    call print_line('Error! The code '//dft_code//' is not supported.')
+    call print_line('Please choose one of: castep vasp qe.')
     stop
   endif
   
   ! Check dft input files exist
-  if (dft_code=="castep") then
+  if (dft_code=='castep') then
     filename = dft_code//'/'//seedname//'.param'
-  elseif (dft_code=="qe") then
+  elseif (dft_code=='qe') then
     filename = dft_code//'/'//seedname//'.in'
   endif
   
   if (.not. file_exists(filename)) then
-    write(*,"(a)") "Error! The input file "//char(filename)//" does not exist."
+    call print_line('Error! The input file '//filename//' does not exist.')
     stop
   endif
   
@@ -122,8 +119,8 @@ subroutine setup_harmonic(caesar_dir)
   ! Write user settings to file
   ! ----------------------------------------------------------------------
   user_input_file = open_write_file('user_input.txt')
-  write(user_input_file,"(a)") char(dft_code)
-  write(user_input_file,"(a)") char(seedname)
+  call print_line(user_input_file,dft_code)
+  call print_line(user_input_file,seedname)
   close(user_input_file)
   
   ! ----------------------------------------------------------------------
@@ -148,7 +145,7 @@ subroutine setup_harmonic(caesar_dir)
   
   ! Write no_supercells to file
   no_supercells_file = open_write_file('no_sc.dat')
-  write(no_supercells_file,*) no_supercells
+  call print_line(no_supercells_file,str(no_supercells))
   close(no_supercells_file)
   
   ! ----------------------------------------------------------------------
@@ -214,18 +211,18 @@ subroutine setup_harmonic(caesar_dir)
           endif
             
           ! Write dft input files
-          if (dft_code=="castep") then
+          if (dft_code=='castep') then
             call structure_to_dft(                                   &
                & dft_code        = dft_code,                         &
                & structure_sc    = structure_sc,                     &
                & input_filename  = dft_code//'/'//seedname//'.cell', &
                & output_filename = paths(l)//'/'//seedname//'.cell')
-          elseif (dft_code=="vasp") then
+          elseif (dft_code=='vasp') then
             call structure_to_dft(               &
                & dft_code        = dft_code,     &
                & structure_sc    = structure_sc, &
                & output_filename = paths(l)//'/POSCAR')
-          elseif (dft_code=="qe") then
+          elseif (dft_code=='qe') then
             call structure_to_dft(                                  &
                & dft_code         = dft_code,                       &
                & structure_sc     = structure_sc,                   &

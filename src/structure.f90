@@ -141,13 +141,13 @@ function read_structure_file_character(filename,supercell) result(this)
   
   ! check layout is consistent with input file
   if (lattice_line/=1) then
-    write(*,*) "Error: line 1 of "//filename//" is not 'Lattice'"
+    call print_line("Error: line 1 of "//filename//" is not 'Lattice'")
     stop
   elseif (atoms_line/=5) then
-    write(*,*) "Error: line 5 of "//filename//" is not 'Atoms'"
+    call print_line("Error: line 5 of "//filename//" is not 'Atoms'")
     stop
   elseif (end_line/=size(structure_file)) then
-    write(*,*) "Error: the last line of "//filename//" is not 'End'"
+    call print_line("Error: the last line of "//filename//" is not 'End'")
     stop
   endif
   
@@ -219,24 +219,31 @@ subroutine write_structure_file_character(this,filename)
   integer :: i,j
   
   structure_file = open_write_file(filename)
-  write(structure_file,"(a)") "Lattice"
+  
+  call print_line(structure_file,'Lattice')
   do i=1,3
-    write(structure_file,*) this%lattice(i,:)
+    call print_line(structure_file, join(this%lattice(i,:)))
   enddo
-  write(structure_file,"(a)") "Atoms"
+  
+  call print_line(structure_file,'Atoms')
   do i=1,this%no_atoms
-    write(structure_file,*) this%species(i), this%mass(i), this%atoms(:,i)
+    call print_line(structure_file, str(this%species(i))//' '// &
+                                  & this%mass(i)//' '// &
+                                  & join(this%atoms(:,i)))
   enddo
+  
   if (this%no_symmetries/=0) then
-    write(structure_file,"(a)") "Symmetry"
-  endif
-  do i=1,this%no_symmetries
-    do j=1,3
-      write(structure_file,*) this%rotation_matrices(j,:,i)
+    call print_line(structure_file,'Symmetry')
+    do i=1,this%no_symmetries
+      do j=1,3
+        call print_line(structure_file, join(this%rotation_matrices(j,:,i)))
+      enddo
+      call print_line(structure_file, join(this%offsets(:,i)))
     enddo
-    write(structure_file,*) this%offsets(:,i)
-  enddo
-  write(structure_file,"(a)") "End"
+  endif
+  
+  call print_line(structure_file,'End')
+  
   close(structure_file)
 end subroutine
 

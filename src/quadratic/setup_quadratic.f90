@@ -52,7 +52,6 @@ subroutine setup_quadratic()
   
   ! Temporary variables
   integer        :: i, j, k, l
-  character(100) :: line
   type(String)   :: filename
   type(String)   :: sdir
   type(String)   :: mdir
@@ -67,25 +66,23 @@ subroutine setup_quadratic()
   ! Get user inputs
   ! ------------------------------------------------------------
   ! Get code name
-  write(*,"(a)") "What code do you want to use (castep,vasp,qe)?"
-  read(*,*) line
-  dft_code = line
+  call print_line("What code do you want to use (castep,vasp,qe)?")
+  dft_code = read_line_from_user()
   
   ! Check code is supported
   if (dft_code=="vasp") then
-    write(*,"(a)") "Error! vasp is not currently supported."
+    call print_line("Error! vasp is not currently supported.")
     stop
   elseif (dft_code/="castep" .and. dft_code/="qe") then
-    write(*,"(a)") "Error! The code "//char(dft_code)//" is not supported."
-    write(*,"(a)") "Please choose one of: castep vap qe."
+    call print_line("Error! The code "//dft_code//" is not supported.")
+    call print_line("Please choose one of: castep vap qe.")
     stop
   endif
   
   ! Get seedname
   if (dft_code=="castep" .or. dft_code=="vasp") then
-    write(*,"(a)") "What is the "//char(dft_code)//" seedname?"
-    read(*,*) line
-    seedname = line
+    call print_line("What is the "//dft_code//" seedname?")
+    seedname = read_line_from_user()
     seedname_nscf = seedname//'.nscf' ! only needed for qe
   endif
   
@@ -97,13 +94,12 @@ subroutine setup_quadratic()
   endif
   
   if (.not. file_exists(filename)) then
-    write(*,"(a)") "Error! The input file "//char(filename)//" does not exist."
+    call print_line("Error! The input file "//filename//" does not exist.")
     stop
   endif
   
-  write(*,"(a)") "What is the path to the harmonic directory?"
-  read(*,*) line
-  harmonic_path = line
+  call print_line("What is the path to the harmonic directory?")
+  harmonic_path = read_line_from_user()
   
   ! ------------------------------------------------------------
   ! Read in mapping file
@@ -284,9 +280,9 @@ subroutine setup_quadratic()
   ! Write user inputs to file
   ! ------------------------------------------------------------
   user_input_file = open_write_file('user_input.txt')
-  write(user_input_file,"(a)") char(dft_code)
-  write(user_input_file,"(a)") char(seedname)
-  write(user_input_file,"(a)") char(harmonic_path)
+  call print_line(user_input_file,dft_code)
+  call print_line(user_input_file,seedname)
+  call print_line(user_input_file,harmonic_path)
   close(user_input_file)
   
 end subroutine

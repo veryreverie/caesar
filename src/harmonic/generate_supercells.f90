@@ -127,63 +127,64 @@ end function
 ! details of the algorithm.
 ! ----------------------------------------------------------------------
 subroutine supercells_generator(num_pcells,num_hnf,hnf)
- implicit none
- 
- integer,intent(in) :: num_pcells
- integer,intent(out) :: num_hnf
- 
- integer,pointer :: hnf(:,:,:)
- integer :: a,b,c,d,e,f,ialloc,count_hnf,quotient
-
- count_hnf=0
-
- do a=1,num_pcells 
-  if(.not.mod(num_pcells,a)==0)cycle
-  quotient=num_pcells/a
-  do c=1,quotient  
-   if(.not.mod(quotient,c)==0)cycle
-   f=quotient/c
-   count_hnf=count_hnf+c*f**2
-  enddo ! c
- enddo ! a
-
- num_hnf=count_hnf
- count_hnf=0
-
- allocate(hnf(3,3,num_hnf),stat=ialloc)
- if(ialloc/=0)then
-  write(*,*)'Problem allocating hnf array in supercells_generator.'
-  stop
- endif
-
- hnf(1:3,1:3,1:num_hnf)=0
-
- do a=1,num_pcells 
-  if(.not.mod(num_pcells,a)==0)cycle
-  quotient=num_pcells/a
-  do c=1,quotient  
-   if(.not.mod(quotient,c)==0)cycle
-   f=quotient/c
-   do b=0,c-1
-    do d=0,f-1
-     do e=0,f-1
-      count_hnf=count_hnf+1
-      hnf(1,1,count_hnf)=a
-      hnf(1,2,count_hnf)=b
-      hnf(2,2,count_hnf)=c
-      hnf(1,3,count_hnf)=d
-      hnf(2,3,count_hnf)=e
-      hnf(3,3,count_hnf)=f
-     enddo ! e
-    enddo ! d
-   enddo ! b
-  enddo ! c
- enddo ! a
-
- if(count_hnf/=num_hnf)then
-  write(*,*)'Did not generate all HNF matrices.'
-  stop
- endif 
+  use string_module
+  implicit none
+  
+  integer,intent(in) :: num_pcells
+  integer,intent(out) :: num_hnf
+  
+  integer,pointer :: hnf(:,:,:)
+  integer :: a,b,c,d,e,f,ialloc,count_hnf,quotient
+  
+  count_hnf=0
+  
+  do a=1,num_pcells 
+    if(.not.mod(num_pcells,a)==0)cycle
+    quotient=num_pcells/a
+    do c=1,quotient  
+      if(.not.mod(quotient,c)==0)cycle
+      f=quotient/c
+      count_hnf=count_hnf+c*f**2
+    enddo ! c
+  enddo ! a
+  
+  num_hnf=count_hnf
+  count_hnf=0
+  
+  allocate(hnf(3,3,num_hnf),stat=ialloc)
+  if(ialloc/=0)then
+    call print_line('Problem allocating hnf array in supercells_generator.')
+    stop
+  endif
+  
+  hnf(1:3,1:3,1:num_hnf)=0
+  
+  do a=1,num_pcells 
+    if(.not.mod(num_pcells,a)==0)cycle
+    quotient=num_pcells/a
+    do c=1,quotient  
+      if(.not.mod(quotient,c)==0)cycle
+      f=quotient/c
+      do b=0,c-1
+        do d=0,f-1
+          do e=0,f-1
+            count_hnf=count_hnf+1
+            hnf(1,1,count_hnf)=a
+            hnf(1,2,count_hnf)=b
+            hnf(2,2,count_hnf)=c
+            hnf(1,3,count_hnf)=d
+            hnf(2,3,count_hnf)=e
+            hnf(3,3,count_hnf)=f
+          enddo ! e
+        enddo ! d
+      enddo ! b
+    enddo ! c
+  enddo ! a
+  
+  if(count_hnf/=num_hnf)then
+    call print_line('Did not generate all HNF matrices.')
+    stop
+  endif 
 end subroutine
 
 
@@ -232,10 +233,10 @@ end subroutine minkowski_reduce
 subroutine generate_supercells(structure,grid,ibz_filename,supercells_filename)
   use constants,      only : dp
   use utils,          only : reduce_interval, reduce_to_ibz
-  use file_module,    only : open_read_file, open_write_file, count_lines
   use linear_algebra, only : invert_int
   
   use string_module
+  use file_module
   use structure_module
   use supercell_module
   implicit none
@@ -309,7 +310,7 @@ subroutine generate_supercells(structure,grid,ibz_filename,supercells_filename)
           & supercells(grid_size),    & ! Length of worst case.
           & stat=ialloc)
   if(ialloc/=0)then
-    write(*,*)'Problem allocating arrays.'
+    call print_line('Problem allocating arrays.')
     stop
   endif
   
@@ -456,7 +457,7 @@ subroutine generate_supercells(structure,grid,ibz_filename,supercells_filename)
   
   ! Check that all kpoints have been assigned to supercells.
   if(any(sc_ids==0))then
-    write(*,*)'Unable to allocate each k-point to a supercell matrix.'
+    call print_line('Unable to allocate each k-point to a supercell matrix.')
     stop
   endif
   
@@ -511,9 +512,9 @@ subroutine generate_supercells(structure,grid,ibz_filename,supercells_filename)
     
     ! Check that the correct number of gvectors have been found.
     if (gvector_id<=supercells(i)%sc_size) then
-      write(*,*) 'Error: Wrong number of G-vectors found.'
-      write(*,*) char(str('Supercell size: ')//supercells(i)%sc_size)
-      write(*,*) char(str('No. G-vectors found: ')//gvector_id-1)
+      call print_line('Error: Wrong number of G-vectors found.')
+      call print_line(char(str('Supercell size: ')//supercells(i)%sc_size))
+      call print_line(char(str('No. G-vectors found: ')//gvector_id-1))
       stop
     endif
   enddo
@@ -545,7 +546,7 @@ subroutine generate_supercells(structure,grid,ibz_filename,supercells_filename)
     
     ! Check that the corresponding gvector has been found.
     if (gvector_ids(i) == 0) then
-      write(*,*) "Error: could not locate G-vector."
+      call print_line("Error: could not locate G-vector.")
       stop
     endif
   enddo
@@ -556,7 +557,10 @@ subroutine generate_supercells(structure,grid,ibz_filename,supercells_filename)
   
   ibz_file = open_write_file(ibz_filename)
   do i=1,grid_size
-    write(ibz_file,*) kpoints(:,i), multiplicity(i), sc_ids(i), gvector_ids(i)
+    call print_line(ibz_file, join(kpoints(:,i))//' '// &
+                            & multiplicity(i)//' '//    &
+                            & sc_ids(i)//' '//          &
+                            & gvector_ids(i))
   enddo
   close(ibz_file)
   

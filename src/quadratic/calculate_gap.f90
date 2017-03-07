@@ -1,33 +1,49 @@
 module calculate_gap_module
-  implicit none
 contains
-
 subroutine calculate_gap()
+  use constants, only : dp
+  use string_module
+  use file_module
+  
   implicit none
-  integer :: i,no_points
-  character(80) :: filename1,filename2
-  real,allocatable :: temp(:),top(:),bottom(:)
+  
+  integer  :: i
+  integer  :: no_points
+  real(dp) :: temp
+  real(dp) :: top
+  real(dp) :: bottom
+  
+  type(String) :: top_filename
+  type(String) :: bottom_filename
+  
+  type(String), allocatable :: top_file(:)
+  type(String), allocatable :: bottom_file(:)
+  type(String), allocatable :: line(:)
+  
+  integer      :: gap_file
  
-  write(*,*)'What is the file of the top band?'
-  read(*,*)filename1
-  write(*,*)'What is the file of the bottom band?'
-  read(*,*)filename2
-  write(*,*)'How many data points are there?'
-  read(*,*)no_points
-  allocate(temp(no_points))
-  allocate(top(no_points))
-  allocate(bottom(no_points))
-
-  open(1,file=filename1)
-  open(2,file=filename2)
-  open(3,file='gap.dat')
+  call print_line('What is the file of the top band?')
+  top_filename = read_line_from_user()
+  call print_line('What is the file of the bottom band?')
+  bottom_filename = read_line_from_user()
+  call print_line('How many data points are there?')
+  no_points = int(read_line_from_user())
+  
+  top_file = read_lines(top_filename)
+  bottom_file = read_lines(bottom_filename)
+  gap_file = open_write_file('gap.dat')
+  
   do i=1,no_points
-    read(1,*)temp(i),top(i)
-    read(2,*)temp(i),bottom(i)
-    write(3,*)temp(i),top(i)-bottom(i)
-  enddo ! i
-  close(1)
-  close(2)
-  close(3)
+    line = split(top_file(i))
+    temp = dble(line(1))
+    top = dble(line(2))
+    
+    line = split(bottom_file(i))
+    temp = dble(line(1))
+    bottom = dble(line(2))
+    
+    call print_line(gap_file,str(temp)//' '//top-bottom)
+  enddo
+  close(gap_file)
 end subroutine
 end module

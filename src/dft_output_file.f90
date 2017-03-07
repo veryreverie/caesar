@@ -69,13 +69,13 @@ function read_castep_output_file(filename) result(output)
   enddo
   
   if (energy_line==0) then
-    write(*,"(a)") "Error: Energy not found in "//char(filename)
+    call print_line("Error: Energy not found in "//char(filename))
   endif
   if (forces_start_line==0) then
-    write(*,"(a)") "Error: Start of forces not found in "//char(filename)
+    call print_line("Error: Start of forces not found in "//char(filename))
   endif
   if (forces_end_line==0) then
-    write(*,"(a)") "Error: End of forces not found in "//char(filename)
+    call print_line("Error: End of forces not found in "//char(filename))
   endif
   
   ! Allocate output
