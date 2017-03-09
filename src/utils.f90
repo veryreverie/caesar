@@ -17,7 +17,7 @@ subroutine errstop(subroutine_name, message)
   character(*), intent(in) :: subroutine_name ! where errstop is called
   character(*), intent(in) :: message         ! error message
   
-  call print_line()
+  call print_line('')
   call print_line('error in subroutine '//trim(adjustl(subroutine_name))//'.')
   call print_line('')
   call print_line(trim(adjustl(message)))
@@ -34,9 +34,9 @@ subroutine erralloc(arg)
   
   character(*), intent(in) :: arg
   
-  call print_line()
+  call print_line('')
   call print_line('Problem allocating '//trim(adjustl(arg))//' array.')
-  call print_line()
+  call print_line('')
 end subroutine
 
 ! ----------------------------------------------------------------------

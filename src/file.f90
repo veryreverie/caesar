@@ -41,12 +41,6 @@ module file_module
     module procedure read_lines_character
     module procedure read_lines_String
   end interface
-  
-  interface print_line
-    module procedure print_line_character
-    module procedure print_line_String
-  end interface
-
 contains
 
 ! open a file with a specified mode, and return the unit it is opened in
@@ -242,32 +236,4 @@ function read_lines_String(filename) result(output)
   
   output = read_lines(char(filename))
 end function
-
-! ----------------------------------------------------------------------
-! Writes a line to file.
-! ----------------------------------------------------------------------
-subroutine print_line_character(file_unit,line)
-  implicit none
-  
-  integer,      intent(in) :: file_unit
-  character(*), intent(in) :: line
-  
-  integer :: ierr
-  
-  write(file_unit,'(a)',iostat=ierr) line
-  if (ierr /= 0) then
-    call print_line('Error in print_line to file.')
-    stop
-  endif
-end subroutine
-
-subroutine print_line_String(file_unit,line)
-  implicit none
-  
-  integer,      intent(in) :: file_unit
-  type(String), intent(in) :: line
-  
-  call print_line(file_unit,char(line))
-end subroutine
-
 end module

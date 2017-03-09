@@ -1,3 +1,238 @@
+module fourier_interpolation_symmetry_module
+  use constants
+  use utils
+  use linear_algebra
+  implicit none
+contains
+
+! ----------------------------------------------------------------------
+! Given a vector with Cartesian coordinates cart, this function is true if the
+! vector is a point on the lattice specified by latt_vecs.
+! ----------------------------------------------------------------------
+logical function lattice_point(cart,latt_vecs)
+  IMPLICIT NONE
+  REAL(dp),PARAMETER :: tol=1.d-4
+  REAL(dp),INTENT(in) :: cart(3),latt_vecs(3,3)
+  INTEGER :: i_cart
+  REAL(dp) :: frac(3),rec_vecs(3,3)
+  
+  rec_vecs = transpose(invert(latt_vecs))
+  do i_cart=1,3
+    frac(i_cart)=dot_product(rec_vecs(i_cart,1:3),cart(1:3))
+  enddo
+  frac(1:3)=modulo(frac(1:3)+tol,1.d0)-tol
+  lattice_point=all(abs(frac(1:3))<tol)
+end function
+
+! ----------------------------------------------------------------------
+! Determine the mapping under each symmetry operation for each k-point on the
+! grid.
+! ----------------------------------------------------------------------
+subroutine kpoint_symmetry_maps(rec_vecs,no_points,points_cart,&
+   & no_symms,point_symms,forwards,backwards)
+  IMPLICIT NONE
+  INTEGER,INTENT(in) :: no_points,no_symms
+  REAL(dp),INTENT(in) :: rec_vecs(3,3),points_cart(3,no_points),&
+    &point_symms(3,3,no_symms)
+  INTEGER,INTENT(out) :: forwards(no_points,no_symms),&
+    &backwards(no_points,no_symms)
+  INTEGER :: i_grid,i_cart,i_symm,j_grid
+  REAL(dp) :: rot_point_cart(3)
+  
+  forwards=0
+  backwards=0
+  
+  do i_symm=1,no_symms
+    do i_grid=1,no_points
+      do i_cart=1,3
+        rot_point_cart(i_cart)=dot_product(point_symms(i_cart,1:3,i_symm),&
+          &points_cart(1:3,i_grid))
+      enddo ! i_cart
+      do j_grid=1,no_points
+        if(lattice_point(rot_point_cart-points_cart(1:3,j_grid),rec_vecs))then
+          if(forwards(i_grid,i_symm)/=0)then
+            call errstop('KPOINT_SYMMETRY_GROUPS','Grid point '//trim(i2s(i_grid))//&
+              &' is transformed to more than one grid point by symmetry operation '&
+              &//trim(i2s(i_symm))//'.')
+          else
+            forwards(i_grid,i_symm)=j_grid
+          endif ! forwards
+          if(backwards(j_grid,i_symm)/=0)then
+            call errstop('KPOINT_SYMMETRY_GROUPS','More than one grid point is &
+              &transformed to grid point '//trim(i2s(i_grid))//' by symmetry &
+              &operation '//trim(i2s(i_symm))//'.')
+          else
+            backwards(j_grid,i_symm)=i_grid
+          endif ! backwards
+        endif ! lattice_point
+      enddo ! j_grid
+    enddo ! i_grid
+  enddo ! i_symm
+end subroutine
+
+! ----------------------------------------------------------------------
+! Construct the mapping of each atom in the primitive cell under each
+! symmetry operation.
+! ----------------------------------------------------------------------
+subroutine atom_symmetry_maps(latt_vecs,basis,atom_cart,no_symms,point_symms,&
+   & trans_symms,forwards,backwards)
+  IMPLICIT NONE
+  INTEGER,INTENT(in) :: basis,no_symms
+  REAL(dp),INTENT(in) :: latt_vecs(3,3),atom_cart(3,basis),&
+    &point_symms(3,3,no_symms),trans_symms(3,no_symms)
+  INTEGER,INTENT(out) :: forwards(basis,no_symms),backwards(basis,no_symms)
+  INTEGER :: i_symm,i_atom,i_cart,j_atom
+  REAL(dp) :: symm_pos(3)
+  LOGICAL :: found_atom(basis)
+  
+  forwards=0
+  backwards=0
+  
+  do i_symm=1,no_symms
+    found_atom=.false.
+    do i_atom=1,basis
+      do i_cart=1,3
+        symm_pos(i_cart)=dot_product(point_symms(i_cart,1:3,i_symm),&
+          &atom_cart(1:3,i_atom))+trans_symms(i_cart,i_symm)
+      enddo ! i_cart
+      do j_atom=1,basis
+        if(lattice_point(symm_pos-atom_cart(1:3,j_atom),latt_vecs))then
+          found_atom(i_atom)=.true.
+          if(forwards(i_atom,i_symm)/=0)then
+            call errstop('ATOM_SYMMETRY_MAPS','Atom '//trim(i2s(i_atom))//' is &
+              &transformed to more than one atom by symmetry operation '&
+              &//trim(i2s(i_symm))//'.')
+          else
+            forwards(i_atom,i_symm)=j_atom
+          endif ! forwards
+          if(backwards(j_atom,i_symm)/=0)then
+            call errstop('ATOM_SYMMETRY_MAPS','More than one atom is mapped to atom '&
+              &//trim(i2s(j_atom))//' by symmetry operation '//trim(i2s(i_symm))//'.')
+          else
+            backwards(j_atom,i_symm)=i_atom
+          endif ! backwards
+        endif ! lattice_point
+      enddo ! j_atom
+    enddo ! i_atom
+    if(any(.not.found_atom))call errstop('ATOM_SYMMETRY_MAPS','Unable to &
+      &map all atoms under symmetry operation '//trim(i2s(i_symm))//'.')
+  enddo ! i_symm
+end subroutine
+
+! ----------------------------------------------------------------------
+! Map each k-point on the grid to one in the IBZ.
+! ----------------------------------------------------------------------
+subroutine match_kpoints(rec_latt_vecs,no_grid_points,grid_points_cart,&
+   & no_ibz_points,ibz_points_cart,no_symms,point_symms,map_ibz,map_symm,&
+   & time_reversal)
+  IMPLICIT NONE
+  INTEGER,INTENT(in) :: no_grid_points,no_ibz_points,no_symms
+  REAL(dp),INTENT(in) :: rec_latt_vecs(3,3),grid_points_cart(3,no_grid_points),&
+    &ibz_points_cart(3,no_ibz_points),point_symms(3,3,no_symms)
+  INTEGER,INTENT(out) :: map_ibz(no_grid_points),map_symm(no_grid_points)
+  LOGICAL,INTENT(out) :: time_reversal(no_grid_points)
+  INTEGER :: i_grid,i_cart,i_point,i_symm
+  REAL(dp) :: rot_ibz_point(3)
+  LOGICAL :: found_grid_point(no_grid_points)
+  
+  found_grid_point=.false.
+  
+  do i_point=1,no_ibz_points
+    do i_symm=1,no_symms
+      do i_cart=1,3
+        rot_ibz_point(i_cart)=dot_product(point_symms(i_cart,1:3,i_symm),&
+          &ibz_points_cart(1:3,i_point))
+      enddo ! i_cart
+      do i_grid=1,no_grid_points
+        if(.not.found_grid_point(i_grid))then
+          if(lattice_point(rot_ibz_point-grid_points_cart(1:3,i_grid),&
+            &rec_latt_vecs))then
+            found_grid_point(i_grid)=.true.
+            map_ibz(i_grid)=i_point
+            map_symm(i_grid)=i_symm
+            time_reversal(i_grid)=lattice_point(2.d0*grid_points_cart(1:3,i_grid),&
+              &rec_latt_vecs)
+          endif ! lattice_point
+        endif ! found_grid_point
+      enddo ! i_grid
+    enddo ! i_symm
+  enddo ! i_point
+  
+  if(any(.not.found_grid_point))call errstop('MATCH_KPOINTS','Unable to map &
+    &all k-points on grid to the IBZ.')
+end subroutine
+
+! ----------------------------------------------------------------------
+! Calculate phases used in gamma matrices.
+! ----------------------------------------------------------------------
+subroutine g_matrix_phases(kpoint_cart,point_symm,trans_symm,basis,atoms_cart,&
+    &phase)
+  IMPLICIT NONE
+  INTEGER,INTENT(in) :: basis
+  REAL(dp),INTENT(in) :: kpoint_cart(3),point_symm(3,3),trans_symm(3),&
+    &atoms_cart(3,basis)
+  COMPLEX(dp),INTENT(out) :: phase(basis,basis)
+  INTEGER :: i_atom,i_cart,j_atom,j_cart
+  REAL(dp) :: rot_kpoint(3),symm_pos(3),arg
+  
+  do i_cart=1,3
+    rot_kpoint(i_cart)=dot_product(point_symm(i_cart,1:3),kpoint_cart(1:3))
+  enddo ! i_cart
+  
+  do i_atom=1,basis
+    do j_atom=1,basis
+      do j_cart=1,3
+        symm_pos(j_cart)=dot_product(point_symm(j_cart,1:3),&
+          &atoms_cart(1:3,j_atom))+trans_symm(j_cart)
+      enddo ! j_cart
+      arg=dot_product(rot_kpoint,atoms_cart(1:3,i_atom)-symm_pos)
+      phase(i_atom,j_atom)=cmplx(cos(arg),sin(arg),dp)
+    enddo ! j_atom
+  enddo ! i_atom
+end subroutine
+
+! ----------------------------------------------------------------------
+! Apply a symmetry operation to the dynamical matrix.
+! ----------------------------------------------------------------------
+subroutine apply_symmetry_to_dyn_mat(basis,forwards,phase,dyn_mat_in,&
+    &point_symm,dyn_mat_out)
+  IMPLICIT NONE
+  INTEGER,INTENT(in) :: basis,forwards(basis)
+  REAL(dp),INTENT(in) :: point_symm(3,3)
+  COMPLEX(dp),INTENT(in) :: phase(basis,basis),dyn_mat_in(basis,3,basis,3)
+  COMPLEX(dp),INTENT(out) :: dyn_mat_out(basis,3,basis,3)
+  INTEGER :: i_atom,j_atom,symm_i_atom,symm_j_atom
+  REAL(dp) :: trans_symm(3,3)
+  COMPLEX(dp) :: temp_mat(3,3)
+  
+  trans_symm=transpose(point_symm)
+  
+  dyn_mat_out=cmplx(0.d0,0.d0,dp)
+  
+  do i_atom=1,basis
+    symm_i_atom=forwards(i_atom)
+    do j_atom=1,basis
+    symm_j_atom=forwards(j_atom)
+    temp_mat=dyn_mat_in(i_atom,1:3,j_atom,1:3)
+    temp_mat=matmul(matmul(point_symm,temp_mat),trans_symm)
+    dyn_mat_out(symm_i_atom,1:3,symm_j_atom,1:3)=phase(symm_j_atom,j_atom)*&
+      &temp_mat(1:3,1:3)*conjg(phase(symm_i_atom,i_atom))
+    enddo ! j_atom
+  enddo ! i_atom
+
+!  do i_atom=1,basis
+!    inv_i_atom=inv(i_atom)
+!    do j_atom=1,basis
+!    inv_j_atom=inv(j_atom)
+!    temp_mat=dyn_mat_in(inv_i_atom,1:3,inv_j_atom,1:3)
+!    temp_mat=matmul(matmul(point_symm,temp_mat),trans_symm)
+!    dyn_mat_out(i_atom,1:3,j_atom,1:3)=&
+!      &phase(i_atom,inv_i_atom)*temp_mat*conjg(phase(j_atom,inv_j_atom))
+!    enddo ! j_atom
+!  enddo ! i_atom
+end subroutine
+end module
+
 module phonon
   use constants
   use utils
@@ -304,46 +539,28 @@ contains
 ! ----------------------------------------------------------------------
 ! Read in dynamical matrices at each k-point in the IBZ.
 ! ----------------------------------------------------------------------
-subroutine read_dyn_mats(basis,mass,atom_prim_frac,no_kpoints,dyn_mats, &
-   & kpoint_to_supercell,atoms_in_primitive_cell_fileroot,dyn_mat_fileroot,gvector_ids)
+subroutine read_dyn_mats(basis,no_kpoints,dyn_mats, &
+   & kpoint_to_supercell,dyn_mat_fileroot,gvector_ids)
   use file_module
   use string_module
   implicit none
   
-  type(String), intent(in) :: atoms_in_primitive_cell_fileroot
   type(String), intent(in) :: dyn_mat_fileroot
   integer,      intent(in) :: gvector_ids(:)
   
   type(String) :: filename
   
   ! file units
-  integer :: atoms_in_primitive_cell_file
   integer :: dyn_mat_file
   
   INTEGER,INTENT(in) :: basis,no_kpoints,kpoint_to_supercell(no_kpoints)
-  REAL(dp),INTENT(out) :: mass(basis),atom_prim_frac(3,basis)
   COMPLEX(dp),INTENT(out) :: dyn_mats(basis,3,basis,3,no_kpoints)
-  REAL(dp),PARAMETER :: mass_tol=1.d-4,frac_tol=1.d-8
   INTEGER :: ierr,i_atom,i_cart,j_atom,j_cart,atom1,cart1,atom2,cart2,ibz_point,&
-    &supercell,atom_map(basis)
-  REAL(dp) :: real_part,imag_part,temp_mass,temp_frac(3)
-  LOGICAL :: found_atom(basis)
+    &supercell
+  REAL(dp) :: real_part,imag_part
   
-  atoms_in_primitive_cell_file = open_read_file( atoms_in_primitive_cell_fileroot&
-                                            & // '1.dat')
-  do i_atom=1,basis
-    read(atoms_in_primitive_cell_file,*,iostat=ierr) mass(i_atom), &
-                                                   & atom_prim_frac(1:3,i_atom)
-    if(ierr/=0)call errstop('READ_DYN_MATS','Problem reading &
-    &atoms_in_primitive_cell.1.dat file.')
-  enddo ! i_atom
-  if(any(atom_prim_frac(1:3,1:basis)<-1.d-4.or.&
-    &atom_prim_frac(1:3,1:basis)>=1.d0))call errstop('READ_DYN_MATS',&
-      &'Fractional atomic coordinates are not in range [0.0,1.0)')
-  close(atoms_in_primitive_cell_file)
-  
-  filename = str('Supercell_')//kpoint_to_supercell(1)//'/' &
-     & //dyn_mat_fileroot//gvector_ids(1)//'/dat'
+  filename = 'Supercell_'//kpoint_to_supercell(1)//'/' &
+     & //dyn_mat_fileroot//gvector_ids(1)//'.dat'
   dyn_mat_file = open_read_file(filename)
   do i_atom=1,basis
     do i_cart=1,3
@@ -369,28 +586,7 @@ subroutine read_dyn_mats(basis,mass,atom_prim_frac,no_kpoints,dyn_mats, &
   
   do ibz_point=2,no_kpoints
     supercell=kpoint_to_supercell(ibz_point)
-    atoms_in_primitive_cell_file = open_read_file( atoms_in_primitive_cell_fileroot&
-                                              & // supercell//'.dat')
-    found_atom(1:basis)=.false.
-    atom_map(1:basis)=0
-    do i_atom=1,basis
-      read(atoms_in_primitive_cell_file,*,iostat=ierr)temp_mass,temp_frac(1:3)
-      if(ierr/=0)call errstop('READ_DYN_MATS','Problem reading &
-        &atoms_in_primitive_cell.'//trim(i2s(supercell))//'.dat file.')
-      do j_atom=1,basis
-        if(abs(temp_mass-mass(j_atom))<mass_tol)then
-          if(all(abs(temp_frac(1:3)-atom_prim_frac(1:3,j_atom))<frac_tol))then
-            found_atom(j_atom)=.true.
-            atom_map(i_atom)=j_atom
-          endif ! frac_tol
-        endif ! mass_tol
-      enddo ! j_atom
-    enddo ! i_atom
-    if(.not.any(found_atom(1:basis)))call errstop('READ_DYN_MATS','Unable to &
-      &find all atoms in supercell '//trim(i2s(supercell))//'.')
-    close(atoms_in_primitive_cell_file)
-    
-    filename = str('Supercell_')//kpoint_to_supercell(ibz_point)//'/'// &
+    filename = 'Supercell_'//kpoint_to_supercell(ibz_point)//'/'// &
        & dyn_mat_fileroot//gvector_ids(ibz_point)//'.dat'
     dyn_mat_file = open_read_file(filename)
     do i_atom=1,basis
@@ -408,7 +604,7 @@ subroutine read_dyn_mats(basis,mass,atom_prim_frac,no_kpoints,dyn_mats, &
             if(atom1/=i_atom.or.cart1/=i_cart.or.atom2/=j_atom.or.cart2/=j_cart)call &
               errstop('READ_DYN_MATS','dyn_mat.'//trim(i2s(ibz_point))//'.dat file &
                 &does not seem to be in the expected order.')
-              dyn_mats(atom_map(atom1),cart1,atom_map(atom2),cart2,ibz_point)=&
+              dyn_mats(atom1,cart1,atom2,cart2,ibz_point)=&
                 &cmplx(real_part,imag_part,dp)
           enddo ! j_cart
         enddo ! j_atom
@@ -419,7 +615,7 @@ subroutine read_dyn_mats(basis,mass,atom_prim_frac,no_kpoints,dyn_mats, &
 end subroutine
 
 subroutine fourier_interpolation(structure,grid,temperature,kpoints,sc_ids, &
-   & gvector_ids, atoms_in_primitive_cell_fileroot,dyn_mat_fileroot,path,   &
+   & gvector_ids,dyn_mat_fileroot,path,   &
    & phonon_dispersion_curve_filename,high_symmetry_points_filename,        &
    & free_energy_filename,freq_dos_filename)
   use constants, only : dp, pi
@@ -439,7 +635,6 @@ subroutine fourier_interpolation(structure,grid,temperature,kpoints,sc_ids, &
   integer,             intent(in) :: kpoints(:,:)
   integer,             intent(in) :: sc_ids(:)
   integer,             intent(in) :: gvector_ids(:)
-  type(String),        intent(in) :: atoms_in_primitive_cell_fileroot! append *.dat
   type(String),        intent(in) :: dyn_mat_fileroot                ! append *.dat
   real(dp),            intent(in) :: path(:,:)
   type(String),        intent(in) :: phonon_dispersion_curve_filename
@@ -463,8 +658,6 @@ subroutine fourier_interpolation(structure,grid,temperature,kpoints,sc_ids, &
   INTEGER,ALLOCATABLE :: identity_map(:)
   INTEGER,ALLOCATABLE :: no_im_cells(:)
   
-  REAL(dp),ALLOCATABLE :: atom_pos_cart(:,:)
-  REAL(dp),ALLOCATABLE :: atom_pos_frac(:,:)
   REAL(dp),ALLOCATABLE :: cell_pos_cart(:,:)
   REAL(dp),ALLOCATABLE :: min_im_cell_pos(:,:,:)
   REAL(dp),ALLOCATABLE :: force_consts(:,:,:,:,:)
@@ -552,8 +745,6 @@ subroutine fourier_interpolation(structure,grid,temperature,kpoints,sc_ids, &
   call kpoint_symmetry_maps(prim_rec_vecs,no_grid_points,grid_points_cart,&
     &structure%no_symmetries,structure%rotation_matrices,grid_map_symm_forwards,grid_map_symm_backwards)
   
-  allocate(atom_pos_frac(3,structure%no_atoms))
-  allocate(atom_pos_cart(3,structure%no_atoms))
   allocate(mass(structure%no_atoms))
   allocate(atom_map_symm_forwards(structure%no_atoms,structure%no_symmetries))
   allocate(atom_map_symm_backwards(structure%no_atoms,structure%no_symmetries))
@@ -583,7 +774,7 @@ subroutine fourier_interpolation(structure,grid,temperature,kpoints,sc_ids, &
   allocate(dyn_mats_ibz(structure%no_atoms,3,structure%no_atoms,3,no_kpoints))
   
   ! Read input files related to k-points in the IBZ
-  do i=1,size(kpoints)
+  do i=1,no_kpoints
     ibz_points_frac(:,i) = kpoints(:,i)/grid
   enddo
   ibz_to_supercell_map = sc_ids
@@ -592,14 +783,14 @@ subroutine fourier_interpolation(structure,grid,temperature,kpoints,sc_ids, &
   ibz_points_cart = matmul(transpose(prim_rec_vecs),ibz_points_frac)
   
   ! Read in the dynamical matrix at each k-point in the IBZ
-  call read_dyn_mats(structure%no_atoms,mass,atom_pos_frac,no_kpoints,dyn_mats_ibz, &
-      & ibz_to_supercell_map,atoms_in_primitive_cell_fileroot,dyn_mat_fileroot,gvector_ids)
+  call read_dyn_mats(structure%no_atoms,no_kpoints,dyn_mats_ibz, &
+      & ibz_to_supercell_map,dyn_mat_fileroot,gvector_ids)
   
-  atom_pos_cart = matmul(transpose(structure%lattice),atom_pos_frac)
+  mass = structure%mass
   
   ! Determine the mapping of the atoms in the primitive cell under each symmetry
   ! operation
-    call atom_symmetry_maps(structure%lattice,structure%no_atoms,atom_pos_cart,structure%no_symmetries,&
+    call atom_symmetry_maps(structure%lattice,structure%no_atoms,structure%atoms,structure%no_symmetries,&
     &structure%rotation_matrices,structure%offsets,atom_map_symm_forwards,atom_map_symm_backwards)
 
   ! Map each k-point on the grid to one in the IBZ
@@ -615,7 +806,7 @@ subroutine fourier_interpolation(structure,grid,temperature,kpoints,sc_ids, &
     kpoint=ibz_points_cart(1:3,i_point)
     i_symm=ibz_to_grid_symm(i_grid)
     call g_matrix_phases(kpoint,structure%rotation_matrices(:,:,i_symm),structure%offsets(:,i_symm),&
-      &structure%no_atoms,atom_pos_cart,phase)
+      &structure%no_atoms,structure%atoms,phase)
     call apply_symmetry_to_dyn_mat(structure%no_atoms,atom_map_symm_forwards(:,i_symm),phase,&
       &dyn_mats_ibz(:,:,:,:,i_point),structure%rotation_matrices(:,:,i_symm),&
       &dyn_mats_grid(:,:,:,:,i_grid))
@@ -632,7 +823,7 @@ subroutine fourier_interpolation(structure,grid,temperature,kpoints,sc_ids, &
     kpoint=grid_points_cart(1:3,i_grid)
     do i_cell=1,no_grid_points
       call g_matrix_phases(kpoint,dble(identity),cell_pos_cart(:,i_cell),structure%no_atoms,&
-        &atom_pos_cart,phase)
+        &structure%atoms,phase)
       call apply_symmetry_to_dyn_mat(structure%no_atoms,identity_map,phase,&
         &dyn_mats_grid(:,:,:,:,i_grid),dble(identity),temp_dyn_mat)
       dyn_mats_symm(:,:,:,:,i_grid)=temp_dyn_mat+dyn_mats_symm(:,:,:,:,i_grid)
@@ -657,7 +848,7 @@ subroutine fourier_interpolation(structure,grid,temperature,kpoints,sc_ids, &
         i_back=grid_map_symm_backwards(i_grid,i_symm)
         kpoint=grid_points_cart(1:3,i_back)
         call g_matrix_phases(kpoint,structure%rotation_matrices(:,:,i_symm),structure%offsets(:,i_symm),&
-          &structure%no_atoms,atom_pos_cart,phase)
+          &structure%no_atoms,structure%atoms,phase)
         call apply_symmetry_to_dyn_mat(structure%no_atoms,atom_map_symm_forwards(:,i_symm),&
           &phase,dyn_mats_grid(:,:,:,:,i_back),structure%rotation_matrices(:,:,i_symm),temp_dyn_mat)
         dyn_mats_symm(:,:,:,:,i_grid)=temp_dyn_mat+dyn_mats_symm(:,:,:,:,i_grid)

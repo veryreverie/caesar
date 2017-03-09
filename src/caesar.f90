@@ -102,22 +102,22 @@ program caesar
     c = invert(a)
     d = matmul(b,c)
     
-    call print_line()
+    call print_line('')
     do i=1,3
-      call print_line(join(a(i,:)))
+      call print_line(a(i,:))
     enddo
     
-    call print_line()
-    call print_line(str(determinant(a)))
+    call print_line('')
+    call print_line(determinant(a))
     
-    call print_line()
+    call print_line('')
     do i=1,3
-      call print_line(join(c(i,:)))
+      call print_line(c(i,:))
     enddo
     
-    call print_line()
+    call print_line('')
     do i=1,3
-      call print_line(join(d(i,:)))
+      call print_line(d(i,:))
     enddo
   ! Wrappers for top-level Fortran
   elseif (args(2) == 'setup_harmonic') then

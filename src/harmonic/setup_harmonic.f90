@@ -71,13 +71,13 @@ subroutine setup_harmonic(caesar_dir)
     seedname = contents(2)
   else
     ! Get dft code from command line
-    call print_line()
+    call print_line('')
     call print_line('Whar dft code do you want to use (castep,vasp,qe)?')
     dft_code = read_line_from_user()
     
     ! Get seedname from command line
     if (dft_code=='castep' .or. dft_code=='qe') then
-      call print_line()
+      call print_line('')
       call print_line('Whar is the '//dft_code//' seedname?')
       seedname = read_line_from_user()
     endif
@@ -145,14 +145,14 @@ subroutine setup_harmonic(caesar_dir)
   
   ! Write no_supercells to file
   no_supercells_file = open_write_file('no_sc.dat')
-  call print_line(no_supercells_file,str(no_supercells))
+  call print_line(no_supercells_file,no_supercells)
   close(no_supercells_file)
   
   ! ----------------------------------------------------------------------
   ! Generate supercell structures.
   ! ----------------------------------------------------------------------
   do i=1,no_supercells
-    sdir=str('Supercell_')//i
+    sdir='Supercell_'//i
     
     call system('mkdir '//sdir)
     

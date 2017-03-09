@@ -513,8 +513,8 @@ subroutine generate_supercells(structure,grid,ibz_filename,supercells_filename)
     ! Check that the correct number of gvectors have been found.
     if (gvector_id<=supercells(i)%sc_size) then
       call print_line('Error: Wrong number of G-vectors found.')
-      call print_line(char(str('Supercell size: ')//supercells(i)%sc_size))
-      call print_line(char(str('No. G-vectors found: ')//gvector_id-1))
+      call print_line('Supercell size: '//supercells(i)%sc_size)
+      call print_line('No. G-vectors found: '//gvector_id-1)
       stop
     endif
   enddo
@@ -557,9 +557,9 @@ subroutine generate_supercells(structure,grid,ibz_filename,supercells_filename)
   
   ibz_file = open_write_file(ibz_filename)
   do i=1,grid_size
-    call print_line(ibz_file, join(kpoints(:,i))//' '// &
-                            & multiplicity(i)//' '//    &
-                            & sc_ids(i)//' '//          &
+    call print_line(ibz_file, kpoints(:,i)    //' '// &
+                            & multiplicity(i) //' '// &
+                            & sc_ids(i)       //' '// &
                             & gvector_ids(i))
   enddo
   close(ibz_file)

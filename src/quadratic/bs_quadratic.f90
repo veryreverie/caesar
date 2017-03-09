@@ -122,13 +122,13 @@ subroutine bs_quadratic()
   call system('mkdir bs')
   
   ! Obtain relevant band energy for each supercell
-  filename = str('Supercell_1/static/kpoint.')//kpoint//'.dat'
+  filename = 'Supercell_1/static/kpoint.'//kpoint//'.dat'
   bands = read_castep_bands_file(filename)
   band_energy = bands%bands(1,1)
   
   allocate(band_refs(no_sc))
   do i=1,no_sc
-    sdir = str('Supercell_')//i
+    sdir = 'Supercell_'//i
     ! Obtain relevant band for each supercell
     filename = sdir//'/static/kpoint.'//kpoint//'.dat'
     bands = read_castep_bands_file(filename)
@@ -139,7 +139,7 @@ subroutine bs_quadratic()
   supercells = read_supercells_file(str('supercells.dat'))
   allocate(structure_scs(size(supercells)))
   do i=1,size(structure_scs)
-    sdir = str('Supercell_')//i
+    sdir = 'Supercell_'//i
     structure_scs(i) = read_structure_file(sdir//'/structure.dat',supercells(i))
   enddo
     
@@ -160,7 +160,7 @@ subroutine bs_quadratic()
       do k=1,2
         config = configs(k)
         if (config/=0) then
-          mdir=str('kpoint.')//kpoint//'/mode.'//j//'.'//config
+          mdir='kpoint.'//kpoint//'/mode.'//j//'.'//config
           if (file_exists(mdir//'/'//seedname//'.castep')) then
             bands = read_castep_bands_file(mdir//'/'//seedname//'.bands')
             bs(j,i) = bs(j,i)                                  &
@@ -185,15 +185,15 @@ subroutine bs_quadratic()
     temperature = k*dtemperature
     if(temperature<1.d-5)then
       do i=1,no_kpoints
-        call print_line(bck_file,str('k-point ')//i)
+        call print_line(bck_file,'k-point '//i)
         renormalised_band_kpoint=0.0
         do j=1,structure%no_modes
           renormalised_band = renormalised_band &
                           & + deformation(i,j)*multiplicity(i)/no_kpoints
           renormalised_band_kpoint = renormalised_band_kpoint+deformation(i,j)
-          call print_line(bck_file,str(i)//' '//j//' '//deformation(i,j))
+          call print_line(bck_file,i//' '//j//' '//deformation(i,j))
         enddo
-        call print_line(bck_file,str(i)//' '//renormalised_band_kpoint)
+        call print_line(bck_file,i//' '//renormalised_band_kpoint)
       enddo
     else
       do i=1,no_kpoints
@@ -208,7 +208,7 @@ subroutine bs_quadratic()
         enddo
       enddo
     endif ! temperature
-    call print_line(bgc_file,str(temperature)//' '//renormalised_band)
+    call print_line(bgc_file,temperature//' '//renormalised_band)
   enddo
   close(bgc_file)
   close(bck_file)

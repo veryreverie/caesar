@@ -101,10 +101,10 @@ subroutine write_unique_directions_file(this,filename)
   
   unique_directions_file = open_write_file(filename)
   do i=1,size(this)
-    line = str('')//this%unique_atoms(i)//' ' &
-                & //this%xy_symmetry(i) //' ' &
-                & //this%xz_symmetry(i) //' ' &
-                & //this%yz_symmetry(i)
+    line = this%unique_atoms(i) //' '// &
+         & this%xy_symmetry(i)  //' '// &
+         & this%xz_symmetry(i)  //' '// &
+         & this%yz_symmetry(i)
     call print_line(unique_directions_file,line)
   enddo
   close(unique_directions_file)

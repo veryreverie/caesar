@@ -56,15 +56,22 @@ function read_castep_output_file(filename) result(output)
   do i=1,size(castep_file)
     line = split(lower_case(castep_file(i)))
     ! energy
-    if (size(line)>=2 .and. line(1)=="final" .and. line(2)=="energy,") then
-      energy_line = i
+    if (size(line)>=2) then
+      if (line(1)=="final" .and. line(2)=="energy,") then
+        energy_line = i
+      endif
+    endif
     ! forces
-    elseif (size(line)>=2 .and. line(1)=="***********************" .and. &
-       & line(2)=="forces") then
-      forces_start_line = i
-    elseif (size(line)>=1 .and. forces_start_line/=0 .and. &
+    if (size(line)>=2) then
+      if (line(1)=="***********************" .and. line(2)=="forces") then
+        forces_start_line = i
+      endif
+    endif
+    if (size(line)>=1) then
+      if(forces_start_line/=0 .and. &
        &line(1)=="******************************************************") then
-      forces_end_line = i
+        forces_end_line = i
+      endif
     endif
   enddo
   

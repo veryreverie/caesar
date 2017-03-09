@@ -282,7 +282,7 @@ function calculate_RealEigenstuff(input) result(output)
   call dsyev('V', 'U', n, output%evecs(1,1), n, output%evals, &
     & work(1), -1, info)
   if (info /= 0) then
-    call print_line("dsyev failed, info= "//str(info))
+    call print_line("dsyev failed, info= "//info)
     stop
   endif
   lwork = nint(work(1))
@@ -293,7 +293,7 @@ function calculate_RealEigenstuff(input) result(output)
   call dsyev('V', 'U', n, output%evecs(1,1), n, output%evals, &
     & work(1), lwork, info)
   if (info /= 0) then
-    call print_line("dsyev failed, info= "//str(info))
+    call print_line("dsyev failed, info= "//info)
     stop
   endif
 end function
@@ -325,7 +325,7 @@ function calculate_ComplexEigenstuff(input) result(output)
   call zheev('V', 'U', n, output%evecs(1,1), n, output%evals, &
     & work(1), -1, rwork, info)
   if (info /= 0) then
-    call print_line("dsyev failed, info= "//str(info))
+    call print_line("dsyev failed, info= "//info)
     stop
   endif
   lwork = nint(real(work(1)))
@@ -336,7 +336,7 @@ function calculate_ComplexEigenstuff(input) result(output)
   call zheev('V', 'U', n, output%evecs(1,1), n, output%evals, &
     & work(1), lwork, rwork, info)
   if (info /= 0) then
-    call print_line("zheev failed, info= "//str(info))
+    call print_line("zheev failed, info= "//info)
     stop
   endif
 end function

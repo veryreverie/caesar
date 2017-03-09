@@ -35,6 +35,7 @@ module string_module
   public :: lower_case ! Convert to lower case.
   public :: split      ! Split into String(:) by spaces
   public :: join       ! Join into single String by spaces.
+  public :: pad_str    ! left pads integers without '-' signs with a ' '
   
   ! Operators with side-effects
   public :: system              ! Makes a system call.
@@ -99,6 +100,20 @@ module string_module
     module procedure concatenate_real_character
     module procedure concatenate_character_logical
     module procedure concatenate_logical_character
+    
+    module procedure concatenate_String_integers
+    module procedure concatenate_integers_String
+    module procedure concatenate_String_reals
+    module procedure concatenate_reals_String
+    module procedure concatenate_String_logicals
+    module procedure concatenate_logicals_String
+    
+    module procedure concatenate_character_integers
+    module procedure concatenate_integers_character
+    module procedure concatenate_character_reals
+    module procedure concatenate_reals_character
+    module procedure concatenate_character_logicals
+    module procedure concatenate_logicals_character
   end interface
   
   interface operator(==)
@@ -131,6 +146,7 @@ module string_module
     module procedure join_String
     module procedure join_real
     module procedure join_integer
+    module procedure join_logical
   end interface
   
   interface system
@@ -139,8 +155,23 @@ module string_module
   
   interface print_line
     module procedure print_line_character
+    module procedure print_line_file_character
     module procedure print_line_String
-    module procedure print_line_none
+    module procedure print_line_file_String
+    
+    module procedure print_line_integer
+    module procedure print_line_file_integer
+    module procedure print_line_real
+    module procedure print_line_file_real
+    module procedure print_line_logical
+    module procedure print_line_file_logical
+    
+    module procedure print_line_integers
+    module procedure print_line_file_integers
+    module procedure print_line_reals
+    module procedure print_line_file_reals
+    module procedure print_line_logicals
+    module procedure print_line_file_logicals
   end interface
 
 contains
@@ -320,7 +351,7 @@ end function
 ! Concatenation
 ! ----------------------------------------------------------------------
 ! String = String//String
-elemental function concatenate_String_String(a,b) result(output)
+pure function concatenate_String_String(a,b) result(output)
   implicit none
   
   type(String), intent(in) :: a
@@ -331,7 +362,7 @@ elemental function concatenate_String_String(a,b) result(output)
 end function
 
 ! String = String//character
-elemental function concatenate_String_character(a,b) result(output)
+pure function concatenate_String_character(a,b) result(output)
   implicit none
   
   type(String), intent(in) :: a
@@ -342,7 +373,7 @@ elemental function concatenate_String_character(a,b) result(output)
 end function
 
 ! String = character//String
-elemental function concatenate_character_String(a,b) result(output)
+pure function concatenate_character_String(a,b) result(output)
   implicit none
   
   character(*), intent(in) :: a
@@ -353,7 +384,7 @@ elemental function concatenate_character_String(a,b) result(output)
 end function
 
 ! String = String//integer
-elemental function concatenate_String_integer(a,b) result(output)
+pure function concatenate_String_integer(a,b) result(output)
   implicit none
   
   type(String), intent(in) :: a
@@ -364,7 +395,7 @@ elemental function concatenate_String_integer(a,b) result(output)
 end function
 
 ! String = integer//String
-elemental function concatenate_integer_String(a,b) result(output)
+pure function concatenate_integer_String(a,b) result(output)
   implicit none
   
   integer,      intent(in) :: a
@@ -375,7 +406,7 @@ elemental function concatenate_integer_String(a,b) result(output)
 end function
 
 ! String = String//real(dp)
-elemental function concatenate_String_real(a,b) result(output)
+pure function concatenate_String_real(a,b) result(output)
   use constants, only : dp
   implicit none
   
@@ -387,7 +418,7 @@ elemental function concatenate_String_real(a,b) result(output)
 end function
 
 ! String = real(dp)//String
-elemental function concatenate_real_String(a,b) result(output)
+pure function concatenate_real_String(a,b) result(output)
   use constants, only : dp
   implicit none
   
@@ -399,7 +430,7 @@ elemental function concatenate_real_String(a,b) result(output)
 end function
 
 ! String = String//logical
-elemental function concatenate_String_logical(a,b) result(output)
+pure function concatenate_String_logical(a,b) result(output)
   implicit none
   
   type(String), intent(in) :: a
@@ -410,7 +441,7 @@ elemental function concatenate_String_logical(a,b) result(output)
 end function
 
 ! String = logical//String
-elemental function concatenate_logical_String(a,b) result(output)
+pure function concatenate_logical_String(a,b) result(output)
   implicit none
   
   logical,      intent(in) :: a
@@ -421,7 +452,7 @@ elemental function concatenate_logical_String(a,b) result(output)
 end function
 
 ! String = character//integer
-elemental function concatenate_character_integer(a,b) result(output)
+pure function concatenate_character_integer(a,b) result(output)
   implicit none
   
   character(*), intent(in) :: a
@@ -432,7 +463,7 @@ elemental function concatenate_character_integer(a,b) result(output)
 end function
 
 ! String = integer//character
-elemental function concatenate_integer_character(a,b) result(output)
+pure function concatenate_integer_character(a,b) result(output)
   implicit none
   
   integer,      intent(in) :: a
@@ -443,7 +474,7 @@ elemental function concatenate_integer_character(a,b) result(output)
 end function
 
 ! String = character//real(dp)
-elemental function concatenate_character_real(a,b) result(output)
+pure function concatenate_character_real(a,b) result(output)
   use constants, only : dp
   implicit none
   
@@ -455,7 +486,7 @@ elemental function concatenate_character_real(a,b) result(output)
 end function
 
 ! String = real(dp)//character
-elemental function concatenate_real_character(a,b) result(output)
+pure function concatenate_real_character(a,b) result(output)
   use constants, only : dp
   implicit none
   
@@ -467,7 +498,7 @@ elemental function concatenate_real_character(a,b) result(output)
 end function
 
 ! String = character//logical
-elemental function concatenate_character_logical(a,b) result(output)
+pure function concatenate_character_logical(a,b) result(output)
   implicit none
   
   character(*), intent(in) :: a
@@ -478,7 +509,7 @@ elemental function concatenate_character_logical(a,b) result(output)
 end function
 
 ! String = logical//character
-elemental function concatenate_logical_character(a,b) result(output)
+pure function concatenate_logical_character(a,b) result(output)
   implicit none
   
   logical,      intent(in) :: a
@@ -486,6 +517,142 @@ elemental function concatenate_logical_character(a,b) result(output)
   type(String) :: output
   
   output = str(a)//b
+end function
+
+! String = String//integer(:)
+pure function concatenate_String_integers(a,b) result(output)
+  implicit none
+  
+  type(String), intent(in) :: a
+  integer,      intent(in) :: b(:)
+  type(String) :: output
+  
+  output = a//join(b)
+end function
+
+! String = integer(:)//String
+pure function concatenate_integers_String(a,b) result(output)
+  implicit none
+  
+  integer,      intent(in) :: a(:)
+  type(String), intent(in) :: b
+  type(String) :: output
+  
+  output = join(a)//b
+end function
+
+! String = String//real(dp)(:)
+pure function concatenate_String_reals(a,b) result(output)
+  use constants, only : dp
+  implicit none
+  
+  type(String), intent(in) :: a
+  real(dp),     intent(in) :: b(:)
+  type(String) :: output
+  
+  output = a//join(b)
+end function
+
+! String = real(dp)(:)//String
+pure function concatenate_reals_String(a,b) result(output)
+  use constants, only : dp
+  implicit none
+  
+  real(dp),     intent(in) :: a(:)
+  type(String), intent(in) :: b
+  type(String) :: output
+  
+  output = join(a)//b
+end function
+
+! String = String//logical(:)
+pure function concatenate_String_logicals(a,b) result(output)
+  implicit none
+  
+  type(String), intent(in) :: a
+  logical,      intent(in) :: b(:)
+  type(String) :: output
+  
+  output = a//join(b)
+end function
+
+! String = logical(:)//String
+pure function concatenate_logicals_String(a,b) result(output)
+  implicit none
+  
+  logical,      intent(in) :: a(:)
+  type(String), intent(in) :: b
+  type(String) :: output
+  
+  output = join(a)//b
+end function
+
+! String = character//integer(:)
+pure function concatenate_character_integers(a,b) result(output)
+  implicit none
+  
+  character(*), intent(in) :: a
+  integer,      intent(in) :: b(:)
+  type(String) :: output
+  
+  output = a//join(b)
+end function
+
+! String = integer(:)//character
+pure function concatenate_integers_character(a,b) result(output)
+  implicit none
+  
+  integer,      intent(in) :: a(:)
+  character(*), intent(in) :: b
+  type(String) :: output
+  
+  output = join(a)//b
+end function
+
+! String = character//real(dp)(:)
+pure function concatenate_character_reals(a,b) result(output)
+  use constants, only : dp
+  implicit none
+  
+  character(*), intent(in) :: a
+  real(dp),     intent(in) :: b(:)
+  type(String) :: output
+  
+  output = a//join(b)
+end function
+
+! String = real(dp)(:)//character
+pure function concatenate_reals_character(a,b) result(output)
+  use constants, only : dp
+  implicit none
+  
+  real(dp),     intent(in) :: a(:)
+  character(*), intent(in) :: b
+  type(String) :: output
+  
+  output = join(a)//b
+end function
+
+! String = character//logical(:)
+pure function concatenate_character_logicals(a,b) result(output)
+  implicit none
+  
+  character(*), intent(in) :: a
+  logical,      intent(in) :: b(:)
+  type(String) :: output
+  
+  output = a//join(b)
+end function
+
+! String = logical(:)//character
+pure function concatenate_logicals_character(a,b) result(output)
+  implicit none
+  
+  logical,      intent(in) :: a(:)
+  character(*), intent(in) :: b
+  type(String) :: output
+  
+  output = join(a)//b
 end function
 
 ! ----------------------------------------------------------------------
@@ -708,18 +875,29 @@ pure function join_integer(this) result(output)
   integer, intent(in) :: this(:)
   type(String)        :: output
   
-  type(String), allocatable :: temp(:)
-  integer                   :: i
+  output = join(pad_str(this))
+end function
+
+! Converts logical(:) to String(:) and then joins.
+pure function join_logical(this) result(output)
+  implicit none
   
-  temp = str(this)
-  do i=1,size(temp)
-    if (temp(i)%contents(1:1)/='-') then
-      ! Pad positive numbers with a single space.
-      temp(i) = ' '//temp(i)
-    endif
-  enddo
+  logical, intent(in) :: this(:)
+  type(String)        :: output
   
-  output = join(temp)
+  output = join(str(this))
+end function
+
+elemental function pad_str(this) result(output)
+  implicit none
+  
+  integer, intent(in) :: this
+  type(String)        :: output
+  
+  output = this
+  if (output%contents(1:1)/='-') then
+    output = ' '//output
+  endif
 end function
 
 ! call system(String)
@@ -742,6 +920,10 @@ function read_line_from_user() result(line)
   line = trim(char_line)
 end function
 
+! ----------------------------------------------------------------------
+! Subroutines to print lines, as write(), but with error checking
+!    and formatting.
+! ----------------------------------------------------------------------
 subroutine print_line_character(line)
   implicit none
   
@@ -751,7 +933,22 @@ subroutine print_line_character(line)
   
   write(*,'(a)',iostat=ierr) line
   if (ierr /= 0) then
-    write(*,*) 'Error in print_line to terminal.'
+    write(*,*) 'Error in print_line.'
+    stop
+  endif
+end subroutine
+
+subroutine print_line_file_character(file_unit,line)
+  implicit none
+  
+  integer,      intent(in) :: file_unit
+  character(*), intent(in) :: line
+  
+  integer :: ierr
+  
+  write(file_unit,'(a)',iostat=ierr) line
+  if (ierr /= 0) then
+    write(*,*) 'Error in print_line.'
     stop
   endif
 end subroutine
@@ -764,10 +961,118 @@ subroutine print_line_String(line)
   call print_line(char(line))
 end subroutine
 
-subroutine print_line_none()
+subroutine print_line_file_String(file_unit,line)
   implicit none
   
-  call print_line('')
+  integer,      intent(in) :: file_unit
+  type(String), intent(in) :: line
+  
+  call print_line(file_unit,char(line))
 end subroutine
 
+subroutine print_line_integer(this)
+  implicit none
+  
+  integer, intent(in) :: this
+  
+  call print_line(''//this)
+end subroutine
+
+subroutine print_line_file_integer(file_unit,this)
+  implicit none
+  
+  integer, intent(in) :: file_unit
+  integer, intent(in) :: this
+  
+  call print_line(file_unit,''//this)
+end subroutine
+
+subroutine print_line_real(this)
+  use constants, only : dp
+  implicit none
+  
+  real(dp), intent(in) :: this
+  
+  call print_line(''//this)
+end subroutine
+
+subroutine print_line_file_real(file_unit,this)
+  use constants, only : dp
+  implicit none
+  
+  integer,  intent(in) :: file_unit
+  real(dp), intent(in) :: this
+  
+  call print_line(file_unit,''//this)
+end subroutine
+
+subroutine print_line_logical(this)
+  implicit none
+  
+  logical, intent(in) :: this
+  
+  call print_line(''//this)
+end subroutine
+
+subroutine print_line_file_logical(file_unit,this)
+  implicit none
+  
+  integer, intent(in) :: file_unit
+  logical, intent(in) :: this
+  
+  call print_line(file_unit,''//this)
+end subroutine
+
+subroutine print_line_integers(this)
+  implicit none
+  
+  integer, intent(in) :: this(:)
+  
+  call print_line(''//this)
+end subroutine
+
+subroutine print_line_file_integers(file_unit,this)
+  implicit none
+  
+  integer, intent(in) :: file_unit
+  integer, intent(in) :: this(:)
+  
+  call print_line(file_unit,''//this)
+end subroutine
+
+subroutine print_line_reals(this)
+  use constants, only : dp
+  implicit none
+  
+  real(dp), intent(in) :: this(:)
+  
+  call print_line(''//this)
+end subroutine
+
+subroutine print_line_file_reals(file_unit,this)
+  use constants, only : dp
+  implicit none
+  
+  integer,  intent(in) :: file_unit
+  real(dp), intent(in) :: this(:)
+  
+  call print_line(file_unit,''//this)
+end subroutine
+
+subroutine print_line_logicals(this)
+  implicit none
+  
+  logical, intent(in) :: this(:)
+  
+  call print_line(''//this)
+end subroutine
+
+subroutine print_line_file_logicals(file_unit,this)
+  implicit none
+  
+  integer, intent(in) :: file_unit
+  logical, intent(in) :: this(:)
+  
+  call print_line(file_unit,''//this)
+end subroutine
 end module

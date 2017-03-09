@@ -88,7 +88,7 @@ subroutine structure_to_castep(structure_sc,input_filename, &
   call print_line(cell_file,'%block lattice_cart')
   call print_line(cell_file,'bohr')
   do i=1,3
-    call print_line(cell_file,join(structure_sc%lattice(i,:)))
+    call print_line(cell_file,structure_sc%lattice(i,:))
   enddo
   call print_line(cell_file,'%endblock lattice_cart')
   call print_line(cell_file,'')
@@ -96,7 +96,7 @@ subroutine structure_to_castep(structure_sc,input_filename, &
   call print_line(cell_file,'bohr')
   do i=1,structure_sc%no_atoms
     call print_line(cell_file, structure_sc%species(i)//' '// &
-                             & join(structure_sc%atoms(:,i)))
+                             & structure_sc%atoms(:,i))
   enddo
   call print_line(cell_file,'%endblock positions_abs')
   call print_line(cell_file,'')
@@ -116,7 +116,7 @@ subroutine structure_to_castep(structure_sc,input_filename, &
     call print_line(cell_file,'')
     call print_line(cell_file,'%block_bs_kpoints_path')
     do i=1,no_points
-      call print_line(cell_file,join(path(:,i)))
+      call print_line(cell_file,path(:,i))
     enddo
     call print_line(cell_file,'%endblock_bs_kpoint_path')
     call print_line(cell_file,'')
@@ -178,9 +178,9 @@ subroutine structure_to_vasp(structure_sc,poscar_filename)
   poscar_file = open_write_file(poscar_filename)
   
   call print_line(poscar_file,'Structure')
-  call print_line(poscar_file,str(bohr))
+  call print_line(poscar_file,bohr)
   do i=1,3
-    call print_line(poscar_file, join(structure_sc%lattice(:,i)))
+    call print_line(poscar_file, structure_sc%lattice(:,i))
   enddo
   
   line = species(1)
@@ -189,7 +189,7 @@ subroutine structure_to_vasp(structure_sc,poscar_filename)
   enddo
   call print_line(poscar_file, line)
   
-  line = str(species_counts(1))
+  line = species_counts(1)
   do i=2,no_species
     line = line//' '//species_counts(i)
   enddo
@@ -197,7 +197,7 @@ subroutine structure_to_vasp(structure_sc,poscar_filename)
   
   call print_line(poscar_file,'Cartesian')
   do i=1,structure_sc%no_atoms
-    call print_line(poscar_file, join(structure_sc%atoms(:,i)))
+    call print_line(poscar_file, structure_sc%atoms(:,i))
   enddo
   close(poscar_file)
 end subroutine
@@ -264,22 +264,22 @@ subroutine structure_to_qe(structure_sc,input_filename,pseudo_filename, &
   endif
   
   ! Write output file
-  call print_line(output_file,str('nat=')//structure_sc%no_atoms)
+  call print_line(output_file,'nat='//structure_sc%no_atoms)
   call print_line(output_file,'/&end')
   do i=1,size(pseudo_contents)
     call print_line(output_file,pseudo_contents(i))
   enddo
   call print_line(output_file,'CELL_PARAMETERS bohr')
   do i=1,3
-    call print_line(output_file, join(structure_sc%lattice(i,:)))
+    call print_line(output_file, structure_sc%lattice(i,:))
   enddo
   call print_line(output_file,'ATOMIC_POSITIONS bohr')
   do i=1,structure_sc%no_atoms
     call print_line(output_file, structure_sc%species(i)//' '// &
-                               & join(structure_sc%atoms(:,i)))
+                               & structure_sc%atoms(:,i))
   enddo
   call print_line(output_file,kpoints_file(1))
-  line = join(int(primitive_mesh*sc_distance/distance))//' 0 0 0'
+  line = int(primitive_mesh*sc_distance/distance)//' 0 0 0'
   call print_line(output_file,line)
   close(output_file)
 end subroutine

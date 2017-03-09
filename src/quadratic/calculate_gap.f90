@@ -42,7 +42,7 @@ subroutine calculate_gap()
     temp = dble(line(1))
     bottom = dble(line(2))
     
-    call print_line(gap_file,str(temp)//' '//top-bottom)
+    call print_line(gap_file,temp//' '//top-bottom)
   enddo
   close(gap_file)
 end subroutine

@@ -120,7 +120,7 @@ subroutine anharmonic()
   
   ! check for Supercell_*/acoustic.dat
   do i=1,no_supercells
-    sc_acoustic(i) = file_exists(str('Supercell_')//i//'/acoustic.dat')
+    sc_acoustic(i) = file_exists('Supercell_'//i//'/acoustic.dat')
   enddo
   
   ! Read kpoints
@@ -138,14 +138,14 @@ subroutine anharmonic()
   supercells = read_supercells_file(str('supercells.dat'))
   allocate(structure_scs(no_supercells))
   do i=1,no_supercells
-    sdir = str('Supercell_')//i
+    sdir = 'Supercell_'//i
     filename = harmonic_path//'/'//sdir//'/structure.dat' 
     structure_scs(i) = read_structure_file(filename,supercells(i))
   enddo
   
   ! read data from supercells
   do i=1,no_supercells
-    sdir = str('Supercell_')//i
+    sdir = 'Supercell_'//i
     if (.not. sc_acoustic(i)) then
       dft_output_file = read_dft_output_file(dft_code,sdir//'/static',seedname)
       static_energies(i) = dft_output_file%energy
@@ -158,7 +158,7 @@ subroutine anharmonic()
   allocate(energies(mapping%count,structure%no_modes,no_kpoints))
   do i=1,no_kpoints
     if (.not. sc_acoustic(sc_ids(i))) then
-      kpoint_dir = str('kpoint.')//i
+      kpoint_dir = 'kpoint.'//i
       
       ! set sizes
       sizes(i) = structure_scs(sc_ids(i))%no_atoms/structure%no_atoms
@@ -240,7 +240,7 @@ subroutine anharmonic()
   call system('mkdir anharmonic')
   do i=1,no_supercells
     if (sc_acoustic(i)) then
-      call system(str('cp Supercell_')//i//'/acoustic.dat anharmonic')
+      call system('cp Supercell_'//i//'/acoustic.dat anharmonic')
     endif
   enddo
   

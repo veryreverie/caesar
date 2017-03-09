@@ -12,7 +12,7 @@ subroutine hartree_to_eV()
   
   call print_line('Input energy in Hartree:')
   input = dble(read_line_from_user())
-  call print_line(str(input*eV))
+  call print_line(input*eV)
 end subroutine
 
 end module

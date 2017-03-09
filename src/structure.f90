@@ -222,23 +222,23 @@ subroutine write_structure_file_character(this,filename)
   
   call print_line(structure_file,'Lattice')
   do i=1,3
-    call print_line(structure_file, join(this%lattice(i,:)))
+    call print_line(structure_file, this%lattice(i,:))
   enddo
   
   call print_line(structure_file,'Atoms')
   do i=1,this%no_atoms
-    call print_line(structure_file, str(this%species(i))//' '// &
-                                  & this%mass(i)//' '// &
-                                  & join(this%atoms(:,i)))
+    call print_line(structure_file, this%species(i)//' '// &
+                                  & this%mass(i)//' '//    &
+                                  & this%atoms(:,i))
   enddo
   
   if (this%no_symmetries/=0) then
     call print_line(structure_file,'Symmetry')
     do i=1,this%no_symmetries
       do j=1,3
-        call print_line(structure_file, join(this%rotation_matrices(j,:,i)))
+        call print_line(structure_file, this%rotation_matrices(j,:,i))
       enddo
-      call print_line(structure_file, join(this%offsets(:,i)))
+      call print_line(structure_file, this%offsets(:,i))
     enddo
   endif
   

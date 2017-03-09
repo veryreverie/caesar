@@ -27,13 +27,14 @@ sdir=src
 # define compiler and flags
 cf90=gfortran
 cflags=""
-cflags="$cflags -g"             # turn on debugging
-cflags="$cflags -O0"            # turn off optimisation
-#cflags="$cflags -std=f95"       # force standards compliance
-cflags="$cflags -W -Wall"       # turn on compiler warnings
-cflags="$cflags -pedantic"      # turn on pedantic mode
-cflags="$cflags -J${mdir}/"     # set .mod files to exist in mod/
-cflags="$cflags -fmax-errors=1" # make compilation stop on first error
+cflags="$cflags -g"             # Turn on debugging.
+cflags="$cflags -O0"            # Turn off optimisation.
+#cflags="$cflags -std=f95"       # Force standards compliance.
+cflags="$cflags -W -Wall"       # Turn on compiler warnings.
+cflags="$cflags -pedantic"      # Turn on pedantic mode.
+cflags="$cflags -J${mdir}/"     # Set .mod files to exist in mod/.
+cflags="$cflags -fmax-errors=1" # Make compilation stop on first error.
+cflags="$cflags -fcheck=all"    # Turn on run-time checks.
 
 # copy shell and python scripts
 cp $sdir/quadratic/*.py $bdir
@@ -44,7 +45,7 @@ chmod u+x $bdir/caesar
 # programs should be added so they are to the right of their dependencies
 programs=(constants string file utils linear_algebra algebra supercell rand_no_gen moller_plesset structure dft_output_file structure_to_dft calculate_symmetry_helper bands displacement_patterns)
 
-harmonic_programs=(group calculate_symmetry_group unique_directions construct_supercell min_images fourier_interpolation_symmetry fourier_interpolation generate_supercells lte hartree_to_eV setup_harmonic lte_harmonic)
+harmonic_programs=(group calculate_symmetry_group unique_directions construct_supercell min_images fourier_interpolation generate_supercells lte hartree_to_eV setup_harmonic lte_harmonic)
 
 quadratic_programs=(mapping calculate_anharmonic calculate_gap quadratic_spline vscf_1d anharmonic bs_quadratic setup_quadratic)
 

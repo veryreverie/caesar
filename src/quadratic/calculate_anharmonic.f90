@@ -82,8 +82,8 @@ subroutine calculate_anharmonic(multiplicity, no_modes, Nbasis, harmonic,&
          enddo
        enddo
     endif
-    call print_line(result_file, str(1.0_dp/(kB*betas(i)))//' '// &
-                               & renormalised_harmonic//' '//     &
+    call print_line(result_file, 1.0_dp/(kB*betas(i))  //' '// &
+                               & renormalised_harmonic //' '// &
                                & renormalised_eigenvals)
   enddo
 end subroutine

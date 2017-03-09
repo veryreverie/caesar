@@ -147,15 +147,15 @@ subroutine setup_quadratic()
   ! Make directories
   ! ------------------------------------------------------------
   do i=1,no_sc
-    call system(str('mkdir Supercell_')//i)
-    call system(str('mkdir Supercell_')//i//'/static')
+    call system('mkdir Supercell_'//i)
+    call system('mkdir Supercell_'//i//'/static')
   enddo
   
   do i=1,no_kpoints
-    call system(str('mkdir kpoint.')//i)
+    call system('mkdir kpoint.'//i)
     do j=1,structure%no_modes
       do k=mapping%first,mapping%last
-        call system(str('mkdir kpoint.')//i//'/mode.'//j//'.'//k)
+        call system('mkdir kpoint.'//i//'/mode.'//j//'.'//k)
       enddo
     enddo
   enddo
@@ -164,7 +164,7 @@ subroutine setup_quadratic()
   ! Set up static calculations
   ! ------------------------------------------------------------
   do i=1,no_sc
-    sdir = str('Supercell_')//i
+    sdir = 'Supercell_'//i
     if (dft_code=="caesar") then
       call structure_to_dft(                                      &
          & dft_code           = dft_code,                         &
@@ -236,8 +236,8 @@ subroutine setup_quadratic()
         enddo
         
         ! Write dft input files
-        sdir = str('Supercell_')//sc_ids(i)
-        mdir = str('kpoint.')//i//'/mode.'//j//'.'//k
+        sdir = 'Supercell_'//sc_ids(i)
+        mdir = 'kpoint.'//i//'/mode.'//j//'.'//k
         
         if (dft_code=="castep") then
           call structure_to_dft(                                     &

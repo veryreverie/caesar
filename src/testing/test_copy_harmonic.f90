@@ -51,11 +51,11 @@ subroutine test_copy_harmonic()
   ! ----------------------------------------------------------------------
   ! Read in directory to compare against and copy from.
   ! ----------------------------------------------------------------------
-  call print_line()
+  call print_line('')
   call print_line('This test will check dft input files against a previous &
      &calculations,')
   call print_line('   and copy over dft output files.')
-  call print_line()
+  call print_line('')
   call print_line('Where is the harmonic directory for comparison?')
   copy_dir = read_line_from_user()
   
@@ -73,7 +73,7 @@ subroutine test_copy_harmonic()
   ! Loop over supercells.
   ! ----------------------------------------------------------------------
   do i=1,no_supercells
-    call print_line()
+    call print_line('')
     call print_line('Supercell '//i//':')
     sdir = 'Supercell_'//i
     
@@ -136,7 +136,7 @@ subroutine test_copy_harmonic()
     
     call print_line('Atom positions correct.')
     call print_line('Atoms in new (1 2...) match to atoms in copy:')
-    call print_line(join(new_to_copy))
+    call print_line(new_to_copy)
       
     unique_directions = &
        & read_unique_directions_file(sdir//'/unique_directions.dat')
@@ -177,7 +177,7 @@ subroutine test_copy_harmonic()
           do m=1,structure_copy%no_atoms
             call print_line(copied_output, &
                & ': '//structure_copy%species(new_to_copy(m))//' : '// &
-               & join(structure_copy%atoms(:,new_to_copy(m))))
+               & dft_output%forces(:,new_to_copy(m)))
           enddo
           call print_line(copied_output,'')
           call print_line(copied_output,'*************************************&

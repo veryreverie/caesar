@@ -144,15 +144,15 @@ subroutine write_supercells_file(supercells, filename)
   
   supercells_file = open_write_file(filename)
   do i=1,size(supercells)
-    call print_line(supercells_file, str('Supercell ')//i)
-    call print_line(supercells_file, str('Size: ')//supercells(i)%sc_size)
-    call print_line(supercells_file, str('Supercell matrix:'))
+    call print_line(supercells_file, 'Supercell '//i)
+    call print_line(supercells_file, 'Size: '//supercells(i)%sc_size)
+    call print_line(supercells_file, 'Supercell matrix:')
     do j=1,3
-      call print_line(supercells_file, join(supercells(i)%supercell(j,:)))
+      call print_line(supercells_file, supercells(i)%supercell(j,:))
     enddo
-    call print_line(supercells_file, str('G-vectors:'))
+    call print_line(supercells_file, 'G-vectors:')
     do j=1,supercells(i)%sc_size
-      call print_line(supercells_file, join(supercells(i)%gvectors(:,j)))
+      call print_line(supercells_file, supercells(i)%gvectors(:,j))
     enddo
     call print_line(supercells_file,'')
   enddo
