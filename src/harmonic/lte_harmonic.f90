@@ -315,16 +315,16 @@ subroutine lte_harmonic()
       enddo
     enddo
         
-    call lte( structure,                         &
-            & structure_scs(i),                  &
-            & force_constants,                   &
-            & 0.0_dp,                            &
-            & sdir//'/lte/freq_grids.dat',       &
-            & sdir//'/lte/disp_patterns.dat',    &
-            & sdir//'/lte/kdisp_patterns.dat',   &
-            & sdir//'/lte/pol_vec.dat',          &
-            & sdir//'/lte/error.txt',            &
-            & sdir//'/lte/dyn_mat.')
+    call lte_4( structure,                         &
+              & structure_scs(i),                  &
+              & force_constants,                   &
+              & 0.0_dp,                            &
+              & sdir//'/lte/freq_grids.dat',       &
+              & sdir//'/lte/disp_patterns.dat',    &
+              & sdir//'/lte/kdisp_patterns.dat',   &
+              & sdir//'/lte/pol_vec.dat',          &
+              & sdir//'/lte/error.txt',            &
+              & sdir//'/lte/dyn_mat.')
     
     if (file_exists(sdir//'/lte/error.txt')) then
       call print_line('There is an error in lte: check error.txt file.')

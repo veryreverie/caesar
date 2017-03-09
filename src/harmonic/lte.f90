@@ -33,7 +33,8 @@ module lte_module
   implicit none
   
   private
-  public :: lte
+  public :: lte_1,lte_2,lte_3,lte_4
+  
 contains
 
 ! ----------------------------------------------------------------------
@@ -228,6 +229,491 @@ real(dp) function harmonic_free_energy(T,omega)
     endif
   endif
 end function
+
+! ----------------------------------------------------------------------
+! Calculate the frequency density-of-states by Monte Carlo sampling of
+! the Brillouin zone.
+! ----------------------------------------------------------------------
+subroutine calculate_freq_dos(structure,        &
+   & structure_sc,atom,force_constants,&
+   & freq_dos_filename,bin_width,freq_dos)
+  use constants,      only : max_bin, no_samples, no_fdos_sets, pi
+  use linear_algebra, only : dscal
+  use rand_no_gen,    only : ranx
+  use string_module
+  use structure_module
+  implicit none
+  
+  type(StructureData), intent(in) :: structure
+  type(StructureData), intent(in) :: structure_sc
+  integer,  intent(in) :: atom(:,:)
+  real(dp), intent(in) :: force_constants(:,:,:,:)
+  
+  real(dp), parameter :: tol = 1.0e-5_dp
+  
+  ! Filename
+  type(String), intent(in) :: freq_dos_filename
+  
+  ! File unit
+  integer :: freq_dos_file
+  
+  real(dp),              intent(out) :: bin_width
+  real(dp), allocatable, intent(out) :: freq_dos(:,:)
+  
+  ! Number of preliminary samples of Brillouin zone to make in order to
+  ! establish maximum and minimum frequencies.
+  integer,parameter :: no_samples_trial=10000
+  ! Our preliminary sampling of the Brillouin zone is imperfect.
+  ! Multiply the highest frequency found by this factor when choosing the
+  ! highest frequency bin.
+  real(dp),parameter :: safety_factor=1.15d0
+  
+  real(dp) :: kvec(3),rec_bin_width,max_freq,min_freq, &
+    &rec_no_fdos_sets
+  integer :: j,i,n,bin,ialloc
+  logical :: soft_modes,soft_modes_prelim
+  
+  complex(dp), allocatable :: dynamical_matrix(:,:)
+  real(dp),    allocatable :: omega(:)
+  complex(dp), allocatable :: pol_vec(:,:)
+
+  ! Establish (approximate) maximum and minimum frequencies and hence
+  ! choose the bin width.
+  max_freq=-1.d0
+  min_freq=HUGE(1.d0)
+  do i=1,no_samples_trial
+    kvec = 2*pi*( ranx()*structure%recip_lattice(1,:) &
+              & + ranx()*structure%recip_lattice(2,:) &
+              & + ranx()*structure%recip_lattice(3,:))
+    dynamical_matrix = construct_dyn_matrix(kvec,structure, &
+      & structure_sc,atom,force_constants)
+    call calculate_eigenfreqs_and_vecs(dynamical_matrix, &
+       & omega,pol_vec)
+    if(omega(1)<min_freq)min_freq=omega(1)
+    if(omega(structure%no_modes)>max_freq)max_freq=omega(structure%no_modes)
+  enddo ! i
+  soft_modes_prelim=(min_freq<-tol)
+  if(soft_modes_prelim)write(*,*)'WARNING: soft modes present.'
+  write(*,*)'In preliminary sampling, largest frequency is : ',max_freq
+  write(*,*)'and lowest frequency is                       : ',min_freq
+  if(max_freq<=0)call errstop('CALCULATE_FREQ_DOS','The crystal lattice is &
+    &pathologically unstable.')
+  bin_width=safety_factor*max_freq/DBLE(max_bin)
+  rec_bin_width=1.d0/bin_width
+
+  write(*,*)'Number of random k vectors                    : ' &
+    &//TRIM(i2s(no_samples))
+  write(*,*)'Number of frequency bins                      : ' &
+    &//TRIM(i2s(max_bin+1))
+  write(*,*)'Frequency bin width                           : ',bin_width
+  write(*,*)'Number of DoS sets (for computing error bars) : ' &
+    &//TRIM(i2s(no_fdos_sets))
+
+  allocate(freq_dos(0:max_bin,1:no_fdos_sets),stat=ialloc)
+  if(ialloc/=0)call errstop('CALCULATE_FREQ_DOS','Allocation error: &
+    &freq_dos.')
+  freq_dos(0:max_bin,1:no_fdos_sets)=0.d0
+  soft_modes=.FALSE.
+
+  do j=1,no_fdos_sets
+    do i=1,no_samples
+      kvec = 2*pi*( ranx()*structure%recip_lattice(1,:) &
+                & + ranx()*structure%recip_lattice(2,:) &
+                & + ranx()*structure%recip_lattice(3,:))
+      dynamical_matrix = construct_dyn_matrix(kvec,structure, &
+        & structure_sc,atom,force_constants)
+      call calculate_eigenfreqs_and_vecs(dynamical_matrix, &
+         & omega,pol_vec)
+      if(omega(1)<-tol)soft_modes=.TRUE.
+      do n=1,structure%no_modes
+        if(omega(n)>0.d0)then ! Only bin positive frequencies.
+          bin=MAX(0,FLOOR(rec_bin_width*omega(n)))
+          if(bin>max_bin)call errstop('CALCULATE_FREQ_DOS', &
+            &'Have encountered a frequency too high to be binned.  Try &
+            &increasing the no_samples_trial or safety_factor parameters &
+            &in the code.')
+          freq_dos(bin,j)=freq_dos(bin,j)+1.d0
+        endif ! positive frequency.
+      enddo ! n
+    enddo ! i
+  enddo ! j
+  if(soft_modes.AND..NOT.soft_modes_prelim)write(*,*)'WARNING: soft modes &
+    &present.'
+
+  ! Normalise frequency DoS so that its integral is the number of
+  ! degrees of freedom in the primitive cell.  Note that the total
+  ! number of frequencies sampled is 3*no_samples*structure%no_atoms.
+  ! (Imaginary frequencies are ignored, however.)
+  call dscal((max_bin+1)*no_fdos_sets,1.d0/(DBLE(no_samples)*bin_width), &
+    &freq_dos(0,1),1)
+
+  ! Write out the frequency DoS.
+  rec_no_fdos_sets=1.d0/DBLE(no_fdos_sets)
+  freq_dos_file = open_write_file(freq_dos_filename)
+  do bin=0,max_bin
+    write(freq_dos_file,*) (bin+0.5_dp)*bin_width, &
+                         & sum(freq_dos(bin,1:no_fdos_sets))*rec_no_fdos_sets
+  enddo
+  close(freq_dos_file)
+end subroutine
+
+! ----------------------------------------------------------------------
+! Use the frequency density-of-states to evaluate the lattice thermal
+! energy of the crystal as a function of the temperature in Kelvin.
+! Repeat this for each set of frequency DoS data, to estimate the error
+! in the LTFE.
+! ----------------------------------------------------------------------
+subroutine calc_lte(bin_width,temperature,freq_dos,tdependence1_filename)
+  use constants,      only : max_bin, no_fdos_sets
+  use linear_algebra, only : ddot
+  use string_module
+  implicit none
+  
+  real(dp), intent(in) :: bin_width
+  real(dp), intent(in) :: temperature
+  real(dp), intent(in) :: freq_dos(:,:)
+  
+  ! File name
+  type(String), intent(in) :: tdependence1_filename
+  
+  ! File unit
+  integer :: tdependence1_file
+  
+  integer :: bin,j
+  real(dp) :: omega,lte_val,lte_sq,E_H(0:max_bin),lte,lte_err
+  
+  do bin=0,max_bin
+    ! omega is the frequency in the middle of the corresponding bin.
+    omega=(DBLE(bin)+0.5d0)*bin_width
+    ! Array of harmonic energies at each frequency.
+    E_H(bin)=harmonic_energy(temperature,omega) 
+  enddo ! bin
+  lte=0.d0 ; lte_sq=0.d0
+  do j=1,no_fdos_sets
+    ! LAPACK commented out because it isn't working. 9/1/2017
+    ! lte_val=ddot(max_bin+1,freq_dos(0,j),1,E_H(0),1)
+    lte_val = dot_product(freq_dos(:,j),E_H(:))
+    lte=lte+lte_val ; lte_sq=lte_sq+lte_val**2
+  enddo ! j
+  lte=bin_width*lte/DBLE(no_fdos_sets)
+  lte_sq=bin_width**2*lte_sq/DBLE(no_fdos_sets)
+  lte_err=SQRT((lte_sq-lte**2)/DBLE(no_fdos_sets-1))
+  write(*,'(1x,a,es18.10,a,es10.2)')'Done.  LTE per primitive cell : ', &
+    &lte,' +/- ',lte_err
+  write(*,'(1x,a,es18.10,a,es10.2)')'Done.  LTE per primitive cell (eV) : ', &
+    &lte*27.211396132d0,' +/- ',lte_err*27.211396132d0
+   
+  tdependence1_file = open_write_file(tdependence1_filename)
+  write(tdependence1_file,*) lte*27.211396132d0
+  close(tdependence1_file)
+end subroutine
+
+! ----------------------------------------------------------------------
+! Use the frequency density-of-states to evaluate the lattice thermal
+! free energy of the crystal as a function of the temperature in Kelvin.
+! Repeat this for each set of frequency DoS data, to estimate the error
+! in the LTFE.
+! ----------------------------------------------------------------------
+subroutine calc_ltfe(bin_width,temperature,freq_dos,tdependence2_filename)
+  use constants, only : max_bin, no_fdos_sets
+  use string_module
+  implicit none
+  
+  real(dp), intent(in) :: bin_width
+  real(dp), intent(in) :: temperature
+  real(dp), intent(in) :: freq_dos(:,:)
+  
+  ! File name
+  type(String), intent(in) :: tdependence2_filename
+  
+  ! File unit
+  integer :: tdependence2_file
+  
+  integer :: bin,j
+  real(dp) :: omega,ltfe_sq,ltfe_val,FE_H(0:max_bin),ltfe,ltfe_err
+  
+  do bin=0,max_bin
+    ! omega is the frequency in the middle of the corresponding bin.
+    omega=(DBLE(bin)+0.5d0)*bin_width
+    ! Array of harmonic energies at each frequency.
+    FE_H(bin)=harmonic_free_energy(temperature,omega)
+  enddo ! bin
+  ltfe=0.d0 ; ltfe_sq=0.d0
+  do j=1,no_fdos_sets
+    ltfe_val=DOT_PRODUCT(freq_dos(:,j),FE_H(:))
+    ltfe=ltfe+ltfe_val ; ltfe_sq=ltfe_sq+ltfe_val**2
+  enddo ! j
+  ltfe=bin_width*ltfe/DBLE(no_fdos_sets)
+  ltfe_sq=bin_width**2*ltfe_sq/DBLE(no_fdos_sets)
+  ltfe_err=SQRT((ltfe_sq-ltfe**2)/DBLE(no_fdos_sets-1))
+  write(*,'(1x,a,es18.10,a,es10.2)')'and LTFE per primitive cell   : ', &
+    &ltfe,' +/- ',ltfe_err
+  write(*,'(1x,a,es18.10,a,es10.2)')'and LTFE per primitive cell (eV)  : ', &
+    &ltfe*27.211396132d0,' +/- ',ltfe_err*27.211396132d0
+  
+  tdependence2_file = open_write_file(tdependence2_filename)
+  write(tdependence2_file,*) ltfe*27.211396132d0
+  close(tdependence2_file)
+end subroutine
+
+! ----------------------------------------------------------------------
+! This subroutine generates a dispersion_curve.dat file, which contains
+! all the branches of the dispersion curve in a format that xmgrace 
+! can read.  The branches of the dispersion curve are plotted against
+! the total distance travelled along the specified lines.
+! ----------------------------------------------------------------------
+subroutine generate_disp_curve(structure,no_kspace_lines, &
+   & disp_kpoints,structure_sc,atom,    &
+   & force_constants,                                                      &
+   & dispersion_curve_filename)
+  use string_module
+  use structure_module
+  implicit none
+  
+  type(StructureData), intent(in) :: structure
+  integer,  intent(in) :: no_kspace_lines
+  real(dp), intent(in) :: disp_kpoints(:,:)
+  type(StructureData), intent(in) :: structure_sc
+  integer,  intent(in) :: atom(:,:)
+  real(dp), intent(in) :: force_constants(:,:,:,:)
+  
+  ! File name
+  type(String), intent(in) :: dispersion_curve_filename
+  
+  ! File unit
+  integer :: dispersion_curve_file
+  
+  real(dp) :: k_dist,kvec(3),delta_k(3),k_step
+  integer :: i,j,k,total_no_kpoints,ialloc
+  real(dp),allocatable :: disp_k_dist(:),branch(:,:)
+  integer,parameter :: no_kpoints_per_line=1000
+  
+  complex(dp), allocatable :: dynamical_matrix(:,:)
+  real(dp),    allocatable :: omega(:)
+  complex(dp), allocatable :: pol_vec(:,:)
+
+  write(*,*)
+  write(*,*)'Number of k points per line in k space : ' &
+    &//TRIM(i2s(no_kpoints_per_line))
+  write(*,*)
+
+  ! Total number of k points at which the dispersion curve is to be calc'd.
+  total_no_kpoints=no_kspace_lines*no_kpoints_per_line
+  allocate(disp_k_dist(total_no_kpoints), &
+    &branch(structure%no_modes,total_no_kpoints),stat=ialloc)
+  if(ialloc/=0)call errstop('GENERATE_DISP_CURVE','Allocation error: &
+    &disp_k_dist, etc.')
+
+  ! The step-size in all but the last line is |k_stop-k_start|/no_steps,
+  ! so that k_stop is not included in that line (because k_stop is the
+  ! first point on the next line).  For the last line the step-size
+  ! is |k_stop-k_start|/(no_steps-1), because k_stop has to be the final
+  ! point plotted.
+  k=0
+  k_dist=0.d0
+  do i=1,no_kspace_lines
+    write(*,*)'Start of new line at k-space distance : ',k_dist
+    kvec(1:3)=disp_kpoints(1:3,i-1)
+    if(i<no_kspace_lines)then
+      delta_k(1:3)=(disp_kpoints(1:3,i)-disp_kpoints(1:3,i-1)) &
+        &/DBLE(no_kpoints_per_line)
+    else
+      delta_k(1:3)=(disp_kpoints(1:3,i)-disp_kpoints(1:3,i-1)) &
+        &/DBLE(no_kpoints_per_line-1)
+    endif ! Last line or not
+    k_step=SQRT(DOT_PRODUCT(delta_k,delta_k))
+    do j=1,no_kpoints_per_line
+      k=k+1
+      dynamical_matrix = construct_dyn_matrix(kvec,structure, &
+        & structure_sc,atom,force_constants)
+      call calculate_eigenfreqs_and_vecs(dynamical_matrix, &
+         & omega,pol_vec)
+      branch(1:structure%no_modes,k)=omega(1:structure%no_modes)
+      disp_k_dist(k)=k_dist
+      kvec(1:3)=kvec(1:3)+delta_k(1:3)
+      k_dist=k_dist+k_step
+    enddo ! j
+  enddo ! i
+  k_dist=k_dist-k_step
+  write(*,*)'Final line ends at k-space distance   : ',k_dist
+  
+  dispersion_curve_file = open_write_file(dispersion_curve_filename)
+  do j=1,structure%no_modes
+    do k=1,total_no_kpoints
+      write(dispersion_curve_file,*) disp_k_dist(k), branch(j,k)
+    enddo
+    write(dispersion_curve_file,*) '&'
+  enddo
+  close(dispersion_curve_file)
+
+  deallocate(disp_k_dist,branch)
+end subroutine
+
+! ----------------------------------------------------------------------
+! This subroutine calculates the mean speed of sound by evaluating
+! domega/dk at Gamma and averaging over all directions.  The
+! directions are uniformly distributed.  This subroutine only works
+! for monatomic crystals at present.  The polarisation vectors are
+! calculated for each k, and the dot product of k with the
+! polarisation vectors are calculated.  The branch with the largest dot
+! product is the longitudinal branch, whilst the other two branches
+! are the transverse modes.
+! ----------------------------------------------------------------------
+subroutine calculate_speed_sound( &
+   & structure,structure_sc,atom,force_constants)
+  use constants,   only : pi
+  use rand_no_gen, only : ranx
+  use structure_module
+  implicit none
+  
+  type(StructureData), intent(in) :: structure
+  type(StructureData), intent(in) :: structure_sc
+  integer,  intent(in) :: atom(:,:)
+  real(dp), intent(in) :: force_constants(:,:,:,:)
+  
+  real(dp) :: kvec(3),cos_theta,sin_theta,phi,c_tr_tot,c_tr, &
+    &c2_tr_tot,c2_tr,c_ln_tot,c_ln,c2_ln_tot,c2_ln,err_tr,err_ln,c(3), &
+    &kunit(3),pol_vec_real(3,3),dot_prod(3),temp,c_tr_old,c_ln_old
+  real(dp), allocatable :: omega(:)
+  complex(dp), allocatable :: pol_vec(:,:)
+  complex(dp), allocatable :: dynamical_matrix(:,:)
+  integer :: i,no_samples,k,k2
+  real(dp),parameter :: err_tol=1.d-3
+  integer,parameter :: max_samples=1000000
+  logical,parameter :: verbose=.FALSE.
+  
+  real(dp) :: small_k_scale
+  real(dp) :: kmag
+
+  if(structure%no_atoms/=1)call errstop('CALCULATE_SPEED_SOUND', &
+    &'At the moment this program can only work out the speed of sound in &
+    &materials with a single atom per primitive cell.  Sorry about that.')
+  
+  ! "Small" distance in k space, determined by size of supercell.
+  ! Factor of 2pi included.
+  small_k_scale=2*pi*structure_sc%volume**(-1/3.0_dp)
+
+  ! First guess at a suitable radius of sphere in k-space for computing
+  ! derivatives of omega w.r.t. k.
+  kmag=0.75d0*small_k_scale
+
+  c_tr_old=HUGE(1.d0) ; c_ln_old=HUGE(1.d0)
+
+  ! Reduce kmag until the calculated sound speeds have converged.
+
+  do
+
+    c_tr_tot=0.d0  ; c_ln_tot=0.d0
+    c2_tr_tot=0.d0 ; c2_ln_tot=0.d0
+    no_samples=max_samples
+
+    do i=1,max_samples
+
+      ! Choose random k vector on sphere of radius kmag.
+      cos_theta=1.d0-2.d0*ranx()
+      phi=ranx()*2*pi
+      sin_theta=SQRT(1.d0-cos_theta**2)
+      kunit(1:3)=(/sin_theta*COS(phi),sin_theta*SIN(phi),cos_theta/)
+      kvec(1:3)=kmag*kunit
+
+      ! Calculate corresponding eigenfrequencies.
+      dynamical_matrix = construct_dyn_matrix(kvec,structure, &
+        & structure_sc,atom,force_constants)
+      call calculate_eigenfreqs_and_vecs(dynamical_matrix, &
+         & omega,pol_vec)
+      if(ANY(omega<0.d0))then
+        write(*,*)'Imaginary frequencies found.'
+        write(*,*)'In terms of the primitive reciprocal lattice vectors, &
+          &the k-point is:'
+        write(*,*) dot_product(kvec,structure%lattice(1,:)), &
+                 & dot_product(kvec,structure%lattice(2,:)), &
+                 & dot_product(kvec,structure%lattice(3,:))
+        write(*,*)'The frequencies are:'
+        write(*,*)omega
+        call errstop('CALCULATE_SPEED_SOUND','Cannot calculate speed of &
+          &sound for unstable lattices.')
+      endif ! Soft modes.
+
+      ! Speed of sound corresponding to first three (acoustic) branches.
+      c(1:3)=omega(1:3)/kmag
+
+      ! Work out dot products of corresponding polarisation vectors
+      ! with unit vector in direction of wave vector.
+      pol_vec_real(:,:)=real(pol_vec(:,:),dp)
+      dot_prod(1)=ABS(DOT_PRODUCT(kunit,pol_vec_real(1:3,1)))
+      dot_prod(2)=ABS(DOT_PRODUCT(kunit,pol_vec_real(1:3,2)))
+      dot_prod(3)=ABS(DOT_PRODUCT(kunit,pol_vec_real(1:3,3)))
+
+      ! Arrange the three sound speeds in ascending order of dot
+      ! product of k with polarisation vector.  The third component
+      ! should be the longitudinal one, the first two should be
+      ! the transverse components.
+      do k=1,2
+        do k2=k+1,3
+          if(dot_prod(k)>dot_prod(k2))then
+            temp=dot_prod(k) ; dot_prod(k)=dot_prod(k2) ; dot_prod(k2)=temp
+            temp=c(k) ; c(k)=c(k2) ; c(k2)=temp
+          endif ! Swap needed
+        enddo ! k2
+      enddo ! k
+
+      ! Accumulate sound-speed statistics.
+      c_tr_tot=c_tr_tot+c(1)+c(2)
+      c_ln_tot=c_ln_tot+c(3)
+      c2_tr_tot=c2_tr_tot+c(1)**2+c(2)**2
+      c2_ln_tot=c2_ln_tot+c(3)**2
+
+      ! Check whether we have desired accuracy level.
+      if(i>=20)then
+        c2_ln=c2_ln_tot/DBLE(i)
+        c_ln=c_ln_tot/DBLE(i)
+        err_ln=SQRT((c2_ln-c_ln**2)/DBLE(i-1))
+        if(err_ln<err_tol*c_ln)then
+          no_samples=i
+          exit
+        endif
+      endif ! i>20
+
+    enddo ! i
+
+    ! Mean & standard error in mean for transverse speed.
+    c_tr=c_tr_tot/DBLE(2*no_samples)
+    c2_tr=c2_tr_tot/DBLE(2*no_samples)
+    err_tr=SQRT((c2_tr-c_tr**2)/DBLE(2*no_samples-1))
+
+    ! Mean & standard error in mean for longitudinal speed.
+    c_ln=c_ln_tot/DBLE(no_samples)
+    c2_ln=c2_ln_tot/DBLE(no_samples)
+    err_ln=SQRT((c2_ln-c_ln**2)/DBLE(no_samples-1))
+
+    if(verbose)then
+      if(no_samples==max_samples)write(*,*)'Warning: have not reached &
+        &desired error bar.'
+      write(*,*)'Radius of k-space sphere : ',kmag
+      write(*,*)'Speed of sound (a.u.)'
+      write(*,*)'Transverse   : ',c_tr,' +/- ',err_tr
+      write(*,*)'Longitudinal : ',c_ln,' +/- ',err_ln
+      write(*,*)
+    endif ! verbose
+
+    if(ABS(c_tr-c_tr_old)<2.d0*err_tr.AND.ABS(c_ln-c_ln_old)<2.d0*err_ln)exit
+    c_tr_old=c_tr
+    c_ln_old=c_ln
+
+    kmag=kmag*0.75d0
+
+  enddo ! reduce kmag
+
+  if(verbose)write(*,*)'Final results:'
+  write(*,*)'Radius of k-space sphere : ',kmag
+  write(*,*)'Please check this is sensible by examining a dispersion curve.'
+  write(*,*)
+
+  write(*,*)'Speed of sound (a.u.)'
+  write(*,*)'Transverse   : ',c_tr,' +/- ',err_tr
+  write(*,*)'Longitudinal : ',c_ln,' +/- ',err_ln
+  write(*,*)
+end subroutine
 
 ! ----------------------------------------------------------------------
 ! Evaluate the set of phonon frequencies on the supercell G vectors.
@@ -554,7 +1040,170 @@ subroutine initialise(structure,structure_sc,force_constants,atom,atom_in_prim, 
   enddo
 end subroutine
 
-subroutine lte(structure,structure_sc,force_constants, &
+! ----------------------------------------------------------------------
+! Main program. (Split into four modes)
+! ----------------------------------------------------------------------
+subroutine lte_1(structure,structure_sc,force_constants, &
+   & temperature,freq_dos_filename, &
+   & tdependence1_filename,tdependence2_filename)
+  use constants, only : dp
+  use utils,     only : errstop
+  use string_module
+  use structure_module
+  implicit none
+  
+  ! ----------------------------------------
+  ! Inputs
+  ! ----------------------------------------
+  type(StructureData), intent(in) :: structure
+  type(StructureData), intent(in) :: structure_sc
+  real(dp),            intent(in) :: force_constants(:,:,:,:)
+  real(dp),            intent(in) :: temperature
+  
+  ! ----------------------------------------
+  ! filenames
+  ! ----------------------------------------
+  type(String), intent(in) :: freq_dos_filename
+  type(String), intent(in) :: tdependence1_filename
+  type(String), intent(in) :: tdependence2_filename
+  
+  ! ----------------------------------------
+  ! previously global variables
+  ! ----------------------------------------
+  real(dp) :: bin_width
+  real(dp), allocatable :: freq_dos(:,:)
+  
+  integer,     allocatable :: atom(:,:)
+  integer,     allocatable :: atom_in_prim(:)
+  integer,     allocatable :: prim_cell_for_atom(:)
+  complex(dp), allocatable :: dynamical_matrices(:,:,:)
+  real(dp),    allocatable :: frequencies(:,:)
+  complex(dp), allocatable :: polarisation_vectors(:,:,:)
+  
+  call initialise(structure,structure_sc,force_constants,atom,atom_in_prim, &
+     & prim_cell_for_atom,dynamical_matrices,frequencies,polarisation_vectors)
+
+  write(*,*)'Temperature (K)                    :',temperature
+  if(temperature<0.d0)call errstop('READ_LTE', &
+    &'Temperature should be non-negative.')
+  if(temperature<=0.d0)write(*,*)'(i.e. the zero-point energy is to be &
+    &calculated.)'
+  write(*,*)
+
+  write(*,*)'The mean thermal energy and the free energy will &
+    &be calculated.'
+  write(*,*)'Calculating the frequency density-of-states function...'
+  call calculate_freq_dos(structure,   &
+     & structure_sc,atom, &
+     & force_constants,                                                 &
+     & freq_dos_filename,bin_width,freq_dos)
+  write(*,*)'Done.  Frequency density-of-states function written to &
+    &freq_dos.dat.  (Please view this file using XMGrace.)'
+  write(*,*)
+
+  write(*,*)'Calculating the lattice thermal energy (LTE) and free energy &
+    &(LTFE)...'
+  call calc_lte(bin_width,temperature,freq_dos,tdependence1_filename)
+  call calc_ltfe(bin_width,temperature,freq_dos,tdependence2_filename)
+  write(*,*)
+end subroutine
+
+subroutine lte_2(structure,structure_sc,force_constants, &
+   & no_kspace_lines,disp_kpoints, &
+   & dispersion_curve_filename)
+  use constants, only : dp
+  use utils,     only : errstop
+  use string_module
+  use structure_module
+  implicit none
+  
+  ! ----------------------------------------
+  ! Inputs
+  ! ----------------------------------------
+  type(StructureData), intent(in) :: structure
+  type(StructureData), intent(in) :: structure_sc
+  real(dp),            intent(in) :: force_constants(:,:,:,:)
+  integer,             intent(in) :: no_kspace_lines
+  real(dp),            intent(in) :: disp_kpoints(:,:)
+  
+  ! ----------------------------------------
+  ! filenames
+  ! ----------------------------------------
+  type(String), intent(in) :: dispersion_curve_filename
+  
+  ! ----------------------------------------
+  ! previously global variables
+  ! ----------------------------------------
+  integer,     allocatable :: atom(:,:)
+  integer,     allocatable :: atom_in_prim(:)
+  integer,     allocatable :: prim_cell_for_atom(:)
+  complex(dp), allocatable :: dynamical_matrices(:,:,:)
+  real(dp),    allocatable :: frequencies(:,:)
+  complex(dp), allocatable :: polarisation_vectors(:,:,:)
+  
+  integer :: i
+  
+  call initialise(structure,structure_sc,force_constants,atom,atom_in_prim, &
+     & prim_cell_for_atom,dynamical_matrices,frequencies,polarisation_vectors)
+
+  write(*,*)'Number of lines in k-space to plot     : ' &
+    &//TRIM(i2s(no_kspace_lines))
+  if(no_kspace_lines<1)call errstop('READ_LTE', &
+    &'Need to supply more lines in k-space!')
+  write(*,*)'Points along walk in reciprocal space &
+    &(Cartesian components in a.u.):'
+  do i=0,no_kspace_lines
+    write(*,'(3(" ",f16.8))')disp_kpoints(1:3,i)
+  enddo
+  write(*,*)'Have read in points for dispersion curve.'
+  
+  write(*,*)'A dispersion curve will be calculated.'
+  write(*,*)'Calculating the requested dispersion curve.'
+  call generate_disp_curve(structure,no_kspace_lines,    &
+     & disp_kpoints,structure_sc,atom, &
+     & force_constants,                                                   &
+     & dispersion_curve_filename)
+  write(*,*)'Done.  dispersion_curve.dat has been generated.  (Please &
+    &view this file using XMGrace.)'
+  write(*,*)
+end subroutine
+
+subroutine lte_3(structure,structure_sc,force_constants)
+  use constants, only : dp
+  use utils,     only : errstop
+  use string_module
+  use structure_module
+  implicit none
+  
+  ! ----------------------------------------
+  ! Inputs
+  ! ----------------------------------------
+  type(StructureData), intent(in) :: structure
+  type(StructureData), intent(in) :: structure_sc
+  real(dp),            intent(in) :: force_constants(:,:,:,:)
+  
+  ! ----------------------------------------
+  ! previously global variables
+  ! ----------------------------------------
+  integer,     allocatable :: atom(:,:)
+  integer,     allocatable :: atom_in_prim(:)
+  integer,     allocatable :: prim_cell_for_atom(:)
+  complex(dp), allocatable :: dynamical_matrices(:,:,:)
+  real(dp),    allocatable :: frequencies(:,:)
+  complex(dp), allocatable :: polarisation_vectors(:,:,:)
+  
+  call initialise(structure,structure_sc,force_constants,atom,atom_in_prim, &
+     & prim_cell_for_atom,dynamical_matrices,frequencies,polarisation_vectors)
+
+  write(*,*)'The speed of sound will be calculated.'
+  write(*,*)'Calculating the speed of sound.'
+  call calculate_speed_sound( &
+     & structure,structure_sc,atom,force_constants)
+  write(*,*)'Done.  Speed of sound calculated.'
+  write(*,*)
+end subroutine
+
+subroutine lte_4(structure,structure_sc,force_constants, &
    & temperature, &
    & freq_grids_filename,disp_patterns_filename,            &
    & kdisp_patterns_filename,pol_vec_filename,            &
