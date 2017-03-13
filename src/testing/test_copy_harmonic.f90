@@ -78,11 +78,8 @@ subroutine test_copy_harmonic()
     sdir = 'Supercell_'//i
     
     ! Read in both structure files.
-    structure_copy = read_structure_file(       &
-       & copy_dir//'/'//sdir//'/structure.dat', &
-       & identity_supercell())
-    structure_new = read_structure_file( sdir//'/structure.dat', &
-                                       & identity_supercell())
+    structure_copy = read_structure_file(copy_dir//'/'//sdir//'/structure.dat')
+    structure_new = read_structure_file(sdir//'/structure.dat')
     
     ! Check no_atoms is the same.
     if (structure_copy%no_atoms/=structure_new%no_atoms) then

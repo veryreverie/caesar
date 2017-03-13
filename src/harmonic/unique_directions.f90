@@ -118,9 +118,9 @@ function calculate_unique_directions(structure,symmetry_group) result(this)
   implicit none
   
   ! Inputs
-  type(StructureData), intent(in) :: structure
-  type(Group),         intent(in) :: symmetry_group
-  type(UniqueDirections)          :: this
+  type(StructureData),              intent(in) :: structure
+  type(Group),         allocatable, intent(in) :: symmetry_group(:)
+  type(UniqueDirections)                       :: this
   
   ! Parameters
   ! Maximum dot product between two unit vectors before they are no longer
@@ -147,7 +147,7 @@ function calculate_unique_directions(structure,symmetry_group) result(this)
   do_i : do i=1,structure%no_atoms
     do j=1,size(symmetry_group)
       do k=1,no_unique_atoms
-        if (operate(i,symmetry_group,j)==unique_atoms(k)) then
+        if (operate(symmetry_group(j),i)==unique_atoms(k)) then
           cycle do_i
         endif
       enddo
@@ -168,7 +168,7 @@ function calculate_unique_directions(structure,symmetry_group) result(this)
     vec1_found = .false.
     do j=1,size(symmetry_group)
       ! Ignore symmetries which do not map this atom to itself.
-      if (operate(i,symmetry_group,j)/=i) then
+      if (operate(symmetry_group(j),i)/=i) then
         cycle
       endif
       

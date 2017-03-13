@@ -1,111 +1,114 @@
 ! Subroutines for the calculation of minimum-image distances.
-MODULE min_images
-  USE utils,ONLY : dp,errstop
-  IMPLICIT NONE
-  
-  ! Maximum number of images
-  integer, parameter :: maxim = 8
-  
-interface min_images_brute_force
-  module procedure min_images_brute_force_a ! takes rec_vec
-  module procedure min_images_brute_force_b ! does not take rec_vec
-end interface
-  
-CONTAINS
-
-! This subroutine computes the minimum image vector(s) b of
-! vector a with respect to the lattice specified by the columns of 
-! lat_vec.  rec_vec are the reciprocal lattice vectors (w/o 2pi).
-! -b is the vector from a to its closest lattice point.  nim is the number
-! of image vectors.
-subroutine min_images_brute_force_a(a,lat_vec,rec_vec,b,nim)
+module min_images_module
+  use constants, only : dp
   implicit none
   
-  REAL(dp),INTENT(in) :: a(3),lat_vec(3,3),rec_vec(3,3)
-  REAL(dp),INTENT(out) :: b(3,maxim)
-  INTEGER,INTENT(out) :: nim
+  type MinImages
+    real(dp), allocatable :: images(:,:)
+  end type
   
-  real(dp) :: mag_b_sq,dist2,tol_l2
-  real(dp) :: delta(3)
-  INTEGER :: n(3),i,j,k
-  ! Number of "shells" of lattice points to check.  Only used in setup, so
-  ! may as well overkill.
-  integer,parameter :: check_shell=3
-  real(dp),parameter :: tol=1.d-9
-  tol_L2=tol*dot_product(lat_vec(:,1),lat_vec(:,1))
-  n = floor(matmul(a,rec_vec))
-  mag_b_sq=-1.d0
-  nim=-1
-  do i=n(1)-check_shell,n(1)+check_shell+1
-    do j=n(2)-check_shell,n(2)+check_shell+1
-      do k=n(3)-check_shell,n(3)+check_shell+1
-        delta = a-matmul(lat_vec,(/i,j,k/))
-        dist2=dot_product(delta,delta)
-        if(abs(dist2-mag_b_sq)<=tol_l2)then
-          nim=nim+1
-          IF(nim>maxim)CALL errstop('MIN_IMAGES_BRUTE_FORCE', &
-            &'Need to increase maxim parameter.')
-          b(1:3,nim)=delta(1:3)
-        elseif(dist2<mag_b_sq.or.nim==-1)then
-          mag_b_sq=dist2
-          nim=1
-          b(1:3,1)=delta(1:3)
-        ENDIF
-      ENDDO ! k
-    ENDDO ! j
-  ENDDO ! i
-  IF(nim<=0)CALL errstop('MIN_IMAGES_BRUTE_FORCE','Bug.')
+  interface new
+    module procedure new_MinImages
+  end interface
+  
+  interface drop
+    module procedure drop_MinImages
+  end interface
+  
+  interface size
+    module procedure size_MinImages
+  end interface
+contains
+
+subroutine new_MinImages(this,no_images)
+  implicit none
+  
+  type(MinImages), intent(out) :: this
+  integer,         intent(in)  :: no_images
+  
+  allocate(this%images(3,no_images))
 end subroutine
 
+subroutine drop_MinImages(this)
+  implicit none
+  
+  type(MinImages), intent(inout) :: this
+  
+  deallocate(this%images)
+end subroutine
+
+function size_MinImages(this) result(output)
+  implicit none
+  
+  type(MinImages) :: this
+  integer         :: output
+  
+  output = size(this%images,2)
+end function
 
 ! Compute the minimum image vector(s) b of vector a with respect to the 
 ! lattice specified by the columns of lat_vec. rec_vec are the reciprocal 
 ! lattice vectors (w/o 2pi). -b is the vector from a to its closest lattice 
 ! point.  nim is the number of image vectors.
-SUBROUTINE min_images_brute_force_b(a,lat_vec,b,nim)
+function min_images_brute_force(a,lat_vec) result(output)
+  use constants,      only : dp
   use linear_algebra, only : invert
+  use string_module
   implicit none
   
-  REAL(dp),INTENT(in) :: a(3),lat_vec(3,3)
-  REAL(dp),INTENT(out) :: b(3,8)
-  INTEGER,INTENT(out) :: nim
+  real(dp), intent(in) :: a(3)
+  real(dp), intent(in) :: lat_vec(3,3)
+  type(MinImages)      :: output
   
-  REAL(dp) :: rec_vec(3,3),delta1(3),delta2(3),delta3(3),mag_b_sq,dist2,tol_L2
-  INTEGER :: n(3),i,j,k
-  INTEGER,PARAMETER :: check_shell=3
-  REAL(dp),PARAMETER :: tol=1.d-8
+  real(dp) :: b(3,8)
+  integer  :: nim
+  
+  real(dp) :: rec_vec(3,3),mag_b_sq,dist2,tol_l2
+  real(dp) :: delta(3)
+  integer :: n(3),i,j,k
+  
+  ! Number of "shells" of lattice points to check.  Only used in setup, so
+  ! may as well overkill.
+  integer,parameter :: check_shell=3
+  real(dp),parameter :: tol=1.d-8
+  ! Maximum number of images
+  integer, parameter :: maxim = 8
   
   rec_vec = transpose(invert(lat_vec))
   
-  tol_L2=tol*dot_product(lat_vec(1,1:3),lat_vec(1,1:3))
-  n(1)=floor(dot_product(a(1:3),rec_vec(1,1:3)))
-  n(2)=floor(dot_product(a(1:3),rec_vec(2,1:3)))
-  n(3)=floor(dot_product(a(1:3),rec_vec(3,1:3)))
+  tol_L2 = tol*dot_product(lat_vec(:,1),lat_vec(:,1))
+  n = floor(matmul(rec_vec,a))
   
   mag_b_sq=-1.d0
-  nim=-1
+  nim=0
   
   do i=n(1)-check_shell,n(1)+check_shell+1
-    delta1=a-dble(i)*lat_vec(1,1:3)
     do j=n(2)-check_shell,n(2)+check_shell+1
-      delta2=delta1-dble(j)*lat_vec(2,1:3)
       do k=n(3)-check_shell,n(3)+check_shell+1
-        delta3=delta2-dble(k)*lat_vec(3,1:3)
-        dist2=dot_product(delta3,delta3)
+        delta = a-matmul(transpose(lat_vec),(/i,j,k/))
+        dist2 = dot_product(delta,delta)
         if(abs(dist2-mag_b_sq)<=tol_L2)then
-          nim=nim+1
-          if(nim>8)call errstop('MIN_IMAGES_BRUTE_FORCE','Need to increase &
-            &maxim parameter.')
-          b(1:3,nim)=delta3(1:3)
+          nim = nim+1
+          if (nim>maxim) then
+            call print_line('Error: min_images_brute_force: maxim too small.')
+            stop
+          endif
+          b(:,nim) = delta
         elseif(dist2<mag_b_sq.or.nim==-1)then
-          mag_b_sq=dist2
-          nim=1
-          b(1:3,1)=delta3(1:3)
+          mag_b_sq = dist2
+          nim = 1
+          b(:,1) = delta
         endif
-      enddo ! k
-    enddo ! j
-  enddo ! i
+      enddo
+    enddo
+  enddo
   
-  if(nim<=0)call errstop('MIN_IMAGES_BRUTE_FORCE','Bug.')
-end subroutine
-END MODULE min_images
+  if (nim==0) then
+    call print_line('Error: bug in min_images_brute_force.')
+    stop
+  endif
+  
+  call new(output,nim)
+  output%images = b(:,1:nim)
+end function
+end module

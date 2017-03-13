@@ -38,7 +38,7 @@ subroutine setup_harmonic(caesar_dir)
   type(StructureData)              :: structure_sc
   
   ! Symmetry group data
-  type(Group) :: symmetry_group
+  type(Group), allocatable :: symmetry_group(:)
   
   ! Directories
   type(String) :: sdir
@@ -108,7 +108,7 @@ subroutine setup_harmonic(caesar_dir)
   ! ----------------------------------------------------------------------
   ! Read in input files.
   ! ----------------------------------------------------------------------
-  structure = read_structure_file('structure.dat',identity_supercell())
+  structure = read_structure_file('structure.dat')
   
   ! Read grid file
   grid_file = open_read_file('grid.dat')
@@ -130,7 +130,7 @@ subroutine setup_harmonic(caesar_dir)
     call system(caesar_dir//'/caesar calculate_symmetry structure.dat')
     
     ! Re-read in structure file, now with symmetries.
-    structure = read_structure_file('structure.dat',identity_supercell())
+    structure = read_structure_file('structure.dat')
   endif
   
   ! ----------------------------------------------------------------------
@@ -163,8 +163,7 @@ subroutine setup_harmonic(caesar_dir)
     call write_structure_file(structure_sc, sdir//'/structure.dat')
     call system(caesar_dir//'/caesar calculate_symmetry '// &
        & sdir//'/structure.dat')
-    structure_sc = read_structure_file( sdir//'/structure.dat', &
-                                      & supercells(i))
+    structure_sc = read_structure_file(sdir//'/structure.dat')
     ! ----------------------------------------------------------------------
     ! Calculate symmetry group.
     ! ----------------------------------------------------------------------

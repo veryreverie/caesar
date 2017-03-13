@@ -331,13 +331,10 @@ subroutine structure_to_dft_filename(dft_code,structure_sc_filename,  &
   type(StructureData) :: structure_sc
   type(StructureData) :: structure
   
-  ! n.b. supercell is not used here, so a dummy is provided.
-  structure_sc = read_structure_file( structure_sc_filename, &
-                                    & identity_supercell())
+  structure_sc = read_structure_file(structure_sc_filename)
   
   if (present(structure_filename)) then
-    ! n.b. supercell is not used here, so a dummy is provided.
-    structure = read_structure_file(structure_filename, identity_supercell())
+    structure = read_structure_file(structure_filename)
     call structure_to_dft( dft_code=dft_code, &
                          & structure_sc=structure_sc, &
                          & input_filename=input_filename, &

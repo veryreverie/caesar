@@ -24,7 +24,10 @@ module structure_module
     real(dp),     allocatable :: offsets(:,:)
     real(dp),     allocatable :: offsets_cart(:,:)
     ! Superell data
-    type(SupercellData)       :: supercell
+    integer                   :: sc_size
+    integer                   :: supercell(3,3)
+    integer                   :: recip_supercell(3,3)
+    integer,      allocatable :: gvectors(:,:)
   end type
   
   interface new
@@ -73,7 +76,8 @@ subroutine new_StructureData(this,no_atoms,no_symmetries,sc_size)
     allocate(this%offsets_cart(3,no_symmetries))
   endif
   
-  call new(this%supercell,sc_size)
+  this%sc_size = sc_size
+  allocate(this%gvectors(3,sc_size))
 end subroutine
 
 ! Deallocates a Structure
@@ -92,18 +96,18 @@ subroutine drop_StructureData(this)
     deallocate(this%offsets_cart)
   endif
   
-  call drop(this%supercell)
+  deallocate(this%gvectors)
 end subroutine
 
 ! reads structure.dat
-function read_structure_file_character(filename,supercell) result(this)
-  use file_module
+function read_structure_file_character(filename) result(this)
+  use constants,      only : identity
   use linear_algebra, only : invert, invert_int
   use string_module
+  use file_module
   implicit none
   
   character(*),        intent(in) :: filename
-  type(SupercellData), intent(in) :: supercell
   type(StructureData)             :: this
   
   type(String), allocatable :: structure_file(:)
@@ -111,35 +115,55 @@ function read_structure_file_character(filename,supercell) result(this)
   integer                   :: i,j
   integer                   :: no_atoms
   integer                   :: no_symmetries
+  integer                   :: sc_size
   
   ! line numbers
-  integer :: lattice_line  ! The line "Lattice"
-  integer :: atoms_line    ! The line "Atoms"
-  integer :: symmetry_line ! The line "Symmetry"
-  integer :: end_line      ! The line "End"
+  integer :: lattice_line   ! The line "Lattice"
+  integer :: atoms_line     ! The line "Atoms"
+  integer :: symmetry_line  ! The line "Symmetry"
+  integer :: supercell_line ! The line "Supercell"
+  integer :: gvectors_line  ! The line "G-vectors"
+  integer :: end_line       ! The line "End"
   
-  ! initialise line numbers
+  ! ------------------------------
+  ! Initialise line numbers.
+  ! ------------------------------
   lattice_line = 0
   atoms_line = 0
   symmetry_line = 0
+  supercell_line = 0
   end_line = 0
   
-  ! work out layout of file
+  ! ------------------------------
+  ! Work out layout of file.
+  ! ------------------------------
   structure_file = read_lines(filename)
   do i=1,size(structure_file)
     line = split(lower_case(structure_file(i)))
+    
+    if (size(line)==0) then
+      call print_line('Error: '//filename//' contains blank lines.')
+      stop
+    endif
+    
     if (line(1)=="lattice") then
       lattice_line = i
     elseif (line(1)=="atoms") then
       atoms_line = i
     elseif (line(1)=="symmetry") then
       symmetry_line = i
+    elseif (line(1)=="supercell") then
+      supercell_line = i
+    elseif (line(1)=="g-vectors") then
+      gvectors_line = i
     elseif (line(1)=="end") then
       end_line = i
     endif
   enddo
   
-  ! check layout is consistent with input file
+  ! ------------------------------
+  ! Check layout is as expected.
+  ! ------------------------------
   if (lattice_line/=1) then
     call print_line("Error: line 1 of "//filename//" is not 'Lattice'")
     stop
@@ -151,23 +175,45 @@ function read_structure_file_character(filename,supercell) result(this)
     stop
   endif
   
-  ! set counts, and allocate structure
-  if (symmetry_line==0) then
-    ! structure.dat does not contain symmetries
-    no_atoms = end_line-atoms_line-1
-    no_symmetries = 0
-  else
-    no_atoms = symmetry_line-atoms_line-1
-    no_symmetries = (end_line-symmetry_line-1)/4
+  if (supercell_line/=0 .and. gvectors_line/=0) then
+    if (gvectors_line-supercell_line/=4) then
+      call print_line('Error: the lines "Supercell" and "G-vectors" in '// &
+         & filename//' are not four lines apart.')
+    endif
   endif
   
-  call new(this,no_atoms,no_symmetries,supercell%sc_size)
+  ! ------------------------------
+  ! Set counts.
+  ! ------------------------------
+  if (symmetry_line==0 .and. supercell_line==0) then
+    ! structure.dat does not contain symmetries or supercell data
+    no_atoms = end_line-atoms_line-1
+    no_symmetries = 0
+    sc_size = 1
+  elseif (symmetry_line==0) then
+    ! structure.dat does not contain symmetries
+    no_atoms = supercell_line-atoms_line-1
+    no_symmetries = 0
+    sc_size = end_line-gvectors_line-1
+  elseif (supercell_line==0) then
+    ! structure.dat does not contain supercell data
+    no_atoms = symmetry_line-symmetry_line-1
+    no_symmetries = (end_line-symmetry_line-1)/4
+    sc_size = 1
+  else
+    no_atoms = symmetry_line-atoms_line-1
+    no_symmetries = (supercell_line-symmetry_line-1)/4
+    sc_size = (end_line-gvectors_line-1)
+  endif
   
-  ! Store supercell data
-  ! TODO: change input file format to include supercell data
-  this%supercell = supercell
+  ! ------------------------------
+  ! Allocate structure.
+  ! ------------------------------
+  call new(this,no_atoms,no_symmetries,sc_size)
   
-  ! read file into arrays
+  ! ------------------------------
+  ! Read file into arrays.
+  ! ------------------------------
   do i=1,3
     this%lattice(i,:) = dble(split(structure_file(lattice_line+i)))
   enddo
@@ -188,23 +234,37 @@ function read_structure_file_character(filename,supercell) result(this)
     this%offsets(:,i) = dble(line)
   enddo
   
+  if (supercell_line==0) then
+    this%supercell = identity
+    this%gvectors(:,1) = 0
+  else
+    do i=1,3
+      this%supercell(i,:) = int(split(structure_file(supercell_line+i)))
+    enddo
+    
+    do i=1,sc_size
+      this%gvectors(:,i) = int(split(structure_file(gvectors_line+i)))
+    enddo
+  endif
+  
   ! calculate derived quantities
   call calculate_derived_atom_quantities(this)
   
   if (this%no_symmetries>0) then
     call calculate_derived_symmetry_quantities(this)
   endif
+    
+  this%recip_supercell = invert_int(this%supercell)
 end function
 
-function read_structure_file_string(filename,supercell) result(this)
+function read_structure_file_string(filename) result(this)
   use string_module
   implicit none
   
   type(String),        intent(in) :: filename
-  type(SupercellData), intent(in) :: supercell
   type(StructureData)             :: this
   
-  this = read_structure_file(char(filename),supercell)
+  this = read_structure_file(char(filename))
 end function
 
 subroutine write_structure_file_character(this,filename)
@@ -241,6 +301,15 @@ subroutine write_structure_file_character(this,filename)
       call print_line(structure_file, this%offsets(:,i))
     enddo
   endif
+  
+  call print_line(structure_file,'Supercell')
+  do i=1,3
+    call print_line(structure_file, this%supercell(i,:))
+  enddo
+  call print_line(structure_file,'G-vectors')
+  do i=1,this%sc_size
+    call print_line(structure_file, this%gvectors(:,i))
+  enddo
   
   call print_line(structure_file,'End')
   

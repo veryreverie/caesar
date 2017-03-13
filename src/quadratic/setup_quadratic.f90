@@ -110,8 +110,7 @@ subroutine setup_quadratic()
   ! Read in data from harmonic calculation
   ! ------------------------------------------------------------
   ! Read in structure file
-  structure = read_structure_file( harmonic_path//'/structure.dat', &
-                                 & identity_supercell())
+  structure = read_structure_file(harmonic_path//'/structure.dat')
   
   ! Read in number of supercells
   no_sc_file = open_read_file(harmonic_path//'/no_sc.dat')
@@ -137,7 +136,7 @@ subroutine setup_quadratic()
   allocate(disp_patterns(i))
   do i=1,no_sc
     filename = harmonic_path//'/Structure_'//i//'/structure.dat'
-    structure_scs(i) = read_structure_file(filename,supercells(i))
+    structure_scs(i) = read_structure_file(filename)
     
     filename = harmonic_path//'/Structure_'//i//'/lte/disp_patterns.dat'
     disp_patterns(i) = read_disp_patterns_file(filename, structure%no_modes)

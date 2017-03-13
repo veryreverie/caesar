@@ -34,7 +34,9 @@ function construct_supercell(structure,supercell) result(structure_sc)
 
   call new(structure_sc,no_atoms_sc,0,supercell%sc_size)
   
-  structure_sc%supercell = supercell
+  structure_sc%supercell = supercell%supercell
+  structure_sc%recip_supercell = supercell%recip_supercell
+  structure_sc%gvectors = supercell%gvectors
 
   ! Generate supercell lattice.
   structure_sc%lattice = matmul(supercell%supercell,structure%lattice)

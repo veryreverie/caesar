@@ -2,7 +2,7 @@ module group_module
   implicit none
   
   type Group
-    integer, allocatable, private :: operations(:,:)
+    integer, allocatable, private :: operation(:)
   end type
   
   interface new
@@ -22,14 +22,13 @@ module group_module
   end interface
 contains
 
-subroutine new_Group(this,no_operations,no_elements)
+subroutine new_Group(this,no_elements)
   implicit none
   
   type(Group), intent(out) :: this
-  integer,     intent(in) :: no_operations
-  integer,     intent(in) :: no_elements
+  integer,     intent(in)  :: no_elements
   
-  allocate(this%operations(no_elements,no_operations))
+  allocate(this%operation(no_elements))
 end subroutine
 
 subroutine drop_Group(this)
@@ -37,17 +36,17 @@ subroutine drop_Group(this)
   
   type(Group), intent(inout) :: this
   
-  deallocate(this%operations)
+  deallocate(this%operation)
 end subroutine
 
 subroutine assign_Group(output,input)
   implicit none
   
-  integer,     intent(in)  :: input(:,:)
+  integer,     intent(in)  :: input(:)
   type(Group), intent(out) :: output
   
-  call new(output,size(input,2),size(input,1))
-  output%operations = input
+  call new(output,size(input))
+  output%operation = input
 end subroutine
 
 function size_Group(this) result(output)
@@ -56,18 +55,17 @@ function size_Group(this) result(output)
   type(Group), intent(in) :: this
   integer                 :: output
   
-  output = size(this%operations,2)
+  output = size(this%operation)
 end function
 
-function operate(input,this,operation) result(output)
+function operate(this,input) result(output)
   implicit none
   
-  integer,     intent(in) :: input
   type(Group), intent(in) :: this
-  integer,     intent(in) :: operation
+  integer,     intent(in) :: input
   integer                 :: output
   
-  output = this%operations(input,operation)
+  output = this%operation(input)
 end function
 
 function read_group_file(filename) result(this)
@@ -76,17 +74,20 @@ function read_group_file(filename) result(this)
   implicit none
   
   type(String), intent(in) :: filename
-  type(Group)              :: this
+  type(Group), allocatable :: this(:)
   
   type(String), allocatable :: contents(:)
+  type(String), allocatable :: line(:)
   
   integer :: i
   
   contents = read_lines(filename)
   
-  call new(this,size(contents),size(split(contents(1))))
+  allocate(this(size(contents)))
   do i=1,size(contents)
-    this%operations(:,i) = int(split(contents(i)))
+    line = split(contents(i))
+    call new(this(i),size(line))
+    this(i)%operation = int(line)
   enddo
 end function
 
@@ -95,21 +96,16 @@ subroutine write_group_file(this,filename)
   use file_module
   implicit none
   
-  type(Group),  intent(in)  :: this
+  type(Group),  intent(in) :: this(:)
   type(String), intent(in) :: filename
   
   integer      :: group_file
-  type(String) :: line
   
-  integer :: i,j
+  integer :: i
   
   group_file = open_write_file(filename)
-  do i=1,size(this%operations,2)
-    line = ''
-    do j=1,size(this%operations,1)
-      line = line//' '//this%operations(j,i)
-    enddo
-    call print_line(group_file,line)
+  do i=1,size(this)
+    call print_line(group_file,this(i)%operation)
   enddo
   close(group_file)
 end subroutine

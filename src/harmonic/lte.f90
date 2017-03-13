@@ -26,9 +26,8 @@
 ! 2016     Integrated into Caesar. See Caesar git history.
 
 module lte_module
-  use constants,      only : dp, kB_au_per_K
-  use utils,          only : i2s, errstop
-  use min_images,     only : min_images_brute_force, maxim
+  use constants, only : dp, kB_au_per_K
+  use utils,     only : i2s, errstop
   use file_module
   implicit none
   
@@ -37,12 +36,53 @@ module lte_module
   
 contains
 
+function calculate_delta_prim(structure,structure_sc,atom) result(delta_prim)
+  use structure_module
+  use min_images_module
+  implicit none
+  
+  type(StructureData), intent(in) :: structure
+  type(StructureData), intent(in) :: structure_sc
+  integer,             intent(in) :: atom(:,:)
+  type(MinImages), allocatable    :: delta_prim(:,:,:)
+  
+  real(dp) :: delta_r(3)
+  real(dp) :: delta_r_corr(3)  
+  integer  :: n,m,p,im
+
+  ! Work out number of equivalent images and Delta Prim. Lattice Vectors
+  ! for pairs of atoms (used in evaluation of force-constant matrix).
+  allocate(delta_prim( structure_sc%sc_size, &
+                     & structure%no_atoms,   &
+                     & structure%no_atoms))
+  do n=1,structure%no_atoms
+    do m=1,structure%no_atoms
+      delta_r_corr = structure_sc%atoms(1:3,atom(1,n)) &
+                 & - structure_sc%atoms(1:3,atom(1,m))
+      do p=1,structure_sc%sc_size
+        ! Work out min. image distance(s) between atoms (1,n) and (p,m).
+        delta_r = structure_sc%atoms(:,atom(p,m)) &
+              & - structure_sc%atoms(:,atom(1,n))
+        delta_prim(p,m,n) = min_images_brute_force( delta_r, &
+                                                  & structure_sc%lattice)
+        
+        ! Turn this into the corresponding difference(s) of latt. vects.
+        do im=1,size(delta_prim(p,m,n))
+          delta_prim(p,m,n)%images(:,im) = delta_prim(p,m,n)%images(:,im) &
+                                       & + delta_r_corr
+        enddo
+      enddo
+    enddo
+  enddo
+end function
+
 ! ----------------------------------------------------------------------
 ! Construct the dynamical matrix for a given k vector.
 ! ----------------------------------------------------------------------
 function construct_dyn_matrix(kvec,structure,structure_sc, &
-   & atom,force_constants) result(dynamical_matrix)
+   & atom,force_constants,delta_prim) result(dynamical_matrix)
   use structure_module
+  use min_images_module
   implicit none
   
   real(dp),            intent(in) :: kvec(3)
@@ -50,82 +90,47 @@ function construct_dyn_matrix(kvec,structure,structure_sc, &
   type(StructureData), intent(in) :: structure_sc
   integer,             intent(in) :: atom(:,:)
   real(dp),            intent(in) :: force_constants(:,:,:,:)
+  type(MinImages),     intent(in) :: delta_prim(:,:,:)
   
   complex(dp), allocatable :: dynamical_matrix(:,:)
   
-  real(dp) :: delta_r_ims(3,maxim),delta_r_corr(3)
-  integer,  allocatable :: no_equiv_ims(:,:,:)
-  real(dp), allocatable :: delta_prim(:,:,:,:,:)
-  
-  integer :: p,n,m,i,j,index1,index2,atom1,im
-  complex(dp) :: dm,tempc,expikdotD(structure_sc%supercell%sc_size,structure%no_atoms,&
-    &structure%no_atoms)
+  integer :: p,n,m,i,j,im
+  complex(dp) :: dm,tempc
+  complex(dp), allocatable :: exp_ikd(:,:,:)
   real(dp) :: k_dot_D
-  
-  allocate(dynamical_matrix(structure%no_modes,structure%no_modes))
-
-  ! Work out number of equivalent images and Delta Prim. Lattice Vectors
-  ! for pairs of atoms (used in evaluation of force-constant matrix).
-  allocate(no_equiv_ims(structure_sc%supercell%sc_size,structure%no_atoms,structure%no_atoms),&
-    &delta_prim(3,maxim,structure_sc%supercell%sc_size,structure%no_atoms,structure%no_atoms))
-  delta_prim=0.d0
-  do n=1,structure%no_atoms
-    do m=1,structure%no_atoms
-      delta_r_corr = structure_sc%atoms(1:3,atom(1,n)) &
-                 & - structure_sc%atoms(1:3,atom(1,m))
-      do p=1,structure_sc%supercell%sc_size
-        ! Work out min. image distance(s) between atoms (1,n) and (p,m).
-        call min_images_brute_force( structure_sc%atoms(:,atom(p,m))  &
-                                   & -structure_sc%atoms(:,atom(1,n)),&
-                                   & transpose(structure_sc%lattice), &
-                                   & delta_r_ims,                     &
-                                   & no_equiv_ims(p,m,n))
-        ! Turn this into the corresponding difference(s) of latt. vects.
-        do im=1,no_equiv_ims(p,m,n)
-          delta_prim(1:3,im,p,m,n)=delta_r_ims(1:3,im)+delta_r_corr
-        enddo ! im
-      enddo ! p
-    enddo ! m
-  enddo ! n
 
   ! Precompute exp(-ik.(R-R')) to go in the dynamical matrix.
+  allocate(exp_ikd( structure_sc%sc_size, &
+                  & structure%no_atoms,   &
+                  & structure%no_atoms))
   do n=1,structure%no_atoms
-    atom1=atom(1,n)
     do m=1,structure%no_atoms
-      do p=1,structure_sc%supercell%sc_size
+      do p=1,structure_sc%sc_size
         tempc=CMPLX(0.d0,0.d0,dp)
-        do im=1,no_equiv_ims(p,m,n)
-          k_dot_D=-DOT_PRODUCT(kvec,delta_prim(1:3,im,p,m,n))
+        do im=1,size(delta_prim(p,m,n))
+          k_dot_D=-DOT_PRODUCT(kvec,delta_prim(p,m,n)%images(:,im))
           tempc=tempc+CMPLX(COS(k_dot_D),SIN(k_dot_D),dp)
-        enddo ! im
-        if(no_equiv_ims(p,m,n)>1)then
-          expikdotD(p,m,n)=tempc/DBLE(no_equiv_ims(p,m,n))
-        else
-          expikdotD(p,m,n)=tempc
-        endif ! number of images > 1.
-      enddo ! p
-    enddo ! m
-  enddo ! n
+        enddo
+        exp_ikd(p,m,n) = tempc / size(delta_prim(p,m,n))
+      enddo
+    enddo
+  enddo
 
   ! Evaluate the dynamical matrix.
-  index1=0
+  allocate(dynamical_matrix(structure%no_modes,structure%no_modes))
   do n=1,structure%no_atoms
-    atom1=atom(1,n)
     do i=1,3
-      index1=index1+1
-      index2=0
       do m=1,structure%no_atoms
         do j=1,3
-          index2=index2+1
           dm=CMPLX(0.d0,0.d0,dp)
-          do p=1,structure_sc%supercell%sc_size
-            dm=dm+force_constants(j,i,atom1,atom(p,m))*expikdotD(p,m,n)
-          enddo ! p
-          dynamical_matrix(index1,index2)=dm
-        enddo ! j
-      enddo ! i
-    enddo ! m
-  enddo ! n
+          do p=1,structure_sc%sc_size
+            dm=dm+force_constants(j,i,atom(1,n),atom(p,m))*exp_ikd(p,m,n)
+          enddo
+          dynamical_matrix(3*(n-1)+i,3*(m-1)+j)=dm
+        enddo
+      enddo
+    enddo
+  enddo
 
   ! Enforce Hermiticity on the dynamical matrix.
   dynamical_matrix = (dynamical_matrix + conjg(transpose(dynamical_matrix)))/2
@@ -234,31 +239,30 @@ end function
 ! Calculate the frequency density-of-states by Monte Carlo sampling of
 ! the Brillouin zone.
 ! ----------------------------------------------------------------------
-subroutine calculate_freq_dos(structure,        &
-   & structure_sc,atom,force_constants,&
-   & freq_dos_filename,bin_width,freq_dos)
+subroutine calculate_freq_dos(structure,structure_sc,atom,force_constants, &
+   & delta_prim,freq_dos_filename,bin_width,freq_dos)
   use constants,      only : max_bin, no_samples, no_fdos_sets, pi
   use linear_algebra, only : dscal
   use rand_no_gen,    only : ranx
   use string_module
   use structure_module
+  use min_images_module
   implicit none
   
-  type(StructureData), intent(in) :: structure
-  type(StructureData), intent(in) :: structure_sc
-  integer,  intent(in) :: atom(:,:)
-  real(dp), intent(in) :: force_constants(:,:,:,:)
+  type(StructureData),   intent(in)  :: structure
+  type(StructureData),   intent(in)  :: structure_sc
+  integer,               intent(in)  :: atom(:,:)
+  real(dp),              intent(in)  :: force_constants(:,:,:,:)
+  type(MinImages),       intent(in)  :: delta_prim(:,:,:)
+  type(String),          intent(in)  :: freq_dos_filename
+  real(dp),              intent(out) :: bin_width
+  real(dp), allocatable, intent(out) :: freq_dos(:,:)
   
+  ! Parameters
   real(dp), parameter :: tol = 1.0e-5_dp
-  
-  ! Filename
-  type(String), intent(in) :: freq_dos_filename
   
   ! File unit
   integer :: freq_dos_file
-  
-  real(dp),              intent(out) :: bin_width
-  real(dp), allocatable, intent(out) :: freq_dos(:,:)
   
   ! Number of preliminary samples of Brillouin zone to make in order to
   ! establish maximum and minimum frequencies.
@@ -286,7 +290,7 @@ subroutine calculate_freq_dos(structure,        &
               & + ranx()*structure%recip_lattice(2,:) &
               & + ranx()*structure%recip_lattice(3,:))
     dynamical_matrix = construct_dyn_matrix(kvec,structure, &
-      & structure_sc,atom,force_constants)
+      & structure_sc,atom,force_constants,delta_prim)
     call calculate_eigenfreqs_and_vecs(dynamical_matrix, &
        & omega,pol_vec)
     if(omega(1)<min_freq)min_freq=omega(1)
@@ -321,7 +325,7 @@ subroutine calculate_freq_dos(structure,        &
                 & + ranx()*structure%recip_lattice(2,:) &
                 & + ranx()*structure%recip_lattice(3,:))
       dynamical_matrix = construct_dyn_matrix(kvec,structure, &
-        & structure_sc,atom,force_constants)
+        & structure_sc,atom,force_constants,delta_prim)
       call calculate_eigenfreqs_and_vecs(dynamical_matrix, &
          & omega,pol_vec)
       if(omega(1)<-tol)soft_modes=.TRUE.
@@ -462,20 +466,20 @@ end subroutine
 ! can read.  The branches of the dispersion curve are plotted against
 ! the total distance travelled along the specified lines.
 ! ----------------------------------------------------------------------
-subroutine generate_disp_curve(structure,no_kspace_lines, &
-   & disp_kpoints,structure_sc,atom,    &
-   & force_constants,                                                      &
-   & dispersion_curve_filename)
+subroutine generate_disp_curve(structure,structure_sc,no_kspace_lines, &
+   & disp_kpoints,atom,force_constants,delta_prim,dispersion_curve_filename)
   use string_module
   use structure_module
+  use min_images_module
   implicit none
   
   type(StructureData), intent(in) :: structure
-  integer,  intent(in) :: no_kspace_lines
-  real(dp), intent(in) :: disp_kpoints(:,:)
   type(StructureData), intent(in) :: structure_sc
-  integer,  intent(in) :: atom(:,:)
-  real(dp), intent(in) :: force_constants(:,:,:,:)
+  integer,             intent(in) :: no_kspace_lines
+  real(dp),            intent(in) :: disp_kpoints(:,:)
+  integer,             intent(in) :: atom(:,:)
+  real(dp),            intent(in) :: force_constants(:,:,:,:)
+  type(MinImages),     intent(in) :: delta_prim(:,:,:)
   
   ! File name
   type(String), intent(in) :: dispersion_curve_filename
@@ -525,7 +529,7 @@ subroutine generate_disp_curve(structure,no_kspace_lines, &
     do j=1,no_kpoints_per_line
       k=k+1
       dynamical_matrix = construct_dyn_matrix(kvec,structure, &
-        & structure_sc,atom,force_constants)
+        & structure_sc,atom,force_constants,delta_prim)
       call calculate_eigenfreqs_and_vecs(dynamical_matrix, &
          & omega,pol_vec)
       branch(1:structure%no_modes,k)=omega(1:structure%no_modes)
@@ -559,17 +563,19 @@ end subroutine
 ! product is the longitudinal branch, whilst the other two branches
 ! are the transverse modes.
 ! ----------------------------------------------------------------------
-subroutine calculate_speed_sound( &
-   & structure,structure_sc,atom,force_constants)
+subroutine calculate_speed_sound(structure,structure_sc,atom, &
+   & force_constants,delta_prim)
   use constants,   only : pi
   use rand_no_gen, only : ranx
   use structure_module
+  use min_images_module
   implicit none
   
   type(StructureData), intent(in) :: structure
   type(StructureData), intent(in) :: structure_sc
-  integer,  intent(in) :: atom(:,:)
-  real(dp), intent(in) :: force_constants(:,:,:,:)
+  integer,             intent(in) :: atom(:,:)
+  real(dp),            intent(in) :: force_constants(:,:,:,:)
+  type(MinImages),     intent(in) :: delta_prim(:,:,:)
   
   real(dp) :: kvec(3),cos_theta,sin_theta,phi,c_tr_tot,c_tr, &
     &c2_tr_tot,c2_tr,c_ln_tot,c_ln,c2_ln_tot,c2_ln,err_tr,err_ln,c(3), &
@@ -618,7 +624,7 @@ subroutine calculate_speed_sound( &
 
       ! Calculate corresponding eigenfrequencies.
       dynamical_matrix = construct_dyn_matrix(kvec,structure, &
-        & structure_sc,atom,force_constants)
+        & structure_sc,atom,force_constants,delta_prim)
       call calculate_eigenfreqs_and_vecs(dynamical_matrix, &
          & omega,pol_vec)
       if(ANY(omega<0.d0))then
@@ -759,28 +765,28 @@ subroutine evaluate_freqs_on_grid(    &
   
   integer :: i,j,ig,index1,index2,p,n,atom1
   logical :: soft_modes
-  real(dp) :: gvec(3,structure_sc%supercell%sc_size),R0(3), &
+  real(dp) :: gvec(3,structure_sc%sc_size),R0(3), &
     &omega(structure%no_modes),E,F,GdotR, &
     &disp_pattern(3),kdisp_pattern(3),tot_disp_patt
   complex(dp) :: pol_vec(structure%no_modes,structure%no_modes), &
-    &non_mr_pol_vec(3,structure%no_atoms),expiGdotR(structure_sc%supercell%sc_size), &
+    &non_mr_pol_vec(3,structure%no_atoms),expiGdotR(structure_sc%sc_size), &
     &kpol_vec(3,structure%no_atoms)
   real(dp),parameter :: tol_omega=1.d-6 ! For judging whether modes are soft.
-  integer :: reference(structure_sc%supercell%sc_size) ! For equivalent +/- G-points.
+  integer :: reference(structure_sc%sc_size) ! For equivalent +/- G-points.
   real(dp) :: prefactor
   
   ! Transform G-vectors into reciprocal space.
-  do i=1,structure_sc%supercell%sc_size
+  do i=1,structure_sc%sc_size
     gvec(:,i) = 2*pi*matmul( transpose(structure_sc%recip_lattice), &
-                           & modulo(structure_sc%supercell%gvectors(:,i),structure_sc%supercell%sc_size))
+                           & modulo(structure_sc%gvectors(:,i),structure_sc%sc_size))
   enddo
   
   ! Calculate +/- G-vector pairs
   reference=0
-  do i=1,structure_sc%supercell%sc_size
+  do i=1,structure_sc%sc_size
     do j=1,i-1
-      if (all( structure_sc%supercell%gvectors(:,i) &
-           & + structure_sc%supercell%gvectors(:,j)==0)) then
+      if (all( structure_sc%gvectors(:,i) &
+           & + structure_sc%gvectors(:,j)==0)) then
         reference(i)=j 
         reference(j)=i
         exit
@@ -797,7 +803,7 @@ subroutine evaluate_freqs_on_grid(    &
   E=0.d0  ;  F=0.d0
   soft_modes=.FALSE.
   R0=structure_sc%atoms(:,atom(1,1))
-  do ig=1,structure_sc%supercell%sc_size
+  do ig=1,structure_sc%sc_size
     if (reference(ig)==0 .or. reference(ig)>ig) then
       omega = frequencies(:,ig)
       pol_vec = polarisation_vectors(:,:,ig)
@@ -808,7 +814,7 @@ subroutine evaluate_freqs_on_grid(    &
 
     ! The negative is used because the matrix of force constants is the transpose of
     ! the usual expression in derivations that lead to a positive exponential
-    do p=1,structure_sc%supercell%sc_size
+    do p=1,structure_sc%sc_size
       if(reference(ig)==0)then
         GdotR=-DOT_PRODUCT(gvec(:,ig),structure_sc%atoms(1:3,atom(p,1))-R0)
       else
@@ -901,7 +907,7 @@ subroutine evaluate_freqs_on_grid(    &
       close(error_file)
     endif
   enddo ! ig
-  E=E/DBLE(structure_sc%supercell%sc_size)  ;  F=F/DBLE(structure_sc%supercell%sc_size)
+  E=E/DBLE(structure_sc%sc_size)  ;  F=F/DBLE(structure_sc%sc_size)
 
   close(freq_grids_file)
   close(disp_patterns_file)
@@ -976,11 +982,13 @@ end subroutine
 ! ----------------------------------------------------------------------
 ! Set up lte
 ! ----------------------------------------------------------------------
-subroutine initialise(structure,structure_sc,force_constants,atom,atom_in_prim, &
-   & prim_cell_for_atom,dynamical_matrices,frequencies,polarisation_vectors)
+subroutine initialise(structure, structure_sc, force_constants, &
+   & atom, atom_in_prim, prim_cell_for_atom,                    &
+   & delta_prim, dynamical_matrices, frequencies, polarisation_vectors)
   use constants, only : pi
   use string_module
   use structure_module
+  use min_images_module
   implicit none
   
   ! Inputs.
@@ -992,6 +1000,9 @@ subroutine initialise(structure,structure_sc,force_constants,atom,atom_in_prim, 
   integer,  allocatable, intent(out) :: atom(:,:)
   integer,  allocatable, intent(out) :: atom_in_prim(:)
   integer,  allocatable, intent(out) :: prim_cell_for_atom(:)
+  
+  ! Minimum image information.
+  type(MinImages), allocatable, intent(out) :: delta_prim(:,:,:)
   
   ! Dynamical matrices.
   complex(dp), allocatable, intent(out) :: dynamical_matrices(:,:,:)
@@ -1007,32 +1018,35 @@ subroutine initialise(structure,structure_sc,force_constants,atom,atom_in_prim, 
   complex(dp), allocatable :: pol_vec(:,:)
   
   ! Calculate atom placements.
-  allocate(atom(structure_sc%supercell%sc_size,structure%no_atoms))
+  allocate(atom(structure_sc%sc_size,structure%no_atoms))
   allocate(atom_in_prim(structure_sc%no_atoms))
   allocate(prim_cell_for_atom(structure_sc%no_atoms))
   
-  do i=1,structure_sc%supercell%sc_size
+  do i=1,structure_sc%sc_size
     do j=1,structure%no_atoms
-      atom_id = (j-1)*structure_sc%supercell%sc_size + i
+      atom_id = (j-1)*structure_sc%sc_size + i
       atom(i,j) = atom_id
       atom_in_prim(atom_id) = j
       prim_cell_for_atom = i
     enddo
   enddo
   
+  ! Calculate minimum images.
+  delta_prim = calculate_delta_prim(structure,structure_sc,atom)
+  
   ! Calculate dynamical matrices, and their eigenstuff.
   allocate(dynamical_matrices( structure%no_modes, &
                              & structure%no_modes, &
-                             & structure_sc%supercell%sc_size))
-  allocate(frequencies(structure%no_modes,structure_sc%supercell%sc_size))
+                             & structure_sc%sc_size))
+  allocate(frequencies(structure%no_modes,structure_sc%sc_size))
   allocate(polarisation_vectors( structure%no_modes, &
                                & structure%no_modes, &
-                               & structure_sc%supercell%sc_size))
-  do i=1,structure_sc%supercell%sc_size
+                               & structure_sc%sc_size))
+  do i=1,structure_sc%sc_size
     gvec = 2*pi*matmul( structure_sc%recip_lattice, &
-                      & modulo(structure_sc%supercell%gvectors(:,i),structure_sc%supercell%sc_size))
+                      & modulo(structure_sc%gvectors(:,i),structure_sc%sc_size))
     dynamical_matrices(:,:,i) = construct_dyn_matrix(gvec,structure, &
-      & structure_sc,atom,force_constants)
+      & structure_sc,atom,force_constants,delta_prim)
     
     call calculate_eigenfreqs_and_vecs(dynamical_matrices(:,:,i),omega,pol_vec)
     frequencies(:,i) = omega
@@ -1050,6 +1064,7 @@ subroutine lte_1(structure,structure_sc,force_constants, &
   use utils,     only : errstop
   use string_module
   use structure_module
+  use min_images_module
   implicit none
   
   ! ----------------------------------------
@@ -1073,15 +1088,17 @@ subroutine lte_1(structure,structure_sc,force_constants, &
   real(dp) :: bin_width
   real(dp), allocatable :: freq_dos(:,:)
   
-  integer,     allocatable :: atom(:,:)
-  integer,     allocatable :: atom_in_prim(:)
-  integer,     allocatable :: prim_cell_for_atom(:)
-  complex(dp), allocatable :: dynamical_matrices(:,:,:)
-  real(dp),    allocatable :: frequencies(:,:)
-  complex(dp), allocatable :: polarisation_vectors(:,:,:)
+  integer,         allocatable :: atom(:,:)
+  integer,         allocatable :: atom_in_prim(:)
+  integer,         allocatable :: prim_cell_for_atom(:)
+  type(MinImages), allocatable :: delta_prim(:,:,:)
+  complex(dp),     allocatable :: dynamical_matrices(:,:,:)
+  real(dp),        allocatable :: frequencies(:,:)
+  complex(dp),     allocatable :: polarisation_vectors(:,:,:)
   
-  call initialise(structure,structure_sc,force_constants,atom,atom_in_prim, &
-     & prim_cell_for_atom,dynamical_matrices,frequencies,polarisation_vectors)
+  call initialise(structure,structure_sc,force_constants, &
+     & atom,atom_in_prim,prim_cell_for_atom,              &
+     & delta_prim,dynamical_matrices,frequencies,polarisation_vectors)
 
   write(*,*)'Temperature (K)                    :',temperature
   if(temperature<0.d0)call errstop('READ_LTE', &
@@ -1093,10 +1110,8 @@ subroutine lte_1(structure,structure_sc,force_constants, &
   write(*,*)'The mean thermal energy and the free energy will &
     &be calculated.'
   write(*,*)'Calculating the frequency density-of-states function...'
-  call calculate_freq_dos(structure,   &
-     & structure_sc,atom, &
-     & force_constants,                                                 &
-     & freq_dos_filename,bin_width,freq_dos)
+  call calculate_freq_dos(structure,structure_sc,atom,force_constants, &
+     & delta_prim,freq_dos_filename,bin_width,freq_dos)
   write(*,*)'Done.  Frequency density-of-states function written to &
     &freq_dos.dat.  (Please view this file using XMGrace.)'
   write(*,*)
@@ -1115,6 +1130,7 @@ subroutine lte_2(structure,structure_sc,force_constants, &
   use utils,     only : errstop
   use string_module
   use structure_module
+  use min_images_module
   implicit none
   
   ! ----------------------------------------
@@ -1134,17 +1150,19 @@ subroutine lte_2(structure,structure_sc,force_constants, &
   ! ----------------------------------------
   ! previously global variables
   ! ----------------------------------------
-  integer,     allocatable :: atom(:,:)
-  integer,     allocatable :: atom_in_prim(:)
-  integer,     allocatable :: prim_cell_for_atom(:)
-  complex(dp), allocatable :: dynamical_matrices(:,:,:)
-  real(dp),    allocatable :: frequencies(:,:)
-  complex(dp), allocatable :: polarisation_vectors(:,:,:)
+  integer,         allocatable :: atom(:,:)
+  integer,         allocatable :: atom_in_prim(:)
+  integer,         allocatable :: prim_cell_for_atom(:)
+  type(MinImages), allocatable :: delta_prim(:,:,:)
+  complex(dp),     allocatable :: dynamical_matrices(:,:,:)
+  real(dp),        allocatable :: frequencies(:,:)
+  complex(dp),     allocatable :: polarisation_vectors(:,:,:)
   
   integer :: i
   
-  call initialise(structure,structure_sc,force_constants,atom,atom_in_prim, &
-     & prim_cell_for_atom,dynamical_matrices,frequencies,polarisation_vectors)
+  call initialise(structure,structure_sc,force_constants, &
+     & atom,atom_in_prim,prim_cell_for_atom,              &
+     & delta_prim,dynamical_matrices,frequencies,polarisation_vectors)
 
   write(*,*)'Number of lines in k-space to plot     : ' &
     &//TRIM(i2s(no_kspace_lines))
@@ -1159,9 +1177,8 @@ subroutine lte_2(structure,structure_sc,force_constants, &
   
   write(*,*)'A dispersion curve will be calculated.'
   write(*,*)'Calculating the requested dispersion curve.'
-  call generate_disp_curve(structure,no_kspace_lines,    &
-     & disp_kpoints,structure_sc,atom, &
-     & force_constants,                                                   &
+  call generate_disp_curve(structure,structure_sc,no_kspace_lines, &
+     & disp_kpoints,atom,force_constants,delta_prim,               &
      & dispersion_curve_filename)
   write(*,*)'Done.  dispersion_curve.dat has been generated.  (Please &
     &view this file using XMGrace.)'
@@ -1173,6 +1190,7 @@ subroutine lte_3(structure,structure_sc,force_constants)
   use utils,     only : errstop
   use string_module
   use structure_module
+  use min_images_module
   implicit none
   
   ! ----------------------------------------
@@ -1185,20 +1203,22 @@ subroutine lte_3(structure,structure_sc,force_constants)
   ! ----------------------------------------
   ! previously global variables
   ! ----------------------------------------
-  integer,     allocatable :: atom(:,:)
-  integer,     allocatable :: atom_in_prim(:)
-  integer,     allocatable :: prim_cell_for_atom(:)
-  complex(dp), allocatable :: dynamical_matrices(:,:,:)
-  real(dp),    allocatable :: frequencies(:,:)
-  complex(dp), allocatable :: polarisation_vectors(:,:,:)
+  integer,         allocatable :: atom(:,:)
+  integer,         allocatable :: atom_in_prim(:)
+  integer,         allocatable :: prim_cell_for_atom(:)
+  type(MinImages), allocatable :: delta_prim(:,:,:)
+  complex(dp),     allocatable :: dynamical_matrices(:,:,:)
+  real(dp),        allocatable :: frequencies(:,:)
+  complex(dp),     allocatable :: polarisation_vectors(:,:,:)
   
-  call initialise(structure,structure_sc,force_constants,atom,atom_in_prim, &
-     & prim_cell_for_atom,dynamical_matrices,frequencies,polarisation_vectors)
+  call initialise(structure,structure_sc,force_constants, &
+     & atom,atom_in_prim,prim_cell_for_atom,              &
+     & delta_prim,dynamical_matrices,frequencies,polarisation_vectors)
 
   write(*,*)'The speed of sound will be calculated.'
   write(*,*)'Calculating the speed of sound.'
-  call calculate_speed_sound( &
-     & structure,structure_sc,atom,force_constants)
+  call calculate_speed_sound(structure,structure_sc,atom,force_constants, &
+     & delta_prim)
   write(*,*)'Done.  Speed of sound calculated.'
   write(*,*)
 end subroutine
@@ -1211,6 +1231,7 @@ subroutine lte_4(structure,structure_sc,force_constants, &
   use constants, only : dp
   use string_module
   use structure_module
+  use min_images_module
   implicit none
   
   ! ----------------------------------------
@@ -1234,15 +1255,17 @@ subroutine lte_4(structure,structure_sc,force_constants, &
   ! ----------------------------------------
   ! previously global variables
   ! ----------------------------------------
-  integer,     allocatable :: atom(:,:)
-  integer,     allocatable :: atom_in_prim(:)
-  integer,     allocatable :: prim_cell_for_atom(:)
-  complex(dp), allocatable :: dynamical_matrices(:,:,:)
-  real(dp),    allocatable :: frequencies(:,:)
-  complex(dp), allocatable :: polarisation_vectors(:,:,:)
+  integer,         allocatable :: atom(:,:)
+  integer,         allocatable :: atom_in_prim(:)
+  integer,         allocatable :: prim_cell_for_atom(:)
+  type(MinImages), allocatable :: delta_prim(:,:,:)
+  complex(dp),     allocatable :: dynamical_matrices(:,:,:)
+  real(dp),        allocatable :: frequencies(:,:)
+  complex(dp),     allocatable :: polarisation_vectors(:,:,:)
   
-  call initialise(structure,structure_sc,force_constants,atom,atom_in_prim, &
-     & prim_cell_for_atom,dynamical_matrices,frequencies,polarisation_vectors)
+  call initialise(structure,structure_sc,force_constants, &
+     & atom,atom_in_prim,prim_cell_for_atom,              &
+     & delta_prim,dynamical_matrices,frequencies,polarisation_vectors)
     
   write(*,*)'The phonon frequencies at the supercell G vectors will be &
     &calculated.'

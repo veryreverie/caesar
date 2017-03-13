@@ -9,7 +9,7 @@ function calculate_symmetry_group(structure) result(output)
   implicit none
   
   type(StructureData), intent(in) :: structure
-  type(Group)                     :: output
+  type(Group), allocatable        :: output(:)
   
   integer,  allocatable :: operations(:,:)
   
@@ -72,6 +72,9 @@ function calculate_symmetry_group(structure) result(output)
     enddo
   enddo
   
-  output = operations
+  allocate(output(size(operations,2)))
+  do i=1,size(output)
+    output(i) = operations(:,i)
+  enddo
 end function
 end module

@@ -105,8 +105,7 @@ subroutine bs_quadratic()
   
   mapping = read_mapping_file('mapping.dat')
   
-  structure = read_structure_file( harmonic_path//'/structure.dat', &
-                                 & identity_supercell())
+  structure = read_structure_file(harmonic_path//'/structure.dat')
   
   filename = harmonic_path//'/list.dat'
   no_kpoints = count_lines(filename)
@@ -140,7 +139,7 @@ subroutine bs_quadratic()
   allocate(structure_scs(size(supercells)))
   do i=1,size(structure_scs)
     sdir = 'Supercell_'//i
-    structure_scs(i) = read_structure_file(sdir//'/structure.dat',supercells(i))
+    structure_scs(i) = read_structure_file(sdir//'/structure.dat')
   enddo
     
   ! Loop over kpoints

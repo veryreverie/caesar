@@ -112,8 +112,7 @@ subroutine anharmonic()
   allocate(static_energies(no_supercells))
   
   ! read structure data
-  structure = read_structure_file( harmonic_path//'/structure.dat', &
-                                 & identity_supercell())
+  structure = read_structure_file(harmonic_path//'/structure.dat')
   
   ! read sampling data from mapping.dat
   mapping = read_mapping_file('mapping.dat')
@@ -140,7 +139,7 @@ subroutine anharmonic()
   do i=1,no_supercells
     sdir = 'Supercell_'//i
     filename = harmonic_path//'/'//sdir//'/structure.dat' 
-    structure_scs(i) = read_structure_file(filename,supercells(i))
+    structure_scs(i) = read_structure_file(filename)
   enddo
   
   ! read data from supercells
