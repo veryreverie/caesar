@@ -18,7 +18,9 @@ function construct_supercell(structure,supercell) result(structure_sc)
   type(StructureData)             :: structure_sc
   
   ! Atomic positions.
+  real(dp) :: atom_pos_prim(3) ! Fractional primitive cell co-ordinates.
   real(dp) :: atom_pos_sc(3)   ! Scaled fractional supercell co-ordinates.
+  real(dp) :: copy_pos_prim(3) ! Fractional primitive cell co-ordinates.
   real(dp) :: copy_pos_cart(3) ! Cartesian co-ordinates.
   
   ! G-vector positions.
@@ -30,17 +32,14 @@ function construct_supercell(structure,supercell) result(structure_sc)
   integer :: atom_counter
   integer :: no_atoms_sc
   
+  ! Generate supercell and lattice data.
   no_atoms_sc = structure%no_atoms*supercell%sc_size
-
   call new(structure_sc,no_atoms_sc,0,supercell%sc_size)
-  
-  structure_sc%supercell = supercell%supercell
-  structure_sc%recip_supercell = supercell%recip_supercell
-  structure_sc%gvectors = supercell%gvectors
-
-  ! Generate supercell lattice.
   structure_sc%lattice = matmul(supercell%supercell,structure%lattice)
-  structure_sc%recip_lattice = invert(transpose(structure_sc%lattice))
+  structure_sc%supercell = supercell%supercell
+  structure_sc%gvectors = supercell%gvectors
+  call calculate_derived_supercell_quantities(structure_sc)
+  call calculate_derived_atom_quantities(structure_sc)
   
   ! Generate atomic positions.
   
@@ -49,9 +48,14 @@ function construct_supercell(structure,supercell) result(structure_sc)
     ! N.B. fractional supercell coordinates are scaled so that the supercell
     !    is a cartesian cube with side length sc_size.
     
+    ! Transform atom i into fractional primitive cell co-ordinates,
+    !    and translate it into the first primitive cell.
+    atom_pos_prim = modulo( matmul( structure%recip_lattice, &
+                          &         structure%atoms(:,i)),   &
+                          & 1.0_dp)
+    
     ! Calculate the position of atom i in scaled fractional supercell co-ords.
-    atom_pos_sc = matmul(structure_sc%recip_lattice,structure%atoms(:,i)) &
-                & * supercell%sc_size
+    atom_pos_sc = matmul(structure_sc%recip_supercell,atom_pos_prim)
     
     ! Loop accross G-vectors in the supercell, creating a copy of the atom i in
     !    the lattice copy corresponding to each G-vector.
@@ -72,11 +76,11 @@ function construct_supercell(structure,supercell) result(structure_sc)
                  & / supercell%sc_size
       
       ! Calculate the position of the copy in cartesian co-ordinates.
-      copy_pos_cart = structure%atoms(:,i) &
-                  & + matmul(transpose(structure%lattice),gvector_prim)
+      copy_pos_prim = gvector_prim + atom_pos_prim
+      copy_pos_cart = matmul(transpose(structure%lattice),copy_pos_prim)
       
       ! Add the copy to the supercell.
-      atom_counter = (i-1)*supercell%sc_size + j
+      atom_counter = structure_sc%gvec_and_prim_to_atom(i,j)
       structure_sc%atoms(:,atom_counter) = copy_pos_cart
       structure_sc%mass(atom_counter) = structure%mass(i)
       structure_sc%species(atom_counter) = structure%species(i)

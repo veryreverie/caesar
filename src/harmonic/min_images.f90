@@ -50,20 +50,21 @@ end function
 ! lattice specified by the columns of lat_vec. rec_vec are the reciprocal 
 ! lattice vectors (w/o 2pi). -b is the vector from a to its closest lattice 
 ! point.  nim is the number of image vectors.
-function min_images_brute_force(a,lat_vec) result(output)
+function min_images_brute_force(a,structure) result(output)
   use constants,      only : dp
   use linear_algebra, only : invert
   use string_module
+  use structure_module
   implicit none
   
-  real(dp), intent(in) :: a(3)
-  real(dp), intent(in) :: lat_vec(3,3)
-  type(MinImages)      :: output
+  real(dp),            intent(in) :: a(3)
+  type(StructureData), intent(in) :: structure
+  type(MinImages)                 :: output
   
   real(dp) :: b(3,8)
   integer  :: nim
   
-  real(dp) :: rec_vec(3,3),mag_b_sq,dist2,tol_l2
+  real(dp) :: mag_b_sq,dist2,tol_l2
   real(dp) :: delta(3)
   integer :: n(3),i,j,k
   
@@ -74,27 +75,24 @@ function min_images_brute_force(a,lat_vec) result(output)
   ! Maximum number of images
   integer, parameter :: maxim = 8
   
-  rec_vec = transpose(invert(lat_vec))
+  tol_L2 = tol*dot_product(structure%lattice(:,1),structure%lattice(:,1))
+  n = floor(matmul(structure%recip_lattice,a))
   
-  tol_L2 = tol*dot_product(lat_vec(:,1),lat_vec(:,1))
-  n = floor(matmul(rec_vec,a))
-  
-  mag_b_sq=-1.d0
-  nim=0
-  
+  nim = 0
+  mag_b_sq = -1.0_dp
   do i=n(1)-check_shell,n(1)+check_shell+1
     do j=n(2)-check_shell,n(2)+check_shell+1
       do k=n(3)-check_shell,n(3)+check_shell+1
-        delta = a-matmul(transpose(lat_vec),(/i,j,k/))
+        delta = a-matmul(transpose(structure%lattice),(/i,j,k/))
         dist2 = dot_product(delta,delta)
-        if(abs(dist2-mag_b_sq)<=tol_L2)then
+        if(nim/=0 .and. abs(dist2-mag_b_sq)<=tol_L2)then
           nim = nim+1
           if (nim>maxim) then
             call print_line('Error: min_images_brute_force: maxim too small.')
             stop
           endif
           b(:,nim) = delta
-        elseif(dist2<mag_b_sq.or.nim==-1)then
+        elseif(dist2<mag_b_sq.or.nim==0)then
           mag_b_sq = dist2
           nim = 1
           b(:,1) = delta

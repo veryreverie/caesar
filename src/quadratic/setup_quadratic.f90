@@ -4,6 +4,7 @@ contains
 
 subroutine setup_quadratic()
   use constants, only : dp, thermal
+  use utils,     only : mkdir
   use string_module
   use file_module
   use mapping_module
@@ -33,7 +34,6 @@ subroutine setup_quadratic()
   integer             :: no_sc
   
   ! Harmonic supercell file contents
-  type(SupercellData), allocatable :: supercells(:)
   type(StructureData), allocatable :: structure_scs(:)
   type(DispPatterns),  allocatable :: disp_patterns(:)
   
@@ -130,10 +130,8 @@ subroutine setup_quadratic()
   ! ------------------------------------------------------------
   ! Read in supercell structure and disp_patterns files
   ! ------------------------------------------------------------
-  supercells = read_supercells_file(str('supercells.dat'))
-  
   allocate(structure_scs(no_sc))
-  allocate(disp_patterns(i))
+  allocate(disp_patterns(no_sc))
   do i=1,no_sc
     filename = harmonic_path//'/Structure_'//i//'/structure.dat'
     structure_scs(i) = read_structure_file(filename)
@@ -146,15 +144,15 @@ subroutine setup_quadratic()
   ! Make directories
   ! ------------------------------------------------------------
   do i=1,no_sc
-    call system('mkdir Supercell_'//i)
-    call system('mkdir Supercell_'//i//'/static')
+    call mkdir('Supercell_'//i)
+    call mkdir('Supercell_'//i//'/static')
   enddo
   
   do i=1,no_kpoints
-    call system('mkdir kpoint.'//i)
+    call mkdir('kpoint.'//i)
     do j=1,structure%no_modes
       do k=mapping%first,mapping%last
-        call system('mkdir kpoint.'//i//'/mode.'//j//'.'//k)
+        call mkdir('kpoint.'//i//'/mode.'//j//'.'//k)
       enddo
     enddo
   enddo

@@ -7,6 +7,7 @@ contains
 
 subroutine anharmonic()
   use constants, only : dp, eV
+  use utils,     only : mkdir
   use file_module
   
   use mapping_module
@@ -42,7 +43,6 @@ subroutine anharmonic()
   type(MappingData)     :: mapping         ! mapping.dat
   
   type(StructureData)              :: structure
-  type(SupercellData), allocatable :: supercells(:)
   type(StructureData), allocatable :: structure_scs(:)
   type(DispPatterns)    :: disp_patterns
   
@@ -134,7 +134,6 @@ subroutine anharmonic()
   close(list_file)
   
   ! Read supercell structures
-  supercells = read_supercells_file(str('supercells.dat'))
   allocate(structure_scs(no_supercells))
   do i=1,no_supercells
     sdir = 'Supercell_'//i
@@ -236,7 +235,7 @@ subroutine anharmonic()
   ! ----------------------------------------
   
   ! copy acoustic.dat files
-  call system('mkdir anharmonic')
+  call mkdir('anharmonic')
   do i=1,no_supercells
     if (sc_acoustic(i)) then
       call system('cp Supercell_'//i//'/acoustic.dat anharmonic')

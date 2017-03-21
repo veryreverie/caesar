@@ -1,6 +1,22 @@
 module generate_supercells_module
-  use constants
+  use supercell_module, only : SupercellData
   implicit none
+  
+  type GeneratedSupercells
+    type(SupercellData), allocatable :: supercells(:)
+    integer,             allocatable :: kpoints(:,:)
+    integer,             allocatable :: multiplicity(:)
+    integer,             allocatable :: sc_ids(:)
+    integer,             allocatable :: gvector_ids(:)
+  end type
+  
+  interface new
+    module procedure new_GeneratedSupercells
+  end interface
+  
+  interface drop
+    module procedure drop_GeneratedSupercells
+  end interface
   
   interface lcm
     module procedure lcm_2 ! lowest common multiple of two positive integers
@@ -8,6 +24,32 @@ module generate_supercells_module
   end interface
 
 contains
+
+subroutine new_GeneratedSupercells(this,no_supercells,no_kpoints)
+  implicit none
+  
+  type(GeneratedSupercells), intent(out) :: this
+  integer,                   intent(in)  :: no_supercells
+  integer,                   intent(in)  :: no_kpoints
+  
+  allocate(this%supercells(no_supercells))
+  allocate(this%kpoints(3,no_kpoints))
+  allocate(this%multiplicity(no_kpoints))
+  allocate(this%sc_ids(no_kpoints))
+  allocate(this%gvector_ids(no_kpoints))
+end subroutine
+
+subroutine drop_GeneratedSupercells(this)
+  implicit none
+  
+  type(GeneratedSupercells), intent(inout) :: this
+  
+  deallocate(this%supercells)
+  deallocate(this%kpoints)
+  deallocate(this%multiplicity)
+  deallocate(this%sc_ids)
+  deallocate(this%gvector_ids)
+end subroutine
 
 ! ----------------------------------------------------------------------
 ! Calculate the greatest common divisor of two positive integers using
@@ -82,6 +124,7 @@ end function
 ! vectors are also linearly independent.
 ! ----------------------------------------------------------------------
 logical function reduce_vec(vecs)
+  use constants, only : dp
   implicit none
   
   real(dp), intent(inout) :: vecs(3,3)
@@ -201,6 +244,7 @@ end subroutine
 ! Minkowski-reduced, returns the vectors a(i) that are.
 ! ----------------------------------------------------------------------
 subroutine minkowski_reduce(vecs)
+  use constants, only : dp
   implicit none
   
   real(dp),intent(inout) :: vecs(3,3)
@@ -230,7 +274,7 @@ subroutine minkowski_reduce(vecs)
   enddo iter
 end subroutine minkowski_reduce
 
-subroutine generate_supercells(structure,grid,ibz_filename,supercells_filename)
+function generate_supercells(structure,grid) result(output)
   use constants,      only : dp
   use utils,          only : reduce_interval, reduce_to_ibz
   use linear_algebra, only : invert_int
@@ -244,8 +288,7 @@ subroutine generate_supercells(structure,grid,ibz_filename,supercells_filename)
   ! inputs
   type(StructureData), intent(in) :: structure
   integer,             intent(in) :: grid(:)
-  type(String),        intent(in) :: ibz_filename
-  type(String),        intent(in) :: supercells_filename
+  type(GeneratedSupercells)       :: output
   
   ! K-point variables
   integer, allocatable :: multiplicity(:)
@@ -292,9 +335,6 @@ subroutine generate_supercells(structure,grid,ibz_filename,supercells_filename)
   
   ! Temporary variables
   integer :: i,j,k,l,m
-  
-  ! file units
-  integer :: ibz_file
   
   ! Generate G-vectors 
   grid_size = product(grid)
@@ -552,18 +592,13 @@ subroutine generate_supercells(structure,grid,ibz_filename,supercells_filename)
   enddo
   
   ! ----------------------------------------------------------------------
-  ! Write data to file
+  ! Generate output.
   ! ----------------------------------------------------------------------
-  
-  ibz_file = open_write_file(ibz_filename)
-  do i=1,grid_size
-    call print_line(ibz_file, kpoints(:,i)    //' '// &
-                            & multiplicity(i) //' '// &
-                            & sc_ids(i)       //' '// &
-                            & gvector_ids(i))
-  enddo
-  close(ibz_file)
-  
-  call write_supercells_file(supercells(1:sc_num),supercells_filename)
-end subroutine
+  call new(output,sc_num,grid_size)
+  output%supercells = supercells(1:sc_num)
+  output%kpoints = kpoints
+  output%multiplicity = multiplicity
+  output%sc_ids = sc_ids
+  output%gvector_ids = gvector_ids
+end function
 end module

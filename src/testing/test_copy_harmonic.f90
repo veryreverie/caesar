@@ -7,10 +7,9 @@ subroutine test_copy_harmonic()
   use structure_module
   use unique_directions_module
   use dft_output_file_module
+  use group_module
+  use atom_mapping_module
   implicit none
-  
-  ! Parameters
-  real(dp), parameter :: tol = 1.0e-10_dp
   
   ! Terminal inputs.
   type(String) :: copy_dir
@@ -31,10 +30,7 @@ subroutine test_copy_harmonic()
   ! Structure information.
   type(StructureData)   :: structure_copy
   type(StructureData)   :: structure_new
-  real(dp), allocatable :: copy_frac_pos(:,:)
-  real(dp), allocatable :: new_frac_pos(:,:)
-  real(dp)              :: difference(3)
-  integer, allocatable  :: new_to_copy(:)
+  type(Group)           :: new_to_copy
   
   ! Unique direction information.
   type(UniqueDirections) :: unique_directions
@@ -81,60 +77,13 @@ subroutine test_copy_harmonic()
     structure_copy = read_structure_file(copy_dir//'/'//sdir//'/structure.dat')
     structure_new = read_structure_file(sdir//'/structure.dat')
     
-    ! Check no_atoms is the same.
-    if (structure_copy%no_atoms/=structure_new%no_atoms) then
-      call print_line('Atom counts do not match')
-      stop
-    endif
-    
-    ! Check lattices are the same.
-    if (.not. all(structure_copy%lattice-structure_new%lattice < tol)) then
-      call print_line('Lattices do not match.')
-    endif
-    
-    ! Calculate fractional atomic positions.
-    allocate(copy_frac_pos(3,structure_copy%no_atoms))
-    allocate(new_frac_pos(3,structure_copy%no_atoms))
-    copy_frac_pos = matmul(structure_copy%recip_lattice,structure_copy%atoms)
-    new_frac_pos = matmul(structure_new%recip_lattice,structure_new%atoms)
-    
-    ! Find mapping between copy and new atoms.
-    allocate(new_to_copy(structure_copy%no_atoms))
-    new_to_copy = 0
-    do j=1,structure_new%no_atoms
-      do k=1,structure_copy%no_atoms
-        ! Check if new atom j and copy atom k are the same, down to translation
-        !    by lattice vectors.
-        difference = new_frac_pos(:,j) - copy_frac_pos(:,k)
-        if (all(abs(difference-nint(difference)) < tol)) then
-          if (new_to_copy(j)/=0) then
-            call print_line('Duplicate atom: atom '//j//' in new matches &
-               &atom '//new_to_copy(j)//' and atom '//k//' in copy.')
-            stop
-          endif
-          new_to_copy(j) = k
-        endif
-      enddo
-    enddo
-    
-    do j=1,structure_copy%no_atoms
-      if (new_to_copy(j)==0) then
-        call print_line('Atom '//j//' in new has no equivalent in copy.')
-        stop
-      endif
-      
-      do k=1,j-1
-        if (new_to_copy(j)==new_to_copy(k)) then
-          call print_line('Duplicate atom: atom '//new_to_copy(j)//' in copy &
-             &matches atom '//j//' and atom '//k//' in new.')
-        endif
-      enddo
-    enddo
+    new_to_copy = atom_mapping(structure_new,structure_copy)
     
     call print_line('Atom positions correct.')
-    call print_line('Atoms in new (1 2...) match to atoms in copy:')
-    call print_line(new_to_copy)
-      
+    call print_line('Atoms in new calculation map to those in &
+       &old calculation as:')
+    call print_line(new_to_copy%operation)
+    
     unique_directions = &
        & read_unique_directions_file(sdir//'/unique_directions.dat')
     do j=1,size(unique_directions)
@@ -173,8 +122,8 @@ subroutine test_copy_harmonic()
           enddo
           do m=1,structure_copy%no_atoms
             call print_line(copied_output, &
-               & ': '//structure_copy%species(new_to_copy(m))//' : '// &
-               & dft_output%forces(:,new_to_copy(m)))
+               & ': '//structure_copy%species(operate(new_to_copy,m))//' : '// &
+               & dft_output%forces(:,operate(new_to_copy,m)))
           enddo
           call print_line(copied_output,'')
           call print_line(copied_output,'*************************************&
@@ -183,9 +132,6 @@ subroutine test_copy_harmonic()
         enddo
       enddo
     enddo
-    deallocate(copy_frac_pos)
-    deallocate(new_frac_pos)
-    deallocate(new_to_copy)
   enddo
 end subroutine
 end module

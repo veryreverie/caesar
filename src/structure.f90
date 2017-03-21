@@ -18,6 +18,11 @@ module structure_module
     character(2), allocatable :: species(:)
     real(dp),     allocatable :: mass(:)
     real(dp),     allocatable :: atoms(:,:)
+    ! Conversions between atom representations.
+    !    [1...no_atoms] vs [1...no_atoms_in_prim]*[sc_size].
+    integer,      allocatable :: atom_to_prim(:)
+    integer,      allocatable :: atom_to_gvec(:)
+    integer,      allocatable :: gvec_and_prim_to_atom(:,:)
     ! Symmetry data
     integer                   :: no_symmetries
     real(dp),     allocatable :: rotation_matrices(:,:,:)
@@ -28,6 +33,7 @@ module structure_module
     integer                   :: supercell(3,3)
     integer                   :: recip_supercell(3,3)
     integer,      allocatable :: gvectors(:,:)
+    integer,      allocatable :: paired_gvec(:)
   end type
   
   interface new
@@ -63,11 +69,26 @@ subroutine new_StructureData(this,no_atoms,no_symmetries,sc_size)
   integer,             intent(in)  :: no_symmetries
   integer,             intent(in)  :: sc_size
   
+  integer :: prim,gvec,atom
+  
   this%no_atoms = no_atoms
   this%no_modes = no_atoms*3
   allocate(this%species(no_atoms))
   allocate(this%mass(no_atoms))
   allocate(this%atoms(3,no_atoms))
+  
+  allocate(this%atom_to_prim(no_atoms))
+  allocate(this%atom_to_gvec(no_atoms))
+  allocate(this%gvec_and_prim_to_atom(no_atoms/sc_size,sc_size))
+  do gvec=1,sc_size
+    do prim=1,no_atoms/sc_size
+      atom = (prim-1)*sc_size + gvec
+      
+      this%atom_to_prim(atom) = prim
+      this%atom_to_gvec(atom) = gvec
+      this%gvec_and_prim_to_atom(prim,gvec) = atom
+    enddo
+  enddo
   
   this%no_symmetries = no_symmetries
   if (no_symmetries /= 0) then
@@ -78,6 +99,7 @@ subroutine new_StructureData(this,no_atoms,no_symmetries,sc_size)
   
   this%sc_size = sc_size
   allocate(this%gvectors(3,sc_size))
+  allocate(this%paired_gvec(sc_size))
 end subroutine
 
 ! Deallocates a Structure
@@ -90,6 +112,10 @@ subroutine drop_StructureData(this)
   deallocate(this%mass)
   deallocate(this%atoms)
   
+  deallocate(this%atom_to_prim)
+  deallocate(this%atom_to_gvec)
+  deallocate(this%gvec_and_prim_to_atom)
+  
   if (this%no_symmetries /= 0) then
     deallocate(this%rotation_matrices)
     deallocate(this%offsets)
@@ -97,6 +123,7 @@ subroutine drop_StructureData(this)
   endif
   
   deallocate(this%gvectors)
+  deallocate(this%paired_gvec)
 end subroutine
 
 ! reads structure.dat
@@ -197,7 +224,7 @@ function read_structure_file_character(filename) result(this)
     sc_size = end_line-gvectors_line-1
   elseif (supercell_line==0) then
     ! structure.dat does not contain supercell data
-    no_atoms = symmetry_line-symmetry_line-1
+    no_atoms = symmetry_line-atoms_line-1
     no_symmetries = (end_line-symmetry_line-1)/4
     sc_size = 1
   else
@@ -253,8 +280,8 @@ function read_structure_file_character(filename) result(this)
   if (this%no_symmetries>0) then
     call calculate_derived_symmetry_quantities(this)
   endif
-    
-  this%recip_supercell = invert_int(this%supercell)
+  
+  call calculate_derived_supercell_quantities(this)
 end function
 
 function read_structure_file_string(filename) result(this)
@@ -409,4 +436,55 @@ subroutine calculate_derived_symmetry_quantities(this)
   
   this%offsets_cart = matmul(this%lattice,this%offsets)
 end subroutine
+
+! Calculate the derived quantities relating to the supercell and G-vectors.
+subroutine calculate_derived_supercell_quantities(this)
+  use linear_algebra, only : invert_int
+  implicit none
+  
+  type(StructureData), intent(inout) :: this
+  
+  integer :: i,j
+  
+  this%recip_supercell = invert_int(this%supercell)
+  
+  do i=1,this%sc_size
+    do j=1,i
+      if (all(this%gvectors(:,i)+this%gvectors(:,j)==0)) then
+        this%paired_gvec(i) = j
+        this%paired_gvec(j) = i
+      endif
+    enddo
+  enddo
+end subroutine
+
+! Calculate the relationships between G-vectors, modulo the supercell.
+!    so if gvec(:,i)+gvec(:,j)=gvec(:,k) then operate(output(i),j)=k
+function calculate_gvector_group(this) result(output)
+  use group_module
+  implicit none
+  
+  type(StructureData), intent(in) :: this
+  type(Group), allocatable        :: output(:)
+  
+  integer, allocatable :: operation(:)
+  
+  integer :: gvector_k(3)
+  
+  integer :: i,j,k
+  
+  allocate(operation(this%sc_size))
+  allocate(output(this%sc_size))
+  do i=1,this%sc_size
+    do j=1,this%sc_size
+      gvector_k = this%gvectors(:,i)+this%gvectors(:,j)
+      do k=1,this%sc_size
+        if (all(modulo(gvector_k-this%gvectors(:,k),this%sc_size)==0)) then
+          operation(j) = k
+        endif
+      enddo
+    enddo
+    output(i) = operation
+  enddo
+end function
 end module

@@ -5,6 +5,11 @@ module utils
   use constants,      only : dp
   implicit none
   
+  interface mkdir
+    module procedure mkdir_character
+    module procedure mkdir_String
+  end interface
+  
 contains
 
 ! ----------------------------------------------------------------------
@@ -144,4 +149,25 @@ elemental function is_int(input,tol) result(output)
   
   output = abs(nint(input)-input) < tol
 end function
+
+! ----------------------------------------------------------------------
+! Make a directory, if it doesn't already exist.
+! ----------------------------------------------------------------------
+subroutine mkdir_character(dirname)
+  use string_module
+  implicit none
+  
+  character(*), intent(in) :: dirname
+  
+  call system('if [ ! -e '//dirname//' ]; then mkdir '//dirname//'; fi')
+end subroutine
+
+subroutine mkdir_String(dirname)
+  use string_module
+  implicit none
+  
+  type(String), intent(in) :: dirname
+  
+  call mkdir(char(dirname))
+end subroutine
 end module

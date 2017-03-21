@@ -7,6 +7,7 @@ contains
 ! ----------------------------------------------------------------------
 subroutine bs_quadratic()
   use constants, only : dp, kB
+  use utils,     only : mkdir
   use mapping_module
   use string_module
   use structure_module
@@ -34,7 +35,6 @@ subroutine bs_quadratic()
   integer              :: no_kpoints
   type(MappingData)                 :: mapping
   type(StructureData)               :: structure
-  type(SupercellData), allocatable  :: supercells(:)
   type(StructureData), allocatable  :: structure_scs(:)
   type(DispPatterns)                :: disp_patterns
   
@@ -118,7 +118,7 @@ subroutine bs_quadratic()
   enddo
   close(list_file)
   
-  call system('mkdir bs')
+  call mkdir('bs')
   
   ! Obtain relevant band energy for each supercell
   filename = 'Supercell_1/static/kpoint.'//kpoint//'.dat'
@@ -135,8 +135,7 @@ subroutine bs_quadratic()
   enddo
   
   ! Read in supercell data
-  supercells = read_supercells_file(str('supercells.dat'))
-  allocate(structure_scs(size(supercells)))
+  allocate(structure_scs(no_sc))
   do i=1,size(structure_scs)
     sdir = 'Supercell_'//i
     structure_scs(i) = read_structure_file(sdir//'/structure.dat')

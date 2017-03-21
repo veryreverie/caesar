@@ -172,7 +172,7 @@ function clear_all {
   read answer
 
   if [ "$answer" = "y" ]; then
-    rm -r Supercell_* ibz.dat supercells.dat no_sc.dat
+    rm -r Supercell_* ibz.dat no_sc.dat
   fi
 }
 

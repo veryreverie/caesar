@@ -98,12 +98,16 @@ function read_dyn_mats(structure,sc_ids,gvector_ids,dyn_mat_fileroot) &
     do atom_1=1,structure%no_atoms
       do j=1,3
         do atom_2=1,structure%no_atoms
+          call print_line(i//' '//atom_1//' '//atom_2)
           do k=1,3
             line = split(contents(line_no))
             dyn_mats_ibz(j,k,atom_2,atom_1,i) = &
                & cmplx( dble(line(5)), dble(line(6)), dp)
+            call print_line(contents(line_no))
+            call print_line(dble(line(5)))
             line_no = line_no + 1
           enddo
+          call print_line('')
         enddo
       enddo
     enddo
@@ -277,7 +281,7 @@ subroutine generate_dispersion(structure,structure_sc,&
   ! Travel along k-space paths, calculating frequencies at each point.
   phonon_dispersion_curve_file = &
      & open_write_file(phonon_dispersion_curve_filename)
-  do i=1,no_paths+1
+  do i=1,no_paths
     do j=0,no_points(i)-1
       kpoint = ((no_points(i)-j)*kpoints(:,i)+j*kpoints(:,i+1))/no_points(i)
       dyn_mat = construct_dyn_mat(structure,structure_sc,kpoint, &
@@ -431,7 +435,7 @@ subroutine fourier_interpolation(structure,grid,temperature,kpoints,sc_ids, &
    & gvector_ids,dyn_mat_fileroot,path,atom_symmetry_group,   &
    & phonon_dispersion_curve_filename,high_symmetry_points_filename,        &
    & free_energy_filename,freq_dos_filename)
-  use constants, only : dp, pi
+  use constants, only : dp
   use utils,     only : reduce_interval
   use linear_algebra
   use file_module
@@ -472,8 +476,6 @@ subroutine fourier_interpolation(structure,grid,temperature,kpoints,sc_ids, &
   
   REAL(dp) :: k_dot_r
   REAL(dp) :: prefactor
-  REAL(dp) :: prim_rec_vecs(3,3)
-  REAL(dp) :: super_rec_vecs(3,3)
   real(dp) :: exponent
   real(dp) :: gvec_cart(3)
   
@@ -487,6 +489,8 @@ subroutine fourier_interpolation(structure,grid,temperature,kpoints,sc_ids, &
   
   ! Symmetry group data.
   type(Group), allocatable :: kpoint_symmetry_group(:)
+  
+  integer :: force_constants_file
   
   ! --------------------------------------------------
   ! Construct a supercell across the entire grid.
@@ -548,6 +552,9 @@ subroutine fourier_interpolation(structure,grid,temperature,kpoints,sc_ids, &
   do_i : do i=1,structure_sc%sc_size
     do j=1,structure%no_symmetries
       kpoint_id = operate(kpoint_symmetry_group(j),i)
+      if (kpoint_id==0) then
+        cycle
+      endif
       
       ! Find the rotated kpoint in the IBZ.
       do k=1,size(kpoints,2)
@@ -569,7 +576,7 @@ subroutine fourier_interpolation(structure,grid,temperature,kpoints,sc_ids, &
         enddo
         
         ! Apply time reversal symmetry if required.
-        if (all(modulo(structure%gvectors(:,i)*2,grid)==0)) then
+        if (all(modulo(structure_sc%gvectors(:,i)*2,grid)==0)) then
           dyn_mats_grid(:,:,:,:,i) = cmplx( real(dyn_mats_grid(:,:,:,:,i)), &
                                           & 0.0_dp, dp)
         endif
@@ -578,6 +585,20 @@ subroutine fourier_interpolation(structure,grid,temperature,kpoints,sc_ids, &
       enddo
     enddo
   enddo do_i
+  
+  force_constants_file = open_write_file('lte/dyn_mat_real.dat')
+  do i_cell=1,structure_sc%sc_size
+    do i_atom=1,structure%no_atoms
+      do j_atom=1,structure%no_atoms
+        call print_line(force_constants_file,i_cell//' '//i_atom//' '//j_atom)
+        do i=1,3
+          call print_line(force_constants_file, &
+             & real(dyn_mats_grid(i,:,j_atom,i_atom,i_cell)))
+        enddo
+        call print_line(force_constants_file,'')
+      enddo
+    enddo
+  enddo
   
   ! --------------------------------------------------
   ! Construct the matrix of force constants
@@ -605,21 +626,33 @@ subroutine fourier_interpolation(structure,grid,temperature,kpoints,sc_ids, &
     enddo
   enddo
   
+  force_constants_file = open_write_file('lte/force_constants.dat')
+  do i_cell=1,structure_sc%sc_size
+    do i_atom=1,structure%no_atoms
+      do j_atom=1,structure%no_atoms
+        call print_line(force_constants_file,i_cell//' '//i_atom//' '//j_atom)
+        do i=1,3
+          call print_line(force_constants_file, &
+             & force_consts(i,:,j_atom,i_atom,i_cell))
+        enddo
+        call print_line(force_constants_file,'')
+      enddo
+    enddo
+  enddo
+  close(force_constants_file)
+  
   ! --------------------------------------------------
   ! Calculate minimum image distances.
   ! --------------------------------------------------
   allocate(min_im_cell_pos(structure_sc%sc_size))
   do i=1,structure_sc%sc_size
     gvec_cart = matmul(transpose(structure%lattice),structure_sc%gvectors(:,i))
-    min_im_cell_pos(i) = min_images_brute_force(gvec_cart,structure_sc%lattice)
+    min_im_cell_pos(i) = min_images_brute_force(gvec_cart,structure_sc)
   enddo
   
   ! --------------------------------------------------
   ! Generate dispersion and density of states.
   ! --------------------------------------------------
-  prim_rec_vecs = 2*pi*structure%recip_lattice
-  super_rec_vecs = 2*pi*structure_sc%recip_lattice
-
   call generate_dispersion(structure,structure_sc,&
      & min_im_cell_pos,force_consts,path,phonon_dispersion_curve_filename, &
      & high_symmetry_points_filename)

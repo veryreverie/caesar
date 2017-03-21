@@ -8,6 +8,7 @@ contains
 ! ======================================================================
 subroutine setup_harmonic(caesar_dir)
   use constants, only : directions
+  use utils,     only : mkdir
   use string_module
   use file_module
   use structure_module
@@ -33,6 +34,7 @@ subroutine setup_harmonic(caesar_dir)
   integer             :: grid(3)
   
   ! Supercell data
+  type(GeneratedSupercells)        :: supercells_and_ibz
   integer                          :: no_supercells
   type(SupercellData), allocatable :: supercells(:)
   type(StructureData)              :: structure_sc
@@ -57,6 +59,7 @@ subroutine setup_harmonic(caesar_dir)
   
   ! File units
   integer :: user_input_file
+  integer :: ibz_file
   integer :: grid_file
   integer :: no_supercells_file
   
@@ -137,13 +140,21 @@ subroutine setup_harmonic(caesar_dir)
   ! Generate supercells.
   ! ----------------------------------------------------------------------
   ! Generate IBZ and non-diagonal supercells
-  call generate_supercells(structure,grid,str('ibz.dat'),str('supercells.dat'))
+  supercells_and_ibz = generate_supercells(structure,grid)
+  supercells = supercells_and_ibz%supercells
   
-  ! Read in supercell data
-  supercells = read_supercells_file(str('supercells.dat'))
-  no_supercells = size(supercells)
+  ! Write IBZ data to file.
+  ibz_file = open_write_file('ibz.dat')
+  do i=1,size(supercells_and_ibz%kpoints,2)
+    call print_line(ibz_file, supercells_and_ibz%kpoints(:,i)    //' '// &
+                            & supercells_and_ibz%multiplicity(i) //' '// &
+                            & supercells_and_ibz%sc_ids(i)       //' '// &
+                            & supercells_and_ibz%gvector_ids(i))
+  enddo
+  close(ibz_file)
   
   ! Write no_supercells to file
+  no_supercells = size(supercells)
   no_supercells_file = open_write_file('no_sc.dat')
   call print_line(no_supercells_file,no_supercells)
   close(no_supercells_file)
@@ -154,7 +165,7 @@ subroutine setup_harmonic(caesar_dir)
   do i=1,no_supercells
     sdir='Supercell_'//i
     
-    call system('mkdir '//sdir)
+    call mkdir(sdir)
     
     ! Generate supercell structure.
     structure_sc = construct_supercell(structure, supercells(i))
@@ -200,13 +211,13 @@ subroutine setup_harmonic(caesar_dir)
         
         ! Make harmonic run directories
         do l=1,2
-          call system('mkdir '//paths(l))
+          call mkdir(paths(l))
           
           ! Move relevant atom
           if(l==1) then
-            structure_sc%atoms(k,atom) = structure_sc%atoms(k,atom) + 0.01_dp
+            structure_sc%atoms(j,atom) = structure_sc%atoms(j,atom) + 0.01_dp
           elseif(l==2) then
-            structure_sc%atoms(k,atom) = structure_sc%atoms(k,atom) - 0.02_dp
+            structure_sc%atoms(j,atom) = structure_sc%atoms(j,atom) - 0.02_dp
           endif
             
           ! Write dft input files
@@ -234,7 +245,7 @@ subroutine setup_harmonic(caesar_dir)
         enddo
         
         ! Reset moved atom
-        structure_sc%atoms(k,atom) = structure_sc%atoms(k,atom) + 0.01_dp
+        structure_sc%atoms(j,atom) = structure_sc%atoms(j,atom) + 0.01_dp
       enddo
     enddo
   enddo

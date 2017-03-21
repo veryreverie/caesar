@@ -2,7 +2,7 @@ module group_module
   implicit none
   
   type Group
-    integer, allocatable, private :: operation(:)
+    integer, allocatable :: operation(:)
   end type
   
   interface new
