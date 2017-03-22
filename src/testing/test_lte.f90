@@ -9,27 +9,34 @@ subroutine test_lte()
   use atom_mapping_module
   use lte_module
   use fourier_interpolation_module
-  implicit none
+  use unique_directions_module
   
-  ! Tolerance.
-  real(dp), parameter :: tol = 1.0e-8_dp
+  use lte_harmonic_module, only : calculate_force_constants
+  implicit none
   
   ! Directories and files.
   type(String)              :: sdir
-  type(String), allocatable :: no_sc_file(:)
   type(String)              :: copy_dir
   type(String)              :: lte_dir
   type(String), allocatable :: force_constants_file(:)
   type(String), allocatable :: grid_file(:)
   type(String), allocatable :: ibz_file(:)
   
-  ! Supercell data.
-  integer :: no_sc
+  ! Setup data
+  type(String), allocatable :: no_sc_file(:)
+  integer                   :: no_sc
+  type(String), allocatable :: user_input_file(:)
+  type(String)              :: dft_code
+  type(String)              :: seedname
   
   ! Structure data.
   type(StructureData) :: structure
   type(StructureData) :: structure_sc
   type(StructureData) :: structure_sc_old
+  
+  ! Symmetry data.
+  type(Group),           allocatable :: symmetry_group(:)
+  type(UniqueDirections)             :: unique_directions
   
   ! lte file data.
   type(String), allocatable :: old_lte_file(:)
@@ -41,12 +48,16 @@ subroutine test_lte()
   integer                   :: line_no
   
   ! Atom mapping data.
-  type(Group) :: new_to_old
-  type(Group) :: old_to_new
+  type(Group)               :: new_to_old
+  type(Group)               :: old_to_new
+  type(String), allocatable :: atom_file(:)
+  logical                   :: atoms_misordered
   
   ! Force constant data.
-  real(dp), allocatable :: force_constants(:,:,:,:)
-  real(dp), allocatable :: force_constants_2(:,:,:)
+  real(dp), allocatable :: old_force_constants(:,:,:)
+  real(dp), allocatable :: new_force_constants(:,:,:)
+  real(dp)              :: average
+  real(dp)              :: average_err
   
   ! Fourier interpolation data.
   integer               :: no_kspace_lines
@@ -58,7 +69,7 @@ subroutine test_lte()
   integer,  allocatable :: multiplicity(:)
   integer,  allocatable :: sc_ids(:)
   integer,  allocatable :: gvector_ids(:)
-  type(Group), allocatable :: symmetry_group(:)
+  type(Group), allocatable :: prim_symmetry_group(:)
   
   ! Dynamic matrix variables.
   type(String), allocatable :: new_dyn_mat_file(:)
@@ -70,33 +81,39 @@ subroutine test_lte()
   
   ! Temporary variables.
   integer                   :: i,j,k,l
-  integer                   :: atom_1,atom_2,atom_1p,atom_2p
+  integer                   :: atom_1,atom_2
   integer                   :: mode_1,mode_2
+  integer                   :: atom_1_sc,atom_2_sc
   integer                   :: start_line
   type(String), allocatable :: line(:)
   
   ! ----------------------------------------------------------------------
-  ! Read in directory to compare against and copy from.
+  ! Read in settings from user.
   ! ----------------------------------------------------------------------
+  ! Read in directory to compare against and copy from.
   call print_line('')
   call print_line('This test will check lte against a previous &
      &calculations.')
   call print_line('')
   call print_line('Where is the harmonic directory for comparison?')
   copy_dir = read_line_from_user()
+  call print_line('')
   
-  ! ----------------------------------------------------------------------
-  ! Get temperature from user
-  ! ----------------------------------------------------------------------
+  ! Get temperature from user.
   call print_line('What temperature (K)?')
   temperature = dble(read_line_from_user())
+  call print_line('')
   
   ! ----------------------------------------------------------------------
-  ! Read in initial data
+  ! Read in initial data.
   ! ----------------------------------------------------------------------
-  ! Read in no_supercells.
+  ! Read in setup data.
   no_sc_file = read_lines('no_sc.dat')
   no_sc = int(no_sc_file(1))
+  
+  user_input_file = read_lines('user_input.txt')
+  dft_code = user_input_file(1)
+  seedname = user_input_file(2)
   
   ! Read in structure.
   structure = read_structure_file('structure.dat')
@@ -120,6 +137,9 @@ subroutine test_lte()
     gvector_ids(i) = int(line(6))
   enddo
   
+  ! ----------------------------------------------------------------------
+  ! Loop across supercells, testing each in turn.
+  ! ----------------------------------------------------------------------
   do i=1,no_sc
     call print_line('Checking supercell '//i)
     sdir = 'Supercell_'//i
@@ -127,6 +147,11 @@ subroutine test_lte()
     ! Read in supercell structure.
     structure_sc = read_structure_file(sdir//'/structure.dat')
     structure_sc_old = read_structure_file(copy_dir//'/'//sdir//'/structure.dat')
+    
+    ! Read in symmetry group and unique atoms.
+    symmetry_group = read_group_file(sdir//'/symmetry_group.dat')
+    unique_directions = read_unique_directions_file( &
+       & sdir//'/unique_directions.dat')
     
     ! Calculate mapping between structures.
     new_to_old = atom_mapping(structure_sc,structure_sc_old)
@@ -153,27 +178,27 @@ subroutine test_lte()
     lte_dir = sdir//'/old_lte'
     call mkdir(lte_dir)
     new_lte_file = open_write_file(lte_dir//'/lte.dat')
-    ! Write everything above atoms.
+    
     do j=1,atoms_start_line
       call print_line(new_lte_file,old_lte_file(j))
     enddo
-    ! write atoms
+    
     do j=atoms_start_line+1,atoms_end_line-1
       line_no = operate(new_to_old, j-atoms_start_line) + atoms_start_line
       call print_line(new_lte_file, old_lte_file(line_no))
     enddo
-    ! Write everything between atoms and force constants.
+    
     do j=atoms_end_line,force_start_line
       call print_line(new_lte_file,old_lte_file(j))
     enddo
-    ! Write force constants
+    
     do j=force_start_line+1,force_end_line-1
       line = split(old_lte_file(j))
       line(1) = operate(old_to_new,int(line(1)))
       line(3) = operate(old_to_new,int(line(3)))
       call print_line(new_lte_file,join(line))
     enddo
-    ! Write everything below force constants.
+    
     do j=force_end_line,size(old_lte_file)
       call print_line(new_lte_file,old_lte_file(j))
     enddo
@@ -182,140 +207,187 @@ subroutine test_lte()
     ! Run old lte.
     call system('cd '//lte_dir//'; lte_lower > lte.out')
     
-    ! Read in force constants from old lte.
-    force_constants_file = read_lines(lte_dir//'/force_constants.dat')
-    
-    allocate(force_constants(3,3,structure_sc%no_atoms,structure_sc%no_atoms))
-    do atom_1=1,structure_sc%no_atoms
-      do atom_2=1,structure_sc%no_atoms
-        start_line = 5*((atom_1-1)*structure_sc%no_atoms+(atom_2-1))+1
-        line = split(force_constants_file(start_line))
-        if (any(int(line)/=(/atom_1,atom_2/))) then
-          call print_line('Force constants file in unexpected order.')
-          stop
-        endif
-        do j=1,3
-          line = split(force_constants_file(start_line+j))
-          force_constants(j,:,atom_2,atom_1) = dble(line)
-        enddo
-      enddo
-    enddo
-    
-    do j=1,3
-      call print_line(force_constants(j,:,4,1))
-    enddo
-    
-    do j=1,3
-      call print_line(force_constants(j,:,1,4))
-    enddo
-    
-    ! Convert force constants into Gvector-mode-mode representation.
-    allocate(force_constants_2( structure%no_modes, &
-                              & structure%no_modes, &
-                              & structure_sc%sc_size))
-    do j=1,structure_sc%sc_size
-      do atom_1=1,structure%no_atoms
-        atom_1p = structure_sc%gvec_and_prim_to_atom(atom_1,1)
-        mode_1 = (atom_1-1)*3+1
-        do atom_2=1,structure%no_atoms
-          atom_2p = structure_sc%gvec_and_prim_to_atom(atom_2,j)
-          mode_2 = (atom_2-1)*3+1
-          force_constants_2(mode_2:mode_2+2,mode_1:mode_1+2,j) = &
-             & transpose(force_constants(:,:,atom_2p,atom_1p))
-        enddo
-      enddo
-    enddo
-    
-    ! Check force constants.
-    do j=1,structure_sc%sc_size
-      if (any(abs( transpose(force_constants_2(:,:,j)) &
-         & - force_constants_2(:,:,structure_sc%paired_gvec(j))) >tol)) then
-        call print_line('')
-        call print_line('Old force constants are not symmetric.')
-        call print_line('G-vector: '//j)
-        call print_line('Paired G-vector: '//structure_sc%paired_gvec(j))
-        
-        call print_line('Atom mapping:')
-        call print_line(new_to_old%operation)
-        
-        call print_line('')
-        do atom_1=1,structure%no_atoms
-          do atom_2=1,structure%no_atoms
-            call print_line( atom_1                             //' '// &
-                           & atom_2                             //' '// &
-                           & force_constants_2(atom_2,atom_1,j) //' '// &
-                           & force_constants_2( atom_1,                 &
-                                              & atom_2,                 &
-                                              & structure_sc%paired_gvec(j)))
-          enddo
-        enddo
-        stop
+    ! Read in atom.dat.
+    atom_file = read_lines(lte_dir//'/atom.dat')
+    atoms_misordered = .false.
+    do j=1,size(atom_file)
+      if (int(atom_file(j))/=j) then
+        atoms_misordered = .true.
+        call print_line('Atoms misordered in old lte.')
+        exit
       endif
     enddo
     
-    ! Run new lte.
-    call mkdir(sdir//'/lte')
-    call lte_4( structure,                         &
-              & structure_sc,                      &
-              & force_constants_2,                 &
-              & 0.0_dp,                            &
-              & sdir//'/lte/freq_grids.dat',       &
-              & sdir//'/lte/disp_patterns.dat',    &
-              & sdir//'/lte/kdisp_patterns.dat',   &
-              & sdir//'/lte/pol_vec.dat',          &
-              & sdir//'/lte/error.txt',            &
-              & sdir//'/lte/dyn_mat.')
+    if (atoms_misordered) then
+      cycle
+    endif
     
-    deallocate(force_constants)
-    deallocate(force_constants_2)
+    ! Read in force constants from old lte.
+    force_constants_file = read_lines(lte_dir//'/force_constants.dat')
     
-    ! Check that dynamical matrices are the same.
-    do j=1,structure_sc%sc_size
-      call print_line('Checking dynamical matrix '//j)
-      new_dyn_mat_file = read_lines(sdir//'/lte/dyn_mat.'//j//'.dat')
-      old_dyn_mat_file = read_lines(lte_dir//'/dyn_mat.'//j//'.dat')
-      do atom_1=1,structure%no_atoms
-        do atom_2=1,structure_sc%sc_size
+    allocate(old_force_constants( structure%no_modes, &
+                                & structure%no_modes, &
+                                & structure_sc%sc_size))
+    do atom_1=1,structure%no_atoms
+      atom_1_sc = structure_sc%gvec_and_prim_to_atom(atom_1,1)
+      mode_1 = (atom_1-1)*3+1
+      do atom_2=1,structure%no_atoms
+        mode_2 = (atom_2-1)*3+1
+        do j=1,structure_sc%sc_size
+          atom_2_sc = structure_sc%gvec_and_prim_to_atom(atom_2,j)
+          start_line = ( (atom_1-1)*structure_sc%no_atoms &
+                   &   + (j-1)         &
+                   &   + (atom_2-1)*structure_sc%sc_size) &
+                   & * 5 + 1
+          
+          line = split(force_constants_file(start_line))
+          if (any(int(line)/=(/atom_1,atom_2,j/))) then
+            call print_line('Force constants file in unexpected order.')
+            call print_line('Line '//start_line//' is '//join(line))
+            call print_line('Expected: '//atom_1//' '//atom_2//' '//j)
+            stop
+          endif
+          
           do k=1,3
-            do l=1,3
-              new_line = split(new_dyn_mat_file(   ((atom_1-1)*3+k-1)     &
-                                               & * (structure%no_atoms*3) &
-                                               & + ((atom_2-1)*3+l)))
-              old_line = split(old_dyn_mat_file(   ((atom_1-1)*3+k-1)     &
-                                               & * (structure%no_atoms*3) &
-                                               & + ((atom_2-1)*3+l)))
-              
-              if (any(int(new_line(1:4))/=(/atom_1,k,atom_2,l/))) then
-                call print_line('New dyn_mat file in unexpected order.')
-                stop
-              endif
-              
-              if (any(int(old_line(1:4))/=(/atom_1,k,atom_2,l/))) then
-                call print_line('Old dyn_mat file in unexpected order.')
-                stop
-              endif
-              
-              new_element = cmplx(dble(new_line(5)),dble(new_line(6)),dp)
-              old_element = cmplx(dble(old_line(5)),dble(old_line(6)),dp)
-              
-              if ( abs(new_element-old_element) > tol) then
-                call print_line('')
-                call print_line('Dynamical matrices disagree.')
-                call print_line('Supercell '//i)
-                call print_line('Dynamical matrix '//j)
-                call print_line('Atoms '//atom_1//' '//atom_2)
-                call print_line('Directions '//k//' '//l)
-                call print_line('Old values:')
-                call print_line(real(old_element)//' '//imag(old_element))
-                call print_line('New values:')
-                call print_line(real(new_element)//' '//imag(new_element))
-                stop
-              endif
-            enddo
+            line = split(force_constants_file(start_line+k))
+            old_force_constants(mode_2:mode_2+2,mode_1+k-1,j) = dble(line)
           enddo
         enddo
       enddo
     enddo
+    
+    ! Generate new force constants
+    new_force_constants = calculate_force_constants(structure,structure_sc, &
+       & symmetry_group,unique_directions,sdir,dft_code,seedname)
+    
+    ! Check force constants.
+    average = 0.0_dp
+    average_err = 0.0_dp
+    do mode_1=1,structure%no_modes
+      do mode_2=1,structure%no_modes
+        do j=1,structure_sc%sc_size
+          k = structure_sc%paired_gvec(j)
+          
+          average = average + old_force_constants(mode_2,mode_1,j)**2
+          
+          average_err = average_err + ( old_force_constants(mode_2,mode_1,j) &
+                                    & - new_force_constants(mode_2,mode_1,j) &
+                                    & ) **2
+          
+          if (abs( old_force_constants(mode_2,mode_1,j) &
+               & - old_force_constants(mode_1,mode_2,k) ) > 1.0e-8_dp) then
+            call print_line('')
+            call print_line('Old force constants are not symmetric.')
+            call print_line('Modes: '//mode_1//' '//mode_2)
+            call print_line('Atoms: '//(mode_1-1)/3+1//' '// &
+               & (mode_2-1)/3+1//' '//j)
+            call print_line('Elements: '//                    &
+               & old_force_constants(mode_2,mode_1,j) //' '// &
+               & old_force_constants(mode_1,mode_2,k))
+            stop
+          endif
+          
+          if (abs( new_force_constants(mode_2,mode_1,j) &
+               & - new_force_constants(mode_1,mode_2,k) ) > 1.0e-8_dp) then
+            call print_line('')
+            call print_line('New force constants are not symmetric.')
+            call print_line('Modes: '//mode_1//' '//mode_2)
+            call print_line('Atoms: '//(mode_1-1)/3+1//' '// &
+               & (mode_2-1)/3+1//' '//j)
+            call print_line('Elements: '//                    &
+               & new_force_constants(mode_2,mode_1,j) //' '// &
+               & new_force_constants(mode_1,mode_2,k))
+            stop
+          endif
+          
+          if (abs( old_force_constants(mode_2,mode_1,j) &
+               & - new_force_constants(mode_2,mode_1,j) ) > 1.0e-4_dp) then
+            call print_line('')
+            call print_line('Old force constants do not match &
+               &new force constants.')
+            call print_line('Modes: '//mode_1//' '//mode_2)
+            call print_line('Atoms: '//(mode_1-1)/3+1//' '// &
+               & (mode_2-1)/3+1//' '//j)
+            call print_line('Elements: '//                    &
+               & old_force_constants(mode_2,mode_1,j) //' '// &
+               & new_force_constants(mode_2,mode_1,j))
+            call print_line('')
+          endif
+        enddo
+      enddo
+    enddo
+    
+    average = dsqrt( average &
+                 & / (structure%no_modes**2*structure_sc%sc_size))
+    average_err = dsqrt( average_err &
+                     & / (structure%no_modes**2*structure_sc%sc_size))
+    
+    call print_line('L2 Average force constant: '//average)
+    call print_line('L2 Average error:          '//average_err)
+    
+  !  ! Run new lte, with old force constants.
+  !  call mkdir(sdir//'/lte')
+  !  call lte_4( structure,                         &
+  !            & structure_sc,                      &
+  !            & old_force_constants,               &
+  !            & 0.0_dp,                            &
+  !            & sdir//'/lte/freq_grids.dat',       &
+  !            & sdir//'/lte/disp_patterns.dat',    &
+  !            & sdir//'/lte/kdisp_patterns.dat',   &
+  !            & sdir//'/lte/pol_vec.dat',          &
+  !            & sdir//'/lte/error.txt',            &
+  !            & sdir//'/lte/dyn_mat.')
+    
+    deallocate(old_force_constants)
+    deallocate(new_force_constants)
+    
+  !  ! Check that dynamical matrices are the same.
+  !  do j=1,structure_sc%sc_size
+  !    call print_line('Checking dynamical matrix '//j)
+  !    new_dyn_mat_file = read_lines(sdir//'/lte/dyn_mat.'//j//'.dat')
+  !    old_dyn_mat_file = read_lines(lte_dir//'/dyn_mat.'//j//'.dat')
+  !    do atom_1=1,structure%no_atoms
+  !      do atom_2=1,structure_sc%sc_size
+  !        do k=1,3
+  !          do l=1,3
+  !            new_line = split(new_dyn_mat_file(   ((atom_1-1)*3+k-1)     &
+  !                                             & * (structure%no_atoms*3) &
+  !                                             & + ((atom_2-1)*3+l)))
+  !            old_line = split(old_dyn_mat_file(   ((atom_1-1)*3+k-1)     &
+  !                                             & * (structure%no_atoms*3) &
+  !                                             & + ((atom_2-1)*3+l)))
+  !            
+  !            if (any(int(new_line(1:4))/=(/atom_1,k,atom_2,l/))) then
+  !              call print_line('New dyn_mat file in unexpected order.')
+  !              stop
+  !            endif
+  !            
+  !            if (any(int(old_line(1:4))/=(/atom_1,k,atom_2,l/))) then
+  !              call print_line('Old dyn_mat file in unexpected order.')
+  !              stop
+  !            endif
+  !            
+  !            new_element = cmplx(dble(new_line(5)),dble(new_line(6)),dp)
+  !            old_element = cmplx(dble(old_line(5)),dble(old_line(6)),dp)
+  !            
+  !            if ( abs(new_element-old_element) > 1.0e-5_dp) then
+  !              call print_line('')
+  !              call print_line('Dynamical matrices disagree.')
+  !              call print_line('Supercell '//i)
+  !              call print_line('Dynamical matrix '//j)
+  !              call print_line('Atoms '//atom_1//' '//atom_2)
+  !              call print_line('Directions '//k//' '//l)
+  !              call print_line('Old values:')
+  !              call print_line(real(old_element)//' '//imag(old_element))
+  !              call print_line('New values:')
+  !              call print_line(real(new_element)//' '//imag(new_element))
+  !              stop
+  !            endif
+  !          enddo
+  !        enddo
+  !      enddo
+  !    enddo
+  !  enddo
   enddo
   
   ! Write path for fourier interpolation
@@ -327,7 +399,7 @@ subroutine test_lte()
   disp_kpoints(:,4) = (/ 0.0_dp, 0.0_dp, 0.0_dp /) ! GM
   disp_kpoints(:,5) = (/ 0.0_dp, 0.5_dp, 0.0_dp /) ! L
   
-  symmetry_group = read_group_file(str('Supercell_1/symmetry_group.dat'))
+  prim_symmetry_group = read_group_file(str('Supercell_1/symmetry_group.dat'))
   call mkdir('lte')
 !  call fourier_interpolation(                  &
 !     & structure,                              &

@@ -75,18 +75,18 @@ function calculate_delta_prim(structure,structure_sc) result(delta_prim)
     enddo
   enddo
   
-  call print_line('')
-  call print_line('delta_prim')
-  do n=1,size(delta_prim,3)
-    do m=1,size(delta_prim,2)
-      do p=1,size(delta_prim,1)
-        do im=1,size(delta_prim(p,m,n))
-          call print_line(n//' '//m//' '//p//' '//im)
-          call print_line(delta_prim(p,m,n)%images(:,im))
-        enddo
-      enddo
-    enddo
-  enddo
+!  call print_line('')
+!  call print_line('delta_prim')
+!  do n=1,size(delta_prim,3)
+!    do m=1,size(delta_prim,2)
+!      do p=1,size(delta_prim,1)
+!        do im=1,size(delta_prim(p,m,n))
+!          call print_line(n//' '//m//' '//p//' '//im)
+!          call print_line(delta_prim(p,m,n)%images(:,im))
+!        enddo
+!      enddo
+!    enddo
+!  enddo
 end function
 
 ! ----------------------------------------------------------------------
@@ -133,8 +133,8 @@ function construct_dyn_matrix(kvec,structure,structure_sc, &
   enddo
   
   ! Evaluate the dynamical matrix.
-  call print_line('')
-  call print_line('working')
+!  call print_line('')
+!  call print_line('working')
   allocate(dynamical_matrix(structure%no_modes,structure%no_modes))
   dynamical_matrix = cmplx(0.0_dp,0.0_dp,dp)
   do n=1,structure%no_atoms
@@ -146,12 +146,12 @@ function construct_dyn_matrix(kvec,structure,structure_sc, &
            &   dynamical_matrix(mode_m:mode_m+2, mode_n:mode_n+2)    &
            & + force_constants (mode_m:mode_m+2, mode_n:mode_n+2, p) &
            & * exp_ikd(p,m,n)
-        call print_line(n//' '//m//' '//p)
-        call print_line(real(exp_ikd(p,m,n))//' '//imag(exp_ikd(p,m,n)))
-        do i=1,3
-          call print_line(force_constants(mode_m+i-1, mode_n:mode_n+2, p))
-        enddo
-        call print_line(real(dynamical_matrix(mode_m,mode_n))//' '//imag(dynamical_matrix(mode_m,mode_n)))
+    !    call print_line(n//' '//m//' '//p)
+    !    call print_line(real(exp_ikd(p,m,n))//' '//imag(exp_ikd(p,m,n)))
+    !    do i=1,3
+    !      call print_line(force_constants(mode_m+i-1, mode_n:mode_n+2, p))
+    !    enddo
+    !    call print_line(real(dynamical_matrix(mode_m,mode_n))//' '//imag(dynamical_matrix(mode_m,mode_n)))
       enddo
     enddo
   enddo
