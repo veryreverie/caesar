@@ -55,6 +55,7 @@ function min_images_brute_force(a,structure) result(output)
   use linear_algebra, only : invert
   use string_module
   use structure_module
+  use err_module
   implicit none
   
   real(dp),            intent(in) :: a(3)
@@ -89,7 +90,7 @@ function min_images_brute_force(a,structure) result(output)
           nim = nim+1
           if (nim>maxim) then
             call print_line('Error: min_images_brute_force: maxim too small.')
-            stop
+            call err()
           endif
           b(:,nim) = delta
         elseif(dist2<mag_b_sq.or.nim==0)then
@@ -103,7 +104,7 @@ function min_images_brute_force(a,structure) result(output)
   
   if (nim==0) then
     call print_line('Error: bug in min_images_brute_force.')
-    stop
+    call err()
   endif
   
   call new(output,nim)

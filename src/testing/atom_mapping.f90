@@ -9,6 +9,7 @@ function atom_mapping(structure_a,structure_b) result(output)
   use string_module
   use structure_module
   use group_module
+  use err_module
   implicit none
   
   type(StructureData), intent(in) :: structure_a
@@ -32,7 +33,7 @@ function atom_mapping(structure_a,structure_b) result(output)
   ! Check no_atoms is the same.
   if (structure_b%no_atoms/=structure_a%no_atoms) then
     call print_line('Atom counts do not match')
-    stop
+    call err()
   endif
   
   ! Check lattices are the same.
@@ -58,7 +59,7 @@ function atom_mapping(structure_a,structure_b) result(output)
         if (mapping(i)/=0) then
           call print_line('Duplicate atom: atom '//i//' in a matches &
              &atom '//mapping(i)//' and atom '//j//' in b.')
-          stop
+          call err()
         endif
         mapping(i) = j
       endif
@@ -68,7 +69,7 @@ function atom_mapping(structure_a,structure_b) result(output)
   do i=1,structure_b%no_atoms
     if (mapping(i)==0) then
       call print_line('Atom '//i//' in a has no equivalent in b.')
-      stop
+      call err()
     endif
     
     do j=1,i-1

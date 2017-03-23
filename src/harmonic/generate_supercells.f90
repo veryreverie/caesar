@@ -170,6 +170,7 @@ end function
 ! details of the algorithm.
 ! ----------------------------------------------------------------------
 subroutine supercells_generator(num_pcells,num_hnf,hnf)
+  use err_module
   use string_module
   implicit none
   
@@ -197,7 +198,7 @@ subroutine supercells_generator(num_pcells,num_hnf,hnf)
   allocate(hnf(3,3,num_hnf),stat=ialloc)
   if(ialloc/=0)then
     call print_line('Problem allocating hnf array in supercells_generator.')
-    stop
+    call err()
   endif
   
   hnf(1:3,1:3,1:num_hnf)=0
@@ -226,7 +227,7 @@ subroutine supercells_generator(num_pcells,num_hnf,hnf)
   
   if(count_hnf/=num_hnf)then
     call print_line('Did not generate all HNF matrices.')
-    stop
+    call err()
   endif 
 end subroutine
 
@@ -278,11 +279,11 @@ function generate_supercells(structure,grid) result(output)
   use constants,      only : dp
   use utils,          only : reduce_interval, reduce_to_ibz
   use linear_algebra, only : invert_int
-  
   use string_module
   use file_module
   use structure_module
   use supercell_module
+  use err_module
   implicit none
   
   ! inputs
@@ -349,10 +350,7 @@ function generate_supercells(structure,grid) result(output)
           & gvector_ids(grid_size),   &
           & supercells(grid_size),    & ! Length of worst case.
           & stat=ialloc)
-  if(ialloc/=0)then
-    call print_line('Problem allocating arrays.')
-    stop
-  endif
+  call err(ialloc)
   
   ! ----------------------------------------------------------------------
   ! Generate all k-points in the grid.
@@ -498,7 +496,7 @@ function generate_supercells(structure,grid) result(output)
   ! Check that all kpoints have been assigned to supercells.
   if(any(sc_ids==0))then
     call print_line('Unable to allocate each k-point to a supercell matrix.')
-    stop
+    call err()
   endif
   
   ! ----------------------------------------------------------------------
@@ -555,7 +553,7 @@ function generate_supercells(structure,grid) result(output)
       call print_line('Error: Wrong number of G-vectors found.')
       call print_line('Supercell size: '//supercells(i)%sc_size)
       call print_line('No. G-vectors found: '//gvector_id-1)
-      stop
+      call err()
     endif
   enddo
   
@@ -587,7 +585,7 @@ function generate_supercells(structure,grid) result(output)
     ! Check that the corresponding gvector has been found.
     if (gvector_ids(i) == 0) then
       call print_line("Error: could not locate G-vector.")
-      stop
+      call err()
     endif
   enddo
   

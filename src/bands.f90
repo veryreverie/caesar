@@ -123,6 +123,7 @@ end function
 function read_vasp_bands_file_character(filename) result(this)
   use string_module
   use file_module
+  use err_module
   implicit none
   
   character(*), intent(in) :: filename
@@ -152,7 +153,7 @@ function read_vasp_bands_file_character(filename) result(this)
   do i=1,no_kpoints
     do j=1,no_bands
       call print_line("Vasp bands file parser needs updating")
-      stop
+      call err()
       this%bands(j,i) = dble(bands_file(11+(no_bands+2)*(i-1)+j))
     enddo
   enddo

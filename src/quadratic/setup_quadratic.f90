@@ -12,6 +12,7 @@ subroutine setup_quadratic()
   use displacement_patterns_module
   use structure_to_dft_module
   use supercell_module
+  use err_module
   implicit none
   
   ! Parameters
@@ -72,11 +73,11 @@ subroutine setup_quadratic()
   ! Check code is supported
   if (dft_code=="vasp") then
     call print_line("Error! vasp is not currently supported.")
-    stop
+    call err()
   elseif (dft_code/="castep" .and. dft_code/="qe") then
     call print_line("Error! The code "//dft_code//" is not supported.")
     call print_line("Please choose one of: castep vap qe.")
-    stop
+    call err()
   endif
   
   ! Get seedname
@@ -95,7 +96,7 @@ subroutine setup_quadratic()
   
   if (.not. file_exists(filename)) then
     call print_line("Error! The input file "//filename//" does not exist.")
-    stop
+    call err()
   endif
   
   call print_line("What is the path to the harmonic directory?")

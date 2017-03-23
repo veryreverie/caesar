@@ -45,6 +45,7 @@ contains
 
 ! open a file with a specified mode, and return the unit it is opened in
 function open_file(filename,status,action,access) result(unit_num)
+  use err_module
   implicit none
   
   character(*), intent(in) :: filename
@@ -72,7 +73,7 @@ function open_file(filename,status,action,access) result(unit_num)
     &access=access,iostat=iostat)
   if (iostat /= 0) then
     call print_line('Error opening '//filename//' file.')
-    stop
+    call err()
   endif
 end function
 
@@ -158,6 +159,7 @@ end function
 ! Gets the number of lines remaining in a file
 ! ----------------------------------------------------------------------
 function count_lines_character(filename) result(output)
+  use err_module
   implicit none
   
   character(*), intent(in) :: filename
@@ -176,7 +178,7 @@ function count_lines_character(filename) result(output)
       output = output+1
     elseif (iostat>0) then
       call print_line('Error counting lines of '//filename)
-      stop
+      call err()
     endif
   enddo
   close(file_unit)
@@ -196,6 +198,7 @@ end function
 ! Reads the file into a String(:) array
 ! ----------------------------------------------------------------------
 function read_lines_character(filename) result(output)
+  use err_module
   implicit none
   
   character(*), intent(in)  :: filename
@@ -213,7 +216,7 @@ function read_lines_character(filename) result(output)
   allocate(output(file_length),stat=ierr)
   if (ierr/=0) then
     call print_line('Error allocating output for read_lines')
-    stop
+    call err()
   endif
   
   file_unit = open_read_file(filename)
@@ -221,7 +224,7 @@ function read_lines_character(filename) result(output)
     read(file_unit,'(a)',iostat=ierr) line
     if (ierr/=0) then
       call print_line('Error reading from '//filename)
-      stop
+      call err()
     endif
     output(i) = trim(line)
   enddo

@@ -20,6 +20,7 @@ subroutine setup_harmonic(caesar_dir)
   use construct_supercell_module
   use unique_directions_module
   use calculate_symmetry_group_module
+  use err_module
   implicit none
   
   ! The path to caesar
@@ -89,11 +90,11 @@ subroutine setup_harmonic(caesar_dir)
   ! Check dft code is supported
   if (dft_code=='vasp') then
     call print_line('Error! vasp is not currently supported.')
-    stop
+    call err()
   elseif (dft_code/='castep' .and. dft_code/='qe') then
     call print_line('Error! The code '//dft_code//' is not supported.')
     call print_line('Please choose one of: castep vasp qe.')
-    stop
+    call err()
   endif
   
   ! Check dft input files exist
@@ -105,7 +106,7 @@ subroutine setup_harmonic(caesar_dir)
   
   if (.not. file_exists(filename)) then
     call print_line('Error! The input file '//filename//' does not exist.')
-    stop
+    call err()
   endif
   
   ! ----------------------------------------------------------------------

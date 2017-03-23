@@ -925,6 +925,7 @@ end function
 !    and formatting.
 ! ----------------------------------------------------------------------
 subroutine print_line_character(line)
+  use err_module
   implicit none
   
   character(*), intent(in) :: line
@@ -934,11 +935,12 @@ subroutine print_line_character(line)
   write(*,'(a)',iostat=ierr) line
   if (ierr /= 0) then
     write(*,*) 'Error in print_line.'
-    stop
+    call err()
   endif
 end subroutine
 
 subroutine print_line_file_character(file_unit,line)
+  use err_module
   implicit none
   
   integer,      intent(in) :: file_unit
@@ -949,7 +951,7 @@ subroutine print_line_file_character(file_unit,line)
   write(file_unit,'(a)',iostat=ierr) line
   if (ierr /= 0) then
     write(*,*) 'Error in print_line.'
-    stop
+    call err()
   endif
 end subroutine
 

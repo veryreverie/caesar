@@ -25,6 +25,7 @@ program caesar
   ! use misc modules
   use calculate_gap_module
   use hartree_to_eV_module
+  use err_module
   
   implicit none
   
@@ -36,7 +37,7 @@ program caesar
   
   if (size(args) == 1) then
     call print_line('No arguments given. For help, call caesar -h')
-    stop
+    call err()
   endif
   
   if (args(2) == '-h' .or. args(2) == '--help') then

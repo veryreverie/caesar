@@ -132,6 +132,7 @@ function read_structure_file_character(filename) result(this)
   use linear_algebra, only : invert, invert_int
   use string_module
   use file_module
+  use err_module
   implicit none
   
   character(*),        intent(in) :: filename
@@ -170,7 +171,7 @@ function read_structure_file_character(filename) result(this)
     
     if (size(line)==0) then
       call print_line('Error: '//filename//' contains blank lines.')
-      stop
+      call err()
     endif
     
     if (line(1)=="lattice") then
@@ -193,13 +194,13 @@ function read_structure_file_character(filename) result(this)
   ! ------------------------------
   if (lattice_line/=1) then
     call print_line("Error: line 1 of "//filename//" is not 'Lattice'")
-    stop
+    call err()
   elseif (atoms_line/=5) then
     call print_line("Error: line 5 of "//filename//" is not 'Atoms'")
-    stop
+    call err()
   elseif (end_line/=size(structure_file)) then
     call print_line("Error: the last line of "//filename//" is not 'End'")
-    stop
+    call err()
   endif
   
   if (supercell_line/=0 .and. gvectors_line/=0) then

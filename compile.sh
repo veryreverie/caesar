@@ -53,6 +53,11 @@ quadratic_programs=(mapping calculate_anharmonic calculate_gap quadratic_spline 
 
 testing_programs=(atom_mapping test_copy_harmonic test_lte)
 
+# compile err.o
+if [ "$cf90" = "gfortran" ]; then
+  $cf90 -c $sdir/err_gfortran.f90 $cflags -o$odir/err.o
+fi
+
 # compile objects
 for program in ${programs[@]}; do
   $cf90 -c $sdir/$program.f90 $cflags -o$odir/$program.o
@@ -75,6 +80,9 @@ $cf90 -c $sdir/$program.f90 $cflags -o$odir/$program.o
 
 # list objects for linking
 objs=()
+
+objs="$odir/err.o $objs"
+
 for program in ${programs[@]}; do
   objs="$odir/$program.o $objs"
 done

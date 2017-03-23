@@ -13,10 +13,11 @@ module utils
 contains
 
 ! ----------------------------------------------------------------------
-! reports an error and stops
+! Reports an error and stops.
 ! ----------------------------------------------------------------------
 subroutine errstop(subroutine_name, message)
   use string_module
+  use err_module
   implicit none
   
   character(*), intent(in) :: subroutine_name ! where errstop is called
@@ -27,7 +28,7 @@ subroutine errstop(subroutine_name, message)
   call print_line('')
   call print_line(trim(adjustl(message)))
   call print_line('')
-  stop
+  call err()
 end subroutine
 
 ! ----------------------------------------------------------------------

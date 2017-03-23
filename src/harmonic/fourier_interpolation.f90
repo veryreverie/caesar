@@ -98,16 +98,12 @@ function read_dyn_mats(structure,sc_ids,gvector_ids,dyn_mat_fileroot) &
     do atom_1=1,structure%no_atoms
       do j=1,3
         do atom_2=1,structure%no_atoms
-          call print_line(i//' '//atom_1//' '//atom_2)
           do k=1,3
             line = split(contents(line_no))
             dyn_mats_ibz(j,k,atom_2,atom_1,i) = &
                & cmplx( dble(line(5)), dble(line(6)), dp)
-            call print_line(contents(line_no))
-            call print_line(dble(line(5)))
             line_no = line_no + 1
           enddo
-          call print_line('')
         enddo
       enddo
     enddo
@@ -128,10 +124,10 @@ function construct_dyn_mat(structure,structure_sc,kpoint, &
   type(StructureData), intent(in) :: structure_sc
   real(dp),            intent(in) :: kpoint(3)
   type(MinImages),     intent(in) :: min_im_cell_pos(:)
-  real(dp),            intent(in) :: force_consts(:,:,:,:,:)
-  complex(dp), allocatable        :: dyn_mat(:,:,:,:)
+  real(dp),            intent(in) :: force_consts(:,:,:)
+  complex(dp), allocatable        :: dyn_mat(:,:)
   
-  integer :: i_atom,j_atom,i_cell,i_im
+  integer :: i_cell,i_im
   real(dp) :: k_dot_r
   
   complex(dp), allocatable :: phases(:)
@@ -148,18 +144,10 @@ function construct_dyn_mat(structure,structure_sc,kpoint, &
   enddo
   
   ! Calculate dynamic matrix.
-  allocate(dyn_mat(3,3,structure%no_atoms,structure%no_atoms))
+  allocate(dyn_mat(structure%no_modes,structure%no_modes))
   dyn_mat=cmplx(0.d0,0.d0,dp)
   do i_cell=1,structure_sc%sc_size
-    dyn_mat = dyn_mat + force_consts(:,:,:,:,i_cell)*phases(i_cell)
-  enddo
-  
-  do i_atom=1,structure%no_atoms
-    do j_atom=1,structure%no_atoms
-      dyn_mat(:,:,j_atom,i_atom) = dyn_mat(:,:,j_atom,i_atom)    &
-                               & / dsqrt( structure%mass(i_atom) &
-                               &        * structure%mass(j_atom))
-    enddo
+    dyn_mat = dyn_mat + force_consts(:,:,i_cell)*phases(i_cell)
   enddo
 end function
 
@@ -170,36 +158,17 @@ function calculate_frequencies(dyn_mat) result(freqs)
   use linear_algebra
   implicit none
   
-  complex(dp), intent(in) :: dyn_mat(:,:,:,:)
+  complex(dp), intent(in) :: dyn_mat(:,:)
   real(dp), allocatable   :: freqs(:)
   
   integer                  :: no_modes
-  complex(dp), allocatable :: temp_mat(:,:)
-  complex(dp)              :: temp
   type(ComplexEigenstuff)  :: estuff
   integer                  :: i,j
   
-  no_modes = size(dyn_mat,3)*3
-  
-  ! Convert dynamic matrix into mode representation.
-  allocate(temp_mat(no_modes,no_modes))
-  do i=0,no_modes-1
-    do j=0,no_modes-1
-      temp_mat(j+1,i+1) = dyn_mat(modulo(i,3)+1,modulo(j,3)+1,j/3+1,i/3+1)
-    enddo
-  enddo
-
-  ! Ensure temp_mat is hermitian.
-  do i=1,no_modes
-    do j=1,no_modes
-      temp = (temp_mat(j,i)+conjg(temp_mat(i,j)))/2
-      temp_mat(j,i) = temp
-      temp_mat(i,j) = conjg(temp)
-    enddo
-  enddo
+  no_modes = size(dyn_mat,1)
   
   ! Calculate eigenvalues and eigenvectors.
-  estuff = calculate_eigenstuff(temp_mat)
+  estuff = calculate_eigenstuff(dyn_mat)
   
   ! Calculate frequencies.
   allocate(freqs(no_modes))
@@ -226,7 +195,7 @@ subroutine generate_dispersion(structure,structure_sc,&
   type(StructureData), intent(in) :: structure
   type(StructureData), intent(in) :: structure_sc
   type(MinImages),     intent(in) :: min_im_cell_pos(:)
-  real(dp),            intent(in) :: force_consts(:,:,:,:,:)
+  real(dp),            intent(in) :: force_consts(:,:,:)
   real(dp),            intent(in) :: path(:,:)
   type(String),        intent(in) :: phonon_dispersion_curve_filename
   type(String),        intent(in) :: high_symmetry_points_filename
@@ -237,7 +206,7 @@ subroutine generate_dispersion(structure,structure_sc,&
   real(dp),    allocatable :: cumulative_length(:)
   integer,     allocatable :: no_points(:)
   real(dp)                 :: kpoint(3)
-  complex(dp), allocatable :: dyn_mat(:,:,:,:)
+  complex(dp), allocatable :: dyn_mat(:,:)
   real(dp),    allocatable :: omega(:)
   
   ! File units.
@@ -309,12 +278,13 @@ subroutine generate_dos(structure,structure_sc,min_im_cell_pos, &
   use file_module
   use structure_module
   use min_images_module
+  use err_module
   implicit none
   
   type(StructureData), intent(in) :: structure
   type(StructureData), intent(in) :: structure_sc
   type(MinImages),     intent(in) :: min_im_cell_pos(:)
-  real(dp),            intent(in) :: force_consts(:,:,:,:,:)
+  real(dp),            intent(in) :: force_consts(:,:,:)
   real(dp),            intent(in) :: temperature
   type(String),        intent(in) :: free_energy_filename
   type(String),        intent(in) :: freq_dos_filename
@@ -327,7 +297,7 @@ subroutine generate_dos(structure,structure_sc,min_im_cell_pos, &
     &rec_bin_width,freq_dos(no_bins),free_energy,omega
   LOGICAL :: soft_modes
   
-  complex(dp), allocatable :: dyn_mat(:,:,:,:)
+  complex(dp), allocatable :: dyn_mat(:,:)
   real(dp),    allocatable :: freqs(:)
   
   ! file units
@@ -359,7 +329,7 @@ subroutine generate_dos(structure,structure_sc,min_im_cell_pos, &
   soft_modes=(min_freq<-freq_tol)
   if (max_freq<=0.d0) then
     call print_line('The system is pathologically unstable.')
-    stop
+    call err()
   endif
   
   bin_width=safety_factor*max_freq/dble(no_bins)
@@ -379,7 +349,7 @@ subroutine generate_dos(structure,structure_sc,min_im_cell_pos, &
         i_bin = max(1,ceiling(rec_bin_width*freqs(i_freq)))
         if (i_bin>no_bins) then
           call print_line('Frequency too high to be binned.')
-          stop
+          call err()
         endif
         freq_dos(i_bin) = freq_dos(i_bin)+1.d0
       endif
@@ -431,8 +401,8 @@ real(dp) function harmonic_free_energy(temperature,omega)
   endif
 end function
 
-subroutine fourier_interpolation(structure,grid,temperature,kpoints,sc_ids, &
-   & gvector_ids,dyn_mat_fileroot,path,atom_symmetry_group,   &
+subroutine fourier_interpolation(dyn_mats_ibz,structure,grid,temperature,kpoints, &
+   & path,atom_symmetry_group,   &
    & phonon_dispersion_curve_filename,high_symmetry_points_filename,        &
    & free_energy_filename,freq_dos_filename)
   use constants, only : dp
@@ -448,13 +418,11 @@ subroutine fourier_interpolation(structure,grid,temperature,kpoints,sc_ids, &
   implicit none
   
   ! filenames
+  complex(dp),         intent(in) :: dyn_mats_ibz(:,:,:)
   type(StructureData), intent(in) :: structure
   integer,             intent(in) :: grid(3)
   real(dp),            intent(in) :: temperature
   integer,             intent(in) :: kpoints(:,:)
-  integer,             intent(in) :: sc_ids(:)
-  integer,             intent(in) :: gvector_ids(:)
-  type(String),        intent(in) :: dyn_mat_fileroot ! append *.dat
   real(dp),            intent(in) :: path(:,:)
   type(Group),         intent(in) :: atom_symmetry_group(:)
   type(String),        intent(in) :: phonon_dispersion_curve_filename
@@ -464,24 +432,22 @@ subroutine fourier_interpolation(structure,grid,temperature,kpoints,sc_ids, &
   
   ! variables
   type(MinImages), allocatable :: min_im_cell_pos(:)
-  real(dp),allocatable :: force_consts(:,:,:,:,:)
+  real(dp),        allocatable :: force_consts(:,:,:)
   
-  COMPLEX(dp),ALLOCATABLE :: dyn_mats_grid(:,:,:,:,:)
-  COMPLEX(dp),ALLOCATABLE :: dyn_mats_ibz(:,:,:,:,:)
-  COMPLEX(dp),ALLOCATABLE :: phase(:,:,:)
+  complex(dp), allocatable :: dyn_mats_grid(:,:,:)
+  complex(dp), allocatable :: phase(:,:,:)
   
-  INTEGER :: i_atom,j_atom
   INTEGER :: i_cell
   INTEGER :: i_grid
   
   REAL(dp) :: k_dot_r
-  REAL(dp) :: prefactor
   real(dp) :: exponent
   real(dp) :: gvec_cart(3)
   
   integer :: i,j,k,l
   integer :: kpoint_id
   integer :: atom_1,atom_2,atom_1p,atom_2p
+  integer :: mode_1,mode_2,mode_1p,mode_2p
   
   ! Supercell data
   type(SupercellData) :: grid_supercell
@@ -489,8 +455,6 @@ subroutine fourier_interpolation(structure,grid,temperature,kpoints,sc_ids, &
   
   ! Symmetry group data.
   type(Group), allocatable :: kpoint_symmetry_group(:)
-  
-  integer :: force_constants_file
   
   ! --------------------------------------------------
   ! Construct a supercell across the entire grid.
@@ -523,7 +487,7 @@ subroutine fourier_interpolation(structure,grid,temperature,kpoints,sc_ids, &
   ! --------------------------------------------------
   ! Read in the dynamical matrix at each k-point in the IBZ
   ! --------------------------------------------------
-  dyn_mats_ibz = read_dyn_mats(structure,sc_ids,gvector_ids,dyn_mat_fileroot)
+  !dyn_mats_ibz = read_dyn_mats(structure,sc_ids,gvector_ids,dyn_mat_fileroot)
   
   ! --------------------------------------------------
   ! Use symmetries to construct all dynamical matrices
@@ -548,7 +512,7 @@ subroutine fourier_interpolation(structure,grid,temperature,kpoints,sc_ids, &
   enddo
   
   ! Construct dynamical matrices.
-  allocate(dyn_mats_grid(3,3,structure%no_atoms,structure%no_atoms,structure_sc%sc_size))
+  allocate(dyn_mats_grid(structure%no_modes,structure%no_modes,structure_sc%sc_size))
   do_i : do i=1,structure_sc%sc_size
     do j=1,structure%no_symmetries
       kpoint_id = operate(kpoint_symmetry_group(j),i)
@@ -564,21 +528,26 @@ subroutine fourier_interpolation(structure,grid,temperature,kpoints,sc_ids, &
         
         ! Construct the element of the dynamical matrix from that in the IBZ.
         do atom_1=1,structure%no_atoms
+          mode_1 = (atom_1-1)*3+1
           atom_1p = operate(atom_symmetry_group(j),atom_1)
+          mode_1p = (atom_1p-1)*3+1
           do atom_2=1,structure%no_atoms
+            mode_2 = (atom_2-1)*3+1
             atom_2p = operate(atom_symmetry_group(j),atom_2)
-            dyn_mats_grid(:,:,atom_2p,atom_1p,i) = matmul(matmul(         &
-               & structure%rotation_matrices(:,:,j),                      &
-               & dyn_mats_ibz(:,:,atom_2,atom_1,k)),                      &
-               & transpose(structure%rotation_matrices(:,:,j)))           &
+            mode_2p = (atom_2p-1)*3+1
+            
+            dyn_mats_grid(mode_2p:mode_2p+2,mode_1p:mode_1p+2,i) =    &
+               & matmul(matmul(                                       &
+               &    structure%rotation_matrices(:,:,j),               &
+               &    dyn_mats_ibz(mode_2:mode_2+2,mode_1:mode_1+2,k)), &
+               &    transpose(structure%rotation_matrices(:,:,j)))    &
                & * phase(atom_2p,atom_2,i)*conjg(phase(atom_1p,atom_1,i))
           enddo
         enddo
         
         ! Apply time reversal symmetry if required.
         if (all(modulo(structure_sc%gvectors(:,i)*2,grid)==0)) then
-          dyn_mats_grid(:,:,:,:,i) = cmplx( real(dyn_mats_grid(:,:,:,:,i)), &
-                                          & 0.0_dp, dp)
+          dyn_mats_grid(:,:,i) = cmplx(real(dyn_mats_grid(:,:,i)), 0.0_dp, dp)
         endif
         
         cycle do_i
@@ -586,60 +555,32 @@ subroutine fourier_interpolation(structure,grid,temperature,kpoints,sc_ids, &
     enddo
   enddo do_i
   
-  force_constants_file = open_write_file('lte/dyn_mat_real.dat')
-  do i_cell=1,structure_sc%sc_size
-    do i_atom=1,structure%no_atoms
-      do j_atom=1,structure%no_atoms
-        call print_line(force_constants_file,i_cell//' '//i_atom//' '//j_atom)
-        do i=1,3
-          call print_line(force_constants_file, &
-             & real(dyn_mats_grid(i,:,j_atom,i_atom,i_cell)))
-        enddo
-        call print_line(force_constants_file,'')
-      enddo
-    enddo
-  enddo
-  
   ! --------------------------------------------------
   ! Construct the matrix of force constants
   ! --------------------------------------------------
-  allocate(force_consts( 3, 3,                                   &
-                       & structure%no_atoms, structure%no_atoms, &
+  allocate(force_consts( structure%no_modes, &
+                       & structure%no_modes, &
                        & structure_sc%sc_size))
   force_consts=0.0_dp
   
   do i_cell=1,structure_sc%sc_size
     do i_grid=1,structure_sc%sc_size
       k_dot_r = dot_product(kpoints(:,i_grid),structure_sc%gvectors(:,i_cell))
-      force_consts(:,:,:,:,i_cell) = force_consts(:,:,:,:,i_cell) &
-                                 & + real( dyn_mats_grid(:,:,:,:,i_grid) &
-                                 &       * cmplx(cos(k_dot_r),sin(k_dot_r),dp))
+      force_consts(:,:,i_cell) = force_consts(:,:,i_cell) &
+                             & + real( dyn_mats_grid(:,:,i_grid) &
+                             &       * cmplx(cos(k_dot_r),sin(k_dot_r),dp))
     enddo
   enddo
   
-  do i_atom=1,structure%no_atoms
-    do j_atom=1,structure%no_atoms
-      prefactor = dsqrt(structure%mass(i_atom)*structure%mass(j_atom)) &
-              & / structure_sc%sc_size
-      force_consts(:,:,j_atom,i_atom,:) = force_consts(:,:,j_atom,i_atom,:) &
-                                      & * prefactor
+  do atom_1=1,structure%no_atoms
+    mode_1 = (atom_1-1)*3+1
+    do atom_2=1,structure%no_atoms
+      mode_2 = (atom_2-1)*3+1
+      force_consts(mode_2:mode_2+2,mode_1:mode_1+2,:) = &
+         &   force_consts(mode_2:mode_2+2,mode_1:mode_1+2,:) &
+         & / structure_sc%sc_size
     enddo
   enddo
-  
-  force_constants_file = open_write_file('lte/force_constants.dat')
-  do i_cell=1,structure_sc%sc_size
-    do i_atom=1,structure%no_atoms
-      do j_atom=1,structure%no_atoms
-        call print_line(force_constants_file,i_cell//' '//i_atom//' '//j_atom)
-        do i=1,3
-          call print_line(force_constants_file, &
-             & force_consts(i,:,j_atom,i_atom,i_cell))
-        enddo
-        call print_line(force_constants_file,'')
-      enddo
-    enddo
-  enddo
-  close(force_constants_file)
   
   ! --------------------------------------------------
   ! Calculate minimum image distances.

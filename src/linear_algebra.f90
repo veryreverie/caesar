@@ -200,6 +200,7 @@ end function
 ! A and B are real, 3x3 matrices
 ! ----------------------------------------
 function invert(A) result(B)
+  use err_module
   use string_module
   implicit none
   
@@ -214,7 +215,7 @@ function invert(A) result(B)
   ! check for d=infinity or d=NaN
   if (dabs(d)>huge(0.0_dp) .or. d<d) then
     call print_line('Error in invert: singular matrix.')
-    stop
+    call err()
   endif
   
   C = transpose(A)
@@ -261,6 +262,7 @@ end function
 ! Calculates the eigenvalues and eigenvectors of a real, symmetric matrix
 function calculate_RealEigenstuff(input) result(output)
   use string_module
+  use err_module
   implicit none
   
   real(dp), intent(in) :: input(:,:)  ! a real, symmetric matrix
@@ -283,7 +285,7 @@ function calculate_RealEigenstuff(input) result(output)
     & work(1), -1, info)
   if (info /= 0) then
     call print_line("dsyev failed, info= "//info)
-    stop
+    call err()
   endif
   lwork = nint(work(1))
   deallocate(work)
@@ -294,12 +296,13 @@ function calculate_RealEigenstuff(input) result(output)
     & work(1), lwork, info)
   if (info /= 0) then
     call print_line("dsyev failed, info= "//info)
-    stop
+    call err()
   endif
 end function
 
 ! Calculates the eigenvalues and eigenvectors of a complex, hermitian matrix
 function calculate_ComplexEigenstuff(input) result(output)
+  use err_module
   use string_module
   implicit none
   
@@ -326,7 +329,7 @@ function calculate_ComplexEigenstuff(input) result(output)
     & work(1), -1, rwork, info)
   if (info /= 0) then
     call print_line("dsyev failed, info= "//info)
-    stop
+    call err()
   endif
   lwork = nint(real(work(1)))
   deallocate(work)
@@ -337,7 +340,7 @@ function calculate_ComplexEigenstuff(input) result(output)
     & work(1), lwork, rwork, info)
   if (info /= 0) then
     call print_line("zheev failed, info= "//info)
-    stop
+    call err()
   endif
 end function
 end module

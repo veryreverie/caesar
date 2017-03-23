@@ -48,7 +48,7 @@ function calculate_force_constants(structure,structure_sc,symmetry_group, &
   !    _prim is in primitive cell ordering.
   integer                            :: atom_1_prim,atom_2_prim
   integer                            :: atom_1_sc,atom_2_sc
-  integer                            :: atom_1p_prim,atom_2p_prim
+  integer                            :: atom_1p_prim
   integer                            :: atom_1p_sc,atom_2p_sc
   integer                            :: mode_1,mode_2
   
@@ -66,9 +66,6 @@ function calculate_force_constants(structure,structure_sc,symmetry_group, &
   ! Temporary variables
   integer        :: j,k
   
-  ! File units
-  integer :: force_constants_file
-
   allocate(atom_calculated(structure%no_atoms))
   atom_calculated = .false.
   
@@ -305,10 +302,10 @@ function calculate_force_constants(structure,structure_sc,symmetry_group, &
           cycle
         endif
         
-        force_constants(:,:,atom_2_sc,atom_1_prim) =                   &
-           & force_constants(:,:,atom_2_sc,atom_1_prim)                &
-           & - (totals(:,:,atom_1_prim)+totals(:,:,atom_2_prim)-total) &
-           & / (structure_sc%no_atoms-1)
+!        force_constants(:,:,atom_2_sc,atom_1_prim) =                   &
+!           & force_constants(:,:,atom_2_sc,atom_1_prim)                &
+!           & - (totals(:,:,atom_1_prim)+totals(:,:,atom_2_prim)-total) &
+!           & / (structure_sc%no_atoms-1)
       enddo
     enddo
   enddo
@@ -323,21 +320,6 @@ function calculate_force_constants(structure,structure_sc,symmetry_group, &
            &   force_constants(:,:,atom_2_sc,atom_1_prim)   &
            & / dsqrt(structure%mass(atom_1_prim)*structure_sc%mass(atom_2_sc))
       enddo
-    enddo
-  enddo
-  
-  ! Write out force constants for debugging purposes.
-  force_constants_file = open_write_file(sdir//'/force_constants.dat')
-  do atom_1_prim=1,structure%no_atoms
-    do atom_2_sc=1,structure_sc%no_atoms
-      atom_2_prim = structure_sc%atom_to_prim(atom_2_sc)
-      j = structure_sc%atom_to_gvec(atom_2_sc)
-      call print_line(force_constants_file,atom_1_prim//' '//atom_2_prim//' '//j)
-      do j=1,3
-        call print_line( force_constants_file, &
-                       & force_constants(j,:,atom_2_sc,atom_1_prim))
-      enddo
-      call print_line(force_constants_file,'')
     enddo
   enddo
   
@@ -370,6 +352,7 @@ subroutine lte_harmonic()
   use supercell_module
   use unique_directions_module
   use group_module
+  use err_module
   implicit none
   
   ! User-input temperature
@@ -407,8 +390,12 @@ subroutine lte_harmonic()
   integer               :: no_kspace_lines
   real(dp), allocatable :: disp_kpoints(:,:)
   
+  ! Dynamical matrix data
+  type(LteReturn)          :: lte_result
+  complex(dp), allocatable :: ibz_dynamical_matrices(:,:,:)
+  
   ! Temporary variables
-  integer                   :: i
+  integer                   :: i,j
   type(String)              :: sdir
   type(String), allocatable :: line(:)
   
@@ -458,6 +445,10 @@ subroutine lte_harmonic()
     call mkdir(sdir//'/lte')
   enddo
   
+  allocate(ibz_dynamical_matrices( structure%no_modes, &
+                                 & structure%no_modes, &
+                                 & no_kpoints))
+  
   ! ----------------------------------------------------------------------
   ! Loop over supercells
   ! ----------------------------------------------------------------------
@@ -476,23 +467,30 @@ subroutine lte_harmonic()
     force_constants = calculate_force_constants(structure,structure_sc, &
        & symmetry_group,unique_directions,sdir,dft_code,seedname)
     
-    call lte_4( structure,                       &
-              & structure_sc,                    &
-              & force_constants,                 &
-              & 0.0_dp,                          &
-              & sdir//'/lte/freq_grids.dat',     &
-              & sdir//'/lte/disp_patterns.dat',  &
-              & sdir//'/lte/kdisp_patterns.dat', &
-              & sdir//'/lte/pol_vec.dat',        &
-              & sdir//'/lte/error.txt',          &
-              & sdir//'/lte/dyn_mat.')
-    
-    if (file_exists(sdir//'/lte/error.txt')) then
-      call print_line('There is an error in lte: check error.txt file.')
-      stop
-    endif
+    lte_result = evaluate_freqs_on_grid( structure,                       &
+                                       & structure_sc,                    &
+                                       & force_constants,                 &
+                                       & sdir//'/lte/freq_grids.dat',     &
+                                       & sdir//'/lte/disp_patterns.dat',  &
+                                       & sdir//'/lte/kdisp_patterns.dat', &
+                                       & sdir//'/lte/pol_vec.dat')
     
     deallocate(force_constants)
+    
+    if (file_exists(sdir//'/lte/error.txt')) then
+      call print_line('There is an error in lte: check '&
+         & //sdir//'/lte/error.txt.')
+      call err()
+    endif
+    
+    do j=1,no_kpoints
+      if (sc_ids(j)/=i) then
+        cycle
+      endif
+      
+      ibz_dynamical_matrices(:,:,j) = &
+         & lte_result%dynamical_matrices(:,:,gvector_ids(j))
+    enddo
   enddo
   
   ! Write path for fourier interpolation
@@ -507,11 +505,11 @@ subroutine lte_harmonic()
   ! Read in primitive symmetry group.
   symmetry_group = read_group_file(str('Supercell_1/symmetry_group.dat'))
   call fourier_interpolation(                  &
+     & ibz_dynamical_matrices,                 &
      & structure,                              &
      & grid,                                   &
      & temperature,                            &
-     & kpoints, sc_ids, gvector_ids,           &
-     & str('lte/dyn_mat.'),                    &! Supercell_*/lte/dyn_mat.*.dat
+     & kpoints,                                &
      & disp_kpoints,                           &
      & symmetry_group,                         &
      & str('lte/phonon_dispersion_curve.dat'), &
