@@ -32,7 +32,7 @@ subroutine err_integer(this)
   
   integer, intent(in) :: this
   
-  if (this==0) then
+  if (this/=0) then
     call err()
   endif
 end subroutine

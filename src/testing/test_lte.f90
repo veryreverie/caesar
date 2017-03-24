@@ -74,7 +74,7 @@ subroutine test_lte()
   complex(dp)               :: phase
   
   ! Displacement pattern variables.
-  type(DispPatterns) :: old_displacement_patterns
+  type(DispPatterns) :: old_disp_patts
   
   ! Fourier interpolation data.
   integer               :: no_kspace_lines
@@ -352,14 +352,9 @@ subroutine test_lte()
     call print_line('L2 Average error:          '//average_err)
     
     ! Run new lte, with old force constants.
-    lte_result  = evaluate_freqs_on_grid( &
-                       & structure,                           &
-                       & structure_sc,                        &
-                       & old_force_constants,                 &
-                       & sdir//'/new_lte/freq_grids.dat',     &
-                       & sdir//'/new_lte/disp_patterns.dat',  &
-                       & sdir//'/new_lte/kdisp_patterns.dat', &
-                       & sdir//'/new_lte/pol_vec.dat')
+    lte_result  = evaluate_freqs_on_grid( structure,    &
+                                        & structure_sc, &
+                                        & old_force_constants)
     
     deallocate(old_force_constants)
     deallocate(new_force_constants)
@@ -407,8 +402,8 @@ subroutine test_lte()
                  & *2*pi/structure_sc%sc_size
               phase = cmplx(cos(arg),sin(arg),dp)
               
-              if ( abs(new_element-old_element*phase) > 1.0e-9_dp .and. &
-                 & abs(new_element-old_element/phase) > 1.0e-9_dp ) then
+              if ( abs(new_element-old_element*phase) > 1.0e-14_dp .and. &
+                 & abs(new_element-old_element/phase) > 1.0e-14_dp ) then
                 call print_line('')
                 call print_line('Dynamical matrices disagree.')
                 call print_line('Supercell '//i)
@@ -429,22 +424,52 @@ subroutine test_lte()
     
     ! Check that displacement patterns are the same.
     call print_line('Checking displacement patterns.')
-    old_displacement_patterns = read_disp_patterns_file( &
-       & sdir//'/old_lte/disp_patterns.dat',             &
+    old_disp_patts = read_disp_patterns_file( &
+       & sdir//'/old_lte/disp_patterns.dat',  &
        & structure%no_modes)
+    
     do j=1,structure_sc%sc_size
       do mode_1=1,structure%no_modes
-        if (abs( old_displacement_patterns%frequencies(mode_1,j) &
-               & - lte_result%frequencies(mode_1,j)*eV) > 1.0e-8_dp) then
+        if (abs( old_disp_patts%frequencies(mode_1,j) &
+               & - lte_result%frequencies(mode_1,j)*eV) > 1.0e-14_dp) then
           call print_line('Frequencies are different.')
           call print_line('G-vector      : '//j)
           call print_line('Mode          : '//mode_1)
           call print_line('Old frequency : '// &
-             & old_displacement_patterns%frequencies(mode_1,j))
+             & old_disp_patts%frequencies(mode_1,j))
           call print_line('New frequency : '// &
              & lte_result%frequencies(mode_1,j)*eV)
           call err()
         endif
+        
+        do atom_1=1,structure_sc%no_atoms
+          if (abs( old_disp_patts%prefactors(atom_1,mode_1,j) &
+                 & - lte_result%prefactors(atom_1,mode_1,j)) > 1.0e-14_dp) then
+            call print_line('Prefactors are different.')
+            call print_line('G-vector      : '//j)
+            call print_line('Mode          : '//mode_1)
+            call print_line('Atom          : '//atom_1)
+            call print_line('Old frequency : '// &
+               & old_disp_patts%prefactors(atom_1,mode_1,j))
+            call print_line('New frequency : '// &
+               & lte_result%prefactors(atom_1,mode_1,j))
+            call err()
+          endif
+          
+          if (any(abs( old_disp_patts%disp_patterns(:,atom_1,mode_1,j) &
+             &       - lte_result%displacement_patterns(:,atom_1,mode_1,j) &
+             & ) > 1.0e-5_dp)) then
+            call print_line('Displacement patterns are different.')
+            call print_line('G-vector                 : '//j)
+            call print_line('Mode                     : '//mode_1)
+            call print_line('Atom                     : '//atom_1)
+            call print_line('Old displacement pattern : ')
+            call print_line(old_disp_patts%disp_patterns(:,atom_1,mode_1,j))
+            call print_line('New displacement pattern : ')
+            call print_line(lte_result%displacement_patterns(:,atom_1,mode_1,j))
+            call err()
+          endif
+        enddo
       enddo
     enddo
     

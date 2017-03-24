@@ -451,7 +451,8 @@ subroutine calculate_derived_supercell_quantities(this)
   
   do i=1,this%sc_size
     do j=1,i
-      if (all(this%gvectors(:,i)+this%gvectors(:,j)==0)) then
+      if (all(modulo( this%gvectors(:,i)+this%gvectors(:,j), &
+                    & this%sc_size)==0)) then
         this%paired_gvec(i) = j
         this%paired_gvec(j) = i
       endif

@@ -35,6 +35,11 @@ module lte_module
   type LteReturn
     complex(dp), allocatable :: dynamical_matrices(:,:,:)
     real(dp),    allocatable :: frequencies(:,:)
+    logical,     allocatable :: soft_modes(:,:)
+    real(dp),    allocatable :: prefactors(:,:,:)
+    real(dp),    allocatable :: displacement_patterns(:,:,:,:)
+    real(dp),    allocatable :: k_displacement_patterns(:,:,:,:)
+    complex(dp), allocatable :: polarisation_vectors(:,:,:,:)
   end type
   
   interface new
@@ -47,15 +52,21 @@ module lte_module
   
 contains
 
-subroutine new_LteReturn(this,sc_size,no_modes)
+subroutine new_LteReturn(this,sc_size,no_modes,no_atoms)
   implicit none
   
   type(LteReturn), intent(out) :: this
   integer,         intent(in)  :: sc_size
   integer,         intent(in)  :: no_modes
+  integer,         intent(in)  :: no_atoms
   
   allocate(this%dynamical_matrices(no_modes,no_modes,sc_size))
   allocate(this%frequencies(no_modes,sc_size))
+  allocate(this%soft_modes(no_modes,sc_size))
+  allocate(this%prefactors(no_atoms,no_modes,sc_size))
+  allocate(this%displacement_patterns(3,no_atoms,no_modes,sc_size))
+  allocate(this%k_displacement_patterns(3,no_atoms,no_modes,sc_size))
+  allocate(this%polarisation_vectors(3,no_atoms,no_modes,sc_size))
 end subroutine
 
 subroutine drop_LteReturn(this)
@@ -65,6 +76,10 @@ subroutine drop_LteReturn(this)
   
   deallocate(this%dynamical_matrices)
   deallocate(this%frequencies)
+  deallocate(this%prefactors)
+  deallocate(this%displacement_patterns)
+  deallocate(this%k_displacement_patterns)
+  deallocate(this%polarisation_vectors)
 end subroutine
 
 function calculate_delta_prim(structure,structure_sc) result(delta_prim)
@@ -215,16 +230,14 @@ subroutine calculate_eigenfreqs_and_vecs(dynamical_matrix,omega,pol_vec)
   dyn_mat      = estuff%evecs
   
   ! Calculate frequencies and polarisation vectors.
-  m=no_modes ! no_modes - n + 1
   do n=1,no_modes
-  ! Modified by B. Monserrat to output the correct 'omega' and 'pol_vec'
+    m = no_modes - n + 1
     if(minusomegasq(m)>=0.d0)then
-      omega(n)=-SQRT(minusomegasq(m)) ! Unstable mode.
+      omega(n) = -dsqrt(minusomegasq(m)) ! Unstable mode.
     else
-      omega(n)=SQRT(-minusomegasq(m)) ! Stable mode.
+      omega(n) = dsqrt(-minusomegasq(m)) ! Stable mode.
     endif
     pol_vec(:,n) = dyn_mat(:,m)
-    m=m-1
   enddo
 end subroutine
 
@@ -768,9 +781,8 @@ end subroutine
 ! Write out the real part of the non-mass-reduced polarisation vector, which
 ! is the pattern of displacement corresponding to the normal mode.
 ! ----------------------------------------------------------------------
-function evaluate_freqs_on_grid(structure,structure_sc,force_constants,    &
-   & freq_grids_filename,disp_patterns_filename,     &
-   & kdisp_patterns_filename,pol_vec_filename) result(output)
+function evaluate_freqs_on_grid(structure,structure_sc,force_constants) &
+   & result(output)
   use constants, only : pi
   use utils,     only : reduce_interval
   use string_module
@@ -782,22 +794,9 @@ function evaluate_freqs_on_grid(structure,structure_sc,force_constants,    &
   type(StructureData), intent(in) :: structure
   type(StructureData), intent(in) :: structure_sc
   real(dp),            intent(in) :: force_constants(:,:,:)
-  
-  ! File names
-  type(String), intent(in) :: freq_grids_filename
-  type(String), intent(in) :: disp_patterns_filename
-  type(String), intent(in) :: kdisp_patterns_filename
-  type(String), intent(in) :: pol_vec_filename
-  type(LteReturn)          :: output
-  
-  ! File units
-  integer :: freq_grids_file
-  integer :: disp_patterns_file
-  integer :: kdisp_patterns_file
-  integer :: pol_vec_file
+  type(LteReturn)                 :: output
   
   integer :: i,ig,index1,index2,p,n,atom1
-  logical :: soft_modes
   real(dp) :: GdotR
   real(dp) :: disp_pattern(3)
   real(dp) :: kdisp_pattern(3)
@@ -822,12 +821,14 @@ function evaluate_freqs_on_grid(structure,structure_sc,force_constants,    &
   allocate(polarisation_vectors( structure%no_modes, &
                                & structure%no_modes, &
                                & structure_sc%sc_size))
-  call new(output,structure_sc%sc_size,structure%no_modes)
+  call new(output, &
+     & structure_sc%sc_size,structure%no_modes,structure_sc%no_atoms)
   
   ! Transform G-vectors into reciprocal space.
   do i=1,structure_sc%sc_size
     output%dynamical_matrices(:,:,i) = construct_dyn_matrix( &
-       & real(structure_sc%gvectors(:,i),dp),structure,structure_sc,force_constants,delta_prim)
+       & real(structure_sc%gvectors(:,i),dp),                &
+       & structure, structure_sc, force_constants, delta_prim)
     
     call calculate_eigenfreqs_and_vecs( output%dynamical_matrices(:,:,i), &
                                       & omega, &
@@ -836,13 +837,8 @@ function evaluate_freqs_on_grid(structure,structure_sc,force_constants,    &
     polarisation_vectors(:,:,i) = pol_vec
   enddo
   
-  freq_grids_file = open_write_file(freq_grids_filename)
-  disp_patterns_file = open_write_file(disp_patterns_filename)
-  kdisp_patterns_file = open_write_file(kdisp_patterns_filename)
-  pol_vec_file = open_write_file(pol_vec_filename)
-
   ! Evaluate the frequencies at each supercell G vector.
-  soft_modes=.false.
+  output%soft_modes=.false.
   do ig=1,structure_sc%sc_size
     output%frequencies(:,ig) = &
        & frequencies(:,min(ig,structure_sc%paired_gvec(ig)))
@@ -859,50 +855,21 @@ function evaluate_freqs_on_grid(structure,structure_sc,force_constants,    &
          & structure_sc%gvectors(:,p))*2*pi/structure_sc%sc_size
       expiGdotR(p) = cmplx(cos(gdotr),sin(gdotr),dp) ! Store exp(iG.R_p).
     enddo
-
+    
     do index2=1,structure%no_modes
-      
-      if(omega(index2)<-tol_omega)then
-        soft_modes=.TRUE.
+      if (omega(index2)<-tol_omega) then
+        output%soft_modes(index2,ig) = .true.
       endif
-      
-      call print_line(freq_grids_file, omega(index2)//' '//1.0_dp)
       
       ! Compute the non-mass-reduced polarisation vector.
       do n=1,structure%no_atoms
         do i=1,3
           index1 = (n-1)*3 + i
-          non_mr_pol_vec(i,n) = pol_vec(index2,index1) &
+          non_mr_pol_vec(i,n) = pol_vec(index1,index2) &
                             & / dsqrt(structure%mass(n))
-          kpol_vec(i,n)=pol_vec(index2,index1)
+          kpol_vec(i,n)=pol_vec(index1,index2)
         enddo
       enddo
-      
-      if (omega(index2) < -tol_omega) then
-        call print_line( disp_patterns_file, &
-                       & 'Frequency : '//omega(index2)//' (SOFT)')
-        call print_line( kdisp_patterns_file, &
-                       & 'Frequency : '//omega(index2)//' (SOFT)')
-        call print_line( pol_vec_file,                             &
-                       & 'Mode number : '//index2// &
-                       & ' Frequency : '//omega(index2)//' (SOFT)')
-      else
-        call print_line(disp_patterns_file, 'Frequency : '//omega(index2))
-        call print_line(kdisp_patterns_file, 'Frequency : '//omega(index2))
-        call print_line(pol_vec_file, 'Mode number : '//index2// &
-                                    & ' Frequency : '//omega(index2))
-      endif
-      
-      call print_line(disp_patterns_file,'G-vector '//ig)
-      call print_line( disp_patterns_file, &
-                     & 'Displacement pattern for each atom:')
-      
-      call print_line(kdisp_patterns_file,'G-vector '//ig)
-      call print_line( kdisp_patterns_file, &
-                     & 'Displacement pattern for each atom:')
-      
-      call print_line(pol_vec_file,'G-vector '//ig)
-      call print_line(pol_vec_file, 'Polarisation vector:')
       
       disp_pattern=0.0_dp
       kdisp_pattern=0.0_dp
@@ -939,17 +906,12 @@ function evaluate_freqs_on_grid(structure,structure_sc,force_constants,    &
         
         tot_disp_patt = tot_disp_patt + norm2(disp_pattern)
         
-        call print_line(disp_patterns_file, disp_pattern//' '//prefactor)
-        call print_line(kdisp_patterns_file, kdisp_pattern//' '//prefactor)
-        call print_line(pol_vec_file, &
-           & real(non_mr_pol_vec(:,structure_sc%atom_to_prim(atom1))))
-        call print_line(pol_vec_file, &
-           & aimag(non_mr_pol_vec(:,structure_sc%atom_to_prim(atom1))))
+        output%prefactors(atom1,index2,ig) = prefactor
+        output%displacement_patterns(:,atom1,index2,ig) = disp_pattern
+        output%k_displacement_patterns(:,atom1,index2,ig) = kdisp_pattern
+        output%polarisation_vectors(:,atom1,index2,ig) = &
+           & non_mr_pol_vec(:,structure_sc%atom_to_prim(atom1))
       enddo
-      
-      call print_line(disp_patterns_file,'')
-      call print_line(kdisp_patterns_file,'')
-      call print_line(pol_vec_file,'')
     enddo
     
     if(tot_disp_patt<1.d-8)then
@@ -959,12 +921,6 @@ function evaluate_freqs_on_grid(structure,structure_sc,force_constants,    &
       call err()
     endif
   enddo
-
-  close(freq_grids_file)
-  close(disp_patterns_file)
-  close(kdisp_patterns_file)
-  close(pol_vec_file)
-  
 end function
 
 ! ----------------------------------------------------------------------

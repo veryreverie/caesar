@@ -390,9 +390,12 @@ subroutine lte_harmonic()
   integer               :: no_kspace_lines
   real(dp), allocatable :: disp_kpoints(:,:)
   
-  ! Dynamical matrix data
+  ! Lte output data
   type(LteReturn)          :: lte_result
   complex(dp), allocatable :: ibz_dynamical_matrices(:,:,:)
+  integer                  :: displacement_pattern_file
+  integer                  :: mode
+  integer                  :: atom
   
   ! Temporary variables
   integer                   :: i,j
@@ -433,18 +436,12 @@ subroutine lte_harmonic()
     kpoints(:,i) = int(line(1:3))
     multiplicity(i) = int(line(4))
     sc_ids(i) = int(line(5))
-    gvector_ids = int(line(6))
+    gvector_ids(i) = int(line(6))
   enddo
   
   ! ----------------------------------------------------------------------
   ! Make directories
   ! ----------------------------------------------------------------------
-  call mkdir('lte')
-  do i=1,no_sc
-    sdir = 'Supercell_'//i
-    call mkdir(sdir//'/lte')
-  enddo
-  
   allocate(ibz_dynamical_matrices( structure%no_modes, &
                                  & structure%no_modes, &
                                  & no_kpoints))
@@ -469,20 +466,26 @@ subroutine lte_harmonic()
     
     lte_result = evaluate_freqs_on_grid( structure,                       &
                                        & structure_sc,                    &
-                                       & force_constants,                 &
-                                       & sdir//'/lte/freq_grids.dat',     &
-                                       & sdir//'/lte/disp_patterns.dat',  &
-                                       & sdir//'/lte/kdisp_patterns.dat', &
-                                       & sdir//'/lte/pol_vec.dat')
+                                       & force_constants)
     
     deallocate(force_constants)
     
-    if (file_exists(sdir//'/lte/error.txt')) then
-      call print_line('There is an error in lte: check '&
-         & //sdir//'/lte/error.txt.')
-      call err()
-    endif
+    ! Write out displacement patterns.
+    do j=1,structure_sc%sc_size
+      displacement_pattern_file = open_write_file( &
+         & sdir//'/displacement_patterns.gvector_'//j//'.dat')
+      do mode=1,structure%no_modes
+        call print_line(displacement_pattern_file,'Mode : '//mode)
+        do atom=1,structure_sc%no_atoms
+          call print_line(displacement_pattern_file, &
+             & lte_result%displacement_patterns(:,atom,mode,j))
+        enddo
+        call print_line(displacement_pattern_file,'')
+      enddo
+      close(displacement_pattern_file)
+    enddo
     
+    ! Move dynamical matrices into ibz_dynamical matrices.
     do j=1,no_kpoints
       if (sc_ids(j)/=i) then
         cycle
@@ -504,17 +507,19 @@ subroutine lte_harmonic()
   
   ! Read in primitive symmetry group.
   symmetry_group = read_group_file(str('Supercell_1/symmetry_group.dat'))
-  call fourier_interpolation(                  &
-     & ibz_dynamical_matrices,                 &
-     & structure,                              &
-     & grid,                                   &
-     & temperature,                            &
-     & kpoints,                                &
-     & disp_kpoints,                           &
-     & symmetry_group,                         &
-     & str('lte/phonon_dispersion_curve.dat'), &
-     & str('lte/high_symmetry_points.dat'),    &
-     & str('lte/free_energy.dat'),             &
-     & str('lte/freq_dos.dat'))
+  
+  call print_line('Running fourier interpolation (this may take some time).')
+  call fourier_interpolation(              &
+     & ibz_dynamical_matrices,             &
+     & structure,                          &
+     & grid,                               &
+     & temperature,                        &
+     & kpoints,                            &
+     & disp_kpoints,                       &
+     & symmetry_group,                     &
+     & str('phonon_dispersion_curve.dat'), &
+     & str('high_symmetry_points.dat'),    &
+     & str('free_energy.dat'),             &
+     & str('freq_dos.dat'))
 end subroutine
 end module
