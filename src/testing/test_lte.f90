@@ -11,8 +11,8 @@ subroutine test_lte()
   use lte_module
   use fourier_interpolation_module
   use unique_directions_module
-  
-  use lte_harmonic_module, only : calculate_force_constants
+  use displacement_patterns_module
+  use lte_harmonic_module
   implicit none
   
   ! Directories and files.
@@ -72,6 +72,9 @@ subroutine test_lte()
   integer                   :: delta_gvec(3)
   real(dp)                  :: arg
   complex(dp)               :: phase
+  
+  ! Displacement pattern variables.
+  type(DispPatterns) :: old_displacement_patterns
   
   ! Fourier interpolation data.
   integer               :: no_kspace_lines
@@ -397,13 +400,15 @@ subroutine test_lte()
               ! Correct by relative phase if old lte misordered atoms.
               delta_gvec = structure_sc%gvectors(:,gvec_1p) &
                        & - structure_sc%gvectors(:,gvec_2p)
-              arg = dot_product( structure_sc%gvectors(:,j), &
-                &                delta_gvec)                 &
-                & * 2*pi/structure_sc%sc_size
+              arg = dot_product(matmul( &
+                 & delta_gvec, &
+                 & structure_sc%recip_supercell), &
+                 & structure_sc%gvectors(:,j)) &
+                 & *2*pi/structure_sc%sc_size
               phase = cmplx(cos(arg),sin(arg),dp)
               
-              if ( abs(new_element-old_element*phase) > 1.0e-8_dp .and. &
-                 & abs(new_element-old_element/phase) > 1.0e-8_dp ) then
+              if ( abs(new_element-old_element*phase) > 1.0e-9_dp .and. &
+                 & abs(new_element-old_element/phase) > 1.0e-9_dp ) then
                 call print_line('')
                 call print_line('Dynamical matrices disagree.')
                 call print_line('Supercell '//i)
@@ -424,6 +429,24 @@ subroutine test_lte()
     
     ! Check that displacement patterns are the same.
     call print_line('Checking displacement patterns.')
+    old_displacement_patterns = read_disp_patterns_file( &
+       & sdir//'/old_lte/disp_patterns.dat',             &
+       & structure%no_modes)
+    do j=1,structure_sc%sc_size
+      do mode_1=1,structure%no_modes
+        if (abs( old_displacement_patterns%frequencies(mode_1,j) &
+               & - lte_result%frequencies(mode_1,j)*eV) > 1.0e-8_dp) then
+          call print_line('Frequencies are different.')
+          call print_line('G-vector      : '//j)
+          call print_line('Mode          : '//mode_1)
+          call print_line('Old frequency : '// &
+             & old_displacement_patterns%frequencies(mode_1,j))
+          call print_line('New frequency : '// &
+             & lte_result%frequencies(mode_1,j)*eV)
+          call err()
+        endif
+      enddo
+    enddo
     
     deallocate(atom)
     

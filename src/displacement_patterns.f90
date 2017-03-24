@@ -21,6 +21,7 @@ module displacement_patterns_module
   type DispPatterns
     real(dp), allocatable :: frequencies(:,:)
     real(dp), allocatable :: disp_patterns(:,:,:,:)
+    real(dp), allocatable :: prefactors(:,:,:)
   end type
   
   interface new
@@ -38,7 +39,7 @@ module displacement_patterns_module
 
 contains
 
-subroutine new_DispPatterns(this,no_modes,no_gvectors,no_atoms)
+subroutine new_DispPatterns(this,no_gvectors,no_modes,no_atoms)
   implicit none
   
   type(DispPatterns), intent(out) :: this
@@ -47,7 +48,8 @@ subroutine new_DispPatterns(this,no_modes,no_gvectors,no_atoms)
   integer,            intent(in)  :: no_atoms
   
   allocate(this%frequencies(no_modes,no_gvectors))
-  allocate(this%disp_patterns(6,no_atoms,no_modes,no_gvectors))
+  allocate(this%disp_patterns(3,no_atoms,no_modes,no_gvectors))
+  allocate(this%prefactors(no_atoms,no_modes,no_gvectors))
 end subroutine
 
 subroutine drop_DispPatterns(this)
@@ -57,6 +59,7 @@ subroutine drop_DispPatterns(this)
   
   deallocate(this%frequencies)
   deallocate(this%disp_patterns)
+  deallocate(this%prefactors)
 end subroutine
 
 function read_disp_patterns_file_character(filename,no_modes) result(this)
@@ -79,32 +82,35 @@ function read_disp_patterns_file_character(filename,no_modes) result(this)
   type(String), allocatable :: line(:)
   
   ! Temporary variables
-  integer        :: i, j, k
+  integer :: i,j,k
+  integer :: line_no
   
   disp_patterns_file = read_lines(filename)
   
   ! Find no_atoms and no_gvectors
   do i=1,size(disp_patterns_file)
     line = split(lower_case(disp_patterns_file(i)))
-    if (i/=1 .and. line(1)=="frequency") then
-      lines_per_mode = i-1
-      no_atoms = lines_per_mode-4
-      no_gvectors = size(disp_patterns_file)/(no_modes*lines_per_mode)
-      exit
+    if (size(line)>=1) then
+      if (i/=1 .and. line(1)=="frequency") then
+        lines_per_mode = i-1
+        no_atoms = lines_per_mode-4
+        no_gvectors = size(disp_patterns_file)/(no_modes*lines_per_mode)
+        exit
+      endif
     endif
   enddo
   
-  call new(this,no_atoms,no_modes,no_gvectors)
+  call new(this,no_gvectors,no_modes,no_atoms)
   
   do i=1,no_gvectors
     do j=1,no_modes
-      line = split(disp_patterns_file(((i-1)*no_modes+(j-1))*(no_atoms+4)+1))
+      line_no = ( (i-1)*no_modes + (j-1) )*(no_atoms+4) + 1
+      line = split(disp_patterns_file(line_no))
       this%frequencies(j,i) = dble(line(3))
       do k=1,no_atoms
-        line = split(disp_patterns_file(   ((i-1)*no_modes+(j-1)) &
-                                       & * (no_atoms+4) &
-                                       & + k + 3))
-        this%disp_patterns(:,k,j,i) = dble(line)
+        line = split(disp_patterns_file(line_no + 2 + k))
+        this%disp_patterns(:,k,j,i) = dble(line(1:3))
+        this%prefactors(k,j,i) = dble(line(4))
       enddo
     enddo
   enddo

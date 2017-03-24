@@ -587,8 +587,11 @@ subroutine fourier_interpolation(dyn_mats_ibz,structure,grid,temperature,kpoints
   ! --------------------------------------------------
   allocate(min_im_cell_pos(structure_sc%sc_size))
   do i=1,structure_sc%sc_size
-    gvec_cart = matmul(transpose(structure%lattice),structure_sc%gvectors(:,i))
-    min_im_cell_pos(i) = min_images_brute_force(gvec_cart,structure_sc)
+   ! gvec_cart = matmul(transpose(structure%lattice),structure_sc%gvectors(:,i))
+   ! min_im_cell_pos(i) = min_images_brute_force(gvec_cart,structure_sc)
+   gvec_cart = matmul(structure_sc%recip_supercell,structure_sc%gvectors(:,i))&
+           & / real(structure_sc%sc_size,dp)
+   min_im_cell_pos(i) = min_images_brute_force(gvec_cart, structure_sc)
   enddo
   
   ! --------------------------------------------------

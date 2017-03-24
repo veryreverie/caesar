@@ -46,10 +46,10 @@ function size_MinImages(this) result(output)
   output = size(this%images,2)
 end function
 
-! Compute the minimum image vector(s) b of vector a with respect to the 
-! lattice specified by the columns of lat_vec. rec_vec are the reciprocal 
-! lattice vectors (w/o 2pi). -b is the vector from a to its closest lattice 
-! point.  nim is the number of image vectors.
+! Computes the minimum distance of the vector 'a' modulo the lattice vectors
+!    of the supplied structure.
+! Returns multiple vectors if they have similar lengths.
+! 'a' and outputs are given in fractional lattice co-ordinates.
 function min_images_brute_force(a,structure) result(output)
   use constants,      only : dp
   use linear_algebra, only : invert
@@ -72,19 +72,19 @@ function min_images_brute_force(a,structure) result(output)
   ! Number of "shells" of lattice points to check.  Only used in setup, so
   ! may as well overkill.
   integer,parameter :: check_shell=3
-  real(dp),parameter :: tol=1.d-8
+  real(dp),parameter :: tol=1.0e-8_dp
   ! Maximum number of images
   integer, parameter :: maxim = 8
   
   tol_L2 = tol*dot_product(structure%lattice(:,1),structure%lattice(:,1))
-  n = floor(matmul(structure%recip_lattice,a))
+  n = floor(a)
   
   nim = 0
   mag_b_sq = -1.0_dp
   do i=n(1)-check_shell,n(1)+check_shell+1
     do j=n(2)-check_shell,n(2)+check_shell+1
       do k=n(3)-check_shell,n(3)+check_shell+1
-        delta = a-matmul(transpose(structure%lattice),(/i,j,k/))
+        delta = matmul(transpose(structure%lattice), a-(/i,j,k/))
         dist2 = dot_product(delta,delta)
         if(nim/=0 .and. abs(dist2-mag_b_sq)<=tol_L2)then
           nim = nim+1
@@ -92,11 +92,11 @@ function min_images_brute_force(a,structure) result(output)
             call print_line('Error: min_images_brute_force: maxim too small.')
             call err()
           endif
-          b(:,nim) = delta
+          b(:,nim) = a-(/i,j,k/)
         elseif(dist2<mag_b_sq.or.nim==0)then
           mag_b_sq = dist2
           nim = 1
-          b(:,1) = delta
+          b(:,1) = a-(/i,j,k/)
         endif
       enddo
     enddo
