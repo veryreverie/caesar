@@ -51,7 +51,7 @@ harmonic_programs=(group calculate_symmetry_group unique_directions construct_su
 
 quadratic_programs=(mapping calculate_anharmonic calculate_gap quadratic_spline vscf_1d anharmonic bs_quadratic setup_quadratic)
 
-testing_programs=(atom_mapping test_copy_harmonic test_lte)
+testing_programs=(atom_mapping test_copy_harmonic test_lte test_copy_quadratic)
 
 # compile err.o
 if [ "$cf90" = "gfortran" ]; then

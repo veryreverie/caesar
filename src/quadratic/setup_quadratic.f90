@@ -36,16 +36,22 @@ subroutine setup_quadratic()
   
   ! Harmonic supercell file contents
   type(StructureData), allocatable :: structure_scs(:)
-  type(DispPatterns),  allocatable :: disp_patterns(:)
   
-  ! List data
+  ! Mode frequencies and displacement patterns.
+  type(String), allocatable :: frequency_file(:)
+  type(String), allocatable :: prefactors_file(:)
+  type(String), allocatable :: displacements_file(:)
+  real(dp),     allocatable :: frequencies(:)
+  real(dp),     allocatable :: prefactors(:,:)
+  real(dp),     allocatable :: displacements(:,:,:)
+  
+  ! K-point data
   integer              :: no_kpoints
   integer, allocatable :: sc_ids(:)
   integer, allocatable :: gvectors(:)
   
   ! Working variables
-  real(dp)            :: frequency
-  type(StructureData) :: structure_mode
+  type(StructureData) :: structure_sc
   real(dp)            :: occupation
   real(dp)            :: quad_amplitude
   real(dp)            :: amplitude
@@ -56,12 +62,12 @@ subroutine setup_quadratic()
   type(String)   :: filename
   type(String)   :: sdir
   type(String)   :: mdir
-  character(100) :: dump
+  type(String), allocatable :: line(:)
   
-  ! File units
+  ! Files
+  type(String), allocatable :: ibz_file(:)
+  type(String), allocatable :: no_sc_file(:)
   integer :: user_input_file
-  integer :: no_sc_file
-  integer :: list_file
   
   ! ------------------------------------------------------------
   ! Get user inputs
@@ -114,31 +120,25 @@ subroutine setup_quadratic()
   structure = read_structure_file(harmonic_path//'/structure.dat')
   
   ! Read in number of supercells
-  no_sc_file = open_read_file(harmonic_path//'/no_sc.dat')
-  read(no_sc_file,*) no_sc
-  close(no_sc_file)
+  no_sc_file = read_lines(harmonic_path//'/no_sc.dat')
+  no_sc = int(no_sc_file(1))
+  
+  ! Read in supercell structures.
+  allocate(structure_scs(no_sc))
+  do i=1,no_sc
+    filename = harmonic_path//'/Supercell_'//i//'/structure.dat'
+    structure_scs(i) = read_structure_file(filename)
+  enddo
   
   ! Read in kpoint data
-  no_kpoints = count_lines(harmonic_path//'/list.dat')
+  ibz_file = read_lines(harmonic_path//'/ibz.dat')
+  no_kpoints = size(ibz_file)
   allocate(sc_ids(no_kpoints))
   allocate(gvectors(no_kpoints))
-  list_file = open_read_file(harmonic_path//'/list.dat')
   do i=1,no_kpoints
-    read(list_file,*) dump,dump,dump,dump, sc_ids(i), gvectors(i)
-  enddo
-  close(list_file)
-  
-  ! ------------------------------------------------------------
-  ! Read in supercell structure and disp_patterns files
-  ! ------------------------------------------------------------
-  allocate(structure_scs(no_sc))
-  allocate(disp_patterns(no_sc))
-  do i=1,no_sc
-    filename = harmonic_path//'/Structure_'//i//'/structure.dat'
-    structure_scs(i) = read_structure_file(filename)
-    
-    filename = harmonic_path//'/Structure_'//i//'/lte/disp_patterns.dat'
-    disp_patterns(i) = read_disp_patterns_file(filename, structure%no_modes)
+    line = split(ibz_file(i))
+    sc_ids(i) = int(line(5))
+    gvectors(i) = int(line(6))
   enddo
   
   ! ------------------------------------------------------------
@@ -150,12 +150,7 @@ subroutine setup_quadratic()
   enddo
   
   do i=1,no_kpoints
-    call mkdir('kpoint.'//i)
-    do j=1,structure%no_modes
-      do k=mapping%first,mapping%last
-        call mkdir('kpoint.'//i//'/mode.'//j//'.'//k)
-      enddo
-    enddo
+    call mkdir('kpoint_'//i)
   enddo
   
   ! ------------------------------------------------------------
@@ -163,7 +158,7 @@ subroutine setup_quadratic()
   ! ------------------------------------------------------------
   do i=1,no_sc
     sdir = 'Supercell_'//i
-    if (dft_code=="caesar") then
+    if (dft_code=="castep") then
       call structure_to_dft(                                      &
          & dft_code           = dft_code,                         &
          & structure_sc       = structure_scs(i),                 &
@@ -200,16 +195,51 @@ subroutine setup_quadratic()
   ! Generate quadratic configurations
   ! ------------------------------------------------------------
   do i=1,no_kpoints
+    structure_sc = structure_scs(sc_ids(i))
+    
+    ! Read in frequencies, prefactors and displacements.
+    frequency_file = read_lines( &
+       & harmonic_path//'/frequencies.kpoint_'//i//'.dat')
+    allocate(frequencies(structure%no_modes))
     do j=1,structure%no_modes
+      frequencies(j) = dble(frequency_file(j))
+    enddo
+    
+    prefactors_file = read_lines( &
+       & harmonic_path//'/prefactors.kpoint_'//i//'.dat')
+    allocate(prefactors(structure_sc%no_atoms,structure%no_modes))
+    do j=1,structure%no_modes
+      do k=1,structure_sc%no_atoms
+        prefactors(k,j) = &
+           & dble(prefactors_file((j-1)*(structure_sc%no_atoms+2)+k+1))
+      enddo
+    enddo
+    
+    displacements_file = read_lines( &
+       & harmonic_path//'/displacements.kpoint_'//i//'.dat')
+    allocate(displacements(3,structure_sc%no_atoms,structure%no_modes))
+    do j=1,structure%no_modes
+      do k=1,structure_sc%no_atoms
+        line = split(displacements_file((j-1)*(structure_sc%no_atoms+2)+k+1))
+        displacements(:,k,j) = dble(line)
+      enddo
+    enddo
+    
+    do j=1,structure%no_modes
+      ! Skip acoustic modes.
+      if (frequencies(j)<=frequency_tol) then
+        cycle
+      endif
+      
+      call mkdir('kpoint_'//i//'/mode_'//j)
+      
       do k=mapping%first,mapping%last
-        
-        frequency = disp_patterns(sc_ids(i))%frequencies(j,gvectors(i))
-        
-        ! Skip acoustic modes and equilibrium configurations
-        if (frequency<=frequency_tol .or. k==0) cycle
-        
-        ! Copy structure data
-        structure_mode = structure_scs(sc_ids(i))
+        ! Skip equilibrium configurations
+        if (k==0) then
+          cycle
+        endif
+    
+        call mkdir('kpoint_'//i//'/mode_'//j//'/amplitude_'//k)
         
         ! Calculate quad_amplitude
         ! The normal mode amplitudes to sample are calculated
@@ -218,51 +248,49 @@ subroutine setup_quadratic()
           !   with units of 1/(E_h)
           occupation = 0.d0
         else
-          occupation = 1.d0/(dexp(frequency/thermal_energy)-1.d0)
+          occupation = 1.d0/(dexp(frequencies(j)/thermal_energy)-1.d0)
         endif
-        quad_amplitude = dsqrt((occupation+0.5d0)/frequency)
+        quad_amplitude = dsqrt((occupation+0.5d0)/frequencies(j))
         
         ! Calculate amplitude
         amplitude = mapping%max*k*quad_amplitude*2.d0/mapping%count
         
         ! Calculate new positions
-        do l=1,structure_mode%no_atoms
-          disp = amplitude                                                   &
-             & * disp_patterns(sc_ids(i))%disp_patterns(1:3,l,j,gvectors(i)) &
-             & * disp_patterns(sc_ids(i))%disp_patterns(4:6,l,j,gvectors(i))
-          structure_mode%atoms(:,l) = structure_mode%atoms(:,l) + disp
+        do l=1,structure_sc%no_atoms
+          disp = amplitude * displacements(:,l,j) * prefactors(l,j)
+          structure_sc%atoms(:,l) = structure_sc%atoms(:,l) + disp
         enddo
         
         ! Write dft input files
         sdir = 'Supercell_'//sc_ids(i)
-        mdir = 'kpoint.'//i//'/mode.'//j//'.'//k
+        mdir = 'kpoint_'//i//'/mode_'//j//'/amplitude_'//k
         
         if (dft_code=="castep") then
           call structure_to_dft(                                     &
              & dft_code          = dft_code,                         &
-             & structure_sc      = structure_mode,                   &
+             & structure_sc      = structure_sc,                     &
              & input_filename    = dft_code//'/'//seedname//'.cell', &
              & path_filename     = dft_code//'/path.dat',            &
              & structure         = structure,                        &
              & output_filename   = mdir//'/'//seedname//'.cell')
         elseif (dft_code=="vasp") then
-          call structure_to_dft(                 &
-             & dft_code        = dft_code,       &
-             & structure_sc    = structure_mode, &
+          call structure_to_dft(               &
+             & dft_code        = dft_code,     &
+             & structure_sc    = structure_sc, &
              & output_filename = mdir//'/POSCAR.'//j//'.'//k)
         elseif (dft_code=="qe") then
           call structure_to_dft(                                  &
              & dft_code         = dft_code,                       &
-             & structure_sc     = structure_mode,                 &
+             & structure_sc     = structure_sc,                   &
              & input_filename   = dft_code//'/'//seedname//'.in', &
              & pseudo_filename  = dft_code//'/pseudo.in',         &
              & kpoints_filename = dft_code//'/kpoints.in',        &
              & structure        = structure,                      &
              & output_filename  = mdir//'/'//seedname//'.in')
           if (file_exists(dft_code//'/'//seedname_nscf//'.in')) then
-            call structure_to_dft(                                      &
+            call structure_to_dft(                                       &
                & dft_code         = dft_code,                            &
-               & structure_sc     = structure_mode,                      &
+               & structure_sc     = structure_sc,                        &
                & input_filename   = dft_code//'/'//seedname_nscf//'.in', &
                & pseudo_filename  = dft_code//'/pseudo.in',              &
                & kpoints_filename = dft_code//'/kpoints.nscf.in',        &
@@ -272,6 +300,10 @@ subroutine setup_quadratic()
         endif
       enddo
     enddo
+    
+    deallocate(frequencies)
+    deallocate(prefactors)
+    deallocate(displacements)
   enddo
   
   ! ------------------------------------------------------------

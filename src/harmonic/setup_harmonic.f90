@@ -56,12 +56,12 @@ subroutine setup_harmonic(caesar_dir)
   integer        :: i,j,k,l
   type(String)   :: filename
   
-  type(String), allocatable :: contents(:)
+  type(String), allocatable :: grid_file(:)
+  type(String), allocatable :: user_input_file_in(:)
   
   ! File units
-  integer :: user_input_file
+  integer :: user_input_file_out
   integer :: ibz_file
-  integer :: grid_file
   integer :: no_supercells_file
   
   ! ----------------------------------------------------------------------
@@ -70,9 +70,9 @@ subroutine setup_harmonic(caesar_dir)
   
   if (file_exists('user_input.txt')) then
     ! Get dft code and seedname from file
-    contents = read_lines('user_input.txt')
-    dft_code = contents(1)
-    seedname = contents(2)
+    user_input_file_in = read_lines('user_input.txt')
+    dft_code = user_input_file_in(1)
+    seedname = user_input_file_in(2)
   else
     ! Get dft code from command line
     call print_line('')
@@ -115,17 +115,16 @@ subroutine setup_harmonic(caesar_dir)
   structure = read_structure_file('structure.dat')
   
   ! Read grid file
-  grid_file = open_read_file('grid.dat')
-  read(grid_file,*) grid
-  close(grid_file)
+  grid_file = read_lines('grid.dat')
+  grid = int(split(grid_file(1)))
   
   ! ----------------------------------------------------------------------
   ! Write user settings to file
   ! ----------------------------------------------------------------------
-  user_input_file = open_write_file('user_input.txt')
-  call print_line(user_input_file,dft_code)
-  call print_line(user_input_file,seedname)
-  close(user_input_file)
+  user_input_file_out = open_write_file('user_input.txt')
+  call print_line(user_input_file_out,dft_code)
+  call print_line(user_input_file_out,seedname)
+  close(user_input_file_out)
   
   ! ----------------------------------------------------------------------
   ! Add symmetries to structure.dat if not already present.

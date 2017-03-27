@@ -277,7 +277,7 @@ end subroutine minkowski_reduce
 
 function generate_supercells(structure,grid) result(output)
   use constants,      only : dp
-  use utils,          only : reduce_interval, reduce_to_ibz
+  use utils,          only : reduce_to_ibz
   use linear_algebra, only : invert_int
   use string_module
   use file_module

@@ -135,7 +135,6 @@ function run_quadratic {
     line=($fline)
     kpoint=${line[0]}
     sc_id=${line[2]}
-    kdir=kpoint.$kpoint
     
     # Skip kpoints in other supercells
     if ["$sc_id" -ge "$first_sc"] && ["$sc_id" -le "$last_sc"]; then
@@ -143,7 +142,7 @@ function run_quadratic {
       for j in `seq 1 $no_modes`; do
         # Loop over sampling points
         for k in `seq $sampling_point_init $sampling_point_final`; do
-          mdir=$kdir/mode.$j.$k
+          mdir=kpoint_$kpoint/mode_$j/amplitude_$k
           # Check that dft needs to be run
           if [ -e "$mdir/structure.dat" ]; then
             # Run dft

@@ -27,7 +27,6 @@
 
 module lte_module
   use constants, only : dp, kB_au_per_K
-  use utils,     only : i2s, errstop
   use file_module
   implicit none
   
@@ -37,8 +36,8 @@ module lte_module
     real(dp),    allocatable :: frequencies(:,:)
     logical,     allocatable :: soft_modes(:,:)
     real(dp),    allocatable :: prefactors(:,:,:)
-    real(dp),    allocatable :: displacement_patterns(:,:,:,:)
-    real(dp),    allocatable :: k_displacement_patterns(:,:,:,:)
+    real(dp),    allocatable :: displacements(:,:,:,:)
+    real(dp),    allocatable :: k_displacements(:,:,:,:)
     complex(dp), allocatable :: polarisation_vectors(:,:,:,:)
   end type
   
@@ -64,8 +63,8 @@ subroutine new_LteReturn(this,sc_size,no_modes,no_atoms)
   allocate(this%frequencies(no_modes,sc_size))
   allocate(this%soft_modes(no_modes,sc_size))
   allocate(this%prefactors(no_atoms,no_modes,sc_size))
-  allocate(this%displacement_patterns(3,no_atoms,no_modes,sc_size))
-  allocate(this%k_displacement_patterns(3,no_atoms,no_modes,sc_size))
+  allocate(this%displacements(3,no_atoms,no_modes,sc_size))
+  allocate(this%k_displacements(3,no_atoms,no_modes,sc_size))
   allocate(this%polarisation_vectors(3,no_atoms,no_modes,sc_size))
 end subroutine
 
@@ -77,8 +76,8 @@ subroutine drop_LteReturn(this)
   deallocate(this%dynamical_matrices)
   deallocate(this%frequencies)
   deallocate(this%prefactors)
-  deallocate(this%displacement_patterns)
-  deallocate(this%k_displacement_patterns)
+  deallocate(this%displacements)
+  deallocate(this%k_displacements)
   deallocate(this%polarisation_vectors)
 end subroutine
 
@@ -270,23 +269,29 @@ end function
 
 ! ----------------------------------------------------------------------
 ! This function returns the mean free energy of an isolated harmonic
-! oscillator of frequency omega (in a.u.).  T is the temperature in Kelvin.
+! oscillator of frequency omega (in a.u.). Temperature is in Kelvin.
 ! ----------------------------------------------------------------------
-real(dp) function harmonic_free_energy(T,omega)
+function harmonic_free_energy(temperature,omega) result(output)
   IMPLICIT NONE
-  real(dp),INTENT(in) :: T,omega
-  real(dp) :: difference,kT
-  if(T<=0.d0)then
+  
+  real(dp), intent(in) :: temperature
+  real(dp), intent(in) :: omega
+  real(dp)             :: output
+  
+  real(dp) :: difference
+  real(dp) :: kT
+  
+  if(temperature<=0.0_dp)then
     ! Zero-point energy.
-    harmonic_free_energy=0.5d0*omega
+    output=0.5_dp*omega
   else
-    kT=kB_au_per_K*T
-    difference=1.d0-EXP(-omega/kT)
-    if(difference>0.d0)then
-      harmonic_free_energy=0.5d0*omega+kT*LOG(difference)
+    kT = kB_au_per_K*temperature
+    difference = 1.0_dp-dexp(-omega/kT)
+    if (difference>0.0_dp) then
+      output = 0.5_dp*omega + kT*dlog(difference)
     else
       ! High-temperature limit.
-      harmonic_free_energy=-HUGE(0.d0)
+      output = -huge(0.0_dp)
     endif
   endif
 end function
@@ -303,6 +308,7 @@ subroutine calculate_freq_dos(structure,structure_sc,force_constants, &
   use string_module
   use structure_module
   use min_images_module
+  use err_module
   implicit none
   
   type(StructureData),   intent(in)  :: structure
@@ -353,22 +359,24 @@ subroutine calculate_freq_dos(structure,structure_sc,force_constants, &
   if(soft_modes_prelim)write(*,*)'WARNING: soft modes present.'
   write(*,*)'In preliminary sampling, largest frequency is : ',max_freq
   write(*,*)'and lowest frequency is                       : ',min_freq
-  if(max_freq<=0)call errstop('CALCULATE_FREQ_DOS','The crystal lattice is &
-    &pathologically unstable.')
+  if (max_freq <= 0) then
+    call print_line('The crystal lattice is pathologically unstable.')
+    call err()
+  endif
+  
   bin_width=safety_factor*max_freq/DBLE(max_bin)
   rec_bin_width=1.d0/bin_width
+  
+  call print_line('Number of random k vectors                    : '// &
+     & no_samples)
+  call print_line('Number of frequency bins                      : '// &
+     & max_bin+1)
+  call print_line('Frequency bin width                           : '// &
+     & bin_width)
+  call print_line('Number of DoS sets (for computing error bars) : '// &
+     & no_fdos_sets)
 
-  write(*,*)'Number of random k vectors                    : ' &
-    &//TRIM(i2s(no_samples))
-  write(*,*)'Number of frequency bins                      : ' &
-    &//TRIM(i2s(max_bin+1))
-  write(*,*)'Frequency bin width                           : ',bin_width
-  write(*,*)'Number of DoS sets (for computing error bars) : ' &
-    &//TRIM(i2s(no_fdos_sets))
-
-  allocate(freq_dos(0:max_bin,1:no_fdos_sets),stat=ialloc)
-  if(ialloc/=0)call errstop('CALCULATE_FREQ_DOS','Allocation error: &
-    &freq_dos.')
+  allocate(freq_dos(0:max_bin,1:no_fdos_sets),stat=ialloc); call err(ialloc)
   freq_dos(0:max_bin,1:no_fdos_sets)=0.d0
   soft_modes=.FALSE.
 
@@ -383,10 +391,12 @@ subroutine calculate_freq_dos(structure,structure_sc,force_constants, &
       do n=1,structure%no_modes
         if(omega(n)>0.d0)then ! Only bin positive frequencies.
           bin=MAX(0,FLOOR(rec_bin_width*omega(n)))
-          if(bin>max_bin)call errstop('CALCULATE_FREQ_DOS', &
-            &'Have encountered a frequency too high to be binned.  Try &
-            &increasing the no_samples_trial or safety_factor parameters &
-            &in the code.')
+          if (bin>max_bin) then
+            call print_line('Have encountered a frequency too high to be     &
+               &binned. Try increasing the no_samples_trial or safety_factor &
+               &parameters in the code.')
+            call err()
+          endif
           freq_dos(bin,j)=freq_dos(bin,j)+1.d0
         endif ! positive frequency.
       enddo ! n
@@ -522,6 +532,7 @@ subroutine generate_disp_curve(structure,structure_sc,no_kspace_lines, &
   use string_module
   use structure_module
   use min_images_module
+  use err_module
   implicit none
   
   type(StructureData), intent(in) :: structure
@@ -547,16 +558,15 @@ subroutine generate_disp_curve(structure,structure_sc,no_kspace_lines, &
   complex(dp), allocatable :: pol_vec(:,:)
 
   write(*,*)
-  write(*,*)'Number of k points per line in k space : ' &
-    &//TRIM(i2s(no_kpoints_per_line))
+  call print_line('Number of k points per line in k space : '// &
+     & no_kpoints_per_line)
   write(*,*)
 
   ! Total number of k points at which the dispersion curve is to be calc'd.
   total_no_kpoints=no_kspace_lines*no_kpoints_per_line
-  allocate(disp_k_dist(total_no_kpoints), &
-    &branch(structure%no_modes,total_no_kpoints),stat=ialloc)
-  if(ialloc/=0)call errstop('GENERATE_DISP_CURVE','Allocation error: &
-    &disp_k_dist, etc.')
+  allocate( disp_k_dist(total_no_kpoints), &
+          & branch(structure%no_modes,total_no_kpoints), &
+          & stat=ialloc); call err(ialloc)
 
   ! The step-size in all but the last line is |k_stop-k_start|/no_steps,
   ! so that k_stop is not included in that line (because k_stop is the
@@ -624,6 +634,7 @@ subroutine calculate_speed_sound(structure,structure_sc, &
   use rand_no_gen, only : ranx
   use structure_module
   use min_images_module
+  use err_module
   implicit none
   
   type(StructureData), intent(in) :: structure
@@ -645,9 +656,11 @@ subroutine calculate_speed_sound(structure,structure_sc, &
   real(dp) :: small_k_scale
   real(dp) :: kmag
 
-  if(structure%no_atoms/=1)call errstop('CALCULATE_SPEED_SOUND', &
-    &'At the moment this program can only work out the speed of sound in &
-    &materials with a single atom per primitive cell.  Sorry about that.')
+  if (structure%no_atoms/=1) then
+    call print_line('At the moment this program can only work out the speed &
+       &of sound in materials with a single atom per primitive cell.')
+    call err()
+  endif
   
   ! "Small" distance in k space, determined by size of supercell.
   ! Factor of 2pi included.
@@ -681,7 +694,8 @@ subroutine calculate_speed_sound(structure,structure_sc, &
         & structure_sc,force_constants,delta_prim)
       call calculate_eigenfreqs_and_vecs(dynamical_matrix, &
          & omega,pol_vec)
-      if(ANY(omega<0.d0))then
+      
+      if (any(omega<0.0_dp)) then
         write(*,*)'Imaginary frequencies found.'
         write(*,*)'In terms of the primitive reciprocal lattice vectors, &
           &the k-point is:'
@@ -690,9 +704,10 @@ subroutine calculate_speed_sound(structure,structure_sc, &
                  & dot_product(kvec,structure%lattice(3,:))
         write(*,*)'The frequencies are:'
         write(*,*)omega
-        call errstop('CALCULATE_SPEED_SOUND','Cannot calculate speed of &
-          &sound for unstable lattices.')
-      endif ! Soft modes.
+        call print_line('Cannot calculate speed of sound for unstable &
+           &lattices.')
+        call err()
+      endif
 
       ! Speed of sound corresponding to first three (acoustic) branches.
       c(1:3)=omega(1:3)/kmag
@@ -784,7 +799,6 @@ end subroutine
 function evaluate_freqs_on_grid(structure,structure_sc,force_constants) &
    & result(output)
   use constants, only : pi
-  use utils,     only : reduce_interval
   use string_module
   use structure_module
   use err_module
@@ -907,8 +921,8 @@ function evaluate_freqs_on_grid(structure,structure_sc,force_constants) &
         tot_disp_patt = tot_disp_patt + norm2(disp_pattern)
         
         output%prefactors(atom1,index2,ig) = prefactor
-        output%displacement_patterns(:,atom1,index2,ig) = disp_pattern
-        output%k_displacement_patterns(:,atom1,index2,ig) = kdisp_pattern
+        output%displacements(:,atom1,index2,ig) = disp_pattern
+        output%k_displacements(:,atom1,index2,ig) = kdisp_pattern
         output%polarisation_vectors(:,atom1,index2,ig) = &
            & non_mr_pol_vec(:,structure_sc%atom_to_prim(atom1))
       enddo
@@ -985,10 +999,10 @@ subroutine lte_1(structure,structure_sc,force_constants, &
    & temperature,freq_dos_filename, &
    & tdependence1_filename,tdependence2_filename)
   use constants, only : dp
-  use utils,     only : errstop
   use string_module
   use structure_module
   use min_images_module
+  use err_module
   implicit none
   
   ! ----------------------------------------
@@ -1017,10 +1031,15 @@ subroutine lte_1(structure,structure_sc,force_constants, &
   delta_prim = calculate_delta_prim(structure,structure_sc)
 
   write(*,*)'Temperature (K)                    :',temperature
-  if(temperature<0.d0)call errstop('READ_LTE', &
-    &'Temperature should be non-negative.')
-  if(temperature<=0.d0)write(*,*)'(i.e. the zero-point energy is to be &
-    &calculated.)'
+  if (temperature<0.0_dp) then
+    call print_line('Temperature should be non-negative.')
+    call err()
+  endif
+  
+  if (temperature<=0.0_dp) then
+    write(*,*)'(i.e. the zero-point energy is to be calculated.)'
+  endif
+  
   write(*,*)
 
   write(*,*)'The mean thermal energy and the free energy will &
@@ -1043,10 +1062,10 @@ subroutine lte_2(structure,structure_sc,force_constants, &
    & no_kspace_lines,disp_kpoints, &
    & dispersion_curve_filename)
   use constants, only : dp
-  use utils,     only : errstop
   use string_module
   use structure_module
   use min_images_module
+  use err_module
   implicit none
   
   ! ----------------------------------------
@@ -1072,10 +1091,14 @@ subroutine lte_2(structure,structure_sc,force_constants, &
   
   delta_prim = calculate_delta_prim(structure,structure_sc)
 
-  write(*,*)'Number of lines in k-space to plot     : ' &
-    &//TRIM(i2s(no_kspace_lines))
-  if(no_kspace_lines<1)call errstop('READ_LTE', &
-    &'Need to supply more lines in k-space!')
+  call print_line('Number of lines in k-space to plot     : '// &
+     & no_kspace_lines)
+  
+  if (no_kspace_lines<1) then
+    call print_line('Need to supply more lines in k-space!')
+    call err()
+  endif
+  
   write(*,*)'Points along walk in reciprocal space &
     &(Cartesian components in a.u.):'
   do i=0,no_kspace_lines
@@ -1095,7 +1118,6 @@ end subroutine
 
 subroutine lte_3(structure,structure_sc,force_constants)
   use constants, only : dp
-  use utils,     only : errstop
   use string_module
   use structure_module
   use min_images_module

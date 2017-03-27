@@ -60,7 +60,6 @@ subroutine bs_quadratic()
   type(String)   :: filename
   integer        :: configs(2)
   integer        :: config
-  character(100) :: dump
   
   ! calculate_bs variables
   real(dp)              :: renormalised_band
@@ -69,11 +68,12 @@ subroutine bs_quadratic()
   real(dp)              :: temperature
   
   ! File contents
-  type(String), allocatable :: user_inputs(:)
+  type(String), allocatable :: user_input_file(:)
+  type(String), allocatable :: no_sc_file(:)
+  type(String), allocatable :: ibz_file(:)
+  type(String), allocatable :: line(:)
   
   ! File units
-  integer :: no_sc_file
-  integer :: list_file
   integer :: bgc_file
   integer :: bck_file
   
@@ -94,29 +94,29 @@ subroutine bs_quadratic()
   ! --------------------------------------------------
   ! Read basic data
   ! --------------------------------------------------
-  user_inputs = read_lines('user_input.txt')
-  dft_code = user_inputs(1)
-  seedname = user_inputs(2)
-  harmonic_path = user_inputs(3)
+  user_input_file = read_lines('user_input.txt')
+  dft_code = user_input_file(1)
+  seedname = user_input_file(2)
+  harmonic_path = user_input_file(3)
   
-  no_sc_file = open_read_file('no_sc.dat')
-  read(no_sc_file,*) no_sc
-  close(no_sc_file)
+  no_sc_file = read_lines('no_sc.dat')
+  no_sc = int(no_sc_file(1))
   
   mapping = read_mapping_file('mapping.dat')
   
   structure = read_structure_file(harmonic_path//'/structure.dat')
   
-  filename = harmonic_path//'/list.dat'
-  no_kpoints = count_lines(filename)
+  ibz_file = read_lines(harmonic_path//'/ibz.dat')
+  no_kpoints = size(ibz_file)
   allocate(multiplicity(no_kpoints))
   allocate(sc_ids(no_kpoints))
   allocate(gvectors(no_kpoints))
-  list_file = open_read_file(filename)
   do i=1,no_kpoints
-    read(list_file,*) dump,dump,dump,multiplicity(i),sc_ids(i),gvectors(i)
+    line = split(ibz_file(i))
+    multiplicity(i) = int(line(4))
+    sc_ids(i) = int(line(5))
+    gvectors(i) = int(line(6))
   enddo
-  close(list_file)
   
   call mkdir('bs')
   

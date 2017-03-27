@@ -1,13 +1,14 @@
 module mapping_module
+  use constants, only : dp
   implicit none
   
   ! holds the contents of mapping.dat, and a few derived quantities
   type MappingData
-    integer :: max
-    integer :: first
-    integer :: last
-    integer :: count
-    integer :: mid
+    real(dp) :: max
+    integer  :: first
+    integer  :: last
+    integer  :: count
+    integer  :: mid
   end type
   
   interface read_mapping_file
@@ -19,17 +20,21 @@ contains
 
 ! reads a file ('mapping.dat'), and returns a MappingData
 function read_mapping_file_character(filename) result(this)
+  use string_module
   use file_module
   implicit none
   
   character(*), intent(in) :: filename
   type(MappingData)        :: this
   
-  integer :: mapping_file
+  type(String), allocatable :: mapping_file(:)
+  type(String), allocatable :: line(:)
   
-  mapping_file = open_read_file(filename)
-  read(mapping_file,*) this%max
-  read(mapping_file,*) this%first, this%last
+  mapping_file = read_lines(filename)
+  this%max = dble(mapping_file(1))
+  line = split(mapping_file(2))
+  this%first = int(line(1))
+  this%last = int(line(2))
   this%count = this%last-this%first+1
   this%mid = (this%count-1)/2+1
 end function

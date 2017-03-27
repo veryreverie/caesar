@@ -79,33 +79,28 @@ subroutine anharmonic()
   ! Temporary variables
   ! ----------------------------------------
   integer               :: i,j,k
-  character(100)        :: dump
   
   ! ----------------------------------------
-  ! File contents
+  ! Files.
   ! ----------------------------------------
-  type(String), allocatable :: user_inputs(:)
-  
-  ! ----------------------------------------
-  ! File units
-  ! ----------------------------------------
-  integer :: no_sc_file
-  integer :: list_file
+  type(String), allocatable :: user_input_file(:)
+  type(String), allocatable :: no_sc_file(:)
+  type(String), allocatable :: ibz_file(:)
   integer :: result_file
+  type(String), allocatable :: line(:)
   
   ! ----------------------------------------
   ! Read in data
   ! ----------------------------------------
   ! Read in previous user inputs
-  user_inputs = read_lines('user_input.txt')
-  dft_code = user_inputs(1)
-  seedname = user_inputs(2)
-  harmonic_path = user_inputs(3)
+  user_input_file = read_lines('user_input.txt')
+  dft_code = user_input_file(1)
+  seedname = user_input_file(2)
+  harmonic_path = user_input_file(3)
   
   ! read the number of Supercell_* directories into no_supercells
-  no_sc_file = open_read_file(harmonic_path//'/no_sc.dat')
-  read(no_sc_file,*) no_supercells
-  close(no_sc_file)
+  no_sc_file = read_lines(harmonic_path//'/no_sc.dat')
+  no_supercells = int(no_sc_file(1))
   
   ! allocate arrays of size no_supercells
   allocate(sc_acoustic(no_supercells))
@@ -123,15 +118,17 @@ subroutine anharmonic()
   enddo
   
   ! Read kpoints
-  no_kpoints = count_lines(harmonic_path//'/list.dat')
+  ibz_file = read_lines(harmonic_path//'/ibz.dat')
+  no_kpoints = size(ibz_file)
   allocate(multiplicity(no_kpoints))
-  allocate(gvectors(no_kpoints))
   allocate(sc_ids(no_kpoints))
-  list_file = open_read_file(harmonic_path//'/list.dat')
+  allocate(gvectors(no_kpoints))
   do i=1,no_kpoints
-    read(list_file,*) dump,dump,dump,multiplicity(i),sc_ids(i),gvectors(i)
+    line = split(ibz_file(i))
+    multiplicity(i) = int(line(4))
+    sc_ids(i) = int(line(5))
+    gvectors(i) = int(line(6))
   enddo
-  close(list_file)
   
   ! Read supercell structures
   allocate(structure_scs(no_supercells))

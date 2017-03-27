@@ -393,6 +393,8 @@ subroutine lte_harmonic()
   ! Lte output data
   type(LteReturn)          :: lte_result
   complex(dp), allocatable :: ibz_dynamical_matrices(:,:,:)
+  integer                  :: frequencies_file
+  integer                  :: prefactors_file
   integer                  :: displacement_pattern_file
   integer                  :: mode
   integer                  :: atom
@@ -470,29 +472,47 @@ subroutine lte_harmonic()
     
     deallocate(force_constants)
     
-    ! Write out displacement patterns.
-    do j=1,structure_sc%sc_size
-      displacement_pattern_file = open_write_file( &
-         & sdir//'/displacement_patterns.gvector_'//j//'.dat')
-      do mode=1,structure%no_modes
-        call print_line(displacement_pattern_file,'Mode : '//mode)
-        do atom=1,structure_sc%no_atoms
-          call print_line(displacement_pattern_file, &
-             & lte_result%displacement_patterns(:,atom,mode,j))
-        enddo
-        call print_line(displacement_pattern_file,'')
-      enddo
-      close(displacement_pattern_file)
-    enddo
-    
-    ! Move dynamical matrices into ibz_dynamical matrices.
     do j=1,no_kpoints
       if (sc_ids(j)/=i) then
         cycle
       endif
       
+      ! Move dynamical matrices into ibz_dynamical matrices.
       ibz_dynamical_matrices(:,:,j) = &
          & lte_result%dynamical_matrices(:,:,gvector_ids(j))
+    
+      ! Write out frequencies.
+      frequencies_file = open_write_file( &
+         & 'frequencies.kpoint_'//j//'.dat')
+      do mode=1,structure%no_modes
+        call print_line(frequencies_file, &
+           & lte_result%frequencies(mode,gvector_ids(j)))
+      enddo
+      
+      ! Write out prefactors.
+      prefactors_file = open_write_file( &
+         & 'prefactors.kpoint_'//j//'.dat')
+      do mode=1,structure%no_modes
+        call print_line(prefactors_file,'Mode : '//mode)
+        do atom=1,structure_sc%no_atoms
+          call print_line(prefactors_file, &
+             & lte_result%prefactors(atom,mode,gvector_ids(j)))
+        enddo
+        call print_line(prefactors_file,'')
+      enddo
+      
+      ! Write out displacement patterns.
+      displacement_pattern_file = open_write_file( &
+         & 'displacements.kpoint_'//j//'.dat')
+      do mode=1,structure%no_modes
+        call print_line(displacement_pattern_file,'Mode : '//mode)
+        do atom=1,structure_sc%no_atoms
+          call print_line(displacement_pattern_file, &
+             & lte_result%displacements(:,atom,mode,gvector_ids(j)))
+        enddo
+        call print_line(displacement_pattern_file,'')
+      enddo
+      close(displacement_pattern_file)
     enddo
   enddo
   
@@ -508,18 +528,18 @@ subroutine lte_harmonic()
   ! Read in primitive symmetry group.
   symmetry_group = read_group_file(str('Supercell_1/symmetry_group.dat'))
   
-  call print_line('Running fourier interpolation (this may take some time).')
-  call fourier_interpolation(              &
-     & ibz_dynamical_matrices,             &
-     & structure,                          &
-     & grid,                               &
-     & temperature,                        &
-     & kpoints,                            &
-     & disp_kpoints,                       &
-     & symmetry_group,                     &
-     & str('phonon_dispersion_curve.dat'), &
-     & str('high_symmetry_points.dat'),    &
-     & str('free_energy.dat'),             &
-     & str('freq_dos.dat'))
+!  call print_line('Running fourier interpolation (this may take some time).')
+!  call fourier_interpolation(              &
+!     & ibz_dynamical_matrices,             &
+!     & structure,                          &
+!     & grid,                               &
+!     & temperature,                        &
+!     & kpoints,                            &
+!     & disp_kpoints,                       &
+!     & symmetry_group,                     &
+!     & str('phonon_dispersion_curve.dat'), &
+!     & str('high_symmetry_points.dat'),    &
+!     & str('free_energy.dat'),             &
+!     & str('freq_dos.dat'))
 end subroutine
 end module

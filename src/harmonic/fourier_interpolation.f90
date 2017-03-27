@@ -54,63 +54,6 @@ function calculate_kpoint_symmetry_group(structure,structure_sc,grid) &
 end function
 
 ! ----------------------------------------------------------------------
-! Read in dynamical matrices at each k-point in the IBZ.
-! ----------------------------------------------------------------------
-function read_dyn_mats(structure,sc_ids,gvector_ids,dyn_mat_fileroot) &
-   & result(dyn_mats_ibz)
-  use file_module
-  use string_module
-  use structure_module
-  implicit none
-  
-  type(StructureData), intent(in) :: structure
-  integer,             intent(in) :: sc_ids(:)
-  integer,             intent(in) :: gvector_ids(:)
-  type(String),        intent(in) :: dyn_mat_fileroot
-  complex(dp), allocatable        :: dyn_mats_ibz(:,:,:,:,:)
-  
-  ! File information.
-  type(String)              :: filename
-  type(String), allocatable :: contents(:)
-  type(String), allocatable :: line(:)
-  
-  ! Temporary variables
-  integer :: i
-  integer :: no_kpoints
-  integer :: line_no
-  
-  integer :: atom_1,atom_2,j,k
-  
-  no_kpoints = size(sc_ids)
-  
-  allocate(dyn_mats_ibz(3,3,structure%no_atoms,structure%no_atoms,no_kpoints))
-  dyn_mats_ibz = cmplx(0.0_dp,0.0_dp,dp)
-  
-  ! Loop across k-points
-  do i=1,no_kpoints
-    ! Construct the relevant filename, and read the file.
-    filename = 'Supercell_'//sc_ids(i)//'/'// &
-             & dyn_mat_fileroot//gvector_ids(i)//'.dat'
-    contents = read_lines(filename)
-    
-    ! Read elements into dyn_mats_ibz
-    line_no = 1
-    do atom_1=1,structure%no_atoms
-      do j=1,3
-        do atom_2=1,structure%no_atoms
-          do k=1,3
-            line = split(contents(line_no))
-            dyn_mats_ibz(j,k,atom_2,atom_1,i) = &
-               & cmplx( dble(line(5)), dble(line(6)), dp)
-            line_no = line_no + 1
-          enddo
-        enddo
-      enddo
-    enddo
-  enddo
-end function
-
-! ----------------------------------------------------------------------
 ! Construct the dynamical matrix at an arbitrary wave vector, taking into
 ! account all minimum image primitive cells in the supercell. 
 ! ----------------------------------------------------------------------
@@ -274,6 +217,7 @@ end subroutine
 
 subroutine generate_dos(structure,structure_sc,min_im_cell_pos, &
    & force_consts,temperature,free_energy_filename,freq_dos_filename)
+  use lte_module, only : harmonic_free_energy
   use string_module
   use file_module
   use structure_module
@@ -380,33 +324,11 @@ subroutine generate_dos(structure,structure_sc,min_im_cell_pos, &
   if(soft_modes)write(*,*)'Soft modes present.'
 end subroutine
 
-real(dp) function harmonic_free_energy(temperature,omega)
-  implicit none
-  
-  REAL(dp),PARAMETER :: tol=1.d-8
-  REAL(dp),PARAMETER :: kB_au_per_K=3.16679002948702D-006
-  REAL(dp),INTENT(in) :: temperature,omega
-  REAL(dp) :: difference,kT
-  
-  if(temperature<tol)then
-    harmonic_free_energy=0.5d0*omega
-  else
-    kT=kB_au_per_K*temperature
-    difference=1.d0-exp(-omega/kT)
-    if(difference>0.d0)then
-      harmonic_free_energy=0.5d0*omega+kT*log(difference)
-    else
-      harmonic_free_energy=-huge(0.d0)
-    endif
-  endif
-end function
-
 subroutine fourier_interpolation(dyn_mats_ibz,structure,grid,temperature,kpoints, &
    & path,atom_symmetry_group,   &
    & phonon_dispersion_curve_filename,high_symmetry_points_filename,        &
    & free_energy_filename,freq_dos_filename)
   use constants, only : dp
-  use utils,     only : reduce_interval
   use linear_algebra
   use file_module
   use structure_module
@@ -483,11 +405,6 @@ subroutine fourier_interpolation(dyn_mats_ibz,structure,grid,temperature,kpoints
   kpoint_symmetry_group = calculate_kpoint_symmetry_group( structure,    &
                                                          & structure_sc, &
                                                          & grid)
-  
-  ! --------------------------------------------------
-  ! Read in the dynamical matrix at each k-point in the IBZ
-  ! --------------------------------------------------
-  !dyn_mats_ibz = read_dyn_mats(structure,sc_ids,gvector_ids,dyn_mat_fileroot)
   
   ! --------------------------------------------------
   ! Use symmetries to construct all dynamical matrices
