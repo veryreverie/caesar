@@ -7,7 +7,7 @@ contains
 ! ----------------------------------------------------------------------
 function calculate_force_constants(structure,structure_sc,symmetry_group, &
    & unique_directions,sdir,dft_code,seedname) result(output)
-  use constants,      only : dp, eV_per_A_to_au
+  use constants,      only : dp, eV_per_A_to_au, directions
   use utils,          only : mkdir
   use linear_algebra, only : invert
   use file_module
@@ -15,7 +15,6 @@ function calculate_force_constants(structure,structure_sc,symmetry_group, &
   use structure_module
   use dft_output_file_module
   use lte_module
-  use fourier_interpolation_module
   use supercell_module
   use unique_directions_module
   use group_module
@@ -348,7 +347,6 @@ subroutine lte_harmonic()
   use structure_module
   use dft_output_file_module
   use lte_module
-  use fourier_interpolation_module
   use supercell_module
   use unique_directions_module
   use group_module

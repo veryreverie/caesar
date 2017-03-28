@@ -1,6 +1,7 @@
 module test_lte_module
 contains
 subroutine test_lte()
+  use constants, only : eV, pi
   use utils, only : mkdir
   use err_module
   use string_module
@@ -9,7 +10,6 @@ subroutine test_lte()
   use group_module
   use atom_mapping_module
   use lte_module
-  use fourier_interpolation_module
   use unique_directions_module
   use displacement_patterns_module
   use lte_harmonic_module
