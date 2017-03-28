@@ -1,7 +1,8 @@
 module test_copy_harmonic_module
 contains
-subroutine test_copy_harmonic()
+subroutine test_copy_harmonic(wd,cwd)
   use constants, only : directions
+  use utils,     only : format_directory
   use string_module
   use file_module
   use structure_module
@@ -10,6 +11,10 @@ subroutine test_copy_harmonic()
   use group_module
   use atom_mapping_module
   implicit none
+  
+  ! Current working directory.
+  type(String), intent(in) :: wd
+  type(String), intent(in) :: cwd
   
   ! Terminal inputs.
   type(String) :: copy_dir
@@ -53,16 +58,16 @@ subroutine test_copy_harmonic()
   call print_line('   and copy over dft output files.')
   call print_line('')
   call print_line('Where is the harmonic directory for comparison?')
-  copy_dir = read_line_from_user()
+  copy_dir = format_directory(read_line_from_user(),cwd)
   
   ! ----------------------------------------------------------------------
   ! Read in previous settings.
   ! ----------------------------------------------------------------------
-  user_inputs_file = read_lines('user_input.txt')
+  user_inputs_file = read_lines(wd//'/user_input.txt')
   dft_code = user_inputs_file(1)
   seedname = user_inputs_file(2)
   
-  no_supercells_file = read_lines('no_sc.dat')
+  no_supercells_file = read_lines(wd//'/no_sc.dat')
   no_supercells = int(no_supercells_file(1))
   
   ! ----------------------------------------------------------------------
@@ -71,7 +76,7 @@ subroutine test_copy_harmonic()
   do i=1,no_supercells
     call print_line('')
     call print_line('Supercell '//i//':')
-    sdir = 'Supercell_'//i
+    sdir = wd//'/Supercell_'//i
     
     ! Read in both structure files.
     structure_copy = read_structure_file(copy_dir//'/'//sdir//'/structure.dat')

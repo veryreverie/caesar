@@ -33,7 +33,7 @@ cflags="$cflags -O0"              # Turn off optimisation.
 cflags="$cflags -W -Wall -Wextra" # Turn on compiler warnings.
 cflags="$cflags -pedantic"        # Turn on pedantic mode.
 cflags="$cflags -J${mdir}/"       # Set .mod files to exist in mod/.
-cflags="$cflags -fmax-errors=1"   # Make compilation stop on first error.
+#cflags="$cflags -fmax-errors=1"   # Make compilation stop on first error.
 cflags="$cflags -fcheck=all"      # Turn on run-time checks.
 cflags="$cflags -Wno-array-temporaries" # Turn off temp array warning.
 #cflags="$cflags -ffpe-trap=invalid,zero,overflow,underflow,denormal"

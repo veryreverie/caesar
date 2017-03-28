@@ -21,6 +21,7 @@ program caesar
   ! use testing modules
   use test_copy_harmonic_module
   use test_lte_module
+  use test_copy_quadratic_module
   
   ! use misc modules
   use calculate_gap_module
@@ -29,18 +30,32 @@ program caesar
   
   implicit none
   
-  ! Command line arguments
+  ! Command line arguments.
   type(String), allocatable :: args(:)
+  type(String)              :: source_dir
+  type(String)              :: cwd
+  type(String)              :: mode
   
-  ! read in command line arguments
+  ! Working directory.
+  type(String) :: wd
+  
+  ! read in command line arguments.
   args = command_line_args()
   
-  if (size(args) == 1) then
+  if (size(args) < 3) then
     call print_line('No arguments given. For help, call caesar -h')
     call err()
   endif
   
-  if (args(2) == '-h' .or. args(2) == '--help') then
+  source_dir = args(1)
+  cwd = args(2)
+  mode = args(3)
+  
+  ! For now, the working directory is always the current working directory.
+  ! TODO: add options to change this.
+  wd = cwd
+  
+  if (mode == '-h' .or. mode == '--help') then
     call print_line('caesar [-h] [option]')
     call print_line('')
     call print_line('-h :')
@@ -83,34 +98,36 @@ program caesar
     call print_line('  calculate_gap')
     call print_line('    [Help text pending]')
   ! Wrappers for top-level Fortran.
-  elseif (args(2) == 'setup_harmonic') then
-    call setup_harmonic(args(1))
-  elseif (args(2) == 'lte_harmonic') then
-    call lte_harmonic()
-  elseif (args(2) == 'setup_quadratic') then
-    call setup_quadratic()
-  elseif (args(2) == 'anharmonic') then
-    call anharmonic()
-  elseif (args(2) == 'bs_quadratic') then
-    call bs_quadratic()
+  elseif (mode == 'setup_harmonic') then
+    call setup_harmonic(wd,source_dir)
+  elseif (mode == 'lte_harmonic') then
+    call lte_harmonic(wd)
+  elseif (mode == 'setup_quadratic') then
+    call setup_quadratic(wd,cwd)
+  elseif (mode == 'anharmonic') then
+    call anharmonic(wd)
+  elseif (mode == 'bs_quadratic') then
+    call bs_quadratic(wd)
   ! Wrappers for subsidiary Fortran 
-  elseif (args(2) == 'calculate_gap') then
+  elseif (mode == 'calculate_gap') then
     call calculate_gap()
-  elseif (args(2) == 'hartree_to_eV') then
+  elseif (mode == 'hartree_to_eV') then
     call hartree_to_eV()
-  elseif (args(2) == 'structure_to_dft') then
-    call structure_to_dft( dft_code=args(3),              &
-                         & structure_sc_filename=args(4), &
-                         & output_filename=args(5))
-  elseif (args(2) == 'calculate_symmetry_helper') then
-    call calculate_symmetry_helper(args(3),args(4))
+  elseif (mode == 'structure_to_dft') then
+    call structure_to_dft( dft_code=args(4),              &
+                         & structure_sc_filename=args(5), &
+                         & output_filename=args(6))
+  elseif (mode == 'calculate_symmetry_helper') then
+    call calculate_symmetry_helper(args(4),args(5))
   ! Wrappers for testing modules
-  elseif (args(2) == 'test_copy_harmonic') then
-    call test_copy_harmonic()
-  elseif (args(2) == 'test_lte') then
-    call test_lte()
+  elseif (mode == 'test_copy_harmonic') then
+    call test_copy_harmonic(wd,cwd)
+  elseif (mode == 'test_lte') then
+    call test_lte(wd,cwd)
+  elseif (mode == 'test_copy_quadratic') then
+    call test_copy_quadratic(wd,cwd)
   ! unrecognised argument
   else
-    call print_line(char('Unrecognised argument : '//args(2)))
+    call print_line(char('Unrecognised argument : '//mode))
   endif
 end program

@@ -5,7 +5,7 @@ contains
 ! ----------------------------------------------------------------------
 ! Program to calculate quadratic band gap correction
 ! ----------------------------------------------------------------------
-subroutine bs_quadratic()
+subroutine bs_quadratic(wd)
   use constants, only : dp, kB
   use utils,     only : mkdir
   use mapping_module
@@ -13,67 +13,67 @@ subroutine bs_quadratic()
   use structure_module
   use file_module
   use bands_module
-  use displacement_patterns_module
   use supercell_module
   implicit none
   
-  ! Parameters
-  real(dp), parameter :: dtemperature = 50.0d0
+  ! Working directory.
+  type(String), intent(in) :: wd
   
-  ! User input variables
+  ! Parameters.
+  real(dp), parameter :: dtemperature = 50.0_dp
+  
+  ! User input variables.
   integer :: kpoint
   integer :: band
   integer :: degeneracy
   
-  ! Previous user inputs
+  ! Previous user inputs.
   type(String) :: dft_code      ! The dft code name (castep,vasp,qe)
   type(String) :: seedname      ! The dft input file seedname
   type(String) :: harmonic_path ! The path to the harmonic directory
   
-  ! Starting data
+  ! Starting data.
   integer              :: no_sc
   integer              :: no_kpoints
   type(MappingData)                 :: mapping
   type(StructureData)               :: structure
   type(StructureData), allocatable  :: structure_scs(:)
-  type(DispPatterns)                :: disp_patterns
   
-  ! Band data
-  type(BandsData)       :: bands
-  real(dp)              :: band_energy
-  real(dp), allocatable :: frequencies(:,:)
-  real(dp), allocatable :: bs(:,:)
+  ! Band data.
+  type(BandsData)           :: bands
+  real(dp)                  :: band_energy
+  type(String), allocatable :: frequencies_file(:)
+  real(dp), allocatable     :: frequencies(:,:)
+  real(dp), allocatable     :: bs(:,:)
   
-  ! Kpoint data
+  ! Kpoint data.
   integer, allocatable :: sc_ids(:)
   integer, allocatable :: gvectors(:)
-  
   integer, allocatable :: multiplicity(:)
-  
   integer, allocatable :: band_refs(:)
   integer              :: ref
   
-  ! Temporary variables
+  ! Temporary variables.
   integer        :: i,j,k
   type(String)   :: sdir
   type(String)   :: mdir
   type(String)   :: filename
-  integer        :: configs(2)
-  integer        :: config
+  integer        :: amplitudes(2)
+  integer        :: amplitude
   
-  ! calculate_bs variables
+  ! calculate_bs variables.
   real(dp)              :: renormalised_band
   real(dp)              :: renormalised_band_kpoint
   real(dp), allocatable :: deformation(:,:)
   real(dp)              :: temperature
   
-  ! File contents
+  ! File contents.
   type(String), allocatable :: user_input_file(:)
   type(String), allocatable :: no_sc_file(:)
   type(String), allocatable :: ibz_file(:)
   type(String), allocatable :: line(:)
   
-  ! File units
+  ! File units.
   integer :: bgc_file
   integer :: bck_file
   
@@ -94,15 +94,15 @@ subroutine bs_quadratic()
   ! --------------------------------------------------
   ! Read basic data
   ! --------------------------------------------------
-  user_input_file = read_lines('user_input.txt')
+  user_input_file = read_lines(wd//'/user_input.txt')
   dft_code = user_input_file(1)
   seedname = user_input_file(2)
   harmonic_path = user_input_file(3)
   
-  no_sc_file = read_lines('no_sc.dat')
+  no_sc_file = read_lines(wd//'/no_sc.dat')
   no_sc = int(no_sc_file(1))
   
-  mapping = read_mapping_file('mapping.dat')
+  mapping = read_mapping_file(wd//'/mapping.dat')
   
   structure = read_structure_file(harmonic_path//'/structure.dat')
   
@@ -121,15 +121,15 @@ subroutine bs_quadratic()
   call mkdir('bs')
   
   ! Obtain relevant band energy for each supercell
-  filename = 'Supercell_1/static/kpoint.'//kpoint//'.dat'
+  filename = wd//'/Supercell_1/kpoint.'//kpoint//'.dat'
   bands = read_castep_bands_file(filename)
   band_energy = bands%bands(1,1)
   
   allocate(band_refs(no_sc))
   do i=1,no_sc
-    sdir = 'Supercell_'//i
+    sdir = wd//'/Supercell_'//i
     ! Obtain relevant band for each supercell
-    filename = sdir//'/static/kpoint.'//kpoint//'.dat'
+    filename = sdir//'/kpoint.'//kpoint//'.dat'
     bands = read_castep_bands_file(filename)
     band_refs(i) = minloc(abs(bands%bands(:,1)-band_energy),dim=1)
   enddo
@@ -137,28 +137,27 @@ subroutine bs_quadratic()
   ! Read in supercell data
   allocate(structure_scs(no_sc))
   do i=1,size(structure_scs)
-    sdir = 'Supercell_'//i
+    sdir = wd//'/Supercell_'//i
     structure_scs(i) = read_structure_file(sdir//'/structure.dat')
   enddo
-    
-  ! Loop over kpoints
+  
+  ! Loop over K-points
   allocate(frequencies(structure%no_modes,no_kpoints))
   allocate(bs(structure%no_modes,no_kpoints))
   do i=1,no_kpoints
     ! Read frequencies
-    filename = sdir//'/lte/disp_patterns.dat'
-    disp_patterns = read_disp_patterns_file( filename, &
-                                           & structure_scs(sc_ids(i))%no_modes)
-    frequencies(:,i) = disp_patterns%frequencies(:,gvectors(i))
+    frequencies_file = read_lines( &
+       & harmonic_path//'/kpoint_'//i//'/frequencies.dat')
+    frequencies(:,i) = dble(frequencies_file)
     
     ! Read bands
     ref = band_refs(sc_ids(i))
     do j=1,structure%no_modes
-      configs = (/mapping%first,mapping%last/)
+      amplitudes = (/mapping%first,mapping%last/)
       do k=1,2
-        config = configs(k)
-        if (config/=0) then
-          mdir='kpoint.'//kpoint//'/mode.'//j//'.'//config
+        amplitude = amplitudes(k)
+        if (amplitude/=0) then
+          mdir = wd//'/kpoint_'//kpoint//'/mode_'//j//'/amplitude_'//amplitude
           if (file_exists(mdir//'/'//seedname//'.castep')) then
             bands = read_castep_bands_file(mdir//'/'//seedname//'.bands')
             bs(j,i) = bs(j,i)                                  &
@@ -176,8 +175,8 @@ subroutine bs_quadratic()
   deformation = bs/mapping%max**2
   
   ! Calculate quadratic vibrational correction
-  bgc_file = open_write_file('bs/band_gap_correction.dat')
-  bck_file = open_write_file('bs/bg_correction_kp.dat')
+  bgc_file = open_write_file(wd//'/bs/band_gap_correction.dat')
+  bck_file = open_write_file(wd//'/bs/bg_correction_kp.dat')
   do k=0,20  ! loop over temperature
     renormalised_band=0.0
     temperature = k*dtemperature

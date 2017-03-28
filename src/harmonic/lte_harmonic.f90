@@ -338,7 +338,7 @@ function calculate_force_constants(structure,structure_sc,symmetry_group, &
 end function
 
 ! Program to construct and execute LTE
-subroutine lte_harmonic()
+subroutine lte_harmonic(wd)
   use constants,      only : dp
   use utils,          only : mkdir
   use linear_algebra, only : invert
@@ -352,6 +352,9 @@ subroutine lte_harmonic()
   use group_module
   use err_module
   implicit none
+  
+  ! Working directory.
+  type(String), intent(in) :: wd
   
   ! User-input temperature
   real(dp) :: temperature
@@ -411,21 +414,21 @@ subroutine lte_harmonic()
   ! ----------------------------------------------------------------------
   ! Read in initial data
   ! ----------------------------------------------------------------------
-  user_inputs = read_lines('user_input.txt')
+  user_inputs = read_lines(wd//'/user_input.txt')
   dft_code = user_inputs(1)
   seedname = user_inputs(2)
   
-  no_sc_file = read_lines('no_sc.dat')
+  no_sc_file = read_lines(wd//'/no_sc.dat')
   no_sc = int(no_sc_file(1))
   
-  structure = read_structure_file('structure.dat')
+  structure = read_structure_file(wd//'/structure.dat')
   
   ! Read grid file
-  grid_file = read_lines('grid.dat')
+  grid_file = read_lines(wd//'/grid.dat')
   grid = int(split(grid_file(1)))
   
   ! Read kpoints from ibz.dat
-  ibz_file = read_lines('ibz.dat')
+  ibz_file = read_lines(wd//'/ibz.dat')
   no_kpoints = size(ibz_file)
   allocate(kpoints(3,no_kpoints))
   allocate(multiplicity(no_kpoints))
@@ -439,9 +442,6 @@ subroutine lte_harmonic()
     gvector_ids(i) = int(line(6))
   enddo
   
-  ! ----------------------------------------------------------------------
-  ! Make directories
-  ! ----------------------------------------------------------------------
   allocate(ibz_dynamical_matrices( structure%no_modes, &
                                  & structure%no_modes, &
                                  & no_kpoints))
@@ -450,7 +450,7 @@ subroutine lte_harmonic()
   ! Loop over supercells
   ! ----------------------------------------------------------------------
   do i=1,no_sc
-    sdir = 'Supercell_'//i
+    sdir = wd//'/Supercell_'//i
     
     ! Read in supercell structure data.
     structure_sc = read_structure_file(sdir//'/structure.dat')
@@ -478,10 +478,12 @@ subroutine lte_harmonic()
       ! Move dynamical matrices into ibz_dynamical matrices.
       ibz_dynamical_matrices(:,:,j) = &
          & lte_result%dynamical_matrices(:,:,gvector_ids(j))
+      
+      call mkdir(wd//'/kpoint_'//j)
     
       ! Write out frequencies.
       frequencies_file = open_write_file( &
-         & 'frequencies.kpoint_'//j//'.dat')
+         & wd//'/kpoint_'//j//'/frequencies.dat')
       do mode=1,structure%no_modes
         call print_line(frequencies_file, &
            & lte_result%frequencies(mode,gvector_ids(j)))
@@ -489,7 +491,7 @@ subroutine lte_harmonic()
       
       ! Write out prefactors.
       prefactors_file = open_write_file( &
-         & 'prefactors.kpoint_'//j//'.dat')
+         & wd//'/kpoint_'//j//'/prefactors.dat')
       do mode=1,structure%no_modes
         call print_line(prefactors_file,'Mode : '//mode)
         do atom=1,structure_sc%no_atoms
@@ -501,7 +503,7 @@ subroutine lte_harmonic()
       
       ! Write out displacement patterns.
       displacement_pattern_file = open_write_file( &
-         & 'displacements.kpoint_'//j//'.dat')
+         & wd//'/kpoint_'//j//'/displacments.dat')
       do mode=1,structure%no_modes
         call print_line(displacement_pattern_file,'Mode : '//mode)
         do atom=1,structure_sc%no_atoms
@@ -524,20 +526,20 @@ subroutine lte_harmonic()
   disp_kpoints(:,5) = (/ 0.0_dp, 0.5_dp, 0.0_dp /) ! L
   
   ! Read in primitive symmetry group.
-  symmetry_group = read_group_file(str('Supercell_1/symmetry_group.dat'))
+  symmetry_group = read_group_file(wd//'/Supercell_1/symmetry_group.dat')
   
-!  call print_line('Running fourier interpolation (this may take some time).')
-!  call fourier_interpolation(              &
-!     & ibz_dynamical_matrices,             &
-!     & structure,                          &
-!     & grid,                               &
-!     & temperature,                        &
-!     & kpoints,                            &
-!     & disp_kpoints,                       &
-!     & symmetry_group,                     &
-!     & str('phonon_dispersion_curve.dat'), &
-!     & str('high_symmetry_points.dat'),    &
-!     & str('free_energy.dat'),             &
-!     & str('freq_dos.dat'))
+  call print_line('Running fourier interpolation (this may take some time).')
+  call fourier_interpolation(              &
+     & ibz_dynamical_matrices,             &
+     & structure,                          &
+     & grid,                               &
+     & temperature,                        &
+     & kpoints,                            &
+     & disp_kpoints,                       &
+     & symmetry_group,                     &
+     & wd//'/phonon_dispersion_curve.dat', &
+     & wd//'/high_symmetry_points.dat',    &
+     & wd//'/free_energy.dat',             &
+     & wd//'/freq_dos.dat')
 end subroutine
 end module

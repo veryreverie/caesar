@@ -1,11 +1,16 @@
 module test_copy_quadratic_module
 contains
 
-subroutine test_copy_quadratic()
+subroutine test_copy_quadratic(wd,cwd)
+  use utils, only : format_directory
   use string_module
   use file_module
   use err_module
   implicit none
+  
+  ! Working directories.
+  type(String), intent(in) :: wd
+  type(String), intent(in) :: cwd
   
   ! Terminal inputs.
   type(String) :: copy_dir
@@ -33,12 +38,12 @@ subroutine test_copy_quadratic()
   call print_line('   and copy over dft output files.')
   call print_line('')
   call print_line('Where is the quadratic directory for comparison?')
-  copy_dir = read_line_from_user()
+  copy_dir = format_directory(read_line_from_user(),cwd)
   
   ! ----------------------------------------------------------------------
   ! Read in previous settings.
   ! ----------------------------------------------------------------------
-  user_input_file = read_lines('user_input.txt')
+  user_input_file = read_lines(wd//'/user_input.txt')
   dft_code = user_input_file(1)
   seedname = user_input_file(2)
   harmonic_path = user_input_file(3)
@@ -47,7 +52,7 @@ subroutine test_copy_quadratic()
   no_sc = int(no_sc_file(1))
   
   do i=1,no_sc
-    sdir = 'Supercell_'//i
+    sdir = wd//'/Supercell_'//i
     if (dft_code == 'castep') then
       call system( 'cp '// &
          & copy_dir//'/'//sdir//'/static/'//seedname//'.castep '// &

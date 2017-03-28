@@ -6,7 +6,7 @@ contains
 ! Program to set up a generic harmonic calculation to use with LTE
 ! Also converts the generic calculateion to castep vasp or qe
 ! ======================================================================
-subroutine setup_harmonic(caesar_dir)
+subroutine setup_harmonic(wd,source_dir)
   use constants, only : directions
   use utils,     only : mkdir
   use string_module
@@ -23,8 +23,11 @@ subroutine setup_harmonic(caesar_dir)
   use err_module
   implicit none
   
+  ! Working directory.
+  type(String), intent(in) :: wd
+  
   ! The path to caesar
-  type(String), intent(in) :: caesar_dir
+  type(String), intent(in) :: source_dir
   
   ! User input variables
   type(String) :: dft_code
@@ -68,9 +71,9 @@ subroutine setup_harmonic(caesar_dir)
   ! Get settings from user
   ! ----------------------------------------------------------------------
   
-  if (file_exists('user_input.txt')) then
+  if (file_exists(wd//'/user_input.txt')) then
     ! Get dft code and seedname from file
-    user_input_file_in = read_lines('user_input.txt')
+    user_input_file_in = read_lines(wd//'/user_input.txt')
     dft_code = user_input_file_in(1)
     seedname = user_input_file_in(2)
   else
@@ -99,9 +102,9 @@ subroutine setup_harmonic(caesar_dir)
   
   ! Check dft input files exist
   if (dft_code=='castep') then
-    filename = dft_code//'/'//seedname//'.param'
+    filename = wd//'/'//dft_code//'/'//seedname//'.param'
   elseif (dft_code=='qe') then
-    filename = dft_code//'/'//seedname//'.in'
+    filename = wd//'/'//dft_code//'/'//seedname//'.in'
   endif
   
   if (.not. file_exists(filename)) then
@@ -112,16 +115,16 @@ subroutine setup_harmonic(caesar_dir)
   ! ----------------------------------------------------------------------
   ! Read in input files.
   ! ----------------------------------------------------------------------
-  structure = read_structure_file('structure.dat')
+  structure = read_structure_file(wd//'/structure.dat')
   
   ! Read grid file
-  grid_file = read_lines('grid.dat')
+  grid_file = read_lines(wd//'/grid.dat')
   grid = int(split(grid_file(1)))
   
   ! ----------------------------------------------------------------------
   ! Write user settings to file
   ! ----------------------------------------------------------------------
-  user_input_file_out = open_write_file('user_input.txt')
+  user_input_file_out = open_write_file(wd//'/user_input.txt')
   call print_line(user_input_file_out,dft_code)
   call print_line(user_input_file_out,seedname)
   close(user_input_file_out)
@@ -130,10 +133,12 @@ subroutine setup_harmonic(caesar_dir)
   ! Add symmetries to structure.dat if not already present.
   ! ----------------------------------------------------------------------
   if (structure%no_symmetries == 0) then
-    call system(caesar_dir//'/caesar calculate_symmetry structure.dat')
+    call system(source_dir//'/caesar &
+       &calculate_symmetry '//&
+       &wd//'/structure.dat')
     
     ! Re-read in structure file, now with symmetries.
-    structure = read_structure_file('structure.dat')
+    structure = read_structure_file(wd//'/structure.dat')
   endif
   
   ! ----------------------------------------------------------------------
@@ -144,7 +149,7 @@ subroutine setup_harmonic(caesar_dir)
   supercells = supercells_and_ibz%supercells
   
   ! Write IBZ data to file.
-  ibz_file = open_write_file('ibz.dat')
+  ibz_file = open_write_file(wd//'/ibz.dat')
   do i=1,size(supercells_and_ibz%kpoints,2)
     call print_line(ibz_file, supercells_and_ibz%kpoints(:,i)    //' '// &
                             & supercells_and_ibz%multiplicity(i) //' '// &
@@ -155,7 +160,7 @@ subroutine setup_harmonic(caesar_dir)
   
   ! Write no_supercells to file
   no_supercells = size(supercells)
-  no_supercells_file = open_write_file('no_sc.dat')
+  no_supercells_file = open_write_file(wd//'/no_sc.dat')
   call print_line(no_supercells_file,no_supercells)
   close(no_supercells_file)
   
@@ -163,7 +168,7 @@ subroutine setup_harmonic(caesar_dir)
   ! Generate supercell structures.
   ! ----------------------------------------------------------------------
   do i=1,no_supercells
-    sdir='Supercell_'//i
+    sdir=wd//'/Supercell_'//i
     
     call mkdir(sdir)
     
@@ -172,7 +177,7 @@ subroutine setup_harmonic(caesar_dir)
     
     ! Add symmetries to supercell structure.dat
     call write_structure_file(structure_sc, sdir//'/structure.dat')
-    call system(caesar_dir//'/caesar calculate_symmetry '// &
+    call system(source_dir//'/caesar calculate_symmetry '// &
        & sdir//'/structure.dat')
     structure_sc = read_structure_file(sdir//'/structure.dat')
     ! ----------------------------------------------------------------------
@@ -222,10 +227,10 @@ subroutine setup_harmonic(caesar_dir)
             
           ! Write dft input files
           if (dft_code=='castep') then
-            call structure_to_dft(                                   &
-               & dft_code        = dft_code,                         &
-               & structure_sc    = structure_sc,                     &
-               & input_filename  = dft_code//'/'//seedname//'.cell', &
+            call structure_to_dft(                                            &
+               & dft_code        = dft_code,                                  &
+               & structure_sc    = structure_sc,                              &
+               & input_filename  = wd//'/'//dft_code//'/'//seedname//'.cell', &
                & output_filename = paths(l)//'/'//seedname//'.cell')
           elseif (dft_code=='vasp') then
             call structure_to_dft(               &
@@ -233,13 +238,13 @@ subroutine setup_harmonic(caesar_dir)
                & structure_sc    = structure_sc, &
                & output_filename = paths(l)//'/POSCAR')
           elseif (dft_code=='qe') then
-            call structure_to_dft(                                  &
-               & dft_code         = dft_code,                       &
-               & structure_sc     = structure_sc,                   &
-               & input_filename   = dft_code//'/'//seedname//'.in', &
-               & pseudo_filename  = dft_code//'/pseudo.in',         &
-               & kpoints_filename = dft_code//'/kpoints.in',        &
-               & structure        = structure,                      &
+            call structure_to_dft(                                           &
+               & dft_code         = dft_code,                                &
+               & structure_sc     = structure_sc,                            &
+               & input_filename   = wd//'/'//dft_code//'/'//seedname//'.in', &
+               & pseudo_filename  = wd//'/'//dft_code//'/pseudo.in',         &
+               & kpoints_filename = wd//'/'//dft_code//'/kpoints.in',        &
+               & structure        = structure,                               &
                & output_filename  = paths(l)//'/'//seedname//'.in')
           endif
         enddo

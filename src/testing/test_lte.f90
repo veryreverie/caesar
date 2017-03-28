@@ -1,8 +1,8 @@
 module test_lte_module
 contains
-subroutine test_lte()
+subroutine test_lte(wd,cwd)
   use constants, only : eV, pi
-  use utils, only : mkdir
+  use utils,     only : mkdir, format_directory
   use err_module
   use string_module
   use file_module
@@ -14,6 +14,10 @@ subroutine test_lte()
   use displacement_patterns_module
   use lte_harmonic_module
   implicit none
+  
+  ! Working directories.
+  type(String), intent(in) :: wd
+  type(String), intent(in) :: cwd
   
   ! Directories and files.
   type(String)              :: sdir
@@ -107,7 +111,7 @@ subroutine test_lte()
      &calculations.')
   call print_line('')
   call print_line('Where is the harmonic directory for comparison?')
-  copy_dir = read_line_from_user()
+  copy_dir = format_directory(read_line_from_user(),cwd)
   call print_line('')
   
   ! Get temperature from user.
@@ -119,22 +123,22 @@ subroutine test_lte()
   ! Read in initial data.
   ! ----------------------------------------------------------------------
   ! Read in setup data.
-  no_sc_file = read_lines('no_sc.dat')
+  no_sc_file = read_lines(wd//'/no_sc.dat')
   no_sc = int(no_sc_file(1))
   
-  user_input_file = read_lines('user_input.txt')
+  user_input_file = read_lines(wd//'/user_input.txt')
   dft_code = user_input_file(1)
   seedname = user_input_file(2)
   
   ! Read in structure.
-  structure = read_structure_file('structure.dat')
+  structure = read_structure_file(wd//'/structure.dat')
   
   ! Read grid file
-  grid_file = read_lines('grid.dat')
+  grid_file = read_lines(wd//'/grid.dat')
   grid = int(split(grid_file(1)))
   
   ! Read kpoints from ibz.dat
-  ibz_file = read_lines('ibz.dat')
+  ibz_file = read_lines(wd//'/ibz.dat')
   no_kpoints = size(ibz_file)
   allocate(kpoints(3,no_kpoints))
   allocate(multiplicity(no_kpoints))
@@ -156,7 +160,7 @@ subroutine test_lte()
   do i=1,no_sc
     call print_line('')
     call print_line('Checking supercell '//i)
-    sdir = 'Supercell_'//i
+    sdir = wd//'/Supercell_'//i
     
     ! Read in supercell structure.
     structure_sc = read_structure_file(sdir//'/structure.dat')
@@ -501,8 +505,8 @@ subroutine test_lte()
   disp_kpoints(:,5) = (/ 0.0_dp, 0.5_dp, 0.0_dp /) ! L
   
   ! Read in primitive symmetry group.
-  prim_symmetry_group = read_group_file(str('Supercell_1/symmetry_group.dat'))
-  call mkdir('new_lte')
+  prim_symmetry_group = read_group_file(wd//'/Supercell_1/symmetry_group.dat')
+  call mkdir(wd//'/new_lte')
   
   call print_line('')
   call print_line('Running fourier interpolation (this may take some time).')
@@ -514,9 +518,9 @@ subroutine test_lte()
      & kpoints,                                    &
      & disp_kpoints,                               &
      & symmetry_group,                             &
-     & str('new_lte/phonon_dispersion_curve.dat'), &
-     & str('new_lte/high_symmetry_points.dat'),    &
-     & str('new_lte/free_energy.dat'),             &
-     & str('new_lte/freq_dos.dat'))
+     & wd//'/new_lte/phonon_dispersion_curve.dat', &
+     & wd//'/new_lte/high_symmetry_points.dat',    &
+     & wd//'/new_lte/free_energy.dat',             &
+     & wd//'/new_lte/freq_dos.dat')
 end subroutine
 end module

@@ -2,9 +2,9 @@ module setup_quadratic_module
 
 contains
 
-subroutine setup_quadratic()
+subroutine setup_quadratic(wd,cwd)
   use constants, only : dp, thermal
-  use utils,     only : mkdir
+  use utils,     only : mkdir, format_directory
   use string_module
   use file_module
   use mapping_module
@@ -15,7 +15,11 @@ subroutine setup_quadratic()
   use err_module
   implicit none
   
-  ! Parameters
+  ! Working directories.
+  type(String), intent(in) :: wd
+  type(String), intent(in) :: cwd
+  
+  ! Parameters.
   real(dp), parameter :: frequency_tol   = 1.0e-5_dp!frequency<=tol if acoustic
   real(dp), parameter :: temperature     = 0.0_dp
   real(dp), parameter :: temperature_tol = 1.0e-6_dp
@@ -95,9 +99,9 @@ subroutine setup_quadratic()
   
   ! Check dft input files exist
   if (dft_code=="castep") then
-    filename = dft_code//'/'//seedname//'.param'
+    filename = wd//'/'//dft_code//'/'//seedname//'.param'
   elseif (dft_code=="qe") then
-    filename = dft_code//'/'//seedname//'.in'
+    filename = wd//'/'//dft_code//'/'//seedname//'.in'
   endif
   
   if (.not. file_exists(filename)) then
@@ -106,12 +110,12 @@ subroutine setup_quadratic()
   endif
   
   call print_line("What is the path to the harmonic directory?")
-  harmonic_path = read_line_from_user()
+  harmonic_path = format_directory(read_line_from_user(),cwd)
   
   ! ------------------------------------------------------------
   ! Read in mapping file
   ! ------------------------------------------------------------
-  mapping = read_mapping_file('mapping.dat')
+  mapping = read_mapping_file(wd//'/mapping.dat')
   
   ! ------------------------------------------------------------
   ! Read in data from harmonic calculation
@@ -145,49 +149,48 @@ subroutine setup_quadratic()
   ! Make directories
   ! ------------------------------------------------------------
   do i=1,no_sc
-    call mkdir('Supercell_'//i)
-    call mkdir('Supercell_'//i//'/static')
+    call mkdir(wd//'/Supercell_'//i)
   enddo
   
   do i=1,no_kpoints
-    call mkdir('kpoint_'//i)
+    call mkdir(wd//'/kpoint_'//i)
   enddo
   
   ! ------------------------------------------------------------
   ! Set up static calculations
   ! ------------------------------------------------------------
   do i=1,no_sc
-    sdir = 'Supercell_'//i
+    sdir = wd//'/Supercell_'//i
     if (dft_code=="castep") then
-      call structure_to_dft(                                      &
-         & dft_code           = dft_code,                         &
-         & structure_sc       = structure_scs(i),                 &
-         & input_filename     = dft_code//'/'//seedname//'.cell', &
-         & path_filename      = dft_code//'/path.dat',            &
-         & structure          = structure,                        &
-         & output_filename    = sdir//'/static/'//seedname//'.cell')
+      call structure_to_dft(                                               &
+         & dft_code           = dft_code,                                  &
+         & structure_sc       = structure_scs(i),                          &
+         & input_filename     = wd//'/'//dft_code//'/'//seedname//'.cell', &
+         & path_filename      = wd//'/'//dft_code//'/path.dat',            &
+         & structure          = structure,                                 &
+         & output_filename    = sdir//'/'//seedname//'.cell')
     elseif (dft_code=="vasp") then
       call structure_to_dft(                   &
          & dft_code        = dft_code,         &
          & structure_sc    = structure_scs(i), &
          & output_filename = sdir//'/POSCAR')
     elseif (dft_code=="qe") then
-      call structure_to_dft(                                  &
-         & dft_code         = dft_code,                       &
-         & structure_sc     = structure_scs(i),               &
-         & input_filename   = dft_code//'/'//seedname//'.in', &
-         & pseudo_filename  = dft_code//'/pseudo.in',         &
-         & kpoints_filename = dft_code//'/kpoints.in',        &
-         & structure        = structure,                      &
-         & output_filename  = sdir//'/static/'//seedname//'.in')
-      call structure_to_dft(                                       &
-         & dft_code         = dft_code,                            &
-         & structure_sc     = structure_scs(i),                    &
-         & input_filename   = dft_code//'/'//seedname_nscf//'.in', &
-         & pseudo_filename  = dft_code//'/pseudo.in',              &
-         & kpoints_filename = dft_code//'/kpoints.nscf.in',        &
-         & structure        = structure,                           &
-         & output_filename  = sdir//'/static/'//seedname_nscf//'.in')
+      call structure_to_dft(                                           &
+         & dft_code         = dft_code,                                &
+         & structure_sc     = structure_scs(i),                        &
+         & input_filename   = wd//'/'//dft_code//'/'//seedname//'.in', &
+         & pseudo_filename  = wd//'/'//dft_code//'/pseudo.in',         &
+         & kpoints_filename = wd//'/'//dft_code//'/kpoints.in',        &
+         & structure        = structure,                               &
+         & output_filename  = sdir//'/'//seedname//'.in')
+      call structure_to_dft(                                                &
+         & dft_code         = dft_code,                                     &
+         & structure_sc     = structure_scs(i),                             &
+         & input_filename   = wd//'/'//dft_code//'/'//seedname_nscf//'.in', &
+         & pseudo_filename  = wd//'/'//dft_code//'/pseudo.in',              &
+         & kpoints_filename = wd//'/'//dft_code//'/kpoints.nscf.in',        &
+         & structure        = structure,                                    &
+         & output_filename  = sdir//'/'//seedname_nscf//'.in')
     endif
   enddo
   
@@ -199,14 +202,14 @@ subroutine setup_quadratic()
     
     ! Read in frequencies, prefactors and displacements.
     frequency_file = read_lines( &
-       & harmonic_path//'/frequencies.kpoint_'//i//'.dat')
+       & harmonic_path//'/kpoint_'//i//'/frequencies.dat')
     allocate(frequencies(structure%no_modes))
     do j=1,structure%no_modes
       frequencies(j) = dble(frequency_file(j))
     enddo
     
     prefactors_file = read_lines( &
-       & harmonic_path//'/prefactors.kpoint_'//i//'.dat')
+       & harmonic_path//'/kpoint_'//i//'/prefactors.dat')
     allocate(prefactors(structure_sc%no_atoms,structure%no_modes))
     do j=1,structure%no_modes
       do k=1,structure_sc%no_atoms
@@ -216,7 +219,7 @@ subroutine setup_quadratic()
     enddo
     
     displacements_file = read_lines( &
-       & harmonic_path//'/displacements.kpoint_'//i//'.dat')
+       & harmonic_path//'/kpoint_'//i//'/displacements.dat')
     allocate(displacements(3,structure_sc%no_atoms,structure%no_modes))
     do j=1,structure%no_modes
       do k=1,structure_sc%no_atoms
@@ -231,7 +234,7 @@ subroutine setup_quadratic()
         cycle
       endif
       
-      call mkdir('kpoint_'//i//'/mode_'//j)
+      call mkdir(wd//'/kpoint_'//i//'/mode_'//j)
       
       do k=mapping%first,mapping%last
         ! Skip equilibrium configurations
@@ -239,7 +242,7 @@ subroutine setup_quadratic()
           cycle
         endif
     
-        call mkdir('kpoint_'//i//'/mode_'//j//'/amplitude_'//k)
+        call mkdir(wd//'/kpoint_'//i//'/mode_'//j//'/amplitude_'//k)
         
         ! Calculate quad_amplitude
         ! The normal mode amplitudes to sample are calculated
@@ -262,16 +265,16 @@ subroutine setup_quadratic()
         enddo
         
         ! Write dft input files
-        sdir = 'Supercell_'//sc_ids(i)
-        mdir = 'kpoint_'//i//'/mode_'//j//'/amplitude_'//k
+        sdir = wd//'/Supercell_'//sc_ids(i)
+        mdir = wd//'/kpoint_'//i//'/mode_'//j//'/amplitude_'//k
         
         if (dft_code=="castep") then
-          call structure_to_dft(                                     &
-             & dft_code          = dft_code,                         &
-             & structure_sc      = structure_sc,                     &
-             & input_filename    = dft_code//'/'//seedname//'.cell', &
-             & path_filename     = dft_code//'/path.dat',            &
-             & structure         = structure,                        &
+          call structure_to_dft(                                              &
+             & dft_code          = dft_code,                                  &
+             & structure_sc      = structure_sc,                              &
+             & input_filename    = wd//'/'//dft_code//'/'//seedname//'.cell', &
+             & path_filename     = wd//'/'//dft_code//'/path.dat',            &
+             & structure         = structure,                                 &
              & output_filename   = mdir//'/'//seedname//'.cell')
         elseif (dft_code=="vasp") then
           call structure_to_dft(               &
@@ -279,22 +282,23 @@ subroutine setup_quadratic()
              & structure_sc    = structure_sc, &
              & output_filename = mdir//'/POSCAR.'//j//'.'//k)
         elseif (dft_code=="qe") then
-          call structure_to_dft(                                  &
-             & dft_code         = dft_code,                       &
-             & structure_sc     = structure_sc,                   &
-             & input_filename   = dft_code//'/'//seedname//'.in', &
-             & pseudo_filename  = dft_code//'/pseudo.in',         &
-             & kpoints_filename = dft_code//'/kpoints.in',        &
-             & structure        = structure,                      &
+          call structure_to_dft(                                           &
+             & dft_code         = dft_code,                                &
+             & structure_sc     = structure_sc,                            &
+             & input_filename   = wd//'/'//dft_code//'/'//seedname//'.in', &
+             & pseudo_filename  = wd//'/'//dft_code//'/pseudo.in',         &
+             & kpoints_filename = wd//'/'//dft_code//'/kpoints.in',        &
+             & structure        = structure,                               &
              & output_filename  = mdir//'/'//seedname//'.in')
           if (file_exists(dft_code//'/'//seedname_nscf//'.in')) then
-            call structure_to_dft(                                       &
-               & dft_code         = dft_code,                            &
-               & structure_sc     = structure_sc,                        &
-               & input_filename   = dft_code//'/'//seedname_nscf//'.in', &
-               & pseudo_filename  = dft_code//'/pseudo.in',              &
-               & kpoints_filename = dft_code//'/kpoints.nscf.in',        &
-               & structure        = structure,                           &
+            call structure_to_dft(                                         &
+               & dft_code         = dft_code,                              &
+               & structure_sc     = structure_sc,                          &
+               & input_filename   = wd//'/'//dft_code//'/'//               &
+               &                    seedname_nscf//'.in',                  &
+               & pseudo_filename  = wd//'/'//dft_code//'/pseudo.in',       &
+               & kpoints_filename = wd//'/'//dft_code//'/kpoints.nscf.in', &
+               & structure        = structure,                             &
                & output_filename  = mdir//'/'//seedname_nscf//'.in')
           endif
         endif
@@ -309,7 +313,7 @@ subroutine setup_quadratic()
   ! ------------------------------------------------------------
   ! Write user inputs to file
   ! ------------------------------------------------------------
-  user_input_file = open_write_file('user_input.txt')
+  user_input_file = open_write_file(wd//'/user_input.txt')
   call print_line(user_input_file,dft_code)
   call print_line(user_input_file,seedname)
   call print_line(user_input_file,harmonic_path)

@@ -4,26 +4,30 @@
 # Main caesar script.
 # ======================================================================
 function main {
-  # Get the location of this script
-  # Lets caesar and .caesar be called without necessarily being on path
-  dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+  # Get the location of this script.
+  # Lets caesar and .caesar be called without necessarily being on path.
+  source_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+  
+  # Get the current working directory.
+  # Lets relative paths be converted into absolute paths.
+  cwd="$( pwd )"
   
   # Split iput arguments into first argument, arg, and everything else, args
   arg=$1
   args=($@)
   args=${args[@]:1:$(($#-1))}
   
-  if [ "$1" = "run_harmonic" ]; then
-    run_harmonic $dir $args
-  elif [  "$1" = "run_quadratic" ]; then
-    run_quadratic $dir $args
-  elif [  "$1" = "clear_all" ]; then
-    clear_all $dir $args
-  elif [  "$1" = "calculate_symmetry" ]; then
-    calculate_symmetry $dir $args
+  if [ "$arg" = "run_harmonic" ]; then
+    run_harmonic $source_dir $args
+  elif [  "$arg" = "run_quadratic" ]; then
+    run_quadratic $source_dir $args
+  elif [  "$arg" = "clear_all" ]; then
+    clear_all $source_dir $args
+  elif [  "$arg" = "calculate_symmetry" ]; then
+    calculate_symmetry $source_dir $args
   else
     # Anything not handled by this script is passed to .caesar
-    $dir/.caesar $dir $@
+    $source_dir/.caesar $source_dir $cwd $@
   fi
 }
 

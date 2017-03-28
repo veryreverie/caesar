@@ -5,7 +5,7 @@
 module anharmonic_module
 contains
 
-subroutine anharmonic()
+subroutine anharmonic(wd)
   use constants, only : dp, eV
   use utils,     only : mkdir
   use file_module
@@ -14,14 +14,15 @@ subroutine anharmonic()
   use structure_module
   use string_module
   use dft_output_file_module
-  use displacement_patterns_module
   use supercell_module
   
   use calculate_anharmonic_module
   use quadratic_spline_module
   use vscf_1d_module
-  
   implicit none
+  
+  ! Working directory.
+  type(String), intent(in) :: wd
   
   ! ----------------------------------------
   ! Parameters
@@ -44,7 +45,6 @@ subroutine anharmonic()
   
   type(StructureData)              :: structure
   type(StructureData), allocatable :: structure_scs(:)
-  type(DispPatterns)    :: disp_patterns
   
   ! kpoint data
   integer               :: no_kpoints
@@ -52,10 +52,9 @@ subroutine anharmonic()
   integer, allocatable  :: sc_ids(:)       ! supercell ids
   integer, allocatable  :: gvectors(:)     ! gvector ids
   
-  integer, allocatable  :: sizes(:)
-  
   real(dp), allocatable :: energies(:,:,:)
   real(dp), allocatable :: static_energies(:)
+  type(String), allocatable :: frequencies_file(:)
   real(dp), allocatable :: frequencies(:,:) ! harmonic frequencies
   real(dp)              :: amplitude
   real(dp), allocatable :: amplitudes(:,:)
@@ -65,8 +64,7 @@ subroutine anharmonic()
   
   ! Directory names
   type(String) :: sdir       ! Supercell_*
-  type(String) :: kpoint_dir ! kpoint.*
-  type(String) :: ddir       ! kpoint.*/mode.*.*
+  type(String) :: ddir       ! kpoint_*/mode_*/amplitude_*
   
   real(dp), allocatable :: eigenvals(:,:,:)
   real(dp), allocatable :: harmonic(:,:,:)
@@ -93,7 +91,7 @@ subroutine anharmonic()
   ! Read in data
   ! ----------------------------------------
   ! Read in previous user inputs
-  user_input_file = read_lines('user_input.txt')
+  user_input_file = read_lines(wd//'/user_input.txt')
   dft_code = user_input_file(1)
   seedname = user_input_file(2)
   harmonic_path = user_input_file(3)
@@ -110,11 +108,11 @@ subroutine anharmonic()
   structure = read_structure_file(harmonic_path//'/structure.dat')
   
   ! read sampling data from mapping.dat
-  mapping = read_mapping_file('mapping.dat')
+  mapping = read_mapping_file(wd//'/mapping.dat')
   
   ! check for Supercell_*/acoustic.dat
   do i=1,no_supercells
-    sc_acoustic(i) = file_exists('Supercell_'//i//'/acoustic.dat')
+    sc_acoustic(i) = file_exists(wd//'/Supercell_'//i//'/acoustic.dat')
   enddo
   
   ! Read kpoints
@@ -133,42 +131,34 @@ subroutine anharmonic()
   ! Read supercell structures
   allocate(structure_scs(no_supercells))
   do i=1,no_supercells
-    sdir = 'Supercell_'//i
+    sdir = wd//'/Supercell_'//i
     filename = harmonic_path//'/'//sdir//'/structure.dat' 
     structure_scs(i) = read_structure_file(filename)
   enddo
   
   ! read data from supercells
   do i=1,no_supercells
-    sdir = 'Supercell_'//i
+    sdir = wd//'/Supercell_'//i
     if (.not. sc_acoustic(i)) then
-      dft_output_file = read_dft_output_file(dft_code,sdir//'/static',seedname)
+      dft_output_file = read_dft_output_file(dft_code,sdir,seedname)
       static_energies(i) = dft_output_file%energy
     endif
   enddo
   
   ! Loop over kpoints
-  allocate(sizes(no_kpoints))
   allocate(frequencies(structure%no_modes,no_kpoints))
   allocate(energies(mapping%count,structure%no_modes,no_kpoints))
   do i=1,no_kpoints
     if (.not. sc_acoustic(sc_ids(i))) then
-      kpoint_dir = 'kpoint.'//i
-      
-      ! set sizes
-      sizes(i) = structure_scs(sc_ids(i))%no_atoms/structure%no_atoms
-      
       ! Read frequencies
-      filename = harmonic_path//'/Supercell_'//sc_ids(i)// &
-         & '/lte/disp_patterns.dat'
-      disp_patterns = read_disp_patterns_file( filename, &
-         & structure_scs(sc_ids(i))%no_modes)
-      frequencies(:,i) = disp_patterns%frequencies(:,gvectors(i))
+      frequencies_file = read_lines( &
+         & harmonic_path//'/kpoint_'//i//'/frequencies.dat')
+      frequencies(:,i) = dble(frequencies_file)
       
       do j=1,structure%no_modes
         ! read energies
         do k=mapping%first,mapping%last
-          ddir = kpoint_dir//'/mode.'//j//'.'//k
+          ddir = wd//'/kpoint_'//i//'/mode_'//j//'/amplitude_'//k
           
           if (dft_code=='castep') then
             filename = ddir//'/'//seedname//'.castep'
@@ -205,7 +195,7 @@ subroutine anharmonic()
         do k=1,mapping%count
           amplitudes(1,k) = amplitude+(k-1)*dabs(amplitude/mapping%first)
           amplitudes(2,k) = (energies(k,j,i)-energies(mapping%mid,j,i)) &
-                        & / sizes(i)
+                        & / structure_scs(sc_ids(i))%sc_size
         enddo
         
         ! fit splines
@@ -232,16 +222,17 @@ subroutine anharmonic()
   ! ----------------------------------------
   
   ! copy acoustic.dat files
-  call mkdir('anharmonic')
+  call mkdir(wd//'/anharmonic')
   do i=1,no_supercells
     if (sc_acoustic(i)) then
-      call system('cp Supercell_'//i//'/acoustic.dat anharmonic')
+      call system('cp '//wd//'/Supercell_'//i//'/acoustic.dat '// &
+         & wd//'/anharmonic')
     endif
   enddo
   
   ! calculate free energy, F(T), for harmonic and anharmonic cases
   ! write output to anharmonic_correction.dat
-  result_file = open_write_file('anharmonic/anharmonic_correction.dat')
+  result_file = open_write_file(wd//'/anharmonic/anharmonic_correction.dat')
   call calculate_anharmonic(multiplicity,structure%no_modes,Nbasis,harmonic,&
     &eigenvals,result_file)
   close(result_file)
