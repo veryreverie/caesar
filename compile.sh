@@ -29,7 +29,8 @@ cf90=gfortran
 cflags=""
 cflags="$cflags -g"               # Turn on debugging.
 cflags="$cflags -O0"              # Turn off optimisation.
-#cflags="$cflags -std=f95"       # Force standards compliance.
+#cflags="$cflags -std=f95"         # Force standards compliance.
+#cflags="$cflags -std=f2003"       # Force standards compliance.
 cflags="$cflags -W -Wall -Wextra" # Turn on compiler warnings.
 cflags="$cflags -pedantic"        # Turn on pedantic mode.
 cflags="$cflags -J${mdir}/"       # Set .mod files to exist in mod/.

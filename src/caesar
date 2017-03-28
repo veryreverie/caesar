@@ -8,9 +8,11 @@ function main {
   # Lets caesar and .caesar be called without necessarily being on path.
   source_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
   
-  # Get the current working directory.
-  # Lets relative paths be converted into absolute paths.
+  # Get the current working directory, so absolute paths can be made.
   cwd="$( pwd )"
+  
+  # Get the terminal width, to allow output formatting.
+  terminal_width="$( tput cols )"
   
   # Split iput arguments into first argument, arg, and everything else, args
   arg=$1
@@ -27,7 +29,7 @@ function main {
     calculate_symmetry $source_dir $args
   else
     # Anything not handled by this script is passed to .caesar
-    $source_dir/.caesar $source_dir $cwd $@
+    $source_dir/.caesar $source_dir $cwd $terminal_width $@
   fi
 }
 

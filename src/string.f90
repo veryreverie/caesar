@@ -6,6 +6,8 @@ module string_module
   
   private
   
+  integer, public :: STRING_MODULE_TERMINAL_WIDTH
+  
   ! ----------------------------------------------------------------------
   ! Public interface
   ! ----------------------------------------------------------------------
@@ -924,15 +926,50 @@ end function
 ! Subroutines to print lines, as write(), but with error checking
 !    and formatting.
 ! ----------------------------------------------------------------------
-subroutine print_line_character(line)
+recursive subroutine print_line_character(line)
   use err_module
   implicit none
   
   character(*), intent(in) :: line
   
   integer :: ierr
+  integer :: i
+  logical :: success
   
-  write(*,'(a)',iostat=ierr) line
+  if (len(line) <= STRING_MODULE_TERMINAL_WIDTH) then
+    ! The string can be printed all on one line.
+    write(*,'(a)',iostat=ierr) line
+  else
+    success = .false.
+    ! Attempt to break the string at a space, so that it fits on the terminal.
+    do i=STRING_MODULE_TERMINAL_WIDTH,2,-1
+      if (line(i:i)==' ') then
+        write(*,'(a)',iostat=ierr) line(:i-1)
+        call print_line(line(i+1:))
+        success = .true.
+        exit
+      endif
+    enddo
+    
+    ! Attempt to break the string at the first available space.
+    ! Some wrapping will happen, but this can't be avoided.
+    if (.not. success) then
+      do i=STRING_MODULE_TERMINAL_WIDTH+1,len(line)-1
+        if (line(i:i)==' ') then
+          write(*,'(a)',iostat=ierr) line(:i-1)
+          call print_line(line(i+1:))
+          success = .true.
+          exit
+        endif
+      enddo
+    endif
+    
+    ! The line can't be split. Everything is written.
+    if (.not. success) then
+      write(*,'(a)',iostat=ierr) line
+    endif
+  endif
+  
   if (ierr /= 0) then
     write(*,*) 'Error in print_line.'
     call err()
@@ -949,6 +986,7 @@ subroutine print_line_file_character(file_unit,line)
   integer :: ierr
   
   write(file_unit,'(a)',iostat=ierr) line
+  
   if (ierr /= 0) then
     write(*,*) 'Error in print_line.'
     call err()
