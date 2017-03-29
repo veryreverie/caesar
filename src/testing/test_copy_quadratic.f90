@@ -2,7 +2,7 @@ module test_copy_quadratic_module
 contains
 
 subroutine test_copy_quadratic(wd,cwd)
-  use utils, only : format_directory
+  use utils, only : format_path
   use string_module
   use file_module
   use err_module
@@ -38,7 +38,7 @@ subroutine test_copy_quadratic(wd,cwd)
   call print_line('   and copy over dft output files.')
   call print_line('')
   call print_line('Where is the quadratic directory for comparison?')
-  copy_dir = format_directory(read_line_from_user(),cwd)
+  copy_dir = format_path(read_line_from_user(),cwd)
   
   ! ----------------------------------------------------------------------
   ! Read in previous settings.

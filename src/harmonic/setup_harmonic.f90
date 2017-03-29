@@ -31,6 +31,7 @@ subroutine setup_harmonic(wd,source_dir)
   ! User input variables
   type(String) :: dft_code
   type(String) :: seedname
+  type(String) :: run_script
   
   ! File input data
   type(StructureData) :: structure
@@ -68,24 +69,29 @@ subroutine setup_harmonic(wd,source_dir)
   integer :: no_supercells_file
   
   ! ----------------------------------------------------------------------
-  ! Get settings from user
+  ! Get settings from user.
   ! ----------------------------------------------------------------------
   
   if (file_exists(wd//'/user_input.txt')) then
-    ! Get dft code and seedname from file
+    ! Get dft code and seedname from file.
     user_input_file_in = read_lines(wd//'/user_input.txt')
     dft_code = user_input_file_in(1)
     seedname = user_input_file_in(2)
   else
-    ! Get dft code from command line
+    ! Get dft code from the command line.
     call print_line('')
-    call print_line('Whar dft code do you want to use (castep,vasp,qe)?')
+    call print_line('What dft code do you want to use (castep,vasp,qe)?')
     dft_code = read_line_from_user()
     
-    ! Get seedname from command line
+    ! Get seedname from the command line.
     call print_line('')
-    call print_line('Whar is the '//dft_code//' seedname?')
+    call print_line('What is the '//dft_code//' seedname?')
     seedname = read_line_from_user()
+    
+    ! Get run script from the command line.
+    call print_line('')
+    call print_line('What is the path to the dft run script?')
+    run_script = read_line_from_user()
   endif
   
   ! Check dft code is supported
@@ -120,10 +126,13 @@ subroutine setup_harmonic(wd,source_dir)
   ! ----------------------------------------------------------------------
   ! Write user settings to file
   ! ----------------------------------------------------------------------
-  user_input_file_out = open_write_file(wd//'/user_input.txt')
-  call print_line(user_input_file_out,dft_code)
-  call print_line(user_input_file_out,seedname)
-  close(user_input_file_out)
+  if (.not. file_exists(wd//'/user_input.txt')) then
+    user_input_file_out = open_write_file(wd//'/user_input.txt')
+    call print_line(user_input_file_out,dft_code)
+    call print_line(user_input_file_out,seedname)
+    call print_line(user_input_file_out,run_script)
+    close(user_input_file_out)
+  endif
   
   ! ----------------------------------------------------------------------
   ! Add symmetries to structure.dat if not already present.

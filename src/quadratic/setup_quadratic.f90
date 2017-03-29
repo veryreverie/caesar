@@ -4,7 +4,7 @@ contains
 
 subroutine setup_quadratic(wd,cwd)
   use constants, only : dp, thermal
-  use utils,     only : mkdir, format_directory, make_dft_input_filename
+  use utils,     only : mkdir, format_path, make_dft_input_filename
   use string_module
   use file_module
   use mapping_module
@@ -26,9 +26,11 @@ subroutine setup_quadratic(wd,cwd)
   real(dp), parameter :: thermal_energy  = temperature/thermal
   
   ! User inputs
-  type(String) :: dft_code      ! The dft code name (castep,vasp,qe)
-  type(String) :: seedname      ! The dft input file seedname
-  type(String) :: harmonic_path ! The path to the harmonic directory
+  type(String), allocatable :: user_input_file_in(:)
+  type(String) :: dft_code      ! The dft code name (castep,vasp,qe).
+  type(String) :: seedname      ! The dft input file seedname.
+  type(String) :: run_script    ! The script to run dft.
+  type(String) :: harmonic_path ! The path to the harmonic directory.
   
   ! File contents
   type(MappingData)    :: mapping
@@ -73,12 +75,35 @@ subroutine setup_quadratic(wd,cwd)
   integer :: user_input_file
   
   ! ------------------------------------------------------------
-  ! Get user inputs
+  ! Get settings from user.
   ! ------------------------------------------------------------
-  ! Get code name
-  call print_line('')
-  call print_line('What code do you want to use (castep,vasp,qe)?')
-  dft_code = read_line_from_user()
+  
+  if (file_exists(wd//'/user_input.txt')) then
+    ! Get settings from file.
+    user_input_file_in = read_lines(wd//'/user_input.txt')
+    dft_code = user_input_file_in(1)
+    seedname = user_input_file_in(2)
+    harmonic_path = user_input_file_in(4)
+  else
+    ! Get dft code from the command line.
+    call print_line('')
+    call print_line('What code do you want to use (castep,vasp,qe)?')
+    dft_code = read_line_from_user()
+    
+    ! Get seedname from the command line.
+    call print_line('')
+    call print_line('What is the '//dft_code//' seedname?')
+    seedname = read_line_from_user()
+    
+    ! Get run script from the command line.
+    call print_line('')
+    call print_line('What is the path to the dft run script?')
+    run_script = read_line_from_user()
+    
+    ! Get the path to the harmonic directory from the command line.
+    call print_line("What is the path to the harmonic directory?")
+    harmonic_path = format_path(read_line_from_user(),cwd)
+  endif
   
   ! Check code is supported
   if (dft_code=="vasp") then
@@ -90,11 +115,6 @@ subroutine setup_quadratic(wd,cwd)
     call err()
   endif
   
-  ! Get seedname
-  call print_line('')
-  call print_line('What is the '//dft_code//' seedname?')
-  seedname = read_line_from_user()
-  
   ! Check dft input files exist
   dft_input_filename = make_dft_input_filename(dft_code,seedname)
   dft_input_filename = wd//'/'//dft_code//'/'//dft_input_filename
@@ -104,9 +124,6 @@ subroutine setup_quadratic(wd,cwd)
        & " does not exist.")
     call err()
   endif
-  
-  call print_line("What is the path to the harmonic directory?")
-  harmonic_path = format_directory(read_line_from_user(),cwd)
   
   ! ------------------------------------------------------------
   ! Read in mapping file
@@ -140,6 +157,18 @@ subroutine setup_quadratic(wd,cwd)
     sc_ids(i) = int(line(5))
     gvectors(i) = int(line(6))
   enddo
+  
+  ! ------------------------------------------------------------
+  ! Write user inputs to file
+  ! ------------------------------------------------------------
+  if (.not. file_exists(wd//'/user_input.txt')) then
+    user_input_file = open_write_file(wd//'/user_input.txt')
+    call print_line(user_input_file,dft_code)
+    call print_line(user_input_file,seedname)
+    call print_line(user_input_file,run_script)
+    call print_line(user_input_file,harmonic_path)
+    close(user_input_file)
+  endif
   
   ! ------------------------------------------------------------
   ! Make directories
@@ -250,15 +279,6 @@ subroutine setup_quadratic(wd,cwd)
     deallocate(prefactors)
     deallocate(displacements)
   enddo
-  
-  ! ------------------------------------------------------------
-  ! Write user inputs to file
-  ! ------------------------------------------------------------
-  user_input_file = open_write_file(wd//'/user_input.txt')
-  call print_line(user_input_file,dft_code)
-  call print_line(user_input_file,seedname)
-  call print_line(user_input_file,harmonic_path)
-  close(user_input_file)
   
 end subroutine
 end module

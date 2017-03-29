@@ -10,9 +10,9 @@ module utils
     module procedure mkdir_String
   end interface
   
-  interface format_directory
-    module procedure format_directory_character
-    module procedure format_directory_String
+  interface format_path
+    module procedure format_path_character
+    module procedure format_path_String
   end interface
   
 contains
@@ -81,52 +81,47 @@ end subroutine
 ! Takes a directory name, and converts it into an absolute path
 !    in standard format (without a trailing '/').
 ! ----------------------------------------------------------------------
-function format_directory_character(directory,cwd) result(output)
+function format_path_character(path,cwd) result(output)
   use string_module
   use err_module
   implicit none
   
-  character(*), intent(in) :: directory
+  character(*), intent(in) :: path
   type(String), intent(in) :: cwd       ! Current working directory.
   type(String)             :: output
   
   integer :: last
   
-  last = len(directory)
+  last = len(path)
   
   if (last==0) then
-    call print_line('Error: no directory provided.')
+    call print_line('Error: no path provided.')
     call err()
   endif
   
   ! Trim trailing '/', if present.
-  if (directory(last:)=='/') then
+  if (path(last:)=='/') then
     last = last - 1
   endif
   
-  if (directory(:1)=='.') then
-    ! Directory is relative. Prepend current working directory.
-    output = cwd//'/'//directory(:last)
-  elseif (directory(:1)=='/') then
-    ! Directory is absolute.
-    output = directory(:last)
+  if (path(:1)=='/') then
+    ! Path is absolute.
+    output = path(:last)
   else
-    ! Directory is not valid.
-    call print_line('Error: bad directory provided:')
-    call print_line(directory)
-    call err()
+    ! Path is relative. Prepend current working directory.
+    output = cwd//'/'//path(:last)
   endif
 end function
 
-function format_directory_String(directory,cwd) result(output)
+function format_path_String(path,cwd) result(output)
   use string_module
   implicit none
   
-  type(String), intent(in) :: directory
-  type(String), intent(in) :: cwd       ! Current working directory.
+  type(String), intent(in) :: path
+  type(String), intent(in) :: cwd    ! Current working directory.
   type(String)             :: output
   
-  output = format_directory(char(directory),cwd)
+  output = format_path(char(path),cwd)
 end function
 
 ! ----------------------------------------------------------------------

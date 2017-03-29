@@ -2,7 +2,7 @@ module test_lte_module
 contains
 subroutine test_lte(wd,cwd)
   use constants, only : eV, pi
-  use utils,     only : mkdir, format_directory
+  use utils,     only : mkdir, format_path
   use err_module
   use string_module
   use file_module
@@ -111,7 +111,7 @@ subroutine test_lte(wd,cwd)
      &calculations.')
   call print_line('')
   call print_line('Where is the harmonic directory for comparison?')
-  copy_dir = format_directory(read_line_from_user(),cwd)
+  copy_dir = format_path(read_line_from_user(),cwd)
   call print_line('')
   
   ! Get temperature from user.

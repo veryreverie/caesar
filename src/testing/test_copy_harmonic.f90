@@ -2,7 +2,7 @@ module test_copy_harmonic_module
 contains
 subroutine test_copy_harmonic(wd,cwd)
   use constants, only : directions
-  use utils,     only : format_directory, make_dft_output_filename
+  use utils,     only : format_path, make_dft_output_filename
   use string_module
   use file_module
   use structure_module
@@ -59,7 +59,7 @@ subroutine test_copy_harmonic(wd,cwd)
   call print_line('   and copy over dft output files.')
   call print_line('')
   call print_line('Where is the harmonic directory for comparison?')
-  copy_dir = format_directory(read_line_from_user(),cwd)
+  copy_dir = format_path(read_line_from_user(),cwd)
   
   ! ----------------------------------------------------------------------
   ! Read in previous settings.

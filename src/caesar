@@ -50,6 +50,7 @@ function run_harmonic {
   # Read code and seedname
   code=$( awk 'NR==1 {print}' user_input.txt )
   seedname=$( awk 'NR==2 {print}' user_input.txt )
+  run_script=$( awk 'NR==3 {print}' user_input.txt )
 
   # Loop over supercells
   for i in `seq $first_sc $last_sc`; do
@@ -76,7 +77,7 @@ function run_harmonic {
           dir=$sdir/atom.$atom.${sign}d$direction
           echo "Working in directory:"
           echo $dir
-          run_dft $code $ddir $num_cores $seedname
+          $run_script $code $ddir $num_cores $seedname
         done
       done
     done < $sdir/unique_directions.dat 
@@ -99,7 +100,8 @@ function run_quadratic {
   # Read in previous user inputs
   dft_code=$( awk 'NR==1 {print}' user_input.txt )
   seedname=$( awk 'NR==2 {print}' user_input.txt )
-  harmonic_path=$( awk 'NR==3 {print}' user_input.txt)
+  run_script=$( awk 'NR==3 {print}' user_input.txt )
+  harmonic_path=$( awk 'NR==4 {print}' user_input.txt )
 
   # Read in mapping file
   sampling_amplitude=$( awk 'NR==1 {print $1}' mapping.dat)
@@ -122,7 +124,7 @@ function run_quadratic {
     # Run static dft
     static_dir=$sdir/static
     echo $static_dir
-    run_dft $dft_code $static_dir $num_cores $seedname
+    $run_script $dft_code $static_dir $num_cores $seedname
   done
 
   # loop over kpoints
@@ -142,7 +144,7 @@ function run_quadratic {
           if [ -e "$mdir/structure.dat" ]; then
             # Run dft
             echo $mdir
-            run_dft $dft_code $mdir $num_cores $seedname
+            $run_script $dft_code $mdir $num_cores $seedname
           fi
         done
       done
@@ -161,34 +163,6 @@ function clear_all {
   if [ "$answer" = "y" ]; then
     rm -r Supercell_* ibz.dat no_sc.dat
   fi
-}
-
-# ======================================================================
-# Script to run dft
-# ======================================================================
-function run_dft {
-  dft_code=$1
-  directory=$2
-  num_cores=$3
-  seedname=$4
-  
-  cd $directory
-  
-  if [ "$dft_code" = "castep" ]; then
-    cp $dft_code/$seedname.param .
-    rundft nnodes $num_cores seedname $seedname
-    rm *.castep_bin *.cst_esp *.usp machine_file *.bib *orbitals
-  elif [ "$dft_code" = "vasp" ]; then
-    # vasp run script not yet written
-    echo "Error! vasp run script not yet written."
-    exit
-  elif [ "$dft_code" = "qe" ]; then
-    mpirun -np $num_cores /rscratch/bm418/espresso-5.1.1/bin/pw.x \
-       -i $seedname.in > $seedname.out
-    rm -r $seedname.save
-  fi
-  
-  cd -
 }
 
 # ======================================================================
