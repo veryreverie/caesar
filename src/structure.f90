@@ -418,7 +418,9 @@ subroutine read_symmetry_file_String(this,filename)
   call read_symmetry_file(this,char(filename))
 end subroutine
 
+! ----------------------------------------------------------------------
 ! calculate derived quantities relating to lattice and atoms
+! ----------------------------------------------------------------------
 subroutine calculate_derived_atom_quantities(this)
   use linear_algebra, only : invert, determinant
   implicit none
@@ -429,7 +431,9 @@ subroutine calculate_derived_atom_quantities(this)
   this%volume        = abs(determinant(this%lattice))
 end subroutine
 
+! ----------------------------------------------------------------------
 ! calculate derived quantities relating to symmetries
+! ----------------------------------------------------------------------
 subroutine calculate_derived_symmetry_quantities(this)
   implicit none
   
@@ -438,7 +442,9 @@ subroutine calculate_derived_symmetry_quantities(this)
   this%offsets_cart = matmul(this%lattice,this%offsets)
 end subroutine
 
+! ----------------------------------------------------------------------
 ! Calculate the derived quantities relating to the supercell and G-vectors.
+! ----------------------------------------------------------------------
 subroutine calculate_derived_supercell_quantities(this)
   use linear_algebra, only : invert_int
   implicit none
@@ -460,8 +466,10 @@ subroutine calculate_derived_supercell_quantities(this)
   enddo
 end subroutine
 
+! ----------------------------------------------------------------------
 ! Calculate the relationships between G-vectors, modulo the supercell.
 !    so if gvec(:,i)+gvec(:,j)=gvec(:,k) then operate(output(i),j)=k
+! ----------------------------------------------------------------------
 function calculate_gvector_group(this) result(output)
   use group_module
   implicit none

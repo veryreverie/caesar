@@ -30,6 +30,10 @@ subroutine structure_to_castep(structure_sc,old_cell_filename,new_cell_filename)
   real(dp) :: kpoint(3)
   
   ! Line numbers
+  integer :: lattice_start_line
+  integer :: lattice_end_line
+  integer :: positions_start_line
+  integer :: positions_end_line
   integer :: path_start_line
   integer :: path_end_line
   
@@ -43,21 +47,36 @@ subroutine structure_to_castep(structure_sc,old_cell_filename,new_cell_filename)
   
   if (present(old_cell_filename)) then
     ! --------------------------------------------------
-    ! Transform K-points into supercell co-ordinates.
+    ! Parse old cell file.
     ! --------------------------------------------------
+    lattice_start_line = 0
+    lattice_end_line = 0
+    positions_start_line = 0
+    positions_end_line = 0
     path_start_line = 0
     path_end_line = 0
     
-    ! Check if a k-point path is specified.
+    ! Get line numbers.
     old_cell_file = read_lines(old_cell_filename)
     do i=1,size(old_cell_file)
       line = split(lower_case(old_cell_file(i)))
       if (size(line) >= 2) then
-        if (line(1)=='%block' .and. line(2)=='bs_kpoint_path') then
+        if (line(1)=='%block' .and. ( line(2)=='lattice_abc' .or. &
+                                    & line(2)=='lattice_cart')) then
+          lattice_start_line = i
+        elseif (line(1)=='%endblock' .and. ( line(2)=='lattice_abc' .or. &
+                                           & line(2)=='lattice_cart')) then
+          lattice_end_line = i
+        elseif (line(1)=='%block' .and. ( line(2)=='positions_abs' .or. &
+                                        & line(2)=='positions_frac')) then
+          positions_start_line = i
+        elseif (line(1)=='%endblock' .and. ( line(2)=='positions_abs' .or. &
+                                           & line(2)=='positions_frac')) then
+          positions_end_line = i
+        elseif (line(1)=='%block' .and. line(2)=='bs_kpoint_path') then
           path_start_line = i
         elseif ( line(1)=='%endblock' .and. line(2)=='bs_kpoint_path') then
           path_end_line = i
-          exit
         endif
       endif
     enddo
@@ -95,6 +114,14 @@ subroutine structure_to_castep(structure_sc,old_cell_filename,new_cell_filename)
   ! Copy the contents of old cell file to new cell file.
   if (present(old_cell_filename)) then
     do i=1,size(old_cell_file)
+      
+      ! Skip lines which are changed between supercells.
+      if (lattice_start_line<=i .and. i<=lattice_end_line) then
+        cycle
+      elseif (positions_start_line<=i .and. i<=positions_start_line) then
+        cycle
+      endif
+      
       call print_line(new_cell_file,char(old_cell_file(i)))
     enddo
   endif
