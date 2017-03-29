@@ -129,9 +129,9 @@ program caesar
   elseif (mode == 'hartree_to_eV') then
     call hartree_to_eV()
   elseif (mode == 'structure_to_dft') then
-    call structure_to_dft( dft_code=args(5),              &
-                         & structure_sc_filename=args(6), &
-                         & output_filename=args(7))
+    call structure_to_dft( dft_code              = args(5), &
+                         & structure_sc_filename = args(6), &
+                         & output_filename       = args(7))
   elseif (mode == 'calculate_symmetry_helper') then
     call calculate_symmetry_helper(args(5),args(6))
   ! Wrappers for testing modules

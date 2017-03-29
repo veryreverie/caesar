@@ -4,7 +4,7 @@ contains
 
 subroutine setup_quadratic(wd,cwd)
   use constants, only : dp, thermal
-  use utils,     only : mkdir, format_directory
+  use utils,     only : mkdir, format_directory, make_dft_input_filename
   use string_module
   use file_module
   use mapping_module
@@ -28,7 +28,6 @@ subroutine setup_quadratic(wd,cwd)
   ! User inputs
   type(String) :: dft_code      ! The dft code name (castep,vasp,qe)
   type(String) :: seedname      ! The dft input file seedname
-  type(String) :: seedname_nscf ! Only needed for qe
   type(String) :: harmonic_path ! The path to the harmonic directory
   
   ! File contents
@@ -63,7 +62,7 @@ subroutine setup_quadratic(wd,cwd)
   
   ! Temporary variables
   integer        :: i, j, k, l
-  type(String)   :: filename
+  type(String)   :: dft_input_filename
   type(String)   :: sdir
   type(String)   :: mdir
   type(String), allocatable :: line(:)
@@ -77,7 +76,8 @@ subroutine setup_quadratic(wd,cwd)
   ! Get user inputs
   ! ------------------------------------------------------------
   ! Get code name
-  call print_line("What code do you want to use (castep,vasp,qe)?")
+  call print_line('')
+  call print_line('What code do you want to use (castep,vasp,qe)?')
   dft_code = read_line_from_user()
   
   ! Check code is supported
@@ -91,21 +91,17 @@ subroutine setup_quadratic(wd,cwd)
   endif
   
   ! Get seedname
-  if (dft_code=="castep" .or. dft_code=="vasp") then
-    call print_line("What is the "//dft_code//" seedname?")
-    seedname = read_line_from_user()
-    seedname_nscf = seedname//'.nscf' ! only needed for qe
-  endif
+  call print_line('')
+  call print_line('What is the '//dft_code//' seedname?')
+  seedname = read_line_from_user()
   
   ! Check dft input files exist
-  if (dft_code=="castep") then
-    filename = wd//'/'//dft_code//'/'//seedname//'.param'
-  elseif (dft_code=="qe") then
-    filename = wd//'/'//dft_code//'/'//seedname//'.in'
-  endif
+  dft_input_filename = make_dft_input_filename(dft_code,seedname)
+  dft_input_filename = wd//'/'//dft_code//'/'//dft_input_filename
   
-  if (.not. file_exists(filename)) then
-    call print_line("Error! The input file "//filename//" does not exist.")
+  if (.not. file_exists(dft_input_filename)) then
+    call print_line("Error! The input file "//dft_input_filename// &
+       & " does not exist.")
     call err()
   endif
   
@@ -130,8 +126,8 @@ subroutine setup_quadratic(wd,cwd)
   ! Read in supercell structures.
   allocate(structure_scs(no_sc))
   do i=1,no_sc
-    filename = harmonic_path//'/Supercell_'//i//'/structure.dat'
-    structure_scs(i) = read_structure_file(filename)
+    structure_scs(i) = read_structure_file( &
+       & harmonic_path//'/Supercell_'//i//'/structure.dat')
   enddo
   
   ! Read in kpoint data
@@ -161,37 +157,11 @@ subroutine setup_quadratic(wd,cwd)
   ! ------------------------------------------------------------
   do i=1,no_sc
     sdir = wd//'/Supercell_'//i
-    if (dft_code=="castep") then
-      call structure_to_dft(                                               &
-         & dft_code           = dft_code,                                  &
-         & structure_sc       = structure_scs(i),                          &
-         & input_filename     = wd//'/'//dft_code//'/'//seedname//'.cell', &
-         & path_filename      = wd//'/'//dft_code//'/path.dat',            &
-         & structure          = structure,                                 &
-         & output_filename    = sdir//'/'//seedname//'.cell')
-    elseif (dft_code=="vasp") then
-      call structure_to_dft(                   &
-         & dft_code        = dft_code,         &
-         & structure_sc    = structure_scs(i), &
-         & output_filename = sdir//'/POSCAR')
-    elseif (dft_code=="qe") then
-      call structure_to_dft(                                           &
-         & dft_code         = dft_code,                                &
-         & structure_sc     = structure_scs(i),                        &
-         & input_filename   = wd//'/'//dft_code//'/'//seedname//'.in', &
-         & pseudo_filename  = wd//'/'//dft_code//'/pseudo.in',         &
-         & kpoints_filename = wd//'/'//dft_code//'/kpoints.in',        &
-         & structure        = structure,                               &
-         & output_filename  = sdir//'/'//seedname//'.in')
-      call structure_to_dft(                                                &
-         & dft_code         = dft_code,                                     &
-         & structure_sc     = structure_scs(i),                             &
-         & input_filename   = wd//'/'//dft_code//'/'//seedname_nscf//'.in', &
-         & pseudo_filename  = wd//'/'//dft_code//'/pseudo.in',              &
-         & kpoints_filename = wd//'/'//dft_code//'/kpoints.nscf.in',        &
-         & structure        = structure,                                    &
-         & output_filename  = sdir//'/'//seedname_nscf//'.in')
-    endif
+    dft_input_filename = make_dft_input_filename(dft_code,seedname)
+    call structure_to_dft( dft_code, &
+                         & structure_scs(i), &
+                         & wd//'/'//dft_code//'/'//dft_input_filename, &
+                         & sdir//'/'//dft_input_filename)
   enddo
   
   ! ------------------------------------------------------------
@@ -268,40 +238,11 @@ subroutine setup_quadratic(wd,cwd)
         sdir = wd//'/Supercell_'//sc_ids(i)
         mdir = wd//'/kpoint_'//i//'/mode_'//j//'/amplitude_'//k
         
-        if (dft_code=="castep") then
-          call structure_to_dft(                                              &
-             & dft_code          = dft_code,                                  &
-             & structure_sc      = structure_sc,                              &
-             & input_filename    = wd//'/'//dft_code//'/'//seedname//'.cell', &
-             & path_filename     = wd//'/'//dft_code//'/path.dat',            &
-             & structure         = structure,                                 &
-             & output_filename   = mdir//'/'//seedname//'.cell')
-        elseif (dft_code=="vasp") then
-          call structure_to_dft(               &
-             & dft_code        = dft_code,     &
-             & structure_sc    = structure_sc, &
-             & output_filename = mdir//'/POSCAR.'//j//'.'//k)
-        elseif (dft_code=="qe") then
-          call structure_to_dft(                                           &
-             & dft_code         = dft_code,                                &
-             & structure_sc     = structure_sc,                            &
-             & input_filename   = wd//'/'//dft_code//'/'//seedname//'.in', &
-             & pseudo_filename  = wd//'/'//dft_code//'/pseudo.in',         &
-             & kpoints_filename = wd//'/'//dft_code//'/kpoints.in',        &
-             & structure        = structure,                               &
-             & output_filename  = mdir//'/'//seedname//'.in')
-          if (file_exists(dft_code//'/'//seedname_nscf//'.in')) then
-            call structure_to_dft(                                         &
-               & dft_code         = dft_code,                              &
-               & structure_sc     = structure_sc,                          &
-               & input_filename   = wd//'/'//dft_code//'/'//               &
-               &                    seedname_nscf//'.in',                  &
-               & pseudo_filename  = wd//'/'//dft_code//'/pseudo.in',       &
-               & kpoints_filename = wd//'/'//dft_code//'/kpoints.nscf.in', &
-               & structure        = structure,                             &
-               & output_filename  = mdir//'/'//seedname_nscf//'.in')
-          endif
-        endif
+        dft_input_filename = make_dft_input_filename(dft_code,seedname)
+        call structure_to_dft( dft_code, &
+                             & structure_sc, &
+                             & wd//'/'//dft_code//'/'//dft_input_filename, &
+                             & mdir//'/'//dft_input_filename)
       enddo
     enddo
     

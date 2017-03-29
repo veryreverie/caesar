@@ -27,6 +27,26 @@ module dft_output_file_module
     
 contains
 
+subroutine new_DftOutputFile(this, no_atoms)
+  implicit none
+  
+  type(DftOutputFile), intent(out) :: this
+  integer,             intent(in)  :: no_atoms
+  
+  this%no_atoms = no_atoms
+  allocate(this%species(no_atoms))
+  allocate(this%forces(3,no_atoms))
+end subroutine
+
+subroutine drop_DftOutputFile(this)
+  implicit none
+  
+  type(DftOutputFile), intent(inout) :: this
+  
+  deallocate(this%species)
+  deallocate(this%forces)
+end subroutine
+
 function read_castep_output_file(filename) result(output)
   use string_module
   use file_module
@@ -175,39 +195,18 @@ function read_qe_output_file(filename) result(output)
   output%forces = output%forces*Ry/bohr
 end function
 
-function read_dft_output_file(dft_code,dft_dir,seedname) result(output)
+function read_dft_output_file(dft_code,filename) result(output)
   use string_module
   implicit none
   
   type(String), intent(in) :: dft_code
-  type(String), intent(in) :: dft_dir
-  type(String), intent(in) :: seedname
+  type(String), intent(in) :: filename
   type(DftOutputFile)      :: output
   
   if (dft_code=="castep") then
-    output = read_castep_output_file(dft_dir//'/'//seedname//'.castep')
+    output = read_castep_output_file(filename)
   elseif (dft_code=="qe") then
-    output = read_qe_output_file(dft_dir//'/'//seedname//'.out')
+    output = read_qe_output_file(filename)
   endif
 end function
-
-subroutine new_DftOutputFile(this, no_atoms)
-  implicit none
-  
-  type(DftOutputFile), intent(out) :: this
-  integer,             intent(in)  :: no_atoms
-  
-  this%no_atoms = no_atoms
-  allocate(this%species(no_atoms))
-  allocate(this%forces(3,no_atoms))
-end subroutine
-
-subroutine drop_DftOutputFile(this)
-  implicit none
-  
-  type(DftOutputFile), intent(inout) :: this
-  
-  deallocate(this%species)
-  deallocate(this%forces)
-end subroutine
 end module

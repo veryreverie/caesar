@@ -2,7 +2,7 @@ module test_copy_harmonic_module
 contains
 subroutine test_copy_harmonic(wd,cwd)
   use constants, only : directions
-  use utils,     only : format_directory
+  use utils,     only : format_directory, make_dft_output_filename
   use string_module
   use file_module
   use structure_module
@@ -31,6 +31,7 @@ subroutine test_copy_harmonic(wd,cwd)
   type(String) :: sdir
   type(String) :: copy_dirs(2)
   type(String) :: new_dirs(2)
+  type(String) :: dft_output_filename
   
   ! Structure information.
   type(StructureData)   :: structure_copy
@@ -114,7 +115,9 @@ subroutine test_copy_harmonic(wd,cwd)
                    & sdir//'/atom.'//atom//'.-d'//direction /)
         do l=1,2
           ! Read in the old castep file.
-          dft_output = read_dft_output_file(dft_code,copy_dirs(l),seedname)
+          dft_output_filename = make_dft_output_filename(dft_code,seedname)
+          dft_output_filename = copy_dirs(l)//'/'//dft_output_filename
+          dft_output = read_dft_output_file(dft_code,dft_output_filename)
         
           ! Make a fake castep output file.
           copied_output = open_write_file( &

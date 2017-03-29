@@ -3,12 +3,11 @@ module setup_harmonic_module
 contains
 
 ! ======================================================================
-! Program to set up a generic harmonic calculation to use with LTE
-! Also converts the generic calculateion to castep vasp or qe
+! Program to set up a harmonic calculation to use with LTE.
 ! ======================================================================
 subroutine setup_harmonic(wd,source_dir)
   use constants, only : directions
-  use utils,     only : mkdir
+  use utils,     only : mkdir, make_dft_input_filename
   use string_module
   use file_module
   use structure_module
@@ -57,10 +56,11 @@ subroutine setup_harmonic(wd,source_dir)
   
   ! Temporary variables
   integer        :: i,j,k,l
-  type(String)   :: filename
   
   type(String), allocatable :: grid_file(:)
   type(String), allocatable :: user_input_file_in(:)
+  
+  type(String) :: dft_input_filename
   
   ! File units
   integer :: user_input_file_out
@@ -83,11 +83,9 @@ subroutine setup_harmonic(wd,source_dir)
     dft_code = read_line_from_user()
     
     ! Get seedname from command line
-    if (dft_code=='castep' .or. dft_code=='qe') then
-      call print_line('')
-      call print_line('Whar is the '//dft_code//' seedname?')
-      seedname = read_line_from_user()
-    endif
+    call print_line('')
+    call print_line('Whar is the '//dft_code//' seedname?')
+    seedname = read_line_from_user()
   endif
   
   ! Check dft code is supported
@@ -101,14 +99,12 @@ subroutine setup_harmonic(wd,source_dir)
   endif
   
   ! Check dft input files exist
-  if (dft_code=='castep') then
-    filename = wd//'/'//dft_code//'/'//seedname//'.param'
-  elseif (dft_code=='qe') then
-    filename = wd//'/'//dft_code//'/'//seedname//'.in'
-  endif
+  dft_input_filename = make_dft_input_filename(dft_code,seedname)
+  dft_input_filename = wd//'/'//dft_code//'/'//dft_input_filename
   
-  if (.not. file_exists(filename)) then
-    call print_line('Error! The input file '//filename//' does not exist.')
+  if (.not. file_exists(dft_input_filename)) then
+    call print_line('Error! The input file '//dft_input_filename// &
+       &' does not exist.')
     call err()
   endif
   
@@ -226,27 +222,11 @@ subroutine setup_harmonic(wd,source_dir)
           endif
             
           ! Write dft input files
-          if (dft_code=='castep') then
-            call structure_to_dft(                                            &
-               & dft_code        = dft_code,                                  &
-               & structure_sc    = structure_sc,                              &
-               & input_filename  = wd//'/'//dft_code//'/'//seedname//'.cell', &
-               & output_filename = paths(l)//'/'//seedname//'.cell')
-          elseif (dft_code=='vasp') then
-            call structure_to_dft(               &
-               & dft_code        = dft_code,     &
-               & structure_sc    = structure_sc, &
-               & output_filename = paths(l)//'/POSCAR')
-          elseif (dft_code=='qe') then
-            call structure_to_dft(                                           &
-               & dft_code         = dft_code,                                &
-               & structure_sc     = structure_sc,                            &
-               & input_filename   = wd//'/'//dft_code//'/'//seedname//'.in', &
-               & pseudo_filename  = wd//'/'//dft_code//'/pseudo.in',         &
-               & kpoints_filename = wd//'/'//dft_code//'/kpoints.in',        &
-               & structure        = structure,                               &
-               & output_filename  = paths(l)//'/'//seedname//'.in')
-          endif
+          dft_input_filename = make_dft_input_filename(dft_code,seedname)
+          call structure_to_dft( dft_code, &
+                               & structure_sc, &
+                               & wd//'/'//dft_code//'/'//dft_input_filename, &
+                               & paths(l)//'/'//dft_input_filename)
         enddo
         
         ! Reset moved atom

@@ -15,25 +15,19 @@ module structure_to_dft_module
 
 contains
 
-subroutine structure_to_castep(structure_sc,input_filename, &
-   & path_filename,structure,output_filename)
+subroutine structure_to_castep(structure_sc,old_cell_filename,new_cell_filename)
   use string_module
   use structure_module
   use file_module
   implicit none
   
   type(StructureData), intent(in)           :: structure_sc
-  type(String),        intent(in), optional :: input_filename
-  type(String),        intent(in), optional :: path_filename
-  type(StructureData), intent(in), optional :: structure
-  type(String),        intent(in)           :: output_filename
+  type(String),        intent(in), optional :: old_cell_filename
+  type(String),        intent(in)           :: new_cell_filename
   
-  ! The contents of the old cell file
-  type(String), allocatable :: input_file_contents(:)
   
   ! Band structure path data
-  integer               :: no_points
-  real(dp), allocatable :: path(:,:)
+  real(dp) :: kpoint(3)
   
   ! Line numbers
   integer :: path_start_line
@@ -41,89 +35,71 @@ subroutine structure_to_castep(structure_sc,input_filename, &
   
   ! Temporary variables
   integer        :: i
-  
-  ! File contents
-  type(String), allocatable :: path_file(:)
   type(String), allocatable :: line(:)
   
-  ! File units
-  integer :: cell_file
+  ! Old and new cell files.
+  type(String), allocatable :: old_cell_file(:)
+  integer                   :: new_cell_file
   
-  ! Whether or not path exists
-  logical :: path_wanted
-  
-  path_wanted = .false.
-  if (present(structure) .and. present(path_filename)) then
-    if (file_exists(path_filename)) then
-      path_wanted = .true.
-    endif
-  endif
-  
-  if (path_wanted) then
-    ! Parse path file
-    path_file = read_lines(path_filename)
-    do i=1,size(path_file)
-      line = split(lower_case(path_file(i)))
-      if (line(1)=="block") then
-        path_start_line = i
-      elseif (line(1)=="endblock") then
-        path_end_line = i
+  if (present(old_cell_filename)) then
+    ! --------------------------------------------------
+    ! Transform K-points into supercell co-ordinates.
+    ! --------------------------------------------------
+    path_start_line = 0
+    path_end_line = 0
+    
+    ! Check if a k-point path is specified.
+    old_cell_file = read_lines(old_cell_filename)
+    do i=1,size(old_cell_file)
+      line = split(lower_case(old_cell_file(i)))
+      if (size(line) >= 2) then
+        if (line(1)=='%block' .and. line(2)=='bs_kpoint_path') then
+          path_start_line = i
+        elseif ( line(1)=='%endblock' .and. line(2)=='bs_kpoint_path') then
+          path_end_line = i
+          exit
+        endif
       endif
     enddo
     
-    no_points = path_end_line-path_start_line-1
-    allocate(path(3,no_points))
-    
-    do i=1,path_end_line-path_start_line-1
-      line = split(path_file(path_start_line+i))
-      path(:,i) = dble(line)
+    ! Transform k-points from fractional primitive cell co-ordinates into 
+    !    fractional supercell co-ordinates.
+    do i=path_start_line+1,path_end_line-1
+      line = split(lower_case(old_cell_file(i)))
+      kpoint = dble(line(1:3))
+      kpoint = matmul(structure_sc%supercell,kpoint)
+      old_cell_file(i) = kpoint//' '//join(line(4:))
     enddo
-    
-    path = matmul(transpose(structure%recip_lattice),path)
-    path = matmul(structure_sc%lattice,path)
   endif
   
-  ! Write cell file
-  cell_file = open_write_file(output_filename)
-  call print_line(cell_file,'%block lattice_cart')
-  call print_line(cell_file,'bohr')
+  ! --------------------------------------------------
+  ! Write cell file.
+  ! --------------------------------------------------
+  new_cell_file = open_write_file(new_cell_filename)
+  call print_line(new_cell_file,'%block lattice_cart')
+  call print_line(new_cell_file,'bohr')
   do i=1,3
-    call print_line(cell_file,structure_sc%lattice(i,:))
+    call print_line(new_cell_file,structure_sc%lattice(i,:))
   enddo
-  call print_line(cell_file,'%endblock lattice_cart')
-  call print_line(cell_file,'')
-  call print_line(cell_file,'%block positions_abs')
-  call print_line(cell_file,'bohr')
+  call print_line(new_cell_file,'%endblock lattice_cart')
+  call print_line(new_cell_file,'')
+  call print_line(new_cell_file,'%block positions_abs')
+  call print_line(new_cell_file,'bohr')
   do i=1,structure_sc%no_atoms
-    call print_line(cell_file, structure_sc%species(i)//' '// &
+    call print_line(new_cell_file, structure_sc%species(i)//' '// &
                              & structure_sc%atoms(:,i))
   enddo
-  call print_line(cell_file,'%endblock positions_abs')
-  call print_line(cell_file,'')
+  call print_line(new_cell_file,'%endblock positions_abs')
+  call print_line(new_cell_file,'')
   
-  ! Copy the contents of input file to cell file
-  if (present(input_filename)) then
-    if (file_exists(input_filename)) then
-      input_file_contents = read_lines(input_filename)
-      do i=1,size(input_file_contents)
-        call print_line(cell_file,char(input_file_contents(i)))
-      enddo
-    endif
-  endif
-  
-  if (path_wanted) then
-    ! Append band structure data to cell file
-    call print_line(cell_file,'')
-    call print_line(cell_file,'%block_bs_kpoints_path')
-    do i=1,no_points
-      call print_line(cell_file,path(:,i))
+  ! Copy the contents of old cell file to new cell file.
+  if (present(old_cell_filename)) then
+    do i=1,size(old_cell_file)
+      call print_line(new_cell_file,char(old_cell_file(i)))
     enddo
-    call print_line(cell_file,'%endblock_bs_kpoint_path')
-    call print_line(cell_file,'')
-    call print_line(cell_file,'bs_kpoints_path_spacing = 10.0')
   endif
   
-  close(cell_file)
+  close(new_cell_file)
 end subroutine
 
 subroutine structure_to_vasp(structure_sc,poscar_filename)
@@ -202,118 +178,106 @@ subroutine structure_to_vasp(structure_sc,poscar_filename)
   close(poscar_file)
 end subroutine
 
-subroutine structure_to_qe(structure_sc,input_filename,pseudo_filename, &
-   & kpoints_filename,structure,output_filename)
+subroutine structure_to_qe(structure_sc,old_qe_in_filename,new_qe_in_filename)
   use string_module
   use structure_module
   use file_module
+  use err_module
   implicit none
   
-  type(StructureData), intent(in) :: structure_sc
-  type(String),        intent(in) :: input_filename
-  type(String),        intent(in) :: pseudo_filename
-  type(String),        intent(in) :: kpoints_filename
-  type(StructureData), intent(in) :: structure
-  type(String),        intent(in) :: output_filename
+  type(StructureData), intent(in)           :: structure_sc
+  type(String),        intent(in), optional :: old_qe_in_filename
+  type(String),        intent(in)           :: new_qe_in_filename
   
-  ! File contents
-  type(String), allocatable :: pseudo_contents(:)
-  
-  ! The contents of the old .in file
-  type(String), allocatable :: input_file_contents(:)
-  
-  ! kpoints.in data
-  integer        :: primitive_mesh(3)
-  real(dp)       :: sc_distance(3)
-  real(dp)       :: distance(3)
-  
-  ! File contents
-  type(String), allocatable :: kpoints_file(:)
-  
-  ! File units
-  integer :: output_file
+  ! The new and old qe input files.
+  type(String), allocatable :: old_qe_in_file(:)
+  integer                   :: new_qe_in_file
   
   ! Temporary variables
-  integer      :: i
-  type(String) :: line
+  integer                   :: i
+  type(String), allocatable :: line(:)
   
-  ! Read in pseudo file
-  pseudo_contents = read_lines(pseudo_filename)
-  
-  ! Read in kpoints file
-  kpoints_file = read_lines(kpoints_filename)
-  primitive_mesh = int(split(kpoints_file(2)))
-  
-  ! Construct reciprocal primitive lattice
-  do i=1,3
-    distance(i) = norm2(structure%recip_lattice(i,:))
-  enddo
-  
-  ! Construct reciprocal supercell lattice
-  do i=1,3
-    sc_distance(i) = norm2(structure_sc%recip_lattice(i,:))
-  enddo
-  
-  output_file = open_write_file(output_filename)
-  ! Write input file to output file
-  if (file_exists(input_filename)) then
-    input_file_contents = read_lines(input_filename)
-    do i=1,size(input_file_contents)
-      call print_line(output_file,input_file_contents(i))
+  if (present(old_qe_in_filename)) then
+    old_qe_in_file = read_lines(old_qe_in_filename)
+    
+    ! --------------------------------------------------
+    ! Transform K-points into supercell co-ordinates.
+    ! --------------------------------------------------
+    do i=1,size(old_qe_in_file)
+      line = split(lower_case(old_qe_in_file(i)))
+      if (size(line) >= 1) then
+        if (line(1)=='k_points') then
+          call print_line('qe K-points not yet supported.')
+          call err()
+        endif
+      endif
     enddo
   endif
   
+  ! --------------------------------------------------
   ! Write output file
-  call print_line(output_file,'nat='//structure_sc%no_atoms)
-  call print_line(output_file,'/&end')
-  do i=1,size(pseudo_contents)
-    call print_line(output_file,pseudo_contents(i))
-  enddo
-  call print_line(output_file,'CELL_PARAMETERS bohr')
+  ! --------------------------------------------------
+  new_qe_in_file = open_write_file(new_qe_in_filename)
+  call print_line(new_qe_in_file,'nat='//structure_sc%no_atoms)
+  call print_line(new_qe_in_file,'/&end')
+  call print_line(new_qe_in_file,'CELL_PARAMETERS bohr')
   do i=1,3
-    call print_line(output_file, structure_sc%lattice(i,:))
+    call print_line(new_qe_in_file, structure_sc%lattice(i,:))
   enddo
-  call print_line(output_file,'ATOMIC_POSITIONS bohr')
+  call print_line(new_qe_in_file,'ATOMIC_POSITIONS bohr')
   do i=1,structure_sc%no_atoms
-    call print_line(output_file, structure_sc%species(i)//' '// &
-                               & structure_sc%atoms(:,i))
+    call print_line(new_qe_in_file, structure_sc%species(i)//' '// &
+                                  & structure_sc%atoms(:,i))
   enddo
-  call print_line(output_file,kpoints_file(1))
-  line = int(primitive_mesh*sc_distance/distance)//' 0 0 0'
-  call print_line(output_file,line)
-  close(output_file)
+  
+  ! Write old qe in file contents to new qe in file.
+  if (present(old_qe_in_filename)) then
+    do i=1,size(old_qe_in_file)
+      call print_line(new_qe_in_file,old_qe_in_file(i))
+    enddo
+  endif
+  
+  close(new_qe_in_file)
 end subroutine
 
-subroutine structure_to_dft_StructureData(dft_code,structure_sc,      &
-   & input_filename,path_filename,pseudo_filename, &
-   & kpoints_filename,structure,output_filename)
+subroutine structure_to_dft_StructureData(dft_code,structure_sc, &
+   & input_filename,output_filename)
   use string_module
   use structure_module
+  use err_module
   implicit none
   
   type(String),        intent(in)           :: dft_code
   type(StructureData), intent(in)           :: structure_sc
-  type(String),        intent(in), optional :: input_filename     ! castep & qe
-  type(String),        intent(in), optional :: path_filename      ! castep only
-  type(String),        intent(in), optional :: pseudo_filename    ! qe only
-  type(String),        intent(in), optional :: kpoints_filename   ! qe only
-  type(StructureData), intent(in), optional :: structure          ! castep & qe
+  type(String),        intent(in), optional :: input_filename
   type(String),        intent(in)           :: output_filename
   
   if (dft_code=="castep") then
-    call structure_to_castep(structure_sc,input_filename, &
-       & path_filename,structure,output_filename)
+    if (present(input_filename)) then
+      call structure_to_castep(structure_sc,input_filename,output_filename)
+    else
+      call structure_to_castep( structure_sc      = structure_sc, &
+                              & new_cell_filename = output_filename)
+    endif
   elseif (dft_code=="vasp") then
-    call structure_to_vasp(structure_sc,output_filename)
+    if (present(input_filename)) then
+      call print_line('Conversion of vasp input files not yet supported.')
+      call err()
+    else
+      call structure_to_vasp(structure_sc,output_filename)
+    endif
   elseif (dft_code=="qe") then
-    call structure_to_qe(structure_sc,input_filename,pseudo_filename, &
-       & kpoints_filename,structure,output_filename)
+    if (present(input_filename)) then
+      call structure_to_qe(structure_sc,input_filename,output_filename)
+    else
+      call structure_to_qe( structure_sc       = structure_sc, &
+                          & new_qe_in_filename = output_filename)
+    endif
   endif
 end subroutine
 
-subroutine structure_to_dft_filename(dft_code,structure_sc_filename,  &
-   & input_filename,path_filename,pseudo_filename, &
-   & kpoints_filename,structure_filename,output_filename)
+subroutine structure_to_dft_filename(dft_code,structure_sc_filename, &
+   & input_filename,output_filename)
   use string_module
   use structure_module
   use supercell_module
@@ -321,35 +285,18 @@ subroutine structure_to_dft_filename(dft_code,structure_sc_filename,  &
   
   type(String), intent(in)           :: dft_code
   type(String), intent(in)           :: structure_sc_filename
-  type(String), intent(in), optional :: input_filename     ! castep and qe only
-  type(String), intent(in), optional :: path_filename      ! castep only
-  type(String), intent(in), optional :: pseudo_filename    ! qe only
-  type(String), intent(in), optional :: kpoints_filename   ! qe only
-  type(String), intent(in), optional :: structure_filename ! castep and qe only
+  type(String), intent(in), optional :: input_filename
   type(String), intent(in)           :: output_filename
   
   type(StructureData) :: structure_sc
-  type(StructureData) :: structure
   
   structure_sc = read_structure_file(structure_sc_filename)
   
-  if (present(structure_filename)) then
-    structure = read_structure_file(structure_filename)
-    call structure_to_dft( dft_code=dft_code, &
-                         & structure_sc=structure_sc, &
-                         & input_filename=input_filename, &
-                         & path_filename=path_filename, &
-                         & pseudo_filename=pseudo_filename, &
-                         & kpoints_filename=kpoints_filename, &
-                         & structure=structure, &
-                         & output_filename=output_filename)
+  if (present(input_filename)) then
+    call structure_to_dft(dft_code,structure_sc,input_filename,output_filename)
   else
     call structure_to_dft( dft_code=dft_code, &
                          & structure_sc=structure_sc, &
-                         & input_filename=input_filename, &
-                         & path_filename=path_filename, &
-                         & pseudo_filename=pseudo_filename, &
-                         & kpoints_filename=kpoints_filename, &
                          & output_filename=output_filename)
   endif
 end subroutine

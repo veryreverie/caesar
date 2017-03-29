@@ -7,7 +7,7 @@ contains
 
 subroutine anharmonic(wd)
   use constants, only : dp, eV
-  use utils,     only : mkdir
+  use utils,     only : mkdir, make_dft_output_filename
   use file_module
   
   use mapping_module
@@ -70,6 +70,7 @@ subroutine anharmonic(wd)
   real(dp), allocatable :: harmonic(:,:,:)
   
   type(String)          :: filename
+  type(String)          :: dft_output_filename
   
   type(DftOutputFile)   :: dft_output_file
   
@@ -138,9 +139,11 @@ subroutine anharmonic(wd)
   
   ! read data from supercells
   do i=1,no_supercells
-    sdir = wd//'/Supercell_'//i
     if (.not. sc_acoustic(i)) then
-      dft_output_file = read_dft_output_file(dft_code,sdir,seedname)
+      sdir = wd//'/Supercell_'//i
+      dft_output_filename = make_dft_output_filename(dft_code,seedname)
+      dft_output_filename = sdir//'/'//dft_output_filename
+      dft_output_file = read_dft_output_file(dft_code,dft_output_filename)
       static_energies(i) = dft_output_file%energy
     endif
   enddo
@@ -160,14 +163,11 @@ subroutine anharmonic(wd)
         do k=mapping%first,mapping%last
           ddir = wd//'/kpoint_'//i//'/mode_'//j//'/amplitude_'//k
           
-          if (dft_code=='castep') then
-            filename = ddir//'/'//seedname//'.castep'
-          elseif (dft_code=='qe') then
-            filename = ddir//'/'//seedname//'.out'
-          endif
+          dft_output_filename = make_dft_output_filename(dft_code,seedname)
+          dft_output_filename = ddir//'/'//dft_output_filename
           
-          if (file_exists(filename)) then
-            dft_output_file = read_dft_output_file(dft_code,ddir,seedname)
+          if (file_exists(dft_output_filename)) then
+            dft_output_file = read_dft_output_file(dft_code,dft_output_filename)
             energies(k,j,i) = dft_output_file%energy
           else
             energies(k,j,i) = static_energies(sc_ids(i))

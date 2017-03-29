@@ -76,9 +76,6 @@ function run_harmonic {
           dir=$sdir/atom.$atom.${sign}d$direction
           echo "Working in directory:"
           echo $dir
-          if [ "$code" = "castep" ]; then
-            cp $code/$seedname.param $ddir
-          fi
           run_dft $code $ddir $num_cores $seedname
         done
       done
@@ -102,7 +99,6 @@ function run_quadratic {
   # Read in previous user inputs
   dft_code=$( awk 'NR==1 {print}' user_input.txt )
   seedname=$( awk 'NR==2 {print}' user_input.txt )
-  seedname_nscf=$seedname.nscf
   harmonic_path=$( awk 'NR==3 {print}' user_input.txt)
 
   # Read in mapping file
@@ -125,15 +121,8 @@ function run_quadratic {
 
     # Run static dft
     static_dir=$sdir/static
-    if [ "$dft_code" = "castep" ]; then
-      cp $dft_code/$seedname.param $static_dir
-      run_dft $dft_code $static_dir $num_cores $seedname
-    elif [ "$dft_code" = "qe" ]; then
-      run_dft $dft_code $static_dir $num_cores $seedname
-      if [ -e "$static_dir/$seedname_nscf.in" ]; then
-        run_dft $dft_code $static_dir $num_cores $seedname_nscf
-      fi
-    fi
+    echo $static_dir
+    run_dft $dft_code $static_dir $num_cores $seedname
   done
 
   # loop over kpoints
@@ -152,15 +141,8 @@ function run_quadratic {
           # Check that dft needs to be run
           if [ -e "$mdir/structure.dat" ]; then
             # Run dft
-            if [ "$dft_code" = "castep" ]; then
-              cp $dft_code/$seedname.param $mdir
-              run_dft $dft_code $mdir $num_cores $seedname
-            elif [ "$dft_code" = "qe" ]; then
-              run_dft $dft_code $mdir $num_cores $seedname
-              if [ -e "$mdir/$seedname_nscf.in" ]; then
-                run_dft $dft_code $mdir $num_cores $seedname_nscf
-              fi
-            fi
+            echo $mdir
+            run_dft $dft_code $mdir $num_cores $seedname
           fi
         done
       done
@@ -193,6 +175,7 @@ function run_dft {
   cd $directory
   
   if [ "$dft_code" = "castep" ]; then
+    cp $dft_code/$seedname.param .
     rundft nnodes $num_cores seedname $seedname
     rm *.castep_bin *.cst_esp *.usp machine_file *.bib *orbitals
   elif [ "$dft_code" = "vasp" ]; then

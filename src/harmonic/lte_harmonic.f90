@@ -8,7 +8,7 @@ contains
 function calculate_force_constants(structure,structure_sc,symmetry_group, &
    & unique_directions,sdir,dft_code,seedname) result(output)
   use constants,      only : dp, eV_per_A_to_au, directions
-  use utils,          only : mkdir
+  use utils,          only : mkdir, make_dft_output_filename
   use linear_algebra, only : invert
   use file_module
   use string_module
@@ -33,6 +33,7 @@ function calculate_force_constants(structure,structure_sc,symmetry_group, &
   
   ! Force constant data
   character(1)                       :: direction
+  type(String)                       :: dft_output_filename
   type(DftOutputFile)                :: positive
   type(DftOutputFile)                :: negative
   real(dp),              allocatable :: force_constants(:,:,:,:)
@@ -94,12 +95,11 @@ function calculate_force_constants(structure,structure_sc,symmetry_group, &
       
       ! Calculate second derivatives of energy, using finite differences
       !    of force data.
+      dft_output_filename = make_dft_output_filename(dft_code,seedname)
       positive = read_dft_output_file(dft_code,      &
-         & sdir//'/atom.'//atom_1_sc//'.+d'//direction, &
-         & seedname)
+         & sdir//'/atom.'//atom_1_sc//'.+d'//direction//'/'//dft_output_filename)
       negative = read_dft_output_file(dft_code,      &
-         & sdir//'/atom.'//atom_1_sc//'.-d'//direction, &
-         & seedname)
+         & sdir//'/atom.'//atom_1_sc//'.-d'//direction//'/'//dft_output_filename)
       
       force_constants(k,:,:,atom_1_prim) = (positive%forces-negative%forces) &
                                        & * eV_per_A_to_au / 0.02_dp
