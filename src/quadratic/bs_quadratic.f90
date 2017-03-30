@@ -106,7 +106,7 @@ subroutine bs_quadratic(wd)
   
   structure = read_structure_file(harmonic_path//'/structure.dat')
   
-  ibz_file = read_lines(harmonic_path//'/ibz.dat')
+  ibz_file = read_lines(harmonic_path//'/kpoints_ibz.dat')
   no_kpoints = size(ibz_file)
   allocate(multiplicity(no_kpoints))
   allocate(sc_ids(no_kpoints))

@@ -1,6 +1,7 @@
 ! A class for holding the information in a castep .castep or qe .out file
 module dft_output_file_module
   use constants, only : dp
+  use string_module
   implicit none
   
   private
@@ -12,7 +13,7 @@ module dft_output_file_module
   
   type DftOutputFile
     integer                   :: no_atoms
-    character(2), allocatable :: species(:)
+    type(String), allocatable :: species(:)
     real(dp)                  :: energy
     real(dp),     allocatable :: forces(:,:)
   end type
@@ -114,7 +115,7 @@ function read_castep_output_file(filename) result(output)
   
   do i=1,output%no_atoms
     line = split(castep_file(forces_start_line+5+i))
-    output%species(i) = char(line(2))
+    output%species(i) = line(2)
     output%forces(:,i) = dble(line(4:6))
   enddo
 end function
@@ -141,7 +142,7 @@ function read_qe_output_file(filename) result(output)
   
   ! qe "type" to species conversion
   integer                   :: no_species
-  character(2), allocatable :: species(:)
+  type(String), allocatable :: species(:)
   
   ! temporary variables
   integer        :: i
@@ -180,7 +181,7 @@ function read_qe_output_file(filename) result(output)
   ! Read data
   do i=1,species_end_line-species_start_line-1
     line = split(qe_file(species_start_line+1))
-    species(i) = char(line(0))
+    species(i) = line(1)
   enddo
   
   line = split(qe_file(energy_line))

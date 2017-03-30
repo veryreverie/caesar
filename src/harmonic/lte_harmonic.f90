@@ -351,6 +351,7 @@ subroutine lte_harmonic(wd)
   use unique_directions_module
   use group_module
   use err_module
+  use kpoints_module
   implicit none
   
   ! Working directory.
@@ -363,7 +364,6 @@ subroutine lte_harmonic(wd)
   type(String), allocatable :: user_inputs(:)
   type(String), allocatable :: grid_file(:)
   type(String), allocatable :: no_sc_file(:)
-  type(String), allocatable :: ibz_file(:)
   
   ! Setup data
   integer             :: no_sc
@@ -381,11 +381,8 @@ subroutine lte_harmonic(wd)
   real(dp),              allocatable :: force_constants(:,:,:)
   
   ! kpoint data
-  integer              :: no_kpoints
-  integer, allocatable :: kpoints(:,:)
-  integer, allocatable :: multiplicity(:)
-  integer, allocatable :: sc_ids(:)
-  integer, allocatable :: gvector_ids(:)
+  type(KpointsGrid) :: kpoints_grid
+  type(KpointsIbz)  :: kpoints_ibz
   
   ! lte input data
   integer               :: no_kspace_lines
@@ -403,7 +400,6 @@ subroutine lte_harmonic(wd)
   ! Temporary variables
   integer                   :: i,j
   type(String)              :: sdir
-  type(String), allocatable :: line(:)
   
   ! ----------------------------------------------------------------------
   ! Get temperature from user
@@ -427,24 +423,13 @@ subroutine lte_harmonic(wd)
   grid_file = read_lines(wd//'/grid.dat')
   grid = int(split(grid_file(1)))
   
-  ! Read kpoints from ibz.dat
-  ibz_file = read_lines(wd//'/ibz.dat')
-  no_kpoints = size(ibz_file)
-  allocate(kpoints(3,no_kpoints))
-  allocate(multiplicity(no_kpoints))
-  allocate(sc_ids(no_kpoints))
-  allocate(gvector_ids(no_kpoints))
-  do i=1,no_kpoints
-    line = split(ibz_file(i))
-    kpoints(:,i) = int(line(1:3))
-    multiplicity(i) = int(line(4))
-    sc_ids(i) = int(line(5))
-    gvector_ids(i) = int(line(6))
-  enddo
+  ! Read kpoints.
+  kpoints_grid = read_kpoints_grid_file(wd//'/kpoints_grid.dat')
+  kpoints_ibz = read_kpoints_ibz_file(wd//'/kpoints_ibz.dat')
   
   allocate(ibz_dynamical_matrices( structure%no_modes, &
                                  & structure%no_modes, &
-                                 & no_kpoints))
+                                 & size(kpoints_ibz)))
   
   ! ----------------------------------------------------------------------
   ! Loop over supercells
@@ -470,14 +455,14 @@ subroutine lte_harmonic(wd)
     
     deallocate(force_constants)
     
-    do j=1,no_kpoints
-      if (sc_ids(j)/=i) then
+    do j=1,size(kpoints_ibz)
+      if (kpoints_ibz%sc_ids(j)/=i) then
         cycle
       endif
       
       ! Move dynamical matrices into ibz_dynamical matrices.
       ibz_dynamical_matrices(:,:,j) = &
-         & lte_result%dynamical_matrices(:,:,gvector_ids(j))
+         & lte_result%dynamical_matrices(:,:,kpoints_ibz%gvector_ids(j))
       
       call mkdir(wd//'/kpoint_'//j)
     
@@ -486,7 +471,7 @@ subroutine lte_harmonic(wd)
          & wd//'/kpoint_'//j//'/frequencies.dat')
       do mode=1,structure%no_modes
         call print_line(frequencies_file, &
-           & lte_result%frequencies(mode,gvector_ids(j)))
+           & lte_result%frequencies(mode,kpoints_ibz%gvector_ids(j)))
       enddo
       
       ! Write out prefactors.
@@ -496,7 +481,7 @@ subroutine lte_harmonic(wd)
         call print_line(prefactors_file,'Mode : '//mode)
         do atom=1,structure_sc%no_atoms
           call print_line(prefactors_file, &
-             & lte_result%prefactors(atom,mode,gvector_ids(j)))
+             & lte_result%prefactors(atom,mode,kpoints_ibz%gvector_ids(j)))
         enddo
         call print_line(prefactors_file,'')
       enddo
@@ -508,7 +493,7 @@ subroutine lte_harmonic(wd)
         call print_line(displacement_pattern_file,'Mode : '//mode)
         do atom=1,structure_sc%no_atoms
           call print_line(displacement_pattern_file, &
-             & lte_result%displacements(:,atom,mode,gvector_ids(j)))
+            & lte_result%displacements(:,atom,mode,kpoints_ibz%gvector_ids(j)))
         enddo
         call print_line(displacement_pattern_file,'')
       enddo
@@ -534,7 +519,7 @@ subroutine lte_harmonic(wd)
      & structure,                          &
      & grid,                               &
      & temperature,                        &
-     & kpoints,                            &
+     & kpoints_grid,                       &
      & disp_kpoints,                       &
      & symmetry_group,                     &
      & wd//'/phonon_dispersion_curve.dat', &

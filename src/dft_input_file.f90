@@ -38,6 +38,7 @@ function castep_input_file_to_structure(filename) result(output)
   
   ! Temporary variables.
   type(String), allocatable :: line(:)
+  character(1)              :: first_char
   integer                   :: i,j
   
   cell_file = read_lines(filename)
@@ -73,7 +74,7 @@ function castep_input_file_to_structure(filename) result(output)
         positions_end_line = i
       elseif (line(1)=='%block' .and. line(2)=='species_mass') then
         masses_start_line = i
-      elseif (line(1)=='%block' .and. line(2)=='species_mass') then
+      elseif (line(1)=='%endblock' .and. line(2)=='species_mass') then
         masses_end_line = i
       endif
     endif
@@ -108,11 +109,14 @@ function castep_input_file_to_structure(filename) result(output)
     line = split(lower_case(cell_file(i)))
     
     ! Ignore comments.
-    if (char(line(1))(1:1)=='!') then
+    first_char = char(line(1))
+    if (first_char=='!') then
       cycle
     
     ! Read units if present.
-    elseif (line(1) == 'bohr' .or. line(1) == 'a0') then
+    elseif (line(1) == 'bohr') then
+      conversion = 1.0_dp
+    elseif (line(1) == 'a0') then
       conversion = 1.0_dp
     elseif (line(1) == 'm') then
       conversion = 1e10_dp*bohr
@@ -167,7 +171,8 @@ function castep_input_file_to_structure(filename) result(output)
     line = split(lower_case(cell_file(i)))
     
     ! Ignore comments.
-    if (char(line(1))(1:1)=='!') then
+    first_char = char(line(1))
+    if (first_char=='!') then
       cycle
     
     ! Read units if present.
@@ -187,6 +192,7 @@ function castep_input_file_to_structure(filename) result(output)
     
     ! Read in atomic positions.
     else
+      line = split(cell_file(i)) ! N.B. no lower_case
       species(j) = line(1)
       positions(:,j) = dble(line(2:4))
       j = j+1
@@ -215,7 +221,8 @@ function castep_input_file_to_structure(filename) result(output)
     line = split(lower_case(cell_file(i)))
     
     ! Ignore comments.
-    if (char(line(1))(1:1)=='!') then
+    first_char = char(line(1))
+    if (first_char=='!') then
       cycle
     
     ! Read units if present.
@@ -230,6 +237,7 @@ function castep_input_file_to_structure(filename) result(output)
     
     ! Read in masses.
     else
+      line = split(cell_file(i)) ! N.B. no lower_case
       do j=1,no_atoms
         if (line(1)==species(j)) then
           masses_found(j) = .true.
@@ -241,6 +249,7 @@ function castep_input_file_to_structure(filename) result(output)
   
   if (.not. all(masses_found)) then
     call print_line('Error: not all masses specified in '//filename)
+    call err()
   endif
   
   output%supercell = identity

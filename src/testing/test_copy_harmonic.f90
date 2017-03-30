@@ -28,7 +28,8 @@ subroutine test_copy_harmonic(wd,cwd)
   integer                   :: no_supercells
   
   ! Directory and file names.
-  type(String) :: sdir
+  type(String) :: sdir_old
+  type(String) :: sdir_new
   type(String) :: copy_dirs(2)
   type(String) :: new_dirs(2)
   type(String) :: dft_output_filename
@@ -77,11 +78,12 @@ subroutine test_copy_harmonic(wd,cwd)
   do i=1,no_supercells
     call print_line('')
     call print_line('Supercell '//i//':')
-    sdir = wd//'/Supercell_'//i
+    sdir_old = copy_dir//'/Supercell_'//i
+    sdir_new = wd//'/Supercell_'//i
     
     ! Read in both structure files.
-    structure_copy = read_structure_file(copy_dir//'/'//sdir//'/structure.dat')
-    structure_new = read_structure_file(sdir//'/structure.dat')
+    structure_copy = read_structure_file(sdir_old//'/structure.dat')
+    structure_new = read_structure_file(sdir_new//'/structure.dat')
     
     new_to_copy = atom_mapping(structure_new,structure_copy)
     
@@ -91,7 +93,7 @@ subroutine test_copy_harmonic(wd,cwd)
     call print_line(new_to_copy%operation)
     
     unique_directions = &
-       & read_unique_directions_file(sdir//'/unique_directions.dat')
+       & read_unique_directions_file(sdir_new//'/unique_directions.dat')
     do j=1,size(unique_directions)
       atom = unique_directions%unique_atoms(j)
       
@@ -107,12 +109,11 @@ subroutine test_copy_harmonic(wd,cwd)
         
         direction = directions(k)
         
-        copy_dirs = &
-           & (/copy_dir//'/'//sdir//'/atom.'//atom//'.disp.'//k//'/positive', &
-           &   copy_dir//'/'//sdir//'/atom.'//atom//'.disp.'//k//'/negative' /)
+        copy_dirs = (/ sdir_old//'/atom.'//atom//'.disp.'//k//'/positive', &
+                    &  sdir_old//'/atom.'//atom//'.disp.'//k//'/negative'  /)
         
-        new_dirs = (/sdir//'/atom.'//atom//'.+d'//direction, &
-                   & sdir//'/atom.'//atom//'.-d'//direction /)
+        new_dirs = (/ sdir_new//'/atom.'//atom//'.+d'//direction, &
+                   &  sdir_new//'/atom.'//atom//'.-d'//direction  /)
         do l=1,2
           ! Read in the old castep file.
           dft_output_filename = make_dft_output_filename(dft_code,seedname)

@@ -143,9 +143,9 @@ subroutine structure_to_vasp(structure_sc,poscar_filename)
   integer :: poscar_file
   
   ! Species data
-  character(2)              :: previous_species
+  type(String)              :: previous_species
   integer                   :: no_species
-  character(2), allocatable :: species(:)
+  type(String), allocatable :: species(:)
   integer,      allocatable :: species_counts(:)
   
   ! Temporary variables
@@ -154,7 +154,7 @@ subroutine structure_to_vasp(structure_sc,poscar_filename)
   
   ! Count the number of species
   no_species = 0
-  previous_species='XX'
+  previous_species=''
   do i=1,structure_sc%no_atoms
     if (structure_sc%species(i)/=previous_species) then
       previous_species = structure_sc%species(i)
@@ -166,7 +166,7 @@ subroutine structure_to_vasp(structure_sc,poscar_filename)
   allocate(species(no_species))
   allocate(species_counts(no_species))
   no_species = 0
-  previous_species='XX'
+  previous_species=''
   species_counts = 0
   do i=1,structure_sc%no_atoms
     if (structure_sc%species(i)/=previous_species) then

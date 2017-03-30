@@ -32,9 +32,13 @@ module constants
   real(dp), parameter :: thermal = 3.1577464e5_dp ! Hartree temperature K
   real(dp), parameter :: kB = 8.6173324e-5_dp     ! Boltzmann's constant eV/K
   real(dp), parameter :: eV_per_A_to_au = 0.01944689814638725057_dp
-  real(dp), parameter :: kB_au_per_K = 3.16679002948702e-6_dp ! kB in Hartrees/K
+  real(dp), parameter :: kB_au_per_K = 3.16679002948702e-6_dp ! kB in Hartree/K
   real(dp), parameter :: Ry = 13.605698066_dp     ! Rydberg energy eV
   real(dp), parameter :: bohr = 0.52911721092_dp  ! Bohr radius in Angstrom
+  
+  ! Parameters taken from Wikipedia. TODO: find a better source.
+  real(dp), parameter :: kg_to_me = 1.0977691e-32_dp ! kg to electron mass
+  real(dp), parameter :: amu_to_me = 1.822888486192e3_dp ! amu to electron mass
   
   ! ----------------------------------------
   ! lte parameters.

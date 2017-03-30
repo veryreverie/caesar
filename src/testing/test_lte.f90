@@ -13,6 +13,7 @@ subroutine test_lte(wd,cwd)
   use unique_directions_module
   use displacement_patterns_module
   use lte_harmonic_module
+  use kpoints_module
   implicit none
   
   ! Working directories.
@@ -24,7 +25,6 @@ subroutine test_lte(wd,cwd)
   type(String)              :: copy_dir
   type(String)              :: lte_dir
   type(String), allocatable :: grid_file(:)
-  type(String), allocatable :: ibz_file(:)
   
   ! Setup data
   type(String), allocatable :: no_sc_file(:)
@@ -85,12 +85,10 @@ subroutine test_lte(wd,cwd)
   real(dp), allocatable :: disp_kpoints(:,:)
   integer               :: grid(3)
   real(dp)              :: temperature
-  integer               :: no_kpoints
-  integer,  allocatable :: kpoints(:,:)
-  integer,  allocatable :: multiplicity(:)
-  integer,  allocatable :: sc_ids(:)
-  integer,  allocatable :: gvector_ids(:)
-  type(Group), allocatable :: prim_symmetry_group(:)
+  
+  ! K-point data.
+  type(KpointsGrid) :: kpoints_grid
+  type(KpointsIbz)  :: kpoints_ibz
   
   ! Temporary variables.
   integer                   :: i,j,k,l
@@ -137,22 +135,13 @@ subroutine test_lte(wd,cwd)
   grid_file = read_lines(wd//'/grid.dat')
   grid = int(split(grid_file(1)))
   
-  ! Read kpoints from ibz.dat
-  ibz_file = read_lines(wd//'/ibz.dat')
-  no_kpoints = size(ibz_file)
-  allocate(kpoints(3,no_kpoints))
-  allocate(multiplicity(no_kpoints))
-  allocate(sc_ids(no_kpoints))
-  allocate(gvector_ids(no_kpoints))
-  do i=1,no_kpoints
-    line = split(ibz_file(i))
-    kpoints(:,i) = int(line(1:3))
-    multiplicity(i) = int(line(4))
-    sc_ids(i) = int(line(5))
-    gvector_ids(i) = int(line(6))
-  enddo
+  ! Read kpoint data.
+  kpoints_grid = read_kpoints_grid_file(wd//'/kpoints_grid.dat')
+  kpoints_ibz = read_kpoints_ibz_file(wd//'/kpoints_ibz.dat')
   
-  allocate(dyn_mats_ibz(structure%no_modes,structure%no_modes,no_kpoints))
+  allocate(dyn_mats_ibz( structure%no_modes, &
+                       & structure%no_modes, &
+                       & size(kpoints_ibz)))
   
   ! ----------------------------------------------------------------------
   ! Loop across supercells, testing each in turn.
@@ -484,12 +473,12 @@ subroutine test_lte(wd,cwd)
     deallocate(atom)
     
     ! Move dynamical matrices into dyn_mats_ibz.
-    do j=1,no_kpoints
-      if (sc_ids(j)/=i) then
+    do j=1,size(kpoints_ibz)
+      if (kpoints_ibz%sc_ids(j)/=i) then
         cycle
       endif
       
-      dyn_mats_ibz(:,:,j) = new_dyn_mats(:,:,gvector_ids(j))
+      dyn_mats_ibz(:,:,j) = new_dyn_mats(:,:,kpoints_ibz%gvector_ids(j))
     enddo
     
     deallocate(new_dyn_mats)
@@ -504,10 +493,7 @@ subroutine test_lte(wd,cwd)
   disp_kpoints(:,4) = (/ 0.0_dp, 0.0_dp, 0.0_dp /) ! GM
   disp_kpoints(:,5) = (/ 0.0_dp, 0.5_dp, 0.0_dp /) ! L
   
-  ! Read in primitive symmetry group.
-  prim_symmetry_group = read_group_file(wd//'/Supercell_1/symmetry_group.dat')
   call mkdir(wd//'/new_lte')
-  
   call print_line('')
   call print_line('Running fourier interpolation (this may take some time).')
   call fourier_interpolation(                      &
@@ -515,7 +501,7 @@ subroutine test_lte(wd,cwd)
      & structure,                                  &
      & grid,                                       &
      & temperature,                                &
-     & kpoints,                                    &
+     & kpoints_grid,                               &
      & disp_kpoints,                               &
      & symmetry_group,                             &
      & wd//'/new_lte/phonon_dispersion_curve.dat', &

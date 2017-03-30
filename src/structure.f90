@@ -3,7 +3,7 @@
 ! ======================================================================
 module structure_module
   use constants, only : dp
-  use supercell_module
+  use string_module
   implicit none
   
   ! the structure class
@@ -15,7 +15,7 @@ module structure_module
     ! Atom data
     integer                   :: no_atoms
     integer                   :: no_modes
-    character(2), allocatable :: species(:)
+    type(String), allocatable :: species(:)
     real(dp),     allocatable :: mass(:)
     real(dp),     allocatable :: atoms(:,:)
     ! Conversions between atom representations.
@@ -170,8 +170,7 @@ function read_structure_file_character(filename) result(this)
     line = split(lower_case(structure_file(i)))
     
     if (size(line)==0) then
-      call print_line('Error: '//filename//' contains blank lines.')
-      call err()
+      cycle
     endif
     
     if (line(1)=="lattice") then
@@ -226,11 +225,11 @@ function read_structure_file_character(filename) result(this)
   elseif (supercell_line==0) then
     ! structure.dat does not contain supercell data
     no_atoms = symmetry_line-atoms_line-1
-    no_symmetries = (end_line-symmetry_line-1)/4
+    no_symmetries = (end_line-symmetry_line-1)/5
     sc_size = 1
   else
     no_atoms = symmetry_line-atoms_line-1
-    no_symmetries = (supercell_line-symmetry_line-1)/4
+    no_symmetries = (supercell_line-symmetry_line-1)/5
     sc_size = (end_line-gvectors_line-1)
   endif
   
@@ -248,17 +247,17 @@ function read_structure_file_character(filename) result(this)
   
   do i=1,this%no_atoms
     line = split(structure_file(atoms_line+i))
-    this%species(i) = char(line(1))
+    this%species(i) = line(1)
     this%mass(i) = dble(line(2))
     this%atoms(:,i) = dble(line(3:5))
   enddo
   
   do i=1,this%no_symmetries
     do j=1,3
-      line = split(structure_file(symmetry_line+(i-1)*4+j))
+      line = split(structure_file(symmetry_line+(i-1)*5+j))
       this%rotation_matrices(j,:,i) = dble(line)
     enddo
-    line = split(structure_file(symmetry_line+(i-1)*4+4))
+    line = split(structure_file(symmetry_line+(i-1)*5+4))
     this%offsets(:,i) = dble(line)
   enddo
   
@@ -327,6 +326,7 @@ subroutine write_structure_file_character(this,filename)
         call print_line(structure_file, this%rotation_matrices(j,:,i))
       enddo
       call print_line(structure_file, this%offsets(:,i))
+      call print_line(structure_file, '')
     enddo
   endif
   

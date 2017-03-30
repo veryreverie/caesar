@@ -13,6 +13,7 @@ subroutine setup_quadratic(wd,cwd)
   use structure_to_dft_module
   use supercell_module
   use err_module
+  use kpoints_module
   implicit none
   
   ! Working directories.
@@ -51,9 +52,7 @@ subroutine setup_quadratic(wd,cwd)
   real(dp),     allocatable :: displacements(:,:,:)
   
   ! K-point data
-  integer              :: no_kpoints
-  integer, allocatable :: sc_ids(:)
-  integer, allocatable :: gvectors(:)
+  type(KpointsIbz) :: kpoints
   
   ! Working variables
   type(StructureData) :: structure_sc
@@ -70,9 +69,8 @@ subroutine setup_quadratic(wd,cwd)
   type(String), allocatable :: line(:)
   
   ! Files
-  type(String), allocatable :: ibz_file(:)
   type(String), allocatable :: no_sc_file(:)
-  integer :: user_input_file
+  integer                   :: user_input_file
   
   ! ------------------------------------------------------------
   ! Get settings from user.
@@ -147,16 +145,8 @@ subroutine setup_quadratic(wd,cwd)
        & harmonic_path//'/Supercell_'//i//'/structure.dat')
   enddo
   
-  ! Read in kpoint data
-  ibz_file = read_lines(harmonic_path//'/ibz.dat')
-  no_kpoints = size(ibz_file)
-  allocate(sc_ids(no_kpoints))
-  allocate(gvectors(no_kpoints))
-  do i=1,no_kpoints
-    line = split(ibz_file(i))
-    sc_ids(i) = int(line(5))
-    gvectors(i) = int(line(6))
-  enddo
+  ! Read in kpoint data.
+  kpoints = read_kpoints_ibz_file(harmonic_path//'/kpoints_ibz.dat')
   
   ! ------------------------------------------------------------
   ! Write user inputs to file
@@ -177,7 +167,7 @@ subroutine setup_quadratic(wd,cwd)
     call mkdir(wd//'/Supercell_'//i)
   enddo
   
-  do i=1,no_kpoints
+  do i=1,size(kpoints)
     call mkdir(wd//'/kpoint_'//i)
   enddo
   
@@ -196,8 +186,8 @@ subroutine setup_quadratic(wd,cwd)
   ! ------------------------------------------------------------
   ! Generate quadratic configurations
   ! ------------------------------------------------------------
-  do i=1,no_kpoints
-    structure_sc = structure_scs(sc_ids(i))
+  do i=1,size(kpoints)
+    structure_sc = structure_scs(kpoints%sc_ids(i))
     
     ! Read in frequencies, prefactors and displacements.
     frequency_file = read_lines( &
@@ -264,7 +254,6 @@ subroutine setup_quadratic(wd,cwd)
         enddo
         
         ! Write dft input files
-        sdir = wd//'/Supercell_'//sc_ids(i)
         mdir = wd//'/kpoint_'//i//'/mode_'//j//'/amplitude_'//k
         
         dft_input_filename = make_dft_input_filename(dft_code,seedname)

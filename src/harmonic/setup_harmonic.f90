@@ -13,7 +13,9 @@ subroutine setup_harmonic(wd,source_dir)
   use structure_module
   use supercell_module
   use group_module
+  use kpoints_module
   
+  use dft_input_file_module
   use structure_to_dft_module
   use generate_supercells_module
   use construct_supercell_module
@@ -38,7 +40,7 @@ subroutine setup_harmonic(wd,source_dir)
   integer             :: grid(3)
   
   ! Supercell data
-  type(GeneratedSupercells)        :: supercells_and_ibz
+  type(GeneratedSupercells)        :: kpoints_and_supercells
   integer                          :: no_supercells
   type(SupercellData), allocatable :: supercells(:)
   type(StructureData)              :: structure_sc
@@ -65,7 +67,6 @@ subroutine setup_harmonic(wd,source_dir)
   
   ! File units
   integer :: user_input_file_out
-  integer :: ibz_file
   integer :: no_supercells_file
   
   ! ----------------------------------------------------------------------
@@ -117,7 +118,9 @@ subroutine setup_harmonic(wd,source_dir)
   ! ----------------------------------------------------------------------
   ! Read in input files.
   ! ----------------------------------------------------------------------
-  structure = read_structure_file(wd//'/structure.dat')
+  !structure = read_structure_file(wd//'/structure.dat')
+  structure = dft_input_file_to_structure(dft_code,dft_input_filename)
+  call write_structure_file(structure,wd//'/structure.dat')
   
   ! Read grid file
   grid_file = read_lines(wd//'/grid.dat')
@@ -150,18 +153,14 @@ subroutine setup_harmonic(wd,source_dir)
   ! Generate supercells.
   ! ----------------------------------------------------------------------
   ! Generate IBZ and non-diagonal supercells
-  supercells_and_ibz = generate_supercells(structure,grid)
-  supercells = supercells_and_ibz%supercells
+  kpoints_and_supercells = generate_supercells(structure,grid)
+  supercells = kpoints_and_supercells%supercells
   
-  ! Write IBZ data to file.
-  ibz_file = open_write_file(wd//'/ibz.dat')
-  do i=1,size(supercells_and_ibz%kpoints,2)
-    call print_line(ibz_file, supercells_and_ibz%kpoints(:,i)    //' '// &
-                            & supercells_and_ibz%multiplicity(i) //' '// &
-                            & supercells_and_ibz%sc_ids(i)       //' '// &
-                            & supercells_and_ibz%gvector_ids(i))
-  enddo
-  close(ibz_file)
+  ! Write K-point data to file.
+  call write_kpoints_grid_file( kpoints_and_supercells%kpoints_grid, &
+                              & wd//'/kpoints_grid.dat')
+  call write_kpoints_ibz_file( kpoints_and_supercells%kpoints_ibz, &
+                             & wd//'/kpoints_ibz.dat')
   
   ! Write no_supercells to file
   no_supercells = size(supercells)

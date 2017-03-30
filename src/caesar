@@ -128,10 +128,17 @@ function run_quadratic {
   done
 
   # loop over kpoints
+  i=0
   while read fline ; do
+    
+    # Skip the first line.
+    if ["$i" = "0"]; then
+      ((i++))
+      continue
+    fi
+    
     line=($fline)
-    kpoint=${line[0]}
-    sc_id=${line[2]}
+    sc_id=${line[4]}
     
     # Skip kpoints in other supercells
     if ["$sc_id" -ge "$first_sc"] && ["$sc_id" -le "$last_sc"]; then
@@ -139,7 +146,7 @@ function run_quadratic {
       for j in `seq 1 $no_modes`; do
         # Loop over sampling points
         for k in `seq $sampling_point_init $sampling_point_final`; do
-          mdir=kpoint_$kpoint/mode_$j/amplitude_$k
+          mdir=kpoint_$i/mode_$j/amplitude_$k
           # Check that dft needs to be run
           if [ -e "$mdir/structure.dat" ]; then
             # Run dft
@@ -149,7 +156,9 @@ function run_quadratic {
         done
       done
     fi
-  done < $harmonic_path/list.dat
+    
+    ((i++))
+  done < $harmonic_path/kpoints_ibz.dat
   echo "Done."
 }
 
@@ -161,7 +170,7 @@ function clear_all {
   read answer
 
   if [ "$answer" = "y" ]; then
-    rm -r Supercell_* ibz.dat no_sc.dat
+    rm -r Supercell_* kpoints_grid.dat kpoints_ibz.dat no_sc.dat
   fi
 }
 
