@@ -6,6 +6,7 @@ contains
 subroutine hartree_to_eV()
   use constants, only : dp, eV
   use string_module
+  use file_module
   implicit none
   
   real(dp) :: input

@@ -3,9 +3,11 @@ contains
 
 function calculate_symmetry_group(structure) result(output)
   use constants, only : dp
+  use utils, only : l2_norm
   use structure_module
   use group_module
   use string_module
+  use file_module
   use err_module
   implicit none
   
@@ -51,7 +53,7 @@ function calculate_symmetry_group(structure) result(output)
       !    modulo supercell lattice vectors.
       do k=1,structure%no_atoms
         delta = transformed_pos_frac - atom_pos_frac(:,k)
-        distances(k) = norm2(delta-nint(delta))
+        distances(k) = l2_norm(delta-nint(delta))
       enddo
       operations(j,i) = minloc(distances,1)
     enddo

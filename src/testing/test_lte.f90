@@ -208,7 +208,7 @@ subroutine test_lte(wd,cwd)
     close(new_lte_file)
     
     ! Run old lte.
-    call system('cd '//lte_dir//'; lte_lower > lte.out')
+    call system_call('cd '//lte_dir//'; lte_lower > lte.out')
     
     ! Read in atom.dat.
     atom_file = read_lines(lte_dir//'/atom.dat')

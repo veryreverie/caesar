@@ -128,6 +128,7 @@ end function
 ! ----------------------------------------------------------------------
 logical function reduce_vec(vecs)
   use constants, only : dp
+  use utils, only : l2_norm
   implicit none
   
   real(dp), intent(inout) :: vecs(3,3)
@@ -141,7 +142,7 @@ logical function reduce_vec(vecs)
   ! Determine which of the three input vectors is the longest.
   maxlen=0
   do i=1,3
-    nlen = norm2(vecs(i,:))
+    nlen = l2_norm(vecs(i,:))
     if (nlen>maxlen) then
       maxlen=nlen
       longest=i
@@ -158,7 +159,7 @@ logical function reduce_vec(vecs)
   ! input vectors
   reduce_vec=.false.
   do i=1,4
-    nlen = norm2(newvecs(i,:))
+    nlen = l2_norm(newvecs(i,:))
     if(nlen<maxlen)then
       vecs(longest,:) = newvecs(i,:)
       reduce_vec = .true.
@@ -175,6 +176,7 @@ end function
 subroutine supercells_generator(num_pcells,num_hnf,hnf)
   use err_module
   use string_module
+  use file_module
   implicit none
   
   integer,intent(in) :: num_pcells

@@ -211,7 +211,7 @@ subroutine anharmonic(wd)
   call mkdir(wd//'/anharmonic')
   do i=1,no_supercells
     if (sc_acoustic(i)) then
-      call system('cp '//wd//'/Supercell_'//i//'/acoustic.dat '// &
+      call system_call('cp '//wd//'/Supercell_'//i//'/acoustic.dat '// &
          & wd//'/anharmonic')
     endif
   enddo

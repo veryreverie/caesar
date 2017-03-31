@@ -118,7 +118,7 @@ subroutine bs_quadratic(wd)
     gvectors(i) = int(line(6))
   enddo
   
-  call mkdir('bs')
+  call mkdir(wd//'/bs')
   
   ! Obtain relevant band energy for each supercell
   filename = wd//'/Supercell_1/kpoint.'//kpoint//'.dat'

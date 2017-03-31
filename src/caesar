@@ -11,25 +11,18 @@ function main {
   # Get the current working directory, so absolute paths can be made.
   cwd="$( pwd )"
   
-  # Get the terminal width, to allow output formatting.
-  terminal_width="$( tput cols )"
-  
-  # Split iput arguments into first argument, arg, and everything else, args
+  # Split input arguments into first argument, arg, and everything else, args
   arg=$1
   args=($@)
   args=${args[@]:1:$(($#-1))}
   
   if [ "$arg" = "run_harmonic" ]; then
-    run_harmonic $source_dir $args
+    run_harmonic
   elif [  "$arg" = "run_quadratic" ]; then
-    run_quadratic $source_dir $args
-  elif [  "$arg" = "clear_all" ]; then
-    clear_all $source_dir $args
-  elif [  "$arg" = "calculate_symmetry" ]; then
-    calculate_symmetry $source_dir $args
+    run_quadratic
   else
     # Anything not handled by this script is passed to .caesar
-    $source_dir/.caesar $source_dir $cwd $terminal_width $@
+    $source_dir/.caesar $cwd $@
   fi
 }
 
@@ -162,71 +155,6 @@ function run_quadratic {
     ((i++))
   done < $harmonic_path/kpoints_ibz.dat
   echo "Done."
-}
-
-# ======================================================================
-# Script to clear up after harmonic calculations.
-# ======================================================================
-function clear_all {
-  echo "Are you sure (y/n)?"
-  read answer
-
-  if [ "$answer" = "y" ]; then
-    rm -r Supercell_* kpoints_grid.dat kpoints_ibz.dat no_sc.dat
-  fi
-}
-
-# ======================================================================
-# Script to add symmetry data to structure file
-# ======================================================================
-function calculate_symmetry {
-  # Takes a structure.dat file with no symmetry, and appends symmetry operators
-
-  # $1=structure.dat
-
-  # Input:
-
-  # Lattice
-  #  ~ ~ ~
-  #  ~ ~ ~
-  #  ~ ~ ~
-  # Atoms
-  #  ~ ~ ~
-  #   ...
-  #  ~ ~ ~
-  # End
-
-  # Output:
-
-  # Lattice
-  #  ~ ~ ~
-  #  ~ ~ ~
-  #  ~ ~ ~
-  # Atoms
-  #  ~ ~ ~
-  #   ...
-  #  ~ ~ ~
-  # Symmetry
-  #  ~ ~ ~
-  #   ...
-  #  ~ ~ ~
-  # End
-  
-  dir=$1
-  structure_file=$2
-  
-  # Create a .cell file from the structure file
-  $dir/caesar structure_to_dft castep $structure_file $structure_file.cell
-  
-  # Use cellsym to calculate symmetries from the .cell file
-  cellsym --symmetry $structure_file.cell > $structure_file.dat
-  
-  # Add symmetries to the structure file
-  $dir/caesar calculate_symmetry_helper $structure_file.dat $structure_file
-  
-  # Clean up temporary files
-  rm $structure_file.cell
-  rm $structure_file.dat
 }
 
 main $@

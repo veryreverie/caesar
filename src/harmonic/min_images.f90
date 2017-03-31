@@ -54,6 +54,7 @@ function min_images_brute_force(a,structure) result(output)
   use constants,      only : dp
   use linear_algebra, only : invert
   use string_module
+  use file_module
   use structure_module
   use err_module
   implicit none

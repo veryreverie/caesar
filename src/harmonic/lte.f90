@@ -545,6 +545,7 @@ subroutine generate_dispersion(structure,structure_sc,&
    & delta_prim,force_consts,path,phonon_dispersion_curve_filename, &
    & high_symmetry_points_filename)
   use constants, only : pi
+  use utils, only : l2_norm
   use file_module
   use string_module
   use structure_module
@@ -584,7 +585,7 @@ subroutine generate_dispersion(structure,structure_sc,&
   ! Work out distances in k-space.
   allocate(path_length(no_paths))
   do i=1,no_paths
-    path_length(i) = norm2(kpoints(:,i+1)-kpoints(:,i))
+    path_length(i) = l2_norm(kpoints(:,i+1)-kpoints(:,i))
   enddo
   
   allocate(cumulative_length(no_paths+1))
@@ -811,6 +812,7 @@ end subroutine
 function evaluate_freqs_on_grid(structure,structure_sc,force_constants) &
    & result(output)
   use constants, only : pi
+  use utils, only : l2_norm
   use string_module
   use structure_module
   use err_module
@@ -932,7 +934,7 @@ function evaluate_freqs_on_grid(structure,structure_sc,force_constants) &
           prefactor = dsqrt(2.0_dp)
         endif
         
-        tot_disp_patt = tot_disp_patt + norm2(disp_pattern)
+        tot_disp_patt = tot_disp_patt + l2_norm(disp_pattern)
         
         output%prefactors(atom1,index2,ig) = prefactor
         output%displacements(:,atom1,index2,ig) = disp_pattern

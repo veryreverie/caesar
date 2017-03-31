@@ -5,7 +5,7 @@ contains
 ! ======================================================================
 ! Program to set up a harmonic calculation to use with LTE.
 ! ======================================================================
-subroutine setup_harmonic(wd,source_dir)
+subroutine setup_harmonic(wd)
   use constants, only : directions
   use utils,     only : mkdir, make_dft_input_filename
   use string_module
@@ -22,13 +22,11 @@ subroutine setup_harmonic(wd,source_dir)
   use unique_directions_module
   use calculate_symmetry_group_module
   use err_module
+  use calculate_symmetry_module
   implicit none
   
   ! Working directory.
   type(String), intent(in) :: wd
-  
-  ! The path to caesar
-  type(String), intent(in) :: source_dir
   
   ! User input variables
   type(String) :: dft_code
@@ -127,7 +125,6 @@ subroutine setup_harmonic(wd,source_dir)
   ! ----------------------------------------------------------------------
   !structure = read_structure_file(wd//'/structure.dat')
   structure = dft_input_file_to_structure(dft_code,dft_input_filename)
-  call write_structure_file(structure,wd//'/structure.dat')
   
   ! ----------------------------------------------------------------------
   ! Write user settings to file
@@ -144,13 +141,10 @@ subroutine setup_harmonic(wd,source_dir)
   ! Add symmetries to structure.dat if not already present.
   ! ----------------------------------------------------------------------
   if (structure%no_symmetries == 0) then
-    call system(source_dir//'/caesar &
-       &calculate_symmetry '//&
-       &wd//'/structure.dat')
-    
-    ! Re-read in structure file, now with symmetries.
-    structure = read_structure_file(wd//'/structure.dat')
+    call calculate_symmetry(structure,wd//'temp.cell',wd//'temp.dat')
   endif
+  
+  call write_structure_file(structure,wd//'/structure.dat')
   
   ! ----------------------------------------------------------------------
   ! Generate supercells.
@@ -183,10 +177,8 @@ subroutine setup_harmonic(wd,source_dir)
     structure_sc = construct_supercell(structure, supercells(i))
     
     ! Add symmetries to supercell structure.dat
+    call calculate_symmetry(structure_sc, sdir//'temp.cell', sdir//'temp.dat')
     call write_structure_file(structure_sc, sdir//'/structure.dat')
-    call system(source_dir//'/caesar calculate_symmetry '// &
-       & sdir//'/structure.dat')
-    structure_sc = read_structure_file(sdir//'/structure.dat')
     ! ----------------------------------------------------------------------
     ! Calculate symmetry group.
     ! ----------------------------------------------------------------------

@@ -54,7 +54,7 @@ subroutine test_copy_quadratic(wd,cwd)
   do i=1,no_sc
     sdir = wd//'/Supercell_'//i
     if (dft_code == 'castep') then
-      call system( 'cp '// &
+      call system_call( 'cp '// &
          & copy_dir//'/'//sdir//'/static/'//seedname//'.castep '// &
          & sdir//'/static/'//seedname//'.castep')
     endif

@@ -48,7 +48,7 @@ chmod u+x $bdir/caesar
 
 # list programs
 # programs should be added so they are to the right of their dependencies
-programs=(constants string file utils linear_algebra algebra group supercell kpoints rand_no_gen moller_plesset structure dft_input_file dft_output_file structure_to_dft calculate_symmetry_helper bands displacement_patterns)
+programs=(constants string file utils linear_algebra algebra group supercell kpoints rand_no_gen moller_plesset structure dft_input_file dft_output_file structure_to_dft calculate_symmetry bands displacement_patterns)
 
 harmonic_programs=(calculate_symmetry_group unique_directions construct_supercell min_images generate_supercells lte hartree_to_eV setup_harmonic lte_harmonic)
 
@@ -63,6 +63,8 @@ $cc -c $sdir/system.c -W -Wall -Wextra -pedantic -std=c99 -o$odir/system.o
 if [ "$cf90" = "gfortran" ]; then
   $cf90 -c $sdir/err_gfortran.f90 $cflags -o$odir/err.o
 fi
+
+cflags="$cflags -std=f2003"       # Force standards compliance.
 
 # compile objects
 for program in ${programs[@]}; do

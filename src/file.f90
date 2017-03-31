@@ -4,13 +4,21 @@ module file_module
   
   private
   
+  integer :: TERMINAL_WIDTH = 79
+  
+  ! File operations.
   public :: open_read_file   ! open a file for reading
   public :: open_write_file  ! open a file for writing
   public :: open_append_file ! open a file for appending to
   public :: file_exists      ! checks if a file exists
   public :: count_lines      ! counts the number of lines in a file
   public :: read_lines       ! reads a file into a String(:) array
-  public :: print_line       ! Writes a single line to a file.
+  
+  ! Other IO operations.
+  public :: system_call           ! Makes a system call.
+  public :: read_line_from_user   ! Reads a line from the terminal.
+  public :: update_terminal_width ! Gets the terminal width.
+  public :: print_line            ! write(*,'(a)')
   
   interface open_read_file
     module procedure open_read_file_character
@@ -41,6 +49,39 @@ module file_module
     module procedure read_lines_character
     module procedure read_lines_String
   end interface
+  
+  interface print_line
+    module procedure print_line_character
+    module procedure print_line_file_character
+    module procedure print_line_String
+    module procedure print_line_file_String
+    
+    module procedure print_line_integer
+    module procedure print_line_file_integer
+    module procedure print_line_real
+    module procedure print_line_file_real
+    module procedure print_line_logical
+    module procedure print_line_file_logical
+    
+    module procedure print_line_integers
+    module procedure print_line_file_integers
+    module procedure print_line_reals
+    module procedure print_line_file_reals
+    module procedure print_line_logicals
+    module procedure print_line_file_logicals
+  end interface
+  
+  ! C system call interface.
+  interface
+    function system_c(input) bind(c) result(output)
+      use, intrinsic :: iso_c_binding
+      implicit none
+      
+      character(kind=c_char) :: input
+      integer(kind=c_int)    :: output
+    end function
+  end interface
+
 contains
 
 ! open a file with a specified mode, and return the unit it is opened in
@@ -239,4 +280,240 @@ function read_lines_String(filename) result(output)
   
   output = read_lines(char(filename))
 end function
+
+! ----------------------------------------------------------------------
+! Non-file IO operations.
+! ----------------------------------------------------------------------
+
+! Makes a system call via system.c.
+subroutine system_call(this)
+  implicit none
+  
+  type(String), intent(in) :: this
+  
+  integer :: result_code
+  
+  result_code = system_c(char(this)//char(0))
+end subroutine
+
+function read_line_from_user() result(line)
+  implicit none
+  
+  type(String) :: line
+  
+  character(1000) :: char_line
+  
+  read(*,'(a)') char_line
+  line = trim(char_line)
+end function
+
+! ----------------------------------------------------------------------
+! Checks the width of the terminal, and sets TERMINAL_WIDTH.
+! ----------------------------------------------------------------------
+subroutine update_terminal_width(temp_filename)
+  implicit none
+  
+  type(String), intent(in) :: temp_filename
+  
+  type(String), allocatable :: temp_file(:)
+  
+  call system_call('tput cols > '//temp_filename)
+  temp_file = read_lines(temp_filename)
+  TERMINAL_WIDTH = int(temp_file(1))
+  call system_call('rm '//temp_filename)
+end subroutine
+
+! ----------------------------------------------------------------------
+! Subroutines to print lines, as write(), but with error checking
+!    and formatting.
+! ----------------------------------------------------------------------
+recursive subroutine print_line_character(line)
+  use err_module
+  implicit none
+  
+  character(*), intent(in) :: line
+  
+  integer :: ierr
+  integer :: i
+  logical :: success
+  
+  if (len(line) <= TERMINAL_WIDTH) then
+    ! The string can be printed all on one line.
+    write(*,'(a)',iostat=ierr) line
+  else
+    success = .false.
+    ! Attempt to break the string at a space, so that it fits on the terminal.
+    do i=TERMINAL_WIDTH,2,-1
+      if (line(i:i)==' ') then
+        write(*,'(a)',iostat=ierr) line(:i-1)
+        call print_line(line(i+1:))
+        success = .true.
+        exit
+      endif
+    enddo
+    
+    ! Attempt to break the string at the first available space.
+    ! Some wrapping will happen, but this can't be avoided.
+    if (.not. success) then
+      do i=TERMINAL_WIDTH+1,len(line)-1
+        if (line(i:i)==' ') then
+          write(*,'(a)',iostat=ierr) line(:i-1)
+          call print_line(line(i+1:))
+          success = .true.
+          exit
+        endif
+      enddo
+    endif
+    
+    ! The line can't be split. Everything is written.
+    if (.not. success) then
+      write(*,'(a)',iostat=ierr) line
+    endif
+  endif
+  
+  if (ierr /= 0) then
+    write(*,*) 'Error in print_line.'
+    call err()
+  endif
+end subroutine
+
+subroutine print_line_file_character(file_unit,line)
+  use err_module
+  implicit none
+  
+  integer,      intent(in) :: file_unit
+  character(*), intent(in) :: line
+  
+  integer :: ierr
+  
+  write(file_unit,'(a)',iostat=ierr) line
+  
+  if (ierr /= 0) then
+    write(*,*) 'Error in print_line.'
+    call err()
+  endif
+end subroutine
+
+subroutine print_line_String(line)
+  implicit none
+  
+  type(String), intent(in) :: line
+  
+  call print_line(char(line))
+end subroutine
+
+subroutine print_line_file_String(file_unit,line)
+  implicit none
+  
+  integer,      intent(in) :: file_unit
+  type(String), intent(in) :: line
+  
+  call print_line(file_unit,char(line))
+end subroutine
+
+subroutine print_line_integer(this)
+  implicit none
+  
+  integer, intent(in) :: this
+  
+  call print_line(''//this)
+end subroutine
+
+subroutine print_line_file_integer(file_unit,this)
+  implicit none
+  
+  integer, intent(in) :: file_unit
+  integer, intent(in) :: this
+  
+  call print_line(file_unit,''//this)
+end subroutine
+
+subroutine print_line_real(this)
+  use constants, only : dp
+  implicit none
+  
+  real(dp), intent(in) :: this
+  
+  call print_line(''//this)
+end subroutine
+
+subroutine print_line_file_real(file_unit,this)
+  use constants, only : dp
+  implicit none
+  
+  integer,  intent(in) :: file_unit
+  real(dp), intent(in) :: this
+  
+  call print_line(file_unit,''//this)
+end subroutine
+
+subroutine print_line_logical(this)
+  implicit none
+  
+  logical, intent(in) :: this
+  
+  call print_line(''//this)
+end subroutine
+
+subroutine print_line_file_logical(file_unit,this)
+  implicit none
+  
+  integer, intent(in) :: file_unit
+  logical, intent(in) :: this
+  
+  call print_line(file_unit,''//this)
+end subroutine
+
+subroutine print_line_integers(this)
+  implicit none
+  
+  integer, intent(in) :: this(:)
+  
+  call print_line(''//this)
+end subroutine
+
+subroutine print_line_file_integers(file_unit,this)
+  implicit none
+  
+  integer, intent(in) :: file_unit
+  integer, intent(in) :: this(:)
+  
+  call print_line(file_unit,''//this)
+end subroutine
+
+subroutine print_line_reals(this)
+  use constants, only : dp
+  implicit none
+  
+  real(dp), intent(in) :: this(:)
+  
+  call print_line(''//this)
+end subroutine
+
+subroutine print_line_file_reals(file_unit,this)
+  use constants, only : dp
+  implicit none
+  
+  integer,  intent(in) :: file_unit
+  real(dp), intent(in) :: this(:)
+  
+  call print_line(file_unit,''//this)
+end subroutine
+
+subroutine print_line_logicals(this)
+  implicit none
+  
+  logical, intent(in) :: this(:)
+  
+  call print_line(''//this)
+end subroutine
+
+subroutine print_line_file_logicals(file_unit,this)
+  implicit none
+  
+  integer, intent(in) :: file_unit
+  logical, intent(in) :: this(:)
+  
+  call print_line(file_unit,''//this)
+end subroutine
 end module

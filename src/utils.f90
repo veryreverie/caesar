@@ -5,11 +5,6 @@ module utils
   use constants,      only : dp
   implicit none
   
-  interface mkdir
-    module procedure mkdir_character
-    module procedure mkdir_String
-  end interface
-  
   interface format_path
     module procedure format_path_character
     module procedure format_path_String
@@ -31,12 +26,12 @@ function command_line_args() result(args)
   character(1000) :: temp_char
 
   ! read in the number of arguments
-  arg_count = iargc()
+  arg_count = command_argument_count()
   ! allocate the return array
   allocate (args(arg_count))
   ! read the arguments into the array
   do i=1,arg_count
-    call getarg(i, temp_char)
+    call get_command_argument(i, temp_char)
     args(i) = trim(temp_char)
   enddo
 
@@ -59,22 +54,14 @@ end function
 ! ----------------------------------------------------------------------
 ! Make a directory, if it doesn't already exist.
 ! ----------------------------------------------------------------------
-subroutine mkdir_character(dirname)
+subroutine mkdir(dirname)
   use string_module
-  implicit none
-  
-  character(*), intent(in) :: dirname
-  
-  call system('if [ ! -e '//dirname//' ]; then mkdir '//dirname//'; fi')
-end subroutine
-
-subroutine mkdir_String(dirname)
-  use string_module
+  use file_module
   implicit none
   
   type(String), intent(in) :: dirname
   
-  call mkdir(char(dirname))
+  call system_call('if [ ! -e '//dirname//' ]; then mkdir '//dirname//'; fi')
 end subroutine
 
 ! ----------------------------------------------------------------------
@@ -83,6 +70,7 @@ end subroutine
 ! ----------------------------------------------------------------------
 function format_path_character(path,cwd) result(output)
   use string_module
+  use file_module
   use err_module
   implicit none
   
@@ -129,6 +117,7 @@ end function
 ! ----------------------------------------------------------------------
 function make_dft_input_filename(dft_code,seedname) result(output)
   use string_module
+  use file_module
   use err_module
   implicit none
   
@@ -150,6 +139,7 @@ end function
 
 function make_dft_output_filename(dft_code,seedname) result(output)
   use string_module
+  use file_module
   use err_module
   implicit none
   
@@ -167,5 +157,17 @@ function make_dft_output_filename(dft_code,seedname) result(output)
     call print_line('Unrecognised dft code: '//dft_code)
     call err()
   endif
+end function
+
+! ----------------------------------------------------------------------
+! Replicates norm2() from f2008 standard.
+! ----------------------------------------------------------------------
+function l2_norm(input) result(output)
+  implicit none
+  
+  real(dp), intent(in) :: input(:)
+  real(dp)             :: output
+  
+  output = dsqrt(dot_product(input,input))
 end function
 end module

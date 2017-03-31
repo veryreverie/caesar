@@ -263,6 +263,7 @@ function dft_input_file_to_structure(dft_code,filename) result(output)
   use string_module
   use structure_module
   use err_module
+  use file_module
   implicit none
   
   type(String), intent(in) :: dft_code

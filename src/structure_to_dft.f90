@@ -5,14 +5,6 @@ module structure_to_dft_module
   private
   
   public :: structure_to_dft
-
-  interface structure_to_dft
-    ! For use with StructureData type
-    module procedure structure_to_dft_StructureData
-    ! For use with structure file
-    module procedure structure_to_dft_filename
-  end interface
-
 contains
 
 subroutine structure_to_castep(structure_sc,old_cell_filename,new_cell_filename)
@@ -267,11 +259,12 @@ subroutine structure_to_qe(structure_sc,old_qe_in_filename,new_qe_in_filename)
   close(new_qe_in_file)
 end subroutine
 
-subroutine structure_to_dft_StructureData(dft_code,structure_sc, &
-   & input_filename,output_filename)
+subroutine structure_to_dft(dft_code,structure_sc,input_filename, &
+   & output_filename)
   use string_module
   use structure_module
   use err_module
+  use file_module
   implicit none
   
   type(String),        intent(in)           :: dft_code
@@ -300,31 +293,6 @@ subroutine structure_to_dft_StructureData(dft_code,structure_sc, &
       call structure_to_qe( structure_sc       = structure_sc, &
                           & new_qe_in_filename = output_filename)
     endif
-  endif
-end subroutine
-
-subroutine structure_to_dft_filename(dft_code,structure_sc_filename, &
-   & input_filename,output_filename)
-  use string_module
-  use structure_module
-  use supercell_module
-  implicit none
-  
-  type(String), intent(in)           :: dft_code
-  type(String), intent(in)           :: structure_sc_filename
-  type(String), intent(in), optional :: input_filename
-  type(String), intent(in)           :: output_filename
-  
-  type(StructureData) :: structure_sc
-  
-  structure_sc = read_structure_file(structure_sc_filename)
-  
-  if (present(input_filename)) then
-    call structure_to_dft(dft_code,structure_sc,input_filename,output_filename)
-  else
-    call structure_to_dft( dft_code=dft_code, &
-                         & structure_sc=structure_sc, &
-                         & output_filename=output_filename)
   endif
 end subroutine
 end module

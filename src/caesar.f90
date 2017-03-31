@@ -1,13 +1,9 @@
 program caesar
   ! use utility modules
   use utils, only : command_line_args
-  
-  ! use class modules
+  use err_module
   use string_module
-  
-  ! use common modules
-  use structure_to_dft_module
-  use calculate_symmetry_helper_module
+  use file_module
   
   ! use harmonic modules
   use setup_harmonic_module
@@ -26,15 +22,12 @@ program caesar
   ! use misc modules
   use calculate_gap_module
   use hartree_to_eV_module
-  use err_module
   
   implicit none
   
   ! Command line arguments.
   type(String), allocatable :: args(:)
-  type(String)              :: source_dir
   type(String)              :: cwd
-  integer                   :: terminal_width
   type(String)              :: mode
   
   ! Working directory.
@@ -43,22 +36,20 @@ program caesar
   ! read in command line arguments.
   args = command_line_args()
   
-  if (size(args) < 3) then
+  if (size(args) < 2) then
     call print_line('No arguments given. For help, call caesar -h')
     call err()
   endif
   
-  source_dir = args(1)
-  cwd = args(2)
-  terminal_width = int(args(3))
-  mode = args(4)
-  
-  ! Set terminal width for formatting purposes.
-  STRING_MODULE_TERMINAL_WIDTH = terminal_width
+  cwd = args(1)
+  mode = args(2)
   
   ! For now, the working directory is always the current working directory.
   ! TODO: add options to change this.
   wd = cwd
+  
+  ! Set terminal width for formatting purposes.
+  call update_terminal_width(wd//'temp.dat')
   
   if (mode == '-h' .or. mode == '--help') then
     call print_line('caesar [-h] [option]')
@@ -103,10 +94,10 @@ program caesar
     call print_line('  calculate_gap')
     call print_line('    [Help text pending]')
   elseif (mode == 'test') then
-    call system(str('mkdir this_is_another_dir'))
+    call system_call(str('mkdir this_is_another_dir'))
   ! Wrappers for top-level Fortran.
   elseif (mode == 'setup_harmonic') then
-    call setup_harmonic(wd,source_dir)
+    call setup_harmonic(wd)
   elseif (mode == 'lte_harmonic') then
     call lte_harmonic(wd)
   elseif (mode == 'setup_quadratic') then
@@ -120,12 +111,6 @@ program caesar
     call calculate_gap()
   elseif (mode == 'hartree_to_eV') then
     call hartree_to_eV()
-  elseif (mode == 'structure_to_dft') then
-    call structure_to_dft( dft_code              = args(5), &
-                         & structure_sc_filename = args(6), &
-                         & output_filename       = args(7))
-  elseif (mode == 'calculate_symmetry_helper') then
-    call calculate_symmetry_helper(args(5),args(6))
   ! Wrappers for testing modules
   elseif (mode == 'test_copy_harmonic') then
     call test_copy_harmonic(wd,cwd)
