@@ -30,7 +30,6 @@ subroutine setup_quadratic(wd,cwd)
   type(String), allocatable :: user_input_file_in(:)
   type(String) :: dft_code      ! The dft code name (castep,vasp,qe).
   type(String) :: seedname      ! The dft input file seedname.
-  type(String) :: run_script    ! The script to run dft.
   type(String) :: harmonic_path ! The path to the harmonic directory.
   
   ! File contents
@@ -81,7 +80,7 @@ subroutine setup_quadratic(wd,cwd)
     user_input_file_in = read_lines(wd//'/user_input.txt')
     dft_code = user_input_file_in(1)
     seedname = user_input_file_in(2)
-    harmonic_path = user_input_file_in(4)
+    harmonic_path = user_input_file_in(3)
   else
     ! Get dft code from the command line.
     call print_line('')
@@ -92,11 +91,6 @@ subroutine setup_quadratic(wd,cwd)
     call print_line('')
     call print_line('What is the '//dft_code//' seedname?')
     seedname = read_line_from_user()
-    
-    ! Get run script from the command line.
-    call print_line('')
-    call print_line('What is the path to the dft run script?')
-    run_script = read_line_from_user()
     
     ! Get the path to the harmonic directory from the command line.
     call print_line("What is the path to the harmonic directory?")
@@ -155,7 +149,6 @@ subroutine setup_quadratic(wd,cwd)
     user_input_file = open_write_file(wd//'/user_input.txt')
     call print_line(user_input_file,dft_code)
     call print_line(user_input_file,seedname)
-    call print_line(user_input_file,run_script)
     call print_line(user_input_file,harmonic_path)
     close(user_input_file)
   endif
@@ -259,7 +252,7 @@ subroutine setup_quadratic(wd,cwd)
         dft_input_filename = make_dft_input_filename(dft_code,seedname)
         call structure_to_dft( dft_code, &
                              & structure_sc, &
-                             & wd//'/'//dft_code//'/'//dft_input_filename, &
+                             & wd//'/'//dft_input_filename, &
                              & mdir//'/'//dft_input_filename)
       enddo
     enddo

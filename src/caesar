@@ -46,11 +46,12 @@ function run_harmonic {
   read last_sc
   echo "How many cores per run?"
   read num_cores
+  echo "What is the path to the script for running DFT?"
+  read run_script
 
   # Read code and seedname
   code=$( awk 'NR==1 {print}' user_input.txt )
   seedname=$( awk 'NR==2 {print}' user_input.txt )
-  run_script=$( awk 'NR==3 {print}' user_input.txt )
 
   # Loop over supercells
   for i in `seq $first_sc $last_sc`; do
@@ -96,12 +97,13 @@ function run_quadratic {
   read last_sc
   echo "How many cores per run?"
   read num_cores
+  echo "What is the path to the script for running DFT?"
+  read run_script
 
   # Read in previous user inputs
   dft_code=$( awk 'NR==1 {print}' user_input.txt )
   seedname=$( awk 'NR==2 {print}' user_input.txt )
-  run_script=$( awk 'NR==3 {print}' user_input.txt )
-  harmonic_path=$( awk 'NR==4 {print}' user_input.txt )
+  harmonic_path=$( awk 'NR==3 {print}' user_input.txt )
 
   # Read in mapping file
   sampling_amplitude=$( awk 'NR==1 {print $1}' mapping.dat)

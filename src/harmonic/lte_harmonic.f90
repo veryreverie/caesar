@@ -362,7 +362,6 @@ subroutine lte_harmonic(wd)
   
   ! File contents
   type(String), allocatable :: user_inputs(:)
-  type(String), allocatable :: grid_file(:)
   type(String), allocatable :: no_sc_file(:)
   
   ! Setup data
@@ -413,15 +412,12 @@ subroutine lte_harmonic(wd)
   user_inputs = read_lines(wd//'/user_input.txt')
   dft_code = user_inputs(1)
   seedname = user_inputs(2)
+  grid = int(split(user_inputs(3)))
   
   no_sc_file = read_lines(wd//'/no_sc.dat')
   no_sc = int(no_sc_file(1))
   
   structure = read_structure_file(wd//'/structure.dat')
-  
-  ! Read grid file
-  grid_file = read_lines(wd//'/grid.dat')
-  grid = int(split(grid_file(1)))
   
   ! Read kpoints.
   kpoints_grid = read_kpoints_grid_file(wd//'/kpoints_grid.dat')

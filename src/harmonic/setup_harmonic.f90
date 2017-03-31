@@ -33,7 +33,6 @@ subroutine setup_harmonic(wd,source_dir)
   ! User input variables
   type(String) :: dft_code
   type(String) :: seedname
-  type(String) :: run_script
   
   ! File input data
   type(StructureData) :: structure
@@ -60,7 +59,6 @@ subroutine setup_harmonic(wd,source_dir)
   ! Temporary variables
   integer        :: i,j,k,l
   
-  type(String), allocatable :: grid_file(:)
   type(String), allocatable :: user_input_file_in(:)
   
   type(String) :: dft_input_filename
@@ -74,10 +72,11 @@ subroutine setup_harmonic(wd,source_dir)
   ! ----------------------------------------------------------------------
   
   if (file_exists(wd//'/user_input.txt')) then
-    ! Get dft code and seedname from file.
+    ! Get settings from file.
     user_input_file_in = read_lines(wd//'/user_input.txt')
     dft_code = user_input_file_in(1)
     seedname = user_input_file_in(2)
+    grid = int(split(user_input_file_in(3)))
   else
     ! Get dft code from the command line.
     call print_line('')
@@ -89,10 +88,18 @@ subroutine setup_harmonic(wd,source_dir)
     call print_line('What is the '//dft_code//' seedname?')
     seedname = read_line_from_user()
     
-    ! Get run script from the command line.
+    ! Get the K-point grid from the command line.
     call print_line('')
-    call print_line('What is the path to the dft run script?')
-    run_script = read_line_from_user()
+    call print_line('What is the x dimension of the K-point grid?')
+    grid(1) = int(read_line_from_user())
+    call print_line('')
+    call print_line('What is the y dimension of the K-point grid?')
+    grid(2) = int(read_line_from_user())
+    call print_line('')
+    call print_line('What is the z dimension of the K-point grid?')
+    grid(3) = int(read_line_from_user())
+    
+    call print_line('')
   endif
   
   ! Check dft code is supported
@@ -107,7 +114,7 @@ subroutine setup_harmonic(wd,source_dir)
   
   ! Check dft input files exist
   dft_input_filename = make_dft_input_filename(dft_code,seedname)
-  dft_input_filename = wd//'/'//dft_code//'/'//dft_input_filename
+  dft_input_filename = wd//'/'//dft_input_filename
   
   if (.not. file_exists(dft_input_filename)) then
     call print_line('Error! The input file '//dft_input_filename// &
@@ -122,18 +129,14 @@ subroutine setup_harmonic(wd,source_dir)
   structure = dft_input_file_to_structure(dft_code,dft_input_filename)
   call write_structure_file(structure,wd//'/structure.dat')
   
-  ! Read grid file
-  grid_file = read_lines(wd//'/grid.dat')
-  grid = int(split(grid_file(1)))
-  
   ! ----------------------------------------------------------------------
   ! Write user settings to file
   ! ----------------------------------------------------------------------
   if (.not. file_exists(wd//'/user_input.txt')) then
     user_input_file_out = open_write_file(wd//'/user_input.txt')
-    call print_line(user_input_file_out,dft_code)
-    call print_line(user_input_file_out,seedname)
-    call print_line(user_input_file_out,run_script)
+    call print_line(user_input_file_out, dft_code)
+    call print_line(user_input_file_out, seedname)
+    call print_line(user_input_file_out, grid)
     close(user_input_file_out)
   endif
   
@@ -233,7 +236,7 @@ subroutine setup_harmonic(wd,source_dir)
           dft_input_filename = make_dft_input_filename(dft_code,seedname)
           call structure_to_dft( dft_code, &
                                & structure_sc, &
-                               & wd//'/'//dft_code//'/'//dft_input_filename, &
+                               & wd//'/'//dft_input_filename, &
                                & paths(l)//'/'//dft_input_filename)
         enddo
         

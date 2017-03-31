@@ -24,7 +24,6 @@ subroutine test_lte(wd,cwd)
   type(String)              :: sdir
   type(String)              :: copy_dir
   type(String)              :: lte_dir
-  type(String), allocatable :: grid_file(:)
   
   ! Setup data
   type(String), allocatable :: no_sc_file(:)
@@ -127,13 +126,10 @@ subroutine test_lte(wd,cwd)
   user_input_file = read_lines(wd//'/user_input.txt')
   dft_code = user_input_file(1)
   seedname = user_input_file(2)
+  grid = int(split(user_input_file(3)))
   
   ! Read in structure.
   structure = read_structure_file(wd//'/structure.dat')
-  
-  ! Read grid file
-  grid_file = read_lines(wd//'/grid.dat')
-  grid = int(split(grid_file(1)))
   
   ! Read kpoint data.
   kpoints_grid = read_kpoints_grid_file(wd//'/kpoints_grid.dat')
