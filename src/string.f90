@@ -175,6 +175,17 @@ module string_module
     module procedure print_line_logicals
     module procedure print_line_file_logicals
   end interface
+  
+  ! C system call interface
+  interface
+    function system_c(input) bind(c) result(output)
+      use, intrinsic :: iso_c_binding
+      implicit none
+      
+      character(kind=c_char) :: input
+      integer(kind=c_int)    :: output
+    end function
+  end interface
 
 contains
 
@@ -908,7 +919,9 @@ subroutine system_String(this)
   
   type(String), intent(in) :: this
   
-  call system(char(this))
+  integer :: result_code
+  
+  result_code = system_c(char(this)//char(0))
 end subroutine
 
 function read_line_from_user() result(line)

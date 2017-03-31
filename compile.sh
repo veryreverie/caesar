@@ -39,6 +39,8 @@ cflags="$cflags -fcheck=all"      # Turn on run-time checks.
 cflags="$cflags -Wno-array-temporaries" # Turn off temp array warning.
 #cflags="$cflags -ffpe-trap=invalid,zero,overflow,underflow,denormal"
 
+cc=gcc
+
 # copy shell and python scripts
 cp $sdir/quadratic/*.py $bdir
 cp $sdir/caesar $bdir
@@ -53,6 +55,9 @@ harmonic_programs=(calculate_symmetry_group unique_directions construct_supercel
 quadratic_programs=(mapping calculate_anharmonic calculate_gap quadratic_spline vscf_1d anharmonic bs_quadratic setup_quadratic)
 
 testing_programs=(atom_mapping test_copy_harmonic test_lte test_copy_quadratic)
+
+# Compile c system call.
+$cc -c $sdir/system.c -W -Wall -Wextra -pedantic -std=c99 -o$odir/system.o
 
 # compile err.o
 if [ "$cf90" = "gfortran" ]; then
@@ -82,6 +87,7 @@ $cf90 -c $sdir/$program.f90 $cflags -o$odir/$program.o
 # list objects for linking
 objs=()
 
+objs="$odir/system.o $objs"
 objs="$odir/err.o $objs"
 
 for program in ${programs[@]}; do

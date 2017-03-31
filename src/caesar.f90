@@ -103,15 +103,7 @@ program caesar
     call print_line('  calculate_gap')
     call print_line('    [Help text pending]')
   elseif (mode == 'test') then
-    call print_line('And in the case of the extremely long line, &
-       &which does rather insist on going well beyond the end of &
-       &the terminal, it can often be helpful to insert a tactical &
-       &line-break or two. Of course, these must not be allowed to break up &
-       &individual words if at all possible, lest the resulting &
-       &output take on a rather disjointed appearance. It should also be &
-       &noted that in some cases you just have to give up. &
-       &supercalifragilisticexpialidocious-floccinaucinihilipilification-antidisestablishmentarianism.&
-       & (Probably in cases like that.)')
+    call system(str('mkdir this_is_another_dir'))
   ! Wrappers for top-level Fortran.
   elseif (mode == 'setup_harmonic') then
     call setup_harmonic(wd,source_dir)
