@@ -1,6 +1,6 @@
 program caesar
   ! use utility modules
-  use utils, only : command_line_args
+  use utils, only : command_line_args, format_path
   use err_module
   use string_module
   use file_module
@@ -27,30 +27,24 @@ program caesar
   
   ! Command line arguments.
   type(String), allocatable :: args(:)
-  type(String)              :: cwd
   type(String)              :: mode
   
-  ! Working directory.
+  ! Working directories.
   type(String) :: wd
+  type(String) :: cwd
+  type(String), allocatable :: temp_file(:)
   
   ! read in command line arguments.
   args = command_line_args()
   
-  if (size(args) < 2) then
+  if (size(args) < 1) then
     call print_line('No arguments given. For help, call caesar -h')
     call err()
   endif
   
-  cwd = args(1)
-  mode = args(2)
+  mode = args(1)
   
-  ! For now, the working directory is always the current working directory.
-  ! TODO: add options to change this.
-  wd = cwd
-  
-  ! Set terminal width for formatting purposes.
-  call update_terminal_width(wd//'temp.dat')
-  
+  ! Run main program, depending on mode.
   if (mode == '-h' .or. mode == '--help') then
     call print_line('caesar [-h] [option]')
     call print_line('')
@@ -93,7 +87,26 @@ program caesar
     call print_line('    [Help text pending]')
     call print_line('  calculate_gap')
     call print_line('    [Help text pending]')
-  elseif (mode == 'test') then
+    stop
+  endif
+  
+  ! Get working directory from user.
+  call print_line('')
+  call print_line('Where is the working directory?')
+  wd = read_line_from_user()
+  
+  ! Get current directory.
+  call system_call('pwd > '//wd//'/temp.txt')
+  temp_file = read_lines(wd//'/temp.txt')
+  cwd = temp_file(1)
+  
+  ! Convert working directory to absolute path.
+  wd = format_path(temp_file(1), cwd)
+  
+  ! Set terminal width for formatting purposes.
+  call update_terminal_width(wd//'temp.dat')
+  
+  if (mode == 'test') then
     call system_call(str('mkdir this_is_another_dir'))
   ! Wrappers for top-level Fortran.
   elseif (mode == 'setup_harmonic') then

@@ -50,7 +50,7 @@ chmod u+x $bdir/caesar
 # programs should be added so they are to the right of their dependencies
 programs=(constants string file utils linear_algebra algebra group supercell kpoints rand_no_gen moller_plesset structure dft_input_file dft_output_file structure_to_dft calculate_symmetry bands displacement_patterns)
 
-harmonic_programs=(calculate_symmetry_group unique_directions construct_supercell min_images generate_supercells lte hartree_to_eV setup_harmonic lte_harmonic)
+harmonic_programs=(calculate_symmetry_group unique_directions construct_supercell min_images generate_supercells lte hartree_to_eV setup_harmonic run_harmonic lte_harmonic)
 
 quadratic_programs=(mapping calculate_anharmonic calculate_gap quadratic_spline vscf_1d anharmonic bs_quadratic setup_quadratic)
 

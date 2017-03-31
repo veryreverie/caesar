@@ -4,25 +4,13 @@
 # Main caesar script.
 # ======================================================================
 function main {
-  # Get the location of this script.
-  # Lets caesar and .caesar be called without necessarily being on path.
-  source_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-  
-  # Get the current working directory, so absolute paths can be made.
-  cwd="$( pwd )"
-  
-  # Split input arguments into first argument, arg, and everything else, args
-  arg=$1
-  args=($@)
-  args=${args[@]:1:$(($#-1))}
-  
   if [ "$arg" = "run_harmonic" ]; then
     run_harmonic
   elif [  "$arg" = "run_quadratic" ]; then
     run_quadratic
   else
     # Anything not handled by this script is passed to .caesar
-    $source_dir/.caesar $cwd $@
+    .caesar $@
   fi
 }
 

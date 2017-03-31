@@ -27,7 +27,7 @@ function calculate_force_constants(structure,structure_sc,symmetry_group, &
   type(String),           intent(in) :: sdir
   type(String),           intent(in) :: dft_code
   type(String),           intent(in) :: seedname
-  real(dp), allocatable :: output(:,:,:)
+  real(dp), allocatable              :: output(:,:,:)
   
   ! Setup data
   
