@@ -1,15 +1,15 @@
-cmake_minimum_required (version 2.8 fatal_error)
-include(../utils/cmake_include_guard)
+cmake_minimum_required (VERSION 3.5 FATAL_ERROR)
+include(${CMAKE_SOURCE_DIR}/utils/include_guard.cmake)
 include_guard(testing)
 
 add_library(testing atom_mapping.f90 test_copy_harmonic.f90 test_lte.f90 test_copy_quadratic.f90)
-target_include_directories(testing public ${cmake_current_source_dir})
+target_include_directories(testing PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
-add_subdirectory(utils utils/)
+add_subdirectory(${CMAKE_SOURCE_DIR}/utils utils/)
 target_link_libraries(testing utils)
 
-add_subdirectory(harmonic harmonic/)
+add_subdirectory(${CMAKE_SOURCE_DIR}/harmonic harmonic/)
 target_link_libraries(testing harmonic)
 
-add_subdirectory(quadratic quadratic/)
+add_subdirectory(${CMAKE_SOURCE_DIR}/quadratic quadratic/)
 target_link_libraries(testing quadratic)
