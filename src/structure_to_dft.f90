@@ -201,7 +201,6 @@ subroutine structure_to_qe(structure_sc,old_qe_in_filename,new_qe_in_filename)
   use string_module
   use structure_module
   use file_module
-  use err_module
   implicit none
   
   type(StructureData), intent(in)           :: structure_sc
@@ -263,7 +262,6 @@ subroutine structure_to_dft(dft_code,structure_sc,input_filename, &
    & output_filename)
   use string_module
   use structure_module
-  use err_module
   use file_module
   implicit none
   

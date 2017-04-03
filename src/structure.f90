@@ -132,7 +132,6 @@ function read_structure_file_character(filename) result(this)
   use linear_algebra, only : invert, invert_int
   use string_module
   use file_module
-  use err_module
   implicit none
   
   character(*),        intent(in) :: filename

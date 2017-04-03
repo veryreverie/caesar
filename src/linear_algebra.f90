@@ -200,7 +200,6 @@ end function
 ! A and B are real, 3x3 matrices
 ! ----------------------------------------
 function invert(A) result(B)
-  use err_module
   use string_module
   use file_module
   implicit none
@@ -264,7 +263,6 @@ end function
 function calculate_RealEigenstuff(input) result(output)
   use string_module
   use file_module
-  use err_module
   implicit none
   
   real(dp), intent(in) :: input(:,:)  ! a real, symmetric matrix
@@ -304,7 +302,6 @@ end function
 
 ! Calculates the eigenvalues and eigenvectors of a complex, hermitian matrix
 function calculate_ComplexEigenstuff(input) result(output)
-  use err_module
   use string_module
   use file_module
   implicit none

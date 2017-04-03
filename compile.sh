@@ -41,27 +41,25 @@ cflags="$cflags -Wno-array-temporaries" # Turn off temp array warning.
 
 cc=gcc
 
-# copy shell and python scripts
+# Copy python script.
 cp $sdir/quadratic/*.py $bdir
-cp $sdir/caesar $bdir
-chmod u+x $bdir/caesar
 
 # list programs
 # programs should be added so they are to the right of their dependencies
-programs=(constants string file utils linear_algebra algebra group supercell kpoints rand_no_gen moller_plesset structure dft_input_file dft_output_file structure_to_dft calculate_symmetry bands displacement_patterns)
+programs=(constants string file utils linear_algebra algebra group supercell kpoints moller_plesset structure dft_input_file dft_output_file structure_to_dft calculate_symmetry bands displacement_patterns)
 
 harmonic_programs=(calculate_symmetry_group unique_directions construct_supercell min_images generate_supercells lte hartree_to_eV setup_harmonic run_harmonic lte_harmonic)
 
-quadratic_programs=(mapping calculate_anharmonic calculate_gap quadratic_spline vscf_1d anharmonic bs_quadratic setup_quadratic)
+quadratic_programs=(mapping calculate_anharmonic calculate_gap quadratic_spline vscf_1d setup_quadratic run_quadratic anharmonic bs_quadratic)
 
 testing_programs=(atom_mapping test_copy_harmonic test_lte test_copy_quadratic)
 
 # Compile c system call.
 $cc -c $sdir/system.c -W -Wall -Wextra -pedantic -std=c99 -o$odir/system.o
 
-# compile err.o
+# Compile compiler-specific module.
 if [ "$cf90" = "gfortran" ]; then
-  $cf90 -c $sdir/err_gfortran.f90 $cflags -o$odir/err.o
+  $cf90 -c $sdir/gfortran_specific.f90 $cflags -o$odir/compiler_specific.o
 fi
 
 cflags="$cflags -std=f2003"       # Force standards compliance.
@@ -90,7 +88,7 @@ $cf90 -c $sdir/$program.f90 $cflags -o$odir/$program.o
 objs=()
 
 objs="$odir/system.o $objs"
-objs="$odir/err.o $objs"
+objs="$odir/compiler_specific.o $objs"
 
 for program in ${programs[@]}; do
   objs="$odir/$program.o $objs"
@@ -110,4 +108,4 @@ done
 
 # compile main caesar program
 program=caesar
-$cf90 $odir/$program.o $cflags -o$bdir/.$program $objs -lblas -llapack
+$cf90 $odir/$program.o $cflags -o$bdir/$program $objs -lblas -llapack

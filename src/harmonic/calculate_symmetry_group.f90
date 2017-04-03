@@ -8,7 +8,6 @@ function calculate_symmetry_group(structure) result(output)
   use group_module
   use string_module
   use file_module
-  use err_module
   implicit none
   
   type(StructureData), intent(in) :: structure

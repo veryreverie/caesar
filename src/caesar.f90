@@ -1,16 +1,17 @@
 program caesar
   ! use utility modules
   use utils, only : command_line_args, format_path
-  use err_module
   use string_module
   use file_module
   
   ! use harmonic modules
   use setup_harmonic_module
+  use run_harmonic_module
   use lte_harmonic_module
   
   ! use quadratic modules
   use setup_quadratic_module
+  use run_quadratic_module
   use anharmonic_module
   use bs_quadratic_module
   
@@ -111,10 +112,14 @@ program caesar
   ! Wrappers for top-level Fortran.
   elseif (mode == 'setup_harmonic') then
     call setup_harmonic(wd)
+  elseif (mode == 'run_harmonic') then
+    call run_harmonic(wd,cwd)
   elseif (mode == 'lte_harmonic') then
     call lte_harmonic(wd)
   elseif (mode == 'setup_quadratic') then
     call setup_quadratic(wd,cwd)
+  elseif (mode == 'run_quadratic') then
+    call run_quadratic(wd,cwd)
   elseif (mode == 'anharmonic') then
     call anharmonic(wd)
   elseif (mode == 'bs_quadratic') then

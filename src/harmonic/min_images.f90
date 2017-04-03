@@ -56,7 +56,6 @@ function min_images_brute_force(a,structure) result(output)
   use string_module
   use file_module
   use structure_module
-  use err_module
   implicit none
   
   real(dp),            intent(in) :: a(3)

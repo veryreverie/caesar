@@ -12,7 +12,6 @@ subroutine setup_quadratic(wd,cwd)
   use displacement_patterns_module
   use structure_to_dft_module
   use supercell_module
-  use err_module
   use kpoints_module
   implicit none
   

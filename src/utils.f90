@@ -71,7 +71,6 @@ end subroutine
 function format_path_character(path,cwd) result(output)
   use string_module
   use file_module
-  use err_module
   implicit none
   
   character(*), intent(in) :: path
@@ -92,7 +91,7 @@ function format_path_character(path,cwd) result(output)
     last = last - 1
   endif
   
-  if (path(:1)=='/') then
+  if (path(:1)=='/' .or. path(:1)=='~') then
     ! Path is absolute.
     output = path(:last)
   else
@@ -118,7 +117,6 @@ end function
 function make_dft_input_filename(dft_code,seedname) result(output)
   use string_module
   use file_module
-  use err_module
   implicit none
   
   type(String), intent(in) :: dft_code
@@ -140,7 +138,6 @@ end function
 function make_dft_output_filename(dft_code,seedname) result(output)
   use string_module
   use file_module
-  use err_module
   implicit none
   
   type(String), intent(in) :: dft_code

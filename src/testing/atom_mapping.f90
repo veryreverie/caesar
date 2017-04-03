@@ -10,7 +10,6 @@ function atom_mapping(structure_a,structure_b) result(output)
   use file_module
   use structure_module
   use group_module
-  use err_module
   implicit none
   
   type(StructureData), intent(in) :: structure_a

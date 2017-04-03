@@ -336,7 +336,6 @@ subroutine generate_dos(structure,structure_sc,delta_prim, &
   use file_module
   use structure_module
   use min_images_module
-  use err_module
   implicit none
   
   type(StructureData), intent(in) :: structure
@@ -646,10 +645,9 @@ end subroutine
 subroutine calculate_speed_sound(structure,structure_sc, &
    & force_constants,delta_prim)
   use constants,   only : pi
-  use rand_no_gen, only : ranx
   use structure_module
   use min_images_module
-  use err_module
+  use file_module
   implicit none
   
   type(StructureData), intent(in) :: structure
@@ -666,6 +664,7 @@ subroutine calculate_speed_sound(structure,structure_sc, &
   real(dp),parameter :: err_tol=1.d-3
   integer,parameter :: max_samples=1000000
   logical,parameter :: verbose=.FALSE.
+  real(dp) :: rand
   
   real(dp) :: small_k_scale
   real(dp) :: kmag
@@ -675,6 +674,9 @@ subroutine calculate_speed_sound(structure,structure_sc, &
        &of sound in materials with a single atom per primitive cell.')
     call err()
   endif
+  
+  ! Initialise the random number generator
+  call random_seed()
   
   ! "Small" distance in k space, determined by size of supercell.
   ! Factor of 2pi included.
@@ -697,8 +699,10 @@ subroutine calculate_speed_sound(structure,structure_sc, &
     do i=1,max_samples
 
       ! Choose random k vector on sphere of radius kmag.
-      cos_theta=1.d0-2.d0*ranx()
-      phi=ranx()*2*pi
+      call random_number(rand)
+      cos_theta=1.d0-2.d0*rand
+      call random_number(rand)
+      phi=rand*2*pi
       sin_theta=SQRT(1.d0-cos_theta**2)
       kunit = (/sin_theta*COS(phi),sin_theta*SIN(phi),cos_theta/)
       kvec = matmul(structure_sc%lattice,kmag*kunit)
@@ -815,8 +819,8 @@ function evaluate_freqs_on_grid(structure,structure_sc,force_constants) &
   use utils, only : l2_norm
   use string_module
   use structure_module
-  use err_module
   use min_images_module
+  use file_module
   implicit none
   
   type(StructureData), intent(in) :: structure
@@ -963,7 +967,7 @@ subroutine lte_1(structure,structure_sc,force_constants, &
   use string_module
   use structure_module
   use min_images_module
-  use err_module
+  use file_module
   implicit none
   
   ! ----------------------------------------
@@ -1027,7 +1031,7 @@ subroutine lte_2(structure,structure_sc,force_constants, &
   use string_module
   use structure_module
   use min_images_module
-  use err_module
+  use file_module
   implicit none
   
   ! ----------------------------------------

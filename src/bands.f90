@@ -123,7 +123,6 @@ end function
 function read_vasp_bands_file_character(filename) result(this)
   use string_module
   use file_module
-  use err_module
   implicit none
   
   character(*), intent(in) :: filename

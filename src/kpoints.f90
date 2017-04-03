@@ -46,7 +46,7 @@ module kpoints_module
 contains
 
 subroutine new_KpointsGrid(this,no_kpoints)
-  use err_module
+  use file_module
   implicit none
   
   type(KpointsGrid), intent(out) :: this
@@ -61,7 +61,7 @@ subroutine new_KpointsGrid(this,no_kpoints)
 end subroutine
 
 subroutine new_KpointsIbz(this,no_kpoints)
-  use err_module
+  use file_module
   implicit none
   
   type(KpointsIbz), intent(out) :: this
@@ -77,7 +77,7 @@ subroutine new_KpointsIbz(this,no_kpoints)
 end subroutine
 
 subroutine drop_KpointsGrid(this)
-  use err_module
+  use file_module
   implicit none
   
   type(KpointsGrid), intent(inout) :: this
@@ -91,7 +91,7 @@ subroutine drop_KpointsGrid(this)
 end subroutine
 
 subroutine drop_KpointsIbz(this)
-  use err_module
+  use file_module
   implicit none
   
   type(KpointsIbz), intent(inout) :: this

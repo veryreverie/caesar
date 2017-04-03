@@ -26,7 +26,7 @@ contains
 
 subroutine new_GeneratedSupercells(this,no_kpoints_grid,no_kpoints_ibz, &
    & no_supercells)
-  use err_module
+  use file_module
   implicit none
   
   type(GeneratedSupercells), intent(out) :: this
@@ -42,7 +42,7 @@ subroutine new_GeneratedSupercells(this,no_kpoints_grid,no_kpoints_ibz, &
 end subroutine
 
 subroutine drop_GeneratedSupercells(this)
-  use err_module
+  use file_module
   implicit none
   
   type(GeneratedSupercells), intent(inout) :: this
@@ -174,7 +174,6 @@ end function
 ! details of the algorithm.
 ! ----------------------------------------------------------------------
 subroutine supercells_generator(num_pcells,num_hnf,hnf)
-  use err_module
   use string_module
   use file_module
   implicit none
@@ -281,7 +280,6 @@ function generate_supercells(structure,grid) result(output)
   use file_module
   use structure_module
   use supercell_module
-  use err_module
   implicit none
   
   ! Inputs.

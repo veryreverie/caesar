@@ -350,7 +350,6 @@ subroutine lte_harmonic(wd)
   use supercell_module
   use unique_directions_module
   use group_module
-  use err_module
   use kpoints_module
   implicit none
   

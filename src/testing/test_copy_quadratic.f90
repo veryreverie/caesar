@@ -5,7 +5,6 @@ subroutine test_copy_quadratic(wd,cwd)
   use utils, only : format_path
   use string_module
   use file_module
-  use err_module
   implicit none
   
   ! Working directories.

@@ -19,6 +19,7 @@ module file_module
   public :: read_line_from_user   ! Reads a line from the terminal.
   public :: update_terminal_width ! Gets the terminal width.
   public :: print_line            ! write(*,'(a)')
+  public :: err                   ! Aborts with a stacktrace.
   
   interface open_read_file
     module procedure open_read_file_character
@@ -71,6 +72,12 @@ module file_module
     module procedure print_line_file_logicals
   end interface
   
+  interface err
+    module procedure err_none
+    module procedure err_logical
+    module procedure err_integer
+  end interface
+  
   ! C system call interface.
   interface
     function system_c(input) bind(c) result(output)
@@ -86,7 +93,6 @@ contains
 
 ! open a file with a specified mode, and return the unit it is opened in
 function open_file(filename,status,action,access) result(unit_num)
-  use err_module
   implicit none
   
   character(*), intent(in) :: filename
@@ -200,7 +206,6 @@ end function
 ! Gets the number of lines remaining in a file
 ! ----------------------------------------------------------------------
 function count_lines_character(filename) result(output)
-  use err_module
   implicit none
   
   character(*), intent(in) :: filename
@@ -239,7 +244,6 @@ end function
 ! Reads the file into a String(:) array
 ! ----------------------------------------------------------------------
 function read_lines_character(filename) result(output)
-  use err_module
   implicit none
   
   character(*), intent(in)  :: filename
@@ -328,7 +332,6 @@ end subroutine
 !    and formatting.
 ! ----------------------------------------------------------------------
 recursive subroutine print_line_character(line)
-  use err_module
   implicit none
   
   character(*), intent(in) :: line
@@ -378,7 +381,6 @@ recursive subroutine print_line_character(line)
 end subroutine
 
 subroutine print_line_file_character(file_unit,line)
-  use err_module
   implicit none
   
   integer,      intent(in) :: file_unit
@@ -515,5 +517,40 @@ subroutine print_line_file_logicals(file_unit,this)
   logical, intent(in) :: this(:)
   
   call print_line(file_unit,''//this)
+end subroutine
+
+! ----------------------------------------------------------------------
+! Aborts with a stacktrace.
+! ----------------------------------------------------------------------
+! Always aborts.
+subroutine err_none()
+  use compiler_specific_module
+  implicit none
+  
+  call err_implementation()
+end subroutine
+
+! Aborts if logical input is .false.
+subroutine err_logical(this)
+  implicit none
+  
+  logical, intent(in) :: this
+  
+  if (.not. this) then
+    call err()
+  endif
+end subroutine
+
+! Aborts if integer input /= 0.
+! Designed for use with allocate 'stat=ialloc' flags.
+subroutine err_integer(this)
+  implicit none
+  
+  integer, intent(in) :: this
+  
+  if (this/=0) then
+    call print_line('Allocation error.')
+    call err()
+  endif
 end subroutine
 end module

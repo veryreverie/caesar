@@ -21,7 +21,6 @@ subroutine setup_harmonic(wd)
   use construct_supercell_module
   use unique_directions_module
   use calculate_symmetry_group_module
-  use err_module
   use calculate_symmetry_module
   implicit none
   

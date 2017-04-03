@@ -3,7 +3,6 @@ contains
 subroutine test_lte(wd,cwd)
   use constants, only : eV, pi
   use utils,     only : mkdir, format_path
-  use err_module
   use string_module
   use file_module
   use structure_module

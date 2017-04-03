@@ -23,6 +23,10 @@ subroutine run_harmonic(wd,cwd)
   type(String)              :: dft_code
   type(String)              :: seedname
   
+  ! Supercell data.
+  type(String), allocatable :: no_sc_file(:)
+  integer                   :: no_sc
+  
   ! Atom and direction data.
   type(UniqueDirections) :: unique_directions
   integer                :: atom
@@ -33,8 +37,13 @@ subroutine run_harmonic(wd,cwd)
   type(String)           :: sdir
   type(String)           :: dir
   
+  ! Read in supercell data.
+  no_sc_file = read_lines(wd//'/no_sc.dat')
+  no_sc = int(no_sc_file(1))
+  
   ! Get inputs from user.
   call print_line('')
+  call print_line('There are '//no_sc//' supercells in total.')
   call print_line('What is the first supercell to run?')
   first_sc = int(read_line_from_user())
   
@@ -43,12 +52,39 @@ subroutine run_harmonic(wd,cwd)
   last_sc = int(read_line_from_user())
   
   call print_line('')
-  call print_line('How many cores per run?')
+  call print_line('How many cores can be used?')
   no_cores = int(read_line_from_user())
   
   call print_line('')
   call print_line('What is the path to the script for running DFT?')
+  call print_line('(An example script can be found in doc/input_files)')
   run_script = format_path(read_line_from_user(), cwd)
+  
+  ! Check user inputs.
+  if (first_sc<=0) then
+    call print_line('')
+    call print_line('Error: first supercell must be > 0')
+    call err()
+  elseif (first_sc>no_sc) then
+    call print_line('')
+    call print_line('Error: first supercell must be <= '//no_sc)
+    call err()
+  elseif (last_sc<first_sc) then
+    call print_line('')
+    call print_line('Error: first supercell must be <= last supercell.')
+    call err()
+  elseif (last_sc>no_sc) then
+    call print_line('')
+    call print_line('Error: last supercell must be <= '//no_sc)
+    call err()
+  elseif (no_cores<=0) then
+    call print_line('')
+    call print_line('Error: no. cores must be >= 1')
+    call err()
+  elseif (.not. file_exists(run_script)) then
+    call print_line('')
+    call print_line('Error: '//run_script//' does not exist.')
+  endif
   
   ! Read previous user inputs.
   user_input_file = read_lines(wd//'/user_input.txt')
@@ -84,14 +120,18 @@ subroutine run_harmonic(wd,cwd)
         direction = directions(k)
         
         dir = sdir//'/atom.'//atom//'.+d'//direction
-        call print_line('Working in directory '//dir)
-        call system_call( &
-           & run_script//' '//dft_code//' '//no_cores//' '//seedname)
+        call print_line('Running calculation in directory '//dir)
+        call system_call('cd '//wd//'; '//run_script//' '//dft_code //' '// &
+                                                         & dir      //' '// &
+                                                         & no_cores //' '// &
+                                                         & seedname)
         
         dir = sdir//'/atom.'//atom//'.-d'//direction
         call print_line('Working in directory '//dir)
-        call system_call( &
-           & run_script//' '//dft_code//' '//no_cores//' '//seedname)
+        call system_call('cd '//wd//'; '//run_script//' '//dft_code //' '// &
+                                                         & dir      //' '// &
+                                                         & no_cores //' '// &
+                                                         & seedname)
         
       enddo
     enddo

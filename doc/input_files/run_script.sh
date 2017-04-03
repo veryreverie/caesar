@@ -3,10 +3,13 @@ directory=$2
 num_cores=$3
 seedname=$4
 
+if [ "$dft_code" = "castep" ]; then
+  cp $seedname.param $directory
+fi
+
 cd $directory
 
 if [ "$dft_code" = "castep" ]; then
-  cp $dft_code/$seedname.param .
   rundft nnodes $num_cores seedname $seedname
   rm *.castep_bin *.cst_esp *.usp machine_file *.bib *orbitals
 elif [ "$dft_code" = "vasp" ]; then
