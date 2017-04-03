@@ -46,7 +46,7 @@ cp $sdir/quadratic/*.py $bdir
 
 # list programs
 # programs should be added so they are to the right of their dependencies
-programs=(constants string file utils linear_algebra algebra group supercell kpoints moller_plesset structure dft_input_file dft_output_file structure_to_dft calculate_symmetry bands displacement_patterns)
+utils_programs=(constants string file utils linear_algebra algebra group supercell kpoints moller_plesset structure dft_input_file dft_output_file structure_to_dft calculate_symmetry bands displacement_patterns)
 
 harmonic_programs=(calculate_symmetry_group unique_directions construct_supercell min_images generate_supercells lte hartree_to_eV setup_harmonic run_harmonic lte_harmonic)
 
@@ -55,18 +55,18 @@ quadratic_programs=(mapping calculate_anharmonic calculate_gap quadratic_spline 
 testing_programs=(atom_mapping test_copy_harmonic test_lte test_copy_quadratic)
 
 # Compile c system call.
-$cc -c $sdir/system.c -W -Wall -Wextra -pedantic -std=c99 -o$odir/system.o
+$cc -c $sdir/utils/system.c -W -Wall -Wextra -pedantic -std=c99 -o$odir/system.o
 
 # Compile compiler-specific module.
 if [ "$cf90" = "gfortran" ]; then
-  $cf90 -c $sdir/gfortran_specific.f90 $cflags -o$odir/compiler_specific.o
+  $cf90 -c $sdir/utils/gfortran_specific.f90 $cflags -o$odir/compiler_specific.o
 fi
 
 cflags="$cflags -std=f2003"       # Force standards compliance.
 
 # compile objects
-for program in ${programs[@]}; do
-  $cf90 -c $sdir/$program.f90 $cflags -o$odir/$program.o
+for program in ${utils_programs[@]}; do
+  $cf90 -c $sdir/utils/$program.f90 $cflags -o$odir/$program.o
 done
 
 for program in ${harmonic_programs[@]}; do
@@ -90,7 +90,7 @@ objs=()
 objs="$odir/system.o $objs"
 objs="$odir/compiler_specific.o $objs"
 
-for program in ${programs[@]}; do
+for program in ${utils_programs[@]}; do
   objs="$odir/$program.o $objs"
 done
 
