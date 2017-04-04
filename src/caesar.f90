@@ -100,6 +100,7 @@ program caesar
   call system_call('pwd > '//wd//'/temp.txt')
   temp_file = read_lines(wd//'/temp.txt')
   cwd = temp_file(1)
+  call system_call('rm '//wd//'/temp.txt')
   
   ! Convert working directory to absolute path.
   wd = format_path(temp_file(1), cwd)

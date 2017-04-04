@@ -3,28 +3,19 @@ CAESAR
 ----------------------------------------
 Installation
 ----------------------------------------
-To install Caesar in-directory, run
+To install Caesar, run:
 
-	./compile.sh
+  cmake [ path to CAESAR/src/ ]
+  make
 
-from the CAESAR/ directory.
-
-Out-of-directory installation not currently supported.
-
-To return the CAESAR directory to its original state, run
-
-  ./compile.sh clean
-
-from the CAESAR directory. This will undo all changes made by ./compile.sh.
+This should be run from the destination directory.
 
 ----------------------------------------
 Running
 ----------------------------------------
-For help, run
+For help, call
 
   caesar -h
-
-All of the programs and scripts used in Caesar will be in CAESAR/bin after installation. CAESAR/bin must be on path for the duration of use, since Caesar calls a number of shell scripts.
 
 ----------------------------------------
 Inputs
