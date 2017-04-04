@@ -11,6 +11,10 @@ if ("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "GNU")
   set(CMAKE_Fortran_FLAGS "-g -O0 -W -Wall -Wextra -pedantic -fmax-errors=1 -fcheck=all")
 endif()
 
+if ("${CMAKE_C_COMPILER_ID}" STREQUAL "GNU")
+  set(CMAKE_C_FLAGS "-g -O0 -W -Wall -Wextra -pedantic -fmax-errors=1 -std=c99")
+endif()
+
 project(caesar)
 add_executable(caesar caesar.f90)
 
