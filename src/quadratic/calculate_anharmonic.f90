@@ -6,7 +6,7 @@ contains
 
 subroutine calculate_anharmonic(multiplicity, no_modes, Nbasis, harmonic,&
     &eigenvals, result_file)
-  use constants, only : kB
+  use constants, only : kb_in_au
   use string_module
   use file_module
   implicit none
@@ -40,7 +40,7 @@ subroutine calculate_anharmonic(multiplicity, no_modes, Nbasis, harmonic,&
   
   ! Calculate thermal energies
   do i=1,no_temperatures
-    betas(i) = 1.0_dp/((i-1)*dtemperature*kB)
+    betas(i) = 1.0_dp/((i-1)*dtemperature*kb_in_au)
   enddo
 
   ! Calculate partition function
@@ -82,8 +82,8 @@ subroutine calculate_anharmonic(multiplicity, no_modes, Nbasis, harmonic,&
          enddo
        enddo
     endif
-    call print_line(result_file, 1.0_dp/(kB*betas(i))  //' '// &
-                               & renormalised_harmonic //' '// &
+    call print_line(result_file, 1.0_dp/(kb_in_au*betas(i))  //' '// &
+                               & renormalised_harmonic       //' '// &
                                & renormalised_eigenvals)
   enddo
 end subroutine

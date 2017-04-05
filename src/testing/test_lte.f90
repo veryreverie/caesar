@@ -1,7 +1,7 @@
 module test_lte_module
 contains
 subroutine test_lte(wd,cwd)
-  use constants, only : eV, pi
+  use constants, only : pi
   use utils,     only : mkdir, format_path
   use string_module
   use file_module
@@ -423,14 +423,14 @@ subroutine test_lte(wd,cwd)
     do j=1,structure_sc%sc_size
       do mode_1=1,structure%no_modes
         if (abs( old_disp_patts%frequencies(mode_1,j) &
-               & - lte_result%frequencies(mode_1,j)*eV) > 1.0e-7_dp) then
+               & - lte_result%frequencies(mode_1,j)) > 1.0e-7_dp) then
           call print_line('Frequencies are different.')
           call print_line('G-vector      : '//j)
           call print_line('Mode          : '//mode_1)
           call print_line('Old frequency : '// &
              & old_disp_patts%frequencies(mode_1,j))
           call print_line('New frequency : '// &
-             & lte_result%frequencies(mode_1,j)*eV)
+             & lte_result%frequencies(mode_1,j))
           call err()
         endif
         

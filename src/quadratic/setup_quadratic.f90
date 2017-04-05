@@ -3,7 +3,7 @@ module setup_quadratic_module
 contains
 
 subroutine setup_quadratic(wd,cwd)
-  use constants, only : dp, thermal
+  use constants, only : dp, kb_in_au
   use utils,     only : mkdir, format_path, make_dft_input_filename
   use string_module
   use file_module
@@ -23,7 +23,7 @@ subroutine setup_quadratic(wd,cwd)
   real(dp), parameter :: frequency_tol   = 1.0e-5_dp!frequency<=tol if acoustic
   real(dp), parameter :: temperature     = 0.0_dp
   real(dp), parameter :: temperature_tol = 1.0e-6_dp
-  real(dp), parameter :: thermal_energy  = temperature/thermal
+  real(dp), parameter :: thermal_energy  = temperature*kb_in_au
   
   ! User inputs
   type(String), allocatable :: user_input_file_in(:)

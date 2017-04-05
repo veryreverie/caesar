@@ -121,7 +121,7 @@ function read_castep_output_file(filename) result(output)
 end function
 
 function read_qe_output_file(filename) result(output)
-  use constants, only : Ry,bohr
+  use constants, only : ev_per_rydberg,angstrom_per_bohr
   use string_module
   use file_module
   implicit none
@@ -193,7 +193,7 @@ function read_qe_output_file(filename) result(output)
     output%forces(:,i) = dble(line(7:9))
   enddo
   
-  output%forces = output%forces*Ry/bohr
+  output%forces = output%forces*ev_per_rydberg/angstrom_per_bohr
 end function
 
 function read_dft_output_file(dft_code,filename) result(output)

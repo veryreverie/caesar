@@ -6,7 +6,7 @@ module anharmonic_module
 contains
 
 subroutine anharmonic(wd)
-  use constants, only : dp, eV
+  use constants, only : dp
   use utils,     only : mkdir, make_dft_output_filename
   use file_module
   
@@ -177,7 +177,7 @@ subroutine anharmonic(wd)
         ! generate amplitudes, {(x,V(x))}
         ! generate potential at {q} defined by map
         allocate(amplitudes(2,mapping%count))
-        amplitude = -mapping%max*eV/(2*dabs(frequencies(j,i)))
+        amplitude = -mapping%max/(2*dabs(frequencies(j,i)))
         do k=1,mapping%count
           amplitudes(1,k) = amplitude+(k-1)*dabs(amplitude/mapping%first)
           amplitudes(2,k) = (energies(k,j,i)-energies(mapping%mid,j,i)) &

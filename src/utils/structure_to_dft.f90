@@ -124,7 +124,7 @@ end subroutine
 subroutine structure_to_vasp(structure_sc,poscar_filename)
   use string_module
   use structure_module
-  use constants, only : bohr
+  use constants, only : angstrom_per_bohr
   use file_module
   implicit none
   
@@ -173,7 +173,7 @@ subroutine structure_to_vasp(structure_sc,poscar_filename)
   poscar_file = open_write_file(poscar_filename)
   
   call print_line(poscar_file,'Structure')
-  call print_line(poscar_file,bohr)
+  call print_line(poscar_file,angstrom_per_bohr)
   do i=1,3
     call print_line(poscar_file, structure_sc%lattice(:,i))
   enddo

@@ -2,6 +2,9 @@
  * See corresponding interfaces in calculate_symmetry.f90 for comments.
  */
 
+#include <stdbool.h> // bool
+#include <stddef.h>  // NULL
+
 #include "spglib.h"
 
 void spglib_calculate_symmetries
@@ -13,6 +16,7 @@ void spglib_calculate_symmetries
   const int           *  num_atom,
   const double        *  symprec,
   // Outputs.
+        bool          *  success,
         SpglibDataset ** spg_dataset,
         int           *  n_operations
 )
@@ -26,7 +30,15 @@ void spglib_calculate_symmetries
     *symprec
   );
   
-  *n_operations = (*spg_dataset)->n_operations;
+  if (*spg_dataset == NULL)
+  {
+    *success = false;
+  }
+  else
+  {
+    *success = true;
+    *n_operations = (*spg_dataset)->n_operations;
+  }
 }
 
 void spglib_retrieve_symmetries
@@ -50,4 +62,13 @@ void spglib_retrieve_symmetries
       (*translations)[i][j] = (*spg_dataset)->translations[i][j];
     }
   }
+}
+
+void drop_spg_dataset
+(
+  // Input.
+  SpglibDataset ** spg_dataset
+)
+{
+  spg_free_dataset(*spg_dataset);
 }

@@ -26,7 +26,7 @@
 ! 2016     Integrated into Caesar. See Caesar git history.
 
 module lte_module
-  use constants, only : dp, kB_au_per_K
+  use constants, only : dp
   use file_module
   implicit none
   
@@ -274,27 +274,28 @@ end function
 ! This function returns the mean thermal energy of an isolated harmonic
 ! oscillator of frequency omega (in a.u.).  T is the temperature in Kelvin.
 ! ----------------------------------------------------------------------
-real(dp) function harmonic_energy(T,omega)
+real(dp) function harmonic_energy(temperature,omega)
+  use constants, only : kb_in_au
   implicit none
   
-  real(dp), intent(in) :: T
+  real(dp), intent(in) :: temperature
   real(dp), intent(in) :: omega
   
   real(dp) :: denominator
   
-  if(T<=0.d0)then
+  if(temperature<=0.d0)then
     ! Zero-point energy.
     harmonic_energy=0.5d0*omega
   else
-    denominator=EXP(omega/(kB_au_per_K*T))-1.d0
+    denominator=EXP(omega/(kb_in_au*temperature))-1.d0
     if(denominator>0.d0)then
       ! General case.
       harmonic_energy=(1.d0/denominator+0.5d0)*omega
     else
       ! High-temperature limit.
-      harmonic_energy=kB_au_per_K*T
+      harmonic_energy = kb_in_au*temperature
     endif ! denominator>0
-  endif ! T=0
+  endif ! temperature=0
 end function
 
 ! ----------------------------------------------------------------------
@@ -302,23 +303,24 @@ end function
 ! oscillator of frequency omega (in a.u.). Temperature is in Kelvin.
 ! ----------------------------------------------------------------------
 function harmonic_free_energy(temperature,omega) result(output)
-  IMPLICIT NONE
+  use constants, only : kb_in_au
+  implicit none
   
   real(dp), intent(in) :: temperature
   real(dp), intent(in) :: omega
   real(dp)             :: output
   
   real(dp) :: difference
-  real(dp) :: kT
+  real(dp) :: thermal_energy
   
   if(temperature<=0.0_dp)then
     ! Zero-point energy.
     output=0.5_dp*omega
   else
-    kT = kB_au_per_K*temperature
-    difference = 1.0_dp-dexp(-omega/kT)
+    thermal_energy = kb_in_au*temperature
+    difference = 1.0_dp-dexp(-omega/thermal_energy)
     if (difference>0.0_dp) then
-      output = 0.5_dp*omega + kT*dlog(difference)
+      output = 0.5_dp*omega + thermal_energy*dlog(difference)
     else
       ! High-temperature limit.
       output = -huge(0.0_dp)
@@ -478,11 +480,9 @@ subroutine calc_lte(bin_width,temperature,freq_dos,tdependence1_filename)
   lte_err=SQRT((lte_sq-lte**2)/DBLE(no_fdos_sets-1))
   write(*,'(1x,a,es18.10,a,es10.2)')'Done.  LTE per primitive cell : ', &
     &lte,' +/- ',lte_err
-  write(*,'(1x,a,es18.10,a,es10.2)')'Done.  LTE per primitive cell (eV) : ', &
-    &lte*27.211396132d0,' +/- ',lte_err*27.211396132d0
    
   tdependence1_file = open_write_file(tdependence1_filename)
-  write(tdependence1_file,*) lte*27.211396132d0
+  write(tdependence1_file,*) lte
   close(tdependence1_file)
 end subroutine
 
@@ -526,11 +526,9 @@ subroutine calc_ltfe(bin_width,temperature,freq_dos,tdependence2_filename)
   ltfe_err=SQRT((ltfe_sq-ltfe**2)/DBLE(no_fdos_sets-1))
   write(*,'(1x,a,es18.10,a,es10.2)')'and LTFE per primitive cell   : ', &
     &ltfe,' +/- ',ltfe_err
-  write(*,'(1x,a,es18.10,a,es10.2)')'and LTFE per primitive cell (eV)  : ', &
-    &ltfe*27.211396132d0,' +/- ',ltfe_err*27.211396132d0
   
   tdependence2_file = open_write_file(tdependence2_filename)
-  write(tdependence2_file,*) ltfe*27.211396132d0
+  write(tdependence2_file,*) ltfe
   close(tdependence2_file)
 end subroutine
 

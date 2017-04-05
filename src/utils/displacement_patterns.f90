@@ -63,7 +63,6 @@ subroutine drop_DispPatterns(this)
 end subroutine
 
 function read_disp_patterns_file_character(filename,no_modes) result(this)
-  use constants, only : eV
   use string_module
   use file_module
   implicit none
@@ -115,7 +114,7 @@ function read_disp_patterns_file_character(filename,no_modes) result(this)
     enddo
   enddo
   
-  this%frequencies = this%frequencies*eV
+  this%frequencies = this%frequencies
 end function
 
 function read_disp_patterns_file_String(filename,no_modes) result(this)

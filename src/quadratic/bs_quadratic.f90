@@ -6,7 +6,7 @@ contains
 ! Program to calculate quadratic band gap correction
 ! ----------------------------------------------------------------------
 subroutine bs_quadratic(wd)
-  use constants, only : dp, kB
+  use constants, only : dp, kb_in_au
   use utils,     only : mkdir
   use mapping_module
   use string_module
@@ -197,9 +197,11 @@ subroutine bs_quadratic(wd)
         do j=1,structure%no_modes
           renormalised_band = renormalised_band                              &
                           & + deformation(i,j)                               &
-                          & * ( 1.0                                          &
-                          &   + 2.0                                          &
-                          &   / (dexp(frequencies(i,j)/(temperature*kB))-1)) &
+                          & * ( 1                                            &
+                          &   + 2                                            &
+                          &   / ( dexp( frequencies(i,j)                     &
+                          &          / (temperature*kb_in_au))               &
+                          &     - 1))                                        &
                           & * multiplicity(i)                                &
                           & / no_kpoints
         enddo

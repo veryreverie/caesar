@@ -29,18 +29,17 @@ module vscf_1d_module
   
 contains
 
-function vscf_1d(frequency_ev, potential, Nbasis) result(output)
-  use constants,      only : dp, pi, eV
+function vscf_1d(frequency, potential, Nbasis) result(output)
+  use constants,      only : dp, pi
   use linear_algebra, only : RealEigenstuff, calculate_eigenstuff, size
   implicit none
   
-  real(dp), intent(in) :: frequency_ev   ! Frequency in eV
+  real(dp), intent(in) :: frequency
   real(dp), intent(in) :: potential(:,:) ! Anharmonic potential, {q,V(q)}
   integer,  intent(in) :: Nbasis
   type(VscfData)       :: output
   
   integer  :: Npoints   ! Size(potential,2)
-  real(dp) :: frequency ! Frequency in a.u.
   
   ! Working variables
   integer :: i,j,k
@@ -51,9 +50,6 @@ function vscf_1d(frequency_ev, potential, Nbasis) result(output)
   Npoints = size(potential,2)
   dq = (potential(1,Npoints)-potential(1,1))/Npoints
   
-  ! Convert frequency to a.u.
-  frequency=frequency_ev/eV 
-
   ! Allocate output
   call new(output,Npoints,Nbasis)
 
@@ -77,7 +73,7 @@ function vscf_1d(frequency_ev, potential, Nbasis) result(output)
     q = potential(1,i)
     output%anh_pot(i)%q = q
     output%anh_pot(i)%harmonic = 0.5d0*frequency*frequency*q*q
-    output%anh_pot(i)%anharmonic = potential(2,i)/eV
+    output%anh_pot(i)%anharmonic = potential(2,i)
     output%anh_pot(i)%difference = output%anh_pot(i)%anharmonic &
                                & - output%anh_pot(i)%harmonic
   enddo ! i
@@ -94,7 +90,7 @@ function vscf_1d(frequency_ev, potential, Nbasis) result(output)
     do j=1,Nbasis
       do k=1,Npoints
         output%hamiltonian(i,j) = output%hamiltonian(i,j) &
-                              & + basis(k,i)*basis(k,j)*potential(2,k)*dq/eV
+                              & + basis(k,i)*basis(k,j)*potential(2,k)*dq
       enddo
     enddo
   enddo
@@ -103,8 +99,8 @@ function vscf_1d(frequency_ev, potential, Nbasis) result(output)
 
   ! Output anharmonic eigenvalues and eigenvectors
   do i=1,Nbasis
-    output%harmonic(i) = frequency*(i-0.5d0)*eV
-    output%eigenvals(i) = estuff%evals(i)*eV
+    output%harmonic(i) = frequency*(i-0.5d0)
+    output%eigenvals(i) = estuff%evals(i)
   enddo
   
   output%eigenvecs = estuff%evecs

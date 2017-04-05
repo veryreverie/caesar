@@ -2,7 +2,7 @@ module dft_input_file_module
 contains
 
 function castep_input_file_to_structure(filename) result(output)
-  use constants, only : dp,pi,bohr,amu_to_me,kg_to_me,identity
+  use constants, only : dp,pi,angstrom_per_bohr,kg_per_me,kg_per_amu,identity
   use string_module
   use structure_module
   use file_module
@@ -101,7 +101,7 @@ function castep_input_file_to_structure(filename) result(output)
   endif
   
   ! Parse lattice.
-  conversion = bohr
+  conversion = 1.0_dp / angstrom_per_bohr
   j=1
   
   do i=lattice_start_line+1,lattice_end_line-1
@@ -118,13 +118,13 @@ function castep_input_file_to_structure(filename) result(output)
     elseif (line(1) == 'a0') then
       conversion = 1.0_dp
     elseif (line(1) == 'm') then
-      conversion = 1e10_dp*bohr
+      conversion = 1e10_dp / angstrom_per_bohr
     elseif (line(1) == 'cm') then
-      conversion = 1e8_dp*bohr
+      conversion = 1e8_dp / angstrom_per_bohr
     elseif (line(1) == 'nm') then
-      conversion = 1e1_dp*bohr
+      conversion = 1e1_dp / angstrom_per_bohr
     elseif (line(1) == 'ang') then
-      conversion = bohr
+      conversion = 1.0_dp / angstrom_per_bohr
       
     elseif (lattice_is_cart) then
       if (j>3) then
@@ -161,7 +161,7 @@ function castep_input_file_to_structure(filename) result(output)
   endif
   
   ! Parse atoms.
-  conversion = bohr
+  conversion = angstrom_per_bohr
   j=1
   allocate(species(positions_end_line-positions_start_line))
   allocate(positions(3,positions_end_line-positions_start_line-1))
@@ -178,13 +178,13 @@ function castep_input_file_to_structure(filename) result(output)
     elseif (line(1) == 'bohr' .or. line(1) == 'a0') then
       conversion = 1.0_dp
     elseif (line(1) == 'm') then
-      conversion = 1e10_dp*bohr
+      conversion = 1e10_dp / angstrom_per_bohr
     elseif (line(1) == 'cm') then
-      conversion = 1e8_dp*bohr
+      conversion = 1e8_dp / angstrom_per_bohr
     elseif (line(1) == 'nm') then
-      conversion = 1e1_dp*bohr
+      conversion = 1e1_dp / angstrom_per_bohr
     elseif (line(1) == 'ang') then
-      conversion = bohr
+      conversion = 1.0_dp / angstrom_per_bohr
     
     elseif (j>size(positions,2)) then
       call print_line('Error: too many atom lines found in '//filename)
@@ -213,7 +213,7 @@ function castep_input_file_to_structure(filename) result(output)
   output%species = species(:no_atoms)
   output%atoms = positions(:,:no_atoms)
   
-  conversion = amu_to_me
+  conversion = kg_per_amu / kg_per_me
   allocate(masses_found(no_atoms))
   masses_found = .false.
   do i=masses_start_line+1,masses_end_line-1
@@ -228,11 +228,11 @@ function castep_input_file_to_structure(filename) result(output)
     elseif (line(1) == 'me') then
       conversion = 1.0_dp
     elseif (line(1) == 'amu') then
-      conversion = amu_to_me
+      conversion = kg_per_amu / kg_per_me
     elseif (line(1) == 'kg') then
-      conversion = kg_to_me
+      conversion = 1.0_dp / kg_per_me
     elseif (line(1) == 'g') then
-      conversion = 1e-3_dp*kg_to_me
+      conversion = 1e-3_dp / kg_per_me
     
     ! Read in masses.
     else
