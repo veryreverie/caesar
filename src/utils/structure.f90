@@ -23,11 +23,10 @@ module structure_module
     integer,      allocatable :: atom_to_prim(:)
     integer,      allocatable :: atom_to_gvec(:)
     integer,      allocatable :: gvec_and_prim_to_atom(:,:)
-    ! Symmetry data
+    ! Symmetry data (in fractional co-ordinates).
     integer                   :: no_symmetries
-    real(dp),     allocatable :: rotation_matrices(:,:,:)
+    integer,      allocatable :: rotations(:,:,:)
     real(dp),     allocatable :: offsets(:,:)
-    real(dp),     allocatable :: offsets_cart(:,:)
     ! Superell data
     integer                   :: sc_size
     integer                   :: supercell(3,3)
@@ -54,11 +53,6 @@ module structure_module
     module procedure write_structure_file_string
   end interface
   
-  interface read_symmetry_file
-    module procedure read_symmetry_file_character
-    module procedure read_symmetry_file_string
-  end interface
-
 contains
 
 subroutine new_StructureData(this,no_atoms,no_symmetries,sc_size)
@@ -92,9 +86,8 @@ subroutine new_StructureData(this,no_atoms,no_symmetries,sc_size)
   
   this%no_symmetries = no_symmetries
   if (no_symmetries /= 0) then
-    allocate(this%rotation_matrices(3,3,no_symmetries))
+    allocate(this%rotations(3,3,no_symmetries))
     allocate(this%offsets(3,no_symmetries))
-    allocate(this%offsets_cart(3,no_symmetries))
   endif
   
   this%sc_size = sc_size
@@ -117,9 +110,8 @@ subroutine drop_StructureData(this)
   deallocate(this%gvec_and_prim_to_atom)
   
   if (this%no_symmetries /= 0) then
-    deallocate(this%rotation_matrices)
+    deallocate(this%rotations)
     deallocate(this%offsets)
-    deallocate(this%offsets_cart)
   endif
   
   deallocate(this%gvectors)
@@ -254,7 +246,7 @@ function read_structure_file_character(filename) result(this)
   do i=1,this%no_symmetries
     do j=1,3
       line = split(structure_file(symmetry_line+(i-1)*5+j))
-      this%rotation_matrices(j,:,i) = dble(line)
+      this%rotations(j,:,i) = int(line)
     enddo
     line = split(structure_file(symmetry_line+(i-1)*5+4))
     this%offsets(:,i) = dble(line)
@@ -275,11 +267,6 @@ function read_structure_file_character(filename) result(this)
   
   ! calculate derived quantities
   call calculate_derived_atom_quantities(this)
-  
-  if (this%no_symmetries>0) then
-    call calculate_derived_symmetry_quantities(this)
-  endif
-  
   call calculate_derived_supercell_quantities(this)
 end function
 
@@ -322,7 +309,7 @@ subroutine write_structure_file_character(this,filename)
     call print_line(structure_file,'Symmetry')
     do i=1,this%no_symmetries
       do j=1,3
-        call print_line(structure_file, this%rotation_matrices(j,:,i))
+        call print_line(structure_file, this%rotations(j,:,i))
       enddo
       call print_line(structure_file, this%offsets(:,i))
       call print_line(structure_file, '')
@@ -354,70 +341,6 @@ subroutine write_structure_file_string(this,filename)
 end subroutine
 
 ! ----------------------------------------------------------------------
-! Reads the symmetry operations from the output of cellsym
-! ----------------------------------------------------------------------
-subroutine read_symmetry_file_character(this,filename)
-  use string_module
-  use file_module
-  implicit none
-  
-  type(StructureData), intent(inout) :: this
-  character(*),        intent(in)    :: filename
-  
-  ! File contents
-  type(String), allocatable :: structure_file(:)
-  type(String), allocatable :: line(:)
-  
-  ! line numbers
-  integer :: start_line
-  integer :: end_line
-  
-  ! working variables
-  integer        :: i, j
-  
-  structure_file = read_lines(filename)
-  
-  ! Work out line numbers
-  do i=1,size(structure_file)
-    line = split(lower_case(structure_file(i)))
-    if (size(line)==2) then
-      if (line(1)=="%block" .and. line(2)=="symmetry_ops") then
-        start_line = i
-      elseif (line(1)=="%endblock" .and. line(2)=="symmetry_ops") then
-        end_line = i
-      endif
-    endif
-  enddo
-  
-  this%no_symmetries = (end_line-start_line)/5
-  allocate(this%rotation_matrices(3,3,this%no_symmetries))
-  allocate(this%offsets(3,this%no_symmetries))
-  allocate(this%offsets_cart(3,this%no_symmetries))
-  
-  ! Read in symmetries
-  do i=1,this%no_symmetries
-    do j=1,3
-      line = split(structure_file(start_line+(i-1)*5+j))
-      this%rotation_matrices(j,:,i) = dble(line)
-    enddo
-    line = split(structure_file(start_line+(i-1)*5+4))
-    this%offsets(:,i) = dble(line)
-  enddo
-  
-  call calculate_derived_symmetry_quantities(this)
-end subroutine
-
-subroutine read_symmetry_file_String(this,filename)
-  use string_module
-  implicit none
-  
-  type(StructureData), intent(inout) :: this
-  type(String),        intent(in)    :: filename
-  
-  call read_symmetry_file(this,char(filename))
-end subroutine
-
-! ----------------------------------------------------------------------
 ! calculate derived quantities relating to lattice and atoms
 ! ----------------------------------------------------------------------
 subroutine calculate_derived_atom_quantities(this)
@@ -428,17 +351,6 @@ subroutine calculate_derived_atom_quantities(this)
   
   this%recip_lattice = transpose(invert(this%lattice))
   this%volume        = abs(determinant(this%lattice))
-end subroutine
-
-! ----------------------------------------------------------------------
-! calculate derived quantities relating to symmetries
-! ----------------------------------------------------------------------
-subroutine calculate_derived_symmetry_quantities(this)
-  implicit none
-  
-  type(StructureData), intent(inout) :: this
-  
-  this%offsets_cart = matmul(this%lattice,this%offsets)
 end subroutine
 
 ! ----------------------------------------------------------------------
@@ -494,6 +406,26 @@ function calculate_gvector_group(this) result(output)
       enddo
     enddo
     output(i) = operation
+  enddo
+end function
+
+! ----------------------------------------------------------------------
+! Transforms rotations into cartesian co-ordinates.
+! ----------------------------------------------------------------------
+function calculate_cartesian_rotations(this) result(output)
+  implicit none
+  
+  type(StructureData), intent(in) :: this
+  real(dp), allocatable           :: output(:,:,:)
+  
+  integer :: i
+  
+  allocate(output(3,3,this%no_symmetries))
+  
+  do i=1,this%no_symmetries
+    output(:,:,i) = matmul(matmul( transpose(this%lattice), &
+                                 & this%rotations(:,:,i)),  &
+                                 & this%recip_lattice)
   enddo
 end function
 end module

@@ -19,7 +19,6 @@ function calculate_symmetry_group(structure) result(output)
   !   n.b. in these co-ordintates, supercell lattice vectors are unit vectors.
   !   This is a different convention to the scaled co-ordinates used elsewhere.
   real(dp), allocatable :: atom_pos_frac(:,:)
-  real(dp)              :: rotation_frac(3,3)
   real(dp)              :: transformed_pos_frac(3)
   
   ! Distances between atoms and transformed atoms.
@@ -38,14 +37,10 @@ function calculate_symmetry_group(structure) result(output)
   
   ! Work out which atoms map to which atoms under each symmetry operation.
   do i=1,structure%no_symmetries
-    ! Transform the rotations into fractional supercell co-ordinates.
-    rotation_frac = matmul(matmul(                                      &
-                                 & structure%recip_lattice,             &
-                                 & structure%rotation_matrices(:,:,i)), &
-                                 & transpose(structure%lattice))
     do j=1,structure%no_atoms
       ! Calculate the position of the transformed atom.
-      transformed_pos_frac = matmul(rotation_frac,atom_pos_frac(:,j)) &
+      transformed_pos_frac = matmul( structure%rotations(:,:,i), &
+                         &           atom_pos_frac(:,j)) &
                          & + structure%offsets(:,i)
       
       ! Identify which atom is closest to the transformed position,

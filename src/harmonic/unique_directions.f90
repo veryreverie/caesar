@@ -127,6 +127,9 @@ function calculate_unique_directions(structure,symmetry_group) result(this)
   !    considered linearly independent. (30 degree separation).
   real(dp), parameter :: max_dot = dsqrt(3.0_dp)/2 + 1.0e-5_dp
   
+  ! Rotations in cartesian co-ordinates.
+  real(dp), allocatable :: rotations_cart(:,:,:)
+  
   ! Unique atom variables.
   integer              :: no_unique_atoms
   integer, allocatable :: unique_atoms(:)
@@ -159,6 +162,8 @@ function calculate_unique_directions(structure,symmetry_group) result(this)
   call new(this,no_unique_atoms)
   this%unique_atoms = unique_atoms(1:no_unique_atoms)
   
+  rotations_cart = calculate_cartesian_rotations(structure)
+  
   ! Identify which directions are related by symmetry, and record the operators
   !    which relate them
   this%xy_symmetry = 0
@@ -173,11 +178,11 @@ function calculate_unique_directions(structure,symmetry_group) result(this)
       endif
       
       ! Check it the symmetry maps (1,0,0) onto a linearly independent vector.
-      if (abs(structure%rotation_matrices(1,1,j)) < max_dot) then
+      if (abs(rotations_cart(1,1,j)) < max_dot) then
         if (.not. vec1_found) then
           ! Only one lin. indep. vector has been found so far. Check if it
           !    lies closer to (0,1,0) or (0,0,1).
-          vec1 = structure%rotation_matrices(:,1,j)
+          vec1 = rotations_cart(:,1,j)
           vec1_found = .true.
           if (abs(vec1(2)) > abs(vec1(3))) then
             this%xy_symmetry(i) = j
@@ -191,7 +196,7 @@ function calculate_unique_directions(structure,symmetry_group) result(this)
         else
           ! Another lin. indep. vector has already been found. Check if the
           !    new vector is lin. indep. to the old vector.
-          vec2 = structure%rotation_matrices(:,1,j)
+          vec2 = rotations_cart(:,1,j)
           if (abs(dot_product(vec1,vec2)) < max_dot) then
             ! vec2 is lin. indep. Note the symmetry operation.
             ! n.b. at this stage, which is xy and which is xz is irrelevant.
@@ -208,7 +213,7 @@ function calculate_unique_directions(structure,symmetry_group) result(this)
       ! Check if the symmetry maps (0,1,0) onto a linearly independent vector.
       ! n.b. This will be ignored if symmetries from (1,0,0) are found.
       if (.not. vec1_found) then
-        if (abs(structure%rotation_matrices(2,2,j)) < max_dot) then
+        if (abs(rotations_cart(2,2,j)) < max_dot) then
           this%yz_symmetry(i) = j
         endif
       endif

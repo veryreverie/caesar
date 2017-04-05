@@ -140,7 +140,7 @@ subroutine setup_harmonic(wd)
   ! Add symmetries to structure.dat if not already present.
   ! ----------------------------------------------------------------------
   if (structure%no_symmetries == 0) then
-    call calculate_symmetry(structure,wd//'temp.cell',wd//'temp.dat')
+    call calculate_symmetry(structure)
   endif
   
   call write_structure_file(structure,wd//'/structure.dat')
@@ -176,7 +176,7 @@ subroutine setup_harmonic(wd)
     structure_sc = construct_supercell(structure, supercells(i))
     
     ! Add symmetries to supercell structure.dat
-    call calculate_symmetry(structure_sc, sdir//'temp.cell', sdir//'temp.dat')
+    call calculate_symmetry(structure_sc)
     call write_structure_file(structure_sc, sdir//'/structure.dat')
     ! ----------------------------------------------------------------------
     ! Calculate symmetry group.

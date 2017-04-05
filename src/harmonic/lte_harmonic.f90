@@ -31,6 +31,9 @@ function calculate_force_constants(structure,structure_sc,symmetry_group, &
   
   ! Setup data
   
+  ! Rotations in cartesian co-ordinates.
+  real(dp), allocatable :: rotations_cart(:,:,:)
+  
   ! Force constant data
   character(1)                       :: direction
   type(String)                       :: dft_output_filename
@@ -65,6 +68,8 @@ function calculate_force_constants(structure,structure_sc,symmetry_group, &
   
   ! Temporary variables
   integer        :: j,k
+  
+  rotations_cart = calculate_cartesian_rotations(structure_sc)
   
   allocate(atom_calculated(structure%no_atoms))
   atom_calculated = .false.
@@ -134,7 +139,7 @@ function calculate_force_constants(structure,structure_sc,symmetry_group, &
         ! => Fab(2,:) = [Fac(1,:)Rcb-Rcb(1,:)Fab'] / Rcb(1,2)
         ! Where Fab'(1,:)=Fab(1,:), Fab'(3,:)=Fab(3,:) and Fab'(2,:)=0
         c = operate(symmetry_group(xy),b)
-        Rcb = structure_sc%rotation_matrices(:,:,xy)
+        Rcb = rotations_cart(:,:,xy)
         Fac = force_constants(:,:,c,a)
         Fab(2,:) = (matmul(Fac(1,:),Rcb)-matmul(Rcb(1,:),Fab)) / Rcb(1,2)
       elseif (xy==0 .and. xz/=0) then
@@ -143,7 +148,7 @@ function calculate_force_constants(structure,structure_sc,symmetry_group, &
         ! As above, but with Fab'(3,:)=0 rather than Fab'(2,:)=0
         ! => Fab(3,:) = [Fac(1,:)Rcb-Rcb(1,:)F'] / R(1,3)
         c = operate(symmetry_group(xz),b)
-        Rcb = structure_sc%rotation_matrices(:,:,xz)
+        Rcb = rotations_cart(:,:,xz)
         Fac = force_constants(:,:,c,a)
         Fab(3,:) = (matmul(Fac(1,:),Rcb)-matmul(Rcb(1,:),Fab)) / Rcb(1,3)
       elseif (yz/=0) then
@@ -152,7 +157,7 @@ function calculate_force_constants(structure,structure_sc,symmetry_group, &
         ! Similarly,
         ! => Fab(3,:) = [Fac(2,:)Rcb-Rcb(2,:)Fab'] / Rcb(2,3)
         c = operate(symmetry_group(yz),b)
-        Rcb = structure_sc%rotation_matrices(:,:,yz)
+        Rcb = rotations_cart(:,:,yz)
         Fac = force_constants(:,:,c,a)
         Fab(3,:) = (matmul(Fac(2,:),Rcb)-matmul(Rcb(2,:),Fab)) / Rcb(2,3)
       elseif (xy/=0 .and. xz/=0) then
@@ -170,8 +175,8 @@ function calculate_force_constants(structure,structure_sc,symmetry_group, &
         !                        Rcb(1,2)Rdb(1,3)-Rcb(1,3)Rdb(1,2)
         c = operate(symmetry_group(xy),b)
         d = operate(symmetry_group(xz),b)
-        Rcb = structure_sc%rotation_matrices(:,:,xy)
-        Rdb = structure_sc%rotation_matrices(:,:,xz)
+        Rcb = rotations_cart(:,:,xy)
+        Rdb = rotations_cart(:,:,xz)
         Fac = force_constants(:,:,c,a)
         Fad = force_constants(:,:,d,a)
         Fab(2,:) = ( Rdb(1,3)*(matmul(Fac(1,:),Rcb)-Rcb(1,1)*Fab(1,:))  &
@@ -204,20 +209,20 @@ function calculate_force_constants(structure,structure_sc,symmetry_group, &
       do atom_2_sc=1,structure_sc%no_atoms
         atom_2p_sc = operate(symmetry_group(k),atom_2_sc)
         
-        force_constants(:,:,atom_2p_sc,atom_1p_prim) = (         &
-           &   matmul(matmul(                                    &
-           &   structure_sc%rotation_matrices(:,:,k),            &
-           &   force_constants(:,:,atom_2_sc,atom_1_prim)),      &
-           &   transpose(structure_sc%rotation_matrices(:,:,k))) &
-           & +                                                   &
-           &   force_constants(:,:,atom_2p_sc,atom_1p_prim)      &
+        force_constants(:,:,atom_2p_sc,atom_1p_prim) = (    &
+           &   matmul(matmul(                               &
+           &   rotations_cart(:,:,k),                       &
+           &   force_constants(:,:,atom_2_sc,atom_1_prim)), &
+           &   transpose(rotations_cart(:,:,k)))            &
+           & +                                              &
+           &   force_constants(:,:,atom_2p_sc,atom_1p_prim) &
            & ) / 2
         
-        force_constants(:,:,atom_2_sc,atom_1_prim) =             &
-           &   matmul(matmul(                                    &
-           &   transpose(structure_sc%rotation_matrices(:,:,k)), &
-           &   force_constants(:,:,atom_2p_sc,atom_1p_prim)),    &
-           &   structure_sc%rotation_matrices(:,:,k))
+        force_constants(:,:,atom_2_sc,atom_1_prim) =          &
+           &   matmul(matmul(                                 &
+           &   transpose(rotations_cart(:,:,k)),              &
+           &   force_constants(:,:,atom_2p_sc,atom_1p_prim)), &
+           &   rotations_cart(:,:,k))
       enddo
     enddo
   enddo
@@ -243,9 +248,9 @@ function calculate_force_constants(structure,structure_sc,symmetry_group, &
       do atom_2_sc=1,structure_sc%no_atoms
         atom_2p_sc = operate(symmetry_group(k),atom_2_sc)
         force_constants(:,:,atom_2p_sc,atom_1p_prim) = matmul(matmul( &
-           & structure_sc%rotation_matrices(:,:,k),                   &
+           & rotations_cart(:,:,k),                                   &
            & force_constants(:,:,atom_2_sc,atom_1_prim)),             &
-           & transpose(structure_sc%rotation_matrices(:,:,k)))
+           & transpose(rotations_cart(:,:,k)))
       enddo
     enddo
   enddo

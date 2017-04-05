@@ -5,16 +5,17 @@ module calculate_symmetry_module
   use iso_c_binding
   implicit none
   
-  interface calculate_symmetry
-    module procedure calculate_symmetry_old
-    module procedure calculate_symmetry_new
-  end interface
-  
+  ! --------------------------------------------------
   ! spglib interface.
+  ! --------------------------------------------------
+  ! spglib_calculate_symmetries calculates symmetry operations, but has
+  !    nowhere to store them. Space should be allocated, and passed into
+  !    spglib_retrieve_symmetries, which will copy the data from
+  !    C-style malloc memory to Fortran allocatable memory.
   interface
-    subroutine spglib_get_no_symmetries( &
+    subroutine spglib_calculate_symmetries( &
        & lattice,position,types,num_atom,symprec, &
-       & n_operations) &
+       & spg_dataset_pointer,n_operations) &
        & bind(c)
       use, intrinsic :: iso_c_binding
       implicit none
@@ -27,24 +28,19 @@ module calculate_symmetry_module
       real(kind=c_double), intent(in) :: symprec
       
       ! Output.
+      type(c_ptr),         intent(out) :: spg_dataset_pointer
       integer(kind=c_int), intent(out) :: n_operations
     end subroutine
   end interface
   
   interface
-    subroutine spglib_get_symmetries( &
-       & lattice,position,types,num_atom,symprec, &
-       & rotations,translations) &
-       & bind(c)
+    subroutine spglib_retrieve_symmetries(spg_dataset_pointer, &
+       & rotations,translations) bind(c)
       use, intrinsic :: iso_c_binding
       implicit none
       
       ! Inputs.
-      real(kind=c_double), intent(in) :: lattice(3,3)
-      real(kind=c_double), intent(in) :: position(3,*)
-      integer(kind=c_int), intent(in) :: types(*)
-      integer(kind=c_int), intent(in) :: num_atom
-      real(kind=c_double), intent(in) :: symprec
+      type(c_ptr), intent(in) :: spg_dataset_pointer
       
       ! Outputs.
       integer(kind=c_int), intent(out) :: rotations(3,3,*)
@@ -53,7 +49,7 @@ module calculate_symmetry_module
   end interface
 contains
 
-subroutine calculate_symmetry_new(this)
+subroutine calculate_symmetry(this)
   use string_module
   use file_module
   use structure_module
@@ -61,14 +57,12 @@ subroutine calculate_symmetry_new(this)
   
   type(StructureData), intent(inout) :: this
   
-  ! spglib inputs
-  real(dp), parameter :: symmetry_precision = 1.0e-2_dp
+  ! spglib inputs.
+  real(dp), parameter :: symmetry_precision = 1.0e-1_dp
   integer             :: atom_types(this%no_atoms)
   
-  ! spglib outputs
-  integer               :: no_symmetries
-  integer,  allocatable :: rotations(:,:,:)
-  real(dp), allocatable :: translations(:,:)
+  ! spglib data.
+  type(c_ptr) :: spg_dataset_pointer
   
   integer :: i,j,ialloc
   integer :: atom_type
@@ -85,47 +79,23 @@ subroutine calculate_symmetry_new(this)
     atom_type = atom_type+1
   enddo do_i
   
-  call spglib_get_no_symmetries( transpose(this%lattice), &
-                               & this%atoms,              &
-                               & atom_types,              &
-                               & this%no_atoms,           &
-                               & symmetry_precision,      &
-                               & no_symmetries)
+  ! Calculate symmetries, without space to store them.
+  call spglib_calculate_symmetries( transpose(this%lattice), &
+                                  & matmul(this%recip_lattice,this%atoms), &
+                                  & atom_types,              &
+                                  & this%no_atoms,           &
+                                  & symmetry_precision,      &
+                                  & spg_dataset_pointer,     &
+                                  & this%no_symmetries)
   
-  allocate( rotations(3,3,no_symmetries),  &
-          & translations(3,no_symmetries), &
+  ! Allocate space for symmetries.
+  allocate( this%rotations(3,3,this%no_symmetries),  &
+          & this%offsets(3,this%no_symmetries),      &
           & stat=ialloc); call err(ialloc)
   
-  call spglib_get_symmetries( transpose(this%lattice), &
-                            & this%atoms,              &
-                            & atom_types,              &
-                            & this%no_atoms,           &
-                            & symmetry_precision,      &
-                            & rotations,               &
-                            & translations)
-end subroutine
-
-subroutine calculate_symmetry_old(this,temp_cell_filename,temp_symm_filename)
-  use string_module
-  use file_module
-  use structure_module
-  use structure_to_dft_module
-  implicit none
-  
-  type(StructureData), intent(inout) :: this
-  type(String),        intent(in)    :: temp_cell_filename
-  type(String),        intent(in)    :: temp_symm_filename
-  
-  call structure_to_dft( dft_code        = str('castep'), &
-                       & structure_sc    = this,          &
-                       & output_filename = temp_cell_filename )
-  
-  call system_call( &
-     & 'cellsym --symmetry '//temp_cell_filename//' > '//temp_symm_filename)
-  
-  call read_symmetry_file(this, temp_symm_filename)
-  
-  call system_call('rm '//temp_cell_filename)
-  call system_call('rm '//temp_symm_filename)
+  ! Retrieve symmetries into allocated space.
+  call spglib_retrieve_symmetries( spg_dataset_pointer, &
+                                 & this%rotations,      &
+                                 & this%offsets)
 end subroutine
 end module

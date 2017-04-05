@@ -1173,6 +1173,8 @@ subroutine fourier_interpolation(dyn_mats_ibz,structure,grid,temperature, &
   type(String),        intent(in) :: freq_dos_filename
   
   ! variables
+  real(dp), allocatable :: rotations_cart(:,:,:)
+  
   type(MinImages), allocatable :: delta_prim(:,:,:)
   real(dp),        allocatable :: force_consts(:,:,:)
   
@@ -1236,6 +1238,7 @@ subroutine fourier_interpolation(dyn_mats_ibz,structure,grid,temperature, &
   allocate(dyn_mats_grid( structure%no_modes, &
                         & structure%no_modes, &
                         & structure_sc%sc_size))
+  rotations_cart = calculate_cartesian_rotations(structure)
   do i=1,structure_sc%sc_size
     j = kpoints_grid%symmetry_ids(i)
     k = kpoints_grid%ibz_ids(i)
@@ -1252,9 +1255,9 @@ subroutine fourier_interpolation(dyn_mats_ibz,structure,grid,temperature, &
         
         dyn_mats_grid(mode_2p:mode_2p+2,mode_1p:mode_1p+2,i) =    &
            & matmul(matmul(                                       &
-           &    structure%rotation_matrices(:,:,j),               &
+           &    rotations_cart(:,:,j),                            &
            &    dyn_mats_ibz(mode_2:mode_2+2,mode_1:mode_1+2,k)), &
-           &    transpose(structure%rotation_matrices(:,:,j)))    &
+           &    transpose(rotations_cart(:,:,j)))                 &
            & * phase(atom_2p,atom_2,i)*conjg(phase(atom_1p,atom_1,i))
       enddo
     enddo

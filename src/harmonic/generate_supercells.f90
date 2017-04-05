@@ -287,9 +287,6 @@ function generate_supercells(structure,grid) result(output)
   integer,             intent(in) :: grid(:)
   type(GeneratedSupercells)       :: output
   
-  ! Tolerance for whether or not two K-points are the same.
-  real(dp), parameter :: tol=1.0e-2_dp
-  
   ! Grid K-point variables.
   integer, allocatable :: kpoints_grid(:,:)
   integer, allocatable :: grid_to_ibz(:)
@@ -327,8 +324,7 @@ function generate_supercells(structure,grid) result(output)
   integer :: s33
   integer :: quotient
   
-  real(dp) :: rotation(3,3)
-  real(dp) :: rot_kpoint(3)
+  integer :: rot_kpoint(3)
   
   ! Temporary variables
   integer :: i,j,k,l,m
@@ -342,37 +338,17 @@ function generate_supercells(structure,grid) result(output)
           & rotation_ids(grid_size),   &
           & stat=ialloc); call err(ialloc)
   
-  ! Loop over integer vectors, such that k-point/grid in [-0.5,0.5)
-  ! n.b. integer floor division intentional
-  
-  ! This is the method used in the old code. It is in place for testing.
-  counter=0
-  do i=0,grid(1)-1
-    do j=0,grid(2)-1
-      do k=0,grid(3)-1
-      counter = counter + 1
-      kpoints_grid(:,counter) = (/i,j,k/)
+  ! Loop over integer vectors, such that k-point/grid in [-0.5,0.5).
+  ! n.b. integer floor division intentional.
+  counter = 0
+  do i=-grid(1)/2,(grid(1)-1)/2
+    do j=-grid(2)/2,(grid(2)-1)/2
+      do k=-grid(3)/2,(grid(3)-1)/2
+        counter=counter+1
+        kpoints_grid(:,counter) = (/i,j,k/)
       enddo
     enddo
   enddo
-  
-  do i=1,grid_size
-    do j=1,3
-      if (kpoints_grid(j,i) > (grid(j)-1)/2) then
-        kpoints_grid(j,i) = kpoints_grid(j,i) - grid(j)
-      endif
-    enddo
-  enddo
-  
-  ! This method gives the k-points in a more sensible order.
-  !do i=-grid(1)/2,(grid(1)-1)/2
-  !  do j=-grid(2)/2,(grid(2)-1)/2
-  !    do k=-grid(3)/2,(grid(3)-1)/2
-  !      counter=counter+1
-  !      kpoints_grid(:,counter) = (/i,j,k/)
-  !    enddo
-  !  enddo
-  !enddo
   
   ! ----------------------------------------------------------------------
   ! Find equivalent k-points by rotating all k-points into the IBZ.
@@ -382,17 +358,11 @@ function generate_supercells(structure,grid) result(output)
     ! Check if an equivalent k-point has already been found.
     do j=1,no_kpoints_ibz
       do k=1,structure%no_symmetries
-        ! Work out rotation in fractional lattice coordinates.
-        rotation = matmul(matmul( structure%lattice, &
-                                & structure%rotation_matrices(:,:,k)), &
-                                & transpose(structure%recip_lattice))
-        
         ! Rotate the k-point, and map it back to the IBZ.
-        rot_kpoint = matmul(rotation,kpoints_grid(:,i))
+        rot_kpoint = matmul(structure%rotations(:,:,k),kpoints_grid(:,i))
         
-        ! If the rotated k-point = k-point(j), to within tol.
-        if (all(modulo( rot_kpoint - kpoints_grid(:,j) + tol, dble(grid)) &
-              & < 2*tol)) then
+        ! If the rotated k-point = k-point(j).
+        if (all(modulo(rot_kpoint - kpoints_grid(:,j), grid) == 0)) then
           grid_to_ibz(i) = j
           rotation_ids(i) = k
           cycle do_i1
