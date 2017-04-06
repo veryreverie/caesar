@@ -1,10 +1,11 @@
 module test_copy_harmonic_module
+  use constants_module, only : dp
+  use string_module
+  use io_module
 contains
 subroutine test_copy_harmonic(wd,cwd)
-  use constants, only : directions
-  use utils,     only : format_path, make_dft_output_filename
-  use string_module
-  use file_module
+  use constants_module, only : directions
+  use utils_module,     only : format_path, make_dft_output_filename
   use structure_module
   use unique_directions_module
   use dft_output_file_module

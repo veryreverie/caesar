@@ -1,15 +1,13 @@
 ! Program to place atoms in the supercell.
-
 module construct_supercell_module
-  implicit none
+  use constants_module, only : dp
+  use string_module
+  use io_module
 contains
 
 function construct_supercell(structure,supercell) result(structure_sc)
-  use constants,        only : dp
-  use linear_algebra,   only : determinant, invert, invert_int
-  use file_module
+  use linear_algebra_module, only : determinant, invert, invert_int
   use structure_module
-  use string_module
   use supercell_module
   implicit none
   

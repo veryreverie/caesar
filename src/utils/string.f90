@@ -2,6 +2,7 @@
 ! A simple heap-allocated String class
 ! ======================================================================
 module string_module
+  use constants_module, only : dp
   implicit none
   
   private
@@ -190,7 +191,6 @@ end subroutine
 
 ! String = real(dp)
 pure subroutine assign_String_real(output,input)
-  use constants, only : dp
   implicit none
   
   real(dp),     intent(in)    :: input
@@ -265,7 +265,6 @@ elemental function str_integer(this) result(output)
 end function
 
 elemental function str_real(this) result(output)
-  use constants, only : dp
   implicit none
   
   real(dp), intent(in) :: this
@@ -308,7 +307,6 @@ end function
 
 ! real(dp) = dble(String)
 elemental function dble_String(this) result(output)
-  use constants, only : dp
   implicit none
   
   type(String), intent(in) :: this
@@ -377,7 +375,6 @@ end function
 
 ! String = String//real(dp)
 pure function concatenate_String_real(a,b) result(output)
-  use constants, only : dp
   implicit none
   
   type(String), intent(in) :: a
@@ -389,7 +386,6 @@ end function
 
 ! String = real(dp)//String
 pure function concatenate_real_String(a,b) result(output)
-  use constants, only : dp
   implicit none
   
   real(dp),     intent(in) :: a
@@ -445,7 +441,6 @@ end function
 
 ! String = character//real(dp)
 pure function concatenate_character_real(a,b) result(output)
-  use constants, only : dp
   implicit none
   
   character(*), intent(in) :: a
@@ -457,7 +452,6 @@ end function
 
 ! String = real(dp)//character
 pure function concatenate_real_character(a,b) result(output)
-  use constants, only : dp
   implicit none
   
   real(dp),     intent(in) :: a
@@ -513,7 +507,6 @@ end function
 
 ! String = String//real(dp)(:)
 pure function concatenate_String_reals(a,b) result(output)
-  use constants, only : dp
   implicit none
   
   type(String), intent(in) :: a
@@ -525,7 +518,6 @@ end function
 
 ! String = real(dp)(:)//String
 pure function concatenate_reals_String(a,b) result(output)
-  use constants, only : dp
   implicit none
   
   real(dp),     intent(in) :: a(:)
@@ -581,7 +573,6 @@ end function
 
 ! String = character//real(dp)(:)
 pure function concatenate_character_reals(a,b) result(output)
-  use constants, only : dp
   implicit none
   
   character(*), intent(in) :: a
@@ -593,7 +584,6 @@ end function
 
 ! String = real(dp)(:)//character
 pure function concatenate_reals_character(a,b) result(output)
-  use constants, only : dp
   implicit none
   
   real(dp),     intent(in) :: a(:)
@@ -829,7 +819,6 @@ end function
 
 ! Converts real(:) to String(:) and then joins.
 pure function join_real(this) result(output)
-  use constants, only : dp
   implicit none
   
   real(dp), intent(in) :: this(:)

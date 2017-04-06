@@ -1,6 +1,8 @@
 ! Subroutines for the calculation of minimum-image distances.
 module min_images_module
-  use constants, only : dp
+  use constants_module, only : dp
+  use string_module
+  use io_module
   implicit none
   
   type MinImages
@@ -51,10 +53,7 @@ end function
 ! Returns multiple vectors if they have similar lengths.
 ! 'a' and outputs are given in fractional lattice co-ordinates.
 function min_images_brute_force(a,structure) result(output)
-  use constants,      only : dp
-  use linear_algebra, only : invert
-  use string_module
-  use file_module
+  use linear_algebra_module, only : invert
   use structure_module
   implicit none
   

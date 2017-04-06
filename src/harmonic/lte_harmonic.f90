@@ -1,5 +1,7 @@
 module lte_harmonic_module
-
+  use constants_module, only : dp
+  use string_module
+  use io_module
 contains
 
 ! ----------------------------------------------------------------------
@@ -7,11 +9,9 @@ contains
 ! ----------------------------------------------------------------------
 function calculate_force_constants(structure,structure_sc,symmetry_group, &
    & unique_directions,sdir,dft_code,seedname) result(output)
-  use constants,      only : dp, ev_per_hartree, angstrom_per_bohr, directions
-  use utils,          only : mkdir, make_dft_output_filename
-  use linear_algebra, only : invert
-  use file_module
-  use string_module
+  use constants_module,      only : directions
+  use utils_module,          only : mkdir, make_dft_output_filename
+  use linear_algebra_module, only : invert
   use structure_module
   use dft_output_file_module
   use lte_module
@@ -107,7 +107,7 @@ function calculate_force_constants(structure,structure_sc,symmetry_group, &
          & sdir//'/atom.'//atom_1_sc//'.-d'//direction//'/'//dft_output_filename)
       
       force_constants(k,:,:,atom_1_prim) = (positive%forces-negative%forces) &
-                                       & * angstrom_per_bohr / (0.02_dp * ev_per_hartree)
+                                       & / 0.02_dp
     enddo
   enddo
   
@@ -344,11 +344,8 @@ end function
 
 ! Program to construct and execute LTE
 subroutine lte_harmonic(wd)
-  use constants,      only : dp
-  use utils,          only : mkdir
-  use linear_algebra, only : invert
-  use file_module
-  use string_module
+  use utils_module,          only : mkdir
+  use linear_algebra_module, only : invert
   use structure_module
   use dft_output_file_module
   use lte_module

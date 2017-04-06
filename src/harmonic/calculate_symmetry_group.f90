@@ -1,13 +1,13 @@
 module calculate_symmetry_group_module
+  use constants_module, only : dp
+  use string_module
+  use io_module
 contains
 
 function calculate_symmetry_group(structure) result(output)
-  use constants, only : dp
-  use utils, only : l2_norm
+  use utils_module, only : l2_norm
   use structure_module
   use group_module
-  use string_module
-  use file_module
   implicit none
   
   type(StructureData), intent(in) :: structure

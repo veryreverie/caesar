@@ -3,7 +3,6 @@
 !    compiler-specific functions.
 ! ======================================================================
 module compiler_specific_module
-  implicit none
 contains
 
 ! Aborts with a stacktrace.

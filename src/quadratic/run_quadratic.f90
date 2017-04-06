@@ -1,9 +1,11 @@
 module run_quadratic_module
-contains
-subroutine run_quadratic(wd,cwd)
-  use utils, only : format_path, make_dft_input_filename
+  use constants_module, only : dp
   use string_module
-  use file_module
+  use io_module
+contains
+
+subroutine run_quadratic(wd,cwd)
+  use utils_module, only : format_path, make_dft_input_filename
   use structure_module
   use mapping_module
   use kpoints_module

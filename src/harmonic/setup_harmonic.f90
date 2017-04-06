@@ -1,15 +1,15 @@
 module setup_harmonic_module
-
+  use constants_module, only : dp
+  use string_module
+  use io_module
 contains
 
 ! ======================================================================
 ! Program to set up a harmonic calculation to use with LTE.
 ! ======================================================================
 subroutine setup_harmonic(wd)
-  use constants, only : directions
-  use utils,     only : mkdir, make_dft_input_filename
-  use string_module
-  use file_module
+  use constants_module, only : directions
+  use utils_module,     only : mkdir, make_dft_input_filename
   use structure_module
   use supercell_module
   use group_module

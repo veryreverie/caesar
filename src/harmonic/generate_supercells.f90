@@ -1,4 +1,8 @@
 module generate_supercells_module
+  use constants_module, only : dp
+  use string_module
+  use io_module
+  
   use supercell_module
   use kpoints_module
   implicit none
@@ -26,7 +30,6 @@ contains
 
 subroutine new_GeneratedSupercells(this,no_kpoints_grid,no_kpoints_ibz, &
    & no_supercells)
-  use file_module
   implicit none
   
   type(GeneratedSupercells), intent(out) :: this
@@ -42,7 +45,6 @@ subroutine new_GeneratedSupercells(this,no_kpoints_grid,no_kpoints_ibz, &
 end subroutine
 
 subroutine drop_GeneratedSupercells(this)
-  use file_module
   implicit none
   
   type(GeneratedSupercells), intent(inout) :: this
@@ -127,8 +129,7 @@ end function
 ! vectors are also linearly independent.
 ! ----------------------------------------------------------------------
 logical function reduce_vec(vecs)
-  use constants, only : dp
-  use utils, only : l2_norm
+  use utils_module, only : l2_norm
   implicit none
   
   real(dp), intent(inout) :: vecs(3,3)
@@ -174,8 +175,6 @@ end function
 ! details of the algorithm.
 ! ----------------------------------------------------------------------
 subroutine supercells_generator(num_pcells,num_hnf,hnf)
-  use string_module
-  use file_module
   implicit none
   
   integer,intent(in) :: num_pcells
@@ -242,7 +241,6 @@ end subroutine
 ! Minkowski-reduced, returns the vectors a(i) that are.
 ! ----------------------------------------------------------------------
 subroutine minkowski_reduce(vecs)
-  use constants, only : dp
   implicit none
   
   real(dp),intent(inout) :: vecs(3,3)
@@ -273,11 +271,7 @@ subroutine minkowski_reduce(vecs)
 end subroutine minkowski_reduce
 
 function generate_supercells(structure,grid) result(output)
-  use constants,      only : dp
-  use utils,          only : reduce_to_ibz
-  use linear_algebra, only : invert_int
-  use string_module
-  use file_module
+  use linear_algebra_module, only : invert_int
   use structure_module
   use supercell_module
   implicit none

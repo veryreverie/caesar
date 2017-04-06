@@ -1,8 +1,8 @@
 program caesar
   ! use utility modules
-  use utils, only : command_line_args, format_path
   use string_module
-  use file_module
+  use io_module
+  use utils_module, only : command_line_args, format_path
   
   ! use harmonic modules
   use setup_harmonic_module

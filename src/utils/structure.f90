@@ -2,8 +2,9 @@
 ! A class representing the contents of structure.dat
 ! ======================================================================
 module structure_module
-  use constants, only : dp
+  use constants_module, only : dp
   use string_module
+  use io_module
   implicit none
   
   ! the structure class
@@ -120,10 +121,8 @@ end subroutine
 
 ! reads structure.dat
 function read_structure_file_character(filename) result(this)
-  use constants,      only : identity
-  use linear_algebra, only : invert, invert_int
-  use string_module
-  use file_module
+  use constants_module,      only : identity
+  use linear_algebra_module, only : invert, invert_int
   implicit none
   
   character(*),        intent(in) :: filename
@@ -271,7 +270,6 @@ function read_structure_file_character(filename) result(this)
 end function
 
 function read_structure_file_string(filename) result(this)
-  use string_module
   implicit none
   
   type(String),        intent(in) :: filename
@@ -281,8 +279,6 @@ function read_structure_file_string(filename) result(this)
 end function
 
 subroutine write_structure_file_character(this,filename)
-  use string_module
-  use file_module
   implicit none
   
   type(StructureData), intent(in) :: this
@@ -331,7 +327,6 @@ subroutine write_structure_file_character(this,filename)
 end subroutine
 
 subroutine write_structure_file_string(this,filename)
-  use string_module
   implicit none
   
   type(StructureData), intent(in) :: this
@@ -344,7 +339,7 @@ end subroutine
 ! calculate derived quantities relating to lattice and atoms
 ! ----------------------------------------------------------------------
 subroutine calculate_derived_atom_quantities(this)
-  use linear_algebra, only : invert, determinant
+  use linear_algebra_module, only : invert, determinant
   implicit none
   
   type(StructureData), intent(inout) :: this
@@ -357,7 +352,7 @@ end subroutine
 ! Calculate the derived quantities relating to the supercell and G-vectors.
 ! ----------------------------------------------------------------------
 subroutine calculate_derived_supercell_quantities(this)
-  use linear_algebra, only : invert_int
+  use linear_algebra_module, only : invert_int
   implicit none
   
   type(StructureData), intent(inout) :: this

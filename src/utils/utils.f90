@@ -1,22 +1,22 @@
 ! ======================================================================
 ! various utilities
 ! ======================================================================
-module utils
-  use constants,      only : dp
+module utils_module
+  use constants_module, only : dp
+  use string_module
+  use io_module
   implicit none
   
   interface format_path
     module procedure format_path_character
     module procedure format_path_String
   end interface
-  
 contains
 
 ! ----------------------------------------------------------------------
 ! Returns an array containing the command line arguments
 ! ----------------------------------------------------------------------
 function command_line_args() result(args)
-  use string_module
   implicit none
 
   integer                   :: i         ! loop index
@@ -39,24 +39,9 @@ function command_line_args() result(args)
 end function
 
 ! ----------------------------------------------------------------------
-! As above, but for vec*grid -> [-0.5,0.5)*grid
-! ----------------------------------------------------------------------
-pure function reduce_to_ibz(input,grid) result(output)
-  implicit none
-  
-  integer, intent(in) :: input(3)
-  integer, intent(in) :: grid(3)
-  integer             :: output(3)
-  
-  output = modulo(input+grid/2,grid)-grid/2
-end function
-
-! ----------------------------------------------------------------------
 ! Make a directory, if it doesn't already exist.
 ! ----------------------------------------------------------------------
 subroutine mkdir(dirname)
-  use string_module
-  use file_module
   implicit none
   
   type(String), intent(in) :: dirname
@@ -69,8 +54,6 @@ end subroutine
 !    in standard format (without a trailing '/').
 ! ----------------------------------------------------------------------
 function format_path_character(path,cwd) result(output)
-  use string_module
-  use file_module
   implicit none
   
   character(*), intent(in) :: path
@@ -101,7 +84,6 @@ function format_path_character(path,cwd) result(output)
 end function
 
 function format_path_String(path,cwd) result(output)
-  use string_module
   implicit none
   
   type(String), intent(in) :: path
@@ -115,8 +97,6 @@ end function
 ! Converts a file seedname into the appropriate dft input or output filename.
 ! ----------------------------------------------------------------------
 function make_dft_input_filename(dft_code,seedname) result(output)
-  use string_module
-  use file_module
   implicit none
   
   type(String), intent(in) :: dft_code
@@ -136,8 +116,6 @@ function make_dft_input_filename(dft_code,seedname) result(output)
 end function
 
 function make_dft_output_filename(dft_code,seedname) result(output)
-  use string_module
-  use file_module
   implicit none
   
   type(String), intent(in) :: dft_code

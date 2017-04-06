@@ -13,13 +13,14 @@
 !                                                                         !
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 module quadratic_spline_module
-  implicit none
+  use constants_module, only : dp
+  use string_module
+  use io_module
 contains
 
 ! An example of creating cubic-spline approximation of
 ! a discrete function fi=f(xi).
 pure function quadratic_spline(m,xifi) result(output)
-  use constants, only : dp
   implicit none
   
   integer,               intent(in) :: m           ! no. points to spline to
@@ -86,7 +87,6 @@ end function
 ! Function to carry out the cubic-spline approximation
 ! with the second-order derivatives returned.
 pure function cubic_spline (n, xi, fi) result(p2)
-  use constants, only : dp
   implicit none
   
   integer,  intent(in) :: n
@@ -122,7 +122,6 @@ end function
 
 ! Function to solve the tridiagonal linear equation set.
 pure function tridiagonal_linear_eq (l, d, e, c, b) result(z)
-  use constants, only : dp
   implicit none
   
   integer,  intent(in) :: l

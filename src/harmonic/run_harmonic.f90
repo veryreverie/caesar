@@ -1,10 +1,12 @@
 module run_harmonic_module
-contains
-subroutine run_harmonic(wd,cwd)
-  use constants, only : directions
-  use utils, only : format_path
+  use constants_module, only : dp
   use string_module
-  use file_module
+  use io_module
+contains
+
+subroutine run_harmonic(wd,cwd)
+  use constants_module, only : directions
+  use utils_module,     only : format_path
   use unique_directions_module
   implicit none
   

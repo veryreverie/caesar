@@ -1,17 +1,17 @@
 module bs_quadratic_module
-
+  use constants_module, only : dp
+  use string_module
+  use io_module
 contains
 
 ! ----------------------------------------------------------------------
 ! Program to calculate quadratic band gap correction
 ! ----------------------------------------------------------------------
 subroutine bs_quadratic(wd)
-  use constants, only : dp, kb_in_au
-  use utils,     only : mkdir
+  use constants_module, only : kb_in_au
+  use utils_module,     only : mkdir
   use mapping_module
-  use string_module
   use structure_module
-  use file_module
   use bands_module
   use supercell_module
   implicit none

@@ -3,20 +3,18 @@
 ! ------------------------------------------------------------
 
 module anharmonic_module
+  use constants_module, only : dp
+  use string_module
+  use io_module
 contains
 
 subroutine anharmonic(wd)
-  use constants, only : dp
-  use utils,     only : mkdir, make_dft_output_filename
-  use file_module
-  
+  use utils_module, only : mkdir, make_dft_output_filename
   use mapping_module
   use structure_module
-  use string_module
   use dft_output_file_module
   use supercell_module
   use kpoints_module
-  
   use calculate_anharmonic_module
   use quadratic_spline_module
   use vscf_1d_module

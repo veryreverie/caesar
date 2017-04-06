@@ -1,10 +1,11 @@
 module test_lte_module
+  use constants_module, only : dp
+  use string_module
+  use io_module
 contains
 subroutine test_lte(wd,cwd)
-  use constants, only : pi
-  use utils,     only : mkdir, format_path
-  use string_module
-  use file_module
+  use constants_module, only : pi
+  use utils_module,     only : mkdir, format_path
   use structure_module
   use group_module
   use atom_mapping_module

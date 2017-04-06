@@ -6,6 +6,9 @@
 ! http://www.homepages.ucl.ac.uk/~ucfbdxa/phon/node4.html
 
 module unique_directions_module
+  use constants_module, only : dp
+  use string_module
+  use io_module
   implicit none
   
   type UniqueDirections
@@ -61,8 +64,6 @@ function size_UniqueDirections(this) result(output)
 end function
 
 function read_unique_directions_file(filename) result(this)
-  use string_module
-  use file_module
   implicit none
   
   type(String), intent(in) :: filename
@@ -87,8 +88,6 @@ function read_unique_directions_file(filename) result(this)
 end function
 
 subroutine write_unique_directions_file(this,filename)
-  use string_module
-  use file_module
   implicit none
   
   type(UniqueDirections), intent(in) :: this
@@ -111,9 +110,7 @@ subroutine write_unique_directions_file(this,filename)
 end subroutine
 
 function calculate_unique_directions(structure,symmetry_group) result(this)
-  use constants,      only : dp
   use structure_module
-  use string_module
   use group_module
   implicit none
   

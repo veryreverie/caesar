@@ -1,13 +1,13 @@
 module atom_mapping_module
+  use constants_module, only : dp
+  use string_module
+  use io_module
 contains
 
 ! ----------------------------------------------------------------------
 ! Finds a mapping between the atoms in two versions of the same structure.
 ! ----------------------------------------------------------------------
 function atom_mapping(structure_a,structure_b) result(output)
-  use constants, only : dp
-  use string_module
-  use file_module
   use structure_module
   use group_module
   implicit none

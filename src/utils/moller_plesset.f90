@@ -23,8 +23,9 @@
 !
 ! For convenience, the powers of x are dropped from here on.
 module perturbation_theory
-  use constants, only : dp
-  use linear_algebra, only : RealEigenstuff, calculate_eigenstuff, size
+  use constants_module, only : dp
+  use string_module
+  use io_module
   implicit none
   
   ! Moller-Plesset corrections
@@ -46,6 +47,7 @@ contains
 ! (in such cases, m(i,j) is set to 0)
 ! --------------------------------------------------
 function calculate_d(estuff) result(d)
+  use linear_algebra_module
   implicit none
   
   type(RealEigenstuff), intent(in) :: estuff ! unperturbed evals and evecs
@@ -76,6 +78,7 @@ end function
 ! if i and j are degenerate with one another, m(i,j) = 0 to prevent mixing
 ! --------------------------------------------------
 function calculate_m(estuff,v) result(m)
+  use linear_algebra_module
   implicit none
   
   type(RealEigenstuff), intent(in) :: estuff ! unperturbed evals and evecs
@@ -100,13 +103,13 @@ function calculate_m(estuff,v) result(m)
       endif
     enddo
   enddo
-  
 end function
 
 ! --------------------------------------------------
 ! Calculates non-degenerate basis
 ! --------------------------------------------------
 function lift_degeneracy(estuff,v,threshold) result(output)
+  use linear_algebra_module
   implicit none
   
   type(RealEigenstuff), intent(in) :: estuff    ! unperturbed evals and evecs
@@ -244,6 +247,7 @@ end function
 ! e1 = <p|v|p>
 ! --------------------------------------------------
 function mp1_energy(estuff,v) result(e1)
+  use linear_algebra_module
   implicit none
   
   type(RealEigenstuff), intent(in) :: estuff ! unperturbed eigenvals and eigenvecs
@@ -272,6 +276,7 @@ end function
 ! |p1>i = sum(j/=i) <j|v|i>/(ei-ej) = sum(j/=i) mij*dij
 ! --------------------------------------------------
 function mp1_state(estuff,v) result(p1)
+  use linear_algebra_module
   implicit none
   
   type(RealEigenstuff), intent(in) :: estuff ! unperturbed evals and evecs
@@ -305,6 +310,7 @@ end function
 ! (e2)i = sum(j/=i) |<j|v|i>|**2/(ei-ej)
 ! --------------------------------------------------
 function mp2_energy(estuff,v) result(e2)
+  use linear_algebra_module
   implicit none
   
   type(RealEigenstuff), intent(in) :: estuff ! unperturbed evals and evecs
@@ -337,6 +343,7 @@ end function
 ! calculates second-order state correction
 ! --------------------------------------------------
 function mp2_state(estuff,v) result(p2)
+  use linear_algebra_module
   implicit none
   
   type(RealEigenstuff), intent(in) :: estuff  ! unperturbed evals and evecs
@@ -381,6 +388,7 @@ end function
 ! calculates third-order energy correction
 ! --------------------------------------------------
 function mp3_energy(estuff,v) result(e3)
+  use linear_algebra_module
   implicit none
   
   type(RealEigenstuff), intent(in) :: estuff ! unperturbed evals and evecs
@@ -418,5 +426,4 @@ function mp3_energy(estuff,v) result(e3)
   deallocate(d)
   deallocate(m)
 end function
-
 end module

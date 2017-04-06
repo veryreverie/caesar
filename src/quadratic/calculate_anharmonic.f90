@@ -1,14 +1,12 @@
 module calculate_anharmonic_module
-  use constants, only : dp
-  implicit none
-  
+  use constants_module, only : dp
+  use string_module
+  use io_module
 contains
 
 subroutine calculate_anharmonic(multiplicity, no_modes, Nbasis, harmonic,&
     &eigenvals, result_file)
-  use constants, only : kb_in_au
-  use string_module
-  use file_module
+  use constants_module, only : kb_in_au
   implicit none
   
   integer,  intent(in) :: multiplicity(:)

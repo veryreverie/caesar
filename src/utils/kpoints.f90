@@ -1,4 +1,9 @@
 module kpoints_module
+  use constants_module, only : dp
+  use string_module
+  use io_module
+  implicit none
+  
   ! N.B. K-points are stored in scaled fractional reciprocal primitive lattice
   !    co-ordinates.
   ! To get K-points in true reciprocal space co-ordinates:
@@ -46,7 +51,6 @@ module kpoints_module
 contains
 
 subroutine new_KpointsGrid(this,no_kpoints)
-  use file_module
   implicit none
   
   type(KpointsGrid), intent(out) :: this
@@ -61,7 +65,6 @@ subroutine new_KpointsGrid(this,no_kpoints)
 end subroutine
 
 subroutine new_KpointsIbz(this,no_kpoints)
-  use file_module
   implicit none
   
   type(KpointsIbz), intent(out) :: this
@@ -77,7 +80,6 @@ subroutine new_KpointsIbz(this,no_kpoints)
 end subroutine
 
 subroutine drop_KpointsGrid(this)
-  use file_module
   implicit none
   
   type(KpointsGrid), intent(inout) :: this
@@ -91,7 +93,6 @@ subroutine drop_KpointsGrid(this)
 end subroutine
 
 subroutine drop_KpointsIbz(this)
-  use file_module
   implicit none
   
   type(KpointsIbz), intent(inout) :: this
@@ -124,8 +125,6 @@ function size_KpointsIbz(this) result(output)
 end function
 
 function read_kpoints_grid_file(filename) result(this)
-  use string_module
-  use file_module
   implicit none
   
   type(String), intent(in) :: filename
@@ -148,8 +147,6 @@ function read_kpoints_grid_file(filename) result(this)
 end function
 
 function read_kpoints_ibz_file(filename) result(this)
-  use string_module
-  use file_module
   implicit none
   
   type(String), intent(in) :: filename
@@ -173,8 +170,6 @@ function read_kpoints_ibz_file(filename) result(this)
 end function
 
 subroutine write_kpoints_grid_file(this, filename)
-  use string_module
-  use file_module
   implicit none
   
   type(KpointsGrid), intent(in) :: this
@@ -195,8 +190,6 @@ subroutine write_kpoints_grid_file(this, filename)
 end subroutine
 
 subroutine write_kpoints_ibz_file(this, filename)
-  use string_module
-  use file_module
   implicit none
   
   type(KpointsIbz), intent(in) :: this

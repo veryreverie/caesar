@@ -1,4 +1,5 @@
-module file_module
+module io_module
+  use constants_module, only : dp
   use string_module
   implicit none
   
@@ -231,7 +232,6 @@ function count_lines_character(filename) result(output)
 end function
 
 function count_lines_String(filename) result(output)
-  use string_module
   implicit none
   
   type(String), intent(in) :: filename
@@ -431,7 +431,6 @@ subroutine print_line_file_integer(file_unit,this)
 end subroutine
 
 subroutine print_line_real(this)
-  use constants, only : dp
   implicit none
   
   real(dp), intent(in) :: this
@@ -440,7 +439,6 @@ subroutine print_line_real(this)
 end subroutine
 
 subroutine print_line_file_real(file_unit,this)
-  use constants, only : dp
   implicit none
   
   integer,  intent(in) :: file_unit
@@ -484,7 +482,6 @@ subroutine print_line_file_integers(file_unit,this)
 end subroutine
 
 subroutine print_line_reals(this)
-  use constants, only : dp
   implicit none
   
   real(dp), intent(in) :: this(:)
@@ -493,7 +490,6 @@ subroutine print_line_reals(this)
 end subroutine
 
 subroutine print_line_file_reals(file_unit,this)
-  use constants, only : dp
   implicit none
   
   integer,  intent(in) :: file_unit

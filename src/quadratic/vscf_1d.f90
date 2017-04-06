@@ -1,5 +1,7 @@
 module vscf_1d_module
-  use constants, only : dp
+  use constants_module, only : dp
+  use string_module
+  use io_module
   implicit none
   
   ! Holds anharmonic potential data
@@ -30,8 +32,8 @@ module vscf_1d_module
 contains
 
 function vscf_1d(frequency, potential, Nbasis) result(output)
-  use constants,      only : dp, pi
-  use linear_algebra, only : RealEigenstuff, calculate_eigenstuff, size
+  use constants_module,      only : pi
+  use linear_algebra_module, only : RealEigenstuff, calculate_eigenstuff, size
   implicit none
   
   real(dp), intent(in) :: frequency

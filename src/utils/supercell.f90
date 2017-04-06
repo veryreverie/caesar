@@ -1,4 +1,7 @@
 module supercell_module
+  use constants_module, only : dp
+  use string_module
+  use io_module
   implicit none
   
   ! A class to hold supercell data.
@@ -57,9 +60,7 @@ end subroutine
 !
 ! This will be repeated once for each supercell.
 function read_supercells_file(filename) result(supercells)
-  use string_module
-  use file_module
-  use linear_algebra, only : invert_int
+  use linear_algebra_module, only : invert_int
   implicit none
   
   type(String),        intent(in)  :: filename
@@ -132,8 +133,6 @@ end function
 ! As above, but writes file instead of reading it.
 ! ----------------------------------------------------------------------
 subroutine write_supercells_file(supercells, filename)
-  use string_module
-  use file_module
   implicit none
   
   type(SupercellData), intent(in) :: supercells(:)
@@ -158,18 +157,4 @@ subroutine write_supercells_file(supercells, filename)
   enddo
   close(supercells_file)
 end subroutine
-
-! Returns the supercell for the trivial case, 
-!    where the supercell matrix is the identity.
-function identity_supercell() result(output)
-  use constants, only : identity
-  implicit none
-  
-  type(SupercellData) :: output
-  
-  call new(output,1)
-  output%supercell = identity
-  output%recip_supercell = identity
-  output%gvectors(:,1) = 0
-end function
 end module

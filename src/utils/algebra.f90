@@ -1,6 +1,7 @@
 module algebra_module
-  use utils, only : dp
+  use constants_module, only : dp
   use string_module
+  use io_module
   implicit none
   
   type Vector3

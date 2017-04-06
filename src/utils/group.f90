@@ -1,4 +1,7 @@
 module group_module
+  use constants_module, only : dp
+  use string_module
+  use io_module
   implicit none
   
   type Group
@@ -69,8 +72,6 @@ function operate(this,input) result(output)
 end function
 
 function read_group_file(filename) result(this)
-  use string_module
-  use file_module
   implicit none
   
   type(String), intent(in) :: filename
@@ -92,8 +93,6 @@ function read_group_file(filename) result(this)
 end function
 
 subroutine write_group_file(this,filename)
-  use string_module
-  use file_module
   implicit none
   
   type(Group),  intent(in) :: this(:)

@@ -1,7 +1,10 @@
-! A class for holding the information in a castep .castep or qe .out file
+! ======================================================================
+! A class for holding the information in a castep .castep or qe .out file.
+! ======================================================================
 module dft_output_file_module
-  use constants, only : dp
+  use constants_module, only : dp
   use string_module
+  use io_module
   implicit none
   
   private
@@ -49,8 +52,7 @@ subroutine drop_DftOutputFile(this)
 end subroutine
 
 function read_castep_output_file(filename) result(output)
-  use string_module
-  use file_module
+  use constants_module, only : angstrom_per_bohr, ev_per_hartree
   implicit none
   
   type(String), intent(in) :: filename
@@ -111,19 +113,17 @@ function read_castep_output_file(filename) result(output)
   
   ! Read data
   line = split(castep_file(energy_line))
-  output%energy = dble(line(5))
+  output%energy = dble(line(5)) / ev_per_hartree
   
   do i=1,output%no_atoms
     line = split(castep_file(forces_start_line+5+i))
     output%species(i) = line(2)
-    output%forces(:,i) = dble(line(4:6))
+    output%forces(:,i) = dble(line(4:6)) * angstrom_per_bohr / ev_per_hartree
   enddo
 end function
 
 function read_qe_output_file(filename) result(output)
-  use constants, only : ev_per_rydberg,angstrom_per_bohr
-  use string_module
-  use file_module
+  use constants_module, only : ev_per_rydberg, ev_per_hartree
   implicit none
   
   type(String), intent(in) :: filename
@@ -185,19 +185,16 @@ function read_qe_output_file(filename) result(output)
   enddo
   
   line = split(qe_file(energy_line))
-  output%energy = dble(line(5))
+  output%energy = dble(line(5)) * ev_per_rydberg / ev_per_hartree
   
   do i=1,forces_end_line-forces_start_line-3
     line = split(qe_file(forces_start_line+1+i))
     output%species(i) = species(int(line(4)))
-    output%forces(:,i) = dble(line(7:9))
+    output%forces(:,i) = dble(line(7:9)) * ev_per_rydberg / ev_per_hartree
   enddo
-  
-  output%forces = output%forces*ev_per_rydberg/angstrom_per_bohr
 end function
 
 function read_dft_output_file(dft_code,filename) result(output)
-  use string_module
   implicit none
   
   type(String), intent(in) :: dft_code

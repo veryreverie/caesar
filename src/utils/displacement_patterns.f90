@@ -15,7 +15,9 @@
 ! This is repeated no_gvectors*no_modes times
 
 module displacement_patterns_module
-  use constants, only : dp
+  use constants_module, only : dp
+  use string_module
+  use io_module
   implicit none
   
   type DispPatterns
@@ -63,8 +65,6 @@ subroutine drop_DispPatterns(this)
 end subroutine
 
 function read_disp_patterns_file_character(filename,no_modes) result(this)
-  use string_module
-  use file_module
   implicit none
   
   character(*), intent(in) :: filename
@@ -118,7 +118,6 @@ function read_disp_patterns_file_character(filename,no_modes) result(this)
 end function
 
 function read_disp_patterns_file_String(filename,no_modes) result(this)
-  use string_module
   implicit none
   
   type(String), intent(in) :: filename

@@ -1,10 +1,10 @@
 module calculate_gap_module
-contains
-subroutine calculate_gap()
-  use constants, only : dp
+  use constants_module, only : dp
   use string_module
-  use file_module
-  
+  use io_module
+contains
+
+subroutine calculate_gap()
   implicit none
   
   integer  :: i

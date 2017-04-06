@@ -1,12 +1,13 @@
 ! A Hartree to eV calculator
 module hartree_to_eV_module
+  use constants_module, only : dp
+  use string_module
+  use io_module
   implicit none
 contains
 
 subroutine hartree_to_eV()
-  use constants, only : dp, ev_per_hartree
-  use string_module
-  use file_module
+  use constants_module, only : ev_per_hartree
   implicit none
   
   real(dp) :: input

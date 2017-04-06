@@ -2,6 +2,9 @@
 ! Calculates the symmetries of the structure.
 ! ----------------------------------------------------------------------
 module calculate_symmetry_module
+  use constants_module, only : dp
+  use string_module
+  use io_module
   use iso_c_binding
   implicit none
   
@@ -61,8 +64,6 @@ module calculate_symmetry_module
 contains
 
 subroutine calculate_symmetry(this)
-  use string_module
-  use file_module
   use structure_module
   implicit none
   

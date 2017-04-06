@@ -1,12 +1,12 @@
 module setup_quadratic_module
-
+  use constants_module, only : dp
+  use string_module
+  use io_module
 contains
 
 subroutine setup_quadratic(wd,cwd)
-  use constants, only : dp, kb_in_au
-  use utils,     only : mkdir, format_path, make_dft_input_filename
-  use string_module
-  use file_module
+  use constants_module, only : kb_in_au
+  use utils_module,     only : mkdir, format_path, make_dft_input_filename
   use mapping_module
   use structure_module
   use displacement_patterns_module

@@ -1,16 +1,12 @@
 ! Program to transform structure file to cell file
 module structure_to_dft_module
-  implicit none
-  
-  private
-  
-  public :: structure_to_dft
+  use constants_module, only : dp
+  use string_module
+  use io_module
 contains
 
 subroutine structure_to_castep(structure_sc,old_cell_filename,new_cell_filename)
-  use string_module
   use structure_module
-  use file_module
   implicit none
   
   type(StructureData), intent(in)           :: structure_sc
@@ -122,10 +118,8 @@ subroutine structure_to_castep(structure_sc,old_cell_filename,new_cell_filename)
 end subroutine
 
 subroutine structure_to_vasp(structure_sc,poscar_filename)
-  use string_module
+  use constants_module, only : angstrom_per_bohr
   use structure_module
-  use constants, only : angstrom_per_bohr
-  use file_module
   implicit none
   
   type(StructureData), intent(in) :: structure_sc
@@ -198,9 +192,7 @@ subroutine structure_to_vasp(structure_sc,poscar_filename)
 end subroutine
 
 subroutine structure_to_qe(structure_sc,old_qe_in_filename,new_qe_in_filename)
-  use string_module
   use structure_module
-  use file_module
   implicit none
   
   type(StructureData), intent(in)           :: structure_sc
@@ -260,9 +252,7 @@ end subroutine
 
 subroutine structure_to_dft(dft_code,structure_sc,input_filename, &
    & output_filename)
-  use string_module
   use structure_module
-  use file_module
   implicit none
   
   type(String),        intent(in)           :: dft_code

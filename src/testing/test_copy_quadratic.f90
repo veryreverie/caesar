@@ -1,10 +1,11 @@
 module test_copy_quadratic_module
+  use constants_module, only : dp
+  use string_module
+  use io_module
 contains
 
 subroutine test_copy_quadratic(wd,cwd)
-  use utils, only : format_path
-  use string_module
-  use file_module
+  use utils_module, only : format_path
   implicit none
   
   ! Working directories.

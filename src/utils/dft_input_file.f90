@@ -1,11 +1,13 @@
 module dft_input_file_module
+  use constants_module, only : dp
+  use string_module
+  use io_module
 contains
 
 function castep_input_file_to_structure(filename) result(output)
-  use constants, only : dp,pi,angstrom_per_bohr,kg_per_me,kg_per_amu,identity
-  use string_module
+  use constants_module, only : pi, angstrom_per_bohr, kg_per_me, kg_per_amu, &
+                             & identity
   use structure_module
-  use file_module
   implicit none
   
   type(String), intent(in) :: filename
@@ -259,9 +261,7 @@ function castep_input_file_to_structure(filename) result(output)
 end function
 
 function dft_input_file_to_structure(dft_code,filename) result(output)
-  use string_module
   use structure_module
-  use file_module
   implicit none
   
   type(String), intent(in) :: dft_code

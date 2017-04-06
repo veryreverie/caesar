@@ -2,8 +2,10 @@
 ! Assorted linear algebra / vector algebra subroutines.
 ! Includes interfaces for BLAS and LAPACK routines.
 ! ------------------------------------------------------------
-module linear_algebra
-  use constants, only : dp
+module linear_algebra_module
+  use constants_module, only : dp
+  use string_module
+  use io_module
   implicit none
   
   ! The eigen(values and vectors) of a matrix
@@ -36,10 +38,9 @@ module linear_algebra
   ! BLAS / LAPACK interface
   ! ----------------------------------------
   interface
-    
     ! Copies a real vector. Equivalent to DY = DX
     pure subroutine dcopy(N,DX,INCX,DY,INCY)
-      use constants, only : dp
+      import :: dp
       implicit none
       
       integer,  intent(in)  :: N     ! length of vectors
@@ -51,7 +52,7 @@ module linear_algebra
     
     ! Copies complex vector. Equivalent to ZY = ZX
     pure subroutine zcopy(N,ZX,INCX,ZY,INCY)
-      use constants, only : dp
+      import :: dp
       implicit none
       
       integer,     intent(in)  :: N     ! length of vectors
@@ -63,7 +64,7 @@ module linear_algebra
     
     ! Real dot product. Returns DX.DY
     pure real(dp) function ddot(N,DX,INCX,DY,INCY)
-      use constants, only : dp
+      import :: dp
       implicit none
       
       integer,  intent(in) :: N     ! length of vectors
@@ -75,7 +76,7 @@ module linear_algebra
     
     ! Multiplies real vector by real scalar. Equivalent to DX *= DA
     pure subroutine dscal(N,DA,DX,INCX)
-      use constants, only : dp
+      import :: dp
       implicit none
       
       integer,  intent(in)    :: N     ! length of vector
@@ -86,7 +87,7 @@ module linear_algebra
     
     ! Multiplies complex vector by complex scalar. Equivalent to ZX *= ZA
     pure subroutine zscal(N,ZA,ZX,INCX)
-      use constants, only : dp
+      import :: dp
       implicit none
       
       integer,     intent(in)    :: N     ! length of vector
@@ -97,7 +98,7 @@ module linear_algebra
     
     ! Complex norm. Returns sqrt(X.X)
     pure function dznrm2(N,X,INCX) result(output)
-      use constants, only : dp
+      import :: dp
       implicit none
       
       integer,     intent(in) :: N      ! length of vector
@@ -108,7 +109,7 @@ module linear_algebra
     
     ! Finds the eigenvalues of a hermitian matrix
     pure subroutine zheev(JOBZ,UPLO,N,A,LDA,W,WORK,LWORK,RWORK,INFO)
-      use constants, only : dp
+      import :: dp
       implicit none
       
       character(1), intent(in)    :: JOBZ     ! N/V: if V, calculate eigenvectors
@@ -125,7 +126,7 @@ module linear_algebra
     
     ! Finds the eigenvalues of a symmetric matrix
     pure subroutine dsyev(JOBZ,UPLO,N,A,LDA,W,WORK,LWORK,INFO)
-      use constants, only : dp
+      import :: dp
       implicit none
       
       character(1), intent(in)    :: JOBZ     ! N/V: if V, calculate eigenvectors
@@ -200,8 +201,6 @@ end function
 ! A and B are real, 3x3 matrices
 ! ----------------------------------------
 function invert(A) result(B)
-  use string_module
-  use file_module
   implicit none
   
   real(dp), intent(in)  :: A(3,3)
@@ -261,8 +260,6 @@ end function
 
 ! Calculates the eigenvalues and eigenvectors of a real, symmetric matrix
 function calculate_RealEigenstuff(input) result(output)
-  use string_module
-  use file_module
   implicit none
   
   real(dp), intent(in) :: input(:,:)  ! a real, symmetric matrix
@@ -302,8 +299,6 @@ end function
 
 ! Calculates the eigenvalues and eigenvectors of a complex, hermitian matrix
 function calculate_ComplexEigenstuff(input) result(output)
-  use string_module
-  use file_module
   implicit none
   
   complex(dp), intent(in) :: input(:,:)  ! a complex, hermitian matrix
