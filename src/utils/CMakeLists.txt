@@ -5,9 +5,11 @@ include_guard(utils)
 add_library(utils system.c spglib_wrapper.c constants.f90 string.f90 io.f90 utils.f90 linear_algebra.f90 algebra.f90 group.f90 supercell.f90 kpoints.f90 moller_plesset.f90 structure.f90 dft_input_file.f90 dft_output_file.f90 structure_to_dft.f90 calculate_symmetry.f90 bands.f90 displacement_patterns.f90)
 target_include_directories(utils PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
-# Compiler compiler-specific functionality.
+# Compile compiler-specific functionality.
 if ("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "GNU")
   add_library(compiler_specific gfortran_specific.f90)
+else()
+  add_library(comiler_specific compiler_specific_default.f90)
 endif()
 target_link_libraries(utils compiler_specific)
 

@@ -32,7 +32,7 @@ subroutine run_quadratic(wd,cwd)
   type(StructureData)       :: structure
   type(String), allocatable :: no_sc_file(:)
   integer                   :: no_sc
-  type(KpointsIbz)          :: kpoints
+  type(KpointData), allocatable :: kpoints(:)
   
   ! Temporary variables.
   integer      :: i,j,k
@@ -111,12 +111,12 @@ subroutine run_quadratic(wd,cwd)
   enddo
   
   ! Read in IBZ K-points.
-  kpoints = read_kpoints_ibz_file(harmonic_path//'/kpoints_ibz.dat')
+  kpoints = read_kpoints_file(harmonic_path//'/kpoints_ibz.dat')
   
   ! Loop over K-points.
   do i=1,size(kpoints)
     ! Ignore K-points outside of chosen supercells.
-    if (kpoints%sc_ids(i)<first_sc .or. kpoints%sc_ids(i)>last_sc) then
+    if (kpoints(i)%sc_id<first_sc .or. kpoints(i)%sc_id>last_sc) then
       cycle
     endif
     

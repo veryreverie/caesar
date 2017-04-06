@@ -4,17 +4,20 @@ module calculate_anharmonic_module
   use io_module
 contains
 
-subroutine calculate_anharmonic(multiplicity, no_modes, Nbasis, harmonic,&
-    &eigenvals, result_file)
+subroutine calculate_anharmonic(structure,structure_grid,kpoints,Nbasis, &
+   & harmonic,eigenvals,result_file)
   use constants_module, only : kb_in_au
+  use kpoints_module
+  use structure_module
   implicit none
   
-  integer,  intent(in) :: multiplicity(:)
-  integer,  intent(in) :: no_modes
-  integer,  intent(in) :: Nbasis
-  real(dp), intent(in) :: harmonic(:,:,:)
-  real(dp), intent(in) :: eigenvals(:,:,:)
-  integer,  intent(in) :: result_file
+  type(StructureData), intent(in) :: structure
+  type(StructureData), intent(in) :: structure_grid
+  type(KpointData),    intent(in) :: kpoints(:)
+  integer,             intent(in) :: Nbasis
+  real(dp),            intent(in) :: harmonic(:,:,:)
+  real(dp),            intent(in) :: eigenvals(:,:,:)
+  integer,             intent(in) :: result_file
   
   ! Temperature parameters
   real(dp), parameter :: dtemperature    = 50.0_dp ! delta T (K)
@@ -23,7 +26,7 @@ subroutine calculate_anharmonic(multiplicity, no_modes, Nbasis, harmonic,&
   ! Temperatures
   real(dp) :: betas(no_temperatures)    ! {1/kB*T}
   
-  ! number of kpoints, = size(multiplicity)
+  integer :: no_modes
   integer :: no_kpoints
   
   ! Working variables
@@ -33,8 +36,9 @@ subroutine calculate_anharmonic(multiplicity, no_modes, Nbasis, harmonic,&
   real(dp),allocatable :: part_fn(:,:,:),har_part_fn(:,:,:)
   
   ! Get kpoint data
-  no_kpoints = size(multiplicity)
-  total_kpoints = sum(multiplicity)
+  no_modes = structure%no_modes
+  no_kpoints = size(kpoints)
+  total_kpoints = structure_grid%sc_size
   
   ! Calculate thermal energies
   do i=1,no_temperatures
@@ -65,18 +69,18 @@ subroutine calculate_anharmonic(multiplicity, no_modes, Nbasis, harmonic,&
       do j=1,no_kpoints
         do k=1,no_modes
           renormalised_eigenvals=renormalised_eigenvals+&
-           &eigenvals(1,k,j)*multiplicity(j)/total_kpoints
+           &eigenvals(1,k,j)*size(kpoints(j)%gvectors)/total_kpoints
           renormalised_harmonic=renormalised_harmonic+&
-           &harmonic(1,k,j)*multiplicity(j)/total_kpoints
+           &harmonic(1,k,j)*size(kpoints(j)%gvectors)/total_kpoints
         enddo ! k
       enddo ! j
     else ! T /= 0
        do j=1,no_kpoints
          do k=1,no_modes
            renormalised_eigenvals = renormalised_eigenvals &
-            & -log(part_fn(k,j,i))*multiplicity(j)/(total_kpoints*betas(i))
+            & -log(part_fn(k,j,i))*size(kpoints(j)%gvectors)/(total_kpoints*betas(i))
            renormalised_harmonic = renormalised_harmonic &
-            & -log(har_part_fn(k,j,i))*multiplicity(j)/(total_kpoints*betas(i))
+            & -log(har_part_fn(k,j,i))*size(kpoints(j)%gvectors)/(total_kpoints*betas(i))
          enddo
        enddo
     endif

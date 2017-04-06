@@ -370,7 +370,6 @@ subroutine lte_harmonic(wd)
   type(String)        :: dft_code
   type(String)        :: seedname
   type(StructureData) :: structure
-  integer             :: grid(3)
   
   ! Supercell-specific setup data
   type(StructureData) :: structure_sc
@@ -381,8 +380,8 @@ subroutine lte_harmonic(wd)
   real(dp),              allocatable :: force_constants(:,:,:)
   
   ! kpoint data
-  type(KpointsGrid) :: kpoints_grid
-  type(KpointsIbz)  :: kpoints_ibz
+  type(StructureData)           :: structure_grid
+  type(KpointData), allocatable :: kpoints_ibz(:)
   
   ! lte input data
   integer               :: no_kspace_lines
@@ -413,16 +412,17 @@ subroutine lte_harmonic(wd)
   user_inputs = read_lines(wd//'/user_input.txt')
   dft_code = user_inputs(1)
   seedname = user_inputs(2)
-  grid = int(split(user_inputs(3)))
   
   no_sc_file = read_lines(wd//'/no_sc.dat')
   no_sc = int(no_sc_file(1))
   
   structure = read_structure_file(wd//'/structure.dat')
   
-  ! Read kpoints.
-  kpoints_grid = read_kpoints_grid_file(wd//'/kpoints_grid.dat')
-  kpoints_ibz = read_kpoints_ibz_file(wd//'/kpoints_ibz.dat')
+  ! Read kpoints and gvectors.
+  structure_grid = read_structure_file(wd//'/structure_grid.dat')
+  kpoints_ibz = read_kpoints_file(wd//'/kpoints_ibz.dat')
+!  gvectors_grid = read_gvectors_grid_file(wd//'/gvectors_grid.dat')
+!  kpoints_ibz = read_kpoints_ibz_file(wd//'/kpoints_ibz.dat')
   
   allocate(ibz_dynamical_matrices( structure%no_modes, &
                                  & structure%no_modes, &
@@ -453,13 +453,13 @@ subroutine lte_harmonic(wd)
     deallocate(force_constants)
     
     do j=1,size(kpoints_ibz)
-      if (kpoints_ibz%sc_ids(j)/=i) then
+      if (kpoints_ibz(j)%sc_id/=i) then
         cycle
       endif
       
       ! Move dynamical matrices into ibz_dynamical matrices.
       ibz_dynamical_matrices(:,:,j) = &
-         & lte_result%dynamical_matrices(:,:,kpoints_ibz%gvector_ids(j))
+         & lte_result%dynamical_matrices(:,:,kpoints_ibz(j)%gvector_id)
       
       call mkdir(wd//'/kpoint_'//j)
     
@@ -468,7 +468,7 @@ subroutine lte_harmonic(wd)
          & wd//'/kpoint_'//j//'/frequencies.dat')
       do mode=1,structure%no_modes
         call print_line(frequencies_file, &
-           & lte_result%frequencies(mode,kpoints_ibz%gvector_ids(j)))
+           & lte_result%frequencies(mode,kpoints_ibz(j)%gvector_id))
       enddo
       
       ! Write out prefactors.
@@ -478,7 +478,7 @@ subroutine lte_harmonic(wd)
         call print_line(prefactors_file,'Mode : '//mode)
         do atom=1,structure_sc%no_atoms
           call print_line(prefactors_file, &
-             & lte_result%prefactors(atom,mode,kpoints_ibz%gvector_ids(j)))
+             & lte_result%prefactors(atom,mode,kpoints_ibz(j)%gvector_id))
         enddo
         call print_line(prefactors_file,'')
       enddo
@@ -490,7 +490,7 @@ subroutine lte_harmonic(wd)
         call print_line(displacement_pattern_file,'Mode : '//mode)
         do atom=1,structure_sc%no_atoms
           call print_line(displacement_pattern_file, &
-            & lte_result%displacements(:,atom,mode,kpoints_ibz%gvector_ids(j)))
+            & lte_result%displacements(:,atom,mode,kpoints_ibz(j)%gvector_id))
         enddo
         call print_line(displacement_pattern_file,'')
       enddo
@@ -514,9 +514,9 @@ subroutine lte_harmonic(wd)
   call fourier_interpolation(              &
      & ibz_dynamical_matrices,             &
      & structure,                          &
-     & grid,                               &
      & temperature,                        &
-     & kpoints_grid,                       &
+     & structure_grid,                     &
+     & kpoints_ibz,                        &
      & disp_kpoints,                       &
      & symmetry_group,                     &
      & wd//'/phonon_dispersion_curve.dat', &

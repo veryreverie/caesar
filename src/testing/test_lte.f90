@@ -3,6 +3,7 @@ module test_lte_module
   use string_module
   use io_module
 contains
+
 subroutine test_lte(wd,cwd)
   use constants_module, only : pi
   use utils_module,     only : mkdir, format_path
@@ -86,8 +87,8 @@ subroutine test_lte(wd,cwd)
   real(dp)              :: temperature
   
   ! K-point data.
-  type(KpointsGrid) :: kpoints_grid
-  type(KpointsIbz)  :: kpoints_ibz
+  type(StructureData)           :: structure_grid
+  type(KpointData), allocatable :: kpoints_ibz(:)
   
   ! Temporary variables.
   integer                   :: i,j,k,l
@@ -132,8 +133,8 @@ subroutine test_lte(wd,cwd)
   structure = read_structure_file(wd//'/structure.dat')
   
   ! Read kpoint data.
-  kpoints_grid = read_kpoints_grid_file(wd//'/kpoints_grid.dat')
-  kpoints_ibz = read_kpoints_ibz_file(wd//'/kpoints_ibz.dat')
+  structure_grid = read_structure_file(wd//'/structure_grid.dat')
+  kpoints_ibz = read_kpoints_file(wd//'/kpoints_ibz.dat')
   
   allocate(dyn_mats_ibz( structure%no_modes, &
                        & structure%no_modes, &
@@ -470,11 +471,11 @@ subroutine test_lte(wd,cwd)
     
     ! Move dynamical matrices into dyn_mats_ibz.
     do j=1,size(kpoints_ibz)
-      if (kpoints_ibz%sc_ids(j)/=i) then
+      if (kpoints_ibz(j)%sc_id/=i) then
         cycle
       endif
       
-      dyn_mats_ibz(:,:,j) = new_dyn_mats(:,:,kpoints_ibz%gvector_ids(j))
+      dyn_mats_ibz(:,:,j) = new_dyn_mats(:,:,kpoints_ibz(j)%gvector_id)
     enddo
     
     deallocate(new_dyn_mats)
@@ -495,9 +496,9 @@ subroutine test_lte(wd,cwd)
   call fourier_interpolation(                      &
      & dyn_mats_ibz,                               &
      & structure,                                  &
-     & grid,                                       &
      & temperature,                                &
-     & kpoints_grid,                               &
+     & structure_grid,                             &
+     & kpoints_ibz,                                &
      & disp_kpoints,                               &
      & symmetry_group,                             &
      & wd//'/new_lte/phonon_dispersion_curve.dat', &

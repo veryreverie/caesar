@@ -46,7 +46,8 @@ subroutine anharmonic(wd)
   type(StructureData), allocatable :: structure_scs(:)
   
   ! K-point data.
-  type(KpointsIbz) :: kpoints
+  type(StructureData)           :: structure_grid
+  type(KpointData), allocatable :: kpoints(:)
   
   real(dp), allocatable :: energies(:,:,:)
   real(dp), allocatable :: static_energies(:)
@@ -55,7 +56,7 @@ subroutine anharmonic(wd)
   real(dp)              :: amplitude
   real(dp), allocatable :: amplitudes(:,:)
   real(dp), allocatable :: spline(:,:)
-  type(VscfData)        :: vscf
+  type(VscfData), allocatable :: vscf
   logical, allocatable  :: sc_acoustic(:)  ! if Supercell_i/acoustic.dat exists
   
   ! Directory names
@@ -111,7 +112,8 @@ subroutine anharmonic(wd)
   enddo
   
   ! Read kpoints
-  kpoints = read_kpoints_ibz_file(harmonic_path//'/kpoints_ibz.dat')
+  structure_grid = read_structure_file(harmonic_path//'/structure_grid.dat')
+  kpoints = read_kpoints_file(harmonic_path//'/kpoints_ibz.dat')
   
   ! Read supercell structures
   allocate(structure_scs(no_supercells))
@@ -136,7 +138,7 @@ subroutine anharmonic(wd)
   allocate(frequencies(structure%no_modes,size(kpoints)))
   allocate(energies(mapping%count,structure%no_modes,size(kpoints)))
   do i=1,size(kpoints)
-    if (.not. sc_acoustic(kpoints%sc_ids(i))) then
+    if (.not. sc_acoustic(kpoints(i)%sc_id)) then
       ! Read frequencies
       frequencies_file = read_lines( &
          & harmonic_path//'/kpoint_'//i//'/frequencies.dat')
@@ -154,7 +156,7 @@ subroutine anharmonic(wd)
             dft_output_file = read_dft_output_file(dft_code,dft_output_filename)
             energies(k,j,i) = dft_output_file%energy
           else
-            energies(k,j,i) = static_energies(kpoints%sc_ids(i))
+            energies(k,j,i) = static_energies(kpoints(i)%sc_id)
           endif
         enddo
       enddo
@@ -179,7 +181,7 @@ subroutine anharmonic(wd)
         do k=1,mapping%count
           amplitudes(1,k) = amplitude+(k-1)*dabs(amplitude/mapping%first)
           amplitudes(2,k) = (energies(k,j,i)-energies(mapping%mid,j,i)) &
-                        & / structure_scs(kpoints%sc_ids(i))%sc_size
+                        & / structure_scs(kpoints(i)%sc_id)%sc_size
         enddo
         
         ! fit splines
@@ -195,6 +197,7 @@ subroutine anharmonic(wd)
         
         deallocate(amplitudes)
         deallocate(spline)
+        deallocate(vscf)
         call drop(vscf)
         
       enddo
@@ -217,7 +220,7 @@ subroutine anharmonic(wd)
   ! calculate free energy, F(T), for harmonic and anharmonic cases
   ! write output to anharmonic_correction.dat
   result_file = open_write_file(wd//'/anharmonic/anharmonic_correction.dat')
-  call calculate_anharmonic(kpoints%multiplicity,structure%no_modes,Nbasis, &
+  call calculate_anharmonic(structure,structure_grid,kpoints,Nbasis, &
      & harmonic,eigenvals,result_file)
   close(result_file)
 end subroutine

@@ -50,7 +50,7 @@ subroutine setup_quadratic(wd,cwd)
   real(dp),     allocatable :: displacements(:,:,:)
   
   ! K-point data
-  type(KpointsIbz) :: kpoints
+  type(KpointData), allocatable :: kpoints(:)
   
   ! Working variables
   type(StructureData) :: structure_sc
@@ -139,7 +139,7 @@ subroutine setup_quadratic(wd,cwd)
   enddo
   
   ! Read in kpoint data.
-  kpoints = read_kpoints_ibz_file(harmonic_path//'/kpoints_ibz.dat')
+  kpoints = read_kpoints_file(harmonic_path//'/kpoints_ibz.dat')
   
   ! ------------------------------------------------------------
   ! Write user inputs to file
@@ -179,7 +179,7 @@ subroutine setup_quadratic(wd,cwd)
   ! Generate quadratic configurations
   ! ------------------------------------------------------------
   do i=1,size(kpoints)
-    structure_sc = structure_scs(kpoints%sc_ids(i))
+    structure_sc = structure_scs(kpoints(i)%sc_id)
     
     ! Read in frequencies, prefactors and displacements.
     frequency_file = read_lines( &

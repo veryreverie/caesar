@@ -4,12 +4,13 @@ module generate_supercells_module
   use io_module
   
   use supercell_module
+  use structure_module
   use kpoints_module
   implicit none
   
   type GeneratedSupercells
-    type(KpointsGrid)                :: kpoints_grid
-    type(KpointsIbz)                 :: kpoints_ibz
+    type(StructureData)              :: structure_grid
+    type(KpointData),    allocatable :: kpoints_ibz(:)
     type(SupercellData), allocatable :: supercells(:)
   end type
   
@@ -28,20 +29,18 @@ module generate_supercells_module
 
 contains
 
-subroutine new_GeneratedSupercells(this,no_kpoints_grid,no_kpoints_ibz, &
-   & no_supercells)
+subroutine new_GeneratedSupercells(this,no_kpoints_ibz,no_supercells)
   implicit none
   
   type(GeneratedSupercells), intent(out) :: this
-  integer,                   intent(in)  :: no_kpoints_grid
   integer,                   intent(in)  :: no_kpoints_ibz
   integer,                   intent(in)  :: no_supercells
   
   integer :: ialloc
   
-  call new(this%kpoints_grid, no_kpoints_grid)
-  call new(this%kpoints_ibz, no_kpoints_ibz)
-  allocate(this%supercells(no_supercells), stat=ialloc); call err(ialloc)
+  allocate( this%kpoints_ibz(no_kpoints_ibz), &
+          & this%supercells(no_supercells),   &
+          & stat=ialloc); call err(ialloc)
 end subroutine
 
 subroutine drop_GeneratedSupercells(this)
@@ -49,18 +48,25 @@ subroutine drop_GeneratedSupercells(this)
   
   type(GeneratedSupercells), intent(inout) :: this
   
-  integer :: ialloc
+  integer :: i,ialloc
   
-  call drop(this%kpoints_grid)
-  call drop(this%kpoints_ibz)
-  deallocate(this%supercells, stat=ialloc); call err(ialloc)
+  call drop(this%structure_grid)
+  do i=1,size(this%kpoints_ibz)
+    call drop(this%kpoints_ibz(i))
+  enddo
+  do i=1,size(this%supercells)
+    call drop(this%supercells(i))
+  enddo
+  deallocate( this%kpoints_ibz, &
+            & this%supercells,  &
+            & stat=ialloc); call err(ialloc)
 end subroutine
 
 ! ----------------------------------------------------------------------
 ! Calculate the greatest common divisor of two positive integers using
 ! Euclid's algorithm.
 ! ----------------------------------------------------------------------
-pure function gcd(int_1,int_2) result(output)
+elemental function gcd(int_1,int_2) result(output)
   implicit none
   
   integer, intent(in) :: int_1
@@ -71,29 +77,28 @@ pure function gcd(int_1,int_2) result(output)
   integer :: b
   integer :: temp
   
-  if (int_1>=int_2) then
-    a = int_1
-    b = int_2
+  a = max(int_1,int_2)
+  b = min(int_1,int_2)
+  
+  if (b==0) then
+    output=a
+  
   else
-    a = int_2
-    b = int_1
+    do
+      temp=modulo(a,b)
+      if(temp==0)exit
+      a=b
+      b=temp
+    enddo
+    output=b
   endif
-  
-  do
-    temp=mod(a,b)
-    if(temp==0)exit
-    a=b
-    b=temp
-  enddo
-  
-  output=b
 end function
 
 ! ----------------------------------------------------------------------
 ! Calculate the lowest common multiple of two positive integers
 ! lcm(a,b) = a*b/gcd(a,b)
 ! ----------------------------------------------------------------------
-pure function lcm_2(int_1,int_2) result(output)
+elemental function lcm_2(int_1,int_2) result(output)
   implicit none
   
   integer, intent(in) :: int_1
@@ -107,7 +112,7 @@ end function
 ! Calculate the lowest common multiple of three positive integers
 ! lcm(a,b,c) = lcm(a,lcm(b,c))
 ! ----------------------------------------------------------------------
-pure function lcm_3(int_1,int_2,int_3) result(output)
+elemental function lcm_3(int_1,int_2,int_3) result(output)
   implicit none
   
   integer, intent(in) :: int_1
@@ -186,10 +191,10 @@ subroutine supercells_generator(num_pcells,num_hnf,hnf)
   count_hnf=0
   
   do a=1,num_pcells 
-    if(.not.mod(num_pcells,a)==0)cycle
+    if(.not.modulo(num_pcells,a)==0)cycle
     quotient=num_pcells/a
     do c=1,quotient  
-      if(.not.mod(quotient,c)==0)cycle
+      if(.not.modulo(quotient,c)==0)cycle
       f=quotient/c
       count_hnf=count_hnf+c*f**2
     enddo ! c
@@ -201,10 +206,10 @@ subroutine supercells_generator(num_pcells,num_hnf,hnf)
   allocate(hnf(3,3,num_hnf), stat=ialloc); call err(ialloc)
   hnf = 0
   do a=1,num_pcells 
-    if(.not.mod(num_pcells,a)==0)cycle
+    if(.not.modulo(num_pcells,a)==0)cycle
     quotient=num_pcells/a
     do c=1,quotient  
-      if(.not.mod(quotient,c)==0)cycle
+      if(.not.modulo(quotient,c)==0)cycle
       f=quotient/c
       do b=0,c-1
         do d=0,f-1
@@ -274,6 +279,7 @@ function generate_supercells(structure,grid) result(output)
   use linear_algebra_module, only : invert_int
   use structure_module
   use supercell_module
+  use construct_supercell_module
   implicit none
   
   ! Inputs.
@@ -281,8 +287,11 @@ function generate_supercells(structure,grid) result(output)
   integer,             intent(in) :: grid(:)
   type(GeneratedSupercells)       :: output
   
+  ! Grid supercell structure.
+  type(SupercellData) :: supercell_grid
+  type(StructureData) :: structure_grid
+  
   ! Grid K-point variables.
-  integer, allocatable :: kpoints_grid(:,:)
   integer, allocatable :: grid_to_ibz(:)
   integer, allocatable :: rotation_ids(:)
   integer              :: counter
@@ -290,6 +299,7 @@ function generate_supercells(structure,grid) result(output)
   ! IBZ K-point variables.
   integer              :: no_kpoints_ibz
   integer, allocatable :: multiplicity(:)
+  integer, allocatable :: kpoints_grid(:,:)
   integer, allocatable :: kpoints_ibz(:,:)
   integer, allocatable :: sc_size(:)
   integer, allocatable :: sc_ids(:)
@@ -297,8 +307,7 @@ function generate_supercells(structure,grid) result(output)
   integer              :: gvector_id
   integer              :: delta_gvec(3)
   integer              :: gvector(3)
-  integer              :: gvector_prim(3)
-  integer              :: kpoint_prim(3)
+  integer              :: kpoint(3)
   
   ! Supercell variables
   type(SupercellData), allocatable :: supercells(:)
@@ -308,7 +317,6 @@ function generate_supercells(structure,grid) result(output)
   ! Working variables
   integer :: denominator(3)
   integer :: ialloc
-  integer :: grid_size
   integer :: sc_num
   integer :: s11
   integer :: s12
@@ -324,39 +332,54 @@ function generate_supercells(structure,grid) result(output)
   integer :: i,j,k,l,m
   
   ! ----------------------------------------------------------------------
-  ! Generate all k-points in the grid.
+  ! Construct a supercell corresponding to the entire k-point grid.
   ! ----------------------------------------------------------------------
-  grid_size = product(grid)
-  allocate( kpoints_grid(3,grid_size), &
-          & grid_to_ibz(grid_size),    &
-          & rotation_ids(grid_size),   &
-          & stat=ialloc); call err(ialloc)
+  call new(supercell_grid, product(grid))
   
-  ! Loop over integer vectors, such that k-point/grid in [-0.5,0.5).
-  ! n.b. integer floor division intentional.
+  supercell_grid%supercell(1,:) = (/ grid(1), 0      , 0       /)
+  supercell_grid%supercell(2,:) = (/ 0      , grid(2), 0       /)
+  supercell_grid%supercell(3,:) = (/ 0      , 0      , grid(3) /)
+  
   counter = 0
   do i=-grid(1)/2,(grid(1)-1)/2
     do j=-grid(2)/2,(grid(2)-1)/2
       do k=-grid(3)/2,(grid(3)-1)/2
         counter=counter+1
-        kpoints_grid(:,counter) = (/i,j,k/)
+        supercell_grid%gvectors(:,counter) = (/i,j,k/)
       enddo
     enddo
   enddo
   
+  structure_grid = construct_supercell(structure, supercell_grid)
+  
+  ! ----------------------------------------------------------------------
+  ! Transform G-vectors to equivalent K-points.
+  ! ----------------------------------------------------------------------
+  ! N.B. all K-points stored in scaled fractional reciprocal lattice 
+  !    co-ordinates, such that the reciprocal primitive lattice vectors are
+  !    cartesian vectors of length product(grid).
+  allocate( kpoints_grid(3,structure_grid%sc_size), &
+          & stat=ialloc); call err(ialloc)
+  kpoints_grid = matmul( structure_grid%recip_supercell, &
+                       & structure_grid%gvectors)
+  
   ! ----------------------------------------------------------------------
   ! Find equivalent k-points by rotating all k-points into the IBZ.
   ! ----------------------------------------------------------------------
+  allocate( grid_to_ibz(structure_grid%sc_size),  &
+          & rotation_ids(structure_grid%sc_size), &
+          & stat=ialloc); call err(ialloc)
   no_kpoints_ibz = 0
-  do_i1 : do i=1,grid_size
-    ! Check if an equivalent k-point has already been found.
+  do_i1 : do i=1,structure_grid%sc_size
+    ! Check if an equivalent-by-symmetry k-point has already been found.
     do j=1,no_kpoints_ibz
       do k=1,structure%no_symmetries
-        ! Rotate the k-point, and map it back to the IBZ.
-        rot_kpoint = matmul(structure%rotations(:,:,k),kpoints_grid(:,i))
+        ! Rotate the k-point.
+        rot_kpoint = matmul(structure%rotations(:,:,k), kpoints_grid(:,i))
         
-        ! If the rotated k-point = k-point(j).
-        if (all(modulo(rot_kpoint - kpoints_grid(:,j), grid) == 0)) then
+        ! If the rotated k-point = k-point(j), modulo recip. latt. vecs.
+        if (all(modulo( rot_kpoint - kpoints_grid(:,j), &
+                      & structure_grid%sc_size) == 0)) then
           grid_to_ibz(i) = j
           rotation_ids(i) = k
           cycle do_i1
@@ -374,7 +397,7 @@ function generate_supercells(structure,grid) result(output)
           & multiplicity(no_kpoints_ibz),  &
           & stat=ialloc); call err(ialloc)
   multiplicity=0
-  do i=1,grid_size
+  do i=1,structure_grid%sc_size
     if (multiplicity(grid_to_ibz(i))==0) then
       kpoints_ibz(:,grid_to_ibz(i)) = kpoints_grid(:,i)
     endif
@@ -387,12 +410,8 @@ function generate_supercells(structure,grid) result(output)
   ! Calculate minimum supercell size for each k-point.
   allocate(sc_size(no_kpoints_ibz), stat=ialloc); call err(ialloc)
   do i=1,no_kpoints_ibz
-    denominator = 1.0_dp
-    do j=1,3
-      if(kpoints_ibz(j,i)/=0)then
-        denominator(j)=grid(j)/gcd(abs(kpoints_ibz(j,i)),grid(j))
-      endif
-    enddo
+    denominator = structure_grid%sc_size &
+              & / gcd( abs(kpoints_ibz(:,i)), structure_grid%sc_size)
     sc_size(i)=lcm(denominator(1),denominator(2),denominator(3))
   enddo
   
@@ -406,10 +425,10 @@ function generate_supercells(structure,grid) result(output)
   do_i2 : do while (any(sc_ids==0))
     i = minloc(sc_size,1,sc_ids==0)
     do s11=1,sc_size(i)
-      if(.not.mod(sc_size(i),s11)==0)cycle
+      if(.not.modulo(sc_size(i),s11)==0)cycle
       quotient=sc_size(i)/s11
       do s22=1,quotient
-        if(.not.mod(quotient,s22)==0)cycle
+        if(.not.modulo(quotient,s22)==0)cycle
         s33=quotient/s22
         do s12=0,s22-1
           do s13=0,s33-1
@@ -417,7 +436,8 @@ function generate_supercells(structure,grid) result(output)
               hnf(1,:) = (/ s11, s12, s13 /)
               hnf(2,:) = (/ 0  , s22, s23 /)
               hnf(3,:) = (/ 0  , 0  , s33 /)
-              if (all(modulo(matmul(hnf,kpoints_ibz(:,i)),grid)==0)) then
+              if (all(modulo( matmul(hnf, kpoints_ibz(:,i)), &
+                            & structure_grid%sc_size)==0)) then
                 ! --------------------------------------------------
                 ! Add the new supercell.
                 ! --------------------------------------------------
@@ -443,7 +463,8 @@ function generate_supercells(structure,grid) result(output)
                 do j=i+1,no_kpoints_ibz
                   if(sc_ids(j) /= 0)cycle
                   if(sc_size(j)/=sc_size(i))cycle
-                  if (all(modulo(matmul(hnf,kpoints_ibz(:,j)),grid)==0)) then
+                  if (all(modulo( matmul(hnf, kpoints_ibz(:,j)), &
+                                & structure_grid%sc_size)==0)) then
                     sc_ids(j)=sc_num
                   endif
                 enddo
@@ -498,17 +519,18 @@ function generate_supercells(structure,grid) result(output)
     enddo do_j
     
     ! Map G-vectors to [-0.5,0.5).
+    ! Translate G-vectors by lattice vectors such that the corresponding
+    !    k-points are in [-0.5,0.5).
     do j=1,supercells(i)%sc_size
-      gvector_prim = matmul( transpose(supercells(i)%recip_supercell), &
+      kpoint = matmul( transpose(supercells(i)%recip_supercell), &
                            & supercells(i)%gvectors(:,j))
-      gvector_prim = modulo(gvector_prim,supercells(i)%sc_size)
+      kpoint = modulo(kpoint,supercells(i)%sc_size)
       do k=1,3
-        if (gvector_prim(k) > (supercells(i)%sc_size-1)/2) then
-          gvector_prim(k) = gvector_prim(k) - supercells(i)%sc_size
+        if (kpoint(k) > (supercells(i)%sc_size-1)/2) then
+          kpoint(k) = kpoint(k) - supercells(i)%sc_size
         endif
       enddo
-      supercells(i)%gvectors(:,j) = matmul( supercells(i)%supercell, &
-                                &           gvector_prim)            &
+      supercells(i)%gvectors(:,j) = matmul(supercells(i)%supercell, kpoint) &
                                 & / supercells(i)%sc_size
     enddo
     
@@ -529,19 +551,19 @@ function generate_supercells(structure,grid) result(output)
   !   gvec_cart   = matmul(transpose(recip_supercell),gvec)/sc_size
   ! These are paired when kpoint_prim = gvec_cart, down to unit translations.
   ! To keep calculation in integer representation,
-  !   grid and sc_size are multiplied through.
+  !   both sc_sizes are multiplied through.
   allocate(gvector_ids(no_kpoints_ibz), stat=ialloc); call err(ialloc)
   gvector_ids = 0
   do i=1,no_kpoints_ibz
-    ! Calculate k-point in scaled fractional primitive co-ordinates.
-    kpoint_prim = kpoints_ibz(:,i)*sc_size(i)
     do j=1,sc_size(i)
-      ! Calculate g-vector in scaled fractional primitive co-ordinates.
-      gvector_prim = matmul( transpose(supercells(sc_ids(i))%recip_supercell),&
-                 &           supercells(sc_ids(i))%gvectors(:,j))             &
-                 & * grid
-      ! Check if the k-point and g-vector are equivalent down to translations.
-      if (all(modulo(kpoint_prim-gvector_prim,sc_size(i)*grid)==0)) then
+      ! Calculate k-point corresponding to g-vector.
+      kpoint = matmul( transpose(supercells(sc_ids(i))%recip_supercell), &
+                     & supercells(sc_ids(i))%gvectors(:,j))
+      
+      ! Check if the k-points match, modulo reciprocal lattice vectors.
+      if (all(modulo(   kpoints_ibz(:,i) * sc_size(i) &
+                    & - kpoint           * structure_grid%sc_size, &
+                    & sc_size(i)*structure_grid%sc_size)==0)) then
         gvector_ids(i) = j
         exit
       endif
@@ -557,16 +579,26 @@ function generate_supercells(structure,grid) result(output)
   ! ----------------------------------------------------------------------
   ! Generate output.
   ! ----------------------------------------------------------------------
-  call new(output,grid_size,no_kpoints_ibz,sc_num)
+  call new(output,no_kpoints_ibz,sc_num)
   
-  output%kpoints_grid%kpoints = kpoints_grid
-  output%kpoints_grid%ibz_ids = grid_to_ibz
-  output%kpoints_grid%symmetry_ids = rotation_ids
+  output%structure_grid = structure_grid
   
-  output%kpoints_ibz%kpoints = kpoints_ibz
-  output%kpoints_ibz%multiplicity = multiplicity
-  output%kpoints_ibz%sc_ids = sc_ids
-  output%kpoints_ibz%gvector_ids = gvector_ids
+  do i=1,no_kpoints_ibz
+    call new(output%kpoints_ibz(i),multiplicity(i))
+    output%kpoints_ibz(i)%kpoint = kpoints_ibz(:,i) &
+                               & / dble(structure_grid%sc_size)
+    output%kpoints_ibz(i)%sc_id = sc_ids(i)
+    output%kpoints_ibz(i)%gvector_id = gvector_ids(i)
+    
+    k=1
+    do j=1,structure_grid%sc_size
+      if (grid_to_ibz(j)==i) then
+        output%kpoints_ibz(i)%gvectors(k) = j
+        output%kpoints_ibz(i)%rotations(k) = rotation_ids(j)
+        k = k+1
+      endif
+    enddo
+  enddo
   
   output%supercells = supercells(1:sc_num)
 end function

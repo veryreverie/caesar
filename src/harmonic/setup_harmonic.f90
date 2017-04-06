@@ -153,10 +153,14 @@ subroutine setup_harmonic(wd)
   supercells = kpoints_and_supercells%supercells
   
   ! Write K-point data to file.
-  call write_kpoints_grid_file( kpoints_and_supercells%kpoints_grid, &
-                              & wd//'/kpoints_grid.dat')
-  call write_kpoints_ibz_file( kpoints_and_supercells%kpoints_ibz, &
-                             & wd//'/kpoints_ibz.dat')
+!  call write_kpoints_grid_file( kpoints_and_supercells%kpoints_grid, &
+!                              & wd//'/kpoints_grid.dat')
+!  call write_kpoints_ibz_file( kpoints_and_supercells%kpoints_ibz, &
+!                             & wd//'/kpoints_ibz.dat')
+  call write_structure_file( kpoints_and_supercells%structure_grid, &
+                           & wd//'/structure_grid.dat')
+  call write_kpoints_file( kpoints_and_supercells%kpoints_ibz, &
+                         & wd//'/kpoints_ibz.dat')
   
   ! Write no_supercells to file
   no_supercells = size(supercells)

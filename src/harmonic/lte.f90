@@ -1120,8 +1120,8 @@ end subroutine
 !     & kdisp_patterns_filename,pol_vec_filename)
 !end function
 
-subroutine fourier_interpolation(dyn_mats_ibz,structure,grid,temperature, &
-   & kpoints_grid, &
+subroutine fourier_interpolation(dyn_mats_ibz,structure,temperature, &
+   & structure_grid,kpoints_ibz, &
    & path,atom_symmetry_group,   &
    & phonon_dispersion_curve_filename,high_symmetry_points_filename,        &
    & free_energy_filename,freq_dos_filename)
@@ -1137,9 +1137,9 @@ subroutine fourier_interpolation(dyn_mats_ibz,structure,grid,temperature, &
   ! filenames
   complex(dp),         intent(in) :: dyn_mats_ibz(:,:,:)
   type(StructureData), intent(in) :: structure
-  integer,             intent(in) :: grid(3)
   real(dp),            intent(in) :: temperature
-  type(KpointsGrid),   intent(in) :: kpoints_grid
+  type(StructureData), intent(in) :: structure_grid
+  type(KpointData),    intent(in) :: kpoints_ibz(:)
   real(dp),            intent(in) :: path(:,:)
   type(Group),         intent(in) :: atom_symmetry_group(:)
   type(String),        intent(in) :: phonon_dispersion_curve_filename
@@ -1162,30 +1162,9 @@ subroutine fourier_interpolation(dyn_mats_ibz,structure,grid,temperature, &
   REAL(dp) :: k_dot_r
   real(dp) :: exponent
   
-  integer :: i,j,k
+  integer :: i,j,k,l
   integer :: atom_1,atom_2,atom_1p,atom_2p
   integer :: mode_1,mode_2,mode_1p,mode_2p
-  
-  ! Supercell data
-  type(SupercellData) :: grid_supercell
-  type(StructureData) :: structure_sc
-  
-  ! --------------------------------------------------
-  ! Construct a supercell across the entire grid.
-  ! --------------------------------------------------
-  call new(grid_supercell,product(grid))
-  
-  grid_supercell%supercell(1,:) = (/ grid(1), 0      , 0       /)
-  grid_supercell%supercell(2,:) = (/ 0      , grid(2), 0       /)
-  grid_supercell%supercell(3,:) = (/ 0      , 0      , grid(3) /)
-  
-  grid_supercell%recip_supercell = invert_int(grid_supercell%supercell)
-  do i=1,size(kpoints_grid)
-    grid_supercell%gvectors(:,i) = kpoints_grid%kpoints(:,i) &
-                               & * (grid_supercell%sc_size/grid)
-  enddo
-  
-  structure_sc = construct_supercell(structure,grid_supercell)
   
   ! --------------------------------------------------
   ! Use symmetries to construct all dynamical matrices
@@ -1193,16 +1172,16 @@ subroutine fourier_interpolation(dyn_mats_ibz,structure,grid,temperature, &
   ! --------------------------------------------------
   
   ! Calculate the relative phases between atoms at each k-point.
-  allocate(phase(structure%no_atoms,structure%no_atoms,structure_sc%sc_size))
-  do i=1,structure_sc%sc_size
+  allocate(phase(structure%no_atoms,structure%no_atoms,structure_grid%sc_size))
+  do i=1,structure_grid%sc_size
     do atom_1=1,structure%no_atoms
       do atom_2=1,structure%no_atoms
         ! Calculate k.dx
-        exponent = dot_product( structure_sc%gvectors(:,i), &
+        exponent = dot_product( structure_grid%gvectors(:,i), &
                               &   matmul( structure%recip_lattice, &
                                          &   structure%atoms(:,atom_2) &
                                          & - structure%atoms(:,atom_1)) &
-                              & / structure_sc%sc_size)
+                              & / structure_grid%sc_size)
         ! Calculate exp(i.k.dx)
         phase(atom_2,atom_1,i) = cmplx(cos(exponent),sin(exponent),dp)
       enddo
@@ -1212,35 +1191,37 @@ subroutine fourier_interpolation(dyn_mats_ibz,structure,grid,temperature, &
   ! Construct dynamical matrices.
   allocate(dyn_mats_grid( structure%no_modes, &
                         & structure%no_modes, &
-                        & structure_sc%sc_size))
+                        & structure_grid%sc_size))
   rotations_cart = calculate_cartesian_rotations(structure)
-  do i=1,structure_sc%sc_size
-    j = kpoints_grid%symmetry_ids(i)
-    k = kpoints_grid%ibz_ids(i)
+  do i=1,size(kpoints_ibz)
+    do j=1,size(kpoints_ibz(i)%gvectors)
+      k = kpoints_ibz(i)%gvectors(j)
+      l = kpoints_ibz(i)%rotations(j)
     
-    ! Construct the element of the dynamical matrix from that in the IBZ.
-    do atom_1=1,structure%no_atoms
-      mode_1 = (atom_1-1)*3+1
-      atom_1p = operate(atom_symmetry_group(j),atom_1)
-      mode_1p = (atom_1p-1)*3+1
-      do atom_2=1,structure%no_atoms
-        mode_2 = (atom_2-1)*3+1
-        atom_2p = operate(atom_symmetry_group(j),atom_2)
-        mode_2p = (atom_2p-1)*3+1
-        
-        dyn_mats_grid(mode_2p:mode_2p+2,mode_1p:mode_1p+2,i) =    &
-           & matmul(matmul(                                       &
-           &    rotations_cart(:,:,j),                            &
-           &    dyn_mats_ibz(mode_2:mode_2+2,mode_1:mode_1+2,k)), &
-           &    transpose(rotations_cart(:,:,j)))                 &
-           & * phase(atom_2p,atom_2,i)*conjg(phase(atom_1p,atom_1,i))
+      ! Construct the element of the dynamical matrix from that in the IBZ.
+      do atom_1=1,structure%no_atoms
+        mode_1 = (atom_1-1)*3+1
+        atom_1p = operate(atom_symmetry_group(j),atom_1)
+        mode_1p = (atom_1p-1)*3+1
+        do atom_2=1,structure%no_atoms
+          mode_2 = (atom_2-1)*3+1
+          atom_2p = operate(atom_symmetry_group(j),atom_2)
+          mode_2p = (atom_2p-1)*3+1
+          
+          dyn_mats_grid(mode_2p:mode_2p+2,mode_1p:mode_1p+2,k) =    &
+             & matmul(matmul(                                       &
+             &    rotations_cart(:,:,l),                            &
+             &    dyn_mats_ibz(mode_2:mode_2+2,mode_1:mode_1+2,i)), &
+             &    transpose(rotations_cart(:,:,l)))                 &
+             & * phase(atom_2p,atom_2,k)*conjg(phase(atom_1p,atom_1,k))
+        enddo
       enddo
+      
+      ! Apply time reversal symmetry if required.
+      if (structure_grid%paired_gvec(i) == i) then
+        dyn_mats_grid(:,:,i) = cmplx(real(dyn_mats_grid(:,:,i)), 0.0_dp, dp)
+      endif
     enddo
-    
-    ! Apply time reversal symmetry if required.
-    if (structure_sc%paired_gvec(i) == i) then
-      dyn_mats_grid(:,:,i) = cmplx(real(dyn_mats_grid(:,:,i)), 0.0_dp, dp)
-    endif
   enddo
   
   ! --------------------------------------------------
@@ -1248,14 +1229,14 @@ subroutine fourier_interpolation(dyn_mats_ibz,structure,grid,temperature, &
   ! --------------------------------------------------
   allocate(force_consts( structure%no_modes, &
                        & structure%no_modes, &
-                       & structure_sc%sc_size))
+                       & structure_grid%sc_size))
   force_consts=0.0_dp
   
-  do i_cell=1,structure_sc%sc_size
-    do i_grid=1,structure_sc%sc_size
-      k_dot_r = dot_product(matmul( structure_sc%gvectors(:,i_grid), &
-                                  & structure_sc%recip_supercell),   &
-                                  & structure_sc%gvectors(:,i_cell))
+  do i_cell=1,structure_grid%sc_size
+    do i_grid=1,structure_grid%sc_size
+      k_dot_r = dot_product(matmul( structure_grid%gvectors(:,i_grid), &
+                                  & structure_grid%recip_supercell),   &
+                                  & structure_grid%gvectors(:,i_cell))
       force_consts(:,:,i_cell) = force_consts(:,:,i_cell) &
                              & + real( dyn_mats_grid(:,:,i_grid) &
                              &       * cmplx(cos(k_dot_r),sin(k_dot_r),dp))
@@ -1268,7 +1249,7 @@ subroutine fourier_interpolation(dyn_mats_ibz,structure,grid,temperature, &
       mode_2 = (atom_2-1)*3+1
       force_consts(mode_2:mode_2+2,mode_1:mode_1+2,:) = &
          &   force_consts(mode_2:mode_2+2,mode_1:mode_1+2,:) &
-         & / structure_sc%sc_size
+         & / structure_grid%sc_size
     enddo
   enddo
   
@@ -1277,17 +1258,17 @@ subroutine fourier_interpolation(dyn_mats_ibz,structure,grid,temperature, &
   ! --------------------------------------------------
   allocate(delta_prim( structure%no_atoms, &
                      & structure%no_atoms, &
-                     & structure_sc%no_modes))
-  delta_prim = calculate_delta_prim(structure,structure_sc)
+                     & structure_grid%no_modes))
+  delta_prim = calculate_delta_prim(structure,structure_grid)
   
   ! --------------------------------------------------
   ! Generate dispersion and density of states.
   ! --------------------------------------------------
-  call generate_dispersion(structure,structure_sc,&
+  call generate_dispersion(structure,structure_grid,&
      & delta_prim,force_consts,path,phonon_dispersion_curve_filename, &
      & high_symmetry_points_filename)
   
-  call generate_dos(structure,structure_sc,delta_prim, &
+  call generate_dos(structure,structure_grid,delta_prim, &
      & force_consts,temperature,free_energy_filename,freq_dos_filename)
 end subroutine
 end module
