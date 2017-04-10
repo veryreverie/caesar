@@ -4,8 +4,10 @@ module run_harmonic_module
   use io_module
 contains
 
+! ----------------------------------------------------------------------
+! Runs DFT for harmonic calculations.
+! ----------------------------------------------------------------------
 subroutine run_harmonic(wd,cwd)
-  use constants_module, only : directions
   use utils_module,     only : format_path
   use unique_directions_module
   implicit none
@@ -14,36 +16,42 @@ subroutine run_harmonic(wd,cwd)
   type(String), intent(in) :: wd
   type(String), intent(in) :: cwd
   
+  ! Previous user inputs.
+  type(String), allocatable :: no_sc_file(:)
+  integer                   :: no_sc
+  type(String), allocatable :: user_input_file(:)
+  type(String)              :: dft_code
+  type(String)              :: seedname
+  
   ! Terminal inputs.
   integer      :: first_sc
   integer      :: last_sc
   integer      :: no_cores
   type(String) :: run_script
   
-  ! Previous user inputs.
-  type(String), allocatable :: user_input_file(:)
-  type(String)              :: dft_code
-  type(String)              :: seedname
-  
-  ! Supercell data.
-  type(String), allocatable :: no_sc_file(:)
-  integer                   :: no_sc
-  
   ! Atom and direction data.
   type(UniqueDirections) :: unique_directions
   integer                :: atom
   character(1)           :: direction
-  logical                :: forces_calculated(3)
   
-  integer                :: i,j,k
+  ! Temporary variables.
+  integer                :: i,j
   type(String)           :: sdir
   type(String)           :: dir
   
-  ! Read in supercell data.
+  ! --------------------------------------------------
+  ! Read in previous user inputs.
+  ! --------------------------------------------------
   no_sc_file = read_lines(wd//'/no_sc.dat')
   no_sc = int(no_sc_file(1))
   
+  user_input_file = read_lines(wd//'/user_input.txt')
+  dft_code = user_input_file(1)
+  seedname = user_input_file(2)
+  
+  ! --------------------------------------------------
   ! Get inputs from user.
+  ! --------------------------------------------------
   call print_line('')
   call print_line('There are '//no_sc//' supercells in total.')
   call print_line('What is the first supercell to run?')
@@ -62,7 +70,9 @@ subroutine run_harmonic(wd,cwd)
   call print_line('(An example script can be found in doc/input_files)')
   run_script = format_path(read_line_from_user(), cwd)
   
+  ! --------------------------------------------------
   ! Check user inputs.
+  ! --------------------------------------------------
   if (first_sc<=0) then
     call print_line('')
     call print_line('Error: first supercell must be > 0')
@@ -88,54 +98,32 @@ subroutine run_harmonic(wd,cwd)
     call print_line('Error: '//run_script//' does not exist.')
   endif
   
-  ! Read previous user inputs.
-  user_input_file = read_lines(wd//'/user_input.txt')
-  dft_code = user_input_file(1)
-  seedname = user_input_file(2)
-  
-  ! Loop over supercells.
+  ! --------------------------------------------------
+  ! Run calculations
+  ! --------------------------------------------------
   do i=first_sc,last_sc
     sdir = wd//'/Supercell_'//i
     
-    ! Read in unique directions.
     unique_directions = read_unique_directions_file( &
        & sdir//'/unique_directions.dat')
     
     do j=1,size(unique_directions)
-      atom = unique_directions%unique_atoms(j)
+      atom = unique_directions%atoms(j)
+      direction = unique_directions%directions_char(j)
       
-      forces_calculated = (/ .true., .true., .true. /)
-      if (unique_directions%xy_symmetry(j)/=0) then
-        forces_calculated(2) = .false.
-      endif
+      dir = sdir//'/atom.'//atom//'.+d'//direction
+      call print_line('Running calculation in directory '//dir)
+      call system_call('cd '//wd//'; '//run_script//' '//dft_code //' '// &
+                                                       & dir      //' '// &
+                                                       & no_cores //' '// &
+                                                       & seedname)
       
-      if ( unique_directions%xz_symmetry(j)/=0 .or. &
-         & unique_directions%yz_symmetry(j)/=0) then
-        forces_calculated(3) = .false.
-      endif
-      
-      do k=1,3
-        if (.not. forces_calculated(k)) then
-          cycle
-        endif
-        
-        direction = directions(k)
-        
-        dir = sdir//'/atom.'//atom//'.+d'//direction
-        call print_line('Running calculation in directory '//dir)
-        call system_call('cd '//wd//'; '//run_script//' '//dft_code //' '// &
-                                                         & dir      //' '// &
-                                                         & no_cores //' '// &
-                                                         & seedname)
-        
-        dir = sdir//'/atom.'//atom//'.-d'//direction
-        call print_line('Working in directory '//dir)
-        call system_call('cd '//wd//'; '//run_script//' '//dft_code //' '// &
-                                                         & dir      //' '// &
-                                                         & no_cores //' '// &
-                                                         & seedname)
-        
-      enddo
+      dir = sdir//'/atom.'//atom//'.-d'//direction
+      call print_line('Working in directory '//dir)
+      call system_call('cd '//wd//'; '//run_script//' '//dft_code //' '// &
+                                                       & dir      //' '// &
+                                                       & no_cores //' '// &
+                                                       & seedname)
     enddo
   enddo
 end subroutine

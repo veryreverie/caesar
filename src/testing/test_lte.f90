@@ -253,8 +253,8 @@ subroutine test_lte(wd,cwd)
     enddo
     
     ! Generate new force constants
-    new_force_constants = calculate_force_constants(structure,structure_sc, &
-       & symmetry_group,unique_directions,sdir,dft_code,seedname)
+  !  new_force_constants = calculate_force_constants(structure,structure_sc, &
+  !     & symmetry_group,unique_directions,sdir,dft_code,seedname)
   
     ! Write out force constants for debugging purposes.
     call mkdir(sdir//'/new_lte')

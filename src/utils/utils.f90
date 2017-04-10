@@ -135,14 +135,34 @@ function make_dft_output_filename(dft_code,seedname) result(output)
 end function
 
 ! ----------------------------------------------------------------------
+! Vector L2 norm.
 ! Replicates norm2() from f2008 standard.
 ! ----------------------------------------------------------------------
-function l2_norm(input) result(output)
+pure function l2_norm(input) result(output)
   implicit none
   
   real(dp), intent(in) :: input(:)
   real(dp)             :: output
   
   output = dsqrt(dot_product(input,input))
+end function
+
+! ----------------------------------------------------------------------
+! Vector outer product.
+! ----------------------------------------------------------------------
+function outer_product(input1,input2) result(output)
+  implicit none
+  
+  real(dp), intent(in)  :: input1(:)
+  real(dp), intent(in)  :: input2(:)
+  real(dp), allocatable :: output(:,:)
+  
+  ! Temporary variables.
+  integer :: i,ialloc
+  
+  allocate(output(size(input1), size(input2)), stat=ialloc); call err(ialloc)
+  do i=1,size(input2)
+    output(:,i) = input2(i) * input1
+  enddo
 end function
 end module

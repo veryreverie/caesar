@@ -8,8 +8,7 @@ contains
 ! Program to set up a harmonic calculation to use with LTE.
 ! ======================================================================
 subroutine setup_harmonic(wd)
-  use constants_module, only : directions
-  use utils_module,     only : mkdir, make_dft_input_filename
+  use utils_module, only : mkdir, make_dft_input_filename
   use structure_module
   use supercell_module
   use group_module
@@ -48,13 +47,14 @@ subroutine setup_harmonic(wd)
   type(String) :: sdir
   type(String) :: paths(2)
   
-  ! Force constants data
+  ! Perturbation direction information.
   type(UniqueDirections) :: unique_directions
-  integer :: atom
-  character(1) :: direction
+  integer                :: atom
+  integer                :: direction_int
+  character(1)           :: direction_char
   
-  ! Temporary variables
-  integer        :: i,j,k,l
+  ! Temporary variables.
+  integer        :: i,j,k
   
   type(String), allocatable :: user_input_file_in(:)
   
@@ -153,10 +153,6 @@ subroutine setup_harmonic(wd)
   supercells = kpoints_and_supercells%supercells
   
   ! Write K-point data to file.
-!  call write_kpoints_grid_file( kpoints_and_supercells%kpoints_grid, &
-!                              & wd//'/kpoints_grid.dat')
-!  call write_kpoints_ibz_file( kpoints_and_supercells%kpoints_ibz, &
-!                             & wd//'/kpoints_ibz.dat')
   call write_structure_file( kpoints_and_supercells%structure_grid, &
                            & wd//'/structure_grid.dat')
   call write_kpoints_file( kpoints_and_supercells%kpoints_ibz, &
@@ -198,46 +194,43 @@ subroutine setup_harmonic(wd)
                                      & sdir//'/unique_directions.dat')
     
     ! ----------------------------------------------------------------------
-    ! Write DFT code input files
+    ! Write DFT code input files.
     ! ----------------------------------------------------------------------
-    do k=1,size(unique_directions)
-      atom = unique_directions%unique_atoms(k)
-      do j=1,3
-        ! Skip directions which are covered by symmetry.
-        if (j==2 .and. unique_directions%xy_symmetry(k)>0) then
-          cycle
-        endif
-        if (j==3 .and. ( unique_directions%xz_symmetry(k)>0 .or. &
-                       & unique_directions%yz_symmetry(k)>0)) then
-          cycle
-        endif
+    do j=1,size(unique_directions)
+      atom = unique_directions%atoms(j)
+      direction_int = unique_directions%directions_int(j)
+      direction_char = unique_directions%directions_char(j)
+      
+      paths = (/ sdir//'/atom.'//atom//'.+d'//direction_char, &
+               & sdir//'/atom.'//atom//'.-d'//direction_char /)
+      
+      ! Make harmonic run directories.
+      do k=1,2
+        call mkdir(paths(k))
         
-        direction = directions(j)
-        paths = (/ sdir//'/atom.'//atom//'.+d'//direction, &
-                 & sdir//'/atom.'//atom//'.-d'//direction /)
-        
-        ! Make harmonic run directories
-        do l=1,2
-          call mkdir(paths(l))
+        ! Move relevant atom.
+        if(k==1) then
+          structure_sc%atoms(direction_int,atom) =      &
+             &   structure_sc%atoms(direction_int,atom) &
+             & + 0.01_dp
+        elseif(k==2) then
+          structure_sc%atoms(direction_int,atom) =      &
+             &   structure_sc%atoms(direction_int,atom) &
+             & - 0.02_dp
+        endif
           
-          ! Move relevant atom
-          if(l==1) then
-            structure_sc%atoms(j,atom) = structure_sc%atoms(j,atom) + 0.01_dp
-          elseif(l==2) then
-            structure_sc%atoms(j,atom) = structure_sc%atoms(j,atom) - 0.02_dp
-          endif
-            
-          ! Write dft input files
-          dft_input_filename = make_dft_input_filename(dft_code,seedname)
-          call structure_to_dft( dft_code, &
-                               & structure_sc, &
-                               & wd//'/'//dft_input_filename, &
-                               & paths(l)//'/'//dft_input_filename)
-        enddo
-        
-        ! Reset moved atom
-        structure_sc%atoms(j,atom) = structure_sc%atoms(j,atom) + 0.01_dp
+        ! Write dft input files.
+        dft_input_filename = make_dft_input_filename(dft_code,seedname)
+        call structure_to_dft( dft_code,                    &
+                             & structure_sc,                &
+                             & wd//'/'//dft_input_filename, &
+                             & paths(k)//'/'//dft_input_filename)
       enddo
+      
+      ! Reset moved atom.
+      structure_sc%atoms(direction_int,atom) =      &
+         &   structure_sc%atoms(direction_int,atom) &
+         & + 0.01_dp
     enddo
   enddo
 end subroutine

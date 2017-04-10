@@ -4,7 +4,6 @@ module test_copy_harmonic_module
   use io_module
 contains
 subroutine test_copy_harmonic(wd,cwd)
-  use constants_module, only : directions
   use utils_module,     only : format_path, make_dft_output_filename
   use structure_module
   use unique_directions_module
@@ -96,50 +95,38 @@ subroutine test_copy_harmonic(wd,cwd)
     unique_directions = &
        & read_unique_directions_file(sdir_new//'/unique_directions.dat')
     do j=1,size(unique_directions)
-      atom = unique_directions%unique_atoms(j)
+      atom = unique_directions%atoms(j)
+      direction = unique_directions%directions_char(j)
       
-      do k=1,3
-        if (k==2 .and. unique_directions%xy_symmetry(j)/=0) then
-          cycle
-        endif
-        
-        if (k==3 .and. ( unique_directions%yz_symmetry(j)/=0 .or. &
-                       & unique_directions%xz_symmetry(j)/=0)) then
-          cycle
-        endif
-        
-        direction = directions(k)
-        
-        copy_dirs = (/ sdir_old//'/atom.'//atom//'.disp.'//k//'/positive', &
-                    &  sdir_old//'/atom.'//atom//'.disp.'//k//'/negative'  /)
-        
-        new_dirs = (/ sdir_new//'/atom.'//atom//'.+d'//direction, &
-                   &  sdir_new//'/atom.'//atom//'.-d'//direction  /)
-        do l=1,2
-          ! Read in the old castep file.
-          dft_output_filename = make_dft_output_filename(dft_code,seedname)
-          dft_output_filename = copy_dirs(l)//'/'//dft_output_filename
-          dft_output = read_dft_output_file(dft_code,dft_output_filename)
-        
-          ! Make a fake castep output file.
-          copied_output = open_write_file( &
-             & new_dirs(l)//'/'//seedname//'.castep')
-          call print_line( copied_output,&
-                         & 'final energy, E = '//dft_output%energy)
-          call print_line(copied_output,'*********************** forces')
-          do m=1,5
-            call print_line(copied_output,'')
-          enddo
-          do m=1,structure_copy%no_atoms
-            call print_line(copied_output, &
-               & ': '//structure_copy%species(operate(new_to_copy,m))//' : '// &
-               & dft_output%forces(:,operate(new_to_copy,m)))
-          enddo
+      copy_dirs = (/ sdir_old//'/atom.'//atom//'.disp.'//k//'/positive', &
+                  &  sdir_old//'/atom.'//atom//'.disp.'//k//'/negative'  /)
+      
+      new_dirs = (/ sdir_new//'/atom.'//atom//'.+d'//direction, &
+                 &  sdir_new//'/atom.'//atom//'.-d'//direction  /)
+      do l=1,2
+        ! Read in the old castep file.
+        dft_output_filename = make_dft_output_filename(dft_code,seedname)
+        dft_output_filename = copy_dirs(l)//'/'//dft_output_filename
+        dft_output = read_dft_output_file(dft_code,dft_output_filename)
+      
+        ! Make a fake castep output file.
+        copied_output = open_write_file( &
+           & new_dirs(l)//'/'//seedname//'.castep')
+        call print_line( copied_output,&
+                       & 'final energy, E = '//dft_output%energy)
+        call print_line(copied_output,'*********************** forces')
+        do m=1,5
           call print_line(copied_output,'')
-          call print_line(copied_output,'*************************************&
-                          &*****************')
-          close(copied_output)
         enddo
+        do m=1,structure_copy%no_atoms
+          call print_line(copied_output, &
+             & ': '//structure_copy%species(operate(new_to_copy,m))//' : '// &
+             & dft_output%forces(:,operate(new_to_copy,m)))
+        enddo
+        call print_line(copied_output,'')
+        call print_line(copied_output,'*************************************&
+                        &*****************')
+        close(copied_output)
       enddo
     enddo
   enddo
