@@ -17,6 +17,7 @@ module io_module
   
   ! Other IO operations.
   public :: system_call           ! Makes a system call.
+  public :: get_current_directory ! Gets the current directory.
   public :: read_line_from_user   ! Reads a line from the terminal.
   public :: update_terminal_width ! Gets the terminal width.
   public :: print_line            ! write(*,'(a)')
@@ -85,8 +86,20 @@ module io_module
       use, intrinsic :: iso_c_binding
       implicit none
       
-      character(kind=c_char) :: input
-      integer(kind=c_int)    :: output
+      character(kind=c_char), intent(in) :: input(*)
+      integer(kind=c_int)                :: output
+    end function
+  end interface
+  
+  ! C pwd call interface.
+  interface
+    function pwd_c(cwd_size, cwd) bind(c) result(output)
+      use, intrinsic :: iso_c_binding
+      implicit none
+      
+      integer(kind=c_int),    intent(in)  :: cwd_size
+      character(kind=c_char), intent(out) :: cwd(*)
+      logical(kind=c_bool)                :: output
     end function
   end interface
 
@@ -299,6 +312,39 @@ subroutine system_call(this)
   
   result_code = system_c(char(this)//char(0))
 end subroutine
+
+! Gets the current working directory via system.c.
+function get_current_directory() result(output)
+  implicit none
+  
+  type(String) :: output
+  
+  integer, parameter  :: cwd_size = 1024
+  
+  character(cwd_size) :: current_dir
+  logical             :: success
+  integer             :: i
+  
+  success = pwd_c(cwd_size, current_dir)
+  
+  if (.not. success) then
+    call print_line('pwd failed.')
+    call err()
+  endif
+  
+  output = ''
+  do i=1,cwd_size
+    if (current_dir(i:i)==char(0)) then
+      output = current_dir(:i-1)
+      exit
+    endif
+  enddo
+  
+  if (output=='') then
+    call print_line('pwd string not nul-terminated.'//current_dir)
+    call err()
+  endif
+end function
 
 function read_line_from_user() result(line)
   implicit none

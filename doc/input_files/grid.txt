@@ -1,3 +1,0 @@
-'grid.dat' file format:
-
-* Line 1.         Size of vibrational BZ grid.

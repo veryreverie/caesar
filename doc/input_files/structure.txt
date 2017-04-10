@@ -1,9 +1,0 @@
-'structure.dat' file format:
-
-* Line 1.         The word 'Lattice'.
-* Lines 2 to 4.   Cartesian lattice vectors in bohr.
-* Line 5.         The word 'Atoms'.
-* Lines 6 to N.   Atomic symbol, atomic mass, and Cartesian atomic positions in bohr.
-* Line N+1.       The word 'Symmetry'.
-* Line N+2 to M.  Symmetry operations.
-* Line M+1.       The word 'End'.

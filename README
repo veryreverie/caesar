@@ -20,4 +20,10 @@ For help, call
 ----------------------------------------
 Inputs
 ----------------------------------------
-Example input files can be found in CAESAR/doc/input_files
+Caesar currently only runs interactively.
+It requires a castep .cell file in the working directory.
+Atom positions and masses, and the lattice parameters, must be supplied.
+
+Caesar requires a run script to run DFT.
+This will be called from the working directory, and given a number of command line arguments.
+An example run script can be found in CAESAR/doc/input_files.

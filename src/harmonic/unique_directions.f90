@@ -219,9 +219,9 @@ function calculate_unique_directions(structure,symmetry_group) result(this)
            & .or.                                                             &
            & abs(structure%rotations(2,1,j))>abs(structure%rotations(3,2,j))) &
            & then
-          unique_dirs_frac(2,j) = .false.
+          unique_dirs_frac(2,i) = .false.
         else
-          unique_dirs_frac(3,j) = .false.
+          unique_dirs_frac(3,i) = .false.
         endif
       else
         ! This is not the first symmetry found.
@@ -242,32 +242,32 @@ function calculate_unique_directions(structure,symmetry_group) result(this)
   ! --------------------------------------------------
   allocate(unique_dirs_cart(3,no_unique_atoms), stat=ialloc); call err(ialloc)
   do i=1,no_unique_atoms
-    unique_dirs_cart(:,j) = (/.true.,.true.,.true./)
-    if (all(unique_dirs_frac(:,j) .eqv. .true.)) then
+    unique_dirs_cart(:,i) = (/.true.,.true.,.true./)
+    if (all(unique_dirs_frac(:,i) .eqv. .true.)) then
       ! All directions are independent in both co-ordinate systems.
       continue
-    elseif (all(unique_dirs_frac(:,j) .eqv. (/.true.,.false.,.false./))) then
+    elseif (all(unique_dirs_frac(:,i) .eqv. (/.true.,.false.,.false./))) then
       ! All directions are dependent in both co-ordinate systems.
-      unique_dirs_cart(2:3,j) = .false.
+      unique_dirs_cart(2:3,i) = .false.
     else
       ! There are two independent directions.
-      if (unique_dirs_frac(2,j) .eqv. .false.) then
+      if (unique_dirs_frac(2,i) .eqv. .false.) then
         if ( abs(structure%lattice(2,1)) > abs(structure%lattice(2,2)) .and. &
            & abs(structure%lattice(2,1)) > abs(structure%lattice(2,3))) then
-          unique_dirs_cart(1,j) = .false.
+          unique_dirs_cart(1,i) = .false.
         elseif (abs(structure%lattice(2,2)) > abs(structure%lattice(2,3))) then
-          unique_dirs_cart(2,j) = .false.
+          unique_dirs_cart(2,i) = .false.
         else
-          unique_dirs_cart(3,j) = .false.
+          unique_dirs_cart(3,i) = .false.
         endif
       else
         if ( abs(structure%lattice(3,1)) > abs(structure%lattice(3,2)) .and. &
            & abs(structure%lattice(3,1)) > abs(structure%lattice(3,3))) then
-          unique_dirs_cart(1,j) = .false.
+          unique_dirs_cart(1,i) = .false.
         elseif (abs(structure%lattice(3,2)) > abs(structure%lattice(3,3))) then
-          unique_dirs_cart(2,j) = .false.
+          unique_dirs_cart(2,i) = .false.
         else
-          unique_dirs_cart(3,j) = .false.
+          unique_dirs_cart(3,i) = .false.
         endif
       endif
     endif
@@ -285,7 +285,7 @@ function calculate_unique_directions(structure,symmetry_group) result(this)
         cycle
       endif
       
-      this%atoms(k) = i
+      this%atoms(k) = unique_atoms(i)
       this%directions_int(k) = j
       this%directions_char(k) = direction_int_to_char(j)
       this%modes(k) = (i-1)*3+j

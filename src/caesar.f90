@@ -33,14 +33,13 @@ program caesar
   ! Working directories.
   type(String) :: wd
   type(String) :: cwd
-  type(String), allocatable :: temp_file(:)
   
   ! read in command line arguments.
   args = command_line_args()
   
   if (size(args) < 1) then
     call print_line('No arguments given. For help, call caesar -h')
-    call err()
+    stop
   endif
   
   mode = args(1)
@@ -50,40 +49,37 @@ program caesar
     call print_line('caesar [-h] [option]')
     call print_line('')
     call print_line('-h :')
-    call print_line('  Displays this help text')
+    call print_line('  Displays this help text.')
     call print_line('')
-    call print_line('option : utilities :')
-    call print_line('  hartree_to_eV :')
-    call print_line('    Provides a Hartree to eV calculator')
-    call print_line('')
-    call print_line('option : harmonic calculations :')
+    call print_line('Harmonic options :')
     call print_line('  setup_harmonic :')
-    call print_line('    Sets up calculation')
-    call print_line('    Converts calculation to specific DFT code')
-    call print_line('    DFT code choices are castep, vasp and qe')
+    call print_line('    Sets up harmonic calculation.')
+    call print_line('    DFT code choices are: castep.')
     call print_line('  run_harmonic :')
-    call print_line('    Runs calculation on the TCM cluster')
-    call print_line('    Should be called after setup_harmonic')
+    call print_line('    Runs harmonic calculation.')
+    call print_line('    Should be called after setup_harmonic.')
     call print_line('  lte_harmonic :')
-    call print_line('    Runs harmonic calculations')
-    call print_line('    Should be called after run_harmonic')
-    call print_line('  clear_all :')
-    call print_line('    Deletes all temporary files and folders')
+    call print_line('    Runs harmonic calculations.')
+    call print_line('    Should be called after run_harmonic.')
     call print_line('')
-    call print_line('option : quadratic calculations :')
+    call print_line('Quadratic options :')
     call print_line('  setup_quadratic :')
-    call print_line('    Sets up quadratic calculation for use with a DFT code')
-    call print_line('    DFT code choices are castep, vasp and qe')
-    call print_line('    Should be called after lte_harmonic')
+    call print_line('    Sets up quadratic calculation.')
+    call print_line('    DFT code choices are: castep.')
+    call print_line('    Should be called after lte_harmonic.')
     call print_line('  run_quadratic :')
-    call print_line('    Runs calculation on the TCM cluster')
-    call print_line('    Should be called after setup_quadratic')
+    call print_line('    Runs calculation on the TCM cluster.')
+    call print_line('    Should be called after setup_quadratic.')
     call print_line('  anharmonic :')
-    call print_line('    Runs anharmonic calculations')
-    call print_line('    Should be called after run_quadratic')
+    call print_line('    Runs anharmonic calculations.')
+    call print_line('    Should be called after run_quadratic.')
     call print_line('  bs_quadratic :')
-    call print_line('    Runs band structure calculations')
-    call print_line('    Should be called after run_quadratic')
+    call print_line('    Runs band structure calculations.')
+    call print_line('    Should be called after run_quadratic.')
+    call print_line('')
+    call print_line('Utility options :')
+    call print_line('  hartree_to_eV :')
+    call print_line('    Provides a Hartree to eV calculator.')
     call print_line('  get_kpoints :')
     call print_line('    [Help text pending]')
     call print_line('  calculate_gap')
@@ -91,22 +87,16 @@ program caesar
     stop
   endif
   
+  ! Get current directory.
+  cwd = get_current_directory()
+  
   ! Get working directory from user.
   call print_line('')
   call print_line('Where is the working directory?')
-  wd = read_line_from_user()
-  
-  ! Get current directory.
-  call system_call('pwd > '//wd//'/temp.txt')
-  temp_file = read_lines(wd//'/temp.txt')
-  cwd = temp_file(1)
-  call system_call('rm '//wd//'/temp.txt')
-  
-  ! Convert working directory to absolute path.
-  wd = format_path(temp_file(1), cwd)
+  wd = format_path(read_line_from_user(), cwd)
   
   ! Set terminal width for formatting purposes.
-  call update_terminal_width(wd//'temp.dat')
+  call update_terminal_width(wd//'/temp.dat')
   
   if (mode == 'test') then
     call system_call(str('mkdir this_is_another_dir'))
