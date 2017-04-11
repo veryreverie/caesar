@@ -1,5 +1,5 @@
 ! ======================================================================
-! A class representing the contents of structure.dat
+! All data relating to a given atomic configuration.
 ! ======================================================================
 module structure_module
   use constants_module, only : dp
@@ -40,10 +40,6 @@ module structure_module
     module procedure new_StructureData
   end interface
   
-  interface drop
-    module procedure drop_StructureData
-  end interface
-  
   interface read_structure_file
     module procedure read_structure_file_character
     module procedure read_structure_file_string
@@ -56,6 +52,9 @@ module structure_module
   
 contains
 
+! ----------------------------------------------------------------------
+! Allocates all arrays, and sets no_ variables.
+! ----------------------------------------------------------------------
 subroutine new_StructureData(this,no_atoms,no_symmetries,sc_size)
   implicit none
   
@@ -96,37 +95,16 @@ subroutine new_StructureData(this,no_atoms,no_symmetries,sc_size)
   allocate(this%paired_gvec(sc_size))
 end subroutine
 
-! Deallocates a Structure
-subroutine drop_StructureData(this)
-  implicit none
-  
-  type(StructureData), intent(inout) :: this
-  
-  deallocate(this%species)
-  deallocate(this%mass)
-  deallocate(this%atoms)
-  
-  deallocate(this%atom_to_prim)
-  deallocate(this%atom_to_gvec)
-  deallocate(this%gvec_and_prim_to_atom)
-  
-  if (this%no_symmetries /= 0) then
-    deallocate(this%rotations)
-    deallocate(this%offsets)
-  endif
-  
-  deallocate(this%gvectors)
-  deallocate(this%paired_gvec)
-end subroutine
-
-! reads structure.dat
+! ----------------------------------------------------------------------
+! Reads structure.dat
+! ----------------------------------------------------------------------
 function read_structure_file_character(filename) result(this)
   use constants_module,      only : identity
   use linear_algebra_module, only : invert, invert_int
   implicit none
   
-  character(*),        intent(in) :: filename
-  type(StructureData)             :: this
+  character(*),       intent(in) :: filename
+  type(StructureData)            :: this
   
   type(String), allocatable :: structure_file(:)
   type(String), allocatable :: line(:)

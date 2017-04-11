@@ -18,10 +18,6 @@ module supercell_module
     module procedure new_SupercellData
   end interface
   
-  interface drop
-    module procedure drop_SupercellData
-  end interface
-  
 contains
 
 subroutine new_SupercellData(this,sc_size)
@@ -32,14 +28,6 @@ subroutine new_SupercellData(this,sc_size)
   
   this%sc_size = sc_size
   allocate(this%gvectors(3,sc_size))
-end subroutine
-
-subroutine drop_SupercellData(this)
-  implicit none
-  
-  type(SupercellData), intent(inout) :: this
-  
-  deallocate(this%gvectors)
 end subroutine
 
 ! ----------------------------------------------------------------------

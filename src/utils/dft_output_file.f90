@@ -12,7 +12,6 @@ module dft_output_file_module
   public :: DftOutputFile
   public :: read_dft_output_file
   public :: new
-  public :: drop
   
   type DftOutputFile
     integer                   :: no_atoms
@@ -25,10 +24,6 @@ module dft_output_file_module
     module procedure new_DftOutputFile
   end interface
   
-  interface drop
-    module procedure drop_DftOutputFile
-  end interface
-    
 contains
 
 subroutine new_DftOutputFile(this, no_atoms)
@@ -40,15 +35,6 @@ subroutine new_DftOutputFile(this, no_atoms)
   this%no_atoms = no_atoms
   allocate(this%species(no_atoms))
   allocate(this%forces(3,no_atoms))
-end subroutine
-
-subroutine drop_DftOutputFile(this)
-  implicit none
-  
-  type(DftOutputFile), intent(inout) :: this
-  
-  deallocate(this%species)
-  deallocate(this%forces)
 end subroutine
 
 function read_castep_output_file(filename) result(output)

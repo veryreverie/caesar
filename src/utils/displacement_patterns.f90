@@ -30,10 +30,6 @@ module displacement_patterns_module
     module procedure new_DispPatterns
   end interface
   
-  interface drop
-    module procedure drop_DispPatterns
-  end interface
-  
   interface read_disp_patterns_file
     module procedure read_disp_patterns_file_character
     module procedure read_disp_patterns_file_String
@@ -52,16 +48,6 @@ subroutine new_DispPatterns(this,no_gvectors,no_modes,no_atoms)
   allocate(this%frequencies(no_modes,no_gvectors))
   allocate(this%disp_patterns(3,no_atoms,no_modes,no_gvectors))
   allocate(this%prefactors(no_atoms,no_modes,no_gvectors))
-end subroutine
-
-subroutine drop_DispPatterns(this)
-  implicit none
-  
-  type(DispPatterns), intent(inout) :: this
-  
-  deallocate(this%frequencies)
-  deallocate(this%disp_patterns)
-  deallocate(this%prefactors)
 end subroutine
 
 function read_disp_patterns_file_character(filename,no_modes) result(this)

@@ -16,7 +16,6 @@ module string_module
   
   ! Allocate and deallocate
   public :: assignment(=) ! Assignment to and from String
-  public :: drop          ! Deallocator
   
   ! Conversions between classes
   public :: str           ! Conversion to String
@@ -53,10 +52,6 @@ module string_module
     module procedure assign_String_real
     module procedure assign_String_logical
     module procedure assign_character_String
-  end interface
-
-  interface drop
-    module procedure drop_String
   end interface
 
   interface str
@@ -230,17 +225,6 @@ pure subroutine assign_character_String(output,input)
   character(*), intent(inout) :: output
   
   output = input%contents
-end subroutine
-
-! ----------------------------------------------------------------------
-! Deallocation
-! ----------------------------------------------------------------------
-pure subroutine drop_String(this)
-  implicit none
-  
-  type(String), intent(inout) :: this
-  
-  deallocate(this%contents)
 end subroutine
 
 ! ----------------------------------------------------------------------

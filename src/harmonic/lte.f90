@@ -53,11 +53,6 @@ module lte_module
     module procedure new_FreqsPolVecs
   end interface
   
-  interface drop
-    module procedure drop_LteReturn
-    module procedure drop_FreqsPolVecs
-  end interface
-  
 contains
 
 subroutine new_LteReturn(this,sc_size,no_modes,no_atoms)
@@ -85,28 +80,6 @@ subroutine new_FreqsPolVecs(this,no_modes)
   
   allocate(this%frequencies(no_modes))
   allocate(this%polarisation_vectors(no_modes,no_modes))
-end subroutine
-
-subroutine drop_LteReturn(this)
-  implicit none
-  
-  type(LteReturn), intent(inout) :: this
-  
-  deallocate(this%dynamical_matrices)
-  deallocate(this%frequencies)
-  deallocate(this%prefactors)
-  deallocate(this%displacements)
-  deallocate(this%k_displacements)
-  deallocate(this%polarisation_vectors)
-end subroutine
-
-subroutine drop_FreqsPolVecs(this)
-  implicit none
-  
-  type(FreqsPolVecs), intent(inout) :: this
-  
-  deallocate(this%frequencies)
-  deallocate(this%polarisation_vectors)
 end subroutine
 
 ! ----------------------------------------------------------------------

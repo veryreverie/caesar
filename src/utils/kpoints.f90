@@ -20,10 +20,6 @@ module kpoints_module
   interface new
     module procedure new_KpointData
   end interface
-  
-  interface drop
-    module procedure drop_KpointData
-  end interface
 contains
 
 subroutine new_KpointData(this,multiplicity)
@@ -37,18 +33,6 @@ subroutine new_KpointData(this,multiplicity)
   allocate( this%gvectors(multiplicity),  &
           & this%rotations(multiplicity), &
           & stat=ialloc); call err(ialloc)
-end subroutine
-
-subroutine drop_KpointData(this)
-  implicit none
-  
-  type(KpointData), intent(inout) :: this
-  
-  integer :: ialloc
-  
-  deallocate( this%gvectors, &
-            & this%rotations, &
-            & stat=ialloc); call err(ialloc)
 end subroutine
 
 subroutine write_kpoints_file(this,filename)

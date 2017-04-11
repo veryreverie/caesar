@@ -12,10 +12,6 @@ module group_module
     module procedure new_Group
   end interface
   
-  interface drop
-    module procedure drop_Group
-  end interface
-  
   interface assignment(=)
     module procedure assign_Group
   end interface
@@ -32,14 +28,6 @@ subroutine new_Group(this,no_elements)
   integer,     intent(in)  :: no_elements
   
   allocate(this%operation(no_elements))
-end subroutine
-
-subroutine drop_Group(this)
-  implicit none
-  
-  type(Group), intent(inout) :: this
-  
-  deallocate(this%operation)
 end subroutine
 
 subroutine assign_Group(output,input)

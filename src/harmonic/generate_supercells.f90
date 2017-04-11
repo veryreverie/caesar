@@ -18,10 +18,6 @@ module generate_supercells_module
     module procedure new_GeneratedSupercells
   end interface
   
-  interface drop
-    module procedure drop_GeneratedSupercells
-  end interface
-  
   interface lcm
     module procedure lcm_2 ! lowest common multiple of two positive integers
     module procedure lcm_3 ! lowest common multiple of three positive integers
@@ -29,6 +25,9 @@ module generate_supercells_module
 
 contains
 
+! ----------------------------------------------------------------------
+! Allocates all arrays.
+! ----------------------------------------------------------------------
 subroutine new_GeneratedSupercells(this,no_kpoints_ibz,no_supercells)
   implicit none
   
@@ -41,25 +40,6 @@ subroutine new_GeneratedSupercells(this,no_kpoints_ibz,no_supercells)
   allocate( this%kpoints_ibz(no_kpoints_ibz), &
           & this%supercells(no_supercells),   &
           & stat=ialloc); call err(ialloc)
-end subroutine
-
-subroutine drop_GeneratedSupercells(this)
-  implicit none
-  
-  type(GeneratedSupercells), intent(inout) :: this
-  
-  integer :: i,ialloc
-  
-  call drop(this%structure_grid)
-  do i=1,size(this%kpoints_ibz)
-    call drop(this%kpoints_ibz(i))
-  enddo
-  do i=1,size(this%supercells)
-    call drop(this%supercells(i))
-  enddo
-  deallocate( this%kpoints_ibz, &
-            & this%supercells,  &
-            & stat=ialloc); call err(ialloc)
 end subroutine
 
 ! ----------------------------------------------------------------------

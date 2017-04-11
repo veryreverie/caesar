@@ -13,10 +13,6 @@ module min_images_module
     module procedure new_MinImages
   end interface
   
-  interface drop
-    module procedure drop_MinImages
-  end interface
-  
   interface size
     module procedure size_MinImages
   end interface
@@ -29,14 +25,6 @@ subroutine new_MinImages(this,no_images)
   integer,         intent(in)  :: no_images
   
   allocate(this%images(3,no_images))
-end subroutine
-
-subroutine drop_MinImages(this)
-  implicit none
-  
-  type(MinImages), intent(inout) :: this
-  
-  deallocate(this%images)
 end subroutine
 
 function size_MinImages(this) result(output)

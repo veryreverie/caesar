@@ -25,10 +25,6 @@ module vscf_1d_module
     module procedure new_VscfData
   end interface
   
-  interface drop
-    module procedure drop_VscfData
-  end interface
-  
 contains
 
 function vscf_1d(frequency, potential, Nbasis) result(output)
@@ -122,19 +118,6 @@ pure subroutine new_VscfData(this,Npoints,Nbasis)
   allocate(this%harmonic(Nbasis))
   allocate(this%eigenvals(Nbasis))
   allocate(this%eigenvecs(Nbasis,Nbasis))
-end subroutine
-
-! deallocate(VscfData)
-pure subroutine drop_VscfData(this)
-  implicit none
-  
-  type(VscfData), intent(inout) :: this
-  
-  deallocate(this%anh_pot)
-  deallocate(this%hamiltonian)
-  deallocate(this%harmonic)
-  deallocate(this%eigenvals)
-  deallocate(this%eigenvecs)
 end subroutine
 
 end module

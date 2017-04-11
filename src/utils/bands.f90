@@ -13,10 +13,6 @@ module bands_module
     module procedure new_BandsData
   end interface
   
-  interface drop
-    module procedure drop_BandsData
-  end interface
-  
   interface read_castep_bands_file
     module procedure read_castep_bands_file_character
     module procedure read_castep_bands_file_String
@@ -39,14 +35,6 @@ subroutine new_BandsData(this,no_kpoints,no_bands)
   this%no_bands = no_bands
   
   allocate(this%bands(no_bands,no_kpoints))
-end subroutine
-
-subroutine drop_BandsData(this)
-  implicit none
-  
-  type(BandsData), intent(inout) :: this
-  
-  deallocate(this%bands)
 end subroutine
 
 ! ----------------------------------------------------------------------

@@ -198,7 +198,6 @@ subroutine anharmonic(wd)
         deallocate(amplitudes)
         deallocate(spline)
         deallocate(vscf)
-        call drop(vscf)
         
       enddo
     endif
