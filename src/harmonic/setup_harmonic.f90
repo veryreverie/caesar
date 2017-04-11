@@ -20,7 +20,6 @@ subroutine setup_harmonic(wd)
   use construct_supercell_module
   use unique_directions_module
   use calculate_symmetry_group_module
-  use calculate_symmetry_module
   implicit none
   
   ! Working directory.
@@ -120,12 +119,6 @@ subroutine setup_harmonic(wd)
   endif
   
   ! ----------------------------------------------------------------------
-  ! Read in input files.
-  ! ----------------------------------------------------------------------
-  !structure = read_structure_file(wd//'/structure.dat')
-  structure = dft_input_file_to_structure(dft_code,dft_input_filename)
-  
-  ! ----------------------------------------------------------------------
   ! Write user settings to file
   ! ----------------------------------------------------------------------
   if (.not. file_exists(wd//'/user_input.txt')) then
@@ -137,12 +130,9 @@ subroutine setup_harmonic(wd)
   endif
   
   ! ----------------------------------------------------------------------
-  ! Add symmetries to structure.dat if not already present.
+  ! Read in input files.
   ! ----------------------------------------------------------------------
-  if (structure%no_symmetries == 0) then
-    call calculate_symmetry(structure)
-  endif
-  
+  structure = dft_input_file_to_structure(dft_code,dft_input_filename)
   call write_structure_file(structure,wd//'/structure.dat')
   
   ! ----------------------------------------------------------------------
@@ -174,10 +164,8 @@ subroutine setup_harmonic(wd)
     
     ! Generate supercell structure.
     structure_sc = construct_supercell(structure, supercells(i))
-    
-    ! Add symmetries to supercell structure.dat
-    call calculate_symmetry(structure_sc)
     call write_structure_file(structure_sc, sdir//'/structure.dat')
+    
     ! ----------------------------------------------------------------------
     ! Calculate symmetry group.
     ! ----------------------------------------------------------------------

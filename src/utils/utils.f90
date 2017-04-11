@@ -14,28 +14,24 @@ module utils_module
 contains
 
 ! ----------------------------------------------------------------------
-! Returns an array containing the command line arguments
+! Returns an array containing the command line arguments.
 ! ----------------------------------------------------------------------
 function command_line_args() result(args)
   implicit none
 
-  integer                   :: i         ! loop index
-  integer                   :: arg_count ! no. of command line args
-  type(String), allocatable :: args(:)   ! return value
+  type(String), allocatable :: args(:)
   
+  ! Temporary variables.
+  integer         :: i,ialloc
+  integer         :: arg_count
   character(1000) :: temp_char
 
-  ! read in the number of arguments
   arg_count = command_argument_count()
-  ! allocate the return array
-  allocate (args(arg_count))
-  ! read the arguments into the array
+  allocate (args(arg_count), stat=ialloc); call err(ialloc)
   do i=1,arg_count
     call get_command_argument(i, temp_char)
     args(i) = trim(temp_char)
   enddo
-
-  return
 end function
 
 ! ----------------------------------------------------------------------

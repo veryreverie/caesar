@@ -28,6 +28,8 @@ program caesar
   
   ! Command line arguments.
   type(String), allocatable :: args(:)
+  type(String)              :: options
+  type(CommandLineFlag)     :: flag
   type(String)              :: mode
   
   ! Working directories.
@@ -41,6 +43,17 @@ program caesar
     call print_line('No arguments given. For help, call caesar -h')
     stop
   endif
+  
+  options = 'h:alf:'
+  do
+    flag = get_flag(args,options)
+    if (flag%flag==' ') then
+      exit
+    endif
+    call print_line('')
+    call print_line('flag : '//flag%flag)
+    call print_line('arg  : '//flag%argument)
+  enddo
   
   mode = args(1)
   

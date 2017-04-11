@@ -7,6 +7,9 @@ module io_module
   
   integer :: TERMINAL_WIDTH = 79
   
+  ! Command line flag and argument.
+  public CommandLineFlag
+  
   ! File operations.
   public :: open_read_file   ! open a file for reading
   public :: open_write_file  ! open a file for writing
@@ -18,10 +21,16 @@ module io_module
   ! Other IO operations.
   public :: system_call           ! Makes a system call.
   public :: get_current_directory ! Gets the current directory.
+  public :: get_flag              ! Reads a flag from the command line.
   public :: read_line_from_user   ! Reads a line from the terminal.
   public :: update_terminal_width ! Gets the terminal width.
   public :: print_line            ! write(*,'(a)')
   public :: err                   ! Aborts with a stacktrace.
+  
+  type CommandLineFlag
+    character(1) :: flag
+    type(String) :: argument
+  end type
   
   interface open_read_file
     module procedure open_read_file_character
@@ -82,24 +91,39 @@ module io_module
   
   ! C system call interface.
   interface
-    function system_c(input) bind(c) result(output)
+    function system_c(input) bind(c) result(return_code)
       use, intrinsic :: iso_c_binding
       implicit none
       
       character(kind=c_char), intent(in) :: input(*)
-      integer(kind=c_int)                :: output
+      integer(kind=c_int)                :: return_code
     end function
   end interface
   
   ! C pwd call interface.
   interface
-    function pwd_c(cwd_size, cwd) bind(c) result(output)
+    function pwd_c(cwd_size, cwd) bind(c) result(success)
       use, intrinsic :: iso_c_binding
       implicit none
       
       integer(kind=c_int),    intent(in)  :: cwd_size
       character(kind=c_char), intent(out) :: cwd(*)
-      logical(kind=c_bool)                :: output
+      logical(kind=c_bool)                :: success
+    end function
+  end interface
+  
+  ! C flag parsing interface.
+  interface
+    function get_flag_c(argc,argvs,options,flag,output) bind(c) result(success)
+      use, intrinsic :: iso_c_binding
+      implicit none
+      
+      integer(kind=c_int),    intent(in)    :: argc
+      character(kind=c_char), intent(inout) :: argvs(*)
+      character(kind=c_char), intent(in)    :: options(*)
+      character(kind=c_char), intent(out)   :: flag
+      character(kind=c_char), intent(out)   :: output(*)
+      logical(kind=c_bool)                  :: success
     end function
   end interface
 
@@ -343,6 +367,50 @@ function get_current_directory() result(output)
   if (output=='') then
     call print_line('pwd string not nul-terminated.'//current_dir)
     call err()
+  endif
+end function
+
+! Reads flags from the command line via system.c.
+function get_flag(args,options) result(output)
+  implicit none
+  
+  type(String), intent(in) :: args(:)
+  type(String), intent(in) :: options
+  type(CommandLineFlag)    :: output
+  
+  ! Arguments passed to C.
+  character(1000) :: argvs
+  character(1)    :: flag
+  character(1000) :: argument
+  logical         :: success
+  
+  ! Temporary variables.
+  integer :: i
+  
+  argvs = char('caesar'//char(0)//join(args,char(0))//char(0))
+  
+!  call print_line('argc    : '//size(args)+1)
+!  call print_line('argvs   : '//argvs)
+!  call print_line('options : '//options)
+!  call print_line('')
+  
+  success = get_flag_c( size(args)+1,           &
+                      & argvs,                  &
+                      & char(options)//char(0), &
+                      & flag,                   &
+                      & argument)
+  
+  if (.not. success) then
+    output%flag = ' '
+    output%argument = ''
+  else
+    output%flag = flag
+    do i=1,len(argument)
+      if (argument(i:i)==char(0)) then
+        output%argument = argument(:i-1)
+        exit
+      endif
+    enddo
   endif
 end function
 

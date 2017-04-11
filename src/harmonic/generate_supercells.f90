@@ -330,7 +330,7 @@ function generate_supercells(structure,grid) result(output)
     enddo
   enddo
   
-  structure_grid = construct_supercell(structure, supercell_grid)
+  structure_grid = construct_supercell(structure, supercell_grid, .false.)
   
   ! ----------------------------------------------------------------------
   ! Transform G-vectors to equivalent K-points.

@@ -5,15 +5,17 @@ module construct_supercell_module
   use io_module
 contains
 
-function construct_supercell(structure,supercell) result(structure_sc)
+function construct_supercell(structure,supercell,calculate_symmetries) &
+   & result(structure_sc)
   use linear_algebra_module, only : determinant, invert, invert_int
   use structure_module
   use supercell_module
   implicit none
   
-  type(StructureData), intent(in) :: structure
-  type(SupercellData), intent(in) :: supercell
-  type(StructureData)             :: structure_sc
+  type(StructureData), intent(in)           :: structure
+  type(SupercellData), intent(in)           :: supercell
+  logical,             intent(in), optional :: calculate_symmetries
+  type(StructureData)                       :: structure_sc
   
   ! Atomic positions.
   real(dp) :: atom_pos_prim(3) ! Fractional primitive cell co-ordinates.
@@ -29,6 +31,13 @@ function construct_supercell(structure,supercell) result(structure_sc)
   integer :: i,j
   integer :: atom_counter
   integer :: no_atoms_sc
+  logical :: calculate_symmetries_flag
+  
+  if (present(calculate_symmetries)) then
+    calculate_symmetries_flag = calculate_symmetries
+  else
+    calculate_symmetries_flag = .true.
+  endif
   
   ! Generate supercell and lattice data.
   no_atoms_sc = structure%no_atoms*supercell%sc_size
@@ -84,5 +93,9 @@ function construct_supercell(structure,supercell) result(structure_sc)
       structure_sc%species(atom_counter) = structure%species(i)
     enddo
   enddo
+  
+  if (calculate_symmetries_flag) then
+    call calculate_symmetry(structure_sc)
+  endif
 end function
 end module

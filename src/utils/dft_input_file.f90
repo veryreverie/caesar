@@ -258,6 +258,7 @@ function castep_input_file_to_structure(filename) result(output)
   
   call calculate_derived_atom_quantities(output)
   call calculate_derived_supercell_quantities(output)
+  call calculate_symmetry(output)
 end function
 
 function dft_input_file_to_structure(dft_code,filename) result(output)

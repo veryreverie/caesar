@@ -34,7 +34,7 @@ module string_module
   public :: len        ! Character-like len.
   public :: lower_case ! Convert to lower case.
   public :: split      ! Split into String(:) by spaces
-  public :: join       ! Join into single String by spaces.
+  public :: join       ! Join into single String, by default with spaces.
   public :: pad_str    ! left pads integers without '-' signs with a ' '
   
   type String
@@ -783,20 +783,29 @@ pure function split_String(this,delimiter_in) result(output)
 end function
 
 ! Joins a String(:) array into one String.
-pure function join_String(this) result(output)
+pure function join_String(this,delimiter_in) result(output)
   implicit none
   
-  type(String), intent(in) :: this(:)
-  type(String)             :: output
+  type(String), intent(in)           :: this(:)
+  character(1), intent(in), optional :: delimiter_in
+  type(String)                       :: output
   
-  integer :: i
+  ! Temporary variables.
+  character(1) :: delimiter
+  integer      :: i
+  
+  if (present(delimiter_in)) then
+    delimiter = delimiter_in
+  else
+    delimiter = ' '
+  endif
   
   if (size(this)==0) then
     output = ''
   else
     output = this(1)
     do i=2,size(this)
-      output = output//' '//this(i)
+      output = output//delimiter//this(i)
     enddo
   endif
 end function
