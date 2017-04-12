@@ -1,4 +1,5 @@
-#include <getopt.h>
+#define _POSIX_C_SOURCE 200809L
+
 #include <limits.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -28,6 +29,18 @@ bool pwd_c(const int* cwd_size, char* cwd)
 
 bool get_terminal_width_c(int * result)
 {
+  FILE * output_file = popen("tput cols","r");
+  if (!output_file)
+  {
+    return false;
+  }
+  const int success2 = fscanf(output_file, "%i", result);
+  pclose(output_file);
+  if (success2 != 1)
+  {
+    return false;
+  }
+  return true;
 }
 
 bool get_flag_c
@@ -48,6 +61,7 @@ bool get_flag_c
   }
   argv[*argc] = NULL;
   
+  opterr = 0;
   const int result = getopt(*argc, argv, options);
   if (result==-1)
   {
@@ -55,10 +69,23 @@ bool get_flag_c
   }
   else
   {
-    *flag = result;
-    if (optarg==NULL)
+    if (result==1)
     {
-      *output = '\0';
+      *flag = ' ';
+    }
+    else
+    {
+      *flag = result;
+    }
+    
+    if (*flag=='?' || *flag==':')
+    {
+      *output = optopt;
+      *(output+1) = '\0';
+    }
+    else if (optarg==NULL)
+    {
+      strcpy(output,"");
     }
     else
     {

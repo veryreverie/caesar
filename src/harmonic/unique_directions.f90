@@ -229,7 +229,7 @@ function calculate_unique_directions(structure,symmetry_group) result(this)
         if (abs(dot_product( structure%rotations(1,:,j),                 &
              &               structure%rotations(1,:,previous_symmetry)) &
              & ) /= 1) then
-          unique_dirs_frac(:,j) = (/.true., .false., .true. /)
+          unique_dirs_frac(:,i) = (/.true., .false., .true. /)
           exit
         endif
       endif

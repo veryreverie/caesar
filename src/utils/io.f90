@@ -126,6 +126,17 @@ module io_module
       logical(kind=c_bool)                  :: success
     end function
   end interface
+  
+  ! C tput cols interface.
+  interface
+    function get_terminal_width_c(width) bind(c) result(success)
+      use, intrinsic :: iso_c_binding
+      implicit none
+      
+      integer(kind=c_int), intent(out) :: width
+      logical(kind=c_bool)             :: success
+    end function
+  end interface
 
 contains
 
@@ -370,36 +381,51 @@ function get_current_directory() result(output)
   endif
 end function
 
+! ----------------------------------------------------------------------
 ! Reads flags from the command line via system.c.
-function get_flag(args,options) result(output)
+! ----------------------------------------------------------------------
+! Returns none-flag arguments as flag=' '
+! Aborts if an unexpected flag is passed.
+! Aborts if no argument is passed where one is required.
+function get_flag(args,flags_without_arguments,flags_with_arguments) &
+   & result(output)
   implicit none
   
   type(String), intent(in) :: args(:)
-  type(String), intent(in) :: options
+  type(String), intent(in) :: flags_without_arguments
+  type(String), intent(in) :: flags_with_arguments
   type(CommandLineFlag)    :: output
   
   ! Arguments passed to C.
   character(1000) :: argvs
+  type(String)    :: options
   character(1)    :: flag
   character(1000) :: argument
   logical         :: success
   
   ! Temporary variables.
   integer :: i
+  character(1000) :: flags_char
   
+  ! Convert command-line arguments into C-friendly format.
   argvs = char('caesar'//char(0)//join(args,char(0))//char(0))
   
-!  call print_line('argc    : '//size(args)+1)
-!  call print_line('argvs   : '//argvs)
-!  call print_line('options : '//options)
-!  call print_line('')
+  ! Convert flags into C-friendly format.
+  options = '-:'//flags_without_arguments
+  flags_char = char(flags_with_arguments)
+  do i=1,len(flags_with_arguments)
+    options = options//flags_char(i:i)//':'
+  enddo
+  options = options//char(0)
   
-  success = get_flag_c( size(args)+1,           &
-                      & argvs,                  &
-                      & char(options)//char(0), &
-                      & flag,                   &
+  ! Call getopt.
+  success = get_flag_c( size(args)+1,  &
+                      & argvs,         &
+                      & char(options), &
+                      & flag,          &
                       & argument)
   
+  ! Return result.
   if (.not. success) then
     output%flag = ' '
     output%argument = ''
@@ -411,6 +437,15 @@ function get_flag(args,options) result(output)
         exit
       endif
     enddo
+    
+    if (output%flag=='?') then
+      call print_line('Error: unexpected flag "'//output%argument//'".')
+      stop
+    elseif (output%flag==':') then
+      call print_line('Error: no option given for flag "'// &
+         & output%argument//'".')
+      stop
+    endif
   endif
 end function
 
@@ -428,17 +463,19 @@ end function
 ! ----------------------------------------------------------------------
 ! Checks the width of the terminal, and sets TERMINAL_WIDTH.
 ! ----------------------------------------------------------------------
-subroutine update_terminal_width(temp_filename)
+subroutine update_terminal_width()
   implicit none
   
-  type(String), intent(in) :: temp_filename
+  logical :: success
+  integer :: width
   
-  type(String), allocatable :: temp_file(:)
-  
-  call system_call('tput cols > '//temp_filename)
-  temp_file = read_lines(temp_filename)
-  TERMINAL_WIDTH = int(temp_file(1))
-  call system_call('rm '//temp_filename)
+  success = get_terminal_width_c(width)
+  if (.not. success) then
+    call print_line( 'Failed to get terminal width. &
+                     &Reverting to default of 79 characters.')
+  else
+    TERMINAL_WIDTH = width
+  endif
 end subroutine
 
 ! ----------------------------------------------------------------------

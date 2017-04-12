@@ -28,7 +28,8 @@ program caesar
   
   ! Command line arguments.
   type(String), allocatable :: args(:)
-  type(String)              :: options
+  type(String)              :: flags_without_arguments
+  type(String)              :: flags_with_arguments
   type(CommandLineFlag)     :: flag
   type(String)              :: mode
   
@@ -36,81 +37,133 @@ program caesar
   type(String) :: wd
   type(String) :: cwd
   
-  ! read in command line arguments.
-  args = command_line_args()
+  ! Flags.
+  type(String) :: input_filename
+  logical      :: help
+  logical      :: interactive
   
+  ! Set terminal width for formatting purposes.
+  call update_terminal_width()
+  
+  ! Get current directory.
+  cwd = get_current_directory()
+  
+  ! Read in command line arguments.
+  args = command_line_args()
   if (size(args) < 1) then
     call print_line('No arguments given. For help, call caesar -h')
     stop
   endif
   
-  options = 'h:alf:'
+  ! Set defaults.
+  wd = ''
+  input_filename = ''
+  help = .false.
+  interactive = .false.
+  mode = ''
+  
+  ! Parse command line flags.
+  flags_without_arguments = 'hi'
+  flags_with_arguments = 'df'
   do
-    flag = get_flag(args,options)
-    if (flag%flag==' ') then
+    flag = get_flag(args, flags_without_arguments, flags_with_arguments)
+    
+    ! No flags remaining.
+    if (flag%flag==' ' .and. flag%argument=='') then
       exit
+    
+    ! An argument which is not a flag.
+    elseif (flag%flag==' ') then
+      mode = flag%argument
+    
+    ! Flags without arguments.
+    elseif (flag%flag=='h') then
+      help = .true.
+    
+    elseif (flag%flag=='i') then
+      interactive = .true.
+    
+    ! Flags with arguments.
+    elseif (flag%flag=='d') then
+      wd = flag%argument
+    
+    elseif (flag%flag=='f') then
+      input_filename = flag%argument
+    
     endif
-    call print_line('')
-    call print_line('flag : '//flag%flag)
-    call print_line('arg  : '//flag%argument)
   enddo
   
-  mode = args(1)
-  
-  ! Run main program, depending on mode.
-  if (mode == '-h' .or. mode == '--help') then
-    call print_line('caesar [-h] [option]')
+  ! Print help.
+  if (help .or. mode == '--help') then
+    call print_line('caesar [-h] [-i] [-f input_file] [-d working_directory] &
+       &[option]')
     call print_line('')
-    call print_line('-h :')
-    call print_line('  Displays this help text.')
+    call print_line('Flags')
+    call print_line('  -h, --help')
+    call print_line('      Displays this help text.')
     call print_line('')
-    call print_line('Harmonic options :')
-    call print_line('  setup_harmonic :')
-    call print_line('    Sets up harmonic calculation.')
-    call print_line('    DFT code choices are: castep.')
-    call print_line('  run_harmonic :')
-    call print_line('    Runs harmonic calculation.')
-    call print_line('    Should be called after setup_harmonic.')
-    call print_line('  lte_harmonic :')
-    call print_line('    Runs harmonic calculations.')
-    call print_line('    Should be called after run_harmonic.')
+    call print_line('  -i')
+    call print_line('      Run interactively.')
     call print_line('')
-    call print_line('Quadratic options :')
-    call print_line('  setup_quadratic :')
-    call print_line('    Sets up quadratic calculation.')
-    call print_line('    DFT code choices are: castep.')
-    call print_line('    Should be called after lte_harmonic.')
-    call print_line('  run_quadratic :')
-    call print_line('    Runs calculation on the TCM cluster.')
-    call print_line('    Should be called after setup_quadratic.')
-    call print_line('  anharmonic :')
-    call print_line('    Runs anharmonic calculations.')
-    call print_line('    Should be called after run_quadratic.')
-    call print_line('  bs_quadratic :')
-    call print_line('    Runs band structure calculations.')
-    call print_line('    Should be called after run_quadratic.')
+    call print_line('  -f input_file')
+    call print_line('      Read settings from specified input file.')
     call print_line('')
-    call print_line('Utility options :')
-    call print_line('  hartree_to_eV :')
-    call print_line('    Provides a Hartree to eV calculator.')
-    call print_line('  get_kpoints :')
-    call print_line('    [Help text pending]')
+    call print_line('  -d working_directory')
+    call print_line('      Work in specified directory.')
+    call print_line('')
+    call print_line('Harmonic options')
+    call print_line('  setup_harmonic')
+    call print_line('      Sets up harmonic calculation.')
+    call print_line('      DFT code choices are: castep.')
+    call print_line('  run_harmonic')
+    call print_line('      Runs harmonic calculation.')
+    call print_line('      Should be called after setup_harmonic.')
+    call print_line('  lte_harmonic')
+    call print_line('      Runs harmonic calculations.')
+    call print_line('      Should be called after run_harmonic.')
+    call print_line('')
+    call print_line('Quadratic options')
+    call print_line('  setup_quadratic')
+    call print_line('      Sets up quadratic calculation.')
+    call print_line('      DFT code choices are: castep.')
+    call print_line('      Should be called after lte_harmonic.')
+    call print_line('  run_quadratic')
+    call print_line('      Runs quadratic calculation.')
+    call print_line('      Should be called after setup_quadratic.')
+    call print_line('  anharmonic')
+    call print_line('      Runs anharmonic calculations.')
+    call print_line('      Should be called after run_quadratic.')
+    call print_line('  bs_quadratic')
+    call print_line('      Runs band structure calculations.')
+    call print_line('      Should be called after run_quadratic.')
+    call print_line('')
+    call print_line('Utility options')
+    call print_line('  hartree_to_eV')
+    call print_line('      Provides a Hartree to eV calculator.')
+    call print_line('  get_kpoints')
+    call print_line('      [Help text pending]')
     call print_line('  calculate_gap')
-    call print_line('    [Help text pending]')
+    call print_line('      [Help text pending]')
     stop
   endif
   
-  ! Get current directory.
-  cwd = get_current_directory()
+  if (mode=='') then
+    call print_line('Error: no mode specified. Call caesar -h for help.')
+    stop
+  endif
   
   ! Get working directory from user.
-  call print_line('')
-  call print_line('Where is the working directory?')
-  wd = format_path(read_line_from_user(), cwd)
+  if (wd=='') then
+    if (interactive) then
+      call print_line('')
+      call print_line('Where is the working directory?')
+      wd = format_path(read_line_from_user(), cwd)
+    else
+      wd = '.'
+    endif
+  endif
   
-  ! Set terminal width for formatting purposes.
-  call update_terminal_width(wd//'/temp.dat')
-  
+  ! Run main program, depending on mode.
   if (mode == 'test') then
     call system_call(str('mkdir this_is_another_dir'))
   ! Wrappers for top-level Fortran.
@@ -142,6 +195,6 @@ program caesar
     call test_copy_quadratic(wd,cwd)
   ! unrecognised argument
   else
-    call print_line(char('Unrecognised argument : '//mode))
+    call print_line('Error: Unrecognised argument: '//mode)
   endif
 end program
