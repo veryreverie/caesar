@@ -232,10 +232,10 @@ function calculate_frequencies_and_polarisations(dynamical_matrix) &
     
     if (estuff%evals(m)>=0.0_dp) then
       ! Unstable mode.
-      output%frequencies(n) = - dsqrt(estuff%evals(m))
+      output%frequencies(n) = - sqrt(estuff%evals(m))
     else
       ! Stable mode.
-      output%frequencies(n) = dsqrt(- estuff%evals(m))
+      output%frequencies(n) = sqrt(- estuff%evals(m))
     endif
     
     output%polarisation_vectors(:,n) = estuff%evecs(:,m)
@@ -290,9 +290,9 @@ function harmonic_free_energy(temperature,omega) result(output)
     output=0.5_dp*omega
   else
     thermal_energy = kb_in_au*temperature
-    difference = 1.0_dp-dexp(-omega/thermal_energy)
+    difference = 1.0_dp-exp(-omega/thermal_energy)
     if (difference>0.0_dp) then
-      output = 0.5_dp*omega + thermal_energy*dlog(difference)
+      output = 0.5_dp*omega + thermal_energy*log(difference)
     else
       ! High-temperature limit.
       output = -huge(0.0_dp)
@@ -666,8 +666,8 @@ subroutine calculate_speed_sound(structure,structure_sc, &
       cos_theta=1.d0-2.d0*rand
       call random_number(rand)
       phi=rand*2*pi
-      sin_theta=SQRT(1.d0-cos_theta**2)
-      kunit = (/sin_theta*COS(phi),sin_theta*SIN(phi),cos_theta/)
+      sin_theta=sqrt(1.d0-cos_theta**2)
+      kunit = [sin_theta*cos(phi), sin_theta*sin(phi), cos_theta ]
       kvec = matmul(structure_sc%lattice,kmag*kunit)
 
       ! Calculate corresponding eigenfrequencies.
@@ -861,7 +861,7 @@ function evaluate_freqs_on_grid(structure,structure_sc,force_constants) &
         do i=1,3
           index1 = (n-1)*3 + i
           non_mr_pol_vec(i,n) = pol_vec(index1,index2) &
-                            & / dsqrt(structure%mass(n))
+                            & / sqrt(structure%mass(n))
           kpol_vec(i,n)=pol_vec(index1,index2)
         enddo
       enddo
@@ -888,7 +888,7 @@ function evaluate_freqs_on_grid(structure,structure_sc,force_constants) &
              &   kpol_vec(:,structure_sc%atom_to_prim(atom1)) &
              & * expiGdotR(structure_sc%atom_to_gvec(atom1))  &
              & , dp)
-          prefactor = dsqrt(2.0_dp)
+          prefactor = sqrt(2.0_dp)
         else
           disp_pattern = aimag(                                     &
              &   non_mr_pol_vec(:,structure_sc%atom_to_prim(atom1)) &
@@ -896,7 +896,7 @@ function evaluate_freqs_on_grid(structure,structure_sc,force_constants) &
           kdisp_pattern = aimag(                              &
              &   kpol_vec(:,structure_sc%atom_to_prim(atom1)) &
              & * expiGdotR(structure_sc%atom_to_gvec(atom1)))
-          prefactor = dsqrt(2.0_dp)
+          prefactor = sqrt(2.0_dp)
         endif
         
         tot_disp_patt = tot_disp_patt + l2_norm(disp_pattern)

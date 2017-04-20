@@ -229,7 +229,7 @@ function calculate_unique_directions(structure,symmetry_group) result(this)
         if (abs(dot_product( structure%rotations(1,:,j),                 &
              &               structure%rotations(1,:,previous_symmetry)) &
              & ) /= 1) then
-          unique_dirs_frac(:,i) = (/.true., .false., .true. /)
+          unique_dirs_frac(:,i) = [ .true., .false., .true. ]
           exit
         endif
       endif
@@ -242,11 +242,11 @@ function calculate_unique_directions(structure,symmetry_group) result(this)
   ! --------------------------------------------------
   allocate(unique_dirs_cart(3,no_unique_atoms), stat=ialloc); call err(ialloc)
   do i=1,no_unique_atoms
-    unique_dirs_cart(:,i) = (/.true.,.true.,.true./)
+    unique_dirs_cart(:,i) = [ .true.,.true.,.true. ]
     if (all(unique_dirs_frac(:,i) .eqv. .true.)) then
       ! All directions are independent in both co-ordinate systems.
       continue
-    elseif (all(unique_dirs_frac(:,i) .eqv. (/.true.,.false.,.false./))) then
+    elseif (all(unique_dirs_frac(:,i) .eqv. [.true.,.false.,.false.])) then
       ! All directions are dependent in both co-ordinate systems.
       unique_dirs_cart(2:3,i) = .false.
     else

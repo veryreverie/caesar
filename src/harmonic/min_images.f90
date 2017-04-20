@@ -71,7 +71,7 @@ function min_images_brute_force(a,structure) result(output)
   do i=n(1)-check_shell,n(1)+check_shell+1
     do j=n(2)-check_shell,n(2)+check_shell+1
       do k=n(3)-check_shell,n(3)+check_shell+1
-        delta = matmul(transpose(structure%lattice), a-(/i,j,k/))
+        delta = matmul(transpose(structure%lattice), a-[i,j,k])
         dist2 = dot_product(delta,delta)
         if(nim/=0 .and. abs(dist2-mag_b_sq)<=tol_L2)then
           nim = nim+1
@@ -79,11 +79,11 @@ function min_images_brute_force(a,structure) result(output)
             call print_line('Error: min_images_brute_force: maxim too small.')
             call err()
           endif
-          b(:,nim) = a-(/i,j,k/)
+          b(:,nim) = a-[i,j,k]
         elseif(dist2<mag_b_sq.or.nim==0)then
           mag_b_sq = dist2
           nim = 1
-          b(:,1) = a-(/i,j,k/)
+          b(:,1) = a-[i,j,k]
         endif
       enddo
     enddo

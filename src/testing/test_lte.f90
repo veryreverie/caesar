@@ -237,7 +237,7 @@ subroutine test_lte(wd,cwd)
                    & * 5 + 1
           
           line = split(old_force_constants_file(start_line))
-          if (any(int(line)/=(/atom_1,atom_2,j/))) then
+          if (any(int(line)/=[atom_1,atom_2,j])) then
             call print_line('Force constants file in unexpected order.')
             call print_line('Line '//start_line//' is '//join(line))
             call print_line('Expected: '//atom_1//' '//atom_2//' '//j)
@@ -332,10 +332,10 @@ subroutine test_lte(wd,cwd)
       enddo
     enddo
     
-    average = dsqrt( average &
-                 & / (structure%no_modes**2*structure_sc%sc_size))
-    average_err = dsqrt( average_err &
-                     & / (structure%no_modes**2*structure_sc%sc_size))
+    average = sqrt( average &
+                & / (structure%no_modes**2*structure_sc%sc_size))
+    average_err = sqrt( average_err &
+                    & / (structure%no_modes**2*structure_sc%sc_size))
     
     call print_line('Checking force constants.')
     call print_line('L2 Average force constant: '//average)
@@ -374,7 +374,7 @@ subroutine test_lte(wd,cwd)
                                                & * (structure%no_atoms*3) &
                                                & + ((atom_2-1)*3+l)))
               
-              if (any(int(old_line(1:4))/=(/atom_1,k,atom_2,l/))) then
+              if (any(int(old_line(1:4))/=[atom_1,k,atom_2,l])) then
                 call print_line('Old dyn_mat file in unexpected order.')
                 call err()
               endif
@@ -484,11 +484,11 @@ subroutine test_lte(wd,cwd)
   ! Write path for fourier interpolation
   no_kspace_lines = 4
   allocate(disp_kpoints(3,no_kspace_lines+1))
-  disp_kpoints(:,1) = (/ 0.0_dp, 0.0_dp, 0.0_dp /) ! GM
-  disp_kpoints(:,2) = (/ 0.5_dp, 0.5_dp, 0.5_dp /) ! T
-  disp_kpoints(:,3) = (/ 0.0_dp, 0.5_dp, 0.5_dp /) ! FB
-  disp_kpoints(:,4) = (/ 0.0_dp, 0.0_dp, 0.0_dp /) ! GM
-  disp_kpoints(:,5) = (/ 0.0_dp, 0.5_dp, 0.0_dp /) ! L
+  disp_kpoints(:,1) = [ 0.0_dp, 0.0_dp, 0.0_dp ] ! GM
+  disp_kpoints(:,2) = [ 0.5_dp, 0.5_dp, 0.5_dp ] ! T
+  disp_kpoints(:,3) = [ 0.0_dp, 0.5_dp, 0.5_dp ] ! FB
+  disp_kpoints(:,4) = [ 0.0_dp, 0.0_dp, 0.0_dp ] ! GM
+  disp_kpoints(:,5) = [ 0.0_dp, 0.5_dp, 0.0_dp ] ! L
   
   call mkdir(wd//'/new_lte')
   call print_line('')

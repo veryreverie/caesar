@@ -98,11 +98,11 @@ subroutine test_copy_harmonic(wd,cwd)
       atom = unique_directions%atoms(j)
       direction = unique_directions%directions_char(j)
       
-      copy_dirs = (/ sdir_old//'/atom.'//atom//'.disp.'//k//'/positive', &
-                  &  sdir_old//'/atom.'//atom//'.disp.'//k//'/negative'  /)
+      copy_dirs = [ sdir_old//'/atom.'//atom//'.disp.'//k//'/positive', &
+                  & sdir_old//'/atom.'//atom//'.disp.'//k//'/negative'  ]
       
-      new_dirs = (/ sdir_new//'/atom.'//atom//'.+d'//direction, &
-                 &  sdir_new//'/atom.'//atom//'.-d'//direction  /)
+      new_dirs = [ sdir_new//'/atom.'//atom//'.+d'//direction, &
+                 & sdir_new//'/atom.'//atom//'.-d'//direction  ]
       do l=1,2
         ! Read in the old castep file.
         dft_output_filename = make_dft_output_filename(dft_code,seedname)

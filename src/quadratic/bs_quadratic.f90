@@ -153,7 +153,7 @@ subroutine bs_quadratic(wd)
     ! Read bands
     ref = band_refs(sc_ids(i))
     do j=1,structure%no_modes
-      amplitudes = (/mapping%first,mapping%last/)
+      amplitudes = [ mapping%first, mapping%last ]
       do k=1,2
         amplitude = amplitudes(k)
         if (amplitude/=0) then
@@ -195,14 +195,13 @@ subroutine bs_quadratic(wd)
     else
       do i=1,no_kpoints
         do j=1,structure%no_modes
-          renormalised_band = renormalised_band                              &
-                          & + deformation(i,j)                               &
-                          & * ( 1                                            &
-                          &   + 2                                            &
-                          &   / ( dexp( frequencies(i,j)                     &
-                          &          / (temperature*kb_in_au))               &
-                          &     - 1))                                        &
-                          & * multiplicity(i)                                &
+          renormalised_band = renormalised_band                               &
+                          & + deformation(i,j)                                &
+                          & * ( 1                                             &
+                          &   + 2                                             &
+                          &   / (exp(frequencies(i,j)/(temperature*kb_in_au)) &
+                          &     - 1))                                         &
+                          & * multiplicity(i)                                 &
                           & / no_kpoints
         enddo
       enddo

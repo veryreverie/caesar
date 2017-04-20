@@ -177,9 +177,9 @@ subroutine anharmonic(wd)
         ! generate amplitudes, {(x,V(x))}
         ! generate potential at {q} defined by map
         allocate(amplitudes(2,mapping%count))
-        amplitude = -mapping%max/(2*dabs(frequencies(j,i)))
+        amplitude = -mapping%max/(2*abs(frequencies(j,i)))
         do k=1,mapping%count
-          amplitudes(1,k) = amplitude+(k-1)*dabs(amplitude/mapping%first)
+          amplitudes(1,k) = amplitude+(k-1)*abs(amplitude/mapping%first)
           amplitudes(2,k) = (energies(k,j,i)-energies(mapping%mid,j,i)) &
                         & / structure_scs(kpoints(i)%sc_id)%sc_size
         enddo

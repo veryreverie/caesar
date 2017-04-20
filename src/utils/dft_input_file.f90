@@ -39,7 +39,6 @@ function castep_input_file_to_structure(filename) result(output)
   
   ! Temporary variables.
   type(String), allocatable :: line(:)
-  character(1)              :: first_char
   integer                   :: i,j
   
   cell_file = read_lines(filename)
@@ -110,8 +109,7 @@ function castep_input_file_to_structure(filename) result(output)
     line = split(lower_case(cell_file(i)))
     
     ! Ignore comments.
-    first_char = char(line(1))
-    if (first_char=='!') then
+    if (slice(line(1),1,1)=='!') then
       cycle
     
     ! Read units if present.
@@ -153,13 +151,13 @@ function castep_input_file_to_structure(filename) result(output)
   if (.not. lattice_is_cart) then
     lattice = 0.0_dp
     lattice(1,1) = lengths(1)
-    lattice(2,1) = lengths(2)*dcos(angles(3))
-    lattice(2,2) = lengths(2)*dsin(angles(3))
-    lattice(3,1) = lengths(3)*dcos(angles(2))
-    lattice(3,2) = lengths(3)* ( dcos(angles(1)) &
-                           &   - dcos(angles(2))*dcos(angles(3))) &
-                           & / dsin(angles(3))
-    lattice(3,3) = dsqrt(lengths(3)**2 - lattice(3,1)**2 - lattice(3,2)**2)
+    lattice(2,1) = lengths(2)*cos(angles(3))
+    lattice(2,2) = lengths(2)*sin(angles(3))
+    lattice(3,1) = lengths(3)*cos(angles(2))
+    lattice(3,2) = lengths(3)* ( cos(angles(1))                  &
+                           &   - cos(angles(2))*cos(angles(3)) ) &
+                           & / sin(angles(3))
+    lattice(3,3) = sqrt(lengths(3)**2 - lattice(3,1)**2 - lattice(3,2)**2)
   endif
   
   ! Parse atoms.
@@ -172,8 +170,7 @@ function castep_input_file_to_structure(filename) result(output)
     line = split(lower_case(cell_file(i)))
     
     ! Ignore comments.
-    first_char = char(line(1))
-    if (first_char=='!') then
+    if (slice(line(1),1,1)=='!') then
       cycle
     
     ! Read units if present.
@@ -222,8 +219,7 @@ function castep_input_file_to_structure(filename) result(output)
     line = split(lower_case(cell_file(i)))
     
     ! Ignore comments.
-    first_char = char(line(1))
-    if (first_char=='!') then
+    if (slice(line(1),1,1)=='!') then
       cycle
     
     ! Read units if present.

@@ -11,31 +11,29 @@ module string_module
   ! Public interface
   ! ----------------------------------------------------------------------
   
-  ! String class
-  public :: String
+  public :: String ! String class.
   
-  ! Allocate and deallocate
-  public :: assignment(=) ! Assignment to and from String
+  public :: assignment(=) ! Assignment to and from String.
   
   ! Conversions between classes
-  public :: str           ! Conversion to String
-  public :: char          ! Conversion from String to character
-  public :: int           ! Conversion from String to integer
-  public :: dble          ! Conversion from String to real(dp)
+  public :: str           ! Conversion to String.
+  public :: char          ! Conversion from String to character.
+  public :: int           ! Conversion from String to integer.
+  public :: dble          ! Conversion from String to real(dp).
   
-  ! Binary operators
-  public :: operator(//)
+  public :: operator(//) ! Concatenate to String.
   
-  ! Comparison operators
+  ! Comparison operators.
   public :: operator(==)
   public :: operator(/=)
   
-  ! Unary operators
-  public :: len        ! Character-like len.
+  ! Unary operators.
+  public :: len        ! Character-like len(String).
   public :: lower_case ! Convert to lower case.
-  public :: split      ! Split into String(:) by spaces
+  public :: split      ! Split into String(:), by default by spaces.
   public :: join       ! Join into single String, by default with spaces.
   public :: pad_str    ! left pads integers without '-' signs with a ' '
+  public :: slice      ! slice(String,a,b) = character(a:b)
   
   type String
     character(:), allocatable, private :: contents
@@ -850,5 +848,17 @@ elemental function pad_str(this) result(output)
   if (output%contents(1:1)/='-') then
     output = ' '//output
   endif
+end function
+
+! Takes a slice of a String. slice(String,a,b) = character(a:b).
+pure function slice(this,a,b) result(output)
+  implicit none
+  
+  type(String),  intent(in) :: this
+  integer,       intent(in) :: a
+  integer,       intent(in) :: b
+  character(:), allocatable :: output
+  
+  output = this%contents(a:b)
 end function
 end module

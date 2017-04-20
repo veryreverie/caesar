@@ -82,7 +82,7 @@ contains
 !    atom_1_sc = unique_directions%atoms(j)
 !    atom_1_prim = structure_sc%atom_to_prim(atom_1_sc)
 !    atom_calculated(atom_1_prim) = .true.
-!    forces_calculated = (/ .true.,.true.,.true. /)
+!    forces_calculated = [ .true.,.true.,.true. ]
 !    if (unique_directions%xy_symmetry(j)/=0) then
 !      forces_calculated(2) = .false.
 !    endif
@@ -322,7 +322,7 @@ contains
 !        atom_2_sc = structure_sc%gvec_and_prim_to_atom(atom_2_prim,j)
 !        force_constants(:,:,atom_2_sc,atom_1_prim) =        &
 !           &   force_constants(:,:,atom_2_sc,atom_1_prim)   &
-!           & / dsqrt(structure%mass(atom_1_prim)*structure_sc%mass(atom_2_sc))
+!           & / sqrt(structure%mass(atom_1_prim)*structure_sc%mass(atom_2_sc))
 !      enddo
 !    enddo
 !  enddo
@@ -485,7 +485,7 @@ function construct_force_constants(forces,structure_sc,unique_directions, &
       atom_1 = unique_directions%atoms(j)
       atom_1p = operate(symmetry_group(i), atom_1)
       
-      x = (/ 0.0_dp,0.0_dp,0.0_dp /)
+      x = [ 0.0_dp,0.0_dp,0.0_dp ]
       x(unique_directions%directions_int(j)) = 1.0_dp
       x = matmul(rotations_cart(:,:,i), x)
       
@@ -727,11 +727,11 @@ subroutine lte_harmonic(wd)
   ! Write path for fourier interpolation
   no_kspace_lines = 4
   allocate(disp_kpoints(3,no_kspace_lines+1))
-  disp_kpoints(:,1) = (/ 0.0_dp, 0.0_dp, 0.0_dp /) ! GM
-  disp_kpoints(:,2) = (/ 0.5_dp, 0.5_dp, 0.5_dp /) ! T
-  disp_kpoints(:,3) = (/ 0.0_dp, 0.5_dp, 0.5_dp /) ! FB
-  disp_kpoints(:,4) = (/ 0.0_dp, 0.0_dp, 0.0_dp /) ! GM
-  disp_kpoints(:,5) = (/ 0.0_dp, 0.5_dp, 0.0_dp /) ! L
+  disp_kpoints(:,1) = [ 0.0_dp, 0.0_dp, 0.0_dp ] ! GM
+  disp_kpoints(:,2) = [ 0.5_dp, 0.5_dp, 0.5_dp ] ! T
+  disp_kpoints(:,3) = [ 0.0_dp, 0.5_dp, 0.5_dp ] ! FB
+  disp_kpoints(:,4) = [ 0.0_dp, 0.0_dp, 0.0_dp ] ! GM
+  disp_kpoints(:,5) = [ 0.0_dp, 0.5_dp, 0.0_dp ] ! L
   
   ! Read in primitive symmetry group.
   symmetry_group = read_group_file(wd//'/Supercell_1/symmetry_group.dat')

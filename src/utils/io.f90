@@ -411,7 +411,7 @@ function get_flag(args,flags_without_arguments,flags_with_arguments) &
   argvs = char('caesar'//char(0)//join(args,char(0))//char(0))
   
   ! Convert flags into C-friendly format.
-  options = '-:'//flags_without_arguments
+  options = '-:-:'//flags_without_arguments
   flags_char = char(flags_with_arguments)
   do i=1,len(flags_with_arguments)
     options = options//flags_char(i:i)//':'

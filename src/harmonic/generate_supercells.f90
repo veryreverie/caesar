@@ -316,16 +316,16 @@ function generate_supercells(structure,grid) result(output)
   ! ----------------------------------------------------------------------
   call new(supercell_grid, product(grid))
   
-  supercell_grid%supercell(1,:) = (/ grid(1), 0      , 0       /)
-  supercell_grid%supercell(2,:) = (/ 0      , grid(2), 0       /)
-  supercell_grid%supercell(3,:) = (/ 0      , 0      , grid(3) /)
+  supercell_grid%supercell(1,:) = [ grid(1), 0      , 0       ]
+  supercell_grid%supercell(2,:) = [ 0      , grid(2), 0       ]
+  supercell_grid%supercell(3,:) = [ 0      , 0      , grid(3) ]
   
   counter = 0
   do i=-grid(1)/2,(grid(1)-1)/2
     do j=-grid(2)/2,(grid(2)-1)/2
       do k=-grid(3)/2,(grid(3)-1)/2
         counter=counter+1
-        supercell_grid%gvectors(:,counter) = (/i,j,k/)
+        supercell_grid%gvectors(:,counter) = [ i, j, k ]
       enddo
     enddo
   enddo
@@ -413,9 +413,9 @@ function generate_supercells(structure,grid) result(output)
         do s12=0,s22-1
           do s13=0,s33-1
             do s23=0,s33-1
-              hnf(1,:) = (/ s11, s12, s13 /)
-              hnf(2,:) = (/ 0  , s22, s23 /)
-              hnf(3,:) = (/ 0  , 0  , s33 /)
+              hnf(1,:) = [ s11, s12, s13 ]
+              hnf(2,:) = [ 0  , s22, s23 ]
+              hnf(3,:) = [ 0  , 0  , s33 ]
               if (all(modulo( matmul(hnf, kpoints_ibz(:,i)), &
                             & structure_grid%sc_size)==0)) then
                 ! --------------------------------------------------
@@ -477,7 +477,7 @@ function generate_supercells(structure,grid) result(output)
     do_j : do j=0,supercells(i)%sc_size-1
       do k=0,supercells(i)%sc_size-1
         do_l : do l=0,supercells(i)%sc_size-1
-          gvector = (/l,k,j/)
+          gvector = [ l, k, j ]
           
           ! Check if gvector has already been found.
           do m=1,gvector_id-1

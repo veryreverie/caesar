@@ -1,19 +1,42 @@
+! ======================================================================
+! The first stage of Caesar.
+! Generates up supercells, and prepares harmonic DFT calculations.
+! ======================================================================
 module setup_harmonic_module
   use constants_module, only : dp
   use string_module
   use io_module
 contains
 
-! ======================================================================
-! Program to set up a harmonic calculation to use with LTE.
-! ======================================================================
-subroutine setup_harmonic(wd)
+! ----------------------------------------------------------------------
+! Generate keywords and helptext.
+! ----------------------------------------------------------------------
+function setup_harmonic_keywords() result(keywords)
+  use help_module
+  implicit none
+  
+  type(KeywordData) :: keywords(3)
+  
+  keywords = [                                                                &
+  & make_keyword('dft_code', 'dft_code is the DFT code used to calculate &
+     &energies. Settings are: castep vasp qe.'),                              &
+  & make_keyword('seedname', 'seedname is the DFT seedname from which file &
+     &names are constructed.'),                                               &
+  & make_keyword('qpoint_grid', 'qpoint_grid is the number of q-points in &
+     &each direction in a Monkhorst-Pack grid. This should be specified as &
+     &three integers separated by spaces.')                                   ]
+end function
+
+! ----------------------------------------------------------------------
+! Main program.
+! ----------------------------------------------------------------------
+subroutine setup_harmonic(wd, arguments)
   use utils_module, only : mkdir, make_dft_input_filename
   use structure_module
   use supercell_module
   use group_module
   use kpoints_module
-  
+  use dictionary_module
   use dft_input_file_module
   use structure_to_dft_module
   use generate_supercells_module
@@ -22,8 +45,8 @@ subroutine setup_harmonic(wd)
   use calculate_symmetry_group_module
   implicit none
   
-  ! Working directory.
-  type(String), intent(in) :: wd
+  type(String),     intent(in) :: wd
+  type(Dictionary), intent(in) :: arguments
   
   ! User input variables
   type(String) :: dft_code
@@ -55,48 +78,17 @@ subroutine setup_harmonic(wd)
   ! Temporary variables.
   integer        :: i,j,k
   
-  type(String), allocatable :: user_input_file_in(:)
-  
   type(String) :: dft_input_filename
   
   ! File units
-  integer :: user_input_file_out
   integer :: no_supercells_file
   
   ! ----------------------------------------------------------------------
-  ! Get settings from user.
+  ! Get settings from user, and check them.
   ! ----------------------------------------------------------------------
-  
-  if (file_exists(wd//'/user_input.txt')) then
-    ! Get settings from file.
-    user_input_file_in = read_lines(wd//'/user_input.txt')
-    dft_code = user_input_file_in(1)
-    seedname = user_input_file_in(2)
-    grid = int(split(user_input_file_in(3)))
-  else
-    ! Get dft code from the command line.
-    call print_line('')
-    call print_line('What dft code do you want to use (castep,vasp,qe)?')
-    dft_code = read_line_from_user()
-    
-    ! Get seedname from the command line.
-    call print_line('')
-    call print_line('What is the '//dft_code//' seedname?')
-    seedname = read_line_from_user()
-    
-    ! Get the K-point grid from the command line.
-    call print_line('')
-    call print_line('What is the x dimension of the K-point grid?')
-    grid(1) = int(read_line_from_user())
-    call print_line('')
-    call print_line('What is the y dimension of the K-point grid?')
-    grid(2) = int(read_line_from_user())
-    call print_line('')
-    call print_line('What is the z dimension of the K-point grid?')
-    grid(3) = int(read_line_from_user())
-    
-    call print_line('')
-  endif
+  dft_code = item(arguments, 'dft_code')
+  seedname = item(arguments, 'seedname')
+  grid = int(split(item(arguments, 'qpoint_grid')))
   
   ! Check dft code is supported
   if (dft_code=='vasp') then
@@ -116,17 +108,6 @@ subroutine setup_harmonic(wd)
     call print_line('Error! The input file '//dft_input_filename// &
        &' does not exist.')
     call err()
-  endif
-  
-  ! ----------------------------------------------------------------------
-  ! Write user settings to file
-  ! ----------------------------------------------------------------------
-  if (.not. file_exists(wd//'/user_input.txt')) then
-    user_input_file_out = open_write_file(wd//'/user_input.txt')
-    call print_line(user_input_file_out, dft_code)
-    call print_line(user_input_file_out, seedname)
-    call print_line(user_input_file_out, grid)
-    close(user_input_file_out)
   endif
   
   ! ----------------------------------------------------------------------
@@ -189,8 +170,8 @@ subroutine setup_harmonic(wd)
       direction_int = unique_directions%directions_int(j)
       direction_char = unique_directions%directions_char(j)
       
-      paths = (/ sdir//'/atom.'//atom//'.+d'//direction_char, &
-               & sdir//'/atom.'//atom//'.-d'//direction_char /)
+      paths = [ sdir//'/atom.'//atom//'.+d'//direction_char, &
+              & sdir//'/atom.'//atom//'.-d'//direction_char  ]
       
       ! Make harmonic run directories.
       do k=1,2

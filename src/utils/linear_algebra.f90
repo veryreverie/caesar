@@ -212,7 +212,7 @@ function invert(A) result(B)
   d = 1.0_dp/determinant(A)
   
   ! check for d=infinity or d=NaN
-  if (dabs(d)>huge(0.0_dp) .or. d<d) then
+  if (abs(d)>huge(0.0_dp) .or. d<d) then
     call print_line('Error in invert: singular matrix.')
     call err()
   endif

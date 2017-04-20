@@ -12,7 +12,7 @@ module constants_module
   ! ----------------------------------------------------------------------
   ! Identity matrix.
   ! ----------------------------------------------------------------------
-  integer, parameter :: identity(3,3) = reshape((/1,0,0,0,1,0,0,0,1/),(/3,3/))
+  integer, parameter :: identity(3,3) = reshape([1,0,0,0,1,0,0,0,1],[3,3])
   
   ! ----------------------------------------------------------------------
   ! Mathematical constants.
@@ -22,7 +22,7 @@ module constants_module
   ! ----------------------------------------------------------------------
   ! Cartesian directions.
   ! ----------------------------------------------------------------------
-  character(1), parameter :: directions(3) = (/ 'x','y','z' /)
+  character(1), parameter :: directions(3) = [ 'x','y','z' ]
   
   ! ----------------------------------------------------------------------
   ! Physical constants and unit conversions.

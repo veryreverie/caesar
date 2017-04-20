@@ -232,9 +232,9 @@ subroutine setup_quadratic(wd,cwd)
           !   with units of 1/(E_h)
           occupation = 0.d0
         else
-          occupation = 1.d0/(dexp(frequencies(j)/thermal_energy)-1.d0)
+          occupation = 1.d0/(exp(frequencies(j)/thermal_energy)-1.d0)
         endif
-        quad_amplitude = dsqrt((occupation+0.5d0)/frequencies(j))
+        quad_amplitude = sqrt((occupation+0.5d0)/frequencies(j))
         
         ! Calculate amplitude
         amplitude = mapping%max*k*quad_amplitude*2.d0/mapping%count

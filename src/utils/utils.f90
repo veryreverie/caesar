@@ -140,7 +140,7 @@ pure function l2_norm(input) result(output)
   real(dp), intent(in) :: input(:)
   real(dp)             :: output
   
-  output = dsqrt(dot_product(input,input))
+  output = sqrt(dot_product(input,input))
 end function
 
 ! ----------------------------------------------------------------------

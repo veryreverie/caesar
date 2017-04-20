@@ -52,17 +52,17 @@ function vscf_1d(frequency, potential, Nbasis) result(output)
   call new(output,Npoints,Nbasis)
 
   ! Calculate basis functions
-  basis_frequency=dabs(frequency)
+  basis_frequency = abs(frequency)
   bfp=(basis_frequency/pi)**0.25
   
   allocate(basis(Npoints,Nbasis))
   do i=1,Npoints
     q = potential(1,i)
-    basis(i,1)=bfp*dexp(-q*q*basis_frequency/2)
-    basis(i,2)=dsqrt(2*basis_frequency)*q*basis(i,1)
+    basis(i,1) = bfp*exp(-q*q*basis_frequency/2)
+    basis(i,2) = sqrt(2*basis_frequency)*q*basis(i,1)
     do j=3,Nbasis
-      basis(i,j) = dsqrt(2*basis_frequency/(j-1))*q * basis(i,j-1) &
-               & - dsqrt(dble(j-2)/(j-1))           * basis(i,j-2)
+      basis(i,j) = sqrt(2*basis_frequency/(j-1))*q * basis(i,j-1) &
+               & - sqrt(dble(j-2)/(j-1))           * basis(i,j-2)
     enddo ! j
   enddo ! i
 
