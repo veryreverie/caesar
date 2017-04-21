@@ -1,10 +1,36 @@
+! ======================================================================
+! The first stage of Caesar's anharmonic process.
+! Generates configurations along normal modes, and prepares anharmonic
+!    DFT calculations.
+! ======================================================================
 module setup_quadratic_module
   use constants_module, only : dp
   use string_module
   use io_module
 contains
 
-subroutine setup_quadratic(wd,cwd)
+! ----------------------------------------------------------------------
+! Generates keywords and helptext.
+! ----------------------------------------------------------------------
+function setup_quadratic_keywords() result(keywords)
+  use help_module
+  implicit none
+  
+  type(KeywordData) :: keywords(3)
+  
+  keywords = [                                                                &
+  & make_keyword('dft_code', 'castep', 'dft_code is the DFT code used to &
+     &calculate energies. Settings are: castep vasp qe.'),                    &
+  & make_keyword('seedname', no_argument, 'seedname is the DFT seedname from &
+     &which file names are constructed.'),                                    &
+  & make_keyword('harmonic_path', '.', 'harmonic_path is the path to the &
+     &directory where harmonic calculations were run.')                       ]
+end function
+
+! ----------------------------------------------------------------------
+! The main program.
+! ----------------------------------------------------------------------
+subroutine setup_quadratic(arguments,cwd)
   use constants_module, only : kb_in_au
   use utils_module,     only : mkdir, format_path, make_dft_input_filename
   use mapping_module
@@ -13,11 +39,14 @@ subroutine setup_quadratic(wd,cwd)
   use structure_to_dft_module
   use supercell_module
   use kpoints_module
+  use dictionary_module
   implicit none
   
-  ! Working directories.
-  type(String), intent(in) :: wd
-  type(String), intent(in) :: cwd
+  type(Dictionary), intent(in) :: arguments
+  type(String),     intent(in) :: cwd
+  
+  ! Working directory.
+  type(String) :: wd
   
   ! Parameters.
   real(dp), parameter :: frequency_tol   = 1.0e-5_dp!frequency<=tol if acoustic
@@ -26,7 +55,6 @@ subroutine setup_quadratic(wd,cwd)
   real(dp), parameter :: thermal_energy  = temperature*kb_in_au
   
   ! User inputs
-  type(String), allocatable :: user_input_file_in(:)
   type(String) :: dft_code      ! The dft code name (castep,vasp,qe).
   type(String) :: seedname      ! The dft input file seedname.
   type(String) :: harmonic_path ! The path to the harmonic directory.
@@ -68,42 +96,25 @@ subroutine setup_quadratic(wd,cwd)
   
   ! Files
   type(String), allocatable :: no_sc_file(:)
-  integer                   :: user_input_file
   
   ! ------------------------------------------------------------
   ! Get settings from user.
   ! ------------------------------------------------------------
-  
-  if (file_exists(wd//'/user_input.txt')) then
-    ! Get settings from file.
-    user_input_file_in = read_lines(wd//'/user_input.txt')
-    dft_code = user_input_file_in(1)
-    seedname = user_input_file_in(2)
-    harmonic_path = user_input_file_in(3)
-  else
-    ! Get dft code from the command line.
-    call print_line('')
-    call print_line('What code do you want to use (castep,vasp,qe)?')
-    dft_code = read_line_from_user()
-    
-    ! Get seedname from the command line.
-    call print_line('')
-    call print_line('What is the '//dft_code//' seedname?')
-    seedname = read_line_from_user()
-    
-    ! Get the path to the harmonic directory from the command line.
-    call print_line("What is the path to the harmonic directory?")
-    harmonic_path = format_path(read_line_from_user(),cwd)
-  endif
+  wd = item(arguments, 'working_directory')
+  dft_code = item(arguments, 'dft_code')
+  seedname = item(arguments, 'seedname')
+  harmonic_path = format_path(item(arguments, 'harmonic_path'), cwd)
   
   ! Check code is supported
   if (dft_code=="vasp") then
-    call print_line("Error! vasp is not currently supported.")
-    call err()
+    call print_line('')
+    call print_line("Error: vasp is not currently supported.")
+    stop
   elseif (dft_code/="castep" .and. dft_code/="qe") then
-    call print_line("Error! The code "//dft_code//" is not supported.")
+    call print_line('')
+    call print_line("Error: The code "//dft_code//" is not supported.")
     call print_line("Please choose one of: castep vap qe.")
-    call err()
+    stop
   endif
   
   ! Check dft input files exist
@@ -111,9 +122,9 @@ subroutine setup_quadratic(wd,cwd)
   dft_input_filename = wd//'/'//dft_code//'/'//dft_input_filename
   
   if (.not. file_exists(dft_input_filename)) then
-    call print_line("Error! The input file "//dft_input_filename// &
+    call print_line("Error: The input file "//dft_input_filename// &
        & " does not exist.")
-    call err()
+    stop
   endif
   
   ! ------------------------------------------------------------
@@ -140,17 +151,6 @@ subroutine setup_quadratic(wd,cwd)
   
   ! Read in kpoint data.
   kpoints = read_kpoints_file(harmonic_path//'/kpoints_ibz.dat')
-  
-  ! ------------------------------------------------------------
-  ! Write user inputs to file
-  ! ------------------------------------------------------------
-  if (.not. file_exists(wd//'/user_input.txt')) then
-    user_input_file = open_write_file(wd//'/user_input.txt')
-    call print_line(user_input_file,dft_code)
-    call print_line(user_input_file,seedname)
-    call print_line(user_input_file,harmonic_path)
-    close(user_input_file)
-  endif
   
   ! ------------------------------------------------------------
   ! Make directories

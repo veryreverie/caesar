@@ -15,14 +15,18 @@ module help_module
   
   type KeywordData
     type(String) :: keyword
+    type(String) :: default_value
     type(String) :: helptext
   end type
   
   interface make_keyword
-    module procedure make_keyword_character_character
-    module procedure make_keyword_character_String
-    module procedure make_keyword_String_character
-    module procedure make_keyword_String_String
+    module procedure make_keyword_characters
+    module procedure make_keyword_Strings
+  end interface
+  
+  interface help
+    module procedure help_default
+    module procedure help_keyword
   end interface
   
 contains
@@ -30,127 +34,112 @@ contains
 ! ----------------------------------------------------------------------
 ! Takes a keyword and its helptext and returns a KeywordData.
 ! ----------------------------------------------------------------------
-function make_keyword_character_character(keyword,helptext) result(this)
+function make_keyword_characters(keyword,default_value,helptext) result(this)
   implicit none
   
   character(*), intent(in) :: keyword
+  character(*), intent(in) :: default_value
   character(*), intent(in) :: helptext
   type(KeywordData)        :: this
   
   this%keyword  = keyword
+  this%default_value = default_value
   this%helptext = helptext
 end function
 
-function make_keyword_character_String(keyword,helptext) result(this)
-  implicit none
-  
-  character(*), intent(in) :: keyword
-  type(String), intent(in) :: helptext
-  type(KeywordData)        :: this
-  
-  this = make_keyword(keyword, char(helptext))
-end function
-
-function make_keyword_String_character(keyword,helptext) result(this)
+function make_keyword_Strings(keyword,default_value,helptext) result(this)
   implicit none
   
   type(String), intent(in) :: keyword
-  character(*), intent(in) :: helptext
-  type(KeywordData)        :: this
-  
-  this = make_keyword(char(keyword), helptext)
-end function
-
-function make_keyword_String_String(keyword,helptext) result(this)
-  implicit none
-  
-  type(String), intent(in) :: keyword
+  type(String), intent(in) :: default_value
   type(String), intent(in) :: helptext
   type(KeywordData)        :: this
   
-  this = make_keyword(char(keyword), char(helptext))
+  this = make_keyword(char(keyword),char(default_value),char(helptext))
 end function
 
 ! ----------------------------------------------------------------------
 ! Prints helptext.
 ! ----------------------------------------------------------------------
-subroutine help(keyword,mode,keywords)
+  
+! Print default helptext.
+subroutine help_default()
+  call print_line('caesar mode [-h [keyword]] [-i] [-f input_file] &
+     &[-d working_directory] [--options]')
+  call print_line('')
+  call print_line('Flags')
+  call print_line('  -h [keyword] | --help [keyword]')
+  call print_line('      "caesar -h" displays this help text.')
+  call print_line('      "caesar mode -h" displays help text relevant to the &
+     &specified mode.')
+  call print_line('      "caesar mode -h keyword" displays help text relevant &
+     &to the specified keyword, in the context of the specified mode.')
+  call print_line('')
+  call print_line('  -i | --interactive')
+  call print_line('      Runs interactively, prompting the user to review and &
+     &set all options.')
+  call print_line('')
+  call print_line('  -f filename | --input_file filename')
+  call print_line('      Reads additional settings from specified file.')
+  call print_line('      These should be of the form:')
+  call print_line('         keyword1 argument')
+  call print_line('         keyword2 argument1 argument2 argument3')
+  call print_line('      Keywords are the same as command-line --keywords.')
+  call print_line('      The "--" prefix. should not be given.')
+  call print_line('      The keywords "filename", "interactive" and "help" &
+     &should not be specified in a file.')
+  call print_line('')
+  call print_line('  -d dirname | --working_directory dirname')
+  call print_line('      Specifies the directory where Caesar should work.')
+  call print_line('      All files and folders will be created here.')
+  call print_line('      This is also where any run scripts will be called.')
+  call print_line('')
+  call print_line('Harmonic modes')
+  call print_line('  setup_harmonic')
+  call print_line('      Sets up harmonic calculation.')
+  call print_line('      DFT code choices are: castep.')
+  call print_line('  run_harmonic')
+  call print_line('      Runs harmonic calculation.')
+  call print_line('      Should be called after setup_harmonic.')
+  call print_line('  lte_harmonic')
+  call print_line('      Runs harmonic calculations.')
+  call print_line('      Should be called after run_harmonic.')
+  call print_line('')
+  call print_line('Quadratic modes')
+  call print_line('  setup_quadratic')
+  call print_line('      Sets up quadratic calculation.')
+  call print_line('      DFT code choices are: castep.')
+  call print_line('      Should be called after lte_harmonic.')
+  call print_line('  run_quadratic')
+  call print_line('      Runs quadratic calculation.')
+  call print_line('      Should be called after setup_quadratic.')
+  call print_line('  anharmonic')
+  call print_line('      Runs anharmonic calculations.')
+  call print_line('      Should be called after run_quadratic.')
+  call print_line('  bs_quadratic')
+  call print_line('      Runs band structure calculations.')
+  call print_line('      Should be called after run_quadratic.')
+  call print_line('')
+  call print_line('Utility modes')
+  call print_line('  hartree_to_eV')
+  call print_line('      Provides a Hartree to eV calculator.')
+  call print_line('  get_kpoints')
+  call print_line('      [Help text pending]')
+  call print_line('  calculate_gap')
+  call print_line('      [Help text pending]')
+end subroutine
+
+subroutine help_keyword(keyword,mode,keywords)
   implicit none
   
-  type(String),                   intent(in)           :: keyword
-  type(String),                   intent(in), optional :: mode
-  type(KeywordData), allocatable, intent(in), optional :: keywords(:)
+  type(String),                   intent(in) :: keyword
+  type(String),                   intent(in) :: mode
+  type(KeywordData), allocatable, intent(in) :: keywords(:)
   
   integer :: i
   logical :: success
   
-  ! Print default helptext.
-  if (keyword=='') then
-    call print_line('caesar mode [-h] [-i] [-f input_file] &
-       &[-d working_directory] [--options]')
-    call print_line('')
-    call print_line('Flags')
-    call print_line('  -h, --help')
-    call print_line('      caesar -h displays this help text.')
-    call print_line('      caesar mode -h displays mode-relevant help text.')
-    call print_line('      caesar --help arg displays help relevant to arg.')
-    call print_line('')
-    call print_line('  -i, --interactive')
-    call print_line('      Runs interactively.')
-    call print_line('')
-    call print_line('  -f filename | --input_file filename')
-    call print_line('      Reads additional settings from specified file.')
-    call print_line('      These should be of the form:')
-    call print_line('         keyword1 argument')
-    call print_line('         keyword2 argument1 argument2 argument3')
-    call print_line('      Keywords are the same as command-line --keywords.')
-    call print_line('      The "--" prefix. should not be given.')
-    call print_line('')
-    call print_line('  -d dirname | --working_directory dirname')
-    call print_line('      Specifies the directory where Caesar should work.')
-    call print_line('      All files and folders will be created here.')
-    call print_line('      This is also where any run scripts will be called.')
-    call print_line('')
-    call print_line('Harmonic modes')
-    call print_line('  setup_harmonic')
-    call print_line('      Sets up harmonic calculation.')
-    call print_line('      DFT code choices are: castep.')
-    call print_line('  run_harmonic')
-    call print_line('      Runs harmonic calculation.')
-    call print_line('      Should be called after setup_harmonic.')
-    call print_line('  lte_harmonic')
-    call print_line('      Runs harmonic calculations.')
-    call print_line('      Should be called after run_harmonic.')
-    call print_line('')
-    call print_line('Quadratic modes')
-    call print_line('  setup_quadratic')
-    call print_line('      Sets up quadratic calculation.')
-    call print_line('      DFT code choices are: castep.')
-    call print_line('      Should be called after lte_harmonic.')
-    call print_line('  run_quadratic')
-    call print_line('      Runs quadratic calculation.')
-    call print_line('      Should be called after setup_quadratic.')
-    call print_line('  anharmonic')
-    call print_line('      Runs anharmonic calculations.')
-    call print_line('      Should be called after run_quadratic.')
-    call print_line('  bs_quadratic')
-    call print_line('      Runs band structure calculations.')
-    call print_line('      Should be called after run_quadratic.')
-    call print_line('')
-    call print_line('Utility modes')
-    call print_line('  hartree_to_eV')
-    call print_line('      Provides a Hartree to eV calculator.')
-    call print_line('  get_kpoints')
-    call print_line('      [Help text pending]')
-    call print_line('  calculate_gap')
-    call print_line('      [Help text pending]')
-  elseif (.not. present(keywords)) then
-    call print_line('')
-    call print_line('For keyword-specific help, please also specify the mode, &
-       &e.g.')
-    call print_line('')
-    call print_line('  caesar setup_harmonic --help dft_code')
-  elseif (keyword=='setup_harmonic') then
+  if (keyword==no_argument) then
     do i=1,size(keywords)
       call print_line('')
       call print_line(keywords(i)%keyword)

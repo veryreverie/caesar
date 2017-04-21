@@ -1,3 +1,6 @@
+! ======================================================================
+! Reads dft output files in sdir, and generates matrix of force constants.
+! ======================================================================
 module lte_harmonic_module
   use constants_module, only : dp
   use string_module
@@ -5,8 +8,20 @@ module lte_harmonic_module
 contains
 
 ! ----------------------------------------------------------------------
-! Reads dft output files in sdir, and generates matrix of force constants.
+! Generate keywords and helptext.
 ! ----------------------------------------------------------------------
+function lte_harmonic_keywords() result(keywords)
+  use help_module
+  implicit none
+  
+  type(KeywordData) :: keywords(1)
+  
+  keywords = [ &
+  & make_keyword('temperature', '0', 'temperature is the temperature in &
+      &Kelvin, used when calculating the density of states and phonon &
+      &dispersion curve.') ]
+end function
+
 !function calculate_force_constants(structure,structure_sc,symmetry_group, &
 !   & unique_directions,sdir,dft_code,seedname) result(output)
 !  use constants_module,      only : directions
@@ -565,8 +580,10 @@ function construct_force_constants(forces,structure_sc,unique_directions, &
   output = output / structure_sc%sc_size
 end function
 
-! Program to construct and execute LTE
-subroutine lte_harmonic(wd)
+! ----------------------------------------------------------------------
+! Main program.
+! ----------------------------------------------------------------------
+subroutine lte_harmonic(arguments)
   use utils_module,          only : mkdir
   use linear_algebra_module, only : invert
   use structure_module
@@ -576,15 +593,19 @@ subroutine lte_harmonic(wd)
   use unique_directions_module
   use group_module
   use kpoints_module
+  use dictionary_module
   implicit none
   
+  type(Dictionary), intent(in) :: arguments
+  
   ! Working directory.
-  type(String), intent(in) :: wd
+  type(String) :: wd
   
   ! User-input temperature
   real(dp) :: temperature
   
   ! File contents
+  type(Dictionary)          :: setup_harmonic_arguments
   type(String), allocatable :: user_inputs(:)
   type(String), allocatable :: no_sc_file(:)
   
@@ -625,17 +646,18 @@ subroutine lte_harmonic(wd)
   type(String)              :: sdir
   
   ! ----------------------------------------------------------------------
-  ! Get temperature from user
+  ! Get arguments from user.
   ! ----------------------------------------------------------------------
-  call print_line('What temperature (K)?')
-  temperature = dble(read_line_from_user())
+  wd = item(arguments, 'working_directory')
+  temperature = dble(item(arguments, 'temperature'))
   
   ! ----------------------------------------------------------------------
   ! Read in initial data
   ! ----------------------------------------------------------------------
-  user_inputs = read_lines(wd//'/user_input.txt')
-  dft_code = user_inputs(1)
-  seedname = user_inputs(2)
+  setup_harmonic_arguments = read_dictionary_file( &
+     & wd//'/setup_harmonic.used_settings')
+  dft_code = item(setup_harmonic_arguments, 'dft_code')
+  seedname = item(setup_harmonic_arguments, 'seedname')
   
   no_sc_file = read_lines(wd//'/no_sc.dat')
   no_sc = int(no_sc_file(1))

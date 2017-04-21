@@ -35,6 +35,13 @@ module string_module
   public :: pad_str    ! left pads integers without '-' signs with a ' '
   public :: slice      ! slice(String,a,b) = character(a:b)
   
+  ! Constants for special cases.
+  public :: not_set
+  public :: no_argument
+  
+  character(9),  parameter :: not_set = '<not_set>'
+  character(13), parameter :: no_argument = '<no_argument>'
+  
   type String
     character(:), allocatable, private :: contents
   end type

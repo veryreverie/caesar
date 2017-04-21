@@ -39,6 +39,7 @@ program caesar
   
   type(String)              :: flags_with_arguments
   type(String), allocatable :: long_flags_with_arguments(:)
+  type(String), allocatable :: default_arguments(:)
   
   type(CommandLineFlag)     :: flag
   type(String)              :: mode
@@ -48,7 +49,8 @@ program caesar
   type(String), allocatable :: arg_keys(:)
   type(String), allocatable :: arg_values(:)
   type(Dictionary)          :: arguments
-  type(String), allocatable :: input_file(:)
+  type(Dictionary)          :: command_line_arguments
+  type(Dictionary)          :: file_arguments
   
   ! Keywords which the program accepts.
   type(KeywordData), allocatable :: keywords(:)
@@ -61,8 +63,8 @@ program caesar
   ! Temporary variables.
   integer                   :: i,j,ialloc
   type(String)              :: temp_string
-  type(String)              :: temp_string_2
-  type(String), allocatable :: line(:)
+  logical                   :: appending
+  type(String)              :: filename
   
   ! Set terminal width for formatting purposes.
   call update_terminal_width()
@@ -77,23 +79,93 @@ program caesar
     stop
   endif
   
-  ! Allocate space for input arguments.
-  no_args = 0
-  allocate( arg_keys(size(args)), &
-          & arg_values(size(args)), &
+  ! Read in mode.
+  mode = args(1)
+  
+  if (len(mode) < 2) then
+    call print_line('Error: unrecognised mode: '//mode)
+    call print_line('Call caesar -h for help.')
+    stop
+  elseif (mode=='-h' .or. mode=='--help') then
+    if (size(args)==1) then
+      call help()
+    else
+      call print_line('For keyword-specific help, please also specify a mode, &
+         &e.g. "caesar setup_harmonic -h dft_code"')
+    endif
+    stop
+  elseif (slice(mode,1,2)=='-h') then
+    call print_line('For keyword-specific help, please also specify a mode, &
+       &e.g. "caesar setup_harmonic -h dft_code"')
+    stop
+  endif
+  
+  ! Initialise flags.
+  flags_without_arguments = 'i'
+  long_flags_without_arguments = [ str('interactive') ]
+  call err(len(flags_without_arguments)==size(long_flags_without_arguments))
+  
+  flags_with_arguments = 'dfh'
+  long_flags_with_arguments = [ str('working_directory'), &
+                              & str('input_file'),        &
+                              & str('help')               ]
+  call err(len(flags_with_arguments)==size(long_flags_with_arguments))
+  default_arguments = [ str('.'), str(not_set), str(not_set) ]
+  call err(len(flags_with_arguments)==size(default_arguments))
+  
+  ! Fetch mode-specific keywords.
+  if (mode=='setup_harmonic') then
+    keywords = setup_harmonic_keywords()
+  elseif (mode=='run_harmonic') then
+    keywords = run_harmonic_keywords()
+  elseif (mode=='lte_harmonic') then
+    keywords = lte_harmonic_keywords()
+  elseif (mode=='setup_quadratic') then
+    keywords = setup_quadratic_keywords()
+  elseif (mode=='run_quadratic') then
+    keywords = run_quadratic_keywords()
+  elseif (mode=='anharmonic') then
+    keywords = anharmonic_keywords()
+  elseif (mode=='bs_quadratic') then
+    keywords = bs_quadratic_keywords()
+  else
+    call print_line('Error: unrecognised mode: '//mode)
+    call print_line('Call caesar -h for help.')
+    stop
+  endif
+  
+  ! Set dictionary of all keywords.
+  no_args = size(keywords)                     &
+        & + size(long_flags_without_arguments) &
+        & + size(long_flags_with_arguments)
+  allocate( arg_keys(no_args),   &
+          & arg_values(no_args), &
           & stat=ialloc); call err(ialloc)
   
-  ! Set default mode.
-  mode = ''
+  j = 0
+  do i=1,size(long_flags_without_arguments)
+    j = j+1
+    arg_keys(j) = long_flags_without_arguments(i)
+    arg_values(j) = not_set
+  enddo
   
-  ! Set up space for flag handling.
-  flags_without_arguments = 'hi'
-  long_flags_without_arguments = [ str('help'), str('interactive') ]
+  do i=1,size(long_flags_with_arguments)
+    j = j+1
+    arg_keys(j) = long_flags_with_arguments(i)
+    arg_values(j) = default_arguments(i)
+  enddo
   
-  flags_with_arguments = 'df'
-  long_flags_with_arguments = [ str('working_directory'), str('input_file') ]
+  do i=1,size(keywords)
+    j = j+1
+    arg_keys(j) = keywords(i)%keyword
+    arg_values(j) = keywords(i)%default_value
+  enddo
+  call err(j==no_args)
+  arguments = make_dictionary(arg_keys, arg_values)
   
   ! Parse command line arguments.
+  no_args = 0
+  
   do_args : do
     flag = get_flag(args, flags_without_arguments, flags_with_arguments)
     
@@ -103,45 +175,62 @@ program caesar
     
     ! The mode.
     elseif (flag%flag==' ' .and. no_args==0) then
-      if (mode/='') then
-        call print_line('Error: more than one mode specified.')
+      if (flag%argument/=mode) then
+        call print_line('Error: Caesar only takes one none-keyword argument. &
+           &all other arguments should be preceded by flags or "--" keywords.')
         stop
       endif
-      
-      mode = flag%argument
     
     ! An argument which is not preceded by '-' or '--'.
     elseif (flag%flag==' ') then
-      if (arg_values(no_args)=='<no_argument>') then
-        arg_values(no_args) = flag%argument
-      else
+      if (appending) then
         arg_values(no_args) = arg_values(no_args)//' '//flag%argument
+      else
+        arg_values(no_args) = flag%argument
+        appending = .true.
       endif
     
     ! An argument which is preceded by '--', i.e. a long form option.
     elseif (flag%flag=='-') then
+      
+      ! Check the key is valid.
+      if (index(arguments, flag%argument)==0) then
+        call print_line('Error: unexpected command-line argument: '// &
+           & flag%argument)
+        stop
+      endif
+      
+      ! Add the argument to the argument list.
       no_args = no_args+1
       arg_keys(no_args) = flag%argument
-      arg_values(no_args) = '<no_argument>'
+      arg_values(no_args) = no_argument
+      appending = .false.
     
     ! An argument which is preceded by '-', i.e. a flag.
     else
-      ! Flags without arguments.
+      ! Flags which do not accept arguments.
       do i=1,len(flags_without_arguments)
         if (flag%flag==slice(flags_without_arguments,i,i)) then
           no_args = no_args+1
           arg_keys(no_args) = long_flags_without_arguments(i)
-          arg_values(no_args) = '<no_argument>'
+          arg_values(no_args) = no_argument
+          appending = .false.
           cycle do_args
         endif
       enddo
       
-      ! Flags with arguments.
+      ! Flags which accept arguments.
       do i=1,len(flags_with_arguments)
         if (flag%flag==slice(flags_with_arguments,i,i)) then
           no_args = no_args+1
           arg_keys(no_args) = long_flags_with_arguments(i)
-          arg_values(no_args) = flag%argument
+          if (flag%argument=='') then
+            arg_values(no_args) = no_argument
+            appending = .false.
+          else
+            arg_values(no_args) = flag%argument
+            appending = .true.
+          endif
           cycle do_args
         endif
       enddo
@@ -162,29 +251,13 @@ program caesar
   enddo
   
   ! Convert arguments into a dictionary.
-  arguments = make_dictionary(arg_keys(:no_args), arg_values(:no_args))
-  
-  ! Specify keywords for each mode.
-  if (mode=='setup_harmonic') then
-    keywords = setup_harmonic_keywords()
-  elseif (mode/='') then
-    call print_line('Error: unrecognised mode: '//mode)
-    call print_line('Call caesar -h for help.')
-    stop
-  endif
+  command_line_arguments = make_dictionary( arg_keys(:no_args), &
+                                          & arg_values(:no_args))
   
   ! Handle help calls.
-  temp_string = item(arguments, 'help')
-  if (temp_string/='') then
-    if (mode=='' .and. temp_string=='<no_argument>') then
-      call help(mode)
-    elseif (mode=='') then
-      call help(temp_string)
-    elseif (temp_string=='<no_argument>') then
-      call help(mode, mode, keywords)
-    else
-      call help(temp_string, mode, keywords)
-    endif
+  temp_string = item(command_line_arguments, 'help')
+  if (temp_string/=not_set) then
+    call help(temp_string, mode, keywords)
     stop
   endif
   
@@ -197,94 +270,89 @@ program caesar
   endif
   
   ! Check if interactive mode requested.
-  interactive = item(arguments, 'interactive')/=''
+  interactive = item(command_line_arguments, 'interactive') /= not_set
   
-  ! Set working directory and input filename.
-  wd = item(arguments, 'working_directory')
-  if (wd=='<no_argument>') then
-    call print_line('Error: no argument given with --working_directory.')
-    stop
-  endif
-  
-  input_filename = item(arguments, 'input_file')
-  if (input_filename=='<no_argument>') then
+  ! Process input file.
+  input_filename = item(command_line_arguments, 'input_file')
+  if (input_filename==no_argument) then
     call print_line('Error: no argument given with --input_file.')
     stop
   endif
   
-  ! Process input file.
-  if (input_filename=='') then
-    input_filename = '<not_set>'
-  endif
-  
   if (interactive) then
     call print_line('')
-    call print_line('Input file is currently set to: '//input_filename)
-    call print_line('Press <Enter> to accept current setting.')
-    call print_line('Where is the input file?')
+    call print_line('Read additional settings from a file? (y/n)')
     temp_string = read_line_from_user()
-    if (temp_string/='') then
-      input_filename = temp_string
+    
+    if (temp_string=='y') then
+      call print_line('')
+      if (input_filename/=not_set) then
+        call print_line('Input file is currently set to: '//input_filename)
+        call print_line('Press <Enter> to accept current setting.')
+      endif
+      call print_line('Where is the input file?')
+      temp_string = read_line_from_user()
+      if (temp_string/='') then
+        input_filename = temp_string
+      endif
+    else
+      input_filename = not_set
     endif
   endif
   
-  if (input_filename/='<not_set>') then
-    input_file = read_lines(input_filename)
-    deallocate(arg_keys,arg_values,stat=ialloc); call err(ialloc)
-    no_args = 0
-    allocate( arg_keys(size(input_file)),   &
-            & arg_values(size(input_file)), &
-            & stat=ialloc); call err(ialloc)
-    do i=1,size(input_file)
-      line = split(input_file(i))
-      ! Ignore empty lines.
-      if (size(line)==0) then
-        cycle
-      
-      ! Ignore comment lines (those beginning with a '!').
-      elseif (slice(line(1),1,1)=='!') then
-        cycle
+  if (input_filename/=not_set) then
+    file_arguments = read_dictionary_file(input_filename)
+    
+    ! Check all file arguments are expected.
+    do i=1,size(file_arguments)
+      if (index(arguments, file_arguments%keys(i))==0) then
+        call print_line('Error: unexpected keyword '//file_arguments%keys(i) &
+           & //' in file '//input_filename//'.')
+        stop
+      elseif ( file_arguments%keys(i)=='input_filename' .or. &
+             & file_arguments%keys(i)=='help'           .or. &
+             & file_arguments%keys(i)=='interactive') then
+        call print_line('Error: the keyword '//file_arguments%keys(i)// &
+           & ' is in file '//input_filename//                           &
+           & '. This is a command-line only keyword.')
       endif
-      
-      no_args = no_args+1
-      arg_keys(no_args) = line(1)
-      arg_values(no_args) = '<no_argument>'
-      
-      ! Read argument.
-      do j=2,size(line)
-        if (slice(line(j),1,1)=='!') then
-          exit
-        
-        elseif (arg_values(no_args)=='<no_argument>') then
-          arg_values(no_args) = line(j)
-        
-        else
-          arg_values(no_args) = arg_values(no_args)//' '//line(j)
-        endif
-      enddo
     enddo
-    
-    ! Check for duplicate arguments.
-    do i=1,no_args
-      do j=i+1,no_args
-        if (arg_keys(i)==arg_keys(j)) then
-          call print_line('Error: argument '//arg_keys(i)// &
-             & ' specified more than once in file '//input_filename//'.')
-          stop
-        endif
-      enddo
-    enddo
-    
-    ! Append file arguments to command line arguments.
-    ! N.B. Command line arguments take priority over file arguments.
-    arguments =  arguments &
-               & // make_dictionary(arg_keys(:no_args), arg_values(:no_args))
   endif
   
-  ! Process working directory.
-  if (wd=='') then
-    wd = '.'
-  endif
+  ! Combine input arguments.
+  ! N.B. Command line arguments overwrite file arguments,
+  !    and both overwrite default arguments.
+  do i=1,size(arguments)
+    temp_string = item(command_line_arguments, arguments%keys(i))
+    if (temp_string/=not_set) then
+      arguments%values(i) = temp_string
+    else if (input_filename/=not_set) then
+      temp_string = item(file_arguments, arguments%keys(i))
+      if (temp_string/=not_set) then
+        arguments%values(i) = temp_string
+      endif
+    endif
+    
+    if (.not. interactive) then
+      if (arguments%values(i)==not_set) then
+        cycle
+      elseif ( arguments%keys(i)=='interactive' .and. &
+             & arguments%values(i)/=no_argument) then
+        call print_line('Error: an argument was given for keyword '// &
+           & arguments%keys(i)//', which does not accept arguments.')
+        stop
+      elseif ( arguments%keys(i)/='interactive' .and. &
+             & arguments%values(i)==no_argument) then
+        call print_line('Error: no argument given for keyword '// &
+           & arguments%keys(i)//', which requires an argument.')
+        stop
+      endif
+    endif
+  enddo
+  
+  ! Set working directory.
+  j = index(arguments, 'working_directory')
+  wd = arguments%values(j)
   
   if (interactive) then
     call print_line('')
@@ -298,23 +366,20 @@ program caesar
   endif
   
   wd = format_path(wd, cwd)
+  arguments%values(j) = wd
   
   ! Get interactive arguments.
   if (interactive) then
-    no_args = 0
-    deallocate(arg_keys, arg_values, stat=ialloc); call err(ialloc)
-    allocate( arg_keys(size(keywords)),   &
-            & arg_values(size(keywords)), &
-            & stat=ialloc); call err(ialloc)
     do i=1,size(keywords)
-      temp_string = item(arguments, keywords(i)%keyword)
-      if (temp_string=='') then
-        temp_string = '<not_set>'
-        call print_line('')
-      else
+      j = size(arguments)-size(keywords)+i
+      
+      call err(keywords(i)%keyword==arguments%keys(j))
+      
+      call print_line('')
+      if (arguments%values(j)/=no_argument) then
         call print_line('')
         call print_line(keywords(i)%keyword//' is currently set to: '//&
-           & temp_string)
+           & arguments%values(j))
         call print_line('Press <Enter> to accept current setting.')
       endif
       
@@ -322,47 +387,43 @@ program caesar
         call print_line('Please give a value for the keyword: '// &
            & keywords(i)%keyword//'.')
         call print_line(keywords(i)%helptext)
-        temp_string_2 = read_line_from_user()
-        if (temp_string_2/='' .or. temp_string/='<not_set>') then
+        temp_string = read_line_from_user()
+        if (temp_string/='') then
+          arguments%values(j) = temp_string
+        endif
+        
+        if (arguments%values(j)/=no_argument) then
           exit
         endif
       enddo
       
-      if (temp_string_2/='') then
-        no_args = no_args+1
-        arg_keys(no_args) = keywords(i)%keyword
-        arg_values(no_args) = temp_string_2
-      endif
     enddo
-    
-    ! Prepend interactive arguments to file and command line arguments.
-    ! N.B. Interactive arguments take prioriry over all other arguments.
-    arguments =  make_dictionary(arg_keys(:no_args), arg_values(:no_args)) &
-            & // arguments
   endif
   
   ! Write settings to file.
-  call write_dictionary_file(arguments,wd//'/settings.txt')
+  filename = wd//'/'//mode//'.used_settings'
+  call write_dictionary_file(arguments, filename)
+  call print_line('')
+  call print_line('Settings written to file '//filename)
   
   ! Run main program, depending on mode.
   if (mode == 'test') then
     call system_call(str('mkdir this_is_another_dir'))
-    call write_dictionary_file(arguments,wd//'/settings.txt')
   ! Wrappers for top-level Fortran.
   elseif (mode == 'setup_harmonic') then
-    call setup_harmonic(wd, arguments)
+    call setup_harmonic(arguments)
   elseif (mode == 'run_harmonic') then
-    call run_harmonic(wd,cwd)
+    call run_harmonic(arguments, cwd)
   elseif (mode == 'lte_harmonic') then
-    call lte_harmonic(wd)
+    call lte_harmonic(arguments)
   elseif (mode == 'setup_quadratic') then
-    call setup_quadratic(wd,cwd)
+    call setup_quadratic(arguments,cwd)
   elseif (mode == 'run_quadratic') then
-    call run_quadratic(wd,cwd)
+    call run_quadratic(arguments,cwd)
   elseif (mode == 'anharmonic') then
-    call anharmonic(wd)
+    call anharmonic(arguments)
   elseif (mode == 'bs_quadratic') then
-    call bs_quadratic(wd)
+    call bs_quadratic(arguments)
   ! Wrappers for subsidiary Fortran 
   elseif (mode == 'calculate_gap') then
     call calculate_gap()

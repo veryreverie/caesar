@@ -1,3 +1,7 @@
+! ======================================================================
+! The second stage of Caesar.
+! Runs DFT for harmonic calculations.
+! ======================================================================
 module run_harmonic_module
   use constants_module, only : dp
   use string_module
@@ -5,27 +9,50 @@ module run_harmonic_module
 contains
 
 ! ----------------------------------------------------------------------
-! Runs DFT for harmonic calculations.
+! Generate keywords and helptext.
 ! ----------------------------------------------------------------------
-subroutine run_harmonic(wd,cwd)
+function run_harmonic_keywords() result(keywords)
+  use help_module
+  implicit none
+  
+  type(KeywordData) :: keywords(3)
+  
+  keywords = [ &
+  & make_keyword('supercells_to_run', no_argument, 'supercells_to_run &
+     &is first and last supercell to run. These should be specified as two &
+     &integers separated by spaces.'),                                        &
+  & make_keyword('no_cores', '1', 'no_cores is the number of cores on which &
+     &DFT will be run. This is passed to the specified run script.'),         &
+  & make_keyword('run_script', no_argument, 'run_script is the path to the &
+     &script for running DFT. An example run script can be found in &
+     &doc/input_files.')                                                      ]
+end function
+
+! ----------------------------------------------------------------------
+! Main program.
+! ----------------------------------------------------------------------
+subroutine run_harmonic(arguments,cwd)
   use utils_module,     only : format_path
   use unique_directions_module
+  use dictionary_module
   implicit none
   
   ! Working directories.
-  type(String), intent(in) :: wd
-  type(String), intent(in) :: cwd
+  type(Dictionary), intent(in) :: arguments
+  type(String),     intent(in) :: cwd
+  
+  ! Working directory
+  type(String) :: wd
   
   ! Previous user inputs.
+  type(Dictionary)          :: setup_harmonic_arguments
   type(String), allocatable :: no_sc_file(:)
   integer                   :: no_sc
-  type(String), allocatable :: user_input_file(:)
   type(String)              :: dft_code
   type(String)              :: seedname
   
   ! Terminal inputs.
-  integer      :: first_sc
-  integer      :: last_sc
+  integer      :: supercells_to_run(2)
   integer      :: no_cores
   type(String) :: run_script
   
@@ -35,57 +62,45 @@ subroutine run_harmonic(wd,cwd)
   character(1)           :: direction
   
   ! Temporary variables.
-  integer                :: i,j
-  type(String)           :: sdir
-  type(String)           :: dir
+  integer                   :: i,j
+  type(String)              :: sdir
+  type(String)              :: dir
   
   ! --------------------------------------------------
-  ! Read in previous user inputs.
+  ! Read in arguments to previous calculations.
   ! --------------------------------------------------
   no_sc_file = read_lines(wd//'/no_sc.dat')
   no_sc = int(no_sc_file(1))
   
-  user_input_file = read_lines(wd//'/user_input.txt')
-  dft_code = user_input_file(1)
-  seedname = user_input_file(2)
+  setup_harmonic_arguments = read_dictionary_file( &
+     & wd//'/setup_harmonic.used_settings')
+  dft_code = item(setup_harmonic_arguments, 'dft_code')
+  seedname = item(setup_harmonic_arguments, 'seedname')
   
   ! --------------------------------------------------
   ! Get inputs from user.
   ! --------------------------------------------------
-  call print_line('')
-  call print_line('There are '//no_sc//' supercells in total.')
-  call print_line('What is the first supercell to run?')
-  first_sc = int(read_line_from_user())
-  
-  call print_line('')
-  call print_line('What is the last supercell to run?')
-  last_sc = int(read_line_from_user())
-  
-  call print_line('')
-  call print_line('How many cores can be used?')
-  no_cores = int(read_line_from_user())
-  
-  call print_line('')
-  call print_line('What is the path to the script for running DFT?')
-  call print_line('(An example script can be found in doc/input_files)')
-  run_script = format_path(read_line_from_user(), cwd)
+  wd = item(arguments, 'working_directory')
+  supercells_to_run = int(split(item(arguments, 'supercells_to_run')))
+  no_cores = int(item(arguments, 'no_cores'))
+  run_script = format_path(item(arguments, 'run_script'), cwd)
   
   ! --------------------------------------------------
   ! Check user inputs.
   ! --------------------------------------------------
-  if (first_sc<=0) then
+  if (supercells_to_run(1)<=0) then
     call print_line('')
     call print_line('Error: first supercell must be > 0')
     call err()
-  elseif (first_sc>no_sc) then
+  elseif (supercells_to_run(1)>no_sc) then
     call print_line('')
     call print_line('Error: first supercell must be <= '//no_sc)
     call err()
-  elseif (last_sc<first_sc) then
+  elseif (supercells_to_run(2)<supercells_to_run(1)) then
     call print_line('')
     call print_line('Error: first supercell must be <= last supercell.')
     call err()
-  elseif (last_sc>no_sc) then
+  elseif (supercells_to_run(2)>no_sc) then
     call print_line('')
     call print_line('Error: last supercell must be <= '//no_sc)
     call err()
@@ -101,7 +116,7 @@ subroutine run_harmonic(wd,cwd)
   ! --------------------------------------------------
   ! Run calculations
   ! --------------------------------------------------
-  do i=first_sc,last_sc
+  do i=supercells_to_run(1),supercells_to_run(2)
     sdir = wd//'/Supercell_'//i
     
     unique_directions = read_unique_directions_file( &

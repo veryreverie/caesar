@@ -1,3 +1,6 @@
+! ======================================================================
+! Program to calculate quadratic band gap correction.
+! ======================================================================
 module bs_quadratic_module
   use constants_module, only : dp
   use string_module
@@ -5,19 +8,40 @@ module bs_quadratic_module
 contains
 
 ! ----------------------------------------------------------------------
-! Program to calculate quadratic band gap correction
+! Generate keywords and helptext.
 ! ----------------------------------------------------------------------
-subroutine bs_quadratic(wd)
+function bs_quadratic_keywords() result(keywords)
+  use help_module
+  implicit none
+  
+  type(KeywordData) :: keywords(3)
+  
+  keywords = [ &
+  & make_keyword('q-point', no_argument, 'q-point is the id of the q-point of &
+     &interest.'),                                                             &
+  & make_keyword('band', no_argument, 'band is the id of the band of interest. &
+     &If the band is degenerate, the highest band is required.'),              &
+  & make_keyword('degeneracy', '1', 'degeneracy is the number of degenerate &
+     &bands.')                                                                 ]
+end function
+
+! ----------------------------------------------------------------------
+! Main program.
+! ----------------------------------------------------------------------
+subroutine bs_quadratic(arguments)
   use constants_module, only : kb_in_au
   use utils_module,     only : mkdir
   use mapping_module
   use structure_module
   use bands_module
   use supercell_module
+  use dictionary_module
   implicit none
   
+  type(Dictionary), intent(in) :: arguments
+  
   ! Working directory.
-  type(String), intent(in) :: wd
+  type(String) :: wd
   
   ! Parameters.
   real(dp), parameter :: dtemperature = 50.0_dp
@@ -33,6 +57,7 @@ subroutine bs_quadratic(wd)
   type(String) :: harmonic_path ! The path to the harmonic directory
   
   ! Starting data.
+  type(Dictionary)  :: setup_quadratic_arguments
   integer              :: no_sc
   integer              :: no_kpoints
   type(MappingData)                 :: mapping
@@ -68,7 +93,6 @@ subroutine bs_quadratic(wd)
   real(dp)              :: temperature
   
   ! File contents.
-  type(String), allocatable :: user_input_file(:)
   type(String), allocatable :: no_sc_file(:)
   type(String), allocatable :: ibz_file(:)
   type(String), allocatable :: line(:)
@@ -80,24 +104,19 @@ subroutine bs_quadratic(wd)
   ! --------------------------------------------------
   ! Get user inputs
   ! --------------------------------------------------
-  call print_line("What is the k-point of interest?")
-  kpoint = int(read_line_from_user())
-  
-  call print_line("What is the band number of interest &
-     &(for the primitive cell)?")
-  call print_line("(In case of band degeneracy, the highest band is required)")
-  band = int(read_line_from_user())
-  
-  call print_line("What is the band degeneracy?")
-  degeneracy = int(read_line_from_user())
+  wd = item(arguments, 'working_directory')
+  kpoint = int(item(arguments, 'q-point'))
+  band = int(item(arguments, 'band'))
+  degeneracy = int(item(arguments, 'degeneracy'))
   
   ! --------------------------------------------------
   ! Read basic data
   ! --------------------------------------------------
-  user_input_file = read_lines(wd//'/user_input.txt')
-  dft_code = user_input_file(1)
-  seedname = user_input_file(2)
-  harmonic_path = user_input_file(3)
+  setup_quadratic_arguments = read_dictionary_file( &
+     & wd//'/setup_quadratic.used_settings')
+  dft_code = item(setup_quadratic_arguments, 'dft_code')
+  seedname = item(setup_quadratic_arguments, 'seedname')
+  harmonic_path = item(setup_quadratic_arguments, 'harmonic_path')
   
   no_sc_file = read_lines(wd//'/no_sc.dat')
   no_sc = int(no_sc_file(1))

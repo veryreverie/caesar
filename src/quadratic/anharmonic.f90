@@ -1,14 +1,26 @@
-! ------------------------------------------------------------
-! program to calculate anharmonic 1-dimensional correction
-! ------------------------------------------------------------
-
+! ======================================================================
+! Program to calculate anharmonic 1-dimensional correction.
+! ======================================================================
 module anharmonic_module
   use constants_module, only : dp
   use string_module
   use io_module
 contains
 
-subroutine anharmonic(wd)
+! ----------------------------------------------------------------------
+! Generate keywords and helptext.
+! ----------------------------------------------------------------------
+function anharmonic_keywords() result(keywords)
+  use help_module
+  implicit none
+  
+  type(KeywordData) :: keywords(0)
+end function
+
+! ----------------------------------------------------------------------
+! Main program.
+! ----------------------------------------------------------------------
+subroutine anharmonic(arguments)
   use utils_module, only : mkdir, make_dft_output_filename
   use mapping_module
   use structure_module
@@ -18,10 +30,13 @@ subroutine anharmonic(wd)
   use calculate_anharmonic_module
   use quadratic_spline_module
   use vscf_1d_module
+  use dictionary_module
   implicit none
   
+  type(Dictionary) :: arguments
+  
   ! Working directory.
-  type(String), intent(in) :: wd
+  type(String) :: wd
   
   ! ----------------------------------------
   ! Parameters
@@ -32,6 +47,7 @@ subroutine anharmonic(wd)
   ! ----------------------------------------
   ! Input variables
   ! ----------------------------------------
+  type(Dictionary) :: setup_quadratic_arguments
   type(String) :: dft_code      ! The dft code name (castep,vasp,qe)
   type(String) :: seedname      ! The dft input file seedname
   type(String) :: harmonic_path ! The path to the harmonic directory
@@ -79,18 +95,20 @@ subroutine anharmonic(wd)
   ! ----------------------------------------
   ! Files.
   ! ----------------------------------------
-  type(String), allocatable :: user_input_file(:)
   type(String), allocatable :: no_sc_file(:)
   integer                   :: result_file
+  
+  wd = item(arguments, 'working_directory')
   
   ! ----------------------------------------
   ! Read in data
   ! ----------------------------------------
   ! Read in previous user inputs
-  user_input_file = read_lines(wd//'/user_input.txt')
-  dft_code = user_input_file(1)
-  seedname = user_input_file(2)
-  harmonic_path = user_input_file(3)
+  setup_quadratic_arguments = read_dictionary_file( &
+     & wd//'/setup_quadratic.used_settings')
+  dft_code = item(setup_quadratic_arguments, 'dft_code')
+  seedname = item(setup_quadratic_arguments, 'seedname')
+  harmonic_path = item(setup_quadratic_arguments, 'harmonic_path')
   
   ! read the number of Supercell_* directories into no_supercells
   no_sc_file = read_lines(harmonic_path//'/no_sc.dat')

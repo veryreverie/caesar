@@ -384,9 +384,10 @@ end function
 ! ----------------------------------------------------------------------
 ! Reads flags from the command line via system.c.
 ! ----------------------------------------------------------------------
-! Returns none-flag arguments as flag=' '
+! For none-flag arguments (those not preceded by '-' or '--'), output%flag = ' '.
+! For flags which accept arguments but do not have them, output%argument = ''.
+! For flags which do not accept arguments, output%argument is undefined.
 ! Aborts if an unexpected flag is passed.
-! Aborts if no argument is passed where one is required.
 function get_flag(args,flags_without_arguments,flags_with_arguments) &
    & result(output)
   implicit none
@@ -427,6 +428,7 @@ function get_flag(args,flags_without_arguments,flags_with_arguments) &
   
   ! Return result.
   if (.not. success) then
+    ! All arguments have been processed.
     output%flag = ' '
     output%argument = ''
   else
@@ -438,13 +440,15 @@ function get_flag(args,flags_without_arguments,flags_with_arguments) &
       endif
     enddo
     
+    ! The flag is unexpected.
     if (output%flag=='?') then
       call print_line('Error: unexpected flag "'//output%argument//'".')
       stop
+    
+    ! The flag has no argument.
     elseif (output%flag==':') then
-      call print_line('Error: no option given for flag "'// &
-         & output%argument//'".')
-      stop
+      output%flag = output%argument
+      output%argument = ''
     endif
   endif
 end function
