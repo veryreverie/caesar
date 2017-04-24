@@ -5,7 +5,9 @@ module io_module
   
   private
   
-  integer :: TERMINAL_WIDTH = 79
+  type(String) :: HOME
+  type(String) :: CWD
+  integer      :: TERMINAL_WIDTH = 79
   
   ! Command line flag and argument.
   public CommandLineFlag
@@ -19,13 +21,13 @@ module io_module
   public :: read_lines       ! reads a file into a String(:) array
   
   ! Other IO operations.
-  public :: system_call           ! Makes a system call.
-  public :: get_current_directory ! Gets the current directory.
-  public :: get_flag              ! Reads a flag from the command line.
-  public :: read_line_from_user   ! Reads a line from the terminal.
-  public :: update_terminal_width ! Gets the terminal width.
-  public :: print_line            ! write(*,'(a)')
-  public :: err                   ! Aborts with a stacktrace.
+  public :: set_global_io_variables ! Sets HOME, CWD and TERMINAL_WIDTH.
+  public :: system_call             ! Makes a system call.
+  public :: get_flag                ! Reads a flag from the command line.
+  public :: read_line_from_user     ! Reads a line from the terminal.
+  public :: print_line              ! write(*,'(a)')
+  public :: err                     ! Aborts with a stacktrace.
+  public :: format_path             ! Converts any path into an absolute path.
   
   type CommandLineFlag
     character(1) :: flag
@@ -89,6 +91,11 @@ module io_module
     module procedure err_integer
   end interface
   
+  interface format_path
+    module procedure format_path_character
+    module procedure format_path_String
+  end interface
+  
   ! C system call interface.
   interface
     function system_c(input) bind(c) result(return_code)
@@ -100,14 +107,25 @@ module io_module
     end function
   end interface
   
-  ! C pwd call interface.
+  ! C getcwd call interface.
   interface
-    function pwd_c(cwd_size, cwd) bind(c) result(success)
+    function get_cwd_c(result_size, cwd) bind(c) result(success)
       use, intrinsic :: iso_c_binding
       implicit none
       
-      integer(kind=c_int),    intent(in)  :: cwd_size
+      integer(kind=c_int),    intent(in)  :: result_size
       character(kind=c_char), intent(out) :: cwd(*)
+      logical(kind=c_bool)                :: success
+    end function
+  end interface
+  
+  ! C getenv('HOME') call interface.
+  interface
+    function get_home_c(home) bind(c) result(success)
+      use, intrinsic :: iso_c_binding
+      implicit none
+      
+      character(kind=c_char), intent(out) :: home(*)
       logical(kind=c_bool)                :: success
     end function
   end interface
@@ -348,39 +366,6 @@ subroutine system_call(this)
   result_code = system_c(char(this)//char(0))
 end subroutine
 
-! Gets the current working directory via system.c.
-function get_current_directory() result(output)
-  implicit none
-  
-  type(String) :: output
-  
-  integer, parameter  :: cwd_size = 1024
-  
-  character(cwd_size) :: current_dir
-  logical             :: success
-  integer             :: i
-  
-  success = pwd_c(cwd_size, current_dir)
-  
-  if (.not. success) then
-    call print_line('pwd failed.')
-    call err()
-  endif
-  
-  output = ''
-  do i=1,cwd_size
-    if (current_dir(i:i)==char(0)) then
-      output = current_dir(:i-1)
-      exit
-    endif
-  enddo
-  
-  if (output=='') then
-    call print_line('pwd string not nul-terminated.'//current_dir)
-    call err()
-  endif
-end function
-
 ! ----------------------------------------------------------------------
 ! Reads flags from the command line via system.c.
 ! ----------------------------------------------------------------------
@@ -465,21 +450,97 @@ function read_line_from_user() result(line)
 end function
 
 ! ----------------------------------------------------------------------
-! Checks the width of the terminal, and sets TERMINAL_WIDTH.
+! Sets HOME, CWD and TERMINAL_WIDTH.
+! Calls the system to find these variables.
 ! ----------------------------------------------------------------------
-subroutine update_terminal_width()
+function get_home_directory() result(output)
   implicit none
   
-  logical :: success
+  type(String) :: output
+  
+  integer, parameter  :: result_size = 1024
+  
+  character(result_size) :: home_dir
+  logical                :: success
+  integer                :: i
+  
+  success = get_home_c(home_dir)
+  
+  if (.not. success) then
+    call print_line('getenv("HOME") failed.')
+    call err()
+  endif
+  
+  output = ''
+  do i=1,result_size
+    if (home_dir(i:i)==char(0)) then
+      output = home_dir(:i-1)
+      exit
+    endif
+  enddo
+  
+  if (output=='') then
+    call print_line('home directory string not nul-terminated: '//home_dir)
+    call err()
+  endif
+end function
+
+function get_current_directory() result(output)
+  implicit none
+  
+  type(String) :: output
+  
+  integer, parameter  :: result_size = 1024
+  
+  character(result_size) :: current_dir
+  logical                :: success
+  integer                :: i
+  
+  success = get_cwd_c(result_size, current_dir)
+  
+  if (.not. success) then
+    call print_line('getcwd failed.')
+    call err()
+  endif
+  
+  output = ''
+  do i=1,result_size
+    if (current_dir(i:i)==char(0)) then
+      output = current_dir(:i-1)
+      exit
+    endif
+  enddo
+  
+  if (output=='') then
+    call print_line('cwd string not nul-terminated.'//current_dir)
+    call err()
+  endif
+end function
+
+function get_terminal_width() result(output)
+  implicit none
+  
+  integer :: output
+  
   integer :: width
+  logical :: success
   
   success = get_terminal_width_c(width)
   if (.not. success) then
     call print_line( 'Failed to get terminal width. &
                      &Reverting to default of 79 characters.')
+    output = TERMINAL_WIDTH
   else
-    TERMINAL_WIDTH = width
+    output = width
   endif
+end function
+
+subroutine set_global_io_variables()
+  implicit none
+  
+  HOME = get_home_directory()
+  CWD = get_current_directory()
+  TERMINAL_WIDTH = get_terminal_width()
 end subroutine
 
 ! ----------------------------------------------------------------------
@@ -704,4 +765,52 @@ subroutine err_integer(this)
     call err()
   endif
 end subroutine
+
+! ----------------------------------------------------------------------
+! Takes a directory name, and converts it into an absolute path
+!    in standard format (without a trailing '/').
+! ----------------------------------------------------------------------
+function format_path_character(path) result(output)
+  implicit none
+  
+  character(*), intent(in) :: path
+  type(String)             :: output
+  
+  integer :: last
+  
+  last = len(path)
+  
+  if (last==0) then
+    call print_line('Error: no path provided.')
+    call err()
+  endif
+  
+  ! Trim trailing '/', if present.
+  if (path(last:)=='/') then
+    last = last - 1
+  endif
+  
+  if (path(:1)=='/') then
+    ! Path is absolute.
+    output = path(:last)
+  elseif (path(:1)=='~') then
+    ! Path is relative to HOME. Replace ~ with HOME.
+    output = HOME//'/'//path(2:last)
+  elseif (path=='.') then
+    ! Path is relative. Prepend current working directory.
+    output = CWD
+  else
+    ! Path is relative. Prepend current working directory.
+    output = CWD//'/'//path(:last)
+  endif
+end function
+
+function format_path_String(path) result(output)
+  implicit none
+  
+  type(String), intent(in) :: path
+  type(String)             :: output
+  
+  output = format_path(char(path))
+end function
 end module

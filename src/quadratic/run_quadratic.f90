@@ -31,8 +31,7 @@ end function
 ! ----------------------------------------------------------------------
 ! The main program.
 ! ----------------------------------------------------------------------
-subroutine run_quadratic(arguments,cwd)
-  use utils_module, only : format_path
+subroutine run_quadratic(arguments)
   use structure_module
   use mapping_module
   use kpoints_module
@@ -41,7 +40,6 @@ subroutine run_quadratic(arguments,cwd)
   implicit none
   
   type(Dictionary), intent(in) :: arguments
-  type(String),     intent(in) :: cwd
   
   ! Working directory.
   type(String) :: wd
@@ -75,7 +73,7 @@ subroutine run_quadratic(arguments,cwd)
   wd = item(arguments, 'working_directory')
   supercells_to_run = int(split(item(arguments, 'supercells_to_run')))
   no_cores = int(item(arguments, 'no_cores'))
-  run_script = format_path(item(arguments, 'run_script'), cwd)
+  run_script = format_path(item(arguments, 'run_script'))
   
   ! --------------------------------------------------
   ! Check user inputs.
@@ -103,6 +101,7 @@ subroutine run_quadratic(arguments,cwd)
   elseif (.not. file_exists(run_script)) then
     call print_line('')
     call print_line('Error: '//run_script//' does not exist.')
+    call err()
   endif
   
   ! --------------------------------------------------

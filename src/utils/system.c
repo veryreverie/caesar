@@ -12,10 +12,10 @@ int system_c(const char* input)
   return system(input);
 }
 
-bool pwd_c(const int* cwd_size, char* cwd)
+bool get_cwd_c(const int* result_size, char* cwd)
 {
-  char buffer[*cwd_size + 1];
-  char * result = getcwd(buffer, *cwd_size + 1);
+  char buffer[*result_size + 1];
+  char * result = getcwd(buffer, *result_size + 1);
   if (result==NULL)
   {
     return false;
@@ -23,6 +23,20 @@ bool pwd_c(const int* cwd_size, char* cwd)
   else
   {
     strcpy(cwd,result);
+    return true;
+  }
+}
+
+bool get_home_c(char* home)
+{
+  char * result = getenv("HOME");
+  if (result==NULL)
+  {
+    return false;
+  }
+  else
+  {
+    strcpy(home,result);
     return true;
   }
 }

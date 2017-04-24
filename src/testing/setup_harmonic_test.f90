@@ -8,7 +8,7 @@ module setup_harmonic_test_module
 contains
 
 subroutine setup_harmonic_test(arguments)
-  use utils_module, only : format_path, make_dft_output_filename, mkdir
+  use utils_module, only : make_dft_output_filename, mkdir
   use structure_module
   use unique_directions_module
   use dft_input_file_module

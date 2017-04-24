@@ -5,12 +5,6 @@ module utils_module
   use constants_module, only : dp
   use string_module
   use io_module
-  implicit none
-  
-  interface format_path
-    module procedure format_path_character
-    module procedure format_path_String
-  end interface
 contains
 
 ! ----------------------------------------------------------------------
@@ -44,50 +38,6 @@ subroutine mkdir(dirname)
   
   call system_call('if [ ! -e '//dirname//' ]; then mkdir '//dirname//'; fi')
 end subroutine
-
-! ----------------------------------------------------------------------
-! Takes a directory name, and converts it into an absolute path
-!    in standard format (without a trailing '/').
-! ----------------------------------------------------------------------
-function format_path_character(path,cwd) result(output)
-  implicit none
-  
-  character(*), intent(in) :: path
-  type(String), intent(in) :: cwd       ! Current working directory.
-  type(String)             :: output
-  
-  integer :: last
-  
-  last = len(path)
-  
-  if (last==0) then
-    call print_line('Error: no path provided.')
-    call err()
-  endif
-  
-  ! Trim trailing '/', if present.
-  if (path(last:)=='/') then
-    last = last - 1
-  endif
-  
-  if (path(:1)=='/' .or. path(:1)=='~') then
-    ! Path is absolute.
-    output = path(:last)
-  else
-    ! Path is relative. Prepend current working directory.
-    output = cwd//'/'//path(:last)
-  endif
-end function
-
-function format_path_String(path,cwd) result(output)
-  implicit none
-  
-  type(String), intent(in) :: path
-  type(String), intent(in) :: cwd    ! Current working directory.
-  type(String)             :: output
-  
-  output = format_path(char(path),cwd)
-end function
 
 ! ----------------------------------------------------------------------
 ! Converts a file seedname into the appropriate dft input or output filename.

@@ -30,9 +30,9 @@ end function
 ! ----------------------------------------------------------------------
 ! The main program.
 ! ----------------------------------------------------------------------
-subroutine setup_quadratic(arguments,cwd)
+subroutine setup_quadratic(arguments)
   use constants_module, only : kb_in_au
-  use utils_module,     only : mkdir, format_path
+  use utils_module,     only : mkdir
   use mapping_module
   use structure_module
   use displacement_patterns_module
@@ -43,7 +43,6 @@ subroutine setup_quadratic(arguments,cwd)
   implicit none
   
   type(Dictionary), intent(in) :: arguments
-  type(String),     intent(in) :: cwd
   
   ! Working directory.
   type(String) :: wd
@@ -103,7 +102,7 @@ subroutine setup_quadratic(arguments,cwd)
   wd = item(arguments, 'working_directory')
   dft_code = item(arguments, 'dft_code')
   seedname = item(arguments, 'seedname')
-  harmonic_path = format_path(item(arguments, 'harmonic_path'), cwd)
+  harmonic_path = format_path(item(arguments, 'harmonic_path'))
   
   ! Check code is supported
   if (dft_code=="vasp") then

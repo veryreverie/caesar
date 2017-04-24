@@ -4,13 +4,11 @@ module test_copy_quadratic_module
   use io_module
 contains
 
-subroutine test_copy_quadratic(wd,cwd)
-  use utils_module, only : format_path
+subroutine test_copy_quadratic(wd)
   implicit none
   
   ! Working directories.
   type(String), intent(in) :: wd
-  type(String), intent(in) :: cwd
   
   ! Terminal inputs.
   type(String) :: copy_dir
@@ -38,7 +36,7 @@ subroutine test_copy_quadratic(wd,cwd)
   call print_line('   and copy over dft output files.')
   call print_line('')
   call print_line('Where is the quadratic directory for comparison?')
-  copy_dir = format_path(read_line_from_user(),cwd)
+  copy_dir = format_path(read_line_from_user())
   
   ! ----------------------------------------------------------------------
   ! Read in previous settings.

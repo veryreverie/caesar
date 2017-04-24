@@ -31,15 +31,13 @@ end function
 ! ----------------------------------------------------------------------
 ! Main program.
 ! ----------------------------------------------------------------------
-subroutine run_harmonic(arguments,cwd)
-  use utils_module,     only : format_path
+subroutine run_harmonic(arguments)
   use unique_directions_module
   use dictionary_module
   implicit none
   
   ! Working directories.
   type(Dictionary), intent(in) :: arguments
-  type(String),     intent(in) :: cwd
   
   ! Working directory
   type(String) :: wd
@@ -67,6 +65,14 @@ subroutine run_harmonic(arguments,cwd)
   type(String)              :: dir
   
   ! --------------------------------------------------
+  ! Get inputs from user.
+  ! --------------------------------------------------
+  wd = item(arguments, 'working_directory')
+  supercells_to_run = int(split(item(arguments, 'supercells_to_run')))
+  no_cores = int(item(arguments, 'no_cores'))
+  run_script = format_path(item(arguments, 'run_script'))
+  
+  ! --------------------------------------------------
   ! Read in arguments to previous calculations.
   ! --------------------------------------------------
   no_sc_file = read_lines(wd//'/no_sc.dat')
@@ -76,14 +82,6 @@ subroutine run_harmonic(arguments,cwd)
      & wd//'/setup_harmonic.used_settings')
   dft_code = item(setup_harmonic_arguments, 'dft_code')
   seedname = item(setup_harmonic_arguments, 'seedname')
-  
-  ! --------------------------------------------------
-  ! Get inputs from user.
-  ! --------------------------------------------------
-  wd = item(arguments, 'working_directory')
-  supercells_to_run = int(split(item(arguments, 'supercells_to_run')))
-  no_cores = int(item(arguments, 'no_cores'))
-  run_script = format_path(item(arguments, 'run_script'), cwd)
   
   ! --------------------------------------------------
   ! Check user inputs.
@@ -111,6 +109,7 @@ subroutine run_harmonic(arguments,cwd)
   elseif (.not. file_exists(run_script)) then
     call print_line('')
     call print_line('Error: '//run_script//' does not exist.')
+    call err()
   endif
   
   ! --------------------------------------------------

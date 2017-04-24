@@ -4,9 +4,9 @@ module test_lte_module
   use io_module
 contains
 
-subroutine test_lte(wd,cwd)
+subroutine test_lte(wd)
   use constants_module, only : pi
-  use utils_module,     only : mkdir, format_path
+  use utils_module,     only : mkdir
   use structure_module
   use group_module
   use atom_mapping_module
@@ -19,7 +19,6 @@ subroutine test_lte(wd,cwd)
   
   ! Working directories.
   type(String), intent(in) :: wd
-  type(String), intent(in) :: cwd
   
   ! Directories and files.
   type(String)              :: sdir
@@ -109,7 +108,7 @@ subroutine test_lte(wd,cwd)
      &calculations.')
   call print_line('')
   call print_line('Where is the harmonic directory for comparison?')
-  copy_dir = format_path(read_line_from_user(),cwd)
+  copy_dir = format_path(read_line_from_user())
   call print_line('')
   
   ! Get temperature from user.

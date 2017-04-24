@@ -28,9 +28,6 @@ program caesar
   
   implicit none
   
-  ! Working directory.
-  type(String) :: cwd
-  
   ! Command line arguments.
   type(String), allocatable :: args(:)
   
@@ -66,11 +63,8 @@ program caesar
   logical                   :: appending
   type(String)              :: filename
   
-  ! Set terminal width for formatting purposes.
-  call update_terminal_width()
-  
-  ! Get current directory.
-  cwd = get_current_directory()
+  ! Set IO variables for formatting and file parsing purposes.
+  call set_global_io_variables()
   
   ! Read in command line arguments.
   args = command_line_args()
@@ -363,7 +357,7 @@ program caesar
     endif
   endif
   
-  wd = format_path(wd, cwd)
+  wd = format_path(wd)
   arguments%values(j) = wd
   
   ! Get interactive arguments.
@@ -409,13 +403,13 @@ program caesar
   elseif (mode == 'setup_harmonic') then
     call setup_harmonic(arguments)
   elseif (mode == 'run_harmonic') then
-    call run_harmonic(arguments, cwd)
+    call run_harmonic(arguments)
   elseif (mode == 'lte_harmonic') then
     call lte_harmonic(arguments)
   elseif (mode == 'setup_quadratic') then
-    call setup_quadratic(arguments,cwd)
+    call setup_quadratic(arguments)
   elseif (mode == 'run_quadratic') then
-    call run_quadratic(arguments,cwd)
+    call run_quadratic(arguments)
   elseif (mode == 'anharmonic') then
     call anharmonic(arguments)
   elseif (mode == 'bs_quadratic') then
@@ -429,9 +423,9 @@ program caesar
   elseif (mode == 'setup_harmonic_test') then
     call setup_harmonic_test(arguments)
   elseif (mode == 'test_lte') then
-    call test_lte(wd,cwd)
+    call test_lte(wd)
   elseif (mode == 'test_copy_quadratic') then
-    call test_copy_quadratic(wd,cwd)
+    call test_copy_quadratic(wd)
   ! unrecognised mode.
   else
     call print_line('Error: Unrecognised mode: '//mode)
