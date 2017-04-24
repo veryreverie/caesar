@@ -606,7 +606,6 @@ subroutine lte_harmonic(arguments)
   
   ! File contents
   type(Dictionary)          :: setup_harmonic_arguments
-  type(String), allocatable :: user_inputs(:)
   type(String), allocatable :: no_sc_file(:)
   
   ! Setup data

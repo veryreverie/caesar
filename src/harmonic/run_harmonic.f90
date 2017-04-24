@@ -19,13 +19,13 @@ function run_harmonic_keywords() result(keywords)
   
   keywords = [ &
   & make_keyword('supercells_to_run', no_argument, 'supercells_to_run &
-     &is first and last supercell to run. These should be specified as two &
-     &integers separated by spaces.'),                                        &
+     &is the first and last supercell to run. These should be specified as &
+     &two integers separated by spaces.'),                                  &
   & make_keyword('no_cores', '1', 'no_cores is the number of cores on which &
-     &DFT will be run. This is passed to the specified run script.'),         &
+     &DFT will be run. This is passed to the specified run script.'),       &
   & make_keyword('run_script', no_argument, 'run_script is the path to the &
      &script for running DFT. An example run script can be found in &
-     &doc/input_files.')                                                      ]
+     &doc/input_files.')                                                    ]
 end function
 
 ! ----------------------------------------------------------------------

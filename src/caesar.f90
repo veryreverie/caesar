@@ -18,7 +18,7 @@ program caesar
   use bs_quadratic_module
   
   ! use testing modules
-  use test_copy_harmonic_module
+  use setup_harmonic_test_module
   use test_lte_module
   use test_copy_quadratic_module
   
@@ -114,7 +114,7 @@ program caesar
   call err(len(flags_with_arguments)==size(default_arguments))
   
   ! Fetch mode-specific keywords.
-  if (mode=='setup_harmonic') then
+  if (mode=='setup_harmonic' .or. mode=='setup_harmonic_test') then
     keywords = setup_harmonic_keywords()
   elseif (mode=='run_harmonic') then
     keywords = run_harmonic_keywords()
@@ -312,9 +312,7 @@ program caesar
       elseif ( file_arguments%keys(i)=='input_filename' .or. &
              & file_arguments%keys(i)=='help'           .or. &
              & file_arguments%keys(i)=='interactive') then
-        call print_line('Error: the keyword '//file_arguments%keys(i)// &
-           & ' is in file '//input_filename//                           &
-           & '. This is a command-line only keyword.')
+        file_arguments%values(i) = not_set
       endif
     enddo
   endif
@@ -356,9 +354,9 @@ program caesar
   
   if (interactive) then
     call print_line('')
+    call print_line('Where is the working directory?')
     call print_line('Working directory is currently set to: '//wd)
     call print_line('Press <Enter> to accept current setting.')
-    call print_line('Where is the working directory?')
     temp_string = read_line_from_user()
     if (temp_string/='') then
       wd = temp_string
@@ -376,17 +374,15 @@ program caesar
       call err(keywords(i)%keyword==arguments%keys(j))
       
       call print_line('')
-      if (arguments%values(j)/=no_argument) then
-        call print_line('')
-        call print_line(keywords(i)%keyword//' is currently set to: '//&
-           & arguments%values(j))
-        call print_line('Press <Enter> to accept current setting.')
-      endif
-      
       do
         call print_line('Please give a value for the keyword: '// &
            & keywords(i)%keyword//'.')
         call print_line(keywords(i)%helptext)
+        if (arguments%values(j)/=no_argument) then
+          call print_line(keywords(i)%keyword//' is currently set to: '//&
+             & arguments%values(j))
+          call print_line('Press <Enter> to accept current setting.')
+        endif
         temp_string = read_line_from_user()
         if (temp_string/='') then
           arguments%values(j) = temp_string
@@ -430,8 +426,8 @@ program caesar
   elseif (mode == 'hartree_to_eV') then
     call hartree_to_eV()
   ! Wrappers for testing modules
-  elseif (mode == 'test_copy_harmonic') then
-    call test_copy_harmonic(wd,cwd)
+  elseif (mode == 'setup_harmonic_test') then
+    call setup_harmonic_test(arguments)
   elseif (mode == 'test_lte') then
     call test_lte(wd,cwd)
   elseif (mode == 'test_copy_quadratic') then

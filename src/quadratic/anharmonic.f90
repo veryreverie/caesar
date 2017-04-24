@@ -14,7 +14,14 @@ function anharmonic_keywords() result(keywords)
   use help_module
   implicit none
   
-  type(KeywordData) :: keywords(0)
+  type(KeywordData) :: keywords(2)
+  
+  keywords = [ &
+  & make_keyword('integration_points', '5000', 'integration_points is the &
+     &number of points onto which the 1-d potential is interpolated before &
+     &VSCF is performed.'),                                                &
+  & make_keyword('basis_size', '20', 'basis_size is the number of states &
+     &used to construct a basis when performing VSCF.')                    ]
 end function
 
 ! ----------------------------------------------------------------------
@@ -39,18 +46,14 @@ subroutine anharmonic(arguments)
   type(String) :: wd
   
   ! ----------------------------------------
-  ! Parameters
-  ! ----------------------------------------
-  integer, parameter :: integration_points = 5000
-  integer, parameter :: Nbasis = 20
-  
-  ! ----------------------------------------
   ! Input variables
   ! ----------------------------------------
   type(Dictionary) :: setup_quadratic_arguments
-  type(String) :: dft_code      ! The dft code name (castep,vasp,qe)
-  type(String) :: seedname      ! The dft input file seedname
-  type(String) :: harmonic_path ! The path to the harmonic directory
+  type(String)     :: dft_code
+  type(String)     :: seedname
+  type(String)     :: harmonic_path
+  integer          :: integration_points
+  integer          :: basis_size
   
   ! ----------------------------------------
   ! Working variables
@@ -98,11 +101,15 @@ subroutine anharmonic(arguments)
   type(String), allocatable :: no_sc_file(:)
   integer                   :: result_file
   
-  wd = item(arguments, 'working_directory')
   
   ! ----------------------------------------
   ! Read in data
   ! ----------------------------------------
+  ! Read arguments
+  wd = item(arguments, 'working_directory')
+  integration_points = int(item(arguments, 'integration_points'))
+  basis_size = int(item(arguments, 'basis_size'))
+  
   ! Read in previous user inputs
   setup_quadratic_arguments = read_dictionary_file( &
      & wd//'/setup_quadratic.used_settings')
@@ -186,8 +193,8 @@ subroutine anharmonic(arguments)
   ! ----------------------------------------
   
   ! Calculate anharmonic 1-dimensional correction
-  allocate(harmonic(Nbasis,structure%no_modes,size(kpoints)))
-  allocate(eigenvals(Nbasis,structure%no_modes,size(kpoints)))
+  allocate(harmonic(basis_size,structure%no_modes,size(kpoints)))
+  allocate(eigenvals(basis_size,structure%no_modes,size(kpoints)))
   do i=1,size(kpoints)
     if (i/=1 .or. .not. any(sc_acoustic)) then
       do j=1,structure%no_modes
@@ -208,7 +215,7 @@ subroutine anharmonic(arguments)
         spline = quadratic_spline(integration_points, amplitudes)
         
         ! calculate 1-d anharmonic energy
-        vscf = vscf_1d(frequencies(j,i), spline, Nbasis)
+        vscf = vscf_1d(frequencies(j,i), spline, basis_size)
         
         harmonic(:,j,i) = vscf%harmonic
         eigenvals(:,j,i) = vscf%eigenvals
@@ -237,7 +244,7 @@ subroutine anharmonic(arguments)
   ! calculate free energy, F(T), for harmonic and anharmonic cases
   ! write output to anharmonic_correction.dat
   result_file = open_write_file(wd//'/anharmonic/anharmonic_correction.dat')
-  call calculate_anharmonic(structure,structure_grid,kpoints,Nbasis, &
+  call calculate_anharmonic(structure,structure_grid,kpoints,basis_size, &
      & harmonic,eigenvals,result_file)
   close(result_file)
 end subroutine

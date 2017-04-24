@@ -22,7 +22,7 @@ function setup_harmonic_keywords() result(keywords)
      &calculate energies. Settings are: castep vasp qe.'),                    &
   & make_keyword('seedname', no_argument, 'seedname is the DFT seedname from &
      &which file names are constructed.'),                                    &
-  & make_keyword('qpoint_grid', no_argument, 'qpoint_grid is the number of &
+  & make_keyword('q-point_grid', no_argument, 'q-point_grid is the number of &
      &q-points in each direction in a Monkhorst-Pack grid. This should be &
      &specified as three integers separated by spaces.')                      ]
 end function
@@ -31,14 +31,13 @@ end function
 ! Main program.
 ! ----------------------------------------------------------------------
 subroutine setup_harmonic(arguments)
-  use utils_module, only : mkdir, make_dft_input_filename
+  use utils_module, only : mkdir
   use structure_module
   use supercell_module
   use group_module
   use kpoints_module
   use dictionary_module
   use dft_input_file_module
-  use structure_to_dft_module
   use generate_supercells_module
   use construct_supercell_module
   use unique_directions_module
@@ -89,7 +88,7 @@ subroutine setup_harmonic(arguments)
   wd = item(arguments, 'working_directory')
   dft_code = item(arguments, 'dft_code')
   seedname = item(arguments, 'seedname')
-  grid = int(split(item(arguments, 'qpoint_grid')))
+  grid = int(split(item(arguments, 'q-point_grid')))
   
   ! Check dft code is supported
   if (dft_code=='vasp') then
@@ -116,7 +115,7 @@ subroutine setup_harmonic(arguments)
   ! ----------------------------------------------------------------------
   ! Read in input files.
   ! ----------------------------------------------------------------------
-  structure = dft_input_file_to_structure(dft_code,dft_input_filename)
+  structure = dft_input_file_to_StructureData(dft_code,dft_input_filename)
   call write_structure_file(structure,wd//'/structure.dat')
   
   ! ----------------------------------------------------------------------
@@ -193,10 +192,11 @@ subroutine setup_harmonic(arguments)
           
         ! Write dft input files.
         dft_input_filename = make_dft_input_filename(dft_code,seedname)
-        call structure_to_dft( dft_code,                    &
-                             & structure_sc,                &
-                             & wd//'/'//dft_input_filename, &
-                             & paths(k)//'/'//dft_input_filename)
+        call StructureData_to_dft_input_file( &
+           & dft_code,                        &
+           & structure_sc,                    &
+           & wd//'/'//dft_input_filename,     &
+           & paths(k)//'/'//dft_input_filename)
       enddo
       
       ! Reset moved atom.

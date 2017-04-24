@@ -177,8 +177,12 @@ end function
 function determinant_integer(A) result(determinant)
   implicit none
   
-  integer, intent(in) :: A(3,3)
+  integer, intent(in) :: A(:,:)
   integer             :: determinant
+  
+  ! Check that A is a 3x3 matrix.
+  call err(size(A,1)==3)
+  call err(size(A,2)==3)
   
   determinant = A(1,1)*(A(2,2)*A(3,3)-A(2,3)*A(3,2))&
              &+ A(1,2)*(A(2,3)*A(3,1)-A(2,1)*A(3,3))&
@@ -188,12 +192,16 @@ end function
 function determinant_real(A) result(determinant)
   implicit none
   
-  real(dp), intent(in) :: A(3,3)
+  real(dp), intent(in) :: A(:,:)
   real(dp)             :: determinant
   
+  ! Check that A is a 3x3 matrix.
+  call err(size(A,1)==3)
+  call err(size(A,2)==3)
+  
   determinant = A(1,1)*(A(2,2)*A(3,3)-A(2,3)*A(3,2))&
-             &+ A(1,2)*(A(2,3)*A(3,1)-A(2,1)*A(3,3))&
-             &+ A(1,3)*(A(2,1)*A(3,2)-A(2,2)*A(3,1))
+            & + A(1,2)*(A(2,3)*A(3,1)-A(2,1)*A(3,3))&
+            & + A(1,3)*(A(2,1)*A(3,2)-A(2,2)*A(3,1))
 end function
 
 ! ----------------------------------------
@@ -203,11 +211,15 @@ end function
 function invert(A) result(B)
   implicit none
   
-  real(dp), intent(in)  :: A(3,3)
+  real(dp), intent(in)  :: A(:,:)
   real(dp)              :: B(3,3)
   
   real(dp) :: d      ! 1/det(A)
   real(dp) :: C(3,3) ! transpose(A)
+  
+  ! Check that A is a 3x3 matrix.
+  call err(size(A,1)==3)
+  call err(size(A,2)==3)
   
   d = 1.0_dp/determinant(A)
   
@@ -237,11 +249,15 @@ end function
 function invert_int(A) result(B)
   implicit none
   
-  integer, intent(in)  :: A(3,3)
+  integer, intent(in)  :: A(:,:)
   integer              :: B(3,3)
   
   integer :: C(3,3) ! transpose(A)
   integer :: d      ! 1 if det(A)>=0, -1 otherwise
+  
+  ! Check that A is a 3x3 matrix.
+  call err(size(A,1)==3)
+  call err(size(A,2)==3)
   
   d = sign(1,determinant(A))
   

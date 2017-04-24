@@ -273,6 +273,7 @@ function generate_supercells(structure,grid) result(output)
   
   ! Grid K-point variables.
   integer, allocatable :: grid_to_ibz(:)
+  integer, allocatable :: ibz_to_grid(:)
   integer, allocatable :: rotation_ids(:)
   integer              :: counter
   
@@ -347,6 +348,7 @@ function generate_supercells(structure,grid) result(output)
   ! Find equivalent k-points by rotating all k-points into the IBZ.
   ! ----------------------------------------------------------------------
   allocate( grid_to_ibz(structure_grid%sc_size),  &
+          & ibz_to_grid(structure_grid%sc_size),  &
           & rotation_ids(structure_grid%sc_size), &
           & stat=ialloc); call err(ialloc)
   no_kpoints_ibz = 0
@@ -354,11 +356,12 @@ function generate_supercells(structure,grid) result(output)
     ! Check if an equivalent-by-symmetry k-point has already been found.
     do j=1,no_kpoints_ibz
       do k=1,structure%no_symmetries
+        
         ! Rotate the k-point.
         rot_kpoint = matmul(structure%rotations(:,:,k), kpoints_grid(:,i))
         
         ! If the rotated k-point = k-point(j), modulo recip. latt. vecs.
-        if (all(modulo( rot_kpoint - kpoints_grid(:,j), &
+        if (all(modulo( rot_kpoint - kpoints_grid(:,ibz_to_grid(j)), &
                       & structure_grid%sc_size) == 0)) then
           grid_to_ibz(i) = j
           rotation_ids(i) = k
@@ -370,6 +373,7 @@ function generate_supercells(structure,grid) result(output)
     ! If kpoint not already found, assign it to the new gvec
     no_kpoints_ibz = no_kpoints_ibz+1
     grid_to_ibz(i) = no_kpoints_ibz
+    ibz_to_grid(no_kpoints_ibz) = i
     rotation_ids(i) = 1
   enddo do_i1
   

@@ -32,11 +32,11 @@ end function
 ! ----------------------------------------------------------------------
 subroutine setup_quadratic(arguments,cwd)
   use constants_module, only : kb_in_au
-  use utils_module,     only : mkdir, format_path, make_dft_input_filename
+  use utils_module,     only : mkdir, format_path
   use mapping_module
   use structure_module
   use displacement_patterns_module
-  use structure_to_dft_module
+  use dft_input_file_module
   use supercell_module
   use kpoints_module
   use dictionary_module
@@ -169,10 +169,11 @@ subroutine setup_quadratic(arguments,cwd)
   do i=1,no_sc
     sdir = wd//'/Supercell_'//i
     dft_input_filename = make_dft_input_filename(dft_code,seedname)
-    call structure_to_dft( dft_code, &
-                         & structure_scs(i), &
-                         & wd//'/'//dft_code//'/'//dft_input_filename, &
-                         & sdir//'/'//dft_input_filename)
+    call StructureData_to_dft_input_file(            &
+       & dft_code,                                   &
+       & structure_scs(i),                           &
+       & wd//'/'//dft_code//'/'//dft_input_filename, &
+       & sdir//'/'//dft_input_filename)
   enddo
   
   ! ------------------------------------------------------------
@@ -249,10 +250,11 @@ subroutine setup_quadratic(arguments,cwd)
         mdir = wd//'/kpoint_'//i//'/mode_'//j//'/amplitude_'//k
         
         dft_input_filename = make_dft_input_filename(dft_code,seedname)
-        call structure_to_dft( dft_code, &
-                             & structure_sc, &
-                             & wd//'/'//dft_input_filename, &
-                             & mdir//'/'//dft_input_filename)
+        call StructureData_to_dft_input_file( &
+           & dft_code,                        &
+           & structure_sc,                    &
+           & wd//'/'//dft_input_filename,     &
+           & mdir//'/'//dft_input_filename)
       enddo
     enddo
     
