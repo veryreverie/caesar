@@ -356,15 +356,14 @@ end function
 ! ----------------------------------------------------------------------
 
 ! Makes a system call via system.c.
-subroutine system_call(this)
+function system_call(this) result(result_code)
   implicit none
   
   type(String), intent(in) :: this
-  
-  integer :: result_code
+  integer                  :: result_code
   
   result_code = system_c(char(this)//char(0))
-end subroutine
+end function
 
 ! ----------------------------------------------------------------------
 ! Reads flags from the command line via system.c.
@@ -795,7 +794,7 @@ function format_path_character(path) result(output)
     output = path(:last)
   elseif (path(:1)=='~') then
     ! Path is relative to HOME. Replace ~ with HOME.
-    output = HOME//'/'//path(2:last)
+    output = HOME//'/'//path(3:last)
   elseif (path=='.') then
     ! Path is relative. Prepend current working directory.
     output = CWD

@@ -93,7 +93,8 @@ subroutine anharmonic(arguments)
   ! ----------------------------------------
   ! Temporary variables
   ! ----------------------------------------
-  integer               :: i,j,k
+  integer :: i,j,k
+  integer :: result_code
   
   ! ----------------------------------------
   ! Files.
@@ -236,8 +237,10 @@ subroutine anharmonic(arguments)
   call mkdir(wd//'/anharmonic')
   do i=1,no_supercells
     if (sc_acoustic(i)) then
-      call system_call('cp '//wd//'/Supercell_'//i//'/acoustic.dat '// &
+      result_code = system_call('cp '//             &
+         & wd//'/Supercell_'//i//'/acoustic.dat '// &
          & wd//'/anharmonic')
+      call err(result_code==0)
     endif
   enddo
   

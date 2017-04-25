@@ -26,6 +26,7 @@ subroutine test_copy_quadratic(wd)
   
   ! Temporary variables.
   integer :: i
+  integer :: result_code
   
   ! ----------------------------------------------------------------------
   ! Read in directory to compare against and copy from.
@@ -52,9 +53,10 @@ subroutine test_copy_quadratic(wd)
   do i=1,no_sc
     sdir = wd//'/Supercell_'//i
     if (dft_code == 'castep') then
-      call system_call( 'cp '// &
+      result_code =  system_call( 'cp '// &
          & copy_dir//'/'//sdir//'/static/'//seedname//'.castep '// &
          & sdir//'/static/'//seedname//'.castep')
+      call err(result_code==0)
     endif
   enddo
 end subroutine

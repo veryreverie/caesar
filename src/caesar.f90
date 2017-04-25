@@ -418,7 +418,7 @@ program caesar
   
   ! Run main program, depending on mode.
   if (mode == 'test') then
-    call system_call(str('mkdir this_is_another_dir'))
+    continue
   ! Wrappers for top-level Fortran.
   elseif (mode == 'setup_harmonic') then
     call setup_harmonic(arguments)

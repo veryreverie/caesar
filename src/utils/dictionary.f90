@@ -245,7 +245,8 @@ function read_dictionary_file(filename) result(this)
     if (size(line)==1) then
       arg_values(no_args) = no_argument
     else
-      arg_values(no_args) = join(line(2:))
+      line = split(join(line(2:)), '!')
+      arg_values(no_args) = line(1)
     endif
     
     ! Check for duplicate arguments.

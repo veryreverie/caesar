@@ -98,6 +98,7 @@ subroutine test_lte(wd)
   integer                   :: gvec_1p,gvec_2p
   integer                   :: start_line
   type(String), allocatable :: line(:)
+  integer                   :: result_code
   
   ! ----------------------------------------------------------------------
   ! Read in settings from user.
@@ -208,7 +209,8 @@ subroutine test_lte(wd)
     close(new_lte_file)
     
     ! Run old lte.
-    call system_call('cd '//lte_dir//'; lte_lower > lte.out')
+    result_code = system_call('cd '//lte_dir//'; lte_lower > lte.out')
+    call err(result_code==0)
     
     ! Read in atom.dat.
     atom_file = read_lines(lte_dir//'/atom.dat')

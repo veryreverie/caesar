@@ -60,6 +60,7 @@ subroutine setup_harmonic_test(arguments)
   
   ! Temporary variables.
   integer :: i,j,k,l,m
+  integer :: result_code
   
   ! ----------------------------------------------------------------------
   ! Read in settings.
@@ -104,7 +105,8 @@ subroutine setup_harmonic_test(arguments)
   close(grid_file)
   
   ! Call setup_harmonic.
-  call system_call('cd '//old_wd//'; setup_harmonic.sh')
+  result_code = system_call('cd '//old_wd//'; setup_harmonic.sh')
+  call err(result_code==0)
   
   ! ----------------------------------------------------------------------
   ! Compare results.

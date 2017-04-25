@@ -60,9 +60,11 @@ subroutine run_harmonic(arguments)
   character(1)           :: direction
   
   ! Temporary variables.
-  integer                   :: i,j
-  type(String)              :: sdir
-  type(String)              :: dir
+  integer      :: i,j,k
+  character(1) :: signs(2)
+  type(String) :: dir
+  type(String) :: sdir
+  integer      :: result_code
   
   ! --------------------------------------------------
   ! Get inputs from user.
@@ -125,19 +127,15 @@ subroutine run_harmonic(arguments)
       atom = unique_directions%atoms(j)
       direction = unique_directions%directions_char(j)
       
-      dir = sdir//'/atom.'//atom//'.+d'//direction
-      call print_line('Running calculation in directory '//dir)
-      call system_call('cd '//wd//'; '//run_script//' '//dft_code //' '// &
-                                                       & dir      //' '// &
-                                                       & no_cores //' '// &
-                                                       & seedname)
-      
-      dir = sdir//'/atom.'//atom//'.-d'//direction
-      call print_line('Working in directory '//dir)
-      call system_call('cd '//wd//'; '//run_script//' '//dft_code //' '// &
-                                                       & dir      //' '// &
-                                                       & no_cores //' '// &
-                                                       & seedname)
+      signs = [ '+', '-' ]
+      do k=1,2
+        dir = sdir//'/atom.'//atom//'.'//signs(k)//'d'//direction
+        call print_line('')
+        call print_line('Running calculation in directory '//dir)
+        result_code = system_call( 'cd '//wd//'; '//run_script//' '// &
+           & dft_code//' '//dir//' '//no_cores//' '//seedname)
+        call print_line('Result code: '//result_code)
+      enddo
     enddo
   enddo
 end subroutine

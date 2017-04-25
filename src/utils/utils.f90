@@ -36,7 +36,14 @@ subroutine mkdir(dirname)
   
   type(String), intent(in) :: dirname
   
-  call system_call('if [ ! -e '//dirname//' ]; then mkdir '//dirname//'; fi')
+  integer :: result_code
+  
+  result_code = system_call( &
+     & 'if [ ! -e '//dirname//' ]; then mkdir '//dirname//'; fi')
+  if (result_code/=0) then
+    call print_line('Error: failed to make directory: '//dirname)
+    call err()
+  endif
 end subroutine
 
 ! ----------------------------------------------------------------------

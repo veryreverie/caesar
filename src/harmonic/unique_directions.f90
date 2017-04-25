@@ -216,7 +216,7 @@ function calculate_unique_directions(structure,symmetry_group) result(this)
         
         ! Find which direction is mapped onto.
         if ( abs(structure%rotations(2,1,j))>abs(structure%rotations(3,1,j))  &
-           & .or.                                                             &
+           & .and.                                                            &
            & abs(structure%rotations(2,1,j))>abs(structure%rotations(3,2,j))) &
            & then
           unique_dirs_frac(2,i) = .false.
@@ -229,7 +229,7 @@ function calculate_unique_directions(structure,symmetry_group) result(this)
         if (abs(dot_product( structure%rotations(1,:,j),                 &
              &               structure%rotations(1,:,previous_symmetry)) &
              & ) /= 1) then
-          unique_dirs_frac(:,i) = [ .true., .false., .true. ]
+          unique_dirs_frac(:,i) = [ .true., .false., .false. ]
           exit
         endif
       endif

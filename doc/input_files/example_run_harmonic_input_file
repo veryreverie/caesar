@@ -1,0 +1,7 @@
+! This is an example input file for Caesar's "run_harmonic" mode.
+! It should be called as:
+!    caesar run_harmonic -f example_run_harmonic_input_file
+
+supercells_to_run  1 10            ! This will run supercell 1 to supercell 10.
+no_cores           4
+run_script         ~/run_script.sh ! This is the path to the run script.

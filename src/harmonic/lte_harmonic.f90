@@ -416,8 +416,8 @@ function read_forces(structure_sc,unique_directions,sdir,dft_code,seedname) &
   allocate( output(3,structure_sc%no_atoms,size(unique_directions)), &
           & stat=ialloc); call err(ialloc)
   do i=1,size(unique_directions)
-    atom = unique_directions%atoms(j)
-    direction = unique_directions%directions_char(j)
+    atom = unique_directions%atoms(i)
+    direction = unique_directions%directions_char(i)
     
     positive = read_dft_output_file(dft_code,      &
        & sdir//'/atom.'//atom//'.+d'//direction//'/'//dft_output_filename)

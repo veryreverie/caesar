@@ -66,6 +66,7 @@ subroutine run_quadratic(arguments)
   integer      :: i,j,k
   type(String) :: dir
   type(String) :: dft_input_filename
+  integer      :: result_code
   
   ! --------------------------------------------------
   ! Get inputs from user.
@@ -126,11 +127,11 @@ subroutine run_quadratic(arguments)
   ! Run static calculations.
   do i=supercells_to_run(1),supercells_to_run(2)
     dir=wd//'/Supercell_'//i
+    call print_line('')
     call print_line('Running static calculation in directory '//dir)
-    call system_call('cd '//wd//'; '//run_script//' '//dft_code //' '// &
-                                                     & dir      //' '// &
-                                                     & no_cores //' '// &
-                                                     & seedname)
+    result_code = system_call( 'cd '//wd//'; '//run_script//' '// &
+       & dft_code//' '//dir//' '//no_cores//' '//seedname)
+    call print_line('Result code: '//result_code)
   enddo
   
   ! Read in IBZ K-points.
@@ -149,11 +150,11 @@ subroutine run_quadratic(arguments)
         dir = wd//'/kpoint_'//i//'/mode_'//j//'/amplitude_'//k
         dft_input_filename = make_dft_input_filename(dft_code,seedname)
         if (file_exists(dir//'/'//dft_input_filename)) then
+          call print_line('')
           call print_line('Running calculation in directory '//dir)
-          call system_call('cd '//wd//'; '//run_script//' '//dft_code //' '// &
-                                                           & dir      //' '// &
-                                                           & no_cores //' '// &
-                                                           & seedname)
+          result_code = system_call( 'cd '//wd//'; '//run_script//' '// &
+             & dft_code//' '//dir//' '//no_cores//' '//seedname)
+          call print_line('Result code: '//result_code)
         endif
       enddo
     enddo
