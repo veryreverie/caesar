@@ -94,19 +94,6 @@ program caesar
     stop
   endif
   
-  ! Initialise flags.
-  flags_without_arguments = 'i'
-  long_flags_without_arguments = [ str('interactive') ]
-  call err(len(flags_without_arguments)==size(long_flags_without_arguments))
-  
-  flags_with_arguments = 'dfh'
-  long_flags_with_arguments = [ str('working_directory'), &
-                              & str('input_file'),        &
-                              & str('help')               ]
-  call err(len(flags_with_arguments)==size(long_flags_with_arguments))
-  default_arguments = [ str('.'), str(not_set), str(not_set) ]
-  call err(len(flags_with_arguments)==size(default_arguments))
-  
   ! Fetch mode-specific keywords.
   if (mode=='setup_harmonic' .or. mode=='setup_harmonic_test') then
     keywords = setup_harmonic_keywords()
@@ -122,11 +109,29 @@ program caesar
     keywords = anharmonic_keywords()
   elseif (mode=='bs_quadratic') then
     keywords = bs_quadratic_keywords()
+  elseif (slice(mode,1,1)=='-') then
+    call print_line('Error: The first argument should be the mode, and not a &
+       &flag or keyword.')
+    call print_line('Call caesar -h for help.')
+    stop
   else
     call print_line('Error: unrecognised mode: '//mode)
     call print_line('Call caesar -h for help.')
     stop
   endif
+  
+  ! Initialise flags.
+  flags_without_arguments = 'i'
+  long_flags_without_arguments = [ str('interactive') ]
+  call err(len(flags_without_arguments)==size(long_flags_without_arguments))
+  
+  flags_with_arguments = 'dfh'
+  long_flags_with_arguments = [ str('working_directory'), &
+                              & str('input_file'),        &
+                              & str('help')               ]
+  call err(len(flags_with_arguments)==size(long_flags_with_arguments))
+  default_arguments = [ str('.'), str(not_set), str(not_set) ]
+  call err(len(flags_with_arguments)==size(default_arguments))
   
   ! Set dictionary of all keywords.
   no_args = size(keywords)                     &
@@ -389,6 +394,21 @@ program caesar
       
     enddo
   endif
+  
+  ! Convert paths to absolute paths.
+  do i=1,size(keywords)
+    j = size(arguments)-size(keywords)+i
+    if (keywords(i)%is_path) then
+      if (arguments%values(j) == not_set) then
+        cycle
+      elseif (arguments%values(j) == no_argument) then
+        ! This should have been dealt with above.
+        call err()
+      else
+        arguments%values(j) = format_path(arguments%values(j))
+      endif
+    endif
+  enddo
   
   ! Write settings to file.
   filename = wd//'/'//mode//'.used_settings'

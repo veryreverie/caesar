@@ -24,7 +24,7 @@ function setup_quadratic_keywords() result(keywords)
   & make_keyword('seedname', no_argument, 'seedname is the DFT seedname from &
      &which file names are constructed.'),                                    &
   & make_keyword('harmonic_path', '.', 'harmonic_path is the path to the &
-     &directory where harmonic calculations were run.')                       ]
+     &directory where harmonic calculations were run.', is_path=.true.)       ]
 end function
 
 ! ----------------------------------------------------------------------
@@ -102,7 +102,7 @@ subroutine setup_quadratic(arguments)
   wd = item(arguments, 'working_directory')
   dft_code = item(arguments, 'dft_code')
   seedname = item(arguments, 'seedname')
-  harmonic_path = format_path(item(arguments, 'harmonic_path'))
+  harmonic_path = item(arguments, 'harmonic_path')
   
   ! Check code is supported
   if (dft_code=="vasp") then

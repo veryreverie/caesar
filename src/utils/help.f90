@@ -17,6 +17,7 @@ module help_module
     type(String) :: keyword
     type(String) :: default_value
     type(String) :: helptext
+    logical      :: is_path
   end type
   
   interface make_keyword
@@ -38,28 +39,43 @@ contains
 !    a value being given, and will abort if this does not happen.
 ! If default value is not_set (from io_module), Caesar will not print the
 !    keyword to file.
-function make_keyword_characters(keyword,default_value,helptext) result(this)
+! If is_path is .true., Caesar will convert the path to an absolute path.
+function make_keyword_characters(keyword,default_value,helptext,is_path) &
+   & result(this)
   implicit none
   
-  character(*), intent(in) :: keyword
-  character(*), intent(in) :: default_value
-  character(*), intent(in) :: helptext
-  type(KeywordData)        :: this
+  character(*), intent(in)           :: keyword
+  character(*), intent(in)           :: default_value
+  character(*), intent(in)           :: helptext
+  logical,      intent(in), optional :: is_path
+  type(KeywordData)                  :: this
   
   this%keyword = keyword
   this%default_value = default_value
   this%helptext = helptext
+  if (present(is_path)) then
+    this%is_path = is_path
+  else
+    this%is_path = .false.
+  endif
 end function
 
-function make_keyword_Strings(keyword,default_value,helptext) result(this)
+function make_keyword_Strings(keyword,default_value,helptext,is_path) &
+   & result(this)
   implicit none
   
-  type(String), intent(in) :: keyword
-  type(String), intent(in) :: default_value
-  type(String), intent(in) :: helptext
-  type(KeywordData)        :: this
+  type(String), intent(in)           :: keyword
+  type(String), intent(in)           :: default_value
+  type(String), intent(in)           :: helptext
+  logical,      intent(in), optional :: is_path
+  type(KeywordData)                  :: this
   
-  this = make_keyword(char(keyword),char(default_value),char(helptext))
+  if (present(is_path)) then
+    this = make_keyword(char(keyword),char(default_value),char(helptext), &
+       & is_path)
+  else
+    this = make_keyword(char(keyword),char(default_value),char(helptext))
+  endif
 end function
 
 ! ----------------------------------------------------------------------

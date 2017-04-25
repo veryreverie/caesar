@@ -110,8 +110,8 @@ function read_unique_directions_file(filename) result(this)
   
   call new(this,size(unique_directions_file)-1)
   
-  do i=2,size(unique_directions_file)
-    line = split(unique_directions_file(i))
+  do i=1,size(unique_directions_file)-1
+    line = split(unique_directions_file(i+1))
     this%atoms(i) = int(line(2))
     this%directions_char(i) = line(4)
     this%directions_int(i) = direction_char_to_int(this%directions_char(i))

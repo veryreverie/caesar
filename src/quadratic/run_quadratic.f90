@@ -25,7 +25,7 @@ function run_quadratic_keywords() result(keywords)
      &DFT will be run. This is passed to the specified run script.'),       &
   & make_keyword('run_script', no_argument, 'run_script is the path to the &
      &script for running DFT. An example run script can be found in &
-     &doc/input_files.')                                                    ]
+     &doc/input_files.', is_path=.true.)                                    ]
 end function
 
 ! ----------------------------------------------------------------------
@@ -73,7 +73,7 @@ subroutine run_quadratic(arguments)
   wd = item(arguments, 'working_directory')
   supercells_to_run = int(split(item(arguments, 'supercells_to_run')))
   no_cores = int(item(arguments, 'no_cores'))
-  run_script = format_path(item(arguments, 'run_script'))
+  run_script = item(arguments, 'run_script')
   
   ! --------------------------------------------------
   ! Check user inputs.
