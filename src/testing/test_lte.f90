@@ -14,7 +14,7 @@ subroutine test_lte(wd)
   use unique_directions_module
   use displacement_patterns_module
   use lte_harmonic_module
-  use kpoints_module
+  use qpoints_module
   implicit none
   
   ! Working directories.
@@ -81,13 +81,13 @@ subroutine test_lte(wd)
   
   ! Fourier interpolation data.
   integer               :: no_kspace_lines
-  real(dp), allocatable :: disp_kpoints(:,:)
+  real(dp), allocatable :: disp_qpoints(:,:)
   integer               :: grid(3)
   real(dp)              :: temperature
   
-  ! K-point data.
+  ! q-point data.
   type(StructureData)           :: structure_grid
-  type(KpointData), allocatable :: kpoints_ibz(:)
+  type(QpointData), allocatable :: qpoints_ibz(:)
   
   ! Temporary variables.
   integer                   :: i,j,k,l
@@ -132,13 +132,13 @@ subroutine test_lte(wd)
   ! Read in structure.
   structure = read_structure_file(wd//'/structure.dat')
   
-  ! Read kpoint data.
+  ! Read qpoint data.
   structure_grid = read_structure_file(wd//'/structure_grid.dat')
-  kpoints_ibz = read_kpoints_file(wd//'/kpoints_ibz.dat')
+  qpoints_ibz = read_qpoints_file(wd//'/qpoints_ibz.dat')
   
   allocate(dyn_mats_ibz( structure%no_modes, &
                        & structure%no_modes, &
-                       & size(kpoints_ibz)))
+                       & size(qpoints_ibz)))
   
   ! ----------------------------------------------------------------------
   ! Loop across supercells, testing each in turn.
@@ -226,12 +226,12 @@ subroutine test_lte(wd)
                                 & structure%no_modes, &
                                 & structure_sc%sc_size))
     do atom_1=1,structure%no_atoms
-      atom_1_sc = structure_sc%gvec_and_prim_to_atom(atom_1,1)
+      atom_1_sc = structure_sc%rvec_and_prim_to_atom(atom_1,1)
       mode_1 = (atom_1-1)*3+1
       do atom_2=1,structure%no_atoms
         mode_2 = (atom_2-1)*3+1
         do j=1,structure_sc%sc_size
-          atom_2_sc = structure_sc%gvec_and_prim_to_atom(atom_2,j)
+          atom_2_sc = structure_sc%rvec_and_prim_to_atom(atom_2,j)
           start_line = ( (atom_1-1)*structure_sc%no_atoms &
                    &   + (j-1)         &
                    &   + (atom_2-1)*structure_sc%sc_size) &
@@ -360,13 +360,13 @@ subroutine test_lte(wd)
       call print_line('Checking dynamical matrix '//j)
       old_dyn_mat_file = read_lines(lte_dir//'/dyn_mat.'//j//'.dat')
       do atom_1=1,structure%no_atoms
-        atom_1_sc = structure_sc%gvec_and_prim_to_atom(atom_1,1)
+        atom_1_sc = structure_sc%rvec_and_prim_to_atom(atom_1,1)
         atom_1p_sc = atom(atom_1_sc)
-        gvec_1p = structure_sc%atom_to_gvec(atom_1p_sc)
+        gvec_1p = structure_sc%atom_to_rvec(atom_1p_sc)
         do atom_2=1,structure%no_atoms
-          atom_2_sc = structure_sc%gvec_and_prim_to_atom(atom_2,1)
+          atom_2_sc = structure_sc%rvec_and_prim_to_atom(atom_2,1)
           atom_2p_sc = atom(atom_2_sc)
-          gvec_2p = structure_sc%atom_to_gvec(atom_2p_sc)
+          gvec_2p = structure_sc%atom_to_rvec(atom_2p_sc)
           do k=1,3
             mode_1 = (atom_1-1)*3 + k
             do l=1,3
@@ -471,12 +471,12 @@ subroutine test_lte(wd)
     deallocate(atom)
     
     ! Move dynamical matrices into dyn_mats_ibz.
-    do j=1,size(kpoints_ibz)
-      if (kpoints_ibz(j)%sc_id/=i) then
+    do j=1,size(qpoints_ibz)
+      if (qpoints_ibz(j)%sc_id/=i) then
         cycle
       endif
       
-      dyn_mats_ibz(:,:,j) = new_dyn_mats(:,:,kpoints_ibz(j)%gvector_id)
+      dyn_mats_ibz(:,:,j) = new_dyn_mats(:,:,qpoints_ibz(j)%gvector_id)
     enddo
     
     deallocate(new_dyn_mats)
@@ -484,12 +484,12 @@ subroutine test_lte(wd)
   
   ! Write path for fourier interpolation
   no_kspace_lines = 4
-  allocate(disp_kpoints(3,no_kspace_lines+1))
-  disp_kpoints(:,1) = [ 0.0_dp, 0.0_dp, 0.0_dp ] ! GM
-  disp_kpoints(:,2) = [ 0.5_dp, 0.5_dp, 0.5_dp ] ! T
-  disp_kpoints(:,3) = [ 0.0_dp, 0.5_dp, 0.5_dp ] ! FB
-  disp_kpoints(:,4) = [ 0.0_dp, 0.0_dp, 0.0_dp ] ! GM
-  disp_kpoints(:,5) = [ 0.0_dp, 0.5_dp, 0.0_dp ] ! L
+  allocate(disp_qpoints(3,no_kspace_lines+1))
+  disp_qpoints(:,1) = [ 0.0_dp, 0.0_dp, 0.0_dp ] ! GM
+  disp_qpoints(:,2) = [ 0.5_dp, 0.5_dp, 0.5_dp ] ! T
+  disp_qpoints(:,3) = [ 0.0_dp, 0.5_dp, 0.5_dp ] ! FB
+  disp_qpoints(:,4) = [ 0.0_dp, 0.0_dp, 0.0_dp ] ! GM
+  disp_qpoints(:,5) = [ 0.0_dp, 0.5_dp, 0.0_dp ] ! L
   
   call mkdir(wd//'/new_lte')
   call print_line('')
@@ -499,8 +499,8 @@ subroutine test_lte(wd)
      & structure,                                  &
      & temperature,                                &
      & structure_grid,                             &
-     & kpoints_ibz,                                &
-     & disp_kpoints,                               &
+     & qpoints_ibz,                                &
+     & disp_qpoints,                               &
      & symmetry_group,                             &
      & wd//'/new_lte/phonon_dispersion_curve.dat', &
      & wd//'/new_lte/high_symmetry_points.dat',    &

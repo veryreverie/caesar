@@ -213,7 +213,7 @@ end function
 !      atom_1p_sc = operate(symmetry_group(k),atom_1_sc)
 !      atom_1p_prim = structure_sc%atom_to_prim(atom_1p_sc)
 !      
-!      if (structure_sc%atom_to_gvec(atom_1p_sc)/=1) then
+!      if (structure_sc%atom_to_rvec(atom_1p_sc)/=1) then
 !        cycle
 !      endif
 !      
@@ -250,7 +250,7 @@ end function
 !      atom_1p_sc = operate(symmetry_group(k),atom_1_sc)
 !      atom_1p_prim = structure_sc%atom_to_prim(atom_1p_sc)
 !      
-!      if (structure_sc%atom_to_gvec(atom_1p_sc)/=1) then
+!      if (structure_sc%atom_to_rvec(atom_1p_sc)/=1) then
 !        cycle
 !      endif
 !      
@@ -277,8 +277,8 @@ end function
 !    do atom_2_prim=1,atom_1_prim
 !      do j=1,structure_sc%sc_size
 !        k = structure_sc%paired_gvec(j)
-!        atom_1_sc = structure_sc%gvec_and_prim_to_atom(atom_1_prim,j)
-!        atom_2_sc = structure_sc%gvec_and_prim_to_atom(atom_2_prim,k)
+!        atom_1_sc = structure_sc%rvec_and_prim_to_atom(atom_1_prim,j)
+!        atom_2_sc = structure_sc%rvec_and_prim_to_atom(atom_2_prim,k)
 !        
 !        force_constants(:,:,atom_2_sc,atom_1_prim) = (               &
 !           &   force_constants(:,:,atom_2_sc,atom_1_prim)            &
@@ -296,9 +296,9 @@ end function
 !  totals = 0.0_dp
 !  do j=1,structure_sc%sc_size
 !    do atom_1_prim=1,structure%no_atoms
-!      atom_1_sc = structure_sc%gvec_and_prim_to_atom(atom_1_prim,1)
+!      atom_1_sc = structure_sc%rvec_and_prim_to_atom(atom_1_prim,1)
 !      do atom_2_prim=1,structure%no_atoms
-!        atom_2_sc = structure_sc%gvec_and_prim_to_atom(atom_2_prim,j)
+!        atom_2_sc = structure_sc%rvec_and_prim_to_atom(atom_2_prim,j)
 !        
 !        if (atom_1_sc==atom_2_sc) then
 !          cycle
@@ -313,9 +313,9 @@ end function
 !  
 !  do j=1,structure_sc%sc_size
 !    do atom_1_prim=1,structure%no_atoms
-!      atom_1_sc = structure_sc%gvec_and_prim_to_atom(atom_1_prim,1)
+!      atom_1_sc = structure_sc%rvec_and_prim_to_atom(atom_1_prim,1)
 !      do atom_2_prim=1,structure%no_atoms
-!        atom_2_sc = structure_sc%gvec_and_prim_to_atom(atom_2_prim,j)
+!        atom_2_sc = structure_sc%rvec_and_prim_to_atom(atom_2_prim,j)
 !        
 !        if (atom_1_sc==atom_2_sc) then
 !          cycle
@@ -334,7 +334,7 @@ end function
 !  do j=1,structure_sc%sc_size
 !    do atom_1_prim=1,structure%no_atoms
 !      do atom_2_prim=1,structure%no_atoms
-!        atom_2_sc = structure_sc%gvec_and_prim_to_atom(atom_2_prim,j)
+!        atom_2_sc = structure_sc%rvec_and_prim_to_atom(atom_2_prim,j)
 !        force_constants(:,:,atom_2_sc,atom_1_prim) =        &
 !           &   force_constants(:,:,atom_2_sc,atom_1_prim)   &
 !           & / sqrt(structure%mass(atom_1_prim)*structure_sc%mass(atom_2_sc))
@@ -349,7 +349,7 @@ end function
 !    do atom_2_prim=1,structure%no_atoms
 !      mode_2 = (atom_2_prim-1)*3+1
 !      do j=1,structure_sc%sc_size
-!        atom_2_sc = structure_sc%gvec_and_prim_to_atom(atom_2_prim,j)
+!        atom_2_sc = structure_sc%rvec_and_prim_to_atom(atom_2_prim,j)
 !        output(mode_2:mode_2+2,mode_1:mode_1+2,j) = &
 !           & transpose(force_constants(:,:,atom_2_sc,atom_1_prim))
 !      enddo
@@ -562,11 +562,11 @@ function construct_force_constants(forces,structure_sc,unique_directions, &
   do atom_1=1,structure_sc%no_atoms
     atom_1p = structure_sc%atom_to_prim(atom_1)
     mode_1 = (atom_1p-1)*3 + 1
-    rvector_1 = structure_sc%atom_to_gvec(atom_1)
+    rvector_1 = structure_sc%atom_to_rvec(atom_1)
     do atom_2=1,structure_sc%no_atoms
       atom_2p = structure_sc%atom_to_prim(atom_2)
       mode_2 = (atom_2p-1)*3 + 1
-      rvector_2 = structure_sc%atom_to_gvec(atom_2)
+      rvector_2 = structure_sc%atom_to_rvec(atom_2)
       
       rvector = operate( rvector_group(structure_sc%paired_gvec(rvector_1)), &
                        & rvector_2)
@@ -592,7 +592,7 @@ subroutine lte_harmonic(arguments)
   use supercell_module
   use unique_directions_module
   use group_module
-  use kpoints_module
+  use qpoints_module
   use dictionary_module
   implicit none
   
@@ -623,13 +623,13 @@ subroutine lte_harmonic(arguments)
   real(dp),              allocatable :: forces(:,:,:)
   real(dp),              allocatable :: force_constants(:,:,:)
   
-  ! kpoint data
+  ! qpoint data
   type(StructureData)           :: structure_grid
-  type(KpointData), allocatable :: kpoints_ibz(:)
+  type(QpointData), allocatable :: qpoints_ibz(:)
   
   ! lte input data
   integer               :: no_kspace_lines
-  real(dp), allocatable :: disp_kpoints(:,:)
+  real(dp), allocatable :: disp_qpoints(:,:)
   
   ! Lte output data
   type(LteReturn)          :: lte_result
@@ -663,13 +663,13 @@ subroutine lte_harmonic(arguments)
   
   structure = read_structure_file(wd//'/structure.dat')
   
-  ! Read kpoints and gvectors.
+  ! Read qpoints and gvectors.
   structure_grid = read_structure_file(wd//'/structure_grid.dat')
-  kpoints_ibz = read_kpoints_file(wd//'/kpoints_ibz.dat')
+  qpoints_ibz = read_qpoints_file(wd//'/qpoints_ibz.dat')
   
   allocate(ibz_dynamical_matrices( structure%no_modes, &
                                  & structure%no_modes, &
-                                 & size(kpoints_ibz)))
+                                 & size(qpoints_ibz)))
   
   ! ----------------------------------------------------------------------
   ! Loop over supercells
@@ -699,45 +699,45 @@ subroutine lte_harmonic(arguments)
     
     deallocate(force_constants)
     
-    do j=1,size(kpoints_ibz)
-      if (kpoints_ibz(j)%sc_id/=i) then
+    do j=1,size(qpoints_ibz)
+      if (qpoints_ibz(j)%sc_id/=i) then
         cycle
       endif
       
       ! Move dynamical matrices into ibz_dynamical matrices.
       ibz_dynamical_matrices(:,:,j) = &
-         & lte_result%dynamical_matrices(:,:,kpoints_ibz(j)%gvector_id)
+         & lte_result%dynamical_matrices(:,:,qpoints_ibz(j)%gvector_id)
       
-      call mkdir(wd//'/kpoint_'//j)
+      call mkdir(wd//'/qpoint_'//j)
     
       ! Write out frequencies.
       frequencies_file = open_write_file( &
-         & wd//'/kpoint_'//j//'/frequencies.dat')
+         & wd//'/qpoint_'//j//'/frequencies.dat')
       do mode=1,structure%no_modes
         call print_line(frequencies_file, &
-           & lte_result%frequencies(mode,kpoints_ibz(j)%gvector_id))
+           & lte_result%frequencies(mode,qpoints_ibz(j)%gvector_id))
       enddo
       
       ! Write out prefactors.
       prefactors_file = open_write_file( &
-         & wd//'/kpoint_'//j//'/prefactors.dat')
+         & wd//'/qpoint_'//j//'/prefactors.dat')
       do mode=1,structure%no_modes
         call print_line(prefactors_file,'Mode : '//mode)
         do atom=1,structure_sc%no_atoms
           call print_line(prefactors_file, &
-             & lte_result%prefactors(atom,mode,kpoints_ibz(j)%gvector_id))
+             & lte_result%prefactors(atom,mode,qpoints_ibz(j)%gvector_id))
         enddo
         call print_line(prefactors_file,'')
       enddo
       
       ! Write out displacement patterns.
       displacement_pattern_file = open_write_file( &
-         & wd//'/kpoint_'//j//'/displacments.dat')
+         & wd//'/qpoint_'//j//'/displacments.dat')
       do mode=1,structure%no_modes
         call print_line(displacement_pattern_file,'Mode : '//mode)
         do atom=1,structure_sc%no_atoms
           call print_line(displacement_pattern_file, &
-            & lte_result%displacements(:,atom,mode,kpoints_ibz(j)%gvector_id))
+            & lte_result%displacements(:,atom,mode,qpoints_ibz(j)%gvector_id))
         enddo
         call print_line(displacement_pattern_file,'')
       enddo
@@ -747,24 +747,25 @@ subroutine lte_harmonic(arguments)
   
   ! Write path for fourier interpolation
   no_kspace_lines = 4
-  allocate(disp_kpoints(3,no_kspace_lines+1))
-  disp_kpoints(:,1) = [ 0.0_dp, 0.0_dp, 0.0_dp ] ! GM
-  disp_kpoints(:,2) = [ 0.5_dp, 0.5_dp, 0.5_dp ] ! T
-  disp_kpoints(:,3) = [ 0.0_dp, 0.5_dp, 0.5_dp ] ! FB
-  disp_kpoints(:,4) = [ 0.0_dp, 0.0_dp, 0.0_dp ] ! GM
-  disp_kpoints(:,5) = [ 0.0_dp, 0.5_dp, 0.0_dp ] ! L
+  allocate(disp_qpoints(3,no_kspace_lines+1))
+  disp_qpoints(:,1) = [ 0.0_dp, 0.0_dp, 0.0_dp ] ! GM
+  disp_qpoints(:,2) = [ 0.5_dp, 0.5_dp, 0.5_dp ] ! T
+  disp_qpoints(:,3) = [ 0.0_dp, 0.5_dp, 0.5_dp ] ! FB
+  disp_qpoints(:,4) = [ 0.0_dp, 0.0_dp, 0.0_dp ] ! GM
+  disp_qpoints(:,5) = [ 0.0_dp, 0.5_dp, 0.0_dp ] ! L
   
   ! Read in primitive symmetry group.
   symmetry_group = read_group_file(wd//'/Supercell_1/symmetry_group.dat')
   
+  call print_line('')
   call print_line('Running fourier interpolation (this may take some time).')
   call fourier_interpolation(              &
      & ibz_dynamical_matrices,             &
      & structure,                          &
      & temperature,                        &
      & structure_grid,                     &
-     & kpoints_ibz,                        &
-     & disp_kpoints,                       &
+     & qpoints_ibz,                        &
+     & disp_qpoints,                       &
      & symmetry_group,                     &
      & wd//'/phonon_dispersion_curve.dat', &
      & wd//'/high_symmetry_points.dat',    &

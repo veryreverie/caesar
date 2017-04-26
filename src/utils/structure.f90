@@ -23,30 +23,58 @@ module structure_module
   ! The structure type.
   ! ----------------------------------------------------------------------
   type StructureData
+    ! ------------------------------
     ! Lattice data
+    ! ------------------------------
     real(dp)                  :: lattice(3,3)
     real(dp)                  :: recip_lattice(3,3)
     real(dp)                  :: volume
+    
+    ! ------------------------------
     ! Atom data
+    ! ------------------------------
     integer                   :: no_atoms
     integer                   :: no_modes
     type(String), allocatable :: species(:)
     real(dp),     allocatable :: mass(:)
     real(dp),     allocatable :: atoms(:,:)
+    
+    ! ------------------------------
     ! Conversions between atom representations.
     !    [1...no_atoms] vs [1...no_atoms_in_prim]*[sc_size].
+    ! ------------------------------
+    ! Mapping from an atom in the supercell to
+    !    the equivalent atom in the primitive cell.
     integer,      allocatable :: atom_to_prim(:)
-    integer,      allocatable :: atom_to_gvec(:)
-    integer,      allocatable :: gvec_and_prim_to_atom(:,:)
+    ! Mapping from an atom in the supercell to the R-vector of the primitive
+    !    cell containing that atom.
+    integer,      allocatable :: atom_to_rvec(:)
+    ! The inverse of the above mappings.
+    integer,      allocatable :: rvec_and_prim_to_atom(:,:)
+    
+    ! ------------------------------
     ! Symmetry data (in fractional co-ordinates).
+    ! ------------------------------
     integer                   :: no_symmetries
     integer,      allocatable :: rotations(:,:,:)
     real(dp),     allocatable :: offsets(:,:)
+    
+    ! ------------------------------
     ! Superell data
+    ! ------------------------------
+    ! The number of primitive cells in the supercell.
     integer                   :: sc_size
+    ! The lattice vectors of the supercell,
+    !    in fractional primitive cell co-ordinates.
     integer                   :: supercell(3,3)
+    ! inverse(transpose(supercell))
     integer                   :: recip_supercell(3,3)
+    ! The G-vectors of the supercell Brillouin Zone which are unique 
+    !    in the primitive cell Brillouin Zone.
+    ! N.B. this is the same as the R-vectors of the primitive cell which are
+    !    unique in the supercell.
     integer,      allocatable :: gvectors(:,:)
+    ! The id of the G-vector, j, s.t. gvectors(:,i) + gvectors(:,j) = 0.
     integer,      allocatable :: paired_gvec(:)
   end type
   
@@ -139,15 +167,15 @@ subroutine new_StructureData(this,no_atoms,no_symmetries,sc_size)
   allocate(this%atoms(3,no_atoms))
   
   allocate(this%atom_to_prim(no_atoms))
-  allocate(this%atom_to_gvec(no_atoms))
-  allocate(this%gvec_and_prim_to_atom(no_atoms/sc_size,sc_size))
+  allocate(this%atom_to_rvec(no_atoms))
+  allocate(this%rvec_and_prim_to_atom(no_atoms/sc_size,sc_size))
   do gvec=1,sc_size
     do prim=1,no_atoms/sc_size
       atom = (prim-1)*sc_size + gvec
       
       this%atom_to_prim(atom) = prim
-      this%atom_to_gvec(atom) = gvec
-      this%gvec_and_prim_to_atom(prim,gvec) = atom
+      this%atom_to_rvec(atom) = gvec
+      this%rvec_and_prim_to_atom(prim,gvec) = atom
     enddo
   enddo
   

@@ -4,16 +4,16 @@ module calculate_anharmonic_module
   use io_module
 contains
 
-subroutine calculate_anharmonic(structure,structure_grid,kpoints,Nbasis, &
+subroutine calculate_anharmonic(structure,structure_grid,qpoints,Nbasis, &
    & harmonic,eigenvals,result_file)
   use constants_module, only : kb_in_au
-  use kpoints_module
+  use qpoints_module
   use structure_module
   implicit none
   
   type(StructureData), intent(in) :: structure
   type(StructureData), intent(in) :: structure_grid
-  type(KpointData),    intent(in) :: kpoints(:)
+  type(QpointData),    intent(in) :: qpoints(:)
   integer,             intent(in) :: Nbasis
   real(dp),            intent(in) :: harmonic(:,:,:)
   real(dp),            intent(in) :: eigenvals(:,:,:)
@@ -27,18 +27,18 @@ subroutine calculate_anharmonic(structure,structure_grid,kpoints,Nbasis, &
   real(dp) :: betas(no_temperatures)    ! {1/kB*T}
   
   integer :: no_modes
-  integer :: no_kpoints
+  integer :: no_qpoints
   
   ! Working variables
   integer :: i,j,k,l
-  integer :: total_kpoints
+  integer :: total_qpoints
   real(dp) :: renormalised_eigenvals,renormalised_harmonic
   real(dp),allocatable :: part_fn(:,:,:),har_part_fn(:,:,:)
   
-  ! Get kpoint data
+  ! Get qpoint data
   no_modes = structure%no_modes
-  no_kpoints = size(kpoints)
-  total_kpoints = structure_grid%sc_size
+  no_qpoints = size(qpoints)
+  total_qpoints = structure_grid%sc_size
   
   ! Calculate thermal energies
   do i=1,no_temperatures
@@ -46,12 +46,12 @@ subroutine calculate_anharmonic(structure,structure_grid,kpoints,Nbasis, &
   enddo
 
   ! Calculate partition function
-  allocate(part_fn(no_modes,no_kpoints,no_temperatures))
-  allocate(har_part_fn(no_modes,no_kpoints,no_temperatures))
+  allocate(part_fn(no_modes,no_qpoints,no_temperatures))
+  allocate(har_part_fn(no_modes,no_qpoints,no_temperatures))
   part_fn=0.0_dp
   har_part_fn=0.0_dp
   do i=1,no_temperatures
-    do j=1,no_kpoints
+    do j=1,no_qpoints
       do k=1,no_modes
         do l=1,Nbasis
           part_fn(k,j,i)=part_fn(k,j,i)+exp(-eigenvals(l,k,j)*betas(i))
@@ -66,21 +66,21 @@ subroutine calculate_anharmonic(structure,structure_grid,kpoints,Nbasis, &
     renormalised_eigenvals=0.0_dp
     renormalised_harmonic=0.0_dp
     if (i==1) then ! T=0
-      do j=1,no_kpoints
+      do j=1,no_qpoints
         do k=1,no_modes
           renormalised_eigenvals=renormalised_eigenvals+&
-           &eigenvals(1,k,j)*size(kpoints(j)%gvectors)/total_kpoints
+           &eigenvals(1,k,j)*size(qpoints(j)%gvectors)/total_qpoints
           renormalised_harmonic=renormalised_harmonic+&
-           &harmonic(1,k,j)*size(kpoints(j)%gvectors)/total_kpoints
+           &harmonic(1,k,j)*size(qpoints(j)%gvectors)/total_qpoints
         enddo ! k
       enddo ! j
     else ! T /= 0
-       do j=1,no_kpoints
+       do j=1,no_qpoints
          do k=1,no_modes
            renormalised_eigenvals = renormalised_eigenvals &
-            & -log(part_fn(k,j,i))*size(kpoints(j)%gvectors)/(total_kpoints*betas(i))
+            & -log(part_fn(k,j,i))*size(qpoints(j)%gvectors)/(total_qpoints*betas(i))
            renormalised_harmonic = renormalised_harmonic &
-            & -log(har_part_fn(k,j,i))*size(kpoints(j)%gvectors)/(total_kpoints*betas(i))
+            & -log(har_part_fn(k,j,i))*size(qpoints(j)%gvectors)/(total_qpoints*betas(i))
          enddo
        enddo
     endif

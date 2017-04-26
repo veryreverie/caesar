@@ -35,7 +35,7 @@ subroutine setup_harmonic(arguments)
   use structure_module
   use supercell_module
   use group_module
-  use kpoints_module
+  use qpoints_module
   use dictionary_module
   use dft_input_file_module
   use generate_supercells_module
@@ -56,7 +56,7 @@ subroutine setup_harmonic(arguments)
   integer             :: grid(3)
   
   ! Supercell data
-  type(GeneratedSupercells)        :: kpoints_and_supercells
+  type(GeneratedSupercells)        :: qpoints_and_supercells
   integer                          :: no_supercells
   type(SupercellData), allocatable :: supercells(:)
   type(StructureData)              :: structure_sc
@@ -122,14 +122,14 @@ subroutine setup_harmonic(arguments)
   ! Generate supercells.
   ! ----------------------------------------------------------------------
   ! Generate IBZ and non-diagonal supercells
-  kpoints_and_supercells = generate_supercells(structure,grid)
-  supercells = kpoints_and_supercells%supercells
+  qpoints_and_supercells = generate_supercells(structure,grid)
+  supercells = qpoints_and_supercells%supercells
   
-  ! Write K-point data to file.
-  call write_structure_file( kpoints_and_supercells%structure_grid, &
+  ! Write q-point data to file.
+  call write_structure_file( qpoints_and_supercells%structure_grid, &
                            & wd//'/structure_grid.dat')
-  call write_kpoints_file( kpoints_and_supercells%kpoints_ibz, &
-                         & wd//'/kpoints_ibz.dat')
+  call write_qpoints_file( qpoints_and_supercells%qpoints_ibz, &
+                         & wd//'/qpoints_ibz.dat')
   
   ! Write no_supercells to file
   no_supercells = size(supercells)

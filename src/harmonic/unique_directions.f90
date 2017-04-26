@@ -1,6 +1,6 @@
 ! This program determines which directions are related by symmetry,
 !    and thus which atoms should be displaced in which directions 
-!    to construct the matrix of force constants.
+!    in order to construct the matrix of force constants.
 
 ! The symmetry operations to consider are nicely outlined here:
 ! http://www.homepages.ucl.ac.uk/~ucfbdxa/phon/node4.html
@@ -19,7 +19,7 @@ module unique_directions_module
     ! Direction, in 1/2/3 form and 'x'/'y'/'z' form. (1='x' etc.)
     integer,      allocatable :: directions_int(:)
     character(1), allocatable :: directions_char(:)
-    ! Mode id. ( = 3*(atom id - 1) + direction ).
+    ! Mode id. ( = 3*(atom id - 1) + direction_int ).
     integer,      allocatable :: modes(:)
   end type
   
@@ -193,8 +193,6 @@ function calculate_unique_directions(structure,symmetry_group) result(this)
   ! Identify which cardinal directions (in fractional co-ordinates)
   !    on the minimal set of atoms are related by symmetry.
   ! --------------------------------------------------
-  
-  ! Identify related directions in fractional co-ordinates.
   allocate(unique_dirs_frac(3,no_unique_atoms), stat=ialloc); call err(ialloc)
   unique_dirs_frac = .true.
   do i=1,no_unique_atoms
@@ -293,69 +291,5 @@ function calculate_unique_directions(structure,symmetry_group) result(this)
       k = k+1
     enddo
   enddo
-!  
-!  
-!  
-!  
-!  
-!  
-!  
-!  rotations_cart = calculate_cartesian_rotations(structure)
-!  
-!  ! Identify which directions are related by symmetry, and record the operators
-!  !    which relate them
-!  this%xy_symmetry = 0
-!  this%xz_symmetry = 0
-!  this%yz_symmetry = 0
-!  do i=1,no_unique_atoms
-!    vec1_found = .false.
-!    do j=1,size(symmetry_group)
-!      ! Ignore symmetries which do not map this atom to itself.
-!      if (operate(symmetry_group(j),i)/=i) then
-!        cycle
-!      endif
-!      
-!      ! Check it the symmetry maps (1,0,0) onto a linearly independent vector.
-!      if (abs(rotations_cart(1,1,j)) < max_dot) then
-!        if (.not. vec1_found) then
-!          ! Only one lin. indep. vector has been found so far. Check if it
-!          !    lies closer to (0,1,0) or (0,0,1).
-!          vec1 = rotations_cart(:,1,j)
-!          vec1_found = .true.
-!          if (abs(vec1(2)) > abs(vec1(3))) then
-!            this%xy_symmetry(i) = j
-!          else
-!            this%xz_symmetry(i) = j
-!          endif
-!          ! At this point, y->z symmetries are ignored, since if x->y and y->z
-!          !    symmetries exist, then so do x->z symmetries, and these make
-!          !    later maths easier.
-!          this%yz_symmetry(i) = 0
-!        else
-!          ! Another lin. indep. vector has already been found. Check if the
-!          !    new vector is lin. indep. to the old vector.
-!          vec2 = rotations_cart(:,1,j)
-!          if (abs(dot_product(vec1,vec2)) < max_dot) then
-!            ! vec2 is lin. indep. Note the symmetry operation.
-!            ! n.b. at this stage, which is xy and which is xz is irrelevant.
-!            if (this%xy_symmetry(i)==0) then
-!              this%xy_symmetry(i) = j
-!            else
-!              this%xz_symmetry(i) = j
-!            endif
-!            cycle
-!          endif
-!        endif
-!      endif
-!      
-!      ! Check if the symmetry maps (0,1,0) onto a linearly independent vector.
-!      ! n.b. This will be ignored if symmetries from (1,0,0) are found.
-!      if (.not. vec1_found) then
-!        if (abs(rotations_cart(2,2,j)) < max_dot) then
-!          this%yz_symmetry(i) = j
-!        endif
-!      endif
-!    enddo
-!  enddo
 end function
 end module

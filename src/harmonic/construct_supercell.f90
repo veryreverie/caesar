@@ -87,7 +87,7 @@ function construct_supercell(structure,supercell,calculate_symmetries) &
       copy_pos_cart = matmul(transpose(structure%lattice),copy_pos_prim)
       
       ! Add the copy to the supercell.
-      atom_counter = structure_sc%gvec_and_prim_to_atom(i,j)
+      atom_counter = structure_sc%rvec_and_prim_to_atom(i,j)
       structure_sc%atoms(:,atom_counter) = copy_pos_cart
       structure_sc%mass(atom_counter) = structure%mass(i)
       structure_sc%species(atom_counter) = structure%species(i)

@@ -34,7 +34,7 @@ end function
 subroutine run_quadratic(arguments)
   use structure_module
   use mapping_module
-  use kpoints_module
+  use qpoints_module
   use dictionary_module
   use dft_input_file_module
   implicit none
@@ -60,7 +60,7 @@ subroutine run_quadratic(arguments)
   type(StructureData)           :: structure
   type(String), allocatable     :: no_sc_file(:)
   integer                       :: no_sc
-  type(KpointData), allocatable :: kpoints(:)
+  type(QpointData), allocatable :: qpoints(:)
   
   ! Temporary variables.
   integer      :: i,j,k
@@ -134,20 +134,20 @@ subroutine run_quadratic(arguments)
     call print_line('Result code: '//result_code)
   enddo
   
-  ! Read in IBZ K-points.
-  kpoints = read_kpoints_file(harmonic_path//'/kpoints_ibz.dat')
+  ! Read in IBZ q-points.
+  qpoints = read_qpoints_file(harmonic_path//'/qpoints_ibz.dat')
   
-  ! Loop over K-points.
-  do i=1,size(kpoints)
-    ! Ignore K-points outside of chosen supercells.
-    if ( kpoints(i)%sc_id<supercells_to_run(1) .or. &
-       & kpoints(i)%sc_id>supercells_to_run(2)) then
+  ! Loop over q-points.
+  do i=1,size(qpoints)
+    ! Ignore q-points outside of chosen supercells.
+    if ( qpoints(i)%sc_id<supercells_to_run(1) .or. &
+       & qpoints(i)%sc_id>supercells_to_run(2)) then
       cycle
     endif
     
     do j=1,structure%no_modes
       do k=mapping%first,mapping%last
-        dir = wd//'/kpoint_'//i//'/mode_'//j//'/amplitude_'//k
+        dir = wd//'/qpoint_'//i//'/mode_'//j//'/amplitude_'//k
         dft_input_filename = make_dft_input_filename(dft_code,seedname)
         if (file_exists(dir//'/'//dft_input_filename)) then
           call print_line('')

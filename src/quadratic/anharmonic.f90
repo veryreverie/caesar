@@ -33,7 +33,7 @@ subroutine anharmonic(arguments)
   use structure_module
   use dft_output_file_module
   use supercell_module
-  use kpoints_module
+  use qpoints_module
   use calculate_anharmonic_module
   use quadratic_spline_module
   use vscf_1d_module
@@ -64,9 +64,9 @@ subroutine anharmonic(arguments)
   type(StructureData)              :: structure
   type(StructureData), allocatable :: structure_scs(:)
   
-  ! K-point data.
+  ! q-point data.
   type(StructureData)           :: structure_grid
-  type(KpointData), allocatable :: kpoints(:)
+  type(QpointData), allocatable :: qpoints(:)
   
   real(dp), allocatable :: energies(:,:,:)
   real(dp), allocatable :: static_energies(:)
@@ -80,7 +80,7 @@ subroutine anharmonic(arguments)
   
   ! Directory names
   type(String) :: sdir       ! Supercell_*
-  type(String) :: ddir       ! kpoint_*/mode_*/amplitude_*
+  type(String) :: ddir       ! qpoint_*/mode_*/amplitude_*
   
   real(dp), allocatable :: eigenvals(:,:,:)
   real(dp), allocatable :: harmonic(:,:,:)
@@ -137,9 +137,9 @@ subroutine anharmonic(arguments)
     sc_acoustic(i) = file_exists(wd//'/Supercell_'//i//'/acoustic.dat')
   enddo
   
-  ! Read kpoints
+  ! Read qpoints
   structure_grid = read_structure_file(harmonic_path//'/structure_grid.dat')
-  kpoints = read_kpoints_file(harmonic_path//'/kpoints_ibz.dat')
+  qpoints = read_qpoints_file(harmonic_path//'/qpoints_ibz.dat')
   
   ! Read supercell structures
   allocate(structure_scs(no_supercells))
@@ -160,20 +160,20 @@ subroutine anharmonic(arguments)
     endif
   enddo
   
-  ! Loop over K-points.
-  allocate(frequencies(structure%no_modes,size(kpoints)))
-  allocate(energies(mapping%count,structure%no_modes,size(kpoints)))
-  do i=1,size(kpoints)
-    if (.not. sc_acoustic(kpoints(i)%sc_id)) then
+  ! Loop over q-points.
+  allocate(frequencies(structure%no_modes,size(qpoints)))
+  allocate(energies(mapping%count,structure%no_modes,size(qpoints)))
+  do i=1,size(qpoints)
+    if (.not. sc_acoustic(qpoints(i)%sc_id)) then
       ! Read frequencies
       frequencies_file = read_lines( &
-         & harmonic_path//'/kpoint_'//i//'/frequencies.dat')
+         & harmonic_path//'/qpoint_'//i//'/frequencies.dat')
       frequencies(:,i) = dble(frequencies_file)
       
       do j=1,structure%no_modes
         ! read energies
         do k=mapping%first,mapping%last
-          ddir = wd//'/kpoint_'//i//'/mode_'//j//'/amplitude_'//k
+          ddir = wd//'/qpoint_'//i//'/mode_'//j//'/amplitude_'//k
           
           dft_output_filename = make_dft_output_filename(dft_code,seedname)
           dft_output_filename = ddir//'/'//dft_output_filename
@@ -182,7 +182,7 @@ subroutine anharmonic(arguments)
             dft_output_file = read_dft_output_file(dft_code,dft_output_filename)
             energies(k,j,i) = dft_output_file%energy
           else
-            energies(k,j,i) = static_energies(kpoints(i)%sc_id)
+            energies(k,j,i) = static_energies(qpoints(i)%sc_id)
           endif
         enddo
       enddo
@@ -194,9 +194,9 @@ subroutine anharmonic(arguments)
   ! ----------------------------------------
   
   ! Calculate anharmonic 1-dimensional correction
-  allocate(harmonic(basis_size,structure%no_modes,size(kpoints)))
-  allocate(eigenvals(basis_size,structure%no_modes,size(kpoints)))
-  do i=1,size(kpoints)
+  allocate(harmonic(basis_size,structure%no_modes,size(qpoints)))
+  allocate(eigenvals(basis_size,structure%no_modes,size(qpoints)))
+  do i=1,size(qpoints)
     if (i/=1 .or. .not. any(sc_acoustic)) then
       do j=1,structure%no_modes
         
@@ -207,7 +207,7 @@ subroutine anharmonic(arguments)
         do k=1,mapping%count
           amplitudes(1,k) = amplitude+(k-1)*abs(amplitude/mapping%first)
           amplitudes(2,k) = (energies(k,j,i)-energies(mapping%mid,j,i)) &
-                        & / structure_scs(kpoints(i)%sc_id)%sc_size
+                        & / structure_scs(qpoints(i)%sc_id)%sc_size
         enddo
         
         ! fit splines
@@ -247,7 +247,7 @@ subroutine anharmonic(arguments)
   ! calculate free energy, F(T), for harmonic and anharmonic cases
   ! write output to anharmonic_correction.dat
   result_file = open_write_file(wd//'/anharmonic/anharmonic_correction.dat')
-  call calculate_anharmonic(structure,structure_grid,kpoints,basis_size, &
+  call calculate_anharmonic(structure,structure_grid,qpoints,basis_size, &
      & harmonic,eigenvals,result_file)
   close(result_file)
 end subroutine

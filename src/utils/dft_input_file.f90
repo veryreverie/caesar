@@ -17,7 +17,7 @@ module dft_input_file_module
     type(String), allocatable :: lattice_block(:)
     type(String), allocatable :: positions_block(:)
     type(String), allocatable :: masses_block(:)
-    type(String), allocatable :: kpoints_block(:)
+    type(String), allocatable :: qpoints_block(:)
     type(String), allocatable :: remainder(:)
   end type
 contains
@@ -66,8 +66,8 @@ function parse_castep_input_file(filename) result(output)
   integer :: positions_block_size
   integer :: masses_block_start
   integer :: masses_block_size
-  integer :: kpoints_block_start
-  integer :: kpoints_block_size
+  integer :: qpoints_block_start
+  integer :: qpoints_block_size
   integer :: remainder_size
   
   ! Temporary variables.
@@ -82,8 +82,8 @@ function parse_castep_input_file(filename) result(output)
   positions_block_size = 0
   masses_block_start = 0
   masses_block_size = 0
-  kpoints_block_start = 0
-  kpoints_block_size = 0
+  qpoints_block_start = 0
+  qpoints_block_size = 0
   remainder_size = 0
   
   ! Work out line numbers.
@@ -106,10 +106,10 @@ function parse_castep_input_file(filename) result(output)
         masses_block_start = i
       elseif (line(1)=='%endblock' .and. line(2)=='species_mass') then
         masses_block_size = i-masses_block_start+1
-      elseif (line(1)=='%block' .and. line(2)=='bs_kpoint_path') then
-        kpoints_block_start = i
-      elseif (line(1)=='%endblock' .and. line(2)=='bs_kpoint_path') then
-        kpoints_block_size = i-kpoints_block_start+1
+      elseif (line(1)=='%block' .and. line(2)=='bs_qpoint_path') then
+        qpoints_block_start = i
+      elseif (line(1)=='%endblock' .and. line(2)=='bs_qpoint_path') then
+        qpoints_block_size = i-qpoints_block_start+1
       endif
     endif
   enddo
@@ -118,7 +118,7 @@ function parse_castep_input_file(filename) result(output)
                & - lattice_block_size   &
                & - positions_block_size &
                & - masses_block_size    &
-               & - kpoints_block_size
+               & - qpoints_block_size
   
   ! Check required blocks exist and all blocks are of reasonable sizes.
   if (lattice_block_start==0) then
@@ -140,12 +140,12 @@ function parse_castep_input_file(filename) result(output)
     call print_line('Error: species_mass block of unexpected size in '// &
        & filename)
     call err()
-  elseif (kpoints_block_start/=0 .and. kpoints_block_size<=2) then
-    call print_line('Error: bs_kpoint_path block of unexpected size in '// &
+  elseif (qpoints_block_start/=0 .and. qpoints_block_size<=2) then
+    call print_line('Error: bs_qpoint_path block of unexpected size in '// &
        & filename)
     call err()
-  elseif (kpoints_block_start==0 .and. kpoints_block_size/=0) then
-    call print_line('Error: bs_kpoint_path block of unexpected size in '// &
+  elseif (qpoints_block_start==0 .and. qpoints_block_size/=0) then
+    call print_line('Error: bs_qpoint_path block of unexpected size in '// &
        & filename)
     call err()
   endif
@@ -154,7 +154,7 @@ function parse_castep_input_file(filename) result(output)
   allocate( output%lattice_block(lattice_block_size),     &
           & output%positions_block(positions_block_size), &
           & output%masses_block(masses_block_size),       &
-          & output%kpoints_block(kpoints_block_size),     &
+          & output%qpoints_block(qpoints_block_size),     &
           & output%remainder(remainder_size),             &
           & stat=ialloc); call err(ialloc)
   
@@ -180,9 +180,9 @@ function parse_castep_input_file(filename) result(output)
       cycle
     endif
     
-    j = i-kpoints_block_start+1
-    if (j>0 .and. j<kpoints_block_size) then
-      output%kpoints_block(j) = cell_file(i)
+    j = i-qpoints_block_start+1
+    if (j>0 .and. j<qpoints_block_size) then
+      output%qpoints_block(j) = cell_file(i)
       cycle
     endif
     
@@ -417,7 +417,7 @@ subroutine StructureData_to_castep_input_file(structure_sc,old_cell_filename, &
   type(String),        intent(in)           :: new_cell_filename
   
   ! Band structure path data.
-  real(dp) :: kpoint(3)
+  real(dp) :: qpoint(3)
   
   ! Old and new cell files.
   type(CastepInputFile) :: old_cell_file
@@ -433,13 +433,13 @@ subroutine StructureData_to_castep_input_file(structure_sc,old_cell_filename, &
   if (present(old_cell_filename)) then
     old_cell_file = parse_castep_input_file(old_cell_filename)
     
-    ! Transform k-points from fractional primitive cell co-ordinates into 
+    ! Transform q-points from fractional primitive cell co-ordinates into 
     !    fractional supercell co-ordinates.
-    do i=2,size(old_cell_file%kpoints_block)-1
-      line = split(old_cell_file%kpoints_block(i))
-      kpoint = dble(line(1:3))
-      kpoint = matmul(structure_sc%supercell,kpoint)
-      old_cell_file%kpoints_block(i) = kpoint//' '//join(line(4:))
+    do i=2,size(old_cell_file%qpoints_block)-1
+      line = split(old_cell_file%qpoints_block(i))
+      qpoint = dble(line(1:3))
+      qpoint = matmul(structure_sc%supercell,qpoint)
+      old_cell_file%qpoints_block(i) = qpoint//' '//join(line(4:))
     enddo
   endif
   
@@ -465,8 +465,8 @@ subroutine StructureData_to_castep_input_file(structure_sc,old_cell_filename, &
   
   ! Copy the contents of old cell file to new cell file.
   if (present(old_cell_filename)) then
-    do i=1,size(old_cell_file%kpoints_block)
-      call print_line(new_cell_file, old_cell_file%kpoints_block(i))
+    do i=1,size(old_cell_file%qpoints_block)
+      call print_line(new_cell_file, old_cell_file%qpoints_block(i))
     enddo
     
     do i=1,size(old_cell_file%remainder)
@@ -573,13 +573,13 @@ subroutine StructureData_to_qe_input_file(structure_sc,old_qe_in_filename, &
     old_qe_in_file = read_lines(old_qe_in_filename)
     
     ! --------------------------------------------------
-    ! Transform K-points into supercell co-ordinates.
+    ! Transform q-points into supercell co-ordinates.
     ! --------------------------------------------------
     do i=1,size(old_qe_in_file)
       line = split(lower_case(old_qe_in_file(i)))
       if (size(line) >= 1) then
         if (line(1)=='k_points') then
-          call print_line('qe K-points not yet supported.')
+          call print_line('qe q-points not yet supported.')
           call err()
         endif
       endif
@@ -666,8 +666,8 @@ subroutine reduce_castep_input_file(input_filename,output_filename)
   
   cell_file_out = open_write_file(output_filename)
   
-  do i=1,size(cell_file_in%kpoints_block)
-    call print_line(cell_file_out, cell_file_in%kpoints_block(i))
+  do i=1,size(cell_file_in%qpoints_block)
+    call print_line(cell_file_out, cell_file_in%qpoints_block(i))
   enddo
   
   do i=1,size(cell_file_in%remainder)

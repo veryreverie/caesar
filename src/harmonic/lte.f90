@@ -63,13 +63,16 @@ subroutine new_LteReturn(this,sc_size,no_modes,no_atoms)
   integer,         intent(in)  :: no_modes
   integer,         intent(in)  :: no_atoms
   
-  allocate(this%dynamical_matrices(no_modes,no_modes,sc_size))
-  allocate(this%frequencies(no_modes,sc_size))
-  allocate(this%soft_modes(no_modes,sc_size))
-  allocate(this%prefactors(no_atoms,no_modes,sc_size))
-  allocate(this%displacements(3,no_atoms,no_modes,sc_size))
-  allocate(this%k_displacements(3,no_atoms,no_modes,sc_size))
-  allocate(this%polarisation_vectors(3,no_atoms,no_modes,sc_size))
+  integer :: ialloc
+  
+  allocate( this%dynamical_matrices(no_modes,no_modes,sc_size),     &
+          & this%frequencies(no_modes,sc_size),                     &
+          & this%soft_modes(no_modes,sc_size),                      &
+          & this%prefactors(no_atoms,no_modes,sc_size),             &
+          & this%displacements(3,no_atoms,no_modes,sc_size),        &
+          & this%k_displacements(3,no_atoms,no_modes,sc_size),      &
+          & this%polarisation_vectors(3,no_atoms,no_modes,sc_size), &
+          & stat=ialloc); call err(ialloc)
 end subroutine
 
 subroutine new_FreqsPolVecs(this,no_modes)
@@ -78,8 +81,11 @@ subroutine new_FreqsPolVecs(this,no_modes)
   type(FreqsPolVecs), intent(out) :: this
   integer,            intent(in)  :: no_modes
   
-  allocate(this%frequencies(no_modes))
-  allocate(this%polarisation_vectors(no_modes,no_modes))
+  integer :: ialloc
+  
+  allocate( this%frequencies(no_modes),                   &
+          & this%polarisation_vectors(no_modes,no_modes), &
+          & stat=ialloc); call err(ialloc)
 end subroutine
 
 ! ----------------------------------------------------------------------
@@ -105,23 +111,26 @@ function calculate_delta_prim(structure,structure_sc) result(delta_prim)
   
   integer :: atom_1_prim,atom_2_prim
   integer :: atom_1_sc_1,atom_2_sc_1,atom_2_sc_p
+  
+  integer :: ialloc
 
   ! Work out number of equivalent images and Delta Prim. Lattice Vectors
   ! for pairs of atoms (used in evaluation of force-constant matrix).
-  allocate(delta_prim( structure_sc%sc_size, &
-                     & structure%no_atoms,   &
-                     & structure%no_atoms))
+  allocate( delta_prim( structure_sc%sc_size, &
+          &             structure%no_atoms,   &
+          &             structure%no_atoms),  &
+          & stat=ialloc); call err(ialloc)
   do atom_1_prim=1,structure%no_atoms
-    atom_1_sc_1 = structure_sc%gvec_and_prim_to_atom(atom_1_prim,1)
+    atom_1_sc_1 = structure_sc%rvec_and_prim_to_atom(atom_1_prim,1)
     do atom_2_prim=1,structure%no_atoms
-      atom_2_sc_1 = structure_sc%gvec_and_prim_to_atom(atom_2_prim,1)
+      atom_2_sc_1 = structure_sc%rvec_and_prim_to_atom(atom_2_prim,1)
       delta_r_corr = matmul( structure_sc%recip_lattice, &
                            &   structure_sc%atoms(:,atom_2_sc_1) &
                            & - structure_sc%atoms(:,atom_1_sc_1))
       do p=1,structure_sc%sc_size
         ! Work out minimum distance(s) between atom_1 at gamma and
         !    atom_2 at G-vector p.
-        atom_2_sc_p = structure_sc%gvec_and_prim_to_atom(atom_2_prim,p)
+        atom_2_sc_p = structure_sc%rvec_and_prim_to_atom(atom_2_prim,p)
         delta_r = matmul( structure_sc%recip_lattice, &
                         &   structure_sc%atoms(:,atom_2_sc_p) &
                         & - structure_sc%atoms(:,atom_1_sc_1))
@@ -163,10 +172,13 @@ function construct_dynamical_matrix(kvec,structure,structure_sc, &
   complex(dp), allocatable :: exp_ikd(:,:,:)
   real(dp) :: k_dot_D
   
+  integer :: ialloc
+  
   ! Precompute exp(-ik.(R-R')) to go in the dynamical matrix.
-  allocate(exp_ikd( structure_sc%sc_size, &
-                  & structure%no_atoms,   &
-                  & structure%no_atoms))
+  allocate( exp_ikd( structure_sc%sc_size, &
+          &          structure%no_atoms,   &
+          &          structure%no_atoms),  &
+          & stat=ialloc); call err(ialloc)
   do n=1,structure%no_atoms
     do m=1,structure%no_atoms
       do p=1,structure_sc%sc_size
@@ -181,7 +193,8 @@ function construct_dynamical_matrix(kvec,structure,structure_sc, &
   enddo
   
   ! Evaluate the dynamical matrix.
-  allocate(dynamical_matrix(structure%no_modes,structure%no_modes))
+  allocate( dynamical_matrix(structure%no_modes,structure%no_modes), &
+          & stat=ialloc); call err(ialloc)
   dynamical_matrix = cmplx(0.0_dp,0.0_dp,dp)
   do n=1,structure%no_atoms
     mode_n = (n-1)*3+1
@@ -189,8 +202,8 @@ function construct_dynamical_matrix(kvec,structure,structure_sc, &
       mode_m = (m-1)*3+1
       do p=1,structure_sc%sc_size
         dynamical_matrix(mode_m:mode_m+2, mode_n:mode_n+2) =         &
-           &   dynamical_matrix(mode_m:mode_m+2, mode_n:mode_n+2)    &
-           & + force_constants (mode_m:mode_m+2, mode_n:mode_n+2, p) &
+           &   dynamical_matrix(  mode_m:mode_m+2, mode_n:mode_n+2)    &
+           & + force_constants(p, mode_m:mode_m+2, mode_n:mode_n+2) &
            & * exp_ikd(p,m,n)
       enddo
     enddo
@@ -322,7 +335,7 @@ subroutine generate_dos(structure,structure_sc,delta_prim, &
   real(dp),parameter :: freq_tol=1.0e-8_dp,safety_factor=1.15_dp
   
   integer :: i_sample,i_freq,i_bin
-  real(dp) :: max_freq,min_freq,frac(3),kpoint(3),bin_width,&
+  real(dp) :: max_freq,min_freq,frac(3),qpoint(3),bin_width,&
     &freq_dos(no_bins),free_energy,omega
   
   complex(dp), allocatable :: dyn_mat(:,:)
@@ -342,8 +355,8 @@ subroutine generate_dos(structure,structure_sc,delta_prim, &
   ! choose the bin width.
   do i_sample=1,no_prelims
     call random_number(frac)
-    kpoint = matmul(structure_sc%recip_supercell,frac)/structure_sc%sc_size
-    dyn_mat = construct_dynamical_matrix(kpoint,structure,structure_sc, &
+    qpoint = matmul(structure_sc%recip_supercell,frac)/structure_sc%sc_size
+    dyn_mat = construct_dynamical_matrix(qpoint,structure,structure_sc, &
        & force_consts,delta_prim)
     frequencies = calculate_frequencies_and_polarisations(dyn_mat)
     
@@ -361,8 +374,8 @@ subroutine generate_dos(structure,structure_sc,delta_prim, &
   
   do i_sample=1,no_samples
     call random_number(frac)
-    kpoint = matmul(structure_sc%recip_supercell,frac)/structure_sc%sc_size
-    dyn_mat = construct_dynamical_matrix(kpoint,structure,structure_sc, &
+    qpoint = matmul(structure_sc%recip_supercell,frac)/structure_sc%sc_size
+    dyn_mat = construct_dynamical_matrix(qpoint,structure,structure_sc, &
        & force_consts,delta_prim)
     frequencies = calculate_frequencies_and_polarisations(dyn_mat)
     
@@ -524,11 +537,11 @@ subroutine generate_dispersion(structure,structure_sc,&
   type(String),        intent(in) :: high_symmetry_points_filename
   
   integer                  :: no_paths
-  real(dp),    allocatable :: kpoints(:,:)
+  real(dp),    allocatable :: qpoints(:,:)
   real(dp),    allocatable :: path_length(:)
   real(dp),    allocatable :: cumulative_length(:)
   integer,     allocatable :: no_points(:)
-  real(dp)                 :: kpoint(3)
+  real(dp)                 :: qpoint(3)
   complex(dp), allocatable :: dyn_mat(:,:)
   type(FreqsPolVecs)       :: frequencies
   
@@ -537,28 +550,28 @@ subroutine generate_dispersion(structure,structure_sc,&
   integer :: high_symmetry_points_file
   
   ! Temporary variables.
-  integer :: i,j
+  integer :: i,j,ialloc
   
   no_paths = size(path,2)-1
   
-  ! Transform k-points into reciprocal space.
-  allocate(kpoints(3,no_paths+1))
-  kpoints = 2*pi*matmul(structure%recip_lattice, path)
+  ! Transform q-points into reciprocal space.
+  allocate(qpoints(3,no_paths+1), stat=ialloc); call err(ialloc)
+  qpoints = 2*pi*matmul(structure%recip_lattice, path)
   
   ! Work out distances in k-space.
-  allocate(path_length(no_paths))
+  allocate(path_length(no_paths), stat=ialloc); call err(ialloc)
   do i=1,no_paths
-    path_length(i) = l2_norm(kpoints(:,i+1)-kpoints(:,i))
+    path_length(i) = l2_norm(qpoints(:,i+1)-qpoints(:,i))
   enddo
   
-  allocate(cumulative_length(no_paths+1))
+  allocate(cumulative_length(no_paths+1), stat=ialloc); call err(ialloc)
   cumulative_length(1) = 0.0_dp
   do i=2,no_paths+1
     cumulative_length(i) = cumulative_length(i-1)+path_length(i-1)
   enddo
   
   ! Space sampling points across the path, in proportion with path length.
-  allocate(no_points(no_paths))
+  allocate(no_points(no_paths), stat=ialloc); call err(ialloc)
   do i=1,no_paths
     no_points(i) = nint(1000*path_length(i)/cumulative_length(no_paths+1))
   enddo
@@ -575,8 +588,8 @@ subroutine generate_dispersion(structure,structure_sc,&
      & open_write_file(phonon_dispersion_curve_filename)
   do i=1,no_paths
     do j=0,no_points(i)-1
-      kpoint = ((no_points(i)-j)*kpoints(:,i)+j*kpoints(:,i+1))/no_points(i)
-      dyn_mat = construct_dynamical_matrix(kpoint,structure,structure_sc, &
+      qpoint = ((no_points(i)-j)*qpoints(:,i)+j*qpoints(:,i+1))/no_points(i)
+      dyn_mat = construct_dynamical_matrix(qpoint,structure,structure_sc, &
          & force_consts,delta_prim)
       frequencies = calculate_frequencies_and_polarisations(dyn_mat)
       call print_line(phonon_dispersion_curve_file, &
@@ -586,8 +599,8 @@ subroutine generate_dispersion(structure,structure_sc,&
   enddo
   
   ! Calculate frequencies at final k-space point.
-  kpoint = kpoints(:,no_paths+1)
-  dyn_mat = construct_dynamical_matrix(kpoint,structure,structure_sc, &
+  qpoint = qpoints(:,no_paths+1)
+  dyn_mat = construct_dynamical_matrix(qpoint,structure,structure_sc, &
      & force_consts,delta_prim)
   frequencies = calculate_frequencies_and_polarisations(dyn_mat)
   call print_line(phonon_dispersion_curve_file, &
@@ -679,7 +692,7 @@ subroutine calculate_speed_sound(structure,structure_sc, &
       if (any(frequencies_polarisations%frequencies<0.0_dp)) then
         write(*,*)'Imaginary frequencies found.'
         write(*,*)'In terms of the primitive reciprocal lattice vectors, &
-          &the k-point is:'
+          &the q-point is:'
         write(*,*) dot_product(kvec,structure%lattice(1,:)), &
                  & dot_product(kvec,structure%lattice(2,:)), &
                  & dot_product(kvec,structure%lattice(3,:))
@@ -808,13 +821,16 @@ function evaluate_freqs_on_grid(structure,structure_sc,force_constants) &
   real(dp),    allocatable :: omega(:)
   complex(dp), allocatable :: pol_vec(:,:)
   
+  integer :: ialloc
+  
   delta_prim = calculate_delta_prim(structure,structure_sc)
   
   ! Calculate dynamical matrices, and their eigenstuff.
-  allocate(frequencies(structure%no_modes,structure_sc%sc_size))
-  allocate(polarisation_vectors( structure%no_modes, &
-                               & structure%no_modes, &
-                               & structure_sc%sc_size))
+  allocate( frequencies(structure%no_modes,structure_sc%sc_size), &
+          & polarisation_vectors( structure%no_modes,             &
+          &                       structure%no_modes,             &
+          &                       structure_sc%sc_size),          &
+          & stat=ialloc); call err(ialloc)
   call new(output, &
      & structure_sc%sc_size,structure%no_modes,structure_sc%no_atoms)
   
@@ -875,27 +891,27 @@ function evaluate_freqs_on_grid(structure,structure_sc,force_constants) &
           ! Note only the real part is taken
           disp_pattern = real(                                      &
              &   non_mr_pol_vec(:,structure_sc%atom_to_prim(atom1)) &
-             & * expiGdotR(structure_sc%atom_to_gvec(atom1))        &
+             & * expiGdotR(structure_sc%atom_to_rvec(atom1))        &
              & , dp)
           kdisp_pattern = real(kpol_vec(:,structure_sc%atom_to_prim(atom1)))
           prefactor = 1.0_dp
         elseif (ig < structure_sc%paired_gvec(ig)) then
           disp_pattern = real(                                      &
              &   non_mr_pol_vec(:,structure_sc%atom_to_prim(atom1)) &
-             & * expiGdotR(structure_sc%atom_to_gvec(atom1))        &
+             & * expiGdotR(structure_sc%atom_to_rvec(atom1))        &
              & , dp)
           kdisp_pattern = real(                               &
              &   kpol_vec(:,structure_sc%atom_to_prim(atom1)) &
-             & * expiGdotR(structure_sc%atom_to_gvec(atom1))  &
+             & * expiGdotR(structure_sc%atom_to_rvec(atom1))  &
              & , dp)
           prefactor = sqrt(2.0_dp)
         else
           disp_pattern = aimag(                                     &
              &   non_mr_pol_vec(:,structure_sc%atom_to_prim(atom1)) &
-             & * expiGdotR(structure_sc%atom_to_gvec(atom1)))
+             & * expiGdotR(structure_sc%atom_to_rvec(atom1)))
           kdisp_pattern = aimag(                              &
              &   kpol_vec(:,structure_sc%atom_to_prim(atom1)) &
-             & * expiGdotR(structure_sc%atom_to_gvec(atom1)))
+             & * expiGdotR(structure_sc%atom_to_rvec(atom1)))
           prefactor = sqrt(2.0_dp)
         endif
         
@@ -1094,7 +1110,7 @@ end subroutine
 !end function
 
 subroutine fourier_interpolation(dyn_mats_ibz,structure,temperature, &
-   & structure_grid,kpoints_ibz, &
+   & structure_grid,qpoints_ibz, &
    & path,atom_symmetry_group,   &
    & phonon_dispersion_curve_filename,high_symmetry_points_filename,        &
    & free_energy_filename,freq_dos_filename)
@@ -1104,7 +1120,7 @@ subroutine fourier_interpolation(dyn_mats_ibz,structure,temperature, &
   use group_module
   use min_images_module
   use construct_supercell_module
-  use kpoints_module
+  use qpoints_module
   implicit none
   
   ! filenames
@@ -1112,7 +1128,7 @@ subroutine fourier_interpolation(dyn_mats_ibz,structure,temperature, &
   type(StructureData), intent(in) :: structure
   real(dp),            intent(in) :: temperature
   type(StructureData), intent(in) :: structure_grid
-  type(KpointData),    intent(in) :: kpoints_ibz(:)
+  type(QpointData),    intent(in) :: qpoints_ibz(:)
   real(dp),            intent(in) :: path(:,:)
   type(Group),         intent(in) :: atom_symmetry_group(:)
   type(String),        intent(in) :: phonon_dispersion_curve_filename
@@ -1139,13 +1155,18 @@ subroutine fourier_interpolation(dyn_mats_ibz,structure,temperature, &
   integer :: atom_1,atom_2,atom_1p,atom_2p
   integer :: mode_1,mode_2,mode_1p,mode_2p
   
+  integer :: ialloc
+  
   ! --------------------------------------------------
   ! Use symmetries to construct all dynamical matrices
   !   from the dynamical matrices of the IBZ.
   ! --------------------------------------------------
   
-  ! Calculate the relative phases between atoms at each k-point.
-  allocate(phase(structure%no_atoms,structure%no_atoms,structure_grid%sc_size))
+  ! Calculate the relative phases between atoms at each q-point.
+  allocate( phase( structure%no_atoms,      &
+          &        structure%no_atoms,      &
+          &        structure_grid%sc_size), &
+          & stat=ialloc); call err(ialloc)
   do i=1,structure_grid%sc_size
     do atom_1=1,structure%no_atoms
       do atom_2=1,structure%no_atoms
@@ -1162,14 +1183,15 @@ subroutine fourier_interpolation(dyn_mats_ibz,structure,temperature, &
   enddo
   
   ! Construct dynamical matrices.
-  allocate(dyn_mats_grid( structure%no_modes, &
-                        & structure%no_modes, &
-                        & structure_grid%sc_size))
+  allocate( dyn_mats_grid( structure%no_modes,      &
+          &                structure%no_modes,      &
+          &                structure_grid%sc_size), &
+          & stat=ialloc); call err(ialloc)
   rotations_cart = calculate_cartesian_rotations(structure)
-  do i=1,size(kpoints_ibz)
-    do j=1,size(kpoints_ibz(i)%gvectors)
-      k = kpoints_ibz(i)%gvectors(j)
-      l = kpoints_ibz(i)%rotations(j)
+  do i=1,size(qpoints_ibz)
+    do j=1,size(qpoints_ibz(i)%gvectors)
+      k = qpoints_ibz(i)%gvectors(j)
+      l = qpoints_ibz(i)%rotations(j)
     
       ! Construct the element of the dynamical matrix from that in the IBZ.
       do atom_1=1,structure%no_atoms
@@ -1200,9 +1222,10 @@ subroutine fourier_interpolation(dyn_mats_ibz,structure,temperature, &
   ! --------------------------------------------------
   ! Construct the matrix of force constants
   ! --------------------------------------------------
-  allocate(force_consts( structure%no_modes, &
-                       & structure%no_modes, &
-                       & structure_grid%sc_size))
+  allocate( force_consts( structure_grid%sc_size, &
+          &               structure%no_modes,     &
+          &               structure%no_modes),    &
+          & stat=ialloc); call err(ialloc)
   force_consts=0.0_dp
   
   do i_cell=1,structure_grid%sc_size
@@ -1210,7 +1233,7 @@ subroutine fourier_interpolation(dyn_mats_ibz,structure,temperature, &
       k_dot_r = dot_product(matmul( structure_grid%gvectors(:,i_grid), &
                                   & structure_grid%recip_supercell),   &
                                   & structure_grid%gvectors(:,i_cell))
-      force_consts(:,:,i_cell) = force_consts(:,:,i_cell) &
+      force_consts(i_cell,:,:) = force_consts(i_cell,:,:)        &
                              & + real( dyn_mats_grid(:,:,i_grid) &
                              &       * cmplx(cos(k_dot_r),sin(k_dot_r),dp))
     enddo
@@ -1229,9 +1252,10 @@ subroutine fourier_interpolation(dyn_mats_ibz,structure,temperature, &
   ! --------------------------------------------------
   ! Calculate minimum image distances.
   ! --------------------------------------------------
-  allocate(delta_prim( structure%no_atoms, &
-                     & structure%no_atoms, &
-                     & structure_grid%no_modes))
+  allocate( delta_prim( structure%no_atoms,       &
+          &             structure%no_atoms,       &
+          &             structure_grid%no_modes), &
+          & stat=ialloc); call err(ialloc)
   delta_prim = calculate_delta_prim(structure,structure_grid)
   
   ! --------------------------------------------------

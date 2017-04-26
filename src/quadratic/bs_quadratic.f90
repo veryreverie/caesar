@@ -47,7 +47,7 @@ subroutine bs_quadratic(arguments)
   real(dp), parameter :: dtemperature = 50.0_dp
   
   ! User input variables.
-  integer :: kpoint
+  integer :: qpoint
   integer :: band
   integer :: degeneracy
   
@@ -59,7 +59,7 @@ subroutine bs_quadratic(arguments)
   ! Starting data.
   type(Dictionary)  :: setup_quadratic_arguments
   integer              :: no_sc
-  integer              :: no_kpoints
+  integer              :: no_qpoints
   type(MappingData)                 :: mapping
   type(StructureData)               :: structure
   type(StructureData), allocatable  :: structure_scs(:)
@@ -71,7 +71,7 @@ subroutine bs_quadratic(arguments)
   real(dp), allocatable     :: frequencies(:,:)
   real(dp), allocatable     :: bs(:,:)
   
-  ! Kpoint data.
+  ! Qpoint data.
   integer, allocatable :: sc_ids(:)
   integer, allocatable :: gvectors(:)
   integer, allocatable :: multiplicity(:)
@@ -88,7 +88,7 @@ subroutine bs_quadratic(arguments)
   
   ! calculate_bs variables.
   real(dp)              :: renormalised_band
-  real(dp)              :: renormalised_band_kpoint
+  real(dp)              :: renormalised_band_qpoint
   real(dp), allocatable :: deformation(:,:)
   real(dp)              :: temperature
   
@@ -105,7 +105,7 @@ subroutine bs_quadratic(arguments)
   ! Get user inputs
   ! --------------------------------------------------
   wd = item(arguments, 'working_directory')
-  kpoint = int(item(arguments, 'q-point'))
+  qpoint = int(item(arguments, 'q-point'))
   band = int(item(arguments, 'band'))
   degeneracy = int(item(arguments, 'degeneracy'))
   
@@ -125,12 +125,12 @@ subroutine bs_quadratic(arguments)
   
   structure = read_structure_file(harmonic_path//'/structure.dat')
   
-  ibz_file = read_lines(harmonic_path//'/kpoints_ibz.dat')
-  no_kpoints = size(ibz_file)
-  allocate(multiplicity(no_kpoints))
-  allocate(sc_ids(no_kpoints))
-  allocate(gvectors(no_kpoints))
-  do i=1,no_kpoints
+  ibz_file = read_lines(harmonic_path//'/qpoints_ibz.dat')
+  no_qpoints = size(ibz_file)
+  allocate(multiplicity(no_qpoints))
+  allocate(sc_ids(no_qpoints))
+  allocate(gvectors(no_qpoints))
+  do i=1,no_qpoints
     line = split(ibz_file(i))
     multiplicity(i) = int(line(4))
     sc_ids(i) = int(line(5))
@@ -140,7 +140,7 @@ subroutine bs_quadratic(arguments)
   call mkdir(wd//'/bs')
   
   ! Obtain relevant band energy for each supercell
-  filename = wd//'/Supercell_1/kpoint.'//kpoint//'.dat'
+  filename = wd//'/Supercell_1/qpoint.'//qpoint//'.dat'
   bands = read_castep_bands_file(filename)
   band_energy = bands%bands(1,1)
   
@@ -148,7 +148,7 @@ subroutine bs_quadratic(arguments)
   do i=1,no_sc
     sdir = wd//'/Supercell_'//i
     ! Obtain relevant band for each supercell
-    filename = sdir//'/kpoint.'//kpoint//'.dat'
+    filename = sdir//'/qpoint.'//qpoint//'.dat'
     bands = read_castep_bands_file(filename)
     band_refs(i) = minloc(abs(bands%bands(:,1)-band_energy),dim=1)
   enddo
@@ -160,13 +160,13 @@ subroutine bs_quadratic(arguments)
     structure_scs(i) = read_structure_file(sdir//'/structure.dat')
   enddo
   
-  ! Loop over K-points
-  allocate(frequencies(structure%no_modes,no_kpoints))
-  allocate(bs(structure%no_modes,no_kpoints))
-  do i=1,no_kpoints
+  ! Loop over q-points
+  allocate(frequencies(structure%no_modes,no_qpoints))
+  allocate(bs(structure%no_modes,no_qpoints))
+  do i=1,no_qpoints
     ! Read frequencies
     frequencies_file = read_lines( &
-       & harmonic_path//'/kpoint_'//i//'/frequencies.dat')
+       & harmonic_path//'/qpoint_'//i//'/frequencies.dat')
     frequencies(:,i) = dble(frequencies_file)
     
     ! Read bands
@@ -176,7 +176,7 @@ subroutine bs_quadratic(arguments)
       do k=1,2
         amplitude = amplitudes(k)
         if (amplitude/=0) then
-          mdir = wd//'/kpoint_'//kpoint//'/mode_'//j//'/amplitude_'//amplitude
+          mdir = wd//'/qpoint_'//qpoint//'/mode_'//j//'/amplitude_'//amplitude
           if (file_exists(mdir//'/'//seedname//'.castep')) then
             bands = read_castep_bands_file(mdir//'/'//seedname//'.bands')
             bs(j,i) = bs(j,i)                                  &
@@ -190,7 +190,7 @@ subroutine bs_quadratic(arguments)
   enddo
   
   ! Calculate deformation potential
-  allocate(deformation(structure%no_modes,no_kpoints))
+  allocate(deformation(structure%no_modes,no_qpoints))
   deformation = bs/mapping%max**2
   
   ! Calculate quadratic vibrational correction
@@ -200,19 +200,19 @@ subroutine bs_quadratic(arguments)
     renormalised_band=0.0
     temperature = k*dtemperature
     if(temperature<1.d-5)then
-      do i=1,no_kpoints
-        call print_line(bck_file,'k-point '//i)
-        renormalised_band_kpoint=0.0
+      do i=1,no_qpoints
+        call print_line(bck_file,'q-point '//i)
+        renormalised_band_qpoint=0.0
         do j=1,structure%no_modes
           renormalised_band = renormalised_band &
-                          & + deformation(i,j)*multiplicity(i)/no_kpoints
-          renormalised_band_kpoint = renormalised_band_kpoint+deformation(i,j)
+                          & + deformation(i,j)*multiplicity(i)/no_qpoints
+          renormalised_band_qpoint = renormalised_band_qpoint+deformation(i,j)
           call print_line(bck_file,i//' '//j//' '//deformation(i,j))
         enddo
-        call print_line(bck_file,i//' '//renormalised_band_kpoint)
+        call print_line(bck_file,i//' '//renormalised_band_qpoint)
       enddo
     else
-      do i=1,no_kpoints
+      do i=1,no_qpoints
         do j=1,structure%no_modes
           renormalised_band = renormalised_band                               &
                           & + deformation(i,j)                                &
@@ -221,7 +221,7 @@ subroutine bs_quadratic(arguments)
                           &   / (exp(frequencies(i,j)/(temperature*kb_in_au)) &
                           &     - 1))                                         &
                           & * multiplicity(i)                                 &
-                          & / no_kpoints
+                          & / no_qpoints
         enddo
       enddo
     endif ! temperature

@@ -38,7 +38,7 @@ subroutine setup_quadratic(arguments)
   use displacement_patterns_module
   use dft_input_file_module
   use supercell_module
-  use kpoints_module
+  use qpoints_module
   use dictionary_module
   implicit none
   
@@ -76,8 +76,8 @@ subroutine setup_quadratic(arguments)
   real(dp),     allocatable :: prefactors(:,:)
   real(dp),     allocatable :: displacements(:,:,:)
   
-  ! K-point data
-  type(KpointData), allocatable :: kpoints(:)
+  ! q-point data
+  type(QpointData), allocatable :: qpoints(:)
   
   ! Working variables
   type(StructureData) :: structure_sc
@@ -148,8 +148,8 @@ subroutine setup_quadratic(arguments)
        & harmonic_path//'/Supercell_'//i//'/structure.dat')
   enddo
   
-  ! Read in kpoint data.
-  kpoints = read_kpoints_file(harmonic_path//'/kpoints_ibz.dat')
+  ! Read in qpoint data.
+  qpoints = read_qpoints_file(harmonic_path//'/qpoints_ibz.dat')
   
   ! ------------------------------------------------------------
   ! Make directories
@@ -158,8 +158,8 @@ subroutine setup_quadratic(arguments)
     call mkdir(wd//'/Supercell_'//i)
   enddo
   
-  do i=1,size(kpoints)
-    call mkdir(wd//'/kpoint_'//i)
+  do i=1,size(qpoints)
+    call mkdir(wd//'/qpoint_'//i)
   enddo
   
   ! ------------------------------------------------------------
@@ -178,19 +178,19 @@ subroutine setup_quadratic(arguments)
   ! ------------------------------------------------------------
   ! Generate quadratic configurations
   ! ------------------------------------------------------------
-  do i=1,size(kpoints)
-    structure_sc = structure_scs(kpoints(i)%sc_id)
+  do i=1,size(qpoints)
+    structure_sc = structure_scs(qpoints(i)%sc_id)
     
     ! Read in frequencies, prefactors and displacements.
     frequency_file = read_lines( &
-       & harmonic_path//'/kpoint_'//i//'/frequencies.dat')
+       & harmonic_path//'/qpoint_'//i//'/frequencies.dat')
     allocate(frequencies(structure%no_modes))
     do j=1,structure%no_modes
       frequencies(j) = dble(frequency_file(j))
     enddo
     
     prefactors_file = read_lines( &
-       & harmonic_path//'/kpoint_'//i//'/prefactors.dat')
+       & harmonic_path//'/qpoint_'//i//'/prefactors.dat')
     allocate(prefactors(structure_sc%no_atoms,structure%no_modes))
     do j=1,structure%no_modes
       do k=1,structure_sc%no_atoms
@@ -200,7 +200,7 @@ subroutine setup_quadratic(arguments)
     enddo
     
     displacements_file = read_lines( &
-       & harmonic_path//'/kpoint_'//i//'/displacements.dat')
+       & harmonic_path//'/qpoint_'//i//'/displacements.dat')
     allocate(displacements(3,structure_sc%no_atoms,structure%no_modes))
     do j=1,structure%no_modes
       do k=1,structure_sc%no_atoms
@@ -215,7 +215,7 @@ subroutine setup_quadratic(arguments)
         cycle
       endif
       
-      call mkdir(wd//'/kpoint_'//i//'/mode_'//j)
+      call mkdir(wd//'/qpoint_'//i//'/mode_'//j)
       
       do k=mapping%first,mapping%last
         ! Skip equilibrium configurations
@@ -223,7 +223,7 @@ subroutine setup_quadratic(arguments)
           cycle
         endif
     
-        call mkdir(wd//'/kpoint_'//i//'/mode_'//j//'/amplitude_'//k)
+        call mkdir(wd//'/qpoint_'//i//'/mode_'//j//'/amplitude_'//k)
         
         ! Calculate quad_amplitude
         ! The normal mode amplitudes to sample are calculated
@@ -246,7 +246,7 @@ subroutine setup_quadratic(arguments)
         enddo
         
         ! Write dft input files
-        mdir = wd//'/kpoint_'//i//'/mode_'//j//'/amplitude_'//k
+        mdir = wd//'/qpoint_'//i//'/mode_'//j//'/amplitude_'//k
         
         dft_input_filename = make_dft_input_filename(dft_code,seedname)
         call StructureData_to_dft_input_file( &

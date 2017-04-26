@@ -4,7 +4,7 @@ module bands_module
   use io_module
   
   type BandsData
-    integer               :: no_kpoints
+    integer               :: no_qpoints
     integer               :: no_bands
     real(dp), allocatable :: bands(:,:)
   end type
@@ -24,17 +24,17 @@ module bands_module
   end interface
 contains
 
-subroutine new_BandsData(this,no_kpoints,no_bands)
+subroutine new_BandsData(this,no_qpoints,no_bands)
   implicit none
   
   type(BandsData), intent(out) :: this
-  integer,         intent(in)  :: no_kpoints
+  integer,         intent(in)  :: no_qpoints
   integer,         intent(in)  :: no_bands
   
-  this%no_kpoints = no_kpoints
+  this%no_qpoints = no_qpoints
   this%no_bands = no_bands
   
-  allocate(this%bands(no_bands,no_kpoints))
+  allocate(this%bands(no_bands,no_qpoints))
 end subroutine
 
 ! ----------------------------------------------------------------------
@@ -42,7 +42,7 @@ end subroutine
 ! ----------------------------------------------------------------------
 ! A .bands file looks like:
 !
-! Number of k-points             ~
+! Number of q-points             ~
 ! Number of spin components      ~
 ! Number of electrons            ~
 ! Number of eigenvalues          ~
@@ -51,12 +51,12 @@ end subroutine
 !  ~ ~ ~
 !  ~ ~ ~
 !  ~ ~ ~
-! K-point 1 ~ ~ ~ ~
+! q-point 1 ~ ~ ~ ~
 ! Spin component 1
 !  ~
 ! ...
 !  ~
-! K-point 2 ~ ~ ~ ~
+! q-point 2 ~ ~ ~ ~
 ! Spin component 1
 !  ~
 ! ...
@@ -68,8 +68,8 @@ function read_castep_bands_file_character(filename) result(this)
   character(*), intent(in) :: filename
   type(BandsData)          :: this
   
-  ! kpoint and band counts
-  integer :: no_kpoints
+  ! qpoint and band counts
+  integer :: no_qpoints
   integer :: no_bands
   
   ! File contents
@@ -82,16 +82,16 @@ function read_castep_bands_file_character(filename) result(this)
   ! Read in bands file
   bands_file = read_lines(filename)
   
-  ! Get no_kpoints and no_bands
+  ! Get no_qpoints and no_bands
   line = split(bands_file(1))
-  no_kpoints = int(line(4))
+  no_qpoints = int(line(4))
   
   line = split(bands_file(4))
   no_bands = int(line(4))
   
-  call new(this,no_kpoints,no_bands)
+  call new(this,no_qpoints,no_bands)
   
-  do i=1,no_kpoints
+  do i=1,no_qpoints
     do j=1,no_bands
       this%bands(j,i) = dble(bands_file(11+(no_bands+2)*(i-1)+j))
     enddo
@@ -113,8 +113,8 @@ function read_vasp_bands_file_character(filename) result(this)
   character(*), intent(in) :: filename
   type(BandsData)          :: this
   
-  ! kpoint and band counts
-  integer :: no_kpoints
+  ! qpoint and band counts
+  integer :: no_qpoints
   integer :: no_bands
   
   ! File contents
@@ -127,14 +127,14 @@ function read_vasp_bands_file_character(filename) result(this)
   ! Read in bands file
   bands_file = read_lines(filename)
   
-  ! Get no_kpoints and no_bands
+  ! Get no_qpoints and no_bands
   line = split(bands_file(6))
-  no_kpoints = int(line(2))
+  no_qpoints = int(line(2))
   no_bands = int(line(3))
   
-  call new(this,no_kpoints,no_bands)
+  call new(this,no_qpoints,no_bands)
   
-  do i=1,no_kpoints
+  do i=1,no_qpoints
     do j=1,no_bands
       call print_line("Vasp bands file parser needs updating")
       call err()
