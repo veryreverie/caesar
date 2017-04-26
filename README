@@ -9,6 +9,7 @@ To install Caesar, run:
   make
 
 This should be run from the destination directory.
+The executble 'caesar' will be placed in a 'bin' directory.
 
 ----------------------------------------
 Running

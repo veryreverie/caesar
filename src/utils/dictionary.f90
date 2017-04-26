@@ -127,7 +127,7 @@ function item_character(this,key) result(output)
   
   integer :: i
   
-  output = not_set
+  output = NOT_SET
   do i=1,size(this)
     if (this%keys(i) == key) then
       output = this%values(i)
@@ -193,9 +193,9 @@ subroutine write_dictionary_file(this,filename)
   
   dictionary_file = open_write_file(filename)
   do i=1,size(this)
-    if (this%values(i)==not_set) then
+    if (this%values(i)==NOT_SET) then
       cycle
-    elseif (this%values(i)==no_argument) then
+    elseif (this%values(i)==NO_ARGUMENT) then
       call print_line(dictionary_file, this%keys(i))
     else
       call print_line(dictionary_file, this%keys(i)//' '//this%values(i))
@@ -243,7 +243,7 @@ function read_dictionary_file(filename) result(this)
     no_args = no_args+1
     arg_keys(no_args) = line(1)
     if (size(line)==1) then
-      arg_values(no_args) = no_argument
+      arg_values(no_args) = NO_ARGUMENT
     else
       line = split(join(line(2:)), '!')
       arg_values(no_args) = line(1)

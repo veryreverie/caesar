@@ -35,9 +35,9 @@ contains
 ! ----------------------------------------------------------------------
 ! Takes a keyword, its default value and its helptext and returns KeywordData.
 ! ----------------------------------------------------------------------
-! If default value is no_argument (from io_module), Caesar will insist on
+! If default value is NO_ARGUMENT (from io_module), Caesar will insist on
 !    a value being given, and will abort if this does not happen.
-! If default value is not_set (from io_module), Caesar will not print the
+! If default value is NOT_SET (from io_module), Caesar will not print the
 !    keyword to file.
 ! If is_path is .true., Caesar will convert the path to an absolute path.
 function make_keyword_characters(keyword,default_value,helptext,is_path) &
@@ -159,14 +159,14 @@ subroutine help_keyword(keyword,mode,keywords)
   integer :: i
   logical :: success
   
-  if (keyword==no_argument) then
+  if (keyword==NO_ARGUMENT) then
     do i=1,size(keywords)
       call print_line('')
       call print_line(keywords(i)%keyword)
       call print_line(keywords(i)%helptext)
-      if (keywords(i)%default_value==not_set) then
+      if (keywords(i)%default_value==NOT_SET) then
         call print_line(keywords(i)%keyword//' is optional.')
-      elseif (keywords(i)%default_value==no_argument) then
+      elseif (keywords(i)%default_value==NO_ARGUMENT) then
         call print_line(keywords(i)%keyword//' has no default value, and &
            &must be set.')
       else

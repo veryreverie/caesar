@@ -68,20 +68,20 @@ program caesar
   
   ! Read in command line arguments.
   args = command_line_args()
-  if (size(args) < 1) then
+  if (size(args) < 2) then
     call print_line('No arguments given. For help, call caesar -h')
     stop
   endif
   
   ! Read in mode.
-  mode = args(1)
+  mode = args(2)
   
   if (len(mode) < 2) then
     call print_line('Error: unrecognised mode: '//mode)
     call print_line('Call caesar -h for help.')
     stop
   elseif (mode=='-h' .or. mode=='--help') then
-    if (size(args)==1) then
+    if (size(args)==2) then
       call help()
     else
       call print_line('For keyword-specific help, please also specify a mode, &
@@ -130,7 +130,7 @@ program caesar
                               & str('input_file'),        &
                               & str('help')               ]
   call err(len(flags_with_arguments)==size(long_flags_with_arguments))
-  default_arguments = [ str('.'), str(not_set), str(not_set) ]
+  default_arguments = [ str('.'), str(NOT_SET), str(NOT_SET) ]
   call err(len(flags_with_arguments)==size(default_arguments))
   
   ! Set dictionary of all keywords.
@@ -145,7 +145,7 @@ program caesar
   do i=1,size(long_flags_without_arguments)
     j = j+1
     arg_keys(j) = long_flags_without_arguments(i)
-    arg_values(j) = not_set
+    arg_values(j) = NOT_SET
   enddo
   
   do i=1,size(long_flags_with_arguments)
@@ -202,7 +202,7 @@ program caesar
       ! Add the argument to the argument list.
       no_args = no_args+1
       arg_keys(no_args) = flag%argument
-      arg_values(no_args) = no_argument
+      arg_values(no_args) = NO_ARGUMENT
       appending = .false.
     
     ! An argument which is preceded by '-', i.e. a flag.
@@ -212,7 +212,7 @@ program caesar
         if (flag%flag==slice(flags_without_arguments,i,i)) then
           no_args = no_args+1
           arg_keys(no_args) = long_flags_without_arguments(i)
-          arg_values(no_args) = no_argument
+          arg_values(no_args) = NO_ARGUMENT
           appending = .false.
           cycle do_args
         endif
@@ -224,7 +224,7 @@ program caesar
           no_args = no_args+1
           arg_keys(no_args) = long_flags_with_arguments(i)
           if (flag%argument=='') then
-            arg_values(no_args) = no_argument
+            arg_values(no_args) = NO_ARGUMENT
             appending = .false.
           else
             arg_values(no_args) = flag%argument
@@ -255,7 +255,7 @@ program caesar
   
   ! Handle help calls.
   temp_string = item(command_line_arguments, 'help')
-  if (temp_string/=not_set) then
+  if (temp_string/=NOT_SET) then
     call help(temp_string, mode, keywords)
     stop
   endif
@@ -269,11 +269,11 @@ program caesar
   endif
   
   ! Check if interactive mode requested.
-  interactive = item(command_line_arguments, 'interactive') /= not_set
+  interactive = item(command_line_arguments, 'interactive') /= NOT_SET
   
   ! Process input file.
   input_filename = item(command_line_arguments, 'input_file')
-  if (input_filename==no_argument) then
+  if (input_filename==NO_ARGUMENT) then
     call print_line('Error: no argument given with --input_file.')
     stop
   endif
@@ -285,7 +285,7 @@ program caesar
     
     if (temp_string=='y') then
       call print_line('')
-      if (input_filename/=not_set) then
+      if (input_filename/=NOT_SET) then
         call print_line('Input file is currently set to: '//input_filename)
         call print_line('Press <Enter> to accept current setting.')
       endif
@@ -295,11 +295,11 @@ program caesar
         input_filename = temp_string
       endif
     else
-      input_filename = not_set
+      input_filename = NOT_SET
     endif
   endif
   
-  if (input_filename/=not_set) then
+  if (input_filename/=NOT_SET) then
     file_arguments = read_dictionary_file(input_filename)
     
     ! Check all file arguments are expected.
@@ -311,7 +311,7 @@ program caesar
       elseif ( file_arguments%keys(i)=='input_filename' .or. &
              & file_arguments%keys(i)=='help'           .or. &
              & file_arguments%keys(i)=='interactive') then
-        file_arguments%values(i) = not_set
+        file_arguments%values(i) = NOT_SET
       endif
     enddo
   endif
@@ -321,25 +321,25 @@ program caesar
   !    and both overwrite default arguments.
   do i=1,size(arguments)
     temp_string = item(command_line_arguments, arguments%keys(i))
-    if (temp_string/=not_set) then
+    if (temp_string/=NOT_SET) then
       arguments%values(i) = temp_string
-    else if (input_filename/=not_set) then
+    else if (input_filename/=NOT_SET) then
       temp_string = item(file_arguments, arguments%keys(i))
-      if (temp_string/=not_set) then
+      if (temp_string/=NOT_SET) then
         arguments%values(i) = temp_string
       endif
     endif
     
     if (.not. interactive) then
-      if (arguments%values(i)==not_set) then
+      if (arguments%values(i)==NOT_SET) then
         cycle
       elseif ( arguments%keys(i)=='interactive' .and. &
-             & arguments%values(i)/=no_argument) then
+             & arguments%values(i)/=NO_ARGUMENT) then
         call print_line('Error: an argument was given for keyword '// &
            & arguments%keys(i)//', which does not accept arguments.')
         stop
       elseif ( arguments%keys(i)/='interactive' .and. &
-             & arguments%values(i)==no_argument) then
+             & arguments%values(i)==NO_ARGUMENT) then
         call print_line('Error: no argument given for keyword '// &
            & arguments%keys(i)//', which requires an argument.')
         stop
@@ -377,7 +377,7 @@ program caesar
         call print_line('Please give a value for the keyword: '// &
            & keywords(i)%keyword//'.')
         call print_line(keywords(i)%helptext)
-        if (arguments%values(j)/=no_argument) then
+        if (arguments%values(j)/=NO_ARGUMENT) then
           call print_line(keywords(i)%keyword//' is currently set to: '//&
              & arguments%values(j))
           call print_line('Press <Enter> to accept current setting.')
@@ -387,7 +387,7 @@ program caesar
           arguments%values(j) = temp_string
         endif
         
-        if (arguments%values(j)/=no_argument) then
+        if (arguments%values(j)/=NO_ARGUMENT) then
           exit
         endif
       enddo
@@ -399,9 +399,9 @@ program caesar
   do i=1,size(keywords)
     j = size(arguments)-size(keywords)+i
     if (keywords(i)%is_path) then
-      if (arguments%values(j) == not_set) then
+      if (arguments%values(j) == NOT_SET) then
         cycle
-      elseif (arguments%values(j) == no_argument) then
+      elseif (arguments%values(j) == NO_ARGUMENT) then
         ! This should have been dealt with above.
         call err()
       else

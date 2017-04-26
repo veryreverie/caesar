@@ -36,11 +36,11 @@ module string_module
   public :: slice      ! slice(String,a,b) = character(a:b)
   
   ! Constants for special cases.
-  public :: not_set
-  public :: no_argument
+  public :: NOT_SET
+  public :: NO_ARGUMENT
   
-  character(9),  parameter :: not_set = '<not_set>'
-  character(13), parameter :: no_argument = '<no_argument>'
+  character(9),  parameter :: NOT_SET = '<NOT_SET>'
+  character(13), parameter :: NO_ARGUMENT = '<NO_ARGUMENT>'
   
   type String
     character(:), allocatable, private :: contents

@@ -21,10 +21,10 @@ function command_line_args() result(args)
   character(1000) :: temp_char
 
   arg_count = command_argument_count()
-  allocate (args(arg_count), stat=ialloc); call err(ialloc)
-  do i=1,arg_count
+  allocate (args(arg_count+1), stat=ialloc); call err(ialloc)
+  do i=0,arg_count
     call get_command_argument(i, temp_char)
-    args(i) = trim(temp_char)
+    args(i+1) = trim(temp_char)
   enddo
 end function
 

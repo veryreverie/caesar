@@ -14,8 +14,8 @@ int system_c(const char* input)
 
 bool get_cwd_c(const int* result_size, char* cwd)
 {
-  char buffer[*result_size + 1];
-  char * result = getcwd(buffer, *result_size + 1);
+  char buffer[*result_size];
+  char * result = getcwd(buffer, sizeof(buffer)-1);
   if (result==NULL)
   {
     return false;
@@ -37,6 +37,21 @@ bool get_home_c(char* home)
   else
   {
     strcpy(home,result);
+    return true;
+  }
+}
+
+bool get_exe_location_c(const int* result_size, char* exe_location)
+{
+  char buffer[*result_size];
+  ssize_t len = readlink("/proc/self/exe", buffer, sizeof(buffer)-1);
+  if (len==-1)
+  {
+    return false;
+  }
+  else
+  {
+    strcpy(exe_location, buffer);
     return true;
   }
 }

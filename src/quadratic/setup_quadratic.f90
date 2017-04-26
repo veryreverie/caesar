@@ -21,7 +21,7 @@ function setup_quadratic_keywords() result(keywords)
   keywords = [                                                                &
   & make_keyword('dft_code', 'castep', 'dft_code is the DFT code used to &
      &calculate energies. Settings are: castep vasp qe.'),                    &
-  & make_keyword('seedname', no_argument, 'seedname is the DFT seedname from &
+  & make_keyword('seedname', NO_ARGUMENT, 'seedname is the DFT seedname from &
      &which file names are constructed.'),                                    &
   & make_keyword('harmonic_path', '.', 'harmonic_path is the path to the &
      &directory where harmonic calculations were run.', is_path=.true.)       ]
@@ -35,7 +35,6 @@ subroutine setup_quadratic(arguments)
   use utils_module,     only : mkdir
   use mapping_module
   use structure_module
-  use displacement_patterns_module
   use dft_input_file_module
   use supercell_module
   use qpoints_module

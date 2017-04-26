@@ -105,8 +105,7 @@ subroutine setup_harmonic_test(arguments)
   close(grid_file)
   
   ! Call setup_harmonic.
-  result_code = system_call('cd '//old_wd//'; setup_harmonic.sh')
-  call err(result_code==0)
+  call execute_old_code(old_wd, str('setup_harmonic.sh'))
   
   ! ----------------------------------------------------------------------
   ! Compare results.

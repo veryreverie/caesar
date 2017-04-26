@@ -20,9 +20,9 @@ function setup_harmonic_keywords() result(keywords)
   keywords = [                                                                &
   & make_keyword('dft_code', 'castep', 'dft_code is the DFT code used to &
      &calculate energies. Settings are: castep vasp qe.'),                    &
-  & make_keyword('seedname', no_argument, 'seedname is the DFT seedname from &
+  & make_keyword('seedname', NO_ARGUMENT, 'seedname is the DFT seedname from &
      &which file names are constructed.'),                                    &
-  & make_keyword('q-point_grid', no_argument, 'q-point_grid is the number of &
+  & make_keyword('q-point_grid', NO_ARGUMENT, 'q-point_grid is the number of &
      &q-points in each direction in a Monkhorst-Pack grid. This should be &
      &specified as three integers separated by spaces.')                      ]
 end function

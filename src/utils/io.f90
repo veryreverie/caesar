@@ -5,9 +5,10 @@ module io_module
   
   private
   
+  integer      :: TERMINAL_WIDTH = 79
   type(String) :: HOME
   type(String) :: CWD
-  integer      :: TERMINAL_WIDTH = 79
+  type(String) :: OLD_PATH
   
   ! Command line flag and argument.
   public CommandLineFlag
@@ -21,13 +22,14 @@ module io_module
   public :: read_lines       ! reads a file into a String(:) array
   
   ! Other IO operations.
-  public :: set_global_io_variables ! Sets HOME, CWD and TERMINAL_WIDTH.
+  public :: set_global_io_variables ! Sets io global variables.
   public :: system_call             ! Makes a system call.
   public :: get_flag                ! Reads a flag from the command line.
   public :: read_line_from_user     ! Reads a line from the terminal.
   public :: print_line              ! write(*,'(a)')
   public :: err                     ! Aborts with a stacktrace.
   public :: format_path             ! Converts any path into an absolute path.
+  public :: execute_old_code        ! Runs one of the old caesar codes.
   
   type CommandLineFlag
     character(1) :: flag
@@ -126,6 +128,19 @@ module io_module
       implicit none
       
       character(kind=c_char), intent(out) :: home(*)
+      logical(kind=c_bool)                :: success
+    end function
+  end interface
+  
+  ! C readlink('/proc/self/exe') call interface.
+  interface
+    function get_exe_location_c(result_size,exe_location) bind(c) &
+       & result(success)
+      use, intrinsic :: iso_c_binding
+      implicit none
+      
+      integer(kind=c_int),    intent(in)  :: result_size
+      character(kind=c_char), intent(out) :: exe_location
       logical(kind=c_bool)                :: success
     end function
   end interface
@@ -393,7 +408,7 @@ function get_flag(args,flags_without_arguments,flags_with_arguments) &
   character(1000) :: flags_char
   
   ! Convert command-line arguments into C-friendly format.
-  argvs = char('caesar'//char(0)//join(args,char(0))//char(0))
+  argvs = char(join(args,char(0))//char(0))
   
   ! Convert flags into C-friendly format.
   options = '-:-:'//flags_without_arguments
@@ -404,7 +419,7 @@ function get_flag(args,flags_without_arguments,flags_with_arguments) &
   options = options//char(0)
   
   ! Call getopt.
-  success = get_flag_c( size(args)+1,  &
+  success = get_flag_c( size(args),    &
                       & argvs,         &
                       & char(options), &
                       & flag,          &
@@ -466,7 +481,7 @@ function get_home_directory() result(output)
   success = get_home_c(home_dir)
   
   if (.not. success) then
-    call print_line('getenv("HOME") failed.')
+    call print_line('Error: getenv("HOME") failed.')
     call err()
   endif
   
@@ -479,7 +494,8 @@ function get_home_directory() result(output)
   enddo
   
   if (output=='') then
-    call print_line('home directory string not nul-terminated: '//home_dir)
+    call print_line('Error: home directory string not nul-terminated: '// &
+       & home_dir)
     call err()
   endif
 end function
@@ -489,7 +505,7 @@ function get_current_directory() result(output)
   
   type(String) :: output
   
-  integer, parameter  :: result_size = 1024
+  integer, parameter :: result_size = 1024
   
   character(result_size) :: current_dir
   logical                :: success
@@ -498,7 +514,7 @@ function get_current_directory() result(output)
   success = get_cwd_c(result_size, current_dir)
   
   if (.not. success) then
-    call print_line('getcwd failed.')
+    call print_line('Error: getcwd failed.')
     call err()
   endif
   
@@ -511,7 +527,40 @@ function get_current_directory() result(output)
   enddo
   
   if (output=='') then
-    call print_line('cwd string not nul-terminated.'//current_dir)
+    call print_line('Error: cwd string not nul-terminated: '//current_dir)
+    call err()
+  endif
+end function
+
+function get_exe_location() result(output)
+  implicit none
+  
+  type(String) :: output
+  
+  integer, parameter :: result_size = 1024
+  
+  character(result_size) :: exe_location
+  logical                :: success
+  integer                :: i
+  
+  success = get_exe_location_c(result_size, exe_location)
+  
+  if (.not. success) then
+    call print_line('Error: readlink("/proc/self/exe") failed.')
+    call err()
+  endif
+  
+  output = ''
+  do i=1,result_size
+    if (exe_location(i:i)==char(0)) then
+      output = exe_location(:i-1)
+      exit
+    endif
+  enddo
+  
+  if (output=='') then
+    call print_line('Error: readlink string not nul-terminated: '// &
+       & exe_location)
     call err()
   endif
 end function
@@ -537,9 +586,15 @@ end function
 subroutine set_global_io_variables()
   implicit none
   
+  type(String) :: exe_location
+  
+  TERMINAL_WIDTH = get_terminal_width()
   HOME = get_home_directory()
   CWD = get_current_directory()
-  TERMINAL_WIDTH = get_terminal_width()
+  exe_location = get_exe_location()
+  call err (  slice(exe_location,len(exe_location)-10,len(exe_location)) &
+         & == '/bin/caesar')
+  OLD_PATH = slice(exe_location,1,len(exe_location)-11)//'/old'
 end subroutine
 
 ! ----------------------------------------------------------------------
@@ -812,4 +867,28 @@ function format_path_String(path) result(output)
   
   output = format_path(char(path))
 end function
+
+! ----------------------------------------------------------------------
+! Executes one of the old caesar executables.
+! ----------------------------------------------------------------------
+! Adds the path to old Caesar to PATH in a subshell.
+! Moves to the working directory.
+! Runs the given file.
+subroutine execute_old_code(wd, filename)
+  implicit none
+  
+  type(String), intent(in) :: wd
+  type(String), intent(in) :: filename
+  
+  integer :: result_code
+  
+  result_code = system_call( &
+     & '( PATH='//OLD_PATH//':$PATH; cd '//wd//'; '//filename//' )')
+  
+  if (result_code/=0) then
+    call print_line('Error: '//filename//' failed.')
+    call err()
+  endif
+end subroutine
+
 end module
