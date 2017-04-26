@@ -51,6 +51,7 @@ bool get_exe_location_c(const int* result_size, char* exe_location)
   }
   else
   {
+    *(buffer+len) = '\0';
     strcpy(exe_location, buffer);
     return true;
   }

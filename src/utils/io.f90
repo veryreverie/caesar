@@ -592,8 +592,11 @@ subroutine set_global_io_variables()
   HOME = get_home_directory()
   CWD = get_current_directory()
   exe_location = get_exe_location()
-  call err (  slice(exe_location,len(exe_location)-10,len(exe_location)) &
-         & == '/bin/caesar')
+  if (  slice(exe_location,len(exe_location)-10,len(exe_location)) &
+   & /= '/bin/caesar') then
+    call print_line('Caesar executable in unexpected location: '//exe_location)
+    call err()
+  endif
   OLD_PATH = slice(exe_location,1,len(exe_location)-11)//'/old'
 end subroutine
 
