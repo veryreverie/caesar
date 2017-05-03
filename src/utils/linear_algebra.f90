@@ -181,8 +181,9 @@ function determinant_integer(A) result(determinant)
   integer             :: determinant
   
   ! Check that A is a 3x3 matrix.
-  call err(size(A,1)==3)
-  call err(size(A,2)==3)
+  if (size(A,1)/=3 .or. size(A,2)/=3) then
+    call err()
+  endif
   
   determinant = A(1,1)*(A(2,2)*A(3,3)-A(2,3)*A(3,2))&
              &+ A(1,2)*(A(2,3)*A(3,1)-A(2,1)*A(3,3))&
@@ -196,8 +197,9 @@ function determinant_real(A) result(determinant)
   real(dp)             :: determinant
   
   ! Check that A is a 3x3 matrix.
-  call err(size(A,1)==3)
-  call err(size(A,2)==3)
+  if (size(A,1)/=3 .or. size(A,2)/=3) then
+    call err()
+  endif
   
   determinant = A(1,1)*(A(2,2)*A(3,3)-A(2,3)*A(3,2))&
             & + A(1,2)*(A(2,3)*A(3,1)-A(2,1)*A(3,3))&
@@ -218,8 +220,9 @@ function invert(A) result(B)
   real(dp) :: C(3,3) ! transpose(A)
   
   ! Check that A is a 3x3 matrix.
-  call err(size(A,1)==3)
-  call err(size(A,2)==3)
+  if (size(A,1)/=3 .or. size(A,2)/=3) then
+    call err()
+  endif
   
   d = 1.0_dp/determinant(A)
   
@@ -256,8 +259,9 @@ function invert_int(A) result(B)
   integer :: d      ! 1 if det(A)>=0, -1 otherwise
   
   ! Check that A is a 3x3 matrix.
-  call err(size(A,1)==3)
-  call err(size(A,2)==3)
+  if (size(A,1)/=3 .or. size(A,2)/=3) then
+    call err()
+  endif
   
   d = sign(1,determinant(A))
   

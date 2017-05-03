@@ -89,7 +89,6 @@ module io_module
   
   interface err
     module procedure err_none
-    module procedure err_logical
     module procedure err_integer
   end interface
   
@@ -797,17 +796,6 @@ subroutine err_none()
   implicit none
   
   call err_implementation()
-end subroutine
-
-! Aborts if logical input is .false.
-subroutine err_logical(this)
-  implicit none
-  
-  logical, intent(in) :: this
-  
-  if (.not. this) then
-    call err()
-  endif
 end subroutine
 
 ! Aborts if integer input /= 0.

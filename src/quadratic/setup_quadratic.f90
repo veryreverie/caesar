@@ -36,7 +36,6 @@ subroutine setup_quadratic(arguments)
   use mapping_module
   use structure_module
   use dft_input_file_module
-  use supercell_module
   use qpoints_module
   use dictionary_module
   implicit none
@@ -65,7 +64,7 @@ subroutine setup_quadratic(arguments)
   integer             :: no_sc
   
   ! Harmonic supercell file contents
-  type(StructureData), allocatable :: structure_scs(:)
+  type(StructureData), allocatable :: supercells(:)
   
   ! Mode frequencies and displacement patterns.
   type(String), allocatable :: frequency_file(:)
@@ -79,7 +78,7 @@ subroutine setup_quadratic(arguments)
   type(QpointData), allocatable :: qpoints(:)
   
   ! Working variables
-  type(StructureData) :: structure_sc
+  type(StructureData) :: supercell
   real(dp)            :: occupation
   real(dp)            :: quad_amplitude
   real(dp)            :: amplitude
@@ -141,9 +140,9 @@ subroutine setup_quadratic(arguments)
   no_sc = int(no_sc_file(1))
   
   ! Read in supercell structures.
-  allocate(structure_scs(no_sc))
+  allocate(supercells(no_sc))
   do i=1,no_sc
-    structure_scs(i) = read_structure_file( &
+    supercells(i) = read_structure_file( &
        & harmonic_path//'/Supercell_'//i//'/structure.dat')
   enddo
   
@@ -169,7 +168,7 @@ subroutine setup_quadratic(arguments)
     dft_input_filename = make_dft_input_filename(dft_code,seedname)
     call StructureData_to_dft_input_file(            &
        & dft_code,                                   &
-       & structure_scs(i),                           &
+       & supercells(i),                           &
        & wd//'/'//dft_code//'/'//dft_input_filename, &
        & sdir//'/'//dft_input_filename)
   enddo
@@ -178,7 +177,7 @@ subroutine setup_quadratic(arguments)
   ! Generate quadratic configurations
   ! ------------------------------------------------------------
   do i=1,size(qpoints)
-    structure_sc = structure_scs(qpoints(i)%sc_id)
+    supercell = supercells(qpoints(i)%sc_id)
     
     ! Read in frequencies, prefactors and displacements.
     frequency_file = read_lines( &
@@ -190,20 +189,20 @@ subroutine setup_quadratic(arguments)
     
     prefactors_file = read_lines( &
        & harmonic_path//'/qpoint_'//i//'/prefactors.dat')
-    allocate(prefactors(structure_sc%no_atoms,structure%no_modes))
+    allocate(prefactors(supercell%no_atoms,structure%no_modes))
     do j=1,structure%no_modes
-      do k=1,structure_sc%no_atoms
+      do k=1,supercell%no_atoms
         prefactors(k,j) = &
-           & dble(prefactors_file((j-1)*(structure_sc%no_atoms+2)+k+1))
+           & dble(prefactors_file((j-1)*(supercell%no_atoms+2)+k+1))
       enddo
     enddo
     
     displacements_file = read_lines( &
        & harmonic_path//'/qpoint_'//i//'/displacements.dat')
-    allocate(displacements(3,structure_sc%no_atoms,structure%no_modes))
+    allocate(displacements(3,supercell%no_atoms,structure%no_modes))
     do j=1,structure%no_modes
-      do k=1,structure_sc%no_atoms
-        line = split(displacements_file((j-1)*(structure_sc%no_atoms+2)+k+1))
+      do k=1,supercell%no_atoms
+        line = split(displacements_file((j-1)*(supercell%no_atoms+2)+k+1))
         displacements(:,k,j) = dble(line)
       enddo
     enddo
@@ -239,9 +238,9 @@ subroutine setup_quadratic(arguments)
         amplitude = mapping%max*k*quad_amplitude*2.d0/mapping%count
         
         ! Calculate new positions
-        do l=1,structure_sc%no_atoms
+        do l=1,supercell%no_atoms
           disp = amplitude * displacements(:,l,j) * prefactors(l,j)
-          structure_sc%atoms(:,l) = structure_sc%atoms(:,l) + disp
+          supercell%atoms(:,l) = supercell%atoms(:,l) + disp
         enddo
         
         ! Write dft input files
@@ -250,7 +249,7 @@ subroutine setup_quadratic(arguments)
         dft_input_filename = make_dft_input_filename(dft_code,seedname)
         call StructureData_to_dft_input_file( &
            & dft_code,                        &
-           & structure_sc,                    &
+           & supercell,                    &
            & wd//'/'//dft_input_filename,     &
            & mdir//'/'//dft_input_filename)
       enddo

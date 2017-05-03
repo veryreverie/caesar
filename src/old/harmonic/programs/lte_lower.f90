@@ -432,11 +432,11 @@ MODULE phonons
   USE min_images,ONLY : is_lat_point,min_images_brute_force,maxim
   USE utils,ONLY : dp,i2s,errstop,third,twopi
   IMPLICIT NONE
-  PRIVATE
-  PUBLIC defined,read_lte,point_symm,point_symm_brute_force,newtons_law, &
-    &mass_reduce,find_prim_cell,calculate_freq_dos,calc_lte,calc_ltfe, &
-    &prog_function,generate_disp_curve,calculate_speed_sound,finalise, &
-    &evaluate_freqs_on_grid,write_dynamical_matrix,write_atoms_in_primitive_cell
+!  PRIVATE
+!  PUBLIC defined,read_lte,point_symm,point_symm_brute_force,newtons_law, &
+!    &mass_reduce,find_prim_cell,calculate_freq_dos,calc_lte,calc_ltfe, &
+!    &prog_function,generate_disp_curve,calculate_speed_sound,finalise, &
+!    &evaluate_freqs_on_grid,write_dynamical_matrix,write_atoms_in_primitive_cell
   REAL(dp) :: prim_lat_vec(3,3),sc_lat_vec(3,3),prim_rec_vec(3,3), &
     &sc_rec_vec(3,3),length_scale,vol_scale,small_k_scale,fc_scale,bin_width, &
     &temperature
@@ -2162,10 +2162,11 @@ END MODULE phonons
 
 PROGRAM lte
   ! Main program starts here.
-  USE utils,ONLY : errstop,wordwrap
+  USE utils,ONLY : errstop,wordwrap,i2s
   USE phonons
   IMPLICIT NONE
   REAL :: t1,t2
+  integer :: i,j,k ! mj464
 
   CALL CPU_TIME(t1)
 
@@ -2211,6 +2212,24 @@ PROGRAM lte
   CALL find_prim_cell
   WRITE(*,*)'Done.'
   WRITE(*,*)
+  
+  ! mj464 : output force constants
+  open(unit=71,file='force_constants.dat')
+  do i=1,no_atoms_in_prim*3
+    do j=1,no_atoms_in_prim*3
+      write(71,*) 'Force on mode '//trim(i2s(i))//' as a result of mode '// &
+         & trim(i2s(j))//' moving.'
+      do k=1,no_prim_cells
+        write(71,*) 'R-vector '//trim(i2s(k))//': force = ',  &
+           & force_const( (i-1)/3+1,                          &
+           &              modulo(i-1,3)+1,                    &
+           &              (j-1)/3+1 + no_atoms_in_prim*(k-1), &
+           &              modulo(j-1,3)+1)
+      enddo
+      write(71,*)
+    enddo
+  enddo
+  ! end mj464
 
   IF(prog_function==1)THEN
 

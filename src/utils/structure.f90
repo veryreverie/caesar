@@ -57,7 +57,7 @@ module structure_module
     ! ------------------------------
     integer                   :: no_symmetries
     integer,      allocatable :: rotations(:,:,:)
-    real(dp),     allocatable :: offsets(:,:)
+    real(dp),     allocatable :: translations(:,:)
     
     ! ------------------------------
     ! Superell data
@@ -69,10 +69,12 @@ module structure_module
     integer                   :: supercell(3,3)
     ! inverse(transpose(supercell))
     integer                   :: recip_supercell(3,3)
-    ! The G-vectors of the supercell Brillouin Zone which are unique 
-    !    in the primitive cell Brillouin Zone.
-    ! N.B. this is the same as the R-vectors of the primitive cell which are
-    !    unique in the supercell.
+    
+    ! The R-vectors of the primitive cell which are not related by supercell
+    !    lattice vectors.
+    integer, allocatable :: rvectors(:,:)
+    ! The G-vectors of the reciprocal supercell which are not related by
+    !    primitive reciprocal cell vectors.
     integer,      allocatable :: gvectors(:,:)
     ! The id of the G-vector, j, s.t. gvectors(:,i) + gvectors(:,j) = 0.
     integer,      allocatable :: paired_gvec(:)
@@ -80,16 +82,6 @@ module structure_module
   
   interface new
     module procedure new_StructureData
-  end interface
-  
-  interface read_structure_file
-    module procedure read_structure_file_character
-    module procedure read_structure_file_string
-  end interface
-  
-  interface write_structure_file
-    module procedure write_structure_file_character
-    module procedure write_structure_file_string
   end interface
   
   ! ----------------------------------------------------------------------
@@ -182,10 +174,11 @@ subroutine new_StructureData(this,no_atoms,no_symmetries,sc_size)
   this%no_symmetries = no_symmetries
   if (no_symmetries /= 0) then
     allocate(this%rotations(3,3,no_symmetries))
-    allocate(this%offsets(3,no_symmetries))
+    allocate(this%translations(3,no_symmetries))
   endif
   
   this%sc_size = sc_size
+  allocate(this%rvectors(3,sc_size))
   allocate(this%gvectors(3,sc_size))
   allocate(this%paired_gvec(sc_size))
 end subroutine
@@ -193,13 +186,13 @@ end subroutine
 ! ----------------------------------------------------------------------
 ! Reads structure.dat
 ! ----------------------------------------------------------------------
-function read_structure_file_character(filename) result(this)
+function read_structure_file(filename) result(this)
   use constants_module,      only : identity
   use linear_algebra_module, only : invert, invert_int
   implicit none
   
-  character(*),       intent(in) :: filename
-  type(StructureData)            :: this
+  type(String), intent(in) :: filename
+  type(StructureData)      :: this
   
   type(String), allocatable :: structure_file(:)
   type(String), allocatable :: line(:)
@@ -213,6 +206,7 @@ function read_structure_file_character(filename) result(this)
   integer :: atoms_line     ! The line "Atoms"
   integer :: symmetry_line  ! The line "Symmetry"
   integer :: supercell_line ! The line "Supercell"
+  integer :: rvectors_line  ! The line "R-vectors"
   integer :: gvectors_line  ! The line "G-vectors"
   integer :: end_line       ! The line "End"
   
@@ -223,6 +217,8 @@ function read_structure_file_character(filename) result(this)
   atoms_line = 0
   symmetry_line = 0
   supercell_line = 0
+  rvectors_line = 0
+  gvectors_line = 0
   end_line = 0
   
   ! ------------------------------
@@ -244,6 +240,8 @@ function read_structure_file_character(filename) result(this)
       symmetry_line = i
     elseif (line(1)=="supercell") then
       supercell_line = i
+    elseif (line(1)=="r-vectors") then
+      rvectors_line = i
     elseif (line(1)=="g-vectors") then
       gvectors_line = i
     elseif (line(1)=="end") then
@@ -255,19 +253,24 @@ function read_structure_file_character(filename) result(this)
   ! Check layout is as expected.
   ! ------------------------------
   if (lattice_line/=1) then
-    call print_line("Error: line 1 of "//filename//" is not 'Lattice'")
+    call print_line('Error: line 1 of '//filename//' is not "Lattice"')
     call err()
   elseif (atoms_line/=5) then
-    call print_line("Error: line 5 of "//filename//" is not 'Atoms'")
+    call print_line('Error: line 5 of '//filename//' is not "Atoms"')
     call err()
   elseif (end_line/=size(structure_file)) then
-    call print_line("Error: the last line of "//filename//" is not 'End'")
+    call print_line('Error: the last line of '//filename//' is not "End"')
+    call err()
+  elseif ( any([supercell_line,rvectors_line,gvectors_line]==0) .and. &
+         & any([supercell_line,rvectors_line,gvectors_line]/=0)) then
+    call print_line('Error: some but not all of Supercell, R-vectors and &
+       &G-vectors are present in '//filename//'.')
     call err()
   endif
   
-  if (supercell_line/=0 .and. gvectors_line/=0) then
-    if (gvectors_line-supercell_line/=4) then
-      call print_line('Error: the lines "Supercell" and "G-vectors" in '// &
+  if (supercell_line/=0) then
+    if (rvectors_line-supercell_line/=4) then
+      call print_line('Error: the lines "Supercell" and "R-vectors" in '// &
          & filename//' are not four lines apart.')
     endif
   endif
@@ -293,7 +296,7 @@ function read_structure_file_character(filename) result(this)
   else
     no_atoms = symmetry_line-atoms_line-1
     no_symmetries = (supercell_line-symmetry_line-1)/5
-    sc_size = (end_line-gvectors_line-1)
+    sc_size = end_line-gvectors_line-1
   endif
   
   ! ------------------------------
@@ -321,7 +324,7 @@ function read_structure_file_character(filename) result(this)
       this%rotations(j,:,i) = int(line)
     enddo
     line = split(structure_file(symmetry_line+(i-1)*5+4))
-    this%offsets(:,i) = dble(line)
+    this%translations(:,i) = dble(line)
   enddo
   
   if (supercell_line==0) then
@@ -330,6 +333,10 @@ function read_structure_file_character(filename) result(this)
   else
     do i=1,3
       this%supercell(i,:) = int(split(structure_file(supercell_line+i)))
+    enddo
+    
+    do i=1,sc_size
+      this%rvectors(:,i) = int(split(structure_file(rvectors_line+i)))
     enddo
     
     do i=1,sc_size
@@ -342,20 +349,11 @@ function read_structure_file_character(filename) result(this)
   call calculate_derived_supercell_quantities(this)
 end function
 
-function read_structure_file_string(filename) result(this)
-  implicit none
-  
-  type(String),        intent(in) :: filename
-  type(StructureData)             :: this
-  
-  this = read_structure_file(char(filename))
-end function
-
-subroutine write_structure_file_character(this,filename)
+subroutine write_structure_file(this,filename)
   implicit none
   
   type(StructureData), intent(in) :: this
-  character(*),        intent(in) :: filename
+  type(String),        intent(in) :: filename
   
   integer :: structure_file
   integer :: i,j
@@ -380,7 +378,7 @@ subroutine write_structure_file_character(this,filename)
       do j=1,3
         call print_line(structure_file, this%rotations(j,:,i))
       enddo
-      call print_line(structure_file, this%offsets(:,i))
+      call print_line(structure_file, this%translations(:,i))
       call print_line(structure_file, '')
     enddo
   endif
@@ -388,6 +386,10 @@ subroutine write_structure_file_character(this,filename)
   call print_line(structure_file,'Supercell')
   do i=1,3
     call print_line(structure_file, this%supercell(i,:))
+  enddo
+  call print_line(structure_file,'R-vectors')
+  do i=1,this%sc_size
+    call print_line(structure_file, this%rvectors(:,i))
   enddo
   call print_line(structure_file,'G-vectors')
   do i=1,this%sc_size
@@ -397,15 +399,6 @@ subroutine write_structure_file_character(this,filename)
   call print_line(structure_file,'End')
   
   close(structure_file)
-end subroutine
-
-subroutine write_structure_file_string(this,filename)
-  implicit none
-  
-  type(StructureData), intent(in) :: this
-  type(String),        intent(in) :: filename
-  
-  call write_structure_file(this,char(filename))
 end subroutine
 
 ! ----------------------------------------------------------------------
@@ -432,7 +425,7 @@ subroutine calculate_derived_supercell_quantities(this)
   
   integer :: i,j
   
-  this%recip_supercell = invert_int(this%supercell)
+  this%recip_supercell = transpose(invert_int(this%supercell))
   
   do i=1,this%sc_size
     do j=1,i
@@ -481,6 +474,7 @@ end function
 ! Transforms rotations into cartesian co-ordinates.
 ! ----------------------------------------------------------------------
 function calculate_cartesian_rotations(this) result(output)
+  use constants_module, only : identity
   implicit none
   
   type(StructureData), intent(in) :: this
@@ -488,8 +482,9 @@ function calculate_cartesian_rotations(this) result(output)
   
   integer :: i
   
-  allocate(output(3,3,this%no_symmetries))
+  real(dp) :: thing(3,3)
   
+  allocate(output(3,3,this%no_symmetries))
   do i=1,this%no_symmetries
     output(:,:,i) = matmul(matmul( transpose(this%lattice), &
                                  & this%rotations(:,:,i)),  &
@@ -530,7 +525,7 @@ subroutine calculate_symmetry(this)
   enddo do_i
   
   ! Calculate symmetries, without space to store them.
-  call spglib_calculate_symmetries( transpose(this%lattice),               &
+  call spglib_calculate_symmetries( this%lattice,                          &
                                   & matmul(this%recip_lattice,this%atoms), &
                                   & atom_types,                            &
                                   & this%no_atoms,                         &
@@ -548,13 +543,13 @@ subroutine calculate_symmetry(this)
   
   ! Allocate space for symmetries.
   allocate( this%rotations(3,3,this%no_symmetries), &
-          & this%offsets(3,this%no_symmetries),     &
+          & this%translations(3,this%no_symmetries),     &
           & stat=ialloc); call err(ialloc)
   
   ! Retrieve symmetries into allocated space.
   call spglib_retrieve_symmetries( spg_dataset_pointer, &
                                  & this%rotations,      &
-                                 & this%offsets)
+                                 & this%translations)
   
   ! Deallocate C memory.
   call drop_spg_dataset(spg_dataset_pointer)

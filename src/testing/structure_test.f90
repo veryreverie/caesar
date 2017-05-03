@@ -40,7 +40,7 @@ subroutine write_old_structure_file(structure,filename)
     do j=1,3
       call print_line(structure_file, rotations(j,:,i))
     enddo
-    call print_line(structure_file, structure%offsets(:,i))
+    call print_line(structure_file, structure%translations(:,i))
   enddo
   call print_line(structure_file, 'End')
   close(structure_file)

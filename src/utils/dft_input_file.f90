@@ -381,6 +381,7 @@ function castep_input_file_to_StructureData(filename) result(output)
   endif
   
   output%supercell = identity
+  output%rvectors(:,1) = 0
   output%gvectors(:,1) = 0
   
   call calculate_derived_atom_quantities(output)
@@ -407,12 +408,12 @@ end function
 ! ----------------------------------------------------------------------
 ! Writing StructureData to DFT input file.
 ! ----------------------------------------------------------------------
-subroutine StructureData_to_castep_input_file(structure_sc,old_cell_filename, &
+subroutine StructureData_to_castep_input_file(structure,old_cell_filename, &
    & new_cell_filename)
   use structure_module
   implicit none
   
-  type(StructureData), intent(in)           :: structure_sc
+  type(StructureData), intent(in)           :: structure
   type(String),        intent(in), optional :: old_cell_filename
   type(String),        intent(in)           :: new_cell_filename
   
@@ -438,7 +439,7 @@ subroutine StructureData_to_castep_input_file(structure_sc,old_cell_filename, &
     do i=2,size(old_cell_file%qpoints_block)-1
       line = split(old_cell_file%qpoints_block(i))
       qpoint = dble(line(1:3))
-      qpoint = matmul(structure_sc%supercell,qpoint)
+      qpoint = matmul(transpose(structure%supercell),qpoint)
       old_cell_file%qpoints_block(i) = qpoint//' '//join(line(4:))
     enddo
   endif
@@ -450,15 +451,15 @@ subroutine StructureData_to_castep_input_file(structure_sc,old_cell_filename, &
   call print_line(new_cell_file,'%block lattice_cart')
   call print_line(new_cell_file,'bohr')
   do i=1,3
-    call print_line(new_cell_file,structure_sc%lattice(i,:))
+    call print_line(new_cell_file,structure%lattice(i,:))
   enddo
   call print_line(new_cell_file,'%endblock lattice_cart')
   call print_line(new_cell_file,'')
   call print_line(new_cell_file,'%block positions_abs')
   call print_line(new_cell_file,'bohr')
-  do i=1,structure_sc%no_atoms
-    call print_line(new_cell_file, structure_sc%species(i)//' '// &
-                             & structure_sc%atoms(:,i))
+  do i=1,structure%no_atoms
+    call print_line(new_cell_file, structure%species(i)//' '// &
+                             & structure%atoms(:,i))
   enddo
   call print_line(new_cell_file,'%endblock positions_abs')
   call print_line(new_cell_file,'')
@@ -477,12 +478,12 @@ subroutine StructureData_to_castep_input_file(structure_sc,old_cell_filename, &
   close(new_cell_file)
 end subroutine
 
-subroutine StructureData_to_vasp_input_file(structure_sc,poscar_filename)
+subroutine StructureData_to_vasp_input_file(structure,poscar_filename)
   use constants_module, only : angstrom_per_bohr
   use structure_module
   implicit none
   
-  type(StructureData), intent(in) :: structure_sc
+  type(StructureData), intent(in) :: structure
   type(String),        intent(in) :: poscar_filename
   
   ! File units
@@ -501,9 +502,9 @@ subroutine StructureData_to_vasp_input_file(structure_sc,poscar_filename)
   ! Count the number of species
   no_species = 0
   previous_species=''
-  do i=1,structure_sc%no_atoms
-    if (structure_sc%species(i)/=previous_species) then
-      previous_species = structure_sc%species(i)
+  do i=1,structure%no_atoms
+    if (structure%species(i)/=previous_species) then
+      previous_species = structure%species(i)
       no_species = no_species+1
     endif
   enddo
@@ -515,11 +516,11 @@ subroutine StructureData_to_vasp_input_file(structure_sc,poscar_filename)
   no_species = 0
   previous_species=''
   species_counts = 0
-  do i=1,structure_sc%no_atoms
-    if (structure_sc%species(i)/=previous_species) then
-      previous_species = structure_sc%species(i)
+  do i=1,structure%no_atoms
+    if (structure%species(i)/=previous_species) then
+      previous_species = structure%species(i)
       no_species = no_species+1
-      species(no_species) = structure_sc%species(i)
+      species(no_species) = structure%species(i)
     endif
     species_counts(no_species) = species_counts(no_species)+1
   enddo
@@ -530,7 +531,7 @@ subroutine StructureData_to_vasp_input_file(structure_sc,poscar_filename)
   call print_line(poscar_file,'Structure')
   call print_line(poscar_file,angstrom_per_bohr)
   do i=1,3
-    call print_line(poscar_file, structure_sc%lattice(:,i))
+    call print_line(poscar_file, structure%lattice(:,i))
   enddo
   
   line = species(1)
@@ -546,18 +547,18 @@ subroutine StructureData_to_vasp_input_file(structure_sc,poscar_filename)
   call print_line(poscar_file, line)
   
   call print_line(poscar_file,'Cartesian')
-  do i=1,structure_sc%no_atoms
-    call print_line(poscar_file, structure_sc%atoms(:,i))
+  do i=1,structure%no_atoms
+    call print_line(poscar_file, structure%atoms(:,i))
   enddo
   close(poscar_file)
 end subroutine
 
-subroutine StructureData_to_qe_input_file(structure_sc,old_qe_in_filename, &
+subroutine StructureData_to_qe_input_file(structure,old_qe_in_filename, &
    & new_qe_in_filename)
   use structure_module
   implicit none
   
-  type(StructureData), intent(in)           :: structure_sc
+  type(StructureData), intent(in)           :: structure
   type(String),        intent(in), optional :: old_qe_in_filename
   type(String),        intent(in)           :: new_qe_in_filename
   
@@ -590,16 +591,16 @@ subroutine StructureData_to_qe_input_file(structure_sc,old_qe_in_filename, &
   ! Write output file
   ! --------------------------------------------------
   new_qe_in_file = open_write_file(new_qe_in_filename)
-  call print_line(new_qe_in_file,'nat='//structure_sc%no_atoms)
+  call print_line(new_qe_in_file,'nat='//structure%no_atoms)
   call print_line(new_qe_in_file,'/&end')
   call print_line(new_qe_in_file,'CELL_PARAMETERS bohr')
   do i=1,3
-    call print_line(new_qe_in_file, structure_sc%lattice(i,:))
+    call print_line(new_qe_in_file, structure%lattice(i,:))
   enddo
   call print_line(new_qe_in_file,'ATOMIC_POSITIONS bohr')
-  do i=1,structure_sc%no_atoms
-    call print_line(new_qe_in_file, structure_sc%species(i)//' '// &
-                                  & structure_sc%atoms(:,i))
+  do i=1,structure%no_atoms
+    call print_line(new_qe_in_file, structure%species(i)//' '// &
+                                  & structure%atoms(:,i))
   enddo
   
   ! Write old qe in file contents to new qe in file.
@@ -612,22 +613,22 @@ subroutine StructureData_to_qe_input_file(structure_sc,old_qe_in_filename, &
   close(new_qe_in_file)
 end subroutine
 
-subroutine StructureData_to_dft_input_file(dft_code,structure_sc,input_filename, &
+subroutine StructureData_to_dft_input_file(dft_code,structure,input_filename, &
    & output_filename)
   use structure_module
   implicit none
   
   type(String),        intent(in)           :: dft_code
-  type(StructureData), intent(in)           :: structure_sc
+  type(StructureData), intent(in)           :: structure
   type(String),        intent(in), optional :: input_filename
   type(String),        intent(in)           :: output_filename
   
   if (dft_code=="castep") then
     if (present(input_filename)) then
-      call StructureData_to_castep_input_file(structure_sc,input_filename, &
+      call StructureData_to_castep_input_file(structure,input_filename, &
          & output_filename)
     else
-      call StructureData_to_castep_input_file(structure_sc      = structure_sc, &
+      call StructureData_to_castep_input_file(structure      = structure, &
                                              &new_cell_filename = output_filename)
     endif
   elseif (dft_code=="vasp") then
@@ -635,14 +636,14 @@ subroutine StructureData_to_dft_input_file(dft_code,structure_sc,input_filename,
       call print_line('Conversion of vasp input files not yet supported.')
       call err()
     else
-      call StructureData_to_vasp_input_file(structure_sc,output_filename)
+      call StructureData_to_vasp_input_file(structure,output_filename)
     endif
   elseif (dft_code=="qe") then
     if (present(input_filename)) then
-      call StructureData_to_qe_input_file(structure_sc,input_filename, &
+      call StructureData_to_qe_input_file(structure,input_filename, &
          & output_filename)
     else
-      call StructureData_to_qe_input_file( structure_sc       = structure_sc, &
+      call StructureData_to_qe_input_file( structure       = structure, &
                                          & new_qe_in_filename = output_filename)
     endif
   endif

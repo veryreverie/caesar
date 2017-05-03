@@ -33,13 +33,11 @@ end function
 subroutine setup_harmonic(arguments)
   use utils_module, only : mkdir
   use structure_module
-  use supercell_module
   use group_module
   use qpoints_module
   use dictionary_module
   use dft_input_file_module
   use generate_supercells_module
-  use construct_supercell_module
   use unique_directions_module
   use calculate_symmetry_group_module
   implicit none
@@ -58,8 +56,7 @@ subroutine setup_harmonic(arguments)
   ! Supercell data
   type(GeneratedSupercells)        :: qpoints_and_supercells
   integer                          :: no_supercells
-  type(SupercellData), allocatable :: supercells(:)
-  type(StructureData)              :: structure_sc
+  type(StructureData)              :: supercell
   
   ! Symmetry group data
   type(Group), allocatable :: symmetry_group(:)
@@ -123,7 +120,6 @@ subroutine setup_harmonic(arguments)
   ! ----------------------------------------------------------------------
   ! Generate IBZ and non-diagonal supercells
   qpoints_and_supercells = generate_supercells(structure,grid)
-  supercells = qpoints_and_supercells%supercells
   
   ! Write q-point data to file.
   call write_structure_file( qpoints_and_supercells%structure_grid, &
@@ -132,7 +128,7 @@ subroutine setup_harmonic(arguments)
                          & wd//'/qpoints_ibz.dat')
   
   ! Write no_supercells to file
-  no_supercells = size(supercells)
+  no_supercells = size(qpoints_and_supercells%supercells)
   no_supercells_file = open_write_file(wd//'/no_sc.dat')
   call print_line(no_supercells_file,no_supercells)
   close(no_supercells_file)
@@ -146,20 +142,20 @@ subroutine setup_harmonic(arguments)
     call mkdir(sdir)
     
     ! Generate supercell structure.
-    structure_sc = construct_supercell(structure, supercells(i))
-    call write_structure_file(structure_sc, sdir//'/structure.dat')
+    supercell = qpoints_and_supercells%supercells(i)
+    call write_structure_file(supercell, sdir//'/structure.dat')
     
     ! ----------------------------------------------------------------------
     ! Calculate symmetry group.
     ! ----------------------------------------------------------------------
-    symmetry_group = calculate_symmetry_group(structure_sc)
+    symmetry_group = calculate_symmetry_group(supercell)
     call write_group_file(symmetry_group,sdir//'/symmetry_group.dat')
     
     ! ----------------------------------------------------------------------
     ! Generate force constants
     ! ----------------------------------------------------------------------
     ! Calculate which forces need calculating
-    unique_directions = calculate_unique_directions( structure_sc, &
+    unique_directions = calculate_unique_directions( supercell, &
                                                    & symmetry_group)
     call write_unique_directions_file( unique_directions, &
                                      & sdir//'/unique_directions.dat')
@@ -181,12 +177,12 @@ subroutine setup_harmonic(arguments)
         
         ! Move relevant atom.
         if(k==1) then
-          structure_sc%atoms(direction_int,atom) =      &
-             &   structure_sc%atoms(direction_int,atom) &
+          supercell%atoms(direction_int,atom) =      &
+             &   supercell%atoms(direction_int,atom) &
              & + 0.01_dp
         elseif(k==2) then
-          structure_sc%atoms(direction_int,atom) =      &
-             &   structure_sc%atoms(direction_int,atom) &
+          supercell%atoms(direction_int,atom) =      &
+             &   supercell%atoms(direction_int,atom) &
              & - 0.02_dp
         endif
           
@@ -194,14 +190,14 @@ subroutine setup_harmonic(arguments)
         dft_input_filename = make_dft_input_filename(dft_code,seedname)
         call StructureData_to_dft_input_file( &
            & dft_code,                        &
-           & structure_sc,                    &
+           & supercell,                    &
            & wd//'/'//dft_input_filename,     &
            & paths(k)//'/'//dft_input_filename)
       enddo
       
       ! Reset moved atom.
-      structure_sc%atoms(direction_int,atom) =      &
-         &   structure_sc%atoms(direction_int,atom) &
+      supercell%atoms(direction_int,atom) =      &
+         &   supercell%atoms(direction_int,atom) &
          & + 0.01_dp
     enddo
   enddo

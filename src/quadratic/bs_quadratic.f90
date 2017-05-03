@@ -34,7 +34,6 @@ subroutine bs_quadratic(arguments)
   use mapping_module
   use structure_module
   use bands_module
-  use supercell_module
   use dictionary_module
   implicit none
   
@@ -62,7 +61,7 @@ subroutine bs_quadratic(arguments)
   integer              :: no_qpoints
   type(MappingData)                 :: mapping
   type(StructureData)               :: structure
-  type(StructureData), allocatable  :: structure_scs(:)
+  type(StructureData), allocatable  :: supercells(:)
   
   ! Band data.
   type(BandsData)           :: bands
@@ -154,10 +153,10 @@ subroutine bs_quadratic(arguments)
   enddo
   
   ! Read in supercell data
-  allocate(structure_scs(no_sc))
-  do i=1,size(structure_scs)
+  allocate(supercells(no_sc))
+  do i=1,size(supercells)
     sdir = wd//'/Supercell_'//i
-    structure_scs(i) = read_structure_file(sdir//'/structure.dat')
+    supercells(i) = read_structure_file(sdir//'/structure.dat')
   enddo
   
   ! Loop over q-points

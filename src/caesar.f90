@@ -19,7 +19,7 @@ program caesar
   
   ! use testing modules
   use setup_harmonic_test_module
-  use test_lte_module
+  use lte_harmonic_test_module
   use test_copy_quadratic_module
   
   ! use misc modules
@@ -95,7 +95,7 @@ program caesar
   endif
   
   ! Fetch mode-specific keywords.
-  if (mode=='setup_harmonic' .or. mode=='setup_harmonic_test') then
+  if (mode=='setup_harmonic') then
     keywords = setup_harmonic_keywords()
   elseif (mode=='run_harmonic') then
     keywords = run_harmonic_keywords()
@@ -109,6 +109,10 @@ program caesar
     keywords = anharmonic_keywords()
   elseif (mode=='bs_quadratic') then
     keywords = bs_quadratic_keywords()
+  elseif (mode=='setup_harmonic_test') then
+    keywords = setup_harmonic_test_keywords()
+  elseif (mode=='lte_harmonic_test') then
+    keywords = lte_harmonic_test_keywords()
   elseif (slice(mode,1,1)=='-') then
     call print_line('Error: The first argument should be the mode, and not a &
        &flag or keyword.')
@@ -123,15 +127,21 @@ program caesar
   ! Initialise flags.
   flags_without_arguments = 'i'
   long_flags_without_arguments = [ str('interactive') ]
-  call err(len(flags_without_arguments)==size(long_flags_without_arguments))
+  if (len(flags_without_arguments)/=size(long_flags_without_arguments)) then
+    call err()
+  endif
   
   flags_with_arguments = 'dfh'
   long_flags_with_arguments = [ str('working_directory'), &
                               & str('input_file'),        &
                               & str('help')               ]
-  call err(len(flags_with_arguments)==size(long_flags_with_arguments))
+  if (len(flags_with_arguments)/=size(long_flags_with_arguments)) then
+    call err()
+  endif
   default_arguments = [ str('.'), str(NOT_SET), str(NOT_SET) ]
-  call err(len(flags_with_arguments)==size(default_arguments))
+  if (len(flags_with_arguments)/=size(default_arguments)) then
+    call err()
+  endif
   
   ! Set dictionary of all keywords.
   no_args = size(keywords)                     &
@@ -159,7 +169,9 @@ program caesar
     arg_keys(j) = keywords(i)%keyword
     arg_values(j) = keywords(i)%default_value
   enddo
-  call err(j==no_args)
+  if (j/=no_args) then
+    call err()
+  endif
   arguments = make_dictionary(arg_keys, arg_values)
   
   ! Parse command line arguments.
@@ -370,7 +382,9 @@ program caesar
     do i=1,size(keywords)
       j = size(arguments)-size(keywords)+i
       
-      call err(keywords(i)%keyword==arguments%keys(j))
+      if (keywords(i)%keyword/=arguments%keys(j)) then
+        call err()
+      endif
       
       call print_line('')
       do
@@ -442,8 +456,8 @@ program caesar
   ! Wrappers for testing modules
   elseif (mode == 'setup_harmonic_test') then
     call setup_harmonic_test(arguments)
-  elseif (mode == 'test_lte') then
-    call test_lte(wd)
+  elseif (mode == 'lte_harmonic_test') then
+    call lte_harmonic_test(arguments)
   elseif (mode == 'test_copy_quadratic') then
     call test_copy_quadratic(wd)
   ! unrecognised mode.

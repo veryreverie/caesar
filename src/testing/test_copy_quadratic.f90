@@ -56,7 +56,9 @@ subroutine test_copy_quadratic(wd)
       result_code =  system_call( 'cp '// &
          & copy_dir//'/'//sdir//'/static/'//seedname//'.castep '// &
          & sdir//'/static/'//seedname//'.castep')
-      call err(result_code==0)
+      if (result_code/=0) then
+        call err()
+      endif
     endif
   enddo
 end subroutine

@@ -41,7 +41,7 @@ function calculate_symmetry_group(structure) result(output)
       ! Calculate the position of the transformed atom.
       transformed_pos_frac = matmul( structure%rotations(:,:,i), &
                          &           atom_pos_frac(:,j)) &
-                         & + structure%offsets(:,i)
+                         & + structure%translations(:,i)
       
       ! Identify which atom is closest to the transformed position,
       !    modulo supercell lattice vectors.
@@ -50,6 +50,11 @@ function calculate_symmetry_group(structure) result(output)
         distances(k) = l2_norm(delta-nint(delta))
       enddo
       operations(j,i) = minloc(distances,1)
+      
+      ! Check that the transformed atom is acceptably close to its image.
+      if (distances(operations(j,i))>1.0e-10_dp) then
+        call err()
+      endif
     enddo
   enddo
   

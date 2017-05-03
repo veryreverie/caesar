@@ -32,7 +32,6 @@ subroutine anharmonic(arguments)
   use mapping_module
   use structure_module
   use dft_output_file_module
-  use supercell_module
   use qpoints_module
   use calculate_anharmonic_module
   use quadratic_spline_module
@@ -62,7 +61,7 @@ subroutine anharmonic(arguments)
   type(MappingData)     :: mapping         ! mapping.dat
   
   type(StructureData)              :: structure
-  type(StructureData), allocatable :: structure_scs(:)
+  type(StructureData), allocatable :: supercells(:)
   
   ! q-point data.
   type(StructureData)           :: structure_grid
@@ -142,11 +141,11 @@ subroutine anharmonic(arguments)
   qpoints = read_qpoints_file(harmonic_path//'/qpoints_ibz.dat')
   
   ! Read supercell structures
-  allocate(structure_scs(no_supercells))
+  allocate(supercells(no_supercells))
   do i=1,no_supercells
     sdir = wd//'/Supercell_'//i
     filename = harmonic_path//'/'//sdir//'/structure.dat' 
-    structure_scs(i) = read_structure_file(filename)
+    supercells(i) = read_structure_file(filename)
   enddo
   
   ! Read data from supercells.
@@ -207,7 +206,7 @@ subroutine anharmonic(arguments)
         do k=1,mapping%count
           amplitudes(1,k) = amplitude+(k-1)*abs(amplitude/mapping%first)
           amplitudes(2,k) = (energies(k,j,i)-energies(mapping%mid,j,i)) &
-                        & / structure_scs(qpoints(i)%sc_id)%sc_size
+                        & / supercells(qpoints(i)%sc_id)%sc_size
         enddo
         
         ! fit splines
@@ -240,7 +239,9 @@ subroutine anharmonic(arguments)
       result_code = system_call('cp '//             &
          & wd//'/Supercell_'//i//'/acoustic.dat '// &
          & wd//'/anharmonic')
-      call err(result_code==0)
+      if (result_code/=0) then
+        call err()
+      endif
     endif
   enddo
   

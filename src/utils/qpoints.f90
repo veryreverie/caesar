@@ -5,10 +5,10 @@ module qpoints_module
   implicit none
   
   type QpointData
-    ! The q-point in fractional co-ords.
+    ! The q-point in fractional primitive reciprocal space co-ordinates.
     real(dp)             :: qpoint(3)
-    ! The id of the supercell used to simulate this q-point, and the
-    !    corresponding G-vector in that supercell which matches.
+    ! The id of the supercell in which this q-point is a G-vector, and the
+    !    id of that G-vector in said supercell.
     integer              :: sc_id
     integer              :: gvector_id
     ! The G-vectors in the large supercell which rotate onto this q-point,

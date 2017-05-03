@@ -96,13 +96,13 @@ end subroutine
 !    is minimum, within a tolerance.
 ! Result is given in fractional supercell co-ordinates.
 ! ----------------------------------------------------------------------
-function calculate_delta_prim(structure,structure_sc) result(delta_prim)
+function calculate_delta_prim(structure,supercell) result(delta_prim)
   use structure_module
   use min_images_module
   implicit none
   
   type(StructureData), intent(in) :: structure
-  type(StructureData), intent(in) :: structure_sc
+  type(StructureData), intent(in) :: supercell
   type(MinImages), allocatable    :: delta_prim(:,:,:)
   
   real(dp) :: delta_r(3)
@@ -116,26 +116,26 @@ function calculate_delta_prim(structure,structure_sc) result(delta_prim)
 
   ! Work out number of equivalent images and Delta Prim. Lattice Vectors
   ! for pairs of atoms (used in evaluation of force-constant matrix).
-  allocate( delta_prim( structure_sc%sc_size, &
+  allocate( delta_prim( supercell%sc_size, &
           &             structure%no_atoms,   &
           &             structure%no_atoms),  &
           & stat=ialloc); call err(ialloc)
   do atom_1_prim=1,structure%no_atoms
-    atom_1_sc_1 = structure_sc%rvec_and_prim_to_atom(atom_1_prim,1)
+    atom_1_sc_1 = supercell%rvec_and_prim_to_atom(atom_1_prim,1)
     do atom_2_prim=1,structure%no_atoms
-      atom_2_sc_1 = structure_sc%rvec_and_prim_to_atom(atom_2_prim,1)
-      delta_r_corr = matmul( structure_sc%recip_lattice, &
-                           &   structure_sc%atoms(:,atom_2_sc_1) &
-                           & - structure_sc%atoms(:,atom_1_sc_1))
-      do p=1,structure_sc%sc_size
+      atom_2_sc_1 = supercell%rvec_and_prim_to_atom(atom_2_prim,1)
+      delta_r_corr = matmul( supercell%recip_lattice, &
+                           &   supercell%atoms(:,atom_2_sc_1) &
+                           & - supercell%atoms(:,atom_1_sc_1))
+      do p=1,supercell%sc_size
         ! Work out minimum distance(s) between atom_1 at gamma and
         !    atom_2 at G-vector p.
-        atom_2_sc_p = structure_sc%rvec_and_prim_to_atom(atom_2_prim,p)
-        delta_r = matmul( structure_sc%recip_lattice, &
-                        &   structure_sc%atoms(:,atom_2_sc_p) &
-                        & - structure_sc%atoms(:,atom_1_sc_1))
+        atom_2_sc_p = supercell%rvec_and_prim_to_atom(atom_2_prim,p)
+        delta_r = matmul( supercell%recip_lattice, &
+                        &   supercell%atoms(:,atom_2_sc_p) &
+                        & - supercell%atoms(:,atom_1_sc_1))
         delta_prim(p,atom_2_prim,atom_1_prim) = &
-           & min_images_brute_force(delta_r,structure_sc)
+           & min_images_brute_force(delta_r,supercell)
         
         ! Turn this into the corresponding difference(s) of lattice vectors.
         do im=1,size(delta_prim(p,atom_2_prim,atom_1_prim))
@@ -151,7 +151,7 @@ end function
 ! ----------------------------------------------------------------------
 ! Construct the dynamical matrix for a given k vector.
 ! ----------------------------------------------------------------------
-function construct_dynamical_matrix(kvec,structure,structure_sc, &
+function construct_dynamical_matrix(kvec,structure,supercell, &
    & force_constants,delta_prim) result(dynamical_matrix)
   use constants_module, only : pi
   use structure_module
@@ -160,7 +160,7 @@ function construct_dynamical_matrix(kvec,structure,structure_sc, &
   
   real(dp),            intent(in) :: kvec(3)
   type(StructureData), intent(in) :: structure
-  type(StructureData), intent(in) :: structure_sc
+  type(StructureData), intent(in) :: supercell
   real(dp),            intent(in) :: force_constants(:,:,:)
   type(MinImages),     intent(in) :: delta_prim(:,:,:)
   
@@ -175,13 +175,13 @@ function construct_dynamical_matrix(kvec,structure,structure_sc, &
   integer :: ialloc
   
   ! Precompute exp(-ik.(R-R')) to go in the dynamical matrix.
-  allocate( exp_ikd( structure_sc%sc_size, &
+  allocate( exp_ikd( supercell%sc_size, &
           &          structure%no_atoms,   &
           &          structure%no_atoms),  &
           & stat=ialloc); call err(ialloc)
   do n=1,structure%no_atoms
     do m=1,structure%no_atoms
-      do p=1,structure_sc%sc_size
+      do p=1,supercell%sc_size
         tempc = cmplx(0.0_dp,0.0_dp,dp)
         do im=1,size(delta_prim(p,m,n))
           k_dot_D = -dot_product(2*pi*kvec,delta_prim(p,m,n)%images(:,im))
@@ -200,7 +200,7 @@ function construct_dynamical_matrix(kvec,structure,structure_sc, &
     mode_n = (n-1)*3+1
     do m=1,structure%no_atoms
       mode_m = (m-1)*3+1
-      do p=1,structure_sc%sc_size
+      do p=1,supercell%sc_size
         dynamical_matrix(mode_m:mode_m+2, mode_n:mode_n+2) =         &
            &   dynamical_matrix(  mode_m:mode_m+2, mode_n:mode_n+2)    &
            & + force_constants(p, mode_m:mode_m+2, mode_n:mode_n+2) &
@@ -317,14 +317,14 @@ end function
 ! Calculate the frequency density-of-states by Monte Carlo sampling of
 ! the Brillouin zone.
 ! ----------------------------------------------------------------------
-subroutine generate_dos(structure,structure_sc,delta_prim, &
+subroutine generate_dos(structure,supercell,delta_prim, &
    & force_consts,temperature,free_energy_filename,freq_dos_filename)
   use structure_module
   use min_images_module
   implicit none
   
   type(StructureData), intent(in) :: structure
-  type(StructureData), intent(in) :: structure_sc
+  type(StructureData), intent(in) :: supercell
   type(MinImages),     intent(in) :: delta_prim(:,:,:)
   real(dp),            intent(in) :: force_consts(:,:,:)
   real(dp),            intent(in) :: temperature
@@ -355,8 +355,8 @@ subroutine generate_dos(structure,structure_sc,delta_prim, &
   ! choose the bin width.
   do i_sample=1,no_prelims
     call random_number(frac)
-    qpoint = matmul(structure_sc%recip_supercell,frac)/structure_sc%sc_size
-    dyn_mat = construct_dynamical_matrix(qpoint,structure,structure_sc, &
+    qpoint = matmul(transpose(supercell%recip_supercell),frac)/supercell%sc_size
+    dyn_mat = construct_dynamical_matrix(qpoint,structure,supercell, &
        & force_consts,delta_prim)
     frequencies = calculate_frequencies_and_polarisations(dyn_mat)
     
@@ -374,8 +374,8 @@ subroutine generate_dos(structure,structure_sc,delta_prim, &
   
   do i_sample=1,no_samples
     call random_number(frac)
-    qpoint = matmul(structure_sc%recip_supercell,frac)/structure_sc%sc_size
-    dyn_mat = construct_dynamical_matrix(qpoint,structure,structure_sc, &
+    qpoint = matmul(transpose(supercell%recip_supercell),frac)/supercell%sc_size
+    dyn_mat = construct_dynamical_matrix(qpoint,structure,supercell, &
        & force_consts,delta_prim)
     frequencies = calculate_frequencies_and_polarisations(dyn_mat)
     
@@ -519,7 +519,7 @@ end subroutine
 ! can read.  The branches of the dispersion curve are plotted against
 ! the total distance travelled along the specified lines.
 ! ----------------------------------------------------------------------
-subroutine generate_dispersion(structure,structure_sc,&
+subroutine generate_dispersion(structure,supercell,&
    & delta_prim,force_consts,path,phonon_dispersion_curve_filename, &
    & high_symmetry_points_filename)
   use constants_module, only : pi
@@ -529,7 +529,7 @@ subroutine generate_dispersion(structure,structure_sc,&
   implicit none
   
   type(StructureData), intent(in) :: structure
-  type(StructureData), intent(in) :: structure_sc
+  type(StructureData), intent(in) :: supercell
   type(MinImages),     intent(in) :: delta_prim(:,:,:)
   real(dp),            intent(in) :: force_consts(:,:,:)
   real(dp),            intent(in) :: path(:,:)
@@ -589,7 +589,7 @@ subroutine generate_dispersion(structure,structure_sc,&
   do i=1,no_paths
     do j=0,no_points(i)-1
       qpoint = ((no_points(i)-j)*qpoints(:,i)+j*qpoints(:,i+1))/no_points(i)
-      dyn_mat = construct_dynamical_matrix(qpoint,structure,structure_sc, &
+      dyn_mat = construct_dynamical_matrix(qpoint,structure,supercell, &
          & force_consts,delta_prim)
       frequencies = calculate_frequencies_and_polarisations(dyn_mat)
       call print_line(phonon_dispersion_curve_file, &
@@ -600,7 +600,7 @@ subroutine generate_dispersion(structure,structure_sc,&
   
   ! Calculate frequencies at final k-space point.
   qpoint = qpoints(:,no_paths+1)
-  dyn_mat = construct_dynamical_matrix(qpoint,structure,structure_sc, &
+  dyn_mat = construct_dynamical_matrix(qpoint,structure,supercell, &
      & force_consts,delta_prim)
   frequencies = calculate_frequencies_and_polarisations(dyn_mat)
   call print_line(phonon_dispersion_curve_file, &
@@ -619,7 +619,7 @@ end subroutine
 ! product is the longitudinal branch, whilst the other two branches
 ! are the transverse modes.
 ! ----------------------------------------------------------------------
-subroutine calculate_speed_sound(structure,structure_sc, &
+subroutine calculate_speed_sound(structure,supercell, &
    & force_constants,delta_prim)
   use constants_module, only : pi
   use structure_module
@@ -627,7 +627,7 @@ subroutine calculate_speed_sound(structure,structure_sc, &
   implicit none
   
   type(StructureData), intent(in) :: structure
-  type(StructureData), intent(in) :: structure_sc
+  type(StructureData), intent(in) :: supercell
   real(dp),            intent(in) :: force_constants(:,:,:)
   type(MinImages),     intent(in) :: delta_prim(:,:,:)
   
@@ -656,7 +656,7 @@ subroutine calculate_speed_sound(structure,structure_sc, &
   
   ! "Small" distance in k space, determined by size of supercell.
   ! Factor of 2pi included.
-  small_k_scale=2*pi*structure_sc%volume**(-1/3.0_dp)
+  small_k_scale=2*pi*supercell%volume**(-1/3.0_dp)
 
   ! First guess at a suitable radius of sphere in k-space for computing
   ! derivatives of omega w.r.t. k.
@@ -681,11 +681,11 @@ subroutine calculate_speed_sound(structure,structure_sc, &
       phi=rand*2*pi
       sin_theta=sqrt(1.d0-cos_theta**2)
       kunit = [sin_theta*cos(phi), sin_theta*sin(phi), cos_theta ]
-      kvec = matmul(structure_sc%lattice,kmag*kunit)
+      kvec = matmul(supercell%lattice,kmag*kunit)
 
       ! Calculate corresponding eigenfrequencies.
       dynamical_matrix = construct_dynamical_matrix(kvec,structure, &
-         & structure_sc,force_constants,delta_prim)
+         & supercell,force_constants,delta_prim)
       frequencies_polarisations = &
          & calculate_frequencies_and_polarisations(dynamical_matrix)
       
@@ -789,7 +789,7 @@ end subroutine
 ! Write out the real part of the non-mass-reduced polarisation vector, which
 ! is the pattern of displacement corresponding to the normal mode.
 ! ----------------------------------------------------------------------
-function evaluate_freqs_on_grid(structure,structure_sc,force_constants) &
+function evaluate_freqs_on_grid(structure,supercell,force_constants) &
    & result(output)
   use constants_module, only : pi
   use utils_module, only : l2_norm
@@ -798,7 +798,7 @@ function evaluate_freqs_on_grid(structure,structure_sc,force_constants) &
   implicit none
   
   type(StructureData), intent(in) :: structure
-  type(StructureData), intent(in) :: structure_sc
+  type(StructureData), intent(in) :: supercell
   real(dp),            intent(in) :: force_constants(:,:,:)
   type(LteReturn)                 :: output
   
@@ -808,7 +808,7 @@ function evaluate_freqs_on_grid(structure,structure_sc,force_constants) &
   real(dp) :: kdisp_pattern(3)
   real(dp) :: tot_disp_patt
   complex(dp) :: non_mr_pol_vec(3,structure%no_atoms)
-  complex(dp) :: expiGdotR(structure_sc%sc_size)
+  complex(dp) :: expiGdotR(supercell%sc_size)
   complex(dp) :: kpol_vec(3,structure%no_atoms)
   real(dp),parameter :: tol_omega=1.d-6 ! For judging whether modes are soft.
   real(dp) :: prefactor
@@ -823,22 +823,22 @@ function evaluate_freqs_on_grid(structure,structure_sc,force_constants) &
   
   integer :: ialloc
   
-  delta_prim = calculate_delta_prim(structure,structure_sc)
+  delta_prim = calculate_delta_prim(structure,supercell)
   
   ! Calculate dynamical matrices, and their eigenstuff.
-  allocate( frequencies(structure%no_modes,structure_sc%sc_size), &
+  allocate( frequencies(structure%no_modes,supercell%sc_size), &
           & polarisation_vectors( structure%no_modes,             &
           &                       structure%no_modes,             &
-          &                       structure_sc%sc_size),          &
+          &                       supercell%sc_size),          &
           & stat=ialloc); call err(ialloc)
   call new(output, &
-     & structure_sc%sc_size,structure%no_modes,structure_sc%no_atoms)
+     & supercell%sc_size,structure%no_modes,supercell%no_atoms)
   
   ! Transform G-vectors into reciprocal space.
-  do i=1,structure_sc%sc_size
+  do i=1,supercell%sc_size
     output%dynamical_matrices(:,:,i) = construct_dynamical_matrix( &
-       & real(structure_sc%gvectors(:,i),dp),                &
-       & structure, structure_sc, force_constants, delta_prim)
+       & real(supercell%gvectors(:,i),dp),                &
+       & structure, supercell, force_constants, delta_prim)
     
     frequencies_polarisations = calculate_frequencies_and_polarisations( &
        & output%dynamical_matrices(:,:,i))
@@ -849,21 +849,21 @@ function evaluate_freqs_on_grid(structure,structure_sc,force_constants) &
   
   ! Evaluate the frequencies at each supercell G vector.
   output%soft_modes=.false.
-  do ig=1,structure_sc%sc_size
+  do ig=1,supercell%sc_size
     output%frequencies(:,ig) = &
-       & frequencies(:,min(ig,structure_sc%paired_gvec(ig)))
-    omega = frequencies(:,min(ig,structure_sc%paired_gvec(ig)))
+       & frequencies(:,min(ig,supercell%paired_gvec(ig)))
+    omega = frequencies(:,min(ig,supercell%paired_gvec(ig)))
     pol_vec = polarisation_vectors(:,:,ig)
     
     ! Store exp(iG.R_p).
     ! The negative is used because the matrix of force constants is 
     !    the transpose of the usual expression in derivations 
     !    that lead to a positive exponential.
-    do p=1,structure_sc%sc_size
+    do p=1,supercell%sc_size
       GdotR = -dot_product(matmul( &
-         & structure_sc%gvectors(:,min(ig,structure_sc%paired_gvec(ig))), &
-         & structure_sc%recip_supercell), &
-         & structure_sc%gvectors(:,p))*2*pi/structure_sc%sc_size
+         & supercell%gvectors(:,min(ig,supercell%paired_gvec(ig))), &
+         & supercell%recip_supercell), &
+         & supercell%rvectors(:,p))*2*pi/supercell%sc_size
       expiGdotR(p) = cmplx(cos(gdotr),sin(gdotr),dp)
     enddo
     
@@ -885,33 +885,33 @@ function evaluate_freqs_on_grid(structure,structure_sc,force_constants) &
       disp_pattern=0.0_dp
       kdisp_pattern=0.0_dp
       tot_disp_patt=0.0_dp
-      do atom1=1,structure_sc%no_atoms
+      do atom1=1,supercell%no_atoms
         ! Displacement pattern: polarisation vector times exp(iG.R).
-        if (ig == structure_sc%paired_gvec(ig)) then
+        if (ig == supercell%paired_gvec(ig)) then
           ! Note only the real part is taken
           disp_pattern = real(                                      &
-             &   non_mr_pol_vec(:,structure_sc%atom_to_prim(atom1)) &
-             & * expiGdotR(structure_sc%atom_to_rvec(atom1))        &
+             &   non_mr_pol_vec(:,supercell%atom_to_prim(atom1)) &
+             & * expiGdotR(supercell%atom_to_rvec(atom1))        &
              & , dp)
-          kdisp_pattern = real(kpol_vec(:,structure_sc%atom_to_prim(atom1)))
+          kdisp_pattern = real(kpol_vec(:,supercell%atom_to_prim(atom1)))
           prefactor = 1.0_dp
-        elseif (ig < structure_sc%paired_gvec(ig)) then
+        elseif (ig < supercell%paired_gvec(ig)) then
           disp_pattern = real(                                      &
-             &   non_mr_pol_vec(:,structure_sc%atom_to_prim(atom1)) &
-             & * expiGdotR(structure_sc%atom_to_rvec(atom1))        &
+             &   non_mr_pol_vec(:,supercell%atom_to_prim(atom1)) &
+             & * expiGdotR(supercell%atom_to_rvec(atom1))        &
              & , dp)
           kdisp_pattern = real(                               &
-             &   kpol_vec(:,structure_sc%atom_to_prim(atom1)) &
-             & * expiGdotR(structure_sc%atom_to_rvec(atom1))  &
+             &   kpol_vec(:,supercell%atom_to_prim(atom1)) &
+             & * expiGdotR(supercell%atom_to_rvec(atom1))  &
              & , dp)
           prefactor = sqrt(2.0_dp)
         else
           disp_pattern = aimag(                                     &
-             &   non_mr_pol_vec(:,structure_sc%atom_to_prim(atom1)) &
-             & * expiGdotR(structure_sc%atom_to_rvec(atom1)))
+             &   non_mr_pol_vec(:,supercell%atom_to_prim(atom1)) &
+             & * expiGdotR(supercell%atom_to_rvec(atom1)))
           kdisp_pattern = aimag(                              &
-             &   kpol_vec(:,structure_sc%atom_to_prim(atom1)) &
-             & * expiGdotR(structure_sc%atom_to_rvec(atom1)))
+             &   kpol_vec(:,supercell%atom_to_prim(atom1)) &
+             & * expiGdotR(supercell%atom_to_rvec(atom1)))
           prefactor = sqrt(2.0_dp)
         endif
         
@@ -921,7 +921,7 @@ function evaluate_freqs_on_grid(structure,structure_sc,force_constants) &
         output%displacements(:,atom1,index2,ig) = disp_pattern
         output%k_displacements(:,atom1,index2,ig) = kdisp_pattern
         output%polarisation_vectors(:,atom1,index2,ig) = &
-           & non_mr_pol_vec(:,structure_sc%atom_to_prim(atom1))
+           & non_mr_pol_vec(:,supercell%atom_to_prim(atom1))
       enddo
     enddo
     
@@ -937,7 +937,7 @@ end function
 ! ----------------------------------------------------------------------
 ! Main program. (Split into four modes)
 ! ----------------------------------------------------------------------
-subroutine lte_1(structure,structure_sc,force_constants, &
+subroutine lte_1(structure,supercell,force_constants, &
    & temperature,free_energy_filename,freq_dos_filename, &
    & tdependence1_filename,tdependence2_filename)
   use structure_module
@@ -948,7 +948,7 @@ subroutine lte_1(structure,structure_sc,force_constants, &
   ! Inputs
   ! ----------------------------------------
   type(StructureData), intent(in) :: structure
-  type(StructureData), intent(in) :: structure_sc
+  type(StructureData), intent(in) :: supercell
   real(dp),            intent(in) :: force_constants(:,:,:)
   real(dp),            intent(in) :: temperature
   
@@ -968,7 +968,7 @@ subroutine lte_1(structure,structure_sc,force_constants, &
   
   type(MinImages), allocatable :: delta_prim(:,:,:)
   
-  delta_prim = calculate_delta_prim(structure,structure_sc)
+  delta_prim = calculate_delta_prim(structure,supercell)
 
   write(*,*)'Temperature (K)                    :',temperature
   if (temperature<0.0_dp) then
@@ -985,7 +985,7 @@ subroutine lte_1(structure,structure_sc,force_constants, &
   write(*,*)'The mean thermal energy and the free energy will &
     &be calculated.'
   write(*,*)'Calculating the frequency density-of-states function...'
-  call generate_dos(structure,structure_sc,delta_prim, &
+  call generate_dos(structure,supercell,delta_prim, &
    & force_constants,temperature,free_energy_filename,freq_dos_filename)
   write(*,*)'Done.  Frequency density-of-states function written to &
     &freq_dos.dat.  (Please view this file using XMGrace.)'
@@ -998,7 +998,7 @@ subroutine lte_1(structure,structure_sc,force_constants, &
   write(*,*)
 end subroutine
 
-subroutine lte_2(structure,structure_sc,force_constants, &
+subroutine lte_2(structure,supercell,force_constants, &
    & no_kspace_lines,path, &
    & phonon_dispersion_curve_filename,high_symmetry_points_filename)
   use structure_module
@@ -1009,7 +1009,7 @@ subroutine lte_2(structure,structure_sc,force_constants, &
   ! Inputs
   ! ----------------------------------------
   type(StructureData), intent(in) :: structure
-  type(StructureData), intent(in) :: structure_sc
+  type(StructureData), intent(in) :: supercell
   real(dp),            intent(in) :: force_constants(:,:,:)
   integer,             intent(in) :: no_kspace_lines
   real(dp),            intent(in) :: path(:,:)
@@ -1027,7 +1027,7 @@ subroutine lte_2(structure,structure_sc,force_constants, &
   
   integer :: i
   
-  delta_prim = calculate_delta_prim(structure,structure_sc)
+  delta_prim = calculate_delta_prim(structure,supercell)
 
   call print_line('Number of lines in k-space to plot     : '// &
      & no_kspace_lines)
@@ -1046,7 +1046,7 @@ subroutine lte_2(structure,structure_sc,force_constants, &
   
   write(*,*)'A dispersion curve will be calculated.'
   write(*,*)'Calculating the requested dispersion curve.'
-  call generate_dispersion(structure,structure_sc,&
+  call generate_dispersion(structure,supercell,&
      & delta_prim,force_constants,path,phonon_dispersion_curve_filename, &
      & high_symmetry_points_filename)
   write(*,*)'Done.  dispersion_curve.dat has been generated.  (Please &
@@ -1054,7 +1054,7 @@ subroutine lte_2(structure,structure_sc,force_constants, &
   write(*,*)
 end subroutine
 
-subroutine lte_3(structure,structure_sc,force_constants)
+subroutine lte_3(structure,supercell,force_constants)
   use structure_module
   use min_images_module
   implicit none
@@ -1063,7 +1063,7 @@ subroutine lte_3(structure,structure_sc,force_constants)
   ! Inputs
   ! ----------------------------------------
   type(StructureData), intent(in) :: structure
-  type(StructureData), intent(in) :: structure_sc
+  type(StructureData), intent(in) :: supercell
   real(dp),            intent(in) :: force_constants(:,:,:)
   
   ! ----------------------------------------
@@ -1071,17 +1071,17 @@ subroutine lte_3(structure,structure_sc,force_constants)
   ! ----------------------------------------
   type(MinImages), allocatable :: delta_prim(:,:,:)
   
-  delta_prim = calculate_delta_prim(structure,structure_sc)
+  delta_prim = calculate_delta_prim(structure,supercell)
 
   write(*,*)'The speed of sound will be calculated.'
   write(*,*)'Calculating the speed of sound.'
-  call calculate_speed_sound(structure,structure_sc,force_constants, &
+  call calculate_speed_sound(structure,supercell,force_constants, &
      & delta_prim)
   write(*,*)'Done.  Speed of sound calculated.'
   write(*,*)
 end subroutine
 
-!function lte_4(structure,structure_sc,force_constants,                   &
+!function lte_4(structure,supercell,force_constants,                   &
 !   & freq_grids_filename,disp_patterns_filename,kdisp_patterns_filename, &
 !   & pol_vec_filename) result(output)
 !  use structure_module
@@ -1089,7 +1089,7 @@ end subroutine
 !  
 !  ! Inputs.
 !  type(StructureData), intent(in) :: structure
-!  type(StructureData), intent(in) :: structure_sc
+!  type(StructureData), intent(in) :: supercell
 !  real(dp),            intent(in) :: force_constants(:,:,:)
 !  
 !  ! filenames.
@@ -1104,7 +1104,7 @@ end subroutine
 !  ! ----------------------------------------
 !  ! previously global variables
 !  ! ----------------------------------------
-!  output = evaluate_freqs_on_grid(structure,structure_sc,force_constants, &
+!  output = evaluate_freqs_on_grid(structure,supercell,force_constants, &
 !     & freq_grids_filename,disp_patterns_filename, &
 !     & kdisp_patterns_filename,pol_vec_filename)
 !end function
@@ -1116,7 +1116,6 @@ subroutine fourier_interpolation(dyn_mats_ibz,structure,temperature, &
    & free_energy_filename,freq_dos_filename)
   use linear_algebra_module
   use structure_module
-  use supercell_module
   use group_module
   use min_images_module
   use construct_supercell_module
@@ -1232,7 +1231,7 @@ subroutine fourier_interpolation(dyn_mats_ibz,structure,temperature, &
     do i_grid=1,structure_grid%sc_size
       k_dot_r = dot_product(matmul( structure_grid%gvectors(:,i_grid), &
                                   & structure_grid%recip_supercell),   &
-                                  & structure_grid%gvectors(:,i_cell))
+                                  & structure_grid%rvectors(:,i_cell))
       force_consts(i_cell,:,:) = force_consts(i_cell,:,:)        &
                              & + real( dyn_mats_grid(:,:,i_grid) &
                              &       * cmplx(cos(k_dot_r),sin(k_dot_r),dp))

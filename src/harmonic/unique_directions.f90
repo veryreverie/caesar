@@ -170,6 +170,7 @@ function calculate_unique_directions(structure,symmetry_group) result(this)
   
   ! Temporary variables
   integer :: i,j,k,ialloc
+  integer :: norm_1,norm_2
   
   ! --------------------------------------------------
   ! Identify a minimal set of atoms from which the others can be constructed
@@ -224,9 +225,13 @@ function calculate_unique_directions(structure,symmetry_group) result(this)
       else
         ! This is not the first symmetry found.
         ! Check if the symmetries produce independent vectors.
-        if (abs(dot_product( structure%rotations(1,:,j),                 &
-             &               structure%rotations(1,:,previous_symmetry)) &
-             & ) /= 1) then
+        norm_1 = dot_product( structure%rotations(1,:,j), &
+                            & structure%rotations(1,:,j))
+        norm_2 = dot_product( structure%rotations(1,:,previous_symmetry), &
+                            & structure%rotations(1,:,previous_symmetry))
+        if ( dot_product( structure%rotations(1,:,j),                      &
+                        & structure%rotations(1,:,previous_symmetry)) ** 2 &
+           & /= norm_1*norm_2) then
           unique_dirs_frac(:,i) = [ .true., .false., .false. ]
           exit
         endif
