@@ -209,7 +209,7 @@ function calculate_unique_directions(structure,symmetry_group) result(this)
   unique_dirs = .true.
   do i=1,no_unique_atoms
     previous_symmetry = 0
-    do j=1,size(rotations_cart)
+    do j=1,size(symmetry_group)
       
       ! Ignore symmetries which do not map this atom onto itself.
       if (operate(symmetry_group(j), unique_atoms(i)) /= unique_atoms(i)) then
