@@ -284,7 +284,6 @@ function generate_supercells(structure,grid) result(output)
   integer, allocatable :: grid_to_ibz(:)
   integer, allocatable :: ibz_to_grid(:)
   integer, allocatable :: rotation_ids(:)
-  integer              :: counter
   
   ! IBZ q-point variables.
   integer              :: no_qpoints_ibz
@@ -294,9 +293,6 @@ function generate_supercells(structure,grid) result(output)
   integer, allocatable :: sc_size(:)
   integer, allocatable :: sc_ids(:)
   integer, allocatable :: gvector_ids(:)
-  integer              :: gvector_id
-  integer              :: delta_gvec(3)
-  integer              :: gvector(3)
   integer              :: qpoint(3)
   
   ! Supercell variables
@@ -319,7 +315,7 @@ function generate_supercells(structure,grid) result(output)
   integer :: rot_qpoint(3)
   
   ! Temporary variables
-  integer :: i,j,k,l,m
+  integer :: i,j,k
   
   ! --------------------------------------------------
   ! Construct a supercell for which all q-points in the q-point grid are 

@@ -101,7 +101,7 @@ subroutine setup_harmonic_test(arguments)
   ! --------------------------------------------------
   ! Copy out settings to setup_harmonic.used_settings
   ! --------------------------------------------------
-  call write_dictionary_file(arguments, wd//'setup_harmonic.used_settings')
+  call write_dictionary_file(arguments, wd//'/setup_harmonic.used_settings')
   
   ! --------------------------------------------------
   ! Run new setup_harmonic.

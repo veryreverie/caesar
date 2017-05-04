@@ -556,7 +556,7 @@ subroutine generate_dispersion(structure,supercell,&
   
   ! Transform q-points into reciprocal space.
   allocate(qpoints(3,no_paths+1), stat=ialloc); call err(ialloc)
-  qpoints = 2*pi*matmul(structure%recip_lattice, path)
+  qpoints = 2*pi*matmul(transpose(structure%recip_lattice), path)
   
   ! Work out distances in k-space.
   allocate(path_length(no_paths), stat=ialloc); call err(ialloc)

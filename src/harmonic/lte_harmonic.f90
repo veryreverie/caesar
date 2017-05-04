@@ -489,6 +489,10 @@ function construct_force_constants(forces,supercell,unique_directions, &
   call print_line('===')
   do i=1,supercell%no_symmetries
     call print_line('')
+    call print_line(supercell%rotations(1,:,i))
+    call print_line(supercell%rotations(2,:,i))
+    call print_line(supercell%rotations(3,:,i))
+    call print_line('')
     call print_line(rotations_cart(1,:,i))
     call print_line(rotations_cart(2,:,i))
     call print_line(rotations_cart(3,:,i))
@@ -713,6 +717,9 @@ subroutine lte_harmonic(arguments)
     ! Calculate force constants.
     forces = read_forces(supercell,unique_directions,sdir,dft_code, &
        & seedname)
+    call print_line('!!!!')
+    call print_line(i)
+    call print_line('!!!!')
     force_constants = construct_force_constants(forces,supercell, &
        & unique_directions,symmetry_group)
 !    force_constants = calculate_force_constants(structure,supercell, &

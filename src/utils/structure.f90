@@ -474,15 +474,12 @@ end function
 ! Transforms rotations into cartesian co-ordinates.
 ! ----------------------------------------------------------------------
 function calculate_cartesian_rotations(this) result(output)
-  use constants_module, only : identity
   implicit none
   
   type(StructureData), intent(in) :: this
   real(dp), allocatable           :: output(:,:,:)
   
   integer :: i
-  
-  real(dp) :: thing(3,3)
   
   allocate(output(3,3,this%no_symmetries))
   do i=1,this%no_symmetries
