@@ -238,8 +238,8 @@ function calculate_unique_directions(structure,symmetry_group) result(this)
       else
         ! This is not the first symmetry found.
         ! Check if the two symmetries produce independent vectors.
-        if ( dot_product( rotations_cart(1,:,j),                 &
-           &              rotations_cart(1,:,previous_symmetry)) &
+        if ( abs(dot_product( rotations_cart(1,:,j),                  &
+           &                  rotations_cart(1,:,previous_symmetry))) &
            & < max_dot_product) then
           unique_dirs(:,i) = [.true., .false., .false.]
           exit
