@@ -33,7 +33,6 @@ end function
 ! ----------------------------------------------------------------------
 subroutine run_quadratic(arguments)
   use structure_module
-  use mapping_module
   use qpoints_module
   use dictionary_module
   use dft_input_file_module
@@ -54,7 +53,7 @@ subroutine run_quadratic(arguments)
   type(String)      :: dft_code
   type(String)      :: seedname
   type(String)      :: harmonic_path
-  type(MappingData) :: mapping
+  integer           :: no_samples
   
   ! Previously calculated data.
   type(StructureData)           :: structure
@@ -113,13 +112,11 @@ subroutine run_quadratic(arguments)
   dft_code = item(setup_quadratic_arguments, 'dft_code')
   seedname = item(setup_quadratic_arguments, 'seedname')
   harmonic_path = item(setup_quadratic_arguments, 'harmonic_path')
+  no_samples = int(item(setup_quadratic_arguments, 'no_samples'))
   
   ! Read in number of supercells.
   no_sc_file = read_lines(harmonic_path//'/no_sc.dat')
   no_sc = int(no_sc_file(1))
-  
-  ! Read in maping data.
-  mapping = read_mapping_file(wd//'/mapping.dat')
   
   ! Read in structure.
   structure = read_structure_file(harmonic_path//'/structure.dat')
@@ -146,7 +143,7 @@ subroutine run_quadratic(arguments)
     endif
     
     do j=1,structure%no_modes
-      do k=mapping%first,mapping%last
+      do k=-no_samples,no_samples
         dir = wd//'/qpoint_'//i//'/mode_'//j//'/amplitude_'//k
         dft_input_filename = make_dft_input_filename(dft_code,seedname)
         if (file_exists(dir//'/'//dft_input_filename)) then

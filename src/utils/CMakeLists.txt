@@ -2,7 +2,7 @@ cmake_minimum_required (VERSION 3.5 FATAL_ERROR)
 include(${CMAKE_SOURCE_DIR}/utils/include_guard.cmake)
 include_guard(utils)
 
-add_library(utils system.c spglib_wrapper.c constants.f90 string.f90 io.f90 utils.f90 help.f90 dictionary.f90 linear_algebra.f90 algebra.f90 group.f90 qpoints.f90 moller_plesset.f90 structure.f90 dft_input_file.f90 dft_output_file.f90 bands.f90)
+add_library(utils system.c spglib_wrapper.c constants.f90 string.f90 io.f90 utils.f90 help.f90 dictionary.f90 linear_algebra.f90 algebra.f90 group.f90 qpoints.f90 moller_plesset.f90 structure.f90 dft_input_file.f90 dft_output_file.f90 bands.f90 normal_mode.f90)
 target_include_directories(utils PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
 # Compile compiler-specific functionality.

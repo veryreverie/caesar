@@ -2217,10 +2217,11 @@ PROGRAM lte
   open(unit=71,file='force_constants.dat')
   do i=1,no_atoms_in_prim*3
     do j=1,no_atoms_in_prim*3
-      write(71,*) 'Force on mode '//trim(i2s(i))//' as a result of mode '// &
-         & trim(i2s(j))//' moving.'
+      write(71,*) 'Force constant on mode '//trim(i2s(i))// &
+         & ' as a result of mode '//trim(i2s(j))//' being displaced.'
       do k=1,no_prim_cells
-        write(71,*) 'R-vector '//trim(i2s(k))//': force = ',  &
+        write(71,*) 'R-vector '//trim(i2s(k))//               &
+           & ': acceleration/displcement = ',                 &
            & force_const( (i-1)/3+1,                          &
            &              modulo(i-1,3)+1,                    &
            &              (j-1)/3+1 + no_atoms_in_prim*(k-1), &

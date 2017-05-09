@@ -16,6 +16,7 @@ module structure_module
   public :: calculate_derived_supercell_quantities
   public :: calculate_derived_atom_quantities
   public :: calculate_symmetry
+  public :: calculate_rvector_group
   public :: calculate_gvector_group
   public :: calculate_cartesian_rotations
   
@@ -34,7 +35,9 @@ module structure_module
     ! Atom data
     ! ------------------------------
     integer                   :: no_atoms
+    integer                   :: no_atoms_prim
     integer                   :: no_modes
+    integer                   :: no_modes_prim
     type(String), allocatable :: species(:)
     real(dp),     allocatable :: mass(:)
     real(dp),     allocatable :: atoms(:,:)
@@ -73,11 +76,13 @@ module structure_module
     ! The R-vectors of the primitive cell which are not related by supercell
     !    lattice vectors.
     integer, allocatable :: rvectors(:,:)
+    ! The ID of the R-vector, j, s.t. rvectors(:,i) + rvectors(:,j) = 0.
+    integer, allocatable :: paired_rvec(:)
     ! The G-vectors of the reciprocal supercell which are not related by
     !    primitive reciprocal cell vectors.
-    integer,      allocatable :: gvectors(:,:)
-    ! The id of the G-vector, j, s.t. gvectors(:,i) + gvectors(:,j) = 0.
-    integer,      allocatable :: paired_gvec(:)
+    integer, allocatable :: gvectors(:,:)
+    ! The ID of the G-vector, j, s.t. gvectors(:,i) + gvectors(:,j) = 0.
+    integer, allocatable :: paired_gvec(:)
   end type
   
   interface new
@@ -151,16 +156,19 @@ subroutine new_StructureData(this,no_atoms,no_symmetries,sc_size)
   integer,             intent(in)  :: sc_size
   
   integer :: prim,gvec,atom
+  integer :: ialloc
   
   this%no_atoms = no_atoms
+  this%no_atoms_prim = no_atoms/sc_size
   this%no_modes = no_atoms*3
-  allocate(this%species(no_atoms))
-  allocate(this%mass(no_atoms))
-  allocate(this%atoms(3,no_atoms))
-  
-  allocate(this%atom_to_prim(no_atoms))
-  allocate(this%atom_to_rvec(no_atoms))
-  allocate(this%rvec_and_prim_to_atom(no_atoms/sc_size,sc_size))
+  this%no_modes_prim = no_atoms*3/sc_size
+  allocate( this%species(no_atoms),                               &
+          & this%mass(no_atoms),                                  &
+          & this%atoms(3,no_atoms),                               &
+          & this%atom_to_prim(no_atoms),                          &
+          & this%atom_to_rvec(no_atoms),                          &
+          & this%rvec_and_prim_to_atom(no_atoms/sc_size,sc_size), &
+          & stat=ialloc); call err(ialloc)
   do gvec=1,sc_size
     do prim=1,no_atoms/sc_size
       atom = (prim-1)*sc_size + gvec
@@ -173,14 +181,17 @@ subroutine new_StructureData(this,no_atoms,no_symmetries,sc_size)
   
   this%no_symmetries = no_symmetries
   if (no_symmetries /= 0) then
-    allocate(this%rotations(3,3,no_symmetries))
-    allocate(this%translations(3,no_symmetries))
+    allocate( this%rotations(3,3,no_symmetries),  &
+            & this%translations(3,no_symmetries), &
+            & stat=ialloc); call err(ialloc)
   endif
   
   this%sc_size = sc_size
-  allocate(this%rvectors(3,sc_size))
-  allocate(this%gvectors(3,sc_size))
-  allocate(this%paired_gvec(sc_size))
+  allocate( this%rvectors(3,sc_size),  &
+          & this%paired_rvec(sc_size), &
+          & this%gvectors(3,sc_size),  &
+          & this%paired_gvec(sc_size), &
+          & stat=ialloc); call err(ialloc)
 end subroutine
 
 ! ----------------------------------------------------------------------
@@ -427,20 +438,80 @@ subroutine calculate_derived_supercell_quantities(this)
   
   this%recip_supercell = transpose(invert_int(this%supercell))
   
+  this%paired_rvec = 0
+  this%paired_gvec = 0
+  
   do i=1,this%sc_size
     do j=1,i
-      if (all(modulo( this%gvectors(:,i)+this%gvectors(:,j), &
+      if (all(modulo( matmul( this%recip_supercell,                   &
+                    &         this%rvectors(:,i)+this%rvectors(:,j)), &
+                    & this%sc_size)==0)) then
+        this%paired_rvec(i) = j
+        this%paired_rvec(j) = i
+      endif
+      
+      if (all(modulo( matmul( transpose(this%recip_supercell),        &
+                    &         this%gvectors(:,i)+this%gvectors(:,j)), &
                     & this%sc_size)==0)) then
         this%paired_gvec(i) = j
         this%paired_gvec(j) = i
       endif
     enddo
   enddo
+  
+  if (any(this%paired_rvec==0)) then
+    call print_line('Error: not all paired R-vectors found.')
+    call err()
+  elseif (any(this%paired_gvec==0)) then
+    call print_line('Error: not all paired G-vectors found.')
+    call err()
+  endif
 end subroutine
 
 ! ----------------------------------------------------------------------
-! Calculate the relationships between G-vectors, modulo the supercell.
-!    so if gvec(:,i)+gvec(:,j)=gvec(:,k) then operate(output(i),j)=k
+! Calculate the relationships between R-vectors, modulo the supercell.
+!    so if rvec(:,i)+rvec(:,j)=rvec(:,k) then operate(output(i),j)=k
+! ----------------------------------------------------------------------
+function calculate_rvector_group(this) result(output)
+  use group_module
+  implicit none
+  
+  type(StructureData), intent(in) :: this
+  type(Group), allocatable        :: output(:)
+  
+  integer, allocatable :: operation(:)
+  
+  integer :: rvector_k(3)
+  
+  integer :: i,j,k,ialloc
+  
+  allocate( operation(this%sc_size), &
+          & output(this%sc_size),    &
+          & stat=ialloc); call err(ialloc)
+  do i=1,this%sc_size
+    operation = 0
+    do j=1,this%sc_size
+      rvector_k = this%rvectors(:,i)+this%rvectors(:,j)
+      do k=1,this%sc_size
+        if (all(modulo( matmul( this%recip_supercell,          &
+                      &         rvector_k-this%rvectors(:,k)), &
+                      & this%sc_size)==0)) then
+          operation(j) = k
+        endif
+      enddo
+    enddo
+    if (any(operation==0)) then
+      call print_line('Error: R-vector group incomplete.')
+      call err()
+    endif
+    output(i) = operation
+  enddo
+end function
+
+! ----------------------------------------------------------------------
+! Calculate the relationships between G-vectors, modulo the reciprocal
+!    primitive lattice.
+! so if gvec(:,i)+gvec(:,j)=gvec(:,k) then operate(output(i),j)=k
 ! ----------------------------------------------------------------------
 function calculate_gvector_group(this) result(output)
   use group_module
@@ -453,19 +524,27 @@ function calculate_gvector_group(this) result(output)
   
   integer :: gvector_k(3)
   
-  integer :: i,j,k
+  integer :: i,j,k,ialloc
   
-  allocate(operation(this%sc_size))
-  allocate(output(this%sc_size))
+  allocate( operation(this%sc_size), &
+          & output(this%sc_size),    &
+          & stat=ialloc); call err(ialloc)
   do i=1,this%sc_size
+    operation = 0
     do j=1,this%sc_size
       gvector_k = this%gvectors(:,i)+this%gvectors(:,j)
       do k=1,this%sc_size
-        if (all(modulo(gvector_k-this%gvectors(:,k),this%sc_size)==0)) then
+        if (all(modulo( matmul( transpose(this%recip_supercell), &
+                      &         gvector_k-this%gvectors(:,k)),   &
+                      & this%sc_size)==0)) then
           operation(j) = k
         endif
       enddo
     enddo
+    if (any(operation==0)) then
+      call print_line('Error: G-vector group incomplete.')
+      call err()
+    endif
     output(i) = operation
   enddo
 end function
@@ -479,9 +558,9 @@ function calculate_cartesian_rotations(this) result(output)
   type(StructureData), intent(in) :: this
   real(dp), allocatable           :: output(:,:,:)
   
-  integer :: i
+  integer :: i,ialloc
   
-  allocate(output(3,3,this%no_symmetries))
+  allocate(output(3,3,this%no_symmetries), stat=ialloc); call err(ialloc)
   do i=1,this%no_symmetries
     output(:,:,i) = matmul(matmul( transpose(this%lattice), &
                                  & this%rotations(:,:,i)),  &

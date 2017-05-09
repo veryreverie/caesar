@@ -79,9 +79,9 @@ subroutine setup_harmonic(arguments)
   ! File units
   integer :: no_supercells_file
   
-  ! ----------------------------------------------------------------------
+  ! --------------------------------------------------
   ! Get settings from user, and check them.
-  ! ----------------------------------------------------------------------
+  ! --------------------------------------------------
   wd = item(arguments, 'working_directory')
   dft_code = item(arguments, 'dft_code')
   seedname = item(arguments, 'seedname')
@@ -109,15 +109,15 @@ subroutine setup_harmonic(arguments)
     stop
   endif
   
-  ! ----------------------------------------------------------------------
+  ! --------------------------------------------------
   ! Read in input files.
-  ! ----------------------------------------------------------------------
+  ! --------------------------------------------------
   structure = dft_input_file_to_StructureData(dft_code,dft_input_filename)
   call write_structure_file(structure,wd//'/structure.dat')
   
-  ! ----------------------------------------------------------------------
+  ! --------------------------------------------------
   ! Generate supercells.
-  ! ----------------------------------------------------------------------
+  ! --------------------------------------------------
   ! Generate IBZ and non-diagonal supercells
   qpoints_and_supercells = generate_supercells(structure,grid)
   
@@ -133,36 +133,29 @@ subroutine setup_harmonic(arguments)
   call print_line(no_supercells_file,no_supercells)
   close(no_supercells_file)
   
-  ! ----------------------------------------------------------------------
-  ! Generate supercell structures.
-  ! ----------------------------------------------------------------------
+  ! Loop over supercells.
   do i=1,no_supercells
     sdir=wd//'/Supercell_'//i
     
     call mkdir(sdir)
     
-    ! Generate supercell structure.
+    ! Write out structure files.
     supercell = qpoints_and_supercells%supercells(i)
     call write_structure_file(supercell, sdir//'/structure.dat')
     
-    ! ----------------------------------------------------------------------
-    ! Calculate symmetry group.
-    ! ----------------------------------------------------------------------
+    ! Calculate symmetry groups.
     symmetry_group = calculate_symmetry_group(supercell)
     call write_group_file(symmetry_group,sdir//'/symmetry_group.dat')
     
-    ! ----------------------------------------------------------------------
-    ! Generate force constants
-    ! ----------------------------------------------------------------------
-    ! Calculate which forces need calculating
+    ! Calculate which forces need calculating.
     unique_directions = calculate_unique_directions( supercell, &
                                                    & symmetry_group)
     call write_unique_directions_file( unique_directions, &
                                      & sdir//'/unique_directions.dat')
     
-    ! ----------------------------------------------------------------------
+    ! --------------------------------------------------
     ! Write DFT code input files.
-    ! ----------------------------------------------------------------------
+    ! --------------------------------------------------
     do j=1,size(unique_directions)
       atom = unique_directions%atoms(j)
       direction_int = unique_directions%directions_int(j)

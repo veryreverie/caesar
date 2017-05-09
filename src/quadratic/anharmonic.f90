@@ -29,7 +29,6 @@ end function
 ! ----------------------------------------------------------------------
 subroutine anharmonic(arguments)
   use utils_module, only : mkdir, make_dft_output_filename
-  use mapping_module
   use structure_module
   use dft_output_file_module
   use qpoints_module
@@ -44,34 +43,32 @@ subroutine anharmonic(arguments)
   ! Working directory.
   type(String) :: wd
   
-  ! ----------------------------------------
-  ! Input variables
-  ! ----------------------------------------
+  ! User inputs.
+  integer          :: integration_points
+  integer          :: basis_size
+  
+  ! Previous user inputs.
   type(Dictionary) :: setup_quadratic_arguments
   type(String)     :: dft_code
   type(String)     :: seedname
   type(String)     :: harmonic_path
-  integer          :: integration_points
-  integer          :: basis_size
+  integer          :: no_samples
+  real(dp)         :: displacement
   
-  ! ----------------------------------------
-  ! Working variables
-  ! ----------------------------------------
+  ! Working variables.
   integer               :: no_supercells   ! no. of supercells
-  type(MappingData)     :: mapping         ! mapping.dat
   
   type(StructureData)              :: structure
   type(StructureData), allocatable :: supercells(:)
   
   ! q-point data.
   type(StructureData)           :: structure_grid
-  type(QpointData), allocatable :: qpoints(:)
+  type(QpointData), allocatable :: qpoints_ibz(:)
   
   real(dp), allocatable :: energies(:,:,:)
   real(dp), allocatable :: static_energies(:)
   type(String), allocatable :: frequencies_file(:)
   real(dp), allocatable :: frequencies(:,:) ! harmonic frequencies
-  real(dp)              :: amplitude
   real(dp), allocatable :: amplitudes(:,:)
   real(dp), allocatable :: spline(:,:)
   type(VscfData), allocatable :: vscf
@@ -89,22 +86,17 @@ subroutine anharmonic(arguments)
   
   type(DftOutputFile)   :: dft_output_file
   
-  ! ----------------------------------------
-  ! Temporary variables
-  ! ----------------------------------------
-  integer :: i,j,k
-  integer :: result_code
-  
-  ! ----------------------------------------
   ! Files.
-  ! ----------------------------------------
   type(String), allocatable :: no_sc_file(:)
   integer                   :: result_file
   
+  ! Temporary variables.
+  integer :: i,j,k
+  integer :: result_code
   
-  ! ----------------------------------------
-  ! Read in data
-  ! ----------------------------------------
+  ! --------------------------------------------------
+  ! Read in data.
+  ! --------------------------------------------------
   ! Read arguments
   wd = item(arguments, 'working_directory')
   integration_points = int(item(arguments, 'integration_points'))
@@ -116,6 +108,8 @@ subroutine anharmonic(arguments)
   dft_code = item(setup_quadratic_arguments, 'dft_code')
   seedname = item(setup_quadratic_arguments, 'seedname')
   harmonic_path = item(setup_quadratic_arguments, 'harmonic_path')
+  no_samples = int(item(setup_quadratic_arguments, 'no_samples'))
+  displacement = dble(item(setup_quadratic_arguments, 'displacement'))
   
   ! read the number of Supercell_* directories into no_supercells
   no_sc_file = read_lines(harmonic_path//'/no_sc.dat')
@@ -128,9 +122,6 @@ subroutine anharmonic(arguments)
   ! read structure data
   structure = read_structure_file(harmonic_path//'/structure.dat')
   
-  ! read sampling data from mapping.dat
-  mapping = read_mapping_file(wd//'/mapping.dat')
-  
   ! check for Supercell_*/acoustic.dat
   do i=1,no_supercells
     sc_acoustic(i) = file_exists(wd//'/Supercell_'//i//'/acoustic.dat')
@@ -138,7 +129,7 @@ subroutine anharmonic(arguments)
   
   ! Read qpoints
   structure_grid = read_structure_file(harmonic_path//'/structure_grid.dat')
-  qpoints = read_qpoints_file(harmonic_path//'/qpoints_ibz.dat')
+  qpoints_ibz = read_qpoints_file(harmonic_path//'/qpoints_ibz.dat')
   
   ! Read supercell structures
   allocate(supercells(no_supercells))
@@ -160,10 +151,10 @@ subroutine anharmonic(arguments)
   enddo
   
   ! Loop over q-points.
-  allocate(frequencies(structure%no_modes,size(qpoints)))
-  allocate(energies(mapping%count,structure%no_modes,size(qpoints)))
-  do i=1,size(qpoints)
-    if (.not. sc_acoustic(qpoints(i)%sc_id)) then
+  allocate(frequencies(structure%no_modes,size(qpoints_ibz)))
+  allocate(energies(2*no_samples+1,structure%no_modes,size(qpoints_ibz)))
+  do i=1,size(qpoints_ibz)
+    if (.not. sc_acoustic(qpoints_ibz(i)%sc_id)) then
       ! Read frequencies
       frequencies_file = read_lines( &
          & harmonic_path//'/qpoint_'//i//'/frequencies.dat')
@@ -171,7 +162,7 @@ subroutine anharmonic(arguments)
       
       do j=1,structure%no_modes
         ! read energies
-        do k=mapping%first,mapping%last
+        do k=-no_samples,no_samples
           ddir = wd//'/qpoint_'//i//'/mode_'//j//'/amplitude_'//k
           
           dft_output_filename = make_dft_output_filename(dft_code,seedname)
@@ -181,7 +172,7 @@ subroutine anharmonic(arguments)
             dft_output_file = read_dft_output_file(dft_code,dft_output_filename)
             energies(k,j,i) = dft_output_file%energy
           else
-            energies(k,j,i) = static_energies(qpoints(i)%sc_id)
+            energies(k,j,i) = static_energies(qpoints_ibz(i)%sc_id)
           endif
         enddo
       enddo
@@ -193,25 +184,24 @@ subroutine anharmonic(arguments)
   ! ----------------------------------------
   
   ! Calculate anharmonic 1-dimensional correction
-  allocate(harmonic(basis_size,structure%no_modes,size(qpoints)))
-  allocate(eigenvals(basis_size,structure%no_modes,size(qpoints)))
-  do i=1,size(qpoints)
+  allocate(harmonic(basis_size,structure%no_modes,size(qpoints_ibz)))
+  allocate(eigenvals(basis_size,structure%no_modes,size(qpoints_ibz)))
+  do i=1,size(qpoints_ibz)
     if (i/=1 .or. .not. any(sc_acoustic)) then
       do j=1,structure%no_modes
         
         ! generate amplitudes, {(x,V(x))}
-        ! generate potential at {q} defined by map
-        allocate(amplitudes(2,mapping%count))
-        amplitude = -mapping%max/(2*abs(frequencies(j,i)))
-        do k=1,mapping%count
-          amplitudes(1,k) = amplitude+(k-1)*abs(amplitude/mapping%first)
-          amplitudes(2,k) = (energies(k,j,i)-energies(mapping%mid,j,i)) &
-                        & / supercells(qpoints(i)%sc_id)%sc_size
+        ! generate potential at {u}
+        allocate(amplitudes(2,2*no_samples+1))
+        do k=1,2*no_samples+1
+          amplitudes(1,k) = displacement*(k-no_samples-1)/real(no_samples,dp)
+          amplitudes(2,k) = (energies(k,j,i)-energies(no_samples+1,j,i)) &
+                        & / supercells(qpoints_ibz(i)%sc_id)%sc_size
         enddo
         
         ! fit splines
         ! interpolate potential onto integration_points points
-        ! min(q) and max(q) are unchanged
+        ! displacement is unchanged
         spline = quadratic_spline(integration_points, amplitudes)
         
         ! calculate 1-d anharmonic energy
@@ -248,7 +238,7 @@ subroutine anharmonic(arguments)
   ! calculate free energy, F(T), for harmonic and anharmonic cases
   ! write output to anharmonic_correction.dat
   result_file = open_write_file(wd//'/anharmonic/anharmonic_correction.dat')
-  call calculate_anharmonic(structure,structure_grid,qpoints,basis_size, &
+  call calculate_anharmonic(structure,structure_grid,qpoints_ibz,basis_size, &
      & harmonic,eigenvals,result_file)
   close(result_file)
 end subroutine

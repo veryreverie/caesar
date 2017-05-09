@@ -16,7 +16,7 @@ function setup_quadratic_keywords() result(keywords)
   use help_module
   implicit none
   
-  type(KeywordData) :: keywords(3)
+  type(KeywordData) :: keywords(6)
   
   keywords = [                                                                &
   & make_keyword('dft_code', 'castep', 'dft_code is the DFT code used to &
@@ -24,7 +24,14 @@ function setup_quadratic_keywords() result(keywords)
   & make_keyword('seedname', NO_ARGUMENT, 'seedname is the DFT seedname from &
      &which file names are constructed.'),                                    &
   & make_keyword('harmonic_path', '.', 'harmonic_path is the path to the &
-     &directory where harmonic calculations were run.', is_path=.true.)       ]
+     &directory where harmonic calculations were run.', is_path=.true.),      &
+  & make_keyword('temperature', '0', 'temperature is the temperature, in &
+     &Kelvin, at which the simulation is run.'),                              &
+  & make_keyword('no_samples', NO_ARGUMENT, 'no_samples is the number of &
+     &single-point calculations which will be run along each axis.'),         &
+  & make_keyword('displacement', NO_ARGUMENT, 'displacement is the maximum &
+     &total distance in bohr over which any mode is displaced. At finite &
+     &temperatures, this will be reduced by a thermal factor.')               ]
 end function
 
 ! ----------------------------------------------------------------------
@@ -33,11 +40,11 @@ end function
 subroutine setup_quadratic(arguments)
   use constants_module, only : kb_in_au
   use utils_module,     only : mkdir
-  use mapping_module
   use structure_module
   use dft_input_file_module
   use qpoints_module
   use dictionary_module
+  use normal_mode_module
   implicit none
   
   type(Dictionary), intent(in) :: arguments
@@ -47,17 +54,17 @@ subroutine setup_quadratic(arguments)
   
   ! Parameters.
   real(dp), parameter :: frequency_tol   = 1.0e-5_dp!frequency<=tol if acoustic
-  real(dp), parameter :: temperature     = 0.0_dp
   real(dp), parameter :: temperature_tol = 1.0e-6_dp
-  real(dp), parameter :: thermal_energy  = temperature*kb_in_au
   
   ! User inputs
   type(String) :: dft_code      ! The dft code name (castep,vasp,qe).
   type(String) :: seedname      ! The dft input file seedname.
   type(String) :: harmonic_path ! The path to the harmonic directory.
+  real(dp)     :: temperature
+  integer      :: no_samples
+  real(dp)     :: displacement
   
-  ! File contents
-  type(MappingData)    :: mapping
+  real(dp) :: thermal_energy
   
   ! Harmonic file contents
   type(StructureData) :: structure
@@ -66,13 +73,8 @@ subroutine setup_quadratic(arguments)
   ! Harmonic supercell file contents
   type(StructureData), allocatable :: supercells(:)
   
-  ! Mode frequencies and displacement patterns.
-  type(String), allocatable :: frequency_file(:)
-  type(String), allocatable :: prefactors_file(:)
-  type(String), allocatable :: displacements_file(:)
-  real(dp),     allocatable :: frequencies(:)
-  real(dp),     allocatable :: prefactors(:,:)
-  real(dp),     allocatable :: displacements(:,:,:)
+  ! Normal modes.
+  type(NormalMode) :: mode
   
   ! q-point data
   type(QpointData), allocatable :: qpoints(:)
@@ -89,7 +91,6 @@ subroutine setup_quadratic(arguments)
   type(String)   :: dft_input_filename
   type(String)   :: sdir
   type(String)   :: mdir
-  type(String), allocatable :: line(:)
   
   ! Files
   type(String), allocatable :: no_sc_file(:)
@@ -101,6 +102,11 @@ subroutine setup_quadratic(arguments)
   dft_code = item(arguments, 'dft_code')
   seedname = item(arguments, 'seedname')
   harmonic_path = item(arguments, 'harmonic_path')
+  temperature = dble(item(arguments, 'temperature'))
+  no_samples = int(item(arguments, 'no_samples'))
+  displacement = dble(item(arguments, 'displacement'))
+  
+  thermal_energy  = temperature*kb_in_au
   
   ! Check code is supported
   if (dft_code=="vasp") then
@@ -124,10 +130,11 @@ subroutine setup_quadratic(arguments)
     stop
   endif
   
-  ! ------------------------------------------------------------
-  ! Read in mapping file
-  ! ------------------------------------------------------------
-  mapping = read_mapping_file(wd//'/mapping.dat')
+  ! Check temperature is valid.
+  if (temperature < 0.0_dp) then
+    call print_line('Error: temperature must be positive.')
+    stop
+  endif
   
   ! ------------------------------------------------------------
   ! Read in data from harmonic calculation
@@ -179,43 +186,19 @@ subroutine setup_quadratic(arguments)
   do i=1,size(qpoints)
     supercell = supercells(qpoints(i)%sc_id)
     
-    ! Read in frequencies, prefactors and displacements.
-    frequency_file = read_lines( &
-       & harmonic_path//'/qpoint_'//i//'/frequencies.dat')
-    allocate(frequencies(structure%no_modes))
     do j=1,structure%no_modes
-      frequencies(j) = dble(frequency_file(j))
-    enddo
-    
-    prefactors_file = read_lines( &
-       & harmonic_path//'/qpoint_'//i//'/prefactors.dat')
-    allocate(prefactors(supercell%no_atoms,structure%no_modes))
-    do j=1,structure%no_modes
-      do k=1,supercell%no_atoms
-        prefactors(k,j) = &
-           & dble(prefactors_file((j-1)*(supercell%no_atoms+2)+k+1))
-      enddo
-    enddo
-    
-    displacements_file = read_lines( &
-       & harmonic_path//'/qpoint_'//i//'/displacements.dat')
-    allocate(displacements(3,supercell%no_atoms,structure%no_modes))
-    do j=1,structure%no_modes
-      do k=1,supercell%no_atoms
-        line = split(displacements_file((j-1)*(supercell%no_atoms+2)+k+1))
-        displacements(:,k,j) = dble(line)
-      enddo
-    enddo
-    
-    do j=1,structure%no_modes
+      ! Read in mode.
+      mode = read_normal_mode_file( &
+         & harmonic_path//'/qpoint_'//i//'/mode_'//j//'.dat')
+      
       ! Skip acoustic modes.
-      if (frequencies(j)<=frequency_tol) then
+      if (mode%frequency <= frequency_tol) then
         cycle
       endif
       
       call mkdir(wd//'/qpoint_'//i//'/mode_'//j)
       
-      do k=mapping%first,mapping%last
+      do k=-no_samples,no_samples
         ! Skip equilibrium configurations
         if (k==0) then
           cycle
@@ -230,16 +213,16 @@ subroutine setup_quadratic(arguments)
           !   with units of 1/(E_h)
           occupation = 0.d0
         else
-          occupation = 1.d0/(exp(frequencies(j)/thermal_energy)-1.d0)
+          occupation = 1.d0/(exp(mode%frequency/thermal_energy)-1.d0)
         endif
-        quad_amplitude = sqrt((occupation+0.5d0)/frequencies(j))
+        quad_amplitude = sqrt((occupation+0.5d0)/mode%frequency)
         
         ! Calculate amplitude
-        amplitude = mapping%max*k*quad_amplitude*2.d0/mapping%count
+        amplitude = quad_amplitude*displacement*k/real(no_samples,dp)
         
         ! Calculate new positions
         do l=1,supercell%no_atoms
-          disp = amplitude * displacements(:,l,j) * prefactors(l,j)
+          disp = amplitude * mode%displacements(:,l)
           supercell%atoms(:,l) = supercell%atoms(:,l) + disp
         enddo
         
@@ -254,11 +237,6 @@ subroutine setup_quadratic(arguments)
            & mdir//'/'//dft_input_filename)
       enddo
     enddo
-    
-    deallocate(frequencies)
-    deallocate(prefactors)
-    deallocate(displacements)
   enddo
-  
 end subroutine
 end module

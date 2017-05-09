@@ -147,7 +147,7 @@ end subroutine
 !    in order to map out the harmonic Born-Oppenheimer surface.
 ! ----------------------------------------------------------------------
 function calculate_unique_directions(structure,symmetry_group) result(this)
-  use constants_module, only : identity, pi
+  use constants_module, only : pi
   use structure_module
   use group_module
   implicit none
@@ -165,8 +165,6 @@ function calculate_unique_directions(structure,symmetry_group) result(this)
   real(dp), parameter :: max_dot_product = (1+cos(pi/3))/2.0_dp
   
   ! Whether or not directions are linearly independent.
-  logical, allocatable :: unique_dirs_frac(:,:) ! Fractional co-ordinates.
-  logical, allocatable :: unique_dirs_cart(:,:) ! Cartesian co-ordinates.
   logical, allocatable :: unique_dirs(:,:)
   
   ! Symmetry id.
@@ -178,7 +176,6 @@ function calculate_unique_directions(structure,symmetry_group) result(this)
   
   ! Temporary variables
   integer :: i,j,k,ialloc
-  integer :: norm_1,norm_2
   real(dp), allocatable :: rotations_cart(:,:,:)
   
   ! --------------------------------------------------
@@ -247,92 +244,6 @@ function calculate_unique_directions(structure,symmetry_group) result(this)
       endif
     enddo
   enddo
-  
- ! ! --------------------------------------------------
- ! ! Identify which cardinal directions (in fractional co-ordinates)
- ! !    on the minimal set of atoms are related by symmetry.
- ! ! --------------------------------------------------
- ! allocate(unique_dirs_frac(3,no_unique_atoms), stat=ialloc); call err(ialloc)
- ! unique_dirs_frac = .true.
- ! do i=1,no_unique_atoms
- !   previous_symmetry = 0
- !   do j=1,size(symmetry_group)
- !     ! Ignore symmetries which do not map this atom onto itself.
- !     if (operate(symmetry_group(j), unique_atoms(i)) /= unique_atoms(i)) then
- !       cycle
- !     endif
- !     
- !     ! Ignore symmetries which only map directions onto themselves.
- !     if (all(abs(structure%rotations(:,:,j))==identity)) then
- !       cycle
- !     endif
- !     
- !     if (previous_symmetry==0) then
- !       ! This is the first symmetry found.
- !       previous_symmetry = j
- !       
- !       ! Find which direction is mapped onto.
- !       if ( abs(structure%rotations(2,1,j))>abs(structure%rotations(3,1,j))  &
- !          & .and.                                                            &
- !          & abs(structure%rotations(2,1,j))>abs(structure%rotations(3,2,j))) &
- !          & then
- !         unique_dirs_frac(2,i) = .false.
- !       else
- !         unique_dirs_frac(3,i) = .false.
- !       endif
- !     else
- !       ! This is not the first symmetry found.
- !       ! Check if the symmetries produce independent vectors.
- !       norm_1 = dot_product( structure%rotations(1,:,j), &
- !                           & structure%rotations(1,:,j))
- !       norm_2 = dot_product( structure%rotations(1,:,previous_symmetry), &
- !                           & structure%rotations(1,:,previous_symmetry))
- !       if ( dot_product( structure%rotations(1,:,j),                      &
- !                       & structure%rotations(1,:,previous_symmetry)) ** 2 &
- !          & /= norm_1*norm_2) then
- !         unique_dirs_frac(:,i) = [ .true., .false., .false. ]
- !         exit
- !       endif
- !     endif
- !   enddo
- ! enddo
- ! 
- ! ! --------------------------------------------------
- ! ! Identify the cardinal directions in cartesian co-ordinates which
- ! !    most closely match those in fractional co-ordinates.
- ! ! --------------------------------------------------
- ! allocate(unique_dirs_cart(3,no_unique_atoms), stat=ialloc); call err(ialloc)
- ! do i=1,no_unique_atoms
- !   unique_dirs_cart(:,i) = [ .true.,.true.,.true. ]
- !   if (all(unique_dirs_frac(:,i) .eqv. .true.)) then
- !     ! All directions are independent in both co-ordinate systems.
- !     continue
- !   elseif (all(unique_dirs_frac(:,i) .eqv. [.true.,.false.,.false.])) then
- !     ! All directions are dependent in both co-ordinate systems.
- !     unique_dirs_cart(2:3,i) = .false.
- !   else
- !     ! There are two independent directions.
- !     if (unique_dirs_frac(2,i) .eqv. .false.) then
- !       if ( abs(structure%lattice(2,1)) > abs(structure%lattice(2,2)) .and. &
- !          & abs(structure%lattice(2,1)) > abs(structure%lattice(2,3))) then
- !         unique_dirs_cart(1,i) = .false.
- !       elseif (abs(structure%lattice(2,2)) > abs(structure%lattice(2,3))) then
- !         unique_dirs_cart(2,i) = .false.
- !       else
- !         unique_dirs_cart(3,i) = .false.
- !       endif
- !     else
- !       if ( abs(structure%lattice(3,1)) > abs(structure%lattice(3,2)) .and. &
- !          & abs(structure%lattice(3,1)) > abs(structure%lattice(3,3))) then
- !         unique_dirs_cart(1,i) = .false.
- !       elseif (abs(structure%lattice(3,2)) > abs(structure%lattice(3,3))) then
- !         unique_dirs_cart(2,i) = .false.
- !       else
- !         unique_dirs_cart(3,i) = .false.
- !       endif
- !     endif
- !   endif
- ! enddo
   
   ! --------------------------------------------------
   ! Create output.

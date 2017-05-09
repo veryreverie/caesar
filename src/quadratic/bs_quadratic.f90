@@ -31,7 +31,6 @@ end function
 subroutine bs_quadratic(arguments)
   use constants_module, only : kb_in_au
   use utils_module,     only : mkdir
-  use mapping_module
   use structure_module
   use bands_module
   use dictionary_module
@@ -54,12 +53,13 @@ subroutine bs_quadratic(arguments)
   type(String) :: dft_code      ! The dft code name (castep,vasp,qe)
   type(String) :: seedname      ! The dft input file seedname
   type(String) :: harmonic_path ! The path to the harmonic directory
+  integer      :: no_samples
+  real(dp)     :: displacement
   
   ! Starting data.
   type(Dictionary)  :: setup_quadratic_arguments
   integer              :: no_sc
   integer              :: no_qpoints
-  type(MappingData)                 :: mapping
   type(StructureData)               :: structure
   type(StructureData), allocatable  :: supercells(:)
   
@@ -116,11 +116,11 @@ subroutine bs_quadratic(arguments)
   dft_code = item(setup_quadratic_arguments, 'dft_code')
   seedname = item(setup_quadratic_arguments, 'seedname')
   harmonic_path = item(setup_quadratic_arguments, 'harmonic_path')
+  no_samples = int(item(setup_quadratic_arguments, 'no_samples'))
+  displacement = dble(item(setup_quadratic_arguments, 'displacement'))
   
   no_sc_file = read_lines(wd//'/no_sc.dat')
   no_sc = int(no_sc_file(1))
-  
-  mapping = read_mapping_file(wd//'/mapping.dat')
   
   structure = read_structure_file(harmonic_path//'/structure.dat')
   
@@ -171,7 +171,7 @@ subroutine bs_quadratic(arguments)
     ! Read bands
     ref = band_refs(sc_ids(i))
     do j=1,structure%no_modes
-      amplitudes = [ mapping%first, mapping%last ]
+      amplitudes = [ -no_samples, no_samples ]
       do k=1,2
         amplitude = amplitudes(k)
         if (amplitude/=0) then
@@ -190,7 +190,7 @@ subroutine bs_quadratic(arguments)
   
   ! Calculate deformation potential
   allocate(deformation(structure%no_modes,no_qpoints))
-  deformation = bs/mapping%max**2
+  deformation = bs/displacement**2
   
   ! Calculate quadratic vibrational correction
   bgc_file = open_write_file(wd//'/bs/band_gap_correction.dat')
