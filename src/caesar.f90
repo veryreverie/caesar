@@ -18,6 +18,7 @@ program caesar
   use bs_quadratic_module
   
   ! use testing modules
+  use linear_algebra_test_module
   use setup_harmonic_test_module
   use lte_harmonic_test_module
   use test_copy_quadratic_module
@@ -109,6 +110,8 @@ program caesar
     keywords = anharmonic_keywords()
   elseif (mode=='bs_quadratic') then
     keywords = bs_quadratic_keywords()
+  elseif (mode=='linear_algebra_test') then
+    keywords = linear_algebra_test_keywords()
   elseif (mode=='setup_harmonic_test') then
     keywords = setup_harmonic_test_keywords()
   elseif (mode=='lte_harmonic_test') then
@@ -454,6 +457,8 @@ program caesar
   elseif (mode == 'hartree_to_eV') then
     call hartree_to_eV()
   ! Wrappers for testing modules
+  elseif (mode == 'linear_algebra_test') then
+    call linear_algebra_test(arguments)
   elseif (mode == 'setup_harmonic_test') then
     call setup_harmonic_test(arguments)
   elseif (mode == 'lte_harmonic_test') then

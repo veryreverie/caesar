@@ -8,6 +8,175 @@ module linear_algebra_module
   use io_module
   implicit none
   
+  ! Vectors and Matrices.
+  type IntVector
+    integer, allocatable, private :: contents(:)
+  end type
+  
+  type RealVector
+    real(dp), allocatable, private :: contents(:)
+  end type
+  
+  type IntMatrix
+    integer, allocatable, private :: contents(:,:)
+  end type
+  
+  type RealMatrix
+    real(dp), allocatable, private :: contents(:,:)
+  end type
+  
+  interface assignment(=)
+    module procedure assign_IntVector_integers
+    module procedure assign_RealVector_reals
+    module procedure assign_IntMatrix_integers
+    module procedure assign_RealMatrix_reals
+  end interface
+  
+  interface vec
+    module procedure vec_integers
+    module procedure vec_reals
+  end interface
+  
+  interface mat
+    module procedure mat_integers
+    module procedure mat_reals
+    module procedure mat_integers_shape
+    module procedure mat_reals_shape
+  end interface
+  
+  interface size
+    module procedure size_IntVector
+    module procedure size_RealVector
+    module procedure size_IntMatrix
+    module procedure size_RealMatrix
+  end interface
+  
+  interface operator(==)
+    module procedure equality_IntVector_IntVector
+    module procedure equality_IntVector_integers
+    module procedure equality_integers_IntVector
+    module procedure equality_IntMatrix_IntMatrix
+  end interface
+  
+  interface operator(/=)
+    module procedure non_equality_IntVector_IntVector
+    module procedure non_equality_IntVector_integers
+    module procedure non_equality_integers_IntVector
+    module procedure non_equality_IntMatrix_IntMatrix
+  end interface
+  
+  interface operator(+)
+    module procedure add_IntVector_IntVector
+    module procedure add_RealVector_RealVector
+    module procedure add_IntMatrix_IntMatrix
+    module procedure add_RealMatrix_RealMatrix
+  end interface
+  
+  interface operator(-)
+    module procedure negative_IntVector
+    module procedure negative_RealVector
+    module procedure negative_IntMatrix
+    module procedure negative_RealMatrix
+    module procedure subtract_IntVector_IntVector
+    module procedure subtract_RealVector_RealVector
+    module procedure subtract_IntMatrix_IntMatrix
+    module procedure subtract_RealMatrix_RealMatrix
+  end interface
+  
+  interface operator(*)
+    module procedure multiply_IntVector_integer
+    module procedure multiply_integer_IntVector
+    module procedure multiply_IntVector_real
+    module procedure multiply_real_IntVector
+    
+    module procedure multiply_RealVector_integer
+    module procedure multiply_integer_RealVector
+    module procedure multiply_RealVector_real
+    module procedure multiply_real_RealVector
+    
+    module procedure multiply_IntMatrix_integer
+    module procedure multiply_integer_IntMatrix
+    module procedure multiply_IntMatrix_real
+    module procedure multiply_real_IntMatrix
+    
+    module procedure multiply_RealMatrix_integer
+    module procedure multiply_integer_RealMatrix
+    module procedure multiply_RealMatrix_real
+    module procedure multiply_real_RealMatrix
+    
+    module procedure dot_IntVector_IntVector
+    module procedure dot_RealVector_IntVector
+    module procedure dot_IntVector_RealVector
+    module procedure dot_RealVector_RealVector
+    
+    module procedure dot_IntVector_IntMatrix
+    module procedure dot_IntVector_RealMatrix
+    module procedure dot_RealVector_IntMatrix
+    module procedure dot_RealVector_RealMatrix
+    
+    module procedure dot_IntMatrix_IntVector
+    module procedure dot_IntMatrix_RealVector
+    module procedure dot_RealMatrix_IntVector
+    module procedure dot_RealMatrix_RealVector
+    
+    module procedure dot_IntMatrix_IntMatrix
+    module procedure dot_IntMatrix_RealMatrix
+    module procedure dot_RealMatrix_IntMatrix
+    module procedure dot_RealMatrix_RealMatrix
+  end interface
+  
+  interface operator(/)
+    module procedure divide_IntVector_integer
+    module procedure divide_IntVector_real
+    module procedure divide_RealVector_integer
+    module procedure divide_RealVector_real
+    module procedure divide_IntMatrix_integer
+    module procedure divide_IntMatrix_real
+    module procedure divide_RealMatrix_integer
+    module procedure divide_RealMatrix_real
+  end interface
+  
+  interface l2_norm
+    module procedure l2_norm_RealVector
+  end interface
+  
+  interface outer_product
+    module procedure outer_product_RealVector_RealVector
+  end interface
+  
+  interface transpose
+    module procedure transpose_IntMatrix
+    module procedure transpose_RealMatrix
+  end interface
+  
+  interface determinant
+    module procedure determinant_integer
+    module procedure determinant_real
+    module procedure determinant_IntMatrix
+    module procedure determinant_RealMatrix
+  end interface
+  
+  interface invert
+    module procedure invert_real
+    module procedure invert_RealMatrix
+  end interface
+  
+  interface invert_int
+    module procedure invert_int_integer
+    module procedure invert_int_IntMatrix
+  end interface
+  
+  interface print_line
+    module procedure print_line_IntVector
+    module procedure print_line_IntVector_file
+    module procedure print_line_RealVector
+    module procedure print_line_RealVector_file
+    module procedure print_line_IntMatrix
+    module procedure print_line_IntMatrix_file
+    module procedure print_line_RealMatrix
+    module procedure print_line_RealMatrix_file
+  end interface
+  
   ! The eigen(values and vectors) of a matrix
   ! degeneracy(i) = 0 if eigenvector(i) is non-degenerate
   !               = j if eigenvector(i) is degenerate,
@@ -141,39 +310,797 @@ module linear_algebra_module
     end subroutine
   end interface
 
-  ! ----------------------------------------
-  ! determinant interface
-  ! ----------------------------------------
-  interface determinant
-    module procedure determinant_integer, determinant_real
-  end interface
-
 contains
 
-! ----------------------------------------
-! Returns the number of states of an Eigenstuff
-! ----------------------------------------
-pure function size_RealEigenstuff(estuff) result(output)
+! ----------------------------------------------------------------------
+! Vector and Matrix operations.
+! ----------------------------------------------------------------------
+
+! Assignment.
+pure subroutine assign_IntVector_integers(output,input)
   implicit none
   
-  type(RealEigenstuff), intent(in) :: estuff
-  integer                          :: output
+  integer,         intent(in)  :: input(:)
+  type(IntVector), intent(out) :: output
   
-  output = size(estuff%evals)
-end function
+  output%contents = input
+end subroutine
 
-pure function size_ComplexEigenstuff(estuff) result(output)
+pure subroutine assign_RealVector_reals(output,input)
   implicit none
   
-  type(ComplexEigenstuff), intent(in) :: estuff
-  integer                             :: output
+  real(dp),         intent(in)  :: input(:)
+  type(RealVector), intent(out) :: output
   
-  output = size(estuff%evals)
+  output%contents = input
+end subroutine
+
+pure subroutine assign_IntMatrix_integers(output,input)
+  implicit none
+  
+  integer,         intent(in)  :: input(:,:)
+  type(IntMatrix), intent(out) :: output
+  
+  output%contents = input
+end subroutine
+
+pure subroutine assign_RealMatrix_reals(output,input)
+  implicit none
+  
+  real(dp),         intent(in)  :: input(:,:)
+  type(RealMatrix), intent(out) :: output
+  
+  output%contents = input
+end subroutine
+
+! Conversion to Vector and Matrix.
+pure function vec_integers(input) result(output)
+  implicit none
+  
+  integer, intent(in) :: input(:)
+  type(IntVector)     :: output
+  
+  output = input
 end function
 
-! ----------------------------------------
-! given a 3x3 matrix A, returns det(A)
-! ----------------------------------------
+pure function vec_reals(input) result(output)
+  implicit none
+  
+  real(dp), intent(in) :: input(:)
+  type(RealVector)     :: output
+  
+  output = input
+end function
+
+pure function mat_integers(input) result(output)
+  implicit none
+  
+  integer, intent(in) :: input(:,:)
+  type(IntMatrix)     :: output
+  
+  output = input
+end function
+
+pure function mat_reals(input) result(output)
+  implicit none
+  
+  real(dp), intent(in) :: input(:,:)
+  type(RealMatrix)     :: output
+  
+  output = input
+end function
+
+pure function mat_integers_shape(input,m,n) result(output)
+  implicit none
+  
+  integer, intent(in) :: input(:)
+  integer,  intent(in) :: m
+  integer,  intent(in) :: n
+  type(IntMatrix)     :: output
+  
+  output = transpose(reshape(input, [m,n]))
+end function
+
+pure function mat_reals_shape(input,m,n) result(output)
+  implicit none
+  
+  real(dp), intent(in) :: input(:)
+  integer,  intent(in) :: m
+  integer,  intent(in) :: n
+  type(RealMatrix)     :: output
+  
+  output = transpose(reshape(input, [m,n]))
+end function
+
+! size().
+elemental function size_IntVector(input) result(output)
+  implicit none
+  
+  type(IntVector), intent(in) :: input
+  integer                     :: output
+  
+  output = size(input%contents)
+end function
+
+elemental function size_RealVector(input) result(output)
+  implicit none
+  
+  type(RealVector), intent(in) :: input
+  integer                      :: output
+  
+  output = size(input%contents)
+end function
+
+elemental function size_IntMatrix(input,dim) result(output)
+  implicit none
+  
+  type(IntMatrix), intent(in) :: input
+  integer,         intent(in) :: dim
+  integer                     :: output
+  
+  output = size(input%contents, dim)
+end function
+
+elemental function size_RealMatrix(input,dim) result(output)
+  implicit none
+  
+  type(RealMatrix), intent(in) :: input
+  integer,          intent(in) :: dim
+  integer                      :: output
+  
+  output = size(input%contents, dim)
+end function
+
+! Equality.
+elemental function equality_IntVector_IntVector(a,b) result(output)
+  implicit none
+  
+  type(IntVector), intent(in) :: a
+  type(IntVector), intent(in) :: b
+  logical                     :: output
+  
+  output = all(a%contents==b%contents)
+end function
+
+pure function equality_IntVector_integers(a,b) result(output)
+  implicit none
+  
+  type(IntVector), intent(in) :: a
+  integer,         intent(in) :: b(:)
+  logical                     :: output
+  
+  output = all(a%contents==b)
+end function
+
+pure function equality_integers_IntVector(a,b) result(output)
+  implicit none
+  
+  integer,         intent(in) :: a(:)
+  type(IntVector), intent(in) :: b
+  logical                     :: output
+  
+  output = all(a==b%contents)
+end function
+
+elemental function equality_IntMatrix_IntMatrix(a,b) result(output)
+  implicit none
+  
+  type(IntMatrix), intent(in) :: a
+  type(IntMatrix), intent(in) :: b
+  logical                     :: output
+  
+  output = all(a%contents==b%contents)
+end function
+
+! Non-equality.
+elemental function non_equality_IntVector_IntVector(a,b) result(output)
+  implicit none
+  
+  type(IntVector), intent(in) :: a
+  type(IntVector), intent(in) :: b
+  logical                     :: output
+  
+  output = .not. a==b
+end function
+
+pure function non_equality_IntVector_integers(a,b) result(output)
+  implicit none
+  
+  type(IntVector), intent(in) :: a
+  integer,         intent(in) :: b(:)
+  logical                     :: output
+  
+  output = .not. a==b
+end function
+
+pure function non_equality_integers_IntVector(a,b) result(output)
+  implicit none
+  
+  integer,         intent(in) :: a(:)
+  type(IntVector), intent(in) :: b
+  logical                     :: output
+  
+  output = .not. a==b
+end function
+
+elemental function non_equality_IntMatrix_IntMatrix(a,b) result(output)
+  implicit none
+  
+  type(IntMatrix), intent(in) :: a
+  type(IntMatrix), intent(in) :: b
+  logical                     :: output
+  
+  output = .not. a==b
+end function
+
+! Addition.
+elemental function add_IntVector_IntVector(a,b) result(output)
+  implicit none
+  
+  type(IntVector), intent(in) :: a
+  type(IntVector), intent(in) :: b
+  type(IntVector)             :: output
+  
+  output = a%contents + b%contents
+end function
+
+elemental function add_RealVector_RealVector(a,b) result(output)
+  implicit none
+  
+  type(RealVector), intent(in) :: a
+  type(RealVector), intent(in) :: b
+  type(RealVector)             :: output
+  
+  output = a%contents + b%contents
+end function
+
+elemental function add_IntMatrix_IntMatrix(a,b) result(output)
+  implicit none
+  
+  type(IntMatrix), intent(in) :: a
+  type(IntMatrix), intent(in) :: b
+  type(IntMatrix)             :: output
+  
+  output = a%contents + b%contents
+end function
+
+elemental function add_RealMatrix_RealMatrix(a,b) result(output)
+  implicit none
+  
+  type(RealMatrix), intent(in) :: a
+  type(RealMatrix), intent(in) :: b
+  type(RealMatrix)             :: output
+  
+  output = a%contents + b%contents
+end function
+
+! Negative.
+elemental function negative_IntVector(input) result(output)
+  implicit none
+  
+  type(IntVector), intent(in) :: input
+  type(IntVector)             :: output
+  
+  output = -input%contents
+end function
+
+elemental function negative_RealVector(input) result(output)
+  implicit none
+  
+  type(RealVector), intent(in) :: input
+  type(RealVector)             :: output
+  
+  output = -input%contents
+end function
+
+elemental function negative_IntMatrix(input) result(output)
+  implicit none
+  
+  type(IntMatrix), intent(in) :: input
+  type(IntMatrix)             :: output
+  
+  output = -input%contents
+end function
+
+elemental function negative_RealMatrix(input) result(output)
+  implicit none
+  
+  type(RealMatrix), intent(in) :: input
+  type(RealMatrix)             :: output
+  
+  output = -input%contents
+end function
+
+! Subtraction.
+elemental function subtract_IntVector_IntVector(a,b) result(output)
+  implicit none
+  
+  type(IntVector), intent(in) :: a
+  type(IntVector), intent(in) :: b
+  type(IntVector)             :: output
+  
+  output = a%contents - b%contents
+end function
+
+elemental function subtract_RealVector_RealVector(a,b) result(output)
+  implicit none
+  
+  type(RealVector), intent(in) :: a
+  type(RealVector), intent(in) :: b
+  type(RealVector)             :: output
+  
+  output = a%contents - b%contents
+end function
+
+elemental function subtract_IntMatrix_IntMatrix(a,b) result(output)
+  implicit none
+  
+  type(IntMatrix), intent(in) :: a
+  type(IntMatrix), intent(in) :: b
+  type(IntMatrix)             :: output
+  
+  output = a%contents - b%contents
+end function
+
+elemental function subtract_RealMatrix_RealMatrix(a,b) result(output)
+  implicit none
+  
+  type(RealMatrix), intent(in) :: a
+  type(RealMatrix), intent(in) :: b
+  type(RealMatrix)             :: output
+  
+  output = a%contents - b%contents
+end function
+
+! Multiplication by a scalar.
+pure function multiply_IntVector_integer(a,b) result(output)
+  implicit none
+  
+  type(IntVector), intent(in) :: a
+  integer,         intent(in) :: b
+  type(IntVector)             :: output
+  
+  output = a%contents*b
+end function
+
+pure function multiply_integer_IntVector(a,b) result(output)
+  implicit none
+  
+  integer,         intent(in) :: a
+  type(IntVector), intent(in) :: b
+  type(IntVector)             :: output
+  
+  output = a*b%contents
+end function
+
+pure function multiply_IntVector_real(a,b) result(output)
+  implicit none
+  
+  type(IntVector), intent(in) :: a
+  real(dp),        intent(in) :: b
+  type(RealVector)            :: output
+  
+  output = a%contents*b
+end function
+
+pure function multiply_real_IntVector(a,b) result(output)
+  implicit none
+  
+  real(dp),        intent(in) :: a
+  type(IntVector), intent(in) :: b
+  type(RealVector)            :: output
+  
+  output = a*b%contents
+end function
+
+pure function multiply_RealVector_integer(a,b) result(output)
+  implicit none
+  
+  type(RealVector), intent(in) :: a
+  integer,          intent(in) :: b
+  type(RealVector)             :: output
+  
+  output = a%contents*b
+end function
+
+pure function multiply_integer_RealVector(a,b) result(output)
+  implicit none
+  
+  integer,          intent(in) :: a
+  type(RealVector), intent(in) :: b
+  type(RealVector)             :: output
+  
+  output = a*b%contents
+end function
+
+pure function multiply_RealVector_real(a,b) result(output)
+  implicit none
+  
+  type(RealVector), intent(in) :: a
+  real(dp),         intent(in) :: b
+  type(RealVector)             :: output
+  
+  output = a%contents*b
+end function
+
+pure function multiply_real_RealVector(a,b) result(output)
+  implicit none
+  
+  real(dp),         intent(in) :: a
+  type(RealVector), intent(in) :: b
+  type(RealVector)             :: output
+  
+  output = a*b%contents
+end function
+
+pure function multiply_IntMatrix_integer(a,b) result(output)
+  implicit none
+  
+  type(IntMatrix), intent(in) :: a
+  integer,         intent(in) :: b
+  type(IntMatrix)             :: output
+  
+  output = a%contents*b
+end function
+
+pure function multiply_integer_IntMatrix(a,b) result(output)
+  implicit none
+  
+  integer,         intent(in) :: a
+  type(IntMatrix), intent(in) :: b
+  type(IntMatrix)             :: output
+  
+  output = a*b%contents
+end function
+
+pure function multiply_IntMatrix_real(a,b) result(output)
+  implicit none
+  
+  type(IntMatrix), intent(in) :: a
+  real(dp),        intent(in) :: b
+  type(RealMatrix)            :: output
+  
+  output = a%contents*b
+end function
+
+pure function multiply_real_IntMatrix(a,b) result(output)
+  implicit none
+  
+  real(dp),        intent(in) :: a
+  type(IntMatrix), intent(in) :: b
+  type(RealMatrix)            :: output
+  
+  output = a*b%contents
+end function
+
+pure function multiply_RealMatrix_integer(a,b) result(output)
+  implicit none
+  
+  type(RealMatrix), intent(in) :: a
+  integer,          intent(in) :: b
+  type(RealMatrix)             :: output
+  
+  output = a%contents*b
+end function
+
+pure function multiply_integer_RealMatrix(a,b) result(output)
+  implicit none
+  
+  integer,          intent(in) :: a
+  type(RealMatrix), intent(in) :: b
+  type(RealMatrix)             :: output
+  
+  output = a*b%contents
+end function
+
+pure function multiply_RealMatrix_real(a,b) result(output)
+  implicit none
+  
+  type(RealMatrix), intent(in) :: a
+  real(dp),         intent(in) :: b
+  type(RealMatrix)             :: output
+  
+  output = a%contents*b
+end function
+
+pure function multiply_real_RealMatrix(a,b) result(output)
+  implicit none
+  
+  real(dp),         intent(in) :: a
+  type(RealMatrix), intent(in) :: b
+  type(RealMatrix)             :: output
+  
+  output = a*b%contents
+end function
+
+! Dot products and matrix multiplication.
+elemental function dot_IntVector_IntVector(a,b) result(output)
+  implicit none
+  
+  type(IntVector), intent(in) :: a
+  type(IntVector), intent(in) :: b
+  integer                     :: output
+  
+  output = dot_product(a%contents, b%contents)
+end function
+
+elemental function dot_IntVector_RealVector(a,b) result(output)
+  implicit none
+  
+  type(IntVector),  intent(in) :: a
+  type(RealVector), intent(in) :: b
+  real(dp)                     :: output
+  
+  output = dot_product(a%contents, b%contents)
+end function
+
+elemental function dot_RealVector_IntVector(a,b) result(output)
+  implicit none
+  
+  type(RealVector), intent(in) :: a
+  type(IntVector),  intent(in) :: b
+  real(dp)                     :: output
+  
+  output = dot_product(a%contents, b%contents)
+end function
+
+elemental function dot_RealVector_RealVector(a,b) result(output)
+  implicit none
+  
+  type(RealVector), intent(in) :: a
+  type(RealVector), intent(in) :: b
+  real(dp)                     :: output
+  
+  output = dot_product(a%contents, b%contents)
+end function
+
+elemental function dot_IntVector_IntMatrix(a,b) result(output)
+  implicit none
+  
+  type(IntVector), intent(in) :: a
+  type(IntMatrix), intent(in) :: b
+  type(IntVector)             :: output
+  
+  output = matmul(a%contents, b%contents)
+end function
+
+elemental function dot_IntVector_RealMatrix(a,b) result(output)
+  implicit none
+  
+  type(IntVector),  intent(in) :: a
+  type(RealMatrix), intent(in) :: b
+  type(RealVector)             :: output
+  
+  output = matmul(a%contents, b%contents)
+end function
+
+elemental function dot_RealVector_IntMatrix(a,b) result(output)
+  implicit none
+  
+  type(RealVector), intent(in) :: a
+  type(IntMatrix),  intent(in) :: b
+  type(RealVector)             :: output
+  
+  output = matmul(a%contents, b%contents)
+end function
+
+elemental function dot_RealVector_RealMatrix(a,b) result(output)
+  implicit none
+  
+  type(RealVector), intent(in) :: a
+  type(RealMatrix), intent(in) :: b
+  type(RealVector)             :: output
+  
+  output = matmul(a%contents, b%contents)
+end function
+
+elemental function dot_IntMatrix_IntVector(a,b) result(output)
+  implicit none
+  
+  type(IntMatrix), intent(in) :: a
+  type(IntVector), intent(in) :: b
+  type(IntVector)             :: output
+  
+  output = matmul(a%contents, b%contents)
+end function
+
+elemental function dot_IntMatrix_RealVector(a,b) result(output)
+  implicit none
+  
+  type(IntMatrix),  intent(in) :: a
+  type(RealVector), intent(in) :: b
+  type(RealVector)             :: output
+  
+  output = matmul(a%contents, b%contents)
+end function
+
+elemental function dot_RealMatrix_IntVector(a,b) result(output)
+  implicit none
+  
+  type(RealMatrix), intent(in) :: a
+  type(IntVector),  intent(in) :: b
+  type(RealVector)             :: output
+  
+  output = matmul(a%contents, b%contents)
+end function
+
+elemental function dot_RealMatrix_RealVector(a,b) result(output)
+  implicit none
+  
+  type(RealMatrix), intent(in) :: a
+  type(RealVector), intent(in) :: b
+  type(RealVector)             :: output
+  
+  output = matmul(a%contents, b%contents)
+end function
+
+elemental function dot_IntMatrix_IntMatrix(a,b) result(output)
+  implicit none
+  
+  type(IntMatrix), intent(in) :: a
+  type(IntMatrix), intent(in) :: b
+  type(IntMatrix)             :: output
+  
+  output = matmul(a%contents, b%contents)
+end function
+
+elemental function dot_IntMatrix_RealMatrix(a,b) result(output)
+  implicit none
+  
+  type(IntMatrix),  intent(in) :: a
+  type(RealMatrix), intent(in) :: b
+  type(RealMatrix)             :: output
+  
+  output = matmul(a%contents, b%contents)
+end function
+
+elemental function dot_RealMatrix_IntMatrix(a,b) result(output)
+  implicit none
+  
+  type(RealMatrix), intent(in) :: a
+  type(IntMatrix),  intent(in) :: b
+  type(RealMatrix)             :: output
+  
+  output = matmul(a%contents, b%contents)
+end function
+
+elemental function dot_RealMatrix_RealMatrix(a,b) result(output)
+  implicit none
+  
+  type(RealMatrix), intent(in) :: a
+  type(RealMatrix), intent(in) :: b
+  type(RealMatrix)             :: output
+  
+  output = matmul(a%contents, b%contents)
+end function
+
+! Division by scalar.
+elemental function divide_IntVector_integer(a,b) result(output)
+  implicit none
+  
+  type(IntVector), intent(in) :: a
+  integer,         intent(in) :: b
+  type(IntVector)             :: output
+  
+  output = a%contents/b
+end function
+
+elemental function divide_IntVector_real(a,b) result(output)
+  implicit none
+  
+  type(IntVector), intent(in) :: a
+  real(dp),        intent(in) :: b
+  type(RealVector)            :: output
+  
+  output = a%contents/b
+end function
+
+elemental function divide_RealVector_integer(a,b) result(output)
+  implicit none
+  
+  type(RealVector), intent(in) :: a
+  integer,          intent(in) :: b
+  type(RealVector)             :: output
+  
+  output = a%contents/b
+end function
+
+elemental function divide_RealVector_real(a,b) result(output)
+  implicit none
+  
+  type(RealVector), intent(in) :: a
+  real(dp),         intent(in) :: b
+  type(RealVector)             :: output
+  
+  output = a%contents/b
+end function
+
+elemental function divide_IntMatrix_integer(a,b) result(output)
+  implicit none
+  
+  type(IntMatrix), intent(in) :: a
+  integer,         intent(in) :: b
+  type(IntMatrix)             :: output
+  
+  output = a%contents/b
+end function
+
+elemental function divide_IntMatrix_real(a,b) result(output)
+  implicit none
+  
+  type(IntMatrix), intent(in) :: a
+  real(dp),        intent(in) :: b
+  type(RealMatrix)            :: output
+  
+  output = a%contents/b
+end function
+
+elemental function divide_RealMatrix_integer(a,b) result(output)
+  implicit none
+  
+  type(RealMatrix), intent(in) :: a
+  integer,          intent(in) :: b
+  type(RealMatrix)             :: output
+  
+  output = a%contents/b
+end function
+
+elemental function divide_RealMatrix_real(a,b) result(output)
+  implicit none
+  
+  type(RealMatrix), intent(in) :: a
+  real(dp),         intent(in) :: b
+  type(RealMatrix)             :: output
+  
+  output = a%contents/b
+end function
+
+! L2 norm.
+elemental function l2_norm_RealVector(input) result(output)
+  implicit none
+  
+  type(RealVector), intent(in) :: input
+  real(dp)                     :: output
+  
+  output = sqrt(input*input)
+end function
+
+! Outer product.
+function outer_product_RealVector_RealVector(a,b) result(output)
+  implicit none
+  
+  type(RealVector), intent(in) :: a
+  type(RealVector), intent(in) :: b
+  type(RealMatrix)             :: output
+  
+  integer               :: i,ialloc
+  
+  allocate(output%contents(size(a),size(b)), stat=ialloc); call err(ialloc)
+  do i=1,size(b)
+    output%contents(:,i) = a%contents*b%contents(i)
+  enddo
+end function
+
+! Transpose.
+elemental function transpose_IntMatrix(input) result(output)
+  implicit none
+  
+  type(IntMatrix), intent(in) :: input
+  type(IntMatrix)             :: output
+  
+  output = transpose(input%contents)
+end function
+
+elemental function transpose_RealMatrix(input) result(output)
+  implicit none
+  
+  type(RealMatrix), intent(in) :: input
+  type(RealMatrix)             :: output
+  
+  output = transpose(input%contents)
+end function
+
+! Determinant. (3x3 only)
 function determinant_integer(A) result(determinant)
   implicit none
   
@@ -206,11 +1133,26 @@ function determinant_real(A) result(determinant)
             & + A(1,3)*(A(2,1)*A(3,2)-A(2,2)*A(3,1))
 end function
 
-! ----------------------------------------
-! calculates the inverse, B, of matrix A
-! A and B are real, 3x3 matrices
-! ----------------------------------------
-function invert(A) result(B)
+function determinant_IntMatrix(input) result(output)
+  implicit none
+  
+  type(IntMatrix), intent(in) :: input
+  integer                     :: output
+  
+  output = determinant(input%contents)
+end function
+
+function determinant_RealMatrix(input) result(output)
+  implicit none
+  
+  type(RealMatrix), intent(in) :: input
+  real(dp)                     :: output
+  
+  output = determinant(input%contents)
+end function
+
+! calculates the inverse, B, of matrix A. Both are 3x3 matrices.
+function invert_real(A) result(B)
   implicit none
   
   real(dp), intent(in)  :: A(:,:)
@@ -245,11 +1187,17 @@ function invert(A) result(B)
   B(3,3) = (C(1,1)*C(2,2)-C(1,2)*C(2,1))*d
 end function
 
-! ----------------------------------------
-! Calculates B=inverse(A)*|det(A)|
-! A and B are 3x3 integer matrices
-! ----------------------------------------
-function invert_int(A) result(B)
+function invert_RealMatrix(input) result(output)
+  implicit none
+  
+  type(RealMatrix), intent(in) :: input
+  type(RealMatrix)             :: output
+  
+  output = invert(input%contents)
+end function
+
+! Calculates B=invert(A)*|det(A)|
+function invert_int_integer(A) result(B)
   implicit none
   
   integer, intent(in)  :: A(:,:)
@@ -277,6 +1225,122 @@ function invert_int(A) result(B)
   B(3,2) = (C(1,3)*C(2,1)-C(1,1)*C(2,3))*d
   B(3,3) = (C(1,1)*C(2,2)-C(1,2)*C(2,1))*d
 end function
+
+function invert_int_IntMatrix(input) result(output)
+  implicit none
+  
+  type(IntMatrix), intent(in) :: input
+  type(IntMatrix)             :: output
+  
+  output = invert_int(input%contents)
+end function
+
+! Print functions.
+subroutine print_line_IntVector(input)
+  implicit none
+  
+  type(IntVector), intent(in) :: input
+  
+  call print_line(input%contents)
+end subroutine
+
+subroutine print_line_IntVector_file(file_unit,input)
+  implicit none
+  
+  integer,         intent(in) :: file_unit
+  type(IntVector), intent(in) :: input
+  
+  call print_line(file_unit, input%contents)
+end subroutine
+
+subroutine print_line_RealVector(input)
+  implicit none
+  
+  type(RealVector), intent(in) :: input
+  
+  call print_line(input%contents)
+end subroutine
+
+subroutine print_line_RealVector_file(file_unit,input)
+  implicit none
+  
+  integer,          intent(in) :: file_unit
+  type(RealVector), intent(in) :: input
+  
+  call print_line(file_unit, input%contents)
+end subroutine
+
+subroutine print_line_IntMatrix(input)
+  implicit none
+  
+  type(IntMatrix), intent(in) :: input
+  
+  integer :: i
+  
+  do i=1,size(input,1)
+    call print_line(input%contents(i,:))
+  enddo
+end subroutine
+
+subroutine print_line_IntMatrix_file(input,file_unit)
+  implicit none
+  
+  integer,         intent(in) :: file_unit
+  type(IntMatrix), intent(in) :: input
+  
+  integer :: i
+  
+  do i=1,size(input,1)
+    call print_line(file_unit, input%contents(i,:))
+  enddo
+end subroutine
+
+subroutine print_line_RealMatrix(input)
+  implicit none
+  
+  type(RealMatrix), intent(in) :: input
+  
+  integer :: i
+  
+  do i=1,size(input,1)
+    call print_line(input%contents(i,:))
+  enddo
+end subroutine
+
+subroutine print_line_RealMatrix_file(input,file_unit)
+  implicit none
+  
+  integer,          intent(in) :: file_unit
+  type(RealMatrix), intent(in) :: input
+  
+  integer :: i
+  
+  do i=1,size(input,1)
+    call print_line(file_unit, input%contents(i,:))
+  enddo
+end subroutine
+
+! ----------------------------------------
+! Returns the number of states of an Eigenstuff
+! ----------------------------------------
+pure function size_RealEigenstuff(estuff) result(output)
+  implicit none
+  
+  type(RealEigenstuff), intent(in) :: estuff
+  integer                          :: output
+  
+  output = size(estuff%evals)
+end function
+
+pure function size_ComplexEigenstuff(estuff) result(output)
+  implicit none
+  
+  type(ComplexEigenstuff), intent(in) :: estuff
+  integer                             :: output
+  
+  output = size(estuff%evals)
+end function
+
 
 ! Calculates the eigenvalues and eigenvectors of a real, symmetric matrix
 function calculate_RealEigenstuff(input) result(output)

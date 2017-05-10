@@ -1,0 +1,148 @@
+! ======================================================================
+! Runs tests on linear_algebra.
+! ======================================================================
+module linear_algebra_test_module
+  use constants_module, only : dp
+  use string_module
+  use io_module
+contains
+
+! ----------------------------------------------------------------------
+! Generates keywords and helptext.
+! ----------------------------------------------------------------------
+function linear_algebra_test_keywords() result(keywords)
+  use help_module
+  implicit none
+  
+  type(KeywordData) :: keywords(0)
+end function
+
+! ----------------------------------------------------------------------
+! Main program.
+! ----------------------------------------------------------------------
+subroutine linear_algebra_test(arguments)
+  use linear_algebra_module
+  use dictionary_module
+  implicit none
+  
+  type(Dictionary), intent(in) :: arguments
+  
+  ! Working directory.
+  type(String) :: wd
+  
+  ! Working variables.
+  type(IntVector)  :: iv1,iv2
+  type(RealVector) :: rv1,rv2
+  type(IntMatrix)  :: im1,im2
+  type(RealMatrix) :: rm1,rm2
+  
+  wd = item(arguments, 'working_directory')
+  
+  iv1 = [ 2,3,-1 ]
+  iv2 = [ 1,-2,3 ]
+  
+  if (iv1/=iv1) then
+    call err()
+  elseif (iv1==iv2) then
+    call err()
+  elseif (iv1*iv2/=-7) then
+    call err()
+  elseif (-iv1*iv2/=7) then
+    call err()
+  endif
+  
+  rv1 = [ 1.0_dp, 0.5_dp, -1.0_dp ]
+  rv2 = [ 3.0_dp, -0.3_dp, 1.0_dp ]
+  
+  if (abs(rv1*rv2-1.85_dp)>1.0e-10_dp) then
+    call err()
+  elseif (abs(l2_norm(rv1)-sqrt(2.25_dp))>1.0e-10_dp) then
+    call err()
+  endif
+  
+  im1 = mat( [ 1,  1,  2, &
+             & 2,  1, -3, &
+             & 1, -2, -1  ], 3,3)
+  
+  if (im1*iv1 /= [ 3, 10, -3 ]) then
+    call err()
+  elseif (iv1*im1 /= [ 7, 7, -4]) then
+    call err()
+  elseif (determinant(im1) /= -18) then
+    call err()
+  elseif ( im1*invert_int(im1) /= &
+         & abs(determinant(im1))*mat([1,0,0,0,1,0,0,0,1],3,3)) then
+    call err()
+  endif
+  
+  im2 = mat( [  2,  2, 4, &
+             &  4, -2, 4, &
+             & -2,  4, 2  ], 3,3)
+  
+  if (im2/2 /= mat([  1, 1, 2, &
+                   &  2,-1, 2, &
+                   & -1, 2, 1  ],3,3)) then
+    call err()
+  elseif (im1*im2 /= mat([   2,   8,  12, &
+                         &  14, -10,   6, &
+                         & - 4,   2, - 6  ], 3,3)) then
+    im1 = im1*im2
+    call err()
+  elseif (iv1*im1*iv2 /= -19) then
+    call err()
+  endif
+  
+  rm1 = mat( [ 1.0_dp, 0.0_dp, 1.0_dp, &
+             & 0.0_dp, 2.0_dp, 0.0_dp, &
+             & 0.0_dp, 1.0_dp, 1.0_dp  ], 3,3)
+  
+  rm2 = rm1 * mat( [ 0.0_dp, 1.0_dp, 0.0_dp, &
+                   & 0.5_dp, 0.0_dp, 1.0_dp, &
+                   & 1.0_dp, 0.5_dp, 0.0_dp  ], 3,3)
+  
+  if ( l2_norm( vec([1,0,0])*rm2 &
+            & - vec([1.0_dp,1.5_dp,0.0_dp])) > 1.0e-10_dp ) then
+    call err()
+  elseif ( l2_norm( vec([0,1,0])*rm2 &
+                & - vec([1.0_dp,0.0_dp,2.0_dp])) > 1.0e-10_dp ) then
+    call err()
+  elseif ( l2_norm( vec([0,0,1])*rm2 &
+                & - vec([1.5_dp,0.5_dp,1.0_dp])) > 1.0e-10_dp ) then
+    call err()
+  endif
+  
+  rv1 = [ 1.0_dp, 0.5_dp, -1.0_dp ]
+  rv2 = [ 3.0_dp, -0.3_dp, 1.0_dp ]
+  rm2 = outer_product(rv1,rv2) - mat([  3.0_dp,  1.5_dp , -3.0_dp, &
+                                     & -0.3_dp, -0.15_dp,  0.3_dp, &
+                                     &  1.0_dp,  0.5_dp , -1.0_dp  ], 3,3)
+  rm2 = outer_product(rv1,rv2)
+  if ( l2_norm( vec([1,0,0])*rm2 &
+            & - vec([3.0_dp,-0.3_dp,1.0_dp])) > 1.0e-10_dp ) then
+    call err()
+  elseif ( l2_norm( vec([0,1,0])*rm2 &
+                & - vec([1.5_dp,-0.15_dp,0.5_dp])) > 1.0e-10_dp ) then
+    call err()
+  elseif ( l2_norm( vec([0,0,1])*rm2 &
+                & - vec([-3.0_dp,0.3_dp,-1.0_dp])) > 1.0e-10_dp ) then
+    call err()
+  endif
+  
+  rm2 = rm1*invert(rm1)
+  rv2 = vec([1.0_dp,0.0_dp,0.0_dp])
+  if (abs(rv2*rm2*rv2-1.0_dp) > 1.0e-10_dp) then
+    call err()
+  endif
+  rv2 = vec([0.0_dp,1.0_dp,0.0_dp])
+  if (abs(rv2*rm2*rv2-1.0_dp) > 1.0e-10_dp) then
+    call err()
+  endif
+  rv2 = vec([0.0_dp,0.0_dp,1.0_dp])
+  if (abs(rv2*rm2*rv2-1.0_dp) > 1.0e-10_dp) then
+    call err()
+  endif
+  
+  call print_line('')
+  call print_line('All tests succesful.')
+end subroutine
+end module

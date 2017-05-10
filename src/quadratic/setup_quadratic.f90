@@ -16,13 +16,11 @@ function setup_quadratic_keywords() result(keywords)
   use help_module
   implicit none
   
-  type(KeywordData) :: keywords(6)
+  type(KeywordData) :: keywords(5)
   
   keywords = [                                                                &
   & make_keyword('dft_code', 'castep', 'dft_code is the DFT code used to &
      &calculate energies. Settings are: castep vasp qe.'),                    &
-  & make_keyword('seedname', NO_ARGUMENT, 'seedname is the DFT seedname from &
-     &which file names are constructed.'),                                    &
   & make_keyword('harmonic_path', '.', 'harmonic_path is the path to the &
      &directory where harmonic calculations were run.', is_path=.true.),      &
   & make_keyword('temperature', '0', 'temperature is the temperature, in &
@@ -58,11 +56,14 @@ subroutine setup_quadratic(arguments)
   
   ! User inputs
   type(String) :: dft_code      ! The dft code name (castep,vasp,qe).
-  type(String) :: seedname      ! The dft input file seedname.
   type(String) :: harmonic_path ! The path to the harmonic directory.
   real(dp)     :: temperature
   integer      :: no_samples
   real(dp)     :: displacement
+  
+  ! Previous user inputs.
+  type(Dictionary) :: setup_harmonic_arguments
+  type(String) :: seedname
   
   real(dp) :: thermal_energy
   
@@ -95,18 +96,24 @@ subroutine setup_quadratic(arguments)
   ! Files
   type(String), allocatable :: no_sc_file(:)
   
-  ! ------------------------------------------------------------
+  ! --------------------------------------------------
   ! Get settings from user.
-  ! ------------------------------------------------------------
+  ! --------------------------------------------------
   wd = item(arguments, 'working_directory')
   dft_code = item(arguments, 'dft_code')
-  seedname = item(arguments, 'seedname')
   harmonic_path = item(arguments, 'harmonic_path')
   temperature = dble(item(arguments, 'temperature'))
   no_samples = int(item(arguments, 'no_samples'))
   displacement = dble(item(arguments, 'displacement'))
   
   thermal_energy  = temperature*kb_in_au
+  
+  ! --------------------------------------------------
+  ! Read in previous settings.
+  ! --------------------------------------------------
+  setup_harmonic_arguments = read_dictionary_file( &
+     & harmonic_path//'/setup_harmonic.used_settings')
+  seedname = item(setup_harmonic_arguments, 'seedname')
   
   ! Check code is supported
   if (dft_code=="vasp") then
@@ -122,7 +129,7 @@ subroutine setup_quadratic(arguments)
   
   ! Check dft input files exist
   dft_input_filename = make_dft_input_filename(dft_code,seedname)
-  dft_input_filename = wd//'/'//dft_code//'/'//dft_input_filename
+  dft_input_filename = wd//'/'//dft_input_filename
   
   if (.not. file_exists(dft_input_filename)) then
     call print_line("Error: The input file "//dft_input_filename// &
@@ -176,7 +183,7 @@ subroutine setup_quadratic(arguments)
     call StructureData_to_dft_input_file(            &
        & dft_code,                                   &
        & supercells(i),                           &
-       & wd//'/'//dft_code//'/'//dft_input_filename, &
+       & wd//'/'//dft_input_filename, &
        & sdir//'/'//dft_input_filename)
   enddo
   
