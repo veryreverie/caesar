@@ -2,11 +2,12 @@ module qpoints_module
   use constants_module, only : dp
   use string_module
   use io_module
+  use linear_algebra_module
   implicit none
   
   type QpointData
     ! The q-point in fractional primitive reciprocal space co-ordinates.
-    real(dp)             :: qpoint(3)
+    type(RealVector)     :: qpoint
     ! The id of the supercell in which this q-point is a G-vector, and the
     !    id of that G-vector in said supercell.
     integer              :: sc_id

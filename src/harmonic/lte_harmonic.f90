@@ -103,8 +103,7 @@ end function
 ! ----------------------------------------------------------------------
 function construct_force_constants(forces,supercell,unique_directions, &
    & symmetry_group) result(output)
-  use utils_module,          only : outer_product
-  use linear_algebra_module, only : invert
+  use linear_algebra_module
   use structure_module
   use unique_directions_module
   use group_module
@@ -121,21 +120,21 @@ function construct_force_constants(forces,supercell,unique_directions, &
   integer :: mode_1, mode_2
   
   ! Rotations in cartesian co-ordinates.
-  real(dp), allocatable :: rotations_cart(:,:,:)
+  type(RealMatrix), allocatable :: rotations_cart(:)
   
   ! Parts of |x> and |f>.
-  real(dp) :: x(3)
-  real(dp) :: f(3)
+  type(RealVector) :: x
+  type(RealVector) :: f
   
   ! sum(s)[ |fs><xs| ].
-  real(dp), allocatable :: fx(:,:,:,:)
+  type(RealMatrix), allocatable :: fx(:,:)
   
   ! sum(s)[ |xs><xs| ] (diagonal blocks only).
-  real(dp), allocatable :: xx(:,:,:)
-  real(dp), allocatable :: xx_inverse(:,:,:)
+  type(RealMatrix), allocatable :: xx(:)
+  type(RealMatrix), allocatable :: xx_inverse(:)
   
   ! Force constants, F.
-  real(dp), allocatable :: force_constants(:,:,:,:)
+  type(RealMatrix), allocatable :: force_constants(:,:)
   
   ! R-vector information.
   type(Group), allocatable :: rvector_group(:)
@@ -154,28 +153,37 @@ function construct_force_constants(forces,supercell,unique_directions, &
   ! --------------------------------------------------
   ! Construct xx and fx.
   ! --------------------------------------------------
-  allocate( xx(3,3,supercell%no_atoms),                       &
-            fx(3,3,supercell%no_atoms,supercell%no_atoms), &
+  allocate( xx(supercell%no_atoms),                    &
+            fx(supercell%no_atoms,supercell%no_atoms), &
           & stat=ialloc); call err(ialloc)
-  xx = 0.0_dp
-  fx = 0.0_dp
+  xx = mat([ 0.0_dp,0.0_dp,0.0_dp, &
+           & 0.0_dp,0.0_dp,0.0_dp, &
+           & 0.0_dp,0.0_dp,0.0_dp], 3,3)
+  fx = mat([ 0.0_dp,0.0_dp,0.0_dp, &
+           & 0.0_dp,0.0_dp,0.0_dp, &
+           & 0.0_dp,0.0_dp,0.0_dp], 3,3)
   do i=1,supercell%no_symmetries
     do j=1,size(unique_directions)
       atom_1 = unique_directions%atoms(j)
       atom_1p = operate(symmetry_group(i), atom_1)
       
-      x = [ 0.0_dp,0.0_dp,0.0_dp ]
-      x(unique_directions%directions_int(j)) = 1.0_dp
-      x = matmul(rotations_cart(:,:,i), x)
+      if (unique_directions%directions_char(j)=='x') then
+        x = [ 1.0_dp, 0.0_dp, 0.0_dp ]
+      elseif (unique_directions%directions_char(j)=='y') then
+        x = [ 0.0_dp, 1.0_dp, 0.0_dp ]
+      else
+        x = [ 0.0_dp, 0.0_dp, 1.0_dp ]
+      endif
+      x = rotations_cart(i) * x
       
-      xx(:,:,atom_1p) = xx(:,:,atom_1p) + outer_product(x,x)
+      xx(atom_1p) = xx(atom_1p) + outer_product(x,x)
       
       do atom_2=1,supercell%no_atoms
         atom_2p = operate(symmetry_group(i), atom_2)
         
-        f = matmul(rotations_cart(:,:,i), forces(:,atom_2,j))
+        f = rotations_cart(i) * vec(forces(:,atom_2,j))
         
-        fx(:,:,atom_1p,atom_2p) = fx(:,:,atom_1p,atom_2p) + outer_product(f,x)
+        fx(atom_1p,atom_2p) = fx(atom_1p,atom_2p) + outer_product(f,x)
       enddo
     enddo
   enddo
@@ -183,19 +191,19 @@ function construct_force_constants(forces,supercell,unique_directions, &
   ! --------------------------------------------------
   ! Construct xx_inverse.
   ! --------------------------------------------------
-  allocate(xx_inverse(3,3,supercell%no_atoms),stat=ialloc); call err(ialloc)
+  allocate(xx_inverse(supercell%no_atoms),stat=ialloc); call err(ialloc)
   do i=1,supercell%no_atoms
-    xx_inverse(:,:,i) = invert(xx(:,:,i))
+    xx_inverse(i) = invert(xx(i))
   enddo
   
   ! --------------------------------------------------
   ! Construct F.
   ! --------------------------------------------------
-  allocate(force_constants(3,3,supercell%no_atoms,supercell%no_atoms), &
+  allocate(force_constants(supercell%no_atoms,supercell%no_atoms), &
      & stat=ialloc); call err(ialloc)
   do i=1,supercell%no_atoms
     do j=1,supercell%no_atoms
-      force_constants(:,:,j,i) = matmul(fx(:,:,j,i), xx_inverse(:,:,i))
+      force_constants(j,i) = fx(j,i) * xx_inverse(i)
     enddo
   enddo
   
@@ -204,10 +212,10 @@ function construct_force_constants(forces,supercell,unique_directions, &
   ! --------------------------------------------------
   do i=1,supercell%no_atoms
     do j=1,supercell%no_atoms
-      force_constants(:,:,j,i) = ( force_constants(:,:,j,i)            &
-                               & + transpose(force_constants(:,:,i,j)) &
-                               & ) / 2.0_dp
-      force_constants(:,:,i,j) = transpose(force_constants(:,:,i,j))
+      force_constants(j,i) = ( force_constants(j,i)            &
+                         & + transpose(force_constants(i,j)) &
+                         & ) / 2.0_dp
+      force_constants(i,j) = transpose(force_constants(i,j))
     enddo
   enddo
   
@@ -237,7 +245,7 @@ function construct_force_constants(forces,supercell,unique_directions, &
       
       output(rvector,mode_1:mode_1+2,mode_2:mode_2+2) = &
          &   output(rvector,mode_1:mode_1+2,mode_2:mode_2+2) &
-         & + force_constants(:,:,atom_1,atom_2)
+         & + dble(force_constants(atom_1,atom_2))
     enddo
   enddo
   

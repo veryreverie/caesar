@@ -5,6 +5,7 @@ module structure_module
   use constants_module, only : dp
   use string_module
   use io_module
+  use linear_algebra_module
   implicit none
   
   private
@@ -27,20 +28,20 @@ module structure_module
     ! ------------------------------
     ! Lattice data
     ! ------------------------------
-    real(dp)                  :: lattice(3,3)
-    real(dp)                  :: recip_lattice(3,3)
-    real(dp)                  :: volume
+    type(RealMatrix) :: lattice
+    type(RealMatrix) :: recip_lattice
+    real(dp)         :: volume
     
     ! ------------------------------
     ! Atom data
     ! ------------------------------
-    integer                   :: no_atoms
-    integer                   :: no_atoms_prim
-    integer                   :: no_modes
-    integer                   :: no_modes_prim
-    type(String), allocatable :: species(:)
-    real(dp),     allocatable :: mass(:)
-    real(dp),     allocatable :: atoms(:,:)
+    integer                       :: no_atoms
+    integer                       :: no_atoms_prim
+    integer                       :: no_modes
+    integer                       :: no_modes_prim
+    type(String),     allocatable :: species(:)
+    real(dp),         allocatable :: mass(:)
+    type(RealVector), allocatable :: atoms(:)
     
     ! ------------------------------
     ! Conversions between atom representations.
@@ -58,29 +59,31 @@ module structure_module
     ! ------------------------------
     ! Symmetry data (in fractional co-ordinates).
     ! ------------------------------
-    integer                   :: no_symmetries
-    integer,      allocatable :: rotations(:,:,:)
-    real(dp),     allocatable :: translations(:,:)
+    integer                       :: no_symmetries
+    type(IntMatrix),  allocatable :: rotations(:)
+    type(RealVector), allocatable :: translations(:)
     
     ! ------------------------------
     ! Superell data
     ! ------------------------------
     ! The number of primitive cells in the supercell.
-    integer                   :: sc_size
+    integer :: sc_size
+    
     ! The lattice vectors of the supercell,
     !    in fractional primitive cell co-ordinates.
-    integer                   :: supercell(3,3)
-    ! inverse(transpose(supercell))
-    integer                   :: recip_supercell(3,3)
+    type(IntMatrix) :: supercell
+    
+    ! invert_int(transpose(supercell))
+    type(IntMatrix) :: recip_supercell
     
     ! The R-vectors of the primitive cell which are not related by supercell
     !    lattice vectors.
-    integer, allocatable :: rvectors(:,:)
+    type(IntVector), allocatable :: rvectors(:)
     ! The ID of the R-vector, j, s.t. rvectors(:,i) + rvectors(:,j) = 0.
     integer, allocatable :: paired_rvec(:)
     ! The G-vectors of the reciprocal supercell which are not related by
     !    primitive reciprocal cell vectors.
-    integer, allocatable :: gvectors(:,:)
+    type(IntVector), allocatable :: gvectors(:)
     ! The ID of the G-vector, j, s.t. gvectors(:,i) + gvectors(:,j) = 0.
     integer, allocatable :: paired_gvec(:)
   end type
@@ -164,7 +167,7 @@ subroutine new_StructureData(this,no_atoms,no_symmetries,sc_size)
   this%no_modes_prim = no_atoms*3/sc_size
   allocate( this%species(no_atoms),                               &
           & this%mass(no_atoms),                                  &
-          & this%atoms(3,no_atoms),                               &
+          & this%atoms(no_atoms),                                 &
           & this%atom_to_prim(no_atoms),                          &
           & this%atom_to_rvec(no_atoms),                          &
           & this%rvec_and_prim_to_atom(no_atoms/sc_size,sc_size), &
@@ -181,15 +184,15 @@ subroutine new_StructureData(this,no_atoms,no_symmetries,sc_size)
   
   this%no_symmetries = no_symmetries
   if (no_symmetries /= 0) then
-    allocate( this%rotations(3,3,no_symmetries),  &
-            & this%translations(3,no_symmetries), &
+    allocate( this%rotations(no_symmetries),    &
+            & this%translations(no_symmetries), &
             & stat=ialloc); call err(ialloc)
   endif
   
   this%sc_size = sc_size
-  allocate( this%rvectors(3,sc_size),  &
+  allocate( this%rvectors(sc_size),    &
           & this%paired_rvec(sc_size), &
-          & this%gvectors(3,sc_size),  &
+          & this%gvectors(sc_size),    &
           & this%paired_gvec(sc_size), &
           & stat=ialloc); call err(ialloc)
 end subroutine
@@ -206,8 +209,6 @@ function read_structure_file(filename) result(this)
   type(StructureData)      :: this
   
   type(String), allocatable :: structure_file(:)
-  type(String), allocatable :: line(:)
-  integer                   :: i,j
   integer                   :: no_atoms
   integer                   :: no_symmetries
   integer                   :: sc_size
@@ -220,6 +221,12 @@ function read_structure_file(filename) result(this)
   integer :: rvectors_line  ! The line "R-vectors"
   integer :: gvectors_line  ! The line "G-vectors"
   integer :: end_line       ! The line "End"
+  
+  ! Temproary variables.
+  integer                   :: i,j
+  type(String), allocatable :: line(:)
+  real(dp)                  :: temp_real(3,3)
+  integer                   :: temp_int(3,3)
   
   ! ------------------------------
   ! Initialise line numbers.
@@ -319,39 +326,40 @@ function read_structure_file(filename) result(this)
   ! Read file into arrays.
   ! ------------------------------
   do i=1,3
-    this%lattice(i,:) = dble(split(structure_file(lattice_line+i)))
+    temp_real(1,:) = dble(split(structure_file(lattice_line+i)))
   enddo
+  this%lattice = temp_real
   
   do i=1,this%no_atoms
     line = split(structure_file(atoms_line+i))
     this%species(i) = line(1)
     this%mass(i) = dble(line(2))
-    this%atoms(:,i) = dble(line(3:5))
+    this%atoms(i) = dble(line(3:5))
   enddo
   
   do i=1,this%no_symmetries
     do j=1,3
-      line = split(structure_file(symmetry_line+(i-1)*5+j))
-      this%rotations(j,:,i) = int(line)
+      temp_int(j,:) = int(split(structure_file(symmetry_line+(i-1)*5+j)))
     enddo
-    line = split(structure_file(symmetry_line+(i-1)*5+4))
-    this%translations(:,i) = dble(line)
+    this%rotations(i) = temp_int
+    this%translations(i) = dble(split(structure_file(symmetry_line+(i-1)*5+4)))
   enddo
   
   if (supercell_line==0) then
     this%supercell = identity
-    this%gvectors(:,1) = 0
+    this%gvectors(1) = [ 0, 0, 0 ]
   else
     do i=1,3
-      this%supercell(i,:) = int(split(structure_file(supercell_line+i)))
+      temp_int(i,:) = int(split(structure_file(supercell_line+i)))
+    enddo
+    this%supercell = temp_int
+    
+    do i=1,sc_size
+      this%rvectors(i) = int(split(structure_file(rvectors_line+i)))
     enddo
     
     do i=1,sc_size
-      this%rvectors(:,i) = int(split(structure_file(rvectors_line+i)))
-    enddo
-    
-    do i=1,sc_size
-      this%gvectors(:,i) = int(split(structure_file(gvectors_line+i)))
+      this%gvectors(i) = int(split(structure_file(gvectors_line+i)))
     enddo
   endif
   
@@ -367,44 +375,37 @@ subroutine write_structure_file(this,filename)
   type(String),        intent(in) :: filename
   
   integer :: structure_file
-  integer :: i,j
+  integer :: i
   
   structure_file = open_write_file(filename)
   
-  call print_line(structure_file,'Lattice')
-  do i=1,3
-    call print_line(structure_file, this%lattice(i,:))
-  enddo
-  
+  call print_line(structure_file, 'Lattice')
+  call print_line(structure_file, this%lattice)
   call print_line(structure_file,'Atoms')
   do i=1,this%no_atoms
     call print_line(structure_file, this%species(i)//' '// &
                                   & this%mass(i)//' '//    &
-                                  & this%atoms(:,i))
+                                  & this%atoms(i))
   enddo
   
   if (this%no_symmetries/=0) then
     call print_line(structure_file,'Symmetry')
     do i=1,this%no_symmetries
-      do j=1,3
-        call print_line(structure_file, this%rotations(j,:,i))
-      enddo
-      call print_line(structure_file, this%translations(:,i))
+      call print_line(structure_file, this%rotations(i))
+      call print_line(structure_file, this%translations(i))
       call print_line(structure_file, '')
     enddo
   endif
   
-  call print_line(structure_file,'Supercell')
-  do i=1,3
-    call print_line(structure_file, this%supercell(i,:))
-  enddo
-  call print_line(structure_file,'R-vectors')
+  call print_line(structure_file, 'Supercell')
+  call print_line(structure_file, this%supercell)
+  call print_line(structure_file, 'R-vectors')
   do i=1,this%sc_size
-    call print_line(structure_file, this%rvectors(:,i))
+    call print_line(structure_file, this%rvectors(i))
   enddo
-  call print_line(structure_file,'G-vectors')
+  call print_line(structure_file, 'G-vectors')
   do i=1,this%sc_size
-    call print_line(structure_file, this%gvectors(:,i))
+    call print_line(structure_file, this%gvectors(i))
   enddo
   
   call print_line(structure_file,'End')
@@ -443,16 +444,16 @@ subroutine calculate_derived_supercell_quantities(this)
   
   do i=1,this%sc_size
     do j=1,i
-      if (all(modulo( matmul( this%recip_supercell,                   &
-                    &         this%rvectors(:,i)+this%rvectors(:,j)), &
-                    & this%sc_size)==0)) then
+      if (all(modulo( int( this%recip_supercell                  &
+                    &    * (this%rvectors(i)+this%rvectors(j))), &
+                    & this%sc_size) == 0)) then
         this%paired_rvec(i) = j
         this%paired_rvec(j) = i
       endif
       
-      if (all(modulo( matmul( transpose(this%recip_supercell),        &
-                    &         this%gvectors(:,i)+this%gvectors(:,j)), &
-                    & this%sc_size)==0)) then
+      if (all(modulo( int( transpose(this%recip_supercell)       &
+                &        * (this%gvectors(i)+this%gvectors(j))), &
+                & this%sc_size) == 0)) then
         this%paired_gvec(i) = j
         this%paired_gvec(j) = i
       endif
@@ -481,7 +482,7 @@ function calculate_rvector_group(this) result(output)
   
   integer, allocatable :: operation(:)
   
-  integer :: rvector_k(3)
+  type(IntVector) :: rvector_k
   
   integer :: i,j,k,ialloc
   
@@ -491,11 +492,10 @@ function calculate_rvector_group(this) result(output)
   do i=1,this%sc_size
     operation = 0
     do j=1,this%sc_size
-      rvector_k = this%rvectors(:,i)+this%rvectors(:,j)
+      rvector_k = this%rvectors(i)+this%rvectors(j)
       do k=1,this%sc_size
-        if (all(modulo( matmul( this%recip_supercell,          &
-                      &         rvector_k-this%rvectors(:,k)), &
-                      & this%sc_size)==0)) then
+        if (all(modulo(int(this%recip_supercell*(rvector_k-this%rvectors(k))),&
+                  & this%sc_size) == 0)) then
           operation(j) = k
         endif
       enddo
@@ -522,7 +522,7 @@ function calculate_gvector_group(this) result(output)
   
   integer, allocatable :: operation(:)
   
-  integer :: gvector_k(3)
+  type(IntVector) :: gvector_k
   
   integer :: i,j,k,ialloc
   
@@ -532,11 +532,11 @@ function calculate_gvector_group(this) result(output)
   do i=1,this%sc_size
     operation = 0
     do j=1,this%sc_size
-      gvector_k = this%gvectors(:,i)+this%gvectors(:,j)
+      gvector_k = this%gvectors(i)+this%gvectors(j)
       do k=1,this%sc_size
-        if (all(modulo( matmul( transpose(this%recip_supercell), &
-                      &         gvector_k-this%gvectors(:,k)),   &
-                      & this%sc_size)==0)) then
+        if (all(modulo( int(   transpose(this%recip_supercell) &
+                      &      * (gvector_k-this%gvectors(k))),  &
+                      & this%sc_size) == 0)) then
           operation(j) = k
         endif
       enddo
@@ -556,15 +556,13 @@ function calculate_cartesian_rotations(this) result(output)
   implicit none
   
   type(StructureData), intent(in) :: this
-  real(dp), allocatable           :: output(:,:,:)
+  type(RealMatrix), allocatable   :: output(:)
   
   integer :: i,ialloc
   
-  allocate(output(3,3,this%no_symmetries), stat=ialloc); call err(ialloc)
+  allocate(output(this%no_symmetries), stat=ialloc); call err(ialloc)
   do i=1,this%no_symmetries
-    output(:,:,i) = matmul(matmul( transpose(this%lattice), &
-                                 & this%rotations(:,:,i)),  &
-                                 & this%recip_lattice)
+    output(i) = transpose(this%lattice)*this%rotations(i)*this%recip_lattice
   enddo
 end function
 
@@ -585,6 +583,12 @@ subroutine calculate_symmetry(this)
   logical(kind=c_bool) :: spglib_success
   type(c_ptr)          :: spg_dataset_pointer
   
+  ! Temporary matrix storage, for passing to and from C.
+  real(dp), allocatable :: atoms(:,:)
+  integer,  allocatable :: rotations(:,:,:)
+  real(dp), allocatable :: translations(:,:)
+  
+  ! Temporary variables.
   integer :: i,j,ialloc
   integer :: atom_type
   
@@ -601,13 +605,17 @@ subroutine calculate_symmetry(this)
   enddo do_i
   
   ! Calculate symmetries, without space to store them.
-  call spglib_calculate_symmetries( this%lattice,                          &
-                                  & matmul(this%recip_lattice,this%atoms), &
-                                  & atom_types,                            &
-                                  & this%no_atoms,                         &
-                                  & symmetry_precision,                    &
-                                  & spglib_success,                        &
-                                  & spg_dataset_pointer,                   &
+  allocate(atoms(3,this%no_atoms), stat=ialloc); call err(ialloc)
+  do i=1,this%no_atoms
+    atoms(:,i) = dble(this%recip_lattice*this%atoms(i))
+  enddo
+  call spglib_calculate_symmetries( dble(this%lattice),  &
+                                  & atoms,               &
+                                  & atom_types,          &
+                                  & this%no_atoms,       &
+                                  & symmetry_precision,  &
+                                  & spglib_success,      &
+                                  & spg_dataset_pointer, &
                                   & this%no_symmetries)
   
   ! Check for errors.
@@ -618,14 +626,20 @@ subroutine calculate_symmetry(this)
   endif
   
   ! Allocate space for symmetries.
-  allocate( this%rotations(3,3,this%no_symmetries), &
-          & this%translations(3,this%no_symmetries),     &
+  allocate( rotations(3,3,this%no_symmetries),     &
+          & this%rotations(this%no_symmetries),    &
+          & translations(3,this%no_symmetries),    &
+          & this%translations(this%no_symmetries), &
           & stat=ialloc); call err(ialloc)
   
   ! Retrieve symmetries into allocated space.
   call spglib_retrieve_symmetries( spg_dataset_pointer, &
-                                 & this%rotations,      &
-                                 & this%translations)
+                                 & rotations,      &
+                                 & translations)
+  do i=1,this%no_symmetries
+    this%rotations(i) = rotations(:,:,i)
+    this%translations(i) = translations(:,i)
+  enddo
   
   ! Deallocate C memory.
   call drop_spg_dataset(spg_dataset_pointer)

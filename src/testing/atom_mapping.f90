@@ -10,6 +10,7 @@ contains
 function atom_mapping(structure_a,structure_b) result(output)
   use structure_module
   use group_module
+  use linear_algebra_module
   implicit none
   
   type(StructureData), intent(in) :: structure_a
@@ -17,9 +18,9 @@ function atom_mapping(structure_a,structure_b) result(output)
   type(Group)                     :: output
   
   ! Fractional atomic positions.
-  real(dp), allocatable :: frac_pos_a(:,:)
-  real(dp), allocatable :: frac_pos_b(:,:)
-  real(dp)              :: difference(3)
+  type(RealVector), allocatable :: frac_pos_a(:)
+  type(RealVector), allocatable :: frac_pos_b(:)
+  type(RealVector)              :: difference
   
   ! Output, but in array form.
   integer, allocatable :: mapping(:)
@@ -36,16 +37,11 @@ function atom_mapping(structure_a,structure_b) result(output)
     call err()
   endif
   
-  ! Check lattices are the same.
-  if (.not. all(structure_b%lattice-structure_a%lattice < tol)) then
-    call print_line('Lattices do not match.')
-  endif
-  
   ! Calculate fractional atomic positions.
-  allocate(frac_pos_b(3,structure_b%no_atoms))
-  allocate(frac_pos_a(3,structure_b%no_atoms))
-  frac_pos_b = matmul(structure_b%recip_lattice,structure_b%atoms)
-  frac_pos_a = matmul(structure_a%recip_lattice,structure_a%atoms)
+  allocate(frac_pos_b(structure_b%no_atoms))
+  allocate(frac_pos_a(structure_b%no_atoms))
+  frac_pos_b = structure_b%recip_lattice * structure_b%atoms
+  frac_pos_a = structure_a%recip_lattice * structure_a%atoms
   
   ! Find mapping between b and a atoms.
   allocate(mapping(structure_b%no_atoms))
@@ -54,8 +50,8 @@ function atom_mapping(structure_a,structure_b) result(output)
     do j=1,structure_b%no_atoms
       ! Check if a atom i and b atom j are the same, down to translation
       !    by lattice vectors.
-      difference = frac_pos_a(:,i) - frac_pos_b(:,j)
-      if (all(abs(difference-nint(difference)) < tol)) then
+      difference = frac_pos_a(i) - frac_pos_b(j)
+      if (l2_norm(difference-vec(nint(dble(difference)))) < tol) then
         if (mapping(i)/=0) then
           call print_line('Duplicate atom: atom '//i//' in a matches &
              &atom '//mapping(i)//' and atom '//j//' in b.')

@@ -36,7 +36,7 @@ end function
 ! ----------------------------------------------------------------------
 subroutine setup_harmonic_test(arguments)
   use constants_module, only : identity
-  use utils_module, only : make_dft_output_filename, mkdir, l2_norm
+  use utils_module, only : make_dft_output_filename, mkdir
   use structure_module
   use unique_directions_module
   use dft_input_file_module
@@ -47,6 +47,7 @@ subroutine setup_harmonic_test(arguments)
   use setup_harmonic_module
   use structure_test_module
   use qpoints_module
+  use linear_algebra_module
   implicit none
   
   type(Dictionary), intent(in) :: arguments
@@ -80,15 +81,15 @@ subroutine setup_harmonic_test(arguments)
   
   ! Temporary variables.
   integer :: i,j,k,l
-  integer :: rotation(3,3)
-  integer :: gvector_grid(3)
-  integer :: gvector_sc(3)
+  type(IntMatrix) :: rotation
+  type(IntVector) :: gvector_grid
+  type(IntVector) :: gvector_sc
   integer :: ialloc
   integer :: atom_1,atom_2
-  real(dp) :: frac_pos(3)
-  real(dp) :: frac_diff(3)
-  real(dp), allocatable :: rotations_cart(:,:,:)
-  real(dp) :: rotation_identity(3,3)
+  type(RealVector) :: frac_pos
+  type(RealVector) :: frac_diff
+  type(RealMatrix), allocatable :: rotations_cart(:)
+  type(RealMatrix) :: rotation_identity
   
   ! --------------------------------------------------
   ! Read in arguments from user.
@@ -133,17 +134,15 @@ subroutine setup_harmonic_test(arguments)
   !    and that the listed rotations are correct.
   do_i : do i=1,product(grid)
     do j=1,size(qpoints_ibz)
-      gvector_grid = nint(matmul( structure_grid%supercell, &
-                                & qpoints_ibz(j)%qpoint))
+      gvector_grid = nint(dble(   structure_grid%supercell &
+                              & * qpoints_ibz(j)%qpoint))
       do k=1,size(qpoints_ibz(j)%gvectors)
         if (qpoints_ibz(j)%gvectors(k)/=i) then
           cycle
         endif
         
-        rotation = structure%rotations(:,:,qpoints_ibz(j)%rotations(k))
-        if (any(                                                           &
-           & matmul(rotation,structure_grid%gvectors(:,i)) /= gvector_grid &
-           & )) then
+        rotation = structure%rotations(qpoints_ibz(j)%rotations(k))
+        if (rotation*structure_grid%gvectors(i) /= gvector_grid) then
           call print_line('Error: q-point '//i//' does not correctly map onto &
              &the IBZ by rotation '//qpoints_ibz(j)%rotations(k)//'.')
           call err()
@@ -162,13 +161,10 @@ subroutine setup_harmonic_test(arguments)
   ! Check that all q-points in the IBZ have been associated with G-vectors in 
   !    supercells.
   do i=1,size(qpoints_ibz)
-    gvector_grid = nint(matmul( structure_grid%supercell, &
-                        & qpoints_ibz(i)%qpoint))
+    gvector_grid = nint(dble(structure_grid%supercell * qpoints_ibz(i)%qpoint))
     
-    if (any( abs( matmul( structure_grid%supercell, &
-                &         qpoints_ibz(i)%qpoint)    &
-                & - gvector_grid                    &
-                & ) > 1.0e-10_dp)) then
+    if (l2_norm(structure_grid%supercell*qpoints_ibz(i)%qpoint-gvector_grid) &
+       & > 1.0e-10_dp) then
       call print_line('Error: IBZ q-point '//i//' is not on the specified &
          &q-point grid.')
       call err()
@@ -176,19 +172,13 @@ subroutine setup_harmonic_test(arguments)
     
     supercell = supercells(qpoints_ibz(i)%sc_id)
     
-    gvector_sc = supercell%gvectors(:,qpoints_ibz(i)%gvector_id)
+    gvector_sc = supercell%gvectors(qpoints_ibz(i)%gvector_id)
     
-    if (any(                                                    &
-       &   matmul(transpose(structure_grid%recip_supercell), gvector_grid) &
-       & * supercell%sc_size                                 &
-       & /=                                                     &
-       &   matmul(transpose(supercell%recip_supercell), gvector_sc)     &
-       & * structure_grid%sc_size                               &
-       & )) then
-      call print_line(gvector_grid)
-      call print_line(matmul(transpose(structure_grid%recip_supercell), gvector_grid)*supercell%sc_size)
-      call print_line(gvector_sc)
-      call print_line(matmul(transpose(supercell%recip_supercell), gvector_grid)*structure_grid%sc_size)
+    if (   transpose(structure_grid%recip_supercell) * gvector_grid &
+       & * supercell%sc_size                                        &
+       & /=                                                         &
+       &   transpose(supercell%recip_supercell) * gvector_sc        &
+       & * structure_grid%sc_size ) then
       call print_line('Error: IBZ q-point '//i//' does not match its assigned &
          &supercell and G-vector.')
       call err()
@@ -205,7 +195,7 @@ subroutine setup_harmonic_test(arguments)
     ! Check that no atoms are on top of one another.
     do j=1,supercell%no_atoms
       do k=1,j-1
-        if (l2_norm(supercell%atoms(:,j)-supercell%atoms(:,k))<0.5) then
+        if (l2_norm(supercell%atoms(j)-supercell%atoms(k))<0.5) then
           call print_line('Error: atoms '//j//' and '//k//' are within 0.5 &
              &bohr of one another.')
           call err()
@@ -215,9 +205,10 @@ subroutine setup_harmonic_test(arguments)
     
     ! Check that all atoms are within the primitive supercell.
     do j=1,supercell%no_atoms
-      frac_pos = matmul(supercell%recip_lattice, supercell%atoms(:,j)) &
+      frac_pos = supercell%recip_lattice * supercell%atoms(j) &
              & / supercell%sc_size
-      if (any(frac_pos<-1.0e-10_dp) .or. any(frac_pos>1+1.0e-10_dp)) then
+      if ( any(dble(frac_pos)<-1.0e-10_dp) .or. &
+         & any(dble(frac_pos)>1+1.0e-10_dp)) then
         call print_line(frac_pos)
         call print_line('Error: atom '//j//' lies outside of the primitive &
            &supercell.')
@@ -231,10 +222,10 @@ subroutine setup_harmonic_test(arguments)
         do l=1,k-1
           atom_1 = supercell%rvec_and_prim_to_atom(j,k)
           atom_2 = supercell%rvec_and_prim_to_atom(j,l)
-          frac_diff = matmul( structure%recip_lattice,       &
-                            &   supercell%atoms(:,atom_1) &
-                            & - supercell%atoms(:,atom_2))
-          if (any( frac_diff-nint(frac_diff)>1.0e-10_dp )) then
+          frac_diff = structure%recip_lattice     &
+                  & * ( supercell%atoms(atom_1) &
+                  &   - supercell%atoms(atom_2))
+          if (l2_norm(frac_diff-vec(nint(dble(frac_diff))))>1.0e-10_dp ) then
             call print_line('Error: atoms '//atom_1//' and '//atom_2//&
                &' are not correctly related.')
             call err()
@@ -248,65 +239,11 @@ subroutine setup_harmonic_test(arguments)
     rotations_cart = calculate_cartesian_rotations(supercell)
     
     do j=1,supercell%no_symmetries
-      rotation_identity = matmul( rotations_cart(:,:,j), &
-                                & transpose(rotations_cart(:,:,j)))
-      if ( any(rotation_identity-identity>1.0e-5_dp) .and. &
-         & any(rotation_identity+identity>1.0e-5_dp)) then
+      rotation_identity = rotations_cart(j) * transpose(rotations_cart(j))
+      if ( any(dble(rotation_identity)-identity>1.0e-5_dp) .and. &
+         & any(dble(rotation_identity)+identity>1.0e-5_dp)) then
         call print_line('')
         call print_line('Error: rotation '//j//' not a rotation.')
-        call print_line('Rotation (frac)')
-        call print_line(supercell%rotations(1,:,j))
-        call print_line(supercell%rotations(2,:,j))
-        call print_line(supercell%rotations(3,:,j))
-        call print_line('Translation (frac)')
-        call print_line(supercell%translations(:,j))
-        call print_line('Rotation (cart)')
-        call print_line(rotations_cart(1,:,j))
-        call print_line(rotations_cart(2,:,j))
-        call print_line(rotations_cart(3,:,j))
-        call print_line('Translation (cart)')
-        call print_line(matmul( transpose(supercell%lattice), &
-                              & supercell%translations(:,j)))
-        call print_line('R.R^T')
-        call print_line(rotation_identity(1,:))
-        call print_line(rotation_identity(2,:))
-        call print_line(rotation_identity(3,:))
-        call print_line('Lattice^T')
-        call print_line(supercell%lattice(:,1))
-        call print_line(supercell%lattice(:,2))
-        call print_line(supercell%lattice(:,3))
-        call print_line('Recip lattice')
-        call print_line(supercell%recip_lattice(1,:))
-        call print_line(supercell%recip_lattice(2,:))
-        call print_line(supercell%recip_lattice(3,:))
-        call print_line('Atom positions (cart)')
-        do k=1,supercell%no_atoms
-          call print_line(supercell%atoms(:,k))
-        enddo
-        call print_line('Transformed atoms (cart)')
-        do k=1,supercell%no_atoms
-          call print_line( matmul(rotations_cart(:,:,j),supercell%atoms(:,k)) &
-                       & + matmul( transpose(supercell%lattice),              &
-                       &           supercell%translations(:,j)))
-        enddo
-        call print_line('Atom positions (frac)')
-        do k=1,supercell%no_atoms
-          call print_line(matmul(supercell%recip_lattice,supercell%atoms(:,k)))
-        enddo
-        call print_line('Transformed atoms (frac)')
-        do k=1,supercell%no_atoms
-          call print_line( matmul( supercell%recip_lattice, &
-                       & matmul(rotations_cart(:,:,j),supercell%atoms(:,k)) &
-                       & + matmul( transpose(supercell%lattice),            &
-                       &           supercell%translations(:,j))))
-        enddo
-        call print_line('Transformed frac atoms')
-        do k=1,supercell%no_atoms
-          call print_line( matmul( supercell%rotations(:,:,j), &
-                         &        matmul( supercell%recip_lattice, &
-                         &                supercell%atoms(:,k))) &
-                         & + supercell%translations(:,j))
-        enddo
         call err()
       endif
     enddo

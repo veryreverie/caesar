@@ -5,9 +5,9 @@ module calculate_symmetry_group_module
 contains
 
 function calculate_symmetry_group(structure) result(output)
-  use utils_module, only : l2_norm
   use structure_module
   use group_module
+  use linear_algebra_module
   implicit none
   
   type(StructureData), intent(in) :: structure
@@ -18,36 +18,35 @@ function calculate_symmetry_group(structure) result(output)
   ! Objects in fractional supercell co-ordinates.
   !   n.b. in these co-ordintates, supercell lattice vectors are unit vectors.
   !   This is a different convention to the scaled co-ordinates used elsewhere.
-  real(dp), allocatable :: atom_pos_frac(:,:)
-  real(dp)              :: transformed_pos_frac(3)
+  type(RealVector), allocatable :: atom_pos_frac(:)
+  type(RealVector)              :: transformed_pos_frac
   
   ! Distances between atoms and transformed atoms.
-  real(dp)              :: delta(3)
+  type(RealVector)      :: delta
   real(dp), allocatable :: distances(:)
   
   ! Temporary variables.
   integer :: i,j,k
   
-  allocate(atom_pos_frac(3,structure%no_atoms))
+  allocate(atom_pos_frac(structure%no_atoms))
   allocate(operations(structure%no_atoms,structure%no_symmetries))
   allocate(distances(structure%no_atoms))
   
   ! Transform atom positions into fractional supercell co-ordinates.
-  atom_pos_frac = matmul(structure%recip_lattice,structure%atoms)
+  atom_pos_frac = structure%recip_lattice * structure%atoms
   
   ! Work out which atoms map to which atoms under each symmetry operation.
   do i=1,structure%no_symmetries
     do j=1,structure%no_atoms
       ! Calculate the position of the transformed atom.
-      transformed_pos_frac = matmul( structure%rotations(:,:,i), &
-                         &           atom_pos_frac(:,j)) &
-                         & + structure%translations(:,i)
+      transformed_pos_frac = structure%rotations(i) * atom_pos_frac(j) &
+                         & + structure%translations(i)
       
       ! Identify which atom is closest to the transformed position,
       !    modulo supercell lattice vectors.
       do k=1,structure%no_atoms
-        delta = transformed_pos_frac - atom_pos_frac(:,k)
-        distances(k) = l2_norm(delta-nint(delta))
+        delta = transformed_pos_frac - atom_pos_frac(k)
+        distances(k) = l2_norm(delta-vec(nint(dble(delta))))
       enddo
       operations(j,i) = minloc(distances,1)
       

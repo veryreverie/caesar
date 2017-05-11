@@ -5,6 +5,7 @@ module dft_input_file_module
   use constants_module, only : dp
   use string_module
   use io_module
+  use linear_algebra_module
   
   private
   
@@ -198,6 +199,7 @@ function castep_input_file_to_StructureData(filename) result(output)
   use constants_module, only : pi, angstrom_per_bohr, kg_per_me, kg_per_amu, &
                              & identity
   use structure_module
+  use linear_algebra_module
   implicit none
   
   type(String), intent(in) :: filename
@@ -215,7 +217,7 @@ function castep_input_file_to_StructureData(filename) result(output)
   ! Atomic variables.
   logical                   :: positions_are_abs
   type(String), allocatable :: species(:)
-  real(dp),     allocatable :: positions(:,:)
+  type(RealVector), allocatable :: positions(:)
   integer                   :: no_atoms
   logical,      allocatable :: masses_found(:)
   
@@ -293,7 +295,7 @@ function castep_input_file_to_StructureData(filename) result(output)
   conversion = angstrom_per_bohr
   j=0
   allocate( species(size(cell_file%positions_block)-2),     &
-          & positions(3,size(cell_file%positions_block)-2), &
+          & positions(size(cell_file%positions_block)-2), &
           & stat=ialloc); call err(ialloc)
   
   do i=2,size(cell_file%positions_block)-1
@@ -315,7 +317,7 @@ function castep_input_file_to_StructureData(filename) result(output)
     elseif (line(1) == 'ang') then
       conversion = 1.0_dp / angstrom_per_bohr
     
-    elseif (j>size(positions,2)) then
+    elseif (j>size(positions)) then
       call print_line('Error: too many atom lines found in '//filename)
     
     ! Read in atomic positions.
@@ -323,16 +325,18 @@ function castep_input_file_to_StructureData(filename) result(output)
       j = j+1
       line = split(cell_file%positions_block(i)) ! N.B. no lower_case
       species(j) = line(1)
-      positions(:,j) = dble(line(2:4))
+      positions(j) = dble(line(2:4))
     endif
   enddo
   
   no_atoms = j
   
   if (positions_are_abs) then
-    positions(:,:no_atoms) = positions(:,:no_atoms) * conversion
+    do i=1,no_atoms
+      positions(i) = positions(i) * conversion
+    enddo
   else
-    positions(:,:no_atoms) = matmul(transpose(lattice),positions(:,:no_atoms))
+    positions(:no_atoms) = transpose(mat(lattice)) * positions(:no_atoms)
   endif
   
   ! Make output.
@@ -340,7 +344,9 @@ function castep_input_file_to_StructureData(filename) result(output)
   
   output%lattice = lattice
   output%species = species(:no_atoms)
-  output%atoms = positions(:,:no_atoms)
+  do i=1,no_atoms
+    output%atoms(i) = positions(i)
+  enddo
   
   ! Parse masses.
   conversion = kg_per_amu / kg_per_me
@@ -381,8 +387,8 @@ function castep_input_file_to_StructureData(filename) result(output)
   endif
   
   output%supercell = identity
-  output%rvectors(:,1) = 0
-  output%gvectors(:,1) = 0
+  output%rvectors(1) = [0,0,0]
+  output%gvectors(1) = [0,0,0]
   
   call calculate_derived_atom_quantities(output)
   call calculate_derived_supercell_quantities(output)
@@ -418,7 +424,7 @@ subroutine StructureData_to_castep_input_file(structure,old_cell_filename, &
   type(String),        intent(in)           :: new_cell_filename
   
   ! Band structure path data.
-  real(dp) :: qpoint(3)
+  type(RealVector) :: qpoint
   
   ! Old and new cell files.
   type(CastepInputFile) :: old_cell_file
@@ -439,7 +445,7 @@ subroutine StructureData_to_castep_input_file(structure,old_cell_filename, &
     do i=2,size(old_cell_file%qpoints_block)-1
       line = split(old_cell_file%qpoints_block(i))
       qpoint = dble(line(1:3))
-      qpoint = matmul(transpose(structure%supercell),qpoint)
+      qpoint = transpose(structure%supercell) * qpoint
       old_cell_file%qpoints_block(i) = qpoint//' '//join(line(4:))
     enddo
   endif
@@ -448,21 +454,19 @@ subroutine StructureData_to_castep_input_file(structure,old_cell_filename, &
   ! Write new cell file.
   ! --------------------------------------------------
   new_cell_file = open_write_file(new_cell_filename)
-  call print_line(new_cell_file,'%block lattice_cart')
-  call print_line(new_cell_file,'bohr')
-  do i=1,3
-    call print_line(new_cell_file,structure%lattice(i,:))
-  enddo
-  call print_line(new_cell_file,'%endblock lattice_cart')
-  call print_line(new_cell_file,'')
-  call print_line(new_cell_file,'%block positions_abs')
-  call print_line(new_cell_file,'bohr')
+  call print_line(new_cell_file, '%block lattice_cart')
+  call print_line(new_cell_file, 'bohr')
+  call print_line(new_cell_file, structure%lattice)
+  call print_line(new_cell_file, '%endblock lattice_cart')
+  call print_line(new_cell_file, '')
+  call print_line(new_cell_file, '%block positions_abs')
+  call print_line(new_cell_file, 'bohr')
   do i=1,structure%no_atoms
     call print_line(new_cell_file, structure%species(i)//' '// &
-                             & structure%atoms(:,i))
+                                 & structure%atoms(i))
   enddo
-  call print_line(new_cell_file,'%endblock positions_abs')
-  call print_line(new_cell_file,'')
+  call print_line(new_cell_file, '%endblock positions_abs')
+  call print_line(new_cell_file, '')
   
   ! Copy the contents of old cell file to new cell file.
   if (present(old_cell_filename)) then
@@ -528,11 +532,9 @@ subroutine StructureData_to_vasp_input_file(structure,poscar_filename)
   ! Write output file
   poscar_file = open_write_file(poscar_filename)
   
-  call print_line(poscar_file,'Structure')
-  call print_line(poscar_file,angstrom_per_bohr)
-  do i=1,3
-    call print_line(poscar_file, structure%lattice(:,i))
-  enddo
+  call print_line(poscar_file, 'Structure')
+  call print_line(poscar_file, angstrom_per_bohr)
+  call print_line(poscar_file, structure%lattice)
   
   line = species(1)
   do i=2,no_species
@@ -546,9 +548,9 @@ subroutine StructureData_to_vasp_input_file(structure,poscar_filename)
   enddo
   call print_line(poscar_file, line)
   
-  call print_line(poscar_file,'Cartesian')
+  call print_line(poscar_file, 'Cartesian')
   do i=1,structure%no_atoms
-    call print_line(poscar_file, structure%atoms(:,i))
+    call print_line(poscar_file, structure%atoms(i))
   enddo
   close(poscar_file)
 end subroutine
@@ -591,16 +593,14 @@ subroutine StructureData_to_qe_input_file(structure,old_qe_in_filename, &
   ! Write output file
   ! --------------------------------------------------
   new_qe_in_file = open_write_file(new_qe_in_filename)
-  call print_line(new_qe_in_file,'nat='//structure%no_atoms)
-  call print_line(new_qe_in_file,'/&end')
-  call print_line(new_qe_in_file,'CELL_PARAMETERS bohr')
-  do i=1,3
-    call print_line(new_qe_in_file, structure%lattice(i,:))
-  enddo
-  call print_line(new_qe_in_file,'ATOMIC_POSITIONS bohr')
+  call print_line(new_qe_in_file, 'nat='//structure%no_atoms)
+  call print_line(new_qe_in_file, '/&end')
+  call print_line(new_qe_in_file, 'CELL_PARAMETERS bohr')
+  call print_line(new_qe_in_file, structure%lattice)
+  call print_line(new_qe_in_file, 'ATOMIC_POSITIONS bohr')
   do i=1,structure%no_atoms
     call print_line(new_qe_in_file, structure%species(i)//' '// &
-                                  & structure%atoms(:,i))
+                                  & structure%atoms(i))
   enddo
   
   ! Write old qe in file contents to new qe in file.

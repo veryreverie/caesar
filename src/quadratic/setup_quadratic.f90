@@ -43,6 +43,7 @@ subroutine setup_quadratic(arguments)
   use qpoints_module
   use dictionary_module
   use normal_mode_module
+  use linear_algebra_module
   implicit none
   
   type(Dictionary), intent(in) :: arguments
@@ -85,7 +86,7 @@ subroutine setup_quadratic(arguments)
   real(dp)            :: occupation
   real(dp)            :: quad_amplitude
   real(dp)            :: amplitude
-  real(dp)            :: disp(3)
+  type(RealVector)    :: disp
   
   ! Temporary variables
   integer        :: i, j, k, l
@@ -230,7 +231,7 @@ subroutine setup_quadratic(arguments)
         ! Calculate new positions
         do l=1,supercell%no_atoms
           disp = amplitude * mode%displacements(:,l)
-          supercell%atoms(:,l) = supercell%atoms(:,l) + disp
+          supercell%atoms(l) = supercell%atoms(l) + disp
         enddo
         
         ! Write dft input files

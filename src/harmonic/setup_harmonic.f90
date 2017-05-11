@@ -68,8 +68,8 @@ subroutine setup_harmonic(arguments)
   ! Perturbation direction information.
   type(UniqueDirections) :: unique_directions
   integer                :: atom
-  integer                :: direction_int
   character(1)           :: direction_char
+  type(RealVector)       :: displacement
   
   ! Temporary variables.
   integer        :: i,j,k
@@ -158,8 +158,14 @@ subroutine setup_harmonic(arguments)
     ! --------------------------------------------------
     do j=1,size(unique_directions)
       atom = unique_directions%atoms(j)
-      direction_int = unique_directions%directions_int(j)
       direction_char = unique_directions%directions_char(j)
+      if (direction_char=='x') then
+        displacement = [1.0_dp,0.0_dp,0.0_dp]
+      elseif (direction_char=='y') then
+        displacement = [0.0_dp,1.0_dp,0.0_dp]
+      else
+        displacement = [0.0_dp,0.0_dp,1.0_dp]
+      endif
       
       paths = [ sdir//'/atom.'//atom//'.+d'//direction_char, &
               & sdir//'/atom.'//atom//'.-d'//direction_char  ]
@@ -170,13 +176,9 @@ subroutine setup_harmonic(arguments)
         
         ! Move relevant atom.
         if(k==1) then
-          supercell%atoms(direction_int,atom) =      &
-             &   supercell%atoms(direction_int,atom) &
-             & + 0.01_dp
+          supercell%atoms(atom) = supercell%atoms(atom) + displacement
         elseif(k==2) then
-          supercell%atoms(direction_int,atom) =      &
-             &   supercell%atoms(direction_int,atom) &
-             & - 0.02_dp
+          supercell%atoms(atom) = supercell%atoms(atom) - 2*displacement
         endif
           
         ! Write dft input files.
@@ -189,9 +191,7 @@ subroutine setup_harmonic(arguments)
       enddo
       
       ! Reset moved atom.
-      supercell%atoms(direction_int,atom) =      &
-         &   supercell%atoms(direction_int,atom) &
-         & + 0.01_dp
+      supercell%atoms(atom) = supercell%atoms(atom) + displacement
     enddo
   enddo
 end subroutine

@@ -150,6 +150,7 @@ function calculate_unique_directions(structure,symmetry_group) result(this)
   use constants_module, only : pi
   use structure_module
   use group_module
+  use linear_algebra_module
   implicit none
   
   ! Inputs
@@ -174,9 +175,12 @@ function calculate_unique_directions(structure,symmetry_group) result(this)
   integer              :: no_unique_atoms
   integer, allocatable :: unique_atoms(:)
   
+  ! Cartesian rotations.
+  type(RealMatrix), allocatable :: cartesian_rotations(:)
+  real(dp),         allocatable :: rotations_cart(:,:,:)
+  
   ! Temporary variables
   integer :: i,j,k,ialloc
-  real(dp), allocatable :: rotations_cart(:,:,:)
   
   ! --------------------------------------------------
   ! Identify a minimal set of atoms from which the others can be constructed
@@ -200,7 +204,10 @@ function calculate_unique_directions(structure,symmetry_group) result(this)
   ! Identify which directions (in cartesian co-ordinates) are
   !    related by symmetry.
   ! --------------------------------------------------
-  rotations_cart = calculate_cartesian_rotations(structure)
+  cartesian_rotations = calculate_cartesian_rotations(structure)
+  do i=1,size(cartesian_rotations)
+    rotations_cart(:,:,i) = dble(cartesian_rotations(i))
+  enddo
   
   allocate(unique_dirs(3,no_unique_atoms), stat=ialloc); call err(ialloc)
   unique_dirs = .true.

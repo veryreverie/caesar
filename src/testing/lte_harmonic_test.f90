@@ -46,6 +46,7 @@ subroutine lte_harmonic_test(arguments)
   use lte_harmonic_module
   use qpoints_module
   use dictionary_module
+  use linear_algebra_module
   implicit none
   
   type(Dictionary), intent(in) :: arguments
@@ -74,8 +75,8 @@ subroutine lte_harmonic_test(arguments)
   type(UniqueDirections)           :: unique_directions
   
   ! Symmetry data.
-  type(Group), allocatable :: symmetry_group(:)
-  real(dp),    allocatable :: rotations_cart(:,:,:)
+  type(Group),      allocatable :: symmetry_group(:)
+  type(RealMatrix), allocatable :: rotations_cart(:)
   
   ! R-vector data.
   type(Group), allocatable  :: rvector_group(:)
@@ -89,7 +90,7 @@ subroutine lte_harmonic_test(arguments)
   ! q-point data.
   type(StructureData)           :: structure_grid
   type(QpointData), allocatable :: qpoints_ibz(:)
-  real(dp)                      :: qpoint(3)
+  type(RealVector)              :: qpoint
   
   ! Dynamical matrix data.
   integer                  :: gvector
@@ -113,11 +114,11 @@ subroutine lte_harmonic_test(arguments)
   integer :: rvector,rvector_p,rvector_1p,rvector_2p
   
   ! Errors.
-  real(dp) :: new_error,old_error,force
-  real(dp) :: matrix_new(3,3),matrix_p_new(3,3)
-  real(dp) :: matrix_old(3,3),matrix_p_old(3,3)
-  real(dp) :: x(3),f(3),new_f(3),old_f(3)
-  real(dp) :: new_total,old_total
+  real(dp) :: new_error, old_error, force
+  type(RealMatrix) :: matrix_new, matrix_p_new
+  type(RealMatrix) :: matrix_old, matrix_p_old
+  type(RealVector) :: x, f, new_f, old_f
+  real(dp) :: new_total, old_total
   
   ! Temporary variables.
   integer                   :: i,j,k,l,ialloc
@@ -194,32 +195,25 @@ subroutine lte_harmonic_test(arguments)
     ! Write lte.dat to run old lte.
     lte_file = open_write_file(old_sdir//'/lte.dat')
     call print_line(lte_file, 'Primitive lattice vectors (rows, in a.u.)')
-    do j=1,3
-      call print_line(lte_file, structure%lattice(j,:))
-    enddo
+    call print_line(lte_file, structure%lattice)
     call print_line(lte_file, 'Supercell lattice vectors (rows, in a.u.)')
-    do j=1,3
-      call print_line(lte_file, supercell%lattice(j,:))
-    enddo
+    call print_line(lte_file, supercell%lattice)
     call print_line(lte_file, 'Number of atoms in supercell')
     call print_line(lte_file, supercell%no_atoms)
     call print_line(lte_file, 'Species ; mass (a.u.) ; &
        &position of atom in supercell (in terms of SC LVs)')
     do j=1,supercell%no_atoms
-      call print_line(lte_file, supercell%species(j)     //' '// &
-                              & supercell%mass(j)        //' '// &
-                              & matmul( supercell%recip_lattice, &
-                              &         supercell%atoms(:,j)))
+      call print_line(lte_file, supercell%species(j) //' '// &
+                              & supercell%mass(j)    //' '// &
+                              & supercell%recip_lattice * supercell%atoms(j))
     enddo
     call print_line(lte_file, 'Number of point-symmetry operations')
     call print_line(lte_file, supercell%no_symmetries)
     call print_line(lte_file, 'Rotation matrices (3 rows) &
        &and translations (1 row, in terms of SC LVs)')
     do j=1,supercell%no_symmetries
-      do k=1,3
-        call print_line(lte_file, rotations_cart(:,k,j))
-      enddo
-      call print_line(lte_file, supercell%translations(:,j))
+      call print_line(lte_file, rotations_cart(j))
+      call print_line(lte_file, supercell%translations(j))
     enddo
     call print_line(lte_file, 'Number of force constants supplied')
     call print_line(lte_file, 3*supercell%no_atoms*size(unique_directions))
@@ -293,9 +287,16 @@ subroutine lte_harmonic_test(arguments)
     force = 0.0_dp
     do j=1,supercell%no_symmetries
       do k=1,size(unique_directions)
-        x = [0.0_dp, 0.0_dp, 0.0_dp]
-        x(unique_directions%directions_int(k)) = 1.0_dp
-        x = matmul(rotations_cart(:,:,j),x)
+        
+        if (unique_directions%directions_char(k)=='x') then
+          x = [1.0_dp, 0.0_dp, 0.0_dp]
+        elseif (unique_directions%directions_char(k)=='y') then
+          x = [0.0_dp, 1.0_dp, 0.0_dp]
+        else
+          x = [0.0_dp, 0.0_dp, 1.0_dp]
+        endif
+        x = rotations_cart(j) * x
+        
         do l=1,supercell%no_atoms
           atom_1 = operate(symmetry_group(j),unique_directions%atoms(k))
           if (supercell%atom_to_rvec(atom_1)/=1) then
@@ -305,18 +306,18 @@ subroutine lte_harmonic_test(arguments)
           mode_1 = (supercell%atom_to_prim(atom_1)-1)*3+1
           mode_2 = (supercell%atom_to_prim(atom_2)-1)*3+1
           rvector = supercell%atom_to_rvec(atom_2)
-          f = matmul(rotations_cart(:,:,j),forces(:,l,k))
-          new_f = matmul( new_force_constants( rvector,          &
-                     &                         mode_2:mode_2+2,  &
-                     &                         mode_1:mode_1+2), &
-                     & x)
-          old_f = matmul( old_force_constants( rvector,          &
-                     &                         mode_2:mode_2+2,  &
-                     &                         mode_1:mode_1+2), &
-                     & x)
-          new_error = new_error + dot_product(new_f-f,new_f-f)
-          old_error = old_error + dot_product(old_f-f,old_f-f)
-          force = force + dot_product(f,f)
+          f = rotations_cart(j) * vec(forces(:,l,k))
+          new_f = mat( new_force_constants( rvector,          &
+              &                             mode_2:mode_2+2,  &
+              &                             mode_1:mode_1+2)) &
+              & * x
+          old_f = mat( old_force_constants( rvector,          &
+              &                             mode_2:mode_2+2,  &
+              &                             mode_1:mode_1+2)) &
+              & * x
+          new_error = new_error + (new_f-f)*(new_f-f)
+          old_error = old_error + (old_f-f)*(old_f-f)
+          force = force + f*f
         enddo
       enddo
     enddo
@@ -364,16 +365,16 @@ subroutine lte_harmonic_test(arguments)
             matrix_p_old = old_force_constants( rvector_p,         &
                                               & mode_2p:mode_2p+2, &
                                               & mode_1p:mode_1p+2)
-            matrix_p_new = matmul(matmul( transpose(rotations_cart(:,:,j)), &
-                                        & matrix_p_new),                    &
-                                        & rotations_cart(:,:,j))
-            matrix_p_old = matmul(matmul( transpose(rotations_cart(:,:,j)), &
-                                        & matrix_p_old),                    &
-                                        & rotations_cart(:,:,j))
-            new_total = new_total + sum(matrix_new**2)
-            old_total = old_total + sum(matrix_old**2)
-            new_error = new_error + sum((matrix_new-matrix_p_new)**2)
-            old_error = old_error + sum((matrix_old-matrix_p_old)**2)
+            matrix_p_new =  transpose(rotations_cart(j)) &
+                       & * matrix_p_new                  &
+                       & * rotations_cart(j)
+            matrix_p_old =  transpose(rotations_cart(j)) &
+                       & * matrix_p_old                  &
+                       & * rotations_cart(j)
+            new_total = new_total + sum(dble(matrix_new)**2)
+            old_total = old_total + sum(dble(matrix_old)**2)
+            new_error = new_error + sum(dble(matrix_new-matrix_p_new)**2)
+            old_error = old_error + sum(dble(matrix_old-matrix_p_old)**2)
           enddo
         enddo
       enddo
@@ -404,14 +405,14 @@ subroutine lte_harmonic_test(arguments)
     
     ! Check dynamical matrices.
     do gvector=1,supercell%sc_size
-      qpoint = matmul( transpose(supercell%recip_supercell), &
-                     & supercell%gvectors(:,gvector)) / dble(supercell%sc_size)
+      qpoint = transpose(supercell%recip_supercell) &
+           & * supercell%gvectors(gvector) / dble(supercell%sc_size)
       allocate( dynamical_matrix( supercell%no_modes_prim,  &
               &                   supercell%no_modes_prim), &
               & stat=ialloc); call err(ialloc)
       dynamical_matrix = cmplx(0.0_dp, 0.0_dp, dp)
       do rvector=1,supercell%sc_size
-        exponent = -2*pi*dot_product(qpoint,supercell%rvectors(:,rvector))
+        exponent = -2*pi*qpoint*supercell%rvectors(rvector)
         dynamical_matrix = dynamical_matrix                 &
                        & + new_force_constants(rvector,:,:) &
                        & * cmplx(cos(exponent),sin(exponent),dp)

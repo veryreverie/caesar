@@ -231,22 +231,23 @@ function minkowski_reduce(input) result(output)
   use linear_algebra_module
   implicit none
   
-  real(dp), intent(in) :: input(3,3)
-  real(dp)             :: output(3,3)
+  type(RealMatrix) :: input
+  type(RealMatrix) :: output
   
   integer  :: i
+  real(dp) :: tempmat(3,3)
   real(dp) :: tempvec(3)
   logical  :: changed
   
-  output = input
+  tempmat = dble(input)
   
   iter: do
     ! First check linear combinations involving two vectors.
     do i=1,3
-      tempvec = output(i,:)
-      output(i,:) = 0
-      changed = reduce_vec(output)
-      output(i,:) = tempvec
+      tempvec = tempmat(i,:)
+      tempmat(i,:) = 0
+      changed = reduce_vec(tempmat)
+      tempmat(i,:) = tempvec
       
       if (changed) then
         cycle iter
@@ -254,12 +255,14 @@ function minkowski_reduce(input) result(output)
     enddo
     
     ! Then check linear combinations involving all three.
-    if (reduce_vec(output)) then
+    if (reduce_vec(tempmat)) then
       cycle
     endif
     
     exit
   enddo iter
+  
+  output = tempmat
 end function
 
 ! ----------------------------------------------------------------------
@@ -277,7 +280,7 @@ function generate_supercells(structure,grid) result(output)
   type(GeneratedSupercells)       :: output
   
   ! Grid supercell structure.
-  integer             :: grid_supercell(3,3)
+  type(IntMatrix)     :: grid_supercell
   type(StructureData) :: structure_grid
   
   ! Grid q-point variables.
@@ -288,17 +291,17 @@ function generate_supercells(structure,grid) result(output)
   ! IBZ q-point variables.
   integer              :: no_qpoints_ibz
   integer, allocatable :: multiplicity(:)
-  integer, allocatable :: qpoints_grid(:,:)
-  integer, allocatable :: qpoints_ibz(:,:)
+  type(IntVector), allocatable :: qpoints_grid(:)
+  type(IntVector), allocatable :: qpoints_ibz(:)
   integer, allocatable :: sc_size(:)
   integer, allocatable :: sc_ids(:)
   integer, allocatable :: gvector_ids(:)
-  integer              :: qpoint(3)
+  type(IntVector)      :: qpoint
   
   ! Supercell variables
   type(StructureData), allocatable :: supercells(:)
-  integer                          :: supercell_frac(3,3) ! Fractional co-ords.
-  real(dp)                         :: supercell_cart(3,3) ! Real space co-ords.
+  type(IntMatrix)                  :: supercell_frac
+  type(RealMatrix)                 :: supercell_cart
   
   ! Working variables
   integer :: denominator(3)
@@ -312,18 +315,52 @@ function generate_supercells(structure,grid) result(output)
   integer :: s33
   integer :: quotient
   
-  integer :: rot_qpoint(3)
+  type(IntVector) :: rot_qpoint
   
   ! Temporary variables
   integer :: i,j,k
+  
+  type(IntMatrix) :: matrix
+  type(IntVector) :: vector
+  type(IntVector) :: vec_of_vecs(2)
+  
+  call print_line('')
+  call print_line('Top of function')
+  
+  matrix = mat([ 1,1,0, &
+               & 0,1,0, &
+               & 0,0,1],3,3)
+  vector = vec([1,1,1])
+  vec_of_vecs = [ vec([1,0,0]), vec([0,1,0]) ]
+  
+  call print_line('Matrix:')
+  call print_line(matrix)
+  
+  matrix = transpose(matrix)
+  call print_line('Transposed(Matrix):')
+  call print_line(matrix)
+  
+  call print_line('Matrix*Vector:')
+  vector = matrix*vector
+  
+  call print_line('transpose(Matrix)*Vector:')
+  vector = transpose(matrix)*vector
+  
+  call print_line('Matrix*[Vectors]:')
+  vec_of_vecs = matrix*vec_of_vecs
+  
+  call print_line('transpose(Matrix)*[Vectors]:')
+  vec_of_vecs = transpose(matrix)*vec_of_vecs
+  
+  stop
   
   ! --------------------------------------------------
   ! Construct a supercell for which all q-points in the q-point grid are 
   !    G-vectors.
   ! --------------------------------------------------
-  grid_supercell(1,:) = [grid(1), 0      , 0      ]
-  grid_supercell(2,:) = [0      , grid(2), 0      ]
-  grid_supercell(3,:) = [0      , 0      , grid(3)]
+  grid_supercell = mat([ grid(1), 0      , 0      , &
+                       & 0      , grid(2), 0      , &
+                       & 0      , 0      , grid(3)  ], 3,3)
   structure_grid = construct_supercell(structure, grid_supercell, .false.)
   
   ! --------------------------------------------------
@@ -332,10 +369,10 @@ function generate_supercells(structure,grid) result(output)
   ! N.B. all q-points stored in scaled fractional reciprocal lattice 
   !    co-ordinates, such that the reciprocal primitive lattice vectors are
   !    cartesian vectors of length product(grid).
-  allocate( qpoints_grid(3,structure_grid%sc_size), &
+  allocate( qpoints_grid(structure_grid%sc_size), &
           & stat=ialloc); call err(ialloc)
-  qpoints_grid = matmul( transpose(structure_grid%recip_supercell), &
-                       & structure_grid%gvectors)
+  qpoints_grid = transpose(structure_grid%recip_supercell) &
+             & * structure_grid%gvectors
   
   ! --------------------------------------------------
   ! Find equivalent q-points by rotating all q-points into the IBZ.
@@ -351,10 +388,10 @@ function generate_supercells(structure,grid) result(output)
       do k=1,structure%no_symmetries
         
         ! Rotate the q-point.
-        rot_qpoint = matmul(structure%rotations(:,:,k), qpoints_grid(:,i))
+        rot_qpoint = structure%rotations(k) * qpoints_grid(i)
         
         ! If the rotated q-point = q-point(j).
-        if (all( rot_qpoint-qpoints_grid(:,ibz_to_grid(j))==0 )) then
+        if (rot_qpoint-qpoints_grid(ibz_to_grid(j))==vec([0,0,0])) then
           grid_to_ibz(i) = j
           rotation_ids(i) = k
           cycle do_i1
@@ -369,13 +406,13 @@ function generate_supercells(structure,grid) result(output)
     rotation_ids(i) = 1
   enddo do_i1
   
-  allocate( qpoints_ibz(3,no_qpoints_ibz), &
-          & multiplicity(no_qpoints_ibz),  &
+  allocate( qpoints_ibz(no_qpoints_ibz),  &
+          & multiplicity(no_qpoints_ibz), &
           & stat=ialloc); call err(ialloc)
   multiplicity=0
   do i=1,structure_grid%sc_size
     if (multiplicity(grid_to_ibz(i))==0) then
-      qpoints_ibz(:,grid_to_ibz(i)) = qpoints_grid(:,i)
+      qpoints_ibz(grid_to_ibz(i)) = qpoints_grid(i)
     endif
     multiplicity(grid_to_ibz(i)) = multiplicity(grid_to_ibz(i)) + 1
   enddo
@@ -389,7 +426,7 @@ function generate_supercells(structure,grid) result(output)
   allocate(sc_size(no_qpoints_ibz), stat=ialloc); call err(ialloc)
   do i=1,no_qpoints_ibz
     denominator = structure_grid%sc_size &
-              & / gcd( abs(qpoints_ibz(:,i)), structure_grid%sc_size)
+              & / gcd( abs(int(qpoints_ibz(i))), structure_grid%sc_size)
     sc_size(i)=lcm(denominator(1),denominator(2),denominator(3))
   enddo
   
@@ -411,19 +448,19 @@ function generate_supercells(structure,grid) result(output)
         do s12=0,s22-1
           do s13=0,s33-1
             do s23=0,s33-1
-              supercell_frac(1,:) = [ s11, s12, s13 ]
-              supercell_frac(2,:) = [ 0  , s22, s23 ]
-              supercell_frac(3,:) = [ 0  , 0  , s33 ]
-              if (all(modulo( matmul(supercell_frac, qpoints_ibz(:,i)), &
-                            & structure_grid%sc_size)==0)) then
+              supercell_frac = mat([ s11, s12, s13, &
+                                   & 0  , s22, s23, &
+                                   & 0  , 0  , s33  ], 3,3)
+              if (all(modulo( int(supercell_frac*qpoints_ibz(i)), &
+                            & structure_grid%sc_size) == 0)) then
                 ! Add the new supercell.
                 sc_num=sc_num+1
                 
                 ! Reduce the supercell to minimise its real-space volume.
-                supercell_cart = minkowski_reduce(matmul( supercell_frac, &
-                                                        & structure%lattice))
-                supercell_frac = nint(matmul( supercell_cart, &
-                   & transpose(structure%recip_lattice)))
+                supercell_cart = minkowski_reduce( supercell_frac &
+                                               & * structure%lattice)
+                supercell_frac = nint(dble(( supercell_cart &
+                   & * transpose(structure%recip_lattice))))
                 
                 ! Generate the supercell.
                 supercells(sc_num) = construct_supercell( structure, &
@@ -433,10 +470,12 @@ function generate_supercells(structure,grid) result(output)
                 sc_ids(i)=sc_num
                 
                 do j=i+1,no_qpoints_ibz
-                  if(sc_ids(j) /= 0)cycle
-                  if(sc_size(j)/=sc_size(i))cycle
-                  if (all(modulo( matmul(supercell_frac, qpoints_ibz(:,j)), &
-                                & structure_grid%sc_size)==0)) then
+                  if (sc_ids(j) /= 0) then
+                    cycle
+                  elseif (sc_size(j)/=sc_size(i)) then
+                    cycle
+                  elseif (all(modulo( int(supercell_frac * qpoints_ibz(j)), &
+                                    & structure_grid%sc_size) == 0)) then
                     sc_ids(j)=sc_num
                   endif
                 enddo
@@ -468,14 +507,14 @@ function generate_supercells(structure,grid) result(output)
   do i=1,no_qpoints_ibz
     do j=1,sc_size(i)
       ! Calculate q-point corresponding to G-vector in scaled co-ordinates.
-      qpoint = matmul( transpose(supercells(sc_ids(i))%recip_supercell), &
-                     & supercells(sc_ids(i))%gvectors(:,j))
+      qpoint = transpose(supercells(sc_ids(i))%recip_supercell) &
+           & * supercells(sc_ids(i))%gvectors(j)
       
       ! Check if the q-points match, modulo reciprocal lattice vectors,
       !    taking account of the different co-ordinate scaling.
-      if (all(modulo(   qpoints_ibz(:,i) * sc_size(i) &
-                    & - qpoint           * structure_grid%sc_size, &
-                    & sc_size(i)*structure_grid%sc_size)==0)) then
+      if (all(modulo( int(  qpoints_ibz(i) * sc_size(i)               &
+                    &     - qpoint         * structure_grid%sc_size), &
+                    & sc_size(i)*structure_grid%sc_size) == 0)) then
         gvector_ids(i) = j
         exit
       endif
@@ -484,10 +523,10 @@ function generate_supercells(structure,grid) result(output)
     ! Check that the corresponding G-vector has been found.
     if (gvector_ids(i) == 0) then
       call print_line('Error: could not locate q-point '//i//':')
-      call print_line(qpoints_ibz(:,i)/real(structure_grid%sc_size,dp))
+      call print_line(qpoints_ibz(i)/real(structure_grid%sc_size,dp))
       call print_line('G-vectors :')
       do j=1,sc_size(i)
-        call print_line(supercells(sc_ids(i))%gvectors(:,j))
+        call print_line(supercells(sc_ids(i))%gvectors(j))
       enddo
       call err()
     endif
@@ -502,7 +541,7 @@ function generate_supercells(structure,grid) result(output)
   
   do i=1,no_qpoints_ibz
     call new(output%qpoints_ibz(i),multiplicity(i))
-    output%qpoints_ibz(i)%qpoint = qpoints_ibz(:,i) &
+    output%qpoints_ibz(i)%qpoint = qpoints_ibz(i) &
                                & / dble(structure_grid%sc_size)
     output%qpoints_ibz(i)%sc_id = sc_ids(i)
     output%qpoints_ibz(i)%gvector_id = gvector_ids(i)
