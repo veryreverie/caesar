@@ -202,7 +202,6 @@ end subroutine
 ! ----------------------------------------------------------------------
 function read_structure_file(filename) result(this)
   use constants_module,      only : identity
-  use linear_algebra_module, only : invert, invert_int
   implicit none
   
   type(String), intent(in) :: filename

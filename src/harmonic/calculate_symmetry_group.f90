@@ -33,7 +33,9 @@ function calculate_symmetry_group(structure) result(output)
   allocate(distances(structure%no_atoms))
   
   ! Transform atom positions into fractional supercell co-ordinates.
-  atom_pos_frac = structure%recip_lattice * structure%atoms
+  do i=1,structure%no_atoms
+    atom_pos_frac(i) = structure%recip_lattice * structure%atoms(i)
+  enddo
   
   ! Work out which atoms map to which atoms under each symmetry operation.
   do i=1,structure%no_symmetries

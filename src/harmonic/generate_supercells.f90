@@ -320,40 +320,6 @@ function generate_supercells(structure,grid) result(output)
   ! Temporary variables
   integer :: i,j,k
   
-  type(IntMatrix) :: matrix
-  type(IntVector) :: vector
-  type(IntVector) :: vec_of_vecs(2)
-  
-  call print_line('')
-  call print_line('Top of function')
-  
-  matrix = mat([ 1,1,0, &
-               & 0,1,0, &
-               & 0,0,1],3,3)
-  vector = vec([1,1,1])
-  vec_of_vecs = [ vec([1,0,0]), vec([0,1,0]) ]
-  
-  call print_line('Matrix:')
-  call print_line(matrix)
-  
-  matrix = transpose(matrix)
-  call print_line('Transposed(Matrix):')
-  call print_line(matrix)
-  
-  call print_line('Matrix*Vector:')
-  vector = matrix*vector
-  
-  call print_line('transpose(Matrix)*Vector:')
-  vector = transpose(matrix)*vector
-  
-  call print_line('Matrix*[Vectors]:')
-  vec_of_vecs = matrix*vec_of_vecs
-  
-  call print_line('transpose(Matrix)*[Vectors]:')
-  vec_of_vecs = transpose(matrix)*vec_of_vecs
-  
-  stop
-  
   ! --------------------------------------------------
   ! Construct a supercell for which all q-points in the q-point grid are 
   !    G-vectors.
@@ -371,8 +337,10 @@ function generate_supercells(structure,grid) result(output)
   !    cartesian vectors of length product(grid).
   allocate( qpoints_grid(structure_grid%sc_size), &
           & stat=ialloc); call err(ialloc)
-  qpoints_grid = transpose(structure_grid%recip_supercell) &
-             & * structure_grid%gvectors
+  do i=1,structure_grid%sc_size
+    qpoints_grid(i) = transpose(structure_grid%recip_supercell) &
+                  & * structure_grid%gvectors(i)
+  enddo
   
   ! --------------------------------------------------
   ! Find equivalent q-points by rotating all q-points into the IBZ.

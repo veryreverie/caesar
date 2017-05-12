@@ -425,7 +425,6 @@ end subroutine
 ! ----------------------------------------------------------------------
 subroutine calc_lte(bin_width,temperature,freq_dos,tdependence1_filename)
   use constants_module,      only : max_bin, no_fdos_sets
-  use linear_algebra_module, only : ddot
   implicit none
   
   real(dp), intent(in) :: bin_width
@@ -552,7 +551,9 @@ subroutine generate_dispersion(structure,supercell,&
   
   ! Transform q-points into reciprocal space (from fractional co-ords.)
   allocate(qpoints(no_paths+1), stat=ialloc); call err(ialloc)
-  qpoints = 2*pi*transpose(structure%recip_lattice)*path
+  do i=1,no_paths+1
+    qpoints(i) = 2*pi*transpose(structure%recip_lattice)*path(i)
+  enddo
   
   ! Work out distances in reciprocal space.
   allocate(path_length(no_paths), stat=ialloc); call err(ialloc)
@@ -794,7 +795,6 @@ end subroutine
 function evaluate_freqs_on_grid(supercell,force_constants) &
    & result(output)
   use constants_module, only : pi
-  use utils_module, only : l2_norm
   use structure_module
   use min_images_module
   implicit none

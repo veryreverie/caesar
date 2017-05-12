@@ -336,7 +336,9 @@ function castep_input_file_to_StructureData(filename) result(output)
       positions(i) = positions(i) * conversion
     enddo
   else
-    positions(:no_atoms) = transpose(mat(lattice)) * positions(:no_atoms)
+    do i=1,no_atoms
+      positions(i) = transpose(mat(lattice)) * positions(i)
+    enddo
   endif
   
   ! Make output.

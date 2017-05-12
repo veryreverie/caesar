@@ -41,17 +41,11 @@ module linear_algebra_module
   
   interface assignment(=)
     module procedure assign_IntVector_integers
-    module procedure assign_IntVector_IntVector
     module procedure assign_RealVector_reals
-    module procedure assign_RealVector_RealVector
     module procedure assign_ComplexVector_complexes
-    module procedure assign_ComplexVector_ComplexVector
     module procedure assign_IntMatrix_integers
-    module procedure assign_IntMatrix_IntMatrix
     module procedure assign_RealMatrix_reals
-    module procedure assign_RealMatrix_RealMatrix
     module procedure assign_ComplexMatrix_complexes
-    module procedure assign_ComplexMatrix_ComplexMatrix
   end interface
   
   interface vec
@@ -97,15 +91,11 @@ module linear_algebra_module
   
   interface operator(==)
     module procedure equality_IntVector_IntVector
-    module procedure equality_IntVector_integers
-    module procedure equality_integers_IntVector
     module procedure equality_IntMatrix_IntMatrix
   end interface
   
   interface operator(/=)
     module procedure non_equality_IntVector_IntVector
-    module procedure non_equality_IntVector_integers
-    module procedure non_equality_integers_IntVector
     module procedure non_equality_IntMatrix_IntMatrix
   end interface
   
@@ -445,15 +435,6 @@ pure subroutine assign_IntVector_integers(output,input)
   output%contents = input
 end subroutine
 
-pure subroutine assign_IntVector_IntVector(output,input)
-  implicit none
-  
-  type(IntVector), intent(in)  :: input
-  type(IntVector), intent(out) :: output
-  
-  output = input%contents
-end subroutine
-
 pure subroutine assign_RealVector_reals(output,input)
   implicit none
   
@@ -461,15 +442,6 @@ pure subroutine assign_RealVector_reals(output,input)
   type(RealVector), intent(out) :: output
   
   output%contents = input
-end subroutine
-
-pure subroutine assign_RealVector_RealVector(output,input)
-  implicit none
-  
-  type(RealVector), intent(in)  :: input
-  type(RealVector), intent(out) :: output
-  
-  output = input%contents
 end subroutine
 
 pure subroutine assign_ComplexVector_complexes(output,input)
@@ -481,15 +453,6 @@ pure subroutine assign_ComplexVector_complexes(output,input)
   output%contents = input
 end subroutine
 
-pure subroutine assign_ComplexVector_ComplexVector(output,input)
-  implicit none
-  
-  type(ComplexVector), intent(in)  :: input
-  type(ComplexVector), intent(out) :: output
-  
-  output = input%contents
-end subroutine
-
 pure subroutine assign_IntMatrix_integers(output,input)
   implicit none
   
@@ -497,15 +460,6 @@ pure subroutine assign_IntMatrix_integers(output,input)
   type(IntMatrix), intent(out) :: output
   
   output%contents = input
-end subroutine
-
-pure subroutine assign_IntMatrix_IntMatrix(output,input)
-  implicit none
-  
-  type(IntMatrix), intent(in)  :: input
-  type(IntMatrix), intent(out) :: output
-  
-  output = input%contents
 end subroutine
 
 pure subroutine assign_RealMatrix_reals(output,input)
@@ -517,15 +471,6 @@ pure subroutine assign_RealMatrix_reals(output,input)
   output%contents = input
 end subroutine
 
-pure subroutine assign_RealMatrix_RealMatrix(output,input)
-  implicit none
-  
-  type(RealMatrix), intent(in)  :: input
-  type(RealMatrix), intent(out) :: output
-  
-  output = input%contents
-end subroutine
-
 pure subroutine assign_ComplexMatrix_complexes(output,input)
   implicit none
   
@@ -533,15 +478,6 @@ pure subroutine assign_ComplexMatrix_complexes(output,input)
   type(ComplexMatrix), intent(out) :: output
   
   output%contents = input
-end subroutine
-
-pure subroutine assign_ComplexMatrix_ComplexMatrix(output,input)
-  implicit none
-  
-  type(ComplexMatrix), intent(in)  :: input
-  type(ComplexMatrix), intent(out) :: output
-  
-  output = input%contents
 end subroutine
 
 ! Conversion to Vector and Matrix.
@@ -774,26 +710,6 @@ elemental function equality_IntVector_IntVector(a,b) result(output)
   output = all(a%contents==b%contents)
 end function
 
-pure function equality_IntVector_integers(a,b) result(output)
-  implicit none
-  
-  type(IntVector), intent(in) :: a
-  integer,         intent(in) :: b(:)
-  logical                     :: output
-  
-  output = all(a%contents==b)
-end function
-
-pure function equality_integers_IntVector(a,b) result(output)
-  implicit none
-  
-  integer,         intent(in) :: a(:)
-  type(IntVector), intent(in) :: b
-  logical                     :: output
-  
-  output = all(a==b%contents)
-end function
-
 elemental function equality_IntMatrix_IntMatrix(a,b) result(output)
   implicit none
   
@@ -815,26 +731,6 @@ elemental function non_equality_IntVector_IntVector(a,b) result(output)
   output = .not. a==b
 end function
 
-pure function non_equality_IntVector_integers(a,b) result(output)
-  implicit none
-  
-  type(IntVector), intent(in) :: a
-  integer,         intent(in) :: b(:)
-  logical                     :: output
-  
-  output = .not. a==b
-end function
-
-pure function non_equality_integers_IntVector(a,b) result(output)
-  implicit none
-  
-  integer,         intent(in) :: a(:)
-  type(IntVector), intent(in) :: b
-  logical                     :: output
-  
-  output = .not. a==b
-end function
-
 elemental function non_equality_IntMatrix_IntMatrix(a,b) result(output)
   implicit none
   
@@ -846,7 +742,7 @@ elemental function non_equality_IntMatrix_IntMatrix(a,b) result(output)
 end function
 
 ! Addition.
-elemental function add_IntVector_IntVector(a,b) result(output)
+pure function add_IntVector_IntVector(a,b) result(output)
   implicit none
   
   type(IntVector), intent(in) :: a
@@ -856,7 +752,7 @@ elemental function add_IntVector_IntVector(a,b) result(output)
   output = a%contents + b%contents
 end function
 
-elemental function add_IntVector_RealVector(a,b) result(output)
+pure function add_IntVector_RealVector(a,b) result(output)
   implicit none
   
   type(IntVector),  intent(in) :: a
@@ -866,7 +762,7 @@ elemental function add_IntVector_RealVector(a,b) result(output)
   output = a%contents + b%contents
 end function
 
-elemental function add_RealVector_IntVector(a,b) result(output)
+pure function add_RealVector_IntVector(a,b) result(output)
   implicit none
   
   type(RealVector), intent(in) :: a
@@ -876,7 +772,7 @@ elemental function add_RealVector_IntVector(a,b) result(output)
   output = a%contents + b%contents
 end function
 
-elemental function add_RealVector_RealVector(a,b) result(output)
+pure function add_RealVector_RealVector(a,b) result(output)
   implicit none
   
   type(RealVector), intent(in) :: a
@@ -886,7 +782,7 @@ elemental function add_RealVector_RealVector(a,b) result(output)
   output = a%contents + b%contents
 end function
 
-elemental function add_RealVector_ComplexVector(a,b) result(output)
+pure function add_RealVector_ComplexVector(a,b) result(output)
   implicit none
   
   type(RealVector),    intent(in) :: a
@@ -896,7 +792,7 @@ elemental function add_RealVector_ComplexVector(a,b) result(output)
   output = a%contents + b%contents
 end function
 
-elemental function add_ComplexVector_RealVector(a,b) result(output)
+pure function add_ComplexVector_RealVector(a,b) result(output)
   implicit none
   
   type(ComplexVector), intent(in) :: a
@@ -906,7 +802,7 @@ elemental function add_ComplexVector_RealVector(a,b) result(output)
   output = a%contents + b%contents
 end function
 
-elemental function add_ComplexVector_ComplexVector(a,b) result(output)
+pure function add_ComplexVector_ComplexVector(a,b) result(output)
   implicit none
   
   type(ComplexVector), intent(in) :: a
@@ -916,7 +812,7 @@ elemental function add_ComplexVector_ComplexVector(a,b) result(output)
   output = a%contents + b%contents
 end function
 
-elemental function add_IntMatrix_IntMatrix(a,b) result(output)
+pure function add_IntMatrix_IntMatrix(a,b) result(output)
   implicit none
   
   type(IntMatrix), intent(in) :: a
@@ -926,7 +822,7 @@ elemental function add_IntMatrix_IntMatrix(a,b) result(output)
   output = a%contents + b%contents
 end function
 
-elemental function add_IntMatrix_RealMatrix(a,b) result(output)
+pure function add_IntMatrix_RealMatrix(a,b) result(output)
   implicit none
   
   type(IntMatrix),  intent(in) :: a
@@ -936,7 +832,7 @@ elemental function add_IntMatrix_RealMatrix(a,b) result(output)
   output = a%contents + b%contents
 end function
 
-elemental function add_RealMatrix_IntMatrix(a,b) result(output)
+pure function add_RealMatrix_IntMatrix(a,b) result(output)
   implicit none
   
   type(RealMatrix), intent(in) :: a
@@ -946,7 +842,7 @@ elemental function add_RealMatrix_IntMatrix(a,b) result(output)
   output = a%contents + b%contents
 end function
 
-elemental function add_RealMatrix_RealMatrix(a,b) result(output)
+pure function add_RealMatrix_RealMatrix(a,b) result(output)
   implicit none
   
   type(RealMatrix), intent(in) :: a
@@ -956,7 +852,7 @@ elemental function add_RealMatrix_RealMatrix(a,b) result(output)
   output = a%contents + b%contents
 end function
 
-elemental function add_RealMatrix_ComplexMatrix(a,b) result(output)
+pure function add_RealMatrix_ComplexMatrix(a,b) result(output)
   implicit none
   
   type(RealMatrix),    intent(in) :: a
@@ -966,7 +862,7 @@ elemental function add_RealMatrix_ComplexMatrix(a,b) result(output)
   output = a%contents + b%contents
 end function
 
-elemental function add_ComplexMatrix_RealMatrix(a,b) result(output)
+pure function add_ComplexMatrix_RealMatrix(a,b) result(output)
   implicit none
   
   type(ComplexMatrix), intent(in) :: a
@@ -976,7 +872,7 @@ elemental function add_ComplexMatrix_RealMatrix(a,b) result(output)
   output = a%contents + b%contents
 end function
 
-elemental function add_ComplexMatrix_ComplexMatrix(a,b) result(output)
+pure function add_ComplexMatrix_ComplexMatrix(a,b) result(output)
   implicit none
   
   type(ComplexMatrix), intent(in) :: a
@@ -987,7 +883,7 @@ elemental function add_ComplexMatrix_ComplexMatrix(a,b) result(output)
 end function
 
 ! Negative.
-elemental function negative_IntVector(input) result(output)
+pure function negative_IntVector(input) result(output)
   implicit none
   
   type(IntVector), intent(in) :: input
@@ -996,7 +892,7 @@ elemental function negative_IntVector(input) result(output)
   output = -input%contents
 end function
 
-elemental function negative_RealVector(input) result(output)
+pure function negative_RealVector(input) result(output)
   implicit none
   
   type(RealVector), intent(in) :: input
@@ -1005,7 +901,7 @@ elemental function negative_RealVector(input) result(output)
   output = -input%contents
 end function
 
-elemental function negative_ComplexVector(input) result(output)
+pure function negative_ComplexVector(input) result(output)
   implicit none
   
   type(ComplexVector), intent(in) :: input
@@ -1014,7 +910,7 @@ elemental function negative_ComplexVector(input) result(output)
   output = -input%contents
 end function
 
-elemental function negative_IntMatrix(input) result(output)
+pure function negative_IntMatrix(input) result(output)
   implicit none
   
   type(IntMatrix), intent(in) :: input
@@ -1023,7 +919,7 @@ elemental function negative_IntMatrix(input) result(output)
   output = -input%contents
 end function
 
-elemental function negative_RealMatrix(input) result(output)
+pure function negative_RealMatrix(input) result(output)
   implicit none
   
   type(RealMatrix), intent(in) :: input
@@ -1032,7 +928,7 @@ elemental function negative_RealMatrix(input) result(output)
   output = -input%contents
 end function
 
-elemental function negative_ComplexMatrix(input) result(output)
+pure function negative_ComplexMatrix(input) result(output)
   implicit none
   
   type(ComplexMatrix), intent(in) :: input
@@ -1042,7 +938,7 @@ elemental function negative_ComplexMatrix(input) result(output)
 end function
 
 ! Subtraction.
-elemental function subtract_IntVector_IntVector(a,b) result(output)
+pure function subtract_IntVector_IntVector(a,b) result(output)
   implicit none
   
   type(IntVector), intent(in) :: a
@@ -1052,7 +948,7 @@ elemental function subtract_IntVector_IntVector(a,b) result(output)
   output = a%contents - b%contents
 end function
 
-elemental function subtract_IntVector_RealVector(a,b) result(output)
+pure function subtract_IntVector_RealVector(a,b) result(output)
   implicit none
   
   type(IntVector),  intent(in) :: a
@@ -1062,7 +958,7 @@ elemental function subtract_IntVector_RealVector(a,b) result(output)
   output = a%contents - b%contents
 end function
 
-elemental function subtract_RealVector_IntVector(a,b) result(output)
+pure function subtract_RealVector_IntVector(a,b) result(output)
   implicit none
   
   type(RealVector), intent(in) :: a
@@ -1072,7 +968,7 @@ elemental function subtract_RealVector_IntVector(a,b) result(output)
   output = a%contents - b%contents
 end function
 
-elemental function subtract_RealVector_RealVector(a,b) result(output)
+pure function subtract_RealVector_RealVector(a,b) result(output)
   implicit none
   
   type(RealVector), intent(in) :: a
@@ -1082,7 +978,7 @@ elemental function subtract_RealVector_RealVector(a,b) result(output)
   output = a%contents - b%contents
 end function
 
-elemental function subtract_RealVector_ComplexVector(a,b) result(output)
+pure function subtract_RealVector_ComplexVector(a,b) result(output)
   implicit none
   
   type(RealVector),    intent(in) :: a
@@ -1092,7 +988,7 @@ elemental function subtract_RealVector_ComplexVector(a,b) result(output)
   output = a%contents - b%contents
 end function
 
-elemental function subtract_ComplexVector_RealVector(a,b) result(output)
+pure function subtract_ComplexVector_RealVector(a,b) result(output)
   implicit none
   
   type(ComplexVector), intent(in) :: a
@@ -1102,7 +998,7 @@ elemental function subtract_ComplexVector_RealVector(a,b) result(output)
   output = a%contents - b%contents
 end function
 
-elemental function subtract_ComplexVector_ComplexVector(a,b) result(output)
+pure function subtract_ComplexVector_ComplexVector(a,b) result(output)
   implicit none
   
   type(ComplexVector), intent(in) :: a
@@ -1112,7 +1008,7 @@ elemental function subtract_ComplexVector_ComplexVector(a,b) result(output)
   output = a%contents - b%contents
 end function
 
-elemental function subtract_IntMatrix_IntMatrix(a,b) result(output)
+pure function subtract_IntMatrix_IntMatrix(a,b) result(output)
   implicit none
   
   type(IntMatrix), intent(in) :: a
@@ -1122,7 +1018,7 @@ elemental function subtract_IntMatrix_IntMatrix(a,b) result(output)
   output = a%contents - b%contents
 end function
 
-elemental function subtract_IntMatrix_RealMatrix(a,b) result(output)
+pure function subtract_IntMatrix_RealMatrix(a,b) result(output)
   implicit none
   
   type(IntMatrix),  intent(in) :: a
@@ -1132,7 +1028,7 @@ elemental function subtract_IntMatrix_RealMatrix(a,b) result(output)
   output = a%contents - b%contents
 end function
 
-elemental function subtract_RealMatrix_IntMatrix(a,b) result(output)
+pure function subtract_RealMatrix_IntMatrix(a,b) result(output)
   implicit none
   
   type(RealMatrix), intent(in) :: a
@@ -1142,7 +1038,7 @@ elemental function subtract_RealMatrix_IntMatrix(a,b) result(output)
   output = a%contents - b%contents
 end function
 
-elemental function subtract_RealMatrix_RealMatrix(a,b) result(output)
+pure function subtract_RealMatrix_RealMatrix(a,b) result(output)
   implicit none
   
   type(RealMatrix), intent(in) :: a
@@ -1152,7 +1048,7 @@ elemental function subtract_RealMatrix_RealMatrix(a,b) result(output)
   output = a%contents - b%contents
 end function
 
-elemental function subtract_RealMatrix_ComplexMatrix(a,b) result(output)
+pure function subtract_RealMatrix_ComplexMatrix(a,b) result(output)
   implicit none
   
   type(RealMatrix),    intent(in) :: a
@@ -1162,7 +1058,7 @@ elemental function subtract_RealMatrix_ComplexMatrix(a,b) result(output)
   output = a%contents - b%contents
 end function
 
-elemental function subtract_ComplexMatrix_RealMatrix(a,b) result(output)
+pure function subtract_ComplexMatrix_RealMatrix(a,b) result(output)
   implicit none
   
   type(ComplexMatrix), intent(in) :: a
@@ -1172,7 +1068,7 @@ elemental function subtract_ComplexMatrix_RealMatrix(a,b) result(output)
   output = a%contents - b%contents
 end function
 
-elemental function subtract_ComplexMatrix_ComplexMatrix(a,b) result(output)
+pure function subtract_ComplexMatrix_ComplexMatrix(a,b) result(output)
   implicit none
   
   type(ComplexMatrix), intent(in) :: a
@@ -1464,7 +1360,7 @@ pure function multiply_complex_ComplexMatrix(a,b) result(output)
 end function
 
 ! Dot products and matrix multiplication.
-elemental function dot_IntVector_IntVector(a,b) result(output)
+pure function dot_IntVector_IntVector(a,b) result(output)
   implicit none
   
   type(IntVector), intent(in) :: a
@@ -1474,7 +1370,7 @@ elemental function dot_IntVector_IntVector(a,b) result(output)
   output = dot_product(a%contents, b%contents)
 end function
 
-elemental function dot_IntVector_RealVector(a,b) result(output)
+pure function dot_IntVector_RealVector(a,b) result(output)
   implicit none
   
   type(IntVector),  intent(in) :: a
@@ -1484,7 +1380,7 @@ elemental function dot_IntVector_RealVector(a,b) result(output)
   output = dot_product(a%contents, b%contents)
 end function
 
-elemental function dot_RealVector_IntVector(a,b) result(output)
+pure function dot_RealVector_IntVector(a,b) result(output)
   implicit none
   
   type(RealVector), intent(in) :: a
@@ -1494,7 +1390,7 @@ elemental function dot_RealVector_IntVector(a,b) result(output)
   output = dot_product(a%contents, b%contents)
 end function
 
-elemental function dot_RealVector_RealVector(a,b) result(output)
+pure function dot_RealVector_RealVector(a,b) result(output)
   implicit none
   
   type(RealVector), intent(in) :: a
@@ -1504,7 +1400,7 @@ elemental function dot_RealVector_RealVector(a,b) result(output)
   output = dot_product(a%contents, b%contents)
 end function
 
-elemental function dot_RealVector_ComplexVector(a,b) result(output)
+pure function dot_RealVector_ComplexVector(a,b) result(output)
   implicit none
   
   type(RealVector),    intent(in) :: a
@@ -1514,7 +1410,7 @@ elemental function dot_RealVector_ComplexVector(a,b) result(output)
   output = dot_product(a%contents, b%contents)
 end function
 
-elemental function dot_ComplexVector_RealVector(a,b) result(output)
+pure function dot_ComplexVector_RealVector(a,b) result(output)
   implicit none
   
   type(ComplexVector), intent(in) :: a
@@ -1524,7 +1420,7 @@ elemental function dot_ComplexVector_RealVector(a,b) result(output)
   output = dot_product(a%contents, b%contents)
 end function
 
-elemental function dot_ComplexVector_ComplexVector(a,b) result(output)
+pure function dot_ComplexVector_ComplexVector(a,b) result(output)
   implicit none
   
   type(ComplexVector), intent(in) :: a
@@ -1534,7 +1430,7 @@ elemental function dot_ComplexVector_ComplexVector(a,b) result(output)
   output = dot_product(a%contents, b%contents)
 end function
 
-elemental function dot_IntVector_IntMatrix(a,b) result(output)
+pure function dot_IntVector_IntMatrix(a,b) result(output)
   implicit none
   
   type(IntVector), intent(in) :: a
@@ -1544,7 +1440,7 @@ elemental function dot_IntVector_IntMatrix(a,b) result(output)
   output = matmul(a%contents, b%contents)
 end function
 
-elemental function dot_IntVector_RealMatrix(a,b) result(output)
+pure function dot_IntVector_RealMatrix(a,b) result(output)
   implicit none
   
   type(IntVector),  intent(in) :: a
@@ -1554,7 +1450,7 @@ elemental function dot_IntVector_RealMatrix(a,b) result(output)
   output = matmul(a%contents, b%contents)
 end function
 
-elemental function dot_RealVector_IntMatrix(a,b) result(output)
+pure function dot_RealVector_IntMatrix(a,b) result(output)
   implicit none
   
   type(RealVector), intent(in) :: a
@@ -1564,7 +1460,7 @@ elemental function dot_RealVector_IntMatrix(a,b) result(output)
   output = matmul(a%contents, b%contents)
 end function
 
-elemental function dot_RealVector_RealMatrix(a,b) result(output)
+pure function dot_RealVector_RealMatrix(a,b) result(output)
   implicit none
   
   type(RealVector), intent(in) :: a
@@ -1574,7 +1470,7 @@ elemental function dot_RealVector_RealMatrix(a,b) result(output)
   output = matmul(a%contents, b%contents)
 end function
 
-elemental function dot_RealVector_ComplexMatrix(a,b) result(output)
+pure function dot_RealVector_ComplexMatrix(a,b) result(output)
   implicit none
   
   type(RealVector),    intent(in) :: a
@@ -1584,7 +1480,7 @@ elemental function dot_RealVector_ComplexMatrix(a,b) result(output)
   output = matmul(a%contents, b%contents)
 end function
 
-elemental function dot_ComplexVector_RealMatrix(a,b) result(output)
+pure function dot_ComplexVector_RealMatrix(a,b) result(output)
   implicit none
   
   type(ComplexVector), intent(in) :: a
@@ -1594,7 +1490,7 @@ elemental function dot_ComplexVector_RealMatrix(a,b) result(output)
   output = matmul(a%contents, b%contents)
 end function
 
-elemental function dot_ComplexVector_ComplexMatrix(a,b) result(output)
+pure function dot_ComplexVector_ComplexMatrix(a,b) result(output)
   implicit none
   
   type(ComplexVector), intent(in) :: a
@@ -1604,19 +1500,17 @@ elemental function dot_ComplexVector_ComplexMatrix(a,b) result(output)
   output = matmul(a%contents, b%contents)
 end function
 
-impure elemental function dot_IntMatrix_IntVector(a,b) result(output)
+pure function dot_IntMatrix_IntVector(a,b) result(output)
   implicit none
   
   type(IntMatrix), intent(in) :: a
   type(IntVector), intent(in) :: b
   type(IntVector)             :: output
   
-  call print_line(allocated(a%contents)//' '//allocated(b%contents))
-  
   output = matmul(a%contents, b%contents)
 end function
 
-elemental function dot_IntMatrix_RealVector(a,b) result(output)
+pure function dot_IntMatrix_RealVector(a,b) result(output)
   implicit none
   
   type(IntMatrix),  intent(in) :: a
@@ -1626,7 +1520,7 @@ elemental function dot_IntMatrix_RealVector(a,b) result(output)
   output = matmul(a%contents, b%contents)
 end function
 
-elemental function dot_RealMatrix_IntVector(a,b) result(output)
+pure function dot_RealMatrix_IntVector(a,b) result(output)
   implicit none
   
   type(RealMatrix), intent(in) :: a
@@ -1636,7 +1530,7 @@ elemental function dot_RealMatrix_IntVector(a,b) result(output)
   output = matmul(a%contents, b%contents)
 end function
 
-elemental function dot_RealMatrix_RealVector(a,b) result(output)
+pure function dot_RealMatrix_RealVector(a,b) result(output)
   implicit none
   
   type(RealMatrix), intent(in) :: a
@@ -1646,7 +1540,7 @@ elemental function dot_RealMatrix_RealVector(a,b) result(output)
   output = matmul(a%contents, b%contents)
 end function
 
-elemental function dot_RealMatrix_ComplexVector(a,b) result(output)
+pure function dot_RealMatrix_ComplexVector(a,b) result(output)
   implicit none
   
   type(RealMatrix),    intent(in) :: a
@@ -1656,7 +1550,7 @@ elemental function dot_RealMatrix_ComplexVector(a,b) result(output)
   output = matmul(a%contents, b%contents)
 end function
 
-elemental function dot_ComplexMatrix_RealVector(a,b) result(output)
+pure function dot_ComplexMatrix_RealVector(a,b) result(output)
   implicit none
   
   type(ComplexMatrix), intent(in) :: a
@@ -1666,7 +1560,7 @@ elemental function dot_ComplexMatrix_RealVector(a,b) result(output)
   output = matmul(a%contents, b%contents)
 end function
 
-elemental function dot_ComplexMatrix_ComplexVector(a,b) result(output)
+pure function dot_ComplexMatrix_ComplexVector(a,b) result(output)
   implicit none
   
   type(ComplexMatrix), intent(in) :: a
@@ -1676,7 +1570,7 @@ elemental function dot_ComplexMatrix_ComplexVector(a,b) result(output)
   output = matmul(a%contents, b%contents)
 end function
 
-elemental function dot_IntMatrix_IntMatrix(a,b) result(output)
+pure function dot_IntMatrix_IntMatrix(a,b) result(output)
   implicit none
   
   type(IntMatrix), intent(in) :: a
@@ -1686,7 +1580,7 @@ elemental function dot_IntMatrix_IntMatrix(a,b) result(output)
   output = matmul(a%contents, b%contents)
 end function
 
-elemental function dot_IntMatrix_RealMatrix(a,b) result(output)
+pure function dot_IntMatrix_RealMatrix(a,b) result(output)
   implicit none
   
   type(IntMatrix),  intent(in) :: a
@@ -1696,7 +1590,7 @@ elemental function dot_IntMatrix_RealMatrix(a,b) result(output)
   output = matmul(a%contents, b%contents)
 end function
 
-elemental function dot_RealMatrix_IntMatrix(a,b) result(output)
+pure function dot_RealMatrix_IntMatrix(a,b) result(output)
   implicit none
   
   type(RealMatrix), intent(in) :: a
@@ -1706,7 +1600,7 @@ elemental function dot_RealMatrix_IntMatrix(a,b) result(output)
   output = matmul(a%contents, b%contents)
 end function
 
-elemental function dot_RealMatrix_RealMatrix(a,b) result(output)
+pure function dot_RealMatrix_RealMatrix(a,b) result(output)
   implicit none
   
   type(RealMatrix), intent(in) :: a
@@ -1716,7 +1610,7 @@ elemental function dot_RealMatrix_RealMatrix(a,b) result(output)
   output = matmul(a%contents, b%contents)
 end function
 
-elemental function dot_RealMatrix_ComplexMatrix(a,b) result(output)
+pure function dot_RealMatrix_ComplexMatrix(a,b) result(output)
   implicit none
   
   type(RealMatrix),    intent(in) :: a
@@ -1726,7 +1620,7 @@ elemental function dot_RealMatrix_ComplexMatrix(a,b) result(output)
   output = matmul(a%contents, b%contents)
 end function
 
-elemental function dot_ComplexMatrix_RealMatrix(a,b) result(output)
+pure function dot_ComplexMatrix_RealMatrix(a,b) result(output)
   implicit none
   
   type(ComplexMatrix), intent(in) :: a
@@ -1736,7 +1630,7 @@ elemental function dot_ComplexMatrix_RealMatrix(a,b) result(output)
   output = matmul(a%contents, b%contents)
 end function
 
-elemental function dot_ComplexMatrix_ComplexMatrix(a,b) result(output)
+pure function dot_ComplexMatrix_ComplexMatrix(a,b) result(output)
   implicit none
   
   type(ComplexMatrix), intent(in) :: a
@@ -1747,7 +1641,7 @@ elemental function dot_ComplexMatrix_ComplexMatrix(a,b) result(output)
 end function
 
 ! Division by scalar.
-elemental function divide_IntVector_integer(a,b) result(output)
+pure function divide_IntVector_integer(a,b) result(output)
   implicit none
   
   type(IntVector), intent(in) :: a
@@ -1757,7 +1651,7 @@ elemental function divide_IntVector_integer(a,b) result(output)
   output = a%contents/b
 end function
 
-elemental function divide_IntVector_real(a,b) result(output)
+pure function divide_IntVector_real(a,b) result(output)
   implicit none
   
   type(IntVector), intent(in) :: a
@@ -1767,7 +1661,7 @@ elemental function divide_IntVector_real(a,b) result(output)
   output = a%contents/b
 end function
 
-elemental function divide_RealVector_integer(a,b) result(output)
+pure function divide_RealVector_integer(a,b) result(output)
   implicit none
   
   type(RealVector), intent(in) :: a
@@ -1777,7 +1671,7 @@ elemental function divide_RealVector_integer(a,b) result(output)
   output = a%contents/b
 end function
 
-elemental function divide_RealVector_real(a,b) result(output)
+pure function divide_RealVector_real(a,b) result(output)
   implicit none
   
   type(RealVector), intent(in) :: a
@@ -1787,7 +1681,7 @@ elemental function divide_RealVector_real(a,b) result(output)
   output = a%contents/b
 end function
 
-elemental function divide_RealVector_complex(a,b) result(output)
+pure function divide_RealVector_complex(a,b) result(output)
   implicit none
   
   type(RealVector),    intent(in) :: a
@@ -1797,7 +1691,7 @@ elemental function divide_RealVector_complex(a,b) result(output)
   output = a%contents/b
 end function
 
-elemental function divide_ComplexVector_real(a,b) result(output)
+pure function divide_ComplexVector_real(a,b) result(output)
   implicit none
   
   type(ComplexVector), intent(in) :: a
@@ -1807,7 +1701,7 @@ elemental function divide_ComplexVector_real(a,b) result(output)
   output = a%contents/b
 end function
 
-elemental function divide_ComplexVector_complex(a,b) result(output)
+pure function divide_ComplexVector_complex(a,b) result(output)
   implicit none
   
   type(ComplexVector), intent(in) :: a
@@ -1817,7 +1711,7 @@ elemental function divide_ComplexVector_complex(a,b) result(output)
   output = a%contents/b
 end function
 
-elemental function divide_IntMatrix_integer(a,b) result(output)
+pure function divide_IntMatrix_integer(a,b) result(output)
   implicit none
   
   type(IntMatrix), intent(in) :: a
@@ -1827,7 +1721,7 @@ elemental function divide_IntMatrix_integer(a,b) result(output)
   output = a%contents/b
 end function
 
-elemental function divide_IntMatrix_real(a,b) result(output)
+pure function divide_IntMatrix_real(a,b) result(output)
   implicit none
   
   type(IntMatrix), intent(in) :: a
@@ -1837,7 +1731,7 @@ elemental function divide_IntMatrix_real(a,b) result(output)
   output = a%contents/b
 end function
 
-elemental function divide_RealMatrix_integer(a,b) result(output)
+pure function divide_RealMatrix_integer(a,b) result(output)
   implicit none
   
   type(RealMatrix), intent(in) :: a
@@ -1847,7 +1741,7 @@ elemental function divide_RealMatrix_integer(a,b) result(output)
   output = a%contents/b
 end function
 
-elemental function divide_RealMatrix_real(a,b) result(output)
+pure function divide_RealMatrix_real(a,b) result(output)
   implicit none
   
   type(RealMatrix), intent(in) :: a
@@ -1857,7 +1751,7 @@ elemental function divide_RealMatrix_real(a,b) result(output)
   output = a%contents/b
 end function
 
-elemental function divide_RealMatrix_complex(a,b) result(output)
+pure function divide_RealMatrix_complex(a,b) result(output)
   implicit none
   
   type(RealMatrix),    intent(in) :: a
@@ -1867,7 +1761,7 @@ elemental function divide_RealMatrix_complex(a,b) result(output)
   output = a%contents/b
 end function
 
-elemental function divide_ComplexMatrix_real(a,b) result(output)
+pure function divide_ComplexMatrix_real(a,b) result(output)
   implicit none
   
   type(ComplexMatrix), intent(in) :: a
@@ -1877,7 +1771,7 @@ elemental function divide_ComplexMatrix_real(a,b) result(output)
   output = a%contents/b
 end function
 
-elemental function divide_ComplexMatrix_complex(a,b) result(output)
+pure function divide_ComplexMatrix_complex(a,b) result(output)
   implicit none
   
   type(ComplexMatrix), intent(in) :: a
@@ -1888,7 +1782,7 @@ elemental function divide_ComplexMatrix_complex(a,b) result(output)
 end function
 
 ! L2 norm.
-elemental function l2_norm_RealVector(input) result(output)
+pure function l2_norm_RealVector(input) result(output)
   implicit none
   
   type(RealVector), intent(in) :: input
@@ -1914,7 +1808,7 @@ function outer_product_RealVector_RealVector(a,b) result(output)
 end function
 
 ! Transpose.
-elemental function transpose_IntMatrix(input) result(output)
+pure function transpose_IntMatrix(input) result(output)
   implicit none
   
   type(IntMatrix), intent(in) :: input
@@ -1923,7 +1817,7 @@ elemental function transpose_IntMatrix(input) result(output)
   output = transpose(input%contents)
 end function
 
-elemental function transpose_RealMatrix(input) result(output)
+pure function transpose_RealMatrix(input) result(output)
   implicit none
   
   type(RealMatrix), intent(in) :: input

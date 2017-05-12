@@ -35,6 +35,14 @@ subroutine linear_algebra_test(arguments)
   type(RealVector) :: rv1,rv2
   type(IntMatrix)  :: im1,im2
   type(RealMatrix) :: rm1,rm2
+  type(IntMatrix) :: matrix
+  type(IntVector) :: vector
+  type(IntVector) :: vec_of_vecs(2)
+  
+  integer :: i
+  
+  call print_line('')
+  call print_line('Testing linear algebra.')
   
   wd = item(arguments, 'working_directory')
   
@@ -64,9 +72,9 @@ subroutine linear_algebra_test(arguments)
              & 2,  1, -3, &
              & 1, -2, -1  ], 3,3)
   
-  if (im1*iv1 /= [ 3, 10, -3 ]) then
+  if (im1*iv1 /= vec([ 3, 10, -3 ])) then
     call err()
-  elseif (iv1*im1 /= [ 7, 7, -4]) then
+  elseif (iv1*im1 /= vec([ 7, 7, -4])) then
     call err()
   elseif (determinant(im1) /= -18) then
     call err()
@@ -141,6 +149,35 @@ subroutine linear_algebra_test(arguments)
   if (abs(rv2*rm2*rv2-1.0_dp) > 1.0e-10_dp) then
     call err()
   endif
+  
+  matrix = mat([ 1,1,0, &
+               & 0,1,0, &
+               & 0,0,1],3,3)
+  vector = vec([1,1,1])
+  vec_of_vecs = [ vec([1,0,0]), vec([0,1,0]) ]
+  
+  call print_line('Matrix:')
+  call print_line(matrix)
+  
+  matrix = transpose(matrix)
+  call print_line('Transposed(Matrix):')
+  call print_line(matrix)
+  
+  call print_line('Matrix*Vector:')
+  vector = matrix*vector
+  
+  call print_line('transpose(Matrix)*Vector:')
+  vector = transpose(matrix)*vector
+  
+  call print_line('Matrix*[Vectors]:')
+  do i=1,2
+    vec_of_vecs(i) = matrix*vec_of_vecs(i)
+  enddo
+  
+  call print_line('transpose(Matrix)*[Vectors]:')
+  do i=1,2
+    vec_of_vecs(i) = transpose(matrix)*vec_of_vecs(i)
+  enddo
   
   call print_line('')
   call print_line('All tests succesful.')

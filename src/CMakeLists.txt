@@ -7,8 +7,19 @@ enable_language(Fortran)
 enable_language(C)
 set(CMAKE_Fortran_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/mod/)
 
+# N.B. to compile with a different compiler, call:
+#    cmake /path/to/src -DCMAKE_Fortran_COMPILER:PATH=gfortran
+#    cmake /path/to/src -DCMAKE_Fortran_COMPILER:PATH=ifort
+#    cmake /path/to/src -DCMAKE_Fortran_COMPILER:PATH=nagfor
+
 if ("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "GNU")
-  set(CMAKE_Fortran_FLAGS "-g -O0 -W -Wall -Wextra -pedantic -fmax-errors=1 -fcheck=all -fbacktrace")
+  set(CMAKE_Fortran_FLAGS "-g -O0 -W -Wall -Wextra -pedantic -fmax-errors=1 -fcheck=all -fbacktrace -std=f2003 -fall-intrinsics")
+elseif("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "NAG")
+  set(CMAKE_Fortran_FLAGS "-f2003 -I ${CMAKE_BINARY_DIR}/mod/")
+elseif("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "Intel")
+  set(CMAKE_Fortran_FLAGS "-stand f03")
+else()
+  message(FATAL_ERROR "Unknown compiler: ${CMAKE_Fortran_COMPILER_ID}")
 endif()
 
 if ("${CMAKE_C_COMPILER_ID}" STREQUAL "GNU")
@@ -35,4 +46,6 @@ add_subdirectory(${CMAKE_SOURCE_DIR}/testing ${CMAKE_BINARY_DIR}/testing/)
 target_link_libraries(caesar testing)
 
 # Compile the old code to bin/old/ for testing purposes.
-add_subdirectory(${CMAKE_SOURCE_DIR}/old ${CMAKE_BINARY_DIR}/old/)
+if ("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "GNU")
+  add_subdirectory(${CMAKE_SOURCE_DIR}/old ${CMAKE_BINARY_DIR}/old/)
+endif()
