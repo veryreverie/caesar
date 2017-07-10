@@ -1,4 +1,6 @@
+! ======================================================================
 ! Subroutines for the calculation of minimum-image distances.
+! ======================================================================
 module min_images_module
   use constants_module, only : dp
   use string_module

@@ -38,7 +38,7 @@ subroutine anharmonic(arguments)
   use dictionary_module
   implicit none
   
-  type(Dictionary) :: arguments
+  type(Dictionary), intent(in) :: arguments
   
   ! Working directory.
   type(String) :: wd
@@ -87,7 +87,7 @@ subroutine anharmonic(arguments)
   type(DftOutputFile)   :: dft_output_file
   
   ! Files.
-  type(String), allocatable :: no_sc_file(:)
+  type(String), allocatable :: no_supercells_file(:)
   integer                   :: result_file
   
   ! Temporary variables.
@@ -112,8 +112,8 @@ subroutine anharmonic(arguments)
   displacement = dble(item(setup_quadratic_arguments, 'displacement'))
   
   ! read the number of Supercell_* directories into no_supercells
-  no_sc_file = read_lines(harmonic_path//'/no_sc.dat')
-  no_supercells = int(no_sc_file(1))
+  no_supercells_file = read_lines(harmonic_path//'/no_supercells.dat')
+  no_supercells = int(no_supercells_file(1))
   
   ! allocate arrays of size no_supercells
   allocate(sc_acoustic(no_supercells))

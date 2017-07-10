@@ -152,9 +152,9 @@ end subroutine
 subroutine help_keyword(keyword,mode,keywords)
   implicit none
   
-  type(String),                   intent(in) :: keyword
-  type(String),                   intent(in) :: mode
-  type(KeywordData), allocatable, intent(in) :: keywords(:)
+  type(String),      intent(in) :: keyword
+  type(String),      intent(in) :: mode
+  type(KeywordData), intent(in) :: keywords(:)
   
   integer :: i
   logical :: success

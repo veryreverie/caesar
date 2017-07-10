@@ -1,23 +1,55 @@
+! ======================================================================
+! A group operating on integers.
+! ======================================================================
+
+! Represents e.g. the action of a symmetry on the system.
+! If a symmetry operates on a three-atom system, and takes:
+!    atom 1 -> atom 2
+!    atom 2 -> atom 3
+!    atom 3 -> atom 1
+! Then:
+!    symmetry_group*1 = 2
+!    symmetry_group*2 = 3
+!    symmetry_group*3 = 3
+
 module group_module
   use constants_module, only : dp
   use string_module
   use io_module
   implicit none
   
+  ! The group class.
   type Group
     integer, allocatable :: operation(:)
   end type
   
+  ! Allocates the group.
   interface new
     module procedure new_Group
   end interface
   
+  ! Create the group from an array of integers.
   interface assignment(=)
     module procedure assign_Group
   end interface
   
+  ! Inquiries about the group.
   interface size
     module procedure size_Group
+  end interface
+  
+  interface operator(==)
+    module procedure equality_Group_Group
+  end interface
+  
+  interface operator(/=)
+    module procedure non_equality_Group_Group
+  end interface
+  
+  ! Operate with the group on either an integer or another group.
+  interface operator(*)
+    module procedure operate_Group_integer
+    module procedure operate_Group_Group
   end interface
 contains
 
@@ -49,7 +81,30 @@ function size_Group(this) result(output)
   output = size(this%operation)
 end function
 
-function operate(this,input) result(output)
+function equality_Group_Group(a,b) result(output)
+  implicit none
+  
+  type(Group), intent(in) :: a
+  type(Group), intent(in) :: b
+  logical                 :: output
+  
+  output = all(a%operation==b%operation)
+end function
+
+function non_equality_Group_Group(a,b) result(output)
+  implicit none
+  
+  type(Group), intent(in) :: a
+  type(Group), intent(in) :: b
+  logical                 :: output
+  
+  output = .not. a==b
+end function
+  
+! ----------------------------------------------------------------------
+! Group operations.
+! ----------------------------------------------------------------------
+function operate_Group_integer(this,input) result(output)
   implicit none
   
   type(Group), intent(in) :: this
@@ -59,6 +114,30 @@ function operate(this,input) result(output)
   output = this%operation(input)
 end function
 
+function operate_Group_Group(a,b) result(output)
+  implicit none
+  
+  type(Group), intent(in) :: a
+  type(Group), intent(in) :: b
+  type(Group)             :: output
+  
+  integer              :: i
+  
+  if (size(a)/=size(b)) then
+    call print_line('Error: groups can only operate on other groups of the &
+       & same size.')
+    call err()
+  endif
+  
+  call new(output, size(a))
+  do i=1,size(a)
+    output%operation(i) = a%operation(b%operation(i))
+  enddo
+end function
+
+! ----------------------------------------------------------------------
+! I/O operations with the group.
+! ----------------------------------------------------------------------
 function read_group_file(filename) result(this)
   implicit none
   

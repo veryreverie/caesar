@@ -11,6 +11,9 @@ contains
 ! Calculates the set of vectors which are not related to one another by
 !    lattice vectors.
 ! ----------------------------------------------------------------------
+! This is used to either calculate the R-vectors of the primitive cell which are
+!    unique in the supercell, or the G-vectors of the reciprocal supercell which
+!    are unique in the reciprocal primitive cell.
 function calculate_unique_vectors(lattice,centre_on_origin) result(output)
   use linear_algebra_module
   implicit none
@@ -21,13 +24,10 @@ function calculate_unique_vectors(lattice,centre_on_origin) result(output)
   type(IntVector), allocatable :: output(:)
   
   integer         :: lattice_size
-  type(IntMatrix) :: recip_lattice
-  type(IntVector) :: vector
-  
-  integer         :: i,j,k,l,ialloc
   integer         :: no_vectors
-  type(IntVector) :: delta
-  integer         :: fractional(3)
+  type(IntVector) :: frac_vec
+  type(IntVector) :: prim_vec
+  integer         :: i,j,k,ialloc
   
   if (size(lattice,1)/=3 .or. size(lattice,2)/=3) then
     call print_line('Error: lattice is not 3x3.')
@@ -35,64 +35,32 @@ function calculate_unique_vectors(lattice,centre_on_origin) result(output)
   endif
   
   lattice_size = abs(determinant(lattice))
-  recip_lattice = transpose(invert_int(lattice))
   
   allocate(output(lattice_size), stat=ialloc); call err(ialloc)
   
-  ! Loop over vectors of up to lattice_size in each direction.
   no_vectors = 0
   do i=0,lattice_size-1
     do j=0,lattice_size-1
-      do_k : do k=0,lattice_size-1
-        vector = [k,j,i]
+      do k=0,lattice_size-1
         
-        ! Check if the vector has already been found.
-        do l=1,no_vectors
-          delta = recip_lattice * (vector-output(l))
-          if (all(modulo(int(delta),lattice_size) == 0)) then
-            cycle do_k
-          endif
-        enddo
-        
-        no_vectors = no_vectors+1
-        if (no_vectors>lattice_size) then
-          call print_line('Error: more unique vectors found than exist.')
-          call err()
+        ! Construct vectors in scaled fractional primitive co-ordinates.
+        ! (scaled by lattice_size, to preserve integer representation).
+        if (centre_on_origin) then
+          frac_vec = [i-lattice_size/2,j-lattice_size/2,k-lattice_size/2]
+        else
+          frac_vec = [i,j,k]
         endif
-        output(no_vectors) = vector
         
-      enddo do_k
-    enddo
-  enddo
-  
-  if (no_vectors/=lattice_size) then
-    call print_line('Error: only '//no_vectors//' unique vectors were found, &
-       &where there should be '//lattice_size//'.')
-    call err()
-  endif
-  
-  ! Translate vectors by reciprocal lattice vectors such that the elements
-  !    of the fractional co-ordinate lie in [0,1) or [-0.5,0.5), depending
-  !    on whether or not centre_on_origin is true.
-  do i=1,lattice_size
-    
-    ! Transform the vector into scaled fractional co-ordinates.
-    fractional = int(recip_lattice * output(i))
-    
-    ! Translate the fractional vector so its elements lie in [0,lattice_size).
-    fractional = modulo(fractional, lattice_size)
-    
-    ! Translate the fractional vector so its elements lie in [-0.5,0.5).
-    if (centre_on_origin) then
-      do j=1,3
-        if (fractional(j) > (lattice_size-1)/2) then
-          fractional(j) = fractional(j) - lattice_size
+        ! Transform to scaled fractional supercell co-ordinates.
+        prim_vec = transpose(lattice)*frac_vec
+        
+        ! Check if the scaled co-ordinate is scaling*(integer co-ordinate).
+        if (all(modulo(int(prim_vec),lattice_size)==0)) then
+          no_vectors = no_vectors+1
+          output(no_vectors) = prim_vec / lattice_size
         endif
       enddo
-    endif
-    
-    ! Transform the fractional vector back into original co-ordinates.
-    output(i) = transpose(lattice) * vec(fractional) / lattice_size
+    enddo
   enddo
 end function
 
@@ -143,8 +111,7 @@ function construct_supercell(structure,supercell_matrix,calculate_symmetries) &
   supercell%rvectors = calculate_unique_vectors(supercell_matrix, .false.)
   supercell%gvectors = calculate_unique_vectors( transpose(supercell_matrix), &
                                                & .true.)
-  call calculate_derived_supercell_quantities(supercell)
-  call calculate_derived_atom_quantities(supercell)
+  call calculate_derived_quantities(supercell)
   
   ! Generate atomic positions.
   do i=1,structure%no_atoms

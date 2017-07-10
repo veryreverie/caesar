@@ -2,11 +2,12 @@ module normal_mode_module
   use constants_module, only : dp
   use string_module
   use io_module
+  use linear_algebra_module
   
   type NormalMode
-    logical               :: soft_mode
-    real(dp)              :: frequency
-    real(dp), allocatable :: displacements(:,:)
+    logical                       :: soft_mode
+    real(dp)                      :: frequency
+    type(RealVector), allocatable :: displacements(:)
   end type
   
   interface new
@@ -22,7 +23,7 @@ subroutine new_NormalMode(this,no_atoms)
   
   integer :: ialloc
   
-  allocate(this%displacements(3,no_atoms), stat=ialloc); call err(ialloc)
+  allocate(this%displacements(no_atoms), stat=ialloc); call err(ialloc)
 end subroutine
 
 function read_normal_mode_file(filename) result(this)
@@ -48,7 +49,7 @@ function read_normal_mode_file(filename) result(this)
   
   do i=1,no_atoms
     line = split(mode_file(3+i))
-    this%displacements(:,i) = dble(line)
+    this%displacements(i) = dble(line)
   enddo
 end function
 
@@ -65,8 +66,8 @@ subroutine write_normal_mode_file(this,filename)
   call print_line(mode_file, 'Frequency: '//this%frequency)
   call print_line(mode_file, 'Soft mode: '//this%soft_mode)
   call print_line(mode_file, 'Displacements:')
-  do i=1,size(this%displacements,2)
-    call print_line(mode_file, this%displacements(:,i))
+  do i=1,size(this%displacements)
+    call print_line(mode_file, this%displacements(i))
   enddo
   close(mode_file)
 end subroutine

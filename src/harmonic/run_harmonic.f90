@@ -44,8 +44,8 @@ subroutine run_harmonic(arguments)
   
   ! Previous user inputs.
   type(Dictionary)          :: setup_harmonic_arguments
-  type(String), allocatable :: no_sc_file(:)
-  integer                   :: no_sc
+  type(String), allocatable :: no_supercells_file(:)
+  integer                   :: no_supercells
   type(String)              :: dft_code
   type(String)              :: seedname
   
@@ -77,8 +77,8 @@ subroutine run_harmonic(arguments)
   ! --------------------------------------------------
   ! Read in arguments to previous calculations.
   ! --------------------------------------------------
-  no_sc_file = read_lines(wd//'/no_sc.dat')
-  no_sc = int(no_sc_file(1))
+  no_supercells_file = read_lines(wd//'/no_supercells.dat')
+  no_supercells = int(no_supercells_file(1))
   
   setup_harmonic_arguments = read_dictionary_file( &
      & wd//'/setup_harmonic.used_settings')
@@ -92,17 +92,17 @@ subroutine run_harmonic(arguments)
     call print_line('')
     call print_line('Error: first supercell must be > 0')
     call err()
-  elseif (supercells_to_run(1)>no_sc) then
+  elseif (supercells_to_run(1)>no_supercells) then
     call print_line('')
-    call print_line('Error: first supercell must be <= '//no_sc)
+    call print_line('Error: first supercell must be <= '//no_supercells)
     call err()
   elseif (supercells_to_run(2)<supercells_to_run(1)) then
     call print_line('')
     call print_line('Error: first supercell must be <= last supercell.')
     call err()
-  elseif (supercells_to_run(2)>no_sc) then
+  elseif (supercells_to_run(2)>no_supercells) then
     call print_line('')
-    call print_line('Error: last supercell must be <= '//no_sc)
+    call print_line('Error: last supercell must be <= '//no_supercells)
     call err()
   elseif (no_cores<=0) then
     call print_line('')

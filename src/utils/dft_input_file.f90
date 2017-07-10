@@ -392,8 +392,7 @@ function castep_input_file_to_StructureData(filename) result(output)
   output%rvectors(1) = [0,0,0]
   output%gvectors(1) = [0,0,0]
   
-  call calculate_derived_atom_quantities(output)
-  call calculate_derived_supercell_quantities(output)
+  call calculate_derived_quantities(output)
   call calculate_symmetry(output)
 end function
 

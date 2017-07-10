@@ -5,6 +5,7 @@ module dft_output_file_module
   use constants_module, only : dp
   use string_module
   use io_module
+  use linear_algebra_module
   implicit none
   
   private
@@ -14,10 +15,10 @@ module dft_output_file_module
   public :: new
   
   type DftOutputFile
-    integer                   :: no_atoms
-    type(String), allocatable :: species(:)
-    real(dp)                  :: energy
-    real(dp),     allocatable :: forces(:,:)
+    integer                       :: no_atoms
+    type(String), allocatable     :: species(:)
+    real(dp)                      :: energy
+    type(RealVector), allocatable :: forces(:)
   end type
   
   interface new
@@ -34,7 +35,7 @@ subroutine new_DftOutputFile(this, no_atoms)
   
   this%no_atoms = no_atoms
   allocate(this%species(no_atoms))
-  allocate(this%forces(3,no_atoms))
+  allocate(this%forces(no_atoms))
 end subroutine
 
 function read_castep_output_file(filename) result(output)
@@ -104,7 +105,7 @@ function read_castep_output_file(filename) result(output)
   do i=1,output%no_atoms
     line = split(castep_file(forces_start_line+5+i))
     output%species(i) = line(2)
-    output%forces(:,i) = dble(line(4:6)) * angstrom_per_bohr / ev_per_hartree
+    output%forces(i) = dble(line(4:6)) * angstrom_per_bohr / ev_per_hartree
   enddo
 end function
 
@@ -162,7 +163,7 @@ function read_qe_output_file(filename) result(output)
   
   ! Allocate output
   allocate(output%species(forces_end_line-forces_start_line-3))
-  allocate(output%forces(3,forces_end_line-forces_start_line-3))
+  allocate(output%forces(forces_end_line-forces_start_line-3))
   
   ! Read data
   do i=1,species_end_line-species_start_line-1
@@ -176,7 +177,7 @@ function read_qe_output_file(filename) result(output)
   do i=1,forces_end_line-forces_start_line-3
     line = split(qe_file(forces_start_line+1+i))
     output%species(i) = species(int(line(4)))
-    output%forces(:,i) = dble(line(7:9)) * ev_per_rydberg / ev_per_hartree
+    output%forces(i) = dble(line(7:9)) * ev_per_rydberg / ev_per_hartree
   enddo
 end function
 

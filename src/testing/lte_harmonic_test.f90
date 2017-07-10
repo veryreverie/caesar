@@ -55,11 +55,8 @@ subroutine lte_harmonic_test(arguments)
   type(Dictionary) :: setup_harmonic_arguments
   
   ! Directories and files.
-  type(String) :: new_wd
-  type(String) :: old_wd
-  type(String) :: new_sdir
-  type(String) :: old_sdir
-  integer      :: lte_file
+  type(String) :: wd
+  type(String) :: sdir
   type(String) :: qdir
   
   ! Setup data
@@ -75,17 +72,15 @@ subroutine lte_harmonic_test(arguments)
   type(UniqueDirections)           :: unique_directions
   
   ! Symmetry data.
-  type(Group),      allocatable :: symmetry_group(:)
+  type(Group),      allocatable :: atom_symmetry_group(:)
   type(RealMatrix), allocatable :: rotations_cart(:)
   
   ! R-vector data.
   type(Group), allocatable  :: rvector_group(:)
   
   ! Force constant data.
-  real(dp),     allocatable :: forces(:,:,:)
-  real(dp),     allocatable :: old_force_constants(:,:,:)
-  real(dp),     allocatable :: new_force_constants(:,:,:)
-  type(String), allocatable :: old_force_constants_file(:)
+  type(RealVector), allocatable :: forces(:,:)
+  type(RealMatrix), allocatable :: force_constants(:,:,:)
   
   ! q-point data.
   type(StructureData)           :: structure_grid
@@ -93,9 +88,9 @@ subroutine lte_harmonic_test(arguments)
   type(RealVector)              :: qpoint
   
   ! Dynamical matrix data.
-  integer                  :: gvector
-  complex(dp), allocatable :: dynamical_matrix(:,:)
-  real(dp)                 :: exponent
+  integer                          :: gvector
+  type(ComplexMatrix), allocatable :: dynamical_matrix(:,:)
+  real(dp)                         :: exponent
   
   ! Displacement pattern variables.
   type(LteReturn), allocatable :: lte_results(:)
@@ -108,33 +103,29 @@ subroutine lte_harmonic_test(arguments)
   ! Atom, mode and R-vector IDs.
   integer :: atom_1,atom_2
   integer :: atom_1p,atom_2p
-  integer :: mode_1,mode_2,mode_1p,mode_2p
   integer :: atom_1_sc,atom_2_sc
   integer :: atom_1p_sc,atom_2p_sc
   integer :: rvector,rvector_p,rvector_1p,rvector_2p
   
   ! Errors.
-  real(dp) :: new_error, old_error, force
-  type(RealMatrix) :: matrix_new, matrix_p_new
-  type(RealMatrix) :: matrix_old, matrix_p_old
-  type(RealVector) :: x, f, new_f, old_f
-  real(dp) :: new_total, old_total
+  real(dp) :: error, force
+  type(RealMatrix) :: matrix, matrix_p
+  type(RealVector) :: x, f, fx
+  real(dp) :: total
   
   ! Temporary variables.
   integer                   :: i,j,k,l,ialloc
-  integer                   :: line_no
-  type(String), allocatable :: line(:)
   
   ! --------------------------------------------------
   ! Read in arguments from user.
   ! --------------------------------------------------
-  new_wd = item(arguments, 'working_directory')
+  wd = item(arguments, 'working_directory')
   temperature = dble(item(arguments, 'temperature'))
   
   ! --------------------------------------------------
   ! Copy out settings to lte_harmonic.used_settings
   ! --------------------------------------------------
-  call write_dictionary_file(arguments, new_wd//'/lte_harmonic.used_settings')
+  call write_dictionary_file(arguments, wd//'/lte_harmonic.used_settings')
   
   ! --------------------------------------------------
   ! Run new lte_harmonic.
@@ -145,145 +136,67 @@ subroutine lte_harmonic_test(arguments)
   ! Read in previous arguments.
   ! --------------------------------------------------
   setup_harmonic_arguments = read_dictionary_file( &
-     & new_wd//'/setup_harmonic.used_settings')
+     & wd//'/setup_harmonic.used_settings')
   dft_code = item(setup_harmonic_arguments, 'dft_code')
   seedname = item(setup_harmonic_arguments, 'seedname')
   grid = int(split(item(setup_harmonic_arguments, 'q-point_grid')))
   
   ! Read in setup data.
-  no_supercells_file = read_lines(new_wd//'/no_sc.dat')
+  no_supercells_file = read_lines(wd//'/no_supercells.dat')
   no_supercells = int(no_supercells_file(1))
   
   ! Read in structure.
-  structure = read_structure_file(new_wd//'/structure.dat')
+  structure = read_structure_file(wd//'/structure.dat')
   
   ! Read in supercells.
   allocate( supercells(no_supercells), &
           & lte_results(no_supercells), &
           & stat=ialloc); call err(ialloc)
   do i=1,no_supercells
-    new_sdir = new_wd//'/Supercell_'//i
-    supercells(i) = read_structure_file(new_sdir//'/structure.dat')
+    sdir = wd//'/Supercell_'//i
+    supercells(i) = read_structure_file(sdir//'/structure.dat')
   enddo
   
   ! --------------------------------------------------
   ! Loop across supercells, testing each in turn.
   ! --------------------------------------------------
-  old_wd = new_wd//'/old_caesar'
-  call mkdir(old_wd)
   
   do i=1,no_supercells
     call print_line('')
     call print_line('Checking supercell '//i)
-    new_sdir = new_wd//'/Supercell_'//i
-    old_sdir = old_wd//'/Supercell_'//i
-    call mkdir(old_sdir)
+    sdir = wd//'/Supercell_'//i
     
     supercell = supercells(i)
     
     rotations_cart = calculate_cartesian_rotations(supercell)
     
     ! Read in symmetry group and unique atoms.
-    symmetry_group = read_group_file(new_sdir//'/symmetry_group.dat')
+    atom_symmetry_group = read_group_file(sdir//'/atom_symmetry_group.dat')
     unique_directions = read_unique_directions_file( &
-       & new_sdir//'/unique_directions.dat')
+       & sdir//'/unique_directions.dat')
     
     ! Read in forces.
-    forces = read_forces(supercell, unique_directions, new_sdir, dft_code, &
+    forces = read_forces(supercell, unique_directions, sdir, dft_code, &
        & seedname)
-    
-    ! Write lte.dat to run old lte.
-    lte_file = open_write_file(old_sdir//'/lte.dat')
-    call print_line(lte_file, 'Primitive lattice vectors (rows, in a.u.)')
-    call print_line(lte_file, structure%lattice)
-    call print_line(lte_file, 'Supercell lattice vectors (rows, in a.u.)')
-    call print_line(lte_file, supercell%lattice)
-    call print_line(lte_file, 'Number of atoms in supercell')
-    call print_line(lte_file, supercell%no_atoms)
-    call print_line(lte_file, 'Species ; mass (a.u.) ; &
-       &position of atom in supercell (in terms of SC LVs)')
-    do j=1,supercell%no_atoms
-      call print_line(lte_file, supercell%species(j) //' '// &
-                              & supercell%mass(j)    //' '// &
-                              & supercell%recip_lattice * supercell%atoms(j))
-    enddo
-    call print_line(lte_file, 'Number of point-symmetry operations')
-    call print_line(lte_file, supercell%no_symmetries)
-    call print_line(lte_file, 'Rotation matrices (3 rows) &
-       &and translations (1 row, in terms of SC LVs)')
-    do j=1,supercell%no_symmetries
-      call print_line(lte_file, rotations_cart(j))
-      call print_line(lte_file, supercell%translations(j))
-    enddo
-    call print_line(lte_file, 'Number of force constants supplied')
-    call print_line(lte_file, 3*supercell%no_atoms*size(unique_directions))
-    call print_line(lte_file, 'Atom 1 ; Cartesian direction ; &
-       &Atom 2 ; Cartesian direction ; force constants (a.u.)')
-    do j=1,size(unique_directions)
-      do k=1,supercell%no_atoms
-        do l=1,3
-          call print_line(lte_file, unique_directions%atoms(j)         //' '//&
-                                  & unique_directions%directions_int(j)//' '//&
-                                  & k                                  //' '//&
-                                  & l                                  //' '//&
-                                  & forces(l,k,j))
-        enddo
-      enddo
-    enddo
-    call print_line(lte_file, 'Program fn: (4) evaluate freqs on grid')
-    call print_line(lte_file, 4)
-    call print_line(lte_file, 'Temperature (K)')
-    call print_line(lte_file, 0)
-    call print_line(lte_file, 'Number of lines in k space to plot')
-    call print_line(lte_file, 0)
-    call print_line(lte_file, 'Points on journey through k space')
-    call print_line(lte_file, '0 0 0')
-    close(lte_file)
-    
-    ! --------------------------------------------------
-    ! Run old lte.
-    ! --------------------------------------------------
-    call execute_old_code(old_sdir, str('lte_lower > lte.out'))
     
     ! --------------------------------------------------
     ! Check force constants.
     ! --------------------------------------------------
     ! Mass reduce forces.
-    do j=1,size(forces,3)
-      do k=1,size(forces,2)
-        forces(:,k,j) = forces(:,k,j)            &
-                    & / sqrt ( supercell%mass(k) &
-                    &        * supercell%mass(unique_directions%atoms(j)))
+    do j=1,size(unique_directions)
+      do k=1,supercell%no_atoms
+        forces(k,j) = forces(k,j)            &
+                  & / sqrt ( supercell%mass(k) &
+                  &        * supercell%mass(unique_directions%atoms(j)))
       enddo
     enddo
     
     ! Calculate force constants.
-    new_force_constants = construct_force_constants(forces,supercell,&
-       & unique_directions,symmetry_group)
-    
-    ! Read in old force constants.
-    allocate( old_force_constants( supercell%sc_size,   &
-            &                      structure%no_modes,  &
-            &                      structure%no_modes), &
-            & stat=ialloc); call err(ialloc)
-    old_force_constants_file = read_lines(old_sdir//'/force_constants.dat')
-    if ( size(old_force_constants_file) &
-       & /= (supercell%sc_size+2)*structure%no_modes**2) then
-      call err()
-    endif
-    do j=1,structure%no_modes
-      do k=1,structure%no_modes
-        do l=1,supercell%sc_size
-          line_no = (supercell%sc_size+2)*(structure%no_modes*(j-1)+k-1)+l+1
-          line = split(old_force_constants_file(line_no))
-          old_force_constants(l,k,j) = dble(line(5))
-        enddo
-      enddo
-    enddo
+    force_constants = construct_force_constants(forces,supercell,&
+       & unique_directions,atom_symmetry_group)
     
     ! Calculate L2 error between forces and force constants.
-    new_error = 0.0_dp
-    old_error = 0.0_dp
+    error = 0.0_dp
     force = 0.0_dp
     do j=1,supercell%no_symmetries
       do k=1,size(unique_directions)
@@ -298,131 +211,108 @@ subroutine lte_harmonic_test(arguments)
         x = rotations_cart(j) * x
         
         do l=1,supercell%no_atoms
-          atom_1 = operate(symmetry_group(j),unique_directions%atoms(k))
+          atom_1 = atom_symmetry_group(j) * unique_directions%atoms(k)
           if (supercell%atom_to_rvec(atom_1)/=1) then
             cycle
           endif
-          atom_2 = operate(symmetry_group(j),l)
-          mode_1 = (supercell%atom_to_prim(atom_1)-1)*3+1
-          mode_2 = (supercell%atom_to_prim(atom_2)-1)*3+1
+          atom_2 = atom_symmetry_group(j) * l
           rvector = supercell%atom_to_rvec(atom_2)
-          f = rotations_cart(j) * vec(forces(:,l,k))
-          new_f = mat( new_force_constants( rvector,          &
-              &                             mode_2:mode_2+2,  &
-              &                             mode_1:mode_1+2)) &
-              & * x
-          old_f = mat( old_force_constants( rvector,          &
-              &                             mode_2:mode_2+2,  &
-              &                             mode_1:mode_1+2)) &
-              & * x
-          new_error = new_error + (new_f-f)*(new_f-f)
-          old_error = old_error + (old_f-f)*(old_f-f)
+          f = rotations_cart(j) * forces(l,k)
+          fx = force_constants(rvector, supercelL%atom_to_prim(atom_2), supercell%atom_to_prim(atom_1)) * x
+          error = error + (fx-f)*(fx-f)
           force = force + f*f
         enddo
       enddo
     enddo
-    new_error = sqrt(new_error/force)
-    old_error = sqrt(old_error/force)
+    error = sqrt(error/force)
     call print_line( &
        & 'Fractional L2 difference between symmetrised and raw forces:')
-    call print_line('New code: '//new_error)
-    call print_line('Old code: '//old_error)
+    call print_line('New code: '//error)
     
     rvector_group = calculate_rvector_group(supercell)
     
     ! Calculate L2 error between symmetries.
-    new_error = 0.0_dp
-    old_error = 0.0_dp
-    new_total = 0.0_dp
-    old_total = 0.0_dp
+    error = 0.0_dp
+    total = 0.0_dp
     do j=1,supercell%no_symmetries
       do atom_1=1,structure%no_atoms
-        mode_1 = (atom_1-1)*3+1
         do atom_2=1,structure%no_atoms
-          mode_2 = (atom_2-1)*3+1
           do rvector=1,supercell%sc_size
             atom_1_sc = supercell%rvec_and_prim_to_atom(atom_1,1)
             atom_2_sc = supercell%rvec_and_prim_to_atom(atom_2,rvector)
-            atom_1p_sc = operate(symmetry_group(j),atom_1_sc)
-            atom_2p_sc = operate(symmetry_group(j),atom_2_sc)
+            atom_1p_sc = atom_symmetry_group(j) * atom_1_sc
+            atom_2p_sc = atom_symmetry_group(j) * atom_2_sc
             atom_1p = supercell%atom_to_prim(atom_1p_sc)
             atom_2p = supercell%atom_to_prim(atom_2p_sc)
-            mode_1p = (atom_1p-1)*3+1
-            mode_2p = (atom_2p-1)*3+1
             rvector_1p = supercell%atom_to_rvec(atom_1p_sc)
             rvector_2p = supercell%atom_to_rvec(atom_2p_sc)
-            rvector_p = operate( &
-               & rvector_group(supercell%paired_rvec(rvector_1p)), rvector_2p)
-            matrix_new = new_force_constants( rvector,         &
-                                            & mode_2:mode_2+2, &
-                                            & mode_1:mode_1+2)
-            matrix_old = old_force_constants( rvector,         &
-                                            & mode_2:mode_2+2, &
-                                            & mode_1:mode_1+2)
-            matrix_p_new = new_force_constants( rvector_p,         &
-                                              & mode_2p:mode_2p+2, &
-                                              & mode_1p:mode_1p+2)
-            matrix_p_old = old_force_constants( rvector_p,         &
-                                              & mode_2p:mode_2p+2, &
-                                              & mode_1p:mode_1p+2)
-            matrix_p_new =  transpose(rotations_cart(j)) &
-                       & * matrix_p_new                  &
+            rvector_p = rvector_group(supercell%paired_rvec(rvector_1p)) &
+                    & * rvector_2p
+            matrix = force_constants(rvector,atom_2,atom_1)
+            matrix_p = force_constants(rvector_p,atom_2p,atom_1p)
+            matrix_p =  transpose(rotations_cart(j)) &
+                       & * matrix_p                  &
                        & * rotations_cart(j)
-            matrix_p_old =  transpose(rotations_cart(j)) &
-                       & * matrix_p_old                  &
-                       & * rotations_cart(j)
-            new_total = new_total + sum(dble(matrix_new)**2)
-            old_total = old_total + sum(dble(matrix_old)**2)
-            new_error = new_error + sum(dble(matrix_new-matrix_p_new)**2)
-            old_error = old_error + sum(dble(matrix_old-matrix_p_old)**2)
+            total = total + sum(dble(matrix)**2)
+            error = error + sum(dble(matrix-matrix_p)**2)
           enddo
         enddo
       enddo
     enddo
     
-    if (new_total < 1.0e-10_dp .and. new_error > 1.0e-10_dp) then
+    if (total < 1.0e-10_dp .and. error > 1.0e-10_dp) then
       call print_line('Error in symmetrisation of force constants.')
       call err()
     endif
     
-    new_error = sqrt(new_error/new_total)
-    old_error = sqrt(old_error/old_total)
+    error = sqrt(error/total)
     
-    if (new_total > 1.0e-10_dp .and. new_error > 1.0e-10_dp) then
+    if (total > 1.0e-10_dp .and. error > 1.0e-10_dp) then
       call print_line('Error in symmetrisation of force constants.')
       call err()
     endif
     
     call print_line( &
        & 'Fractional L2 error in symmetrisation of force constants:')
-    call print_line('New code: '//new_error)
-    call print_line('Old code: '//old_error)
-    
-    deallocate(old_force_constants, stat=ialloc); call err(ialloc)
+    call print_line('New code: '//error)
     
     ! Run lte on each supercell.
-    lte_results(i) = evaluate_freqs_on_grid(supercell, new_force_constants)
+    lte_results(i) = evaluate_freqs_on_grid(supercell, force_constants)
     
     ! Check dynamical matrices.
     do gvector=1,supercell%sc_size
       qpoint = transpose(supercell%recip_supercell) &
            & * supercell%gvectors(gvector) / dble(supercell%sc_size)
-      allocate( dynamical_matrix( supercell%no_modes_prim,  &
-              &                   supercell%no_modes_prim), &
+      allocate( dynamical_matrix( supercell%no_atoms_prim,  &
+              &                   supercell%no_atoms_prim), &
               & stat=ialloc); call err(ialloc)
-      dynamical_matrix = cmplx(0.0_dp, 0.0_dp, dp)
+      dynamical_matrix = mat([ &
+   & cmplx(0.0_dp,0.0_dp,dp),cmplx(0.0_dp,0.0_dp,dp),cmplx(0.0_dp,0.0_dp,dp), &
+   & cmplx(0.0_dp,0.0_dp,dp),cmplx(0.0_dp,0.0_dp,dp),cmplx(0.0_dp,0.0_dp,dp), &
+   & cmplx(0.0_dp,0.0_dp,dp),cmplx(0.0_dp,0.0_dp,dp),cmplx(0.0_dp,0.0_dp,dp)],&
+   & 3,3)
       do rvector=1,supercell%sc_size
         exponent = -2*pi*qpoint*supercell%rvectors(rvector)
-        dynamical_matrix = dynamical_matrix                 &
-                       & + new_force_constants(rvector,:,:) &
-                       & * cmplx(cos(exponent),sin(exponent),dp)
+        do j=1,supercell%no_atoms_prim
+          do k=1,supercell%no_atoms_prim
+            dynamical_matrix(k,j) = dynamical_matrix(k,j)        &
+                                & + force_constants(rvector,k,j) &
+                                & * cmplx(cos(exponent),sin(exponent),dp)
+          enddo
+        enddo
       enddo
       
-      new_error = sum(abs ( dynamical_matrix &
-                        & - lte_results(i)%dynamical_matrices(:,:,gvector))**2)
-      if (new_error > 1.0e-10_dp) then
-        new_error = sqrt(new_error / sum(abs(dynamical_matrix)**2))
-        if (new_error > 1.0e-10_dp) then
+      error = 0.0_dp
+      total = 0.0_dp
+      do j=1,supercell%no_atoms_prim
+        do k=1,supercell%no_atoms_prim
+          error = error+sum(abs(cmplx(dynamical_matrix(k,j)-lte_results(i)%dynamical_matrices(k,j,gvector)))**2)
+          total = total+sum(abs(cmplx(dynamical_matrix(k,j)))**2)
+        enddo
+      enddo
+      if (error > 1.0e-10_dp) then
+        error = sqrt(error / total)
+        if (error > 1.0e-10_dp) then
           call print_line('G-vector '//gvector//' dynamical matrix incorrect.')
           call err()
         endif
@@ -430,7 +320,11 @@ subroutine lte_harmonic_test(arguments)
       call print_line('G-vector '//gvector//' dynamical matrix correct.')
       
       ! Check polarisation vectors and frequencies.
-      dynamical_matrix = cmplx(0.0_dp, 0.0_dp, dp)
+      dynamical_matrix = mat([ &
+   & cmplx(0.0_dp,0.0_dp,dp),cmplx(0.0_dp,0.0_dp,dp),cmplx(0.0_dp,0.0_dp,dp), &
+   & cmplx(0.0_dp,0.0_dp,dp),cmplx(0.0_dp,0.0_dp,dp),cmplx(0.0_dp,0.0_dp,dp), &
+   & cmplx(0.0_dp,0.0_dp,dp),cmplx(0.0_dp,0.0_dp,dp),cmplx(0.0_dp,0.0_dp,dp)],&
+   & 3,3)
       do mode=1,supercell%no_modes_prim
         do atom=1,supercell%no_atoms_prim
           do rvector=1,supercell%sc_size
@@ -452,11 +346,11 @@ subroutine lte_harmonic_test(arguments)
   ! --------------------------------------------------
   
   ! Read qpoint data.
-  structure_grid = read_structure_file(new_wd//'/structure_grid.dat')
-  qpoints_ibz = read_qpoints_file(new_wd//'/qpoints_ibz.dat')
+  structure_grid = read_structure_file(wd//'/structure_grid.dat')
+  qpoints_ibz = read_qpoints_file(wd//'/qpoints_ibz.dat')
   
   do i=1,size(qpoints_ibz)
-    qdir = new_wd//'qpoint_'//i
+    qdir = wd//'qpoint_'//i
     
     ! Read in frequencies.
     

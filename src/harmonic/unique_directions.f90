@@ -1,6 +1,8 @@
-! This program determines which directions are related by symmetry,
+! ======================================================================
+! Determines which directions are related by symmetry,
 !    and thus which atoms should be displaced in which directions 
 !    in order to construct the matrix of force constants.
+! ======================================================================
 
 ! The symmetry operations to consider are nicely outlined here:
 ! http://www.homepages.ucl.ac.uk/~ucfbdxa/phon/node4.html
@@ -146,7 +148,7 @@ end subroutine
 ! Works out which atoms need to be perturbed in which directions
 !    in order to map out the harmonic Born-Oppenheimer surface.
 ! ----------------------------------------------------------------------
-function calculate_unique_directions(structure,symmetry_group) result(this)
+function calculate_unique_directions(structure,atom_symmetry_group) result(this)
   use constants_module, only : pi
   use structure_module
   use group_module
@@ -155,7 +157,7 @@ function calculate_unique_directions(structure,symmetry_group) result(this)
   
   ! Inputs
   type(StructureData),              intent(in) :: structure
-  type(Group),         allocatable, intent(in) :: symmetry_group(:)
+  type(Group),         allocatable, intent(in) :: atom_symmetry_group(:)
   type(UniqueDirections)                       :: this
   
   ! A parameter to determine whether or not two vectors are independent.
@@ -189,9 +191,9 @@ function calculate_unique_directions(structure,symmetry_group) result(this)
   allocate(unique_atoms(structure%no_atoms), stat=ialloc); call err(ialloc)
   no_unique_atoms = 0
   do_i : do i=1,structure%no_atoms
-    do j=1,size(symmetry_group)
+    do j=1,size(atom_symmetry_group)
       do k=1,no_unique_atoms
-        if (operate(symmetry_group(j),i)==unique_atoms(k)) then
+        if (atom_symmetry_group(j)*i == unique_atoms(k)) then
           cycle do_i
         endif
       enddo
@@ -205,6 +207,8 @@ function calculate_unique_directions(structure,symmetry_group) result(this)
   !    related by symmetry.
   ! --------------------------------------------------
   cartesian_rotations = calculate_cartesian_rotations(structure)
+  allocate( rotations_cart(3,3,structure%no_symmetries), &
+          & stat=ialloc); call err(ialloc)
   do i=1,size(cartesian_rotations)
     rotations_cart(:,:,i) = dble(cartesian_rotations(i))
   enddo
@@ -213,10 +217,10 @@ function calculate_unique_directions(structure,symmetry_group) result(this)
   unique_dirs = .true.
   do i=1,no_unique_atoms
     previous_symmetry = 0
-    do j=1,size(symmetry_group)
+    do j=1,size(atom_symmetry_group)
       
       ! Ignore symmetries which do not map this atom onto itself.
-      if (operate(symmetry_group(j), unique_atoms(i)) /= unique_atoms(i)) then
+      if (atom_symmetry_group(j) * unique_atoms(i) /= unique_atoms(i)) then
         cycle
       endif
       

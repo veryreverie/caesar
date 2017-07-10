@@ -4,8 +4,24 @@ module calculate_gap_module
   use io_module
 contains
 
-subroutine calculate_gap()
+! ----------------------------------------------------------------------
+! Generate keywords and helptext.
+! ----------------------------------------------------------------------
+function calculate_gap_keywords() result(keywords)
+  use help_module
   implicit none
+  
+  type(KeywordData) :: keywords(0)
+end function
+
+! ----------------------------------------------------------------------
+! Main program.
+! ----------------------------------------------------------------------
+subroutine calculate_gap(arguments)
+  use dictionary_module
+  implicit none
+  
+  type(Dictionary), intent(in) :: arguments
   
   integer  :: i
   integer  :: no_points

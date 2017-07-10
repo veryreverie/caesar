@@ -69,8 +69,6 @@ module linear_algebra_module
   end interface
   
   interface dble
-    module procedure dble_IntVector
-    module procedure dble_IntMatrix
     module procedure dble_RealVector
     module procedure dble_RealMatrix
   end interface
@@ -239,6 +237,10 @@ module linear_algebra_module
   interface transpose
     module procedure transpose_IntMatrix
     module procedure transpose_RealMatrix
+  end interface
+  
+  interface hermitian
+    module procedure hermitian_ComplexMatrix
   end interface
   
   interface determinant
@@ -585,24 +587,6 @@ pure function int_IntMatrix(input) result(output)
   integer, allocatable        :: output(:,:)
   
   output = input%contents
-end function
-
-pure function dble_IntVector(input) result(output)
-  implicit none
-  
-  type(IntVector), intent(in) :: input
-  real(dp), allocatable       :: output(:)
-  
-  output = real(input%contents,dp)
-end function
-
-pure function dble_IntMatrix(input) result(output)
-  implicit none
-  
-  type(IntMatrix), intent(in) :: input
-  real(dp), allocatable        :: output(:,:)
-  
-  output = real(input%contents,dp)
 end function
 
 pure function dble_RealVector(input) result(output)
@@ -1824,6 +1808,16 @@ pure function transpose_RealMatrix(input) result(output)
   type(RealMatrix)             :: output
   
   output = transpose(input%contents)
+end function
+
+! Hermitian conjugate.
+pure function hermitian_ComplexMatrix(input) result(output)
+  implicit none
+  
+  type(ComplexMatrix), intent(in) :: input
+  type(ComplexMatrix)             :: output
+  
+  output = transpose(conjg(input%contents))
 end function
 
 ! Determinant. (3x3 only)

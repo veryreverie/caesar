@@ -70,7 +70,7 @@ subroutine setup_quadratic(arguments)
   
   ! Harmonic file contents
   type(StructureData) :: structure
-  integer             :: no_sc
+  integer             :: no_supercells
   
   ! Harmonic supercell file contents
   type(StructureData), allocatable :: supercells(:)
@@ -95,7 +95,7 @@ subroutine setup_quadratic(arguments)
   type(String)   :: mdir
   
   ! Files
-  type(String), allocatable :: no_sc_file(:)
+  type(String), allocatable :: no_supercells_file(:)
   
   ! --------------------------------------------------
   ! Get settings from user.
@@ -151,12 +151,12 @@ subroutine setup_quadratic(arguments)
   structure = read_structure_file(harmonic_path//'/structure.dat')
   
   ! Read in number of supercells
-  no_sc_file = read_lines(harmonic_path//'/no_sc.dat')
-  no_sc = int(no_sc_file(1))
+  no_supercells_file = read_lines(harmonic_path//'/no_supercells.dat')
+  no_supercells = int(no_supercells_file(1))
   
   ! Read in supercell structures.
-  allocate(supercells(no_sc))
-  do i=1,no_sc
+  allocate(supercells(no_supercells))
+  do i=1,no_supercells
     supercells(i) = read_structure_file( &
        & harmonic_path//'/Supercell_'//i//'/structure.dat')
   enddo
@@ -167,7 +167,7 @@ subroutine setup_quadratic(arguments)
   ! ------------------------------------------------------------
   ! Make directories
   ! ------------------------------------------------------------
-  do i=1,no_sc
+  do i=1,no_supercells
     call mkdir(wd//'/Supercell_'//i)
   enddo
   
@@ -178,7 +178,7 @@ subroutine setup_quadratic(arguments)
   ! ------------------------------------------------------------
   ! Set up static calculations
   ! ------------------------------------------------------------
-  do i=1,no_sc
+  do i=1,no_supercells
     sdir = wd//'/Supercell_'//i
     dft_input_filename = make_dft_input_filename(dft_code,seedname)
     call StructureData_to_dft_input_file(            &
@@ -230,7 +230,7 @@ subroutine setup_quadratic(arguments)
         
         ! Calculate new positions
         do l=1,supercell%no_atoms
-          disp = amplitude * mode%displacements(:,l)
+          disp = amplitude * mode%displacements(l)
           supercell%atoms(l) = supercell%atoms(l) + disp
         enddo
         

@@ -77,7 +77,7 @@ subroutine setup_harmonic_test(arguments)
   
   ! Unique direction information.
   type(UniqueDirections) :: unique_directions
-  type(Group), allocatable :: symmetry_group(:)
+  type(Group), allocatable :: atom_symmetry_group(:)
   
   ! Temporary variables.
   integer :: i,j,k,l
@@ -112,7 +112,7 @@ subroutine setup_harmonic_test(arguments)
   ! --------------------------------------------------
   ! Read in outputs.
   ! --------------------------------------------------
-  no_supercells_file = read_lines(wd//'/no_sc.dat')
+  no_supercells_file = read_lines(wd//'/no_supercells.dat')
   no_supercells = int(no_supercells_file(1))
   
   structure = read_structure_file(wd//'/structure.dat')
@@ -264,13 +264,13 @@ subroutine setup_harmonic_test(arguments)
     unique_directions = read_unique_directions_file( &
        & sdir//'/unique_directions.dat')
     
-    symmetry_group = read_group_file(sdir//'/symmetry_group.dat')
+    atom_symmetry_group = read_group_file(sdir//'/atom_symmetry_group.dat')
     
     ! Check that all atoms are accounted for.
     do_j : do j=1,supercell%no_atoms
       do k=1,size(unique_directions)
-        do l=1,size(symmetry_group)
-          if (operate(symmetry_group(l),unique_directions%atoms(k))==j) then
+        do l=1,size(atom_symmetry_group)
+          if (atom_symmetry_group(l) * unique_directions%atoms(k) == j) then
             cycle do_j
           endif
         enddo

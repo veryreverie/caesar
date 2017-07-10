@@ -59,7 +59,11 @@ subroutine setup_harmonic(arguments)
   type(StructureData)              :: supercell
   
   ! Symmetry group data
-  type(Group), allocatable :: symmetry_group(:)
+  type(Group), allocatable :: atom_symmetry_group(:)
+  type(Group), allocatable :: operator_symmetry_group(:)
+  integer,     allocatable :: symmetry_orders(:)
+  integer,     allocatable :: irreducible_symmetries(:)
+  type(RealMatrix), allocatable :: cartesian_rotations(:)
   
   ! Directories
   type(String) :: sdir
@@ -129,7 +133,7 @@ subroutine setup_harmonic(arguments)
   
   ! Write no_supercells to file
   no_supercells = size(qpoints_and_supercells%supercells)
-  no_supercells_file = open_write_file(wd//'/no_sc.dat')
+  no_supercells_file = open_write_file(wd//'/no_supercells.dat')
   call print_line(no_supercells_file,no_supercells)
   close(no_supercells_file)
   
@@ -144,12 +148,28 @@ subroutine setup_harmonic(arguments)
     call write_structure_file(supercell, sdir//'/structure.dat')
     
     ! Calculate symmetry groups.
-    symmetry_group = calculate_symmetry_group(supercell)
-    call write_group_file(symmetry_group,sdir//'/symmetry_group.dat')
+    atom_symmetry_group = calculate_atom_symmetry_group(supercell)
+    operator_symmetry_group = calculate_operator_symmetry_group(supercell, &
+       & atom_symmetry_group)
+    !symmetry_orders = calculate_symmetry_orders(supercell, &
+    !   & operator_symmetry_group)
+    !irreducible_symmetries = calculate_irreducible_symmetries( &
+    !   & supercell, operator_symmetry_group, symmetry_orders)
+    cartesian_rotations = calculate_cartesian_rotations(supercell)
+    !call print_line('')
+    !call print_line(irreducible_symmetries)
+    !do j=1,size(irreducible_symmetries)
+    !  call print_line(cartesian_rotations(irreducible_symmetries(j)))
+    !  call print_line(symmetry_orders(irreducible_symmetries(j)))
+    !  call print_line('')
+    !enddo
+    !call print_line('')
+    !stop
+    call write_group_file(atom_symmetry_group,sdir//'/atom_symmetry_group.dat')
     
     ! Calculate which forces need calculating.
     unique_directions = calculate_unique_directions( supercell, &
-                                                   & symmetry_group)
+                                                   & atom_symmetry_group)
     call write_unique_directions_file( unique_directions, &
                                      & sdir//'/unique_directions.dat')
     

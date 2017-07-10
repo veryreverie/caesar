@@ -1,5 +1,5 @@
 ! ======================================================================
-! Generates the supercells needed to simulate all q-points exactly.
+! Generates the supercells needed to simulate phonons at all q-points.
 ! ======================================================================
 module generate_supercells_module
   use constants_module, only : dp
@@ -28,7 +28,7 @@ module generate_supercells_module
 contains
 
 ! ----------------------------------------------------------------------
-! Allocates all arrays.
+! GeneratedSupercells allocator.
 ! ----------------------------------------------------------------------
 subroutine new_GeneratedSupercells(this,no_qpoints_ibz,no_supercells)
   implicit none

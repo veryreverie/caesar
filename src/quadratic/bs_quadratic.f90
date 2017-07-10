@@ -58,7 +58,7 @@ subroutine bs_quadratic(arguments)
   
   ! Starting data.
   type(Dictionary)  :: setup_quadratic_arguments
-  integer              :: no_sc
+  integer              :: no_supercells
   integer              :: no_qpoints
   type(StructureData)               :: structure
   type(StructureData), allocatable  :: supercells(:)
@@ -92,7 +92,7 @@ subroutine bs_quadratic(arguments)
   real(dp)              :: temperature
   
   ! File contents.
-  type(String), allocatable :: no_sc_file(:)
+  type(String), allocatable :: no_supercells_file(:)
   type(String), allocatable :: ibz_file(:)
   type(String), allocatable :: line(:)
   
@@ -119,8 +119,8 @@ subroutine bs_quadratic(arguments)
   no_samples = int(item(setup_quadratic_arguments, 'no_samples'))
   displacement = dble(item(setup_quadratic_arguments, 'displacement'))
   
-  no_sc_file = read_lines(wd//'/no_sc.dat')
-  no_sc = int(no_sc_file(1))
+  no_supercells_file = read_lines(wd//'/no_supercells.dat')
+  no_supercells = int(no_supercells_file(1))
   
   structure = read_structure_file(harmonic_path//'/structure.dat')
   
@@ -143,8 +143,8 @@ subroutine bs_quadratic(arguments)
   bands = read_castep_bands_file(filename)
   band_energy = bands%bands(1,1)
   
-  allocate(band_refs(no_sc))
-  do i=1,no_sc
+  allocate(band_refs(no_supercells))
+  do i=1,no_supercells
     sdir = wd//'/Supercell_'//i
     ! Obtain relevant band for each supercell
     filename = sdir//'/qpoint.'//qpoint//'.dat'
@@ -153,7 +153,7 @@ subroutine bs_quadratic(arguments)
   enddo
   
   ! Read in supercell data
-  allocate(supercells(no_sc))
+  allocate(supercells(no_supercells))
   do i=1,size(supercells)
     sdir = wd//'/Supercell_'//i
     supercells(i) = read_structure_file(sdir//'/structure.dat')

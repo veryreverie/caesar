@@ -6,10 +6,10 @@ module vscf_1d_module
   
   ! Holds anharmonic potential data
   type Potential
-    real(dp) :: q
-    real(dp) :: harmonic   ! harmonic f(q) = 0.5*(frequency*q)^2
-    real(dp) :: anharmonic ! anharmonic f(q)
-    real(dp) :: difference ! anharmonic f(q) - harmonic f(q)
+    real(dp) :: u
+    real(dp) :: harmonic   ! harmonic f(u) = 0.5*(frequency*u)^2
+    real(dp) :: anharmonic ! anharmonic f(u)
+    real(dp) :: difference ! anharmonic f(u) - harmonic f(u)
   end type
   
   ! Holds output data for vscf_1d
@@ -33,7 +33,7 @@ function vscf_1d(frequency, potential, Nbasis) result(output)
   implicit none
   
   real(dp), intent(in) :: frequency
-  real(dp), intent(in) :: potential(:,:) ! Anharmonic potential, {q,V(q)}
+  real(dp), intent(in) :: potential(:,:) ! Anharmonic potential, {u,V(u)}
   integer,  intent(in) :: Nbasis
   type(VscfData)       :: output
   
@@ -41,36 +41,36 @@ function vscf_1d(frequency, potential, Nbasis) result(output)
   
   ! Working variables
   integer :: i,j,k
-  real(dp) :: bfp,q,dq,basis_frequency
+  real(dp) :: bfp,u,du,basis_frequency
   real(dp),allocatable :: basis(:,:)
   type(RealEigenstuff) :: estuff ! evals and evecs of Hamiltonian
   
   Npoints = size(potential,2)
-  dq = (potential(1,Npoints)-potential(1,1))/Npoints
+  du = (potential(1,Npoints)-potential(1,1))/Npoints
   
   ! Allocate output
   call new(output,Npoints,Nbasis)
 
-  ! Calculate basis functions
+  ! Calculate basis functions (1-d Harmonic Oscillator wavefunctions).
   basis_frequency = abs(frequency)
   bfp=(basis_frequency/pi)**0.25
   
   allocate(basis(Npoints,Nbasis))
   do i=1,Npoints
-    q = potential(1,i)
-    basis(i,1) = bfp*exp(-q*q*basis_frequency/2)
-    basis(i,2) = sqrt(2*basis_frequency)*q*basis(i,1)
+    u = potential(1,i)
+    basis(i,1) = bfp*exp(-u*u*basis_frequency/2)
+    basis(i,2) = sqrt(2*basis_frequency)*u*basis(i,1)
     do j=3,Nbasis
-      basis(i,j) = sqrt(2*basis_frequency/(j-1))*q * basis(i,j-1) &
+      basis(i,j) = sqrt(2*basis_frequency/(j-1))*u * basis(i,j-1) &
                & - sqrt(dble(j-2)/(j-1))           * basis(i,j-2)
     enddo ! j
   enddo ! i
 
   ! write anh_pot
   do i=1,Npoints
-    q = potential(1,i)
-    output%anh_pot(i)%q = q
-    output%anh_pot(i)%harmonic = 0.5d0*frequency*frequency*q*q
+    u = potential(1,i)
+    output%anh_pot(i)%u = u
+    output%anh_pot(i)%harmonic = 0.5d0*frequency*frequency*u*u
     output%anh_pot(i)%anharmonic = potential(2,i)
     output%anh_pot(i)%difference = output%anh_pot(i)%anharmonic &
                                & - output%anh_pot(i)%harmonic
@@ -88,7 +88,7 @@ function vscf_1d(frequency, potential, Nbasis) result(output)
     do j=1,Nbasis
       do k=1,Npoints
         output%hamiltonian(i,j) = output%hamiltonian(i,j) &
-                              & + basis(k,i)*basis(k,j)*potential(2,k)*dq
+                              & + basis(k,i)*basis(k,j)*potential(2,k)*du
       enddo
     enddo
   enddo

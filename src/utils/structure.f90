@@ -14,8 +14,7 @@ module structure_module
   public :: new
   public :: read_structure_file
   public :: write_structure_file
-  public :: calculate_derived_supercell_quantities
-  public :: calculate_derived_atom_quantities
+  public :: calculate_derived_quantities
   public :: calculate_symmetry
   public :: calculate_rvector_group
   public :: calculate_gvector_group
@@ -325,7 +324,7 @@ function read_structure_file(filename) result(this)
   ! Read file into arrays.
   ! ------------------------------
   do i=1,3
-    temp_real(1,:) = dble(split(structure_file(lattice_line+i)))
+    temp_real(i,:) = dble(split(structure_file(lattice_line+i)))
   enddo
   this%lattice = temp_real
   
@@ -363,8 +362,7 @@ function read_structure_file(filename) result(this)
   endif
   
   ! calculate derived quantities
-  call calculate_derived_atom_quantities(this)
-  call calculate_derived_supercell_quantities(this)
+  call calculate_derived_quantities(this)
 end function
 
 subroutine write_structure_file(this,filename)
@@ -413,23 +411,10 @@ subroutine write_structure_file(this,filename)
 end subroutine
 
 ! ----------------------------------------------------------------------
-! calculate derived quantities relating to lattice and atoms
+! Calculate derived quantities.
 ! ----------------------------------------------------------------------
-subroutine calculate_derived_atom_quantities(this)
+subroutine calculate_derived_quantities(this)
   use linear_algebra_module, only : invert, determinant
-  implicit none
-  
-  type(StructureData), intent(inout) :: this
-  
-  this%recip_lattice = transpose(invert(this%lattice))
-  this%volume        = abs(determinant(this%lattice))
-end subroutine
-
-! ----------------------------------------------------------------------
-! Calculate the derived quantities relating to the supercell and G-vectors.
-! ----------------------------------------------------------------------
-subroutine calculate_derived_supercell_quantities(this)
-  use linear_algebra_module, only : invert_int
   implicit none
   
   type(StructureData), intent(inout) :: this
@@ -437,6 +422,8 @@ subroutine calculate_derived_supercell_quantities(this)
   integer :: i,j
   
   this%recip_supercell = transpose(invert_int(this%supercell))
+  this%recip_lattice   = transpose(invert(this%lattice))
+  this%volume          = abs(determinant(this%lattice))
   
   this%paired_rvec = 0
   this%paired_gvec = 0
@@ -470,7 +457,7 @@ end subroutine
 
 ! ----------------------------------------------------------------------
 ! Calculate the relationships between R-vectors, modulo the supercell.
-!    so if rvec(:,i)+rvec(:,j)=rvec(:,k) then operate(output(i),j)=k
+!    so if rvec(:,i)+rvec(:,j)=rvec(:,k) then output(i)*j=k
 ! ----------------------------------------------------------------------
 function calculate_rvector_group(this) result(output)
   use group_module
@@ -510,7 +497,7 @@ end function
 ! ----------------------------------------------------------------------
 ! Calculate the relationships between G-vectors, modulo the reciprocal
 !    primitive lattice.
-! so if gvec(:,i)+gvec(:,j)=gvec(:,k) then operate(output(i),j)=k
+! so if gvec(:,i)+gvec(:,j)=gvec(:,k) then output(i)*j=k
 ! ----------------------------------------------------------------------
 function calculate_gvector_group(this) result(output)
   use group_module

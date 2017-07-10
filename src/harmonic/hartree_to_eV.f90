@@ -6,9 +6,25 @@ module hartree_to_eV_module
   implicit none
 contains
 
-subroutine hartree_to_eV()
-  use constants_module, only : ev_per_hartree
+! ----------------------------------------------------------------------
+! Generate keywords and helptext.
+! ----------------------------------------------------------------------
+function hartree_to_eV_keywords() result(keywords)
+  use help_module
   implicit none
+  
+  type(KeywordData) :: keywords(0)
+end function
+
+! ----------------------------------------------------------------------
+! Main program.
+! ----------------------------------------------------------------------
+subroutine hartree_to_eV(arguments)
+  use constants_module, only : ev_per_hartree
+  use dictionary_module
+  implicit none
+  
+  type(Dictionary), intent(in) :: arguments
   
   real(dp) :: input
   

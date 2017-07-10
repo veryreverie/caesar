@@ -1,5 +1,9 @@
 ! ======================================================================
-! Reads dft output files in sdir, and generates matrix of force constants.
+! The third stage of Caesar.
+! Uses the forces calculated previously to calculate:
+!    - Normal mode unit vectors.
+!    - The density of states under the harmonic approximation.
+!    - The phonon dispersion relation under the harmonic approximation.
 ! ======================================================================
 module lte_harmonic_module
   use constants_module, only : dp
@@ -54,6 +58,7 @@ function read_forces(supercell,unique_directions,sdir,dft_code,seedname) &
   use structure_module
   use unique_directions_module
   use dft_output_file_module
+  use linear_algebra_module
   implicit none
   
   type(StructureData),    intent(in) :: supercell
@@ -61,7 +66,7 @@ function read_forces(supercell,unique_directions,sdir,dft_code,seedname) &
   type(String),           intent(in) :: sdir
   type(String),           intent(in) :: dft_code
   type(String),           intent(in) :: seedname
-  real(dp), allocatable              :: output(:,:,:)
+  type(RealVector), allocatable      :: output(:,:)
   
   ! DFT output data.
   type(String)        :: dft_output_filename
@@ -73,11 +78,12 @@ function read_forces(supercell,unique_directions,sdir,dft_code,seedname) &
   character(1) :: direction
   
   ! Temporary variables.
-  integer :: i,j,ialloc
+  integer          :: i,j,ialloc
+  type(RealVector) :: total
   
   dft_output_filename = make_dft_output_filename(dft_code,seedname)
   
-  allocate( output(3,supercell%no_atoms,size(unique_directions)), &
+  allocate( output(supercell%no_atoms, size(unique_directions)), &
           & stat=ialloc); call err(ialloc)
   do i=1,size(unique_directions)
     atom = unique_directions%atoms(i)
@@ -88,12 +94,18 @@ function read_forces(supercell,unique_directions,sdir,dft_code,seedname) &
     negative = read_dft_output_file(dft_code,      &
        & sdir//'/atom.'//atom//'.-d'//direction//'/'//dft_output_filename)
     
-    output(:,:,i) = (positive%forces-negative%forces) / 0.02_dp
+    do j=1,supercell%no_atoms
+      output(j,i) = (positive%forces(j)-negative%forces(j)) / 0.02_dp
+    enddo
     
     ! Enforce continuous translational symmetry,
     !    i.e. ensure sum(output,1)=0.
-    do j=1,3
-      output(j,:,i) = output(j,:,i) - sum(output(j,:,i))/size(output,2)
+    total = vec([0.0_dp,0.0_dp,0.0_dp])
+    do j=1,supercell%no_atoms
+      total = total+output(j,i)
+    enddo
+    do j=1,supercell%no_atoms
+      output(j,i) = output(j,i)-total/supercell%no_atoms
     enddo
   enddo
 end function
@@ -102,22 +114,21 @@ end function
 ! Uses symmetry operations to construct force constants.
 ! ----------------------------------------------------------------------
 function construct_force_constants(forces,supercell,unique_directions, &
-   & symmetry_group) result(output)
+   & atom_symmetry_group) result(output)
   use linear_algebra_module
   use structure_module
   use unique_directions_module
   use group_module
   implicit none
   
-  real(dp),               intent(in) :: forces(:,:,:)
+  type(RealVector),       intent(in) :: forces(:,:)
   type(StructureData),    intent(in) :: supercell
   type(UniqueDirections), intent(in) :: unique_directions
-  type(Group),            intent(in) :: symmetry_group(:)
-  real(dp), allocatable              :: output(:,:,:)
+  type(Group),            intent(in) :: atom_symmetry_group(:)
+  type(RealMatrix), allocatable      :: output(:,:,:)
   
   ! Atom ids.
   integer :: atom_1,atom_1p,atom_2,atom_2p
-  integer :: mode_1, mode_2
   
   ! Rotations in cartesian co-ordinates.
   type(RealMatrix), allocatable :: rotations_cart(:)
@@ -165,7 +176,7 @@ function construct_force_constants(forces,supercell,unique_directions, &
   do i=1,supercell%no_symmetries
     do j=1,size(unique_directions)
       atom_1 = unique_directions%atoms(j)
-      atom_1p = operate(symmetry_group(i), atom_1)
+      atom_1p = atom_symmetry_group(i) * atom_1
       
       if (unique_directions%directions_char(j)=='x') then
         x = [ 1.0_dp, 0.0_dp, 0.0_dp ]
@@ -179,9 +190,9 @@ function construct_force_constants(forces,supercell,unique_directions, &
       xx(atom_1p) = xx(atom_1p) + outer_product(x,x)
       
       do atom_2=1,supercell%no_atoms
-        atom_2p = operate(symmetry_group(i), atom_2)
+        atom_2p = atom_symmetry_group(i) * atom_2
         
-        f = rotations_cart(i) * vec(forces(:,atom_2,j))
+        f = rotations_cart(i) * forces(atom_2,j)
         
         fx(atom_1p,atom_2p) = fx(atom_1p,atom_2p) + outer_product(f,x)
       enddo
@@ -223,33 +234,30 @@ function construct_force_constants(forces,supercell,unique_directions, &
   ! Average F across primitive lattice R-vectors, and
   !    convert to a mode-mode-Rvector representation.
   ! --------------------------------------------------
-  allocate( output( supercell%sc_size,                        &
-          &         supercell%no_modes/supercell%sc_size,  &
-          &         supercell%no_modes/supercell%sc_size), &
+  allocate( output( supercell%sc_size,        &
+          &         supercell%no_atoms_prim,  &
+          &         supercell%no_atoms_prim), &
           & stat=ialloc); call err(ialloc)
-  output = 0.0_dp
+  output = mat([ 0.0_dp,0.0_dp,0.0_dp, &
+               & 0.0_dp,0.0_dp,0.0_dp, &
+               & 0.0_dp,0.0_dp,0.0_dp  ], 3,3)
   
   rvector_group = calculate_rvector_group(supercell)
   
   do atom_1=1,supercell%no_atoms
     atom_1p = supercell%atom_to_prim(atom_1)
-    mode_1 = (atom_1p-1)*3 + 1
     rvector_1 = supercell%atom_to_rvec(atom_1)
     do atom_2=1,supercell%no_atoms
       atom_2p = supercell%atom_to_prim(atom_2)
-      mode_2 = (atom_2p-1)*3 + 1
       rvector_2 = supercell%atom_to_rvec(atom_2)
       
-      rvector = operate( rvector_group(supercell%paired_rvec(rvector_1)), &
-                       & rvector_2)
+      rvector = rvector_group(supercell%paired_rvec(rvector_1)) * rvector_2
       
-      output(rvector,mode_1:mode_1+2,mode_2:mode_2+2) = &
-         &   output(rvector,mode_1:mode_1+2,mode_2:mode_2+2) &
-         & + dble(force_constants(atom_1,atom_2))
+      output(rvector,atom_1p,atom_2p) = output(rvector,atom_1p,atom_2p) &
+                                    & + force_constants(atom_1,atom_2)  &
+                                    & / supercell%sc_size
     enddo
   enddo
-  
-  output = output / supercell%sc_size
 end function
 
 ! ----------------------------------------------------------------------
@@ -288,12 +296,10 @@ subroutine lte_harmonic(arguments)
   type(StructureData) :: supercell
   
   ! Force constant data.
-  type(Group),           allocatable :: symmetry_group(:)
+  type(Group),           allocatable :: atom_symmetry_group(:)
   type(UniqueDirections)             :: unique_directions
-  real(dp),              allocatable :: forces(:,:,:)
-  real(dp),              allocatable :: force_constants(:,:,:)
-  integer                            :: forces_file
-  integer                            :: force_constants_file
+  type(RealVector),      allocatable :: forces(:,:)
+  type(RealMatrix),      allocatable :: force_constants(:,:,:)
   
   ! q-point data.
   type(StructureData)           :: structure_grid
@@ -305,7 +311,7 @@ subroutine lte_harmonic(arguments)
   
   ! Lte output data.
   type(LteReturn)          :: lte_result
-  complex(dp), allocatable :: ibz_dynamical_matrices(:,:,:)
+  type(ComplexMatrix), allocatable :: ibz_dynamical_matrices(:,:,:)
   integer                  :: mode
   integer                  :: atom
   
@@ -331,7 +337,7 @@ subroutine lte_harmonic(arguments)
   dft_code = item(setup_harmonic_arguments, 'dft_code')
   seedname = item(setup_harmonic_arguments, 'seedname')
   
-  no_supercells_file = read_lines(wd//'/no_sc.dat')
+  no_supercells_file = read_lines(wd//'/no_supercells.dat')
   no_supercells = int(no_supercells_file(1))
   
   structure = read_structure_file(wd//'/structure.dat')
@@ -340,8 +346,8 @@ subroutine lte_harmonic(arguments)
   structure_grid = read_structure_file(wd//'/structure_grid.dat')
   qpoints_ibz = read_qpoints_file(wd//'/qpoints_ibz.dat')
   
-  allocate( ibz_dynamical_matrices( structure%no_modes, &
-          &                         structure%no_modes, &
+  allocate( ibz_dynamical_matrices( structure%no_atoms, &
+          &                         structure%no_atoms, &
           &                         size(qpoints_ibz)), &
           & stat=ialloc); call err(ialloc)
   
@@ -355,7 +361,7 @@ subroutine lte_harmonic(arguments)
     supercell = read_structure_file(sdir//'/structure.dat')
     
     ! Read in symmetry group and unique atoms.
-    symmetry_group = read_group_file(sdir//'/symmetry_group.dat')
+    atom_symmetry_group = read_group_file(sdir//'/atom_symmetry_group.dat')
     unique_directions = read_unique_directions_file( &
        & sdir//'/unique_directions.dat')
     
@@ -363,46 +369,15 @@ subroutine lte_harmonic(arguments)
     forces = read_forces(supercell,unique_directions,sdir,dft_code, &
        & seedname)
     ! Mass-reduce forces.
-    do j=1,size(forces,3)
+    do j=1,size(unique_directions)
       atom = unique_directions%atoms(j)
-      do k=1,size(forces,2)
-        forces(:,k,j) = forces(:,k,j) &
+      do k=1,supercell%no_atoms
+        forces(k,j) = forces(k,j) &
                     & / sqrt(supercell%mass(atom)*supercell%mass(k))
       enddo
     enddo
     force_constants = construct_force_constants(forces,supercell, &
-       & unique_directions,symmetry_group)
-    
-    ! Write out forces and force constants for debugging purposes.
-    forces_file = open_write_file(sdir//'/forces.dat')
-    do j=1,size(forces,3)
-      do k=1,structure%no_modes
-        call print_line(forces_file, &
-           & 'Force constant on mode '//k//' as a result of mode '// &
-           & unique_directions%modes(j)//' being displaced.')
-        do l=1,supercell%sc_size
-          atom = supercell%rvec_and_prim_to_atom((k-1)/3+1,l)
-          call print_line(forces_file, 'R-vector '//k//': &
-             &acceleration/displacement = '//forces(modulo(k-1,3)+1,atom,j))
-        enddo
-        call print_line(forces_file,'')
-      enddo
-    enddo
-    close(forces_file)
-    
-    force_constants_file = open_write_file(sdir//'/force_constants.dat')
-    do j=1,size(force_constants,3)
-      do k=1,size(force_constants,2)
-        call print_line(force_constants_file, 'Symmetrised force constant on &
-           & mode '//j//' as a result of mode '//k//' being displaced.')
-        do l=1,size(force_constants,1)
-          call print_line(force_constants_file, &
-             & 'R-vector '//l//': acceleration/displacement = '// &
-             & force_constants(l,k,j))
-        enddo
-        call print_line(force_constants_file, '')
-      enddo
-    enddo
+       & unique_directions,atom_symmetry_group)
     
     ! Run normal mode analysis.
     lte_result = evaluate_freqs_on_grid(supercell, force_constants)
@@ -427,7 +402,7 @@ subroutine lte_harmonic(arguments)
         call new(normal_mode, supercell%no_atoms)
         normal_mode%frequency = lte_result%frequencies(mode, gvector)
         normal_mode%soft_mode = lte_result%soft_modes(mode, gvector)
-        normal_mode%displacements = lte_result%displacements(:,:,mode, gvector)
+        normal_mode%displacements = lte_result%displacements(:,mode, gvector)
         call write_normal_mode_file(normal_mode, qdir//'/mode_'//mode//'.dat')
       enddo
     enddo
@@ -443,7 +418,7 @@ subroutine lte_harmonic(arguments)
 !  disp_qpoints(:,5) = [ 0.0_dp, 0.5_dp, 0.0_dp ] ! L
 !  
 !  ! Read in primitive symmetry group.
-!  symmetry_group = read_group_file(wd//'/Supercell_1/symmetry_group.dat')
+!  atom_symmetry_group = read_group_file(wd//'/Supercell_1/atom_symmetry_group.dat')
 !  
 !  call print_line('')
 !  call print_line('Running fourier interpolation (this may take some time).')
@@ -454,7 +429,7 @@ subroutine lte_harmonic(arguments)
 !     & structure_grid,                     &
 !     & qpoints_ibz,                        &
 !     & disp_qpoints,                       &
-!     & symmetry_group,                     &
+!     & atom_symmetry_group,                &
 !     & wd//'/phonon_dispersion_curve.dat', &
 !     & wd//'/high_symmetry_points.dat',    &
 !     & wd//'/free_energy.dat',             &

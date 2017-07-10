@@ -57,8 +57,8 @@ subroutine run_quadratic(arguments)
   
   ! Previously calculated data.
   type(StructureData)           :: structure
-  type(String), allocatable     :: no_sc_file(:)
-  integer                       :: no_sc
+  type(String), allocatable     :: no_supercells_file(:)
+  integer                       :: no_supercells
   type(QpointData), allocatable :: qpoints(:)
   
   ! Temporary variables.
@@ -82,17 +82,17 @@ subroutine run_quadratic(arguments)
     call print_line('')
     call print_line('Error: first supercell must be > 0')
     call err()
-  elseif (supercells_to_run(1)>no_sc) then
+  elseif (supercells_to_run(1)>no_supercells) then
     call print_line('')
-    call print_line('Error: first supercell must be <= '//no_sc)
+    call print_line('Error: first supercell must be <= '//no_supercells)
     call err()
   elseif (supercells_to_run(2)<supercells_to_run(1)) then
     call print_line('')
     call print_line('Error: first supercell must be <= last supercell.')
     call err()
-  elseif (supercells_to_run(2)>no_sc) then
+  elseif (supercells_to_run(2)>no_supercells) then
     call print_line('')
-    call print_line('Error: last supercell must be <= '//no_sc)
+    call print_line('Error: last supercell must be <= '//no_supercells)
     call err()
   elseif (no_cores<=0) then
     call print_line('')
@@ -115,8 +115,8 @@ subroutine run_quadratic(arguments)
   no_samples = int(item(setup_quadratic_arguments, 'no_samples'))
   
   ! Read in number of supercells.
-  no_sc_file = read_lines(harmonic_path//'/no_sc.dat')
-  no_sc = int(no_sc_file(1))
+  no_supercells_file = read_lines(harmonic_path//'/no_supercells.dat')
+  no_supercells = int(no_supercells_file(1))
   
   ! Read in structure.
   structure = read_structure_file(harmonic_path//'/structure.dat')
