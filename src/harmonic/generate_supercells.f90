@@ -268,7 +268,7 @@ end function
 ! ----------------------------------------------------------------------
 ! The main program.
 ! ----------------------------------------------------------------------
-function generate_supercells(structure,grid) result(output)
+function generate_supercells(structure,grid,symmetry_precision) result(output)
   use linear_algebra_module
   use structure_module
   use construct_supercell_module
@@ -277,6 +277,7 @@ function generate_supercells(structure,grid) result(output)
   ! Inputs.
   type(StructureData), intent(in) :: structure
   integer,             intent(in) :: grid(:)
+  real(dp),            intent(in) :: symmetry_precision
   type(GeneratedSupercells)       :: output
   
   ! Grid supercell structure.
@@ -431,8 +432,10 @@ function generate_supercells(structure,grid) result(output)
                    & * transpose(structure%recip_lattice))))
                 
                 ! Generate the supercell.
-                supercells(sc_num) = construct_supercell( structure, &
-                                                        & supercell_frac)
+                supercells(sc_num) = construct_supercell( structure,      &
+                                                        & supercell_frac, &
+                                                        & .true.,         &
+                                                        & symmetry_precision)
                 
                 ! Assign matching q-points to the supercell.
                 sc_ids(i)=sc_num

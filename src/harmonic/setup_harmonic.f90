@@ -15,7 +15,7 @@ function setup_harmonic_keywords() result(keywords)
   use help_module
   implicit none
   
-  type(KeywordData) :: keywords(3)
+  type(KeywordData) :: keywords(4)
   
   keywords = [                                                                &
   & make_keyword('dft_code', 'castep', 'dft_code is the DFT code used to &
@@ -24,7 +24,9 @@ function setup_harmonic_keywords() result(keywords)
      &which file names are constructed.'),                                    &
   & make_keyword('q-point_grid', NO_ARGUMENT, 'q-point_grid is the number of &
      &q-points in each direction in a Monkhorst-Pack grid. This should be &
-     &specified as three integers separated by spaces.')                      ]
+     &specified as three integers separated by spaces.'),                     &
+  & make_keyword('symmetry_precision', char(str(1.0e-1_dp)), &
+  & 'symmetry_precision is the tolerance at which symmetries are calculated.')]
 end function
 
 ! ----------------------------------------------------------------------
@@ -49,9 +51,10 @@ subroutine setup_harmonic(arguments)
   type(String) :: dft_code
   type(String) :: seedname
   
-  ! File input data
+  ! User input data
   type(StructureData) :: structure
   integer             :: grid(3)
+  real(dp)            :: symmetry_precision
   
   ! Supercell data
   type(GeneratedSupercells)        :: qpoints_and_supercells
@@ -90,6 +93,7 @@ subroutine setup_harmonic(arguments)
   dft_code = item(arguments, 'dft_code')
   seedname = item(arguments, 'seedname')
   grid = int(split(item(arguments, 'q-point_grid')))
+  symmetry_precision = dble(item(arguments, 'symmetry_precision'))
   
   ! Check dft code is supported
   if (dft_code=='vasp') then
@@ -116,14 +120,18 @@ subroutine setup_harmonic(arguments)
   ! --------------------------------------------------
   ! Read in input files.
   ! --------------------------------------------------
-  structure = dft_input_file_to_StructureData(dft_code,dft_input_filename)
+  structure = dft_input_file_to_StructureData( dft_code,           &
+                                             & dft_input_filename, &
+                                             & symmetry_precision)
   call write_structure_file(structure,wd//'/structure.dat')
   
   ! --------------------------------------------------
   ! Generate supercells.
   ! --------------------------------------------------
   ! Generate IBZ and non-diagonal supercells
-  qpoints_and_supercells = generate_supercells(structure,grid)
+  qpoints_and_supercells = generate_supercells( structure, &
+                                              & grid,      &
+                                              & symmetry_precision)
   
   ! Write q-point data to file.
   call write_structure_file( qpoints_and_supercells%structure_grid, &

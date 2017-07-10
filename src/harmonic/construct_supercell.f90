@@ -67,8 +67,8 @@ end function
 ! ----------------------------------------------------------------------
 ! Main function.
 ! ----------------------------------------------------------------------
-function construct_supercell(structure,supercell_matrix,calculate_symmetries) &
-   & result(supercell)
+function construct_supercell(structure,supercell_matrix,calculate_symmetries, &
+   & symmetry_precision) result(supercell)
   use linear_algebra_module
   use structure_module
   implicit none
@@ -76,6 +76,7 @@ function construct_supercell(structure,supercell_matrix,calculate_symmetries) &
   type(StructureData), intent(in)           :: structure
   type(IntMatrix),     intent(in)           :: supercell_matrix
   logical,             intent(in), optional :: calculate_symmetries
+  real(dp),            intent(in), optional :: symmetry_precision
   type(StructureData)                       :: supercell
   
   ! Atomic positions.
@@ -162,7 +163,11 @@ function construct_supercell(structure,supercell_matrix,calculate_symmetries) &
   enddo
   
   if (calculate_symmetries_flag) then
-    call calculate_symmetry(supercell)
+    if (.not. present(symmetry_precision)) then
+      call print_line('Symmetry requested but no precision specified.')
+      call err()
+    endif
+    call calculate_symmetry(supercell, symmetry_precision)
   endif
 end function
 end module

@@ -555,14 +555,14 @@ end function
 ! ----------------------------------------------------------------------
 ! Calls spglib, and calculates all symmetry operations.
 ! ----------------------------------------------------------------------
-subroutine calculate_symmetry(this)
+subroutine calculate_symmetry(this,symmetry_precision)
   use iso_c_binding
   implicit none
   
   type(StructureData), intent(inout) :: this
+  real(dp),            intent(in)    :: symmetry_precision
   
   ! spglib inputs.
-  real(dp), parameter :: symmetry_precision = 1.0e-1_dp
   integer             :: atom_types(this%no_atoms)
   
   ! spglib data.

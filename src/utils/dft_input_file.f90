@@ -195,7 +195,8 @@ end function
 ! ----------------------------------------------------------------------
 ! Reading DFT input files to StructureData.
 ! ----------------------------------------------------------------------
-function castep_input_file_to_StructureData(filename) result(output)
+function castep_input_file_to_StructureData(filename, symmetry_precision) &
+   & result(output)
   use constants_module, only : pi, angstrom_per_bohr, kg_per_me, kg_per_amu, &
                              & identity
   use structure_module
@@ -203,6 +204,7 @@ function castep_input_file_to_StructureData(filename) result(output)
   implicit none
   
   type(String), intent(in) :: filename
+  real(dp),     intent(in) :: symmetry_precision
   type(StructureData)      :: output
   
   type(CastepInputFile) :: cell_file
@@ -393,19 +395,21 @@ function castep_input_file_to_StructureData(filename) result(output)
   output%gvectors(1) = [0,0,0]
   
   call calculate_derived_quantities(output)
-  call calculate_symmetry(output)
+  call calculate_symmetry(output, symmetry_precision)
 end function
 
-function dft_input_file_to_StructureData(dft_code,filename) result(output)
+function dft_input_file_to_StructureData(dft_code,filename, &
+   & symmetry_precision) result(output)
   use structure_module
   implicit none
   
   type(String), intent(in) :: dft_code
   type(String), intent(in) :: filename
+  real(dp),     intent(in) :: symmetry_precision
   type(StructureData)      :: output
   
   if (dft_code == 'castep') then
-    output = castep_input_file_to_StructureData(filename)
+    output = castep_input_file_to_StructureData(filename, symmetry_precision)
   else
     call print_line('Reading '//dft_code//' input file not yet supported.')
     call err()
