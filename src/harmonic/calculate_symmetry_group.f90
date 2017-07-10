@@ -135,6 +135,63 @@ function calculate_operator_symmetry_group(structure,atom_symmetry_group) &
 end function
 
 ! ----------------------------------------------------------------------
+! Calculates the inverse of each symmetry.
+! ----------------------------------------------------------------------
+! If symmetry i * symmetry j = I then output(i)=j.
+function calculate_operator_inverses(operator_symmetry_group) result(output)
+  use group_module
+  implicit none
+  
+  type(Group), intent(in) :: operator_symmetry_group(:)
+  integer, allocatable    :: output(:)
+  
+  ! Temporary variables.
+  integer :: i,j,ialloc
+  integer :: identity
+  
+  allocate( output(size(operator_symmetry_group)), &
+          & stat=ialloc); call err(ialloc)
+  output = 0
+  
+  ! Locate the identity operator
+  do i=1,size(operator_symmetry_group)
+    if ( operator_symmetry_group(i)*operator_symmetry_group(1) == &
+       & operator_symmetry_group(1) ) then
+      identity = i
+      exit
+    endif
+    
+    call print_line('Error: identity symmetry not found.')
+    call err()
+  enddo
+  
+  ! Locate the inverse of each operator.
+  do_i : do i=1,size(operator_symmetry_group)
+    ! Ignore  operators whose inverses have already been found.
+    if (output(i) /= 0) then
+      cycle do_i
+    endif
+    
+    do j=1,size(operator_symmetry_group)
+      if (operator_symmetry_group(i)*j==identity) then
+        
+        if (output(j)/=0) then
+          call print_line('Error: conflicting inverses.')
+          call err()
+        endif
+        
+        output(i) = j
+        output(j) = i
+        exit do_i
+      endif
+      
+      call print_line('Error: inverse not found.')
+      call err()
+    enddo
+  enddo do_i
+end function
+
+! ----------------------------------------------------------------------
 ! Calculates the order of each symmetry operation.
 !    (if x^n=I, then the order of x is n.)
 ! ----------------------------------------------------------------------

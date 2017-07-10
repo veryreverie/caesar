@@ -61,11 +61,12 @@ subroutine setup_harmonic(arguments)
   integer                          :: no_supercells
   type(StructureData)              :: supercell
   
-  ! Symmetry group data
-  type(Group), allocatable :: atom_symmetry_group(:)
-  type(Group), allocatable :: operator_symmetry_group(:)
-  integer,     allocatable :: symmetry_orders(:)
-  integer,     allocatable :: irreducible_symmetries(:)
+  ! Symmetry group data.
+  type(Group),      allocatable :: primitive_atom_symmetry_group(:)
+  type(Group),      allocatable :: primitive_operator_symmetry_group(:)
+  integer,          allocatable :: primitive_operator_inverses(:)
+  
+  type(Group),      allocatable :: supercell_atom_symmetry_group(:)
   type(RealMatrix), allocatable :: cartesian_rotations(:)
   
   ! Directories
@@ -126,12 +127,24 @@ subroutine setup_harmonic(arguments)
   call write_structure_file(structure,wd//'/structure.dat')
   
   ! --------------------------------------------------
+  ! Calculate primitive cell symmetry data.
+  ! --------------------------------------------------
+  primitive_atom_symmetry_group = calculate_atom_symmetry_group(structure)
+  primitive_operator_symmetry_group = calculate_operator_symmetry_group( &
+     & structure, primitive_atom_symmetry_group)
+  primitive_operator_inverses = calculate_operator_inverses( &
+     & primitive_operator_symmetry_group)
+  
+  ! --------------------------------------------------
   ! Generate supercells.
   ! --------------------------------------------------
   ! Generate IBZ and non-diagonal supercells
-  qpoints_and_supercells = generate_supercells( structure, &
-                                              & grid,      &
-                                              & symmetry_precision)
+  qpoints_and_supercells = generate_supercells( &
+     & structure,                               &
+     & grid,                                    &
+     & symmetry_precision,                      &
+     & primitive_operator_symmetry_group,       &
+     & primitive_operator_inverses)
   
   ! Write q-point data to file.
   call write_structure_file( qpoints_and_supercells%structure_grid, &
@@ -145,6 +158,11 @@ subroutine setup_harmonic(arguments)
   call print_line(no_supercells_file,no_supercells)
   close(no_supercells_file)
   
+  ! Calculate primitive cell symmetry groups.
+  primitive_atom_symmetry_group = calculate_atom_symmetry_group(structure)
+  primitive_operator_symmetry_group = calculate_operator_symmetry_group( &
+     & structure, primitive_atom_symmetry_group)
+  
   ! Loop over supercells.
   do i=1,no_supercells
     sdir=wd//'/Supercell_'//i
@@ -155,29 +173,15 @@ subroutine setup_harmonic(arguments)
     supercell = qpoints_and_supercells%supercells(i)
     call write_structure_file(supercell, sdir//'/structure.dat')
     
-    ! Calculate symmetry groups.
-    atom_symmetry_group = calculate_atom_symmetry_group(supercell)
-    operator_symmetry_group = calculate_operator_symmetry_group(supercell, &
-       & atom_symmetry_group)
-    !symmetry_orders = calculate_symmetry_orders(supercell, &
-    !   & operator_symmetry_group)
-    !irreducible_symmetries = calculate_irreducible_symmetries( &
-    !   & supercell, operator_symmetry_group, symmetry_orders)
+    ! Calculate supercell symmetry groups.
+    supercell_atom_symmetry_group = calculate_atom_symmetry_group(supercell)
     cartesian_rotations = calculate_cartesian_rotations(supercell)
-    !call print_line('')
-    !call print_line(irreducible_symmetries)
-    !do j=1,size(irreducible_symmetries)
-    !  call print_line(cartesian_rotations(irreducible_symmetries(j)))
-    !  call print_line(symmetry_orders(irreducible_symmetries(j)))
-    !  call print_line('')
-    !enddo
-    !call print_line('')
-    !stop
-    call write_group_file(atom_symmetry_group,sdir//'/atom_symmetry_group.dat')
+    call write_group_file( supercell_atom_symmetry_group, &
+                         & sdir//'/atom_symmetry_group.dat')
     
     ! Calculate which forces need calculating.
     unique_directions = calculate_unique_directions( supercell, &
-                                                   & atom_symmetry_group)
+       & supercell_atom_symmetry_group)
     call write_unique_directions_file( unique_directions, &
                                      & sdir//'/unique_directions.dat')
     
