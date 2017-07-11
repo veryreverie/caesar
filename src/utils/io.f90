@@ -78,6 +78,8 @@ module io_module
     module procedure print_line_file_real
     module procedure print_line_logical
     module procedure print_line_file_logical
+    module procedure print_line_complex
+    module procedure print_line_file_complex
     
     module procedure print_line_integers
     module procedure print_line_file_integers
@@ -85,6 +87,8 @@ module io_module
     module procedure print_line_file_reals
     module procedure print_line_logicals
     module procedure print_line_file_logicals
+    module procedure print_line_complexes
+    module procedure print_line_file_complexes
   end interface
   
   interface err
@@ -736,6 +740,23 @@ subroutine print_line_file_logical(file_unit,this)
   call print_line(file_unit,''//this)
 end subroutine
 
+subroutine print_line_complex(this)
+  implicit none
+  
+  complex(dp), intent(in) :: this
+  
+  call print_line(''//this)
+end subroutine
+
+subroutine print_line_file_complex(file_unit,this)
+  implicit none
+  
+  integer,     intent(in) :: file_unit
+  complex(dp), intent(in) :: this
+  
+  call print_line(file_unit,''//this)
+end subroutine
+
 subroutine print_line_integers(this)
   implicit none
   
@@ -783,6 +804,23 @@ subroutine print_line_file_logicals(file_unit,this)
   
   integer, intent(in) :: file_unit
   logical, intent(in) :: this(:)
+  
+  call print_line(file_unit,''//this)
+end subroutine
+
+subroutine print_line_complexes(this)
+  implicit none
+  
+  complex(dp), intent(in) :: this(:)
+  
+  call print_line(''//this)
+end subroutine
+
+subroutine print_line_file_complexes(file_unit,this)
+  implicit none
+  
+  integer,     intent(in) :: file_unit
+  complex(dp), intent(in) :: this(:)
   
   call print_line(file_unit,''//this)
 end subroutine

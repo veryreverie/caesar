@@ -48,9 +48,7 @@ module lte_module
     type(ComplexMatrix), allocatable :: dynamical_matrices(:,:,:)
     real(dp),            allocatable :: frequencies(:,:)
     logical,             allocatable :: soft_modes(:,:)
-    type(RealVector),    allocatable :: displacements(:,:,:)
-    type(RealVector),    allocatable :: k_displacements(:,:,:)
-    type(ComplexVector), allocatable :: polarisation_vectors(:,:,:)
+    type(ComplexVector), allocatable :: displacements(:,:,:)
   end type
   
   ! Contains the result of calculate_frequencies_and_polarisations
@@ -83,8 +81,6 @@ subroutine new_LteReturn(this,sc_size,no_modes,no_atoms)
           & this%frequencies(no_modes,sc_size),                     &
           & this%soft_modes(no_modes,sc_size),                      &
           & this%displacements(no_atoms,no_modes,sc_size),        &
-          & this%k_displacements(no_atoms,no_modes,sc_size),      &
-          & this%polarisation_vectors(no_atoms,no_modes,sc_size), &
           & stat=ialloc); call err(ialloc)
 end subroutine
 
@@ -856,8 +852,6 @@ function evaluate_freqs_on_grid(supercell,force_constants) &
   type(ComplexVector), allocatable :: pol_vec(:,:)
   real(dp)                     :: qr
   complex(dp)                  :: exp_iqr(supercell%sc_size)
-  type(ComplexVector)          :: non_mr_pol_vec
-  type(ComplexVector)          :: kpol_vec
   
   ! Indices.
   integer :: atom
@@ -916,38 +910,13 @@ function evaluate_freqs_on_grid(supercell,force_constants) &
     do mode=1,supercell%no_modes_prim
       do atom=1,supercell%no_atoms_prim
         rvector = supercell%atom_to_rvec(atom)
-        non_mr_pol_vec = pol_vec(supercell%atom_to_prim(atom), mode) &
-                     & / sqrt(supercell%mass(atom))
-        kpol_vec = pol_vec(supercell%atom_to_prim(atom), mode)
+        output%displacements(atom,mode,gvector) =          &
+           &   pol_vec(supercell%atom_to_prim(atom), mode) &
+           & / sqrt(supercell%mass(atom))
         
-        ! Displacement pattern: polarisation vector times exp(iG.R).
-        if (gvector == gvector_p) then
-          ! Note only the real part is taken.
-          ! The imaginary part should be zero.
-          output%displacements(atom,mode,gvector) = &
-             & real(cmplx(non_mr_pol_vec*exp_iqr(rvector)))
-          output%k_displacements(atom,mode,gvector) = &
-             & real(cmplx(kpol_vec))
-          output%polarisation_vectors(atom,mode,gvector) = &
-             & cmplx(non_mr_pol_vec)
-        else
-          ! The two G-vectors are superposed, to give (a+-b)/sqrt(2)
-          ! a = conjg(b)
-          ! (a+b)/sqrt(2) = sqrt(2)*Re(a)
-          ! (a-b)/sqrt(2) = sqrt(2)*Im(a)
-          output%displacements(atom,mode,gvector) = &
-             & sqrt(2.0_dp)*real(cmplx(non_mr_pol_vec*exp_iqr(rvector)))
-          output%k_displacements(atom,mode,gvector) = &
-             & sqrt(2.0_dp)*real(cmplx(kpol_vec*exp_iqr(rvector)))
-          output%polarisation_vectors(atom,mode,gvector) = &
-             & sqrt(2.0_dp)*non_mr_pol_vec
-          
+        if (gvector /= gvector_p) then
           output%displacements(atom,mode,gvector_p) = &
-             & sqrt(2.0_dp)*aimag(cmplx(non_mr_pol_vec*exp_iqr(rvector)))
-          output%k_displacements(atom,mode,gvector_p) = &
-             & sqrt(2.0_dp)*aimag(cmplx(kpol_vec*exp_iqr(rvector)))
-          output%polarisation_vectors(atom,mode,gvector_p) = &
-             & sqrt(2.0_dp)*non_mr_pol_vec
+             & conjg(cmplx(output%displacements(atom,mode,gvector)))
         endif
       enddo
     enddo

@@ -36,7 +36,7 @@ end function
 ! The main program.
 ! ----------------------------------------------------------------------
 subroutine setup_quadratic(arguments)
-  use constants_module, only : kb_in_au
+  use constants_module, only : kb_in_au, pi
   use utils_module,     only : mkdir
   use structure_module
   use dft_input_file_module
@@ -79,7 +79,7 @@ subroutine setup_quadratic(arguments)
   type(NormalMode) :: mode
   
   ! q-point data
-  type(QpointData), allocatable :: qpoints(:)
+  type(QpointData), allocatable :: qpoints_ibz(:)
   
   ! Working variables
   type(StructureData) :: supercell
@@ -87,6 +87,11 @@ subroutine setup_quadratic(arguments)
   real(dp)            :: quad_amplitude
   real(dp)            :: amplitude
   type(RealVector)    :: disp
+  
+  ! Supercell-to-primitive indexes.
+  integer  :: rvec
+  integer  :: prim
+  real(dp) :: qr
   
   ! Temporary variables
   integer        :: i, j, k, l
@@ -162,7 +167,7 @@ subroutine setup_quadratic(arguments)
   enddo
   
   ! Read in qpoint data.
-  qpoints = read_qpoints_file(harmonic_path//'/qpoints_ibz.dat')
+  qpoints_ibz = read_qpoints_file(harmonic_path//'/qpoints_ibz.dat')
   
   ! ------------------------------------------------------------
   ! Make directories
@@ -171,7 +176,7 @@ subroutine setup_quadratic(arguments)
     call mkdir(wd//'/Supercell_'//i)
   enddo
   
-  do i=1,size(qpoints)
+  do i=1,size(qpoints_ibz)
     call mkdir(wd//'/qpoint_'//i)
   enddo
   
@@ -191,8 +196,8 @@ subroutine setup_quadratic(arguments)
   ! ------------------------------------------------------------
   ! Generate quadratic configurations
   ! ------------------------------------------------------------
-  do i=1,size(qpoints)
-    supercell = supercells(qpoints(i)%sc_id)
+  do i=1,size(qpoints_ibz)
+    supercell = supercells(qpoints_ibz(i)%sc_id)
     
     do j=1,structure%no_modes
       ! Read in mode.
@@ -230,7 +235,11 @@ subroutine setup_quadratic(arguments)
         
         ! Calculate new positions
         do l=1,supercell%no_atoms
-          disp = amplitude * mode%displacements(l)
+          rvec = supercell%atom_to_rvec(l)
+          prim = supercell%atom_to_prim(l)
+          qr = qpoints_ibz(i)%qpoint*supercell%rvectors(rvec)*2*pi
+          disp = amplitude * real( cmplx(mode%displacements(prim)) &
+                               & * cmplx(cos(qr),sin(qr),dp))
           supercell%atoms(l) = supercell%atoms(l) + disp
         enddo
         

@@ -280,10 +280,14 @@ module linear_algebra_module
     module procedure print_line_IntVector_file
     module procedure print_line_RealVector
     module procedure print_line_RealVector_file
+    module procedure print_line_ComplexVector
+    module procedure print_line_ComplexVector_file
     module procedure print_line_IntMatrix
     module procedure print_line_IntMatrix_file
     module procedure print_line_RealMatrix
     module procedure print_line_RealMatrix_file
+    module procedure print_line_ComplexMatrix
+    module procedure print_line_ComplexMatrix_file
   end interface
   
   ! --------------------------------------------------
@@ -2071,6 +2075,23 @@ subroutine print_line_RealVector_file(file_unit,input)
   call print_line(file_unit, input%contents)
 end subroutine
 
+subroutine print_line_ComplexVector(input)
+  implicit none
+  
+  type(ComplexVector), intent(in) :: input
+  
+  call print_line(input%contents)
+end subroutine
+
+subroutine print_line_ComplexVector_file(file_unit,input)
+  implicit none
+  
+  integer,          intent(in) :: file_unit
+  type(ComplexVector), intent(in) :: input
+  
+  call print_line(file_unit, input%contents)
+end subroutine
+
 subroutine print_line_IntMatrix(input)
   implicit none
   
@@ -2113,6 +2134,31 @@ subroutine print_line_RealMatrix_file(file_unit,input)
   
   integer,          intent(in) :: file_unit
   type(RealMatrix), intent(in) :: input
+  
+  integer :: i
+  
+  do i=1,size(input,1)
+    call print_line(file_unit, input%contents(i,:))
+  enddo
+end subroutine
+
+subroutine print_line_ComplexMatrix(input)
+  implicit none
+  
+  type(ComplexMatrix), intent(in) :: input
+  
+  integer :: i
+  
+  do i=1,size(input,1)
+    call print_line(input%contents(i,:))
+  enddo
+end subroutine
+
+subroutine print_line_ComplexMatrix_file(file_unit,input)
+  implicit none
+  
+  integer,             intent(in) :: file_unit
+  type(ComplexMatrix), intent(in) :: input
   
   integer :: i
   

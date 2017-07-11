@@ -320,7 +320,7 @@ subroutine lte_harmonic(arguments)
   type(NormalMode) :: normal_mode
   
   ! Temporary variables.
-  integer                   :: i,j,k,l,ialloc
+  integer                   :: i,j,k,ialloc
   type(String)              :: sdir,qdir
   
   ! --------------------------------------------------

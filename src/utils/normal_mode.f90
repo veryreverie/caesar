@@ -5,9 +5,9 @@ module normal_mode_module
   use linear_algebra_module
   
   type NormalMode
-    logical                       :: soft_mode
-    real(dp)                      :: frequency
-    type(RealVector), allocatable :: displacements(:)
+    logical                          :: soft_mode
+    real(dp)                         :: frequency
+    type(ComplexVector), allocatable :: displacements(:)
   end type
   
   interface new
@@ -49,7 +49,7 @@ function read_normal_mode_file(filename) result(this)
   
   do i=1,no_atoms
     line = split(mode_file(3+i))
-    this%displacements(i) = dble(line)
+    this%displacements(i) = cmplx(line)
   enddo
 end function
 

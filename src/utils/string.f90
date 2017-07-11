@@ -16,10 +16,11 @@ module string_module
   public :: assignment(=) ! Assignment to and from String.
   
   ! Conversions between classes
-  public :: str           ! Conversion to String.
-  public :: char          ! Conversion from String to character.
-  public :: int           ! Conversion from String to integer.
-  public :: dble          ! Conversion from String to real(dp).
+  public :: str   ! Conversion to String.
+  public :: char  ! Conversion from String to character.
+  public :: int   ! Conversion from String to integer.
+  public :: dble  ! Conversion from String to real(dp).
+  public :: cmplx ! Conversion from String to complex(dp).
   
   public :: operator(//) ! Concatenate to String.
   
@@ -28,12 +29,15 @@ module string_module
   public :: operator(/=)
   
   ! Unary operators.
-  public :: len        ! Character-like len(String).
-  public :: lower_case ! Convert to lower case.
-  public :: split      ! Split into String(:), by default by spaces.
-  public :: join       ! Join into single String, by default with spaces.
-  public :: pad_str    ! left pads integers without '-' signs with a ' '
-  public :: slice      ! slice(String,a,b) = character(a:b)
+  public :: len            ! Character-like len(String).
+  public :: lower_case     ! Convert to lower case.
+  public :: split          ! Split into String(:), by default by spaces.
+  public :: join           ! Join into single String, by default with spaces.
+  public :: pad_int_to_str ! left pads integers without '-' signs with a ' '
+  public :: trim           ! Removes trailing spaces.
+  
+  ! String slice.
+  public :: slice ! slice(String,a,b) = character(a:b)
   
   ! Constants for special cases.
   public :: NOT_SET
@@ -56,6 +60,7 @@ module string_module
     module procedure assign_String_integer
     module procedure assign_String_real
     module procedure assign_String_logical
+    module procedure assign_String_complex
     module procedure assign_character_String
   end interface
 
@@ -64,6 +69,7 @@ module string_module
     module procedure str_integer
     module procedure str_real
     module procedure str_logical
+    module procedure str_complex
   end interface
   
   interface char
@@ -77,6 +83,10 @@ module string_module
   interface dble
     module procedure dble_String
   end interface
+  
+  interface cmplx
+    module procedure cmplx_String
+  end interface
 
   interface operator(//)
     module procedure concatenate_String_String
@@ -89,6 +99,8 @@ module string_module
     module procedure concatenate_real_String
     module procedure concatenate_String_logical
     module procedure concatenate_logical_String
+    module procedure concatenate_String_complex
+    module procedure concatenate_complex_String
     
     module procedure concatenate_character_integer
     module procedure concatenate_integer_character
@@ -96,6 +108,8 @@ module string_module
     module procedure concatenate_real_character
     module procedure concatenate_character_logical
     module procedure concatenate_logical_character
+    module procedure concatenate_character_complex
+    module procedure concatenate_complex_character
     
     module procedure concatenate_String_integers
     module procedure concatenate_integers_String
@@ -103,6 +117,8 @@ module string_module
     module procedure concatenate_reals_String
     module procedure concatenate_String_logicals
     module procedure concatenate_logicals_String
+    module procedure concatenate_String_complexes
+    module procedure concatenate_complexes_String
     
     module procedure concatenate_character_integers
     module procedure concatenate_integers_character
@@ -110,6 +126,8 @@ module string_module
     module procedure concatenate_reals_character
     module procedure concatenate_character_logicals
     module procedure concatenate_logicals_character
+    module procedure concatenate_character_complexes
+    module procedure concatenate_complexes_character
   end interface
   
   interface operator(==)
@@ -143,6 +161,11 @@ module string_module
     module procedure join_real
     module procedure join_integer
     module procedure join_logical
+    module procedure join_complex
+  end interface
+  
+  interface trim
+    module procedure trim_String
   end interface
   
 contains
@@ -222,6 +245,22 @@ pure subroutine assign_String_logical(output,input)
   endif
 end subroutine
 
+! String = logical
+pure subroutine assign_String_complex(output,input)
+  implicit none
+  
+  complex(dp),  intent(in)    :: input
+  type(String), intent(inout) :: output
+  
+  type(String) :: imag
+  
+  imag = trim(str(aimag(input)))
+  if (slice(imag,1,1)/='-') then
+    imag = '+'//imag
+  endif
+  output = str(real(input))//imag//'i'
+end subroutine
+
 ! character = String
 pure subroutine assign_character_String(output,input)
   implicit none
@@ -271,6 +310,15 @@ elemental function str_logical(this) result(output)
   output = this
 end function
 
+elemental function str_complex(this) result(output)
+  implicit none
+  
+  complex(dp), intent(in) :: this
+  type(String)            :: output
+  
+  output = this
+end function
+
 ! ----------------------------------------------------------------------
 ! Conversion from String
 ! ----------------------------------------------------------------------
@@ -302,6 +350,29 @@ elemental function dble_String(this) result(output)
   real(dp)                 :: output
   
   read(this%contents,*) output
+end function
+
+! complex(dp) = cmplx(String)
+elemental function cmplx_String(this) result(output)
+  implicit none
+  
+  type(String), intent(in) :: this
+  complex(dp)              :: output
+  
+  type(String)              :: trimmed
+  type(String), allocatable :: split_trimmed(:)
+  
+  ! Remove the 'i' from the end of the string.
+  trimmed = slice(this, 1, len(this)-1)
+  split_trimmed = split(trimmed, '+')
+  if (size(split_trimmed)==2) then
+    ! imag(this) >= 0.
+    output = cmplx(dble(split_trimmed(1)), dble(split_trimmed(2)), dp)
+  else
+    ! imag(this) < 0.
+    split_trimmed = split(trimmed, '-')
+    output = cmplx(dble(split_trimmed(1)), -dble(split_trimmed(2)), dp)
+  endif
 end function
 
 ! ----------------------------------------------------------------------
@@ -406,6 +477,28 @@ pure function concatenate_logical_String(a,b) result(output)
   output = str(a)//b
 end function
 
+! String = String//complex
+pure function concatenate_String_complex(a,b) result(output)
+  implicit none
+  
+  type(String), intent(in) :: a
+  complex(dp),  intent(in) :: b
+  type(String) :: output
+  
+  output = a//str(b)
+end function
+
+! String = complex//String
+pure function concatenate_complex_String(a,b) result(output)
+  implicit none
+  
+  complex(dp),  intent(in) :: a
+  type(String), intent(in) :: b
+  type(String) :: output
+  
+  output = str(a)//b
+end function
+
 ! String = character//integer
 pure function concatenate_character_integer(a,b) result(output)
   implicit none
@@ -466,6 +559,28 @@ pure function concatenate_logical_character(a,b) result(output)
   implicit none
   
   logical,      intent(in) :: a
+  character(*), intent(in) :: b
+  type(String) :: output
+  
+  output = str(a)//b
+end function
+
+! String = character//complex
+pure function concatenate_character_complex(a,b) result(output)
+  implicit none
+  
+  character(*), intent(in) :: a
+  complex(dp),  intent(in) :: b
+  type(String) :: output
+  
+  output = a//str(b)
+end function
+
+! String = complex//character
+pure function concatenate_complex_character(a,b) result(output)
+  implicit none
+  
+  complex(dp),  intent(in) :: a
   character(*), intent(in) :: b
   type(String) :: output
   
@@ -538,6 +653,28 @@ pure function concatenate_logicals_String(a,b) result(output)
   output = join(a)//b
 end function
 
+! String = String//complex(:)
+pure function concatenate_String_complexes(a,b) result(output)
+  implicit none
+  
+  type(String), intent(in) :: a
+  complex(dp),  intent(in) :: b(:)
+  type(String) :: output
+  
+  output = a//join(b)
+end function
+
+! String = complex(:)//String
+pure function concatenate_complexes_String(a,b) result(output)
+  implicit none
+  
+  complex(dp),  intent(in) :: a(:)
+  type(String), intent(in) :: b
+  type(String) :: output
+  
+  output = join(a)//b
+end function
+
 ! String = character//integer(:)
 pure function concatenate_character_integers(a,b) result(output)
   implicit none
@@ -598,6 +735,28 @@ pure function concatenate_logicals_character(a,b) result(output)
   implicit none
   
   logical,      intent(in) :: a(:)
+  character(*), intent(in) :: b
+  type(String) :: output
+  
+  output = join(a)//b
+end function
+
+! String = character//complex(:)
+pure function concatenate_character_complexes(a,b) result(output)
+  implicit none
+  
+  character(*), intent(in) :: a
+  complex(dp),  intent(in) :: b(:)
+  type(String) :: output
+  
+  output = a//join(b)
+end function
+
+! String = complex(:)//character
+pure function concatenate_complexes_character(a,b) result(output)
+  implicit none
+  
+  complex(dp),  intent(in) :: a(:)
   character(*), intent(in) :: b
   type(String) :: output
   
@@ -825,14 +984,14 @@ pure function join_real(this) result(output)
   output = join(str(this))
 end function
 
-! Converts integer(:) to String(:), pads positive numbers with a space, and joins.
+! Converts integer(:) to String(:), pads +ve numbers with a space, and joins.
 pure function join_integer(this) result(output)
   implicit none
   
   integer, intent(in) :: this(:)
   type(String)        :: output
   
-  output = join(pad_str(this))
+  output = join(pad_int_to_str(this))
 end function
 
 ! Converts logical(:) to String(:) and then joins.
@@ -845,7 +1004,18 @@ pure function join_logical(this) result(output)
   output = join(str(this))
 end function
 
-elemental function pad_str(this) result(output)
+! Converts complex(:) to String(:) and then joins.
+pure function join_complex(this) result(output)
+  implicit none
+  
+  complex(dp), intent(in) :: this(:)
+  type(String)            :: output
+  
+  output = join(str(this))
+end function
+
+! Pads an integer with a space to match '-' length.
+elemental function pad_int_to_str(this) result(output)
   implicit none
   
   integer, intent(in) :: this
@@ -855,6 +1025,16 @@ elemental function pad_str(this) result(output)
   if (output%contents(1:1)/='-') then
     output = ' '//output
   endif
+end function
+
+! Removes trailing spaces.
+elemental function trim_String(this) result(output)
+  implicit none
+  
+  type(String), intent(in) :: this
+  type(String)             :: output
+  
+  output = trim(char(this))
 end function
 
 ! Takes a slice of a String. slice(String,a,b) = character(a:b).
