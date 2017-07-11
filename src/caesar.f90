@@ -25,6 +25,7 @@ program caesar
   use bs_quadratic_module
   
   ! Use testing modules.
+  use test_module
   use linear_algebra_test_module
   use setup_harmonic_test_module
   use lte_harmonic_test_module
@@ -98,7 +99,8 @@ program caesar
   
   ! Normal inputs. Fetch keywords and set subprocess.
   elseif (mode == 'test') then
-    stop
+    keywords = test_keywords()
+    main_subroutine => test
   elseif (mode == 'setup_harmonic') then
     keywords = setup_harmonic_keywords()
     main_subroutine => setup_harmonic

@@ -359,20 +359,25 @@ elemental function cmplx_String(this) result(output)
   type(String), intent(in) :: this
   complex(dp)              :: output
   
-  type(String)              :: trimmed
-  type(String), allocatable :: split_trimmed(:)
+  integer :: i
+  logical :: split_allowed
   
-  ! Remove the 'i' from the end of the string.
-  trimmed = slice(this, 1, len(this)-1)
-  split_trimmed = split(trimmed, '+')
-  if (size(split_trimmed)==2) then
-    ! imag(this) >= 0.
-    output = cmplx(dble(split_trimmed(1)), dble(split_trimmed(2)), dp)
-  else
-    ! imag(this) < 0.
-    split_trimmed = split(trimmed, '-')
-    output = cmplx(dble(split_trimmed(1)), -dble(split_trimmed(2)), dp)
-  endif
+  split_allowed = .false.
+  do i=len(this)-1,1,-1
+    if (slice(this,i,i)=='E') then
+      split_allowed = .true.
+    elseif (split_allowed .and. slice(this,i,i)=='+') then
+      output = cmplx(  dble(slice(this,1,i-1)), &
+                    &  dble(slice(this,i+1,len(this)-1)), &
+                    &  dp)
+      exit
+    elseif (split_allowed .and. slice(this,i,i)=='-') then
+      output = cmplx(  dble(slice(this,1,i-1)), &
+                    & -dble(slice(this,i+1,len(this)-1)), &
+                    &  dp)
+      exit
+    endif
+  enddo
 end function
 
 ! ----------------------------------------------------------------------
@@ -1034,7 +1039,7 @@ elemental function trim_String(this) result(output)
   type(String), intent(in) :: this
   type(String)             :: output
   
-  output = trim(char(this))
+  output = trim(adjustl(char(this)))
 end function
 
 ! Takes a slice of a String. slice(String,a,b) = character(a:b).
@@ -1044,7 +1049,7 @@ pure function slice(this,a,b) result(output)
   type(String),  intent(in) :: this
   integer,       intent(in) :: a
   integer,       intent(in) :: b
-  character(:), allocatable :: output
+  type(String)              :: output
   
   output = this%contents(a:b)
 end function
