@@ -50,6 +50,9 @@ module constants_module
   ! Atomic mass unit in kg.
   real(dp), parameter :: kg_per_amu = 1.660539040e-27_dp
   
+  ! Energy in cm-1 in eV.
+  real(dp), parameter :: ev_per_inverse_cm = 2.1947463137e-4_dp
+  
   ! --------------------------------------------------
   ! Derived values.
   ! --------------------------------------------------
