@@ -5,47 +5,6 @@
 ! Modifications:
 !   - 14/02/2012 : added MP2
 !   - 29/02/2012 : parallelised coupled matrix element calculation
-
-! Compile and run with:
-! mpifort -llapack -lpthread vscf.f90 -o vscf
-! mpirun -np <nnodes> vscf
-
-! ----------------------------------------------------------------------
-! Module for handling parallelism.
-! See MPI specification at e.g. http://www.mpi-forum.org/docs/docs.html.
-! ----------------------------------------------------------------------
-!module parallel
-!  implicit none
-!  include 'mpif.h'
-!  integer :: nnodes ! number of nodes.
-!  integer :: my_node ! node (between 0 and nnodes-1).
-!  logical :: am_master  ! node zero.  only node that writes to standard out.
-!  integer :: ierror,mpistatus(mpi_status_size)
-!contains
-!
-!  ! set up mpi and decide whether we are the master node.
-!  subroutine initialise_parallel
-!    implicit none
-!    call mpi_init(ierror)
-!    call mpi_comm_size(mpi_comm_world,nnodes,ierror)
-!    call mpi_comm_rank(mpi_comm_world,my_node,ierror)
-!    am_master=(my_node==0)
-!  end subroutine
-!
-!  ! call mpi_finalize.
-!  subroutine finalise_parallel
-!    implicit none
-!    call mpi_finalize(ierror)
-!  end subroutine
-!
-!  ! abort the run (ending the program on all nodes).
-!  subroutine abort_parallel
-!    implicit none
-!    call mpi_abort(mpi_comm_world,-1,ierror)
-!    stop
-!  end subroutine
-!end module parallel
-
 module vscf_module
   use string_module
   use io_module
@@ -57,6 +16,7 @@ contains
 ! ----------------------------------------------------------------------
 subroutine vscf()
   use constants_module, only : pi, ev_per_hartree, kb_in_au, ev_per_inverse_cm
+  use scf_module
   !use parallel
   implicit none
   
@@ -66,11 +26,11 @@ subroutine vscf()
   real(dp),allocatable :: indep_params(:,:), coupled_params(:,:,:)
   real(dp) :: mireia,crispin
   real(dp),allocatable :: indep_pot(:,:), indep_pot_bare(:,:), &
-     &coupled_pot(:,:,:,:), coupled_pot_bare(:,:,:,:), scf_pot(:,:)
-  real(dp),allocatable :: max_amplitude(:),harmonic_freq(:)
+     &coupled_pot(:,:,:,:), scf_pot(:,:)
+  real(dp),allocatable :: max_amplitude(:),harmonic_freq(:),qs(:,:),dq(:)
   real(dp),allocatable :: shift_harmonic_freq(:,:)
   real(dp),allocatable :: eigenvalues(:,:), eigenvalues_old(:,:), &
-     &eigenvectors(:,:,:), basis(:,:,:), eigenvectors_old(:,:,:)
+     &eigenvectors(:,:,:), basis(:,:,:)
   real(dp),allocatable :: shift_eigenvalues(:,:)
   real(dp),allocatable :: omega(:),x0(:),v0(:)
   real(dp) :: density
@@ -82,17 +42,13 @@ subroutine vscf()
   real(dp) :: q,q1
   integer,parameter :: min_t=5,max_t=1000
   real(dp) :: max_diff
-  real(dp),allocatable :: scf_indep(:),scf_lin_coupled(:,:),scf_coupled(:,:)
+  real(dp),allocatable :: scf_indep(:)
   real(dp),allocatable :: scf_indep2(:,:),scf_coupled2(:,:,:,:)
-  real(dp),allocatable :: hamiltonian(:,:),e(:)
   integer,allocatable :: state(:)
   integer :: alpha,beta,gamma1,delta,epsilon1
   real(dp) :: int_temp1,int_temp2
-  real(dp),allocatable :: work(:)
-  integer :: lwork,info
-  real(dp) :: final_energy,final_energy_pre,final_energy0
+  real(dp) :: final_energy,final_energy0
   real(dp) :: tol=1.d-8,tolerance=1.d-18
-  integer :: counter
   real(dp) :: mp2
   real(dp),allocatable :: single_integral(:,:,:),coupled_integral(:,:,:,:,:,:)
   real(dp),allocatable :: partial_coupled_integral(:,:,:,:,:,:), &
@@ -105,6 +61,8 @@ subroutine vscf()
   real(dp) :: temperature, thermal_energy, fenergy, hfenergy, int_energy, &
      & hint_energy, temp_int_energy, temp_hint_energy
   real(dp),allocatable :: part_fn(:),har_part_fn(:)
+  
+  type(ScfOutput) :: scf_output
   
   ! Input files.
   type(String), allocatable :: input_file(:)
@@ -119,8 +77,6 @@ subroutine vscf()
   type(String), allocatable :: coupled_potential_file(:)
   
   ! Output files.
-  integer :: mireia_file
-  integer :: scf_pot_file
   integer :: convergence_file
   integer :: output_file
   integer :: result_file
@@ -187,6 +143,8 @@ subroutine vscf()
   ! allocate various arrays
   allocate( basis(no_modes,integration_points,nbasis),                 &
           & max_amplitude(no_modes),                                   &
+          & qs(integration_points,no_modes),                           &
+          & dq(no_modes),                                              &
           & x0(no_modes),                                              &
           & coupled_params(no_modes,no_modes,no_coupled_params),       &
           & vec_11(no_modes),                                          &
@@ -207,16 +165,11 @@ subroutine vscf()
           & eigenvectors(no_modes,nbasis,nstates),                     &
           & shift_eigenvalues(no_modes,nbasis),                        &
           & eigenvalues_old(no_modes,nbasis),                          &
-          & eigenvectors_old(no_modes,nbasis,nstates),                 &
           & omega(no_modes),                                           &
           & v0(no_modes),                                              &
-          & hamiltonian(nbasis,nbasis),                                &
-          & e(nbasis),                                                 &
           & root_two_over_i(nbasis),                                   &
           & root_i_over_two(nbasis),                                   &
           & scf_indep(no_modes),                                       &
-          & scf_lin_coupled(no_modes,integration_points),              &
-          & scf_coupled(no_modes,no_modes),                            &
           & scf_indep2(no_modes,nstates),                              &
           & scf_coupled2(no_modes,integration_points,nstates,nstates), &
           & state(no_modes),                                           &
@@ -229,8 +182,6 @@ subroutine vscf()
   if(execution_mode==1)then
     allocate( coupled_pot( no_modes, no_modes,                           &
             &              integration_points, integration_points),      &
-            & coupled_pot_bare( no_modes, no_modes,                      &
-            &                   integration_points, integration_points), &
             & partial_coupled_integral( nbasis, nbasis, nbasis, nbasis,  &
             &                           no_modes, no_modes),             &
             & temp_partial_coupled_integral( nbasis, nbasis,             &
@@ -259,6 +210,7 @@ subroutine vscf()
 
   do i=first_mode,last_mode
     i2 = i-first_mode+1
+    
     if (symmetry_mode(i2)==symmetry_ref(i2)) then
       amplitude_file = read_lines('max_amplitude.'//i//'.dat')
       line = split(amplitude_file(1))
@@ -268,6 +220,11 @@ subroutine vscf()
       max_amplitude(i2) = max_amplitude(symmetry_ref(i2)-(first_mode-1))
       harmonic_freq(i2) = harmonic_freq(symmetry_ref(i2)-(first_mode-1))
     endif
+    
+    dq(i2) = max_amplitude(i2)*2.0_dp/integration_points
+    do j=1,integration_points
+      qs(j,i2) = max_amplitude(i2)*(-1+(j-1)*2.0_dp/integration_points)
+    enddo
   enddo
 
   ! read in eigenvectors
@@ -400,7 +357,7 @@ subroutine vscf()
     enddo ! j
     
     do j=1,integration_points
-      q = max_amplitude(i2)*(-1+(j-1)*2.0_dp/integration_points)
+      q = qs(j,i2)
       basis(i2,j,1)=bfp*exp(-0.5_dp*q*q*omega(i2))
       basis(i2,j,2)=sqrt(omega(i2))*q*root_two_over_i(1)*basis(i2,j,1)
       do k=3,nbasis
@@ -416,26 +373,25 @@ subroutine vscf()
   !ortuzar_file = open_write_file('ortuzar.dat')
   call print_line('reading in potentials...')
 !    do i=1,no_modes
-!      q = -max_amplitude(i)
-!      dq = 2*max_amplitude(i)/integration_points
 !      do j=1,integration_points
 !        ! anharmonic potential.  nb, instead of shifting basis functions and
 !        ! integration grid, we shift the potential.
+!        q = qs(j,i)
 !        indep_pot(i,j) = v_indep(indep_params(i,:), q-x0(i)) &
 !                     & - 0.5_dp*omega(i)*omega(i)*q*q-v0(i)
 !        !if(i==9)call print_line(q,indep_pot(i,j))
-!        q = q+dq
 !      enddo ! j
 !    !  call print_line(ortuzar_file, '')
 !    !  call print_line(ortuzar_file, '')
 !    enddo ! i
 !    !close(ortuzar_file)
+
   do i=1,no_modes
     if(symmetry_mode(i)==symmetry_ref(i))then
       l=i+(first_mode-1)
       potential_file = read_lines('indep_potential/indep_pot_'//l//'.dat')
       do j=1,integration_points
-        q = max_amplitude(i)*(-1+(j-1)*2.0_dp/integration_points)
+        q = qs(j,i)
         line = split(potential_file(j))
         indep_pot_bare(i,j) = dble(line(2))
         indep_pot(i,j) = indep_pot_bare(i,j) &
@@ -477,37 +433,35 @@ subroutine vscf()
   !  !  if(symmetry_mode(i)==symmetry_ref(i))then
   !  !    do j=1,i-1
   !  !      if(symmetry_mode(j)/=symmetry_ref(j))then
-  !  !        q1 = -max_amplitude(i)
-  !  !        dq1 = 2*max_amplitude(i)/integration_points
-  !  !        dq2 = 2*max_amplitude(j)/integration_points
   !  !        do k=1,integration_points
-  !  !          q2=-max_amplitude(j)
+  !  !          q1 = qs(k,i)
   !  !          do l=1,integration_points
-  !  !            coupled_pot(j,i,k,l) = v_coupled(coupled_params(j,i,:),q2+x0(j),q1+x0(i))
-  !  !            q2=q2+dq2
-  !  !          enddo ! l
-  !  !          q1=q1+dq1
-  !  !        enddo ! k
+  !  !            q2 = qs(l,j)
+  !  !            coupled_pot(j,i,k,l) = v_coupled( coupled_params(j,i,:), &
+  !  !                                            & q2+x0(j),              &
+  !  !                                            & q1+x0(i))
+  !  !          enddo
+  !  !        enddo
   !  !      endif
   !  !    enddo 
   !      do j=i+1,no_modes
-  !        q1 = -max_amplitude(i)
-  !        dq1 = 2*max_amplitude(i)/integration_points
-  !        dq2 = 2*max_amplitude(j)/integration_points
   !        do k=1,integration_points
-  !          q2=-max_amplitude(j)
+  !          q1 = qs(k,i)
   !          do l=1,integration_points
-  !            ! nb, no shift of potential because v_{ppa}(q) = sum_i v_i(q_i) + sum_ij v_ij(q_i,q_j), and the 
-  !            ! shifted potential is v_{ppa}(q-q0) + v0 and we add v0 to the independent potential above. 
-  !            coupled_pot(i,j,k,l) = v_coupled(coupled_params(i,j),q1-x0(i),q2-x0(j)) 
-  !            q2=q2+dq2
-  !          enddo ! l
-  !          q1=q1+dq1
-  !        enddo ! k
-  !      enddo ! j
-  !  !  endif ! symmetry
-  !  enddo ! i
-  !endif ! execution mode
+  !            q2 = qs(l,j)
+  !            ! nb, no shift of potential because
+  !            !    v_{ppa}(q) = sum_i v_i(q_i) + sum_ij v_ij(q_i,q_j),
+  !            !    and the shifted potential is v_{ppa}(q-q0) + v0
+  !            !    and we add v0 to the independent potential above. 
+  !            coupled_pot(i,j,k,l) = v_coupled( coupled_params(i,j), &
+  !                                            & q1-x0(i),            &
+  !                                            & q2-x0(j)) 
+  !          enddo
+  !        enddo
+  !      enddo
+  !  !  endif
+  !  enddo
+  !endif
   call print_line('done.')
   call print_line('')
 
@@ -536,7 +490,7 @@ subroutine vscf()
                  & sum(   basis(i,:,alpha)                      &
                  &      * basis(i,:,beta)                       &
                  &      * coupled_pot(i,j,:,l))                 &
-                 & * 2*max_amplitude(i)/integration_points
+                 & * dq(i)
             enddo
           enddo
         enddo
@@ -554,7 +508,7 @@ subroutine vscf()
                    & sum(   basis(j,:,delta)                                 &
                    &      * basis(j,:,epsilon1)                              &
                    &      * temp_partial_coupled_integral(alpha,beta,i,j,:)) &
-                   & * 2*max_amplitude(j)/integration_points
+                   & * dq(j)
               enddo
             enddo
           enddo
@@ -567,193 +521,23 @@ subroutine vscf()
   harmonic_energy=final_energy
   
   ! Open output files.
-  mireia_file = open_write_file('mireia.dat')
-  scf_pot_file = open_write_file('scf_pot.dat')
   convergence_file = open_write_file('convergence.dat')
   output_file = open_append_file('caesar.output')
   
-  call print_line(mireia_file, '0 '//final_energy)
-
   ! --------------------------------------------------
   ! self-consistent field loop 
   ! --------------------------------------------------
   do t=1,max_t
-    ! linear coupled correction
-    if(execution_mode==1)then
-      scf_lin_coupled=0
-      do i=1,no_modes
-        if(symmetry_mode(i)==symmetry_ref(i))then
-          do j=1,i-1
-            do k=1,integration_points
-              do alpha=1,nbasis
-                do beta=1,nbasis
-                  ! note here is v_ji, also change integration points order
-                  scf_lin_coupled(i,k) = scf_lin_coupled(i,k)           &
-                                     & + eigenvectors(j,alpha,state(j)) &
-                                     & * eigenvectors(j,beta,state(j))  &
-                                     & * sum(   basis(j,:,alpha)        &
-                                     &        * coupled_pot(j,i,:,k)    &
-                                     &        * basis(j,:,beta) )       &
-                                     & * 2*max_amplitude(j)/integration_points
-               enddo
-              enddo
-              
-              if (i==1.and.t==1) then
-                q1 = max_amplitude(i)*(-1+(k-1)*2.0_dp/integration_points)
-                call print_line(mireia_file, q1//' '//scf_lin_coupled(i,k))
-              endif
-            enddo
-          enddo
-          
-          do j=i+1,no_modes
-            do k=1,integration_points
-              do alpha=1,nbasis
-                do beta=1,nbasis
-                  ! note here is v_ij, also change integration points order
-                  scf_lin_coupled(i,k) = scf_lin_coupled(i,k) &
-                                     & + eigenvectors(j,alpha,state(j)) &
-                                     & * eigenvectors(j,beta,state(j))  &
-                                     & * sum(   basis(j,:,alpha) &
-                                     &        * coupled_pot(i,j,k,:) &
-                                     &        * basis(j,:,beta))     &
-                                     & * 2*max_amplitude(j)/integration_points
-                enddo
-              enddo
-              
-              if (i==1.and.t==1) then
-                q1 = max_amplitude(i)*(-1+(k-1)*2.0_dp/integration_points)
-                call print_line(mireia_file, q1//' '//scf_lin_coupled(i,k))
-              endif
-            enddo
-            
-            if (i==1.and.t==1) then
-              call print_line(mireia_file, '')
-              call print_line(mireia_file, '')
-            endif
-          enddo
-        else
-          do k=1,integration_points
-            scf_lin_coupled(i,k) = scf_lin_coupled(symmetry_ref(i),k) 
-          enddo
-        endif
-      enddo
-    endif
-
-    ! effective self-consistent potential
-    scf_pot=0
-    do i=1,no_modes
-      do k=1,integration_points
-        if(execution_mode==1)scf_pot(i,k)=scf_pot(i,k)+indep_pot(i,k)+scf_lin_coupled(i,k)
-        if(execution_mode==0)scf_pot(i,k)=scf_pot(i,k)+indep_pot(i,k)
-        if (i==1) then
-          q = max_amplitude(i)*(-1+(k-1)*2.0_dp/integration_points)
-          call print_line(scf_pot_file, q              //' '// &
-                                      & scf_pot(i,k)   //' '// &
-                                      & indep_pot(i,k) //' '// &
-                                      & scf_lin_coupled(i,k))
-        endif
-      enddo ! k
-      if (i==1) then
-        call print_line(scf_pot_file, '')
-        call print_line(scf_pot_file, '')
-      endif
-    enddo ! i 
-
-    ! construct and diagonalise hamiltonian matrix
-    !call print_line(' - constructing and diagonalising hamiltonian matrix...')
-    do i=1,no_modes
-      ! construct hamiltonian matrix      
-      hamiltonian=0
-      ! harmonic diagonal part: on diagonal we have sho eigenvalues.  
-      ! add on matrix elements of anharmonic potential w.r.t. sho eigenfunctions.
-      do j=1,nbasis
-        hamiltonian(j,j)=hamiltonian(j,j)+(real(j-1,dp)+0.5_dp)*omega(i)+v0(i)
-      enddo ! j
-      counter=0
-      do j=1,nbasis
-        do k=1,nbasis
-          int_temp1=0
-          do l=1,integration_points
-            q = max_amplitude(i)*(-1+(l-1)*2.0_dp/integration_points)
-            int_temp1=int_temp1+basis(i,l,j)*basis(i,l,k)&
-             &*scf_pot(i,l)*max_amplitude(i)*2.0_dp/integration_points
-             !&*(scf_pot(i,l)-0.5_dp*omega(i)*omega(i)*q*q)
-          enddo !l
-          hamiltonian(j,k)=hamiltonian(j,k)+int_temp1
-        enddo ! k
-      enddo ! j
-      ! diagonalise hamiltonian matrix
-      lwork=3*nbasis-1
-      allocate(work(lwork), stat=ialloc); call err(ialloc)
-      call dsyev('v','u',nbasis,hamiltonian(1,1),nbasis,e(1),work(1),lwork,info)
-      if(info/=0) then
-        call print_line('dsyev failed. info='//info//'.')
-        call err()
-      endif
-      deallocate(work)
-      ! Write out the eigenvalues and eigenvectors obtained by diagonalisation.
-      do l=1,nbasis
-        !eigenvalues_old(i,l)=eigenvalues(i,l)
-        !eigenvalues(i,l)=0.3_dp*e(l)+0.7_dp*eigenvalues_old(i,l)
-        eigenvalues(i,l)=e(l)
-      enddo ! l
-      !if(hamiltonian(1,1)*eigenvectors_old(i,1,1)>0)then
-        do j=1,nstates
-          do k=1,nbasis
-            eigenvectors_old(i,k,j)=eigenvectors(i,k,j)
-      !      ! mixing scheme for stable convergence
-      !      eigenvectors(i,k,j)=(0.5_dp*hamiltonian(k,j)+0.5_dp*eigenvectors_old(i,k,j)) 
-            eigenvectors(i,k,j)=hamiltonian(k,j)
-          enddo ! k
-        enddo ! j
-      !else
-      !  do j=1,nstates
-      !    do k=1,nbasis
-      !      eigenvectors_old(i,k,j)=eigenvectors(i,k,j)
-      !      ! mixing scheme for stable convergence
-      !      eigenvectors(i,k,j)=(0.5_dp*hamiltonian(k,j)-0.5_dp*eigenvectors_old(i,k,j))
-      !    enddo ! k
-      !  enddo ! j
-      !endif
-    enddo ! i 
-
-    ! total final energy
-    final_energy_pre=final_energy
-    final_energy=0
-    final_energy0=0
-    do i=1,no_modes
-      final_energy=final_energy+eigenvalues(i,state(i))
-      final_energy0=final_energy0+eigenvalues(i,state(i))
-    enddo
-
-    ! coupling correction
-    if(execution_mode==1)then
-      scf_coupled=0
-      do i=1,no_modes
-        do j=i+1,no_modes
-          do alpha=1,nbasis
-            do beta=1,nbasis
-              do delta=1,nbasis
-                do epsilon1=1,nbasis
-                 scf_coupled(i,j)=scf_coupled(i,j)+eigenvectors_old(i,alpha,state(i))*eigenvectors_old(i,beta,state(i))*&
-                  &eigenvectors_old(j,delta,state(j))*eigenvectors_old(j,epsilon1,state(j))*&
-                  &coupled_integral(alpha,beta,delta,epsilon1,i,j)
-                enddo ! epsilon1
-              enddo ! delta
-            enddo ! beta
-          enddo ! alpha
-        enddo ! j
-      enddo ! i
+    ! Run scf loop.
+    scf_output = scf(basis,coupled_pot,indep_pot,execution_mode,final_energy,&
+       & no_modes,integration_points,nbasis,nstates,                         &
+       & symmetry_mode,symmetry_ref,qs,dq,state,                             &
+       & eigenvectors,omega,v0,coupled_integral)
     
-      do i=1,no_modes
-        do j=i+1,no_modes
-          final_energy=final_energy-scf_coupled(i,j)
-        enddo ! j
-      enddo ! i
-      !call print_line(final_energy)
-    endif ! execution mode
-
-    max_diff=abs(final_energy-final_energy_pre)
+    scf_pot = scf_output%scf_pot
+    eigenvalues = scf_output%eigenvalues
+    final_energy0 = scf_output%final_energy0
+    max_diff = scf_output%max_diff
     
     ! Print convergence data.
     call print_line(convergence_file, t//' '//final_energy//' '//max_diff)
@@ -768,8 +552,6 @@ subroutine vscf()
     endif
   enddo
   
-  close(mireia_file)
-  close(scf_pot_file)
   close(convergence_file)
   
   ! --------------------------------------------------
@@ -863,7 +645,7 @@ subroutine vscf()
             int_temp1=0
             do gamma1=1,integration_points
               int_temp1=int_temp1+basis(i,gamma1,alpha)*(indep_pot(i,gamma1)-scf_pot(i,gamma1))*&
-               &basis(i,gamma1,beta)*max_amplitude(i)*2.0_dp/integration_points
+               &basis(i,gamma1,beta)*dq(i)
             enddo ! gamma
             scf_indep2(i,j)=scf_indep2(i,j)+eigenvectors(i,alpha,state(i))*eigenvectors(i,beta,j)*&
              &int_temp1
@@ -876,7 +658,7 @@ subroutine vscf()
             int_temp1=0
             do gamma1=1,integration_points
               int_temp1=int_temp1+basis(i,gamma1,alpha)*(indep_pot(i,gamma1)-scf_pot(i,gamma1))*&
-               &basis(i,gamma1,beta)*max_amplitude(i)*2.0_dp/integration_points
+               &basis(i,gamma1,beta)*dq(i)
             enddo ! gamma
             scf_indep2(i,j)=scf_indep2(i,j)+eigenvectors(i,alpha,state(i))*eigenvectors(i,beta,j)*int_temp1
           enddo ! beta
@@ -1125,7 +907,7 @@ subroutine vscf()
           enddo ! beta
         enddo ! alpha
       enddo ! j
-      q1 = max_amplitude(1)*(-1+(i-1)*2.0_dp/integration_points)
+      q1 = qs(i,1)
       call print_line(density_file, q1//' '//density)
     enddo ! i
     close(density_file)
