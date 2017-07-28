@@ -1,10 +1,7 @@
+! ======================================================================
 ! Calculates the vibrational self-consistent field (VSCF) approximation
 !    to the phonon Hamiltonian
-! Author: B. Monserrat
-! Created: 07 February 2012
-! Modifications:
-!   - 14/02/2012 : added MP2
-!   - 29/02/2012 : parallelised coupled matrix element calculation
+! ======================================================================
 module vscf_module
   use string_module
   use io_module
@@ -17,14 +14,12 @@ contains
 subroutine vscf()
   use constants_module, only : pi, ev_per_hartree, kb_in_au, ev_per_inverse_cm
   use scf_module
-  !use parallel
   implicit none
   
   integer :: first_mode, last_mode, no_modes, no_indep_params, &
      & no_coupled_params
   type(String) :: functional
   real(dp),allocatable :: indep_params(:,:), coupled_params(:,:,:)
-  real(dp) :: mireia,crispin
   real(dp),allocatable :: indep_pot(:,:), indep_pot_bare(:,:), &
      &coupled_pot(:,:,:,:), scf_pot(:,:)
   real(dp),allocatable :: max_amplitude(:),harmonic_freq(:),qs(:,:),dq(:)
@@ -39,13 +34,13 @@ subroutine vscf()
   integer :: nbasis, nstates
   real(dp) :: bfp
   integer :: integration_points
-  real(dp) :: q,q1
+  real(dp) :: q
   integer,parameter :: min_t=5,max_t=1000
   real(dp) :: max_diff
   real(dp),allocatable :: scf_indep(:)
   real(dp),allocatable :: scf_indep2(:,:),scf_coupled2(:,:,:,:)
   integer,allocatable :: state(:)
-  integer :: alpha,beta,gamma1,delta,epsilon1
+  integer :: alpha,beta,delta,epsilon1
   real(dp) :: int_temp1,int_temp2
   real(dp) :: final_energy,final_energy0
   real(dp) :: tol=1.d-8,tolerance=1.d-18
@@ -77,6 +72,7 @@ subroutine vscf()
   type(String), allocatable :: coupled_potential_file(:)
   
   ! Output files.
+  integer :: scf_pot_file
   integer :: convergence_file
   integer :: output_file
   integer :: result_file
@@ -91,8 +87,10 @@ subroutine vscf()
   integer :: i,j,k,l,ialloc,t,m,n
   integer :: i2,j2
   type(String), allocatable :: line(:)
-
-  ! read in the total number of modes and order of p and coupled potentials 
+  
+  ! --------------------------------------------------
+  ! Read in basis information.
+  ! --------------------------------------------------
   input_file = read_lines('vscf_input.dat')
   
   line = split(input_file(2))
@@ -139,8 +137,10 @@ subroutine vscf()
   endif
   call print_line('the total number of integration points is '// &
      & integration_points)
-
-  ! allocate various arrays
+  
+  ! --------------------------------------------------
+  ! Allocate arrays.
+  ! --------------------------------------------------
   allocate( basis(no_modes,integration_points,nbasis),                 &
           & max_amplitude(no_modes),                                   &
           & qs(integration_points,no_modes),                           &
@@ -160,7 +160,6 @@ subroutine vscf()
           & shift_harmonic_freq(no_modes,nbasis),                      &
           & indep_pot(no_modes,integration_points),                    &
           & indep_pot_bare(no_modes,integration_points),               &
-          & scf_pot(no_modes,integration_points),                      &
           & eigenvalues(no_modes,nbasis),                              &
           & eigenvectors(no_modes,nbasis,nstates),                     &
           & shift_eigenvalues(no_modes,nbasis),                        &
@@ -194,6 +193,9 @@ subroutine vscf()
             & stat=ialloc); call err(ialloc)
   endif
 
+  ! --------------------------------------------------
+  ! Read in data.
+  ! --------------------------------------------------
   ! Read in symmetry-related modes.
   symmetry_file = read_lines('symmetry.dat')
   do i=first_mode,last_mode
@@ -203,7 +205,7 @@ subroutine vscf()
     symmetry_ref(i2) = int(line(2))
   enddo
 
-  ! Read in maximum amplitude.
+  ! Read in maximum amplitude. Calculate sampling points.
   amplitude_ratio_file = read_lines('amplitude_ratio.dat')
   line = split(amplitude_ratio_file(1))
   amp_ratio = dble(line(1))/dble(line(2))
@@ -227,7 +229,7 @@ subroutine vscf()
     enddo
   enddo
 
-  ! read in eigenvectors
+  ! Read in eigenvectors
   do i=first_mode,last_mode
     i2 = i-first_mode+1
     if (symmetry_mode(i2)==symmetry_ref(i2)) then
@@ -474,6 +476,7 @@ subroutine vscf()
   state=1
   
   ! --------------------------------------------------
+  ! Calculate couplings.
   ! --------------------------------------------------
 
   ! calculate matrix elements
@@ -520,24 +523,37 @@ subroutine vscf()
   final_energy = sum( (0.5_dp+(state-1)) * harmonic_freq )
   harmonic_energy=final_energy
   
+  ! --------------------------------------------------
+  ! Self-consistent field loop 
+  ! --------------------------------------------------
   ! Open output files.
+  scf_pot_file = open_write_file('scf_pot.dat')
   convergence_file = open_write_file('convergence.dat')
   output_file = open_append_file('caesar.output')
   
-  ! --------------------------------------------------
-  ! self-consistent field loop 
-  ! --------------------------------------------------
   do t=1,max_t
     ! Run scf loop.
     scf_output = scf(basis,coupled_pot,indep_pot,execution_mode,final_energy,&
-       & no_modes,integration_points,nbasis,nstates,                         &
-       & symmetry_mode,symmetry_ref,qs,dq,state,                             &
+       & no_modes,integration_points,nbasis,                                 &
+       & symmetry_mode,symmetry_ref,dq,state,                                &
        & eigenvectors,omega,v0,coupled_integral)
     
     scf_pot = scf_output%scf_pot
     eigenvalues = scf_output%eigenvalues
+    eigenvectors = scf_output%eigenvectors
+    final_energy = scf_output%final_energy
     final_energy0 = scf_output%final_energy0
     max_diff = scf_output%max_diff
+    
+    ! Write out self-consistent potential.
+    do k=1,integration_points
+      call print_line(scf_pot_file, qs(k,1)        //' '// &
+                                  & scf_pot(1,k)   //' '// &
+                                  & indep_pot(1,k) //' '// &
+                                  & scf_output%scf_lin_coupled(1,k))
+    enddo
+    call print_line(scf_pot_file, '')
+    call print_line(scf_pot_file, '')
     
     ! Print convergence data.
     call print_line(convergence_file, t//' '//final_energy//' '//max_diff)
@@ -552,21 +568,17 @@ subroutine vscf()
     endif
   enddo
   
+  close(scf_pot_file)
   close(convergence_file)
   
+  anharmonic_energy = final_energy
+  
   ! --------------------------------------------------
-  ! After SCF loop.
+  ! Write out scf results.
   ! --------------------------------------------------
+  ! Write out eigenvalues.
   eigenvalues_file = open_write_file('anharmonic_eigenvalues.dat')
-  independent_mode_file = open_write_file('indep_mode.dat')
-  call print_line(independent_mode_file,'independent modes frequnecies')
-  mireia = 0
   do i=1,no_modes
-    mireia = mireia + harmonic_freq(i)/2
-    crispin = crispin + eigenvalues(i,1)
-    call print_line(independent_mode_file, i+3              //' '// &
-                                         & harmonic_freq(i) //' '// &
-                                         & eigenvalues(i,1))
     call print_line(eigenvalues_file, 'eigenvalues for mod '//i)
     do j=1,nbasis
       call print_line(eigenvalues_file, eigenvalues(i,j))
@@ -574,10 +586,20 @@ subroutine vscf()
     call print_line(eigenvalues_file, '')
     call print_line(eigenvalues_file, '')
   enddo
-  call print_line(independent_mode_file, '')
   close(eigenvalues_file)
+  
+  ! Write out independent modes.
+  independent_mode_file = open_write_file('indep_mode.dat')
+  call print_line(independent_mode_file,'independent modes frequnecies')
+  do i=1,no_modes
+    call print_line(independent_mode_file, i+3              //' '// &
+                                         & harmonic_freq(i) //' '// &
+                                         & eigenvalues(i,1))
+  enddo
+  call print_line(independent_mode_file, '')
   close(independent_mode_file)
-
+  
+  ! Write out eigenvectors.
   do i=1,no_modes
     if(symmetry_mode(i)==symmetry_ref(i))then
       l=i+3
@@ -599,16 +621,8 @@ subroutine vscf()
       close(vec_out_file)
     endif ! symmetry
   enddo ! i
-
-  call print_line('')
-  call print_line('converged in '//t//' iterations.')
-  call print_line('final energy (a.u., ev) '//final_energy//' '// &
-     & final_energy*ev_per_hartree)
-  call print_line('final energy puc (a.u., ev) '// &
-     & final_energy/no_unit_cells          //' '// &
-     & final_energy*ev_per_hartree/no_unit_cells)
-  call print_line('')
   
+  ! Write out convergence data.
   call print_line(output_file, '')
   call print_line(output_file, 'converged in '//t//' iterations.')
   call print_line(output_file, 'final energy (a.u., ev) '// &
@@ -626,120 +640,116 @@ subroutine vscf()
                              & final_energy*ev_per_inverse_cm)
   call print_line(result_file, 'energy difference is '//max_diff)
   
-  anharmonic_energy=final_energy
-  
   ! --------------------------------------------------
   ! Perturbation theory.
   ! --------------------------------------------------
   if(execution_mode==1)then
-    ! calculate second order perturbation
+    ! calculate second order perturbation.
     call print_line('calculating second order perturbation...')
 
-    ! independent terms correction
+    ! Independent terms correction.
     call print_line(' - calculating independent terms...')
     scf_indep2=0
     do i=1,no_modes 
-      do j=1,state(i)-1
-        do alpha=1,nbasis
-          do beta=1,nbasis
-            int_temp1=0
-            do gamma1=1,integration_points
-              int_temp1=int_temp1+basis(i,gamma1,alpha)*(indep_pot(i,gamma1)-scf_pot(i,gamma1))*&
-               &basis(i,gamma1,beta)*dq(i)
-            enddo ! gamma
-            scf_indep2(i,j)=scf_indep2(i,j)+eigenvectors(i,alpha,state(i))*eigenvectors(i,beta,j)*&
-             &int_temp1
-          enddo ! beta
-        enddo ! alpha
-      enddo ! j
-      do j=state(i)+1,nstates
-        do alpha=1,nbasis
-          do beta=1,nbasis
-            int_temp1=0
-            do gamma1=1,integration_points
-              int_temp1=int_temp1+basis(i,gamma1,alpha)*(indep_pot(i,gamma1)-scf_pot(i,gamma1))*&
-               &basis(i,gamma1,beta)*dq(i)
-            enddo ! gamma
-            scf_indep2(i,j)=scf_indep2(i,j)+eigenvectors(i,alpha,state(i))*eigenvectors(i,beta,j)*int_temp1
-          enddo ! beta
-        enddo ! alpha
-      enddo ! j
-    enddo ! i
+      do j=1,nstates
+        if (j/=state(i)) then
+          do alpha=1,nbasis
+            do beta=1,nbasis
+              scf_indep2(i,j) = scf_indep2(i,j)                      &
+                            & + eigenvectors(i,alpha,state(i))       &
+                            & * eigenvectors(i,beta,j)               &
+                            & * sum(   basis(i,:,alpha)              &
+                            &        * (indep_pot(i,:)-scf_pot(i,:)) &
+                            &        * basis(i,:,beta))              &
+                            & * dq(i)
+            enddo
+          enddo
+        endif
+      enddo
+    enddo
     
-    ! coupled terms correction
+    ! Coupled terms correction.
     call print_line(' - calculating coupled terms...')
     scf_coupled2=0
     do i=1,no_modes
       do j=i+1,no_modes
         do m=1,nstates
           do n=1,nstates
-            if(m/=state(i).or.n/=state(j))then
+            if (m/=state(i) .or. n/=state(j)) then
               do alpha=1,nbasis
                 do beta=1,nbasis
                   do delta=1,nbasis
                     do epsilon1=1,nbasis
-                      scf_coupled2(i,j,m,n)=scf_coupled2(i,j,m,n)+eigenvectors(i,alpha,state(i))*&
-                       &eigenvectors(i,beta,state(i))*eigenvectors(j,delta,m)*&
-                       &eigenvectors(j,epsilon1,n)*coupled_integral(alpha,beta,delta,epsilon1,i,j)
-                    enddo ! epsilon1
-                 enddo ! delta
-                enddo ! beta
-              enddo ! alpha
-            endif ! m,n/=reference state
-          enddo ! n 
-        enddo ! m
-      enddo ! j
-    enddo ! i
+                      scf_coupled2(i,j,m,n) = scf_coupled2(i,j,m,n) &
+                         & + eigenvectors(i,alpha,state(i))         &
+                         & * eigenvectors(i,beta,state(i))          &
+                         & * eigenvectors(j,delta,m)                &
+                         & * eigenvectors(j,epsilon1,n)             &
+                         & * coupled_integral(alpha,beta,delta,epsilon1,i,j)
+                    enddo
+                  enddo
+                enddo
+              enddo
+            endif
+          enddo
+        enddo
+      enddo
+    enddo
     
-    ! second order perturbation correction
+    ! Second order perturbation correction.
     call print_line(' - calculating perturbation correction...')
     mp2=0
-    int_temp1=0
-    int_temp2=0
-    ! single excited modes
+    ! Single excited modes.
     do i=1,no_modes
       do j=1,nstates
-        int_temp1=0
-        int_temp2=0
-        if(j/=state(i))then
+        if (j/=state(i)) then
+          int_temp1=0
           do k=1,i-1
             int_temp1=int_temp1+scf_coupled2(k,i,state(k),j)
-          enddo ! k
+          enddo
           do k=i+1,no_modes
             int_temp1=int_temp1+scf_coupled2(i,k,j,state(k))
           enddo 
-          do k=1,i-1
-            int_temp2=int_temp2+eigenvalues(k,state(k))
-          enddo ! k
-          do k=i+1,no_modes
-            int_temp2=int_temp2+eigenvalues(k,state(k))
-          enddo ! k 
-          int_temp2=int_temp2+eigenvalues(i,j)
-          mp2=mp2+(scf_indep2(i,j)+int_temp1)*(scf_indep2(i,j)+int_temp1)/(final_energy0-int_temp2)
-        endif ! j/=reference state
-      enddo ! j 
-    enddo ! i
-    ! double excited modes
-    int_temp1=0
+          
+          int_temp2 = eigenvalues(i,j)
+          do k=1,no_modes
+            if (k/=i) then
+              int_temp2=int_temp2+eigenvalues(k,state(k))
+            endif
+          enddo
+          
+          mp2 = mp2                         &
+            & + (scf_indep2(i,j)+int_temp1) &
+            & * (scf_indep2(i,j)+int_temp1) &
+            & / (final_energy0-int_temp2)
+        endif
+      enddo
+    enddo
+    
+    ! Double excited modes.
     do i=1,no_modes
       do j=i+1,no_modes
         do m=1,nstates
           do n=1,nstates
-            int_temp1=0
             if(m/=state(i).and.n/=state(j))then
+              int_temp1=0
               do l=1,no_modes
                 if(l/=i.and.l/=j)then
                   int_temp1=int_temp1+eigenvalues(l,state(l))
-                endif ! l/= reference state
+                endif
                 int_temp1=int_temp1+eigenvalues(i,m)+eigenvalues(j,n)
-              enddo ! l
-              mp2=mp2+scf_coupled2(i,j,m,n)*scf_coupled2(i,j,m,n)/(final_energy0-int_temp1)
-            endif ! m,n/= reference state
-          enddo ! n
-        enddo ! m
-      enddo ! j
-    enddo ! i
-
+              enddo
+              mp2 = mp2                   &
+                & + scf_coupled2(i,j,m,n) &
+                & * scf_coupled2(i,j,m,n) &
+                & / (final_energy0-int_temp1)
+            endif
+          enddo
+        enddo
+      enddo
+    enddo
+    
+    ! Write out perturbation theory results.
     call print_line('')
     call print_line( '     mp2 correction (a.u., ev, cm-1) '// &
                    & mp2                               //' '// &
@@ -765,6 +775,9 @@ subroutine vscf()
   endif ! execution mode
   close(result_file)
 
+  ! --------------------------------------------------
+  ! Write out energies.
+  ! --------------------------------------------------
   call print_line('')
   call print_line('-------summary of results-------')
   call print_line( 'harmonic energy (ev): '// &
@@ -782,136 +795,117 @@ subroutine vscf()
                    & mp2_energy*ev_per_hartree/no_unit_cells)
   endif
 
+  ! --------------------------------------------------
+  ! Calculate thermodynamic quantities.
+  ! --------------------------------------------------
   if(temperature>tol)then
     shift_eigenvalues=0
     shift_harmonic_freq=0
     do i=1,no_modes
       if(eigenvalues(i,1)<0)then
-        do j=1,nstates
-          shift_eigenvalues(i,j)=eigenvalues(i,j)-2*eigenvalues(i,1)
-        enddo ! j
+        shift_eigenvalues(i,:) = eigenvalues(i,:) - 2*eigenvalues(i,1)
       !elseif(eigenvalues(i,1)<eigen_tol)then
-      !  do j=1,nstates
-      !    shift_eigenvalues(i,j)=eigenvalues(i,j)-2*eigenvalues(i,1)
-      !  enddo ! j
+      !  shift_eigenvalues(i,:) = eigenvalues(i,:) - 2*eigenvalues(i,1)
       else 
-        do j=1,nstates
-          shift_eigenvalues(i,j)=eigenvalues(i,j)
-        enddo ! j
-      endif ! eigenval < 0
-      if(i==9)then
-        do j=1,nstates
-        enddo 
-      endif 
+        shift_eigenvalues(i,:) = eigenvalues(i,:)
+      endif
+      
       if(harmonic_freq(i)<0)then
         do j=1,nstates
-          shift_harmonic_freq(i,j)=harmonic_freq(i)*((j-1)+0.5_dp)-harmonic_freq(i)
-        enddo !j
+          shift_harmonic_freq(i,j) = harmonic_freq(i)*((j-1)+0.5_dp) &
+                                 & - harmonic_freq(i)
+        enddo
       else
         do j=1,nstates
-          shift_harmonic_freq(i,j)=harmonic_freq(i)*((j-1)+0.5_dp)
-        enddo !j
-      endif ! harmonic_freq < 0
-    enddo ! i
+          shift_harmonic_freq(i,j) = harmonic_freq(i)*((j-1)+0.5_dp)
+        enddo
+      endif
+    enddo
 
-    ! calculate partition function
-    thermal_energy=temperature * kb_in_au
-    part_fn=0
-    har_part_fn=0
-    do i=1,no_modes
-      do j=1,nstates
-        part_fn(i)=part_fn(i)+exp(-shift_eigenvalues(i,j)/thermal_energy)
-        har_part_fn(i)=har_part_fn(i)+exp(-shift_harmonic_freq(i,j)/thermal_energy)
-      enddo ! j 
-    enddo ! i
+    ! Calculate partition function.
+    thermal_energy = temperature * kb_in_au
+    part_fn = sum(exp(-shift_eigenvalues/thermal_energy), 2)
+    har_part_fn = sum(exp(-shift_harmonic_freq/thermal_energy), 2)
 
-    ! calculate internal energy
-    int_energy=0
-    hint_energy=0
-    internal_file = open_write_file('indep_mode_internal.dat')
-    if(temperature>tolerance)then
+    ! Calculate internal energy.
+    int_energy = 0
+    hint_energy = 0
+    if (temperature>tolerance) then
+      internal_file = open_write_file('indep_mode_internal.dat')
       do i=1,no_modes
-        temp_int_energy=0
-        temp_hint_energy=0
-        do j=1,nstates
-          int_energy = int_energy                                  &
-                   & + shift_eigenvalues(i,j)                      &
-                   & * exp(-shift_eigenvalues(i,j)/thermal_energy) &
-                   & / part_fn(i)
-          temp_int_energy = temp_int_energy                            &
-                        & + shift_eigenvalues(i,j)                     &
-                        & * exp(-shift_eigenvalues(i,j)/thermal_energy)&
-                        & / part_fn(i)
-          hint_energy = hint_energy                                   &
-                    & + shift_harmonic_freq(i,j)                      &
-                    & * exp(-shift_harmonic_freq(i,j)/thermal_energy) &
-                    & / har_part_fn(i)
-          temp_hint_energy = temp_hint_energy               &
-                         & + shift_harmonic_freq(i,j)       &
-                         & * exp( -shift_harmonic_freq(i,j) &
-                         &      / thermal_energy)           &
-                         & / har_part_fn(i)
-        enddo ! j
-        if(eigenvalues(i,1)<0)then
-          int_energy=int_energy-(-2*eigenvalues(i,1))
-          temp_int_energy=temp_int_energy-(-2*eigenvalues(i,1))
-        endif ! eigenval < 0
-        if(harmonic_freq(i)<0)then
-          hint_energy=hint_energy-(-2*harmonic_freq(i))
-          temp_hint_energy=temp_hint_energy-(-harmonic_freq(i))
-        endif ! eigenval < 0
+        temp_int_energy = sum( shift_eigenvalues(i,:)       &
+                      &      * exp( -shift_eigenvalues(i,:) &
+                      &           / thermal_energy))        &
+                      & / part_fn(i)
+        if (eigenvalues(i,1)<0) then
+          temp_int_energy = temp_int_energy-(-2*eigenvalues(i,1))
+        endif
+        int_energy = int_energy + temp_int_energy
+        
+        temp_hint_energy = sum( shift_harmonic_freq(i,:)       &
+                       &      * exp( -shift_harmonic_freq(i,:) &
+                       &           / thermal_energy))          &
+                       & / har_part_fn(i)
+        if (harmonic_freq(i)<0) then
+          temp_hint_energy = temp_hint_energy-(-harmonic_freq(i))
+        endif
+        hint_energy = hint_energy + temp_hint_energy
+        
         call print_line(internal_file, i+3              //' '// &
                                      & temp_hint_energy //' '// &
                                      & temp_int_energy)
-      enddo ! i
-    endif ! temp > tolerance
-    close(internal_file)
+      enddo
+      close(internal_file)
+    endif
 
     ! calculate free energy
     fenergy=0
     hfenergy=0
-    temperature_file = open_write_file('indep_mode_temperature.dat')
     if(temperature>tolerance)then
+      temperature_file = open_write_file('indep_mode_temperature.dat')
       do i=1,no_modes
         fenergy=fenergy-thermal_energy*log(part_fn(i))
         hfenergy=hfenergy-thermal_energy*log(har_part_fn(i))
         if(eigenvalues(i,1)<0)then
           fenergy=fenergy-(-2*eigenvalues(i,1))
-        endif ! eigenval < 0
+        endif
         if(harmonic_freq(i)<0)then
           hfenergy=hfenergy-(-harmonic_freq(i))
-        endif ! eigenval < 0
+        endif
         call print_line(temperature_file,                    &
            & -(  thermal_energy*log(part_fn(i))              &
            &   - thermal_energy*log(har_part_fn(i))) //' '// &
            & -thermal_energy*log(part_fn(i))         //' '// &
            & -thermal_energy*log(har_part_fn(i)))
-      enddo ! i
+      enddo
+      close(temperature_file)
     else
-      do i=1,no_modes
-        fenergy=fenergy+eigenvalues(i,1)
-        hfenergy=hfenergy+0.5_dp*harmonic_freq(i)
-      enddo ! i
+      fenergy = sum(eigenvalues(:,1))
+      hfenergy = 0.5_dp*sum(harmonic_freq)
     endif
-    close(temperature_file)
 
-    ! calculate vibrational density
+    ! Calculate vibrational density.
     density_file = open_write_file('density.dat')
     do i=1,integration_points
       density=0
       do j=1,nstates
         do alpha=1,nbasis
           do beta=1,nbasis
-            density=density+eigenvectors(1,alpha,j)*eigenvectors(1,beta,j)*&
-             &basis(1,i,alpha)*basis(1,i,beta)*exp(-eigenvalues(1,j)/thermal_energy)/part_fn(1)
-          enddo ! beta
-        enddo ! alpha
-      enddo ! j
-      q1 = qs(i,1)
-      call print_line(density_file, q1//' '//density)
-    enddo ! i
+            density = density                               &
+                  & + eigenvectors(1,alpha,j)               &
+                  & * eigenvectors(1,beta,j)                &
+                  & * basis(1,i,alpha)                      &
+                  & * basis(1,i,beta)                       &
+                  & * exp(-eigenvalues(1,j)/thermal_energy) &
+                  & / part_fn(1)
+          enddo
+        enddo
+      enddo
+      call print_line(density_file, qs(i,1)//' '//density)
+    enddo
     close(density_file)
     
+    ! Write out thermodynamic quantities.
     call print_line(output_file, '')
     call print_line(output_file, &
        & '-------summary of free energy results-------')

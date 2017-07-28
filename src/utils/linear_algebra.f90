@@ -314,8 +314,10 @@ module linear_algebra_module
   end interface
   
   interface calculate_eigenstuff
-    module procedure calculate_RealEigenstuff
-    module procedure calculate_ComplexEigenstuff
+    module procedure calculate_RealEigenstuff_reals
+    module procedure calculate_RealEigenstuff_RealMatrix
+    module procedure calculate_ComplexEigenstuff_complexes
+    module procedure calculate_ComplexEigenstuff_ComplexMatrix
   end interface
   
   ! --------------------------------------------------
@@ -2194,7 +2196,7 @@ end function
 
 
 ! Calculates the eigenvalues and eigenvectors of a real, symmetric matrix
-function calculate_RealEigenstuff(input) result(output)
+function calculate_RealEigenstuff_reals(input) result(output)
   implicit none
   
   real(dp), intent(in) :: input(:,:)  ! a real, symmetric matrix
@@ -2232,8 +2234,17 @@ function calculate_RealEigenstuff(input) result(output)
   endif
 end function
 
+function calculate_RealEigenstuff_RealMatrix(input) result(output)
+  implicit none
+  
+  type(RealMatrix), intent(in) :: input
+  type(RealEigenstuff)         :: output
+  
+  output = calculate_eigenstuff(dble(input))
+end function
+
 ! Calculates the eigenvalues and eigenvectors of a complex, hermitian matrix
-function calculate_ComplexEigenstuff(input) result(output)
+function calculate_ComplexEigenstuff_complexes(input) result(output)
   implicit none
   
   complex(dp), intent(in) :: input(:,:)  ! a complex, hermitian matrix
@@ -2272,5 +2283,14 @@ function calculate_ComplexEigenstuff(input) result(output)
     call print_line("zheev failed, info= "//info)
     call err()
   endif
+end function
+
+function calculate_ComplexEigenstuff_ComplexMatrix(input) result(output)
+  implicit none
+  
+  type(ComplexMatrix), intent(in) :: input
+  type(ComplexEigenstuff)         :: output
+  
+  output = calculate_eigenstuff(cmplx(input))
 end function
 end module
