@@ -21,7 +21,77 @@ module bo_mappingforcescoupled_module
  use constants_module, only : dp
 contains
 
+! ----------------------------------------------------------------------
+! Generate keywords and helptext.
+! ----------------------------------------------------------------------
+function anharmonic_keywords() result(keywords)
+  use help_module
+  implicit none
+  
+  type(KeywordData) :: keywords(15)
+  
+  keywords = [                                                                &
+  & make_keyword( 'seed_name',                                                &
+  &               'seed_name is the DFT seedname from which file names are &
+  &constructed.'),                                                            &
+  & make_keyword( 'num_indep_data',                                           &
+  &               'num_indep_data is the number of data points per mode. It &
+  &should be an odd integer.',                                                &
+  &               default_value='11'),                                        &
+  & make_keyword( 'temperature', &
+  &               'temperature is the temperature in Kelvin at which &
+  &thermodynamic quantities are calculated.'),                                &
+  & make_keyword( 'first_mode',                                               &
+  &               'first_mode is the first mode to be considered.',           &
+  &               default_value='4'),                                         &
+  & make_keyword( 'last_mode',                                                &
+  &               'last_mode is the last mode to be considered.',             &
+  &               default_value='4'),                                         &
+  & make_keyword( 'first_amp',                                                &
+  &               'first_amp is the first amplitude to be considered.',       &
+  &               default_value='1'),                                         &
+  & make_keyword( 'last_amp',                                                 &
+  &               'last_amp is the last amplitude to be considered.',         &
+  &               default_keyword='num_indep_data'),                          &
+  & make_keyword( 'mc_sampling',                                              &
+  &               'mc_sampling should be specified to turn on Monte-Carlo &
+  &sampling.',                                                                &
+  &               is_boolean=.true.),                                         &
+  & make_keyword( 'mc_data_points',                                           &
+  &               'mc_data_points is the number of Monte-Carlo data points. &
+  &Should only be set if mc_sampling is set.',                                &
+  &               default_value='20'),                                        &
+  & make_keyword( 'mc_continuation',                                          &
+  &               'mc_continuation is the Monte-Carlo continuation. Should &
+  &only be set if mc_sampling is set.',                                       &
+  &               default_value='20'),                                        &
+  & make_keyword( 'coupled_sampling',                                         &
+  &               'coupled_sampling should be specified to turn on coupled &
+  &sampling.',                                                                &
+  &                is_boolean=.true.),                                        &
+  & make_keyword( 'num_2body_data',                                           &
+  &               'num_2body_data is the number of two-body data points. &
+  &Should only be set if coupled_sampling is set.',                           &
+  &               default_value='11'),                                        &
+  & make_keyword( 'first_amp_2body',                                          &
+  &               'first_amp_2body is the first two-body amplitude &
+  &considered. Must be <= num_2body_data.',                                   &
+  &               default_value='1'),                                         &
+  & make_keyword( 'last_amp_2body',                                           &
+  &               'last_amp_2body is the last two-body amplitude considered. &
+  &Must be >= first_amp_2body and <= num_2body data.',                        &
+  &               default_keyword='num_2body_data'),                          &
+  & make_keyword( 'magres',                                                   &
+  &               'magres specifies whether or not the DFT calculation is &
+  &magres.',                                                                  &
+  &               is_boolean=.true.) ]
+end function
+
+! ----------------------------------------------------------------------
+! Main program.
+! ----------------------------------------------------------------------
 subroutine bo_mappingforcescoupled(arguments)
+  use dictionary_module
   implicit none
   
   type(Dictionary), intent(in) :: arguments
@@ -29,16 +99,16 @@ subroutine bo_mappingforcescoupled(arguments)
   ! ----------------------------------------------------------------------
   ! Read inputs
   ! ----------------------------------------------------------------------
-  wd = item(arguments, "working_directory")
+  wd = arguments%value("working_directory")
 
   ! Read in CASTEP seed name (required)
-  seed_name = item(arguments, "seed_name")
+  seed_name = arguments%value("seed_name")
 
   ! Read in number of data points per mode (odd integer) (default=11)
-  num_indep_data = int(item(arguments, "num_indep_data"))
+  num_indep_data = int(arguments%value("num_indep_data"))
 
   ! Read in temperature (K)
-  temperature = dble(item(arguments, "temperature"))
+  temperature = dble(arguments%value("temperature"))
   if (temperature==0) then
     num_data = 0
   endif
@@ -51,39 +121,39 @@ subroutine bo_mappingforcescoupled(arguments)
 
   ! Read in first mode to consider (default=4)
   ! TODO: calculate this automatically
-  first_mode = int(item(arguments, "first_mode"))
+  first_mode = int(arguments%value("first_mode"))
 
   ! Read in last mode to consider (default=4)
   ! TODO: calculate this automatically
-  last_mode = int(item(arguments, "last_mode"))
+  last_mode = int(arguments%value("last_mode"))
 
   ! Read in first amplitude to consider (default=1) (must be <= num_indep_data)
   ! TODO: calculate this automatically
-  first_amp = int(item(arguments, "first_amp"))
+  first_amp = int(arguments%value("first_amp"))
 
   ! Read in last amplitude to consider (default=num_indep_data) (must be <= num_indep_data) (first <= last)
-  last_amp = int(item(arguments, "last_amp"))
+  last_amp = int(arguments%value("last_amp"))
 
   ! Read in sampling method (default=false)
   mc_sampling = exists(arguments, "mc_sampling")
   if (mc_sampling) then
     ! (default=20)
-    mc_data_points = int(item(arguments, "mc_data_points"))
+    mc_data_points = int(arguments%value("mc_data_points"))
     ! (default=0)
-    mc_continuation = int(item(arguments, "mc_continuation"))
+    mc_continuation = int(arguments%value("mc_continuation"))
   endif
 
   ! (default=false)
   coupled_sampling = exists(arguments, "coupled_sampling")
   if (coupled_sampling) then
     ! (default=11)
-    num_2body_data = int(item(arguments, "num_2body_data"))
+    num_2body_data = int(arguments%value("num_2body_data"))
     
     ! (default=1) ( <= num_2body_data)
-    first_amp_2body = int(item(arguments, "first_amp_2body"))
+    first_amp_2body = int(arguments%value("first_amp_2body"))
     
     ! (default=num_2body_data) ( <= num_2body_data)
-    last_amp_2body = int(item(arguments, "last_amp_2body"))
+    last_amp_2body = int(arguments%value("last_amp_2body"))
   endif
 
   ! Whether or not CASTEP task = magres

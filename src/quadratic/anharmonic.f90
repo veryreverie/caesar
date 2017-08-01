@@ -16,12 +16,15 @@ function anharmonic_keywords() result(keywords)
   
   type(KeywordData) :: keywords(2)
   
-  keywords = [ &
-  & make_keyword('integration_points', '5000', 'integration_points is the &
-     &number of points onto which the 1-d potential is interpolated before &
-     &VSCF is performed.'),                                                &
-  & make_keyword('basis_size', '20', 'basis_size is the number of states &
-     &used to construct a basis when performing VSCF.')                    ]
+  keywords = [                                                                &
+  & make_keyword( 'integration_points',                                       &
+  &               'integration_points is the number of points onto which the &
+  &1-d potential is interpolated before VSCF is performed.',                  &
+  &               default_value='5000'),                                      &
+  & make_keyword( 'basis_size',                                               &
+  &               'basis_size is the number of states used to construct a &
+  &basis when performing VSCF.',                                              &
+  &               default_value='20') ]
 end function
 
 ! ----------------------------------------------------------------------
@@ -98,18 +101,18 @@ subroutine anharmonic(arguments)
   ! Read in data.
   ! --------------------------------------------------
   ! Read arguments
-  wd = item(arguments, 'working_directory')
-  integration_points = int(item(arguments, 'integration_points'))
-  basis_size = int(item(arguments, 'basis_size'))
+  wd = arguments%value('working_directory')
+  integration_points = int(arguments%value('integration_points'))
+  basis_size = int(arguments%value('basis_size'))
   
   ! Read in previous user inputs
-  setup_quadratic_arguments = read_dictionary_file( &
+  call setup_quadratic_arguments%read_file( &
      & wd//'/setup_quadratic.used_settings')
-  dft_code = item(setup_quadratic_arguments, 'dft_code')
-  seedname = item(setup_quadratic_arguments, 'seedname')
-  harmonic_path = item(setup_quadratic_arguments, 'harmonic_path')
-  no_samples = int(item(setup_quadratic_arguments, 'no_samples'))
-  displacement = dble(item(setup_quadratic_arguments, 'displacement'))
+  dft_code = setup_quadratic_arguments%value('dft_code')
+  seedname = setup_quadratic_arguments%value('seedname')
+  harmonic_path = setup_quadratic_arguments%value('harmonic_path')
+  no_samples = int(setup_quadratic_arguments%value('no_samples'))
+  displacement = dble(setup_quadratic_arguments%value('displacement'))
   
   ! read the number of Supercell_* directories into no_supercells
   no_supercells_file = read_lines(harmonic_path//'/no_supercells.dat')

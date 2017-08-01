@@ -39,13 +39,7 @@ module string_module
   ! String slice.
   public :: slice ! slice(String,a,b) = character(a:b)
   
-  ! Constants for special cases.
-  public :: NOT_SET
-  public :: NO_ARGUMENT
-  
-  character(9),  parameter :: NOT_SET = '<NOT_SET>'
-  character(13), parameter :: NO_ARGUMENT = '<NO_ARGUMENT>'
-  
+  ! String type.
   type String
     character(:), allocatable, private :: contents
   end type

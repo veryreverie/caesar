@@ -94,15 +94,15 @@ subroutine setup_harmonic_test(arguments)
   ! --------------------------------------------------
   ! Read in arguments from user.
   ! --------------------------------------------------
-  wd = item(arguments, 'working_directory')
-  dft_code = item(arguments, 'dft_code')
-  seedname = item(arguments, 'seedname')
-  grid = int(split(item(arguments, 'q-point_grid')))
+  wd = arguments%value('working_directory')
+  dft_code = arguments%value('dft_code')
+  seedname = arguments%value('seedname')
+  grid = int(split(arguments%value('q-point_grid')))
   
   ! --------------------------------------------------
   ! Copy out settings to setup_harmonic.used_settings
   ! --------------------------------------------------
-  call write_dictionary_file(arguments, wd//'/setup_harmonic.used_settings')
+  call arguments%write_file(wd//'/setup_harmonic.used_settings')
   
   ! --------------------------------------------------
   ! Run new setup_harmonic.

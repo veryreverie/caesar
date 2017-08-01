@@ -16,13 +16,15 @@ function bs_quadratic_keywords() result(keywords)
   
   type(KeywordData) :: keywords(3)
   
-  keywords = [ &
-  & make_keyword('q-point', NO_ARGUMENT, 'q-point is the id of the q-point of &
-     &interest.'),                                                            &
-  & make_keyword('band', NO_ARGUMENT, 'band is the id of the band of interest.&
-     &If the band is degenerate, the highest band is required.'),             &
-  & make_keyword('degeneracy', '1', 'degeneracy is the number of degenerate &
-     &bands.')                                                                ]
+  keywords = [                                                                &
+  & make_keyword( 'q-point',                                                  &
+  &               'q-point is the id of the q-point of interest.'),           &
+  & make_keyword( 'band',                                                     &
+  &               'band is the id of the band of interest. If the band is &
+  &degenerate, the highest band is required.'),                               &
+  & make_keyword( 'degeneracy',                                               &
+  &               'degeneracy is the number of degenerate bands.',            &
+  &               default_value='1') ]
 end function
 
 ! ----------------------------------------------------------------------
@@ -103,21 +105,21 @@ subroutine bs_quadratic(arguments)
   ! --------------------------------------------------
   ! Get user inputs
   ! --------------------------------------------------
-  wd = item(arguments, 'working_directory')
-  qpoint = int(item(arguments, 'q-point'))
-  band = int(item(arguments, 'band'))
-  degeneracy = int(item(arguments, 'degeneracy'))
+  wd = arguments%value('working_directory')
+  qpoint = int(arguments%value('q-point'))
+  band = int(arguments%value('band'))
+  degeneracy = int(arguments%value('degeneracy'))
   
   ! --------------------------------------------------
   ! Read basic data
   ! --------------------------------------------------
-  setup_quadratic_arguments = read_dictionary_file( &
+  call setup_quadratic_arguments%read_file( &
      & wd//'/setup_quadratic.used_settings')
-  dft_code = item(setup_quadratic_arguments, 'dft_code')
-  seedname = item(setup_quadratic_arguments, 'seedname')
-  harmonic_path = item(setup_quadratic_arguments, 'harmonic_path')
-  no_samples = int(item(setup_quadratic_arguments, 'no_samples'))
-  displacement = dble(item(setup_quadratic_arguments, 'displacement'))
+  dft_code = setup_quadratic_arguments%value('dft_code')
+  seedname = setup_quadratic_arguments%value('seedname')
+  harmonic_path = setup_quadratic_arguments%value('harmonic_path')
+  no_samples = int(setup_quadratic_arguments%value('no_samples'))
+  displacement = dble(setup_quadratic_arguments%value('displacement'))
   
   no_supercells_file = read_lines(wd//'/no_supercells.dat')
   no_supercells = int(no_supercells_file(1))

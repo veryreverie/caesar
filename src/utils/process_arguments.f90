@@ -7,6 +7,8 @@ module process_arguments_module
   use string_module
   use io_module
   
+  ! An interface for the main subroutines of Caesar, each of which takes a
+  !    dictionary of arguments and returns nothing.
   abstract interface
     subroutine MainSubroutine(arguments)
       use dictionary_module
@@ -21,339 +23,282 @@ contains
 ! ----------------------------------------------------------------------
 ! Main program.
 ! ----------------------------------------------------------------------
-function process_arguments(mode,args,keywords) result(arguments)
+function process_arguments(args,keywords_in) result(arguments)
   use dictionary_module
   use help_module
   implicit none
   
-  type(String),      intent(in) :: mode
   type(String),      intent(in) :: args(:)
-  type(KeywordData), intent(in) :: keywords(:)
+  type(KeywordData), intent(in) :: keywords_in(:)
   type(Dictionary)              :: arguments
   
+  type(KeywordData), allocatable :: keywords(:)
+  
   ! Flags.
-  type(String)              :: flags_without_arguments
-  type(String), allocatable :: long_flags_without_arguments(:)
+  type(String)          :: flags_without_arguments
+  type(String)          :: flags_with_arguments
+  type(CommandLineFlag) :: flag
   
-  type(String)              :: flags_with_arguments
-  type(String), allocatable :: long_flags_with_arguments(:)
-  type(String), allocatable :: default_arguments(:)
-  
-  type(CommandLineFlag)     :: flag
-  
-  ! Non-flag inputs.
-  integer                   :: no_args
-  type(String), allocatable :: arg_keys(:)
-  type(String), allocatable :: arg_values(:)
-  type(Dictionary)          :: command_line_arguments
-  type(Dictionary)          :: file_arguments
-  type(String)              :: wd
-  type(String)              :: input_filename
-  logical                   :: interactive
+  ! Whether or not interactive mode is requested.
+  logical :: interactive
   
   ! Temporary variables.
-  integer                   :: i,j,ialloc
-  type(String)              :: temp_string
-  logical                   :: appending
+  integer      :: i,j,ialloc
+  type(String) :: temp_string
+  type(String) :: flags
+  type(String) :: keyword
+  logical      :: mode_found
   
   ! --------------------------------------------------
-  ! Process arguments and flags.
+  ! Construct empty dictionary from keywords.
   ! --------------------------------------------------
   
-  ! Initialise flags.
-  flags_without_arguments = 'i'
-  long_flags_without_arguments = [ str('interactive') ]
-  if (len(flags_without_arguments)/=size(long_flags_without_arguments)) then
-    call err()
-  endif
+  ! Concatenate input keywords with universal keywords ('help' etc.)
+  allocate(keywords(size(keywords_in)+4), stat=ialloc); call err(ialloc)
   
-  flags_with_arguments = 'dfh'
-  long_flags_with_arguments = [ str('working_directory'), &
-                              & str('input_file'),        &
-                              & str('help')               ]
-  if (len(flags_with_arguments)/=size(long_flags_with_arguments)) then
-    call err()
-  endif
-  default_arguments = [ str('.'), str(NOT_SET), str(NOT_SET) ]
-  if (len(flags_with_arguments)/=size(default_arguments)) then
-    call err()
-  endif
+  keywords(1:4) = [                                                           &
+  & make_keyword( 'interactive',                                              &
+  &               'interactive specifies whether or not keywords can be &
+  &specified interactively.',                                                 &
+  &               is_boolean=.true.,                                          &
+  &               flag='i'),                                                  &
+  & make_keyword( 'help',                                                     &
+  &               'help requests helptext rather than running calculation.', &
+  &               is_optional=.true.,                                         &
+  &               flag='h'),                                                  &
+  & make_keyword( 'input_file',                                               &
+  &               'input_file specifies a file from which further settings &
+  &will be read.',                                                            &
+  &               is_optional=.true.,                                         &
+  &               flag='f'),                                                  &
+  & make_keyword( 'working_directory',                                        &
+  &               'working_directory specifies the directory where all files &
+  &and subsequent directories will be made.',                                 &
+  &               default_value='.',                                          &
+  &               flag='d') ]
   
-  ! Set dictionary of all keywords.
-  no_args = size(keywords)                     &
-        & + size(long_flags_without_arguments) &
-        & + size(long_flags_with_arguments)
-  allocate( arg_keys(no_args),   &
-          & arg_values(no_args), &
-          & stat=ialloc); call err(ialloc)
+  keywords(5:) = keywords_in
   
-  j = 0
-  do i=1,size(long_flags_without_arguments)
-    j = j+1
-    arg_keys(j) = long_flags_without_arguments(i)
-    arg_values(j) = NOT_SET
-  enddo
+  ! Check that keywords with default_keyword reference extant keywords.
+  do_i : do i=1,size(keywords)
+    if (keywords(i)%default_keyword/='') then
+      do j=1,size(keywords)
+        if (keywords(j)%keyword == keywords(i)%default_keyword) then
+          cycle do_i
+        endif
+      enddo
+      call print_line('Error: default keyword '//keywords(i)%default_keyword &
+         & //'is not a keyword')
+      call err()
+    endif
+  enddo do_i
   
-  do i=1,size(long_flags_with_arguments)
-    j = j+1
-    arg_keys(j) = long_flags_with_arguments(i)
-    arg_values(j) = default_arguments(i)
-  enddo
-  
+  ! Parse allowed flags.
+  flags_without_arguments = ''
+  flags_with_arguments = ''
   do i=1,size(keywords)
-    j = j+1
-    arg_keys(j) = keywords(i)%keyword
-    arg_values(j) = keywords(i)%default_value
+    if (keywords(i)%flag/=' ') then
+      if (keywords(i)%is_boolean) then
+        flags_without_arguments = flags_without_arguments//keywords(i)%flag
+      else
+        flags_with_arguments = flags_with_arguments//keywords(i)%flag
+      endif
+    endif
   enddo
-  if (j/=no_args) then
-    call err()
-  endif
-  arguments = make_dictionary(arg_keys, arg_values)
+  
+  ! Check that there are no duplicate flags.
+  flags = flags_without_arguments//flags_with_arguments
+  do i=1,len(flags)
+    do j=i+1,len(flags)
+      if (slice(flags,i,i)==slice(flags,j,j)) then
+        call print_line('Error: the flag '//slice(flags,i,i)//' refers to two &
+           &separate keywords.')
+        call err()
+      endif
+    enddo
+  enddo
+  
+  ! Convert keywords into Dictionary.
+  arguments = keywords
   
   ! --------------------------------------------------
   ! Parse command line arguments.
   ! --------------------------------------------------
-  no_args = 0
-  
-  do_args : do
+  keyword = ''
+  mode_found = .false.
+  do
     flag = get_flag(args, flags_without_arguments, flags_with_arguments)
     
-    ! No flags remaining.
-    if (flag%flag==' ' .and. flag%argument=='') then
-      exit
-    
-    ! The mode.
-    elseif (flag%flag==' ' .and. no_args==0) then
-      if (flag%argument/=mode) then
-        call print_line('Error: Caesar only takes one none-keyword argument. &
-           &all other arguments should be preceded by flags or "--" keywords.')
-        stop
-      endif
-    
-    ! An argument which is not preceded by '-' or '--'.
-    elseif (flag%flag==' ') then
-      if (appending) then
-        arg_values(no_args) = arg_values(no_args)//' '//flag%argument
+    ! Check if the argument is preceded by '-' or '--'
+    if (flag%flag==' ') then
+      ! An argument which is neither a '-' flag or a '--' keyword.
+      if (flag%argument==' ') then
+        ! The end of the command line arguments
+        exit
+      elseif (keyword=='') then
+        ! No '-' flag or '--' keyword has passed. This should be the mode.
+        if (mode_found) then
+          call print_line('Error: Caesar only takes one non-keyword &
+             &argument. all other arguments should be preceded by "-" flags &
+             &or "--" keywords.')
+          stop
+        else
+          mode_found = .true.
+        endif
       else
-        arg_values(no_args) = flag%argument
-        appending = .true.
+        ! Append this to the value of the active keyword.
+        call arguments%append_value(keyword, flag%argument)
       endif
-    
-    ! An argument which is preceded by '--', i.e. a long form option.
     elseif (flag%flag=='-') then
-      
-      ! Check the key is valid.
-      if (index(arguments, flag%argument)==0) then
-        call print_line('Error: unexpected command-line argument: '// &
-           & flag%argument)
-        stop
-      endif
-      
-      ! Add the argument to the argument list.
-      no_args = no_args+1
-      arg_keys(no_args) = flag%argument
-      arg_values(no_args) = NO_ARGUMENT
-      appending = .false.
-    
-    ! An argument which is preceded by '-', i.e. a flag.
+      ! An argument which is a '--' keyword.
+      ! Get the keyword, and set its value to ''.
+      keyword = flag%argument
+      call arguments%set_value(keyword, '')
     else
-      ! Flags which do not accept arguments.
-      do i=1,len(flags_without_arguments)
-        if (flag%flag==slice(flags_without_arguments,i,i)) then
-          no_args = no_args+1
-          arg_keys(no_args) = long_flags_without_arguments(i)
-          arg_values(no_args) = NO_ARGUMENT
-          appending = .false.
-          cycle do_args
-        endif
-      enddo
-      
-      ! Flags which accept arguments.
-      do i=1,len(flags_with_arguments)
-        if (flag%flag==slice(flags_with_arguments,i,i)) then
-          no_args = no_args+1
-          arg_keys(no_args) = long_flags_with_arguments(i)
-          if (flag%argument=='') then
-            arg_values(no_args) = NO_ARGUMENT
-            appending = .false.
-          else
-            arg_values(no_args) = flag%argument
-            appending = .true.
-          endif
-          cycle do_args
-        endif
-      enddo
-      
+      ! An argument which is a '-' flag.
+      ! Get the keyword corresponding to the flag, and set its value.
+      keyword = arguments%flag_to_keyword(flag%flag)
+      call arguments%set_value(keyword,flag%argument)
     endif
-  enddo do_args
-  
-  ! Check for duplicate arguments.
-  do i=1,no_args
-    do j=i+1,no_args
-      if (arg_keys(i)==arg_keys(j)) then
-        call print_line('Error: argument '//arg_keys(i)//' specified more &
-           &than once on the command line. This may be a result of also &
-           &specifying the equivalent flag.')
-        stop
-      endif
-    enddo
   enddo
   
-  ! Convert arguments into a dictionary.
-  command_line_arguments = make_dictionary( arg_keys(:no_args), &
-                                          & arg_values(:no_args))
+  ! --------------------------------------------------
+  ! Check if interactive mode is requested.
+  ! --------------------------------------------------
+  interactive = arguments%is_set('interactive')
   
-  ! Check if interactive mode requested.
-  interactive = item(command_line_arguments, 'interactive') /= NOT_SET
+  ! --------------------------------------------------
+  ! Check if help is requested.
+  ! --------------------------------------------------
+  if (arguments%is_set('help')) then
+    return
+  endif
+  
+  if (interactive) then
+    call print_line('')
+    call print_line('Is help requested? Press <Enter> to skip or enter any &
+       &value for help')
+    if (read_line_from_user()/='') then
+      call print_line('Please enter a keyword for further information, or &
+         &press <Enter> for information about accepted keywords.')
+      call arguments%set_value('help',read_line_from_user())
+      return
+    endif
+  endif
   
   ! --------------------------------------------------
   ! Process input file, if requested.
   ! --------------------------------------------------
-  input_filename = item(command_line_arguments, 'input_file')
-  if (input_filename==NO_ARGUMENT) then
-    call print_line('Error: no argument given with --input_file.')
-    stop
-  endif
-  
   if (interactive) then
-    call print_line('')
-    call print_line('Read additional settings from a file? (y/n)')
-    temp_string = read_line_from_user()
-    
-    if (temp_string=='y') then
-      call print_line('')
-      if (input_filename/=NOT_SET) then
-        call print_line('Input file is currently set to: '//input_filename)
-        call print_line('Press <Enter> to accept current setting.')
+    if (arguments%is_set('input_file')) then
+      call print_line('Current settings are to read arguments from file '// &
+         & arguments%value('input_file'))
+      call print_line('Please press <Enter> to confirm this, or enter any &
+         &value to change this setting.')
+      if (read_line_from_user()/='') then
+        call arguments%unset('input_file')
       endif
-      call print_line('Where is the input file?')
+    endif
+    
+    ! N.B. no elseif, because the above may unset input_file.
+    if (.not. arguments%is_set('input_file')) then
+      call print_line('Should further arguments be read from a file?')
+      call print_line('Please enter a file path, or press <Enter> to skip.')
       temp_string = read_line_from_user()
       if (temp_string/='') then
-        input_filename = temp_string
+        call arguments%set_value('input_file', temp_string)
       endif
-    else
-      input_filename = NOT_SET
     endif
   endif
   
-  if (input_filename/=NOT_SET) then
-    file_arguments = read_dictionary_file(input_filename)
-    
-    ! Check all file arguments are expected.
-    do i=1,size(file_arguments)
-      if (index(arguments, file_arguments%keys(i))==0) then
-        call print_line('Error: unexpected keyword '//file_arguments%keys(i) &
-           & //' in file '//input_filename//'.')
-        stop
-      elseif ( file_arguments%keys(i)=='input_filename' .or. &
-             & file_arguments%keys(i)=='help'           .or. &
-             & file_arguments%keys(i)=='interactive') then
-        file_arguments%values(i) = NOT_SET
-      endif
-    enddo
+  if (arguments%is_set('input_file')) then
+    if (interactive) then
+      call print_line('Please note that settings given on the command line &
+         &override those read from file.')
+    endif
+    call arguments%read_file( arguments%value('input_file'), &
+                       & only_set_if_not_set = .true. )
   endif
-  
-  ! --------------------------------------------------
-  ! Combine file and command line input arguments.
-  ! --------------------------------------------------
-  ! N.B. Command line arguments overwrite file arguments,
-  !    and both overwrite default arguments.
-  do i=1,size(arguments)
-    temp_string = item(command_line_arguments, arguments%keys(i))
-    if (temp_string/=NOT_SET) then
-      arguments%values(i) = temp_string
-    else if (input_filename/=NOT_SET) then
-      temp_string = item(file_arguments, arguments%keys(i))
-      if (temp_string/=NOT_SET) then
-        arguments%values(i) = temp_string
-      endif
-    endif
-    
-    if (.not. interactive) then
-      if (arguments%values(i)==NOT_SET) then
-        cycle
-      elseif ( arguments%keys(i)=='interactive' .and. &
-             & arguments%values(i)/=NO_ARGUMENT) then
-        call print_line('Error: an argument was given for keyword '// &
-           & arguments%keys(i)//', which does not accept arguments.')
-        stop
-      elseif ( arguments%keys(i)/='interactive' .and. &
-             & arguments%values(i)==NO_ARGUMENT) then
-        call print_line('Error: no argument given for keyword '// &
-           & arguments%keys(i)//', which requires an argument.')
-        stop
-      endif
-    endif
-  enddo
-  
-  ! Set working directory.
-  j = index(arguments, 'working_directory')
-  wd = arguments%values(j)
-  
-  if (interactive) then
-    call print_line('')
-    call print_line('Where is the working directory?')
-    call print_line('Working directory is currently set to: '//wd)
-    call print_line('Press <Enter> to accept current setting.')
-    temp_string = read_line_from_user()
-    if (temp_string/='') then
-      wd = temp_string
-    endif
-  endif
-  
-  wd = format_path(wd)
-  arguments%values(j) = wd
   
   ! --------------------------------------------------
   ! Get interactive arguments, if requested.
   ! --------------------------------------------------
   if (interactive) then
-    do i=1,size(keywords)
-      j = size(arguments)-size(keywords)+i
-      
-      if (keywords(i)%keyword/=arguments%keys(j)) then
-        call err()
-      endif
-      
+    do i=4,size(keywords) ! Skips 'interactive', 'help' and 'input_file'.
+      keyword = keywords(i)%keyword
       call print_line('')
-      do
-        call print_line('Please give a value for the keyword: '// &
-           & keywords(i)%keyword//'.')
-        call print_line(keywords(i)%helptext)
-        if (arguments%values(j)/=NO_ARGUMENT) then
-          call print_line(keywords(i)%keyword//' is currently set to: '//&
-             & arguments%values(j))
-          call print_line('Press <Enter> to accept current setting.')
+      call print_line(keywords(i)%helptext)
+      if (arguments%is_set(keyword)) then
+        if (keywords(i)%is_boolean) then
+          ! Set boolean.
+          call print_line(keyword//' is currently set.')
+          call print_line('Please press <Enter> to leave it set, or enter any &
+             &value to unset it.')
+          if (read_line_from_user()/='') then
+            call arguments%unset(keyword)
+          endif
+        else
+          ! Set non-boolean.
+          call print_line(keyword//' is currently set to '// &
+             & arguments%value(keyword))
+          call print_line('Please press <Enter> to accept this value, or &
+             &enter the value to be set.')
+          temp_string = read_line_from_user()
+          if (temp_string/='') then
+            call arguments%set_value(keyword, temp_string)
+          endif
         endif
-        temp_string = read_line_from_user()
-        if (temp_string/='') then
-          arguments%values(j) = temp_string
+      else
+        if (keywords(i)%is_boolean) then
+          ! Unset boolean.
+          call print_line(keyword//' is currently unset.')
+          call print_line('Please press <Enter> to leave it unset, or enter &
+             &any value to set it.')
+          if (read_line_from_user()/='') then
+            call arguments%set(keyword)
+          endif
+        elseif (keywords(i)%is_optional) then
+          ! Unset optional argument.
+          if (keywords(i)%default_value /= '') then
+            call print_line(keyword//' defaults to the value '// &
+               & keywords(i)%default_value)
+            call print_line('Please give a value for this keyword, or press &
+               &<Enter> to accept the default.')
+          elseif (keywords(i)%default_keyword /= '') then
+            call print_line(keyword//' defaults to the same value as &
+               &keyword '//keywords(i)%default_keyword)
+            call print_line('Please give a value for this keyword, or press &
+               &<Enter> to accept the default.')
+          else
+            call print_line(keyword//' is optional.')
+            call print_line('Please give a value for this keyword, or press &
+               &<Enter> to leave it unset.')
+          endif
+          
+          temp_string = read_line_from_user()
+          if (temp_string/='') then
+            call arguments%set_value(keyword, temp_string)
+          endif
+        else
+          ! Unset non-optional argument. Loop until it is set by user.
+          do
+            call print_line('Please give a value for this keyword.')
+            temp_string = read_line_from_user()
+            if (temp_string/='') then
+              call arguments%set_value(keyword, temp_string)
+              exit
+            endif
+          enddo
         endif
-        
-        if (arguments%values(j)/=NO_ARGUMENT) then
-          exit
-        endif
-      enddo
-      
+      endif
     enddo
   endif
   
   ! --------------------------------------------------
-  ! Convert all file/folder paths to absolute format.
+  ! Set all defaults.
+  ! Convert all paths to absolute format (from /).
+  ! Check that all non-optional keywords have been set.
   ! --------------------------------------------------
-  do i=1,size(keywords)
-    j = size(arguments)-size(keywords)+i
-    if (keywords(i)%is_path) then
-      if (arguments%values(j) == NOT_SET) then
-        cycle
-      elseif (arguments%values(j) == NO_ARGUMENT) then
-        ! This should have been dealt with above.
-        call err()
-      else
-        arguments%values(j) = format_path(arguments%values(j))
-      endif
-    endif
-  enddo
+  call arguments%process_and_check_inputs()
 end function
-
 end module

@@ -84,7 +84,7 @@ program caesar
     stop
   
   ! Help calls, both correct and malformed.
-  elseif (mode == '-h' .or. mode == '--help') then
+  elseif (mode == '-h' .or. mode == '--help' .or. mode == 'help') then
     if (size(args) == 2) then
       call help()
     else
@@ -156,22 +156,22 @@ program caesar
   ! --------------------------------------------------
   ! Process arguments and flags.
   ! --------------------------------------------------
-  arguments = process_arguments(mode,args,keywords)
+  arguments = process_arguments(args,keywords)
   
   ! --------------------------------------------------
   ! Handle help calls.
   ! --------------------------------------------------
-  if (item(arguments, 'help')/=NOT_SET) then
-    call help(item(arguments, 'help'), mode, keywords)
+  if (arguments%is_set('help')) then
+    call help(arguments%value('help'), mode, keywords)
     stop
   endif
   
   ! --------------------------------------------------
   ! Write settings to file.
   ! --------------------------------------------------
-  wd = item(arguments, 'working_directory')
+  wd = arguments%value('working_directory')
   filename = wd//'/'//mode//'.used_settings'
-  call write_dictionary_file(arguments, filename)
+  call arguments%write_file(filename)
   call print_line('')
   call print_line('Settings written to file '//filename)
   

@@ -18,15 +18,21 @@ function setup_harmonic_keywords() result(keywords)
   type(KeywordData) :: keywords(4)
   
   keywords = [                                                                &
-  & make_keyword('dft_code', 'castep', 'dft_code is the DFT code used to &
-     &calculate energies. Settings are: castep vasp qe.'),                    &
-  & make_keyword('seedname', NO_ARGUMENT, 'seedname is the DFT seedname from &
-     &which file names are constructed.'),                                    &
-  & make_keyword('q-point_grid', NO_ARGUMENT, 'q-point_grid is the number of &
-     &q-points in each direction in a Monkhorst-Pack grid. This should be &
-     &specified as three integers separated by spaces.'),                     &
-  & make_keyword('symmetry_precision', char(str(1.0e-1_dp)), &
-  & 'symmetry_precision is the tolerance at which symmetries are calculated.')]
+  & make_keyword( 'dft_code',                                                 &
+  &               'dft_code is the DFT code used to calculate energies. &
+  &Settings are: castep vasp qe.',                                            &
+  &               default_value='castep'),                                    &
+  & make_keyword( 'seedname',                                                 &
+  &               'seedname is the DFT seedname from which file names are &
+  &constructed.'),                                                            &
+  & make_keyword( 'q-point_grid',                                             &
+  &               'q-point_grid is the number of q-points in each direction &
+  &in a Monkhorst-Pack grid. This should be specified as three integers &
+  &separated by spaces.'),                                                    &
+  & make_keyword( 'symmetry_precision',                                       &
+  &               'symmetry_precision is the tolerance at which symmetries &
+  &are calculated.',                                                          &
+  &               default_value='0.1')]
 end function
 
 ! ----------------------------------------------------------------------
@@ -90,11 +96,11 @@ subroutine setup_harmonic(arguments)
   ! --------------------------------------------------
   ! Get settings from user, and check them.
   ! --------------------------------------------------
-  wd = item(arguments, 'working_directory')
-  dft_code = item(arguments, 'dft_code')
-  seedname = item(arguments, 'seedname')
-  grid = int(split(item(arguments, 'q-point_grid')))
-  symmetry_precision = dble(item(arguments, 'symmetry_precision'))
+  wd = arguments%value('working_directory')
+  dft_code = arguments%value('dft_code')
+  seedname = arguments%value('seedname')
+  grid = int(split(arguments%value('q-point_grid')))
+  symmetry_precision = dble(arguments%value('symmetry_precision'))
   
   ! Check dft code is supported
   if (dft_code=='vasp') then

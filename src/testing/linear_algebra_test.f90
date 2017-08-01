@@ -44,7 +44,7 @@ subroutine linear_algebra_test(arguments)
   call print_line('')
   call print_line('Testing linear algebra.')
   
-  wd = item(arguments, 'working_directory')
+  wd = arguments%value('working_directory')
   
   iv1 = [ 2,3,-1 ]
   iv2 = [ 1,-2,3 ]

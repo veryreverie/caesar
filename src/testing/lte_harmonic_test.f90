@@ -119,13 +119,13 @@ subroutine lte_harmonic_test(arguments)
   ! --------------------------------------------------
   ! Read in arguments from user.
   ! --------------------------------------------------
-  wd = item(arguments, 'working_directory')
-  temperature = dble(item(arguments, 'temperature'))
+  wd = arguments%value('working_directory')
+  temperature = dble(arguments%value('temperature'))
   
   ! --------------------------------------------------
   ! Copy out settings to lte_harmonic.used_settings
   ! --------------------------------------------------
-  call write_dictionary_file(arguments, wd//'/lte_harmonic.used_settings')
+  call arguments%write_file(wd//'/lte_harmonic.used_settings')
   
   ! --------------------------------------------------
   ! Run new lte_harmonic.
@@ -135,11 +135,10 @@ subroutine lte_harmonic_test(arguments)
   ! --------------------------------------------------
   ! Read in previous arguments.
   ! --------------------------------------------------
-  setup_harmonic_arguments = read_dictionary_file( &
-     & wd//'/setup_harmonic.used_settings')
-  dft_code = item(setup_harmonic_arguments, 'dft_code')
-  seedname = item(setup_harmonic_arguments, 'seedname')
-  grid = int(split(item(setup_harmonic_arguments, 'q-point_grid')))
+  call setup_harmonic_arguments%read_file(wd//'/setup_harmonic.used_settings')
+  dft_code = setup_harmonic_arguments%value('dft_code')
+  seedname = setup_harmonic_arguments%value('seedname')
+  grid = int(split(setup_harmonic_arguments%value('q-point_grid')))
   
   ! Read in setup data.
   no_supercells_file = read_lines(wd//'/no_supercells.dat')

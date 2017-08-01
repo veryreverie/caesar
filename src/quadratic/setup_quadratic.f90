@@ -19,17 +19,26 @@ function setup_quadratic_keywords() result(keywords)
   type(KeywordData) :: keywords(5)
   
   keywords = [                                                                &
-  & make_keyword('dft_code', 'castep', 'dft_code is the DFT code used to &
-     &calculate energies. Settings are: castep vasp qe.'),                    &
-  & make_keyword('harmonic_path', '.', 'harmonic_path is the path to the &
-     &directory where harmonic calculations were run.', is_path=.true.),      &
-  & make_keyword('temperature', '0', 'temperature is the temperature, in &
-     &Kelvin, at which the simulation is run.'),                              &
-  & make_keyword('no_samples', NO_ARGUMENT, 'no_samples is the number of &
-     &single-point calculations which will be run along each axis.'),         &
-  & make_keyword('displacement', NO_ARGUMENT, 'displacement is the maximum &
-     &total distance in bohr over which any mode is displaced. At finite &
-     &temperatures, this will be reduced by a thermal factor.')               ]
+  & make_keyword( 'dft_code',                                                 &
+  &               'dft_code is the DFT code used to calculate energies. &
+  &Settings are: castep vasp qe.',                                            &
+  &               default_value='castep'),                                    &
+  & make_keyword( 'harmonic_path',                                            &
+  &               'harmonic_path is the path to the directory where harmonic &
+  &calculations were run.',                                                   &
+  &               default_value='.',                                          &
+  &               is_path=.true.),                                            &
+  & make_keyword( 'temperature',                                              &
+  &               'temperature is the temperature, in Kelvin, at which the &
+  &simulation is run.',                                                       &
+  &               default_value='0'),                                         &
+  & make_keyword( 'no_samples',                                               &
+  &               'no_samples is the number of single-point calculations &
+  &which will be run along each axis.'),                                      &
+  & make_keyword( 'displacement',                                             &
+  &               'displacement is the maximum total distance in bohr over &
+  &which any mode is displaced. At finite temperatures, this will be reduced &
+  &by a thermal factor.') ]
 end function
 
 ! ----------------------------------------------------------------------
@@ -105,21 +114,21 @@ subroutine setup_quadratic(arguments)
   ! --------------------------------------------------
   ! Get settings from user.
   ! --------------------------------------------------
-  wd = item(arguments, 'working_directory')
-  dft_code = item(arguments, 'dft_code')
-  harmonic_path = item(arguments, 'harmonic_path')
-  temperature = dble(item(arguments, 'temperature'))
-  no_samples = int(item(arguments, 'no_samples'))
-  displacement = dble(item(arguments, 'displacement'))
+  wd = arguments%value('working_directory')
+  dft_code = arguments%value('dft_code')
+  harmonic_path = arguments%value('harmonic_path')
+  temperature = dble(arguments%value('temperature'))
+  no_samples = int(arguments%value('no_samples'))
+  displacement = dble(arguments%value('displacement'))
   
   thermal_energy  = temperature*kb_in_au
   
   ! --------------------------------------------------
   ! Read in previous settings.
   ! --------------------------------------------------
-  setup_harmonic_arguments = read_dictionary_file( &
+  call setup_harmonic_arguments%read_file( &
      & harmonic_path//'/setup_harmonic.used_settings')
-  seedname = item(setup_harmonic_arguments, 'seedname')
+  seedname = setup_harmonic_arguments%value('seedname')
   
   ! Check code is supported
   if (dft_code=="vasp") then

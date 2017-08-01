@@ -17,15 +17,18 @@ function run_harmonic_keywords() result(keywords)
   
   type(KeywordData) :: keywords(3)
   
-  keywords = [ &
-  & make_keyword('supercells_to_run', NO_ARGUMENT, 'supercells_to_run &
-     &is the first and last supercell to run. These should be specified as &
-     &two integers separated by spaces.'),                                  &
-  & make_keyword('no_cores', '1', 'no_cores is the number of cores on which &
-     &DFT will be run. This is passed to the specified run script.'),       &
-  & make_keyword('run_script', NO_ARGUMENT, 'run_script is the path to the &
-     &script for running DFT. An example run script can be found in &
-     &doc/input_files.', is_path=.true.)                                    ]
+  keywords = [                                                                &
+  & make_keyword( 'supercells_to_run',                                        &
+  &               'supercells_to_run is the first and last supercell to run. &
+  &These should be specified as two integers separated by spaces.'),          &
+  & make_keyword( 'no_cores',                                                 &
+  &               'no_cores is the number of cores on which DFT will be run. &
+  &This is passed to the specified run script.',                              &
+  &               default_value='1'),                                         &
+  & make_keyword( 'run_script',                                               &
+  &               'run_script is the path to the script for running DFT. An &
+  &example run script can be found in doc/input_files.',                      &
+  &               is_path=.true.) ]
 end function
 
 ! ----------------------------------------------------------------------
@@ -69,10 +72,10 @@ subroutine run_harmonic(arguments)
   ! --------------------------------------------------
   ! Get inputs from user.
   ! --------------------------------------------------
-  wd = item(arguments, 'working_directory')
-  supercells_to_run = int(split(item(arguments, 'supercells_to_run')))
-  no_cores = int(item(arguments, 'no_cores'))
-  run_script = item(arguments, 'run_script')
+  wd = arguments%value('working_directory')
+  supercells_to_run = int(split(arguments%value('supercells_to_run')))
+  no_cores = int(arguments%value('no_cores'))
+  run_script = arguments%value('run_script')
   
   ! --------------------------------------------------
   ! Read in arguments to previous calculations.
@@ -80,10 +83,9 @@ subroutine run_harmonic(arguments)
   no_supercells_file = read_lines(wd//'/no_supercells.dat')
   no_supercells = int(no_supercells_file(1))
   
-  setup_harmonic_arguments = read_dictionary_file( &
-     & wd//'/setup_harmonic.used_settings')
-  dft_code = item(setup_harmonic_arguments, 'dft_code')
-  seedname = item(setup_harmonic_arguments, 'seedname')
+  call setup_harmonic_arguments%read_file(wd//'/setup_harmonic.used_settings')
+  dft_code = setup_harmonic_arguments%value('dft_code')
+  seedname = setup_harmonic_arguments%value('seedname')
   
   ! --------------------------------------------------
   ! Check user inputs.

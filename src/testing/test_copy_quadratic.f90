@@ -61,7 +61,7 @@ subroutine test_copy_quadratic(arguments)
   ! --------------------------------------------------
   ! Read in arguments from user.
   ! --------------------------------------------------
-  wd = item(arguments, 'working_directory')
+  wd = arguments%value('working_directory')
   
   ! ----------------------------------------------------------------------
   ! Read in directory to compare against and copy from.

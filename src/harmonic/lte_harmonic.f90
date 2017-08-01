@@ -20,10 +20,11 @@ function lte_harmonic_keywords() result(keywords)
   
   type(KeywordData) :: keywords(1)
   
-  keywords = [ &
-  & make_keyword('temperature', '0', 'temperature is the temperature in &
-      &Kelvin, used when calculating the density of states and phonon &
-      &dispersion curve.') ]
+  keywords = [                                                                &
+  & make_keyword( 'temperature',                                              &
+  &'temperature is the temperature in Kelvin, used when calculating the &
+  &density of states and phonon dispersion curve.',                           &
+  & default_value='0') ]
 end function
 
   
@@ -326,16 +327,15 @@ subroutine lte_harmonic(arguments)
   ! --------------------------------------------------
   ! Read in arguments from user.
   ! --------------------------------------------------
-  wd = item(arguments, 'working_directory')
-  temperature = dble(item(arguments, 'temperature'))
+  wd = arguments%value('working_directory')
+  temperature = dble(arguments%value('temperature'))
   
   ! --------------------------------------------------
   ! Read in previous arguments.
   ! --------------------------------------------------
-  setup_harmonic_arguments = read_dictionary_file( &
-     & wd//'/setup_harmonic.used_settings')
-  dft_code = item(setup_harmonic_arguments, 'dft_code')
-  seedname = item(setup_harmonic_arguments, 'seedname')
+  call setup_harmonic_arguments%read_file(wd//'/setup_harmonic.used_settings')
+  dft_code = setup_harmonic_arguments%value('dft_code')
+  seedname = setup_harmonic_arguments%value('seedname')
   
   no_supercells_file = read_lines(wd//'/no_supercells.dat')
   no_supercells = int(no_supercells_file(1))

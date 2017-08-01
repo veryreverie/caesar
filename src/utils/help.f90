@@ -13,69 +13,160 @@ module help_module
   public :: make_keyword ! Bundles a keyword and helptext into a KeywordData.
   public :: help         ! Prints help text.
   
+  ! --------------------------------------------------
+  ! A key:value object with descriptors. 
+  ! --------------------------------------------------
   type KeywordData
+    ! Keyword and flag (alternative one-character keyword).
     type(String) :: keyword
-    type(String) :: default_value
+    character(1) :: flag
+    
+    ! Helptext for help calls.
     type(String) :: helptext
+    
+    ! Defaults.
+    type(String) :: default_value
+    type(String) :: default_keyword
+    
+    ! Properties of the value.
+    logical      :: is_boolean
+    logical      :: is_optional
     logical      :: is_path
+    
+    ! The value itself.
+    logical      :: is_set
+    type(String) :: value
   end type
-  
-  interface make_keyword
-    module procedure make_keyword_characters
-    module procedure make_keyword_Strings
-  end interface
   
   interface help
     module procedure help_default
+    module procedure help_specific
     module procedure help_keyword
   end interface
   
 contains
 
 ! ----------------------------------------------------------------------
-! Takes a keyword, its default value and its helptext and returns KeywordData.
+! Takes a keyword, helptext and options and returns a KeywordData.
 ! ----------------------------------------------------------------------
-! If default value is NO_ARGUMENT (from io_module), Caesar will insist on
-!    a value being given, and will abort if this does not happen.
-! If default value is NOT_SET (from io_module), Caesar will not print the
-!    keyword to file.
-! If is_path is .true., Caesar will convert the path to an absolute path.
-function make_keyword_characters(keyword,default_value,helptext,is_path) &
-   & result(this)
+! default_value is the value which will be defaulted to if the keyword is not
+!    specified. Defaults to not set.
+! default_keyword is the keyword whose value will be copied if the keyword is
+!    not specified. Defaults to not set.
+! At most one of default_value and default_keyword should be specified.
+! If is_boolean is .true., the keyword will not take an argument.
+!    Boolean keywords should not have defaults specified.
+!    is_boolean defaults to .false..
+! is_optional specifies whether or not the keyword is required to be given.
+!    is_optional defaults to .false. unless a default is given or is_boolean
+!    is .true., where it defaults to and is required to be .true..
+! is_path specifies that the value will be a path to a file or directory.
+!    Paths are converted to absolute paths (from /) automatically.
+!    Should not be specified if is_boolean is .true..
+!    Defaults to .false..
+! flag specifies the flag by which the keyword can be alternately called.
+!    Defaults to ' '.
+function make_keyword(keyword,helptext,default_value,default_keyword, &
+   & is_boolean,is_optional,is_path,flag) result(this)
   implicit none
   
   character(*), intent(in)           :: keyword
-  character(*), intent(in)           :: default_value
   character(*), intent(in)           :: helptext
+  character(*), intent(in), optional :: default_value
+  character(*), intent(in), optional :: default_keyword
+  logical,      intent(in), optional :: is_boolean
+  logical,      intent(in), optional :: is_optional
   logical,      intent(in), optional :: is_path
+  character(1), intent(in), optional :: flag
   type(KeywordData)                  :: this
   
-  this%keyword = keyword
-  this%default_value = default_value
+  ! Set keyword; flag, if present; and helptext.
+  this%keyword = lower_case(keyword)
+  
+  if (present(flag)) then
+    this%flag = flag
+  else
+    this%flag = ' '
+  endif
   this%helptext = helptext
+  
+  ! Set type of keyword.
+  if (present(is_boolean)) then
+    this%is_boolean = is_boolean
+  else
+    this%is_boolean = .false.
+  endif
+  
+  if (present(is_optional)) then
+    this%is_optional = is_optional
+  else
+    if (this%is_boolean) then
+      this%is_optional = .true.
+    elseif (present(default_value) .or. present(default_keyword)) then
+      this%is_optional = .true.
+    else
+      this%is_optional = .false.
+    endif
+  endif
+  
   if (present(is_path)) then
     this%is_path = is_path
   else
     this%is_path = .false.
   endif
-end function
-
-function make_keyword_Strings(keyword,default_value,helptext,is_path) &
-   & result(this)
-  implicit none
   
-  type(String), intent(in)           :: keyword
-  type(String), intent(in)           :: default_value
-  type(String), intent(in)           :: helptext
-  logical,      intent(in), optional :: is_path
-  type(KeywordData)                  :: this
-  
-  if (present(is_path)) then
-    this = make_keyword(char(keyword),char(default_value),char(helptext), &
-       & is_path)
+  if (this%is_boolean) then
+    ! Check for conflicts with the keyword being boolean.
+    if (this%is_path) then
+      call print_line('Error: the keyword '//keyword//' cannot be boolean and &
+         &be a path.')
+      call err()
+    elseif (.not. this%is_optional) then
+      call print_line('Error: the keyword '//keyword//' cannot be boolean and &
+         &not be optional.')
+      call err()
+    elseif (present(default_value)) then
+      call print_line('Error: the keyword '//keyword//' cannot be boolean and &
+         &have a default value.')
+      call err()
+    endif
+    
+    ! Set default value, if present.
+    this%default_value = ''
+    if (present(default_keyword)) then
+      this%default_keyword = lower_case(default_keyword)
+    else
+      this%default_keyword = ''
+    endif
   else
-    this = make_keyword(char(keyword),char(default_value),char(helptext))
+    ! Check for conflicts between defaults.
+    if (present(default_value) .and. present(default_keyword)) then
+      call print_line('Error: the keyword '//keyword//' cannot have both a &
+         &default value and a default keyword set.')
+      call err()
+    elseif ( (present(default_value) .or. present(default_keyword)) .and. &
+           & .not. this%is_optional) then
+      call print_line('Error: the keyword '//keyword//' cannot have a default &
+         &and not be optional.')
+        call err()
+    endif
+    
+    ! Set defaults, if present.
+    if (present(default_value)) then
+      this%default_value = default_value
+      this%default_keyword = ''
+    elseif (present(default_keyword)) then
+      this%default_value = ''
+      this%default_keyword = lower_case(default_keyword)
+    else
+      this%default_value = ''
+      this%default_keyword = ''
+    endif
   endif
+  
+  ! Set value and is_set to unset state.
+  this%is_set = .false.
+  this%value = ''
 end function
 
 ! ----------------------------------------------------------------------
@@ -149,7 +240,8 @@ subroutine help_default()
   call print_line('      [Help text pending]')
 end subroutine
 
-subroutine help_keyword(keyword,mode,keywords)
+! Prints the helptext for a particular mode or keyword.
+subroutine help_specific(keyword,mode,keywords)
   implicit none
   
   type(String),      intent(in) :: keyword
@@ -157,39 +249,50 @@ subroutine help_keyword(keyword,mode,keywords)
   type(KeywordData), intent(in) :: keywords(:)
   
   integer :: i
-  logical :: success
   
-  if (keyword==NO_ARGUMENT) then
+  if (keyword=='') then
     do i=1,size(keywords)
-      call print_line('')
-      call print_line(keywords(i)%keyword)
-      call print_line(keywords(i)%helptext)
-      if (keywords(i)%default_value==NOT_SET) then
-        call print_line(keywords(i)%keyword//' is optional.')
-      elseif (keywords(i)%default_value==NO_ARGUMENT) then
-        call print_line(keywords(i)%keyword//' has no default value, and &
-           &must be set.')
-      else
-        call print_line(keywords(i)%keyword//' has a default value of: '// &
-           & keywords(i)%default_value)
-      endif
+      call help(keywords(i))
     enddo
+    stop
   else
-    success = .false.
     do i=1,size(keywords)
       if (keywords(i)%keyword==keyword) then
-        call print_line(keywords(i)%helptext)
-        success = .true.
-        exit
+        call help(keywords(i))
+        stop
       endif
     enddo
     
-    if (.not. success) then
-      call print_line('')
-      call print_line('Keyword '//keyword//' not recognised. For a list of &
-         &keywords associated with mode '//mode//', call:')
-      call print_line('  caesar '//mode//' -h')
-    endif
+    call print_line('')
+    call print_line('Keyword '//keyword//' not recognised. For a list of &
+       &keywords associated with mode '//mode//', call:')
+    call print_line('  caesar '//mode//' -h')
+  endif
+end subroutine
+
+! Prints help corresponding to a specific keyword.
+subroutine help_keyword(keyword)
+  implicit none
+  
+  type(KeywordData), intent(in) :: keyword
+  
+  call print_line('')
+  call print_line(keyword%keyword)
+  call print_line(keyword%helptext)
+  if (keyword%is_boolean) then
+    call print_line(keyword%keyword//' is either set or unset, and &
+       &takes no argument.')
+  elseif (keyword%default_keyword/='') then
+    call print_line(keyword%keyword//' defaults to the same value as &
+       &keyword '//keyword%default_keyword)
+  elseif (keyword%default_value/='') then
+    call print_line(keyword%keyword//' has a default value of '// &
+       & keyword%default_value)
+  elseif (keyword%is_optional) then
+    call print_line(keyword%keyword//' is optional.')
+  else
+    call print_line(keyword%keyword//' has no default value, and &
+       &must be set.')
   endif
 end subroutine
 end module
