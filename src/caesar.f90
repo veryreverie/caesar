@@ -24,6 +24,10 @@ program caesar
   use anharmonic_module
   use bs_quadratic_module
   
+  ! Use anharmonic modules.
+  use setup_anharmonic_module
+  use run_anharmonic_module
+  
   ! Use testing modules.
   use test_module
   use linear_algebra_test_module
@@ -122,6 +126,12 @@ program caesar
   elseif (mode == 'bs_quadratic') then
     keywords = bs_quadratic_keywords()
     main_subroutine => bs_quadratic
+  elseif (mode == 'setup_anharmonic') then
+    keywords = setup_anharmonic_keywords()
+    main_subroutine => setup_anharmonic
+  elseif (mode == 'run_anharmonic') then
+    keywords = run_anharmonic_keywords()
+    main_subroutine => run_anharmonic
   elseif (mode == 'linear_algebra_test') then
     keywords = linear_algebra_test_keywords()
     main_subroutine => linear_algebra_test

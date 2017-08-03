@@ -284,10 +284,10 @@ subroutine help_keyword(keyword)
        &takes no argument.')
   elseif (keyword%default_keyword/='') then
     call print_line(keyword%keyword//' defaults to the same value as &
-       &keyword '//keyword%default_keyword)
+       &keyword "'//keyword%default_keyword//'".')
   elseif (keyword%default_value/='') then
-    call print_line(keyword%keyword//' has a default value of '// &
-       & keyword%default_value)
+    call print_line(keyword%keyword//' has a default value of "'// &
+       & keyword%default_value//'".')
   elseif (keyword%is_optional) then
     call print_line(keyword%keyword//' is optional.')
   else

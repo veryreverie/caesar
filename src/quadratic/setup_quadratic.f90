@@ -16,13 +16,9 @@ function setup_quadratic_keywords() result(keywords)
   use help_module
   implicit none
   
-  type(KeywordData) :: keywords(5)
+  type(KeywordData) :: keywords(4)
   
   keywords = [                                                                &
-  & make_keyword( 'dft_code',                                                 &
-  &               'dft_code is the DFT code used to calculate energies. &
-  &Settings are: castep vasp qe.',                                            &
-  &               default_value='castep'),                                    &
   & make_keyword( 'harmonic_path',                                            &
   &               'harmonic_path is the path to the directory where harmonic &
   &calculations were run.',                                                   &
@@ -65,17 +61,15 @@ subroutine setup_quadratic(arguments)
   real(dp), parameter :: temperature_tol = 1.0e-6_dp
   
   ! User inputs
-  type(String) :: dft_code      ! The dft code name (castep,vasp,qe).
-  type(String) :: harmonic_path ! The path to the harmonic directory.
+  type(String) :: harmonic_path
   real(dp)     :: temperature
   integer      :: no_samples
   real(dp)     :: displacement
   
   ! Previous user inputs.
   type(Dictionary) :: setup_harmonic_arguments
-  type(String) :: seedname
-  
-  real(dp) :: thermal_energy
+  type(String)     :: dft_code
+  type(String)     :: seedname
   
   ! Harmonic file contents
   type(StructureData) :: structure
@@ -91,6 +85,7 @@ subroutine setup_quadratic(arguments)
   type(QpointData), allocatable :: qpoints_ibz(:)
   
   ! Working variables
+  real(dp)            :: thermal_energy
   type(StructureData) :: supercell
   real(dp)            :: occupation
   real(dp)            :: quad_amplitude
@@ -103,7 +98,7 @@ subroutine setup_quadratic(arguments)
   real(dp) :: qr
   
   ! Temporary variables
-  integer        :: i, j, k, l
+  integer        :: i, j, k, l, ialloc
   type(String)   :: dft_input_filename
   type(String)   :: sdir
   type(String)   :: mdir
@@ -121,7 +116,7 @@ subroutine setup_quadratic(arguments)
   no_samples = int(arguments%value('no_samples'))
   displacement = dble(arguments%value('displacement'))
   
-  thermal_energy  = temperature*kb_in_au
+  thermal_energy = temperature*kb_in_au
   
   ! --------------------------------------------------
   ! Read in previous settings.
@@ -129,6 +124,7 @@ subroutine setup_quadratic(arguments)
   call setup_harmonic_arguments%read_file( &
      & harmonic_path//'/setup_harmonic.used_settings')
   seedname = setup_harmonic_arguments%value('seedname')
+  dft_code = setup_harmonic_arguments%value('dft_code')
   
   ! Check code is supported
   if (dft_code=="vasp") then
@@ -169,7 +165,7 @@ subroutine setup_quadratic(arguments)
   no_supercells = int(no_supercells_file(1))
   
   ! Read in supercell structures.
-  allocate(supercells(no_supercells))
+  allocate(supercells(no_supercells), stat=ialloc); call err(ialloc)
   do i=1,no_supercells
     supercells(i) = read_structure_file( &
        & harmonic_path//'/Supercell_'//i//'/structure.dat')

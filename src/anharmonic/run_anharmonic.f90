@@ -1,3 +1,6 @@
+! ======================================================================
+! Runs anharmonic DFT calculations.
+! ======================================================================
 module run_anharmonic_module
   use constants_module, only : dp
   use string_module
@@ -35,7 +38,7 @@ end function
 ! ----------------------------------------------------------------------
 ! Main program.
 ! ----------------------------------------------------------------------
-subroutine run_harmonic(arguments)
+subroutine run_anharmonic(arguments)
   use dictionary_module
   use qpoints_module
   use sampling_point_module
@@ -55,6 +58,7 @@ subroutine run_harmonic(arguments)
   type(String) :: run_script
   
   ! Previous inputs.
+  type(Dictionary) :: setup_harmonic_arguments
   type(Dictionary) :: setup_anharmonic_arguments
   type(String)     :: harmonic_path
   type(String)     :: dft_code
@@ -97,10 +101,16 @@ subroutine run_harmonic(arguments)
   
   ! Read in setup_anharmonic settings.
   call setup_anharmonic_arguments%read_file( &
-     & wd//'setup_anharmonic.used_settings')
+     & wd//'/setup_anharmonic.used_settings')
   harmonic_path = setup_anharmonic_arguments%value('harmonic_path')
-  dft_code = setup_anharmonic_arguments%value('dft_code')
-  seedname = setup_anharmonic_arguments%value('seedname')
+  
+  ! Read in setup_harmonic settings.
+  call setup_harmonic_arguments%read_file( &
+     & harmonic_path//'/setup_harmonic.used_settings')
+  dft_code = setup_harmonic_arguments%value('dft_code')
+  seedname = setup_harmonic_arguments%value('seedname')
+  
+  ! Read in previously calculated data.
   qpoints = read_qpoints_file(harmonic_path//'/qpoints_ibz.dat')
   
   if (first_qpoint<1) then
