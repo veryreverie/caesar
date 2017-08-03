@@ -45,6 +45,9 @@ target_link_libraries(caesar quadratic)
 add_subdirectory(${CMAKE_SOURCE_DIR}/coupled coupled/)
 target_link_libraries(caesar coupled)
 
+add_subdirectory(${CMAKE_SOURCE_DIR}/anharmonic anharmonic/)
+target_link_libraries(caesar anharmonic)
+
 add_subdirectory(${CMAKE_SOURCE_DIR}/testing ${CMAKE_BINARY_DIR}/testing/)
 target_link_libraries(caesar testing)
 

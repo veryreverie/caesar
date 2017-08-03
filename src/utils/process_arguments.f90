@@ -152,7 +152,7 @@ function process_arguments(args,keywords_in) result(arguments)
     elseif (flag%flag=='-') then
       ! An argument which is a '--' keyword.
       ! Get the keyword, and set its value to ''.
-      keyword = flag%argument
+      keyword = lower_case(flag%argument)
       call arguments%set_value(keyword, '')
     else
       ! An argument which is a '-' flag.
@@ -177,7 +177,7 @@ function process_arguments(args,keywords_in) result(arguments)
   if (interactive) then
     call print_line('')
     call print_line('Is help requested? Press <Enter> to skip or enter any &
-       &value for help')
+       &value for help.')
     if (read_line_from_user()/='') then
       call print_line('Please enter a keyword for further information, or &
          &press <Enter> for information about accepted keywords.')

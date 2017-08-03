@@ -39,7 +39,6 @@ subroutine run_harmonic(arguments)
   use dictionary_module
   implicit none
   
-  ! Working directories.
   type(Dictionary), intent(in) :: arguments
   
   ! Working directory

@@ -11,6 +11,14 @@ module positions_module
   use string_module
   use io_module
   use constants_module, only : dp
+  use linear_algebra_module
+  
+  type :: PositionData
+    logical                       :: scaling_check
+    real(dp)                      :: scaling1
+    real(dp)                      :: scaling2
+    type(RealVector), allocatable :: positions(:)
+  end type
 contains
 
 ! ----------------------------------------------------------------------
@@ -42,80 +50,44 @@ function max_amplitude(frequency,temperature) result(output)
   end if
 end function max_amplitude
 
-subroutine positions(structure)
+function positions(structure, temperature, number_fit_points, frequency1, &
+   &frequency2, current_number1, current_number2, disp1, disp2) result(output)
   use structure_module
   use linear_algebra_module
   implicit none
   
   type(StructureData), intent(in) :: structure
+  real(dp),            intent(in) :: temperature
+  integer,             intent(in) :: number_fit_points
+  real(dp),            intent(in) :: frequency1
+  real(dp),            intent(in) :: frequency2
+  integer,             intent(in) :: current_number1
+  integer,             intent(in) :: current_number2
+  type(RealVector),    intent(in) :: disp1(:)
+  type(RealVector),    intent(in) :: disp2(:)
+  type(PositionData)              :: output
 
   real(dp), parameter :: tol=1.0e-6_dp
-  real(dp) :: scaling1, scaling2
-  real(dp) :: frequency1, frequency2, temperature
-  integer :: number_fit_points, current_number1, current_number2
-  real(dp) :: amplitude
-  
-  type(RealVector) :: disp1
-  type(RealVector) :: disp2
-  type(RealVector) :: dpos1
-  type(RealVector) :: dpos2
-  type(RealVector) :: pos
-  
-  type(String), allocatable :: disp1_file(:)
-  type(String), allocatable :: disp2_file(:)
-  
-  integer :: positions_file
   
   integer :: i
-  type(String), allocatable :: line(:)
-  
-  disp1_file = read_lines('disp1.dat')
-  line = split(disp1_file(1))
-  frequency1 = dble(line(1))
-  temperature = dble(line(2))
-  number_fit_points = int(line(3))
-  current_number1 = int(line(4))
-  
-  disp2_file = read_lines('disp2.dat')
-  line = split(disp1_file(1))
-  frequency2 = dble(line(1))
-  temperature = dble(line(2))
-  number_fit_points = int(line(3))
-  current_number2 = int(line(4))
-  
-  positions_file = open_write_file('positions.dat')
   
   if (abs(frequency1)<tol .or. abs(frequency2)<tol) then
-    scaling1 = 0
-    scaling2 = 0
+    output%scaling_check = .false.
+    output%scaling1 = 0
+    output%scaling2 = 0
+    output%positions = structure%atoms
   else
-    ! Calculate points on each side of zero.
-    amplitude = (number_fit_points-1)/2.0_dp
-    
-    ! Calculate current scaling.
-    scaling1 = -1 + (current_number1-1)/amplitude
-    scaling2 = -1 + (current_number2-1)/amplitude
-    
-    scaling1 = scaling1 * max_amplitude(abs(frequency1),temperature)
-    scaling2 = scaling2 * max_amplitude(abs(frequency2),temperature)
+    output%scaling_check = .true.
+    output%scaling1 = (-1 + (current_number1-1)*2.0_dp/(number_fit_points-1)) &
+                  & * max_amplitude(abs(frequency1),temperature)
+    output%scaling2 = (-1 + (current_number2-1)*2.0_dp/(number_fit_points-1)) &
+                  & * max_amplitude(abs(frequency2),temperature)
+    output%positions = structure%atoms
+    do i=1,structure%no_atoms
+      output%positions(i) = output%positions(i)      &
+                        & + output%scaling1*disp1(i) &
+                        & + output%scaling2*disp2(i)
+    enddo
   endif
-  call print_line(positions_file, scaling1//' '//scaling2//' '//1)
-
-  call print_line('amplitude of first mode is '//scaling1)
-  call print_line('amplitude of second mode is '//scaling2)
-
-  do i=1,structure%no_atoms
-    disp1 = dble(split(disp1_file(i+1)))
-    disp2 = dble(split(disp2_file(i+1)))
-    
-    dpos1 = scaling1*disp1
-    dpos2 = scaling2*disp2
-    
-    pos = structure%atoms(i) + dpos1 + dpos2
-    
-    call print_ine(positions_file, structure%species(i)//' '//pos)
-  end do
-  
-  close(positions_file)
-end subroutine
+end function
 end module
