@@ -41,7 +41,7 @@ end function
 subroutine run_anharmonic(arguments)
   use dictionary_module
   use qpoints_module
-  use sampling_point_module
+  use sampling_points_module
   implicit none
   
   type(Dictionary), intent(in) :: arguments

@@ -243,7 +243,7 @@ subroutine setup_quadratic(arguments)
           rvec = supercell%atom_to_rvec(l)
           prim = supercell%atom_to_prim(l)
           qr = qpoints_ibz(i)%qpoint*supercell%rvectors(rvec)*2*pi
-          disp = amplitude * real( cmplx(mode%displacements(prim)) &
+          disp = amplitude * real( mode%displacements(prim) &
                                & * cmplx(cos(qr),sin(qr),dp))
           supercell%atoms(l) = supercell%atoms(l) + disp
         enddo
