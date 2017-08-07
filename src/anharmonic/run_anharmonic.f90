@@ -121,7 +121,7 @@ subroutine run_anharmonic(arguments)
     call err()
   endif
   
-  ! Run calculations.
+  ! Run calculations at each q-point.
   do qpoint=first_qpoint,last_qpoint
     sampling_points = read_sampling_points_file( &
        & wd//'/qpoint_'//qpoint//'/sampling_points.dat')

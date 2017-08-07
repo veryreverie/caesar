@@ -36,7 +36,7 @@ end function
 ! ----------------------------------------------------------------------
 subroutine setup_harmonic_test(arguments)
   use constants_module, only : identity
-  use utils_module, only : make_dft_output_filename, mkdir
+  use utils_module, only : mkdir
   use structure_module
   use unique_directions_module
   use dft_input_file_module

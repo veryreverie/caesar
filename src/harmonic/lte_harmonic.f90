@@ -55,7 +55,6 @@ end function
 ! ----------------------------------------------------------------------
 function read_forces(supercell,unique_directions,sdir,dft_code,seedname) &
    & result(output)
-  use utils_module, only : make_dft_output_filename
   use structure_module
   use unique_directions_module
   use dft_output_file_module

@@ -31,11 +31,11 @@ end function
 ! Main program.
 ! ----------------------------------------------------------------------
 subroutine anharmonic(arguments)
-  use utils_module, only : mkdir, make_dft_output_filename
+  use utils_module, only : mkdir
   use structure_module
   use dft_output_file_module
   use qpoints_module
-  use calculate_anharmonic_module
+  use calculate_anharmonic_correction_module
   use quadratic_spline_module
   use vscf_1d_module
   use dictionary_module
@@ -241,7 +241,7 @@ subroutine anharmonic(arguments)
   ! calculate free energy, F(T), for harmonic and anharmonic cases
   ! write output to anharmonic_correction.dat
   result_file = open_write_file(wd//'/anharmonic/anharmonic_correction.dat')
-  call calculate_anharmonic(structure,structure_grid,qpoints_ibz,basis_size, &
+  call calculate_anharmonic_correction(structure,structure_grid,qpoints_ibz,basis_size, &
      & harmonic,eigenvals,result_file)
   close(result_file)
 end subroutine

@@ -27,6 +27,7 @@ program caesar
   ! Use anharmonic modules.
   use setup_anharmonic_module
   use run_anharmonic_module
+  use calculate_anharmonic_module
   
   ! Use testing modules.
   use test_module
@@ -132,6 +133,9 @@ program caesar
   elseif (mode == 'run_anharmonic') then
     keywords = run_anharmonic_keywords()
     main_subroutine => run_anharmonic
+  elseif (mode == 'calculate_anharmonic') then
+    keywords = calculate_anharmonic_keywords()
+    main_subroutine => calculate_anharmonic
   elseif (mode == 'linear_algebra_test') then
     keywords = linear_algebra_test_keywords()
     main_subroutine => linear_algebra_test

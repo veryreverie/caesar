@@ -47,28 +47,6 @@ subroutine mkdir(dirname)
 end subroutine
 
 ! ----------------------------------------------------------------------
-! Converts a file seedname into the appropriate dft input or output filename.
-! ----------------------------------------------------------------------
-function make_dft_output_filename(dft_code,seedname) result(output)
-  implicit none
-  
-  type(String), intent(in) :: dft_code
-  type(String), intent(in) :: seedname
-  type(String)             :: output
-  
-  if (dft_code == 'castep') then
-    output = seedname//'.castep'
-  elseif (dft_code == 'vasp') then
-    output = 'OUTCAR'
-  elseif (dft_code == 'qe') then
-    output = seedname//'.out'
-  else
-    call print_line('Unrecognised dft code: '//dft_code)
-    call err()
-  endif
-end function
-
-! ----------------------------------------------------------------------
 ! Vector L2 norm.
 ! Replicates norm2() from f2008 standard.
 ! ----------------------------------------------------------------------

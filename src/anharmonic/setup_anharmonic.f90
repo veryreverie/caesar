@@ -172,7 +172,8 @@ subroutine setup_anharmonic(arguments)
   no_supercells = int(no_supercells_file(1))
   allocate(supercells(no_supercells), stat=ialloc); call err(ialloc)
   do i=1,no_supercells
-    supercells(i) = read_structure_file(harmonic_path//'/Supercell_'//i//'/structure.dat')
+    supercells(i) = read_structure_file( &
+       & harmonic_path//'/Supercell_'//i//'/structure.dat')
   enddo
   
   ! Read in q-points.
@@ -222,8 +223,16 @@ subroutine setup_anharmonic(arguments)
       enddo
       
       ! Calculate sampling points.
-      allocate(sample_points(sum(points_per_coupling)))
-      k = 0
+      
+      ! The first point is the unperturbed supercell.
+      allocate( sample_points(sum(points_per_coupling)+1), &
+              & stat=ialloc); call err(ialloc)
+      allocate( sample_points(1)%coordinates(structure%no_modes), &
+              & stat=ialloc); call err(ialloc)
+      sample_points(1)%coordinates = 0
+      
+      ! All further points are organised in order of coupling.
+      k = 1
       do j=1,size(coupling)
         sample_points(k+1:k+points_per_coupling(j)) =   &
            & cubic_sampling_points( coupling(j),        &

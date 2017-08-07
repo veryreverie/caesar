@@ -10,6 +10,7 @@ module dft_output_file_module
   
   private
   
+  public :: make_dft_output_filename
   public :: DftOutputFile
   public :: read_dft_output_file
   public :: new
@@ -26,6 +27,28 @@ module dft_output_file_module
   end interface
   
 contains
+
+! ----------------------------------------------------------------------
+! Converts a file seedname into the appropriate dft input or output filename.
+! ----------------------------------------------------------------------
+function make_dft_output_filename(dft_code,seedname) result(output)
+  implicit none
+  
+  type(String), intent(in) :: dft_code
+  type(String), intent(in) :: seedname
+  type(String)             :: output
+  
+  if (dft_code == 'castep') then
+    output = seedname//'.castep'
+  elseif (dft_code == 'vasp') then
+    output = 'OUTCAR'
+  elseif (dft_code == 'qe') then
+    output = seedname//'.out'
+  else
+    call print_line('Unrecognised dft code: '//dft_code)
+    call err()
+  endif
+end function
 
 subroutine new_DftOutputFile(this, no_atoms)
   implicit none

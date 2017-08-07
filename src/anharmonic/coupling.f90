@@ -58,7 +58,7 @@ end function
 ! ----------------------------------------------------------------------
 ! Takes a list of couplings, and appends all subsidiary couplings.
 ! ----------------------------------------------------------------------
-! e.g. ['1 2 3'] becomes ['1 2 3', '1 2', '1 3', '2 3', '1', '2', '3']
+! e.g. [[3 5 7]] becomes [[3], [5], [3 5], [7], [3 7], [5 7], [3 5 7]]
 !
 ! Algorithmic information:
 ! It is convenient to include coupling with zero elements, ''.
@@ -66,7 +66,7 @@ end function
 ! The nth coupling produces all of the couplings from the previous couplings,
 !    both with and without n.
 ! ['']      -> ['']                                          -> []
-! ['1']     -> ['']               + ['1']                    -> [ '1']
+! ['1']     -> ['']               + ['1']                    -> ['1']
 ! ['1 2']   -> ['' '1']           + ['2' '1 2']              -> ['1' '2' '1 2']
 ! ['1 2 3'] -> ['' '1' '2' '1 2'] + ['3' '1 3' '2 3' '1 2 3']-> ...
 ! The '' coupling is ignored.
