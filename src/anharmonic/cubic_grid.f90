@@ -9,19 +9,19 @@ contains
 
 ! Takes a set of basis functions and the B-O landscape on a cubic grid,
 !    and returns the coulings (<i|j>) between the basis functions.
-function harmonic_couplings_cubic_grid(basis_functions,coupling, &
-   & sample_points,energy,forces) result(harmonic_couplings)
+function harmonic_couplings_cubic_grid(harmonic_states,coupling, &
+   & sampling_points,energy,forces) result(harmonic_couplings)
   use coupling_module
   use sampling_points_module
   use linear_algebra_module
-  use basis_function_module
+  use harmonic_states_module
   implicit none
   
-  type(BasisFunction), intent(in) :: basis_functions(:)
+  type(HarmonicState), intent(in) :: harmonic_states(:,:)
   type(CoupledModes),  intent(in) :: coupling(:)
-  type(SamplingPoint), intent(in) :: sample_points(:)
+  type(SamplingPoint), intent(in) :: sampling_points(:)
   real(dp),            intent(in) :: energy(:)
   type(RealVector),    intent(in) :: forces(:,:)
-  real(dp), allocatable           :: harmonic_couplings(:,:)
+  real(dp), allocatable           :: harmonic_couplings(:,:,:)
 end function
 end module

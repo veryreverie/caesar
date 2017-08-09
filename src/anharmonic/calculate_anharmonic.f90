@@ -14,12 +14,15 @@ function calculate_anharmonic_keywords() result(keywords)
   use help_module
   implicit none
   
-  type(KeywordData) :: keywords(1)
+  type(KeywordData) :: keywords(2)
   
   keywords = [                                                               &
-  & make_keyword( 'no_basis_functions',                                      &
-  &               'no_basis_functions is the number of basis functions along &
-  &each normal mode.') ]
+  & make_keyword( 'no_harmonic_states',                                      &
+  &               'no_harmonic_states is the number of harmonic eigenstates &
+  &in the direction of each normal mode.'),                                  &
+  & make_keyword( 'potential_expansion_order',                               &
+  &               'potential_expansion_order is the order up to which the &
+  &potential is expanded. e.g. a cubic expansion would be order 3.') ]
 end function
 
 ! ----------------------------------------------------------------------
@@ -29,11 +32,13 @@ subroutine calculate_anharmonic(arguments)
   use dictionary_module
   use structure_module
   use qpoints_module
+  use normal_mode_module
   use coupling_module
   use sampling_points_module
   use linear_algebra_module
   use dft_output_file_module
-  use basis_function_module
+  use harmonic_states_module
+  use basis_functions_module
   use cubic_grid_module
   implicit none
   
@@ -41,6 +46,7 @@ subroutine calculate_anharmonic(arguments)
   
   ! Inputs.
   type(String) :: wd
+  integer      :: no_harmonic_states
   integer      :: no_basis_functions
   
   ! Previous inputs.
@@ -58,25 +64,28 @@ subroutine calculate_anharmonic(arguments)
   type(StructureData), allocatable :: supercells(:)
   type(StructureData), allocatable :: supercell
   type(QpointData),    allocatable :: qpoints(:)
+  type(NormalMode),    allocatable :: modes(:)
   type(CoupledModes),  allocatable :: coupling(:)
-  type(SamplingPoint), allocatable :: sample_points(:)
+  type(SamplingPoint), allocatable :: sampling_points(:)
   
-  ! DFT results (Indexed as sample_points).
+  ! DFT results (Indexed as sampling_points).
   type(String)                  :: dft_output_filename
   type(DftOutputFile)           :: dft_output_file
   real(dp),         allocatable :: energy(:)
   type(RealVector), allocatable :: forces(:,:)
   
   ! Basis functions and coupling between them.
-  type(BasisFunction), allocatable :: basis_functions(:)
-  real(dp),            allocatable :: harmonic_couplings(:,:)
+  type(HarmonicState), allocatable :: harmonic_states(:)
+  real(dp),            allocatable :: gaussian_integrals(:)
+  type(RealMatrix),    allocatable :: harmonic_couplings(:,:)
   
   ! Temporary variables.
   integer :: i,j,ialloc
   
   ! Read in inputs.
   wd = arguments%value('working_directory')
-  no_basis_functions = int(arguments%value('no_basis_functions'))
+  no_harmonic_states = int(arguments%value('no_harmonic_states'))
+  no_basis_functions = int(arguments%value('potential_expansion_order'))
   
   ! Read in setup_anharmonic settings.
   call setup_anharmonic_arguments%read_file( &
@@ -111,30 +120,51 @@ subroutine calculate_anharmonic(arguments)
     ! Identify the relevant supercell.
     supercell = supercells(qpoints(i)%sc_id)
     
+    ! Read in normal modes.
+    allocate(modes(structure%no_modes), stat=ialloc); call err(ialloc)
+    do j=1,structure%no_modes
+      modes(j) = read_normal_mode_file( &
+         & harmonic_path//'/qpoint_'//i//'/mode_'//j//'.dat')
+    enddo
+    
     ! Read in coupling and sampling points.
     coupling = read_coupling_file(wd//'/qpoint_'//i//'/coupling.dat')
-    sample_points = read_sampling_points_file( &
+    sampling_points = read_sampling_points_file( &
        & wd//'/qpoint_'//i//'/sampling_points.dat')
     
-    ! Read in DFT outputs.
-    allocate( energy(size(sample_points)),                     &
-            & forces(supercell%no_atoms,size(sample_points)),  &
+    ! Calculate harmonic states and coupling between them.
+    allocate( harmonic_states(no_harmonic_states),                       &
+            & harmonic_couplings(no_basis_functions,structure%no_modes), &
             & stat=ialloc); call err(ialloc)
-    do j=1,size(sample_points)
+    do j=1,structure%no_modes
+      ! calculate harmonic basis functions, {|a>}.
+      harmonic_states = generate_harmonic_basis( modes(j)%frequency, &
+                                               & no_harmonic_states)
+      ! Calculate gaussian integrals, I(n) = integral[u^n e^(-freq*u*u)].
+      gaussian_integrals = calculate_gaussian_integrals( modes(j)%frequency, &
+                                                       & no_harmonic_states, &
+                                                       & no_basis_functions)
+      ! Calculate coupling between harmonic states and monomial potentials,
+      !    {<a|u^n|b>}.
+      harmonic_couplings(:,j) = generate_harmonic_couplings( harmonic_states, &
+                                                      & no_basis_functions,   &
+                                                      & gaussian_integrals)
+    enddo
+    
+    ! Calculate potential basis functions.
+    
+    ! Read in DFT outputs.
+    allocate( energy(size(sampling_points)),                     &
+            & forces(supercell%no_atoms,size(sampling_points)),  &
+            & stat=ialloc); call err(ialloc)
+    do j=1,size(sampling_points)
       dft_output_file = read_dft_output_file(dft_code, &
          & wd//'/qpoint_'//i//'/sampling_point_'//j//'/'//dft_output_filename)
       energy(j) = dft_output_file%energy
       forces(:,j) = dft_output_file%forces
     enddo
     
-    ! calculate harmonic basis functions.
-    basis_functions = generate_basis_functions()
-    
-    ! Calculate coupling between harmonic basis functions.
-    if (grid_type=='cubic') then
-      harmonic_couplings = harmonic_couplings_cubic_grid(basis_functions, &
-         & coupling,sample_points,energy,forces)
-    endif
+    ! Calculate potential coefficients using regression.
   enddo
 end subroutine
 end module

@@ -34,9 +34,9 @@ function setup_anharmonic_keywords() result(keywords)
   & make_keyword( 'max_energy',                                               &
   &               'max_energy is the maximum value of the potential up to &
   &which each normal mode will be evaluated.'),                               &
-  & make_keyword( 'no_sample_points',                                         &
-  &               'no_sample_points is the number of sampling points in each &
-  &direction.'),                                                              &
+  & make_keyword( 'no_sampling_points',                                       &
+  &               'no_sampling_points is the number of sampling points in &
+  &each direction.'),                                                         &
   & make_keyword( 'coupling',                                                 &
   &               'coupling specifies the coupling between normal modes. &
   &Each set of coupled modes should be given as mode ids separated by spaces, &
@@ -69,7 +69,7 @@ subroutine setup_anharmonic(arguments)
   real(dp)                        :: temperature
   type(String)                    :: grid_type
   real(dp)                        :: max_energy
-  integer                         :: no_sample_points
+  integer                         :: no_sampling_points
   type(String),       allocatable :: all_coupling(:)
   type(CoupledModes), allocatable :: coupling(:)
   
@@ -96,8 +96,7 @@ subroutine setup_anharmonic(arguments)
   real(dp), allocatable :: sample_spacing(:)
   
   ! Sampling points data.
-  integer,             allocatable :: points_per_coupling(:)
-  type(SamplingPoint), allocatable :: sample_points(:)
+  type(SamplingPoint), allocatable :: sampling_points(:)
   
   ! Supercell with displaced atoms.
   type(StructureData) :: supercell
@@ -118,7 +117,7 @@ subroutine setup_anharmonic(arguments)
   temperature = dble(arguments%value('temperature'))
   grid_type = arguments%value('grid_type')
   max_energy = dble(arguments%value('max_energy'))
-  no_sample_points = int(arguments%value('no_sample_points'))
+  no_sampling_points = int(arguments%value('no_sampling_points'))
   all_coupling = split(arguments%value('coupling'), ';')
   
   ! Read previous user inputs.
@@ -210,45 +209,23 @@ subroutine setup_anharmonic(arguments)
     allocate(sample_spacing(structure%no_modes), stat=ialloc); call err(ialloc)
     do j=1,structure%no_modes
       sample_spacing(j) = sqrt(2.0_dp*max_energy) &
-                      & / (modes(j)%frequency*no_sample_points)
+                      & / (modes(j)%frequency*no_sampling_points)
     enddo
     
     ! Generate sampling points.
     if (grid_type == 'cubic') then
-      ! Calculate the number of sample points associated with each coupling.
-      allocate( points_per_coupling(size(coupling)), &
-              & stat=ialloc); call err(ialloc)
-      do j=1,size(coupling)
-        points_per_coupling(j) = (2*no_sample_points)**size(coupling(j)%modes)
-      enddo
-      
-      ! Calculate sampling points.
-      
-      ! The first point is the unperturbed supercell.
-      allocate( sample_points(sum(points_per_coupling)+1), &
-              & stat=ialloc); call err(ialloc)
-      allocate( sample_points(1)%coordinates(structure%no_modes), &
-              & stat=ialloc); call err(ialloc)
-      sample_points(1)%coordinates = 0
-      
-      ! All further points are organised in order of coupling.
-      k = 1
-      do j=1,size(coupling)
-        sample_points(k+1:k+points_per_coupling(j)) =   &
-           & cubic_sampling_points( coupling(j),        &
-           &                        structure%no_modes, &
-           &                        no_sample_points)
-        k = k + points_per_coupling(j)
-      enddo
+      sampling_points = cubic_sampling_points( coupling,           &
+                                             & structure%no_modes, &
+                                             & no_sampling_points)
     endif
     
     ! Write out sampling points.
-    call write_sampling_points_file(sample_points, &
+    call write_sampling_points_file(sampling_points, &
        & wd//'/qpoint_'//i//'/sampling_points.dat')
     
     ! Make dft a working directory containing a DFT input file at each
     !    sampling point.
-    do j=1,size(sample_points)
+    do j=1,size(sampling_points)
       call mkdir(wd//'/qpoint_'//i//'/sampling_point_'//j)
       
       supercell = supercells(qpoints(i)%sc_id)
@@ -261,9 +238,9 @@ subroutine setup_anharmonic(arguments)
         do l=1,structure%no_modes
           if (grid_type=='cubic') then
             displacement = modes(l)%displacements(supercell%atom_to_prim(k))
-            supercell%atoms(k) = supercell%atoms(k)              &
-                             & + sample_points(j)%coordinates(l) &
-                             & * real(displacement*exp_iqr)      &
+            supercell%atoms(k) = supercell%atoms(k)            &
+                             & + sampling_points(j)%indices(l) &
+                             & * real(displacement*exp_iqr)    &
                              & * sample_spacing(j)
           endif
         enddo
