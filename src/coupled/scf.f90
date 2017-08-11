@@ -1,7 +1,7 @@
 ! ======================================================================
 ! The scf loop for vscfCoupled
 ! ======================================================================
-module scf_module
+module scf_old_module
   use string_module
   use io_module
   use constants_module, only : dp

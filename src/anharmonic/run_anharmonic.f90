@@ -14,16 +14,36 @@ function run_anharmonic_keywords() result(keywords)
   use help_module
   implicit none
   
-  type(KeywordData) :: keywords(4)
+  type(KeywordData) :: keywords(8)
   
   keywords = [                                                                &
-  & make_keyword( 'qpoints_to_run',                                           &
-  &               'qpoints_to_run is the first and last q-point to run. &
-  &These should be specified as two integers separated by a space.'),         &
-  & make_keyword( 'sampling_points_to_run',                                   &
-  &               'sampling_points_to_run is the first and last sampling &
-  &point to run. Should only be specified if only one q-point is being run. &
-  &These should be specified as two integers separated by a space.',          &
+  & make_keyword( 'first_qpoint',                                             &
+  &               'first_qpoint is the id of the first q-point at which &
+  &calculations will be run. Details of q-points can be found in &
+  &qpoint.dat.',                                                              &
+  &               default_value='1'),                                         &
+  & make_keyword( 'first_coupling',                                           &
+  &               'first_coupling is the id of the first coupling at the &
+  &first q-point at which calculations will be run. Details of the couplings &
+  &at q-point i can be found in qpoint_i/coupling.dat.',                      &
+  &               default_value='1'),                                         &
+  & make_keyword( 'first_sampling_point',                                     &
+  &               'first_sampling_point is the id of the first sampling point &
+  &at the first coupling at the q-point at which calculations will be run. &
+  &Details of the couplings at sampling point j at q-point i can be found in &
+  &qpoint_i/coupling_j/sampling_points.dat.',                                 &
+  &               default_value='1'),                                         &
+  & make_keyword( 'last_qpoint',                                              &
+  &               'last_qpoint is the id of the last q-point at which &
+  &calculations will be run.',                                                &
+  &               is_optional=.true.),                                        &
+  & make_keyword( 'last_coupling',                                            &
+  &               'last_coupling is the id of the last coupling at the &
+  &last q-point at which calculations will be run.',                          &
+  &               is_optional=.true.),                                        &
+  & make_keyword( 'last_sampling_point',                                      &
+  &               'last_sampling_point is the id of the last sampling point &
+  &at the last coupling at the q-point at which calculations will be run.',   &
   &               is_optional=.true.),                                        &
   & make_keyword( 'no_cores',                                                 &
   &               'no_cores is the number of cores on which DFT will be run. &
@@ -41,6 +61,7 @@ end function
 subroutine run_anharmonic(arguments)
   use dictionary_module
   use qpoints_module
+  use coupling_module
   use sampling_points_module
   implicit none
   
@@ -51,8 +72,10 @@ subroutine run_anharmonic(arguments)
   
   ! Inputs
   integer      :: first_qpoint
-  integer      :: last_qpoint
+  integer      :: first_coupling
   integer      :: first_sampling_point
+  integer      :: last_qpoint
+  integer      :: last_coupling
   integer      :: last_sampling_point
   integer      :: no_cores
   type(String) :: run_script
@@ -66,38 +89,47 @@ subroutine run_anharmonic(arguments)
   
   ! Previously calculated data.
   type(QpointData),    allocatable :: qpoints(:)
+  type(CoupledModes),  allocatable :: couplings(:)
   type(SamplingPoint), allocatable :: sampling_points(:)
   
   ! Working variables.
-  logical :: only_run_part_qpoint
   integer :: qpoint
-  integer :: sampling_point
+  integer :: coupling,min_coupling,max_coupling
+  integer :: sampling_point,min_sampling_point,max_sampling_point
   
   ! Temporary variables.
-  type(String), allocatable :: line(:)
   type(String)              :: dir
   integer                   :: result_code
   
   ! Read in inputs.
   wd = arguments%value('working_directory')
-  
-  line = split(arguments%value('qpoints_to_run'))
-  first_qpoint = int(line(1))
-  last_qpoint = int(line(2))
-  
-  only_run_part_qpoint = .false.
-  if (arguments%is_set('sampling_points_to_run')) then
-    if (first_qpoint/=last_qpoint) then
-      call err()
-    endif
-    only_run_part_qpoint = .true.
-    line = split(arguments%value('sampling_points_to_run'))
-    first_sampling_point = int(line(1))
-    last_sampling_point = int(line(2))
-  endif
-  
+  first_qpoint = int(arguments%value('first_qpoint'))
+  first_coupling = int(arguments%value('first_coupling'))
+  first_sampling_point = int(arguments%value('first_sampling_point'))
+  last_qpoint = int(arguments%value('last_qpoint'))
+  last_coupling = int(arguments%value('last_coupling'))
+  last_sampling_point = int(arguments%value('last_sampling_point'))
   no_cores = int(arguments%value('no_cores'))
   run_script = arguments%value('run_script')
+  
+  ! Check that calculation range is well defined.
+  if (first_qpoint<1) then
+    call err()
+  elseif (first_coupling<1) then
+    call err()
+  elseif (first_sampling_point<1) then
+    call err()
+  elseif (first_qpoint>last_qpoint) then
+    call err()
+  elseif (first_qpoint==last_qpoint) then
+    if (first_coupling>last_coupling) then
+      call err()
+    elseif (first_coupling==last_coupling) then
+      if (first_sampling_point>last_sampling_point) then
+        call err()
+      endif
+    endif
+  endif
   
   ! Read in setup_anharmonic settings.
   call setup_anharmonic_arguments%read_file( &
@@ -110,43 +142,71 @@ subroutine run_anharmonic(arguments)
   dft_code = setup_harmonic_arguments%value('dft_code')
   seedname = setup_harmonic_arguments%value('seedname')
   
-  ! Read in previously calculated data.
+  ! Run calculations at each q-point.
   qpoints = read_qpoints_file(harmonic_path//'/qpoints_ibz.dat')
   
-  if (first_qpoint<1) then
-    call err()
-  elseif (first_qpoint>last_qpoint) then
-    call err()
-  elseif (last_qpoint>size(qpoints)) then
+  if (last_qpoint>size(qpoints)) then
     call err()
   endif
   
-  ! Run calculations at each q-point.
   do qpoint=first_qpoint,last_qpoint
-    sampling_points = read_sampling_points_file( &
-       & wd//'/qpoint_'//qpoint//'/sampling_points.dat')
     
-    if (only_run_part_qpoint) then
-      if (first_sampling_point<1) then
-        call err()
-      elseif (first_sampling_point>last_sampling_point) then
-        call err()
-      elseif (last_sampling_point>size(sampling_points)) then
-        call err()
-      endif
+    ! Run calculations at each coupling at the q-point.
+    couplings = read_coupling_file(wd//'/qpoint_'//qpoint//'/coupling.dat')
+    
+    if (qpoint==first_qpoint) then
+      min_coupling = first_coupling
     else
-      first_sampling_point = 1
-      last_sampling_point = size(sampling_points)
+      min_coupling = 1
     endif
     
-    do sampling_point=first_sampling_point,last_sampling_point
-      call print_line('')
-      call print_line('Running sampling point '//sampling_point//' at q-point &
-         &'//qpoint//'.')
-      dir = wd//'/qpoint_'//qpoint//'sampling_point_'//sampling_point
-      result_code = system_call( 'cd '//wd//'; '//run_script//' '// &
-         & dft_code//' '//dir//' '//no_cores//' '//seedname)
-      call print_line('Result code: '//result_code)
+    if (qpoint==last_qpoint) then
+      if (last_coupling>size(couplings)) then
+        call err()
+      endif
+      max_coupling = last_coupling
+    else
+      max_coupling = size(couplings)
+    endif
+    
+    do coupling=min_coupling,max_coupling
+      
+      ! Run calculations at each sampling point at the coupling.
+      sampling_points = read_sampling_points_file( &
+         & wd//'/qpoint_'//qpoint//'/sampling_points.dat')
+      
+      if (qpoint==first_qpoint .and. coupling==first_coupling) then
+        min_sampling_point = first_sampling_point
+      else
+        min_sampling_point = size(sampling_points)
+      endif
+      
+      if (qpoint==last_qpoint .and. coupling==last_coupling) then
+        if (last_sampling_point>size(sampling_points) ) then
+          call err()
+        endif
+        max_sampling_point = last_sampling_point
+      else
+        max_sampling_point = size(sampling_points)
+      endif
+      
+      do sampling_point=first_sampling_point,last_sampling_point
+        call print_line('')
+        call print_line('Running calculations &
+           &at sampling point '//sampling_point//' &
+           &at coupling '//coupling//' &
+           &at q-point '//qpoint//'.')
+        dir = wd// '/qpoint_'        //qpoint   // &
+                 & '/coupling_'      //coupling // &
+                 & '/sampling_point_'//sampling_point
+        result_code = system_call( 'cd '//wd//'; ' //      &
+                                 & run_script      //' '// &
+                                 & dft_code        //' '// &
+                                 & dir             //' '// &
+                                 & no_cores        //' '// &
+                                 & seedname)
+        call print_line('Result code: '//result_code)
+      enddo
     enddo
   enddo
 end subroutine

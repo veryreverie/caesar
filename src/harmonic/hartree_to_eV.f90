@@ -13,7 +13,12 @@ function hartree_to_eV_keywords() result(keywords)
   use help_module
   implicit none
   
-  type(KeywordData) :: keywords(0)
+  type(KeywordData) :: keywords(1)
+  
+  keywords = [                                                                &
+  & make_keyword( 'energy_in_hartree',                                        &
+  &               'energy_in_hartree is the input energy, in Hartree atomic &
+  &units.') ]
 end function
 
 ! ----------------------------------------------------------------------
@@ -28,8 +33,7 @@ subroutine hartree_to_eV(arguments)
   
   real(dp) :: input
   
-  call print_line('Input energy in Hartree:')
-  input = dble(read_line_from_user())
+  input = dble(arguments%value('energy_in_hartree'))
   call print_line(input*ev_per_hartree)
 end subroutine
 

@@ -80,7 +80,7 @@ program caesar
   endif
   
   ! Read in mode.
-  mode = args(2)
+  mode = lower_case(args(2))
   
   ! Error: mode only contains one character.
   if (len(mode) < 2) then
@@ -151,7 +151,7 @@ program caesar
   elseif (mode == 'calculate_gap') then
     keywords = calculate_gap_keywords()
     main_subroutine => calculate_gap
-  elseif (mode == 'hartree_to_eV') then
+  elseif (mode == 'hartree_to_ev') then
     keywords = hartree_to_eV_keywords()
     main_subroutine => hartree_to_eV
   

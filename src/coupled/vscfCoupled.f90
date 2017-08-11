@@ -13,7 +13,7 @@ contains
 ! ----------------------------------------------------------------------
 subroutine vscf()
   use constants_module, only : pi, ev_per_hartree, kb_in_au, ev_per_inverse_cm
-  use scf_module
+  use scf_old_module
   implicit none
   
   integer :: first_mode, last_mode, no_modes, no_indep_params, &

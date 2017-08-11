@@ -21,6 +21,7 @@ module string_module
   public :: int   ! Conversion from String to integer.
   public :: dble  ! Conversion from String to real(dp).
   public :: cmplx ! Conversion from String to complex(dp).
+  public :: lgcl  ! Conversion from String to logical.
   
   public :: operator(//) ! Concatenate to String.
   
@@ -80,6 +81,10 @@ module string_module
   
   interface cmplx
     module procedure cmplx_String
+  end interface
+  
+  interface lgcl
+    module procedure lgcl_String
   end interface
 
   interface operator(//)
@@ -372,6 +377,16 @@ elemental function cmplx_String(this) result(output)
       exit
     endif
   enddo
+end function
+
+! logical = lgcl(String)
+elemental function lgcl_String(this) result(output)
+  implicit none
+  
+  type(String), intent(in) :: this
+  logical                  :: output
+  
+  output = (this=='T')
 end function
 
 ! ----------------------------------------------------------------------
@@ -950,11 +965,11 @@ pure function join_String(this,delimiter_in) result(output)
   implicit none
   
   type(String), intent(in)           :: this(:)
-  character(1), intent(in), optional :: delimiter_in
+  character(*), intent(in), optional :: delimiter_in
   type(String)                       :: output
   
   ! Temporary variables.
-  character(1) :: delimiter
+  type(String) :: delimiter
   integer      :: i
   
   if (present(delimiter_in)) then
@@ -974,43 +989,63 @@ pure function join_String(this,delimiter_in) result(output)
 end function
 
 ! Converts real(:) to String(:) and then joins.
-pure function join_real(this) result(output)
+pure function join_real(this,delimiter) result(output)
   implicit none
   
-  real(dp), intent(in) :: this(:)
-  type(String)         :: output
+  real(dp),     intent(in)           :: this(:)
+  character(*), intent(in), optional :: delimiter
+  type(String)                       :: output
   
-  output = join(str(this))
+  if (present(delimiter)) then
+    output = join(str(this),delimiter)
+  else
+    output = join(str(this))
+  endif
 end function
 
 ! Converts integer(:) to String(:), pads +ve numbers with a space, and joins.
-pure function join_integer(this) result(output)
+pure function join_integer(this,delimiter) result(output)
   implicit none
   
-  integer, intent(in) :: this(:)
-  type(String)        :: output
+  integer,      intent(in)           :: this(:)
+  character(*), intent(in), optional :: delimiter
+  type(String)                       :: output
   
-  output = join(pad_int_to_str(this))
+  if (present(delimiter)) then
+    output = join(pad_int_to_str(this),delimiter)
+  else
+    output = join(pad_int_to_str(this))
+  endif
 end function
 
 ! Converts logical(:) to String(:) and then joins.
-pure function join_logical(this) result(output)
+pure function join_logical(this,delimiter) result(output)
   implicit none
   
-  logical, intent(in) :: this(:)
-  type(String)        :: output
+  logical,      intent(in)           :: this(:)
+  character(*), intent(in), optional :: delimiter
+  type(String)                       :: output
   
-  output = join(str(this))
+  if (present(delimiter)) then
+    output = join(str(this),delimiter)
+  else
+    output = join(str(this))
+  endif
 end function
 
 ! Converts complex(:) to String(:) and then joins.
-pure function join_complex(this) result(output)
+pure function join_complex(this,delimiter) result(output)
   implicit none
   
-  complex(dp), intent(in) :: this(:)
-  type(String)            :: output
+  complex(dp),  intent(in)           :: this(:)
+  character(*), intent(in), optional :: delimiter
+  type(String)                       :: output
   
-  output = join(str(this))
+  if (present(delimiter)) then
+    output = join(str(this),delimiter)
+  else
+    output = join(str(this))
+  endif
 end function
 
 ! Pads an integer with a space to match '-' length.

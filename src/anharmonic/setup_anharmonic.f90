@@ -5,6 +5,14 @@ module setup_anharmonic_module
   use constants_module, only : dp
   use string_module
   use io_module
+  
+  use coupling_module
+  use sampling_points_module
+  
+  type :: SetupAnharmonicType
+    type(CoupledModes)               :: coupling
+    type(SamplingPoint), allocatable :: sampling_points(:)
+  end type
 contains
 
 ! ----------------------------------------------------------------------
@@ -43,7 +51,8 @@ function setup_anharmonic_keywords() result(keywords)
   &and the sets should be separated by commas. Each q-point should be &
   &separated by semicolons. For example, if at q-point 1 modes 1,2 and 3 and &
   &modes 4 and 5 are coupled, and at q-point 2 modes 1 and 6 are coupled,     &
-  &"coupling"="1 2 3, 4 5; 1 6".',                                            &
+  &"coupling"="1 2 3, 4 5; 1 6". All couplings should be in ascending order, &
+  &e.g. "1 2 3" rather than "1 3 2".',                                        &
   &               default_value='') ]
 end function
 
@@ -70,7 +79,6 @@ subroutine setup_anharmonic(arguments)
   type(String)                    :: grid_type
   real(dp)                        :: max_energy
   integer                         :: no_sampling_points
-  type(String),       allocatable :: all_coupling(:)
   type(CoupledModes), allocatable :: coupling(:)
   
   ! Previous user inputs.
@@ -92,11 +100,12 @@ subroutine setup_anharmonic(arguments)
   type(QpointData),    allocatable :: qpoints(:)
   type(NormalMode),    allocatable :: modes(:)
   
+  ! Main data structures.
+  type(String),              allocatable :: all_coupling(:)
+  type(SetupAnharmonicType), allocatable :: setup_data(:)
+  
   ! Normal mode data.
   real(dp), allocatable :: sample_spacing(:)
-  
-  ! Sampling points data.
-  type(SamplingPoint), allocatable :: sampling_points(:)
   
   ! Supercell with displaced atoms.
   type(StructureData) :: supercell
@@ -105,8 +114,9 @@ subroutine setup_anharmonic(arguments)
   type(ComplexVector) :: displacement
   
   ! Temporary variables.
-  integer                   :: i,j,k,l,ialloc
+  integer                   :: i,j,k,l,m,ialloc
   type(String), allocatable :: line(:)
+  type(String)              :: qdir,cdir,sdir
   
   ! --------------------------------------------------
   ! Read inputs.
@@ -182,8 +192,13 @@ subroutine setup_anharmonic(arguments)
   ! Loop across q-points, running calculations at each point.
   ! --------------------------------------------------
   do i=1,size(qpoints)
-    ! Make q-point directories.
-    call mkdir(wd//'/qpoint_'//i)
+    ! Calculate the sample spacing along each mode.
+    ! Assumes the mode is harmonic.
+    allocate(sample_spacing(structure%no_modes), stat=ialloc); call err(ialloc)
+    do j=1,structure%no_modes
+      sample_spacing(j) = sqrt(2.0_dp*max_energy) &
+                      & / (modes(j)%frequency*no_sampling_points)
+    enddo
     
     ! Read in normal modes.
     allocate(modes(structure%no_modes), stat=ialloc); call err(ialloc)
@@ -191,6 +206,10 @@ subroutine setup_anharmonic(arguments)
       modes(j) = read_normal_mode_file( &
          & harmonic_path//'/qpoint_'//i//'/mode_'//j//'.dat')
     enddo
+    
+    ! Make q-point directories.
+    qdir = wd//'/qpoint_'//i
+    call mkdir(qdir)
     
     ! Parse coupling.
     line = split(all_coupling(i), ',')
@@ -200,59 +219,61 @@ subroutine setup_anharmonic(arguments)
     enddo
     coupling = calculate_all_coupling(coupling, structure%no_modes)
     
+    allocate(setup_data(size(coupling)), stat=ialloc); call err(ialloc)
+    
     ! Write out coupling.
-    call write_coupling_file(coupling, &
-       & wd//'/qpoint_'//i//'/coupling.dat')
+    call write_coupling_file(coupling, qdir//'/coupling.dat')
     
-    ! Calculate the sample spacing along each mode.
-    ! Assumes the mode is harmonic.
-    allocate(sample_spacing(structure%no_modes), stat=ialloc); call err(ialloc)
-    do j=1,structure%no_modes
-      sample_spacing(j) = sqrt(2.0_dp*max_energy) &
-                      & / (modes(j)%frequency*no_sampling_points)
-    enddo
+    do j=1,size(setup_data)
+      ! Make coupling directories.
+      cdir = qdir//'/coupling_'//j
+      call mkdir(cdir)
     
-    ! Generate sampling points.
-    if (grid_type == 'cubic') then
-      sampling_points = cubic_sampling_points( coupling,           &
-                                             & structure%no_modes, &
-                                             & no_sampling_points)
-    endif
-    
-    ! Write out sampling points.
-    call write_sampling_points_file(sampling_points, &
-       & wd//'/qpoint_'//i//'/sampling_points.dat')
-    
-    ! Make dft a working directory containing a DFT input file at each
-    !    sampling point.
-    do j=1,size(sampling_points)
-      call mkdir(wd//'/qpoint_'//i//'/sampling_point_'//j)
+      ! Calculate indices of sampling points.
+      if (grid_type=='cubic') then
+        setup_data(j)%sampling_points = cubic_sampling_points(        &
+                                      & setup_data(j)%coupling%modes, &
+                                      & structure%no_modes,           &
+                                      & no_sampling_points )
+      endif
       
-      supercell = supercells(qpoints(i)%sc_id)
-      do k=1,supercell%no_atoms
-        ! Calculate q.R and exp(i q.R)
-        qr = qpoints(i)%qpoint * supercell%rvectors(supercell%atom_to_rvec(k))
-        exp_iqr = cmplx(cos(qr), sin(qr), dp)
+      ! Write out sampling points.
+      call write_sampling_points_file(setup_data(j)%sampling_points, &
+         & cdir//'/sampling_points.dat')
+      
+      ! Make dft a working directory containing a DFT input file at each
+      !    sampling point.
+      do k=1,size(setup_data(j)%sampling_points)
+        sdir = cdir//'/sampling_point_'//k
+        call mkdir(sdir)
         
-        ! Calculate displaced atomic co-ordinates.
-        do l=1,structure%no_modes
-          if (grid_type=='cubic') then
-            displacement = modes(l)%displacements(supercell%atom_to_prim(k))
-            supercell%atoms(k) = supercell%atoms(k)            &
-                             & + sampling_points(j)%indices(l) &
-                             & * real(displacement*exp_iqr)    &
-                             & * sample_spacing(j)
-          endif
+        supercell = supercells(qpoints(i)%sc_id)
+        do l=1,supercell%no_atoms
+          ! Calculate q.R and exp(i q.R)
+          qr = qpoints(i)%qpoint &
+           & * supercell%rvectors(supercell%atom_to_rvec(l))
+          exp_iqr = cmplx(cos(qr), sin(qr), dp)
+          
+          ! Calculate displaced atomic co-ordinates.
+          do m=1,structure%no_modes
+            if (grid_type=='cubic') then
+              displacement = modes(m)%displacements(supercell%atom_to_prim(l))
+              supercell%atoms(l) = supercell%atoms(l)                         &
+                               & + setup_data(j)%sampling_points(k)%indices(m)&
+                               & * real(displacement*exp_iqr)                 &
+                               & * sample_spacing(k)
+            endif
+          enddo
         enddo
+        
+        ! Write DFT input file.
+        dft_input_filename = make_dft_input_filename(dft_code,seedname)
+        call StructureData_to_dft_input_file( &
+           & dft_code,                        &
+           & supercell,                       &
+           & wd//'/'//dft_input_filename,     &
+           & sdir//'/'//dft_input_filename)
       enddo
-      
-      ! Write DFT input file.
-      dft_input_filename = make_dft_input_filename(dft_code,seedname)
-      call StructureData_to_dft_input_file( &
-         & dft_code,                        &
-         & supercell,                       &
-         & wd//'/'//dft_input_filename,     &
-         & wd//'/qpoint_'//i//'/sampling_pont_'//j//'/'//dft_input_filename)
     enddo
   enddo
 end subroutine

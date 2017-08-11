@@ -97,6 +97,12 @@ module linear_algebra_module
     module procedure size_ComplexMatrix
   end interface
   
+  interface trace
+    module procedure trace_IntMatrix
+    module procedure trace_RealMatrix
+    module procedure trace_ComplexMatrix
+  end interface
+  
   interface operator(==)
     module procedure equality_IntVector_IntVector
     module procedure equality_IntMatrix_IntMatrix
@@ -735,6 +741,49 @@ pure function size_ComplexMatrix(input,dim) result(output)
   integer                         :: output
   
   output = size(input%contents, dim)
+end function
+
+! Trace
+pure function trace_IntMatrix(input) result(output)
+  implicit none
+  
+  type(IntMatrix), intent(in) :: input
+  integer                     :: output
+  
+  integer :: i
+  
+  output = 0
+  do i=1,size(input,1)
+    output = output + input%contents(i,i)
+  enddo
+end function
+
+pure function trace_RealMatrix(input) result(output)
+  implicit none
+  
+  type(RealMatrix), intent(in) :: input
+  real(dp)                     :: output
+  
+  integer :: i
+  
+  output = 0
+  do i=1,size(input,1)
+    output = output + input%contents(i,i)
+  enddo
+end function
+
+pure function trace_ComplexMatrix(input) result(output)
+  implicit none
+  
+  type(ComplexMatrix), intent(in) :: input
+  complex(dp)                     :: output
+  
+  integer :: i
+  
+  output = 0
+  do i=1,size(input,1)
+    output = output + input%contents(i,i)
+  enddo
 end function
 
 ! Equality.
