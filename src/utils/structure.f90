@@ -200,7 +200,6 @@ end subroutine
 ! Reads structure.dat
 ! ----------------------------------------------------------------------
 function read_structure_file(filename) result(this)
-  use constants_module,      only : identity
   implicit none
   
   type(String), intent(in) :: filename
@@ -344,7 +343,7 @@ function read_structure_file(filename) result(this)
   enddo
   
   if (supercell_line==0) then
-    this%supercell = identity
+    this%supercell = identity(3)
     this%gvectors(1) = [ 0, 0, 0 ]
   else
     do i=1,3

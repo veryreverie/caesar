@@ -236,7 +236,6 @@ end function
 ! Returns an array of the IDs of the relevant symmetries.
 function calculate_irreducible_symmetries(structure,operator_symmetry_group, &
    &orders) result(output)
-  use constants_module, only : identity
   use structure_module
   use group_module
   use linear_algebra_module
@@ -319,7 +318,7 @@ function calculate_irreducible_symmetries(structure,operator_symmetry_group, &
   allocate(is_translation(size(base_operators)), stat=ialloc); call err(ialloc)
   do i=1,size(base_operators)
     op = base_operators(i)
-    if (structure%rotations(op)==mat(identity) .and. orders(op)>1) then
+    if (structure%rotations(op)==identity(3) .and. orders(op)>1) then
       is_translation(i) = .true.
     else
       is_translation(i) = .false.

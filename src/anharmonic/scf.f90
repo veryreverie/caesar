@@ -6,65 +6,46 @@ module scf_module
   use string_module
   use io_module
   use linear_algebra_module
-  
-  type :: ScfResult
-    real(dp)                      :: energy_change
-    type(RealMatrix), allocatable :: eigenstates(:)
-  end type
-
 contains
 
-function scf(harmonic_couplings,potential,eigenstates) result(output)
-  use potential_basis_module
+function scf(potential,eigenstuff) result(output)
+  use potential_module
   implicit none
   
-  type(RealMatrix), intent(in) :: harmonic_couplings(:,:)
-  type(Monomial),   intent(in) :: potential(:)
-  type(RealMatrix), intent(in) :: eigenstates(:)
-  type(ScfResult)              :: output
+  type(PolynomialPotential), intent(in)  :: potential
+  type(RealEigenstuff),      intent(in)  :: eigenstuff(:)
+  type(RealEigenstuff), allocatable      :: output(:)
   
   ! Array sizes.
   integer :: no_modes
   integer :: no_states
   
   ! Working variables.
-  type(Monomial), allocatable :: mean_field(:)
-  type(RealMatrix)            :: hamiltonian
-  type(RealEigenstuff)        :: eigenstuff
+  type(PolynomialPotential) :: mean_field
+  type(RealMatrix)          :: hamiltonian
   
   ! Temporary variables.
-  real(dp), allocatable :: zero(:,:)
   integer :: i,j,ialloc
   
-  no_modes = size(eigenstates)
-  no_states = size(eigenstates(1),1)
+  no_modes = size(eigenstuff)
+  no_states = size(eigenstuff(1)%evals)
   
-  allocate(zero(no_states,no_states), stat=ialloc); call err(ialloc)
-  zero = 0
+  allocate(output(no_modes), stat=ialloc); call err(ialloc)
   
   do i=1,no_modes
     ! Integrate over all other modes to get mean field potential.
     mean_field = potential
     do j=1,no_modes
       if (j/=i) then
-        mean_field = integrate_over_mode_average( mean_field,              &
-                                                & i,                       &
-                                                & harmonic_couplings(:,i), &
-                                                & eigenstates(i))
+        call mean_field%integrate_over_mode_average(i,eigenstuff(i))
       endif
     enddo
     
     ! Construct Hamiltonian in terms of harmonic eigenfunctions.
-    hamiltonian = zero
-    do j=1,size(mean_field)
-      hamiltonian = hamiltonian               &
-                & + mean_field(j)%coefficient &
-                & * harmonic_couplings(mean_field(j)%powers(i),i)
-    enddo
+    hamiltonian = mean_field%construct_hamiltonian(i)
     
     ! Diagonalise Hamiltonian to get new eigenstates.
-    eigenstuff = calculate_eigenstuff(hamiltonian)
+    output(i) = calculate_eigenstuff(hamiltonian)
   enddo
 end function
-
 end module

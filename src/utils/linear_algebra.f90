@@ -1,7 +1,7 @@
-! ------------------------------------------------------------
+! ======================================================================
 ! Assorted linear algebra / vector algebra subroutines.
 ! Includes interfaces for BLAS and LAPACK routines.
-! ------------------------------------------------------------
+! ======================================================================
 module linear_algebra_module
   use constants_module, only : dp
   use string_module
@@ -38,7 +38,6 @@ module linear_algebra_module
   ! --------------------------------------------------
   ! Overloads for vector / matrix operations.
   ! --------------------------------------------------
-  
   interface assignment(=)
     module procedure assign_IntVector_integers
     module procedure assign_RealVector_reals
@@ -61,6 +60,15 @@ module linear_algebra_module
     module procedure mat_integers_shape
     module procedure mat_reals_shape
     module procedure mat_complexes_shape
+  end interface
+  
+  interface zeroes
+    module procedure zeroes_IntVector
+    module procedure zeroes_IntMatrix
+  end interface
+  
+  interface identity
+    module procedure identity_IntMatrix
   end interface
   
   interface int
@@ -279,7 +287,6 @@ module linear_algebra_module
   ! --------------------------------------------------
   ! Overloads for printing vectors and matrices.
   ! --------------------------------------------------
-  
   interface operator(//)
     module procedure concatenate_character_IntVector
     module procedure concatenate_IntVector_character
@@ -307,11 +314,11 @@ module linear_algebra_module
   end interface
   
   ! --------------------------------------------------
-  ! The eigen(values and vectors) of a matrix
+  ! The eigen(values and vectors) of a matrix.
   ! --------------------------------------------------
   ! degeneracy(i) = 0 if eigenvector(i) is non-degenerate
   !               = j if eigenvector(i) is degenerate,
-  ! where j is an arbitrary but unique id
+  ! where j is an arbitrary but unique id.
   type RealEigenstuff
     real(dp), allocatable :: evals(:)
     real(dp), allocatable :: evecs(:,:)
@@ -337,10 +344,10 @@ module linear_algebra_module
   end interface
   
   ! --------------------------------------------------
-  ! BLAS / LAPACK interface
+  ! BLAS / LAPACK interface.
   ! --------------------------------------------------
   interface
-    ! Copies a real vector. Equivalent to DY = DX
+    ! Copies a real vector. Equivalent to DY = DX.
     pure subroutine dcopy(N,DX,INCX,DY,INCY)
       import :: dp
       implicit none
@@ -352,7 +359,7 @@ module linear_algebra_module
       integer,  intent(in)  :: INCY  ! increment along DY
     end subroutine
     
-    ! Copies complex vector. Equivalent to ZY = ZX
+    ! Copies complex vector. Equivalent to ZY = ZX.
     pure subroutine zcopy(N,ZX,INCX,ZY,INCY)
       import :: dp
       implicit none
@@ -364,7 +371,7 @@ module linear_algebra_module
       integer,     intent(in)  :: INCY  ! increment along ZY
     end subroutine
     
-    ! Real dot product. Returns DX.DY
+    ! Real dot product. Returns DX.DY.
     pure real(dp) function ddot(N,DX,INCX,DY,INCY)
       import :: dp
       implicit none
@@ -376,7 +383,7 @@ module linear_algebra_module
       integer,  intent(in) :: INCY  ! increment along DY
     end function
     
-    ! Multiplies real vector by real scalar. Equivalent to DX *= DA
+    ! Multiplies real vector by real scalar. Equivalent to DX *= DA.
     pure subroutine dscal(N,DA,DX,INCX)
       import :: dp
       implicit none
@@ -387,7 +394,7 @@ module linear_algebra_module
       integer,  intent(in)    :: INCX  ! increment along DX
     end subroutine
     
-    ! Multiplies complex vector by complex scalar. Equivalent to ZX *= ZA
+    ! Multiplies complex vector by complex scalar. Equivalent to ZX *= ZA.
     pure subroutine zscal(N,ZA,ZX,INCX)
       import :: dp
       implicit none
@@ -398,7 +405,7 @@ module linear_algebra_module
       integer,     intent(in)    :: INCX  ! increment along ZX
     end subroutine
     
-    ! Complex norm. Returns sqrt(X.X)
+    ! Complex norm. Returns sqrt(X.X).
     pure function dznrm2(N,X,INCX) result(output)
       import :: dp
       implicit none
@@ -409,7 +416,7 @@ module linear_algebra_module
       real(dp)                :: output ! result
     end function
     
-    ! Finds the eigenvalues of a hermitian matrix
+    ! Finds the eigenvalues of a hermitian matrix.
     pure subroutine zheev(JOBZ,UPLO,N,A,LDA,W,WORK,LWORK,RWORK,INFO)
       import :: dp
       implicit none
@@ -426,7 +433,7 @@ module linear_algebra_module
       integer,      intent(out)   :: INFO     ! 0 on success
     end subroutine
     
-    ! Finds the eigenvalues of a symmetric matrix
+    ! Finds the eigenvalues of a symmetric matrix.
     pure subroutine dsyev(JOBZ,UPLO,N,A,LDA,W,WORK,LWORK,INFO)
       import :: dp
       implicit none
@@ -448,7 +455,6 @@ contains
 ! ----------------------------------------------------------------------
 ! Vector and Matrix operations.
 ! ----------------------------------------------------------------------
-
 ! Assignment.
 pure subroutine assign_IntVector_integers(output,input)
   implicit none
@@ -563,8 +569,8 @@ pure function mat_integers_shape(input,m,n) result(output)
   implicit none
   
   integer, intent(in) :: input(:)
-  integer,  intent(in) :: m
-  integer,  intent(in) :: n
+  integer, intent(in) :: m
+  integer, intent(in) :: n
   type(IntMatrix)     :: output
   
   output = transpose(reshape(input, [m,n]))
@@ -590,6 +596,48 @@ pure function mat_complexes_shape(input,m,n) result(output)
   type(ComplexMatrix)     :: output
   
   output = transpose(reshape(input, [m,n]))
+end function
+
+! Makes a length n vector full of zeroes.
+function zeroes_IntVector(n) result(output)
+  implicit none
+  
+  integer, intent(in) :: n
+  type(IntVector)     :: output
+  
+  integer :: ialloc
+  
+  allocate(output%contents(n), stat=ialloc); call err(ialloc)
+  output%contents = 0
+end function
+
+! Makes a mxn matrix full of zeroes.
+function zeroes_IntMatrix(m,n) result(output)
+  implicit none
+  
+  integer, intent(in) :: m
+  integer, intent(in) :: n
+  type(IntMatrix)     :: output
+  
+  integer :: ialloc
+  
+  allocate(output%contents(m,n), stat=ialloc); call err(ialloc)
+  output%contents = 0
+end function
+
+! Makes an nxn identity matrix.
+function identity_IntMatrix(n) result(output)
+  implicit none
+  
+  integer, intent(in) :: n
+  type(IntMatrix)     :: output
+  
+  integer :: i
+  
+  output = zeroes(n,n)
+  do i=1,n
+    output%contents(i,i) = 1
+  enddo
 end function
 
 ! Conversion to fundamental types.
@@ -2270,9 +2318,9 @@ end subroutine
 ! Eigenvalue and Eigenvector wrappers.
 ! ----------------------------------------------------------------------
 
-! ----------------------------------------
-! Returns the number of states of an Eigenstuff
-! ----------------------------------------
+! --------------------------------------------------
+! Returns the number of states of an Eigenstuff.
+! --------------------------------------------------
 pure function size_RealEigenstuff(estuff) result(output)
   implicit none
   
@@ -2291,13 +2339,14 @@ pure function size_ComplexEigenstuff(estuff) result(output)
   output = size(estuff%evals)
 end function
 
-
-! Calculates the eigenvalues and eigenvectors of a real, symmetric matrix
+! --------------------------------------------------
+! Calculates the eigenvalues and eigenvectors of a real, symmetric matrix.
+! --------------------------------------------------
 function calculate_RealEigenstuff_reals(input) result(output)
   implicit none
   
-  real(dp), intent(in) :: input(:,:)  ! a real, symmetric matrix
-  type(RealEigenstuff) :: output      ! the eigenvalues and eigenstates of a
+  real(dp), intent(in) :: input(:,:)  ! A real, symmetric matrix.
+  type(RealEigenstuff) :: output      ! The eigenvalues and eigenstates.
   
   ! working variables
   integer               :: n
@@ -2340,7 +2389,9 @@ function calculate_RealEigenstuff_RealMatrix(input) result(output)
   output = calculate_eigenstuff(dble(input))
 end function
 
-! Calculates the eigenvalues and eigenvectors of a complex, hermitian matrix
+! --------------------------------------------------
+! Calculates the eigenvalues and eigenvectors of a complex, Hermitian matrix.
+! --------------------------------------------------
 function calculate_ComplexEigenstuff_complexes(input) result(output)
   implicit none
   

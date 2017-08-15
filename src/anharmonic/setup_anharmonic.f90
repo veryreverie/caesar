@@ -5,14 +5,6 @@ module setup_anharmonic_module
   use constants_module, only : dp
   use string_module
   use io_module
-  
-  use coupling_module
-  use sampling_points_module
-  
-  type :: SetupAnharmonicType
-    type(CoupledModes)               :: coupling
-    type(SamplingPoint), allocatable :: sampling_points(:)
-  end type
 contains
 
 ! ----------------------------------------------------------------------
@@ -101,8 +93,8 @@ subroutine setup_anharmonic(arguments)
   type(NormalMode),    allocatable :: modes(:)
   
   ! Main data structures.
-  type(String),              allocatable :: all_coupling(:)
-  type(SetupAnharmonicType), allocatable :: setup_data(:)
+  type(String),           allocatable :: all_coupling(:)
+  type(CouplingSampling), allocatable :: setup_data(:)
   
   ! Normal mode data.
   real(dp), allocatable :: sample_spacing(:)

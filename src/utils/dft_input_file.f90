@@ -197,8 +197,7 @@ end function
 ! ----------------------------------------------------------------------
 function castep_input_file_to_StructureData(filename, symmetry_precision) &
    & result(output)
-  use constants_module, only : pi, angstrom_per_bohr, kg_per_me, kg_per_amu, &
-                             & identity
+  use constants_module, only : pi, angstrom_per_bohr, kg_per_me, kg_per_amu
   use structure_module
   use linear_algebra_module
   implicit none
@@ -390,7 +389,7 @@ function castep_input_file_to_StructureData(filename, symmetry_precision) &
     call err()
   endif
   
-  output%supercell = identity
+  output%supercell = identity(3)
   output%rvectors(1) = [0,0,0]
   output%gvectors(1) = [0,0,0]
   

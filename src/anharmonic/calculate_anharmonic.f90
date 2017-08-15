@@ -44,7 +44,7 @@ subroutine calculate_anharmonic(arguments)
   use linear_algebra_module
   use dft_output_file_module
   use harmonic_states_module
-  use potential_basis_module
+  use potential_module
   use cubic_grid_module
   use scf_module
   implicit none
@@ -67,15 +67,16 @@ subroutine calculate_anharmonic(arguments)
   type(String)     :: grid_type
   
   ! Previously calculated data.
-  type(StructureData)              :: structure
-  type(String),        allocatable :: no_supercells_file(:)
-  integer                          :: no_supercells
-  type(StructureData), allocatable :: supercells(:)
-  type(StructureData), allocatable :: supercell
-  type(QpointData),    allocatable :: qpoints(:)
-  type(NormalMode),    allocatable :: modes(:)
-  type(CoupledModes),  allocatable :: coupling(:)
-  type(SamplingPoint), allocatable :: sampling_points(:)
+  type(StructureData)                 :: structure
+  type(String),           allocatable :: no_supercells_file(:)
+  integer                             :: no_supercells
+  type(StructureData),    allocatable :: supercells(:)
+  type(StructureData),    allocatable :: supercell
+  type(QpointData),       allocatable :: qpoints(:)
+  type(NormalMode),       allocatable :: modes(:)
+  type(CoupledModes),     allocatable :: coupling(:)
+  integer                             :: no_sampling_points
+  type(CouplingSampling), allocatable :: sampling(:)
   
   ! DFT results (Indexed as sampling_points).
   type(String)                  :: dft_output_filename
@@ -84,20 +85,18 @@ subroutine calculate_anharmonic(arguments)
   type(RealVector), allocatable :: forces(:,:)
   
   ! Harmonic eigenstates coupling between them.
-  type(HarmonicState), allocatable :: harmonic_states(:)
-  real(dp),            allocatable :: gaussian_integrals(:)
-  type(RealMatrix),    allocatable :: harmonic_couplings(:,:)
+  type(HarmonicState), allocatable :: harmonic_states(:,:)
   
   ! The Born-Oppenheimer potential.
-  type(Monomial), allocatable :: potential(:)
+  type(PolynomialPotential) :: potential
   
   ! SCF variables
-  integer                       :: scf_step
-  type(RealMatrix), allocatable :: eigenstates(:)
-  type(ScfResult)               :: scf_result
+  integer                           :: scf_step
+  type(RealEigenstuff), allocatable :: vscf_eigenstuff(:)
+  real(dp),             allocatable :: energy_change(:,:)
   
   ! Temporary variables.
-  integer :: i,j,ialloc
+  integer :: i,j,k,ialloc
   
   ! Read in inputs.
   wd = arguments%value('working_directory')
@@ -147,64 +146,75 @@ subroutine calculate_anharmonic(arguments)
          & harmonic_path//'/qpoint_'//i//'/mode_'//j//'.dat')
     enddo
     
-    ! Read in coupling and sampling points.
-    coupling = read_coupling_file(wd//'/qpoint_'//i//'/coupling.dat')
-    sampling_points = read_sampling_points_file( &
-       & wd//'/qpoint_'//i//'/sampling_points.dat')
-    
-    ! Calculate harmonic states and coupling between them.
-    allocate( harmonic_states(no_harmonic_states),                       &
-            & harmonic_couplings(no_basis_functions,structure%no_modes), &
+    ! Calculate harmonic eigenstates, {|a>}, along each normal mode.
+    allocate( harmonic_states(no_harmonic_states,structure%no_modes),    &
             & stat=ialloc); call err(ialloc)
     do j=1,structure%no_modes
-      ! calculate harmonic basis functions, {|a>}.
-      harmonic_states = generate_harmonic_basis( modes(j)%frequency, &
-                                               & no_harmonic_states)
-      ! Calculate gaussian integrals, I(n) = integral[u^n e^(-freq*u*u)].
-      gaussian_integrals = calculate_gaussian_integrals( modes(j)%frequency, &
-                                                       & no_harmonic_states, &
-                                                       & no_basis_functions)
-      ! Calculate coupling between harmonic states and monomial potentials,
-      !    {<a|u^n|b>}.
-      harmonic_couplings(:,j) = generate_harmonic_couplings( harmonic_states, &
-                                                      & no_basis_functions,   &
-                                                      & gaussian_integrals)
+      harmonic_states(:,j) = generate_harmonic_basis( modes(j)%frequency, &
+                                                    & no_harmonic_states)
     enddo
     
-    ! Calculate potential basis functions.
-    ! TODO
+    ! Read in coupling and sampling points.
+    coupling = read_coupling_file(wd//'/qpoint_'//i//'/coupling.dat')
+    allocate(sampling(size(coupling)), stat=ialloc); call err(ialloc)
+    do j=1,size(coupling)
+      sampling(j)%coupling = coupling(j)
+      sampling(j)%sampling_points = read_sampling_points_file( &
+         & wd//'/qpoint_'//i//'/coupling_'//j//'/sampling_points.dat')
+      no_sampling_points = size(sampling(j)%sampling_points)
+      allocate( sampling(j)%energy(no_sampling_points),                    &
+              & sampling(j)%forces(supercell%no_atoms,no_sampling_points), &
+              & stat=ialloc); call err(ialloc)
+      
+      ! Read in DFT outputs.
+      do k=1,no_sampling_points
+        dft_output_file = read_dft_output_file(dft_code, wd//                 &
+                                                    & '/qpoint_'//i//         &
+                                                    & '/coupling_'//j//       &
+                                                    & '/sampling_point_'//k// &
+                                                    & '/'//dft_output_filename)
+        sampling(j)%energy(k) = dft_output_file%energy
+        sampling(j)%forces(:,k) = dft_output_file%forces
+      enddo
+    enddo
     
-    ! Read in DFT outputs.
-    allocate( energy(size(sampling_points)),                     &
-            & forces(supercell%no_atoms,size(sampling_points)),  &
+    ! Calculate the Born-Oppenheimer potential.
+    potential = calculate_potential( no_basis_functions, &
+                                   & sampling,           &
+                                   & harmonic_states)
+    
+    ! Initialise eigenstuff to harmonic values.
+    allocate( vscf_eigenstuff(structure%no_modes), &
             & stat=ialloc); call err(ialloc)
-    do j=1,size(sampling_points)
-      dft_output_file = read_dft_output_file(dft_code, &
-         & wd//'/qpoint_'//i//'/sampling_point_'//j//'/'//dft_output_filename)
-      energy(j) = dft_output_file%energy
-      forces(:,j) = dft_output_file%forces
+    do j=1,structure%no_modes
+      vscf_eigenstuff(j)%evecs = real(int(identity(no_basis_functions)))
+      do k=1,no_basis_functions
+        vscf_eigenstuff(j)%evals(k) = (k-0.5_dp)*modes(j)%frequency
+      enddo
     enddo
     
-    ! Calculate potential basis function coefficients using regression.
-    ! TODO
-    
-    ! Convert the potential from basis functions into monomials.
-    ! TODO
-    
-    ! Simplify potential, summing across duplicate monomials.
-    potential = simplify(potential)
-    
-    ! Initialise eigenstates.
-    ! TODO
+    ! Initialise energy change array.
+    allocate( energy_change(no_basis_functions, structure%no_modes), &
+            & stat=ialloc); call err(ialloc)
     
     ! SCF cycles.
     do scf_step=1,max_scf_cycles
+      ! Record old eigenvalues.
+      do j=1,structure%no_modes
+        energy_change(:,j) = vscf_eigenstuff(j)%evals
+      enddo
+      
       ! Run SCF calculations.
-      scf_result = scf(harmonic_couplings,potential,eigenstates)
-      eigenstates = scf_result%eigenstates
+      vscf_eigenstuff = scf(potential,vscf_eigenstuff)
+      
+      ! Calculate L2-norm change in eigenvalues.
+      do j=1,structure%no_modes
+        energy_change(:,j) = l2_norm(vec( vscf_eigenstuff(j)%evals &
+                                        & - energy_change(:,j) ))
+      enddo
       
       ! Check for convergence
-      if (scf_result%energy_change<scf_convergence_threshold) then
+      if (sum(energy_change)<scf_convergence_threshold) then
         exit
       elseif (scf_step==max_scf_cycles) then
         call err()

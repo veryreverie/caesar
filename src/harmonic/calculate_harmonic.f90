@@ -5,7 +5,7 @@
 !    - The density of states under the harmonic approximation.
 !    - The phonon dispersion relation under the harmonic approximation.
 ! ======================================================================
-module lte_harmonic_module
+module calculate_harmonic_module
   use constants_module, only : dp
   use string_module
   use io_module
@@ -14,7 +14,7 @@ contains
 ! ----------------------------------------------------------------------
 ! Generate keywords and helptext.
 ! ----------------------------------------------------------------------
-function lte_harmonic_keywords() result(keywords)
+function calculate_harmonic_keywords() result(keywords)
   use help_module
   implicit none
   
@@ -263,7 +263,7 @@ end function
 ! ----------------------------------------------------------------------
 ! Main program.
 ! ----------------------------------------------------------------------
-subroutine lte_harmonic(arguments)
+subroutine calculate_harmonic(arguments)
   use utils_module,          only : mkdir
   use linear_algebra_module, only : invert
   use structure_module

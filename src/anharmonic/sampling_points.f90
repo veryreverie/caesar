@@ -6,6 +6,9 @@ module sampling_points_module
   use string_module
   use io_module
   
+  use coupling_module
+  use linear_algebra_module
+  
   ! The ids of the sampling point.
   ! The corresponding displacement depends on the chosen grid type.
   type :: SamplingPoint
@@ -21,6 +24,12 @@ module sampling_points_module
     real(dp), allocatable :: displacements(:)
   end type
   
+  type :: CouplingSampling
+    type(CoupledModes)               :: coupling
+    type(SamplingPoint), allocatable :: sampling_points(:)
+    real(dp),            allocatable :: energy(:)
+    type(RealVector),    allocatable :: forces(:,:)
+  end type
 contains
 
 subroutine write_sampling_points_file(this, filename)
@@ -89,6 +98,7 @@ end function
 recursive function cubic_sampling_points(coupling, no_modes, &
    & no_sampling_points) result(output)
   use coupling_module
+  use linear_algebra_module
   implicit none
   
   integer, intent(in)              :: coupling(:)
@@ -96,51 +106,47 @@ recursive function cubic_sampling_points(coupling, no_modes, &
   integer, intent(in)              :: no_sampling_points
   type(SamplingPoint), allocatable :: output(:)
   
-  integer            :: no_points
+  type(SamplingPoint), allocatable :: temp(:)
   
-  integer :: mid
-  integer :: pos,neg
-  integer :: i,j,ialloc
-  
-  allocate( output((2*no_sampling_points+1)**size(coupling)), &
-          & stat=ialloc); call err(ialloc)
+  integer :: i,i2,j,ialloc
   
   if (size(coupling)==0) then
     ! The base case: no modes, so only the point [0,0,0,...,0] is needed.
-    allocate(output(1)%indices(no_modes), stat=ialloc); call err(ialloc)
-    output(1)%indices = 0
+    allocate(output(1), stat=ialloc); call err(ialloc)
+    output(1)%indices = int(zeroes(no_modes))
     output(1)%duplicate = .false.
   else
-    ! Fill the middle with terms which look like (if coupling(1)=4)
-    !    [0,0,0,0,[lower terms]]
-    ! i.e. zeros up to and including the mode at coupling(1).
-    no_points = (2*no_sampling_points+1)**(size(coupling(2:)))
-    mid = no_sampling_points*no_points
-    output(mid+1:mid+no_points) = cubic_sampling_points( coupling(2:), &
-                                                       & no_modes,     &
-                                                       & no_sampling_points)
-    
-    ! Copy the middle to each point, and then update the indices of
-    !    mode coupling(1), to end up with e.g. if coupling(1)=4,
-    !    [0,0,0,-2,[lower terms]]
-    !    [0,0,0,-1,[lower terms]]
-    !    [0,0,0, 0,[lower terms]] (duplicate = .true., set below)
-    !    [0,0,0, 1,[lower terms]]
-    !    [0,0,0, 2,[lower terms]]
-    do i=1,no_sampling_points
-      pos = mid + i*no_points
-      neg = mid - i*no_points
-      output(pos+1:pos+no_points) = output(mid+1:mid+no_points)
-      output(neg+1:neg+no_points) = output(mid+1:mid+no_points)
-      do j=1,no_points
-        output(pos+j)%indices(coupling(1)) =  i
-        output(neg+j)%indices(coupling(1)) = -i
+    ! Copy the sampling points corresponding to coupling(2:), [0,...,0,0,~~~]
+    ! Make one copy for each i in set [-no_sampling_points,no_sampling_points]
+    ! Set duplicate=.true. for i=0.
+    ! If no_sampling_points=2 then the result is:
+    !    [0,...,0,-2,~~~]
+    !           ...
+    !    [0,...,0,-2,~~~]
+    !    [0,...,0,-1,~~~]
+    !           ...
+    !    [0,...,0,-1,~~~]
+    !    [0,...,0, 0,~~~] (duplicate = .true.)
+    !           ...
+    !    [0,...,0, 0,~~~] (duplicate = .true.)
+    !    [0,...,0, 1,~~~]
+    !           ...
+    !    [0,...,0, 1,~~~]
+    !    [0,...,0, 2,~~~]
+    !           ...
+    !    [0,...,0, 2,~~~]
+    temp = cubic_sampling_points(coupling(2:),no_modes,no_sampling_points)
+    allocate(output(size(temp)*(2*no_sampling_points+1)), stat=ialloc)
+    ! Loop from i2= -no_sampling_points to i2= no_sampling_points.
+    do i=1,2*no_sampling_points+1
+      i2 = i-no_sampling_points-1
+      output((i-1)*size(temp)+1 : i*size(temp)) = temp
+      do j=(i-1)*size(temp)+1,i*size(temp)
+        output(j)%indices(coupling(1)) = i2
+        if (i2==0) then
+          output(j)%duplicate = .true.
+        endif
       enddo
-    enddo
-    
-    ! Set the duplicate=.true. on the points with indices(coupling(1))=0
-    do i=1,no_points
-      output(mid+i)%duplicate = .true.
     enddo
   endif
 end function

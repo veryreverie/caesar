@@ -1,7 +1,7 @@
 ! ======================================================================
-! Runs unit tests on lte_harmonic.
+! Runs unit tests on calculate_harmonic.
 ! ======================================================================
-module lte_harmonic_test_module
+module calculate_harmonic_test_module
   use constants_module, only : dp
   use string_module
   use io_module
@@ -10,31 +10,31 @@ contains
 ! ----------------------------------------------------------------------
 ! Generates keywords and helptext.
 ! ----------------------------------------------------------------------
-function lte_harmonic_test_keywords() result(keywords)
+function calculate_harmonic_test_keywords() result(keywords)
   use help_module
-  use lte_harmonic_module
+  use calculate_harmonic_module
   implicit none
   
   type(KeywordData), allocatable :: keywords(:)
   
-  type(KeywordData), allocatable :: keywords_lte_harmonic(:)
+  type(KeywordData), allocatable :: keywords_calculate_harmonic(:)
   type(KeywordData)              :: keywords_test(0)
   
   integer :: ialloc
   
-  keywords_lte_harmonic = lte_harmonic_keywords()
+  keywords_calculate_harmonic = calculate_harmonic_keywords()
   
-  allocate( keywords(size(keywords_lte_harmonic)+size(keywords_test)), &
+  allocate( keywords(size(keywords_calculate_harmonic)+size(keywords_test)), &
           & stat=ialloc); call err(ialloc)
   
-  keywords(:size(keywords_lte_harmonic)) = keywords_lte_harmonic
-  keywords(size(keywords_lte_harmonic)+1:) = keywords_test
+  keywords(:size(keywords_calculate_harmonic)) = keywords_calculate_harmonic
+  keywords(size(keywords_calculate_harmonic)+1:) = keywords_test
 end function
 
 ! ----------------------------------------------------------------------
 ! Main program.
 ! ----------------------------------------------------------------------
-subroutine lte_harmonic_test(arguments)
+subroutine calculate_harmonic_test(arguments)
   use constants_module, only : pi
   use utils_module,     only : mkdir
   use structure_module
@@ -43,7 +43,7 @@ subroutine lte_harmonic_test(arguments)
   use lte_module
   use unique_directions_module
   use displacement_patterns_module
-  use lte_harmonic_module
+  use calculate_harmonic_module
   use qpoints_module
   use dictionary_module
   use linear_algebra_module
@@ -123,14 +123,14 @@ subroutine lte_harmonic_test(arguments)
   temperature = dble(arguments%value('temperature'))
   
   ! --------------------------------------------------
-  ! Copy out settings to lte_harmonic.used_settings
+  ! Copy out settings to calculate_harmonic.used_settings
   ! --------------------------------------------------
-  call arguments%write_file(wd//'/lte_harmonic.used_settings')
+  call arguments%write_file(wd//'/calculate_harmonic.used_settings')
   
   ! --------------------------------------------------
-  ! Run new lte_harmonic.
+  ! Run new calculate_harmonic.
   ! --------------------------------------------------
-  call lte_harmonic(arguments)
+  call calculate_harmonic(arguments)
   
   ! --------------------------------------------------
   ! Read in previous arguments.

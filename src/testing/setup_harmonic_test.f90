@@ -35,7 +35,6 @@ end function
 ! Main program.
 ! ----------------------------------------------------------------------
 subroutine setup_harmonic_test(arguments)
-  use constants_module, only : identity
   use utils_module, only : mkdir
   use structure_module
   use unique_directions_module
@@ -240,8 +239,8 @@ subroutine setup_harmonic_test(arguments)
     
     do j=1,supercell%no_symmetries
       rotation_identity = rotations_cart(j) * transpose(rotations_cart(j))
-      if ( any(dble(rotation_identity)-identity>1.0e-5_dp) .and. &
-         & any(dble(rotation_identity)+identity>1.0e-5_dp)) then
+      if ( any(dble(rotation_identity-identity(3))>1.0e-5_dp) .and. &
+         & any(dble(rotation_identity+identity(3))>1.0e-5_dp)) then
         call print_line('')
         call print_line('Error: rotation '//j//' not a rotation.')
         call err()

@@ -16,7 +16,7 @@ program caesar
   ! Use harmonic modules.
   use setup_harmonic_module
   use run_harmonic_module
-  use lte_harmonic_module
+  use calculate_harmonic_module
   
   ! Use quadratic modules.
   use setup_quadratic_module
@@ -33,7 +33,7 @@ program caesar
   use test_module
   use linear_algebra_test_module
   use setup_harmonic_test_module
-  use lte_harmonic_test_module
+  use calculate_harmonic_test_module
   use test_copy_quadratic_module
   
   ! Use misc modules.
@@ -112,9 +112,9 @@ program caesar
   elseif (mode == 'run_harmonic') then
     keywords = run_harmonic_keywords()
     main_subroutine => run_harmonic
-  elseif (mode == 'lte_harmonic') then
-    keywords = lte_harmonic_keywords()
-    main_subroutine => lte_harmonic
+  elseif (mode == 'calculate_harmonic') then
+    keywords = calculate_harmonic_keywords()
+    main_subroutine => calculate_harmonic
   elseif (mode == 'setup_quadratic') then
     keywords = setup_quadratic_keywords()
     main_subroutine => setup_quadratic
@@ -142,9 +142,9 @@ program caesar
   elseif (mode == 'setup_harmonic_test') then
     keywords = setup_harmonic_test_keywords()
     main_subroutine => setup_harmonic_test
-  elseif (mode == 'lte_harmonic_test') then
-    keywords = lte_harmonic_test_keywords()
-    main_subroutine => lte_harmonic_test
+  elseif (mode == 'calculate_harmonic_test') then
+    keywords = calculate_harmonic_test_keywords()
+    main_subroutine => calculate_harmonic_test
   elseif (mode == 'test_copy_quadratic') then
     keywords = test_copy_quadratic_keywords()
     main_subroutine => test_copy_quadratic
