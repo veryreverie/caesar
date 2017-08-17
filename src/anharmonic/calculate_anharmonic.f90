@@ -45,7 +45,6 @@ subroutine calculate_anharmonic(arguments)
   use dft_output_file_module
   use harmonic_states_module
   use potential_module
-  use cubic_grid_module
   use scf_module
   implicit none
   
@@ -81,8 +80,6 @@ subroutine calculate_anharmonic(arguments)
   ! DFT results (Indexed as sampling_points).
   type(String)                  :: dft_output_filename
   type(DftOutputFile)           :: dft_output_file
-  real(dp),         allocatable :: energy(:)
-  type(RealVector), allocatable :: forces(:,:)
   
   ! Harmonic eigenstates coupling between them.
   type(HarmonicState), allocatable :: harmonic_states(:,:)
@@ -181,6 +178,7 @@ subroutine calculate_anharmonic(arguments)
     ! Calculate the Born-Oppenheimer potential.
     potential = calculate_potential( no_basis_functions, &
                                    & sampling,           &
+                                   & modes,              &
                                    & harmonic_states)
     
     ! Initialise eigenstuff to harmonic values.

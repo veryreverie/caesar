@@ -16,11 +16,9 @@ module potential_module
   type :: Monomial
     real(dp)             :: coefficient
     integer, allocatable :: powers(:)
-  end type
-  
-  ! A sum of monomials.
-  type :: BasisFunction
-    type(Monomial), allocatable :: monomials(:)
+  contains
+    procedure :: evaluate_energy => evaluate_energy_Monomial
+    procedure :: evaluate_forces => evaluate_forces_Monomial
   end type
   
   ! A polynomial representation of a potential.
@@ -28,6 +26,8 @@ module potential_module
     type(Monomial),   allocatable, private :: monomials(:)
     type(RealMatrix), allocatable, private :: harmonic_couplings(:,:)
   contains
+    procedure, public :: evaluate_energy => evaluate_energy_PolynomialPotential
+    procedure, public :: evaluate_forces => evaluate_forces_PolynomialPotential
     procedure, public :: simplify => simplify_PolynomialPotential
     procedure, public :: integrate_over_mode_average => &
                        & integrate_over_mode_average_PolynomialPotential
@@ -36,23 +36,125 @@ module potential_module
   end type
 contains
 
-function calculate_potential(no_basis_functions,sampling,harmonic_states) &
-   & result(output)
+! ----------------------------------------------------------------------
+! Evaluates the energy of a Monomial at a given displacement.
+! ----------------------------------------------------------------------
+function evaluate_energy_Monomial(this,displacement) result(output)
   use sampling_points_module
+  use normal_mode_module
+  implicit none
+  
+  class(Monomial),  intent(in) :: this
+  type(ModeVector), intent(in) :: displacement
+  real(dp)                     :: output
+  
+  integer :: i
+  
+  output = this%coefficient
+  do i=1,size(this%powers)
+    output = output * displacement%vector(i)**this%powers(i)
+  enddo
+end function
+
+! ----------------------------------------------------------------------
+! Evaluates the force of a Monomial at a given displacement.
+! Returns the result in normal mode co-ordinates.
+! ----------------------------------------------------------------------
+function evaluate_forces_Monomial(this,displacement) result(output)
+  use sampling_points_module
+  use normal_mode_module
+  implicit none
+  
+  class(Monomial),  intent(in) :: this
+  type(ModeVector), intent(in) :: displacement
+  type(ModeVector)             :: output
+  
+  type(Monomial) :: derivative
+  
+  integer :: no_modes
+  integer :: i,ialloc
+  
+  no_modes = size(this%powers)
+  allocate(output%vector(no_modes), stat=ialloc); call err(ialloc)
+  do i=1,no_modes
+    derivative = this
+    derivative%coefficient = derivative%coefficient &
+                         & * derivative%powers(i)
+    derivative%powers(i) = derivative%powers(i) - 1
+    output%vector(i) = derivative%evaluate_energy(displacement)
+  enddo
+end function
+
+! ----------------------------------------------------------------------
+! Evaluates the energy of a potential at a given displacement.
+! ----------------------------------------------------------------------
+function evaluate_energy_PolynomialPotential(this,displacement) result(output)
+  use sampling_points_module
+  use normal_mode_module
+  implicit none
+  
+  class(PolynomialPotential), intent(in) :: this
+  type(ModeVector),           intent(in) :: displacement
+  real(dp)                               :: output
+  
+  integer :: i
+  
+  output = 0
+  do i=1,size(this%monomials)
+    output = output + this%monomials(i)%evaluate_energy(displacement)
+  enddo
+end function
+
+! ----------------------------------------------------------------------
+! Evaluates the force of a potential at a given displacement.
+! Returns the result in normal mode co-ordinates.
+! ----------------------------------------------------------------------
+function evaluate_forces_PolynomialPotential(this,displacement) result(output)
+  use sampling_points_module
+  use normal_mode_module
+  implicit none
+  
+  class(PolynomialPotential), intent(in) :: this
+  type(ModeVector),           intent(in) :: displacement
+  type(ModeVector)                       :: output
+  
+  integer          :: no_modes
+  type(ModeVector) :: temp
+  
+  integer :: i,ialloc
+  
+  no_modes = size(this%monomials(1)%powers)
+  allocate(output%vector(no_modes), stat=ialloc); call err(ialloc)
+  output%vector = 0
+  do i=1,size(this%monomials)
+    temp = this%monomials(i)%evaluate_forces(displacement)
+    output%vector = output%vector + temp%vector
+  enddo
+end function
+
+! ----------------------------------------------------------------------
+! Calculates a representation of the Born-Oppenheimer surface using
+!    samples from the surface.
+! ----------------------------------------------------------------------
+function calculate_potential(no_basis_functions,sampling,modes, &
+   & harmonic_states) result(output)
+  use sampling_points_module
+  use normal_mode_module
   use harmonic_states_module
   implicit none
   
   integer,                intent(in) :: no_basis_functions
   type(CouplingSampling), intent(in) :: sampling(:)
+  type(NormalMode),       intent(in) :: modes(:)
   type(HarmonicState),    intent(in) :: harmonic_states(:,:)
   type(PolynomialPotential)          :: output
   
   integer :: no_modes
   integer :: no_states
   
-  real(dp), allocatable :: gaussian_integrals(:)
-  
-  type(BasisFunction), allocatable :: basis_functions(:)
+  real(dp),                  allocatable :: gaussian_integrals(:)
+  type(PolynomialPotential), allocatable :: basis_functions(:)
+  real(dp),                  allocatable :: basis_coefficients(:)
   
   integer :: i,ialloc
   
@@ -79,12 +181,12 @@ function calculate_potential(no_basis_functions,sampling,harmonic_states) &
   enddo
   
   ! Generate basis functions
-  !basis_functions = calculate_basis_functions(
-  ! TODO
+  basis_functions = calculate_all_basis_functions(sampling,no_modes, &
+     & no_basis_functions)
   
   ! Use linear least-squares regression to fit basis function coefficients
   !    to input energy and force data.
-  ! TODO
+  basis_coefficients = fit_basis_functions(sampling,modes,basis_functions)
   
   ! Simplify output.
   call output%simplify()
@@ -104,15 +206,16 @@ end function
 ! |       | = -----
 !  \  k  /     n!k!
 
-function calculate_all_basis_functions(couplings,no_modes,no_basis_functions) &
+function calculate_all_basis_functions(sampling,no_modes,no_basis_functions) &
    & result(output)
   use coupling_module
+  use sampling_points_module
   implicit none
   
-  type(CoupledModes), intent(in) :: couplings(:)
-  integer,            intent(in) :: no_modes
-  integer,            intent(in) :: no_basis_functions
-  type(BasisFunction), allocatable :: output(:)
+  type(CouplingSampling), intent(in)     :: sampling(:)
+  integer,                intent(in)     :: no_modes
+  integer,                intent(in)     :: no_basis_functions
+  type(PolynomialPotential), allocatable :: output(:)
   
   integer              :: max_size
   integer, allocatable :: factorial(:)
@@ -122,8 +225,8 @@ function calculate_all_basis_functions(couplings,no_modes,no_basis_functions) &
   
   ! Find the size of the largest coupling.
   max_size = 0
-  do i=1,size(couplings)
-    max_size = max(max_size, size(couplings(i)))
+  do i=1,size(sampling)
+    max_size = max(max_size, size(sampling(i)%coupling))
   enddo
   
   ! Calculate factorials for later use.
@@ -135,16 +238,18 @@ function calculate_all_basis_functions(couplings,no_modes,no_basis_functions) &
   enddo
   
   ! Calculate how much space is needed and allocate output.
-  allocate(sizes(size(couplings)), stat=ialloc); call err(ialloc)
-  do i=1,size(couplings)
-    sizes(i) = factorial(size(couplings(i))+no_basis_functions+1)
+  allocate(sizes(size(sampling)), stat=ialloc); call err(ialloc)
+  do i=1,size(sampling)
+    sizes(i) = factorial(size(sampling(i)%coupling)+no_basis_functions+1) &
+           & / ( factorial(size(sampling(i)%coupling)+1)                  &
+           &   * factorial(no_basis_functions+1) )
   enddo
   allocate(output(sum(sizes)), stat=ialloc); call err(ialloc)
   
   ! Calculate output, coupling by coupling.
   j = 0
-  do i=1,size(couplings)
-    output(j+1:j+sizes(i)) = calculate_basis_functions( couplings(i)%modes, &
+  do i=1,size(sampling)
+    output(j+1:j+sizes(i)) = calculate_basis_functions( sampling(i)%coupling%modes, &
                                                       & no_modes,           &
                                                       & no_basis_functions, &
                                                       & factorial)
@@ -156,13 +261,13 @@ recursive function calculate_basis_functions(coupling,no_modes, &
    & no_basis_functions,factorial) result(output)
   implicit none
   
-  integer, intent(in)              :: coupling(:)
-  integer, intent(in)              :: no_modes
-  integer, intent(in)              :: no_basis_functions
-  integer, intent(in)              :: factorial(:)
-  type(BasisFunction), allocatable :: output(:)
+  integer, intent(in)                    :: coupling(:)
+  integer, intent(in)                    :: no_modes
+  integer, intent(in)                    :: no_basis_functions
+  integer, intent(in)                    :: factorial(:)
+  type(PolynomialPotential), allocatable :: output(:)
   
-  type(BasisFunction), allocatable :: temp(:)
+  type(PolynomialPotential), allocatable :: temp(:)
   
   integer :: i,j,k,ialloc
   
@@ -173,7 +278,9 @@ recursive function calculate_basis_functions(coupling,no_modes, &
     output(1)%monomials(1)%coefficient = 1
     output(1)%monomials(1)%powers = int(zeroes(no_modes))
   else
-    allocate( output(factorial(size(coupling)+no_basis_functions+1)), &
+    allocate( output( factorial(size(coupling)+no_basis_functions+1) &
+            &       / ( factorial(size(coupling)+1)                  &
+            &         * factorial(no_basis_functions+1) ) ),         &
             & stat=ialloc); call err(ialloc)
     j = 0
     do i=0,no_basis_functions
@@ -190,13 +297,17 @@ recursive function calculate_basis_functions(coupling,no_modes, &
   endif
 end function
 
+! ----------------------------------------------------------------------
+! Simplifies a polynomial potential.
+! Merges all equal terms, summing over their coefficients.
+! ----------------------------------------------------------------------
 subroutine simplify_PolynomialPotential(this)
   implicit none
   
   class(PolynomialPotential), intent(inout) :: this
   
   type(Monomial), allocatable :: potential(:)
-  integer, allocatable :: unique_id(:)
+  integer,        allocatable :: unique_id(:)
   
   integer :: i,j,id,ialloc
   
@@ -229,6 +340,55 @@ subroutine simplify_PolynomialPotential(this)
     this%monomials(id)%powers = potential(i)%powers
   enddo
 end subroutine
+
+! ----------------------------------------------------------------------
+! Fits a set of basis functions to the sampled B-O surface.
+! ----------------------------------------------------------------------
+function fit_basis_functions(sampling,modes,basis_functions) result(output)
+  use sampling_points_module
+  use normal_mode_module
+  implicit none
+  
+  type(CouplingSampling),    intent(in) :: sampling(:)
+  type(NormalMode),          intent(in) :: modes(:)
+  type(PolynomialPotential), intent(in) :: basis_functions(:)
+  integer, allocatable                  :: output(:)
+  
+  ! Independent sampling points.
+  integer                          :: no_sampling_points
+  type(SamplingPoint), allocatable :: sampling_points(:)
+  
+  ! Linear least-squares matrix and vector, L=(a.x-b)**2.
+  real(dp), allocatable :: a(:,:)
+  real(dp), allocatable :: b(:)
+  
+  ! Temporary variables.
+  integer :: i,j,k,ialloc
+  
+  ! Concatenate all independent sampling points.
+  no_sampling_points = 0
+  do i=1,size(sampling)
+    do j=1,size(sampling(i)%sampling_points)
+      if (.not. sampling(i)%sampling_points(j)%duplicate) then
+        no_sampling_points = no_sampling_points + 1
+      endif
+    enddo
+  enddo
+  k = 0
+  allocate(sampling_points(no_sampling_points), stat=ialloc); call err(ialloc)
+  do i=1,size(sampling)
+    do j=1,size(sampling(i)%sampling_points)
+      if (.not. sampling(i)%sampling_points(j)%duplicate) then
+        k = k+1
+        sampling_points(k) = sampling(i)%sampling_points(j)
+      endif
+    enddo
+  enddo
+  
+  ! Construct independent vector, b.
+  !allocate(b(), stat=ialloc); call err(ialloc)
+  
+end function
 
 ! ----------------------------------------------------------------------
 ! Calculates integrals of the form I(n) = u^n*e^(-freq*u*u)

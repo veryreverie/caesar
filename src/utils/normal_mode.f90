@@ -1,3 +1,6 @@
+! ======================================================================
+! Harmonic normal modes.
+! ======================================================================
 module normal_mode_module
   use constants_module, only : dp
   use string_module
@@ -8,6 +11,10 @@ module normal_mode_module
     logical                          :: soft_mode
     real(dp)                         :: frequency
     type(ComplexVector), allocatable :: displacements(:)
+  end type
+  
+  type ModeVector
+    real(dp), allocatable :: vector(:)
   end type
   
   interface new
@@ -71,4 +78,47 @@ subroutine write_normal_mode_file(this,filename)
   enddo
   close(mode_file)
 end subroutine
+
+! ----------------------------------------------------------------------
+! Converts a vector in normal mode co-ordinates to cartesian co-ordinates.
+! ----------------------------------------------------------------------
+function normal_mode_to_cartesian(input,modes,qpoint,supercell) result(output)
+  use qpoints_module
+  use structure_module
+  use linear_algebra_module
+  implicit none
+  
+  type(ModeVector),    intent(in) :: input
+  type(NormalMode),    intent(in) :: modes(:)
+  type(QpointData),    intent(in) :: qpoint
+  type(StructureData), intent(in) :: supercell
+  type(RealVector), allocatable   :: output(:)
+  
+  type(RealVector)       :: direction
+  
+  ! Working variables.
+  real(dp)    :: qr
+  complex(dp) :: exp_iqr
+  
+  ! Temporary variables
+  integer :: i,j,ialloc
+  
+  allocate(output(size(supercell%atoms)), stat=ialloc); call err(ialloc)
+  do i=1,size(supercell%atoms)
+    output(i) = dble(int(zeroes(3)))
+    
+    ! Calculate q.R and exp(i q.R).
+    qr = qpoint%qpoint * supercell%rvectors(supercell%atom_to_rvec(i))
+    exp_iqr = cmplx(cos(qr), sin(qr), dp)
+    
+    ! Calculate displacements in cartesian co-ordinates.
+    do j=1,size(modes)
+      ! Calculate the direction of the displacement.
+      direction = real( modes(j)%displacements(supercell%atom_to_prim(i)) &
+                    & * exp_iqr)
+      ! Calculate the displacement.
+      output(i) = output(i) + direction * input%vector(j)
+    enddo
+  enddo
+end function
 end module

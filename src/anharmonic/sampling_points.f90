@@ -19,11 +19,6 @@ module sampling_points_module
     logical              :: duplicate
   end type
   
-  ! Displacement vectors in normal mode co-ordinates.
-  type :: DisplacementData
-    real(dp), allocatable :: displacements(:)
-  end type
-  
   type :: CouplingSampling
     type(CoupledModes)               :: coupling
     type(SamplingPoint), allocatable :: sampling_points(:)

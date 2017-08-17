@@ -344,6 +344,16 @@ module linear_algebra_module
   end interface
   
   ! --------------------------------------------------
+  ! Linear least-squares optimisation.
+  ! --------------------------------------------------
+  interface linear_least_squares
+    module procedure linear_least_squares_reals_reals
+    module procedure linear_least_squares_reals_RealVector
+    module procedure linear_least_squares_RealMatrix_reals
+    module procedure linear_least_squares_RealMatrix_RealVector
+  end interface
+  
+  ! --------------------------------------------------
   ! BLAS / LAPACK interface.
   ! --------------------------------------------------
   interface
@@ -421,16 +431,16 @@ module linear_algebra_module
       import :: dp
       implicit none
       
-      character(1), intent(in)    :: JOBZ     ! N/V: if V, calculate eigenvectors
-      character(1), intent(in)    :: UPLO     ! U/L: store upper/lower triangle
-      integer,      intent(in)    :: N        ! the order of A
-      integer,      intent(in)    :: LDA      ! the dimension of A
-      complex(dp),  intent(inout) :: A(LDA,*) ! Hermitian matrix
-      real(dp),     intent(out)   :: W(*)     ! eigenvalues of A
-      complex(dp),  intent(out)   :: WORK(*)  ! WORK(1) = optimal LWORK
-      integer,      intent(in)    :: LWORK    ! the length of WORK
-      real(dp),     intent(out)   :: RWORK(*) ! working array
-      integer,      intent(out)   :: INFO     ! 0 on success
+      character(1), intent(in)    :: JOBZ     ! N/V: if V, calculate eigenvecs.
+      character(1), intent(in)    :: UPLO     ! U/L: upper/lower triangle.
+      integer,      intent(in)    :: N        ! the order of A.
+      integer,      intent(in)    :: LDA      ! the dimension of A.
+      complex(dp),  intent(inout) :: A(LDA,*) ! Hermitian matrix.
+      real(dp),     intent(out)   :: W(*)     ! eigenvalues of A.
+      complex(dp),  intent(out)   :: WORK(*)  ! WORK(1) = optimal LWORK.
+      integer,      intent(in)    :: LWORK    ! the length of WORK.
+      real(dp),     intent(out)   :: RWORK(*) ! working array.
+      integer,      intent(out)   :: INFO     ! 0 on success.
     end subroutine
     
     ! Finds the eigenvalues of a symmetric matrix.
@@ -438,15 +448,33 @@ module linear_algebra_module
       import :: dp
       implicit none
       
-      character(1), intent(in)    :: JOBZ     ! N/V: if V, calculate eigenvectors
-      character(1), intent(in)    :: UPLO     ! U/L: store upper/lower triangle
-      integer,      intent(in)    :: N        ! the order of A
-      integer,      intent(in)    :: LDA      ! the dimension of A
-      real(dp),     intent(inout) :: A(LDA,*) ! symmetric matrix
-      real(dp),     intent(out)   :: W(*)     ! eigenvalues of A
-      real(dp),     intent(out)   :: WORK(*)  ! WORK(1) = optimal LWORK
-      integer,      intent(in)    :: LWORK    ! the length of WORK
-      integer,      intent(out)   :: INFO     ! 0 on success
+      character(1), intent(in)    :: JOBZ     ! N/V: if V, calculate eigenvecs.
+      character(1), intent(in)    :: UPLO     ! U/L: upper/lower triangle.
+      integer,      intent(in)    :: N        ! the order of A.
+      integer,      intent(in)    :: LDA      ! the dimension of A.
+      real(dp),     intent(inout) :: A(LDA,*) ! symmetric matrix.
+      real(dp),     intent(out)   :: W(*)     ! eigenvalues of A.
+      real(dp),     intent(out)   :: WORK(*)  ! WORK(1) = optimal LWORK.
+      integer,      intent(in)    :: LWORK    ! the length of WORK.
+      integer,      intent(out)   :: INFO     ! 0 on success.
+    end subroutine
+    
+    ! Minimises the least-squares fit L=(A.X-B)**2.
+    pure subroutine dgels(TRANS,M,N,NRHS,A,LDA,B,LDB,WORK,LWORK,INFO)
+      import :: dp
+      implicit none
+      
+      character(1), intent(in)    :: TRANS    ! N/T: if T, A is transposed.
+      integer,      intent(in)    :: M        ! size(A,1)=size(B,1).
+      integer,      intent(in)    :: N        ! size(A,2)=size(X,1).
+      integer,      intent(in)    :: NRHS     ! size(B,2)=size(X,2).
+      integer,      intent(in)    :: LDA      ! The leading dimension of A.
+      real(dp),     intent(inout) :: A(LDA,*) ! The matrix A.
+      integer,      intent(in)    :: LDB      ! The leading dimension of B.
+      real(dp),     intent(inout) :: B(LDB,*) ! The matrix B.
+      real(dp),     intent(out)   :: WORK(*)  ! WORK(1) = optimal LWORK.
+      integer,      intent(in)    :: LWORK    ! size(WORK).
+      integer,      intent(out)   :: INFO     ! 0 on success.
     end subroutine
   end interface
 
@@ -2348,19 +2376,22 @@ function calculate_RealEigenstuff_reals(input) result(output)
   real(dp), intent(in) :: input(:,:)  ! A real, symmetric matrix.
   type(RealEigenstuff) :: output      ! The eigenvalues and eigenstates.
   
-  ! working variables
+  ! dsyev variables.
   integer               :: n
   real(dp), allocatable :: work(:)
   integer               :: lwork
   integer               :: info
   
+  ! Temporary variables.
+  integer :: ialloc
+  
   n = size(input,1)
-  allocate(output%evals(n))
-  allocate(output%evecs(n,n))
+  allocate( output%evals(n), &
+          & work(3*n-1),     &
+          & stat=ialloc); call err(ialloc)
   output%evecs = input
   
   ! calculate optimal lwork
-  allocate(work(3*n-1))
   call dsyev('V', 'U', n, output%evecs(1,1), n, output%evals, &
     & work(1), -1, info)
   if (info /= 0) then
@@ -2368,8 +2399,8 @@ function calculate_RealEigenstuff_reals(input) result(output)
     call err()
   endif
   lwork = nint(work(1))
-  deallocate(work)
-  allocate(work(lwork))
+  deallocate(work, stat=ialloc); call err(ialloc)
+  allocate(work(lwork), stat=ialloc); call err(ialloc)
   
   ! calculate eigenstuff
   call dsyev('V', 'U', n, output%evecs(1,1), n, output%evals, &
@@ -2398,31 +2429,33 @@ function calculate_ComplexEigenstuff_complexes(input) result(output)
   complex(dp), intent(in) :: input(:,:)  ! a complex, hermitian matrix
   type(ComplexEigenstuff) :: output      ! the eigenvalues and eigenstates of a
   
-  ! working variables
-  integer               :: n
+  ! zheev variables.
+  integer                  :: n
   complex(dp), allocatable :: work(:)
-  integer               :: lwork
-  real(dp), allocatable :: rwork(:)
-  integer               :: info
+  integer                  :: lwork
+  real(dp),    allocatable :: rwork(:)
+  integer                  :: info
+  
+  ! Temporary variables.
+  integer :: ialloc
   
   n = size(input,1)
-  allocate(output%evals(n))
-  allocate(output%evecs(n,n))
+  allocate( output%evals(n), &
+          & rwork(3*n-2),    &
+          & work(3*n-1),     &
+          & stat=ialloc); call err(ialloc)
   output%evecs = input
   
-  allocate(rwork(3*n-2))
-  
   ! calculate optimal lwork
-  allocate(work(3*n-1))
   call zheev('V', 'U', n, output%evecs(1,1), n, output%evals, &
     & work(1), -1, rwork, info)
   if (info /= 0) then
-    call print_line("dsyev failed, info= "//info)
+    call print_line("zheev failed, info= "//info)
     call err()
   endif
   lwork = nint(real(work(1)))
-  deallocate(work)
-  allocate(work(lwork))
+  deallocate(work, stat=ialloc); call err(ialloc)
+  allocate(work(lwork), stat=ialloc); call err(ialloc)
   
   ! calculate eigenstuff
   call zheev('V', 'U', n, output%evecs(1,1), n, output%evals, &
@@ -2441,4 +2474,91 @@ function calculate_ComplexEigenstuff_ComplexMatrix(input) result(output)
   
   output = calculate_eigenstuff(cmplx(input))
 end function
+
+! --------------------------------------------------
+! Minimises the least-squares fit L=(a.x-b)**2.
+! --------------------------------------------------
+function linear_least_squares_reals_reals(a,b) result(x)
+  implicit none
+  
+  real(dp), intent(in) :: a(:,:)
+  real(dp), intent(in) :: b(:)
+  type(RealVector)     :: x
+  
+  ! Array storage.
+  real(dp), allocatable :: a2(:,:)
+  
+  ! dgels variables.
+  integer               :: m,n
+  real(dp), allocatable :: work(:)
+  integer               :: lwork
+  integer               :: info
+  
+  ! Temporary variables
+  integer :: ialloc
+  
+  ! Check that input dimensions are consistent.
+  m = size(a,1)
+  n = size(a,2)
+  if (size(b)/=m) then
+    call err()
+  elseif (m<=n) then
+    call print_line('Error in least-squares optimisation: there are more &
+       &variables to be fit than input data-points.')
+    call err()
+  endif
+  
+  ! Copy a and b so that they are not changed by dgels.
+  a2 = dble(a)
+  x = b
+  
+  ! Calculate optimal workspace size.
+  allocate(work(2*m*n), stat=ialloc); call err(ialloc)
+  call dgels('N',m,n,1,a2(1,1),m,x%contents(1),m,work(1),-1,info)
+  if (info/=0) then
+    call print_line('dgels failed, info= '//info)
+    call err()
+  endif
+  lwork = nint(work(1))
+  deallocate(work, stat=ialloc); call err(ialloc)
+  allocate(work(lwork), stat=ialloc); call err(ialloc)
+  
+  ! Run linear least-squares optimisation.
+  call dgels('N',m,n,1,a2(1,1),m,x%contents(1),m,work(1),lwork,info)
+  if (info/=0) then
+    call print_line('dgels failed, info= '//info)
+    call err()
+  endif
+end function
+
+function linear_least_squares_reals_RealVector(a,b) result(x)
+  implicit none
+  
+  real(dp),         intent(in) :: a(:,:)
+  type(RealVector), intent(in) :: b
+  type(RealVector)             :: x
+  
+  x = linear_least_squares(a,dble(b))
+end function
+
+function linear_least_squares_RealMatrix_reals(a,b) result(x)
+  implicit none
+  
+  type(RealMatrix), intent(in) :: a
+  real(dp),         intent(in) :: b(:)
+  type(RealVector)             :: x
+  
+  x = linear_least_squares(dble(a),b)
+end function
+
+function linear_least_squares_RealMatrix_RealVector(a,b) result(x)
+  implicit none
+  
+  type(RealMatrix), intent(in) :: a
+  type(RealVector), intent(in) :: b
+  type(RealVector)             :: x
+  
+  x = linear_least_squares(dble(a),dble(b))
+end function
+
 end module

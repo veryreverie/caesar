@@ -28,8 +28,7 @@ function setup_anharmonic_keywords() result(keywords)
   &               default_value='0'),                                         &
   & make_keyword( 'grid_type',                                                &
   &               'grid_type specifies the sampling method. Options are &
-  &"cubic", which uses a spline representation of the potential, and &
-  &"spherical", which uses a polynomial representation of the potential.',    &
+  &"cubic", "octahedral", and "spherical".',                                  &
   &               default_value='cubic'),                                     &
   & make_keyword( 'max_energy',                                               &
   &               'max_energy is the maximum value of the potential up to &
@@ -61,6 +60,7 @@ subroutine setup_anharmonic(arguments)
   use normal_mode_module
   use coupling_module
   use sampling_points_module
+  use grid_types_module
   implicit none
   
   type(Dictionary), intent(in) :: arguments
@@ -100,13 +100,11 @@ subroutine setup_anharmonic(arguments)
   real(dp), allocatable :: sample_spacing(:)
   
   ! Supercell with displaced atoms.
-  type(StructureData) :: supercell
-  real(dp)            :: qr
-  complex(dp)         :: exp_iqr
-  type(ComplexVector) :: displacement
+  type(StructureData)           :: supercell
+  type(RealVector), allocatable :: displacement(:)
   
   ! Temporary variables.
-  integer                   :: i,j,k,l,m,ialloc
+  integer                   :: i,j,k,l,ialloc
   type(String), allocatable :: line(:)
   type(String)              :: qdir,cdir,sdir
   
@@ -153,7 +151,9 @@ subroutine setup_anharmonic(arguments)
   endif
   
   ! Check grid type.
-  if (grid_type/='cubic') then
+  if ( grid_type/='cubic'      .and. &
+     & grid_type/='octahedral' .and. &
+     & grid_type/='spherical') then
     call print_line('Error: the grid type '//grid_type//' is not yet &
        &supported.')
     stop
@@ -239,23 +239,17 @@ subroutine setup_anharmonic(arguments)
         sdir = cdir//'/sampling_point_'//k
         call mkdir(sdir)
         
+        ! Displace supercell atoms by a sum of normal modes.
         supercell = supercells(qpoints(i)%sc_id)
+        displacement = normal_mode_to_cartesian(                       &
+           & calculate_displacement( grid_type,                        &
+           &                         setup_data(j)%sampling_points(k), &
+           &                         sample_spacing),                  &
+           & modes,                                                    &
+           & qpoints(i),                                               &
+           & supercell )
         do l=1,supercell%no_atoms
-          ! Calculate q.R and exp(i q.R)
-          qr = qpoints(i)%qpoint &
-           & * supercell%rvectors(supercell%atom_to_rvec(l))
-          exp_iqr = cmplx(cos(qr), sin(qr), dp)
-          
-          ! Calculate displaced atomic co-ordinates.
-          do m=1,structure%no_modes
-            if (grid_type=='cubic') then
-              displacement = modes(m)%displacements(supercell%atom_to_prim(l))
-              supercell%atoms(l) = supercell%atoms(l)                         &
-                               & + setup_data(j)%sampling_points(k)%indices(m)&
-                               & * real(displacement*exp_iqr)                 &
-                               & * sample_spacing(k)
-            endif
-          enddo
+          supercell%atoms(l) = supercell%atoms(l) + displacement(l)
         enddo
         
         ! Write DFT input file.
