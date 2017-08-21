@@ -79,10 +79,10 @@ subroutine setup_anharmonic(arguments)
   type(String)     :: dft_code
   
   ! File data.
-  type(String) :: wd
-  type(String) :: dft_input_filename
-  
+  type(String)              :: wd
+  type(String)              :: dft_input_filename
   type(String), allocatable :: no_supercells_file(:)
+  integer                   :: sample_spacing_file
   
   ! Starting data.
   real(dp)                         :: thermal_energy
@@ -203,6 +203,11 @@ subroutine setup_anharmonic(arguments)
     qdir = wd//'/qpoint_'//i
     call mkdir(qdir)
     
+    ! Write out sample spacing.
+    sample_spacing_file = open_write_file(qdir//'/sample_spacing.dat')
+    call print_line(sample_spacing_file, sample_spacing)
+    close(sample_spacing_file)
+    
     ! Parse coupling.
     line = split(all_coupling(i), ',')
     allocate(coupling(size(line)), stat=ialloc); call err(ialloc)
@@ -222,12 +227,12 @@ subroutine setup_anharmonic(arguments)
       call mkdir(cdir)
     
       ! Calculate indices of sampling points.
-      if (grid_type=='cubic') then
-        setup_data(j)%sampling_points = cubic_sampling_points(        &
-                                      & setup_data(j)%coupling%modes, &
-                                      & structure%no_modes,           &
-                                      & no_sampling_points )
-      endif
+      setup_data(j)%sampling_points = generate_sampling_points(     &
+                                    & grid_type,                    &
+                                    & setup_data(j)%coupling%modes, &
+                                    & structure%no_modes,           &
+                                    & no_sampling_points,           &
+                                    & sample_spacing)
       
       ! Write out sampling points.
       call write_sampling_points_file(setup_data(j)%sampling_points, &
@@ -242,9 +247,7 @@ subroutine setup_anharmonic(arguments)
         ! Displace supercell atoms by a sum of normal modes.
         supercell = supercells(qpoints(i)%sc_id)
         displacement = normal_mode_to_cartesian(                       &
-           & calculate_displacement( grid_type,                        &
-           &                         setup_data(j)%sampling_points(k), &
-           &                         sample_spacing),                  &
+           & setup_data(j)%sampling_points(k)%displacement,            &
            & modes,                                                    &
            & qpoints(i),                                               &
            & supercell )

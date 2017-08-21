@@ -1,30 +1,31 @@
 ! ======================================================================
-! A generalised harmonic basis function.
+! A generalised eigenstate basis function.
 ! ======================================================================
-module harmonic_states_module
+module eigenstates_module
   use constants_module, only : dp
   use string_module
   use io_module
   
-  ! A harmonic eigenstate, e.g.
-  !    ( a + b(u1) + c(u1)**2 )*e**(E*(u1)**2) => exponent=E, coeffs=[a,b,c]
-  type :: HarmonicState
+  ! An eigenstate of the form f(u)*e^-(w*u^2/2) where f is polynomial, e.g.
+  !    ( a + b*(u1) + c*(u1)**2 )*e^(-w*(u1)^2/2) => frequency    = w,
+  !                                                  coefficients = [a,b,c]
+  type :: SingleModeState
     real(dp)              :: frequency
     real(dp), allocatable :: coefficients(:)
   contains
-    procedure :: evaluate => evaluate_HarmonicState_real
+    procedure :: evaluate => evaluate_SingleModeState_real
   end type
 contains
 
 ! ------------------------------------------------------------
 ! Evaluates the basis function at a given displacement along the normal mode.
 ! ------------------------------------------------------------
-function evaluate_HarmonicState_real(this,u) result(output)
+function evaluate_SingleModeState_real(this,u) result(output)
   implicit none
   
-  class(HarmonicState), intent(in) :: this
-  real(dp),             intent(in) :: u
-  real(dp)                         :: output
+  class(SingleModeState), intent(in) :: this
+  real(dp),               intent(in) :: u
+  real(dp)                           :: output
   
   integer :: i
   
@@ -47,9 +48,9 @@ function generate_harmonic_basis(frequency,no_harmonic_states) &
   use coupling_module
   implicit none
   
-  real(dp), intent(in)             :: frequency
-  integer,  intent(in)             :: no_harmonic_states
-  type(HarmonicState), allocatable :: output(:)
+  real(dp), intent(in)               :: frequency
+  integer,  intent(in)               :: no_harmonic_states
+  type(SingleModeState), allocatable :: output(:)
   
   real(dp) :: normalisation
   

@@ -77,4 +77,21 @@ function outer_product(input1,input2) result(output)
     output(:,i) = input2(i) * input1
   enddo
 end function
+
+! ----------------------------------------------------------------------
+! Factorial.
+! ----------------------------------------------------------------------
+function factorial(input) result(output)
+  implicit none
+  
+  integer, intent(in) :: input
+  integer             :: output
+  
+  integer :: i
+  
+  output = 1
+  do i=1,input
+    output = output*i
+  enddo
+end function
 end module

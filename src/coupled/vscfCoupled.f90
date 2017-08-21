@@ -657,10 +657,10 @@ subroutine vscf()
             do beta=1,nbasis
               scf_indep2(i,j) = scf_indep2(i,j)                      &
                             & + eigenvectors(i,alpha,state(i))       &
-                            & * eigenvectors(i,beta,j)               &
                             & * sum(   basis(i,:,alpha)              &
                             &        * (indep_pot(i,:)-scf_pot(i,:)) &
                             &        * basis(i,:,beta))              &
+                            & * eigenvectors(i,beta,j)               &
                             & * dq(i)
             enddo
           enddo

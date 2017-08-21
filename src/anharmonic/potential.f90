@@ -136,17 +136,21 @@ end function
 ! Calculates a representation of the Born-Oppenheimer surface using
 !    samples from the surface.
 ! ----------------------------------------------------------------------
-function calculate_potential(no_basis_functions,sampling,modes, &
-   & harmonic_states) result(output)
+function calculate_potential(no_basis_functions,sampling,modes,qpoint, &
+   & supercell,harmonic_states) result(output)
   use sampling_points_module
   use normal_mode_module
-  use harmonic_states_module
+  use qpoints_module
+  use structure_module
+  use eigenstates_module
   implicit none
   
   integer,                intent(in) :: no_basis_functions
   type(CouplingSampling), intent(in) :: sampling(:)
   type(NormalMode),       intent(in) :: modes(:)
-  type(HarmonicState),    intent(in) :: harmonic_states(:,:)
+  type(QpointData),       intent(in) :: qpoint
+  type(StructureData),    intent(in) :: supercell
+  type(SingleModeState),  intent(in) :: harmonic_states(:,:)
   type(PolynomialPotential)          :: output
   
   integer :: no_modes
@@ -186,7 +190,11 @@ function calculate_potential(no_basis_functions,sampling,modes, &
   
   ! Use linear least-squares regression to fit basis function coefficients
   !    to input energy and force data.
-  basis_coefficients = fit_basis_functions(sampling,modes,basis_functions)
+  basis_coefficients = fit_basis_functions(sampling,modes,qpoint,supercell, &
+     & basis_functions)
+  
+  ! Combine basis functions into a single sum of monomials
+  ! TODO
   
   ! Simplify output.
   call output%simplify()
@@ -208,6 +216,7 @@ end function
 
 function calculate_all_basis_functions(sampling,no_modes,no_basis_functions) &
    & result(output)
+  use utils_module, only : factorial
   use coupling_module
   use sampling_points_module
   implicit none
@@ -218,7 +227,6 @@ function calculate_all_basis_functions(sampling,no_modes,no_basis_functions) &
   type(PolynomialPotential), allocatable :: output(:)
   
   integer              :: max_size
-  integer, allocatable :: factorial(:)
   integer, allocatable :: sizes(:)
   
   integer :: i,j,ialloc
@@ -229,20 +237,12 @@ function calculate_all_basis_functions(sampling,no_modes,no_basis_functions) &
     max_size = max(max_size, size(sampling(i)%coupling))
   enddo
   
-  ! Calculate factorials for later use.
-  allocate( factorial(max_size+no_basis_functions+1), &
-          & stat=ialloc); call err(ialloc)
-  factorial(1) = 1
-  do i=2,size(factorial)
-    factorial(i) = (i-1)*factorial(i-1)
-  enddo
-  
   ! Calculate how much space is needed and allocate output.
   allocate(sizes(size(sampling)), stat=ialloc); call err(ialloc)
   do i=1,size(sampling)
-    sizes(i) = factorial(size(sampling(i)%coupling)+no_basis_functions+1) &
-           & / ( factorial(size(sampling(i)%coupling)+1)                  &
-           &   * factorial(no_basis_functions+1) )
+    sizes(i) = factorial(size(sampling(i)%coupling)+no_basis_functions) &
+           & / ( factorial(size(sampling(i)%coupling))                  &
+           &   * factorial(no_basis_functions) )
   enddo
   allocate(output(sum(sizes)), stat=ialloc); call err(ialloc)
   
@@ -251,50 +251,41 @@ function calculate_all_basis_functions(sampling,no_modes,no_basis_functions) &
   do i=1,size(sampling)
     output(j+1:j+sizes(i)) = calculate_basis_functions( sampling(i)%coupling%modes, &
                                                       & no_modes,           &
-                                                      & no_basis_functions, &
-                                                      & factorial)
+                                                      & no_basis_functions)
     j = j+sizes(i)
   enddo
 end function
 
-recursive function calculate_basis_functions(coupling,no_modes, &
-   & no_basis_functions,factorial) result(output)
+function calculate_basis_functions(coupling,no_modes,no_basis_functions) &
+   & result(output)
+  use grid_types_module
   implicit none
   
   integer, intent(in)                    :: coupling(:)
   integer, intent(in)                    :: no_modes
   integer, intent(in)                    :: no_basis_functions
-  integer, intent(in)                    :: factorial(:)
   type(PolynomialPotential), allocatable :: output(:)
   
-  type(PolynomialPotential), allocatable :: temp(:)
+  integer, allocatable :: octahedral_points(:,:)
   
-  integer :: i,j,k,ialloc
+  integer :: i,j,ialloc
   
-  if (size(coupling)==0 .or. no_basis_functions==0) then
-    ! The base case: only the basis function 1 * u1^0 * ... * un^0 is needed.
-    allocate(output(1), stat=ialloc); call err(ialloc)
-    allocate(output(1)%monomials(1), stat=ialloc); call err(ialloc)
-    output(1)%monomials(1)%coefficient = 1
-    output(1)%monomials(1)%powers = int(zeroes(no_modes))
-  else
-    allocate( output( factorial(size(coupling)+no_basis_functions+1) &
-            &       / ( factorial(size(coupling)+1)                  &
-            &         * factorial(no_basis_functions+1) ) ),         &
-            & stat=ialloc); call err(ialloc)
-    j = 0
-    do i=0,no_basis_functions
-      temp = calculate_basis_functions( coupling(2:),         &
-                                      & no_modes,             &
-                                      & no_basis_functions-i, &
-                                      & factorial)
-      do k=1,size(temp)
-        output(j+k) = temp(k)
-        output(j+k)%monomials(1)%powers(coupling(1)) = i
-      enddo
-      j = j+size(temp)
+  ! Generate an octahedral grid of points.
+  ! Each point will be mapped onto a single basis function.
+  octahedral_points = generate_octahedral_grid( size(coupling), &
+                                              & no_basis_functions)
+  
+  ! Generate output.
+  allocate(output(size(octahedral_points,2)), stat=ialloc); call err(ialloc)
+  do i=1,size(output)
+    ! Each basis function consists of only one monomial.
+    allocate(output(i)%monomials(1), stat=ialloc); call err(ialloc)
+    output(i)%monomials(1)%coefficient = 1
+    output(i)%monomials(1)%powers = int(zeroes(no_modes))
+    do j=1,size(coupling)
+      output(i)%monomials(1)%powers(coupling(j)) = octahedral_points(j,i)
     enddo
-  endif
+  enddo
 end function
 
 ! ----------------------------------------------------------------------
@@ -344,26 +335,47 @@ end subroutine
 ! ----------------------------------------------------------------------
 ! Fits a set of basis functions to the sampled B-O surface.
 ! ----------------------------------------------------------------------
-function fit_basis_functions(sampling,modes,basis_functions) result(output)
+function fit_basis_functions(sampling,modes,qpoint,supercell,basis_functions) &
+   & result(output)
   use sampling_points_module
   use normal_mode_module
+  use qpoints_module
+  use structure_module
+  use grid_types_module
   implicit none
   
   type(CouplingSampling),    intent(in) :: sampling(:)
   type(NormalMode),          intent(in) :: modes(:)
+  type(QpointData),          intent(in) :: qpoint
+  type(StructureData),       intent(in) :: supercell
   type(PolynomialPotential), intent(in) :: basis_functions(:)
-  integer, allocatable                  :: output(:)
+  real(dp), allocatable                 :: output(:)
+  
+  ! Input array lengths.
+  integer :: no_forces
   
   ! Independent sampling points.
   integer                          :: no_sampling_points
   type(SamplingPoint), allocatable :: sampling_points(:)
+  real(dp),            allocatable :: energy(:)
+  type(RealVector),    allocatable :: forces(:,:)
+  
+  ! The normal-mode displacement at each sampling point.
+  type(ModeVector) :: displacement
+  
+  ! The basis-function force at each sampling point.
+  type(ModeVector)              :: forces_mode
+  type(RealVector), allocatable :: forces_cartesian(:)
   
   ! Linear least-squares matrix and vector, L=(a.x-b)**2.
+  integer               :: m,n
   real(dp), allocatable :: a(:,:)
   real(dp), allocatable :: b(:)
   
   ! Temporary variables.
-  integer :: i,j,k,ialloc
+  integer :: i,j,k,l,ialloc
+  
+  no_forces = size(sampling(1)%forces)
   
   ! Concatenate all independent sampling points.
   no_sampling_points = 0
@@ -375,19 +387,51 @@ function fit_basis_functions(sampling,modes,basis_functions) result(output)
     enddo
   enddo
   k = 0
-  allocate(sampling_points(no_sampling_points), stat=ialloc); call err(ialloc)
+  allocate( sampling_points(no_sampling_points),  &
+          & energy(no_sampling_points),           &
+          & forces(no_forces,no_sampling_points), &
+          & stat=ialloc); call err(ialloc)
   do i=1,size(sampling)
     do j=1,size(sampling(i)%sampling_points)
       if (.not. sampling(i)%sampling_points(j)%duplicate) then
         k = k+1
         sampling_points(k) = sampling(i)%sampling_points(j)
+        energy(k) = sampling(i)%energy(j)
+        forces(:,k) = sampling(i)%forces(:,j)
       endif
     enddo
   enddo
   
-  ! Construct independent vector, b.
-  !allocate(b(), stat=ialloc); call err(ialloc)
+  ! Construct a and b.
+  m = no_sampling_points*(1+no_forces)
+  n = size(basis_functions)
+  allocate( a(m,n), &
+          & b(m),   &
+          & stat=ialloc); call err(ialloc)
+  do i=1,no_sampling_points
+    l = (i-1)*(1+no_forces) + 1
+    displacement = sampling_points(i)%displacement
+    
+    do j=1,n
+      a(l,j) = basis_functions(j)%evaluate_energy(displacement)
+      forces_mode = basis_functions(j)%evaluate_forces(displacement)
+      forces_cartesian = normal_mode_to_cartesian( forces_mode, &
+                                                 & modes,       &
+                                                 & qpoint,      &
+                                                 & supercell)
+      do k=1,size(forces_cartesian)
+        a(l+3*k-2:l+3*k, j) = dble(forces_cartesian(k))
+      enddo
+    enddo
+    
+    b(l) = energy(i)
+    do k=1,size(forces(:,i))
+      b(l+3*k-2:l+3*k) = dble(forces(k,i))
+    enddo
+  enddo
   
+  ! Perform linear least-squares optimisation.
+  output = dble(linear_least_squares(a,b))
 end function
 
 ! ----------------------------------------------------------------------
@@ -428,13 +472,13 @@ end function
 function generate_harmonic_couplings(harmonic_states,no_basis_functions, &
    & gaussian_integrals) result(output)
   use linear_algebra_module
-  use harmonic_states_module
+  use eigenstates_module
   implicit none
   
-  type(HarmonicState), intent(in) :: harmonic_states(:)
-  integer,             intent(in) :: no_basis_functions
-  real(dp),            intent(in) :: gaussian_integrals(:)
-  type(RealMatrix), allocatable   :: output(:)
+  type(SingleModeState), intent(in) :: harmonic_states(:)
+  integer,               intent(in) :: no_basis_functions
+  real(dp),              intent(in) :: gaussian_integrals(:)
+  type(RealMatrix), allocatable     :: output(:)
   
   real(dp), allocatable :: matrix(:,:)
   

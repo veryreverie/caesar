@@ -43,7 +43,7 @@ subroutine calculate_anharmonic(arguments)
   use sampling_points_module
   use linear_algebra_module
   use dft_output_file_module
-  use harmonic_states_module
+  use eigenstates_module
   use potential_module
   use scf_module
   implicit none
@@ -74,6 +74,8 @@ subroutine calculate_anharmonic(arguments)
   type(QpointData),       allocatable :: qpoints(:)
   type(NormalMode),       allocatable :: modes(:)
   type(CoupledModes),     allocatable :: coupling(:)
+  type(String),           allocatable :: sample_spacing_file(:)
+  real(dp),               allocatable :: sample_spacing(:)
   integer                             :: no_sampling_points
   type(CouplingSampling), allocatable :: sampling(:)
   
@@ -81,19 +83,21 @@ subroutine calculate_anharmonic(arguments)
   type(String)                  :: dft_output_filename
   type(DftOutputFile)           :: dft_output_file
   
-  ! Harmonic eigenstates coupling between them.
-  type(HarmonicState), allocatable :: harmonic_states(:,:)
+  ! Harmonic eigenstates along each normal mode.
+  type(SingleModeState), allocatable :: harmonic_states(:,:)
   
   ! The Born-Oppenheimer potential.
   type(PolynomialPotential) :: potential
   
-  ! SCF variables
-  integer                           :: scf_step
-  type(RealEigenstuff), allocatable :: vscf_eigenstuff(:)
-  real(dp),             allocatable :: energy_change(:,:)
+  ! Anharmonic eigenstates along each normal mode.
+  type(SingleModeState), allocatable :: vscf_states(:,:)
   
   ! Temporary variables.
   integer :: i,j,k,ialloc
+  
+  ! --------------------------------------------------
+  ! Read in data and construct harmonic basis.
+  ! --------------------------------------------------
   
   ! Read in inputs.
   wd = arguments%value('working_directory')
@@ -151,6 +155,10 @@ subroutine calculate_anharmonic(arguments)
                                                     & no_harmonic_states)
     enddo
     
+    ! Read in sample spacing.
+    sample_spacing_file = read_lines(wd//'/qpoint_'//i//'/sample_spacing.dat')
+    sample_spacing = dble(split(sample_spacing_file(1)))
+    
     ! Read in coupling and sampling points.
     coupling = read_coupling_file(wd//'/qpoint_'//i//'/coupling.dat')
     allocate(sampling(size(coupling)), stat=ialloc); call err(ialloc)
@@ -175,49 +183,31 @@ subroutine calculate_anharmonic(arguments)
       enddo
     enddo
     
+    ! --------------------------------------------------
     ! Calculate the Born-Oppenheimer potential.
+    ! --------------------------------------------------
     potential = calculate_potential( no_basis_functions, &
                                    & sampling,           &
                                    & modes,              &
+                                   & qpoints(i),         &
+                                   & supercell,          &
                                    & harmonic_states)
     
-    ! Initialise eigenstuff to harmonic values.
-    allocate( vscf_eigenstuff(structure%no_modes), &
-            & stat=ialloc); call err(ialloc)
-    do j=1,structure%no_modes
-      vscf_eigenstuff(j)%evecs = real(int(identity(no_basis_functions)))
-      do k=1,no_basis_functions
-        vscf_eigenstuff(j)%evals(k) = (k-0.5_dp)*modes(j)%frequency
-      enddo
-    enddo
+    ! --------------------------------------------------
+    ! Run calculations.
+    ! --------------------------------------------------
     
-    ! Initialise energy change array.
-    allocate( energy_change(no_basis_functions, structure%no_modes), &
-            & stat=ialloc); call err(ialloc)
+    ! Run VSCF calculation to find VSCF basis functions.
+    vscf_states = vscf( harmonic_states, &
+                      & potential,       &
+                      & max_scf_cycles,  &
+                      & scf_convergence_threshold)
     
-    ! SCF cycles.
-    do scf_step=1,max_scf_cycles
-      ! Record old eigenvalues.
-      do j=1,structure%no_modes
-        energy_change(:,j) = vscf_eigenstuff(j)%evals
-      enddo
-      
-      ! Run SCF calculations.
-      vscf_eigenstuff = scf(potential,vscf_eigenstuff)
-      
-      ! Calculate L2-norm change in eigenvalues.
-      do j=1,structure%no_modes
-        energy_change(:,j) = l2_norm(vec( vscf_eigenstuff(j)%evals &
-                                        & - energy_change(:,j) ))
-      enddo
-      
-      ! Check for convergence
-      if (sum(energy_change)<scf_convergence_threshold) then
-        exit
-      elseif (scf_step==max_scf_cycles) then
-        call err()
-      endif
-    enddo
+    ! Construct product states from VSCF basis.
+    ! TODO
+    
+    ! Run Moller-Plesset perturbation theory to construct new basis.
+    ! TODO
   enddo
 end subroutine
 end module
