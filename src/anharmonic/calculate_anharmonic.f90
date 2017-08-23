@@ -17,11 +17,11 @@ function calculate_anharmonic_keywords() result(keywords)
   type(KeywordData) :: keywords(4)
   
   keywords = [                                                                &
-  & make_keyword( 'no_harmonic_states',                                       &
-  &               'no_harmonic_states is the number of harmonic eigenstates &
-  &in the direction of each normal mode.'),                                   &
-  & make_keyword( 'potential_expansion_order',                                &
-  &               'potential_expansion_order is the order up to which the &
+  & make_keyword( 'harmonic_states_cutoff',                                   &
+  &               'harmonic_states_cutoff is the number of harmonic &
+  &eigenstates in the direction of each normal mode.'),                       &
+  & make_keyword( 'potential_basis_cutoff',                                &
+  &               'potential_basis_cutoff is the order up to which the &
   &potential is expanded. e.g. a cubic expansion would be order 3.'),         &
   & make_keyword( 'scf_convergence_threshold',                                &
   &               'scf_convergence_threshold is the energy to within which &
@@ -52,8 +52,8 @@ subroutine calculate_anharmonic(arguments)
   
   ! Inputs.
   type(String) :: wd
-  integer      :: no_harmonic_states
-  integer      :: no_basis_functions
+  integer      :: harmonic_states_cutoff
+  integer      :: potential_basis_cutoff
   real(dp)     :: scf_convergence_threshold
   integer      :: max_scf_cycles
   
@@ -74,8 +74,6 @@ subroutine calculate_anharmonic(arguments)
   type(QpointData),       allocatable :: qpoints(:)
   type(NormalMode),       allocatable :: modes(:)
   type(CoupledModes),     allocatable :: coupling(:)
-  type(String),           allocatable :: sample_spacing_file(:)
-  real(dp),               allocatable :: sample_spacing(:)
   integer                             :: no_sampling_points
   type(CouplingSampling), allocatable :: sampling(:)
   
@@ -83,26 +81,25 @@ subroutine calculate_anharmonic(arguments)
   type(String)                  :: dft_output_filename
   type(DftOutputFile)           :: dft_output_file
   
-  ! Harmonic eigenstates along each normal mode.
-  type(SingleModeState), allocatable :: harmonic_states(:,:)
-  
   ! The Born-Oppenheimer potential.
   type(PolynomialPotential) :: potential
   
-  ! Anharmonic eigenstates along each normal mode.
+  ! Eigenstates in various representations.
+  type(SingleModeState), allocatable :: harmonic_states(:,:)
   type(SingleModeState), allocatable :: vscf_states(:,:)
+  type(ProductState),    allocatable :: vscf_product_states(:)
   
   ! Temporary variables.
   integer :: i,j,k,ialloc
   
   ! --------------------------------------------------
-  ! Read in data and construct harmonic basis.
+  ! Read in data.
   ! --------------------------------------------------
   
   ! Read in inputs.
   wd = arguments%value('working_directory')
-  no_harmonic_states = int(arguments%value('no_harmonic_states'))
-  no_basis_functions = int(arguments%value('potential_expansion_order'))
+  harmonic_states_cutoff = int(arguments%value('harmonic_states_cutoff'))
+  potential_basis_cutoff = int(arguments%value('potential_basis_cutoff'))
   scf_convergence_threshold = &
      & dble(arguments%value('scf_convergence_threshold'))
   max_scf_cycles = int(arguments%value('max_scf_cycles'))
@@ -147,18 +144,6 @@ subroutine calculate_anharmonic(arguments)
          & harmonic_path//'/qpoint_'//i//'/mode_'//j//'.dat')
     enddo
     
-    ! Calculate harmonic eigenstates, {|a>}, along each normal mode.
-    allocate( harmonic_states(no_harmonic_states,structure%no_modes),    &
-            & stat=ialloc); call err(ialloc)
-    do j=1,structure%no_modes
-      harmonic_states(:,j) = generate_harmonic_basis( modes(j)%frequency, &
-                                                    & no_harmonic_states)
-    enddo
-    
-    ! Read in sample spacing.
-    sample_spacing_file = read_lines(wd//'/qpoint_'//i//'/sample_spacing.dat')
-    sample_spacing = dble(split(sample_spacing_file(1)))
-    
     ! Read in coupling and sampling points.
     coupling = read_coupling_file(wd//'/qpoint_'//i//'/coupling.dat')
     allocate(sampling(size(coupling)), stat=ialloc); call err(ialloc)
@@ -184,26 +169,33 @@ subroutine calculate_anharmonic(arguments)
     enddo
     
     ! --------------------------------------------------
-    ! Calculate the Born-Oppenheimer potential.
-    ! --------------------------------------------------
-    potential = calculate_potential( no_basis_functions, &
-                                   & sampling,           &
-                                   & modes,              &
-                                   & qpoints(i),         &
-                                   & supercell,          &
-                                   & harmonic_states)
-    
-    ! --------------------------------------------------
     ! Run calculations.
     ! --------------------------------------------------
     
-    ! Run VSCF calculation to find VSCF basis functions.
+    ! Calculate the Born-Oppenheimer potential.
+    potential = calculate_potential( potential_basis_cutoff, &
+                                   & sampling,               &
+                                   & modes,                  &
+                                   & qpoints(i),             &
+                                   & supercell,              &
+                                   & harmonic_states_cutoff)
+    
+    ! Calculate harmonic eigenstates, {|a>}, along each normal mode.
+    allocate( harmonic_states(harmonic_states_cutoff+1, structure%no_modes), &
+            & stat=ialloc); call err(ialloc)
+    do j=1,structure%no_modes
+      harmonic_states(:,j) = generate_harmonic_basis( modes(j)%frequency, &
+                                                    & harmonic_states_cutoff)
+    enddo
+    
+    ! Run VSCF calculation to find VSCF eigenstates.
     vscf_states = vscf( harmonic_states, &
                       & potential,       &
                       & max_scf_cycles,  &
                       & scf_convergence_threshold)
     
     ! Construct product states from VSCF basis.
+    vscf_product_states = construct_product_states(vscf_states,coupling)
     ! TODO
     
     ! Run Moller-Plesset perturbation theory to construct new basis.

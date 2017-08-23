@@ -80,6 +80,7 @@ end function
 
 ! ----------------------------------------------------------------------
 ! Factorial.
+! Stores calculated results to avoid excess computation.
 ! ----------------------------------------------------------------------
 function factorial(input) result(output)
   implicit none
@@ -87,11 +88,30 @@ function factorial(input) result(output)
   integer, intent(in) :: input
   integer             :: output
   
-  integer :: i
+  ! Lookup is saved between calls of this function.
+  integer, allocatable, save :: lookup(:)
+  integer, allocatable       :: temp(:)
   
-  output = 1
-  do i=1,input
-    output = output*i
-  enddo
+  integer :: i,ialloc
+  
+  ! Initialise lookup the first time factorial is called.
+  if (.not. allocated(lookup)) then
+    lookup = [1]
+  endif
+  
+  ! If the requested factorial has not previously been calculated,
+  !    extends lookup to include it.
+  if (input>=size(lookup)) then
+    temp = lookup
+    deallocate(lookup, stat=ialloc); call err(ialloc)
+    allocate(lookup(input+1), stat=ialloc); call err(ialloc)
+    lookup(:size(temp)) = temp
+    do i=size(temp)+1,size(lookup)
+      lookup(i) = (i-1)*lookup(i-1)
+    enddo
+  endif
+  
+  ! lookup(1) = 0!, so lookup(n+1) = n!.
+  output = lookup(input+1)
 end function
 end module

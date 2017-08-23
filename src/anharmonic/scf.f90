@@ -8,13 +8,15 @@ module scf_module
   use linear_algebra_module
 contains
 
-function scf(potential,eigenstuff) result(output)
+function scf(potential,harmonic_states,eigenstuff) result(output)
   use potential_module
+  use eigenstates_module
   implicit none
   
-  type(PolynomialPotential), intent(in)  :: potential
-  type(RealEigenstuff),      intent(in)  :: eigenstuff(:)
-  type(RealEigenstuff), allocatable      :: output(:)
+  type(PolynomialPotential), intent(in) :: potential
+  type(SingleModeState),     intent(in) :: harmonic_states(:,:)
+  type(RealEigenstuff),      intent(in) :: eigenstuff(:)
+  type(RealEigenstuff), allocatable     :: output(:)
   
   ! Array sizes.
   integer :: no_modes
@@ -37,12 +39,14 @@ function scf(potential,eigenstuff) result(output)
     mean_field = potential
     do j=1,no_modes
       if (j/=i) then
-        call mean_field%integrate_over_mode_average(i,eigenstuff(i))
+        call mean_field%integrate_over_mode_average( j,                    &
+                                                   & harmonic_states(:,j), &
+                                                   & eigenstuff(j))
       endif
     enddo
     
     ! Construct Hamiltonian in terms of harmonic eigenfunctions.
-    hamiltonian = mean_field%construct_hamiltonian(i)
+    hamiltonian = mean_field%construct_hamiltonian(i, harmonic_states(:,i))
     
     ! Diagonalise Hamiltonian to get new eigenstates.
     output(i) = calculate_eigenstuff(hamiltonian)
@@ -95,7 +99,7 @@ function vscf(harmonic_states,potential,max_scf_cycles, &
     enddo
     
     ! Run SCF calculations.
-    vscf_eigenstuff = scf(potential,vscf_eigenstuff)
+    vscf_eigenstuff = scf(potential,harmonic_states,vscf_eigenstuff)
     
     ! Calculate L2-norm change in eigenvalues.
     do i=1,no_modes

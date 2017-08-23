@@ -23,16 +23,23 @@ module potential_module
   
   ! A polynomial representation of a potential.
   type, public :: PolynomialPotential
+    integer,                       private :: cutoff
     type(Monomial),   allocatable, private :: monomials(:)
-    type(RealMatrix), allocatable, private :: harmonic_couplings(:,:)
+    real(dp),         allocatable, private :: gaussian_integrals(:,:)
   contains
-    procedure, public :: evaluate_energy => evaluate_energy_PolynomialPotential
-    procedure, public :: evaluate_forces => evaluate_forces_PolynomialPotential
-    procedure, public :: simplify => simplify_PolynomialPotential
-    procedure, public :: integrate_over_mode_average => &
-                       & integrate_over_mode_average_PolynomialPotential
-    procedure, public :: construct_hamiltonian => &
-                       & construct_hamiltonian_PolynomialPotential
+    procedure, public  :: evaluate_energy => &
+                        & evaluate_energy_PolynomialPotential
+    procedure, public  :: evaluate_forces => &
+                        & evaluate_forces_PolynomialPotential
+    procedure, public  :: simplify => simplify_PolynomialPotential
+    procedure, private :: calculate_gaussian_integrals => &
+                        & calculate_gaussian_integrals_PolynomialPotential
+    procedure, private :: generate_state_couplings => &
+                        & generate_state_couplings_PolynomialPotential
+    procedure, public  :: integrate_over_mode_average => &
+                        & integrate_over_mode_average_PolynomialPotential
+    procedure, public  :: construct_hamiltonian => &
+                        & construct_hamiltonian_PolynomialPotential
   end type
 contains
 
@@ -69,12 +76,12 @@ function evaluate_forces_Monomial(this,displacement) result(output)
   type(ModeVector), intent(in) :: displacement
   type(ModeVector)             :: output
   
+  integer        :: no_modes
   type(Monomial) :: derivative
   
-  integer :: no_modes
   integer :: i,ialloc
   
-  no_modes = size(this%powers)
+  no_modes = size(displacement%vector)
   allocate(output%vector(no_modes), stat=ialloc); call err(ialloc)
   do i=1,no_modes
     derivative = this
@@ -123,7 +130,7 @@ function evaluate_forces_PolynomialPotential(this,displacement) result(output)
   
   integer :: i,ialloc
   
-  no_modes = size(this%monomials(1)%powers)
+  no_modes = size(displacement%vector)
   allocate(output%vector(no_modes), stat=ialloc); call err(ialloc)
   output%vector = 0
   do i=1,size(this%monomials)
@@ -136,67 +143,64 @@ end function
 ! Calculates a representation of the Born-Oppenheimer surface using
 !    samples from the surface.
 ! ----------------------------------------------------------------------
-function calculate_potential(no_basis_functions,sampling,modes,qpoint, &
-   & supercell,harmonic_states) result(output)
+function calculate_potential(potential_basis_cutoff,sampling,modes,qpoint, &
+   & supercell,harmonic_states_cutoff) result(output)
   use sampling_points_module
   use normal_mode_module
   use qpoints_module
   use structure_module
-  use eigenstates_module
   implicit none
   
-  integer,                intent(in) :: no_basis_functions
+  integer,                intent(in) :: potential_basis_cutoff
   type(CouplingSampling), intent(in) :: sampling(:)
   type(NormalMode),       intent(in) :: modes(:)
   type(QpointData),       intent(in) :: qpoint
   type(StructureData),    intent(in) :: supercell
-  type(SingleModeState),  intent(in) :: harmonic_states(:,:)
+  integer,                intent(in) :: harmonic_states_cutoff
   type(PolynomialPotential)          :: output
   
-  integer :: no_modes
-  integer :: no_states
-  
-  real(dp),                  allocatable :: gaussian_integrals(:)
   type(PolynomialPotential), allocatable :: basis_functions(:)
   real(dp),                  allocatable :: basis_coefficients(:)
   
-  integer :: i,ialloc
+  integer, allocatable :: no_monomials(:)
   
-  no_modes = size(harmonic_states,2)
-  no_states = size(harmonic_states,1)
+  integer :: i,j,k,ialloc
   
-  ! Pre-process harmonic couplings (saves repeated calculation later).
-  allocate( output%harmonic_couplings(no_basis_functions,no_modes), &
-          & stat=ialloc); call err(ialloc)
-  do i=1,no_modes
-    ! Calculate gaussian integrals, I(n).
-    ! I(n+1) = integral[ u^n e^(-freq*u*u) ].
-    gaussian_integrals = calculate_gaussian_integrals( &
-                     & harmonic_states(1,i)%frequency, &
-                     & no_states,                      &
-                     & no_basis_functions)
-    
-    ! Calculate coupling between harmonic states and u^n potentials, V_ij.
-    ! V_ij(n+1) = <i|u^n|j>.
-    output%harmonic_couplings(:,i) = generate_harmonic_couplings( &
-                                          & harmonic_states(:,i), &
-                                          & no_basis_functions,   &
-                                          & gaussian_integrals)
-  enddo
+  output%cutoff = potential_basis_cutoff
+  
+  ! Calculate gaussian integrals, I(n).
+  ! I(n+1) = integral[ u^n e^(-freq*u*u) ].
+  call output%calculate_gaussian_integrals(modes, harmonic_states_cutoff)
   
   ! Generate basis functions
-  basis_functions = calculate_all_basis_functions(sampling,no_modes, &
-     & no_basis_functions)
+  basis_functions = calculate_basis_functions( sampling, &
+                                             & size(modes), &
+                                             & potential_basis_cutoff)
   
   ! Use linear least-squares regression to fit basis function coefficients
   !    to input energy and force data.
   basis_coefficients = fit_basis_functions(sampling,modes,qpoint,supercell, &
      & basis_functions)
   
-  ! Combine basis functions into a single sum of monomials
-  ! TODO
+  ! Calculate the number of monomials in each basis function.
+  allocate(no_monomials(size(basis_functions)), stat=ialloc); call err(ialloc)
+  do i=1,size(basis_functions)
+    no_monomials(i) = size(basis_functions(i)%monomials)
+  enddo
   
-  ! Simplify output.
+  ! Sum together basis functions * their coefficients.
+  allocate(output%monomials(sum(no_monomials)), stat=ialloc); call err(ialloc)
+  k = 0
+  do i=1,size(basis_functions)
+    do j=1,no_monomials(i)
+      output%monomials(k+j) = basis_functions(i)%monomials(j)
+      output%monomials(k+j)%coefficient = output%monomials(k+j)%coefficient &
+                                      & * basis_coefficients(i)
+    enddo
+    k = k+no_monomials(i)
+  enddo
+  
+  ! Simplify output, adding together all terms with equal powers.
   call output%simplify()
 end function
 
@@ -205,86 +209,61 @@ end function
 ! At present, all basis functions are monomials with coefficient 1.
 ! ----------------------------------------------------------------------
 ! Basis functions are set up in a generalised octahedral manner, i.e.
-!    sum(output(i)%monomials(j)%powers) in set [0,no_basis_functions]
-! e.g. if no_basis_functions=3 then the functions u1^3, u1^2*u2 and u1*u2*u3
-!    are all allowed, but e.g. u1^2*u2^2 is not.
-! If there are n modes in the coupling, and no_basis_functions=k,
-!    then the number of basis functions is given by the binomial coefficient
-!  / n+k \    (n+k)!
-! |       | = -----
-!  \  k  /     n!k!
-
-function calculate_all_basis_functions(sampling,no_modes,no_basis_functions) &
-   & result(output)
-  use utils_module, only : factorial
+!    sum(output(i)%monomials(j)%powers) is in set [0,potential_basis_cutoff]
+! e.g. if potential_basis_cutoff=3 then
+!    u1^3, u1^2*u2 and u1*u2*u3 are allowed, but u1^2*u2^2 is not.
+! These are generated by first generating an octahedral grid of points, and
+!    then mapping the indices of each point to the powers of each monomial.
+function calculate_basis_functions(sampling,no_modes, &
+   & potential_basis_cutoff) result(output)
   use coupling_module
   use sampling_points_module
+  use grid_types_module
   implicit none
   
   type(CouplingSampling), intent(in)     :: sampling(:)
   integer,                intent(in)     :: no_modes
-  integer,                intent(in)     :: no_basis_functions
+  integer,                intent(in)     :: potential_basis_cutoff
   type(PolynomialPotential), allocatable :: output(:)
   
-  integer              :: max_size
-  integer, allocatable :: sizes(:)
+  integer              :: size_output
+  integer, allocatable :: grid(:,:)
   
-  integer :: i,j,ialloc
-  
-  ! Find the size of the largest coupling.
-  max_size = 0
-  do i=1,size(sampling)
-    max_size = max(max_size, size(sampling(i)%coupling))
-  enddo
+  integer :: i,j,k,l,ialloc
   
   ! Calculate how much space is needed and allocate output.
-  allocate(sizes(size(sampling)), stat=ialloc); call err(ialloc)
+  size_output = 0
   do i=1,size(sampling)
-    sizes(i) = factorial(size(sampling(i)%coupling)+no_basis_functions) &
-           & / ( factorial(size(sampling(i)%coupling))                  &
-           &   * factorial(no_basis_functions) )
+    ! This gives the array length of 'grid' below.
+    size_output = size_output &
+              & + octahedral_grid_size( size(sampling(i)%coupling), &
+              &                         potential_basis_cutoff-1,   &
+              &                         include_negatives=.false.)
   enddo
-  allocate(output(sum(sizes)), stat=ialloc); call err(ialloc)
+  allocate(output(size_output), stat=ialloc); call err(ialloc)
   
   ! Calculate output, coupling by coupling.
   j = 0
   do i=1,size(sampling)
-    output(j+1:j+sizes(i)) = calculate_basis_functions( sampling(i)%coupling%modes, &
-                                                      & no_modes,           &
-                                                      & no_basis_functions)
-    j = j+sizes(i)
-  enddo
-end function
-
-function calculate_basis_functions(coupling,no_modes,no_basis_functions) &
-   & result(output)
-  use grid_types_module
-  implicit none
-  
-  integer, intent(in)                    :: coupling(:)
-  integer, intent(in)                    :: no_modes
-  integer, intent(in)                    :: no_basis_functions
-  type(PolynomialPotential), allocatable :: output(:)
-  
-  integer, allocatable :: octahedral_points(:,:)
-  
-  integer :: i,j,ialloc
-  
-  ! Generate an octahedral grid of points.
-  ! Each point will be mapped onto a single basis function.
-  octahedral_points = generate_octahedral_grid( size(coupling), &
-                                              & no_basis_functions)
-  
-  ! Generate output.
-  allocate(output(size(octahedral_points,2)), stat=ialloc); call err(ialloc)
-  do i=1,size(output)
-    ! Each basis function consists of only one monomial.
-    allocate(output(i)%monomials(1), stat=ialloc); call err(ialloc)
-    output(i)%monomials(1)%coefficient = 1
-    output(i)%monomials(1)%powers = int(zeroes(no_modes))
-    do j=1,size(coupling)
-      output(i)%monomials(1)%powers(coupling(j)) = octahedral_points(j,i)
+    ! Generate an octahedral grid of points.
+    ! Each point will be mapped onto a single basis function.
+    ! The -1 comes from not taking any u^0 terms, since they will be handled by
+    !    subsidiary couplings.
+    grid = generate_octahedral_grid( size(sampling(i)%coupling), &
+                                   & potential_basis_cutoff-1,   &
+                                   & include_negatives=.false.)
+    do k=1,size(grid)
+      ! Each basis function consists of only one monomial.
+      allocate(output(j+k)%monomials(1), stat=ialloc); call err(ialloc)
+      output(j+k)%monomials(1)%coefficient = 1
+      output(j+k)%monomials(1)%powers = int(zeroes(no_modes))
+      do l=1,size(sampling(i)%coupling)
+        ! The +1 here is for the same reason as the -1 above.
+        output(j+k)%monomials(1)%powers(sampling(i)%coupling%modes(l)) = &
+           & grid(l,k) + 1
+      enddo
     enddo
+    j = j+size(grid)
   enddo
 end function
 
@@ -443,63 +422,71 @@ end function
 !    I(0) = sqrt(pi/freq)
 !    I(1) = 0
 !    I(n) = (n-1)/(2*freq) * I(n-2)
-function calculate_gaussian_integrals(frequency,no_harmonic_states, &
-   & no_basis_functions) result(output)
+subroutine calculate_gaussian_integrals_PolynomialPotential(this,modes, &
+   & harmonic_states_cutoff)
   use constants_module, only : pi
+  use normal_mode_module
   implicit none
   
-  real(dp), intent(in)  :: frequency
-  integer,  intent(in)  :: no_harmonic_states
-  integer,  intent(in)  :: no_basis_functions
-  real(dp), allocatable :: output(:)
+  class(PolynomialPotential), intent(inout) :: this
+  type(NormalMode),           intent(in)    :: modes(:)
+  integer,                    intent(in)    :: harmonic_states_cutoff
   
-  integer :: i,ialloc
+  integer :: no_integrals
   
-  allocate( output(2*no_harmonic_states+no_basis_functions), &
+  integer :: i,j,ialloc
+  
+  ! Integrals range from <u^0|u^0|u^0> to <u^h_s_c|u^cutoff|u^h_s_c>.
+  !    i.e. integral[u^0e^~] to integral[u^(2*h_s_c+cutoff)e^~].
+  no_integrals = 2*harmonic_states_cutoff+this%cutoff+1
+  allocate( this%gaussian_integrals(no_integrals, size(modes)), &
           & stat=ialloc); call err(ialloc)
-  output(1) = sqrt(pi/frequency)
-  output(2) = 0
-  do i=3,size(output)
-    output(i) = output(i-2)*i/(2*frequency)
+  do i=1,size(modes)
+    this%gaussian_integrals(1,i) = sqrt(pi/modes(i)%frequency)
+    this%gaussian_integrals(2,i) = 0
+    do j=3,size(this%gaussian_integrals,1)
+      this%gaussian_integrals(j,i) = this%gaussian_integrals(j-2,i) &
+                                 & * j / (2*modes(i)%frequency)
+    enddo
   enddo
-end function
+end subroutine
 
 ! ----------------------------------------------------------------------
 ! Generates all elements <i|u^k|j> along a given mode.
 ! ----------------------------------------------------------------------
 ! output(k) is a matrix whose i,j element is <i-1|u^(k-1)|j-1>.
 ! The -1 offsets are due to |0> and u^0.
-function generate_harmonic_couplings(harmonic_states,no_basis_functions, &
-   & gaussian_integrals) result(output)
+function generate_state_couplings_PolynomialPotential(this,mode,states) &
+   & result(output)
   use linear_algebra_module
   use eigenstates_module
   implicit none
   
-  type(SingleModeState), intent(in) :: harmonic_states(:)
-  integer,               intent(in) :: no_basis_functions
-  real(dp),              intent(in) :: gaussian_integrals(:)
-  type(RealMatrix), allocatable     :: output(:)
+  class(PolynomialPotential), intent(in) :: this
+  integer,                    intent(in) :: mode
+  type(SingleModeState),      intent(in) :: states(:)
+  type(RealMatrix), allocatable          :: output(:)
   
   real(dp), allocatable :: matrix(:,:)
   
   integer :: i,j,k,i2,j2,ialloc
   
-  allocate( matrix(size(harmonic_states),size(harmonic_states)), &
-          & output(no_basis_functions),                          &
+  allocate( matrix(size(states),size(states)), &
+          & output(this%cutoff+1),             &
           & stat=ialloc); call err(ialloc)
   
-  do k=1,no_basis_functions
-    ! Calculate output(k) = {<i|u^k|j>}
+  do k=1,size(output)
+    ! Calculate output(k) = {<i|u^(k-1)|j>}
     matrix = 0
-    do j=1,size(harmonic_states)
+    do j=1,size(states)
       do i=1,j
-        do j2=1,size(harmonic_states(j)%coefficients)
-          do i2=1,size(harmonic_states(i)%coefficients)
+        do j2=1,size(states(j)%coefficients)
+          do i2=1,size(states(i)%coefficients)
             ! N.B. the -2 is because i2 refers to u^(i2-1) etc.
-            matrix(i,j) = matrix(i,j)                         &
-                      & + harmonic_states(j)%coefficients(j2) &
-                      & * harmonic_states(i)%coefficients(i2) &
-                      & * gaussian_integrals(i2+j2+k-2)
+            matrix(i,j) = matrix(i,j)                &
+                      & + states(j)%coefficients(j2) &
+                      & * states(i)%coefficients(i2) &
+                      & * this%gaussian_integrals(i2+j2+k-2,mode)
           enddo
         enddo
         matrix(j,i) = matrix(i,j)
@@ -524,25 +511,31 @@ end function
 ! where |u1> is a harmonic eigenstate, and |U1> is an anharmonic eigenstate.
 !
 ! |U1_i> = a1_ij|u1_j>, where a1=eigenstuff%evecs=<U1_i|u1_j>
-subroutine integrate_over_mode_average_PolynomialPotential(this,mode, &
+subroutine integrate_over_mode_average_PolynomialPotential(this,mode,states, &
    & eigenstuff)
   use linear_algebra_module
+  use eigenstates_module
   implicit none
   
   class(PolynomialPotential), intent(inout) :: this
   integer,                    intent(in)    :: mode
+  type(SingleModeState),      intent(in)    :: states(:)
   type(RealEigenstuff),       intent(in)    :: eigenstuff
+  
+  type(RealMatrix), allocatable :: couplings(:)
   
   integer :: i
   
+  ! Generate couplings between states along the mode.
+  couplings = this%generate_state_couplings(mode,states)
+  
   ! Integrate across each monomial.
   do i=1,size(this%monomials)
-    this%monomials(i)%coefficient = this%monomials(i)%coefficient             &
-          & + trace( mat(eigenstuff%evecs)                                    &
-          &        * this%harmonic_couplings( this%monomials(i)%powers(mode), &
-          &                                   mode)                           &
-          &        * transpose(mat(eigenstuff%evecs)) )                       &
-          & / size(eigenstuff)
+    this%monomials(i)%coefficient = this%monomials(i)%coefficient &
+             & + trace( mat(eigenstuff%evecs)                     &
+             &        * couplings(this%monomials(i)%powers(mode)) &
+             &        * transpose(mat(eigenstuff%evecs)) )        &
+             & / size(eigenstuff)
     this%monomials(i)%powers(mode) = 0
   enddo
   
@@ -550,23 +543,34 @@ subroutine integrate_over_mode_average_PolynomialPotential(this,mode, &
   call this%simplify()
 end subroutine
 
-function construct_hamiltonian_PolynomialPotential(this,mode) result(output)
+! ----------------------------------------------------------------------
+! Construct the Hamiltonian between states along a single mode.
+! ----------------------------------------------------------------------
+! Should only be called once the potential has been integrated across all
+!    other modes.
+! output(i,j) = <i-1|H|j-1>
+function construct_hamiltonian_PolynomialPotential(this,mode,states) &
+   & result(output)
+  use eigenstates_module
   implicit none
   
   class(PolynomialPotential), intent(in) :: this
   integer,                    intent(in) :: mode
+  type(SingleModeState),      intent(in) :: states(:)
   type(RealMatrix)                       :: output
   
-  integer :: no_states
+  type(RealMatrix), allocatable :: couplings(:)
+  
   integer :: i
   
-  no_states = size(this%harmonic_couplings(1,mode), 1)
+  ! Generate couplings between states along the mode.
+  couplings = this%generate_state_couplings(mode,states)
   
-  output = dble(int(zeroes(no_states,no_states)))
+  output = dble(int(zeroes(size(states),size(states))))
   do i=1,size(this%monomials)
     output = output &
          & + this%monomials(i)%coefficient &
-         & * this%harmonic_couplings(this%monomials(i)%powers(mode),mode)
+         & * couplings(this%monomials(i)%powers(mode))
   enddo
 end function
 end module

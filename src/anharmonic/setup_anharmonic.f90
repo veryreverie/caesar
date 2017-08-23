@@ -40,11 +40,11 @@ function setup_anharmonic_keywords() result(keywords)
   &               'coupling specifies the coupling between normal modes. &
   &Each set of coupled modes should be given as mode ids separated by spaces, &
   &and the sets should be separated by commas. Each q-point should be &
-  &separated by semicolons. For example, if at q-point 1 modes 1,2 and 3 and &
-  &modes 4 and 5 are coupled, and at q-point 2 modes 1 and 6 are coupled,     &
-  &"coupling"="1 2 3, 4 5; 1 6". All couplings should be in ascending order, &
-  &e.g. "1 2 3" rather than "1 3 2".',                                        &
-  &               default_value='') ]
+  &separated by semicolons. For example, if at q-point 1 modes 1, 2 and 3 are &
+  &coupled and modes 4 and 5 are coupled, and at q-point 2 modes 1 and 6 are &
+  &coupled, coupling="1 2 3, 4 5; 1 6". All couplings should be in ascending &
+  &order, e.g. "1 2 3" rather than "1 3 2".',                                 &
+  &               is_optional=.true.) ]
 end function
 
 ! ----------------------------------------------------------------------
@@ -82,7 +82,6 @@ subroutine setup_anharmonic(arguments)
   type(String)              :: wd
   type(String)              :: dft_input_filename
   type(String), allocatable :: no_supercells_file(:)
-  integer                   :: sample_spacing_file
   
   ! Starting data.
   real(dp)                         :: thermal_energy
@@ -118,7 +117,9 @@ subroutine setup_anharmonic(arguments)
   grid_type = arguments%value('grid_type')
   max_energy = dble(arguments%value('max_energy'))
   no_sampling_points = int(arguments%value('no_sampling_points'))
-  all_coupling = split(arguments%value('coupling'), ';')
+  if (arguments%is_set('coupling')) then
+    all_coupling = split(arguments%value('coupling'), ';')
+  endif
   
   ! Read previous user inputs.
   call setup_harmonic_arguments%read_file( &
@@ -180,6 +181,20 @@ subroutine setup_anharmonic(arguments)
   ! Read in q-points.
   qpoints = read_qpoints_file(harmonic_path//'/qpoints_ibz.dat')
   
+  ! Check that the correct number of couplings have been specified.
+  if (arguments%is_set('coupling')) then
+    if (size(all_coupling)/=size(qpoints)) then
+      call print_line('Error: the number of specified couplings does not &
+         &match the number of q-points.')
+      call err()
+    endif
+  else
+    allocate(all_coupling(size(qpoints)), stat=ialloc); call err(ialloc)
+    do i=1,size(all_coupling)
+      all_coupling(i) = ''
+    enddo
+  endif
+  
   ! --------------------------------------------------
   ! Loop across q-points, running calculations at each point.
   ! --------------------------------------------------
@@ -202,11 +217,6 @@ subroutine setup_anharmonic(arguments)
     ! Make q-point directories.
     qdir = wd//'/qpoint_'//i
     call mkdir(qdir)
-    
-    ! Write out sample spacing.
-    sample_spacing_file = open_write_file(qdir//'/sample_spacing.dat')
-    call print_line(sample_spacing_file, sample_spacing)
-    close(sample_spacing_file)
     
     ! Parse coupling.
     line = split(all_coupling(i), ',')

@@ -105,7 +105,9 @@ function generate_sampling_points(grid_type,coupling,no_modes, &
                               & -no_sampling_points, &
                               &  no_sampling_points)
   elseif (grid_type=='octahedral' .or. grid_type=='spherical') then
-    grid = generate_octahedral_grid(size(coupling), no_sampling_points)
+    grid = generate_octahedral_grid( size(coupling),     &
+                                   & no_sampling_points, &
+                                   & include_negatives=.true.)
   endif
   
   ! Generate output.

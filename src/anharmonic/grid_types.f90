@@ -11,6 +11,7 @@ module grid_types_module
   public :: calculate_displacement
   public :: generate_cubic_grid
   public :: generate_octahedral_grid
+  public :: octahedral_grid_size
   
   type, public :: PointData
     integer, allocatable :: point(:)
@@ -108,7 +109,9 @@ end function
 ! Generates a grid of points.
 ! ----------------------------------------------------------------------
 
+! --------------------------------------------------
 ! Generates all points in a (hyper-)cubic grid.
+! --------------------------------------------------
 ! Each point has no_dimensions elements.
 ! Each element is in the set [lower_bound,upper_bound].
 ! e.g. if no_dimensions=3, lower_bound=-1 and upper_bound=2 then output=
@@ -135,10 +138,14 @@ recursive function generate_cubic_grid(no_dimensions,lower_bound,upper_bound) &
   integer, intent(in)  :: upper_bound
   integer, allocatable :: output(:,:)
   
-  integer              :: range
+  ! The number of points between lower_bound and upper_bound inclusive.
+  integer :: range
+  
+  ! The result of the recursive call, and its size.
   integer, allocatable :: smaller_grid(:,:)
   integer              :: small
   
+  ! Temporary variables.
   integer :: i,j,ialloc
   
   range = upper_bound-lower_bound+1 ! No. point
@@ -160,25 +167,42 @@ recursive function generate_cubic_grid(no_dimensions,lower_bound,upper_bound) &
   endif
 end function
 
+! --------------------------------------------------
 ! Generates all points in a (hyper-)octahedral grid.
-! As generate_cubic_grid with lower_bound=0, except only points which satisfy
-!    sum(abs(output(:,i))) <= no_points are included.
-! Generates octahedral grids.
-! Only includes entries where sum( |entries| ) <= no_points.
-! There are (no_dimensions+upper_bound)!/(no_dimensions!*upper_bound!) points.
-recursive function generate_octahedral_grid(no_dimensions,upper_bound) &
-   & result(output)
+! --------------------------------------------------
+! As generate_cubic_grid, except only points which satisfy
+!    sum(abs(output(:,i))) <= upper_bound are included.
+!
+! lower_bound from generate_cubic_grid is replaced by include_negatives.
+!    - if include_negatives=.false. then
+!       lower_bound=0
+!
+!                 (no_dimensions  + upper_bound )!
+!       There are -------------------------------- points.
+!                 (no_dimensions! * upper_bound!)
+!
+!    - if include_negatives=.true. then
+!       lower_bound=-upper_bound
+!
+!                 min(u_b,n_d)        u_b!         *  n_d!
+!       There are    sum       2^i * -----------------------------
+!                    i=0             (u_b-i)! * i! * (n_d-i)! * i!
+recursive function generate_octahedral_grid(no_dimensions,upper_bound, &
+   & include_negatives) result(output)
   use utils_module, only : factorial
   implicit none
   
   integer, intent(in)  :: no_dimensions
   integer, intent(in)  :: upper_bound
+  logical, intent(in)  :: include_negatives
   integer, allocatable :: output(:,:)
   
+  ! The result of the recursive call, and its size.
   integer, allocatable :: smaller_grid(:,:)
   integer              :: small
   
   integer :: no_points
+  integer :: min_i
   
   integer :: i,j,ialloc
   
@@ -186,17 +210,60 @@ recursive function generate_octahedral_grid(no_dimensions,upper_bound) &
     allocate(output(0,no_dimensions), stat=ialloc); call err(ialloc)
     output = 0
   else
-    no_points = factorial(no_dimensions+upper_bound) &
-            & / (factorial(no_dimensions)*factorial(upper_bound))
+    no_points = octahedral_grid_size( no_dimensions, &
+                                    & upper_bound,   &
+                                    & include_negatives)
     allocate(output(no_points,no_dimensions), stat=ialloc); call err(ialloc)
+    
+    if (include_negatives) then
+      min_i = -upper_bound
+    else
+      min_i = 0
+    endif
+    
     j = 0
-    do i=0,upper_bound
-      smaller_grid = generate_octahedral_grid(no_dimensions-1,upper_bound-i)
+    do i=min_i,upper_bound
+      smaller_grid = generate_octahedral_grid( no_dimensions-1,    &
+                                             & upper_bound-abs(i), &
+                                             & include_negatives)
       small = size(smaller_grid,2)
       output(1,  j+1:j+small) = i
       output(2:, j+1:j+small) = smaller_grid
       j = j+small
     enddo
+  endif
+end function
+
+! --------------------------------------------------
+! Returns the number of points in an octahedral grid with given parameters.
+! --------------------------------------------------
+function octahedral_grid_size(no_dimensions,upper_bound,include_negatives) &
+   & result(output)
+  use utils_module, only : factorial
+  implicit none
+  
+  integer, intent(in) :: no_dimensions
+  integer, intent(in) :: upper_bound
+  logical, intent(in) :: include_negatives
+  integer             :: output
+  
+  integer :: i
+  
+  if (include_negatives) then
+    output = 0
+    do i=0,min(no_dimensions,upper_bound)
+      output = output                       &
+           & + 2**i                         &
+           & * factorial(no_dimensions)     &
+           & * factorial(upper_bound)       &
+           & / ( factorial(i)**2            &
+           &   * factorial(no_dimensions-i) &
+           &   * factorial(upper_bound-i) )
+    enddo
+  else
+    output = factorial(no_dimensions+upper_bound) &
+         & / ( factorial(no_dimensions)           &
+         &   * factorial(upper_bound) )
   endif
 end function
 end module
