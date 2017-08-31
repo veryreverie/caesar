@@ -22,7 +22,85 @@ module eigenstates_module
   contains
     procedure :: evaluate => evaluate_ProductState
   end type
+  
+  interface operator(+)
+    module procedure add_SingleModeState_SingleModeState
+  end interface
+  
+  interface operator(-)
+    module procedure subtract_SingleModeState_SingleModeState
+  end interface
+  
+  interface operator(*)
+    module procedure multiply_SingleModeState_real
+    module procedure multiply_real_SingleModeState
+  end interface
+  
+  interface operator(/)
+    module procedure divide_SingleModeState_real
+  end interface
+  
+  type :: ProductStateOutput
+    type(ProductState), allocatable :: states(:)
+    real(dp),           allocatable :: uncoupled_energies(:)
+  end type
 contains
+
+elemental function add_SingleModeState_SingleModeState(a,b) result(output)
+  implicit none
+  
+  type(SingleModeState), intent(in) :: a
+  type(SingleModeState), intent(in) :: b
+  type(SingleModeState)             :: output
+  
+  output%frequency = a%frequency
+  output%coefficients = a%coefficients + b%coefficients
+end function
+
+elemental function subtract_SingleModeState_SingleModeState(a,b) &
+   & result(output)
+  implicit none
+  
+  type(SingleModeState), intent(in) :: a
+  type(SingleModeState), intent(in) :: b
+  type(SingleModeState)             :: output
+  
+  output%frequency = a%frequency
+  output%coefficients = a%coefficients - b%coefficients
+end function
+
+elemental function multiply_SingleModeState_real(a,b) result(output)
+  implicit none
+  
+  type(SingleModeState), intent(in) :: a
+  real(dp),              intent(in) :: b
+  type(SingleModeState)             :: output
+  
+  output%frequency = a%frequency
+  output%coefficients = a%coefficients * b
+end function
+
+elemental function multiply_real_SingleModeState(a,b) result(output)
+  implicit none
+  
+  real(dp),              intent(in) :: a
+  type(SingleModeState), intent(in) :: b
+  type(SingleModeState)             :: output
+  
+  output%frequency = b%frequency
+  output%coefficients = a * b%coefficients
+end function
+
+elemental function divide_SingleModeState_real(a,b) result(output)
+  implicit none
+  
+  type(SingleModeState), intent(in) :: a
+  real(dp),              intent(in) :: b
+  type(SingleModeState)             :: output
+  
+  output%frequency = a%frequency
+  output%coefficients = a%coefficients / b
+end function
 
 ! ----------------------------------------------------------------------
 ! Evaluates the state at a given displacement, u, along the normal mode.
@@ -119,14 +197,16 @@ end function
 ! ----------------------------------------------------------------------
 ! Constructs all relevant product states from single-mode states.
 ! ----------------------------------------------------------------------
-function construct_product_states(single_mode_states,coupling) result(output)
+function construct_product_states(single_mode_states,single_mode_energies, &
+   & coupling) result(output)
   use coupling_module
   use grid_types_module
   implicit none
   
   type(SingleModeState), intent(in) :: single_mode_states(:,:)
+  real(dp),              intent(in) :: single_mode_energies(:,:)
   type(CoupledModes),    intent(in) :: coupling(:)
-  type(ProductState), allocatable   :: output(:)
+  type(ProductStateOutput)          :: output
   
   integer              :: harmonic_states_cutoff
   integer              :: no_modes
@@ -148,7 +228,9 @@ function construct_product_states(single_mode_states,coupling) result(output)
               &                         harmonic_states_cutoff-1, &
               &                         include_negatives=.false.)
   enddo
-  allocate(output(output_size), stat=ialloc); call err(ialloc)
+  allocate( output%states(output_size),             &
+          & output%uncoupled_energies(output_size), &
+          & stat=ialloc); call err(ialloc)
   
   ! Calculate output, coupling by coupling.
   j = 0
@@ -161,17 +243,26 @@ function construct_product_states(single_mode_states,coupling) result(output)
                                    & harmonic_states_cutoff-1, &
                                    & include_negatives=.false.)
     do k=1,size(grid)
-      allocate(output(j+k)%states(no_modes), stat=ialloc); call err(ialloc)
+      allocate( output%states(j+k)%states(no_modes), &
+              & stat=ialloc); call err(ialloc)
+      output%uncoupled_energies(j+k) = 0
       ! Initialise all single-mode states to |0>.
       do l=1,no_modes
-        output(j+k)%states(l) = single_mode_states(1,l)
+        output%states(j+k)%states(l) = single_mode_states(1,l)
+        output%uncoupled_energies(j+k) = output%uncoupled_energies(j+k) &
+                                     & + single_mode_energies(1,l)
       enddo
       ! Set all states in the coupling.
       ! One +1 in the +2 comes for the same reason as the -1 above.
       ! The other +1 comes from single_mode_states(1,i) = |0>.
       do l=1,size(coupling(i))
-        output(j+k)%states(coupling(i)%modes(l)) = &
+        output%states(j+k)%states(coupling(i)%modes(l)) = &
            & single_mode_states(grid(l,k)+2,coupling(i)%modes(l))
+        output%uncoupled_energies(j+k) = output%uncoupled_energies(j+k)    &
+                           & - single_mode_energies( 1,                    &
+                           &                         coupling(i)%modes(l)) &
+                           & + single_mode_energies( grid(l,k)+2,          &
+                           &                         coupling(i)%modes(l))
       enddo
     enddo
     j = j+size(grid)

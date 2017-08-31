@@ -5,6 +5,27 @@ module perturbation_module
   use constants_module, only : dp
   use string_module
   use io_module
+  
+  private
+  
+  ! The energy and state corrections when a perturbation is real.
+  type, public :: RealPerturbation
+    real(dp), allocatable :: energy(:)
+    real(dp), allocatable :: states(:,:)
+  end type
+  
+  ! The energy and state corrections when a perturbation is complex.
+  type, public :: ComplexPerturbation
+    real(dp), allocatable :: energy(:)
+    complex(dp), allocatable :: states(:,:)
+  end type
+  
+  public :: calculate_perturbation
+  
+  interface calculate_perturbation
+    module procedure calculate_perturbation_real
+    module procedure calculate_perturbation_complex
+  end interface
 contains
 
 ! Calculates corrections to the energy.
@@ -180,5 +201,102 @@ function calculate_state_correction(eigenvalues,perturbation, &
       enddo
     enddo
   endif
+end function
+
+! ----------------------------------------------------------------------
+! Calculates the correction due to a real perturbation.
+! ----------------------------------------------------------------------
+function calculate_perturbation_real(eigenvalues,perturbation,energy_order, &
+   & state_order) result(output)
+  implicit none
+  
+  real(dp), intent(in)   :: eigenvalues(:)
+  real(dp), intent(in)   :: perturbation(:,:)
+  integer,  intent(in)   :: energy_order
+  integer,  intent(in)   :: state_order
+  type(RealPerturbation) :: output
+  
+  integer               :: no_states
+  real(dp), allocatable :: energy(:,:)
+  real(dp), allocatable :: states(:,:,:)
+  
+  integer :: i,ialloc
+  
+  ! Check that the requested orders of perturbation are consistent.
+  if (state_order/=energy_order .and. state_order/=energy_order-1) then
+    call err()
+  endif
+  
+  ! Check that the input array sizes are consistent.
+  no_states = size(eigenvalues)
+  if (any(shape(perturbation)/=no_states)) then
+    call err()
+  endif
+  
+  ! Allocate space for energy and state corrections.
+  allocate( energy(no_states,energy_order),          &
+          & states(no_states,no_states,state_order), &
+          & stat=ialloc); call err(ialloc)
+  
+  ! Run perturbation theory.
+  do i=1,energy_order
+    energy(:,i) = calculate_energy_correction( eigenvalues,    &
+                                             & perturbation,   &
+                                             & energy(:,:i-1), &
+                                             & states(:,:,:i-1))
+    if (i<=state_order) then
+      states(:,:,i) = calculate_state_correction( eigenvalues,  &
+                                                & perturbation, &
+                                                & energy(:,:i), &
+                                                & states(:,:,:i-1))
+    endif
+  enddo
+  
+  ! Generate output.
+  allocate( output%energy(no_states),           &
+          & output%states(no_states,no_states), &
+          & stat=ialloc); call err(ialloc)
+  output%energy = sum(energy,2)
+  output%states = sum(states,3)
+end function
+
+! ----------------------------------------------------------------------
+! Calculates the correction due to a complex perturbation.
+! ----------------------------------------------------------------------
+! The magnitude of the state correction is the same as the real case, but
+!    the phase of each element is the negative of the equivalent element in
+!    the perturbation.
+function calculate_perturbation_complex(eigenvalues,perturbation, &
+   & energy_order,state_order) result(output)
+  implicit none
+  
+  real(dp),    intent(in)   :: eigenvalues(:)
+  complex(dp), intent(in)   :: perturbation(:,:)
+  integer,     intent(in)   :: energy_order
+  integer,     intent(in)   :: state_order
+  type(ComplexPerturbation) :: output
+  
+  integer                :: no_states
+  type(RealPerturbation) :: real_output
+  real(dp)               :: phase
+  
+  integer :: i,j,ialloc
+  
+  no_states = size(eigenvalues)
+  
+  real_output = calculate_perturbation( eigenvalues,       &
+                                      & abs(perturbation), &
+                                      & energy_order,      &
+                                      & state_order)
+  output%energy = real_output%energy
+  allocate(output%states(no_states,no_states), stat=ialloc); call err(ialloc)
+  do i=1,no_states
+    do j=1,no_states
+      phase = atan2(-aimag(perturbation(j,i)), real(perturbation(j,i)))
+      output%states(j,i) = cmplx( real_output%states(j,i)*cos(phase), &
+                                & real_output%states(j,i)*sin(phase), &
+                                & dp)
+    enddo
+  enddo
 end function
 end module

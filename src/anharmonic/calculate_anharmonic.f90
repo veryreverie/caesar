@@ -14,7 +14,7 @@ function calculate_anharmonic_keywords() result(keywords)
   use help_module
   implicit none
   
-  type(KeywordData) :: keywords(4)
+  type(KeywordData) :: keywords(6)
   
   keywords = [                                                                &
   & make_keyword( 'harmonic_states_cutoff',                                   &
@@ -28,7 +28,15 @@ function calculate_anharmonic_keywords() result(keywords)
   &the VSCF calculation will be converged.'),                                 &
   & make_keyword( 'max_scf_cycles',                                           &
   &               'max_scf_cycles is the maximum number of SCF cycles which &
-  &will be carried out as part of the VSCF calculation.') ]
+  &will be carried out as part of the VSCF calculation.'),                    &
+  & make_keyword( 'perturbation_order',                                       &
+  &               'perturbation_order is the order up to which perturbation &
+  &theory will be run',                                                       &
+  &               is_optional=.true.),                                        &
+  & make_keyword( 'perturb_states_to_same_order',                             &
+  &               'perturb_states_to_same_order specifies whether or not to &
+  &calculate state correction at the same order as energy corrections.',      &
+  &               is_boolean=.true.) ]
 end function
 
 ! ----------------------------------------------------------------------
@@ -46,6 +54,7 @@ subroutine calculate_anharmonic(arguments)
   use eigenstates_module
   use potential_module
   use scf_module
+  use perturbation_module
   implicit none
   
   type(Dictionary), intent(in) :: arguments
@@ -56,6 +65,8 @@ subroutine calculate_anharmonic(arguments)
   integer      :: potential_basis_cutoff
   real(dp)     :: scf_convergence_threshold
   integer      :: max_scf_cycles
+  integer      :: energy_perturbation_order
+  integer      :: state_perturbation_order
   
   ! Previous inputs.
   type(Dictionary) :: setup_harmonic_arguments
@@ -86,8 +97,17 @@ subroutine calculate_anharmonic(arguments)
   
   ! Eigenstates in various representations.
   type(SingleModeState), allocatable :: harmonic_states(:,:)
+  type(ScfOutput)                    :: vscf_output
   type(SingleModeState), allocatable :: vscf_states(:,:)
+  real(dp),              allocatable :: vscf_energies(:,:)
+  type(ProductStateOutput)           :: product_states_output
   type(ProductState),    allocatable :: vscf_product_states(:)
+  real(dp),              allocatable :: vscf_product_energies(:)
+  integer                            :: no_product_states
+  
+  ! Moller-Plesset variables.
+  real(dp), allocatable  :: perturbative_potential(:,:)
+  type(RealPerturbation) :: perturbation
   
   ! Temporary variables.
   integer :: i,j,k,ialloc
@@ -103,6 +123,18 @@ subroutine calculate_anharmonic(arguments)
   scf_convergence_threshold = &
      & dble(arguments%value('scf_convergence_threshold'))
   max_scf_cycles = int(arguments%value('max_scf_cycles'))
+  if (arguments%is_set('perturbation_order')) then
+    energy_perturbation_order = int(arguments%value('perturbation_order'))
+    if (arguments%is_set('perturb_states_to_same_order')) then
+      state_perturbation_order = energy_perturbation_order
+    else
+      state_perturbation_order = energy_perturbation_order - 1
+    endif
+  else
+    energy_perturbation_order = 0
+    state_perturbation_order = 0
+  endif
+    
   
   ! Read in setup_anharmonic settings.
   call setup_anharmonic_arguments%read_file( &
@@ -189,17 +221,47 @@ subroutine calculate_anharmonic(arguments)
     enddo
     
     ! Run VSCF calculation to find VSCF eigenstates.
-    vscf_states = vscf( harmonic_states, &
-                      & potential,       &
+    vscf_output = vscf( potential,       &
+                      & harmonic_states, &
                       & max_scf_cycles,  &
                       & scf_convergence_threshold)
     
+    vscf_states = vscf_output%states
+    vscf_energies = vscf_output%energies
+    
     ! Construct product states from VSCF basis.
-    vscf_product_states = construct_product_states(vscf_states,coupling)
-    ! TODO
+    product_states_output = construct_product_states( vscf_states,   &
+                                                    & vscf_energies, &
+                                                    & coupling)
+    vscf_product_states = product_states_output%states
+    vscf_product_energies = product_states_output%uncoupled_energies
+    
+    ! Calculate (potential - VSCF potential) in VSCF product state basis.
+    no_product_states = size(vscf_product_states)
+    allocate( perturbative_potential(no_product_states,no_product_states), &
+            & stat=ialloc); call err(ialloc)
+    do j=1,no_product_states
+      do k=1,j
+        ! Construct <i|V|j>.
+        perturbative_potential(k,j) = potential%integrate_to_constant( &
+                                   & vscf_product_states(j), &
+                                   & vscf_product_states(k))
+        
+        if (k==j) then
+          ! Subtract VSCF energies from the diagonal.
+          perturbative_potential(k,j) = perturbative_potential(k,j) &
+                                    & - vscf_product_energies(j)
+        else
+          perturbative_potential(j,k) = perturbative_potential(k,j)
+        endif
+      enddo
+    enddo
     
     ! Run Moller-Plesset perturbation theory to construct new basis.
-    ! TODO
+    perturbation = calculate_perturbation( product_state_energies,    &
+                                         & perturbative_potential,    &
+                                         & energy_perturbation_order, &
+                                         & state_perturbation_order)
   enddo
 end subroutine
 end module
