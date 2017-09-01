@@ -51,6 +51,12 @@ module potential_module
     procedure, public  :: construct_hamiltonian => &
                         & construct_hamiltonian_PolynomialPotential
   end type
+  
+  ! An interim type for fitting a polynomial potential.
+  type :: CouplingPotential
+    type(PolynomialPotential), allocatable :: basis_functions(:)
+    real(dp),                  allocatable :: coefficients(:)
+  end type
 contains
 
 ! ----------------------------------------------------------------------
@@ -169,49 +175,81 @@ function calculate_potential(potential_basis_cutoff,sampling,modes,qpoint, &
   integer,                intent(in) :: harmonic_states_cutoff
   type(PolynomialPotential)          :: output
   
-  type(PolynomialPotential), allocatable :: basis_functions(:)
-  real(dp),                  allocatable :: basis_coefficients(:)
+  type(CouplingPotential), allocatable :: basis_functions(:)
   
-  integer, allocatable :: no_monomials(:)
+  integer                                :: no_basis_functions
+  integer,                   allocatable :: no_monomials(:)
+  type(PolynomialPotential), allocatable :: fit(:)
+  integer                                :: size_output
   
-  integer :: i,j,k,ialloc
+  integer :: i,j,k,l,ialloc
   
   output%cutoff = potential_basis_cutoff
   
-  ! Calculate gaussian integrals, I(n).
-  ! I(n+1) = integral[ u^n e^(-freq*u*u) ].
+  ! Calculate gaussian integrals, {I(n)}.
+  ! gaussian_integrals(n+1) = I(n) = integral[ u^n e^(-freq*u*u) ].
   call output%calculate_gaussian_integrals(modes, harmonic_states_cutoff)
   
-  ! Generate basis functions
-  basis_functions = calculate_basis_functions( sampling, &
-                                             & size(modes), &
-                                             & potential_basis_cutoff)
-  
-  ! Use linear least-squares regression to fit basis function coefficients
-  !    to input energy and force data.
-  basis_coefficients = fit_basis_functions(sampling,modes,qpoint,supercell, &
-     & basis_functions)
-  
-  ! Calculate the number of monomials in each basis function.
-  allocate(no_monomials(size(basis_functions)), stat=ialloc); call err(ialloc)
-  do i=1,size(basis_functions)
-    no_monomials(i) = size(basis_functions(i)%monomials)
-  enddo
-  
-  ! Sum together basis functions * their coefficients.
-  allocate(output%monomials(sum(no_monomials)), stat=ialloc); call err(ialloc)
-  k = 0
-  do i=1,size(basis_functions)
-    do j=1,no_monomials(i)
-      output%monomials(k+j) = basis_functions(i)%monomials(j)
-      output%monomials(k+j)%coefficient = output%monomials(k+j)%coefficient &
-                                      & * basis_coefficients(i)
+  ! Generate potential at each coupling.
+  allocate( basis_functions(size(sampling)), &
+          & fit(size(sampling)),             &
+          & stat=ialloc); call err(ialloc)
+  do i=1,size(sampling)
+    ! Generate basis functions.
+    basis_functions(i)%basis_functions = calculate_basis_functions( &
+                                            & sampling(i)%coupling, &
+                                            & size(modes),          &
+                                            & potential_basis_cutoff)
+    
+    ! Use linear least-squares regression to fit basis function coefficients
+    !    to input energy and force data.
+    basis_functions(i)%coefficients = fit_basis_functions( &
+                     & basis_functions(i)%basis_functions, &
+                     & sampling(i),                        &
+                     & fit(:i-1),                          &
+                     & modes,                              &
+                     & qpoint,                             &
+                     & supercell)
+    
+    ! Make a single potential containing all monomials in all basis functions,
+    !    with coefficients as dictated by the fitting procedure.
+    no_basis_functions = size(basis_functions(i)%basis_functions)
+    
+    allocate(no_monomials(no_basis_functions), stat=ialloc); call err(ialloc)
+    do j=1,no_basis_functions
+      no_monomials(i) = size(basis_functions(i)%basis_functions(j)%monomials)
     enddo
-    k = k+no_monomials(i)
+    
+    allocate( fit(i)%monomials(sum(no_monomials)), &
+            & stat=ialloc); call err(ialloc)
+    l = 0
+    do j=1,no_basis_functions
+      do k=1,no_monomials(j)
+        fit(i)%monomials(l+k) = &
+           & basis_functions(i)%basis_functions(j)%monomials(k)
+        fit(i)%monomials(l+k)%coefficient = fit(i)%monomials(l+k)%coefficient &
+                                        & * basis_functions(i)%coefficients(j)
+      enddo
+      l = l+no_monomials(j)
+    enddo
+    
+    ! Simplify the potential, adding together identical monomials.
+    call fit(i)%simplify()
   enddo
   
-  ! Simplify output, adding together all terms with equal powers.
-  call output%simplify()
+  ! Combine the potentials from each coupling together.
+  size_output = 0
+  do i=1,size(fit)
+    size_output = size_output + size(fit(i)%monomials)
+  enddo
+  allocate(output%monomials(size_output), stat=ialloc); call err(ialloc)
+  k = 0
+  do i=1,size(fit)
+    do j=1,size(fit(i)%monomials)
+      output%monomials(k+j) = fit(i)%monomials(j)
+    enddo
+    k = k + size(fit(i)%monomials)
+  enddo
 end function
 
 ! ----------------------------------------------------------------------
@@ -219,61 +257,48 @@ end function
 ! At present, all basis functions are monomials with coefficient 1.
 ! ----------------------------------------------------------------------
 ! Basis functions are set up in a generalised octahedral manner, i.e.
-!    sum(output(i)%monomials(j)%powers) is in set [0,potential_basis_cutoff]
+!    sum(powers) is in set [0,potential_basis_cutoff]
 ! e.g. if potential_basis_cutoff=3 then
 !    u1^3, u1^2*u2 and u1*u2*u3 are allowed, but u1^2*u2^2 is not.
 ! These are generated by first generating an octahedral grid of points, and
 !    then mapping the indices of each point to the powers of each monomial.
-function calculate_basis_functions(sampling,no_modes, &
-   & potential_basis_cutoff) result(output)
+function calculate_basis_functions(coupling,no_modes,potential_basis_cutoff) &
+   & result(output)
   use coupling_module
   use sampling_points_module
   use grid_types_module
   implicit none
   
-  type(CouplingSampling), intent(in)     :: sampling(:)
-  integer,                intent(in)     :: no_modes
-  integer,                intent(in)     :: potential_basis_cutoff
+  type(CoupledModes), intent(in)         :: coupling
+  integer,            intent(in)         :: no_modes
+  integer,            intent(in)         :: potential_basis_cutoff
   type(PolynomialPotential), allocatable :: output(:)
   
-  integer              :: size_output
   integer, allocatable :: grid(:,:)
+  integer              :: mode
   
-  integer :: i,j,k,l,ialloc
+  integer :: i,j,ialloc
   
-  ! Calculate how much space is needed and allocate output.
-  size_output = 0
-  do i=1,size(sampling)
-    ! This gives the array length of 'grid' below.
-    size_output = size_output &
-              & + octahedral_grid_size( size(sampling(i)%coupling), &
-              &                         potential_basis_cutoff-1,   &
-              &                         include_negatives=.false.)
-  enddo
-  allocate(output(size_output), stat=ialloc); call err(ialloc)
-  
-  ! Calculate output, coupling by coupling.
-  j = 0
-  do i=1,size(sampling)
-    ! Generate an octahedral grid of points.
-    ! Each point will be mapped onto a single basis function.
-    ! The -1 comes from not taking any u^0 terms, since they will be handled by
-    !    subsidiary couplings.
-    grid = generate_octahedral_grid( size(sampling(i)%coupling), &
-                                   & potential_basis_cutoff-1,   &
-                                   & include_negatives=.false.)
-    do k=1,size(grid)
-      ! Each basis function consists of only one monomial.
-      allocate(output(j+k)%monomials(1), stat=ialloc); call err(ialloc)
-      output(j+k)%monomials(1)%coefficient = 1
-      output(j+k)%monomials(1)%powers = int(zeroes(no_modes))
-      do l=1,size(sampling(i)%coupling)
-        ! The +1 here is for the same reason as the -1 above.
-        output(j+k)%monomials(1)%powers(sampling(i)%coupling%modes(l)) = &
-           & grid(l,k) + 1
-      enddo
+  ! Generate an octahedral grid of points.
+  ! Each point will be mapped onto a single basis function.
+  ! The -1 comes from not taking any u^0 terms, since they will be handled by
+  !    subsidiary couplings.
+  grid = generate_octahedral_grid( size(coupling), &
+                                 & potential_basis_cutoff-1,   &
+                                 & include_negatives=.false.)
+  allocate( output(size(grid)), &
+          & stat=ialloc); call err(ialloc)
+  do i=1,size(grid)
+    ! Each basis function consists of only one monomial.
+    allocate( output(i)%monomials(1), &
+            & stat=ialloc); call err(ialloc)
+    output(i)%monomials(1)%coefficient = 1
+    output(i)%monomials(1)%powers = int(zeroes(no_modes))
+    do j=1,size(coupling)
+      ! The +1 here is for the same reason as the -1 above.
+      mode = coupling%modes(j)
+      output(i)%monomials(1)%powers(mode) = grid(j,i) + 1
     enddo
-    j = j+size(grid)
   enddo
 end function
 
@@ -324,8 +349,9 @@ end subroutine
 ! ----------------------------------------------------------------------
 ! Fits a set of basis functions to the sampled B-O surface.
 ! ----------------------------------------------------------------------
-function fit_basis_functions(sampling,modes,qpoint,supercell,basis_functions) &
-   & result(output)
+! Only forces in the hyperplane of the coupling are considered.
+function fit_basis_functions(basis_functions,sampling,fit,modes,qpoint, &
+   & supercell) result(output)
   use sampling_points_module
   use normal_mode_module
   use qpoints_module
@@ -333,28 +359,28 @@ function fit_basis_functions(sampling,modes,qpoint,supercell,basis_functions) &
   use grid_types_module
   implicit none
   
-  type(CouplingSampling),    intent(in) :: sampling(:)
+  type(PolynomialPotential), intent(in) :: basis_functions(:)
+  type(CouplingSampling),    intent(in) :: sampling
+  type(PolynomialPotential), intent(in) :: fit(:)
   type(NormalMode),          intent(in) :: modes(:)
   type(QpointData),          intent(in) :: qpoint
   type(StructureData),       intent(in) :: supercell
-  type(PolynomialPotential), intent(in) :: basis_functions(:)
   real(dp), allocatable                 :: output(:)
-  
-  ! Input array lengths.
-  integer :: no_forces
   
   ! Independent sampling points.
   integer                          :: no_sampling_points
   type(SamplingPoint), allocatable :: sampling_points(:)
   real(dp),            allocatable :: energy(:)
-  type(RealVector),    allocatable :: forces(:,:)
+  type(ModeVector),    allocatable :: forces(:)
+  
+  integer :: subsidiary
   
   ! The normal-mode displacement at each sampling point.
   type(ModeVector) :: displacement
   
   ! The basis-function force at each sampling point.
-  type(ModeVector)              :: forces_mode
-  type(RealVector), allocatable :: forces_cartesian(:)
+  real(dp)         :: basis_energy
+  type(ModeVector) :: basis_forces
   
   ! Linear least-squares matrix and vector, L=(a.x-b)**2.
   integer               :: m,n
@@ -364,58 +390,68 @@ function fit_basis_functions(sampling,modes,qpoint,supercell,basis_functions) &
   ! Temporary variables.
   integer :: i,j,k,l,ialloc
   
-  no_forces = size(sampling(1)%forces)
-  
   ! Concatenate all independent sampling points.
   no_sampling_points = 0
-  do i=1,size(sampling)
-    do j=1,size(sampling(i)%sampling_points)
-      if (.not. sampling(i)%sampling_points(j)%duplicate) then
-        no_sampling_points = no_sampling_points + 1
-      endif
-    enddo
+  do i=1,size(sampling%sampling_points)
+    if (.not. sampling%sampling_points(i)%duplicate) then
+      no_sampling_points = no_sampling_points + 1
+    endif
   enddo
-  k = 0
+  j = 0
   allocate( sampling_points(no_sampling_points),  &
           & energy(no_sampling_points),           &
-          & forces(no_forces,no_sampling_points), &
+          & forces(no_sampling_points),           &
           & stat=ialloc); call err(ialloc)
-  do i=1,size(sampling)
-    do j=1,size(sampling(i)%sampling_points)
-      if (.not. sampling(i)%sampling_points(j)%duplicate) then
-        k = k+1
-        sampling_points(k) = sampling(i)%sampling_points(j)
-        energy(k) = sampling(i)%energy(j)
-        forces(:,k) = sampling(i)%forces(:,j)
-      endif
+  do i=1,size(sampling%sampling_points)
+    if (.not. sampling%sampling_points(i)%duplicate) then
+      j = j+1
+      
+      ! Read in energy and forces.
+      sampling_points(j) = sampling%sampling_points(i)
+      energy(j) = sampling%energy(i)
+      forces(j) = cartesian_to_normal_mode( sampling%forces(:,i), &
+                                          & modes, &
+                                          & qpoint, &
+                                          & supercell )
+    endif
+  enddo
+  
+  ! Subtract off the contributions from subsidiary couplings.
+  do i=1,size(sampling_points)
+    do j=1,size(sampling%coupling%subsidiaries)
+      subsidiary = sampling%coupling%subsidiaries(j)
+      energy(i) = energy(i)                        &
+              & - fit(subsidiary)%evaluate_energy( &
+              &                            sampling_points(i)%displacement)
+      forces(i) = forces(i)                        &
+              & - fit(subsidiary)%evaluate_forces( &
+              &                            sampling_points(i)%displacement)
     enddo
   enddo
   
   ! Construct a and b.
-  m = no_sampling_points*(1+no_forces)
+  m = no_sampling_points*(1+size(sampling%coupling))
   n = size(basis_functions)
   allocate( a(m,n), &
           & b(m),   &
           & stat=ialloc); call err(ialloc)
   do i=1,no_sampling_points
-    l = (i-1)*(1+no_forces) + 1
+    l = (i-1)*(1+size(sampling%coupling)) + 1
     displacement = sampling_points(i)%displacement
     
     do j=1,n
-      a(l,j) = basis_functions(j)%evaluate_energy(displacement)
-      forces_mode = basis_functions(j)%evaluate_forces(displacement)
-      forces_cartesian = normal_mode_to_cartesian( forces_mode, &
-                                                 & modes,       &
-                                                 & qpoint,      &
-                                                 & supercell)
-      do k=1,size(forces_cartesian)
-        a(l+3*k-2:l+3*k, j) = dble(forces_cartesian(k))
+      basis_energy = basis_functions(j)%evaluate_energy(displacement)
+      basis_forces = basis_functions(j)%evaluate_forces(displacement)
+      
+      a(l,j) = basis_energy
+      do k=1,size(sampling%coupling)
+        a(l+k,j) = basis_forces%vector(sampling%coupling%modes(k))
       enddo
     enddo
     
     b(l) = energy(i)
-    do k=1,size(forces(:,i))
-      b(l+3*k-2:l+3*k) = dble(forces(k,i))
+    do k=1,size(sampling%coupling)
+      b(l+k) = forces(i)%vector(sampling%coupling%modes(k))
     enddo
   enddo
   

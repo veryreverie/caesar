@@ -20,6 +20,14 @@ module normal_mode_module
   interface new
     module procedure new_NormalMode
   end interface
+  
+  interface operator(+)
+    module procedure add_ModeVector_ModeVector
+  end interface
+  
+  interface operator(-)
+    module procedure subtract_ModeVector_ModeVector
+  end interface
 contains
 
 subroutine new_NormalMode(this,no_atoms)
@@ -32,6 +40,26 @@ subroutine new_NormalMode(this,no_atoms)
   
   allocate(this%displacements(no_atoms), stat=ialloc); call err(ialloc)
 end subroutine
+
+function add_ModeVector_ModeVector(a,b) result(output)
+  implicit none
+  
+  type(ModeVector), intent(in) :: a
+  type(ModeVector), intent(in) :: b
+  type(ModeVector)             :: output
+  
+  output%vector = a%vector + b%vector
+end function
+
+function subtract_ModeVector_ModeVector(a,b) result(output)
+  implicit none
+  
+  type(ModeVector), intent(in) :: a
+  type(ModeVector), intent(in) :: b
+  type(ModeVector)             :: output
+  
+  output%vector = a%vector - b%vector
+end function
 
 function read_normal_mode_file(filename) result(this)
   implicit none
@@ -118,6 +146,50 @@ function normal_mode_to_cartesian(input,modes,qpoint,supercell) result(output)
                     & * exp_iqr)
       ! Calculate the displacement.
       output(i) = output(i) + direction * input%vector(j)
+    enddo
+  enddo
+end function
+
+! ----------------------------------------------------------------------
+! Converts a vector in cartesion co-ordinates to normal mode co-ordinates.
+! ----------------------------------------------------------------------
+function cartesian_to_normal_mode(input,modes,qpoint,supercell) result(output)
+  use qpoints_module
+  use structure_module
+  use linear_algebra_module
+  implicit none
+  
+  type(RealVector),    intent(in) :: input(:)
+  type(NormalMode),    intent(in) :: modes(:)
+  type(QpointData),    intent(in) :: qpoint
+  type(StructureData), intent(in) :: supercell
+  type(ModeVector)                :: output
+  
+  type(RealVector)       :: direction
+  
+  ! Working variables.
+  real(dp)    :: qr
+  complex(dp) :: exp_iqr
+  
+  ! Temporary variables
+  integer :: i,j,ialloc
+  
+  allocate(output%vector(size(modes)), stat=ialloc); call err(ialloc)
+  output%vector = 0
+  do i=1,size(supercell%atoms)
+    ! Calculate q.R and exp(i q.R).
+    qr = qpoint%qpoint * supercell%rvectors(supercell%atom_to_rvec(i))
+    exp_iqr = cmplx(cos(qr), sin(qr), dp)
+    
+    ! Calculate displacements in normal-mode co-ordinates.
+    do j=1,size(modes)
+      ! Calculate the direction of the displacement.
+      direction = real( modes(j)%displacements(supercell%atom_to_prim(i)) &
+                    & * exp_iqr)
+      
+      ! Calculate the projection of the vector onto the normal mode.
+      output%vector(j) = output%vector(j) &
+                     & + direction * input(i)
     enddo
   enddo
 end function

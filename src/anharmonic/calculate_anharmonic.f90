@@ -258,7 +258,7 @@ subroutine calculate_anharmonic(arguments)
     enddo
     
     ! Run Moller-Plesset perturbation theory to construct new basis.
-    perturbation = calculate_perturbation( product_state_energies,    &
+    perturbation = calculate_perturbation( vscf_product_energies,     &
                                          & perturbative_potential,    &
                                          & energy_perturbation_order, &
                                          & state_perturbation_order)
