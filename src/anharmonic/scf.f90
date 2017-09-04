@@ -31,7 +31,6 @@ function scf(potential,states) result(output)
   ! Array sizes.
   integer :: no_modes
   integer :: no_states
-  integer :: no_coefficients
   
   ! Working variables.
   type(PolynomialPotential) :: mean_field
@@ -43,7 +42,6 @@ function scf(potential,states) result(output)
   
   no_modes = size(states,2)
   no_states = size(states,1)
-  no_coefficients = size(states(1,1)%coefficients)
   
   allocate( output%states(no_states,no_modes),   &
           & output%energies(no_states,no_modes), &

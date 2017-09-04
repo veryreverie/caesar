@@ -9,9 +9,14 @@ module help_module
   
   private
   
-  public :: KeywordData  ! A keywords and its helptext.
-  public :: make_keyword ! Bundles a keyword and helptext into a KeywordData.
-  public :: help         ! Prints help text.
+  ! A keyword and its helptext.
+  public :: KeywordData
+  ! Bundles a keyword and its helptext into a KeywordData.
+  public :: make_keyword
+  ! Keywords used by all routines.
+  public :: make_universal_keywords
+  ! Prints help text.
+  public :: help
   
   ! --------------------------------------------------
   ! A key:value object with descriptors. 
@@ -32,6 +37,7 @@ module help_module
     logical      :: is_boolean
     logical      :: is_optional
     logical      :: is_path
+    logical      :: allowed_in_file
     
     ! The value itself.
     logical      :: is_set
@@ -64,10 +70,12 @@ contains
 !    Paths are converted to absolute paths (from /) automatically.
 !    Should not be specified if is_boolean is .true..
 !    Defaults to .false..
+! allowed_in_file specifies that the value may be read from or printed to file.
+!    Defaults to .true..
 ! flag specifies the flag by which the keyword can be alternately called.
 !    Defaults to ' '.
 function make_keyword(keyword,helptext,default_value,default_keyword, &
-   & is_boolean,is_optional,is_path,flag) result(this)
+   & is_boolean,is_optional,is_path,allowed_in_file,flag) result(this)
   implicit none
   
   character(*), intent(in)           :: keyword
@@ -77,6 +85,7 @@ function make_keyword(keyword,helptext,default_value,default_keyword, &
   logical,      intent(in), optional :: is_boolean
   logical,      intent(in), optional :: is_optional
   logical,      intent(in), optional :: is_path
+  logical,      intent(in), optional :: allowed_in_file
   character(1), intent(in), optional :: flag
   type(KeywordData)                  :: this
   
@@ -113,6 +122,12 @@ function make_keyword(keyword,helptext,default_value,default_keyword, &
     this%is_path = is_path
   else
     this%is_path = .false.
+  endif
+  
+  if (present(allowed_in_file)) then
+    this%allowed_in_file = allowed_in_file
+  else
+    this%allowed_in_file = .true.
   endif
   
   if (this%is_boolean) then
@@ -167,6 +182,40 @@ function make_keyword(keyword,helptext,default_value,default_keyword, &
   ! Set value and is_set to unset state.
   this%is_set = .false.
   this%value = ''
+end function
+
+! ----------------------------------------------------------------------
+! Universal keywords.
+! ----------------------------------------------------------------------
+function make_universal_keywords() result(keywords)
+  implicit none
+  
+  type(KeywordData) :: keywords(4)
+  
+  keywords = [                                                                &
+  & make_keyword( 'interactive',                                              &
+  &               'interactive specifies whether or not keywords can be &
+  &specified interactively.',                                                 &
+  &               is_boolean=.true.,                                          &
+  &               allowed_in_file=.false.,                                    &
+  &               flag='i'),                                                  &
+  & make_keyword( 'help',                                                     &
+  &               'help requests helptext rather than running calculation.', &
+  &               is_optional=.true.,                                         &
+  &               allowed_in_file=.false.,                                    &
+  &               flag='h'),                                                  &
+  & make_keyword( 'input_file',                                               &
+  &               'input_file specifies a file from which further settings &
+  &will be read.',                                                            &
+  &               is_optional=.true.,                                         &
+  &               allowed_in_file=.false.,                                    &
+  &               flag='f'),                                                  &
+  & make_keyword( 'working_directory',                                        &
+  &               'working_directory specifies the directory where all files &
+  &and subsequent directories will be made.',                                 &
+  &               default_value='.',                                          &
+  &               allowed_in_file=.false.,                                    &
+  &               flag='d') ]
 end function
 
 ! ----------------------------------------------------------------------

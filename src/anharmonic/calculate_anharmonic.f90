@@ -43,6 +43,8 @@ end function
 ! Main program.
 ! ----------------------------------------------------------------------
 subroutine calculate_anharmonic(arguments)
+  use setup_harmonic_module
+  use setup_anharmonic_module
   use dictionary_module
   use structure_module
   use qpoints_module
@@ -137,12 +139,14 @@ subroutine calculate_anharmonic(arguments)
     
   
   ! Read in setup_anharmonic settings.
+  setup_anharmonic_arguments = setup_anharmonic_keywords()
   call setup_anharmonic_arguments%read_file( &
      & wd//'/setup_anharmonic.used_settings')
   harmonic_path = setup_anharmonic_arguments%value('harmonic_path')
   grid_type = setup_anharmonic_arguments%value('grid_type')
   
   ! Read in setup_harmonic settings.
+  setup_harmonic_arguments = setup_harmonic_keywords()
   call setup_harmonic_arguments%read_file( &
      & harmonic_path//'/setup_harmonic.used_settings')
   dft_code = setup_harmonic_arguments%value('dft_code')

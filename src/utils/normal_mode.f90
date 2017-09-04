@@ -111,6 +111,7 @@ end subroutine
 ! Converts a vector in normal mode co-ordinates to cartesian co-ordinates.
 ! ----------------------------------------------------------------------
 function normal_mode_to_cartesian(input,modes,qpoint,supercell) result(output)
+  use constants_module, only : pi
   use qpoints_module
   use structure_module
   use linear_algebra_module
@@ -135,8 +136,8 @@ function normal_mode_to_cartesian(input,modes,qpoint,supercell) result(output)
   do i=1,size(supercell%atoms)
     output(i) = dble(int(zeroes(3)))
     
-    ! Calculate q.R and exp(i q.R).
-    qr = qpoint%qpoint * supercell%rvectors(supercell%atom_to_rvec(i))
+    ! Calculate 2*pi*q.R and exp(2*pi*i*q.R).
+    qr = 2 * pi * qpoint%qpoint * supercell%rvectors(supercell%atom_to_rvec(i))
     exp_iqr = cmplx(cos(qr), sin(qr), dp)
     
     ! Calculate displacements in cartesian co-ordinates.
@@ -154,6 +155,7 @@ end function
 ! Converts a vector in cartesion co-ordinates to normal mode co-ordinates.
 ! ----------------------------------------------------------------------
 function cartesian_to_normal_mode(input,modes,qpoint,supercell) result(output)
+  use constants_module, only : pi
   use qpoints_module
   use structure_module
   use linear_algebra_module
@@ -177,8 +179,8 @@ function cartesian_to_normal_mode(input,modes,qpoint,supercell) result(output)
   allocate(output%vector(size(modes)), stat=ialloc); call err(ialloc)
   output%vector = 0
   do i=1,size(supercell%atoms)
-    ! Calculate q.R and exp(i q.R).
-    qr = qpoint%qpoint * supercell%rvectors(supercell%atom_to_rvec(i))
+    ! Calculate 2*pi*q.R and exp(2*pi*i*q.R).
+    qr = 2 * pi * qpoint%qpoint * supercell%rvectors(supercell%atom_to_rvec(i))
     exp_iqr = cmplx(cos(qr), sin(qr), dp)
     
     ! Calculate displacements in normal-mode co-ordinates.

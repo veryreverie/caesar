@@ -35,6 +35,7 @@ end function
 ! Main program.
 ! ----------------------------------------------------------------------
 subroutine run_harmonic(arguments)
+  use setup_harmonic_module
   use unique_directions_module
   use dictionary_module
   implicit none
@@ -82,6 +83,7 @@ subroutine run_harmonic(arguments)
   no_supercells_file = read_lines(wd//'/no_supercells.dat')
   no_supercells = int(no_supercells_file(1))
   
+  setup_harmonic_arguments = setup_harmonic_keywords()
   call setup_harmonic_arguments%read_file(wd//'/setup_harmonic.used_settings')
   dft_code = setup_harmonic_arguments%value('dft_code')
   seedname = setup_harmonic_arguments%value('seedname')

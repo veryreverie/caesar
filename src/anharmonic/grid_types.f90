@@ -189,7 +189,6 @@ end function
 !                    i=0             (u_b-i)! * i! * (n_d-i)! * i!
 recursive function generate_octahedral_grid(no_dimensions,upper_bound, &
    & include_negatives) result(output)
-  use utils_module, only : factorial
   implicit none
   
   integer, intent(in)  :: no_dimensions

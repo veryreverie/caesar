@@ -174,7 +174,6 @@ function construct_dynamical_matrix(q,supercell, &
   type(ComplexMatrix), allocatable :: dynamical_matrix(:,:)
   
   integer :: p,n,m,im
-  integer :: mode_n,mode_m
   complex(dp) :: tempc
   complex(dp), allocatable :: exp_iqr(:,:,:)
   real(dp) :: qr
@@ -203,15 +202,9 @@ function construct_dynamical_matrix(q,supercell, &
   allocate( dynamical_matrix( supercell%no_atoms_prim,  &
           &                   supercell%no_atoms_prim), &
           & stat=ialloc); call err(ialloc)
-  dynamical_matrix = mat([                                                   &
-    &cmplx(0.0_dp,0.0_dp,dp),cmplx(0.0_dp,0.0_dp,dp),cmplx(0.0_dp,0.0_dp,dp),&
-    &cmplx(0.0_dp,0.0_dp,dp),cmplx(0.0_dp,0.0_dp,dp),cmplx(0.0_dp,0.0_dp,dp),&
-    &cmplx(0.0_dp,0.0_dp,dp),cmplx(0.0_dp,0.0_dp,dp),cmplx(0.0_dp,0.0_dp,dp) &
-    & ], 3,3)
+  dynamical_matrix = mat(cmplx(zeroes(3,3)))
   do n=1,supercell%no_atoms_prim
-    mode_n = (n-1)*3+1
     do m=1,supercell%no_atoms_prim
-      mode_m = (m-1)*3+1
       do p=1,supercell%sc_size
         dynamical_matrix(m,n) = dynamical_matrix(m,n)  &
                             & + force_constants(p,m,n) &
@@ -837,7 +830,6 @@ end subroutine
 ! ----------------------------------------------------------------------
 function evaluate_freqs_on_grid(supercell,force_constants) &
    & result(output)
-  use constants_module, only : pi
   use structure_module
   use min_images_module
   implicit none
@@ -847,16 +839,14 @@ function evaluate_freqs_on_grid(supercell,force_constants) &
   type(LteReturn)                 :: output
   
   ! Working variables.
-  type(MinImages), allocatable :: delta_prim(:,:,:)
-  type(FreqsPolVecs)           :: frequencies_polarisations
+  type(MinImages),     allocatable :: delta_prim(:,:,:)
+  type(FreqsPolVecs)               :: frequencies_polarisations
   type(ComplexVector), allocatable :: pol_vec(:,:)
-  real(dp)                     :: qr
-  complex(dp)                  :: exp_iqr(supercell%sc_size)
   
   ! Indices.
   integer :: atom
   integer :: mode
-  integer :: rvector, gvector, gvector_p
+  integer :: gvector,gvector_p
   integer :: i,j
   
   ! Allocate output.
@@ -891,25 +881,12 @@ function evaluate_freqs_on_grid(supercell,force_constants) &
     output%frequencies(:,gvector_p) = frequencies_polarisations%frequencies
     pol_vec = frequencies_polarisations%polarisation_vectors
     
-    ! Store exp(-2*pi*i*q.R).
-    ! The negative is used because the matrix of force constants is 
-    !    the transpose of the usual expression in derivations 
-    !    that lead to a positive exponential.
-    do rvector=1,supercell%sc_size
-      qr = -supercell%gvectors(gvector) &
-       & *  supercell%recip_supercell   &
-       & * supercell%rvectors(rvector)  &
-       & * 2*pi/supercell%sc_size
-      exp_iqr(rvector) = cmplx(cos(qr),sin(qr),dp)
-    enddo
-    
     output%soft_modes(:,gvector) = output%frequencies(:,gvector) < -1.0e-6_dp
     output%soft_modes(:,gvector_p) = output%soft_modes(:,gvector)
     
     ! Calculate displacement patterns.
     do mode=1,supercell%no_modes_prim
       do atom=1,supercell%no_atoms_prim
-        rvector = supercell%atom_to_rvec(atom)
         output%displacements(atom,mode,gvector) =          &
            &   pol_vec(supercell%atom_to_prim(atom), mode) &
            & / sqrt(supercell%mass(atom))

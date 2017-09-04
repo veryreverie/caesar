@@ -77,11 +77,17 @@ module linear_algebra_module
   end interface
   
   interface dble
+    module procedure dble_IntVector
+    module procedure dble_IntMatrix
     module procedure dble_RealVector
     module procedure dble_RealMatrix
   end interface
   
   interface cmplx
+    module procedure cmplx_IntVector
+    module procedure cmplx_IntMatrix
+    module procedure cmplx_RealVector
+    module procedure cmplx_RealMatrix
     module procedure cmplx_ComplexVector
     module procedure cmplx_ComplexMatrix
   end interface
@@ -91,9 +97,9 @@ module linear_algebra_module
     module procedure real_ComplexMatrix
   end interface
   
-  interface imag
-    module procedure imag_ComplexVector
-    module procedure imag_ComplexMatrix
+  interface aimag
+    module procedure aimag_ComplexVector
+    module procedure aimag_ComplexMatrix
   end interface
   
   interface size
@@ -687,6 +693,24 @@ pure function int_IntMatrix(input) result(output)
   output = input%contents
 end function
 
+pure function dble_IntVector(input) result(output)
+  implicit none
+  
+  type(IntVector), intent(in) :: input
+  real(dp), allocatable       :: output(:)
+  
+  output = int(input)
+end function
+
+pure function dble_IntMatrix(input) result(output)
+  implicit none
+  
+  type(IntMatrix), intent(in) :: input
+  real(dp), allocatable       :: output(:,:)
+  
+  output = int(input)
+end function
+
 pure function dble_RealVector(input) result(output)
   implicit none
   
@@ -703,6 +727,42 @@ pure function dble_RealMatrix(input) result(output)
   real(dp), allocatable        :: output(:,:)
   
   output = input%contents
+end function
+
+pure function cmplx_IntVector(input) result(output)
+  implicit none
+  
+  type(IntVector), intent(in) :: input
+  complex(dp), allocatable    :: output(:)
+  
+  output = int(input)
+end function
+
+pure function cmplx_IntMatrix(input) result(output)
+  implicit none
+  
+  type(IntMatrix), intent(in) :: input
+  complex(dp), allocatable    :: output(:,:)
+  
+  output = int(input)
+end function
+
+pure function cmplx_RealVector(input) result(output)
+  implicit none
+  
+  type(RealVector), intent(in) :: input
+  complex(dp), allocatable     :: output(:)
+  
+  output = dble(input)
+end function
+
+pure function cmplx_RealMatrix(input) result(output)
+  implicit none
+  
+  type(RealMatrix), intent(in) :: input
+  complex(dp), allocatable     :: output(:,:)
+  
+  output = dble(input)
 end function
 
 pure function cmplx_ComplexVector(input) result(output)
@@ -743,22 +803,22 @@ pure function real_ComplexMatrix(input) result(output)
 end function
 
 ! Imaginary part.
-pure function imag_ComplexVector(input) result(output)
+pure function aimag_ComplexVector(input) result(output)
   implicit none
   
   type(ComplexVector), intent(in) :: input
   type(RealVector)                :: output
   
-  output%contents = imag(input%contents)
+  output%contents = aimag(input%contents)
 end function
 
-pure function imag_ComplexMatrix(input) result(output)
+pure function aimag_ComplexMatrix(input) result(output)
   implicit none
   
   type(ComplexMatrix), intent(in) :: input
   type(RealMatrix)                :: output
   
-  output%contents = imag(input%contents)
+  output%contents = aimag(input%contents)
 end function
 
 ! size().

@@ -53,6 +53,7 @@ end function
 subroutine setup_anharmonic(arguments)
   use constants_module, only : kb_in_au
   use utils_module, only : mkdir
+  use setup_harmonic_module
   use dictionary_module
   use dft_input_file_module
   use structure_module
@@ -122,6 +123,7 @@ subroutine setup_anharmonic(arguments)
   endif
   
   ! Read previous user inputs.
+  setup_harmonic_arguments = setup_harmonic_keywords()
   call setup_harmonic_arguments%read_file( &
      & harmonic_path//'/setup_harmonic.used_settings')
   seedname = setup_harmonic_arguments%value('seedname')

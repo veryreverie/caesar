@@ -108,7 +108,7 @@ module dictionary_module
     procedure, private :: write_file_Dictionary_character
     procedure, private :: write_file_Dictionary_String
   
-    ! Read from a file.
+    ! Read keywords from a file.
     generic,   public  :: read_file =>                    &
                         & read_file_Dictionary_character, &
                         & read_file_Dictionary_String
@@ -536,12 +536,16 @@ subroutine write_file_Dictionary_character(this,filename)
   class(Dictionary), intent(in) :: this
   character(*),      intent(in) :: filename
   
-  integer :: i
+  type(Dictionary) :: universal_keywords
+  
+  integer :: i,j
   integer :: dictionary_file
   
   dictionary_file = open_write_file(filename)
   do i=1,size(this)
     if (.not. this%keywords(i)%is_set) then
+      cycle
+    elseif (.not. this%keywords(i)%allowed_in_file) then
       cycle
     elseif (this%keywords(i)%is_boolean) then
       call print_line(dictionary_file, this%keywords(i)%keyword)
@@ -563,8 +567,13 @@ subroutine write_file_Dictionary_String(this,filename)
 end subroutine
 
 ! ----------------------------------------------------------------------
-! Reads a Dictionary from a file.
+! Reads Dictionary entries from a file.
 ! ----------------------------------------------------------------------
+! The dictionary must already have been initialised from a list of keywords
+!    before this is called.
+! The contents of the file will be checked against the dictionary's keywords.
+! If only_set_if_not_set is set, then only keywords which have not already
+!    been set will be modified. This defaults to .false..
 subroutine read_file_Dictionary_character(this, filename, &
    & only_set_if_not_set)
   implicit none
@@ -609,7 +618,11 @@ subroutine read_file_Dictionary_character(this, filename, &
     
     ! Find keyword in arguments.
     j = this%index(lower_case(line(1)))
-    if (.not. (only_set .and. this%keywords(j)%is_set)) then
+    if (.not. this%keywords(j)%allowed_in_file) then
+      call print_line('Error: the keyword '//this%keywords(j)%keyword// &
+         & ' should not appear in input files.')
+      call err()
+    elseif (.not. (only_set .and. this%keywords(j)%is_set)) then
       if (this%keywords(j)%is_boolean) then
         if (size(line)>1) then
           call print_line('Error: the boolean keyword '// &

@@ -265,7 +265,8 @@ end function
 ! ----------------------------------------------------------------------
 subroutine calculate_harmonic(arguments)
   use utils_module,          only : mkdir
-  use linear_algebra_module, only : invert
+  use linear_algebra_module
+  use setup_harmonic_module
   use structure_module
   use dft_output_file_module
   use lte_module
@@ -332,6 +333,7 @@ subroutine calculate_harmonic(arguments)
   ! --------------------------------------------------
   ! Read in previous arguments.
   ! --------------------------------------------------
+  setup_harmonic_arguments = setup_harmonic_keywords()
   call setup_harmonic_arguments%read_file(wd//'/setup_harmonic.used_settings')
   dft_code = setup_harmonic_arguments%value('dft_code')
   seedname = setup_harmonic_arguments%value('seedname')

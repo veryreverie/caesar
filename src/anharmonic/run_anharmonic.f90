@@ -59,6 +59,8 @@ end function
 ! Main program.
 ! ----------------------------------------------------------------------
 subroutine run_anharmonic(arguments)
+  use setup_harmonic_module
+  use setup_anharmonic_module
   use dictionary_module
   use qpoints_module
   use coupling_module
@@ -132,11 +134,13 @@ subroutine run_anharmonic(arguments)
   endif
   
   ! Read in setup_anharmonic settings.
+  setup_anharmonic_arguments = setup_anharmonic_keywords()
   call setup_anharmonic_arguments%read_file( &
      & wd//'/setup_anharmonic.used_settings')
   harmonic_path = setup_anharmonic_arguments%value('harmonic_path')
   
   ! Read in setup_harmonic settings.
+  setup_harmonic_arguments = setup_harmonic_keywords()
   call setup_harmonic_arguments%read_file( &
      & harmonic_path//'/setup_harmonic.used_settings')
   dft_code = setup_harmonic_arguments%value('dft_code')
@@ -190,7 +194,7 @@ subroutine run_anharmonic(arguments)
         max_sampling_point = size(sampling_points)
       endif
       
-      do sampling_point=first_sampling_point,last_sampling_point
+      do sampling_point=min_sampling_point,max_sampling_point
         call print_line('')
         call print_line('Running calculations &
            &at sampling point '//sampling_point//' &

@@ -32,6 +32,7 @@ function process_arguments(args,keywords_in) result(arguments)
   type(KeywordData), intent(in) :: keywords_in(:)
   type(Dictionary)              :: arguments
   
+  type(KeywordData), allocatable :: universal_keywords(:)
   type(KeywordData), allocatable :: keywords(:)
   
   ! Flags.
@@ -54,30 +55,11 @@ function process_arguments(args,keywords_in) result(arguments)
   ! --------------------------------------------------
   
   ! Concatenate input keywords with universal keywords ('help' etc.)
-  allocate(keywords(size(keywords_in)+4), stat=ialloc); call err(ialloc)
-  
-  keywords(1:4) = [                                                           &
-  & make_keyword( 'interactive',                                              &
-  &               'interactive specifies whether or not keywords can be &
-  &specified interactively.',                                                 &
-  &               is_boolean=.true.,                                          &
-  &               flag='i'),                                                  &
-  & make_keyword( 'help',                                                     &
-  &               'help requests helptext rather than running calculation.', &
-  &               is_optional=.true.,                                         &
-  &               flag='h'),                                                  &
-  & make_keyword( 'input_file',                                               &
-  &               'input_file specifies a file from which further settings &
-  &will be read.',                                                            &
-  &               is_optional=.true.,                                         &
-  &               flag='f'),                                                  &
-  & make_keyword( 'working_directory',                                        &
-  &               'working_directory specifies the directory where all files &
-  &and subsequent directories will be made.',                                 &
-  &               default_value='.',                                          &
-  &               flag='d') ]
-  
-  keywords(5:) = keywords_in
+  universal_keywords = make_universal_keywords()
+  allocate( keywords(size(keywords_in)+size(universal_keywords)), &
+          & stat=ialloc); call err(ialloc)
+  keywords(1:size(universal_keywords)) = universal_keywords
+  keywords(size(universal_keywords)+1:) = keywords_in
   
   ! Check that keywords with default_keyword reference extant keywords.
   do_i : do i=1,size(keywords)
