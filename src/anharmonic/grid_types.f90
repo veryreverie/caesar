@@ -206,13 +206,13 @@ recursive function generate_octahedral_grid(no_dimensions,upper_bound, &
   integer :: i,j,ialloc
   
   if (no_dimensions==0 .or. upper_bound==0) then
-    allocate(output(0,no_dimensions), stat=ialloc); call err(ialloc)
+    allocate(output(no_dimensions,0), stat=ialloc); call err(ialloc)
     output = 0
   else
     no_points = octahedral_grid_size( no_dimensions, &
                                     & upper_bound,   &
                                     & include_negatives)
-    allocate(output(no_points,no_dimensions), stat=ialloc); call err(ialloc)
+    allocate(output(no_dimensions,no_points), stat=ialloc); call err(ialloc)
     
     if (include_negatives) then
       min_i = -upper_bound
@@ -226,6 +226,7 @@ recursive function generate_octahedral_grid(no_dimensions,upper_bound, &
                                              & upper_bound-abs(i), &
                                              & include_negatives)
       small = size(smaller_grid,2)
+      
       output(1,  j+1:j+small) = i
       output(2:, j+1:j+small) = smaller_grid
       j = j+small

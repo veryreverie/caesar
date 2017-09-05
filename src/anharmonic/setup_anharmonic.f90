@@ -138,15 +138,6 @@ subroutine setup_anharmonic(arguments)
     stop
   endif
   
-  ! Check input files exist.
-  dft_input_filename = make_dft_input_filename(dft_code, seedname)
-  dft_input_filename = wd//'/'//dft_input_filename
-  if (.not. file_exists(dft_input_filename)) then
-    call print_line('Error: the input file '//dft_input_filename// &
-       & ' does not exist.')
-    stop
-  endif
-  
   ! Check temperature is valid.
   if (temperature < 0) then
     call print_line('Error: temperature must be positive.')
@@ -201,19 +192,19 @@ subroutine setup_anharmonic(arguments)
   ! Loop across q-points, running calculations at each point.
   ! --------------------------------------------------
   do i=1,size(qpoints)
+    ! Read in normal modes.
+    allocate(modes(structure%no_modes), stat=ialloc); call err(ialloc)
+    do j=1,structure%no_modes
+      modes(j) = read_normal_mode_file( &
+         & harmonic_path//'/qpoint_'//i//'/mode_'//j//'.dat')
+    enddo
+    
     ! Calculate the sample spacing along each mode.
     ! Assumes the mode is harmonic.
     allocate(sample_spacing(structure%no_modes), stat=ialloc); call err(ialloc)
     do j=1,structure%no_modes
       sample_spacing(j) = sqrt(2.0_dp*max_energy) &
                       & / (modes(j)%frequency*no_sampling_points)
-    enddo
-    
-    ! Read in normal modes.
-    allocate(modes(structure%no_modes), stat=ialloc); call err(ialloc)
-    do j=1,structure%no_modes
-      modes(j) = read_normal_mode_file( &
-         & harmonic_path//'/qpoint_'//i//'/mode_'//j//'.dat')
     enddo
     
     ! Make q-point directories.
@@ -223,7 +214,7 @@ subroutine setup_anharmonic(arguments)
     ! Parse coupling.
     line = split(all_coupling(i), ',')
     allocate(coupling(size(line)), stat=ialloc); call err(ialloc)
-    do j=1,structure%no_modes
+    do j=1,size(coupling)
       coupling(j)%modes = int(split(line(j)))
     enddo
     coupling = calculate_all_coupling(coupling, structure%no_modes)

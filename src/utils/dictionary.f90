@@ -536,9 +536,7 @@ subroutine write_file_Dictionary_character(this,filename)
   class(Dictionary), intent(in) :: this
   character(*),      intent(in) :: filename
   
-  type(Dictionary) :: universal_keywords
-  
-  integer :: i,j
+  integer :: i
   integer :: dictionary_file
   
   dictionary_file = open_write_file(filename)

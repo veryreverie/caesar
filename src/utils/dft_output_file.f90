@@ -90,32 +90,33 @@ function read_castep_output_file(filename) result(output)
     line = split(lower_case(castep_file(i)))
     ! energy
     if (size(line)>=2) then
-      if (line(1)=="final" .and. line(2)=="energy,") then
+      if (line(1)=='final' .and. line(2)=='energy,') then
         energy_line = i
       endif
     endif
     ! forces
     if (size(line)>=2) then
-      if (line(1)=="***********************" .and. line(2)=="forces") then
+      if ( (line(1)=='***********************' .and. line(2)=='forces') .or. &
+         & (line(1)=='*****************' .and. line(2)=='symmetrised')) then
         forces_start_line = i
       endif
     endif
     if (size(line)>=1) then
-      if(forces_start_line/=0 .and. &
-       &line(1)=="******************************************************") then
+      if (forces_start_line/=0 .and. &
+       &line(1)=='******************************************************') then
         forces_end_line = i
       endif
     endif
   enddo
   
   if (energy_line==0) then
-    call print_line("Error: Energy not found in "//char(filename))
+    call print_line('Error: Energy not found in '//char(filename))
   endif
   if (forces_start_line==0) then
-    call print_line("Error: Start of forces not found in "//char(filename))
+    call print_line('Error: Start of forces not found in '//char(filename))
   endif
   if (forces_end_line==0) then
-    call print_line("Error: End of forces not found in "//char(filename))
+    call print_line('Error: End of forces not found in '//char(filename))
   endif
   
   ! Allocate output
@@ -150,7 +151,7 @@ function read_qe_output_file(filename) result(output)
   integer        :: forces_start_line
   integer        :: forces_end_line
   
-  ! qe "type" to species conversion
+  ! qe 'type' to species conversion
   integer                   :: no_species
   type(String), allocatable :: species(:)
   
@@ -164,19 +165,19 @@ function read_qe_output_file(filename) result(output)
   do i=1,size(qe_file)
     line = split(lower_case(qe_file(i)))
     ! species
-    if (line(1)=="atomic" .and. line(2)=="species") then
+    if (line(1)=='atomic' .and. line(2)=='species') then
       species_start_line = i
     elseif ( species_start_line/=0 .and. &
            & species_end_line==0   .and. &
            & size(line)==0) then
       species_end_line = i
     ! energy
-    elseif (line(1)=="!") then
+    elseif (line(1)=='!') then
       energy_line=i
     ! forces
-    elseif (line(1)=="forces" .and. line(2)=="acting") then
+    elseif (line(1)=='forces' .and. line(2)=='acting') then
       forces_start_line = i
-    elseif (line(1)=="total" .and. line(2)=="force") then
+    elseif (line(1)=='total' .and. line(2)=='force') then
       forces_end_line = i
     endif
   enddo
@@ -211,9 +212,9 @@ function read_dft_output_file(dft_code,filename) result(output)
   type(String), intent(in) :: filename
   type(DftOutputFile)      :: output
   
-  if (dft_code=="castep") then
+  if (dft_code=='castep') then
     output = read_castep_output_file(filename)
-  elseif (dft_code=="qe") then
+  elseif (dft_code=='qe') then
     output = read_qe_output_file(filename)
   endif
 end function

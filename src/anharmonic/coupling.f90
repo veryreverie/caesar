@@ -148,7 +148,9 @@ function calculate_all_coupling(input, no_modes) result(output)
   allocate(ids(max_no_coupled), stat=ialloc); call err(ialloc)
   
   ! Base case: single mode. ids(1) = [[1]]
-  ids(1) = [array([1])]
+  if (size(ids)>0) then
+    ids(1) = [array([1])]
+  endif
   
   ! Further cases : ids(i) = [ids(i-1), [i], ids(i-1)//i]
   do i=2,size(ids)
