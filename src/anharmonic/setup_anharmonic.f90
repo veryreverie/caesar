@@ -153,6 +153,15 @@ subroutine setup_anharmonic(arguments)
     stop
   endif
   
+  ! Check dft input files exists.
+  dft_input_filename = make_dft_input_filename(dft_code,seedname)
+  dft_input_filename = wd//'/'//dft_input_filename
+  if (.not. file_exists(dft_input_filename)) then
+    call print_line('Error: The input file '//dft_input_filename// &
+       &' does not exist.')
+    stop
+  endif
+  
   ! --------------------------------------------------
   ! Read and calculcate starting data.
   ! --------------------------------------------------
@@ -219,10 +228,13 @@ subroutine setup_anharmonic(arguments)
     enddo
     coupling = calculate_all_coupling(coupling, structure%no_modes)
     
-    allocate(setup_data(size(coupling)), stat=ialloc); call err(ialloc)
-    
     ! Write out coupling.
     call write_coupling_file(coupling, qdir//'/coupling.dat')
+    
+    allocate(setup_data(size(coupling)), stat=ialloc); call err(ialloc)
+    do j=1,size(coupling)
+      setup_data(j)%coupling = coupling(j)
+    enddo
     
     do j=1,size(setup_data)
       ! Make coupling directories.
@@ -267,6 +279,12 @@ subroutine setup_anharmonic(arguments)
            & sdir//'/'//dft_input_filename)
       enddo
     enddo
+    
+    deallocate( modes,          &
+              & sample_spacing, &
+              & coupling,       &
+              & setup_data,     &
+              & stat=ialloc); call err(ialloc)
   enddo
 end subroutine
 end module

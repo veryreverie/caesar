@@ -859,32 +859,48 @@ function format_path_character(path) result(output)
   character(*), intent(in) :: path
   type(String)             :: output
   
-  integer :: last
+  integer :: length
   
-  last = len(path)
+  length = len(path)
   
-  if (last==0) then
+  if (length==0) then
     call print_line('Error: no path provided.')
     call err()
   endif
   
-  ! Trim trailing '/', if present.
-  if (path(last:)=='/') then
-    last = last - 1
+  ! foo/ -> foo
+  if (length>1 .and. path(length:)=='/') then
+    length = length - 1
   endif
   
-  if (path(:1)=='/') then
-    ! Path is absolute.
-    output = path(:last)
-  elseif (path(:1)=='~') then
-    ! Path is relative to HOME. Replace ~ with HOME.
-    output = HOME//'/'//path(3:last)
-  elseif (path=='.') then
-    ! Path is relative. Prepend current working directory.
-    output = CWD
+  if (length==1) then
+    if (path(:1)=='/') then
+      ! / -> /
+      output = path(:1)
+    elseif (path(:1)=='.') then
+      ! . -> /current/working/directory
+      output = CWD
+    elseif (path(:1)=='~') then
+      ! ~ -> /home/directory
+      output = HOME
+    else
+      ! foo -> /current/working/directory/foo
+      output = CWD//'/'//path(:1)
+    endif
   else
-    ! Path is relative. Prepend current working directory.
-    output = CWD//'/'//path(:last)
+    if (path(:1)=='/') then
+      ! /foo -> /foo
+      output = path(:length)
+    elseif (path(:2)=='./') then
+      ! ./foo -> /current/working/directory/foo
+      output = CWD//path(2:length)
+    elseif (path(:2)=='~/') then
+      ! ~/foo -> /home/directory/foo
+      output = HOME//path(2:length)
+    else
+      ! foo -> /current/working/directory/foo
+      output = CWD//path(:length)
+    endif
   endif
 end function
 

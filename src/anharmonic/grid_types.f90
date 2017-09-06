@@ -88,7 +88,7 @@ function calculate_displacement_spherical(sampling_point_indices, &
   real(dp), intent(in) :: sample_spacing(:)
   type(ModeVector)     :: output
   
-  real(dp) :: radius
+  integer :: radius
   
   ! Temporary variables.
   integer :: i,ialloc
@@ -98,11 +98,15 @@ function calculate_displacement_spherical(sampling_point_indices, &
   
   allocate( output%vector(size(sampling_point_indices)), &
           & stat=ialloc); call err(ialloc)
-  do i=1,size(output%vector)
-    output%vector(i) = sin(sampling_point_indices(i)/radius) &
-                   & * radius                                &
-                   & * sample_spacing(i)
-  enddo
+  if (radius==0) then
+    output%vector = 0
+  else
+    do i=1,size(output%vector)
+      output%vector(i) = sin(sampling_point_indices(i)/real(radius,dp)) &
+                     & * radius                                         &
+                     & * sample_spacing(i)
+    enddo
+  endif
 end function
 
 ! ----------------------------------------------------------------------
@@ -206,7 +210,7 @@ recursive function generate_octahedral_grid(no_dimensions,upper_bound, &
   integer :: i,j,ialloc
   
   if (no_dimensions==0 .or. upper_bound==0) then
-    allocate(output(no_dimensions,0), stat=ialloc); call err(ialloc)
+    allocate(output(no_dimensions,1), stat=ialloc); call err(ialloc)
     output = 0
   else
     no_points = octahedral_grid_size( no_dimensions, &
@@ -231,6 +235,11 @@ recursive function generate_octahedral_grid(no_dimensions,upper_bound, &
       output(2:, j+1:j+small) = smaller_grid
       j = j+small
     enddo
+    
+    ! Check that the output has been filled correctly.
+    if (j/=no_points) then
+      call err()
+    endif
   endif
 end function
 

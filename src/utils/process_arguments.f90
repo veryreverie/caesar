@@ -129,13 +129,13 @@ function process_arguments(args,keywords_in) result(arguments)
         endif
       else
         ! Append this to the value of the active keyword.
+        call print_line('arg: "'//flag%argument//'"')
         call arguments%append_value(keyword, flag%argument)
       endif
     elseif (flag%flag=='-') then
       ! An argument which is a '--' keyword.
       ! Get the keyword, and set its value to ''.
       keyword = lower_case(flag%argument)
-      call arguments%set_value(keyword, '')
     else
       ! An argument which is a '-' flag.
       ! Get the keyword corresponding to the flag, and set its value.

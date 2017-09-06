@@ -114,10 +114,9 @@ subroutine setup_harmonic(arguments)
     stop
   endif
   
-  ! Check dft input files exist
+  ! Check dft input files exists.
   dft_input_filename = make_dft_input_filename(dft_code,seedname)
   dft_input_filename = wd//'/'//dft_input_filename
-  
   if (.not. file_exists(dft_input_filename)) then
     call print_line('Error: The input file '//dft_input_filename// &
        &' does not exist.')

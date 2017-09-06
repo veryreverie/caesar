@@ -9,7 +9,7 @@ program caesar
   use string_module
   use io_module
   use dictionary_module
-  use utils_module, only : command_line_args, format_path
+  use utils_module, only : command_line_args
   use help_module
   use process_arguments_module
   

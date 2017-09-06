@@ -44,8 +44,9 @@ subroutine write_sampling_points_file(this, filename)
   do i=1,size(this)
     call print_line(sampling_file, '')
     call print_line(sampling_file,'Indices      : '//this(i)%indices)
-    call print_line(sampling_file,'Displacement : '//this(i)%indices)
-    call print_line(sampling_file,'Duplicate    : '//this(i)%indices)
+    call print_line( sampling_file, &
+                   & 'Displacement : '//this(i)%displacement%vector)
+    call print_line(sampling_file,'Duplicate    : '//this(i)%duplicate)
   enddo
   close(sampling_file)
 end subroutine
@@ -109,6 +110,13 @@ function generate_sampling_points(grid_type,coupling,no_modes, &
                                    & no_sampling_points, &
                                    & include_negatives=.true.)
   endif
+  
+  call print_line('')
+  call print_line('===== HERE =====')
+  do i=1,size(grid,2)
+    call print_line(grid(:,i))
+  enddo
+  call print_line('===== GONE =====')
   
   ! Generate output.
   allocate(output(size(grid,2)), stat=ialloc); call err(ialloc)

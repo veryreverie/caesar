@@ -100,19 +100,28 @@ subroutine run_anharmonic(arguments)
   integer :: sampling_point,min_sampling_point,max_sampling_point
   
   ! Temporary variables.
-  type(String)              :: dir
-  integer                   :: result_code
+  type(String) :: qdir,cdir,sdir
+  integer      :: result_code
   
   ! Read in inputs.
   wd = arguments%value('working_directory')
   first_qpoint = int(arguments%value('first_qpoint'))
   first_coupling = int(arguments%value('first_coupling'))
   first_sampling_point = int(arguments%value('first_sampling_point'))
-  last_qpoint = int(arguments%value('last_qpoint'))
-  last_coupling = int(arguments%value('last_coupling'))
-  last_sampling_point = int(arguments%value('last_sampling_point'))
+  if (arguments%is_set('last_qpoint')) then
+    last_qpoint = int(arguments%value('last_qpoint'))
+  else
+  if (arguments%is_set('last_coupling')) then
+    last_coupling = int(arguments%value('last_coupling'))
+  endif
+  if (arguments%is_set('last_sampling_point')) then
+    last_sampling_point = int(arguments%value('last_sampling_point'))
+  endif
   no_cores = int(arguments%value('no_cores'))
   run_script = arguments%value('run_script')
+  
+  call print_line(run_script)
+  call err()
   
   ! Check that calculation range is well defined.
   if (first_qpoint<1) then
@@ -121,14 +130,22 @@ subroutine run_anharmonic(arguments)
     call err()
   elseif (first_sampling_point<1) then
     call err()
-  elseif (first_qpoint>last_qpoint) then
-    call err()
-  elseif (first_qpoint==last_qpoint) then
-    if (first_coupling>last_coupling) then
+  endif
+  
+  if (arguments%is_set('last_qpoint')) then
+    elseif (first_qpoint>last_qpoint) then
       call err()
-    elseif (first_coupling==last_coupling) then
-      if (first_sampling_point>last_sampling_point) then
-        call err()
+    elseif (first_qpoint==last_qpoint) then
+      if (arguments%is_set('last_coupling')) then
+        if (first_coupling>last_coupling) then
+          call err()
+        elseif (first_coupling==last_coupling) then
+          if (arguments%is_set('last_sampling_point')) then
+            if (first_sampling_point>last_sampling_point) then
+              call err()
+            endif
+          endif
+        endif
       endif
     endif
   endif
@@ -149,14 +166,19 @@ subroutine run_anharmonic(arguments)
   ! Run calculations at each q-point.
   qpoints = read_qpoints_file(harmonic_path//'/qpoints_ibz.dat')
   
-  if (last_qpoint>size(qpoints)) then
-    call err()
+  if (arguments%is_set('last_qpoint')) then
+    if (last_qpoint>size(qpoints)) then
+      call err()
+    endif
+  else
+    last_qpoint = size(qpoints)
   endif
   
   do qpoint=first_qpoint,last_qpoint
+    qdir = wd//'/qpoint_'//qpoint
     
     ! Run calculations at each coupling at the q-point.
-    couplings = read_coupling_file(wd//'/qpoint_'//qpoint//'/coupling.dat')
+    couplings = read_coupling_file(qdir//'/coupling.dat')
     
     if (qpoint==first_qpoint) then
       min_coupling = first_coupling
@@ -165,8 +187,12 @@ subroutine run_anharmonic(arguments)
     endif
     
     if (qpoint==last_qpoint) then
-      if (last_coupling>size(couplings)) then
-        call err()
+      if (arguments%is_set('last_coupling')) then
+        if (last_coupling>size(couplings)) then
+          call err()
+        endif
+      else
+        last_coupling = size(couplings)
       endif
       max_coupling = last_coupling
     else
@@ -174,10 +200,10 @@ subroutine run_anharmonic(arguments)
     endif
     
     do coupling=min_coupling,max_coupling
+      cdir = qdir//'/coupling_'//coupling
       
       ! Run calculations at each sampling point at the coupling.
-      sampling_points = read_sampling_points_file( &
-         & wd//'/qpoint_'//qpoint//'/sampling_points.dat')
+      sampling_points = read_sampling_points_file(cdir//'/sampling_points.dat')
       
       if (qpoint==first_qpoint .and. coupling==first_coupling) then
         min_sampling_point = first_sampling_point
@@ -186,8 +212,12 @@ subroutine run_anharmonic(arguments)
       endif
       
       if (qpoint==last_qpoint .and. coupling==last_coupling) then
-        if (last_sampling_point>size(sampling_points) ) then
-          call err()
+        if (arguments%is_set('last_sampling_point')) then
+          if (last_sampling_point>size(sampling_points) ) then
+            call err()
+          endif
+        else
+          last_sampling_point = size(sampling_points)
         endif
         max_sampling_point = last_sampling_point
       else
@@ -200,13 +230,11 @@ subroutine run_anharmonic(arguments)
            &at sampling point '//sampling_point//' &
            &at coupling '//coupling//' &
            &at q-point '//qpoint//'.')
-        dir = wd// '/qpoint_'        //qpoint   // &
-                 & '/coupling_'      //coupling // &
-                 & '/sampling_point_'//sampling_point
+        sdir = cdir//'/sampling_point_'//sampling_point
         result_code = system_call( 'cd '//wd//'; ' //      &
                                  & run_script      //' '// &
                                  & dft_code        //' '// &
-                                 & dir             //' '// &
+                                 & sdir            //' '// &
                                  & no_cores        //' '// &
                                  & seedname)
         call print_line('Result code: '//result_code)

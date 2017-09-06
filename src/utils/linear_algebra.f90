@@ -783,14 +783,14 @@ pure function cmplx_ComplexMatrix(input) result(output)
   output = input%contents
 end function
 
-! Real part.
+! Real part of a complex object.
 pure function real_ComplexVector(input) result(output)
   implicit none
   
   type(ComplexVector), intent(in) :: input
   type(RealVector)                :: output
   
-  output%contents = real(input%contents)
+  output = real(input%contents,dp)
 end function
 
 pure function real_ComplexMatrix(input) result(output)
@@ -799,17 +799,17 @@ pure function real_ComplexMatrix(input) result(output)
   type(ComplexMatrix), intent(in) :: input
   type(RealMatrix)                :: output
   
-  output%contents = real(input%contents)
+  output = real(input%contents,dp)
 end function
 
-! Imaginary part.
+! Imaginary part of a complex object.
 pure function aimag_ComplexVector(input) result(output)
   implicit none
   
   type(ComplexVector), intent(in) :: input
   type(RealVector)                :: output
   
-  output%contents = aimag(input%contents)
+  output = aimag(input%contents)
 end function
 
 pure function aimag_ComplexMatrix(input) result(output)
@@ -818,7 +818,7 @@ pure function aimag_ComplexMatrix(input) result(output)
   type(ComplexMatrix), intent(in) :: input
   type(RealMatrix)                :: output
   
-  output%contents = aimag(input%contents)
+  output = aimag(input%contents)
 end function
 
 ! size().

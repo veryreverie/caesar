@@ -119,9 +119,8 @@ module dictionary_module
     ! ----------
     ! Set defaults, process paths and check non-optional keywords are set.
     ! ----------
-    generic,   public  :: process_and_check_inputs => &
+    procedure, public  :: process_and_check_inputs => &
                         & process_and_check_inputs_Dictionary
-    procedure, private :: process_and_check_inputs_Dictionary
     
   end type
   
