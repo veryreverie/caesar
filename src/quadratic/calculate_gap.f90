@@ -8,7 +8,7 @@ contains
 ! Generate keywords and helptext.
 ! ----------------------------------------------------------------------
 function calculate_gap_keywords() result(keywords)
-  use help_module
+  use keyword_module
   implicit none
   
   type(KeywordData) :: keywords(0)

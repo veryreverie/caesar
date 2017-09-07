@@ -13,32 +13,27 @@ module eigenstates_module
     real(dp)              :: frequency
     real(dp), allocatable :: coefficients(:)
   contains
+    generic, public :: operator(+) => add_SingleModeState_SingleModeState
+    generic, public :: operator(-) => subtract_SingleModeState_SingleModeState
+    generic, public :: operator(*) => multiply_SingleModeState_real, &
+                                    & multiply_real_SingleModeState
+    generic, public :: operator(/) => divide_SingleModeState_real
+    
     procedure :: evaluate => evaluate_SingleModeState
+    
+    procedure, private             :: add_SingleModeState_SingleModeState
+    procedure, private             :: subtract_SingleModeState_SingleModeState
+    procedure, private             :: multiply_SingleModeState_real
+    procedure, private, pass(that) :: multiply_real_SingleModeState
+    procedure, private             :: divide_SingleModeState_real
   end type
   
   ! A product of single mode states.
   type :: ProductState
     type(SingleModeState), allocatable :: states(:)
   contains
-    procedure :: evaluate => evaluate_ProductState
+    procedure, public :: evaluate => evaluate_ProductState
   end type
-  
-  interface operator(+)
-    module procedure add_SingleModeState_SingleModeState
-  end interface
-  
-  interface operator(-)
-    module procedure subtract_SingleModeState_SingleModeState
-  end interface
-  
-  interface operator(*)
-    module procedure multiply_SingleModeState_real
-    module procedure multiply_real_SingleModeState
-  end interface
-  
-  interface operator(/)
-    module procedure divide_SingleModeState_real
-  end interface
   
   type :: ProductStateOutput
     type(ProductState), allocatable :: states(:)
@@ -46,60 +41,64 @@ module eigenstates_module
   end type
 contains
 
-elemental function add_SingleModeState_SingleModeState(a,b) result(output)
-  implicit none
-  
-  type(SingleModeState), intent(in) :: a
-  type(SingleModeState), intent(in) :: b
-  type(SingleModeState)             :: output
-  
-  output%frequency = a%frequency
-  output%coefficients = a%coefficients + b%coefficients
-end function
-
-elemental function subtract_SingleModeState_SingleModeState(a,b) &
+! ----------------------------------------------------------------------
+! Arithmetic operations on states.
+! ----------------------------------------------------------------------
+elemental function add_SingleModeState_SingleModeState(this,that) &
    & result(output)
   implicit none
   
-  type(SingleModeState), intent(in) :: a
-  type(SingleModeState), intent(in) :: b
-  type(SingleModeState)             :: output
+  class(SingleModeState), intent(in) :: this
+  class(SingleModeState), intent(in) :: that
+  type(SingleModeState)              :: output
   
-  output%frequency = a%frequency
-  output%coefficients = a%coefficients - b%coefficients
+  output%frequency = this%frequency
+  output%coefficients = this%coefficients + that%coefficients
 end function
 
-elemental function multiply_SingleModeState_real(a,b) result(output)
+elemental function subtract_SingleModeState_SingleModeState(this,that) &
+   & result(output)
   implicit none
   
-  type(SingleModeState), intent(in) :: a
-  real(dp),              intent(in) :: b
-  type(SingleModeState)             :: output
+  class(SingleModeState), intent(in) :: this
+  class(SingleModeState), intent(in) :: that
+  type(SingleModeState)              :: output
   
-  output%frequency = a%frequency
-  output%coefficients = a%coefficients * b
+  output%frequency = this%frequency
+  output%coefficients = this%coefficients - that%coefficients
 end function
 
-elemental function multiply_real_SingleModeState(a,b) result(output)
+elemental function multiply_SingleModeState_real(this,that) result(output)
   implicit none
   
-  real(dp),              intent(in) :: a
-  type(SingleModeState), intent(in) :: b
-  type(SingleModeState)             :: output
+  class(SingleModeState), intent(in) :: this
+  real(dp),               intent(in) :: that
+  type(SingleModeState)              :: output
   
-  output%frequency = b%frequency
-  output%coefficients = a * b%coefficients
+  output%frequency = this%frequency
+  output%coefficients = this%coefficients * that
 end function
 
-elemental function divide_SingleModeState_real(a,b) result(output)
+elemental function multiply_real_SingleModeState(this,that) result(output)
   implicit none
   
-  type(SingleModeState), intent(in) :: a
-  real(dp),              intent(in) :: b
-  type(SingleModeState)             :: output
+  real(dp),               intent(in) :: this
+  class(SingleModeState), intent(in) :: that
+  type(SingleModeState)              :: output
   
-  output%frequency = a%frequency
-  output%coefficients = a%coefficients / b
+  output%frequency = that%frequency
+  output%coefficients = this * that%coefficients
+end function
+
+elemental function divide_SingleModeState_real(this,that) result(output)
+  implicit none
+  
+  class(SingleModeState), intent(in) :: this
+  real(dp),               intent(in) :: that
+  type(SingleModeState)              :: output
+  
+  output%frequency = this%frequency
+  output%coefficients = this%coefficients / that
 end function
 
 ! ----------------------------------------------------------------------

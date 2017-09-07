@@ -10,7 +10,7 @@ contains
 ! Generate keywords and helptext.
 ! ----------------------------------------------------------------------
 function hartree_to_eV_keywords() result(keywords)
-  use help_module
+  use keyword_module
   implicit none
   
   type(KeywordData) :: keywords(1)

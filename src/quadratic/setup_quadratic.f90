@@ -13,7 +13,7 @@ contains
 ! Generates keywords and helptext.
 ! ----------------------------------------------------------------------
 function setup_quadratic_keywords() result(keywords)
-  use help_module
+  use keyword_module
   implicit none
   
   type(KeywordData) :: keywords(4)

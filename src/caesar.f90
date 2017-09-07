@@ -10,6 +10,7 @@ program caesar
   use io_module
   use dictionary_module
   use utils_module, only : command_line_args
+  use keyword_module
   use help_module
   use process_arguments_module
   

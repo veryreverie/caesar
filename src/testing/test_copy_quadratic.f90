@@ -8,7 +8,7 @@ contains
 ! Generates keywords and helptext.
 ! ----------------------------------------------------------------------
 function test_copy_quadratic_keywords() result(keywords)
-  use help_module
+  use keyword_module
   use setup_quadratic_module
   implicit none
   

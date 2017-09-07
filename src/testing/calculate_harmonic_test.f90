@@ -11,7 +11,7 @@ contains
 ! Generates keywords and helptext.
 ! ----------------------------------------------------------------------
 function calculate_harmonic_test_keywords() result(keywords)
-  use help_module
+  use keyword_module
   use calculate_harmonic_module
   implicit none
   

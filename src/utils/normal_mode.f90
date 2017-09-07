@@ -15,18 +15,16 @@ module normal_mode_module
   
   type ModeVector
     real(dp), allocatable :: vector(:)
+  contains
+    generic, public :: operator(+) => add_ModeVector_ModeVector
+    generic, public :: operator(-) => subtract_ModeVector_ModeVector
+    
+    procedure, private :: add_ModeVector_ModeVector
+    procedure, private :: subtract_ModeVector_ModeVector
   end type
   
   interface new
     module procedure new_NormalMode
-  end interface
-  
-  interface operator(+)
-    module procedure add_ModeVector_ModeVector
-  end interface
-  
-  interface operator(-)
-    module procedure subtract_ModeVector_ModeVector
   end interface
 contains
 
@@ -44,9 +42,9 @@ end subroutine
 function add_ModeVector_ModeVector(a,b) result(output)
   implicit none
   
-  type(ModeVector), intent(in) :: a
-  type(ModeVector), intent(in) :: b
-  type(ModeVector)             :: output
+  class(ModeVector), intent(in) :: a
+  class(ModeVector), intent(in) :: b
+  type(ModeVector)              :: output
   
   output%vector = a%vector + b%vector
 end function
@@ -54,9 +52,9 @@ end function
 function subtract_ModeVector_ModeVector(a,b) result(output)
   implicit none
   
-  type(ModeVector), intent(in) :: a
-  type(ModeVector), intent(in) :: b
-  type(ModeVector)             :: output
+  class(ModeVector), intent(in) :: a
+  class(ModeVector), intent(in) :: b
+  type(ModeVector)              :: output
   
   output%vector = a%vector - b%vector
 end function

@@ -13,40 +13,49 @@ module linear_algebra_module
   ! --------------------------------------------------
   type IntVector
     integer, allocatable, private :: contents(:)
+  contains
+    generic,   public  :: assignment(=) => assign_IntVector_integers
+    procedure, private :: assign_IntVector_integers
   end type
   
   type RealVector
     real(dp), allocatable, private :: contents(:)
+  contains
+    generic,   public  :: assignment(=) => assign_RealVector_reals
+    procedure, private :: assign_RealVector_reals
   end type
   
   type ComplexVector
     complex(dp), allocatable, private :: contents(:)
+  contains
+    generic,   public  :: assignment(=) => assign_ComplexVector_complexes
+    procedure, private :: assign_ComplexVector_complexes
   end type
   
   type IntMatrix
     integer, allocatable, private :: contents(:,:)
+  contains
+    generic,   public  :: assignment(=) => assign_IntMatrix_integers
+    procedure, private :: assign_IntMatrix_integers
   end type
   
   type RealMatrix
     real(dp), allocatable, private :: contents(:,:)
+  contains
+    generic,   public  :: assignment(=) => assign_RealMatrix_reals
+    procedure, private :: assign_RealMatrix_reals
   end type
   
   type ComplexMatrix
     complex(dp), allocatable, private :: contents(:,:)
+  contains
+    generic,   public  :: assignment(=) => assign_ComplexMatrix_complexes
+    procedure, private :: assign_ComplexMatrix_complexes
   end type
   
   ! --------------------------------------------------
   ! Overloads for vector / matrix operations.
   ! --------------------------------------------------
-  interface assignment(=)
-    module procedure assign_IntVector_integers
-    module procedure assign_RealVector_reals
-    module procedure assign_ComplexVector_complexes
-    module procedure assign_IntMatrix_integers
-    module procedure assign_RealMatrix_reals
-    module procedure assign_ComplexMatrix_complexes
-  end interface
-  
   interface vec
     module procedure vec_integers
     module procedure vec_reals
@@ -490,58 +499,58 @@ contains
 ! Vector and Matrix operations.
 ! ----------------------------------------------------------------------
 ! Assignment.
-pure subroutine assign_IntVector_integers(output,input)
+pure subroutine assign_IntVector_integers(this,that)
   implicit none
   
-  integer,         intent(in)  :: input(:)
-  type(IntVector), intent(out) :: output
+  class(IntVector), intent(inout) :: this
+  integer,          intent(in)    :: that(:)
   
-  output%contents = input
+  this%contents = that
 end subroutine
 
-pure subroutine assign_RealVector_reals(output,input)
+pure subroutine assign_RealVector_reals(this,that)
   implicit none
   
-  real(dp),         intent(in)  :: input(:)
-  type(RealVector), intent(out) :: output
+  class(RealVector), intent(inout) :: this
+  real(dp),          intent(in)    :: that(:)
   
-  output%contents = input
+  this%contents = that
 end subroutine
 
-pure subroutine assign_ComplexVector_complexes(output,input)
+pure subroutine assign_ComplexVector_complexes(this,that)
   implicit none
   
-  complex(dp),         intent(in)  :: input(:)
-  type(ComplexVector), intent(out) :: output
+  class(ComplexVector), intent(inout) :: this
+  complex(dp),          intent(in)    :: that(:)
   
-  output%contents = input
+  this%contents = that
 end subroutine
 
-pure subroutine assign_IntMatrix_integers(output,input)
+pure subroutine assign_IntMatrix_integers(this,that)
   implicit none
   
-  integer,         intent(in)  :: input(:,:)
-  type(IntMatrix), intent(out) :: output
+  class(IntMatrix), intent(inout) :: this
+  integer,          intent(in)    :: that(:,:)
   
-  output%contents = input
+  this%contents = that
 end subroutine
 
-pure subroutine assign_RealMatrix_reals(output,input)
+pure subroutine assign_RealMatrix_reals(this,that)
   implicit none
   
-  real(dp),         intent(in)  :: input(:,:)
-  type(RealMatrix), intent(out) :: output
+  class(RealMatrix), intent(inout) :: this
+  real(dp),          intent(in)    :: that(:,:)
   
-  output%contents = input
+  this%contents = that
 end subroutine
 
-pure subroutine assign_ComplexMatrix_complexes(output,input)
+pure subroutine assign_ComplexMatrix_complexes(this,that)
   implicit none
   
-  complex(dp),         intent(in)  :: input(:,:)
-  type(ComplexMatrix), intent(out) :: output
+  class(ComplexMatrix), intent(inout) :: this
+  complex(dp),          intent(in)    :: that(:,:)
   
-  output%contents = input
+  this%contents = that
 end subroutine
 
 ! Conversion to Vector and Matrix.

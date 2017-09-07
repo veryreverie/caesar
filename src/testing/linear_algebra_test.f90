@@ -11,7 +11,7 @@ contains
 ! Generates keywords and helptext.
 ! ----------------------------------------------------------------------
 function linear_algebra_test_keywords() result(keywords)
-  use help_module
+  use keyword_module
   implicit none
   
   type(KeywordData) :: keywords(0)

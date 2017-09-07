@@ -25,7 +25,7 @@ contains
 ! ----------------------------------------------------------------------
 function process_arguments(args,keywords_in) result(arguments)
   use dictionary_module
-  use help_module
+  use keyword_module
   implicit none
   
   type(String),      intent(in) :: args(:)
@@ -129,8 +129,11 @@ function process_arguments(args,keywords_in) result(arguments)
         endif
       else
         ! Append this to the value of the active keyword.
-        call print_line('arg: "'//flag%argument//'"')
-        call arguments%append_value(keyword, flag%argument)
+        if (arguments%is_set_with_value(keyword)) then
+          call arguments%append_to_value(keyword, ' '//flag%argument)
+        else
+          call arguments%set_with_value(keyword, flag%argument)
+        endif
       endif
     elseif (flag%flag=='-') then
       ! An argument which is a '--' keyword.
@@ -140,7 +143,7 @@ function process_arguments(args,keywords_in) result(arguments)
       ! An argument which is a '-' flag.
       ! Get the keyword corresponding to the flag, and set its value.
       keyword = arguments%flag_to_keyword(flag%flag)
-      call arguments%set_value(keyword,flag%argument)
+      call arguments%set_with_value(keyword,flag%argument)
     endif
   enddo
   
@@ -163,7 +166,7 @@ function process_arguments(args,keywords_in) result(arguments)
     if (read_line_from_user()/='') then
       call print_line('Please enter a keyword for further information, or &
          &press <Enter> for information about accepted keywords.')
-      call arguments%set_value('help',read_line_from_user())
+      call arguments%set_with_value('help',read_line_from_user())
       return
     endif
   endif
@@ -188,7 +191,7 @@ function process_arguments(args,keywords_in) result(arguments)
       call print_line('Please enter a file path, or press <Enter> to skip.')
       temp_string = read_line_from_user()
       if (temp_string/='') then
-        call arguments%set_value('input_file', temp_string)
+        call arguments%set_with_value('input_file', temp_string)
       endif
     endif
   endif
@@ -227,7 +230,7 @@ function process_arguments(args,keywords_in) result(arguments)
              &enter the value to be set.')
           temp_string = read_line_from_user()
           if (temp_string/='') then
-            call arguments%set_value(keyword, temp_string)
+            call arguments%set_with_value(keyword, temp_string)
           endif
         endif
       else
@@ -259,7 +262,7 @@ function process_arguments(args,keywords_in) result(arguments)
           
           temp_string = read_line_from_user()
           if (temp_string/='') then
-            call arguments%set_value(keyword, temp_string)
+            call arguments%set_with_value(keyword, temp_string)
           endif
         else
           ! Unset non-optional argument. Loop until it is set by user.
@@ -267,7 +270,7 @@ function process_arguments(args,keywords_in) result(arguments)
             call print_line('Please give a value for this keyword.')
             temp_string = read_line_from_user()
             if (temp_string/='') then
-              call arguments%set_value(keyword, temp_string)
+              call arguments%set_with_value(keyword, temp_string)
               exit
             endif
           enddo

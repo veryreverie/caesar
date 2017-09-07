@@ -15,7 +15,7 @@ contains
 ! Generates keywords and helptext.
 ! ----------------------------------------------------------------------
 function test_keywords() result(keywords)
-  use help_module
+  use keyword_module
   implicit none
   
   type(KeywordData), allocatable :: keywords(:)

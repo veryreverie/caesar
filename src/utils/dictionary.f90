@@ -5,14 +5,12 @@ module dictionary_module
   use constants_module, only : dp
   use string_module
   use io_module
-  use help_module
+  use keyword_module
   implicit none
   
   private
   
   public :: size          ! The number of key/value pairs.
-  public :: assignment(=) ! Make a Dictionary from an array of keywords.
-  public :: operator(//)  ! Concatenate two Dictionaries.
   
   ! ------------------------------
   ! A dictionary of keys and values.
@@ -20,6 +18,18 @@ module dictionary_module
   type, public :: Dictionary
     type(KeywordData), allocatable :: keywords(:)
   contains
+    ! ----------
+    ! Make a Dictionary from an array of keywords.
+    ! ----------
+    generic,   public  :: assignment(=) => assign_Dictionary_KeywordDatas
+    procedure, private :: assign_Dictionary_KeywordDatas
+    
+    ! ----------
+    ! Concatenate two Dictionaries.
+    ! ----------
+    generic,   public  :: operator(//) => concatenate_Dictionary_Dictionary
+    procedure, private :: concatenate_Dictionary_Dictionary
+    
     ! ----------
     ! Getters.
     ! ----------
@@ -51,6 +61,13 @@ module dictionary_module
     procedure, private :: is_set_Dictionary_character
     procedure, private :: is_set_Dictionary_String
     
+    ! Returns whether or not a keyword is set with a value.
+    generic,   public  :: is_set_with_value =>                    &
+                        & is_set_with_value_Dictionary_character, &
+                        & is_set_with_value_Dictionary_String
+    procedure, private :: is_set_with_value_Dictionary_character
+    procedure, private :: is_set_with_value_Dictionary_String
+    
     ! Returns the value matching a keyword.
     generic,   public  :: value =>                    &
                         & value_Dictionary_character, &
@@ -61,13 +78,6 @@ module dictionary_module
     ! ----------
     ! Setters.
     ! ----------
-    ! Sets a keyword.
-    generic,   public  :: set =>                    &
-                        & set_Dictionary_character, &
-                        & set_Dictionary_String
-    procedure, private :: set_Dictionary_character
-    procedure, private :: set_Dictionary_String
-  
     ! Unsets a keyword.
     generic,   public  :: unset =>                    &
                         & unset_Dictionary_character, &
@@ -75,28 +85,36 @@ module dictionary_module
     procedure, private :: unset_Dictionary_character
     procedure, private :: unset_Dictionary_String
   
-    ! Sets the value of a keyword.
-    generic,   public  :: set_value =>                              &
-                        & set_value_Dictionary_character_character, &
-                        & set_value_Dictionary_character_String,    &
-                        & set_value_Dictionary_String_character,    &
-                        & set_value_Dictionary_String_String
-    procedure, private :: set_value_Dictionary_character_character
-    procedure, private :: set_value_Dictionary_character_String
-    procedure, private :: set_value_Dictionary_String_character
-    procedure, private :: set_value_Dictionary_String_String
+    ! Sets a keyword. Unsets the keywords old value, if present.
+    generic,   public  :: set =>                    &
+                        & set_Dictionary_character, &
+                        & set_Dictionary_String
+    procedure, private :: set_Dictionary_character
+    procedure, private :: set_Dictionary_String
+  
+    ! Sets a keyword and sets its value.
+    generic,   public  :: set_with_value =>                              &
+                        & set_with_value_Dictionary_character_character, &
+                        & set_with_value_Dictionary_character_String,    &
+                        & set_with_value_Dictionary_String_character,    &
+                        & set_with_value_Dictionary_String_String
+    procedure, private :: set_with_value_Dictionary_character_character
+    procedure, private :: set_with_value_Dictionary_character_String
+    procedure, private :: set_with_value_Dictionary_String_character
+    procedure, private :: set_with_value_Dictionary_String_String
   
     
     ! Appends to the value of a keyword.
-    generic, public :: append_value =>                              &
-                     & append_value_Dictionary_character_character, &
-                     & append_value_Dictionary_character_String,    &
-                     & append_value_Dictionary_String_character,    &
-                     & append_value_Dictionary_String_String
-    procedure, private :: append_value_Dictionary_character_character
-    procedure, private :: append_value_Dictionary_character_String
-    procedure, private :: append_value_Dictionary_String_character
-    procedure, private :: append_value_Dictionary_String_String
+    ! Returns an error if the keyword has no value set.
+    generic, public :: append_to_value =>                              &
+                     & append_to_value_Dictionary_character_character, &
+                     & append_to_value_Dictionary_character_String,    &
+                     & append_to_value_Dictionary_String_character,    &
+                     & append_to_value_Dictionary_String_String
+    procedure, private :: append_to_value_Dictionary_character_character
+    procedure, private :: append_to_value_Dictionary_character_String
+    procedure, private :: append_to_value_Dictionary_String_character
+    procedure, private :: append_to_value_Dictionary_String_String
     
     ! ----------
     ! File operations.
@@ -134,15 +152,6 @@ module dictionary_module
   interface size
     module procedure size_Dictionary
   end interface
-  
-  interface assignment(=)
-    module procedure assign_Dictionary_KeywordDatas
-  end interface
-  
-  interface operator(//)
-    module procedure concatenate_Dictionary_Dictionary
-  end interface
-  
 contains
 
 ! ----------------------------------------------------------------------
@@ -174,28 +183,28 @@ end function
 ! ----------------------------------------------------------------------
 ! Takes an array of KeywordData and returns a Dictionary.
 ! ----------------------------------------------------------------------
-subroutine assign_Dictionary_KeywordDatas(output,input)
+subroutine assign_Dictionary_KeywordDatas(this,that)
   implicit none
   
-  type(KeywordData), intent(in)  :: input(:)
-  type(Dictionary),  intent(out) :: output
+  class(Dictionary), intent(out) :: this
+  type(KeywordData), intent(in)  :: that(:)
   
-  output%keywords = input
+  this%keywords = that
 end subroutine
 
 ! ----------------------------------------------------------------------
 ! Concatenates two Dictionaries.
 ! ----------------------------------------------------------------------
-function concatenate_Dictionary_Dictionary(dict1,dict2) result(output)
+function concatenate_Dictionary_Dictionary(this,that) result(output)
   implicit none
   
-  type(Dictionary), intent(in) :: dict1
-  type(Dictionary), intent(in) :: dict2
-  type(Dictionary)             :: output
+  class(Dictionary), intent(in) :: this
+  class(Dictionary), intent(in) :: that
+  type(Dictionary)              :: output
   
-  call new(output,size(dict1)+size(dict2))
-  output%keywords(:size(dict1)) = dict1%keywords
-  output%keywords(size(dict1)+1:) = dict2%keywords
+  call new(output,size(this)+size(that))
+  output%keywords(            :size(this)) = this%keywords
+  output%keywords(size(this)+1:          ) = that%keywords
 end function
 
 ! ----------------------------------------------------------------------
@@ -318,6 +327,37 @@ function is_set_Dictionary_String(this,keyword) result(output)
 end function
 
 ! ----------------------------------------------------------------------
+! Get whether or not a keyword has been set with a value.
+! ----------------------------------------------------------------------
+function is_set_with_value_Dictionary_character(this,keyword) result(output)
+  implicit none
+  
+  class(Dictionary), intent(in) :: this
+  character(*),      intent(in) :: keyword
+  logical                       :: output
+  
+  integer :: i
+  
+  i = this%index(keyword)
+  
+  if (this%keywords(i)%is_boolean) then
+    call err()
+  endif
+  
+  output = this%keywords(i)%is_set_with_value
+end function
+
+function is_set_with_value_Dictionary_String(this,keyword) result(output)
+  implicit none
+  
+  class(Dictionary), intent(in) :: this
+  type(String),      intent(in) :: keyword
+  logical                       :: output
+  
+  output = this%is_set_with_value(char(keyword))
+end function
+
+! ----------------------------------------------------------------------
 ! Get the value corresponding to a given key.
 ! ----------------------------------------------------------------------
 ! Throws an error if the key has not been set or is boolean.
@@ -331,8 +371,14 @@ function value_Dictionary_character(this,keyword) result(output)
   integer :: i
   
   i = this%index(keyword)
-  if (.not. this%keywords(i)%is_set) then
+  if (this%keywords(i)%is_boolean) then
+    call err()
+  elseif (.not. this%keywords(i)%is_set) then
     call print_line('Error: keyword '//keyword//' has not been set.')
+    call err()
+  elseif (.not. this%keywords(i)%is_set_with_value) then
+    call print_line('Error: keyword '//keyword//' has been set, but has not &
+       &been given a value.')
     call err()
   elseif (this%keywords(i)%is_boolean) then
     call print_line('Error: keyword '//keyword//' is boolean.')
@@ -353,27 +399,6 @@ function value_Dictionary_String(this,keyword) result(output)
 end function
 
 ! ----------------------------------------------------------------------
-! Sets a given keyword.
-! ----------------------------------------------------------------------
-subroutine set_Dictionary_character(this, keyword)
-  implicit none
-  
-  class(Dictionary), intent(inout) :: this
-  character(*),      intent(in)    :: keyword
-  
-  this%keywords(this%index(keyword))%is_set = .true.
-end subroutine
-
-subroutine set_Dictionary_String(this, keyword)
-  implicit none
-  
-  class(Dictionary), intent(inout) :: this
-  type(String),      intent(in)    :: keyword
-  
-  call this%set(char(keyword))
-end subroutine
-
-! ----------------------------------------------------------------------
 ! Unsets a given keyword.
 ! ----------------------------------------------------------------------
 subroutine unset_Dictionary_character(this, keyword)
@@ -387,6 +412,7 @@ subroutine unset_Dictionary_character(this, keyword)
   i = this%index(keyword)
   this%keywords(i)%keyword = ''
   this%keywords(i)%is_set = .false.
+  this%keywords(i)%is_set_with_value = .false.
 end subroutine
 
 subroutine unset_Dictionary_String(this, keyword)
@@ -399,10 +425,54 @@ subroutine unset_Dictionary_String(this, keyword)
 end subroutine
 
 ! ----------------------------------------------------------------------
+! Sets a given keyword.
+! ----------------------------------------------------------------------
+! If only_set_if_not_set is set, the value will not be overwritten if set.
+!    defaults to .false..
+! Unsets the keyword's old value, if present.
+subroutine set_Dictionary_character(this,keyword,only_set_if_not_set)
+  implicit none
+  
+  class(Dictionary), intent(inout)        :: this
+  character(*),      intent(in)           :: keyword
+  logical,           intent(in), optional :: only_set_if_not_set
+  
+  logical :: only_set ! only_set_if_not_set.
+  integer :: i
+  
+  if (present(only_set_if_not_set)) then
+    only_set = only_set_if_not_set
+  else
+    only_set = .false.
+  endif
+  
+  i = this%index(keyword)
+  if (.not. (only_set .and. this%keywords(i)%is_set)) then
+    this%keywords(i)%is_set = .true.
+    this%keywords(i)%is_set_with_value = .false.
+  endif
+end subroutine
+
+subroutine set_Dictionary_String(this,keyword,only_set_if_not_set)
+  implicit none
+  
+  class(Dictionary), intent(inout)        :: this
+  type(String),      intent(in)           :: keyword
+  logical,           intent(in), optional :: only_set_if_not_set
+  
+  if (present(only_set_if_not_set)) then
+    call this%set(char(keyword), only_set_if_not_set)
+  else
+    call this%set(char(keyword))
+  endif
+end subroutine
+
+! ----------------------------------------------------------------------
 ! Sets the value corresponding to a given keyword.
 ! ----------------------------------------------------------------------
 ! If only_set_if_not_set is set, the value will not be overwritten if set.
-subroutine set_value_Dictionary_character_character(this, keyword, value, &
+!    defaults to .false..
+subroutine set_with_value_Dictionary_character_character(this,keyword,value, &
    & only_set_if_not_set)
   implicit none
   
@@ -421,13 +491,19 @@ subroutine set_value_Dictionary_character_character(this, keyword, value, &
   endif
   
   i = this%index(keyword)
+  
+  if (this%keywords(i)%is_boolean) then
+    call err()
+  endif
+  
   if (.not. (only_set .and. this%keywords(i)%is_set)) then
+    this%keywords(i)%is_set = .true.
+    this%keywords(i)%is_set_with_value = .true.
     this%keywords(i)%value = value
   endif
-  this%keywords(i)%is_set = .true.
 end subroutine
 
-subroutine set_value_Dictionary_character_String(this, keyword, value, &
+subroutine set_with_value_Dictionary_character_String(this,keyword,value, &
    & only_set_if_not_set)
   implicit none
   
@@ -437,13 +513,13 @@ subroutine set_value_Dictionary_character_String(this, keyword, value, &
   logical,           intent(in), optional :: only_set_if_not_set
   
   if (present(only_set_if_not_set)) then
-    call this%set_value(keyword, char(value), only_set_if_not_set)
+    call this%set_with_value(keyword, char(value), only_set_if_not_set)
   else
-    call this%set_value(keyword, char(value))
+    call this%set_with_value(keyword, char(value))
   endif
 end subroutine
 
-subroutine set_value_Dictionary_String_character(this, keyword, value, &
+subroutine set_with_value_Dictionary_String_character(this, keyword, value, &
    & only_set_if_not_set)
   implicit none
   
@@ -453,13 +529,13 @@ subroutine set_value_Dictionary_String_character(this, keyword, value, &
   logical,           intent(in), optional :: only_set_if_not_set
   
   if (present(only_set_if_not_set)) then
-    call this%set_value(char(keyword), value, only_set_if_not_set)
+    call this%set_with_value(char(keyword), value, only_set_if_not_set)
   else
-    call this%set_value(char(keyword), value)
+    call this%set_with_value(char(keyword), value)
   endif
 end subroutine
 
-subroutine set_value_Dictionary_String_String(this, keyword, value, &
+subroutine set_with_value_Dictionary_String_String(this,keyword,value, &
    & only_set_if_not_set)
   implicit none
   
@@ -469,16 +545,16 @@ subroutine set_value_Dictionary_String_String(this, keyword, value, &
   logical,           intent(in), optional :: only_set_if_not_set
   
   if (present(only_set_if_not_set)) then
-    call this%set_value(char(keyword), char(value), only_set_if_not_set)
+    call this%set_with_value(char(keyword), char(value), only_set_if_not_set)
   else
-    call this%set_value(char(keyword), char(value))
+    call this%set_with_value(char(keyword), char(value))
   endif
 end subroutine
 
 ! ----------------------------------------------------------------------
 ! Appends to the value corresponding to a given keyword.
 ! ----------------------------------------------------------------------
-subroutine append_value_Dictionary_character_character(this, keyword, value)
+subroutine append_to_value_Dictionary_character_character(this, keyword, value)
   implicit none
   
   class(Dictionary), intent(inout) :: this
@@ -488,42 +564,43 @@ subroutine append_value_Dictionary_character_character(this, keyword, value)
   integer :: i
   
   i = this%index(keyword)
-  if (this%keywords(i)%is_set) then
-    this%keywords(i)%value = this%keywords(i)%value // ' ' // value
+  if (this%keywords(i)%is_boolean) then
+    call err()
+  elseif (this%keywords(i)%is_set_with_value) then
+    this%keywords(i)%value = this%keywords(i)%value // value
   else
-    this%keywords(i)%value = value
+    call err()
   endif
-  this%keywords(i)%is_set = .true.
 end subroutine
 
-subroutine append_value_Dictionary_character_String(this, keyword, value)
+subroutine append_to_value_Dictionary_character_String(this, keyword, value)
   implicit none
   
   class(Dictionary), intent(inout) :: this
   character(*),      intent(in)    :: keyword
   type(String),      intent(in)    :: value
   
-  call this%append_value(keyword, char(value))
+  call this%append_to_value(keyword, char(value))
 end subroutine
 
-subroutine append_value_Dictionary_String_character(this, keyword, value)
+subroutine append_to_value_Dictionary_String_character(this, keyword, value)
   implicit none
   
   class(Dictionary), intent(inout) :: this
   type(String),      intent(in)    :: keyword
   character(*),      intent(in)    :: value
   
-  call this%append_value(char(keyword), value)
+  call this%append_to_value(char(keyword), value)
 end subroutine
 
-subroutine append_value_Dictionary_String_String(this, keyword, value)
+subroutine append_to_value_Dictionary_String_String(this, keyword, value)
   implicit none
   
   class(Dictionary), intent(inout) :: this
   type(String),      intent(in)    :: keyword
   type(String),      intent(in)    :: value
   
-  call this%append_value(char(keyword), char(value))
+  call this%append_to_value(char(keyword), char(value))
 end subroutine
 
 ! ----------------------------------------------------------------------
@@ -540,11 +617,11 @@ subroutine write_file_Dictionary_character(this,filename)
   
   dictionary_file = open_write_file(filename)
   do i=1,size(this)
-    if (.not. this%keywords(i)%is_set) then
+    if (.not. this%keywords(i)%allowed_in_file) then
       cycle
-    elseif (.not. this%keywords(i)%allowed_in_file) then
+    elseif (.not. this%keywords(i)%is_set) then
       cycle
-    elseif (this%keywords(i)%is_boolean) then
+    elseif (.not. this%keywords(i)%is_set_with_value) then
       call print_line(dictionary_file, this%keywords(i)%keyword)
     else
       call print_line(dictionary_file, this%keywords(i)%keyword//' '// &
@@ -619,7 +696,10 @@ subroutine read_file_Dictionary_character(this, filename, &
       call print_line('Error: the keyword '//this%keywords(j)%keyword// &
          & ' should not appear in input files.')
       call err()
-    elseif (.not. (only_set .and. this%keywords(j)%is_set)) then
+    elseif (only_set .and. this%keywords(j)%is_set) then
+      call print_line('Warning: the keyword '//this%keywords(j)%keyword// &
+         & ' has been specified in multiple places.')
+    else
       if (this%keywords(j)%is_boolean) then
         if (size(line)>1) then
           call print_line('Error: the boolean keyword '// &
@@ -670,23 +750,24 @@ subroutine process_and_check_inputs_Dictionary(this)
     if (.not. this%keywords(i)%is_set) then
       if (this%keywords(i)%default_value/='') then
         ! Set keywords with default values.
-        this%keywords(i)%value = this%keywords(i)%default_value
         this%keywords(i)%is_set = .true.
+        this%keywords(i)%is_set_with_value = .true.
+        this%keywords(i)%value = this%keywords(i)%default_value
       elseif (this%keywords(i)%default_keyword/='') then
         ! Set keywords which default to other keywords.
         do j=1,size(this%keywords)
           if (this%keywords(j)%keyword==this%keywords(i)%default_keyword) then
-            if (.not. this%keywords(j)%is_set) then
-              call print_line('Error: keyword '//this%keywords(i)%keyword // &
-                 & 'defaults to keyword '//this%keywords(j)%keyword       // &
-                 & '. This has not been set.')
-              call err()
+            if (this%keywords(j)%is_set) then
+              this%keywords(i)%is_set = .true.
+              if (this%keywords(j)%is_set_with_value) then
+                this%keywords(i)%is_set_with_value = .true.
+                this%keywords(i)%value = this%keywords(j)%value
+              endif
             endif
-            this%keywords(i)%value = this%keywords(j)%value
-            this%keywords(i)%is_set = .true.
             cycle do_i
           endif
         enddo
+        call err()
       elseif (.not. this%keywords(i)%is_optional) then
         ! Stop if a non-optional keyword has not been set.
         call print_line('Error: the non-optional keyword '// &
