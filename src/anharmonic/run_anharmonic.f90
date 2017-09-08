@@ -120,9 +120,6 @@ subroutine run_anharmonic(arguments)
   no_cores = int(arguments%value('no_cores'))
   run_script = arguments%value('run_script')
   
-  call print_line(run_script)
-  call err()
-  
   ! Check that calculation range is well defined.
   if (first_qpoint<1) then
     call err()
@@ -208,7 +205,7 @@ subroutine run_anharmonic(arguments)
       if (qpoint==first_qpoint .and. coupling==first_coupling) then
         min_sampling_point = first_sampling_point
       else
-        min_sampling_point = size(sampling_points)
+        min_sampling_point = 1
       endif
       
       if (qpoint==last_qpoint .and. coupling==last_coupling) then

@@ -16,7 +16,6 @@ module help_module
   interface help
     module procedure help_default
     module procedure help_specific
-    module procedure help_keyword
   end interface
   
 contains
@@ -104,13 +103,13 @@ subroutine help_specific(keyword,mode,keywords)
   
   if (keyword=='') then
     do i=1,size(keywords)
-      call help(keywords(i))
+      call print_help(keywords(i))
     enddo
     stop
   else
     do i=1,size(keywords)
       if (keywords(i)%keyword==keyword) then
-        call help(keywords(i))
+        call print_help(keywords(i))
         stop
       endif
     enddo
@@ -119,32 +118,6 @@ subroutine help_specific(keyword,mode,keywords)
     call print_line('Keyword '//keyword//' not recognised. For a list of &
        &keywords associated with mode '//mode//', call:')
     call print_line('  caesar '//mode//' -h')
-  endif
-end subroutine
-
-! Prints help corresponding to a specific keyword.
-subroutine help_keyword(keyword)
-  implicit none
-  
-  type(KeywordData), intent(in) :: keyword
-  
-  call print_line('')
-  call print_line(keyword%keyword)
-  call print_line(keyword%helptext)
-  if (keyword%is_boolean) then
-    call print_line(keyword%keyword//' is either set or unset, and &
-       &takes no argument.')
-  elseif (keyword%default_keyword/='') then
-    call print_line(keyword%keyword//' defaults to the same value as &
-       &keyword "'//keyword%default_keyword//'".')
-  elseif (keyword%default_value/='') then
-    call print_line(keyword%keyword//' has a default value of "'// &
-       & keyword%default_value//'".')
-  elseif (keyword%is_optional) then
-    call print_line(keyword%keyword//' is optional.')
-  else
-    call print_line(keyword%keyword//' has no default value, and &
-       &must be set.')
   endif
 end subroutine
 end module

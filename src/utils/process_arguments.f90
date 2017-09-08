@@ -49,6 +49,7 @@ function process_arguments(args,keywords_in) result(arguments)
   type(String) :: flags
   type(String) :: keyword
   logical      :: mode_found
+  type(String) :: default_keyword
   
   ! --------------------------------------------------
   ! Construct empty dictionary from keywords.
@@ -63,14 +64,15 @@ function process_arguments(args,keywords_in) result(arguments)
   
   ! Check that keywords with default_keyword reference extant keywords.
   do_i : do i=1,size(keywords)
-    if (keywords(i)%default_keyword/='') then
+    default_keyword = keywords(i)%defaults_to_keyword()
+    if (default_keyword/='') then
       do j=1,size(keywords)
-        if (keywords(j)%keyword == keywords(i)%default_keyword) then
+        if (keywords(j)%keyword == default_keyword) then
           cycle do_i
         endif
       enddo
-      call print_line('Error: default keyword '//keywords(i)%default_keyword &
-         & //'is not a keyword')
+      call print_line('Code Error: default keyword "'//default_keyword// &
+         & '" is not a keyword')
       call err()
     endif
   enddo do_i
@@ -79,11 +81,11 @@ function process_arguments(args,keywords_in) result(arguments)
   flags_without_arguments = ''
   flags_with_arguments = ''
   do i=1,size(keywords)
-    if (keywords(i)%flag/=' ') then
-      if (keywords(i)%is_boolean) then
-        flags_without_arguments = flags_without_arguments//keywords(i)%flag
+    if (keywords(i)%has_flag()) then
+      if (keywords(i)%flag_takes_argument()) then
+        flags_with_arguments = flags_with_arguments//keywords(i)%flag()
       else
-        flags_with_arguments = flags_with_arguments//keywords(i)%flag
+        flags_without_arguments = flags_without_arguments//keywords(i)%flag()
       endif
     endif
   enddo
@@ -129,10 +131,10 @@ function process_arguments(args,keywords_in) result(arguments)
         endif
       else
         ! Append this to the value of the active keyword.
-        if (arguments%is_set_with_value(keyword)) then
+        if (arguments%has_value(keyword)) then
           call arguments%append_to_value(keyword, ' '//flag%argument)
         else
-          call arguments%set_with_value(keyword, flag%argument)
+          call arguments%set_value(keyword, flag%argument)
         endif
       endif
     elseif (flag%flag=='-') then
@@ -143,7 +145,15 @@ function process_arguments(args,keywords_in) result(arguments)
       ! An argument which is a '-' flag.
       ! Get the keyword corresponding to the flag, and set its value.
       keyword = arguments%flag_to_keyword(flag%flag)
-      call arguments%set_with_value(keyword,flag%argument)
+      if (flag%argument=='') then
+        if (index(char(flags_with_arguments),flag%flag)/=0) then
+          call arguments%set(keyword)
+        else
+          call arguments%set_value(keyword,'t')
+        endif
+      else
+        call arguments%set_value(keyword,flag%argument)
+      endif
     endif
   enddo
   
@@ -166,7 +176,7 @@ function process_arguments(args,keywords_in) result(arguments)
     if (read_line_from_user()/='') then
       call print_line('Please enter a keyword for further information, or &
          &press <Enter> for information about accepted keywords.')
-      call arguments%set_with_value('help',read_line_from_user())
+      call arguments%set_value('help',read_line_from_user())
       return
     endif
   endif
@@ -191,7 +201,7 @@ function process_arguments(args,keywords_in) result(arguments)
       call print_line('Please enter a file path, or press <Enter> to skip.')
       temp_string = read_line_from_user()
       if (temp_string/='') then
-        call arguments%set_with_value('input_file', temp_string)
+        call arguments%set_value('input_file', temp_string)
       endif
     endif
   endif
@@ -202,81 +212,14 @@ function process_arguments(args,keywords_in) result(arguments)
          &override those read from file.')
     endif
     call arguments%read_file( arguments%value('input_file'), &
-                       & only_set_if_not_set = .true. )
+                            & only_update_if_unset = .true. )
   endif
   
   ! --------------------------------------------------
   ! Get interactive arguments, if requested.
   ! --------------------------------------------------
   if (interactive) then
-    do i=4,size(keywords) ! Skips 'interactive', 'help' and 'input_file'.
-      keyword = keywords(i)%keyword
-      call print_line('')
-      call print_line(keywords(i)%helptext)
-      if (arguments%is_set(keyword)) then
-        if (keywords(i)%is_boolean) then
-          ! Set boolean.
-          call print_line(keyword//' is currently set.')
-          call print_line('Please press <Enter> to leave it set, or enter any &
-             &value to unset it.')
-          if (read_line_from_user()/='') then
-            call arguments%unset(keyword)
-          endif
-        else
-          ! Set non-boolean.
-          call print_line(keyword//' is currently set to '// &
-             & arguments%value(keyword))
-          call print_line('Please press <Enter> to accept this value, or &
-             &enter the value to be set.')
-          temp_string = read_line_from_user()
-          if (temp_string/='') then
-            call arguments%set_with_value(keyword, temp_string)
-          endif
-        endif
-      else
-        if (keywords(i)%is_boolean) then
-          ! Unset boolean.
-          call print_line(keyword//' is currently unset.')
-          call print_line('Please press <Enter> to leave it unset, or enter &
-             &any value to set it.')
-          if (read_line_from_user()/='') then
-            call arguments%set(keyword)
-          endif
-        elseif (keywords(i)%is_optional) then
-          ! Unset optional argument.
-          if (keywords(i)%default_value /= '') then
-            call print_line(keyword//' defaults to the value '// &
-               & keywords(i)%default_value)
-            call print_line('Please give a value for this keyword, or press &
-               &<Enter> to accept the default.')
-          elseif (keywords(i)%default_keyword /= '') then
-            call print_line(keyword//' defaults to the same value as &
-               &keyword '//keywords(i)%default_keyword)
-            call print_line('Please give a value for this keyword, or press &
-               &<Enter> to accept the default.')
-          else
-            call print_line(keyword//' is optional.')
-            call print_line('Please give a value for this keyword, or press &
-               &<Enter> to leave it unset.')
-          endif
-          
-          temp_string = read_line_from_user()
-          if (temp_string/='') then
-            call arguments%set_with_value(keyword, temp_string)
-          endif
-        else
-          ! Unset non-optional argument. Loop until it is set by user.
-          do
-            call print_line('Please give a value for this keyword.')
-            temp_string = read_line_from_user()
-            if (temp_string/='') then
-              call arguments%set_with_value(keyword, temp_string)
-              exit
-            endif
-          enddo
-        endif
-      endif
-    enddo
+    call arguments%set_interactively()
   endif
   
   ! --------------------------------------------------

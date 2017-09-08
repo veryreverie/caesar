@@ -36,7 +36,7 @@ function calculate_anharmonic_keywords() result(keywords)
   & make_keyword( 'perturb_states_to_same_order',                             &
   &               'perturb_states_to_same_order specifies whether or not to &
   &calculate state correction at the same order as energy corrections.',      &
-  &               is_boolean=.true.) ]
+  &               default_value='f') ]
 end function
 
 ! ----------------------------------------------------------------------

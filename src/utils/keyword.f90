@@ -15,6 +15,9 @@ module keyword_module
   ! Bundles a keyword and its helptext into a KeywordData.
   public :: make_keyword
   
+  ! Prints helptext.
+  public :: print_help
+  
   ! Keywords used by all routines.
   public :: make_universal_keywords
   
@@ -22,29 +25,264 @@ module keyword_module
   ! A keyword which accepts input values.
   ! --------------------------------------------------
   type KeywordData
-    ! Keyword and flag (alternative one-character keyword).
+    ! Keyword.
     type(String) :: keyword
-    character(1) :: flag
+    
+    ! Flag (alternative one-character keyword).
+    ! 0=no flag,1=flag without arguments,2=flag which takes arguments.
+    integer,      private :: flag_type_
+    character(1), private :: flag_
     
     ! Helptext for help calls.
     type(String) :: helptext
     
-    ! Defaults.
-    type(String) :: default_value
-    type(String) :: default_keyword
-    
     ! Properties of the value.
-    logical      :: is_boolean
-    logical      :: is_optional
-    logical      :: is_path
-    logical      :: allowed_in_file
+    logical :: is_path
+    logical :: allowed_in_file
+    logical :: can_be_interactive
+    
+    ! Defaults.
+    ! 0=must be set,1=no default,2=default to value,3=default to keyword.
+    integer,      private :: default_type_
+    type(String), private :: default_
     
     ! The value itself.
-    logical      :: is_set
-    logical      :: is_set_with_value
-    type(String) :: value
+    ! 0=unset,1=set,2=value set.
+    integer,      private :: is_set_
+    type(String), private :: value_
+  contains
+    ! Flag-related procedures.
+    procedure, public :: has_flag            => has_flag_KeywordData
+    procedure, public :: flag_takes_argument => flag_takes_argument_KeywordData
+    procedure, public :: flag                => flag_KeywordData
+    procedure, public :: set_flag            => set_flag_KeywordData
+    
+    ! Default-related procedures.
+    procedure, public :: defaults_to_keyword
+    procedure, public :: set_default
+    
+    ! Setters.
+    procedure, public  :: unset     => unset_KeywordData
+    procedure, public  :: set       => set_KeywordData
+    generic,   public  :: set_value => set_value_KeywordData_character, &
+                                     & set_value_KeywordData_String
+    procedure, private ::              set_value_KeywordData_character
+    procedure, private ::              set_value_KeywordData_String
+    generic,   public  :: append    => append_KeywordData_character, &
+                                     & append_KeywordData_String
+    procedure, private ::              append_KeywordData_character
+    procedure, private ::              append_KeywordData_String
+    
+    ! Getters.
+    procedure, public :: is_set     => is_set_KeywordData
+    procedure, public :: has_value  => has_value_KeywordData
+    procedure, public :: value      => value_KeywordData
+    
+    ! Set interactively from user.
+    procedure, public :: set_interactively
+    
+    ! Processes and checks value.
+    procedure, public :: process_and_check
   end type
 contains
+! ----------------------------------------------------------------------
+! Flag-related procedures.
+! ----------------------------------------------------------------------
+function has_flag_KeywordData(this) result(output)
+  implicit none
+  
+  class(KeywordData), intent(in) :: this
+  logical                        :: output
+  
+  output = this%flag_type_ > 0
+end function
+
+function flag_takes_argument_KeywordData(this) result(output)
+  implicit none
+  
+  class(KeywordData), intent(in) :: this
+  logical                        :: output
+  
+  output = this%flag_type_ == 2
+end function
+
+function flag_KeywordData(this) result(output)
+  implicit none
+  
+  class(KeywordData), intent(in) :: this
+  character(1)                   :: output
+  
+  if (this%flag_type_==0) then
+    call err()
+  endif
+  output = this%flag_
+end function
+
+subroutine set_flag_KeywordData(this,flag,flag_takes_arguments)
+  implicit none
+  
+  class(KeywordData), intent(inout) :: this
+  character(1),       intent(in)    :: flag
+  logical,            intent(in)    :: flag_takes_arguments
+  
+  if (flag_takes_arguments) then
+    this%flag_type_ = 2
+  else
+    this%flag_type_ = 1
+  endif
+  this%flag_ = flag
+end subroutine
+
+! ----------------------------------------------------------------------
+! Default-related procedures.
+! ----------------------------------------------------------------------
+
+! If the keyword defaults to another keyword, returns that keyword.
+! Returns '' if the keyword does not default to a keyword.
+function defaults_to_keyword(this) result(output)
+  implicit none
+  
+  class(KeywordData), intent(in) :: this
+  type(String)                   :: output
+  
+  if (this%default_type_/=3) then
+    output = ''
+  else
+    output = this%default_
+  endif
+end function
+
+! Sets an unset keyword to its default value.
+! Does nothing if the keyword is set or has no default.
+! Throws an error if the keyword defaults to another keyword.
+subroutine set_default(this)
+  implicit none
+  
+  class(KeywordData), intent(inout) :: this
+  
+  if (this%default_type_==2 .and. .not. this%is_set()) then
+    call this%set_value(this%default_)
+  endif
+end subroutine
+
+! ----------------------------------------------------------------------
+! Setters.
+! ----------------------------------------------------------------------
+subroutine unset_KeywordData(this)
+  implicit none
+  
+  class(KeywordData), intent(inout) :: this
+  
+  this%is_set_ = 0
+end subroutine
+
+subroutine set_KeywordData(this,only_update_if_unset)
+  implicit none
+  
+  class(KeywordData), intent(inout)        :: this
+  logical,            intent(in), optional :: only_update_if_unset
+  
+  logical :: only_update_if
+  
+  if (present(only_update_if_unset)) then
+    only_update_if = only_update_if_unset
+  else
+    only_update_if = .false.
+  endif
+  
+  if (.not. (only_update_if .and. this%is_set())) then
+    this%is_set_ = 1
+  endif
+end subroutine
+
+subroutine set_value_KeywordData_character(this,value,only_update_if_unset)
+  implicit none
+  
+  class(KeywordData), intent(inout)        :: this
+  character(*),       intent(in)           :: value
+  logical,            intent(in), optional :: only_update_if_unset
+  
+  logical :: only_update_if
+  
+  if (present(only_update_if_unset)) then
+    only_update_if = only_update_if_unset
+  else
+    only_update_if = .false.
+  endif
+  
+  if (.not. (only_update_if .and. this%is_set())) then
+    this%is_set_ = 2
+    this%value_ = value
+  endif
+end subroutine
+
+subroutine set_value_KeywordData_String(this,value,only_update_if_unset)
+  implicit none
+  
+  class(KeywordData), intent(inout)        :: this
+  type(String),       intent(in)           :: value
+  logical,            intent(in), optional :: only_update_if_unset
+  
+  if (present(only_update_if_unset)) then
+    call this%set_value(char(value),only_update_if_unset)
+  else
+    call this%set_value(char(value))
+  endif
+end subroutine
+
+subroutine append_KeywordData_character(this,value)
+  implicit none
+  
+  class(KeywordData), intent(inout)        :: this
+  character(*),       intent(in)           :: value
+  
+  if (.not. this%has_value()) then
+    call err()
+  endif
+  this%value_ = this%value_ // value
+end subroutine
+
+subroutine append_KeywordData_String(this,value)
+  implicit none
+  
+  class(KeywordData), intent(inout)        :: this
+  type(String),       intent(in)           :: value
+  
+  call this%append(char(value))
+end subroutine
+
+! ----------------------------------------------------------------------
+! Getters.
+! ----------------------------------------------------------------------
+function is_set_KeywordData(this) result(output)
+  implicit none
+  
+  class(KeywordData), intent(in) :: this
+  logical                        :: output
+  
+  output = this%is_set_ > 0
+end function
+
+function has_value_KeywordData(this) result(output)
+  implicit none
+  
+  class(KeywordData), intent(in) :: this
+  logical                        :: output
+  
+  output = this%is_set_ > 1
+end function
+
+function value_KeywordData(this) result(output)
+  implicit none
+  
+  class(KeywordData), intent(in) :: this
+  type(String)                   :: output
+  
+  if (.not. this%has_value()) then
+    call err()
+  endif
+  output = this%value_
+end function
 
 ! ----------------------------------------------------------------------
 ! Takes a keyword, helptext and options and returns a KeywordData.
@@ -54,63 +292,59 @@ contains
 ! default_keyword is the keyword whose value will be copied if the keyword is
 !    not specified. Defaults to not set.
 ! At most one of default_value and default_keyword should be specified.
-! If is_boolean is .true., the keyword will not take an argument.
-!    Boolean keywords should not have defaults specified.
-!    is_boolean defaults to .false..
 ! is_optional specifies whether or not the keyword is required to be given.
-!    is_optional defaults to .false. unless a default is given or is_boolean
-!    is .true., where it defaults to and is required to be .true..
+!    is_optional defaults to .false. unless a default is given, when it
+!    defaults to and is required to be .true..
 ! is_path specifies that the value will be a path to a file or directory.
 !    Paths are converted to absolute paths (from /) automatically.
-!    Should not be specified if is_boolean is .true..
 !    Defaults to .false..
 ! allowed_in_file specifies that the value may be read from or printed to file.
 !    Defaults to .true..
+! can_be_interactive specifies that the value may be set interactively by the
+!    user.
+!    Defaults to .true.
 ! flag specifies the flag by which the keyword can be alternately called.
 !    Defaults to ' '.
 function make_keyword(keyword,helptext,default_value,default_keyword, &
-   & is_boolean,is_optional,is_path,allowed_in_file,flag) result(this)
+   & is_optional,is_path,allowed_in_file,can_be_interactive,          &
+   & flag_without_arguments,flag_with_arguments) result(this)
   implicit none
   
   character(*), intent(in)           :: keyword
   character(*), intent(in)           :: helptext
   character(*), intent(in), optional :: default_value
   character(*), intent(in), optional :: default_keyword
-  logical,      intent(in), optional :: is_boolean
   logical,      intent(in), optional :: is_optional
   logical,      intent(in), optional :: is_path
   logical,      intent(in), optional :: allowed_in_file
-  character(1), intent(in), optional :: flag
+  logical,      intent(in), optional :: can_be_interactive
+  character(1), intent(in), optional :: flag_without_arguments
+  character(1), intent(in), optional :: flag_with_arguments
   type(KeywordData)                  :: this
   
-  ! Set keyword; flag, if present; and helptext.
-  this%keyword = lower_case(keyword)
-  
-  if (present(flag)) then
-    this%flag = flag
-  else
-    this%flag = ' '
-  endif
-  this%helptext = helptext
-  
-  ! Set type of keyword.
-  if (present(is_boolean)) then
-    this%is_boolean = is_boolean
-  else
-    this%is_boolean = .false.
-  endif
-  
+  ! Check for incompatible arguments.
   if (present(is_optional)) then
-    this%is_optional = is_optional
-  else
-    if (this%is_boolean) then
-      this%is_optional = .true.
-    elseif (present(default_value) .or. present(default_keyword)) then
-      this%is_optional = .true.
-    else
-      this%is_optional = .false.
+    if (present(default_value) .or. present(default_keyword)) then
+      call print_line('Code Error: the argument "is_optional" should not be &
+         &given for keywords which have defaults.')
+      call err()
     endif
   endif
+  
+  if (present(default_value) .and. present(default_keyword)) then
+    call print_line('Code Error: a keyword may not have a default value and &
+       &default to another keyword.')
+    call err()
+  endif
+  
+  if (present(flag_without_arguments) .and. present(flag_with_arguments)) then
+    call print_line('Code Error: a keyword may not have two flags.')
+    call err()
+  endif
+  
+  ! Set properties.
+  this%keyword = lower_case(keyword)
+  this%helptext = helptext
   
   if (present(is_path)) then
     this%is_path = is_path
@@ -124,59 +358,156 @@ function make_keyword(keyword,helptext,default_value,default_keyword, &
     this%allowed_in_file = .true.
   endif
   
-  if (this%is_boolean) then
-    ! Check for conflicts with the keyword being boolean.
-    if (this%is_path) then
-      call print_line('Error: the keyword '//keyword//' cannot be boolean and &
-         &be a path.')
-      call err()
-    elseif (.not. this%is_optional) then
-      call print_line('Error: the keyword '//keyword//' cannot be boolean and &
-         &not be optional.')
-      call err()
-    elseif (present(default_value)) then
-      call print_line('Error: the keyword '//keyword//' cannot be boolean and &
-         &have a default value.')
-      call err()
-    endif
-    
-    ! Set default value, if present.
-    this%default_value = ''
-    if (present(default_keyword)) then
-      this%default_keyword = lower_case(default_keyword)
-    else
-      this%default_keyword = ''
-    endif
+  if (present(can_be_interactive)) then
+    this%can_be_interactive = can_be_interactive
   else
-    ! Check for conflicts between defaults.
-    if (present(default_value) .and. present(default_keyword)) then
-      call print_line('Error: the keyword '//keyword//' cannot have both a &
-         &default value and a default keyword set.')
-      call err()
-    elseif ( (present(default_value) .or. present(default_keyword)) .and. &
-           & .not. this%is_optional) then
-      call print_line('Error: the keyword '//keyword//' cannot have a default &
-         &and not be optional.')
-        call err()
-    endif
-    
-    ! Set defaults, if present.
-    if (present(default_value)) then
-      this%default_value = default_value
-      this%default_keyword = ''
-    elseif (present(default_keyword)) then
-      this%default_value = ''
-      this%default_keyword = lower_case(default_keyword)
-    else
-      this%default_value = ''
-      this%default_keyword = ''
-    endif
+    this%can_be_interactive = .true.
   endif
   
-  ! Set value to unset state.
-  this%is_set = .false.
-  this%is_set_with_value = .false.
+  if (present(flag_without_arguments)) then
+    this%flag_type_ = 1
+    this%flag_ = flag_without_arguments
+  elseif (present(flag_with_arguments)) then
+    this%flag_type_ = 2
+    this%flag_ = flag_with_arguments
+  else
+    this%flag_type_ = 0
+  endif
+  
+  ! Set default behaviour.
+  if (present(is_optional)) then
+    if (is_optional) then
+      this%default_type_ = 1
+    else
+      this%default_type_ = 0
+    endif
+  elseif (present(default_value)) then
+    this%default_type_ = 2
+    this%default_ = default_value
+  elseif (present(default_keyword)) then
+    this%default_type_ = 3
+    this%default_ = default_keyword
+  endif
+  
+  ! Unset value.
+  call this%unset()
 end function
+
+! ----------------------------------------------------------------------
+! Sets the keyword interactively, asking the user for a value.
+! ----------------------------------------------------------------------
+subroutine set_interactively(this)
+  implicit none
+  
+  class(KeywordData), intent(inout) :: this
+  
+  type(String) :: input
+  
+  if (this%is_set() .and. .not. this%has_value()) then
+    call err()
+  endif
+  
+  call print_line('')
+  call print_line(this%helptext)
+  if (this%has_value()) then
+    call print_line(this%keyword//' currently has the value "'//this%value() &
+       & //'".')
+    call print_line('Please press <Enter> to accept this value, or enter a &
+       & new value.')
+    input = read_line_from_user()
+    if (input/='') then
+      call this%set_value(input)
+    endif
+  else
+    if (this%default_type_==0) then
+      call print_line(this%keyword//' is unset and has no default.')
+      do while (.not. this%has_value())
+        call print_line('Please enter a value.')
+        input = read_line_from_user()
+        if (input/='') then
+          call print_line('=====')
+          call print_line(this%has_value())
+          call this%set_value(input)
+          call print_line(this%has_value())
+          call print_line('=====')
+        endif
+      enddo
+    else
+      if (this%default_type_==1) then
+        call print_line(this%keyword//' is unset and is optional.')
+        call print_line('Please press <Enter> to leave it unset, or enter a &
+           &value.')
+      elseif (this%default_type_==2) then
+        call print_line(this%keyword//' is unset, and will default to the &
+           &value "'//this%default_//'".')
+        call print_line('Please press <Enter> to accept this value, or enter &
+           &a value.')
+      elseif (this%default_type_==3) then
+        call print_line(this%keyword//' is unset, and will default to the &
+           &keyword "'//this%default_//'".')
+        call print_line('Please press <Enter> to accept this default, or &
+           &enter a value.')
+      endif
+      
+      input = read_line_from_user()
+      if (input/='') then
+        call this%set_value(input)
+      endif
+    endif
+  endif
+end subroutine
+
+! ----------------------------------------------------------------------
+! Process and check value.
+! ----------------------------------------------------------------------
+! Throws and error if a value is required but has not been set.
+! Turns paths into absolute form.
+subroutine process_and_check(this)
+  implicit none
+  
+  class(KeywordData), intent(inout) :: this
+  
+  if (this%default_type_==0 .and. .not. this%is_set()) then
+    call print_line('Error: the keyword '//this%keyword//' has not been set. &
+       &this keyword is not optional.')
+    call err()
+  endif
+  
+  if (this%is_set() .and. .not. this%has_value()) then
+    call print_line('Error: the keyword '//this%keyword//' has been set but &
+       &has not been given a value.')
+    call err()
+  endif
+  
+  if (this%is_path .and. this%is_set()) then
+    this%value_ = format_path(this%value_)
+  endif
+end subroutine
+
+! ----------------------------------------------------------------------
+! Prints helptext and relevant keyword settings.
+! ----------------------------------------------------------------------
+subroutine print_help(this)
+  implicit none
+  
+  type(KeywordData), intent(in) :: this
+  
+  call print_line('')
+  call print_line(this%helptext)
+  if (this%default_type_==0) then
+    call print_line('This keyword is non-optional.')
+  elseif (this%default_type_==1) then
+    call print_line('This keyword is optional but has no default.')
+  elseif (this%default_type_==2) then
+    call print_line('This keyword has a default value of "'//this%default_// &
+       & '".')
+  elseif (this%default_type_==3) then
+    call print_line('This keyword defaults to the same value as keyword "'// &
+       & this%default_//'".')
+  else
+    call err()
+  endif
+end subroutine
 
 ! ----------------------------------------------------------------------
 ! Universal keywords.
@@ -190,25 +521,29 @@ function make_universal_keywords() result(keywords)
   & make_keyword( 'interactive',                                              &
   &               'interactive specifies whether or not keywords can be &
   &specified interactively.',                                                 &
-  &               is_boolean=.true.,                                          &
+  &               default_value='t',                                          &
   &               allowed_in_file=.false.,                                    &
-  &               flag='i'),                                                  &
+  &               can_be_interactive=.false.,                                 &
+  &               flag_without_arguments='i'),                                &
   & make_keyword( 'help',                                                     &
   &               'help requests helptext rather than running calculation.', &
   &               is_optional=.true.,                                         &
   &               allowed_in_file=.false.,                                    &
-  &               flag='h'),                                                  &
+  &               can_be_interactive=.false.,                                 &
+  &               flag_with_arguments='h'),                                   &
   & make_keyword( 'input_file',                                               &
   &               'input_file specifies a file from which further settings &
   &will be read.',                                                            &
   &               is_optional=.true.,                                         &
   &               allowed_in_file=.false.,                                    &
-  &               flag='f'),                                                  &
+  &               can_be_interactive=.false.,                                 &
+  &               flag_with_arguments='f'),                                   &
   & make_keyword( 'working_directory',                                        &
   &               'working_directory specifies the directory where all files &
   &and subsequent directories will be made.',                                 &
   &               default_value='.',                                          &
   &               allowed_in_file=.false.,                                    &
-  &               flag='d') ]
+  &               can_be_interactive=.false.,                                 &
+  &               flag_with_arguments='d') ]
 end function
 end module
