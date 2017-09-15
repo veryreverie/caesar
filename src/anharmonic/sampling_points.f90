@@ -111,13 +111,6 @@ function generate_sampling_points(grid_type,coupling,no_modes, &
                                    & include_negatives=.true.)
   endif
   
-  call print_line('')
-  call print_line('===== HERE =====')
-  do i=1,size(grid,2)
-    call print_line(grid(:,i))
-  enddo
-  call print_line('===== GONE =====')
-  
   ! Generate output.
   allocate(output(size(grid,2)), stat=ialloc); call err(ialloc)
   do i=1,size(output)

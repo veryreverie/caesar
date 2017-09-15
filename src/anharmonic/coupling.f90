@@ -79,13 +79,16 @@ end function
 ! [1,3,4] -> [], [1], [3], [4], [1,3], [1,4], [3,4], [1,3,4]
 ! Then duplicates are removed and missing modes added, so e.g.
 ! [1,3,4], [1,3] -> [], [1], [2], [3], [4], [1,3], [1,4], [3,4], [1,3,4]
-function calculate_all_coupling(input, no_modes) result(output)
+function calculate_all_coupling(input, modes) result(output)
   use integer_arrays_module
+  use normal_mode_module
   implicit none
   
   type(CoupledModes), intent(in)  :: input(:)
-  integer,            intent(in)  :: no_modes
+  type(NormalMode),   intent(in)  :: modes(:)
   type(CoupledModes), allocatable :: output(:)
+  
+  integer :: no_modes
   
   integer :: max_no_coupled
   integer :: no_couplings
@@ -101,6 +104,21 @@ function calculate_all_coupling(input, no_modes) result(output)
   
   integer :: i,j,k,l,k2,ialloc
   integer :: s
+  
+  no_modes = size(modes)
+  
+  ! ------------------------------
+  ! Check that no couplings include translational modes.
+  ! ------------------------------
+  do i=1,size(input)
+    do j=1,size(input(i))
+      if (modes(input(i)%modes(j))%translational_mode) then
+        call print_line('Error: the translational mode '//input(i)%modes(j)// &
+           & 'has been included in coupling '//i//' at the gamma-point.')
+        stop
+      endif
+    enddo
+  enddo
   
   ! ------------------------------
   ! Check that all couplings are in ascending order and within [1,no_modes].
@@ -196,6 +214,13 @@ function calculate_all_coupling(input, no_modes) result(output)
     do j=1,size(couplings(i))
       single_mode_present(couplings(i)%modes(j)) = .true.
     enddo
+  enddo
+  
+  ! Mark translational modes as not missing.
+  do i=1,no_modes
+    if (modes(i)%translational_mode) then
+      single_mode_present(i) = .true.
+    endif
   enddo
   
   ! Identify duplicate modes.

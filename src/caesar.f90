@@ -187,8 +187,6 @@ program caesar
   wd = arguments%value('working_directory')
   filename = wd//'/'//mode//'.used_settings'
   call arguments%write_file(filename)
-  call print_line('')
-  call print_line('Settings written to file '//filename)
   
   ! --------------------------------------------------
   ! Run main program with input arguments, depending on mode.

@@ -38,7 +38,7 @@ function process_arguments(args,keywords_in) result(arguments)
   ! Flags.
   type(String)          :: flags_without_arguments
   type(String)          :: flags_with_arguments
-  type(CommandLineFlag) :: flag
+  type(CommandLineFlag) :: this
   
   ! Whether or not interactive mode is requested.
   logical :: interactive
@@ -48,6 +48,7 @@ function process_arguments(args,keywords_in) result(arguments)
   type(String) :: temp_string
   type(String) :: flags
   type(String) :: keyword
+  logical      :: boolean_flag
   logical      :: mode_found
   type(String) :: default_keyword
   
@@ -108,59 +109,95 @@ function process_arguments(args,keywords_in) result(arguments)
   ! --------------------------------------------------
   ! Parse command line arguments.
   ! --------------------------------------------------
+  
   keyword = ''
   mode_found = .false.
   do
-    flag = get_flag(args, flags_without_arguments, flags_with_arguments)
+    this = get_flag(args, flags_without_arguments, flags_with_arguments)
     
-    ! Check if the argument is preceded by '-' or '--'
-    if (flag%flag==' ') then
-      ! An argument which is neither a '-' flag or a '--' keyword.
-      if (flag%argument==' ') then
-        ! The end of the command line arguments
-        exit
-      elseif (keyword=='') then
-        ! No '-' flag or '--' keyword has passed. This should be the mode.
-        if (mode_found) then
-          call print_line('Error: Caesar only takes one non-keyword &
-             &argument. all other arguments should be preceded by "-" flags &
-             &or "--" keywords.')
+    ! ------------------------------
+    ! Check if this is the first argument, which should be the mode.
+    ! ------------------------------
+    if (this%flag==' ' .and. this%argument/=' ' .and. keyword=='') then
+      if (mode_found) then
+        call print_line('Error: Caesar only takes one non-keyword &
+           &argument. all other arguments should be preceded by "-" for flags &
+           &or "--" for keywords.')
+        stop
+      endif
+      mode_found = .true.
+    endif
+    
+    ! ------------------------------
+    ! Check the previous keyword has been given a value.
+    ! ------------------------------
+    ! Only required when this is a flag, keyword, or the end of args.
+    if (keyword/='' .and. (this%flag/=' ' .or. this%argument==' ')) then
+      if (.not. arguments%is_set(keyword)) then
+        if (boolean_flag) then
+          call arguments%set(keyword,'t')
+        elseif (keyword=='help') then
+          call arguments%set(keyword,'')
+          return
+        else
+          call print_line('Error: keyword '//keyword//' has been given &
+             &without a value on the command line.')
           stop
-        else
-          mode_found = .true.
-        endif
-      else
-        ! Append this to the value of the active keyword.
-        if (arguments%has_value(keyword)) then
-          call arguments%append_to_value(keyword, ' '//flag%argument)
-        else
-          call arguments%set_value(keyword, flag%argument)
         endif
       endif
-    elseif (flag%flag=='-') then
-      ! An argument which is a '--' keyword.
-      ! Get the keyword, and set its value to ''.
-      keyword = lower_case(flag%argument)
-    else
-      ! An argument which is a '-' flag.
-      ! Get the keyword corresponding to the flag, and set its value.
-      keyword = arguments%flag_to_keyword(flag%flag)
-      if (flag%argument=='') then
-        if (index(char(flags_with_arguments),flag%flag)/=0) then
-          call arguments%set(keyword)
-        else
-          call arguments%set_value(keyword,'t')
-        endif
+    endif
+      
+    ! ------------------------------
+    ! Check if this is a keyword (preceeded by '--').
+    ! ------------------------------
+    if (this%flag=='-') then
+      boolean_flag = .false.
+      keyword = lower_case(this%argument)
+    endif
+    
+    ! ------------------------------
+    ! Check if this is a flag (preceeded by '-' or another flag).
+    ! ------------------------------
+    if (this%flag/='-' .and. this%flag/=' ') then
+      if (index(char(flags_without_arguments),this%flag)/=0) then
+        boolean_flag = .true.
       else
-        call arguments%set_value(keyword,flag%argument)
+        boolean_flag = .false.
       endif
+      keyword = arguments%flag_to_keyword(this%flag)
+      if (this%argument/='') then
+        call arguments%set(keyword,this%argument)
+      endif
+    endif
+    
+    ! ------------------------------
+    ! Check if this is neither a flag nor a keyword.
+    ! ------------------------------
+    ! Append this to the value of the active keyword.
+    if (this%flag==' ' .and. this%argument/=' ' .and. keyword/='') then
+      if (arguments%is_set(keyword)) then
+        call arguments%append_to_value(keyword, ' '//this%argument)
+      else
+        call arguments%set(keyword, this%argument)
+      endif
+    endif
+    
+    ! ------------------------------
+    ! If none of the above are true, this should be the end of args.
+    ! ------------------------------
+    if (this%flag==' ' .and. this%argument==' ') then
+      exit
     endif
   enddo
   
   ! --------------------------------------------------
   ! Check if interactive mode is requested.
   ! --------------------------------------------------
-  interactive = arguments%is_set('interactive')
+  if (arguments%is_set('interactive')) then
+    interactive = lgcl(arguments%value('interactive'))
+  else
+    interactive = .false.
+  endif
   
   ! --------------------------------------------------
   ! Check if help is requested.
@@ -176,7 +213,7 @@ function process_arguments(args,keywords_in) result(arguments)
     if (read_line_from_user()/='') then
       call print_line('Please enter a keyword for further information, or &
          &press <Enter> for information about accepted keywords.')
-      call arguments%set_value('help',read_line_from_user())
+      call arguments%set('help',read_line_from_user())
       return
     endif
   endif
@@ -201,7 +238,7 @@ function process_arguments(args,keywords_in) result(arguments)
       call print_line('Please enter a file path, or press <Enter> to skip.')
       temp_string = read_line_from_user()
       if (temp_string/='') then
-        call arguments%set_value('input_file', temp_string)
+        call arguments%set('input_file', temp_string)
       endif
     endif
   endif

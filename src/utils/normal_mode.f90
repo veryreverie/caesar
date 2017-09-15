@@ -8,36 +8,21 @@ module normal_mode_module
   use linear_algebra_module
   
   type NormalMode
-    logical                          :: soft_mode
     real(dp)                         :: frequency
     type(ComplexVector), allocatable :: displacements(:)
+    logical                          :: soft_mode
+    logical                          :: translational_mode
   end type
   
   type ModeVector
     real(dp), allocatable :: vector(:)
   contains
-    generic, public :: operator(+) => add_ModeVector_ModeVector
-    generic, public :: operator(-) => subtract_ModeVector_ModeVector
-    
-    procedure, private :: add_ModeVector_ModeVector
-    procedure, private :: subtract_ModeVector_ModeVector
+    generic,   public  :: operator(+) => add_ModeVector_ModeVector
+    procedure, private ::                add_ModeVector_ModeVector
+    generic,   public  :: operator(-) => subtract_ModeVector_ModeVector
+    procedure, private ::                subtract_ModeVector_ModeVector
   end type
-  
-  interface new
-    module procedure new_NormalMode
-  end interface
 contains
-
-subroutine new_NormalMode(this,no_atoms)
-  implicit none
-  
-  type(NormalMode), intent(out) :: this
-  integer         , intent(in)  :: no_atoms
-  
-  integer :: ialloc
-  
-  allocate(this%displacements(no_atoms), stat=ialloc); call err(ialloc)
-end subroutine
 
 function add_ModeVector_ModeVector(a,b) result(output)
   implicit none
@@ -68,20 +53,31 @@ function read_normal_mode_file(filename) result(this)
   type(String), allocatable :: mode_file(:)
   type(String), allocatable :: line(:)
   integer                   :: no_atoms
-  integer                   :: i
   
+  integer :: i,ialloc
+  
+  ! Read in mode file.
   mode_file = read_lines(filename)
-  no_atoms = size(mode_file)-3
-  call new(this,no_atoms)
   
+  ! Allocate space.
+  no_atoms = size(mode_file)-4
+  allocate(this%displacements(no_atoms), stat=ialloc); call err(ialloc)
+  
+  ! Read frequency.
   line = split(mode_file(1))
   this%frequency = dble(line(2))
   
+  ! Read whether or not this mode is soft.
   line = split(mode_file(2))
-  this%soft_mode = line(3)=='T'
+  this%soft_mode = lgcl(line(3))
   
+  ! Read whether or not this mode is purely translational.
+  line = split(mode_file(3))
+  this%translational_mode = lgcl(line(3))
+  
+  ! Read in the displacement associated with the mode.
   do i=1,no_atoms
-    line = split(mode_file(3+i))
+    line = split(mode_file(4+i))
     this%displacements(i) = cmplx(line)
   enddo
 end function
@@ -96,8 +92,9 @@ subroutine write_normal_mode_file(this,filename)
   integer :: i
   
   mode_file = open_write_file(filename)
-  call print_line(mode_file, 'Frequency: '//this%frequency)
-  call print_line(mode_file, 'Soft mode: '//this%soft_mode)
+  call print_line(mode_file, 'Frequency:          '//this%frequency)
+  call print_line(mode_file, 'Soft mode:          '//this%soft_mode)
+  call print_line(mode_file, 'Translational mode: '//this%translational_mode)
   call print_line(mode_file, 'Displacements:')
   do i=1,size(this%displacements)
     call print_line(mode_file, this%displacements(i))

@@ -47,8 +47,7 @@ module keyword_module
     type(String), private :: default_
     
     ! The value itself.
-    ! 0=unset,1=set,2=value set.
-    integer,      private :: is_set_
+    logical,      private :: is_set_
     type(String), private :: value_
   contains
     ! Flag-related procedures.
@@ -62,21 +61,19 @@ module keyword_module
     procedure, public :: set_default
     
     ! Setters.
-    procedure, public  :: unset     => unset_KeywordData
-    procedure, public  :: set       => set_KeywordData
-    generic,   public  :: set_value => set_value_KeywordData_character, &
-                                     & set_value_KeywordData_String
-    procedure, private ::              set_value_KeywordData_character
-    procedure, private ::              set_value_KeywordData_String
-    generic,   public  :: append    => append_KeywordData_character, &
-                                     & append_KeywordData_String
-    procedure, private ::              append_KeywordData_character
-    procedure, private ::              append_KeywordData_String
+    procedure, public  :: unset   => unset_KeywordData
+    generic,   public  :: set     => set_KeywordData_character, &
+                                   & set_KeywordData_String
+    procedure, private ::            set_KeywordData_character
+    procedure, private ::            set_KeywordData_String
+    generic,   public  :: append  => append_KeywordData_character, &
+                                   & append_KeywordData_String
+    procedure, private ::            append_KeywordData_character
+    procedure, private ::            append_KeywordData_String
     
     ! Getters.
-    procedure, public :: is_set     => is_set_KeywordData
-    procedure, public :: has_value  => has_value_KeywordData
-    procedure, public :: value      => value_KeywordData
+    procedure, public :: is_set => is_set_KeywordData
+    procedure, public :: value  => value_KeywordData
     
     ! Set interactively from user.
     procedure, public :: set_interactively
@@ -161,7 +158,7 @@ subroutine set_default(this)
   class(KeywordData), intent(inout) :: this
   
   if (this%default_type_==2 .and. .not. this%is_set()) then
-    call this%set_value(this%default_)
+    call this%set(this%default_)
   endif
 end subroutine
 
@@ -173,29 +170,10 @@ subroutine unset_KeywordData(this)
   
   class(KeywordData), intent(inout) :: this
   
-  this%is_set_ = 0
+  this%is_set_ = .false.
 end subroutine
 
-subroutine set_KeywordData(this,only_update_if_unset)
-  implicit none
-  
-  class(KeywordData), intent(inout)        :: this
-  logical,            intent(in), optional :: only_update_if_unset
-  
-  logical :: only_update_if
-  
-  if (present(only_update_if_unset)) then
-    only_update_if = only_update_if_unset
-  else
-    only_update_if = .false.
-  endif
-  
-  if (.not. (only_update_if .and. this%is_set())) then
-    this%is_set_ = 1
-  endif
-end subroutine
-
-subroutine set_value_KeywordData_character(this,value,only_update_if_unset)
+subroutine set_KeywordData_character(this,value,only_update_if_unset)
   implicit none
   
   class(KeywordData), intent(inout)        :: this
@@ -211,12 +189,12 @@ subroutine set_value_KeywordData_character(this,value,only_update_if_unset)
   endif
   
   if (.not. (only_update_if .and. this%is_set())) then
-    this%is_set_ = 2
+    this%is_set_ = .true.
     this%value_ = value
   endif
 end subroutine
 
-subroutine set_value_KeywordData_String(this,value,only_update_if_unset)
+subroutine set_KeywordData_String(this,value,only_update_if_unset)
   implicit none
   
   class(KeywordData), intent(inout)        :: this
@@ -224,9 +202,9 @@ subroutine set_value_KeywordData_String(this,value,only_update_if_unset)
   logical,            intent(in), optional :: only_update_if_unset
   
   if (present(only_update_if_unset)) then
-    call this%set_value(char(value),only_update_if_unset)
+    call this%set(char(value),only_update_if_unset)
   else
-    call this%set_value(char(value))
+    call this%set(char(value))
   endif
 end subroutine
 
@@ -236,7 +214,7 @@ subroutine append_KeywordData_character(this,value)
   class(KeywordData), intent(inout)        :: this
   character(*),       intent(in)           :: value
   
-  if (.not. this%has_value()) then
+  if (.not. this%is_set()) then
     call err()
   endif
   this%value_ = this%value_ // value
@@ -260,16 +238,7 @@ function is_set_KeywordData(this) result(output)
   class(KeywordData), intent(in) :: this
   logical                        :: output
   
-  output = this%is_set_ > 0
-end function
-
-function has_value_KeywordData(this) result(output)
-  implicit none
-  
-  class(KeywordData), intent(in) :: this
-  logical                        :: output
-  
-  output = this%is_set_ > 1
+  output = this%is_set_
 end function
 
 function value_KeywordData(this) result(output)
@@ -278,7 +247,7 @@ function value_KeywordData(this) result(output)
   class(KeywordData), intent(in) :: this
   type(String)                   :: output
   
-  if (.not. this%has_value()) then
+  if (.not. this%is_set()) then
     call err()
   endif
   output = this%value_
@@ -387,6 +356,8 @@ function make_keyword(keyword,helptext,default_value,default_keyword, &
   elseif (present(default_keyword)) then
     this%default_type_ = 3
     this%default_ = default_keyword
+  else
+    this%default_type_ = 0
   endif
   
   ! Unset value.
@@ -403,33 +374,25 @@ subroutine set_interactively(this)
   
   type(String) :: input
   
-  if (this%is_set() .and. .not. this%has_value()) then
-    call err()
-  endif
-  
   call print_line('')
   call print_line(this%helptext)
-  if (this%has_value()) then
+  if (this%is_set()) then
     call print_line(this%keyword//' currently has the value "'//this%value() &
        & //'".')
     call print_line('Please press <Enter> to accept this value, or enter a &
        & new value.')
     input = read_line_from_user()
     if (input/='') then
-      call this%set_value(input)
+      call this%set(input)
     endif
   else
     if (this%default_type_==0) then
       call print_line(this%keyword//' is unset and has no default.')
-      do while (.not. this%has_value())
+      do while (.not. this%is_set())
         call print_line('Please enter a value.')
         input = read_line_from_user()
         if (input/='') then
-          call print_line('=====')
-          call print_line(this%has_value())
-          call this%set_value(input)
-          call print_line(this%has_value())
-          call print_line('=====')
+          call this%set(input)
         endif
       enddo
     else
@@ -451,7 +414,7 @@ subroutine set_interactively(this)
       
       input = read_line_from_user()
       if (input/='') then
-        call this%set_value(input)
+        call this%set(input)
       endif
     endif
   endif
@@ -470,13 +433,7 @@ subroutine process_and_check(this)
   if (this%default_type_==0 .and. .not. this%is_set()) then
     call print_line('Error: the keyword '//this%keyword//' has not been set. &
        &this keyword is not optional.')
-    call err()
-  endif
-  
-  if (this%is_set() .and. .not. this%has_value()) then
-    call print_line('Error: the keyword '//this%keyword//' has been set but &
-       &has not been given a value.')
-    call err()
+    stop
   endif
   
   if (this%is_path .and. this%is_set()) then

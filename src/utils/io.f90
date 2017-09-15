@@ -456,13 +456,14 @@ function get_flag(args,flags_without_arguments,flags_with_arguments) &
 end function
 
 function read_line_from_user() result(line)
+  use iso_fortran_env, only : input_unit
   implicit none
   
   type(String) :: line
   
   character(1000) :: char_line
   
-  read(*,'(a)') char_line
+  read(input_unit,'(a)') char_line
   line = trim(char_line)
 end function
 
@@ -608,6 +609,7 @@ end subroutine
 !    and formatting.
 ! ----------------------------------------------------------------------
 recursive subroutine print_line_character(line)
+  use iso_fortran_env, only : output_unit
   implicit none
   
   character(*), intent(in) :: line
@@ -618,13 +620,13 @@ recursive subroutine print_line_character(line)
   
   if (len(line) <= TERMINAL_WIDTH) then
     ! The string can be printed all on one line.
-    write(*,'(a)',iostat=ierr) line
+    write(output_unit,'(a)',iostat=ierr) line
   else
     success = .false.
     ! Attempt to break the string at a space, so that it fits on the terminal.
     do i=TERMINAL_WIDTH,2,-1
       if (line(i:i)==' ') then
-        write(*,'(a)',iostat=ierr) line(:i-1)
+        write(output_unit,'(a)',iostat=ierr) line(:i-1)
         call print_line(line(i+1:))
         success = .true.
         exit
@@ -636,7 +638,7 @@ recursive subroutine print_line_character(line)
     if (.not. success) then
       do i=TERMINAL_WIDTH+1,len(line)-1
         if (line(i:i)==' ') then
-          write(*,'(a)',iostat=ierr) line(:i-1)
+          write(output_unit,'(a)',iostat=ierr) line(:i-1)
           call print_line(line(i+1:))
           success = .true.
           exit
@@ -646,14 +648,16 @@ recursive subroutine print_line_character(line)
     
     ! The line can't be split. Everything is written.
     if (.not. success) then
-      write(*,'(a)',iostat=ierr) line
+      write(output_unit,'(a)',iostat=ierr) line
     endif
   endif
   
   if (ierr /= 0) then
-    write(*,*) 'Error in print_line.'
+    write(output_unit,'(a)') 'Error in print_line.'
     call err()
   endif
+  
+  flush(output_unit)
 end subroutine
 
 subroutine print_line_file_character(file_unit,line)
@@ -667,7 +671,7 @@ subroutine print_line_file_character(file_unit,line)
   write(file_unit,'(a)',iostat=ierr) line
   
   if (ierr /= 0) then
-    write(*,*) 'Error in print_line.'
+    call print_line('Error in print_line.')
     call err()
   endif
 end subroutine
@@ -837,7 +841,7 @@ subroutine err_none()
 end subroutine
 
 ! Aborts if integer input /= 0.
-! Designed for use with allocate 'stat=ialloc' flags.
+! Designed for use with allocate 'stat=ierr' flags.
 subroutine err_integer(this)
   implicit none
   
@@ -899,7 +903,7 @@ function format_path_character(path) result(output)
       output = HOME//path(2:length)
     else
       ! foo -> /current/working/directory/foo
-      output = CWD//path(:length)
+      output = CWD//'/'//path(:length)
     endif
   endif
 end function

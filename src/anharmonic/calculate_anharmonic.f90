@@ -127,7 +127,7 @@ subroutine calculate_anharmonic(arguments)
   max_scf_cycles = int(arguments%value('max_scf_cycles'))
   if (arguments%is_set('perturbation_order')) then
     energy_perturbation_order = int(arguments%value('perturbation_order'))
-    if (arguments%is_set('perturb_states_to_same_order')) then
+    if (lgcl(arguments%value('perturb_states_to_same_order'))) then
       state_perturbation_order = energy_perturbation_order
     else
       state_perturbation_order = energy_perturbation_order - 1

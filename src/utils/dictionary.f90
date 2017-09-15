@@ -54,19 +54,12 @@ module dictionary_module
     procedure, private :: flag_to_keyword_Dictionary_character
     procedure, private :: flag_to_keyword_Dictionary_String
     
-    ! Returns whether or not a keyword is set.
+    ! Returns whether or not a keyword is set with a value.
     generic,   public  :: is_set =>                    &
                         & is_set_Dictionary_character, &
                         & is_set_Dictionary_String
     procedure, private :: is_set_Dictionary_character
     procedure, private :: is_set_Dictionary_String
-    
-    ! Returns whether or not a keyword is set with a value.
-    generic,   public  :: has_value =>                    &
-                        & has_value_Dictionary_character, &
-                        & has_value_Dictionary_String
-    procedure, private :: has_value_Dictionary_character
-    procedure, private :: has_value_Dictionary_String
     
     ! Returns the value matching a keyword.
     generic,   public  :: value =>                    &
@@ -85,23 +78,16 @@ module dictionary_module
     procedure, private :: unset_Dictionary_character
     procedure, private :: unset_Dictionary_String
   
-    ! Sets a keyword. Unsets the keywords old value, if present.
-    generic,   public  :: set =>                    &
-                        & set_Dictionary_character, &
-                        & set_Dictionary_String
-    procedure, private :: set_Dictionary_character
-    procedure, private :: set_Dictionary_String
-  
     ! Sets a keyword and sets its value.
-    generic,   public  :: set_value =>                              &
-                        & set_value_Dictionary_character_character, &
-                        & set_value_Dictionary_character_String,    &
-                        & set_value_Dictionary_String_character,    &
-                        & set_value_Dictionary_String_String
-    procedure, private :: set_value_Dictionary_character_character
-    procedure, private :: set_value_Dictionary_character_String
-    procedure, private :: set_value_Dictionary_String_character
-    procedure, private :: set_value_Dictionary_String_String
+    generic,   public  :: set =>                              &
+                        & set_Dictionary_character_character, &
+                        & set_Dictionary_character_String,    &
+                        & set_Dictionary_String_character,    &
+                        & set_Dictionary_String_String
+    procedure, private :: set_Dictionary_character_character
+    procedure, private :: set_Dictionary_character_String
+    procedure, private :: set_Dictionary_String_character
+    procedure, private :: set_Dictionary_String_String
   
     
     ! Appends to the value of a keyword.
@@ -305,7 +291,7 @@ function flag_to_keyword_Dictionary_String(this,flag) result(output)
 end function
 
 ! ----------------------------------------------------------------------
-! Get whether or not a keyword has been set.
+! Get whether or not a keyword has been set with a value.
 ! ----------------------------------------------------------------------
 function is_set_Dictionary_character(this,keyword) result(output)
   implicit none
@@ -325,29 +311,6 @@ function is_set_Dictionary_String(this,keyword) result(output)
   logical                       :: output
   
   output = this%is_set(char(keyword))
-end function
-
-! ----------------------------------------------------------------------
-! Get whether or not a keyword has been set with a value.
-! ----------------------------------------------------------------------
-function has_value_Dictionary_character(this,keyword) result(output)
-  implicit none
-  
-  class(Dictionary), intent(in) :: this
-  character(*),      intent(in) :: keyword
-  logical                       :: output
-  
-  output = this%keywords(this%index(keyword))%has_value()
-end function
-
-function has_value_Dictionary_String(this,keyword) result(output)
-  implicit none
-  
-  class(Dictionary), intent(in) :: this
-  type(String),      intent(in) :: keyword
-  logical                       :: output
-  
-  output = this%has_value(char(keyword))
 end function
 
 ! ----------------------------------------------------------------------
@@ -396,45 +359,11 @@ subroutine unset_Dictionary_String(this, keyword)
 end subroutine
 
 ! ----------------------------------------------------------------------
-! Sets a given keyword.
-! ----------------------------------------------------------------------
-! If only_update_if_unset is set, the value will not be overwritten if set.
-!    defaults to .false..
-! Unsets the keyword's old value, if present.
-subroutine set_Dictionary_character(this,keyword,only_update_if_unset)
-  implicit none
-  
-  class(Dictionary), intent(inout)        :: this
-  character(*),      intent(in)           :: keyword
-  logical,           intent(in), optional :: only_update_if_unset
-  
-  if (present(only_update_if_unset)) then
-    call this%keywords(this%index(keyword))%set(only_update_if_unset)
-  else
-    call this%keywords(this%index(keyword))%set()
-  endif
-end subroutine
-
-subroutine set_Dictionary_String(this,keyword,only_update_if_unset)
-  implicit none
-  
-  class(Dictionary), intent(inout)        :: this
-  type(String),      intent(in)           :: keyword
-  logical,           intent(in), optional :: only_update_if_unset
-  
-  if (present(only_update_if_unset)) then
-    call this%set(char(keyword), only_update_if_unset)
-  else
-    call this%set(char(keyword))
-  endif
-end subroutine
-
-! ----------------------------------------------------------------------
 ! Sets the value corresponding to a given keyword.
 ! ----------------------------------------------------------------------
 ! If only_update_if_unset is set, the value will not be overwritten if set.
 !    defaults to .false..
-subroutine set_value_Dictionary_character_character(this,keyword,value, &
+subroutine set_Dictionary_character_character(this,keyword,value, &
    & only_update_if_unset)
   implicit none
   
@@ -444,14 +373,13 @@ subroutine set_value_Dictionary_character_character(this,keyword,value, &
   logical,           intent(in), optional :: only_update_if_unset
   
   if (present(only_update_if_unset)) then
-    call this%keywords(this%index(keyword))%set_value( value, &
-                                                     & only_update_if_unset) 
+    call this%keywords(this%index(keyword))%set(value, only_update_if_unset) 
   else
-    call this%keywords(this%index(keyword))%set_value(value)
+    call this%keywords(this%index(keyword))%set(value)
   endif
 end subroutine
 
-subroutine set_value_Dictionary_character_String(this,keyword,value, &
+subroutine set_Dictionary_character_String(this,keyword,value, &
    & only_update_if_unset)
   implicit none
   
@@ -461,13 +389,13 @@ subroutine set_value_Dictionary_character_String(this,keyword,value, &
   logical,           intent(in), optional :: only_update_if_unset
   
   if (present(only_update_if_unset)) then
-    call this%set_value(keyword, char(value), only_update_if_unset)
+    call this%set(keyword, char(value), only_update_if_unset)
   else
-    call this%set_value(keyword, char(value))
+    call this%set(keyword, char(value))
   endif
 end subroutine
 
-subroutine set_value_Dictionary_String_character(this, keyword, value, &
+subroutine set_Dictionary_String_character(this, keyword, value, &
    & only_update_if_unset)
   implicit none
   
@@ -477,13 +405,13 @@ subroutine set_value_Dictionary_String_character(this, keyword, value, &
   logical,           intent(in), optional :: only_update_if_unset
   
   if (present(only_update_if_unset)) then
-    call this%set_value(char(keyword), value, only_update_if_unset)
+    call this%set(char(keyword), value, only_update_if_unset)
   else
-    call this%set_value(char(keyword), value)
+    call this%set(char(keyword), value)
   endif
 end subroutine
 
-subroutine set_value_Dictionary_String_String(this,keyword,value, &
+subroutine set_Dictionary_String_String(this,keyword,value, &
    & only_update_if_unset)
   implicit none
   
@@ -493,9 +421,9 @@ subroutine set_value_Dictionary_String_String(this,keyword,value, &
   logical,           intent(in), optional :: only_update_if_unset
   
   if (present(only_update_if_unset)) then
-    call this%set_value(char(keyword), char(value), only_update_if_unset)
+    call this%set(char(keyword), char(value), only_update_if_unset)
   else
-    call this%set_value(char(keyword), char(value))
+    call this%set(char(keyword), char(value))
   endif
 end subroutine
 
@@ -560,8 +488,6 @@ subroutine write_file_Dictionary_character(this,filename)
       cycle
     elseif (.not. this%keywords(i)%is_set()) then
       cycle
-    elseif (.not. this%keywords(i)%has_value()) then
-      call print_line(dictionary_file, this%keywords(i)%keyword)
     else
       call print_line(dictionary_file, this%keywords(i)%keyword//' '// &
                                      & this%keywords(i)%value())
@@ -640,9 +566,11 @@ subroutine read_file_Dictionary_character(this, filename, &
          & ' has been specified in multiple places.')
     else
       if (size(line)==1) then
-        call this%keywords(j)%set(only_if_unset)
+        call print_line('Error: the keyword '//this%keywords(j)%keyword// &
+           & 'has been specified without a value.')
+        stop
       else
-        call this%keywords(j)%set_value(join(line(2:)),only_if_unset)
+        call this%keywords(j)%set(join(line(2:)),only_if_unset)
       endif
     endif
   enddo
@@ -700,10 +628,7 @@ subroutine process_and_check_inputs_Dictionary(this)
         do j=1,size(this)
           if (this%keywords(j)%keyword==default_keyword) then
             if (this%keywords(j)%is_set()) then
-              call this%keywords(i)%set()
-              if (this%keywords(j)%has_value()) then
-                call this%keywords(i)%set_value(this%keywords(j)%value())
-              endif
+              call this%keywords(i)%set(this%keywords(j)%value())
             endif
             cycle do_i
           endif

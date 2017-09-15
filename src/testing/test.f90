@@ -5,10 +5,6 @@ module test_module
   use constants_module, only : dp
   use string_module
   use io_module
-  
-  interface cmplx2
-    module procedure cmplx2_IntMatrix
-  end interface
 contains
 
 ! ----------------------------------------------------------------------
@@ -18,9 +14,29 @@ function test_keywords() result(keywords)
   use keyword_module
   implicit none
   
-  type(KeywordData), allocatable :: keywords(:)
+  type(KeywordData) :: keywords(6)
   
-  keywords = [KeywordData::]
+  keywords = [                                                                &
+  & make_keyword( 'harmonic_states_cutoff',                                   &
+  &               'harmonic_states_cutoff is the number of harmonic &
+  &eigenstates in the direction of each normal mode.'),                       &
+  & make_keyword( 'potential_basis_cutoff',                                &
+  &               'potential_basis_cutoff is the order up to which the &
+  &potential is expanded. e.g. a cubic expansion would be order 3.'),         &
+  & make_keyword( 'scf_convergence_threshold',                                &
+  &               'scf_convergence_threshold is the energy to within which &
+  &the VSCF calculation will be converged.'),                                 &
+  & make_keyword( 'max_scf_cycles',                                           &
+  &               'max_scf_cycles is the maximum number of SCF cycles which &
+  &will be carried out as part of the VSCF calculation.'),                    &
+  & make_keyword( 'perturbation_order',                                       &
+  &               'perturbation_order is the order up to which perturbation &
+  &theory will be run',                                                       &
+  &               is_optional=.true.),                                        &
+  & make_keyword( 'perturb_states_to_same_order',                             &
+  &               'perturb_states_to_same_order specifies whether or not to &
+  &calculate state correction at the same order as energy corrections.',      &
+  &               default_value='f') ]
 end function
 
 subroutine test(arguments)
@@ -30,64 +46,6 @@ subroutine test(arguments)
   
   type(Dictionary), intent(in) :: arguments
   
-  type(ComplexMatrix) :: test1
-  complex(dp), allocatable :: test2(:,:)
-  
-  integer, allocatable :: int_mat(:,:)
-  integer, allocatable :: int_mat_2(:,:)
-  real(dp), allocatable :: real_mat(:,:)
-  complex(dp), allocatable :: complex_mat(:,:)
-  
-  integer :: int_1
-  integer :: int_2
-  real(dp) :: real_1
-  complex(dp) :: complex_1
-  
-  complex(dp) :: a
-  
-  a = cmplx(0_dp,0_dp,dp)
-  
-  int_1 = 0
-  int_2 = int_1
-  real_1 = int_1
-  complex_1 = int_1
-  
-  call print_line('')
-  call print_line(int_1)
-  call print_line(int_2)
-  call print_line(real_1)
-  call print_line(complex_1)
-  
-  allocate(int_mat(2,2))
-  int_mat = 0
-  int_mat_2 = int_mat
-  real_mat = int_mat
-  complex_mat = int_mat
-  complex_mat = reshape([a,a,a,a],[2,2])
-  
-  test2 = reshape([a,a,a,a],[2,2])
-  test2 = reshape([0,0],[1,2])
-  
-  test2 = reshape([a,a,a,a,a,a,a,a,a],[3,3])
-  
-  call print_line('2x2')
-  test2 = cmplx(zeroes(2,2))
-  call print_line('3x3')
-  test2 = cmplx(zeroes(3,3))
-  call print_line('Done')
-  call print_line(size(test2,1))
-  call print_line(size(test2,2))
-  test1 = test2
-  
+  call print_line('END TEST')
 end subroutine
-
-pure function cmplx2_IntMatrix(input) result(output)
-  use linear_algebra_module
-  implicit none
-  
-  type(IntMatrix), intent(in) :: input
-  complex(dp), allocatable    :: output(:,:)
-  
-  output = int(input)
-end function
 end module

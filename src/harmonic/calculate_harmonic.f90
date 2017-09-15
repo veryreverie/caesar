@@ -311,14 +311,11 @@ subroutine calculate_harmonic(arguments)
   real(dp), allocatable :: disp_qpoints(:,:)
   
   ! Lte output data.
-  type(LteReturn)          :: lte_result
+  type(LteReturn)                  :: lte_result
   type(ComplexMatrix), allocatable :: ibz_dynamical_matrices(:,:,:)
-  integer                  :: mode
-  integer                  :: atom
-  
-  ! Normal mode data.
-  integer          :: gvector
-  type(NormalMode) :: normal_mode
+  integer                          :: mode
+  integer                          :: atom
+  integer                          :: gvector
   
   ! Temporary variables.
   integer                   :: i,j,k,ialloc
@@ -400,11 +397,8 @@ subroutine calculate_harmonic(arguments)
       qdir = wd//'/qpoint_'//j
       call mkdir(qdir)
       do mode=1,structure%no_modes
-        call new(normal_mode, supercell%no_atoms)
-        normal_mode%frequency = lte_result%frequencies(mode, gvector)
-        normal_mode%soft_mode = lte_result%soft_modes(mode, gvector)
-        normal_mode%displacements = lte_result%displacements(:,mode, gvector)
-        call write_normal_mode_file(normal_mode, qdir//'/mode_'//mode//'.dat')
+        call write_normal_mode_file( lte_result%normal_modes(mode,gvector), &
+                                   & qdir//'/mode_'//mode//'.dat')
       enddo
     enddo
   enddo

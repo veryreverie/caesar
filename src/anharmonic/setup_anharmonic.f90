@@ -226,7 +226,7 @@ subroutine setup_anharmonic(arguments)
     do j=1,size(coupling)
       coupling(j)%modes = int(split(line(j)))
     enddo
-    coupling = calculate_all_coupling(coupling, structure%no_modes)
+    coupling = calculate_all_coupling(coupling, modes)
     
     ! Write out coupling.
     call write_coupling_file(coupling, qdir//'/coupling.dat')
