@@ -52,8 +52,20 @@ elemental function add_SingleModeState_SingleModeState(this,that) &
   class(SingleModeState), intent(in) :: that
   type(SingleModeState)              :: output
   
+  integer :: min_size
+  
   output%frequency = this%frequency
-  output%coefficients = this%coefficients + that%coefficients
+  
+  min_size = min(size(this%coefficients),size(that%coefficients))
+  if (size(this%coefficients)<size(that%coefficients)) then
+    output%coefficients = that%coefficients
+    output%coefficients(:min_size) = output%coefficients(:min_size) &
+                                 & + this%coefficients
+  else
+    output%coefficients = this%coefficients
+    output%coefficients(:min_size) = output%coefficients(:min_size) &
+                                 & + that%coefficients
+  endif
 end function
 
 elemental function subtract_SingleModeState_SingleModeState(this,that) &
@@ -64,8 +76,20 @@ elemental function subtract_SingleModeState_SingleModeState(this,that) &
   class(SingleModeState), intent(in) :: that
   type(SingleModeState)              :: output
   
+  integer :: min_size
+  
   output%frequency = this%frequency
-  output%coefficients = this%coefficients - that%coefficients
+  
+  min_size = min(size(this%coefficients),size(that%coefficients))
+  if (size(this%coefficients)<size(that%coefficients)) then
+    output%coefficients = -that%coefficients
+    output%coefficients(:min_size) = output%coefficients(:min_size) &
+                                 & + this%coefficients
+  else
+    output%coefficients = this%coefficients
+    output%coefficients(:min_size) = output%coefficients(:min_size) &
+                                 & - that%coefficients
+  endif
 end function
 
 elemental function multiply_SingleModeState_real(this,that) result(output)

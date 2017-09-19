@@ -122,6 +122,7 @@ function vscf(potential,harmonic_states,max_scf_cycles, &
     output = scf(potential,output%states)
     
     ! Check for convergence
+    call print_line(maxval(abs(output%energies-old_energies)))
     if (all(abs(output%energies-old_energies)<scf_convergence_threshold)) then
       exit
     elseif (scf_step==max_scf_cycles) then

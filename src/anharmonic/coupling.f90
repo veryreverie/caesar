@@ -10,9 +10,10 @@ module coupling_module
   type :: CoupledModes
     ! The ids of the modes which are coupled together.
     integer, allocatable :: modes(:)
-    ! The ids of the couplings which are subsidiary to this one, e.g.
-    !    the coupling [1,2] is subsidiary to [1,2,3]
-    integer, allocatable :: subsidiaries(:)
+  contains
+    ! Check if this is subsidiary to the given coupling, e.g. the couplings
+    !    [],[1],[2],[3],[1,2],[1,3] and [2,3] are subsidiary to [1,2,3]
+    procedure, public :: is_subsidiary_of
   end type
   
   interface size
@@ -27,6 +28,28 @@ function size_CoupledModes(this) result(output)
   integer                        :: output
   
   output = size(this%modes)
+end function
+
+function is_subsidiary_of(this,that) result(output)
+  Class(CoupledModes), intent(in) :: this
+  type(CoupledModes),  intent(in) :: that
+  logical                         :: output
+  
+  integer :: i,j
+  
+  output = .true.
+  
+  ! Loop over the modes in this, checking if each is in that.
+  do_i : do i=1,size(this)
+    do j=1,size(that)
+      if (this%modes(i)==that%modes(j)) then
+        cycle do_i
+      endif
+    enddo
+    
+    ! Will only be reached if a mode in this is not present in that.
+    output = .false.
+  enddo do_i
 end function
 
 subroutine write_coupling_file(this, filename)
@@ -102,7 +125,7 @@ function calculate_all_coupling(input, modes) result(output)
   logical, allocatable :: mode_unaccounted_for(:)
   logical, allocatable :: duplicate(:)
   
-  integer :: i,j,k,l,k2,ialloc
+  integer :: i,j,k,l,ialloc
   integer :: s
   
   no_modes = size(modes)
@@ -272,35 +295,6 @@ function calculate_all_coupling(input, modes) result(output)
     j = j + 1
     output(j) = couplings(k)
     couplings_sizes(k) = -1
-  enddo
-  
-  ! ------------------------------
-  ! Calculate subsidiary couplings, e.g. coupling [1,2] has
-  !    subsidiary couplings [], [1] and [2]
-  ! ------------------------------
-  do i=1,size(output)
-    if (size(output(i)) <= 1) then
-      output(i)%subsidiaries = [integer::]
-    else
-      allocate( output(i)%subsidiaries(sizes(size(output(i)))), &
-              & stat=ialloc); call err(ialloc)
-      j = 0
-      do_k : do k=1,i-1
-        if (size(output(k)) < size(output(i))) then
-          do_k2 : do k2=1,size(output(k))
-            if (.not. any(output(k)%modes(k2)==output(i)%modes)) then
-              ! The mode k2 does not appear in coupling i.
-              !    -> k is not a subsidiary of i.
-              cycle do_k
-            endif
-          enddo do_k2
-          
-          ! Coupling k is a subsidiary coupling to coupling i.
-          j = j + 1
-          output(i)%subsidiaries(j) = k
-        endif
-      enddo do_k
-    endif
   enddo
 end function
 end module

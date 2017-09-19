@@ -2571,14 +2571,14 @@ function linear_least_squares_reals_reals(a,b) result(x)
   n = size(a,2)
   if (size(b)/=m) then
     call err()
-  elseif (m<=n) then
+  elseif (m<n) then
     call print_line('Error in least-squares optimisation: there are more &
        &variables to be fit than input data-points.')
     call err()
   endif
   
   ! Copy a and b so that they are not changed by dgels.
-  a2 = dble(a)
+  a2 = a
   x = b
   
   ! Calculate optimal workspace size.

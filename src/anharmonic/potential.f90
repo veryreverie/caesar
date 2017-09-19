@@ -63,7 +63,6 @@ contains
 ! Evaluates the energy of a Monomial at a given displacement.
 ! ----------------------------------------------------------------------
 function evaluate_energy_Monomial(this,displacement) result(output)
-  use sampling_points_module
   use normal_mode_module
   implicit none
   
@@ -84,7 +83,6 @@ end function
 ! Returns the result in normal mode co-ordinates.
 ! ----------------------------------------------------------------------
 function evaluate_forces_Monomial(this,displacement) result(output)
-  use sampling_points_module
   use normal_mode_module
   implicit none
   
@@ -112,7 +110,6 @@ end function
 ! Evaluates the energy of a potential at a given displacement.
 ! ----------------------------------------------------------------------
 function evaluate_energy_PolynomialPotential(this,displacement) result(output)
-  use sampling_points_module
   use normal_mode_module
   implicit none
   
@@ -133,7 +130,6 @@ end function
 ! Returns the result in normal mode co-ordinates.
 ! ----------------------------------------------------------------------
 function evaluate_forces_PolynomialPotential(this,displacement) result(output)
-  use sampling_points_module
   use normal_mode_module
   implicit none
   
@@ -207,6 +203,7 @@ function calculate_potential(potential_basis_cutoff,sampling,modes,qpoint, &
                      & basis_functions(i)%basis_functions, &
                      & sampling(i),                        &
                      & fit(:i-1),                          &
+                     & sampling(:i-1),                     &
                      & modes,                              &
                      & qpoint,                             &
                      & supercell)
@@ -217,7 +214,7 @@ function calculate_potential(potential_basis_cutoff,sampling,modes,qpoint, &
     
     allocate(no_monomials(no_basis_functions), stat=ialloc); call err(ialloc)
     do j=1,no_basis_functions
-      no_monomials(i) = size(basis_functions(i)%basis_functions(j)%monomials)
+      no_monomials(j) = size(basis_functions(i)%basis_functions(j)%monomials)
     enddo
     
     allocate( fit(i)%monomials(sum(no_monomials)), &
@@ -232,6 +229,8 @@ function calculate_potential(potential_basis_cutoff,sampling,modes,qpoint, &
       enddo
       l = l+no_monomials(j)
     enddo
+    
+    deallocate(no_monomials,stat=ialloc); call err(ialloc)
     
     ! Simplify the potential, adding together identical monomials.
     call fit(i)%simplify()
@@ -286,9 +285,8 @@ function calculate_basis_functions(coupling,no_modes,potential_basis_cutoff) &
   grid = generate_octahedral_grid( size(coupling), &
                                  & potential_basis_cutoff-1,   &
                                  & include_negatives=.false.)
-  allocate( output(size(grid)), &
-          & stat=ialloc); call err(ialloc)
-  do i=1,size(grid)
+  allocate(output(size(grid,2)),stat=ialloc); call err(ialloc)
+  do i=1,size(output)
     ! Each basis function consists of only one monomial.
     allocate( output(i)%monomials(1), &
             & stat=ialloc); call err(ialloc)
@@ -350,8 +348,8 @@ end subroutine
 ! Fits a set of basis functions to the sampled B-O surface.
 ! ----------------------------------------------------------------------
 ! Only forces in the hyperplane of the coupling are considered.
-function fit_basis_functions(basis_functions,sampling,fit,modes,qpoint, &
-   & supercell) result(output)
+function fit_basis_functions(basis_functions,this_sampling,fit,prev_sampling, &
+   & modes,qpoint,supercell) result(output)
   use sampling_points_module
   use normal_mode_module
   use qpoints_module
@@ -360,8 +358,9 @@ function fit_basis_functions(basis_functions,sampling,fit,modes,qpoint, &
   implicit none
   
   type(PolynomialPotential), intent(in) :: basis_functions(:)
-  type(CouplingSampling),    intent(in) :: sampling
+  type(CouplingSampling),    intent(in) :: this_sampling
   type(PolynomialPotential), intent(in) :: fit(:)
+  type(CouplingSampling),    intent(in) :: prev_sampling(:)
   type(NormalMode),          intent(in) :: modes(:)
   type(QpointData),          intent(in) :: qpoint
   type(StructureData),       intent(in) :: supercell
@@ -372,8 +371,6 @@ function fit_basis_functions(basis_functions,sampling,fit,modes,qpoint, &
   type(SamplingPoint), allocatable :: sampling_points(:)
   real(dp),            allocatable :: energy(:)
   type(ModeVector),    allocatable :: forces(:)
-  
-  integer :: subsidiary
   
   ! The normal-mode displacement at each sampling point.
   type(ModeVector) :: displacement
@@ -392,8 +389,8 @@ function fit_basis_functions(basis_functions,sampling,fit,modes,qpoint, &
   
   ! Concatenate all independent sampling points.
   no_sampling_points = 0
-  do i=1,size(sampling%sampling_points)
-    if (.not. sampling%sampling_points(i)%duplicate) then
+  do i=1,size(this_sampling%sampling_points)
+    if (.not. this_sampling%sampling_points(i)%duplicate) then
       no_sampling_points = no_sampling_points + 1
     endif
   enddo
@@ -402,41 +399,41 @@ function fit_basis_functions(basis_functions,sampling,fit,modes,qpoint, &
           & energy(no_sampling_points),           &
           & forces(no_sampling_points),           &
           & stat=ialloc); call err(ialloc)
-  do i=1,size(sampling%sampling_points)
-    if (.not. sampling%sampling_points(i)%duplicate) then
+  do i=1,size(this_sampling%sampling_points)
+    if (.not. this_sampling%sampling_points(i)%duplicate) then
       j = j+1
       
       ! Read in energy and forces.
-      sampling_points(j) = sampling%sampling_points(i)
-      energy(j) = sampling%energy(i)
-      forces(j) = cartesian_to_normal_mode( sampling%forces(:,i), &
-                                          & modes, &
-                                          & qpoint, &
+      sampling_points(j) = this_sampling%sampling_points(i)
+      energy(j) = this_sampling%energy(i)
+      forces(j) = cartesian_to_normal_mode( this_sampling%forces(:,i), &
+                                          & modes,                     &
+                                          & qpoint,                    &
                                           & supercell )
     endif
   enddo
   
   ! Subtract off the contributions from subsidiary couplings.
   do i=1,size(sampling_points)
-    do j=1,size(sampling%coupling%subsidiaries)
-      subsidiary = sampling%coupling%subsidiaries(j)
-      energy(i) = energy(i)                        &
-              & - fit(subsidiary)%evaluate_energy( &
-              &                            sampling_points(i)%displacement)
-      forces(i) = forces(i)                        &
-              & - fit(subsidiary)%evaluate_forces( &
-              &                            sampling_points(i)%displacement)
+    do j=1,size(fit)
+      if ( prev_sampling(j)%coupling%is_subsidiary_of( &
+         & this_sampling%coupling)) then
+        energy(i) = energy(i) &
+                & - fit(j)%evaluate_energy(sampling_points(i)%displacement)
+        forces(i) = forces(i) &
+                & - fit(j)%evaluate_forces(sampling_points(i)%displacement)
+      endif
     enddo
   enddo
   
   ! Construct a and b.
-  m = no_sampling_points*(1+size(sampling%coupling))
+  m = no_sampling_points*(1+size(this_sampling%coupling))
   n = size(basis_functions)
   allocate( a(m,n), &
           & b(m),   &
           & stat=ialloc); call err(ialloc)
   do i=1,no_sampling_points
-    l = (i-1)*(1+size(sampling%coupling)) + 1
+    l = (i-1)*(1+size(this_sampling%coupling)) + 1
     displacement = sampling_points(i)%displacement
     
     do j=1,n
@@ -444,14 +441,14 @@ function fit_basis_functions(basis_functions,sampling,fit,modes,qpoint, &
       basis_forces = basis_functions(j)%evaluate_forces(displacement)
       
       a(l,j) = basis_energy
-      do k=1,size(sampling%coupling)
-        a(l+k,j) = basis_forces%vector(sampling%coupling%modes(k))
+      do k=1,size(this_sampling%coupling)
+        a(l+k,j) = basis_forces%vector(this_sampling%coupling%modes(k))
       enddo
     enddo
     
     b(l) = energy(i)
-    do k=1,size(sampling%coupling)
-      b(l+k) = forces(i)%vector(sampling%coupling%modes(k))
+    do k=1,size(this_sampling%coupling)
+      b(l+k) = forces(i)%vector(this_sampling%coupling%modes(k))
     enddo
   enddo
   
@@ -668,7 +665,7 @@ subroutine integrate_over_mode_average_PolynomialPotential(this,mode,states)
   do i=1,size(this%monomials)
     ! (a) * u1^n1*...um^nm*... -> (avg_j[a*<j|um^nm|j>]) * u1^n1*...*um^0*...
     this%monomials(i)%coefficient = this%monomials(i)%coefficient &
-             & * sum(couplings(this%monomials(i)%powers(mode),:)) &
+             & * sum(couplings(this%monomials(i)%powers(mode)+1,:)) &
              & / size(couplings,2)
     this%monomials(i)%powers(mode) = 0
   enddo
@@ -703,9 +700,9 @@ function construct_hamiltonian_PolynomialPotential(this,mode,states) &
   ! Sum over (coefficient * coupling) at each power.
   output = dble(int(zeroes(size(states),size(states))))
   do i=1,size(this%monomials)
-    output = output &
+    output = output                        &
          & + this%monomials(i)%coefficient &
-         & * couplings(this%monomials(i)%powers(mode))
+         & * couplings(this%monomials(i)%powers(mode)+1)
   enddo
 end function
 end module
