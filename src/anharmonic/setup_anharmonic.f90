@@ -212,8 +212,12 @@ subroutine setup_anharmonic(arguments)
     ! Assumes the mode is harmonic.
     allocate(sample_spacing(structure%no_modes), stat=ialloc); call err(ialloc)
     do j=1,structure%no_modes
-      sample_spacing(j) = sqrt(2.0_dp*max_energy) &
-                      & / (modes(j)%frequency*no_sampling_points)
+      if (modes(j)%translational_mode) then
+        sample_spacing(j) = 0
+      else
+        sample_spacing(j) = sqrt(2.0_dp*max_energy) &
+                        & / (modes(j)%frequency*no_sampling_points)
+      endif
     enddo
     
     ! Make q-point directories.

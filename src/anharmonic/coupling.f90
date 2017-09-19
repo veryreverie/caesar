@@ -99,7 +99,7 @@ function calculate_all_coupling(input, modes) result(output)
   type(CoupledModes), allocatable :: couplings(:)
   integer,            allocatable :: couplings_sizes(:)
   
-  logical, allocatable :: single_mode_present(:)
+  logical, allocatable :: mode_unaccounted_for(:)
   logical, allocatable :: duplicate(:)
   
   integer :: i,j,k,l,k2,ialloc
@@ -208,18 +208,18 @@ function calculate_all_coupling(input, modes) result(output)
   ! ------------------------------
   
   ! Identify missing modes.
-  allocate(single_mode_present(no_modes), stat=ialloc); call err(ialloc)
-  single_mode_present = .false.
+  allocate(mode_unaccounted_for(no_modes), stat=ialloc); call err(ialloc)
+  mode_unaccounted_for = .true.
   do i=1,size(couplings)
     do j=1,size(couplings(i))
-      single_mode_present(couplings(i)%modes(j)) = .true.
+      mode_unaccounted_for(couplings(i)%modes(j)) = .false.
     enddo
   enddo
   
   ! Mark translational modes as not missing.
   do i=1,no_modes
     if (modes(i)%translational_mode) then
-      single_mode_present(i) = .true.
+      mode_unaccounted_for(i) = .false.
     endif
   enddo
   
@@ -238,10 +238,10 @@ function calculate_all_coupling(input, modes) result(output)
   
   ! Construct output.
   ! Couplings are sorted by size order.
-  allocate( output( size(couplings)                  &
-          &       + count(.not. single_mode_present) &
-          &       - count(duplicate)                 &
-          &       + 1),                              &
+  allocate( output( size(couplings)             &
+          &       + count(mode_unaccounted_for) &
+          &       - count(duplicate)            &
+          &       + 1),                         &
           & stat=ialloc); call err(ialloc)
   
   ! Add the blank coupling.
@@ -249,8 +249,8 @@ function calculate_all_coupling(input, modes) result(output)
   
   ! Add in single modes which have not been specified as part of couplings.
   j = 1
-  do i=1,size(single_mode_present)
-    if (.not. single_mode_present(i)) then
+  do i=1,size(mode_unaccounted_for)
+    if (mode_unaccounted_for(i)) then
       j = j + 1
       output(j)%modes = [i]
     endif

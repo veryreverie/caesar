@@ -14,29 +14,9 @@ function test_keywords() result(keywords)
   use keyword_module
   implicit none
   
-  type(KeywordData) :: keywords(6)
+  type(KeywordData), allocatable :: keywords(:)
   
-  keywords = [                                                                &
-  & make_keyword( 'harmonic_states_cutoff',                                   &
-  &               'harmonic_states_cutoff is the number of harmonic &
-  &eigenstates in the direction of each normal mode.'),                       &
-  & make_keyword( 'potential_basis_cutoff',                                &
-  &               'potential_basis_cutoff is the order up to which the &
-  &potential is expanded. e.g. a cubic expansion would be order 3.'),         &
-  & make_keyword( 'scf_convergence_threshold',                                &
-  &               'scf_convergence_threshold is the energy to within which &
-  &the VSCF calculation will be converged.'),                                 &
-  & make_keyword( 'max_scf_cycles',                                           &
-  &               'max_scf_cycles is the maximum number of SCF cycles which &
-  &will be carried out as part of the VSCF calculation.'),                    &
-  & make_keyword( 'perturbation_order',                                       &
-  &               'perturbation_order is the order up to which perturbation &
-  &theory will be run',                                                       &
-  &               is_optional=.true.),                                        &
-  & make_keyword( 'perturb_states_to_same_order',                             &
-  &               'perturb_states_to_same_order specifies whether or not to &
-  &calculate state correction at the same order as energy corrections.',      &
-  &               default_value='f') ]
+  keywords = [KeywordData::]
 end function
 
 subroutine test(arguments)
@@ -45,6 +25,29 @@ subroutine test(arguments)
   implicit none
   
   type(Dictionary), intent(in) :: arguments
+  
+  type(String) :: a
+  
+  a = 'f'
+  call print_line(lgcl(a))
+  
+  a = 't'
+  call print_line(lgcl(a))
+  
+  a = 'F'
+  call print_line(lgcl(a))
+  
+  a = 'T'
+  call print_line(lgcl(a))
+  
+  a = 'False'
+  call print_line(lgcl(a))
+  
+  a = 'TrUe'
+  call print_line(lgcl(a))
+  
+  a = 'hi'
+  call print_line(lgcl(a))
   
   call print_line('END TEST')
 end subroutine

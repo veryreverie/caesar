@@ -409,11 +409,7 @@ elemental function lgcl_String(this) result(output)
   type(String), intent(in) :: this
   logical                  :: output
   
-  if (this=='t' .or. this=='true') then
-    output = .true.
-  elseif (this=='f' .or. this=='false') then
-    output = .false.
-  endif
+  read(this%contents,*) output
 end function
 
 ! ----------------------------------------------------------------------
