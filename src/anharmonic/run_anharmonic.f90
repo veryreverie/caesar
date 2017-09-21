@@ -14,7 +14,7 @@ function run_anharmonic_keywords() result(keywords)
   use keyword_module
   implicit none
   
-  type(KeywordData) :: keywords(8)
+  type(KeywordData), allocatable :: keywords(:)
   
   keywords = [                                                                &
   & make_keyword( 'first_qpoint',                                             &

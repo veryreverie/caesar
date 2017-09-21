@@ -14,7 +14,7 @@ function calculate_anharmonic_keywords() result(keywords)
   use keyword_module
   implicit none
   
-  type(KeywordData) :: keywords(6)
+  type(KeywordData), allocatable :: keywords(:)
   
   keywords = [                                                                &
   & make_keyword( 'harmonic_states_cutoff',                                   &
@@ -97,6 +97,9 @@ subroutine calculate_anharmonic(arguments)
   ! The Born-Oppenheimer potential.
   type(PolynomialPotential) :: potential
   
+  ! The number of non-translational modes.
+  integer :: no_modes
+  
   ! Eigenstates in various representations.
   type(SingleModeState), allocatable :: harmonic_states(:,:)
   type(ScfOutput)                    :: vscf_output
@@ -136,7 +139,6 @@ subroutine calculate_anharmonic(arguments)
     energy_perturbation_order = 0
     state_perturbation_order = 0
   endif
-    
   
   ! Read in setup_anharmonic settings.
   setup_anharmonic_arguments = setup_anharmonic_keywords()
@@ -216,12 +218,39 @@ subroutine calculate_anharmonic(arguments)
                                    & supercell,              &
                                    & harmonic_states_cutoff)
     
+    call print_line('')
+    call print_line('Potential:')
+    call print_line(potential)
+    
     ! Calculate harmonic eigenstates, {|a>}, along each normal mode.
-    allocate( harmonic_states(harmonic_states_cutoff+1, structure%no_modes), &
+    no_modes = 0
+    do j=1,size(modes)
+      if (.not. modes(j)%translational_mode) then
+        no_modes = no_modes+1
+      endif
+    enddo
+    
+    if (no_modes==0) then
+      cycle
+    endif
+    
+    allocate( harmonic_states(harmonic_states_cutoff+1, no_modes), &
             & stat=ialloc); call err(ialloc)
+    k = 0
     do j=1,structure%no_modes
-      harmonic_states(:,j) = generate_harmonic_basis( modes(j)%frequency, &
-                                                    & harmonic_states_cutoff)
+      if (.not. modes(j)%translational_mode) then
+        k = k+1
+        harmonic_states(:,k) = generate_harmonic_basis( modes(j)%frequency, &
+                                                      & harmonic_states_cutoff)
+      endif
+    enddo
+    
+    call print_line('')
+    call print_line('Harmonic states:')
+    do j=1,no_modes
+      do k=1,size(harmonic_states,1)
+        call print_line(harmonic_states(k,j))
+      enddo
     enddo
     
     ! Run VSCF calculation to find VSCF eigenstates.
@@ -232,6 +261,14 @@ subroutine calculate_anharmonic(arguments)
     
     vscf_states = vscf_output%states
     vscf_energies = vscf_output%energies
+    
+    call print_line('')
+    call print_line('VSCF states:')
+    do j=1,no_modes
+      do k=1,size(vscf_states,1)
+        call print_line(vscf_states(k,j))
+      enddo
+    enddo
     
     ! Construct product states from VSCF basis.
     product_states_output = construct_product_states( vscf_states,   &
@@ -266,6 +303,13 @@ subroutine calculate_anharmonic(arguments)
                                          & perturbative_potential,    &
                                          & energy_perturbation_order, &
                                          & state_perturbation_order)
+    
+    ! Deallocate variables.
+    deallocate( modes,                  &
+              & sampling,               &
+              & harmonic_states,        &
+              & perturbative_potential, &
+              & stat=ialloc); call err(ialloc)
   enddo
 end subroutine
 end module

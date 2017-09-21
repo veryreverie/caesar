@@ -15,7 +15,7 @@ function run_harmonic_keywords() result(keywords)
   use keyword_module
   implicit none
   
-  type(KeywordData) :: keywords(3)
+  type(KeywordData), allocatable :: keywords(:)
   
   keywords = [                                                                &
   & make_keyword( 'supercells_to_run',                                        &

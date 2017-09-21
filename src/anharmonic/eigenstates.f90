@@ -39,6 +39,10 @@ module eigenstates_module
     type(ProductState), allocatable :: states(:)
     real(dp),           allocatable :: uncoupled_energies(:)
   end type
+  
+  interface print_line
+    module procedure print_line_SingleModeState
+  end interface
 contains
 
 ! ----------------------------------------------------------------------
@@ -188,17 +192,17 @@ function generate_harmonic_basis(frequency,harmonic_states_cutoff) &
   allocate(output(harmonic_states_cutoff+1), stat=ialloc); call err(ialloc)
   
   ! Every basis function has the same exponent.
-  do i=1,harmonic_states_cutoff
+  do i=1,harmonic_states_cutoff+1
     output(i)%frequency = frequency
   enddo
   
   ! Calculate |0>.
-  if (harmonic_states_cutoff >= 1) then
+  if (harmonic_states_cutoff >= 0) then
     output(1)%coefficients = [normalisation]
   endif
   
   ! Calculate |1>.
-  if (harmonic_states_cutoff >= 2) then
+  if (harmonic_states_cutoff >= 1) then
     output(2)%coefficients = [0.0_dp, normalisation*sqrt(frequency*2)]
   endif
   
@@ -265,7 +269,7 @@ function construct_product_states(single_mode_states,single_mode_energies, &
     grid = generate_octahedral_grid( size(coupling(i)),        &
                                    & harmonic_states_cutoff-1, &
                                    & include_negatives=.false.)
-    do k=1,size(grid)
+    do k=1,size(grid,2)
       allocate( output%states(j+k)%states(no_modes), &
               & stat=ialloc); call err(ialloc)
       output%uncoupled_energies(j+k) = 0
@@ -288,7 +292,46 @@ function construct_product_states(single_mode_states,single_mode_energies, &
                            &                         coupling(i)%modes(l))
       enddo
     enddo
-    j = j+size(grid)
+    j = j+size(grid,2)
   enddo
+  
+  if (j/=output_size) then
+    call err()
+  endif
 end function
+
+! ----------------------------------------------------------------------
+! Print functions for states.
+! ----------------------------------------------------------------------
+subroutine print_line_SingleModeState(this)
+  implicit none
+  
+  type(SingleModeState), intent(in) :: this
+  
+  integer      :: i
+  type(String) :: line
+  type(String) :: token
+  
+  line = '('
+  do i=1,size(this%coefficients)
+    token = trim(str(this%coefficients(i)))
+    if (slice(token,1,1)=='-' .or. i==1) then
+      line = line//token
+    else
+      line = line//'+'//token
+    endif
+    line = line//'u^'//i-1
+  enddo
+  
+  line = line//')e^('
+  token = trim(str(this%frequency))
+  if (slice(token,1,1)=='-') then
+    line = line//'+'
+    token = slice(token,2,len(token))
+  else
+    line = line//'-'
+  endif
+  line = line//token//'*u^2)'
+  call print_line(line)
+end subroutine
 end module

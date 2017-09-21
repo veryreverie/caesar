@@ -18,12 +18,7 @@ program caesar
   use setup_harmonic_module
   use run_harmonic_module
   use calculate_harmonic_module
-  
-  ! Use quadratic modules.
-  use setup_quadratic_module
-  use run_quadratic_module
-  use anharmonic_module
-  use bs_quadratic_module
+  use calculate_dos_and_dispersion_module
   
   ! Use anharmonic modules.
   use setup_anharmonic_module
@@ -33,9 +28,6 @@ program caesar
   ! Use testing modules.
   use test_module
   use linear_algebra_test_module
-  use setup_harmonic_test_module
-  use calculate_harmonic_test_module
-  use test_copy_quadratic_module
   
   ! Use misc modules.
   use calculate_gap_module
@@ -116,18 +108,9 @@ program caesar
   elseif (mode == 'calculate_harmonic') then
     keywords = calculate_harmonic_keywords()
     main_subroutine => calculate_harmonic
-  elseif (mode == 'setup_quadratic') then
-    keywords = setup_quadratic_keywords()
-    main_subroutine => setup_quadratic
-  elseif (mode == 'run_quadratic') then
-    keywords = run_quadratic_keywords()
-    main_subroutine => run_quadratic
-  elseif (mode == 'anharmonic') then
-    keywords = anharmonic_keywords()
-    main_subroutine => anharmonic
-  elseif (mode == 'bs_quadratic') then
-    keywords = bs_quadratic_keywords()
-    main_subroutine => bs_quadratic
+  elseif (mode == 'calculate_dos_and_dispersion') then
+    keywords = calculate_dos_and_dispersion_keywords()
+    main_subroutine => calculate_dos_and_dispersion
   elseif (mode == 'setup_anharmonic') then
     keywords = setup_anharmonic_keywords()
     main_subroutine => setup_anharmonic
@@ -140,15 +123,6 @@ program caesar
   elseif (mode == 'linear_algebra_test') then
     keywords = linear_algebra_test_keywords()
     main_subroutine => linear_algebra_test
-  elseif (mode == 'setup_harmonic_test') then
-    keywords = setup_harmonic_test_keywords()
-    main_subroutine => setup_harmonic_test
-  elseif (mode == 'calculate_harmonic_test') then
-    keywords = calculate_harmonic_test_keywords()
-    main_subroutine => calculate_harmonic_test
-  elseif (mode == 'test_copy_quadratic') then
-    keywords = test_copy_quadratic_keywords()
-    main_subroutine => test_copy_quadratic
   elseif (mode == 'calculate_gap') then
     keywords = calculate_gap_keywords()
     main_subroutine => calculate_gap

@@ -472,7 +472,7 @@ end subroutine
 function make_universal_keywords() result(keywords)
   implicit none
   
-  type(KeywordData) :: keywords(4)
+  type(KeywordData), allocatable :: keywords(:)
   
   keywords = [                                                                &
   & make_keyword( 'interactive',                                              &

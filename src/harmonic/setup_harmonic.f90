@@ -15,7 +15,7 @@ function setup_harmonic_keywords() result(keywords)
   use keyword_module
   implicit none
   
-  type(KeywordData) :: keywords(4)
+  type(KeywordData), allocatable :: keywords(:)
   
   keywords = [                                                                &
   & make_keyword( 'dft_code',                                                 &
@@ -40,11 +40,13 @@ end function
 ! ----------------------------------------------------------------------
 subroutine setup_harmonic(arguments)
   use utils_module, only : mkdir
+  use linear_algebra_module
   use structure_module
   use group_module
   use qpoints_module
   use dictionary_module
   use dft_input_file_module
+  use construct_supercell_module
   use generate_supercells_module
   use unique_directions_module
   use calculate_symmetry_group_module
@@ -63,15 +65,16 @@ subroutine setup_harmonic(arguments)
   real(dp)            :: symmetry_precision
   
   ! Supercell data
-  type(GeneratedSupercells)        :: qpoints_and_supercells
-  integer                          :: no_supercells
-  type(StructureData)              :: supercell
+  type(IntMatrix)           :: large_supercell_matrix
+  type(StructureData)       :: large_supercell
+  type(GeneratedSupercells) :: qpoints_and_supercells
+  integer                   :: no_supercells
+  type(StructureData)       :: supercell
   
   ! Symmetry group data.
   type(Group),      allocatable :: primitive_atom_symmetry_group(:)
   type(Group),      allocatable :: primitive_operator_symmetry_group(:)
   integer,          allocatable :: primitive_operator_inverses(:)
-  
   type(Group),      allocatable :: supercell_atom_symmetry_group(:)
   type(RealMatrix), allocatable :: cartesian_rotations(:)
   
@@ -141,19 +144,26 @@ subroutine setup_harmonic(arguments)
      & primitive_operator_symmetry_group)
   
   ! --------------------------------------------------
+  ! Generate large supercell, for which all q-points are G-vectors.
+  ! --------------------------------------------------
+  large_supercell_matrix = mat([ grid(1), 0      , 0      , &
+                               & 0      , grid(2), 0      , &
+                               & 0      , 0      , grid(3)  ], 3,3)
+  large_supercell = construct_supercell( structure,              &
+                                       & large_supercell_matrix, &
+                                       & calculate_symmetries=.false.)
+  call write_structure_file(large_supercell, wd//'/large_supercell.dat')
+  
+  ! --------------------------------------------------
   ! Generate supercells.
   ! --------------------------------------------------
-  ! Generate IBZ and non-diagonal supercells
+  ! Generate q-points in IBZ and non-diagonal supercells.
   qpoints_and_supercells = generate_supercells( &
      & structure,                               &
-     & grid,                                    &
+     & large_supercell,                         &
      & symmetry_precision,                      &
      & primitive_operator_symmetry_group,       &
      & primitive_operator_inverses)
-  
-  ! Write q-point data to file.
-  call write_structure_file( qpoints_and_supercells%structure_grid, &
-                           & wd//'/structure_grid.dat')
   call write_qpoints_file( qpoints_and_supercells%qpoints_ibz, &
                          & wd//'/qpoints_ibz.dat')
   
@@ -200,8 +210,10 @@ subroutine setup_harmonic(arguments)
         displacement = [1.0_dp,0.0_dp,0.0_dp]
       elseif (direction_char=='y') then
         displacement = [0.0_dp,1.0_dp,0.0_dp]
-      else
+      elseif (direction_char=='z') then
         displacement = [0.0_dp,0.0_dp,1.0_dp]
+      else
+        call err()
       endif
       
       paths = [ sdir//'/atom.'//atom//'.+d'//direction_char, &

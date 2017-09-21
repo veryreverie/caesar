@@ -1,9 +1,6 @@
 ! ======================================================================
 ! The third stage of Caesar.
-! Uses the forces calculated previously to calculate:
-!    - Normal mode unit vectors.
-!    - The density of states under the harmonic approximation.
-!    - The phonon dispersion relation under the harmonic approximation.
+! Uses the forces calculated previously to calculate harmonic normal modes.
 ! ======================================================================
 module calculate_harmonic_module
   use constants_module, only : dp
@@ -18,13 +15,9 @@ function calculate_harmonic_keywords() result(keywords)
   use keyword_module
   implicit none
   
-  type(KeywordData) :: keywords(1)
+  type(KeywordData), allocatable :: keywords(:)
   
-  keywords = [                                                                &
-  & make_keyword( 'temperature',                                              &
-  &'temperature is the temperature in Kelvin, used when calculating the &
-  &density of states and phonon dispersion curve.',                           &
-  & default_value='0') ]
+  keywords = [KeywordData::]
 end function
 
   
@@ -275,6 +268,7 @@ subroutine calculate_harmonic(arguments)
   use qpoints_module
   use dictionary_module
   use normal_mode_module
+  use dynamical_matrix_module
   implicit none
   
   type(Dictionary), intent(in) :: arguments
@@ -282,10 +276,7 @@ subroutine calculate_harmonic(arguments)
   ! Working directory.
   type(String) :: wd
   
-  ! User-input temperature
-  real(dp) :: temperature
-  
-  ! File contents
+  ! Files.
   type(Dictionary)          :: setup_harmonic_arguments
   type(String), allocatable :: no_supercells_file(:)
   
@@ -303,29 +294,23 @@ subroutine calculate_harmonic(arguments)
   type(RealMatrix),      allocatable :: force_constants(:,:,:)
   
   ! q-point data.
-  type(StructureData)           :: structure_grid
+  type(StructureData)           :: large_supercell
   type(QpointData), allocatable :: qpoints_ibz(:)
-  
-  ! lte input data.
-  integer               :: no_kspace_lines
-  real(dp), allocatable :: disp_qpoints(:,:)
   
   ! Lte output data.
   type(LteReturn)                  :: lte_result
-  type(ComplexMatrix), allocatable :: ibz_dynamical_matrices(:,:,:)
   integer                          :: mode
   integer                          :: atom
   integer                          :: gvector
   
   ! Temporary variables.
-  integer                   :: i,j,k,ialloc
+  integer                   :: i,j,k
   type(String)              :: sdir,qdir
   
   ! --------------------------------------------------
   ! Read in arguments from user.
   ! --------------------------------------------------
   wd = arguments%value('working_directory')
-  temperature = dble(arguments%value('temperature'))
   
   ! --------------------------------------------------
   ! Read in previous arguments.
@@ -340,14 +325,9 @@ subroutine calculate_harmonic(arguments)
   
   structure = read_structure_file(wd//'/structure.dat')
   
-  ! Read q-points and G-vectors.
-  structure_grid = read_structure_file(wd//'/structure_grid.dat')
-  qpoints_ibz = read_qpoints_file(wd//'/qpoints_ibz.dat')
+  large_supercell = read_structure_file(wd//'/large_supercell.dat')
   
-  allocate( ibz_dynamical_matrices( structure%no_atoms, &
-          &                         structure%no_atoms, &
-          &                         size(qpoints_ibz)), &
-          & stat=ialloc); call err(ialloc)
+  qpoints_ibz = read_qpoints_file(wd//'/qpoints_ibz.dat')
   
   ! --------------------------------------------------
   ! Loop over supercells
@@ -389,9 +369,10 @@ subroutine calculate_harmonic(arguments)
       
       gvector = qpoints_ibz(j)%gvector_id
       
-      ! Move dynamical matrices into ibz_dynamical matrices.
-      ibz_dynamical_matrices(:,:,j) = &
-         & lte_result%dynamical_matrices(:,:,gvector)
+      ! Write out dynamical matrix.
+      call write_dynamical_matrix_file(            &
+         & lte_result%dynamical_matrices(gvector), &
+         & qdir//'/dynamical_matrix.dat')
       
       ! Write out normal modes.
       qdir = wd//'/qpoint_'//j
@@ -402,32 +383,5 @@ subroutine calculate_harmonic(arguments)
       enddo
     enddo
   enddo
-  
-!  ! Write path for fourier interpolation
-!  no_kspace_lines = 4
-!  allocate(disp_qpoints(3,no_kspace_lines+1))
-!  disp_qpoints(:,1) = [ 0.0_dp, 0.0_dp, 0.0_dp ] ! GM
-!  disp_qpoints(:,2) = [ 0.5_dp, 0.5_dp, 0.5_dp ] ! T
-!  disp_qpoints(:,3) = [ 0.0_dp, 0.5_dp, 0.5_dp ] ! FB
-!  disp_qpoints(:,4) = [ 0.0_dp, 0.0_dp, 0.0_dp ] ! GM
-!  disp_qpoints(:,5) = [ 0.0_dp, 0.5_dp, 0.0_dp ] ! L
-!  
-!  ! Read in primitive symmetry group.
-!  atom_symmetry_group = read_group_file(wd//'/Supercell_1/atom_symmetry_group.dat')
-!  
-!  call print_line('')
-!  call print_line('Running fourier interpolation (this may take some time).')
-!  call fourier_interpolation(              &
-!     & ibz_dynamical_matrices,             &
-!     & structure,                          &
-!     & temperature,                        &
-!     & structure_grid,                     &
-!     & qpoints_ibz,                        &
-!     & disp_qpoints,                       &
-!     & atom_symmetry_group,                &
-!     & wd//'/phonon_dispersion_curve.dat', &
-!     & wd//'/high_symmetry_points.dat',    &
-!     & wd//'/free_energy.dat',             &
-!     & wd//'/freq_dos.dat')
 end subroutine
 end module

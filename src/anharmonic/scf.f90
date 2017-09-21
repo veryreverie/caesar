@@ -50,9 +50,14 @@ function scf(potential,states) result(output)
   do i=1,no_modes
     ! Integrate over all other modes to get mean field potential.
     mean_field = potential
+    call print_line('Mean Field (i='//i//'):')
+    call print_line(mean_field)
+    call print_line('')
     do j=1,no_modes
       if (j/=i) then
         call mean_field%integrate_over_mode_average(j,states(:,j))
+        call print_line(mean_field)
+        call print_line('')
       endif
     enddo
     
@@ -114,6 +119,8 @@ function vscf(potential,harmonic_states,max_scf_cycles, &
   enddo
   
   ! SCF cycles.
+  call print_line('')
+  call print_line('Convergence:')
   do scf_step=1,max_scf_cycles
     ! Record old energies.
     old_energies = output%energies

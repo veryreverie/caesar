@@ -114,4 +114,20 @@ function factorial(input) result(output)
   ! lookup(1) = 0!, so lookup(n+1) = n!.
   output = lookup(input+1)
 end function
+
+! ----------------------------------------------------------------------
+! Square-root of an integer.
+! Returns an error if the integer is not square.
+! ----------------------------------------------------------------------
+function int_sqrt(input) result(output)
+  implicit none
+  
+  integer, intent(in) :: input
+  integer             :: output
+  
+  output = nint(sqrt(real(input,dp)))
+  if (output*output/=input) then
+    call err()
+  endif
+end function
 end module

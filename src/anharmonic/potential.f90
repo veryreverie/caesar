@@ -11,6 +11,7 @@ module potential_module
   private
   
   public :: calculate_potential
+  public :: print_line
   
   ! A monomial, e.g.
   !    C * (u1)**a * (u2)**b * (u4)**d => coef=C, powers=[a,b,0,d]
@@ -57,6 +58,10 @@ module potential_module
     type(PolynomialPotential), allocatable :: basis_functions(:)
     real(dp),                  allocatable :: coefficients(:)
   end type
+  
+  interface print_line
+    module procedure print_line_PolynomialPotential
+  end interface
 contains
 
 ! ----------------------------------------------------------------------
@@ -509,6 +514,7 @@ function calculate_power_coupling_PolynomialPotential(this,mode,bra,ket) &
   integer :: i,j,k,ialloc
   
   allocate(output(this%cutoff+1), stat=ialloc); call err(ialloc)
+  output = 0
   do i=1,size(output)
     do j=1,size(bra%coefficients)
       do k=1,size(ket%coefficients)
@@ -581,7 +587,7 @@ subroutine integrate_PolynomialPotential_SingleModeState(this,mode,bra,ket)
   do i=1,size(this%monomials)
     ! (a) * u1^n1*...um^nm*... -> (a*<bra|um^nm|ket>) * u1^n1*...*um^0*...
     this%monomials(i)%coefficient = this%monomials(i)%coefficient &
-                                & * couplings(this%monomials(i)%powers(mode))
+                                & * couplings(this%monomials(i)%powers(mode)+1)
     this%monomials(i)%powers(mode) = 0
   enddo
   
@@ -705,4 +711,32 @@ function construct_hamiltonian_PolynomialPotential(this,mode,states) &
          & * couplings(this%monomials(i)%powers(mode)+1)
   enddo
 end function
+
+! ----------------------------------------------------------------------
+! Print functions for potentials.
+! ----------------------------------------------------------------------
+subroutine print_line_PolynomialPotential(this)
+  implicit none
+  
+  type(PolynomialPotential), intent(in) :: this
+  
+  type(String) :: line
+  
+  integer :: i,j
+  
+  do i=1,size(this%monomials)
+    if (i==1) then
+      line = '   '
+    else
+      line = ' + '
+    endif
+    line = line // this%monomials(i)%coefficient
+    do j=1,size(this%monomials(i)%powers)
+      if (this%monomials(i)%powers(j)/=0) then
+        line = line//'*u'//j//'^'//this%monomials(i)%powers(j)
+      endif
+    enddo
+    call print_line(line)
+  enddo
+end subroutine
 end module
