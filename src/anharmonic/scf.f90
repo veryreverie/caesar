@@ -6,131 +6,119 @@ module scf_module
   use string_module
   use io_module
   
-  use linear_algebra_module
-  use eigenstates_module
-  
   private
-  
-  type, public :: ScfOutput
-    type(SingleModeState), allocatable :: states(:,:)
-    real(dp),              allocatable :: energies(:,:)
-  end type
   
   public :: vscf
 contains
 
-function scf(potential,states) result(output)
+! ----------------------------------------------------------------------
+! Updates the VSCF states along each mode to be consistent with those
+!    along all other modes.
+! ----------------------------------------------------------------------
+function scf(potential,input,harmonic_states) result(output)
+  use linear_algebra_module
   use potential_module
-  use eigenstates_module
+  use harmonic_states_module
+  use vscf_states_module
   implicit none
   
   type(PolynomialPotential), intent(in) :: potential
-  type(SingleModeState),     intent(in) :: states(:,:)
-  type(ScfOutput)                       :: output
-  
-  ! Array sizes.
-  integer :: no_modes
-  integer :: no_states
+  type(VscfStates),          intent(in) :: input(:)
+  type(HarmonicStates),      intent(in) :: harmonic_states(:)
+  type(VscfStates), allocatable         :: output(:)
   
   ! Working variables.
   type(PolynomialPotential) :: mean_field
   type(RealMatrix)          :: hamiltonian
-  type(RealEigenstuff)      :: eigenstuff
   
   ! Temporary variables.
-  integer :: i,j,k,ialloc
+  integer :: i,j
   
-  no_modes = size(states,2)
-  no_states = size(states,1)
+  output = input
   
-  allocate( output%states(no_states,no_modes),   &
-          & output%energies(no_states,no_modes), &
-          & stat=ialloc); call err(ialloc)
-  
-  do i=1,no_modes
+  do i=1,size(input)
+    
+    call print_line('')
+    call print_line('V:')
+    call print_line(potential)
+    
     ! Integrate over all other modes to get mean field potential.
     mean_field = potential
-    call print_line('Mean Field (i='//i//'):')
-    call print_line(mean_field)
-    call print_line('')
-    do j=1,no_modes
+    do j=1,size(input)
       if (j/=i) then
-        call mean_field%integrate_over_mode_average(j,states(:,j))
-        call print_line(mean_field)
+        call mean_field%integrate_over_mode_average(input(j))
+        
         call print_line('')
+        call print_line('<'//j//'|V|'//j//'>:')
+        call print_line(mean_field)
       endif
     enddo
     
     ! Construct Hamiltonian in terms of harmonic eigenfunctions.
-    hamiltonian = mean_field%construct_hamiltonian(i,states(:,i))
+    hamiltonian = mean_field%construct_hamiltonian(harmonic_states(i))
     
-    ! Diagonalise Hamiltonian to get new states in terms of old states.
-    eigenstuff = calculate_eigenstuff(hamiltonian)
+    call print_line(hamiltonian)
     
-    ! Copy energies into output.
-    output%energies(:,i) = eigenstuff%evals
-    
-    ! Calculate new states.
-    do j=1,no_states
-      output%states(j,i) = states(j,i) * 0.0_dp
-      do k=1,no_states
-        output%states(j,i) = output%states(j,i) &
-                         & + eigenstuff%evecs(j,k) * states(k,i)
-      enddo
-    enddo
+    ! Diagonalise Hamiltonian to get new states.
+    call output(i)%update_hamiltonian(hamiltonian)
   enddo
 end function
 
+! ----------------------------------------------------------------------
+! Constructs VSCF single-mode states from the potential and harmonic states.
+! ----------------------------------------------------------------------
 function vscf(potential,harmonic_states,max_scf_cycles, &
    & scf_convergence_threshold) result(output)
-  use eigenstates_module
   use potential_module
+  use harmonic_states_module
+  use vscf_states_module
   implicit none
   
   type(PolynomialPotential), intent(in) :: potential
-  type(SingleModeState),     intent(in) :: harmonic_states(:,:)
+  type(HarmonicStates),      intent(in) :: harmonic_states(:)
   integer,                   intent(in) :: max_scf_cycles
   real(dp),                  intent(in) :: scf_convergence_threshold
-  type(ScfOutput)                       :: output
+  type(VscfStates), allocatable         :: output(:)
   
   ! Array sizes.
   integer :: no_modes
-  integer :: no_states
   
   ! Working variables.
-  integer               :: scf_step
-  real(dp), allocatable :: old_energies(:,:)
+  integer                       :: scf_step
+  type(VscfStates), allocatable :: old_states(:)
+  
+  real(dp) :: max_energy_change
   
   ! Temporary variables.
   integer :: i,j,ialloc
   
-  no_modes = size(harmonic_states,2)
-  no_states = size(harmonic_states,1)
+  no_modes = size(harmonic_states)
   
   ! Initialise output to harmonic values.
-  output%states = harmonic_states
-  allocate( output%energies(no_states,no_modes), &
-          & old_energies(no_states,no_modes),    &
-          & stat=ialloc); call err(ialloc)
+  allocate(output(no_modes), stat=ialloc); call err(ialloc)
   do i=1,no_modes
-    do j=1,no_states
-      output%energies(j,i) = (j-0.5_dp)*harmonic_states(j,i)%frequency
-    enddo
+    output(i) = construct_harmonic_vscf_states(harmonic_states(i))
   enddo
   
   ! SCF cycles.
-  call print_line('')
-  call print_line('Convergence:')
   do scf_step=1,max_scf_cycles
-    ! Record old energies.
-    old_energies = output%energies
+    ! Record old states.
+    old_states = output
     
     ! Run SCF calculations.
-    output = scf(potential,output%states)
+    output = scf(potential,output,harmonic_states)
     
     ! Check for convergence
-    call print_line(maxval(abs(output%energies-old_energies)))
-    if (all(abs(output%energies-old_energies)<scf_convergence_threshold)) then
+    max_energy_change = 0
+    do i=1,no_modes
+      do j=0,output(i)%cutoff()
+        max_energy_change = max( max_energy_change,           &
+                               & abs( old_states(i)%energy(j) &
+                               &    - output(i)%energy(j)))
+      enddo
+    enddo
+    call print_line(max_energy_change)
+    if (max_energy_change<scf_convergence_threshold) then
       exit
     elseif (scf_step==max_scf_cycles) then
       call err()

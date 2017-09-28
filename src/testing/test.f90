@@ -19,36 +19,28 @@ function test_keywords() result(keywords)
   keywords = [KeywordData::]
 end function
 
+! ----------------------------------------------------------------------
+! Main function.
+! ----------------------------------------------------------------------
 subroutine test(arguments)
   use dictionary_module
-  use linear_algebra_module
+  use stringable_example_module
   implicit none
   
   type(Dictionary), intent(in) :: arguments
   
-  type(String) :: a
+  type(StringableExample) :: a
+  type(String)            :: b
   
-  a = 'f'
-  call print_line(lgcl(a))
+  a%contents = 1
   
-  a = 't'
-  call print_line(lgcl(a))
+  b = a
   
-  a = 'F'
-  call print_line(lgcl(a))
+  call print_line(b)
+  call print_line('a: '//a)
+  call print_line(a//': a')
+  call print_line(1//': '//a)
+  call print_line(a//': '//1)
   
-  a = 'T'
-  call print_line(lgcl(a))
-  
-  a = 'False'
-  call print_line(lgcl(a))
-  
-  a = 'TrUe'
-  call print_line(lgcl(a))
-  
-  a = 'hi'
-  call print_line(lgcl(a))
-  
-  call print_line('END TEST')
 end subroutine
 end module

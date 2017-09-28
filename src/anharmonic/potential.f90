@@ -4,6 +4,7 @@
 module potential_module
   use constants_module, only : dp
   use string_module
+  use stringable_module
   use io_module
   use linear_algebra_module
   implicit none
@@ -15,35 +16,34 @@ module potential_module
   
   ! A monomial, e.g.
   !    C * (u1)**a * (u2)**b * (u4)**d => coef=C, powers=[a,b,0,d]
-  type :: Monomial
+  type, extends(Stringable) :: Monomial
     real(dp)             :: coefficient
     integer, allocatable :: powers(:)
   contains
+    ! Evaluate energy or forces at a given value of u.
     procedure :: evaluate_energy => evaluate_energy_Monomial
     procedure :: evaluate_forces => evaluate_forces_Monomial
+    
+    ! I/O.
+    procedure, pass(that) :: assign_String => assign_String_Monomial
   end type
   
   ! A polynomial representation of a potential.
   type, public :: PolynomialPotential
     integer,                       private :: cutoff
     type(Monomial),   allocatable, private :: monomials(:)
-    real(dp),         allocatable, private :: gaussian_integrals(:,:)
   contains
     procedure, public  :: evaluate_energy => &
                         & evaluate_energy_PolynomialPotential
     procedure, public  :: evaluate_forces => &
                         & evaluate_forces_PolynomialPotential
     procedure, public  :: simplify => simplify_PolynomialPotential
-    procedure, private :: calculate_gaussian_integrals => &
-                        & calculate_gaussian_integrals_PolynomialPotential
-    procedure, private :: calculate_power_coupling => &
-                        & calculate_power_coupling_PolynomialPotential
-    procedure, private :: generate_state_couplings => &
-                        & generate_state_couplings_PolynomialPotential
     generic,   public  :: integrate =>                                   &
-                        & integrate_PolynomialPotential_SingleModeState, &
+                        & integrate_PolynomialPotential_HarmonicStates,  &
+                        & integrate_PolynomialPotential_VscfStates,      &
                         & integrate_PolynomialPotential_ProductState
-    procedure, private :: integrate_PolynomialPotential_SingleModeState
+    procedure, private :: integrate_PolynomialPotential_HarmonicStates
+    procedure, private :: integrate_PolynomialPotential_VscfStates
     procedure, private :: integrate_PolynomialPotential_ProductState
     procedure, public  :: integrate_to_constant => &
                         & integrate_to_constant_PolynomialPotential
@@ -59,6 +59,7 @@ module potential_module
     real(dp),                  allocatable :: coefficients(:)
   end type
   
+  ! I/O functions for potentials.
   interface print_line
     module procedure print_line_PolynomialPotential
   end interface
@@ -104,9 +105,14 @@ function evaluate_forces_Monomial(this,displacement) result(output)
   allocate(output%vector(no_modes), stat=ialloc); call err(ialloc)
   do i=1,no_modes
     derivative = this
-    derivative%coefficient = derivative%coefficient &
-                         & * derivative%powers(i)
-    derivative%powers(i) = derivative%powers(i) - 1
+    if (derivative%powers(i)==0) then
+      derivative%coefficient = 0
+      derivative%coefficient = 0
+    else
+      derivative%coefficient = derivative%coefficient &
+                           & * derivative%powers(i)
+      derivative%powers(i) = derivative%powers(i) - 1
+    endif
     output%vector(i) = derivative%evaluate_energy(displacement)
   enddo
 end function
@@ -161,7 +167,7 @@ end function
 !    samples from the surface.
 ! ----------------------------------------------------------------------
 function calculate_potential(potential_basis_cutoff,sampling,modes,qpoint, &
-   & supercell,harmonic_states_cutoff) result(output)
+   & supercell) result(output)
   use sampling_points_module
   use normal_mode_module
   use qpoints_module
@@ -173,7 +179,6 @@ function calculate_potential(potential_basis_cutoff,sampling,modes,qpoint, &
   type(NormalMode),       intent(in) :: modes(:)
   type(QpointData),       intent(in) :: qpoint
   type(StructureData),    intent(in) :: supercell
-  integer,                intent(in) :: harmonic_states_cutoff
   type(PolynomialPotential)          :: output
   
   type(CouplingPotential), allocatable :: basis_functions(:)
@@ -186,10 +191,6 @@ function calculate_potential(potential_basis_cutoff,sampling,modes,qpoint, &
   integer :: i,j,k,l,ialloc
   
   output%cutoff = potential_basis_cutoff
-  
-  ! Calculate gaussian integrals, {I(n)}.
-  ! gaussian_integrals(n+1) = I(n) = integral[ u^n e^(-freq*u*u) ].
-  call output%calculate_gaussian_integrals(modes, harmonic_states_cutoff)
   
   ! Generate potential at each coupling.
   allocate( basis_functions(size(sampling)), &
@@ -462,132 +463,62 @@ function fit_basis_functions(basis_functions,this_sampling,fit,prev_sampling, &
 end function
 
 ! ----------------------------------------------------------------------
-! output(n+1) = I(n) = integral( u^n*e^(-freq*u*u) ) from u=-infty to infty.
+! Forms <bra|V|ket> between two harmonic states.
 ! ----------------------------------------------------------------------
-! I(0) = sqrt(pi/freq)
-! I(1) = 0
-! I(n) = (n-1)/(2*freq) * I(n-2)
-subroutine calculate_gaussian_integrals_PolynomialPotential(this,modes, &
-   & harmonic_states_cutoff)
-  use constants_module, only : pi
-  use normal_mode_module
+!    a              * u1^p1 * ... * um^pm * ...
+! -> a*<bra|um^nm|ket>) * u1^p1 * ... * um^0  * ...
+subroutine integrate_PolynomialPotential_HarmonicStates(this,states,bra,ket)
+  use harmonic_states_module
   implicit none
   
   class(PolynomialPotential), intent(inout) :: this
-  type(NormalMode),           intent(in)    :: modes(:)
-  integer,                    intent(in)    :: harmonic_states_cutoff
+  type(HarmonicStates),       intent(in)    :: states
+  integer,                    intent(in)    :: bra
+  integer,                    intent(in)    :: ket
   
-  integer :: no_integrals
-  
-  integer :: i,j,ialloc
-  
-  ! Integrals range from <u^0|u^0|u^0> to <u^h_s_c|u^cutoff|u^h_s_c>.
-  !    i.e. integral[u^0e^~] to integral[u^(2*h_s_c+cutoff)e^~].
-  no_integrals = 2*harmonic_states_cutoff+this%cutoff+1
-  allocate( this%gaussian_integrals(no_integrals, size(modes)), &
-          & stat=ialloc); call err(ialloc)
-  do i=1,size(modes)
-    this%gaussian_integrals(1,i) = sqrt(pi/modes(i)%frequency)
-    this%gaussian_integrals(2,i) = 0
-    do j=3,size(this%gaussian_integrals,1)
-      this%gaussian_integrals(j,i) = this%gaussian_integrals(j-2,i) &
-                                 & * j / (2*modes(i)%frequency)
-    enddo
-  enddo
-end subroutine
-
-! ----------------------------------------------------------------------
-! Takes two single-mode states, |bra> and |ket>, and returns
-!    output(n+1) = <bra|u^n|ket>.
-! ----------------------------------------------------------------------
-function calculate_power_coupling_PolynomialPotential(this,mode,bra,ket) &
-   & result(output)
-  use eigenstates_module
-  implicit none
-  
-  class(PolynomialPotential), intent(in) :: this
-  integer,                    intent(in) :: mode
-  type(SingleModeState),      intent(in) :: bra
-  type(SingleModeState),      intent(in) :: ket
-  real(dp), allocatable                  :: output(:)
-  
-  integer :: i,j,k,ialloc
-  
-  allocate(output(this%cutoff+1), stat=ialloc); call err(ialloc)
-  output = 0
-  do i=1,size(output)
-    do j=1,size(bra%coefficients)
-      do k=1,size(ket%coefficients)
-        ! N.B. the -2 is because i refers to u^(i-1) etc.
-        output(i) = output(i)           &
-                & + bra%coefficients(j) &
-                & * ket%coefficients(k) &
-                & * this%gaussian_integrals(i+j+k-2,mode)
-      enddo
-    enddo
-  enddo
-end function
-
-! ----------------------------------------------------------------------
-! Generates all elements <i|u^k|j> along a given mode.
-! ----------------------------------------------------------------------
-! output(k) is a matrix whose i,j element is <i-1|u^(k-1)|j-1>.
-! The -1 offsets are due to |0> and u^0.
-function generate_state_couplings_PolynomialPotential(this,mode,states) &
-   & result(output)
-  use linear_algebra_module
-  use eigenstates_module
-  implicit none
-  
-  class(PolynomialPotential), intent(in) :: this
-  integer,                    intent(in) :: mode
-  type(SingleModeState),      intent(in) :: states(:)
-  type(RealMatrix), allocatable          :: output(:)
-  
-  real(dp), allocatable :: temp(:,:,:)
-  real(dp), allocatable :: coupling(:)
-  
-  integer :: i,j,ialloc
-  
-  allocate( temp(size(states),size(states),this%cutoff+1), &
-          & output(this%cutoff+1),                         &
-          & stat=ialloc); call err(ialloc)
-  
-  do i=1,size(states)
-    do j=1,i
-      coupling = this%calculate_power_coupling(mode,states(i),states(j))
-      temp(i,j,:) = coupling
-      temp(j,i,:) = coupling
-    enddo
-  enddo
-  
-  do i=1,size(temp,3)
-    output(i) = mat(temp(:,:,i))
-  enddo
-end function
-
-! ----------------------------------------------------------------------
-! Takes two single-mode states, |bra> and |ket>, and forms <bra|V|ket>.
-! ----------------------------------------------------------------------
-subroutine integrate_PolynomialPotential_SingleModeState(this,mode,bra,ket)
-  use eigenstates_module
-  implicit none
-  
-  class(PolynomialPotential), intent(inout) :: this
-  integer,                    intent(in)    :: mode
-  type(SingleModeState),      intent(in)    :: bra
-  type(SingleModeState),      intent(in)    :: ket
-  
-  real(dp), allocatable :: couplings(:)
+  integer :: mode
+  integer :: power
   
   integer :: i
   
-  couplings = this%calculate_power_coupling(mode,bra,ket)
+  mode = states%mode
   
   do i=1,size(this%monomials)
-    ! (a) * u1^n1*...um^nm*... -> (a*<bra|um^nm|ket>) * u1^n1*...*um^0*...
+    power = this%monomials(i)%powers(mode)
+    this%monomials(i)%coefficient = this%monomials(bra)%coefficient &
+                                & * states%integral(bra,ket,power)
+    this%monomials(i)%powers(mode) = 0
+  enddo
+  
+  ! Simplify across now identical monomials.
+  call this%simplify()
+end subroutine
+
+! ----------------------------------------------------------------------
+! Forms <bra|V|ket> between two VSCF states.
+! ----------------------------------------------------------------------
+!    a              * u1^p1 * ... * um^pm * ...
+! -> a*<bra|um^nm|ket>) * u1^p1 * ... * um^0  * ...
+subroutine integrate_PolynomialPotential_VscfStates(this,states,bra,ket)
+  use vscf_states_module
+  implicit none
+  
+  class(PolynomialPotential), intent(inout) :: this
+  type(VscfStates),           intent(in)    :: states
+  integer,                    intent(in)    :: bra
+  integer,                    intent(in)    :: ket
+  
+  integer :: mode
+  integer :: power
+  
+  integer :: i
+  
+  mode = states%mode
+  
+  do i=1,size(this%monomials)
+    power = this%monomials(i)%powers(mode)
     this%monomials(i)%coefficient = this%monomials(i)%coefficient &
-                                & * couplings(this%monomials(i)%powers(mode)+1)
+                                & * states%integral(bra,ket,power)
     this%monomials(i)%powers(mode) = 0
   enddo
   
@@ -598,22 +529,22 @@ end subroutine
 ! ----------------------------------------------------------------------
 ! Takes two product states, |bra> and |ket>, and forms <bra|V|ket>
 ! ----------------------------------------------------------------------
-subroutine integrate_PolynomialPotential_ProductState(this,bra,ket)
-  use eigenstates_module
+subroutine integrate_PolynomialPotential_ProductState(this,states,bra,ket)
+  use product_states_module
   implicit none
   
   class(PolynomialPotential), intent(inout) :: this
-  type(ProductState),         intent(in)    :: bra
-  type(ProductState),         intent(in)    :: ket
+  type(ProductStates),        intent(in)    :: states
+  integer,                    intent(in)    :: bra
+  integer,                    intent(in)    :: ket
   
-  integer :: i
+  integer :: mode
+  integer :: i,j
   
-  if (size(ket%states)/=size(bra%states)) then
-    call err()
-  endif
-  
-  do i=1,size(ket%states)
-    call this%integrate(i,bra%states(i),ket%states(i))
+  do mode=1,size(states%vscf_states)
+    i = states%single_mode_state(bra,mode)
+    j = states%single_mode_state(ket,mode)
+    call this%integrate(states%vscf_states(mode),i,j)
   enddo
   
   if (size(this%monomials)/=1) then
@@ -624,20 +555,22 @@ end subroutine
 ! ----------------------------------------------------------------------
 ! As above, but returns the coefficient rather than modifying the potential.
 ! ----------------------------------------------------------------------
-function integrate_to_constant_PolynomialPotential(this,bra,ket) result(output)
-  use eigenstates_module
+function integrate_to_constant_PolynomialPotential(this,states,bra,ket) &
+   & result(output)
+  use product_states_module
   implicit none
   
-  class(PolynomialPotential), intent(in) :: this
-  type(ProductState),         intent(in) :: bra
-  type(ProductState),         intent(in) :: ket
-  real(dp)                               :: output
+  class(PolynomialPotential), intent(inout) :: this
+  type(ProductStates),        intent(in)    :: states
+  integer,                    intent(in)    :: bra
+  integer,                    intent(in)    :: ket
+  real(dp)                                  :: output
   
   type(PolynomialPotential) :: temp
   
   temp = this
   
-  call temp%integrate(bra,ket)
+  call temp%integrate(states,bra,ket)
   
   output = temp%monomials(1)%coefficient
 end function
@@ -646,34 +579,26 @@ end function
 ! Takes a set of single-mode states, {|i>}, along one mode, and forms
 !    sum_i[<i|V|i>] / size({|i>}).
 ! ----------------------------------------------------------------------
-subroutine integrate_over_mode_average_PolynomialPotential(this,mode,states)
+subroutine integrate_over_mode_average_PolynomialPotential(this,vscf_states)
   use linear_algebra_module
-  use eigenstates_module
+  use vscf_states_module
   implicit none
   
   class(PolynomialPotential), intent(inout) :: this
-  integer,                    intent(in)    :: mode
-  type(SingleModeState),      intent(in)    :: states(:)
+  type(VscfStates),           intent(in)    :: vscf_states
   
-  ! couplings(i+1,j+1) = <j|u^i|j>
-  real(dp), allocatable :: couplings(:,:)
+  integer :: power
   
-  integer :: i,ialloc
-  
-  ! Generate couplings between states along the mode.
-  allocate( couplings(this%cutoff+1,size(states)), &
-          & stat=ialloc); call err(ialloc)
-  do i=1,size(states)
-    couplings(:,i) = this%calculate_power_coupling(mode,states(i),states(i))
-  enddo
+  integer :: i
   
   ! Integrate across each monomial.
   do i=1,size(this%monomials)
-    ! (a) * u1^n1*...um^nm*... -> (avg_j[a*<j|um^nm|j>]) * u1^n1*...*um^0*...
+    !    a                      * u1^p1 * ... * ui^pi * ...
+    ! -> a * avg_j[<j|ui^pi|j>] * u1^p1 * ... * ui^0  * ...
+    power = this%monomials(i)%powers(vscf_states%mode)
     this%monomials(i)%coefficient = this%monomials(i)%coefficient &
-             & * sum(couplings(this%monomials(i)%powers(mode)+1,:)) &
-             & / size(couplings,2)
-    this%monomials(i)%powers(mode) = 0
+                                & * vscf_states%mean_field(power)
+    this%monomials(i)%powers(vscf_states%mode) = 0
   enddo
   
   ! Simplify across now identical monomials.
@@ -681,62 +606,66 @@ subroutine integrate_over_mode_average_PolynomialPotential(this,mode,states)
 end subroutine
 
 ! ----------------------------------------------------------------------
-! Construct the Hamiltonian between states along a single mode.
+! Construct the Hamiltonian between basis states along a single mode.
 ! ----------------------------------------------------------------------
 ! Should only be called once the potential has been integrated across all
 !    other modes.
 ! output(i,j) = <i-1|H|j-1>
-function construct_hamiltonian_PolynomialPotential(this,mode,states) &
+function construct_hamiltonian_PolynomialPotential(this,states) &
    & result(output)
-  use eigenstates_module
+  use linear_algebra_module
+  use harmonic_states_module
   implicit none
   
   class(PolynomialPotential), intent(in) :: this
-  integer,                    intent(in) :: mode
-  type(SingleModeState),      intent(in) :: states(:)
+  type(HarmonicStates),       intent(in) :: states
   type(RealMatrix)                       :: output
   
-  type(RealMatrix), allocatable :: couplings(:)
+  integer :: power
   
   integer :: i
   
-  ! Generate couplings between states along the mode.
-  couplings = this%generate_state_couplings(mode,states)
-  
-  ! Sum over (coefficient * coupling) at each power.
-  output = dble(int(zeroes(size(states),size(states))))
+  output = dble(zeroes(states%cutoff()+1,states%cutoff()+1))
   do i=1,size(this%monomials)
+    power = this%monomials(i)%powers(states%mode)
     output = output                        &
          & + this%monomials(i)%coefficient &
-         & * couplings(this%monomials(i)%powers(mode)+1)
+         & * states%integrals(power)
   enddo
 end function
 
 ! ----------------------------------------------------------------------
-! Print functions for potentials.
+! I/O functions for potentials.
 ! ----------------------------------------------------------------------
+subroutine assign_String_Monomial(this,that)
+  implicit none
+  
+  type(String),    intent(inout) :: this
+  class(Monomial), intent(in)    :: that
+  
+  integer :: i
+  
+  this = that%coefficient
+  do i=1,size(that%powers)
+    if (that%powers(i)/=0) then
+      this = this//'*u'//i//'^'//that%powers(i)
+    endif
+  enddo
+end subroutine
+
 subroutine print_line_PolynomialPotential(this)
   implicit none
   
   type(PolynomialPotential), intent(in) :: this
   
-  type(String) :: line
-  
-  integer :: i,j
+  integer :: i
   
   do i=1,size(this%monomials)
     if (i==1) then
-      line = '   '
+      call print_line('   '//this%monomials(i))
     else
-      line = ' + '
+      call print_line(' + '//this%monomials(i))
     endif
-    line = line // this%monomials(i)%coefficient
-    do j=1,size(this%monomials(i)%powers)
-      if (this%monomials(i)%powers(j)/=0) then
-        line = line//'*u'//j//'^'//this%monomials(i)%powers(j)
-      endif
-    enddo
-    call print_line(line)
   enddo
 end subroutine
 end module

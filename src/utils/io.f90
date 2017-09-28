@@ -1,6 +1,7 @@
 module io_module
   use constants_module, only : dp
   use string_module
+  use stringable_module
   implicit none
   
   private
@@ -71,6 +72,8 @@ module io_module
     module procedure print_line_file_character
     module procedure print_line_String
     module procedure print_line_file_String
+    module procedure print_line_Stringable
+    module procedure print_line_file_Stringable
     
     module procedure print_line_integer
     module procedure print_line_file_integer
@@ -691,6 +694,23 @@ subroutine print_line_file_String(file_unit,line)
   type(String), intent(in) :: line
   
   call print_line(file_unit,char(line))
+end subroutine
+
+subroutine print_line_Stringable(this)
+  implicit none
+  
+  class(Stringable), intent(in) :: this
+  
+  call print_line(str(this))
+end subroutine
+
+subroutine print_line_file_Stringable(file_unit,this)
+  implicit none
+  
+  integer,           intent(in) :: file_unit
+  class(Stringable), intent(in) :: this
+  
+  call print_line(file_unit, str(this))
 end subroutine
 
 subroutine print_line_integer(this)

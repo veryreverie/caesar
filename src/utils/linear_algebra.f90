@@ -5,31 +5,38 @@
 module linear_algebra_module
   use constants_module, only : dp
   use string_module
+  use stringable_module
   use io_module
   implicit none
   
   ! --------------------------------------------------
   ! Vector and Matrix classes
   ! --------------------------------------------------
-  type IntVector
+  type, extends(Stringable) :: IntVector
     integer, allocatable, private :: contents(:)
   contains
     generic,   public  :: assignment(=) => assign_IntVector_integers
-    procedure, private :: assign_IntVector_integers
+    procedure, private ::                  assign_IntVector_integers
+    
+    procedure, pass(that) :: assign_String => assign_String_IntVector
   end type
   
-  type RealVector
+  type, extends(Stringable) :: RealVector
     real(dp), allocatable, private :: contents(:)
   contains
     generic,   public  :: assignment(=) => assign_RealVector_reals
-    procedure, private :: assign_RealVector_reals
+    procedure, private ::                  assign_RealVector_reals
+    
+    procedure, pass(that) :: assign_String => assign_String_RealVector
   end type
   
-  type ComplexVector
+  type, extends(Stringable) :: ComplexVector
     complex(dp), allocatable, private :: contents(:)
   contains
     generic,   public  :: assignment(=) => assign_ComplexVector_complexes
-    procedure, private :: assign_ComplexVector_complexes
+    procedure, private ::                  assign_ComplexVector_complexes
+    
+    procedure, pass(that) :: assign_String => assign_String_ComplexVector
   end type
   
   type IntMatrix
@@ -300,26 +307,9 @@ module linear_algebra_module
   end interface
   
   ! --------------------------------------------------
-  ! Overloads for printing vectors and matrices.
+  ! Overloads for printing matrices.
   ! --------------------------------------------------
-  interface operator(//)
-    module procedure concatenate_character_IntVector
-    module procedure concatenate_IntVector_character
-    module procedure concatenate_character_RealVector
-    module procedure concatenate_RealVector_character
-    module procedure concatenate_String_IntVector
-    module procedure concatenate_IntVector_String
-    module procedure concatenate_String_RealVector
-    module procedure concatenate_RealVector_String
-  end interface
-  
   interface print_line
-    module procedure print_line_IntVector
-    module procedure print_line_IntVector_file
-    module procedure print_line_RealVector
-    module procedure print_line_RealVector_file
-    module procedure print_line_ComplexVector
-    module procedure print_line_ComplexVector_file
     module procedure print_line_IntMatrix
     module procedure print_line_IntMatrix_file
     module procedure print_line_RealMatrix
@@ -2203,138 +2193,166 @@ function invert_int_IntMatrix(input) result(output)
   output = invert_int(input%contents)
 end function
 
+! I/O overloads.
+subroutine assign_String_IntVector(this,that)
+  implicit none
+  
+  type(String),     intent(inout) :: this
+  class(IntVector), intent(in)    :: that
+  
+  this = join(that%contents)
+end subroutine
+
+subroutine assign_String_RealVector(this,that)
+  implicit none
+  
+  type(String),      intent(inout) :: this
+  class(RealVector), intent(in)    :: that
+  
+  this = join(that%contents)
+end subroutine
+
+subroutine assign_String_ComplexVector(this,that)
+  implicit none
+  
+  type(String),         intent(inout) :: this
+  class(ComplexVector), intent(in)    :: that
+  
+  this = join(that%contents)
+end subroutine
+
 ! String concatenation functions.
-function concatenate_character_IntVector(a,b) result(output)
-  implicit none
-  
-  character(*),    intent(in) :: a
-  type(IntVector), intent(in) :: b
-  type(String)                :: output
-  
-  output = a//b%contents
-end function
-
-function concatenate_IntVector_character(a,b) result(output)
-  implicit none
-  
-  type(IntVector), intent(in) :: a
-  character(*),    intent(in) :: b
-  type(String)                :: output
-  
-  output = a%contents//b
-end function
-
-function concatenate_character_RealVector(a,b) result(output)
-  implicit none
-  
-  character(*),     intent(in) :: a
-  type(RealVector), intent(in) :: b
-  type(String)                 :: output
-  
-  output = a//b%contents
-end function
-
-function concatenate_RealVector_character(a,b) result(output)
-  implicit none
-  
-  type(RealVector), intent(in) :: a
-  character(*),     intent(in) :: b
-  type(String)                 :: output
-  
-  output = a%contents//b
-end function
-
-function concatenate_String_IntVector(a,b) result(output)
-  implicit none
-  
-  type(String),    intent(in) :: a
-  type(IntVector), intent(in) :: b
-  type(String)                :: output
-  
-  output = a//b%contents
-end function
-
-function concatenate_IntVector_String(a,b) result(output)
-  implicit none
-  
-  type(IntVector), intent(in) :: a
-  type(String),    intent(in) :: b
-  type(String)                :: output
-  
-  output = a%contents//b
-end function
-
-function concatenate_String_RealVector(a,b) result(output)
-  implicit none
-  
-  type(String),     intent(in) :: a
-  type(RealVector), intent(in) :: b
-  type(String)                 :: output
-  
-  output = a//b%contents
-end function
-
-function concatenate_RealVector_String(a,b) result(output)
-  implicit none
-  
-  type(RealVector), intent(in) :: a
-  type(String),     intent(in) :: b
-  type(String)                 :: output
-  
-  output = a%contents//b
-end function
-
-! Print functions.
-subroutine print_line_IntVector(input)
-  implicit none
-  
-  type(IntVector), intent(in) :: input
-  
-  call print_line(input%contents)
-end subroutine
-
-subroutine print_line_IntVector_file(file_unit,input)
-  implicit none
-  
-  integer,         intent(in) :: file_unit
-  type(IntVector), intent(in) :: input
-  
-  call print_line(file_unit, input%contents)
-end subroutine
-
-subroutine print_line_RealVector(input)
-  implicit none
-  
-  type(RealVector), intent(in) :: input
-  
-  call print_line(input%contents)
-end subroutine
-
-subroutine print_line_RealVector_file(file_unit,input)
-  implicit none
-  
-  integer,          intent(in) :: file_unit
-  type(RealVector), intent(in) :: input
-  
-  call print_line(file_unit, input%contents)
-end subroutine
-
-subroutine print_line_ComplexVector(input)
-  implicit none
-  
-  type(ComplexVector), intent(in) :: input
-  
-  call print_line(input%contents)
-end subroutine
-
-subroutine print_line_ComplexVector_file(file_unit,input)
-  implicit none
-  
-  integer,          intent(in) :: file_unit
-  type(ComplexVector), intent(in) :: input
-  
-  call print_line(file_unit, input%contents)
-end subroutine
+!function concatenate_character_IntVector(a,b) result(output)
+!  implicit none
+!  
+!  character(*),    intent(in) :: a
+!  type(IntVector), intent(in) :: b
+!  type(String)                :: output
+!  
+!  output = a//b%contents
+!end function
+!
+!function concatenate_IntVector_character(a,b) result(output)
+!  implicit none
+!  
+!  type(IntVector), intent(in) :: a
+!  character(*),    intent(in) :: b
+!  type(String)                :: output
+!  
+!  output = a%contents//b
+!end function
+!
+!function concatenate_character_RealVector(a,b) result(output)
+!  implicit none
+!  
+!  character(*),     intent(in) :: a
+!  type(RealVector), intent(in) :: b
+!  type(String)                 :: output
+!  
+!  output = a//b%contents
+!end function
+!
+!function concatenate_RealVector_character(a,b) result(output)
+!  implicit none
+!  
+!  type(RealVector), intent(in) :: a
+!  character(*),     intent(in) :: b
+!  type(String)                 :: output
+!  
+!  output = a%contents//b
+!end function
+!
+!function concatenate_String_IntVector(a,b) result(output)
+!  implicit none
+!  
+!  type(String),    intent(in) :: a
+!  type(IntVector), intent(in) :: b
+!  type(String)                :: output
+!  
+!  output = a//b%contents
+!end function
+!
+!function concatenate_IntVector_String(a,b) result(output)
+!  implicit none
+!  
+!  type(IntVector), intent(in) :: a
+!  type(String),    intent(in) :: b
+!  type(String)                :: output
+!  
+!  output = a%contents//b
+!end function
+!
+!function concatenate_String_RealVector(a,b) result(output)
+!  implicit none
+!  
+!  type(String),     intent(in) :: a
+!  type(RealVector), intent(in) :: b
+!  type(String)                 :: output
+!  
+!  output = a//b%contents
+!end function
+!
+!function concatenate_RealVector_String(a,b) result(output)
+!  implicit none
+!  
+!  type(RealVector), intent(in) :: a
+!  type(String),     intent(in) :: b
+!  type(String)                 :: output
+!  
+!  output = a%contents//b
+!end function
+!
+!! Print functions.
+!subroutine print_line_IntVector(input)
+!  implicit none
+!  
+!  type(IntVector), intent(in) :: input
+!  
+!  call print_line(input%contents)
+!end subroutine
+!
+!subroutine print_line_IntVector_file(file_unit,input)
+!  implicit none
+!  
+!  integer,         intent(in) :: file_unit
+!  type(IntVector), intent(in) :: input
+!  
+!  call print_line(file_unit, input%contents)
+!end subroutine
+!
+!subroutine print_line_RealVector(input)
+!  implicit none
+!  
+!  type(RealVector), intent(in) :: input
+!  
+!  call print_line(input%contents)
+!end subroutine
+!
+!subroutine print_line_RealVector_file(file_unit,input)
+!  implicit none
+!  
+!  integer,          intent(in) :: file_unit
+!  type(RealVector), intent(in) :: input
+!  
+!  call print_line(file_unit, input%contents)
+!end subroutine
+!
+!subroutine print_line_ComplexVector(input)
+!  implicit none
+!  
+!  type(ComplexVector), intent(in) :: input
+!  
+!  call print_line(input%contents)
+!end subroutine
+!
+!subroutine print_line_ComplexVector_file(file_unit,input)
+!  implicit none
+!  
+!  integer,          intent(in) :: file_unit
+!  type(ComplexVector), intent(in) :: input
+!  
+!  call print_line(file_unit, input%contents)
+!end subroutine
 
 subroutine print_line_IntMatrix(input)
   implicit none

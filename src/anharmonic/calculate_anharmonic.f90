@@ -53,7 +53,10 @@ subroutine calculate_anharmonic(arguments)
   use sampling_points_module
   use linear_algebra_module
   use dft_output_file_module
-  use eigenstates_module
+  use single_mode_states_module
+  use harmonic_states_module
+  use vscf_states_module
+  use product_states_module
   use potential_module
   use scf_module
   use perturbation_module
@@ -101,16 +104,13 @@ subroutine calculate_anharmonic(arguments)
   integer :: no_modes
   
   ! Eigenstates in various representations.
-  type(SingleModeState), allocatable :: harmonic_states(:,:)
-  type(ScfOutput)                    :: vscf_output
-  type(SingleModeState), allocatable :: vscf_states(:,:)
-  real(dp),              allocatable :: vscf_energies(:,:)
-  type(ProductStateOutput)           :: product_states_output
-  type(ProductState),    allocatable :: vscf_product_states(:)
-  real(dp),              allocatable :: vscf_product_energies(:)
-  integer                            :: no_product_states
+  type(HarmonicStates), allocatable :: harmonic_states(:)
+  type(VscfStates),     allocatable :: vscf_states(:)
+  type(ProductStates)               :: vscf_product_states
   
   ! Moller-Plesset variables.
+  integer                :: no_product_states
+  real(dp), allocatable  :: vscf_product_energies(:)
   real(dp), allocatable  :: perturbative_potential(:,:)
   type(RealPerturbation) :: perturbation
   
@@ -215,11 +215,10 @@ subroutine calculate_anharmonic(arguments)
                                    & sampling,               &
                                    & modes,                  &
                                    & qpoints(i),             &
-                                   & supercell,              &
-                                   & harmonic_states_cutoff)
+                                   & supercell)
     
     call print_line('')
-    call print_line('Potential:')
+    call print_line('Born-Oppenheimer Potential:')
     call print_line(potential)
     
     ! Calculate harmonic eigenstates, {|a>}, along each normal mode.
@@ -234,59 +233,61 @@ subroutine calculate_anharmonic(arguments)
       cycle
     endif
     
-    allocate( harmonic_states(harmonic_states_cutoff+1, no_modes), &
-            & stat=ialloc); call err(ialloc)
+    allocate(harmonic_states(no_modes), stat=ialloc); call err(ialloc)
     k = 0
     do j=1,structure%no_modes
       if (.not. modes(j)%translational_mode) then
         k = k+1
-        harmonic_states(:,k) = generate_harmonic_basis( modes(j)%frequency, &
-                                                      & harmonic_states_cutoff)
+        harmonic_states(k) = calculate_harmonic_states( &
+                              & k,                      &
+                              & modes(j)%frequency,     &
+                              & harmonic_states_cutoff, &
+                              & potential_basis_cutoff)
       endif
     enddo
     
-    call print_line('')
-    call print_line('Harmonic states:')
-    do j=1,no_modes
-      do k=1,size(harmonic_states,1)
-        call print_line(harmonic_states(k,j))
-      enddo
-    enddo
-    
     ! Run VSCF calculation to find VSCF eigenstates.
-    vscf_output = vscf( potential,       &
+    vscf_states = vscf( potential,       &
                       & harmonic_states, &
                       & max_scf_cycles,  &
                       & scf_convergence_threshold)
     
-    vscf_states = vscf_output%states
-    vscf_energies = vscf_output%energies
-    
-    call print_line('')
-    call print_line('VSCF states:')
-    do j=1,no_modes
-      do k=1,size(vscf_states,1)
-        call print_line(vscf_states(k,j))
+    do j=1,size(vscf_states)
+      call print_line('')
+      call print_line('Mode '//j//' VSCF states:')
+      do k=0,vscf_states(j)%cutoff()
+        call print_line('|'//k//'>, energy= '//vscf_states(j)%energy(k))
       enddo
     enddo
     
     ! Construct product states from VSCF basis.
-    product_states_output = construct_product_states( vscf_states,   &
-                                                    & vscf_energies, &
-                                                    & coupling)
-    vscf_product_states = product_states_output%states
-    vscf_product_energies = product_states_output%uncoupled_energies
+    vscf_product_states = construct_product_states(vscf_states, coupling)
+    
+    allocate( vscf_product_energies(size(vscf_product_states)), &
+            & stat=ialloc); call err(ialloc)
+    do j=1,size(vscf_product_states)
+      vscf_product_energies(j) = vscf_product_states%vscf_energy(j)
+    enddo
+    
+    call print_line('')
+    call print_line('VSCF product states:')
+    do j=1,size(vscf_product_states)
+      call print_line(vscf_product_states%state_as_string(j)//', energy= '// &
+         & vscf_product_energies(j))
+    enddo
     
     ! Calculate (potential - VSCF potential) in VSCF product state basis.
     no_product_states = size(vscf_product_states)
     allocate( perturbative_potential(no_product_states,no_product_states), &
             & stat=ialloc); call err(ialloc)
+    
     do j=1,no_product_states
       do k=1,j
         ! Construct <i|V|j>.
         perturbative_potential(k,j) = potential%integrate_to_constant( &
-                                   & vscf_product_states(j), &
-                                   & vscf_product_states(k))
+                                                & vscf_product_states, &
+                                                & j,                   &
+                                                & k)
         
         if (k==j) then
           ! Subtract VSCF energies from the diagonal.
@@ -308,6 +309,7 @@ subroutine calculate_anharmonic(arguments)
     deallocate( modes,                  &
               & sampling,               &
               & harmonic_states,        &
+              & vscf_product_energies,  &
               & perturbative_potential, &
               & stat=ialloc); call err(ialloc)
   enddo

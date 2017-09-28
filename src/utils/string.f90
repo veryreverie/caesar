@@ -40,11 +40,11 @@ module string_module
     character(:), allocatable, private :: contents
   contains
     generic, public :: assignment(=) => assign_String_character, &
-                                      & assign_String_String, &
-                                      & assign_String_integer, &
-                                      & assign_String_real, &
-                                      & assign_String_logical, &
-                                      & assign_String_complex, &
+                                      & assign_String_String,    &
+                                      & assign_String_integer,   &
+                                      & assign_String_real,      &
+                                      & assign_String_logical,   &
+                                      & assign_String_complex,   &
                                       & assign_character_String
     
     generic, public :: operator(//) => concatenate_String_String,    &
