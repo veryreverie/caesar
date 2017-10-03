@@ -17,9 +17,9 @@ module vscf_states_module
     ! The +1 is so states_(1) = |0>.
     type(SingleModeState), private, allocatable :: states_(:)
     
-    ! energies_(i+1) = <i|V|i>, where V is the VSCF potential.
-    ! The +1 is so energies_(1) = <0|V|0>.
-    real(dp), private, allocatable :: energies_(:)
+    ! vscf_energies_(i+1) = <i|V|i>, where V is the VSCF potential.
+    ! The +1 is so vscf_energies_(1) = <0|V|0>.
+    real(dp), private, allocatable :: vscf_energies_(:)
     
     ! basis_(i+1,j+1) = <i|j>, where
     !    |i> is a VSCF state.
@@ -31,7 +31,8 @@ module vscf_states_module
     type(HarmonicStates), private :: basis_states_
   contains
     procedure, public :: state
-    procedure, public :: energy
+    procedure, public :: vscf_energy
+    procedure, public :: kinetic_energy
     procedure, public :: cutoff
     procedure, public :: integral
     procedure, public :: mean_field
@@ -53,16 +54,33 @@ function state(this,i) result(output)
 end function
 
 ! ----------------------------------------------------------------------
-! Returns <i|V|i>.
+! Returns <i|H|i>. For the VSCF Hamiltonian.
 ! ----------------------------------------------------------------------
-function energy(this,i) result(output)
+function vscf_energy(this,i) result(output)
   implicit none
   
   class(VscfStates), intent(in) :: this
   integer,           intent(in) :: i
   real(dp)                      :: output
   
-  output = this%energies_(i+1)
+  output = this%vscf_energies_(i+1)
+end function
+
+! ----------------------------------------------------------------------
+! Returns <i|T|j>.
+! ----------------------------------------------------------------------
+function kinetic_energy(this,i,j) result(output)
+  use linear_algebra_module
+  implicit none
+  
+  class(VscfStates), intent(in) :: this
+  integer,           intent(in) :: i
+  integer,           intent(in) :: j
+  real(dp)                      :: output
+  
+  output = vec(this%basis_(i+1,:))               &
+       & * this%basis_states_%kinetic_energies() &
+       & * vec(this%basis_(j+1,:))
 end function
 
 ! ----------------------------------------------------------------------
@@ -128,7 +146,7 @@ subroutine update_hamiltonian(this,hamiltonian)
   
   eigenstuff = calculate_eigenstuff(hamiltonian)
   
-  this%energies_ = eigenstuff%evals
+  this%vscf_energies_ = eigenstuff%evals
   this%basis_ = eigenstuff%evecs
   
   do i=0,this%cutoff()
@@ -155,12 +173,12 @@ function construct_harmonic_vscf_states(harmonic_states) result(output)
   integer :: i,ialloc
   
   output%mode = harmonic_states%mode
-  allocate( output%states_(harmonic_states%cutoff()+1),   &
-          & output%energies_(harmonic_states%cutoff()+1), &
+  allocate( output%states_(harmonic_states%cutoff()+1),        &
+          & output%vscf_energies_(harmonic_states%cutoff()+1), &
           & stat=ialloc); call err(ialloc)
   do i=0,harmonic_states%cutoff()
     output%states_(i+1) = harmonic_states%state(i)
-    output%energies_(i+1) = (i+0.5_dp)*output%states_(i+1)%frequency
+    output%vscf_energies_(i+1) = (i+0.5_dp)*output%states_(i+1)%frequency
   enddo
   output%basis_ = dble(identity(harmonic_states%cutoff()+1))
   output%basis_states_ = harmonic_states

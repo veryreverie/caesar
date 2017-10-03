@@ -20,8 +20,10 @@ module product_states_module
     procedure, public :: evaluate
     procedure, public :: single_mode_state
     procedure, public :: vscf_energy
+    procedure, public :: kinetic_energy
     
-    procedure, public :: state_as_string
+    procedure, public :: state_as_bra_string
+    procedure, public :: state_as_ket_string
   end type
   
   interface size
@@ -81,7 +83,7 @@ function single_mode_state(this,state,mode) result(output)
 end function
 
 ! ----------------------------------------------------------------------
-! Returns the VSCF energy, <i1|V1|i1><i2|V2|i2>...
+! Returns the VSCF energy, <i1|V1|i1> + <i2|V2|i2> + ...
 ! ----------------------------------------------------------------------
 function vscf_energy(this,state) result(output)
   implicit none
@@ -93,17 +95,54 @@ function vscf_energy(this,state) result(output)
   integer :: mode
   integer :: i
   
-  output = 1
+  output = 0
   do mode=1,size(this%states_,1)
     i = this%single_mode_state(state,mode)
-    output = output*this%vscf_states(mode)%energy(i)
+    output = output+this%vscf_states(mode)%vscf_energy(i)
+  enddo
+end function
+
+! ----------------------------------------------------------------------
+! Returns the kinetic energy, <bra|T|ket>.
+! ----------------------------------------------------------------------
+function kinetic_energy(this,bra,ket) result(output)
+  implicit none
+  
+  class(ProductStates), intent(in) :: this
+  integer,              intent(in) :: bra
+  integer,              intent(in) :: ket
+  real(dp)                         :: output
+  
+  integer :: mode
+  integer :: bra_i,ket_i
+  
+  output = 0
+  do mode=1,size(this%states_,1)
+    bra_i = this%single_mode_state(bra,mode)
+    ket_i = this%single_mode_state(ket,mode)
+    output = output + this%vscf_states(mode)%kinetic_energy(bra_i,ket_i)
   enddo
 end function
 
 ! ----------------------------------------------------------------------
 ! Prints the product state in the basis of single-mode states.
 ! ----------------------------------------------------------------------
-function state_as_string(this,state) result(output)
+function state_as_bra_string(this,state) result(output)
+  implicit none
+  
+  class(ProductStates), intent(in) :: this
+  integer,              intent(in) :: state
+  type(String)                     :: output
+  
+  integer      :: i
+  
+  output = ''
+  do i=1,size(this%states_,1)
+    output = output//'<'//this%states_(i,state)//'|'
+  enddo
+end function
+
+function state_as_ket_string(this,state) result(output)
   implicit none
   
   class(ProductStates), intent(in) :: this

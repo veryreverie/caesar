@@ -220,7 +220,7 @@ function calculate_perturbation_real(eigenvalues,perturbation,energy_order, &
   real(dp), allocatable :: energy(:,:)
   real(dp), allocatable :: states(:,:,:)
   
-  integer :: i,ialloc
+  integer :: i,j,ialloc
   
   ! Check that the requested orders of perturbation are consistent.
   if (state_order/=energy_order .and. state_order/=energy_order-1) then
@@ -250,6 +250,15 @@ function calculate_perturbation_real(eigenvalues,perturbation,energy_order, &
                                                 & energy(:,:i), &
                                                 & states(:,:,:i-1))
     endif
+  enddo
+  
+  do i=1,energy_order
+    call print_line('')
+    call print_line('Order '//i)
+    call print_line('Energy corrections:')
+    do j=1,no_states
+      call print_line(energy(j,i))
+    enddo
   enddo
   
   ! Generate output.

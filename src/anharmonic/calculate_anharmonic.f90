@@ -17,6 +17,12 @@ function calculate_anharmonic_keywords() result(keywords)
   type(KeywordData), allocatable :: keywords(:)
   
   keywords = [                                                                &
+  & make_keyword( 'energy_error',                                             &
+  &               'energy_error is the expected error in the calculated &
+  &energies.'),                                                               &
+  & make_keyword( 'force_error',                                              &
+  &               'force_error is the expected error in the calculated &
+  &forces.'),                                                                 &
   & make_keyword( 'harmonic_states_cutoff',                                   &
   &               'harmonic_states_cutoff is the number of harmonic &
   &eigenstates in the direction of each normal mode.'),                       &
@@ -66,6 +72,8 @@ subroutine calculate_anharmonic(arguments)
   
   ! Inputs.
   type(String) :: wd
+  real(dp)     :: energy_error
+  real(dp)     :: force_error
   integer      :: harmonic_states_cutoff
   integer      :: potential_basis_cutoff
   real(dp)     :: scf_convergence_threshold
@@ -123,6 +131,8 @@ subroutine calculate_anharmonic(arguments)
   
   ! Read in inputs.
   wd = arguments%value('working_directory')
+  energy_error = dble(arguments%value('energy_error'))
+  force_error = dble(arguments%value('force_error'))
   harmonic_states_cutoff = int(arguments%value('harmonic_states_cutoff'))
   potential_basis_cutoff = int(arguments%value('potential_basis_cutoff'))
   scf_convergence_threshold = &
@@ -213,6 +223,8 @@ subroutine calculate_anharmonic(arguments)
     ! Calculate the Born-Oppenheimer potential.
     potential = calculate_potential( potential_basis_cutoff, &
                                    & sampling,               &
+                                   & energy_error,           &
+                                   & force_error,            &
                                    & modes,                  &
                                    & qpoints(i),             &
                                    & supercell)
@@ -254,9 +266,10 @@ subroutine calculate_anharmonic(arguments)
     
     do j=1,size(vscf_states)
       call print_line('')
-      call print_line('Mode '//j//' VSCF states:')
+      call print_line('Mode '//j//' VSCF states (frequency='// &
+         & modes(j)%frequency**2//'):')
       do k=0,vscf_states(j)%cutoff()
-        call print_line('|'//k//'>, energy= '//vscf_states(j)%energy(k))
+        call print_line('|'//k//'>, energy= '// vscf_states(j)%vscf_energy(k))
       enddo
     enddo
     
@@ -272,8 +285,8 @@ subroutine calculate_anharmonic(arguments)
     call print_line('')
     call print_line('VSCF product states:')
     do j=1,size(vscf_product_states)
-      call print_line(vscf_product_states%state_as_string(j)//', energy= '// &
-         & vscf_product_energies(j))
+      call print_line(vscf_product_states%state_as_ket_string(j)// &
+         & ', energy= '//vscf_product_energies(j)-vscf_product_energies(1))
     enddo
     
     ! Calculate (potential - VSCF potential) in VSCF product state basis.
@@ -283,11 +296,12 @@ subroutine calculate_anharmonic(arguments)
     
     do j=1,no_product_states
       do k=1,j
-        ! Construct <i|V|j>.
+        ! Construct <i|V|j> = <i|H-T|j>
         perturbative_potential(k,j) = potential%integrate_to_constant( &
-                                                & vscf_product_states, &
-                                                & j,                   &
-                                                & k)
+                                  &               vscf_product_states, &
+                                  &               j,                   &
+                                  &               k)                   &
+                                  & - vscf_product_states%kinetic_energy(j,k)
         
         if (k==j) then
           ! Subtract VSCF energies from the diagonal.
@@ -299,11 +313,26 @@ subroutine calculate_anharmonic(arguments)
       enddo
     enddo
     
+    call print_line('Perturbation:')
+    do j=1,no_product_states
+      do k=1,no_product_states
+        call print_line(vscf_product_states%state_as_bra_string(j)//'V'// &
+           & vscf_product_states%state_as_ket_string(k)//' = '//          &
+           & perturbative_potential(j,k))
+      enddo
+    enddo
+    
     ! Run Moller-Plesset perturbation theory to construct new basis.
     perturbation = calculate_perturbation( vscf_product_energies,     &
                                          & perturbative_potential,    &
                                          & energy_perturbation_order, &
                                          & state_perturbation_order)
+    
+    call print_line('')
+    call print_line('Moller-Plesset corrections:')
+    do j=1,size(perturbation%energy)
+      call print_line(perturbation%energy(j))
+    enddo
     
     ! Deallocate variables.
     deallocate( modes,                  &

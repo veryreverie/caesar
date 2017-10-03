@@ -16,19 +16,24 @@ module harmonic_states_module
 
   type, public :: HarmonicStates
     integer :: mode
+    ! N.B. All arrays are stored such that array(1) corresponds to |0>, so
+    !    array(i+1) corresponds to |i>.
     
     ! states_(i+1) = |i>.
-    ! The +1 is so states_(1) = |0>.
     type(SingleModeState), private, allocatable :: states_(:)
     
     ! integrals_(i+1,j+1,p+1) = <i|u^p|j>.
-    ! The +1s are so (1,1,1,l) = <0|u^0|0>.
     real(dp), private, allocatable :: integrals_(:,:,:)
+    
+    ! kinetic_energy(i+1,j+1) = <i|T|j> = <i|-0.5(d2/du2)|j>.
+    real(dp), private, allocatable :: kinetic_energies_(:,:)
   contains
-    ! Getters for states and integrals, taking +1s into account.
+    ! Getters for states, integrals and energy, taking +1s into account.
     procedure, public :: state
     procedure, public :: integral
     procedure, public :: integrals
+    procedure, public :: kinetic_energy
+    procedure, public :: kinetic_energies
     
     ! Returns the cutoff, = size(states_)-1
     procedure, public :: cutoff
@@ -73,6 +78,33 @@ function integrals(this,power) result(output)
   type(RealMatrix)                  :: output
   
   output = this%integrals_(:,:,power+1)
+end function
+
+! ----------------------------------------------------------------------
+! Returns <i|T|j>.
+! ----------------------------------------------------------------------
+function kinetic_energy(this,i,j) result(output)
+  implicit none
+  
+  class(HarmonicStates), intent(in) :: this
+  integer,               intent(in) :: i
+  integer,               intent(in) :: j
+  real(dp)                          :: output
+  
+  output = this%kinetic_energies_(i+1,j+1)
+end function
+
+! ----------------------------------------------------------------------
+! Returns the matrix of <i|T|j>.
+! ----------------------------------------------------------------------
+function kinetic_energies(this) result(output)
+  use linear_algebra_module
+  implicit none
+  
+  class(HarmonicStates), intent(in) :: this
+  type(RealMatrix)                  :: output
+  
+  output = this%kinetic_energies_
 end function
 
 ! ----------------------------------------------------------------------
@@ -198,5 +230,21 @@ function calculate_harmonic_states(mode,frequency,state_cutoff, &
       enddo
     endif
   enddo
+  
+  ! --------------------------------------------------
+  ! Calculate kinetic energies.
+  ! --------------------------------------------------
+  ! T|j> = -0.5(d2/du2)|j>
+  !      = ( frequency*(j+0.5) - 0.5*(frequency*u)^2 ) |j>
+  output%kinetic_energies_ = dble(zeroes(state_cutoff+1,state_cutoff+1))
+  
+  ! Add <i|frequency*(j+0.5)|j>.
+  do i=0,state_cutoff
+    output%kinetic_energies_(i+1,i+1) = frequency*(i+0.5_dp)
+  enddo
+  
+  ! Add 0.5*frequency^2*<i|u^2|j>.
+  output%kinetic_energies_ = output%kinetic_energies_ &
+                         & + 0.5_dp*frequency**2*output%integrals_(:,:,3)
 end function
 end module

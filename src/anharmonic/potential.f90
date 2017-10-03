@@ -166,8 +166,8 @@ end function
 ! Calculates a representation of the Born-Oppenheimer surface using
 !    samples from the surface.
 ! ----------------------------------------------------------------------
-function calculate_potential(potential_basis_cutoff,sampling,modes,qpoint, &
-   & supercell) result(output)
+function calculate_potential(potential_basis_cutoff,sampling,energy_error, &
+   & force_error,modes,qpoint,supercell) result(output)
   use sampling_points_module
   use normal_mode_module
   use qpoints_module
@@ -176,6 +176,8 @@ function calculate_potential(potential_basis_cutoff,sampling,modes,qpoint, &
   
   integer,                intent(in) :: potential_basis_cutoff
   type(CouplingSampling), intent(in) :: sampling(:)
+  real(dp),               intent(in) :: energy_error
+  real(dp),               intent(in) :: force_error
   type(NormalMode),       intent(in) :: modes(:)
   type(QpointData),       intent(in) :: qpoint
   type(StructureData),    intent(in) :: supercell
@@ -208,6 +210,8 @@ function calculate_potential(potential_basis_cutoff,sampling,modes,qpoint, &
     basis_functions(i)%coefficients = fit_basis_functions( &
                      & basis_functions(i)%basis_functions, &
                      & sampling(i),                        &
+                     & energy_error,                       &
+                     & force_error,                        &
                      & fit(:i-1),                          &
                      & sampling(:i-1),                     &
                      & modes,                              &
@@ -243,18 +247,29 @@ function calculate_potential(potential_basis_cutoff,sampling,modes,qpoint, &
   enddo
   
   ! Combine the potentials from each coupling together.
+  ! Remove any constant terms (all powers=0), if present.
   size_output = 0
   do i=1,size(fit)
     size_output = size_output + size(fit(i)%monomials)
+    do j=1,size(fit(i)%monomials)
+      if (all(fit(i)%monomials(j)%powers==0)) then
+        size_output = size_output-1
+      endif
+    enddo
   enddo
   allocate(output%monomials(size_output), stat=ialloc); call err(ialloc)
   k = 0
   do i=1,size(fit)
     do j=1,size(fit(i)%monomials)
-      output%monomials(k+j) = fit(i)%monomials(j)
+      if (.not. all(fit(i)%monomials(j)%powers==0)) then
+        k = k+1
+        output%monomials(k) = fit(i)%monomials(j)
+      endif
     enddo
-    k = k + size(fit(i)%monomials)
   enddo
+  if (k/=size_output) then
+    call err()
+  endif
 end function
 
 ! ----------------------------------------------------------------------
@@ -354,8 +369,8 @@ end subroutine
 ! Fits a set of basis functions to the sampled B-O surface.
 ! ----------------------------------------------------------------------
 ! Only forces in the hyperplane of the coupling are considered.
-function fit_basis_functions(basis_functions,this_sampling,fit,prev_sampling, &
-   & modes,qpoint,supercell) result(output)
+function fit_basis_functions(basis_functions,this_sampling,energy_error, &
+   & force_error,fit,prev_sampling,modes,qpoint,supercell) result(output)
   use sampling_points_module
   use normal_mode_module
   use qpoints_module
@@ -365,6 +380,8 @@ function fit_basis_functions(basis_functions,this_sampling,fit,prev_sampling, &
   
   type(PolynomialPotential), intent(in) :: basis_functions(:)
   type(CouplingSampling),    intent(in) :: this_sampling
+  real(dp),                  intent(in) :: energy_error
+  real(dp),                  intent(in) :: force_error
   type(PolynomialPotential), intent(in) :: fit(:)
   type(CouplingSampling),    intent(in) :: prev_sampling(:)
   type(NormalMode),          intent(in) :: modes(:)
@@ -446,19 +463,22 @@ function fit_basis_functions(basis_functions,this_sampling,fit,prev_sampling, &
       basis_energy = basis_functions(j)%evaluate_energy(displacement)
       basis_forces = basis_functions(j)%evaluate_forces(displacement)
       
-      a(l,j) = basis_energy
+      a(l,j) = basis_energy / energy_error
       do k=1,size(this_sampling%coupling)
-        a(l+k,j) = basis_forces%vector(this_sampling%coupling%modes(k))
+        a(l+k,j) = basis_forces%vector(this_sampling%coupling%modes(k)) &
+               & / force_error
       enddo
     enddo
     
-    b(l) = energy(i)
+    b(l) = energy(i) / energy_error
     do k=1,size(this_sampling%coupling)
-      b(l+k) = forces(i)%vector(this_sampling%coupling%modes(k))
+      b(l+k) = forces(i)%vector(this_sampling%coupling%modes(k)) &
+           & / force_error
     enddo
   enddo
   
   ! Perform linear least-squares optimisation.
+  ! Finds x s.t. (a.x-b)^2 is minimal.
   output = dble(linear_least_squares(a,b))
 end function
 
@@ -610,7 +630,7 @@ end subroutine
 ! ----------------------------------------------------------------------
 ! Should only be called once the potential has been integrated across all
 !    other modes.
-! output(i,j) = <i-1|H|j-1>
+! output(i+1,j+1) = <i|H|j> = <i|(T+V)|j>
 function construct_hamiltonian_PolynomialPotential(this,states) &
    & result(output)
   use linear_algebra_module
@@ -621,16 +641,19 @@ function construct_hamiltonian_PolynomialPotential(this,states) &
   type(HarmonicStates),       intent(in) :: states
   type(RealMatrix)                       :: output
   
-  integer :: power
+  real(dp) :: coefficient
+  integer  :: power
   
   integer :: i
   
-  output = dble(zeroes(states%cutoff()+1,states%cutoff()+1))
+  ! Add <i|T|j>.
+  output = states%kinetic_energies()
+  
+  ! Add <i|V|j> = sum(coefficient*<i|u^power|j>).
   do i=1,size(this%monomials)
+    coefficient = this%monomials(i)%coefficient
     power = this%monomials(i)%powers(states%mode)
-    output = output                        &
-         & + this%monomials(i)%coefficient &
-         & * states%integrals(power)
+    output = output + coefficient*states%integrals(power)
   enddo
 end function
 

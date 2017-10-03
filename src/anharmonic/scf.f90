@@ -112,9 +112,9 @@ function vscf(potential,harmonic_states,max_scf_cycles, &
     max_energy_change = 0
     do i=1,no_modes
       do j=0,output(i)%cutoff()
-        max_energy_change = max( max_energy_change,           &
-                               & abs( old_states(i)%energy(j) &
-                               &    - output(i)%energy(j)))
+        max_energy_change = max( max_energy_change,                &
+                               & abs( old_states(i)%vscf_energy(j) &
+                               &    - output(i)%vscf_energy(j)))
       enddo
     enddo
     call print_line(max_energy_change)
