@@ -499,6 +499,7 @@ function make_universal_keywords() result(keywords)
   &               'working_directory specifies the directory where all files &
   &and subsequent directories will be made.',                                 &
   &               default_value='.',                                          &
+  &               is_path=.true.,                                             &
   &               allowed_in_file=.false.,                                    &
   &               can_be_interactive=.false.,                                 &
   &               flag_with_arguments='d') ]

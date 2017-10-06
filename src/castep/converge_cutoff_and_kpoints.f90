@@ -361,7 +361,7 @@ function calculate_energy(cutoff,spacing,wd,seedname,run_script,no_cores, &
   integer :: i
   
   ! Convert spacing to a string for the purposes of naming the directory.
-  write(spacing_char,'(f1.4)') spacing
+  write(spacing_char,'(f6.4)') spacing
   
   ! Write CASTEP inputs.
   dir = wd//'/cutoff_'//cutoff//'_spacing_'//spacing_char

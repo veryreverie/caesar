@@ -14,6 +14,9 @@ program caesar
   use help_module
   use process_arguments_module
   
+  ! Use convergence modules.
+  use converge_cutoff_and_kpoints_module
+  
   ! Use harmonic modules.
   use setup_harmonic_module
   use run_harmonic_module
@@ -99,6 +102,9 @@ program caesar
   elseif (mode == 'test') then
     keywords = test_keywords()
     main_subroutine => test
+  elseif (mode == 'converge_cutoff_and_kpoints') then
+    keywords = converge_cutoff_and_kpoints_keywords()
+    main_subroutine => converge_cutoff_and_kpoints
   elseif (mode == 'setup_harmonic') then
     keywords = setup_harmonic_keywords()
     main_subroutine => setup_harmonic

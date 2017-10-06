@@ -97,26 +97,34 @@ function read_castep_output_file(filename) result(output)
     ! forces
     if (size(line)>=2) then
       if ( (line(1)=='***********************' .and. line(2)=='forces') .or. &
-         & (line(1)=='*****************' .and. line(2)=='symmetrised')) then
+         & (line(1)=='*****************' .and. line(2)=='symmetrised')  .or. &
+         & (line(1)=='*******************' .and. line(2)=='unconstrained')   &
+         & ) then
         forces_start_line = i
       endif
     endif
-    if (size(line)>=1) then
-      if (forces_start_line/=0 .and. &
-       &line(1)=='******************************************************') then
-        forces_end_line = i
+    if (size(line)==1) then
+      if ( forces_start_line/=0 .and. &
+         & forces_end_line==0   .and. &
+         & len(line(1))>=5) then
+        if (slice(line(1),1,5)=='*****') then
+          forces_end_line = i
+        endif
       endif
     endif
   enddo
   
   if (energy_line==0) then
     call print_line('Error: Energy not found in '//char(filename))
+    stop
   endif
   if (forces_start_line==0) then
     call print_line('Error: Start of forces not found in '//char(filename))
+    stop
   endif
   if (forces_end_line==0) then
     call print_line('Error: End of forces not found in '//char(filename))
+    stop
   endif
   
   ! Allocate output
