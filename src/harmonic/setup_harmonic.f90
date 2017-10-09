@@ -54,17 +54,17 @@ subroutine setup_harmonic(arguments)
   
   type(Dictionary), intent(in) :: arguments
   
-  ! User input variables
+  ! User input variables.
   type(String) :: wd
   type(String) :: dft_code
   type(String) :: seedname
   
-  ! User input data
+  ! User input data.
   type(StructureData) :: structure
   integer             :: grid(3)
   real(dp)            :: symmetry_precision
   
-  ! Supercell data
+  ! Supercell data.
   type(IntMatrix)           :: large_supercell_matrix
   type(StructureData)       :: large_supercell
   type(GeneratedSupercells) :: qpoints_and_supercells
@@ -78,7 +78,7 @@ subroutine setup_harmonic(arguments)
   type(Group),      allocatable :: supercell_atom_symmetry_group(:)
   type(RealMatrix), allocatable :: cartesian_rotations(:)
   
-  ! Directories
+  ! Directories.
   type(String) :: sdir
   type(String) :: paths(2)
   
@@ -93,7 +93,7 @@ subroutine setup_harmonic(arguments)
   
   type(String) :: dft_input_filename
   
-  ! File units
+  ! File units.
   integer :: no_supercells_file
   
   ! --------------------------------------------------

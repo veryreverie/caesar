@@ -653,12 +653,15 @@ function evaluate_freqs_on_grid(supercell,force_constants) &
                                                   & supercell,       &
                                                   & force_constants, &
                                                   & delta_prim)
-    do i=1,supercell%no_atoms_prim
-      do j=1,supercell%no_atoms_prim
-        output%dynamical_matrices(gvector_p)%matrices(j,i) = &
-           & hermitian(output%dynamical_matrices(gvector)%matrices(i,j))
+    if (gvector_p/=gvector) then
+      output%dynamical_matrices(gvector_p) = output%dynamical_matrices(gvector)
+      do i=1,supercell%no_atoms_prim
+        do j=1,supercell%no_atoms_prim
+          output%dynamical_matrices(gvector_p)%matrices(j,i) = &
+             & hermitian(output%dynamical_matrices(gvector)%matrices(i,j))
+        enddo
       enddo
-    enddo
+    endif
     
     ! Calculate normal modes.
     frequencies_polarisations = calculate_frequencies_and_polarisations( &

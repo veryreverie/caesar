@@ -65,7 +65,7 @@ function converge_cutoff_and_kpoints_keywords() result(keywords)
   &which must be within convergence_threshold in order to accept the cutoff &
   &energy. The cutoff energy of the first such calculation will be &
   &accepted.',                                                                &
-  &               default_value='3'),                                         &
+  &               default_value='5'),                                         &
   & make_keyword( 'generate_plots',                                           &
   &               'generate_plots specifies that further calculations should &
   &be run to allow plots of the convergence testing to be made. This will &
@@ -179,7 +179,7 @@ subroutine converge_cutoff_and_kpoints(arguments)
   param_file = read_lines(wd//'/'//seedname//'.param')
   
   ! --------------------------------------------------
-  ! Run convergence tests.
+  ! Run convergence calculations.
   ! --------------------------------------------------
   allocate( cutoffs(max_no_steps),                &
           & spacings(max_no_steps),               &
@@ -202,8 +202,7 @@ subroutine converge_cutoff_and_kpoints(arguments)
     ! Check for convergence.
     if (step>=no_converged_calculations) then
       converged_step = step-no_converged_calculations+1
-      if (all( abs( energies(converged_step:step) &
-           &      - energies(converged_step))     &
+      if (all( abs(energies(converged_step:step)-energies(step)) &
            & < convergence_threshold)) then
         converged = .true.
         exit

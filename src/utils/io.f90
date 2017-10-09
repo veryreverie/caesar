@@ -15,7 +15,6 @@ module io_module
   public CommandLineFlag
   
   ! File operations.
-  public :: open_read_file   ! open a file for reading
   public :: open_write_file  ! open a file for writing
   public :: open_append_file ! open a file for appending to
   public :: file_exists      ! checks if a file exists

@@ -478,7 +478,7 @@ function make_universal_keywords() result(keywords)
   & make_keyword( 'interactive',                                              &
   &               'interactive specifies whether or not keywords can be &
   &specified interactively.',                                                 &
-  &               default_value='t',                                          &
+  &               default_value='true',                                       &
   &               allowed_in_file=.false.,                                    &
   &               can_be_interactive=.false.,                                 &
   &               flag_without_arguments='i'),                                &
@@ -494,7 +494,7 @@ function make_universal_keywords() result(keywords)
   &               is_optional=.true.,                                         &
   &               allowed_in_file=.false.,                                    &
   &               can_be_interactive=.false.,                                 &
-  &               flag_with_arguments='f'),                                   &
+  &               flag_with_arguments='false'),                               &
   & make_keyword( 'working_directory',                                        &
   &               'working_directory specifies the directory where all files &
   &and subsequent directories will be made.',                                 &

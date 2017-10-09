@@ -135,7 +135,7 @@ function process_arguments(args,keywords_in) result(arguments)
     if (keyword/='' .and. (this%flag/=' ' .or. this%argument==' ')) then
       if (.not. arguments%is_set(keyword)) then
         if (boolean_flag) then
-          call arguments%set(keyword,'t')
+          call arguments%set(keyword,'true')
         elseif (keyword=='help') then
           call arguments%set(keyword,'')
           return
