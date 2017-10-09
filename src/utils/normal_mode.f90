@@ -45,61 +45,63 @@ function subtract_ModeVector_ModeVector(a,b) result(output)
 end function
 
 function read_normal_mode_file(filename) result(this)
+  use ifile_module
   implicit none
   
   type(String), intent(in) :: filename
   type(NormalMode)         :: this
   
-  type(String), allocatable :: mode_file(:)
+  type(IFile)               :: mode_file
   type(String), allocatable :: line(:)
   integer                   :: no_atoms
   
   integer :: i,ialloc
   
   ! Read in mode file.
-  mode_file = read_lines(filename)
+  mode_file = filename
   
   ! Allocate space.
   no_atoms = size(mode_file)-4
   allocate(this%displacements(no_atoms), stat=ialloc); call err(ialloc)
   
   ! Read frequency.
-  line = split(mode_file(1))
+  line = split(mode_file%line(1))
   this%frequency = dble(line(2))
   
   ! Read whether or not this mode is soft.
-  line = split(mode_file(2))
+  line = split(mode_file%line(2))
   this%soft_mode = lgcl(line(3))
   
   ! Read whether or not this mode is purely translational.
-  line = split(mode_file(3))
+  line = split(mode_file%line(3))
   this%translational_mode = lgcl(line(3))
   
   ! Read in the displacement associated with the mode.
   do i=1,no_atoms
-    line = split(mode_file(4+i))
+    line = split(mode_file%line(4+i))
     this%displacements(i) = cmplx(line)
   enddo
 end function
 
 subroutine write_normal_mode_file(this,filename)
+  use ofile_module
   implicit none
   
   type(NormalMode), intent(in) :: this
   type(String),     intent(in) :: filename
   
-  integer :: mode_file
+  type(OFile) :: mode_file
+  
   integer :: i
   
-  mode_file = open_write_file(filename)
-  call print_line(mode_file, 'Frequency:          '//this%frequency)
-  call print_line(mode_file, 'Soft mode:          '//this%soft_mode)
-  call print_line(mode_file, 'Translational mode: '//this%translational_mode)
-  call print_line(mode_file, 'Displacements:')
+  mode_file = filename
+  call mode_file%print_line('Frequency:          '//this%frequency)
+  call mode_file%print_line('Soft mode:          '//this%soft_mode)
+  call mode_file%print_line('Translational mode: '//this%translational_mode)
+  call mode_file%print_line('Displacements:')
   do i=1,size(this%displacements)
-    call print_line(mode_file, this%displacements(i))
+    call mode_file%print_line(this%displacements(i))
   enddo
-  close(mode_file)
 end subroutine
 
 ! ----------------------------------------------------------------------

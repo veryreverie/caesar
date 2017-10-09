@@ -53,35 +53,37 @@ function is_subsidiary_of(this,that) result(output)
 end function
 
 subroutine write_coupling_file(this, filename)
+  use ofile_module
   implicit none
   
   type(CoupledModes), intent(in) :: this(:)
   type(String),       intent(in) :: filename
   
-  integer :: coupling_file
+  type(OFile) :: coupling_file
+  
   integer :: i
   
-  coupling_file = open_write_file(filename)
-  call print_line(coupling_file,'! Couplings between modes.')
+  coupling_file = filename
+  call coupling_file%print_line('! Couplings between modes.')
   do i=1,size(this)
-    call print_line(coupling_file,this(i)%modes)
+    call coupling_file%print_line(this(i)%modes)
   enddo
-  close(coupling_file)
 end subroutine
 
 function read_coupling_file(filename) result(this)
+  use ifile_module
   implicit none
   
   type(String), intent(in)        :: filename
   type(CoupledModes), allocatable :: this(:)
   
-  type(String), allocatable :: coupling_file(:)
-  integer                   :: i,ialloc
+  type(IFile) :: coupling_file
+  integer     :: i,ialloc
   
-  coupling_file = read_lines(filename)
+  coupling_file = filename
   allocate(this(size(coupling_file)-1), stat=ialloc); call err(ialloc)
   do i=1,size(this)
-    this(i)%modes = int(split(coupling_file(i+1)))
+    this(i)%modes = int(split(coupling_file%line(i+1)))
   enddo
 end function
 

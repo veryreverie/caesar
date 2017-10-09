@@ -98,22 +98,23 @@ end function
 ! Reads a UniqueDirections from a file.
 ! ----------------------------------------------------------------------
 function read_unique_directions_file(filename) result(this)
+  use ifile_module
   implicit none
   
   type(String), intent(in) :: filename
   type(UniqueDirections)   :: this
   
-  type(String), allocatable :: unique_directions_file(:)
+  type(IFile) :: unique_directions_file
+  
   type(String), allocatable :: line(:)
+  integer                   :: i
   
-  integer :: i
-  
-  unique_directions_file = read_lines(filename)
+  unique_directions_file = filename
   
   call new(this,size(unique_directions_file)-1)
   
   do i=1,size(unique_directions_file)-1
-    line = split(unique_directions_file(i+1))
+    line = split(unique_directions_file%line(i+1))
     this%atoms(i) = int(line(2))
     this%directions_char(i) = line(4)
     this%directions_int(i) = direction_char_to_int(this%directions_char(i))
@@ -125,30 +126,31 @@ end function
 ! Writes a UniqueDirections to a file.
 ! ----------------------------------------------------------------------
 subroutine write_unique_directions_file(this,filename)
+  use ofile_module
   implicit none
   
   type(UniqueDirections), intent(in) :: this
   type(String),           intent(in) :: filename
   
-  integer      :: unique_directions_file
+  type(OFile) :: unique_directions_file
   
   integer :: i
   
-  unique_directions_file = open_write_file(filename)
-  call print_line(unique_directions_file, 'Atoms to be perturbed in order to &
+  unique_directions_file = filename
+  call unique_directions_file%print_line('Atoms to be perturbed in order to &
      &map out the harmonic Born-Oppenheimer surface.')
   do i=1,size(this)
-    call print_line(unique_directions_file, 'atom: '//this%atoms(i)// &
+    call unique_directions_file%print_line('atom: '//this%atoms(i)// &
        & ' direction: '//this%directions_char(i))
   enddo
-  close(unique_directions_file)
 end subroutine
 
 ! ----------------------------------------------------------------------
 ! Works out which atoms need to be perturbed in which directions
 !    in order to map out the harmonic Born-Oppenheimer surface.
 ! ----------------------------------------------------------------------
-function calculate_unique_directions(structure,atom_symmetry_group) result(this)
+function calculate_unique_directions(structure,atom_symmetry_group) &
+   & result(this)
   use constants_module, only : pi
   use structure_module
   use group_module

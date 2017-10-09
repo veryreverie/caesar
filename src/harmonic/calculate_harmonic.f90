@@ -25,6 +25,7 @@ end function
 ! ----------------------------------------------------------------------
 subroutine calculate_harmonic(arguments)
   use utils_module, only : mkdir
+  use ifile_module
   use linear_algebra_module
   use setup_harmonic_module
   use structure_module
@@ -45,9 +46,11 @@ subroutine calculate_harmonic(arguments)
   ! Working directory.
   type(String) :: wd
   
-  ! Files.
-  type(Dictionary)          :: setup_harmonic_arguments
-  type(String), allocatable :: no_supercells_file(:)
+  ! Input arguments.
+  type(Dictionary) :: setup_harmonic_arguments
+  
+  ! No. supercells file.
+  type(IFile) :: no_supercells_file
   
   ! Setup data.
   integer             :: no_supercells
@@ -92,8 +95,8 @@ subroutine calculate_harmonic(arguments)
   dft_code = setup_harmonic_arguments%value('dft_code')
   seedname = setup_harmonic_arguments%value('seedname')
   
-  no_supercells_file = read_lines(wd//'/no_supercells.dat')
-  no_supercells = int(no_supercells_file(1))
+  no_supercells_file = wd//'/no_supercells.dat'
+  no_supercells = int(no_supercells_file%line(1))
   
   structure = read_structure_file(wd//'/structure.dat')
   

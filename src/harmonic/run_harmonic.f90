@@ -38,6 +38,7 @@ subroutine run_harmonic(arguments)
   use setup_harmonic_module
   use unique_directions_module
   use dictionary_module
+  use IFile_module
   implicit none
   
   type(Dictionary), intent(in) :: arguments
@@ -46,11 +47,11 @@ subroutine run_harmonic(arguments)
   type(String) :: wd
   
   ! Previous user inputs.
-  type(Dictionary)          :: setup_harmonic_arguments
-  type(String), allocatable :: no_supercells_file(:)
-  integer                   :: no_supercells
-  type(String)              :: dft_code
-  type(String)              :: seedname
+  type(Dictionary) :: setup_harmonic_arguments
+  type(IFile)      :: no_supercells_file
+  integer          :: no_supercells
+  type(String)     :: dft_code
+  type(String)     :: seedname
   
   ! Terminal inputs.
   integer      :: supercells_to_run(2)
@@ -80,8 +81,8 @@ subroutine run_harmonic(arguments)
   ! --------------------------------------------------
   ! Read in arguments to previous calculations.
   ! --------------------------------------------------
-  no_supercells_file = read_lines(wd//'/no_supercells.dat')
-  no_supercells = int(no_supercells_file(1))
+  no_supercells_file = wd//'/no_supercells.dat'
+  no_supercells = int(no_supercells_file%line(1))
   
   setup_harmonic_arguments = setup_harmonic_keywords()
   call setup_harmonic_arguments%read_file(wd//'/setup_harmonic.used_settings')

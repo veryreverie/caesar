@@ -5,8 +5,10 @@
 module linear_algebra_module
   use constants_module, only : dp
   use string_module
-  use stringable_module
   use io_module
+  
+  use stringable_module
+  use printable_module
   implicit none
   
   ! --------------------------------------------------
@@ -39,25 +41,28 @@ module linear_algebra_module
     procedure, pass(that) :: assign_String => assign_String_ComplexVector
   end type
   
-  type IntMatrix
+  type, extends(Printable) :: IntMatrix
     integer, allocatable, private :: contents(:,:)
   contains
     generic,   public  :: assignment(=) => assign_IntMatrix_integers
     procedure, private :: assign_IntMatrix_integers
+    procedure, public  :: str => str_IntMatrix
   end type
   
-  type RealMatrix
+  type, extends(Printable) :: RealMatrix
     real(dp), allocatable, private :: contents(:,:)
   contains
     generic,   public  :: assignment(=) => assign_RealMatrix_reals
     procedure, private :: assign_RealMatrix_reals
+    procedure, public  :: str => str_RealMatrix
   end type
   
-  type ComplexMatrix
+  type, extends(Printable) :: ComplexMatrix
     complex(dp), allocatable, private :: contents(:,:)
   contains
     generic,   public  :: assignment(=) => assign_ComplexMatrix_complexes
     procedure, private :: assign_ComplexMatrix_complexes
+    procedure, public  :: str => str_ComplexMatrix
   end type
   
   ! --------------------------------------------------
@@ -304,18 +309,6 @@ module linear_algebra_module
   interface invert_int
     module procedure invert_int_integer
     module procedure invert_int_IntMatrix
-  end interface
-  
-  ! --------------------------------------------------
-  ! Overloads for printing matrices.
-  ! --------------------------------------------------
-  interface print_line
-    module procedure print_line_IntMatrix
-    module procedure print_line_IntMatrix_file
-    module procedure print_line_RealMatrix
-    module procedure print_line_RealMatrix_file
-    module procedure print_line_ComplexMatrix
-    module procedure print_line_ComplexMatrix_file
   end interface
   
   ! --------------------------------------------------
@@ -2221,213 +2214,50 @@ subroutine assign_String_ComplexVector(this,that)
   this = join(that%contents)
 end subroutine
 
-! String concatenation functions.
-!function concatenate_character_IntVector(a,b) result(output)
-!  implicit none
-!  
-!  character(*),    intent(in) :: a
-!  type(IntVector), intent(in) :: b
-!  type(String)                :: output
-!  
-!  output = a//b%contents
-!end function
-!
-!function concatenate_IntVector_character(a,b) result(output)
-!  implicit none
-!  
-!  type(IntVector), intent(in) :: a
-!  character(*),    intent(in) :: b
-!  type(String)                :: output
-!  
-!  output = a%contents//b
-!end function
-!
-!function concatenate_character_RealVector(a,b) result(output)
-!  implicit none
-!  
-!  character(*),     intent(in) :: a
-!  type(RealVector), intent(in) :: b
-!  type(String)                 :: output
-!  
-!  output = a//b%contents
-!end function
-!
-!function concatenate_RealVector_character(a,b) result(output)
-!  implicit none
-!  
-!  type(RealVector), intent(in) :: a
-!  character(*),     intent(in) :: b
-!  type(String)                 :: output
-!  
-!  output = a%contents//b
-!end function
-!
-!function concatenate_String_IntVector(a,b) result(output)
-!  implicit none
-!  
-!  type(String),    intent(in) :: a
-!  type(IntVector), intent(in) :: b
-!  type(String)                :: output
-!  
-!  output = a//b%contents
-!end function
-!
-!function concatenate_IntVector_String(a,b) result(output)
-!  implicit none
-!  
-!  type(IntVector), intent(in) :: a
-!  type(String),    intent(in) :: b
-!  type(String)                :: output
-!  
-!  output = a%contents//b
-!end function
-!
-!function concatenate_String_RealVector(a,b) result(output)
-!  implicit none
-!  
-!  type(String),     intent(in) :: a
-!  type(RealVector), intent(in) :: b
-!  type(String)                 :: output
-!  
-!  output = a//b%contents
-!end function
-!
-!function concatenate_RealVector_String(a,b) result(output)
-!  implicit none
-!  
-!  type(RealVector), intent(in) :: a
-!  type(String),     intent(in) :: b
-!  type(String)                 :: output
-!  
-!  output = a%contents//b
-!end function
-!
-!! Print functions.
-!subroutine print_line_IntVector(input)
-!  implicit none
-!  
-!  type(IntVector), intent(in) :: input
-!  
-!  call print_line(input%contents)
-!end subroutine
-!
-!subroutine print_line_IntVector_file(file_unit,input)
-!  implicit none
-!  
-!  integer,         intent(in) :: file_unit
-!  type(IntVector), intent(in) :: input
-!  
-!  call print_line(file_unit, input%contents)
-!end subroutine
-!
-!subroutine print_line_RealVector(input)
-!  implicit none
-!  
-!  type(RealVector), intent(in) :: input
-!  
-!  call print_line(input%contents)
-!end subroutine
-!
-!subroutine print_line_RealVector_file(file_unit,input)
-!  implicit none
-!  
-!  integer,          intent(in) :: file_unit
-!  type(RealVector), intent(in) :: input
-!  
-!  call print_line(file_unit, input%contents)
-!end subroutine
-!
-!subroutine print_line_ComplexVector(input)
-!  implicit none
-!  
-!  type(ComplexVector), intent(in) :: input
-!  
-!  call print_line(input%contents)
-!end subroutine
-!
-!subroutine print_line_ComplexVector_file(file_unit,input)
-!  implicit none
-!  
-!  integer,          intent(in) :: file_unit
-!  type(ComplexVector), intent(in) :: input
-!  
-!  call print_line(file_unit, input%contents)
-!end subroutine
-
-subroutine print_line_IntMatrix(input)
+function str_IntMatrix(this) result(output)
   implicit none
   
-  type(IntMatrix), intent(in) :: input
+  Class(IntMatrix), intent(in) :: this
+  type(String), allocatable    :: output(:)
   
-  integer :: i
+  integer :: i,ialloc
   
-  do i=1,size(input,1)
-    call print_line(input%contents(i,:))
+  allocate(output(size(this,1)), stat=ialloc); call err(ialloc)
+  
+  do i=1,size(this,1)
+    output(i) = join(this%contents(i,:))
   enddo
-end subroutine
+end function
 
-subroutine print_line_IntMatrix_file(file_unit,input)
+function str_RealMatrix(this) result(output)
   implicit none
   
-  integer,         intent(in) :: file_unit
-  type(IntMatrix), intent(in) :: input
+  Class(RealMatrix), intent(in) :: this
+  type(String), allocatable     :: output(:)
   
-  integer :: i
+  integer :: i,ialloc
   
-  do i=1,size(input,1)
-    call print_line(file_unit, input%contents(i,:))
+  allocate(output(size(this,1)), stat=ialloc); call err(ialloc)
+  
+  do i=1,size(this,1)
+    output(i) = join(this%contents(i,:))
   enddo
-end subroutine
+end function
 
-subroutine print_line_RealMatrix(input)
+function str_ComplexMatrix(this) result(output)
   implicit none
   
-  type(RealMatrix), intent(in) :: input
+  Class(ComplexMatrix), intent(in) :: this
+  type(String), allocatable        :: output(:)
   
-  integer :: i
+  integer :: i,ialloc
   
-  do i=1,size(input,1)
-    call print_line(input%contents(i,:))
+  allocate(output(size(this,1)), stat=ialloc); call err(ialloc)
+  
+  do i=1,size(this,1)
+    output(i) = join(this%contents(i,:))
   enddo
-end subroutine
-
-subroutine print_line_RealMatrix_file(file_unit,input)
-  implicit none
-  
-  integer,          intent(in) :: file_unit
-  type(RealMatrix), intent(in) :: input
-  
-  integer :: i
-  
-  do i=1,size(input,1)
-    call print_line(file_unit, input%contents(i,:))
-  enddo
-end subroutine
-
-subroutine print_line_ComplexMatrix(input)
-  implicit none
-  
-  type(ComplexMatrix), intent(in) :: input
-  
-  integer :: i
-  
-  do i=1,size(input,1)
-    call print_line(input%contents(i,:))
-  enddo
-end subroutine
-
-subroutine print_line_ComplexMatrix_file(file_unit,input)
-  implicit none
-  
-  integer,             intent(in) :: file_unit
-  type(ComplexMatrix), intent(in) :: input
-  
-  integer :: i
-  
-  do i=1,size(input,1)
-    call print_line(file_unit, input%contents(i,:))
-  enddo
-end subroutine
+end function
 
 ! ----------------------------------------------------------------------
 ! Eigenvalue and Eigenvector wrappers.

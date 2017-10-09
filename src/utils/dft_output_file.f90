@@ -63,13 +63,14 @@ end subroutine
 
 function read_castep_output_file(filename) result(output)
   use constants_module, only : angstrom_per_bohr, ev_per_hartree
+  use ifile_module
   implicit none
   
   type(String), intent(in) :: filename
   type(DftOutputFile)      :: output
   
   ! file contents
-  type(String), allocatable :: castep_file(:)
+  type(IFile)               :: castep_file
   type(String), allocatable :: line(:)
   
   ! line numbers
@@ -80,14 +81,14 @@ function read_castep_output_file(filename) result(output)
   ! temporary variables
   integer        :: i
   
-  castep_file = read_lines(filename)
+  castep_file = filename
   
   ! Work out line numbers
   energy_line = 0
   forces_start_line = 0
   forces_end_line = 0
   do i=1,size(castep_file)
-    line = split(lower_case(castep_file(i)))
+    line = split(lower_case(castep_file%line(i)))
     ! energy
     if (size(line)>=2) then
       if (line(1)=='final' .and. line(2)=='energy,') then
@@ -131,11 +132,11 @@ function read_castep_output_file(filename) result(output)
   call new(output,forces_end_line-forces_start_line-7)
   
   ! Read data
-  line = split(castep_file(energy_line))
+  line = split(castep_file%line(energy_line))
   output%energy = dble(line(5)) / ev_per_hartree
   
   do i=1,output%no_atoms
-    line = split(castep_file(forces_start_line+5+i))
+    line = split(castep_file%line(forces_start_line+5+i))
     output%species(i) = line(2)
     output%forces(i) = dble(line(4:6)) * angstrom_per_bohr / ev_per_hartree
   enddo
@@ -143,21 +144,22 @@ end function
 
 function read_qe_output_file(filename) result(output)
   use constants_module, only : ev_per_rydberg, ev_per_hartree
+  use ifile_module
   implicit none
   
   type(String), intent(in) :: filename
   type(DftOutputFile)      :: output
   
   ! file contents
-  type(String), allocatable :: qe_file(:)
+  type(IFile)               :: qe_file
   type(String), allocatable :: line(:)
   
   ! line numbers
-  integer        :: species_start_line
-  integer        :: species_end_line
-  integer        :: energy_line
-  integer        :: forces_start_line
-  integer        :: forces_end_line
+  integer :: species_start_line
+  integer :: species_end_line
+  integer :: energy_line
+  integer :: forces_start_line
+  integer :: forces_end_line
   
   ! qe 'type' to species conversion
   integer                   :: no_species
@@ -166,12 +168,12 @@ function read_qe_output_file(filename) result(output)
   ! temporary variables
   integer        :: i
   
-  qe_file = read_lines(filename)
+  qe_file = filename
   
   ! Work out line numbers
   species_start_line = 0
   do i=1,size(qe_file)
-    line = split(lower_case(qe_file(i)))
+    line = split(lower_case(qe_file%line(i)))
     ! species
     if (line(1)=='atomic' .and. line(2)=='species') then
       species_start_line = i
@@ -199,15 +201,15 @@ function read_qe_output_file(filename) result(output)
   
   ! Read data
   do i=1,species_end_line-species_start_line-1
-    line = split(qe_file(species_start_line+1))
+    line = split(qe_file%line(species_start_line+1))
     species(i) = line(1)
   enddo
   
-  line = split(qe_file(energy_line))
+  line = split(qe_file%line(energy_line))
   output%energy = dble(line(5)) * ev_per_rydberg / ev_per_hartree
   
   do i=1,forces_end_line-forces_start_line-3
-    line = split(qe_file(forces_start_line+1+i))
+    line = split(qe_file%line(forces_start_line+1+i))
     output%species(i) = species(int(line(4)))
     output%forces(i) = dble(line(7:9)) * ev_per_rydberg / ev_per_hartree
   enddo

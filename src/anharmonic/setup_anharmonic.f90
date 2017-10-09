@@ -53,6 +53,7 @@ end function
 subroutine setup_anharmonic(arguments)
   use constants_module, only : kb_in_au
   use utils_module, only : mkdir
+  use ifile_module
   use setup_harmonic_module
   use dictionary_module
   use dft_input_file_module
@@ -80,9 +81,9 @@ subroutine setup_anharmonic(arguments)
   type(String)     :: dft_code
   
   ! File data.
-  type(String)              :: wd
-  type(String)              :: dft_input_filename
-  type(String), allocatable :: no_supercells_file(:)
+  type(String) :: wd
+  type(String) :: dft_input_filename
+  type(IFile)  :: no_supercells_file
   
   ! Starting data.
   real(dp)                         :: thermal_energy
@@ -172,8 +173,8 @@ subroutine setup_anharmonic(arguments)
   structure = read_structure_file(harmonic_path//'/structure.dat')
   
   ! Read in supercell structures.
-  no_supercells_file = read_lines(harmonic_path//'/no_supercells.dat')
-  no_supercells = int(no_supercells_file(1))
+  no_supercells_file = harmonic_path//'/no_supercells.dat'
+  no_supercells = int(no_supercells_file%line(1))
   allocate(supercells(no_supercells), stat=ialloc); call err(ialloc)
   do i=1,no_supercells
     supercells(i) = read_structure_file( &

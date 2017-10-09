@@ -51,6 +51,7 @@ subroutine new_DispPatterns(this,no_gvectors,no_modes,no_atoms)
 end subroutine
 
 function read_disp_patterns_file_character(filename,no_modes) result(this)
+  use ifile_module
   implicit none
   
   character(*), intent(in) :: filename
@@ -63,18 +64,18 @@ function read_disp_patterns_file_character(filename,no_modes) result(this)
   integer        :: no_atoms
   
   ! File contents
-  type(String), allocatable :: disp_patterns_file(:)
+  type(IFile)               :: disp_patterns_file
   type(String), allocatable :: line(:)
   
   ! Temporary variables
   integer :: i,j,k
   integer :: line_no
   
-  disp_patterns_file = read_lines(filename)
+  disp_patterns_file = filename
   
   ! Find no_atoms and no_gvectors
   do i=1,size(disp_patterns_file)
-    line = split(lower_case(disp_patterns_file(i)))
+    line = split(lower_case(disp_patterns_file%line(i)))
     if (size(line)>=1) then
       if (i/=1 .and. line(1)=="frequency") then
         lines_per_mode = i-1
@@ -90,10 +91,10 @@ function read_disp_patterns_file_character(filename,no_modes) result(this)
   do i=1,no_gvectors
     do j=1,no_modes
       line_no = ( (i-1)*no_modes + (j-1) )*(no_atoms+4) + 1
-      line = split(disp_patterns_file(line_no))
+      line = split(disp_patterns_file%line(line_no))
       this%frequencies(j,i) = dble(line(3))
       do k=1,no_atoms
-        line = split(disp_patterns_file(line_no + 2 + k))
+        line = split(disp_patterns_file%line(line_no + 2 + k))
         this%disp_patterns(:,k,j,i) = dble(line(1:3))
         this%prefactors(k,j,i) = dble(line(4))
       enddo

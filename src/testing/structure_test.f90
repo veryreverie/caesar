@@ -11,6 +11,7 @@ contains
 ! Writes out structure.dat in a manner compatible with old Caesar.
 ! ----------------------------------------------------------------------
 subroutine write_old_structure_file(structure,filename)
+  use ofile_module
   use structure_module
   use linear_algebra_module
   implicit none
@@ -20,26 +21,26 @@ subroutine write_old_structure_file(structure,filename)
   
   type(RealMatrix), allocatable :: rotations(:)
   
-  integer :: structure_file
+  type(OFile) :: structure_file
+  
   integer :: i
   
   rotations = calculate_cartesian_rotations(structure)
   
-  structure_file = open_write_file(filename)
-  call print_line(structure_file, 'Lattice')
-  call print_line(structure_file, structure%lattice)
-  call print_line(structure_file, 'Atoms')
+  structure_file = filename
+  call structure_file%print_line('Lattice')
+  call structure_file%print_line(structure%lattice)
+  call structure_file%print_line('Atoms')
   do i=1,structure%no_atoms
-    call print_line(structure_file, structure%species(i) //' '//&
+    call structure_file%print_line( structure%species(i) //' '//&
                                   & structure%mass(i)    //' '//&
                                   & structure%atoms(i))
   enddo
-  call print_line(structure_file, 'Symmetry')
+  call structure_file%print_line('Symmetry')
   do i=1,structure%no_symmetries
-    call print_line(structure_file, rotations(i))
-    call print_line(structure_file, structure%translations(i))
+    call structure_file%print_line(rotations(i))
+    call structure_file%print_line(structure%translations(i))
   enddo
-  call print_line(structure_file, 'End')
-  close(structure_file)
+  call structure_file%print_line('End')
 end subroutine
 end module

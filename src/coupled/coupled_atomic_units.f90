@@ -6,6 +6,8 @@ contains
 
 subroutine coupled_atomic_units()
   use constants_module, only : ev_per_hartree
+  use ifile_module
+  use ofile_module
   implicit none
   
   integer :: no_modes,no_indep_data,no_data,no_cells,no_couplings,no_params,order
@@ -19,20 +21,20 @@ subroutine coupled_atomic_units()
   real(dp) :: output
   
   ! Files.
-  type(String), allocatable :: input_file(:)
-  type(String), allocatable :: symmetry_file(:)
-  type(String), allocatable :: symmetry_coupling_file(:)
-  type(String), allocatable :: energy_file(:)
-  type(String), allocatable :: coupled_energy_file(:)
-  integer                   :: output_file
+  type(IFile) :: input_file
+  type(IFile) :: symmetry_file
+  type(IFile) :: symmetry_coupling_file
+  type(IFile) :: energy_file
+  type(IFile) :: coupled_energy_file
+  type(OFile) :: output_file
   
   ! Temporary variables.
   type(String), allocatable :: line(:)
   integer :: i,j,ialloc
   
   ! Read in inputs.
-  input_file = read_lines('post_input_coupled.dat')
-  line = split(input_file(1))
+  input_file = 'post_input_coupled.dat'
+  line = split(input_file%line(1))
   no_modes = int(line(1)) - 3
   no_indep_data = int(line(2))
   no_data = int(line(3))
@@ -63,27 +65,27 @@ subroutine coupled_atomic_units()
           & stat=ialloc); call err(ialloc)
 
   ! Read in symmetry.
-  symmetry_file = read_lines('symmetry.dat')
+  symmetry_file = 'symmetry.dat'
   do i=1,no_modes
-    line = split(symmetry_file(i+3))
+    line = split(symmetry_file%line(i+3))
     symmetry_mode(i) = int(line(1))
     symmetry_ref(i) = int(line(2))
   enddo
 
   ! Read in symmetry couplings.
-  symmetry_coupling_file = read_lines('symmetry_coupling.dat')
+  symmetry_coupling_file = 'symmetry_coupling.dat'
   do i=1,no_couplings
-    line = split(symmetry_coupling_file(i))
+    line = split(symmetry_coupling_file%line(i))
     working_modes(i,:) = int(line)-3
   enddo
   
   ! Read in independent energy.
   modes_read = 0
-  energy_file = read_lines('energy.dat')
+  energy_file = 'energy.dat'
   do i=1,no_modes
     if (symmetry_mode(i)==symmetry_ref(i)) then
       do j=1,no_indep_data
-        line = split(energy_file(modes_read*(no_indep_data+3)+j+1))
+        line = split(energy_file%line(modes_read*(no_indep_data+3)+j+1))
         positions_indep(i,j) = dble(line(1))
         energy_indep(i,j) = dble(line(2))
       enddo
@@ -94,27 +96,26 @@ subroutine coupled_atomic_units()
   enddo
   
   ! Read in coupled energy.
-  coupled_energy_file = read_lines('coupled_energy.dat')
+  coupled_energy_file = 'coupled_energy.dat'
   do i=1,no_couplings
-    line = split(coupled_energy_file((i-1)*(no_data+3)+1))
+    line = split(coupled_energy_file%line((i-1)*(no_data+3)+1))
     harmonic(i,:) = dble(line(2:3))
     do j=1,no_data
-      line = split(coupled_energy_file((i-1)*(no_data+3)+1+j))
+      line = split(coupled_energy_file%line((i-1)*(no_data+3)+1+j))
       positions(i,j,:) = dble(line(1:2))
       energy(i,j) = dble(line(3))
     enddo
   enddo
   
   ! Write out result.
-  output_file = open_write_file('coupled_energy_au.dat')
+  output_file = 'coupled_energy_au.dat'
   do i=1,no_couplings
-    call print_line(output_file, '# '//harmonic(i,:))
+    call output_file%print_line('# '//harmonic(i,:))
     do j=1,no_data
       output = (energy(i,j)-energy_ref)/(no_cells*ev_per_hartree)
-      call print_line(output_file, positions(i,j,:)//' '//output)
+      call output_file%print_line(positions(i,j,:)//' '//output)
     enddo
   enddo
-  close(output_file)
 end subroutine
 
 ! ----------------------------------------------------------------------

@@ -4,7 +4,8 @@
 ! Any type which extends Stringable can be:
 !    - converted to String, using string=this or str(this).
 !    - concatenated, using string//this or character//this.
-!    - printed, using print_line(this)
+!    - printed to stdout, using print_line(this).
+!    - printed to file, using file%print_line(this).
 ! See example module below for how to use this module.
 module stringable_module
   use string_module

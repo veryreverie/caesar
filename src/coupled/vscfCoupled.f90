@@ -13,6 +13,8 @@ contains
 ! ----------------------------------------------------------------------
 subroutine vscf()
   use constants_module, only : pi, ev_per_hartree, kb_in_au, ev_per_inverse_cm
+  use ifile_module
+  use ofile_module
   use scf_old_module
   implicit none
   
@@ -60,28 +62,28 @@ subroutine vscf()
   type(ScfOutput) :: scf_output
   
   ! Input files.
-  type(String), allocatable :: input_file(:)
-  type(String), allocatable :: fit_input_file(:)
-  type(String), allocatable :: symmetry_file(:)
-  type(String), allocatable :: amplitude_ratio_file(:)
-  type(String), allocatable :: amplitude_file(:)
-  type(String), allocatable :: basis_file(:)
-  type(String), allocatable :: vec_in_file(:)
-  type(String), allocatable :: coupled_file(:)
-  type(String), allocatable :: potential_file(:)
-  type(String), allocatable :: coupled_potential_file(:)
+  type(IFile) :: input_file
+  type(IFile) :: fit_input_file
+  type(IFile) :: symmetry_file
+  type(IFile) :: amplitude_ratio_file
+  type(IFile) :: amplitude_file
+  type(IFile) :: basis_file
+  type(IFile) :: vec_in_file
+  type(IFile) :: coupled_file
+  type(IFile) :: potential_file
+  type(IFile) :: coupled_potential_file
   
   ! Output files.
-  integer :: scf_pot_file
-  integer :: convergence_file
-  integer :: output_file
-  integer :: result_file
-  integer :: density_file
-  integer :: eigenvalues_file
-  integer :: independent_mode_file
-  integer :: internal_file
-  integer :: temperature_file
-  integer :: vec_out_file
+  type(OFile) :: scf_pot_file
+  type(OFile) :: convergence_file
+  type(OFile) :: output_file
+  type(OFile) :: result_file
+  type(OFile) :: density_file
+  type(OFile) :: eigenvalues_file
+  type(OFile) :: independent_mode_file
+  type(OFile) :: internal_file
+  type(OFile) :: temperature_file
+  type(OFile) :: vec_out_file
   
   ! Temporary variables
   integer :: i,j,k,l,ialloc,t,m,n
@@ -91,27 +93,27 @@ subroutine vscf()
   ! --------------------------------------------------
   ! Read in basis information.
   ! --------------------------------------------------
-  input_file = read_lines('vscf_input.dat')
+  input_file = 'vscf_input.dat'
   
-  line = split(input_file(2))
+  line = split(input_file%line(2))
   first_mode = int(line(1))
   last_mode = int(line(2))
   no_modes = last_mode-first_mode+1
   no_indep_params = int(line(3))
   no_coupled_params = int(line(4))
   
-  line = split(input_file(4))
+  line = split(input_file%line(4))
   nstates = int(line(1))
   nbasis = int(line(2))
   no_unit_cells = int(line(3))
   temperature = dble(line(4))
   
-  line = split(input_file(6))
+  line = split(input_file%line(6))
   execution_mode = int(line(1))
   
   ! Read in the functional.
-  fit_input_file = read_lines('fit_input.dat')
-  line = split(fit_input_file(1))
+  fit_input_file = 'fit_input.dat'
+  line = split(fit_input_file%line(1))
   functional = line(1)
   integration_points = int(line(2)) + 1
   
@@ -197,25 +199,25 @@ subroutine vscf()
   ! Read in data.
   ! --------------------------------------------------
   ! Read in symmetry-related modes.
-  symmetry_file = read_lines('symmetry.dat')
+  symmetry_file = 'symmetry.dat'
   do i=first_mode,last_mode
     i2 = i-first_mode+1
-    line = split(symmetry_file(i))
+    line = split(symmetry_file%line(i))
     symmetry_mode(i2) = int(line(1))
     symmetry_ref(i2) = int(line(2))
   enddo
 
   ! Read in maximum amplitude. Calculate sampling points.
-  amplitude_ratio_file = read_lines('amplitude_ratio.dat')
-  line = split(amplitude_ratio_file(1))
+  amplitude_ratio_file = 'amplitude_ratio.dat'
+  line = split(amplitude_ratio_file%line(1))
   amp_ratio = dble(line(1))/dble(line(2))
 
   do i=first_mode,last_mode
     i2 = i-first_mode+1
     
     if (symmetry_mode(i2)==symmetry_ref(i2)) then
-      amplitude_file = read_lines('max_amplitude.'//i//'.dat')
-      line = split(amplitude_file(1))
+      amplitude_file = 'max_amplitude.'//i//'.dat'
+      line = split(amplitude_file%line(1))
       max_amplitude(i2) = dble(line(1)) * amp_ratio
       harmonic_freq(i2) = dble(line(2))
     else
@@ -233,11 +235,11 @@ subroutine vscf()
   do i=first_mode,last_mode
     i2 = i-first_mode+1
     if (symmetry_mode(i2)==symmetry_ref(i2)) then
-      basis_file = read_lines('functions_basis/basis_'//i//'.dat')
-      vec_11(i2) = dble(basis_file(1))
-      vec_21(i2) = dble(basis_file(2))
-      vec_22(i2) = dble(basis_file(3))
-      vec_23(i2) = dble(basis_file(4))
+      basis_file = 'functions_basis/basis_'//i//'.dat'
+      vec_11(i2) = dble(basis_file%line(1))
+      vec_21(i2) = dble(basis_file%line(2))
+      vec_22(i2) = dble(basis_file%line(3))
+      vec_23(i2) = dble(basis_file%line(4))
       if (vec_23(i2)<1.0e-6_dp) then
         vec_23(i2) = abs(vec_11(i2))
       endif
@@ -253,10 +255,11 @@ subroutine vscf()
           enddo
         enddo
       elseif (execution_mode==1) then
-        vec_in_file = read_lines('anharmonic_eigenvectors_mode_'//i//'.dat')
+        vec_in_file = 'anharmonic_eigenvectors_mode_'//i//'.dat'
         do j=1,nstates
           do k=1,nbasis
-            eigenvectors(i2,k,j) = dble(vec_in_file((j-1)*(nbasis+1)+k+3))
+            eigenvectors(i2,k,j) = dble( &
+               & vec_in_file%line((j-1)*(nbasis+1)+k+3))
           enddo
         enddo
       endif
@@ -278,9 +281,9 @@ subroutine vscf()
   !do i=first_mode,last_mode
   !  i2 = i-first_mode+1
   !  if(symmetry_mode(i2)==symmetry_ref(i2))then
-  !    indep_file = read_lines('indep_fit_parameters_'//i//'.dat')
+  !    indep_file = 'indep_fit_parameters_'//i//'.dat'
   !    do j=1,no_indep_params
-  !      indep_params(i2,j) = int(indep_file(j))
+  !      indep_params(i2,j) = int(indep_file%line(j))
   !    enddo
   !  else
   !    do j=1,no_indep_params
@@ -299,12 +302,12 @@ subroutine vscf()
           j2 = j-first_mode+1
           if(j>i.or.(j<i.and.symmetry_mode(j2)/=symmetry_ref(j2)))then
             if (file_exists('coupled_fit_params_'//i//'.'//j//'.dat')) then
-              coupled_file = read_lines('coupled_fit_params_'//i//'.'//'.dat')
+              coupled_file = 'coupled_fit_params_'//i//'.'//'.dat'
               do k=1,no_coupled_params
                 if (j>i) then
-                  coupled_params(i2,j2,k) = dble(coupled_file(k))
+                  coupled_params(i2,j2,k) = dble(coupled_file%line(k))
                 else
-                  coupled_params(j2,i2,k) = dble(coupled_file(k))
+                  coupled_params(j2,i2,k) = dble(coupled_file%line(k))
                 endif
               enddo
             endif
@@ -332,12 +335,12 @@ subroutine vscf()
   do i=first_mode,last_mode
     i2 = i-first_mode+1
     if(symmetry_mode(i2)==symmetry_ref(i2))then
-      basis_file = read_lines('functions_basis/basis_'//i//'.dat')
-      v0(i2) = dble(basis_file(2))
-      x0(i2) = dble(basis_file(3))
-      omega(i2) = dble(basis_file(4))
+      basis_file = 'functions_basis/basis_'//i//'.dat'
+      v0(i2) = dble(basis_file%line(2))
+      x0(i2) = dble(basis_file%line(3))
+      omega(i2) = dble(basis_file%line(4))
       if (omega(i2)<1.0e-5_dp) then
-        omega(i2) = dble(basis_file(1))
+        omega(i2) = dble(basis_file%line(1))
       endif
     else
       v0(i2)=v0(symmetry_ref(i2)-(first_mode-1))
@@ -372,7 +375,7 @@ subroutine vscf()
   call print_line('')
 
   ! Calculate potentials.
-  !ortuzar_file = open_write_file('ortuzar.dat')
+  !ortuzar_file = 'ortuzar.dat'
   call print_line('reading in potentials...')
 !    do i=1,no_modes
 !      do j=1,integration_points
@@ -383,18 +386,17 @@ subroutine vscf()
 !                     & - 0.5_dp*omega(i)*omega(i)*q*q-v0(i)
 !        !if(i==9)call print_line(q,indep_pot(i,j))
 !      enddo ! j
-!    !  call print_line(ortuzar_file, '')
-!    !  call print_line(ortuzar_file, '')
+!    !  call ortuzar_file%print_line('')
+!    !  call ortuzar_file%print_line('')
 !    enddo ! i
-!    !close(ortuzar_file)
 
   do i=1,no_modes
     if(symmetry_mode(i)==symmetry_ref(i))then
       l=i+(first_mode-1)
-      potential_file = read_lines('indep_potential/indep_pot_'//l//'.dat')
+      potential_file = 'indep_potential/indep_pot_'//l//'.dat'
       do j=1,integration_points
         q = qs(j,i)
-        line = split(potential_file(j))
+        line = split(potential_file%line(j))
         indep_pot_bare(i,j) = dble(line(2))
         indep_pot(i,j) = indep_pot_bare(i,j) &
                      & - 0.5_dp*omega(i)*omega(i)*q*q-v0(i)
@@ -415,10 +417,10 @@ subroutine vscf()
           if(j>i.or.(j<i.and.symmetry_mode(j)/=symmetry_ref(j)))then
             k=j+3
             if (file_exists('coupled_potential/coupled_pot_'//l//'.'//k//'.dat')) then
-              coupled_potential_file = read_lines('coupled_potential/coupled_pot_'//l//'.'//k//'.dat')
+              coupled_potential_file = 'coupled_potential/coupled_pot_'//l//'.'//k//'.dat'
               do m=1,integration_points
                 do n=1,integration_points
-                  line = split(coupled_potential_file((m-1)*integration_points+n))
+                  line = split(coupled_potential_file%line((m-1)*integration_points+n))
                   coupled_pot(i,j,m,n) = dble(line(1))
                 enddo ! n
               enddo ! m
@@ -468,11 +470,10 @@ subroutine vscf()
   call print_line('')
 
   ! state to consider
-  !state_file = read_lines('state.dat')
+  !state_file = 'state.dat'
   !do i=1,no_modes
-  !  state(i) = int(state_file(i))
-  !enddo ! i
-  !close(state_file)
+  !  state(i) = int(state_file%line(i))
+  !enddo
   state=1
   
   ! --------------------------------------------------
@@ -527,9 +528,9 @@ subroutine vscf()
   ! Self-consistent field loop 
   ! --------------------------------------------------
   ! Open output files.
-  scf_pot_file = open_write_file('scf_pot.dat')
-  convergence_file = open_write_file('convergence.dat')
-  output_file = open_append_file('caesar.output')
+  scf_pot_file = 'scf_pot.dat'
+  convergence_file = 'convergence.dat'
+  output_file = 'caesar.output'
   
   do t=1,max_t
     ! Run scf loop.
@@ -547,17 +548,17 @@ subroutine vscf()
     
     ! Write out self-consistent potential.
     do k=1,integration_points
-      call print_line(scf_pot_file, qs(k,1)        //' '// &
+      call scf_pot_file%print_line( qs(k,1)        //' '// &
                                   & scf_pot(1,k)   //' '// &
                                   & indep_pot(1,k) //' '// &
                                   & scf_output%scf_lin_coupled(1,k))
     enddo
-    call print_line(scf_pot_file, '')
-    call print_line(scf_pot_file, '')
+    call scf_pot_file%print_line('')
+    call scf_pot_file%print_line('')
     
     ! Print convergence data.
-    call print_line(convergence_file, t//' '//final_energy//' '//max_diff)
-    call print_line(output_file, t//' '//final_energy//' '//max_diff)
+    call convergence_file%print_line(t//' '//final_energy//' '//max_diff)
+    call output_file%print_line(t//' '//final_energy//' '//max_diff)
     
     ! Break condition.
     if ((max_diff<tol.and.t>=min_t).or.execution_mode==0) then
@@ -568,77 +569,71 @@ subroutine vscf()
     endif
   enddo
   
-  close(scf_pot_file)
-  close(convergence_file)
-  
   anharmonic_energy = final_energy
   
   ! --------------------------------------------------
   ! Write out scf results.
   ! --------------------------------------------------
   ! Write out eigenvalues.
-  eigenvalues_file = open_write_file('anharmonic_eigenvalues.dat')
+  eigenvalues_file = 'anharmonic_eigenvalues.dat'
   do i=1,no_modes
-    call print_line(eigenvalues_file, 'eigenvalues for mod '//i)
+    call eigenvalues_file%print_line( 'eigenvalues for mod '//i)
     do j=1,nbasis
-      call print_line(eigenvalues_file, eigenvalues(i,j))
+      call eigenvalues_file%print_line( eigenvalues(i,j))
     enddo
-    call print_line(eigenvalues_file, '')
-    call print_line(eigenvalues_file, '')
+    call eigenvalues_file%print_line( '')
+    call eigenvalues_file%print_line( '')
   enddo
-  close(eigenvalues_file)
   
   ! Write out independent modes.
-  independent_mode_file = open_write_file('indep_mode.dat')
-  call print_line(independent_mode_file,'independent modes frequnecies')
+  independent_mode_file = 'indep_mode.dat'
+  call independent_mode_file%print_line('independent modes frequnecies')
   do i=1,no_modes
-    call print_line(independent_mode_file, i+3              //' '// &
+    call independent_mode_file%print_line( i+3              //' '// &
                                          & harmonic_freq(i) //' '// &
                                          & eigenvalues(i,1))
   enddo
-  call print_line(independent_mode_file, '')
-  close(independent_mode_file)
+  call independent_mode_file%print_line('')
   
   ! Write out eigenvectors.
   do i=1,no_modes
     if(symmetry_mode(i)==symmetry_ref(i))then
       l=i+3
-      vec_out_file = open_write_file('anharmonic_eigenvectors_mode_'//l//'.dat')
-      call print_line(vec_out_file, vec_11(i) //' '// &
+      vec_out_file = 'anharmonic_eigenvectors_mode_'//l//'.dat'
+      call vec_out_file%print_line( vec_11(i) //' '// &
                                   & nstates   //' '// &
                                   & nbasis)
-      call print_line(vec_out_file, vec_21(i) //' '// &
+      call vec_out_file%print_line( vec_21(i) //' '// &
                                   & vec_22(i) //' '// &
                                   & vec_23(i))
-      call print_line(vec_out_file, '')
+      call vec_out_file%print_line('')
       do j=1,nstates
         do k=1,nbasis
-          call print_line(vec_out_file, eigenvectors(i,k,j))
-        enddo ! k
-        call print_line(vec_out_file, '')
-      enddo ! j
-      call print_line(vec_out_file, '')
-      close(vec_out_file)
-    endif ! symmetry
-  enddo ! i
+          call vec_out_file%print_line(eigenvectors(i,k,j))
+        enddo
+        call vec_out_file%print_line('')
+      enddo
+      call vec_out_file%print_line('')
+    endif
+  enddo
   
   ! Write out convergence data.
-  call print_line(output_file, '')
-  call print_line(output_file, 'converged in '//t//' iterations.')
-  call print_line(output_file, 'final energy (a.u., ev) '// &
+  call output_file%print_line( '')
+  call output_file%print_line( 'converged in '//t//' iterations.')
+  call output_file%print_line( 'final energy (a.u., ev) '// &
      & final_energy//' '//final_energy*ev_per_hartree)
-  call print_line(output_file, 'final energy puc (a.u., ev) '// &
+  call output_file%print_line( 'final energy puc (a.u., ev) '// &
      & final_energy/no_unit_cells                       //' '// &
      & final_energy*ev_per_hartree/no_unit_cells)
-  call print_line(output_file, '')
+  call output_file%print_line( '')
   
-  result_file = open_write_file('vscf_results.dat')
-  call print_line(result_file, 'converged in '//t//' iterations.')
-  call print_line(result_file, 'final energy (a.u., ev, cm-1) ' // &
+  result_file = 'vscf_results.dat'
+  call result_file%print_line( 'converged in '//t//' iterations.')
+  call result_file%print_line( 'final energy (a.u., ev, cm-1) ' // &
                              & final_energy                //' '// &
                              & final_energy*ev_per_hartree //' '// &
                              & final_energy*ev_per_inverse_cm)
-  call print_line(result_file, 'energy difference is '//max_diff)
+  call result_file%print_line( 'energy difference is '//max_diff)
   
   ! --------------------------------------------------
   ! Perturbation theory.
@@ -750,7 +745,7 @@ subroutine vscf()
     enddo
     
     ! Write out perturbation theory results.
-    call print_line('')
+    call print_line( '')
     call print_line( '     mp2 correction (a.u., ev, cm-1) '// &
                    & mp2                               //' '// &
                    & mp2*ev_per_hartree                //' '// &
@@ -764,8 +759,8 @@ subroutine vscf()
        & (final_energy+mp2)*ev_per_hartree/no_unit_cells //' '// &
        & (final_energy+mp2)*ev_per_inverse_cm/no_unit_cells)
     
-    call print_line(result_file, '')
-    call print_line(result_file, 'mp2 energy (a.u., ev, cm-1): '// &
+    call result_file%print_line( '')
+    call result_file%print_line( 'mp2 energy (a.u., ev, cm-1): '// &
        & final_energy+mp2                                  //' '// &
        & (final_energy+mp2)*ev_per_hartree                 //' '// &
        & (final_energy+mp2)*ev_per_inverse_cm)
@@ -773,7 +768,6 @@ subroutine vscf()
     mp2_energy=final_energy+mp2
 
   endif ! execution mode
-  close(result_file)
 
   ! --------------------------------------------------
   ! Write out energies.
@@ -784,11 +778,11 @@ subroutine vscf()
                  & harmonic_energy*ev_per_hartree/no_unit_cells)
   call print_line( 'anharmonic energy (ev): '// &
                  & anharmonic_energy*ev_per_hartree/no_unit_cells)
-  call print_line(output_file, '')
-  call print_line(output_file, '-------summary of results-------')
-  call print_line(output_file, 'harmonic energy (ev): '// &
+  call output_file%print_line( '')
+  call output_file%print_line( '-------summary of results-------')
+  call output_file%print_line( 'harmonic energy (ev): '// &
      & harmonic_energy*ev_per_hartree/no_unit_cells)
-  call print_line(output_file, 'anharmonic energy (ev): '// &
+  call output_file%print_line( 'anharmonic energy (ev): '// &
      & anharmonic_energy*ev_per_hartree/no_unit_cells)
   if (execution_mode==1) then
     call print_line( 'mp2 energy (ev): '// &
@@ -831,7 +825,7 @@ subroutine vscf()
     int_energy = 0
     hint_energy = 0
     if (temperature>tolerance) then
-      internal_file = open_write_file('indep_mode_internal.dat')
+      internal_file = 'indep_mode_internal.dat'
       do i=1,no_modes
         temp_int_energy = sum( shift_eigenvalues(i,:)       &
                       &      * exp( -shift_eigenvalues(i,:) &
@@ -851,18 +845,17 @@ subroutine vscf()
         endif
         hint_energy = hint_energy + temp_hint_energy
         
-        call print_line(internal_file, i+3              //' '// &
+        call internal_file%print_line( i+3              //' '// &
                                      & temp_hint_energy //' '// &
                                      & temp_int_energy)
       enddo
-      close(internal_file)
     endif
 
     ! calculate free energy
     fenergy=0
     hfenergy=0
     if(temperature>tolerance)then
-      temperature_file = open_write_file('indep_mode_temperature.dat')
+      temperature_file = 'indep_mode_temperature.dat'
       do i=1,no_modes
         fenergy=fenergy-thermal_energy*log(part_fn(i))
         hfenergy=hfenergy-thermal_energy*log(har_part_fn(i))
@@ -872,20 +865,19 @@ subroutine vscf()
         if(harmonic_freq(i)<0)then
           hfenergy=hfenergy-(-harmonic_freq(i))
         endif
-        call print_line(temperature_file,                    &
+        call temperature_file%print_line(                    &
            & -(  thermal_energy*log(part_fn(i))              &
            &   - thermal_energy*log(har_part_fn(i))) //' '// &
            & -thermal_energy*log(part_fn(i))         //' '// &
            & -thermal_energy*log(har_part_fn(i)))
       enddo
-      close(temperature_file)
     else
       fenergy = sum(eigenvalues(:,1))
       hfenergy = 0.5_dp*sum(harmonic_freq)
     endif
 
     ! Calculate vibrational density.
-    density_file = open_write_file('density.dat')
+    density_file = 'density.dat'
     do i=1,integration_points
       density=0
       do j=1,nstates
@@ -901,30 +893,27 @@ subroutine vscf()
           enddo
         enddo
       enddo
-      call print_line(density_file, qs(i,1)//' '//density)
+      call density_file%print_line(qs(i,1)//' '//density)
     enddo
-    close(density_file)
     
     ! Write out thermodynamic quantities.
-    call print_line(output_file, '')
-    call print_line(output_file, &
+    call output_file%print_line( '')
+    call output_file%print_line( &
        & '-------summary of free energy results-------')
-    call print_line(output_file, 'temperature (k): '//temperature)
-    call print_line(output_file, 'harmonic free energy (ev): '// &
+    call output_file%print_line( 'temperature (k): '//temperature)
+    call output_file%print_line( 'harmonic free energy (ev): '// &
        & hfenergy/no_unit_cells*ev_per_hartree)
-    call print_line(output_file, 'anharmonic free energy (ev): '// &
+    call output_file%print_line( 'anharmonic free energy (ev): '// &
        & fenergy/no_unit_cells*ev_per_hartree)
-    call print_line(output_file, '')
-    call print_line(output_file, &
+    call output_file%print_line( '')
+    call output_file%print_line( &
        & '-------summary of int energy results-------')
-    call print_line(output_file, 'temperature (k): '//temperature)
-    call print_line(output_file, 'harmonic internal energy (ev): '// &
+    call output_file%print_line( 'temperature (k): '//temperature)
+    call output_file%print_line( 'harmonic internal energy (ev): '// &
        & hint_energy/no_unit_cells*ev_per_hartree)
-    call print_line(output_file, 'anharmonic internal energy (ev): '// &
+    call output_file%print_line( 'anharmonic internal energy (ev): '// &
        & int_energy/no_unit_cells*ev_per_hartree)
   endif
-      
-  close(output_file)
 end subroutine
 
 ! ======================================================================
@@ -935,6 +924,7 @@ end subroutine
 ! Single mode potential.
 ! ----------------------------------------------------------------------
 function v_indep(indep_params,q) result(output)
+  use ifile_module
   implicit none
   
   real(dp),intent(in) :: indep_params(:),q
@@ -942,14 +932,14 @@ function v_indep(indep_params,q) result(output)
   integer :: order
   type(String) :: functional
   
-  type(String), allocatable :: fit_input_file(:)
+  type(IFile) :: fit_input_file
   
   ! Temporary variables.
   integer                   :: j
   type(String), allocatable :: line(:)
   
-  fit_input_file = read_lines('fit_input.dat')
-  line = split(fit_input_file(1))
+  fit_input_file = 'fit_input.dat'
+  line = split(fit_input_file%line(1))
   functional = line(1)
   order = int(line(2))
     

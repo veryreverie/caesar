@@ -474,26 +474,27 @@ end subroutine
 ! Writes a Dictionary to file.
 ! ----------------------------------------------------------------------
 subroutine write_file_Dictionary_character(this,filename)
+  use ofile_module
   implicit none
   
   class(Dictionary), intent(in) :: this
   character(*),      intent(in) :: filename
   
-  integer :: i
-  integer :: dictionary_file
+  type(OFile) :: dictionary_file
   
-  dictionary_file = open_write_file(filename)
+  integer :: i
+  
+  dictionary_file = filename
   do i=1,size(this)
     if (.not. this%keywords(i)%allowed_in_file) then
       cycle
     elseif (.not. this%keywords(i)%is_set()) then
       cycle
     else
-      call print_line(dictionary_file, this%keywords(i)%keyword//' '// &
+      call dictionary_file%print_line( this%keywords(i)%keyword//' '// &
                                      & this%keywords(i)%value())
     endif
   enddo
-  close(dictionary_file)
 end subroutine
 
 subroutine write_file_Dictionary_String(this,filename)
@@ -515,6 +516,7 @@ end subroutine
 !    been set will be modified. This defaults to .false..
 subroutine read_file_Dictionary_character(this, filename, &
    & only_update_if_unset)
+  use ifile_module
   implicit none
   
   class(Dictionary), intent(inout)        :: this
@@ -522,7 +524,7 @@ subroutine read_file_Dictionary_character(this, filename, &
   logical,           intent(in), optional :: only_update_if_unset
   
   ! Files.
-  type(String), allocatable :: dictionary_file(:)
+  type(IFile) :: dictionary_file
   
   ! Temporary variables.
   integer                   :: i,j
@@ -536,13 +538,13 @@ subroutine read_file_Dictionary_character(this, filename, &
   endif
   
   ! Read file.
-  dictionary_file = read_lines(filename)
+  dictionary_file = filename
   
   ! Process file.
   ! Each line is expected to be of the form '  key  value  ! comments  '
   do i=1,size(dictionary_file)
     ! Strip leading and trailing spaces.
-    line = [trim(dictionary_file(i))]
+    line = [trim(dictionary_file%line(i))]
     
     ! Ignore blank lines and comment lines (those beginning with a '!').
     if (len(line(1))==0) then

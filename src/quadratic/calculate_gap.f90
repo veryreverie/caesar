@@ -20,6 +20,8 @@ end function
 ! Main program.
 ! ----------------------------------------------------------------------
 subroutine calculate_gap(arguments)
+  use ifile_module
+  use ofile_module
   use dictionary_module
   implicit none
   
@@ -34,11 +36,11 @@ subroutine calculate_gap(arguments)
   type(String) :: top_filename
   type(String) :: bottom_filename
   
-  type(String), allocatable :: top_file(:)
-  type(String), allocatable :: bottom_file(:)
+  type(IFile)               :: top_file
+  type(IFile)               :: bottom_file
   type(String), allocatable :: line(:)
   
-  integer      :: gap_file
+  type(OFile) :: gap_file
  
   call print_line('What is the file of the top band?')
   top_filename = read_line_from_user()
@@ -47,21 +49,20 @@ subroutine calculate_gap(arguments)
   call print_line('How many data points are there?')
   no_points = int(read_line_from_user())
   
-  top_file = read_lines(top_filename)
-  bottom_file = read_lines(bottom_filename)
-  gap_file = open_write_file('gap.dat')
+  top_file = top_filename
+  bottom_file = bottom_filename
+  gap_file = 'gap.dat'
   
   do i=1,no_points
-    line = split(top_file(i))
+    line = split(top_file%line(i))
     temp = dble(line(1))
     top = dble(line(2))
     
-    line = split(bottom_file(i))
+    line = split(bottom_file%line(i))
     temp = dble(line(1))
     bottom = dble(line(2))
     
-    call print_line(gap_file,temp//' '//top-bottom)
+    call gap_file%print_line(temp//' '//top-bottom)
   enddo
-  close(gap_file)
 end subroutine
 end module

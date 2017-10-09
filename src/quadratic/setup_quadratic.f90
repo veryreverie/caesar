@@ -43,6 +43,7 @@ end function
 subroutine setup_quadratic(arguments)
   use constants_module, only : kb_in_au, pi
   use utils_module,     only : mkdir
+  use ifile_module
   use structure_module
   use dft_input_file_module
   use qpoints_module
@@ -104,7 +105,7 @@ subroutine setup_quadratic(arguments)
   type(String)   :: mdir
   
   ! Files
-  type(String), allocatable :: no_supercells_file(:)
+  type(IFile) :: no_supercells_file
   
   ! --------------------------------------------------
   ! Get settings from user.
@@ -161,8 +162,8 @@ subroutine setup_quadratic(arguments)
   structure = read_structure_file(harmonic_path//'/structure.dat')
   
   ! Read in number of supercells
-  no_supercells_file = read_lines(harmonic_path//'/no_supercells.dat')
-  no_supercells = int(no_supercells_file(1))
+  no_supercells_file = harmonic_path//'/no_supercells.dat'
+  no_supercells = int(no_supercells_file%line(1))
   
   ! Read in supercell structures.
   allocate(supercells(no_supercells), stat=ialloc); call err(ialloc)

@@ -15,6 +15,8 @@ module spline2_module
 contains
 
 subroutine spline2()
+  use ifile_module
+  use ofile_module
   implicit none
   
   ! Independent data points.
@@ -29,12 +31,12 @@ subroutine spline2()
   real(dp) :: dx1,dx2
   integer :: mode1,mode2
   
-  type(string), allocatable :: input_file(:)
-  type(string), allocatable :: modes_file(:)
-  type(string), allocatable :: mode1_file(:)
-  type(string), allocatable :: mode2_file(:)
-  type(string), allocatable :: energy_file(:)
-  integer                   :: output_file
+  type(IFile) :: input_file
+  type(IFile) :: modes_file
+  type(IFile) :: mode1_file
+  type(IFile) :: mode2_file
+  type(IFile) :: energy_file
+  type(OFile) :: output_file
   
   ! Temporary variables.
   integer                   :: n,m,p
@@ -42,8 +44,8 @@ subroutine spline2()
   type(string), allocatable :: line(:)
   
   ! Read in number of integration points.
-  input_file = read_lines('fit_input.dat')
-  line = split(input_file(1))
+  input_file = 'fit_input.dat'
+  line = split(input_file%line(1))
   n = int(line(1))
   m = int(line(2))
   p = int(line(3))
@@ -63,30 +65,30 @@ subroutine spline2()
 
   
   ! Read in input data.
-  modes_file = read_lines('modes.dat')
-  line = split(modes_file(1))
+  modes_file = 'modes.dat'
+  line = split(modes_file%line(1))
   mode1 = int(line(1))
   mode2 = int(line(2))
   
-  mode1_file = read_lines('fit_energy_'//mode1//'.dat')
+  mode1_file = 'fit_energy_'//mode1//'.dat'
   do i=1,p
-    line = split(mode1_file(i))
+    line = split(mode1_file%line(i))
     xb(i) = dble(line(1))
     fb(i)  = dble(line(2))
   enddo
   
-  mode2_file = read_lines('fit_energy_'//mode2//'.dat')
+  mode2_file = 'fit_energy_'//mode2//'.dat'
   do i=1,p
-    line = split(mode2_file(i))
+    line = split(mode2_file%line(i))
     xc(i) = dble(line(1))
     fc(i)  = dble(line(2))
   enddo
   
-  energy_file = read_lines('fit_energy.dat')
+  energy_file = 'fit_energy.dat'
   do i=1,n
     do j=1,n
       if(i/=((n+1)/2).and.j/=((n+1)/2))then 
-        line = split(energy_file((i-1)*n+j))
+        line = split(energy_file%line((i-1)*n+j))
         x1a(i) = dble(line(1))
         x2a(j) = dble(line(2))
         f(i,j) = dble(line(3))
@@ -119,7 +121,7 @@ subroutine spline2()
     do j=1,m+1
       u2 = x2a(1) + (i-1)*dx2
       f_int = splint(x1a,x2a,f,d2f,u1,u2)
-      call print_line(output_file, u1//' '//u2//' '//f_int)
+      call output_file%print_line(u1//' '//u2//' '//f_int)
     enddo
   enddo
 end subroutine

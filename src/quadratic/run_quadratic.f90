@@ -35,6 +35,7 @@ end function
 ! The main program.
 ! ----------------------------------------------------------------------
 subroutine run_quadratic(arguments)
+  use ifile_module
   use structure_module
   use qpoints_module
   use dictionary_module
@@ -60,7 +61,7 @@ subroutine run_quadratic(arguments)
   
   ! Previously calculated data.
   type(StructureData)           :: structure
-  type(String), allocatable     :: no_supercells_file(:)
+  type(IFile)                   :: no_supercells_file
   integer                       :: no_supercells
   type(QpointData), allocatable :: qpoints(:)
   
@@ -77,6 +78,10 @@ subroutine run_quadratic(arguments)
   supercells_to_run = int(split(arguments%value('supercells_to_run')))
   no_cores = int(arguments%value('no_cores'))
   run_script = arguments%value('run_script')
+  
+  ! Read in number of supercells.
+  no_supercells_file = harmonic_path//'/no_supercells.dat'
+  no_supercells = int(no_supercells_file%line(1))
   
   ! --------------------------------------------------
   ! Check user inputs.
@@ -116,10 +121,6 @@ subroutine run_quadratic(arguments)
   seedname = setup_quadratic_arguments%value('seedname')
   harmonic_path = setup_quadratic_arguments%value('harmonic_path')
   no_samples = int(setup_quadratic_arguments%value('no_samples'))
-  
-  ! Read in number of supercells.
-  no_supercells_file = read_lines(harmonic_path//'/no_supercells.dat')
-  no_supercells = int(no_supercells_file(1))
   
   ! Read in structure.
   structure = read_structure_file(harmonic_path//'/structure.dat')

@@ -132,37 +132,38 @@ end function
 ! I/O operations with the group.
 ! ----------------------------------------------------------------------
 function read_group_file(filename) result(this)
+  use ifile_module
   implicit none
   
   type(String), intent(in) :: filename
   type(Group), allocatable :: this(:)
   
-  type(String), allocatable :: contents(:)
+  type(IFile) :: group_file
   
-  integer :: i
+  integer :: i,ialloc
   
-  contents = read_lines(filename)
+  group_file = filename
   
-  allocate(this(size(contents)))
-  do i=1,size(contents)
-    this(i)%operation = int(split(contents(i)))
+  allocate(this(size(group_file)), stat=ialloc); call err(ialloc)
+  do i=1,size(group_file)
+    this(i)%operation = int(split(group_file%line(i)))
   enddo
 end function
 
 subroutine write_group_file(this,filename)
+  use ofile_module
   implicit none
   
   type(Group),  intent(in) :: this(:)
   type(String), intent(in) :: filename
   
-  integer      :: group_file
+  type(OFile) :: group_file
   
   integer :: i
   
-  group_file = open_write_file(filename)
+  group_file = filename
   do i=1,size(this)
-    call print_line(group_file, this(i)%operation)
+    call group_file%print_line(this(i)%operation)
   enddo
-  close(group_file)
 end subroutine
 end module

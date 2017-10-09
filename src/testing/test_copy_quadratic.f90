@@ -32,6 +32,7 @@ end function
 ! Main program.
 ! ----------------------------------------------------------------------
 subroutine test_copy_quadratic(arguments)
+  use ifile_module
   use dictionary_module
   implicit none
   
@@ -44,12 +45,12 @@ subroutine test_copy_quadratic(arguments)
   type(String) :: copy_dir
   
   ! Setup data
-  type(String), allocatable :: user_input_file(:)
-  type(String)              :: dft_code
-  type(String)              :: seedname
-  type(String)              :: harmonic_path
-  type(String), allocatable :: no_supercells_file(:)
-  integer                   :: no_supercells
+  type(IFile)  :: user_input_file
+  type(String) :: dft_code
+  type(String) :: seedname
+  type(String) :: harmonic_path
+  type(IFile)  :: no_supercells_file
+  integer      :: no_supercells
   
   ! Directory and file names.
   type(String) :: sdir
@@ -77,13 +78,13 @@ subroutine test_copy_quadratic(arguments)
   ! ----------------------------------------------------------------------
   ! Read in previous settings.
   ! ----------------------------------------------------------------------
-  user_input_file = read_lines(wd//'/user_input.txt')
-  dft_code = user_input_file(1)
-  seedname = user_input_file(2)
-  harmonic_path = user_input_file(3)
+  user_input_file = wd//'/user_input.txt'
+  dft_code = user_input_file%line(1)
+  seedname = user_input_file%line(2)
+  harmonic_path = user_input_file%line(3)
   
-  no_supercells_file = read_lines(harmonic_path//'/no_supercells.dat')
-  no_supercells = int(no_supercells_file(1))
+  no_supercells_file = harmonic_path//'/no_supercells.dat'
+  no_supercells = int(no_supercells_file%line(1))
   
   do i=1,no_supercells
     sdir = wd//'/Supercell_'//i

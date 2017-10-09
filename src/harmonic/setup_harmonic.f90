@@ -40,6 +40,7 @@ end function
 ! ----------------------------------------------------------------------
 subroutine setup_harmonic(arguments)
   use utils_module, only : mkdir
+  use ofile_module
   use linear_algebra_module
   use structure_module
   use group_module
@@ -94,7 +95,7 @@ subroutine setup_harmonic(arguments)
   type(String) :: dft_input_filename
   
   ! File units.
-  integer :: no_supercells_file
+  type(OFile) :: no_supercells_file
   
   ! --------------------------------------------------
   ! Get settings from user, and check them.
@@ -169,9 +170,8 @@ subroutine setup_harmonic(arguments)
   
   ! Write no_supercells to file
   no_supercells = size(qpoints_and_supercells%supercells)
-  no_supercells_file = open_write_file(wd//'/no_supercells.dat')
-  call print_line(no_supercells_file,no_supercells)
-  close(no_supercells_file)
+  no_supercells_file = wd//'/no_supercells.dat'
+  call no_supercells_file%print_line(no_supercells)
   
   ! Calculate primitive cell symmetry groups.
   primitive_atom_symmetry_group = calculate_atom_symmetry_group(structure)

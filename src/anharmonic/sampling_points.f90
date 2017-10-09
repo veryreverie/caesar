@@ -30,51 +30,53 @@ module sampling_points_module
 contains
 
 subroutine write_sampling_points_file(this, filename)
+  use ofile_module
   implicit none
   
   type(SamplingPoint), intent(in) :: this(:)
   type(String),        intent(in) :: filename
   
-  integer :: sampling_file
+  type(OFile) :: sampling_file
+  
   integer :: i
   
-  sampling_file = open_write_file(filename)
-  call print_line( sampling_file, &
-                 & '! Sampling points in normal-mode co-ordinates.')
+  sampling_file = filename
+  call sampling_file%print_line( &
+     & '! Sampling points in normal-mode co-ordinates.')
   do i=1,size(this)
-    call print_line(sampling_file, '')
-    call print_line(sampling_file,'Indices      : '//this(i)%indices)
-    call print_line( sampling_file, &
-                   & 'Displacement : '//this(i)%displacement%vector)
-    call print_line(sampling_file,'Duplicate    : '//this(i)%duplicate)
+    call sampling_file%print_line( '')
+    call sampling_file%print_line( 'Indices      : '//this(i)%indices)
+    call sampling_file%print_line( 'Displacement : '// &
+                                 & this(i)%displacement%vector)
+    call sampling_file%print_line( 'Duplicate    : '//this(i)%duplicate)
   enddo
-  close(sampling_file)
 end subroutine
 
 function read_sampling_points_file(filename) result(this)
+  use ifile_module
   implicit none
   
   type(String), intent(in)         :: filename
   type(SamplingPoint), allocatable :: this(:)
   
-  type(String), allocatable :: sampling_file(:)
+  type(IFile) :: sampling_file
   
   integer :: no_points
   
   integer                   :: i,ialloc
   type(String), allocatable :: line(:)
   
-  sampling_file = read_lines(filename)
+  sampling_file = filename
   
   no_points = (size(sampling_file)-1)/4
   allocate(this(no_points), stat=ialloc); call err(ialloc)
   
   do i=1,no_points
-    line = split(sampling_file(4*(i-1)+3))
+    line = split(sampling_file%line(4*(i-1)+3))
     this(i)%indices = int(line(3:))
-    line = split(sampling_file(4*(i-1)+4))
+    line = split(sampling_file%line(4*(i-1)+4))
     this(i)%displacement%vector = dble(line(3:))
-    line = split(sampling_file(4*(i-1)+5))
+    line = split(sampling_file%line(4*(i-1)+5))
     this(i)%duplicate = lgcl(line(3))
   enddo
 end function

@@ -200,15 +200,16 @@ end subroutine
 ! Reads structure.dat
 ! ----------------------------------------------------------------------
 function read_structure_file(filename) result(this)
+  use ifile_module
   implicit none
   
   type(String), intent(in) :: filename
   type(StructureData)      :: this
   
-  type(String), allocatable :: structure_file(:)
-  integer                   :: no_atoms
-  integer                   :: no_symmetries
-  integer                   :: sc_size
+  type(IFile) :: structure_file
+  integer     :: no_atoms
+  integer     :: no_symmetries
+  integer     :: sc_size
   
   ! line numbers
   integer :: lattice_line   ! The line "Lattice"
@@ -239,9 +240,9 @@ function read_structure_file(filename) result(this)
   ! ------------------------------
   ! Work out layout of file.
   ! ------------------------------
-  structure_file = read_lines(filename)
+  structure_file = filename
   do i=1,size(structure_file)
-    line = split(lower_case(structure_file(i)))
+    line = split(lower_case(structure_file%line(i)))
     
     if (size(line)==0) then
       cycle
@@ -323,12 +324,12 @@ function read_structure_file(filename) result(this)
   ! Read file into arrays.
   ! ------------------------------
   do i=1,3
-    temp_real(i,:) = dble(split(structure_file(lattice_line+i)))
+    temp_real(i,:) = dble(split(structure_file%line(lattice_line+i)))
   enddo
   this%lattice = temp_real
   
   do i=1,this%no_atoms
-    line = split(structure_file(atoms_line+i))
+    line = split(structure_file%line(atoms_line+i))
     this%species(i) = line(1)
     this%mass(i) = dble(line(2))
     this%atoms(i) = dble(line(3:5))
@@ -336,10 +337,11 @@ function read_structure_file(filename) result(this)
   
   do i=1,this%no_symmetries
     do j=1,3
-      temp_int(j,:) = int(split(structure_file(symmetry_line+(i-1)*5+j)))
+      temp_int(j,:) = int(split(structure_file%line(symmetry_line+(i-1)*5+j)))
     enddo
     this%rotations(i) = temp_int
-    this%translations(i) = dble(split(structure_file(symmetry_line+(i-1)*5+4)))
+    this%translations(i) = dble(split( &
+       & structure_file%line(symmetry_line+(i-1)*5+4)))
   enddo
   
   if (supercell_line==0) then
@@ -347,16 +349,16 @@ function read_structure_file(filename) result(this)
     this%gvectors(1) = [ 0, 0, 0 ]
   else
     do i=1,3
-      temp_int(i,:) = int(split(structure_file(supercell_line+i)))
+      temp_int(i,:) = int(split(structure_file%line(supercell_line+i)))
     enddo
     this%supercell = temp_int
     
     do i=1,sc_size
-      this%rvectors(i) = int(split(structure_file(rvectors_line+i)))
+      this%rvectors(i) = int(split(structure_file%line(rvectors_line+i)))
     enddo
     
     do i=1,sc_size
-      this%gvectors(i) = int(split(structure_file(gvectors_line+i)))
+      this%gvectors(i) = int(split(structure_file%line(gvectors_line+i)))
     enddo
   endif
   
@@ -365,48 +367,48 @@ function read_structure_file(filename) result(this)
 end function
 
 subroutine write_structure_file(this,filename)
+  use ofile_module
   implicit none
   
   type(StructureData), intent(in) :: this
   type(String),        intent(in) :: filename
   
-  integer :: structure_file
+  type(OFile) :: structure_file
+  
   integer :: i
   
-  structure_file = open_write_file(filename)
+  structure_file = filename
   
-  call print_line(structure_file, 'Lattice')
-  call print_line(structure_file, this%lattice)
-  call print_line(structure_file,'Atoms')
+  call structure_file%print_line('Lattice')
+  call structure_file%print_line(this%lattice)
+  call structure_file%print_line('Atoms')
   do i=1,this%no_atoms
-    call print_line(structure_file, this%species(i)//' '// &
+    call structure_file%print_line( this%species(i)//' '// &
                                   & this%mass(i)//' '//    &
                                   & this%atoms(i))
   enddo
   
   if (this%no_symmetries/=0) then
-    call print_line(structure_file,'Symmetry')
+    call structure_file%print_line('Symmetry')
     do i=1,this%no_symmetries
-      call print_line(structure_file, this%rotations(i))
-      call print_line(structure_file, this%translations(i))
-      call print_line(structure_file, '')
+      call structure_file%print_line(this%rotations(i))
+      call structure_file%print_line(this%translations(i))
+      call structure_file%print_line('')
     enddo
   endif
   
-  call print_line(structure_file, 'Supercell')
-  call print_line(structure_file, this%supercell)
-  call print_line(structure_file, 'R-vectors')
+  call structure_file%print_line('Supercell')
+  call structure_file%print_line(this%supercell)
+  call structure_file%print_line('R-vectors')
   do i=1,this%sc_size
-    call print_line(structure_file, this%rvectors(i))
+    call structure_file%print_line(this%rvectors(i))
   enddo
-  call print_line(structure_file, 'G-vectors')
+  call structure_file%print_line('G-vectors')
   do i=1,this%sc_size
-    call print_line(structure_file, this%gvectors(i))
+    call structure_file%print_line(this%gvectors(i))
   enddo
   
-  call print_line(structure_file,'End')
-  
-  close(structure_file)
+  call structure_file%print_line('End')
 end subroutine
 
 ! ----------------------------------------------------------------------

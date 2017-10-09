@@ -49,6 +49,7 @@ end function
 ! Main program.
 ! ----------------------------------------------------------------------
 subroutine calculate_anharmonic(arguments)
+  use ifile_module
   use setup_harmonic_module
   use setup_anharmonic_module
   use dictionary_module
@@ -91,7 +92,7 @@ subroutine calculate_anharmonic(arguments)
   
   ! Previously calculated data.
   type(StructureData)                 :: structure
-  type(String),           allocatable :: no_supercells_file(:)
+  type(IFile)                         :: no_supercells_file
   integer                             :: no_supercells
   type(StructureData),    allocatable :: supercells(:)
   type(StructureData),    allocatable :: supercell
@@ -166,8 +167,10 @@ subroutine calculate_anharmonic(arguments)
   
   ! Read in structure and supercells.
   structure = read_structure_file(harmonic_path//'/structure.dat')
-  no_supercells_file = read_lines(harmonic_path//'/no_supercells.dat')
-  no_supercells = int(no_supercells_file(1))
+  
+  no_supercells_file = harmonic_path//'/no_supercells.dat'
+  no_supercells = int(no_supercells_file%line(1))
+  
   allocate(supercells(no_supercells), stat=ialloc); call err(ialloc)
   do i=1,no_supercells
     supercells(i) = read_structure_file( &

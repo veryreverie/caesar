@@ -32,6 +32,8 @@ end function
 ! ----------------------------------------------------------------------
 subroutine anharmonic(arguments)
   use utils_module, only : mkdir
+  use ifile_module
+  use ofile_module
   use structure_module
   use dft_output_file_module
   use qpoints_module
@@ -70,7 +72,7 @@ subroutine anharmonic(arguments)
   
   real(dp), allocatable :: energies(:,:,:)
   real(dp), allocatable :: static_energies(:)
-  type(String), allocatable :: frequencies_file(:)
+  type(IFile)           :: frequencies_file
   real(dp), allocatable :: frequencies(:,:) ! harmonic frequencies
   real(dp), allocatable :: amplitudes(:,:)
   real(dp), allocatable :: spline(:,:)
@@ -90,8 +92,8 @@ subroutine anharmonic(arguments)
   type(DftOutputFile)   :: dft_output_file
   
   ! Files.
-  type(String), allocatable :: no_supercells_file(:)
-  integer                   :: result_file
+  type(IFile) :: no_supercells_file
+  type(OFile) :: result_file
   
   ! Temporary variables.
   integer :: i,j,k
@@ -115,8 +117,8 @@ subroutine anharmonic(arguments)
   displacement = dble(setup_quadratic_arguments%value('displacement'))
   
   ! read the number of Supercell_* directories into no_supercells
-  no_supercells_file = read_lines(harmonic_path//'/no_supercells.dat')
-  no_supercells = int(no_supercells_file(1))
+  no_supercells_file = harmonic_path//'/no_supercells.dat'
+  no_supercells = int(no_supercells_file%line(1))
   
   ! allocate arrays of size no_supercells
   allocate(sc_acoustic(no_supercells))
@@ -159,9 +161,10 @@ subroutine anharmonic(arguments)
   do i=1,size(qpoints_ibz)
     if (.not. sc_acoustic(qpoints_ibz(i)%sc_id)) then
       ! Read frequencies
-      frequencies_file = read_lines( &
-         & harmonic_path//'/qpoint_'//i//'/frequencies.dat')
-      frequencies(:,i) = dble(frequencies_file)
+      frequencies_file =  harmonic_path//'/qpoint_'//i//'/frequencies.dat'
+      do j=1,size(frequencies_file)
+        frequencies(j,i) = dble(frequencies_file%line(j))
+      enddo
       
       do j=1,structure%no_modes
         ! read energies
@@ -240,10 +243,14 @@ subroutine anharmonic(arguments)
   
   ! calculate free energy, F(T), for harmonic and anharmonic cases
   ! write output to anharmonic_correction.dat
-  result_file = open_write_file(wd//'/anharmonic/anharmonic_correction.dat')
-  call calculate_anharmonic_correction(structure,structure_grid,qpoints_ibz,basis_size, &
-     & harmonic,eigenvals,result_file)
-  close(result_file)
+  result_file = wd//'/anharmonic/anharmonic_correction.dat'
+  call calculate_anharmonic_correction( structure,      &
+                                      & structure_grid, &
+                                      & qpoints_ibz,    &
+                                      & basis_size,     &
+                                      & harmonic,       &
+                                      & eigenvals,      &
+                                      & result_file)
 end subroutine
 
 end module

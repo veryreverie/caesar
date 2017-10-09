@@ -33,6 +33,8 @@ end function
 subroutine bs_quadratic(arguments)
   use constants_module, only : kb_in_au
   use utils_module,     only : mkdir
+  use ifile_module
+  use ofile_module
   use structure_module
   use bands_module
   use dictionary_module
@@ -66,11 +68,11 @@ subroutine bs_quadratic(arguments)
   type(StructureData), allocatable  :: supercells(:)
   
   ! Band data.
-  type(BandsData)           :: bands
-  real(dp)                  :: band_energy
-  type(String), allocatable :: frequencies_file(:)
-  real(dp), allocatable     :: frequencies(:,:)
-  real(dp), allocatable     :: bs(:,:)
+  type(BandsData)       :: bands
+  real(dp)              :: band_energy
+  type(IFile)           :: frequencies_file
+  real(dp), allocatable :: frequencies(:,:)
+  real(dp), allocatable :: bs(:,:)
   
   ! Qpoint data.
   integer, allocatable :: sc_ids(:)
@@ -94,13 +96,13 @@ subroutine bs_quadratic(arguments)
   real(dp)              :: temperature
   
   ! File contents.
-  type(String), allocatable :: no_supercells_file(:)
-  type(String), allocatable :: ibz_file(:)
+  type(IFile)               :: no_supercells_file
+  type(IFile)               :: ibz_file
   type(String), allocatable :: line(:)
   
   ! File units.
-  integer :: bgc_file
-  integer :: bck_file
+  type(OFile) :: bgc_file
+  type(OFile) :: bck_file
   
   ! --------------------------------------------------
   ! Get user inputs
@@ -121,18 +123,18 @@ subroutine bs_quadratic(arguments)
   no_samples = int(setup_quadratic_arguments%value('no_samples'))
   displacement = dble(setup_quadratic_arguments%value('displacement'))
   
-  no_supercells_file = read_lines(wd//'/no_supercells.dat')
-  no_supercells = int(no_supercells_file(1))
+  no_supercells_file = wd//'/no_supercells.dat'
+  no_supercells = int(no_supercells_file%line(1))
   
   structure = read_structure_file(harmonic_path//'/structure.dat')
   
-  ibz_file = read_lines(harmonic_path//'/qpoints_ibz.dat')
+  ibz_file = harmonic_path//'/qpoints_ibz.dat'
   no_qpoints = size(ibz_file)
   allocate(multiplicity(no_qpoints))
   allocate(sc_ids(no_qpoints))
   allocate(gvectors(no_qpoints))
   do i=1,no_qpoints
-    line = split(ibz_file(i))
+    line = split(ibz_file%line(i))
     multiplicity(i) = int(line(4))
     sc_ids(i) = int(line(5))
     gvectors(i) = int(line(6))
@@ -166,9 +168,10 @@ subroutine bs_quadratic(arguments)
   allocate(bs(structure%no_modes,no_qpoints))
   do i=1,no_qpoints
     ! Read frequencies
-    frequencies_file = read_lines( &
-       & harmonic_path//'/qpoint_'//i//'/frequencies.dat')
-    frequencies(:,i) = dble(frequencies_file)
+    frequencies_file = harmonic_path//'/qpoint_'//i//'/frequencies.dat'
+    do j=1,size(frequencies_file)
+      frequencies(j,i) = dble(frequencies_file%line(j))
+    enddo
     
     ! Read bands
     ref = band_refs(sc_ids(i))
@@ -195,22 +198,22 @@ subroutine bs_quadratic(arguments)
   deformation = bs/displacement**2
   
   ! Calculate quadratic vibrational correction
-  bgc_file = open_write_file(wd//'/bs/band_gap_correction.dat')
-  bck_file = open_write_file(wd//'/bs/bg_correction_kp.dat')
+  bgc_file = wd//'/bs/band_gap_correction.dat'
+  bck_file = wd//'/bs/bg_correction_kp.dat'
   do k=0,20  ! loop over temperature
     renormalised_band=0.0
     temperature = k*dtemperature
     if(temperature<1.d-5)then
       do i=1,no_qpoints
-        call print_line(bck_file,'q-point '//i)
+        call bck_file%print_line('q-point '//i)
         renormalised_band_qpoint=0.0
         do j=1,structure%no_modes
           renormalised_band = renormalised_band &
                           & + deformation(i,j)*multiplicity(i)/no_qpoints
           renormalised_band_qpoint = renormalised_band_qpoint+deformation(i,j)
-          call print_line(bck_file,i//' '//j//' '//deformation(i,j))
+          call bck_file%print_line(i//' '//j//' '//deformation(i,j))
         enddo
-        call print_line(bck_file,i//' '//renormalised_band_qpoint)
+        call bck_file%print_line(i//' '//renormalised_band_qpoint)
       enddo
     else
       do i=1,no_qpoints
@@ -226,9 +229,7 @@ subroutine bs_quadratic(arguments)
         enddo
       enddo
     endif ! temperature
-    call print_line(bgc_file,temperature//' '//renormalised_band)
+    call bgc_file%print_line(temperature//' '//renormalised_band)
   enddo
-  close(bgc_file)
-  close(bck_file)
 end subroutine
 end module

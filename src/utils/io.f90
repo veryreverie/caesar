@@ -1,7 +1,9 @@
+! ======================================================================
+! I/O operations.
+! ======================================================================
 module io_module
   use constants_module, only : dp
   use string_module
-  use stringable_module
   implicit none
   
   private
@@ -11,15 +13,11 @@ module io_module
   type(String) :: CWD
   type(String) :: OLD_PATH
   
-  ! Command line flag and argument.
-  public CommandLineFlag
+  ! Public types.
+  public :: CommandLineFlag
   
   ! File operations.
-  public :: open_write_file  ! open a file for writing
-  public :: open_append_file ! open a file for appending to
-  public :: file_exists      ! checks if a file exists
-  public :: count_lines      ! counts the number of lines in a file
-  public :: read_lines       ! reads a file into a String(:) array
+  public :: file_exists ! checks if a file exists
   
   ! Other IO operations.
   public :: set_global_io_variables ! Sets io global variables.
@@ -31,71 +29,37 @@ module io_module
   public :: format_path             ! Converts any path into an absolute path.
   public :: execute_old_code        ! Runs one of the old caesar codes.
   
-  type CommandLineFlag
+  ! Command line flag and argument.
+  type :: CommandLineFlag
     character(1) :: flag
     type(String) :: argument
   end type
-  
-  interface open_read_file
-    module procedure open_read_file_character
-    module procedure open_read_file_string
-  end interface
-  
-  interface open_write_file
-    module procedure open_write_file_character
-    module procedure open_write_file_string
-  end interface
-  
-  interface open_append_file
-    module procedure open_append_file_character
-    module procedure open_append_file_string
-  end interface
   
   interface file_exists
     module procedure file_exists_character
     module procedure file_exists_string
   end interface
   
-  interface count_lines
-    module procedure count_lines_character
-    module procedure count_lines_string
-  end interface
-  
-  interface read_lines
-    module procedure read_lines_character
-    module procedure read_lines_String
-  end interface
-  
   interface print_line
     module procedure print_line_character
-    module procedure print_line_file_character
     module procedure print_line_String
-    module procedure print_line_file_String
     module procedure print_line_Stringable
-    module procedure print_line_file_Stringable
+    module procedure print_line_Printable
     
     module procedure print_line_integer
-    module procedure print_line_file_integer
     module procedure print_line_real
-    module procedure print_line_file_real
     module procedure print_line_logical
-    module procedure print_line_file_logical
     module procedure print_line_complex
-    module procedure print_line_file_complex
     
     module procedure print_line_integers
-    module procedure print_line_file_integers
     module procedure print_line_reals
-    module procedure print_line_file_reals
     module procedure print_line_logicals
-    module procedure print_line_file_logicals
     module procedure print_line_complexes
-    module procedure print_line_file_complexes
   end interface
   
   interface err
     module procedure err_none
-    module procedure err_integer
+    module procedure err_allocate_flag
   end interface
   
   interface format_path
@@ -178,96 +142,6 @@ module io_module
 
 contains
 
-! open a file with a specified mode, and return the unit it is opened in
-function open_file(filename,status,action,access) result(unit_num)
-  implicit none
-  
-  character(*), intent(in) :: filename
-  character(*), intent(in) :: status
-  character(*), intent(in) :: action
-  character(*), intent(in) :: access
-  integer                  :: unit_num
-  
-  integer :: iostat
-  logical :: opened
-  
-  unit_num = 0
-  opened=.true.
-  
-  do while (opened) ! loop until unused unit is found
-    unit_num = unit_num + 1
-    if (unit_num==5 .or. unit_num==6) cycle ! ignore 0,5,6 std units
-    if (unit_num>=100 .and. unit_num<=102) cycle ! ignore 100,101,102 std units
-    
-    inquire(unit=unit_num,opened=opened,iostat=iostat) ! check unit
-    if (iostat/=0) opened=.true. ! ignore unit if error
-  enddo
-  
-  open(unit=unit_num,file=filename,status=status,action=action,&
-    &access=access,iostat=iostat)
-  if (iostat /= 0) then
-    call print_line('Error opening '//filename//' file.')
-    call err()
-  endif
-end function
-
-! open a file for reading, and return the unit it is opened in
-function open_read_file_character(filename) result(unit_num)
-  implicit none
-  
-  character(*), intent(in) :: filename
-  integer                  :: unit_num
-  
-  unit_num = open_file(filename, 'old', 'read', 'sequential')
-end function
-
-function open_read_file_string(filename) result(unit_num)
-  implicit none
-  
-  type(String), intent(in) :: filename
-  integer                  :: unit_num
-  
-  unit_num = open_read_file(char(filename))
-end function
-
-! open a file for writing, and return the unit it is opened in
-function open_write_file_character(filename) result(unit_num)
-  implicit none
-  
-  character(*), intent(in) :: filename
-  integer                  :: unit_num
-  
-  unit_num = open_file(filename, 'unknown', 'write', 'sequential')
-end function
-
-function open_write_file_string(filename) result(unit_num)
-  implicit none
-  
-  type(String), intent(in) :: filename
-  integer                  :: unit_num
-  
-  unit_num = open_write_file(char(filename))
-end function
-
-! open a file for appending, and return the unit it is opened in
-function open_append_file_character(filename) result(unit_num)
-  implicit none
-  
-  character(*), intent(in) :: filename
-  integer                  :: unit_num
-  
-  unit_num = open_file(filename, 'unknown', 'write', 'append')
-end function
-
-function open_append_file_string(filename) result(unit_num)
-  implicit none
-  
-  type(String), intent(in) :: filename
-  integer                  :: unit_num
-  
-  unit_num = open_append_file(char(filename))
-end function
-
 ! ----------------------------------------------------------------------
 ! Checks if a file exists
 ! ----------------------------------------------------------------------
@@ -287,88 +161,6 @@ function file_exists_string(filename) result(output)
   logical                  :: output
   
   output = file_exists(char(filename))
-end function
-
-! ----------------------------------------------------------------------
-! Gets the number of lines remaining in a file
-! ----------------------------------------------------------------------
-function count_lines_character(filename) result(output)
-  implicit none
-  
-  character(*), intent(in) :: filename
-  integer                  :: output
-  
-  integer      :: file_unit
-  integer      :: iostat
-  character(1) :: line
-  
-  file_unit = open_read_file(filename)
-  output = 0
-  iostat = 0
-  do while (iostat==0)
-    read(file_unit, '(a)', iostat=iostat) line
-    if (iostat==0) then
-      output = output+1
-    elseif (iostat>0) then
-      call print_line('Error counting lines of '//filename)
-      call err()
-    endif
-  enddo
-  close(file_unit)
-end function
-
-function count_lines_String(filename) result(output)
-  implicit none
-  
-  type(String), intent(in) :: filename
-  integer                  :: output
-  
-  output = count_lines(char(filename))
-end function
-
-! ----------------------------------------------------------------------
-! Reads the file into a String(:) array
-! ----------------------------------------------------------------------
-function read_lines_character(filename) result(output)
-  implicit none
-  
-  character(*), intent(in)  :: filename
-  type(String), allocatable :: output(:)
-  
-  integer         :: file_length
-  integer         :: file_unit
-  character(1000) :: line
-  integer         :: i
-  
-  integer :: ierr
-  
-  file_length = count_lines(filename)
-  
-  allocate(output(file_length),stat=ierr)
-  if (ierr/=0) then
-    call print_line('Error allocating output for read_lines')
-    call err()
-  endif
-  
-  file_unit = open_read_file(filename)
-  do i=1,file_length
-    read(file_unit,'(a)',iostat=ierr) line
-    if (ierr/=0) then
-      call print_line('Error reading from '//filename)
-      call err()
-    endif
-    output(i) = trim(line)
-  enddo
-  close(file_unit)
-end function
-
-function read_lines_String(filename) result(output)
-  implicit none
-  
-  type(String), intent(in)  :: filename
-  type(String), allocatable :: output(:)
-  
-  output = read_lines(char(filename))
 end function
 
 ! ----------------------------------------------------------------------
@@ -662,22 +454,6 @@ recursive subroutine print_line_character(line)
   flush(output_unit)
 end subroutine
 
-subroutine print_line_file_character(file_unit,line)
-  implicit none
-  
-  integer,      intent(in) :: file_unit
-  character(*), intent(in) :: line
-  
-  integer :: ierr
-  
-  write(file_unit,'(a)',iostat=ierr) line
-  
-  if (ierr /= 0) then
-    call print_line('Error in print_line.')
-    call err()
-  endif
-end subroutine
-
 subroutine print_line_String(line)
   implicit none
   
@@ -686,16 +462,8 @@ subroutine print_line_String(line)
   call print_line(char(line))
 end subroutine
 
-subroutine print_line_file_String(file_unit,line)
-  implicit none
-  
-  integer,      intent(in) :: file_unit
-  type(String), intent(in) :: line
-  
-  call print_line(file_unit,char(line))
-end subroutine
-
 subroutine print_line_Stringable(this)
+  use stringable_module
   implicit none
   
   class(Stringable), intent(in) :: this
@@ -703,13 +471,19 @@ subroutine print_line_Stringable(this)
   call print_line(str(this))
 end subroutine
 
-subroutine print_line_file_Stringable(file_unit,this)
+subroutine print_line_Printable(this)
+  use printable_module
   implicit none
   
-  integer,           intent(in) :: file_unit
-  class(Stringable), intent(in) :: this
+  class(Printable), intent(in) :: this
   
-  call print_line(file_unit, str(this))
+  type(String), allocatable :: lines(:)
+  integer                   :: i
+  
+  lines = this%str()
+  do i=1,size(lines)
+    call print_line(lines(i))
+  enddo
 end subroutine
 
 subroutine print_line_integer(this)
@@ -720,30 +494,12 @@ subroutine print_line_integer(this)
   call print_line(''//this)
 end subroutine
 
-subroutine print_line_file_integer(file_unit,this)
-  implicit none
-  
-  integer, intent(in) :: file_unit
-  integer, intent(in) :: this
-  
-  call print_line(file_unit,''//this)
-end subroutine
-
 subroutine print_line_real(this)
   implicit none
   
   real(dp), intent(in) :: this
   
   call print_line(''//this)
-end subroutine
-
-subroutine print_line_file_real(file_unit,this)
-  implicit none
-  
-  integer,  intent(in) :: file_unit
-  real(dp), intent(in) :: this
-  
-  call print_line(file_unit,''//this)
 end subroutine
 
 subroutine print_line_logical(this)
@@ -754,30 +510,12 @@ subroutine print_line_logical(this)
   call print_line(''//this)
 end subroutine
 
-subroutine print_line_file_logical(file_unit,this)
-  implicit none
-  
-  integer, intent(in) :: file_unit
-  logical, intent(in) :: this
-  
-  call print_line(file_unit,''//this)
-end subroutine
-
 subroutine print_line_complex(this)
   implicit none
   
   complex(dp), intent(in) :: this
   
   call print_line(''//this)
-end subroutine
-
-subroutine print_line_file_complex(file_unit,this)
-  implicit none
-  
-  integer,     intent(in) :: file_unit
-  complex(dp), intent(in) :: this
-  
-  call print_line(file_unit,''//this)
 end subroutine
 
 subroutine print_line_integers(this)
@@ -788,30 +526,12 @@ subroutine print_line_integers(this)
   call print_line(''//this)
 end subroutine
 
-subroutine print_line_file_integers(file_unit,this)
-  implicit none
-  
-  integer, intent(in) :: file_unit
-  integer, intent(in) :: this(:)
-  
-  call print_line(file_unit,''//this)
-end subroutine
-
 subroutine print_line_reals(this)
   implicit none
   
   real(dp), intent(in) :: this(:)
   
   call print_line(''//this)
-end subroutine
-
-subroutine print_line_file_reals(file_unit,this)
-  implicit none
-  
-  integer,  intent(in) :: file_unit
-  real(dp), intent(in) :: this(:)
-  
-  call print_line(file_unit,''//this)
 end subroutine
 
 subroutine print_line_logicals(this)
@@ -822,30 +542,12 @@ subroutine print_line_logicals(this)
   call print_line(''//this)
 end subroutine
 
-subroutine print_line_file_logicals(file_unit,this)
-  implicit none
-  
-  integer, intent(in) :: file_unit
-  logical, intent(in) :: this(:)
-  
-  call print_line(file_unit,''//this)
-end subroutine
-
 subroutine print_line_complexes(this)
   implicit none
   
   complex(dp), intent(in) :: this(:)
   
   call print_line(''//this)
-end subroutine
-
-subroutine print_line_file_complexes(file_unit,this)
-  implicit none
-  
-  integer,     intent(in) :: file_unit
-  complex(dp), intent(in) :: this(:)
-  
-  call print_line(file_unit,''//this)
 end subroutine
 
 ! ----------------------------------------------------------------------
@@ -861,7 +563,7 @@ end subroutine
 
 ! Aborts if integer input /= 0.
 ! Designed for use with allocate 'stat=ierr' flags.
-subroutine err_integer(this)
+subroutine err_allocate_flag(this)
   implicit none
   
   integer, intent(in) :: this
@@ -958,5 +660,4 @@ subroutine execute_old_code(wd, filename)
     call err()
   endif
 end subroutine
-
 end module

@@ -7,17 +7,18 @@ contains
 subroutine calculate_anharmonic_correction(structure,structure_grid,qpoints, &
    & Nbasis,harmonic,eigenvals,result_file)
   use constants_module, only : kb_in_au
+  use ofile_module
   use qpoints_module
   use structure_module
   implicit none
   
-  type(StructureData), intent(in) :: structure
-  type(StructureData), intent(in) :: structure_grid
-  type(QpointData),    intent(in) :: qpoints(:)
-  integer,             intent(in) :: Nbasis
-  real(dp),            intent(in) :: harmonic(:,:,:)
-  real(dp),            intent(in) :: eigenvals(:,:,:)
-  integer,             intent(in) :: result_file
+  type(StructureData), intent(in)    :: structure
+  type(StructureData), intent(in)    :: structure_grid
+  type(QpointData),    intent(in)    :: qpoints(:)
+  integer,             intent(in)    :: Nbasis
+  real(dp),            intent(in)    :: harmonic(:,:,:)
+  real(dp),            intent(in)    :: eigenvals(:,:,:)
+  type(OFile),         intent(inout) :: result_file
   
   ! Temperature parameters
   real(dp), parameter :: dtemperature    = 50.0_dp ! delta T (K)
@@ -84,7 +85,7 @@ subroutine calculate_anharmonic_correction(structure,structure_grid,qpoints, &
          enddo
        enddo
     endif
-    call print_line(result_file, 1.0_dp/(kb_in_au*betas(i))  //' '// &
+    call result_file%print_line( 1.0_dp/(kb_in_au*betas(i))  //' '// &
                                & renormalised_harmonic       //' '// &
                                & renormalised_eigenvals)
   enddo

@@ -304,6 +304,7 @@ end function
 ! ----------------------------------------------------------------------
 subroutine generate_dos(supercell,delta_prim, &
    & force_consts,temperature,free_energy_filename,freq_dos_filename)
+  use ofile_module
   use structure_module
   use min_images_module
   implicit none
@@ -326,9 +327,9 @@ subroutine generate_dos(supercell,delta_prim, &
   type(DynamicalMatrix) :: dyn_mat
   type(FreqsPolVecs)    :: frequencies
   
-  ! file units
-  integer :: free_energy_file
-  integer :: freq_dos_file
+  ! files.
+  type(OFile) :: free_energy_file
+  type(OFile) :: freq_dos_file
   
   ! Initialise the random number generator
   call random_seed()
@@ -386,9 +387,8 @@ subroutine generate_dos(supercell,delta_prim, &
               &   / no_samples
   enddo
   
-  free_energy_file = open_write_file(free_energy_filename)
-  call print_line(free_energy_file,free_energy)
-  close(free_energy_file)
+  free_energy_file = free_energy_filename
+  call free_energy_file%print_line(free_energy)
   
   ! Normalise frequency DoS so that its integral is the number of
   !    degrees of freedom in the primitive cell. Note that the total
@@ -397,12 +397,11 @@ subroutine generate_dos(supercell,delta_prim, &
   freq_dos = freq_dos/(no_samples*bin_width)
   
   ! Write out the frequency DoS.
-  freq_dos_file = open_write_file(freq_dos_filename)
+  freq_dos_file = freq_dos_filename
   do i_bin=1,no_bins
-    call print_line( freq_dos_file, &
-                   & bin_width*(i_bin-0.5_dp)//' '//freq_dos(i_bin))
+    call freq_dos_file%print_line( bin_width*(i_bin-0.5_dp)//' '// &
+                                 & freq_dos(i_bin))
   enddo
-  close(freq_dos_file)
 end subroutine
 
 ! ----------------------------------------------------------------------
@@ -412,18 +411,19 @@ end subroutine
 !    in the LTE.
 ! ----------------------------------------------------------------------
 subroutine calc_lte(bin_width,temperature,freq_dos,tdependence1_filename)
-  use constants_module,      only : max_bin, no_fdos_sets
+  use constants_module, only : max_bin, no_fdos_sets
+  use ofile_module
   implicit none
   
   real(dp), intent(in) :: bin_width
   real(dp), intent(in) :: temperature
   real(dp), intent(in) :: freq_dos(:,:)
   
-  ! File name
+  ! File name.
   type(String), intent(in) :: tdependence1_filename
   
-  ! File unit
-  integer :: tdependence1_file
+  ! File.
+  type(OFile) :: tdependence1_file
   
   integer :: bin,j
   real(dp) :: omega,lte_val,lte_sq,E_H(0:max_bin),lte,lte_err
@@ -447,9 +447,8 @@ subroutine calc_lte(bin_width,temperature,freq_dos,tdependence1_filename)
   lte_err=SQRT((lte_sq-lte**2)/DBLE(no_fdos_sets-1))
   call print_line('Done. LTE per primitive cell: '//lte//' +/- '//lte_err)
    
-  tdependence1_file = open_write_file(tdependence1_filename)
-  call print_line(tdependence1_file, lte)
-  close(tdependence1_file)
+  tdependence1_file = tdependence1_filename
+  call tdependence1_file%print_line(lte)
 end subroutine
 
 ! ----------------------------------------------------------------------
@@ -460,17 +459,18 @@ end subroutine
 ! ----------------------------------------------------------------------
 subroutine calc_ltfe(bin_width,temperature,freq_dos,tdependence2_filename)
   use constants_module, only : max_bin, no_fdos_sets
+  use ofile_module
   implicit none
   
   real(dp), intent(in) :: bin_width
   real(dp), intent(in) :: temperature
   real(dp), intent(in) :: freq_dos(:,:)
   
-  ! File name
+  ! File name.
   type(String), intent(in) :: tdependence2_filename
   
-  ! File unit
-  integer :: tdependence2_file
+  ! File.
+  type(OFile) :: tdependence2_file
   
   integer :: bin,j
   real(dp) :: omega,ltfe_sq,ltfe_val,FE_H(0:max_bin),ltfe,ltfe_err
@@ -492,9 +492,8 @@ subroutine calc_ltfe(bin_width,temperature,freq_dos,tdependence2_filename)
   ltfe_err=SQRT((ltfe_sq-ltfe**2)/DBLE(no_fdos_sets-1))
   call print_line('and LTFE per primitive cell   : '//ltfe//' +/- '//ltfe_err)
   
-  tdependence2_file = open_write_file(tdependence2_filename)
-  call print_line(tdependence2_file, ltfe)
-  close(tdependence2_file)
+  tdependence2_file = tdependence2_filename
+  call tdependence2_file%print_line(ltfe)
 end subroutine
 
 ! ----------------------------------------------------------------------
@@ -507,6 +506,7 @@ subroutine generate_dispersion(structure,supercell,&
    & delta_prim,force_consts,path,phonon_dispersion_curve_filename, &
    & high_symmetry_points_filename)
   use constants_module, only : pi
+  use ofile_module
   use structure_module
   use min_images_module
   implicit none
@@ -529,8 +529,8 @@ subroutine generate_dispersion(structure,supercell,&
   type(FreqsPolVecs)       :: frequencies
   
   ! File units.
-  integer :: phonon_dispersion_curve_file
-  integer :: high_symmetry_points_file
+  type(OFile) :: phonon_dispersion_curve_file
+  type(OFile) :: high_symmetry_points_file
   
   ! Temporary variables.
   integer :: i,j,ialloc
@@ -562,22 +562,20 @@ subroutine generate_dispersion(structure,supercell,&
   enddo
   
   ! Write path lengths to file.
-  high_symmetry_points_file = open_write_file(high_symmetry_points_filename)
+  high_symmetry_points_file = high_symmetry_points_filename
   do i=1,no_paths+1
-    call print_line(high_symmetry_points_file,i//' '//cumulative_length(i))
+    call high_symmetry_points_file%print_line(i//' '//cumulative_length(i))
   enddo
-  close(high_symmetry_points_file)
   
   ! Travel along k-space paths, calculating frequencies at each point.
-  phonon_dispersion_curve_file = &
-     & open_write_file(phonon_dispersion_curve_filename)
+  phonon_dispersion_curve_file = phonon_dispersion_curve_filename
   do i=1,no_paths
     do j=0,no_points(i)-1
       qpoint = ((no_points(i)-j)*qpoints(i)+j*qpoints(i+1))/no_points(i)
       dyn_mat = construct_dynamical_matrix(qpoint,supercell, &
          & force_consts,delta_prim)
       frequencies = calculate_frequencies_and_polarisations(dyn_mat)
-      call print_line(phonon_dispersion_curve_file, &
+      call phonon_dispersion_curve_file%print_line(     &
          & cumulative_length(i)+j*path_length(i)//' '// &
          & frequencies%frequencies)
     enddo
@@ -588,10 +586,9 @@ subroutine generate_dispersion(structure,supercell,&
   dyn_mat = construct_dynamical_matrix(qpoint,supercell, &
      & force_consts,delta_prim)
   frequencies = calculate_frequencies_and_polarisations(dyn_mat)
-  call print_line(phonon_dispersion_curve_file, &
-     & (cumulative_length(no_paths+1))//' '//frequencies%frequencies)
-  
-  close(phonon_dispersion_curve_file)
+  call phonon_dispersion_curve_file%print_line( &
+       & (cumulative_length(no_paths+1))//' '// &
+       & frequencies%frequencies)
 end subroutine
 
 ! ----------------------------------------------------------------------

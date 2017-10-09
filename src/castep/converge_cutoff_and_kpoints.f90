@@ -77,6 +77,8 @@ end function
 ! Main program.
 ! ----------------------------------------------------------------------
 subroutine converge_cutoff_and_kpoints(arguments)
+  use ifile_module
+  use ofile_module
   use dictionary_module
   use dft_output_file_module
   implicit none
@@ -99,9 +101,10 @@ subroutine converge_cutoff_and_kpoints(arguments)
   logical      :: generate_plots
   
   ! Files.
-  type(String), allocatable :: cell_file(:)
-  type(String), allocatable :: param_file(:)
-  integer                   :: output_file
+  type(IFile) :: cell_file
+  type(IFile) :: param_file
+  type(OFile) :: progress_file
+  type(OFile) :: output_file
   
   ! Arrays.
   integer,  allocatable :: cutoffs(:)
@@ -117,6 +120,8 @@ subroutine converge_cutoff_and_kpoints(arguments)
   logical  :: converged
   integer  :: no_cutoffs
   integer  :: no_spacings
+  integer  :: finer_cutoff
+  real(dp) :: finer_spacing
   
   ! Output variables.
   integer  :: cutoff
@@ -175,8 +180,8 @@ subroutine converge_cutoff_and_kpoints(arguments)
   ! --------------------------------------------------
   ! Read .cell and .param files.
   ! --------------------------------------------------
-  cell_file = read_lines(wd//'/'//seedname//'.cell')
-  param_file = read_lines(wd//'/'//seedname//'.param')
+  cell_file = wd//'/'//seedname//'.cell'
+  param_file = wd//'/'//seedname//'.param'
   
   ! --------------------------------------------------
   ! Run convergence calculations.
@@ -198,7 +203,14 @@ subroutine converge_cutoff_and_kpoints(arguments)
                                 & no_cores,    &
                                 & cell_file,   &
                                 & param_file)
+  progress_file = wd//'/convergence_progress.dat'
+  call progress_file%print_line('cutoff | spacing | structure energy')
   do step=1,max_no_steps
+    ! Print progress.
+    call progress_file%print_line( cutoffs(step)  //' '// &
+                                 & spacings(step) //' '// &
+                                 & energies(step))
+    
     ! Check for convergence.
     if (step>=no_converged_calculations) then
       converged_step = step-no_converged_calculations+1
@@ -215,23 +227,33 @@ subroutine converge_cutoff_and_kpoints(arguments)
     endif
     
     ! Calculate energy at finer energy cutoff and k-point spacing.
-    finer_cutoff_energies(step) = calculate_energy( cutoffs(1)+cutoff_step, &
-                                                  & spacings(1),            &
-                                                  & wd,                     &
-                                                  & seedname,               &
-                                                  & run_script,             &
-                                                  & no_cores,               &
-                                                  & cell_file,              &
+    finer_cutoff = cutoffs(step)+cutoff_step
+    finer_cutoff_energies(step) = calculate_energy( finer_cutoff,   &
+                                                  & spacings(step), &
+                                                  & wd,             &
+                                                  & seedname,       &
+                                                  & run_script,     &
+                                                  & no_cores,       &
+                                                  & cell_file,      &
                                                   & param_file)
     
-    finer_spacing_energies(step) = calculate_energy( cutoffs(1),              &
-                                                   & spacings(1)-spacing_step,&
-                                                   & wd,                      &
-                                                   & seedname,                &
-                                                   & run_script,              &
-                                                   & no_cores,                &
-                                                   & cell_file,               &
+    finer_spacing = spacings(step)-spacing_step
+    finer_spacing_energies(step) = calculate_energy( cutoffs(step), &
+                                                   & finer_spacing, &
+                                                   & wd,            &
+                                                   & seedname,      &
+                                                   & run_script,    &
+                                                   & no_cores,      &
+                                                   & cell_file,     &
                                                    & param_file)
+    ! Print progress.
+    call progress_file%print_line( finer_cutoff   //' '// &
+                                 & spacings(step) //' '// &
+                                 & finer_cutoff_energies(step))
+    call progress_file%print_line( cutoffs(step) //' '// &
+                                 & finer_spacing //' '// &
+                                 & finer_spacing_energies(step))
+    call progress_file%print_line('')
     
     ! Copy whichever change made the largest difference to the next step.
     if ( abs(finer_cutoff_energies(step)-energies(step)) >= &
@@ -259,31 +281,20 @@ subroutine converge_cutoff_and_kpoints(arguments)
     endif
   enddo
   
-  ! --------------------------------------------------
-  ! Write out progress if no convergence.
-  ! --------------------------------------------------
   if (.not. converged) then
-    output_file = open_write_file(wd//'/convergence_progress.dat')
-    call print_line(output_file, 'cutoff | spacing | structure energy')
-    do i=1,converged_step
-      call print_line( output_file, &
-                     & cutoffs(i)//' '//spacings(i)//' '//energies(i))
-    enddo
-    close(output_file)
     stop
   endif
   
   ! --------------------------------------------------
   ! Generate output.
   ! --------------------------------------------------
-  output_file = open_write_file(wd//'/convergence_results.dat')
-  call print_line(output_file, 'cut_off_energy = '//cutoffs(converged_step))
-  call print_line( output_file, &
-                 & 'kpoints_mp_spacing : '//spacings(converged_step))
-  call print_line(output_file, 'Energy '//energies(converged_step))
+  output_file = wd//'/convergence_results.dat'
+  call output_file%print_line( 'cut_off_energy = '//cutoffs(converged_step))
+  call output_file%print_line( 'kpoints_mp_spacing : '// &
+                             & spacings(converged_step))
+  call output_file%print_line( 'Energy '//energies(converged_step))
   
   if (.not. generate_plots) then
-    close(output_file)
     stop
   endif
   
@@ -291,9 +302,9 @@ subroutine converge_cutoff_and_kpoints(arguments)
   no_cutoffs = (cutoffs(converged_step)-cutoffs(1))/cutoff_step &
            & + no_converged_calculations
   
-  call print_line(output_file, '')
-  call print_line(output_file, 'Energy cutoff convergence:')
-  call print_line(output_file, 'cutoff energy | structure energy')
+  call output_file%print_line('')
+  call output_file%print_line('Energy cutoff convergence:')
+  call output_file%print_line('cutoff energy | structure energy')
   
   spacing = spacings(converged_step)
   do i=1,no_cutoffs
@@ -306,16 +317,16 @@ subroutine converge_cutoff_and_kpoints(arguments)
                              & no_cores,   &
                              & cell_file,  &
                              & param_file)
-    call print_line(output_file, cutoff//' '//energy)
+    call output_file%print_line(cutoff//' '//energy)
   enddo
   
   ! Generate spacing plot data.
   no_spacings = nint( (spacings(1)-spacings(converged_step))/spacing_step ) &
             & + no_converged_calculations
   
-  call print_line(output_file, '')
-  call print_line(output_file, 'k-point spacing convergence:')
-  call print_line(output_file, 'k-point spacing | structure energy')
+  call output_file%print_line('')
+  call output_file%print_line('k-point spacing convergence:')
+  call output_file%print_line('k-point spacing | structure energy')
   
   cutoff = cutoffs(converged_step)
   do i=1,no_spacings
@@ -328,32 +339,32 @@ subroutine converge_cutoff_and_kpoints(arguments)
                              & no_cores,   &
                              & cell_file,  &
                              & param_file)
-    call print_line(output_file, spacing//' '//energy)
+    call output_file%print_line(spacing//' '//energy)
   enddo
-  
-  close(output_file)
 end subroutine
 
 function calculate_energy(cutoff,spacing,wd,seedname,run_script,no_cores, &
    & cell_file,param_file) result(output)
   use utils_module, only : mkdir
+  use ifile_module
+  use ofile_module
   use dft_output_file_module
   implicit none
   
-  integer,          intent(in) :: cutoff
-  real(dp),         intent(in) :: spacing
-  type(String),     intent(in) :: wd
-  type(String),     intent(in) :: seedname
-  type(String),     intent(in) :: run_script
-  integer,          intent(in) :: no_cores
-  type(String),     intent(in) :: cell_file(:)
-  type(String),     intent(in) :: param_file(:)
-  real(dp)                     :: output
+  integer,      intent(in) :: cutoff
+  real(dp),     intent(in) :: spacing
+  type(String), intent(in) :: wd
+  type(String), intent(in) :: seedname
+  type(String), intent(in) :: run_script
+  integer,      intent(in) :: no_cores
+  type(IFile),  intent(in) :: cell_file
+  type(IFile),  intent(in) :: param_file
+  real(dp)                 :: output
   
   type(String)        :: dir
   character(6)        :: spacing_char
-  integer             :: output_cell_file
-  integer             :: output_param_file
+  type(OFile)         :: output_cell_file
+  type(OFile)         :: output_param_file
   integer             :: result_code
   type(DftOutputFile) :: castep_file
   
@@ -366,21 +377,17 @@ function calculate_energy(cutoff,spacing,wd,seedname,run_script,no_cores, &
   dir = wd//'/cutoff_'//cutoff//'_spacing_'//spacing_char
   call mkdir(dir)
   
-  output_cell_file = open_write_file(dir//'/'//seedname//'.cell')
+  output_cell_file = dir//'/'//seedname//'.cell'
   do i=1,size(cell_file)
-    call print_line(output_cell_file, cell_file(i))
+    call output_cell_file%print_line(cell_file%line(i))
   enddo
-  call print_line( output_cell_file, &
-                 & 'kpoints_mp_spacing : '//spacing)
-  close(output_cell_file)
+  call output_cell_file%print_line('kpoints_mp_spacing : '//spacing)
   
-  output_param_file = open_write_file(dir//'/'//seedname//'.param')
+  output_param_file = dir//'/'//seedname//'.param'
   do i=1,size(param_file)
-    call print_line(output_param_file, param_file(i))
+    call output_param_file%print_line(param_file%line(i))
   enddo
-  call print_line( output_param_file, &
-                 & 'cut_off_energy = '//cutoff//' eV')
-  close(output_param_file)
+  call output_param_file%print_line('cut_off_energy = '//cutoff//' eV')
   
   ! Run CASTEP.
   call print_line('')

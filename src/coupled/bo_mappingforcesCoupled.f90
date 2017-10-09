@@ -91,6 +91,8 @@ end function
 ! Main program.
 ! ----------------------------------------------------------------------
 subroutine bo_mappingforcescoupled(arguments)
+  use ifile_module
+  use ofile-module
   use structure_module
   use dictionary_module
   use positions_module
@@ -195,15 +197,15 @@ subroutine bo_mappingforcescoupled(arguments)
   !   MAIN PROGRAM
   ! ----------------------------------------------------------------------
   
-  disp_patterns_file = read_lines(wd//'/disp_patterns.dat')
+  disp_patterns_file = wd//'/disp_patterns.dat'
   
-  output_file = open_write_file(wd//'/caesar.output')
+  output_file = wd//'/caesar.output'
 
   ! PAA sampling or MC sampling
   if (.not. mc_sampling) then 
     ! Declare variable 'blank_line_original' that finds the next relevant blank line in 'disp_patterns.dat' file
     do i=1,size(disp_patterns_file)
-      if (len(disp_patterns_file(i))==0) then
+      if (len(disp_patterns_file%line(i))==0) then
         blank_line_original = i
         exit
       endif
@@ -211,8 +213,8 @@ subroutine bo_mappingforcescoupled(arguments)
 
     ! Calculate ground state energy
     if (file_exists(wd//'/gs_energy.dat')) then
-      gs_energy_file_in = read_lines(wd//'/gs_energy.dat')
-      line = split(gs_energy_file_in(1))
+      gs_energy_file_in = wd//'/gs_energy.dat'
+      line = split(gs_energy_file_in%line(1))
       static_energy = dble(line(2))
     else
       call print_line(output_file, 'Ground state calculation')
@@ -224,14 +226,13 @@ subroutine bo_mappingforcescoupled(arguments)
       ! Collect partial output information
       energy = dft_output_file%energy ! corrected for finite basis set
       static_energy = energy
-      call print_line(output_file, ' Ground state energy (eV): '//energy)
+      call output_file%print_line(' Ground state energy (eV): '//energy)
 
       ! Organise output files
       mv $seed_name.bands band_structure
       
-      gs_energy_file_out = open_write_file(wd//'/gs_energy.dat')
-      call print_line(gs_energy_file_out, '0.0 '//static_energy)
-      close(gs_energy_file_out)
+      gs_energy_file_out = wd//'/gs_energy.dat'
+      call gs_energy_file_out%print_line('0.0 '//static_energy)
       
       mv $seed_name.castep total_output
 
@@ -266,7 +267,7 @@ subroutine bo_mappingforcescoupled(arguments)
               ! Write frequencies to the output 'coupled_energy.dat' file
               !echo $frequency1 $frequency2 >> coupled_energy.dat
               
-              call print_line(output_file, ' Calculating coupling of modes '//n//' & '//m)
+              call output_file%print_line(' Calculating coupling of modes '//n//' & '//m)
               
               ! Loop over the atomic displacements for a particular normal mode
               if (n == 7 .and. m < 10) then
@@ -282,11 +283,11 @@ subroutine bo_mappingforcescoupled(arguments)
                   !Run 'positions2.f90' to evaluate the atomic positions for the current normal mode amplitudes
                   do k=disp_line1,blank_line1-1
                     disp1(k-disp_line1+1) = &
-                       & vec(dble(split(disp_pattern_file(k))))
+                       & vec(dble(split(disp_pattern_file%line(k))))
                   enddo
                   do k=disp_line2,blank_line2-1
                     disp2(k-disp_line2+1) = &
-                       & vec(dble(split(disp_pattern_file(k))))
+                       & vec(dble(split(disp_pattern_file%line(k))))
                   enddo
                   displaced_position =  positions(supercell, temperature, &
                      & num_2body_data, frequency1, frequency2, i, j)

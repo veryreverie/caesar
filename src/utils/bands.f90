@@ -63,6 +63,7 @@ end subroutine
 !  ~
 ! ...
 function read_castep_bands_file_character(filename) result(this)
+  use ifile_module
   implicit none
   
   character(*), intent(in) :: filename
@@ -73,27 +74,27 @@ function read_castep_bands_file_character(filename) result(this)
   integer :: no_bands
   
   ! File contents
-  type(String), allocatable :: bands_file(:)
+  type(IFile)               :: bands_file
   type(String), allocatable :: line(:)
   
   ! Temporary variables
   integer        :: i, j
   
   ! Read in bands file
-  bands_file = read_lines(filename)
+  bands_file = filename
   
   ! Get no_qpoints and no_bands
-  line = split(bands_file(1))
+  line = split(bands_file%line(1))
   no_qpoints = int(line(4))
   
-  line = split(bands_file(4))
+  line = split(bands_file%line(4))
   no_bands = int(line(4))
   
   call new(this,no_qpoints,no_bands)
   
   do i=1,no_qpoints
     do j=1,no_bands
-      this%bands(j,i) = dble(bands_file(11+(no_bands+2)*(i-1)+j))
+      this%bands(j,i) = dble(bands_file%line(11+(no_bands+2)*(i-1)+j))
     enddo
   enddo
 end function
@@ -108,6 +109,7 @@ function read_castep_bands_file_String(filename) result(this)
 end function
 
 function read_vasp_bands_file_character(filename) result(this)
+  use ifile_module
   implicit none
   
   character(*), intent(in) :: filename
@@ -118,17 +120,17 @@ function read_vasp_bands_file_character(filename) result(this)
   integer :: no_bands
   
   ! File contents
-  type(String), allocatable :: bands_file(:)
+  type(IFile)               :: bands_file
   type(String), allocatable :: line(:)
   
   ! Temporary variables
   integer        :: i, j
   
   ! Read in bands file
-  bands_file = read_lines(filename)
+  bands_file = filename
   
   ! Get no_qpoints and no_bands
-  line = split(bands_file(6))
+  line = split(bands_file%line(6))
   no_qpoints = int(line(2))
   no_bands = int(line(3))
   
@@ -138,7 +140,7 @@ function read_vasp_bands_file_character(filename) result(this)
     do j=1,no_bands
       call print_line("Vasp bands file parser needs updating")
       call err()
-      this%bands(j,i) = dble(bands_file(11+(no_bands+2)*(i-1)+j))
+      this%bands(j,i) = dble(bands_file%line(11+(no_bands+2)*(i-1)+j))
     enddo
   enddo
 end function
