@@ -344,7 +344,7 @@ subroutine check_supercells(input,structure,large_supercell)
           endif
           
           ! Check that the q-point corresponds to the correct G-vector.
-          rotation = structure%rotations(qpoint%rotations(k))
+          rotation = structure%symmetries(qpoint%symmetry_ids(k))%rotation
           if (rotation*gvector_large_supercell /= gvector_qpoint) then
             call print_line('Code Error: G-vector '//i//' has been &
                &incorrectly matched to a q-point and supercell.')
@@ -425,12 +425,13 @@ subroutine check_supercells(input,structure,large_supercell)
     enddo
     
     ! Check supercell rotations
-    rotations = calculate_cartesian_rotations(supercell)
+    rotations = supercell%calculate_cartesian_rotations()
     
-    do j=1,supercell%no_symmetries
+    do j=1,size(supercell%symmetries)
       ! Check that R.R^T is the identity.
       rotation_identity = rotations(j) * transpose(rotations(j))
-      if (any(abs(dble(rotation_identity-identity(3)))>1.0e-10_dp)) then
+      if (any(abs(dble( rotation_identity &
+                    & - make_identity_matrix(3)))>1.0e-10_dp)) then
         call print_line('Code Error: rotation '//j//' in supercell '//i// &
            & ' is not a rotation or an improper rotation.')
         call err()
@@ -442,8 +443,8 @@ end subroutine
 ! ----------------------------------------------------------------------
 ! The main program.
 ! ----------------------------------------------------------------------
-function generate_supercells(structure,large_supercell,symmetry_precision, &
-   & symmetry_group,symmetry_inverses) result(output)
+function generate_supercells(structure,large_supercell,symmetry_precision) &
+   & result(output)
   use linear_algebra_module
   use structure_module
   use construct_supercell_module
@@ -454,8 +455,6 @@ function generate_supercells(structure,large_supercell,symmetry_precision, &
   type(StructureData), intent(in) :: structure
   type(StructureData), intent(in) :: large_supercell
   real(dp),            intent(in) :: symmetry_precision
-  type(Group),         intent(in) :: symmetry_group(:)
-  integer,             intent(in) :: symmetry_inverses(:)
   type(GeneratedSupercells)       :: output
   
   ! Grid q-point variables.
@@ -464,14 +463,14 @@ function generate_supercells(structure,large_supercell,symmetry_precision, &
   integer, allocatable :: rotation_to_ibz(:)
   
   ! IBZ q-point variables.
-  integer              :: no_qpoints_ibz
-  integer, allocatable :: multiplicity(:)
+  integer                      :: no_qpoints_ibz
+  integer,         allocatable :: multiplicity(:)
   type(IntVector), allocatable :: qpoints_grid(:)
   type(IntVector), allocatable :: qpoints_ibz(:)
-  integer, allocatable :: sc_size(:)
-  integer, allocatable :: sc_ids(:)
-  integer, allocatable :: gvector_ids(:)
-  type(IntVector)      :: qpoint
+  integer,         allocatable :: sc_size(:)
+  integer,         allocatable :: sc_ids(:)
+  integer,         allocatable :: gvector_ids(:)
+  type(IntVector)              :: qpoint
   
   ! Supercell variables
   type(StructureData), allocatable :: supercells(:)
@@ -511,10 +510,10 @@ function generate_supercells(structure,large_supercell,symmetry_precision, &
   do_i1 : do i=1,large_supercell%sc_size
     ! Check if an equivalent-by-symmetry q-point has already been found.
     do j=1,no_qpoints_ibz
-      do k=1,structure%no_symmetries
+      do k=1,size(structure%symmetries)
         
         ! Rotate the q-point.
-        rot_qpoint = structure%rotations(k) * qpoints_grid(i)
+        rot_qpoint = structure%symmetries(k)%rotation * qpoints_grid(i)
         
         ! If the rotated q-point = q-point(j).
         if (rot_qpoint-qpoints_grid(ibz_to_grid(j))==vec([0,0,0])) then
@@ -595,13 +594,12 @@ function generate_supercells(structure,large_supercell,symmetry_precision, &
         !    is in ibz.
         qpoints_ibz(grid_to_ibz(j)) = qpoints_grid(j)
         ibz_to_grid(ibz_to_grid(j)) = j
-        symmetry = symmetry_inverses(rotation_to_ibz(j))
         do k=1,large_supercell%sc_size
-          if (grid_to_ibz(k) /= grid_to_ibz(j)) then
-            cycle
-          else
-            rotation_to_ibz(k) = symmetry_group(symmetry) &
-                             & * rotation_to_ibz(k)
+          if (grid_to_ibz(k) == grid_to_ibz(j)) then
+            symmetry = structure%symmetries(rotation_to_ibz(j))%inverse
+            rotation_to_ibz(k) =                                 &
+               &   structure%symmetries(symmetry)%operator_group &
+               & * rotation_to_ibz(k)
           endif
         enddo
         
@@ -664,7 +662,7 @@ function generate_supercells(structure,large_supercell,symmetry_precision, &
     do j=1,large_supercell%sc_size
       if (grid_to_ibz(j)==i) then
         output%qpoints_ibz(i)%gvectors(k) = j
-        output%qpoints_ibz(i)%rotations(k) = rotation_to_ibz(j)
+        output%qpoints_ibz(i)%symmetry_ids(k) = rotation_to_ibz(j)
         k = k+1
       endif
     enddo

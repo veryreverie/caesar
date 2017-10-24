@@ -91,8 +91,8 @@ end function
 ! ----------------------------------------------------------------------
 ! Uses symmetry operations to construct force constants.
 ! ----------------------------------------------------------------------
-function construct_force_constants(forces,supercell,unique_directions, &
-   & atom_symmetry_group) result(output)
+function construct_force_constants(forces,supercell,unique_directions) &
+   & result(output)
   use linear_algebra_module
   use structure_module
   use unique_directions_module
@@ -102,7 +102,6 @@ function construct_force_constants(forces,supercell,unique_directions, &
   type(RealVector),       intent(in) :: forces(:,:)
   type(StructureData),    intent(in) :: supercell
   type(UniqueDirections), intent(in) :: unique_directions
-  type(Group),            intent(in) :: atom_symmetry_group(:)
   type(RealMatrix), allocatable      :: output(:,:,:)
   
   ! Atom ids.
@@ -137,7 +136,7 @@ function construct_force_constants(forces,supercell,unique_directions, &
   ! --------------------------------------------------
   ! Get symmetries in cartesian co-ordinates.
   ! --------------------------------------------------
-  rotations_cart = calculate_cartesian_rotations(supercell)
+  rotations_cart = supercell%calculate_cartesian_rotations()
   
   ! --------------------------------------------------
   ! Construct xx and fx.
@@ -151,10 +150,10 @@ function construct_force_constants(forces,supercell,unique_directions, &
   fx = mat([ 0.0_dp,0.0_dp,0.0_dp, &
            & 0.0_dp,0.0_dp,0.0_dp, &
            & 0.0_dp,0.0_dp,0.0_dp], 3,3)
-  do i=1,supercell%no_symmetries
+  do i=1,size(supercell%symmetries)
     do j=1,size(unique_directions)
       atom_1 = unique_directions%atoms(j)
-      atom_1p = atom_symmetry_group(i) * atom_1
+      atom_1p = supercell%symmetries(i)%atom_group * atom_1
       
       if (unique_directions%directions_char(j)=='x') then
         x = [ 1.0_dp, 0.0_dp, 0.0_dp ]
@@ -168,7 +167,7 @@ function construct_force_constants(forces,supercell,unique_directions, &
       xx(atom_1p) = xx(atom_1p) + outer_product(x,x)
       
       do atom_2=1,supercell%no_atoms
-        atom_2p = atom_symmetry_group(i) * atom_2
+        atom_2p = supercell%symmetries(i)%atom_group * atom_2
         
         f = rotations_cart(i) * forces(atom_2,j)
         
@@ -220,7 +219,7 @@ function construct_force_constants(forces,supercell,unique_directions, &
                & 0.0_dp,0.0_dp,0.0_dp, &
                & 0.0_dp,0.0_dp,0.0_dp  ], 3,3)
   
-  rvector_group = calculate_rvector_group(supercell)
+  rvector_group = supercell%calculate_rvector_group()
   
   do atom_1=1,supercell%no_atoms
     atom_1p = supercell%atom_to_prim(atom_1)

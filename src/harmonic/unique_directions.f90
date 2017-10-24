@@ -208,8 +208,8 @@ function calculate_unique_directions(structure,atom_symmetry_group) &
   ! Identify which directions (in cartesian co-ordinates) are
   !    related by symmetry.
   ! --------------------------------------------------
-  cartesian_rotations = calculate_cartesian_rotations(structure)
-  allocate( rotations_cart(3,3,structure%no_symmetries), &
+  cartesian_rotations = structure%calculate_cartesian_rotations()
+  allocate( rotations_cart(3,3,size(structure%symmetries)), &
           & stat=ialloc); call err(ialloc)
   do i=1,size(cartesian_rotations)
     rotations_cart(:,:,i) = dble(cartesian_rotations(i))

@@ -390,12 +390,12 @@ function castep_input_file_to_StructureData(filename, symmetry_precision) &
     call err()
   endif
   
-  output%supercell = identity(3)
+  output%supercell = make_identity_matrix(3)
   output%rvectors(1) = [0,0,0]
   output%gvectors(1) = [0,0,0]
   
-  call calculate_derived_quantities(output)
-  call calculate_symmetry(output, symmetry_precision)
+  call output%calculate_derived_quantities()
+  call output%calculate_symmetry(symmetry_precision)
 end function
 
 function dft_input_file_to_StructureData(dft_code,filename, &

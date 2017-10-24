@@ -5,20 +5,41 @@ module structure_module
   use constants_module, only : dp
   use string_module
   use io_module
+  
   use linear_algebra_module
+  use group_module
   implicit none
   
   private
   
+  public :: SymmetryOperator
   public :: StructureData
   public :: new
   public :: read_structure_file
   public :: write_structure_file
-  public :: calculate_derived_quantities
-  public :: calculate_symmetry
-  public :: calculate_rvector_group
-  public :: calculate_gvector_group
-  public :: calculate_cartesian_rotations
+  
+  ! ----------------------------------------------------------------------
+  ! A symmetry operation.
+  ! ----------------------------------------------------------------------
+  type :: SymmetryOperator
+    ! The rotation and translation in fractional co-ordinates.
+    ! R and T.
+    type(IntMatrix)  :: rotation
+    type(RealVector) :: translation
+    
+    ! The mapping from atoms to other atoms.
+    ! If R * x_i + T = x_j then atom_group*i = j,
+    !    where x_i is the equilibrium position of atom i.
+    type(Group) :: atom_group
+    
+    ! The mapping from symmetry operators to other symmetry operators.
+    ! If S * S_i = S_j then symmetry_group*i = j,
+    !    where S is this operator, and S_i and S_j are other operators.
+    type(Group) :: operator_group
+    
+    ! The id of the operator S_j, s.g. S*S_j = S_j*S = I.
+    integer :: inverse
+  end type
   
   ! ----------------------------------------------------------------------
   ! The structure type.
@@ -58,9 +79,7 @@ module structure_module
     ! ------------------------------
     ! Symmetry data (in fractional co-ordinates).
     ! ------------------------------
-    integer                       :: no_symmetries
-    type(IntMatrix),  allocatable :: rotations(:)
-    type(RealVector), allocatable :: translations(:)
+    type(SymmetryOperator), allocatable :: symmetries(:)
     
     ! ------------------------------
     ! Superell data
@@ -85,6 +104,15 @@ module structure_module
     type(IntVector), allocatable :: gvectors(:)
     ! The ID of the G-vector, j, s.t. gvectors(:,i) + gvectors(:,j) = 0.
     integer, allocatable :: paired_gvec(:)
+  contains
+    procedure, public  :: calculate_derived_quantities
+    procedure, public  :: calculate_symmetry
+    procedure, public  :: calculate_rvector_group
+    procedure, public  :: calculate_gvector_group
+    procedure, public  :: calculate_cartesian_rotations
+    procedure, private :: calculate_atom_symmetry_group
+    procedure, private :: calculate_operator_symmetry_group
+    procedure, private :: calculate_operator_inverses
   end type
   
   interface new
@@ -181,10 +209,8 @@ subroutine new_StructureData(this,no_atoms,no_symmetries,sc_size)
     enddo
   enddo
   
-  this%no_symmetries = no_symmetries
   if (no_symmetries /= 0) then
-    allocate( this%rotations(no_symmetries),    &
-            & this%translations(no_symmetries), &
+    allocate( this%symmetries(no_symmetries), &
             & stat=ialloc); call err(ialloc)
   endif
   
@@ -311,7 +337,7 @@ function read_structure_file(filename) result(this)
     sc_size = 1
   else
     no_atoms = symmetry_line-atoms_line-1
-    no_symmetries = (supercell_line-symmetry_line-1)/5
+    no_symmetries = (supercell_line-symmetry_line-1)/11
     sc_size = end_line-gvectors_line-1
   endif
   
@@ -335,17 +361,22 @@ function read_structure_file(filename) result(this)
     this%atoms(i) = dble(line(3:5))
   enddo
   
-  do i=1,this%no_symmetries
+  do i=1,size(this%symmetries)
     do j=1,3
-      temp_int(j,:) = int(split(structure_file%line(symmetry_line+(i-1)*5+j)))
+      temp_int(j,:) = int(split( &
+         & structure_file%line(symmetry_line+(i-1)*11+j+1)))
     enddo
-    this%rotations(i) = temp_int
-    this%translations(i) = dble(split( &
-       & structure_file%line(symmetry_line+(i-1)*5+4)))
+    this%symmetries(i)%rotation = temp_int
+    this%symmetries(i)%translation = dble(split( &
+       & structure_file%line(symmetry_line+(i-1)*11+6)))
+    this%symmetries(i)%atom_group = int(split( &
+       & structure_file%line(symmetry_line+(i-1)*11+8)))
+    this%symmetries(i)%operator_group = int(split( &
+       & structure_file%line(symmetry_line+(i-1)*11+10)))
   enddo
   
   if (supercell_line==0) then
-    this%supercell = identity(3)
+    this%supercell = make_identity_matrix(3)
     this%gvectors(1) = [ 0, 0, 0 ]
   else
     do i=1,3
@@ -388,11 +419,17 @@ subroutine write_structure_file(this,filename)
                                   & this%atoms(i))
   enddo
   
-  if (this%no_symmetries/=0) then
+  if (size(this%symmetries)/=0) then
     call structure_file%print_line('Symmetry')
-    do i=1,this%no_symmetries
-      call structure_file%print_line(this%rotations(i))
-      call structure_file%print_line(this%translations(i))
+    do i=1,size(this%symmetries)
+      call structure_file%print_line('Rotation:')
+      call structure_file%print_line(this%symmetries(i)%rotation)
+      call structure_file%print_line('Translation:')
+      call structure_file%print_line(this%symmetries(i)%translation)
+      call structure_file%print_line('Atom group:')
+      call structure_file%print_line(this%symmetries(i)%atom_group)
+      call structure_file%print_line('Operator group:')
+      call structure_file%print_line(this%symmetries(i)%operator_group)
       call structure_file%print_line('')
     enddo
   endif
@@ -418,7 +455,7 @@ subroutine calculate_derived_quantities(this)
   use linear_algebra_module, only : invert, determinant
   implicit none
   
-  type(StructureData), intent(inout) :: this
+  class(StructureData), intent(inout) :: this
   
   integer :: i,j
   
@@ -464,8 +501,8 @@ function calculate_rvector_group(this) result(output)
   use group_module
   implicit none
   
-  type(StructureData), intent(in) :: this
-  type(Group), allocatable        :: output(:)
+  class(StructureData), intent(in) :: this
+  type(Group), allocatable         :: output(:)
   
   integer, allocatable :: operation(:)
   
@@ -504,8 +541,8 @@ function calculate_gvector_group(this) result(output)
   use group_module
   implicit none
   
-  type(StructureData), intent(in) :: this
-  type(Group), allocatable        :: output(:)
+  class(StructureData), intent(in) :: this
+  type(Group), allocatable         :: output(:)
   
   integer, allocatable :: operation(:)
   
@@ -542,14 +579,16 @@ end function
 function calculate_cartesian_rotations(this) result(output)
   implicit none
   
-  type(StructureData), intent(in) :: this
-  type(RealMatrix), allocatable   :: output(:)
+  class(StructureData), intent(in) :: this
+  type(RealMatrix), allocatable    :: output(:)
   
   integer :: i,ialloc
   
-  allocate(output(this%no_symmetries), stat=ialloc); call err(ialloc)
-  do i=1,this%no_symmetries
-    output(i) = transpose(this%lattice)*this%rotations(i)*this%recip_lattice
+  allocate(output(size(this%symmetries)), stat=ialloc); call err(ialloc)
+  do i=1,size(this%symmetries)
+    output(i) = transpose(this%lattice)     &
+            & * this%symmetries(i)%rotation &
+            & * this%recip_lattice
   enddo
 end function
 
@@ -560,8 +599,8 @@ subroutine calculate_symmetry(this,symmetry_precision)
   use iso_c_binding
   implicit none
   
-  type(StructureData), intent(inout) :: this
-  real(dp),            intent(in)    :: symmetry_precision
+  class(StructureData), intent(inout) :: this
+  real(dp),             intent(in)    :: symmetry_precision
   
   ! spglib inputs.
   integer             :: atom_types(this%no_atoms)
@@ -569,6 +608,7 @@ subroutine calculate_symmetry(this,symmetry_precision)
   ! spglib data.
   logical(kind=c_bool) :: spglib_success
   type(c_ptr)          :: spg_dataset_pointer
+  integer              :: no_symmetries
   
   ! Temporary matrix storage, for passing to and from C.
   real(dp), allocatable :: atoms(:,:)
@@ -603,7 +643,7 @@ subroutine calculate_symmetry(this,symmetry_precision)
                                   & symmetry_precision,  &
                                   & spglib_success,      &
                                   & spg_dataset_pointer, &
-                                  & this%no_symmetries)
+                                  & no_symmetries)
   
   ! Check for errors.
   if (.not. spglib_success) then
@@ -613,22 +653,199 @@ subroutine calculate_symmetry(this,symmetry_precision)
   endif
   
   ! Allocate space for symmetries.
-  allocate( rotations(3,3,this%no_symmetries),     &
-          & this%rotations(this%no_symmetries),    &
-          & translations(3,this%no_symmetries),    &
-          & this%translations(this%no_symmetries), &
+  allocate( rotations(3,3,no_symmetries),     &
+          & translations(3,no_symmetries),    &
+          & this%symmetries(no_symmetries), &
           & stat=ialloc); call err(ialloc)
   
   ! Retrieve symmetries into allocated space.
   call spglib_retrieve_symmetries( spg_dataset_pointer, &
                                  & rotations,      &
                                  & translations)
-  do i=1,this%no_symmetries
-    this%rotations(i) = rotations(:,:,i)
-    this%translations(i) = translations(:,i)
+  do i=1,size(this%symmetries)
+    this%symmetries(i)%rotation = rotations(:,:,i)
+    this%symmetries(i)%translation = translations(:,i)
   enddo
   
   ! Deallocate C memory.
   call drop_spg_dataset(spg_dataset_pointer)
+  
+  ! Calculate further symmetry properties.
+  call this%calculate_atom_symmetry_group()
+  call this%calculate_operator_symmetry_group()
+  call this%calculate_operator_inverses()
+end subroutine
+
+! ----------------------------------------------------------------------
+! Calculates how symmetries map atoms onto other atoms.
+! ----------------------------------------------------------------------
+! If symmetry i maps atom j to atom k then output(i)*j=k.
+subroutine calculate_atom_symmetry_group(this)
+  use group_module
+  use linear_algebra_module
+  implicit none
+  
+  class(StructureData), intent(inout) :: this
+  
+  integer,  allocatable :: operations(:,:)
+  
+  ! Objects in fractional supercell co-ordinates.
+  !   n.b. in these co-ordintates, supercell lattice vectors are unit vectors.
+  !   This is a different convention to the scaled co-ordinates used elsewhere.
+  type(RealVector), allocatable :: atom_pos_frac(:)
+  type(RealVector)              :: transformed_pos_frac
+  
+  ! Distances between atoms and transformed atoms.
+  type(RealVector)      :: delta
+  real(dp), allocatable :: distances(:)
+  
+  ! Temporary variables.
+  integer :: i,j,k
+  
+  allocate(atom_pos_frac(this%no_atoms))
+  allocate(operations(this%no_atoms,size(this%symmetries)))
+  allocate(distances(this%no_atoms))
+  
+  ! Transform atom positions into fractional supercell co-ordinates.
+  do i=1,this%no_atoms
+    atom_pos_frac(i) = this%recip_lattice * this%atoms(i)
+  enddo
+  
+  ! Work out which atoms map to which atoms under each symmetry operation.
+  do i=1,size(this%symmetries)
+    do j=1,this%no_atoms
+      ! Calculate the position of the transformed atom.
+      transformed_pos_frac = this%symmetries(i)%rotation &
+                         & * atom_pos_frac(j)                 &
+                         & + this%symmetries(i)%translation
+      
+      ! Identify which atom is closest to the transformed position,
+      !    modulo supercell lattice vectors.
+      do k=1,this%no_atoms
+        delta = transformed_pos_frac - atom_pos_frac(k)
+        distances(k) = l2_norm(delta-vec(nint(dble(delta))))
+      enddo
+      operations(j,i) = minloc(distances,1)
+      
+      ! Check that the transformed atom is acceptably close to its image.
+      if (distances(operations(j,i))>1.0e-10_dp) then
+        call err()
+      endif
+    enddo
+  enddo
+  
+  ! Check that each symmetry is one-to-one, and that mapped atoms are of the
+  !    same species.
+  do i=1,size(this%symmetries)
+    do j=1,this%no_atoms
+      if (count(operations(:,i)==j)/=1) then
+        call print_line('Error: symmetry operation not one-to-one.')
+        call err()
+      endif
+      
+      if (this%species(operations(j,i))/=this%species(j)) then
+        call print_line('Error: symmetry operation between different species.')
+        call err()
+      endif
+    enddo
+  enddo
+  
+  do i=1,size(this%symmetries)
+    this%symmetries(i)%atom_group = operations(:,i)
+  enddo
+end subroutine
+
+! ----------------------------------------------------------------------
+! Calculates how symmetries map symmetries onto other symmetries.
+! ----------------------------------------------------------------------
+! If symmetry i * symmetry j = symmetry k then output(i)*j=k.
+subroutine calculate_operator_symmetry_group(this)
+  use group_module
+  use linear_algebra_module
+  implicit none
+  
+  class(StructureData), intent(inout) :: this
+  
+  type(IntMatrix) :: rotation_k
+  type(Group)     :: operation_k
+  
+  ! Temporary variables.
+  integer              :: i,j,k,ialloc
+  integer, allocatable :: temp_operator_group(:)
+  
+  allocate( temp_operator_group(size(this%symmetries)), &
+          & stat=ialloc); call err(ialloc)
+  do i=1,size(this%symmetries)
+    do_j : do j=1,size(this%symmetries)
+      rotation_k = this%symmetries(i)%rotation &
+               & * this%symmetries(j)%rotation
+      operation_k = this%symmetries(i)%atom_group &
+                & * this%symmetries(j)%atom_group
+      do k=1,size(this%symmetries)
+        if ( rotation_k==this%symmetries(k)%rotation .and. &
+           & operation_k==this%symmetries(k)%atom_group) then
+          temp_operator_group(j) = k
+          cycle do_j
+        endif
+      enddo
+      
+      call print_line('Error: symmetry '//i//' times symmetry '//j//' is not &
+         &itself a symmetry.')
+      call err()
+    enddo do_j
+    
+    this%symmetries(i)%operator_group = temp_operator_group
+  enddo
+end subroutine
+
+! ----------------------------------------------------------------------
+! Calculates the inverse of each symmetry.
+! ----------------------------------------------------------------------
+! If symmetry i * symmetry j = I then output(i)=j.
+subroutine calculate_operator_inverses(this)
+  use group_module
+  implicit none
+  
+  class(StructureData), intent(inout) :: this
+  
+  type(Group) :: identity_group
+  
+  ! Temporary variables.
+  integer :: i,j,ialloc
+  integer :: identity
+  
+  ! Locate the identity operator. S*S=S iff S=I.
+  identity = 0
+  do i=1,size(this%symmetries)
+    if (this%symmetries(i)%operator_group*i == i) then
+      identity = i
+    endif
+  enddo
+  
+  if (identity==0) then
+    call print_line('Error: The identity symmetry has not been found.')
+    call err()
+  endif
+  
+  ! Locate the inverse of each operator.
+  do_i : do i=1,size(this%symmetries)
+    do j=1,size(this%symmetries)
+      if (this%symmetries(i)%operator_group*j==identity) then
+        this%symmetries(i)%inverse = j
+        
+        if (j<i) then
+          if (this%symmetries(j)%inverse/=i) then
+            call print_line('Error: operator inverses do not match.')
+            call err()
+          endif
+        endif
+        
+        cycle do_i
+      endif
+    enddo
+    
+    call print_line('Error: operator inverse not found.')
+    call err()
+  enddo do_i
 end subroutine
 end module

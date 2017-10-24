@@ -11,9 +11,9 @@ contains
 ! Calculates the set of vectors which are not related to one another by
 !    lattice vectors.
 ! ----------------------------------------------------------------------
-! This is used to either calculate the R-vectors of the primitive cell which are
-!    unique in the supercell, or the G-vectors of the reciprocal supercell which
-!    are unique in the reciprocal primitive cell.
+! This is used to either calculate the R-vectors of the primitive cell which
+!    are unique in the supercell, or the G-vectors of the reciprocal supercell
+!    which are unique in the reciprocal primitive cell.
 function calculate_unique_vectors(lattice,centre_on_origin) result(output)
   use linear_algebra_module
   implicit none
@@ -112,7 +112,7 @@ function construct_supercell(structure,supercell_matrix,calculate_symmetries, &
   supercell%rvectors = calculate_unique_vectors(supercell_matrix, .false.)
   supercell%gvectors = calculate_unique_vectors( transpose(supercell_matrix), &
                                                & .true.)
-  call calculate_derived_quantities(supercell)
+  call supercell%calculate_derived_quantities()
   
   ! Generate atomic positions.
   do i=1,structure%no_atoms
@@ -167,7 +167,7 @@ function construct_supercell(structure,supercell_matrix,calculate_symmetries, &
       call print_line('Symmetry requested but no precision specified.')
       call err()
     endif
-    call calculate_symmetry(supercell, symmetry_precision)
+    call supercell%calculate_symmetry(symmetry_precision)
   endif
 end function
 end module

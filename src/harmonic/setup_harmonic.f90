@@ -50,7 +50,6 @@ subroutine setup_harmonic(arguments)
   use construct_supercell_module
   use generate_supercells_module
   use unique_directions_module
-  use calculate_symmetry_group_module
   implicit none
   
   type(Dictionary), intent(in) :: arguments
@@ -136,15 +135,6 @@ subroutine setup_harmonic(arguments)
   call write_structure_file(structure,wd//'/structure.dat')
   
   ! --------------------------------------------------
-  ! Calculate primitive cell symmetry data.
-  ! --------------------------------------------------
-  primitive_atom_symmetry_group = calculate_atom_symmetry_group(structure)
-  primitive_operator_symmetry_group = calculate_operator_symmetry_group( &
-     & structure, primitive_atom_symmetry_group)
-  primitive_operator_inverses = calculate_operator_inverses( &
-     & primitive_operator_symmetry_group)
-  
-  ! --------------------------------------------------
   ! Generate large supercell, for which all q-points are G-vectors.
   ! --------------------------------------------------
   large_supercell_matrix = mat([ grid(1), 0      , 0      , &
@@ -159,12 +149,9 @@ subroutine setup_harmonic(arguments)
   ! Generate supercells.
   ! --------------------------------------------------
   ! Generate q-points in IBZ and non-diagonal supercells.
-  qpoints_and_supercells = generate_supercells( &
-     & structure,                               &
-     & large_supercell,                         &
-     & symmetry_precision,                      &
-     & primitive_operator_symmetry_group,       &
-     & primitive_operator_inverses)
+  qpoints_and_supercells = generate_supercells( structure,       &
+                                              & large_supercell, &
+                                              & symmetry_precision)
   call write_qpoints_file( qpoints_and_supercells%qpoints_ibz, &
                          & wd//'/qpoints_ibz.dat')
   
@@ -172,11 +159,6 @@ subroutine setup_harmonic(arguments)
   no_supercells = size(qpoints_and_supercells%supercells)
   no_supercells_file = wd//'/no_supercells.dat'
   call no_supercells_file%print_line(no_supercells)
-  
-  ! Calculate primitive cell symmetry groups.
-  primitive_atom_symmetry_group = calculate_atom_symmetry_group(structure)
-  primitive_operator_symmetry_group = calculate_operator_symmetry_group( &
-     & structure, primitive_atom_symmetry_group)
   
   ! Loop over supercells.
   do i=1,no_supercells
@@ -189,10 +171,7 @@ subroutine setup_harmonic(arguments)
     call write_structure_file(supercell, sdir//'/structure.dat')
     
     ! Calculate supercell symmetry groups.
-    supercell_atom_symmetry_group = calculate_atom_symmetry_group(supercell)
-    cartesian_rotations = calculate_cartesian_rotations(supercell)
-    call write_group_file( supercell_atom_symmetry_group, &
-                         & sdir//'/atom_symmetry_group.dat')
+    cartesian_rotations = supercell%calculate_cartesian_rotations()
     
     ! Calculate which forces need calculating.
     unique_directions = calculate_unique_directions( supercell, &

@@ -31,56 +31,57 @@ function converge_cutoff_and_kpoints_keywords() result(keywords)
   &               default_value='1'),                                         &
   & make_keyword( 'minimum_cutoff',                                           &
   &               'minimum_cutoff is the smallest cutoff energy which will be &
-  &tested. minimum_cutoff should be an integer.',                             &
+  &tested. minimum_cutoff must be an integer.',                               &
   &               default_value='300'),                                       &
   & make_keyword( 'cutoff_step',                                              &
   &               'cutoff_step is the step between each cutoff energy which &
-  &will be tested. cutoff_step should be an integer.',                        &
+  &will be tested. cutoff_step must be an integer.',                          &
   &               default_value='50'),                                        &
   & make_keyword( 'maximum_cutoff',                                           &
-  &               'maximum_cutoff is the largest cutoff energy which will be &
-  &tested. Caesar will terminate with an error if convergence has not been &
-  &acheived by the maximum cutoff energy. maximum_cutoff should be an &
-  &integer.',                                                                 &
+  &               'maximum_cutoff is the cutoff energy at which calculation &
+  &will be terminated if convergence has not been reached. maximum_cutoff &
+  &must be an integer.',                                                      &
   &               default_value='1500'),                                      &
-  & make_keyword( 'maximum_spacing',                                          &
-  &               'maximum_spacing is the largest k-point spacing which will &
-  &be tested.',                                                    &
-  &               default_value='0.1'),                                       &
-  & make_keyword( 'spacing_step',                                             &
-  &               'spacing_step is the step between each k-point spacing &
-  &which will be tested.',                                                    &
-  &               default_value='0.005'),                                     &
-  & make_keyword( 'minimum_spacing',                                          &
-  &               'minimum_spacing is the smallest k-point spacing which will &
-  &be tested. Caesar will terminate with an error if convergence has not been &
-  &acheived by the minimum k-point spacing.',                                 &
-  &               default_value='0.01'),                                      &
-  & make_keyword( 'convergence_threshold',                                    &
-  &               'convergence_threshold is the energy to which the &
-  &calculations must converge in order for the cutoff energy to be &
-  &accepted.'),                                                               &
+  & make_keyword( 'minimum_kpoints',                                          &
+  &               'minimum_kpoints is the smallest number of k-points which &
+  &will be tested. This is the average number of k-points in each direction. &
+  &minimum_kpoints must be an integer.',                                      &
+  &               default_value='1'),                                         &
+  & make_keyword( 'kpoints_step',                                             &
+  &               'kpoints_step is the step between each number of k-points &
+  &which will be tested. kpoints_step must be an integer, and should be even &
+  &if consistent sampling of the gamma point is desirable.',                  &
+  &               default_value='2'),                                         &
+  & make_keyword( 'maximum_kpoints',                                          &
+  &               'maximum_kpoints is the number of k-points at which &
+  &calculation will be terminated if convergence has not been reached. &
+  &maximum_kpoints must be an integer.',                                      &
+  &               default_value='30'),                                        &
+  & make_keyword( 'energy_convergence_threshold',                             &
+  &               'energy_convergence_threshold is the accuracy to which the &
+  &energy  must converge in order for the cutoff energy to be accepted.'),    &
+  & make_keyword( 'force_convergence_threshold',                              &
+  &               'force_convergence_threshold is the accuracy to which the &
+  &forces must converge in order for the cutoff energy to be accepted.'),     &
   & make_keyword( 'no_converged_calculations',                                &
   &               'no_converged_calculations is the number of calculations &
-  &which must be within convergence_threshold in order to accept the cutoff &
-  &energy. The cutoff energy of the first such calculation will be &
+  &which must be within both thresholds in order to accept convergence. The &
+  &cutoff energy and k-point spacing of the first such calculation will be &
   &accepted.',                                                                &
-  &               default_value='5'),                                         &
-  & make_keyword( 'generate_plots',                                           &
-  &               'generate_plots specifies that further calculations should &
-  &be run to allow plots of the convergence testing to be made. This will &
-  &take extra time.',                                                         &
-  &               default_value='true') ]
+  &               default_value='10') ]
 end function
 
 ! ----------------------------------------------------------------------
 ! Main program.
 ! ----------------------------------------------------------------------
 subroutine converge_cutoff_and_kpoints(arguments)
+  use dictionary_module
   use ifile_module
   use ofile_module
-  use dictionary_module
-  use dft_output_file_module
+  use structure_module
+  use linear_algebra_module
+  use dft_input_file_module
+  use castep_output_file_module
   implicit none
   
   type(Dictionary), intent(in) :: arguments
@@ -93,43 +94,50 @@ subroutine converge_cutoff_and_kpoints(arguments)
   integer      :: minimum_cutoff
   integer      :: cutoff_step
   integer      :: maximum_cutoff
-  real(dp)     :: maximum_spacing
-  real(dp)     :: spacing_step
-  real(dp)     :: minimum_spacing
-  real(dp)     :: convergence_threshold
+  integer      :: minimum_kpoints
+  integer      :: kpoints_step
+  integer      :: maximum_kpoints
+  real(dp)     :: energy_convergence_threshold
+  real(dp)     :: force_convergence_threshold
   integer      :: no_converged_calculations
-  logical      :: generate_plots
+  
+  ! The structure being converged.
+  type(StructureData) :: structure
+  real(dp)            :: recip_lattice(3,3)
+  real(dp)            :: average_reciprocal_length
   
   ! Files.
-  type(IFile) :: cell_file
-  type(IFile) :: param_file
-  type(OFile) :: progress_file
-  type(OFile) :: output_file
+  type(IFile)            :: cell_file
+  type(IFile)            :: param_file
+  type(CastepOutputFile) :: castep_file
+  type(OFile)            :: progress_file
+  type(OFile)            :: cutoff_file
+  type(OFile)            :: kpoints_file
   
-  ! Arrays.
-  integer,  allocatable :: cutoffs(:)
-  real(dp), allocatable :: spacings(:)
-  real(dp), allocatable :: energies(:)
-  real(dp), allocatable :: finer_cutoff_energies(:)
-  real(dp), allocatable :: finer_spacing_energies(:)
+  ! Energies and forces.
+  integer                       :: no_cutoffs
+  integer                       :: no_kpoints
+  integer,          allocatable :: cutoffs(:)
+  real(dp),         allocatable :: kpoint_spacings(:)
+  integer,          allocatable :: kpoint_numbers(:)
+  integer,          allocatable :: kpoint_grids(:,:)
+  real(dp),         allocatable :: cutoffs_energies(:)
+  real(dp),         allocatable :: kpoints_energies(:)
+  type(RealVector), allocatable :: cutoffs_forces(:,:)
+  type(RealVector), allocatable :: kpoints_forces(:,:)
+  
+  ! Convergence variables.
+  real(dp) :: energy_difference
+  real(dp) :: force_difference
   
   ! Working variables.
-  integer  :: max_no_steps
-  integer  :: step
-  integer  :: converged_step
-  logical  :: converged
-  integer  :: no_cutoffs
-  integer  :: no_spacings
-  integer  :: finer_cutoff
-  real(dp) :: finer_spacing
-  
-  ! Output variables.
-  integer  :: cutoff
-  real(dp) :: spacing
-  real(dp) :: energy
+  type(String) :: dir
+  integer      :: converged_step
+  integer      :: final_step
+  logical      :: converged
   
   ! Temporary variables.
-  integer      :: i,ialloc
+  integer :: i,j,ialloc
   
   ! --------------------------------------------------
   ! Get settings from user, and check them.
@@ -141,41 +149,37 @@ subroutine converge_cutoff_and_kpoints(arguments)
   minimum_cutoff = int(arguments%value('minimum_cutoff'))
   cutoff_step = int(arguments%value('cutoff_step'))
   maximum_cutoff = int(arguments%value('maximum_cutoff'))
-  maximum_spacing = dble(arguments%value('maximum_spacing'))
-  spacing_step = dble(arguments%value('spacing_step'))
-  minimum_spacing = dble(arguments%value('minimum_spacing'))
-  convergence_threshold = dble(arguments%value('convergence_threshold'))
+  minimum_kpoints = int(arguments%value('minimum_kpoints'))
+  kpoints_step = int(arguments%value('kpoints_step'))
+  maximum_kpoints = int(arguments%value('maximum_kpoints'))
+  energy_convergence_threshold = &
+     & dble(arguments%value('energy_convergence_threshold'))
+  force_convergence_threshold = &
+     & dble(arguments%value('force_convergence_threshold'))
   no_converged_calculations = int(arguments%value('no_converged_calculations'))
-  generate_plots = lgcl(arguments%value('generate_plots'))
   
-  if (maximum_cutoff<=minimum_cutoff) then
-    call print_line('Error: maximum_cutoff must be greater than &
-       &minimum_cutoff')
-    stop
-  elseif (cutoff_step<10) then
+  if (cutoff_step<10) then
     call print_line('Error: cutoff_step is too small.')
     stop
-  elseif (maximum_spacing<=minimum_spacing) then
-    call print_line('Error: maximum_spacing must be greater than &
-       &minimum_spacing')
+  elseif (maximum_cutoff<=minimum_cutoff) then
+    call print_line('Error: maximum_cutoff is smaller than minimum_cutoff.')
     stop
-  elseif (spacing_step<0.0001_dp) then
-    call print_line('Error: spacing_step is too small.')
+  elseif (kpoints_step<1) then
+    call print_line('Error: kpoints_step is too small.')
     stop
-  elseif (convergence_threshold<=0.0_dp) then
-    call print_line('Error: convergence_threshold must be positive.')
+  elseif (maximum_kpoints<=minimum_kpoints) then
+    call print_line('Error: maximum_kpoints is smaller than minimum_kpoints.')
+    stop
+  elseif (energy_convergence_threshold<=0.0_dp) then
+    call print_line('Error: energy_convergence_threshold must be positive.')
+    stop
+  elseif (force_convergence_threshold<=0.0_dp) then
+    call print_line('Error: force_convergence_threshold must be positive.')
     stop
   elseif (no_converged_calculations<2) then
     call print_line('Error: no_converged_calculations must be at least 2.')
     stop
   endif
-  
-  ! Calculate the maximum number of steps.
-  ! The +2 is to allow for the first step at coarsest values, and to prevent
-  !    overflow when calculating the final step.
-  max_no_steps = (maximum_cutoff-minimum_cutoff)/cutoff_step           &
-             & + floor((maximum_spacing-minimum_spacing)/spacing_step) &
-             & + 2
   
   ! --------------------------------------------------
   ! Read .cell and .param files.
@@ -183,205 +187,279 @@ subroutine converge_cutoff_and_kpoints(arguments)
   cell_file = wd//'/'//seedname//'.cell'
   param_file = wd//'/'//seedname//'.param'
   
+  structure = dft_input_file_to_StructureData( str('castep'),              &
+                                             & wd//'/'//seedname//'.cell', &
+                                             & 0.1_dp)
+  
+  recip_lattice = dble(structure%recip_lattice)
+  average_reciprocal_length = 0.0_dp
+  do i=1,3
+    average_reciprocal_length = average_reciprocal_length        &
+                            & + l2_norm(vec(recip_lattice(i,:))) &
+                            & / 3.0_dp
+  enddo
+  
   ! --------------------------------------------------
-  ! Run convergence calculations.
+  ! Calculate the number of steps in both convergence calculations.
   ! --------------------------------------------------
-  allocate( cutoffs(max_no_steps),                &
-          & spacings(max_no_steps),               &
-          & energies(max_no_steps),               &
-          & finer_cutoff_energies(max_no_steps),  &
-          & finer_spacing_energies(max_no_steps), &
+  no_cutoffs = (maximum_cutoff-minimum_cutoff)/cutoff_step &
+           & + no_converged_calculations
+  
+  no_kpoints = (maximum_kpoints-minimum_kpoints)/kpoints_step &
+           & + no_converged_calculations
+  
+  ! --------------------------------------------------
+  ! Allocate arrays.
+  ! --------------------------------------------------
+  allocate( cutoffs(no_cutoffs),                            &
+          & kpoint_spacings(no_kpoints),                    &
+          & kpoint_numbers(no_kpoints),                     &
+          & kpoint_grids(3,no_kpoints),                     &
+          & cutoffs_energies(no_cutoffs),                   &
+          & kpoints_energies(no_kpoints),                   &
+          & cutoffs_forces(structure%no_atoms, no_cutoffs), &
+          & kpoints_forces(structure%no_atoms, no_kpoints), &
           & stat=ialloc); call err(ialloc)
-  converged = .false.
-  cutoffs(1) = minimum_cutoff
-  spacings(1) = maximum_spacing
-  energies(1) = calculate_energy( cutoffs(1),  &
-                                & spacings(1), &
-                                & wd,          &
-                                & seedname,    &
-                                & run_script,  &
-                                & no_cores,    &
-                                & cell_file,   &
-                                & param_file)
+  
+  ! --------------------------------------------------
+  ! Run cutoff convergence.
+  ! --------------------------------------------------
+  
   progress_file = wd//'/convergence_progress.dat'
-  call progress_file%print_line('cutoff | spacing | structure energy')
-  do step=1,max_no_steps
-    ! Print progress.
-    call progress_file%print_line( cutoffs(step)  //' '// &
-                                 & spacings(step) //' '// &
-                                 & energies(step))
+  call progress_file%print_line( 'Energy cutoff convergence:')
+  converged = .false.
+  do i=1,no_cutoffs
+    cutoffs(i) = minimum_cutoff + (i-1)*cutoff_step
     
-    ! Check for convergence.
-    if (step>=no_converged_calculations) then
-      converged_step = step-no_converged_calculations+1
-      if (all( abs(energies(converged_step:step)-energies(step)) &
-           & < convergence_threshold)) then
+    dir = wd//'/cutoff_'//cutoffs(i)
+    castep_file = run_castep( cutoffs(i),                                &
+                            & average_reciprocal_length/minimum_kpoints, &
+                            & wd,                                        &
+                            & dir,                                       &
+                            & seedname,                                  &
+                            & run_script,                                &
+                            & no_cores,                                  &
+                            & cell_file,                                 &
+                            & param_file)
+    cutoffs_energies(i) = castep_file%energy
+    cutoffs_forces(:,i) = castep_file%forces
+    
+    if (i==1) then
+      call progress_file%print_line( 'k-point grid : '// &
+                                   & castep_file%kpoints_mp_grid)
+    endif
+    
+    call progress_file%print_line('')
+    call progress_file%print_line( 'Cutoff : '// &
+                               & cutoffs(i)//' eV')
+    call progress_file%print_line( 'Energy : '// &
+                               & castep_file%energy//' eV')
+    
+    if (i>=no_converged_calculations) then
+      converged_step = i-no_converged_calculations+1
+      energy_difference = maxval(abs( cutoffs_energies(converged_step:i) &
+                                  & - cutoffs_energies(i)))
+      force_difference = 0
+      do j=converged_step,i
+        force_difference = max( force_difference,                   &
+                              & maxval(l2_norm( cutoffs_forces(:,j) &
+                              &               - cutoffs_forces(:,i))))
+      enddo
+      
+      call progress_file%print_line( '')
+      call progress_file%print_line( 'Cutoff               : '// &
+                                 & cutoffs(converged_step)//' eV')
+      call progress_file%print_line( 'Energy difference    : '// &
+                                 & energy_difference//' eV')
+      call progress_file%print_line( 'Force difference     : '// &
+                                 & force_difference//' eV/A')
+      
+      if ( energy_difference<energy_convergence_threshold .and. &
+         & force_difference<force_convergence_threshold ) then
+        final_step = i
         converged = .true.
         exit
       endif
     endif
-    
-    if (step==max_no_steps) then
-      call print_line('Code Error: max_no_steps reached without convergence.')
-      call err()
-    endif
-    
-    ! Calculate energy at finer energy cutoff and k-point spacing.
-    finer_cutoff = cutoffs(step)+cutoff_step
-    finer_cutoff_energies(step) = calculate_energy( finer_cutoff,   &
-                                                  & spacings(step), &
-                                                  & wd,             &
-                                                  & seedname,       &
-                                                  & run_script,     &
-                                                  & no_cores,       &
-                                                  & cell_file,      &
-                                                  & param_file)
-    
-    finer_spacing = spacings(step)-spacing_step
-    finer_spacing_energies(step) = calculate_energy( cutoffs(step), &
-                                                   & finer_spacing, &
-                                                   & wd,            &
-                                                   & seedname,      &
-                                                   & run_script,    &
-                                                   & no_cores,      &
-                                                   & cell_file,     &
-                                                   & param_file)
-    ! Print progress.
-    call progress_file%print_line( finer_cutoff   //' '// &
-                                 & spacings(step) //' '// &
-                                 & finer_cutoff_energies(step))
-    call progress_file%print_line( cutoffs(step) //' '// &
-                                 & finer_spacing //' '// &
-                                 & finer_spacing_energies(step))
-    call progress_file%print_line('')
-    
-    ! Copy whichever change made the largest difference to the next step.
-    if ( abs(finer_cutoff_energies(step)-energies(step)) >= &
-       & abs(finer_spacing_energies(step)-energies(step)) ) then
-      cutoffs(step+1)  = cutoffs(step)+cutoff_step
-      spacings(step+1) = spacings(step)
-      energies(step+1) = finer_cutoff_energies(step)
-    else
-      cutoffs(step+1)  = cutoffs(step)
-      spacings(step+1) = spacings(step)-spacing_step
-      energies(step+1) = finer_spacing_energies(step)
-    endif
-    
-    ! Check that neither cutoff nor spacing has exceeded its bounds.
-    if (cutoffs(step+1)>maximum_cutoff) then
-      converged_step = step
-      call print_line('Error: convergence not acheived within the maximum &
-         &energy cutoff.')
-      exit
-    elseif (spacings(step+1)<minimum_spacing) then
-      converged_step = step
-      call print_line('Error: convergence not acheived within the minimum &
-         &k-point spacing.')
-      exit
-    endif
   enddo
   
-  if (.not. converged) then
+  call progress_file%print_line( '')
+  
+  if (converged) then
+    call progress_file%print_line( 'Final energy cutoff : '// &
+                               & cutoffs(converged_step)//' eV')
+    call progress_file%print_line( 'Final energy        : '// &
+                               & cutoffs_energies(converged_step)//' eV')
+  else
+    call print_line('Error: cutoff energy convergence not acheived.')
     stop
   endif
   
-  ! --------------------------------------------------
-  ! Generate output.
-  ! --------------------------------------------------
-  output_file = wd//'/convergence_results.dat'
-  call output_file%print_line( 'cut_off_energy = '//cutoffs(converged_step))
-  call output_file%print_line( 'kpoints_mp_spacing : '// &
-                             & spacings(converged_step))
-  call output_file%print_line( 'Energy '//energies(converged_step))
+  call progress_file%print_line( '')
   
-  if (.not. generate_plots) then
+  ! Write out energy convergence file.
+  cutoff_file = wd//'/cutoff_convergence.dat'
+  call cutoff_file%print_line( 'Final Energy Cutoff : '// &
+                             & cutoffs(converged_step)//' eV')
+  call cutoff_file%print_line( 'Energy Tolerance    : '// &
+                             & energy_convergence_threshold//' eV/cell')
+  call cutoff_file%print_line( 'Force Tolerance     : '// &
+                             & force_convergence_threshold//' eV/A')
+  call cutoff_file%print_line( '')
+  call cutoff_file%print_line( 'Energy cutoff (eV), &
+     &energy difference (eV/cell), max force difference (eV/A)')
+  do i=1,final_step
+    energy_difference = abs(cutoffs_energies(i)-cutoffs_energies(final_step))
+    force_difference = maxval(l2_norm( cutoffs_forces(:,i) &
+                                   & - cutoffs_forces(:,final_step)))
+    call cutoff_file%print_line( cutoffs(i)        //' '// &
+                               & energy_difference //' '// &
+                               & force_difference)
+  enddo
+  
+  ! --------------------------------------------------
+  ! Run k-point convergence.
+  ! --------------------------------------------------
+  call progress_file%print_line( 'k-point convergence:')
+  call progress_file%print_line( 'Cutoff : '// &
+                             & minimum_cutoff//' eV')
+  converged = .false.
+  do i=1,no_kpoints
+    kpoint_spacings(i) = average_reciprocal_length &
+                     & / (minimum_kpoints + (i-1)*kpoints_step)
+    dir = wd//'/kpoints_'//minimum_kpoints+(i-1)*kpoints_step
+    castep_file = run_castep( minimum_cutoff,     &
+                            & kpoint_spacings(i), &
+                            & wd,                 &
+                            & dir,                &
+                            & seedname,           &
+                            & run_script,         &
+                            & no_cores,           &
+                            & cell_file,          &
+                            & param_file)
+    kpoint_numbers(i) = castep_file%no_kpoints
+    kpoint_grids(:,i) = castep_file%kpoints_mp_grid
+    kpoints_energies(i) = castep_file%energy
+    kpoints_forces(:,i) = castep_file%forces
+    
+    call progress_file%print_line( '')
+    call progress_file%print_line( 'k-point spacing : '// &
+                               & kpoint_spacings(i)//' 1/bohr')
+    call progress_file%print_line( 'no. k-points    : '// &
+                               & kpoint_numbers(i))
+    call progress_file%print_line( 'k-point grid    : '// &
+                               & kpoint_grids(:,i))
+    call progress_file%print_line( 'Energy          : '// &
+                               & castep_file%energy//' eV')
+    
+    if (i>=no_converged_calculations) then
+      converged_step = i-no_converged_calculations+1
+      energy_difference = maxval(abs( kpoints_energies(converged_step:i) &
+                                  & - kpoints_energies(i)))
+      force_difference = 0
+      do j=converged_step,i
+        force_difference = max( force_difference,                   &
+                              & maxval(l2_norm( kpoints_forces(:,j) &
+                              &               - kpoints_forces(:,i))))
+      enddo
+      
+      call progress_file%print_line( '')
+      call progress_file%print_line( 'k-point spacing       : '// &
+                                 & kpoint_spacings(converged_step)//' 1/bohr')
+      call progress_file%print_line( 'no. k-points          : '// &
+                                 & kpoint_numbers(converged_step))
+      call progress_file%print_line( 'k-point grid          : '// &
+                                 & kpoint_grids(:,converged_step))
+      call progress_file%print_line( 'Energy difference     : '// &
+                                 & energy_difference//' eV')
+      call progress_file%print_line( 'Force difference      : '// &
+                                 & force_difference//' eV/A')
+      
+      if ( energy_difference<energy_convergence_threshold .and. &
+         & force_difference<force_convergence_threshold ) then
+        final_step = i
+        converged = .true.
+        exit
+      endif
+    endif
+  enddo
+  
+  if (converged) then
+    call progress_file%print_line( '')
+    call progress_file%print_line( 'Final k-point spacing : '// &
+                               & kpoint_spacings(converged_step)//' 1/A')
+    call progress_file%print_line( 'Final no. k-points    : '// &
+                               & kpoint_numbers(converged_step))
+    call progress_file%print_line( 'Final k-point grid    : '// &
+                               & kpoint_grids(:,converged_step))
+    call progress_file%print_line( 'Final energy          : '// &
+                               & kpoints_energies(converged_step)//' eV')
+  else
+    call print_line('Error: k-point convergence not acheived.')
     stop
   endif
   
-  ! Generate cutoff plot data.
-  no_cutoffs = (cutoffs(converged_step)-cutoffs(1))/cutoff_step &
-           & + no_converged_calculations
-  
-  call output_file%print_line('')
-  call output_file%print_line('Energy cutoff convergence:')
-  call output_file%print_line('cutoff energy | structure energy')
-  
-  spacing = spacings(converged_step)
-  do i=1,no_cutoffs
-    cutoff = minimum_cutoff + (i-1)*cutoff_step
-    energy = calculate_energy( cutoff,     &
-                             & spacing,    &
-                             & wd,         &
-                             & seedname,   &
-                             & run_script, &
-                             & no_cores,   &
-                             & cell_file,  &
-                             & param_file)
-    call output_file%print_line(cutoff//' '//energy)
-  enddo
-  
-  ! Generate spacing plot data.
-  no_spacings = nint( (spacings(1)-spacings(converged_step))/spacing_step ) &
-            & + no_converged_calculations
-  
-  call output_file%print_line('')
-  call output_file%print_line('k-point spacing convergence:')
-  call output_file%print_line('k-point spacing | structure energy')
-  
-  cutoff = cutoffs(converged_step)
-  do i=1,no_spacings
-    spacing = maximum_spacing - (i-1)*spacing_step
-    energy = calculate_energy( cutoff,     &
-                             & spacing,    &
-                             & wd,         &
-                             & seedname,   &
-                             & run_script, &
-                             & no_cores,   &
-                             & cell_file,  &
-                             & param_file)
-    call output_file%print_line(spacing//' '//energy)
+  ! Write out k-points file.
+  kpoints_file = wd//'/kpoints_convergence.dat'
+  call kpoints_file%print_line( 'Final k-point spacing : '// &
+                              & kpoint_spacings(converged_step)//' 1/A')
+  call kpoints_file%print_line( 'Final no. k-points    : '// &
+                              & kpoint_numbers(converged_step))
+  call kpoints_file%print_line( 'Final k-point grid    : '// &
+                              & kpoint_grids(:,converged_step))
+  call kpoints_file%print_line( 'Energy Tolerance      : '// &
+                              & energy_convergence_threshold//' eV/cell')
+  call kpoints_file%print_line( 'Force Tolerance       : '// &
+                              & force_convergence_threshold//' eV/A')
+  call kpoints_file%print_line( '')
+  call kpoints_file%print_line('k-point spacing (1/bohr), no. k-points, &
+     &k-point grid, energy difference (eV), max force difference (eV/A)')
+  do i=1,final_step
+    energy_difference = abs(kpoints_energies(i)-kpoints_energies(final_step))
+    force_difference = maxval(l2_norm( kpoints_forces(:,i) &
+                                   & - kpoints_forces(:,final_step)))
+    call kpoints_file%print_line( kpoint_spacings(i) //' '// &
+                                & kpoint_numbers(i)  //' '// &
+                                & kpoint_grids(:,i)  //' '// &
+                                & energy_difference  //' '// &
+                                & force_difference)
   enddo
 end subroutine
 
-function calculate_energy(cutoff,spacing,wd,seedname,run_script,no_cores, &
-   & cell_file,param_file) result(output)
+function run_castep(cutoff,kpoint_spacing,wd,dir,seedname,run_script, &
+   & no_cores,cell_file,param_file) result(output)
   use utils_module, only : mkdir
   use ifile_module
   use ofile_module
-  use dft_output_file_module
+  use castep_output_file_module
   implicit none
   
   integer,      intent(in) :: cutoff
-  real(dp),     intent(in) :: spacing
+  real(dp),     intent(in) :: kpoint_spacing
   type(String), intent(in) :: wd
+  type(String), intent(in) :: dir
   type(String), intent(in) :: seedname
   type(String), intent(in) :: run_script
   integer,      intent(in) :: no_cores
   type(IFile),  intent(in) :: cell_file
   type(IFile),  intent(in) :: param_file
-  real(dp)                 :: output
+  type(CastepOutputFile)   :: output
   
-  type(String)        :: dir
-  character(6)        :: spacing_char
-  type(OFile)         :: output_cell_file
-  type(OFile)         :: output_param_file
-  integer             :: result_code
-  type(DftOutputFile) :: castep_file
+  type(OFile)  :: output_cell_file
+  type(OFile)  :: output_param_file
+  integer      :: result_code
   
   integer :: i
   
-  ! Convert spacing to a string for the purposes of naming the directory.
-  write(spacing_char,'(f6.4)') spacing
-  
   ! Write CASTEP inputs.
-  dir = wd//'/cutoff_'//cutoff//'_spacing_'//spacing_char
   call mkdir(dir)
   
   output_cell_file = dir//'/'//seedname//'.cell'
   do i=1,size(cell_file)
     call output_cell_file%print_line(cell_file%line(i))
   enddo
-  call output_cell_file%print_line('kpoints_mp_spacing : '//spacing)
+  call output_cell_file%print_line( 'kpoints_mp_spacing : '// &
+                                  & kpoint_spacing//' 1/bohr')
   
   output_param_file = dir//'/'//seedname//'.param'
   do i=1,size(param_file)
@@ -396,10 +474,7 @@ function calculate_energy(cutoff,spacing,wd,seedname,run_script,no_cores, &
      & ' '//no_cores//' '//seedname)
   call print_line('Result code: '//result_code)
   
-  ! Read CASTEP energy.
-  castep_file = read_dft_output_file( str('castep'), &
-                                    & dir//'/'//seedname//'.castep')
-  output = castep_file%energy
+  ! Read CASTEP file.
+  output = read_castep_output_file(dir//'/'//seedname//'.castep')
 end function
-
 end module

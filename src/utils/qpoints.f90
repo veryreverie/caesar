@@ -12,10 +12,10 @@ module qpoints_module
     !    id of that G-vector in said supercell.
     integer              :: sc_id
     integer              :: gvector_id
-    ! The G-vectors in the large supercell which rotate onto this q-point,
-    !    and the ids of said rotations.
+    ! The G-vectors in the large supercell which transform onto this q-point,
+    !    by symmetry, and the ids of said symmetries.
     integer, allocatable :: gvectors(:)
-    integer, allocatable :: rotations(:)
+    integer, allocatable :: symmetry_ids(:)
   end type
   
   interface new
@@ -32,7 +32,7 @@ subroutine new_QpointData(this,multiplicity)
   integer :: ialloc
   
   allocate( this%gvectors(multiplicity),  &
-          & this%rotations(multiplicity), &
+          & this%symmetry_ids(multiplicity), &
           & stat=ialloc); call err(ialloc)
 end subroutine
 
@@ -55,10 +55,10 @@ subroutine write_qpoints_file(this,filename)
                                 & this(i)%sc_id)
     call qpoints_file%print_line( 'Corresponding G-vector in supercell : '// &
                                 & this(i)%gvector_id)
-    call qpoints_file%print_line( 'Matching G-vectors in grid       : '// &
+    call qpoints_file%print_line( 'Matching G-vectors in grid          : '// &
                                 & this(i)%gvectors)
-    call qpoints_file%print_line( 'ID of rotations to grid G-vector : '// &
-                                & this(i)%rotations)
+    call qpoints_file%print_line( 'ID of symmetries to grid G-vector   : '// &
+                                & this(i)%symmetry_ids)
     call qpoints_file%print_line( '')
   enddo
 end subroutine
@@ -93,12 +93,10 @@ function read_qpoints_file(filename) result(this)
     this(i)%gvector_id = int(line(6))
     
     line = split(qpoints_file%line((i-1)*7+5))
-    allocate(this(i)%gvectors(size(line)-5), stat=ialloc); call err(ialloc)
     this(i)%gvectors = int(line(6:))
     
     line = split(qpoints_file%line((i-1)*7+6))
-    allocate(this(i)%rotations(size(line)-7), stat=ialloc); call err(ialloc)
-    this(i)%rotations = int(line(8:))
+    this(i)%symmetry_ids = int(line(8:))
   enddo
 end function
 end module

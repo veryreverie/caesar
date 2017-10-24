@@ -9,7 +9,7 @@ To install Caesar, run:
   make
 
 This should be run from the destination directory.
-The executble 'caesar' will be placed in a 'bin' directory.
+The executable 'caesar' will be placed in a 'bin' directory.
 
 ----------------------------------------
 Running
@@ -22,35 +22,35 @@ For help, call
 Inputs
 ----------------------------------------
 Caesar can be given arguments on the command line, from a file or interactively, as explained in the helptext provided by calling caesar -h.
-Caesar also requires an input file, and at present only .cell files are supported. This .cell file must include a lattice block, an atomic positions block, and a species mass block. This .cell file should be in the working directory specified when Caesar is called.
+Caesar also requires an input file, and at present only CASTEP .cell files are supported. This .cell file must include a lattice block, an atomic positions block, and a species mass block. This .cell file should be in the working directory specified when Caesar is called.
 
-Arguments have the same names regardless of how they are supplied, so e.g. a 3x3x3 q-point grid can be specified on the command line as:
+Arguments have the same names and syntax regardless of how they are supplied, so e.g. a 3x3x3 q-point grid can be specified on the command line as:
 
-caesar setup_harmonic --q-point_grid 3 3 3
+  caesar setup_harmonic --q-point_grid 3 3 3
 
 or in a file, by calling:
 
-caesar -f filename
+  caesar -f filename
 
 and adding the following line to the file:
 
-setup_harmonic 3 3 3
+  setup_harmonic 3 3 3
 
 or interactively, as:
 
-caesar setup_harmonic -i
+  caesar setup_harmonic -i
 
 and inputing "3 3 3" when prompted.
 
 In Caesar input files, blank lines are ignored.
 '!' is a comment character, and everything after this up to the end of the line will be ignored.
-The keyword is taken to be the first non-whitespace string on each line, ending at the next whitespace. Everything else on the line, up to any '!' characters, is taken to be the argument of that keyword.
+The keyword is taken to be the first non-whitespace string on each line, ending at the next whitespace. Everything else on the line, up to any comment characters, is taken to be the argument of that keyword.
 e.g. the line 'key word a b c' will parse as the keyword 'key' followed by the argument 'word a b c'
 For certain keywords, the argument is optional.
 An error will be thrown if any unrecognised keywords are found, or if a keyword appears more than once from the same source (command line / file). Command line options override file options where both are present.
-A file containing the used values of each option will be produced at the start of each Caesar run.
+A file containing the used values of each option will be produced at the start of each Caesar run. This file can be used as the input settings if the calculation is repeated.
 An example input file can be found in doc/input_files.
 
-In order to run DFT, Caesar requires a run script. This script will be called repeatedly from the working directory, and will be passed a number of arguments on the command line each time it is called.
+In order to calculate energies, Caesar requires a run script. This script will be called repeatedly from the working directory, and will be passed a number of arguments on the command line each time it is called.
 The return code of the run script will be echoed to the output of Caesar after each run.
 An example run script can be found in doc/input_files.

@@ -4,9 +4,11 @@
 module potential_module
   use constants_module, only : dp
   use string_module
-  use stringable_module
   use io_module
+  
+  use printable_module
   use linear_algebra_module
+  use monomial_module
   implicit none
   
   private
@@ -14,30 +16,15 @@ module potential_module
   public :: calculate_potential
   public :: print_line
   
-  ! A monomial, e.g.
-  !    C * (u1)**a * (u2)**b * (u4)**d => coef=C, powers=[a,b,0,d]
-  type, extends(Stringable) :: Monomial
-    real(dp)             :: coefficient
-    integer, allocatable :: powers(:)
-  contains
-    ! Evaluate energy or forces at a given value of u.
-    procedure :: evaluate_energy => evaluate_energy_Monomial
-    procedure :: evaluate_forces => evaluate_forces_Monomial
-    
-    ! I/O.
-    procedure, pass(that) :: assign_String => assign_String_Monomial
-  end type
-  
   ! A polynomial representation of a potential.
-  type, public :: PolynomialPotential
-    integer,                       private :: cutoff
-    type(Monomial),   allocatable, private :: monomials(:)
+  type, public, extends(Printable) :: PolynomialPotential
+    integer,        private              :: cutoff
+    type(Monomial), private, allocatable :: monomials(:)
   contains
-    procedure, public  :: evaluate_energy => &
-                        & evaluate_energy_PolynomialPotential
-    procedure, public  :: evaluate_forces => &
-                        & evaluate_forces_PolynomialPotential
-    procedure, public  :: simplify => simplify_PolynomialPotential
+    procedure, public  :: evaluate_energy
+    procedure, public  :: evaluate_forces
+    procedure, public  :: simplify
+    procedure, public  :: remove_constant_term
     generic,   public  :: integrate =>                                   &
                         & integrate_PolynomialPotential_HarmonicStates,  &
                         & integrate_PolynomialPotential_VscfStates,      &
@@ -45,12 +32,9 @@ module potential_module
     procedure, private :: integrate_PolynomialPotential_HarmonicStates
     procedure, private :: integrate_PolynomialPotential_VscfStates
     procedure, private :: integrate_PolynomialPotential_ProductState
-    procedure, public  :: integrate_to_constant => &
-                        & integrate_to_constant_PolynomialPotential
-    procedure, public  :: integrate_over_mode_average => &
-                        & integrate_over_mode_average_PolynomialPotential
-    procedure, public  :: construct_hamiltonian => &
-                        & construct_hamiltonian_PolynomialPotential
+    procedure, public  :: integrate_to_constant
+    procedure, public  :: construct_hamiltonian
+    procedure, public  :: str => str_PolynomialPotential
   end type
   
   ! An interim type for fitting a polynomial potential.
@@ -58,69 +42,12 @@ module potential_module
     type(PolynomialPotential), allocatable :: basis_functions(:)
     real(dp),                  allocatable :: coefficients(:)
   end type
-  
-  ! I/O functions for potentials.
-  interface print_line
-    module procedure print_line_PolynomialPotential
-  end interface
 contains
-
-! ----------------------------------------------------------------------
-! Evaluates the energy of a Monomial at a given displacement.
-! ----------------------------------------------------------------------
-function evaluate_energy_Monomial(this,displacement) result(output)
-  use normal_mode_module
-  implicit none
-  
-  class(Monomial),  intent(in) :: this
-  type(ModeVector), intent(in) :: displacement
-  real(dp)                     :: output
-  
-  integer :: i
-  
-  output = this%coefficient
-  do i=1,size(this%powers)
-    output = output * displacement%vector(i)**this%powers(i)
-  enddo
-end function
-
-! ----------------------------------------------------------------------
-! Evaluates the force of a Monomial at a given displacement.
-! Returns the result in normal mode co-ordinates.
-! ----------------------------------------------------------------------
-function evaluate_forces_Monomial(this,displacement) result(output)
-  use normal_mode_module
-  implicit none
-  
-  class(Monomial),  intent(in) :: this
-  type(ModeVector), intent(in) :: displacement
-  type(ModeVector)             :: output
-  
-  integer        :: no_modes
-  type(Monomial) :: derivative
-  
-  integer :: i,ialloc
-  
-  no_modes = size(displacement%vector)
-  allocate(output%vector(no_modes), stat=ialloc); call err(ialloc)
-  do i=1,no_modes
-    derivative = this
-    if (derivative%powers(i)==0) then
-      derivative%coefficient = 0
-      derivative%coefficient = 0
-    else
-      derivative%coefficient = derivative%coefficient &
-                           & * derivative%powers(i)
-      derivative%powers(i) = derivative%powers(i) - 1
-    endif
-    output%vector(i) = derivative%evaluate_energy(displacement)
-  enddo
-end function
 
 ! ----------------------------------------------------------------------
 ! Evaluates the energy of a potential at a given displacement.
 ! ----------------------------------------------------------------------
-function evaluate_energy_PolynomialPotential(this,displacement) result(output)
+function evaluate_energy(this,displacement) result(output)
   use normal_mode_module
   implicit none
   
@@ -140,7 +67,7 @@ end function
 ! Evaluates the force of a potential at a given displacement.
 ! Returns the result in normal mode co-ordinates.
 ! ----------------------------------------------------------------------
-function evaluate_forces_PolynomialPotential(this,displacement) result(output)
+function evaluate_forces(this,displacement) result(output)
   use normal_mode_module
   implicit none
   
@@ -247,24 +174,16 @@ function calculate_potential(potential_basis_cutoff,sampling,energy_error, &
   enddo
   
   ! Combine the potentials from each coupling together.
-  ! Remove any constant terms (all powers=0), if present.
   size_output = 0
   do i=1,size(fit)
     size_output = size_output + size(fit(i)%monomials)
-    do j=1,size(fit(i)%monomials)
-      if (all(fit(i)%monomials(j)%powers==0)) then
-        size_output = size_output-1
-      endif
-    enddo
   enddo
   allocate(output%monomials(size_output), stat=ialloc); call err(ialloc)
   k = 0
   do i=1,size(fit)
     do j=1,size(fit(i)%monomials)
-      if (.not. all(fit(i)%monomials(j)%powers==0)) then
-        k = k+1
-        output%monomials(k) = fit(i)%monomials(j)
-      endif
+      k = k+1
+      output%monomials(k) = fit(i)%monomials(j)
     enddo
   enddo
   if (k/=size_output) then
@@ -325,7 +244,7 @@ end function
 ! Simplifies a polynomial potential.
 ! Merges all equal terms, summing over their coefficients.
 ! ----------------------------------------------------------------------
-subroutine simplify_PolynomialPotential(this)
+subroutine simplify(this)
   implicit none
   
   class(PolynomialPotential), intent(inout) :: this
@@ -363,6 +282,50 @@ subroutine simplify_PolynomialPotential(this)
                                  & + potential(i)%coefficient
     this%monomials(id)%powers = potential(i)%powers
   enddo
+end subroutine
+
+! ----------------------------------------------------------------------
+! Removes the constant term from the potential.
+! This is equivalent to setting it to zero.
+! ----------------------------------------------------------------------
+subroutine remove_constant_term(this)
+  implicit none
+  
+  class(PolynomialPotential), intent(inout) :: this
+  
+  logical,        allocatable :: constant_monomials(:)
+  type(Monomial), allocatable :: monomials_copy(:)
+  
+  integer :: i,j,ialloc
+  
+  ! Identify the constant monomials, if present.
+  allocate( constant_monomials(size(this%monomials)), &
+          & stat=ialloc); call err(ialloc)
+  do i=1,size(this%monomials)
+    if (any(this%monomials(i)%powers/=0)) then
+      constant_monomials(i) = .false.
+    else
+      constant_monomials(i) = .true.
+    endif
+  enddo
+  
+  ! Copy the non-constant monomials into monomials_copy.
+  allocate( monomials_copy(count(.not. constant_monomials)), &
+          & stat=ialloc); call err(ialloc)
+  j = 0
+  do i=1,size(this%monomials)
+    if (.not. constant_monomials(i)) then
+      j = j+1
+      monomials_copy(j) = this%monomials(i)
+    endif
+  enddo
+  
+  if (j/=size(monomials_copy)) then
+    call err()
+  endif
+  
+  ! Copy monomials back into potential.
+  this%monomials = monomials_copy
 end subroutine
 
 ! ----------------------------------------------------------------------
@@ -517,7 +480,7 @@ end subroutine
 ! ----------------------------------------------------------------------
 ! Forms <bra|V|ket> between two VSCF states.
 ! ----------------------------------------------------------------------
-!    a              * u1^p1 * ... * um^pm * ...
+!    a                  * u1^p1 * ... * um^pm * ...
 ! -> a*<bra|um^nm|ket>) * u1^p1 * ... * um^0  * ...
 subroutine integrate_PolynomialPotential_VscfStates(this,states,bra,ket)
   use vscf_states_module
@@ -575,8 +538,7 @@ end subroutine
 ! ----------------------------------------------------------------------
 ! As above, but returns the coefficient rather than modifying the potential.
 ! ----------------------------------------------------------------------
-function integrate_to_constant_PolynomialPotential(this,states,bra,ket) &
-   & result(output)
+function integrate_to_constant(this,states,bra,ket) result(output)
   use product_states_module
   implicit none
   
@@ -596,42 +558,12 @@ function integrate_to_constant_PolynomialPotential(this,states,bra,ket) &
 end function
 
 ! ----------------------------------------------------------------------
-! Takes a set of single-mode states, {|i>}, along one mode, and forms
-!    sum_i[<i|V|i>] / size({|i>}).
-! ----------------------------------------------------------------------
-subroutine integrate_over_mode_average_PolynomialPotential(this,vscf_states)
-  use linear_algebra_module
-  use vscf_states_module
-  implicit none
-  
-  class(PolynomialPotential), intent(inout) :: this
-  type(VscfStates),           intent(in)    :: vscf_states
-  
-  integer :: power
-  
-  integer :: i
-  
-  ! Integrate across each monomial.
-  do i=1,size(this%monomials)
-    !    a                      * u1^p1 * ... * ui^pi * ...
-    ! -> a * avg_j[<j|ui^pi|j>] * u1^p1 * ... * ui^0  * ...
-    power = this%monomials(i)%powers(vscf_states%mode)
-    this%monomials(i)%coefficient = this%monomials(i)%coefficient &
-                                & * vscf_states%mean_field(power)
-    this%monomials(i)%powers(vscf_states%mode) = 0
-  enddo
-  
-  ! Simplify across now identical monomials.
-  call this%simplify()
-end subroutine
-
-! ----------------------------------------------------------------------
 ! Construct the Hamiltonian between basis states along a single mode.
 ! ----------------------------------------------------------------------
 ! Should only be called once the potential has been integrated across all
 !    other modes.
 ! output(i+1,j+1) = <i|H|j> = <i|(T+V)|j>
-function construct_hamiltonian_PolynomialPotential(this,states) &
+function construct_hamiltonian(this,states) &
    & result(output)
   use linear_algebra_module
   use harmonic_states_module
@@ -658,37 +590,23 @@ function construct_hamiltonian_PolynomialPotential(this,states) &
 end function
 
 ! ----------------------------------------------------------------------
-! I/O functions for potentials.
+! I/O.
 ! ----------------------------------------------------------------------
-subroutine assign_String_Monomial(this,that)
+function str_PolynomialPotential(this) result(output)
   implicit none
   
-  type(String),    intent(inout) :: this
-  class(Monomial), intent(in)    :: that
+  class(PolynomialPotential), intent(in) :: this
+  type(String), allocatable              :: output(:)
   
-  integer :: i
+  integer :: i,ialloc
   
-  this = that%coefficient
-  do i=1,size(that%powers)
-    if (that%powers(i)/=0) then
-      this = this//'*u'//i//'^'//that%powers(i)
-    endif
-  enddo
-end subroutine
-
-subroutine print_line_PolynomialPotential(this)
-  implicit none
-  
-  type(PolynomialPotential), intent(in) :: this
-  
-  integer :: i
-  
+  allocate(output(size(this%monomials)), stat=ialloc); call err(ialloc)
   do i=1,size(this%monomials)
     if (i==1) then
-      call print_line('   '//this%monomials(i))
+      output(i) = '   '//this%monomials(i)
     else
-      call print_line(' + '//this%monomials(i))
+      output(i) = ' + '//this%monomials(i)
     endif
   enddo
-end subroutine
+end function
 end module

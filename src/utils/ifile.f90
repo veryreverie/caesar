@@ -12,6 +12,7 @@ module ifile_module
   private
   
   type, public :: IFile
+    type(String), private              :: filename
     type(String), private, allocatable :: lines(:)
   contains
     generic, public :: assignment(=) => read_file_character, &
@@ -40,6 +41,8 @@ subroutine read_file_character(this,filename)
   character(1000) :: line
   
   integer :: i,ierr,ialloc
+  
+  this%filename = filename
   
   file_length = count_lines(filename)
   

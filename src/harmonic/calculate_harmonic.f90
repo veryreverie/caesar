@@ -60,7 +60,6 @@ subroutine calculate_harmonic(arguments)
   type(StructureData) :: supercell
   
   ! Force constant data.
-  type(Group),           allocatable :: atom_symmetry_group(:)
   type(UniqueDirections)             :: unique_directions
   type(RealVector),      allocatable :: forces(:,:)
   type(RealMatrix),      allocatable :: force_constants(:,:,:)
@@ -114,7 +113,6 @@ subroutine calculate_harmonic(arguments)
     supercell = read_structure_file(sdir//'/structure.dat')
     
     ! Read in symmetry group and unique atoms.
-    atom_symmetry_group = read_group_file(sdir//'/atom_symmetry_group.dat')
     unique_directions = read_unique_directions_file( &
        & sdir//'/unique_directions.dat')
     
@@ -130,7 +128,7 @@ subroutine calculate_harmonic(arguments)
       enddo
     enddo
     force_constants = construct_force_constants(forces,supercell, &
-       & unique_directions,atom_symmetry_group)
+       & unique_directions)
     
     ! Run normal mode analysis to find all normal modes of the supercell.
     lte_result = evaluate_freqs_on_grid(supercell, force_constants)
@@ -154,8 +152,7 @@ subroutine calculate_harmonic(arguments)
       
       ! Lift degeneracies using symmetry operators.
       normal_modes = lift_degeneracies( lte_result%normal_modes(:,gvector), &
-                                      & supercell, &
-                                      & atom_symmetry_group)
+                                      & supercell)
       
       ! Write out normal modes.
       qdir = wd//'/qpoint_'//j

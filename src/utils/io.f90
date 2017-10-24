@@ -12,6 +12,7 @@ module io_module
   type(String) :: HOME
   type(String) :: CWD
   type(String) :: OLD_PATH
+  type(String) :: PYTHON_PATH
   
   ! Public types.
   public :: CommandLineFlag
@@ -28,6 +29,7 @@ module io_module
   public :: err                     ! Aborts with a stacktrace.
   public :: format_path             ! Converts any path into an absolute path.
   public :: execute_old_code        ! Runs one of the old caesar codes.
+  public :: execute_python          ! Runs one of the python scripts.
   
   ! Command line flag and argument.
   type :: CommandLineFlag
@@ -385,6 +387,7 @@ subroutine set_global_io_variables()
   implicit none
   
   type(String) :: exe_location
+  type(String) :: caesar_dir
   
   TERMINAL_WIDTH = get_terminal_width()
   HOME = get_home_directory()
@@ -395,7 +398,9 @@ subroutine set_global_io_variables()
     call print_line('Caesar executable in unexpected location: '//exe_location)
     call err()
   endif
-  OLD_PATH = slice(exe_location,1,len(exe_location)-11)//'/old'
+  caesar_dir = slice(exe_location,1,len(exe_location)-11)
+  OLD_PATH = caesar_dir//'/old'
+  PYTHON_PATH = caesar_dir//'/python'
 end subroutine
 
 ! ----------------------------------------------------------------------
@@ -451,7 +456,12 @@ recursive subroutine print_line_character(line)
     call err()
   endif
   
-  flush(output_unit)
+  flush(output_unit,iostat=ierr)
+  
+  if (ierr /= 0) then
+    write(output_unit,'(a)') 'Error in print_line.'
+    call err()
+  endif
 end subroutine
 
 subroutine print_line_String(line)
@@ -654,6 +664,26 @@ subroutine execute_old_code(wd, filename)
   
   result_code = system_call( &
      & '( PATH='//OLD_PATH//':$PATH; cd '//wd//'; '//filename//' )')
+  
+  if (result_code/=0) then
+    call print_line('Error: '//filename//' failed.')
+    call err()
+  endif
+end subroutine
+
+! ----------------------------------------------------------------------
+! Executes one of the Python scripts.
+! ----------------------------------------------------------------------
+subroutine execute_python(wd, filename)
+  implicit none
+  
+  type(String), intent(in) :: wd
+  type(String), intent(in) :: filename
+  
+  integer :: result_code
+  
+  result_code = system_call( 'cd '//wd//'; &
+                            &python3 '//PYTHON_PATH//'/'//filename)
   
   if (result_code/=0) then
     call print_line('Error: '//filename//' failed.')

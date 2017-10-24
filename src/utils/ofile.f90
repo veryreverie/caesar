@@ -12,7 +12,9 @@ module ofile_module
   private
   
   type, public :: OFile
-    integer, private :: file_unit
+    logical,      private :: open = .false.
+    type(String), private :: filename
+    integer,      private :: file_unit
   contains
     generic, public :: assignment(=) => open_character, &
                                       & open_String
@@ -54,6 +56,8 @@ subroutine open_character(this,filename)
   class(OFile), intent(out) :: this
   character(*), intent(in)  :: filename
   
+  this%open = .true.
+  this%filename = filename
   this%file_unit = open_write_file(filename)
 end subroutine
 
@@ -75,6 +79,12 @@ subroutine print_line_character(this,line)
   
   integer :: ierr
   
+  if (.not. this%open) then
+    call print_line('Code Error: attempted to write to a file which has &
+       &either not been opened or has already been closed.')
+    call err()
+  endif
+  
   write(this%file_unit,'(a)',iostat=ierr) line
   
   if (ierr/=0) then
@@ -82,7 +92,12 @@ subroutine print_line_character(this,line)
     call err()
   endif
   
-  flush(this%file_unit)
+  flush(this%file_unit,iostat=ierr)
+  
+  if (ierr/=0) then
+    call print_line('Error in OFile::print_line.')
+    call err()
+  endif
 end subroutine
 
 subroutine print_line_String(this,line)
@@ -191,6 +206,9 @@ subroutine print_line_complexes(this,line)
   call this%print_line(join(line))
 end subroutine
 
+! ----------------------------------------------------------------------
+! Handles closing the file (if open) when the OFile is finalized.
+! ----------------------------------------------------------------------
 subroutine finalizer(this)
   implicit none
   
@@ -198,11 +216,13 @@ subroutine finalizer(this)
   
   integer :: ierr
   
-  close(this%file_unit,iostat=ierr)
-  
-  if (ierr/=0) then
-    call print_line('Error: could not close file.')
-    call err()
+  if (this%open) then
+    close(this%file_unit,iostat=ierr)
+    
+    if (ierr/=0) then
+      call print_line('Error: could not close file.')
+      call err()
+    endif
   endif
 end subroutine
 end module

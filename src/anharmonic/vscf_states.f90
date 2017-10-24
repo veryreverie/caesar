@@ -180,7 +180,7 @@ function construct_harmonic_vscf_states(harmonic_states) result(output)
     output%states_(i+1) = harmonic_states%state(i)
     output%vscf_energies_(i+1) = (i+0.5_dp)*output%states_(i+1)%frequency
   enddo
-  output%basis_ = dble(identity(harmonic_states%cutoff()+1))
+  output%basis_ = dble(make_identity_matrix(harmonic_states%cutoff()+1))
   output%basis_states_ = harmonic_states
 end function
 end module

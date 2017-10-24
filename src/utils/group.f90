@@ -16,17 +16,18 @@ module group_module
   use constants_module, only : dp
   use string_module
   use io_module
+  
+  use stringable_module
   implicit none
   
   private
   
   public :: Group
   public :: size
-  public :: write_group_file
-  public :: read_group_file
+  public :: make_identity_group
   
   ! The group class.
-  type :: Group
+  type, public, extends(Stringable) :: Group
     integer, allocatable :: operation(:)
   contains
     generic, public  :: assignment (= ) => assign_Group
@@ -40,6 +41,8 @@ module group_module
     procedure, private :: non_equality_Group_Group
     procedure, private :: operate_Group_integer
     procedure, private :: operate_Group_Group
+    
+    procedure, public, pass(that) :: assign_String => assign_String_Group
   end type
   
   interface size
@@ -129,41 +132,31 @@ function operate_Group_Group(this,operand) result(output)
 end function
 
 ! ----------------------------------------------------------------------
-! I/O operations with the group.
+! Generates the identity group.
 ! ----------------------------------------------------------------------
-function read_group_file(filename) result(this)
-  use ifile_module
+function make_identity_group(group_size) result(output)
   implicit none
   
-  type(String), intent(in) :: filename
-  type(Group), allocatable :: this(:)
-  
-  type(IFile) :: group_file
+  integer, intent(in) :: group_size
+  type(Group)         :: output
   
   integer :: i,ialloc
   
-  group_file = filename
-  
-  allocate(this(size(group_file)), stat=ialloc); call err(ialloc)
-  do i=1,size(group_file)
-    this(i)%operation = int(split(group_file%line(i)))
+  allocate(output%operation(group_size), stat=ialloc); call err(ialloc)
+  do i=1,group_size
+    output%operation(i) = i
   enddo
 end function
 
-subroutine write_group_file(this,filename)
-  use ofile_module
+! ----------------------------------------------------------------------
+! I/O.
+! ----------------------------------------------------------------------
+subroutine assign_String_Group(this,that)
   implicit none
   
-  type(Group),  intent(in) :: this(:)
-  type(String), intent(in) :: filename
+  type(String), intent(inout) :: this
+  class(Group), intent(in)    :: that
   
-  type(OFile) :: group_file
-  
-  integer :: i
-  
-  group_file = filename
-  do i=1,size(this)
-    call group_file%print_line(this(i)%operation)
-  enddo
+  this = join(that%operation)
 end subroutine
 end module

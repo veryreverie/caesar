@@ -1,0 +1,19 @@
+# Copies python scripts to the binary directory.
+# Nothing in this directory links into the main caesar executable.
+cmake_minimum_required (VERSION 3.5 FATAL_ERROR)
+include(${CMAKE_SOURCE_DIR}/utils/include_guard.cmake)
+include_guard(python)
+
+# Copy python scripts.
+foreach(script plot_cutoff_and_kpoints.py)
+  set (input ${CMAKE_CURRENT_SOURCE_DIR}/${script})
+  set (output ${CMAKE_CURRENT_BINARY_DIR}/${script})
+  add_custom_command(
+    COMMENT "Updating Python script '${script}'."
+    DEPENDS ${input}
+    OUTPUT ${output}
+    COMMAND ${CMAKE_COMMAND} -E copy ${input} ${output}
+  )
+  add_custom_target(${script} DEPENDS ${output})
+  add_dependencies(caesar ${script})
+endforeach(script)

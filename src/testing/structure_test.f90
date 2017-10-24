@@ -25,7 +25,7 @@ subroutine write_old_structure_file(structure,filename)
   
   integer :: i
   
-  rotations = calculate_cartesian_rotations(structure)
+  rotations = structure%calculate_cartesian_rotations()
   
   structure_file = filename
   call structure_file%print_line('Lattice')
@@ -37,9 +37,9 @@ subroutine write_old_structure_file(structure,filename)
                                   & structure%atoms(i))
   enddo
   call structure_file%print_line('Symmetry')
-  do i=1,structure%no_symmetries
+  do i=1,size(structure%symmetries)
     call structure_file%print_line(rotations(i))
-    call structure_file%print_line(structure%translations(i))
+    call structure_file%print_line(structure%symmetries(i)%translation)
   enddo
   call structure_file%print_line('End')
 end subroutine

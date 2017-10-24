@@ -832,11 +832,9 @@ end subroutine
 !    approximation.
 ! Interpolates between phonons at each q-point.
 ! ----------------------------------------------------------------------
-subroutine fourier_interpolation(dyn_mats_ibz,structure,temperature, &
-   & structure_grid,qpoints_ibz, &
-   & path,atom_symmetry_group,   &
-   & phonon_dispersion_curve_filename,high_symmetry_points_filename,        &
-   & free_energy_filename,freq_dos_filename)
+subroutine fourier_interpolation(dyn_mats_ibz,structure,temperature,   &
+   & structure_grid,qpoints_ibz,path,phonon_dispersion_curve_filename, &
+   & high_symmetry_points_filename,free_energy_filename,freq_dos_filename)
   use linear_algebra_module
   use structure_module
   use group_module
@@ -852,7 +850,6 @@ subroutine fourier_interpolation(dyn_mats_ibz,structure,temperature, &
   type(StructureData),   intent(in) :: structure_grid
   type(QpointData),      intent(in) :: qpoints_ibz(:)
   type(RealVector),      intent(in) :: path(:)
-  type(Group),           intent(in) :: atom_symmetry_group(:)
   type(String),          intent(in) :: phonon_dispersion_curve_filename
   type(String),          intent(in) :: high_symmetry_points_filename
   type(String),          intent(in) :: free_energy_filename
@@ -903,17 +900,17 @@ subroutine fourier_interpolation(dyn_mats_ibz,structure,temperature, &
   ! Construct dynamical matrices.
   allocate( dyn_mats_grid(structure_grid%sc_size), &
           & stat=ialloc); call err(ialloc)
-  rotations_cart = calculate_cartesian_rotations(structure)
+  rotations_cart = structure%calculate_cartesian_rotations()
   do i=1,size(qpoints_ibz)
     do j=1,size(qpoints_ibz(i)%gvectors)
       k = qpoints_ibz(i)%gvectors(j)
-      l = qpoints_ibz(i)%rotations(j)
+      l = qpoints_ibz(i)%symmetry_ids(j)
     
       ! Construct the element of the dynamical matrix from that in the IBZ.
       do atom_1=1,structure%no_atoms
-        atom_1p = atom_symmetry_group(j) * atom_1
+        atom_1p = structure%symmetries(j)%atom_group * atom_1
         do atom_2=1,structure%no_atoms
-          atom_2p = atom_symmetry_group(j) * atom_2
+          atom_2p = structure%symmetries(j)%atom_group * atom_2
           
           dyn_mats_grid(k)%matrices(atom_2p,atom_1p) =                        &
                                   &   rotations_cart(l)                       &

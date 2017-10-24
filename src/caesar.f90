@@ -16,6 +16,7 @@ program caesar
   
   ! Use convergence modules.
   use converge_cutoff_and_kpoints_module
+  use plot_cutoff_and_kpoints_module
   
   ! Use harmonic modules.
   use setup_harmonic_module
@@ -105,6 +106,9 @@ program caesar
   elseif (mode == 'converge_cutoff_and_kpoints') then
     keywords = converge_cutoff_and_kpoints_keywords()
     main_subroutine => converge_cutoff_and_kpoints
+  elseif (mode == 'plot_cutoff_and_kpoints') then
+    keywords = plot_cutoff_and_kpoints_keywords()
+    main_subroutine => plot_cutoff_and_kpoints
   elseif (mode == 'setup_harmonic') then
     keywords = setup_harmonic_keywords()
     main_subroutine => setup_harmonic

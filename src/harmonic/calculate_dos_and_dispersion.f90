@@ -54,7 +54,6 @@ subroutine calculate_dos_and_dispersion(arguments)
   type(StructureData)                :: structure
   type(StructureData)                :: large_supercell
   type(QpointData),      allocatable :: qpoints_ibz(:)
-  type(Group),           allocatable :: atom_symmetry_group(:)
   type(DynamicalMatrix), allocatable :: ibz_dynamical_matrices(:)
   
   ! Temporary variables.
@@ -84,9 +83,6 @@ subroutine calculate_dos_and_dispersion(arguments)
   
   qpoints_ibz = read_qpoints_file(wd//'/qpoints_ibz.dat')
   
-  atom_symmetry_group = read_group_file( &
-     & wd//'/Supercell_1/atom_symmetry_group.dat')
-  
   allocate( ibz_dynamical_matrices(size(qpoints_ibz)), &
           & stat=ialloc); call err(ialloc)
   do i=1,size(qpoints_ibz)
@@ -104,7 +100,6 @@ subroutine calculate_dos_and_dispersion(arguments)
      & large_supercell,                    &
      & qpoints_ibz,                        &
      & disp_qpoints,                       &
-     & atom_symmetry_group,                &
      & wd//'/phonon_dispersion_curve.dat', &
      & wd//'/high_symmetry_points.dat',    &
      & wd//'/free_energy.dat',             &

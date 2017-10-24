@@ -47,6 +47,8 @@ function scf(potential,input,harmonic_states) result(output)
     do j=1,size(input)
       if (j/=i) then
         call mean_field%integrate(input(j),0,0)
+        call mean_field%remove_constant_term()
+        
         call print_line('')
         call print_line('<'//j//'|V|'//j//'>:')
         call print_line(mean_field)

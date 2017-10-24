@@ -232,6 +232,9 @@ subroutine calculate_anharmonic(arguments)
                                    & qpoints(i),             &
                                    & supercell)
     
+    ! Set the u^0 term to zero (equivalent to changing the reference energy).
+    call potential%remove_constant_term()
+    
     call print_line('')
     call print_line('Born-Oppenheimer Potential:')
     call print_line(potential)
