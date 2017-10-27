@@ -20,6 +20,19 @@ function calculate_harmonic_keywords() result(keywords)
   keywords = [KeywordData::]
 end function
 
+function calculate_harmonic_mode() result(output)
+  use caesar_modes_module
+  implicit none
+  
+  type(CaesarMode) :: output
+  
+  output%mode_name = 'calculate_harmonic'
+  output%description = 'Finds harmonic normal modes. Should be called &
+     &after run_harmonic.'
+  output%keywords = calculate_harmonic_keywords()
+  output%main_subroutine => calculate_harmonic
+end function
+
 ! ----------------------------------------------------------------------
 ! Main program.
 ! ----------------------------------------------------------------------
@@ -123,8 +136,9 @@ subroutine calculate_harmonic(arguments)
     do j=1,size(unique_directions)
       atom = unique_directions%atoms(j)
       do k=1,supercell%no_atoms
-        forces(k,j) = forces(k,j) &
-                    & / sqrt(supercell%mass(atom)*supercell%mass(k))
+        forces(k,j) = forces(k,j)                          &
+                    & / sqrt( supercell%atoms(atom)%mass() &
+                    &       * supercell%atoms(k)%mass())
       enddo
     enddo
     force_constants = construct_force_constants(forces,supercell, &

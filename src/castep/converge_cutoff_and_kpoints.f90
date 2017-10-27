@@ -18,57 +18,69 @@ function converge_cutoff_and_kpoints_keywords() result(keywords)
   type(KeywordData), allocatable :: keywords(:)
   
   keywords = [                                                                &
-  & make_keyword( 'seedname',                                                 &
+  & KeywordData( 'seedname',                                                 &
   &               'seedname is the CASTEP seedname from which file names are &
   &constructed.'),                                                            &
-  & make_keyword( 'run_script',                                               &
+  & KeywordData( 'run_script',                                               &
   &               'run_script is the path to the script for running CASTEP. &
   &An example run script can be found in doc/input_files.',                   &
   &               is_path=.true.),                                            &
-  & make_keyword( 'no_cores',                                                 &
+  & KeywordData( 'no_cores',                                                 &
   &               'no_cores is the number of cores on which CASTEP will be &
   &run. This is passed to the specified run script.',                         &
   &               default_value='1'),                                         &
-  & make_keyword( 'minimum_cutoff',                                           &
+  & KeywordData( 'minimum_cutoff',                                           &
   &               'minimum_cutoff is the smallest cutoff energy which will be &
   &tested. minimum_cutoff must be an integer.',                               &
   &               default_value='300'),                                       &
-  & make_keyword( 'cutoff_step',                                              &
+  & KeywordData( 'cutoff_step',                                              &
   &               'cutoff_step is the step between each cutoff energy which &
   &will be tested. cutoff_step must be an integer.',                          &
   &               default_value='50'),                                        &
-  & make_keyword( 'maximum_cutoff',                                           &
+  & KeywordData( 'maximum_cutoff',                                           &
   &               'maximum_cutoff is the cutoff energy at which calculation &
   &will be terminated if convergence has not been reached. maximum_cutoff &
   &must be an integer.',                                                      &
   &               default_value='1500'),                                      &
-  & make_keyword( 'minimum_kpoints',                                          &
+  & KeywordData( 'minimum_kpoints',                                          &
   &               'minimum_kpoints is the smallest number of k-points which &
   &will be tested. This is the average number of k-points in each direction. &
   &minimum_kpoints must be an integer.',                                      &
   &               default_value='1'),                                         &
-  & make_keyword( 'kpoints_step',                                             &
+  & KeywordData( 'kpoints_step',                                             &
   &               'kpoints_step is the step between each number of k-points &
   &which will be tested. kpoints_step must be an integer, and should be even &
   &if consistent sampling of the gamma point is desirable.',                  &
   &               default_value='2'),                                         &
-  & make_keyword( 'maximum_kpoints',                                          &
+  & KeywordData( 'maximum_kpoints',                                          &
   &               'maximum_kpoints is the number of k-points at which &
   &calculation will be terminated if convergence has not been reached. &
   &maximum_kpoints must be an integer.',                                      &
   &               default_value='30'),                                        &
-  & make_keyword( 'energy_convergence_threshold',                             &
+  & KeywordData( 'energy_convergence_threshold',                             &
   &               'energy_convergence_threshold is the accuracy to which the &
   &energy  must converge in order for the cutoff energy to be accepted.'),    &
-  & make_keyword( 'force_convergence_threshold',                              &
+  & KeywordData( 'force_convergence_threshold',                              &
   &               'force_convergence_threshold is the accuracy to which the &
   &forces must converge in order for the cutoff energy to be accepted.'),     &
-  & make_keyword( 'no_converged_calculations',                                &
+  & KeywordData( 'no_converged_calculations',                                &
   &               'no_converged_calculations is the number of calculations &
   &which must be within both thresholds in order to accept convergence. The &
   &cutoff energy and k-point spacing of the first such calculation will be &
   &accepted.',                                                                &
   &               default_value='10') ]
+end function
+
+function converge_cutoff_and_kpoints_mode() result(output)
+  use caesar_modes_module
+  implicit none
+  
+  type(CaesarMode) :: output
+  
+  output%mode_name = 'converge_cutoff_and_kpoints'
+  output%description = 'Converges cutoff energy and k-point spacing.'
+  output%keywords = converge_cutoff_and_kpoints_keywords()
+  output%main_subroutine => converge_cutoff_and_kpoints
 end function
 
 ! ----------------------------------------------------------------------

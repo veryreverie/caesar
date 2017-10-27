@@ -12,14 +12,18 @@ module ofile_module
   private
   
   type, public :: OFile
-    logical,      private :: open = .false.
-    type(String), private :: filename
-    integer,      private :: file_unit
+    logical,      private :: open_ = .false.
+    type(String), private :: filename_
+    integer,      private :: file_unit_
+    logical,      private :: is_stdout_ = .false.
   contains
     generic, public :: assignment(=) => open_character, &
                                       & open_String
     procedure, private ::               open_character
     procedure, private ::               open_String
+    
+    procedure, public :: make_stdout
+    
     generic, public :: print_line => print_line_character,  &
                                    & print_line_String,     &
                                    & print_line_Stringable, &
@@ -56,9 +60,9 @@ subroutine open_character(this,filename)
   class(OFile), intent(out) :: this
   character(*), intent(in)  :: filename
   
-  this%open = .true.
-  this%filename = filename
-  this%file_unit = open_write_file(filename)
+  this%open_ = .true.
+  this%filename_ = filename
+  this%file_unit_ = open_write_file(filename)
 end subroutine
 
 subroutine open_String(this,filename)
@@ -70,6 +74,22 @@ subroutine open_String(this,filename)
   this = char(filename)
 end subroutine
 
+! Makes this file be stdout.
+subroutine make_stdout(this)
+  implicit none
+  
+  class(OFile), intent(inout) :: this
+  
+  if (.not. this%open_) then
+    call print_line('Code Error: attempted to point stdout to a file which &
+       &has either not been opened or has already been closed.')
+    call err()
+  endif
+  
+  call set_output_unit(this%file_unit_)
+  this%is_stdout_ = .true.
+end subroutine
+
 ! Writes a line to the file.
 subroutine print_line_character(this,line)
   implicit none
@@ -79,20 +99,20 @@ subroutine print_line_character(this,line)
   
   integer :: ierr
   
-  if (.not. this%open) then
+  if (.not. this%open_) then
     call print_line('Code Error: attempted to write to a file which has &
        &either not been opened or has already been closed.')
     call err()
   endif
   
-  write(this%file_unit,'(a)',iostat=ierr) line
+  write(this%file_unit_,'(a)',iostat=ierr) line
   
   if (ierr/=0) then
     call print_line('Error in OFile::print_line.')
     call err()
   endif
   
-  flush(this%file_unit,iostat=ierr)
+  flush(this%file_unit_,iostat=ierr)
   
   if (ierr/=0) then
     call print_line('Error in OFile::print_line.')
@@ -208,6 +228,7 @@ end subroutine
 
 ! ----------------------------------------------------------------------
 ! Handles closing the file (if open) when the OFile is finalized.
+! Redirects stdout if relevant.
 ! ----------------------------------------------------------------------
 subroutine finalizer(this)
   implicit none
@@ -216,8 +237,15 @@ subroutine finalizer(this)
   
   integer :: ierr
   
-  if (this%open) then
-    close(this%file_unit,iostat=ierr)
+  ! Reset stdout.
+  if (this%is_stdout_) then
+    call unset_output_unit()
+    this%is_stdout_ = .false.
+  endif
+  
+  ! Close file (if open).
+  if (this%open_) then
+    close(this%file_unit_,iostat=ierr)
     
     if (ierr/=0) then
       call print_line('Error: could not close file.')

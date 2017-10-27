@@ -25,23 +25,43 @@ contains
 ! ----------------------------------------------------------------------
   
 ! Print default helptext.
-subroutine help_default()
-  call print_line('caesar mode [-h [keyword]] [-i] [-f input_file] &
-     &[-d working_directory] [--options]')
+subroutine help_default(caesar_modes)
+  use caesar_modes_module
+  implicit none
+  
+  type(CaesarModes), intent(in) :: caesar_modes
+  
+  call print_line( colour('caesar','white')                          // &
+                 & colour(' mode ','cyan')                           // &
+                 & '['//colour('-h','white')//' [keyword]] '         // &
+                 & '['//colour('-i','white')//'] '                   // &
+                 & '['//colour('-f','white')//' input_file] '        // &
+                 & '['//colour('-d','white')//' working_directory] ' // &
+                 & '['//colour('-o','white')//' output_file] '       // &
+                 & '[--options]')
   call print_line('')
-  call print_line('Flags')
-  call print_line('  -h [keyword] | --help [keyword]')
-  call print_line('      "caesar -h" displays this help text.')
-  call print_line('      "caesar mode -h" displays help text relevant to the &
-     &specified mode.')
-  call print_line('      "caesar mode -h keyword" displays help text relevant &
-     &to the specified keyword, in the context of the specified mode.')
   call print_line('')
-  call print_line('  -i | --interactive')
+  call print_line('Accepted Flags:')
+  call print_line('')
+  call print_line( colour('  -h','white')//' [keyword] | '// &
+                 & colour('--help','white')//' [keyword]')
+  call print_line( colour('      caesar -h','white')// &
+                 & '              : Displays this help text.')
+  call print_line( colour('      caesar','white')//colour(' mode','cyan')// &
+                 & colour(' -h','white')//'         : Displays help text &
+                 &relevant to the specified '//colour('mode','cyan')//'.')
+  call print_line( colour('      caesar','white')//colour(' mode','cyan')// &
+                 & colour(' -h','white')//' keyword : displays help text &
+                 &relevant to the specified keyword, in the context of the &
+                 &specified '//colour('mode','cyan')//'.')
+  call print_line('')
+  call print_line( colour('  -i','white')//' | '// &
+                 & colour('--interactive','white'))
   call print_line('      Runs interactively, prompting the user to review and &
      &set all options.')
   call print_line('')
-  call print_line('  -f filename | --input_file filename')
+  call print_line( colour('  -f','white')//' filename | '// &
+                 & colour('--input_file','white')//' filename')
   call print_line('      Reads additional settings from specified file.')
   call print_line('      These should be of the form:')
   call print_line('         keyword1 argument')
@@ -51,65 +71,55 @@ subroutine help_default()
   call print_line('      The keywords "filename", "interactive" and "help" &
      &should not be specified in a file.')
   call print_line('')
-  call print_line('  -d dirname | --working_directory dirname')
+  call print_line( colour('  -d','white')//' directory_name | '// &
+                 & colour('--working_directory','white')//' directory_name')
   call print_line('      Specifies the directory where Caesar should work.')
   call print_line('      All files and folders will be created here.')
   call print_line('      This is also where any run scripts will be called.')
   call print_line('')
-  call print_line('Harmonic modes')
-  call print_line('  setup_harmonic')
-  call print_line('      Sets up harmonic calculation.')
-  call print_line('      DFT code choices are: castep.')
-  call print_line('  run_harmonic')
-  call print_line('      Runs harmonic calculation.')
-  call print_line('      Should be called after setup_harmonic.')
-  call print_line('  lte_harmonic')
-  call print_line('      Runs harmonic calculations.')
-  call print_line('      Should be called after run_harmonic.')
+  call print_line( colour('  -o','white')//' filename | '// &
+                 & colour('--output_file','white')//' filenamename')
+  call print_line('      Specifies a file to which all terminal output will &
+     &be written. This also disables terminal formatting, so should be &
+     &favoured over piping to file. If unset, terminal output will go to the &
+     &terminal.')
   call print_line('')
-  call print_line('Quadratic modes')
-  call print_line('  setup_quadratic')
-  call print_line('      Sets up quadratic calculation.')
-  call print_line('      DFT code choices are: castep.')
-  call print_line('      Should be called after lte_harmonic.')
-  call print_line('  run_quadratic')
-  call print_line('      Runs quadratic calculation.')
-  call print_line('      Should be called after setup_quadratic.')
-  call print_line('  anharmonic')
-  call print_line('      Runs anharmonic calculations.')
-  call print_line('      Should be called after run_quadratic.')
-  call print_line('  bs_quadratic')
-  call print_line('      Runs band structure calculations.')
-  call print_line('      Should be called after run_quadratic.')
   call print_line('')
-  call print_line('Utility modes')
-  call print_line('  hartree_to_eV')
-  call print_line('      Provides a Hartree to eV calculator.')
-  call print_line('  get_kpoints')
-  call print_line('      [Help text pending]')
-  call print_line('  calculate_gap')
-  call print_line('      [Help text pending]')
+  call print_line('Accepted '//colour('modes','cyan')//':')
+  
+  call caesar_modes%print_help()
 end subroutine
 
 ! Prints the helptext for a particular mode or keyword.
-subroutine help_specific(keyword,mode,keywords)
+subroutine help_specific(keyword,mode,caesar_modes)
+  use caesar_modes_module
   implicit none
   
   type(String),      intent(in) :: keyword
   type(String),      intent(in) :: mode
-  type(KeywordData), intent(in) :: keywords(:)
+  type(CaesarModes), intent(in) :: caesar_modes
+  
+  type(CaesarMode)               :: caesar_mode
+  type(KeywordData), allocatable :: keywords(:)
   
   integer :: i
   
+  caesar_mode = caesar_modes%mode(mode)
+  keywords = caesar_mode%keywords
+  
   if (keyword=='') then
+    call caesar_mode%print_help()
+    call print_line('')
+    call print_line('')
+    call print_line('Accepted keywords:')
     do i=1,size(keywords)
-      call print_help(keywords(i))
+      call keywords(i)%print_help()
     enddo
     stop
   else
     do i=1,size(keywords)
       if (keywords(i)%keyword==keyword) then
-        call print_help(keywords(i))
+        call keywords(i)%print_help()
         stop
       endif
     enddo

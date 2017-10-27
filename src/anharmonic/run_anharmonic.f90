@@ -17,42 +17,55 @@ function run_anharmonic_keywords() result(keywords)
   type(KeywordData), allocatable :: keywords(:)
   
   keywords = [                                                                &
-  & make_keyword( 'first_qpoint',                                             &
+  & KeywordData( 'first_qpoint',                                             &
   &               'first_qpoint is the id of the first q-point at which &
   &calculations will be run. Details of q-points can be found in &
   &qpoint.dat.',                                                              &
   &               default_value='1'),                                         &
-  & make_keyword( 'first_coupling',                                           &
+  & KeywordData( 'first_coupling',                                           &
   &               'first_coupling is the id of the first coupling at the &
   &first q-point at which calculations will be run. Details of the couplings &
   &at q-point i can be found in qpoint_i/coupling.dat.',                      &
   &               default_value='1'),                                         &
-  & make_keyword( 'first_sampling_point',                                     &
+  & KeywordData( 'first_sampling_point',                                     &
   &               'first_sampling_point is the id of the first sampling point &
   &at the first coupling at the q-point at which calculations will be run. &
   &Details of the couplings at sampling point j at q-point i can be found in &
   &qpoint_i/coupling_j/sampling_points.dat.',                                 &
   &               default_value='1'),                                         &
-  & make_keyword( 'last_qpoint',                                              &
+  & KeywordData( 'last_qpoint',                                              &
   &               'last_qpoint is the id of the last q-point at which &
   &calculations will be run.',                                                &
   &               is_optional=.true.),                                        &
-  & make_keyword( 'last_coupling',                                            &
+  & KeywordData( 'last_coupling',                                            &
   &               'last_coupling is the id of the last coupling at the &
   &last q-point at which calculations will be run.',                          &
   &               is_optional=.true.),                                        &
-  & make_keyword( 'last_sampling_point',                                      &
+  & KeywordData( 'last_sampling_point',                                      &
   &               'last_sampling_point is the id of the last sampling point &
   &at the last coupling at the q-point at which calculations will be run.',   &
   &               is_optional=.true.),                                        &
-  & make_keyword( 'no_cores',                                                 &
+  & KeywordData( 'no_cores',                                                 &
   &               'no_cores is the number of cores on which DFT will be run. &
   &This is passed to the specified run script.',                              &
   &               default_value='1'),                                         &
-  & make_keyword( 'run_script',                                               &
+  & KeywordData( 'run_script',                                               &
   &               'run_script is the path to the script for running DFT. An &
   &example run script can be found in doc/input_files.',                      &
   &               is_path=.true.) ]
+end function
+
+function run_anharmonic_mode() result(output)
+  use caesar_modes_module
+  implicit none
+  
+  type(CaesarMode) :: output
+  
+  output%mode_name = 'run_anharmonic'
+  output%description = 'Runs DFT calculations set up by setup_anharmonic. &
+     &Should be run after setup_anharmonic.'
+  output%keywords = run_anharmonic_keywords()
+  output%main_subroutine => run_anharmonic
 end function
 
 ! ----------------------------------------------------------------------

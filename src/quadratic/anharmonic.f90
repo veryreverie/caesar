@@ -17,11 +17,11 @@ function anharmonic_keywords() result(keywords)
   type(KeywordData), allocatable :: keywords(:)
   
   keywords = [                                                                &
-  & make_keyword( 'integration_points',                                       &
+  & KeywordData( 'integration_points',                                       &
   &               'integration_points is the number of points onto which the &
   &1-d potential is interpolated before VSCF is performed.',                  &
   &               default_value='5000'),                                      &
-  & make_keyword( 'basis_size',                                               &
+  & KeywordData( 'basis_size',                                               &
   &               'basis_size is the number of states used to construct a &
   &basis when performing VSCF.',                                              &
   &               default_value='20') ]

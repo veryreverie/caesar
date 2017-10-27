@@ -18,17 +18,30 @@ function run_harmonic_keywords() result(keywords)
   type(KeywordData), allocatable :: keywords(:)
   
   keywords = [                                                                &
-  & make_keyword( 'supercells_to_run',                                        &
+  & KeywordData( 'supercells_to_run',                                        &
   &               'supercells_to_run is the first and last supercell to run. &
   &These should be specified as two integers separated by spaces.'),          &
-  & make_keyword( 'no_cores',                                                 &
+  & KeywordData( 'no_cores',                                                 &
   &               'no_cores is the number of cores on which DFT will be run. &
   &This is passed to the specified run script.',                              &
   &               default_value='1'),                                         &
-  & make_keyword( 'run_script',                                               &
+  & KeywordData( 'run_script',                                               &
   &               'run_script is the path to the script for running DFT. An &
   &example run script can be found in doc/input_files.',                      &
   &               is_path=.true.) ]
+end function
+
+function run_harmonic_mode() result(output)
+  use caesar_modes_module
+  implicit none
+  
+  type(CaesarMode) :: output
+  
+  output%mode_name = 'run_harmonic'
+  output%description = 'Runs DFT calculations set up by setup_harmonic. &
+     &should be run after setup_harmonic.'
+  output%keywords = run_harmonic_keywords()
+  output%main_subroutine => run_harmonic
 end function
 
 ! ----------------------------------------------------------------------

@@ -94,16 +94,14 @@ function calculate_delta_prim(supercell) result(delta_prim)
     atom_1_sc_1 = supercell%rvec_and_prim_to_atom(atom_1_prim,1)
     do atom_2_prim=1,supercell%no_atoms_prim
       atom_2_sc_1 = supercell%rvec_and_prim_to_atom(atom_2_prim,1)
-      delta_r_corr = supercell%recip_lattice        &
-                 & * ( supercell%atoms(atom_2_sc_1) &
-                 &   - supercell%atoms(atom_1_sc_1))
+      delta_r_corr = supercell%atoms(atom_2_sc_1)%fractional_position() &
+                 & - supercell%atoms(atom_1_sc_1)%fractional_position()
       do p=1,supercell%sc_size
         ! Work out minimum distance(s) between atom_1 at gamma and
         !    atom_2 at G-vector p.
         atom_2_sc_p = supercell%rvec_and_prim_to_atom(atom_2_prim,p)
-        delta_r = supercell%recip_lattice        &
-              & * ( supercell%atoms(atom_2_sc_p) &
-              &   - supercell%atoms(atom_1_sc_1))
+        delta_r = supercell%atoms(atom_2_sc_p)%fractional_position() &
+              & - supercell%atoms(atom_1_sc_1)%fractional_position()
         delta_prim(p,atom_2_prim,atom_1_prim) = &
            & min_images_brute_force(delta_r,supercell)
         
@@ -689,7 +687,7 @@ function evaluate_freqs_on_grid(supercell,force_constants) &
       do atom=1,supercell%no_atoms_prim
         output%normal_modes(mode,gvector)%displacements(atom) = &
                 &   pol_vec(supercell%atom_to_prim(atom), mode) &
-                & / sqrt(supercell%mass(atom))
+                & / sqrt(supercell%atoms(atom)%mass())
       enddo
     enddo
     
@@ -886,12 +884,12 @@ subroutine fourier_interpolation(dyn_mats_ibz,structure,temperature,   &
   do i=1,structure_grid%sc_size
     do atom_1=1,structure%no_atoms
       do atom_2=1,structure%no_atoms
-        ! Calculate k.dx
-        exponent = ( structure_grid%gvectors(i)                        &
-                 & * structure%recip_lattice                           &
-                 & * (structure%atoms(atom_2)-structure%atoms(atom_1)) &
-                 & ) / structure_grid%sc_size
-        ! Calculate exp(i.k.dx)
+        ! Calculate q.dx
+        exponent = structure_grid%gvectors(i)                        &
+               & * ( structure%atoms(atom_2)%fractional_position()   &
+               &   - structure%atoms(atom_1)%fractional_position() ) &
+               & / structure_grid%sc_size
+        ! Calculate exp(i.q.dx)
         phase(atom_2,atom_1,i) = cmplx(cos(exponent),sin(exponent),dp)
       enddo
     enddo

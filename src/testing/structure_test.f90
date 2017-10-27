@@ -32,9 +32,9 @@ subroutine write_old_structure_file(structure,filename)
   call structure_file%print_line(structure%lattice)
   call structure_file%print_line('Atoms')
   do i=1,structure%no_atoms
-    call structure_file%print_line( structure%species(i) //' '//&
-                                  & structure%mass(i)    //' '//&
-                                  & structure%atoms(i))
+    call structure_file%print_line( structure%atoms(i)%species() //' '// &
+                                  & structure%atoms(i)%mass()    //' '// &
+                                  & structure%atoms(i)%cartesian_position())
   enddo
   call structure_file%print_line('Symmetry')
   do i=1,size(structure%symmetries)

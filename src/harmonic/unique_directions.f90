@@ -25,7 +25,7 @@ module unique_directions_module
     integer,      allocatable :: modes(:)
   end type
   
-  interface new
+  interface UniqueDirections
     module procedure new_UniqueDirections
   end interface
   
@@ -34,11 +34,11 @@ module unique_directions_module
   end interface
 contains
 
-subroutine new_UniqueDirections(this,no_unique_directions)
+function new_UniqueDirections(no_unique_directions) result(this)
   implicit none
   
-  type(UniqueDirections), intent(out) :: this
-  integer,                intent(in)  :: no_unique_directions
+  integer, intent(in)    :: no_unique_directions
+  type(UniqueDirections) :: this
   
   integer :: ialloc
   
@@ -47,7 +47,7 @@ subroutine new_UniqueDirections(this,no_unique_directions)
           & this%directions_char(no_unique_directions), &
           & this%modes(no_unique_directions),           &
           & stat=ialloc); call err(ialloc)
-end subroutine
+end function
 
 function size_UniqueDirections(this) result(output)
   implicit none
@@ -111,7 +111,7 @@ function read_unique_directions_file(filename) result(this)
   
   unique_directions_file = filename
   
-  call new(this,size(unique_directions_file)-1)
+  this = UniqueDirections(size(unique_directions_file)-1)
   
   do i=1,size(unique_directions_file)-1
     line = split(unique_directions_file%line(i+1))
@@ -261,7 +261,7 @@ function calculate_unique_directions(structure,atom_symmetry_group) &
   ! --------------------------------------------------
   ! Create output.
   ! --------------------------------------------------
-  call new(this,count(unique_dirs))
+  this = UniqueDirections(count(unique_dirs))
   
   k = 1
   do i=1,no_unique_atoms

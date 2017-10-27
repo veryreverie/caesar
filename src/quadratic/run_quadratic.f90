@@ -18,14 +18,14 @@ function run_quadratic_keywords() result(keywords)
   type(KeywordData), allocatable :: keywords(:)
   
   keywords = [                                                                &
-  & make_keyword( 'supercells_to_run',                                        &
+  & KeywordData( 'supercells_to_run',                                        &
   &               'supercells_to_run is the first and last supercell to run. &
   &These should be specified as two integers separated by spaces.'),          &
-  & make_keyword( 'no_cores',                                                 &
+  & KeywordData( 'no_cores',                                                 &
   &               'no_cores is the number of cores on which DFT will be run. &
   &This is passed to the specified run script.',                              &
   &               default_value='1'),                                         &
-  & make_keyword('run_script',                                                &
+  & KeywordData('run_script',                                                &
   &              'run_script is the path to the script for running DFT. An &
   &example run script can be found in doc/input_files.',                      &
   &              is_path=.true.) ]

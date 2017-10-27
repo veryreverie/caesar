@@ -12,7 +12,7 @@ module min_images_module
     type(RealVector), allocatable :: images(:)
   end type
   
-  interface new
+  interface MinImages
     module procedure new_MinImages
   end interface
   
@@ -21,14 +21,16 @@ module min_images_module
   end interface
 contains
 
-subroutine new_MinImages(this,no_images)
+function new_MinImages(no_images) result(this)
   implicit none
   
-  type(MinImages), intent(out) :: this
-  integer,         intent(in)  :: no_images
+  integer, intent(in) :: no_images
+  type(MinImages)     :: this
   
-  allocate(this%images(no_images))
-end subroutine
+  integer :: ialloc
+  
+  allocate(this%images(no_images), stat=ialloc); call err(ialloc)
+end function
 
 function size_MinImages(this) result(output)
   implicit none
@@ -99,7 +101,7 @@ function min_images_brute_force(a,structure) result(output)
     call err()
   endif
   
-  call new(output,nim)
+  output = MinImages(nim)
   output%images = b(1:nim)
 end function
 end module

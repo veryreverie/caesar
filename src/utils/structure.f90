@@ -8,13 +8,13 @@ module structure_module
   
   use linear_algebra_module
   use group_module
+  use atom_module
   implicit none
   
   private
   
   public :: SymmetryOperator
   public :: StructureData
-  public :: new
   public :: read_structure_file
   public :: write_structure_file
   
@@ -44,7 +44,7 @@ module structure_module
   ! ----------------------------------------------------------------------
   ! The structure type.
   ! ----------------------------------------------------------------------
-  type StructureData
+  type :: StructureData
     ! ------------------------------
     ! Lattice data
     ! ------------------------------
@@ -59,9 +59,8 @@ module structure_module
     integer                       :: no_atoms_prim
     integer                       :: no_modes
     integer                       :: no_modes_prim
-    type(String),     allocatable :: species(:)
-    real(dp),         allocatable :: mass(:)
-    type(RealVector), allocatable :: atoms(:)
+    
+    type(AtomData), allocatable :: atoms(:)
     
     ! ------------------------------
     ! Conversions between atom representations.
@@ -105,6 +104,8 @@ module structure_module
     ! The ID of the G-vector, j, s.t. gvectors(:,i) + gvectors(:,j) = 0.
     integer, allocatable :: paired_gvec(:)
   contains
+    !procedure, public  :: atom_at_prim_plus_rvector
+    
     procedure, public  :: calculate_derived_quantities
     procedure, public  :: calculate_symmetry
     procedure, public  :: calculate_rvector_group
@@ -115,7 +116,7 @@ module structure_module
     procedure, private :: calculate_operator_inverses
   end type
   
-  interface new
+  interface StructureData
     module procedure new_StructureData
   end interface
   
@@ -177,28 +178,36 @@ contains
 ! ----------------------------------------------------------------------
 ! Allocates all arrays, and sets no_ variables.
 ! ----------------------------------------------------------------------
-subroutine new_StructureData(this,no_atoms,no_symmetries,sc_size)
+function new_StructureData(no_atoms,no_symmetries,sc_size) result(this)
   implicit none
   
-  type(StructureData), intent(out) :: this
-  integer,             intent(in)  :: no_atoms
-  integer,             intent(in)  :: no_symmetries
-  integer,             intent(in)  :: sc_size
+  integer, intent(in) :: no_atoms
+  integer, intent(in) :: no_symmetries
+  integer, intent(in) :: sc_size
+  type(StructureData) :: this
   
   integer :: prim,gvec,atom
   integer :: ialloc
+  
+  if (modulo(no_atoms,sc_size)/=0) then
+    call print_line('Error: no_atoms is not divisible by sc_size')
+    call err()
+  endif
   
   this%no_atoms = no_atoms
   this%no_atoms_prim = no_atoms/sc_size
   this%no_modes = no_atoms*3
   this%no_modes_prim = no_atoms*3/sc_size
-  allocate( this%species(no_atoms),                               &
-          & this%mass(no_atoms),                                  &
-          & this%atoms(no_atoms),                                 &
+  allocate( this%atoms(no_atoms),                                 &
           & this%atom_to_prim(no_atoms),                          &
           & this%atom_to_rvec(no_atoms),                          &
           & this%rvec_and_prim_to_atom(no_atoms/sc_size,sc_size), &
           & stat=ialloc); call err(ialloc)
+  
+  do atom=1,this%no_atoms
+    this%atoms(atom) = AtomData(this%lattice,this%recip_lattice)
+  enddo
+  
   do gvec=1,sc_size
     do prim=1,no_atoms/sc_size
       atom = (prim-1)*sc_size + gvec
@@ -220,7 +229,21 @@ subroutine new_StructureData(this,no_atoms,no_symmetries,sc_size)
           & this%gvectors(sc_size),    &
           & this%paired_gvec(sc_size), &
           & stat=ialloc); call err(ialloc)
-end subroutine
+end function
+
+! ----------------------------------------------------------------------
+! Returns the atom at a given R-vector from an atom in the primitive cell.
+! ----------------------------------------------------------------------
+!function atom_at_prim_plus_rvector(this,prim,rvector) result(output)
+!  implicit none
+!  
+!  class(StructureData), intent(in) :: this
+!  integer,              intent(in) :: prim
+!  integer,              intent(in) :: rvector
+!  type(AtomData)                   :: output
+!  
+!  output = this%atoms(this%rvec_and_prim_to_atom(prim,rvec))
+!end function
 
 ! ----------------------------------------------------------------------
 ! Reads structure.dat
@@ -344,7 +367,7 @@ function read_structure_file(filename) result(this)
   ! ------------------------------
   ! Allocate structure.
   ! ------------------------------
-  call new(this,no_atoms,no_symmetries,sc_size)
+  this = StructureData(no_atoms, no_symmetries, sc_size)
   
   ! ------------------------------
   ! Read file into arrays.
@@ -356,9 +379,9 @@ function read_structure_file(filename) result(this)
   
   do i=1,this%no_atoms
     line = split(structure_file%line(atoms_line+i))
-    this%species(i) = line(1)
-    this%mass(i) = dble(line(2))
-    this%atoms(i) = dble(line(3:5))
+    call this%atoms(i)%set_species(line(1))
+    call this%atoms(i)%set_mass(dble(line(2)))
+    call this%atoms(i)%set_cartesian_position(vec(dble(line(3:5))))
   enddo
   
   do i=1,size(this%symmetries)
@@ -414,9 +437,9 @@ subroutine write_structure_file(this,filename)
   call structure_file%print_line(this%lattice)
   call structure_file%print_line('Atoms')
   do i=1,this%no_atoms
-    call structure_file%print_line( this%species(i)//' '// &
-                                  & this%mass(i)//' '//    &
-                                  & this%atoms(i))
+    call structure_file%print_line( this%atoms(i)%species() //' '// &
+                                  & this%atoms(i)%mass()    //' '// &
+                                  & this%atoms(i)%cartesian_position())
   enddo
   
   if (size(this%symmetries)/=0) then
@@ -622,7 +645,7 @@ subroutine calculate_symmetry(this,symmetry_precision)
   atom_type = 0
   do_i : do i=1,this%no_atoms
     do j=1,i-1
-      if (this%species(i)==this%species(j)) then
+      if (this%atoms(i)%species()==this%atoms(j)%species()) then
         atom_types(i) = atom_types(j)
         cycle do_i
       endif
@@ -634,7 +657,7 @@ subroutine calculate_symmetry(this,symmetry_precision)
   ! Calculate symmetries, without space to store them.
   allocate(atoms(3,this%no_atoms), stat=ialloc); call err(ialloc)
   do i=1,this%no_atoms
-    atoms(:,i) = dble(this%recip_lattice*this%atoms(i))
+    atoms(:,i) = dble(this%atoms(i)%fractional_position())
   enddo
   call spglib_calculate_symmetries( dble(this%lattice),  &
                                   & atoms,               &
@@ -708,7 +731,7 @@ subroutine calculate_atom_symmetry_group(this)
   
   ! Transform atom positions into fractional supercell co-ordinates.
   do i=1,this%no_atoms
-    atom_pos_frac(i) = this%recip_lattice * this%atoms(i)
+    atom_pos_frac(i) = this%atoms(i)%fractional_position()
   enddo
   
   ! Work out which atoms map to which atoms under each symmetry operation.
@@ -743,7 +766,7 @@ subroutine calculate_atom_symmetry_group(this)
         call err()
       endif
       
-      if (this%species(operations(j,i))/=this%species(j)) then
+      if (this%atoms(operations(j,i))%species()/=this%atoms(j)%species()) then
         call print_line('Error: symmetry operation between different species.')
         call err()
       endif

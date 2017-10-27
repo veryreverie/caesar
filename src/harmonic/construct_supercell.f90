@@ -106,7 +106,7 @@ function construct_supercell(structure,supercell_matrix,calculate_symmetries, &
   ! Generate supercell and lattice data.
   sc_size = abs(determinant(supercell_matrix))
   no_atoms_sc = structure%no_atoms*sc_size
-  call new(supercell, no_atoms_sc, 0, sc_size)
+  supercell = StructureData(no_atoms_sc, 0, sc_size)
   supercell%lattice = supercell_matrix * structure%lattice
   supercell%supercell = supercell_matrix
   supercell%rvectors = calculate_unique_vectors(supercell_matrix, .false.)
@@ -119,9 +119,8 @@ function construct_supercell(structure,supercell_matrix,calculate_symmetries, &
     ! N.B. fractional supercell coordinates are scaled so that the supercell
     !    is a cartesian cube with side length sc_size.
     
-    ! Transform atom i into fractional primitive cell co-ordinates,
-    !    and translate it into the first primitive cell.
-    atom_pos_prim = modulo( dble(structure%recip_lattice*structure%atoms(i)), &
+    ! Translate atom i into the first primitive cell.
+    atom_pos_prim = modulo( dble(structure%atoms(i)%fractional_position()), &
                           & 1.0_dp)
     
     ! Calculate the position of atom i in scaled fractional supercell co-ords.
@@ -156,9 +155,11 @@ function construct_supercell(structure,supercell_matrix,calculate_symmetries, &
       
       ! Add the copy to the supercell.
       atom_counter = supercell%rvec_and_prim_to_atom(i,j)
-      supercell%atoms(atom_counter) = copy_pos_cart
-      supercell%mass(atom_counter) = structure%mass(i)
-      supercell%species(atom_counter) = structure%species(i)
+      call supercell%atoms(atom_counter)%set_species( &
+         & structure%atoms(i)%species())
+      call supercell%atoms(atom_counter)%set_mass( &
+         & structure%atoms(i)%mass())
+      call supercell%atoms(atom_counter)%set_cartesian_position(copy_pos_cart)
     enddo
   enddo
   

@@ -26,7 +26,7 @@ module displacement_patterns_module
     real(dp), allocatable :: prefactors(:,:,:)
   end type
   
-  interface new
+  interface DispPatterns
     module procedure new_DispPatterns
   end interface
   
@@ -37,18 +37,21 @@ module displacement_patterns_module
 
 contains
 
-subroutine new_DispPatterns(this,no_gvectors,no_modes,no_atoms)
+function new_DispPatterns(no_gvectors,no_modes,no_atoms) result(this)
   implicit none
   
-  type(DispPatterns), intent(out) :: this
-  integer,            intent(in)  :: no_modes
-  integer,            intent(in)  :: no_gvectors
-  integer,            intent(in)  :: no_atoms
+  integer, intent(in) :: no_modes
+  integer, intent(in) :: no_gvectors
+  integer, intent(in) :: no_atoms
+  type(DispPatterns)  :: this
   
-  allocate(this%frequencies(no_modes,no_gvectors))
-  allocate(this%disp_patterns(3,no_atoms,no_modes,no_gvectors))
-  allocate(this%prefactors(no_atoms,no_modes,no_gvectors))
-end subroutine
+  integer :: ialloc
+  
+  allocate( this%frequencies(no_modes,no_gvectors),              &
+          & this%disp_patterns(3,no_atoms,no_modes,no_gvectors), &
+          & this%prefactors(no_atoms,no_modes,no_gvectors),      &
+          & stat=ialloc); call err(ialloc)
+end function
 
 function read_disp_patterns_file_character(filename,no_modes) result(this)
   use ifile_module
@@ -86,7 +89,7 @@ function read_disp_patterns_file_character(filename,no_modes) result(this)
     endif
   enddo
   
-  call new(this,no_gvectors,no_modes,no_atoms)
+  this = DispPatterns(no_gvectors,no_modes,no_atoms)
   
   do i=1,no_gvectors
     do j=1,no_modes

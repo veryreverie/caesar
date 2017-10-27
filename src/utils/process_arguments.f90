@@ -6,18 +6,6 @@ module process_arguments_module
   use constants_module, only : dp
   use string_module
   use io_module
-  
-  ! An interface for the main subroutines of Caesar, each of which takes a
-  !    dictionary of arguments and returns nothing.
-  abstract interface
-    subroutine MainSubroutine(arguments)
-      use dictionary_module
-      implicit none
-      
-      type(Dictionary), intent(in) :: arguments
-    end subroutine
-  end interface
-  
 contains
 
 ! ----------------------------------------------------------------------

@@ -12,12 +12,6 @@ module keyword_module
   ! A keyword and its helptext.
   public :: KeywordData
   
-  ! Bundles a keyword and its helptext into a KeywordData.
-  public :: make_keyword
-  
-  ! Prints helptext.
-  public :: print_help
-  
   ! Keywords used by all routines.
   public :: make_universal_keywords
   
@@ -80,8 +74,16 @@ module keyword_module
     
     ! Processes and checks value.
     procedure, public :: process_and_check
+    
+    ! Prints helptext.
+    procedure, public :: print_help
   end type
+  
+  interface KeywordData
+    module procedure new_KeywordData
+  end interface
 contains
+
 ! ----------------------------------------------------------------------
 ! Flag-related procedures.
 ! ----------------------------------------------------------------------
@@ -274,8 +276,8 @@ end function
 !    Defaults to .true.
 ! flag specifies the flag by which the keyword can be alternately called.
 !    Defaults to ' '.
-function make_keyword(keyword,helptext,default_value,default_keyword, &
-   & is_optional,is_path,allowed_in_file,can_be_interactive,          &
+function new_KeywordData(keyword,helptext,default_value,default_keyword, &
+   & is_optional,is_path,allowed_in_file,can_be_interactive,             &
    & flag_without_arguments,flag_with_arguments) result(this)
   implicit none
   
@@ -447,7 +449,7 @@ end subroutine
 subroutine print_help(this)
   implicit none
   
-  type(KeywordData), intent(in) :: this
+  class(KeywordData), intent(in) :: this
   
   call print_line('')
   call print_line(this%helptext)
@@ -475,33 +477,40 @@ function make_universal_keywords() result(keywords)
   type(KeywordData), allocatable :: keywords(:)
   
   keywords = [                                                                &
-  & make_keyword( 'interactive',                                              &
-  &               'interactive specifies whether or not keywords can be &
+  & KeywordData( 'interactive',                                               &
+  &              'interactive specifies whether or not keywords can be &
   &specified interactively.',                                                 &
-  &               default_value='true',                                       &
-  &               allowed_in_file=.false.,                                    &
-  &               can_be_interactive=.false.,                                 &
-  &               flag_without_arguments='i'),                                &
-  & make_keyword( 'help',                                                     &
-  &               'help requests helptext rather than running calculation.', &
-  &               is_optional=.true.,                                         &
-  &               allowed_in_file=.false.,                                    &
-  &               can_be_interactive=.false.,                                 &
-  &               flag_with_arguments='h'),                                   &
-  & make_keyword( 'input_file',                                               &
-  &               'input_file specifies a file from which further settings &
+  &              default_value='true',                                        &
+  &              allowed_in_file=.false.,                                     &
+  &              can_be_interactive=.false.,                                  &
+  &              flag_without_arguments='i'),                                 &
+  & KeywordData( 'help',                                                      &
+  &              'help requests helptext rather than running calculation.',   &
+  &              is_optional=.true.,                                          &
+  &              allowed_in_file=.false.,                                     &
+  &              can_be_interactive=.false.,                                  &
+  &              flag_with_arguments='h'),                                    &
+  & KeywordData( 'input_file',                                                &
+  &              'input_file specifies a file from which further settings &
   &will be read.',                                                            &
-  &               is_optional=.true.,                                         &
-  &               allowed_in_file=.false.,                                    &
-  &               can_be_interactive=.false.,                                 &
-  &               flag_with_arguments='false'),                               &
-  & make_keyword( 'working_directory',                                        &
-  &               'working_directory specifies the directory where all files &
+  &              is_optional=.true.,                                          &
+  &              allowed_in_file=.false.,                                     &
+  &              can_be_interactive=.false.,                                  &
+  &              flag_with_arguments='false'),                                &
+  & KeywordData( 'working_directory',                                         &
+  &              'working_directory specifies the directory where all files &
   &and subsequent directories will be made.',                                 &
-  &               default_value='.',                                          &
-  &               is_path=.true.,                                             &
-  &               allowed_in_file=.false.,                                    &
-  &               can_be_interactive=.false.,                                 &
-  &               flag_with_arguments='d') ]
+  &              default_value='.',                                           &
+  &              is_path=.true.,                                              &
+  &              allowed_in_file=.false.,                                     &
+  &              can_be_interactive=.false.,                                  &
+  &              flag_with_arguments='d'),                                    &
+  & KeywordData( 'output_file',                                               &
+  &              'output_file specifies a file to which terminal output will &
+  &be written. This also disables terminal formatting, so should be favoured &
+  &over piping to file. If unset, terminal output will go to the terminal.',  &
+  &              is_optional=.true.,                                          &
+  &              is_path=.true.,                                              &
+  &              flag_with_arguments='o') ]
 end function
 end module

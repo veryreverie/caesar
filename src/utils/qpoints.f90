@@ -18,23 +18,23 @@ module qpoints_module
     integer, allocatable :: symmetry_ids(:)
   end type
   
-  interface new
+  interface QpointData
     module procedure new_QpointData
   end interface
 contains
 
-subroutine new_QpointData(this,multiplicity)
+function new_QpointData(multiplicity) result(this)
   implicit none
   
-  type(QpointData), intent(out) :: this
-  integer,          intent(in)  :: multiplicity
+  integer, intent(in) :: multiplicity
+  type(QpointData)    :: this
   
   integer :: ialloc
   
   allocate( this%gvectors(multiplicity),  &
           & this%symmetry_ids(multiplicity), &
           & stat=ialloc); call err(ialloc)
-end subroutine
+end function
 
 subroutine write_qpoints_file(this,filename)
   use ofile_module

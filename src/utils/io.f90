@@ -2,17 +2,21 @@
 ! I/O operations.
 ! ======================================================================
 module io_module
+  use iso_fortran_env,  only : output_unit
   use constants_module, only : dp
   use string_module
   implicit none
   
   private
   
+  ! I/O settings, specifying various input/output properties.
+  ! Set by set_io_settings.
   integer      :: TERMINAL_WIDTH = 79
   type(String) :: HOME
   type(String) :: CWD
   type(String) :: OLD_PATH
   type(String) :: PYTHON_PATH
+  integer      :: OUTPUT_FILE_UNIT = output_unit
   
   ! Public types.
   public :: CommandLineFlag
@@ -21,15 +25,18 @@ module io_module
   public :: file_exists ! checks if a file exists
   
   ! Other IO operations.
-  public :: set_global_io_variables ! Sets io global variables.
-  public :: system_call             ! Makes a system call.
-  public :: get_flag                ! Reads a flag from the command line.
-  public :: read_line_from_user     ! Reads a line from the terminal.
-  public :: print_line              ! write(*,'(a)')
-  public :: err                     ! Aborts with a stacktrace.
-  public :: format_path             ! Converts any path into an absolute path.
-  public :: execute_old_code        ! Runs one of the old caesar codes.
-  public :: execute_python          ! Runs one of the python scripts.
+  public :: set_io_settings     ! Sets I/O settings.
+  public :: set_output_unit     ! Sets output file unit.
+  public :: unset_output_unit   ! Reverts output file unit to stdout.
+  public :: system_call         ! Makes a system call.
+  public :: get_flag            ! Reads a flag from the command line.
+  public :: read_line_from_user ! Reads a line from the terminal.
+  public :: print_line          ! write(*,'(a)')
+  public :: err                 ! Aborts with a stacktrace.
+  public :: format_path         ! Converts any path into an absolute path.
+  public :: execute_old_code    ! Runs one of the old caesar codes.
+  public :: execute_python      ! Runs one of the python scripts.
+  public :: colour              ! Adds terminal colours to a string.
   
   ! Command line flag and argument.
   type :: CommandLineFlag
@@ -67,6 +74,13 @@ module io_module
   interface format_path
     module procedure format_path_character
     module procedure format_path_String
+  end interface
+  
+  interface colour
+    module procedure colour_character_character
+    module procedure colour_String_character
+    module procedure colour_character_String
+    module procedure colour_String_String
   end interface
   
   ! C system call interface.
@@ -383,7 +397,7 @@ function get_terminal_width() result(output)
   endif
 end function
 
-subroutine set_global_io_variables()
+subroutine set_io_settings()
   implicit none
   
   type(String) :: exe_location
@@ -404,11 +418,33 @@ subroutine set_global_io_variables()
 end subroutine
 
 ! ----------------------------------------------------------------------
+! Set or unset OUTPUT_FILE_UNIT as a file unit.
+! ----------------------------------------------------------------------
+subroutine set_output_unit(file_unit)
+  implicit none
+  
+  integer, intent(in) :: file_unit
+  
+  if (OUTPUT_FILE_UNIT/=output_unit) then
+    call print_line('Code Error: attempted to redirect stdout when it was &
+       &already redirected.')
+    call err()
+  endif
+  
+  OUTPUT_FILE_UNIT = file_unit
+end subroutine
+
+subroutine unset_output_unit()
+  implicit none
+  
+  OUTPUT_FILE_UNIT = output_unit
+end subroutine
+
+! ----------------------------------------------------------------------
 ! Subroutines to print lines, as write(), but with error checking
 !    and formatting.
 ! ----------------------------------------------------------------------
 recursive subroutine print_line_character(line)
-  use iso_fortran_env, only : output_unit
   implicit none
   
   character(*), intent(in) :: line
@@ -417,15 +453,19 @@ recursive subroutine print_line_character(line)
   integer :: i
   logical :: success
   
-  if (len(line) <= TERMINAL_WIDTH) then
+  if (OUTPUT_FILE_UNIT/=output_unit) then
+    ! Terminal-width linebreaks have been supressed.
+    ! Print the entire line, regardless of length.
+    write(OUTPUT_FILE_UNIT,'(a)',iostat=ierr) line
+  elseif (len(line) <= TERMINAL_WIDTH) then
     ! The string can be printed all on one line.
-    write(output_unit,'(a)',iostat=ierr) line
+    write(OUTPUT_FILE_UNIT,'(a)',iostat=ierr) line
   else
     success = .false.
     ! Attempt to break the string at a space, so that it fits on the terminal.
     do i=TERMINAL_WIDTH,2,-1
       if (line(i:i)==' ') then
-        write(output_unit,'(a)',iostat=ierr) line(:i-1)
+        write(OUTPUT_FILE_UNIT,'(a)',iostat=ierr) line(:i-1)
         call print_line(line(i+1:))
         success = .true.
         exit
@@ -437,7 +477,7 @@ recursive subroutine print_line_character(line)
     if (.not. success) then
       do i=TERMINAL_WIDTH+1,len(line)-1
         if (line(i:i)==' ') then
-          write(output_unit,'(a)',iostat=ierr) line(:i-1)
+          write(OUTPUT_FILE_UNIT,'(a)',iostat=ierr) line(:i-1)
           call print_line(line(i+1:))
           success = .true.
           exit
@@ -447,19 +487,19 @@ recursive subroutine print_line_character(line)
     
     ! The line can't be split. Everything is written.
     if (.not. success) then
-      write(output_unit,'(a)',iostat=ierr) line
+      write(OUTPUT_FILE_UNIT,'(a)',iostat=ierr) line
     endif
   endif
   
   if (ierr /= 0) then
-    write(output_unit,'(a)') 'Error in print_line.'
+    write(OUTPUT_FILE_UNIT,'(a)') 'Error in print_line.'
     call err()
   endif
   
-  flush(output_unit,iostat=ierr)
+  flush(OUTPUT_FILE_UNIT,iostat=ierr)
   
   if (ierr /= 0) then
-    write(output_unit,'(a)') 'Error in print_line.'
+    write(OUTPUT_FILE_UNIT,'(a)') 'Error in print_line.'
     call err()
   endif
 end subroutine
@@ -690,4 +730,98 @@ subroutine execute_python(wd, filename)
     call err()
   endif
 end subroutine
+
+! ----------------------------------------------------------------------
+! Adds terminal colour to a string.
+! Does nothing if the output is going to a file.
+! ----------------------------------------------------------------------
+! N.B. can't detect "caesar > file", only supresses colour if "caesar -o file".
+function colour_character_character(input,colour_name) result(output)
+  implicit none
+  
+  character(*), intent(in) :: input
+  character(*), intent(in) :: colour_name
+  type(String)             :: output
+  
+  type(String) :: lower_case_name
+  character(2) :: colour_code
+  
+  ! Supress colour if outputting to file.
+  if (OUTPUT_FILE_UNIT/=output_unit) then
+    output = input
+    return
+  endif
+  
+  lower_case_name = lower_case(colour_name)
+  
+  if (lower_case_name=='black') then
+    colour_code = '30'
+  elseif (lower_case_name=='red') then
+    colour_code = '31'
+  elseif (lower_case_name=='green') then
+    colour_code = '32'
+  elseif (lower_case_name=='yellow') then
+    colour_code = '33'
+  elseif (lower_case_name=='blue') then
+    colour_code = '34'
+  elseif (lower_case_name=='magenta') then
+    colour_code = '35'
+  elseif (lower_case_name=='cyan') then
+    colour_code = '36'
+  elseif (lower_case_name=='light gray') then
+    colour_code = '37'
+  elseif (lower_case_name=='dark gray') then
+    colour_code = '90'
+  elseif (lower_case_name=='light red') then
+    colour_code = '91'
+  elseif (lower_case_name=='light green') then
+    colour_code = '92'
+  elseif (lower_case_name=='light yellow') then
+    colour_code = '93'
+  elseif (lower_case_name=='light blue') then
+    colour_code = '94'
+  elseif (lower_case_name=='light magenta') then
+    colour_code = '95'
+  elseif (lower_case_name=='light cyan') then
+    colour_code = '96'
+  elseif (lower_case_name=='white') then
+    colour_code = '97'
+  else
+    call print_line('Error: '//colour_name//' is not a colour.')
+    call err()
+  endif
+  
+  output = achar(27)//'['//colour_code//'m'//input//achar(27)//'[0m'
+end function
+
+function colour_String_character(input,colour_name) result(output)
+  implicit none
+  
+  character(*), intent(in) :: input
+  type(String), intent(in) :: colour_name
+  type(String)             :: output
+  
+  output = colour(input,char(colour_name))
+end function
+
+function colour_character_String(input,colour_name) result(output)
+  implicit none
+  
+  type(String), intent(in) :: input
+  character(*), intent(in) :: colour_name
+  type(String)             :: output
+  
+  output = colour(char(input),colour_name)
+end function
+
+function colour_String_String(input,colour_name) result(output)
+  implicit none
+  
+  type(String), intent(in) :: input
+  type(String), intent(in) :: colour_name
+  type(String)             :: output
+  
+  output = colour(char(input),char(colour_name))
+end function
+
 end module

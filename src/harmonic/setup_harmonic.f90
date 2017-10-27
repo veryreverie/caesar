@@ -18,21 +18,34 @@ function setup_harmonic_keywords() result(keywords)
   type(KeywordData), allocatable :: keywords(:)
   
   keywords = [                                                                &
-  & make_keyword( 'dft_code',                                                 &
+  & KeywordData( 'dft_code',                                                 &
   &               'dft_code is the DFT code used to calculate energies. &
   &Settings are: castep vasp qe.',                                            &
   &               default_value='castep'),                                    &
-  & make_keyword( 'seedname',                                                 &
+  & KeywordData( 'seedname',                                                 &
   &               'seedname is the DFT seedname from which file names are &
   &constructed.'),                                                            &
-  & make_keyword( 'q-point_grid',                                             &
+  & KeywordData( 'q-point_grid',                                             &
   &               'q-point_grid is the number of q-points in each direction &
   &in a Monkhorst-Pack grid. This should be specified as three integers &
   &separated by spaces.'),                                                    &
-  & make_keyword( 'symmetry_precision',                                       &
+  & KeywordData( 'symmetry_precision',                                       &
   &               'symmetry_precision is the tolerance at which symmetries &
   &are calculated.',                                                          &
   &               default_value='0.1')]
+end function
+
+function setup_harmonic_mode() result(output)
+  use caesar_modes_module
+  implicit none
+  
+  type(CaesarMode) :: output
+  
+  output%mode_name = 'setup_harmonic'
+  output%description = 'Sets up harmonic calculation. Generates supercells, &
+     &and prepares DFT inputs.'
+  output%keywords = setup_harmonic_keywords()
+  output%main_subroutine => setup_harmonic
 end function
 
 ! ----------------------------------------------------------------------
@@ -204,9 +217,11 @@ subroutine setup_harmonic(arguments)
         
         ! Move relevant atom.
         if(k==1) then
-          supercell%atoms(atom) = supercell%atoms(atom) + displacement
+          call supercell%atoms(atom)%set_cartesian_position( &
+             & supercell%atoms(atom)%cartesian_position() + displacement)
         elseif(k==2) then
-          supercell%atoms(atom) = supercell%atoms(atom) - 2*displacement
+          call supercell%atoms(atom)%set_cartesian_position( &
+             & supercell%atoms(atom)%cartesian_position() - 2*displacement)
         endif
           
         ! Write dft input files.
@@ -219,7 +234,8 @@ subroutine setup_harmonic(arguments)
       enddo
       
       ! Reset moved atom.
-      supercell%atoms(atom) = supercell%atoms(atom) + displacement
+      call supercell%atoms(atom)%set_cartesian_position( &
+         & supercell%atoms(atom)%cartesian_position() + displacement)
     enddo
   enddo
 end subroutine

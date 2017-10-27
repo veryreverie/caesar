@@ -41,8 +41,8 @@ function atom_mapping(structure_a,structure_b) result(output)
   allocate(frac_pos_b(structure_b%no_atoms))
   allocate(frac_pos_a(structure_b%no_atoms))
   do i=1,structure_b%no_atoms
-    frac_pos_b(i) = structure_b%recip_lattice * structure_b%atoms(i)
-    frac_pos_a(i) = structure_a%recip_lattice * structure_a%atoms(i)
+    frac_pos_a(i) = structure_a%atoms(i)%fractional_position()
+    frac_pos_b(i) = structure_b%atoms(i)%fractional_position()
   enddo
   
   ! Find mapping between b and a atoms.

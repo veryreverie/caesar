@@ -13,6 +13,8 @@ program caesar
   use keyword_module
   use help_module
   use process_arguments_module
+  use ofile_module
+  use caesar_modes_module
   
   ! Use convergence modules.
   use converge_cutoff_and_kpoints_module
@@ -46,6 +48,8 @@ program caesar
   type(String)              :: mode
   
   ! The chosen subroutine, and the keywords it accepts.
+  type(CaesarModes)                      :: caesar_modes
+  type(CaesarMode)                       :: caesar_mode
   procedure(MainSubroutine), pointer     :: main_subroutine => null ()
   type(KeywordData),         allocatable :: keywords(:)
   
@@ -55,13 +59,34 @@ program caesar
   ! The working directory.
   type(String) :: wd
   
+  ! The output file where stdout is piped if -o is specified.
+  type(OFile) :: output_file
+  
   ! Temporary variables.
   type(String)              :: filename
   
   ! --------------------------------------------------
   ! Set IO variables for formatting and file parsing purposes.
   ! --------------------------------------------------
-  call set_global_io_variables()
+  call set_io_settings()
+  
+  ! --------------------------------------------------
+  ! Read in mode interfaces.
+  ! --------------------------------------------------
+  ! Normal inputs. Fetch keywords and set subprocess.
+  caesar_modes = CaesarModes([ &
+     & hartree_to_ev_mode(), &
+     & test_mode(), &
+     & converge_cutoff_and_kpoints_mode(), &
+     & plot_cutoff_and_kpoints_mode(), &
+     & setup_harmonic_mode(), &
+     & run_harmonic_mode(), &
+     & calculate_harmonic_mode(), &
+     & calculate_dos_and_dispersion_mode(), &
+     & setup_anharmonic_mode(), &
+     & run_anharmonic_mode(), &
+     & calculate_anharmonic_mode() &
+     &])
   
   ! --------------------------------------------------
   ! Read in command line arguments and process the mode.
@@ -72,7 +97,8 @@ program caesar
   
   ! Error: no arguments given.
   if (size(args) < 2) then
-    call print_line('No arguments given. For help, call caesar -h')
+    call print_line(colour('Error: no arguments given.','red'))
+    call print_line('Call '//colour('caesar -h','white')//' for help.')
     stop
   endif
   
@@ -81,75 +107,40 @@ program caesar
   
   ! Error: mode only contains one character.
   if (len(mode) < 2) then
-    call print_line('Error: unrecognised mode: '//mode)
-    call print_line('Call caesar -h for help.')
+    call print_line(colour('Error: unrecognised mode: ','red')//mode)
+    call print_line('Call '//colour('caesar -h','white')//' for help.')
     stop
   
   ! Help calls, both correct and malformed.
   elseif (mode == '-h' .or. mode == '--help' .or. mode == 'help') then
     if (size(args) == 2) then
-      call help()
+      call help(caesar_modes)
     else
+      call print_line(colour('Error: no mode specified.','red'))
       call print_line('For keyword-specific help, please also specify a mode, &
-         &e.g. "caesar setup_harmonic -h dft_code"')
+         &as')
+      call print_line(colour('caesar [mode] -h [keyword]','white')//'.')
     endif
     stop
   elseif (slice(mode,1,2) == '-h') then
+    call print_line(colour('Error: no mode specified.','red'))
     call print_line('For keyword-specific help, please also specify a mode, &
-       &e.g. "caesar setup_harmonic -h dft_code"')
+       &as')
+    call print_line(colour('caesar [mode] -h [keyword]','white')//'.')
     stop
-  
-  ! Normal inputs. Fetch keywords and set subprocess.
-  elseif (mode == 'test') then
-    keywords = test_keywords()
-    main_subroutine => test
-  elseif (mode == 'converge_cutoff_and_kpoints') then
-    keywords = converge_cutoff_and_kpoints_keywords()
-    main_subroutine => converge_cutoff_and_kpoints
-  elseif (mode == 'plot_cutoff_and_kpoints') then
-    keywords = plot_cutoff_and_kpoints_keywords()
-    main_subroutine => plot_cutoff_and_kpoints
-  elseif (mode == 'setup_harmonic') then
-    keywords = setup_harmonic_keywords()
-    main_subroutine => setup_harmonic
-  elseif (mode == 'run_harmonic') then
-    keywords = run_harmonic_keywords()
-    main_subroutine => run_harmonic
-  elseif (mode == 'calculate_harmonic') then
-    keywords = calculate_harmonic_keywords()
-    main_subroutine => calculate_harmonic
-  elseif (mode == 'calculate_dos_and_dispersion') then
-    keywords = calculate_dos_and_dispersion_keywords()
-    main_subroutine => calculate_dos_and_dispersion
-  elseif (mode == 'setup_anharmonic') then
-    keywords = setup_anharmonic_keywords()
-    main_subroutine => setup_anharmonic
-  elseif (mode == 'run_anharmonic') then
-    keywords = run_anharmonic_keywords()
-    main_subroutine => run_anharmonic
-  elseif (mode == 'calculate_anharmonic') then
-    keywords = calculate_anharmonic_keywords()
-    main_subroutine => calculate_anharmonic
-  elseif (mode == 'linear_algebra_test') then
-    keywords = linear_algebra_test_keywords()
-    main_subroutine => linear_algebra_test
-  elseif (mode == 'calculate_gap') then
-    keywords = calculate_gap_keywords()
-    main_subroutine => calculate_gap
-  elseif (mode == 'hartree_to_ev') then
-    keywords = hartree_to_eV_keywords()
-    main_subroutine => hartree_to_eV
   
   ! Erroneous inputs.
   elseif (slice(mode,1,1) == '-') then
-    call print_line('Error: The first argument should be the mode, and not a &
-       &flag or keyword.')
-    call print_line('Call caesar -h for help.')
+    call print_line(colour('Error: The first argument should be the mode, &
+       &and not a flag or keyword.','red'))
+    call print_line('Call '//colour('caesar -h','white')//' for help.')
     stop
+  
+  ! Normal inputs.
   else
-    call print_line('Error: unrecognised mode: '//mode)
-    call print_line('Call caesar -h for help.')
-    stop
+    caesar_mode = caesar_modes%mode(mode)
+    keywords = caesar_mode%keywords
+    main_subroutine => caesar_mode%main_subroutine
   endif
   
   ! --------------------------------------------------
@@ -158,10 +149,18 @@ program caesar
   arguments = process_arguments(args,keywords)
   
   ! --------------------------------------------------
+  ! Set output file, if appropriate.
+  ! --------------------------------------------------
+  if (arguments%is_set('output_file')) then
+    output_file = arguments%value('output_file')
+    call output_file%make_stdout()
+  endif
+  
+  ! --------------------------------------------------
   ! Handle help calls.
   ! --------------------------------------------------
   if (arguments%is_set('help')) then
-    call help(arguments%value('help'), mode, keywords)
+    call help(arguments%value('help'), mode, caesar_modes)
     stop
   endif
   

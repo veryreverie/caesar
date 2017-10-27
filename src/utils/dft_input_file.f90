@@ -344,12 +344,12 @@ function castep_input_file_to_StructureData(filename, symmetry_precision) &
   endif
   
   ! Make output.
-  call new(output,no_atoms,0,1)
+  output = StructureData(no_atoms, 0, 1)
   
   output%lattice = lattice
-  output%species = species(:no_atoms)
   do i=1,no_atoms
-    output%atoms(i) = positions(i)
+    call output%atoms(i)%set_species(species(i))
+    call output%atoms(i)%set_cartesian_position(positions(i))
   enddo
   
   ! Parse masses.
@@ -379,7 +379,7 @@ function castep_input_file_to_StructureData(filename, symmetry_precision) &
       do j=1,no_atoms
         if (line(1)==species(j)) then
           masses_found(j) = .true.
-          output%mass(j) = dble(line(2))*conversion
+          call output%atoms(j)%set_mass(dble(line(2))*conversion)
         endif
       enddo
     endif
@@ -468,8 +468,8 @@ subroutine StructureData_to_castep_input_file(structure,old_cell_filename, &
   call new_cell_file%print_line('%block positions_abs')
   call new_cell_file%print_line('bohr')
   do i=1,structure%no_atoms
-    call new_cell_file%print_line( structure%species(i)//' '// &
-                                 & structure%atoms(i))
+    call new_cell_file%print_line( structure%atoms(i)%species() //' '// &
+                                 & structure%atoms(i)%cartesian_position())
   enddo
   call new_cell_file%print_line('%endblock positions_abs')
   call new_cell_file%print_line('')
@@ -512,8 +512,8 @@ subroutine StructureData_to_vasp_input_file(structure,poscar_filename)
   no_species = 0
   previous_species=''
   do i=1,structure%no_atoms
-    if (structure%species(i)/=previous_species) then
-      previous_species = structure%species(i)
+    if (structure%atoms(i)%species()/=previous_species) then
+      previous_species = structure%atoms(i)%species()
       no_species = no_species+1
     endif
   enddo
@@ -526,10 +526,10 @@ subroutine StructureData_to_vasp_input_file(structure,poscar_filename)
   previous_species=''
   species_counts = 0
   do i=1,structure%no_atoms
-    if (structure%species(i)/=previous_species) then
-      previous_species = structure%species(i)
+    if (structure%atoms(i)%species()/=previous_species) then
+      previous_species = structure%atoms(i)%species()
       no_species = no_species+1
-      species(no_species) = structure%species(i)
+      species(no_species) = structure%atoms(i)%species()
     endif
     species_counts(no_species) = species_counts(no_species)+1
   enddo
@@ -555,7 +555,7 @@ subroutine StructureData_to_vasp_input_file(structure,poscar_filename)
   
   call poscar_file%print_line('Cartesian')
   do i=1,structure%no_atoms
-    call poscar_file%print_line(structure%atoms(i))
+    call poscar_file%print_line(structure%atoms(i)%cartesian_position())
   enddo
 end subroutine
 
@@ -605,8 +605,8 @@ subroutine StructureData_to_qe_input_file(structure,old_qe_in_filename, &
   call new_qe_in_file%print_line(structure%lattice)
   call new_qe_in_file%print_line('ATOMIC_POSITIONS bohr')
   do i=1,structure%no_atoms
-    call new_qe_in_file%print_line( structure%species(i)//' '// &
-                                  & structure%atoms(i))
+    call new_qe_in_file%print_line( structure%atoms(i)%species() //' '// &
+                                  & structure%atoms(i)%cartesian_position())
   enddo
   
   ! Write old qe in file contents to new qe in file.

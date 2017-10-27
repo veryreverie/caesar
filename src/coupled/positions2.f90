@@ -69,23 +69,28 @@ function positions(structure, temperature, number_fit_points, frequency1, &
 
   real(dp), parameter :: tol=1.0e-6_dp
   
-  integer :: i
+  integer :: i,ialloc
   
   if (abs(frequency1)<tol .or. abs(frequency2)<tol) then
     output%scaling_check = .false.
     output%scaling1 = 0
     output%scaling2 = 0
-    output%positions = structure%atoms
+    allocate( output%positions(size(structure%atoms)), &
+            & stat=ialloc); call err(ialloc)
+    do i=1,size(structure%atoms)
+      output%positions(i) = structure%atoms(i)%cartesian_position()
+    enddo
   else
     output%scaling_check = .true.
     output%scaling1 = (-1 + (current_number1-1)*2.0_dp/(number_fit_points-1)) &
                   & * max_amplitude(abs(frequency1),temperature)
     output%scaling2 = (-1 + (current_number2-1)*2.0_dp/(number_fit_points-1)) &
                   & * max_amplitude(abs(frequency2),temperature)
-    output%positions = structure%atoms
+    allocate( output%positions(size(structure%atoms)), &
+            & stat=ialloc); call err(ialloc)
     do i=1,structure%no_atoms
-      output%positions(i) = output%positions(i)      &
-                        & + output%scaling1*disp1(i) &
+      output%positions(i) = structure%atoms(i)%cartesian_position() &
+                        & + output%scaling1*disp1(i)                &
                         & + output%scaling2*disp2(i)
     enddo
   endif

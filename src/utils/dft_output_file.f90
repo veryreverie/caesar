@@ -13,7 +13,6 @@ module dft_output_file_module
   public :: make_dft_output_filename
   public :: DftOutputFile
   public :: read_dft_output_file
-  public :: new
   
   type DftOutputFile
     integer                       :: no_atoms
@@ -22,7 +21,7 @@ module dft_output_file_module
     type(RealVector), allocatable :: forces(:)
   end type
   
-  interface new
+  interface DftOutputFile
     module procedure new_DftOutputFile
   end interface
   
@@ -50,16 +49,19 @@ function make_dft_output_filename(dft_code,seedname) result(output)
   endif
 end function
 
-subroutine new_DftOutputFile(this, no_atoms)
+function new_DftOutputFile(no_atoms) result(this)
   implicit none
   
-  type(DftOutputFile), intent(out) :: this
-  integer,             intent(in)  :: no_atoms
+  integer, intent(in) :: no_atoms
+  type(DftOutputFile) :: this
+  
+  integer :: ialloc
   
   this%no_atoms = no_atoms
-  allocate(this%species(no_atoms))
-  allocate(this%forces(no_atoms))
-end subroutine
+  allocate( this%species(no_atoms), &
+          & this%forces(no_atoms),  &
+          & stat=ialloc); call err(ialloc)
+end function
 
 function read_castep_output_file(filename) result(output)
   use constants_module, only : angstrom_per_bohr, ev_per_hartree
@@ -129,7 +131,7 @@ function read_castep_output_file(filename) result(output)
   endif
   
   ! Allocate output
-  call new(output,forces_end_line-forces_start_line-7)
+  output = DftOutputFile(forces_end_line-forces_start_line-7)
   
   ! Read data
   line = split(castep_file%line(energy_line))

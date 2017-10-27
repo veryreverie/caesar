@@ -21,16 +21,30 @@ function calculate_dos_and_dispersion_keywords() result(keywords)
   type(KeywordData), allocatable :: keywords(:)
   
   keywords = [                                                                &
-  & make_keyword( 'temperature',                                              &
+  & KeywordData( 'temperature',                                              &
   &               'temperature is the temperature in Kelvin, used when &
   &calculating the density of states and phonon dispersion curve.',           &
   &               default_value='0'),                                         &
-  & make_keyword( 'path',                                                     &
+  & KeywordData( 'path',                                                     &
   &               'path is the path through fractional reciprocal space which &
   &will be mapped by the phonon dispersion curve. The path should be &
   &specified as vectors in reciprocal space separated by commas.',            &
   &               default_value='0.0 0.0 0.0, 0.5 0.5 0.5, 0.0 0.5 0.5, &
   &0.0 0.0 0.0, 0.0 0.5 0.0') ]
+end function
+
+function calculate_dos_and_dispersion_mode() result(output)
+  use caesar_modes_module
+  implicit none
+  
+  type(CaesarMode) :: output
+  
+  output%mode_name = 'calculate_dos_and_dispersion'
+  output%description = 'Calculates the density of states and phonon &
+     &dispersion under the harmonic approximation. Should be run after &
+     &calculate_harmonic.'
+  output%keywords = calculate_dos_and_dispersion_keywords()
+  output%main_subroutine => calculate_dos_and_dispersion
 end function
 
 subroutine calculate_dos_and_dispersion(arguments)

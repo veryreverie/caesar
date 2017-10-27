@@ -132,7 +132,7 @@ module dictionary_module
   ! ------------------------------
   ! Procedures acting on a Dictionary.
   ! ------------------------------
-  interface new
+  interface Dictionary
     module procedure new_Dictionary
   end interface
   
@@ -144,16 +144,16 @@ contains
 ! ----------------------------------------------------------------------
 ! Private allocate(Dictionary) subroutine.
 ! ----------------------------------------------------------------------
-subroutine new_Dictionary(this,no_entries)
+function new_Dictionary(no_entries) result(this)
   implicit none
   
-  type(Dictionary), intent(out) :: this
-  integer,          intent(in)  :: no_entries
+  integer, intent(in) :: no_entries
+  type(Dictionary)    :: this
   
   integer :: ialloc
   
   allocate(this%keywords(no_entries), stat=ialloc); call err(ialloc)
-end subroutine
+end function
 
 ! ----------------------------------------------------------------------
 ! size(Dictionary).
@@ -189,7 +189,7 @@ function concatenate_Dictionary_Dictionary(this,that) result(output)
   class(Dictionary), intent(in) :: that
   type(Dictionary)              :: output
   
-  call new(output,size(this)+size(that))
+  output = Dictionary(size(this)+size(that))
   output%keywords(            :size(this)) = this%keywords
   output%keywords(size(this)+1:          ) = that%keywords
 end function

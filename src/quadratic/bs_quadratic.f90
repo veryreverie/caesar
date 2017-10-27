@@ -17,12 +17,12 @@ function bs_quadratic_keywords() result(keywords)
   type(KeywordData), allocatable :: keywords(:)
   
   keywords = [                                                                &
-  & make_keyword( 'q-point',                                                  &
+  & KeywordData( 'q-point',                                                  &
   &               'q-point is the id of the q-point of interest.'),           &
-  & make_keyword( 'band',                                                     &
+  & KeywordData( 'band',                                                     &
   &               'band is the id of the band of interest. If the band is &
   &degenerate, the highest band is required.'),                               &
-  & make_keyword( 'degeneracy',                                               &
+  & KeywordData( 'degeneracy',                                               &
   &               'degeneracy is the number of degenerate bands.',            &
   &               default_value='1') ]
 end function

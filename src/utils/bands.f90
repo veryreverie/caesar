@@ -9,7 +9,7 @@ module bands_module
     real(dp), allocatable :: bands(:,:)
   end type
   
-  interface new
+  interface BandsData
     module procedure new_BandsData
   end interface
   
@@ -24,18 +24,20 @@ module bands_module
   end interface
 contains
 
-subroutine new_BandsData(this,no_qpoints,no_bands)
+function new_BandsData(no_qpoints,no_bands) result(this)
   implicit none
   
-  type(BandsData), intent(out) :: this
-  integer,         intent(in)  :: no_qpoints
-  integer,         intent(in)  :: no_bands
+  integer, intent(in) :: no_qpoints
+  integer, intent(in) :: no_bands
+  type(BandsData)     :: this
+  
+  integer :: ialloc
   
   this%no_qpoints = no_qpoints
   this%no_bands = no_bands
   
-  allocate(this%bands(no_bands,no_qpoints))
-end subroutine
+  allocate(this%bands(no_bands,no_qpoints), stat=ialloc); call err(ialloc)
+end function
 
 ! ----------------------------------------------------------------------
 ! Reads a .bands file into BandsData
@@ -90,7 +92,7 @@ function read_castep_bands_file_character(filename) result(this)
   line = split(bands_file%line(4))
   no_bands = int(line(4))
   
-  call new(this,no_qpoints,no_bands)
+  this = BandsData(no_qpoints,no_bands)
   
   do i=1,no_qpoints
     do j=1,no_bands
@@ -134,7 +136,7 @@ function read_vasp_bands_file_character(filename) result(this)
   no_qpoints = int(line(2))
   no_bands = int(line(3))
   
-  call new(this,no_qpoints,no_bands)
+  this = BandsData(no_qpoints,no_bands)
   
   do i=1,no_qpoints
     do j=1,no_bands

@@ -15,7 +15,7 @@ module generate_supercells_module
     type(StructureData), allocatable :: supercells(:)
   end type
   
-  interface new
+  interface GeneratedSupercells
     module procedure new_GeneratedSupercells
   end interface
   
@@ -29,19 +29,19 @@ contains
 ! ----------------------------------------------------------------------
 ! GeneratedSupercells allocator.
 ! ----------------------------------------------------------------------
-subroutine new_GeneratedSupercells(this,no_qpoints_ibz,no_supercells)
+function new_GeneratedSupercells(no_qpoints_ibz,no_supercells) result(this)
   implicit none
   
-  type(GeneratedSupercells), intent(out) :: this
-  integer,                   intent(in)  :: no_qpoints_ibz
-  integer,                   intent(in)  :: no_supercells
+  integer, intent(in)       :: no_qpoints_ibz
+  integer, intent(in)       :: no_supercells
+  type(GeneratedSupercells) :: this
   
   integer :: ialloc
   
   allocate( this%qpoints_ibz(no_qpoints_ibz), &
           & this%supercells(no_supercells),   &
           & stat=ialloc); call err(ialloc)
-end subroutine
+end function
 
 ! ----------------------------------------------------------------------
 ! Calculate the greatest common divisor of two positive integers using
@@ -311,7 +311,7 @@ subroutine check_supercells(input,structure,large_supercell)
   type(IntMatrix)               :: rotation
   type(StructureData)           :: supercell
   type(IntVector)               :: gvector_supercell
-  type(RealVector)              :: fractional_position
+  real(dp)                      :: fractional_position(3)
   integer                       :: atom_1
   integer                       :: atom_2
   type(RealVector)              :: fractional_difference
@@ -385,7 +385,8 @@ subroutine check_supercells(input,structure,large_supercell)
     do j=1,supercell%no_atoms
       ! Check that no atoms are on top of one another.
       do k=1,j-1
-        if (l2_norm(supercell%atoms(j)-supercell%atoms(k))<0.5_dp) then
+        if (l2_norm( supercell%atoms(j)%cartesian_position() &
+                 & - supercell%atoms(k)%cartesian_position() )<0.5_dp) then
           call print_line('Code Error: atoms '//k//' and '//j//' are within &
              &0.5 Bohr of one another in supercell '//i//'.')
           call err()
@@ -393,11 +394,9 @@ subroutine check_supercells(input,structure,large_supercell)
       enddo
       
       ! Check that all atoms are within the supercell's primitive cell.
-      fractional_position = supercell%recip_lattice &
-                        & * supercell%atoms(j)      &
-                        & / supercell%sc_size
-      if ( any(dble(fractional_position) <  -1.0e-10_dp) .or. &
-         & any(dble(fractional_position) > 1+1.0e-10_dp)) then
+      fractional_position = dble(supercell%atoms(j)%fractional_position())
+      if ( any(fractional_position <  -1.0e-10_dp) .or. &
+         & any(fractional_position > 1+1.0e-10_dp)) then
         call print_line('Code Error: atom '//j//' has been placed outside &
            &the primitive cell of supercell '//i//'.')
         call err()
@@ -410,9 +409,9 @@ subroutine check_supercells(input,structure,large_supercell)
         do l=1,k-1
           atom_1 = supercell%rvec_and_prim_to_atom(j,k)
           atom_2 = supercell%rvec_and_prim_to_atom(j,l)
-          fractional_difference = structure%recip_lattice   &
-                              & * ( supercell%atoms(atom_1) &
-                              &   - supercell%atoms(atom_2))
+          fractional_difference =                              &
+             &   supercell%atoms(atom_1)%fractional_position() &
+             & - supercell%atoms(atom_2)%fractional_position()
           if ( l2_norm( fractional_difference &
            &          - vec(nint(dble(fractional_difference)))) &
            & > 1.0e-10_dp) then
@@ -649,10 +648,10 @@ function generate_supercells(structure,large_supercell,symmetry_precision) &
   ! --------------------------------------------------
   ! Generate output.
   ! --------------------------------------------------
-  call new(output,no_qpoints_ibz,sc_num)
+  output = GeneratedSupercells(no_qpoints_ibz,sc_num)
   
   do i=1,no_qpoints_ibz
-    call new(output%qpoints_ibz(i),multiplicity(i))
+    output%qpoints_ibz(i) = QpointData(multiplicity(i))
     output%qpoints_ibz(i)%qpoint = qpoints_ibz(i) &
                                & / dble(large_supercell%sc_size)
     output%qpoints_ibz(i)%sc_id = sc_ids(i)

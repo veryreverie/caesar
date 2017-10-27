@@ -19,19 +19,19 @@ function setup_quadratic_keywords() result(keywords)
   type(KeywordData), allocatable :: keywords(:)
   
   keywords = [                                                                &
-  & make_keyword( 'harmonic_path',                                            &
+  & KeywordData( 'harmonic_path',                                            &
   &               'harmonic_path is the path to the directory where harmonic &
   &calculations were run.',                                                   &
   &               default_value='.',                                          &
   &               is_path=.true.),                                            &
-  & make_keyword( 'temperature',                                              &
+  & KeywordData( 'temperature',                                              &
   &               'temperature is the temperature, in Kelvin, at which the &
   &simulation is run.',                                                       &
   &               default_value='0'),                                         &
-  & make_keyword( 'no_samples',                                               &
+  & KeywordData( 'no_samples',                                               &
   &               'no_samples is the number of single-point calculations &
   &which will be run along each axis.'),                                      &
-  & make_keyword( 'displacement',                                             &
+  & KeywordData( 'displacement',                                             &
   &               'displacement is the maximum total distance in bohr over &
   &which any mode is displaced. At finite temperatures, this will be reduced &
   &by a thermal factor.') ]
@@ -246,7 +246,8 @@ subroutine setup_quadratic(arguments)
           qr = qpoints_ibz(i)%qpoint*supercell%rvectors(rvec)*2*pi
           disp = amplitude * real( mode%displacements(prim) &
                                & * cmplx(cos(qr),sin(qr),dp))
-          supercell%atoms(l) = supercell%atoms(l) + disp
+          call supercell%atoms(l)%set_cartesian_position( &
+             & supercell%atoms(l)%cartesian_position() + disp)
         enddo
         
         ! Write dft input files

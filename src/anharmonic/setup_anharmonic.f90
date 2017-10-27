@@ -17,26 +17,26 @@ function setup_anharmonic_keywords() result(keywords)
   type(KeywordData), allocatable :: keywords(:)
   
   keywords = [                                                                &
-  & make_keyword( 'harmonic_path',                                            &
+  & KeywordData( 'harmonic_path',                                            &
   &               'harmonic_path is the path to the directory where harmonic &
   &calculations were run.',                                                   &
   &               default_value='.',                                          &
   &               is_path=.true.),                                            &
-  & make_keyword( 'temperature',                                              &
+  & KeywordData( 'temperature',                                              &
   &               'temperature is the temperature, in Kelvin, at which the &
   &simulation is run.',                                                       &
   &               default_value='0'),                                         &
-  & make_keyword( 'grid_type',                                                &
+  & KeywordData( 'grid_type',                                                &
   &               'grid_type specifies the sampling method. Options are &
   &"cubic", "octahedral", and "spherical".',                                  &
   &               default_value='cubic'),                                     &
-  & make_keyword( 'max_energy',                                               &
+  & KeywordData( 'max_energy',                                               &
   &               'max_energy is the maximum value of the potential up to &
   &which each normal mode will be evaluated.'),                               &
-  & make_keyword( 'no_sampling_points',                                       &
+  & KeywordData( 'no_sampling_points',                                       &
   &               'no_sampling_points is the number of sampling points in &
   &each direction.'),                                                         &
-  & make_keyword( 'coupling',                                                 &
+  & KeywordData( 'coupling',                                                 &
   &               'coupling specifies the coupling between normal modes. &
   &Each set of coupled modes should be given as mode ids separated by spaces, &
   &and the sets should be separated by commas. Each q-point should be &
@@ -45,6 +45,19 @@ function setup_anharmonic_keywords() result(keywords)
   &coupled, coupling="1 2 3, 4 5; 1 6". All couplings should be in ascending &
   &order, e.g. "1 2 3" rather than "1 3 2".',                                 &
   &               is_optional=.true.) ]
+end function
+
+function setup_anharmonic_mode() result(output)
+  use caesar_modes_module
+  implicit none
+  
+  type(CaesarMode) :: output
+  
+  output%mode_name = 'setup_anharmonic'
+  output%description = 'Sets up anharmonic calculations. Should be run after &
+     &calculate_harmonic.'
+  output%keywords = setup_anharmonic_keywords()
+  output%main_subroutine => setup_anharmonic
 end function
 
 ! ----------------------------------------------------------------------
@@ -272,7 +285,8 @@ subroutine setup_anharmonic(arguments)
            & qpoints(i),                                               &
            & supercell )
         do l=1,supercell%no_atoms
-          supercell%atoms(l) = supercell%atoms(l) + displacement(l)
+          call supercell%atoms(l)%set_cartesian_position( &
+             & supercell%atoms(l)%cartesian_position() + displacement(l))
         enddo
         
         ! Write DFT input file.

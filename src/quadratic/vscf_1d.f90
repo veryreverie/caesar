@@ -21,7 +21,7 @@ module vscf_1d_module
     real(dp),        allocatable :: eigenvecs(:,:)
   end type
 
-  interface new
+  interface VscfData
     module procedure new_VscfData
   end interface
   
@@ -49,7 +49,7 @@ function vscf_1d(frequency, potential, Nbasis) result(output)
   du = (potential(1,Npoints)-potential(1,1))/Npoints
   
   ! Allocate output
-  call new(output,Npoints,Nbasis)
+  output = VscfData(Npoints,Nbasis)
 
   ! Calculate basis functions (1-d Harmonic Oscillator wavefunctions).
   basis_frequency = abs(frequency)
@@ -106,18 +106,21 @@ function vscf_1d(frequency, potential, Nbasis) result(output)
 end function
 
 ! allocate(VscfData)
-pure subroutine new_VscfData(this,Npoints,Nbasis)
+function new_VscfData(Npoints,Nbasis) result(this)
   implicit none
   
-  type(VscfData), intent(out) :: this
-  integer,        intent(in)  :: Npoints
-  integer,        intent(in)  :: Nbasis
+  integer, intent(in) :: Npoints
+  integer, intent(in) :: Nbasis
+  type(VscfData)      :: this
   
-  allocate(this%anh_pot(Npoints))
-  allocate(this%hamiltonian(Nbasis,Nbasis))
-  allocate(this%harmonic(Nbasis))
-  allocate(this%eigenvals(Nbasis))
-  allocate(this%eigenvecs(Nbasis,Nbasis))
-end subroutine
+  integer :: ialloc
+  
+  allocate( this%anh_pot(Npoints),           &
+          & this%hamiltonian(Nbasis,Nbasis), &
+          & this%harmonic(Nbasis),           &
+          & this%eigenvals(Nbasis),          &
+          & this%eigenvecs(Nbasis,Nbasis),   &
+          & stat=ialloc); call err(ialloc)
+end function
 
 end module

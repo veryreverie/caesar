@@ -17,32 +17,45 @@ function calculate_anharmonic_keywords() result(keywords)
   type(KeywordData), allocatable :: keywords(:)
   
   keywords = [                                                                &
-  & make_keyword( 'energy_error',                                             &
+  & KeywordData( 'energy_error',                                             &
   &               'energy_error is the expected error in the calculated &
   &energies.'),                                                               &
-  & make_keyword( 'force_error',                                              &
+  & KeywordData( 'force_error',                                              &
   &               'force_error is the expected error in the calculated &
   &forces.'),                                                                 &
-  & make_keyword( 'harmonic_states_cutoff',                                   &
+  & KeywordData( 'harmonic_states_cutoff',                                   &
   &               'harmonic_states_cutoff is the number of harmonic &
   &eigenstates in the direction of each normal mode.'),                       &
-  & make_keyword( 'potential_basis_cutoff',                                &
+  & KeywordData( 'potential_basis_cutoff',                                &
   &               'potential_basis_cutoff is the order up to which the &
   &potential is expanded. e.g. a cubic expansion would be order 3.'),         &
-  & make_keyword( 'scf_convergence_threshold',                                &
+  & KeywordData( 'scf_convergence_threshold',                                &
   &               'scf_convergence_threshold is the energy to within which &
   &the VSCF calculation will be converged.'),                                 &
-  & make_keyword( 'max_scf_cycles',                                           &
+  & KeywordData( 'max_scf_cycles',                                           &
   &               'max_scf_cycles is the maximum number of SCF cycles which &
   &will be carried out as part of the VSCF calculation.'),                    &
-  & make_keyword( 'perturbation_order',                                       &
+  & KeywordData( 'perturbation_order',                                       &
   &               'perturbation_order is the order up to which perturbation &
   &theory will be run',                                                       &
   &               is_optional=.true.),                                        &
-  & make_keyword( 'perturb_states_to_same_order',                             &
+  & KeywordData( 'perturb_states_to_same_order',                             &
   &               'perturb_states_to_same_order specifies whether or not to &
   &calculate state correction at the same order as energy corrections.',      &
   &               default_value='false') ]
+end function
+
+function calculate_anharmonic_mode() result(output)
+  use caesar_modes_module
+  implicit none
+  
+  type(CaesarMode) :: output
+  
+  output%mode_name = 'calculate_anharmonic'
+  output%description = 'Calculates anharmonic states. Should be run after &
+     &run_anharmonic.'
+  output%keywords = calculate_anharmonic_keywords()
+  output%main_subroutine => calculate_anharmonic
 end function
 
 ! ----------------------------------------------------------------------

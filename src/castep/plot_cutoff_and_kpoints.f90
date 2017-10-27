@@ -20,6 +20,18 @@ function plot_cutoff_and_kpoints_keywords() result(keywords)
   keywords = [KeywordData::]
 end function
 
+function plot_cutoff_and_kpoints_mode() result(output)
+  use caesar_modes_module
+  implicit none
+  
+  type(CaesarMode) :: output
+  
+  output%mode_name = 'plot_cutoff_and_kpoints'
+  output%description = 'Plots the output of coverge_cutoff_and_kpoints'
+  output%keywords = plot_cutoff_and_kpoints_keywords()
+  output%main_subroutine => plot_cutoff_and_kpoints
+end function
+
 ! ----------------------------------------------------------------------
 ! Main program.
 ! ----------------------------------------------------------------------
