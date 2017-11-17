@@ -10,76 +10,91 @@ module generate_supercells_module
   use qpoints_module
   implicit none
   
-  type GeneratedSupercells
-    type(QpointData),    allocatable :: qpoints_ibz(:)
-    type(StructureData), allocatable :: supercells(:)
-  end type
+  private
   
-  interface GeneratedSupercells
-    module procedure new_GeneratedSupercells
+  public :: generate_qpoints
+  public :: generate_supercells
+  
+  ! Greatest common denominator.
+  interface gcd
+    module procedure gcd_2
+    module procedure gcd_3
+    module procedure gcd_4
   end interface
   
+  ! Lowest common multiple.
   interface lcm
-    module procedure lcm_2 ! lowest common multiple of two positive integers
-    module procedure lcm_3 ! lowest common multiple of three positive integers
+    module procedure lcm_2
+    module procedure lcm_3
+    module procedure lcm_4
   end interface
 
 contains
 
 ! ----------------------------------------------------------------------
-! GeneratedSupercells allocator.
-! ----------------------------------------------------------------------
-function new_GeneratedSupercells(no_qpoints_ibz,no_supercells) result(this)
-  implicit none
-  
-  integer, intent(in)       :: no_qpoints_ibz
-  integer, intent(in)       :: no_supercells
-  type(GeneratedSupercells) :: this
-  
-  integer :: ialloc
-  
-  allocate( this%qpoints_ibz(no_qpoints_ibz), &
-          & this%supercells(no_supercells),   &
-          & stat=ialloc); call err(ialloc)
-end function
-
-! ----------------------------------------------------------------------
-! Calculate the greatest common divisor of two positive integers using
+! Calculate the greatest common divisor of two non-negative integers using
 ! Euclid's algorithm.
 ! ----------------------------------------------------------------------
-elemental function gcd(int_1,int_2) result(output)
+! For convenience, it is defined that
+!    - gcd(0,b)=b, and gcd(a,0)=a.
+!    - gcd(-a,b)=gcd(a,-b)=gcd(-a,-b)=gcd(a,b).
+! a=Ac, b=Bc, A>=B. c is the gcd of a and b.
+! gcd(a,b) = gcd(Ac,Bc) = gcd((A-nB)c,Bc).
+recursive function gcd_helper(a,b) result(output)
+  implicit none
+  
+  integer, intent(in) :: a
+  integer, intent(in) :: b
+  integer             :: output
+  
+  if (b==0) then
+    output = a
+  else
+    output = gcd_helper(b,modulo(a,b))
+  endif
+end function
+
+function gcd_2(int_1,int_2) result(output)
   implicit none
   
   integer, intent(in) :: int_1
   integer, intent(in) :: int_2
   integer             :: output
   
-  integer :: a
-  integer :: b
-  integer :: temp
+  output = gcd_helper( max(abs(int_1),abs(int_2)), &
+                     & min(abs(int_1),abs(int_2))  )
+end function
+
+! Calculate the gcd of more than two integers, by recursively finding
+!    pairwise gcds.
+function gcd_3(int_1,int_2,int_3) result(output)
+  implicit none
   
-  a = max(int_1,int_2)
-  b = min(int_1,int_2)
+  integer, intent(in) :: int_1
+  integer, intent(in) :: int_2
+  integer, intent(in) :: int_3
+  integer             :: output
   
-  if (b==0) then
-    output=a
+  output = gcd(gcd(int_1,int_2),int_3)
+end function
+
+function gcd_4(int_1,int_2,int_3,int_4) result(output)
+  implicit none
   
-  else
-    do
-      temp=modulo(a,b)
-      if(temp==0)exit
-      a=b
-      b=temp
-    enddo
-    output=b
-  endif
+  integer, intent(in) :: int_1
+  integer, intent(in) :: int_2
+  integer, intent(in) :: int_3
+  integer, intent(in) :: int_4
+  integer             :: output
+  
+  output = gcd(gcd(int_1,int_2,int_3),int_4)
 end function
 
 ! ----------------------------------------------------------------------
-! Calculate the lowest common multiple of two positive integers
+! Calculate the lowest common multiple of two non-negative integers.
 ! lcm(a,b) = a*b/gcd(a,b)
 ! ----------------------------------------------------------------------
-elemental function lcm_2(int_1,int_2) result(output)
+function lcm_2(int_1,int_2) result(output)
   implicit none
   
   integer, intent(in) :: int_1
@@ -89,11 +104,10 @@ elemental function lcm_2(int_1,int_2) result(output)
   output = int_1*int_2/gcd(int_1,int_2)
 end function
 
-! ----------------------------------------------------------------------
-! Calculate the lowest common multiple of three positive integers
-! lcm(a,b,c) = lcm(a,lcm(b,c))
-! ----------------------------------------------------------------------
-elemental function lcm_3(int_1,int_2,int_3) result(output)
+
+! Calculate the lcm of more than two integers, by recursively finding
+!    pairwise lcms.
+function lcm_3(int_1,int_2,int_3) result(output)
   implicit none
   
   integer, intent(in) :: int_1
@@ -101,10 +115,19 @@ elemental function lcm_3(int_1,int_2,int_3) result(output)
   integer, intent(in) :: int_3
   integer             :: output
   
-  integer :: lcm_2
+  output = lcm(lcm(int_1,int_2),int_3)
+end function
+
+function lcm_4(int_1,int_2,int_3,int_4) result(output)
+  implicit none
   
-  lcm_2 = lcm(int_2,int_3)
-  output = lcm(int_1,lcm_2)
+  integer, intent(in) :: int_1
+  integer, intent(in) :: int_2
+  integer, intent(in) :: int_3
+  integer, intent(in) :: int_4
+  integer             :: output
+  
+  output = lcm(lcm(int_1,int_2,int_3),int_4)
 end function
 
 ! ----------------------------------------------------------------------
@@ -114,11 +137,12 @@ end function
 ! longest of a, b and c with the new (shorter) vector. The resulting three
 ! vectors are also linearly independent.
 ! ----------------------------------------------------------------------
-logical function reduce_vec(vecs)
+function reduce_vec(vecs) result(output)
   use utils_module, only : l2_norm
   implicit none
   
   real(dp), intent(inout) :: vecs(3,3)
+  logical                 :: output
   
   integer  :: longest
   integer  :: i
@@ -144,12 +168,12 @@ logical function reduce_vec(vecs)
   
   ! Check if any of the four new vectors is shorter than longest of
   ! input vectors
-  reduce_vec=.false.
+  output=.false.
   do i=1,4
     nlen = l2_norm(newvecs(i,:))
     if(nlen<maxlen)then
       vecs(longest,:) = newvecs(i,:)
-      reduce_vec = .true.
+      output = .true.
       exit
     endif
   enddo
@@ -209,18 +233,37 @@ end function
 ! Find a supercell matrix, S, s.t. S.q is a vector of integers.
 ! ----------------------------------------------------------------------
 ! Returns answer in Hermite Normal Form.
-function find_supercell_matrix(qpoint,sc_size,scaling) result(output)
+function find_hnf_supercell_matrix(qpoint,scaling) result(output)
   use linear_algebra_module
   implicit none
   
-  type(IntVector), intent(in) :: qpoint
-  integer,         intent(in) :: sc_size
-  integer,         intent(in) :: scaling
-  type(IntMatrix)             :: output  ! S
+  type(QpointData), intent(in) :: qpoint
+  integer,          intent(in) :: scaling
+  type(IntMatrix)              :: output ! S.
   
+  integer :: scaled_qpoint(3)
+  
+  ! The elements of the scaled q-point.
+  integer :: qx
+  integer :: qy
+  integer :: qz
+  
+  ! The determinant of S.
+  integer :: sc_size
+  
+  ! The elements of S.
   integer :: s11,s12,s13
   integer ::     s22,s23
   integer ::         s33
+  
+  ! Split the q-point into qx,qy,qz
+  scaled_qpoint = int(qpoint%scaled_qpoint)
+  qx = scaled_qpoint(1)
+  qy = scaled_qpoint(2)
+  qz = scaled_qpoint(3)
+  
+  ! Calculate the determinant of the output matrix.
+  sc_size = scaling / gcd(qx,qy,qz,scaling)
   
   ! Loop over all matrices in Hermite Normal Form.
   ! s11*s22*s33 = det(S) = sc_size.
@@ -241,7 +284,8 @@ function find_supercell_matrix(qpoint,sc_size,scaling) result(output)
                              & 0  , 0  , s33  ], 3,3)
                 
                 ! Check if S.q is a vector of integers (scaled by scaling).
-                if (all(modulo( int(output*qpoint), scaling) == 0)) then
+                if (all(modulo( int(output*qpoint%scaled_qpoint), &
+                              & scaling) == 0)) then
                   return
                 endif
               enddo
@@ -253,64 +297,52 @@ function find_supercell_matrix(qpoint,sc_size,scaling) result(output)
   enddo
   
   ! Throw an error if no supercell could be found.
-  call print_line('Error: no supercell matrix found for q-point '//qpoint)
+  call print_line(CODE_ERROR//': no supercell matrix found for q-point '// &
+     & qpoint%qpoint)
   call err()
 end function
 
-! ----------------------------------------------------------------------
-! Constructs a supercell which has the given q-point as a G-vector.
-! ----------------------------------------------------------------------
-function find_supercell(qpoint,sc_size,structure,scaling,symmetry_precision) &
+function find_reduced_supercell_matrix(qpoint,scaling,structure) &
    & result(output)
-  use linear_algebra_module
-  use construct_supercell_module
   implicit none
   
-  type(IntVector),     intent(in) :: qpoint
-  integer,             intent(in) :: sc_size
-  type(StructureData), intent(in) :: structure
+  type(QpointData),    intent(in) :: qpoint
   integer,             intent(in) :: scaling
-  real(dp),            intent(in) :: symmetry_precision
-  type(StructureData)             :: output
+  type(StructureData), intent(in) :: structure
+  type(IntMatrix)                 :: output
   
-  type(IntMatrix)  :: supercell_frac
+  type(IntMatrix)  :: supercell_hnf
   type(RealMatrix) :: supercell_cart
   
   ! Find a supercell matrix S, s.t. S.q is a vector of integers.
-  supercell_frac = find_supercell_matrix(qpoint, sc_size, scaling)
+  supercell_hnf = find_hnf_supercell_matrix(qpoint, scaling)
   
   ! Minkowski reduce the supercell in cartesian co-ordinates.
   ! Converts to cartesian, reduces, and converts back again.
-  supercell_cart = supercell_frac*structure%lattice
+  supercell_cart = supercell_hnf*structure%lattice
   supercell_cart = minkowski_reduce(supercell_cart)
-  supercell_frac = nint(dble( supercell_cart &
+  output         = nint(dble( supercell_cart &
                           & * transpose(structure%recip_lattice)))
   
-  ! Generate the supercell from its supercell matrix.
-  output = construct_supercell( structure,      &
-                              & supercell_frac, &
-                              & symmetry_precision=symmetry_precision)
+  ! Check that S still transforms q to an integer vector.
+  if (any(modulo( int(output*qpoint%scaled_qpoint), scaling) /= 0)) then
+    call print_line(CODE_ERROR//': Error Minkowski reducing supercell.')
+    call err()
+  endif
 end function
 
 ! ----------------------------------------------------------------------
-! Checks supercells and q-points.
+! Checks supercells.
 ! ----------------------------------------------------------------------
 ! Throws an error if there is a problem.
-subroutine check_supercells(input,structure,large_supercell)
+subroutine check_supercells(supercells,structure)
   implicit none
   
-  type(GeneratedSupercells), intent(in) :: input
-  type(StructureData),       intent(in) :: structure
-  type(StructureData),       intent(in) :: large_supercell
+  type(StructureData), intent(in) :: supercells(:)
+  type(StructureData), intent(in) :: structure
   
   ! Working variables.
-  type(IntVector)               :: gvector_large_supercell
-  type(QpointData)              :: qpoint
-  type(RealVector)              :: gvector_qpoint_real
-  type(IntVector)               :: gvector_qpoint
-  type(IntMatrix)               :: rotation
   type(StructureData)           :: supercell
-  type(IntVector)               :: gvector_supercell
   real(dp)                      :: fractional_position(3)
   integer                       :: atom_1
   integer                       :: atom_2
@@ -322,72 +354,17 @@ subroutine check_supercells(input,structure,large_supercell)
   integer :: i,j,k,l
   
   ! --------------------------------------------------
-  ! Check all G-vectors in the M-P grid have been matched with IBZ q-points.
-  ! --------------------------------------------------
-  do_i : do i=1,large_supercell%sc_size
-    gvector_large_supercell = large_supercell%gvectors(i)
-    
-    ! Find the q-point which this G-vector maps onto.
-    do j=1,size(input%qpoints_ibz)
-      qpoint = input%qpoints_ibz(j)
-      
-      do k=1,size(qpoint%gvectors)
-        if (qpoint%gvectors(k) == i) then
-          
-          ! Check that the q-point corresponds to a G-vector.
-          gvector_qpoint_real = large_supercell%supercell * qpoint%qpoint
-          gvector_qpoint = nint(dble(gvector_qpoint_real))
-          if (l2_norm(gvector_qpoint_real-gvector_qpoint) > 1.0e-10_dp) then
-            call print_line('Code Error: q-point '//j//' does not lie on the &
-               &specified Monkhorst-Pack grid.')
-            call err()
-          endif
-          
-          ! Check that the q-point corresponds to the correct G-vector.
-          rotation = structure%symmetries(qpoint%symmetry_ids(k))%rotation
-          if (rotation*gvector_large_supercell /= gvector_qpoint) then
-            call print_line('Code Error: G-vector '//i//' has been &
-               &incorrectly matched to a q-point and supercell.')
-            call err()
-          endif
-          
-          ! Check the supercell to which the q-point has been assigned.
-          supercell = input%supercells(qpoint%sc_id)
-          gvector_supercell = supercell%gvectors(qpoint%gvector_id)
-          if ( transpose(large_supercell%recip_supercell) &
-           & * gvector_qpoint                             &
-           & * supercell%sc_size                          &
-           & /=                                           &
-           &   transpose(supercell%recip_supercell)       &
-           & * gvector_supercell                          &
-           & * large_supercell%sc_size) then
-            call print_line('Code Error: The G-vectors corresponding to &
-               &q-point '//j//' do not match.')
-            call err()
-          endif
-          
-          cycle do_i
-        endif
-      enddo
-    enddo
-    
-    call print_line('Code Error: G-vector '//i//' has not been matched with &
-       &a suitable q-point and supercell.')
-    call err()
-  enddo do_i
-  
-  ! --------------------------------------------------
   ! Check that all supercells have been constructed correctly.
   ! --------------------------------------------------
-  do i=1,size(input%supercells)
-    supercell = input%supercells(i)
+  do i=1,size(supercells)
+    supercell = supercells(i)
     
     do j=1,supercell%no_atoms
       ! Check that no atoms are on top of one another.
       do k=1,j-1
         if (l2_norm( supercell%atoms(j)%cartesian_position() &
                  & - supercell%atoms(k)%cartesian_position() )<0.5_dp) then
-          call print_line('Code Error: atoms '//k//' and '//j//' are within &
+          call print_line(CODE_ERROR//': atoms '//k//' and '//j//' are within &
              &0.5 Bohr of one another in supercell '//i//'.')
           call err()
         endif
@@ -397,7 +374,7 @@ subroutine check_supercells(input,structure,large_supercell)
       fractional_position = dble(supercell%atoms(j)%fractional_position())
       if ( any(fractional_position <  -1.0e-10_dp) .or. &
          & any(fractional_position > 1+1.0e-10_dp)) then
-        call print_line('Code Error: atom '//j//' has been placed outside &
+        call print_line(CODE_ERROR//': atom '//j//' has been placed outside &
            &the primitive cell of supercell '//i//'.')
         call err()
       endif
@@ -415,7 +392,7 @@ subroutine check_supercells(input,structure,large_supercell)
           if ( l2_norm( fractional_difference &
            &          - vec(nint(dble(fractional_difference)))) &
            & > 1.0e-10_dp) then
-            call print_line('Code Error: atoms '//atom_1//' and '//atom_2// &
+            call print_line(CODE_ERROR//': atoms '//atom_1//' and '//atom_2// &
                & ' in supercell '//i//' are not related by a G-vector')
             call err()
           endif
@@ -424,14 +401,13 @@ subroutine check_supercells(input,structure,large_supercell)
     enddo
     
     ! Check supercell rotations
-    rotations = supercell%calculate_cartesian_rotations()
-    
     do j=1,size(supercell%symmetries)
       ! Check that R.R^T is the identity.
-      rotation_identity = rotations(j) * transpose(rotations(j))
+      rotation_identity = supercell%symmetries(j)%cartesian_rotation &
+                      & * transpose(supercell%symmetries(j)%cartesian_rotation)
       if (any(abs(dble( rotation_identity &
                     & - make_identity_matrix(3)))>1.0e-10_dp)) then
-        call print_line('Code Error: rotation '//j//' in supercell '//i// &
+        call print_line(CODE_ERROR//': rotation '//j//' in supercell '//i// &
            & ' is not a rotation or an improper rotation.')
         call err()
       endif
@@ -440,10 +416,9 @@ subroutine check_supercells(input,structure,large_supercell)
 end subroutine
 
 ! ----------------------------------------------------------------------
-! The main program.
+! Generates q-points.
 ! ----------------------------------------------------------------------
-function generate_supercells(structure,large_supercell,symmetry_precision) &
-   & result(output)
+function generate_qpoints(structure,large_supercell) result(output)
   use linear_algebra_module
   use structure_module
   use construct_supercell_module
@@ -453,227 +428,162 @@ function generate_supercells(structure,large_supercell,symmetry_precision) &
   ! Inputs.
   type(StructureData), intent(in) :: structure
   type(StructureData), intent(in) :: large_supercell
-  real(dp),            intent(in) :: symmetry_precision
-  type(GeneratedSupercells)       :: output
-  
-  ! Grid q-point variables.
-  integer, allocatable :: grid_to_ibz(:)
-  integer, allocatable :: ibz_to_grid(:)
-  integer, allocatable :: rotation_to_ibz(:)
+  type(QpointData), allocatable   :: output(:)
   
   ! IBZ q-point variables.
-  integer                      :: no_qpoints_ibz
-  integer,         allocatable :: multiplicity(:)
-  type(IntVector), allocatable :: qpoints_grid(:)
-  type(IntVector), allocatable :: qpoints_ibz(:)
-  integer,         allocatable :: sc_size(:)
-  integer,         allocatable :: sc_ids(:)
-  integer,         allocatable :: gvector_ids(:)
-  type(IntVector)              :: qpoint
-  
-  ! Supercell variables
-  type(StructureData), allocatable :: supercells(:)
+  integer,         allocatable :: paired_qpoints(:)
   
   ! Working variables
-  integer :: denominator(3)
-  integer :: sc_num
   
-  type(IntVector) :: rot_qpoint
+  type(IntVector) :: rotated_scaled_qpoint
+  
+  type(IntVector) :: scaled_supercell_gvector
   
   ! Temporary variables
   integer :: i,j,k,ialloc
-  integer :: symmetry
   
   ! --------------------------------------------------
   ! Construct q-points from G-vectors of large supercell.
   ! --------------------------------------------------
-  ! N.B. all q-points stored in scaled fractional reciprocal lattice 
-  !    co-ordinates, such that the reciprocal primitive lattice vectors are
-  !    cartesian vectors of length det(large_supercell%supercell).
-  ! This is to keep everything in an integer representation.
-  allocate( qpoints_grid(large_supercell%sc_size), &
-          & stat=ialloc); call err(ialloc)
+  allocate(output(large_supercell%sc_size), stat=ialloc); call err(ialloc)
   do i=1,large_supercell%sc_size
-    qpoints_grid(i) = transpose(large_supercell%recip_supercell) &
-                  & * large_supercell%gvectors(i)
+    output(i)%gvector = large_supercell%gvectors(i)
+    output(i)%scaled_qpoint = transpose(large_supercell%recip_supercell) &
+                          & * output(i)%gvector
+    output(i)%qpoint = output(i)%gvector / dble(large_supercell%sc_size)
+    output(i)%to_simulate = .true.
   enddo
   
   ! --------------------------------------------------
-  ! Find equivalent q-points by rotating all q-points into the IBZ.
+  ! Find which q-points can be rotated onto other q-points.
   ! --------------------------------------------------
-  allocate( grid_to_ibz(large_supercell%sc_size),     &
-          & ibz_to_grid(large_supercell%sc_size),     &
-          & rotation_to_ibz(large_supercell%sc_size), &
-          & stat=ialloc); call err(ialloc)
-  no_qpoints_ibz = 0
-  do_i1 : do i=1,large_supercell%sc_size
-    ! Check if an equivalent-by-symmetry q-point has already been found.
-    do j=1,no_qpoints_ibz
-      do k=1,size(structure%symmetries)
-        
-        ! Rotate the q-point.
-        rot_qpoint = structure%symmetries(k)%rotation * qpoints_grid(i)
-        
-        ! If the rotated q-point = q-point(j).
-        if (rot_qpoint-qpoints_grid(ibz_to_grid(j))==vec([0,0,0])) then
-          grid_to_ibz(i) = j
-          rotation_to_ibz(i) = k
-          cycle do_i1
+  do_i : do i=1,size(output)
+    do j=1,size(structure%symmetries)
+      rotated_scaled_qpoint = structure%symmetries(j)%rotation &
+                          & * output(i)%scaled_qpoint
+      do k=1,i-1
+        if (rotated_scaled_qpoint==output(k)%scaled_qpoint) then
+          output(i)%to_simulate = .false.
+          cycle do_i
         endif
       enddo
     enddo
-    
-    ! If qpoint not already found, assign it to the new G-vector.
-    no_qpoints_ibz = no_qpoints_ibz+1
-    grid_to_ibz(i) = no_qpoints_ibz
-    ibz_to_grid(no_qpoints_ibz) = i
-    rotation_to_ibz(i) = 1
-  enddo do_i1
+  enddo do_i
   
-  allocate( qpoints_ibz(no_qpoints_ibz),  &
-          & multiplicity(no_qpoints_ibz), &
+  ! --------------------------------------------------
+  ! Find paired q-points.
+  ! --------------------------------------------------
+  ! qpoint + paired_qpoint = G, for a primitive-cell G-vector.
+  allocate( paired_qpoints(large_supercell%sc_size), &
           & stat=ialloc); call err(ialloc)
-  multiplicity=0
-  do i=1,large_supercell%sc_size
-    if (multiplicity(grid_to_ibz(i))==0) then
-      qpoints_ibz(grid_to_ibz(i)) = qpoints_grid(i)
-    endif
-    multiplicity(grid_to_ibz(i)) = multiplicity(grid_to_ibz(i)) + 1
-  enddo
-  
-  ! ----------------------------------------------------------------------
-  ! For each q-point in the IBZ, find the smallest possible supercell
-  !    such that that q-point is a G-vector of the supercell.
-  ! ----------------------------------------------------------------------
-  
-  ! Calculate minimum supercell size for each q-point.
-  allocate(sc_size(no_qpoints_ibz), stat=ialloc); call err(ialloc)
-  do i=1,no_qpoints_ibz
-    denominator = large_supercell%sc_size &
-              & / gcd( abs(int(qpoints_ibz(i))), large_supercell%sc_size)
-    sc_size(i)=lcm(denominator(1),denominator(2),denominator(3))
-  enddo
-  
-  ! Loop over q-points in ascending order of sc_size.
-  ! Find a supercell matching each q-point.
-  allocate( sc_ids(no_qpoints_ibz),     &
-          & supercells(no_qpoints_ibz), & ! Length of worst case.
-          & stat=ialloc); call err(ialloc)
-  sc_ids = 0
-  sc_num = 0
-  do while (any(sc_ids==0))
-    i = minloc(sc_size,1,sc_ids==0)
-    
-    sc_num = sc_num+1
-    sc_ids(i) = sc_num
-    
-    ! Construct a supercell for which this q-point is a G-vector.
-    supercells(sc_num) = find_supercell( qpoints_ibz(i),          &
-                                       & sc_size(i),              &
-                                       & structure,               &
-                                       & large_supercell%sc_size, &
-                                       & symmetry_precision)
-    
-    ! Find all other q-points which are G-vectors of the supercell.
-    do j=1,large_supercell%sc_size
-      ! Ignore q-points which cannot match.
-      if (sc_ids(grid_to_ibz(j)) /= 0) then
-        cycle
-      elseif (sc_size(grid_to_ibz(j)) /= sc_size(i)) then
-        cycle
-      
-      ! Check for matching q-points.
-      elseif (all(modulo( int( supercells(sc_num)%supercell &
-                        &    * qpoints_grid(j)),            &
-                        & large_supercell%sc_size) == 0)) then
-        ! Assign the q-point to the supercell.
-        sc_ids(grid_to_ibz(j)) = sc_num
-        
-        ! Re-arrange ibz to grid mapping so that simulated q-point
-        !    is in ibz.
-        qpoints_ibz(grid_to_ibz(j)) = qpoints_grid(j)
-        ibz_to_grid(ibz_to_grid(j)) = j
-        do k=1,large_supercell%sc_size
-          if (grid_to_ibz(k) == grid_to_ibz(j)) then
-            symmetry = structure%symmetries(rotation_to_ibz(j))%inverse
-            rotation_to_ibz(k) =                                 &
-               &   structure%symmetries(symmetry)%operator_group &
-               & * rotation_to_ibz(k)
+  paired_qpoints = 0
+  do i=1,size(output)
+    do j=1,size(output)
+      if (all(modulo( int(output(i)%scaled_qpoint+output(j)%scaled_qpoint), &
+                    & large_supercell%sc_size)==0)) then
+        if (paired_qpoints(i)==0 .and. paired_qpoints(j)==0) then
+          paired_qpoints(i) = j
+          paired_qpoints(j) = i
+        else
+          if (paired_qpoints(i)/=j .or. paired_qpoints(j)/=i) then
+            call print_line(CODE_ERROR//': error pairing q-points.')
           endif
-        enddo
-        
+        endif
       endif
     enddo
   enddo
   
-  ! Check that all q-points have been assigned to supercells.
-  if(any(sc_ids==0))then
-    call print_line('Unable to allocate every q-point to a supercell matrix.')
+  if (any(paired_qpoints==0)) then
+    call print_line(CODE_ERROR//': q-points were not succesfully paired up.')
     call err()
   endif
   
   ! --------------------------------------------------
-  ! Match q-points and G-vectors.
+  ! Use paired q-point information to decide which q-points to simulate.
   ! --------------------------------------------------
-  allocate(gvector_ids(no_qpoints_ibz), stat=ialloc); call err(ialloc)
-  gvector_ids = 0
-  do i=1,no_qpoints_ibz
-    do j=1,sc_size(i)
-      ! Calculate q-point corresponding to G-vector in scaled co-ordinates.
-      qpoint = transpose(supercells(sc_ids(i))%recip_supercell) &
-           & * supercells(sc_ids(i))%gvectors(j)
-      
-      ! Check if the q-points match, modulo reciprocal lattice vectors,
-      !    taking account of the different co-ordinate scaling.
-      if (all(modulo( int(  qpoints_ibz(i) * sc_size(i)               &
-                    &     - qpoint         * large_supercell%sc_size), &
-                    & sc_size(i)*large_supercell%sc_size) == 0)) then
-        gvector_ids(i) = j
-        exit
-      endif
-    enddo
+  do i=1,size(output)
+    if (paired_qpoints(i)==i) then
+      output(i)%is_paired_qpoint = .true.
+    else
+      output(i)%is_paired_qpoint = .false.
+    endif
     
-    ! Check that the corresponding G-vector has been found.
-    if (gvector_ids(i) == 0) then
-      call print_line('Error: could not locate q-point '//i//':')
-      call print_line(qpoints_ibz(i)/real(large_supercell%sc_size,dp))
-      call print_line('G-vectors :')
-      do j=1,sc_size(i)
-        call print_line(supercells(sc_ids(i))%gvectors(j))
-      enddo
-      call err()
+    if (paired_qpoints(i)<i) then
+      output(i)%to_simulate = .false.
     endif
   enddo
   
   ! --------------------------------------------------
-  ! Generate output.
+  ! Find the smallest supercell matrix for each q-point.
   ! --------------------------------------------------
-  output = GeneratedSupercells(no_qpoints_ibz,sc_num)
-  
-  do i=1,no_qpoints_ibz
-    output%qpoints_ibz(i) = QpointData(multiplicity(i))
-    output%qpoints_ibz(i)%qpoint = qpoints_ibz(i) &
-                               & / dble(large_supercell%sc_size)
-    output%qpoints_ibz(i)%sc_id = sc_ids(i)
-    output%qpoints_ibz(i)%gvector_id = gvector_ids(i)
+  do i=1,size(output)
+    output(i)%supercell_matrix = find_reduced_supercell_matrix( &
+                                     & output(i),               &
+                                     & large_supercell%sc_size, &
+                                     & structure)
     
-    k=1
-    do j=1,large_supercell%sc_size
-      if (grid_to_ibz(j)==i) then
-        output%qpoints_ibz(i)%gvectors(k) = j
-        output%qpoints_ibz(i)%symmetry_ids(k) = rotation_to_ibz(j)
-        k = k+1
-      endif
-    enddo
+    scaled_supercell_gvector = output(i)%supercell_matrix &
+                           & * output(i)%scaled_qpoint
+    
+    if (any(modulo( int(scaled_supercell_gvector), &
+                  & large_supercell%sc_size)/=0)) then
+      call print_line(CODE_ERROR//': q-point and supercell do not match.')
+      call err()
+    endif
+    
+    output(i)%supercell_gvector = scaled_supercell_gvector &
+                              & / large_supercell%sc_size
   enddo
+end function
+
+! ----------------------------------------------------------------------
+! Generates supercells.
+! ----------------------------------------------------------------------
+function generate_supercells(structure,qpoints,symmetry_precision) &
+   & result(output)
+  use linear_algebra_module
+  use structure_module
+  use construct_supercell_module
+  use group_module
+  implicit none
   
-  do i=1,sc_num
-    output%supercells(i) = supercells(i)
-  enddo
+  ! Inputs.
+  type(StructureData), intent(in)  :: structure
+  type(QpointData),    intent(in)  :: qpoints(:)
+  real(dp),            intent(in)  :: symmetry_precision
+  type(StructureData), allocatable :: output(:)
   
-  ! --------------------------------------------------
-  ! Check output.
-  ! --------------------------------------------------
-  call check_supercells(output,structure,large_supercell)
+  ! Supercell variables.
+  integer :: no_supercells
+  
+  ! Temporary variables.
+  integer :: i,j,ialloc
+  
+  allocate(output(size(qpoints)), stat=ialloc); call err(ialloc)
+  
+  no_supercells = 0
+  do_i : do i=1,size(qpoints)
+    ! Only make supercells for those q-points which are to be simulated.
+    if (qpoints(i)%to_simulate) then
+      
+      ! Check if a supercell suitable for this q-point already exists.
+      do j=1,i-1
+        if (qpoints(j)%supercell_matrix==qpoints(i)%supercell_matrix) then
+          cycle do_i
+        endif
+      enddo
+      
+      ! Construct a supercell for this q-point.
+      no_supercells = no_supercells+1
+      output(no_supercells) = construct_supercell( &
+                    & structure,                   &
+                    & qpoints(i)%supercell_matrix, &
+                    & symmetry_precision=symmetry_precision)
+    endif
+  enddo do_i
+  
+  output = output(:no_supercells)
+  
+  call check_supercells(output,structure)
 end function
 end module

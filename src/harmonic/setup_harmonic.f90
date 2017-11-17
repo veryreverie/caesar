@@ -18,21 +18,21 @@ function setup_harmonic_keywords() result(keywords)
   type(KeywordData), allocatable :: keywords(:)
   
   keywords = [                                                                &
-  & KeywordData( 'dft_code',                                                 &
-  &               'dft_code is the DFT code used to calculate energies. &
-  &Settings are: castep vasp qe.',                                            &
-  &               default_value='castep'),                                    &
-  & KeywordData( 'seedname',                                                 &
-  &               'seedname is the DFT seedname from which file names are &
+  & KeywordData( 'dft_code',                                                  &
+  &              'dft_code is the DFT code whose file types will be used for &
+  &single-point energy calculations. Settings are: castep vasp qe.',          &
+  &              default_value='castep'),                                     &
+  & KeywordData( 'seedname',                                                  &
+  &              'seedname is the DFT seedname from which file names are &
   &constructed.'),                                                            &
-  & KeywordData( 'q-point_grid',                                             &
-  &               'q-point_grid is the number of q-points in each direction &
+  & KeywordData( 'q-point_grid',                                              &
+  &              'q-point_grid is the number of q-points in each direction &
   &in a Monkhorst-Pack grid. This should be specified as three integers &
   &separated by spaces.'),                                                    &
-  & KeywordData( 'symmetry_precision',                                       &
-  &               'symmetry_precision is the tolerance at which symmetries &
+  & KeywordData( 'symmetry_precision',                                        &
+  &              'symmetry_precision is the tolerance at which symmetries &
   &are calculated.',                                                          &
-  &               default_value='0.1')]
+  &              default_value='0.1')]
 end function
 
 function setup_harmonic_mode() result(output)
@@ -78,18 +78,15 @@ subroutine setup_harmonic(arguments)
   real(dp)            :: symmetry_precision
   
   ! Supercell data.
-  type(IntMatrix)           :: large_supercell_matrix
-  type(StructureData)       :: large_supercell
-  type(GeneratedSupercells) :: qpoints_and_supercells
-  integer                   :: no_supercells
-  type(StructureData)       :: supercell
+  type(IntMatrix)                  :: large_supercell_matrix
+  type(StructureData)              :: large_supercell
+  type(QpointData),    allocatable :: qpoints(:)
+  type(StructureData), allocatable :: supercells(:)
+  integer                          :: no_supercells
+  type(StructureData)              :: supercell
   
   ! Symmetry group data.
-  type(Group),      allocatable :: primitive_atom_symmetry_group(:)
-  type(Group),      allocatable :: primitive_operator_symmetry_group(:)
-  integer,          allocatable :: primitive_operator_inverses(:)
-  type(Group),      allocatable :: supercell_atom_symmetry_group(:)
-  type(RealMatrix), allocatable :: cartesian_rotations(:)
+  type(Group), allocatable :: supercell_atom_symmetry_group(:)
   
   ! Directories.
   type(String) :: sdir
@@ -162,14 +159,14 @@ subroutine setup_harmonic(arguments)
   ! Generate supercells.
   ! --------------------------------------------------
   ! Generate q-points in IBZ and non-diagonal supercells.
-  qpoints_and_supercells = generate_supercells( structure,       &
-                                              & large_supercell, &
-                                              & symmetry_precision)
-  call write_qpoints_file( qpoints_and_supercells%qpoints_ibz, &
-                         & wd//'/qpoints_ibz.dat')
+  qpoints = generate_qpoints(structure, large_supercell)
+  
+  supercells = generate_supercells(structure, qpoints, symmetry_precision)
+  
+  call write_qpoints_file(qpoints, wd//'/qpoints.dat')
   
   ! Write no_supercells to file
-  no_supercells = size(qpoints_and_supercells%supercells)
+  no_supercells = size(supercells)
   no_supercells_file = wd//'/no_supercells.dat'
   call no_supercells_file%print_line(no_supercells)
   
@@ -180,11 +177,8 @@ subroutine setup_harmonic(arguments)
     call mkdir(sdir)
     
     ! Write out structure files.
-    supercell = qpoints_and_supercells%supercells(i)
+    supercell = supercells(i)
     call write_structure_file(supercell, sdir//'/structure.dat')
-    
-    ! Calculate supercell symmetry groups.
-    cartesian_rotations = supercell%calculate_cartesian_rotations()
     
     ! Calculate which forces need calculating.
     unique_directions = calculate_unique_directions( supercell, &

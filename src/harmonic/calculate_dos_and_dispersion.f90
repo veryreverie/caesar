@@ -21,15 +21,15 @@ function calculate_dos_and_dispersion_keywords() result(keywords)
   type(KeywordData), allocatable :: keywords(:)
   
   keywords = [                                                                &
-  & KeywordData( 'temperature',                                              &
-  &               'temperature is the temperature in Kelvin, used when &
+  & KeywordData( 'temperature',                                               &
+  &              'temperature is the temperature in Kelvin, used when &
   &calculating the density of states and phonon dispersion curve.',           &
-  &               default_value='0'),                                         &
-  & KeywordData( 'path',                                                     &
-  &               'path is the path through fractional reciprocal space which &
+  &              default_value='0'),                                          &
+  & KeywordData( 'path',                                                      &
+  &              'path is the path through fractional reciprocal space which &
   &will be mapped by the phonon dispersion curve. The path should be &
-  &specified as vectors in reciprocal space separated by commas.',            &
-  &               default_value='0.0 0.0 0.0, 0.5 0.5 0.5, 0.0 0.5 0.5, &
+  &specified as vectors in fractional reciprocal space separated by commas.', &
+  &              default_value='0.0 0.0 0.0, 0.5 0.5 0.5, 0.0 0.5 0.5, &
   &0.0 0.0 0.0, 0.0 0.5 0.0') ]
 end function
 
@@ -47,6 +47,9 @@ function calculate_dos_and_dispersion_mode() result(output)
   output%main_subroutine => calculate_dos_and_dispersion
 end function
 
+! ----------------------------------------------------------------------
+! The main subroutine.
+! ----------------------------------------------------------------------
 subroutine calculate_dos_and_dispersion(arguments)
   use dictionary_module
   use structure_module
@@ -67,8 +70,8 @@ subroutine calculate_dos_and_dispersion(arguments)
   ! Previously calculated data.
   type(StructureData)                :: structure
   type(StructureData)                :: large_supercell
-  type(QpointData),      allocatable :: qpoints_ibz(:)
-  type(DynamicalMatrix), allocatable :: ibz_dynamical_matrices(:)
+  type(QpointData),      allocatable :: qpoints(:)
+  type(DynamicalMatrix), allocatable :: dynamical_matrices(:)
   
   ! Temporary variables.
   integer :: i,ialloc
@@ -95,12 +98,12 @@ subroutine calculate_dos_and_dispersion(arguments)
   
   large_supercell = read_structure_file(wd//'/large_supercell.dat')
   
-  qpoints_ibz = read_qpoints_file(wd//'/qpoints_ibz.dat')
+  qpoints = read_qpoints_file(wd//'/qpoints.dat')
   
-  allocate( ibz_dynamical_matrices(size(qpoints_ibz)), &
+  allocate( dynamical_matrices(size(qpoints)), &
           & stat=ialloc); call err(ialloc)
-  do i=1,size(qpoints_ibz)
-    ibz_dynamical_matrices(i) = read_dynamical_matrix_file( &
+  do i=1,size(qpoints)
+    dynamical_matrices(i) = read_dynamical_matrix_file( &
        & wd//'/qpoint_'//i//'/dynamical_matrix.dat')
   enddo
   
@@ -108,11 +111,11 @@ subroutine calculate_dos_and_dispersion(arguments)
   ! Calculate harmonic DOS and phonon dispersion.
   ! --------------------------------------------------
   call fourier_interpolation(              &
-     & ibz_dynamical_matrices,             &
+     & dynamical_matrices,                 &
      & structure,                          &
      & temperature,                        &
      & large_supercell,                    &
-     & qpoints_ibz,                        &
+     & qpoints,                            &
      & disp_qpoints,                       &
      & wd//'/phonon_dispersion_curve.dat', &
      & wd//'/high_symmetry_points.dat',    &

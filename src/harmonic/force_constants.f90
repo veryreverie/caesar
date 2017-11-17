@@ -107,9 +107,6 @@ function construct_force_constants(forces,supercell,unique_directions) &
   ! Atom ids.
   integer :: atom_1,atom_1p,atom_2,atom_2p
   
-  ! Rotations in cartesian co-ordinates.
-  type(RealMatrix), allocatable :: rotations_cart(:)
-  
   ! Parts of |x> and |f>.
   type(RealVector) :: x
   type(RealVector) :: f
@@ -132,11 +129,6 @@ function construct_force_constants(forces,supercell,unique_directions) &
   
   ! Temporary variables.
   integer :: i,j,ialloc
-  
-  ! --------------------------------------------------
-  ! Get symmetries in cartesian co-ordinates.
-  ! --------------------------------------------------
-  rotations_cart = supercell%calculate_cartesian_rotations()
   
   ! --------------------------------------------------
   ! Construct xx and fx.
@@ -162,14 +154,14 @@ function construct_force_constants(forces,supercell,unique_directions) &
       else
         x = [ 0.0_dp, 0.0_dp, 1.0_dp ]
       endif
-      x = rotations_cart(i) * x
+      x = supercell%symmetries(i)%cartesian_rotation * x
       
       xx(atom_1p) = xx(atom_1p) + outer_product(x,x)
       
       do atom_2=1,supercell%no_atoms
         atom_2p = supercell%symmetries(i)%atom_group * atom_2
         
-        f = rotations_cart(i) * forces(atom_2,j)
+        f = supercell%symmetries(i)%cartesian_rotation * forces(atom_2,j)
         
         fx(atom_1p,atom_2p) = fx(atom_1p,atom_2p) + outer_product(f,x)
       enddo

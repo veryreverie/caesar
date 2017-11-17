@@ -180,7 +180,6 @@ function calculate_unique_directions(structure,atom_symmetry_group) &
   integer, allocatable :: unique_atoms(:)
   
   ! Cartesian rotations.
-  type(RealMatrix), allocatable :: cartesian_rotations(:)
   real(dp),         allocatable :: rotations_cart(:,:,:)
   
   ! Temporary variables
@@ -208,11 +207,10 @@ function calculate_unique_directions(structure,atom_symmetry_group) &
   ! Identify which directions (in cartesian co-ordinates) are
   !    related by symmetry.
   ! --------------------------------------------------
-  cartesian_rotations = structure%calculate_cartesian_rotations()
   allocate( rotations_cart(3,3,size(structure%symmetries)), &
           & stat=ialloc); call err(ialloc)
-  do i=1,size(cartesian_rotations)
-    rotations_cart(:,:,i) = dble(cartesian_rotations(i))
+  do i=1,size(structure%symmetries)
+    rotations_cart(:,:,i) = dble(structure%symmetries(i)%cartesian_rotation)
   enddo
   
   allocate(unique_dirs(3,no_unique_atoms), stat=ialloc); call err(ialloc)

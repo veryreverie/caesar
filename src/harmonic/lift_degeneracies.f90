@@ -7,23 +7,25 @@ module lift_degeneracies_module
   implicit none
   
   type :: LiftDegeneraciesReturn
-    type(NormalMode), allocatable :: normal_modes(:)
+    type(ComplexMode), allocatable :: complex_modes(:)
   end type
 contains
 
-function lift_degeneracies(normal_modes,supercell) result(output)
+function lift_degeneracies(complex_modes,supercell) result(output)
   use normal_mode_module
   use structure_module
   use linear_algebra_module
   use group_module
   implicit none
   
-  type(NormalMode),    intent(in) :: normal_modes(:)
+  type(ComplexMode),   intent(in) :: complex_modes(:)
   type(StructureData), intent(in) :: supercell
   type(LiftDegeneraciesReturn)    :: output
   
   type(SymmetryOperator), allocatable :: relevant_symmetries(:)
   type(ComplexMatrix), allocatable :: symmetries_nm_basis(:)
+  
+  output%complex_modes = complex_modes
   
   relevant_symmetries = identify_relevant_symmetries(supercell%symmetries)
   
