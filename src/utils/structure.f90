@@ -27,17 +27,25 @@ module structure_module
     type(IntMatrix)  :: rotation
     type(RealVector) :: translation
     
+    ! The rotation and translation in cartesian co-ordinates.
+    ! (L^T)R(L^-T) and (L^T)T.
+    type(RealMatrix) :: cartesian_rotation
+    type(RealVector) :: cartesian_translation
+    
     ! The mapping from atoms to other atoms.
-    ! If R * x_i + T = x_j then atom_group*i = j,
-    !    where x_i is the equilibrium position of atom i.
-    type(Group) :: atom_group
+    ! rho_i and rho_j are the equilibrium positions of atom i and j.
+    ! R * rho_i + T = rho_j + rvector_j
+    !    - atom_group*i = j,
+    !    - rvector(j) = rvector_j in fractional co-ordinates.
+    type(Group)                  :: atom_group
+    type(IntVector), allocatable :: rvector(:)
     
     ! The mapping from symmetry operators to other symmetry operators.
     ! If S * S_i = S_j then symmetry_group*i = j,
     !    where S is this operator, and S_i and S_j are other operators.
     type(Group) :: operator_group
     
-    ! The id of the operator S_j, s.g. S*S_j = S_j*S = I.
+    ! The id of the operator S_j, s.t. S*S_j = S_j*S = I.
     integer :: inverse
   end type
   
@@ -110,7 +118,6 @@ module structure_module
     procedure, public  :: calculate_symmetry
     procedure, public  :: calculate_rvector_group
     procedure, public  :: calculate_gvector_group
-    procedure, public  :: calculate_cartesian_rotations
     procedure, private :: calculate_atom_symmetry_group
     procedure, private :: calculate_operator_symmetry_group
     procedure, private :: calculate_operator_inverses
@@ -514,6 +521,19 @@ subroutine calculate_derived_quantities(this)
     call print_line('Error: not all paired G-vectors found.')
     call err()
   endif
+  
+  do i=1,size(this%symmetries)
+    this%symmetries(i)%cartesian_rotation = transpose(this%lattice)     &
+                                        & * this%symmetries(i)%rotation &
+                                        & * this%recip_lattice
+    this%symmetries(i)%cartesian_translation = transpose(this%lattice) &
+                                           & * this%symmetries(i)%translation
+  enddo
+  
+  ! Calculate further symmetry properties.
+  call this%calculate_atom_symmetry_group()
+  call this%calculate_operator_symmetry_group()
+  call this%calculate_operator_inverses()
 end subroutine
 
 ! ----------------------------------------------------------------------
@@ -597,25 +617,6 @@ function calculate_gvector_group(this) result(output)
 end function
 
 ! ----------------------------------------------------------------------
-! Transforms rotations into cartesian co-ordinates.
-! ----------------------------------------------------------------------
-function calculate_cartesian_rotations(this) result(output)
-  implicit none
-  
-  class(StructureData), intent(in) :: this
-  type(RealMatrix), allocatable    :: output(:)
-  
-  integer :: i,ialloc
-  
-  allocate(output(size(this%symmetries)), stat=ialloc); call err(ialloc)
-  do i=1,size(this%symmetries)
-    output(i) = transpose(this%lattice)     &
-            & * this%symmetries(i)%rotation &
-            & * this%recip_lattice
-  enddo
-end function
-
-! ----------------------------------------------------------------------
 ! Calls spglib, and calculates all symmetry operations.
 ! ----------------------------------------------------------------------
 subroutine calculate_symmetry(this,symmetry_precision)
@@ -692,11 +693,6 @@ subroutine calculate_symmetry(this,symmetry_precision)
   
   ! Deallocate C memory.
   call drop_spg_dataset(spg_dataset_pointer)
-  
-  ! Calculate further symmetry properties.
-  call this%calculate_atom_symmetry_group()
-  call this%calculate_operator_symmetry_group()
-  call this%calculate_operator_inverses()
 end subroutine
 
 ! ----------------------------------------------------------------------
@@ -710,8 +706,6 @@ subroutine calculate_atom_symmetry_group(this)
   
   class(StructureData), intent(inout) :: this
   
-  integer,  allocatable :: operations(:,:)
-  
   ! Objects in fractional supercell co-ordinates.
   !   n.b. in these co-ordintates, supercell lattice vectors are unit vectors.
   !   This is a different convention to the scaled co-ordinates used elsewhere.
@@ -719,15 +713,21 @@ subroutine calculate_atom_symmetry_group(this)
   type(RealVector)              :: transformed_pos_frac
   
   ! Distances between atoms and transformed atoms.
-  type(RealVector)      :: delta
+  type(RealVector)      :: difference_frac
   real(dp), allocatable :: distances(:)
   
-  ! Temporary variables.
-  integer :: i,j,k
+  ! Variables to hold output data.
+  integer,         allocatable :: operations(:,:)
+  type(IntVector), allocatable :: rvector(:,:)
   
-  allocate(atom_pos_frac(this%no_atoms))
-  allocate(operations(this%no_atoms,size(this%symmetries)))
-  allocate(distances(this%no_atoms))
+  ! Temporary variables.
+  integer :: i,j,k,ialloc
+  
+  allocate( atom_pos_frac(this%no_atoms),                    &
+          & distances(this%no_atoms),                        &
+          & operations(this%no_atoms,size(this%symmetries)), &
+          & rvector(this%no_atoms,size(this%symmetries)),    &
+          & stat=ialloc); call err(ialloc)
   
   ! Transform atom positions into fractional supercell co-ordinates.
   do i=1,this%no_atoms
@@ -738,20 +738,28 @@ subroutine calculate_atom_symmetry_group(this)
   do i=1,size(this%symmetries)
     do j=1,this%no_atoms
       ! Calculate the position of the transformed atom.
-      transformed_pos_frac = this%symmetries(i)%rotation &
-                         & * atom_pos_frac(j)                 &
+      transformed_pos_frac = this%symmetries(i)%rotation         &
+                         & * this%atoms(j)%fractional_position() &
                          & + this%symmetries(i)%translation
       
       ! Identify which atom is closest to the transformed position,
       !    modulo supercell lattice vectors.
       do k=1,this%no_atoms
-        delta = transformed_pos_frac - atom_pos_frac(k)
-        distances(k) = l2_norm(delta-vec(nint(dble(delta))))
+        difference_frac = transformed_pos_frac &
+                      & - this%atoms(k)%fractional_position()
+        distances(k) = l2_norm( difference_frac &
+                            & - vec(nint(dble(difference_frac))))
       enddo
       operations(j,i) = minloc(distances,1)
       
+      ! R*rho_i+t = rho_j + an R-vector.
+      ! Identify this R-vector, and record it.
+      rvector(j,i) = vec(nint(dble( transformed_pos_frac &
+                              & - this%atoms(j)%fractional_position())))
+      
       ! Check that the transformed atom is acceptably close to its image.
       if (distances(operations(j,i))>1.0e-10_dp) then
+        call print_line(CODE_ERROR//': Error mapping atoms under symmetry.')
         call err()
       endif
     enddo
@@ -775,6 +783,7 @@ subroutine calculate_atom_symmetry_group(this)
   
   do i=1,size(this%symmetries)
     this%symmetries(i)%atom_group = operations(:,i)
+    this%symmetries(i)%rvector = rvector(:,i)
   enddo
 end subroutine
 

@@ -12,8 +12,8 @@ module ifile_module
   private
   
   type, public :: IFile
-    type(String), private              :: filename
-    type(String), private, allocatable :: lines(:)
+    type(String), private              :: filename_
+    type(String), private, allocatable :: lines_(:)
   contains
     generic, public :: assignment(=) => read_file_character, &
                                       & read_file_String
@@ -21,6 +21,7 @@ module ifile_module
     procedure, private ::               read_file_String
     
     procedure, public :: line
+    procedure, public :: split_line
   end type
   
   public :: size
@@ -42,11 +43,11 @@ subroutine read_file_character(this,filename)
   
   integer :: i,ierr,ialloc
   
-  this%filename = filename
+  this%filename_ = filename
   
   file_length = count_lines(filename)
   
-  allocate(this%lines(file_length),stat=ialloc); call err(ialloc)
+  allocate(this%lines_(file_length),stat=ialloc); call err(ialloc)
   
   file_unit = open_read_file(filename)
   do i=1,file_length
@@ -55,7 +56,7 @@ subroutine read_file_character(this,filename)
       call print_line('Error reading from '//filename)
       call err()
     endif
-    this%lines(i) = trim(line)
+    this%lines_(i) = trim(line)
   enddo
   close(file_unit)
 end subroutine
@@ -76,7 +77,7 @@ function size_IFile(this) result(output)
   type(IFile), intent(in) :: this
   integer                 :: output
   
-  output = size(this%lines)
+  output = size(this%lines_)
 end function
 
 ! Returns a line from the file.
@@ -87,7 +88,27 @@ function line(this,line_number) result(output)
   integer,      intent(in) :: line_number
   type(String)             :: output
   
-  output = this%lines(line_number)
+  output = this%lines_(line_number)
+end function
+
+! Returns a line from the file, and splits it.
+function split_line(this,line_number,delimiter) result(output)
+  implicit none
+  
+  class(IFile), intent(in)  :: this
+  integer,      intent(in)  :: line_number
+  character,    optional    :: delimiter
+  type(String), allocatable :: output(:)
+  
+  type(String) :: line
+  
+  line = this%line(line_number)
+  
+  if (present(delimiter)) then
+    output = split(line,delimiter)
+  else
+    output = split(line)
+  endif
 end function
 
 ! Returns the number of lines in a file.

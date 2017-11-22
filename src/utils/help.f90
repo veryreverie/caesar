@@ -43,46 +43,66 @@ subroutine help_default(caesar_modes)
   call print_line('')
   call print_line('Accepted Flags:')
   call print_line('')
-  call print_line( colour('  -h','white')//' [keyword] | '// &
-                 & colour('--help','white')//' [keyword]')
-  call print_line( colour('      caesar -h','white')// &
-                 & '              : Displays this help text.')
-  call print_line( colour('      caesar','white')//colour(' mode','cyan')// &
+  call print_line( colour('-h','white')//' [keyword] | '// &
+                 & colour('--help','white')//' [keyword]',   &
+                 & indent=2)
+  call print_line( colour('caesar -h','white')//         &
+                 & '              : Displays this help text.', &
+                 & indent=4)
+  call print_line( colour('caesar','white')//colour(' mode','cyan')// &
                  & colour(' -h','white')//'         : Displays help text &
-                 &relevant to the specified '//colour('mode','cyan')//'.')
-  call print_line( colour('      caesar','white')//colour(' mode','cyan')// &
+                 &relevant to the specified '//colour('mode','cyan')//'.', &
+                 & indent=4)
+  call print_line( colour('caesar','white')//colour(' mode','cyan')// &
                  & colour(' -h','white')//' keyword : displays help text &
                  &relevant to the specified keyword, in the context of the &
-                 &specified '//colour('mode','cyan')//'.')
+                 &specified '//colour('mode','cyan')//'.', &
+                 & indent=4)
   call print_line('')
-  call print_line( colour('  -i','white')//' | '// &
-                 & colour('--interactive','white'))
-  call print_line('      Runs interactively, prompting the user to review and &
-     &set all options.')
+  call print_line( colour('-i','white')//' | '// &
+                 & colour('--interactive','white'), &
+                 & indent=2)
+  call print_line( 'Runs interactively, prompting the user to review and &
+                 &set all options.', &
+                 & indent=4)
   call print_line('')
-  call print_line( colour('  -f','white')//' filename | '// &
-                 & colour('--input_file','white')//' filename')
-  call print_line('      Reads additional settings from specified file.')
-  call print_line('      These should be of the form:')
-  call print_line('         keyword1 argument')
-  call print_line('         keyword2 argument1 argument2 argument3')
-  call print_line('      Keywords are the same as command-line --keywords.')
-  call print_line('      The "--" prefix. should not be given.')
-  call print_line('      The keywords "filename", "interactive" and "help" &
-     &should not be specified in a file.')
+  call print_line( colour('-f','white')//' filename | '// &
+                 & colour('--input_file','white')//' filename', &
+                 & indent=2)
+  call print_line( 'Reads additional settings from specified file.', &
+                 & indent=4)
+  call print_line( 'These should be of the form:', &
+                 & indent=4)
+  call print_line( 'keyword1 argument', &
+                 & indent=6)
+  call print_line( 'keyword2 argument1 argument2 argument3', &
+                 & indent=6)
+  call print_line( 'Keywords are the same as command-line --keywords.', &
+                 & indent=4)
+  call print_line( 'The "--" prefix. should not be given.', &
+                 & indent=4)
+  call print_line( 'The keywords "filename", "interactive" and "help" &
+                 &should not be specified in a file.',               &
+                 & indent=4)
   call print_line('')
-  call print_line( colour('  -d','white')//' directory_name | '// &
-                 & colour('--working_directory','white')//' directory_name')
-  call print_line('      Specifies the directory where Caesar should work.')
-  call print_line('      All files and folders will be created here.')
-  call print_line('      This is also where any run scripts will be called.')
+  call print_line( colour('-d','white')//' directory_name | '// &
+                 & colour('--working_directory','white')//' directory_name', &
+                 & indent=2)
+  call print_line( 'Specifies the directory where Caesar should work.', &
+                 & indent=4)
+  call print_line( 'All files and folders will be created here.', &
+                 & indent=4)
+  call print_line( 'This is also where any run scripts will be called.', &
+                 & indent=4)
   call print_line('')
-  call print_line( colour('  -o','white')//' filename | '// &
-                 & colour('--output_file','white')//' filenamename')
-  call print_line('      Specifies a file to which all terminal output will &
-     &be written. This also disables terminal formatting, so should be &
-     &favoured over piping to file. If unset, terminal output will go to the &
-     &terminal.')
+  call print_line( colour('-o','white')//' filename | '// &
+                 & colour('--output_file','white')//' filenamename', &
+                 & indent=2)
+  call print_line( 'Specifies a file to which all terminal output will be &
+                 &written. This also disables terminal formatting, so should &
+                 &be favoured over piping to file. If unset, terminal output &
+                 &will go to the terminal.', &
+                 & indent=4)
   call print_line('')
   call print_line('')
   call print_line('Accepted '//colour('modes','cyan')//':')

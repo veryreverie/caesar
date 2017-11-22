@@ -191,7 +191,7 @@ subroutine calculate_anharmonic(arguments)
   enddo
   
   ! Read in q-points.
-  qpoints = read_qpoints_file(harmonic_path//'/qpoints_ibz.dat')
+  qpoints = read_qpoints_file(harmonic_path//'/qpoints.dat')
   
   ! Construct DFT output filename.
   dft_output_filename = make_dft_output_filename(dft_code,seedname)

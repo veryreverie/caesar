@@ -45,7 +45,14 @@ subroutine test(arguments)
   
   type(String) :: wd
   
+  type(String) :: ten
+  type(String) :: line
+  
   wd = arguments%value('working_directory')
+  
+  ten = '1234567890'
+  
+  line = ten//ten//ten//ten//ten//ten//ten//ten//'1234'
   
   call print_line(colour('black','black'))
   call print_line(colour('red','red'))
@@ -66,6 +73,26 @@ subroutine test(arguments)
   
   call print_line('This is a really really really long long long sentence, &
      &which seems like it should have stopped some time ago.')
+  
+  call print_line('This is a '//colour('really','red')//' '// &
+     &colour('really','red')//' '//colour('really','red')//' '// &
+     &colour('long','blue')//' '//colour('long','blue')//' '// &
+     &colour('long','blue')//' sentence, &
+     &which seems like it should have stopped some time ago.')
+  
+  call print_line(line//'overflow')
+  call print_line(colour(line,'red')//'overflow')
+  call print_line(colour(line,'red')//colour('overflow','blue'))
+  call print_line(slice(line,1,70)//' '//line)
+  call print_line(slice(line,1,70)//' '//line//'overflow '// &
+     & colour('sameline','green')//' '//line)
+  call print_line('hi                                               &
+  &                                   there')
+  call print_line( 'Specifies a file to which all terminal output will be &
+                 &written. This also disables terminal formatting, so should &
+                 &be favoured over piping to file. If unset, terminal output &
+                 &will go to the terminal.', &
+                 & indent=4)
   
 end subroutine
 end module

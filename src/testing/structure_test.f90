@@ -19,13 +19,9 @@ subroutine write_old_structure_file(structure,filename)
   type(StructureData), intent(in) :: structure
   type(String),        intent(in) :: filename
   
-  type(RealMatrix), allocatable :: rotations(:)
-  
   type(OFile) :: structure_file
   
   integer :: i
-  
-  rotations = structure%calculate_cartesian_rotations()
   
   structure_file = filename
   call structure_file%print_line('Lattice')
@@ -38,7 +34,7 @@ subroutine write_old_structure_file(structure,filename)
   enddo
   call structure_file%print_line('Symmetry')
   do i=1,size(structure%symmetries)
-    call structure_file%print_line(rotations(i))
+    call structure_file%print_line(structure%symmetries(i)%cartesian_rotation)
     call structure_file%print_line(structure%symmetries(i)%translation)
   enddo
   call structure_file%print_line('End')

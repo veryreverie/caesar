@@ -195,7 +195,7 @@ subroutine setup_anharmonic(arguments)
   enddo
   
   ! Read in q-points.
-  qpoints = read_qpoints_file(harmonic_path//'/qpoints_ibz.dat')
+  qpoints = read_qpoints_file(harmonic_path//'/qpoints.dat')
   
   ! Check that the correct number of couplings have been specified.
   if (arguments%is_set('coupling')) then

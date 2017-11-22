@@ -125,6 +125,7 @@ end function
 function calculate_harmonic_states(mode,frequency,state_cutoff, &
    & potential_cutoff) result(output)
   use normal_mode_module
+  use linear_algebra_module
   implicit none
   
   integer,          intent(in) :: mode

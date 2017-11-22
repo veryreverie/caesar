@@ -1,5 +1,5 @@
 ! ======================================================================
-!
+! Monomials in terms of complex normal mode co-ordinates.
 ! ======================================================================
 module monomial_module
   use constants_module, only : dp

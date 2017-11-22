@@ -174,7 +174,7 @@ subroutine run_anharmonic(arguments)
   seedname = setup_harmonic_arguments%value('seedname')
   
   ! Run calculations at each q-point.
-  qpoints = read_qpoints_file(harmonic_path//'/qpoints_ibz.dat')
+  qpoints = read_qpoints_file(harmonic_path//'/qpoints.dat')
   
   if (arguments%is_set('last_qpoint')) then
     if (last_qpoint>size(qpoints)) then

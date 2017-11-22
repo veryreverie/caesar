@@ -110,7 +110,7 @@ function calculate_all_coupling(input, modes) result(output)
   implicit none
   
   type(CoupledModes), intent(in)  :: input(:)
-  type(NormalMode),   intent(in)  :: modes(:)
+  type(ComplexMode),  intent(in)  :: modes(:)
   type(CoupledModes), allocatable :: output(:)
   
   integer :: no_modes

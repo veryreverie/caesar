@@ -5,36 +5,43 @@ module qpoints_module
   use linear_algebra_module
   implicit none
   
+  ! The large supercell has a supercell matrix Z, given by
+  !     | Nx, 0 , 0 |
+  ! Z = | 0 , Ny, 0 |
+  !     | 0 , 0 , Nz|
+  ! Then the q-point is defined by three integers, qx,qy and qz,
+  !    where (-Nx)/2 < qx <= Nx/2 etc. (floor division intentional).
+  !    - qpoint = (qx/Nx, qy/Ny, qz/Nz)
+  !    - scaled_qpoint = Nx * Ny * Nz * qpoint = (qxNyNz, qyNzNx, qzNxNy)
+  !    - gvector = Z*qpoint = (qx, qy, qz)
   type QpointData
     ! The q-point in fractional primitive reciprocal space co-ordinates.
-    type(RealVector)     :: qpoint
-    ! The id of the supercell in which this q-point is a G-vector, and the
-    !    id of that G-vector in said supercell.
-    integer              :: sc_id
-    integer              :: gvector_id
-    ! The G-vectors in the large supercell which transform onto this q-point,
-    !    by symmetry, and the ids of said symmetries.
-    integer, allocatable :: gvectors(:)
-    integer, allocatable :: symmetry_ids(:)
+    type(RealVector) :: qpoint
+    
+    ! The q-point in scaled fractional primitive reciprocal co-ordinates.
+    type(IntVector) :: scaled_qpoint
+    
+    ! The gvector of the large supercell corresponding to this q-point.
+    type(IntVector) :: gvector
+    
+    ! Whether or not 2q=G.
+    logical :: is_paired_qpoint
+    
+    ! Whether or not this q-point is to be simulated.
+    ! Only one q-point out of all symmetrically equivalent points is chosen.
+    ! Only one q-point in each q+q'=G pair is chosen.
+    ! At the harmonic level, all other q-points are constructed from
+    !    the chosen q-points.
+    logical :: to_simulate
+    
+    ! The supercell matrix, S, with smallest |S| such that
+    !    all elements of S.q are integers.
+    type(IntMatrix) :: supercell_matrix
+    
+    ! S.q, where S is supercell_matrix.
+    type(IntVector) :: supercell_gvector
   end type
-  
-  interface QpointData
-    module procedure new_QpointData
-  end interface
 contains
-
-function new_QpointData(multiplicity) result(this)
-  implicit none
-  
-  integer, intent(in) :: multiplicity
-  type(QpointData)    :: this
-  
-  integer :: ialloc
-  
-  allocate( this%gvectors(multiplicity),  &
-          & this%symmetry_ids(multiplicity), &
-          & stat=ialloc); call err(ialloc)
-end function
 
 subroutine write_qpoints_file(this,filename)
   use ofile_module
@@ -49,16 +56,20 @@ subroutine write_qpoints_file(this,filename)
   
   qpoints_file = filename
   do i=1,size(this)
-    call qpoints_file%print_line( 'q-point:')
+    call qpoints_file%print_line( 'q-point, q=(qx/nx, qy/ny, qz/nz):')
     call qpoints_file%print_line( this(i)%qpoint)
-    call qpoints_file%print_line( 'Corresponding supercell             : '// &
-                                & this(i)%sc_id)
-    call qpoints_file%print_line( 'Corresponding G-vector in supercell : '// &
-                                & this(i)%gvector_id)
-    call qpoints_file%print_line( 'Matching G-vectors in grid          : '// &
-                                & this(i)%gvectors)
-    call qpoints_file%print_line( 'ID of symmetries to grid G-vector   : '// &
-                                & this(i)%symmetry_ids)
+    call qpoints_file%print_line( 'Scaled q-point, q*nx*ny*nz:')
+    call qpoints_file%print_line( this(i)%scaled_qpoint)
+    call qpoints_file%print_line( 'G-vector of large supercell, G=(qx,qy,qz):')
+    call qpoints_file%print_line( this(i)%gvector)
+    call qpoints_file%print_line( 'Is 2q equal to a primitive G-vector?:')
+    call qpoints_file%print_line( this(i)%is_paired_qpoint)
+    call qpoints_file%print_line( 'Is this q-point to be simulated?:')
+    call qpoints_file%print_line( this(i)%to_simulate)
+    call qpoints_file%print_line( 'Supercell Matrix, S, s.t. S.q is integer.:')
+    call qpoints_file%print_line( this(i)%supercell_matrix)
+    call qpoints_file%print_line( 'Supercell G-vector, G=S.q:')
+    call qpoints_file%print_line( this(i)%supercell_gvector)
     call qpoints_file%print_line( '')
   enddo
 end subroutine
@@ -74,29 +85,30 @@ function read_qpoints_file(filename) result(this)
   type(String), allocatable :: line(:)
   
   integer :: no_qpoints
-  integer :: ialloc
-  integer :: i
+  integer :: qpoint_line
+  
+  integer :: supercell_matrix(3,3)
+  
+  integer :: i,j,ialloc
   
   qpoints_file = filename
-  no_qpoints = size(qpoints_file)/7
+  no_qpoints = size(qpoints_file)/17
   
   allocate(this(no_qpoints), stat=ialloc); call err(ialloc)
   
   do i=1,no_qpoints
-    line = split(qpoints_file%line((i-1)*7+2))
-    this(i)%qpoint = dble(line)
+    qpoint_line = (i-1)*17
     
-    line = split(qpoints_file%line((i-1)*7+3))
-    this(i)%sc_id = int(line(4))
-    
-    line = split(qpoints_file%line((i-1)*7+4))
-    this(i)%gvector_id = int(line(6))
-    
-    line = split(qpoints_file%line((i-1)*7+5))
-    this(i)%gvectors = int(line(6:))
-    
-    line = split(qpoints_file%line((i-1)*7+6))
-    this(i)%symmetry_ids = int(line(8:))
+    this(i)%qpoint            = dble( qpoints_file%split_line(qpoint_line+2 ) )
+    this(i)%scaled_qpoint     = int(  qpoints_file%split_line(qpoint_line+4 ) )
+    this(i)%gvector           = int(  qpoints_file%split_line(qpoint_line+6 ) )
+    this(i)%is_paired_qpoint  = lgcl( qpoints_file%line(      qpoint_line+8 ) )
+    this(i)%to_simulate       = lgcl( qpoints_file%line(      qpoint_line+10) )
+    do j=1,3
+      supercell_matrix(j,:) = int(qpoints_file%split_line(qpoint_line+11+j))
+    enddo
+    this(i)%supercell_matrix  = supercell_matrix
+    this(i)%supercell_gvector = int(  qpoints_file%split_line(qpoint_line+16) )
   enddo
 end function
 end module

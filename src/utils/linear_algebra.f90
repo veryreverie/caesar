@@ -107,6 +107,8 @@ module linear_algebra_module
     module procedure cmplx_RealMatrix
     module procedure cmplx_ComplexVector
     module procedure cmplx_ComplexMatrix
+    module procedure cmplx_RealVectors
+    module procedure cmplx_RealMatrices
   end interface
   
   interface real
@@ -117,6 +119,11 @@ module linear_algebra_module
   interface aimag
     module procedure aimag_ComplexVector
     module procedure aimag_ComplexMatrix
+  end interface
+  
+  interface conjg
+    module procedure conjg_ComplexVector
+    module procedure conjg_ComplexMatrix
   end interface
   
   interface size
@@ -284,6 +291,7 @@ module linear_algebra_module
   interface transpose
     module procedure transpose_IntMatrix
     module procedure transpose_RealMatrix
+    module procedure transpose_ComplexMatrix
   end interface
   
   interface hermitian
@@ -771,6 +779,26 @@ pure function cmplx_ComplexMatrix(input) result(output)
   output = input%contents
 end function
 
+pure function cmplx_RealVectors(real,imag) result(output)
+  implicit none
+  
+  type(RealVector), intent(in) :: real
+  type(RealVector), intent(in) :: imag
+  complex(dp), allocatable     :: output(:)
+  
+  output = cmplx(dble(real),dble(imag),dp)
+end function
+
+pure function cmplx_RealMatrices(real,imag) result(output)
+  implicit none
+  
+  type(RealMatrix), intent(in) :: real
+  type(RealMatrix), intent(in) :: imag
+  complex(dp), allocatable     :: output(:,:)
+  
+  output = cmplx(dble(real),dble(imag),dp)
+end function
+
 ! Real part of a complex object.
 pure function real_ComplexVector(input) result(output)
   implicit none
@@ -807,6 +835,25 @@ pure function aimag_ComplexMatrix(input) result(output)
   type(RealMatrix)                :: output
   
   output = aimag(input%contents)
+end function
+
+! Conjugate of a complex object.
+pure function conjg_ComplexVector(input) result(output)
+  implicit none
+  
+  type(ComplexVector), intent(in) :: input
+  type(ComplexVector)             :: output
+  
+  output = conjg(input%contents)
+end function
+
+pure function conjg_ComplexMatrix(input) result(output)
+  implicit none
+  
+  type(ComplexMatrix), intent(in) :: input
+  type(ComplexMatrix)             :: output
+  
+  output = conjg(input%contents)
 end function
 
 ! size().
@@ -2033,6 +2080,15 @@ pure function transpose_RealMatrix(input) result(output)
   
   type(RealMatrix), intent(in) :: input
   type(RealMatrix)             :: output
+  
+  output = transpose(input%contents)
+end function
+
+pure function transpose_ComplexMatrix(input) result(output)
+  implicit none
+  
+  type(ComplexMatrix), intent(in) :: input
+  type(ComplexMatrix)             :: output
   
   output = transpose(input%contents)
 end function

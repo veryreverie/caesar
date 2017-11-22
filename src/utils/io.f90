@@ -38,6 +38,14 @@ module io_module
   public :: execute_python      ! Runs one of the python scripts.
   public :: colour              ! Adds terminal colours to a string.
   
+  ! The terminal escape character.
+  character(1), parameter :: ESC = achar(27)
+  
+  ! Public strings for ease of printing.
+  character(14), parameter, public :: ERROR = ESC//'[31mError'//ESC//'[0m'
+  character(19), parameter, public :: CODE_ERROR = &
+     & ESC//'[31mCode Error'//ESC//'[0m'
+  
   ! Command line flag and argument.
   type :: CommandLineFlag
     character(1) :: flag
@@ -444,81 +452,135 @@ end subroutine
 ! Subroutines to print lines, as write(), but with error checking
 !    and formatting.
 ! ----------------------------------------------------------------------
-recursive subroutine print_line_character(line)
+subroutine print_line_character(line,indent)
   implicit none
   
-  character(*), intent(in) :: line
+  character(*), intent(in)           :: line
+  integer,      intent(in), optional :: indent
   
-  integer :: ierr
-  integer :: i
-  logical :: success
+  integer              :: line_length
+  integer              :: no_lines
+  integer, allocatable :: line_starts(:)
+  integer, allocatable :: line_ends(:)
   
-  if (OUTPUT_FILE_UNIT/=output_unit) then
-    ! Terminal-width linebreaks have been supressed.
-    ! Print the entire line, regardless of length.
-    write(OUTPUT_FILE_UNIT,'(a)',iostat=ierr) line
-  elseif (len(line) <= TERMINAL_WIDTH) then
-    ! The string can be printed all on one line.
-    write(OUTPUT_FILE_UNIT,'(a)',iostat=ierr) line
+  integer                   :: last_space
+  logical                   :: reading_special
+  integer                   :: current_terminal_width
+  character(:), allocatable :: indent_spaces
+  character(:), allocatable :: overhang_spaces
+  
+  integer :: i,ierr,ialloc
+  
+  if (present(indent)) then
+    indent_spaces = spaces(indent)
   else
-    success = .false.
-    ! Attempt to break the string at a space, so that it fits on the terminal.
-    do i=TERMINAL_WIDTH,2,-1
-      if (line(i:i)==' ') then
-        write(OUTPUT_FILE_UNIT,'(a)',iostat=ierr) line(:i-1)
-        call print_line(line(i+1:))
-        success = .true.
-        exit
+    indent_spaces = spaces(0)
+  endif
+  overhang_spaces = spaces(3)
+  
+  allocate( line_starts(max(len(line),1)), &
+          & line_ends(max(len(line),1)),   &
+          & stat=ialloc); call err(ialloc)
+  
+  current_terminal_width = TERMINAL_WIDTH - len(indent_spaces)
+  no_lines = 1
+  line_starts(1) = 1
+  last_space = 0
+  
+  ! If not writing to the terminal, ignore line-breaking.
+  if (OUTPUT_FILE_UNIT/=output_unit) then
+    line_ends(1) = len(line)
+  
+  ! If writing to the terminal, identify line breaks.
+  else
+    reading_special = .false.
+    line_length = 0
+    do i=1,len(line)
+      ! Special characters, which don't display on the terminal.
+      if (line(i:i)==ESC) then
+        reading_special = .true.
+      elseif (reading_special) then
+        if (line(i:i)=='m') then
+          reading_special = .false.
+        endif
+      
+      ! Normal characters, which do display on the terminal.
+      else
+        line_length = line_length+1
+        if (line_length>current_terminal_width) then
+          if (last_space/=0) then
+            line_ends(no_lines) = last_space
+            line_starts(no_lines+1) = last_space+1
+          else
+            line_ends(no_lines) = i-1
+            line_starts(no_lines+1) = i
+          endif
+          line_length = line_length &
+                    & - (line_ends(no_lines)-line_starts(no_lines)+1)
+          no_lines = no_lines+1
+          last_space = 0
+          current_terminal_width = TERMINAL_WIDTH     &
+                               & - len(indent_spaces) &
+                               & - len(overhang_spaces)
+        elseif (line(i:i)==' ') then
+          last_space = i
+        endif
       endif
     enddo
-    
-    ! Attempt to break the string at the first available space.
-    ! Some wrapping will happen, but this can't be avoided.
-    if (.not. success) then
-      do i=TERMINAL_WIDTH+1,len(line)-1
-        if (line(i:i)==' ') then
-          write(OUTPUT_FILE_UNIT,'(a)',iostat=ierr) line(:i-1)
-          call print_line(line(i+1:))
-          success = .true.
-          exit
-        endif
-      enddo
+  endif
+  
+  line_ends(no_lines) = len(line)
+  
+  ! Write lines.
+  do i=1,no_lines
+    if (i==1) then
+      write(OUTPUT_FILE_UNIT,'(a)',iostat=ierr) &
+         & indent_spaces//line(line_starts(i):line_ends(i))
+    else
+      write(OUTPUT_FILE_UNIT,'(a)',iostat=ierr) &
+         & indent_spaces//overhang_spaces//line(line_starts(i):line_ends(i))
     endif
     
-    ! The line can't be split. Everything is written.
-    if (.not. success) then
-      write(OUTPUT_FILE_UNIT,'(a)',iostat=ierr) line
+    ! Check for errors and flush the write buffer.
+    if (ierr /= 0) then
+      write(OUTPUT_FILE_UNIT,'(a)') 'Error in print_line.'
+      call err()
     endif
-  endif
-  
-  if (ierr /= 0) then
-    write(OUTPUT_FILE_UNIT,'(a)') 'Error in print_line.'
-    call err()
-  endif
-  
-  flush(OUTPUT_FILE_UNIT,iostat=ierr)
-  
-  if (ierr /= 0) then
-    write(OUTPUT_FILE_UNIT,'(a)') 'Error in print_line.'
-    call err()
-  endif
+    
+    flush(OUTPUT_FILE_UNIT,iostat=ierr)
+    
+    if (ierr /= 0) then
+      write(OUTPUT_FILE_UNIT,'(a)') 'Error in print_line.'
+      call err()
+    endif
+  enddo
 end subroutine
 
-subroutine print_line_String(line)
+subroutine print_line_String(line,indent)
   implicit none
   
-  type(String), intent(in) :: line
+  type(String), intent(in)           :: line
+  integer,      intent(in), optional :: indent
   
-  call print_line(char(line))
+  if (present(indent)) then
+    call print_line(char(line),indent)
+  else
+    call print_line(char(line))
+  endif
 end subroutine
 
-subroutine print_line_Stringable(this)
+subroutine print_line_Stringable(this,indent)
   use stringable_module
   implicit none
   
-  class(Stringable), intent(in) :: this
+  class(Stringable), intent(in)           :: this
+  integer,           intent(in), optional :: indent
   
-  call print_line(str(this))
+  if (present(indent)) then
+    call print_line(str(this),indent)
+  else
+    call print_line(str(this))
+  endif
 end subroutine
 
 subroutine print_line_Printable(this)
@@ -599,6 +661,21 @@ subroutine print_line_complexes(this)
   
   call print_line(''//this)
 end subroutine
+
+function spaces(no_spaces) result(output)
+  implicit none
+  
+  integer, intent(in)       :: no_spaces
+  character(:), allocatable :: output
+  
+  integer :: i,ialloc
+  
+  allocate(character(no_spaces) :: output, stat=ialloc); call err(ialloc)
+  
+  do i=1,no_spaces
+    output(i:i) = ' '
+  enddo
+end function
 
 ! ----------------------------------------------------------------------
 ! Aborts with a stacktrace.
@@ -791,7 +868,7 @@ function colour_character_character(input,colour_name) result(output)
     call err()
   endif
   
-  output = achar(27)//'['//colour_code//'m'//input//achar(27)//'[0m'
+  output = ESC//'['//colour_code//'m'//input//ESC//'[0m'
 end function
 
 function colour_String_character(input,colour_name) result(output)

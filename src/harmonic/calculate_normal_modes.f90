@@ -88,12 +88,9 @@ subroutine calculate_normal_modes(arguments)
   integer                                   :: mode
   integer                                   :: atom
   integer                                   :: gvector
-  integer                                   :: paired_gvector
   
   ! Normal modes and their symmetries.
-  type(ComplexMode), allocatable :: complex_modes(:)
   type(LiftDegeneraciesReturn)   :: lifted_degeneracies
-  type(RealMode),    allocatable :: real_modes(:)
   
   ! Temporary variables.
   integer      :: i,j,k,ialloc
@@ -222,8 +219,8 @@ subroutine calculate_normal_modes(arguments)
     
     ! Write out normal modes.
     do mode=1,structure%no_modes
-      call write_normal_mode_file( qpoint_modes(i)%complex_modes(mode), &
-                                 & qdir//'/mode_'//mode//'.dat')
+      call qpoint_modes(i)%complex_modes(mode)%write_file( &
+         & qdir//'/mode_'//mode//'.dat')
     enddo
   enddo
 end subroutine

@@ -862,7 +862,7 @@ end subroutine
 ! Interpolates between phonons at each q-point.
 ! ----------------------------------------------------------------------
 subroutine fourier_interpolation(dynamical_matrices,structure,temperature, &
-   & large_supercell,qpoints,path,phonon_dispersion_curve_filename,        &
+   & large_supercell,path,phonon_dispersion_curve_filename,        &
    & high_symmetry_points_filename,free_energy_filename,freq_dos_filename)
   use constants_module, only : pi
   use linear_algebra_module
@@ -878,7 +878,6 @@ subroutine fourier_interpolation(dynamical_matrices,structure,temperature, &
   type(StructureData),   intent(in) :: structure
   real(dp),              intent(in) :: temperature
   type(StructureData),   intent(in) :: large_supercell
-  type(QpointData),      intent(in) :: qpoints(:)
   type(RealVector),      intent(in) :: path(:)
   type(String),          intent(in) :: phonon_dispersion_curve_filename
   type(String),          intent(in) :: high_symmetry_points_filename
@@ -892,8 +891,7 @@ subroutine fourier_interpolation(dynamical_matrices,structure,temperature, &
   real(dp)    :: qr
   complex(dp) :: exp_iqr
   
-  integer :: i,j,k,l
-  integer :: atom_1,atom_2,atom_1p,atom_2p
+  integer :: i,j
   integer :: rvec,gvec
   
   integer :: ialloc
@@ -919,7 +917,7 @@ subroutine fourier_interpolation(dynamical_matrices,structure,temperature, &
       do i=1,structure%no_atoms
         do j=1,structure%no_atoms
           force_consts(rvec,j,i) = force_consts(rvec,j,i)                     &
-                             & + real( dynamical_matrices(gvec)%matrices(j,k) &
+                             & + real( dynamical_matrices(gvec)%matrices(j,i) &
                              & * exp_iqr )                                    &
                              & / large_supercell%sc_size
         enddo

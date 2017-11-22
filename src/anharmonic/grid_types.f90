@@ -24,88 +24,136 @@ contains
 ! Returns the output in normal mode co-ordinates.
 ! ----------------------------------------------------------------------
 function calculate_displacement(grid_type,sampling_point_indices, &
-   & sample_spacing) result(output)
+   & sample_spacing,qpoint) result(output)
   use normal_mode_module
-  type(String), intent(in) :: grid_type
-  integer,      intent(in) :: sampling_point_indices(:)
-  real(dp),     intent(in) :: sample_spacing(:)
-  type(ModeVector)         :: output
+  use qpoints_module
+  type(String),     intent(in) :: grid_type
+  integer,          intent(in) :: sampling_point_indices(:)
+  real(dp),         intent(in) :: sample_spacing(:)
+  type(QpointData), intent(in) :: qpoint
+  type(RealModeVector)         :: output
   
   ! Calculate displacement in normal mode co-ordinates,
   !    depending on grid type.
   if (grid_type=='cubic') then
     output = calculate_displacement_cubic( sampling_point_indices, &
-                                         & sample_spacing)
+                                         & sample_spacing,         &
+                                         & qpoint)
   elseif (grid_type=='octahedral') then
     output = calculate_displacement_octahedral( sampling_point_indices, &
-                                              & sample_spacing)
+                                              & sample_spacing,         &
+                                              & qpoint)
   elseif (grid_type=='spherical') then
     output = calculate_displacement_spherical( sampling_point_indices, &
-                                             & sample_spacing)
+                                             & sample_spacing,         &
+                                             & qpoint)
   else
     call err()
   endif
 end function
 
 function calculate_displacement_cubic(sampling_point_indices, &
-   & sample_spacing) result(output)
+   & sample_spacing,qpoint) result(output)
   use normal_mode_module
+  use qpoints_module
   implicit none
   
-  integer,  intent(in) :: sampling_point_indices(:)
-  real(dp), intent(in) :: sample_spacing(:)
-  type(ModeVector)     :: output
+  integer,          intent(in) :: sampling_point_indices(:)
+  real(dp),         intent(in) :: sample_spacing(:)
+  type(QpointData), intent(in) :: qpoint
+  type(RealModeVector) :: output
+  
+  integer              :: no_modes
   
   ! Temporary variables.
-  integer :: i,ialloc
+  integer :: i,j,mode,ialloc
   
-  allocate( output%vector(size(sampling_point_indices)), &
-          & stat=ialloc); call err(ialloc)
-  do i=1,size(output%vector)
-    output%vector(i) = sampling_point_indices(i) * sample_spacing(i)
-  enddo
+  no_modes = size(sampling_point_indices)
+  
+  if (qpoint%is_paired_qpoint) then
+    allocate(output%vector(no_modes,1), stat=ialloc); call err(ialloc)
+    do mode=1,no_modes
+      output%vector(mode,1) = sampling_point_indices(mode) &
+                          & * sample_spacing(mode)
+    enddo
+  else
+    allocate(output%vector(no_modes/2,2), stat=ialloc); call err(ialloc)
+    do i=1,no_modes/2
+      do j=1,2
+        mode = j*no_modes/2+i-1
+        output%vector(i,j) = sampling_point_indices(mode) &
+                         & * sample_spacing(mode)
+      enddo
+    enddo
+  endif
 end function
 
 function calculate_displacement_octahedral(sampling_point_indices, &
-   & sample_spacing) result(output)
+   & sample_spacing,qpoint) result(output)
   use normal_mode_module
+  use qpoints_module
   implicit none
   
-  integer,  intent(in) :: sampling_point_indices(:)
-  real(dp), intent(in) :: sample_spacing(:)
-  type(ModeVector)     :: output
+  integer,          intent(in) :: sampling_point_indices(:)
+  real(dp),         intent(in) :: sample_spacing(:)
+  type(QpointData), intent(in) :: qpoint
+  type(RealModeVector)         :: output
   
   ! The octahedral and cubic sampling points are indexed in the same way.
-  output = calculate_displacement_cubic(sampling_point_indices,sample_spacing)
+  output = calculate_displacement_cubic( sampling_point_indices, &
+                                       & sample_spacing,         &
+                                       & qpoint)
 end function
 
 function calculate_displacement_spherical(sampling_point_indices, &
-   & sample_spacing) result(output)
+   & sample_spacing,qpoint) result(output)
   use normal_mode_module
+  use qpoints_module
   implicit none
   
-  integer,  intent(in) :: sampling_point_indices(:)
-  real(dp), intent(in) :: sample_spacing(:)
-  type(ModeVector)     :: output
+  integer,          intent(in) :: sampling_point_indices(:)
+  real(dp),         intent(in) :: sample_spacing(:)
+  type(QpointData), intent(in) :: qpoint
+  type(RealModeVector)         :: output
   
   integer :: radius
+  integer :: no_modes
   
   ! Temporary variables.
-  integer :: i,ialloc
+  integer :: i,j,mode,ialloc
+  
+  no_modes = size(sampling_point_indices)
   
   ! Calculate radius.
   radius = sum(sampling_point_indices)
   
-  allocate( output%vector(size(sampling_point_indices)), &
-          & stat=ialloc); call err(ialloc)
-  if (radius==0) then
-    output%vector = 0
+  if (qpoint%is_paired_qpoint) then
+    allocate(output%vector(no_modes,1), stat=ialloc); call err(ialloc)
+    if (radius==0) then
+      output%vector = 0
+    else
+      do mode=1,no_modes
+        output%vector(mode,1) = sin( sampling_point_indices(mode) &
+                          &        / real(radius,dp) )            &
+                          & * radius                              &
+                          & * sample_spacing(mode)
+      enddo
+    endif
   else
-    do i=1,size(output%vector)
-      output%vector(i) = sin(sampling_point_indices(i)/real(radius,dp)) &
-                     & * radius                                         &
-                     & * sample_spacing(i)
-    enddo
+    allocate(output%vector(no_modes/2,2), stat=ialloc); call err(ialloc)
+    if (radius==0) then
+      output%vector = 0
+    else
+      do i=1,no_modes/2
+        do j=1,2
+          mode = j*no_modes/2+i-1
+          output%vector(i,j) = sin( sampling_point_indices(mode) &
+                            &        / real(radius,dp) )            &
+                            & * radius                              &
+                            & * sample_spacing(mode)
+        enddo
+      enddo
+    endif
   endif
 end function
 

@@ -23,20 +23,19 @@ program caesar
   ! Use harmonic modules.
   use setup_harmonic_module
   use run_harmonic_module
-  use calculate_harmonic_module
+  use calculate_normal_modes_module
   use calculate_dos_and_dispersion_module
   
   ! Use anharmonic modules.
-  use setup_anharmonic_module
-  use run_anharmonic_module
-  use calculate_anharmonic_module
+  !use setup_anharmonic_module
+  !use run_anharmonic_module
+  !use calculate_anharmonic_module
   
   ! Use testing modules.
   use test_module
   use linear_algebra_test_module
   
   ! Use misc modules.
-  use calculate_gap_module
   use hartree_to_eV_module
   
   implicit none
@@ -81,11 +80,11 @@ program caesar
      & plot_cutoff_and_kpoints_mode(), &
      & setup_harmonic_mode(), &
      & run_harmonic_mode(), &
-     & calculate_harmonic_mode(), &
-     & calculate_dos_and_dispersion_mode(), &
-     & setup_anharmonic_mode(), &
-     & run_anharmonic_mode(), &
-     & calculate_anharmonic_mode() &
+     & calculate_normal_modes_mode() &
+!     & calculate_dos_and_dispersion_mode(), &
+!     & setup_anharmonic_mode(), &
+!     & run_anharmonic_mode(), &
+!     & calculate_anharmonic_mode() &
      &])
   
   ! --------------------------------------------------

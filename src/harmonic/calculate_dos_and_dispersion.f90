@@ -115,7 +115,6 @@ subroutine calculate_dos_and_dispersion(arguments)
      & structure,                          &
      & temperature,                        &
      & large_supercell,                    &
-     & qpoints,                            &
      & disp_qpoints,                       &
      & wd//'/phonon_dispersion_curve.dat', &
      & wd//'/high_symmetry_points.dat',    &
