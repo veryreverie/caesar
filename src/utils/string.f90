@@ -217,7 +217,14 @@ pure subroutine assign_String_String(this,that)
   class(String), intent(inout) :: this
   class(String), intent(in)    :: that
   
-  this = that%contents
+  ! An allocated() check is needed because casting
+  !   from character(:) to character(*) failes if the character(:) is not
+  !   allocated.
+  if (allocated(that%contents)) then
+    this = that%contents
+  elseif (allocated(this%contents)) then
+    deallocate(this%contents)
+  endif
 end subroutine
 
 ! String = integer

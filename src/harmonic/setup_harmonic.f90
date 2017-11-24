@@ -60,7 +60,6 @@ subroutine setup_harmonic(arguments)
   use qpoints_module
   use dictionary_module
   use dft_input_file_module
-  use construct_supercell_module
   use generate_supercells_module
   use unique_directions_module
   implicit none

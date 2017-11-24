@@ -46,15 +46,24 @@ contains
 ! ----------------------------------------------------------------------
 ! Constructor.
 ! ----------------------------------------------------------------------
-function new_AtomData(lattice,recip_lattice) result(this)
+function new_AtomData(species,mass,cartesian_position,lattice,recip_lattice) &
+   & result(this)
   implicit none
   
+  type(String),     intent(in) :: species
+  real(dp),         intent(in) :: mass
+  type(RealVector), intent(in) :: cartesian_position
   type(RealMatrix), intent(in) :: lattice
   type(RealMatrix), intent(in) :: recip_lattice
   type(AtomData)               :: this
   
   this%lattice_ = lattice
   this%recip_lattice_ = recip_lattice
+  
+  this%species_ = species
+  this%mass_ = mass
+  
+  call this%set_cartesian_position(cartesian_position)
 end function
 
 ! ----------------------------------------------------------------------

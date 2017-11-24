@@ -22,7 +22,6 @@ module group_module
   
   private
   
-  public :: Group
   public :: size
   public :: make_identity_group
   

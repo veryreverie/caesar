@@ -93,6 +93,11 @@ module linear_algebra_module
     module procedure int_IntMatrix
   end interface
   
+  interface nint
+    module procedure nint_RealVector
+    module procedure nint_RealMatrix
+  end interface
+  
   interface dble
     module procedure dble_IntVector
     module procedure dble_IntMatrix
@@ -384,7 +389,7 @@ module linear_algebra_module
     end subroutine
     
     ! Real dot product. Returns DX.DY.
-    pure real(dp) function ddot(N,DX,INCX,DY,INCY)
+    pure function ddot(N,DX,INCX,DY,INCY) result(output)
       import :: dp
       implicit none
       
@@ -393,6 +398,7 @@ module linear_algebra_module
       integer,  intent(in) :: INCX  ! increment along DX
       real(dp), intent(in) :: DY(*) ! second vector
       integer,  intent(in) :: INCY  ! increment along DY
+      real(dp)             :: output
     end function
     
     ! Multiplies real vector by real scalar. Equivalent to DX *= DA.
@@ -687,6 +693,24 @@ pure function int_IntMatrix(input) result(output)
   integer, allocatable        :: output(:,:)
   
   output = input%contents
+end function
+
+pure function nint_RealVector(input) result(output)
+  implicit none
+  
+  type(RealVector), intent(in) :: input
+  integer, allocatable         :: output(:)
+  
+  output = nint(input%contents)
+end function
+
+pure function nint_RealMatrix(input) result(output)
+  implicit none
+  
+  type(RealMatrix), intent(in) :: input
+  integer, allocatable         :: output(:,:)
+  
+  output = nint(input%contents)
 end function
 
 pure function dble_IntVector(input) result(output)

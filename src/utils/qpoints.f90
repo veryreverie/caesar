@@ -82,7 +82,6 @@ function read_qpoints_file(filename) result(this)
   type(QpointData), allocatable :: this(:)
   
   type(IFile)               :: qpoints_file
-  type(String), allocatable :: line(:)
   
   integer :: no_qpoints
   integer :: qpoint_line

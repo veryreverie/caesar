@@ -869,7 +869,6 @@ subroutine fourier_interpolation(dynamical_matrices,structure,temperature, &
   use structure_module
   use group_module
   use min_images_module
-  use construct_supercell_module
   use qpoints_module
   implicit none
   
@@ -955,6 +954,7 @@ function rotate_modes(input,symmetry,structure,qpoint) result(output)
   use constants_module, only : pi
   use structure_module
   use qpoints_module
+  use symmetry_module
   implicit none
   
   type(DynamicalMatrixAndMode), intent(in) :: input

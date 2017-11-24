@@ -9,45 +9,16 @@ module structure_module
   use linear_algebra_module
   use group_module
   use atom_module
+  use basic_symmetry_module
+  use symmetry_module
   implicit none
   
   private
   
-  public :: SymmetryOperator
   public :: StructureData
   public :: read_structure_file
   public :: write_structure_file
-  
-  ! ----------------------------------------------------------------------
-  ! A symmetry operation.
-  ! ----------------------------------------------------------------------
-  type :: SymmetryOperator
-    ! The rotation and translation in fractional co-ordinates.
-    ! R and T.
-    type(IntMatrix)  :: rotation
-    type(RealVector) :: translation
-    
-    ! The rotation and translation in cartesian co-ordinates.
-    ! (L^T)R(L^-T) and (L^T)T.
-    type(RealMatrix) :: cartesian_rotation
-    type(RealVector) :: cartesian_translation
-    
-    ! The mapping from atoms to other atoms.
-    ! rho_i and rho_j are the equilibrium positions of atom i and j.
-    ! R * rho_i + T = rho_j + rvector_j
-    !    - atom_group*i = j,
-    !    - rvector(j) = rvector_j in fractional co-ordinates.
-    type(Group)                  :: atom_group
-    type(IntVector), allocatable :: rvector(:)
-    
-    ! The mapping from symmetry operators to other symmetry operators.
-    ! If S * S_i = S_j then symmetry_group*i = j,
-    !    where S is this operator, and S_i and S_j are other operators.
-    type(Group) :: operator_group
-    
-    ! The id of the operator S_j, s.t. S*S_j = S_j*S = I.
-    integer :: inverse
-  end type
+  public :: construct_supercell
   
   ! ----------------------------------------------------------------------
   ! The structure type.
@@ -63,10 +34,10 @@ module structure_module
     ! ------------------------------
     ! Atom data
     ! ------------------------------
-    integer                       :: no_atoms
-    integer                       :: no_atoms_prim
-    integer                       :: no_modes
-    integer                       :: no_modes_prim
+    integer :: no_atoms
+    integer :: no_atoms_prim
+    integer :: no_modes
+    integer :: no_modes_prim
     
     type(AtomData), allocatable :: atoms(:)
     
@@ -114,143 +85,192 @@ module structure_module
   contains
     !procedure, public  :: atom_at_prim_plus_rvector
     
-    procedure, public  :: calculate_derived_quantities
-    procedure, public  :: calculate_symmetry
     procedure, public  :: calculate_rvector_group
     procedure, public  :: calculate_gvector_group
-    procedure, private :: calculate_atom_symmetry_group
-    procedure, private :: calculate_operator_symmetry_group
-    procedure, private :: calculate_operator_inverses
   end type
   
   interface StructureData
     module procedure new_StructureData
-  end interface
-  
-  ! ----------------------------------------------------------------------
-  ! spglib interface.
-  ! ----------------------------------------------------------------------
-  ! spglib_calculate_symmetries calculates symmetry operations, but has
-  !    nowhere to store them. Space should be allocated, and passed into
-  !    spglib_retrieve_symmetries, which will copy the data from
-  !    C-style malloc memory to Fortran allocatable memory. Finally,
-  !    drop_spg_dataset deallocates the malloc memory.
-  interface
-    subroutine spglib_calculate_symmetries( &
-       & lattice,position,types,num_atom,symprec, &
-       & success,spg_dataset_pointer,n_operations) &
-       & bind(c)
-      use, intrinsic :: iso_c_binding
-      implicit none
-      
-      ! Inputs.
-      real(kind=c_double),  intent(in) :: lattice(3,3)
-      real(kind=c_double),  intent(in) :: position(3,*)
-      integer(kind=c_int),  intent(in) :: types(*)
-      integer(kind=c_int),  intent(in) :: num_atom
-      real(kind=c_double),  intent(in) :: symprec
-      
-      ! Output.
-      logical(kind=c_bool), intent(out) :: success
-      type(c_ptr),          intent(out) :: spg_dataset_pointer
-      integer(kind=c_int),  intent(out) :: n_operations
-    end subroutine
-  end interface
-  
-  interface
-    subroutine spglib_retrieve_symmetries(spg_dataset_pointer, &
-       & rotations,translations) bind(c)
-      use, intrinsic :: iso_c_binding
-      implicit none
-      
-      ! Inputs.
-      type(c_ptr), intent(in) :: spg_dataset_pointer
-      
-      ! Outputs.
-      integer(kind=c_int), intent(out) :: rotations(3,3,*)
-      real(kind=c_double), intent(out) :: translations(3,*)
-    end subroutine
-  end interface
-  
-  interface
-    subroutine drop_spg_dataset(spg_dataset_pointer) bind(c)
-      use, intrinsic :: iso_c_binding
-      implicit none
-      
-      type(c_ptr), intent(inout) :: spg_dataset_pointer
-    end subroutine
   end interface
 contains
 
 ! ----------------------------------------------------------------------
 ! Allocates all arrays, and sets no_ variables.
 ! ----------------------------------------------------------------------
-function new_StructureData(no_atoms,no_symmetries,sc_size) result(this)
+function new_StructureData(lattice_matrix,supercell_matrix,rvectors,gvectors, &
+   & species_primitive_cell,masses_primitive_cell,cartesian_positions,        &
+   & basic_symmetries_in,symmetry_precision) result(this)
+  use linear_algebra_module
+  use basic_symmetry_module
   implicit none
   
-  integer, intent(in) :: no_atoms
-  integer, intent(in) :: no_symmetries
-  integer, intent(in) :: sc_size
+  ! --------------------------------------------------
+  ! Function arguments and Output.
+  ! --------------------------------------------------
+  ! Lattice and Supercell inputs.
+  type(RealMatrix), intent(in) :: lattice_matrix
+  type(IntMatrix),  intent(in) :: supercell_matrix
+  type(IntVector),  intent(in) :: rvectors(:)
+  type(IntVector),  intent(in) :: gvectors(:)
+  
+  ! Atom inputs.
+  type(String),     intent(in) :: species_primitive_cell(:)
+  real(dp),         intent(in) :: masses_primitive_cell(:)
+  type(RealVector), intent(in) :: cartesian_positions(:,:)
+  
+  ! Symmetry inputs.
+  ! Either basic_symmetries_in should be supplied (as read from a file),
+  !    or symmetry_precision should be supplied (to calculate fresh symmetries).
+  type(BasicSymmetry), intent(in), optional :: basic_symmetries_in(:)
+  real(dp),            intent(in), optional :: symmetry_precision
+  
+  ! Output.
   type(StructureData) :: this
   
-  integer :: prim,gvec,atom
-  integer :: ialloc
+  ! --------------------------------------------------
+  ! Working variables.
+  ! --------------------------------------------------
+  ! Symmetries.
+  type(BasicSymmetry), allocatable :: basic_symmetries(:)
   
-  if (modulo(no_atoms,sc_size)/=0) then
-    call print_line('Error: no_atoms is not divisible by sc_size')
+  ! Temporary variables.
+  integer :: prim,rvec,atom
+  integer :: i,j,ialloc
+  
+  ! Fill out |S| and numbers of atoms and modes.
+  this%sc_size = abs(determinant(supercell_matrix))
+  this%no_atoms_prim = size(species_primitive_cell)
+  this%no_atoms = this%no_atoms_prim*this%sc_size
+  this%no_modes_prim = this%no_atoms_prim*3
+  this%no_modes = this%no_atoms*3
+  
+  ! Check that inputs are consistent with |S|, no_atoms and one another.
+  if (size(rvectors)/=this%sc_size) then
+    call print_line(ERROR//': The size of the supercell, |S|, does not match &
+       &the number of R-vectors provided.')
+    call err()
+  elseif (size(gvectors)/=this%sc_size) then
+    call print_line(ERROR//': The size of the supercell, |S|, does not match &
+       &the number of R-vectors provided.')
+    call err()
+  elseif (size(masses_primitive_cell)/=this%no_atoms_prim) then
+    call print_line(ERROR//': The number of species provided does not match &
+       &the number of masses provided.')
+    call err()
+  elseif (size(cartesian_positions,1)/=this%no_atoms_prim) then
+    call print_line(ERROR//': The number of positions provided does not match &
+       &the number of masses provided.')
+    call err()
+  elseif (size(cartesian_positions,2)/=this%sc_size) then
+    call print_line(ERROR//': The number of positions provided does not match &
+       &the number of R-vectors provided.')
+  endif
+  
+  ! Fill out lattice, L, and supercell, S, matrix information.
+  this%lattice         = lattice_matrix
+  this%recip_lattice   = transpose(invert(lattice_matrix))
+  this%supercell       = supercell_matrix
+  this%recip_supercell = transpose(invert_int(this%supercell))
+  this%volume          = abs(determinant(this%lattice))
+  
+  ! Fill out R-vectors (multiples of the primitive lattice which lie within
+  !    the supercell lattice), and G-vectors (multiples of the reciprocal
+  !    supercell lattice which lie within the reciprocal primitive lattice).
+  this%rvectors = rvectors
+  this%gvectors = gvectors
+  
+  allocate( this%paired_rvec(this%sc_size), &
+          & this%paired_gvec(this%sc_size), &
+          & stat=ialloc); call err(ialloc)
+  
+  this%paired_rvec = 0
+  do i=1,this%sc_size
+    do j=1,i
+      if (all(modulo( int( this%recip_supercell                  &
+                    &    * (this%rvectors(i)+this%rvectors(j))), &
+                    & this%sc_size) == 0)) then
+        this%paired_rvec(i) = j
+        this%paired_rvec(j) = i
+      endif
+    enddo
+  enddo
+  if (any(this%paired_rvec==0)) then
+    call print_line('Error: not all paired R-vectors found.')
     call err()
   endif
   
-  this%no_atoms = no_atoms
-  this%no_atoms_prim = no_atoms/sc_size
-  this%no_modes = no_atoms*3
-  this%no_modes_prim = no_atoms*3/sc_size
-  allocate( this%atoms(no_atoms),                                 &
-          & this%atom_to_prim(no_atoms),                          &
-          & this%atom_to_rvec(no_atoms),                          &
-          & this%rvec_and_prim_to_atom(no_atoms/sc_size,sc_size), &
-          & stat=ialloc); call err(ialloc)
-  
-  do atom=1,this%no_atoms
-    this%atoms(atom) = AtomData(this%lattice,this%recip_lattice)
+  this%paired_gvec = 0
+  do i=1,this%sc_size
+    do j=1,i
+      if (all(modulo( int( transpose(this%recip_supercell)       &
+                &        * (this%gvectors(i)+this%gvectors(j))), &
+                & this%sc_size) == 0)) then
+        this%paired_gvec(i) = j
+        this%paired_gvec(j) = i
+      endif
+    enddo
   enddo
+  if (any(this%paired_gvec==0)) then
+    call print_line('Error: not all paired G-vectors found.')
+    call err()
+  endif
   
-  do gvec=1,sc_size
-    do prim=1,no_atoms/sc_size
-      atom = (prim-1)*sc_size + gvec
+  ! Fill out atom -> R-vector / prim conversion.
+  allocate( this%atom_to_prim(this%no_atoms),                             &
+          & this%atom_to_rvec(this%no_atoms),                             &
+          & this%rvec_and_prim_to_atom(this%no_atoms_prim, this%sc_size), &
+          & stat=ialloc); call err(ialloc)
+  do rvec=1,this%sc_size
+    do prim=1,this%no_atoms_prim
+      atom = (rvec-1)*this%no_atoms_prim + prim
       
       this%atom_to_prim(atom) = prim
-      this%atom_to_rvec(atom) = gvec
-      this%rvec_and_prim_to_atom(prim,gvec) = atom
+      this%atom_to_rvec(atom) = rvec
+      this%rvec_and_prim_to_atom(prim,rvec) = atom
     enddo
   enddo
   
-  if (no_symmetries /= 0) then
-    allocate( this%symmetries(no_symmetries), &
-            & stat=ialloc); call err(ialloc)
+  ! Fill out atom data.
+  allocate( this%atoms(this%no_atoms), &
+          & stat=ialloc); call err(ialloc)
+  do atom=1,this%no_atoms
+    prim = this%atom_to_prim(atom)
+    rvec = this%atom_to_rvec(atom)
+    this%atoms(atom) = AtomData( species_primitive_cell(prim),   &
+                               & masses_primitive_cell(prim),    &
+                               & cartesian_positions(prim,rvec), &
+                               & this%lattice,                   &
+                               & this%recip_lattice)
+  enddo
+  
+  ! Fill out symmetry information.
+  if (present(symmetry_precision)) then
+    if (present(basic_symmetries_in)) then
+      call print_line(CODE_ERROR//': Both symmetry_precision and symmetries &
+         &provided.')
+      call err()
+    endif
+  else
+    if (.not. present(basic_symmetries_in)) then
+      call print_line(CODE_ERROR//': Neither symmetry_precision nor &
+         &symmetries provided.')
+      call err()
+    endif
   endif
   
-  this%sc_size = sc_size
-  allocate( this%rvectors(sc_size),    &
-          & this%paired_rvec(sc_size), &
-          & this%gvectors(sc_size),    &
-          & this%paired_gvec(sc_size), &
-          & stat=ialloc); call err(ialloc)
+  if (present(symmetry_precision)) then
+    basic_symmetries = calculate_basic_symmetries( this%lattice, &
+                                                 & this%atoms, &
+                                                 & symmetry_precision)
+  else
+    basic_symmetries = basic_symmetries_in
+  endif
+  
+  this%symmetries = calculate_symmetries( basic_symmetries,   &
+                                        & this%lattice,       &
+                                        & this%recip_lattice, &
+                                        & this%atoms)
 end function
-
-! ----------------------------------------------------------------------
-! Returns the atom at a given R-vector from an atom in the primitive cell.
-! ----------------------------------------------------------------------
-!function atom_at_prim_plus_rvector(this,prim,rvector) result(output)
-!  implicit none
-!  
-!  class(StructureData), intent(in) :: this
-!  integer,              intent(in) :: prim
-!  integer,              intent(in) :: rvector
-!  type(AtomData)                   :: output
-!  
-!  output = this%atoms(this%rvec_and_prim_to_atom(prim,rvec))
-!end function
 
 ! ----------------------------------------------------------------------
 ! Reads structure.dat
@@ -276,11 +296,27 @@ function read_structure_file(filename) result(this)
   integer :: gvectors_line  ! The line "G-vectors"
   integer :: end_line       ! The line "End"
   
-  ! Temproary variables.
-  integer                   :: i,j
+  ! Lattice.
+  real(dp) :: lattice_matrix(3,3)
+  
+  ! Supercell, R-vectors and G-vectors.
+  integer                      :: supercell_matrix(3,3)
+  type(IntVector), allocatable :: rvectors(:)
+  type(IntVector), allocatable :: gvectors(:)
+  
+  ! Atom species, masses and cartesian positions.
+  type(String),     allocatable :: species(:)
+  real(dp),         allocatable :: masses(:)
+  type(RealVector), allocatable :: positions(:,:)
+  
+  ! Symmetry data.
+  integer                          :: rotation_matrix(3,3)
+  type(BasicSymmetry), allocatable :: symmetries(:)
+  
+  ! Temporary variables.
+  integer                   :: i,j,ialloc
   type(String), allocatable :: line(:)
-  real(dp)                  :: temp_real(3,3)
-  integer                   :: temp_int(3,3)
+  integer                   :: atom,rvec,prim
   
   ! ------------------------------
   ! Initialise line numbers.
@@ -363,68 +399,93 @@ function read_structure_file(filename) result(this)
   elseif (supercell_line==0) then
     ! structure.dat does not contain supercell data
     no_atoms = symmetry_line-atoms_line-1
-    no_symmetries = (end_line-symmetry_line-1)/5
+    no_symmetries = (end_line-symmetry_line-1)/7
     sc_size = 1
   else
     no_atoms = symmetry_line-atoms_line-1
-    no_symmetries = (supercell_line-symmetry_line-1)/11
+    no_symmetries = (supercell_line-symmetry_line-1)/7
     sc_size = end_line-gvectors_line-1
   endif
   
   ! ------------------------------
-  ! Allocate structure.
-  ! ------------------------------
-  this = StructureData(no_atoms, no_symmetries, sc_size)
-  
-  ! ------------------------------
-  ! Read file into arrays.
+  ! Read in lattice.
   ! ------------------------------
   do i=1,3
-    temp_real(i,:) = dble(split(structure_file%line(lattice_line+i)))
-  enddo
-  this%lattice = temp_real
-  
-  do i=1,this%no_atoms
-    line = split(structure_file%line(atoms_line+i))
-    call this%atoms(i)%set_species(line(1))
-    call this%atoms(i)%set_mass(dble(line(2)))
-    call this%atoms(i)%set_cartesian_position(vec(dble(line(3:5))))
+    lattice_matrix(i,:) = dble(split(structure_file%line(lattice_line+i)))
   enddo
   
-  do i=1,size(this%symmetries)
-    do j=1,3
-      temp_int(j,:) = int(split( &
-         & structure_file%line(symmetry_line+(i-1)*11+j+1)))
-    enddo
-    this%symmetries(i)%rotation = temp_int
-    this%symmetries(i)%translation = dble(split( &
-       & structure_file%line(symmetry_line+(i-1)*11+6)))
-    this%symmetries(i)%atom_group = int(split( &
-       & structure_file%line(symmetry_line+(i-1)*11+8)))
-    this%symmetries(i)%operator_group = int(split( &
-       & structure_file%line(symmetry_line+(i-1)*11+10)))
-  enddo
-  
+  ! ------------------------------
+  ! Read in supercell, R-vectors and G-vectors.
+  ! ------------------------------
   if (supercell_line==0) then
-    this%supercell = make_identity_matrix(3)
-    this%gvectors(1) = [ 0, 0, 0 ]
+    supercell_matrix = int(make_identity_matrix(3))
+    rvectors = [vec([0,0,0])]
+    gvectors = [vec([0,0,0])]
   else
     do i=1,3
-      temp_int(i,:) = int(split(structure_file%line(supercell_line+i)))
-    enddo
-    this%supercell = temp_int
-    
-    do i=1,sc_size
-      this%rvectors(i) = int(split(structure_file%line(rvectors_line+i)))
+      supercell_matrix(i,:) = int(split(structure_file%line(supercell_line+i)))
     enddo
     
     do i=1,sc_size
-      this%gvectors(i) = int(split(structure_file%line(gvectors_line+i)))
+      rvectors(i) = int(split(structure_file%line(rvectors_line+i)))
+    enddo
+    
+    do i=1,sc_size
+      gvectors(i) = int(split(structure_file%line(gvectors_line+i)))
     enddo
   endif
   
-  ! calculate derived quantities
-  call calculate_derived_quantities(this)
+  ! ------------------------------
+  ! Read in atomic information.
+  ! ------------------------------
+  allocate( species(no_atoms/sc_size),           &
+          & masses(no_atoms/sc_size),            &
+          & positions(no_atoms/sc_size,sc_size), &
+          & stat=ialloc); call err(ialloc)
+  do atom=1,no_atoms
+    line = split(structure_file%line(atoms_line+atom))
+    
+    rvec = (atom-1)/sc_size + 1
+    prim = modulo(atom-1,no_atoms/sc_size) + 1
+    
+    if (rvec==1) then
+      species(prim) = line(1)
+      masses(prim) = dble(line(2))
+    else
+      if (species(prim) /= line(1)) then
+        call print_line(ERROR//': The species of the same atom at different &
+           &R-vectors does not match.')
+        call err()
+      endif
+    endif
+    positions(prim,rvec) = dble(line(3:5))
+  enddo
+  
+  ! ------------------------------
+  ! Read in symmetries.
+  ! ------------------------------
+  allocate(symmetries(no_symmetries), stat=ialloc); call err(ialloc)
+  do i=1,no_symmetries
+    do j=1,3
+      rotation_matrix(j,:) = int(split( &
+         & structure_file%line(symmetry_line+(i-1)*7+j+1)))
+    enddo
+    symmetries(i)%rotation = rotation_matrix
+    symmetries(i)%translation = &
+       & dble(split(structure_file%line(symmetry_line+(i-1)*11+6)))
+  enddo
+  
+  ! ------------------------------
+  ! Allocate structure.
+  ! ------------------------------
+  this = StructureData( mat(lattice_matrix),   &
+                      & mat(supercell_matrix), &
+                      & rvectors,              &
+                      & gvectors,              &
+                      & species,               &
+                      & masses,                &
+                      & positions,             &
+                      & basic_symmetries_in=symmetries)
 end function
 
 subroutine write_structure_file(this,filename)
@@ -456,10 +517,6 @@ subroutine write_structure_file(this,filename)
       call structure_file%print_line(this%symmetries(i)%rotation)
       call structure_file%print_line('Translation:')
       call structure_file%print_line(this%symmetries(i)%translation)
-      call structure_file%print_line('Atom group:')
-      call structure_file%print_line(this%symmetries(i)%atom_group)
-      call structure_file%print_line('Operator group:')
-      call structure_file%print_line(this%symmetries(i)%operator_group)
       call structure_file%print_line('')
     enddo
   endif
@@ -476,64 +533,6 @@ subroutine write_structure_file(this,filename)
   enddo
   
   call structure_file%print_line('End')
-end subroutine
-
-! ----------------------------------------------------------------------
-! Calculate derived quantities.
-! ----------------------------------------------------------------------
-subroutine calculate_derived_quantities(this)
-  use linear_algebra_module, only : invert, determinant
-  implicit none
-  
-  class(StructureData), intent(inout) :: this
-  
-  integer :: i,j
-  
-  this%recip_supercell = transpose(invert_int(this%supercell))
-  this%recip_lattice   = transpose(invert(this%lattice))
-  this%volume          = abs(determinant(this%lattice))
-  
-  this%paired_rvec = 0
-  this%paired_gvec = 0
-  
-  do i=1,this%sc_size
-    do j=1,i
-      if (all(modulo( int( this%recip_supercell                  &
-                    &    * (this%rvectors(i)+this%rvectors(j))), &
-                    & this%sc_size) == 0)) then
-        this%paired_rvec(i) = j
-        this%paired_rvec(j) = i
-      endif
-      
-      if (all(modulo( int( transpose(this%recip_supercell)       &
-                &        * (this%gvectors(i)+this%gvectors(j))), &
-                & this%sc_size) == 0)) then
-        this%paired_gvec(i) = j
-        this%paired_gvec(j) = i
-      endif
-    enddo
-  enddo
-  
-  if (any(this%paired_rvec==0)) then
-    call print_line('Error: not all paired R-vectors found.')
-    call err()
-  elseif (any(this%paired_gvec==0)) then
-    call print_line('Error: not all paired G-vectors found.')
-    call err()
-  endif
-  
-  do i=1,size(this%symmetries)
-    this%symmetries(i)%cartesian_rotation = transpose(this%lattice)     &
-                                        & * this%symmetries(i)%rotation &
-                                        & * this%recip_lattice
-    this%symmetries(i)%cartesian_translation = transpose(this%lattice) &
-                                           & * this%symmetries(i)%translation
-  enddo
-  
-  ! Calculate further symmetry properties.
-  call this%calculate_atom_symmetry_group()
-  call this%calculate_operator_symmetry_group()
-  call this%calculate_operator_inverses()
 end subroutine
 
 ! ----------------------------------------------------------------------
@@ -617,267 +616,151 @@ function calculate_gvector_group(this) result(output)
 end function
 
 ! ----------------------------------------------------------------------
-! Calls spglib, and calculates all symmetry operations.
+! Calculates the set of vectors which are not related to one another by
+!    lattice vectors.
 ! ----------------------------------------------------------------------
-subroutine calculate_symmetry(this,symmetry_precision)
-  use iso_c_binding
-  implicit none
-  
-  class(StructureData), intent(inout) :: this
-  real(dp),             intent(in)    :: symmetry_precision
-  
-  ! spglib inputs.
-  integer             :: atom_types(this%no_atoms)
-  
-  ! spglib data.
-  logical(kind=c_bool) :: spglib_success
-  type(c_ptr)          :: spg_dataset_pointer
-  integer              :: no_symmetries
-  
-  ! Temporary matrix storage, for passing to and from C.
-  real(dp), allocatable :: atoms(:,:)
-  integer,  allocatable :: rotations(:,:,:)
-  real(dp), allocatable :: translations(:,:)
-  
-  ! Temporary variables.
-  integer :: i,j,ialloc
-  integer :: atom_type
-  
-  atom_type = 0
-  do_i : do i=1,this%no_atoms
-    do j=1,i-1
-      if (this%atoms(i)%species()==this%atoms(j)%species()) then
-        atom_types(i) = atom_types(j)
-        cycle do_i
-      endif
-    enddo
-    atom_types(i) = atom_type
-    atom_type = atom_type+1
-  enddo do_i
-  
-  ! Calculate symmetries, without space to store them.
-  allocate(atoms(3,this%no_atoms), stat=ialloc); call err(ialloc)
-  do i=1,this%no_atoms
-    atoms(:,i) = dble(this%atoms(i)%fractional_position())
-  enddo
-  call spglib_calculate_symmetries( dble(this%lattice),  &
-                                  & atoms,               &
-                                  & atom_types,          &
-                                  & this%no_atoms,       &
-                                  & symmetry_precision,  &
-                                  & spglib_success,      &
-                                  & spg_dataset_pointer, &
-                                  & no_symmetries)
-  
-  ! Check for errors.
-  if (.not. spglib_success) then
-    call print_line('Error: spglib symmetry finder failed. &
-       &Try increasing symmetry_precision.')
-    call err()
-  endif
-  
-  ! Allocate space for symmetries.
-  allocate( rotations(3,3,no_symmetries),     &
-          & translations(3,no_symmetries),    &
-          & this%symmetries(no_symmetries), &
-          & stat=ialloc); call err(ialloc)
-  
-  ! Retrieve symmetries into allocated space.
-  call spglib_retrieve_symmetries( spg_dataset_pointer, &
-                                 & rotations,      &
-                                 & translations)
-  do i=1,size(this%symmetries)
-    this%symmetries(i)%rotation = rotations(:,:,i)
-    this%symmetries(i)%translation = translations(:,i)
-  enddo
-  
-  ! Deallocate C memory.
-  call drop_spg_dataset(spg_dataset_pointer)
-end subroutine
-
-! ----------------------------------------------------------------------
-! Calculates how symmetries map atoms onto other atoms.
-! ----------------------------------------------------------------------
-! If symmetry i maps atom j to atom k then output(i)*j=k.
-subroutine calculate_atom_symmetry_group(this)
-  use group_module
+! This is a helper function for construct_supercell.
+! This is used to either calculate the R-vectors of the primitive cell which
+!    are unique in the supercell, or the G-vectors of the reciprocal supercell
+!    which are unique in the reciprocal primitive cell.
+function calculate_unique_vectors(lattice,centre_on_origin) result(output)
   use linear_algebra_module
   implicit none
   
-  class(StructureData), intent(inout) :: this
+  ! Lattice vectors are the rows of lattice.
+  type(IntMatrix), intent(in)  :: lattice
+  logical,         intent(in)  :: centre_on_origin
+  type(IntVector), allocatable :: output(:)
   
-  ! Objects in fractional supercell co-ordinates.
-  !   n.b. in these co-ordintates, supercell lattice vectors are unit vectors.
-  !   This is a different convention to the scaled co-ordinates used elsewhere.
-  type(RealVector), allocatable :: atom_pos_frac(:)
-  type(RealVector)              :: transformed_pos_frac
+  integer         :: lattice_size
+  integer         :: no_vectors
+  type(IntVector) :: frac_vec
+  type(IntVector) :: prim_vec
+  integer         :: i,j,k,ialloc
   
-  ! Distances between atoms and transformed atoms.
-  type(RealVector)      :: difference_frac
-  real(dp), allocatable :: distances(:)
-  
-  ! Variables to hold output data.
-  integer,         allocatable :: operations(:,:)
-  type(IntVector), allocatable :: rvector(:,:)
-  
-  ! Temporary variables.
-  integer :: i,j,k,ialloc
-  
-  allocate( atom_pos_frac(this%no_atoms),                    &
-          & distances(this%no_atoms),                        &
-          & operations(this%no_atoms,size(this%symmetries)), &
-          & rvector(this%no_atoms,size(this%symmetries)),    &
-          & stat=ialloc); call err(ialloc)
-  
-  ! Transform atom positions into fractional supercell co-ordinates.
-  do i=1,this%no_atoms
-    atom_pos_frac(i) = this%atoms(i)%fractional_position()
-  enddo
-  
-  ! Work out which atoms map to which atoms under each symmetry operation.
-  do i=1,size(this%symmetries)
-    do j=1,this%no_atoms
-      ! Calculate the position of the transformed atom.
-      transformed_pos_frac = this%symmetries(i)%rotation         &
-                         & * this%atoms(j)%fractional_position() &
-                         & + this%symmetries(i)%translation
-      
-      ! Identify which atom is closest to the transformed position,
-      !    modulo supercell lattice vectors.
-      do k=1,this%no_atoms
-        difference_frac = transformed_pos_frac &
-                      & - this%atoms(k)%fractional_position()
-        distances(k) = l2_norm( difference_frac &
-                            & - vec(nint(dble(difference_frac))))
-      enddo
-      operations(j,i) = minloc(distances,1)
-      
-      ! R*rho_i+t = rho_j + an R-vector.
-      ! Identify this R-vector, and record it.
-      rvector(j,i) = vec(nint(dble( transformed_pos_frac &
-                              & - this%atoms(j)%fractional_position())))
-      
-      ! Check that the transformed atom is acceptably close to its image.
-      if (distances(operations(j,i))>1.0e-10_dp) then
-        call print_line(CODE_ERROR//': Error mapping atoms under symmetry.')
-        call err()
-      endif
-    enddo
-  enddo
-  
-  ! Check that each symmetry is one-to-one, and that mapped atoms are of the
-  !    same species.
-  do i=1,size(this%symmetries)
-    do j=1,this%no_atoms
-      if (count(operations(:,i)==j)/=1) then
-        call print_line('Error: symmetry operation not one-to-one.')
-        call err()
-      endif
-      
-      if (this%atoms(operations(j,i))%species()/=this%atoms(j)%species()) then
-        call print_line('Error: symmetry operation between different species.')
-        call err()
-      endif
-    enddo
-  enddo
-  
-  do i=1,size(this%symmetries)
-    this%symmetries(i)%atom_group = operations(:,i)
-    this%symmetries(i)%rvector = rvector(:,i)
-  enddo
-end subroutine
-
-! ----------------------------------------------------------------------
-! Calculates how symmetries map symmetries onto other symmetries.
-! ----------------------------------------------------------------------
-! If symmetry i * symmetry j = symmetry k then output(i)*j=k.
-subroutine calculate_operator_symmetry_group(this)
-  use group_module
-  use linear_algebra_module
-  implicit none
-  
-  class(StructureData), intent(inout) :: this
-  
-  type(IntMatrix) :: rotation_k
-  type(Group)     :: operation_k
-  
-  ! Temporary variables.
-  integer              :: i,j,k,ialloc
-  integer, allocatable :: temp_operator_group(:)
-  
-  allocate( temp_operator_group(size(this%symmetries)), &
-          & stat=ialloc); call err(ialloc)
-  do i=1,size(this%symmetries)
-    do_j : do j=1,size(this%symmetries)
-      rotation_k = this%symmetries(i)%rotation &
-               & * this%symmetries(j)%rotation
-      operation_k = this%symmetries(i)%atom_group &
-                & * this%symmetries(j)%atom_group
-      do k=1,size(this%symmetries)
-        if ( rotation_k==this%symmetries(k)%rotation .and. &
-           & operation_k==this%symmetries(k)%atom_group) then
-          temp_operator_group(j) = k
-          cycle do_j
-        endif
-      enddo
-      
-      call print_line('Error: symmetry '//i//' times symmetry '//j//' is not &
-         &itself a symmetry.')
-      call err()
-    enddo do_j
-    
-    this%symmetries(i)%operator_group = temp_operator_group
-  enddo
-end subroutine
-
-! ----------------------------------------------------------------------
-! Calculates the inverse of each symmetry.
-! ----------------------------------------------------------------------
-! If symmetry i * symmetry j = I then output(i)=j.
-subroutine calculate_operator_inverses(this)
-  use group_module
-  implicit none
-  
-  class(StructureData), intent(inout) :: this
-  
-  type(Group) :: identity_group
-  
-  ! Temporary variables.
-  integer :: i,j,ialloc
-  integer :: identity
-  
-  ! Locate the identity operator. S*S=S iff S=I.
-  identity = 0
-  do i=1,size(this%symmetries)
-    if (this%symmetries(i)%operator_group*i == i) then
-      identity = i
-    endif
-  enddo
-  
-  if (identity==0) then
-    call print_line('Error: The identity symmetry has not been found.')
+  if (size(lattice,1)/=3 .or. size(lattice,2)/=3) then
+    call print_line('Error: lattice is not 3x3.')
     call err()
   endif
   
-  ! Locate the inverse of each operator.
-  do_i : do i=1,size(this%symmetries)
-    do j=1,size(this%symmetries)
-      if (this%symmetries(i)%operator_group*j==identity) then
-        this%symmetries(i)%inverse = j
+  lattice_size = abs(determinant(lattice))
+  
+  allocate(output(lattice_size), stat=ialloc); call err(ialloc)
+  
+  no_vectors = 0
+  do i=0,lattice_size-1
+    do j=0,lattice_size-1
+      do k=0,lattice_size-1
         
-        if (j<i) then
-          if (this%symmetries(j)%inverse/=i) then
-            call print_line('Error: operator inverses do not match.')
-            call err()
-          endif
+        ! Construct vectors in scaled fractional primitive co-ordinates.
+        ! (scaled by lattice_size, to preserve integer representation).
+        if (centre_on_origin) then
+          frac_vec = [i-lattice_size/2,j-lattice_size/2,k-lattice_size/2]
+        else
+          frac_vec = [i,j,k]
         endif
         
-        cycle do_i
-      endif
+        ! Transform to scaled fractional supercell co-ordinates.
+        prim_vec = transpose(lattice)*frac_vec
+        
+        ! Check if the scaled co-ordinate is scaling*(integer co-ordinate).
+        if (all(modulo(int(prim_vec),lattice_size)==0)) then
+          no_vectors = no_vectors+1
+          output(no_vectors) = prim_vec / lattice_size
+        endif
+      enddo
     enddo
-    
-    call print_line('Error: operator inverse not found.')
+  enddo
+end function
+
+! ----------------------------------------------------------------------
+! Makes a supercell from a given primitive cell and supercell matrix.
+! ----------------------------------------------------------------------
+function construct_supercell(structure,supercell_matrix,calculate_symmetries, &
+   & symmetry_precision) result(supercell)
+  use linear_algebra_module
+  implicit none
+  
+  type(StructureData), intent(in)           :: structure
+  type(IntMatrix),     intent(in)           :: supercell_matrix
+  logical,             intent(in), optional :: calculate_symmetries
+  real(dp),            intent(in), optional :: symmetry_precision
+  type(StructureData)                       :: supercell
+  
+  ! R-vector and G-vector information.
+  type(IntVector), allocatable :: rvectors(:)
+  type(IntVector), allocatable :: gvectors(:)
+  
+  ! Atomic information.
+  type(String),     allocatable :: species(:)
+  real(dp),         allocatable :: masses(:)
+  type(RealVector), allocatable :: positions(:,:)
+  
+  ! Temporary variables
+  integer :: no_atoms_sc
+  logical :: calculate_symmetries_flag
+  integer :: sc_size
+  
+  integer :: prim,rvec,ialloc
+  
+  if (present(calculate_symmetries)) then
+    calculate_symmetries_flag = calculate_symmetries
+  else
+    calculate_symmetries_flag = .true.
+  endif
+  
+  ! Generate supercell and lattice data.
+  sc_size = abs(determinant(supercell_matrix))
+  no_atoms_sc = structure%no_atoms*sc_size
+  
+  ! Construct R-vectors and G-vectors.
+  rvectors = calculate_unique_vectors(supercell_matrix, .false.)
+  gvectors = calculate_unique_vectors(transpose(supercell_matrix), .true.)
+  
+  ! Construct atomic information.
+  allocate( species(structure%no_atoms),           &
+          & masses(structure%no_atoms),            &
+          & positions(structure%no_atoms,sc_size), &
+          & stat=ialloc); call err(ialloc)
+  do prim=1,structure%no_atoms
+    species(prim) = structure%atoms(prim)%species()
+    masses(prim) = structure%atoms(prim)%mass()
+    do rvec=1,sc_size
+      positions(prim,rvec) = transpose(structure%lattice)                  &
+                         & * ( structure%atoms(prim)%fractional_position() &
+                         &   + rvectors(rvec))
+    enddo
+  enddo
+  
+  ! Check symmetry precision has been supplied if required.
+  if (calculate_symmetries_flag .and. .not. present(symmetry_precision)) then
+    call print_line('Symmetry requested but no precision specified.')
     call err()
-  enddo do_i
-end subroutine
+  endif
+  
+  ! Construct output.
+  if (calculate_symmetries_flag) then
+    supercell = StructureData(                                  &
+       & supercell_matrix * structure%lattice,                  &
+       & supercell_matrix,                                      &
+       & calculate_unique_vectors(supercell_matrix, .false.),   &
+       & calculate_unique_vectors( transpose(supercell_matrix), &
+       &                     .true.),                           &
+       & species,                                               &
+       & masses,                                                &
+       & positions,                                             &
+       & symmetry_precision=symmetry_precision)
+  else
+    supercell = StructureData(                                  &
+       & supercell_matrix * structure%lattice,                  &
+       & supercell_matrix,                                      &
+       & calculate_unique_vectors(supercell_matrix, .false.),   &
+       & calculate_unique_vectors( transpose(supercell_matrix), &
+       &                     .true.),                           &
+       & species,                                               &
+       & masses,                                                &
+       & positions,                                             &
+       & basic_symmetries_in=[BasicSymmetry::])
+  endif
+end function
 end module

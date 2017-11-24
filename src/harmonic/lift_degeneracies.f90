@@ -4,6 +4,7 @@ module lift_degeneracies_module
   use io_module
   
   use normal_mode_module
+  use symmetry_module
   implicit none
   
   type :: LiftDegeneraciesReturn

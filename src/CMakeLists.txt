@@ -15,7 +15,7 @@ set(CMAKE_Fortran_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/mod/)
 if ("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "GNU")
   set(CMAKE_Fortran_FLAGS "-g -O0 -W -Wall -Wextra -pedantic -fmax-errors=1 -fcheck=all -fbacktrace -std=f2003 -fall-intrinsics -ffpe-trap=zero,overflow -fimplicit-none")
 elseif("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "NAG")
-  set(CMAKE_Fortran_FLAGS "-f2003 -I ${CMAKE_BINARY_DIR}/mod/ -C=all -u")
+  set(CMAKE_Fortran_FLAGS "-f2003 -I ${CMAKE_BINARY_DIR}/mod/ -C=all -u -nan -g -gline")
 elseif("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "Intel")
   set(CMAKE_Fortran_FLAGS "-stand f03")
 else()
@@ -49,9 +49,9 @@ add_subdirectory(${CMAKE_SOURCE_DIR}/testing ${CMAKE_BINARY_DIR}/testing/)
 target_link_libraries(caesar testing)
 
 # Compile the old code to bin/old/ for testing purposes.
-if ("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "GNU")
-  add_subdirectory(${CMAKE_SOURCE_DIR}/old ${CMAKE_BINARY_DIR}/old/)
-endif()
+#if ("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "GNU")
+#  add_subdirectory(${CMAKE_SOURCE_DIR}/old ${CMAKE_BINARY_DIR}/old/)
+#endif()
 
 # Copy the python scripts to bin/python/.
 add_subdirectory(${CMAKE_SOURCE_DIR}/python ${CMAKE_BINARY_DIR}/python/)

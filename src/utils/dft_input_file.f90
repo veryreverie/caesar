@@ -217,11 +217,12 @@ function castep_input_file_to_StructureData(filename, symmetry_precision) &
   real(dp) :: angles(3)
   
   ! Atomic variables.
-  logical                   :: positions_are_abs
-  type(String), allocatable :: species(:)
-  type(RealVector), allocatable :: positions(:)
-  integer                   :: no_atoms
-  logical,      allocatable :: masses_found(:)
+  logical                       :: positions_are_abs
+  integer                       :: no_atoms
+  type(String),     allocatable :: species(:)
+  type(RealVector), allocatable :: positions(:,:)
+  logical,          allocatable :: masses_found(:)
+  real(dp),         allocatable :: masses(:)
   
   ! Temporary variables.
   type(String), allocatable :: line(:)
@@ -297,7 +298,7 @@ function castep_input_file_to_StructureData(filename, symmetry_precision) &
   conversion = angstrom_per_bohr
   j=0
   allocate( species(size(cell_file%positions_block)-2),     &
-          & positions(size(cell_file%positions_block)-2), &
+          & positions(size(cell_file%positions_block)-2,1), &
           & stat=ialloc); call err(ialloc)
   
   do i=2,size(cell_file%positions_block)-1
@@ -327,7 +328,7 @@ function castep_input_file_to_StructureData(filename, symmetry_precision) &
       j = j+1
       line = split(cell_file%positions_block(i)) ! N.B. no lower_case
       species(j) = line(1)
-      positions(j) = dble(line(2:4))
+      positions(j,1) = dble(line(2:4))
     endif
   enddo
   
@@ -335,26 +336,19 @@ function castep_input_file_to_StructureData(filename, symmetry_precision) &
   
   if (positions_are_abs) then
     do i=1,no_atoms
-      positions(i) = positions(i) * conversion
+      positions(i,1) = positions(i,1) * conversion
     enddo
   else
     do i=1,no_atoms
-      positions(i) = transpose(mat(lattice)) * positions(i)
+      positions(i,1) = transpose(mat(lattice)) * positions(i,1)
     enddo
   endif
   
-  ! Make output.
-  output = StructureData(no_atoms, 0, 1)
-  
-  output%lattice = lattice
-  do i=1,no_atoms
-    call output%atoms(i)%set_species(species(i))
-    call output%atoms(i)%set_cartesian_position(positions(i))
-  enddo
-  
   ! Parse masses.
   conversion = kg_per_amu / kg_per_me
-  allocate(masses_found(no_atoms), stat=ialloc); call err(ialloc)
+  allocate( masses_found(no_atoms), &
+          & masses(no_atoms),       &
+          & stat=ialloc); call err(ialloc)
   masses_found = .false.
   do i=2,size(cell_file%masses_block)-1
     line = split(lower_case(cell_file%masses_block(i)))
@@ -379,7 +373,7 @@ function castep_input_file_to_StructureData(filename, symmetry_precision) &
       do j=1,no_atoms
         if (line(1)==species(j)) then
           masses_found(j) = .true.
-          call output%atoms(j)%set_mass(dble(line(2))*conversion)
+          masses(j) = dble(line(2))*conversion
         endif
       enddo
     endif
@@ -390,12 +384,15 @@ function castep_input_file_to_StructureData(filename, symmetry_precision) &
     call err()
   endif
   
-  output%supercell = make_identity_matrix(3)
-  output%rvectors(1) = [0,0,0]
-  output%gvectors(1) = [0,0,0]
-  
-  call output%calculate_derived_quantities()
-  call output%calculate_symmetry(symmetry_precision)
+  ! Make output.
+  output = StructureData( mat(lattice),            &
+                        & make_identity_matrix(3), &
+                        & [vec([0,0,0])],          &
+                        & [vec([0,0,0])],          &
+                        & species,                 &
+                        & masses,                  &
+                        & positions,               &
+                        & symmetry_precision=symmetry_precision)
 end function
 
 function dft_input_file_to_StructureData(dft_code,filename, &

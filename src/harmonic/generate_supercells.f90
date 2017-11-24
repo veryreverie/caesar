@@ -421,7 +421,6 @@ end subroutine
 function generate_qpoints(structure,large_supercell) result(output)
   use linear_algebra_module
   use structure_module
-  use construct_supercell_module
   use group_module
   implicit none
   
@@ -543,7 +542,6 @@ function generate_supercells(structure,qpoints,symmetry_precision) &
    & result(output)
   use linear_algebra_module
   use structure_module
-  use construct_supercell_module
   use group_module
   implicit none
   
