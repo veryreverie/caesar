@@ -149,7 +149,7 @@ end subroutine
 ! Works out which atoms need to be perturbed in which directions
 !    in order to map out the harmonic Born-Oppenheimer surface.
 ! ----------------------------------------------------------------------
-function calculate_unique_directions(structure,atom_symmetry_group) &
+function calculate_unique_directions(structure) &
    & result(this)
   use constants_module, only : pi
   use structure_module
@@ -158,9 +158,8 @@ function calculate_unique_directions(structure,atom_symmetry_group) &
   implicit none
   
   ! Inputs
-  type(StructureData),              intent(in) :: structure
-  type(Group),         allocatable, intent(in) :: atom_symmetry_group(:)
-  type(UniqueDirections)                       :: this
+  type(StructureData), intent(in) :: structure
+  type(UniqueDirections)          :: this
   
   ! A parameter to determine whether or not two vectors are independent.
   ! All rotations will be at most six-fold, so a.b will be at most cos(2*pi/6) 
@@ -192,9 +191,9 @@ function calculate_unique_directions(structure,atom_symmetry_group) &
   allocate(unique_atoms(structure%no_atoms), stat=ialloc); call err(ialloc)
   no_unique_atoms = 0
   do_i : do i=1,structure%no_atoms
-    do j=1,size(atom_symmetry_group)
+    do j=1,size(structure%symmetries)
       do k=1,no_unique_atoms
-        if (atom_symmetry_group(j)*i == unique_atoms(k)) then
+        if (structure%symmetries(j)%atom_group*i == unique_atoms(k)) then
           cycle do_i
         endif
       enddo
@@ -217,10 +216,11 @@ function calculate_unique_directions(structure,atom_symmetry_group) &
   unique_dirs = .true.
   do i=1,no_unique_atoms
     previous_symmetry = 0
-    do j=1,size(atom_symmetry_group)
+    do j=1,size(structure%symmetries)
       
       ! Ignore symmetries which do not map this atom onto itself.
-      if (atom_symmetry_group(j) * unique_atoms(i) /= unique_atoms(i)) then
+      if ( structure%symmetries(j)%atom_group * unique_atoms(i) &
+                                           & /= unique_atoms(i)) then
         cycle
       endif
       

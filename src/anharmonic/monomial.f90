@@ -5,8 +5,6 @@ module monomial_module
   use constants_module, only : dp
   use string_module
   use io_module
-  
-  use stringable_module
   implicit none
   
   private
@@ -22,7 +20,7 @@ module monomial_module
     procedure, public :: evaluate_forces
     
     ! I/O.
-    procedure, public, pass(that) :: assign_String => assign_String_Monomial
+    procedure, public :: str => str_Monomial
   end type
 contains
 
@@ -81,19 +79,19 @@ end function
 ! ----------------------------------------------------------------------
 ! I/O.
 ! ----------------------------------------------------------------------
-subroutine assign_String_Monomial(this,that)
+function str_Monomial(this) result(output)
   implicit none
   
-  type(String),    intent(inout) :: this
-  class(Monomial), intent(in)    :: that
+  class(Monomial), intent(in) :: this
+  type(String)                :: output
   
   integer :: i
   
-  this = that%coefficient
-  do i=1,size(that%powers)
-    if (that%powers(i)/=0) then
-      this = this//'*u'//i//'^'//that%powers(i)
+  output = this%coefficient
+  do i=1,size(this%powers)
+    if (this%powers(i)/=0) then
+      output = output//'*u'//i//'^'//this%powers(i)
     endif
   enddo
-end subroutine
+end function
 end module

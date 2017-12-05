@@ -37,6 +37,7 @@ module io_module
   public :: execute_old_code    ! Runs one of the old caesar codes.
   public :: execute_python      ! Runs one of the python scripts.
   public :: colour              ! Adds terminal colours to a string.
+!  public :: left_pad            ! Left pads an integer.
   
   ! The terminal escape character.
   character(1), parameter :: ESC = achar(27)
@@ -570,7 +571,6 @@ subroutine print_line_String(line,indent)
 end subroutine
 
 subroutine print_line_Stringable(this,indent)
-  use stringable_module
   implicit none
   
   class(Stringable), intent(in)           :: this
@@ -635,7 +635,7 @@ subroutine print_line_integers(this)
   
   integer, intent(in) :: this(:)
   
-  call print_line(''//this)
+  call print_line(join(this))
 end subroutine
 
 subroutine print_line_reals(this)
@@ -643,7 +643,7 @@ subroutine print_line_reals(this)
   
   real(dp), intent(in) :: this(:)
   
-  call print_line(''//this)
+  call print_line(join(this))
 end subroutine
 
 subroutine print_line_logicals(this)
@@ -651,7 +651,7 @@ subroutine print_line_logicals(this)
   
   logical, intent(in) :: this(:)
   
-  call print_line(''//this)
+  call print_line(join(this))
 end subroutine
 
 subroutine print_line_complexes(this)
@@ -659,7 +659,7 @@ subroutine print_line_complexes(this)
   
   complex(dp), intent(in) :: this(:)
   
-  call print_line(''//this)
+  call print_line(join(this))
 end subroutine
 
 function spaces(no_spaces) result(output)
@@ -900,5 +900,12 @@ function colour_String_String(input,colour_name) result(output)
   
   output = colour(char(input),char(colour_name))
 end function
+
+! ----------------------------------------------------------------------
+! Left pads an integer, by default with zeroes.
+! ----------------------------------------------------------------------
+!function left_pad(input,length
+!  implicit none
+!end function
 
 end module

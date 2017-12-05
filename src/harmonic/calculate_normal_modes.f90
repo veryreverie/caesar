@@ -174,7 +174,8 @@ subroutine calculate_normal_modes(arguments)
           endif
         enddo
         
-        call print_line(CODE_ERROR//': No matching G-vector found.')
+        call print_line(CODE_ERROR//': No matching G-vector found for q-point &
+           &'//j//'.')
         call err()
       endif
     enddo do_j
@@ -187,20 +188,20 @@ subroutine calculate_normal_modes(arguments)
     if (.not. modes_calculated(i)) then
       do j=1,i-1
         do k=1,size(structure%symmetries)
-          if (structure%symmetries(j)%rotation * qpoints(i)%scaled_qpoint &
+          if (structure%symmetries(k)%rotation * qpoints(i)%scaled_qpoint &
                                             & == qpoints(j)%scaled_qpoint) then
-            qpoint_modes(j) = rotate_modes( qpoint_modes(k),         &
-                                          & structure%symmetries(j), &
+            qpoint_modes(i) = rotate_modes( qpoint_modes(j),         &
+                                          & structure%symmetries(k), &
                                           & structure,               &
-                                          & qpoints(i))
-            modes_calculated(j) = .true.
+                                          & qpoints(j))
+            modes_calculated(i) = .true.
             cycle do_i
           endif
         enddo
       enddo
       
       call print_line(CODE_ERROR//': No rotationally equivalent q-point &
-         &found.')
+         &found for q-point '//i//'.')
       call err()
     endif
   enddo do_i
@@ -209,7 +210,7 @@ subroutine calculate_normal_modes(arguments)
   ! Write out output.
   ! --------------------------------------------------
   do i=1,size(qpoints)
-    qdir = wd//'/qpoint_'//j
+    qdir = wd//'/qpoint_'//i
     call mkdir(qdir)
     
     ! Write out dynamical matrix.

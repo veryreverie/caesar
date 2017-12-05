@@ -182,12 +182,12 @@ subroutine write_file_ComplexMode(this,filename)
   call mode_file%print_line('Soft mode:              '//this%soft_mode)
   call mode_file%print_line('Translational mode:     '//this%translational_mode)
   call mode_file%print_line('Primitive Displacements of e^(iq.R) mode:')
-  do i=1,size(this%primitive_displacements)
+  do i=1,size(this%primitive_displacements,1)
     call mode_file%print_line(this%primitive_displacements(i,1))
   enddo
   if (.not. this%at_paired_qpoint) then
     call mode_file%print_line('Primitive Displacements of e^(-iq.R) mode:')
-    do i=1,size(this%primitive_displacements)
+    do i=1,size(this%primitive_displacements,1)
       call mode_file%print_line(this%primitive_displacements(i,2))
     enddo
   endif

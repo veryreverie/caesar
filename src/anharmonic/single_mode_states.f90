@@ -4,7 +4,6 @@
 module single_mode_states_module
   use constants_module, only : dp
   use string_module
-  use stringable_module
   use io_module
   
   ! An eigenstate of the form f(u)*e^-(w*u^2/2) where f is polynomial, e.g.
@@ -32,7 +31,7 @@ module single_mode_states_module
     procedure, private             :: divide_SingleModeState_real
     
     ! I/O.
-    procedure, pass(that) :: assign_String => assign_String_SingleModeState
+    procedure :: str => str_SingleModeState
   end type
   
   interface size
@@ -166,36 +165,36 @@ end function
 ! ----------------------------------------------------------------------
 ! I/O on states.
 ! ----------------------------------------------------------------------
-subroutine assign_String_SingleModeState(this,that)
+function str_SingleModeState(this) result(output)
   implicit none
   
-  type(String),           intent(inout) :: this
-  class(SingleModeState), intent(in)    :: that
+  class(SingleModeState), intent(in) :: this
+  type(String)                       :: output
   
   type(String) :: token
   integer      :: i
   
-  this = '('
-  do i=0,size(that)
-    token = trim(str(that%coefficient(i)))
+  output = '('
+  do i=0,size(this)
+    token = trim(str(this%coefficient(i)))
     if (slice(token,1,1)=='-' .or. i==0) then
-      this = this//token
+      output = output//token
     else
-      this = this//'+'//token
+      output = output//'+'//token
     endif
-    this = this//'u^'//i
+    output = output//'u^'//i
   enddo
   
-  this = this//')e^('
-  token = trim(str(that%frequency))
+  output = output//')e^('
+  token = trim(str(this%frequency))
   if (slice(token,1,1)=='-') then
-    this = this//'+'
+    output = output//'+'
     token = slice(token,2,len(token))
   else
-    this = this//'-'
+    output = output//'-'
   endif
-  this = this//token//'*u^2)'
-end subroutine
+  output = output//token//'*u^2)'
+end function
 
 ! ----------------------------------------------------------------------
 ! Evaluates the state at a given displacement, u, along the normal mode.

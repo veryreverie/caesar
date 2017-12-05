@@ -7,7 +7,6 @@ module linear_algebra_module
   use string_module
   use io_module
   
-  use stringable_module
   use printable_module
   implicit none
   
@@ -20,7 +19,7 @@ module linear_algebra_module
     generic,   public  :: assignment(=) => assign_IntVector_integers
     procedure, private ::                  assign_IntVector_integers
     
-    procedure, pass(that) :: assign_String => assign_String_IntVector
+    procedure :: str => str_IntVector
   end type
   
   type, extends(Stringable) :: RealVector
@@ -29,7 +28,7 @@ module linear_algebra_module
     generic,   public  :: assignment(=) => assign_RealVector_reals
     procedure, private ::                  assign_RealVector_reals
     
-    procedure, pass(that) :: assign_String => assign_String_RealVector
+    procedure :: str => str_RealVector
   end type
   
   type, extends(Stringable) :: ComplexVector
@@ -38,7 +37,7 @@ module linear_algebra_module
     generic,   public  :: assignment(=) => assign_ComplexVector_complexes
     procedure, private ::                  assign_ComplexVector_complexes
     
-    procedure, pass(that) :: assign_String => assign_String_ComplexVector
+    procedure :: str => str_ComplexVector
   end type
   
   type, extends(Printable) :: IntMatrix
@@ -2263,32 +2262,32 @@ function invert_int_IntMatrix(input) result(output)
 end function
 
 ! I/O overloads.
-subroutine assign_String_IntVector(this,that)
+pure function str_IntVector(this) result(output)
   implicit none
   
-  type(String),     intent(inout) :: this
-  class(IntVector), intent(in)    :: that
+  class(IntVector), intent(in) :: this
+  type(String)                 :: output
   
-  this = join(that%contents)
-end subroutine
+  output = join(this%contents)
+end function
 
-subroutine assign_String_RealVector(this,that)
+pure function str_RealVector(this) result(output)
   implicit none
   
-  type(String),      intent(inout) :: this
-  class(RealVector), intent(in)    :: that
+  class(RealVector), intent(in) :: this
+  type(String)                  :: output
   
-  this = join(that%contents)
-end subroutine
+  output = join(this%contents)
+end function
 
-subroutine assign_String_ComplexVector(this,that)
+pure function str_ComplexVector(this) result(output)
   implicit none
   
-  type(String),         intent(inout) :: this
-  class(ComplexVector), intent(in)    :: that
+  class(ComplexVector), intent(in) :: this
+  type(String)                     :: output
   
-  this = join(that%contents)
-end subroutine
+  output = join(this%contents)
+end function
 
 function str_IntMatrix(this) result(output)
   implicit none

@@ -32,6 +32,8 @@ module caesar_modes_module
     logical :: suppress_from_helptext = .false.
   contains
     procedure :: print_help => print_help_CaesarMode
+    generic   :: assignment(=) => assign_CaesarMode
+    procedure :: assign_CaesarMode
   end type
   
   interface CaesarMode
@@ -165,6 +167,29 @@ function new_CaesarMode_String_String(mode_name,description,keywords, &
                        & main_subroutine)
   endif
 end function
+
+! Copies one CaesarMode to another.
+! Required to be explicit due to an apparent nagfort 6.2 bug with automatic
+!    reallocation from an empty list.
+! N.B. output%keywords = [KeywordData::] fails under nagfort 6.2.
+subroutine assign_CaesarMode(output,input)
+  implicit none
+  
+  class(CaesarMode), intent(out) :: output
+  class(CaesarMode), intent(in)  :: input
+  
+  integer :: ialloc
+  
+  output%mode_name = input%mode_name
+  output%description = input%description
+  if (size(input%keywords)==0) then
+    allocate(output%keywords(0), stat=ialloc); call err(ialloc)
+  else
+    output%keywords = input%keywords
+  endif
+  output%main_subroutine => input%main_subroutine
+  output%suppress_from_helptext = input%suppress_from_helptext
+end subroutine
 
 ! Prints helptext.
 subroutine print_help_CaesarMode(this)

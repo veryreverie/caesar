@@ -81,6 +81,15 @@ function calculate_symmetries(basic_symmetries,lattice,recip_lattice,atoms) &
   integer :: i,j,k,ialloc
   
   allocate(output(size(basic_symmetries)), stat=ialloc); call err(ialloc)
+  
+  ! Returns if the symmetry is only a dummy placeholder.
+  if (size(output)==0) then
+    return
+  endif
+  
+  ! --------------------------------------------------
+  ! Calculates basic symmetry properties.
+  ! --------------------------------------------------
   do i=1,size(output)
     output(i)%rotation = basic_symmetries(i)%rotation
     output(i)%translation = basic_symmetries(i)%translation

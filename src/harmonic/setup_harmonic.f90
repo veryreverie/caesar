@@ -84,9 +84,6 @@ subroutine setup_harmonic(arguments)
   integer                          :: no_supercells
   type(StructureData)              :: supercell
   
-  ! Symmetry group data.
-  type(Group), allocatable :: supercell_atom_symmetry_group(:)
-  
   ! Directories.
   type(String) :: sdir
   type(String) :: paths(2)
@@ -180,8 +177,7 @@ subroutine setup_harmonic(arguments)
     call write_structure_file(supercell, sdir//'/structure.dat')
     
     ! Calculate which forces need calculating.
-    unique_directions = calculate_unique_directions( supercell, &
-       & supercell_atom_symmetry_group)
+    unique_directions = calculate_unique_directions(supercell)
     call write_unique_directions_file( unique_directions, &
                                      & sdir//'/unique_directions.dat')
     

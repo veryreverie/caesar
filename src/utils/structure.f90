@@ -283,9 +283,6 @@ function read_structure_file(filename) result(this)
   type(StructureData)      :: this
   
   type(IFile) :: structure_file
-  integer     :: no_atoms
-  integer     :: no_symmetries
-  integer     :: sc_size
   
   ! line numbers
   integer :: lattice_line   ! The line "Lattice"
@@ -295,6 +292,12 @@ function read_structure_file(filename) result(this)
   integer :: rvectors_line  ! The line "R-vectors"
   integer :: gvectors_line  ! The line "G-vectors"
   integer :: end_line       ! The line "End"
+  
+  ! Counts.
+  integer     :: no_atoms
+  integer     :: no_symmetries
+  integer     :: sc_size
+  integer     :: no_atoms_prim
   
   ! Lattice.
   real(dp) :: lattice_matrix(3,3)
@@ -407,6 +410,14 @@ function read_structure_file(filename) result(this)
     sc_size = end_line-gvectors_line-1
   endif
   
+  if (modulo(no_atoms,sc_size)/=0) then
+    call print_line(ERROR//' The number of atoms is not a multiple of the &
+       &number of R-vectors')
+    call err()
+  endif
+  
+  no_atoms_prim = no_atoms/sc_size
+  
   ! ------------------------------
   ! Read in lattice.
   ! ------------------------------
@@ -426,11 +437,11 @@ function read_structure_file(filename) result(this)
       supercell_matrix(i,:) = int(split(structure_file%line(supercell_line+i)))
     enddo
     
+    allocate( rvectors(sc_size), &
+            & gvectors(sc_size), &
+            & stat=ialloc); call err(ialloc)
     do i=1,sc_size
       rvectors(i) = int(split(structure_file%line(rvectors_line+i)))
-    enddo
-    
-    do i=1,sc_size
       gvectors(i) = int(split(structure_file%line(gvectors_line+i)))
     enddo
   endif
@@ -438,15 +449,15 @@ function read_structure_file(filename) result(this)
   ! ------------------------------
   ! Read in atomic information.
   ! ------------------------------
-  allocate( species(no_atoms/sc_size),           &
-          & masses(no_atoms/sc_size),            &
-          & positions(no_atoms/sc_size,sc_size), &
+  allocate( species(no_atoms_prim),            &
+          & masses(no_atoms_prim),             &
+          & positions(no_atoms_prim, sc_size), &
           & stat=ialloc); call err(ialloc)
   do atom=1,no_atoms
     line = split(structure_file%line(atoms_line+atom))
     
-    rvec = (atom-1)/sc_size + 1
-    prim = modulo(atom-1,no_atoms/sc_size) + 1
+    rvec = (atom-1)/no_atoms_prim + 1
+    prim = modulo(atom-1,no_atoms_prim) + 1
     
     if (rvec==1) then
       species(prim) = line(1)
@@ -472,7 +483,7 @@ function read_structure_file(filename) result(this)
     enddo
     symmetries(i)%rotation = rotation_matrix
     symmetries(i)%translation = &
-       & dble(split(structure_file%line(symmetry_line+(i-1)*11+6)))
+       & dble(split(structure_file%line(symmetry_line+(i-1)*7+6)))
   enddo
   
   ! ------------------------------

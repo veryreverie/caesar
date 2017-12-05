@@ -16,8 +16,6 @@ module group_module
   use constants_module, only : dp
   use string_module
   use io_module
-  
-  use stringable_module
   implicit none
   
   private
@@ -41,7 +39,8 @@ module group_module
     procedure, private :: operate_Group_integer
     procedure, private :: operate_Group_Group
     
-    procedure, public, pass(that) :: assign_String => assign_String_Group
+    ! I/O.
+    procedure :: str => str_Group
   end type
   
   interface size
@@ -150,12 +149,12 @@ end function
 ! ----------------------------------------------------------------------
 ! I/O.
 ! ----------------------------------------------------------------------
-subroutine assign_String_Group(this,that)
+pure function str_Group(this) result(output)
   implicit none
   
-  type(String), intent(inout) :: this
-  class(Group), intent(in)    :: that
+  class(Group), intent(in) :: this
+  type(String)             :: output
   
-  this = join(that%operation)
-end subroutine
+  output = join(this%operation)
+end function
 end module

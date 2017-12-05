@@ -343,11 +343,9 @@ subroutine check_supercells(supercells,structure)
   
   ! Working variables.
   type(StructureData)           :: supercell
-  real(dp)                      :: fractional_position(3)
   integer                       :: atom_1
   integer                       :: atom_2
   type(RealVector)              :: fractional_difference
-  type(RealMatrix), allocatable :: rotations(:)
   type(RealMatrix)              :: rotation_identity
   
   ! Temporary variables.
@@ -369,31 +367,22 @@ subroutine check_supercells(supercells,structure)
           call err()
         endif
       enddo
-      
-      ! Check that all atoms are within the supercell's primitive cell.
-      fractional_position = dble(supercell%atoms(j)%fractional_position())
-      if ( any(fractional_position <  -1.0e-10_dp) .or. &
-         & any(fractional_position > 1+1.0e-10_dp)) then
-        call print_line(CODE_ERROR//': atom '//j//' has been placed outside &
-           &the primitive cell of supercell '//i//'.')
-        call err()
-      endif
     enddo
     
-    ! Check that all atoms related by G-vectors are correctly placed.
+    ! Check that all atoms related by R-vectors are correctly placed.
     do j=1,structure%no_atoms
       do k=1,supercell%sc_size
         do l=1,k-1
           atom_1 = supercell%rvec_and_prim_to_atom(j,k)
           atom_2 = supercell%rvec_and_prim_to_atom(j,l)
-          fractional_difference =                              &
-             &   supercell%atoms(atom_1)%fractional_position() &
-             & - supercell%atoms(atom_2)%fractional_position()
-          if ( l2_norm( fractional_difference &
-           &          - vec(nint(dble(fractional_difference)))) &
+          fractional_difference = structure%recip_lattice       &
+             & * ( supercell%atoms(atom_1)%cartesian_position() &
+             &   - supercell%atoms(atom_2)%cartesian_position())
+          if ( l2_norm( fractional_difference             &
+           &          - vec(nint(fractional_difference))) &
            & > 1.0e-10_dp) then
             call print_line(CODE_ERROR//': atoms '//atom_1//' and '//atom_2// &
-               & ' in supercell '//i//' are not related by a G-vector')
+               & ' in supercell '//i//' are not related by an R-vector')
             call err()
           endif
         enddo
@@ -449,7 +438,7 @@ function generate_qpoints(structure,large_supercell) result(output)
     output(i)%gvector = large_supercell%gvectors(i)
     output(i)%scaled_qpoint = transpose(large_supercell%recip_supercell) &
                           & * output(i)%gvector
-    output(i)%qpoint = output(i)%gvector / dble(large_supercell%sc_size)
+    output(i)%qpoint = output(i)%scaled_qpoint / dble(large_supercell%sc_size)
     output(i)%to_simulate = .true.
   enddo
   

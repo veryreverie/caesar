@@ -4,7 +4,6 @@
 module product_states_module
   use constants_module, only : dp
   use string_module
-  use stringable_module
   use io_module
   
   use vscf_states_module

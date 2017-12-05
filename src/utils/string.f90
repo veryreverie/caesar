@@ -11,7 +11,8 @@ module string_module
   ! Public interface
   ! ----------------------------------------------------------------------
   
-  public :: String ! String class.
+  public :: Stringable
+  public :: String
   
   ! Conversions between classes
   public :: str   ! Conversion to String.
@@ -21,8 +22,7 @@ module string_module
   public :: cmplx ! Conversion from String to complex(dp).
   public :: lgcl  ! Conversion from String to logical.
   
-  ! Concatenate to String.
-  public :: operator(//)
+  public :: assignment(=)
   
   ! Unary operators.
   public :: len            ! Character-like len(String).
@@ -31,41 +31,34 @@ module string_module
   public :: join           ! Join into single String, by default with spaces.
   public :: pad_int_to_str ! left pads integers without '-' signs with a ' '
   public :: trim           ! Removes trailing spaces.
+  public :: slice          ! slice(String,first,last)=character(first:last).
   
-  ! String slice.
-  public :: slice ! slice(String,first,last) = character(first:last).
+  ! Concatenate to String.
+  public :: operator(//)
   
-  ! String type.
+  ! ----------------------------------------------------------------------
+  ! The String class.
+  ! ----------------------------------------------------------------------
+  
+  ! The String class, containing an allocatable character string.
+  ! Allows for inhomogeneous character arrays for e.g. storing files.
   type :: String
     character(:), allocatable, private :: contents
   contains
-    generic, public :: assignment(=) => assign_String_character, &
-                                      & assign_String_String,    &
-                                      & assign_String_integer,   &
-                                      & assign_String_real,      &
-                                      & assign_String_logical,   &
-                                      & assign_String_complex,   &
-                                      & assign_character_String
-    
-    generic, public :: operator(//) => concatenate_String_String,    &
-                                     & concatenate_String_character, &
-                                     & concatenate_character_String, &
-                                     & concatenate_String_integer,   &
-                                     & concatenate_integer_String,   &
-                                     & concatenate_String_real,      &
-                                     & concatenate_real_String,      &
-                                     & concatenate_String_logical,   &
-                                     & concatenate_logical_String,   &
-                                     & concatenate_String_complex,   &
-                                     & concatenate_complex_String,   &
-                                     & concatenate_String_integers,  &
-                                     & concatenate_integers_String,  &
-                                     & concatenate_String_reals,     &
-                                     & concatenate_reals_String,     &
-                                     & concatenate_String_logicals,  &
-                                     & concatenate_logicals_String,  &
-                                     & concatenate_String_complexes, &
-                                     & concatenate_complexes_String
+    generic, public :: assignment(=) => assign_String_character,  &
+                                      & assign_String_String,     &
+                                      & assign_String_Stringable, &
+                                      & assign_String_logical,    &
+                                      & assign_String_integer,    &
+                                      & assign_String_real,       &
+                                      & assign_String_complex
+    procedure, private               :: assign_String_character
+    procedure, private               :: assign_String_String
+    procedure, private               :: assign_String_Stringable
+    procedure, private               :: assign_String_logical
+    procedure, private               :: assign_String_integer
+    procedure, private               :: assign_String_real
+    procedure, private               :: assign_String_complex
     
     generic, public :: operator(==) => equality_String_String,    &
                                      & equality_String_character, &
@@ -75,33 +68,6 @@ module string_module
                                      & non_equality_String_character, &
                                      & non_equality_character_String
     
-    procedure, private             :: assign_String_character
-    procedure, private             :: assign_String_String
-    procedure, private             :: assign_String_integer
-    procedure, private             :: assign_String_real
-    procedure, private             :: assign_String_logical
-    procedure, private             :: assign_String_complex
-    procedure, private, pass(that) :: assign_character_String
-    
-    procedure, private             :: concatenate_String_String
-    procedure, private             :: concatenate_String_character
-    procedure, private, pass(that) :: concatenate_character_String
-    procedure, private             :: concatenate_String_integer
-    procedure, private, pass(that) :: concatenate_integer_String
-    procedure, private             :: concatenate_String_real
-    procedure, private, pass(that) :: concatenate_real_String
-    procedure, private             :: concatenate_String_logical
-    procedure, private, pass(that) :: concatenate_logical_String
-    procedure, private             :: concatenate_String_complex
-    procedure, private, pass(that) :: concatenate_complex_String
-    procedure, private             :: concatenate_String_integers
-    procedure, private, pass(that) :: concatenate_integers_String
-    procedure, private             :: concatenate_String_reals
-    procedure, private, pass(that) :: concatenate_reals_String
-    procedure, private             :: concatenate_String_logicals
-    procedure, private, pass(that) :: concatenate_logicals_String
-    procedure, private             :: concatenate_String_complexes
-    procedure, private, pass(that) :: concatenate_complexes_String
     
     procedure, private             :: equality_String_String
     procedure, private             :: equality_String_character
@@ -113,11 +79,44 @@ module string_module
   end type
   
   ! ----------------------------------------------------------------------
+  ! The Stringable class.
+  ! ----------------------------------------------------------------------
+  
+  ! An abstract type, which allows extended types to be turned into strings.
+  ! Any type which extends Stringable can be:
+  !    - converted to String, using string=this or str(this).
+  !    - concatenated, using string//this or character//this.
+  !    - printed to stdout, using print_line(this).
+  !    - printed to file, using file%print_line(this).
+  ! See example module below for how to use this module.
+  type, abstract :: Stringable
+  contains
+    procedure(str_Stringable_2), deferred :: str
+  end type
+  
+  abstract interface
+    pure function str_Stringable_2(this) result(output)
+      import String
+      import Stringable
+      implicit none
+      
+      class(Stringable), intent(in) :: this
+      type(String)                  :: output
+    end function
+  end interface
+  
+  ! ----------------------------------------------------------------------
   ! Interfaces
   ! ----------------------------------------------------------------------
-
+  
+  interface assignment(=)
+    module procedure assign_character_String
+  end interface
+  
   interface str
     module procedure str_character
+    module procedure str_String
+    module procedure str_Stringable
     module procedure str_integer
     module procedure str_real
     module procedure str_logical
@@ -126,6 +125,10 @@ module string_module
   
   interface char
     module procedure char_String
+  end interface
+  
+  interface lgcl
+    module procedure lgcl_String
   end interface
   
   interface int
@@ -138,30 +141,6 @@ module string_module
   
   interface cmplx
     module procedure cmplx_String
-  end interface
-  
-  interface lgcl
-    module procedure lgcl_String
-  end interface
-
-  interface operator(//)
-    module procedure concatenate_character_integer
-    module procedure concatenate_integer_character
-    module procedure concatenate_character_real
-    module procedure concatenate_real_character
-    module procedure concatenate_character_logical
-    module procedure concatenate_logical_character
-    module procedure concatenate_character_complex
-    module procedure concatenate_complex_character
-    
-    module procedure concatenate_character_integers
-    module procedure concatenate_integers_character
-    module procedure concatenate_character_reals
-    module procedure concatenate_reals_character
-    module procedure concatenate_character_logicals
-    module procedure concatenate_logicals_character
-    module procedure concatenate_character_complexes
-    module procedure concatenate_complexes_character
   end interface
   
   interface len
@@ -190,12 +169,63 @@ module string_module
     module procedure trim_String
   end interface
   
+  interface operator(//)
+    module procedure concatenate_character_String
+    module procedure concatenate_String_character
+    module procedure concatenate_String_String
+    
+    module procedure concatenate_character_Stringable
+    module procedure concatenate_Stringable_character
+    module procedure concatenate_String_Stringable
+    module procedure concatenate_Stringable_String
+                                     
+    module procedure concatenate_character_integer
+    module procedure concatenate_integer_character
+    module procedure concatenate_String_integer
+    module procedure concatenate_integer_String
+    
+    module procedure concatenate_character_real
+    module procedure concatenate_real_character
+    module procedure concatenate_String_real
+    module procedure concatenate_real_String
+    
+    module procedure concatenate_character_logical
+    module procedure concatenate_logical_character
+    module procedure concatenate_String_logical
+    module procedure concatenate_logical_String
+    
+    module procedure concatenate_String_complex
+    module procedure concatenate_complex_String
+    module procedure concatenate_character_complex
+    module procedure concatenate_complex_character
+    
+    module procedure concatenate_character_integers
+    module procedure concatenate_integers_character
+    module procedure concatenate_String_integers
+    module procedure concatenate_integers_String
+    
+    module procedure concatenate_character_reals
+    module procedure concatenate_reals_character
+    module procedure concatenate_String_reals
+    module procedure concatenate_reals_String
+    
+    module procedure concatenate_character_logicals
+    module procedure concatenate_logicals_character
+    module procedure concatenate_String_logicals
+    module procedure concatenate_logicals_String
+    
+    module procedure concatenate_character_complexes
+    module procedure concatenate_complexes_character
+    module procedure concatenate_String_complexes
+    module procedure concatenate_complexes_String
+  end interface
 contains
 
-! ----------------------------------------------------------------------
-! Assignment
-! ----------------------------------------------------------------------
-! String = character(*)
+! --------------------------------------------------
+! Assignment.
+! --------------------------------------------------
+
+! String = character
 pure subroutine assign_String_character(this,that)
   implicit none
   
@@ -227,37 +257,14 @@ pure subroutine assign_String_String(this,that)
   endif
 end subroutine
 
-! String = integer
-pure subroutine assign_String_integer(this,that)
+! String = Stringable
+pure subroutine assign_String_Stringable(this,that)
   implicit none
   
-  class(String), intent(inout) :: this
-  integer,       intent(in)    :: that
+  class(String),     intent(inout) :: this
+  class(Stringable), intent(in)    :: that
   
-  character(12) :: temp
-  
-  write(temp,"(I0)") that
-  
-  this = trim(temp)
-end subroutine
-
-! String = real(dp)
-pure subroutine assign_String_real(this,that)
-  implicit none
-  
-  class(String), intent(inout) :: this
-  real(dp),      intent(in)    :: that
-  
-  integer, parameter :: width = 25
-  integer, parameter :: decimal_places = 17
-  type(String)       :: format_string
-  
-  character(width) :: temp
-  
-  format_string = str("(ES")//width//'.'//decimal_places//")"
-  write(temp,char(format_string)) that
-  
-  this = temp
+  this = that%str()
 end subroutine
 
 ! String = logical
@@ -268,36 +275,74 @@ pure subroutine assign_String_logical(this,that)
   logical,       intent(in)    :: that
   
   if (that) then
-    this = "T"
+    this = 'T'
   else
-    this = "F"
+    this = 'F'
   endif
 end subroutine
 
-! String = logical
+! String = integer
+pure subroutine assign_String_integer(this,that)
+  implicit none
+  
+  class(String), intent(inout) :: this
+  integer,       intent(in)    :: that
+  
+  integer, parameter   :: int_width = 12
+  character(int_width) :: int_string
+  
+  write(int_string,"(I0)") that
+  this = trim(int_string)
+end subroutine
+
+! String = real
+pure subroutine assign_String_real(this,that)
+  implicit none
+  
+  class(String), intent(inout) :: this
+  real(dp),      intent(in)    :: that
+  
+  integer, parameter    :: real_width = 25
+  integer, parameter    :: decimal_places = 17
+  type(String)          :: format_string
+  character(real_width) :: real_string
+  
+  format_string = "(ES"//real_width//'.'//decimal_places//")"
+  write(real_string, char(format_string)) that
+  
+  this = real_string
+end subroutine
+
+! String = complex
 pure subroutine assign_String_complex(this,that)
   implicit none
   
   class(String), intent(inout) :: this
   complex(dp),   intent(in)    :: that
   
-  type(String) :: imag
+  type(String) :: real_string
+  type(String) :: imag_string
   
-  imag = trim(str(aimag(that)))
-  if (slice(imag,1,1)/='-') then
-    imag = '+'//imag
+  real_string = real(that)
+  imag_string = aimag(that)
+  
+  imag_string = trim(imag_string)
+  
+  if (slice(imag_string,1,1)/='-') then
+    imag_string = '+'//imag_string
   endif
-  this = str(real(that))//imag//'i'
+  
+  this = real_string//imag_string//'i'
 end subroutine
 
 ! character = String
-pure subroutine assign_character_String(this,that)
+pure subroutine assign_character_String(output,this)
   implicit none
   
-  character(*),  intent(inout) :: this
-  class(String), intent(in)    :: that
+  type(String), intent(in)    :: this
+  character(*), intent(inout) :: output
   
-  this = that%contents
+  output = this%contents
 end subroutine
 
 ! ----------------------------------------------------------------------
@@ -308,6 +353,33 @@ elemental function str_character(this) result(output)
   
   character(*), intent(in) :: this
   type(String)             :: output
+  
+  output = this
+end function
+
+elemental function str_String(this) result(output)
+  implicit none
+  
+  type(String), intent(in) :: this
+  type(String)             :: output
+  
+  output = this
+end function
+
+elemental function str_Stringable(this) result(output)
+  implicit none
+  
+  class(Stringable), intent(in) :: this
+  type(String)                  :: output
+  
+  output = this
+end function
+
+elemental function str_logical(this) result(output)
+  implicit none
+  
+  logical, intent(in) :: this
+  type(String)        :: output
   
   output = this
 end function
@@ -326,15 +398,6 @@ elemental function str_real(this) result(output)
   
   real(dp), intent(in) :: this
   type(String)         :: output
-  
-  output = this
-end function
-
-elemental function str_logical(this) result(output)
-  implicit none
-  
-  logical, intent(in) :: this
-  type(String)        :: output
   
   output = this
 end function
@@ -359,6 +422,16 @@ pure function char_String(this) result(output)
   character(len(this))     :: output
   
   output = this%contents
+end function
+
+! logical = lgcl(String)
+elemental function lgcl_String(this) result(output)
+  implicit none
+  
+  type(String), intent(in) :: this
+  logical                  :: output
+  
+  read(this%contents,*) output
 end function
 
 ! integer = int(String)
@@ -409,28 +482,329 @@ elemental function cmplx_String(this) result(output)
   enddo
 end function
 
-! logical = lgcl(String)
-elemental function lgcl_String(this) result(output)
+! ----------------------------------------------------------------------
+! Equality
+! ----------------------------------------------------------------------
+! String==String
+elemental function equality_String_String(this,that) result(output)
+  implicit none
+  
+  class(String), intent(in) :: this
+  class(String), intent(in) :: that
+  logical                   :: output
+  
+  output = this%contents==that%contents
+end function
+
+! String==character
+elemental function equality_String_character(this,that) result(output)
+  implicit none
+  
+  class(String), intent(in) :: this
+  character(*),  intent(in) :: that
+  logical                   :: output
+  
+  output = this%contents==that
+end function
+
+! character==String
+elemental function equality_character_String(this,that) result(output)
+  implicit none
+  
+  character(*),  intent(in) :: this
+  class(String), intent(in) :: that
+  logical                   :: output
+  
+  output = this==that%contents
+end function
+
+! ----------------------------------------------------------------------
+! Non-equality
+! ----------------------------------------------------------------------
+! String/=String
+elemental function non_equality_String_String(this,that) result(output)
+  implicit none
+  
+  class(String), intent(in) :: this
+  class(String), intent(in) :: that
+  logical                   :: output
+  
+  output = this%contents/=that%contents
+end function
+
+! String/=character
+elemental function non_equality_String_character(this,that) result(output)
+  implicit none
+  
+  class(String), intent(in) :: this
+  character(*),  intent(in) :: that
+  logical                   :: output
+  
+  output = this%contents/=that
+end function
+
+! character/=String
+elemental function non_equality_character_String(this,that) result(output)
+  implicit none
+  
+  character(*),  intent(in) :: this
+  class(String), intent(in) :: that
+  logical                   :: output
+  
+  output = this/=that%contents
+end function
+
+! ----------------------------------------------------------------------
+! Unary operators
+! ----------------------------------------------------------------------
+! integer = len(String)
+elemental function len_String(this) result(output)
   implicit none
   
   type(String), intent(in) :: this
-  logical                  :: output
+  integer                  :: output
   
-  read(this%contents,*) output
+  output = len(this%contents)
+end function
+
+! ----------------------------------------------------------------------
+! Converts a string to lower case
+! ----------------------------------------------------------------------
+elemental function lower_case_character(input) result(output)
+  implicit none
+  
+  character(*), intent(in) :: input
+  character(len(input))    :: output
+  
+  character(*), parameter :: lower_chars = "abcdefghijklmnopqrstuvwxyz"
+  character(*), parameter :: upper_chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+  
+  integer :: i,j
+  
+  output = input
+  
+  do i=1,len(output)
+    j = index(upper_chars, output(i:i))
+    if (j/=0) then
+      output(i:i) = lower_chars(j:j)
+    endif
+  enddo
+end function
+
+! String = lower_case(String)
+elemental function lower_case_String(this) result(output)
+  implicit none
+  
+  type(String), intent(in) :: this
+  type(String)             :: output
+  
+  output = str(lower_case(char(this)))
+end function
+
+pure function split_character(this,delimiter_in) result(output)
+  implicit none
+  
+  character(*),           intent(in) :: this
+  character(1), optional, intent(in) :: delimiter_in
+  type(String), allocatable          :: output(:)
+  
+  ! Working variables
+  character(1) :: delimiter
+  integer      :: first  ! The position of a delimiter
+  integer      :: second ! The position of the next delimiter after 'first'
+  integer      :: count  ! The number of tokens
+  
+  if (present(delimiter_in)) then
+    delimiter = delimiter_in
+  else
+    delimiter = ' '
+  endif
+  
+  ! Count the number of tokens in the string
+  first = 0
+  second = 0
+  count = 0
+  do
+    first = second ! Search after previously found delimiter
+    if (first == len(this)+1) exit ! Exit if entire word split
+    second = first+index(this(first+1:),delimiter) ! Find the next delimiter
+    if (second == first) second = len(this)+1 ! Split the final token
+    if (second == first+1) cycle ! Ignore multiple delimiters in a row
+    count = count + 1
+  enddo
+  
+  ! Allocate output
+  allocate(output(count))
+  
+  ! Split string
+  first = 0
+  second = 0
+  count = 0
+  do
+    first = second
+    if (first == len(this)+1) exit
+    second = first + index(this(first+1:),delimiter)
+    if (second == first) second = len(this)+1
+    if (second == first+1) cycle
+    count = count + 1
+    output(count) = this(first+1:second-1)
+  enddo
+end function
+
+pure function split_String(this,delimiter_in) result(output)
+  implicit none
+  
+  type(String),           intent(in) :: this
+  character(1), optional, intent(in) :: delimiter_in
+  type(String), allocatable          :: output(:)
+  
+  if (present(delimiter_in)) then
+    output = split(char(this),delimiter_in)
+  else
+    output = split(char(this))
+  endif
+end function
+
+! Joins a String(:) array into one String.
+pure function join_String(this,delimiter_in) result(output)
+  implicit none
+  
+  type(String), intent(in)           :: this(:)
+  character(*), intent(in), optional :: delimiter_in
+  type(String)                       :: output
+  
+  ! Temporary variables.
+  type(String) :: delimiter
+  integer      :: i
+  
+  if (present(delimiter_in)) then
+    delimiter = delimiter_in
+  else
+    delimiter = ' '
+  endif
+  
+  if (size(this)==0) then
+    output = ''
+  else
+    output = this(1)
+    do i=2,size(this)
+      output = output//delimiter//this(i)
+    enddo
+  endif
+end function
+
+! Converts real(:) to String(:) and then joins.
+pure function join_real(this,delimiter) result(output)
+  implicit none
+  
+  real(dp),     intent(in)           :: this(:)
+  character(*), intent(in), optional :: delimiter
+  type(String)                       :: output
+  
+  if (present(delimiter)) then
+    output = join(str(this),delimiter)
+  else
+    output = join(str(this))
+  endif
+end function
+
+! Converts integer(:) to String(:), pads +ve numbers with a space, and joins.
+pure function join_integer(this,delimiter) result(output)
+  implicit none
+  
+  integer,      intent(in)           :: this(:)
+  character(*), intent(in), optional :: delimiter
+  type(String)                       :: output
+  
+  if (present(delimiter)) then
+    output = join(pad_int_to_str(this),delimiter)
+  else
+    output = join(pad_int_to_str(this))
+  endif
+end function
+
+! Converts logical(:) to String(:) and then joins.
+pure function join_logical(this,delimiter) result(output)
+  implicit none
+  
+  logical,      intent(in)           :: this(:)
+  character(*), intent(in), optional :: delimiter
+  type(String)                       :: output
+  
+  if (present(delimiter)) then
+    output = join(str(this),delimiter)
+  else
+    output = join(str(this))
+  endif
+end function
+
+! Converts complex(:) to String(:) and then joins.
+pure function join_complex(this,delimiter) result(output)
+  implicit none
+  
+  complex(dp),  intent(in)           :: this(:)
+  character(*), intent(in), optional :: delimiter
+  type(String)                       :: output
+  
+  if (present(delimiter)) then
+    output = join(str(this),delimiter)
+  else
+    output = join(str(this))
+  endif
+end function
+
+! Pads an integer with a space to match '-' length.
+elemental function pad_int_to_str(this) result(output)
+  implicit none
+  
+  integer, intent(in) :: this
+  type(String)        :: output
+  
+  output = this
+  if (output%contents(1:1)/='-') then
+    output = ' '//output
+  endif
+end function
+
+! Removes trailing spaces.
+elemental function trim_String(this) result(output)
+  implicit none
+  
+  type(String), intent(in) :: this
+  type(String)             :: output
+  
+  output = trim(adjustl(char(this)))
+end function
+
+! Takes a slice of a String. slice(String,first,last) = character(first:last).
+pure function slice(this,first,last) result(output)
+  implicit none
+  
+  type(String),  intent(in) :: this
+  integer,       intent(in) :: first
+  integer,       intent(in) :: last
+  type(String)              :: output
+  
+  output = this%contents(first:last)
 end function
 
 ! ----------------------------------------------------------------------
 ! Concatenation
 ! ----------------------------------------------------------------------
-! String = String//String
-pure function concatenate_String_String(this,that) result(output)
+                                     
+! --------------------------------------------------
+! Concatenation of string types and string types.
+! --------------------------------------------------
+
+! String = character//String
+pure function concatenate_character_String(this,that) result(output)
   implicit none
   
-  class(String), intent(in) :: this
+  character(*),  intent(in) :: this
   class(String), intent(in) :: that
   type(String)              :: output
   
-  output = this%contents//that%contents
+  output = this//that%contents
 end function
 
 ! String = String//character
@@ -444,16 +818,68 @@ pure function concatenate_String_character(this,that) result(output)
   output = this%contents//that
 end function
 
-! String = character//String
-pure function concatenate_character_String(this,that) result(output)
+! String = String//String
+pure function concatenate_String_String(this,that) result(output)
   implicit none
   
-  character(*),  intent(in) :: this
+  class(String), intent(in) :: this
   class(String), intent(in) :: that
   type(String)              :: output
   
-  output = this//that%contents
+  output = this%contents//that%contents
 end function
+
+! --------------------------------------------------
+! Concatenation of string types and Stringable types.
+! --------------------------------------------------
+
+! String = character//Stringable
+pure function concatenate_character_Stringable(this,that) result(output)
+  implicit none
+  
+  character(*),      intent(in) :: this
+  class(Stringable), intent(in) :: that
+  type(String)                  :: output
+  
+  output = this//that%str()
+end function
+
+! String = Stringable//character
+pure function concatenate_Stringable_character(this,that) result(output)
+  implicit none
+  
+  class(Stringable), intent(in) :: this
+  character(*),      intent(in) :: that
+  type(String)                  :: output
+  
+  output = this%str()//that
+end function
+
+! String = String//Stringable
+pure function concatenate_String_Stringable(this,that) result(output)
+  implicit none
+  
+  type(String),      intent(in) :: this
+  class(Stringable), intent(in) :: that
+  type(String)                  :: output
+  
+  output = this//that%str()
+end function
+
+! String = Stringable//String
+pure function concatenate_Stringable_String(this,that) result(output)
+  implicit none
+  
+  class(Stringable), intent(in) :: this
+  type(String),      intent(in) :: that
+  type(String)                  :: output
+  
+  output = this%str()//that
+end function
+
+! --------------------------------------------------
+! Concatenation of string types and default types.
+! --------------------------------------------------
 
 ! String = String//integer
 pure function concatenate_String_integer(this,that) result(output)
@@ -805,311 +1231,5 @@ pure function concatenate_complexes_character(this,that) result(output)
   type(String)             :: output
   
   output = join(this)//that
-end function
-
-! ----------------------------------------------------------------------
-! Equality
-! ----------------------------------------------------------------------
-! String==String
-elemental function equality_String_String(this,that) result(output)
-  implicit none
-  
-  class(String), intent(in) :: this
-  class(String), intent(in) :: that
-  logical                   :: output
-  
-  output = this%contents==that%contents
-end function
-
-! String==character
-elemental function equality_String_character(this,that) result(output)
-  implicit none
-  
-  class(String), intent(in) :: this
-  character(*),  intent(in) :: that
-  logical                   :: output
-  
-  output = this%contents==that
-end function
-
-! character==String
-elemental function equality_character_String(this,that) result(output)
-  implicit none
-  
-  character(*),  intent(in) :: this
-  class(String), intent(in) :: that
-  logical                   :: output
-  
-  output = this==that%contents
-end function
-
-! ----------------------------------------------------------------------
-! Non-equality
-! ----------------------------------------------------------------------
-! String/=String
-elemental function non_equality_String_String(this,that) result(output)
-  implicit none
-  
-  class(String), intent(in) :: this
-  class(String), intent(in) :: that
-  logical                   :: output
-  
-  output = this%contents/=that%contents
-end function
-
-! String/=character
-elemental function non_equality_String_character(this,that) result(output)
-  implicit none
-  
-  class(String), intent(in) :: this
-  character(*),  intent(in) :: that
-  logical                   :: output
-  
-  output = this%contents/=that
-end function
-
-! character/=String
-elemental function non_equality_character_String(this,that) result(output)
-  implicit none
-  
-  character(*),  intent(in) :: this
-  class(String), intent(in) :: that
-  logical                   :: output
-  
-  output = this/=that%contents
-end function
-
-! ----------------------------------------------------------------------
-! Unary operators
-! ----------------------------------------------------------------------
-! integer = len(String)
-elemental function len_String(this) result(output)
-  implicit none
-  
-  type(String), intent(in) :: this
-  integer                  :: output
-  
-  output = len(this%contents)
-end function
-
-! ----------------------------------------------------------------------
-! Converts a string to lower case
-! ----------------------------------------------------------------------
-elemental function lower_case_character(input) result(output)
-  implicit none
-  
-  character(*), intent(in) :: input
-  character(len(input))    :: output
-  
-  character(*), parameter :: lower_chars = "abcdefghijklmnopqrstuvwxyz"
-  character(*), parameter :: upper_chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-  
-  integer :: i,j
-  
-  output = input
-  
-  do i=1,len(output)
-    j = index(upper_chars, output(i:i))
-    if (j/=0) then
-      output(i:i) = lower_chars(j:j)
-    endif
-  enddo
-end function
-
-! String = lower_case(String)
-elemental function lower_case_String(this) result(output)
-  implicit none
-  
-  type(String), intent(in) :: this
-  type(String)             :: output
-  
-  output = str(lower_case(char(this)))
-end function
-
-pure function split_character(this,delimiter_in) result(output)
-  implicit none
-  
-  character(*),           intent(in) :: this
-  character(1), optional, intent(in) :: delimiter_in
-  type(String), allocatable          :: output(:)
-  
-  ! Working variables
-  character(1) :: delimiter
-  integer      :: first     ! The position of a delimiter
-  integer      :: second    ! The posiition of the next delimiter after 'first'
-  integer      :: count     ! The number of tokens
-  
-  if (present(delimiter_in)) then
-    delimiter = delimiter_in
-  else
-    delimiter = ' '
-  endif
-  
-  ! Count the number of tokens in the string
-  first = 0
-  second = 0
-  count = 0
-  do
-    first = second ! Search after previously found delimiter
-    if (first == len(this)+1) exit ! Exit if entire word split
-    second = first+index(this(first+1:),delimiter) ! Find the next delimiter
-    if (second == first) second = len(this)+1 ! Split the final token
-    if (second == first+1) cycle ! Ignore multiple delimiters in a row
-    count = count + 1
-  enddo
-  
-  ! Allocate output
-  allocate(output(count))
-  
-  ! Split string
-  first = 0
-  second = 0
-  count = 0
-  do
-    first = second
-    if (first == len(this)+1) exit
-    second = first + index(this(first+1:),delimiter)
-    if (second == first) second = len(this)+1
-    if (second == first+1) cycle
-    count = count + 1
-    output(count) = this(first+1:second-1)
-  enddo
-end function
-
-pure function split_String(this,delimiter_in) result(output)
-  implicit none
-  
-  type(String),           intent(in) :: this
-  character(1), optional, intent(in) :: delimiter_in
-  type(String), allocatable          :: output(:)
-  
-  if (present(delimiter_in)) then
-    output = split(char(this),delimiter_in)
-  else
-    output = split(char(this))
-  endif
-end function
-
-! Joins a String(:) array into one String.
-pure function join_String(this,delimiter_in) result(output)
-  implicit none
-  
-  type(String), intent(in)           :: this(:)
-  character(*), intent(in), optional :: delimiter_in
-  type(String)                       :: output
-  
-  ! Temporary variables.
-  type(String) :: delimiter
-  integer      :: i
-  
-  if (present(delimiter_in)) then
-    delimiter = delimiter_in
-  else
-    delimiter = ' '
-  endif
-  
-  if (size(this)==0) then
-    output = ''
-  else
-    output = this(1)
-    do i=2,size(this)
-      output = output//delimiter//this(i)
-    enddo
-  endif
-end function
-
-! Converts real(:) to String(:) and then joins.
-pure function join_real(this,delimiter) result(output)
-  implicit none
-  
-  real(dp),     intent(in)           :: this(:)
-  character(*), intent(in), optional :: delimiter
-  type(String)                       :: output
-  
-  if (present(delimiter)) then
-    output = join(str(this),delimiter)
-  else
-    output = join(str(this))
-  endif
-end function
-
-! Converts integer(:) to String(:), pads +ve numbers with a space, and joins.
-pure function join_integer(this,delimiter) result(output)
-  implicit none
-  
-  integer,      intent(in)           :: this(:)
-  character(*), intent(in), optional :: delimiter
-  type(String)                       :: output
-  
-  if (present(delimiter)) then
-    output = join(pad_int_to_str(this),delimiter)
-  else
-    output = join(pad_int_to_str(this))
-  endif
-end function
-
-! Converts logical(:) to String(:) and then joins.
-pure function join_logical(this,delimiter) result(output)
-  implicit none
-  
-  logical,      intent(in)           :: this(:)
-  character(*), intent(in), optional :: delimiter
-  type(String)                       :: output
-  
-  if (present(delimiter)) then
-    output = join(str(this),delimiter)
-  else
-    output = join(str(this))
-  endif
-end function
-
-! Converts complex(:) to String(:) and then joins.
-pure function join_complex(this,delimiter) result(output)
-  implicit none
-  
-  complex(dp),  intent(in)           :: this(:)
-  character(*), intent(in), optional :: delimiter
-  type(String)                       :: output
-  
-  if (present(delimiter)) then
-    output = join(str(this),delimiter)
-  else
-    output = join(str(this))
-  endif
-end function
-
-! Pads an integer with a space to match '-' length.
-elemental function pad_int_to_str(this) result(output)
-  implicit none
-  
-  integer, intent(in) :: this
-  type(String)        :: output
-  
-  output = this
-  if (output%contents(1:1)/='-') then
-    output = ' '//output
-  endif
-end function
-
-! Removes trailing spaces.
-elemental function trim_String(this) result(output)
-  implicit none
-  
-  type(String), intent(in) :: this
-  type(String)             :: output
-  
-  output = trim(adjustl(char(this)))
-end function
-
-! Takes a slice of a String. slice(String,first,last) = character(first:last).
-pure function slice(this,first,last) result(output)
-  implicit none
-  
-  type(String),  intent(in) :: this
-  integer,       intent(in) :: first
-  integer,       intent(in) :: last
-  type(String)              :: output
-  
-  output = this%contents(first:last)
 end function
 end module
