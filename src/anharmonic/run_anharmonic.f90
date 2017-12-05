@@ -185,7 +185,7 @@ subroutine run_anharmonic(arguments)
   endif
   
   do qpoint=first_qpoint,last_qpoint
-    qdir = wd//'/qpoint_'//qpoint
+    qdir = wd//'/qpoint_'//left_pad(qpoint,str(size(qpoints)))
     
     ! Run calculations at each coupling at the q-point.
     couplings = read_coupling_file(qdir//'/coupling.dat')
@@ -210,7 +210,7 @@ subroutine run_anharmonic(arguments)
     endif
     
     do coupling=min_coupling,max_coupling
-      cdir = qdir//'/coupling_'//coupling
+      cdir = qdir//'/coupling_'//left_pad(coupling,str(size(couplings)))
       
       ! Run calculations at each sampling point at the coupling.
       sampling_points = read_sampling_points_file(cdir//'/sampling_points.dat')
@@ -240,7 +240,8 @@ subroutine run_anharmonic(arguments)
            &at sampling point '//sampling_point//' &
            &at coupling '//coupling//' &
            &at q-point '//qpoint//'.')
-        sdir = cdir//'/sampling_point_'//sampling_point
+        sdir = cdir//'/sampling_point_'// &
+           & left_pad(sampling_point,str(size(sampling_points)))
         result_code = system_call( 'cd '//wd//'; ' //      &
                                  & run_script      //' '// &
                                  & dft_code        //' '// &

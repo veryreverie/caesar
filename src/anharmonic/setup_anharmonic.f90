@@ -190,8 +190,9 @@ subroutine setup_anharmonic(arguments)
   no_supercells = int(no_supercells_file%line(1))
   allocate(supercells(no_supercells), stat=ialloc); call err(ialloc)
   do i=1,no_supercells
-    supercells(i) = read_structure_file( &
-       & harmonic_path//'/Supercell_'//i//'/structure.dat')
+    supercells(i) = read_structure_file(                                &
+       & harmonic_path//'/Supercell_'//left_pad(i,str(no_supercells))// &
+       & '/structure.dat')
   enddo
   
   ! Read in q-points.
@@ -219,7 +220,8 @@ subroutine setup_anharmonic(arguments)
     allocate(modes(structure%no_modes), stat=ialloc); call err(ialloc)
     do j=1,structure%no_modes
       modes(j) = read_normal_mode_file( &
-         & harmonic_path//'/qpoint_'//i//'/mode_'//j//'.dat')
+         & harmonic_path//'/qpoint_'//left_pad(i,str(size(modes)))// &
+         & '/mode_'//left_pad(j,str(size(modes)))//'.dat')
     enddo
     
     ! Calculate the sample spacing along each mode.
@@ -235,7 +237,7 @@ subroutine setup_anharmonic(arguments)
     enddo
     
     ! Make q-point directories.
-    qdir = wd//'/qpoint_'//i
+    qdir = wd//'/qpoint_'//left_pad(i,str(size(qpoints)))
     call mkdir(qdir)
     
     ! Parse coupling.
@@ -256,7 +258,7 @@ subroutine setup_anharmonic(arguments)
     
     do j=1,size(setup_data)
       ! Make coupling directories.
-      cdir = qdir//'/coupling_'//j
+      cdir = qdir//'/coupling_'//left_pad(j,str(size(setup_data)))
       call mkdir(cdir)
     
       ! Calculate indices of sampling points.
@@ -274,7 +276,8 @@ subroutine setup_anharmonic(arguments)
       ! Make dft a working directory containing a DFT input file at each
       !    sampling point.
       do k=1,size(setup_data(j)%sampling_points)
-        sdir = cdir//'/sampling_point_'//k
+        sdir = cdir//'/sampling_point_'// &
+           & left_pad(k,size(setup_data(j)%sampling_points))
         call mkdir(sdir)
         
         ! Displace supercell atoms by a sum of normal modes.

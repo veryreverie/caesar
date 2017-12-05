@@ -186,8 +186,9 @@ subroutine calculate_anharmonic(arguments)
   
   allocate(supercells(no_supercells), stat=ialloc); call err(ialloc)
   do i=1,no_supercells
-    supercells(i) = read_structure_file( &
-       & harmonic_path//'/Supercell_'//i//'/structure.dat')
+    supercells(i) = read_structure_file(                                &
+       & harmonic_path//'/Supercell_'//left_pad(i,str(no_supercells))// &
+       & '/structure.dat')
   enddo
   
   ! Read in q-points.
@@ -204,17 +205,21 @@ subroutine calculate_anharmonic(arguments)
     ! Read in normal modes.
     allocate(modes(structure%no_modes), stat=ialloc); call err(ialloc)
     do j=1,structure%no_modes
-      modes(j) = read_normal_mode_file( &
-         & harmonic_path//'/qpoint_'//i//'/mode_'//j//'.dat')
+      modes(j) = read_normal_mode_file(                                &
+         & harmonic_path//'/qpoint_'//left_pad(i,str(size(qpoints)))// &
+         & '/mode_'//left_pad(j,str(size(modes)))//'.dat')
     enddo
     
     ! Read in coupling and sampling points.
-    coupling = read_coupling_file(wd//'/qpoint_'//i//'/coupling.dat')
+    coupling = read_coupling_file( &
+       & wd//'/qpoint_'//left_pad(i,str(size(qpoints)))//'/coupling.dat')
     allocate(sampling(size(coupling)), stat=ialloc); call err(ialloc)
     do j=1,size(coupling)
       sampling(j)%coupling = coupling(j)
       sampling(j)%sampling_points = read_sampling_points_file( &
-         & wd//'/qpoint_'//i//'/coupling_'//j//'/sampling_points.dat')
+         & wd//'/qpoint_'//left_pad(i,str(size(qpoints)))//    &
+         & '/coupling_'//left_pad(j,str(size(coupling)))//     &
+         & '/sampling_points.dat')
       no_sampling_points = size(sampling(j)%sampling_points)
       allocate( sampling(j)%energy(no_sampling_points),                    &
               & sampling(j)%forces(supercell%no_atoms,no_sampling_points), &
@@ -222,11 +227,12 @@ subroutine calculate_anharmonic(arguments)
       
       ! Read in DFT outputs.
       do k=1,no_sampling_points
-        dft_output_file = read_dft_output_file(dft_code, wd//                 &
-                                                    & '/qpoint_'//i//         &
-                                                    & '/coupling_'//j//       &
-                                                    & '/sampling_point_'//k// &
-                                                    & '/'//dft_output_filename)
+        dft_output_file = read_dft_output_file( dft_code,              &
+           & wd//                                                      &
+           & '/qpoint_'//left_pad(i,str(size(qpoints)))//              &
+           & '/coupling_'//left_pad(j,str(size(coupling)))//           &
+           & '/sampling_point_'//left_pad(k,str(no_sampling_points))// &
+           & '/'//dft_output_filename)
         sampling(j)%energy(k) = dft_output_file%energy
         sampling(j)%forces(:,k) = dft_output_file%forces
       enddo

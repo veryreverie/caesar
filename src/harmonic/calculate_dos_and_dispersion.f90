@@ -103,8 +103,9 @@ subroutine calculate_dos_and_dispersion(arguments)
   allocate( dynamical_matrices(size(qpoints)), &
           & stat=ialloc); call err(ialloc)
   do i=1,size(qpoints)
-    dynamical_matrices(i) = read_dynamical_matrix_file( &
-       & wd//'/qpoint_'//i//'/dynamical_matrix.dat')
+    dynamical_matrices(i) = read_dynamical_matrix_file(  &
+       & wd//'/qpoint_'//left_pad(i,str(size(qpoints)))// &
+       & '/dynamical_matrix.dat')
   enddo
   
   ! --------------------------------------------------

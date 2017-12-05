@@ -37,7 +37,7 @@ module io_module
   public :: execute_old_code    ! Runs one of the old caesar codes.
   public :: execute_python      ! Runs one of the python scripts.
   public :: colour              ! Adds terminal colours to a string.
-!  public :: left_pad            ! Left pads an integer.
+  public :: left_pad            ! Left pads an integer.
   
   ! The terminal escape character.
   character(1), parameter :: ESC = achar(27)
@@ -90,6 +90,11 @@ module io_module
     module procedure colour_String_character
     module procedure colour_character_String
     module procedure colour_String_String
+  end interface
+  
+  interface left_pad
+    module procedure left_pad_character
+    module procedure left_pad_String
   end interface
   
   ! C system call interface.
@@ -904,8 +909,55 @@ end function
 ! ----------------------------------------------------------------------
 ! Left pads an integer, by default with zeroes.
 ! ----------------------------------------------------------------------
-!function left_pad(input,length
-!  implicit none
-!end function
 
+! Left pads to match the length of a given string.
+! e.g. left_pad(5,'example') returns '0000005'.
+! Throws an error if the input is negative, or longer than the matching string.
+function left_pad_character(input,match,pad_character) result(output)
+  implicit none
+  
+  integer,      intent(in)           :: input
+  character(*), intent(in)           :: match
+  character(1), intent(in), optional :: pad_character
+  type(String)                       :: output
+  
+  character(1) :: pad
+  integer      :: i
+  
+  if (present(pad_character)) then
+    pad = pad_character
+  else
+    pad = '0'
+  endif
+  
+  if (input<0) then
+    call err()
+  endif
+  
+  output = str(input)
+  
+  if (len(output)>len(match)) then
+    call err()
+  endif
+  
+  do i=1,len(match)-len(output)
+    output = pad//output
+  enddo
+end function
+
+! As above.
+function left_pad_String(input,match,pad_character) result(output)
+  implicit none
+  
+  integer,      intent(in)           :: input
+  type(String), intent(in)           :: match
+  character(1), intent(in), optional :: pad_character
+  type(String)                       :: output
+  
+  if (present(pad_character)) then
+    output = left_pad(input, char(match), pad_character)
+  else
+    output = left_pad(input, char(match))
+  endif
+end function
 end module

@@ -517,14 +517,18 @@ subroutine generate_dispersion(structure,supercell,&
   type(String),        intent(in) :: phonon_dispersion_curve_filename
   type(String),        intent(in) :: high_symmetry_points_filename
   
-  integer                  :: no_paths
-  type(RealVector), allocatable :: qpoints(:)
-  real(dp),    allocatable :: path_length(:)
-  real(dp),    allocatable :: cumulative_length(:)
-  integer,     allocatable :: no_points(:)
-  type(RealVector)         :: qpoint
-  type(DynamicalMatrix)    :: dyn_mat
-  type(FreqsPolVecs)       :: frequencies
+  ! Path variables.
+  integer,  parameter :: total_no_points = 1000
+  real(dp), parameter :: fractional_separation = 1.0_dp/total_no_points
+  
+  real(dp), allocatable :: fractional_lengths(:)
+  real(dp), allocatable :: fractional_distances(:)
+  integer,  allocatable :: no_points(:)
+  
+  ! q-point and dynamical matrix variables.
+  type(RealVector)      :: qpoint
+  type(DynamicalMatrix) :: dyn_mat
+  type(FreqsPolVecs)    :: frequencies
   
   ! File units.
   type(OFile) :: phonon_dispersion_curve_file
@@ -533,60 +537,62 @@ subroutine generate_dispersion(structure,supercell,&
   ! Temporary variables.
   integer :: i,j,ialloc
   
-  no_paths = size(path)-1
+  ! Work out distances in terms of fractions of the path.
+  allocate( fractional_lengths(size(path)-1), &
+          & fractional_distances(size(path)), &
+          & no_points(size(path)-1),          &
+          & stat=ialloc); call err(ialloc)
   
-  ! Transform q-points into reciprocal space (from fractional co-ords.)
-  allocate(qpoints(no_paths+1), stat=ialloc); call err(ialloc)
-  do i=1,no_paths+1
-    qpoints(i) = 2*pi*transpose(structure%recip_lattice)*path(i)
+  do i=1,size(path)-1
+    fractional_lengths(i) = l2_norm(path(i+1)-path(i))
+  enddo
+  fractional_lengths = fractional_lengths / sum(fractional_lengths)
+  
+  fractional_distances(1) = 0.0_dp
+  do i=1,size(path)-1
+    fractional_distances(i+1) = fractional_distances(i) &
+                            & + fractional_lengths(i)
   enddo
   
-  ! Work out distances in reciprocal space.
-  allocate(path_length(no_paths), stat=ialloc); call err(ialloc)
-  do i=1,no_paths
-    path_length(i) = l2_norm(qpoints(i+1)-qpoints(i))
+  ! Space sampling points along the path, in proportion with path length.
+  do i=1,size(path)-1
+    no_points(i) = nint(total_no_points*fractional_lengths(i))
   enddo
   
-  allocate(cumulative_length(no_paths+1), stat=ialloc); call err(ialloc)
-  cumulative_length(1) = 0.0_dp
-  do i=2,no_paths+1
-    cumulative_length(i) = cumulative_length(i-1)+path_length(i-1)
-  enddo
-  
-  ! Space sampling points across the path, in proportion with path length.
-  allocate(no_points(no_paths), stat=ialloc); call err(ialloc)
-  do i=1,no_paths
-    no_points(i) = nint(1000*path_length(i)/cumulative_length(no_paths+1))
-  enddo
-  
-  ! Write path lengths to file.
+  ! Write path to file.
   high_symmetry_points_file = high_symmetry_points_filename
-  do i=1,no_paths+1
-    call high_symmetry_points_file%print_line(i//' '//cumulative_length(i))
+  do i=1,size(path)
+    call high_symmetry_points_file%print_line('q-point: '//path(i))
+    call high_symmetry_points_file%print_line( &
+       & 'Fraction along path: '//fractional_distances(i))
+    call high_symmetry_points_file%print_line('')
   enddo
   
-  ! Travel along k-space paths, calculating frequencies at each point.
+  ! Travel along q-space paths, calculating frequencies at each point.
   phonon_dispersion_curve_file = phonon_dispersion_curve_filename
-  do i=1,no_paths
+  do i=1,size(path)-1
     do j=0,no_points(i)-1
-      qpoint = ((no_points(i)-j)*qpoints(i)+j*qpoints(i+1))/no_points(i)
+      qpoint = ((no_points(i)-j)*path(i)+j*path(i+1))/no_points(i)
       dyn_mat = construct_dynamical_matrix(qpoint,supercell, &
          & force_consts,delta_prim)
       frequencies = calculate_frequencies_and_polarisations(dyn_mat)
-      call phonon_dispersion_curve_file%print_line(     &
-         & cumulative_length(i)+j*path_length(i)//' '// &
-         & frequencies%frequencies)
+      call phonon_dispersion_curve_file%print_line( &
+         & 'Fraction along path: '//                &
+         & fractional_distances(i)+j*fractional_separation)
+      call phonon_dispersion_curve_file%print_line( &
+         & 'Frequencies: '//frequencies%frequencies)
     enddo
   enddo
   
   ! Calculate frequencies at final k-space point.
-  qpoint = qpoints(no_paths+1)
+  qpoint = path(size(path))
   dyn_mat = construct_dynamical_matrix(qpoint,supercell, &
      & force_consts,delta_prim)
   frequencies = calculate_frequencies_and_polarisations(dyn_mat)
   call phonon_dispersion_curve_file%print_line( &
-       & (cumulative_length(no_paths+1))//' '// &
-       & frequencies%frequencies)
+     & 'Fraction along path: '//1.0_dp)
+  call phonon_dispersion_curve_file%print_line( &
+     & 'Frequencies: '//frequencies%frequencies)
 end subroutine
 
 ! ----------------------------------------------------------------------

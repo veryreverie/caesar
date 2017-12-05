@@ -54,6 +54,7 @@ function read_forces(supercell,unique_directions,sdir,dft_code,seedname) &
   ! Direction information.
   integer      :: atom
   character(1) :: direction
+  type(String) :: atom_string
   
   ! Temporary variables.
   integer          :: i,j,ialloc
@@ -66,11 +67,14 @@ function read_forces(supercell,unique_directions,sdir,dft_code,seedname) &
   do i=1,size(unique_directions)
     atom = unique_directions%atoms(i)
     direction = unique_directions%directions_char(i)
+    atom_string = left_pad(atom,str(maxval(unique_directions%atoms)))
     
-    positive = read_dft_output_file(dft_code,      &
-       & sdir//'/atom.'//atom//'.+d'//direction//'/'//dft_output_filename)
-    negative = read_dft_output_file(dft_code,      &
-       & sdir//'/atom.'//atom//'.-d'//direction//'/'//dft_output_filename)
+    positive = read_dft_output_file(dft_code,            &
+       & sdir//'/atom.'//atom_string//'.+d'//direction// &
+       & '/'//dft_output_filename)
+    negative = read_dft_output_file(dft_code,            &
+       & sdir//'/atom.'//atom_string//'.-d'//direction// &
+       & '/'//dft_output_filename)
     
     do j=1,supercell%no_atoms
       output(j,i) = (positive%forces(j)-negative%forces(j)) / 0.02_dp

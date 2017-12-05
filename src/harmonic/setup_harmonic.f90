@@ -93,13 +93,13 @@ subroutine setup_harmonic(arguments)
   integer                :: atom
   character(1)           :: direction_char
   type(RealVector)       :: displacement
+  type(String)           :: atom_string
   
   ! Temporary variables.
   integer        :: i,j,k
   
+  ! Files.
   type(String) :: dft_input_filename
-  
-  ! File units.
   type(OFile) :: no_supercells_file
   
   ! --------------------------------------------------
@@ -168,7 +168,7 @@ subroutine setup_harmonic(arguments)
   
   ! Loop over supercells.
   do i=1,no_supercells
-    sdir=wd//'/Supercell_'//i
+    sdir=wd//'/Supercell_'//left_pad(i,str(no_supercells))
     
     call mkdir(sdir)
     
@@ -197,8 +197,9 @@ subroutine setup_harmonic(arguments)
         call err()
       endif
       
-      paths = [ sdir//'/atom.'//atom//'.+d'//direction_char, &
-              & sdir//'/atom.'//atom//'.-d'//direction_char  ]
+      atom_string = left_pad(atom, str(maxval(unique_directions%atoms)))
+      paths = [ sdir//'/atom.'//atom_string//'.+d'//direction_char, &
+              & sdir//'/atom.'//atom_string//'.-d'//direction_char  ]
       
       ! Make harmonic run directories.
       do k=1,2

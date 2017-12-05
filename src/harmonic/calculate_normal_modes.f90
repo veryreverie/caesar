@@ -88,6 +88,7 @@ subroutine calculate_normal_modes(arguments)
   integer                                   :: mode
   integer                                   :: atom
   integer                                   :: gvector
+  type(String)                              :: mode_string
   
   ! Normal modes and their symmetries.
   type(LiftDegeneraciesReturn)   :: lifted_degeneracies
@@ -127,7 +128,7 @@ subroutine calculate_normal_modes(arguments)
           & stat=ialloc); call err(ialloc)
   modes_calculated = .false.
   do i=1,no_supercells
-    sdir = wd//'/Supercell_'//i
+    sdir = wd//'/Supercell_'//left_pad(i,str(no_supercells))
     
     ! Read in supercell structure data.
     supercell = read_structure_file(sdir//'/structure.dat')
@@ -210,7 +211,7 @@ subroutine calculate_normal_modes(arguments)
   ! Write out output.
   ! --------------------------------------------------
   do i=1,size(qpoints)
-    qdir = wd//'/qpoint_'//i
+    qdir = wd//'/qpoint_'//left_pad(i,str(size(qpoints)))
     call mkdir(qdir)
     
     ! Write out dynamical matrix.
@@ -220,8 +221,9 @@ subroutine calculate_normal_modes(arguments)
     
     ! Write out normal modes.
     do mode=1,structure%no_modes
+      mode_string = left_pad(mode,str(structure%no_modes))
       call qpoint_modes(i)%complex_modes(mode)%write_file( &
-         & qdir//'/mode_'//mode//'.dat')
+         & qdir//'/mode_'//mode_string//'.dat')
     enddo
   enddo
 end subroutine

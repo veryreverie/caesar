@@ -75,6 +75,7 @@ subroutine run_harmonic(arguments)
   type(UniqueDirections) :: unique_directions
   integer                :: atom
   character(1)           :: direction
+  type(String)           :: atom_string
   
   ! Temporary variables.
   integer      :: i,j,k
@@ -135,7 +136,7 @@ subroutine run_harmonic(arguments)
   ! Run calculations
   ! --------------------------------------------------
   do i=supercells_to_run(1),supercells_to_run(2)
-    sdir = wd//'/Supercell_'//i
+    sdir = wd//'/Supercell_'//left_pad(i,str(no_supercells))
     
     unique_directions = read_unique_directions_file( &
        & sdir//'/unique_directions.dat')
@@ -143,10 +144,11 @@ subroutine run_harmonic(arguments)
     do j=1,size(unique_directions)
       atom = unique_directions%atoms(j)
       direction = unique_directions%directions_char(j)
+      atom_string = left_pad(atom,str(maxval(unique_directions%atoms)))
       
       signs = [ '+', '-' ]
       do k=1,2
-        dir = sdir//'/atom.'//atom//'.'//signs(k)//'d'//direction
+        dir = sdir//'/atom.'//atom_string//'.'//signs(k)//'d'//direction
         call print_line('')
         call print_line('Running calculation in directory '//dir)
         result_code = system_call( 'cd '//wd//'; '//run_script//' '// &
