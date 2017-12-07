@@ -22,15 +22,16 @@ function calculate_dos_and_dispersion_keywords() result(keywords)
   
   keywords = [                                                                &
   & KeywordData( 'temperature',                                               &
-  &              'temperature is the temperature in Kelvin, used when &
-  &calculating the density of states and phonon dispersion curve.',           &
+  &              'temperature is the temperature used to broaden the phonon &
+  &density of states. Temperature should be given in Kelvin.',                &
   &              default_value='0'),                                          &
   & KeywordData( 'path',                                                      &
   &              'path is the path through fractional reciprocal space which &
   &will be mapped by the phonon dispersion curve. The path should be &
-  &specified as vectors in fractional reciprocal space separated by commas.', &
-  &              default_value='0.0 0.0 0.0, 0.5 0.5 0.5, 0.0 0.5 0.5, &
-  &0.0 0.0 0.0, 0.0 0.5 0.0') ]
+  &specified as labels and q-points, separated by commas. The Gamma-point &
+  &should be labelled G.', &
+  &              default_value='G 0.0 0.0 0.0, R 0.5 0.5 0.5, M 0.0 0.5 0.5, &
+  &G 0.0 0.0 0.0, X 0.0 0.0 0.5') ]
 end function
 
 function calculate_dos_and_dispersion_mode() result(output)
@@ -65,7 +66,8 @@ subroutine calculate_dos_and_dispersion(arguments)
   type(String)                  :: wd
   real(dp)                      :: temperature
   type(String),     allocatable :: path_string(:)
-  type(RealVector), allocatable :: disp_qpoints(:)
+  type(String),     allocatable :: path_labels(:)
+  type(RealVector), allocatable :: path_qpoints(:)
   
   ! Previously calculated data.
   type(StructureData)                :: structure
@@ -74,7 +76,8 @@ subroutine calculate_dos_and_dispersion(arguments)
   type(DynamicalMatrix), allocatable :: dynamical_matrices(:)
   
   ! Temporary variables.
-  integer :: i,ialloc
+  type(String), allocatable :: path_point(:)
+  integer                   :: i,ialloc
   
   ! --------------------------------------------------
   ! Read in arguments from user.
@@ -86,9 +89,13 @@ subroutine calculate_dos_and_dispersion(arguments)
   ! --------------------------------------------------
   ! Generate path for dispersion calculation.
   ! --------------------------------------------------
-  allocate(disp_qpoints(size(path_string)), stat=ialloc); call err(ialloc)
+  allocate( path_qpoints(size(path_string)), &
+          & path_labels(size(path_string)),  &
+          & stat=ialloc); call err(ialloc)
   do i=1,size(path_string)
-    disp_qpoints(i) = dble(split(path_string(i)))
+    path_point = split(path_string(i))
+    path_labels(i) = path_point(1)
+    path_qpoints(i) = dble(path_point(2:4))
   enddo
   
   ! --------------------------------------------------
@@ -112,11 +119,13 @@ subroutine calculate_dos_and_dispersion(arguments)
   ! Calculate harmonic DOS and phonon dispersion.
   ! --------------------------------------------------
   call fourier_interpolation(              &
+     & qpoints,                            &
      & dynamical_matrices,                 &
      & structure,                          &
      & temperature,                        &
      & large_supercell,                    &
-     & disp_qpoints,                       &
+     & path_labels,                        &
+     & path_qpoints,                       &
      & wd//'/phonon_dispersion_curve.dat', &
      & wd//'/high_symmetry_points.dat',    &
      & wd//'/free_energy.dat',             &

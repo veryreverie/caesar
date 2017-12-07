@@ -301,7 +301,7 @@ end function
 !    the Brillouin zone.
 ! ----------------------------------------------------------------------
 subroutine generate_dos(supercell,delta_prim, &
-   & force_consts,temperature,free_energy_filename,freq_dos_filename)
+   & force_consts,temperature,free_energy_filename,dos_filename)
   use ofile_module
   use structure_module
   use min_images_module
@@ -312,13 +312,13 @@ subroutine generate_dos(supercell,delta_prim, &
   type(RealMatrix),    intent(in) :: force_consts(:,:,:)
   real(dp),            intent(in) :: temperature
   type(String),        intent(in) :: free_energy_filename
-  type(String),        intent(in) :: freq_dos_filename
+  type(String),        intent(in) :: dos_filename
   
-  integer,parameter :: no_bins=1000,no_prelims=10000,no_samples=1000000
-  real(dp),parameter :: freq_tol=1.0e-8_dp,safety_factor=1.15_dp
+  integer,parameter :: no_bins=1000,no_prelims=10000,no_samples=100000
+  real(dp),parameter :: freq_tol=1.0e-8_dp,safety_margin=0.15_dp
   
   integer :: i_sample,i_freq,i_bin
-  real(dp) :: max_freq,min_freq,frac(3),bin_width,&
+  real(dp) :: max_freq,min_freq,freq_spread,frac(3),bin_width,&
     &freq_dos(no_bins),free_energy,omega
   type(RealVector) :: qpoint
   
@@ -327,7 +327,7 @@ subroutine generate_dos(supercell,delta_prim, &
   
   ! files.
   type(OFile) :: free_energy_file
-  type(OFile) :: freq_dos_file
+  type(OFile) :: dos_file
   
   ! Initialise the random number generator
   call random_seed()
@@ -339,7 +339,7 @@ subroutine generate_dos(supercell,delta_prim, &
   ! choose the bin width.
   do i_sample=1,no_prelims
     call random_number(frac)
-    qpoint = transpose(supercell%recip_supercell)*vec(frac)/supercell%sc_size
+    qpoint = vec(frac)
     dyn_mat = construct_dynamical_matrix(qpoint,supercell, &
        & force_consts,delta_prim)
     frequencies = calculate_frequencies_and_polarisations(dyn_mat)
@@ -349,44 +349,49 @@ subroutine generate_dos(supercell,delta_prim, &
   enddo
   
   if (max_freq<=0.0_dp) then
-    call print_line('The system is pathologically unstable.')
+    call print_line(ERROR//': The system is pathologically unstable.')
     call err()
   endif
   
-  bin_width=safety_factor*max_freq/dble(no_bins)
+  ! Spread out min and max frequencies to leave safety margin.
+  freq_spread = max_freq-min_freq
+  min_freq = max_freq-(1+safety_margin)*freq_spread
+  max_freq = min_freq+(1+2*safety_margin)*freq_spread
+  freq_spread = freq_spread*(1+2*safety_margin)
+  bin_width=(max_freq-min_freq)/no_bins
   freq_dos=0.0_dp
   
   do i_sample=1,no_samples
     call random_number(frac)
-    qpoint = transpose(supercell%recip_supercell)*vec(frac)/supercell%sc_size
+    qpoint = vec(frac)
     dyn_mat = construct_dynamical_matrix(qpoint,supercell, &
        & force_consts,delta_prim)
     frequencies = calculate_frequencies_and_polarisations(dyn_mat)
     
     do i_freq=1,supercell%no_modes_prim
-      ! Only bin positive frequencies.
-      if (frequencies%frequencies(i_freq) > -freq_tol) then
-        i_bin = max(1,ceiling(frequencies%frequencies(i_freq)/bin_width))
-        if (i_bin>no_bins) then
-          call print_line('Frequency too high to be binned.')
-          call err()
-        endif
-        freq_dos(i_bin) = freq_dos(i_bin)+1.0_dp
+      i_bin = ceiling((frequencies%frequencies(i_freq)-min_freq)/bin_width)
+      if (i_bin<1) then
+        call print_line(ERROR//': Frequency too low to be binned.')
+        call err()
+      elseif (i_bin>no_bins) then
+        call print_line(ERROR//': Frequency too high to be binned.')
+        call err()
       endif
+      freq_dos(i_bin) = freq_dos(i_bin)+1.0_dp
     enddo
   enddo
   
-  free_energy = 0.0_dp
-  do i_bin=1,no_bins
-    omega = bin_width*(dble(i_bin)-0.5_dp)
-    free_energy = free_energy                               &
-              & +   freq_dos(i_bin)                         &
-              &   * harmonic_free_energy(temperature,omega) &
-              &   / no_samples
-  enddo
-  
-  free_energy_file = free_energy_filename
-  call free_energy_file%print_line(free_energy)
+  !free_energy = 0.0_dp
+  !do i_bin=1,no_bins
+  !  omega = bin_width*(dble(i_bin)-0.5_dp)
+  !  free_energy = free_energy                               &
+  !            & +   freq_dos(i_bin)                         &
+  !            &   * harmonic_free_energy(temperature,omega) &
+  !            &   / no_samples
+  !enddo
+  !
+  !free_energy_file = free_energy_filename
+  !call free_energy_file%print_line(free_energy)
   
   ! Normalise frequency DoS so that its integral is the number of
   !    degrees of freedom in the primitive cell. Note that the total
@@ -395,10 +400,13 @@ subroutine generate_dos(supercell,delta_prim, &
   freq_dos = freq_dos/(no_samples*bin_width)
   
   ! Write out the frequency DoS.
-  freq_dos_file = freq_dos_filename
+  dos_file = dos_filename
   do i_bin=1,no_bins
-    call freq_dos_file%print_line( bin_width*(i_bin-0.5_dp)//' '// &
-                                 & freq_dos(i_bin))
+    call dos_file%print_line(                    &
+       & 'Bin: '//min_freq+bin_width*(i_bin-1)// &
+       & ' to '//min_freq+bin_width*i_bin)
+    call dos_file%print_line( 'Bin DOS: '//freq_dos(i_bin))
+    call dos_file%print_line( '')
   enddo
 end subroutine
 
@@ -500,8 +508,8 @@ end subroutine
 ! The branches of the dispersion curve are plotted against the total distance 
 !    travelled along the specified paths in q-space.
 ! ----------------------------------------------------------------------
-subroutine generate_dispersion(structure,supercell,&
-   & delta_prim,force_consts,path,phonon_dispersion_curve_filename, &
+subroutine generate_dispersion(structure,supercell,delta_prim,force_consts, &
+   & path_labels,path_qpoints,dispersion_filename,                          &
    & high_symmetry_points_filename)
   use constants_module, only : pi
   use ofile_module
@@ -513,17 +521,20 @@ subroutine generate_dispersion(structure,supercell,&
   type(StructureData), intent(in) :: supercell
   type(MinImages),     intent(in) :: delta_prim(:,:,:)
   type(RealMatrix),    intent(in) :: force_consts(:,:,:)
-  type(RealVector),    intent(in) :: path(:)
-  type(String),        intent(in) :: phonon_dispersion_curve_filename
+  type(String),        intent(in) :: path_labels(:)
+  type(RealVector),    intent(in) :: path_qpoints(:)
+  type(String),        intent(in) :: dispersion_filename
   type(String),        intent(in) :: high_symmetry_points_filename
   
   ! Path variables.
   integer,  parameter :: total_no_points = 1000
   real(dp), parameter :: fractional_separation = 1.0_dp/total_no_points
   
+  integer               :: no_segments
+  integer               :: no_vertices
   real(dp), allocatable :: fractional_lengths(:)
   real(dp), allocatable :: fractional_distances(:)
-  integer,  allocatable :: no_points(:)
+  integer,  allocatable :: points_per_segment(:)
   
   ! q-point and dynamical matrix variables.
   type(RealVector)      :: qpoint
@@ -531,67 +542,78 @@ subroutine generate_dispersion(structure,supercell,&
   type(FreqsPolVecs)    :: frequencies
   
   ! File units.
-  type(OFile) :: phonon_dispersion_curve_file
+  type(OFile) :: dispersion_file
   type(OFile) :: high_symmetry_points_file
   
   ! Temporary variables.
   integer :: i,j,ialloc
   
+  no_vertices = size(path_labels)
+  no_segments = size(path_labels)-1
+  if (size(path_qpoints) /= no_vertices) then
+    call print_line(CODE_ERROR//': The number of q-points does not match the &
+       &number of q-point labels.')
+    call err()
+  endif
+  
   ! Work out distances in terms of fractions of the path.
-  allocate( fractional_lengths(size(path)-1), &
-          & fractional_distances(size(path)), &
-          & no_points(size(path)-1),          &
+  allocate( fractional_lengths(no_segments),   &
+          & fractional_distances(no_vertices), &
+          & points_per_segment(no_segments),   &
           & stat=ialloc); call err(ialloc)
   
-  do i=1,size(path)-1
-    fractional_lengths(i) = l2_norm(path(i+1)-path(i))
+  do i=1,no_segments
+    fractional_lengths(i) = l2_norm(path_qpoints(i+1)-path_qpoints(i))
   enddo
   fractional_lengths = fractional_lengths / sum(fractional_lengths)
   
   fractional_distances(1) = 0.0_dp
-  do i=1,size(path)-1
+  do i=1,no_segments
     fractional_distances(i+1) = fractional_distances(i) &
                             & + fractional_lengths(i)
   enddo
   
   ! Space sampling points along the path, in proportion with path length.
-  do i=1,size(path)-1
-    no_points(i) = nint(total_no_points*fractional_lengths(i))
+  do i=1,no_segments
+    points_per_segment(i) = nint(total_no_points*fractional_lengths(i))
   enddo
   
   ! Write path to file.
   high_symmetry_points_file = high_symmetry_points_filename
-  do i=1,size(path)
-    call high_symmetry_points_file%print_line('q-point: '//path(i))
+  do i=1,no_vertices
+    call high_symmetry_points_file%print_line( &
+       & 'q-point: '//path_labels(i)//' '//path_qpoints(i))
     call high_symmetry_points_file%print_line( &
        & 'Fraction along path: '//fractional_distances(i))
     call high_symmetry_points_file%print_line('')
   enddo
   
   ! Travel along q-space paths, calculating frequencies at each point.
-  phonon_dispersion_curve_file = phonon_dispersion_curve_filename
-  do i=1,size(path)-1
-    do j=0,no_points(i)-1
-      qpoint = ((no_points(i)-j)*path(i)+j*path(i+1))/no_points(i)
+  dispersion_file = dispersion_filename
+  do i=1,no_segments
+    do j=0,points_per_segment(i)-1
+      qpoint = ( (points_per_segment(i)-j)*path_qpoints(i)     &
+           &   + j                        *path_qpoints(i+1) ) &
+           & / points_per_segment(i)
       dyn_mat = construct_dynamical_matrix(qpoint,supercell, &
          & force_consts,delta_prim)
       frequencies = calculate_frequencies_and_polarisations(dyn_mat)
-      call phonon_dispersion_curve_file%print_line( &
+      call dispersion_file%print_line( &
          & 'Fraction along path: '//                &
          & fractional_distances(i)+j*fractional_separation)
-      call phonon_dispersion_curve_file%print_line( &
+      call dispersion_file%print_line( &
          & 'Frequencies: '//frequencies%frequencies)
     enddo
   enddo
   
   ! Calculate frequencies at final k-space point.
-  qpoint = path(size(path))
+  qpoint = path_qpoints(no_vertices)
   dyn_mat = construct_dynamical_matrix(qpoint,supercell, &
      & force_consts,delta_prim)
   frequencies = calculate_frequencies_and_polarisations(dyn_mat)
-  call phonon_dispersion_curve_file%print_line( &
+  call dispersion_file%print_line( &
      & 'Fraction along path: '//1.0_dp)
-  call phonon_dispersion_curve_file%print_line( &
+  call dispersion_file%print_line( &
      & 'Frequencies: '//frequencies%frequencies)
 end subroutine
 
@@ -804,72 +826,14 @@ subroutine calculate_lte_and_ltfe(supercell,force_constants, &
 end subroutine
 
 ! ----------------------------------------------------------------------
-! Calculates a dispersion curve for a single supercell.
-! ----------------------------------------------------------------------
-subroutine calculate_dispersion_curve(structure,supercell,force_constants, &
-   & no_kspace_lines,path, &
-   & phonon_dispersion_curve_filename,high_symmetry_points_filename)
-  use structure_module
-  use min_images_module
-  implicit none
-  
-  ! ----------------------------------------
-  ! Inputs
-  ! ----------------------------------------
-  type(StructureData), intent(in) :: structure
-  type(StructureData), intent(in) :: supercell
-  type(RealMatrix),    intent(in) :: force_constants(:,:,:)
-  integer,             intent(in) :: no_kspace_lines
-  type(RealVector),    intent(in) :: path(:)
-  
-  ! ----------------------------------------
-  ! filenames
-  ! ----------------------------------------
-  type(String), intent(in) :: phonon_dispersion_curve_filename
-  type(String), intent(in) :: high_symmetry_points_filename
-  
-  ! ----------------------------------------
-  ! previously global variables
-  ! ----------------------------------------
-  type(MinImages), allocatable :: delta_prim(:,:,:)
-  
-  integer :: i
-  
-  delta_prim = calculate_delta_prim(supercell)
-
-  call print_line('Number of lines in k-space to plot     : '// &
-     & no_kspace_lines)
-  
-  if (no_kspace_lines<1) then
-    call print_line('Need to supply more lines in k-space!')
-    call err()
-  endif
-  
-  call print_line('Points along walk in reciprocal space &
-    &(Cartesian components in a.u.):')
-  do i=0,no_kspace_lines
-    call print_line(path(i))
-  enddo
-  call print_line('Have read in points for dispersion curve.')
-  
-  call print_line('A dispersion curve will be calculated.')
-  call print_line('Calculating the requested dispersion curve.')
-  call generate_dispersion(structure,supercell,&
-     & delta_prim,force_constants,path,phonon_dispersion_curve_filename, &
-     & high_symmetry_points_filename)
-  call print_line('Done.  dispersion_curve.dat has been generated.  (Please &
-    &view this file using XMGrace.)')
-  call print_line('')
-end subroutine
-
-! ----------------------------------------------------------------------
 ! Calculates density of states and phonon dispersion at the harmonic
 !    approximation.
 ! Interpolates between phonons at each q-point.
 ! ----------------------------------------------------------------------
-subroutine fourier_interpolation(dynamical_matrices,structure,temperature, &
-   & large_supercell,path,phonon_dispersion_curve_filename,        &
-   & high_symmetry_points_filename,free_energy_filename,freq_dos_filename)
+subroutine fourier_interpolation(qpoints,dynamical_matrices,structure,       &
+   & temperature,large_supercell,path_labels,path_qpoints,                   &
+   & dispersion_filename,high_symmetry_points_filename,free_energy_filename, &
+   & dos_filename)
   use constants_module, only : pi
   use linear_algebra_module
   use structure_module
@@ -879,27 +843,27 @@ subroutine fourier_interpolation(dynamical_matrices,structure,temperature, &
   implicit none
   
   ! filenames
+  type(QpointData),      intent(in) :: qpoints(:)
   type(DynamicalMatrix), intent(in) :: dynamical_matrices(:)
   type(StructureData),   intent(in) :: structure
   real(dp),              intent(in) :: temperature
   type(StructureData),   intent(in) :: large_supercell
-  type(RealVector),      intent(in) :: path(:)
-  type(String),          intent(in) :: phonon_dispersion_curve_filename
+  type(String),          intent(in) :: path_labels(:)
+  type(RealVector),      intent(in) :: path_qpoints(:)
+  type(String),          intent(in) :: dispersion_filename
   type(String),          intent(in) :: high_symmetry_points_filename
   type(String),          intent(in) :: free_energy_filename
-  type(String),          intent(in) :: freq_dos_filename
+  type(String),          intent(in) :: dos_filename
   
-  ! variables
-  type(MinImages),       allocatable :: delta_prim(:,:,:)
-  type(RealMatrix),      allocatable :: force_consts(:,:,:)
-  
+  ! Force constant variables.
   real(dp)    :: qr
   complex(dp) :: exp_iqr
+  type(RealMatrix),    allocatable :: force_consts(:,:,:)
+  type(MinImages),     allocatable :: delta_prim(:,:,:)
   
-  integer :: i,j
-  integer :: rvec,gvec
-  
-  integer :: ialloc
+  ! Temporary variables.
+  integer :: i,j,ialloc
+  integer :: rvec,qpoint
   
   ! --------------------------------------------------
   ! Construct the matrix of force constants
@@ -908,23 +872,17 @@ subroutine fourier_interpolation(dynamical_matrices,structure,temperature, &
           &               structure%no_atoms,      &
           &               structure%no_atoms),     &
           & stat=ialloc); call err(ialloc)
-  force_consts = mat([ 0.0_dp,0.0_dp,0.0_dp, &
-                     & 0.0_dp,0.0_dp,0.0_dp, &
-                     & 0.0_dp,0.0_dp,0.0_dp  ], 3,3)
+  force_consts = mat(dble(zeroes(3,3)))
   
   do rvec=1,large_supercell%sc_size
-    do gvec=1,large_supercell%sc_size
-      qr = large_supercell%gvectors(gvec)  &
-       & * large_supercell%recip_supercell &
-       & * large_supercell%rvectors(rvec)  &
-       & * 2 * pi
+    do qpoint=1,large_supercell%sc_size
+      qr = qpoints(qpoint)%qpoint * large_supercell%rvectors(rvec) * 2 * pi
       exp_iqr = cmplx(cos(qr),sin(qr),dp)
       do i=1,structure%no_atoms
         do j=1,structure%no_atoms
-          force_consts(rvec,j,i) = force_consts(rvec,j,i)                     &
-                             & + real( dynamical_matrices(gvec)%matrices(j,i) &
-                             & * exp_iqr )                                    &
-                             & / large_supercell%sc_size
+          force_consts(rvec,j,i) = force_consts(rvec,j,i)                 &
+             & + real(dynamical_matrices(qpoint)%matrices(j,i) * exp_iqr) &
+             & / large_supercell%sc_size
         enddo
       enddo
     enddo
@@ -942,12 +900,12 @@ subroutine fourier_interpolation(dynamical_matrices,structure,temperature, &
   ! --------------------------------------------------
   ! Generate dispersion and density of states.
   ! --------------------------------------------------
-  call generate_dispersion(structure,large_supercell,&
-     & delta_prim,force_consts,path,phonon_dispersion_curve_filename, &
+  call generate_dispersion(structure,large_supercell,                        &
+     & delta_prim,force_consts,path_labels,path_qpoints,dispersion_filename, &
      & high_symmetry_points_filename)
   
   call generate_dos(large_supercell,delta_prim, &
-     & force_consts,temperature,free_energy_filename,freq_dos_filename)
+     & force_consts,temperature,free_energy_filename,dos_filename)
 end subroutine
 
 ! ----------------------------------------------------------------------

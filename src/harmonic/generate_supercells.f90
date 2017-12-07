@@ -14,122 +14,7 @@ module generate_supercells_module
   
   public :: generate_qpoints
   public :: generate_supercells
-  
-  ! Greatest common denominator.
-  interface gcd
-    module procedure gcd_2
-    module procedure gcd_3
-    module procedure gcd_4
-  end interface
-  
-  ! Lowest common multiple.
-  interface lcm
-    module procedure lcm_2
-    module procedure lcm_3
-    module procedure lcm_4
-  end interface
-
 contains
-
-! ----------------------------------------------------------------------
-! Calculate the greatest common divisor of two non-negative integers using
-! Euclid's algorithm.
-! ----------------------------------------------------------------------
-! For convenience, it is defined that
-!    - gcd(0,b)=b, and gcd(a,0)=a.
-!    - gcd(-a,b)=gcd(a,-b)=gcd(-a,-b)=gcd(a,b).
-! a=Ac, b=Bc, A>=B. c is the gcd of a and b.
-! gcd(a,b) = gcd(Ac,Bc) = gcd((A-nB)c,Bc).
-recursive function gcd_helper(a,b) result(output)
-  implicit none
-  
-  integer, intent(in) :: a
-  integer, intent(in) :: b
-  integer             :: output
-  
-  if (b==0) then
-    output = a
-  else
-    output = gcd_helper(b,modulo(a,b))
-  endif
-end function
-
-function gcd_2(int_1,int_2) result(output)
-  implicit none
-  
-  integer, intent(in) :: int_1
-  integer, intent(in) :: int_2
-  integer             :: output
-  
-  output = gcd_helper( max(abs(int_1),abs(int_2)), &
-                     & min(abs(int_1),abs(int_2))  )
-end function
-
-! Calculate the gcd of more than two integers, by recursively finding
-!    pairwise gcds.
-function gcd_3(int_1,int_2,int_3) result(output)
-  implicit none
-  
-  integer, intent(in) :: int_1
-  integer, intent(in) :: int_2
-  integer, intent(in) :: int_3
-  integer             :: output
-  
-  output = gcd(gcd(int_1,int_2),int_3)
-end function
-
-function gcd_4(int_1,int_2,int_3,int_4) result(output)
-  implicit none
-  
-  integer, intent(in) :: int_1
-  integer, intent(in) :: int_2
-  integer, intent(in) :: int_3
-  integer, intent(in) :: int_4
-  integer             :: output
-  
-  output = gcd(gcd(int_1,int_2,int_3),int_4)
-end function
-
-! ----------------------------------------------------------------------
-! Calculate the lowest common multiple of two non-negative integers.
-! lcm(a,b) = a*b/gcd(a,b)
-! ----------------------------------------------------------------------
-function lcm_2(int_1,int_2) result(output)
-  implicit none
-  
-  integer, intent(in) :: int_1
-  integer, intent(in) :: int_2
-  integer             :: output
-  
-  output = int_1*int_2/gcd(int_1,int_2)
-end function
-
-
-! Calculate the lcm of more than two integers, by recursively finding
-!    pairwise lcms.
-function lcm_3(int_1,int_2,int_3) result(output)
-  implicit none
-  
-  integer, intent(in) :: int_1
-  integer, intent(in) :: int_2
-  integer, intent(in) :: int_3
-  integer             :: output
-  
-  output = lcm(lcm(int_1,int_2),int_3)
-end function
-
-function lcm_4(int_1,int_2,int_3,int_4) result(output)
-  implicit none
-  
-  integer, intent(in) :: int_1
-  integer, intent(in) :: int_2
-  integer, intent(in) :: int_3
-  integer, intent(in) :: int_4
-  integer             :: output
-  
-  output = lcm(lcm(int_1,int_2,int_3),int_4)
-end function
-
 ! ----------------------------------------------------------------------
 ! Given three linearly independent input vectors a, b and c, construct the
 ! following linear combinations: a+b-c, a-b+c, -a+b+c, a+b+c and  check if any
@@ -234,6 +119,7 @@ end function
 ! ----------------------------------------------------------------------
 ! Returns answer in Hermite Normal Form.
 function find_hnf_supercell_matrix(qpoint,scaling) result(output)
+  use utils_module, only : gcd
   use linear_algebra_module
   implicit none
   
