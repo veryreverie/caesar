@@ -9,10 +9,9 @@ else()
   add_library(compiler_specific compiler_specific_default.f90)
 endif()
 
-add_library(utils system.c spglib_wrapper.c constants.f90 string.f90 printable.f90 io.f90 file.f90 ifile.f90 ofile.f90 utils.f90 keyword.f90 help.f90 dictionary.f90 fraction.f90 linear_algebra.f90 integer_arrays.f90 group.f90 qpoints.f90 moller_plesset.f90 atom.f90 basic_symmetry.f90 symmetry.f90 structure.f90 dft_input_file.f90 dft_output_file.f90 bands.f90 normal_mode.f90 process_arguments.f90 caesar_modes.f90)
+# Utility modules.
+add_library(utils system.c spglib_wrapper.c constants.f90 string.f90 printable.f90 io.f90 file.f90 ifile.f90 ofile.f90 utils.f90 keyword.f90 help.f90 dictionary.f90 fraction.f90 linear_algebra.f90 integer_arrays.f90 group.f90 process_arguments.f90 caesar_modes.f90)
 target_link_libraries(utils compiler_specific)
-target_include_directories(utils PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-
 
 # Link to LAPACK.
 find_package( LAPACK REQUIRED )
@@ -29,4 +28,6 @@ find_path(spglib_include_path spglib.h)
 if("${spglib_include_path}" STREQUAL "spglib_include_path-NOTFOUND")
   MESSAGE(FATAL_ERROR "spglib.h not found. Please ensure spglib is on PATH.")
 endif()
-include_directories(${spglib_include_path})
+target_include_directories(utils PUBLIC ${spglib_include_path})
+
+target_include_directories(utils PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

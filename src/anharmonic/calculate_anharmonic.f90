@@ -72,7 +72,7 @@ subroutine calculate_anharmonic(arguments)
   use coupling_module
   use sampling_points_module
   use linear_algebra_module
-  use dft_output_file_module
+  use output_file_module
   use single_mode_states_module
   use harmonic_states_module
   use vscf_states_module
@@ -99,7 +99,7 @@ subroutine calculate_anharmonic(arguments)
   type(Dictionary) :: setup_harmonic_arguments
   type(Dictionary) :: setup_anharmonic_arguments
   type(String)     :: harmonic_path
-  type(String)     :: dft_code
+  type(String)     :: file_type
   type(String)     :: seedname
   type(String)     :: grid_type
   
@@ -116,8 +116,8 @@ subroutine calculate_anharmonic(arguments)
   type(CouplingSampling), allocatable :: sampling(:)
   
   ! DFT results (Indexed as sampling_points).
-  type(String)                  :: dft_output_filename
-  type(DftOutputFile)           :: dft_output_file
+  type(String)     :: output_filename
+  type(OutputFile) :: output_file
   
   ! The Born-Oppenheimer potential.
   type(PolynomialPotential) :: potential
@@ -175,7 +175,7 @@ subroutine calculate_anharmonic(arguments)
   setup_harmonic_arguments = setup_harmonic_keywords()
   call setup_harmonic_arguments%read_file( &
      & harmonic_path//'/setup_harmonic.used_settings')
-  dft_code = setup_harmonic_arguments%value('dft_code')
+  file_type = setup_harmonic_arguments%value('file_type')
   seedname = setup_harmonic_arguments%value('seedname')
   
   ! Read in structure and supercells.
@@ -195,7 +195,7 @@ subroutine calculate_anharmonic(arguments)
   qpoints = read_qpoints_file(harmonic_path//'/qpoints.dat')
   
   ! Construct DFT output filename.
-  dft_output_filename = make_dft_output_filename(dft_code,seedname)
+  output_filename = make_output_filename(file_type,seedname)
   
   ! Loop over q-points, calculating anharmonic correction at each point.
   do i=1,size(qpoints)
@@ -227,14 +227,14 @@ subroutine calculate_anharmonic(arguments)
       
       ! Read in DFT outputs.
       do k=1,no_sampling_points
-        dft_output_file = read_dft_output_file( dft_code,              &
+        output_file = read_output_file( file_type,                     &
            & wd//                                                      &
            & '/qpoint_'//left_pad(i,str(size(qpoints)))//              &
            & '/coupling_'//left_pad(j,str(size(coupling)))//           &
            & '/sampling_point_'//left_pad(k,str(no_sampling_points))// &
-           & '/'//dft_output_filename)
-        sampling(j)%energy(k) = dft_output_file%energy
-        sampling(j)%forces(:,k) = dft_output_file%forces
+           & '/'//output_filename)
+        sampling(j)%energy(k) = output_file%energy
+        sampling(j)%forces(:,k) = output_file%forces
       enddo
     enddo
     

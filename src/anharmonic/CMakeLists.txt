@@ -10,3 +10,6 @@ target_link_libraries(anharmonic harmonic)
 
 add_subdirectory(${CMAKE_SOURCE_DIR}/utils utils/)
 target_link_libraries(anharmonic utils)
+
+add_subdirectory(${CMAKE_SOURCE_DIR}/common common/)
+target_link_libraries(anharmonic common)

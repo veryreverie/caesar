@@ -3,10 +3,10 @@ module castep_output_file_module
   use string_module
   use io_module
   
-  use dft_output_file_module
+  use output_file_module
   implicit none
   
-  type, extends(DftOutputFile) :: CastepOutputFile
+  type, extends(OutputFile) :: CastepOutputFile
     integer :: no_kpoints
     integer :: kpoints_mp_grid(3)
   end type
@@ -19,18 +19,18 @@ function read_castep_output_file(filename) result(output)
   type(String), intent(in) :: filename
   type(CastepOutputFile)   :: output
   
-  type(DftOutputFile) :: dft_output_file
+  type(OutputFile) :: output_file
   type(IFile)         :: castep_output_file
   
   type(String), allocatable :: line(:)
   integer                   :: i
   
-  dft_output_file = read_dft_output_file(str('castep'),filename)
+  output_file = read_output_file(str('castep'),filename)
   
-  output%no_atoms = dft_output_file%no_atoms
-  output%species = dft_output_file%species
-  output%energy = dft_output_file%energy
-  output%forces = dft_output_file%forces
+  output%no_atoms = output_file%no_atoms
+  output%species = output_file%species
+  output%energy = output_file%energy
+  output%forces = output_file%forces
   
   castep_output_file = filename
   do i=1,size(castep_output_file)

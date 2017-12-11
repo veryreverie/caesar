@@ -1,7 +1,7 @@
 ! ======================================================================
-! Converts DFT input files to and from StructureData.
+! Converts input files to and from StructureData.
 ! ======================================================================
-module dft_input_file_module
+module input_file_module
   use constants_module, only : dp
   use string_module
   use io_module
@@ -9,16 +9,16 @@ module dft_input_file_module
   
   private
   
-  public :: make_dft_input_filename
-  public :: dft_input_file_to_StructureData
-  public :: StructureData_to_dft_input_file
-  public :: reduce_dft_input_file ! For testing purposes only.
+  public :: make_input_filename
+  public :: input_file_to_StructureData
+  public :: StructureData_to_input_file
+  public :: reduce_input_file ! For testing purposes only.
   
   type CastepInputFile
     type(String), allocatable :: lattice_block(:)
     type(String), allocatable :: positions_block(:)
     type(String), allocatable :: masses_block(:)
-    type(String), allocatable :: qpoints_block(:)
+    type(String), allocatable :: kpoints_block(:)
     type(String), allocatable :: remainder(:)
   end type
 contains
@@ -26,21 +26,23 @@ contains
 ! ----------------------------------------------------------------------
 ! Converts a file seedname into the appropriate dft input filename.
 ! ----------------------------------------------------------------------
-function make_dft_input_filename(dft_code,seedname) result(output)
+function make_input_filename(file_type,seedname) result(output)
   implicit none
   
-  type(String), intent(in) :: dft_code
+  type(String), intent(in) :: file_type
   type(String), intent(in) :: seedname
   type(String)             :: output
   
-  if (dft_code == 'castep') then
+  if (file_type == 'castep') then
     output = seedname//'.cell'
-  elseif (dft_code == 'vasp') then
+  elseif (file_type == 'vasp') then
     output = 'POSCAR'
-  elseif (dft_code == 'qe') then
+  elseif (file_type == 'qe') then
     output = seedname//'.in'
+  elseif (file_type == 'quip') then
+    output = seedname//'.cell'
   else
-    call print_line('Unrecognised dft code: '//dft_code)
+    call print_line('Unrecognised dft code: '//file_type)
     call err()
   endif
 end function
@@ -68,8 +70,8 @@ function parse_castep_input_file(filename) result(output)
   integer :: positions_block_size
   integer :: masses_block_start
   integer :: masses_block_size
-  integer :: qpoints_block_start
-  integer :: qpoints_block_size
+  integer :: kpoints_block_start
+  integer :: kpoints_block_size
   integer :: remainder_size
   
   ! Temporary variables.
@@ -84,8 +86,8 @@ function parse_castep_input_file(filename) result(output)
   positions_block_size = 0
   masses_block_start = 0
   masses_block_size = 0
-  qpoints_block_start = 0
-  qpoints_block_size = 0
+  kpoints_block_start = 0
+  kpoints_block_size = 0
   remainder_size = 0
   
   ! Work out line numbers.
@@ -108,10 +110,10 @@ function parse_castep_input_file(filename) result(output)
         masses_block_start = i
       elseif (line(1)=='%endblock' .and. line(2)=='species_mass') then
         masses_block_size = i-masses_block_start+1
-      elseif (line(1)=='%block' .and. line(2)=='bs_qpoint_path') then
-        qpoints_block_start = i
-      elseif (line(1)=='%endblock' .and. line(2)=='bs_qpoint_path') then
-        qpoints_block_size = i-qpoints_block_start+1
+      elseif (line(1)=='%block' .and. line(2)=='bs_kpoint_path') then
+        kpoints_block_start = i
+      elseif (line(1)=='%endblock' .and. line(2)=='bs_kpoint_path') then
+        kpoints_block_size = i-kpoints_block_start+1
       endif
     endif
   enddo
@@ -120,7 +122,7 @@ function parse_castep_input_file(filename) result(output)
                & - lattice_block_size   &
                & - positions_block_size &
                & - masses_block_size    &
-               & - qpoints_block_size
+               & - kpoints_block_size
   
   ! Check required blocks exist and all blocks are of reasonable sizes.
   if (lattice_block_start==0) then
@@ -142,12 +144,12 @@ function parse_castep_input_file(filename) result(output)
     call print_line('Error: species_mass block of unexpected size in '// &
        & filename)
     call err()
-  elseif (qpoints_block_start/=0 .and. qpoints_block_size<=2) then
-    call print_line('Error: bs_qpoint_path block of unexpected size in '// &
+  elseif (kpoints_block_start/=0 .and. kpoints_block_size<=2) then
+    call print_line('Error: bs_kpoint_path block of unexpected size in '// &
        & filename)
     call err()
-  elseif (qpoints_block_start==0 .and. qpoints_block_size/=0) then
-    call print_line('Error: bs_qpoint_path block of unexpected size in '// &
+  elseif (kpoints_block_start==0 .and. kpoints_block_size/=0) then
+    call print_line('Error: bs_kpoint_path block of unexpected size in '// &
        & filename)
     call err()
   endif
@@ -156,7 +158,7 @@ function parse_castep_input_file(filename) result(output)
   allocate( output%lattice_block(lattice_block_size),     &
           & output%positions_block(positions_block_size), &
           & output%masses_block(masses_block_size),       &
-          & output%qpoints_block(qpoints_block_size),     &
+          & output%kpoints_block(kpoints_block_size),     &
           & output%remainder(remainder_size),             &
           & stat=ialloc); call err(ialloc)
   
@@ -182,9 +184,9 @@ function parse_castep_input_file(filename) result(output)
       cycle
     endif
     
-    j = i-qpoints_block_start+1
-    if (j>0 .and. j<qpoints_block_size) then
-      output%qpoints_block(j) = cell_file%line(i)
+    j = i-kpoints_block_start+1
+    if (j>0 .and. j<kpoints_block_size) then
+      output%kpoints_block(j) = cell_file%line(i)
       cycle
     endif
     
@@ -333,6 +335,8 @@ function castep_input_file_to_StructureData(filename, symmetry_precision) &
   enddo
   
   no_atoms = j
+  species = species(:no_atoms)
+  positions = positions(:no_atoms,:)
   
   if (positions_are_abs) then
     do i=1,no_atoms
@@ -395,20 +399,22 @@ function castep_input_file_to_StructureData(filename, symmetry_precision) &
                         & symmetry_precision=symmetry_precision)
 end function
 
-function dft_input_file_to_StructureData(dft_code,filename, &
+function input_file_to_StructureData(file_type,filename, &
    & symmetry_precision) result(output)
   use structure_module
   implicit none
   
-  type(String), intent(in) :: dft_code
+  type(String), intent(in) :: file_type
   type(String), intent(in) :: filename
   real(dp),     intent(in) :: symmetry_precision
   type(StructureData)      :: output
   
-  if (dft_code == 'castep') then
+  if (file_type == 'castep') then
+    output = castep_input_file_to_StructureData(filename, symmetry_precision)
+  elseif (file_type == 'quip') then
     output = castep_input_file_to_StructureData(filename, symmetry_precision)
   else
-    call print_line('Reading '//dft_code//' input file not yet supported.')
+    call print_line('Reading '//file_type//' input file not yet supported.')
     call err()
   endif
 end function
@@ -427,14 +433,14 @@ subroutine StructureData_to_castep_input_file(structure,old_cell_filename, &
   type(String),        intent(in)           :: new_cell_filename
   
   ! Band structure path data.
-  type(RealVector) :: qpoint
+  type(RealVector) :: kpoint
   
   ! Old and new cell files.
   type(CastepInputFile) :: old_cell_file
   type(OFile)           :: new_cell_file
   
   ! Temporary variables.
-  integer        :: i
+  integer                   :: i
   type(String), allocatable :: line(:)
   
   ! --------------------------------------------------
@@ -443,13 +449,14 @@ subroutine StructureData_to_castep_input_file(structure,old_cell_filename, &
   if (present(old_cell_filename)) then
     old_cell_file = parse_castep_input_file(old_cell_filename)
     
-    ! Transform q-points from fractional primitive cell co-ordinates into 
-    !    fractional supercell co-ordinates.
-    do i=2,size(old_cell_file%qpoints_block)-1
-      line = split(old_cell_file%qpoints_block(i))
-      qpoint = dble(line(1:3))
-      qpoint = transpose(structure%supercell) * qpoint
-      old_cell_file%qpoints_block(i) = qpoint//' '//join(line(4:))
+    ! Transform electronic k-points from fractional primitive cell
+    !    co-ordinates into fractional supercell co-ordinates.
+    do i=2,size(old_cell_file%kpoints_block)-1
+      line = split(old_cell_file%kpoints_block(i))
+      kpoint = dble(line(1:3))
+      kpoint = transpose(structure%recip_supercell) * kpoint &
+           & / structure%sc_size
+      old_cell_file%kpoints_block(i) = kpoint//' '//join(line(4:))
     enddo
   endif
   
@@ -473,8 +480,13 @@ subroutine StructureData_to_castep_input_file(structure,old_cell_filename, &
   
   ! Copy the contents of old cell file to new cell file.
   if (present(old_cell_filename)) then
-    do i=1,size(old_cell_file%qpoints_block)
-      call new_cell_file%print_line(old_cell_file%qpoints_block(i))
+    do i=1,size(old_cell_file%kpoints_block)
+      call new_cell_file%print_line(old_cell_file%kpoints_block(i))
+    enddo
+    
+    call new_cell_file%print_line('')
+    do i=1,size(old_cell_file%masses_block)
+      call new_cell_file%print_line(old_cell_file%masses_block(i))
     enddo
     
     do i=1,size(old_cell_file%remainder)
@@ -614,17 +626,17 @@ subroutine StructureData_to_qe_input_file(structure,old_qe_in_filename, &
   endif
 end subroutine
 
-subroutine StructureData_to_dft_input_file(dft_code,structure,input_filename, &
+subroutine StructureData_to_input_file(file_type,structure,input_filename, &
    & output_filename)
   use structure_module
   implicit none
   
-  type(String),        intent(in)           :: dft_code
+  type(String),        intent(in)           :: file_type
   type(StructureData), intent(in)           :: structure
   type(String),        intent(in), optional :: input_filename
   type(String),        intent(in)           :: output_filename
   
-  if (dft_code=="castep") then
+  if (file_type=="castep" .or. file_type=='quip') then
     if (present(input_filename)) then
       call StructureData_to_castep_input_file(structure,input_filename, &
          & output_filename)
@@ -632,14 +644,14 @@ subroutine StructureData_to_dft_input_file(dft_code,structure,input_filename, &
       call StructureData_to_castep_input_file(structure      = structure, &
                                              &new_cell_filename = output_filename)
     endif
-  elseif (dft_code=="vasp") then
+  elseif (file_type=="vasp") then
     if (present(input_filename)) then
       call print_line('Conversion of vasp input files not yet supported.')
       call err()
     else
       call StructureData_to_vasp_input_file(structure,output_filename)
     endif
-  elseif (dft_code=="qe") then
+  elseif (file_type=="qe") then
     if (present(input_filename)) then
       call StructureData_to_qe_input_file(structure,input_filename, &
          & output_filename)
@@ -669,8 +681,8 @@ subroutine reduce_castep_input_file(input_filename,output_filename)
   
   cell_file_out = output_filename
   
-  do i=1,size(cell_file_in%qpoints_block)
-    call cell_file_out%print_line(cell_file_in%qpoints_block(i))
+  do i=1,size(cell_file_in%kpoints_block)
+    call cell_file_out%print_line(cell_file_in%kpoints_block(i))
   enddo
   
   do i=1,size(cell_file_in%remainder)
@@ -678,17 +690,17 @@ subroutine reduce_castep_input_file(input_filename,output_filename)
   enddo
 end subroutine
 
-subroutine reduce_dft_input_file(dft_code,input_filename,output_filename)
+subroutine reduce_input_file(file_type,input_filename,output_filename)
   implicit none
   
-  type(String), intent(in) :: dft_code
+  type(String), intent(in) :: file_type
   type(String), intent(in) :: input_filename
   type(String), intent(in) :: output_filename
   
-  if (dft_code=='castep') then
+  if (file_type=='castep') then
     call reduce_castep_input_file(input_filename,output_filename)
   else
-    call print_line('Reducing '//dft_code//' input files not yet supported.')
+    call print_line('Reducing '//file_type//' input files not yet supported.')
     call err()
   endif
 end subroutine

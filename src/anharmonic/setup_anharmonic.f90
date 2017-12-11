@@ -69,7 +69,7 @@ subroutine setup_anharmonic(arguments)
   use ifile_module
   use setup_harmonic_module
   use dictionary_module
-  use dft_input_file_module
+  use input_file_module
   use structure_module
   use qpoints_module
   use normal_mode_module
@@ -91,11 +91,11 @@ subroutine setup_anharmonic(arguments)
   ! Previous user inputs.
   type(Dictionary) :: setup_harmonic_arguments
   type(String)     :: seedname
-  type(String)     :: dft_code
+  type(String)     :: file_type
   
   ! File data.
   type(String) :: wd
-  type(String) :: dft_input_filename
+  type(String) :: input_filename
   type(IFile)  :: no_supercells_file
   
   ! Starting data.
@@ -141,14 +141,14 @@ subroutine setup_anharmonic(arguments)
   call setup_harmonic_arguments%read_file( &
      & harmonic_path//'/setup_harmonic.used_settings')
   seedname = setup_harmonic_arguments%value('seedname')
-  dft_code = setup_harmonic_arguments%value('dft_code')
+  file_type = setup_harmonic_arguments%value('file_type')
   
   ! --------------------------------------------------
   ! Check inputs.
   ! --------------------------------------------------
   ! Check code is supported.
-  if (dft_code/='castep') then
-    call print_line('Error: the code '//dft_code//' is not yet supported.')
+  if (file_type/='castep') then
+    call print_line('Error: the code '//file_type//' is not yet supported.')
     stop
   endif
   
@@ -168,10 +168,10 @@ subroutine setup_anharmonic(arguments)
   endif
   
   ! Check dft input files exists.
-  dft_input_filename = make_dft_input_filename(dft_code,seedname)
-  dft_input_filename = wd//'/'//dft_input_filename
-  if (.not. file_exists(dft_input_filename)) then
-    call print_line('Error: The input file '//dft_input_filename// &
+  input_filename = make_input_filename(file_type,seedname)
+  input_filename = wd//'/'//input_filename
+  if (.not. file_exists(input_filename)) then
+    call print_line('Error: The input file '//input_filename// &
        &' does not exist.')
     stop
   endif
@@ -293,12 +293,12 @@ subroutine setup_anharmonic(arguments)
         enddo
         
         ! Write DFT input file.
-        dft_input_filename = make_dft_input_filename(dft_code,seedname)
-        call StructureData_to_dft_input_file( &
-           & dft_code,                        &
-           & supercell,                       &
-           & wd//'/'//dft_input_filename,     &
-           & sdir//'/'//dft_input_filename)
+        input_filename = make_input_filename(file_type,seedname)
+        call StructureData_to_input_file( &
+           & file_type,                   &
+           & supercell,                   &
+           & wd//'/'//input_filename,     &
+           & sdir//'/'//input_filename)
       enddo
     enddo
     

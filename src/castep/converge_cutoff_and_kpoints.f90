@@ -92,7 +92,7 @@ subroutine converge_cutoff_and_kpoints(arguments)
   use ofile_module
   use structure_module
   use linear_algebra_module
-  use dft_input_file_module
+  use input_file_module
   use castep_output_file_module
   implicit none
   
@@ -199,9 +199,9 @@ subroutine converge_cutoff_and_kpoints(arguments)
   cell_file = wd//'/'//seedname//'.cell'
   param_file = wd//'/'//seedname//'.param'
   
-  structure = dft_input_file_to_StructureData( str('castep'),              &
-                                             & wd//'/'//seedname//'.cell', &
-                                             & 0.1_dp)
+  structure = input_file_to_StructureData( str('castep'),              &
+                                         & wd//'/'//seedname//'.cell', &
+                                         & 0.1_dp)
   
   recip_lattice = dble(structure%recip_lattice)
   average_reciprocal_length = 0.0_dp

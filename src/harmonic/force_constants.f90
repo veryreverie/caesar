@@ -31,25 +31,25 @@ contains
 ! => F = sum(s)[|fs><xs|] . (sum(s)[|xs><xs|])^-1
 !
 ! sum(s)[|xs><xs|] is block diagonal, so can be inverted in 3x3 blocks.
-function read_forces(supercell,unique_directions,sdir,dft_code,seedname) &
+function read_forces(supercell,unique_directions,sdir,file_type,seedname) &
    & result(output)
   use structure_module
   use unique_directions_module
-  use dft_output_file_module
+  use output_file_module
   use linear_algebra_module
   implicit none
   
   type(StructureData),    intent(in) :: supercell
   type(UniqueDirections), intent(in) :: unique_directions
   type(String),           intent(in) :: sdir
-  type(String),           intent(in) :: dft_code
+  type(String),           intent(in) :: file_type
   type(String),           intent(in) :: seedname
   type(RealVector), allocatable      :: output(:,:)
   
   ! DFT output data.
-  type(String)        :: dft_output_filename
-  type(DftOutputFile) :: positive
-  type(DftOutputFile) :: negative
+  type(String)     :: output_filename
+  type(OutputFile) :: positive
+  type(OutputFile) :: negative
   
   ! Direction information.
   integer      :: atom
@@ -60,7 +60,7 @@ function read_forces(supercell,unique_directions,sdir,dft_code,seedname) &
   integer          :: i,j,ialloc
   type(RealVector) :: total
   
-  dft_output_filename = make_dft_output_filename(dft_code,seedname)
+  output_filename = make_output_filename(file_type,seedname)
   
   allocate( output(supercell%no_atoms, size(unique_directions)), &
           & stat=ialloc); call err(ialloc)
@@ -69,12 +69,12 @@ function read_forces(supercell,unique_directions,sdir,dft_code,seedname) &
     direction = unique_directions%directions_char(i)
     atom_string = left_pad(atom,str(maxval(unique_directions%atoms)))
     
-    positive = read_dft_output_file(dft_code,            &
+    positive = read_output_file(file_type,               &
        & sdir//'/atom.'//atom_string//'.+d'//direction// &
-       & '/'//dft_output_filename)
-    negative = read_dft_output_file(dft_code,            &
+       & '/'//output_filename)
+    negative = read_output_file(file_type,            &
        & sdir//'/atom.'//atom_string//'.-d'//direction// &
-       & '/'//dft_output_filename)
+       & '/'//output_filename)
     
     do j=1,supercell%no_atoms
       output(j,i) = (positive%forces(j)-negative%forces(j)) / 0.02_dp

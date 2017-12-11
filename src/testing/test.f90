@@ -39,20 +39,16 @@ subroutine test(arguments)
   use dictionary_module
   use ifile_module
   use ofile_module
+  use quip_wrapper_module
   implicit none
   
   type(Dictionary), intent(in) :: arguments
   
   type(String) :: wd
   
-  character(2) :: a
-  type(String) :: b
-  
   wd = arguments%value('working_directory')
   
-  a = 'hi'
-  
-  call print_line(b)
+  call test_quip()
   
 end subroutine
 end module

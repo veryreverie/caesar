@@ -1,7 +1,7 @@
 ! ======================================================================
 ! A class for holding the information in a castep .castep or qe .out file.
 ! ======================================================================
-module dft_output_file_module
+module output_file_module
   use constants_module, only : dp
   use string_module
   use io_module
@@ -10,19 +10,19 @@ module dft_output_file_module
   
   private
   
-  public :: make_dft_output_filename
-  public :: DftOutputFile
-  public :: read_dft_output_file
+  public :: make_output_filename
+  public :: OutputFile
+  public :: read_output_file
   
-  type DftOutputFile
+  type OutputFile
     integer                       :: no_atoms
     type(String), allocatable     :: species(:)
     real(dp)                      :: energy
     type(RealVector), allocatable :: forces(:)
   end type
   
-  interface DftOutputFile
-    module procedure new_DftOutputFile
+  interface OutputFile
+    module procedure new_OutputFile
   end interface
   
 contains
@@ -30,30 +30,35 @@ contains
 ! ----------------------------------------------------------------------
 ! Converts a file seedname into the appropriate dft input or output filename.
 ! ----------------------------------------------------------------------
-function make_dft_output_filename(dft_code,seedname) result(output)
+function make_output_filename(file_type,seedname) result(output)
   implicit none
   
-  type(String), intent(in) :: dft_code
+  type(String), intent(in) :: file_type
   type(String), intent(in) :: seedname
   type(String)             :: output
   
-  if (dft_code == 'castep') then
+  if (file_type == 'castep') then
     output = seedname//'.castep'
-  elseif (dft_code == 'vasp') then
+  elseif (file_type == 'vasp') then
     output = 'OUTCAR'
-  elseif (dft_code == 'qe') then
+  elseif (file_type == 'qe') then
     output = seedname//'.out'
+  elseif (file_type == 'quip') then
+    ! N.B. the '.cell' is intentional. When running with QUIP, no output file
+    !    is produced. Instead the input file is read back in, and the energy
+    !    etc. are calculated on the fly.
+    output = seedname//'.cell'
   else
-    call print_line('Unrecognised dft code: '//dft_code)
+    call print_line('Unrecognised dft code: '//file_type)
     call err()
   endif
 end function
 
-function new_DftOutputFile(no_atoms) result(this)
+function new_OutputFile(no_atoms) result(this)
   implicit none
   
   integer, intent(in) :: no_atoms
-  type(DftOutputFile) :: this
+  type(OutputFile)    :: this
   
   integer :: ialloc
   
@@ -69,7 +74,7 @@ function read_castep_output_file(filename) result(output)
   implicit none
   
   type(String), intent(in) :: filename
-  type(DftOutputFile)      :: output
+  type(OutputFile)         :: output
   
   ! file contents
   type(IFile)               :: castep_file
@@ -131,7 +136,7 @@ function read_castep_output_file(filename) result(output)
   endif
   
   ! Allocate output
-  output = DftOutputFile(forces_end_line-forces_start_line-7)
+  output = OutputFile(forces_end_line-forces_start_line-7)
   
   ! Read data
   line = split(castep_file%line(energy_line))
@@ -150,7 +155,7 @@ function read_qe_output_file(filename) result(output)
   implicit none
   
   type(String), intent(in) :: filename
-  type(DftOutputFile)      :: output
+  type(OutputFile)         :: output
   
   ! file contents
   type(IFile)               :: qe_file
@@ -217,17 +222,66 @@ function read_qe_output_file(filename) result(output)
   enddo
 end function
 
-function read_dft_output_file(dft_code,filename) result(output)
+function run_quip_on_file(filename) result(output)
+  use constants_module, only : angstrom_per_bohr, ev_per_hartree
+  use input_file_module
+  use structure_module
+  use quip_wrapper_module
   implicit none
   
-  type(String), intent(in) :: dft_code
   type(String), intent(in) :: filename
-  type(DftOutputFile)      :: output
+  type(OutputFile)         :: output
   
-  if (dft_code=='castep') then
+  type(StructureData) :: structure
+  
+  real(dp)              :: lattice(3,3)
+  integer,  allocatable :: atomic_nos(:)
+  real(dp), allocatable :: positions(:,:)
+  
+  type(QuipResult) :: quip_result
+  
+  integer :: i,ialloc
+  
+  ! Read in input data.
+  structure = input_file_to_StructureData( str('castep'), &
+                                         & filename,      &
+                                         & 0.1_dp)
+  
+  ! Convert everything into basic types and QUIP-friendly units.
+  lattice = transpose(dble(structure%lattice)) * angstrom_per_bohr
+  allocate( atomic_nos(structure%no_atoms),  &
+          & positions(3,structure%no_atoms), &
+          & stat=ialloc); call err(ialloc)
+  do i=1,structure%no_atoms
+    atomic_nos(i) = int(structure%atoms(i)%species())
+    positions(:,i) = dble(structure%atoms(i)%cartesian_position()) &
+                 & * angstrom_per_bohr
+  enddo
+  
+  quip_result = call_quip(lattice, atomic_nos, positions)
+  
+  output = OutputFile(structure%no_atoms)
+  output%energy = quip_result%energy / ev_per_hartree
+  do i=1,structure%no_atoms
+    output%species(i) = structure%atoms(i)%species()
+    output%forces(i) = quip_result%forces(:,i) &
+                   & / (angstrom_per_bohr * ev_per_hartree)
+  enddo
+end function
+
+function read_output_file(file_type,filename) result(output)
+  implicit none
+  
+  type(String), intent(in) :: file_type
+  type(String), intent(in) :: filename
+  type(OutputFile)         :: output
+  
+  if (file_type=='castep') then
     output = read_castep_output_file(filename)
-  elseif (dft_code=='qe') then
+  elseif (file_type=='qe') then
     output = read_qe_output_file(filename)
+  elseif (file_type=='quip') then
+    output = run_quip_on_file(filename)
   endif
 end function
 end module

@@ -8,5 +8,8 @@ target_include_directories(testing PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 add_subdirectory(${CMAKE_SOURCE_DIR}/utils utils/)
 target_link_libraries(testing utils)
 
+add_subdirectory(${CMAKE_SOURCE_DIR}/common common/)
+target_link_libraries(testing common)
+
 add_subdirectory(${CMAKE_SOURCE_DIR}/harmonic harmonic/)
 target_link_libraries(testing harmonic)

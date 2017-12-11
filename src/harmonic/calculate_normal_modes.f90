@@ -42,7 +42,7 @@ subroutine calculate_normal_modes(arguments)
   use linear_algebra_module
   use setup_harmonic_module
   use structure_module
-  use dft_output_file_module
+  use output_file_module
   use lte_module
   use unique_directions_module
   use group_module
@@ -67,7 +67,7 @@ subroutine calculate_normal_modes(arguments)
   
   ! Setup data.
   integer             :: no_supercells
-  type(String)        :: dft_code
+  type(String)        :: file_type
   type(String)        :: seedname
   type(StructureData) :: structure
   type(StructureData) :: supercell
@@ -107,7 +107,7 @@ subroutine calculate_normal_modes(arguments)
   ! --------------------------------------------------
   setup_harmonic_arguments = setup_harmonic_keywords()
   call setup_harmonic_arguments%read_file(wd//'/setup_harmonic.used_settings')
-  dft_code = setup_harmonic_arguments%value('dft_code')
+  file_type = setup_harmonic_arguments%value('file_type')
   seedname = setup_harmonic_arguments%value('seedname')
   
   no_supercells_file = wd//'/no_supercells.dat'
@@ -138,7 +138,7 @@ subroutine calculate_normal_modes(arguments)
        & sdir//'/unique_directions.dat')
     
     ! Calculate force constants.
-    forces = read_forces(supercell,unique_directions,sdir,dft_code, &
+    forces = read_forces(supercell,unique_directions,sdir,file_type, &
        & seedname)
     
     ! Mass-reduce forces.

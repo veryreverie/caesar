@@ -18,12 +18,12 @@ function setup_harmonic_keywords() result(keywords)
   type(KeywordData), allocatable :: keywords(:)
   
   keywords = [                                                                &
-  & KeywordData( 'dft_code',                                                  &
-  &              'dft_code is the DFT code whose file types will be used for &
-  &single-point energy calculations. Settings are: castep vasp qe.',          &
+  & KeywordData( 'file_type',                                                 &
+  &              'file_type is the file type which will be used for &
+  &single-point energy calculations. Settings are: castep quip.',             &
   &              default_value='castep'),                                     &
   & KeywordData( 'seedname',                                                  &
-  &              'seedname is the DFT seedname from which file names are &
+  &              'seedname is the seedname from which file names are &
   &constructed.'),                                                            &
   & KeywordData( 'q-point_grid',                                              &
   &              'q-point_grid is the number of q-points in each direction &
@@ -59,7 +59,7 @@ subroutine setup_harmonic(arguments)
   use group_module
   use qpoints_module
   use dictionary_module
-  use dft_input_file_module
+  use input_file_module
   use generate_supercells_module
   use unique_directions_module
   implicit none
@@ -68,7 +68,7 @@ subroutine setup_harmonic(arguments)
   
   ! User input variables.
   type(String) :: wd
-  type(String) :: dft_code
+  type(String) :: file_type
   type(String) :: seedname
   
   ! User input data.
@@ -99,35 +99,32 @@ subroutine setup_harmonic(arguments)
   integer        :: i,j,k
   
   ! Files.
-  type(String) :: dft_input_filename
-  type(OFile) :: no_supercells_file
+  type(String) :: input_filename
+  type(OFile)  :: no_supercells_file
   
   ! --------------------------------------------------
   ! Get settings from user, and check them.
   ! --------------------------------------------------
   wd = arguments%value('working_directory')
-  dft_code = arguments%value('dft_code')
+  file_type = arguments%value('file_type')
   seedname = arguments%value('seedname')
   grid = int(split(arguments%value('q-point_grid')))
   symmetry_precision = dble(arguments%value('symmetry_precision'))
   
   ! Check dft code is supported
-  if (dft_code=='vasp') then
+  if (file_type/='castep' .and. file_type/='quip') then
     call print_line('')
-    call print_line('Error: vasp is not currently supported.')
-    stop
-  elseif (dft_code/='castep' .and. dft_code/='qe') then
-    call print_line('')
-    call print_line('Error: The code '//dft_code//' is not supported.')
-    call print_line('Please choose one of: castep vasp qe.')
+    call print_line('Error: The file type '//file_type//' is not currently &
+       & supported.')
+    call print_line('Please choose one of: castep quip.')
     stop
   endif
   
   ! Check dft input files exists.
-  dft_input_filename = make_dft_input_filename(dft_code,seedname)
-  dft_input_filename = wd//'/'//dft_input_filename
-  if (.not. file_exists(dft_input_filename)) then
-    call print_line('Error: The input file '//dft_input_filename// &
+  input_filename = make_input_filename(file_type,seedname)
+  input_filename = wd//'/'//input_filename
+  if (.not. file_exists(input_filename)) then
+    call print_line('Error: The input file '//input_filename// &
        &' does not exist.')
     stop
   endif
@@ -135,9 +132,9 @@ subroutine setup_harmonic(arguments)
   ! --------------------------------------------------
   ! Read in input files.
   ! --------------------------------------------------
-  structure = dft_input_file_to_StructureData( dft_code,           &
-                                             & dft_input_filename, &
-                                             & symmetry_precision)
+  structure = input_file_to_StructureData( file_type,      &
+                                         & input_filename, &
+                                         & symmetry_precision)
   call write_structure_file(structure,wd//'/structure.dat')
   
   ! --------------------------------------------------
@@ -215,12 +212,12 @@ subroutine setup_harmonic(arguments)
         endif
           
         ! Write dft input files.
-        dft_input_filename = make_dft_input_filename(dft_code,seedname)
-        call StructureData_to_dft_input_file( &
-           & dft_code,                        &
-           & supercell,                    &
-           & wd//'/'//dft_input_filename,     &
-           & paths(k)//'/'//dft_input_filename)
+        input_filename = make_input_filename(file_type,seedname)
+        call StructureData_to_input_file(     &
+                   & file_type,               &
+                   & supercell,               &
+                   & wd//'/'//input_filename, &
+                   & paths(k)//'/'//input_filename)
       enddo
       
       ! Reset moved atom.

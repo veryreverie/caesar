@@ -63,7 +63,7 @@ subroutine run_harmonic(arguments)
   type(Dictionary) :: setup_harmonic_arguments
   type(IFile)      :: no_supercells_file
   integer          :: no_supercells
-  type(String)     :: dft_code
+  type(String)     :: file_type
   type(String)     :: seedname
   
   ! Terminal inputs.
@@ -100,7 +100,7 @@ subroutine run_harmonic(arguments)
   
   setup_harmonic_arguments = setup_harmonic_keywords()
   call setup_harmonic_arguments%read_file(wd//'/setup_harmonic.used_settings')
-  dft_code = setup_harmonic_arguments%value('dft_code')
+  file_type = setup_harmonic_arguments%value('file_type')
   seedname = setup_harmonic_arguments%value('seedname')
   
   ! --------------------------------------------------
@@ -152,7 +152,7 @@ subroutine run_harmonic(arguments)
         call print_line('')
         call print_line('Running calculation in directory '//dir)
         result_code = system_call( 'cd '//wd//'; '//run_script//' '// &
-           & dft_code//' '//dir//' '//no_cores//' '//seedname)
+           & file_type//' '//dir//' '//no_cores//' '//seedname)
         call print_line('Result code: '//result_code)
       enddo
     enddo

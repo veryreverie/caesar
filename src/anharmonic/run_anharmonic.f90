@@ -99,7 +99,7 @@ subroutine run_anharmonic(arguments)
   type(Dictionary) :: setup_harmonic_arguments
   type(Dictionary) :: setup_anharmonic_arguments
   type(String)     :: harmonic_path
-  type(String)     :: dft_code
+  type(String)     :: file_type
   type(String)     :: seedname
   
   ! Previously calculated data.
@@ -170,7 +170,7 @@ subroutine run_anharmonic(arguments)
   setup_harmonic_arguments = setup_harmonic_keywords()
   call setup_harmonic_arguments%read_file( &
      & harmonic_path//'/setup_harmonic.used_settings')
-  dft_code = setup_harmonic_arguments%value('dft_code')
+  file_type = setup_harmonic_arguments%value('file_type')
   seedname = setup_harmonic_arguments%value('seedname')
   
   ! Run calculations at each q-point.
@@ -244,7 +244,7 @@ subroutine run_anharmonic(arguments)
            & left_pad(sampling_point,str(size(sampling_points)))
         result_code = system_call( 'cd '//wd//'; ' //      &
                                  & run_script      //' '// &
-                                 & dft_code        //' '// &
+                                 & file_type       //' '// &
                                  & sdir            //' '// &
                                  & no_cores        //' '// &
                                  & seedname)
