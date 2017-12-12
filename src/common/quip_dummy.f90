@@ -6,11 +6,23 @@ module quip_wrapper_module
   use string_module
   use io_module
   implicit none
+  
+  type :: QuipResult
+    real(dp)              :: energy
+    real(dp), allocatable :: forces(:,:)
+    real(dp)              :: virial(3,3)
+  end type
 contains
 
-subroutine test_quip()
+function call_quip(lattice,atomic_nos,positions) result(output)
   implicit none
   
+  real(dp), intent(in) :: lattice(3,3)
+  integer,  intent(in) :: atomic_nos(:)
+  real(dp), intent(in) :: positions(:,:)
+  type(QuipResult)     :: output
+  
+  call print_line(ERROR//': Caesar has not been linked against QUIP.')
   call err()
-end subroutine
+end function
 end module

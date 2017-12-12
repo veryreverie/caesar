@@ -20,53 +20,6 @@ module quip_wrapper_module
   end type
 contains
 
-subroutine test_quip()
-  implicit none
-  
-  !type(Atoms)  :: at, at_read
-  type(String) :: filename
-  
-  type(RealMatrix) :: lattice
-  
-  ! Atomic information.
-  integer                       :: n
-  integer,          allocatable :: z(:)
-  type(RealVector), allocatable :: positions(:)
-  
-  ! Results.
-  type(QuipResult)              :: quip_result
-  
-  ! Temporary variables.
-  integer :: i,ialloc,ierr
-  
-  lattice = mat( [6.8_dp,  0.4_dp, -0.8_dp,  &
-               &  0.0_dp,  4.0_dp,  0.8_dp,  &
-               &  1.2_dp, -0.4_dp,  4.8_dp], &
-               & 3,                          &
-               & 3 )
-  
-  n = 4
-  allocate( z(n),         &
-          & positions(n), &
-          & stat=ialloc); call err(ialloc)
-  z = 22
-  positions(1) = [0.5_dp , 0.45_dp, 0.5_dp ]
-  positions(2) = [0.37_dp, 3.8_dp , 2.5_dp ]
-  positions(3) = [1.1_dp , 1.0_dp , 3.65_dp]
-  positions(4) = [3.2_dp , 0.35_dp, 0.4_dp ]
-  
-  call print_line('Lattice:')
-  call print_line(lattice)
-  call print_line('Positions:')
-  do i=1,n
-    call print_line(positions(i))
-  enddo
-  
-  !quip_result = test_call_quip(lattice,z,positions)
-  
-  call print_line('Energy [eV] = '//quip_result%energy)
-end subroutine
-
 function call_quip(lattice,atomic_nos,positions) result(output)
   implicit none
   

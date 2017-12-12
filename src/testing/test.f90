@@ -48,7 +48,5 @@ subroutine test(arguments)
   
   wd = arguments%value('working_directory')
   
-  call test_quip()
-  
 end subroutine
 end module
