@@ -24,6 +24,7 @@ program caesar
   use setup_harmonic_module
   use run_harmonic_module
   use calculate_normal_modes_module
+  use plot_normal_modes_module
   use calculate_dos_and_dispersion_module
   use plot_dos_and_dispersion_module
   
@@ -82,6 +83,7 @@ program caesar
      & setup_harmonic_mode(),               &
      & run_harmonic_mode(),                 &
      & calculate_normal_modes_mode(),       &
+     & plot_normal_modes_mode(),            &
      & calculate_dos_and_dispersion_mode(), &
      & plot_dos_and_dispersion_mode()       &
 !     & setup_anharmonic_mode(),             &

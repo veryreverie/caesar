@@ -5,7 +5,7 @@ include(${CMAKE_SOURCE_DIR}/utils/include_guard.cmake)
 include_guard(python)
 
 # Copy python scripts.
-foreach(script plot_cutoff_and_kpoints.py plot_dos_and_dispersion.py)
+foreach(script plot_cutoff_and_kpoints.py plot_normal_modes.py plot_dos_and_dispersion.py)
   set (input ${CMAKE_CURRENT_SOURCE_DIR}/${script})
   set (output ${CMAKE_CURRENT_BINARY_DIR}/${script})
   add_custom_command(

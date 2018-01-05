@@ -227,12 +227,14 @@ subroutine calculate_anharmonic(arguments)
       
       ! Read in DFT outputs.
       do k=1,no_sampling_points
-        output_file = read_output_file( file_type,                     &
-           & wd//                                                      &
-           & '/qpoint_'//left_pad(i,str(size(qpoints)))//              &
-           & '/coupling_'//left_pad(j,str(size(coupling)))//           &
-           & '/sampling_point_'//left_pad(k,str(no_sampling_points))// &
-           & '/'//output_filename)
+        output_file = read_output_file(                                   &
+           & file_type,                                                   &
+           & wd//                                                         &
+           &    '/qpoint_'//left_pad(i,str(size(qpoints)))//              &
+           &    '/coupling_'//left_pad(j,str(size(coupling)))//           &
+           &    '/sampling_point_'//left_pad(k,str(no_sampling_points))// &
+           &    '/'//output_filename, &
+           & supercell)
         sampling(j)%energy(k) = output_file%energy
         sampling(j)%forces(:,k) = output_file%forces
       enddo

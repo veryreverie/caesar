@@ -51,7 +51,8 @@ subroutine run_harmonic(arguments)
   use setup_harmonic_module
   use unique_directions_module
   use dictionary_module
-  use IFile_module
+  use ifile_module
+  use structure_module
   implicit none
   
   type(Dictionary), intent(in) :: arguments
@@ -71,15 +72,17 @@ subroutine run_harmonic(arguments)
   integer      :: no_cores
   type(String) :: run_script
   
+  ! Structure data.
+  type(StructureData) :: structure
+  
   ! Atom and direction data.
-  type(UniqueDirections) :: unique_directions
-  integer                :: atom
-  character(1)           :: direction
-  type(String)           :: atom_string
+  type(UniqueDirection), allocatable :: unique_directions(:)
+  integer                            :: atom
+  type(String)                       :: direction
+  type(String)                       :: atom_string
   
   ! Temporary variables.
   integer      :: i,j,k
-  character(1) :: signs(2)
   type(String) :: dir
   type(String) :: sdir
   integer      :: result_code
@@ -102,6 +105,11 @@ subroutine run_harmonic(arguments)
   call setup_harmonic_arguments%read_file(wd//'/setup_harmonic.used_settings')
   file_type = setup_harmonic_arguments%value('file_type')
   seedname = setup_harmonic_arguments%value('seedname')
+  
+  ! --------------------------------------------------
+  ! Read in structure data.
+  ! --------------------------------------------------
+  structure = read_structure_file(wd//'/structure.dat')
   
   ! --------------------------------------------------
   ! Check user inputs.
@@ -142,19 +150,16 @@ subroutine run_harmonic(arguments)
        & sdir//'/unique_directions.dat')
     
     do j=1,size(unique_directions)
-      atom = unique_directions%atoms(j)
-      direction = unique_directions%directions_char(j)
-      atom_string = left_pad(atom,str(maxval(unique_directions%atoms)))
+      atom = unique_directions(j)%atom_id
+      direction = unique_directions(j)%direction
+      atom_string = left_pad(atom,str(structure%no_atoms))
       
-      signs = [ '+', '-' ]
-      do k=1,2
-        dir = sdir//'/atom.'//atom_string//'.'//signs(k)//'d'//direction
-        call print_line('')
-        call print_line('Running calculation in directory '//dir)
-        result_code = system_call( 'cd '//wd//'; '//run_script//' '// &
-           & file_type//' '//dir//' '//no_cores//' '//seedname)
-        call print_line('Result code: '//result_code)
-      enddo
+      dir = sdir//'/atom.'//atom_string//'.'//direction
+      call print_line('')
+      call print_line('Running calculation in directory '//dir)
+      result_code = system_call( 'cd '//wd//'; '//run_script//' '// &
+         & file_type//' '//dir//' '//no_cores//' '//seedname)
+      call print_line('Result code: '//result_code)
     enddo
   enddo
 end subroutine

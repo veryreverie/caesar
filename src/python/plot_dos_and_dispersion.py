@@ -108,7 +108,10 @@ def main():
   axes['dispersion'].set_xlim(xmin,xmax)
   axes['dispersion'].set_ylim(ymin,ymax)
   for band in dispersion['bands']:
-    axes['dispersion'].plot(dispersion['path_length'],band)
+    axes['dispersion'].plot( dispersion['path_length'],
+                             band,
+                             color=colours['turquoise'],
+                             lw=2)
   
   axes['dispersion'].vlines(points['path_lengths'],ymin,ymax,linestyle=':')
   axes['dispersion'].set_xticks(points['path_lengths'])
@@ -116,10 +119,20 @@ def main():
   axes['dispersion'].minorticks_off()
   axes['dispersion'].set_ylabel('Energy, Hartrees')
   
+  hartree_to_mev = 2.721138602e4
+  axes['ev'] = axes['dispersion'].twinx()
+  axes['ev'].set_ylim(ymin*hartree_to_mev, ymax*hartree_to_mev)
+  axes['ev'].set_ylabel('Energy, meV')
+  
   axes['dos'] = ax_grid[1]
-  axes['dos'].plot(dos['dos'],dos['middles'])
+  axes['dos'].plot(dos['dos'],dos['middles'],color=colours['turquoise'],lw=2)
   axes['dos'].set_xticks([])
   axes['dos'].minorticks_off()
+  
+  hartree_to_inverse_cm = 2.194746313702e5
+  axes['cm'] = axes['dos'].twinx()
+  axes['cm'].set_ylim(ymin*hartree_to_inverse_cm, ymax*hartree_to_inverse_cm)
+  axes['cm'].set_ylabel(r'Frequency, cm$^{-1}$')
   
   plt.show()
 

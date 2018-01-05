@@ -32,7 +32,12 @@ function setup_harmonic_keywords() result(keywords)
   & KeywordData( 'symmetry_precision',                                        &
   &              'symmetry_precision is the tolerance at which symmetries &
   &are calculated.',                                                          &
-  &              default_value='0.1')]
+  &              default_value='0.1'),                                        &
+  & KeywordData( 'harmonic_displacement',                                     &
+  &              'harmonic_displacement is the distance in bohr by which &
+  &atoms will be displaced when mapping the harmonic Born-Oppenheimer &
+  &surface.',                                                                 &
+  &              default_value='0.01') ]
 end function
 
 function setup_harmonic_mode() result(output)
@@ -75,6 +80,7 @@ subroutine setup_harmonic(arguments)
   type(StructureData) :: structure
   integer             :: grid(3)
   real(dp)            :: symmetry_precision
+  real(dp)            :: harmonic_displacement
   
   ! Supercell data.
   type(IntMatrix)                  :: large_supercell_matrix
@@ -86,14 +92,15 @@ subroutine setup_harmonic(arguments)
   
   ! Directories.
   type(String) :: sdir
-  type(String) :: paths(2)
+  type(String) :: path
   
   ! Perturbation direction information.
-  type(UniqueDirections) :: unique_directions
-  integer                :: atom
-  character(1)           :: direction_char
-  type(RealVector)       :: displacement
-  type(String)           :: atom_string
+  type(UniqueDirection), allocatable :: unique_directions(:)
+  integer                            :: atom
+  type(String)                       :: atom_string
+  type(String)                       :: direction
+  type(RealVector)                   :: displacement
+  type(RealVector)                   :: position
   
   ! Temporary variables.
   integer        :: i,j,k
@@ -110,6 +117,7 @@ subroutine setup_harmonic(arguments)
   seedname = arguments%value('seedname')
   grid = int(split(arguments%value('q-point_grid')))
   symmetry_precision = dble(arguments%value('symmetry_precision'))
+  harmonic_displacement = dble(arguments%value('harmonic_displacement'))
   
   ! Check dft code is supported
   if (file_type/='castep' .and. file_type/='quip') then
@@ -174,55 +182,40 @@ subroutine setup_harmonic(arguments)
     call write_structure_file(supercell, sdir//'/structure.dat')
     
     ! Calculate which forces need calculating.
-    unique_directions = calculate_unique_directions(supercell)
+    unique_directions = calculate_unique_directions( supercell, &
+                                                   & harmonic_displacement)
     call write_unique_directions_file( unique_directions, &
                                      & sdir//'/unique_directions.dat')
     
     ! --------------------------------------------------
-    ! Write DFT code input files.
+    ! Write energy and force calculation input files.
     ! --------------------------------------------------
     do j=1,size(unique_directions)
-      atom = unique_directions%atoms(j)
-      direction_char = unique_directions%directions_char(j)
-      if (direction_char=='x') then
-        displacement = [1.0_dp,0.0_dp,0.0_dp]
-      elseif (direction_char=='y') then
-        displacement = [0.0_dp,1.0_dp,0.0_dp]
-      elseif (direction_char=='z') then
-        displacement = [0.0_dp,0.0_dp,1.0_dp]
-      else
-        call err()
-      endif
+      atom = unique_directions(j)%atom_id
+      direction = unique_directions(j)%direction
+      displacement = unique_directions(j)%displacement
       
-      atom_string = left_pad(atom, str(maxval(unique_directions%atoms)))
-      paths = [ sdir//'/atom.'//atom_string//'.+d'//direction_char, &
-              & sdir//'/atom.'//atom_string//'.-d'//direction_char  ]
+      atom_string = left_pad(atom, str(structure%no_atoms))
+      path = sdir//'/atom.'//atom_string//'.'//direction
       
       ! Make harmonic run directories.
-      do k=1,2
-        call mkdir(paths(k))
+      call mkdir(path)
+      
+      ! Move relevant atom.
+      position = supercell%atoms(atom)%cartesian_position()
+      call supercell%atoms(atom)%set_cartesian_position( position &
+                                                     & + displacement)
         
-        ! Move relevant atom.
-        if(k==1) then
-          call supercell%atoms(atom)%set_cartesian_position( &
-             & supercell%atoms(atom)%cartesian_position() + displacement)
-        elseif(k==2) then
-          call supercell%atoms(atom)%set_cartesian_position( &
-             & supercell%atoms(atom)%cartesian_position() - 2*displacement)
-        endif
-          
-        ! Write dft input files.
-        input_filename = make_input_filename(file_type,seedname)
-        call StructureData_to_input_file(     &
-                   & file_type,               &
-                   & supercell,               &
-                   & wd//'/'//input_filename, &
-                   & paths(k)//'/'//input_filename)
-      enddo
+      ! Write energy and force calculation input file.
+      input_filename = make_input_filename(file_type,seedname)
+      call StructureData_to_input_file(     &
+                 & file_type,               &
+                 & supercell,               &
+                 & wd//'/'//input_filename, &
+                 & path//'/'//input_filename)
       
       ! Reset moved atom.
-      call supercell%atoms(atom)%set_cartesian_position( &
-         & supercell%atoms(atom)%cartesian_position() + displacement)
+      call supercell%atoms(atom)%set_cartesian_position(position)
     enddo
   enddo
 end subroutine

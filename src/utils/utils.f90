@@ -19,6 +19,12 @@ module utils_module
     module procedure lcm_3
     module procedure lcm_4
   end interface
+  
+  ! The triple product of three vectors.
+  interface triple_product
+    module procedure triple_product_IntVector
+    module procedure triple_product_RealVector
+  end interface
 contains
 
 ! ----------------------------------------------------------------------
@@ -90,6 +96,45 @@ function outer_product(input1,input2) result(output)
   do i=1,size(input2)
     output(:,i) = input2(i) * input1
   enddo
+end function
+
+! ----------------------------------------------------------------------
+! Vector triple product.
+! ----------------------------------------------------------------------
+function triple_product_IntVector(a,b,c) result(output)
+  use linear_algebra_module
+  implicit none
+  
+  type(IntVector) :: a
+  type(IntVector) :: b
+  type(IntVector) :: c
+  integer         :: output
+  
+  integer :: matrix(3,3)
+  
+  matrix(:,1) = int(a)
+  matrix(:,2) = int(b)
+  matrix(:,3) = int(c)
+  
+  output = determinant(matrix)
+end function
+
+function triple_product_RealVector(a,b,c) result(output)
+  use linear_algebra_module
+  implicit none
+  
+  type(RealVector) :: a
+  type(RealVector) :: b
+  type(RealVector) :: c
+  real(dp)         :: output
+  
+  real(dp) :: matrix(3,3)
+  
+  matrix(:,1) = dble(a)
+  matrix(:,2) = dble(b)
+  matrix(:,3) = dble(c)
+  
+  output = determinant(matrix)
 end function
 
 ! ----------------------------------------------------------------------

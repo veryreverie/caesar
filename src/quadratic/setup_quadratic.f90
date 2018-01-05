@@ -50,6 +50,7 @@ subroutine setup_quadratic(arguments)
   use dictionary_module
   use normal_mode_module
   use linear_algebra_module
+  use atom_module
   implicit none
   
   type(Dictionary), intent(in) :: arguments
@@ -93,10 +94,9 @@ subroutine setup_quadratic(arguments)
   real(dp)            :: amplitude
   type(RealVector)    :: disp
   
-  ! Supercell-to-primitive indexes.
-  integer  :: rvec
-  integer  :: prim
-  real(dp) :: qr
+  ! Atom data.
+  type(AtomData) :: atom
+  real(dp)       :: qr
   
   ! Temporary variables
   integer        :: i, j, k, l, ialloc
@@ -241,10 +241,9 @@ subroutine setup_quadratic(arguments)
         
         ! Calculate new positions
         do l=1,supercell%no_atoms
-          rvec = supercell%atom_to_rvec(l)
-          prim = supercell%atom_to_prim(l)
-          qr = qpoints_ibz(i)%qpoint*supercell%rvectors(rvec)*2*pi
-          disp = amplitude * real( mode%displacements(prim) &
+          atom = supercell%atoms(l)
+          qr = 2*pi*qpoints_ibz(i)%qpoint*supercell%rvectors(atom%rvec_id())
+          disp = amplitude * real( mode%displacements(atom%prim_id()) &
                                & * cmplx(cos(qr),sin(qr),dp))
           call supercell%atoms(l)%set_cartesian_position( &
              & supercell%atoms(l)%cartesian_position() + disp)

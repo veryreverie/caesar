@@ -12,20 +12,22 @@ module castep_output_file_module
   end type
 contains
 
-function read_castep_output_file(filename) result(output)
+function read_castep_output_file(filename,structure) result(output)
   use ifile_module
+  use structure_module
   implicit none
   
-  type(String), intent(in) :: filename
-  type(CastepOutputFile)   :: output
+  type(String),        intent(in) :: filename
+  type(StructureData), intent(in) :: structure
+  type(CastepOutputFile)          :: output
   
   type(OutputFile) :: output_file
-  type(IFile)         :: castep_output_file
+  type(IFile)      :: castep_output_file
   
   type(String), allocatable :: line(:)
   integer                   :: i
   
-  output_file = read_output_file(str('castep'),filename)
+  output_file = read_output_file(str('castep'),filename,structure)
   
   output%no_atoms = output_file%no_atoms
   output%species = output_file%species

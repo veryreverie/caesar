@@ -42,19 +42,6 @@ module structure_module
     type(AtomData), allocatable :: atoms(:)
     
     ! ------------------------------
-    ! Conversions between atom representations.
-    !    [1...no_atoms] vs [1...no_atoms_in_prim]*[sc_size].
-    ! ------------------------------
-    ! Mapping from an atom in the supercell to
-    !    the equivalent atom in the primitive cell.
-    integer,      allocatable :: atom_to_prim(:)
-    ! Mapping from an atom in the supercell to the R-vector of the primitive
-    !    cell containing that atom.
-    integer,      allocatable :: atom_to_rvec(:)
-    ! The inverse of the above mappings.
-    integer,      allocatable :: rvec_and_prim_to_atom(:,:)
-    
-    ! ------------------------------
     ! Symmetry data (in fractional co-ordinates).
     ! ------------------------------
     type(SymmetryOperator), allocatable :: symmetries(:)
@@ -83,8 +70,6 @@ module structure_module
     ! The ID of the G-vector, j, s.t. gvectors(:,i) + gvectors(:,j) = 0.
     integer, allocatable :: paired_gvec(:)
   contains
-    !procedure, public  :: atom_at_prim_plus_rvector
-    
     procedure, public  :: calculate_rvector_group
     procedure, public  :: calculate_gvector_group
   end type
@@ -134,7 +119,7 @@ function new_StructureData(lattice_matrix,supercell_matrix,rvectors,gvectors, &
   type(BasicSymmetry), allocatable :: basic_symmetries(:)
   
   ! Temporary variables.
-  integer :: prim,rvec,atom
+  integer :: id,prim_id,rvec_id
   integer :: i,j,ialloc
   
   ! Fill out |S| and numbers of atoms and modes.
@@ -215,32 +200,20 @@ function new_StructureData(lattice_matrix,supercell_matrix,rvectors,gvectors, &
     call err()
   endif
   
-  ! Fill out atom -> R-vector / prim conversion.
-  allocate( this%atom_to_prim(this%no_atoms),                             &
-          & this%atom_to_rvec(this%no_atoms),                             &
-          & this%rvec_and_prim_to_atom(this%no_atoms_prim, this%sc_size), &
-          & stat=ialloc); call err(ialloc)
-  do rvec=1,this%sc_size
-    do prim=1,this%no_atoms_prim
-      atom = (rvec-1)*this%no_atoms_prim + prim
-      
-      this%atom_to_prim(atom) = prim
-      this%atom_to_rvec(atom) = rvec
-      this%rvec_and_prim_to_atom(prim,rvec) = atom
-    enddo
-  enddo
-  
   ! Fill out atom data.
   allocate( this%atoms(this%no_atoms), &
           & stat=ialloc); call err(ialloc)
-  do atom=1,this%no_atoms
-    prim = this%atom_to_prim(atom)
-    rvec = this%atom_to_rvec(atom)
-    this%atoms(atom) = AtomData( species_primitive_cell(prim),   &
-                               & masses_primitive_cell(prim),    &
-                               & cartesian_positions(prim,rvec), &
-                               & this%lattice,                   &
-                               & this%recip_lattice)
+  do id=1,this%no_atoms
+    prim_id = modulo(id-1,this%no_atoms_prim) + 1
+    rvec_id = (id-1)/this%no_atoms_prim + 1
+    this%atoms(id) = AtomData( species_primitive_cell(prim_id),      &
+                             & masses_primitive_cell(prim_id),       &
+                             & cartesian_positions(prim_id,rvec_id), &
+                             & this%lattice,                         &
+                             & this%recip_lattice,                   &
+                             & id,                                   &
+                             & prim_id,                              &
+                             & rvec_id)
   enddo
   
   ! Fill out symmetry information.
@@ -708,7 +681,6 @@ function construct_supercell(structure,supercell_matrix,calculate_symmetries, &
   type(RealVector), allocatable :: positions(:,:)
   
   ! Temporary variables
-  integer :: no_atoms_sc
   logical :: calculate_symmetries_flag
   integer :: sc_size
   
@@ -722,11 +694,16 @@ function construct_supercell(structure,supercell_matrix,calculate_symmetries, &
   
   ! Generate supercell and lattice data.
   sc_size = abs(determinant(supercell_matrix))
-  no_atoms_sc = structure%no_atoms*sc_size
   
   ! Construct R-vectors and G-vectors.
   rvectors = calculate_unique_vectors(supercell_matrix, .false.)
   gvectors = calculate_unique_vectors(transpose(supercell_matrix), .true.)
+  
+  ! Check that rvectors(1) is the Gamma-point.
+  if (rvectors(1)/=vec([0,0,0])) then
+    call print_line(CODE_ERROR//': The first R-vector is not the Gamma point.')
+    call err()
+  endif
   
   ! Construct atomic information.
   allocate( species(structure%no_atoms),           &

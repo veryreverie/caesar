@@ -56,7 +56,7 @@ subroutine write_qpoints_file(this,filename)
   
   qpoints_file = filename
   do i=1,size(this)
-    call qpoints_file%print_line( 'q-point, q=(qx/nx, qy/ny, qz/nz):')
+    call qpoints_file%print_line( 'q-point '//i//', q=(qx/nx, qy/ny, qz/nz):')
     call qpoints_file%print_line( this(i)%qpoint)
     call qpoints_file%print_line( 'Scaled q-point, q*nx*ny*nz:')
     call qpoints_file%print_line( this(i)%scaled_qpoint)

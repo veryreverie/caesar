@@ -252,7 +252,8 @@ subroutine converge_cutoff_and_kpoints(arguments)
                             & run_script,                                &
                             & no_cores,                                  &
                             & cell_file,                                 &
-                            & param_file)
+                            & param_file,                                &
+                            & structure)
     cutoffs_energies(i) = castep_file%energy
     cutoffs_forces(:,i) = castep_file%forces
     
@@ -348,7 +349,8 @@ subroutine converge_cutoff_and_kpoints(arguments)
                             & run_script,         &
                             & no_cores,           &
                             & cell_file,          &
-                            & param_file)
+                            & param_file,         &
+                            & structure)
     kpoint_numbers(i) = castep_file%no_kpoints
     kpoint_grids(:,i) = castep_file%kpoints_mp_grid
     kpoints_energies(i) = castep_file%energy
@@ -438,24 +440,29 @@ subroutine converge_cutoff_and_kpoints(arguments)
   enddo
 end subroutine
 
+! ----------------------------------------------------------------------
+! Runs CASTEP with a particular k-point spacing and cutoff.
+! ----------------------------------------------------------------------
 function run_castep(cutoff,kpoint_spacing,wd,dir,seedname,run_script, &
-   & no_cores,cell_file,param_file) result(output)
+   & no_cores,cell_file,param_file,structure) result(output)
   use utils_module, only : mkdir
   use ifile_module
   use ofile_module
   use castep_output_file_module
+  use structure_module
   implicit none
   
-  integer,      intent(in) :: cutoff
-  real(dp),     intent(in) :: kpoint_spacing
-  type(String), intent(in) :: wd
-  type(String), intent(in) :: dir
-  type(String), intent(in) :: seedname
-  type(String), intent(in) :: run_script
-  integer,      intent(in) :: no_cores
-  type(IFile),  intent(in) :: cell_file
-  type(IFile),  intent(in) :: param_file
-  type(CastepOutputFile)   :: output
+  integer,             intent(in) :: cutoff
+  real(dp),            intent(in) :: kpoint_spacing
+  type(String),        intent(in) :: wd
+  type(String),        intent(in) :: dir
+  type(String),        intent(in) :: seedname
+  type(String),        intent(in) :: run_script
+  integer,             intent(in) :: no_cores
+  type(IFile),         intent(in) :: cell_file
+  type(IFile),         intent(in) :: param_file
+  type(StructureData), intent(in) :: structure
+  type(CastepOutputFile)          :: output
   
   type(OFile)  :: output_cell_file
   type(OFile)  :: output_param_file
@@ -487,6 +494,6 @@ function run_castep(cutoff,kpoint_spacing,wd,dir,seedname,run_script, &
   call print_line('Result code: '//result_code)
   
   ! Read CASTEP file.
-  output = read_castep_output_file(dir//'/'//seedname//'.castep')
+  output = read_castep_output_file(dir//'/'//seedname//'.castep',structure)
 end function
 end module

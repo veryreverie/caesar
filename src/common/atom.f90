@@ -16,6 +16,11 @@ module atom_module
     type(RealVector), private :: fractional_position_
     type(RealVector), private :: cartesian_position_
     
+    ! Id numbers.
+    integer, private :: id_
+    integer, private :: prim_id_
+    integer, private :: rvec_id_
+    
     ! Copies of the structure's lattice and recip lattice.
     type(RealMatrix), private :: lattice_
     type(RealMatrix), private :: recip_lattice_
@@ -25,6 +30,10 @@ module atom_module
     procedure, public :: mass
     procedure, public :: fractional_position
     procedure, public :: cartesian_position
+    
+    procedure, public :: id
+    procedure, public :: prim_id
+    procedure, public :: rvec_id
     
     ! Setters.
     procedure, public :: set_species
@@ -46,8 +55,8 @@ contains
 ! ----------------------------------------------------------------------
 ! Constructor.
 ! ----------------------------------------------------------------------
-function new_AtomData(species,mass,cartesian_position,lattice,recip_lattice) &
-   & result(this)
+function new_AtomData(species,mass,cartesian_position,lattice,recip_lattice, &
+   & id,prim_id,rvec_id) result(this)
   implicit none
   
   type(String),     intent(in) :: species
@@ -55,6 +64,9 @@ function new_AtomData(species,mass,cartesian_position,lattice,recip_lattice) &
   type(RealVector), intent(in) :: cartesian_position
   type(RealMatrix), intent(in) :: lattice
   type(RealMatrix), intent(in) :: recip_lattice
+  integer,          intent(in) :: id
+  integer,          intent(in) :: prim_id
+  integer,          intent(in) :: rvec_id
   type(AtomData)               :: this
   
   this%lattice_ = lattice
@@ -64,6 +76,10 @@ function new_AtomData(species,mass,cartesian_position,lattice,recip_lattice) &
   this%mass_ = mass
   
   call this%set_cartesian_position(cartesian_position)
+  
+  this%id_ = id
+  this%prim_id_ = prim_id
+  this%rvec_id_ = rvec_id
 end function
 
 ! ----------------------------------------------------------------------
@@ -103,6 +119,37 @@ function cartesian_position(this) result(output)
   type(RealVector)            :: output
   
   output = this%cartesian_position_
+end function
+
+! The id of the atom in the supercell, i.e. the atom is supercell%atoms(id).
+function id(this) result(output)
+  implicit none
+  
+  class(AtomData), intent(in) :: this
+  integer                     :: output
+  
+  output = this%id_
+end function
+
+! The id of the corresponding atom in the supercell's primitive cell.
+function prim_id(this) result(output)
+  implicit none
+  
+  class(AtomData), intent(in) :: this
+  integer                     :: output
+  
+  output = this%prim_id_
+end function
+
+! The id of the R-vector which translates from the corresponding atom in the
+!    supercell's primitive cell to this atom.
+function rvec_id(this) result(output)
+  implicit none
+  
+  class(AtomData), intent(in) :: this
+  integer                     :: output
+  
+  output = this%rvec_id_
 end function
 
 ! ----------------------------------------------------------------------

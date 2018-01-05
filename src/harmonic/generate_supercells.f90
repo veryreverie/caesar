@@ -235,7 +235,7 @@ subroutine check_supercells(supercells,structure)
   type(RealMatrix)              :: rotation_identity
   
   ! Temporary variables.
-  integer :: i,j,k,l
+  integer :: i,j,k
   
   ! --------------------------------------------------
   ! Check that all supercells have been constructed correctly.
@@ -243,8 +243,8 @@ subroutine check_supercells(supercells,structure)
   do i=1,size(supercells)
     supercell = supercells(i)
     
+    ! Check that no atoms are on top of one another.
     do j=1,supercell%no_atoms
-      ! Check that no atoms are on top of one another.
       do k=1,j-1
         if (l2_norm( supercell%atoms(j)%cartesian_position() &
                  & - supercell%atoms(k)%cartesian_position() )<0.5_dp) then
@@ -255,24 +255,20 @@ subroutine check_supercells(supercells,structure)
       enddo
     enddo
     
-    ! Check that all atoms related by R-vectors are correctly placed.
-    do j=1,structure%no_atoms
-      do k=1,supercell%sc_size
-        do l=1,k-1
-          atom_1 = supercell%rvec_and_prim_to_atom(j,k)
-          atom_2 = supercell%rvec_and_prim_to_atom(j,l)
-          fractional_difference = structure%recip_lattice       &
-             & * ( supercell%atoms(atom_1)%cartesian_position() &
-             &   - supercell%atoms(atom_2)%cartesian_position())
-          if ( l2_norm( fractional_difference             &
-           &          - vec(nint(fractional_difference))) &
-           & > 1.0e-10_dp) then
-            call print_line(CODE_ERROR//': atoms '//atom_1//' and '//atom_2// &
-               & ' in supercell '//i//' are not related by an R-vector')
-            call err()
-          endif
-        enddo
-      enddo
+    ! Check that all atoms are related by an R-vector to their copies in the
+    !    primitive cell.
+    do atom_1=1,supercell%no_atoms
+      atom_2 = supercell%atoms(atom_1)%prim_id()
+      fractional_difference = structure%recip_lattice       &
+         & * ( supercell%atoms(atom_1)%cartesian_position() &
+         &   - supercell%atoms(atom_2)%cartesian_position())
+      if ( l2_norm( fractional_difference             &
+       &          - vec(nint(fractional_difference))) &
+       & > 1.0e-10_dp) then
+        call print_line(CODE_ERROR//': atoms '//atom_1//' and '//atom_2// &
+           & ' in supercell '//i//' are not related by an R-vector')
+        call err()
+      endif
     enddo
     
     ! Check supercell rotations
@@ -282,8 +278,14 @@ subroutine check_supercells(supercells,structure)
                       & * transpose(supercell%symmetries(j)%cartesian_rotation)
       if (any(abs(dble( rotation_identity &
                     & - make_identity_matrix(3)))>1.0e-10_dp)) then
-        call print_line(CODE_ERROR//': rotation '//j//' in supercell '//i// &
+        call print_line(ERROR//': rotation '//j//' in supercell '//i// &
            & ' is not a rotation or an improper rotation.')
+        call print_line('Rotation matrix:')
+        call print_line(supercell%symmetries(j)%cartesian_rotation)
+        call print_line('')
+        call print_line('This may be caused by small deviations from &
+           &symmetry. Try adjusting the lattice vectors and atomic positions &
+           &so that symmetry is exact.')
         call err()
       endif
     enddo

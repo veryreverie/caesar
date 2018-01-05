@@ -68,25 +68,30 @@ function new_OutputFile(no_atoms) result(this)
           & stat=ialloc); call err(ialloc)
 end function
 
-function read_castep_output_file(filename) result(output)
+function read_castep_output_file(filename,structure) result(output)
   use constants_module, only : angstrom_per_bohr, ev_per_hartree
   use ifile_module
+  use structure_module
   implicit none
   
-  type(String), intent(in) :: filename
-  type(OutputFile)         :: output
+  type(String),        intent(in) :: filename
+  type(StructureData), intent(in) :: structure
+  type(OutputFile)                :: output
   
   ! file contents
-  type(IFile)               :: castep_file
-  type(String), allocatable :: line(:)
+  type(IFile)                   :: castep_file
+  type(String),     allocatable :: line(:)
+  type(String)                  :: species
+  type(RealVector)              :: force
+  logical,          allocatable :: atom_found(:)
   
   ! line numbers
-  integer        :: energy_line
-  integer        :: forces_start_line
-  integer        :: forces_end_line
+  integer :: energy_line
+  integer :: forces_start_line
+  integer :: forces_end_line
   
   ! temporary variables
-  integer        :: i
+  integer :: i,j,ialloc
   
   castep_file = filename
   
@@ -137,25 +142,53 @@ function read_castep_output_file(filename) result(output)
   
   ! Allocate output
   output = OutputFile(forces_end_line-forces_start_line-7)
+  if (output%no_atoms/=structure%no_atoms) then
+    call print_line(ERROR//': The number of atoms in the Castep output file &
+       &does not match that in the input file.')
+    call err()
+  endif
   
   ! Read data
   line = split(castep_file%line(energy_line))
   output%energy = dble(line(5)) / ev_per_hartree
   
-  do i=1,output%no_atoms
+  allocate(atom_found(output%no_atoms), stat=ialloc); call err(ialloc)
+  atom_found = .false.
+  do_i : do i=1,output%no_atoms
     line = split(castep_file%line(forces_start_line+5+i))
-    output%species(i) = line(2)
-    output%forces(i) = dble(line(4:6)) * angstrom_per_bohr / ev_per_hartree
-  enddo
+    species = line(2)
+    force = dble(line(4:6)) * angstrom_per_bohr / ev_per_hartree
+    do j=1,structure%no_atoms
+      if (atom_found(j)) then
+        cycle
+      elseif (structure%atoms(j)%species()==species) then
+        atom_found(j) = .true.
+        output%species(j) = species
+        output%forces(j) = force
+        cycle do_i
+      endif
+    enddo
+    
+    call print_line(ERROR//': The atoms in the Castep output file do not match &
+       &those in the input file.')
+    call err()
+  enddo do_i
+  if (.not. all(atom_found)) then
+    call print_line(ERROR//': The atoms in the Castep output file do not match &
+       &those in the input file.')
+    call err()
+  endif
 end function
 
-function read_qe_output_file(filename) result(output)
+function read_qe_output_file(filename,structure) result(output)
   use constants_module, only : ev_per_rydberg, ev_per_hartree
   use ifile_module
+  use structure_module
   implicit none
   
-  type(String), intent(in) :: filename
-  type(OutputFile)         :: output
+  type(String),        intent(in) :: filename
+  type(StructureData), intent(in) :: structure
+  type(OutputFile)                :: output
   
   ! file contents
   type(IFile)               :: qe_file
@@ -219,20 +252,27 @@ function read_qe_output_file(filename) result(output)
     line = split(qe_file%line(forces_start_line+1+i))
     output%species(i) = species(int(line(4)))
     output%forces(i) = dble(line(7:9)) * ev_per_rydberg / ev_per_hartree
+    
+    if (output%species(i)/=structure%atoms(i)%species()) then
+      call print_line(ERROR//': The species in the qe output file do not match &
+         &those in the input file.')
+      call err()
+    endif
   enddo
 end function
 
-function run_quip_on_file(filename) result(output)
+function run_quip_on_file(filename,structure) result(output)
   use constants_module, only : angstrom_per_bohr, ev_per_hartree
   use input_file_module
   use structure_module
   use quip_wrapper_module
   implicit none
   
-  type(String), intent(in) :: filename
-  type(OutputFile)         :: output
+  type(String),        intent(in) :: filename
+  type(StructureData), intent(in) :: structure
+  type(OutputFile)                :: output
   
-  type(StructureData) :: structure
+  type(StructureData) :: displaced_structure
   
   real(dp)              :: lattice(3,3)
   integer,  allocatable :: atomic_nos(:)
@@ -242,46 +282,50 @@ function run_quip_on_file(filename) result(output)
   
   integer :: i,ialloc
   
-  ! Read in input data.
-  structure = input_file_to_StructureData( str('castep'), &
-                                         & filename,      &
-                                         & 0.1_dp)
+  ! Read in displaced structure data.
+  displaced_structure = input_file_to_StructureData( str('castep'), &
+                                                   & filename,      &
+                                                   & 0.1_dp)
   
-  ! Convert everything into basic types and QUIP-friendly units.
-  lattice = transpose(dble(structure%lattice)) * angstrom_per_bohr
-  allocate( atomic_nos(structure%no_atoms),  &
-          & positions(3,structure%no_atoms), &
+  ! Convert structure information into basic types and QUIP units (eV/Angstrom).
+  lattice = transpose(dble(displaced_structure%lattice)) * angstrom_per_bohr
+  allocate( atomic_nos(displaced_structure%no_atoms),  &
+          & positions(3,displaced_structure%no_atoms), &
           & stat=ialloc); call err(ialloc)
-  do i=1,structure%no_atoms
-    atomic_nos(i) = int(structure%atoms(i)%species())
-    positions(:,i) = dble(structure%atoms(i)%cartesian_position()) &
+  do i=1,displaced_structure%no_atoms
+    atomic_nos(i) = int(displaced_structure%atoms(i)%species())
+    positions(:,i) = dble(displaced_structure%atoms(i)%cartesian_position()) &
                  & * angstrom_per_bohr
   enddo
   
+  ! Call QUIP.
   quip_result = call_quip(lattice, atomic_nos, positions)
   
-  output = OutputFile(structure%no_atoms)
+  ! Convert QUIP's output into Caesar units (Bohr/Hartree) and types.
+  output = OutputFile(displaced_structure%no_atoms)
   output%energy = quip_result%energy / ev_per_hartree
-  do i=1,structure%no_atoms
-    output%species(i) = structure%atoms(i)%species()
+  do i=1,displaced_structure%no_atoms
+    output%species(i) = displaced_structure%atoms(i)%species()
     output%forces(i) = quip_result%forces(:,i) &
                    & / (angstrom_per_bohr * ev_per_hartree)
   enddo
 end function
 
-function read_output_file(file_type,filename) result(output)
+function read_output_file(file_type,filename,structure) result(output)
+  use structure_module
   implicit none
   
-  type(String), intent(in) :: file_type
-  type(String), intent(in) :: filename
-  type(OutputFile)         :: output
+  type(String),        intent(in) :: file_type
+  type(String),        intent(in) :: filename
+  type(StructureData), intent(in) :: structure
+  type(OutputFile)                :: output
   
   if (file_type=='castep') then
-    output = read_castep_output_file(filename)
+    output = read_castep_output_file(filename,structure)
   elseif (file_type=='qe') then
-    output = read_qe_output_file(filename)
+    output = read_qe_output_file(filename,structure)
   elseif (file_type=='quip') then
-    output = run_quip_on_file(filename)
+    output = run_quip_on_file(filename,structure)
   endif
 end function
 end module

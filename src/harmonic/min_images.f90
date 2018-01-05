@@ -9,28 +9,13 @@ module min_images_module
   implicit none
   
   type MinImages
-    type(RealVector), allocatable :: images(:)
+    type(IntVector), allocatable :: image_rvectors(:)
   end type
-  
-  interface MinImages
-    module procedure new_MinImages
-  end interface
   
   interface size
     module procedure size_MinImages
   end interface
 contains
-
-function new_MinImages(no_images) result(this)
-  implicit none
-  
-  integer, intent(in) :: no_images
-  type(MinImages)     :: this
-  
-  integer :: ialloc
-  
-  allocate(this%images(no_images), stat=ialloc); call err(ialloc)
-end function
 
 function size_MinImages(this) result(output)
   implicit none
@@ -38,70 +23,106 @@ function size_MinImages(this) result(output)
   type(MinImages) :: this
   integer         :: output
   
-  output = size(this%images)
+  output = size(this%image_rvectors)
 end function
 
-! Computes the minimum distance of the vector 'a' modulo the lattice vectors
-!    of the supplied structure.
-! Returns multiple vectors if they have similar lengths.
-! 'a' and outputs are given in fractional lattice co-ordinates.
-function min_images_brute_force(a,structure) result(output)
+! ----------------------------------------------------------------------
+! Computes the set of R-vectors such that the cartesian displacement
+!    between a+R and b is minimised.
+! Returns multiple R-vectors if they have similar lengths.
+! ----------------------------------------------------------------------
+function min_images_brute_force(supercell,a,b) result(output)
   use linear_algebra_module
   use structure_module
   implicit none
   
-  type(RealVector),    intent(in) :: a
-  type(StructureData), intent(in) :: structure
+  type(StructureData), intent(in) :: supercell
+  integer,             intent(in) :: a
+  integer,             intent(in) :: b
   type(MinImages)                 :: output
   
-  type(RealVector) :: b(8)
-  integer  :: nim
-  
-  real(dp)         :: mag_b_sq, dist2, tol_l2
-  type(RealVector) :: delta
-  integer          :: n(3)
-  
-  integer :: i,j,k
-  
-  ! Number of "shells" of lattice points to check.  Only used in setup, so
-  ! may as well overkill.
+  ! Parameters.
+  ! Number of "shells" of supercell R-vectors to check.
   integer,parameter :: check_shell=3
-  real(dp),parameter :: tol=1.0e-8_dp
-  ! Maximum number of images
-  integer, parameter :: maxim = 8
+  ! Maximum number of images.
+  integer, parameter :: max_images = 8
   
-  tol_L2 = tol*l2_norm(structure%lattice*vec([1,0,0]))**2
-  n = floor(dble(a))
+  ! Positions in fractional supercell co-ordinates.
+  type(RealVector) :: a_frac_pos
+  type(RealVector) :: b_frac_pos
   
-  nim = 0
-  mag_b_sq = -1.0_dp
-  do i=n(1)-check_shell,n(1)+check_shell+1
-    do j=n(2)-check_shell,n(2)+check_shell+1
-      do k=n(3)-check_shell,n(3)+check_shell+1
-        delta = transpose(structure%lattice) * (a-vec([i,j,k]))
-        dist2 = delta * delta
-        if(nim/=0 .and. abs(dist2-mag_b_sq)<=tol_L2)then
-          nim = nim+1
-          if (nim>maxim) then
-            call print_line('Error: min_images_brute_force: maxim too small.')
+  ! The R-vector from a to b ignoring supercell R-vectors.
+  type(IntVector)  :: rvector
+  
+  ! Tolerance parameters.
+  real(dp), parameter :: tol=1.0e-8_dp
+  real(dp)            :: tol_l2
+  
+  ! Distances in cartesian co-ordinates.
+  type(RealVector) :: displacement
+  real(dp)         :: l2_distance
+  real(dp)         :: min_l2_distance
+  
+  ! Output data.
+  integer                      :: no_images
+  type(IntVector), allocatable :: image_rvectors(:)
+  
+  ! Temporary variables.
+  integer :: i,j,k,ialloc
+  
+  rvector = supercell%rvectors(supercell%atoms(b)%rvec_id()) &
+        & - supercell%rvectors(supercell%atoms(a)%rvec_id())
+  
+  tol_l2 = tol*supercell%volume**(2/3.0_dp)
+  
+  ! Get the fractional position of both atoms, translated into the
+  !    supercell's first unit cell.
+  a_frac_pos = supercell%atoms(a)%fractional_position()
+  a_frac_pos = a_frac_pos-vec(floor(dble(a_frac_pos)))
+  
+  b_frac_pos = supercell%atoms(b)%fractional_position()
+  b_frac_pos = b_frac_pos-vec(floor(dble(b_frac_pos)))
+  
+  ! Identify R-vectors.
+  allocate(image_rvectors(max_images), stat=ialloc); call err(ialloc)
+  min_l2_distance = huge(1.0_dp)
+  no_images = 0
+  do i=-check_shell,check_shell
+    do j=-check_shell,check_shell
+      do k=-check_shell,check_shell
+        displacement = transpose(supercell%lattice) &
+                   & * (b_frac_pos-a_frac_pos+vec([i,j,k]))
+        l2_distance = displacement * displacement
+        if (l2_distance < min_l2_distance-tol_l2) then
+          ! The new R-vector makes a+R and b closer than any previous R-vector.
+          min_l2_distance = l2_distance
+          no_images = 1
+          image_rvectors(no_images) = vec([i,j,k])
+        elseif (l2_distance <= min_l2_distance+tol_l2) then
+          ! The new R-vector makes a+R and b similarly close to
+          !    previous R-vectors.
+          no_images = no_images+1
+          if (no_images>max_images) then
+            call print_line(ERROR//': maxim too small.')
             call err()
           endif
-          b(nim) = a-vec([i,j,k])
-        elseif(dist2<mag_b_sq.or.nim==0)then
-          mag_b_sq = dist2
-          nim = 1
-          b(1) = a-vec([i,j,k])
+          
+          ! Convert the supercell R-vector from fractional supercell co-ords
+          !    to fractional primitive co-ords,
+          !    and add on the primitive R-vector.
+          image_rvectors(no_images) = transpose(supercell%supercell) &
+                                  & * vec([i,j,k])                   &
+                                  & + rvector
         endif
       enddo
     enddo
   enddo
   
-  if (nim==0) then
-    call print_line('Error: bug in min_images_brute_force.')
+  if (no_images==0) then
+    call print_line(ERROR//': bug in min_images_brute_force.')
     call err()
   endif
   
-  output = MinImages(nim)
-  output%images = b(1:nim)
+  output = MinImages(image_rvectors(:no_images))
 end function
 end module

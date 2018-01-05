@@ -71,10 +71,10 @@ subroutine calculate_normal_modes(arguments)
   type(String)        :: seedname
   type(StructureData) :: structure
   type(StructureData) :: supercell
+  real(dp)            :: harmonic_displacement
   
   ! Force constant data.
-  type(UniqueDirections)             :: unique_directions
-  type(RealVector),      allocatable :: forces(:,:)
+  type(UniqueDirection), allocatable :: unique_directions(:)
   type(RealMatrix),      allocatable :: force_constants(:,:,:)
   
   ! q-point data.
@@ -86,7 +86,6 @@ subroutine calculate_normal_modes(arguments)
   type(DynamicalMatrixAndMode), allocatable :: supercell_modes(:)
   logical,                      allocatable :: modes_calculated(:)
   integer                                   :: mode
-  integer                                   :: atom
   integer                                   :: gvector
   type(String)                              :: mode_string
   
@@ -96,6 +95,7 @@ subroutine calculate_normal_modes(arguments)
   ! Temporary variables.
   integer      :: i,j,k,ialloc
   type(String) :: sdir,qdir
+  type(String) :: log_filename
   
   ! --------------------------------------------------
   ! Read in arguments from user.
@@ -109,6 +109,8 @@ subroutine calculate_normal_modes(arguments)
   call setup_harmonic_arguments%read_file(wd//'/setup_harmonic.used_settings')
   file_type = setup_harmonic_arguments%value('file_type')
   seedname = setup_harmonic_arguments%value('seedname')
+  harmonic_displacement = dble(setup_harmonic_arguments%value( &
+     & 'harmonic_displacement'))
   
   no_supercells_file = wd//'/no_supercells.dat'
   no_supercells = int(no_supercells_file%line(1))
@@ -138,21 +140,9 @@ subroutine calculate_normal_modes(arguments)
        & sdir//'/unique_directions.dat')
     
     ! Calculate force constants.
-    forces = read_forces(supercell,unique_directions,sdir,file_type, &
-       & seedname)
-    
-    ! Mass-reduce forces.
-    do j=1,size(unique_directions)
-      atom = unique_directions%atoms(j)
-      do k=1,supercell%no_atoms
-        forces(k,j) = forces(k,j)                          &
-                    & / sqrt( supercell%atoms(atom)%mass() &
-                    &       * supercell%atoms(k)%mass())
-      enddo
-    enddo
-    
-    force_constants = construct_force_constants(forces,supercell, &
-       & unique_directions)
+    log_filename = sdir//'/log.dat'
+    force_constants = construct_force_constants(supercell, &
+       & unique_directions,sdir,file_type,seedname,log_filename)
     
     ! Run normal mode analysis to find all normal modes of the supercell.
     supercell_modes = evaluate_normal_modes(supercell, force_constants)

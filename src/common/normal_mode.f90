@@ -462,6 +462,7 @@ function real_mode_to_displacement(input,modes,qpoint,supercell) result(output)
   use qpoints_module
   use structure_module
   use linear_algebra_module
+  use atom_module
   implicit none
   
   type(RealModeVector), intent(in) :: input
@@ -475,8 +476,9 @@ function real_mode_to_displacement(input,modes,qpoint,supercell) result(output)
   real(dp) :: cos_qr
   real(dp) :: sin_qr
   
-  ! The id of the atom in the primitive supercell.
-  integer :: prim
+  ! Atom data.
+  type(AtomData) :: atom
+  integer        :: prim
   
   ! Temporary variables
   integer :: i,j,ialloc
@@ -498,7 +500,8 @@ function real_mode_to_displacement(input,modes,qpoint,supercell) result(output)
   do i=1,size(supercell%atoms)
     output%displacements(i) = dble(int(zeroes(3)))
     
-    prim = supercell%atom_to_prim(i)
+    atom = supercell%atoms(i)
+    prim = atom%prim_id()
     
     ! Calculate 2*pi*q.R, cos(2*pi*i*q.R) and sin(2*pi*i*q.R).
     qr = 2 * pi * qpoint%qpoint * supercell%rvectors(prim)
@@ -536,6 +539,7 @@ function force_to_real_mode(input,modes,qpoint,supercell) result(output)
   use qpoints_module
   use structure_module
   use linear_algebra_module
+  use atom_module
   implicit none
   
   type(ForceData),     intent(in) :: input
@@ -549,8 +553,9 @@ function force_to_real_mode(input,modes,qpoint,supercell) result(output)
   real(dp) :: cos_qr
   real(dp) :: sin_qr
   
-  ! The id of the atom in the primitive cell.
-  integer :: prim
+  ! Atom data.
+  type(AtomData) :: atom
+  integer        :: prim
   
   ! Temporary variables
   integer :: i,j,ialloc
@@ -567,11 +572,12 @@ function force_to_real_mode(input,modes,qpoint,supercell) result(output)
   output%vector = 0
   
   ! Convert force into normal mode co-ordinates.
-  do i=1,size(supercell%atoms)
-    prim = supercell%atom_to_rvec(i)
+  do i=1,supercell%no_atoms
+    atom = supercell%atoms(i)
+    prim = atom%prim_id()
     
     ! Calculate 2*pi*q.R, sin(2*pi*i*q.R) and cos(2*pi*i*q.R).
-    qr = 2 * pi * qpoint%qpoint * supercell%rvectors(prim)
+    qr = 2 * pi * qpoint%qpoint * supercell%rvectors(atom%rvec_id())
     cos_qr = cos(qr)
     sin_qr = sin(qr)
     
