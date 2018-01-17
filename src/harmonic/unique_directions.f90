@@ -110,12 +110,6 @@ function calculate_unique_directions(structure,harmonic_displacement) &
      & x_to_one    = 2, & ! Symmetries only map x to one of y or z.
      & x_to_all    = 3    ! Symmetries map x to both y and z.
   
-  ! Whether or not directions are linearly independent.
-  logical, allocatable :: unique_dirs(:,:)
-  
-  ! Symmetry id.
-  integer :: previous_symmetry
-  
   ! Unique atom variables.
   integer              :: no_unique_atoms
   integer, allocatable :: unique_atoms(:)
@@ -160,7 +154,7 @@ function calculate_unique_directions(structure,harmonic_displacement) &
                & str('-dz')  ]
   do i=1,3
     ! Construct displacements in the positive directions.
-    displacements(2*i-1) = structure%lattice * unit_vectors(i)
+    displacements(2*i-1) = transpose(structure%lattice) * unit_vectors(i)
     displacements(2*i-1) = displacements(2*i-1)  &
                        & * harmonic_displacement &
                        & / l2_norm(displacements(2*i-1))
@@ -335,7 +329,7 @@ subroutine check_unique_directions(unique_directions,structure, &
   
   integer :: i,j,ialloc
   
-  min_determinant = 1.0e-5_dp * abs(triple_product(a,b,c))
+  min_determinant = 1.0e-7_dp * abs(triple_product(a,b,c))
   
   ! Construct xx = sum[ (S.x)^(S.x) ].
   allocate(xx(structure%no_atoms), stat=ialloc); call err(ialloc)

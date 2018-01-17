@@ -69,9 +69,14 @@ module structure_module
     type(IntVector), allocatable :: gvectors(:)
     ! The ID of the G-vector, j, s.t. gvectors(:,i) + gvectors(:,j) = 0.
     integer, allocatable :: paired_gvec(:)
+    
+    ! The groups describing R-vector and G-vector operations.
+    ! e.g. if Rvec(i)+Rvec(j)=Rvec(k) then rvec_group(i)*j=k.
+    type(Group), allocatable :: rvector_group(:)
+    type(Group), allocatable :: gvector_group(:)
   contains
-    procedure, public  :: calculate_rvector_group
-    procedure, public  :: calculate_gvector_group
+    procedure, private  :: calculate_rvector_group
+    procedure, private  :: calculate_gvector_group
   end type
   
   interface StructureData
@@ -180,7 +185,7 @@ function new_StructureData(lattice_matrix,supercell_matrix,rvectors,gvectors, &
     enddo
   enddo
   if (any(this%paired_rvec==0)) then
-    call print_line('Error: not all paired R-vectors found.')
+    call print_line(ERROR//': not all paired R-vectors found.')
     call err()
   endif
   
@@ -243,6 +248,8 @@ function new_StructureData(lattice_matrix,supercell_matrix,rvectors,gvectors, &
                                         & this%lattice,       &
                                         & this%recip_lattice, &
                                         & this%atoms)
+   call this%calculate_rvector_group()
+   call this%calculate_gvector_group()
 end function
 
 ! ----------------------------------------------------------------------
@@ -523,12 +530,11 @@ end subroutine
 ! Calculate the relationships between R-vectors, modulo the supercell.
 !    so if rvec(:,i)+rvec(:,j)=rvec(:,k) then output(i)*j=k
 ! ----------------------------------------------------------------------
-function calculate_rvector_group(this) result(output)
+subroutine calculate_rvector_group(this)
   use group_module
   implicit none
   
-  class(StructureData), intent(in) :: this
-  type(Group), allocatable         :: output(:)
+  class(StructureData), intent(inout) :: this
   
   integer, allocatable :: operation(:)
   
@@ -536,8 +542,8 @@ function calculate_rvector_group(this) result(output)
   
   integer :: i,j,k,ialloc
   
-  allocate( operation(this%sc_size), &
-          & output(this%sc_size),    &
+  allocate( operation(this%sc_size),          &
+          & this%rvector_group(this%sc_size), &
           & stat=ialloc); call err(ialloc)
   do i=1,this%sc_size
     operation = 0
@@ -554,21 +560,20 @@ function calculate_rvector_group(this) result(output)
       call print_line('Error: R-vector group incomplete.')
       call err()
     endif
-    output(i) = operation
+    this%rvector_group(i) = operation
   enddo
-end function
+end subroutine
 
 ! ----------------------------------------------------------------------
 ! Calculate the relationships between G-vectors, modulo the reciprocal
 !    primitive lattice.
 ! so if gvec(:,i)+gvec(:,j)=gvec(:,k) then output(i)*j=k
 ! ----------------------------------------------------------------------
-function calculate_gvector_group(this) result(output)
+subroutine calculate_gvector_group(this)
   use group_module
   implicit none
   
-  class(StructureData), intent(in) :: this
-  type(Group), allocatable         :: output(:)
+  class(StructureData), intent(inout) :: this
   
   integer, allocatable :: operation(:)
   
@@ -577,7 +582,7 @@ function calculate_gvector_group(this) result(output)
   integer :: i,j,k,ialloc
   
   allocate( operation(this%sc_size), &
-          & output(this%sc_size),    &
+          & this%gvector_group(this%sc_size),    &
           & stat=ialloc); call err(ialloc)
   do i=1,this%sc_size
     operation = 0
@@ -595,9 +600,9 @@ function calculate_gvector_group(this) result(output)
       call print_line('Error: G-vector group incomplete.')
       call err()
     endif
-    output(i) = operation
+    this%gvector_group(i) = operation
   enddo
-end function
+end subroutine
 
 ! ----------------------------------------------------------------------
 ! Calculates the set of vectors which are not related to one another by

@@ -5,15 +5,25 @@ module force_constants_module
   use constants_module, only : dp
   use string_module
   use io_module
+  
+  use linear_algebra_module
   implicit none
   
   private
   
-  public :: construct_force_constants
+  public :: ForceConstants
   
-  interface sum_squares
-    module procedure sum_squares_RealVector
-    module procedure sum_squares_RealMatrix
+  ! The matrix of force constants, F, such that F.x=f, where x and f are the
+  !    displacement and force respectively.
+  type :: ForceConstants
+    type(RealMatrix), allocatable, private :: constants_(:,:)
+  contains
+    procedure, public :: constants
+  end type
+  
+  interface ForceConstants
+    module procedure new_ForceConstants_forces
+    module procedure new_ForceConstants_constants
   end interface
 contains
 
@@ -44,8 +54,8 @@ contains
 ! => F = sum(x,s)[f'^x'] . inverse( sum(x,s)[x'^x'] )
 !
 ! sum(x,s)[x'^x'] is block diagonal, so can be inverted in 3x3 blocks.
-function construct_force_constants(supercell,unique_directions,sdir, &
-   & file_type,seedname,log_filename) result(output)
+function new_ForceConstants_forces(supercell,unique_directions,sdir, &
+   & file_type,seedname,logfile) result(output)
   use linear_algebra_module
   use structure_module
   use unique_directions_module
@@ -54,13 +64,13 @@ function construct_force_constants(supercell,unique_directions,sdir, &
   use ofile_module
   implicit none
   
-  type(StructureData),   intent(in) :: supercell
-  type(UniqueDirection), intent(in) :: unique_directions(:)
-  type(String),          intent(in) :: sdir
-  type(String),          intent(in) :: file_type
-  type(String),          intent(in) :: seedname
-  type(String),          intent(in) :: log_filename
-  type(RealMatrix), allocatable     :: output(:,:,:)
+  type(StructureData),   intent(in)    :: supercell
+  type(UniqueDirection), intent(in)    :: unique_directions(:)
+  type(String),          intent(in)    :: sdir
+  type(String),          intent(in)    :: file_type
+  type(String),          intent(in)    :: seedname
+  type(OFile),           intent(inout) :: logfile
+  type(ForceConstants)                 :: output
   
   ! Forces (mass reduced).
   type(RealVector), allocatable :: forces(:,:)
@@ -70,15 +80,6 @@ function construct_force_constants(supercell,unique_directions,sdir, &
   
   ! sum(s)[ x'^x' ] (diagonal blocks only).
   type(RealMatrix), allocatable :: xx(:)
-  
-  ! Force constants, F.
-  type(RealMatrix), allocatable :: force_constants(:,:)
-  
-  ! Log file.
-  type(OFile) :: logfile
-  
-  ! Open logfile.
-  logfile = log_filename
   
   ! Read in forces (mass reduced).
   forces = read_forces( supercell,         &
@@ -93,18 +94,46 @@ function construct_force_constants(supercell,unique_directions,sdir, &
   ! Construct sum[f'^x'].
   fx = construct_fx(unique_directions, forces, supercell, logfile)
   
-  ! Construct F = sum[f'^x'] . inverse(sum[x'^x'])
-  force_constants = construct_f(xx,fx,supercell,logfile)
-  
-  ! Average F across R-vectors.
-  ! F((R1,i1),(R2,i2)) -> F(R,i1,i2) where R=R2-R1.
-  output = average_f(force_constants,supercell,logfile)
+  ! Construct F = sum[f'^x'] . inverse(sum[x'^x']).
+  output = construct_f(xx,fx,supercell,logfile)
   
   call check_force_constants( forces,                &
                             & output,                &
                             & supercell,             &
                             & unique_directions,     &
                             & logfile)
+end function
+
+! ----------------------------------------------------------------------
+! Constructs and checks force constants from given matrices.
+! ----------------------------------------------------------------------
+function new_ForceConstants_constants(structure,force_constants) &
+   & result(this)
+  use structure_module
+  implicit none
+  
+  type(StructureData), intent(in) :: structure
+  type(RealMatrix),    intent(in) :: force_constants(:,:)
+  type(ForceConstants)            :: this
+  
+  this%constants_ = force_constants
+  
+  ! TODO: Check force constants.
+end function
+
+! ----------------------------------------------------------------------
+! Return the force constants between two atoms.
+! ----------------------------------------------------------------------
+function constants(this,a,b) result(output)
+  use atom_module
+  implicit none
+  
+  class(ForceConstants), intent(in) :: this
+  type(AtomData),        intent(in) :: a
+  type(AtomData),        intent(in) :: b
+  type(RealMatrix)                  :: output
+  
+  output = this%constants_(a%id(),b%id())
 end function
   
 ! ----------------------------------------------------------------------
@@ -174,32 +203,10 @@ function read_forces(supercell,unique_directions,sdir,file_type,seedname) &
 end function
 
 ! ----------------------------------------------------------------------
-! Calculates the sum of squares of the elements of a matrix.
-! ----------------------------------------------------------------------
-function sum_squares_RealVector(input) result(output)
-  use linear_algebra_module
-  implicit none
-  
-  type(RealVector), intent(in) :: input
-  real(dp)                     :: output
-  
-  output = sum(dble(input)*dble(input))
-end function
-
-function sum_squares_RealMatrix(input) result(output)
-  use linear_algebra_module
-  implicit none
-  
-  type(RealMatrix), intent(in) :: input
-  real(dp)                     :: output
-  
-  output = sum(dble(input)*dble(input))
-end function
-
-! ----------------------------------------------------------------------
 ! Construct and check sum[x'^x'].
 ! ----------------------------------------------------------------------
 function construct_xx(unique_directions,supercell,logfile) result(output)
+  use utils_module, only : sum_squares
   use unique_directions_module
   use structure_module
   use linear_algebra_module
@@ -274,6 +281,7 @@ end function
 ! ----------------------------------------------------------------------
 function construct_fx(unique_directions,forces,supercell,logfile) &
    & result(output)
+  use utils_module, only : sum_squares
   use unique_directions_module
   use structure_module
   use linear_algebra_module
@@ -298,18 +306,21 @@ function construct_fx(unique_directions,forces,supercell,logfile) &
   type(RealVector) :: f
   
   ! Variables for checking the output.
-  type(RealMatrix) :: matrix
-  type(RealMatrix) :: symmetric
-  real(dp)         :: average
-  real(dp)         :: difference
+  logical, allocatable :: updated(:,:)
+  type(RealMatrix)     :: matrix
+  type(RealMatrix)     :: symmetric
+  real(dp)             :: average
+  real(dp)             :: difference
   
   ! Temporary variables.
   integer :: i,j,k,ialloc
 
   ! Construct sum[f'^x'].
-  allocate( output(supercell%no_atoms,supercell%no_atoms), &
+  allocate( output(supercell%no_atoms,supercell%no_atoms),  &
+          & updated(supercell%no_atoms,supercell%no_atoms), &
           & stat=ialloc); call err(ialloc)
   output = mat(dble(zeroes(3,3)))
+  updated = .false.
   do i=1,size(supercell%symmetries)
     do j=1,size(unique_directions)
       atom_1 = supercell%atoms(unique_directions(j)%atom_id)
@@ -328,9 +339,16 @@ function construct_fx(unique_directions,forces,supercell,logfile) &
         
         output(atom_1p%id(),atom_2p%id()) = output(atom_1p%id(),atom_2p%id()) &
                                         & + outer_product(f,x)
+        updated(atom_1p%id(),atom_2p%id()) = .true.
       enddo
     enddo
   enddo
+  
+  ! Check that all elements of fx have been updated.
+  if (any(.not. updated)) then
+    call print_line(CODE_ERROR//': Some elements of f^x were not updated.')
+    call err()
+  endif
   
   ! Check sum[f'^x'] obeys correct symmetries.
   average = 0
@@ -367,6 +385,7 @@ end function
 ! ----------------------------------------------------------------------
 ! sum[x'^x'] is block diagonal, so only the 3x3 diagonal blocks need inverting.
 function construct_f(xx,fx,supercell,logfile) result(output)
+  use utils_module, only : sum_squares
   use linear_algebra_module
   use structure_module
   use ofile_module
@@ -377,7 +396,7 @@ function construct_f(xx,fx,supercell,logfile) result(output)
   type(RealMatrix),    intent(in)    :: fx(:,:)
   type(StructureData), intent(in)    :: supercell
   type(OFile),         intent(inout) :: logfile
-  type(RealMatrix), allocatable      :: output(:,:)
+  type(ForceConstants)               :: output
   
   type(RealMatrix) :: xx_inverse
   
@@ -394,25 +413,26 @@ function construct_f(xx,fx,supercell,logfile) result(output)
   integer :: i,j,k,ialloc
   
   ! Construct F(i1,i2).
-  allocate(output(supercell%no_atoms,supercell%no_atoms), &
+  allocate(output%constants_(supercell%no_atoms,supercell%no_atoms), &
      & stat=ialloc); call err(ialloc)
   do i=1,supercell%no_atoms
-    call print_line(xx(i))
     xx_inverse = invert(xx(i))
     do j=1,supercell%no_atoms
-      output(j,i) = fx(j,i) * xx_inverse
+      output%constants_(j,i) = fx(j,i) * xx_inverse
     enddo
   enddo
   
   ! Symmetrise F(i1,i2) under exchange of co-ordinates.
   do i=1,supercell%no_atoms
     do j=1,i
-      output(j,i) = (output(j,i) + transpose(output(i,j))) / 2.0_dp
-      output(i,j) = transpose(output(j,i))
+      output%constants_(j,i) = ( output%constants_(j,i)              &
+                           &   + transpose(output%constants_(i,j)) ) &
+                           & / 2.0_dp
+      output%constants_(i,j) = transpose(output%constants_(j,i))
     enddo
   enddo
   
-  ! Check F(i1,i2) obeys correct symmetries.
+  ! Check F(i1,i2) transforms correctly under symmetry operators.
   average = 0
   difference = 0
   do i=1,size(supercell%symmetries)
@@ -424,108 +444,9 @@ function construct_f(xx,fx,supercell,logfile) result(output)
         atom_2 = supercell%atoms(k)
         atom_2p = supercell%atoms( supercell%symmetries(i)%atom_group &
                                & * atom_2%id())
-        matrix = output(atom_1p%id(),atom_2p%id())
+        matrix = output%constants(atom_1p,atom_2p)
         symmetric = supercell%symmetries(i)%cartesian_rotation &
-                & * output(atom_1%id(),atom_2%id())            &
-                & * transpose(supercell%symmetries(i)%cartesian_rotation)
-        average = average + sum_squares((matrix+symmetric)/2)
-        difference = difference + sum_squares(matrix-symmetric)
-      enddo
-    enddo
-  enddo
-  call logfile%print_line( &
-     & 'Fractional L2 error in symmetry of F(i1,i2)   : '// &
-     & sqrt(difference/average))
-  if (sqrt(difference/average) > 1e-10_dp) then
-    call print_line(WARNING//': F(i1,i2) is not as symmetric as expected. &
-       &Please check log files.')
-  endif
-end function
-
-! ----------------------------------------------------------------------
-! Convert F from atom-atom representation to rvec-prim-prim representation.
-! ----------------------------------------------------------------------
-! Due to translational symmetry, F((R1,i1),(R2,i2)) = F((0,i1),(R2-R1,i2)),
-!    where R1 and i1 are the R-vector and prim atom of atom 1 respectively.
-! This function averages across R1, to produce F(R,i1,i2), where R=R2-R1.
-function average_f(f,supercell,logfile) result(output)
-  use linear_algebra_module
-  use structure_module
-  use ofile_module
-  use atom_module
-  use group_module
-  implicit none
-  
-  type(RealMatrix),    intent(in)    :: f(:,:)
-  type(StructureData), intent(in)    :: supercell
-  type(OFile),         intent(inout) :: logfile
-  type(RealMatrix), allocatable      :: output(:,:,:)
-  
-  ! Atoms.
-  type(AtomData) :: atom_1
-  type(AtomData) :: atom_2
-  
-  ! The group s.t. group(i) * j = k if Ri+Rj=Rk.
-  type(Group), allocatable :: rvector_group(:)
-  
-  ! The id of R-vector R = R2-R1.
-  integer :: rvector
-  
-  ! Variables for checking the output.
-  type(AtomData)   :: atom_1p
-  type(AtomData)   :: atom_2p
-  integer          :: rvector_p
-  type(RealMatrix) :: matrix
-  type(RealMatrix) :: symmetric
-  real(dp)         :: average
-  real(dp)         :: difference
-  
-  ! Temporary variables.
-  integer :: i,j,k,ialloc
-  
-  ! Construct F(R,i1,i2).
-  allocate( output( supercell%sc_size,        &
-          &         supercell%no_atoms_prim,  &
-          &         supercell%no_atoms_prim), &
-          & stat=ialloc); call err(ialloc)
-  output = mat(dble(zeroes(3,3)))
-  rvector_group = supercell%calculate_rvector_group()
-  do i=1,supercell%no_atoms
-    atom_1 = supercell%atoms(i)
-    do j=1,supercell%no_atoms
-      atom_2 = supercell%atoms(j)
-      
-      ! Find the R-vector from atom 1 to atom 2.
-      ! R = R2 - R1 = R2 + (G-R1) = R2 + R1p.
-      rvector = rvector_group(supercell%paired_rvec(atom_1%rvec_id())) &
-            & * atom_2%rvec_id()
-      
-      output(rvector,atom_1%prim_id(),atom_2%prim_id()) =    &
-         & output(rvector,atom_1%prim_id(),atom_2%prim_id()) &
-         & + f(atom_1%id(),atom_2%id())                      &
-         & / supercell%sc_size
-    enddo
-  enddo
-  
-  ! Check F(R,i1,i2) obeys correct symmetries.
-  average = 0
-  difference = 0
-  do i=1,size(supercell%symmetries)
-    do j=1,supercell%no_atoms_prim
-      atom_1 = supercell%atoms(j)
-      atom_1p = supercell%atoms( supercell%symmetries(i)%atom_group &
-                             & * atom_1%id())
-      do k=1,supercell%no_atoms
-        atom_2 = supercell%atoms(k)
-        atom_2p = supercell%atoms( supercell%symmetries(i)%atom_group &
-                               & * atom_2%id())
-        rvector = rvector_group(supercell%paired_rvec(atom_1%rvec_id())) &
-              & * atom_2%rvec_id()
-        rvector_p = rvector_group(supercell%paired_rvec(atom_1p%rvec_id())) &
-                & * atom_2p%rvec_id()
-        matrix = output(rvector_p,atom_1p%prim_id(),atom_2p%prim_id())
-        symmetric = supercell%symmetries(i)%cartesian_rotation        &
-                & * output(rvector,atom_1%prim_id(),atom_2%prim_id()) &
+                & * output%constants(atom_1,atom_2)            &
                 & * transpose(supercell%symmetries(i)%cartesian_rotation)
         average = average + sum_squares((matrix+symmetric)/2)
         difference = difference + sum_squares(matrix-symmetric)
@@ -533,11 +454,31 @@ function average_f(f,supercell,logfile) result(output)
     enddo
   enddo
   call logfile%print_line(                                  &
-     & 'Fractional L2 error in symmetry of F(R,i1,i2) : '// &
+     & 'Fractional L2 error in symmetry of F(i1,i2)   : '// &
      & sqrt(difference/average))
   if (sqrt(difference/average) > 1e-10_dp) then
-    call print_line(WARNING//': F(R,i1,i2) is not as symmetric as expected. &
+    call print_line(WARNING//': F(i1,i2) is not as symmetric as expected. &
        &Please check log files.')
+  endif
+  
+  ! Check F(i1,i2)=F(i2,i1).
+  average = 0
+  difference = 0
+  do i=1,supercell%no_atoms
+    atom_1 = supercell%atoms(i)
+    do j=1,supercell%no_atoms
+      atom_2 = supercell%atoms(j)
+      matrix = output%constants(atom_2,atom_1)
+      symmetric = transpose(output%constants(atom_1,atom_2))
+      average = average + sum_squares((matrix+symmetric)/2)
+      difference = difference + sum_squares(matrix-symmetric)
+    enddo
+  enddo
+  call logfile%print_line(                                  &
+     & 'Fractional L2 error in F(i1,i2)=F(i2,i1)      : '// &
+     & sqrt(difference/average))
+  if (sqrt(difference/average) > 1e-10_dp) then
+    call print_line(WARNING//': F(i1,i2)/=F(i2,i1). Please check log files.')
   endif
 end function
 
@@ -549,6 +490,7 @@ end function
 ! Checks that the force constants have the correct symmetry properties.
 subroutine check_force_constants(forces,force_constants,supercell, &
    & unique_directions,logfile)
+  use utils_module, only : sum_squares
   use linear_algebra_module
   use structure_module
   use unique_directions_module
@@ -558,7 +500,7 @@ subroutine check_force_constants(forces,force_constants,supercell, &
   implicit none
   
   type(RealVector),      intent(in)    :: forces(:,:)
-  type(RealMatrix),      intent(in)    :: force_constants(:,:,:)
+  type(ForceConstants),  intent(in)    :: force_constants
   type(StructureData),   intent(in)    :: supercell
   type(UniqueDirection), intent(in)    :: unique_directions(:)
   type(OFile),           intent(inout) :: logfile
@@ -567,19 +509,13 @@ subroutine check_force_constants(forces,force_constants,supercell, &
   type(AtomData) :: atom_1
   type(AtomData) :: atom_2
   
-  integer :: rvector
-  
   real(dp) :: average
   real(dp) :: difference
   
   type(RealVector) :: calculated
   type(RealVector) :: fitted
   
-  type(Group), allocatable :: rvector_group(:)
-  
   integer :: i,j
-  
-  rvector_group = supercell%calculate_rvector_group()
   
   ! Check force constants against calculated forces.
   average = 0
@@ -590,11 +526,8 @@ subroutine check_force_constants(forces,force_constants,supercell, &
     do j=1,supercell%no_atoms
       atom_2 = supercell%atoms(j)
       
-      rvector = rvector_group(supercell%paired_rvec(atom_1%rvec_id())) &
-            & * atom_2%rvec_id()
-      
       calculated = forces(j,i)
-      fitted = force_constants(rvector,atom_1%prim_id(),atom_2%prim_id()) &
+      fitted = force_constants%constants(atom_2,atom_1) &
            & * unique_directions(i)%displacement
       
       average = average + sum_squares((calculated+fitted)/2)

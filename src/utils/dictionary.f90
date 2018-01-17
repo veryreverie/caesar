@@ -560,15 +560,15 @@ subroutine read_file_Dictionary_character(this, filename, &
     ! Find keyword in arguments.
     j = this%index(lower_case(line(1)))
     if (.not. this%keywords(j)%allowed_in_file) then
-      call print_line('Error: the keyword '//this%keywords(j)%keyword// &
+      call print_line(ERROR//': the keyword '//this%keywords(j)%keyword// &
          & ' should not appear in input files.')
       call err()
     elseif (only_if_unset .and. this%keywords(j)%is_set()) then
-      call print_line('Warning: the keyword '//this%keywords(j)%keyword// &
+      call print_line(WARNING//': the keyword '//this%keywords(j)%keyword// &
          & ' has been specified in multiple places.')
     else
       if (size(line)==1) then
-        call print_line('Error: the keyword '//this%keywords(j)%keyword// &
+        call print_line(ERROR//': the keyword '//this%keywords(j)%keyword// &
            & 'has been specified without a value.')
         stop
       else

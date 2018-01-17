@@ -203,6 +203,8 @@ module linear_algebra_module
     module procedure multiply_integer_IntVector
     module procedure multiply_IntVector_real
     module procedure multiply_real_IntVector
+    module procedure multiply_Intvector_complex
+    module procedure multiply_complex_Intvector
     
     module procedure multiply_RealVector_integer
     module procedure multiply_integer_RealVector
@@ -211,6 +213,8 @@ module linear_algebra_module
     module procedure multiply_RealVector_complex
     module procedure multiply_complex_RealVector
     
+    module procedure multiply_ComplexVector_integer
+    module procedure multiply_integer_ComplexVector
     module procedure multiply_ComplexVector_real
     module procedure multiply_real_ComplexVector
     module procedure multiply_ComplexVector_complex
@@ -220,6 +224,8 @@ module linear_algebra_module
     module procedure multiply_integer_IntMatrix
     module procedure multiply_IntMatrix_real
     module procedure multiply_real_IntMatrix
+    module procedure multiply_IntMatrix_complex
+    module procedure multiply_complex_IntMatrix
     
     module procedure multiply_RealMatrix_integer
     module procedure multiply_integer_RealMatrix
@@ -228,6 +234,8 @@ module linear_algebra_module
     module procedure multiply_RealMatrix_complex
     module procedure multiply_complex_RealMatrix
     
+    module procedure multiply_ComplexMatrix_integer
+    module procedure multiply_integer_ComplexMatrix
     module procedure multiply_ComplexMatrix_real
     module procedure multiply_real_ComplexMatrix
     module procedure multiply_ComplexMatrix_complex
@@ -269,23 +277,28 @@ module linear_algebra_module
   interface operator(/)
     module procedure divide_IntVector_integer
     module procedure divide_IntVector_real
+    module procedure divide_IntVector_complex
     module procedure divide_RealVector_integer
     module procedure divide_RealVector_real
     module procedure divide_RealVector_complex
+    module procedure divide_ComplexVector_integer
     module procedure divide_ComplexVector_real
     module procedure divide_ComplexVector_complex
     
     module procedure divide_IntMatrix_integer
     module procedure divide_IntMatrix_real
+    module procedure divide_IntMatrix_complex
     module procedure divide_RealMatrix_integer
     module procedure divide_RealMatrix_real
     module procedure divide_RealMatrix_complex
+    module procedure divide_ComplexMatrix_integer
     module procedure divide_ComplexMatrix_real
     module procedure divide_ComplexMatrix_complex
   end interface
   
   interface l2_norm
     module procedure l2_norm_RealVector
+    module procedure l2_norm_ComplexVector
   end interface
   
   interface outer_product
@@ -1400,6 +1413,26 @@ pure function multiply_real_IntVector(a,b) result(output)
   output = a*b%contents
 end function
 
+pure function multiply_IntVector_complex(a,b) result(output)
+  implicit none
+  
+  type(IntVector), intent(in) :: a
+  complex(dp),     intent(in) :: b
+  type(ComplexVector)         :: output
+  
+  output = a%contents*b
+end function
+
+pure function multiply_complex_IntVector(a,b) result(output)
+  implicit none
+  
+  complex(dp),     intent(in) :: a
+  type(IntVector), intent(in) :: b
+  type(ComplexVector)         :: output
+  
+  output = a*b%contents
+end function
+
 pure function multiply_RealVector_integer(a,b) result(output)
   implicit none
   
@@ -1455,6 +1488,26 @@ pure function multiply_complex_RealVector(a,b) result(output)
   
   complex(dp),      intent(in) :: a
   type(RealVector), intent(in) :: b
+  type(ComplexVector)          :: output
+  
+  output = a*b%contents
+end function
+
+pure function multiply_ComplexVector_integer(a,b) result(output)
+  implicit none
+  
+  type(ComplexVector), intent(in) :: a
+  integer,             intent(in) :: b
+  type(ComplexVector)          :: output
+  
+  output = a%contents*b
+end function
+
+pure function multiply_integer_ComplexVector(a,b) result(output)
+  implicit none
+  
+  integer,             intent(in) :: a
+  type(ComplexVector), intent(in) :: b
   type(ComplexVector)          :: output
   
   output = a*b%contents
@@ -1540,6 +1593,26 @@ pure function multiply_real_IntMatrix(a,b) result(output)
   output = a*b%contents
 end function
 
+pure function multiply_IntMatrix_complex(a,b) result(output)
+  implicit none
+  
+  type(IntMatrix), intent(in) :: a
+  complex(dp),     intent(in) :: b
+  type(ComplexMatrix)         :: output
+  
+  output = a%contents*b
+end function
+
+pure function multiply_complex_IntMatrix(a,b) result(output)
+  implicit none
+  
+  complex(dp),     intent(in) :: a
+  type(IntMatrix), intent(in) :: b
+  type(ComplexMatrix)         :: output
+  
+  output = a*b%contents
+end function
+
 pure function multiply_RealMatrix_integer(a,b) result(output)
   implicit none
   
@@ -1595,6 +1668,26 @@ pure function multiply_complex_RealMatrix(a,b) result(output)
   
   complex(dp),      intent(in) :: a
   type(RealMatrix), intent(in) :: b
+  type(ComplexMatrix)          :: output
+  
+  output = a*b%contents
+end function
+
+pure function multiply_ComplexMatrix_integer(a,b) result(output)
+  implicit none
+  
+  type(ComplexMatrix), intent(in) :: a
+  integer,             intent(in) :: b
+  type(ComplexMatrix)          :: output
+  
+  output = a%contents*b
+end function
+
+pure function multiply_integer_ComplexMatrix(a,b) result(output)
+  implicit none
+  
+  integer,             intent(in) :: a
+  type(ComplexMatrix), intent(in) :: b
   type(ComplexMatrix)          :: output
   
   output = a*b%contents
@@ -1942,6 +2035,16 @@ pure function divide_IntVector_real(a,b) result(output)
   output = a%contents/b
 end function
 
+pure function divide_IntVector_complex(a,b) result(output)
+  implicit none
+  
+  type(IntVector), intent(in) :: a
+  complex(dp),     intent(in) :: b
+  type(ComplexVector)         :: output
+  
+  output = a%contents/b
+end function
+
 pure function divide_RealVector_integer(a,b) result(output)
   implicit none
   
@@ -1967,6 +2070,16 @@ pure function divide_RealVector_complex(a,b) result(output)
   
   type(RealVector),    intent(in) :: a
   complex(dp),         intent(in) :: b
+  type(ComplexVector)             :: output
+  
+  output = a%contents/b
+end function
+
+pure function divide_ComplexVector_integer(a,b) result(output)
+  implicit none
+  
+  type(ComplexVector), intent(in) :: a
+  integer,             intent(in) :: b
   type(ComplexVector)             :: output
   
   output = a%contents/b
@@ -2012,6 +2125,16 @@ pure function divide_IntMatrix_real(a,b) result(output)
   output = a%contents/b
 end function
 
+pure function divide_IntMatrix_complex(a,b) result(output)
+  implicit none
+  
+  type(IntMatrix), intent(in) :: a
+  complex(dp),     intent(in) :: b
+  type(ComplexMatrix)         :: output
+  
+  output = a%contents/b
+end function
+
 pure function divide_RealMatrix_integer(a,b) result(output)
   implicit none
   
@@ -2037,6 +2160,16 @@ pure function divide_RealMatrix_complex(a,b) result(output)
   
   type(RealMatrix),    intent(in) :: a
   complex(dp),         intent(in) :: b
+  type(ComplexMatrix)             :: output
+  
+  output = a%contents/b
+end function
+
+pure function divide_ComplexMatrix_integer(a,b) result(output)
+  implicit none
+  
+  type(ComplexMatrix), intent(in) :: a
+  integer,             intent(in) :: b
   type(ComplexMatrix)             :: output
   
   output = a%contents/b
@@ -2070,6 +2203,14 @@ elemental function l2_norm_RealVector(input) result(output)
   real(dp)                     :: output
   
   output = sqrt(input*input)
+end function
+
+elemental function l2_norm_ComplexVector(input) result(output)
+  implicit none
+  
+  type(ComplexVector), intent(in) :: input
+  real(dp)                        :: output
+  output = sqrt(real(input*conjg(input)))
 end function
 
 ! Outer product.

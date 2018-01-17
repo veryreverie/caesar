@@ -27,6 +27,9 @@ module qpoints_module
     ! Whether or not 2q=G.
     logical :: is_paired_qpoint
     
+    ! The id of q-point q' such that q+2q=G.
+    integer :: paired_qpoint
+    
     ! Whether or not this q-point is to be simulated.
     ! Only one q-point out of all symmetrically equivalent points is chosen.
     ! Only one q-point in each q+q'=G pair is chosen.
@@ -64,6 +67,8 @@ subroutine write_qpoints_file(this,filename)
     call qpoints_file%print_line( this(i)%gvector)
     call qpoints_file%print_line( 'Is 2q equal to a primitive G-vector?:')
     call qpoints_file%print_line( this(i)%is_paired_qpoint)
+    call qpoints_file%print_line( "The ID of q' s.t. q+q' is a primitive G-vector")
+    call qpoints_file%print_line( this(i)%paired_qpoint)
     call qpoints_file%print_line( 'Is this q-point to be simulated?:')
     call qpoints_file%print_line( this(i)%to_simulate)
     call qpoints_file%print_line( 'Supercell Matrix, S, s.t. S.q is integer.:')
@@ -91,23 +96,24 @@ function read_qpoints_file(filename) result(this)
   integer :: i,j,ialloc
   
   qpoints_file = filename
-  no_qpoints = size(qpoints_file)/17
+  no_qpoints = size(qpoints_file)/19
   
   allocate(this(no_qpoints), stat=ialloc); call err(ialloc)
   
   do i=1,no_qpoints
-    qpoint_line = (i-1)*17
+    qpoint_line = (i-1)*19
     
     this(i)%qpoint            = dble( qpoints_file%split_line(qpoint_line+2 ) )
     this(i)%scaled_qpoint     = int(  qpoints_file%split_line(qpoint_line+4 ) )
     this(i)%gvector           = int(  qpoints_file%split_line(qpoint_line+6 ) )
     this(i)%is_paired_qpoint  = lgcl( qpoints_file%line(      qpoint_line+8 ) )
-    this(i)%to_simulate       = lgcl( qpoints_file%line(      qpoint_line+10) )
+    this(i)%paired_qpoint     = int(  qpoints_file%line(      qpoint_line+10) )
+    this(i)%to_simulate       = lgcl( qpoints_file%line(      qpoint_line+12) )
     do j=1,3
-      supercell_matrix(j,:) = int(qpoints_file%split_line(qpoint_line+11+j))
+      supercell_matrix(j,:) = int(qpoints_file%split_line(qpoint_line+13+j))
     enddo
     this(i)%supercell_matrix  = supercell_matrix
-    this(i)%supercell_gvector = int(  qpoints_file%split_line(qpoint_line+16) )
+    this(i)%supercell_gvector = int(  qpoints_file%split_line(qpoint_line+18) )
   enddo
 end function
 end module

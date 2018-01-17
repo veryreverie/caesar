@@ -56,7 +56,9 @@ subroutine calculate_dos_and_dispersion(arguments)
   use structure_module
   use qpoints_module
   use group_module
+  use force_constants_module
   use dynamical_matrix_module
+  use min_images_module
   use lte_module
   implicit none
   
@@ -74,6 +76,10 @@ subroutine calculate_dos_and_dispersion(arguments)
   type(StructureData)                :: large_supercell
   type(QpointData),      allocatable :: qpoints(:)
   type(DynamicalMatrix), allocatable :: dynamical_matrices(:)
+  
+  ! Working variables.
+  type(ForceConstants)          :: force_constants
+  type(MinImages),  allocatable :: min_images(:,:)
   
   ! Temporary variables.
   type(String), allocatable :: path_point(:)
@@ -116,19 +122,37 @@ subroutine calculate_dos_and_dispersion(arguments)
   enddo
   
   ! --------------------------------------------------
-  ! Calculate harmonic DOS and phonon dispersion.
+  ! Run calculations.
   ! --------------------------------------------------
-  call fourier_interpolation(              &
-     & qpoints,                            &
-     & dynamical_matrices,                 &
-     & structure,                          &
-     & temperature,                        &
-     & large_supercell,                    &
-     & path_labels,                        &
-     & path_qpoints,                       &
-     & wd//'/phonon_dispersion_curve.dat', &
-     & wd//'/high_symmetry_points.dat',    &
-     & wd//'/free_energy.dat',             &
-     & wd//'/freq_dos.dat')
+  
+  ! Construct the matrix of force constants from dynamical matrices.
+  force_constants = reconstruct_force_constants( structure,       &
+                                               & large_supercell, &
+                                               & qpoints,         &
+                                               & dynamical_matrices)
+  
+  ! Calculate minimum image distances.
+  min_images = calculate_min_images(large_supercell)
+  
+  ! Generate harmonic phonon dispersion curve by interpolating between
+  !    calculated q-points using Fourier interpolation.
+  call generate_dispersion( structure,                          &
+                          & large_supercell,                    &
+                          & min_images,                         &
+                          & force_constants,                    &
+                          & path_labels,                        &
+                          & path_qpoints,                       &
+                          & wd//'/phonon_dispersion_curve.dat', &
+                          & wd//'/high_symmetry_points.dat',    &
+                          & wd//'/dispersion_log.dat')
+  
+  ! Generate harmonic phonon density of states, interpolating as above.
+  call generate_dos( large_supercell,        &
+                   & min_images,             &
+                   & force_constants,        &
+                   & temperature,            &
+                   & wd//'/free_energy.dat', &
+                   & wd//'/freq_dos.dat',    &
+                   & wd//'/dos_log.dat')
 end subroutine
 end module

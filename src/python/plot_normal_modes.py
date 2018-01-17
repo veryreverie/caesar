@@ -67,7 +67,11 @@ def main():
   
   no_atoms = len(modes[0]['displacements'])
   
-  fig, axes = plt.subplots(4, len(modes))
+  fig, axes_numbered = plt.subplots(4, len(modes))
+  axes = {'f':axes_numbered[0],
+          'xy':axes_numbered[1],
+          'yz':axes_numbered[2],
+          'zx':axes_numbered[3]}
   
   min_frequency = modes[0]['frequency']
   max_frequency = modes[-1]['frequency']
@@ -78,7 +82,7 @@ def main():
       for number in displacement:
         max_displacement = max(max_displacement, np.absolute(number))
   radius = max_displacement/10
-  lim = max_displacement * 1.2
+  lim = max_displacement * 1.5
   
   eqm_pos = []
   for i in range(no_atoms):
@@ -87,17 +91,17 @@ def main():
   for i,mode in enumerate(modes):
     # Plot frequencies.
     for mode2 in modes:
-      axes[0][i].hlines([mode2['frequency']],0,1,color=colours['turquoise'])
-    axes[0][i].hlines([mode['frequency']],0,1,color=colours['orange'])
-    axes[0][i].set_xlim(0,1)
-    axes[0][i].set_ylim(min_frequency-0.001,max_frequency+0.001)
+      axes['f'][i].hlines([mode2['frequency']],0,1,color=colours['turquoise'])
+    axes['f'][i].hlines([mode['frequency']],0,1,color=colours['orange'])
+    axes['f'][i].set_xlim(0,1)
+    axes['f'][i].set_ylim(min_frequency-0.001,max_frequency+0.001)
     
-    axes[0][i].set_xticks([])
-    axes[0][i].minorticks_off()
-    axes[0][i].tick_params( direction='out', 
+    axes['f'][i].set_xticks([])
+    axes['f'][i].minorticks_off()
+    axes['f'][i].tick_params( direction='out', 
                             labelleft='off')
     
-    for dirn in range(1,4):
+    for dirn in ['xy','yz','zx']:
       axes[dirn][i].set_xlim(-lim,lim)
       axes[dirn][i].set_ylim(0,no_atoms*lim*2)
       axes[dirn][i].set_xticks([])
@@ -107,40 +111,59 @@ def main():
     
     # Plot displacements.
     for j,displacement in enumerate(mode['displacements']):
-      for dirn in range(1,4):
-        eqm = pch.Circle( (0,eqm_pos[j]),
-                          radius=radius,
-                          fill=False,
-                          edgecolor=colours['turquoise'])
-        axes[dirn][i].add_patch(eqm)
-      
-      no_plots = 12
+      # Calculate positions along path.
+      no_plots = 24
+      mid = no_plots//2
+      points = {'xy':{'h':[],'v':[]},
+                'yz':{'h':[],'v':[]},
+                'zx':{'h':[],'v':[]}}
       for k in range(no_plots):
-        phase = complex(0,np.pi*k/(3*no_plots))
+        phase = complex(0,np.pi*k*2/no_plots)
         x = (displacement[0]*np.exp(phase)).real
         y = (displacement[1]*np.exp(phase)).real
         z = (displacement[2]*np.exp(phase)).real
         scale = (max_displacement*2)/(max_displacement*2-z)
-        circ = pch.Circle( (x,y+eqm_pos[j]),
-                           radius=radius,
-                           color=colours['orange'])
-        axes[1][i].add_patch(circ)
-        circ = pch.Circle( (y,z+eqm_pos[j]),
-                           radius=radius,
-                           color=colours['orange'])
-        axes[2][i].add_patch(circ)
-        circ = pch.Circle( (z,x+eqm_pos[j]),
-                           radius=radius,
-                           color=colours['orange'])
-        axes[3][i].add_patch(circ)
+        points['xy']['h'].append(x)
+        points['xy']['v'].append(y+eqm_pos[j])
+        points['yz']['h'].append(y)
+        points['yz']['v'].append(z+eqm_pos[j])
+        points['zx']['h'].append(z)
+        points['zx']['v'].append(x+eqm_pos[j])
+      
+      for k in ['xy','yz','zx']:
+        # Plot equilibrium position.
+        axes[k][i].add_patch(pch.Circle((0,eqm_pos[j]),
+                             radius=radius*2,
+                             fill=False,
+                             edgecolor=colours['turquoise']))
+        # Plot lines.
+        axes[k][i].plot(points[k]['h'],points[k]['v'],color=colours['orange'])
         
-  axes[0][0].set_ylabel('Energy, Hartrees')
-  axes[0][0].tick_params(labelleft='on')
-  axes[1][0].set_ylabel('x-y elevation')
-  axes[2][0].set_ylabel('y-z elevation')
-  axes[3][0].set_ylabel('z-x elevation')
+        if (abs(points[k]['h'][0]-points[k]['h'][mid])>0.5*radius or
+            abs(points[k]['v'][0]-points[k]['v'][mid])>0.5*radius):
+          # Plot arrows.
+          axes[k][i].arrow(points[k]['h'][-1],
+                           points[k]['v'][-1],
+                           points[k]['h'][0]-points[k]['h'][-1],
+                           points[k]['v'][0]-points[k]['v'][-1],
+                           width=0.00007,
+                           head_width=0.0007,
+                           color=colours['orange'])
+        else:
+          # Plot circles.
+          axes[k][i].add_patch(pch.Circle((points[k]['h'][0],
+                                           points[k]['v'][0]),
+                                          radius=radius,
+                                          color=colours['orange']))
+        
+        
+  axes['f'][0].set_ylabel('Energy, Hartrees')
+  axes['f'][0].tick_params(labelleft='on')
+  axes['xy'][0].set_ylabel('x-y elevation')
+  axes['yz'][0].set_ylabel('y-z elevation')
+  axes['zx'][0].set_ylabel('z-x elevation')
   
-  for i in [1,2,3]:
+  for i in ['xy','yz','zx']:
     axes[i][0].tick_params( direction='out', 
                             labelleft='on',
                             labelright='off')
@@ -149,17 +172,14 @@ def main():
     axes[i][0].tick_params(length=0)
   
   hartree_to_inverse_cm = 2.194746313702e5
-  rax = axes[0][-1].twinx()
-  axes[0][-1].tick_params( direction='out', 
-                           labelleft='off')
+  rax = axes['f'][-1].twinx()
+  axes['f'][-1].tick_params( direction='out', 
+                             labelleft='off')
   rax.tick_params( direction='out', 
                    labelleft='off')
   rax.set_ylim( (min_frequency-0.001)*hartree_to_inverse_cm, 
                 (max_frequency+0.001)*hartree_to_inverse_cm)
   rax.set_ylabel(r'Frequency, cm$^{-1}$')
-  
-  #axes['frequencies'].set_xlabel('Mode id')
-  #axes['frequencies'].set_ylabel('Energy, Hartrees')
   
   plt.show()
 

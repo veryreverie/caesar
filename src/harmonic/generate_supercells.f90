@@ -384,6 +384,8 @@ function generate_qpoints(structure,large_supercell) result(output)
       output(i)%is_paired_qpoint = .false.
     endif
     
+    output(i)%paired_qpoint = paired_qpoints(i)
+    
     if (paired_qpoints(i)<i) then
       output(i)%to_simulate = .false.
     endif

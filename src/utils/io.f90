@@ -46,7 +46,7 @@ module io_module
   character(14), parameter, public :: ERROR = ESC//'[31mError'//ESC//'[0m'
   character(19), parameter, public :: CODE_ERROR = &
      & ESC//'[31mCode Error'//ESC//'[0m'
-  character(16), parameter, public :: WARNING=ESC//'[35mWarning'//ESC//'[0m'
+  character(16), parameter, public :: WARNING=ESC//'[95mWarning'//ESC//'[0m'
   
   ! Command line flag and argument.
   type :: CommandLineFlag

@@ -25,6 +25,14 @@ module utils_module
     module procedure triple_product_IntVector
     module procedure triple_product_RealVector
   end interface
+  
+  ! The sum of the elements squared of a matrix.
+  interface sum_squares
+    module procedure sum_squares_RealVector
+    module procedure sum_squares_RealMatrix
+    module procedure sum_squares_ComplexVector
+    module procedure sum_squares_ComplexMatrix
+  end interface
 contains
 
 ! ----------------------------------------------------------------------
@@ -77,6 +85,49 @@ pure function l2_norm(input) result(output)
   real(dp)             :: output
   
   output = sqrt(dot_product(input,input))
+end function
+
+! ----------------------------------------------------------------------
+! The sum of the squares of the elements of a matrix.
+! ----------------------------------------------------------------------
+function sum_squares_RealVector(input) result(output)
+  use linear_algebra_module
+  implicit none
+  
+  type(RealVector), intent(in) :: input
+  real(dp)                     :: output
+  
+  output = sum(dble(input)*dble(input))
+end function
+
+function sum_squares_RealMatrix(input) result(output)
+  use linear_algebra_module
+  implicit none
+  
+  type(RealMatrix), intent(in) :: input
+  real(dp)                     :: output
+  
+  output = sum(dble(input)*dble(input))
+end function
+
+function sum_squares_ComplexVector(input) result(output)
+  use linear_algebra_module
+  implicit none
+  
+  type(ComplexVector), intent(in) :: input
+  real(dp)                        :: output
+  
+  output = sum(real(cmplx(input)*conjg(cmplx(input))))
+end function
+
+function sum_squares_ComplexMatrix(input) result(output)
+  use linear_algebra_module
+  implicit none
+  
+  type(ComplexMatrix), intent(in) :: input
+  real(dp)                        :: output
+  
+  output = sum(real(cmplx(input)*conjg(cmplx(input))))
 end function
 
 ! ----------------------------------------------------------------------
