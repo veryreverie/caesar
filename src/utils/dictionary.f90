@@ -482,19 +482,42 @@ subroutine write_file_Dictionary_character(this,filename)
   
   type(OFile) :: dictionary_file
   
+  logical :: to_write
+  integer :: max_length
+  
   integer :: i
   
-  dictionary_file = filename
+  ! Check that there are any settings to write.
+  ! If not, return without creating a blank file.
+  ! Also get the length of the longest keyword, for formatting purposes.
+  to_write = .false.
+  max_length = 0
   do i=1,size(this)
     if (.not. this%keywords(i)%allowed_in_file) then
       cycle
     elseif (.not. this%keywords(i)%is_set()) then
       cycle
     else
-      call dictionary_file%print_line( this%keywords(i)%keyword//' '// &
-                                     & this%keywords(i)%value())
+      to_write = .true.
+      max_length = max(max_length, len(this%keywords(i)%keyword))
     endif
   enddo
+  
+  if (to_write) then
+    dictionary_file = filename
+    do i=1,size(this)
+      if (.not. this%keywords(i)%allowed_in_file) then
+        cycle
+      elseif (.not. this%keywords(i)%is_set()) then
+        cycle
+      else
+        call dictionary_file%print_line(                           &
+           & this%keywords(i)%keyword //                           &
+           & spaces(max_length-len(this%keywords(i)%keyword)+1) // &
+           & this%keywords(i)%value())
+      endif
+    enddo
+  endif
 end subroutine
 
 subroutine write_file_Dictionary_String(this,filename)

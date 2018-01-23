@@ -13,7 +13,7 @@ module dynamical_matrix_module
   public :: DynamicalMatrix
   public :: write_dynamical_matrix_file
   public :: read_dynamical_matrix_file
-  public :: frequencies
+  public :: compare_dynamical_matrices
   
   type :: DynamicalMatrix
     type(ComplexMatrix), allocatable :: matrices(:,:)
@@ -39,7 +39,7 @@ contains
 !    given the matrix of force constants in supercell co-ordinates.
 ! ----------------------------------------------------------------------
 function new_DynamicalMatrix(q,at_gamma,paired_qpoint,supercell, &
-   & force_constants,min_images,logfile) result(this)
+   & force_constants,min_images) result(this)
   use constants_module, only : pi
   use structure_module
   use min_images_module
@@ -54,7 +54,6 @@ function new_DynamicalMatrix(q,at_gamma,paired_qpoint,supercell, &
   type(StructureData),  intent(in)    :: supercell
   type(ForceConstants), intent(in)    :: force_constants
   type(MinImages),      intent(in)    :: min_images(:,:)
-  type(OFile),          intent(inout) :: logfile
   type(DynamicalMatrix)               :: this
   
   type(AtomData) :: atom_1
@@ -98,9 +97,6 @@ function new_DynamicalMatrix(q,at_gamma,paired_qpoint,supercell, &
                                       & at_gamma,      &
                                       & paired_qpoint, &
                                       & supercell)
-  
-  ! Check output.
-  call this%check(supercell,logfile)
 end function
 
 ! ----------------------------------------------------------------------
@@ -108,7 +104,7 @@ end function
 !    i.e. S.q is a vector of integers.
 ! ----------------------------------------------------------------------
 function new_DynamicalMatrix_calculated(qpoint,at_gamma,paired_qpoint, &
-   & supercell,force_constants,logfile) result(this)
+   & supercell,force_constants) result(this)
   use structure_module
   use min_images_module
   use force_constants_module
@@ -117,13 +113,12 @@ function new_DynamicalMatrix_calculated(qpoint,at_gamma,paired_qpoint, &
   use ofile_module
   implicit none
   
-  type(QpointData),     intent(in)    :: qpoint
-  logical,              intent(in)    :: at_gamma
-  logical,              intent(in)    :: paired_qpoint
-  type(StructureData),  intent(in)    :: supercell
-  type(ForceConstants), intent(in)    :: force_constants
-  type(OFile),          intent(inout) :: logfile
-  type(DynamicalMatrix)               :: this
+  type(QpointData),     intent(in) :: qpoint
+  logical,              intent(in) :: at_gamma
+  logical,              intent(in) :: paired_qpoint
+  type(StructureData),  intent(in) :: supercell
+  type(ForceConstants), intent(in) :: force_constants
+  type(DynamicalMatrix)            :: this
   
   type(IntVector)              :: rvector_i
   type(IntVector)              :: rvector_j
@@ -152,8 +147,7 @@ function new_DynamicalMatrix_calculated(qpoint,at_gamma,paired_qpoint, &
                         & paired_qpoint,   &
                         & supercell,       &
                         & force_constants, &
-                        & min_images,      &
-                        & logfile)
+                        & min_images)
 end function
 
 ! ----------------------------------------------------------------------
@@ -162,7 +156,7 @@ end function
 ! This is only an approximation, using a minimum-image convention.
 ! ----------------------------------------------------------------------
 function new_DynamicalMatrix_interpolated(q,supercell,force_constants, &
-   & min_images,logfile) result(this)
+   & min_images) result(this)
   use structure_module
   use min_images_module
   use force_constants_module
@@ -171,27 +165,26 @@ function new_DynamicalMatrix_interpolated(q,supercell,force_constants, &
   use ofile_module
   implicit none
   
-  type(RealVector),     intent(in)    :: q
-  type(StructureData),  intent(in)    :: supercell
-  type(ForceConstants), intent(in)    :: force_constants
-  type(MinImages),      intent(in)    :: min_images(:,:)
-  type(OFile),          intent(inout) :: logfile
-  type(DynamicalMatrix)               :: this
+  type(RealVector),     intent(in) :: q
+  type(StructureData),  intent(in) :: supercell
+  type(ForceConstants), intent(in) :: force_constants
+  type(MinImages),      intent(in) :: min_images(:,:)
+  type(DynamicalMatrix)            :: this
   
   this = DynamicalMatrix( q,               &
                         & .false.,         &
                         & .false.,         &
                         & supercell,       &
                         & force_constants, &
-                        & min_images,      &
-                        & logfile)
+                        & min_images)
 end function
 
 ! ----------------------------------------------------------------------
 ! Diagonalise the dynamical matrix, to obtain the normal mode
 !    co-ordinates (eigenvectors) and harmonic frequencies (eigenvalues).
 ! ----------------------------------------------------------------------
-function calculate_modes(matrices,at_gamma,paired_qpoint,supercell) &
+! Structure may be any supercell.
+function calculate_modes(matrices,at_gamma,paired_qpoint,structure) &
    & result(output)
   use structure_module
   use min_images_module
@@ -202,7 +195,7 @@ function calculate_modes(matrices,at_gamma,paired_qpoint,supercell) &
   type(ComplexMatrix), intent(in) :: matrices(:,:)
   logical,             intent(in) :: at_gamma
   logical,             intent(in) :: paired_qpoint
-  type(StructureData), intent(in) :: supercell
+  type(StructureData), intent(in) :: structure
   type(ComplexMode), allocatable  :: output(:)
   
   complex(dp), allocatable :: dyn_mat(:,:)
@@ -216,10 +209,10 @@ function calculate_modes(matrices,at_gamma,paired_qpoint,supercell) &
   
   
   ! Convert (3x3Matrix) x no_atoms x no_atoms to no_modes x no_modes
-  allocate( dyn_mat(supercell%no_modes_prim,supercell%no_modes_prim), &
+  allocate( dyn_mat(structure%no_modes_prim,structure%no_modes_prim), &
           & stat=ialloc); call err(ialloc)
-  do i=1,supercell%no_atoms_prim
-    do j=1,supercell%no_atoms_prim
+  do i=1,structure%no_atoms_prim
+    do j=1,structure%no_atoms_prim
       dyn_mat(3*j-2:3*j, 3*i-2:3*i) = cmplx(matrices(j,i))
     enddo
   enddo
@@ -228,7 +221,7 @@ function calculate_modes(matrices,at_gamma,paired_qpoint,supercell) &
   estuff = calculate_eigenstuff(dyn_mat)
   
   ! Identify purely translational modes (at the gamma-point only).
-  allocate( translational(supercell%no_modes_prim), &
+  allocate( translational(structure%no_modes_prim), &
           & stat=ialloc); call err(ialloc)
   translational = .false.
   if (at_gamma) then
@@ -241,13 +234,13 @@ function calculate_modes(matrices,at_gamma,paired_qpoint,supercell) &
   ! Calculate normal mode frequencies and displacements.
   !          V = sum_i[ 0.5 * freq_i**2 * u_i**2]
   ! -> F = -2V = sum_i[ - freq_i**2 * u_i**2 ]
-  allocate( output(supercell%no_modes_prim),   &
+  allocate( output(structure%no_modes_prim),   &
           & stat=ialloc); call err(ialloc)
-  do i=1,supercell%no_modes_prim
+  do i=1,structure%no_modes_prim
     
     ! The eigenvalues are in descending order, but the normal modes should
     !    be in ascending order of frequency. i->k reverses the order.
-    k = supercell%no_modes_prim - i + 1
+    k = structure%no_modes_prim - i + 1
     
     if (estuff%evals(k)>=0.0_dp) then
       ! Unstable mode.
@@ -264,17 +257,17 @@ function calculate_modes(matrices,at_gamma,paired_qpoint,supercell) &
     !    which are the non-mass-reduced eigenvectors of the dynamical matrix.
     if (paired_qpoint) then
       output(i)%at_paired_qpoint = .true.
-      allocate( output(i)%primitive_displacements(supercell%no_atoms_prim,1), &
+      allocate( output(i)%primitive_displacements(structure%no_atoms_prim,1), &
               & stat=ialloc); call err(ialloc)
     else
       output(i)%at_paired_qpoint = .false.
-      allocate( output(i)%primitive_displacements(supercell%no_atoms_prim,2), &
+      allocate( output(i)%primitive_displacements(structure%no_atoms_prim,2), &
               & stat=ialloc); call err(ialloc)
     endif
     
-    do j=1,supercell%no_atoms_prim
+    do j=1,structure%no_atoms_prim
       displacement = estuff%evecs(3*j-2:3*j, k) &
-                 & / sqrt(supercell%atoms(j)%mass())
+                 & / sqrt(structure%atoms(j)%mass())
       
       if (paired_qpoint) then
         output(i)%primitive_displacements(j,:) = [displacement]
@@ -291,14 +284,18 @@ end function
 !    given the dynamical matrix and normal modes at the q-point q.
 ! ----------------------------------------------------------------------
 function conjg_DynamicalMatrix(input) result(output)
+  use structure_module
+  use ofile_module
   implicit none
   
   type(DynamicalMatrix), intent(in) :: input
   type(DynamicalMatrix)             :: output
   
+  ! Array sizes.
   integer :: no_atoms
   integer :: no_modes
   
+  ! Temporary variables.
   integer :: i,j,ialloc
   
   no_atoms = size(input%matrices,1)
@@ -339,23 +336,41 @@ end function
 ! ----------------------------------------------------------------------
 ! Check a dynamical matrix.
 ! ----------------------------------------------------------------------
-subroutine check(this,supercell,logfile)
+! Always checks that the matrix is Hermitian.
+! If check_eigenstuff is .true., also checks that the normal modes match
+!    the dynamical matrix.
+! check_eigenstuff defaults to .true..
+! Structure may be any supercell.
+subroutine check(this,structure,logfile,check_eigenstuff)
   use utils_module, only : sum_squares
   use structure_module
   use ofile_module
   implicit none
   
-  class(DynamicalMatrix), intent(in)    :: this
-  type(StructureData),    intent(in)    :: supercell
-  type(OFile),            intent(inout) :: logfile
+  class(DynamicalMatrix), intent(in)           :: this
+  type(StructureData),    intent(in)           :: structure
+  type(OFile),            intent(inout)        :: logfile
+  logical,                intent(in), optional :: check_eigenstuff
   
-  type(ComplexMatrix) :: matrix
-  type(ComplexMatrix) :: hermitian_matrix
-  real(dp)            :: average
-  real(dp)            :: difference
+  type(ComplexMatrix)            :: matrix
+  type(ComplexMatrix)            :: hermitian_matrix
+  type(ComplexMode), allocatable :: modes(:)
+  real(dp)                       :: freq_1
+  real(dp)                       :: freq_2
+  type(ComplexVector)            :: prim_disp_1
+  type(ComplexVector)            :: prim_disp_2
+  real(dp)                       :: average
+  real(dp)                       :: difference
+  logical                        :: check_estuff
   
   integer :: no_atoms
   integer :: i,j
+  
+  if (present(check_eigenstuff)) then
+    check_estuff = check_eigenstuff
+  else
+    check_estuff = .true.
+  endif
   
   no_atoms = size(this%matrices,1)
   
@@ -378,26 +393,98 @@ subroutine check(this,supercell,logfile)
     call print_line(WARNING//': Dynamical matrix is not hermitian. Please &
        &check log files.')
   endif
+  
+  ! Check that dynamical matrix and normal modes match.
+  if (check_estuff) then
+    modes = calculate_modes( this%matrices,                          &
+                           & .false.,                                &
+                           & this%complex_modes(1)%at_paired_qpoint, &
+                           & structure)
+    
+    ! Check that eigenfrequencies match.
+    average = 0.0_dp
+    difference = 0.0_dp
+    do i=1,structure%no_modes_prim
+      if (this%complex_modes(i)%translational_mode) then
+        cycle
+      endif
+      freq_1 = this%complex_modes(i)%frequency
+      freq_2 = modes(i)%frequency
+      average = average + ((freq_1+freq_2)/2)**2
+      difference = difference + (freq_1-freq_2)**2
+    enddo
+    call logfile%print_line(                           &
+       & 'Fractional L2 error in eigenfrequencies: '// &
+       & sqrt(difference/average))
+    if (sqrt(difference/average) > 1e-10_dp) then
+      call print_line(WARNING//': Eigenfrequencies do not match. Please &
+         &check log files.')
+    endif
+    
+    ! Check that the primitive displacements match.
+    ! N.B. the global phase of the displacements is not necessarily consistent.
+    average = 0.0_dp
+    difference = 0.0_dp
+    do i=1,structure%no_modes_prim
+      ! Ignore degenerate modes.
+      if (this%complex_modes(i)%translational_mode) then
+        cycle
+      endif
+      if (i>1) then
+        freq_1 = modes(i)%frequency
+        freq_2 = modes(i-1)%frequency
+        if (abs((freq_1-freq_2)/freq_1)<0.01) then
+          cycle
+        endif
+      endif
+      if (i<structure%no_modes_prim) then
+        freq_1 = modes(i)%frequency
+        freq_2 = modes(i+1)%frequency
+        if (abs((freq_1-freq_2)/freq_1)<0.01) then
+          cycle
+        endif
+      endif
+      
+      do j=1,structure%no_atoms_prim
+        prim_disp_1 = this%complex_modes(i)%primitive_displacements(j,1)
+        prim_disp_2 = modes(i)%primitive_displacements(j,1)
+        ! Ignore phases.
+        prim_disp_1 = cmplx(vec(abs(cmplx(prim_disp_1))))
+        prim_disp_2 = cmplx(vec(abs(cmplx(prim_disp_2))))
+        average = average + sum_squares((prim_disp_1+prim_disp_2)/2)
+        difference = difference + sum_squares(prim_disp_1-prim_disp_2)
+      enddo
+    enddo
+    call logfile%print_line(                                          &
+       & 'Fractional L2 error in rotated primitive displacements: '// &
+       & sqrt(difference/average))
+    if (sqrt(difference/average) > 1e-10_dp) then
+      call print_line(WARNING//': Error in primitive displacements. &
+         &Please check log files.')
+      call print_line(difference//' / '//average)
+    endif
+  endif
 end subroutine
 
 ! ----------------------------------------------------------------------
 ! Construct the matrix of force constants for the large supercell, given the
 !    dynamical matrices at each q-point.
 ! ----------------------------------------------------------------------
-function reconstruct_force_constants(structure,large_supercell,qpoints, &
-   & dynamical_matrices) result(output)
+function reconstruct_force_constants(large_supercell,qpoints, &
+   & dynamical_matrices,logfile) result(output)
   use constants_module, only : pi
   use structure_module
   use qpoints_module
   use force_constants_module
   use atom_module
+  use ofile_module
   implicit none
   
-  type(StructureData),   intent(in) :: structure
-  type(StructureData),   intent(in) :: large_supercell
-  type(QpointData),      intent(in) :: qpoints(:)
-  type(DynamicalMatrix), intent(in) :: dynamical_matrices(:)
-  type(ForceConstants)              :: output
+  type(StructureData),   intent(in)    :: large_supercell
+  type(QpointData),      intent(in)    :: qpoints(:)
+  type(DynamicalMatrix), intent(in)    :: dynamical_matrices(:)
+  type(OFile),           intent(inout) :: logfile
+  type(ForceConstants)                 :: output
   
   type(RealMatrix), allocatable :: force_constants(:,:)
   
@@ -441,7 +528,7 @@ function reconstruct_force_constants(structure,large_supercell,qpoints, &
     enddo
   enddo
   
-  output = ForceConstants(large_supercell, force_constants)
+  output = ForceConstants(large_supercell, force_constants, logfile)
 end function
 
 ! ----------------------------------------------------------------------
@@ -519,25 +606,25 @@ end function
 ! Construct data at q_new from data at q_old, where
 !    R . q_old = q_new.
 ! N.B. the provided q-point should be q_new not q_old.
-function rotate_modes(input,symmetry,structure,qpoint,logfile) result(output)
+function rotate_modes(input,symmetry,qpoint) result(output)
   use constants_module, only : pi
   use utils_module, only : sum_squares
-  use structure_module
   use qpoints_module
   use symmetry_module
-  use ofile_module
   implicit none
   
   type(DynamicalMatrix),  intent(in)    :: input
   type(SymmetryOperator), intent(in)    :: symmetry
-  type(StructureData),    intent(in)    :: structure
   type(QpointData),       intent(in)    :: qpoint
-  type(OFile),            intent(inout) :: logfile
   type(DynamicalMatrix)                 :: output
   
   ! q.Rj an exp(i q.Rj), where Rj is symmetry%rvector(j)
   real(dp)                 :: qr
   complex(dp), allocatable :: exp_iqr(:)
+  
+  ! Array sizes.
+  integer :: no_atoms
+  integer :: no_modes
   
   ! Atom labels.
   integer :: atom_1
@@ -546,17 +633,11 @@ function rotate_modes(input,symmetry,structure,qpoint,logfile) result(output)
   integer :: atom_2p
   integer :: mode
   
-  ! Variables for checking the output.
-  type(ComplexMode),   allocatable :: modes(:)
-  real(dp)                         :: freq_1
-  real(dp)                         :: freq_2
-  type(ComplexVector)              :: prim_disp_1
-  type(ComplexVector)              :: prim_disp_2
-  real(dp)                         :: average
-  real(dp)                         :: difference
-  
   ! Temporary variables.
-  integer :: i,j,ialloc
+  integer :: i,ialloc
+  
+  no_atoms = size(input%matrices,1)
+  no_modes = 3*no_atoms
   
   ! Construct phases.
   ! The symmetry, S, maps equilibrium position ri to rj+R,
@@ -567,61 +648,24 @@ function rotate_modes(input,symmetry,structure,qpoint,logfile) result(output)
   ! S : q -> q'
   ! q'.r'-q.r = q'.R
   
-  allocate(exp_iqr(structure%no_atoms), stat=ialloc); call err(ialloc)
-  do i=1,structure%no_atoms
+  allocate(exp_iqr(no_atoms), stat=ialloc); call err(ialloc)
+  do i=1,no_atoms
     qr = 2*pi*qpoint%qpoint*symmetry%rvector(i)
     exp_iqr(i) = cmplx(cos(qr),sin(qr),dp)
   enddo
   
   ! Rotate dynamical matrix.
-  allocate( output%matrices( structure%no_atoms,  &
-          &                  structure%no_atoms), &
-          & stat=ialloc); call err(ialloc)
-  do atom_1=1,structure%no_atoms
+  allocate(output%matrices(no_atoms,no_atoms), stat=ialloc); call err(ialloc)
+  do atom_1=1,no_atoms
     atom_1p = symmetry%atom_group * atom_1
-    do atom_2=1,structure%no_atoms
+    do atom_2=1,no_atoms
       atom_2p = symmetry%atom_group * atom_2
       
-      if (.false.) then
-      ! Works.
-      output%matrices(atom_2p,atom_1p) = input%matrices(atom_2p,atom_1p)
-      elseif (.false.) then
-      ! Doesn't work.
-      output%matrices(atom_2p,atom_1p) = input%matrices(atom_2,atom_1)
-      elseif (.false.) then
-      ! Works.
-      output%matrices(atom_2p,atom_1p) = symmetry%cartesian_rotation     &
-                                     & * input%matrices(atom_2p,atom_1p) &
-                                     & * transpose(symmetry%cartesian_rotation)
-      elseif (.false.) then
-      ! Works.
-      output%matrices(atom_2p,atom_1p) = exp_iqr(atom_2)                 &
-                                     & * input%matrices(atom_2p,atom_1p) &
-                                     & * conjg(exp_iqr(atom_1))
-      elseif (.false.) then
-      ! Doesn't work.
-      output%matrices(atom_2p,atom_1p) = symmetry%cartesian_rotation   &
-                                     & * input%matrices(atom_2,atom_1) &
-                                     & * transpose(symmetry%cartesian_rotation)
-      elseif (.false.) then
-      ! Doesn't work.
-      output%matrices(atom_2p,atom_1p) = exp_iqr(atom_2)               &
-                                     & * input%matrices(atom_2,atom_1) &
-                                     & * conjg(exp_iqr(atom_1))
-      elseif (.false.) then
-      ! Works.
-      output%matrices(atom_2p,atom_1p) = symmetry%cartesian_rotation     &
-                                     & * exp_iqr(atom_2)                 &
-                                     & * input%matrices(atom_2p,atom_1p) &
-                                     & * conjg(exp_iqr(atom_1))          &
-                                     & * transpose(symmetry%cartesian_rotation)
-      elseif (.true.) then
       output%matrices(atom_2p,atom_1p) = symmetry%cartesian_rotation   &
                                      & * exp_iqr(atom_2)               &
                                      & * input%matrices(atom_2,atom_1) &
                                      & * conjg(exp_iqr(atom_1))        &
                                      & * transpose(symmetry%cartesian_rotation)
-      endif
     enddo
   enddo
   
@@ -632,11 +676,10 @@ function rotate_modes(input,symmetry,structure,qpoint,logfile) result(output)
     call err()
   endif
   
-  allocate( output%complex_modes(structure%no_atoms), &
-          & stat=ialloc); call err(ialloc)
+  allocate(output%complex_modes(no_atoms), stat=ialloc); call err(ialloc)
   output%complex_modes = input%complex_modes
-  do mode=1,structure%no_modes
-    do atom_1=1,structure%no_atoms
+  do mode=1,no_modes
+    do atom_1=1,no_atoms
       atom_1p = symmetry%atom_group * atom_1
       if (qpoint%is_paired_qpoint) then
         output%complex_modes(mode)%primitive_displacements(atom_1p,1) =    &
@@ -655,77 +698,6 @@ function rotate_modes(input,symmetry,structure,qpoint,logfile) result(output)
       endif
     enddo
   enddo
-  
-  ! Check that rotated dynamical matrix and rotated normal modes match.
-  modes = calculate_modes( output%matrices,         &
-                         & .false.,                 &
-                         & qpoint%is_paired_qpoint, &
-                         & structure)
-  
-  ! Check that eigenfrequencies match.
-  average = 0.0_dp
-  difference = 0.0_dp
-  do i=1,structure%no_modes_prim
-    if (input%complex_modes(i)%translational_mode) then
-      cycle
-    endif
-    freq_1 = output%complex_modes(i)%frequency
-    freq_2 = modes(i)%frequency
-    average = average + ((freq_1+freq_2)/2)**2
-    difference = difference + (freq_1-freq_2)**2
-  enddo
-  call logfile%print_line(                                   &
-     & 'Fractional L2 error in rotated eigenfrequencies: '// &
-     & sqrt(difference/average))
-  if (sqrt(difference/average) > 1e-10_dp) then
-    call print_line(WARNING//': Rotated eigenfrequencies have changed. Please &
-       &check log files.')
-  endif
-  
-  ! Check that the primitive displacements match.
-  average = 0.0_dp
-  difference = 0.0_dp
-  do i=1,structure%no_modes_prim
-    ! Ignore degenerate modes.
-    if (input%complex_modes(i)%translational_mode) then
-      cycle
-    endif
-    if (i>1) then
-      freq_1 = modes(i)%frequency
-      freq_2 = modes(i-1)%frequency
-      if (abs((freq_1-freq_2)/freq_1)<0.01) then
-        cycle
-      endif
-    endif
-    if (i<structure%no_modes_prim) then
-      freq_1 = modes(i)%frequency
-      freq_2 = modes(i+1)%frequency
-      if (abs((freq_1-freq_2)/freq_1)<0.01) then
-        cycle
-      endif
-    endif
-    
-    do j=1,structure%no_atoms_prim
-      prim_disp_1 = output%complex_modes(i)%primitive_displacements(j,1)
-      prim_disp_2 = modes(i)%primitive_displacements(j,1)
-      average = average + sum_squares((prim_disp_1+prim_disp_2)/2)
-      difference = difference + sum_squares(prim_disp_1-prim_disp_2)
-      
-      if (sum_squares(prim_disp_1-prim_disp_2) > 0.1*sum_squares((prim_disp_1+prim_disp_2)/2)) then
-        call print_line('')
-        call print_line(prim_disp_1)
-        call print_line(prim_disp_2)
-      endif
-    enddo
-  enddo
-  call logfile%print_line(                                          &
-     & 'Fractional L2 error in rotated primitive displacements: '// &
-     & sqrt(difference/average))
-  if (sqrt(difference/average) > 1e-10_dp) then
-    call print_line(WARNING//': Rotated primitive displacements have &
-       &changed. Please check log files.')
-    call print_line(difference//' / '//average)
-  endif
 end function
 
 subroutine print_dyn_mat(input)
@@ -774,4 +746,51 @@ function frequencies(this) result(output)
     output(i) = this%complex_modes(i)%frequency
   enddo
 end function
+
+! ----------------------------------------------------------------------
+! Compares two dynamical matrices.
+! ----------------------------------------------------------------------
+subroutine compare_dynamical_matrices(a,b,logfile)
+  use utils_module, only : sum_squares
+  use ofile_module
+  implicit none
+  
+  type(DynamicalMatrix), intent(in)    :: a
+  type(DynamicalMatrix), intent(in)    :: b
+  type(OFile),           intent(inout) :: logfile
+  
+  integer :: no_atoms
+  
+  type(ComplexMatrix) :: mat_a
+  type(ComplexMatrix) :: mat_b
+  
+  real(dp) :: average
+  real(dp) :: difference
+  
+  integer :: i,j
+  
+  no_atoms = size(a%matrices,1)
+  if (size(b%matrices,1)/=no_atoms) then
+    call print_line(CODE_ERROR//': dynamical matrices a and b have different &
+       &sizes.')
+    call err()
+  endif
+  
+  average = 0.0_dp
+  difference = 0.0_dp
+  do i=1,no_atoms
+    do j=1,no_atoms
+      mat_a = a%matrices(j,i)
+      mat_b = b%matrices(j,i)
+      average = average + sum_squares((mat_a+mat_b)/2)
+      difference = difference + sum_squares(mat_a-mat_b)
+    enddo
+  enddo
+  call logfile%print_line('Fractional L2 difference between dynamical &
+     &matrices: '//sqrt(difference/average))
+  if (sqrt(difference/average)>1e-10_dp) then
+    call print_line(WARNING//': Dynamical matrices differ. Please check &
+       &log files.')
+  endif
+end subroutine
 end module

@@ -310,9 +310,7 @@ function generate_qpoints(structure,large_supercell) result(output)
   integer,         allocatable :: paired_qpoints(:)
   
   ! Working variables
-  
   type(IntVector) :: rotated_scaled_qpoint
-  
   type(IntVector) :: scaled_supercell_gvector
   
   ! Temporary variables
@@ -333,9 +331,11 @@ function generate_qpoints(structure,large_supercell) result(output)
   ! --------------------------------------------------
   ! Find which q-points can be rotated onto other q-points.
   ! --------------------------------------------------
+  ! N.B. q-points are in fractional reciprocal co-ordinates, so they
+  !    transform by the transpose of the fractional rotation matrix.
   do_i : do i=1,size(output)
     do j=1,size(structure%symmetries)
-      rotated_scaled_qpoint = structure%symmetries(j)%rotation &
+      rotated_scaled_qpoint = transpose(structure%symmetries(j)%rotation) &
                           & * output(i)%scaled_qpoint
       do k=1,i-1
         if (rotated_scaled_qpoint==output(k)%scaled_qpoint) then

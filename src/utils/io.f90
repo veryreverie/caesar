@@ -38,6 +38,7 @@ module io_module
   public :: execute_python      ! Runs one of the python scripts.
   public :: colour              ! Adds terminal colours to a string.
   public :: left_pad            ! Left pads an integer.
+  public :: spaces              ! spaces(n) returns n spaces.
   
   ! The terminal escape character.
   character(1), parameter :: ESC = achar(27)

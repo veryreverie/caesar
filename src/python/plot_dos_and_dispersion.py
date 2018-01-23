@@ -14,7 +14,7 @@ def main():
   # Define some static data.
   colours = {
     'turquoise':[102/255,194/255,165/255],
-    'Orange'   :[252/255,141/255, 98/255],
+    'orange'   :[252/255,141/255, 98/255],
     'blue'     :[141/255,160/255,203/255],
     'purple'   :[231/255,138/255,195/255],
     'green'    :[166/255,216/255, 84/255],
@@ -108,10 +108,34 @@ def main():
   axes['dispersion'].set_xlim(xmin,xmax)
   axes['dispersion'].set_ylim(ymin,ymax)
   for band in dispersion['bands']:
-    axes['dispersion'].plot( dispersion['path_length'],
-                             band,
-                             color=colours['turquoise'],
-                             lw=2)
+    xs = []
+    ys = []
+    # Split the dispersion into >0 and <0 segments, and plot them with
+    #    different colours.
+    for x,y in zip(dispersion['path_length'],band):
+      if len(ys)==0 or ys[-1]*y>0:
+        # The line does not cross y=0, continue plotting.
+        xs.append(x)
+        ys.append(y)
+      else:
+        # The line crosses y=0. Interpolate to find the crossing.
+        x_mid = (x*ys[-1]-xs[-1]*y)/(ys[-1]-y)
+        xs.append(x_mid)
+        ys.append(0)
+        # Plot the previous line segment.
+        if ys[-2]>0:
+          axes['dispersion'].plot(xs, ys, color=colours['turquoise'], lw=2)
+        else:
+          axes['dispersion'].plot(xs, ys, color=colours['orange'], lw=2)
+        # Start the new line segment.
+        xs = [x_mid,x]
+        ys = [0,y]
+    
+    if len(ys)>0:
+      if ys[-1]>0:
+        axes['dispersion'].plot(xs, ys, color=colours['turquoise'], lw=2)
+      else:
+        axes['dispersion'].plot(xs, ys, color=colours['orange'], lw=2)
   
   axes['dispersion'].vlines(points['path_lengths'],ymin,ymax,linestyle=':')
   axes['dispersion'].set_xticks(points['path_lengths'])
@@ -125,7 +149,13 @@ def main():
   axes['ev'].set_ylabel('Energy, meV')
   
   axes['dos'] = ax_grid[1]
-  axes['dos'].plot(dos['dos'],dos['middles'],color=colours['turquoise'],lw=2)
+  zero = next(i for i,e in enumerate(dos['middles']) if e>0)
+  axes['dos'].plot(dos['dos'][:zero],
+                   dos['middles'][:zero],
+                   color=colours['orange'],lw=2)
+  axes['dos'].plot(dos['dos'][zero:],
+                   dos['middles'][zero:],
+                   color=colours['turquoise'],lw=2)
   axes['dos'].set_xticks([])
   axes['dos'].minorticks_off()
   

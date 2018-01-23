@@ -60,6 +60,7 @@ subroutine calculate_dos_and_dispersion(arguments)
   use dynamical_matrix_module
   use min_images_module
   use lte_module
+  use ofile_module
   implicit none
   
   type(Dictionary), intent(in) :: arguments
@@ -80,6 +81,10 @@ subroutine calculate_dos_and_dispersion(arguments)
   ! Working variables.
   type(ForceConstants)          :: force_constants
   type(MinImages),  allocatable :: min_images(:,:)
+  
+  ! Logfile.
+  type(OFile) :: logfile
+  type(DynamicalMatrix) :: dyn_mat
   
   ! Temporary variables.
   type(String), allocatable :: path_point(:)
@@ -125,14 +130,27 @@ subroutine calculate_dos_and_dispersion(arguments)
   ! Run calculations.
   ! --------------------------------------------------
   
+  logfile = wd//'/dos_and_dispersion_log.dat'
+  
   ! Construct the matrix of force constants from dynamical matrices.
-  force_constants = reconstruct_force_constants( structure,       &
-                                               & large_supercell, &
-                                               & qpoints,         &
-                                               & dynamical_matrices)
+  force_constants = reconstruct_force_constants( large_supercell,    &
+                                               & qpoints,            &
+                                               & dynamical_matrices, &
+                                               & logfile)
   
   ! Calculate minimum image distances.
   min_images = calculate_min_images(large_supercell)
+  
+  ! Reconstruct calculated dynamical matrices, to check for consistency.
+  do i=1,size(qpoints)
+    dyn_mat = DynamicalMatrix( vec(dble(qpoints(i)%qpoint)), &
+                             & large_supercell,              &
+                             & force_constants,              &
+                             & min_images)
+    call logfile%print_line('Comparing dynamical matrices before and after &
+       &reconstruction of force constants.')
+    call compare_dynamical_matrices(dynamical_matrices(i),dyn_mat,logfile)
+  enddo
   
   ! Generate harmonic phonon dispersion curve by interpolating between
   !    calculated q-points using Fourier interpolation.
@@ -144,7 +162,7 @@ subroutine calculate_dos_and_dispersion(arguments)
                           & path_qpoints,                       &
                           & wd//'/phonon_dispersion_curve.dat', &
                           & wd//'/high_symmetry_points.dat',    &
-                          & wd//'/dispersion_log.dat')
+                          & logfile)
   
   ! Generate harmonic phonon density of states, interpolating as above.
   call generate_dos( large_supercell,        &
@@ -153,6 +171,6 @@ subroutine calculate_dos_and_dispersion(arguments)
                    & temperature,            &
                    & wd//'/free_energy.dat', &
                    & wd//'/freq_dos.dat',    &
-                   & wd//'/dos_log.dat')
+                   & logfile)
 end subroutine
 end module

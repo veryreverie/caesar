@@ -110,20 +110,21 @@ end function
 !    the Brillouin zone.
 ! ----------------------------------------------------------------------
 subroutine generate_dos(supercell,min_images,force_constants,temperature, &
-   & free_energy_filename,dos_filename,log_filename)
+   & free_energy_filename,dos_filename,logfile)
   use ofile_module
   use structure_module
   use min_images_module
   use force_constants_module
+  use ofile_module
   implicit none
   
-  type(StructureData),  intent(in) :: supercell
-  type(MinImages),      intent(in) :: min_images(:,:)
-  type(ForceConstants), intent(in) :: force_constants
-  real(dp),             intent(in) :: temperature
-  type(String),         intent(in) :: free_energy_filename
-  type(String),         intent(in) :: dos_filename
-  type(String),         intent(in) :: log_filename
+  type(StructureData),  intent(in)    :: supercell
+  type(MinImages),      intent(in)    :: min_images(:,:)
+  type(ForceConstants), intent(in)    :: force_constants
+  real(dp),             intent(in)    :: temperature
+  type(String),         intent(in)    :: free_energy_filename
+  type(String),         intent(in)    :: dos_filename
+  type(OFile),          intent(inout) :: logfile
   
   integer,  parameter :: no_bins=1000,no_prelims=10000,no_samples=100000
   integer,  parameter :: print_every = 10000
@@ -139,10 +140,6 @@ subroutine generate_dos(supercell,min_images,force_constants,temperature, &
   ! files.
   type(OFile) :: free_energy_file
   type(OFile) :: dos_file
-  type(OFile) :: logfile
-  
-  ! Open logfile.
-  logfile = log_filename
   
   ! Initialise the random number generator
   call random_seed()
@@ -158,8 +155,8 @@ subroutine generate_dos(supercell,min_images,force_constants,temperature, &
     dyn_mat = DynamicalMatrix( qpoint,          &
                              & supercell,       &
                              & force_constants, &
-                             & min_images,      &
-                             & logfile)
+                             & min_images)
+    call dyn_mat%check(supercell, logfile, check_eigenstuff=.false.)
     
     min_freq = min( min_freq, &
                   & dyn_mat%complex_modes(1)%frequency)
@@ -185,8 +182,8 @@ subroutine generate_dos(supercell,min_images,force_constants,temperature, &
     dyn_mat = DynamicalMatrix( qpoint,          &
                              & supercell,       &
                              & force_constants, &
-                             & min_images,      &
-                             & logfile)
+                             & min_images)
+    call dyn_mat%check(supercell, logfile, check_eigenstuff=.false.)
     
     do i_freq=1,supercell%no_modes_prim
       i_bin = ceiling( (dyn_mat%complex_modes(i_freq)%frequency-min_freq) &
@@ -336,7 +333,7 @@ end subroutine
 ! ----------------------------------------------------------------------
 subroutine generate_dispersion(structure,supercell,min_images,force_constants, &
    & path_labels,path_qpoints,dispersion_filename,                             &
-   & high_symmetry_points_filename,log_filename)
+   & high_symmetry_points_filename,logfile)
   use constants_module, only : pi
   use ofile_module
   use structure_module
@@ -344,15 +341,15 @@ subroutine generate_dispersion(structure,supercell,min_images,force_constants, &
   use force_constants_module
   implicit none
   
-  type(StructureData),  intent(in) :: structure
-  type(StructureData),  intent(in) :: supercell
-  type(MinImages),      intent(in) :: min_images(:,:)
-  type(ForceConstants), intent(in) :: force_constants
-  type(String),         intent(in) :: path_labels(:)
-  type(RealVector),     intent(in) :: path_qpoints(:)
-  type(String),         intent(in) :: dispersion_filename
-  type(String),         intent(in) :: high_symmetry_points_filename
-  type(String),         intent(in) :: log_filename
+  type(StructureData),  intent(in)    :: structure
+  type(StructureData),  intent(in)    :: supercell
+  type(MinImages),      intent(in)    :: min_images(:,:)
+  type(ForceConstants), intent(in)    :: force_constants
+  type(String),         intent(in)    :: path_labels(:)
+  type(RealVector),     intent(in)    :: path_qpoints(:)
+  type(String),         intent(in)    :: dispersion_filename
+  type(String),         intent(in)    :: high_symmetry_points_filename
+  type(OFile),          intent(inout) :: logfile
   
   ! Path variables.
   integer,  parameter :: total_no_points = 1000
@@ -371,13 +368,9 @@ subroutine generate_dispersion(structure,supercell,min_images,force_constants, &
   ! File units.
   type(OFile) :: dispersion_file
   type(OFile) :: high_symmetry_points_file
-  type(OFile) :: logfile
   
   ! Temporary variables.
   integer :: i,j,ialloc
-  
-  ! Open logfile.
-  logfile = log_filename
   
   no_vertices = size(path_labels)
   no_segments = size(path_labels)-1
@@ -429,8 +422,8 @@ subroutine generate_dispersion(structure,supercell,min_images,force_constants, &
       dyn_mat = DynamicalMatrix( qpoint,          &
                                & supercell,       &
                                & force_constants, &
-                               & min_images,      &
-                               & logfile)
+                               & min_images)
+      call dyn_mat%check(supercell, logfile, check_eigenstuff=.false.)
       call dispersion_file%print_line( &
          & 'Fraction along path: '//                &
          & fractional_distances(i)+j*fractional_separation)
@@ -444,8 +437,8 @@ subroutine generate_dispersion(structure,supercell,min_images,force_constants, &
   dyn_mat = DynamicalMatrix( qpoint,          &
                            & supercell,       &
                            & force_constants, &
-                           & min_images,      &
-                           & logfile)
+                           & min_images)
+  call dyn_mat%check(supercell, logfile, check_eigenstuff=.false.)
   call dispersion_file%print_line( &
      & 'Fraction along path: '//1.0_dp)
   call dispersion_file%print_line( &
@@ -457,27 +450,21 @@ end subroutine
 ! ----------------------------------------------------------------------
 subroutine calculate_lte_and_ltfe(supercell,force_constants, &
    & temperature,free_energy_filename,freq_dos_filename, &
-   & tdependence1_filename,tdependence2_filename,log_filename)
+   & tdependence1_filename,tdependence2_filename,logfile)
   use structure_module
   use min_images_module
   use force_constants_module
+  use ofile_module
   implicit none
   
-  ! ----------------------------------------
-  ! Inputs
-  ! ----------------------------------------
-  type(StructureData),  intent(in) :: supercell
-  type(ForceConstants), intent(in) :: force_constants
-  real(dp),             intent(in) :: temperature
-  
-  ! ----------------------------------------
-  ! filenames
-  ! ----------------------------------------
-  type(String), intent(in) :: free_energy_filename
-  type(String), intent(in) :: freq_dos_filename
-  type(String), intent(in) :: tdependence1_filename
-  type(String), intent(in) :: tdependence2_filename
-  type(String), intent(in) :: log_filename
+  type(StructureData),  intent(in)    :: supercell
+  type(ForceConstants), intent(in)    :: force_constants
+  real(dp),             intent(in)    :: temperature
+  type(String),         intent(in)    :: free_energy_filename
+  type(String),         intent(in)    :: freq_dos_filename
+  type(String),         intent(in)    :: tdependence1_filename
+  type(String),         intent(in)    :: tdependence2_filename
+  type(OFile),          intent(inout) :: logfile
   
   ! ----------------------------------------
   ! previously global variables
@@ -509,7 +496,7 @@ subroutine calculate_lte_and_ltfe(supercell,force_constants, &
                    & temperature,          &
                    & free_energy_filename, &
                    & freq_dos_filename,    &
-                   & log_filename)
+                   & logfile)
   call print_line('Done.  Frequency density-of-states function written to &
     &freq_dos.dat.  (Please view this file using XMGrace.)')
   call print_line('')

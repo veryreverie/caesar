@@ -19,6 +19,7 @@ module force_constants_module
     type(RealMatrix), allocatable, private :: constants_(:,:)
   contains
     procedure, public :: constants
+    procedure, public :: check
   end type
   
   interface ForceConstants
@@ -55,7 +56,7 @@ contains
 !
 ! sum(x,s)[x'^x'] is block diagonal, so can be inverted in 3x3 blocks.
 function new_ForceConstants_forces(supercell,unique_directions,sdir, &
-   & file_type,seedname,logfile) result(output)
+   & file_type,seedname,acoustic_sum_rule_forces,logfile) result(output)
   use linear_algebra_module
   use structure_module
   use unique_directions_module
@@ -69,6 +70,7 @@ function new_ForceConstants_forces(supercell,unique_directions,sdir, &
   type(String),          intent(in)    :: sdir
   type(String),          intent(in)    :: file_type
   type(String),          intent(in)    :: seedname
+  logical,               intent(in)    :: acoustic_sum_rule_forces
   type(OFile),           intent(inout) :: logfile
   type(ForceConstants)                 :: output
   
@@ -86,7 +88,8 @@ function new_ForceConstants_forces(supercell,unique_directions,sdir, &
                       & unique_directions, &
                       & sdir,              &
                       & file_type,         &
-                      & seedname)
+                      & seedname,          &
+                      & acoustic_sum_rule_forces)
   
   ! Construct sum[x'^x'].
   xx = construct_xx(unique_directions, supercell, logfile)
@@ -97,28 +100,81 @@ function new_ForceConstants_forces(supercell,unique_directions,sdir, &
   ! Construct F = sum[f'^x'] . inverse(sum[x'^x']).
   output = construct_f(xx,fx,supercell,logfile)
   
-  call check_force_constants( forces,                &
-                            & output,                &
-                            & supercell,             &
-                            & unique_directions,     &
-                            & logfile)
+  call output%check( forces,            &
+                   & supercell,         &
+                   & unique_directions, &
+                   & logfile)
 end function
 
 ! ----------------------------------------------------------------------
 ! Constructs and checks force constants from given matrices.
 ! ----------------------------------------------------------------------
-function new_ForceConstants_constants(structure,force_constants) &
+function new_ForceConstants_constants(structure,force_constants,logfile) &
    & result(this)
+  use utils_module, only : sum_squares
   use structure_module
+  use atom_module
+  use ofile_module
   implicit none
   
-  type(StructureData), intent(in) :: structure
-  type(RealMatrix),    intent(in) :: force_constants(:,:)
-  type(ForceConstants)            :: this
+  type(StructureData), intent(in)    :: structure
+  type(RealMatrix),    intent(in)    :: force_constants(:,:)
+  type(OFile),         intent(inout) :: logfile
+  type(ForceConstants)               :: this
   
+  ! Variables for checking force constants.
+  type(AtomData)   :: atom_i
+  type(AtomData)   :: atom_j
+  type(AtomData)   :: atom_k
+  integer          :: rvec_i
+  integer          :: rvec_j
+  integer          :: rvec_k
+  integer          :: rvec_ij
+  type(RealMatrix) :: matrix
+  type(RealMatrix) :: copy
+  real(dp)         :: average
+  real(dp)         :: difference
+  
+  integer :: i,j,k
+  
+  ! Copy force constants into ForceConstants.
   this%constants_ = force_constants
   
-  ! TODO: Check force constants.
+  ! Check that the force constants between atom i and atom j are the same as
+  !    those between atom i + R and atom j + R.
+  average = 0.0_dp
+  difference = 0.0_dp
+  do i=1,structure%no_atoms
+    atom_i = structure%atoms(i)
+    rvec_i = atom_i%rvec_id()
+    do j=1,structure%no_atoms
+      atom_j = structure%atoms(j)
+      rvec_j = atom_j%rvec_id()
+      rvec_ij = structure%rvector_group(structure%paired_rvec(rvec_i))&
+            & * rvec_j
+      
+      do k=1,structure%no_atoms
+        atom_k = structure%atoms(k)
+        rvec_k = atom_k%rvec_id()
+        if (atom_k%prim_id()/=atom_j%prim_id()) then
+          cycle
+        elseif (rvec_k/=rvec_ij) then
+          cycle
+        endif
+        matrix = this%constants_(atom_i%id(),atom_j%id())
+        copy = this%constants_(atom_i%prim_id(),atom_k%id())
+        average = average + sum_squares((matrix+copy)/2)
+        difference = difference + sum_squares(matrix-copy)
+      enddo
+    enddo
+  enddo
+  call logfile%print_line('Fractional L2 difference in force constants at &
+     &different R-vectors: '//sqrt(difference/average))
+  if (sqrt(difference/average)>1.0e-10_dp) then
+    call print_line(WARNING//': Reconstructed force constants do not obey &
+       &R-vector symmetries. Please check log files.')
+    call err()
+  endif
 end function
 
 ! ----------------------------------------------------------------------
@@ -139,8 +195,8 @@ end function
 ! ----------------------------------------------------------------------
 ! Read in forces, and mass-weight them.
 ! ----------------------------------------------------------------------
-function read_forces(supercell,unique_directions,sdir,file_type,seedname) &
-   & result(output)
+function read_forces(supercell,unique_directions,sdir,file_type,seedname, &
+   & acoustic_sum_rule_forces) result(output)
   use structure_module
   use unique_directions_module
   use output_file_module
@@ -153,6 +209,7 @@ function read_forces(supercell,unique_directions,sdir,file_type,seedname) &
   type(String),          intent(in) :: sdir
   type(String),          intent(in) :: file_type
   type(String),          intent(in) :: seedname
+  logical,               intent(in) :: acoustic_sum_rule_forces
   type(RealVector), allocatable     :: output(:,:)
   
   ! DFT output data.
@@ -187,13 +244,15 @@ function read_forces(supercell,unique_directions,sdir,file_type,seedname) &
     ! Enforce continuous translational symmetry,
     !    i.e. ensure sum(output,1)=0.
     ! This is the 'Accoustic sum rule'.
-    total = dble(zeroes(3))
-    do j=1,supercell%no_atoms
-      total = total+output(j,i)
-    enddo
-    do j=1,supercell%no_atoms
-      output(j,i) = output(j,i)-total/supercell%no_atoms
-    enddo
+    if (acoustic_sum_rule_forces) then
+      total = dble(zeroes(3))
+      do j=1,supercell%no_atoms
+        total = total+output(j,i)
+      enddo
+      do j=1,supercell%no_atoms
+        output(j,i) = output(j,i)-total/supercell%no_atoms
+      enddo
+    endif
     
     ! Mass-reduce forces.
     do j=1,supercell%no_atoms
@@ -337,9 +396,9 @@ function construct_fx(unique_directions,forces,supercell,logfile) &
         
         f = supercell%symmetries(i)%cartesian_rotation * forces(atom_2%id(),j)
         
-        output(atom_1p%id(),atom_2p%id()) = output(atom_1p%id(),atom_2p%id()) &
+        output(atom_2p%id(),atom_1p%id()) = output(atom_2p%id(),atom_1p%id()) &
                                         & + outer_product(f,x)
-        updated(atom_1p%id(),atom_2p%id()) = .true.
+        updated(atom_2p%id(),atom_1p%id()) = .true.
       enddo
     enddo
   enddo
@@ -381,9 +440,13 @@ function construct_fx(unique_directions,forces,supercell,logfile) &
 end function
 
 ! ----------------------------------------------------------------------
-! Construct and check F = sum[f'^x'] . inverse(sum[x'^x']).
+! Construct and check F = s * sum[f'^x'] . inverse(sum[x'^x']).
 ! ----------------------------------------------------------------------
 ! sum[x'^x'] is block diagonal, so only the 3x3 diagonal blocks need inverting.
+! N.B. the factor of s (sc_size) is to correct for the fact that only one
+!    atom in every s primitive cells is displaced, so the magnitude of x is
+!    effectively sqrt(s) times shorter than the equivalent displacement in
+!    the 1x1x1 supercell.
 function construct_f(xx,fx,supercell,logfile) result(output)
   use utils_module, only : sum_squares
   use linear_algebra_module
@@ -418,7 +481,7 @@ function construct_f(xx,fx,supercell,logfile) result(output)
   do i=1,supercell%no_atoms
     xx_inverse = invert(xx(i))
     do j=1,supercell%no_atoms
-      output%constants_(j,i) = fx(j,i) * xx_inverse
+      output%constants_(j,i) = fx(j,i) * xx_inverse * supercell%sc_size
     enddo
   enddo
   
@@ -488,8 +551,7 @@ end function
 ! Checks that the elements corresponding to calculated forces have not been
 !    changed too much by symmetrisation.
 ! Checks that the force constants have the correct symmetry properties.
-subroutine check_force_constants(forces,force_constants,supercell, &
-   & unique_directions,logfile)
+subroutine check(this,forces,supercell,unique_directions,logfile)
   use utils_module, only : sum_squares
   use linear_algebra_module
   use structure_module
@@ -499,8 +561,8 @@ subroutine check_force_constants(forces,force_constants,supercell, &
   use atom_module
   implicit none
   
+  class(ForceConstants), intent(in)    :: this
   type(RealVector),      intent(in)    :: forces(:,:)
-  type(ForceConstants),  intent(in)    :: force_constants
   type(StructureData),   intent(in)    :: supercell
   type(UniqueDirection), intent(in)    :: unique_directions(:)
   type(OFile),           intent(inout) :: logfile
@@ -508,6 +570,8 @@ subroutine check_force_constants(forces,force_constants,supercell, &
   ! Atoms.
   type(AtomData) :: atom_1
   type(AtomData) :: atom_2
+  type(AtomData) :: atom_1p
+  type(AtomData) :: atom_2p
   
   real(dp) :: average
   real(dp) :: difference
@@ -515,9 +579,65 @@ subroutine check_force_constants(forces,force_constants,supercell, &
   type(RealVector) :: calculated
   type(RealVector) :: fitted
   
-  integer :: i,j
+  type(RealVector)              :: x_1p
+  type(RealVector)              :: f_2p
+  type(RealMatrix), allocatable :: fx_calculated(:,:)
+  type(RealMatrix), allocatable :: fx_fitted(:,:)
   
-  ! Check force constants against calculated forces.
+  integer :: i,j,k,ialloc
+  
+  ! Calculate sum[F.x^x] and sum[f^x].
+  allocate( fx_calculated(supercell%no_atoms,supercell%no_atoms), &
+          & fx_fitted(supercell%no_atoms,supercell%no_atoms),     &
+          & stat=ialloc); call err(ialloc)
+  fx_calculated = mat(dble(zeroes(3,3)))
+  fx_fitted     = mat(dble(zeroes(3,3)))
+  do i=1,size(supercell%symmetries)
+    do j=1,size(unique_directions)
+      atom_1 = supercell%atoms(unique_directions(j)%atom_id)
+      atom_1p = supercell%atoms( supercell%symmetries(i)%atom_group &
+                             & * atom_1%id())
+      x_1p = supercell%symmetries(i)%cartesian_rotation &
+         & * unique_directions(j)%displacement
+      do k=1,supercell%no_atoms
+        atom_2 = supercell%atoms(k)
+        atom_2p = supercell%atoms( supercell%symmetries(i)%atom_group &
+                               & * atom_2%id())
+        f_2p = supercell%symmetries(i)%cartesian_rotation &
+           & * forces(atom_2%id(),j)
+        fx_calculated(atom_2p%id(),atom_1p%id()) =    &
+           & fx_calculated(atom_2p%id(),atom_1p%id()) &
+           & + outer_product(f_2p,x_1p)
+        fx_fitted(atom_2%id(),atom_1p%id()) =    &
+           & fx_fitted(atom_2%id(),atom_1p%id()) &
+           & + this%constants(atom_2,atom_1p)    &
+           & * outer_product(x_1p,x_1p)          &
+           & / supercell%sc_size
+      enddo
+    enddo
+  enddo
+  
+  ! Check force constants against symmetrised forces.
+  average = 0
+  difference = 0
+  do i=1,supercell%no_atoms
+    do j=1,supercell%no_atoms
+      average = average + sum_squares((fx_calculated(j,i)+fx_fitted(j,i))/2)
+      difference = difference + sum_squares(fx_calculated(j,i)-fx_fitted(j,i))
+    enddo
+  enddo
+  call logfile%print_line(                                 &
+     &'Fractional L2 Error in fitting procedure      : '// &
+     & sqrt(difference/average))
+  ! TODO: Find out why the errors here are larger than expected.
+  if (sqrt(difference/average)>1e-4_dp) then
+    call print_line(WARNING//': Large error in force constant fitting. Please &
+       &check log files.')
+    call print_line(average)
+    call print_line(difference)
+  endif
+  
+  ! Check force constants against raw forces.
   average = 0
   difference = 0
   do i=1,size(unique_directions)
@@ -527,14 +647,16 @@ subroutine check_force_constants(forces,force_constants,supercell, &
       atom_2 = supercell%atoms(j)
       
       calculated = forces(j,i)
-      fitted = force_constants%constants(atom_2,atom_1) &
-           & * unique_directions(i)%displacement
+      fitted = this%constants(atom_2,atom_1)     &
+           & * unique_directions(i)%displacement &
+           & / supercell%sc_size
       
       average = average + sum_squares((calculated+fitted)/2)
       difference = difference + sum_squares(calculated-fitted)
     enddo
   enddo
   call logfile%print_line('Fractional L2 difference between forces &
-     &before and after symmetrisation: '//sqrt(difference/average))
+     &before and after symmetrisation (this may be large): '// &
+     &sqrt(difference/average))
 end subroutine
 end module

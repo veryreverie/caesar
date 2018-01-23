@@ -37,16 +37,25 @@ end function
 ! ----------------------------------------------------------------------
 subroutine test(arguments)
   use dictionary_module
-  use ifile_module
-  use ofile_module
-  use quip_wrapper_module
+  
+  use fraction_module
+  use fraction_algebra_module
   implicit none
   
   type(Dictionary), intent(in) :: arguments
   
   type(String) :: wd
   
+  type(IntFraction) :: a
+  type(IntFraction) :: b
+  type(IntFraction) :: c
+  type(IntFraction) :: d
+  
   wd = arguments%value('working_directory')
+  
+  a = 3
+  a = a / 6
+  call print_line(a)
   
 end subroutine
 end module

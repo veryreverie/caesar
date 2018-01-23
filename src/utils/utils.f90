@@ -131,25 +131,6 @@ function sum_squares_ComplexMatrix(input) result(output)
 end function
 
 ! ----------------------------------------------------------------------
-! Vector outer product.
-! ----------------------------------------------------------------------
-function outer_product(input1,input2) result(output)
-  implicit none
-  
-  real(dp), intent(in)  :: input1(:)
-  real(dp), intent(in)  :: input2(:)
-  real(dp), allocatable :: output(:,:)
-  
-  ! Temporary variables.
-  integer :: i,ialloc
-  
-  allocate(output(size(input1), size(input2)), stat=ialloc); call err(ialloc)
-  do i=1,size(input2)
-    output(:,i) = input2(i) * input1
-  enddo
-end function
-
-! ----------------------------------------------------------------------
 ! Vector triple product.
 ! ----------------------------------------------------------------------
 function triple_product_IntVector(a,b,c) result(output)
@@ -250,34 +231,31 @@ end function
 !    - gcd(-a,b)=gcd(a,-b)=gcd(-a,-b)=gcd(a,b).
 ! a=Ac, b=Bc, A>=B. c is the gcd of a and b.
 ! gcd(a,b) = gcd(Ac,Bc) = gcd((A-nB)c,Bc).
-recursive function gcd_helper(a,b) result(output)
-  implicit none
-  
-  integer, intent(in) :: a
-  integer, intent(in) :: b
-  integer             :: output
-  
-  if (b==0) then
-    output = a
-  else
-    output = gcd_helper(b,modulo(a,b))
-  endif
-end function
-
-function gcd_2(int_1,int_2) result(output)
+pure function gcd_2(int_1,int_2) result(output)
   implicit none
   
   integer, intent(in) :: int_1
   integer, intent(in) :: int_2
   integer             :: output
   
-  output = gcd_helper( max(abs(int_1),abs(int_2)), &
-                     & min(abs(int_1),abs(int_2))  )
+  integer :: a_b(2) ! a_b(1)=a, a_b(2)=b.
+  
+  a_b = [ min(abs(int_1), abs(int_2)), &
+        & max(abs(int_1), abs(int_2))  ]
+  
+  ! Loop until the g.c.d. is found, obeying the following:
+  !    gcd(0,b) = b
+  !    gcd(a,b) = gcd(b,modulo(a,b))
+  do while (a_b(1)/=0)
+    a_b = [a_b(2), modulo(a_b(1),a_b(2))]
+  enddo
+  
+  output = a_b(2)
 end function
 
 ! Calculate the gcd of more than two integers, by recursively finding
 !    pairwise gcds.
-function gcd_3(int_1,int_2,int_3) result(output)
+pure function gcd_3(int_1,int_2,int_3) result(output)
   implicit none
   
   integer, intent(in) :: int_1
@@ -288,7 +266,7 @@ function gcd_3(int_1,int_2,int_3) result(output)
   output = gcd(gcd(int_1,int_2),int_3)
 end function
 
-function gcd_4(int_1,int_2,int_3,int_4) result(output)
+pure function gcd_4(int_1,int_2,int_3,int_4) result(output)
   implicit none
   
   integer, intent(in) :: int_1
@@ -304,7 +282,7 @@ end function
 ! Calculate the lowest common multiple of two non-negative integers.
 ! lcm(a,b) = a*b/gcd(a,b)
 ! ----------------------------------------------------------------------
-function lcm_2(int_1,int_2) result(output)
+pure function lcm_2(int_1,int_2) result(output)
   implicit none
   
   integer, intent(in) :: int_1
@@ -314,10 +292,9 @@ function lcm_2(int_1,int_2) result(output)
   output = int_1*int_2/gcd(int_1,int_2)
 end function
 
-
 ! Calculate the lcm of more than two integers, by recursively finding
 !    pairwise lcms.
-function lcm_3(int_1,int_2,int_3) result(output)
+pure function lcm_3(int_1,int_2,int_3) result(output)
   implicit none
   
   integer, intent(in) :: int_1
@@ -328,7 +305,7 @@ function lcm_3(int_1,int_2,int_3) result(output)
   output = lcm(lcm(int_1,int_2),int_3)
 end function
 
-function lcm_4(int_1,int_2,int_3,int_4) result(output)
+pure function lcm_4(int_1,int_2,int_3,int_4) result(output)
   implicit none
   
   integer, intent(in) :: int_1
