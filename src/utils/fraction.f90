@@ -65,10 +65,6 @@ module fraction_module
     procedure, private             :: divide_IntFraction_integer
     procedure, private, pass(that) :: divide_integer_IntFraction
     
-    ! Conversions to other types.
-    procedure, public  :: int => int_IntFraction
-    procedure, public  :: dble => dble_IntFraction
-    
     ! I/O.
     procedure, public :: str => str_IntFraction
   end type
@@ -78,7 +74,15 @@ module fraction_module
     module procedure new_IntFraction
   end interface
   
-  ! Conversions from other types.
+  ! Conversions to and from other types.
+  interface int
+    module procedure int_IntFraction
+  end interface
+  
+  interface dble
+    module procedure dble_IntFraction
+  end interface
+  
   interface frac
     module procedure frac_character
     module procedure frac_String
@@ -153,8 +157,30 @@ pure subroutine simplify(this)
 end subroutine
 
 ! ----------------------------------------------------------------------
-! Conversion from integer.
+! Conversions to and from other types.
 ! ----------------------------------------------------------------------
+! Conversion to integer.
+! As with int(real), rounds down non-integer fractions.
+elemental function int_IntFraction(this) result(output)
+  implicit none
+  
+  type(IntFraction), intent(in) :: this
+  integer                       :: output
+  
+  output = this%n_/this%d_
+end function
+
+! Conversion to real(dp).
+elemental function dble_IntFraction(this) result(output)
+  implicit none
+  
+  type(IntFraction), intent(in) :: this
+  real(dp)                      :: output
+  
+  output = real(this%n_,dp) / this%d_
+end function
+
+! Conversion from integer.
 pure subroutine assign_IntFraction_integer(output,input)
   implicit none
   
@@ -164,6 +190,45 @@ pure subroutine assign_IntFraction_integer(output,input)
   output%n_ = input
   output%d_ = 1
 end subroutine
+
+! Conversion from character(*).
+elemental function frac_character(input) result(output)
+  implicit none
+  
+  character(*), intent(in) :: input
+  type(IntFraction)        :: output
+  
+  type(String), allocatable :: split_string(:)
+  
+  split_string = split(input, '/')
+  if (size(split_string)==1) then
+    ! Assume the string is an integer.
+    output = int(split_string(1))
+  else
+    ! Assume the string is of the form 'a/b'.
+    output = IntFraction(int(split_string(1)),int(split_string(2)))
+  endif
+end function
+
+! Conversion from String.
+elemental function frac_String(input) result(output)
+  implicit none
+  
+  type(String), intent(in) :: input
+  type(IntFraction)        :: output
+  
+  output = frac(char(input))
+end function
+
+! Conversion from integer.
+elemental function frac_integer(input) result(output)
+  implicit none
+  
+  integer, intent(in) :: input
+  type(IntFraction)   :: output
+  
+  output = input
+end function
 
 ! ----------------------------------------------------------------------
 ! Comparison.
@@ -374,63 +439,6 @@ elemental function divide_integer_IntFraction(this,that) result(output)
 end function
 
 ! ----------------------------------------------------------------------
-! Conversions from other types.
-! ----------------------------------------------------------------------
-elemental function frac_character(input) result(output)
-  implicit none
-  
-  character(*), intent(in) :: input
-  type(IntFraction)        :: output
-  
-  type(String), allocatable :: split_string(:)
-  
-  split_string = split(input, '/')
-  output = IntFraction(int(split_string(1)),int(split_string(2)))
-end function
-
-elemental function frac_String(input) result(output)
-  implicit none
-  
-  type(String), intent(in) :: input
-  type(IntFraction)        :: output
-  
-  output = frac(char(input))
-end function
-
-elemental function frac_integer(input) result(output)
-  implicit none
-  
-  integer, intent(in) :: input
-  type(IntFraction)   :: output
-  
-  output = input
-end function
-
-! ----------------------------------------------------------------------
-! Conversions to other types.
-! ----------------------------------------------------------------------
-! Conversion to integer.
-! As with int(real), rounds down non-integer fractions.
-elemental function int_IntFraction(this) result(output)
-  implicit none
-  
-  class(IntFraction), intent(in) :: this
-  integer                        :: output
-  
-  output = this%n_/this%d_
-end function
-
-! Conversion to real(dp).
-elemental function dble_IntFraction(this) result(output)
-  implicit none
-  
-  class(IntFraction), intent(in) :: this
-  real(dp)                       :: output
-  
-  output = real(this%n_,dp) / this%d_
-end function
-
-! ----------------------------------------------------------------------
 ! Whether or not the IntFraction is an integer.
 ! ----------------------------------------------------------------------
 ! Equivalent to whether or not the denominator = 1.
@@ -464,6 +472,10 @@ pure function str_IntFraction(this) result(output)
   class(IntFraction), intent(in) :: this
   type(String)                   :: output
   
-  output = this%n_//'/'//this%d_
+  if (is_int(this)) then
+   output = this%n_
+  else
+    output = this%n_//'/'//this%d_
+  endif
 end function
 end module

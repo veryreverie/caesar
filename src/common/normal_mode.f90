@@ -471,10 +471,11 @@ function real_mode_to_displacement(input,modes,qpoint,supercell) result(output)
   type(StructureData),  intent(in) :: supercell
   type(DisplacementData)           :: output
   
-  ! q.R, cos(q.R) and sin(q.R).
-  real(dp) :: qr
-  real(dp) :: cos_qr
-  real(dp) :: sin_qr
+  ! The q-point q, q.R, cos(q.R) and sin(q.R).
+  type(RealVector) :: q
+  real(dp)         :: qr
+  real(dp)         :: cos_qr
+  real(dp)         :: sin_qr
   
   ! Atom data.
   type(AtomData) :: atom
@@ -504,7 +505,8 @@ function real_mode_to_displacement(input,modes,qpoint,supercell) result(output)
     prim = atom%prim_id()
     
     ! Calculate 2*pi*q.R, cos(2*pi*i*q.R) and sin(2*pi*i*q.R).
-    qr = 2 * pi * qpoint%qpoint * supercell%rvectors(prim)
+    q = dble(qpoint%qpoint)
+    qr = 2 * pi * q * supercell%rvectors(prim)
     cos_qr = cos(qr)
     sin_qr = sin(qr)
     
@@ -548,10 +550,11 @@ function force_to_real_mode(input,modes,qpoint,supercell) result(output)
   type(StructureData), intent(in) :: supercell
   type(RealModeVector)            :: output
   
-  ! q.R, cos(q.R) and sin(q.R).
-  real(dp) :: qr
-  real(dp) :: cos_qr
-  real(dp) :: sin_qr
+  ! The q-point q, q.R, cos(q.R) and sin(q.R).
+  type(RealVector) :: q
+  real(dp)         :: qr
+  real(dp)         :: cos_qr
+  real(dp)         :: sin_qr
   
   ! Atom data.
   type(AtomData) :: atom
@@ -577,7 +580,8 @@ function force_to_real_mode(input,modes,qpoint,supercell) result(output)
     prim = atom%prim_id()
     
     ! Calculate 2*pi*q.R, sin(2*pi*i*q.R) and cos(2*pi*i*q.R).
-    qr = 2 * pi * qpoint%qpoint * supercell%rvectors(atom%rvec_id())
+    q = dble(qpoint%qpoint)
+    qr = 2 * pi * q * supercell%rvectors(atom%rvec_id())
     cos_qr = cos(qr)
     sin_qr = sin(qr)
     

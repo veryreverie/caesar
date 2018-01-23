@@ -2,7 +2,9 @@ module qpoints_module
   use constants_module, only : dp
   use string_module
   use io_module
+  
   use linear_algebra_module
+  use fraction_algebra_module
   implicit none
   
   ! The large supercell has a supercell matrix Z, given by
@@ -16,7 +18,7 @@ module qpoints_module
   !    - gvector = Z*qpoint = (qx, qy, qz)
   type QpointData
     ! The q-point in fractional primitive reciprocal space co-ordinates.
-    type(RealVector) :: qpoint
+    type(FractionVector) :: qpoint
     
     ! The q-point in scaled fractional primitive reciprocal co-ordinates.
     type(IntVector) :: scaled_qpoint
@@ -103,7 +105,7 @@ function read_qpoints_file(filename) result(this)
   do i=1,no_qpoints
     qpoint_line = (i-1)*19
     
-    this(i)%qpoint            = dble( qpoints_file%split_line(qpoint_line+2 ) )
+    this(i)%qpoint            = frac( qpoints_file%split_line(qpoint_line+2 ) )
     this(i)%scaled_qpoint     = int(  qpoints_file%split_line(qpoint_line+4 ) )
     this(i)%gvector           = int(  qpoints_file%split_line(qpoint_line+6 ) )
     this(i)%is_paired_qpoint  = lgcl( qpoints_file%line(      qpoint_line+8 ) )

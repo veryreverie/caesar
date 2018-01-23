@@ -120,6 +120,7 @@ function new_DynamicalMatrix_calculated(qpoint,at_gamma,paired_qpoint, &
   type(ForceConstants), intent(in) :: force_constants
   type(DynamicalMatrix)            :: this
   
+  type(RealVector)             :: q
   type(IntVector)              :: rvector_i
   type(IntVector)              :: rvector_j
   type(IntVector)              :: rvector_ji
@@ -142,7 +143,8 @@ function new_DynamicalMatrix_calculated(qpoint,at_gamma,paired_qpoint, &
     enddo
   enddo
   
-  this = DynamicalMatrix( qpoint%qpoint,   &
+  q = dble(qpoint%qpoint)
+  this = DynamicalMatrix( q,               &
                         & at_gamma,        &
                         & paired_qpoint,   &
                         & supercell,       &
@@ -492,7 +494,7 @@ function reconstruct_force_constants(large_supercell,qpoints, &
   type(AtomData) :: atom_2
   
   type(IntVector)  :: r
-  type(QpointData) :: q
+  type(RealVector) :: q
   real(dp)         :: qr
   complex(dp)      :: exp_iqr
   
@@ -506,7 +508,7 @@ function reconstruct_force_constants(large_supercell,qpoints, &
   ! Loop across q-points, summing up the contribution from the dynamical matrix
   !    at each.
   do i=1,large_supercell%sc_size
-    q = qpoints(i)
+    q = dble(qpoints(i)%qpoint)
     do j=1,large_supercell%no_atoms
       atom_1 = large_supercell%atoms(j)
       do k=1,large_supercell%no_atoms
@@ -515,7 +517,7 @@ function reconstruct_force_constants(large_supercell,qpoints, &
         ! Calculate exp(2*pi*i * q.(R2-R1))
         r = large_supercell%rvectors(atom_2%rvec_id()) &
         & - large_supercell%rvectors(atom_1%rvec_id())
-        qr = 2 * pi * q%qpoint * r
+        qr = 2 * pi * q * r
         exp_iqr = cmplx(cos(qr),sin(qr),dp)
         
         ! Add in the contribution to the force constant matrix.
@@ -619,6 +621,7 @@ function rotate_modes(input,symmetry,qpoint) result(output)
   type(DynamicalMatrix)                 :: output
   
   ! q.Rj an exp(i q.Rj), where Rj is symmetry%rvector(j)
+  type(RealVector)         :: q
   real(dp)                 :: qr
   complex(dp), allocatable :: exp_iqr(:)
   
@@ -650,7 +653,8 @@ function rotate_modes(input,symmetry,qpoint) result(output)
   
   allocate(exp_iqr(no_atoms), stat=ialloc); call err(ialloc)
   do i=1,no_atoms
-    qr = 2*pi*qpoint%qpoint*symmetry%rvector(i)
+    q = dble(qpoint%qpoint)
+    qr = 2*pi*q*symmetry%rvector(i)
     exp_iqr(i) = cmplx(cos(qr),sin(qr),dp)
   enddo
   

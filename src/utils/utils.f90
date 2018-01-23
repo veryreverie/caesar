@@ -229,8 +229,8 @@ end function
 ! For convenience, it is defined that
 !    - gcd(0,b)=b, and gcd(a,0)=a.
 !    - gcd(-a,b)=gcd(a,-b)=gcd(-a,-b)=gcd(a,b).
-! a=Ac, b=Bc, A>=B. c is the gcd of a and b.
-! gcd(a,b) = gcd(Ac,Bc) = gcd((A-nB)c,Bc).
+! a=Ac, b=Bc, A<=B. c is the gcd of a and b.
+! gcd(a,b) = gcd(Ac,Bc) = gcd(Ac,(B-nA)c).
 pure function gcd_2(int_1,int_2) result(output)
   implicit none
   
@@ -245,9 +245,9 @@ pure function gcd_2(int_1,int_2) result(output)
   
   ! Loop until the g.c.d. is found, obeying the following:
   !    gcd(0,b) = b
-  !    gcd(a,b) = gcd(b,modulo(a,b))
+  !    gcd(a,b) = gcd(modulo(b,a), a)
   do while (a_b(1)/=0)
-    a_b = [a_b(2), modulo(a_b(1),a_b(2))]
+    a_b = [modulo(a_b(2),a_b(1)), a_b(1)]
   enddo
   
   output = a_b(2)

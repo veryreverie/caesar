@@ -45,6 +45,11 @@ module fraction_algebra_module
     module procedure frac_IntMatrix
   end interface
   
+  interface dble
+    module procedure dble_FractionVector
+    module procedure dble_FractionMatrix
+  end interface
+  
   ! Properties of the vectors and matrices.
   interface size
     module procedure size_FractionVector
@@ -224,6 +229,24 @@ pure function frac_IntMatrix(input) result(output)
   type(IntFraction), allocatable :: output(:,:)
   
   output = frac(int(input))
+end function
+
+pure function dble_FractionVector(input) result(output)
+  implicit none
+  
+  type(FractionVector), intent(in) :: input
+  real(dp), allocatable            :: output(:)
+  
+  output = dble(input%contents_)
+end function
+
+pure function dble_FractionMatrix(input) result(output)
+  implicit none
+  
+  type(FractionMatrix), intent(in) :: input
+  real(dp), allocatable            :: output(:,:)
+  
+  output = dble(input%contents_)
 end function
 
 ! ----------------------------------------------------------------------
@@ -618,7 +641,7 @@ pure function multiply_IntFraction_FractionMatrix(this,that) result(output)
   output = this * that%contents_
 end function
 
-pure function dot_FractionVector_FractionVector(this,that) result(output)
+function dot_FractionVector_FractionVector(this,that) result(output)
   implicit none
   
   type(FractionVector), intent(in) :: this
@@ -627,13 +650,19 @@ pure function dot_FractionVector_FractionVector(this,that) result(output)
   
   integer :: i
   
+  if (size(this)/=size(that)) then
+    call print_line( CODE_ERROR// &
+                   & ': Dot product of vectors of different lengths.')
+    call err()
+  endif
+  
   output = 0
   do i=1,size(this)
     output = output + this%contents_(i)*that%contents_(i)
   enddo
 end function
 
-pure function dot_FractionVector_IntVector(this,that) result(output)
+function dot_FractionVector_IntVector(this,that) result(output)
   implicit none
   
   type(FractionVector), intent(in) :: this
@@ -643,6 +672,12 @@ pure function dot_FractionVector_IntVector(this,that) result(output)
   integer, allocatable :: ints(:)
   
   integer :: i
+  
+  if (size(this)/=size(that)) then
+    call print_line( CODE_ERROR// &
+                   & ': Dot product of vectors of different lengths.')
+    call err()
+  endif
   
   ints = int(that)
   
@@ -652,7 +687,7 @@ pure function dot_FractionVector_IntVector(this,that) result(output)
   enddo
 end function
 
-pure function dot_IntVector_FractionVector(this,that) result(output)
+function dot_IntVector_FractionVector(this,that) result(output)
   implicit none
   
   type(IntVector),      intent(in) :: this
@@ -663,6 +698,12 @@ pure function dot_IntVector_FractionVector(this,that) result(output)
   
   integer :: i
   
+  if (size(this)/=size(that)) then
+    call print_line( CODE_ERROR// &
+                   & ': Dot product of vectors of different lengths.')
+    call err()
+  endif
+  
   ints = int(this)
   
   output = 0
@@ -671,23 +712,29 @@ pure function dot_IntVector_FractionVector(this,that) result(output)
   enddo
 end function
 
-pure function dot_FractionMatrix_FractionVector(this,that) result(output)
+function dot_FractionMatrix_FractionVector(this,that) result(output)
   implicit none
   
   type(FractionMatrix), intent(in) :: this
   type(FractionVector), intent(in) :: that
   type(FractionVector)             :: output
   
-  integer :: i
+  integer :: i,ialloc
   
-  output = that
+  if (size(this,2)/=size(that)) then
+    call print_line(CODE_ERROR//': Dot product of matrix and vector of &
+       &incompatible dimensions.')
+    call err()
+  endif
+  
+  allocate(output%contents_(size(this,1)), stat=ialloc); call err(ialloc)
   output%contents_ = frac(0)
   do i=1,size(that)
     output%contents_ = output%contents_ + this%contents_(:,i)*that%contents_(i)
   enddo
 end function
 
-pure function dot_FractionMatrix_IntVector(this,that) result(output)
+function dot_FractionMatrix_IntVector(this,that) result(output)
   implicit none
   
   type(FractionMatrix), intent(in) :: this
@@ -696,18 +743,24 @@ pure function dot_FractionMatrix_IntVector(this,that) result(output)
   
   integer, allocatable :: ints(:)
   
-  integer :: i
+  integer :: i,ialloc
+  
+  if (size(this,2)/=size(that)) then
+    call print_line(CODE_ERROR//': Dot product of matrix and vector of &
+       &incompatible dimensions.')
+    call err()
+  endif
   
   ints = int(that)
   
-  output = frac(that)
+  allocate(output%contents_(size(this,1)), stat=ialloc); call err(ialloc)
   output%contents_ = frac(0)
   do i=1,size(that)
     output%contents_ = output%contents_ + this%contents_(:,i)*ints(i)
   enddo
 end function
 
-pure function dot_IntMatrix_FractionVector(this,that) result(output)
+function dot_IntMatrix_FractionVector(this,that) result(output)
   implicit none
   
   type(IntMatrix),      intent(in) :: this
@@ -716,34 +769,46 @@ pure function dot_IntMatrix_FractionVector(this,that) result(output)
   
   integer, allocatable :: ints(:,:)
   
-  integer :: i
+  integer :: i,ialloc
+  
+  if (size(this,2)/=size(that)) then
+    call print_line(CODE_ERROR//': Dot product of matrix and vector of &
+       &incompatible dimensions.')
+    call err()
+  endif
   
   ints = int(this)
   
-  output = that
+  allocate(output%contents_(size(this,1)), stat=ialloc); call err(ialloc)
   output%contents_ = frac(0)
   do i=1,size(that)
     output%contents_ = output%contents_ + ints(:,i)*that%contents_(i)
   enddo
 end function
 
-pure function dot_FractionVector_FractionMatrix(this,that) result(output)
+function dot_FractionVector_FractionMatrix(this,that) result(output)
   implicit none
   
   type(FractionVector), intent(in) :: this
   type(FractionMatrix), intent(in) :: that
   type(FractionVector)             :: output
   
-  integer :: i
+  integer :: i,ialloc
   
-  output = this
+  if (size(this)/=size(that,1)) then
+    call print_line(CODE_ERROR//': Dot product of vector and matrix of &
+       &incompatible dimensions.')
+    call err()
+  endif
+  
+  allocate(output%contents_(size(that,2)), stat=ialloc); call err(ialloc)
   output%contents_ = frac(0)
   do i=1,size(this)
     output%contents_ = output%contents_ + this%contents_(i)*that%contents_(i,:)
   enddo
 end function
 
-pure function dot_FractionVector_IntMatrix(this,that) result(output)
+function dot_FractionVector_IntMatrix(this,that) result(output)
   implicit none
   
   type(FractionVector), intent(in) :: this
@@ -752,18 +817,24 @@ pure function dot_FractionVector_IntMatrix(this,that) result(output)
   
   integer, allocatable :: ints(:,:)
   
-  integer :: i
+  integer :: i,ialloc
+  
+  if (size(this)/=size(that,1)) then
+    call print_line(CODE_ERROR//': Dot product of vector and matrix of &
+       &incompatible dimensions.')
+    call err()
+  endif
   
   ints = int(that)
   
-  output = this
+  allocate(output%contents_(size(that,2)), stat=ialloc); call err(ialloc)
   output%contents_ = frac(0)
   do i=1,size(this)
     output%contents_ = output%contents_ + this%contents_(i)*ints(i,:)
   enddo
 end function
 
-pure function dot_IntVector_FractionMatrix(this,that) result(output)
+function dot_IntVector_FractionMatrix(this,that) result(output)
   implicit none
   
   type(IntVector),      intent(in) :: this
@@ -772,37 +843,52 @@ pure function dot_IntVector_FractionMatrix(this,that) result(output)
   
   integer, allocatable :: ints(:)
   
-  integer :: i
+  integer :: i,ialloc
+  
+  if (size(this)/=size(that,1)) then
+    call print_line(CODE_ERROR//': Dot product of vector and matrix of &
+       &incompatible dimensions.')
+    call err()
+  endif
   
   ints = int(this)
   
-  output = frac(this)
+  allocate(output%contents_(size(that,2)), stat=ialloc); call err(ialloc)
   output%contents_ = frac(0)
   do i=1,size(this)
     output%contents_ = output%contents_ + ints(i)*that%contents_(i,:)
   enddo
 end function
 
-pure function dot_FractionMatrix_FractionMatrix(this,that) result(output)
+function dot_FractionMatrix_FractionMatrix(this,that) result(output)
   implicit none
   
   type(FractionMatrix), intent(in) :: this
   type(FractionMatrix), intent(in) :: that
   type(FractionMatrix)             :: output
   
-  integer :: i,j
+  integer :: i,j,k,ialloc
   
-  output = this
+  if (size(this,2)/=size(that,1)) then
+    call print_line(CODE_ERROR//': Dot product of matrix and matrix of &
+       &incompatible dimensions.')
+    call err()
+  endif
+  
+  allocate( output%contents_(size(this,1),size(that,2)), &
+          & stat=ialloc); call err(ialloc)
   output%contents_ = frac(0)
   do i=1,size(this,1)
     do j=1,size(this,2)
-      output%contents_(i,:) = output%contents_(i,:) &
-                          & + this%contents_(i,j)*that%contents_(j,:)
+      do k=1,size(that,2)
+        output%contents_(i,k) = output%contents_(i,k) &
+                            & + this%contents_(i,j)*that%contents_(j,k)
+      enddo
     enddo
   enddo
 end function
 
-pure function dot_FractionMatrix_IntMatrix(this,that) result(output)
+function dot_FractionMatrix_IntMatrix(this,that) result(output)
   implicit none
   
   type(FractionMatrix), intent(in) :: this
@@ -811,21 +897,30 @@ pure function dot_FractionMatrix_IntMatrix(this,that) result(output)
   
   integer, allocatable :: ints(:,:)
   
-  integer :: i,j
+  integer :: i,j,k,ialloc
+  
+  if (size(this,2)/=size(that,1)) then
+    call print_line(CODE_ERROR//': Dot product of matrix and matrix of &
+       &incompatible dimensions.')
+    call err()
+  endif
   
   ints = int(that)
   
-  output = this
+  allocate( output%contents_(size(this,1),size(that,2)), &
+          & stat=ialloc); call err(ialloc)
   output%contents_ = frac(0)
   do i=1,size(this,1)
     do j=1,size(this,2)
-      output%contents_(i,:) = output%contents_(i,:) &
-                          & + this%contents_(i,j)*ints(j,:)
+      do k=1,size(that,2)
+        output%contents_(i,k) = output%contents_(i,k) &
+                            & + this%contents_(i,j)*ints(j,k)
+      enddo
     enddo
   enddo
 end function
 
-pure function dot_IntMatrix_FractionMatrix(this,that) result(output)
+function dot_IntMatrix_FractionMatrix(this,that) result(output)
   implicit none
   
   type(IntMatrix),      intent(in) :: this
@@ -834,16 +929,25 @@ pure function dot_IntMatrix_FractionMatrix(this,that) result(output)
   
   integer, allocatable :: ints(:,:)
   
-  integer :: i,j
+  integer :: i,j,k,ialloc
+  
+  if (size(this,2)/=size(that,1)) then
+    call print_line(CODE_ERROR//': Dot product of matrix and matrix of &
+       &incompatible dimensions.')
+    call err()
+  endif
   
   ints = int(this)
   
-  output = frac(that)
+  allocate( output%contents_(size(this,1),size(that,2)), &
+          & stat=ialloc); call err(ialloc)
   output%contents_ = frac(0)
   do i=1,size(this,1)
     do j=1,size(this,2)
-      output%contents_(i,:) = output%contents_(i,:) &
-                          & + ints(i,j)*that%contents_(j,:)
+      do k=1,size(that,2)
+        output%contents_(i,k) = output%contents_(i,k) &
+                            & + ints(i,j)*that%contents_(j,k)
+     enddo
     enddo
   enddo
 end function
@@ -897,7 +1001,12 @@ pure function str_FractionVector(this) result(output)
   class(FractionVector), intent(in) :: this
   type(String)                      :: output
   
-  output = join(str(this%contents_))
+  integer :: i
+  
+  output = ''
+  do i=1,size(this)
+    output = output//' '//this%contents_(i)
+  enddo
 end function
 
 function str_FractionMatrix(this) result(output)

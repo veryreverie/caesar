@@ -324,7 +324,7 @@ function generate_qpoints(structure,large_supercell) result(output)
     output(i)%gvector = large_supercell%gvectors(i)
     output(i)%scaled_qpoint = transpose(large_supercell%recip_supercell) &
                           & * output(i)%gvector
-    output(i)%qpoint = output(i)%scaled_qpoint / dble(large_supercell%sc_size)
+    output(i)%qpoint = frac(output(i)%scaled_qpoint) / large_supercell%sc_size
     output(i)%to_simulate = .true.
   enddo
   
