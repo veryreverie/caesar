@@ -326,13 +326,8 @@ module linear_algebra_module
   end interface
   
   interface invert
-    module procedure invert_real
+    module procedure invert_reals
     module procedure invert_RealMatrix
-  end interface
-  
-  interface invert_int
-    module procedure invert_int_integer
-    module procedure invert_int_IntMatrix
   end interface
   
   ! --------------------------------------------------
@@ -1501,7 +1496,7 @@ pure function multiply_ComplexVector_integer(a,b) result(output)
   
   type(ComplexVector), intent(in) :: a
   integer,             intent(in) :: b
-  type(ComplexVector)          :: output
+  type(ComplexVector)             :: output
   
   output = a%contents_*b
 end function
@@ -1511,7 +1506,7 @@ pure function multiply_integer_ComplexVector(a,b) result(output)
   
   integer,             intent(in) :: a
   type(ComplexVector), intent(in) :: b
-  type(ComplexVector)          :: output
+  type(ComplexVector)             :: output
   
   output = a*b%contents_
 end function
@@ -1521,7 +1516,7 @@ pure function multiply_ComplexVector_real(a,b) result(output)
   
   type(ComplexVector), intent(in) :: a
   real(dp),            intent(in) :: b
-  type(ComplexVector)          :: output
+  type(ComplexVector)             :: output
   
   output = a%contents_*b
 end function
@@ -1531,7 +1526,7 @@ pure function multiply_real_ComplexVector(a,b) result(output)
   
   real(dp),            intent(in) :: a
   type(ComplexVector), intent(in) :: b
-  type(ComplexVector)          :: output
+  type(ComplexVector)             :: output
   
   output = a*b%contents_
 end function
@@ -1551,7 +1546,7 @@ pure function multiply_complex_ComplexVector(a,b) result(output)
   
   complex(dp),         intent(in) :: a
   type(ComplexVector), intent(in) :: b
-  type(ComplexVector)          :: output
+  type(ComplexVector)             :: output
   
   output = a*b%contents_
 end function
@@ -1681,7 +1676,7 @@ pure function multiply_ComplexMatrix_integer(a,b) result(output)
   
   type(ComplexMatrix), intent(in) :: a
   integer,             intent(in) :: b
-  type(ComplexMatrix)          :: output
+  type(ComplexMatrix)             :: output
   
   output = a%contents_*b
 end function
@@ -1691,7 +1686,7 @@ pure function multiply_integer_ComplexMatrix(a,b) result(output)
   
   integer,             intent(in) :: a
   type(ComplexMatrix), intent(in) :: b
-  type(ComplexMatrix)          :: output
+  type(ComplexMatrix)             :: output
   
   output = a*b%contents_
 end function
@@ -1701,7 +1696,7 @@ pure function multiply_ComplexMatrix_real(a,b) result(output)
   
   type(ComplexMatrix), intent(in) :: a
   real(dp),            intent(in) :: b
-  type(ComplexMatrix)          :: output
+  type(ComplexMatrix)             :: output
   
   output = a%contents_*b
 end function
@@ -1711,7 +1706,7 @@ pure function multiply_real_ComplexMatrix(a,b) result(output)
   
   real(dp),            intent(in) :: a
   type(ComplexMatrix), intent(in) :: b
-  type(ComplexMatrix)          :: output
+  type(ComplexMatrix)             :: output
   
   output = a*b%contents_
 end function
@@ -1731,7 +1726,7 @@ pure function multiply_complex_ComplexMatrix(a,b) result(output)
   
   complex(dp),         intent(in) :: a
   type(ComplexMatrix), intent(in) :: b
-  type(ComplexMatrix)          :: output
+  type(ComplexMatrix)             :: output
   
   output = a*b%contents_
 end function
@@ -1801,7 +1796,7 @@ pure function dot_ComplexVector_ComplexVector(a,b) result(output)
   implicit none
   
   type(ComplexVector), intent(in) :: a
-  type(ComplexVector),    intent(in) :: b
+  type(ComplexVector), intent(in) :: b
   complex(dp)                     :: output
   
   output = dot_product(a%contents_, b%contents_)
@@ -2213,6 +2208,7 @@ elemental function l2_norm_ComplexVector(input) result(output)
   
   type(ComplexVector), intent(in) :: input
   real(dp)                        :: output
+  
   output = sqrt(real(input*conjg(input)))
 end function
 
@@ -2321,40 +2317,39 @@ function determinant_RealMatrix(input) result(output)
   output = determinant(input%contents_)
 end function
 
-! calculates the inverse, B, of matrix A. Both are 3x3 matrices.
-function invert_real(A) result(B)
+! calculates the 3x3 matrix inverse.
+function invert_reals(input) result(output)
   implicit none
   
-  real(dp), intent(in)  :: A(:,:)
-  real(dp)              :: B(3,3)
+  real(dp), intent(in)  :: input(:,:)
+  real(dp)              :: output(3,3)
   
-  real(dp) :: d      ! 1/det(A)
-  real(dp) :: C(3,3) ! transpose(A)
+  real(dp) :: inverse_determinant
   
-  ! Check that A is a 3x3 matrix.
-  if (size(A,1)/=3 .or. size(A,2)/=3) then
+  ! Check that the input is a 3x3 matrix.
+  if (size(input,1)/=3 .or. size(input,2)/=3) then
     call err()
   endif
   
-  d = 1.0_dp/determinant(A)
+  inverse_determinant = 1/determinant(input)
   
-  ! check for d=infinity or d=NaN
-  if (abs(d)>huge(0.0_dp) .or. d<d) then
+  ! check for inverse_det=infinity.
+  if (abs(inverse_determinant)>huge(0.0_dp)) then
     call print_line('Error in invert: singular matrix.')
     call err()
   endif
   
-  C = transpose(A)
+  output(1,1) = input(2,2)*input(3,3)-input(3,2)*input(2,3)
+  output(1,2) = input(3,2)*input(1,3)-input(1,2)*input(3,3)
+  output(1,3) = input(1,2)*input(2,3)-input(2,2)*input(1,3)
+  output(2,1) = input(2,3)*input(3,1)-input(3,3)*input(2,1)
+  output(2,2) = input(3,3)*input(1,1)-input(1,3)*input(3,1)
+  output(2,3) = input(1,3)*input(2,1)-input(2,3)*input(1,1)
+  output(3,1) = input(2,1)*input(3,2)-input(3,1)*input(2,2)
+  output(3,2) = input(3,1)*input(1,2)-input(1,1)*input(3,2)
+  output(3,3) = input(1,1)*input(2,2)-input(2,1)*input(1,2)
   
-  B(1,1) = (C(2,2)*C(3,3)-C(2,3)*C(3,2))*d
-  B(1,2) = (C(2,3)*C(3,1)-C(2,1)*C(3,3))*d
-  B(1,3) = (C(2,1)*C(3,2)-C(2,2)*C(3,1))*d
-  B(2,1) = (C(3,2)*C(1,3)-C(3,3)*C(1,2))*d
-  B(2,2) = (C(3,3)*C(1,1)-C(3,1)*C(1,3))*d
-  B(2,3) = (C(3,1)*C(1,2)-C(3,2)*C(1,1))*d
-  B(3,1) = (C(1,2)*C(2,3)-C(1,3)*C(2,2))*d
-  B(3,2) = (C(1,3)*C(2,1)-C(1,1)*C(2,3))*d
-  B(3,3) = (C(1,1)*C(2,2)-C(1,2)*C(2,1))*d
+  output = output * inverse_determinant
 end function
 
 function invert_RealMatrix(input) result(output)
@@ -2364,45 +2359,6 @@ function invert_RealMatrix(input) result(output)
   type(RealMatrix)             :: output
   
   output = invert(input%contents_)
-end function
-
-! Calculates B=invert(A)*|det(A)|
-function invert_int_integer(A) result(B)
-  implicit none
-  
-  integer, intent(in)  :: A(:,:)
-  integer              :: B(3,3)
-  
-  integer :: C(3,3) ! transpose(A)
-  integer :: d      ! 1 if det(A)>=0, -1 otherwise
-  
-  ! Check that A is a 3x3 matrix.
-  if (size(A,1)/=3 .or. size(A,2)/=3) then
-    call err()
-  endif
-  
-  d = sign(1,determinant(A))
-  
-  C = transpose(A)
-  
-  B(1,1) = (C(2,2)*C(3,3)-C(2,3)*C(3,2))*d
-  B(1,2) = (C(2,3)*C(3,1)-C(2,1)*C(3,3))*d
-  B(1,3) = (C(2,1)*C(3,2)-C(2,2)*C(3,1))*d
-  B(2,1) = (C(3,2)*C(1,3)-C(3,3)*C(1,2))*d
-  B(2,2) = (C(3,3)*C(1,1)-C(3,1)*C(1,3))*d
-  B(2,3) = (C(3,1)*C(1,2)-C(3,2)*C(1,1))*d
-  B(3,1) = (C(1,2)*C(2,3)-C(1,3)*C(2,2))*d
-  B(3,2) = (C(1,3)*C(2,1)-C(1,1)*C(2,3))*d
-  B(3,3) = (C(1,1)*C(2,2)-C(1,2)*C(2,1))*d
-end function
-
-function invert_int_IntMatrix(input) result(output)
-  implicit none
-  
-  type(IntMatrix), intent(in) :: input
-  type(IntMatrix)             :: output
-  
-  output = invert_int(input%contents_)
 end function
 
 ! I/O overloads.

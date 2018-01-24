@@ -1,3 +1,6 @@
+! ======================================================================
+! q-points of the primitive cell.
+! ======================================================================
 module qpoints_module
   use constants_module, only : dp
   use string_module
@@ -7,47 +10,114 @@ module qpoints_module
   use fraction_algebra_module
   implicit none
   
-  ! The large supercell has a supercell matrix Z, given by
-  !     | Nx, 0 , 0 |
-  ! Z = | 0 , Ny, 0 |
-  !     | 0 , 0 , Nz|
-  ! Then the q-point is defined by three integers, qx,qy and qz,
-  !    where (-Nx)/2 < qx <= Nx/2 etc. (floor division intentional).
-  !    - qpoint = (qx/Nx, qy/Ny, qz/Nz)
-  !    - scaled_qpoint = Nx * Ny * Nz * qpoint = (qxNyNz, qyNzNx, qzNxNy)
-  !    - gvector = Z*qpoint = (qx, qy, qz)
   type QpointData
     ! The q-point in fractional primitive reciprocal space co-ordinates.
     type(FractionVector) :: qpoint
     
-    ! The q-point in scaled fractional primitive reciprocal co-ordinates.
-    type(IntVector) :: scaled_qpoint
-    
-    ! The gvector of the large supercell corresponding to this q-point.
-    type(IntVector) :: gvector
-    
-    ! Whether or not 2q=G.
+    ! Whether or not 2*q is a G-vector of the primitive cell.
     logical :: is_paired_qpoint
     
-    ! The id of q-point q' such that q+2q=G.
+    ! The id of q-point q' such that q+q' is a G-vector of the primitive cell.
     integer :: paired_qpoint
-    
-    ! Whether or not this q-point is to be simulated.
-    ! Only one q-point out of all symmetrically equivalent points is chosen.
-    ! Only one q-point in each q+q'=G pair is chosen.
-    ! At the harmonic level, all other q-points are constructed from
-    !    the chosen q-points.
-    logical :: to_simulate
-    
-    ! The supercell matrix, S, with smallest |S| such that
-    !    all elements of S.q are integers.
-    type(IntMatrix) :: supercell_matrix
-    
-    ! S.q, where S is supercell_matrix.
-    type(IntVector) :: supercell_gvector
+  contains
+    ! The smallest value of |S| s.t. S.q is a vector of integers,
+    !    i.e. such that this q-point is a G-vector of the supercell S.
+    procedure, public :: min_sc_size
   end type
 contains
 
+! ----------------------------------------------------------------------
+! Returns the smallest integer, s, s.t. there exists the matrix S
+!    with determinant |S|=s s.t. S.q is a vector of integers.
+! i.e. The supercell with supercell matrix S has this q-point as a G-vector.
+! ----------------------------------------------------------------------
+pure function min_sc_size(this) result(output)
+  use utils_module, only : lcm
+  implicit none
+  
+  class(QpointData), intent(in) :: this
+  integer                       :: output
+  
+  type(IntFraction) :: q(3)
+  
+  q = frac(this%qpoint)
+  output = lcm( q(1)%denominator(), &
+              & q(2)%denominator(), &
+              & q(3)%denominator()  )
+end function
+
+! ----------------------------------------------------------------------
+! Generates the set of q-points of the input structure which correspond
+!    to G-vectors of the large supercell.
+! ----------------------------------------------------------------------
+function generate_qpoints(structure,large_supercell) result(output)
+  use linear_algebra_module
+  use fraction_algebra_module
+  use structure_module
+  use group_module
+  implicit none
+  
+  type(StructureData), intent(in) :: structure
+  type(StructureData), intent(in) :: large_supercell
+  type(QpointData), allocatable   :: output(:)
+  
+  ! Working variables
+  integer, allocatable :: paired_qpoints(:)
+  type(FractionVector) :: rotated_qpoint
+  
+  ! Temporary variables
+  integer :: i,j,k,ialloc
+  
+  ! --------------------------------------------------
+  ! Construct q-points from G-vectors of large supercell.
+  ! --------------------------------------------------
+  allocate(output(large_supercell%sc_size), stat=ialloc); call err(ialloc)
+  do i=1,large_supercell%sc_size
+    output(i)%qpoint = transpose(large_supercell%recip_supercell) &
+                   & * large_supercell%gvectors(i)
+  enddo
+  
+  ! --------------------------------------------------
+  ! Find paired q-points.
+  ! --------------------------------------------------
+  ! qpoint + paired_qpoint = G, for a primitive-cell G-vector.
+  allocate( paired_qpoints(large_supercell%sc_size), &
+          & stat=ialloc); call err(ialloc)
+  paired_qpoints = 0
+  do i=1,size(output)
+    do j=1,size(output)
+      if (is_int(output(i)%qpoint+output(j)%qpoint)) then
+        if (paired_qpoints(i)==0 .and. paired_qpoints(j)==0) then
+          paired_qpoints(i) = j
+          paired_qpoints(j) = i
+        else
+          if (paired_qpoints(i)/=j .or. paired_qpoints(j)/=i) then
+            call print_line(CODE_ERROR//': error pairing q-points.')
+          endif
+        endif
+      endif
+    enddo
+  enddo
+  
+  if (any(paired_qpoints==0)) then
+    call print_line(CODE_ERROR//': q-points were not succesfully paired up.')
+    call err()
+  endif
+  
+  do i=1,size(output)
+    if (paired_qpoints(i)==i) then
+      output(i)%is_paired_qpoint = .true.
+    else
+      output(i)%is_paired_qpoint = .false.
+    endif
+    
+    output(i)%paired_qpoint = paired_qpoints(i)
+  enddo
+end function
+
+! ----------------------------------------------------------------------
+! I/O.
+! ----------------------------------------------------------------------
 subroutine write_qpoints_file(this,filename)
   use ofile_module
   implicit none
@@ -63,20 +133,10 @@ subroutine write_qpoints_file(this,filename)
   do i=1,size(this)
     call qpoints_file%print_line( 'q-point '//i//', q=(qx/nx, qy/ny, qz/nz):')
     call qpoints_file%print_line( this(i)%qpoint)
-    call qpoints_file%print_line( 'Scaled q-point, q*nx*ny*nz:')
-    call qpoints_file%print_line( this(i)%scaled_qpoint)
-    call qpoints_file%print_line( 'G-vector of large supercell, G=(qx,qy,qz):')
-    call qpoints_file%print_line( this(i)%gvector)
     call qpoints_file%print_line( 'Is 2q equal to a primitive G-vector?:')
     call qpoints_file%print_line( this(i)%is_paired_qpoint)
     call qpoints_file%print_line( "The ID of q' s.t. q+q' is a primitive G-vector")
     call qpoints_file%print_line( this(i)%paired_qpoint)
-    call qpoints_file%print_line( 'Is this q-point to be simulated?:')
-    call qpoints_file%print_line( this(i)%to_simulate)
-    call qpoints_file%print_line( 'Supercell Matrix, S, s.t. S.q is integer.:')
-    call qpoints_file%print_line( this(i)%supercell_matrix)
-    call qpoints_file%print_line( 'Supercell G-vector, G=S.q:')
-    call qpoints_file%print_line( this(i)%supercell_gvector)
     call qpoints_file%print_line( '')
   enddo
 end subroutine
@@ -88,34 +148,21 @@ function read_qpoints_file(filename) result(this)
   type(String), intent(in)      :: filename
   type(QpointData), allocatable :: this(:)
   
-  type(IFile)               :: qpoints_file
+  type(IFile) :: qpoints_file
   
   integer :: no_qpoints
   integer :: qpoint_line
-  
-  integer :: supercell_matrix(3,3)
-  
   integer :: i,j,ialloc
   
   qpoints_file = filename
-  no_qpoints = size(qpoints_file)/19
-  
+  no_qpoints = size(qpoints_file)/7
   allocate(this(no_qpoints), stat=ialloc); call err(ialloc)
-  
   do i=1,no_qpoints
-    qpoint_line = (i-1)*19
+    qpoint_line = (i-1)*7
     
-    this(i)%qpoint            = frac( qpoints_file%split_line(qpoint_line+2 ) )
-    this(i)%scaled_qpoint     = int(  qpoints_file%split_line(qpoint_line+4 ) )
-    this(i)%gvector           = int(  qpoints_file%split_line(qpoint_line+6 ) )
-    this(i)%is_paired_qpoint  = lgcl( qpoints_file%line(      qpoint_line+8 ) )
-    this(i)%paired_qpoint     = int(  qpoints_file%line(      qpoint_line+10) )
-    this(i)%to_simulate       = lgcl( qpoints_file%line(      qpoint_line+12) )
-    do j=1,3
-      supercell_matrix(j,:) = int(qpoints_file%split_line(qpoint_line+13+j))
-    enddo
-    this(i)%supercell_matrix  = supercell_matrix
-    this(i)%supercell_gvector = int(  qpoints_file%split_line(qpoint_line+18) )
+    this(i)%qpoint           = frac( qpoints_file%split_line(qpoint_line+2) )
+    this(i)%is_paired_qpoint = lgcl( qpoints_file%line(      qpoint_line+4) )
+    this(i)%paired_qpoint    = int(  qpoints_file%line(      qpoint_line+6) )
   enddo
 end function
 end module

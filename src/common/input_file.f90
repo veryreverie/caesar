@@ -426,6 +426,7 @@ subroutine StructureData_to_castep_input_file(structure,old_cell_filename, &
    & new_cell_filename)
   use ofile_module
   use structure_module
+  use fraction_algebra_module
   implicit none
   
   type(StructureData), intent(in)           :: structure
@@ -454,8 +455,7 @@ subroutine StructureData_to_castep_input_file(structure,old_cell_filename, &
     do i=2,size(old_cell_file%kpoints_block)-1
       line = split(old_cell_file%kpoints_block(i))
       kpoint = dble(line(1:3))
-      kpoint = transpose(structure%recip_supercell) * kpoint &
-           & / structure%sc_size
+      kpoint = transpose(mat(dble(structure%recip_supercell))) * kpoint
       old_cell_file%kpoints_block(i) = kpoint//' '//join(line(4:))
     enddo
   endif

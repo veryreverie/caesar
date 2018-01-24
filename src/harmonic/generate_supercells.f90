@@ -12,9 +12,9 @@ module generate_supercells_module
   
   private
   
-  public :: generate_qpoints
   public :: generate_supercells
 contains
+
 ! ----------------------------------------------------------------------
 ! Given three linearly independent input vectors a, b and c, construct the
 ! following linear combinations: a+b-c, a-b+c, -a+b+c, a+b+c and  check if any
@@ -22,45 +22,46 @@ contains
 ! longest of a, b and c with the new (shorter) vector. The resulting three
 ! vectors are also linearly independent.
 ! ----------------------------------------------------------------------
-function reduce_vec(vecs) result(output)
-  use utils_module, only : l2_norm
+function reduce(input,metric) result(output)
+  use linear_algebra_module
   implicit none
   
-  real(dp), intent(inout) :: vecs(3,3)
-  logical                 :: output
+  type(IntVector),  intent(in) :: input(3)
+  type(RealMatrix), intent(in) :: metric
+  type(IntVector)              :: output(3)
   
-  integer  :: longest
-  integer  :: i
-  real(dp) :: newvecs(4,3)
-  real(dp) :: maxlen
-  real(dp) :: nlen
+  type(IntVector) :: vectors(13)
   
-  ! Determine which of the three input vectors is the longest.
-  maxlen=0
-  do i=1,3
-    nlen = l2_norm(vecs(i,:))
-    if (nlen>maxlen) then
-      maxlen=nlen
-      longest=i
-    endif
+  real(dp) :: lengths(13)
+  logical  :: chosen(13)
+  
+  integer  :: i,j
+  
+  ! Construct the relevant linear combinations of input vectors.
+  vectors(1:3) =  input
+  vectors(4)   =  input(1) + input(2)
+  vectors(5)   =  input(2) + input(3)
+  vectors(6)   =  input(3) + input(1)
+  vectors(7)   =  input(1) - input(2)
+  vectors(8)   =  input(2) - input(3)
+  vectors(9)   =  input(3) - input(1)
+  vectors(10)  =  input(1) + input(2) + input(3)
+  vectors(11)  =  input(1) + input(2) - input(3)
+  vectors(12)  =  input(2) + input(3) - input(1)
+  vectors(13)  =  input(3) + input(1) - input(2)
+  
+  ! Calculate the lengths of the vectors in cartesian co-ordinates.
+  ! N.B. all lengths are stored as length**2, to avoid square roots.
+  do i=1,13
+    lengths(i) = input(i) * metric * input(i)
   enddo
   
-  ! Construct the four linear combinations
-  newvecs(1,:) =  vecs(1,:)+vecs(2,:)-vecs(3,:)
-  newvecs(2,:) =  vecs(1,:)-vecs(2,:)+vecs(3,:)
-  newvecs(3,:) = -vecs(1,:)+vecs(2,:)+vecs(3,:)
-  newvecs(4,:) =  vecs(1,:)+vecs(2,:)+vecs(3,:)
-  
-  ! Check if any of the four new vectors is shorter than longest of
-  ! input vectors
-  output=.false.
-  do i=1,4
-    nlen = l2_norm(newvecs(i,:))
-    if(nlen<maxlen)then
-      vecs(longest,:) = newvecs(i,:)
-      output = .true.
-      exit
-    endif
+  ! Select the shortest three vectors.
+  chosen = .false.
+  do i=1,3
+    j=minloc(lengths, dim=1, mask=.not. chosen)
+    output(i) = vectors(j)
+    chosen(i) = .true.
   enddo
 end function
 
@@ -76,63 +77,61 @@ end function
 ! routine, given a set of input vectors a'(i) that are possibly not
 ! Minkowski-reduced, returns the vectors a(i) that are.
 ! ----------------------------------------------------------------------
-function minkowski_reduce(input) result(output)
+function minkowski_reduce(input,structure) result(output)
+  use utils_module, only : sum_squares
   use linear_algebra_module
   implicit none
   
-  type(RealMatrix) :: input
-  type(RealMatrix) :: output
+  type(IntMatrix),     intent(in) :: input
+  type(StructureData), intent(in) :: structure
+  type(IntMatrix)                 :: output
   
-  integer  :: i
-  real(dp) :: tempmat(3,3)
-  real(dp) :: tempvec(3)
-  logical  :: changed
+  type(RealMatrix) :: metric
   
-  tempmat = dble(input)
+  type(IntVector) :: vectors(3)
+  type(IntVector) :: reduced(3)
   
-  iter: do
-    ! First check linear combinations involving two vectors.
-    do i=1,3
-      tempvec = tempmat(i,:)
-      tempmat(i,:) = 0
-      changed = reduce_vec(tempmat)
-      tempmat(i,:) = tempvec
-      
-      if (changed) then
-        cycle iter
-      endif
-    enddo
-    
-    ! Then check linear combinations involving all three.
-    if (reduce_vec(tempmat)) then
-      cycle
+  integer :: matrix(3,3)
+  
+  integer :: i
+  
+  ! Construct the metric, M, such that v.M.v is the length of v
+  !    in cartesian co-ordinates.
+  metric = structure%lattice * transpose(structure%lattice)
+  
+  ! Construct the three supercell lattice vectors in fractional co-ordinates.
+  matrix = int(input)
+  do i=1,3
+    vectors(i) = matrix(i,:)
+  enddo
+  
+  ! Minkowski reduce the three vectors,
+  !   i.e. find the shortest linear combinations of the three.
+  do
+    reduced = reduce(vectors, metric)
+    if (all(reduced==vectors)) then
+      exit
     endif
-    
-    exit
-  enddo iter
+    vectors = reduced
+  enddo
   
-  output = tempmat
+  ! Construct output.
+  do i=1,3
+    matrix(i,:) = int(vectors(i))
+  enddo
+  output = matrix
 end function
 
 ! ----------------------------------------------------------------------
 ! Find a supercell matrix, S, s.t. S.q is a vector of integers.
 ! ----------------------------------------------------------------------
 ! Returns answer in Hermite Normal Form.
-function find_hnf_supercell_matrix(qpoint,scaling) result(output)
-  use utils_module, only : gcd
+function find_hnf_supercell_matrix(qpoint) result(output)
   use linear_algebra_module
   implicit none
   
   type(QpointData), intent(in) :: qpoint
-  integer,          intent(in) :: scaling
   type(IntMatrix)              :: output ! S.
-  
-  integer :: scaled_qpoint(3)
-  
-  ! The elements of the scaled q-point.
-  integer :: qx
-  integer :: qy
-  integer :: qz
   
   ! The determinant of S.
   integer :: sc_size
@@ -142,14 +141,8 @@ function find_hnf_supercell_matrix(qpoint,scaling) result(output)
   integer ::     s22,s23
   integer ::         s33
   
-  ! Split the q-point into qx,qy,qz
-  scaled_qpoint = int(qpoint%scaled_qpoint)
-  qx = scaled_qpoint(1)
-  qy = scaled_qpoint(2)
-  qz = scaled_qpoint(3)
-  
   ! Calculate the determinant of the output matrix.
-  sc_size = scaling / gcd(qx,qy,qz,scaling)
+  sc_size = qpoint%min_sc_size()
   
   ! Loop over all matrices in Hermite Normal Form.
   ! s11*s22*s33 = det(S) = sc_size.
@@ -169,9 +162,8 @@ function find_hnf_supercell_matrix(qpoint,scaling) result(output)
                              & 0  , s22, s23, &
                              & 0  , 0  , s33  ], 3,3)
                 
-                ! Check if S.q is a vector of integers (scaled by scaling).
-                if (all(modulo( int(output*qpoint%scaled_qpoint), &
-                              & scaling) == 0)) then
+                ! Check if S.q is a vector of integers.
+                if (is_int(output*qpoint%qpoint)) then
                   return
                 endif
               enddo
@@ -188,30 +180,24 @@ function find_hnf_supercell_matrix(qpoint,scaling) result(output)
   call err()
 end function
 
-function find_reduced_supercell_matrix(qpoint,scaling,structure) &
-   & result(output)
+function find_reduced_supercell_matrix(qpoint,structure) result(output)
   implicit none
   
   type(QpointData),    intent(in) :: qpoint
-  integer,             intent(in) :: scaling
   type(StructureData), intent(in) :: structure
   type(IntMatrix)                 :: output
   
   type(IntMatrix)  :: supercell_hnf
-  type(RealMatrix) :: supercell_cart
   
   ! Find a supercell matrix S, s.t. S.q is a vector of integers.
-  supercell_hnf = find_hnf_supercell_matrix(qpoint, scaling)
+  supercell_hnf = find_hnf_supercell_matrix(qpoint)
   
   ! Minkowski reduce the supercell in cartesian co-ordinates.
   ! Converts to cartesian, reduces, and converts back again.
-  supercell_cart = supercell_hnf*structure%lattice
-  supercell_cart = minkowski_reduce(supercell_cart)
-  output         = nint(dble( supercell_cart &
-                          & * transpose(structure%recip_lattice)))
+  output = minkowski_reduce(supercell_hnf, structure)
   
   ! Check that S still transforms q to an integer vector.
-  if (any(modulo( int(output*qpoint%scaled_qpoint), scaling) /= 0)) then
+  if (.not. is_int(output*qpoint%qpoint)) then
     call print_line(CODE_ERROR//': Error Minkowski reducing supercell.')
     call err()
   endif
@@ -293,128 +279,6 @@ subroutine check_supercells(supercells,structure)
 end subroutine
 
 ! ----------------------------------------------------------------------
-! Generates q-points.
-! ----------------------------------------------------------------------
-function generate_qpoints(structure,large_supercell) result(output)
-  use linear_algebra_module
-  use structure_module
-  use group_module
-  implicit none
-  
-  ! Inputs.
-  type(StructureData), intent(in) :: structure
-  type(StructureData), intent(in) :: large_supercell
-  type(QpointData), allocatable   :: output(:)
-  
-  ! IBZ q-point variables.
-  integer,         allocatable :: paired_qpoints(:)
-  
-  ! Working variables
-  type(IntVector) :: rotated_scaled_qpoint
-  type(IntVector) :: scaled_supercell_gvector
-  
-  ! Temporary variables
-  integer :: i,j,k,ialloc
-  
-  ! --------------------------------------------------
-  ! Construct q-points from G-vectors of large supercell.
-  ! --------------------------------------------------
-  allocate(output(large_supercell%sc_size), stat=ialloc); call err(ialloc)
-  do i=1,large_supercell%sc_size
-    output(i)%gvector = large_supercell%gvectors(i)
-    output(i)%scaled_qpoint = transpose(large_supercell%recip_supercell) &
-                          & * output(i)%gvector
-    output(i)%qpoint = frac(output(i)%scaled_qpoint) / large_supercell%sc_size
-    output(i)%to_simulate = .true.
-  enddo
-  
-  ! --------------------------------------------------
-  ! Find which q-points can be rotated onto other q-points.
-  ! --------------------------------------------------
-  ! N.B. q-points are in fractional reciprocal co-ordinates, so they
-  !    transform by the transpose of the fractional rotation matrix.
-  do_i : do i=1,size(output)
-    do j=1,size(structure%symmetries)
-      rotated_scaled_qpoint = transpose(structure%symmetries(j)%rotation) &
-                          & * output(i)%scaled_qpoint
-      do k=1,i-1
-        if (rotated_scaled_qpoint==output(k)%scaled_qpoint) then
-          output(i)%to_simulate = .false.
-          cycle do_i
-        endif
-      enddo
-    enddo
-  enddo do_i
-  
-  ! --------------------------------------------------
-  ! Find paired q-points.
-  ! --------------------------------------------------
-  ! qpoint + paired_qpoint = G, for a primitive-cell G-vector.
-  allocate( paired_qpoints(large_supercell%sc_size), &
-          & stat=ialloc); call err(ialloc)
-  paired_qpoints = 0
-  do i=1,size(output)
-    do j=1,size(output)
-      if (all(modulo( int(output(i)%scaled_qpoint+output(j)%scaled_qpoint), &
-                    & large_supercell%sc_size)==0)) then
-        if (paired_qpoints(i)==0 .and. paired_qpoints(j)==0) then
-          paired_qpoints(i) = j
-          paired_qpoints(j) = i
-        else
-          if (paired_qpoints(i)/=j .or. paired_qpoints(j)/=i) then
-            call print_line(CODE_ERROR//': error pairing q-points.')
-          endif
-        endif
-      endif
-    enddo
-  enddo
-  
-  if (any(paired_qpoints==0)) then
-    call print_line(CODE_ERROR//': q-points were not succesfully paired up.')
-    call err()
-  endif
-  
-  ! --------------------------------------------------
-  ! Use paired q-point information to decide which q-points to simulate.
-  ! --------------------------------------------------
-  do i=1,size(output)
-    if (paired_qpoints(i)==i) then
-      output(i)%is_paired_qpoint = .true.
-    else
-      output(i)%is_paired_qpoint = .false.
-    endif
-    
-    output(i)%paired_qpoint = paired_qpoints(i)
-    
-    if (paired_qpoints(i)<i) then
-      output(i)%to_simulate = .false.
-    endif
-  enddo
-  
-  ! --------------------------------------------------
-  ! Find the smallest supercell matrix for each q-point.
-  ! --------------------------------------------------
-  do i=1,size(output)
-    output(i)%supercell_matrix = find_reduced_supercell_matrix( &
-                                     & output(i),               &
-                                     & large_supercell%sc_size, &
-                                     & structure)
-    
-    scaled_supercell_gvector = output(i)%supercell_matrix &
-                           & * output(i)%scaled_qpoint
-    
-    if (any(modulo( int(scaled_supercell_gvector), &
-                  & large_supercell%sc_size)/=0)) then
-      call print_line(CODE_ERROR//': q-point and supercell do not match.')
-      call err()
-    endif
-    
-    output(i)%supercell_gvector = scaled_supercell_gvector &
-                              & / large_supercell%sc_size
-  enddo
-end function
-
-! ----------------------------------------------------------------------
 ! Generates supercells.
 ! ----------------------------------------------------------------------
 function generate_supercells(structure,qpoints,symmetry_precision) &
@@ -430,34 +294,76 @@ function generate_supercells(structure,qpoints,symmetry_precision) &
   real(dp),            intent(in)  :: symmetry_precision
   type(StructureData), allocatable :: output(:)
   
+  ! q-point variables.
+  logical, allocatable :: accounted_for(:)
+  integer, allocatable :: min_sc_sizes(:)
+  type(FractionVector) :: rotated_qpoint
+  
   ! Supercell variables.
-  integer :: no_supercells
+  integer         :: no_supercells
+  type(IntMatrix) :: supercell_matrix
   
   ! Temporary variables.
-  integer :: i,j,ialloc
+  integer :: i,j,k,l,ialloc
   
-  allocate(output(size(qpoints)), stat=ialloc); call err(ialloc)
+  allocate( accounted_for(size(qpoints)), &
+          & min_sc_sizes(size(qpoints)),  &
+          & output(size(qpoints)),        &
+          & stat=ialloc); call err(ialloc)
   
+  ! Find the minimum size of the supercell required to simulate each q-point.
+  do i=1,size(qpoints)
+    min_sc_sizes(i) = qpoints(i)%min_sc_size()
+  enddo
+  
+  ! Find the minimal set of supercells required to simulate every q-point.
+  accounted_for = .false.
   no_supercells = 0
-  do_i : do i=1,size(qpoints)
-    ! Only make supercells for those q-points which are to be simulated.
-    if (qpoints(i)%to_simulate) then
-      
-      ! Check if a supercell suitable for this q-point already exists.
-      do j=1,i-1
-        if (qpoints(j)%supercell_matrix==qpoints(i)%supercell_matrix) then
-          cycle do_i
+  do while (any(.not. accounted_for))
+    ! Find the q-point with the largest min supercell size
+    !    which is not yet accounted for.
+    i = maxloc(min_sc_sizes, dim=1, mask=.not. accounted_for)
+    
+    ! Create a supercell for simulating this q-point.
+    no_supercells = no_supercells+1
+    supercell_matrix = find_reduced_supercell_matrix(qpoints(i), structure)
+    output(no_supercells) = construct_supercell( &
+                             & structure,        &
+                             & supercell_matrix, &
+                             & symmetry_precision=symmetry_precision)
+    
+    ! Find all q-points which can be simulated using this supercell.
+    do j=1,size(qpoints)
+      if (.not. accounted_for(j)) then
+        if (is_int(output(no_supercells)%supercell * qpoints(j)%qpoint)) then
+          ! Mark the q-point and its paired q-point as accounted for.
+          accounted_for(j) = .true.
+          accounted_for(qpoints(j)%paired_qpoint) = .true.
+          
+          ! Find any symmetrically equivalent q-points,
+          !    and mark them as accounted for.
+          do k=1,size(structure%symmetries)
+            rotated_qpoint = transpose(structure%symmetries(k)%rotation) &
+                         & * qpoints(j)%qpoint
+            do l=1,size(qpoints)
+              if (qpoints(l)%qpoint == rotated_qpoint) then
+                ! Mark the q-point and its paired q-point as accounted for.
+                accounted_for(l) = .true.
+                accounted_for(qpoints(l)%paired_qpoint) = .true.
+              endif
+            enddo
+          enddo
         endif
-      enddo
-      
-      ! Construct a supercell for this q-point.
-      no_supercells = no_supercells+1
-      output(no_supercells) = construct_supercell( &
-                    & structure,                   &
-                    & qpoints(i)%supercell_matrix, &
-                    & symmetry_precision=symmetry_precision)
+      endif
+    enddo
+    
+    ! Check that this supercell does simulate this q-point.
+    if (.not. accounted_for(i)) then
+      call print_line(CODE_ERROR//': Generated supercell does not match &
+         &q-point.')
+      call err()
     endif
-  enddo do_i
+  enddo
   
   output = output(:no_supercells)
   

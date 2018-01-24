@@ -80,9 +80,6 @@ subroutine linear_algebra_test(arguments)
     call err()
   elseif (determinant(im1) /= -18) then
     call err()
-  elseif ( im1*invert_int(im1) /= &
-         & abs(determinant(im1))*mat([1,0,0,0,1,0,0,0,1],3,3)) then
-    call err()
   endif
   
   im2 = mat( [  2,  2, 4, &

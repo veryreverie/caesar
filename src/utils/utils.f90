@@ -26,6 +26,11 @@ module utils_module
     module procedure triple_product_RealVector
   end interface
   
+  ! The L2 norm of an array of reals.
+  interface l2_norm
+    module procedure l2_norm_reals
+  end interface
+  
   ! The sum of the elements squared of a matrix.
   interface sum_squares
     module procedure sum_squares_RealVector
@@ -78,7 +83,7 @@ end subroutine
 ! Vector L2 norm.
 ! Replicates norm2() from f2008 standard.
 ! ----------------------------------------------------------------------
-pure function l2_norm(input) result(output)
+pure function l2_norm_reals(input) result(output)
   implicit none
   
   real(dp), intent(in) :: input(:)

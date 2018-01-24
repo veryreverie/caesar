@@ -82,6 +82,17 @@ module fraction_algebra_module
     module procedure non_equality_IntMatrix_FractionMatrix
   end interface
   
+  ! Matrix transpose.
+  interface transpose
+    module procedure transpose_FractionMatrix
+  end interface
+  
+  ! Exact inversion of an integer matrix.
+  interface invert
+    module procedure invert_integers
+    module procedure invert_IntMatrix
+  end interface
+  
   ! Linear algebra.
   interface operator(+)
     module procedure add_FractionVector_FractionVector
@@ -418,6 +429,68 @@ elemental function non_equality_IntMatrix_FractionMatrix(this,that) &
   logical                          :: output
   
   output = .not. this==that
+end function
+
+! ----------------------------------------------------------------------
+! Matrix transpose.
+! ----------------------------------------------------------------------
+pure function transpose_FractionMatrix(this) result(output)
+  implicit none
+  
+  type(FractionMatrix), intent(in) :: this
+  type(FractionMatrix)             :: output
+  
+  output = transpose(this%contents_)
+end function
+
+! ----------------------------------------------------------------------
+! Inversion of a 3x3 integer matrix.
+! ----------------------------------------------------------------------
+function invert_integers(input) result(output)
+  implicit none
+  
+  integer, intent(in) :: input(:,:)
+  type(IntFraction)   :: output(3,3)
+  
+  integer :: det
+  integer :: i,j
+  
+  ! Check that the input is a 3x3 matrix.
+  if (size(input,1)/=3 .or. size(input,2)/=3) then
+    call print_line(CODE_ERROR//': Trying to invert matrix which is not 3x3.')
+    call err()
+  endif
+  
+  det = determinant(input)
+  if (det==0) then
+    call print_line(ERROR//': Trying to invert a Matrix with determinant=0.')
+    call err()
+  endif
+ 
+  output(1,1) = input(2,2)*input(3,3)-input(3,2)*input(2,3)
+  output(1,2) = input(3,2)*input(1,3)-input(1,2)*input(3,3)
+  output(1,3) = input(1,2)*input(2,3)-input(2,2)*input(1,3)
+  output(2,1) = input(2,3)*input(3,1)-input(3,3)*input(2,1)
+  output(2,2) = input(3,3)*input(1,1)-input(1,3)*input(3,1)
+  output(2,3) = input(1,3)*input(2,1)-input(2,3)*input(1,1)
+  output(3,1) = input(2,1)*input(3,2)-input(3,1)*input(2,2)
+  output(3,2) = input(3,1)*input(1,2)-input(1,1)*input(3,2)
+  output(3,3) = input(1,1)*input(2,2)-input(2,1)*input(1,2)
+  
+  do i=1,3
+    do j=1,3
+      output(j,i) = output(j,i)/det
+    enddo
+  enddo
+end function
+
+function invert_IntMatrix(input) result(output)
+  implicit none
+  
+  type(IntMatrix), intent(in) :: input
+  type(FractionMatrix)        :: output
+  
+  output = invert(int(input))
 end function
 
 ! ----------------------------------------------------------------------

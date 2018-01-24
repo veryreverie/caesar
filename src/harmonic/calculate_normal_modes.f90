@@ -103,7 +103,7 @@ subroutine calculate_normal_modes(arguments)
   
   ! Normal modes and their symmetries.
   logical, allocatable :: translational(:)
-  type(IntVector)      :: rotated_qpoint
+  type(FractionVector) :: rotated_qpoint
   
   type(AtomData)      :: atom
   type(ComplexVector) :: prim_disp
@@ -230,8 +230,8 @@ subroutine calculate_normal_modes(arguments)
     do j=1,i-1
       do k=1,size(structure%symmetries)
         rotated_qpoint = transpose(structure%symmetries(k)%rotation) &
-                     & * qpoints(i)%scaled_qpoint
-        if (rotated_qpoint == qpoints(j)%scaled_qpoint) then
+                     & * qpoints(i)%qpoint
+        if (rotated_qpoint == qpoints(j)%qpoint) then
           call qpoint_logfile%print_line('Constructing dynamical matrix &
              &and normal modes using symmetry from those at q-point '//j)
           dynamical_matrices(i) = rotate_modes( dynamical_matrices(j),   &
@@ -252,8 +252,7 @@ subroutine calculate_normal_modes(arguments)
         gvector = supercells(j)%gvectors(k)
         
         ! Check if this G-vector matches this q-point.
-        if (    supercells(j)%supercell * qpoint%scaled_qpoint &
-           & /= gvector * large_supercell%sc_size) then
+        if (supercells(j)%supercell * qpoint%qpoint /= gvector) then
           cycle
         endif
         
@@ -268,7 +267,8 @@ subroutine calculate_normal_modes(arguments)
                                                & supercells(j),   &
                                                & force_constants(j))
         
-        ! Lift degeneracies.
+        ! Lift degeneracies, expressing degenerate states in terms of
+        !    the eigenvectors of symmetry operators.
         !dynamical_matices(i)%complex_modes = lift_degeneracies( &
         !                 & dynamical_matrices(i)%complex_modes, &
         !                 & structure)
@@ -296,8 +296,8 @@ subroutine calculate_normal_modes(arguments)
     do j=1,size(qpoints)
       do k=1,j-1
         rotated_qpoint = transpose(structure%symmetries(i)%rotation) &
-                     & * qpoints(j)%scaled_qpoint
-        if (rotated_qpoint == qpoints(k)%scaled_qpoint) then
+                     & * qpoints(j)%qpoint
+        if (rotated_qpoint == qpoints(k)%qpoint) then
           if (qpoints(j)%paired_qpoint/=k) then
             cycle
           endif

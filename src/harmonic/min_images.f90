@@ -97,6 +97,7 @@ end function
 ! ----------------------------------------------------------------------
 function min_images_brute_force(supercell,a,b) result(output)
   use linear_algebra_module
+  use fraction_algebra_module
   use structure_module
   implicit none
   
@@ -194,7 +195,8 @@ function min_images_brute_force(supercell,a,b) result(output)
   ! Check that all output R-vectors are equal to
   !    rvector + a supercell R-vector.
   do i=1,size(output%image_rvectors)
-    if (any(modulo(int(supercell%recip_supercell*(output%image_rvectors(i)-rvector)),supercell%sc_size)/=0)) then
+    if (.not. is_int( supercell%recip_supercell &
+                  & * (output%image_rvectors(i)-rvector))) then
       call print_line(CODE_ERROR//': A minimum image R-vector is not &
          &equivalent to the input R-vector modulo a supercell R-vector.')
       call print_line('Image R-vector: '//output%image_rvectors(i))

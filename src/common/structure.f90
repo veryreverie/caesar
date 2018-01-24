@@ -7,6 +7,7 @@ module structure_module
   use io_module
   
   use linear_algebra_module
+  use fraction_algebra_module
   use group_module
   use atom_module
   use basic_symmetry_module
@@ -56,8 +57,8 @@ module structure_module
     !    in fractional primitive cell co-ordinates.
     type(IntMatrix) :: supercell
     
-    ! invert_int(transpose(supercell))
-    type(IntMatrix) :: recip_supercell
+    ! invert(transpose(supercell))
+    type(FractionMatrix) :: recip_supercell
     
     ! The R-vectors of the primitive cell which are not related by supercell
     !    lattice vectors.
@@ -160,7 +161,7 @@ function new_StructureData(lattice_matrix,supercell_matrix,rvectors,gvectors, &
   this%lattice         = lattice_matrix
   this%recip_lattice   = transpose(invert(lattice_matrix))
   this%supercell       = supercell_matrix
-  this%recip_supercell = transpose(invert_int(this%supercell))
+  this%recip_supercell = transpose(invert(this%supercell))
   this%volume          = abs(determinant(this%lattice))
   
   ! Fill out R-vectors (multiples of the primitive lattice which lie within
@@ -176,9 +177,8 @@ function new_StructureData(lattice_matrix,supercell_matrix,rvectors,gvectors, &
   this%paired_rvec = 0
   do i=1,this%sc_size
     do j=1,i
-      if (all(modulo( int( this%recip_supercell                  &
-                    &    * (this%rvectors(i)+this%rvectors(j))), &
-                    & this%sc_size) == 0)) then
+      if (is_int( this%recip_supercell &
+              & * (this%rvectors(i)+this%rvectors(j)))) then
         this%paired_rvec(i) = j
         this%paired_rvec(j) = i
       endif
@@ -192,9 +192,8 @@ function new_StructureData(lattice_matrix,supercell_matrix,rvectors,gvectors, &
   this%paired_gvec = 0
   do i=1,this%sc_size
     do j=1,i
-      if (all(modulo( int( transpose(this%recip_supercell)       &
-                &        * (this%gvectors(i)+this%gvectors(j))), &
-                & this%sc_size) == 0)) then
+      if (is_int( transpose(this%recip_supercell) &
+              & * (this%gvectors(i)+this%gvectors(j)))) then
         this%paired_gvec(i) = j
         this%paired_gvec(j) = i
       endif
@@ -550,8 +549,7 @@ subroutine calculate_rvector_group(this)
     do j=1,this%sc_size
       rvector_k = this%rvectors(i)+this%rvectors(j)
       do k=1,this%sc_size
-        if (all(modulo(int(this%recip_supercell*(rvector_k-this%rvectors(k))),&
-                  & this%sc_size) == 0)) then
+        if (is_int(this%recip_supercell*(rvector_k-this%rvectors(k)))) then
           operation(j) = k
         endif
       enddo
@@ -589,9 +587,8 @@ subroutine calculate_gvector_group(this)
     do j=1,this%sc_size
       gvector_k = this%gvectors(i)+this%gvectors(j)
       do k=1,this%sc_size
-        if (all(modulo( int(   transpose(this%recip_supercell) &
-                      &      * (gvector_k-this%gvectors(k))),  &
-                      & this%sc_size) == 0)) then
+        if (is_int( transpose(this%recip_supercell) &
+                & * (gvector_k-this%gvectors(k)))) then
           operation(j) = k
         endif
       enddo
