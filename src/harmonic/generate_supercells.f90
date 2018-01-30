@@ -16,13 +16,12 @@ module generate_supercells_module
 contains
 
 ! ----------------------------------------------------------------------
-! Given three linearly independent input vectors a, b and c, construct the
-! following linear combinations: a+b-c, a-b+c, -a+b+c, a+b+c and  check if any
-! of the four new vectors is shorter than any of a, b or c. If so, replace the
-! longest of a, b and c with the new (shorter) vector. The resulting three
-! vectors are also linearly independent.
+! Takes three linearly independent (LI) vectors, a, b and c.
+! The longest vector is replaced with the shortest linear combination
+!    of the three s.t. the three output vectors are still LI.
+! The linear combinations considered are a+b+c, a+b-c, a-b+c and -a+b+c.
 ! ----------------------------------------------------------------------
-function reduce(input,metric) result(output)
+function reduce_once(input,metric) result(output)
   use linear_algebra_module
   implicit none
   
@@ -30,55 +29,48 @@ function reduce(input,metric) result(output)
   type(RealMatrix), intent(in) :: metric
   type(IntVector)              :: output(3)
   
-  type(IntVector) :: vectors(13)
+  type(IntVector) :: combinations(4)
+  real(dp)        :: vector_lengths(3)
+  real(dp)        :: combination_lengths(4)
   
-  real(dp) :: lengths(13)
-  logical  :: chosen(13)
+  integer :: i,j
   
-  integer  :: i,j
+  ! Construct the linear combinations a+b+c, a+b-c, b+c-a and c+a-b.
+  combinations = [ input(1)+input(2)+input(3), &
+                 & input(1)+input(2)-input(3), &
+                 & input(2)+input(3)-input(1), &
+                 & input(3)+input(1)-input(2)  ]
   
-  ! Construct the relevant linear combinations of input vectors.
-  vectors(1:3) =  input
-  vectors(4)   =  input(1) + input(2)
-  vectors(5)   =  input(2) + input(3)
-  vectors(6)   =  input(3) + input(1)
-  vectors(7)   =  input(1) - input(2)
-  vectors(8)   =  input(2) - input(3)
-  vectors(9)   =  input(3) - input(1)
-  vectors(10)  =  input(1) + input(2) + input(3)
-  vectors(11)  =  input(1) + input(2) - input(3)
-  vectors(12)  =  input(2) + input(3) - input(1)
-  vectors(13)  =  input(3) + input(1) - input(2)
-  
-  ! Calculate the lengths of the vectors in cartesian co-ordinates.
-  ! N.B. all lengths are stored as length**2, to avoid square roots.
-  do i=1,13
-    lengths(i) = input(i) * metric * input(i)
-  enddo
-  
-  ! Select the shortest three vectors.
-  chosen = .false.
+  ! Find the lengths of the input vectors and linear combinations.
+  ! Lengths are in terms of cartesian distances, and stored as
+  !    length squared, since taking the square root is unnecessary.
   do i=1,3
-    j=minloc(lengths, dim=1, mask=.not. chosen)
-    output(i) = vectors(j)
-    chosen(i) = .true.
+    vector_lengths(i) = input(i) * metric * input(i)
   enddo
+  
+  do i=1,4
+    combination_lengths(i) = combinations(i) * metric * combinations(i)
+  enddo
+  
+  ! Identify the longest input vector, and the shortest linear combination.
+  i = maxloc(vector_lengths, 1)
+  j = minloc(combination_lengths, 1)
+  
+  ! Replace said input vector with said linear combination,
+  !    if it is shorter.
+  output = input
+  if (combination_lengths(j)<vector_lengths(i)) then
+    output(i) = combinations(j)
+  endif
 end function
 
 ! ----------------------------------------------------------------------
-! Given n vectors a(i) that form a basis for a lattice L in n dimensions, the
-! a(i) are said to be Minkowski-reduced if the following conditions are met:
-!
-! - a(1) is the shortest non-zero vector in L
-! - for i>1, a(i) is the shortest possible vector in L such that a(i)>=a(i-1)
-!   and the set of vectors a(1) to a(i) are linearly independent
-!
-! In other words the a(i) are the shortest possible basis vectors for L. This
-! routine, given a set of input vectors a'(i) that are possibly not
-! Minkowski-reduced, returns the vectors a(i) that are.
+! Takes a lattice matrix, L, whose rows are three vectors, a, b and c.
+! Returns a matrix whose rows are linear combinations of a, b and c s.t.:
+!    - |A|/=0, i.e. the rows or the output are linearly independent.
+!    - Each vector is shorter than any linear combination of those vectors.
 ! ----------------------------------------------------------------------
-function minkowski_reduce(input,structure) result(output)
-  use utils_module, only : sum_squares
+function reduce(input,structure) result(output)
   use linear_algebra_module
   implicit none
   
@@ -95,8 +87,9 @@ function minkowski_reduce(input,structure) result(output)
   
   integer :: i
   
-  ! Construct the metric, M, such that v.M.v is the length of v
+  ! Construct the metric, M, such that v.M.v is the length squared of v
   !    in cartesian co-ordinates.
+  ! Since v in cartesian co-ordinates is L^T . v, M=LL^T.
   metric = structure%lattice * transpose(structure%lattice)
   
   ! Construct the three supercell lattice vectors in fractional co-ordinates.
@@ -105,15 +98,27 @@ function minkowski_reduce(input,structure) result(output)
     vectors(i) = matrix(i,:)
   enddo
   
-  ! Minkowski reduce the three vectors,
-  !   i.e. find the shortest linear combinations of the three.
-  do
-    reduced = reduce(vectors, metric)
+  ! Reduce the three vectors.
+  iter : do
+    ! Check linear combinations of two vectors.
+    do i=1,3
+      reduced = vectors
+      reduced(i) = zeroes(3)
+      reduced = reduce_once(vectors, metric)
+      reduced(i) = vectors(i)
+      if (any(reduced/=vectors)) then
+        vectors = reduced
+        cycle iter
+      endif
+    enddo
+    
+    ! Check linear combinations of all three vectors.
+    reduced = reduce_once(vectors, metric)
     if (all(reduced==vectors)) then
       exit
     endif
     vectors = reduced
-  enddo
+  enddo iter
   
   ! Construct output.
   do i=1,3
@@ -125,6 +130,7 @@ end function
 ! ----------------------------------------------------------------------
 ! Find a supercell matrix, S, s.t. S.q is a vector of integers.
 ! ----------------------------------------------------------------------
+! S is found s.t. |S| is as small as possible (whilst being >0).
 ! Returns answer in Hermite Normal Form.
 function find_hnf_supercell_matrix(qpoint) result(output)
   use linear_algebra_module
@@ -144,11 +150,12 @@ function find_hnf_supercell_matrix(qpoint) result(output)
   ! Calculate the determinant of the output matrix.
   sc_size = qpoint%min_sc_size()
   
-  ! Loop over all matrices in Hermite Normal Form.
-  ! s11*s22*s33 = det(S) = sc_size.
-  ! 0 <= s12 < s22
-  ! 0 <= s13 < s33
-  ! 0 <= s23 < s33
+  ! Loop over all matrices in Hermite Normal Form, defined as
+  !    s11*s22*s33 = |S| = sc_size.
+  !    s21=s31=s32=0
+  !    0 <= s12 < s22
+  !    0 <= s13 < s33
+  !    0 <= s23 < s33
   do s11=1,sc_size
     if (modulo(sc_size,s11)==0) then
       do s22=1,sc_size/s11
@@ -180,6 +187,13 @@ function find_hnf_supercell_matrix(qpoint) result(output)
   call err()
 end function
 
+! ----------------------------------------------------------------------
+! Construct the smallest matrix S s.t. S.q is a G-vector.
+! Smallest means:
+!    - |S| is as small as possible.
+!    - The vectors defined in fractional co-ordinates by the rows of S
+!         are as short as possible in cartesian co-ordinates.
+! ----------------------------------------------------------------------
 function find_reduced_supercell_matrix(qpoint,structure) result(output)
   implicit none
   
@@ -189,12 +203,13 @@ function find_reduced_supercell_matrix(qpoint,structure) result(output)
   
   type(IntMatrix)  :: supercell_hnf
   
-  ! Find a supercell matrix S, s.t. S.q is a vector of integers.
+  ! Find the matrix S, s.t. S.q is a vector of integers.
+  ! S is found in Hermite Normal Form.
   supercell_hnf = find_hnf_supercell_matrix(qpoint)
   
-  ! Minkowski reduce the supercell in cartesian co-ordinates.
-  ! Converts to cartesian, reduces, and converts back again.
-  output = minkowski_reduce(supercell_hnf, structure)
+  ! Reduce the matrix, s.t. the vectors defined by its rows are as short as
+  !    possible when transformed into cartesian co-ordinates.
+  output = reduce(supercell_hnf, structure)
   
   ! Check that S still transforms q to an integer vector.
   if (.not. is_int(output*qpoint%qpoint)) then
@@ -343,7 +358,7 @@ function generate_supercells(structure,qpoints,symmetry_precision) &
           ! Find any symmetrically equivalent q-points,
           !    and mark them as accounted for.
           do k=1,size(structure%symmetries)
-            rotated_qpoint = transpose(structure%symmetries(k)%rotation) &
+            rotated_qpoint = structure%symmetries(k)%recip_rotation &
                          & * qpoints(j)%qpoint
             do l=1,size(qpoints)
               if (qpoints(l)%qpoint == rotated_qpoint) then

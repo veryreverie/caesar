@@ -92,7 +92,6 @@ subroutine calculate_normal_modes(arguments)
   ! q-point data.
   type(StructureData)           :: large_supercell
   type(QpointData), allocatable :: qpoints(:)
-  type(QpointData)              :: qpoint
   
   type(IntVector) :: gvector
   
@@ -111,15 +110,12 @@ subroutine calculate_normal_modes(arguments)
   type(DynamicalMatrix), allocatable :: dynamical_matrices(:)
   type(DynamicalMatrix)              :: rotated_matrix
   
-  logical :: at_gamma
-  logical :: paired_gvec
-  
   ! Logfiles.
   type(OFile) :: force_logfile
   type(OFile) :: qpoint_logfile
   
   ! Temporary variables.
-  integer      :: i,j,k,ialloc
+  integer      :: i,j,k,l,ialloc
   type(String) :: sdir,qdir
   
   ! --------------------------------------------------
@@ -201,86 +197,98 @@ subroutine calculate_normal_modes(arguments)
           & stat=ialloc); call err(ialloc)
   qpoint_logfile = wd//'/dynamical_matrix_log.dat'
   modes_calculated = .false.
-  do_i : do i=1,size(qpoints)
-    qdir = wd//'/qpoint_'//left_pad(i,str(size(qpoints)))
-    call mkdir(qdir)
-    
-    qpoint = qpoints(i)
   
+  iter : do while (.not. all(modes_calculated))
     ! ------------------------------
-    ! First, check if the q-point is the conjugate of
-    !    an already calculated q-point.
+    ! First, check if there is an un-calculated q-point whose conjugate has
+    !    already been calculated.
     ! ------------------------------
-    do j=1,i-1
-      if (qpoints(i)%paired_qpoint==j) then
-        call qpoint_logfile%print_line('Constructing dynamical matrix &
-           &and normal modes as the conjugate of those at q-point '//j)
+    do i=1,size(qpoints)
+      if (modes_calculated(i)) then
+        cycle
+      endif
+      
+      if (modes_calculated(qpoints(i)%paired_qpoint)) then
+        call qpoint_logfile%print_line('Constructing dynamical matrix and &
+           &normal modes at q-point '//i//' as the conjugate of those at &
+           &q-point '//j)
         dynamical_matrices(i) = conjg(dynamical_matrices(j))
         modes_calculated(i) = .true.
-        cycle do_i
+        cycle iter
       endif
-    enddo
-      
-    ! ------------------------------
-    ! Second, check if the q-point is related to another q-point
-    !    by a symmetry operation.
-    ! ------------------------------
-    ! N.B. since q-points are in fractional reciprocal co-ordinates,
-    !    they transform as the transpose of the rotation matrix.
-    do j=1,i-1
-      do k=1,size(structure%symmetries)
-        rotated_qpoint = transpose(structure%symmetries(k)%rotation) &
-                     & * qpoints(i)%qpoint
-        if (rotated_qpoint == qpoints(j)%qpoint) then
-          call qpoint_logfile%print_line('Constructing dynamical matrix &
-             &and normal modes using symmetry from those at q-point '//j)
-          dynamical_matrices(i) = rotate_modes( dynamical_matrices(j),   &
-                                              & structure%symmetries(k), &
-                                              & qpoints(i))
-          modes_calculated(i) = .true.
-          cycle do_i
-        endif
-      enddo
     enddo
     
     ! ------------------------------
-    ! Finally check if this q-point is a G-vector of any of the
-    !    calculated supercells.
+    ! Second, check if there is a q-point which is related by symmetry to
+    !    an already calculated q-point.
     ! ------------------------------
-    do j=1,no_supercells
-      do k=1,supercells(j)%sc_size
-        gvector = supercells(j)%gvectors(k)
-        
-        ! Check if this G-vector matches this q-point.
-        if (supercells(j)%supercell * qpoint%qpoint /= gvector) then
+    do i=1,size(qpoints)
+      if (modes_calculated(i)) then
+        cycle
+      endif
+      
+      do j=1,size(qpoints)
+        if (.not. modes_calculated(j)) then
           cycle
         endif
         
-        ! Construct the dynamical matrix at the q-point.
-        at_gamma = all(int(gvector)==0)
-        paired_gvec = supercells(j)%paired_gvec(k)==k
-        call qpoint_logfile%print_line('Constructing dynamical matrix and &
-           &normal modes through direct calculation using supercell '//j)
-        dynamical_matrices(i) = DynamicalMatrix( qpoint,          &
-                                               & at_gamma,        &
-                                               & paired_gvec,     &
-                                               & supercells(j),   &
-                                               & force_constants(j))
-        
-        ! Lift degeneracies, expressing degenerate states in terms of
-        !    the eigenvectors of symmetry operators.
-        !dynamical_matices(i)%complex_modes = lift_degeneracies( &
-        !                 & dynamical_matrices(i)%complex_modes, &
-        !                 & structure)
-        
-        modes_calculated(i) = .true.
-        cycle do_i
+        do k=1,size(structure%symmetries)
+          rotated_qpoint = structure%symmetries(k)%recip_rotation &
+                       & * qpoints(j)%qpoint
+          if (rotated_qpoint == qpoints(i)%qpoint) then
+            call qpoint_logfile%print_line('Constructing dynamical matrix and &
+               &normal modes at q-point '//i//' using symmetry from those at &
+               &q-point '//j)
+            dynamical_matrices(i) = rotate_modes( dynamical_matrices(j),   &
+                                                & structure%symmetries(k), &
+                                                & qpoints(j),              &
+                                                & qpoints(i))
+            modes_calculated(i) = .true.
+            cycle iter
+          endif
+        enddo
       enddo
     enddo
     
-    call print_line(CODE_ERROR//': Unable to construct q-point '//i//'.')
+    ! ------------------------------
+    ! Finally check if there is a q-point which is a G-vector of any of the
+    !    calculated supercells.
+    ! ------------------------------
+    do i=1,size(qpoints)
+      if (modes_calculated(i)) then
+        cycle
+      endif
+      
+      do j=1,no_supercells
+        ! Check if q-point i is a G-vector of supercell j.
+        if (is_int(supercells(j)%supercell * qpoints(i)%qpoint)) then
+          call qpoint_logfile%print_line('Constructing dynamical matrix and &
+             &normal modes at q-point '//i//' directly from calculated force &
+             &constants.')
+          dynamical_matrices(i) = DynamicalMatrix( qpoints(i),      &
+                                                 & supercells,      &
+                                                 & force_constants, &
+                                                 & structure)
+          
+          ! Lift degeneracies, expressing degenerate states in terms of
+          !    the eigenvectors of symmetry operators.
+          !dynamical_matices(i)%complex_modes = lift_degeneracies( &
+          !                 & dynamical_matrices(i)%complex_modes, &
+          !                 & structure)
+          
+          modes_calculated(i) = .true.
+          cycle iter
+        endif
+      enddo
+    enddo
+    
+    ! ------------------------------
+    ! If no q-point can be constructed, throw an error.
+    ! ------------------------------
+    call print_line(ERROR//': Insufficient data to construct dynamical &
+       &matrices at all q-points.')
     call err()
-  enddo do_i
+  enddo iter
   
   ! --------------------------------------------------
   ! Check all dynamical matrices.
@@ -294,8 +302,9 @@ subroutine calculate_normal_modes(arguments)
   !    correctly rotate onto one another.
   do i=1,size(structure%symmetries)
     do j=1,size(qpoints)
-      do k=1,j-1
-        rotated_qpoint = transpose(structure%symmetries(i)%rotation) &
+      do k=j,j
+     ! !do k=1,size(qpoints)
+        rotated_qpoint = structure%symmetries(i)%recip_rotation &
                      & * qpoints(j)%qpoint
         if (rotated_qpoint == qpoints(k)%qpoint) then
           if (qpoints(j)%paired_qpoint/=k) then
@@ -303,11 +312,15 @@ subroutine calculate_normal_modes(arguments)
           endif
           rotated_matrix = rotate_modes( dynamical_matrices(j),   &
                                        & structure%symmetries(i), &
+                                       & qpoints(j),              &
                                        & qpoints(k))
           call qpoint_logfile%print_line('Comparing symmetrically &
              &equivalent dynamical matrices.')
           call print_line('')
-          call print_line('Symmetry '//i//' qpoint '//j//' -> '//k)
+          call print_line('qpoints: '//j//' -> '//k)
+          call print_line('atoms  :   1 -> '//structure%symmetries(i)%atom_group*1)
+          call print_line('           2 -> '//structure%symmetries(i)%atom_group*2)
+          call print_line('Cartesian rotation:')
           call print_line(structure%symmetries(i)%cartesian_rotation)
           call compare_dynamical_matrices( dynamical_matrices(k), &
                                          & rotated_matrix,        &
@@ -322,6 +335,7 @@ subroutine calculate_normal_modes(arguments)
   ! --------------------------------------------------
   do i=1,size(qpoints)
     qdir = wd//'/qpoint_'//left_pad(i,str(size(qpoints)))
+    call mkdir(qdir)
     
     ! Write out dynamical matrix.
     call write_dynamical_matrix_file( dynamical_matrices(i), &

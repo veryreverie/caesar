@@ -192,7 +192,7 @@ pure subroutine assign_IntFraction_integer(output,input)
 end subroutine
 
 ! Conversion from character(*).
-elemental function frac_character(input) result(output)
+impure elemental function frac_character(input) result(output)
   implicit none
   
   character(*), intent(in) :: input
@@ -204,14 +204,16 @@ elemental function frac_character(input) result(output)
   if (size(split_string)==1) then
     ! Assume the string is an integer.
     output = int(split_string(1))
-  else
+  elseif (size(split_string)==2) then
     ! Assume the string is of the form 'a/b'.
     output = IntFraction(int(split_string(1)),int(split_string(2)))
+  else
+    call err()
   endif
 end function
 
 ! Conversion from String.
-elemental function frac_String(input) result(output)
+impure elemental function frac_String(input) result(output)
   implicit none
   
   type(String), intent(in) :: input
@@ -473,9 +475,9 @@ pure function str_IntFraction(this) result(output)
   type(String)                   :: output
   
   if (is_int(this)) then
-   output = this%n_
+   output = pad_int_to_str(this%n_)
   else
-    output = this%n_//'/'//this%d_
+    output = pad_int_to_str(this%n_)//'/'//this%d_
   endif
 end function
 end module

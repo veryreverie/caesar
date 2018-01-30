@@ -154,8 +154,10 @@ module fraction_algebra_module
 contains
 
 ! ----------------------------------------------------------------------
-! Assignment.
+! Procedures involving contents_
 ! ----------------------------------------------------------------------
+
+! Assignment.
 pure subroutine assign_FractionVector_IntFractions(output,input)
   implicit none
   
@@ -174,10 +176,47 @@ pure subroutine assign_FractionMatrix_IntFractions(output,input)
   output%contents_ = input
 end subroutine
 
+! Conversion to fraction(:). Effectively getters for contents_.
+function frac_FractionVector(input) result(output)
+  implicit none
+  
+  type(FractionVector), intent(in) :: input
+  type(IntFraction), allocatable   :: output(:)
+  
+  if (allocated(input%contents_)) then
+    output = input%contents_
+  else
+    call print_line(CODE_ERROR//': Trying to use the contents of a vector &
+       &before it has been allocated.')
+    call err()
+  endif
+end function
+
+function frac_FractionMatrix(input) result(output)
+  implicit none
+  
+  type(FractionMatrix), intent(in) :: input
+  type(IntFraction), allocatable   :: output(:,:)
+  
+  if (allocated(input%contents_)) then
+    output = input%contents_
+  else
+    call print_line(CODE_ERROR//': Trying to use the contents of a matrix &
+       &before it has been allocated.')
+    call err()
+  endif
+end function
+
 ! ----------------------------------------------------------------------
+! Procedures not involving contents_
+! ----------------------------------------------------------------------
+! N.B. the number of procedures accessing contents_ directly is intentionally
+!    limited for stability reasons.
+! The above procedures behave well if contents_ has not been allocated,
+!    and this good behaviour is automatically passed to the procedures below.
+
 ! Conversion to and from vector and matrix types.
-! ----------------------------------------------------------------------
-pure function vec_IntFractions(input) result(output)
+function vec_IntFractions(input) result(output)
   implicit none
   
   type(IntFraction), intent(in) :: input(:)
@@ -186,7 +225,7 @@ pure function vec_IntFractions(input) result(output)
   output = input
 end function
 
-pure function mat_IntFractions(input) result(output)
+function mat_IntFractions(input) result(output)
   implicit none
   
   type(IntFraction), intent(in) :: input(:,:)
@@ -195,7 +234,7 @@ pure function mat_IntFractions(input) result(output)
   output = input
 end function
 
-pure function mat_IntFractions_shape(input,m,n) result(output)
+function mat_IntFractions_shape(input,m,n) result(output)
   implicit none
   
   type(IntFraction), intent(in) :: input(:)
@@ -206,25 +245,7 @@ pure function mat_IntFractions_shape(input,m,n) result(output)
   output = transpose(reshape(input, [m,n]))
 end function
 
-pure function frac_FractionVector(input) result(output)
-  implicit none
-  
-  type(FractionVector), intent(in) :: input
-  type(IntFraction), allocatable   :: output(:)
-  
-  output = input%contents_
-end function
-
-pure function frac_FractionMatrix(input) result(output)
-  implicit none
-  
-  type(FractionMatrix), intent(in) :: input
-  type(IntFraction), allocatable   :: output(:,:)
-  
-  output = input%contents_
-end function
-
-pure function frac_IntVector(input) result(output)
+function frac_IntVector(input) result(output)
   implicit none
   
   type(IntVector), intent(in)    :: input
@@ -233,7 +254,7 @@ pure function frac_IntVector(input) result(output)
   output = frac(int(input))
 end function
 
-pure function frac_IntMatrix(input) result(output)
+function frac_IntMatrix(input) result(output)
   implicit none
   
   type(IntMatrix), intent(in)    :: input
@@ -242,68 +263,64 @@ pure function frac_IntMatrix(input) result(output)
   output = frac(int(input))
 end function
 
-pure function dble_FractionVector(input) result(output)
+function dble_FractionVector(input) result(output)
   implicit none
   
   type(FractionVector), intent(in) :: input
   real(dp), allocatable            :: output(:)
   
-  output = dble(input%contents_)
+  output = dble(frac(input))
 end function
 
-pure function dble_FractionMatrix(input) result(output)
+function dble_FractionMatrix(input) result(output)
   implicit none
   
   type(FractionMatrix), intent(in) :: input
   real(dp), allocatable            :: output(:,:)
   
-  output = dble(input%contents_)
+  output = dble(frac(input))
 end function
 
-! ----------------------------------------------------------------------
 ! Properties of the vectors and matrices.
-! ----------------------------------------------------------------------
-pure function size_FractionVector(this) result(output)
+function size_FractionVector(this) result(output)
   implicit none
   
   type(FractionVector), intent(in) :: this
   integer                          :: output
   
-  output = size(this%contents_)
+  output = size(frac(this))
 end function
 
-pure function size_FractionMatrix(this,dim) result(output)
+function size_FractionMatrix(this,dim) result(output)
   implicit none
   
   type(FractionMatrix), intent(in) :: this
   integer,              intent(in) :: dim
   integer                          :: output
   
-  output = size(this%contents_, dim)
+  output = size(frac(this), dim)
 end function
 
-elemental function is_int_FractionVector(this) result(output)
+impure elemental function is_int_FractionVector(this) result(output)
   implicit none
   
   type(FractionVector), intent(in) :: this
   logical                          :: output
   
-  output = all(is_int(this%contents_))
+  output = all(is_int(frac(this)))
 end function
 
-elemental function is_int_FractionMatrix(this) result(output)
+impure elemental function is_int_FractionMatrix(this) result(output)
   implicit none
   
   type(FractionMatrix), intent(in) :: this
   logical                          :: output
   
-  output = all(is_int(this%contents_))
+  output = all(is_int(frac(this)))
 end function
 
-! ----------------------------------------------------------------------
 ! Comparisons.
-! ----------------------------------------------------------------------
-elemental function equality_FractionVector_FractionVector(this,that) &
+impure elemental function equality_FractionVector_FractionVector(this,that) &
    & result(output)
   implicit none
   
@@ -311,83 +328,83 @@ elemental function equality_FractionVector_FractionVector(this,that) &
   type(FractionVector), intent(in) :: that
   logical                          :: output
   
-  output = all(this%contents_==that%contents_)
+  output = all(frac(this)==frac(that))
 end function
 
-elemental function equality_FractionVector_IntVector(this,that) result(output)
-  implicit none
-  
-  type(FractionVector), intent(in) :: this
-  type(IntVector),      intent(in) :: that
-  logical                          :: output
-  
-  output = all(this%contents_==int(that))
-end function
-
-elemental function equality_IntVector_FractionVector(this,that) result(output)
-  implicit none
-  
-  type(IntVector),      intent(in) :: this
-  type(FractionVector), intent(in) :: that
-  logical                          :: output
-  
-  output = all(int(this)==that%contents_)
-end function
-
-elemental function equality_FractionMatrix_FractionMatrix(this,that) &
-   & result(output)
-  implicit none
-  
-  type(FractionMatrix), intent(in) :: this
-  type(FractionMatrix), intent(in) :: that
-  logical                          :: output
-  
-  output = all(this%contents_==that%contents_)
-end function
-
-elemental function equality_FractionMatrix_IntMatrix(this,that) result(output)
-  implicit none
-  
-  type(FractionMatrix), intent(in) :: this
-  type(IntMatrix),      intent(in) :: that
-  logical                          :: output
-  
-  output = all(this%contents_==int(that))
-end function
-
-elemental function equality_IntMatrix_FractionMatrix(this,that) result(output)
-  implicit none
-  
-  type(IntMatrix),      intent(in) :: this
-  type(FractionMatrix), intent(in) :: that
-  logical                          :: output
-  
-  output = all(int(this)==that%contents_)
-end function
-
-elemental function non_equality_FractionVector_FractionVector(this,that) &
-   & result(output)
-  implicit none
-  
-  type(FractionVector), intent(in) :: this
-  type(FractionVector), intent(in) :: that
-  logical                          :: output
-  
-  output = .not. this==that
-end function
-
-elemental function non_equality_FractionVector_IntVector(this,that) &
-   & result(output)
+impure elemental function equality_FractionVector_IntVector(this,that) result(output)
   implicit none
   
   type(FractionVector), intent(in) :: this
   type(IntVector),      intent(in) :: that
   logical                          :: output
   
+  output = all(frac(this)==int(that))
+end function
+
+impure elemental function equality_IntVector_FractionVector(this,that) result(output)
+  implicit none
+  
+  type(IntVector),      intent(in) :: this
+  type(FractionVector), intent(in) :: that
+  logical                          :: output
+  
+  output = all(int(this)==frac(that))
+end function
+
+impure elemental function equality_FractionMatrix_FractionMatrix(this,that) &
+   & result(output)
+  implicit none
+  
+  type(FractionMatrix), intent(in) :: this
+  type(FractionMatrix), intent(in) :: that
+  logical                          :: output
+  
+  output = all(frac(this)==frac(that))
+end function
+
+impure elemental function equality_FractionMatrix_IntMatrix(this,that) result(output)
+  implicit none
+  
+  type(FractionMatrix), intent(in) :: this
+  type(IntMatrix),      intent(in) :: that
+  logical                          :: output
+  
+  output = all(frac(this)==int(that))
+end function
+
+impure elemental function equality_IntMatrix_FractionMatrix(this,that) result(output)
+  implicit none
+  
+  type(IntMatrix),      intent(in) :: this
+  type(FractionMatrix), intent(in) :: that
+  logical                          :: output
+  
+  output = all(int(this)==frac(that))
+end function
+
+impure elemental function non_equality_FractionVector_FractionVector(this,that) &
+   & result(output)
+  implicit none
+  
+  type(FractionVector), intent(in) :: this
+  type(FractionVector), intent(in) :: that
+  logical                          :: output
+  
   output = .not. this==that
 end function
 
-elemental function non_equality_IntVector_FractionVector(this,that) &
+impure elemental function non_equality_FractionVector_IntVector(this,that) &
+   & result(output)
+  implicit none
+  
+  type(FractionVector), intent(in) :: this
+  type(IntVector),      intent(in) :: that
+  logical                          :: output
+  
+  output = .not. this==that
+end function
+
+impure elemental function non_equality_IntVector_FractionVector(this,that) &
    & result(output)
   implicit none
   
@@ -398,7 +415,7 @@ elemental function non_equality_IntVector_FractionVector(this,that) &
   output = .not. this==that
 end function
 
-elemental function non_equality_FractionMatrix_FractionMatrix(this,that) &
+impure elemental function non_equality_FractionMatrix_FractionMatrix(this,that) &
    & result(output)
   implicit none
   
@@ -409,7 +426,7 @@ elemental function non_equality_FractionMatrix_FractionMatrix(this,that) &
   output = .not. this==that
 end function
 
-elemental function non_equality_FractionMatrix_IntMatrix(this,that) &
+impure elemental function non_equality_FractionMatrix_IntMatrix(this,that) &
    & result(output)
   implicit none
   
@@ -420,7 +437,7 @@ elemental function non_equality_FractionMatrix_IntMatrix(this,that) &
   output = .not. this==that
 end function
 
-elemental function non_equality_IntMatrix_FractionMatrix(this,that) &
+impure elemental function non_equality_IntMatrix_FractionMatrix(this,that) &
    & result(output)
   implicit none
   
@@ -431,21 +448,17 @@ elemental function non_equality_IntMatrix_FractionMatrix(this,that) &
   output = .not. this==that
 end function
 
-! ----------------------------------------------------------------------
 ! Matrix transpose.
-! ----------------------------------------------------------------------
-pure function transpose_FractionMatrix(this) result(output)
+function transpose_FractionMatrix(this) result(output)
   implicit none
   
   type(FractionMatrix), intent(in) :: this
   type(FractionMatrix)             :: output
   
-  output = transpose(this%contents_)
+  output = transpose(frac(this))
 end function
 
-! ----------------------------------------------------------------------
 ! Inversion of a 3x3 integer matrix.
-! ----------------------------------------------------------------------
 function invert_integers(input) result(output)
   implicit none
   
@@ -493,304 +506,313 @@ function invert_IntMatrix(input) result(output)
   output = invert(int(input))
 end function
 
-! ----------------------------------------------------------------------
 ! Linear algebra.
-! ----------------------------------------------------------------------
-pure function add_FractionVector_FractionVector(this,that) result(output)
+impure elemental function add_FractionVector_FractionVector(this,that) result(output)
   implicit none
   
   type(FractionVector), intent(in) :: this
   type(FractionVector), intent(in) :: that
   type(FractionVector)             :: output
   
-  output = this%contents_ + that%contents_
+  output = frac(this) + frac(that)
 end function
 
-pure function add_FractionVector_IntVector(this,that) result(output)
+impure elemental function add_FractionVector_IntVector(this,that) result(output)
   implicit none
   
   type(IntVector),      intent(in) :: this
   type(FractionVector), intent(in) :: that
   type(FractionVector)             :: output
   
-  output = int(this) + that%contents_
+  output = int(this) + frac(that)
 end function
 
-pure function add_IntVector_FractionVector(this,that) result(output)
+impure elemental function add_IntVector_FractionVector(this,that) result(output)
   implicit none
   
   type(FractionVector), intent(in) :: this
   type(IntVector),      intent(in) :: that
   type(FractionVector)             :: output
   
-  output = this%contents_ + int(that)
+  output = frac(this) + int(that)
 end function
 
-pure function add_FractionMatrix_FractionMatrix(this,that) result(output)
+impure elemental function add_FractionMatrix_FractionMatrix(this,that) result(output)
   implicit none
   
   type(FractionMatrix), intent(in) :: this
   type(FractionMatrix), intent(in) :: that
   type(FractionMatrix)             :: output
   
-  output = this%contents_ + that%contents_
+  output = frac(this) + frac(that)
 end function
 
-pure function add_FractionMatrix_IntMatrix(this,that) result(output)
+impure elemental function add_FractionMatrix_IntMatrix(this,that) result(output)
   implicit none
   
   type(IntMatrix),      intent(in) :: this
   type(FractionMatrix), intent(in) :: that
   type(FractionMatrix)             :: output
   
-  output = int(this) + that%contents_
+  output = int(this) + frac(that)
 end function
 
-pure function add_IntMatrix_FractionMatrix(this,that) result(output)
+impure elemental function add_IntMatrix_FractionMatrix(this,that) result(output)
   implicit none
   
   type(FractionMatrix), intent(in) :: this
   type(IntMatrix),      intent(in) :: that
   type(FractionMatrix)             :: output
   
-  output = this%contents_ + int(that)
+  output = frac(this) + int(that)
 end function
 
-pure function negative_FractionVector(this) result(output)
+impure elemental function negative_FractionVector(this) result(output)
   implicit none
   
   type(FractionVector), intent(in) :: this
   type(FractionVector)             :: output
   
-  output = -this%contents_
+  output = -frac(this)
 end function
 
-pure function negative_FractionMatrix(this) result(output)
+impure elemental function negative_FractionMatrix(this) result(output)
   implicit none
   
   type(FractionMatrix), intent(in) :: this
   type(FractionMatrix)             :: output
   
-  output = -this%contents_
+  output = -frac(this)
 end function
 
-pure function subtract_FractionVector_FractionVector(this,that) result(output)
+impure elemental function subtract_FractionVector_FractionVector(this,that) result(output)
   implicit none
   
   type(FractionVector), intent(in) :: this
   type(FractionVector), intent(in) :: that
   type(FractionVector)             :: output
   
-  output = this%contents_ - that%contents_
+  output = frac(this) - frac(that)
 end function
 
-pure function subtract_FractionVector_IntVector(this,that) result(output)
+impure elemental function subtract_FractionVector_IntVector(this,that) result(output)
   implicit none
   
   type(FractionVector), intent(in) :: this
   type(IntVector),      intent(in) :: that
   type(FractionVector)             :: output
   
-  output = this%contents_ - int(that)
+  output = frac(this) - int(that)
 end function
 
-pure function subtract_IntVector_FractionVector(this,that) result(output)
+impure elemental function subtract_IntVector_FractionVector(this,that) result(output)
   implicit none
   
   type(IntVector),      intent(in) :: this
   type(FractionVector), intent(in) :: that
   type(FractionVector)             :: output
   
-  output = int(this) - that%contents_
+  output = int(this) - frac(that)
 end function
 
-pure function subtract_FractionMatrix_FractionMatrix(this,that) result(output)
+impure elemental function subtract_FractionMatrix_FractionMatrix(this,that) result(output)
   implicit none
   
   type(FractionMatrix), intent(in) :: this
   type(FractionMatrix), intent(in) :: that
   type(FractionMatrix)             :: output
   
-  output = this%contents_ - that%contents_
+  output = frac(this) - frac(that)
 end function
 
-pure function subtract_FractionMatrix_IntMatrix(this,that) result(output)
+impure elemental function subtract_FractionMatrix_IntMatrix(this,that) result(output)
   implicit none
   
   type(FractionMatrix), intent(in) :: this
   type(IntMatrix),      intent(in) :: that
   type(FractionMatrix)             :: output
   
-  output = this%contents_ - int(that)
+  output = frac(this) - int(that)
 end function
 
-pure function subtract_IntMatrix_FractionMatrix(this,that) result(output)
+impure elemental function subtract_IntMatrix_FractionMatrix(this,that) result(output)
   implicit none
   
   type(IntMatrix),      intent(in) :: this
   type(FractionMatrix), intent(in) :: that
   type(FractionMatrix)             :: output
   
-  output = int(this) - that%contents_
+  output = int(this) - frac(that)
 end function
 
-pure function multiply_FractionVector_integer(this,that) result(output)
+impure elemental function multiply_FractionVector_integer(this,that) result(output)
   implicit none
   
   type(FractionVector), intent(in) :: this
   integer,              intent(in) :: that
   type(FractionVector)             :: output
   
-  output = this%contents_ * that
+  output = frac(this) * that
 end function
 
-pure function multiply_integer_FractionVector(this,that) result(output)
+impure elemental function multiply_integer_FractionVector(this,that) result(output)
   implicit none
   
   integer,              intent(in) :: this
   type(FractionVector), intent(in) :: that
   type(FractionVector)             :: output
   
-  output = this * that%contents_
+  output = this * frac(that)
 end function
 
-pure function multiply_FractionVector_IntFraction(this,that) result(output)
+impure elemental function multiply_FractionVector_IntFraction(this,that) result(output)
   implicit none
   
   type(FractionVector), intent(in) :: this
   type(IntFraction),    intent(in) :: that
   type(FractionVector)             :: output
   
-  output = this%contents_ * that
+  output = frac(this) * that
 end function
 
-pure function multiply_IntFraction_FractionVector(this,that) result(output)
+impure elemental function multiply_IntFraction_FractionVector(this,that) result(output)
   implicit none
   
   type(IntFraction),    intent(in) :: this
   type(FractionVector), intent(in) :: that
   type(FractionVector)             :: output
   
-  output = this * that%contents_
+  output = this * frac(that)
 end function
 
-pure function multiply_FractionMatrix_integer(this,that) result(output)
+impure elemental function multiply_FractionMatrix_integer(this,that) result(output)
   implicit none
   
   type(FractionMatrix), intent(in) :: this
   integer,              intent(in) :: that
   type(FractionMatrix)             :: output
   
-  output = this%contents_ * that
+  output = frac(this) * that
 end function
 
-pure function multiply_integer_FractionMatrix(this,that) result(output)
+impure elemental function multiply_integer_FractionMatrix(this,that) result(output)
   implicit none
   
   integer,              intent(in) :: this
   type(FractionMatrix), intent(in) :: that
   type(FractionMatrix)             :: output
   
-  output = this * that%contents_
+  output = this * frac(that)
 end function
 
-pure function multiply_FractionMatrix_IntFraction(this,that) result(output)
+impure elemental function multiply_FractionMatrix_IntFraction(this,that) result(output)
   implicit none
   
   type(FractionMatrix), intent(in) :: this
   type(IntFraction),    intent(in) :: that
   type(FractionMatrix)             :: output
   
-  output = this%contents_ * that
+  output = frac(this) * that
 end function
 
-pure function multiply_IntFraction_FractionMatrix(this,that) result(output)
+impure elemental function multiply_IntFraction_FractionMatrix(this,that) result(output)
   implicit none
   
   type(IntFraction),    intent(in) :: this
   type(FractionMatrix), intent(in) :: that
   type(FractionMatrix)             :: output
   
-  output = this * that%contents_
+  output = this * frac(that)
 end function
 
-function dot_FractionVector_FractionVector(this,that) result(output)
+impure elemental function dot_FractionVector_FractionVector(this,that) result(output)
   implicit none
   
   type(FractionVector), intent(in) :: this
   type(FractionVector), intent(in) :: that
   type(IntFraction)                :: output
   
+  type(IntFraction), allocatable :: a(:)
+  type(IntFraction), allocatable :: b(:)
+  
   integer :: i
   
   if (size(this)/=size(that)) then
-    call print_line( CODE_ERROR// &
-                   & ': Dot product of vectors of different lengths.')
+    call print_line( CODE_ERROR//': Dot product of vectors of different &
+       &lengths.')
     call err()
   endif
   
+  a = frac(this)
+  b = frac(that)
   output = 0
   do i=1,size(this)
-    output = output + this%contents_(i)*that%contents_(i)
+    output = output + a(i)*b(i)
   enddo
 end function
 
-function dot_FractionVector_IntVector(this,that) result(output)
+impure elemental function dot_FractionVector_IntVector(this,that) result(output)
   implicit none
   
   type(FractionVector), intent(in) :: this
   type(IntVector),      intent(in) :: that
   type(IntFraction)                :: output
   
-  integer, allocatable :: ints(:)
+  type(IntFraction), allocatable :: a(:)
+  integer,           allocatable :: b(:)
   
   integer :: i
   
   if (size(this)/=size(that)) then
-    call print_line( CODE_ERROR// &
-                   & ': Dot product of vectors of different lengths.')
+    call print_line( CODE_ERROR//': Dot product of vectors of different &
+       &lengths.')
     call err()
   endif
   
-  ints = int(that)
-  
+  a = frac(this)
+  b = int(that)
   output = 0
   do i=1,size(this)
-    output = output + this%contents_(i)*ints(i)
+    output = output + a(i)*b(i)
   enddo
 end function
 
-function dot_IntVector_FractionVector(this,that) result(output)
+impure elemental function dot_IntVector_FractionVector(this,that) result(output)
   implicit none
   
   type(IntVector),      intent(in) :: this
   type(FractionVector), intent(in) :: that
   type(IntFraction)                :: output
   
-  integer, allocatable :: ints(:)
+  integer,           allocatable :: a(:)
+  type(IntFraction), allocatable :: b(:)
   
   integer :: i
   
   if (size(this)/=size(that)) then
-    call print_line( CODE_ERROR// &
-                   & ': Dot product of vectors of different lengths.')
+    call print_line( CODE_ERROR//': Dot product of vectors of different &
+       &lengths.')
     call err()
   endif
   
-  ints = int(this)
-  
+  a = int(this)
+  b = frac(that)
   output = 0
   do i=1,size(this)
-    output = output + ints(i)*that%contents_(i)
+    output = output + a(i)*b(i)
   enddo
 end function
 
-function dot_FractionMatrix_FractionVector(this,that) result(output)
+impure elemental function dot_FractionMatrix_FractionVector(this,that) result(output)
   implicit none
   
   type(FractionMatrix), intent(in) :: this
   type(FractionVector), intent(in) :: that
   type(FractionVector)             :: output
+  
+  type(IntFraction), allocatable :: a(:,:)
+  type(IntFraction), allocatable :: b(:)
+  type(IntFraction), allocatable :: contents(:)
   
   integer :: i,ialloc
   
@@ -800,21 +822,26 @@ function dot_FractionMatrix_FractionVector(this,that) result(output)
     call err()
   endif
   
-  allocate(output%contents_(size(this,1)), stat=ialloc); call err(ialloc)
-  output%contents_ = frac(0)
+  a = frac(this)
+  b = frac(that)
+  allocate(contents(size(this,1)), stat=ialloc); call err(ialloc)
+  contents = frac(0)
   do i=1,size(that)
-    output%contents_ = output%contents_ + this%contents_(:,i)*that%contents_(i)
+    contents = contents + a(:,i)*b(i)
   enddo
+  output = contents
 end function
 
-function dot_FractionMatrix_IntVector(this,that) result(output)
+impure elemental function dot_FractionMatrix_IntVector(this,that) result(output)
   implicit none
   
   type(FractionMatrix), intent(in) :: this
   type(IntVector),      intent(in) :: that
   type(FractionVector)             :: output
   
-  integer, allocatable :: ints(:)
+  type(IntFraction), allocatable :: a(:,:)
+  integer,           allocatable :: b(:)
+  type(IntFraction), allocatable :: contents(:)
   
   integer :: i,ialloc
   
@@ -824,23 +851,26 @@ function dot_FractionMatrix_IntVector(this,that) result(output)
     call err()
   endif
   
-  ints = int(that)
-  
-  allocate(output%contents_(size(this,1)), stat=ialloc); call err(ialloc)
-  output%contents_ = frac(0)
+  a = frac(this)
+  b = int(that)
+  allocate(contents(size(this,1)), stat=ialloc); call err(ialloc)
+  contents = frac(0)
   do i=1,size(that)
-    output%contents_ = output%contents_ + this%contents_(:,i)*ints(i)
+    contents = contents + a(:,i)*b(i)
   enddo
+  output = contents
 end function
 
-function dot_IntMatrix_FractionVector(this,that) result(output)
+impure elemental function dot_IntMatrix_FractionVector(this,that) result(output)
   implicit none
   
   type(IntMatrix),      intent(in) :: this
   type(FractionVector), intent(in) :: that
   type(FractionVector)             :: output
   
-  integer, allocatable :: ints(:,:)
+  integer,           allocatable :: a(:,:)
+  type(IntFraction), allocatable :: b(:)
+  type(IntFraction), allocatable :: contents(:)
   
   integer :: i,ialloc
   
@@ -850,22 +880,27 @@ function dot_IntMatrix_FractionVector(this,that) result(output)
     call err()
   endif
   
-  ints = int(this)
-  
-  allocate(output%contents_(size(this,1)), stat=ialloc); call err(ialloc)
-  output%contents_ = frac(0)
+  a = int(this)
+  b = frac(that)
+  allocate(contents(size(this,1)), stat=ialloc); call err(ialloc)
+  contents = frac(0)
   do i=1,size(that)
-    output%contents_ = output%contents_ + ints(:,i)*that%contents_(i)
+    contents = contents + a(:,i)*b(i)
   enddo
+  output = contents
 end function
 
-function dot_FractionVector_FractionMatrix(this,that) result(output)
+impure elemental function dot_FractionVector_FractionMatrix(this,that) result(output)
   implicit none
   
   type(FractionVector), intent(in) :: this
   type(FractionMatrix), intent(in) :: that
   type(FractionVector)             :: output
   
+  type(IntFraction), allocatable :: a(:)
+  type(IntFraction), allocatable :: b(:,:)
+  type(IntFraction), allocatable :: contents(:)
+  
   integer :: i,ialloc
   
   if (size(this)/=size(that,1)) then
@@ -874,21 +909,26 @@ function dot_FractionVector_FractionMatrix(this,that) result(output)
     call err()
   endif
   
-  allocate(output%contents_(size(that,2)), stat=ialloc); call err(ialloc)
-  output%contents_ = frac(0)
+  a = frac(this)
+  b = frac(that)
+  allocate(contents(size(that,2)), stat=ialloc); call err(ialloc)
+  contents = frac(0)
   do i=1,size(this)
-    output%contents_ = output%contents_ + this%contents_(i)*that%contents_(i,:)
+    contents = contents + a(i)*b(i,:)
   enddo
+  output = contents
 end function
 
-function dot_FractionVector_IntMatrix(this,that) result(output)
+impure elemental function dot_FractionVector_IntMatrix(this,that) result(output)
   implicit none
   
   type(FractionVector), intent(in) :: this
   type(IntMatrix),      intent(in) :: that
   type(FractionVector)             :: output
   
-  integer, allocatable :: ints(:,:)
+  type(IntFraction), allocatable :: a(:)
+  integer,           allocatable :: b(:,:)
+  type(IntFraction), allocatable :: contents(:)
   
   integer :: i,ialloc
   
@@ -898,23 +938,26 @@ function dot_FractionVector_IntMatrix(this,that) result(output)
     call err()
   endif
   
-  ints = int(that)
-  
-  allocate(output%contents_(size(that,2)), stat=ialloc); call err(ialloc)
-  output%contents_ = frac(0)
+  a = frac(this)
+  b = int(that)
+  allocate(contents(size(that,2)), stat=ialloc); call err(ialloc)
+  contents = frac(0)
   do i=1,size(this)
-    output%contents_ = output%contents_ + this%contents_(i)*ints(i,:)
+    contents = contents + a(i)*b(i,:)
   enddo
+  output = contents
 end function
 
-function dot_IntVector_FractionMatrix(this,that) result(output)
+impure elemental function dot_IntVector_FractionMatrix(this,that) result(output)
   implicit none
   
   type(IntVector),      intent(in) :: this
   type(FractionMatrix), intent(in) :: that
   type(FractionVector)             :: output
   
-  integer, allocatable :: ints(:)
+  integer,           allocatable :: a(:)
+  type(IntFraction), allocatable :: b(:,:)
+  type(IntFraction), allocatable :: contents(:)
   
   integer :: i,ialloc
   
@@ -924,161 +967,164 @@ function dot_IntVector_FractionMatrix(this,that) result(output)
     call err()
   endif
   
-  ints = int(this)
-  
-  allocate(output%contents_(size(that,2)), stat=ialloc); call err(ialloc)
-  output%contents_ = frac(0)
+  a = int(this)
+  b = frac(that)
+  allocate(contents(size(that,2)), stat=ialloc); call err(ialloc)
+  contents = frac(0)
   do i=1,size(this)
-    output%contents_ = output%contents_ + ints(i)*that%contents_(i,:)
+    contents = contents + a(i)*b(i,:)
   enddo
+  output = contents
 end function
 
-function dot_FractionMatrix_FractionMatrix(this,that) result(output)
+impure elemental function dot_FractionMatrix_FractionMatrix(this,that) result(output)
   implicit none
   
   type(FractionMatrix), intent(in) :: this
   type(FractionMatrix), intent(in) :: that
   type(FractionMatrix)             :: output
   
-  integer :: i,j,k,ialloc
+  type(IntFraction), allocatable :: a(:,:)
+  type(IntFraction), allocatable :: b(:,:)
+  type(IntFraction), allocatable :: contents(:,:)
+  
+  integer :: i,j,ialloc
   
   if (size(this,2)/=size(that,1)) then
-    call print_line(CODE_ERROR//': Dot product of matrix and matrix of &
+    call print_line(CODE_ERROR//': Dot product of two matrices of &
        &incompatible dimensions.')
     call err()
   endif
   
-  allocate( output%contents_(size(this,1),size(that,2)), &
-          & stat=ialloc); call err(ialloc)
-  output%contents_ = frac(0)
-  do i=1,size(this,1)
-    do j=1,size(this,2)
-      do k=1,size(that,2)
-        output%contents_(i,k) = output%contents_(i,k) &
-                            & + this%contents_(i,j)*that%contents_(j,k)
-      enddo
+  a = frac(this)
+  b = frac(that)
+  allocate(contents(size(this,1),size(that,2)), stat=ialloc); call err(ialloc)
+  contents = frac(0)
+  do i=1,size(that,2)
+    do j=1,size(that,1)
+      contents(:,i) = contents(:,i) + a(:,j)*b(j,i)
     enddo
   enddo
+  output = contents
 end function
 
-function dot_FractionMatrix_IntMatrix(this,that) result(output)
+impure elemental function dot_FractionMatrix_IntMatrix(this,that) result(output)
   implicit none
   
   type(FractionMatrix), intent(in) :: this
   type(IntMatrix),      intent(in) :: that
   type(FractionMatrix)             :: output
   
-  integer, allocatable :: ints(:,:)
+  type(IntFraction), allocatable :: a(:,:)
+  integer,           allocatable :: b(:,:)
+  type(IntFraction), allocatable :: contents(:,:)
   
-  integer :: i,j,k,ialloc
+  integer :: i,j,ialloc
   
   if (size(this,2)/=size(that,1)) then
-    call print_line(CODE_ERROR//': Dot product of matrix and matrix of &
+    call print_line(CODE_ERROR//': Dot product of two matrices of &
        &incompatible dimensions.')
     call err()
   endif
   
-  ints = int(that)
-  
-  allocate( output%contents_(size(this,1),size(that,2)), &
-          & stat=ialloc); call err(ialloc)
-  output%contents_ = frac(0)
-  do i=1,size(this,1)
-    do j=1,size(this,2)
-      do k=1,size(that,2)
-        output%contents_(i,k) = output%contents_(i,k) &
-                            & + this%contents_(i,j)*ints(j,k)
-      enddo
+  a = frac(this)
+  b = int(that)
+  allocate(contents(size(this,1),size(that,2)), stat=ialloc); call err(ialloc)
+  contents = frac(0)
+  do i=1,size(that,2)
+    do j=1,size(that,1)
+      contents(:,i) = contents(:,i) + a(:,j)*b(j,i)
     enddo
   enddo
+  output = contents
 end function
 
-function dot_IntMatrix_FractionMatrix(this,that) result(output)
+impure elemental function dot_IntMatrix_FractionMatrix(this,that) result(output)
   implicit none
   
   type(IntMatrix),      intent(in) :: this
   type(FractionMatrix), intent(in) :: that
   type(FractionMatrix)             :: output
   
-  integer, allocatable :: ints(:,:)
+  integer,           allocatable :: a(:,:)
+  type(IntFraction), allocatable :: b(:,:)
+  type(IntFraction), allocatable :: contents(:,:)
   
-  integer :: i,j,k,ialloc
+  integer :: i,j,ialloc
   
   if (size(this,2)/=size(that,1)) then
-    call print_line(CODE_ERROR//': Dot product of matrix and matrix of &
+    call print_line(CODE_ERROR//': Dot product of two matrices of &
        &incompatible dimensions.')
     call err()
   endif
   
-  ints = int(this)
-  
-  allocate( output%contents_(size(this,1),size(that,2)), &
-          & stat=ialloc); call err(ialloc)
-  output%contents_ = frac(0)
-  do i=1,size(this,1)
-    do j=1,size(this,2)
-      do k=1,size(that,2)
-        output%contents_(i,k) = output%contents_(i,k) &
-                            & + ints(i,j)*that%contents_(j,k)
-     enddo
+  a = int(this)
+  b = frac(that)
+  allocate(contents(size(this,1),size(that,2)), stat=ialloc); call err(ialloc)
+  contents = frac(0)
+  do i=1,size(that,2)
+    do j=1,size(that,1)
+      contents(:,i) = contents(:,i) + a(:,j)*b(j,i)
     enddo
   enddo
+  output = contents
 end function
 
-pure function divide_FractionVector_integer(this,that) result(output)
+impure elemental function divide_FractionVector_integer(this,that) result(output)
   implicit none
   
   type(FractionVector), intent(in) :: this
   integer,              intent(in) :: that
   type(FractionVector)             :: output
   
-  output = this%contents_ / that
+  output = frac(this) / that
 end function
 
-pure function divide_FractionVector_IntFraction(this,that) result(output)
+impure elemental function divide_FractionVector_IntFraction(this,that) result(output)
   implicit none
   
   type(FractionVector), intent(in) :: this
   type(IntFraction),    intent(in) :: that
   type(FractionVector)             :: output
   
-  output = this%contents_ / that
+  output = frac(this) / that
 end function
 
-pure function divide_FractionMatrix_integer(this,that) result(output)
+impure elemental function divide_FractionMatrix_integer(this,that) result(output)
   implicit none
   
   type(FractionMatrix), intent(in) :: this
   integer,              intent(in) :: that
   type(FractionMatrix)             :: output
   
-  output = this%contents_ / that
+  output = frac(this) / that
 end function
 
-pure function divide_FractionMatrix_IntFraction(this,that) result(output)
+impure elemental function divide_FractionMatrix_IntFraction(this,that) result(output)
   implicit none
   
   type(FractionMatrix), intent(in) :: this
   type(IntFraction),    intent(in) :: that
   type(FractionMatrix)             :: output
   
-  output = this%contents_ / that
+  output = frac(this) / that
 end function
 
-! ----------------------------------------------------------------------
 ! I/O overloads.
-! ----------------------------------------------------------------------
-pure function str_FractionVector(this) result(output)
+function str_FractionVector(this) result(output)
   implicit none
   
   class(FractionVector), intent(in) :: this
   type(String)                      :: output
   
+  type(IntFraction), allocatable :: contents(:)
+  
   integer :: i
   
+  contents = frac(this)
   output = ''
   do i=1,size(this)
-    output = output//' '//this%contents_(i)
+    output = output//' '//contents(i)
   enddo
 end function
 
@@ -1088,12 +1134,14 @@ function str_FractionMatrix(this) result(output)
   class(FractionMatrix), intent(in) :: this
   type(String), allocatable         :: output(:)
   
+  type(IntFraction), allocatable :: contents(:,:)
+  
   integer :: i,ialloc
   
   allocate(output(size(this,1)), stat=ialloc); call err(ialloc)
   
   do i=1,size(this,1)
-    output(i) = join(str(this%contents_(i,:)))
+    output(i) = join(str(contents(i,:)))
   enddo
 end function
 end module

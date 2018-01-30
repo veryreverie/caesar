@@ -5,11 +5,20 @@ Installation
 ----------------------------------------
 To install Caesar, run:
 
-  cmake [ path to CAESAR/src/ ]
+  cmake path
   make
 
-This should be run from the destination directory.
+This should be run from the directory where cmake should be built.
+'path' should be the path to the CAESAR/src/ directory.
 The executable 'caesar' will be placed in a 'bin' directory.
+
+Caesar requires the library 'spglib'. This must be on the library path in order for compilation to succeed.
+
+The compiler can be specified using the flag -DCMAKE_Fortran_COMPILER, e.g.
+
+  cmake path -DCMAKE_Fortran_COMPILER:PATH=gfortran
+  cmake path -DCMAKE_Fortran_COMPILER:PATH=ifort
+  cmake path -DCMAKE_Fortran_COMPILER:PATH=nagfor
 
 ----------------------------------------
 Running
@@ -30,11 +39,11 @@ Arguments have the same names and syntax regardless of how they are supplied, so
 
 or in a file, by calling:
 
-  caesar -f filename
+  caesar setup_harmonic -f filename
 
 and adding the following line to the file:
 
-  setup_harmonic 3 3 3
+  q-point_grid 3 3 3
 
 or interactively, as:
 

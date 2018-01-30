@@ -9,6 +9,15 @@ module io_module
   
   private
   
+  ! The terminal escape character.
+  character(1), parameter :: ESC = achar(27)
+  
+  ! Public strings for ease of printing.
+  character(14), parameter, public :: ERROR = ESC//'[31mError'//ESC//'[0m'
+  character(19), parameter, public :: CODE_ERROR = &
+     & ESC//'[31mCode Error'//ESC//'[0m'
+  character(16), parameter, public :: WARNING=ESC//'[95mWarning'//ESC//'[0m'
+  
   ! I/O settings, specifying various input/output properties.
   ! Set by set_io_settings.
   integer      :: TERMINAL_WIDTH = 79
@@ -21,6 +30,12 @@ module io_module
   ! Public types.
   public :: CommandLineFlag
   
+  ! Conversions from String.
+  public :: lgcl
+  public :: int
+  public :: dble
+  public :: cmplx
+  
   ! File operations.
   public :: file_exists ! checks if a file exists
   
@@ -31,8 +46,8 @@ module io_module
   public :: system_call         ! Makes a system call.
   public :: get_flag            ! Reads a flag from the command line.
   public :: read_line_from_user ! Reads a line from the terminal.
-  public :: print_line          ! write(*,'(a)')
   public :: err                 ! Aborts with a stacktrace.
+  public :: print_line          ! write(*,'(a)')
   public :: format_path         ! Converts any path into an absolute path.
   public :: execute_old_code    ! Runs one of the old caesar codes.
   public :: execute_python      ! Runs one of the python scripts.
@@ -40,24 +55,40 @@ module io_module
   public :: left_pad            ! Left pads an integer.
   public :: spaces              ! spaces(n) returns n spaces.
   
-  ! The terminal escape character.
-  character(1), parameter :: ESC = achar(27)
-  
-  ! Public strings for ease of printing.
-  character(14), parameter, public :: ERROR = ESC//'[31mError'//ESC//'[0m'
-  character(19), parameter, public :: CODE_ERROR = &
-     & ESC//'[31mCode Error'//ESC//'[0m'
-  character(16), parameter, public :: WARNING=ESC//'[95mWarning'//ESC//'[0m'
-  
   ! Command line flag and argument.
   type :: CommandLineFlag
     character(1) :: flag
     type(String) :: argument
   end type
   
+  interface lgcl
+    module procedure lgcl_character
+    module procedure lgcl_String
+  end interface
+  
+  interface int
+    module procedure int_character
+    module procedure int_String
+  end interface
+  
+  interface dble
+    module procedure dble_character
+    module procedure dble_String
+  end interface
+  
+  interface cmplx
+    module procedure cmplx_character
+    module procedure cmplx_String
+  end interface
+  
   interface file_exists
     module procedure file_exists_character
     module procedure file_exists_string
+  end interface
+  
+  interface err
+    module procedure err_none
+    module procedure err_allocate_flag
   end interface
   
   interface print_line
@@ -75,11 +106,6 @@ module io_module
     module procedure print_line_reals
     module procedure print_line_logicals
     module procedure print_line_complexes
-  end interface
-  
-  interface err
-    module procedure err_none
-    module procedure err_allocate_flag
   end interface
   
   interface format_path
@@ -173,6 +199,124 @@ module io_module
   end interface
 
 contains
+
+! ----------------------------------------------------------------------
+! Conversion from String
+! ----------------------------------------------------------------------
+! Convert a character or String to logical.
+function lgcl_character(this) result(output)
+  implicit none
+  
+  character(*), intent(in) :: this
+  logical                  :: output
+  
+  integer :: ierr
+  
+  read(this,*,iostat=ierr) output
+  if (ierr/=0) then
+    call print_line(ERROR//': unable to convert the string "'//this//'" to &
+       &a logical.')
+    call err()
+  endif
+end function
+
+impure elemental function lgcl_String(this) result(output)
+  implicit none
+  
+  type(String), intent(in) :: this
+  logical                  :: output
+  
+  output = lgcl(char(this))
+end function
+
+! Convert a character or String to integer.
+function int_character(this) result(output)
+  implicit none
+  
+  character(*), intent(in) :: this
+  integer                  :: output
+  
+  integer :: ierr
+  
+  read(this,*,iostat=ierr) output
+  if (ierr/=0) then
+    call print_line(ERROR//': unable to convert the string "'//this//'" to &
+       &an integer.')
+    call err()
+  endif
+end function
+
+impure elemental function int_String(this) result(output)
+  implicit none
+  
+  type(String), intent(in) :: this
+  integer                  :: output
+  
+  output = int(char(this))
+end function
+
+! Convert a character or String to real(dp).
+function dble_character(this) result(output)
+  implicit none
+  
+  character(*), intent(in) :: this
+  real(dp)                 :: output
+  
+  integer :: ierr
+  
+  read(this,*,iostat=ierr) output
+  if (ierr/=0) then
+    call print_line(ERROR//': unable to convert the string "'//this//'" to &
+       &a real number.')
+    call err()
+  endif
+end function
+
+impure elemental function dble_String(this) result(output)
+  implicit none
+  
+  type(String), intent(in) :: this
+  real(dp)                 :: output
+  
+  output = dble(char(this))
+end function
+
+! Convert a character or String to complex(dp).
+function cmplx_character(this) result(output)
+  implicit none
+  
+  character(*), intent(in) :: this
+  complex(dp)              :: output
+  
+  integer :: i
+  logical :: split_allowed
+  
+  split_allowed = .false.
+  do i=len(this)-1,1,-1
+    if (this(i:i)=='E') then
+      split_allowed = .true.
+    elseif (split_allowed .and. this(i:i)=='+') then
+      output = cmplx(  dble(this(1:i-1)),           &
+                    &  dble(this(i+1:len(this)-1)), &
+                    &  dp)
+      exit
+    elseif (split_allowed .and. this(i:i)=='-') then
+      output = cmplx(  dble(this(1:i-1)),           &
+                    & -dble(this(i+1:len(this)-1)), &
+                    &  dp)
+      exit
+    endif
+  enddo
+end function
+
+impure elemental function cmplx_String(this) result(output)
+  implicit none
+  
+  type(String), intent(in) :: this
+  complex(dp)              :: output
+  
+  output = cmplx(char(this))
+end function
 
 ! ----------------------------------------------------------------------
 ! Checks if a file exists
@@ -457,6 +601,30 @@ subroutine unset_output_unit()
 end subroutine
 
 ! ----------------------------------------------------------------------
+! Aborts with a stacktrace.
+! ----------------------------------------------------------------------
+! Always aborts.
+subroutine err_none()
+  use compiler_specific_module
+  implicit none
+  
+  call err_implementation()
+end subroutine
+
+! Aborts if integer input /= 0.
+! Designed for use with allocate 'stat=ierr' flags.
+subroutine err_allocate_flag(this)
+  implicit none
+  
+  integer, intent(in) :: this
+  
+  if (this/=0) then
+    write(*,*) 'Allocation error.'
+    call err()
+  endif
+end subroutine
+
+! ----------------------------------------------------------------------
 ! Subroutines to print lines, as write(), but with error checking
 !    and formatting.
 ! ----------------------------------------------------------------------
@@ -685,30 +853,6 @@ function spaces(no_spaces) result(output)
 end function
 
 ! ----------------------------------------------------------------------
-! Aborts with a stacktrace.
-! ----------------------------------------------------------------------
-! Always aborts.
-subroutine err_none()
-  use compiler_specific_module
-  implicit none
-  
-  call err_implementation()
-end subroutine
-
-! Aborts if integer input /= 0.
-! Designed for use with allocate 'stat=ierr' flags.
-subroutine err_allocate_flag(this)
-  implicit none
-  
-  integer, intent(in) :: this
-  
-  if (this/=0) then
-    call print_line('Allocation error.')
-    call err()
-  endif
-end subroutine
-
-! ----------------------------------------------------------------------
 ! Takes a directory name, and converts it into an absolute path
 !    in standard format (without a trailing '/').
 ! ----------------------------------------------------------------------
@@ -871,7 +1015,7 @@ function colour_character_character(input,colour_name) result(output)
   elseif (lower_case_name=='white') then
     colour_code = '97'
   else
-    call print_line('Error: '//colour_name//' is not a colour.')
+    call print_line('Error: '//colour_name//' is not an accepted colour.')
     call err()
   endif
   

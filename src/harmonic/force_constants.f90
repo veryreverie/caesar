@@ -20,6 +20,7 @@ module force_constants_module
   contains
     procedure, public :: constants
     procedure, public :: check
+    procedure, public :: write_file
   end type
   
   interface ForceConstants
@@ -57,6 +58,7 @@ contains
 ! sum(x,s)[x'^x'] is block diagonal, so can be inverted in 3x3 blocks.
 function new_ForceConstants_forces(supercell,unique_directions,sdir, &
    & file_type,seedname,acoustic_sum_rule_forces,logfile) result(output)
+  use utils_module, only : sum_squares
   use linear_algebra_module
   use structure_module
   use unique_directions_module
@@ -100,6 +102,7 @@ function new_ForceConstants_forces(supercell,unique_directions,sdir, &
   ! Construct F = sum[f'^x'] . inverse(sum[x'^x']).
   output = construct_f(xx,fx,supercell,logfile)
   
+  ! Check output.
   call output%check( forces,            &
                    & supercell,         &
                    & unique_directions, &
@@ -570,8 +573,6 @@ subroutine check(this,forces,supercell,unique_directions,logfile)
   ! Atoms.
   type(AtomData) :: atom_1
   type(AtomData) :: atom_2
-  type(AtomData) :: atom_1p
-  type(AtomData) :: atom_2p
   
   real(dp) :: average
   real(dp) :: difference
@@ -579,63 +580,7 @@ subroutine check(this,forces,supercell,unique_directions,logfile)
   type(RealVector) :: calculated
   type(RealVector) :: fitted
   
-  type(RealVector)              :: x_1p
-  type(RealVector)              :: f_2p
-  type(RealMatrix), allocatable :: fx_calculated(:,:)
-  type(RealMatrix), allocatable :: fx_fitted(:,:)
-  
   integer :: i,j,k,ialloc
-  
-  ! Calculate sum[F.x^x] and sum[f^x].
-  allocate( fx_calculated(supercell%no_atoms,supercell%no_atoms), &
-          & fx_fitted(supercell%no_atoms,supercell%no_atoms),     &
-          & stat=ialloc); call err(ialloc)
-  fx_calculated = mat(dble(zeroes(3,3)))
-  fx_fitted     = mat(dble(zeroes(3,3)))
-  do i=1,size(supercell%symmetries)
-    do j=1,size(unique_directions)
-      atom_1 = supercell%atoms(unique_directions(j)%atom_id)
-      atom_1p = supercell%atoms( supercell%symmetries(i)%atom_group &
-                             & * atom_1%id())
-      x_1p = supercell%symmetries(i)%cartesian_rotation &
-         & * unique_directions(j)%displacement
-      do k=1,supercell%no_atoms
-        atom_2 = supercell%atoms(k)
-        atom_2p = supercell%atoms( supercell%symmetries(i)%atom_group &
-                               & * atom_2%id())
-        f_2p = supercell%symmetries(i)%cartesian_rotation &
-           & * forces(atom_2%id(),j)
-        fx_calculated(atom_2p%id(),atom_1p%id()) =    &
-           & fx_calculated(atom_2p%id(),atom_1p%id()) &
-           & + outer_product(f_2p,x_1p)
-        fx_fitted(atom_2%id(),atom_1p%id()) =    &
-           & fx_fitted(atom_2%id(),atom_1p%id()) &
-           & + this%constants(atom_2,atom_1p)    &
-           & * outer_product(x_1p,x_1p)          &
-           & / supercell%sc_size
-      enddo
-    enddo
-  enddo
-  
-  ! Check force constants against symmetrised forces.
-  average = 0
-  difference = 0
-  do i=1,supercell%no_atoms
-    do j=1,supercell%no_atoms
-      average = average + sum_squares((fx_calculated(j,i)+fx_fitted(j,i))/2)
-      difference = difference + sum_squares(fx_calculated(j,i)-fx_fitted(j,i))
-    enddo
-  enddo
-  call logfile%print_line(                                 &
-     &'Fractional L2 Error in fitting procedure      : '// &
-     & sqrt(difference/average))
-  ! TODO: Find out why the errors here are larger than expected.
-  if (sqrt(difference/average)>1e-4_dp) then
-    call print_line(WARNING//': Large error in force constant fitting. Please &
-       &check log files.')
-    call print_line(average)
-    call print_line(difference)
-  endif
   
   ! Check force constants against raw forces.
   average = 0
@@ -658,5 +603,27 @@ subroutine check(this,forces,supercell,unique_directions,logfile)
   call logfile%print_line('Fractional L2 difference between forces &
      &before and after symmetrisation (this may be large): '// &
      &sqrt(difference/average))
+end subroutine
+
+subroutine write_file(this,filename)
+  use ofile_module
+  implicit none
+  
+  class(ForceConstants), intent(in) :: this
+  type(String),          intent(in) :: filename
+  
+  type(OFile) :: file
+  
+  integer :: i,j
+  
+  file = filename
+  
+  do i=1,size(this%constants_,1)
+    do j=1,size(this%constants_,2)
+     call file%print_line('')
+     call file%print_line('i: '//i//', j: '//j)
+     call file%print_line(this%constants_(i,j))
+    enddo
+  enddo
 end subroutine
 end module

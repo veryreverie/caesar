@@ -31,7 +31,7 @@ contains
 !    with determinant |S|=s s.t. S.q is a vector of integers.
 ! i.e. The supercell with supercell matrix S has this q-point as a G-vector.
 ! ----------------------------------------------------------------------
-pure function min_sc_size(this) result(output)
+function min_sc_size(this) result(output)
   use utils_module, only : lcm
   implicit none
   

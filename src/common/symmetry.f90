@@ -7,6 +7,7 @@ module symmetry_module
   use io_module
   
   use linear_algebra_module
+  use fraction_algebra_module
   use group_module
   implicit none
   
@@ -28,6 +29,9 @@ module symmetry_module
     ! (L^T)R(L^-T) and (L^T)T.
     type(RealMatrix) :: cartesian_rotation
     type(RealVector) :: cartesian_translation
+    
+    ! The rotation in fractional reciprocal co-ordinates.
+    type(FractionMatrix) :: recip_rotation
     
     ! The mapping from atoms to other atoms.
     ! rho_i and rho_j are the equilibrium positions of atom i and j.
@@ -99,6 +103,8 @@ function calculate_symmetries(basic_symmetries,lattice,recip_lattice,atoms) &
                                & * recip_lattice
     output(i)%cartesian_translation = transpose(lattice) &
                                   & * output(i)%translation
+    
+    output(i)%recip_rotation = transpose(invert(output(i)%rotation))
   enddo
 
   ! --------------------------------------------------

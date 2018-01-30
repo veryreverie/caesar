@@ -24,7 +24,6 @@ module dynamical_matrix_module
   end type
   
   interface DynamicalMatrix
-    module procedure new_DynamicalMatrix
     module procedure new_DynamicalMatrix_calculated
     module procedure new_DynamicalMatrix_interpolated
   end interface
@@ -38,27 +37,120 @@ contains
 ! Constructs the matrix of force constants in q-point co-ordinates,
 !    given the matrix of force constants in supercell co-ordinates.
 ! ----------------------------------------------------------------------
-function new_DynamicalMatrix(q,at_gamma,paired_qpoint,supercell, &
-   & force_constants,min_images) result(this)
+
+! ----------------------------------------------------------------------
+! Construct the dynamical matrix at the specified q-point from the given
+!    force constants.
+! Considers all supercell, S, and symmetry, R, combinations such that
+!    S.R.q is a vector of integers, i.e. the q-point is a G-vector of the
+!    supercell.
+! ----------------------------------------------------------------------
+function new_DynamicalMatrix_calculated(qpoint,supercells,force_constants, &
+   & structure) result(this)
+  use structure_module
+  use min_images_module
+  use force_constants_module
+  use atom_module
+  use qpoints_module
+  use ofile_module
+  implicit none
+  
+  type(QpointData),     intent(in) :: qpoint
+  type(StructureData),  intent(in) :: supercells(:)
+  type(ForceConstants), intent(in) :: force_constants(:)
+  type(StructureData),  intent(in) :: structure
+  type(DynamicalMatrix)            :: this
+  
+  logical :: at_gamma
+  logical :: paired_qpoint
+  
+  type(RealVector)             :: q
+  
+  integer :: multiple
+  integer :: i,j,ialloc
+  
+  ! Check that the supercells and force constants correspond to one another.
+  if (size(supercells)/=size(force_constants)) then
+    call print_line(CODE_ERROR//': Force constants and supercells do not &
+       &match.')
+    call err()
+  endif
+  
+  q = dble(qpoint%qpoint)
+  
+  multiple = 0
+  do i=1,structure%symmetries
+    do j=1,size(supercells)
+      ! Check if the q-point is a G-vector of the rotated supercell.
+      if (is_int( supercells(j)%supercell          &
+              & * structure%symmetries(i)%rotation &
+              & * qpoint%qpoint )) then
+        multiple = multiple+1
+        do k=1,supercells(j)%no_atoms_prim
+          atom_1 = supercells(j)%atoms(k)
+          atom_1p = supercells(j)%atoms( structure%symmetries(i)%atom_group &
+                                     & * atom_1%id())
+          do l=1,supercells(j)%no_atoms
+            atom_2 = supercells(j)%atoms(l)
+            atom_2p = supercells(j)%atoms( structure%symmetries(i)%atom_group &
+                                       & * atom_2%id())
+            ! TODO: rotated rvec_2 + sym%rvec
+            !       = rvec_2p-rvec_1p?
+            rvector = !???
+            qr = 2*pi*q*rvectors(k)
+            exp_minus_iqr = cmplx(cos(qr),-sin(qr),dp)
+            this%matrices(atom_2p%prim_id(),atom_1p%prim_id()) =    &
+               & this%matrices(atom_2%prim_id(),atom_1%prim_id())   &
+               & + force_constants(j)%constants(atom_2,atom_1)      &
+               & * exp_minus_iqr                                    &
+               & / supercell(j)%sc_size
+          enddo
+        enddo
+      endif
+    enddo
+  enddo
+  
+  if (multiple==0) then
+    call err()
+  endif
+  
+  ! Divide by the number of times the dynamical matrix has been added together.
+  output%matrices = output%matrices / multiple
+  
+  ! Diagonalise the dynamical matrix, to obtain the normal mode
+  !    co-ordinates (eigenvectors) and harmonic frequencies (eigenvalues).
+  at_gamma = is_int(qpoint%qpoint)
+  paired_qpoint = is_int(2*qpoint%qpoint)
+  this%complex_modes = calculate_modes( this%matrices, &
+                                      & at_gama,       &
+                                      & paired_qpoint, &
+                                      & supercell)
+end function
+
+! ----------------------------------------------------------------------
+! Construct a dynamical matrix at a q-point which is not commensurate
+!    with the supercell.
+! This is only an approximation, using a minimum-image convention.
+! ----------------------------------------------------------------------
+function new_DynamicalMatrix_interpolated(q,supercell,force_constants, &
+   & min_images) result(this)
   use constants_module, only : pi
   use structure_module
   use min_images_module
   use force_constants_module
   use atom_module
+  use qpoints_module
   use ofile_module
   implicit none
   
-  type(RealVector),     intent(in)    :: q
-  logical,              intent(in)    :: at_gamma
-  logical,              intent(in)    :: paired_qpoint
-  type(StructureData),  intent(in)    :: supercell
-  type(ForceConstants), intent(in)    :: force_constants
-  type(MinImages),      intent(in)    :: min_images(:,:)
-  type(DynamicalMatrix)               :: this
+  type(RealVector),     intent(in) :: q
+  type(StructureData),  intent(in) :: supercell
+  type(ForceConstants), intent(in) :: force_constants
+  type(MinImages),      intent(in) :: min_images(:,:)
+  type(DynamicalMatrix)            :: this
   
   type(AtomData) :: atom_1
   type(AtomData) :: atom_2
-  
   
   type(IntVector), allocatable :: rvectors(:)
   real(dp)                     :: qr
@@ -94,91 +186,9 @@ function new_DynamicalMatrix(q,at_gamma,paired_qpoint,supercell, &
   ! Diagonalise the dynamical matrix, to obtain the normal mode
   !    co-ordinates (eigenvectors) and harmonic frequencies (eigenvalues).
   this%complex_modes = calculate_modes( this%matrices, &
-                                      & at_gamma,      &
-                                      & paired_qpoint, &
+                                      & .false.,       &
+                                      & .false.,       &
                                       & supercell)
-end function
-
-! ----------------------------------------------------------------------
-! Construct a dynamical matrix at a q-point commensurate with the supercell,
-!    i.e. S.q is a vector of integers.
-! ----------------------------------------------------------------------
-function new_DynamicalMatrix_calculated(qpoint,at_gamma,paired_qpoint, &
-   & supercell,force_constants) result(this)
-  use structure_module
-  use min_images_module
-  use force_constants_module
-  use atom_module
-  use qpoints_module
-  use ofile_module
-  implicit none
-  
-  type(QpointData),     intent(in) :: qpoint
-  logical,              intent(in) :: at_gamma
-  logical,              intent(in) :: paired_qpoint
-  type(StructureData),  intent(in) :: supercell
-  type(ForceConstants), intent(in) :: force_constants
-  type(DynamicalMatrix)            :: this
-  
-  type(RealVector)             :: q
-  type(IntVector)              :: rvector_i
-  type(IntVector)              :: rvector_j
-  type(IntVector)              :: rvector_ji
-  type(MinImages), allocatable :: min_images(:,:)
-  
-  integer :: i,j,ialloc
-  
-  ! Generate a dummy min_images.
-  ! Since q is commensurate with the supercell, it doesn't matter which
-  !    supercell R-vector, Rs, is chosen, since q.Rs=0.
-  allocate( min_images( supercell%no_atoms,  &
-          &             supercell%no_atoms), &
-          & stat=ialloc); call err(ialloc)
-  do i=1,supercell%no_atoms
-    rvector_i = supercell%rvectors(supercell%atoms(i)%rvec_id())
-    do j=1,supercell%no_atoms
-      rvector_j = supercell%rvectors(supercell%atoms(j)%rvec_id())
-      rvector_ji = rvector_i - rvector_j
-      min_images(j,i) = MinImages([rvector_ji])
-    enddo
-  enddo
-  
-  q = dble(qpoint%qpoint)
-  this = DynamicalMatrix( q,               &
-                        & at_gamma,        &
-                        & paired_qpoint,   &
-                        & supercell,       &
-                        & force_constants, &
-                        & min_images)
-end function
-
-! ----------------------------------------------------------------------
-! Construct a dynamical matrix at a q-point which is not commensurate
-!    with the supercell.
-! This is only an approximation, using a minimum-image convention.
-! ----------------------------------------------------------------------
-function new_DynamicalMatrix_interpolated(q,supercell,force_constants, &
-   & min_images) result(this)
-  use structure_module
-  use min_images_module
-  use force_constants_module
-  use atom_module
-  use qpoints_module
-  use ofile_module
-  implicit none
-  
-  type(RealVector),     intent(in) :: q
-  type(StructureData),  intent(in) :: supercell
-  type(ForceConstants), intent(in) :: force_constants
-  type(MinImages),      intent(in) :: min_images(:,:)
-  type(DynamicalMatrix)            :: this
-  
-  this = DynamicalMatrix( q,               &
-                        & .false.,         &
-                        & .false.,         &
-                        & supercell,       &
-                        & force_constants, &
-                        & min_images)
 end function
 
 ! ----------------------------------------------------------------------
@@ -608,7 +618,7 @@ end function
 ! Construct data at q_new from data at q_old, where
 !    R . q_old = q_new.
 ! N.B. the provided q-point should be q_new not q_old.
-function rotate_modes(input,symmetry,qpoint) result(output)
+function rotate_modes(input,symmetry,qpoint_from,qpoint_to) result(output)
   use constants_module, only : pi
   use utils_module, only : sum_squares
   use qpoints_module
@@ -617,7 +627,8 @@ function rotate_modes(input,symmetry,qpoint) result(output)
   
   type(DynamicalMatrix),  intent(in)    :: input
   type(SymmetryOperator), intent(in)    :: symmetry
-  type(QpointData),       intent(in)    :: qpoint
+  type(QpointData),       intent(in)    :: qpoint_from
+  type(QpointData),       intent(in)    :: qpoint_to
   type(DynamicalMatrix)                 :: output
   
   ! q.Rj an exp(i q.Rj), where Rj is symmetry%rvector(j)
@@ -639,21 +650,25 @@ function rotate_modes(input,symmetry,qpoint) result(output)
   ! Temporary variables.
   integer :: i,ialloc
   
+  ! Check that the symmetry rotates the q-point as expected.
+  if (symmetry%recip_rotation * qpoint_from%qpoint /= qpoint_to%qpoint) then
+    call print_line(CODE_ERROR//': Symmetry does not transform q-points as &
+       &expected.')
+    call err()
+  endif
+  
   no_atoms = size(input%matrices,1)
   no_modes = 3*no_atoms
   
   ! Construct phases.
   ! The symmetry, S, maps equilibrium position ri to rj+R,
   !    and q-point q to q'.
-  ! The phase change is then (q').(rj+R)-q.ri.
   
-  ! S : r -> r' + R
-  ! S : q -> q'
-  ! q'.r'-q.r = q'.R
+  ! The +R needs to be corrected for, by multiplying the phase by exp(-iq.R).
   
   allocate(exp_iqr(no_atoms), stat=ialloc); call err(ialloc)
   do i=1,no_atoms
-    q = dble(qpoint%qpoint)
+    q = dble(qpoint_to%qpoint)
     qr = 2*pi*q*symmetry%rvector(i)
     exp_iqr(i) = cmplx(cos(qr),sin(qr),dp)
   enddo
@@ -665,17 +680,18 @@ function rotate_modes(input,symmetry,qpoint) result(output)
     do atom_2=1,no_atoms
       atom_2p = symmetry%atom_group * atom_2
       
-      output%matrices(atom_2p,atom_1p) = symmetry%cartesian_rotation   &
-                                     & * exp_iqr(atom_2)               &
-                                     & * input%matrices(atom_2,atom_1) &
-                                     & * conjg(exp_iqr(atom_1))        &
-                                     & * transpose(symmetry%cartesian_rotation)
+      output%matrices(atom_2p,atom_1p) =          &
+         & symmetry%cartesian_rotation &
+         & * exp_iqr(atom_2)                     &
+         & * input%matrices(atom_2,atom_1)        &
+         & * conjg(exp_iqr(atom_1))              &
+         & * transpose(symmetry%cartesian_rotation)
     enddo
   enddo
   
   ! Rotate normal modes.
   if ( input%complex_modes(1)%at_paired_qpoint .neqv. &
-     & qpoint%is_paired_qpoint) then
+     & qpoint_to%is_paired_qpoint) then
     call print_line(CODE_ERROR//': Error matching rotated q-points.')
     call err()
   endif
@@ -685,18 +701,18 @@ function rotate_modes(input,symmetry,qpoint) result(output)
   do mode=1,no_modes
     do atom_1=1,no_atoms
       atom_1p = symmetry%atom_group * atom_1
-      if (qpoint%is_paired_qpoint) then
+      if (qpoint_to%is_paired_qpoint) then
         output%complex_modes(mode)%primitive_displacements(atom_1p,1) =    &
-           & symmetry%cartesian_rotation                                   &
+           & transpose(symmetry%cartesian_rotation)                        &
            & * input%complex_modes(mode)%primitive_displacements(atom_1,1) &
            & * exp_iqr(atom_1)
       else
         output%complex_modes(mode)%primitive_displacements(atom_1p,1) =    &
-           & symmetry%cartesian_rotation                                   &
+           & transpose(symmetry%cartesian_rotation)                        &
            & * input%complex_modes(mode)%primitive_displacements(atom_1,1) &
            & * exp_iqr(atom_1)
         output%complex_modes(mode)%primitive_displacements(atom_1p,2) =    &
-           & symmetry%cartesian_rotation                                   &
+           & transpose(symmetry%cartesian_rotation)                        &
            & * input%complex_modes(mode)%primitive_displacements(atom_1,2) &
            & * exp_iqr(atom_1)
       endif
@@ -704,10 +720,11 @@ function rotate_modes(input,symmetry,qpoint) result(output)
   enddo
 end function
 
-subroutine print_dyn_mat(input)
+subroutine print_dyn_mat(input,colours)
   implicit none
   
-  type(DynamicalMatrix), intent(in) :: input
+  type(DynamicalMatrix), intent(in)           :: input
+  type(String),          intent(in), optional :: colours(:,:,:,:)
   
   integer :: no_atoms
   integer :: i,j,k,l
@@ -725,8 +742,13 @@ subroutine print_dyn_mat(input)
       do k=1,no_atoms
         do l=1,3
           thingy = cmplx(input%matrices(i,k))
-          write(thing,fmt='(es8.0,sp,es7.0,"i")') thingy(j,l)
-          line = line//trim(thing)
+          !write(thing,fmt='(es8.0,sp,es7.0,"i")') thingy(j,l)
+          write(thing,fmt='(f9.5,sp,f3.0,"i")') thingy(j,l)*1e5_dp
+          if (present(colours)) then
+            line = line//colour(trim(thing),colours(i,j,k,l))
+          else
+            line = line//trim(thing)
+          endif
         enddo
       enddo
       call print_line(line)
@@ -767,11 +789,16 @@ subroutine compare_dynamical_matrices(a,b,logfile)
   
   type(ComplexMatrix) :: mat_a
   type(ComplexMatrix) :: mat_b
+  complex(dp) :: ma(3,3)
+  complex(dp) :: mb(3,3)
   
   real(dp) :: average
   real(dp) :: difference
   
-  integer :: i,j
+  real(dp)                  :: threshold
+  type(String), allocatable :: colours(:,:,:,:)
+  
+  integer :: i,j,k,l,ialloc
   
   no_atoms = size(a%matrices,1)
   if (size(b%matrices,1)/=no_atoms) then
@@ -779,6 +806,8 @@ subroutine compare_dynamical_matrices(a,b,logfile)
        &sizes.')
     call err()
   endif
+  
+  allocate(colours(no_atoms,3,no_atoms,3), stat=ialloc); call err(ialloc)
   
   average = 0.0_dp
   difference = 0.0_dp
@@ -788,6 +817,32 @@ subroutine compare_dynamical_matrices(a,b,logfile)
       mat_b = b%matrices(j,i)
       average = average + sum_squares((mat_a+mat_b)/2)
       difference = difference + sum_squares(mat_a-mat_b)
+      
+      ma = cmplx(mat_a)
+      mb = cmplx(mat_b)
+      do k=1,3
+        do l=1,3
+          if (abs(ma(l,k))<1e-10_dp) then
+            ! If the absolute value is small, ignore the error.
+            colours(j,l,i,k) = 'green'
+            cycle
+          endif
+          threshold = abs(ma(l,k)-mb(l,k))/abs((ma(l,k)+mb(l,k))/2)
+          if (threshold>1e-2_dp) then
+            colours(j,l,i,k) = 'red'
+          elseif (threshold>1e-4_dp) then
+            colours(j,l,i,k) = 'yellow'
+          elseif (threshold>1e-6_dp) then
+            colours(j,l,i,k) = 'purple'
+          elseif (threshold>1e-8_dp) then
+            colours(j,l,i,k) = 'blue'
+          elseif (threshold>1e-10_dp) then
+            colours(j,l,i,k) = 'cyan'
+          else
+            colours(j,l,i,k) = 'green'
+          endif
+        enddo
+      enddo
     enddo
   enddo
   call logfile%print_line('Fractional L2 difference between dynamical &
@@ -795,6 +850,11 @@ subroutine compare_dynamical_matrices(a,b,logfile)
   if (sqrt(difference/average)>1e-10_dp) then
     call print_line(WARNING//': Dynamical matrices differ. Please check &
        &log files.')
+    call print_line(difference//' /'//average)
+    call print_line('Rotating from:')
+    call print_dyn_mat(a,colours)
+    call print_line('Rotating to:')
+    call print_dyn_mat(b,colours)
   endif
 end subroutine
 end module

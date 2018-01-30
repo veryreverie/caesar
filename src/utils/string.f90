@@ -17,10 +17,6 @@ module string_module
   ! Conversions between classes
   public :: str   ! Conversion to String.
   public :: char  ! Conversion from String to character.
-  public :: int   ! Conversion from String to integer.
-  public :: dble  ! Conversion from String to real(dp).
-  public :: cmplx ! Conversion from String to complex(dp).
-  public :: lgcl  ! Conversion from String to logical.
   
   public :: assignment(=)
   
@@ -43,23 +39,8 @@ module string_module
   ! The String class, containing an allocatable character string.
   ! Allows for inhomogeneous character arrays for e.g. storing files.
   type :: String
-    character(:), allocatable, private :: contents
+    character(:), allocatable, private :: contents_
   contains
-    generic, public :: assignment(=) => assign_String_character,  &
-                                      & assign_String_String,     &
-                                      & assign_String_Stringable, &
-                                      & assign_String_logical,    &
-                                      & assign_String_integer,    &
-                                      & assign_String_real,       &
-                                      & assign_String_complex
-    procedure, private               :: assign_String_character
-    procedure, private               :: assign_String_String
-    procedure, private               :: assign_String_Stringable
-    procedure, private               :: assign_String_logical
-    procedure, private               :: assign_String_integer
-    procedure, private               :: assign_String_real
-    procedure, private               :: assign_String_complex
-    
     generic, public :: operator(==) => equality_String_String,    &
                                      & equality_String_character, &
                                      & equality_character_String
@@ -95,7 +76,7 @@ module string_module
   end type
   
   abstract interface
-    pure function str_Stringable_2(this) result(output)
+    function str_Stringable_2(this) result(output)
       import String
       import Stringable
       implicit none
@@ -108,6 +89,15 @@ module string_module
   ! ----------------------------------------------------------------------
   ! Interfaces
   ! ----------------------------------------------------------------------
+  interface assignment(=)
+    module procedure assign_String_character
+    module procedure assign_String_String
+    module procedure assign_String_Stringable
+    module procedure assign_String_logical
+    module procedure assign_String_integer
+    module procedure assign_String_real
+    module procedure assign_String_complex
+  end interface
   
   interface assignment(=)
     module procedure assign_character_String
@@ -125,22 +115,6 @@ module string_module
   
   interface char
     module procedure char_String
-  end interface
-  
-  interface lgcl
-    module procedure lgcl_String
-  end interface
-  
-  interface int
-    module procedure int_String
-  end interface
-  
-  interface dble
-    module procedure dble_String
-  end interface
-  
-  interface cmplx
-    module procedure cmplx_String
   end interface
   
   interface len
@@ -167,6 +141,11 @@ module string_module
   
   interface trim
     module procedure trim_String
+  end interface
+  
+  interface slice
+    module procedure slice_character
+    module procedure slice_String
   end interface
   
   interface operator(//)
@@ -221,86 +200,113 @@ module string_module
   end interface
 contains
 
+! ----------------------------------------------------------------------
+! String operations involving the private variable contents_
+! ----------------------------------------------------------------------
+! Assignment.
+! String = character
+pure subroutine assign_String_character(output,input)
+  implicit none
+  
+  type(String), intent(out) :: output
+  character(*), intent(in)  :: input
+  
+  output%contents_ = input
+end subroutine
+
+! String length. Equivalent to the character len() function.
+pure function len_String(this) result(output)
+  implicit none
+  
+  type(String), intent(in) :: this
+  integer                  :: output
+  
+  if (allocated(this%contents_)) then
+    output = len(this%contents_)
+  else
+    output = 0
+  endif
+end function
+
+! Converts a String to a character(*). Effectively a getter for contents_.
+pure function char_String(this) result(output)
+  implicit none
+  
+  type(String), intent(in) :: this
+  character(len(this))     :: output
+  
+  if (allocated(this%contents_)) then
+    output = this%contents_
+  else
+    output = ''
+  endif
+end function
+
+! ----------------------------------------------------------------------
+! String operations not involving the private variable contents_
+! ----------------------------------------------------------------------
+! N.B. the number of procedures accessing contents_ directly is intentionally
+!    limited for stability reasons.
+! The above procedures behave well if the String has not been allocated,
+!    and this good behaviour is automatically passed to the procedures below.
+
 ! --------------------------------------------------
 ! Assignment.
 ! --------------------------------------------------
-
-! String = character
-pure subroutine assign_String_character(this,that)
-  implicit none
-  
-  class(String), intent(inout) :: this
-  character(*),  intent(in)    :: that
-  
-  if(allocated(this%contents)) then
-    deallocate(this%contents)
-  endif
-  
-  allocate(character(len(that)) :: this%contents)
-  this%contents = that
-end subroutine
-
 ! String = String
-pure subroutine assign_String_String(this,that)
+pure subroutine assign_String_String(output,input)
   implicit none
   
-  class(String), intent(inout) :: this
-  class(String), intent(in)    :: that
+  type(String),  intent(out) :: output
+  class(String), intent(in)  :: input
   
-  ! An allocated() check is needed because casting
-  !   from character(:) to character(*) failes if the character(:) is not
-  !   allocated.
-  if (allocated(that%contents)) then
-    this = that%contents
-  elseif (allocated(this%contents)) then
-    deallocate(this%contents)
-  endif
+  output = char(input)
 end subroutine
 
 ! String = Stringable
-pure subroutine assign_String_Stringable(this,that)
+subroutine assign_String_Stringable(output,input)
   implicit none
   
-  class(String),     intent(inout) :: this
-  class(Stringable), intent(in)    :: that
+  type(String),      intent(out) :: output
+  class(Stringable), intent(in)  :: input
   
-  this = that%str()
+  output = input%str()
 end subroutine
 
 ! String = logical
-pure subroutine assign_String_logical(this,that)
+pure subroutine assign_String_logical(output,input)
   implicit none
   
-  class(String), intent(inout) :: this
-  logical,       intent(in)    :: that
+  type(String), intent(out) :: output
+  logical,      intent(in)  :: input
   
-  if (that) then
-    this = 'T'
+  if (input) then
+    output = 'T'
   else
-    this = 'F'
+    output = 'F'
   endif
 end subroutine
 
 ! String = integer
-pure subroutine assign_String_integer(this,that)
+pure subroutine assign_String_integer(output,input)
   implicit none
   
-  class(String), intent(inout) :: this
-  integer,       intent(in)    :: that
+  type(String), intent(out) :: output
+  integer,      intent(in)  :: input
   
   integer, parameter   :: int_width = 12
   character(int_width) :: int_string
   
-  write(int_string,"(I0)") that
-  this = trim(int_string)
+  write(int_string,"(I0)") input
+  output = trim(int_string)
 end subroutine
 
 ! String = real
-pure subroutine assign_String_real(this,that)
+pure subroutine assign_String_real(output,input)
   implicit none
   
-  class(String), intent(inout) :: this
-  real(dp),      intent(in)    :: that
+  type(String), intent(out) :: output
+  real(dp),     intent(in)  :: input
   
   integer, parameter    :: real_width = 25
   integer, parameter    :: decimal_places = 17
@@ -308,23 +314,23 @@ pure subroutine assign_String_real(this,that)
   character(real_width) :: real_string
   
   format_string = "(ES"//real_width//'.'//decimal_places//")"
-  write(real_string, char(format_string)) that
+  write(real_string, char(format_string)) input
   
-  this = real_string
+  output = real_string
 end subroutine
 
 ! String = complex
-pure subroutine assign_String_complex(this,that)
+pure subroutine assign_String_complex(output,input)
   implicit none
   
-  class(String), intent(inout) :: this
-  complex(dp),   intent(in)    :: that
+  type(String), intent(out) :: output
+  complex(dp),  intent(in)  :: input
   
   type(String) :: real_string
   type(String) :: imag_string
   
-  real_string = real(that)
-  imag_string = aimag(that)
+  real_string = real(input)
+  imag_string = aimag(input)
   
   imag_string = trim(imag_string)
   
@@ -332,17 +338,17 @@ pure subroutine assign_String_complex(this,that)
     imag_string = '+'//imag_string
   endif
   
-  this = real_string//imag_string//'i'
+  output = real_string//imag_string//'i'
 end subroutine
 
 ! character = String
-pure subroutine assign_character_String(output,this)
+pure subroutine assign_character_String(output,input)
   implicit none
   
-  type(String), intent(in)    :: this
-  character(*), intent(inout) :: output
+  character(*), intent(out) :: output
+  type(String), intent(in)  :: input
   
-  output = this%contents
+  output = char(input)
 end subroutine
 
 ! ----------------------------------------------------------------------
@@ -366,7 +372,7 @@ elemental function str_String(this) result(output)
   output = this
 end function
 
-elemental function str_Stringable(this) result(output)
+impure elemental function str_Stringable(this) result(output)
   implicit none
   
   class(Stringable), intent(in) :: this
@@ -412,77 +418,6 @@ elemental function str_complex(this) result(output)
 end function
 
 ! ----------------------------------------------------------------------
-! Conversion from String
-! ----------------------------------------------------------------------
-! character = char(String)
-pure function char_String(this) result(output)
-  implicit none
-  
-  type(String), intent(in) :: this
-  character(len(this))     :: output
-  
-  output = this%contents
-end function
-
-! logical = lgcl(String)
-elemental function lgcl_String(this) result(output)
-  implicit none
-  
-  type(String), intent(in) :: this
-  logical                  :: output
-  
-  read(this%contents,*) output
-end function
-
-! integer = int(String)
-elemental function int_String(this) result(output)
-  implicit none
-  
-  type(String), intent(in) :: this
-  integer                  :: output
-  
-  read(this%contents,*) output
-end function
-
-! real(dp) = dble(String)
-elemental function dble_String(this) result(output)
-  implicit none
-  
-  type(String), intent(in) :: this
-  real(dp)                 :: output
-  
-  read(this%contents,*) output
-end function
-
-! complex(dp) = cmplx(String)
-elemental function cmplx_String(this) result(output)
-  implicit none
-  
-  type(String), intent(in) :: this
-  complex(dp)              :: output
-  
-  integer :: i
-  logical :: split_allowed
-  
-  split_allowed = .false.
-  do i=len(this)-1,1,-1
-    if (slice(this,i,i)=='E') then
-      split_allowed = .true.
-    elseif (split_allowed .and. slice(this,i,i)=='+') then
-      output = cmplx(  dble(slice(this,1,i-1)), &
-                    &  dble(slice(this,i+1,len(this)-1)), &
-                    &  dp)
-      exit
-    elseif (split_allowed .and. slice(this,i,i)=='-') then
-      output = cmplx(  dble(slice(this,1,i-1)), &
-                    & -dble(slice(this,i+1,len(this)-1)), &
-                    &  dp)
-      exit
-    endif
-  enddo
-end function
-
-! ----------------------------------------------------------------------
 ! Equality
 ! ----------------------------------------------------------------------
 ! String==String
@@ -493,7 +428,7 @@ elemental function equality_String_String(this,that) result(output)
   class(String), intent(in) :: that
   logical                   :: output
   
-  output = this%contents==that%contents
+  output = char(this)==char(that)
 end function
 
 ! String==character
@@ -504,7 +439,7 @@ elemental function equality_String_character(this,that) result(output)
   character(*),  intent(in) :: that
   logical                   :: output
   
-  output = this%contents==that
+  output = char(this)==that
 end function
 
 ! character==String
@@ -515,7 +450,7 @@ elemental function equality_character_String(this,that) result(output)
   class(String), intent(in) :: that
   logical                   :: output
   
-  output = this==that%contents
+  output = this==char(that)
 end function
 
 ! ----------------------------------------------------------------------
@@ -529,7 +464,7 @@ elemental function non_equality_String_String(this,that) result(output)
   class(String), intent(in) :: that
   logical                   :: output
   
-  output = this%contents/=that%contents
+  output = .not. this==that
 end function
 
 ! String/=character
@@ -540,7 +475,7 @@ elemental function non_equality_String_character(this,that) result(output)
   character(*),  intent(in) :: that
   logical                   :: output
   
-  output = this%contents/=that
+  output = .not. this==that
 end function
 
 ! character/=String
@@ -551,21 +486,12 @@ elemental function non_equality_character_String(this,that) result(output)
   class(String), intent(in) :: that
   logical                   :: output
   
-  output = this/=that%contents
+  output = .not. this==that
 end function
 
 ! ----------------------------------------------------------------------
 ! Unary operators
 ! ----------------------------------------------------------------------
-! integer = len(String)
-elemental function len_String(this) result(output)
-  implicit none
-  
-  type(String), intent(in) :: this
-  integer                  :: output
-  
-  output = len(this%contents)
-end function
 
 ! ----------------------------------------------------------------------
 ! Converts a string to lower case
@@ -761,7 +687,7 @@ elemental function pad_int_to_str(this) result(output)
   type(String)        :: output
   
   output = this
-  if (output%contents(1:1)/='-') then
+  if (slice(output,1,1)/='-') then
     output = ' '//output
   endif
 end function
@@ -777,7 +703,18 @@ elemental function trim_String(this) result(output)
 end function
 
 ! Takes a slice of a String. slice(String,first,last) = character(first:last).
-pure function slice(this,first,last) result(output)
+pure function slice_character(this,first,last) result(output)
+  implicit none
+  
+  character(*),  intent(in) :: this
+  integer,       intent(in) :: first
+  integer,       intent(in) :: last
+  type(String)              :: output
+  
+  output = this(first:last)
+end function
+
+pure function slice_String(this,first,last) result(output)
   implicit none
   
   type(String),  intent(in) :: this
@@ -785,7 +722,7 @@ pure function slice(this,first,last) result(output)
   integer,       intent(in) :: last
   type(String)              :: output
   
-  output = this%contents(first:last)
+  output = slice(char(this),first,last)
 end function
 
 ! ----------------------------------------------------------------------
@@ -804,7 +741,7 @@ pure function concatenate_character_String(this,that) result(output)
   class(String), intent(in) :: that
   type(String)              :: output
   
-  output = this//that%contents
+  output = this//char(that)
 end function
 
 ! String = String//character
@@ -815,7 +752,7 @@ pure function concatenate_String_character(this,that) result(output)
   character(*),  intent(in) :: that
   type(String)              :: output
   
-  output = this%contents//that
+  output = char(this)//that
 end function
 
 ! String = String//String
@@ -826,7 +763,7 @@ pure function concatenate_String_String(this,that) result(output)
   class(String), intent(in) :: that
   type(String)              :: output
   
-  output = this%contents//that%contents
+  output = char(this)//char(that)
 end function
 
 ! --------------------------------------------------
@@ -834,7 +771,7 @@ end function
 ! --------------------------------------------------
 
 ! String = character//Stringable
-pure function concatenate_character_Stringable(this,that) result(output)
+function concatenate_character_Stringable(this,that) result(output)
   implicit none
   
   character(*),      intent(in) :: this
@@ -845,7 +782,7 @@ pure function concatenate_character_Stringable(this,that) result(output)
 end function
 
 ! String = Stringable//character
-pure function concatenate_Stringable_character(this,that) result(output)
+function concatenate_Stringable_character(this,that) result(output)
   implicit none
   
   class(Stringable), intent(in) :: this
@@ -856,7 +793,7 @@ pure function concatenate_Stringable_character(this,that) result(output)
 end function
 
 ! String = String//Stringable
-pure function concatenate_String_Stringable(this,that) result(output)
+function concatenate_String_Stringable(this,that) result(output)
   implicit none
   
   type(String),      intent(in) :: this
@@ -867,7 +804,7 @@ pure function concatenate_String_Stringable(this,that) result(output)
 end function
 
 ! String = Stringable//String
-pure function concatenate_Stringable_String(this,that) result(output)
+function concatenate_Stringable_String(this,that) result(output)
   implicit none
   
   class(Stringable), intent(in) :: this
