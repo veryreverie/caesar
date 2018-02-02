@@ -3,6 +3,8 @@
 ! ======================================================================
 module string_module
   use constants_module, only : dp
+  
+  use string_base_module
   implicit none
   
   private
@@ -38,8 +40,7 @@ module string_module
   
   ! The String class, containing an allocatable character string.
   ! Allows for inhomogeneous character arrays for e.g. storing files.
-  type :: String
-    character(:), allocatable, private :: contents_
+  type, extends(StringBase) :: String
   contains
     generic, public :: operator(==) => equality_String_String,    &
                                      & equality_String_character, &
@@ -90,7 +91,6 @@ module string_module
   ! Interfaces
   ! ----------------------------------------------------------------------
   interface assignment(=)
-    module procedure assign_String_character
     module procedure assign_String_String
     module procedure assign_String_Stringable
     module procedure assign_String_logical
@@ -111,10 +111,6 @@ module string_module
     module procedure str_real
     module procedure str_logical
     module procedure str_complex
-  end interface
-  
-  interface char
-    module procedure char_String
   end interface
   
   interface len
@@ -200,61 +196,11 @@ module string_module
   end interface
 contains
 
-! ----------------------------------------------------------------------
-! String operations involving the private variable contents_
-! ----------------------------------------------------------------------
-! Assignment.
-! String = character
-pure subroutine assign_String_character(output,input)
-  implicit none
-  
-  type(String), intent(out) :: output
-  character(*), intent(in)  :: input
-  
-  output%contents_ = input
-end subroutine
-
-! String length. Equivalent to the character len() function.
-pure function len_String(this) result(output)
-  implicit none
-  
-  type(String), intent(in) :: this
-  integer                  :: output
-  
-  if (allocated(this%contents_)) then
-    output = len(this%contents_)
-  else
-    output = 0
-  endif
-end function
-
-! Converts a String to a character(*). Effectively a getter for contents_.
-pure function char_String(this) result(output)
-  implicit none
-  
-  type(String), intent(in) :: this
-  character(len(this))     :: output
-  
-  if (allocated(this%contents_)) then
-    output = this%contents_
-  else
-    output = ''
-  endif
-end function
-
-! ----------------------------------------------------------------------
-! String operations not involving the private variable contents_
-! ----------------------------------------------------------------------
-! N.B. the number of procedures accessing contents_ directly is intentionally
-!    limited for stability reasons.
-! The above procedures behave well if the String has not been allocated,
-!    and this good behaviour is automatically passed to the procedures below.
-
 ! --------------------------------------------------
 ! Assignment.
 ! --------------------------------------------------
 ! String = String
-pure subroutine assign_String_String(output,input)
+subroutine assign_String_String(output,input)
   implicit none
   
   type(String),  intent(out) :: output
@@ -274,7 +220,7 @@ subroutine assign_String_Stringable(output,input)
 end subroutine
 
 ! String = logical
-pure subroutine assign_String_logical(output,input)
+subroutine assign_String_logical(output,input)
   implicit none
   
   type(String), intent(out) :: output
@@ -288,7 +234,7 @@ pure subroutine assign_String_logical(output,input)
 end subroutine
 
 ! String = integer
-pure subroutine assign_String_integer(output,input)
+subroutine assign_String_integer(output,input)
   implicit none
   
   type(String), intent(out) :: output
@@ -302,7 +248,7 @@ pure subroutine assign_String_integer(output,input)
 end subroutine
 
 ! String = real
-pure subroutine assign_String_real(output,input)
+subroutine assign_String_real(output,input)
   implicit none
   
   type(String), intent(out) :: output
@@ -320,7 +266,7 @@ pure subroutine assign_String_real(output,input)
 end subroutine
 
 ! String = complex
-pure subroutine assign_String_complex(output,input)
+subroutine assign_String_complex(output,input)
   implicit none
   
   type(String), intent(out) :: output
@@ -342,7 +288,7 @@ pure subroutine assign_String_complex(output,input)
 end subroutine
 
 ! character = String
-pure subroutine assign_character_String(output,input)
+subroutine assign_character_String(output,input)
   implicit none
   
   character(*), intent(out) :: output
@@ -354,7 +300,7 @@ end subroutine
 ! ----------------------------------------------------------------------
 ! Conversion to String
 ! ----------------------------------------------------------------------
-elemental function str_character(this) result(output)
+impure elemental function str_character(this) result(output)
   implicit none
   
   character(*), intent(in) :: this
@@ -363,7 +309,7 @@ elemental function str_character(this) result(output)
   output = this
 end function
 
-elemental function str_String(this) result(output)
+impure elemental function str_String(this) result(output)
   implicit none
   
   type(String), intent(in) :: this
@@ -381,7 +327,7 @@ impure elemental function str_Stringable(this) result(output)
   output = this
 end function
 
-elemental function str_logical(this) result(output)
+impure elemental function str_logical(this) result(output)
   implicit none
   
   logical, intent(in) :: this
@@ -390,7 +336,7 @@ elemental function str_logical(this) result(output)
   output = this
 end function
 
-elemental function str_integer(this) result(output)
+impure elemental function str_integer(this) result(output)
   implicit none
   
   integer, intent(in) :: this
@@ -399,7 +345,7 @@ elemental function str_integer(this) result(output)
   output = this
 end function
 
-elemental function str_real(this) result(output)
+impure elemental function str_real(this) result(output)
   implicit none
   
   real(dp), intent(in) :: this
@@ -408,7 +354,7 @@ elemental function str_real(this) result(output)
   output = this
 end function
 
-elemental function str_complex(this) result(output)
+impure elemental function str_complex(this) result(output)
   implicit none
   
   complex(dp), intent(in) :: this
@@ -421,7 +367,7 @@ end function
 ! Equality
 ! ----------------------------------------------------------------------
 ! String==String
-elemental function equality_String_String(this,that) result(output)
+impure elemental function equality_String_String(this,that) result(output)
   implicit none
   
   class(String), intent(in) :: this
@@ -432,7 +378,7 @@ elemental function equality_String_String(this,that) result(output)
 end function
 
 ! String==character
-elemental function equality_String_character(this,that) result(output)
+impure elemental function equality_String_character(this,that) result(output)
   implicit none
   
   class(String), intent(in) :: this
@@ -443,7 +389,7 @@ elemental function equality_String_character(this,that) result(output)
 end function
 
 ! character==String
-elemental function equality_character_String(this,that) result(output)
+impure elemental function equality_character_String(this,that) result(output)
   implicit none
   
   character(*),  intent(in) :: this
@@ -457,7 +403,7 @@ end function
 ! Non-equality
 ! ----------------------------------------------------------------------
 ! String/=String
-elemental function non_equality_String_String(this,that) result(output)
+impure elemental function non_equality_String_String(this,that) result(output)
   implicit none
   
   class(String), intent(in) :: this
@@ -468,7 +414,7 @@ elemental function non_equality_String_String(this,that) result(output)
 end function
 
 ! String/=character
-elemental function non_equality_String_character(this,that) result(output)
+impure elemental function non_equality_String_character(this,that) result(output)
   implicit none
   
   class(String), intent(in) :: this
@@ -479,7 +425,7 @@ elemental function non_equality_String_character(this,that) result(output)
 end function
 
 ! character/=String
-elemental function non_equality_character_String(this,that) result(output)
+impure elemental function non_equality_character_String(this,that) result(output)
   implicit none
   
   character(*),  intent(in) :: this
@@ -493,10 +439,18 @@ end function
 ! Unary operators
 ! ----------------------------------------------------------------------
 
-! ----------------------------------------------------------------------
+! String length. Equivalent to the character len() function.
+function len_String(this) result(output)
+  implicit none
+  
+  type(String), intent(in) :: this
+  integer                  :: output
+  
+  output = len(char(this))
+end function
+
 ! Converts a string to lower case
-! ----------------------------------------------------------------------
-elemental function lower_case_character(input) result(output)
+impure elemental function lower_case_character(input) result(output)
   implicit none
   
   character(*), intent(in) :: input
@@ -517,8 +471,7 @@ elemental function lower_case_character(input) result(output)
   enddo
 end function
 
-! String = lower_case(String)
-elemental function lower_case_String(this) result(output)
+impure elemental function lower_case_String(this) result(output)
   implicit none
   
   type(String), intent(in) :: this
@@ -527,7 +480,8 @@ elemental function lower_case_String(this) result(output)
   output = str(lower_case(char(this)))
 end function
 
-pure function split_character(this,delimiter_in) result(output)
+! Split a string by a given delimiter.
+function split_character(this,delimiter_in) result(output)
   implicit none
   
   character(*),           intent(in) :: this
@@ -577,7 +531,7 @@ pure function split_character(this,delimiter_in) result(output)
   enddo
 end function
 
-pure function split_String(this,delimiter_in) result(output)
+function split_String(this,delimiter_in) result(output)
   implicit none
   
   type(String),           intent(in) :: this
@@ -592,7 +546,7 @@ pure function split_String(this,delimiter_in) result(output)
 end function
 
 ! Joins a String(:) array into one String.
-pure function join_String(this,delimiter_in) result(output)
+function join_String(this,delimiter_in) result(output)
   implicit none
   
   type(String), intent(in)           :: this(:)
@@ -620,7 +574,7 @@ pure function join_String(this,delimiter_in) result(output)
 end function
 
 ! Converts real(:) to String(:) and then joins.
-pure function join_real(this,delimiter) result(output)
+function join_real(this,delimiter) result(output)
   implicit none
   
   real(dp),     intent(in)           :: this(:)
@@ -635,7 +589,7 @@ pure function join_real(this,delimiter) result(output)
 end function
 
 ! Converts integer(:) to String(:), pads +ve numbers with a space, and joins.
-pure function join_integer(this,delimiter) result(output)
+function join_integer(this,delimiter) result(output)
   implicit none
   
   integer,      intent(in)           :: this(:)
@@ -650,7 +604,7 @@ pure function join_integer(this,delimiter) result(output)
 end function
 
 ! Converts logical(:) to String(:) and then joins.
-pure function join_logical(this,delimiter) result(output)
+function join_logical(this,delimiter) result(output)
   implicit none
   
   logical,      intent(in)           :: this(:)
@@ -665,7 +619,7 @@ pure function join_logical(this,delimiter) result(output)
 end function
 
 ! Converts complex(:) to String(:) and then joins.
-pure function join_complex(this,delimiter) result(output)
+function join_complex(this,delimiter) result(output)
   implicit none
   
   complex(dp),  intent(in)           :: this(:)
@@ -680,7 +634,7 @@ pure function join_complex(this,delimiter) result(output)
 end function
 
 ! Pads an integer with a space to match '-' length.
-elemental function pad_int_to_str(this) result(output)
+impure elemental function pad_int_to_str(this) result(output)
   implicit none
   
   integer, intent(in) :: this
@@ -693,7 +647,7 @@ elemental function pad_int_to_str(this) result(output)
 end function
 
 ! Removes trailing spaces.
-elemental function trim_String(this) result(output)
+impure elemental function trim_String(this) result(output)
   implicit none
   
   type(String), intent(in) :: this
@@ -703,7 +657,7 @@ elemental function trim_String(this) result(output)
 end function
 
 ! Takes a slice of a String. slice(String,first,last) = character(first:last).
-pure function slice_character(this,first,last) result(output)
+function slice_character(this,first,last) result(output)
   implicit none
   
   character(*),  intent(in) :: this
@@ -714,7 +668,7 @@ pure function slice_character(this,first,last) result(output)
   output = this(first:last)
 end function
 
-pure function slice_String(this,first,last) result(output)
+function slice_String(this,first,last) result(output)
   implicit none
   
   type(String),  intent(in) :: this
@@ -734,7 +688,7 @@ end function
 ! --------------------------------------------------
 
 ! String = character//String
-pure function concatenate_character_String(this,that) result(output)
+function concatenate_character_String(this,that) result(output)
   implicit none
   
   character(*),  intent(in) :: this
@@ -745,7 +699,7 @@ pure function concatenate_character_String(this,that) result(output)
 end function
 
 ! String = String//character
-pure function concatenate_String_character(this,that) result(output)
+function concatenate_String_character(this,that) result(output)
   implicit none
   
   class(String), intent(in) :: this
@@ -756,7 +710,7 @@ pure function concatenate_String_character(this,that) result(output)
 end function
 
 ! String = String//String
-pure function concatenate_String_String(this,that) result(output)
+function concatenate_String_String(this,that) result(output)
   implicit none
   
   class(String), intent(in) :: this
@@ -819,7 +773,7 @@ end function
 ! --------------------------------------------------
 
 ! String = String//integer
-pure function concatenate_String_integer(this,that) result(output)
+function concatenate_String_integer(this,that) result(output)
   implicit none
   
   class(String), intent(in) :: this
@@ -830,7 +784,7 @@ pure function concatenate_String_integer(this,that) result(output)
 end function
 
 ! String = integer//String
-pure function concatenate_integer_String(this,that) result(output)
+function concatenate_integer_String(this,that) result(output)
   implicit none
   
   integer,       intent(in) :: this
@@ -841,7 +795,7 @@ pure function concatenate_integer_String(this,that) result(output)
 end function
 
 ! String = String//real(dp)
-pure function concatenate_String_real(this,that) result(output)
+function concatenate_String_real(this,that) result(output)
   implicit none
   
   class(String), intent(in) :: this
@@ -852,7 +806,7 @@ pure function concatenate_String_real(this,that) result(output)
 end function
 
 ! String = real(dp)//String
-pure function concatenate_real_String(this,that) result(output)
+function concatenate_real_String(this,that) result(output)
   implicit none
   
   real(dp),      intent(in) :: this
@@ -863,7 +817,7 @@ pure function concatenate_real_String(this,that) result(output)
 end function
 
 ! String = String//logical
-pure function concatenate_String_logical(this,that) result(output)
+function concatenate_String_logical(this,that) result(output)
   implicit none
   
   class(String), intent(in) :: this
@@ -874,7 +828,7 @@ pure function concatenate_String_logical(this,that) result(output)
 end function
 
 ! String = logical//String
-pure function concatenate_logical_String(this,that) result(output)
+function concatenate_logical_String(this,that) result(output)
   implicit none
   
   logical,       intent(in) :: this
@@ -885,7 +839,7 @@ pure function concatenate_logical_String(this,that) result(output)
 end function
 
 ! String = String//complex
-pure function concatenate_String_complex(this,that) result(output)
+function concatenate_String_complex(this,that) result(output)
   implicit none
   
   class(String), intent(in) :: this
@@ -896,7 +850,7 @@ pure function concatenate_String_complex(this,that) result(output)
 end function
 
 ! String = complex//String
-pure function concatenate_complex_String(this,that) result(output)
+function concatenate_complex_String(this,that) result(output)
   implicit none
   
   complex(dp),   intent(in) :: this
@@ -907,7 +861,7 @@ pure function concatenate_complex_String(this,that) result(output)
 end function
 
 ! String = String//integer(:)
-pure function concatenate_String_integers(this,that) result(output)
+function concatenate_String_integers(this,that) result(output)
   implicit none
   
   class(String), intent(in) :: this
@@ -918,7 +872,7 @@ pure function concatenate_String_integers(this,that) result(output)
 end function
 
 ! String = integer(:)//String
-pure function concatenate_integers_String(this,that) result(output)
+function concatenate_integers_String(this,that) result(output)
   implicit none
   
   integer,       intent(in) :: this(:)
@@ -929,7 +883,7 @@ pure function concatenate_integers_String(this,that) result(output)
 end function
 
 ! String = String//real(dp)(:)
-pure function concatenate_String_reals(this,that) result(output)
+function concatenate_String_reals(this,that) result(output)
   implicit none
   
   class(String), intent(in) :: this
@@ -940,7 +894,7 @@ pure function concatenate_String_reals(this,that) result(output)
 end function
 
 ! String = real(dp)(:)//String
-pure function concatenate_reals_String(this,that) result(output)
+function concatenate_reals_String(this,that) result(output)
   implicit none
   
   real(dp),      intent(in) :: this(:)
@@ -951,7 +905,7 @@ pure function concatenate_reals_String(this,that) result(output)
 end function
 
 ! String = String//logical(:)
-pure function concatenate_String_logicals(this,that) result(output)
+function concatenate_String_logicals(this,that) result(output)
   implicit none
   
   class(String), intent(in) :: this
@@ -962,7 +916,7 @@ pure function concatenate_String_logicals(this,that) result(output)
 end function
 
 ! String = logical(:)//String
-pure function concatenate_logicals_String(this,that) result(output)
+function concatenate_logicals_String(this,that) result(output)
   implicit none
   
   logical,       intent(in) :: this(:)
@@ -973,7 +927,7 @@ pure function concatenate_logicals_String(this,that) result(output)
 end function
 
 ! String = String//complex(:)
-pure function concatenate_String_complexes(this,that) result(output)
+function concatenate_String_complexes(this,that) result(output)
   implicit none
   
   class(String), intent(in) :: this
@@ -984,7 +938,7 @@ pure function concatenate_String_complexes(this,that) result(output)
 end function
 
 ! String = complex(:)//String
-pure function concatenate_complexes_String(this,that) result(output)
+function concatenate_complexes_String(this,that) result(output)
   implicit none
   
   complex(dp),   intent(in) :: this(:)
@@ -995,7 +949,7 @@ pure function concatenate_complexes_String(this,that) result(output)
 end function
 
 ! String = character//integer
-pure function concatenate_character_integer(this,that) result(output)
+function concatenate_character_integer(this,that) result(output)
   implicit none
   
   character(*), intent(in) :: this
@@ -1006,7 +960,7 @@ pure function concatenate_character_integer(this,that) result(output)
 end function
 
 ! String = integer//character
-pure function concatenate_integer_character(this,that) result(output)
+function concatenate_integer_character(this,that) result(output)
   implicit none
   
   integer,      intent(in) :: this
@@ -1017,7 +971,7 @@ pure function concatenate_integer_character(this,that) result(output)
 end function
 
 ! String = character//real(dp)
-pure function concatenate_character_real(this,that) result(output)
+function concatenate_character_real(this,that) result(output)
   implicit none
   
   character(*), intent(in) :: this
@@ -1028,7 +982,7 @@ pure function concatenate_character_real(this,that) result(output)
 end function
 
 ! String = real(dp)//character
-pure function concatenate_real_character(this,that) result(output)
+function concatenate_real_character(this,that) result(output)
   implicit none
   
   real(dp),     intent(in) :: this
@@ -1039,7 +993,7 @@ pure function concatenate_real_character(this,that) result(output)
 end function
 
 ! String = character//logical
-pure function concatenate_character_logical(this,that) result(output)
+function concatenate_character_logical(this,that) result(output)
   implicit none
   
   character(*), intent(in) :: this
@@ -1050,7 +1004,7 @@ pure function concatenate_character_logical(this,that) result(output)
 end function
 
 ! String = logical//character
-pure function concatenate_logical_character(this,that) result(output)
+function concatenate_logical_character(this,that) result(output)
   implicit none
   
   logical,      intent(in) :: this
@@ -1061,7 +1015,7 @@ pure function concatenate_logical_character(this,that) result(output)
 end function
 
 ! String = character//complex
-pure function concatenate_character_complex(this,that) result(output)
+function concatenate_character_complex(this,that) result(output)
   implicit none
   
   character(*), intent(in) :: this
@@ -1072,7 +1026,7 @@ pure function concatenate_character_complex(this,that) result(output)
 end function
 
 ! String = complex//character
-pure function concatenate_complex_character(this,that) result(output)
+function concatenate_complex_character(this,that) result(output)
   implicit none
   
   complex(dp),  intent(in) :: this
@@ -1083,7 +1037,7 @@ pure function concatenate_complex_character(this,that) result(output)
 end function
 
 ! String = character//integer(:)
-pure function concatenate_character_integers(this,that) result(output)
+function concatenate_character_integers(this,that) result(output)
   implicit none
   
   character(*), intent(in) :: this
@@ -1094,7 +1048,7 @@ pure function concatenate_character_integers(this,that) result(output)
 end function
 
 ! String = integer(:)//character
-pure function concatenate_integers_character(this,that) result(output)
+function concatenate_integers_character(this,that) result(output)
   implicit none
   
   integer,      intent(in) :: this(:)
@@ -1105,7 +1059,7 @@ pure function concatenate_integers_character(this,that) result(output)
 end function
 
 ! String = character//real(dp)(:)
-pure function concatenate_character_reals(this,that) result(output)
+function concatenate_character_reals(this,that) result(output)
   implicit none
   
   character(*), intent(in) :: this
@@ -1116,7 +1070,7 @@ pure function concatenate_character_reals(this,that) result(output)
 end function
 
 ! String = real(dp)(:)//character
-pure function concatenate_reals_character(this,that) result(output)
+function concatenate_reals_character(this,that) result(output)
   implicit none
   
   real(dp),     intent(in) :: this(:)
@@ -1127,7 +1081,7 @@ pure function concatenate_reals_character(this,that) result(output)
 end function
 
 ! String = character//logical(:)
-pure function concatenate_character_logicals(this,that) result(output)
+function concatenate_character_logicals(this,that) result(output)
   implicit none
   
   character(*), intent(in) :: this
@@ -1138,7 +1092,7 @@ pure function concatenate_character_logicals(this,that) result(output)
 end function
 
 ! String = logical(:)//character
-pure function concatenate_logicals_character(this,that) result(output)
+function concatenate_logicals_character(this,that) result(output)
   implicit none
   
   logical,      intent(in) :: this(:)
@@ -1149,7 +1103,7 @@ pure function concatenate_logicals_character(this,that) result(output)
 end function
 
 ! String = character//complex(:)
-pure function concatenate_character_complexes(this,that) result(output)
+function concatenate_character_complexes(this,that) result(output)
   implicit none
   
   character(*), intent(in) :: this
@@ -1160,7 +1114,7 @@ pure function concatenate_character_complexes(this,that) result(output)
 end function
 
 ! String = complex(:)//character
-pure function concatenate_complexes_character(this,that) result(output)
+function concatenate_complexes_character(this,that) result(output)
   implicit none
   
   complex(dp),  intent(in) :: this(:)

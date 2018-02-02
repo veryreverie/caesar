@@ -61,7 +61,28 @@ subroutine test(arguments)
   type(FractionMatrix) :: m1
   type(FractionMatrix) :: m2
   
+  type(String), allocatable :: line(:)
+  real(dp),     allocatable :: dbles(:)
+  integer                   :: i
+  
   wd = arguments%value('working_directory')
+  
+  call print_line(dble('0.0'))
+  call print_line(dble('0'))
+  call print_line(dble('0/1'))
+  call print_line(vec(dble(split('1/2 0 0'))))
+  
+  line = split('1/2 0 0')
+  do i=1,size(line)
+    call print_line('line('//i//'): "'//line(i)//'"')
+  enddo
+  
+  dbles = dble(line)
+  do i=1,size(dbles)
+    call print_line('dbles('//i//'): "'//dbles(i)//'"')
+  enddo
+  
+  call print_line(dble('1/2'))
   
   i1 = 6
   i2 = 3
@@ -132,6 +153,5 @@ subroutine test(arguments)
   call print_line(m2)
   call print_line('m2*m1:')
   call print_line(m2*m1)
-  
 end subroutine
 end module

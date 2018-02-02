@@ -47,12 +47,14 @@ contains
 ! ----------------------------------------------------------------------
 function new_DynamicalMatrix_calculated(qpoint,supercells,force_constants, &
    & structure) result(this)
+  use constants_module, only : pi
   use structure_module
   use min_images_module
   use force_constants_module
   use atom_module
   use qpoints_module
   use ofile_module
+  use symmetry_module
   implicit none
   
   type(QpointData),     intent(in) :: qpoint
@@ -61,13 +63,24 @@ function new_DynamicalMatrix_calculated(qpoint,supercells,force_constants, &
   type(StructureData),  intent(in) :: structure
   type(DynamicalMatrix)            :: this
   
+  type(SymmetryOperator) :: symmetry
+  
   logical :: at_gamma
   logical :: paired_qpoint
   
-  type(RealVector)             :: q
+  type(AtomData) :: atom_1
+  type(AtomData) :: atom_1p
+  type(AtomData) :: atom_2
+  type(AtomData) :: atom_2p
+  
+  type(FractionVector) :: qp
+  type(FractionVector) :: q
+  type(IntVector)      :: r
+  real(dp)             :: qr
+  complex(dp)          :: exp_minus_iqr
   
   integer :: multiple
-  integer :: i,j,ialloc
+  integer :: i,j,k,l,ialloc
   
   ! Check that the supercells and force constants correspond to one another.
   if (size(supercells)/=size(force_constants)) then
@@ -76,34 +89,44 @@ function new_DynamicalMatrix_calculated(qpoint,supercells,force_constants, &
     call err()
   endif
   
-  q = dble(qpoint%qpoint)
+  q = qpoint%qpoint
   
   multiple = 0
-  do i=1,structure%symmetries
+  allocate( this%matrices(structure%no_atoms,structure%no_atoms), &
+          & stat=ialloc); call err(ialloc)
+  this%matrices = cmplxmat(zeroes(3,3))
+  do i=1,size(structure%symmetries)
+    symmetry = structure%symmetries(i)
+    
+    ! q' is defined such that rotation i maps qp onto q.
+    ! N.B. q-points rotate as q->R^-T.q, so q' s.t. q'->q is given by
+    !    q' = R^T.q = q.R.
+    qp = q * symmetry%rotation
     do j=1,size(supercells)
-      ! Check if the q-point is a G-vector of the rotated supercell.
-      if (is_int( supercells(j)%supercell          &
-              & * structure%symmetries(i)%rotation &
-              & * qpoint%qpoint )) then
+      ! Check if q' is a G-vector of the supercell.
+      if (is_int(supercells(j)%supercell*qp)) then
         multiple = multiple+1
-        do k=1,supercells(j)%no_atoms_prim
+        do k=1,supercells(j)%no_atoms
           atom_1 = supercells(j)%atoms(k)
-          atom_1p = supercells(j)%atoms( structure%symmetries(i)%atom_group &
-                                     & * atom_1%id())
-          do l=1,supercells(j)%no_atoms
+          atom_1p = supercells(j)%atoms( symmetry%atom_group &
+                                     & * atom_1%prim_id())
+          do l=1,supercells(j)%no_atoms_prim
             atom_2 = supercells(j)%atoms(l)
-            atom_2p = supercells(j)%atoms( structure%symmetries(i)%atom_group &
-                                       & * atom_2%id())
-            ! TODO: rotated rvec_2 + sym%rvec
-            !       = rvec_2p-rvec_1p?
-            rvector = !???
-            qr = 2*pi*q*rvectors(k)
+            atom_2p = supercells(j)%atoms( symmetry%atom_group &
+                                       & * atom_2%prim_id())
+            r = symmetry%rotation                        &
+            & * supercells(j)%rvectors(atom_1%rvec_id()) &
+            & - symmetry%rvector(atom_2%prim_id())       &
+            & + symmetry%rvector(atom_1%prim_id())
+            qr = 2*pi*dble(q*r)
             exp_minus_iqr = cmplx(cos(qr),-sin(qr),dp)
             this%matrices(atom_2p%prim_id(),atom_1p%prim_id()) =    &
-               & this%matrices(atom_2%prim_id(),atom_1%prim_id())   &
-               & + force_constants(j)%constants(atom_2,atom_1)      &
+               & this%matrices(atom_2p%prim_id(),atom_1p%prim_id()) &
+               & + symmetry%cartesian_rotation                      &
+               & * force_constants(j)%constants(atom_2,atom_1)      &
+               & * transpose(symmetry%cartesian_rotation)           &
                & * exp_minus_iqr                                    &
-               & / supercell(j)%sc_size
+               & / supercells(j)%sc_size
           enddo
         enddo
       endif
@@ -115,16 +138,70 @@ function new_DynamicalMatrix_calculated(qpoint,supercells,force_constants, &
   endif
   
   ! Divide by the number of times the dynamical matrix has been added together.
-  output%matrices = output%matrices / multiple
+  this%matrices = this%matrices / multiple
   
   ! Diagonalise the dynamical matrix, to obtain the normal mode
   !    co-ordinates (eigenvectors) and harmonic frequencies (eigenvalues).
   at_gamma = is_int(qpoint%qpoint)
   paired_qpoint = is_int(2*qpoint%qpoint)
   this%complex_modes = calculate_modes( this%matrices, &
-                                      & at_gama,       &
+                                      & at_gamma,      &
                                       & paired_qpoint, &
-                                      & supercell)
+                                      & structure)
+end function
+
+function phase(input,denom) result(output)
+  use constants_module, only : pi
+  use fraction_module
+  implicit none
+  
+  type(ComplexMatrix), intent(in) :: input
+  integer,             intent(in) :: denom
+  type(IntFraction)               :: output
+  
+  complex(dp), allocatable :: temp(:,:)
+  real(dp)                 :: phase_real
+  
+  temp = cmplx(input)
+  phase_real = atan2(aimag(temp(1,1)), real(temp(1,1))) / (2*pi)
+  output = IntFraction(nint(phase_real*denom),denom)
+  if (abs(dble(output)-phase_real)>0.01_dp) then
+    call print_line(ERROR//': Phase incompatible with given denominator.')
+    call err()
+  endif
+end function
+
+function dynmat(qpoint, supercell, force_constants) result(output)
+  use constants_module, only : pi
+  use structure_module
+  use min_images_module
+  use force_constants_module
+  use atom_module
+  use qpoints_module
+  use ofile_module
+  implicit none
+  
+  type(QpointData),     intent(in) :: qpoint
+  type(StructureData),  intent(in) :: supercell
+  type(ForceConstants), intent(in) :: force_constants
+  type(DynamicalMatrix)            :: output
+  
+  type(MinImages), allocatable :: min_images(:,:)
+  type(IntVector)              :: rvec
+  
+  integer :: i,j,ialloc
+  
+  allocate( min_images(supercell%no_atoms,supercell%no_atoms), &
+          & stat=ialloc); call err(ialloc)
+  do i=1,supercell%no_atoms
+    do j=1,supercell%no_atoms
+      rvec = supercell%rvectors(supercell%atoms(j)%rvec_id()) &
+         & - supercell%rvectors(supercell%atoms(i)%rvec_id())
+      min_images(i,j) = MinImages([rvec])
+    enddo
+  enddo
+  
+  output = new_DynamicalMatrix_interpolated(vec(dble(qpoint%qpoint)),supercell,force_constants,min_images)
 end function
 
 ! ----------------------------------------------------------------------
@@ -162,7 +239,7 @@ function new_DynamicalMatrix_interpolated(q,supercell,force_constants, &
   allocate( this%matrices( supercell%no_atoms_prim,  &
           &                supercell%no_atoms_prim), &
           & stat=ialloc); call err(ialloc)
-  this%matrices = mat(cmplx(zeroes(3,3)))
+  this%matrices = cmplxmat(zeroes(3,3))
   do i=1,supercell%no_atoms_prim
     atom_1 = supercell%atoms(i)
     do j=1,supercell%no_atoms
@@ -461,8 +538,8 @@ subroutine check(this,structure,logfile,check_eigenstuff)
         prim_disp_1 = this%complex_modes(i)%primitive_displacements(j,1)
         prim_disp_2 = modes(i)%primitive_displacements(j,1)
         ! Ignore phases.
-        prim_disp_1 = cmplx(vec(abs(cmplx(prim_disp_1))))
-        prim_disp_2 = cmplx(vec(abs(cmplx(prim_disp_2))))
+        prim_disp_1 = cmplxvec(vec(abs(cmplx(prim_disp_1))))
+        prim_disp_2 = cmplxvec(vec(abs(cmplx(prim_disp_2))))
         average = average + sum_squares((prim_disp_1+prim_disp_2)/2)
         difference = difference + sum_squares(prim_disp_1-prim_disp_2)
       enddo
@@ -513,7 +590,7 @@ function reconstruct_force_constants(large_supercell,qpoints, &
   allocate( force_constants( large_supercell%no_atoms,  &
           &                  large_supercell%no_atoms), &
           & stat=ialloc); call err(ialloc)
-  force_constants = mat(dble(zeroes(3,3)))
+  force_constants = dblemat(zeroes(3,3))
   
   ! Loop across q-points, summing up the contribution from the dynamical matrix
   !    at each.
@@ -680,11 +757,11 @@ function rotate_modes(input,symmetry,qpoint_from,qpoint_to) result(output)
     do atom_2=1,no_atoms
       atom_2p = symmetry%atom_group * atom_2
       
-      output%matrices(atom_2p,atom_1p) =          &
-         & symmetry%cartesian_rotation &
-         & * exp_iqr(atom_2)                     &
-         & * input%matrices(atom_2,atom_1)        &
-         & * conjg(exp_iqr(atom_1))              &
+      output%matrices(atom_2p,atom_1p) =   &
+         & symmetry%cartesian_rotation     &
+         & * exp_iqr(atom_2)               &
+         & * input%matrices(atom_2,atom_1) &
+         & * conjg(exp_iqr(atom_1))        &
          & * transpose(symmetry%cartesian_rotation)
     enddo
   enddo
@@ -703,16 +780,16 @@ function rotate_modes(input,symmetry,qpoint_from,qpoint_to) result(output)
       atom_1p = symmetry%atom_group * atom_1
       if (qpoint_to%is_paired_qpoint) then
         output%complex_modes(mode)%primitive_displacements(atom_1p,1) =    &
-           & transpose(symmetry%cartesian_rotation)                        &
+           & symmetry%cartesian_rotation                                   &
            & * input%complex_modes(mode)%primitive_displacements(atom_1,1) &
            & * exp_iqr(atom_1)
       else
         output%complex_modes(mode)%primitive_displacements(atom_1p,1) =    &
-           & transpose(symmetry%cartesian_rotation)                        &
+           & symmetry%cartesian_rotation                                   &
            & * input%complex_modes(mode)%primitive_displacements(atom_1,1) &
            & * exp_iqr(atom_1)
         output%complex_modes(mode)%primitive_displacements(atom_1p,2) =    &
-           & transpose(symmetry%cartesian_rotation)                        &
+           & symmetry%cartesian_rotation                                   &
            & * input%complex_modes(mode)%primitive_displacements(atom_1,2) &
            & * exp_iqr(atom_1)
       endif
@@ -742,8 +819,7 @@ subroutine print_dyn_mat(input,colours)
       do k=1,no_atoms
         do l=1,3
           thingy = cmplx(input%matrices(i,k))
-          !write(thing,fmt='(es8.0,sp,es7.0,"i")') thingy(j,l)
-          write(thing,fmt='(f9.5,sp,f3.0,"i")') thingy(j,l)*1e5_dp
+          write(thing,fmt='(f7.3,sp,f6.3,"i")') thingy(j,l)*1e6_dp
           if (present(colours)) then
             line = line//colour(trim(thing),colours(i,j,k,l))
           else
@@ -822,7 +898,7 @@ subroutine compare_dynamical_matrices(a,b,logfile)
       mb = cmplx(mat_b)
       do k=1,3
         do l=1,3
-          if (abs(ma(l,k))<1e-10_dp) then
+          if (abs(ma(l,k)+mb(l,k))<1e-10_dp) then
             ! If the absolute value is small, ignore the error.
             colours(j,l,i,k) = 'green'
             cycle
@@ -833,7 +909,7 @@ subroutine compare_dynamical_matrices(a,b,logfile)
           elseif (threshold>1e-4_dp) then
             colours(j,l,i,k) = 'yellow'
           elseif (threshold>1e-6_dp) then
-            colours(j,l,i,k) = 'purple'
+            colours(j,l,i,k) = 'magenta'
           elseif (threshold>1e-8_dp) then
             colours(j,l,i,k) = 'blue'
           elseif (threshold>1e-10_dp) then
@@ -851,9 +927,9 @@ subroutine compare_dynamical_matrices(a,b,logfile)
     call print_line(WARNING//': Dynamical matrices differ. Please check &
        &log files.')
     call print_line(difference//' /'//average)
-    call print_line('Rotating from:')
+    call print_line('First matrix:')
     call print_dyn_mat(a,colours)
-    call print_line('Rotating to:')
+    call print_line('Second matrix:')
     call print_dyn_mat(b,colours)
   endif
 end subroutine

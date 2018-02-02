@@ -94,6 +94,11 @@ module fraction_module
     module procedure is_int_IntFraction
   end interface
   
+  ! The fraction modulo an integer.
+  interface modulo
+    module procedure modulo_IntFraction_integer
+  end interface
+  
   ! Negative.
   interface operator(-)
     module procedure negative_IntFraction
@@ -103,7 +108,7 @@ contains
 ! ----------------------------------------------------------------------
 ! Constructor.
 ! ----------------------------------------------------------------------
-pure function new_IntFraction(numerator,denominator) result(this)
+function new_IntFraction(numerator,denominator) result(this)
   implicit none
   
   integer, intent(in) :: numerator
@@ -118,7 +123,7 @@ end function
 ! ----------------------------------------------------------------------
 ! Getters.
 ! ----------------------------------------------------------------------
-pure function numerator(this) result(output)
+function numerator(this) result(output)
   implicit none
   
   class(IntFraction), intent(in) :: this
@@ -127,7 +132,7 @@ pure function numerator(this) result(output)
   output = this%n_
 end function
 
-pure function denominator(this) result(output)
+function denominator(this) result(output)
   implicit none
   
   class(IntFraction), intent(in) :: this
@@ -139,7 +144,7 @@ end function
 ! ----------------------------------------------------------------------
 ! Simplifies the fraction.
 ! ----------------------------------------------------------------------
-pure subroutine simplify(this)
+subroutine simplify(this)
   use utils_module, only : gcd
   
   class(IntFraction), intent(inout) :: this
@@ -161,7 +166,7 @@ end subroutine
 ! ----------------------------------------------------------------------
 ! Conversion to integer.
 ! As with int(real), rounds down non-integer fractions.
-elemental function int_IntFraction(this) result(output)
+impure elemental function int_IntFraction(this) result(output)
   implicit none
   
   type(IntFraction), intent(in) :: this
@@ -171,7 +176,7 @@ elemental function int_IntFraction(this) result(output)
 end function
 
 ! Conversion to real(dp).
-elemental function dble_IntFraction(this) result(output)
+impure elemental function dble_IntFraction(this) result(output)
   implicit none
   
   type(IntFraction), intent(in) :: this
@@ -181,7 +186,7 @@ elemental function dble_IntFraction(this) result(output)
 end function
 
 ! Conversion from integer.
-pure subroutine assign_IntFraction_integer(output,input)
+subroutine assign_IntFraction_integer(output,input)
   implicit none
   
   class(IntFraction), intent(inout) :: output
@@ -223,7 +228,7 @@ impure elemental function frac_String(input) result(output)
 end function
 
 ! Conversion from integer.
-elemental function frac_integer(input) result(output)
+impure elemental function frac_integer(input) result(output)
   implicit none
   
   integer, intent(in) :: input
@@ -235,7 +240,7 @@ end function
 ! ----------------------------------------------------------------------
 ! Comparison.
 ! ----------------------------------------------------------------------
-elemental function equality_IntFraction_IntFraction(this,that) result(output)
+impure elemental function equality_IntFraction_IntFraction(this,that) result(output)
   implicit none
   
   class(IntFraction), intent(in) :: this
@@ -245,7 +250,7 @@ elemental function equality_IntFraction_IntFraction(this,that) result(output)
   output = this%n_==that%n_ .and. this%d_==that%d_
 end function
 
-elemental function equality_IntFraction_integer(this,that) result(output)
+impure elemental function equality_IntFraction_integer(this,that) result(output)
   implicit none
   
   class(IntFraction), intent(in) :: this
@@ -255,7 +260,7 @@ elemental function equality_IntFraction_integer(this,that) result(output)
   output = this%n_==that .and. this%d_==1
 end function
 
-elemental function equality_integer_IntFraction(this,that) result(output)
+impure elemental function equality_integer_IntFraction(this,that) result(output)
   implicit none
   
   integer,            intent(in) :: this
@@ -265,7 +270,7 @@ elemental function equality_integer_IntFraction(this,that) result(output)
   output = this==that%n_ .and. that%d_==1
 end function
 
-elemental function non_equality_IntFraction_IntFraction(this,that) &
+impure elemental function non_equality_IntFraction_IntFraction(this,that) &
    & result(output)
   implicit none
   
@@ -276,7 +281,7 @@ elemental function non_equality_IntFraction_IntFraction(this,that) &
   output = .not. this==that
 end function
 
-elemental function non_equality_IntFraction_integer(this,that) result(output)
+impure elemental function non_equality_IntFraction_integer(this,that) result(output)
   implicit none
   
   class(IntFraction), intent(in) :: this
@@ -286,7 +291,7 @@ elemental function non_equality_IntFraction_integer(this,that) result(output)
   output = .not. this==that
 end function
 
-elemental function non_equality_integer_IntFraction(this,that) result(output)
+impure elemental function non_equality_integer_IntFraction(this,that) result(output)
   implicit none
   
   integer,            intent(in) :: this
@@ -300,7 +305,7 @@ end function
 ! Addition.
 ! ----------------------------------------------------------------------
 ! a/b + c/d = (ad+bc)/(bd).
-elemental function add_IntFraction_IntFraction(this,that) result(output)
+impure elemental function add_IntFraction_IntFraction(this,that) result(output)
   implicit none
   
   class(IntFraction), intent(in) :: this
@@ -311,7 +316,7 @@ elemental function add_IntFraction_IntFraction(this,that) result(output)
 end function
 
 ! a/b + c = (a+bc)/b.
-elemental function add_IntFraction_integer(this,that) result(output)
+impure elemental function add_IntFraction_integer(this,that) result(output)
   implicit none
   
   class(IntFraction), intent(in) :: this
@@ -322,7 +327,7 @@ elemental function add_IntFraction_integer(this,that) result(output)
 end function
 
 ! a + b/c = (ac+b)/c.
-elemental function add_integer_IntFraction(this,that) result(output)
+impure elemental function add_integer_IntFraction(this,that) result(output)
   implicit none
   
   integer,            intent(in) :: this
@@ -336,7 +341,7 @@ end function
 ! Subtraction.
 ! ----------------------------------------------------------------------
 ! a/b + c/d = (ad-bc)/(bd).
-elemental function subtract_IntFraction_IntFraction(this,that) result(output)
+impure elemental function subtract_IntFraction_IntFraction(this,that) result(output)
   implicit none
   
   class(IntFraction), intent(in) :: this
@@ -347,7 +352,7 @@ elemental function subtract_IntFraction_IntFraction(this,that) result(output)
 end function
 
 ! a/b - c = (a-bc)/b.
-elemental function subtract_IntFraction_integer(this,that) result(output)
+impure elemental function subtract_IntFraction_integer(this,that) result(output)
   implicit none
   
   class(IntFraction), intent(in) :: this
@@ -358,7 +363,7 @@ elemental function subtract_IntFraction_integer(this,that) result(output)
 end function
 
 ! a - b/c = (ac-b)/c.
-elemental function subtract_integer_IntFraction(this,that) result(output)
+impure elemental function subtract_integer_IntFraction(this,that) result(output)
   implicit none
   
   integer,            intent(in) :: this
@@ -372,7 +377,7 @@ end function
 ! Multiplication.
 ! ----------------------------------------------------------------------
 ! a/b * c/d = (ac)/(bd).
-elemental function multiply_IntFraction_IntFraction(this,that) result(output)
+impure elemental function multiply_IntFraction_IntFraction(this,that) result(output)
   implicit none
   
   class(IntFraction), intent(in) :: this
@@ -383,7 +388,7 @@ elemental function multiply_IntFraction_IntFraction(this,that) result(output)
 end function
 
 ! a/b * c = ac/b.
-elemental function multiply_IntFraction_integer(this,that) result(output)
+impure elemental function multiply_IntFraction_integer(this,that) result(output)
   implicit none
   
   class(IntFraction), intent(in) :: this
@@ -394,7 +399,7 @@ elemental function multiply_IntFraction_integer(this,that) result(output)
 end function
 
 ! a * b/c = ab/c.
-elemental function multiply_integer_IntFraction(this,that) result(output)
+impure elemental function multiply_integer_IntFraction(this,that) result(output)
   implicit none
   
   integer,            intent(in) :: this
@@ -408,7 +413,7 @@ end function
 ! Division.
 ! ----------------------------------------------------------------------
 ! a/b / c/d = (ad)/(bc).
-elemental function divide_IntFraction_IntFraction(this,that) result(output)
+impure elemental function divide_IntFraction_IntFraction(this,that) result(output)
   implicit none
   
   class(IntFraction), intent(in) :: this
@@ -419,7 +424,7 @@ elemental function divide_IntFraction_IntFraction(this,that) result(output)
 end function
 
 ! a/b / c = a/(bc).
-elemental function divide_IntFraction_integer(this,that) result(output)
+impure elemental function divide_IntFraction_integer(this,that) result(output)
   implicit none
   
   class(IntFraction), intent(in) :: this
@@ -430,7 +435,7 @@ elemental function divide_IntFraction_integer(this,that) result(output)
 end function
 
 ! a / b/c = ac/b.
-elemental function divide_integer_IntFraction(this,that) result(output)
+impure elemental function divide_integer_IntFraction(this,that) result(output)
   implicit none
   
   integer,            intent(in) :: this
@@ -444,7 +449,7 @@ end function
 ! Whether or not the IntFraction is an integer.
 ! ----------------------------------------------------------------------
 ! Equivalent to whether or not the denominator = 1.
-elemental function is_int_IntFraction(this) result(output)
+impure elemental function is_int_IntFraction(this) result(output)
   implicit none
   
   type(IntFraction), intent(in) :: this
@@ -454,9 +459,22 @@ elemental function is_int_IntFraction(this) result(output)
 end function
 
 ! ----------------------------------------------------------------------
+! A fraction modulo an integer.
+! ----------------------------------------------------------------------
+impure elemental function modulo_IntFraction_integer(this,that) result(output)
+  implicit none
+  
+  type(IntFraction), intent(in) :: this
+  integer,           intent(in) :: that
+  type(IntFraction)             :: output
+  
+  output = IntFraction(modulo(this%n_,this%d_*that), this%d_)
+end function
+
+! ----------------------------------------------------------------------
 ! Negative.
 ! ----------------------------------------------------------------------
-elemental function negative_IntFraction(this) result(output)
+impure elemental function negative_IntFraction(this) result(output)
   implicit none
   
   type(IntFraction), intent(in) :: this
@@ -468,7 +486,7 @@ end function
 ! ----------------------------------------------------------------------
 ! I/O.
 ! ----------------------------------------------------------------------
-pure function str_IntFraction(this) result(output)
+function str_IntFraction(this) result(output)
   implicit none
   
   class(IntFraction), intent(in) :: this

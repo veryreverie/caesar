@@ -35,9 +35,9 @@ module symmetry_module
     
     ! The mapping from atoms to other atoms.
     ! rho_i and rho_j are the equilibrium positions of atom i and j.
-    ! R * rho_i + T = rho_j + rvector_j
+    ! R * rho_i + T = rho_j + rvector_i
     !    - atom_group*i = j,
-    !    - rvector(j) = rvector_j in fractional co-ordinates.
+    !    - rvector(i) = rvector_i in fractional co-ordinates.
     type(Group)                  :: atom_group
     type(IntVector), allocatable :: rvector(:)
     

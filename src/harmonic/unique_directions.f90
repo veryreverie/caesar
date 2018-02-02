@@ -333,7 +333,7 @@ subroutine check_unique_directions(unique_directions,structure, &
   
   ! Construct xx = sum[ (S.x)^(S.x) ].
   allocate(xx(structure%no_atoms), stat=ialloc); call err(ialloc)
-  xx = mat(dble(zeroes(3,3)))
+  xx = dblemat(zeroes(3,3))
   do i=1,size(structure%symmetries)
     do j=1,size(unique_directions)
       atom_1 = structure%atoms(unique_directions(j)%atom_id)

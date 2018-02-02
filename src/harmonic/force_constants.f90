@@ -248,7 +248,7 @@ function read_forces(supercell,unique_directions,sdir,file_type,seedname, &
     !    i.e. ensure sum(output,1)=0.
     ! This is the 'Accoustic sum rule'.
     if (acoustic_sum_rule_forces) then
-      total = dble(zeroes(3))
+      total = dblevec(zeroes(3))
       do j=1,supercell%no_atoms
         total = total+output(j,i)
       enddo
@@ -299,7 +299,7 @@ function construct_xx(unique_directions,supercell,logfile) result(output)
   
   ! Construct sum[x'^x'].
   allocate(output(supercell%no_atoms), stat=ialloc); call err(ialloc)
-  output = mat(dble(zeroes(3,3)))
+  output = dblemat(zeroes(3,3))
   do i=1,size(supercell%symmetries)
     do j=1,size(unique_directions)
       atom_1 = supercell%atoms(unique_directions(j)%atom_id)
@@ -381,7 +381,7 @@ function construct_fx(unique_directions,forces,supercell,logfile) &
   allocate( output(supercell%no_atoms,supercell%no_atoms),  &
           & updated(supercell%no_atoms,supercell%no_atoms), &
           & stat=ialloc); call err(ialloc)
-  output = mat(dble(zeroes(3,3)))
+  output = dblemat(zeroes(3,3))
   updated = .false.
   do i=1,size(supercell%symmetries)
     do j=1,size(unique_directions)

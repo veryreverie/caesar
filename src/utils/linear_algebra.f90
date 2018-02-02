@@ -92,21 +92,31 @@ module linear_algebra_module
   end interface
   
   interface dble
-    module procedure dble_IntVector
-    module procedure dble_IntMatrix
     module procedure dble_RealVector
     module procedure dble_RealMatrix
   end interface
   
+  interface dblevec
+    module procedure dblevec_IntVector
+  end interface
+  
+  interface dblemat
+    module procedure dblemat_IntMatrix
+  end interface
+  
   interface cmplx
-    module procedure cmplx_IntVector
-    module procedure cmplx_IntMatrix
-    module procedure cmplx_RealVector
-    module procedure cmplx_RealMatrix
     module procedure cmplx_ComplexVector
     module procedure cmplx_ComplexMatrix
-    module procedure cmplx_RealVectors
-    module procedure cmplx_RealMatrices
+  end interface
+  
+  interface cmplxvec
+    module procedure cmplxvec_IntVectors
+    module procedure cmplxvec_RealVectors
+  end interface
+  
+  interface cmplxmat
+    module procedure cmplxmat_IntMatrices
+    module procedure cmplxmat_RealMatrices
   end interface
   
   interface real
@@ -366,7 +376,7 @@ module linear_algebra_module
   ! --------------------------------------------------
   interface
     ! Copies a real vector. Equivalent to dy = dx.
-    pure subroutine dcopy(n,dx,incx,dy,incy)
+    subroutine dcopy(n,dx,incx,dy,incy)
       import :: dp
       implicit none
       
@@ -378,7 +388,7 @@ module linear_algebra_module
     end subroutine
     
     ! Copies complex vector. Equivalent to zy = zx.
-    pure subroutine zcopy(n,zx,incx,zy,incy)
+    subroutine zcopy(n,zx,incx,zy,incy)
       import :: dp
       implicit none
       
@@ -390,7 +400,7 @@ module linear_algebra_module
     end subroutine
     
     ! Real dot product. Returns dx.dy.
-    pure function ddot(n,dx,incx,dy,incy) result(output)
+    function ddot(n,dx,incx,dy,incy) result(output)
       import :: dp
       implicit none
       
@@ -403,7 +413,7 @@ module linear_algebra_module
     end function
     
     ! Multiplies real vector by real scalar. Equivalent to dx *= da.
-    pure subroutine dscal(n,da,dx,incx)
+    subroutine dscal(n,da,dx,incx)
       import :: dp
       implicit none
       
@@ -414,7 +424,7 @@ module linear_algebra_module
     end subroutine
     
     ! Multiplies complex vector by complex scalar. Equivalent to zx *= za.
-    pure subroutine zscal(n,za,zx,incx)
+    subroutine zscal(n,za,zx,incx)
       import :: dp
       implicit none
       
@@ -425,7 +435,7 @@ module linear_algebra_module
     end subroutine
     
     ! Complex norm. Returns sqrt(x.x).
-    pure function dznrm2(n,x,incx) result(output)
+    function dznrm2(n,x,incx) result(output)
       import :: dp
       implicit none
       
@@ -436,7 +446,7 @@ module linear_algebra_module
     end function
     
     ! Finds the eigenvalues of a hermitian matrix.
-    pure subroutine zheev(jobz,uplo,n,a,lda,w,work,lwork,rwork,info)
+    subroutine zheev(jobz,uplo,n,a,lda,w,work,lwork,rwork,info)
       import :: dp
       implicit none
       
@@ -453,7 +463,7 @@ module linear_algebra_module
     end subroutine
     
     ! Finds the eigenvalues of a symmetric matrix.
-    pure subroutine dsyev(jobz,uplo,n,a,lda,w,work,lwork,info)
+    subroutine dsyev(jobz,uplo,n,a,lda,w,work,lwork,info)
       import :: dp
       implicit none
       
@@ -469,7 +479,7 @@ module linear_algebra_module
     end subroutine
     
     ! Minimises the least-squares fit l=(a.x-b)**2.
-    pure subroutine dgels(trans,m,n,nrhs,a,lda,b,ldb,work,lwork,info)
+    subroutine dgels(trans,m,n,nrhs,a,lda,b,ldb,work,lwork,info)
       import :: dp
       implicit none
       
@@ -487,7 +497,7 @@ module linear_algebra_module
     end subroutine
     
     ! In-place LU factorisation. Required for dgetri. LU factorises a.
-    pure subroutine dgetrf(m,n,a,lda,ipiv,info)
+    subroutine dgetrf(m,n,a,lda,ipiv,info)
       import :: dp
       implicit none
       
@@ -500,7 +510,7 @@ module linear_algebra_module
     end subroutine
     
     ! In-place matrix inversion. Inverts a.
-    pure subroutine dgetri(n,a,lda,ipiv,work,lwork,info)
+    subroutine dgetri(n,a,lda,ipiv,work,lwork,info)
       import :: dp
       implicit none
       
@@ -519,7 +529,7 @@ contains
 ! Vector and Matrix operations involving the private contents_ variable.
 ! ----------------------------------------------------------------------
 ! Assignment.
-pure subroutine assign_IntVector_integers(output,input)
+subroutine assign_IntVector_integers(output,input)
   implicit none
   
   type(IntVector), intent(out) :: output
@@ -528,7 +538,7 @@ pure subroutine assign_IntVector_integers(output,input)
   output%contents_ = input
 end subroutine
 
-pure subroutine assign_RealVector_reals(output,input)
+subroutine assign_RealVector_reals(output,input)
   implicit none
   
   type(RealVector), intent(out) :: output
@@ -537,7 +547,7 @@ pure subroutine assign_RealVector_reals(output,input)
   output%contents_ = input
 end subroutine
 
-pure subroutine assign_ComplexVector_complexes(output,input)
+subroutine assign_ComplexVector_complexes(output,input)
   implicit none
   
   type(ComplexVector), intent(out) :: output
@@ -546,7 +556,7 @@ pure subroutine assign_ComplexVector_complexes(output,input)
   output%contents_ = input
 end subroutine
 
-pure subroutine assign_IntMatrix_integers(output,input)
+subroutine assign_IntMatrix_integers(output,input)
   implicit none
   
   type(IntMatrix), intent(out) :: output
@@ -555,7 +565,7 @@ pure subroutine assign_IntMatrix_integers(output,input)
   output%contents_ = input
 end subroutine
 
-pure subroutine assign_RealMatrix_reals(output,input)
+subroutine assign_RealMatrix_reals(output,input)
   implicit none
   
   type(RealMatrix), intent(out) :: output
@@ -564,7 +574,7 @@ pure subroutine assign_RealMatrix_reals(output,input)
   output%contents_ = input
 end subroutine
 
-pure subroutine assign_ComplexMatrix_complexes(output,input)
+subroutine assign_ComplexMatrix_complexes(output,input)
   implicit none
   
   type(ComplexMatrix), intent(out) :: output
@@ -673,7 +683,7 @@ end function
 !    and this good behaviour is automatically passed to the procedures below.
 
 ! Conversion to Vector and Matrix.
-pure function vec_integers(input) result(output)
+function vec_integers(input) result(output)
   implicit none
   
   integer, intent(in) :: input(:)
@@ -682,7 +692,7 @@ pure function vec_integers(input) result(output)
   output = input
 end function
 
-pure function vec_reals(input) result(output)
+function vec_reals(input) result(output)
   implicit none
   
   real(dp), intent(in) :: input(:)
@@ -691,7 +701,7 @@ pure function vec_reals(input) result(output)
   output = input
 end function
 
-pure function vec_complexes(input) result(output)
+function vec_complexes(input) result(output)
   implicit none
   
   complex(dp), intent(in) :: input(:)
@@ -700,7 +710,7 @@ pure function vec_complexes(input) result(output)
   output = input
 end function
 
-pure function mat_integers(input) result(output)
+function mat_integers(input) result(output)
   implicit none
   
   integer, intent(in) :: input(:,:)
@@ -709,7 +719,7 @@ pure function mat_integers(input) result(output)
   output = input
 end function
 
-pure function mat_reals(input) result(output)
+function mat_reals(input) result(output)
   implicit none
   
   real(dp), intent(in) :: input(:,:)
@@ -718,7 +728,7 @@ pure function mat_reals(input) result(output)
   output = input
 end function
 
-pure function mat_complexes(input) result(output)
+function mat_complexes(input) result(output)
   implicit none
   
   complex(dp), intent(in) :: input(:,:)
@@ -727,7 +737,7 @@ pure function mat_complexes(input) result(output)
   output = input
 end function
 
-pure function mat_integers_shape(input,m,n) result(output)
+function mat_integers_shape(input,m,n) result(output)
   implicit none
   
   integer, intent(in) :: input(:)
@@ -738,7 +748,7 @@ pure function mat_integers_shape(input,m,n) result(output)
   output = transpose(reshape(input, [m,n]))
 end function
 
-pure function mat_reals_shape(input,m,n) result(output)
+function mat_reals_shape(input,m,n) result(output)
   implicit none
   
   real(dp), intent(in) :: input(:)
@@ -749,7 +759,7 @@ pure function mat_reals_shape(input,m,n) result(output)
   output = transpose(reshape(input, [m,n]))
 end function
 
-pure function mat_complexes_shape(input,m,n) result(output)
+function mat_complexes_shape(input,m,n) result(output)
   implicit none
   
   complex(dp), intent(in) :: input(:)
@@ -831,78 +841,78 @@ function nint_RealMatrix(input) result(output)
   output = nint(dble(input))
 end function
 
-function dble_IntVector(input) result(output)
+function dblevec_IntVector(input) result(output)
   implicit none
   
   type(IntVector), intent(in) :: input
-  real(dp), allocatable       :: output(:)
+  type(RealVector)            :: output
   
-  output = int(input)
+  output = real(int(input),dp)
 end function
 
-function dble_IntMatrix(input) result(output)
+function dblemat_IntMatrix(input) result(output)
   implicit none
   
   type(IntMatrix), intent(in) :: input
-  real(dp), allocatable       :: output(:,:)
+  type(RealMatrix)            :: output
   
-  output = int(input)
+  output = real(int(input),dp)
 end function
 
-function cmplx_IntVector(input) result(output)
+function cmplxvec_IntVectors(real,imag) result(output)
   implicit none
   
-  type(IntVector), intent(in) :: input
-  complex(dp), allocatable    :: output(:)
+  type(IntVector), intent(in)           :: real
+  type(IntVector), intent(in), optional :: imag
+  type(ComplexVector)                   :: output
   
-  output = int(input)
+  if (present(imag)) then
+    output = cmplx(int(real),int(imag),dp)
+  else
+    output = cmplx(int(real),0,dp)
+  endif
 end function
 
-function cmplx_IntMatrix(input) result(output)
+function cmplxmat_IntMatrices(real,imag) result(output)
   implicit none
   
-  type(IntMatrix), intent(in) :: input
-  complex(dp), allocatable    :: output(:,:)
+  type(IntMatrix), intent(in)           :: real
+  type(IntMatrix), intent(in), optional :: imag
+  type(ComplexMatrix)                   :: output
   
-  output = int(input)
+  if (present(imag)) then
+    output = cmplx(int(real),int(imag),dp)
+  else
+    output = cmplx(int(real),0,dp)
+  endif
 end function
 
-function cmplx_RealVector(input) result(output)
+function cmplxvec_RealVectors(real,imag) result(output)
   implicit none
   
-  type(RealVector), intent(in) :: input
-  complex(dp), allocatable     :: output(:)
+  type(RealVector), intent(in)           :: real
+  type(RealVector), intent(in), optional :: imag
+  type(ComplexVector)                    :: output
   
-  output = dble(input)
+  if (present(imag)) then
+    output = cmplx(dble(real),dble(imag),dp)
+  else
+    output = cmplx(dble(real),0,dp)
+  endif
 end function
 
-function cmplx_RealMatrix(input) result(output)
+function cmplxmat_RealMatrices(real,imag) result(output)
   implicit none
   
-  type(RealMatrix), intent(in) :: input
-  complex(dp), allocatable     :: output(:,:)
+  type(RealMatrix), intent(in)           :: real
+  type(RealMatrix), intent(in), optional :: imag
+  type(ComplexMatrix)                    :: output
   
-  output = dble(input)
-end function
-
-function cmplx_RealVectors(real,imag) result(output)
-  implicit none
-  
-  type(RealVector), intent(in) :: real
-  type(RealVector), intent(in) :: imag
-  complex(dp), allocatable     :: output(:)
-  
-  output = cmplx(dble(real),dble(imag),dp)
-end function
-
-function cmplx_RealMatrices(real,imag) result(output)
-  implicit none
-  
-  type(RealMatrix), intent(in) :: real
-  type(RealMatrix), intent(in) :: imag
-  complex(dp), allocatable     :: output(:,:)
-  
-  output = cmplx(dble(real),dble(imag),dp)
+  if (present(imag)) then
+    output = cmplx(dble(real),dble(imag),dp)
+  else
+    output = cmplx(dble(real),0,dp)
+  endif
 end function
 
 ! Real part of a complex object.

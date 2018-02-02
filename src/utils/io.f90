@@ -4,6 +4,9 @@
 module io_module
   use iso_fortran_env,  only : output_unit
   use constants_module, only : dp
+  use error_module, only : error_module_ERROR => ERROR, &
+                         & error_module_CODE_ERROR => CODE_ERROR, &
+                         & error_module_WARNING => WARNING
   use string_module
   implicit none
   
@@ -13,10 +16,10 @@ module io_module
   character(1), parameter :: ESC = achar(27)
   
   ! Public strings for ease of printing.
-  character(14), parameter, public :: ERROR = ESC//'[31mError'//ESC//'[0m'
-  character(19), parameter, public :: CODE_ERROR = &
-     & ESC//'[31mCode Error'//ESC//'[0m'
-  character(16), parameter, public :: WARNING=ESC//'[95mWarning'//ESC//'[0m'
+  ! Re-export error strings from error_module.
+  character(14), parameter, public :: ERROR = error_module_ERROR
+  character(19), parameter, public :: CODE_ERROR = error_module_CODE_ERROR
+  character(16), parameter, public :: WARNING = error_module_WARNING
   
   ! I/O settings, specifying various input/output properties.
   ! Set by set_io_settings.
@@ -256,16 +259,33 @@ impure elemental function int_String(this) result(output)
 end function
 
 ! Convert a character or String to real(dp).
-function dble_character(this) result(output)
+! Can also convert fractions as strings to real(dp), e.g. '4/5' -> 0.8_dp.
+recursive function dble_character(this) result(output)
   implicit none
   
   character(*), intent(in) :: this
   real(dp)                 :: output
   
+  type(String), allocatable :: split_string(:)
+  real(dp)                  :: reals(2)
+  
   integer :: ierr
   
-  read(this,*,iostat=ierr) output
-  if (ierr/=0) then
+  split_string = split(this,'/')
+  
+  if (size(split_string)==1) then
+    ! The string does not contain a '/': treat it as a real.
+    read(this,*,iostat=ierr) output
+    if (ierr/=0) then
+      call print_line(ERROR//': unable to convert the string "'//this//'" to &
+         &a real number.')
+      call err()
+    endif
+  elseif (size(split_string)==2) then
+    ! The string contains a '/': treat it as a fraction.
+    output = dble(char(split_string(1)))/dble(char(split_string(2)))
+  else
+    ! The string contains multiple '/'s: this is an error.
     call print_line(ERROR//': unable to convert the string "'//this//'" to &
        &a real number.')
     call err()
@@ -605,10 +625,10 @@ end subroutine
 ! ----------------------------------------------------------------------
 ! Always aborts.
 subroutine err_none()
-  use compiler_specific_module
+  use error_module, only : abort_with_stacktrace
   implicit none
   
-  call err_implementation()
+  call abort_with_stacktrace()
 end subroutine
 
 ! Aborts if integer input /= 0.

@@ -158,7 +158,7 @@ contains
 ! ----------------------------------------------------------------------
 
 ! Assignment.
-pure subroutine assign_FractionVector_IntFractions(output,input)
+subroutine assign_FractionVector_IntFractions(output,input)
   implicit none
   
   class(FractionVector), intent(inout) :: output
@@ -167,7 +167,7 @@ pure subroutine assign_FractionVector_IntFractions(output,input)
   output%contents_ = input
 end subroutine
 
-pure subroutine assign_FractionMatrix_IntFractions(output,input)
+subroutine assign_FractionMatrix_IntFractions(output,input)
   implicit none
   
   class(FractionMatrix), intent(inout) :: output
@@ -988,7 +988,7 @@ impure elemental function dot_FractionMatrix_FractionMatrix(this,that) result(ou
   type(IntFraction), allocatable :: b(:,:)
   type(IntFraction), allocatable :: contents(:,:)
   
-  integer :: i,j,ialloc
+  integer :: i,j,k,ialloc
   
   if (size(this,2)/=size(that,1)) then
     call print_line(CODE_ERROR//': Dot product of two matrices of &
@@ -1002,7 +1002,9 @@ impure elemental function dot_FractionMatrix_FractionMatrix(this,that) result(ou
   contents = frac(0)
   do i=1,size(that,2)
     do j=1,size(that,1)
-      contents(:,i) = contents(:,i) + a(:,j)*b(j,i)
+      do k=1,size(this,1)
+        contents(k,i) = contents(k,i) + a(k,j)*b(j,i)
+      enddo
     enddo
   enddo
   output = contents
@@ -1019,7 +1021,7 @@ impure elemental function dot_FractionMatrix_IntMatrix(this,that) result(output)
   integer,           allocatable :: b(:,:)
   type(IntFraction), allocatable :: contents(:,:)
   
-  integer :: i,j,ialloc
+  integer :: i,j,k,ialloc
   
   if (size(this,2)/=size(that,1)) then
     call print_line(CODE_ERROR//': Dot product of two matrices of &
@@ -1033,7 +1035,9 @@ impure elemental function dot_FractionMatrix_IntMatrix(this,that) result(output)
   contents = frac(0)
   do i=1,size(that,2)
     do j=1,size(that,1)
-      contents(:,i) = contents(:,i) + a(:,j)*b(j,i)
+      do k=1,size(this,1)
+        contents(k,i) = contents(k,i) + a(k,j)*b(j,i)
+      enddo
     enddo
   enddo
   output = contents
@@ -1050,7 +1054,7 @@ impure elemental function dot_IntMatrix_FractionMatrix(this,that) result(output)
   type(IntFraction), allocatable :: b(:,:)
   type(IntFraction), allocatable :: contents(:,:)
   
-  integer :: i,j,ialloc
+  integer :: i,j,k,ialloc
   
   if (size(this,2)/=size(that,1)) then
     call print_line(CODE_ERROR//': Dot product of two matrices of &
@@ -1064,7 +1068,9 @@ impure elemental function dot_IntMatrix_FractionMatrix(this,that) result(output)
   contents = frac(0)
   do i=1,size(that,2)
     do j=1,size(that,1)
-      contents(:,i) = contents(:,i) + a(:,j)*b(j,i)
+      do k=1,size(this,1)
+        contents(k,i) = contents(k,i) + a(k,j)*b(j,i)
+      enddo
     enddo
   enddo
   output = contents

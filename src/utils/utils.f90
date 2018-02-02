@@ -83,7 +83,7 @@ end subroutine
 ! Vector L2 norm.
 ! Replicates norm2() from f2008 standard.
 ! ----------------------------------------------------------------------
-pure function l2_norm_reals(input) result(output)
+function l2_norm_reals(input) result(output)
   implicit none
   
   real(dp), intent(in) :: input(:)
@@ -236,7 +236,7 @@ end function
 !    - gcd(-a,b)=gcd(a,-b)=gcd(-a,-b)=gcd(a,b).
 ! a=Ac, b=Bc, A<=B. c is the gcd of a and b.
 ! gcd(a,b) = gcd(Ac,Bc) = gcd(Ac,(B-nA)c).
-pure function gcd_2(int_1,int_2) result(output)
+function gcd_2(int_1,int_2) result(output)
   implicit none
   
   integer, intent(in) :: int_1
@@ -260,7 +260,7 @@ end function
 
 ! Calculate the gcd of more than two integers, by recursively finding
 !    pairwise gcds.
-pure function gcd_3(int_1,int_2,int_3) result(output)
+function gcd_3(int_1,int_2,int_3) result(output)
   implicit none
   
   integer, intent(in) :: int_1
@@ -271,7 +271,7 @@ pure function gcd_3(int_1,int_2,int_3) result(output)
   output = gcd(gcd(int_1,int_2),int_3)
 end function
 
-pure function gcd_4(int_1,int_2,int_3,int_4) result(output)
+function gcd_4(int_1,int_2,int_3,int_4) result(output)
   implicit none
   
   integer, intent(in) :: int_1
@@ -287,7 +287,7 @@ end function
 ! Calculate the lowest common multiple of two non-negative integers.
 ! lcm(a,b) = a*b/gcd(a,b)
 ! ----------------------------------------------------------------------
-pure function lcm_2(int_1,int_2) result(output)
+function lcm_2(int_1,int_2) result(output)
   implicit none
   
   integer, intent(in) :: int_1
@@ -299,7 +299,7 @@ end function
 
 ! Calculate the lcm of more than two integers, by recursively finding
 !    pairwise lcms.
-pure function lcm_3(int_1,int_2,int_3) result(output)
+function lcm_3(int_1,int_2,int_3) result(output)
   implicit none
   
   integer, intent(in) :: int_1
@@ -310,7 +310,7 @@ pure function lcm_3(int_1,int_2,int_3) result(output)
   output = lcm(lcm(int_1,int_2),int_3)
 end function
 
-pure function lcm_4(int_1,int_2,int_3,int_4) result(output)
+function lcm_4(int_1,int_2,int_3,int_4) result(output)
   implicit none
   
   integer, intent(in) :: int_1

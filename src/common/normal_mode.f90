@@ -696,7 +696,7 @@ function real_to_complex_Mode(input) result(output)
     do i=1,no_atoms_prim
       ! x = x
       output%primitive_displacements(i,1) = &
-         & cmplx(input%primitive_displacements(i,1))
+         & cmplxvec(input%primitive_displacements(i,1))
     enddo
   else
     if (size(input%primitive_displacements,2)/=2) then
@@ -708,14 +708,14 @@ function real_to_complex_Mode(input) result(output)
             & stat=ialloc); call err(ialloc)
     do i=1,no_atoms_prim
       ! x+ = (c+is)/sqrt(2)
-      output%primitive_displacements(i,1) =            &
-         & cmplx(  input%primitive_displacements(i,1), &
-         &         input%primitive_displacements(i,2)) &
+      output%primitive_displacements(i,1) =               &
+         & cmplxvec(  input%primitive_displacements(i,1), &
+         &            input%primitive_displacements(i,2)) &
          & / sqrt(2.0_dp)
       ! x- = (c-is)/sqrt(2)
-      output%primitive_displacements(i,2) =            &
-         & cmplx(  input%primitive_displacements(i,1), &
-         &        -input%primitive_displacements(i,2)) &
+      output%primitive_displacements(i,2) =               &
+         & cmplxvec(  input%primitive_displacements(i,1), &
+         &           -input%primitive_displacements(i,2)) &
          & / sqrt(2.0_dp)
     enddo
   endif

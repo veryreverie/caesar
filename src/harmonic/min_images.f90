@@ -33,11 +33,11 @@ function size_MinImages(this) result(output)
 end function
 
 ! ----------------------------------------------------------------------
-! Returns min_images(R,a,b).
+! Returns min_images(a,b).
 ! Computes the set of supercell R-vectors such that the cartesian displacement
 !    between a+R and b is minimised.
 ! Returns multiple R-vectors if they have similar lengths.
-! Output given in fractional supercell co-ordinates, so R-vectors are integers.
+! Output given in fractional primitive co-ordinates, so R-vectors are integers.
 ! ----------------------------------------------------------------------
 function calculate_min_images(supercell) result(output)
   use structure_module

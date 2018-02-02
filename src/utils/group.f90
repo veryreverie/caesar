@@ -149,7 +149,7 @@ end function
 ! ----------------------------------------------------------------------
 ! I/O.
 ! ----------------------------------------------------------------------
-pure function str_Group(this) result(output)
+function str_Group(this) result(output)
   implicit none
   
   class(Group), intent(in) :: this
