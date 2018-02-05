@@ -45,9 +45,12 @@ module fraction_algebra_module
     module procedure frac_IntMatrix
   end interface
   
-  interface dble
-    module procedure dble_FractionVector
-    module procedure dble_FractionMatrix
+  interface dblevec
+    module procedure dblevec_FractionVector
+  end interface
+  
+  interface dblemat
+    module procedure dblemat_FractionMatrix
   end interface
   
   ! Properties of the vectors and matrices.
@@ -263,20 +266,20 @@ function frac_IntMatrix(input) result(output)
   output = frac(int(input))
 end function
 
-function dble_FractionVector(input) result(output)
+function dblevec_FractionVector(input) result(output)
   implicit none
   
   type(FractionVector), intent(in) :: input
-  real(dp), allocatable            :: output(:)
+  type(RealVector)                 :: output
   
   output = dble(frac(input))
 end function
 
-function dble_FractionMatrix(input) result(output)
+function dblemat_FractionMatrix(input) result(output)
   implicit none
   
   type(FractionMatrix), intent(in) :: input
-  real(dp), allocatable            :: output(:,:)
+  type(RealMatrix)                 :: output
   
   output = dble(frac(input))
 end function

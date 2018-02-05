@@ -455,7 +455,7 @@ subroutine StructureData_to_castep_input_file(structure,old_cell_filename, &
     do i=2,size(old_cell_file%kpoints_block)-1
       line = split(old_cell_file%kpoints_block(i))
       kpoint = dble(line(1:3))
-      kpoint = transpose(mat(dble(structure%recip_supercell))) * kpoint
+      kpoint = transpose(dblemat(structure%recip_supercell)) * kpoint
       old_cell_file%kpoints_block(i) = kpoint//' '//join(line(4:))
     enddo
   endif

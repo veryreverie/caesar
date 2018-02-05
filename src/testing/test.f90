@@ -65,7 +65,16 @@ subroutine test(arguments)
   real(dp),     allocatable :: dbles(:)
   integer                   :: i
   
+  complex(dp) :: thing
+  
   wd = arguments%value('working_directory')
+  
+  thing = cmplx(1.2_dp*sqrt(2.0_dp), 3.4_dp*sqrt(2.0_dp), dp)
+  
+  call print_line(thing)
+  write(*,'(es25.17,sp,es24.17,"i")') thing
+  
+  stop
   
   call print_line(dble('0.0'))
   call print_line(dble('0'))

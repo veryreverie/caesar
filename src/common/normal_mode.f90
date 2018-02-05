@@ -505,7 +505,7 @@ function real_mode_to_displacement(input,modes,qpoint,supercell) result(output)
     prim = atom%prim_id()
     
     ! Calculate 2*pi*q.R, cos(2*pi*i*q.R) and sin(2*pi*i*q.R).
-    q = dble(qpoint%qpoint)
+    q = dblevec(qpoint%qpoint)
     qr = 2 * pi * q * supercell%rvectors(prim)
     cos_qr = cos(qr)
     sin_qr = sin(qr)
@@ -580,7 +580,7 @@ function force_to_real_mode(input,modes,qpoint,supercell) result(output)
     prim = atom%prim_id()
     
     ! Calculate 2*pi*q.R, sin(2*pi*i*q.R) and cos(2*pi*i*q.R).
-    q = dble(qpoint%qpoint)
+    q = dblevec(qpoint%qpoint)
     qr = 2 * pi * q * supercell%rvectors(atom%rvec_id())
     cos_qr = cos(qr)
     sin_qr = sin(qr)

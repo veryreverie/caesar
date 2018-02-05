@@ -96,9 +96,9 @@ subroutine calculate_normal_modes(arguments)
   type(IntVector) :: gvector
   
   ! Lte output data.
-  logical,                      allocatable :: modes_calculated(:)
-  integer                                   :: mode
-  type(String)                              :: mode_string
+  logical, allocatable :: modes_calculated(:)
+  integer              :: mode
+  type(String)         :: mode_string
   
   ! Normal modes and their symmetries.
   logical, allocatable :: translational(:)
@@ -269,14 +269,8 @@ subroutine calculate_normal_modes(arguments)
           dynamical_matrices(i) = DynamicalMatrix( qpoints(i),      &
                                                  & supercells,      &
                                                  & force_constants, &
-                                                 & structure)
-          rotated_matrix = dynmat( qpoints(i),    &
-                         & supercells(j), &
-                         & force_constants(j))
-          call print_line('qpoint '//i)
-          call compare_dynamical_matrices( dynamical_matrices(i), &
-                                         & rotated_matrix,        &
-                                         & qpoint_logfile)
+                                                 & structure,       &
+                                                 & qpoint_logfile)
           
           ! Lift degeneracies, expressing degenerate states in terms of
           !    the eigenvectors of symmetry operators.

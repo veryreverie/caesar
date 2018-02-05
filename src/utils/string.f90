@@ -77,7 +77,7 @@ module string_module
   end type
   
   abstract interface
-    function str_Stringable_2(this) result(output)
+    recursive function str_Stringable_2(this) result(output)
       import String
       import Stringable
       implicit none
@@ -272,19 +272,20 @@ subroutine assign_String_complex(output,input)
   type(String), intent(out) :: output
   complex(dp),  intent(in)  :: input
   
-  type(String) :: real_string
-  type(String) :: imag_string
+  integer, parameter                 :: real_width = 25
+  integer, parameter                 :: imag_width = 24
+  integer, parameter                 :: decimal_places = 17
+  type(String)                       :: format_string
+  character(real_width+imag_width+1) :: complex_string
   
-  real_string = real(input)
-  imag_string = aimag(input)
-  
-  imag_string = trim(imag_string)
-  
-  if (slice(imag_string,1,1)/='-') then
-    imag_string = '+'//imag_string
-  endif
-  
-  output = real_string//imag_string//'i'
+  format_string = '('                                        // &
+                & 'ES'//real_width//'.'//decimal_places //','// &
+                & 'sp'                                  //','// &
+                & 'ES'//imag_width//'.'//decimal_places //','// &
+                & '"i"'                                      // &
+                & ')'
+  write(complex_string,char(format_string)) input
+  output = complex_string
 end subroutine
 
 ! character = String
@@ -747,7 +748,7 @@ function concatenate_Stringable_character(this,that) result(output)
 end function
 
 ! String = String//Stringable
-function concatenate_String_Stringable(this,that) result(output)
+recursive function concatenate_String_Stringable(this,that) result(output)
   implicit none
   
   type(String),      intent(in) :: this
@@ -758,7 +759,7 @@ function concatenate_String_Stringable(this,that) result(output)
 end function
 
 ! String = Stringable//String
-function concatenate_Stringable_String(this,that) result(output)
+recursive function concatenate_Stringable_String(this,that) result(output)
   implicit none
   
   class(Stringable), intent(in) :: this

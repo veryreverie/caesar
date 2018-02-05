@@ -95,7 +95,7 @@ end function
 ! ----------------------------------------------------------------------
 ! The sum of the squares of the elements of a matrix.
 ! ----------------------------------------------------------------------
-function sum_squares_RealVector(input) result(output)
+impure elemental function sum_squares_RealVector(input) result(output)
   use linear_algebra_module
   implicit none
   
@@ -105,7 +105,7 @@ function sum_squares_RealVector(input) result(output)
   output = sum(dble(input)*dble(input))
 end function
 
-function sum_squares_RealMatrix(input) result(output)
+impure elemental function sum_squares_RealMatrix(input) result(output)
   use linear_algebra_module
   implicit none
   
@@ -115,7 +115,7 @@ function sum_squares_RealMatrix(input) result(output)
   output = sum(dble(input)*dble(input))
 end function
 
-function sum_squares_ComplexVector(input) result(output)
+impure elemental function sum_squares_ComplexVector(input) result(output)
   use linear_algebra_module
   implicit none
   
@@ -125,7 +125,7 @@ function sum_squares_ComplexVector(input) result(output)
   output = sum(real(cmplx(input)*conjg(cmplx(input))))
 end function
 
-function sum_squares_ComplexMatrix(input) result(output)
+impure elemental function sum_squares_ComplexMatrix(input) result(output)
   use linear_algebra_module
   implicit none
   

@@ -143,9 +143,9 @@ subroutine calculate_dos_and_dispersion(arguments)
   
   ! Reconstruct calculated dynamical matrices, to check for consistency.
   do i=1,size(qpoints)
-    dyn_mat = DynamicalMatrix( vec(dble(qpoints(i)%qpoint)), &
-                             & large_supercell,              &
-                             & force_constants,              &
+    dyn_mat = DynamicalMatrix( dblevec(qpoints(i)%qpoint), &
+                             & large_supercell,            &
+                             & force_constants,            &
                              & min_images)
     call logfile%print_line('Comparing dynamical matrices before and after &
        &reconstruction of force constants.')

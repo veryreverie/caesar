@@ -132,15 +132,21 @@ function calculate_symmetries(basic_symmetries,lattice,recip_lattice,atoms) &
         distance = transformed_position - atoms(k)%fractional_position()
         offsets(k) = l2_norm(distance - vec(nint(distance)))
       enddo
-      operations(j,i) = minloc(offsets,1)
+      k = minloc(offsets,1)
+      operations(j,i) = k
       
       ! R * position(i) + t = position(j) + an R-vector.
       ! Identify this R-vector, and record it.
       rvectors(j,i) = nint( transformed_position &
-                        & - atoms(j)%fractional_position())
+                        & - atoms(k)%fractional_position())
       
       ! Check that the transformed atom is acceptably close to its image.
       if (offsets(operations(j,i))>1.0e-10_dp) then
+        call print_line(CODE_ERROR//': Error mapping atoms under symmetry.')
+        call err()
+      elseif (l2_norm( transformed_position           &
+                   & - atoms(k)%fractional_position() &
+                   & - rvectors(j,i) )>1e-10_dp) then
         call print_line(CODE_ERROR//': Error mapping atoms under symmetry.')
         call err()
       endif

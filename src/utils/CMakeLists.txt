@@ -10,7 +10,7 @@ else()
 endif()
 
 # Utility modules.
-add_library(utils system.c spglib_wrapper.c constants.f90 terminal.f90 error.f90 string_base.f90 string.f90 printable.f90 io.f90 file.f90 ifile.f90 ofile.f90 utils.f90 keyword.f90 help.f90 dictionary.f90 fraction.f90 fraction_algebra.f90 linear_algebra.f90 integer_arrays.f90 group.f90 process_arguments.f90 caesar_modes.f90)
+add_library(utils system.c spglib_wrapper.c constants.f90 terminal.f90 error.f90 string_base.f90 string.f90 printable.f90 io.f90 file.f90 ifile.f90 ofile.f90 utils.f90 keyword.f90 help.f90 dictionary.f90 fraction.f90 fraction_algebra.f90 phase.f90 linear_algebra.f90 integer_arrays.f90 group.f90 process_arguments.f90 caesar_modes.f90)
 target_link_libraries(utils compiler_specific)
 
 # Link to LAPACK.
