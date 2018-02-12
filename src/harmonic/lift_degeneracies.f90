@@ -3,31 +3,13 @@ module lift_degeneracies_module
   use string_module
   use io_module
   implicit none
+  
+  private
 contains
 
-function lift_degeneracies(input,structure) result(output)
-  use normal_mode_module
-  use structure_module
-  use linear_algebra_module
-  use group_module
-  use symmetry_module
-  implicit none
-  
-  type(ComplexMode),   intent(in) :: input(:)
-  type(StructureData), intent(in) :: structure
-  type(ComplexMode), allocatable  :: output(:)
-  
-  type(SymmetryOperator), allocatable :: relevant_symmetries(:)
-  type(ComplexMatrix), allocatable :: symmetries_nm_basis(:)
-  
-  output = input
-  
-  !relevant_symmetries = identify_relevant_symmetries(supercell%symmetries)
-  
-  !symmetries_nm_basis = calculate_normal_mode_symmetries( &
-  !                                 & relevant_symmetries, &
-  !                                 & normal_modes)
-end function
+! ======================================================================
+! OLD CODE.
+! ======================================================================
 
 ! ----------------------------------------------------------------------
 ! Calculates which symmetries commute with translation by all G-vectors,

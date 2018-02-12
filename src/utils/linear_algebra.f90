@@ -16,37 +16,37 @@ module linear_algebra_module
   type, extends(Stringable) :: IntVector
     integer, allocatable, private :: contents_(:)
   contains
-    procedure, public  :: str => str_IntVector
+    procedure, public :: str => str_IntVector
   end type
   
   type, extends(Stringable) :: RealVector
     real(dp), allocatable, private :: contents_(:)
   contains
-    procedure, public  :: str => str_RealVector
+    procedure, public :: str => str_RealVector
   end type
   
   type, extends(Stringable) :: ComplexVector
     complex(dp), allocatable, private :: contents_(:)
   contains
-    procedure, public  :: str => str_ComplexVector
+    procedure, public :: str => str_ComplexVector
   end type
   
   type, extends(Printable) :: IntMatrix
     integer, allocatable, private :: contents_(:,:)
   contains
-    procedure, public  :: str => str_IntMatrix
+    procedure, public :: str => str_IntMatrix
   end type
   
   type, extends(Printable) :: RealMatrix
     real(dp), allocatable, private :: contents_(:,:)
   contains
-    procedure, public  :: str => str_RealMatrix
+    procedure, public :: str => str_RealMatrix
   end type
   
   type, extends(Printable) :: ComplexMatrix
     complex(dp), allocatable, private :: contents_(:,:)
   contains
-    procedure, public  :: str => str_ComplexMatrix
+    procedure, public :: str => str_ComplexMatrix
   end type
   
   ! --------------------------------------------------
@@ -332,36 +332,6 @@ module linear_algebra_module
   end interface
   
   ! --------------------------------------------------
-  ! The eigen(values and vectors) of a matrix.
-  ! --------------------------------------------------
-  ! degeneracy(i) = 0 if eigenvector(i) is non-degenerate
-  !               = j if eigenvector(i) is degenerate,
-  ! where j is an arbitrary but unique id.
-  type RealEigenstuff
-    real(dp), allocatable :: evals(:)
-    real(dp), allocatable :: evecs(:,:)
-    integer,  allocatable :: degeneracy(:)
-  end type
-  
-  type ComplexEigenstuff
-    real(dp),    allocatable :: evals(:)
-    complex(dp), allocatable :: evecs(:,:)
-    integer,     allocatable :: degeneracy(:)
-  end type
-
-  interface size
-    module procedure size_RealEigenstuff
-    module procedure size_ComplexEigenstuff
-  end interface
-  
-  interface calculate_eigenstuff
-    module procedure calculate_RealEigenstuff_reals
-    module procedure calculate_RealEigenstuff_RealMatrix
-    module procedure calculate_ComplexEigenstuff_complexes
-    module procedure calculate_ComplexEigenstuff_ComplexMatrix
-  end interface
-  
-  ! --------------------------------------------------
   ! Linear least-squares optimisation.
   ! --------------------------------------------------
   interface linear_least_squares
@@ -444,39 +414,6 @@ module linear_algebra_module
       integer,     intent(in) :: incx   ! Increment along x
       real(dp)                :: output ! Result
     end function
-    
-    ! Finds the eigenvalues of a hermitian matrix.
-    subroutine zheev(jobz,uplo,n,a,lda,w,work,lwork,rwork,info)
-      import :: dp
-      implicit none
-      
-      character(1), intent(in)    :: jobz     ! n/v: if v, calculate eigenvecs.
-      character(1), intent(in)    :: uplo     ! u/l: upper/lower triangle.
-      integer,      intent(in)    :: n        ! The order of a.
-      integer,      intent(in)    :: lda      ! The dimension of a.
-      complex(dp),  intent(inout) :: a(lda,*) ! Hermitian matrix.
-      real(dp),     intent(out)   :: w(*)     ! Eigenvalues of a.
-      complex(dp),  intent(out)   :: work(*)  ! work(1) = optimal lwork.
-      integer,      intent(in)    :: lwork    ! The length of work.
-      real(dp),     intent(out)   :: rwork(*) ! Working array.
-      integer,      intent(out)   :: info     ! 0 on success.
-    end subroutine
-    
-    ! Finds the eigenvalues of a symmetric matrix.
-    subroutine dsyev(jobz,uplo,n,a,lda,w,work,lwork,info)
-      import :: dp
-      implicit none
-      
-      character(1), intent(in)    :: jobz     ! n/v: if v, calculate eigenvecs.
-      character(1), intent(in)    :: uplo     ! u/l: upper/lower triangle.
-      integer,      intent(in)    :: n        ! The order of a.
-      integer,      intent(in)    :: lda      ! The dimension of a.
-      real(dp),     intent(inout) :: a(lda,*) ! Symmetric matrix.
-      real(dp),     intent(out)   :: w(*)     ! Eigenvalues of a.
-      real(dp),     intent(out)   :: work(*)  ! work(1) = optimal lwork.
-      integer,      intent(in)    :: lwork    ! The length of work.
-      integer,      intent(out)   :: info     ! 0 on success.
-    end subroutine
     
     ! Minimises the least-squares fit l=(a.x-b)**2.
     subroutine dgels(trans,m,n,nrhs,a,lda,b,ldb,work,lwork,info)
@@ -916,7 +853,7 @@ function cmplxmat_RealMatrices(real,imag) result(output)
 end function
 
 ! Real part of a complex object.
-function real_ComplexVector(input) result(output)
+impure elemental function real_ComplexVector(input) result(output)
   implicit none
   
   type(ComplexVector), intent(in) :: input
@@ -925,7 +862,7 @@ function real_ComplexVector(input) result(output)
   output = real(cmplx(input),dp)
 end function
 
-function real_ComplexMatrix(input) result(output)
+impure elemental function real_ComplexMatrix(input) result(output)
   implicit none
   
   type(ComplexMatrix), intent(in) :: input
@@ -935,7 +872,7 @@ function real_ComplexMatrix(input) result(output)
 end function
 
 ! Imaginary part of a complex object.
-function aimag_ComplexVector(input) result(output)
+impure elemental function aimag_ComplexVector(input) result(output)
   implicit none
   
   type(ComplexVector), intent(in) :: input
@@ -944,7 +881,7 @@ function aimag_ComplexVector(input) result(output)
   output = aimag(cmplx(input))
 end function
 
-function aimag_ComplexMatrix(input) result(output)
+impure elemental function aimag_ComplexMatrix(input) result(output)
   implicit none
   
   type(ComplexMatrix), intent(in) :: input
@@ -954,7 +891,7 @@ function aimag_ComplexMatrix(input) result(output)
 end function
 
 ! Conjugate of a complex object.
-function conjg_ComplexVector(input) result(output)
+impure elemental function conjg_ComplexVector(input) result(output)
   implicit none
   
   type(ComplexVector), intent(in) :: input
@@ -963,7 +900,7 @@ function conjg_ComplexVector(input) result(output)
   output = conjg(cmplx(input))
 end function
 
-function conjg_ComplexMatrix(input) result(output)
+impure elemental function conjg_ComplexMatrix(input) result(output)
   implicit none
   
   type(ComplexMatrix), intent(in) :: input
@@ -1950,7 +1887,11 @@ impure elemental function dot_ComplexVector_ComplexVector(a,b) result(output)
     call err()
   endif
   
-  output = dot_product(cmplx(a), cmplx(b))
+  ! N.B. does not use dot_product since that takes the conjugate of the
+  !    first argument.
+  ! This behaviour would not be desirable, since (vec*mat)*vec should give the
+  !    same result as vec*(mat*vec).
+  output = sum(cmplx(a)*cmplx(b))
 end function
 
 impure elemental function dot_IntVector_IntMatrix(a,b) result(output)
@@ -2749,145 +2690,6 @@ function str_ComplexMatrix(this) result(output)
   do i=1,size(contents,1)
     output(i) = join(contents(i,:))
   enddo
-end function
-
-! ----------------------------------------------------------------------
-! Eigenvalue and Eigenvector wrappers.
-! ----------------------------------------------------------------------
-
-! --------------------------------------------------
-! Returns the number of states of an Eigenstuff.
-! --------------------------------------------------
-function size_RealEigenstuff(estuff) result(output)
-  implicit none
-  
-  type(RealEigenstuff), intent(in) :: estuff
-  integer                          :: output
-  
-  output = size(estuff%evals)
-end function
-
-function size_ComplexEigenstuff(estuff) result(output)
-  implicit none
-  
-  type(ComplexEigenstuff), intent(in) :: estuff
-  integer                             :: output
-  
-  output = size(estuff%evals)
-end function
-
-! --------------------------------------------------
-! Calculates the eigenvalues and eigenvectors of a real, symmetric matrix.
-! --------------------------------------------------
-function calculate_RealEigenstuff_reals(input) result(output)
-  implicit none
-  
-  real(dp), intent(in) :: input(:,:)  ! A real, symmetric matrix.
-  type(RealEigenstuff) :: output      ! The eigenvalues and eigenstates.
-  
-  ! dsyev variables.
-  integer               :: n
-  real(dp), allocatable :: work(:)
-  integer               :: lwork
-  integer               :: info
-  
-  ! Temporary variables.
-  integer :: ialloc
-  
-  if (size(input,1)/=size(input,2)) then
-    call print_line(CODE_ERROR//': Trying to find the eigenvalues of a &
-       &non-square matrix.')
-    call err()
-  endif
-  
-  n = size(input,1)
-  allocate( output%evals(n), &
-          & work(3*n-1),     &
-          & stat=ialloc); call err(ialloc)
-  output%evecs = input
-  
-  ! calculate optimal lwork
-  call dsyev('V', 'U', n, output%evecs(1,1), n, output%evals, &
-    & work(1), -1, info)
-  if (info /= 0) then
-    call print_line(ERROR//'in diagonalisation: dsyev error code: '//info)
-    call err()
-  endif
-  lwork = nint(work(1))
-  deallocate(work, stat=ialloc); call err(ialloc)
-  allocate(work(lwork), stat=ialloc); call err(ialloc)
-  
-  ! calculate eigenstuff
-  call dsyev('V', 'U', n, output%evecs(1,1), n, output%evals, &
-    & work(1), lwork, info)
-  if (info /= 0) then
-    call print_line(ERROR//'in diagonalisation: dsyev error code: '//info)
-    call err()
-  endif
-end function
-
-function calculate_RealEigenstuff_RealMatrix(input) result(output)
-  implicit none
-  
-  type(RealMatrix), intent(in) :: input
-  type(RealEigenstuff)         :: output
-  
-  output = calculate_eigenstuff(dble(input))
-end function
-
-! --------------------------------------------------
-! Calculates the eigenvalues and eigenvectors of a complex, Hermitian matrix.
-! --------------------------------------------------
-function calculate_ComplexEigenstuff_complexes(input) result(output)
-  implicit none
-  
-  complex(dp), intent(in) :: input(:,:)  ! a complex, hermitian matrix
-  type(ComplexEigenstuff) :: output      ! the eigenvalues and eigenstates of a
-  
-  ! zheev variables.
-  integer                  :: n
-  complex(dp), allocatable :: work(:)
-  integer                  :: lwork
-  real(dp),    allocatable :: rwork(:)
-  integer                  :: info
-  
-  ! Temporary variables.
-  integer :: ialloc
-  
-  n = size(input,1)
-  allocate( output%evals(n), &
-          & rwork(3*n-2),    &
-          & work(3*n-1),     &
-          & stat=ialloc); call err(ialloc)
-  output%evecs = input
-  
-  ! calculate optimal lwork
-  call zheev('V', 'U', n, output%evecs(1,1), n, output%evals, &
-    & work(1), -1, rwork, info)
-  if (info /= 0) then
-    call print_line(ERROR//'in diagonalisation: zheev error code: '//info)
-    call err()
-  endif
-  lwork = nint(real(work(1)))
-  deallocate(work, stat=ialloc); call err(ialloc)
-  allocate(work(lwork), stat=ialloc); call err(ialloc)
-  
-  ! calculate eigenstuff
-  call zheev('V', 'U', n, output%evecs(1,1), n, output%evals, &
-    & work(1), lwork, rwork, info)
-  if (info /= 0) then
-    call print_line(ERROR//'in diagonalisation: zheev error code: '//info)
-    call err()
-  endif
-end function
-
-function calculate_ComplexEigenstuff_ComplexMatrix(input) result(output)
-  implicit none
-  
-  type(ComplexMatrix), intent(in) :: input
-  type(ComplexEigenstuff)         :: output
-  
-  output = calculate_eigenstuff(cmplx(input))
 end function
 
 ! --------------------------------------------------

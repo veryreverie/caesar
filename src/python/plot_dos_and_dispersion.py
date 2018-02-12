@@ -165,5 +165,6 @@ def main():
   axes['cm'].set_ylabel(r'Frequency, cm$^{-1}$')
   
   plt.show()
+  fig.savefig('dos_and_dispersion.pdf')
 
 main()

@@ -41,29 +41,14 @@ module normal_mode_module
   
   private
   
-  public :: DisplacementData
-  public :: ForceData
   public :: ComplexMode
   public :: RealMode
-  public :: ComplexModeVector
-  public :: RealModeVector
   
-  public :: real_mode_to_displacement
-  public :: force_to_real_mode
+  public :: calculate_modes
+  public :: rotate_complex_modes
   
   public :: complex_to_real
   public :: real_to_complex
-  
-  ! --------------------------------------------------
-  ! Atomic displacements and forces in cartesian co-ordinates.
-  ! --------------------------------------------------
-  type DisplacementData
-    type(RealVector), allocatable :: displacements(:)
-  end type
-  
-  type ForceData
-    type(RealVector), allocatable :: forces(:)
-  end type
   
   ! --------------------------------------------------
   ! A normal mode in complex co-ordinates.
@@ -88,6 +73,14 @@ module normal_mode_module
   
   interface ComplexMode
     module procedure read_file_ComplexMode
+  end interface
+  
+  interface operator(*)
+    module procedure dot_ComplexModes
+  end interface
+  
+  interface l2_norm
+    module procedure l2_norm_ComplexMode
   end interface
   
   ! --------------------------------------------------
@@ -115,50 +108,20 @@ module normal_mode_module
     module procedure read_file_RealMode
   end interface
   
-  ! --------------------------------------------------
-  ! The coefficients of a point in terms of complex normal mode co-ordinates.
-  ! --------------------------------------------------
-  type ComplexModeVector
-    ! Whether or not 2q=G. If true, there is only one mode, and it is real.
-    !    If not, there are two modes, and they are conjugates of one another.
-    logical :: at_paired_qpoint
-    
-    complex(dp), allocatable :: vector(:,:)
-  contains
-    generic,   public  :: operator(+) => add_ComplexModeVectors
-    procedure, private ::                add_ComplexModeVectors
-    generic,   public  :: operator(-) => subtract_ComplexModeVectors
-    procedure, private ::                subtract_ComplexModeVectors
-  end type
-  
-  ! --------------------------------------------------
-  ! The coefficients of a point in terms of real normal mode co-ordinates.
-  ! --------------------------------------------------
-  type RealModeVector
-    ! Whether or not 2q=G. If true, there is only the cosine mode.
-    !    If not, there is a cosine mode and a sine mode.
-    logical :: at_paired_qpoint
-    
-    real(dp), allocatable :: vector(:,:)
-  contains
-    generic,   public  :: operator(+) => add_RealModeVectors
-    procedure, private ::                add_RealModeVectors
-    generic,   public  :: operator(-) => subtract_RealModeVectors
-    procedure, private ::                subtract_RealModeVectors
-  end type
+  interface calculate_modes
+    module procedure calculate_modes_interpolated
+    module procedure calculate_modes_calculated
+  end interface
   
   ! --------------------------------------------------
   ! Conversions between complex and real co-ordinates.
   ! --------------------------------------------------
-  
   interface complex_to_real
     module procedure complex_to_real_Mode
-    module procedure complex_to_real_ModeVector
   end interface
   
   interface real_to_complex
     module procedure real_to_complex_Mode
-    module procedure real_to_complex_ModeVector
   end interface
 contains
 
@@ -331,285 +294,508 @@ function read_file_RealMode(filename) result(this)
 end function
 
 ! ----------------------------------------------------------------------
-! ComplexModeVector procedures.
+! Calculates complex modes by diagonalising a dynamical matrix.
 ! ----------------------------------------------------------------------
-function add_ComplexModeVectors(this,that) result(output)
-  implicit none
-  
-  class(ComplexModeVector), intent(in) :: this
-  class(ComplexModeVector), intent(in) :: that
-  type(ComplexModeVector)              :: output
-  
-  ! Check that inputs match and are as expected.
-  if (this%at_paired_qpoint .neqv. that%at_paired_qpoint) then
-    call print_line(CODE_ERROR//': Attempted to add mode vectors at different &
-       &q-points.')
-    call err()
-  elseif (any(shape(this%vector)/=shape(that%vector))) then
-    call print_line(CODE_ERROR//': Attempted to add mode vectors of different &
-       &shapes.')
-    call err()
-  elseif (this%at_paired_qpoint .and. size(this%vector,2)/=1) then
-    call print_line(CODE_ERROR//': Mode vector of unexpected shape.')
-    call err()
-  elseif ((.not. this%at_paired_qpoint) .and. size(this%vector,2)/=2) then
-    call print_line(CODE_ERROR//': Mode vector of unexpected shape.')
-    call err()
-  endif
-  
-  ! Add vectors together.
-  output%at_paired_qpoint = this%at_paired_qpoint
-  output%vector = this%vector + that%vector
-end function
+! N.B. Structure may be any supercell.
 
-function subtract_ComplexModeVectors(this,that) result(output)
-  implicit none
-  
-  class(ComplexModeVector), intent(in) :: this
-  class(ComplexModeVector), intent(in) :: that
-  type(ComplexModeVector)              :: output
-  
-  ! Check that inputs match and are as expected.
-  if (this%at_paired_qpoint .neqv. that%at_paired_qpoint) then
-    call print_line(CODE_ERROR//': Attempted to subtract mode vectors at &
-       &different q-points.')
-    call err()
-  elseif (any(shape(this%vector)/=shape(that%vector))) then
-    call print_line(CODE_ERROR//': Attempted to subtract mode vectors of &
-       &different shapes.')
-    call err()
-  elseif (this%at_paired_qpoint .and. size(this%vector,2)/=1) then
-    call print_line(CODE_ERROR//': Mode vector of unexpected shape.')
-    call err()
-  elseif ((.not. this%at_paired_qpoint) .and. size(this%vector,2)/=2) then
-    call print_line(CODE_ERROR//': Mode vector of unexpected shape.')
-    call err()
-  endif
-  
-  ! Subtract vectors.
-  output%at_paired_qpoint = this%at_paired_qpoint
-  output%vector = this%vector - that%vector
-end function
-
-! ----------------------------------------------------------------------
-! RealModeVector procedures.
-! ----------------------------------------------------------------------
-function add_RealModeVectors(this,that) result(output)
-  implicit none
-  
-  class(RealModeVector), intent(in) :: this
-  class(RealModeVector), intent(in) :: that
-  type(RealModeVector)              :: output
-  
-  ! Check that inputs match and are as expected.
-  if (this%at_paired_qpoint .neqv. that%at_paired_qpoint) then
-    call print_line(CODE_ERROR//': Attempted to add mode vectors at different &
-       &q-points.')
-    call err()
-  elseif (any(shape(this%vector)/=shape(that%vector))) then
-    call print_line(CODE_ERROR//': Attempted to add mode vectors of different &
-       &shapes.')
-    call err()
-  elseif (this%at_paired_qpoint .and. size(this%vector,2)/=1) then
-    call print_line(CODE_ERROR//': Mode vector of unexpected shape.')
-    call err()
-  elseif ((.not. this%at_paired_qpoint) .and. size(this%vector,2)/=2) then
-    call print_line(CODE_ERROR//': Mode vector of unexpected shape.')
-    call err()
-  endif
-  
-  ! Add vectors together.
-  output%at_paired_qpoint = this%at_paired_qpoint
-  output%vector = this%vector + that%vector
-end function
-
-function subtract_RealModeVectors(this,that) result(output)
-  implicit none
-  
-  class(RealModeVector), intent(in) :: this
-  class(RealModeVector), intent(in) :: that
-  type(RealModeVector)              :: output
-  
-  ! Check that inputs match and are as expected.
-  if (this%at_paired_qpoint .neqv. that%at_paired_qpoint) then
-    call print_line(CODE_ERROR//': Attempted to subtract mode vectors at &
-       &different q-points.')
-    call err()
-  elseif (any(shape(this%vector)/=shape(that%vector))) then
-    call print_line(CODE_ERROR//': Attempted to subtract mode vectors of &
-       &different shapes.')
-    call err()
-  elseif (this%at_paired_qpoint .and. size(this%vector,2)/=1) then
-    call print_line(CODE_ERROR//': Mode vector of unexpected shape.')
-    call err()
-  elseif ((.not. this%at_paired_qpoint) .and. size(this%vector,2)/=2) then
-    call print_line(CODE_ERROR//': Mode vector of unexpected shape.')
-    call err()
-  endif
-  
-  ! Subtract vectors.
-  output%at_paired_qpoint = this%at_paired_qpoint
-  output%vector = this%vector - that%vector
-end function
-
-! ----------------------------------------------------------------------
-! Conversions between co-ordinate systems.
-! ----------------------------------------------------------------------
-
-! Converts a vector in normal mode co-ordinates to cartesian co-ordinates.
-function real_mode_to_displacement(input,modes,qpoint,supercell) result(output)
-  use constants_module, only : pi
-  use qpoints_module
+! Calculate modes for a q-point other than one of the calculated q-points.
+function calculate_modes_interpolated(matrices,structure) result(output)
   use structure_module
-  use linear_algebra_module
   use atom_module
+  use eigenstuff_module
   implicit none
   
-  type(RealModeVector), intent(in) :: input
-  type(RealMode),       intent(in) :: modes(:)
-  type(QpointData),     intent(in) :: qpoint
-  type(StructureData),  intent(in) :: supercell
-  type(DisplacementData)           :: output
+  type(ComplexMatrix), intent(in) :: matrices(:,:)
+  type(StructureData), intent(in) :: structure
+  type(ComplexMode), allocatable  :: output(:)
   
-  ! The q-point q, q.R, cos(q.R) and sin(q.R).
-  type(RealVector) :: q
-  real(dp)         :: qr
-  real(dp)         :: cos_qr
-  real(dp)         :: sin_qr
+  complex(dp), allocatable :: dyn_mat(:,:)
   
-  ! Atom data.
-  type(AtomData) :: atom
-  integer        :: prim
+  type(HermitianEigenstuff), allocatable :: estuff(:)
   
-  ! Temporary variables
-  integer :: i,j,ialloc
+  type(ComplexVector) :: displacement
   
-  ! Check that inputs are as expected.
-  if (input%at_paired_qpoint .neqv. modes(1)%at_paired_qpoint) then
-    call print_line(CODE_ERROR//': The modes and mode vector do not match.')
-    call err()
-  elseif (size(input%vector,2)/=size(modes)) then
-    call print_line(CODE_ERROR//': The modes and mode vector do not match.')
-    call err()
-  elseif (supercell%no_modes_prim/=size(modes)) then
-    call print_line(CODE_ERROR//': The number of normal modes do not match up.')
-  endif
+  integer :: i,j,k,ialloc
   
-  ! Perform conversion.
-  allocate( output%displacements(size(supercell%atoms)), &
+  ! Convert (3x3Matrix) x no_atoms x no_atoms to no_modes x no_modes
+  allocate( dyn_mat(structure%no_modes_prim,structure%no_modes_prim), &
           & stat=ialloc); call err(ialloc)
-  do i=1,size(supercell%atoms)
-    output%displacements(i) = dble(int(zeroes(3)))
-    
-    atom = supercell%atoms(i)
-    prim = atom%prim_id()
-    
-    ! Calculate 2*pi*q.R, cos(2*pi*i*q.R) and sin(2*pi*i*q.R).
-    q = dblevec(qpoint%qpoint)
-    qr = 2 * pi * q * supercell%rvectors(prim)
-    cos_qr = cos(qr)
-    sin_qr = sin(qr)
-    
-    ! Calculate displacements in cartesian co-ordinates.
-    do j=1,size(modes)
-      if (input%at_paired_qpoint) then
-        output%displacements(i) = output%displacements(i)                  &
-                              & + input%vector(j,1)                        &
-                              & * modes(j)%primitive_displacements(prim,1) &
-                              & * cos_qr                                   &
-                              & / supercell%atoms(i)%mass()
-      else
-        output%displacements(i) = output%displacements(i)                  &
-                              & + input%vector(j,1)                        &
-                              & * modes(j)%primitive_displacements(prim,1) &
-                              & * cos_qr                                   &
-                              & * sqrt(2.0_dp)                             &
-                              & / supercell%atoms(i)%mass()                &
-                              & + input%vector(j,2)                        &
-                              & * modes(j)%primitive_displacements(prim,2) &
-                              & * sin_qr                                   &
-                              & * sqrt(2.0_dp)                             &
-                              & / supercell%atoms(i)%mass()
-      endif
+  do i=1,structure%no_atoms_prim
+    do j=1,structure%no_atoms_prim
+      dyn_mat(3*j-2:3*j, 3*i-2:3*i) = cmplx(matrices(j,i))
     enddo
+  enddo
+  
+  ! Diagonalise dynamical matrix.
+  estuff = diagonalise_hermitian(dyn_mat)
+  
+  ! Calculate normal mode frequencies and displacements.
+  !          V = sum_i[ 0.5 * freq_i**2 * u_i**2]
+  ! -> F = -2V = sum_i[ - freq_i**2 * u_i**2 ]
+  allocate( output(structure%no_modes_prim),   &
+          & stat=ialloc); call err(ialloc)
+  do i=1,structure%no_modes_prim
+    
+    ! The eigenvalues are in descending order, but the normal modes should
+    !    be in ascending order of frequency. i->k reverses the order.
+    k = structure%no_modes_prim - i + 1
+    
+    if (estuff(k)%eval>=0.0_dp) then
+      ! Unstable mode.
+      output(i)%frequency = - sqrt(estuff(k)%eval)
+    else
+      ! Stable mode.
+      output(i)%frequency = sqrt(- estuff(k)%eval)
+    endif
+    
+    output(i)%soft_mode = output(i)%frequency < -1.0e-6_dp
+    output(i)%translational_mode = .false.
+    output(i)%at_paired_qpoint = .false.
+    
+    ! Calculate displacements in the primitive cell,
+    !    which are the non-mass-reduced eigenvectors of the dynamical matrix.
+    allocate( output(i)%primitive_displacements(structure%no_atoms_prim,2), &
+            & stat=ialloc); call err(ialloc)
+    do j=1,structure%no_atoms_prim
+      displacement = estuff(k)%evec(3*j-2:3*j) &
+                 & * sqrt(structure%atoms(j)%mass())
+      
+      output(i)%primitive_displacements(j,:) = [ displacement, &
+                                                 & conjg(displacement) ]
+    enddo
+    
+    ! Re-normalise modes, now in non-mass-reduced co-ordinates.
+    output(i)%primitive_displacements = output(i)%primitive_displacements &
+                                    & / l2_norm(output(i))
   enddo
 end function
 
-! Converts a force in cartesian co-ordinates into real normal mode co-ordinates.
-function force_to_real_mode(input,modes,qpoint,supercell) result(output)
-  use constants_module, only : pi
-  use qpoints_module
+! Will lift degeneracies iff degenerate_energy is present.
+! Calculate modes for one of the calculated q-points.
+function calculate_modes_calculated(matrices,structure,qpoint, &
+   &degenerate_energy,logfile) result(output)
   use structure_module
-  use linear_algebra_module
+  use qpoints_module
   use atom_module
+  use eigenstuff_module
+  use ofile_module
   implicit none
   
-  type(ForceData),     intent(in) :: input
-  type(RealMode),      intent(in) :: modes(:)
-  type(QpointData),    intent(in) :: qpoint
-  type(StructureData), intent(in) :: supercell
-  type(RealModeVector)            :: output
+  type(ComplexMatrix), intent(in)    :: matrices(:,:)
+  type(StructureData), intent(in)    :: structure
+  type(QpointData),    intent(in)    :: qpoint
+  real(dp),            intent(in)    :: degenerate_energy
+  type(OFile),         intent(inout) :: logfile
+  type(ComplexMode), allocatable     :: output(:)
   
-  ! The q-point q, q.R, cos(q.R) and sin(q.R).
-  type(RealVector) :: q
-  real(dp)         :: qr
-  real(dp)         :: cos_qr
-  real(dp)         :: sin_qr
+  complex(dp), allocatable :: dyn_mat(:,:)
   
-  ! Atom data.
-  type(AtomData) :: atom
-  integer        :: prim
+  type(HermitianEigenstuff) :: estuff
   
-  ! Temporary variables
+  real(dp), allocatable :: frequencies(:)
+  logical,  allocatable :: translational(:)
+  
+  type(ComplexVector)              :: displacement
+  
+  integer :: i,j,k,ialloc
+  
+  ! Calculate normal modes as if at an arbitrary q-point.
+  output = calculate_modes(matrices,structure)
+  
+  ! Identify purely translational modes (at the gamma-point only).
+  if (is_int(qpoint%qpoint)) then
+    allocate( translational(structure%no_modes_prim), &
+            & frequencies(structure%no_modes_prim),   &
+            & stat=ialloc); call err(ialloc)
+    translational = .false.
+    do i=1,structure%no_modes_prim
+      frequencies(i) = output(i)%frequency
+    enddo
+    do i=1,3
+      j = minloc(abs(frequencies),dim=1,mask=.not.translational)
+      translational(j) = .true.
+      output(j)%translational_mode = .true.
+    enddo
+  endif
+  
+  ! Pair down complex modes if 2q=G, i.e. if the modes are real.
+  if (is_int(2*qpoint%qpoint)) then
+    do i=1,structure%no_modes_prim
+      output(i)%at_paired_qpoint = .true.
+      
+      output(i)%primitive_displacements = &
+         & output(i)%primitive_displacements(:,1:1)
+    enddo
+  endif
+  
+  ! Lift degeneracies, expressing degenerate states in terms of
+  !    the eigenvectors of symmetry operators.
+  output = lift_degeneracies( output,            &
+                            & structure,         &
+                            & qpoint,            &
+                            & degenerate_energy, &
+                            & logfile)
+end function
+
+function lift_degeneracies(input,structure,qpoint,degenerate_energy,logfile) &
+   & result(output)
+  use structure_module
+  use linear_algebra_module
+  use group_module
+  use symmetry_module
+  use qpoints_module
+  use logic_module
+  use ofile_module
+  implicit none
+  
+  type(ComplexMode),   intent(in)    :: input(:)
+  type(StructureData), intent(in)    :: structure
+  type(QpointData),    intent(in)    :: qpoint
+  real(dp),            intent(in)    :: degenerate_energy
+  type(OFile),         intent(inout) :: logfile
+  type(ComplexMode), allocatable     :: output(:)
+  
+  ! The id of the first mode with which mode i is degenerate.
+  ! e.g. if there are four modes, and the middle two are degenerate, then
+  !    degeneracy_ids = [ 1, 2, 2, 4 ].
+  integer, allocatable :: degeneracy_ids(:)
+  
+  logical, allocatable :: degenerate(:)
+  
+  real(dp) :: frequency
+  real(dp) :: prev_frequency
+  real(dp) :: prev_degenerate_frequency
+  
   integer :: i,j,ialloc
   
-  ! Allocate output.
-  output%at_paired_qpoint = modes(1)%at_paired_qpoint
-  if (output%at_paired_qpoint) then
-    allocate( output%vector(size(modes),1), &
-            & stat=ialloc); call err(ialloc)
-  else
-    allocate( output%vector(size(modes),2), &
-            & stat=ialloc); call err(ialloc)
-  endif
-  output%vector = 0
+  output = input
   
-  ! Convert force into normal mode co-ordinates.
-  do i=1,supercell%no_atoms
-    atom = supercell%atoms(i)
-    prim = atom%prim_id()
-    
-    ! Calculate 2*pi*q.R, sin(2*pi*i*q.R) and cos(2*pi*i*q.R).
-    q = dblevec(qpoint%qpoint)
-    qr = 2 * pi * q * supercell%rvectors(atom%rvec_id())
-    cos_qr = cos(qr)
-    sin_qr = sin(qr)
-    
-    ! Calculate displacements in normal-mode co-ordinates.
-    do j=1,size(modes)
-      ! Calculate the dot product of the input vector with the normal mode.
-      if (output%at_paired_qpoint) then
-        output%vector(j,1) = output%vector(j,1)                       &
-                         & + input%forces(i)                          &
-                         & * modes(j)%primitive_displacements(prim,1) &
-                         & * cos_qr                                   &
-                         & / ( supercell%atoms(i)%mass()              &
-                         &   * supercell%sc_size )
+  ! Identify which modes are degenerate.
+  allocate(degeneracy_ids(size(output)), stat=ialloc); call err(ialloc)
+  do i=1,size(output)
+    if (i==1) then
+      degeneracy_ids(1) = 1
+    else
+      ! Find the frequency of this mode, the previous mode, and the first mode
+      !    which is degenerate with the previous mode.
+      frequency = output(i)%frequency
+      prev_frequency = output(i-1)%frequency
+      prev_degenerate_frequency = output(degeneracy_ids(i-1))%frequency
+      if ( abs(frequency-prev_frequency)<degenerate_energy .and. &
+         & abs(frequency-prev_degenerate_frequency)<degenerate_energy) then
+        ! This mode is degenerage with the previous set.
+        degeneracy_ids(i) = degeneracy_ids(i-1)
+      elseif (abs(frequency-prev_frequency)<degenerate_energy) then
+        ! This mode is degenerate with the previous mode, but not with the
+        !    modes which that mode is degenerate with. This is an error.
+        call print_line(ERROR//': Modes inconsistently degenerate. Try &
+           &adjusting degenerate_energy.')
+        call err()
       else
-        output%vector(j,1) = output%vector(j,1)                       &
-                         & + input%forces(i)                          &
-                         & * modes(j)%primitive_displacements(prim,1) &
-                         & * cos_qr                                   &
-                         & * sqrt(2.0_dp)                             &
-                         & / ( supercell%atoms(i)%mass()              &
-                         &   * supercell%sc_size )
-        output%vector(j,2) = output%vector(j,2)                       &
-                         & + input%forces(i)                          &
-                         & * modes(j)%primitive_displacements(prim,2) &
-                         & * sin_qr                                   &
-                         & * sqrt(2.0_dp)                             &
-                         & / ( supercell%atoms(i)%mass()              &
-                         &   * supercell%sc_size )
+        ! This mode is not degenerate with the previous set.
+        degeneracy_ids(i) = i
+      endif
+    endif
+  enddo
+  
+  ! Lift the degeneracies.
+  allocate(degenerate(size(output)), stat=ialloc); call err(ialloc)
+  degenerate = .true.
+  do i=1,size(output)
+    ! Ignore this mode if it has already been dealt with.
+    if (.not. degenerate(i)) then
+      cycle
+    endif
+    
+    ! Find the id of the last mode which is degenerate with mode i.
+    j = last(degeneracy_ids==i)
+    
+    if (j==i) then
+      degenerate(i) = .false.
+    elseif (j>i) then
+      output(i:j) = lift_degeneracies_2( output(i:j),          &
+                                       & structure%symmetries, &
+                                       & qpoint,               &
+                                       & logfile)
+      degenerate(i:j) = .false.
+    else
+      call err()
+    endif
+  enddo
+end function
+
+! --------------------------------------------------
+! Helper function for lift_degeneracies.
+! Recursively lifts degeneracies.
+! --------------------------------------------------
+! Input must be a list of degenerate modes.
+recursive function lift_degeneracies_2(input,symmetries,qpoint,logfile) &
+   &result(output)
+  use utils_module, only : sum_squares
+  use symmetry_module
+  use qpoints_module
+  use eigenstuff_module
+  use phase_module
+  use logic_module
+  use ofile_module
+  implicit none
+  
+  type(ComplexMode),      intent(in)    :: input(:)
+  type(SymmetryOperator), intent(in)    :: symmetries(:)
+  type(QpointData),       intent(in)    :: qpoint
+  type(OFile),            intent(inout) :: logfile
+  type(ComplexMode), allocatable        :: output(:)
+  
+  type(ComplexMode), allocatable :: rotated_modes(:)
+  complex(dp),       allocatable :: dot_products(:,:)
+  
+  type(UnitaryEigenstuff), allocatable :: estuff(:)
+  
+  integer :: sym_id
+  
+  integer :: order
+  
+  integer, allocatable :: eval_ids(:)
+  integer, allocatable :: sort_ids(:)
+  logical, allocatable :: done(:)
+  
+  real(dp) :: check
+  
+  integer :: no_modes
+  
+  integer :: i,j,ialloc
+  
+  ! All q-point data and eigenvalues will be unchanged.
+  ! Copy over all data, and only change that which changes.
+  output = input
+  
+  ! Count the number of modes.
+  no_modes = size(input)
+  if (no_modes==1) then
+    return
+  endif
+  
+  ! Find a symmetry which maps q onto itself.
+  sym_id = 0
+  do i=1,size(symmetries)
+    if (symmetries(i)%recip_rotation*qpoint%qpoint == qpoint%qpoint) then
+      sym_id = i
+      exit
+    endif
+  enddo
+  if (sym_id==0) then
+    call print_line(ERROR//': Unable to lift degeneracies using symmetry.')
+    call err()
+  endif
+  
+  ! Calculate the order of the symmetry, n s.t. S^n=I.
+  order = calculate_symmetry_order(symmetries(sym_id), qpoint)
+  
+  ! Construct the symmetry in normal mode co-ordinates.
+  rotated_modes = rotate_complex_modes( input,              &
+                                      & symmetries(sym_id), &
+                                      & qpoint%qpoint,      &
+                                      & qpoint%qpoint)
+  allocate( dot_products(size(input),size(input)), &
+          & stat=ialloc); call err(ialloc)
+  do i=1,no_modes
+    do j=1,no_modes
+      dot_products(j,i) = input(j) * rotated_modes(i)
+    enddo
+  enddo
+  
+  ! Check that the symmetry only maps the degenerate modes onto each another.
+  check = 0
+  do i=1,no_modes
+    check = check &
+        & + abs(dot_product(dot_products(:,i),dot_products(:,i))-1)
+  enddo
+  call logfile%print_line('Fractional L2 error in rotation between modes: ' &
+     & //sqrt(check))
+  if (sqrt(check)>1e-6_dp) then
+    call print_line(WARNING//': Rotations and degeneracies inconsistent. &
+       &Please check log files.')
+    call print_line('check: '//sqrt(check))
+  endif
+  
+  ! Check that the symmetry is unitary.
+  check = sqrt(sum_squares(mat(dot_products)*hermitian(mat(dot_products))-cmplxmat(make_identity_matrix(3))))
+  
+  ! Diagonalise the symmetry, and construct diagonalised displacements.
+  ! Only transform displacements if this symmetry lifts degeneracy.
+  estuff = diagonalise_unitary(dot_products,order)
+  if (estuff(1)%eval/=estuff(no_modes)%eval) then
+    do i=1,no_modes
+      output(i)%primitive_displacements = cmplxvec(zeroes(3))
+      do j=1,no_modes
+        output(i)%primitive_displacements = output(i)%primitive_displacements &
+                                        & + estuff(i)%evec(j)                 &
+                                        & * input(j)%primitive_displacements
+      enddo
+      
+      check = abs(l2_norm(output(i))-1)
+      call logfile%print_line('Error in mode normalisation: '// &
+         & check)
+      if (check>1e-8_dp) then
+        call print_line(WARNING//': Error in mode normalisation. Please check &
+           &log files.')
+      endif
+    enddo
+  endif
+  
+  ! Lift remaining degeneracies recursively.
+  i = 1
+  do while(i<=no_modes)
+    j = 0
+    do j=no_modes,i,-1
+      if (estuff(j)%eval==estuff(i)%eval) then
+        exit
+      endif
+    enddo
+    
+    if (j<i) then
+      call err()
+    endif
+    
+    if (j>i) then
+      output(i:j) = lift_degeneracies_2( output(i:j),           &
+                                       & symmetries(sym_id+1:), &
+                                       & qpoint,                &
+                                       & logfile)
+    endif
+    
+    i = j+1
+  enddo
+end function
+
+! ----------------------------------------------------------------------
+! Calculates the order of a symmetry operation at a give q-point.
+! The order is the smallest integer n>0 s.t. S^n=I, where I is the identity.
+! ----------------------------------------------------------------------
+! N.B. This calculation assumes that the symmetry changes relative phases.
+!    If this is not the case, then n will be too large.
+function calculate_symmetry_order(symmetry,qpoint) result(output)
+  use utils_module, only : lcm
+  use symmetry_module
+  use qpoints_module
+  implicit none
+  
+  type(SymmetryOperator), intent(in) :: symmetry
+  type(QpointData),       intent(in) :: qpoint
+  integer                            :: output
+  
+  type(IntMatrix) :: identity
+  type(IntMatrix) :: rotation ! R^n.
+  
+  integer :: i
+  
+  identity = make_identity_matrix(3)
+  rotation = identity
+  
+  ! Calculate n s.t. R^n=I.
+  output = 0
+  do i=1,6
+    rotation = symmetry%rotation * rotation
+    if (rotation==identity) then
+      output = i
+      exit
+    endif
+  enddo
+  
+  if (output==0) then
+    call print_line(CODE_ERROR//': Unable to find order of symmetry.')
+    call err()
+  endif
+  
+  ! Assume that the symmetry changes relative phases.
+  output = lcm(output,qpoint%min_sc_size())
+end function
+
+! ----------------------------------------------------------------------
+! Find the dot product between two complex modes.
+! ----------------------------------------------------------------------
+function dot_ComplexModes(this,that) result(output)
+  implicit none
+  
+  type(ComplexMode), intent(in) :: this
+  type(ComplexMode), intent(in) :: that
+  complex(dp)                   :: output
+  
+  integer :: i
+  
+  output = sum( this%primitive_displacements(:,1) &
+            & * conjg(that%primitive_displacements(:,1)) )
+end function
+
+function l2_norm_ComplexMode(this) result(output)
+  implicit none
+  
+  type(ComplexMode), intent(in) :: this
+  real(dp)                      :: output
+  
+  output = sqrt(real(this*this))
+end function
+
+! ----------------------------------------------------------------------
+! Rotate complex modes from one q-point to another.
+! ----------------------------------------------------------------------
+function rotate_complex_modes(input,symmetry,qpoint_from,qpoint_to) &
+   & result(output)
+  use utils_module, only : exp_2pii
+  use symmetry_module
+  use qpoints_module
+  implicit none
+  
+  type(ComplexMode),      intent(in) :: input(:)
+  type(SymmetryOperator), intent(in) :: symmetry
+  type(FractionVector),   intent(in) :: qpoint_from
+  type(FractionVector),   intent(in) :: qpoint_to
+  type(ComplexMode), allocatable     :: output(:)
+  
+  type(FractionVector) :: q
+  type(IntVector)      :: r
+  
+  integer :: no_atoms
+  
+  integer :: mode
+  integer :: atom_1
+  integer :: atom_1p
+  
+  integer :: ialloc
+  
+  no_atoms = size(input(1)%primitive_displacements,1)
+  q = qpoint_to
+  
+  ! Check that the symmetry rotates the q-point as expected.
+  if (symmetry%recip_rotation * qpoint_from /= qpoint_to) then
+    call print_line(CODE_ERROR//': Symmetry does not transform q-points as &
+       &expected.')
+    call err()
+  endif
+  
+  ! Allocate output, and transfer across all data.
+  ! (Displacements need rotating, but everything else stays the same.)
+  output = input
+  
+  ! Rotate displacements.
+  do mode=1,size(input)
+    do atom_1=1,no_atoms
+      atom_1p = symmetry%atom_group * atom_1
+      r = symmetry%rvector(atom_1)
+      if (input(1)%at_paired_qpoint) then
+        output(mode)%primitive_displacements(atom_1p,1) =    &
+           & symmetry%cartesian_rotation                     &
+           & * input(mode)%primitive_displacements(atom_1,1) &
+           & * exp_2pii(q*r)
+      else
+        output(mode)%primitive_displacements(atom_1p,1) =    &
+           & symmetry%cartesian_rotation                     &
+           & * input(mode)%primitive_displacements(atom_1,1) &
+           & * exp_2pii(q*r)
+        output(mode)%primitive_displacements(atom_1p,2) =    &
+           & symmetry%cartesian_rotation                     &
+           & * input(mode)%primitive_displacements(atom_1,2) &
+           & * exp_2pii(q*r)
       endif
     enddo
   enddo
@@ -718,62 +904,6 @@ function real_to_complex_Mode(input) result(output)
          &           -input%primitive_displacements(i,2)) &
          & / sqrt(2.0_dp)
     enddo
-  endif
-end function
-
-function complex_to_real_ModeVector(input) result(output)
-  implicit none
-  
-  type(ComplexModeVector), intent(in) :: input
-  type(RealModeVector)                :: output
-  
-  integer :: ialloc
-  
-  if (size(input%vector,1)==1) then
-    ! Out*x = In*x
-    ! => Out = In
-    output%vector = real(input%vector)
-  elseif (size(input%vector,1)==2) then
-    ! Out1*(x+ + x-)/sqrt(2) + Out2*(x+ - x-)/(sqrt(2)i) = In1*x+ + In2*x-
-    ! => Out1 =  (In1+In2)/sqrt(2)    = Real(In1)*sqrt(2)
-    !    Out2 = -(In1-In2)/(sqrt(2)i) = -Imag(In1)*sqrt(2)
-    allocate( output%vector(size(input%vector,1),size(input%vector,2)), &
-            & stat=ialloc); call err(ialloc)
-    output%vector(1,:) = real(input%vector(1,:)) * sqrt(2.0_dp)
-    output%vector(2,:) = -aimag(input%vector(1,:)) * sqrt(2.0_dp)
-  else
-    call print_line(CODE_ERROR//': Normal mode vector of &
-       &unexpected shape.')
-    call err()
-  endif
-end function
-
-function real_to_complex_ModeVector(input) result(output)
-  implicit none
-  
-  type(RealModeVector), intent(in) :: input
-  type(ComplexModeVector)          :: output
-  
-  integer :: ialloc
-  
-  if (size(input%vector,1)==1) then
-    ! O1*x(q) = I1*x(q)
-    ! => O1 = I1
-    output%vector = input%vector
-  elseif (size(input%vector,1)==2) then
-    ! O1*x(q)+O2*x(G-q) = I1*(x(q)+x(G-q))/sqrt(2) + I2*(x(q)-x(G-q))/(sqrt(2)i)
-    ! => 01 = (I1-iI2)/sqrt(2)
-    !    O2 = (I1+iI2)/sqrt(2)
-    allocate( output%vector(size(input%vector,1),size(input%vector,2)), &
-            & stat=ialloc); call err(ialloc)
-    output%vector(1,:) = cmplx(input%vector(1,:),-input%vector(1,:),dp) &
-                     & / sqrt(2.0_dp)
-    output%vector(2,:) = cmplx(input%vector(1,:), input%vector(1,:),dp) &
-                     & / sqrt(2.0_dp)
-  else
-    call print_line(CODE_ERROR//': Normal mode vector of &
-       &unexpected shape.')
-    call err()
   endif
 end function
 end module

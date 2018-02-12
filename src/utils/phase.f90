@@ -10,8 +10,10 @@ module phase_module
   use fraction_module
   implicit none
   
-  type :: PhaseData
+  type, extends(Stringable) :: PhaseData
     type(IntFraction) :: fraction
+  contains
+    procedure, public :: str => str_PhaseData
   end type
   
   interface PhaseData
@@ -20,6 +22,14 @@ module phase_module
   
   interface cmplx
     module procedure cmplx_PhaseData
+  end interface
+  
+  interface operator(==)
+    module procedure equality_PhaseData_PhaseData
+  end interface
+  
+  interface operator(/=)
+    module procedure non_equality_PhaseData_PhaseData
   end interface
 contains
 
@@ -66,5 +76,42 @@ function calculate_phase(input,denom) result(output)
     call err()
   endif
   output = PhaseData(phase_frac)
+end function
+
+! ----------------------------------------------------------------------
+! Comparison.
+! ----------------------------------------------------------------------
+impure elemental function equality_PhaseData_PhaseData(this,that) &
+   & result(output)
+  implicit none
+  
+  type(PhaseData), intent(in) :: this
+  type(PhaseData), intent(in) :: that
+  logical                     :: output
+  
+  output = this%fraction==that%fraction
+end function
+
+impure elemental function non_equality_PhaseData_PhaseData(this,that) &
+   & result(output)
+  implicit none
+  
+  type(PhaseData), intent(in) :: this
+  type(PhaseData), intent(in) :: that
+  logical                     :: output
+  
+  output = .not. this==that
+end function
+
+! ----------------------------------------------------------------------
+! I/O overload.
+! ----------------------------------------------------------------------
+function str_PhaseData(this) result(output)
+  implicit none
+  
+  class(PhaseData), intent(in) :: this
+  type(String)                 :: output
+  
+  output = 'exp(2pii*'//this%fraction//')'
 end function
 end module

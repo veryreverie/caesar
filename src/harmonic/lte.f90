@@ -156,7 +156,9 @@ subroutine generate_dos(supercell,min_images,force_constants,temperature, &
                              & supercell,       &
                              & force_constants, &
                              & min_images)
-    call dyn_mat%check(supercell, logfile, check_eigenstuff=.false.)
+    call dyn_mat%check( supercell,         &
+                      & logfile,           &
+                      & check_eigenstuff=.false.)
     
     min_freq = min( min_freq, &
                   & dyn_mat%complex_modes(1)%frequency)
@@ -183,7 +185,9 @@ subroutine generate_dos(supercell,min_images,force_constants,temperature, &
                              & supercell,       &
                              & force_constants, &
                              & min_images)
-    call dyn_mat%check(supercell, logfile, check_eigenstuff=.false.)
+    call dyn_mat%check( supercell,         &
+                      & logfile,           &
+                      & check_eigenstuff=.false.)
     
     do i_freq=1,supercell%no_modes_prim
       i_bin = ceiling( (dyn_mat%complex_modes(i_freq)%frequency-min_freq) &
@@ -331,14 +335,15 @@ end subroutine
 ! The branches of the dispersion curve are plotted against the total distance 
 !    travelled along the specified paths in q-space.
 ! ----------------------------------------------------------------------
-subroutine generate_dispersion(structure,supercell,min_images,force_constants, &
-   & path_labels,path_qpoints,dispersion_filename,                             &
+subroutine generate_dispersion(structure,supercell,min_images,force_constants,&
+   & path_labels,path_qpoints,dispersion_filename,          &
    & high_symmetry_points_filename,logfile)
   use constants_module, only : pi
   use ofile_module
   use structure_module
   use min_images_module
   use force_constants_module
+  use dynamical_matrix_module
   implicit none
   
   type(StructureData),  intent(in)    :: structure
@@ -423,7 +428,9 @@ subroutine generate_dispersion(structure,supercell,min_images,force_constants, &
                                & supercell,       &
                                & force_constants, &
                                & min_images)
-      call dyn_mat%check(supercell, logfile, check_eigenstuff=.false.)
+      call dyn_mat%check( supercell,         &
+                        & logfile,           &
+                        & check_eigenstuff=.false.)
       call dispersion_file%print_line( &
          & 'Fraction along path: '//                &
          & fractional_distances(i)+j*fractional_separation)
@@ -438,7 +445,9 @@ subroutine generate_dispersion(structure,supercell,min_images,force_constants, &
                            & supercell,       &
                            & force_constants, &
                            & min_images)
-  call dyn_mat%check(supercell, logfile, check_eigenstuff=.false.)
+  call dyn_mat%check( supercell,         &
+                    & logfile,           &
+                    & check_eigenstuff=.false.)
   call dispersion_file%print_line( &
      & 'Fraction along path: '//1.0_dp)
   call dispersion_file%print_line( &

@@ -24,7 +24,12 @@ function calculate_normal_modes_keywords() result(keywords)
      & KeywordData( 'acoustic_sum_rule',                                     &
      &              'acoustic_sum_rule specifies where the acoustic sum rule &
      &is applied. The options are "off", "forces", "matrices" and "both".',  &
-     &              default_value='both')]
+     &              default_value='both'),                                   &
+     & KeywordData( 'degenerate_energy',                                     &
+     &              'degenerate_energy is the minimum energy difference &
+     &between states before they are considered degenerate. This should be &
+     &given in Bohr.',                                                       &
+     &              default_value='1e-10') ]
 end function
 
 function calculate_normal_modes_mode() result(output)
@@ -58,7 +63,6 @@ subroutine calculate_normal_modes(arguments)
   use normal_mode_module
   use dynamical_matrix_module
   use force_constants_module
-  use lift_degeneracies_module
   use atom_module
   use ofile_module
   implicit none
@@ -73,6 +77,7 @@ subroutine calculate_normal_modes(arguments)
   type(String)     :: acoustic_sum_rule
   logical          :: acoustic_sum_rule_forces
   logical          :: acoustic_sum_rule_matrices
+  real(dp)         :: degenerate_energy
   
   ! No. supercells file.
   type(IFile) :: no_supercells_file
@@ -142,6 +147,8 @@ subroutine calculate_normal_modes(arguments)
        &"both".')
     stop
   endif
+  
+  degenerate_energy = dble(arguments%value('degenerate_energy'))
   
   ! --------------------------------------------------
   ! Read in previous arguments.
@@ -266,17 +273,12 @@ subroutine calculate_normal_modes(arguments)
           call qpoint_logfile%print_line('Constructing dynamical matrix and &
              &normal modes at q-point '//i//' directly from calculated force &
              &constants.')
-          dynamical_matrices(i) = DynamicalMatrix( qpoints(i),      &
-                                                 & supercells,      &
-                                                 & force_constants, &
-                                                 & structure,       &
+          dynamical_matrices(i) = DynamicalMatrix( qpoints(i),        &
+                                                 & supercells,        &
+                                                 & force_constants,   &
+                                                 & structure,         &
+                                                 & degenerate_energy, &
                                                  & qpoint_logfile)
-          
-          ! Lift degeneracies, expressing degenerate states in terms of
-          !    the eigenvectors of symmetry operators.
-          !dynamical_matices(i)%complex_modes = lift_degeneracies( &
-          !                 & dynamical_matrices(i)%complex_modes, &
-          !                 & structure)
           
           modes_calculated(i) = .true.
           cycle iter
@@ -297,33 +299,33 @@ subroutine calculate_normal_modes(arguments)
   ! --------------------------------------------------
   ! Run basic checks on each matrix in turn.
   do i=1,size(qpoints)
-    call dynamical_matrices(i)%check(structure,qpoint_logfile)
+    call dynamical_matrices(i)%check(structure, qpoint_logfile)
   enddo
   
   ! Check that dynamical matrices at q-points q and q' s.t. qS=q'
   !    correctly rotate onto one another.
-!  do i=1,size(structure%symmetries)
-!    do j=1,size(qpoints)
-!      do k=1,size(qpoints)
-!        rotated_qpoint = structure%symmetries(i)%recip_rotation &
-!                     & * qpoints(j)%qpoint
-!        if (rotated_qpoint == qpoints(k)%qpoint) then
-!          if (qpoints(j)%paired_qpoint/=k) then
-!            cycle
-!          endif
-!          rotated_matrix = rotate_modes( dynamical_matrices(j),   &
-!                                       & structure%symmetries(i), &
-!                                       & qpoints(j),              &
-!                                       & qpoints(k))
-!          call qpoint_logfile%print_line('Comparing symmetrically &
-!             &equivalent dynamical matrices.')
-!          call compare_dynamical_matrices( dynamical_matrices(k), &
-!                                         & rotated_matrix,        &
-!                                         & qpoint_logfile)
-!        endif
-!      enddo
-!    enddo
-!  enddo
+  do i=1,size(structure%symmetries)
+    do j=1,size(qpoints)
+      do k=1,size(qpoints)
+        rotated_qpoint = structure%symmetries(i)%recip_rotation &
+                     & * qpoints(j)%qpoint
+        if (rotated_qpoint == qpoints(k)%qpoint) then
+          if (qpoints(j)%paired_qpoint/=k) then
+            cycle
+          endif
+          rotated_matrix = rotate_modes( dynamical_matrices(j),   &
+                                       & structure%symmetries(i), &
+                                       & qpoints(j),              &
+                                       & qpoints(k))
+          call qpoint_logfile%print_line('Comparing symmetrically &
+             &equivalent dynamical matrices.')
+          call compare_dynamical_matrices( dynamical_matrices(k), &
+                                         & rotated_matrix,        &
+                                         & qpoint_logfile)
+        endif
+      enddo
+    enddo
+  enddo
   
   ! --------------------------------------------------
   ! Write out output.

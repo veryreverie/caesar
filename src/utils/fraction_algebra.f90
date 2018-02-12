@@ -154,6 +154,11 @@ module fraction_algebra_module
     module procedure divide_FractionMatrix_integer
     module procedure divide_FractionMatrix_IntFraction
   end interface
+  
+  ! exp(2*pi*i*input).
+  interface exp_2pii
+    module procedure exp_2pii_IntFraction
+  end interface
 contains
 
 ! ----------------------------------------------------------------------
@@ -1119,7 +1124,22 @@ impure elemental function divide_FractionMatrix_IntFraction(this,that) result(ou
   output = frac(this) / that
 end function
 
+! ----------------------------------------------------------------------
+! Returns exp(2*pi*i*input).
+! ----------------------------------------------------------------------
+impure elemental function exp_2pii_IntFraction(input) result(output)
+  use utils_module, only : exp_2pii
+  implicit none
+  
+  type(IntFraction), intent(in) :: input
+  complex(dp)                   :: output
+  
+  output = exp_2pii(dble(input))
+end function
+
+! ----------------------------------------------------------------------
 ! I/O overloads.
+! ----------------------------------------------------------------------
 function str_FractionVector(this) result(output)
   implicit none
   

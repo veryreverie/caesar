@@ -140,11 +140,11 @@ subroutine update_hamiltonian(this,hamiltonian)
   class(VscfStates), intent(inout) :: this
   type(RealMatrix),  intent(in)    :: hamiltonian
   
-  type(RealEigenstuff) :: eigenstuff
+  type(SymmetricEigenstuff) :: eigenstuff
   
   integer :: i,j
   
-  eigenstuff = calculate_eigenstuff(hamiltonian)
+  eigenstuff = diagonalise_symmetric(hamiltonian)
   
   this%vscf_energies_ = eigenstuff%evals
   this%basis_ = eigenstuff%evecs

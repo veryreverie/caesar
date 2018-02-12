@@ -38,6 +38,12 @@ module utils_module
     module procedure sum_squares_ComplexVector
     module procedure sum_squares_ComplexMatrix
   end interface
+  
+  ! exp(2*pi*i*input).
+  interface exp_2pii
+    module procedure exp_2pii_real
+    module procedure exp_2pii_integer
+  end interface
 contains
 
 ! ----------------------------------------------------------------------
@@ -320,5 +326,30 @@ function lcm_4(int_1,int_2,int_3,int_4) result(output)
   integer             :: output
   
   output = lcm(lcm(int_1,int_2,int_3),int_4)
+end function
+
+! ----------------------------------------------------------------------
+! Returns exp(2*pi*i*input).
+! ----------------------------------------------------------------------
+impure elemental function exp_2pii_real(input) result(output)
+  use constants_module, only : pi
+  implicit none
+  
+  real(dp), intent(in) :: input
+  complex(dp)          :: output
+  
+  real(dp) :: exponent
+  
+  exponent = 2*pi*input
+  output = cmplx(cos(exponent),sin(exponent),dp)
+end function
+
+impure elemental function exp_2pii_integer(input) result(output)
+  implicit none
+  
+  integer, intent(in) :: input
+  complex(dp)         :: output
+  
+  output = exp_2pii(real(input,dp))
 end function
 end module

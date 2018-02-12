@@ -146,8 +146,11 @@ def main():
                            points[k]['v'][-1],
                            points[k]['h'][0]-points[k]['h'][-1],
                            points[k]['v'][0]-points[k]['v'][-1],
-                           width=0.00007,
-                           head_width=0.0007,
+                           width=0,
+                           head_width=0.3,
+                           head_length=0.15,
+                           overhang=1.5,
+                           length_includes_head=True,
                            color=colours['orange'])
         else:
           # Plot circles.

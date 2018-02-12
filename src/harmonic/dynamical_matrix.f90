@@ -24,8 +24,8 @@ module dynamical_matrix_module
     type(ComplexMatrix), allocatable, private :: matrices_(:,:)
     type(ComplexMode),   allocatable :: complex_modes(:)
   contains
-    procedure, public :: check
-    procedure, public :: frequencies
+    procedure, public  :: check
+    procedure, public  :: frequencies
   end type
   
   interface DynamicalMatrix
@@ -41,12 +41,6 @@ module dynamical_matrix_module
     module procedure print_dyn_mat_matrices
     module procedure print_dyn_mat_DynamicalMatrix
   end interface
-  
-  interface exp_2pii
-    module procedure exp_2pii_real
-    module procedure exp_2pii_integer
-    module procedure exp_2pii_IntFraction
-  end interface
 contains
 
 ! ----------------------------------------------------------------------
@@ -54,15 +48,15 @@ contains
 !    given the matrix of force constants in supercell co-ordinates.
 ! ----------------------------------------------------------------------
 
-! ----------------------------------------------------------------------
+! --------------------------------------------------
 ! Construct the dynamical matrix at the specified q-point from the given
 !    force constants.
 ! Considers all supercell, S, and symmetry, R, combinations such that
 !    S.R.q is a vector of integers, i.e. the q-point is a G-vector of the
 !    supercell.
-! ----------------------------------------------------------------------
+! --------------------------------------------------
 function new_DynamicalMatrix_calculated(qpoint,supercells,force_constants, &
-   & structure,logfile) result(this)
+   & structure,degenerate_energy,logfile) result(this)
   use constants_module, only : pi
   use utils_module, only : sum_squares
   use structure_module
@@ -79,13 +73,11 @@ function new_DynamicalMatrix_calculated(qpoint,supercells,force_constants, &
   type(StructureData),  intent(in)    :: supercells(:)
   type(ForceConstants), intent(in)    :: force_constants(:)
   type(StructureData),  intent(in)    :: structure
+  real(dp),             intent(in)    :: degenerate_energy
   type(OFile),          intent(inout) :: logfile
   type(DynamicalMatrix)               :: this
   
   type(SymmetryOperator) :: symmetry
-  
-  logical :: at_gamma
-  logical :: paired_qpoint
   
   type(AtomData) :: atom_1
   type(AtomData) :: atom_1p
@@ -221,19 +213,18 @@ function new_DynamicalMatrix_calculated(qpoint,supercells,force_constants, &
   
   ! Diagonalise the dynamical matrix, to obtain the normal mode
   !    co-ordinates (eigenvectors) and harmonic frequencies (eigenvalues).
-  at_gamma = is_int(qpoint%qpoint)
-  paired_qpoint = is_int(2*qpoint%qpoint)
-  this%complex_modes = calculate_modes( this%matrices_, &
-                                      & at_gamma,      &
-                                      & paired_qpoint, &
-                                      & structure)
+  this%complex_modes = calculate_modes( this%matrices_,    &
+                                      & structure,         &
+                                      & qpoint,            &
+                                      & degenerate_energy, &
+                                      & logfile)
 end function
 
-! ----------------------------------------------------------------------
+! --------------------------------------------------
 ! Construct a dynamical matrix at a q-point which is not commensurate
 !    with the supercell.
 ! This is only an approximation, using a minimum-image convention.
-! ----------------------------------------------------------------------
+! --------------------------------------------------
 function new_DynamicalMatrix_interpolated(q,supercell,force_constants, &
    & min_images) result(this)
   use constants_module, only : pi
@@ -260,10 +251,7 @@ function new_DynamicalMatrix_interpolated(q,supercell,force_constants, &
   
   ! Diagonalise the dynamical matrix, to obtain the normal mode
   !    co-ordinates (eigenvectors) and harmonic frequencies (eigenvalues).
-  this%complex_modes = calculate_modes( this%matrices_, &
-                                      & .false.,       &
-                                      & .false.,       &
-                                      & supercell)
+  this%complex_modes = calculate_modes(this%matrices_, supercell)
 end function
 
 ! ----------------------------------------------------------------------
@@ -272,6 +260,7 @@ end function
 function calculate_dynamical_matrix(q,supercell,force_constants,min_images) &
    & result(output)
   use constants_module, only : pi
+  use utils_module, only : exp_2pii
   use structure_module
   use force_constants_module
   use min_images_module
@@ -337,106 +326,6 @@ function calculate_dynamical_matrix(q,supercell,force_constants,min_images) &
 end function
 
 ! ----------------------------------------------------------------------
-! Diagonalise the dynamical matrix, to obtain the normal mode
-!    co-ordinates (eigenvectors) and harmonic frequencies (eigenvalues).
-! ----------------------------------------------------------------------
-! Structure may be any supercell.
-function calculate_modes(matrices,at_gamma,paired_qpoint,structure) &
-   & result(output)
-  use structure_module
-  use min_images_module
-  use force_constants_module
-  use atom_module
-  implicit none
-  
-  type(ComplexMatrix), intent(in) :: matrices(:,:)
-  logical,             intent(in) :: at_gamma
-  logical,             intent(in) :: paired_qpoint
-  type(StructureData), intent(in) :: structure
-  type(ComplexMode), allocatable  :: output(:)
-  
-  complex(dp), allocatable :: dyn_mat(:,:)
-  
-  type(ComplexEigenstuff) :: estuff
-  
-  logical,             allocatable :: translational(:)
-  type(ComplexVector)              :: displacement
-  
-  integer :: i,j,k,ialloc
-  
-  
-  ! Convert (3x3Matrix) x no_atoms x no_atoms to no_modes x no_modes
-  allocate( dyn_mat(structure%no_modes_prim,structure%no_modes_prim), &
-          & stat=ialloc); call err(ialloc)
-  do i=1,structure%no_atoms_prim
-    do j=1,structure%no_atoms_prim
-      dyn_mat(3*j-2:3*j, 3*i-2:3*i) = cmplx(matrices(j,i))
-    enddo
-  enddo
-  
-  ! Diagonalise dynamical matrix.
-  estuff = calculate_eigenstuff(dyn_mat)
-  
-  ! Identify purely translational modes (at the gamma-point only).
-  allocate( translational(structure%no_modes_prim), &
-          & stat=ialloc); call err(ialloc)
-  translational = .false.
-  if (at_gamma) then
-    do i=1,3
-      j = minloc(abs(estuff%evals),dim=1,mask=.not.translational)
-      translational(j) = .true.
-    enddo
-  endif
-  
-  ! Calculate normal mode frequencies and displacements.
-  !          V = sum_i[ 0.5 * freq_i**2 * u_i**2]
-  ! -> F = -2V = sum_i[ - freq_i**2 * u_i**2 ]
-  allocate( output(structure%no_modes_prim),   &
-          & stat=ialloc); call err(ialloc)
-  do i=1,structure%no_modes_prim
-    
-    ! The eigenvalues are in descending order, but the normal modes should
-    !    be in ascending order of frequency. i->k reverses the order.
-    k = structure%no_modes_prim - i + 1
-    
-    if (estuff%evals(k)>=0.0_dp) then
-      ! Unstable mode.
-      output(i)%frequency = - sqrt(estuff%evals(k))
-    else
-      ! Stable mode.
-      output(i)%frequency = sqrt(- estuff%evals(k))
-    endif
-    
-    output(i)%soft_mode = output(i)%frequency < -1.0e-6_dp
-    output(i)%translational_mode = translational(k)
-    
-    ! Calculate displacements in the primitive cell,
-    !    which are the non-mass-reduced eigenvectors of the dynamical matrix.
-    if (paired_qpoint) then
-      output(i)%at_paired_qpoint = .true.
-      allocate( output(i)%primitive_displacements(structure%no_atoms_prim,1), &
-              & stat=ialloc); call err(ialloc)
-    else
-      output(i)%at_paired_qpoint = .false.
-      allocate( output(i)%primitive_displacements(structure%no_atoms_prim,2), &
-              & stat=ialloc); call err(ialloc)
-    endif
-    
-    do j=1,structure%no_atoms_prim
-      displacement = estuff%evecs(3*j-2:3*j, k) &
-                 & / sqrt(structure%atoms(j)%mass())
-      
-      if (paired_qpoint) then
-        output(i)%primitive_displacements(j,:) = [displacement]
-      else
-        output(i)%primitive_displacements(j,:) = [ displacement, &
-                                                 & conjg(displacement) ]
-      endif
-    enddo
-  enddo
-end function
-
-! ----------------------------------------------------------------------
 ! Construct the dynamical matrix and normal modes at the q-point q'=G-q,
 !    given the dynamical matrix and normal modes at the q-point q.
 ! ----------------------------------------------------------------------
@@ -497,6 +386,7 @@ end function
 ! If check_eigenstuff is .true., also checks that the normal modes match
 !    the dynamical matrix.
 ! check_eigenstuff defaults to .true..
+! If check_eigenstuff, then degenerate_energy must be present.
 ! Structure may be any supercell.
 subroutine check(this,structure,logfile,check_eigenstuff)
   use utils_module, only : sum_squares
@@ -553,10 +443,7 @@ subroutine check(this,structure,logfile,check_eigenstuff)
   
   ! Check that dynamical matrix and normal modes match.
   if (check_estuff) then
-    modes = calculate_modes( this%matrices_,                          &
-                           & .false.,                                &
-                           & this%complex_modes(1)%at_paired_qpoint, &
-                           & structure)
+    modes = calculate_modes(this%matrices_, structure)
     
     ! Check that eigenfrequencies match.
     average = 0.0_dp
@@ -630,6 +517,7 @@ end subroutine
 function reconstruct_force_constants(large_supercell,qpoints, &
    & dynamical_matrices,logfile) result(output)
   use constants_module, only : pi
+  use utils_module, only : exp_2pii
   use structure_module
   use qpoints_module
   use force_constants_module
@@ -792,6 +680,7 @@ end function
 ! ----------------------------------------------------------------------
 function rotate_dynamical_matrix(input,symmetry,qpoint_from,qpoint_to) &
    & result(output)
+  use utils_module, only : exp_2pii
   use symmetry_module
   use qpoints_module
   implicit none
@@ -845,77 +734,6 @@ function rotate_dynamical_matrix(input,symmetry,qpoint_from,qpoint_to) &
          & * input(atom_2,atom_1)      &
          & * exp_2pii(-q*r1)           &
          & * transpose(symmetry%cartesian_rotation)
-    enddo
-  enddo
-end function
-
-! ----------------------------------------------------------------------
-! Rotate complex modes from one q-point to another.
-! ----------------------------------------------------------------------
-function rotate_complex_modes(input,symmetry,qpoint_from,qpoint_to) &
-   & result(output)
-  use symmetry_module
-  use qpoints_module
-  implicit none
-  
-  type(ComplexMode),      intent(in) :: input(:)
-  type(SymmetryOperator), intent(in) :: symmetry
-  type(FractionVector),   intent(in) :: qpoint_from
-  type(FractionVector),   intent(in) :: qpoint_to
-  type(ComplexMode), allocatable     :: output(:)
-  
-  type(FractionVector) :: q
-  type(IntVector)      :: r
-  
-  integer :: no_modes
-  integer :: no_atoms
-  
-  integer :: mode
-  integer :: atom_1
-  integer :: atom_1p
-  
-  integer :: ialloc
-  
-  no_modes = size(input)
-  no_atoms = no_modes/3
-  q = qpoint_to
-  
-  ! Check that the symmetry rotates the q-point as expected.
-  if (symmetry%recip_rotation * qpoint_from /= qpoint_to) then
-    call print_line(CODE_ERROR//': Symmetry does not transform q-points as &
-       &expected.')
-    call err()
-  endif
-  
-  ! Check that the number of atoms is consistent.
-  if (no_atoms/=size(input(1)%primitive_displacements,1)) then
-    call err()
-  endif
-  
-  ! Allocate output, and transfer across all data.
-  ! (Displacements need rotating, but everything else stays the same.)
-  output = input
-  
-  ! Rotate displacements.
-  do mode=1,no_modes
-    do atom_1=1,no_atoms
-      atom_1p = symmetry%atom_group * atom_1
-      r = symmetry%rvector(atom_1)
-      if (input(1)%at_paired_qpoint) then
-        output(mode)%primitive_displacements(atom_1p,1) =    &
-           & symmetry%cartesian_rotation                     &
-           & * input(mode)%primitive_displacements(atom_1,1) &
-           & * exp_2pii(q*r)
-      else
-        output(mode)%primitive_displacements(atom_1p,1) =    &
-           & symmetry%cartesian_rotation                     &
-           & * input(mode)%primitive_displacements(atom_1,1) &
-           & * exp_2pii(q*r)
-        output(mode)%primitive_displacements(atom_1p,2) =    &
-           & symmetry%cartesian_rotation                     &
-           & * input(mode)%primitive_displacements(atom_1,2) &
-           & * exp_2pii(q*r)
-      endif
     enddo
   enddo
 end function
@@ -1065,39 +883,4 @@ subroutine compare_dynamical_matrices(a,b,logfile)
     call print_dyn_mat(b,colours)
   endif
 end subroutine
-
-! ----------------------------------------------------------------------
-! Returns exp(2*pi*i*input).
-! ----------------------------------------------------------------------
-impure elemental function exp_2pii_real(input) result(output)
-  use constants_module, only : pi
-  implicit none
-  
-  real(dp), intent(in) :: input
-  complex(dp)          :: output
-  
-  real(dp) :: exponent
-  
-  exponent = 2*pi*input
-  output = cmplx(cos(exponent),sin(exponent),dp)
-end function
-
-impure elemental function exp_2pii_integer(input) result(output)
-  implicit none
-  
-  integer, intent(in) :: input
-  complex(dp)         :: output
-  
-  output = exp_2pii(real(input,dp))
-end function
-
-impure elemental function exp_2pii_IntFraction(input) result(output)
-  use fraction_module
-  implicit none
-  
-  type(IntFraction), intent(in) :: input
-  complex(dp)                   :: output
-  
-  output = exp_2pii(dble(input))
-end function
 end module
