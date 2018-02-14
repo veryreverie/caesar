@@ -580,7 +580,7 @@ subroutine check(this,forces,supercell,unique_directions,logfile)
   type(RealVector) :: calculated
   type(RealVector) :: fitted
   
-  integer :: i,j,k,ialloc
+  integer :: i,j
   
   ! Check force constants against raw forces.
   average = 0

@@ -147,9 +147,9 @@ def main():
                            points[k]['h'][0]-points[k]['h'][-1],
                            points[k]['v'][0]-points[k]['v'][-1],
                            width=0,
-                           head_width=0.3,
-                           head_length=0.15,
-                           overhang=1.5,
+                           head_width=4*radius,
+                           head_length=2*radius,
+                           overhang=0,
                            length_includes_head=True,
                            color=colours['orange'])
         else:

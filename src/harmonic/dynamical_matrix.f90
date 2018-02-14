@@ -57,7 +57,6 @@ contains
 ! --------------------------------------------------
 function new_DynamicalMatrix_calculated(qpoint,supercells,force_constants, &
    & structure,degenerate_energy,logfile) result(this)
-  use constants_module, only : pi
   use utils_module, only : sum_squares
   use structure_module
   use min_images_module
@@ -79,20 +78,14 @@ function new_DynamicalMatrix_calculated(qpoint,supercells,force_constants, &
   
   type(SymmetryOperator) :: symmetry
   
-  type(AtomData) :: atom_1
-  type(AtomData) :: atom_1p
-  type(AtomData) :: atom_2
-  type(AtomData) :: atom_2p
-  
   type(FractionVector) :: qp
   type(FractionVector) :: q
-  type(IntVector)      :: r
   
   logical, allocatable :: is_copy(:,:)
   integer, allocatable :: sym_id(:)
   integer, allocatable :: sup_id(:)
   integer              :: no_copies
-  integer              :: i,j,k,l,m,ialloc
+  integer              :: i,j,k,ialloc
   
   type(ComplexMatrix), allocatable :: matrix(:,:)
   type(ComplexMatrix), allocatable :: matrices(:,:,:)
@@ -102,12 +95,6 @@ function new_DynamicalMatrix_calculated(qpoint,supercells,force_constants, &
   real(dp),            allocatable :: averages(:,:)
   real(dp),            allocatable :: differences(:,:)
   real(dp)                         :: l2_error
-  
-  logical                   :: printing
-  complex(dp), allocatable  :: average_mat(:,:)
-  complex(dp), allocatable  :: print_mat(:,:)
-  type(PhaseData)           :: phase
-  type(String), allocatable :: colours(:,:,:,:)
   
   ! Check that the supercells and force constants correspond to one another.
   if (size(supercells)/=size(force_constants)) then
@@ -227,7 +214,6 @@ end function
 ! --------------------------------------------------
 function new_DynamicalMatrix_interpolated(q,supercell,force_constants, &
    & min_images) result(this)
-  use constants_module, only : pi
   use structure_module
   use min_images_module
   use force_constants_module
@@ -259,7 +245,6 @@ end function
 ! ----------------------------------------------------------------------
 function calculate_dynamical_matrix(q,supercell,force_constants,min_images) &
    & result(output)
-  use constants_module, only : pi
   use utils_module, only : exp_2pii
   use structure_module
   use force_constants_module
@@ -278,8 +263,6 @@ function calculate_dynamical_matrix(q,supercell,force_constants,min_images) &
   type(AtomData)               :: atom_2
   type(IntVector)              :: rvector
   type(IntVector), allocatable :: rvectors(:)
-  real(dp)                     :: qr
-  complex(dp)                  :: exp_minus_iqr
   
   integer :: i,j,k,ialloc
   
@@ -516,7 +499,6 @@ end subroutine
 ! ----------------------------------------------------------------------
 function reconstruct_force_constants(large_supercell,qpoints, &
    & dynamical_matrices,logfile) result(output)
-  use constants_module, only : pi
   use utils_module, only : exp_2pii
   use structure_module
   use qpoints_module
@@ -650,7 +632,6 @@ end function
 ! The symmetry, S, maps equilibrium position ri to rj+R, and q-point q to q'.
 ! The +R needs to be corrected for, by multiplying the phase by exp(-iq'.R).
 function rotate_modes(input,symmetry,qpoint_from,qpoint_to) result(output)
-  use constants_module, only : pi
   use utils_module, only : sum_squares
   use qpoints_module
   use symmetry_module

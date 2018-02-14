@@ -36,6 +36,34 @@ module fraction_module
     procedure, private              :: non_equality_IntFraction_integer
     procedure, private, pass(that)  :: non_equality_integer_IntFraction
     
+    generic, public :: operator(<) => lt_IntFraction_IntFraction, &
+                                    & lt_IntFraction_integer,     &
+                                    & lt_integer_IntFraction
+    procedure, private             :: lt_IntFraction_IntFraction
+    procedure, private             :: lt_IntFraction_integer
+    procedure, private, pass(that) :: lt_integer_IntFraction
+    
+    generic, public :: operator(>) => gt_IntFraction_IntFraction, &
+                                    & gt_IntFraction_integer,     &
+                                    & gt_integer_IntFraction
+    procedure, private             :: gt_IntFraction_IntFraction
+    procedure, private             :: gt_IntFraction_integer
+    procedure, private, pass(that) :: gt_integer_IntFraction
+    
+    generic, public :: operator(<=) => le_IntFraction_IntFraction, &
+                                     & le_IntFraction_integer,     &
+                                     & le_integer_IntFraction
+    procedure, private              :: le_IntFraction_IntFraction
+    procedure, private              :: le_IntFraction_integer
+    procedure, private, pass(that)  :: le_integer_IntFraction
+    
+    generic, public :: operator(>=) => ge_IntFraction_IntFraction, &
+                                     & ge_IntFraction_integer,     &
+                                     & ge_integer_IntFraction
+    procedure, private              :: ge_IntFraction_IntFraction
+    procedure, private              :: ge_IntFraction_integer
+    procedure, private, pass(that)  :: ge_integer_IntFraction
+    
     ! Arithmetic.
     generic, public :: operator(+) => add_IntFraction_IntFraction, &
                                     & add_IntFraction_integer,     &
@@ -240,7 +268,8 @@ end function
 ! ----------------------------------------------------------------------
 ! Comparison.
 ! ----------------------------------------------------------------------
-impure elemental function equality_IntFraction_IntFraction(this,that) result(output)
+impure elemental function equality_IntFraction_IntFraction(this,that) &
+   & result(output)
   implicit none
   
   class(IntFraction), intent(in) :: this
@@ -250,7 +279,8 @@ impure elemental function equality_IntFraction_IntFraction(this,that) result(out
   output = this%n_==that%n_ .and. this%d_==that%d_
 end function
 
-impure elemental function equality_IntFraction_integer(this,that) result(output)
+impure elemental function equality_IntFraction_integer(this,that) &
+   & result(output)
   implicit none
   
   class(IntFraction), intent(in) :: this
@@ -260,7 +290,8 @@ impure elemental function equality_IntFraction_integer(this,that) result(output)
   output = this%n_==that .and. this%d_==1
 end function
 
-impure elemental function equality_integer_IntFraction(this,that) result(output)
+impure elemental function equality_integer_IntFraction(this,that) &
+   & result(output)
   implicit none
   
   integer,            intent(in) :: this
@@ -281,7 +312,8 @@ impure elemental function non_equality_IntFraction_IntFraction(this,that) &
   output = .not. this==that
 end function
 
-impure elemental function non_equality_IntFraction_integer(this,that) result(output)
+impure elemental function non_equality_IntFraction_integer(this,that) &
+   & result(output)
   implicit none
   
   class(IntFraction), intent(in) :: this
@@ -291,7 +323,8 @@ impure elemental function non_equality_IntFraction_integer(this,that) result(out
   output = .not. this==that
 end function
 
-impure elemental function non_equality_integer_IntFraction(this,that) result(output)
+impure elemental function non_equality_integer_IntFraction(this,that) &
+   & result(output)
   implicit none
   
   integer,            intent(in) :: this
@@ -299,6 +332,138 @@ impure elemental function non_equality_integer_IntFraction(this,that) result(out
   logical                        :: output
   
   output = .not. this==that
+end function
+
+impure elemental function lt_IntFraction_IntFraction(this,that) &
+   & result(output)
+  implicit none
+  
+  class(IntFraction), intent(in) :: this
+  class(IntFraction), intent(in) :: that
+  logical                        :: output
+  
+  output = this%n_*that%d_ < that%n_*this%d_
+end function
+
+impure elemental function lt_IntFraction_integer(this,that) &
+   & result(output)
+  implicit none
+  
+  class(IntFraction), intent(in) :: this
+  integer,            intent(in) :: that
+  logical                        :: output
+  
+  output = this%n_ < that*this%d_
+end function
+
+impure elemental function lt_integer_IntFraction(this,that) &
+   & result(output)
+  implicit none
+  
+  integer,            intent(in) :: this
+  class(IntFraction), intent(in) :: that
+  logical                        :: output
+  
+  output = this*that%d_ < that%n_
+end function
+
+impure elemental function gt_IntFraction_IntFraction(this,that) &
+   & result(output)
+  implicit none
+  
+  class(IntFraction), intent(in) :: this
+  class(IntFraction), intent(in) :: that
+  logical                        :: output
+  
+  output = this%n_*that%d_ > that%n_*this%d_
+end function
+
+impure elemental function gt_IntFraction_integer(this,that) &
+   & result(output)
+  implicit none
+  
+  class(IntFraction), intent(in) :: this
+  integer,            intent(in) :: that
+  logical                        :: output
+  
+  output = this%n_ > that*this%d_
+end function
+
+impure elemental function gt_integer_IntFraction(this,that) &
+   & result(output)
+  implicit none
+  
+  integer,            intent(in) :: this
+  class(IntFraction), intent(in) :: that
+  logical                        :: output
+  
+  output = this*that%d_ > that%n_
+end function
+
+impure elemental function le_IntFraction_IntFraction(this,that) &
+   & result(output)
+  implicit none
+  
+  class(IntFraction), intent(in) :: this
+  class(IntFraction), intent(in) :: that
+  logical                        :: output
+  
+  output = .not. this > that
+end function
+
+impure elemental function le_IntFraction_integer(this,that) &
+   & result(output)
+  implicit none
+  
+  class(IntFraction), intent(in) :: this
+  integer,            intent(in) :: that
+  logical                        :: output
+  
+  output = .not. this > that
+end function
+
+impure elemental function le_integer_IntFraction(this,that) &
+   & result(output)
+  implicit none
+  
+  integer,            intent(in) :: this
+  class(IntFraction), intent(in) :: that
+  logical                        :: output
+  
+  output = .not. this > that
+end function
+
+impure elemental function ge_IntFraction_IntFraction(this,that) &
+   & result(output)
+  implicit none
+  
+  class(IntFraction), intent(in) :: this
+  class(IntFraction), intent(in) :: that
+  logical                        :: output
+  
+  output = .not. this < that
+end function
+
+impure elemental function ge_IntFraction_integer(this,that) &
+   & result(output)
+  implicit none
+  
+  class(IntFraction), intent(in) :: this
+  integer,            intent(in) :: that
+  logical                        :: output
+  
+  output = .not. this < that
+end function
+
+impure elemental function ge_integer_IntFraction(this,that) &
+   & result(output)
+  implicit none
+  
+  integer,            intent(in) :: this
+  class(IntFraction), intent(in) :: that
+  logical                        :: output
+  
+  output = .not. this < that
 end function
 
 ! ----------------------------------------------------------------------

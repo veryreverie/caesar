@@ -267,7 +267,6 @@ recursive function dble_character(this) result(output)
   real(dp)                 :: output
   
   type(String), allocatable :: split_string(:)
-  real(dp)                  :: reals(2)
   
   integer :: ierr
   

@@ -380,7 +380,6 @@ function diagonalise_unitary_complexes(input,order) result(output)
   type(ComplexEigenstuff), allocatable :: estuff(:)
   
   type(PhaseData), allocatable :: phases(:)
-  integer,         allocatable :: sort_key(:)
   integer,         allocatable :: sort_ids(:)
   
   integer :: i,ialloc
@@ -389,21 +388,43 @@ function diagonalise_unitary_complexes(input,order) result(output)
   estuff = diagonalise_complex(input)
   
   ! Convert eigenvalues to exact representation.
-  allocate( phases(size(estuff)),   &
-          & sort_key(size(estuff)), &
+  allocate( phases(size(estuff)), &
           & stat=ialloc); call err(ialloc)
   do i=1,size(estuff)
     phases(i) = calculate_phase(estuff(i)%eval, order)
-    sort_key(i) = int(phases(i)%fraction * order)
   enddo
   
-  sort_ids = sort(sort_key)
+  sort_ids = sort(phases,compare_phases)
   
   allocate(output(size(estuff)), stat=ialloc); call err(ialloc)
   do i=1,size(estuff)
     output(i)%eval = phases(sort_ids(i))
     output(i)%evec = estuff(sort_ids(i))%right_evec
   enddo
+
+! A lambda for ordering phases.
+contains
+  function compare_phases(this,that) result(output)
+    implicit none
+    
+    class(*), intent(in) :: this
+    class(*), intent(in) :: that
+    logical              :: output
+    
+    select type(this)
+      type is(PhaseData)
+        
+        select type(that)
+          type is(PhaseData)
+            output = this%fraction<that%fraction
+          class default
+            call err()
+        end select
+        
+      class default
+        call err()
+    end select
+  end function
 end function
 
 function diagonalise_unitary_ComplexMatrix(input,order) result(output)

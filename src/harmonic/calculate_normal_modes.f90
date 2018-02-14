@@ -29,7 +29,7 @@ function calculate_normal_modes_keywords() result(keywords)
      &              'degenerate_energy is the minimum energy difference &
      &between states before they are considered degenerate. This should be &
      &given in Bohr.',                                                       &
-     &              default_value='1e-10') ]
+     &              default_value='1e-5') ]
 end function
 
 function calculate_normal_modes_mode() result(output)
@@ -98,19 +98,13 @@ subroutine calculate_normal_modes(arguments)
   type(StructureData)           :: large_supercell
   type(QpointData), allocatable :: qpoints(:)
   
-  type(IntVector) :: gvector
-  
   ! Lte output data.
   logical, allocatable :: modes_calculated(:)
   integer              :: mode
   type(String)         :: mode_string
   
   ! Normal modes and their symmetries.
-  logical, allocatable :: translational(:)
   type(FractionVector) :: rotated_qpoint
-  
-  type(AtomData)      :: atom
-  type(ComplexVector) :: prim_disp
   
   type(DynamicalMatrix), allocatable :: dynamical_matrices(:)
   type(DynamicalMatrix)              :: rotated_matrix
@@ -120,7 +114,7 @@ subroutine calculate_normal_modes(arguments)
   type(OFile) :: qpoint_logfile
   
   ! Temporary variables.
-  integer      :: i,j,k,l,ialloc
+  integer      :: i,j,k,ialloc
   type(String) :: sdir,qdir
   
   ! --------------------------------------------------

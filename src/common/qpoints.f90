@@ -50,23 +50,21 @@ end function
 ! Generates the set of q-points of the input structure which correspond
 !    to G-vectors of the large supercell.
 ! ----------------------------------------------------------------------
-function generate_qpoints(structure,large_supercell) result(output)
+function generate_qpoints(large_supercell) result(output)
   use linear_algebra_module
   use fraction_algebra_module
   use structure_module
   use group_module
   implicit none
   
-  type(StructureData), intent(in) :: structure
   type(StructureData), intent(in) :: large_supercell
   type(QpointData), allocatable   :: output(:)
   
   ! Working variables
   integer, allocatable :: paired_qpoints(:)
-  type(FractionVector) :: rotated_qpoint
   
   ! Temporary variables
-  integer :: i,j,k,ialloc
+  integer :: i,j,ialloc
   
   ! --------------------------------------------------
   ! Construct q-points from G-vectors of large supercell.
@@ -152,7 +150,7 @@ function read_qpoints_file(filename) result(this)
   
   integer :: no_qpoints
   integer :: qpoint_line
-  integer :: i,j,ialloc
+  integer :: i,ialloc
   
   qpoints_file = filename
   no_qpoints = size(qpoints_file)/7

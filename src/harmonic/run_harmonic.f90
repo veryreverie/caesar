@@ -82,7 +82,7 @@ subroutine run_harmonic(arguments)
   type(String)                       :: atom_string
   
   ! Temporary variables.
-  integer      :: i,j,k
+  integer      :: i,j
   type(String) :: dir
   type(String) :: sdir
   integer      :: result_code

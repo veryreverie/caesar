@@ -128,7 +128,7 @@ subroutine generate_dos(supercell,min_images,force_constants,temperature, &
   
   integer,  parameter :: no_bins=1000,no_prelims=10000,no_samples=100000
   integer,  parameter :: print_every = 10000
-  real(dp), parameter :: freq_tol=1.0e-8_dp,safety_margin=0.15_dp
+  real(dp), parameter :: safety_margin=0.15_dp
   
   integer :: i_sample,i_freq,i_bin
   real(dp) :: max_freq,min_freq,freq_spread,frac(3),bin_width,&
@@ -335,10 +335,9 @@ end subroutine
 ! The branches of the dispersion curve are plotted against the total distance 
 !    travelled along the specified paths in q-space.
 ! ----------------------------------------------------------------------
-subroutine generate_dispersion(structure,supercell,min_images,force_constants,&
-   & path_labels,path_qpoints,dispersion_filename,          &
+subroutine generate_dispersion(large_supercell,min_images,force_constants, &
+   & path_labels,path_qpoints,dispersion_filename,                         &
    & high_symmetry_points_filename,logfile)
-  use constants_module, only : pi
   use ofile_module
   use structure_module
   use min_images_module
@@ -346,8 +345,7 @@ subroutine generate_dispersion(structure,supercell,min_images,force_constants,&
   use dynamical_matrix_module
   implicit none
   
-  type(StructureData),  intent(in)    :: structure
-  type(StructureData),  intent(in)    :: supercell
+  type(StructureData),  intent(in)    :: large_supercell
   type(MinImages),      intent(in)    :: min_images(:,:)
   type(ForceConstants), intent(in)    :: force_constants
   type(String),         intent(in)    :: path_labels(:)
@@ -425,11 +423,11 @@ subroutine generate_dispersion(structure,supercell,min_images,force_constants,&
            &   + j                        *path_qpoints(i+1) ) &
            & / points_per_segment(i)
       dyn_mat = DynamicalMatrix( qpoint,          &
-                               & supercell,       &
+                               & large_supercell, &
                                & force_constants, &
                                & min_images)
-      call dyn_mat%check( supercell,         &
-                        & logfile,           &
+      call dyn_mat%check( large_supercell, &
+                        & logfile,         &
                         & check_eigenstuff=.false.)
       call dispersion_file%print_line( &
          & 'Fraction along path: '//                &
@@ -442,11 +440,11 @@ subroutine generate_dispersion(structure,supercell,min_images,force_constants,&
   ! Calculate frequencies at final k-space point.
   qpoint = path_qpoints(no_vertices)
   dyn_mat = DynamicalMatrix( qpoint,          &
-                           & supercell,       &
+                           & large_supercell, &
                            & force_constants, &
                            & min_images)
-  call dyn_mat%check( supercell,         &
-                    & logfile,           &
+  call dyn_mat%check( large_supercell, &
+                    & logfile,         &
                     & check_eigenstuff=.false.)
   call dispersion_file%print_line( &
      & 'Fraction along path: '//1.0_dp)

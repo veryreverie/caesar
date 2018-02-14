@@ -103,7 +103,7 @@ subroutine setup_harmonic(arguments)
   type(RealVector)                   :: position
   
   ! Temporary variables.
-  integer        :: i,j,k
+  integer :: i,j
   
   ! Files.
   type(String) :: input_filename
@@ -159,14 +159,12 @@ subroutine setup_harmonic(arguments)
   ! --------------------------------------------------
   ! Generate supercells.
   ! --------------------------------------------------
-  ! Generate q-points in IBZ and non-diagonal supercells.
-  qpoints = generate_qpoints(structure, large_supercell)
-  
-  supercells = generate_supercells(structure, qpoints, symmetry_precision)
-  
+  ! Generate q-points in Monkhorst-Pack grid.
+  qpoints = generate_qpoints(large_supercell)
   call write_qpoints_file(qpoints, wd//'/qpoints.dat')
   
-  ! Write no_supercells to file
+  ! Generate non-diagonal supercells.
+  supercells = generate_supercells(structure, qpoints, symmetry_precision)
   no_supercells = size(supercells)
   no_supercells_file = wd//'/no_supercells.dat'
   call no_supercells_file%print_line(no_supercells)

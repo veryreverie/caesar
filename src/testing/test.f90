@@ -5,6 +5,7 @@ module test_module
   use constants_module, only : dp
   use string_module
   use io_module
+  implicit none
 contains
 
 ! ----------------------------------------------------------------------
@@ -38,19 +39,15 @@ end function
 subroutine test(arguments)
   use dictionary_module
   use logic_module
+  use logic_example_module
   implicit none
   
   type(Dictionary), intent(in) :: arguments
   
   type(String) :: wd
   
-  logical, allocatable :: list(:)
-  
   wd = arguments%value('working_directory')
   
-  list = lgcl(split('F F T F F F F'))
-  call print_line('List : '//list)
-  call print_line('First: '//first(list))
-  call print_line('Last : '//last(list))
+  call logic_example()
 end subroutine
 end module

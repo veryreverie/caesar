@@ -154,8 +154,7 @@ subroutine calculate_dos_and_dispersion(arguments)
   
   ! Generate harmonic phonon dispersion curve by interpolating between
   !    calculated q-points using Fourier interpolation.
-  call generate_dispersion( structure,                          &
-                          & large_supercell,                    &
+  call generate_dispersion( large_supercell,                    &
                           & min_images,                         &
                           & force_constants,                    &
                           & path_labels,                        &

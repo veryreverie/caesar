@@ -149,6 +149,14 @@ module linear_algebra_module
     module procedure trace_ComplexMatrix
   end interface
   
+  interface commutator
+    module procedure commutator_IntMatrix_IntMatrix
+  end interface
+  
+  interface matrices_commute
+    module procedure matrices_commute_IntMatrix_IntMatrix
+  end interface
+  
   interface operator(==)
     module procedure equality_IntVector_IntVector
     module procedure equality_IntMatrix_IntMatrix
@@ -1032,6 +1040,42 @@ function trace_ComplexMatrix(input) result(output)
   do i=1,size(contents,1)
     output = output + contents(i,i)
   enddo
+end function
+
+! Find the commutator of two matrices.
+function commutator_IntMatrix_IntMatrix(this,that) result(output)
+  implicit none
+  
+  type(IntMatrix), intent(in) :: this
+  type(IntMatrix), intent(in) :: that
+  type(IntMatrix)             :: output
+  
+  if (size(this,1)/=size(this,2)) then
+    call print_line(CODE_ERROR//': Trying to find a commutator involving a &
+       &non-square matrix.')
+    call err()
+  elseif (size(that,1)/=size(that,2)) then
+    call print_line(CODE_ERROR//': Trying to find a commutator involving a &
+       &non-square matrix.')
+    call err()
+  elseif (size(this,1)/=size(that,1)) then
+    call print_line(CODE_ERROR//': Trying to find commutator of matrices of &
+       &different sizes.')
+    call err()
+  endif
+  
+  output = this*that - that*this
+end function
+
+! Check if two matrices commute.
+function matrices_commute_IntMatrix_IntMatrix(this,that) result(output)
+  implicit none
+  
+  type(IntMatrix), intent(in) :: this
+  type(IntMatrix), intent(in) :: that
+  logical                     :: output
+  
+  output = commutator(this,that)==zeroes(size(this,1),size(this,1))
 end function
 
 ! Equality.
