@@ -109,6 +109,8 @@ subroutine calculate_normal_modes(arguments)
   type(DynamicalMatrix), allocatable :: dynamical_matrices(:)
   type(DynamicalMatrix)              :: rotated_matrix
   
+  integer :: degeneracy_id
+  
   ! Logfiles.
   type(OFile) :: force_logfile
   type(OFile) :: qpoint_logfile
@@ -199,6 +201,7 @@ subroutine calculate_normal_modes(arguments)
   qpoint_logfile = wd//'/dynamical_matrix_log.dat'
   modes_calculated = .false.
   
+  degeneracy_id = 1
   iter : do while (.not. all(modes_calculated))
     ! ------------------------------
     ! First, check if there is an un-calculated q-point whose conjugate has
@@ -272,8 +275,11 @@ subroutine calculate_normal_modes(arguments)
                                                  & force_constants,   &
                                                  & structure,         &
                                                  & degenerate_energy, &
+                                                 & degeneracy_id,     &
                                                  & qpoint_logfile)
-          
+          degeneracy_id =                                                  &
+             &   maxval(dynamical_matrices(i)%complex_modes%degeneracy_id) &
+             & + 1
           modes_calculated(i) = .true.
           cycle iter
         endif

@@ -67,6 +67,9 @@ module normal_mode_module
     ! An n x 1 array of vectors if at_paired_qpoint, or an n x 2 array if not.
     ! The first column corresponds to e^(iq.R), the second to e^(-iq.R).
     type(ComplexVector), allocatable :: primitive_displacements(:,:)
+    
+    ! An id which is shared between degenerate states, and different otherwise.
+    integer :: degeneracy_id
   contains
     procedure, public :: write_file => write_file_ComplexMode
   end type
@@ -144,6 +147,7 @@ subroutine write_file_ComplexMode(this,filename)
   call mode_file%print_line('Frequency:              '//this%frequency)
   call mode_file%print_line('Soft mode:              '//this%soft_mode)
   call mode_file%print_line('Translational mode:     '//this%translational_mode)
+  call mode_file%print_line('Degeneracy id:          '//this%degeneracy_id)
   call mode_file%print_line('Primitive Displacements of e^(iq.R) mode:')
   do i=1,size(this%primitive_displacements,1)
     call mode_file%print_line(this%primitive_displacements(i,1))
@@ -188,23 +192,27 @@ function read_file_ComplexMode(filename) result(this)
   line = split(mode_file%line(4))
   this%translational_mode = lgcl(line(3))
   
+  ! Read the degeneracy id of this mode.
+  line = split(mode_file%line(5))
+  this%degeneracy_id = int(line(3))
+  
   ! Read in the displacement associated with the mode.
   if (this%at_paired_qpoint) then
-    no_atoms = size(mode_file)-5
+    no_atoms = size(mode_file)-6
     allocate( this%primitive_displacements(no_atoms,1), &
             & stat=ialloc); call err(ialloc)
   else
-    no_atoms = (size(mode_file)-5)/2
+    no_atoms = (size(mode_file)-6)/2
     allocate( this%primitive_displacements(no_atoms,2), &
             & stat=ialloc); call err(ialloc)
   endif
   
   do i=1,no_atoms
-    line = split(mode_file%line(5+i))
+    line = split(mode_file%line(6+i))
     this%primitive_displacements(i,1) = cmplx(line)
     
     if (.not. this%at_paired_qpoint) then
-      line = split(mode_file%line(6+no_atoms+i))
+      line = split(mode_file%line(7+no_atoms+i))
       this%primitive_displacements(i,2) = cmplx(line)
     endif
   enddo
@@ -373,25 +381,38 @@ end function
 ! Calculate modes for one of the calculated q-points.
 ! Will lift degeneracies using symmetries.
 function calculate_modes_calculated(matrices,structure,qpoint, &
-   &degenerate_energy,logfile) result(output)
+   &degenerate_energy,degeneracy_id,logfile) result(output)
+  use utils_module, only : sum_squares
   use structure_module
   use qpoints_module
   use atom_module
   use eigenstuff_module
   use ofile_module
+  use symmetry_module
+  use logic_module
   implicit none
   
   type(ComplexMatrix), intent(in)    :: matrices(:,:)
   type(StructureData), intent(in)    :: structure
   type(QpointData),    intent(in)    :: qpoint
   real(dp),            intent(in)    :: degenerate_energy
+  integer,             intent(in)    :: degeneracy_id
   type(OFile),         intent(inout) :: logfile
   type(ComplexMode), allocatable     :: output(:)
   
   real(dp), allocatable :: frequencies(:)
   logical,  allocatable :: translational(:)
   
-  integer :: i,j,ialloc
+  ! Symmetry data.
+  type(SymmetryOperator), allocatable :: symmetries(:)
+  
+  integer, allocatable :: states(:)
+  
+  ! Error checking variables.
+  type(ComplexMatrix) :: symmetry
+  real(dp)            :: check
+  
+  integer :: i,j,k,ialloc
   
   ! Calculate normal modes as if at an arbitrary q-point.
   output = calculate_modes(matrices,structure)
@@ -422,122 +443,57 @@ function calculate_modes_calculated(matrices,structure,qpoint, &
     enddo
   endif
   
-  ! Lift degeneracies, expressing degenerate states in terms of
-  !    the eigenvectors of symmetry operators.
-  output = lift_degeneracies( output,            &
-                            & structure,         &
-                            & qpoint,            &
-                            & degenerate_energy, &
-                            & logfile)
-end function
-
-function lift_degeneracies(input,structure,qpoint,degenerate_energy,logfile) &
-   & result(output)
-  use utils_module, only : sum_squares
-  use structure_module
-  use linear_algebra_module
-  use group_module
-  use symmetry_module
-  use qpoints_module
-  use logic_module
-  use ofile_module
-  implicit none
-  
-  type(ComplexMode),   intent(in)    :: input(:)
-  type(StructureData), intent(in)    :: structure
-  type(QpointData),    intent(in)    :: qpoint
-  real(dp),            intent(in)    :: degenerate_energy
-  type(OFile),         intent(inout) :: logfile
-  type(ComplexMode), allocatable     :: output(:)
-  
-  ! Symmetry data.
-  logical,                allocatable :: leaves_q_invariant(:)
-  type(SymmetryOperator), allocatable :: symmetries(:)
-  
-  ! The id of the first mode with which mode i is degenerate.
-  ! e.g. if there are four modes, and the middle two are degenerate, then
-  !    degeneracy_ids = [ 1, 2, 2, 4 ].
-  integer, allocatable :: degeneracy_ids(:)
-  
-  real(dp) :: frequency
-  real(dp) :: prev_frequency
-  real(dp) :: prev_degenerate_frequency
-  
-  ! Error checking variables.
-  type(ComplexMatrix) :: symmetry
-  real(dp)            :: check
-  
-  integer :: i,j,k,ialloc
-  
-  ! Copy over all data. Data which needs changing (displacements) will be
-  !    changed later on.
-  output = input
-  
   ! Identify the symmetries which map the q-point to itself.
-  allocate( leaves_q_invariant(size(structure%symmetries)), &
-          & stat=ialloc); call err(ialloc)
-  do i=1,size(structure%symmetries)
-    if (structure%symmetries(i)%recip_rotation * qpoint%qpoint &
-                                            & == qpoint%qpoint) then
-      leaves_q_invariant(i) = .true.
-    else
-      leaves_q_invariant(i) = .false.
-    endif
-  enddo
-  symmetries = pack(structure%symmetries, mask=leaves_q_invariant)
+  symmetries = structure%symmetries( filter( structure%symmetries, &
+                                           & leaves_q_invariant) )
   
-  ! Identify which modes are degenerate.
-  allocate(degeneracy_ids(size(output)), stat=ialloc); call err(ialloc)
-  do i=1,size(output)
-    if (i==1) then
-      degeneracy_ids(1) = 1
+  ! Assign degeneracy ids, which are equal if two states are degenerate,
+  !    and different if they are not.
+  output(1)%degeneracy_id = degeneracy_id
+  do i=2,size(output)
+    if (abs(output(i)%frequency-output(i-1)%frequency)<degenerate_energy) then
+      output(i)%degeneracy_id = output(i-1)%degeneracy_id
     else
-      ! Find the frequency of this mode, the previous mode, and the first mode
-      !    which is degenerate with the previous mode.
-      frequency = output(i)%frequency
-      prev_frequency = output(i-1)%frequency
-      prev_degenerate_frequency = output(degeneracy_ids(i-1))%frequency
-      if ( abs(frequency-prev_frequency)<degenerate_energy .and. &
-         & abs(frequency-prev_degenerate_frequency)<degenerate_energy) then
-        ! This mode is degenerage with the previous set.
-        degeneracy_ids(i) = degeneracy_ids(i-1)
-      elseif (abs(frequency-prev_frequency)<degenerate_energy) then
-        ! This mode is degenerate with the previous mode, but not with the
-        !    modes which that mode is degenerate with. This is an error.
-        call print_line(ERROR//': Modes inconsistently degenerate. Try &
-           &adjusting degenerate_energy.')
-        call err()
-      else
-        ! This mode is not degenerate with the previous set.
-        degeneracy_ids(i) = i
-      endif
+      output(i)%degeneracy_id = output(i-1)%degeneracy_id + 1
     endif
   enddo
   
   call print_line('')
   call print_line('q-point        : '//qpoint%qpoint)
-  call print_line('Degeneracy ids : '//degeneracy_ids)
+  call print_line('Degeneracy ids : '//output%degeneracy_id)
   
-  ! Lift the degeneracies.
-  i = 1
-  do while(i<=size(output))
-    ! Find the id of the last mode which is degenerate with mode i.
-    j = last(degeneracy_ids==i)
+  ! Loop over degeneracy ids, checking each degenerate subspace, and lifting
+  !    degeneracy using symmetry operators.
+  do i=degeneracy_id,output(size(output))%degeneracy_id
+    ! Find the set of states with degeneracy id i.
+    states = filter(output%degeneracy_id==i)
     
-    if (j<i) then
+    call print_line('States: '//states)
+    
+    ! Check that degenerate states are consistent, i.e. that if two states
+    !    are both degenerate with a third state that they are also degenerate
+    !    with one another.
+    if ( maxval(output(states)%frequency) - minval(output(states)%frequency) &
+     & > degenerate_energy ) then
+      call print_line(ERROR//': Modes inconsistently degenerate. Please try &
+         &adjusting degenerate_energy.')
       call err()
     endif
     
+    ! Set the frequencies of each degenerate state to
+    !    the average of their frequencies.
+    output(states)%frequency = sum(output(states)%frequency) / size(states)
+    
     ! Check that all symmetries map the degenerate subspace onto itself.
-    do k=1,size(symmetries)
-      symmetry = calculate_symmetry_in_normal_coordinates( qpoint,        &
-                                                         & input(i:j),    &
-                                                         & qpoint,        &
-                                                         & input(i:j),    &
-                                                         & symmetries(k), &
+    do j=1,size(symmetries)
+      symmetry = calculate_symmetry_in_normal_coordinates( qpoint,         &
+                                                         & output(states), &
+                                                         & qpoint,         &
+                                                         & output(states), &
+                                                         & symmetries(j),  &
                                                          & logfile)
       check = sqrt(sum_squares( symmetry*hermitian(symmetry) &
-                            & - cmplxmat(make_identity_matrix(j-i+1))))
+                            & - cmplxmat(make_identity_matrix(size(states)))))
       if (check>1e-2_dp) then
         call print_line(ERROR//': Rotation between degenerate modes at &
            &q-point '//qpoint%qpoint//' not unitary. Please adjust &
@@ -546,16 +502,27 @@ function lift_degeneracies(input,structure,qpoint,degenerate_energy,logfile) &
       endif
     enddo
     
-    ! Lift degeneracies.
-    if (j>i) then
-      output(i:j) = lift_degeneracies_2( output(i:j),          &
-                                       & symmetries,           &
-                                       & qpoint,               &
-                                       & logfile)
+    ! Lift each degeneracy using symmetry operators.
+    if (size(states)>1) then
+      output(states) = lift_degeneracies( output(states), &
+                                        & symmetries,     &
+                                        & qpoint,         &
+                                        & logfile)
     endif
-    
-    i = j+1
   enddo
+contains
+  ! Lambda for identifying if a symmetry leaves the q-point invariant.
+  ! Captures qpoint.
+  function leaves_q_invariant(input) result(output)
+    implicit none
+    
+    class(*), intent(in) :: input
+    logical              :: output
+    
+    select type(input); type is(SymmetryOperator)
+      output = input%recip_rotation * qpoint%qpoint == qpoint%qpoint
+    end select
+  end function
 end function
 
 ! --------------------------------------------------
@@ -564,7 +531,7 @@ end function
 ! --------------------------------------------------
 ! Input must be a list of degenerate modes.
 ! Symmetries must all take the q-point to itself.
-recursive function lift_degeneracies_2(input,symmetries,qpoint,logfile) &
+recursive function lift_degeneracies(input,symmetries,qpoint,logfile) &
    & result(output)
   use symmetry_module
   use qpoints_module
@@ -586,17 +553,17 @@ recursive function lift_degeneracies_2(input,symmetries,qpoint,logfile) &
   integer :: sym_id
   integer :: order
   
+  type(SymmetryOperator) :: first_symmetry
   type(ComplexMatrix) :: symmetry
   
   type(UnitaryEigenstuff), allocatable :: estuff(:)
   
-  logical, allocatable :: commutes(:)
   type(SymmetryOperator), allocatable :: commuting_symmetries(:)
   
   ! Error checking.
   real(dp) :: check
   
-  integer :: i,j,k,ialloc
+  integer :: i,j,ialloc
   
   ! All q-point data and eigenvalues will be unchanged.
   ! Copy over all data, and only change that which changes.
@@ -617,16 +584,18 @@ recursive function lift_degeneracies_2(input,symmetries,qpoint,logfile) &
     stop
   endif
 
+  first_symmetry = symmetries(1)
+  
   ! Construct the first symmetry in normal mode co-ordinates.
-  symmetry = calculate_symmetry_in_normal_coordinates( qpoint,        &
-                                                     & input,         &
-                                                     & qpoint,        &
-                                                     & input,         &
-                                                     & symmetries(1), &
+  symmetry = calculate_symmetry_in_normal_coordinates( qpoint,         &
+                                                     & input,          &
+                                                     & qpoint,         &
+                                                     & input,          &
+                                                     & first_symmetry, &
                                                      & logfile)
   
   ! Calculate the order of the first symmetry, n s.t. S^n=I.
-  order = calculate_symmetry_order(symmetries(1), qpoint)
+  order = calculate_symmetry_order(first_symmetry, qpoint)
   
   ! Diagonalise the first symmetry, and construct diagonalised displacements.
   ! Only transform displacements if this symmetry lifts degeneracy.
@@ -651,37 +620,44 @@ recursive function lift_degeneracies_2(input,symmetries,qpoint,logfile) &
   endif
   
   ! Lift remaining degeneracies using remaining symmetries.
-  allocate(commutes(size(symmetries)), stat=ialloc); call err(ialloc)
   i = 1
   do while(i<=no_modes)
-    j = 0
-    do j=no_modes,i,-1
-      if (estuff(j)%eval==estuff(i)%eval) then
-        exit
-      endif
-    enddo
+    ! The range i:j is the set of modes degenerate with mode i under the
+    !    first symmetry.
+    j = last(estuff%eval==estuff(i)%eval)
     
     if (j<i) then
       call err()
     endif
     
     if (j>i) then
-      commutes = .true.
-      commutes(1) = .false.
-      do k=2,size(symmetries)
-        if (.not. matrices_commute( symmetries(k)%rotation, &
-                                  & symmetries(1)%rotation)) then
-          commutes(k) = .false.
-        endif
-      enddo
-      commuting_symmetries = pack(symmetries, commutes)
-      output(i:j) = lift_degeneracies_2( output(i:j),                &
-                                       & commuting_symmetries, &
-                                       & qpoint,                     &
-                                       & logfile)
+      ! Select only the symmetry operators which commute with the
+      !    first symmetry.
+      commuting_symmetries = symmetries(filter(symmetries,commutes_with_first))
+      
+      ! Lift further degeneracies using symmetries which commute with the
+      !    first symmetry, not including the first symmetry.
+      output(i:j) = lift_degeneracies( output(i:j),              &
+                                     & commuting_symmetries(2:), &
+                                     & qpoint,                   &
+                                     & logfile)
     endif
     i = j+1
   enddo
+contains
+  ! Lambda for determining whether or not a symmetry commutes with the first
+  !    symmetry.
+  ! Captures first_symmetry.
+  function commutes_with_first(input) result(output)
+    implicit none
+    
+    class(*), intent(in) :: input
+    logical              :: output
+    
+    select type(input); type is(SymmetryOperator)
+      output = operators_commute(input,first_symmetry)
+    end select
+  end function
 end function
 
 ! --------------------------------------------------

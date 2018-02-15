@@ -379,31 +379,23 @@ function diagonalise_unitary_complexes(input,order) result(output)
   
   type(ComplexEigenstuff), allocatable :: estuff(:)
   
-  type(PhaseData), allocatable :: phases(:)
-  integer,         allocatable :: sort_ids(:)
-  
   integer :: i,ialloc
   
   ! Diagonalise matrix.
   estuff = diagonalise_complex(input)
   
   ! Convert eigenvalues to exact representation.
-  allocate( phases(size(estuff)), &
-          & stat=ialloc); call err(ialloc)
-  do i=1,size(estuff)
-    phases(i) = calculate_phase(estuff(i)%eval, order)
-  enddo
-  
-  sort_ids = sort(phases,compare_phases)
-  
   allocate(output(size(estuff)), stat=ialloc); call err(ialloc)
   do i=1,size(estuff)
-    output(i)%eval = phases(sort_ids(i))
-    output(i)%evec = estuff(sort_ids(i))%right_evec
+    output(i)%eval = calculate_phase(estuff(i)%eval, order)
+    output(i)%evec = estuff(i)%right_evec
   enddo
-
-! A lambda for ordering phases.
+  
+  ! Sort output in ascending order of phase.
+  output = output(sort(output,compare_phases))
 contains
+  ! A lambda for ordering phases.
+  ! Captures nothing.
   function compare_phases(this,that) result(output)
     implicit none
     
@@ -411,18 +403,10 @@ contains
     class(*), intent(in) :: that
     logical              :: output
     
-    select type(this)
-      type is(PhaseData)
-        
-        select type(that)
-          type is(PhaseData)
-            output = this%fraction<that%fraction
-          class default
-            call err()
-        end select
-        
-      class default
-        call err()
+    select type(this); type is(UnitaryEigenstuff)
+      select type(that); type is(UnitaryEigenstuff)
+        output = this%eval%fraction < that%eval%fraction
+      end select
     end select
   end function
 end function

@@ -15,6 +15,7 @@ module symmetry_module
   
   public :: SymmetryOperator
   public :: calculate_symmetries
+  public :: operators_commute
   
   ! ----------------------------------------------------------------------
   ! A symmetry operation.
@@ -242,5 +243,41 @@ function calculate_symmetries(basic_symmetries,lattice,recip_lattice,atoms) &
     call print_line('Error: operator inverse not found.')
     call err()
   enddo do_i
+end function
+
+! ----------------------------------------------------------------------
+! Returns whether or not two symmetry operators commute.
+! ----------------------------------------------------------------------
+function operators_commute(this,that) result(output)
+  implicit none
+  
+  type(SymmetryOperator), intent(in) :: this
+  type(SymmetryOperator), intent(in) :: that
+  logical                            :: output
+  
+  integer :: i
+  
+  ! Check that the symmetries' rotations commute.
+  if (.not. matrices_commute(this%rotation,that%rotation)) then
+    output = .false.
+    return
+  endif
+  
+  ! Check that the atom to atom transformations commute.
+  if (this%atom_group*that%atom_group /= that%atom_group*this%atom_group) then
+    output = .false.
+    return
+  endif
+  
+  ! Check that the R-vector changes commute.
+  do i=1,size(this%atom_group)
+    if ( that%rotation*this%rvector(i)+that%rvector(this%atom_group*i) &
+    & /= this%rotation*that%rvector(i)+this%rvector(that%atom_group*i)) then
+      output = .false.
+      return
+    endif
+  enddo
+  
+  output = .true.
 end function
 end module

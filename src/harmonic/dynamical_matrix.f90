@@ -56,7 +56,7 @@ contains
 !    supercell.
 ! --------------------------------------------------
 function new_DynamicalMatrix_calculated(qpoint,supercells,force_constants, &
-   & structure,degenerate_energy,logfile) result(this)
+   & structure,degenerate_energy,degeneracy_id,logfile) result(this)
   use utils_module, only : sum_squares
   use structure_module
   use min_images_module
@@ -73,6 +73,7 @@ function new_DynamicalMatrix_calculated(qpoint,supercells,force_constants, &
   type(ForceConstants), intent(in)    :: force_constants(:)
   type(StructureData),  intent(in)    :: structure
   real(dp),             intent(in)    :: degenerate_energy
+  integer,              intent(in)    :: degeneracy_id
   type(OFile),          intent(inout) :: logfile
   type(DynamicalMatrix)               :: this
   
@@ -204,6 +205,7 @@ function new_DynamicalMatrix_calculated(qpoint,supercells,force_constants, &
                                       & structure,         &
                                       & qpoint,            &
                                       & degenerate_energy, &
+                                      & degeneracy_id,     &
                                       & logfile)
 end function
 

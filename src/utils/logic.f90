@@ -12,6 +12,9 @@ module logic_module
   
   public :: first
   public :: last
+  public :: evaluate
+  public :: filter
+  public :: locate
   public :: sort
   
   interface first
@@ -22,6 +25,15 @@ module logic_module
   interface last
     module procedure last_logicals
     module procedure last_lambda
+  end interface
+  
+  interface evaluate
+    module procedure evaluate_lambda
+  end interface
+  
+  interface filter
+    module procedure filter_logicals
+    module procedure filter_lambda
   end interface
   
   interface locate
@@ -195,6 +207,66 @@ function last_lambda(input,lambda,mask) result(output)
 end function
 
 ! ----------------------------------------------------------------------
+! Applies a logical lambda to a list.
+! e.g. evaluate([2,3,7,1], less_than_3) returns [T,F,F,T].
+!
+! A list of elements for which the lambda returns true can be returned using
+!    the pack intrinsic.
+! e.g. if list=[2,3,7,1], pack(list,evaluate(list,less_than_3)) returns [2,1].
+! ----------------------------------------------------------------------
+function evaluate_lambda(input,lambda) result(output)
+  implicit none
+  
+  class(*), intent(in)      :: input(:)
+  procedure(logical_lambda) :: lambda
+  logical, allocatable      :: output(:)
+  
+  integer :: i,ialloc
+  
+  allocate(output(size(input)), stat=ialloc); call err(ialloc)
+  do i=1,size(input)
+    output(i) = lambda(input(i))
+  enddo
+end function
+
+! ----------------------------------------------------------------------
+! The _logicals variant returns the indices of all elements where the
+!    value is .true..
+! The _lambda variant is equivalent, but uses a lambda to determine whether
+!    each input value is true or false.
+! e.g. filter([1,8,2,7],is_even) returns [2,3].
+!
+! To get the elements rather than their ids, the list should be indexed
+!    by the output of filter.
+! e.g. if list=[1,8,2,7] then list(filter(list,is_even)) returns [8,2].
+!
+! list(filter(list,lambda)) is equivalent to pack(list,evaluate(list,lamba)).
+! ----------------------------------------------------------------------
+function filter_logicals(input) result(output)
+  implicit none
+  
+  logical, intent(in)  :: input(:)
+  integer, allocatable :: output(:)
+  
+  integer :: i
+  
+  ! Make an array [1,2,3,...,size(input)].
+  output = [(i,i=1,size(input))]
+  ! Return only those elements where input=true.
+  output = pack(output, mask=input)
+end function
+
+function filter_lambda(input,lambda) result(output)
+  implicit none
+  
+  class(*), intent(in)      :: input(:)
+  procedure(logical_lambda) :: lambda
+  integer, allocatable      :: output(:)
+  
+  output = filter(evaluate(input,lambda))
+end function
+
+! ----------------------------------------------------------------------
 ! Finds the value in a list which compares well with all other values.
 ! e.g. if the comparison is less than (<), finds the minimum value.
 !    similarly, if lambda= greater than (>), finds the maximum value.
@@ -244,11 +316,21 @@ function locate_lambda(input,lambda,mask) result(output)
 end function
 
 ! ----------------------------------------------------------------------
-! The _integer variant sorts a list of integers, and returns the ids of
-!    the sorted elements. e.g. sort([1,3,2,1]) returns [1,4,3,2].
-! The _lambda variant takes a list of items, and a lambda to convert that
-!    list to a list of integers, and then performs the sort.
-! e.g. sort(['a','c','b'],letter_to_int) returns [1,3,2].
+! The _integer variant sorts a list of integers in ascending order,
+!    and returns the ids of the sorted elements. 
+! e.g. sort([1,3,2,1]) returns [1,4,3,2].
+!
+! The _lambda variant takes a list of items, and a lambda to compare
+!    elements of the list.
+! The order of the output depends on the lambda. e.g. if the lambda is < then
+!    the list will be sorted into ascending order.
+! e.g. sort(['a','c','b'],first_alphabetically) returns [1,3,2].
+!
+! In order to get the sorted list, the output of sort should be used to
+!    index the original list.
+! e.g. if list = [1,3,2,1] then list(sort(list)) will return [1,1,2,3].
+! e.g. if list = ['c','a','c','b'] then list(sort(list,first_alphabetically))
+!    will return ['a','b','c','c'].
 ! ----------------------------------------------------------------------
 function sort_integers(input) result(output)
   implicit none
@@ -369,11 +451,40 @@ subroutine logic_example()
   call print_line('last(integers==1) should   = 3')
   call print_line('last(integers==1) actually = '//last(integers,equals))
   
+  ! evaluate(integers,equals)=[F,T,T,F,F] when val=1.
+  call print_line('')
+  call print_line('evaluate(integers==1) should   = F T T F F')
+  call print_line('evaluate(integers==1) actually = '// &
+                 & evaluate(integers,equals))
+  
+  ! filter(integers,equals)=[2,3] when val=1.
+  call print_line('')
+  call print_line('filter(integers==1) should   =  2  3')
+  call print_line('filter(integers==1) actually = '// &
+                 & filter(integers,equals))
+  
+  ! integers(filter(integers,equals)) = [1,1] when val=1.
+  call print_line('')
+  call print_line('integers(filter(integers==1)) should   =  1  1')
+  call print_line('integers(filter(integers==1)) actually = '// &
+                 & integers(filter(integers,equals)))
+  
+  ! pack(integers,evaluate(integers,equals)) = [1,1] when val=1.
+  call print_line('')
+  call print_line('pack(integers,evaluate(integers==1)) should   =  1  1')
+  call print_line('pack(integers,evaluate(integers==1)) actually = '// &
+                 & pack(integers,evaluate(integers,equals)))
+  
   ! sort(integers) = [1,4,5,2,3] because elements 1, 4 and 5 are zero, so are
   !    sorted to the beginning, and elements 2 and 3 are 1.
   call print_line('')
-  call print_line('sort(integers) should   =  1  4  5  2  3')
-  call print_line('sort(integers) actually = '//sort(integers))
+  call print_line('sort(integers) should             =  1  4  5  2  3')
+  call print_line('sort(integers) actually           = '//sort(integers))
+  
+  call print_line('')
+  call print_line('integers(sort(integers)) should   =  0  0  0  1  1')
+  call print_line('integers(sort(integers)) actually = '// &
+                 & integers(sort(integers)))
   
   strings = [ str('3'), str('2'), str('5') ]
   
