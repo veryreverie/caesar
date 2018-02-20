@@ -73,11 +73,11 @@ module string_module
   ! See example module below for how to use this module.
   type, abstract :: Stringable
   contains
-    procedure(str_Stringable_2), deferred :: str
+    procedure(str_Stringable), deferred :: str
   end type
   
   abstract interface
-    recursive function str_Stringable_2(this) result(output)
+    recursive function str_Stringable(this) result(output)
       import String
       import Stringable
       implicit none
@@ -106,7 +106,9 @@ module string_module
   interface str
     module procedure str_character
     module procedure str_String
-    module procedure str_Stringable
+    module procedure str_Stringable_0d
+    module procedure str_Stringable_1d
+    module procedure str_Stringable_2d
     module procedure str_integer
     module procedure str_real
     module procedure str_logical
@@ -210,7 +212,7 @@ subroutine assign_String_String(output,input)
 end subroutine
 
 ! String = Stringable
-subroutine assign_String_Stringable(output,input)
+recursive subroutine assign_String_Stringable(output,input)
   implicit none
   
   type(String),      intent(out) :: output
@@ -319,13 +321,53 @@ impure elemental function str_String(this) result(output)
   output = this
 end function
 
-impure elemental function str_Stringable(this) result(output)
+! N.B. can't use impure elemental because this must be recursive.
+! N.B. can't use err() because that relies on this module.
+recursive function str_Stringable_0d(this) result(output)
   implicit none
   
   class(Stringable), intent(in) :: this
   type(String)                  :: output
   
   output = this
+end function
+
+recursive function str_Stringable_1d(this) result(output)
+  use error_module
+  implicit none
+  
+  class(Stringable), intent(in) :: this(:)
+  type(String), allocatable     :: output(:)
+  
+  integer :: i,ialloc
+  
+  allocate(output(size(this)), stat=ialloc)
+  if (ialloc/=0) then
+    write(*,*) ERROR//': Allocation error.'
+    call abort_with_stacktrace()
+  endif
+  do i=1,size(this)
+    output(i) = str(this(i))
+  enddo
+end function
+
+recursive function str_Stringable_2d(this) result(output)
+  use error_module
+  implicit none
+  
+  class(Stringable), intent(in) :: this(:,:)
+  type(String), allocatable     :: output(:,:)
+  
+  integer :: i,ialloc
+  
+  allocate(output(size(this,1),size(this,2)), stat=ialloc)
+  if (ialloc/=0) then
+    write(*,*) ERROR//': Allocation error.'
+    call abort_with_stacktrace()
+  endif
+  do i=1,size(this,2)
+    output(:,i) = str(this(:,i))
+  enddo
 end function
 
 impure elemental function str_logical(this) result(output)

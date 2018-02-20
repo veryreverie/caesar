@@ -60,7 +60,7 @@ function process_arguments(args,keywords_in) result(arguments)
           cycle do_i
         endif
       enddo
-      call print_line('Code Error: default keyword "'//default_keyword// &
+      call print_line(CODE_ERROR//': default keyword "'//default_keyword// &
          & '" is not a keyword')
       call err()
     endif
@@ -84,8 +84,8 @@ function process_arguments(args,keywords_in) result(arguments)
   do i=1,len(flags)
     do j=i+1,len(flags)
       if (slice(flags,i,i)==slice(flags,j,j)) then
-        call print_line('Error: the flag '//slice(flags,i,i)//' refers to two &
-           &separate keywords.')
+        call print_line(CODE_ERROR//': the flag '//slice(flags,i,i)//' refers &
+           &to two separate keywords.')
         call err()
       endif
     enddo
@@ -108,7 +108,7 @@ function process_arguments(args,keywords_in) result(arguments)
     ! ------------------------------
     if (this%flag==' ' .and. this%argument/=' ' .and. keyword=='') then
       if (mode_found) then
-        call print_line('Error: Caesar only takes one non-keyword &
+        call print_line(ERROR//': Caesar only takes one non-keyword &
            &argument. all other arguments should be preceded by "-" for flags &
            &or "--" for keywords.')
         stop
@@ -128,7 +128,7 @@ function process_arguments(args,keywords_in) result(arguments)
           call arguments%set(keyword,'')
           return
         else
-          call print_line('Error: keyword '//keyword//' has been given &
+          call print_line(ERROR//': keyword '//keyword//' has been given &
              &without a value on the command line.')
           stop
         endif

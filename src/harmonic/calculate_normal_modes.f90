@@ -28,7 +28,7 @@ function calculate_normal_modes_keywords() result(keywords)
      & KeywordData( 'degenerate_energy',                                     &
      &              'degenerate_energy is the minimum energy difference &
      &between states before they are considered degenerate. This should be &
-     &given in Bohr.',                                                       &
+     &given in Hartrees.',                                                  &
      &              default_value='1e-5') ]
 end function
 
@@ -104,11 +104,12 @@ subroutine calculate_normal_modes(arguments)
   type(String)         :: mode_string
   
   ! Normal modes and their symmetries.
-  type(FractionVector) :: rotated_qpoint
+  type(QpointData) :: rotated_qpoint
   
   type(DynamicalMatrix), allocatable :: dynamical_matrices(:)
   type(DynamicalMatrix)              :: rotated_matrix
   
+  integer :: mode_id
   integer :: degeneracy_id
   
   ! Logfiles.
@@ -238,9 +239,8 @@ subroutine calculate_normal_modes(arguments)
         endif
         
         do k=1,size(structure%symmetries)
-          rotated_qpoint = structure%symmetries(k)%recip_rotation &
-                       & * qpoints(j)%qpoint
-          if (rotated_qpoint == qpoints(i)%qpoint) then
+          rotated_qpoint = structure%symmetries(k) * qpoints(j)
+          if (rotated_qpoint == qpoints(i)) then
             call qpoint_logfile%print_line('Constructing dynamical matrix and &
                &normal modes at q-point '//i//' using symmetry from those at &
                &q-point '//j)
@@ -295,6 +295,26 @@ subroutine calculate_normal_modes(arguments)
   enddo iter
   
   ! --------------------------------------------------
+  ! Assign ids to all modes, and pair up modes.
+  ! --------------------------------------------------
+  ! Assign ids
+  mode_id = 0
+  do i=1,size(dynamical_matrices)
+    do j=1,size(dynamical_matrices(i)%complex_modes)
+      mode_id = mode_id+1
+      dynamical_matrices(i)%complex_modes(j)%id = mode_id
+    enddo
+  enddo
+  
+  ! Pair up modes.
+  do i=1,size(dynamical_matrices)
+    j = qpoints(i)%paired_qpoint
+    
+    dynamical_matrices(i)%complex_modes%paired_id = &
+       & dynamical_matrices(j)%complex_modes%id
+  enddo
+  
+  ! --------------------------------------------------
   ! Check all dynamical matrices.
   ! --------------------------------------------------
   ! Run basic checks on each matrix in turn.
@@ -307,9 +327,8 @@ subroutine calculate_normal_modes(arguments)
   do i=1,size(structure%symmetries)
     do j=1,size(qpoints)
       do k=1,size(qpoints)
-        rotated_qpoint = structure%symmetries(i)%recip_rotation &
-                     & * qpoints(j)%qpoint
-        if (rotated_qpoint == qpoints(k)%qpoint) then
+        rotated_qpoint = structure%symmetries(i) * qpoints(j)
+        if (rotated_qpoint == qpoints(k)) then
           if (qpoints(j)%paired_qpoint/=k) then
             cycle
           endif

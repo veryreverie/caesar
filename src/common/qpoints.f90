@@ -23,6 +23,17 @@ module qpoints_module
     ! The smallest value of |S| s.t. S.q is a vector of integers,
     !    i.e. such that this q-point is a G-vector of the supercell S.
     procedure, public :: min_sc_size
+    
+    ! Translates the q-point by a G-vector if necessary, to ensure that all
+    !    elements are in [-1/2,1/2), i.e. that the q-point is in the primitive
+    !    reciprocal cell.
+    procedure, public :: translate_to_primitive
+    
+    ! Comparison of q-points.
+    generic,   public  :: operator(==) => equality_QpointData
+    procedure, private ::                 equality_QpointData
+    generic,   public  :: operator(/=) => non_equality_QpointData
+    procedure, private ::                 non_equality_QpointData
   end type
 contains
 
@@ -47,73 +58,6 @@ function min_sc_size(this) result(output)
 end function
 
 ! ----------------------------------------------------------------------
-! Generates the set of q-points of the input structure which correspond
-!    to G-vectors of the large supercell.
-! ----------------------------------------------------------------------
-function generate_qpoints(large_supercell) result(output)
-  use linear_algebra_module
-  use fraction_algebra_module
-  use structure_module
-  use group_module
-  implicit none
-  
-  type(StructureData), intent(in) :: large_supercell
-  type(QpointData), allocatable   :: output(:)
-  
-  ! Working variables
-  integer, allocatable :: paired_qpoints(:)
-  
-  ! Temporary variables
-  integer :: i,j,ialloc
-  
-  ! --------------------------------------------------
-  ! Construct q-points from G-vectors of large supercell.
-  ! --------------------------------------------------
-  allocate(output(large_supercell%sc_size), stat=ialloc); call err(ialloc)
-  do i=1,large_supercell%sc_size
-    output(i)%qpoint = transpose(large_supercell%recip_supercell) &
-                   & * large_supercell%gvectors(i)
-  enddo
-  
-  ! --------------------------------------------------
-  ! Find paired q-points.
-  ! --------------------------------------------------
-  ! qpoint + paired_qpoint = G, for a primitive-cell G-vector.
-  allocate( paired_qpoints(large_supercell%sc_size), &
-          & stat=ialloc); call err(ialloc)
-  paired_qpoints = 0
-  do i=1,size(output)
-    do j=1,size(output)
-      if (is_int(output(i)%qpoint+output(j)%qpoint)) then
-        if (paired_qpoints(i)==0 .and. paired_qpoints(j)==0) then
-          paired_qpoints(i) = j
-          paired_qpoints(j) = i
-        else
-          if (paired_qpoints(i)/=j .or. paired_qpoints(j)/=i) then
-            call print_line(CODE_ERROR//': error pairing q-points.')
-          endif
-        endif
-      endif
-    enddo
-  enddo
-  
-  if (any(paired_qpoints==0)) then
-    call print_line(CODE_ERROR//': q-points were not succesfully paired up.')
-    call err()
-  endif
-  
-  do i=1,size(output)
-    if (paired_qpoints(i)==i) then
-      output(i)%is_paired_qpoint = .true.
-    else
-      output(i)%is_paired_qpoint = .false.
-    endif
-    
-    output(i)%paired_qpoint = paired_qpoints(i)
-  enddo
-end function
-
-! ----------------------------------------------------------------------
 ! I/O.
 ! ----------------------------------------------------------------------
 subroutine write_qpoints_file(this,filename)
@@ -133,7 +77,8 @@ subroutine write_qpoints_file(this,filename)
     call qpoints_file%print_line( this(i)%qpoint)
     call qpoints_file%print_line( 'Is 2q equal to a primitive G-vector?:')
     call qpoints_file%print_line( this(i)%is_paired_qpoint)
-    call qpoints_file%print_line( "The ID of q' s.t. q+q' is a primitive G-vector")
+    call qpoints_file%print_line( "The ID of q' s.t. q+q' is a primitive &
+       &G-vector")
     call qpoints_file%print_line( this(i)%paired_qpoint)
     call qpoints_file%print_line( '')
   enddo
@@ -162,5 +107,56 @@ function read_qpoints_file(filename) result(this)
     this(i)%is_paired_qpoint = lgcl( qpoints_file%line(      qpoint_line+4) )
     this(i)%paired_qpoint    = int(  qpoints_file%line(      qpoint_line+6) )
   enddo
+end function
+
+! ----------------------------------------------------------------------
+! Translates the q-point by a G-vector if necessary, to ensure that all
+!    elements are in [-1/2,1/2), i.e. that the q-point is in the primitive
+!    reciprocal cell.
+! ----------------------------------------------------------------------
+subroutine translate_to_primitive(this)
+  implicit none
+  
+  class(QpointData), intent(inout) :: this
+  
+  type(IntFraction) :: qpoint(3)
+  integer           :: i
+  
+  ! Convert the q-point to an array of fractions.
+  qpoint = frac(this%qpoint)
+  ! Translate all elements to [0,1).
+  qpoint = modulo(qpoint,1)
+  ! Translate all elements in [1/2,1) to [-1/2,0).
+  do i=1,3
+    if (qpoint(i)>IntFraction(1,2)) then
+      qpoint(i) = qpoint(i) - 1
+    endif
+  enddo
+  ! Convert back to a fraction vector.
+  this%qpoint = vec(qpoint)
+end subroutine
+
+! ----------------------------------------------------------------------
+! Comparison of q-points.
+! ----------------------------------------------------------------------
+! Accounts for translations by G-vectors.
+function equality_QpointData(this,that) result(output)
+  implicit none
+  
+  class(QpointData), intent(in) :: this
+  class(QpointData), intent(in) :: that
+  logical                       :: output
+  
+  output = is_int(this%qpoint-that%qpoint)
+end function
+
+function non_equality_QpointData(this,that) result(output)
+  implicit none
+  
+  class(QpointData), intent(in) :: this
+  class(QpointData), intent(in) :: that
+  logical                       :: output
+  
+  output = .not. this==that
 end function
 end module

@@ -13,3 +13,6 @@ target_link_libraries(testing common)
 
 add_subdirectory(${CMAKE_SOURCE_DIR}/harmonic harmonic/)
 target_link_libraries(testing harmonic)
+
+add_subdirectory(${CMAKE_SOURCE_DIR}/anharmonic anharmonic/)
+target_link_libraries(testing anharmonic)

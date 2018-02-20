@@ -26,12 +26,14 @@ def main():
   colours = {
     'turquoise':[102/255,194/255,165/255],
     'orange'   :[252/255,141/255, 98/255],
-    'blue'     :[141/255,160/255,203/255],
-    'purple'   :[231/255,138/255,195/255],
+    'purple'   :[141/255,160/255,203/255],
+    'pink'     :[231/255,138/255,195/255],
     'green'    :[166/255,216/255, 84/255],
     'yellow'   :[255/255,217/255, 47/255],
     'beige'    :[229/255,196/255,148/255],
     'grey'     :[179/255,179/255,179/255]}
+  
+  hartree_to_inverse_cm = 2.194746313702e5
   
   filename = '../structure.dat'
   contents = [line.rstrip('\n').split() for line in open(filename)]
@@ -53,12 +55,14 @@ def main():
       contents = [line.rstrip('\n').split() for line in open(filename)]
       reading_displacements = False
       for line in contents:
-        if len(line)>0 and line[0]=='Frequency:':
-          frequency = float(line[1])
+        if len(line)>=2 and line[1]=='frequency':
+          frequency = float(line[3])
           modes.append({ 'mode':mode,
                          'frequency':frequency,
                          'displacements':[]})
-        elif len(line)>0 and line[0]=='Primitive':
+        elif len(line)>=1 and line[0]=='Degeneracy':
+          modes[-1]['degeneracy'] = int(line[3])
+        elif len(line)>=1 and line[0]=='Displacements':
           reading_displacements = not reading_displacements
         elif reading_displacements:
           modes[-1]['displacements'].append([])
@@ -76,6 +80,12 @@ def main():
   min_frequency = modes[0]['frequency']
   max_frequency = modes[-1]['frequency']
   
+  ymin_hartree = min_frequency-0.1*(max_frequency-min_frequency)
+  ymax_hartree = max_frequency+0.1*(max_frequency-min_frequency)
+  
+  ymin_cm = ymin_hartree*hartree_to_inverse_cm
+  ymax_cm = ymax_hartree*hartree_to_inverse_cm
+  
   max_displacement = 0
   for mode in modes:
     for displacement in mode['displacements']:
@@ -92,14 +102,28 @@ def main():
     # Plot frequencies.
     for mode2 in modes:
       axes['f'][i].hlines([mode2['frequency']],0,1,color=colours['turquoise'])
-    axes['f'][i].hlines([mode['frequency']],0,1,color=colours['orange'])
-    axes['f'][i].set_xlim(0,1)
-    axes['f'][i].set_ylim(min_frequency-0.001,max_frequency+0.001)
     
-    axes['f'][i].set_xticks([])
-    axes['f'][i].minorticks_off()
-    axes['f'][i].tick_params( direction='out', 
-                            labelleft='off')
+    lax = axes['f'][i]
+    rax = lax.twinx()
+    
+    lax.hlines([mode['frequency']],0,1,color=colours['orange'])
+    lax.set_xlim(0,1)
+    lax.set_xticks([])
+    
+    lax.minorticks_off()
+    lax.tick_params(direction='out', labelleft='off')
+    rax.tick_params(direction='out', labelright='off')
+    
+    lax.set_ylim(ymin_hartree,ymax_hartree)
+    rax.set_ylim(ymin_cm,ymax_cm)
+    
+    if mode is modes[0]:
+      lax.set_ylabel('Energy, Hartrees')
+      lax.tick_params(labelleft='on')
+    
+    if mode is modes[-1]:
+      rax.set_ylabel(r'Frequency, cm$^{-1}$')
+      rax.tick_params(labelright='on')
     
     for dirn in ['xy','yz','zx']:
       axes[dirn][i].set_xlim(-lim,lim)
@@ -160,8 +184,6 @@ def main():
                                           color=colours['orange']))
         
         
-  axes['f'][0].set_ylabel('Energy, Hartrees')
-  axes['f'][0].tick_params(labelleft='on')
   axes['xy'][0].set_ylabel('x-y elevation')
   axes['yz'][0].set_ylabel('y-z elevation')
   axes['zx'][0].set_ylabel('z-x elevation')
@@ -174,15 +196,25 @@ def main():
     axes[i][0].set_yticklabels(species)
     axes[i][0].tick_params(length=0)
   
-  hartree_to_inverse_cm = 2.194746313702e5
-  rax = axes['f'][-1].twinx()
-  axes['f'][-1].tick_params( direction='out', 
-                             labelleft='off')
-  rax.tick_params( direction='out', 
-                   labelleft='off')
-  rax.set_ylim( (min_frequency-0.001)*hartree_to_inverse_cm, 
-                (max_frequency+0.001)*hartree_to_inverse_cm)
-  rax.set_ylabel(r'Frequency, cm$^{-1}$')
+  # Add degeneracy labeling.
+  for i,mode in enumerate(modes):
+    if i>0 and mode['degeneracy']==modes[i-1]['degeneracy']:
+      continue
+    degenerate_modes = [j for j,x in enumerate(modes) \
+                        if x['degeneracy']==mode['degeneracy']]
+    no_modes = len(degenerate_modes)
+    width = no_modes+(no_modes-1)*0.2
+    if no_modes==1:
+      continue
+    axes['f'][i].annotate('', xy=(0, 1.1), xycoords='axes fraction', xytext=(width, 1.1), 
+            arrowprops=dict(arrowstyle="|-|", color=colours['purple']))
+    axes['f'][i].annotate(r'Degenerate',
+                          xy=(0.5*width, 1.1),
+                          xytext=(0.5*width, 1.2),
+                          xycoords='axes fraction', 
+                          fontsize=12,
+                          ha='center',
+                          va='bottom')
   
   plt.show()
 

@@ -217,8 +217,8 @@ function index_Dictionary_character(this,keyword) result(output)
     endif
   enddo
   
-  call print_line('Error: keyword '//keyword//' not found.')
-  call err()
+  call print_line(ERROR//': unexpected keyword: '//keyword//'.')
+  stop
 end function
 
 function index_Dictionary_String(this,keyword) result(output)
@@ -253,8 +253,8 @@ function index_by_flag_Dictionary_character(this,flag) result(output)
     endif
   enddo
   
-  call print_line('Error: flag '//flag//' not found.')
-  call err()
+  call print_line(ERROR//': unexpected flag: '//flag//'.')
+  stop
 end function
 
 function index_by_flag_Dictionary_String(this,flag) result(output)

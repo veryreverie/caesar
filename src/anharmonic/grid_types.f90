@@ -5,6 +5,7 @@ module grid_types_module
   use constants_module, only : dp
   use string_module
   use io_module
+  implicit none
   
   private
   
@@ -27,6 +28,7 @@ function calculate_displacement(grid_type,sampling_point_indices, &
    & sample_spacing,qpoint) result(output)
   use normal_mode_module
   use qpoints_module
+  use mode_vector_module
   type(String),     intent(in) :: grid_type
   integer,          intent(in) :: sampling_point_indices(:)
   real(dp),         intent(in) :: sample_spacing(:)
@@ -56,6 +58,7 @@ function calculate_displacement_cubic(sampling_point_indices, &
    & sample_spacing,qpoint) result(output)
   use normal_mode_module
   use qpoints_module
+  use mode_vector_module
   implicit none
   
   integer,          intent(in) :: sampling_point_indices(:)
@@ -92,6 +95,7 @@ function calculate_displacement_octahedral(sampling_point_indices, &
    & sample_spacing,qpoint) result(output)
   use normal_mode_module
   use qpoints_module
+  use mode_vector_module
   implicit none
   
   integer,          intent(in) :: sampling_point_indices(:)
@@ -109,6 +113,7 @@ function calculate_displacement_spherical(sampling_point_indices, &
    & sample_spacing,qpoint) result(output)
   use normal_mode_module
   use qpoints_module
+  use mode_vector_module
   implicit none
   
   integer,          intent(in) :: sampling_point_indices(:)

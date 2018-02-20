@@ -1,84 +1,106 @@
 ! ======================================================================
-! Monomials in terms of complex normal mode co-ordinates.
+! A coefficient times a product of Univariates.
 ! ======================================================================
 module monomial_module
   use constants_module, only : dp
   use string_module
   use io_module
+  
+  use univariate_module
   implicit none
   
   private
   
-  ! A monomial, e.g.
-  !    C * (u1)**a * (u2)**b * (u4)**d => coef=C, powers=[a,b,0,d]
-  type, public, extends(Stringable) :: Monomial
-    real(dp), public              :: coefficient
-    integer,  public, allocatable :: powers(:)
+  public :: Monomial
+  public :: size
+  
+  type, extends(Stringable) :: Monomial
+    real(dp)                      :: coefficient
+    type(Univariate), allocatable :: modes(:)
   contains
-    ! Evaluate energy or forces at a given value of u.
-    procedure, public :: evaluate_energy
-    procedure, public :: evaluate_forces
-    
-    ! I/O.
-    procedure, public :: str => str_Monomial
+    procedure :: evaluate   => evaluate_Monomial
+    procedure :: derivative => derivative_Monomial
+    procedure :: str        => str_Monomial
   end type
+  
+  interface size
+    module procedure size_Monomial
+  end interface
 contains
 
-! ----------------------------------------------------------------------
-! Evaluates the energy of a Monomial at a given displacement.
-! ----------------------------------------------------------------------
-function evaluate_energy(this,displacement) result(output)
-  use normal_mode_module
+! The number of variables in the monomial.
+function size_Monomial(this) result(output)
   implicit none
   
-  class(Monomial),  intent(in) :: this
-  type(ModeVector), intent(in) :: displacement
-  real(dp)                     :: output
+  type(Monomial), intent(in) :: this
+  integer                    :: output
+  
+  output = size(this%modes)
+end function
+
+! Evaluates a Monomial at a given displacement.
+function evaluate_Monomial(this,displacement) result(output)
+  use mode_displacement_module
+  use logic_module
+  implicit none
+  
+  class(Monomial),        intent(in) :: this
+  type(ModeDisplacement), intent(in) :: displacement
+  complex(dp)                        :: output
+  
+  integer :: i,j
+  
+  output = this%coefficient
+  
+  do i=1,size(this)
+    ! Find the mode in the displacement which matches that in the monomial.
+    j = first(displacement%displacements(j+1:)%id==this%modes(i)%id)
+    
+    ! If the mode is not present in the displacement, then the displacement
+    !    is zero. As such, the monomial is zero. (0**n=0 if n>0).
+    if (j==0) then
+      output = 0.0_dp
+      return
+    endif
+    
+    ! If the mode is present in both, evaluate the univariate at the
+    !    displacement.
+    output = output * this%modes(i)%evaluate(displacement%displacements(j))
+  enddo
+end function
+
+! Takes the derivative of the Monomial in the direction of the given mode.
+function derivative_Monomial(this,mode_id) result(output)
+  use logic_module
+  implicit none
+  
+  class(Monomial), intent(in) :: this
+  integer,         intent(in) :: mode_id
+  type(Monomial)              :: output
   
   integer :: i
   
-  output = this%coefficient
-  do i=1,size(this%powers)
-    output = output * displacement%vector(i)**this%powers(i)
-  enddo
-end function
-
-! ----------------------------------------------------------------------
-! Evaluates the force of a Monomial at a given displacement.
-! Returns the result in normal mode co-ordinates.
-! ----------------------------------------------------------------------
-function evaluate_forces(this,displacement) result(output)
-  use normal_mode_module
-  implicit none
+  ! Find the univariate corresponding to the mode.
+  i = first(this%modes%id==mode_id)
   
-  class(Monomial),  intent(in) :: this
-  type(ModeVector), intent(in) :: displacement
-  type(ModeVector)             :: output
-  
-  integer        :: no_modes
-  type(Monomial) :: derivative
-  
-  integer :: i,ialloc
-  
-  no_modes = size(displacement%vector)
-  allocate(output%vector(no_modes), stat=ialloc); call err(ialloc)
-  do i=1,no_modes
-    derivative = this
-    if (derivative%powers(i)==0) then
-      derivative%coefficient = 0
-      derivative%coefficient = 0
-    else
-      derivative%coefficient = derivative%coefficient &
-                           & * derivative%powers(i)
-      derivative%powers(i) = derivative%powers(i) - 1
+  if (i==0) then
+    ! If the mode is not present, then the derivative is zero.
+    output%coefficient = 0
+    output%modes = [Univariate::]
+  else
+    ! If the mode is present, then u^n -> n*u^(n-1).
+    output = this
+    output%coefficient = output%coefficient * output%modes(i)%power
+    output%modes(i)%power = output%modes(i)%power - 1
+    
+    ! If n-1=0, remove that univariate.
+    if (output%modes(i)%power==0) then
+      output%modes = [output%modes(:i-1), output%modes(i+1:)]
     endif
-    output%vector(i) = derivative%evaluate_energy(displacement)
-  enddo
+  endif
 end function
 
-! ----------------------------------------------------------------------
 ! I/O.
-! ----------------------------------------------------------------------
 function str_Monomial(this) result(output)
   implicit none
   
@@ -88,10 +110,8 @@ function str_Monomial(this) result(output)
   integer :: i
   
   output = this%coefficient
-  do i=1,size(this%powers)
-    if (this%powers(i)/=0) then
-      output = output//'*u'//i//'^'//this%powers(i)
-    endif
+  do i=1,size(this%modes)
+    output = output//'.'//str(this%modes(i))
   enddo
 end function
 end module

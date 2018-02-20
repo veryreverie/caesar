@@ -32,7 +32,8 @@ module symmetry_module
     type(RealVector) :: cartesian_translation
     
     ! The rotation in fractional reciprocal co-ordinates.
-    type(FractionMatrix) :: recip_rotation
+    ! Used for rotating q-points, and other reciprocal space objects.
+    type(FractionMatrix), private :: recip_rotation_
     
     ! The mapping from atoms to other atoms.
     ! rho_i and rho_j are the equilibrium positions of atom i and j.
@@ -49,6 +50,10 @@ module symmetry_module
     
     ! The id of the operator S_j, s.t. S*S_j = S_j*S = I.
     integer :: inverse
+  contains
+    ! Rotating a q-point.
+    generic,   public  :: operator(*) => rotate_qpoint
+    procedure, private ::                rotate_qpoint
   end type
 contains
 
@@ -105,7 +110,7 @@ function calculate_symmetries(basic_symmetries,lattice,recip_lattice,atoms) &
     output(i)%cartesian_translation = transpose(lattice) &
                                   & * output(i)%translation
     
-    output(i)%recip_rotation = transpose(invert(output(i)%rotation))
+    output(i)%recip_rotation_ = transpose(invert(output(i)%rotation))
   enddo
 
   ! --------------------------------------------------
@@ -269,15 +274,27 @@ function operators_commute(this,that) result(output)
     return
   endif
   
-  ! Check that the R-vector changes commute.
-  do i=1,size(this%atom_group)
-    if ( that%rotation*this%rvector(i)+that%rvector(this%atom_group*i) &
-    & /= this%rotation*that%rvector(i)+this%rvector(that%atom_group*i)) then
-      output = .false.
-      return
-    endif
-  enddo
-  
   output = .true.
+end function
+
+! ----------------------------------------------------------------------
+! Rotates a q-point, and translates it back to the primitive reciprocal cell.
+! ----------------------------------------------------------------------
+function rotate_qpoint(this,qpoint) result(output)
+  use qpoints_module
+  implicit none
+  
+  class(SymmetryOperator), intent(in) :: this
+  type(QpointData),        intent(in) :: qpoint
+  type(QpointData)                    :: output
+  
+  ! Transfer across all metadata.
+  output = qpoint
+  
+  ! Rotate q-point.
+  output%qpoint = this%recip_rotation_ * qpoint%qpoint
+  
+  ! Translate q-point back into primitive reciprocal cell if necessary.
+  call output%translate_to_primitive()
 end function
 end module

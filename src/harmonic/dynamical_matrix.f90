@@ -66,6 +66,7 @@ function new_DynamicalMatrix_calculated(qpoint,supercells,force_constants, &
   use ofile_module
   use symmetry_module
   use phase_module
+  use calculate_modes_module
   implicit none
   
   type(QpointData),     intent(in)    :: qpoint
@@ -79,8 +80,7 @@ function new_DynamicalMatrix_calculated(qpoint,supercells,force_constants, &
   
   type(SymmetryOperator) :: symmetry
   
-  type(FractionVector) :: qp
-  type(FractionVector) :: q
+  type(QpointData) :: q_prime
   
   logical, allocatable :: is_copy(:,:)
   integer, allocatable :: sym_id(:)
@@ -104,8 +104,6 @@ function new_DynamicalMatrix_calculated(qpoint,supercells,force_constants, &
     call err()
   endif
   
-  q = qpoint%qpoint
-  
   ! Identify how many parings of supercell and rotation
   !    allow q to be simulated.
   allocate( is_copy(size(supercells),size(structure%symmetries)), &
@@ -116,9 +114,9 @@ function new_DynamicalMatrix_calculated(qpoint,supercells,force_constants, &
     ! q' is defined such that rotation i maps qp onto q.
     ! N.B. q-points rotate as q->R^-T.q, so q' s.t. q'->q is given by
     !    q' = R^T.q = q.R.
-    qp = q * symmetry%rotation
+    q_prime = structure%symmetries(symmetry%inverse) * qpoint
     do j=1,size(supercells)
-      if (is_int(supercells(j)%supercell*qp)) then
+      if (is_int(supercells(j)%supercell*q_prime%qpoint)) then
         is_copy(j,i) = .true.
       endif
     enddo
@@ -134,17 +132,17 @@ function new_DynamicalMatrix_calculated(qpoint,supercells,force_constants, &
   k = 0
   do i=1,size(structure%symmetries)
     symmetry = structure%symmetries(i)
-    qp = q * symmetry%rotation
+    q_prime = structure%symmetries(symmetry%inverse) * qpoint
     do j=1,size(supercells)
       if (is_copy(j,i)) then
         k = k+1
-        matrix = calculate_dynamical_matrix( dblevec(qp), &
-                                            & supercells(j), &
-                                            & force_constants(j))
-        matrices(:,:,k) = rotate_dynamical_matrix( matrix,  &
-                                               & symmetry, &
-                                               & qp,       &
-                                               & q)
+        matrix = calculate_dynamical_matrix( dblevec(q_prime%qpoint), &
+                                           & supercells(j),           &
+                                           & force_constants(j))
+        matrices(:,:,k) = rotate_dynamical_matrix( matrix,   &
+                                                 & symmetry, &
+                                                 & q_prime,  &
+                                                 & qpoint)
         sym_id(k) = i
         sup_id(k) = j
       endif
@@ -222,6 +220,7 @@ function new_DynamicalMatrix_interpolated(q,supercell,force_constants, &
   use atom_module
   use qpoints_module
   use ofile_module
+  use calculate_modes_module
   implicit none
   
   type(RealVector),     intent(in) :: q
@@ -353,13 +352,11 @@ function conjg_DynamicalMatrix(input) result(output)
   ! The displacements of the normal modes at G-q are the complex conjugates
   !    of those at q.
   do i=1,no_modes
-    allocate( output%complex_modes(i)%primitive_displacements(no_atoms,2), &
+    allocate( output%complex_modes(i)%primitive_displacements(no_atoms), &
             & stat=ialloc); call err(ialloc)
     do j=1,no_atoms
-      output%complex_modes(i)%primitive_displacements(j,1) = &
-         & input%complex_modes(i)%primitive_displacements(j,2)
-      output%complex_modes(i)%primitive_displacements(j,2) = &
-         & input%complex_modes(i)%primitive_displacements(j,1)
+      output%complex_modes(i)%primitive_displacements(j) = &
+         & conjg(input%complex_modes(i)%primitive_displacements(j))
     enddo
   enddo
 end function
@@ -377,6 +374,7 @@ subroutine check(this,structure,logfile,check_eigenstuff)
   use utils_module, only : sum_squares
   use structure_module
   use ofile_module
+  use calculate_modes_module
   implicit none
   
   class(DynamicalMatrix), intent(in)           :: this
@@ -434,7 +432,11 @@ subroutine check(this,structure,logfile,check_eigenstuff)
     average = 0.0_dp
     difference = 0.0_dp
     do i=1,structure%no_modes_prim
+      ! Ignore translational and degenerate modes.
       if (this%complex_modes(i)%translational_mode) then
+        cycle
+      elseif (count( this%complex_modes%degeneracy_id &
+                & == this%complex_modes(i)%degeneracy_id)>1) then
         cycle
       endif
       freq_1 = this%complex_modes(i)%frequency
@@ -455,28 +457,17 @@ subroutine check(this,structure,logfile,check_eigenstuff)
     average = 0.0_dp
     difference = 0.0_dp
     do i=1,structure%no_modes_prim
-      ! Ignore degenerate modes.
+      ! Ignore translational and degenerate modes.
       if (this%complex_modes(i)%translational_mode) then
         cycle
-      endif
-      if (i>1) then
-        freq_1 = modes(i)%frequency
-        freq_2 = modes(i-1)%frequency
-        if (abs((freq_1-freq_2)/freq_1)<0.01) then
-          cycle
-        endif
-      endif
-      if (i<structure%no_modes_prim) then
-        freq_1 = modes(i)%frequency
-        freq_2 = modes(i+1)%frequency
-        if (abs((freq_1-freq_2)/freq_1)<0.01) then
-          cycle
-        endif
+      elseif (count( this%complex_modes%degeneracy_id &
+                & == this%complex_modes(i)%degeneracy_id)>1) then
+        cycle
       endif
       
       do j=1,structure%no_atoms_prim
-        prim_disp_1 = this%complex_modes(i)%primitive_displacements(j,1)
-        prim_disp_2 = modes(i)%primitive_displacements(j,1)
+        prim_disp_1 = this%complex_modes(i)%primitive_displacements(j)
+        prim_disp_2 = modes(i)%primitive_displacements(j)
         ! Ignore phases.
         prim_disp_1 = cmplxvec(vec(abs(cmplx(prim_disp_1))))
         prim_disp_2 = cmplxvec(vec(abs(cmplx(prim_disp_2))))
@@ -646,16 +637,16 @@ function rotate_modes(input,symmetry,qpoint_from,qpoint_to) result(output)
   type(DynamicalMatrix)                 :: output
   
   ! Rotate dynamical matrix.
-  output%matrices_ = rotate_dynamical_matrix( input%matrices_,    &
-                                            & symmetry,           &
-                                            & qpoint_from%qpoint, &
-                                            & qpoint_to%qpoint)
+  output%matrices_ = rotate_dynamical_matrix( input%matrices_, &
+                                            & symmetry,        &
+                                            & qpoint_from,     &
+                                            & qpoint_to)
   
   ! Rotate normal modes.
   output%complex_modes = rotate_complex_modes( input%complex_modes, &
                                              & symmetry,            &
-                                             & qpoint_from%qpoint,  &
-                                             & qpoint_to%qpoint)
+                                             & qpoint_from,         &
+                                             & qpoint_to)
 end function
 
 ! ----------------------------------------------------------------------
@@ -670,8 +661,8 @@ function rotate_dynamical_matrix(input,symmetry,qpoint_from,qpoint_to) &
   
   type(ComplexMatrix),    intent(in) :: input(:,:)
   type(SymmetryOperator), intent(in) :: symmetry
-  type(FractionVector),   intent(in) :: qpoint_from
-  type(FractionVector),   intent(in) :: qpoint_to
+  type(QpointData),       intent(in) :: qpoint_from
+  type(QpointData),       intent(in) :: qpoint_to
   type(ComplexMatrix), allocatable   :: output(:,:)
   
   integer :: no_atoms
@@ -688,10 +679,10 @@ function rotate_dynamical_matrix(input,symmetry,qpoint_from,qpoint_to) &
   integer :: ialloc
   
   no_atoms = size(input,1)
-  q = qpoint_to
+  q = qpoint_to%qpoint
   
   ! Check that the symmetry rotates the q-point as expected.
-  if (symmetry%recip_rotation * qpoint_from /= qpoint_to) then
+  if (symmetry * qpoint_from /= qpoint_to) then
     call print_line(CODE_ERROR//': Symmetry does not transform q-points as &
        &expected.')
     call err()

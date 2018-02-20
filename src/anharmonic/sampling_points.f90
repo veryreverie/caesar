@@ -9,12 +9,13 @@ module sampling_points_module
   use coupling_module
   use linear_algebra_module
   use normal_mode_module
+  use mode_vector_module
   
   ! The ids of the sampling point.
   ! The corresponding displacement depends on the chosen grid type.
   type :: SamplingPoint
     integer, allocatable :: indices(:)
-    type(ModeVector)     :: displacement
+    type(RealModeVector) :: displacement
     ! Whether or not this is a duplicate of another SamplingPoint, e.g.
     !    the point [17,0] in the coupling [1,2] is a duplicate of
     !    the point [17,0] in the coupling [1].
