@@ -34,6 +34,6 @@ else()
 endif()
 
 # Common modules.
-add_library(common qpoints.f90 atom.f90 basic_symmetry.f90 symmetry.f90 structure.f90 input_file.f90 output_file.f90 bands.f90 normal_mode.f90)
+add_library(common qpoints.f90 atom.f90 basic_symmetry.f90 symmetry.f90 structure.f90 generate_qpoints.f90 input_file.f90 output_file.f90 bands.f90 normal_mode.f90)
 target_link_libraries(common utils)
 target_link_libraries(common quip)

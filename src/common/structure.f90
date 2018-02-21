@@ -683,8 +683,9 @@ function construct_supercell(structure,supercell_matrix,calculate_symmetries, &
   type(RealVector), allocatable :: positions(:,:)
   
   ! Temporary variables
-  logical :: calculate_symmetries_flag
-  integer :: sc_size
+  logical             :: calculate_symmetries_flag
+  integer             :: sc_size
+  type(BasicSymmetry) :: empty_symmetries(0)
   
   integer :: prim,rvec,ialloc
   
@@ -741,6 +742,9 @@ function construct_supercell(structure,supercell_matrix,calculate_symmetries, &
        & positions,                                             &
        & symmetry_precision=symmetry_precision)
   else
+    ! A compiler bug in gfortran 5.4 prevents [SymmetryOperator::] being passed
+    !    directly to the function.
+    empty_symmetries = [BasicSymmetry::]
     supercell = StructureData(                                  &
        & supercell_matrix * structure%lattice,                  &
        & supercell_matrix,                                      &
@@ -750,7 +754,7 @@ function construct_supercell(structure,supercell_matrix,calculate_symmetries, &
        & species,                                               &
        & masses,                                                &
        & positions,                                             &
-       & basic_symmetries_in=[BasicSymmetry::])
+       & basic_symmetries_in=empty_symmetries)
   endif
 end function
 end module

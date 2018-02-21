@@ -1,6 +1,6 @@
 ! ======================================================================
 ! Generate the set of q-points of the primitive structure which correspond
-!    to G-vectors of the large supercell.
+!    to G-vectors of a supercell.
 ! ======================================================================
 module generate_qpoints_module
   use string_module

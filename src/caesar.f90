@@ -29,7 +29,7 @@ program caesar
   use plot_dos_and_dispersion_module
   
   ! Use anharmonic modules.
-  !use setup_anharmonic_module
+  use setup_anharmonic_module
   !use run_anharmonic_module
   !use calculate_anharmonic_module
   
@@ -85,8 +85,8 @@ program caesar
      & calculate_normal_modes_mode(),       &
      & plot_normal_modes_mode(),            &
      & calculate_dos_and_dispersion_mode(), &
-     & plot_dos_and_dispersion_mode()       &
-!     & setup_anharmonic_mode(),             &
+     & plot_dos_and_dispersion_mode(),      &
+     & setup_anharmonic_mode()             &
 !     & run_anharmonic_mode(),               &
 !     & calculate_anharmonic_mode()          &
      &])

@@ -27,6 +27,10 @@ module logic_module
     module procedure last_lambda
   end interface
   
+  interface map
+    module procedure map_lambda
+  end interface
+  
   interface evaluate
     module procedure evaluate_lambda
   end interface
@@ -60,6 +64,12 @@ module logic_module
       class(*), intent(in) :: that
       logical              :: output
     end function
+    
+    subroutine operate_lambda(this)
+      implicit none
+      
+      class(*), intent(inout) :: this
+    end subroutine
   end interface
 contains
 
@@ -205,6 +215,21 @@ function last_lambda(input,lambda,mask) result(output)
     endif
   enddo
 end function
+
+! ----------------------------------------------------------------------
+! Operates with a lambda on every element on a list.
+! e.g. if list=[2,3,7] then after map(list,add_one) list=[3,4,8].
+! ----------------------------------------------------------------------
+subroutine map_lambda(input,lambda)
+  class(*), intent(inout)   :: input(:)
+  procedure(operate_lambda) :: lambda
+  
+  integer :: i
+  
+  do i=1,size(input)
+    call lambda(input(i))
+  enddo
+end subroutine
 
 ! ----------------------------------------------------------------------
 ! Applies a logical lambda to a list.

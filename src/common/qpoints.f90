@@ -140,7 +140,7 @@ end subroutine
 ! Comparison of q-points.
 ! ----------------------------------------------------------------------
 ! Accounts for translations by G-vectors.
-function equality_QpointData(this,that) result(output)
+impure elemental function equality_QpointData(this,that) result(output)
   implicit none
   
   class(QpointData), intent(in) :: this
@@ -150,7 +150,7 @@ function equality_QpointData(this,that) result(output)
   output = is_int(this%qpoint-that%qpoint)
 end function
 
-function non_equality_QpointData(this,that) result(output)
+impure elemental function non_equality_QpointData(this,that) result(output)
   implicit none
   
   class(QpointData), intent(in) :: this

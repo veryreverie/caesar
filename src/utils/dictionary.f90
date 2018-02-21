@@ -189,9 +189,7 @@ function concatenate_Dictionary_Dictionary(this,that) result(output)
   class(Dictionary), intent(in) :: that
   type(Dictionary)              :: output
   
-  output = Dictionary(size(this)+size(that))
-  output%keywords(            :size(this)) = this%keywords
-  output%keywords(size(this)+1:          ) = that%keywords
+  output%keywords = [this%keywords, that%keywords]
 end function
 
 ! ----------------------------------------------------------------------
@@ -201,24 +199,19 @@ end function
 ! Throws an error if the keyword is not found.
 ! If there are duplicate keys, returns the first match.
 function index_Dictionary_character(this,keyword) result(output)
+  use logic_module
   implicit none
   
   class(Dictionary), intent(in) :: this
   character(*),      intent(in) :: keyword
   integer                       :: output
   
-  integer :: i
+  output = first(this%keywords%keyword == keyword)
   
-  output = 0
-  do i=1,size(this)
-    if (this%keywords(i)%keyword == keyword) then
-      output = i
-      return
-    endif
-  enddo
-  
-  call print_line(ERROR//': unexpected keyword: '//keyword//'.')
-  stop
+  if (output==0) then
+    call print_line(ERROR//': unexpected keyword: '//keyword//'.')
+    stop
+  endif
 end function
 
 function index_Dictionary_String(this,keyword) result(output)
@@ -235,26 +228,36 @@ end function
 ! As above, but by flag rather than keyword.
 ! ----------------------------------------------------------------------
 function index_by_flag_Dictionary_character(this,flag) result(output)
+  use logic_module
   implicit none
   
   class(Dictionary), intent(in) :: this
   character(1),      intent(in) :: flag
   integer                       :: output
   
-  integer :: i
+  output = first(this%keywords,flag_matches)
   
-  output = 0
-  do i=1,size(this)
-    if (this%keywords(i)%has_flag()) then
-      if (this%keywords(i)%flag() == flag) then
-        output = i
-        return
+  if (output==0) then
+    call print_line(ERROR//': unexpected flag: '//flag//'.')
+    stop
+  endif
+contains
+  ! Lambda for checking if a flag matches.
+  ! Captures flag from the function.
+  function flag_matches(input) result(output)
+    implicit none
+    
+    class(*), intent(in) :: input
+    logical              :: output
+    
+    select type(input); class is(KeywordData)
+      if (input%has_flag()) then
+        output = input%flag()==flag
+      else
+        output = .false.
       endif
-    endif
-  enddo
-  
-  call print_line(ERROR//': unexpected flag: '//flag//'.')
-  stop
+    end select
+  end function
 end function
 
 function index_by_flag_Dictionary_String(this,flag) result(output)

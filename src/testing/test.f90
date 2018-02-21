@@ -38,6 +38,8 @@ end function
 ! ----------------------------------------------------------------------
 subroutine test(arguments)
   use dictionary_module
+  use single_mode_displacement_module
+  use mode_displacement_module
   use univariate_module
   use monomial_module
   use polynomial_module
@@ -47,40 +49,52 @@ subroutine test(arguments)
   
   type(String) :: wd
   
-  type(Univariate) :: u1,u2,u3
-  type(Monomial)   :: m1,m2,m3
-  type(Polynomial) :: p
+  integer, allocatable :: list1(:)
+  integer, allocatable :: list2(:)
+  integer, allocatable :: list3(:)
   
   integer :: i
   
   wd = arguments%value('working_directory')
   
-  u1 = Univariate(1,1)
-  u2 = Univariate(2,3)
-  u3 = Univariate(3,2)
-  call print_line('')
-  call print_line('u1^n = '//u1)
-  call print_line('u2^n = '//u2)
-  call print_line('u3^n = '//u3)
+  list1 = [1,2,3]
+  list2 = [integer::]
+  list3 = [(i,i=1,0)]
   
-  m1 = Monomial(3.14_dp, [u1,u2,u3])
-  m2 = Monomial(1.41_dp, [u1,u3])
-  m3 = Monomial(2.17_dp, [u2])
-  call print_line('')
-  call print_line('m1 = '//m1)
-  call print_line('m2 = '//m2)
-  call print_line('m3 = '//m3)
+  call testsub()
+  call testsub([1,2,3])
+  call testsub(list1)
+  call testsub([integer::])
+  call testsub(list2)
+  call testsub([(i,i=1,0)])
+  call testsub(list3)
   
-  p = Polynomial([m1,m2,m3])
-  call print_line('')
-  call print_line('p=')
-  call print_line(p)
+  call testsub2()
+  call testsub2([1,2,3])
+  call testsub2(list1)
+  call testsub2([integer::])
+  call testsub2(list2)
+  call testsub2([(i,i=1,0)])
+  call testsub2(list3)
+end subroutine
+
+subroutine testsub(this)
+  implicit none
   
-  do i=1,3
-    call print_line('')
-    call print_line('dp/du'//i)
-    call print_line(p%derivative(i))
-  enddo
+  integer, optional :: this(:)
   
+  if (present(this)) then
+    call print_line('PRESENT')
+  else
+    call print_line('not present')
+  endif
+end subroutine
+
+subroutine testsub2(this)
+  implicit none
+  
+  integer, optional :: this(:)
+  
+  call testsub(this)
 end subroutine
 end module

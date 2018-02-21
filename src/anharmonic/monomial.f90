@@ -15,7 +15,7 @@ module monomial_module
   public :: size
   
   type, extends(Stringable) :: Monomial
-    real(dp)                      :: coefficient
+    complex(dp)                   :: coefficient
     type(Univariate), allocatable :: modes(:)
   contains
     procedure :: evaluate   => evaluate_Monomial
@@ -54,7 +54,7 @@ function evaluate_Monomial(this,displacement) result(output)
   
   do i=1,size(this)
     ! Find the mode in the displacement which matches that in the monomial.
-    j = first(displacement%displacements(j+1:)%id==this%modes(i)%id)
+    j = first(displacement%displacements%id==this%modes(i)%id)
     
     ! If the mode is not present in the displacement, then the displacement
     !    is zero. As such, the monomial is zero. (0**n=0 if n>0).
