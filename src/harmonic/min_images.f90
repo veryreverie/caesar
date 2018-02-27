@@ -81,8 +81,7 @@ function calculate_min_images(supercell) result(output)
     do j=1,supercell%no_atoms
       atom_j = supercell%atoms(j)
       rvec_j = atom_j%rvec_id()
-      rvec_ji = supercell%rvector_group(supercell%paired_rvec(rvec_j)) &
-            & * rvec_i
+      rvec_ji = supercell%paired_rvector_group(rvec_j) * rvec_i
       output(atom_j%id(),atom_i%id()) = min_images( rvec_ji,          &
                                                   & atom_j%prim_id(), &
                                                   & atom_i%prim_id())

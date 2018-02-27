@@ -7,6 +7,7 @@ module polynomial_module
   use io_module
   
   use monomial_module
+  use stringable_module
   use printable_module
   implicit none
   

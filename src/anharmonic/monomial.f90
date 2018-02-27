@@ -7,6 +7,7 @@ module monomial_module
   use io_module
   
   use univariate_module
+  use stringable_module
   implicit none
   
   private

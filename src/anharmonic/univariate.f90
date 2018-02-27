@@ -5,6 +5,8 @@ module univariate_module
   use constants_module, only : dp
   use string_module
   use io_module
+  
+  use stringable_module
   implicit none
   
   private

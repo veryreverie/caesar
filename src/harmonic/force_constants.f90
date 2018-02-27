@@ -153,8 +153,7 @@ function new_ForceConstants_constants(structure,force_constants,logfile) &
     do j=1,structure%no_atoms
       atom_j = structure%atoms(j)
       rvec_j = atom_j%rvec_id()
-      rvec_ij = structure%rvector_group(structure%paired_rvec(rvec_i))&
-            & * rvec_j
+      rvec_ij = structure%paired_rvector_group(rvec_i) * rvec_j
       
       do k=1,structure%no_atoms
         atom_k = structure%atoms(k)

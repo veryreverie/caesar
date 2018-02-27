@@ -6,6 +6,9 @@ module fraction_module
   use string_module
   use io_module
   
+  use stringable_module
+  implicit none
+  
   type, extends(Stringable) :: IntFraction
     integer, private :: n_
     integer, private :: d_

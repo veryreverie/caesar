@@ -95,7 +95,7 @@ end function
 
 ! Calculate modes for one of the calculated q-points.
 ! Will lift degeneracies using symmetries.
-function calculate_modes_calculated(matrices,structure,qpoint, &
+function calculate_modes_calculated(matrices,large_supercell,qpoint, &
    &degenerate_energy,degeneracy_id,logfile) result(output)
   use utils_module, only : sum_squares
   use structure_module
@@ -108,7 +108,7 @@ function calculate_modes_calculated(matrices,structure,qpoint, &
   implicit none
   
   type(ComplexMatrix), intent(in)    :: matrices(:,:)
-  type(StructureData), intent(in)    :: structure
+  type(StructureData), intent(in)    :: large_supercell
   type(QpointData),    intent(in)    :: qpoint
   real(dp),            intent(in)    :: degenerate_energy
   integer,             intent(in)    :: degeneracy_id
@@ -129,7 +129,7 @@ function calculate_modes_calculated(matrices,structure,qpoint, &
   integer :: i,j,k,ialloc
   
   ! Calculate normal modes as if at an arbitrary q-point.
-  output = calculate_modes(matrices,structure)
+  output = calculate_modes(matrices,large_supercell)
   
   ! Identify purely translational modes (at the gamma-point only).
   output%translational_mode = .false.
@@ -144,8 +144,9 @@ function calculate_modes_calculated(matrices,structure,qpoint, &
   endif
   
   ! Identify the symmetries which map the q-point to itself.
-  symmetries = structure%symmetries( filter( structure%symmetries, &
-                                           & leaves_q_invariant) )
+  symmetries =                                                         &
+     & large_supercell%symmetries( filter( large_supercell%symmetries, &
+     &                                     leaves_q_invariant) )
   
   ! Assign degeneracy ids, which are equal if two states are degenerate,
   !    and different if they are not.
@@ -242,6 +243,7 @@ recursive function lift_degeneracies(input,symmetries,qpoint,logfile) &
   use phase_module
   use logic_module
   use ofile_module
+  use utils_module, only : sum_squares
   implicit none
   
   type(ComplexMode),      intent(in)    :: input(:)
@@ -263,10 +265,13 @@ recursive function lift_degeneracies(input,symmetries,qpoint,logfile) &
   
   type(SymmetryOperator), allocatable :: commuting_symmetries(:)
   
+  type(ComplexMatrix) :: commuting_symmetry
+  type(ComplexMatrix) :: commutator_mat
+  
   ! Error checking.
   real(dp) :: check
   
-  integer :: i,j,ialloc
+  integer :: i,j,k,ialloc
   
   ! All q-point data and eigenvalues will be unchanged.
   ! Copy over all data, and only change that which changes.
@@ -298,7 +303,7 @@ recursive function lift_degeneracies(input,symmetries,qpoint,logfile) &
                                                      & logfile)
   
   ! Calculate the order of the first symmetry, n s.t. S^n=I.
-  order = calculate_symmetry_order(first_symmetry, qpoint)
+  order = first_symmetry%symmetry_order(qpoint)
   
   ! Diagonalise the first symmetry, and construct diagonalised displacements.
   ! Only transform displacements if this symmetry lifts degeneracy.
@@ -318,6 +323,7 @@ recursive function lift_degeneracies(input,symmetries,qpoint,logfile) &
       if (check>1e-10_dp) then
         call print_line(WARNING//': Error in mode normalisation. Please check &
            &log files.')
+        stop
       endif
     enddo
   endif
@@ -337,6 +343,26 @@ recursive function lift_degeneracies(input,symmetries,qpoint,logfile) &
       ! Select only the symmetry operators which commute with the
       !    first symmetry.
       commuting_symmetries = symmetries(filter(symmetries,commutes_with_first))
+      
+      do k=1,size(commuting_symmetries)
+        if (size(input)==3) then
+          commuting_symmetry = calculate_symmetry_in_normal_coordinates( qpoint,         &
+                                                       & input,          &
+                                                       & qpoint,         &
+                                                       & input,          &
+                                                       & commuting_symmetries(k), &
+                                                       & logfile)
+          commutator_mat = symmetry*commuting_symmetry - commuting_symmetry*symmetry
+          if (sum_squares(commutator_mat)>1e-10_dp) then
+            call print_line('')
+            call print_line(symmetry)
+            call print_line('')
+            call print_line(commuting_symmetry)
+            call print_line('')
+            call print_line(commutator_mat)
+          endif
+        endif
+      enddo
       
       ! Lift further degeneracies using symmetries which commute with the
       !    first symmetry, not including the first symmetry.
@@ -418,55 +444,16 @@ function calculate_symmetry_in_normal_coordinates(qpoint_from,modes_from, &
   ! Check that the symmetry is unitary.
   check = sqrt(sum_squares( output*hermitian(output) &
                         & - cmplxmat(make_identity_matrix(no_modes))))
-  call logfile%print_line('Error in unitarity of rotation: ' &
-     & //check)
+  if (check>1e-14_dp) then
+    ! This check happens many times, so the 1e-14 limit on logging prevents
+    !    clutter.
+    call logfile%print_line('Error in unitarity of rotation: ' &
+       & //check)
+  endif
   if (check>1e-10_dp) then
     call print_line(WARNING//': Rotation between degenerate modes not &
        &unitary. Please try adjusting degenerate_energy. Please check log &
        &files.')
   endif
-end function
-
-! ----------------------------------------------------------------------
-! Calculates the order of a symmetry operation at a give q-point.
-! The order is the smallest integer n>0 s.t. S^n=I, where I is the identity.
-! ----------------------------------------------------------------------
-! N.B. This calculation assumes that the symmetry changes relative phases.
-!    If this is not the case, then n will be too large.
-function calculate_symmetry_order(symmetry,qpoint) result(output)
-  use utils_module, only : lcm
-  use symmetry_module
-  use qpoints_module
-  implicit none
-  
-  type(SymmetryOperator), intent(in) :: symmetry
-  type(QpointData),       intent(in) :: qpoint
-  integer                            :: output
-  
-  type(IntMatrix) :: identity
-  type(IntMatrix) :: rotation ! R^n.
-  
-  integer :: i
-  
-  identity = make_identity_matrix(3)
-  rotation = identity
-  
-  ! Calculate n s.t. R^n=I.
-  output = 0
-  do i=1,6
-    rotation = symmetry%rotation * rotation
-    if (rotation==identity) then
-      output = i
-      exit
-    endif
-  enddo
-  
-  if (output==0) then
-    call print_line(CODE_ERROR//': Unable to find order of symmetry.')
-    call err()
-  endif
-  
-  ! Assume that the symmetry changes relative phases.
-  output = lcm(output,qpoint%min_sc_size())
 end function
 end module

@@ -8,6 +8,7 @@ module io_module
                          & error_module_CODE_ERROR => CODE_ERROR, &
                          & error_module_WARNING => WARNING
   use string_module
+  use stringable_module
   implicit none
   
   private

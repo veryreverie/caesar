@@ -20,10 +20,6 @@ module string_base_module
     procedure, private ::                  assign_StringBase_character
   end type
   
-  interface len
-    module procedure len_StringBase
-  end interface
-  
   interface char
     module procedure char_StringBase
   end interface
@@ -53,7 +49,7 @@ function char_StringBase(this) result(output)
   implicit none
   
   class(StringBase), intent(in) :: this
-  character(len(this))          :: output
+  character(:), allocatable     :: output
   
   if (allocated(this%contents_)) then
     output = this%contents_
@@ -61,26 +57,6 @@ function char_StringBase(this) result(output)
     write(*,*) CODE_ERROR//': Trying to use the contents of a string before &
        &it has been allocated.'
     call abort_with_stacktrace()
-  endif
-end function
-
-! ----------------------------------------------------------------------
-! Private procedures.
-! ----------------------------------------------------------------------
-
-! Returns the length of contents_.
-! N.B. does no error checking in order to be pure, which is required in order
-!    to have character(this%lenth()) be a valid return type for char().
-pure function len_StringBase(this) result(output)
-  implicit none
-  
-  class(StringBase), intent(in) :: this
-  integer                       :: output
-  
-  if (allocated(this%contents_)) then
-    output = len(this%contents_)
-  else
-    output = 0
   endif
 end function
 end module

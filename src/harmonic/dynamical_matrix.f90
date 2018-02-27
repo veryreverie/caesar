@@ -56,7 +56,8 @@ contains
 !    supercell.
 ! --------------------------------------------------
 function new_DynamicalMatrix_calculated(qpoint,supercells,force_constants, &
-   & structure,degenerate_energy,degeneracy_id,logfile) result(this)
+   & structure,large_supercell,degenerate_energy,degeneracy_id,logfile)    &
+   & result(this)
   use utils_module, only : sum_squares
   use structure_module
   use min_images_module
@@ -73,12 +74,11 @@ function new_DynamicalMatrix_calculated(qpoint,supercells,force_constants, &
   type(StructureData),  intent(in)    :: supercells(:)
   type(ForceConstants), intent(in)    :: force_constants(:)
   type(StructureData),  intent(in)    :: structure
+  type(StructureData),  intent(in)    :: large_supercell
   real(dp),             intent(in)    :: degenerate_energy
   integer,              intent(in)    :: degeneracy_id
   type(OFile),          intent(inout) :: logfile
   type(DynamicalMatrix)               :: this
-  
-  type(SymmetryOperator) :: symmetry
   
   type(QpointData) :: q_prime
   
@@ -110,11 +110,10 @@ function new_DynamicalMatrix_calculated(qpoint,supercells,force_constants, &
           & stat=ialloc); call err(ialloc)
   is_copy = .false.
   do i=1,size(structure%symmetries)
-    symmetry = structure%symmetries(i)
     ! q' is defined such that rotation i maps qp onto q.
     ! N.B. q-points rotate as q->R^-T.q, so q' s.t. q'->q is given by
     !    q' = R^T.q = q.R.
-    q_prime = structure%symmetries(symmetry%inverse) * qpoint
+    q_prime = structure%inverse_symmetries(i) * qpoint
     do j=1,size(supercells)
       if (is_int(supercells(j)%supercell*q_prime%qpoint)) then
         is_copy(j,i) = .true.
@@ -131,17 +130,16 @@ function new_DynamicalMatrix_calculated(qpoint,supercells,force_constants, &
           & stat=ialloc); call err(ialloc)
   k = 0
   do i=1,size(structure%symmetries)
-    symmetry = structure%symmetries(i)
-    q_prime = structure%symmetries(symmetry%inverse) * qpoint
+    q_prime = structure%inverse_symmetries(i) * qpoint
     do j=1,size(supercells)
       if (is_copy(j,i)) then
         k = k+1
         matrix = calculate_dynamical_matrix( dblevec(q_prime%qpoint), &
                                            & supercells(j),           &
                                            & force_constants(j))
-        matrices(:,:,k) = rotate_dynamical_matrix( matrix,   &
-                                                 & symmetry, &
-                                                 & q_prime,  &
+        matrices(:,:,k) = rotate_dynamical_matrix( matrix,                  &
+                                                 & structure%symmetries(i), &
+                                                 & q_prime,                 &
                                                  & qpoint)
         sym_id(k) = i
         sup_id(k) = j
@@ -200,7 +198,7 @@ function new_DynamicalMatrix_calculated(qpoint,supercells,force_constants, &
   ! Diagonalise the dynamical matrix, to obtain the normal mode
   !    co-ordinates (eigenvectors) and harmonic frequencies (eigenvalues).
   this%complex_modes = calculate_modes( this%matrices_,    &
-                                      & structure,         &
+                                      & large_supercell,   &
                                       & qpoint,            &
                                       & degenerate_energy, &
                                       & degeneracy_id,     &

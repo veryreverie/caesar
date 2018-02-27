@@ -228,8 +228,8 @@ function rotate_complex_modes(input,symmetry,qpoint_from,qpoint_to) &
   ! Rotate displacements.
   do mode=1,size(input)
     do atom_1=1,no_atoms
-      atom_1p = symmetry%atom_group * atom_1
-      r = symmetry%rvector(atom_1)
+      atom_1p = symmetry%prim_atom_group * atom_1
+      r = symmetry%prim_rvector(atom_1)
       output(mode)%primitive_displacements(atom_1p) =    &
          & symmetry%cartesian_rotation                   &
          & * input(mode)%primitive_displacements(atom_1) &

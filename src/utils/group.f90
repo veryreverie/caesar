@@ -16,6 +16,8 @@ module group_module
   use constants_module, only : dp
   use string_module
   use io_module
+  
+  use stringable_module
   implicit none
   
   private
@@ -27,13 +29,11 @@ module group_module
   type, public, extends(Stringable) :: Group
     integer, allocatable :: operation(:)
   contains
-    generic, public  :: assignment (= ) => assign_Group
     generic, public  :: operator   (==) => equality_Group_Group
     generic, public  :: operator   (/=) => non_equality_Group_Group
     generic, public  :: operator   (* ) => operate_Group_integer, &
                                          & operate_Group_Group
     
-    procedure, private :: assign_Group
     procedure, private :: equality_Group_Group
     procedure, private :: non_equality_Group_Group
     procedure, private :: operate_Group_integer
@@ -50,18 +50,8 @@ module group_module
 contains
 
 ! ----------------------------------------------------------------------
-! Inquiry, assignment and comparisons.
+! Comparisons with other groups.
 ! ----------------------------------------------------------------------
-! Create the group from an array of integers.
-subroutine assign_Group(this,that)
-  implicit none
-  
-  class(Group), intent(out) :: this
-  integer,      intent(in)  :: that(:)
-  
-  this%operation = that
-end subroutine
-
 ! Equality with another group.
 function equality_Group_Group(this,that) result(output)
   implicit none
@@ -84,6 +74,9 @@ function non_equality_Group_Group(this,that) result(output)
   output = .not. this==that
 end function
   
+! ----------------------------------------------------------------------
+! Group properties.
+! ----------------------------------------------------------------------
 ! The number of operators in the group.
 function size_Group(this) result(output)
   implicit none

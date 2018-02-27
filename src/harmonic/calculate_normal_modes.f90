@@ -274,6 +274,7 @@ subroutine calculate_normal_modes(arguments)
                                                  & supercells,        &
                                                  & force_constants,   &
                                                  & structure,         &
+                                                 & large_supercell,   &
                                                  & degenerate_energy, &
                                                  & degeneracy_id,     &
                                                  & qpoint_logfile)

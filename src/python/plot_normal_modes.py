@@ -203,14 +203,20 @@ def main():
     degenerate_modes = [j for j,x in enumerate(modes) \
                         if x['degeneracy']==mode['degeneracy']]
     no_modes = len(degenerate_modes)
-    width = no_modes+(no_modes-1)*0.2
+    padding = 0.1 # The padding around each subplot.
+    offset = 0.08 # The amount by which degererate bars are shrunk.
+    width = no_modes*(1+2*padding)
     if no_modes==1:
       continue
-    axes['f'][i].annotate('', xy=(0, 1.1), xycoords='axes fraction', xytext=(width, 1.1), 
-            arrowprops=dict(arrowstyle="|-|", color=colours['purple']))
+    axes['f'][i].annotate('',
+                          xy=(-padding+offset, 1.1),
+                          xycoords='axes fraction',
+                          xytext=(width-padding-offset, 1.1), 
+                          arrowprops=dict(arrowstyle="|-|",
+                          color=colours['purple']))
     axes['f'][i].annotate(r'Degenerate',
-                          xy=(0.5*width, 1.1),
-                          xytext=(0.5*width, 1.2),
+                          xy=(0.5*(width-padding), 1.1),
+                          xytext=(0.5*(width-padding), 1.2),
                           xycoords='axes fraction', 
                           fontsize=12,
                           ha='center',

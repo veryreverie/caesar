@@ -7,6 +7,7 @@ module linear_algebra_module
   use string_module
   use io_module
   
+  use stringable_module
   use printable_module
   implicit none
   

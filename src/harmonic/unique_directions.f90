@@ -27,10 +27,31 @@ module unique_directions_module
     ! The vector through which the atom is displaced.
     type(RealVector) :: displacement
   end type
+  
+  interface UniqueDirection
+    module procedure new_UniqueDirection_contents
+  end interface
 contains
 
 ! ----------------------------------------------------------------------
-! Reads a UniqueDirections from a file.
+! Constructor
+! ----------------------------------------------------------------------
+function new_UniqueDirection_contents(atom_id,direction,displacement) &
+   & result(output)
+  implicit none
+  
+  integer,          intent(in) :: atom_id
+  type(String),     intent(in) :: direction
+  type(Realvector), intent(in) :: displacement
+  type(UniqueDirection)        :: output
+  
+  output%atom_id      = atom_id
+  output%direction    = direction
+  output%displacement = displacement
+end function
+
+! ----------------------------------------------------------------------
+! Reads an array of UniqueDirection from a file.
 ! ----------------------------------------------------------------------
 function read_unique_directions_file(filename) result(output)
   use ifile_module

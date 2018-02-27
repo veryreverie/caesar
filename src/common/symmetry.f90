@@ -14,7 +14,6 @@ module symmetry_module
   private
   
   public :: SymmetryOperator
-  public :: calculate_symmetries
   public :: operators_commute
   
   ! ----------------------------------------------------------------------
@@ -39,215 +38,61 @@ module symmetry_module
     ! rho_i and rho_j are the equilibrium positions of atom i and j.
     ! R * rho_i + T = rho_j + rvector_i
     !    - atom_group*i = j,
-    !    - rvector(i) = rvector_i in fractional co-ordinates.
+    !    - rvector(i) = rvector_i in fractional supercell co-ordinates.
     type(Group)                  :: atom_group
     type(IntVector), allocatable :: rvector(:)
     
-    ! The mapping from symmetry operators to other symmetry operators.
-    ! If S * S_i = S_j then symmetry_group*i = j,
-    !    where S is this operator, and S_i and S_j are other operators.
-    type(Group) :: operator_group
-    
-    ! The id of the operator S_j, s.t. S*S_j = S_j*S = I.
-    integer :: inverse
+    ! The mapping from atoms in the primitive cell to other atoms in the
+    !    primitive cell.
+    ! The entries in prim_rvector are given in fractional primitive cell
+    !    co-ordinates.
+    type(Group)                  :: prim_atom_group
+    type(IntVector), allocatable :: prim_rvector(:)
   contains
     ! Rotating a q-point.
     generic,   public  :: operator(*) => rotate_qpoint
     procedure, private ::                rotate_qpoint
+    
+    procedure, public :: symmetry_order
   end type
+  
+  interface SymmetryOperator
+    module procedure new_SymmetryOperator
+  end interface
 contains
 
 ! ----------------------------------------------------------------------
-! Calculates symmetry operations, in various representations.
+! Constructs a SymmetryOperator.
 ! ----------------------------------------------------------------------
-function calculate_symmetries(basic_symmetries,lattice,recip_lattice,atoms) &
-   & result(output)
-  use atom_module
+function new_SymmetryOperator(symmetry,lattice,recip_lattice,atom_group, &
+   & rvector,prim_atom_group,prim_rvector) result(output)
   use basic_symmetry_module
   implicit none
   
-  type(BasicSymmetry), intent(in)     :: basic_symmetries(:)
-  type(RealMatrix),    intent(in)     :: lattice
-  type(RealMatrix),    intent(in)     :: recip_lattice
-  type(AtomData),      intent(in)     :: atoms(:)
-  type(SymmetryOperator), allocatable :: output(:)
+  type(BasicSymmetry), intent(in) :: symmetry
+  type(RealMatrix),    intent(in) :: lattice
+  type(RealMatrix),    intent(in) :: recip_lattice
+  type(Group),         intent(in) :: atom_group
+  type(IntVector),     intent(in) :: rvector(:)
+  type(Group),         intent(in) :: prim_atom_group
+  type(IntVector),     intent(in) :: prim_rvector(:)
+  type(SymmetryOperator)          :: output
   
-  ! Atom group variables.
-  type(RealVector)             :: transformed_position
-  type(RealVector)             :: distance
-  real(dp),        allocatable :: offsets(:)
-  integer,         allocatable :: operations(:,:)
-  type(IntVector), allocatable :: rvectors(:,:)
+  output%rotation = symmetry%rotation
+  output%translation = symmetry%translation
   
-  ! Operator group variables.
-  integer, allocatable :: operator_group(:)
-  type(IntMatrix)      :: rotation_k
-  type(Group)          :: operation_k
+  output%cartesian_rotation = transpose(lattice) &
+                          & * symmetry%rotation  &
+                          & * recip_lattice
+  output%cartesian_translation = transpose(lattice) &
+                             & * symmetry%translation
   
-  ! Invers variables.
-  integer :: identity
+  output%recip_rotation_ = transpose(invert(symmetry%rotation))
   
-  ! Temporary variables.
-  integer :: i,j,k,ialloc
-  
-  allocate(output(size(basic_symmetries)), stat=ialloc); call err(ialloc)
-  
-  ! Returns if the symmetry is only a dummy placeholder.
-  if (size(output)==0) then
-    return
-  endif
-  
-  ! --------------------------------------------------
-  ! Calculates basic symmetry properties.
-  ! --------------------------------------------------
-  do i=1,size(output)
-    output(i)%rotation = basic_symmetries(i)%rotation
-    output(i)%translation = basic_symmetries(i)%translation
-    
-    output(i)%cartesian_rotation = transpose(lattice) &
-                               & * output(i)%rotation &
-                               & * recip_lattice
-    output(i)%cartesian_translation = transpose(lattice) &
-                                  & * output(i)%translation
-    
-    output(i)%recip_rotation_ = transpose(invert(output(i)%rotation))
-  enddo
-
-  ! --------------------------------------------------
-  ! Calculates how symmetries map atoms onto other atoms.
-  ! --------------------------------------------------
-  ! If symmetry i maps atoms(j)%frac_pos to atoms(k)%frac_pos + R then
-  !    - output(i)%atom_group * j = k.
-  !    - output(i)%rvector(j)     = R.
-  
-  ! Work out which atoms map to which atoms under each symmetry operation.
-  allocate( offsets(size(atoms)),                  &
-          & operations(size(atoms), size(output)), &
-          & rvectors(size(atoms), size(output)),   &
-          & stat=ialloc); call err(ialloc)
-  do i=1,size(output)
-    do j=1,size(atoms)
-      ! Calculate the position of the transformed atom.
-      transformed_position = output(i)%rotation             &
-                         & * atoms(j)%fractional_position() &
-                         & + output(i)%translation
-      
-      ! Identify which atom is closest to the transformed position,
-      !    modulo supercell lattice vectors.
-      do k=1,size(atoms)
-        distance = transformed_position - atoms(k)%fractional_position()
-        offsets(k) = l2_norm(distance - vec(nint(distance)))
-      enddo
-      k = minloc(offsets,1)
-      operations(j,i) = k
-      
-      ! R * position(i) + t = position(j) + an R-vector.
-      ! Identify this R-vector, and record it.
-      rvectors(j,i) = nint( transformed_position &
-                        & - atoms(k)%fractional_position())
-      
-      ! Check that the transformed atom is acceptably close to its image.
-      if (offsets(operations(j,i))>1.0e-10_dp) then
-        call print_line(CODE_ERROR//': Error mapping atoms under symmetry.')
-        call err()
-      elseif (l2_norm( transformed_position           &
-                   & - atoms(k)%fractional_position() &
-                   & - rvectors(j,i) )>1e-10_dp) then
-        call print_line(CODE_ERROR//': Error mapping atoms under symmetry.')
-        call err()
-      endif
-    enddo
-  enddo
-  
-  ! Check that each symmetry is one-to-one, and that mapped atoms are of the
-  !    same species.
-  do i=1,size(output)
-    do j=1,size(atoms)
-      if (count(operations(:,i)==j)/=1) then
-        call print_line('Error: symmetry operation not one-to-one.')
-        call err()
-      endif
-      
-      if (atoms(operations(j,i))%species()/=atoms(j)%species()) then
-        call print_line('Error: symmetry operation between different species.')
-        call err()
-      endif
-    enddo
-  enddo
-  
-  do i=1,size(output)
-    output(i)%atom_group = operations(:,i)
-    output(i)%rvector = rvectors(:,i)
-  enddo
-
-  ! --------------------------------------------------
-  ! Calculates how symmetries map symmetries onto other symmetries.
-  ! --------------------------------------------------
-  ! output(i)%operator_group * j = k if symmetry i * symmetry j = symmetry k,
-  !    modulo translations by lattice vectors.
-  
-  allocate(operator_group(size(output)), stat=ialloc); call err(ialloc)
-  do i=1,size(output)
-    do_j : do j=1,size(output)
-      rotation_k = output(i)%rotation &
-               & * output(j)%rotation
-      operation_k = output(i)%atom_group &
-                & * output(j)%atom_group
-      do k=1,size(output)
-        if ( rotation_k==output(k)%rotation .and. &
-           & operation_k==output(k)%atom_group) then
-          operator_group(j) = k
-          cycle do_j
-        endif
-      enddo
-      
-      call print_line('Error: symmetry '//i//' times symmetry '//j//' is not &
-         &itself a symmetry.')
-      call err()
-    enddo do_j
-    
-    output(i)%operator_group = operator_group
-  enddo
-
-  ! --------------------------------------------------
-  ! Calculates the inverse of each symmetry.
-  ! --------------------------------------------------
-  ! If symmetry i * symmetry j = I then output(i)=j.
-  
-  ! Locate the identity operator. S*S=S iff S=I.
-  identity = 0
-  do i=1,size(output)
-    if (output(i)%operator_group*i == i) then
-      identity = i
-      exit
-    endif
-  enddo
-  
-  if (identity==0) then
-    call print_line('Error: The identity symmetry has not been found.')
-    call err()
-  endif
-  
-  ! Locate the inverse of each operator.
-  do_i : do i=1,size(output)
-    do j=1,size(output)
-      if (output(i)%operator_group*j==identity) then
-        output(i)%inverse = j
-        
-        if (j<i) then
-          if (output(j)%inverse/=i) then
-            call print_line('Error: operator inverses do not match.')
-            call err()
-          endif
-        endif
-        
-        cycle do_i
-      endif
-    enddo
-    
-    call print_line('Error: operator inverse not found.')
-    call err()
-  enddo do_i
+  output%atom_group      = atom_group
+  output%rvector         = rvector
+  output%prim_atom_group = prim_atom_group
+  output%prim_rvector    = prim_rvector
 end function
 
 ! ----------------------------------------------------------------------
@@ -259,8 +104,6 @@ function operators_commute(this,that) result(output)
   type(SymmetryOperator), intent(in) :: this
   type(SymmetryOperator), intent(in) :: that
   logical                            :: output
-  
-  integer :: i
   
   ! Check that the symmetries' rotations commute.
   if (.not. matrices_commute(this%rotation,that%rotation)) then
@@ -296,5 +139,54 @@ function rotate_qpoint(this,qpoint) result(output)
   
   ! Translate q-point back into primitive reciprocal cell if necessary.
   call output%translate_to_primitive()
+end function
+
+! ----------------------------------------------------------------------
+! Calculates the order of a symmetry operation at a given q-point.
+! The order is the smallest integer n>0 s.t. S^n=I, where I is the identity.
+! ----------------------------------------------------------------------
+function symmetry_order(this,qpoint) result(output)
+  use qpoints_module
+  implicit none
+  
+  class(SymmetryOperator), intent(in) :: this
+  type(QpointData),        intent(in) :: qpoint
+  integer                             :: output
+  
+  type(IntMatrix)   :: identity ! The identity matrix, I.
+  type(IntMatrix)   :: rotation ! The rotation after n operations.
+  type(IntVector)   :: rvector  ! The translation after n operations.
+  type(IntFraction) :: qr       ! qpoint*rvector.
+  
+  integer :: i
+  
+  identity = make_identity_matrix(3)
+  
+  ! After (S^i) : r -> rotation * r + rvector.
+  ! After (S^0) : r -> r = I*r+0.
+  rotation = identity
+  rvector = zeroes(3)
+  
+  ! Calculate n s.t. R^n=I. At this point, S^n=e^{2piiq.R}.
+  output = 0
+  do i=1,6
+    ! After S^i, r -> rotation * r + rvector.
+    rotation = this%rotation * rotation
+    rvector = this%rotation * rvector + this%prim_rvector(1)
+    if (rotation==identity) then
+      output = i
+      exit
+    endif
+  enddo
+  
+  if (output==0) then
+    call print_line(CODE_ERROR//': Unable to find order of symmetry.')
+    call err()
+  endif
+  
+  ! Include the effect of the phase change.
+  ! If S^n=e^{2piiq.R}, and q.R=a/b then S^(n*b)=I.
+  qr = qpoint%qpoint * rvector
+  output = output * qr%denominator()
 end function
 end module

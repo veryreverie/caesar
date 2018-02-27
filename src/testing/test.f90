@@ -38,63 +38,144 @@ end function
 ! ----------------------------------------------------------------------
 subroutine test(arguments)
   use dictionary_module
-  use single_mode_displacement_module
-  use mode_displacement_module
-  use univariate_module
-  use monomial_module
-  use polynomial_module
+  use qr_decomposition_module
   implicit none
   
   type(Dictionary), intent(in) :: arguments
   
   type(String) :: wd
   
-  integer, allocatable :: list1(:)
-  integer, allocatable :: list2(:)
-  integer, allocatable :: list3(:)
+  complex(dp) :: one = cmplx(1.0_dp,0.0_dp,dp)
+  complex(dp) :: zero = cmplx(0.0_dp,0.0_dp,dp)
+  complex(dp) :: small = cmplx(0.01_dp,0.0_dp,dp)
+  
+  complex(dp), allocatable :: a(:,:)
+  
+  type(ComplexVector), allocatable :: invecs(:)
+  type(ComplexVector), allocatable :: outvecs(:)
+  
+  type(QRDecomposition) :: qr
   
   integer :: i
   
   wd = arguments%value('working_directory')
   
-  list1 = [1,2,3]
-  list2 = [integer::]
-  list3 = [(i,i=1,0)]
+  a = cmplx(mat([one,one,one,zero],2,2))
+  qr = qr_decomposition(a)
+  call print_line('')
+  call print_line('a:')
+  call print_line(mat(real(a)))
+  call print_line('q:')
+  call print_line(mat(real(qr%q)))
+  call print_line('r:')
+  call print_line(mat(real(qr%r)))
+  call print_line('qr:')
+  call print_line(real(mat(qr%q)*mat(qr%r)))
   
-  call testsub()
-  call testsub([1,2,3])
-  call testsub(list1)
-  call testsub([integer::])
-  call testsub(list2)
-  call testsub([(i,i=1,0)])
-  call testsub(list3)
+  a = cmplx(mat([one,one,zero,zero,one,zero],2,3))
+  qr = qr_decomposition(a)
+  call print_line('')
+  call print_line('a:')
+  call print_line(mat(real(a)))
+  call print_line('q:')
+  call print_line(mat(real(qr%q)))
+  call print_line('r:')
+  call print_line(mat(real(qr%r)))
+  call print_line('qr:')
+  call print_line(real(mat(qr%q)*mat(qr%r)))
   
-  call testsub2()
-  call testsub2([1,2,3])
-  call testsub2(list1)
-  call testsub2([integer::])
-  call testsub2(list2)
-  call testsub2([(i,i=1,0)])
-  call testsub2(list3)
-end subroutine
-
-subroutine testsub(this)
-  implicit none
+  a = cmplx(mat([one,one,zero,zero,one,zero],3,2))
+  qr = qr_decomposition(a)
+  call print_line('')
+  call print_line('a:')
+  call print_line(mat(real(a)))
+  call print_line('q:')
+  call print_line(mat(real(qr%q)))
+  call print_line('r:')
+  call print_line(mat(real(qr%r)))
+  call print_line('qr:')
+  call print_line(real(mat(qr%q)*mat(qr%r)))
   
-  integer, optional :: this(:)
+  a = cmplx(mat([ small,small,zero,   &
+                & zero,small,zero,  &
+                & small,zero,zero,  &
+                & zero,zero,zero, &
+                & one,one,zero    &
+                & ],3,5))
+  qr = qr_decomposition(a)
+  call print_line('')
+  call print_line('a:')
+  call print_line(mat(real(a)))
+  call print_line('q:')
+  call print_line(mat(real(qr%q)))
+  call print_line('r:')
+  call print_line(mat(real(qr%r)))
+  call print_line('qr:')
+  call print_line(real(mat(qr%q)*mat(qr%r)))
   
-  if (present(this)) then
-    call print_line('PRESENT')
-  else
-    call print_line('not present')
-  endif
-end subroutine
-
-subroutine testsub2(this)
-  implicit none
+  invecs = [vec([one,zero,zero]), vec([one,one,zero])]
+  outvecs = orthonormalise(invecs)
+  call print_line('')
+  call print_line('Invecs:')
+  do i=1,size(invecs)
+    call print_line(real(invecs(i)))
+  enddo
+  call print_line('Outvecs:')
+  do i=1,size(outvecs)
+    call print_line(real(outvecs(i)))
+  enddo
   
-  integer, optional :: this(:)
+  invecs = [vec([zero,one]), vec([one,zero]), vec([one,one])]
+  outvecs = orthonormalise(invecs)
+  call print_line('')
+  call print_line('Invecs:')
+  do i=1,size(invecs)
+    call print_line(real(invecs(i)))
+  enddo
+  call print_line('Outvecs:')
+  do i=1,size(outvecs)
+    call print_line(real(outvecs(i)))
+  enddo
   
-  call testsub(this)
+  invecs = [vec([one,zero,zero]), vec([one,one,one]), vec([one,one,one])]
+  outvecs = orthonormalise(invecs)
+  call print_line('')
+  call print_line('Invecs:')
+  do i=1,size(invecs)
+    call print_line(real(invecs(i)))
+  enddo
+  call print_line('Outvecs:')
+  do i=1,size(outvecs)
+    call print_line(real(outvecs(i)))
+  enddo
+  
+  invecs = [vec([one,zero,zero]), vec([one,one,one]), vec([one,one,one])]
+  outvecs = orthonormalise(invecs,0.1_dp)
+  call print_line('')
+  call print_line('Invecs:')
+  do i=1,size(invecs)
+    call print_line(real(invecs(i)))
+  enddo
+  call print_line('Outvecs:')
+  do i=1,size(outvecs)
+    call print_line(real(outvecs(i)))
+  enddo
+  
+  invecs = [ vec([small,small,zero]),   &
+           & vec([zero,small,zero]),  &
+           & vec([small,zero,zero]),  &
+           & vec([zero,zero,zero]), &
+           & vec([one,one,zero]) ]
+  outvecs = orthonormalise(invecs,1e-2_dp)
+  call print_line('')
+  call print_line('Invecs:')
+  do i=1,size(invecs)
+    call print_line(real(invecs(i)))
+  enddo
+  call print_line('Outvecs:')
+  do i=1,size(outvecs)
+    call print_line(real(outvecs(i)))
+  enddo
+  
 end subroutine
 end module

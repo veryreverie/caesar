@@ -78,6 +78,6 @@ function atom_mapping(structure_a,structure_b) result(output)
     enddo
   enddo
   
-  output = mapping
+  output = Group(mapping)
 end function
 end module

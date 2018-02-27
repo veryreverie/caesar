@@ -34,6 +34,9 @@ module eigenstuff_module
     complex(dp), allocatable :: evec(:)
   end type
   
+  ! --------------------------------------------------
+  ! Interfaces.
+  ! --------------------------------------------------
   interface diagonalise_symmetric
     module procedure diagonalise_symmetric_reals
     module procedure diagonalise_symmetric_RealMatrix
@@ -274,7 +277,8 @@ function diagonalise_hermitian_ComplexMatrix(input) result(output)
 end function
 
 ! --------------------------------------------------
-! Calculates the eigenvalues and eigenvectors of a general complex matrix.
+! Calculates the eigenvalues and eigenvectors of
+!    a general square complex matrix.
 ! --------------------------------------------------
 function diagonalise_complex_complexes(input) result(output)
   implicit none
@@ -305,7 +309,7 @@ function diagonalise_complex_complexes(input) result(output)
           & stat=ialloc); call err(ialloc)
   a = input
   
-  ! calculate optimal lwork
+  ! calculate optimal lwork.
   call zgeev( jobvl = 'V',   &
             & jobvr = 'V',   &
             & n     = n,     &
@@ -371,6 +375,7 @@ end function
 ! Sorts outputs in order of the phase of the eigenvalue.
 function diagonalise_unitary_complexes(input,order) result(output)
   use logic_module
+  use qr_decomposition_module
   implicit none
   
   complex(dp), intent(in)              :: input(:,:)
@@ -379,7 +384,10 @@ function diagonalise_unitary_complexes(input,order) result(output)
   
   type(ComplexEigenstuff), allocatable :: estuff(:)
   
-  integer :: i,ialloc
+  integer,             allocatable :: degenerate_modes(:)
+  type(ComplexVector), allocatable :: degenerate_evecs(:)
+  
+  integer :: i,j,ialloc
   
   ! Diagonalise matrix.
   estuff = diagonalise_complex(input)
@@ -393,6 +401,29 @@ function diagonalise_unitary_complexes(input,order) result(output)
   
   ! Sort output in ascending order of phase.
   output = output(sort(output,compare_phases))
+  
+  ! Orthonormalise degenerate eigenvectors.
+  do i=1,size(output)
+    degenerate_modes = filter(output%eval==output(i)%eval)
+    if (degenerate_modes(1)<i) then
+      ! This mode has already been processed.
+      cycle
+    elseif (size(degenerate_modes)==1) then
+      ! This mode is not degenerate with any other mode.
+      cycle
+    endif
+    
+    allocate( degenerate_evecs(size(degenerate_modes)), &
+            & stat=ialloc); call err(ialloc)
+    do j=1,size(degenerate_modes)
+      degenerate_evecs(j) = vec(output(degenerate_modes(j))%evec)
+    enddo
+    degenerate_evecs = orthonormalise(degenerate_evecs)
+    do j=1,size(degenerate_modes)
+      output(degenerate_modes(j))%evec = cmplx(degenerate_evecs(j))
+    enddo
+    deallocate(degenerate_evecs, stat=ialloc); call err(ialloc)
+  enddo
 contains
   ! A lambda for ordering phases.
   ! Captures nothing.

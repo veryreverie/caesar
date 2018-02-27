@@ -1,22 +1,18 @@
 ! ======================================================================
-! A simple heap-allocated String class
+! A simple heap-allocated String class.
+! Allows for inhomogeneous character arrays for e.g. storing files.
 ! ======================================================================
 module string_module
   use constants_module, only : dp
-  
   use string_base_module
   implicit none
   
   private
   
-  ! ----------------------------------------------------------------------
-  ! Public interface
-  ! ----------------------------------------------------------------------
-  
-  public :: Stringable
+  ! The String class.
   public :: String
   
-  ! Conversions between classes
+  ! Conversions between classes.
   public :: str   ! Conversion to String.
   public :: char  ! Conversion from String to character.
   
@@ -34,12 +30,7 @@ module string_module
   ! Concatenate to String.
   public :: operator(//)
   
-  ! ----------------------------------------------------------------------
-  ! The String class.
-  ! ----------------------------------------------------------------------
-  
-  ! The String class, containing an allocatable character string.
-  ! Allows for inhomogeneous character arrays for e.g. storing files.
+  ! The class itself.
   type, extends(StringBase) :: String
   contains
     generic, public :: operator(==) => equality_String_String,    &
@@ -60,39 +51,9 @@ module string_module
     procedure, private, pass(that) :: non_equality_character_String
   end type
   
-  ! ----------------------------------------------------------------------
-  ! The Stringable class.
-  ! ----------------------------------------------------------------------
-  
-  ! An abstract type, which allows extended types to be turned into strings.
-  ! Any type which extends Stringable can be:
-  !    - converted to String, using string=this or str(this).
-  !    - concatenated, using string//this or character//this.
-  !    - printed to stdout, using print_line(this).
-  !    - printed to file, using file%print_line(this).
-  ! See example module below for how to use this module.
-  type, abstract :: Stringable
-  contains
-    procedure(str_Stringable), deferred :: str
-  end type
-  
-  abstract interface
-    recursive function str_Stringable(this) result(output)
-      import String
-      import Stringable
-      implicit none
-      
-      class(Stringable), intent(in) :: this
-      type(String)                  :: output
-    end function
-  end interface
-  
-  ! ----------------------------------------------------------------------
   ! Interfaces
-  ! ----------------------------------------------------------------------
   interface assignment(=)
     module procedure assign_String_String
-    module procedure assign_String_Stringable
     module procedure assign_String_logical
     module procedure assign_String_integer
     module procedure assign_String_real
@@ -106,9 +67,6 @@ module string_module
   interface str
     module procedure str_character
     module procedure str_String
-    module procedure str_Stringable_0d
-    module procedure str_Stringable_1d
-    module procedure str_Stringable_2d
     module procedure str_integer
     module procedure str_real
     module procedure str_logical
@@ -150,11 +108,6 @@ module string_module
     module procedure concatenate_character_String
     module procedure concatenate_String_character
     module procedure concatenate_String_String
-    
-    module procedure concatenate_character_Stringable
-    module procedure concatenate_Stringable_character
-    module procedure concatenate_String_Stringable
-    module procedure concatenate_Stringable_String
                                      
     module procedure concatenate_character_integer
     module procedure concatenate_integer_character
@@ -209,16 +162,6 @@ subroutine assign_String_String(output,input)
   class(String), intent(in)  :: input
   
   output = char(input)
-end subroutine
-
-! String = Stringable
-recursive subroutine assign_String_Stringable(output,input)
-  implicit none
-  
-  type(String),      intent(out) :: output
-  class(Stringable), intent(in)  :: input
-  
-  output = input%str()
 end subroutine
 
 ! String = logical
@@ -319,55 +262,6 @@ impure elemental function str_String(this) result(output)
   type(String)             :: output
   
   output = this
-end function
-
-! N.B. can't use impure elemental because this must be recursive.
-! N.B. can't use err() because that relies on this module.
-recursive function str_Stringable_0d(this) result(output)
-  implicit none
-  
-  class(Stringable), intent(in) :: this
-  type(String)                  :: output
-  
-  output = this
-end function
-
-recursive function str_Stringable_1d(this) result(output)
-  use error_module
-  implicit none
-  
-  class(Stringable), intent(in) :: this(:)
-  type(String), allocatable     :: output(:)
-  
-  integer :: i,ialloc
-  
-  allocate(output(size(this)), stat=ialloc)
-  if (ialloc/=0) then
-    write(*,*) ERROR//': Allocation error.'
-    call abort_with_stacktrace()
-  endif
-  do i=1,size(this)
-    output(i) = str(this(i))
-  enddo
-end function
-
-recursive function str_Stringable_2d(this) result(output)
-  use error_module
-  implicit none
-  
-  class(Stringable), intent(in) :: this(:,:)
-  type(String), allocatable     :: output(:,:)
-  
-  integer :: i,ialloc
-  
-  allocate(output(size(this,1),size(this,2)), stat=ialloc)
-  if (ialloc/=0) then
-    write(*,*) ERROR//': Allocation error.'
-    call abort_with_stacktrace()
-  endif
-  do i=1,size(this,2)
-    output(:,i) = str(this(:,i))
-  enddo
 end function
 
 impure elemental function str_logical(this) result(output)
@@ -761,54 +655,6 @@ function concatenate_String_String(this,that) result(output)
   type(String)              :: output
   
   output = char(this)//char(that)
-end function
-
-! --------------------------------------------------
-! Concatenation of string types and Stringable types.
-! --------------------------------------------------
-
-! String = character//Stringable
-function concatenate_character_Stringable(this,that) result(output)
-  implicit none
-  
-  character(*),      intent(in) :: this
-  class(Stringable), intent(in) :: that
-  type(String)                  :: output
-  
-  output = this//that%str()
-end function
-
-! String = Stringable//character
-function concatenate_Stringable_character(this,that) result(output)
-  implicit none
-  
-  class(Stringable), intent(in) :: this
-  character(*),      intent(in) :: that
-  type(String)                  :: output
-  
-  output = this%str()//that
-end function
-
-! String = String//Stringable
-recursive function concatenate_String_Stringable(this,that) result(output)
-  implicit none
-  
-  type(String),      intent(in) :: this
-  class(Stringable), intent(in) :: that
-  type(String)                  :: output
-  
-  output = this//that%str()
-end function
-
-! String = Stringable//String
-recursive function concatenate_Stringable_String(this,that) result(output)
-  implicit none
-  
-  class(Stringable), intent(in) :: this
-  type(String),      intent(in) :: that
-  type(String)                  :: output
-  
-  output = this%str()//that
 end function
 
 ! --------------------------------------------------

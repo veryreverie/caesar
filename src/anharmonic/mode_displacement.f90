@@ -7,6 +7,7 @@ module mode_displacement_module
   use io_module
   
   use single_mode_displacement_module
+  use stringable_module
   use printable_module
   implicit none
   
