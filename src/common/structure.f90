@@ -101,7 +101,8 @@ module structure_module
     
     ! Procedures involved in constructing a StructureData.
     procedure, private :: calculate_symmetries
-    procedure, private :: calculate_symmetry_group_and_inverses
+    procedure, private :: calculate_symmetry_group
+    procedure, private :: calculate_symmetry_inverses
     procedure, private :: calculate_rvector_group
     procedure, private :: calculate_gvector_group
   end type
@@ -355,8 +356,16 @@ function new_StructureData(lattice_matrix,supercell_matrix,rvectors,gvectors, &
     basic_symmetries = basic_symmetries_in
   endif
   
-  this%symmetries = this%calculate_symmetries(basic_symmetries)
-  call this%calculate_symmetry_group_and_inverses()
+  if (size(basic_symmetries)/=0) then
+    this%symmetries = this%calculate_symmetries(basic_symmetries)
+    this%symmetry_group = this%calculate_symmetry_group()
+    this%symmetry_inverse_ids_ =  this%calculate_symmetry_inverses()
+  else
+    this%symmetries = [SymmetryOperator::]
+    this%symmetry_group = [Group::]
+    this%symmetry_inverse_ids_ = [integer::]
+  endif
+  
   call this%calculate_rvector_group()
   call this%calculate_gvector_group()
 end function
@@ -772,12 +781,12 @@ end function
 ! ----------------------------------------------------------------------
 ! Makes a supercell from a given primitive cell and supercell matrix.
 ! ----------------------------------------------------------------------
-function construct_supercell(structure,supercell_matrix,calculate_symmetries, &
+function construct_supercell(this,supercell_matrix,calculate_symmetries, &
    & symmetry_precision) result(supercell)
   use linear_algebra_module
   implicit none
   
-  type(StructureData), intent(in)           :: structure
+  type(StructureData), intent(in)           :: this
   type(IntMatrix),     intent(in)           :: supercell_matrix
   logical,             intent(in), optional :: calculate_symmetries
   real(dp),            intent(in), optional :: symmetry_precision
@@ -819,16 +828,16 @@ function construct_supercell(structure,supercell_matrix,calculate_symmetries, &
   endif
   
   ! Construct atomic information.
-  allocate( species(structure%no_atoms),           &
-          & masses(structure%no_atoms),            &
-          & positions(structure%no_atoms,sc_size), &
+  allocate( species(this%no_atoms),           &
+          & masses(this%no_atoms),            &
+          & positions(this%no_atoms,sc_size), &
           & stat=ialloc); call err(ialloc)
-  do prim=1,structure%no_atoms
-    species(prim) = structure%atoms(prim)%species()
-    masses(prim) = structure%atoms(prim)%mass()
+  do prim=1,this%no_atoms
+    species(prim) = this%atoms(prim)%species()
+    masses(prim) = this%atoms(prim)%mass()
     do rvec=1,sc_size
-      positions(prim,rvec) = transpose(structure%lattice)                  &
-                         & * ( structure%atoms(prim)%fractional_position() &
+      positions(prim,rvec) = transpose(this%lattice)                  &
+                         & * ( this%atoms(prim)%fractional_position() &
                          &   + rvectors(rvec))
     enddo
   enddo
@@ -841,29 +850,27 @@ function construct_supercell(structure,supercell_matrix,calculate_symmetries, &
   
   ! Construct output.
   if (calculate_symmetries_flag) then
-    supercell = StructureData(                                  &
-       & supercell_matrix * structure%lattice,                  &
-       & supercell_matrix,                                      &
-       & calculate_unique_vectors(supercell_matrix, .false.),   &
-       & calculate_unique_vectors( transpose(supercell_matrix), &
-       &                     .true.),                           &
-       & species,                                               &
-       & masses,                                                &
-       & positions,                                             &
+    supercell = StructureData(                                          &
+       & supercell_matrix * this%lattice,                               &
+       & supercell_matrix,                                              &
+       & calculate_unique_vectors(supercell_matrix, .false.),           &
+       & calculate_unique_vectors(transpose(supercell_matrix), .true.), &
+       & species,                                                       &
+       & masses,                                                        &
+       & positions,                                                     &
        & symmetry_precision=symmetry_precision)
   else
     ! A compiler bug in gfortran 5.4 prevents [SymmetryOperator::] being passed
     !    directly to the function.
     empty_symmetries = [BasicSymmetry::]
-    supercell = StructureData(                                  &
-       & supercell_matrix * structure%lattice,                  &
-       & supercell_matrix,                                      &
-       & calculate_unique_vectors(supercell_matrix, .false.),   &
-       & calculate_unique_vectors( transpose(supercell_matrix), &
-       &                     .true.),                           &
-       & species,                                               &
-       & masses,                                                &
-       & positions,                                             &
+    supercell = StructureData(                                          &
+       & supercell_matrix * this%lattice,                               &
+       & supercell_matrix,                                              &
+       & calculate_unique_vectors(supercell_matrix, .false.),           &
+       & calculate_unique_vectors(transpose(supercell_matrix), .true.), &
+       & species,                                                       &
+       & masses,                                                        &
+       & positions,                                                     &
        & basic_symmetries_in=empty_symmetries)
   endif
 end function
@@ -914,9 +921,9 @@ function calculate_symmetries(this,symmetries) result(output)
   !    - output(i)%rvector(j)     = R.
   
   ! Work out which atoms map to which atoms under each symmetry operation.
-  allocate( offsets(this%no_atoms),                     &
-          & operations(this%no_atoms, no_symmetries),   &
-          & rvectors(this%no_atoms, no_symmetries),     &
+  allocate( offsets(this%no_atoms),                             &
+          & operations(this%no_atoms, no_symmetries),           &
+          & rvectors(this%no_atoms, no_symmetries),             &
           & prim_operations(this%no_atoms_prim, no_symmetries), &
           & prim_rvectors(this%no_atoms_prim, no_symmetries),   &
           & stat=ialloc); call err(ialloc)
@@ -984,7 +991,7 @@ function calculate_symmetries(this,symmetries) result(output)
         call err()
       endif
       
-      if (this%atoms(operations(j,i))%species()/=atom_j%species()) then
+      if (this%atoms(operations(j,i))%species()/=this%atoms(j)%species()) then
         call print_line('Error: symmetry operation between different species.')
         call err()
       endif
@@ -1005,10 +1012,16 @@ function calculate_symmetries(this,symmetries) result(output)
   enddo
 end function
 
-subroutine calculate_symmetry_group_and_inverses(this)
+! --------------------------------------------------
+! Calculates how symmetries map symmetries onto other symmetries.
+! --------------------------------------------------
+! symmetry_group(i) * j = k if symmetry i * symmetry j = symmetry k,
+!    modulo translations by lattice vectors.
+function calculate_symmetry_group(this) result(output)
   implicit none
   
-  class(StructureData), intent(inout) :: this
+  class(StructureData), intent(in) :: this
+  type(Group), allocatable         :: output(:)
   
   integer, allocatable :: symmetry_group(:)
   type(IntMatrix)      :: rotation_ij
@@ -1017,14 +1030,8 @@ subroutine calculate_symmetry_group_and_inverses(this)
   
   integer :: i,j,k,ialloc
   
-  ! --------------------------------------------------
-  ! Calculates how symmetries map symmetries onto other symmetries.
-  ! --------------------------------------------------
-  ! symmetry_group(i) * j = k if symmetry i * symmetry j = symmetry k,
-  !    modulo translations by lattice vectors.
-  
-  allocate( symmetry_group(size(this%symmetries)),      &
-          & this%symmetry_group(size(this%symmetries)), &
+  allocate( symmetry_group(size(this%symmetries)), &
+          & output(size(this%symmetries)),         &
           & stat=ialloc); call err(ialloc)
   do i=1,size(this%symmetries)
     symmetry_group = 0
@@ -1052,13 +1059,26 @@ subroutine calculate_symmetry_group_and_inverses(this)
       endif
     enddo
     
-    this%symmetry_group(i) = Group(symmetry_group)
+    output(i) = Group(symmetry_group)
   enddo
+end function
 
-  ! --------------------------------------------------
-  ! Calculates the inverse of each symmetry.
-  ! --------------------------------------------------
-  ! If symmetry i * symmetry j = I then this%symmetry_inverse_ids_(i)=j.
+! --------------------------------------------------
+! Calculates the inverse of each symmetry.
+! --------------------------------------------------
+! If symmetry i * symmetry j = I then this%symmetry_inverse_ids_(i)=j.
+function calculate_symmetry_inverses(this) result(output)
+  implicit none
+  
+  class(StructureData), intent(in) :: this
+  integer, allocatable             :: output(:)
+  
+  integer, allocatable :: symmetry_group(:)
+  type(IntMatrix)      :: rotation_ij
+  type(Group)          :: atom_group_ij
+  integer              :: identity
+  
+  integer :: i,j,k,ialloc
   
   ! Locate the identity operator. S*S=S iff S=I.
   identity = 0
@@ -1080,18 +1100,15 @@ subroutine calculate_symmetry_group_and_inverses(this)
   endif
   
   ! Locate the inverse of each operator.
-  allocate( this%symmetry_inverse_ids_(size(this%symmetries)), &
-          & stat=ialloc); call err(ialloc)
-  this%symmetry_inverse_ids_ = 0
+  allocate(output(size(this%symmetries)), stat=ialloc); call err(ialloc)
+  output = 0
   do i=1,size(this%symmetries)
     do j=1,size(this%symmetries)
       if (this%symmetry_group(i)*j==identity) then
-        if ( this%symmetry_inverse_ids_(i)==0 .and. &
-           & this%symmetry_inverse_ids_(j)==0) then
-          this%symmetry_inverse_ids_(i) = j
-          this%symmetry_inverse_ids_(j) = i
-        elseif ( this%symmetry_inverse_ids_(i)/=j .or. &
-               & this%symmetry_inverse_ids_(j)/=i) then
+        if (output(i)==0 .and. output(j)==0) then
+          output(i) = j
+          output(j) = i
+        elseif (output(i)/=j .or. output(j)/=i) then
           call print_line(ERROR//': Symmetry inverses are not consistent.')
           call err()
         endif
@@ -1099,9 +1116,9 @@ subroutine calculate_symmetry_group_and_inverses(this)
     enddo
   enddo
   
-  if (any(this%symmetry_inverse_ids_==0)) then
+  if (any(output==0)) then
     call print_line(ERROR//': Unable to find all symmetry inverses.')
     call err()
   endif
-end subroutine
+end function
 end module

@@ -110,7 +110,7 @@ end function
 !    the Brillouin zone.
 ! ----------------------------------------------------------------------
 subroutine generate_dos(supercell,min_images,force_constants,temperature, &
-   & free_energy_filename,dos_filename,logfile)
+   & no_dos_samples,free_energy_filename,dos_filename,logfile)
   use ofile_module
   use structure_module
   use min_images_module
@@ -122,33 +122,53 @@ subroutine generate_dos(supercell,min_images,force_constants,temperature, &
   type(MinImages),      intent(in)    :: min_images(:,:)
   type(ForceConstants), intent(in)    :: force_constants
   real(dp),             intent(in)    :: temperature
+  integer,              intent(in)    :: no_dos_samples
   type(String),         intent(in)    :: free_energy_filename
   type(String),         intent(in)    :: dos_filename
   type(OFile),          intent(inout) :: logfile
   
-  integer,  parameter :: no_bins=1000,no_prelims=10000,no_samples=100000
-  integer,  parameter :: print_every = 10000
-  real(dp), parameter :: safety_margin=0.15_dp
+  ! Calculation parameter.
+  integer  :: no_bins
+  integer  :: no_prelims
+  integer  :: print_every
+  real(dp) :: safety_margin
   
-  integer :: i_sample,i_freq,i_bin
-  real(dp) :: max_freq,min_freq,freq_spread,frac(3),bin_width,&
-    &freq_dos(no_bins),free_energy,omega
-  type(RealVector) :: qpoint
+  ! Parameters calculated based on preliminary calculation.
+  real(dp) :: min_freq
+  real(dp) :: max_freq
+  real(dp) :: freq_spread
+  real(dp) :: frac(3)
+  real(dp) :: bin_width
   
+  ! Output variables.
+  real(dp), allocatable :: freq_dos(:)
+  real(dp)              :: free_energy
+  real(dp)              :: omega
+  
+  ! Working variables.
+  type(RealVector)      :: qpoint
   type(DynamicalMatrix) :: dyn_mat
   
   ! files.
   type(OFile) :: free_energy_file
   type(OFile) :: dos_file
   
+  ! Temporary variables.
+  integer :: i_sample,i_freq,i_bin,ialloc
+  
+  ! Set parameters for calculation.
+  no_bins       = no_dos_samples/100
+  no_prelims    = no_dos_samples/10
+  print_every   = no_dos_samples/10
+  safety_margin = 0.15_dp
+  
   ! Initialise the random number generator
   call random_seed()
   
-  max_freq=-1.0_dp
-  min_freq=huge(1.0_dp)
-  
   ! Establish (approximate) maximum and minimum frequencies and hence
-  ! choose the bin width.
+  !    choose the bin width.
+  max_freq = -huge(1.0_dp)
+  min_freq =  huge(1.0_dp)
   do i_sample=1,no_prelims
     call random_number(frac)
     qpoint = vec(frac)
@@ -172,13 +192,14 @@ subroutine generate_dos(supercell,min_images,force_constants,temperature, &
   
   ! Spread out min and max frequencies to leave safety margin.
   freq_spread = max_freq-min_freq
-  min_freq = max_freq-(1+safety_margin)*freq_spread
-  max_freq = min_freq+(1+2*safety_margin)*freq_spread
-  freq_spread = freq_spread*(1+2*safety_margin)
+  min_freq = min_freq - safety_margin*freq_spread
+  max_freq = max_freq + safety_margin*freq_spread
   bin_width=(max_freq-min_freq)/no_bins
-  freq_dos=0.0_dp
   
-  do i_sample=1,no_samples
+  ! Calculate density of states.
+  allocate(freq_dos(no_bins), stat=ialloc); call err(ialloc)
+  freq_dos=0.0_dp
+  do i_sample=1,no_dos_samples
     call random_number(frac)
     qpoint = vec(frac)
     dyn_mat = DynamicalMatrix( qpoint,          &
@@ -203,28 +224,15 @@ subroutine generate_dos(supercell,min_images,force_constants,temperature, &
     enddo
     
     if (modulo(i_sample,print_every)==0) then
-      call print_line('Calculating DOS: '//i_sample//' of '//no_samples// &
+      call print_line('Calculating DOS: '//i_sample//' of '//no_dos_samples// &
          & ' samples complete.')
     endif
   enddo
   
-  !free_energy = 0.0_dp
-  !do i_bin=1,no_bins
-  !  omega = bin_width*(dble(i_bin)-0.5_dp)
-  !  free_energy = free_energy                               &
-  !            & +   freq_dos(i_bin)                         &
-  !            &   * harmonic_free_energy(temperature,omega) &
-  !            &   / no_samples
-  !enddo
-  !
-  !free_energy_file = free_energy_filename
-  !call free_energy_file%print_line(free_energy)
-  
   ! Normalise frequency DoS so that its integral is the number of
-  !    degrees of freedom in the primitive cell. Note that the total
-  !    number of frequencies sampled is no_samples*supercell%no_modes_prim.
-  ! (Imaginary frequencies are ignored, however.)
-  freq_dos = freq_dos/(no_samples*bin_width)
+  !    degrees of freedom in the primitive cell.
+  ! N.B. the total number of frequencies sampled is no_samples*no_modes_prim.
+  freq_dos = freq_dos/(no_dos_samples*bin_width)
   
   ! Write out the frequency DoS.
   dos_file = dos_filename
@@ -235,6 +243,19 @@ subroutine generate_dos(supercell,min_images,force_constants,temperature, &
     call dos_file%print_line( 'Bin DOS: '//freq_dos(i_bin))
     call dos_file%print_line( '')
   enddo
+  
+  ! Calculate free energy.
+  !free_energy = 0.0_dp
+  !do i_bin=1,no_bins
+  !  omega = bin_width*(dble(i_bin)-0.5_dp)
+  !  free_energy = free_energy                               &
+  !            & +   freq_dos(i_bin)                         &
+  !            &   * harmonic_free_energy(temperature,omega) &
+  !            &   / no_dos_samples
+  !enddo
+  !
+  !free_energy_file = free_energy_filename
+  !call free_energy_file%print_line(free_energy)
 end subroutine
 
 ! ----------------------------------------------------------------------
@@ -455,8 +476,8 @@ end subroutine
 ! ----------------------------------------------------------------------
 ! Calculates energy and free energy for a single supercell.
 ! ----------------------------------------------------------------------
-subroutine calculate_lte_and_ltfe(supercell,force_constants, &
-   & temperature,free_energy_filename,freq_dos_filename, &
+subroutine calculate_lte_and_ltfe(supercell,force_constants,            &
+   & temperature,no_dos_samples,free_energy_filename,freq_dos_filename, &
    & tdependence1_filename,tdependence2_filename,logfile)
   use structure_module
   use min_images_module
@@ -467,6 +488,7 @@ subroutine calculate_lte_and_ltfe(supercell,force_constants, &
   type(StructureData),  intent(in)    :: supercell
   type(ForceConstants), intent(in)    :: force_constants
   real(dp),             intent(in)    :: temperature
+  integer,              intent(in)    :: no_dos_samples
   type(String),         intent(in)    :: free_energy_filename
   type(String),         intent(in)    :: freq_dos_filename
   type(String),         intent(in)    :: tdependence1_filename
@@ -501,6 +523,7 @@ subroutine calculate_lte_and_ltfe(supercell,force_constants, &
                    & min_images,           &
                    & force_constants,      &
                    & temperature,          &
+                   & no_dos_samples,       &
                    & free_energy_filename, &
                    & freq_dos_filename,    &
                    & logfile)

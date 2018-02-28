@@ -391,8 +391,8 @@ function castep_input_file_to_StructureData(filename, symmetry_precision) &
   ! Make output.
   output = StructureData( mat(lattice),            &
                         & make_identity_matrix(3), &
-                        & [vec([0,0,0])],          &
-                        & [vec([0,0,0])],          &
+                        & [zeroes(3)],             &
+                        & [zeroes(3)],             &
                         & species,                 &
                         & masses,                  &
                         & positions,               &

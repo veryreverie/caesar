@@ -29,9 +29,14 @@ function calculate_dos_and_dispersion_keywords() result(keywords)
   &              'path is the path through fractional reciprocal space which &
   &will be mapped by the phonon dispersion curve. The path should be &
   &specified as labels and q-points, separated by commas. The Gamma-point &
-  &should be labelled G.', &
+  &should be labelled G.',                                                    &
   &              default_value='G 0.0 0.0 0.0, R 0.5 0.5 0.5, M 0.0 0.5 0.5, &
-  &G 0.0 0.0 0.0, X 0.0 0.0 0.5') ]
+  &G 0.0 0.0 0.0, X 0.0 0.0 0.5'),                                            &
+  & KeywordData( 'no_dos_samples',                                            &
+  &              'no_dos_samples is the number of points in reciprocal space &
+  &at which the normal modes are calculated when calculating the vibrational &
+  &density of states.',                                                       &
+  &              default_value='100000') ]
 end function
 
 function calculate_dos_and_dispersion_mode() result(output)
@@ -71,6 +76,7 @@ subroutine calculate_dos_and_dispersion(arguments)
   type(String),     allocatable :: path_string(:)
   type(String),     allocatable :: path_labels(:)
   type(RealVector), allocatable :: path_qpoints(:)
+  integer                       :: no_dos_samples
   
   ! Previously calculated data.
   type(StructureData)                :: structure
@@ -96,6 +102,7 @@ subroutine calculate_dos_and_dispersion(arguments)
   wd = arguments%value('working_directory')
   temperature = dble(arguments%value('temperature'))
   path_string = split(arguments%value('path'), ',')
+  no_dos_samples = int(arguments%value('no_dos_samples'))
   
   ! --------------------------------------------------
   ! Generate path for dispersion calculation.
@@ -168,6 +175,7 @@ subroutine calculate_dos_and_dispersion(arguments)
                    & min_images,             &
                    & force_constants,        &
                    & temperature,            &
+                   & no_dos_samples,         &
                    & wd//'/free_energy.dat', &
                    & wd//'/freq_dos.dat',    &
                    & logfile)

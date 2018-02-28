@@ -155,7 +155,7 @@ subroutine setup_harmonic(arguments)
                               & 3,3)
   large_supercell = construct_supercell( structure,              &
                                        & large_supercell_matrix, &
-                                       & symmetry_precision=symmetry_precision)
+                                       & calculate_symmetries=.false.)
   call write_structure_file(large_supercell, wd//'/large_supercell.dat')
   
   ! --------------------------------------------------

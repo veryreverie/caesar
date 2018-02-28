@@ -56,8 +56,7 @@ contains
 !    supercell.
 ! --------------------------------------------------
 function new_DynamicalMatrix_calculated(qpoint,supercells,force_constants, &
-   & structure,large_supercell,degenerate_energy,degeneracy_id,logfile)    &
-   & result(this)
+   & structure,degenerate_energy,degeneracy_id,logfile) result(this)
   use utils_module, only : sum_squares
   use structure_module
   use min_images_module
@@ -74,7 +73,6 @@ function new_DynamicalMatrix_calculated(qpoint,supercells,force_constants, &
   type(StructureData),  intent(in)    :: supercells(:)
   type(ForceConstants), intent(in)    :: force_constants(:)
   type(StructureData),  intent(in)    :: structure
-  type(StructureData),  intent(in)    :: large_supercell
   real(dp),             intent(in)    :: degenerate_energy
   integer,              intent(in)    :: degeneracy_id
   type(OFile),          intent(inout) :: logfile
@@ -198,7 +196,7 @@ function new_DynamicalMatrix_calculated(qpoint,supercells,force_constants, &
   ! Diagonalise the dynamical matrix, to obtain the normal mode
   !    co-ordinates (eigenvectors) and harmonic frequencies (eigenvalues).
   this%complex_modes = calculate_modes( this%matrices_,    &
-                                      & large_supercell,   &
+                                      & structure,         &
                                       & qpoint,            &
                                       & degenerate_energy, &
                                       & degeneracy_id,     &

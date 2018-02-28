@@ -95,7 +95,7 @@ end function
 
 ! Calculate modes for one of the calculated q-points.
 ! Will lift degeneracies using symmetries.
-function calculate_modes_calculated(matrices,large_supercell,qpoint, &
+function calculate_modes_calculated(matrices,structure,qpoint, &
    &degenerate_energy,degeneracy_id,logfile) result(output)
   use utils_module, only : sum_squares
   use structure_module
@@ -108,7 +108,7 @@ function calculate_modes_calculated(matrices,large_supercell,qpoint, &
   implicit none
   
   type(ComplexMatrix), intent(in)    :: matrices(:,:)
-  type(StructureData), intent(in)    :: large_supercell
+  type(StructureData), intent(in)    :: structure
   type(QpointData),    intent(in)    :: qpoint
   real(dp),            intent(in)    :: degenerate_energy
   integer,             intent(in)    :: degeneracy_id
@@ -129,7 +129,7 @@ function calculate_modes_calculated(matrices,large_supercell,qpoint, &
   integer :: i,j,k,ialloc
   
   ! Calculate normal modes as if at an arbitrary q-point.
-  output = calculate_modes(matrices,large_supercell)
+  output = calculate_modes(matrices,structure)
   
   ! Identify purely translational modes (at the gamma-point only).
   output%translational_mode = .false.
@@ -144,9 +144,8 @@ function calculate_modes_calculated(matrices,large_supercell,qpoint, &
   endif
   
   ! Identify the symmetries which map the q-point to itself.
-  symmetries =                                                         &
-     & large_supercell%symmetries( filter( large_supercell%symmetries, &
-     &                                     leaves_q_invariant) )
+  symmetries = structure%symmetries( filter( structure%symmetries, &
+                                           & leaves_q_invariant) )
   
   ! Assign degeneracy ids, which are equal if two states are degenerate,
   !    and different if they are not.
