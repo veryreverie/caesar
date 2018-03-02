@@ -12,52 +12,59 @@ module logic_module
   
   public :: first
   public :: last
-  public :: evaluate
+  public :: operate
+  public :: map
   public :: filter
   public :: locate
   public :: sort
+  public :: set
   
   interface first
     module procedure first_logicals
-    module procedure first_lambda
+    module procedure first_LogicalLambda
   end interface
   
   interface last
     module procedure last_logicals
-    module procedure last_lambda
+    module procedure last_LogicalLambda
+  end interface
+  
+  interface operate
+    module procedure operate_OperationLambda
   end interface
   
   interface map
-    module procedure map_lambda
-  end interface
-  
-  interface evaluate
-    module procedure evaluate_lambda
+    module procedure map_LogicalLambda
   end interface
   
   interface filter
     module procedure filter_logicals
-    module procedure filter_lambda
+    module procedure filter_LogicalLambda
   end interface
   
   interface locate
-    module procedure locate_lambda
+    module procedure locate_ComparisonLambda
   end interface
   
   interface sort
     module procedure sort_integers
-    module procedure sort_lambda
+    module procedure sort_ComparisonLambda
+  end interface
+  
+  interface set
+    module procedure set_integers
+    module procedure set_ComparisonLambda
   end interface
   
   interface
-    function logical_lambda(input) result(output)
+    function LogicalLambda(input) result(output)
       implicit none
       
       class(*), intent(in) :: input
       logical              :: output
     end function
     
-    function compare_lambda(this,that) result(output)
+    function ComparisonLambda(this,that) result(output)
       implicit none
       
       class(*), intent(in) :: this
@@ -65,7 +72,7 @@ module logic_module
       logical              :: output
     end function
     
-    subroutine operate_lambda(this)
+    subroutine OperationLambda(this)
       implicit none
       
       class(*), intent(inout) :: this
@@ -115,11 +122,11 @@ function first_logicals(input,mask) result(output)
   output = 0
 end function
 
-function first_lambda(input,lambda,mask) result(output)
+function first_LogicalLambda(input,lambda,mask) result(output)
   implicit none
   
   class(*), intent(in)           :: input(:)
-  procedure(logical_lambda)      :: lambda
+  procedure(LogicalLambda)       :: lambda
   logical,  intent(in), optional :: mask(:)
   integer                        :: output
   
@@ -182,13 +189,13 @@ function last_logicals(input,mask) result(output)
   output = 0
 end function
 
-function last_lambda(input,lambda,mask) result(output)
+function last_LogicalLambda(input,lambda,mask) result(output)
   implicit none
   
-  class(*), intent(in)           :: input(:)
-  procedure(logical_lambda)      :: lambda
-  logical,  intent(in), optional :: mask(:)
-  integer                        :: output
+  class(*), intent(in)          :: input(:)
+  procedure(LogicalLambda)      :: lambda
+  logical, intent(in), optional :: mask(:)
+  integer                       :: output
   
   integer :: i
   
@@ -218,11 +225,11 @@ end function
 
 ! ----------------------------------------------------------------------
 ! Operates with a lambda on every element on a list.
-! e.g. if list=[2,3,7] then after map(list,add_one) list=[3,4,8].
+! e.g. if list=[2,3,7] then after operate(list,add_one) list=[3,4,8].
 ! ----------------------------------------------------------------------
-subroutine map_lambda(input,lambda)
-  class(*), intent(inout)   :: input(:)
-  procedure(operate_lambda) :: lambda
+subroutine operate_OperationLambda(input,lambda)
+  class(*), intent(inout)    :: input(:)
+  procedure(OperationLambda) :: lambda
   
   integer :: i
   
@@ -233,18 +240,18 @@ end subroutine
 
 ! ----------------------------------------------------------------------
 ! Applies a logical lambda to a list.
-! e.g. evaluate([2,3,7,1], less_than_3) returns [T,F,F,T].
+! e.g. map([2,3,7,1], less_than_3) returns [T,F,F,T].
 !
 ! A list of elements for which the lambda returns true can be returned using
 !    the pack intrinsic.
-! e.g. if list=[2,3,7,1], pack(list,evaluate(list,less_than_3)) returns [2,1].
+! e.g. if list=[2,3,7,1], pack(list,map(list,less_than_3)) returns [2,1].
 ! ----------------------------------------------------------------------
-function evaluate_lambda(input,lambda) result(output)
+function map_LogicalLambda(input,lambda) result(output)
   implicit none
   
-  class(*), intent(in)      :: input(:)
-  procedure(logical_lambda) :: lambda
-  logical, allocatable      :: output(:)
+  class(*), intent(in)     :: input(:)
+  procedure(LogicalLambda) :: lambda
+  logical, allocatable     :: output(:)
   
   integer :: i,ialloc
   
@@ -265,7 +272,7 @@ end function
 !    by the output of filter.
 ! e.g. if list=[1,8,2,7] then list(filter(list,is_even)) returns [8,2].
 !
-! list(filter(list,lambda)) is equivalent to pack(list,evaluate(list,lamba)).
+! list(filter(list,lambda)) is equivalent to pack(list,map(list,lamba)).
 ! ----------------------------------------------------------------------
 function filter_logicals(input) result(output)
   implicit none
@@ -281,14 +288,14 @@ function filter_logicals(input) result(output)
   output = pack(output, mask=input)
 end function
 
-function filter_lambda(input,lambda) result(output)
+function filter_LogicalLambda(input,lambda) result(output)
   implicit none
   
-  class(*), intent(in)      :: input(:)
-  procedure(logical_lambda) :: lambda
-  integer, allocatable      :: output(:)
+  class(*), intent(in)     :: input(:)
+  procedure(LogicalLambda) :: lambda
+  integer, allocatable     :: output(:)
   
-  output = filter(evaluate(input,lambda))
+  output = filter(map(input,lambda))
 end function
 
 ! ----------------------------------------------------------------------
@@ -300,11 +307,11 @@ end function
 ! If mask is present, only considers values for which mask is true.
 ! ----------------------------------------------------------------------
 ! N.B. assumes that the input list can be totally ordered using the comparison.
-function locate_lambda(input,lambda,mask) result(output)
+function locate_ComparisonLambda(input,lambda,mask) result(output)
   implicit none
   
   class(*), intent(in)          :: input(:)
-  procedure(compare_lambda)     :: lambda
+  procedure(ComparisonLambda)   :: lambda
   logical, intent(in), optional :: mask(:)
   integer                       :: output
   
@@ -315,6 +322,13 @@ function locate_lambda(input,lambda,mask) result(output)
   if (size(input)==0) then
     call print_line(CODE_ERROR//': Calling locate on an empty list.')
     call err()
+  endif
+  
+  if (present(mask)) then
+    if (size(mask)/=size(input)) then
+      call print_line(CODE_ERROR//': Input and Mask of different sizes.')
+      call err()
+    endif
   endif
   
   if (present(mask)) then
@@ -379,12 +393,12 @@ function sort_integers(input) result(output)
   enddo
 end function
 
-function sort_lambda(input,lambda) result(output)
+function sort_ComparisonLambda(input,lambda) result(output)
   implicit none
   
-  class(*), intent(in)      :: input(:)
-  procedure(compare_lambda) :: lambda
-  integer, allocatable      :: output(:)
+  class(*), intent(in)        :: input(:)
+  procedure(ComparisonLambda) :: lambda
+  integer, allocatable        :: output(:)
   
   logical, allocatable :: sorted(:)
   
@@ -400,6 +414,97 @@ function sort_lambda(input,lambda) result(output)
     sorted(j) = .true.
     output(i) = j
   enddo
+end function
+
+! ----------------------------------------------------------------------
+! The _integers variant returns the ids at which the first copy of each
+!    integer can be found.
+! e.g. set([1,1,3,1,2,3]) returns [1,3,5].
+!
+! To get the deduplicated list, the result of this function should be used
+!    to index the original list.
+! e.g. if list=[1,1,3,1,2,3] then list(set(list)) returns [1,3,2].
+!
+! The _lambda variant is the same but using the provided comparison lambda
+!    instead of integer comparison.
+!
+! If mask is provided, then only elements where mask=.true. will be considered.
+! ----------------------------------------------------------------------
+
+function set_integers(input,mask) result(output)
+  implicit none
+  
+  integer, intent(in)           :: input(:)
+  logical, intent(in), optional :: mask(:)
+  integer, allocatable          :: output(:)
+  
+  integer :: no_unique_elements
+  
+  integer :: i,ialloc
+  
+  if (present(mask)) then
+    if (size(mask)/=size(input)) then
+      call print_line(CODE_ERROR//': Input and Mask of different sizes.')
+      call err()
+    endif
+  endif
+  
+  allocate(output(size(input)), stat=ialloc); call err(ialloc)
+  no_unique_elements = 0
+  do i=1,size(input)
+    if (present(mask)) then
+      if (.not. mask(i)) then
+        cycle
+      endif
+    endif
+    if (.not. any(input(output(:no_unique_elements))==input(i))) then
+      no_unique_elements = no_unique_elements+1
+      output(no_unique_elements) = i
+    endif
+  enddo
+  
+  output = output(:no_unique_elements)
+end function
+
+function set_ComparisonLambda(input,lambda,mask) result(output)
+  implicit none
+  
+  class(*), intent(in)          :: input(:)
+  procedure(ComparisonLambda)   :: lambda
+  logical, intent(in), optional :: mask(:)
+  integer, allocatable          :: output(:)
+  
+  integer :: no_unique_elements
+  
+  integer :: i,j,ialloc
+  
+  if (present(mask)) then
+    if (size(mask)/=size(input)) then
+      call print_line(CODE_ERROR//': Input and Mask of different sizes.')
+      call err()
+    endif
+  endif
+  
+  allocate(output(size(input)), stat=ialloc); call err(ialloc)
+  no_unique_elements = 0
+  do_i : do i=1,size(input)
+    if (present(mask)) then
+      if (.not. mask(i)) then
+        cycle
+      endif
+    endif
+    
+    do j=1,no_unique_elements
+      if (lambda(input(i),input(output(j)))) then
+        cycle do_i
+      endif
+    enddo
+    
+    no_unique_elements = no_unique_elements + 1
+    output(no_unique_elements) = i
+  enddo do_i
+  
+  output = output(:no_unique_elements)
 end function
 end module
 
@@ -476,11 +581,11 @@ subroutine logic_example()
   call print_line('last(integers==1) should   = 3')
   call print_line('last(integers==1) actually = '//last(integers,equals))
   
-  ! evaluate(integers,equals)=[F,T,T,F,F] when val=1.
+  ! map(integers,equals)=[F,T,T,F,F] when val=1.
   call print_line('')
-  call print_line('evaluate(integers==1) should   = F T T F F')
-  call print_line('evaluate(integers==1) actually = '// &
-                 & evaluate(integers,equals))
+  call print_line('map(integers==1) should   = F T T F F')
+  call print_line('map(integers==1) actually = '// &
+                 & map(integers,equals))
   
   ! filter(integers,equals)=[2,3] when val=1.
   call print_line('')
@@ -494,11 +599,11 @@ subroutine logic_example()
   call print_line('integers(filter(integers==1)) actually = '// &
                  & integers(filter(integers,equals)))
   
-  ! pack(integers,evaluate(integers,equals)) = [1,1] when val=1.
+  ! pack(integers,map(integers,equals)) = [1,1] when val=1.
   call print_line('')
-  call print_line('pack(integers,evaluate(integers==1)) should   =  1  1')
-  call print_line('pack(integers,evaluate(integers==1)) actually = '// &
-                 & pack(integers,evaluate(integers,equals)))
+  call print_line('pack(integers,map(integers==1)) should   =  1  1')
+  call print_line('pack(integers,map(integers==1)) actually = '// &
+                 & pack(integers,map(integers,equals)))
   
   ! sort(integers) = [1,4,5,2,3] because elements 1, 4 and 5 are zero, so are
   !    sorted to the beginning, and elements 2 and 3 are 1.
@@ -523,9 +628,39 @@ subroutine logic_example()
   !    and this is then sorted.
   ! strings(2)=2 < strings(1)=3 < strings(3)=5, so the output is [2,1,3].
   call print_line('')
-  call print_line('sort(strings,string_to_int) should   =  2  1  3')
-  call print_line( 'sort(strings,string_to_int) actually = '// &
+  call print_line('sort(strings,less_than_strings) should   =  2  1  3')
+  call print_line( 'sort(strings,less_than_strings) actually = '// &
                  & sort(strings, less_than_strings))
+  
+  integers = [ 0, 1, 1, 0, 0 ]
+  call print_line('')
+  call print_line('integers should   =  0  1  1  0  0')
+  call print_line('integers actually = '//integers)
+  
+  ! set(integers) = [1,2].
+  ! integers(set(integers)) = [0,1].
+  call print_line('')
+  call print_line('set(integers) should   =  1  2')
+  call print_line('set(integers) actually = '//set(integers))
+  call print_line('integers(set(integers)) should   =  0  1')
+  call print_line( 'integers(set(integers)) actually = '// &
+                 & integers(set(integers)))
+  
+  strings = [ str('3'), str('1'), str('3'), str('2') ]
+  call print_line('')
+  call print_line('strings should   = 3 1 3 2')
+  call print_line('strings actually = '//join(strings))
+  
+  ! set(strings) = [1,2,4].
+  ! strings(set(strings)) = ['3','1','2'].
+  call print_line('')
+  call print_line('set(strings,equals_strings) should   =  1  2  4')
+  call print_line( 'set(strings,equals_strings) actually = '// &
+                 & set(strings,equals_strings))
+  call print_line( 'strings(set(strings,equals_strings)) should   &
+     &= 3 1 2')
+  call print_line( 'strings(set(strings,equals_strings)) actually &
+     &= '// join(strings(set(strings,equals_strings))))
 contains
 ! Lambda functions for passing to logic functions.
   
@@ -546,7 +681,7 @@ contains
     end select
   end function
 
-  ! Takes two strings, and compares them as integers.
+  ! Takes two strings, and compares them (<) as integers.
   function less_than_strings(this,that) result(output)
     implicit none
     
@@ -560,6 +695,29 @@ contains
         select type(that)
           type is(String)
             output = int(this) < int(that)
+          class default
+            call err()
+        end select
+        
+      class default
+        call err()
+    end select
+  end function
+  
+  ! Takes two strings, and compares them (==) as integers.
+  function equals_strings(this,that) result(output)
+    implicit none
+    
+    class(*), intent(in) :: this
+    class(*), intent(in) :: that
+    logical              :: output
+    
+    select type(this)
+      type is(String)
+        
+        select type(that)
+          type is(String)
+            output = int(this) == int(that)
           class default
             call err()
         end select

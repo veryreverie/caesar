@@ -38,6 +38,8 @@ end function
 ! ----------------------------------------------------------------------
 subroutine test(arguments)
   use dictionary_module
+  use logic_module
+  use logic_example_module
   use qr_decomposition_module
   implicit none
   
@@ -58,7 +60,14 @@ subroutine test(arguments)
   
   integer :: i
   
+  integer, allocatable :: list1(:)
+  integer, allocatable :: list2(:)
+  
   wd = arguments%value('working_directory')
+  
+  call logic_example()
+  
+  stop
   
   a = cmplx(mat([one,one,one,zero],2,2))
   qr = qr_decomposition(a)

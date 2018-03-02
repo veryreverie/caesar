@@ -28,7 +28,14 @@ function setup_anharmonic_keywords() result(keywords)
   &              'q-point_grid is the number of q-points in each direction in &
   &a Monkhorst-Pack grid. This should be specified as three integers &
   &separated by spaces. All q-points in this grid must also appear in the &
-  &grid used for harmonic calculations.')]
+  &grid used for harmonic calculations.'),                                    &
+  & KeywordData( 'potential_expansion_order',                                 &
+  &              'potential_expansion_order is the order up to which the &
+  &potential is expanded. e.g. if potential_expansion_order=4 then terms up &
+  &to and including u^4 are included.'),                                      &
+  & KeywordData( 'coupling_order',                                            &
+  &              'coupling_order is the maximum number of degenerate &
+  &subspaces which are coupled together.') ]
 end function
 
 function setup_anharmonic_mode() result(output)
@@ -57,6 +64,7 @@ subroutine setup_anharmonic(arguments)
   use polynomial_module
   use generate_qpoints_module
   use logic_module
+  use integer_arrays_module
   implicit none
   
   type(Dictionary), intent(in) :: arguments
@@ -64,6 +72,8 @@ subroutine setup_anharmonic(arguments)
   ! User inputs.
   type(String) :: wd
   type(String) :: harmonic_path
+  integer      :: potential_expansion_order
+  integer      :: coupling_order
   
   ! Previous user inputs.
   type(Dictionary) :: setup_harmonic_arguments
@@ -75,15 +85,22 @@ subroutine setup_anharmonic(arguments)
   type(StructureData)            :: structure
   type(QpointData),  allocatable :: harmonic_qpoints(:)
   type(ComplexMode), allocatable :: normal_modes(:)
+  integer,           allocatable :: mode_qpoints(:)
   
   ! Anharmonic q-points and the corresponding supercell.
   type(IntMatrix)                :: anharmonic_supercell_matrix
   type(StructureData)            :: anharmonic_supercell
   type(QpointData),  allocatable :: qpoints(:)
   
+  ! Degeneracy data.
+  integer,          allocatable :: degeneracy_ids(:)
+  type(IntArray1D), allocatable :: degenerate_mode_ids(:)
+  type(IntArray1D), allocatable :: degenerate_qpoint_ids(:)
+  
+  ! Coupling data.
+  type(IntArray1D), allocatable :: couplings(:)
+  
   ! Basis functions.
-  integer                        :: no_degenerate_spaces
-  integer,           allocatable :: mode_qpoints(:)
   type(ComplexMode), allocatable :: degenerate_modes(:)
   integer,           allocatable :: degenerate_mode_qpoints(:)
   type(Polynomial),  allocatable :: degenerate_mode_bases(:)
@@ -95,6 +112,8 @@ subroutine setup_anharmonic(arguments)
   wd = arguments%value('working_directory')
   harmonic_path = arguments%value('harmonic_path')
   qpoint_grid = int(split(arguments%value('q-point_grid')))
+  potential_expansion_order = int(arguments%value('potential_expansion_order'))
+  coupling_order = int(arguments%value('coupling_order'))
   
   ! Retrieve previous data.
   setup_harmonic_arguments = setup_harmonic_keywords()
@@ -146,21 +165,37 @@ subroutine setup_anharmonic(arguments)
     enddo
   enddo
   
-  ! Generate the basis functions for each degenerate set of modes.
-  no_degenerate_spaces = maxval(normal_modes%degeneracy_id)
-  do i=1,no_degenerate_spaces
-    ! Identify each set of degenerate modes, id by id.
-    degenerate_modes = normal_modes(filter(normal_modes%degeneracy_id==i))
-    degenerate_mode_qpoints = &
-       & mode_qpoints(filter(normal_modes%degeneracy_id==i))
-    
-    ! Ignore degeneracy ids for which there are no modes.
-    ! (missing modes are at harmonic q-points which are not anharmonic.)
-    if (size(degenerate_modes)==0) then
-      cycle
-    endif
-    
-    call print_line(degenerate_modes%degeneracy_id)
+  ! Identify the modes and corresponding q-points in each subspace.
+  degeneracy_ids = normal_modes%degeneracy_id
+  degeneracy_ids = degeneracy_ids(set(degeneracy_ids))
+  allocate( degenerate_mode_ids(size(degeneracy_ids)), &
+          & degenerate_qpoint_ids(size(degeneracy_ids)), &
+          & stat=ialloc); call err(ialloc)
+  do i=1,size(degeneracy_ids)
+    degenerate_modes = normal_modes(filter(normal_modes%degeneracy_id==degeneracy_ids(i)))
+    degenerate_mode_ids(i) = degenerate_modes%id
+    degenerate_qpoint_ids(i) = mode_qpoints(filter(normal_modes%degeneracy_id==degeneracy_ids(i)))
+  enddo
+  
+  ! Generate all possible couplings between subspaces.
+  allocate( couplings(size(degeneracy_ids)**potential_expansion_order), &
+          & stat=ialloc); call err(ialloc)
+  do i=1,size(couplings)
+    allocate( couplings(i)%i(potential_expansion_order), &
+            & stat=ialloc); call err(ialloc)
+    do j=1,potential_expansion_order
+      k = (i-1) / (size(degeneracy_ids)**(j-1))
+      k = modulo(k,size(degeneracy_ids))+1
+      couplings(i)%i(j) = degeneracy_ids(k)
+    enddo
+    call print_line(couplings(i))
+  enddo
+  
+  ! Remove couplings with more than coupling_order coupled subspaces.
+  couplings = couplings(filter(couplings,allowed_coupling))
+  
+  do i=1,size(couplings)
+    call print_line(couplings(i))
   enddo
   
   ! Combine degenerate sets to get full basis functions.
@@ -171,5 +206,20 @@ subroutine setup_anharmonic(arguments)
   
   ! Write out sampling points.
   ! TODO
+contains
+  ! Lambda for checking if a coupling has coupling_order subspaces or fewer.
+  ! Also checks that the coupling is in the sorted order.
+  ! Captures coupling_order.
+  function allowed_coupling(input) result(output)
+    implicit none
+    
+    class(*), intent(in) :: input
+    logical              :: output
+    
+    select type(input); type is(IntArray1D)
+      output = size(set(input%i)) <= coupling_order .and. &
+            & all(input%i(sort(input%i)) == input%i)
+    end select
+  end function
 end subroutine
 end module

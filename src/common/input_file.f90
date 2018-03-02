@@ -126,30 +126,31 @@ function parse_castep_input_file(filename) result(output)
   
   ! Check required blocks exist and all blocks are of reasonable sizes.
   if (lattice_block_start==0) then
-    call print_line('Error: lattice block not present in '//filename)
+    call print_line(ERROR//': lattice block not present in '//filename)
     call err()
   elseif (lattice_block_size <= 2) then
-    call print_line('Error: lattice block of unexpected size in '//filename)
+    call print_line(ERROR//': lattice block of unexpected size in '//filename)
     call err()
   elseif (positions_block_start==0) then
-    call print_line('Error: positions block not present in '//filename)
+    call print_line(ERROR//': positions block not present in '//filename)
     call err()
   elseif (positions_block_size <= 2) then
-    call print_line('Error: positions block of unexpected size in '//filename)
+    call print_line( ERROR//': positions block of unexpected size in '// &
+                   & filename)
     call err()
   elseif (masses_block_start==0) then
-    call print_line('Error: species_mass block not present in '//filename)
+    call print_line(ERROR//': species_mass block not present in '//filename)
     call err()
   elseif (masses_block_size <= 2) then
-    call print_line('Error: species_mass block of unexpected size in '// &
+    call print_line(ERROR//': species_mass block of unexpected size in '// &
        & filename)
     call err()
   elseif (kpoints_block_start/=0 .and. kpoints_block_size<=2) then
-    call print_line('Error: bs_kpoint_path block of unexpected size in '// &
+    call print_line(ERROR//': bs_kpoint_path block of unexpected size in '// &
        & filename)
     call err()
   elseif (kpoints_block_start==0 .and. kpoints_block_size/=0) then
-    call print_line('Error: bs_kpoint_path block of unexpected size in '// &
+    call print_line(ERROR//': bs_kpoint_path block of unexpected size in '// &
        & filename)
     call err()
   endif
@@ -266,7 +267,7 @@ function castep_input_file_to_StructureData(filename, symmetry_precision) &
     elseif (lattice_is_cart) then
       j = j+1
       if (j>3) then
-        call print_line('Error: too many lattice lines found in '//filename)
+        call print_line(ERROR//': too many lattice lines found in '//filename)
         call err()
       endif
       lattice(j,:) = dble(line(1:3))*conversion
@@ -278,7 +279,7 @@ function castep_input_file_to_StructureData(filename, symmetry_precision) &
       elseif (j==2) then
         angles = dble(line(1:3)) * pi/180
       else
-        call print_line('Error: too many lattice lines found in '//filename)
+        call print_line(ERROR//': too many lattice lines found in '//filename)
         call err()
       endif
     endif
@@ -323,7 +324,7 @@ function castep_input_file_to_StructureData(filename, symmetry_precision) &
       conversion = 1.0_dp / angstrom_per_bohr
     
     elseif (j>size(positions)) then
-      call print_line('Error: too many atom lines found in '//filename)
+      call print_line(ERROR//': too many atom lines found in '//filename)
     
     ! Read in atomic positions.
     else
@@ -384,7 +385,7 @@ function castep_input_file_to_StructureData(filename, symmetry_precision) &
   enddo
   
   if (.not. all(masses_found)) then
-    call print_line('Error: not all masses specified in '//filename)
+    call print_line(ERROR//': not all masses specified in '//filename)
     call err()
   endif
   

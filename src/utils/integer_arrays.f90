@@ -6,6 +6,10 @@ module integer_arrays_module
   use string_module
   use io_module
   
+  use stringable_module
+  use printable_module
+  implicit none
+  
   private
   
   public :: IntArray1D
@@ -15,33 +19,37 @@ module integer_arrays_module
   public :: size
   
   ! An array of integers.
-  type :: IntArray1D
+  type, extends(Stringable) :: IntArray1D
     integer, public, allocatable :: i(:)
   contains
-    generic, public :: assignment (= ) => assign_IntArray1D_integers
-    generic, public :: operator   (//) => concatenate_IntArray1D_integers, &
-                                        & concatenate_integers_IntArray1D, &
-                                        & concatenate_IntArray1D_IntArray1D
+    procedure, public :: str => str_IntArray1D
     
-    procedure, private             :: assign_IntArray1D_integers
-    procedure, private             :: concatenate_IntArray1D_integers
-    procedure, private, pass(that) :: concatenate_integers_IntArray1D
-    procedure, private             :: concatenate_IntArray1D_IntArray1D
+    generic,   public  :: assignment (= ) => assign_IntArray1D_integers
+    procedure, private ::                    assign_IntArray1D_integers
+    
+    generic, public :: operator (//) => concatenate_IntArray1D_integers, &
+                                      & concatenate_integers_IntArray1D, &
+                                      & concatenate_IntArray1D_IntArray1D
+    procedure, private             ::   concatenate_IntArray1D_integers
+    procedure, private, pass(that) ::   concatenate_integers_IntArray1D
+    procedure, private             ::   concatenate_IntArray1D_IntArray1D
   end type
   
   ! A array of IntArrays.
-  type :: IntArray2D
+  type, extends(Printable) :: IntArray2D
     type(IntArray1D), allocatable :: i(:)
   contains
-    generic, public :: assignment (= ) => assign_IntArray2D_IntArray1Ds
-    generic, public :: operator   (//) => concatenate_IntArray2D_IntArray1Ds, &
-                                        & concatenate_IntArray1Ds_IntArray2D, &
-                                        & concatenate_IntArray2D_IntArray2D
+    procedure, public :: str => str_IntArray2D
     
-    procedure, private             :: assign_IntArray2D_IntArray1Ds
-    procedure, private             :: concatenate_IntArray2D_IntArray1Ds
-    procedure, private, pass(that) :: concatenate_IntArray1Ds_IntArray2D
-    procedure, private             :: concatenate_IntArray2D_IntArray2D
+    generic,   public  :: assignment (= ) => assign_IntArray2D_IntArray1Ds
+    procedure, private ::                    assign_IntArray2D_IntArray1Ds
+    
+    generic, public :: operator (//) => concatenate_IntArray2D_IntArray1Ds, &
+                                      & concatenate_IntArray1Ds_IntArray2D, &
+                                      & concatenate_IntArray2D_IntArray2D
+    procedure, private             ::   concatenate_IntArray2D_IntArray1Ds
+    procedure, private, pass(that) ::   concatenate_IntArray1Ds_IntArray2D
+    procedure, private             ::   concatenate_IntArray2D_IntArray2D
   end type
   
   ! Type conversion to array.
@@ -210,5 +218,31 @@ function size_IntArray2D(input) result(output)
   integer                      :: output
   
   output = size(input%i)
+end function
+
+! ----------------------------------------------------------------------
+! I/O.
+! ----------------------------------------------------------------------
+recursive function str_IntArray1D(this) result(output)
+  implicit none
+  
+  class(IntArray1D), intent(in) :: this
+  type(String)                  :: output
+  
+  output = join(this%i)
+end function
+
+recursive function str_IntArray2D(this) result(output)
+  implicit none
+  
+  class(IntArray2D), intent(in) :: this
+  type(String), allocatable     :: output(:)
+  
+  integer :: i,ialloc
+  
+  allocate(output(size(this)), stat=ialloc); call err(ialloc)
+  do i=1,size(this)
+    output(i) = str(this%i(i))
+  enddo
 end function
 end module
