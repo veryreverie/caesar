@@ -123,7 +123,7 @@ end function
 ! ----------------------------------------------------------------------
 ! Rotates a q-point, and translates it back to the primitive reciprocal cell.
 ! ----------------------------------------------------------------------
-function rotate_qpoint(this,qpoint) result(output)
+impure elemental function rotate_qpoint(this,qpoint) result(output)
   use qpoints_module
   implicit none
   

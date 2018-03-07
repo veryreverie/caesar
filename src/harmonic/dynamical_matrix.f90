@@ -624,6 +624,7 @@ function rotate_modes(input,symmetry,qpoint_from,qpoint_to) result(output)
   use utils_module, only : sum_squares
   use qpoints_module
   use symmetry_module
+  use normal_mode_symmetry_module
   implicit none
   
   type(DynamicalMatrix),  intent(in)    :: input

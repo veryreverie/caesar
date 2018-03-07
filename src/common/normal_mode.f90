@@ -45,8 +45,6 @@ module normal_mode_module
   
   public :: ComplexMode
   
-  public :: rotate_complex_modes
-  
   public :: operator(*)
   public :: l2_norm
   
@@ -184,57 +182,5 @@ function l2_norm_ComplexMode(this) result(output)
   real(dp)                      :: output
   
   output = sqrt(real(this*this))
-end function
-
-! ----------------------------------------------------------------------
-! Rotate complex modes from one q-point to another.
-! ----------------------------------------------------------------------
-function rotate_complex_modes(input,symmetry,qpoint_from,qpoint_to) &
-   & result(output)
-  use utils_module, only : exp_2pii
-  use symmetry_module
-  use qpoints_module
-  implicit none
-  
-  type(ComplexMode),      intent(in) :: input(:)
-  type(SymmetryOperator), intent(in) :: symmetry
-  type(QpointData),       intent(in) :: qpoint_from
-  type(QpointData),       intent(in) :: qpoint_to
-  type(ComplexMode), allocatable     :: output(:)
-  
-  type(FractionVector) :: q
-  type(IntVector)      :: r
-  
-  integer :: no_atoms
-  
-  integer :: mode
-  integer :: atom_1
-  integer :: atom_1p
-  
-  no_atoms = size(input(1)%primitive_displacements)
-  q = qpoint_to%qpoint
-  
-  ! Check that the symmetry rotates the q-point as expected.
-  if (symmetry * qpoint_from /= qpoint_to) then
-    call print_line(CODE_ERROR//': Symmetry does not transform q-points as &
-       &expected.')
-    call err()
-  endif
-  
-  ! Allocate output, and transfer across all data.
-  ! (Displacements need rotating, but everything else stays the same.)
-  output = input
-  
-  ! Rotate displacements.
-  do mode=1,size(input)
-    do atom_1=1,no_atoms
-      atom_1p = symmetry%prim_atom_group * atom_1
-      r = symmetry%prim_rvector(atom_1)
-      output(mode)%primitive_displacements(atom_1p) =    &
-         & symmetry%cartesian_rotation                   &
-         & * input(mode)%primitive_displacements(atom_1) &
-         & * exp_2pii(q*r)
-    enddo
-  enddo
 end function
 end module

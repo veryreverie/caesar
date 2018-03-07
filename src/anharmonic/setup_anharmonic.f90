@@ -65,6 +65,12 @@ subroutine setup_anharmonic(arguments)
   use generate_qpoints_module
   use logic_module
   use integer_arrays_module
+  use normal_mode_symmetry_module
+  use symmetry_module
+  use ofile_module
+  use coupling_module
+  use basis_function_module
+  use degeneracy_module
   implicit none
   
   type(Dictionary), intent(in) :: arguments
@@ -93,17 +99,20 @@ subroutine setup_anharmonic(arguments)
   type(QpointData),  allocatable :: qpoints(:)
   
   ! Degeneracy data.
-  integer,          allocatable :: degeneracy_ids(:)
-  type(IntArray1D), allocatable :: degenerate_mode_ids(:)
-  type(IntArray1D), allocatable :: degenerate_qpoint_ids(:)
+  type(DegenerateModes), allocatable :: degenerate_subspaces(:)
+  
+  ! Symmetries.
+  type(SymmetryOperator)           :: symmetry
+  type(ComplexMatrix), allocatable :: symmetries(:,:)
   
   ! Coupling data.
-  type(IntArray1D), allocatable :: couplings(:)
+  type(CoupledSubspaces), allocatable :: couplings(:)
   
   ! Basis functions.
-  type(ComplexMode), allocatable :: degenerate_modes(:)
-  integer,           allocatable :: degenerate_mode_qpoints(:)
-  type(Polynomial),  allocatable :: degenerate_mode_bases(:)
+  type(Polynomial), allocatable :: basis_functions(:)
+  
+  ! Logfile.
+  type(OFile) :: logfile
   
   ! Temporary variables.
   integer :: i,j,k,l,ialloc
@@ -124,6 +133,9 @@ subroutine setup_anharmonic(arguments)
   
   structure = read_structure_file(harmonic_path//'/structure.dat')
   harmonic_qpoints = read_qpoints_file(harmonic_path//'/qpoints.dat')
+  
+  ! Open logifile.
+  logfile = wd//'/setup_anharmonic_logfile.dat'
   
   ! Generate new q-point grid, and the supercell which has all anharmonic
   !    q-points as G-vectors.
@@ -165,37 +177,39 @@ subroutine setup_anharmonic(arguments)
     enddo
   enddo
   
-  ! Identify the modes and corresponding q-points in each subspace.
-  degeneracy_ids = normal_modes%degeneracy_id
-  degeneracy_ids = degeneracy_ids(set(degeneracy_ids))
-  allocate( degenerate_mode_ids(size(degeneracy_ids)), &
-          & degenerate_qpoint_ids(size(degeneracy_ids)), &
+  degenerate_subspaces = process_degeneracies(normal_modes,mode_qpoints)
+  
+  ! Generate the symmetry operators in each subspace.
+  allocate( symmetries( size(degenerate_subspaces),  &
+          &             size(structure%symmetries)), &
           & stat=ialloc); call err(ialloc)
-  do i=1,size(degeneracy_ids)
-    degenerate_modes = normal_modes(filter(normal_modes%degeneracy_id==degeneracy_ids(i)))
-    degenerate_mode_ids(i) = degenerate_modes%id
-    degenerate_qpoint_ids(i) = mode_qpoints(filter(normal_modes%degeneracy_id==degeneracy_ids(i)))
+  do i=1,size(structure%symmetries)
+    symmetry = structure%symmetries(i)
+    do j=1,size(degenerate_subspaces)
+      symmetries(j,i) = calculate_symmetry_in_normal_coordinates( &
+                   & degenerate_subspaces(j)%modes(normal_modes), &
+                   & degenerate_subspaces(j)%qpoints(qpoints),    &
+                   & symmetry,                                    &
+                   & logfile)
+    enddo
   enddo
   
   ! Generate all possible couplings between subspaces.
-  allocate( couplings(size(degeneracy_ids)**potential_expansion_order), &
-          & stat=ialloc); call err(ialloc)
-  do i=1,size(couplings)
-    allocate( couplings(i)%i(potential_expansion_order), &
-            & stat=ialloc); call err(ialloc)
-    do j=1,potential_expansion_order
-      k = (i-1) / (size(degeneracy_ids)**(j-1))
-      k = modulo(k,size(degeneracy_ids))+1
-      couplings(i)%i(j) = degeneracy_ids(k)
-    enddo
-    call print_line(couplings(i))
-  enddo
+  couplings = generate_subspace_coupling( degenerate_subspaces,      &
+                                        & potential_expansion_order, &
+                                        & coupling_order)
+  call print_line(size(couplings))
   
-  ! Remove couplings with more than coupling_order coupled subspaces.
-  couplings = couplings(filter(couplings,allowed_coupling))
-  
+  ! Generate basis functions at each coupling.
+  basis_functions = [Polynomial::]
   do i=1,size(couplings)
-    call print_line(couplings(i))
+    basis_functions = [ basis_functions,                                &
+                    &   generate_basis_functions( couplings(i),         &
+                    &                             normal_modes,         &
+                    &                             qpoints,              &
+                    &                             degenerate_subspaces, &
+                    &                             symmetries )          &
+                    & ]
   enddo
   
   ! Combine degenerate sets to get full basis functions.
@@ -206,20 +220,5 @@ subroutine setup_anharmonic(arguments)
   
   ! Write out sampling points.
   ! TODO
-contains
-  ! Lambda for checking if a coupling has coupling_order subspaces or fewer.
-  ! Also checks that the coupling is in the sorted order.
-  ! Captures coupling_order.
-  function allowed_coupling(input) result(output)
-    implicit none
-    
-    class(*), intent(in) :: input
-    logical              :: output
-    
-    select type(input); type is(IntArray1D)
-      output = size(set(input%i)) <= coupling_order .and. &
-            & all(input%i(sort(input%i)) == input%i)
-    end select
-  end function
 end subroutine
 end module

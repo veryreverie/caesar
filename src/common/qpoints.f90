@@ -28,13 +28,16 @@ module qpoints_module
     !    elements are in [-1/2,1/2), i.e. that the q-point is in the primitive
     !    reciprocal cell.
     procedure, public :: translate_to_primitive
-    
-    ! Comparison of q-points.
-    generic,   public  :: operator(==) => equality_QpointData
-    procedure, private ::                 equality_QpointData
-    generic,   public  :: operator(/=) => non_equality_QpointData
-    procedure, private ::                 non_equality_QpointData
   end type
+  
+  ! Comparison of q-points.
+  interface operator(==)
+    module procedure equality_QpointData
+  end interface
+  
+  interface operator(/=)
+    module procedure non_equality_QpointData
+  end interface
 contains
 
 ! ----------------------------------------------------------------------
@@ -143,9 +146,9 @@ end subroutine
 impure elemental function equality_QpointData(this,that) result(output)
   implicit none
   
-  class(QpointData), intent(in) :: this
-  class(QpointData), intent(in) :: that
-  logical                       :: output
+  type(QpointData), intent(in) :: this
+  type(QpointData), intent(in) :: that
+  logical                      :: output
   
   output = is_int(this%qpoint-that%qpoint)
 end function
@@ -153,9 +156,9 @@ end function
 impure elemental function non_equality_QpointData(this,that) result(output)
   implicit none
   
-  class(QpointData), intent(in) :: this
-  class(QpointData), intent(in) :: that
-  logical                       :: output
+  type(QpointData), intent(in) :: this
+  type(QpointData), intent(in) :: that
+  logical                      :: output
   
   output = .not. this==that
 end function

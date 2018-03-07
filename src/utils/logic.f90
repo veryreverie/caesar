@@ -16,6 +16,7 @@ module logic_module
   public :: map
   public :: filter
   public :: locate
+  public :: is_sorted
   public :: sort
   public :: set
   
@@ -44,6 +45,11 @@ module logic_module
   
   interface locate
     module procedure locate_ComparisonLambda
+  end interface
+  
+  interface is_sorted
+    module procedure is_sorted_integers
+    module procedure is_sorted_ComparisonLambda
   end interface
   
   interface sort
@@ -352,6 +358,52 @@ function locate_ComparisonLambda(input,lambda,mask) result(output)
       endif
     endif
   enddo
+end function
+
+! ----------------------------------------------------------------------
+! The _integer variant returns .true. if the list is sorted in ascending order,
+!    and .false. otherwise.
+!
+! The _lambda variant does the same but with a list of arbitrary type, using
+!    the provided lambda for comparison. The function returns true if
+!    lambda(input(i),input(i+1)) = true and lambda(input(i+1),input(i)) = false
+!    for every element.
+! The lambda should be < or <= for checking the list is in ascending order,
+!    or > or >= for checking the list is in descending order.
+! ----------------------------------------------------------------------
+function is_sorted_integers(input) result(output)
+  implicit none
+  
+  integer, intent(in) :: input(:)
+  logical             :: output
+  
+  if (size(input)<2) then
+    output = .true.
+  else
+    output = all(input(:size(input)-1) <= input(2:))
+  endif
+end function
+
+function is_sorted_ComparisonLambda(input,lambda) result(output)
+  implicit none
+  
+  class(*), intent(in)        :: input(:)
+  procedure(ComparisonLambda) :: lambda
+  logical                     :: output
+  
+  integer :: i
+  
+  if (size(input)<2) then
+    output = .true.
+  else
+    do i=1,size(input)-1
+      if (       lambda(input(i+1), input(i)  ) .and. &
+         & .not. lambda(input(i),   input(i+1)) ) then
+        output = .false.
+        return
+      endif
+    enddo
+  endif
 end function
 
 ! ----------------------------------------------------------------------

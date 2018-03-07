@@ -55,7 +55,7 @@ subroutine calculate_normal_modes(arguments)
   use setup_harmonic_module
   use structure_module
   use output_file_module
-  use lte_module
+  use harmonic_properties_module
   use unique_directions_module
   use group_module
   use qpoints_module

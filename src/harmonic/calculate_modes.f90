@@ -105,6 +105,7 @@ function calculate_modes_calculated(matrices,structure,qpoint, &
   use ofile_module
   use symmetry_module
   use logic_module
+  use normal_mode_symmetry_module
   implicit none
   
   type(ComplexMatrix), intent(in)    :: matrices(:,:)
@@ -189,10 +190,8 @@ function calculate_modes_calculated(matrices,structure,qpoint, &
     
     ! Check that all symmetries map the degenerate subspace onto itself.
     do j=1,size(symmetries)
-      symmetry = calculate_symmetry_in_normal_coordinates( qpoint,         &
-                                                         & output(states), &
+      symmetry = calculate_symmetry_in_normal_coordinates( output(states), &
                                                          & qpoint,         &
-                                                         & output(states), &
                                                          & symmetries(j),  &
                                                          & logfile)
       check = sqrt(sum_squares( symmetry*hermitian(symmetry) &
@@ -236,13 +235,14 @@ end function
 ! Symmetries must all take the q-point to itself.
 recursive function lift_degeneracies(input,symmetries,qpoint,logfile) &
    & result(output)
+  use utils_module, only : sum_squares
   use symmetry_module
   use qpoints_module
   use eigenstuff_module
   use phase_module
   use logic_module
   use ofile_module
-  use utils_module, only : sum_squares
+  use normal_mode_symmetry_module
   implicit none
   
   type(ComplexMode),      intent(in)    :: input(:)
@@ -263,9 +263,6 @@ recursive function lift_degeneracies(input,symmetries,qpoint,logfile) &
   type(UnitaryEigenstuff), allocatable :: estuff(:)
   
   type(SymmetryOperator), allocatable :: commuting_symmetries(:)
-  
-  type(ComplexMatrix) :: commuting_symmetry
-  type(ComplexMatrix) :: commutator_mat
   
   ! Error checking.
   real(dp) :: check
@@ -294,10 +291,8 @@ recursive function lift_degeneracies(input,symmetries,qpoint,logfile) &
   first_symmetry = symmetries(1)
   
   ! Construct the first symmetry in normal mode co-ordinates.
-  symmetry = calculate_symmetry_in_normal_coordinates( qpoint,         &
-                                                     & input,          &
+  symmetry = calculate_symmetry_in_normal_coordinates( input,          &
                                                      & qpoint,         &
-                                                     & input,          &
                                                      & first_symmetry, &
                                                      & logfile)
   
@@ -343,26 +338,6 @@ recursive function lift_degeneracies(input,symmetries,qpoint,logfile) &
       !    first symmetry.
       commuting_symmetries = symmetries(filter(symmetries,commutes_with_first))
       
-      do k=1,size(commuting_symmetries)
-        if (size(input)==3) then
-          commuting_symmetry = calculate_symmetry_in_normal_coordinates( qpoint,         &
-                                                       & input,          &
-                                                       & qpoint,         &
-                                                       & input,          &
-                                                       & commuting_symmetries(k), &
-                                                       & logfile)
-          commutator_mat = symmetry*commuting_symmetry - commuting_symmetry*symmetry
-          if (sum_squares(commutator_mat)>1e-10_dp) then
-            call print_line('')
-            call print_line(symmetry)
-            call print_line('')
-            call print_line(commuting_symmetry)
-            call print_line('')
-            call print_line(commutator_mat)
-          endif
-        endif
-      enddo
-      
       ! Lift further degeneracies using symmetries which commute with the
       !    first symmetry, not including the first symmetry.
       output(i:j) = lift_degeneracies( output(i:j),              &
@@ -386,73 +361,5 @@ contains
       output = operators_commute(input,first_symmetry)
     end select
   end function
-end function
-
-! --------------------------------------------------
-! Calculates a symmetry in normal mode co-ordinates.
-! --------------------------------------------------
-! Takes q1, {u1}, q2, {u2} and S. Outputs {u2.S.u1}.
-function calculate_symmetry_in_normal_coordinates(qpoint_from,modes_from, &
-   & qpoint_to,modes_to,symmetry,logfile) result(output)
-  use utils_module, only : sum_squares
-  use qpoints_module
-  use symmetry_module
-  use ofile_module
-  implicit none
-  
-  type(QpointData),       intent(in)    :: qpoint_from
-  type(ComplexMode),      intent(in)    :: modes_from(:)
-  type(QpointData),       intent(in)    :: qpoint_to
-  type(ComplexMode),      intent(in)    :: modes_to(:)
-  type(SymmetryOperator), intent(in)    :: symmetry
-  type(OFile),            intent(inout) :: logfile
-  type(ComplexMatrix)                   :: output
-  
-  integer :: no_modes
-  
-  type(ComplexMode), allocatable :: rotated_modes(:)
-  complex(dp),       allocatable :: dot_products(:,:)
-  
-  real(dp) :: check
-  
-  integer :: i,j,ialloc
-  
-  no_modes = size(modes_from)
-  if (no_modes/=size(modes_to)) then
-    call print_line(CODE_ERROR//': Inconsistent number of modes.')
-    call err()
-  endif
-  
-  ! Construct the symmetry in normal mode co-ordinates.
-  rotated_modes = rotate_complex_modes( modes_from,  &
-                                      & symmetry,    &
-                                      & qpoint_from, &
-                                      & qpoint_to)
-  
-  ! Construct the overlap matrix, u2.S.u1.
-  allocate( dot_products(no_modes,no_modes), &
-          & stat=ialloc); call err(ialloc)
-  do i=1,no_modes
-    do j=1,no_modes
-      dot_products(j,i) = modes_to(j) * rotated_modes(i)
-    enddo
-  enddo
-  
-  output = dot_products
-  
-  ! Check that the symmetry is unitary.
-  check = sqrt(sum_squares( output*hermitian(output) &
-                        & - cmplxmat(make_identity_matrix(no_modes))))
-  if (check>1e-14_dp) then
-    ! This check happens many times, so the 1e-14 limit on logging prevents
-    !    clutter.
-    call logfile%print_line('Error in unitarity of rotation: ' &
-       & //check)
-  endif
-  if (check>1e-10_dp) then
-    call print_line(WARNING//': Rotation between degenerate modes not &
-       &unitary. Please try adjusting degenerate_energy. Please check log &
-       &files.')
-  endif
 end function
 end module

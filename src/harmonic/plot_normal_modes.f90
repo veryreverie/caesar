@@ -27,7 +27,8 @@ function plot_normal_modes_mode() result(output)
   type(CaesarMode) :: output
   
   output%mode_name = 'plot_normal_modes'
-  output%description = 'Plots the output of calculate_normal_modes.'
+  output%description = 'Plots the output of calculate_normal_modes. Should be &
+     &run from within a qpoint_ directory. The -d flag may be useful for this.'
   output%keywords = plot_normal_modes_keywords()
   output%main_subroutine => plot_normal_modes
 end function

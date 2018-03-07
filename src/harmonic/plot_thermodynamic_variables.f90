@@ -1,8 +1,8 @@
 ! ======================================================================
-! Plots the phonon density of states and dispersion calculated by
+! Plots the thermodynamic variables calculated by
 !    calculate_harmonic_observables.
 ! ======================================================================
-module plot_dos_and_dispersion_module
+module plot_thermodynamic_variables_module
   use constants_module, only : dp
   use string_module
   use io_module
@@ -12,7 +12,7 @@ contains
 ! ----------------------------------------------------------------------
 ! Generates keywords and helptext.
 ! ----------------------------------------------------------------------
-function plot_dos_and_dispersion_keywords() result(keywords)
+function plot_thermodynamic_variables_keywords() result(keywords)
   use keyword_module
   implicit none
   
@@ -21,23 +21,23 @@ function plot_dos_and_dispersion_keywords() result(keywords)
   keywords = [KeywordData::]
 end function
 
-function plot_dos_and_dispersion_mode() result(output)
+function plot_thermodynamic_variables_mode() result(output)
   use caesar_modes_module
   implicit none
   
   type(CaesarMode) :: output
   
-  output%mode_name = 'plot_dos_and_dispersion'
-  output%description = 'Plots the phonon density of states and dispersion &
+  output%mode_name = 'plot_thermodynamic_variables'
+  output%description = 'Plots the thermodynamic variables &
      &calculated by calculate_harmonic_observables.'
-  output%keywords = plot_dos_and_dispersion_keywords()
-  output%main_subroutine => plot_dos_and_dispersion
+  output%keywords = plot_thermodynamic_variables_keywords()
+  output%main_subroutine => plot_thermodynamic_variables
 end function
 
 ! ----------------------------------------------------------------------
 ! Main program.
 ! ----------------------------------------------------------------------
-subroutine plot_dos_and_dispersion(arguments)
+subroutine plot_thermodynamic_variables(arguments)
   use dictionary_module
   implicit none
   
@@ -47,6 +47,6 @@ subroutine plot_dos_and_dispersion(arguments)
   
   wd = arguments%value('working_directory')
   
-  call execute_python(wd,str('plot_dos_and_dispersion.py'))
+  call execute_python(wd,str('plot_thermodynamic_variables.py'))
 end subroutine
 end module

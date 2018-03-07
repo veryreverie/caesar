@@ -1,30 +1,45 @@
 ! ======================================================================
-! Calculates:
-!    - The density of states under the harmonic approximation.
-!    - The phonon dispersion relation under the harmonic approximation.
+! Calculates, under the harmonic approximation:
+!    - The phonon dispersion curve along a specified path.
+!    - The phonon density of states.
+!    - The energy, free energy and entropy per unit cell.
 ! ======================================================================
-! Should be run after calculate_harmonic.
-! Not required for further calculations.
-module calculate_dos_and_dispersion_module
+! Should be run after calculate_normal_modes.
+! Not required for anharmonic calculations.
+module calculate_harmonic_observables_module
   use constants_module, only : dp
   use string_module
   use io_module
+  implicit none
 contains
 
 ! ----------------------------------------------------------------------
 ! Generate keywords and helptext.
 ! ----------------------------------------------------------------------
-function calculate_dos_and_dispersion_keywords() result(keywords)
+function calculate_harmonic_observables_keywords() result(keywords)
   use keyword_module
   implicit none
   
   type(KeywordData), allocatable :: keywords(:)
   
   keywords = [                                                                &
-  & KeywordData( 'temperature',                                               &
-  &              'temperature is the temperature used to broaden the phonon &
-  &density of states. Temperature should be given in Kelvin.',                &
+  & KeywordData( 'min_temperature',                                           &
+  &              'min_temperature is the minimum temperature at which &
+  &thermodynamic quantities are calculated. min_temperature should be given &
+  &in Kelvin.'),                                                              &
+  & KeywordData( 'max_temperature',                                           &
+  &              'max_temperature is the maximum temperature at which &
+  &thermodynamic quantities are calculated. min_temperature should be given &
+  &in Kelvin.'),                                                              &
+  & KeywordData( 'no_temperature_steps',                                      &
+  &              'no_temperature_steps is the number of temperatures at which &
+  &thermodynamic quantities are calculated.',                                 &
   &              default_value='0'),                                          &
+  & KeywordData( 'min_frequency',                                             &
+  &              'min_frequency is the frequency below which modes will be &
+  &ignored when calculating thermodynamic quantities. min_frequency should be &
+  &given in Hartree.',                                                        &
+  &              default_value='1e-8'),                                       &
   & KeywordData( 'path',                                                      &
   &              'path is the path through fractional reciprocal space which &
   &will be mapped by the phonon dispersion curve. The path should be &
@@ -39,24 +54,26 @@ function calculate_dos_and_dispersion_keywords() result(keywords)
   &              default_value='100000') ]
 end function
 
-function calculate_dos_and_dispersion_mode() result(output)
+function calculate_harmonic_observables_mode() result(output)
   use caesar_modes_module
   implicit none
   
   type(CaesarMode) :: output
   
-  output%mode_name = 'calculate_dos_and_dispersion'
-  output%description = 'Calculates the density of states and phonon &
-     &dispersion under the harmonic approximation. Should be run after &
-     &calculate_harmonic.'
-  output%keywords = calculate_dos_and_dispersion_keywords()
-  output%main_subroutine => calculate_dos_and_dispersion
+  output%mode_name = 'calculate_harmonic_observables'
+  output%description = 'Calculates several observables under the harmonic &
+     &approximation: the phonon density of states and dispersion curve, &
+     &and the energy, free energy and entropy per unit cell. Should be run &
+     &after calculate_harmonic.'
+  output%keywords = calculate_harmonic_observables_keywords()
+  output%main_subroutine => calculate_harmonic_observables
 end function
 
 ! ----------------------------------------------------------------------
 ! The main subroutine.
 ! ----------------------------------------------------------------------
-subroutine calculate_dos_and_dispersion(arguments)
+subroutine calculate_harmonic_observables(arguments)
+  use constants_module, only : kb_in_au
   use dictionary_module
   use structure_module
   use qpoints_module
@@ -64,7 +81,7 @@ subroutine calculate_dos_and_dispersion(arguments)
   use force_constants_module
   use dynamical_matrix_module
   use min_images_module
-  use lte_module
+  use harmonic_properties_module
   use ofile_module
   implicit none
   
@@ -72,7 +89,11 @@ subroutine calculate_dos_and_dispersion(arguments)
   
   ! Inputs.
   type(String)                  :: wd
-  real(dp)                      :: temperature
+  real(dp)                      :: min_temperature
+  real(dp)                      :: max_temperature
+  integer                       :: no_temperature_steps
+  real(dp)                      :: min_frequency
+  real(dp),         allocatable :: thermal_energies(:)
   type(String),     allocatable :: path_string(:)
   type(String),     allocatable :: path_labels(:)
   type(RealVector), allocatable :: path_qpoints(:)
@@ -100,13 +121,39 @@ subroutine calculate_dos_and_dispersion(arguments)
   ! Read in arguments from user.
   ! --------------------------------------------------
   wd = arguments%value('working_directory')
-  temperature = dble(arguments%value('temperature'))
+  min_temperature = dble(arguments%value('min_temperature'))
+  max_temperature = dble(arguments%value('max_temperature'))
+  no_temperature_steps = int(arguments%value('no_temperature_steps'))
+  min_frequency = dble(arguments%value('min_frequency'))
   path_string = split(arguments%value('path'), ',')
   no_dos_samples = int(arguments%value('no_dos_samples'))
   
-  ! --------------------------------------------------
+  ! Check inputs.
+  if (min_temperature<0) then
+    call print_line(ERROR//': min_temperature must not be less than 0K.')
+    stop
+  elseif (max_temperature<min_temperature) then
+    call print_line(ERROR//': max_temperature must not be less than &
+       &min_temperature.')
+    stop
+  elseif (min_frequency<0) then
+    call print_line(ERROR//': min_frequency must not be less than 0 Hartree.')
+    stop
+  endif
+  
+  ! Generate thermal energies.
+  ! thermal_energies(1)                    = min_temperature * kB.
+  ! thermal_energies(no_temperature_steps) = max_temperature * kB.
+  allocate( thermal_energies(no_temperature_steps), &
+          & stat=ialloc); call err(ialloc)
+  do i=1,no_temperature_steps
+    thermal_energies(i) = kb_in_au                                   &
+                      & * ( min_temperature*(no_temperature_steps-i) &
+                      &   + max_temperature*(i-1) )                  &
+                      & / (no_temperature_steps-1)
+  enddo
+  
   ! Generate path for dispersion calculation.
-  ! --------------------------------------------------
   allocate( path_qpoints(size(path_string)), &
           & path_labels(size(path_string)),  &
           & stat=ialloc); call err(ialloc)
@@ -171,13 +218,14 @@ subroutine calculate_dos_and_dispersion(arguments)
                           & logfile)
   
   ! Generate harmonic phonon density of states, interpolating as above.
-  call generate_dos( large_supercell,        &
-                   & min_images,             &
-                   & force_constants,        &
-                   & temperature,            &
-                   & no_dos_samples,         &
-                   & wd//'/free_energy.dat', &
-                   & wd//'/freq_dos.dat',    &
+  call generate_dos( large_supercell,                     &
+                   & min_images,                          &
+                   & force_constants,                     &
+                   & thermal_energies,                    &
+                   & min_frequency,                       &
+                   & no_dos_samples,                      &
+                   & wd//'/thermodynamic_variables.dat',  &
+                   & wd//'/phonon_density_of_states.dat', &
                    & logfile)
 end subroutine
 end module

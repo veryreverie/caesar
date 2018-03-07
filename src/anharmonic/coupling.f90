@@ -1,48 +1,88 @@
 ! ======================================================================
-! Parsing and storage of which modes are coupled with which.
+! Parsing and storage of which degenerate subspaces are coupled with which.
 ! ======================================================================
 module coupling_module
   use constants_module, only : dp
   use string_module
   use io_module
   
-  ! A list of mode ids of modes which are coupled.
-  type :: CoupledModes
-    ! The ids of the modes which are coupled together.
-    integer, allocatable :: modes(:)
+  use stringable_module
+  implicit none
+  
+  private
+  
+  public :: CoupledSubspaces
+  public :: size
+  public :: write_coupling_file
+  public :: read_coupling_file
+  public :: generate_subspace_coupling
+  
+  ! A list of ids of degenerate subspaces which are coupled.
+  type, extends(Stringable) :: CoupledSubspaces
+    integer, allocatable :: ids(:)
   contains
+    ! Returns the coupled subspaces.
+    procedure, public :: coupled_subspaces
+    
     ! Check if this is subsidiary to the given coupling, e.g. the couplings
-    !    [],[1],[2],[3],[1,2],[1,3] and [2,3] are subsidiary to [1,2,3]
+    !    [],[1],[2],[3],[1,2],[1,3] and [2,3] are subsidiaries of [1,2,3].
     procedure, public :: is_subsidiary_of
+    
+    ! I/O.
+    procedure, public :: str => str_CoupledSubspaces
   end type
   
   interface size
-    module procedure size_CoupledModes
+    module procedure size_CoupledSubspaces
   end interface
 contains
 
-function size_CoupledModes(this) result(output)
+function size_CoupledSubspaces(this) result(output)
   implicit none
   
-  type(CoupledModes), intent(in) :: this
-  integer                        :: output
+  type(CoupledSubspaces), intent(in) :: this
+  integer                            :: output
   
-  output = size(this%modes)
+  output = size(this%ids)
+end function
+
+function coupled_subspaces(this,subspaces) result(output)
+  use logic_module
+  use degeneracy_module
+  implicit none
+  
+  class(CoupledSubspaces), intent(in) :: this
+  type(DegenerateModes),   intent(in) :: subspaces(:)
+  type(DegenerateModes), allocatable  :: output(:)
+  
+  integer :: i,j,ialloc
+  
+  allocate(output(size(this)), stat=ialloc); call err(ialloc)
+  do i=1,size(output)
+    j = first(subspaces%id==this%ids(i))
+    if (j==0) then
+      call print_line(CODE_ERROR//': Unable to locate subspace.')
+      call err()
+    endif
+    output(i) = subspaces(j)
+  enddo
 end function
 
 function is_subsidiary_of(this,that) result(output)
-  Class(CoupledModes), intent(in) :: this
-  type(CoupledModes),  intent(in) :: that
-  logical                         :: output
+  implicit none
+  
+  Class(CoupledSubspaces), intent(in) :: this
+  type(CoupledSubspaces),  intent(in) :: that
+  logical                             :: output
   
   integer :: i,j
   
   output = .true.
   
-  ! Loop over the modes in this, checking if each is in that.
+  ! Loop over the ids in this, checking if each is in that.
   do_i : do i=1,size(this)
     do j=1,size(that)
-      if (this%modes(i)==that%modes(j)) then
+      if (this%ids(i)==that%ids(j)) then
         cycle do_i
       endif
     enddo
@@ -52,21 +92,117 @@ function is_subsidiary_of(this,that) result(output)
   enddo do_i
 end function
 
+! ----------------------------------------------------------------------
+! Generates all couplings between a given set of degeneracy ids at a given
+!    potential expansion order and coupling order.
+! ----------------------------------------------------------------------
+function generate_subspace_coupling(degenerate_modes, &
+   & potential_expansion_order,coupling_order) result(output)
+  use degeneracy_module
+  implicit none
+  
+  type(DegenerateModes), intent(in)   :: degenerate_modes(:)
+  integer,               intent(in)   :: potential_expansion_order
+  integer,               intent(in)   :: coupling_order
+  type(CoupledSubspaces), allocatable :: output(:)
+  
+  integer :: i
+  
+  if (potential_expansion_order<2) then
+    call print_line(ERROR//': potential_expansion_order must be at least 2.')
+    stop
+  elseif (coupling_order<1) then
+    call print_line(ERROR//': coupling_order must be at least 1.')
+    stop
+  elseif (coupling_order>potential_expansion_order) then
+    call print_line(ERROR//': coupling_order must be less than or equal to &
+       &potential_expansion_order.')
+    stop
+  endif
+  
+  output = [CoupledSubspaces::]
+  
+  do i=2,potential_expansion_order
+    output = [output, coupling_generator(degenerate_modes, i, coupling_order)]
+  enddo
+end function
+
+! Helper function for generate_subspace coupling.
+! Recursively generates all the coupling at a specific
+!    potential_expansion_order.
+!
+! coupling_in is a recursive parameter. Each time coupling_generator is called,
+!    it adds one id to the given coupling, and calls itself again.
+! e.g. coupling_generator(coupling_in=[1]) will call
+!     coupling_generator(coupling_in=[1,i]) with i in degeneracy_ids.
+!
+! Only returns couplings in ascending order, and with at most coupling_order
+!    distinct elements.
+recursive function coupling_generator(degenerate_modes, &
+   & potential_expansion_order,coupling_order,coupling_in) result(output)
+  use logic_module
+  use degeneracy_module
+  implicit none
+  
+  type(DegenerateModes),  intent(in)           :: degenerate_modes(:)
+  integer,                intent(in)           :: potential_expansion_order
+  integer,                intent(in)           :: coupling_order
+  type(CoupledSubspaces), intent(in), optional :: coupling_in
+  type(CoupledSubspaces), allocatable          :: output(:)
+  
+  type(CoupledSubspaces) :: coupling
+  
+  integer :: i,ialloc
+  
+  if (.not. present(coupling_in)) then
+    output = [CoupledSubspaces::]
+    do i=1,size(degenerate_modes)
+      coupling = CoupledSubspaces([degenerate_modes(i)%id])
+      output = [output, coupling_generator( degenerate_modes(i:),      &
+                                          & potential_expansion_order, &
+                                          & coupling_order,            &
+                                          & coupling )                   ]
+    enddo
+  elseif (size(set(coupling_in%ids))==coupling_order) then
+    allocate( coupling%ids(potential_expansion_order), &
+            & stat=ialloc); call err(ialloc)
+    coupling%ids(:size(coupling_in)) = coupling_in%ids
+    do i=size(coupling_in)+1,potential_expansion_order
+      coupling%ids(i) = coupling%ids(i-1)
+    enddo
+    output = [coupling]
+  elseif (size(coupling_in)==potential_expansion_order) then
+    output = [coupling_in]
+  else
+    output = [CoupledSubspaces::]
+    do i=1,size(degenerate_modes)
+      coupling = CoupledSubspaces([coupling_in%ids, degenerate_modes(i)%id])
+      output = [output, coupling_generator( degenerate_modes(i:),      &
+                                          & potential_expansion_order, &
+                                          & coupling_order,            &
+                                          & coupling )                   ]
+    enddo
+  endif
+end function
+
+! ----------------------------------------------------------------------
+! File I/O.
+! ----------------------------------------------------------------------
 subroutine write_coupling_file(this, filename)
   use ofile_module
   implicit none
   
-  type(CoupledModes), intent(in) :: this(:)
-  type(String),       intent(in) :: filename
+  type(CoupledSubspaces), intent(in) :: this(:)
+  type(String),           intent(in) :: filename
   
   type(OFile) :: coupling_file
   
   integer :: i
   
   coupling_file = filename
-  call coupling_file%print_line('! Couplings between modes.')
+  call coupling_file%print_line('! Couplings between degenerate subspaces.')
   do i=1,size(this)
-    call coupling_file%print_line(this(i)%modes)
+    call coupling_file%print_line(this(i))
   enddo
 end subroutine
 
@@ -74,8 +210,8 @@ function read_coupling_file(filename) result(this)
   use ifile_module
   implicit none
   
-  type(String), intent(in)        :: filename
-  type(CoupledModes), allocatable :: this(:)
+  type(String), intent(in)            :: filename
+  type(CoupledSubspaces), allocatable :: this(:)
   
   type(IFile) :: coupling_file
   integer     :: i,ialloc
@@ -83,7 +219,7 @@ function read_coupling_file(filename) result(this)
   coupling_file = filename
   allocate(this(size(coupling_file)-1), stat=ialloc); call err(ialloc)
   do i=1,size(this)
-    this(i)%modes = int(split(coupling_file%line(i+1)))
+    this(i)%ids = int(split(coupling_file%line(i+1)))
   enddo
 end function
 
@@ -104,14 +240,14 @@ end function
 ! [1,3,4] -> [], [1], [3], [4], [1,3], [1,4], [3,4], [1,3,4]
 ! Then duplicates are removed and missing modes added, so e.g.
 ! [1,3,4], [1,3] -> [], [1], [2], [3], [4], [1,3], [1,4], [3,4], [1,3,4]
-function calculate_all_coupling(input, modes) result(output)
+function OLDFUNCTION_calculate_all_coupling(input, modes) result(output)
   use integer_arrays_module
   use normal_mode_module
   implicit none
   
-  type(CoupledModes), intent(in)  :: input(:)
-  type(ComplexMode),  intent(in)  :: modes(:)
-  type(CoupledModes), allocatable :: output(:)
+  type(CoupledSubspaces), intent(in)  :: input(:)
+  type(ComplexMode),      intent(in)  :: modes(:)
+  type(CoupledSubspaces), allocatable :: output(:)
   
   integer :: no_modes
   
@@ -121,7 +257,7 @@ function calculate_all_coupling(input, modes) result(output)
   integer,          allocatable :: sizes(:)
   type(IntArray2D), allocatable :: ids(:)
   
-  type(CoupledModes), allocatable :: couplings(:)
+  type(CoupledSubspaces), allocatable :: couplings(:)
   integer,            allocatable :: couplings_sizes(:)
   
   logical, allocatable :: mode_unaccounted_for(:)
@@ -137,8 +273,8 @@ function calculate_all_coupling(input, modes) result(output)
   ! ------------------------------
   do i=1,size(input)
     do j=1,size(input(i))
-      if (modes(input(i)%modes(j))%translational_mode) then
-        call print_line('Error: the translational mode '//input(i)%modes(j)// &
+      if (modes(input(i)%ids(j))%translational_mode) then
+        call print_line('Error: the translational mode '//input(i)%ids(j)// &
            & 'has been included in coupling '//i//' at the gamma-point.')
         stop
       endif
@@ -150,14 +286,14 @@ function calculate_all_coupling(input, modes) result(output)
   ! ------------------------------
   do i=1,size(input)
     do j=1,size(input(i))
-      if (input(i)%modes(j)<1 .or. input(i)%modes(j)>no_modes) then
+      if (input(i)%ids(j)<1 .or. input(i)%ids(j)>no_modes) then
         call print_line('Error: mode '//j//' of coupling '//i//', '// &
-           & input(i)%modes//' is outside of the expected range.')
+           & input(i)%ids//' is outside of the expected range.')
         stop
       endif
       if (j>1) then
-        if (input(i)%modes(j)<=input(i)%modes(j-1)) then
-          call print_line('Error: coupling '//i//', '//input(i)%modes// &
+        if (input(i)%ids(j)<=input(i)%ids(j-1)) then
+          call print_line('Error: coupling '//i//', '//input(i)%ids// &
              & ' is not in ascending order.')
           stop
         endif
@@ -219,10 +355,10 @@ function calculate_all_coupling(input, modes) result(output)
   do i=1,size(input)
     s = size(input(i))
     do j=l+1,l+sizes(s)
-      allocate( couplings(j)%modes(size(ids(s)%i(j))), &
+      allocate( couplings(j)%ids(size(ids(s)%i(j))), &
               & stat=ialloc); call err(ialloc)
       do k=1,size(couplings(j))
-        couplings(j)%modes(k) = input(i)%modes( ids(s)%i(j)%i(k) )
+        couplings(j)%ids(k) = input(i)%ids( ids(s)%i(j)%i(k) )
       enddo
     enddo
     l = l + sizes(s)
@@ -237,7 +373,7 @@ function calculate_all_coupling(input, modes) result(output)
   mode_unaccounted_for = .true.
   do i=1,size(couplings)
     do j=1,size(couplings(i))
-      mode_unaccounted_for(couplings(i)%modes(j)) = .false.
+      mode_unaccounted_for(couplings(i)%ids(j)) = .false.
     enddo
   enddo
   
@@ -254,7 +390,7 @@ function calculate_all_coupling(input, modes) result(output)
   do i=1,size(couplings)
     do j=1,i-1
       if (size(couplings(i))==size(couplings(j))) then
-        if (all(couplings(i)%modes==couplings(j)%modes)) then
+        if (all(couplings(i)%ids==couplings(j)%ids)) then
           duplicate(i) = .true.
         endif
       endif
@@ -270,14 +406,14 @@ function calculate_all_coupling(input, modes) result(output)
           & stat=ialloc); call err(ialloc)
   
   ! Add the blank coupling.
-  output(1)%modes=[integer::]
+  output(1)%ids=[integer::]
   
   ! Add in single modes which have not been specified as part of couplings.
   j = 1
   do i=1,size(mode_unaccounted_for)
     if (mode_unaccounted_for(i)) then
       j = j + 1
-      output(j)%modes = [i]
+      output(j)%ids = [i]
     endif
   enddo
   
@@ -298,5 +434,17 @@ function calculate_all_coupling(input, modes) result(output)
     output(j) = couplings(k)
     couplings_sizes(k) = -1
   enddo
+end function
+
+! ----------------------------------------------------------------------
+! I/O.
+! ----------------------------------------------------------------------
+recursive function str_CoupledSubspaces(this) result(output)
+  implicit none
+  
+  class(CoupledSubspaces), intent(in) :: this
+  type(String)                        :: output
+  
+  output = join(this%ids)
 end function
 end module

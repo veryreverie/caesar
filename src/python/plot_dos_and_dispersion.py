@@ -80,7 +80,7 @@ def main():
   #  dispersion['bands'].append(band)
   
   # Read in dos.
-  file_name = 'freq_dos.dat'
+  file_name = 'phonon_density_of_states.dat'
   dos_file = [line.rstrip('\n').split() for line in open(file_name)]
   dos = {'bottoms':[], 'tops':[], 'middles':[], 'dos':[]}
   for line in dos_file:
