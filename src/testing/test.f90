@@ -39,8 +39,9 @@ end function
 subroutine test(arguments)
   use dictionary_module
   use logic_module
-  use logic_example_module
   use qr_decomposition_module
+  use linear_algebra_module
+  use eigenstuff_module
   implicit none
   
   type(Dictionary), intent(in) :: arguments
@@ -50,140 +51,69 @@ subroutine test(arguments)
   complex(dp) :: one = cmplx(1.0_dp,0.0_dp,dp)
   complex(dp) :: zero = cmplx(0.0_dp,0.0_dp,dp)
   complex(dp) :: small = cmplx(0.01_dp,0.0_dp,dp)
+  complex(dp) :: tiny = cmplx(1e-6_dp,0.0_dp,dp)
   
   complex(dp), allocatable :: a(:,:)
   
-  type(ComplexVector), allocatable :: invecs(:)
-  type(ComplexVector), allocatable :: outvecs(:)
+  type(ComplexVector), allocatable :: invecs1(:)
+  type(ComplexVector), allocatable :: invecs2(:)
+  type(ComplexVector), allocatable :: outvecs1(:)
+  type(ComplexVector), allocatable :: outvecs2(:)
+  type(ComplexVector), allocatable :: intersection(:)
   
   type(QRDecomposition) :: qr
   
-  integer :: i
+  integer :: i,j
   
-  integer, allocatable :: list1(:)
-  integer, allocatable :: list2(:)
+  real(dp) :: l2_err
   
   wd = arguments%value('working_directory')
   
-  call logic_example()
-  
-  stop
-  
-  a = cmplx(mat([one,one,one,zero],2,2))
-  qr = qr_decomposition(a)
   call print_line('')
-  call print_line('a:')
-  call print_line(mat(real(a)))
-  call print_line('q:')
-  call print_line(mat(real(qr%q)))
-  call print_line('r:')
-  call print_line(mat(real(qr%r)))
-  call print_line('qr:')
-  call print_line(real(mat(qr%q)*mat(qr%r)))
-  
-  a = cmplx(mat([one,one,zero,zero,one,zero],2,3))
-  qr = qr_decomposition(a)
-  call print_line('')
-  call print_line('a:')
-  call print_line(mat(real(a)))
-  call print_line('q:')
-  call print_line(mat(real(qr%q)))
-  call print_line('r:')
-  call print_line(mat(real(qr%r)))
-  call print_line('qr:')
-  call print_line(real(mat(qr%q)*mat(qr%r)))
-  
-  a = cmplx(mat([one,one,zero,zero,one,zero],3,2))
-  qr = qr_decomposition(a)
-  call print_line('')
-  call print_line('a:')
-  call print_line(mat(real(a)))
-  call print_line('q:')
-  call print_line(mat(real(qr%q)))
-  call print_line('r:')
-  call print_line(mat(real(qr%r)))
-  call print_line('qr:')
-  call print_line(real(mat(qr%q)*mat(qr%r)))
-  
-  a = cmplx(mat([ small,small,zero,   &
-                & zero,small,zero,  &
-                & small,zero,zero,  &
-                & zero,zero,zero, &
-                & one,one,zero    &
-                & ],3,5))
-  qr = qr_decomposition(a)
-  call print_line('')
-  call print_line('a:')
-  call print_line(mat(real(a)))
-  call print_line('q:')
-  call print_line(mat(real(qr%q)))
-  call print_line('r:')
-  call print_line(mat(real(qr%r)))
-  call print_line('qr:')
-  call print_line(real(mat(qr%q)*mat(qr%r)))
-  
-  invecs = [vec([one,zero,zero]), vec([one,one,zero])]
-  outvecs = orthonormalise(invecs)
-  call print_line('')
-  call print_line('Invecs:')
-  do i=1,size(invecs)
-    call print_line(real(invecs(i)))
-  enddo
-  call print_line('Outvecs:')
-  do i=1,size(outvecs)
-    call print_line(real(outvecs(i)))
+  call print_line('Invecs1:')
+  invecs1 = [ vec([tiny,zero,zero]), &
+            & vec([-tiny,tiny,zero]), &
+            & vec([tiny,tiny,zero]), &
+            & vec([tiny,zero,-tiny]), &
+            & vec([one-tiny,one+tiny,one]),  &
+            & vec([zero,tiny,zero]), &
+            & vec([tiny,-tiny,tiny]), &
+            & vec([tiny,zero,one])]
+  do i=1,size(invecs1)
+    call print_line(real(invecs1(i)))
   enddo
   
-  invecs = [vec([zero,one]), vec([one,zero]), vec([one,one])]
-  outvecs = orthonormalise(invecs)
-  call print_line('')
-  call print_line('Invecs:')
-  do i=1,size(invecs)
-    call print_line(real(invecs(i)))
-  enddo
-  call print_line('Outvecs:')
-  do i=1,size(outvecs)
-    call print_line(real(outvecs(i)))
+  call print_line('Outvecs1:')
+  outvecs1 = orthonormal_basis( invecs1,               &
+                              & shortest_valid=0.1_dp, &
+                              & longest_invalid=10*abs(tiny))
+  do i=1,size(outvecs1)
+    call print_line(real(outvecs1(i)))
   enddo
   
-  invecs = [vec([one,zero,zero]), vec([one,one,one]), vec([one,one,one])]
-  outvecs = orthonormalise(invecs)
   call print_line('')
-  call print_line('Invecs:')
-  do i=1,size(invecs)
-    call print_line(real(invecs(i)))
-  enddo
-  call print_line('Outvecs:')
-  do i=1,size(outvecs)
-    call print_line(real(outvecs(i)))
+  call print_line('Invecs2:')
+  invecs2 = [ vec([tiny,-tiny,-tiny]),  &
+            & vec([-one+tiny,tiny,-one]), &
+            & vec([one-tiny,one-tiny,-one-tiny]), &
+            & vec([one+tiny,tiny,one]) ]
+  do i=1,size(invecs2)
+    call print_line(real(invecs2(i)))
   enddo
   
-  invecs = [vec([one,zero,zero]), vec([one,one,one]), vec([one,one,one])]
-  outvecs = orthonormalise(invecs,0.1_dp)
   call print_line('')
-  call print_line('Invecs:')
-  do i=1,size(invecs)
-    call print_line(real(invecs(i)))
-  enddo
-  call print_line('Outvecs:')
-  do i=1,size(outvecs)
-    call print_line(real(outvecs(i)))
+  call print_line('Outvecs2:')
+  outvecs2 = orthonormal_basis( invecs2,               &
+                              & shortest_valid=0.1_dp, &
+                              & longest_invalid=10*abs(tiny))
+  do i=1,size(outvecs2)
+    call print_line(real(outvecs2(i)))
   enddo
   
-  invecs = [ vec([small,small,zero]),   &
-           & vec([zero,small,zero]),  &
-           & vec([small,zero,zero]),  &
-           & vec([zero,zero,zero]), &
-           & vec([one,one,zero]) ]
-  outvecs = orthonormalise(invecs,1e-2_dp)
-  call print_line('')
-  call print_line('Invecs:')
-  do i=1,size(invecs)
-    call print_line(real(invecs(i)))
-  enddo
-  call print_line('Outvecs:')
-  do i=1,size(outvecs)
-    call print_line(real(outvecs(i)))
+  call print_line('Intersection')
+  intersection = intersection_basis(outvecs1,outvecs2)
+  do i=1,size(intersection)
+    call print_line(real(intersection(i)))
   enddo
   
 end subroutine

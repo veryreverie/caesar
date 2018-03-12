@@ -56,7 +56,7 @@ contains
 ! => F = sum(x,s)[f'^x'] . inverse( sum(x,s)[x'^x'] )
 !
 ! sum(x,s)[x'^x'] is block diagonal, so can be inverted in 3x3 blocks.
-function new_ForceConstants_forces(supercell,unique_directions,sdir, &
+function new_ForceConstants_forces(supercell,unique_directions,wd,sdir, &
    & file_type,seedname,acoustic_sum_rule_forces,logfile) result(output)
   use utils_module, only : sum_squares
   use linear_algebra_module
@@ -69,6 +69,7 @@ function new_ForceConstants_forces(supercell,unique_directions,sdir, &
   
   type(StructureData),   intent(in)    :: supercell
   type(UniqueDirection), intent(in)    :: unique_directions(:)
+  type(String),          intent(in)    :: wd
   type(String),          intent(in)    :: sdir
   type(String),          intent(in)    :: file_type
   type(String),          intent(in)    :: seedname
@@ -88,6 +89,7 @@ function new_ForceConstants_forces(supercell,unique_directions,sdir, &
   ! Read in forces (mass reduced).
   forces = read_forces( supercell,         &
                       & unique_directions, &
+                      & wd,                &
                       & sdir,              &
                       & file_type,         &
                       & seedname,          &
@@ -197,7 +199,7 @@ end function
 ! ----------------------------------------------------------------------
 ! Read in forces, and mass-weight them.
 ! ----------------------------------------------------------------------
-function read_forces(supercell,unique_directions,sdir,file_type,seedname, &
+function read_forces(supercell,unique_directions,wd,sdir,file_type,seedname, &
    & acoustic_sum_rule_forces) result(output)
   use structure_module
   use unique_directions_module
@@ -208,6 +210,7 @@ function read_forces(supercell,unique_directions,sdir,file_type,seedname, &
   
   type(StructureData),   intent(in) :: supercell
   type(UniqueDirection), intent(in) :: unique_directions(:)
+  type(String),          intent(in) :: wd
   type(String),          intent(in) :: sdir
   type(String),          intent(in) :: file_type
   type(String),          intent(in) :: seedname
@@ -236,10 +239,12 @@ function read_forces(supercell,unique_directions,sdir,file_type,seedname, &
     direction = unique_directions(i)%direction
     atom_string = left_pad(atom%id(),str(supercell%no_atoms_prim))
     
-    output_file = read_output_file(                                           &
-       & file_type,                                                           &
+    output_file = read_output_file(                                         &
+       & file_type,                                                         &
        & sdir//'/atom.'//atom_string//'.'//direction//'/'//output_filename, &
-       & supercell)
+       & supercell,                                                         &
+       & wd,                                                                &
+       & seedname)
     
     output(:,i) = output_file%forces(:)
     

@@ -14,15 +14,17 @@ module quip_wrapper_module
   end type
 contains
 
-function call_quip(lattice,atomic_nos,positions) result(output)
+function call_quip(lattice,atomic_nos,positions,dir,seedname) result(output)
   implicit none
   
-  real(dp), intent(in) :: lattice(3,3)
-  integer,  intent(in) :: atomic_nos(:)
-  real(dp), intent(in) :: positions(:,:)
-  type(QuipResult)     :: output
+  real(dp),     intent(in) :: lattice(3,3)
+  integer,      intent(in) :: atomic_nos(:)
+  real(dp),     intent(in) :: positions(:,:)
+  type(String), intent(in) :: dir
+  type(String), intent(in) :: seedname
+  type(QuipResult)         :: output
   
   call print_line(ERROR//': Caesar has not been linked against QUIP.')
-  call err()
+  stop
 end function
 end module

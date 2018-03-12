@@ -316,6 +316,7 @@ module linear_algebra_module
   
   interface outer_product
     module procedure outer_product_RealVector_RealVector
+    module procedure outer_product_ComplexVector_ComplexVector
   end interface
   
   interface transpose
@@ -2476,6 +2477,7 @@ impure elemental function l2_norm_ComplexVector(input) result(output)
 end function
 
 ! Outer product.
+! N.B. the conjugate is NOT taken in the complex case.
 function outer_product_RealVector_RealVector(a,b) result(output)
   implicit none
   
@@ -2491,6 +2493,31 @@ function outer_product_RealVector_RealVector(a,b) result(output)
   
   a_contents = dble(a)
   b_contents = dble(b)
+  allocate( contents(size(a_contents),size(b_contents)), &
+          & stat=ialloc); call err(ialloc)
+  do i=1,size(b_contents)
+    do j=1,size(a_contents)
+      contents(j,i) = a_contents(j)*b_contents(i)
+    enddo
+  enddo
+  output = contents
+end function
+
+function outer_product_ComplexVector_ComplexVector(a,b) result(output)
+  implicit none
+  
+  type(ComplexVector), intent(in) :: a
+  type(ComplexVector), intent(in) :: b
+  type(ComplexMatrix)             :: output
+  
+  complex(dp), allocatable :: a_contents(:)
+  complex(dp), allocatable :: b_contents(:)
+  complex(dp), allocatable :: contents(:,:)
+  
+  integer :: i,j,ialloc
+  
+  a_contents = cmplx(a)
+  b_contents = cmplx(b)
   allocate( contents(size(a_contents),size(b_contents)), &
           & stat=ialloc); call err(ialloc)
   do i=1,size(b_contents)

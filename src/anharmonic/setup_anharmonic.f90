@@ -198,7 +198,6 @@ subroutine setup_anharmonic(arguments)
   couplings = generate_subspace_coupling( degenerate_subspaces,      &
                                         & potential_expansion_order, &
                                         & coupling_order)
-  call print_line(size(couplings))
   
   ! Generate basis functions at each coupling.
   basis_functions = [Polynomial::]

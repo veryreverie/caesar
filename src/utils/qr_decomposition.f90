@@ -9,6 +9,12 @@ module qr_decomposition_module
   use linear_algebra_module
   implicit none
   
+  private
+  
+  public :: QRDecomposition
+  public :: qr_decomposition
+  public :: intersection_basis
+  
   type QRDecomposition
     complex(dp), allocatable :: q(:,:)
     complex(dp), allocatable :: r(:,:)
@@ -19,8 +25,8 @@ module qr_decomposition_module
     module procedure qr_decomposition_ComplexMatrix
   end interface
   
-  interface orthonormalise
-    module procedure orthonormalise_ComplexVectors
+  interface intersection_basis
+    module procedure intersection_basis_ComplexVectors
   end interface
   
   interface
@@ -189,62 +195,112 @@ function qr_decomposition_ComplexMatrix(input) result(output)
   output = qr_decomposition(cmplx(input))
 end function
 
-! --------------------------------------------------
-! Construct an orthonormal basis from the given vectors using QR decomposition.
-! If min_length is present then only vectors which are longer than min_length
-!    before normalisation are returned.
-! --------------------------------------------------
-function orthonormalise_ComplexVectors(input,min_length) result(output)
+! ----------------------------------------------------------------------
+! Uses the Zassenhaus algorithm, based on, QR factorisation, to find
+!    an orthonormal basis for the intersection of two vector subspaces,
+!    given an orthonormal basis for each subspace.
+! ----------------------------------------------------------------------
+function intersection_basis_ComplexVectors(a,b) result(output)
+  use logic_module
   implicit none
   
-  type(ComplexVector), intent(in)           :: input(:)
-  real(dp),            intent(in), optional :: min_length
-  type(ComplexVector), allocatable          :: output(:)
+  type(ComplexVector), intent(in)  :: a(:)
+  type(ComplexVector), intent(in)  :: b(:)
+  type(ComplexVector), allocatable :: output(:)
   
-  integer :: no_vectors
-  integer :: vector_length
-  
+  ! Working variables for QR decomposition.
   complex(dp), allocatable :: matrix(:,:)
   type(QRDecomposition)    :: qr
   
-  integer :: no_independent_vectors
+  ! The basis vectors, and their projections onto the input vectors.
+  type(ComplexVector), allocatable :: left_vectors(:)
+  real(dp),            allocatable :: left_projections(:)
+  type(ComplexVector), allocatable :: right_vectors(:)
+  real(dp),            allocatable :: right_projections(:)
   
-  integer :: i,ialloc
+  integer :: vector_length
+  integer :: union_size
+  integer :: i,j,ialloc
   
-  no_vectors = size(input)
-  if (no_vectors==0) then
+  ! Return early if nothing to process.
+  if (size(a)==0 .or. size(b)==0) then
     output = [ComplexVector::]
     return
   endif
   
-  vector_length = size(input(1))
-  do i=2,no_vectors
-    if (size(input(i))/=vector_length) then
+  ! Check vector dimensionalities are consistent, and record said lengths.
+  vector_length = size(a(1))
+  do i=2,size(a)
+    if (size(a(i))/=vector_length) then
+      call print_line(CODE_ERROR//': Trying to orhonormalise vectors of &
+         &inconsistent lengths.')
+      call err()
+    endif
+  enddo
+  do i=1,size(b)
+    if (size(b(i))/=vector_length) then
       call print_line(CODE_ERROR//': Trying to orhonormalise vectors of &
          &inconsistent lengths.')
       call err()
     endif
   enddo
   
-  allocate(matrix(vector_length,no_vectors), stat=ialloc); call err(ialloc)
-  do i=1,size(input)
-    matrix(:,i) = cmplx(input(i))
+  ! Arrange input vectors into matrix and perform QR decomposition.
+  ! The Zassenhaus matrix is given by Z = (A A)
+  !                                       (B 0)
+  ! Where the rows of A and B are or vectors of a and b respectively.
+  !
+  ! After the QR factorisation of Z, R is given by R = (U *)
+  !                                                    (0 I)
+  ! Where:
+  !  The rows of U are orthogonal vectors spanning the union of a and b.
+  !  The rows of I are orthogonal vectors spanning the intersection of a and b.
+  allocate( matrix(size(a)+size(b),2*vector_length), &
+          & stat=ialloc); call err(ialloc)
+  do i=1,size(a)
+    matrix(i,                :vector_length) = cmplx(a(i))
+    matrix(i, vector_length+1:             ) = cmplx(a(i))
+  enddo
+  do i=1,size(b)
+    matrix(size(a)+i,                :vector_length) = cmplx(b(i))
+    matrix(size(a)+i, vector_length+1:             ) = cmplx(0.0_dp,0.0_dp,dp)
   enddo
   qr = qr_decomposition(matrix)
   
-  no_independent_vectors = min(no_vectors,vector_length)
-  if (present(min_length)) then
-    do i=1,no_independent_vectors
-      if (abs(l2_norm(vec(qr%r(i,:))))<min_length) then
-        no_independent_vectors = i-1
-        exit
-      endif
-    enddo
+  ! Extract the vectors in [U,0] and [*,I], and calculate their lengths.
+  allocate( left_vectors(size(a)+size(b)),      &
+          & left_projections(size(a)+size(b)),  &
+          & right_vectors(size(a)+size(b)),     &
+          & right_projections(size(a)+size(b)), &
+          & stat=ialloc); call err(ialloc)
+  do i=1,size(a)+size(b)
+    left_vectors(i) = qr%r(i,:vector_length)
+    left_projections(i) = l2_norm(left_vectors(i))
+    
+    right_vectors(i) = qr%r(i,vector_length+1:)
+    right_projections(i) = l2_norm(right_vectors(i))
+  enddo
+  
+  ! Calculate the size of U by finding the first row of 0.
+  union_size = last(left_projections>0.1_dp)
+  
+  ! Check that the U is larger than I, that the rows of 0 are zero,
+  !    and that the rows of I are not small.
+  if (union_size<size(matrix,1)-union_size) then
+    call print_line(CODE_ERROR//': the union is smaller than the &
+       &intersection. Check that a and b are orthonormal.')
+    call err()
+  elseif (any(left_projections(union_size+1:)>1e-10_dp)) then
+    call print_line(CODE_ERROR//': non-zero vector below union in reduced &
+       &matrix. Check a and b are orthonormal.')
+    call err()
+  elseif (any(right_projections(union_size+1:)<0.1_dp)) then
+    call print_line(CODE_ERROR//': small vector in intersection. Check a and &
+       &b are orthonormal.')
+    call err()
   endif
   
-  allocate(output(no_independent_vectors), stat=ialloc); call err(ialloc)
-  do i=1,no_independent_vectors
-    output(i) = vec(qr%q(:,i))
-  enddo
+  ! Construct the output, the normalised rows of I.
+  output = right_vectors(union_size+1:) / right_projections(union_size+1:)
 end function
 end module

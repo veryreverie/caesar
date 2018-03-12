@@ -209,8 +209,9 @@ function new_StructureData(lattice_matrix,supercell_matrix,rvectors,gvectors, &
   type(RealVector), intent(in) :: cartesian_positions(:,:)
   
   ! Symmetry inputs.
-  ! Either basic_symmetries_in should be supplied (as read from a file),
-  !    or symmetry_precision should be supplied (to calculate fresh symmetries).
+  ! If basic_symmetries_in is not provided, symmetries will be calculated.
+  ! symmetry_precision should be provided unless basic_symmetries_in is an
+  !    empty array.
   type(BasicSymmetry), intent(in), optional :: basic_symmetries_in(:)
   real(dp),            intent(in), optional :: symmetry_precision
   
@@ -334,30 +335,29 @@ function new_StructureData(lattice_matrix,supercell_matrix,rvectors,gvectors, &
   enddo
   
   ! Fill out symmetry information.
-  if (present(symmetry_precision)) then
-    if (present(basic_symmetries_in)) then
-      call print_line(CODE_ERROR//': Both symmetry_precision and symmetries &
-         &provided.')
-      call err()
-    endif
-  else
+  if (.not. present(symmetry_precision)) then
     if (.not. present(basic_symmetries_in)) then
-      call print_line(CODE_ERROR//': Neither symmetry_precision nor &
-         &symmetries provided.')
+      call print_line(CODE_ERROR//': symmetry_precision is only optional if &
+         &basic_symmetries_in is present and an empty array.')
+      call err()
+    elseif (size(basic_symmetries_in)/=0) then
+      call print_line(CODE_ERROR//': symmetry_precision is only optional if &
+         &basic_symmetries_in is present and an empty array.')
       call err()
     endif
   endif
   
-  if (present(symmetry_precision)) then
-    basic_symmetries = calculate_basic_symmetries( this%lattice, &
-                                                 & this%atoms, &
-                                                 & symmetry_precision)
-  else
+  if (present(basic_symmetries_in)) then
     basic_symmetries = basic_symmetries_in
+  else
+    basic_symmetries = calculate_basic_symmetries( this%lattice, &
+                                                 & this%atoms,   &
+                                                 & symmetry_precision)
   endif
   
   if (size(basic_symmetries)/=0) then
-    this%symmetries = this%calculate_symmetries(basic_symmetries)
+    this%symmetries = this%calculate_symmetries( basic_symmetries, &
+                                               & symmetry_precision)
     this%symmetry_group = this%calculate_symmetry_group()
     this%symmetry_inverse_ids_ =  this%calculate_symmetry_inverses()
   else
@@ -878,13 +878,15 @@ end function
 ! ----------------------------------------------------------------------
 ! Calculates symmetry operations, in various representations.
 ! ----------------------------------------------------------------------
-function calculate_symmetries(this,symmetries) result(output)
+function calculate_symmetries(this,symmetries,symmetry_precision) &
+   & result(output)
   use atom_module
   use basic_symmetry_module
   implicit none
   
   class(StructureData), intent(in)    :: this
   type(BasicSymmetry),  intent(in)    :: symmetries(:)
+  real(dp),             intent(in)    :: symmetry_precision
   type(SymmetryOperator), allocatable :: output(:)
   
   ! Atom group variables.
@@ -970,13 +972,15 @@ function calculate_symmetries(this,symmetries) result(output)
       endif
       
       ! Check that the transformed atom is acceptably close to its image.
-      if (offsets(operations(j,i))>1.0e-10_dp) then
-        call print_line(CODE_ERROR//': Error mapping atoms under symmetry.')
+      if (offsets(operations(j,i))>symmetry_precision) then
+        call print_line(CODE_ERROR//': An acepted symmetry maps atom '//i// &
+           &' to further than symmetry_precision from atom '//operations(j,i))
         call err()
       elseif (l2_norm( transformed_position           &
                    & - atom_k%fractional_position() &
-                   & - rvectors(j,i) )>1e-10_dp) then
-        call print_line(CODE_ERROR//': Error mapping atoms under symmetry.')
+                   & - rvectors(j,i) )>symmetry_precision) then
+        call print_line(CODE_ERROR//': An acepted symmetry maps atom '//i// &
+           &' to further than symmetry_precision from atom '//operations(j,i))
         call err()
       endif
     enddo

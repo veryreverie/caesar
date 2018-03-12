@@ -10,6 +10,23 @@ module eigenstuff_module
   use phase_module
   implicit none
   
+  private
+  
+  ! Classes.
+  public :: SymmetricEigenstuff
+  public :: HermitianEigenstuff
+  public :: ComplexEigenstuff
+  public :: UnitaryEigenstuff
+  
+  ! Diagonalisation routines.
+  public :: diagonalise_symmetric
+  public :: diagonalise_hermitian
+  public :: diagonalise_complex
+  public :: diagonalise_unitary
+  
+  ! Orthonormalisation routines.
+  public :: orthonormal_basis
+  
   ! --------------------------------------------------
   ! The eigen(values and vectors) of a matrix.
   ! --------------------------------------------------
@@ -55,6 +72,10 @@ module eigenstuff_module
   interface diagonalise_unitary
     module procedure diagonalise_unitary_complexes
     module procedure diagonalise_unitary_ComplexMatrix
+  end interface
+  
+  interface orthonormal_basis
+    module procedure orthonormal_basis_ComplexVectors
   end interface
   
   ! BLAS / LAPACK interface.
@@ -418,7 +439,7 @@ function diagonalise_unitary_complexes(input,order) result(output)
     do j=1,size(degenerate_modes)
       degenerate_evecs(j) = vec(output(degenerate_modes(j))%evec)
     enddo
-    degenerate_evecs = orthonormalise(degenerate_evecs)
+    degenerate_evecs = orthonormal_basis(degenerate_evecs)
     do j=1,size(degenerate_modes)
       output(degenerate_modes(j))%evec = cmplx(degenerate_evecs(j))
     enddo
@@ -450,5 +471,109 @@ function diagonalise_unitary_ComplexMatrix(input,order) result(output)
   type(UnitaryEigenstuff), allocatable :: output(:)
   
   output = diagonalise_unitary(cmplx(input), order)
+end function
+
+! --------------------------------------------------
+! Construct the minimal orthonormal basis which spans the given vectors.
+! If neither shortest_valid nor longest_invalid are given then a complete
+!    basis for the input vectors is returned, regardless of the projection of
+!    each basis vector onto the input vectors.
+! If only shortest_valid is given, only basis vectors with an L2 projection
+!    onto the input vectors of at least shortest_valid are returned.
+! If longest_invalid is also given, then an error is thrown if there are any
+!    rejected basis vectors with an L2 projection onto the input vectors of
+!    more than longest_invalid.
+! --------------------------------------------------
+function orthonormal_basis_ComplexVectors(input,shortest_valid, &
+   & longest_invalid) result(output)
+  use logic_module
+  use qr_decomposition_module
+  implicit none
+  
+  type(ComplexVector), intent(in)           :: input(:)
+  real(dp),            intent(in), optional :: shortest_valid
+  real(dp),            intent(in), optional :: longest_invalid
+  type(ComplexVector), allocatable          :: output(:)
+  
+  ! Working variables for diagonalisation.
+  type(ComplexMatrix)                    :: m2
+  type(HermitianEigenstuff), allocatable :: eigenstuff(:)
+  real(dp),                  allocatable :: projections(:)
+  
+  integer :: vector_length
+  integer :: i,j,ialloc
+  
+  ! Check inputs are valid.
+  if (present(longest_invalid) .and. .not. present(shortest_valid)) then
+    call print_line(CODE_ERROR//': longest_invalid may not be passed to &
+       &orthonormalise unless shortest_valid is also passed.')
+    call err()
+  endif
+  
+  if (present(longest_invalid) .and. present(shortest_valid)) then
+    if (longest_invalid>shortest_valid) then
+      call print_line(CODE_ERROR//': longest_invalid must be shorter than &
+         &shortest_valid.')
+      call err()
+    endif
+  endif
+  
+  ! Return early if nothing to process.
+  if (size(input)==0) then
+    output = [ComplexVector::]
+    return
+  endif
+  
+  ! Check vector dimensionalities are consistent, and record said lengths.
+  vector_length = size(input(1))
+  do i=2,size(input)
+    if (size(input(i))/=vector_length) then
+      call print_line(CODE_ERROR//': Trying to orhonormalise vectors of &
+         &inconsistent lengths.')
+      call err()
+    endif
+  enddo
+  
+  ! Construct the sum of the outer products of the input vectors.
+  m2 = cmplxmat(zeroes(vector_length,vector_length))
+  do i=1,size(input)
+    m2 = m2 + outer_product(conjg(input(i)),input(i))
+  enddo
+  eigenstuff = diagonalise_hermitian(m2)
+  
+  ! Transfer basis vectors to output.
+  allocate(output(vector_length), stat=ialloc); call err(ialloc)
+  do i=1,size(output)
+    output(i) = eigenstuff(i)%evec
+  enddo
+  
+  ! Find the projections of the basis vectors onto the input vectors.
+  allocate(projections(vector_length), stat=ialloc); call err(ialloc)
+  projections = 0.0_dp
+  do i=1,vector_length
+    do j=1,size(input)
+      projections(i) = projections(i) + abs(conjg(output(i))*input(j))
+    enddo
+  enddo
+  
+  ! Check that there are no vectors between the two projections.
+  ! N.B. since output vectors are normalised, there is no need to take
+  !    a square root.
+  if (present(longest_invalid)) then
+    if (any(projections>longest_invalid .and. projections<shortest_valid)) then
+      call print_line(ERROR//': orthonormalise produced a basis &
+         &vector with a projection between longest_invalid and &
+         &shortest_valid.')
+      call err()
+    endif
+  endif
+  
+  ! Only return basis vectors with a large enough projection onto the
+  !    input vectors.
+  ! N.B. since output vectors are normalised, there is no need to take
+  !    a square root.
+  if (present(shortest_valid)) then
+    output = output(filter(projections>shortest_valid))
+  endif
 end function
 end module

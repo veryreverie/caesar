@@ -69,6 +69,7 @@ function process_degeneracies(modes,mode_qpoints) result(output)
   degeneracy_ids = modes%degeneracy_id
   degeneracy_ids = degeneracy_ids(set(degeneracy_ids))
   
+  ! Generate subspaces.
   allocate(output(size(degeneracy_ids)), stat=ialloc); call err(ialloc)
   do i=1,size(output)
     output(i)%id = degeneracy_ids(i)

@@ -261,7 +261,7 @@ function read_qe_output_file(filename,structure) result(output)
   enddo
 end function
 
-function run_quip_on_file(filename,structure) result(output)
+function run_quip_on_file(filename,structure,dir,seedname) result(output)
   use constants_module, only : angstrom_per_bohr, ev_per_hartree
   use input_file_module
   use structure_module
@@ -270,6 +270,8 @@ function run_quip_on_file(filename,structure) result(output)
   
   type(String),        intent(in) :: filename
   type(StructureData), intent(in) :: structure
+  type(String),        intent(in) :: dir
+  type(String),        intent(in) :: seedname
   type(OutputFile)                :: output
   
   type(StructureData) :: displaced_structure
@@ -299,7 +301,7 @@ function run_quip_on_file(filename,structure) result(output)
   enddo
   
   ! Call QUIP.
-  quip_result = call_quip(lattice, atomic_nos, positions)
+  quip_result = call_quip(lattice, atomic_nos, positions, dir, seedname)
   
   ! Convert QUIP's output into Caesar units (Bohr/Hartree) and types.
   output = OutputFile(displaced_structure%no_atoms)
@@ -311,13 +313,16 @@ function run_quip_on_file(filename,structure) result(output)
   enddo
 end function
 
-function read_output_file(file_type,filename,structure) result(output)
+function read_output_file(file_type,filename,structure,dir,seedname) &
+   & result(output)
   use structure_module
   implicit none
   
   type(String),        intent(in) :: file_type
   type(String),        intent(in) :: filename
   type(StructureData), intent(in) :: structure
+  type(String),        intent(in) :: dir
+  type(String),        intent(in) :: seedname
   type(OutputFile)                :: output
   
   if (file_type=='castep') then
@@ -325,7 +330,7 @@ function read_output_file(file_type,filename,structure) result(output)
   elseif (file_type=='qe') then
     output = read_qe_output_file(filename,structure)
   elseif (file_type=='quip') then
-    output = run_quip_on_file(filename,structure)
+    output = run_quip_on_file(filename,structure,dir,seedname)
   endif
 end function
 end module

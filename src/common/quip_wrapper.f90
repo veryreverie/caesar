@@ -20,15 +20,19 @@ module quip_wrapper_module
   end type
 contains
 
-function call_quip(lattice,atomic_nos,positions) result(output)
+function call_quip(lattice,atomic_nos,positions,dir,seedname) result(output)
   implicit none
   
-  real(dp), intent(in) :: lattice(3,3)
-  integer,  intent(in) :: atomic_nos(:)
-  real(dp), intent(in) :: positions(:,:)
-  type(QuipResult)     :: output
+  real(dp),     intent(in) :: lattice(3,3)
+  integer,      intent(in) :: atomic_nos(:)
+  real(dp),     intent(in) :: positions(:,:)
+  type(String), intent(in) :: dir
+  type(String), intent(in) :: seedname
+  type(QuipResult)         :: output
   
   integer :: no_atoms
+  
+  type(String) :: quip_file
   
   integer :: i,ialloc
   
@@ -39,24 +43,26 @@ function call_quip(lattice,atomic_nos,positions) result(output)
     call err()
   endif
   
+  quip_file = dir//'/'//seedname//'_MEAM.xml'
+  
   allocate( output%forces(3,no_atoms), &
           & stat=ialloc); call err(ialloc)
   
-  call quip_unified_wrapper( n                   = no_atoms,      &
-                           & lattice             = lattice,       &
-                           & z                   = atomic_nos,    &
-                           & pos                 = positions,     &
-                           & init_args_str       = 'IP SI_meam',  &
-                           & init_args_str_len   = 10,            &
-                           & energy              = output%energy, &
-                           & force               = output%forces, &
-                           & virial              = output%virial, &
-                           & do_energy           = .true.,        &
-                           & do_force            = .true.,        &
-                           & do_virial           = .true.,        &
-                           & quip_param_file     = 'Ti_MEAM.xml', &
-                           & quip_param_file_len = 11,            &
-                           & calc_args_str       = '',            &
+  call quip_unified_wrapper( n                   = no_atoms,        &
+                           & lattice             = lattice,         &
+                           & z                   = atomic_nos,      &
+                           & pos                 = positions,       &
+                           & init_args_str       = 'IP SI_meam',    &
+                           & init_args_str_len   = 10,              &
+                           & energy              = output%energy,   &
+                           & force               = output%forces,   &
+                           & virial              = output%virial,   &
+                           & do_energy           = .true.,          &
+                           & do_force            = .true.,          &
+                           & do_virial           = .true.,          &
+                           & quip_param_file     = quip_file,       &
+                           & quip_param_file_len = size(quip_file), &
+                           & calc_args_str       = '',              &
                            & calc_args_str_len   = 0 )
 end function
 end module

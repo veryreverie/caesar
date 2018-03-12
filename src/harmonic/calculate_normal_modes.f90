@@ -186,6 +186,7 @@ subroutine calculate_normal_modes(arguments)
     ! Calculate force constants.
     force_constants(i) = ForceConstants( supercells(i),            &
                                        & unique_directions,        &
+                                       & wd,                       &
                                        & sdir,                     &
                                        & file_type,                &
                                        & seedname,                 &

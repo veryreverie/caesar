@@ -30,8 +30,9 @@ function setup_harmonic_keywords() result(keywords)
   &in a Monkhorst-Pack grid. This should be specified as three integers &
   &separated by spaces.'),                                                    &
   & KeywordData( 'symmetry_precision',                                        &
-  &              'symmetry_precision is the tolerance at which symmetries &
-  &are calculated.',                                                          &
+  &              'In order for a symmetry to be accepted, it must transform &
+  &the position of every atom to within symmetry_precision of an atom of the &
+  &same element. symmetry_precision should be given in Bohr.',                &
   &              default_value='0.1'),                                        &
   & KeywordData( 'harmonic_displacement',                                     &
   &              'harmonic_displacement is the distance in bohr by which &

@@ -223,20 +223,23 @@ end function
 ! ----------------------------------------------------------------------
 ! Throws an error if there is a problem.
 subroutine check_supercells(supercells,structure)
+  use utils_module, only : sum_squares
+  use ofile_module
   implicit none
   
   type(StructureData), intent(in) :: supercells(:)
   type(StructureData), intent(in) :: structure
   
   ! Working variables.
-  type(StructureData)           :: supercell
-  integer                       :: atom_1
-  integer                       :: atom_2
-  type(RealVector)              :: fractional_difference
-  type(RealMatrix)              :: rotation_identity
+  type(StructureData)   :: supercell
+  integer               :: atom_1
+  integer               :: atom_2
+  type(RealVector)      :: fractional_difference
+  type(RealMatrix)      :: rotation_identity
+  real(dp), allocatable :: symmetry_errors(:)
   
   ! Temporary variables.
-  integer :: i,j,k
+  integer :: i,j,k,ialloc
   
   ! --------------------------------------------------
   ! Check that all supercells have been constructed correctly.
@@ -248,10 +251,9 @@ subroutine check_supercells(supercells,structure)
     do j=1,supercell%no_atoms
       do k=1,j-1
         if (l2_norm( supercell%atoms(j)%cartesian_position() &
-                 & - supercell%atoms(k)%cartesian_position() )<0.5_dp) then
-          call print_line(CODE_ERROR//': atoms '//k//' and '//j//' are within &
-             &0.5 Bohr of one another in supercell '//i//'.')
-          call err()
+                 & - supercell%atoms(k)%cartesian_position() )<0.1_dp) then
+          call print_line(WARNING//': atoms '//k//' and '//j//' are within &
+             &0.1 Bohr of one another in supercell '//i//'.')
         endif
       enddo
     enddo
@@ -273,23 +275,29 @@ subroutine check_supercells(supercells,structure)
     enddo
     
     ! Check supercell rotations
+    allocate( symmetry_errors(size(supercell%symmetries)), &
+            & stat=ialloc); call err(ialloc)
+    symmetry_errors = 0
     do j=1,size(supercell%symmetries)
       ! Check that R.R^T is the identity.
       rotation_identity = supercell%symmetries(j)%cartesian_rotation &
                       & * transpose(supercell%symmetries(j)%cartesian_rotation)
-      if (any(abs(dble( rotation_identity &
-                    & - make_identity_matrix(3)))>1.0e-10_dp)) then
-        call print_line(ERROR//': rotation '//j//' in supercell '//i// &
-           & ' is not a rotation or an improper rotation.')
-        call print_line('Rotation matrix:')
-        call print_line(supercell%symmetries(j)%cartesian_rotation)
-        call print_line('')
-        call print_line('This may be caused by small deviations from &
-           &symmetry. Try adjusting the lattice vectors and atomic positions &
-           &so that symmetry is exact.')
-        call err()
-      endif
+      symmetry_errors(i) = sqrt(sum_squares( rotation_identity &
+                                         & - make_identity_matrix(3)))
     enddo
+    if (any(symmetry_errors>1e-10_dp)) then
+      call print_line('')
+      call print_line(WARNING//': At least one symmetry in supercell '//i// &
+         & ' is not an orthogonal transformation.')
+      call print_line('Largest L2 deviation in R^T.R=I: '// &
+         & maxval(symmetry_errors))
+      call print_line('Please check symmetries in &
+         &Supercell_'//i//'/structure.dat')
+      call print_line('This may be caused by small deviations from &
+         &symmetry. Try adjusting the lattice vectors and atomic positions &
+         &so that symmetry is exact.')
+    endif
+    deallocate(symmetry_errors, stat=ialloc); call err(ialloc)
   enddo
 end subroutine
 
