@@ -3,16 +3,10 @@
 !    and thus which atoms should be displaced in which directions 
 !    in order to construct the matrix of force constants.
 ! ======================================================================
-
 ! The symmetry operations to consider are nicely outlined here:
 ! http://www.homepages.ucl.ac.uk/~ucfbdxa/phon/node4.html
-
 module unique_directions_module
-  use constants_module, only : dp
-  use string_module
-  use io_module
-  
-  use linear_algebra_module
+  use common_module
   implicit none
   
   ! A direction in which an atom needs to be perturbed in order to map out
@@ -54,7 +48,6 @@ end function
 ! Reads an array of UniqueDirection from a file.
 ! ----------------------------------------------------------------------
 function read_unique_directions_file(filename) result(output)
-  use ifile_module
   implicit none
   
   type(String), intent(in)           :: filename
@@ -85,7 +78,6 @@ end function
 ! Writes a UniqueDirections to a file.
 ! ----------------------------------------------------------------------
 subroutine write_unique_directions_file(unique_directions,filename)
-  use ofile_module
   implicit none
   
   type(UniqueDirection), intent(in) :: unique_directions(:)
@@ -112,12 +104,6 @@ end subroutine
 ! ----------------------------------------------------------------------
 function calculate_unique_directions(structure,harmonic_displacement) &
    & result(output)
-  use utils_module, only : triple_product
-  use structure_module
-  use group_module
-  use linear_algebra_module
-  use symmetry_module
-  use atom_module
   implicit none
   
   type(StructureData), intent(in)    :: structure
@@ -329,9 +315,6 @@ end function
 ! ----------------------------------------------------------------------
 subroutine check_unique_directions(unique_directions,structure, &
    & a,b,c)
-  use utils_module, only : triple_product
-  use structure_module
-  use atom_module
   implicit none
   
   type(UniqueDirection), intent(in) :: unique_directions(:)

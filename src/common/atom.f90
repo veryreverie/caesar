@@ -2,14 +2,14 @@
 ! Information about an atom.
 ! ======================================================================
 module atom_module
-  use constants_module, only : dp
-  use string_module
-  use io_module
-  
-  use linear_algebra_module
+  use utils_module
   implicit none
   
-  type, public :: AtomData
+  private
+  
+  public :: AtomData
+  
+  type :: AtomData
     ! Atom data.
     type(String),     private :: species_
     real(dp),         private :: mass_

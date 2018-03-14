@@ -1,8 +1,6 @@
 ! A Hartree to eV calculator
 module hartree_to_ev_module
-  use constants_module, only : dp
-  use string_module
-  use io_module
+  use common_module
   implicit none
 contains
 
@@ -10,7 +8,6 @@ contains
 ! Generate keywords and helptext.
 ! ----------------------------------------------------------------------
 function hartree_to_ev_keywords() result(keywords)
-  use keyword_module
   implicit none
   
   type(KeywordData), allocatable :: keywords(:)
@@ -22,7 +19,6 @@ function hartree_to_ev_keywords() result(keywords)
 end function
 
 function hartree_to_ev_mode() result(output)
-  use caesar_modes_module
   implicit none
   
   type(CaesarMode) :: output
@@ -37,8 +33,6 @@ end function
 ! Main program.
 ! ----------------------------------------------------------------------
 subroutine hartree_to_ev(arguments)
-  use constants_module, only : ev_per_hartree
-  use dictionary_module
   implicit none
   
   type(Dictionary), intent(in) :: arguments

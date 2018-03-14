@@ -2,15 +2,18 @@
 ! q-points of the primitive cell.
 ! ======================================================================
 module qpoints_module
-  use constants_module, only : dp
-  use string_module
-  use io_module
-  
-  use linear_algebra_module
-  use fraction_algebra_module
+  use utils_module
   implicit none
   
-  type QpointData
+  private
+  
+  public :: QpointData
+  public :: operator(==)
+  public :: operator(/=)
+  public :: write_qpoints_file
+  public :: read_qpoints_file
+  
+  type :: QpointData
     ! The q-point in fractional primitive reciprocal space co-ordinates.
     type(FractionVector) :: qpoint
     
@@ -46,7 +49,6 @@ contains
 ! i.e. The supercell with supercell matrix S has this q-point as a G-vector.
 ! ----------------------------------------------------------------------
 function min_sc_size(this) result(output)
-  use utils_module, only : lcm
   implicit none
   
   class(QpointData), intent(in) :: this
@@ -64,7 +66,6 @@ end function
 ! I/O.
 ! ----------------------------------------------------------------------
 subroutine write_qpoints_file(this,filename)
-  use ofile_module
   implicit none
   
   type(QpointData), intent(in), allocatable :: this(:)
@@ -88,7 +89,6 @@ subroutine write_qpoints_file(this,filename)
 end subroutine
 
 function read_qpoints_file(filename) result(this)
-  use ifile_module
   implicit none
   
   type(String), intent(in)      :: filename

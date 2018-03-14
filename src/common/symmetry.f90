@@ -2,13 +2,10 @@
 ! A symmetry operator, in various representations.
 ! ======================================================================
 module symmetry_module
-  use constants_module, only : dp
-  use string_module
-  use io_module
+  use utils_module
   
-  use linear_algebra_module
-  use fraction_algebra_module
-  use group_module
+  use basic_symmetry_module
+  use qpoints_module
   implicit none
   
   private
@@ -66,7 +63,6 @@ contains
 ! ----------------------------------------------------------------------
 function new_SymmetryOperator(symmetry,lattice,recip_lattice,atom_group, &
    & rvector,prim_atom_group,prim_rvector) result(output)
-  use basic_symmetry_module
   implicit none
   
   type(BasicSymmetry), intent(in) :: symmetry
@@ -124,7 +120,6 @@ end function
 ! Rotates a q-point, and translates it back to the primitive reciprocal cell.
 ! ----------------------------------------------------------------------
 impure elemental function rotate_qpoint(this,qpoint) result(output)
-  use qpoints_module
   implicit none
   
   class(SymmetryOperator), intent(in) :: this
@@ -146,7 +141,6 @@ end function
 ! The order is the smallest integer n>0 s.t. S^n=I, where I is the identity.
 ! ----------------------------------------------------------------------
 function symmetry_order(this,qpoint) result(output)
-  use qpoints_module
   implicit none
   
   class(SymmetryOperator), intent(in) :: this
@@ -156,6 +150,7 @@ function symmetry_order(this,qpoint) result(output)
   type(IntMatrix)   :: identity ! The identity matrix, I.
   type(IntMatrix)   :: rotation ! The rotation after n operations.
   type(IntVector)   :: rvector  ! The translation after n operations.
+  integer           :: atom_1   ! atom 1 maps to this after n operations.
   type(IntFraction) :: qr       ! qpoint*rvector.
   
   integer :: i
@@ -165,15 +160,21 @@ function symmetry_order(this,qpoint) result(output)
   ! After (S^i) : r -> rotation * r + rvector.
   ! After (S^0) : r -> r = I*r+0.
   rotation = identity
-  rvector = zeroes(3)
+  rvector  = zeroes(3)
+  atom_1   = 1
   
   ! Calculate n s.t. R^n=I. At this point, S^n=e^{2piiq.R}.
   output = 0
   do i=1,6
     ! After S^i, r -> rotation * r + rvector.
     rotation = this%rotation * rotation
-    rvector = this%rotation * rvector + this%prim_rvector(1)
+    rvector = this%rotation * rvector + this%prim_rvector(atom_1)
+    atom_1 = this%atom_group * atom_1
     if (rotation==identity) then
+      if (atom_1/=1) then
+        call print_line(CODE_ERROR//': Unable to find order of symmetry.')
+        call err()
+      endif
       output = i
       exit
     endif

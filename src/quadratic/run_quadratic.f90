@@ -3,16 +3,15 @@
 ! Runs DFT for anharmonic calculations.
 ! ======================================================================
 module run_quadratic_module
-  use constants_module, only : dp
-  use string_module
+  use precision_module
   use io_module
+  use arguments_module
 contains
 
 ! ----------------------------------------------------------------------
 ! Generate keywords and helptext.
 ! ----------------------------------------------------------------------
 function run_quadratic_keywords() result(keywords)
-  use keyword_module
   implicit none
   
   type(KeywordData), allocatable :: keywords(:)
@@ -35,10 +34,8 @@ end function
 ! The main program.
 ! ----------------------------------------------------------------------
 subroutine run_quadratic(arguments)
-  use ifile_module
   use structure_module
   use qpoints_module
-  use dictionary_module
   use dft_input_file_module
   implicit none
   

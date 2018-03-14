@@ -2,16 +2,27 @@
 ! Uses DFT results to calculate anharmonic properties.
 ! ======================================================================
 module calculate_anharmonic_module
-  use constants_module, only : dp
-  use string_module
-  use io_module
+  use common_module
+  
+  use setup_harmonic_module
+  
+  use setup_anharmonic_module
+  use coupling_module
+  use sampling_points_module
+  use single_mode_states_module
+  use harmonic_states_module
+  use vscf_states_module
+  use product_states_module
+  use potential_module
+  use scf_module
+  use perturbation_module
+  implicit none
 contains
 
 ! ----------------------------------------------------------------------
 ! Generate keywords and helptext.
 ! ----------------------------------------------------------------------
 function calculate_anharmonic_keywords() result(keywords)
-  use keyword_module
   implicit none
   
   type(KeywordData), allocatable :: keywords(:)
@@ -46,7 +57,6 @@ function calculate_anharmonic_keywords() result(keywords)
 end function
 
 function calculate_anharmonic_mode() result(output)
-  use caesar_modes_module
   implicit none
   
   type(CaesarMode) :: output
@@ -62,24 +72,6 @@ end function
 ! Main program.
 ! ----------------------------------------------------------------------
 subroutine calculate_anharmonic(arguments)
-  use ifile_module
-  use setup_harmonic_module
-  use setup_anharmonic_module
-  use dictionary_module
-  use structure_module
-  use qpoints_module
-  use normal_mode_module
-  use coupling_module
-  use sampling_points_module
-  use linear_algebra_module
-  use output_file_module
-  use single_mode_states_module
-  use harmonic_states_module
-  use vscf_states_module
-  use product_states_module
-  use potential_module
-  use scf_module
-  use perturbation_module
   implicit none
   
   type(Dictionary), intent(in) :: arguments

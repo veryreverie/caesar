@@ -1,16 +1,12 @@
 module atom_mapping_module
-  use constants_module, only : dp
-  use string_module
-  use io_module
+  use common_module
+  implicit none
 contains
 
 ! ----------------------------------------------------------------------
 ! Finds a mapping between the atoms in two versions of the same structure.
 ! ----------------------------------------------------------------------
 function atom_mapping(structure_a,structure_b) result(output)
-  use structure_module
-  use group_module
-  use linear_algebra_module
   implicit none
   
   type(StructureData), intent(in) :: structure_a

@@ -2,16 +2,14 @@
 ! Runs tests on linear_algebra.
 ! ======================================================================
 module linear_algebra_test_module
-  use constants_module, only : dp
-  use string_module
-  use io_module
+  use common_module
+  implicit none
 contains
 
 ! ----------------------------------------------------------------------
 ! Generates keywords and helptext.
 ! ----------------------------------------------------------------------
 function linear_algebra_test_keywords() result(keywords)
-  use keyword_module
   implicit none
   
   type(KeywordData), allocatable :: keywords(:)
@@ -23,8 +21,6 @@ end function
 ! Main program.
 ! ----------------------------------------------------------------------
 subroutine linear_algebra_test(arguments)
-  use linear_algebra_module
-  use dictionary_module
   implicit none
   
   type(Dictionary), intent(in) :: arguments

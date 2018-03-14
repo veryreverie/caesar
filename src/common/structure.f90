@@ -2,13 +2,8 @@
 ! All data relating to a given atomic configuration.
 ! ======================================================================
 module structure_module
-  use constants_module, only : dp
-  use string_module
-  use io_module
+  use utils_module
   
-  use linear_algebra_module
-  use fraction_algebra_module
-  use group_module
   use atom_module
   use basic_symmetry_module
   use symmetry_module
@@ -189,9 +184,7 @@ end function
 ! ----------------------------------------------------------------------
 function new_StructureData(lattice_matrix,supercell_matrix,rvectors,gvectors, &
    & species_primitive_cell,masses_primitive_cell,cartesian_positions,        &
-   & basic_symmetries_in,symmetry_precision) result(this)
-  use linear_algebra_module
-  use basic_symmetry_module
+   & symmetry_precision,basic_symmetries_in) result(this)
   implicit none
   
   ! --------------------------------------------------
@@ -212,8 +205,8 @@ function new_StructureData(lattice_matrix,supercell_matrix,rvectors,gvectors, &
   ! If basic_symmetries_in is not provided, symmetries will be calculated.
   ! symmetry_precision should be provided unless basic_symmetries_in is an
   !    empty array.
+  real(dp),            intent(in)           :: symmetry_precision
   type(BasicSymmetry), intent(in), optional :: basic_symmetries_in(:)
-  real(dp),            intent(in), optional :: symmetry_precision
   
   ! Output.
   type(StructureData) :: this
@@ -335,18 +328,6 @@ function new_StructureData(lattice_matrix,supercell_matrix,rvectors,gvectors, &
   enddo
   
   ! Fill out symmetry information.
-  if (.not. present(symmetry_precision)) then
-    if (.not. present(basic_symmetries_in)) then
-      call print_line(CODE_ERROR//': symmetry_precision is only optional if &
-         &basic_symmetries_in is present and an empty array.')
-      call err()
-    elseif (size(basic_symmetries_in)/=0) then
-      call print_line(CODE_ERROR//': symmetry_precision is only optional if &
-         &basic_symmetries_in is present and an empty array.')
-      call err()
-    endif
-  endif
-  
   if (present(basic_symmetries_in)) then
     basic_symmetries = basic_symmetries_in
   else
@@ -373,11 +354,11 @@ end function
 ! ----------------------------------------------------------------------
 ! Reads structure.dat
 ! ----------------------------------------------------------------------
-function read_structure_file(filename) result(this)
-  use ifile_module
+function read_structure_file(filename,symmetry_precision) result(this)
   implicit none
   
   type(String), intent(in) :: filename
+  real(dp),     intent(in) :: symmetry_precision
   type(StructureData)      :: this
   
   type(IFile) :: structure_file
@@ -594,11 +575,11 @@ function read_structure_file(filename) result(this)
                       & species,               &
                       & masses,                &
                       & positions,             &
+                      & symmetry_precision,    &
                       & basic_symmetries_in=symmetries)
 end function
 
 subroutine write_structure_file(this,filename)
-  use ofile_module
   implicit none
   
   type(StructureData), intent(in) :: this
@@ -649,7 +630,6 @@ end subroutine
 !    so if rvec(:,i)+rvec(:,j)=rvec(:,k) then output(i)*j=k
 ! ----------------------------------------------------------------------
 subroutine calculate_rvector_group(this)
-  use group_module
   implicit none
   
   class(StructureData), intent(inout) :: this
@@ -687,7 +667,6 @@ end subroutine
 ! so if gvec(:,i)+gvec(:,j)=gvec(:,k) then output(i)*j=k
 ! ----------------------------------------------------------------------
 subroutine calculate_gvector_group(this)
-  use group_module
   implicit none
   
   class(StructureData), intent(inout) :: this
@@ -729,7 +708,6 @@ end subroutine
 !    are unique in the supercell, or the G-vectors of the reciprocal supercell
 !    which are unique in the reciprocal primitive cell.
 function calculate_unique_vectors(lattice,centre_on_origin) result(output)
-  use linear_algebra_module
   implicit none
   
   ! Lattice vectors are the rows of lattice.
@@ -781,15 +759,14 @@ end function
 ! ----------------------------------------------------------------------
 ! Makes a supercell from a given primitive cell and supercell matrix.
 ! ----------------------------------------------------------------------
-function construct_supercell(this,supercell_matrix,calculate_symmetries, &
-   & symmetry_precision) result(supercell)
-  use linear_algebra_module
+function construct_supercell(this,supercell_matrix,symmetry_precision, &
+   & calculate_symmetries) result(supercell)
   implicit none
   
   type(StructureData), intent(in)           :: this
   type(IntMatrix),     intent(in)           :: supercell_matrix
+  real(dp),            intent(in)           :: symmetry_precision
   logical,             intent(in), optional :: calculate_symmetries
-  real(dp),            intent(in), optional :: symmetry_precision
   type(StructureData)                       :: supercell
   
   ! R-vector and G-vector information.
@@ -842,12 +819,6 @@ function construct_supercell(this,supercell_matrix,calculate_symmetries, &
     enddo
   enddo
   
-  ! Check symmetry precision has been supplied if required.
-  if (calculate_symmetries_flag .and. .not. present(symmetry_precision)) then
-    call print_line('Symmetry requested but no precision specified.')
-    call err()
-  endif
-  
   ! Construct output.
   if (calculate_symmetries_flag) then
     supercell = StructureData(                                          &
@@ -858,7 +829,7 @@ function construct_supercell(this,supercell_matrix,calculate_symmetries, &
        & species,                                                       &
        & masses,                                                        &
        & positions,                                                     &
-       & symmetry_precision=symmetry_precision)
+       & symmetry_precision)
   else
     ! A compiler bug in gfortran 5.4 prevents [SymmetryOperator::] being passed
     !    directly to the function.
@@ -871,6 +842,7 @@ function construct_supercell(this,supercell_matrix,calculate_symmetries, &
        & species,                                                       &
        & masses,                                                        &
        & positions,                                                     &
+       & symmetry_precision,                                            &
        & basic_symmetries_in=empty_symmetries)
   endif
 end function
@@ -880,8 +852,6 @@ end function
 ! ----------------------------------------------------------------------
 function calculate_symmetries(this,symmetries,symmetry_precision) &
    & result(output)
-  use atom_module
-  use basic_symmetry_module
   implicit none
   
   class(StructureData), intent(in)    :: this

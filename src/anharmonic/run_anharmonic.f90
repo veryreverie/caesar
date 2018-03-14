@@ -2,16 +2,20 @@
 ! Runs anharmonic DFT calculations.
 ! ======================================================================
 module run_anharmonic_module
-  use constants_module, only : dp
-  use string_module
-  use io_module
+  use common_module
+  
+  use setup_harmonic_module
+  
+  use setup_anharmonic_module
+  use coupling_module
+  use sampling_points_module
+  implicit none
 contains
 
 ! ----------------------------------------------------------------------
 ! Generate keywords and helptext.
 ! ----------------------------------------------------------------------
 function run_anharmonic_keywords() result(keywords)
-  use keyword_module
   implicit none
   
   type(KeywordData), allocatable :: keywords(:)
@@ -56,7 +60,6 @@ function run_anharmonic_keywords() result(keywords)
 end function
 
 function run_anharmonic_mode() result(output)
-  use caesar_modes_module
   implicit none
   
   type(CaesarMode) :: output
@@ -72,12 +75,6 @@ end function
 ! Main program.
 ! ----------------------------------------------------------------------
 subroutine run_anharmonic(arguments)
-  use setup_harmonic_module
-  use setup_anharmonic_module
-  use dictionary_module
-  use qpoints_module
-  use coupling_module
-  use sampling_points_module
   implicit none
   
   type(Dictionary), intent(in) :: arguments

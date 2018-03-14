@@ -6,15 +6,8 @@
 ! ======================================================================
 program caesar
   ! Use utility modules.
-  use string_module
   use io_module
-  use dictionary_module
-  use utils_module, only : command_line_args
-  use keyword_module
-  use help_module
-  use process_arguments_module
-  use ofile_module
-  use caesar_modes_module
+  use arguments_module
   
   ! Use convergence modules.
   use converge_cutoff_and_kpoints_module
@@ -172,9 +165,11 @@ program caesar
   ! --------------------------------------------------
   ! Write settings to file.
   ! --------------------------------------------------
-  wd = arguments%value('working_directory')
-  filename = wd//'/'//mode//'.used_settings'
-  call arguments%write_file(filename)
+  if (.not. caesar_mode%suppress_settings_file) then
+    wd = arguments%value('working_directory')
+    filename = wd//'/'//mode//'.used_settings'
+    call arguments%write_file(filename)
+  endif
   
   ! --------------------------------------------------
   ! Run main program with input arguments, depending on mode.

@@ -3,19 +3,16 @@
 !    to the phonon Hamiltonian
 ! ======================================================================
 module vscf_module
-  use string_module
-  use io_module
-  use constants_module, only : dp
+  use common_module
+  
+  use scf_old_module
+  implicit none
 contains
 
 ! ----------------------------------------------------------------------
 ! vibrational self-consistent field main loop
 ! ----------------------------------------------------------------------
 subroutine vscf()
-  use constants_module, only : pi, ev_per_hartree, kb_in_au, ev_per_inverse_cm
-  use ifile_module
-  use ofile_module
-  use scf_old_module
   implicit none
   
   integer :: first_mode, last_mode, no_modes, no_indep_params, &
@@ -924,7 +921,6 @@ end subroutine
 ! Single mode potential.
 ! ----------------------------------------------------------------------
 function v_indep(indep_params,q) result(output)
-  use ifile_module
   implicit none
   
   real(dp),intent(in) :: indep_params(:),q

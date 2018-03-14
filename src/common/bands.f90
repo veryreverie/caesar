@@ -1,7 +1,12 @@
 module bands_module
-  use constants_module, only : dp
-  use string_module
-  use io_module
+  use utils_module
+  implicit none
+  
+  private
+  
+  public :: BandsData
+  public :: read_castep_bands_file
+  public :: read_vasp_bands_file
   
   type BandsData
     integer               :: no_qpoints
@@ -65,7 +70,6 @@ end function
 !  ~
 ! ...
 function read_castep_bands_file_character(filename) result(this)
-  use ifile_module
   implicit none
   
   character(*), intent(in) :: filename
@@ -111,7 +115,6 @@ function read_castep_bands_file_String(filename) result(this)
 end function
 
 function read_vasp_bands_file_character(filename) result(this)
-  use ifile_module
   implicit none
   
   character(*), intent(in) :: filename

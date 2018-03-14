@@ -2,9 +2,11 @@
 ! Generates basis functions.
 ! ======================================================================
 module basis_function_module
-  use constants_module, only : dp
-  use string_module
-  use io_module
+  use common_module
+  
+  use coupling_module
+  use polynomial_module
+  use degeneracy_module
   implicit none
   
   private
@@ -14,13 +16,6 @@ contains
 
 function generate_basis_functions(coupling,normal_modes,qpoints, &
    & subspaces,symmetries) result(output)
-  use coupling_module
-  use normal_mode_module
-  use qpoints_module
-  use integer_arrays_module
-  use polynomial_module
-  use logic_module
-  use degeneracy_module
   implicit none
   
   type(CoupledSubspaces), intent(in) :: coupling
@@ -121,11 +116,6 @@ end function
 ! ----------------------------------------------------------------------
 recursive function generate_coupled_modes(coupled_subspaces,normal_modes, &
    & qpoints,mode_ids_in,sum_q_in) result(output)
-  use normal_mode_module
-  use qpoints_module
-  use degeneracy_module
-  use integer_arrays_module
-  use logic_module
   implicit none
   
   type(DegenerateModes), intent(in)           :: coupled_subspaces(:)

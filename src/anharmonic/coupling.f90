@@ -2,11 +2,9 @@
 ! Parsing and storage of which degenerate subspaces are coupled with which.
 ! ======================================================================
 module coupling_module
-  use constants_module, only : dp
-  use string_module
-  use io_module
+  use common_module
   
-  use stringable_module
+  use degeneracy_module
   implicit none
   
   private
@@ -47,8 +45,6 @@ function size_CoupledSubspaces(this) result(output)
 end function
 
 function coupled_subspaces(this,subspaces) result(output)
-  use logic_module
-  use degeneracy_module
   implicit none
   
   class(CoupledSubspaces), intent(in) :: this
@@ -98,7 +94,6 @@ end function
 ! ----------------------------------------------------------------------
 function generate_subspace_coupling(degenerate_modes, &
    & potential_expansion_order,coupling_order) result(output)
-  use degeneracy_module
   implicit none
   
   type(DegenerateModes), intent(in)   :: degenerate_modes(:)
@@ -140,8 +135,6 @@ end function
 !    distinct elements.
 recursive function coupling_generator(degenerate_modes, &
    & potential_expansion_order,coupling_order,coupling_in) result(output)
-  use logic_module
-  use degeneracy_module
   implicit none
   
   type(DegenerateModes),  intent(in)           :: degenerate_modes(:)
@@ -189,7 +182,6 @@ end function
 ! File I/O.
 ! ----------------------------------------------------------------------
 subroutine write_coupling_file(this, filename)
-  use ofile_module
   implicit none
   
   type(CoupledSubspaces), intent(in) :: this(:)
@@ -207,7 +199,6 @@ subroutine write_coupling_file(this, filename)
 end subroutine
 
 function read_coupling_file(filename) result(this)
-  use ifile_module
   implicit none
   
   type(String), intent(in)            :: filename
@@ -241,8 +232,6 @@ end function
 ! Then duplicates are removed and missing modes added, so e.g.
 ! [1,3,4], [1,3] -> [], [1], [2], [3], [4], [1,3], [1,4], [3,4], [1,3,4]
 function OLDFUNCTION_calculate_all_coupling(input, modes) result(output)
-  use integer_arrays_module
-  use normal_mode_module
   implicit none
   
   type(CoupledSubspaces), intent(in)  :: input(:)

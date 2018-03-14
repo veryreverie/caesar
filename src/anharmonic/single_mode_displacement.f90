@@ -2,11 +2,7 @@
 ! A displacement along a single complex mode.
 ! ======================================================================
 module single_mode_displacement_module
-  use constants_module, only : dp
-  use string_module
-  use io_module
-  
-  use stringable_module
+  use common_module
   implicit none
   
   private

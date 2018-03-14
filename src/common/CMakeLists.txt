@@ -4,6 +4,7 @@ include_guard(common)
 
 # Link to QUIP, if PATH_TO_QUIP is defined.
 if (DEFINED PATH_TO_QUIP)
+  MESSAGE("Linking to QUIP.")
   add_library(quip quip_wrapper.f90)
 
   target_link_libraries(quip utils)
@@ -29,11 +30,12 @@ if (DEFINED PATH_TO_QUIP)
   find_package( LAPACK REQUIRED )
   target_link_libraries(quip ${LAPACK_LIBRARIES})
 else()
+  message("Not linking to QUIP.")
   add_library(quip quip_dummy.f90)
   target_link_libraries(quip utils)
 endif()
 
 # Common modules.
-add_library(common qpoints.f90 atom.f90 basic_symmetry.f90 symmetry.f90 structure.f90 generate_qpoints.f90 input_file.f90 output_file.f90 bands.f90 normal_mode.f90 normal_mode_symmetry.f90)
+add_library(common physical_constants.f90 spglib_wrapper.c qpoints.f90 atom.f90 basic_symmetry.f90 symmetry.f90 structure.f90 generate_qpoints.f90 input_file.f90 output_file.f90 bands.f90 normal_mode.f90 normal_mode_symmetry.f90 common.f90)
 target_link_libraries(common utils)
 target_link_libraries(common quip)

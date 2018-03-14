@@ -1,10 +1,10 @@
 module vscf_states_module
-  use constants_module, only : dp
-  use string_module
-  use io_module
+  use common_module
   
   use single_mode_states_module
   use harmonic_states_module
+  implicit none
+  
   private
   
   public :: construct_harmonic_vscf_states
@@ -70,7 +70,6 @@ end function
 ! Returns <i|T|j>.
 ! ----------------------------------------------------------------------
 function kinetic_energy(this,i,j) result(output)
-  use linear_algebra_module
   implicit none
   
   class(VscfStates), intent(in) :: this
@@ -99,7 +98,6 @@ end function
 ! Returns <i|u^power|j>.
 ! ----------------------------------------------------------------------
 function integral(this,i,j,power) result(output)
-  use linear_algebra_module
   implicit none
   
   class(VscfStates), intent(in) :: this
@@ -117,7 +115,6 @@ end function
 ! Returns sum_i <i|u^power|i> / no_states.
 ! ----------------------------------------------------------------------
 function mean_field(this,power) result(output)
-  use linear_algebra_module
   implicit none
   
   class(VscfStates), intent(in) :: this
@@ -134,7 +131,6 @@ end function
 ! Takes a Hamiltonian, and constructs the VSCF states which diagonalise it.
 ! ----------------------------------------------------------------------
 subroutine update_hamiltonian(this,hamiltonian)
-  use linear_algebra_module
   implicit none
   
   class(VscfStates), intent(inout) :: this
@@ -164,7 +160,6 @@ end subroutine
 ! Each vscf state is initially just the corresponding harmonic state.
 ! ----------------------------------------------------------------------
 function construct_harmonic_vscf_states(harmonic_states) result(output)
-  use linear_algebra_module
   implicit none
   
   type(HarmonicStates), intent(in) :: harmonic_states

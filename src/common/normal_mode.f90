@@ -33,11 +33,8 @@
 ! uc(q,k) = sum_j [ U(q,j,k) * c(q,j) ]        (for 2q/=G)
 ! us(q,k) = sum_j [ U(q,j,k) * s(q,j) ]        (for 2q/=G)
 module normal_mode_module
-  use constants_module, only : dp
-  use string_module
-  use io_module
+  use utils_module
   
-  use linear_algebra_module
   use qpoints_module
   implicit none
   
@@ -87,7 +84,6 @@ contains
 ! ComplexMode procedures.
 ! ----------------------------------------------------------------------
 subroutine write_file_ComplexMode(this,filename)
-  use ofile_module
   implicit none
   
   class(ComplexMode), intent(in) :: this
@@ -112,7 +108,6 @@ subroutine write_file_ComplexMode(this,filename)
 end subroutine
 
 function read_file_ComplexMode(filename) result(this)
-  use ifile_module
   implicit none
   
   type(String), intent(in) :: filename

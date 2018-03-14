@@ -4,16 +4,14 @@
 !    DFT calculations.
 ! ======================================================================
 module setup_quadratic_module
-  use constants_module, only : dp
-  use string_module
-  use io_module
+  use common_module
+  implicit none
 contains
 
 ! ----------------------------------------------------------------------
 ! Generates keywords and helptext.
 ! ----------------------------------------------------------------------
 function setup_quadratic_keywords() result(keywords)
-  use keyword_module
   implicit none
   
   type(KeywordData), allocatable :: keywords(:)
@@ -41,16 +39,6 @@ end function
 ! The main program.
 ! ----------------------------------------------------------------------
 subroutine setup_quadratic(arguments)
-  use constants_module, only : kb_in_au, pi
-  use utils_module,     only : mkdir
-  use ifile_module
-  use structure_module
-  use dft_input_file_module
-  use qpoints_module
-  use dictionary_module
-  use normal_mode_module
-  use linear_algebra_module
-  use atom_module
   implicit none
   
   type(Dictionary), intent(in) :: arguments

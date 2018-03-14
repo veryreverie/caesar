@@ -2,12 +2,9 @@
 ! A holding class for a rotation and translation in fractional co-ordinates.
 ! ======================================================================
 module basic_symmetry_module
-  use constants_module, only : dp
-  use string_module
-  use io_module
+  use utils_module
   
-  use linear_algebra_module
-  use group_module
+  use atom_module
   implicit none
   
   private
@@ -80,8 +77,7 @@ contains
 ! ----------------------------------------------------------------------
 function calculate_basic_symmetries(lattice,atoms,symmetry_precision) &
    & result(output)
-  use iso_c_binding
-  use atom_module
+  use, intrinsic :: iso_c_binding
   implicit none
   
   type(RealMatrix), intent(in)     :: lattice

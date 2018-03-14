@@ -2,9 +2,8 @@
 ! Calculates corrections due to perturbation theory.
 ! ======================================================================
 module perturbation_module
-  use constants_module, only : dp
-  use string_module
-  use io_module
+  use common_module
+  implicit none
   
   private
   

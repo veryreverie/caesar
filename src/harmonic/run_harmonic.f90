@@ -3,16 +3,17 @@
 ! Runs DFT for harmonic calculations.
 ! ======================================================================
 module run_harmonic_module
-  use constants_module, only : dp
-  use string_module
-  use io_module
+  use common_module
+  
+  use setup_harmonic_module
+  use unique_directions_module
+  implicit none
 contains
 
 ! ----------------------------------------------------------------------
 ! Generate keywords and helptext.
 ! ----------------------------------------------------------------------
 function run_harmonic_keywords() result(keywords)
-  use keyword_module
   implicit none
   
   type(KeywordData), allocatable :: keywords(:)
@@ -32,7 +33,6 @@ function run_harmonic_keywords() result(keywords)
 end function
 
 function run_harmonic_mode() result(output)
-  use caesar_modes_module
   implicit none
   
   type(CaesarMode) :: output
@@ -48,11 +48,6 @@ end function
 ! Main program.
 ! ----------------------------------------------------------------------
 subroutine run_harmonic(arguments)
-  use setup_harmonic_module
-  use unique_directions_module
-  use dictionary_module
-  use ifile_module
-  use structure_module
   implicit none
   
   type(Dictionary), intent(in) :: arguments
@@ -66,6 +61,7 @@ subroutine run_harmonic(arguments)
   integer          :: no_supercells
   type(String)     :: file_type
   type(String)     :: seedname
+  real(dp)         :: symmetry_precision
   
   ! Terminal inputs.
   integer      :: supercells_to_run(2)
@@ -105,11 +101,14 @@ subroutine run_harmonic(arguments)
   call setup_harmonic_arguments%read_file(wd//'/setup_harmonic.used_settings')
   file_type = setup_harmonic_arguments%value('file_type')
   seedname = setup_harmonic_arguments%value('seedname')
+  symmetry_precision = &
+     & dble(setup_harmonic_arguments%value('symmetry_precision'))
   
   ! --------------------------------------------------
   ! Read in structure data.
   ! --------------------------------------------------
-  structure = read_structure_file(wd//'/structure.dat')
+  structure = read_structure_file( wd//'/structure.dat', &
+                                 & symmetry_precision)
   
   ! --------------------------------------------------
   ! Check user inputs.

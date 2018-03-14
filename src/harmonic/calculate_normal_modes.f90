@@ -6,16 +6,20 @@
 ! Calculates the real part of the non-mass-reduced polarisation vector, which
 !    is the pattern of displacement corresponding to the normal mode.
 module calculate_normal_modes_module
-  use constants_module, only : dp
-  use string_module
-  use io_module
+  use common_module
+  
+  use setup_harmonic_module
+  use harmonic_properties_module
+  use unique_directions_module
+  use dynamical_matrix_module
+  use force_constants_module
+  implicit none
 contains
 
 ! ----------------------------------------------------------------------
 ! Generate keywords and helptext.
 ! ----------------------------------------------------------------------
 function calculate_normal_modes_keywords() result(keywords)
-  use keyword_module
   implicit none
   
   type(KeywordData), allocatable :: keywords(:)
@@ -33,7 +37,6 @@ function calculate_normal_modes_keywords() result(keywords)
 end function
 
 function calculate_normal_modes_mode() result(output)
-  use caesar_modes_module
   implicit none
   
   type(CaesarMode) :: output
@@ -49,22 +52,6 @@ end function
 ! Main program.
 ! ----------------------------------------------------------------------
 subroutine calculate_normal_modes(arguments)
-  use utils_module, only : mkdir
-  use ifile_module
-  use linear_algebra_module
-  use setup_harmonic_module
-  use structure_module
-  use output_file_module
-  use harmonic_properties_module
-  use unique_directions_module
-  use group_module
-  use qpoints_module
-  use dictionary_module
-  use normal_mode_module
-  use dynamical_matrix_module
-  use force_constants_module
-  use atom_module
-  use ofile_module
   implicit none
   
   type(Dictionary), intent(in) :: arguments
@@ -88,7 +75,7 @@ subroutine calculate_normal_modes(arguments)
   type(String)                     :: seedname
   type(StructureData)              :: structure
   type(StructureData), allocatable :: supercells(:)
-  real(dp)                         :: harmonic_displacement
+  real(dp)                         :: symmetry_precision
   
   ! Force constant data.
   type(UniqueDirection), allocatable :: unique_directions(:)
@@ -154,15 +141,16 @@ subroutine calculate_normal_modes(arguments)
   call setup_harmonic_arguments%read_file(wd//'/setup_harmonic.used_settings')
   file_type = setup_harmonic_arguments%value('file_type')
   seedname = setup_harmonic_arguments%value('seedname')
-  harmonic_displacement = dble(setup_harmonic_arguments%value( &
-     & 'harmonic_displacement'))
+  symmetry_precision = &
+     & dble(setup_harmonic_arguments%value('symmetry_precision'))
   
   no_supercells_file = wd//'/no_supercells.dat'
   no_supercells = int(no_supercells_file%line(1))
   
-  structure = read_structure_file(wd//'/structure.dat')
+  structure = read_structure_file(wd//'/structure.dat',symmetry_precision)
   
-  large_supercell = read_structure_file(wd//'/large_supercell.dat')
+  large_supercell = read_structure_file( wd//'/large_supercell.dat', &
+                                       & symmetry_precision)
   
   qpoints = read_qpoints_file(wd//'/qpoints.dat')
   
@@ -177,7 +165,8 @@ subroutine calculate_normal_modes(arguments)
     sdir = wd//'/Supercell_'//left_pad(i,str(no_supercells))
     
     ! Read in supercell structure data.
-    supercells(i) = read_structure_file(sdir//'/structure.dat')
+    supercells(i) = read_structure_file( sdir//'/structure.dat', &
+                                       & symmetry_precision)
     
     ! Read in symmetry group and unique atoms.
     unique_directions = read_unique_directions_file( &
@@ -191,6 +180,7 @@ subroutine calculate_normal_modes(arguments)
                                        & file_type,                &
                                        & seedname,                 &
                                        & acoustic_sum_rule_forces, &
+                                       & symmetry_precision,       &
                                        & force_logfile)
   enddo
   

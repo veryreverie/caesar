@@ -2,9 +2,7 @@
 ! A test space, for temporary checking of misc. parts of the code.
 ! ======================================================================
 module test_module
-  use constants_module, only : dp
-  use string_module
-  use io_module
+  use common_module
   implicit none
 contains
 
@@ -12,7 +10,6 @@ contains
 ! Generates keywords and helptext.
 ! ----------------------------------------------------------------------
 function test_keywords() result(keywords)
-  use keyword_module
   implicit none
   
   type(KeywordData), allocatable :: keywords(:)
@@ -21,7 +18,6 @@ function test_keywords() result(keywords)
 end function
 
 function test_mode() result(output)
-  use caesar_modes_module
   implicit none
   
   type(CaesarMode) :: output
@@ -37,11 +33,6 @@ end function
 ! Main function.
 ! ----------------------------------------------------------------------
 subroutine test(arguments)
-  use dictionary_module
-  use logic_module
-  use qr_decomposition_module
-  use linear_algebra_module
-  use eigenstuff_module
   implicit none
   
   type(Dictionary), intent(in) :: arguments

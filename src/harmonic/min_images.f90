@@ -2,10 +2,7 @@
 ! Subroutines for the calculation of minimum-image distances.
 ! ======================================================================
 module min_images_module
-  use constants_module, only : dp
-  use string_module
-  use io_module
-  use linear_algebra_module
+  use common_module
   implicit none
   
   private
@@ -40,9 +37,6 @@ end function
 ! Output given in fractional primitive co-ordinates, so R-vectors are integers.
 ! ----------------------------------------------------------------------
 function calculate_min_images(supercell) result(output)
-  use structure_module
-  use atom_module
-  use group_module
   implicit none
   
   type(StructureData), intent(in) :: supercell
@@ -95,9 +89,6 @@ end function
 ! Returns multiple R-vectors if they have similar lengths.
 ! ----------------------------------------------------------------------
 function min_images_brute_force(supercell,a,b) result(output)
-  use linear_algebra_module
-  use fraction_algebra_module
-  use structure_module
   implicit none
   
   type(StructureData), intent(in) :: supercell

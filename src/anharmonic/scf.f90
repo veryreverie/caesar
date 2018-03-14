@@ -2,9 +2,12 @@
 ! The SCF cycle of VSCF.
 ! ======================================================================
 module scf_module
-  use constants_module, only : dp
-  use string_module
-  use io_module
+  use common_module
+  
+  use potential_module
+  use harmonic_states_module
+  use vscf_states_module
+  implicit none
   
   private
   
@@ -16,10 +19,6 @@ contains
 !    along all other modes.
 ! ----------------------------------------------------------------------
 function scf(potential,input,harmonic_states) result(output)
-  use linear_algebra_module
-  use potential_module
-  use harmonic_states_module
-  use vscf_states_module
   implicit none
   
   type(PolynomialPotential), intent(in) :: potential
@@ -70,9 +69,6 @@ end function
 ! ----------------------------------------------------------------------
 function vscf(potential,harmonic_states,max_scf_cycles, &
    & scf_convergence_threshold) result(output)
-  use potential_module
-  use harmonic_states_module
-  use vscf_states_module
   implicit none
   
   type(PolynomialPotential), intent(in) :: potential

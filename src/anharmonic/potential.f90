@@ -2,13 +2,13 @@
 ! The basis functions from which the Born-Oppenheimer potential is made.
 ! ======================================================================
 module potential_module
-  use constants_module, only : dp
-  use string_module
-  use io_module
+  use common_module
   
-  use printable_module
-  use linear_algebra_module
   use monomial_module
+  use sampling_points_module
+  use coupling_module
+  use grid_types_module
+  use harmonic_states_module
   implicit none
   
   private
@@ -48,7 +48,6 @@ contains
 ! Evaluates the energy of a potential at a given displacement.
 ! ----------------------------------------------------------------------
 function evaluate_energy(this,displacement) result(output)
-  use normal_mode_module
   implicit none
   
   class(PolynomialPotential), intent(in) :: this
@@ -68,7 +67,6 @@ end function
 ! Returns the result in normal mode co-ordinates.
 ! ----------------------------------------------------------------------
 function evaluate_forces(this,displacement) result(output)
-  use normal_mode_module
   implicit none
   
   class(PolynomialPotential), intent(in) :: this
@@ -95,10 +93,6 @@ end function
 ! ----------------------------------------------------------------------
 function calculate_potential(potential_basis_cutoff,sampling,energy_error, &
    & force_error,modes,qpoint,supercell) result(output)
-  use sampling_points_module
-  use normal_mode_module
-  use qpoints_module
-  use structure_module
   implicit none
   
   integer,                intent(in) :: potential_basis_cutoff
@@ -203,9 +197,6 @@ end function
 !    then mapping the indices of each point to the powers of each monomial.
 function calculate_basis_functions(coupling,no_modes,potential_basis_cutoff) &
    & result(output)
-  use coupling_module
-  use sampling_points_module
-  use grid_types_module
   implicit none
   
   type(CoupledModes), intent(in)         :: coupling
@@ -334,11 +325,6 @@ end subroutine
 ! Only forces in the hyperplane of the coupling are considered.
 function fit_basis_functions(basis_functions,this_sampling,energy_error, &
    & force_error,fit,prev_sampling,modes,qpoint,supercell) result(output)
-  use sampling_points_module
-  use normal_mode_module
-  use qpoints_module
-  use structure_module
-  use grid_types_module
   implicit none
   
   type(PolynomialPotential), intent(in) :: basis_functions(:)
@@ -451,7 +437,6 @@ end function
 !    a                  * u1^p1 * ... * um^pm * ...
 ! -> a*<bra|um^nm|ket>) * u1^p1 * ... * um^0  * ...
 subroutine integrate_PolynomialPotential_HarmonicStates(this,states,bra,ket)
-  use harmonic_states_module
   implicit none
   
   class(PolynomialPotential), intent(inout) :: this
@@ -565,7 +550,6 @@ end function
 ! output(i+1,j+1) = <i|H|j> = <i|(T+V)|j>
 function construct_hamiltonian(this,states) &
    & result(output)
-  use linear_algebra_module
   use harmonic_states_module
   implicit none
   

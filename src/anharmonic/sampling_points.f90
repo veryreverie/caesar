@@ -2,14 +2,14 @@
 ! Holds information about points to be sampled.
 ! ======================================================================
 module sampling_points_module
-  use constants_module, only : dp
-  use string_module
+  use precision_module
   use io_module
+  use algebra_module
   
   use coupling_module
-  use linear_algebra_module
   use normal_mode_module
   use mode_vector_module
+  implicit none
   
   ! The ids of the sampling point.
   ! The corresponding displacement depends on the chosen grid type.
@@ -31,7 +31,6 @@ module sampling_points_module
 contains
 
 subroutine write_sampling_points_file(this, filename)
-  use ofile_module
   implicit none
   
   type(SamplingPoint), intent(in) :: this(:)
@@ -54,7 +53,6 @@ subroutine write_sampling_points_file(this, filename)
 end subroutine
 
 function read_sampling_points_file(filename) result(this)
-  use ifile_module
   implicit none
   
   type(String), intent(in)         :: filename
@@ -88,7 +86,6 @@ end function
 function generate_sampling_points(grid_type,coupling,no_modes, &
    & no_sampling_points,sample_spacing) result(output)
   use coupling_module
-  use linear_algebra_module
   use grid_types_module
   implicit none
   

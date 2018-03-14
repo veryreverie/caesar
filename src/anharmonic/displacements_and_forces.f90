@@ -3,9 +3,7 @@
 !    or convert a set of forces to a ModeVector.
 ! ======================================================================
 module mode_vector_module
-  use constants_module, only : dp
-  use string_module
-  use io_module
+  use common_module
   implicit none
   
   public :: DisplacementData
@@ -31,11 +29,6 @@ contains
 ! ----------------------------------------------------------------------
 ! Converts a vector in normal mode co-ordinates to cartesian co-ordinates.
 function real_mode_to_displacement(input,modes,qpoint,supercell) result(output)
-  use constants_module, only : pi
-  use qpoints_module
-  use structure_module
-  use linear_algebra_module
-  use atom_module
   implicit none
   
   type(RealModeVector), intent(in) :: input
@@ -107,11 +100,6 @@ end function
 
 ! Converts a force in cartesian co-ordinates into real normal mode co-ordinates.
 function force_to_real_mode(input,modes,qpoint,supercell) result(output)
-  use constants_module, only : pi
-  use qpoints_module
-  use structure_module
-  use linear_algebra_module
-  use atom_module
   implicit none
   
   type(ForceData),     intent(in) :: input

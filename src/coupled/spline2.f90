@@ -1,7 +1,6 @@
 module spline2_module
-  use string_module
   use io_module
-  use constants_module, only : dp
+  use precision_module
   
   interface spline
     module procedure spline_1d
@@ -15,8 +14,6 @@ module spline2_module
 contains
 
 subroutine spline2()
-  use ifile_module
-  use ofile_module
   implicit none
   
   ! Independent data points.

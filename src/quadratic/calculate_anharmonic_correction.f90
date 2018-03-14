@@ -1,15 +1,10 @@
 module calculate_anharmonic_correction_module
-  use constants_module, only : dp
-  use string_module
-  use io_module
+  use common_module
+  implicit none
 contains
 
 subroutine calculate_anharmonic_correction(structure,structure_grid,qpoints, &
    & Nbasis,harmonic,eigenvals,result_file)
-  use constants_module, only : kb_in_au
-  use ofile_module
-  use qpoints_module
-  use structure_module
   implicit none
   
   type(StructureData), intent(in)    :: structure

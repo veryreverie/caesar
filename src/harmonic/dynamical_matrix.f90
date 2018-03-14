@@ -2,12 +2,11 @@
 ! The forces between atoms at a given q-point.
 ! ======================================================================
 module dynamical_matrix_module
-  use constants_module, only : dp
-  use string_module
-  use io_module
+  use common_module
   
-  use linear_algebra_module
-  use normal_mode_module
+  use min_images_module
+  use force_constants_module
+  use calculate_modes_module
   implicit none
   
   private
@@ -57,16 +56,6 @@ contains
 ! --------------------------------------------------
 function new_DynamicalMatrix_calculated(qpoint,supercells,force_constants, &
    & structure,degenerate_energy,degeneracy_id,logfile) result(this)
-  use utils_module, only : sum_squares
-  use structure_module
-  use min_images_module
-  use force_constants_module
-  use atom_module
-  use qpoints_module
-  use ofile_module
-  use symmetry_module
-  use phase_module
-  use calculate_modes_module
   implicit none
   
   type(QpointData),     intent(in)    :: qpoint
@@ -210,13 +199,6 @@ end function
 ! --------------------------------------------------
 function new_DynamicalMatrix_interpolated(q,supercell,force_constants, &
    & min_images) result(this)
-  use structure_module
-  use min_images_module
-  use force_constants_module
-  use atom_module
-  use qpoints_module
-  use ofile_module
-  use calculate_modes_module
   implicit none
   
   type(RealVector),     intent(in) :: q
@@ -242,12 +224,6 @@ end function
 ! ----------------------------------------------------------------------
 function calculate_dynamical_matrix(q,supercell,force_constants,min_images) &
    & result(output)
-  use utils_module, only : exp_2pii
-  use structure_module
-  use force_constants_module
-  use min_images_module
-  use atom_module
-  use fraction_algebra_module
   implicit none
   
   type(RealVector),     intent(in)           :: q
@@ -310,8 +286,6 @@ end function
 !    given the dynamical matrix and normal modes at the q-point q.
 ! ----------------------------------------------------------------------
 function conjg_DynamicalMatrix(input) result(output)
-  use structure_module
-  use ofile_module
   implicit none
   
   type(DynamicalMatrix), intent(in) :: input
@@ -367,10 +341,6 @@ end function
 ! If check_eigenstuff, then degenerate_energy must be present.
 ! Structure may be any supercell.
 subroutine check(this,structure,logfile,check_eigenstuff)
-  use utils_module, only : sum_squares
-  use structure_module
-  use ofile_module
-  use calculate_modes_module
   implicit none
   
   class(DynamicalMatrix), intent(in)           :: this
@@ -488,12 +458,6 @@ end subroutine
 ! ----------------------------------------------------------------------
 function reconstruct_force_constants(large_supercell,qpoints, &
    & dynamical_matrices,logfile) result(output)
-  use utils_module, only : exp_2pii
-  use structure_module
-  use qpoints_module
-  use force_constants_module
-  use atom_module
-  use ofile_module
   implicit none
   
   type(StructureData),   intent(in)    :: large_supercell
@@ -547,7 +511,6 @@ end function
 ! Writes a dynamical matrix to file.
 ! ----------------------------------------------------------------------
 subroutine write_dynamical_matrix_file(dynamical_matrix,filename)
-  use ofile_module
   implicit none
   
   type(DynamicalMatrix), intent(in) :: dynamical_matrix
@@ -578,8 +541,6 @@ end subroutine
 ! Reads a dynamical matrix from file.
 ! ----------------------------------------------------------------------
 function read_dynamical_matrix_file(filename) result(dynamical_matrix)
-  use utils_module, only : int_sqrt
-  use ifile_module
   implicit none
   
   type(String), intent(in) :: filename
@@ -621,10 +582,6 @@ end function
 ! The symmetry, S, maps equilibrium position ri to rj+R, and q-point q to q'.
 ! The +R needs to be corrected for, by multiplying the phase by exp(-iq'.R).
 function rotate_modes(input,symmetry,qpoint_from,qpoint_to) result(output)
-  use utils_module, only : sum_squares
-  use qpoints_module
-  use symmetry_module
-  use normal_mode_symmetry_module
   implicit none
   
   type(DynamicalMatrix),  intent(in)    :: input
@@ -651,9 +608,6 @@ end function
 ! ----------------------------------------------------------------------
 function rotate_dynamical_matrix(input,symmetry,qpoint_from,qpoint_to) &
    & result(output)
-  use utils_module, only : exp_2pii
-  use symmetry_module
-  use qpoints_module
   implicit none
   
   type(ComplexMatrix),    intent(in) :: input(:,:)
@@ -774,8 +728,6 @@ end function
 ! Compares two dynamical matrices.
 ! ----------------------------------------------------------------------
 subroutine compare_dynamical_matrices(a,b,logfile)
-  use utils_module, only : sum_squares
-  use ofile_module
   implicit none
   
   type(DynamicalMatrix), intent(in)    :: a

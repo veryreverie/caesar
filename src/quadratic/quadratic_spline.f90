@@ -13,8 +13,7 @@
 !                                                                         !
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 module quadratic_spline_module
-  use constants_module, only : dp
-  use string_module
+  use precision_module
   use io_module
 contains
 

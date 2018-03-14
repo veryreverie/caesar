@@ -16,16 +16,16 @@
 ! Added in coupled mapping, 09 Feb 2016
 
 module bo_mappingforcescoupled_module
- use string_module
- use io_module
- use constants_module, only : dp
+  use io_module
+  use precision_module
+  use arguments_module
+  implicit none
 contains
 
 ! ----------------------------------------------------------------------
 ! Generate keywords and helptext.
 ! ----------------------------------------------------------------------
 function anharmonic_keywords() result(keywords)
-  use keyword_module
   implicit none
   
   type(KeywordData), allocatable :: keywords(:)
@@ -91,10 +91,7 @@ end function
 ! Main program.
 ! ----------------------------------------------------------------------
 subroutine bo_mappingforcescoupled(arguments)
-  use ifile_module
-  use ofile-module
   use structure_module
-  use dictionary_module
   use positions_module
   implicit none
   

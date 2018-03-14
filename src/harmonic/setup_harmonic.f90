@@ -3,16 +3,18 @@
 ! Generates supercells, and prepares harmonic DFT calculations.
 ! ======================================================================
 module setup_harmonic_module
-  use constants_module, only : dp
-  use string_module
-  use io_module
+  use common_module
+  
+  use generate_supercells_module
+  use generate_qpoints_module
+  use unique_directions_module
+  implicit none
 contains
 
 ! ----------------------------------------------------------------------
 ! Generate keywords and helptext.
 ! ----------------------------------------------------------------------
 function setup_harmonic_keywords() result(keywords)
-  use keyword_module
   implicit none
   
   type(KeywordData), allocatable :: keywords(:)
@@ -42,7 +44,6 @@ function setup_harmonic_keywords() result(keywords)
 end function
 
 function setup_harmonic_mode() result(output)
-  use caesar_modes_module
   implicit none
   
   type(CaesarMode) :: output
@@ -58,17 +59,6 @@ end function
 ! Main program.
 ! ----------------------------------------------------------------------
 subroutine setup_harmonic(arguments)
-  use utils_module, only : mkdir
-  use ofile_module
-  use linear_algebra_module
-  use structure_module
-  use group_module
-  use qpoints_module
-  use dictionary_module
-  use input_file_module
-  use generate_supercells_module
-  use generate_qpoints_module
-  use unique_directions_module
   implicit none
   
   type(Dictionary), intent(in) :: arguments
@@ -156,6 +146,7 @@ subroutine setup_harmonic(arguments)
                               & 3,3)
   large_supercell = construct_supercell( structure,              &
                                        & large_supercell_matrix, &
+                                       & symmetry_precision,     &
                                        & calculate_symmetries=.false.)
   call write_structure_file(large_supercell, wd//'/large_supercell.dat')
   

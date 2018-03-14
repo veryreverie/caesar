@@ -3,16 +3,18 @@
 !    to G-vectors of a supercell.
 ! ======================================================================
 module generate_qpoints_module
-  use string_module
-  use io_module
-  implicit none
-contains
-function generate_qpoints(large_supercell) result(output)
-  use linear_algebra_module
-  use fraction_algebra_module
+  use utils_module
+  
   use structure_module
-  use group_module
   use qpoints_module
+  implicit none
+  
+  private
+  
+  public :: generate_qpoints
+contains
+
+function generate_qpoints(large_supercell) result(output)
   implicit none
   
   type(StructureData), intent(in) :: large_supercell

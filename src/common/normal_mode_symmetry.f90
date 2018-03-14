@@ -1,7 +1,10 @@
 module normal_mode_symmetry_module
-  use constants_module, only : dp
-  use string_module
-  use io_module
+  use utils_module
+  
+  use normal_mode_module
+  use symmetry_module
+  use atom_module
+  use qpoints_module
   implicit none
   
   private
@@ -21,11 +24,6 @@ contains
 ! Checks that the symmetry correctly maps qpoint_from to qpoint_to.
 impure elemental function rotate_complex_modes(input,symmetry,qpoint_from, &
    & qpoint_to) result(output)
-  use normal_mode_module
-  use symmetry_module
-  use atom_module
-  use qpoints_module
-  use group_module
   implicit none
   
   type(ComplexMode),      intent(in) :: input
@@ -66,11 +64,6 @@ end function
 ! Takes q1, {u1}, q2, {u2} and S. Outputs {u2.S.u1}.
 function calculate_symmetry_in_normal_coordinates_qpoint(modes,qpoint, &
    & symmetry,logfile) result(output)
-  use utils_module, only : sum_squares
-  use qpoints_module
-  use symmetry_module
-  use ofile_module
-  use normal_mode_module
   implicit none
   
   type(ComplexMode),      intent(in)    :: modes(:)
@@ -122,11 +115,6 @@ end function
 ! Takes {q1}, {u1}, {q2}, {u2} and S. Outputs {u2.S.u1}.
 function calculate_symmetry_in_normal_coordinates_qpoints(modes,qpoints, &
    & symmetry,logfile) result(output)
-  use utils_module, only : sum_squares
-  use qpoints_module
-  use symmetry_module
-  use ofile_module
-  use normal_mode_module
   implicit none
   
   type(ComplexMode),      intent(in)    :: modes(:)

@@ -3,16 +3,16 @@
 ! ======================================================================
 ! Runs multiple single-point calculations with different cutoff energies.
 module converge_cutoff_and_kpoints_module
-  use constants_module, only : dp
-  use string_module
-  use io_module
+  use common_module
+  
+  use castep_output_file_module
+  implicit none
 contains
 
 ! ----------------------------------------------------------------------
 ! Generate keywords and helptext.
 ! ----------------------------------------------------------------------
 function converge_cutoff_and_kpoints_keywords() result(keywords)
-  use keyword_module
   implicit none
   
   type(KeywordData), allocatable :: keywords(:)
@@ -68,11 +68,15 @@ function converge_cutoff_and_kpoints_keywords() result(keywords)
   &which must be within both thresholds in order to accept convergence. The &
   &cutoff energy and k-point spacing of the first such calculation will be &
   &accepted.',                                                                &
-  &               default_value='10') ]
+  &               default_value='10'),                                        &
+  & KeywordData( 'symmetry_precision',                                        &
+  &              'In order for a symmetry to be accepted, it must transform &
+  &the position of every atom to within symmetry_precision of an atom of the &
+  &same element. symmetry_precision should be given in Bohr.',                &
+  &              default_value='0.1') ]
 end function
 
 function converge_cutoff_and_kpoints_mode() result(output)
-  use caesar_modes_module
   implicit none
   
   type(CaesarMode) :: output
@@ -87,13 +91,6 @@ end function
 ! Main program.
 ! ----------------------------------------------------------------------
 subroutine converge_cutoff_and_kpoints(arguments)
-  use dictionary_module
-  use ifile_module
-  use ofile_module
-  use structure_module
-  use linear_algebra_module
-  use input_file_module
-  use castep_output_file_module
   implicit none
   
   type(Dictionary), intent(in) :: arguments
@@ -112,6 +109,7 @@ subroutine converge_cutoff_and_kpoints(arguments)
   real(dp)     :: energy_convergence_threshold
   real(dp)     :: force_convergence_threshold
   integer      :: no_converged_calculations
+  real(dp)     :: symmetry_precision
   
   ! The structure being converged.
   type(StructureData) :: structure
@@ -169,6 +167,7 @@ subroutine converge_cutoff_and_kpoints(arguments)
   force_convergence_threshold = &
      & dble(arguments%value('force_convergence_threshold'))
   no_converged_calculations = int(arguments%value('no_converged_calculations'))
+  symmetry_precision = dble(arguments%value('symmetry_precision'))
   
   if (cutoff_step<10) then
     call print_line('Error: cutoff_step is too small.')
@@ -253,7 +252,8 @@ subroutine converge_cutoff_and_kpoints(arguments)
                             & no_cores,                                  &
                             & cell_file,                                 &
                             & param_file,                                &
-                            & structure)
+                            & structure,                                 &
+                            & symmetry_precision)
     cutoffs_energies(i) = castep_file%energy
     cutoffs_forces(:,i) = castep_file%forces
     
@@ -350,7 +350,8 @@ subroutine converge_cutoff_and_kpoints(arguments)
                             & no_cores,           &
                             & cell_file,          &
                             & param_file,         &
-                            & structure)
+                            & structure,          &
+                            & symmetry_precision)
     kpoint_numbers(i) = castep_file%no_kpoints
     kpoint_grids(:,i) = castep_file%kpoints_mp_grid
     kpoints_energies(i) = castep_file%energy
@@ -444,12 +445,7 @@ end subroutine
 ! Runs CASTEP with a particular k-point spacing and cutoff.
 ! ----------------------------------------------------------------------
 function run_castep(cutoff,kpoint_spacing,wd,dir,seedname,run_script, &
-   & no_cores,cell_file,param_file,structure) result(output)
-  use utils_module, only : mkdir
-  use ifile_module
-  use ofile_module
-  use castep_output_file_module
-  use structure_module
+   & no_cores,cell_file,param_file,structure,symmetry_precision) result(output)
   implicit none
   
   integer,             intent(in) :: cutoff
@@ -462,6 +458,7 @@ function run_castep(cutoff,kpoint_spacing,wd,dir,seedname,run_script, &
   type(IFile),         intent(in) :: cell_file
   type(IFile),         intent(in) :: param_file
   type(StructureData), intent(in) :: structure
+  real(dp),            intent(in) :: symmetry_precision
   type(CastepOutputFile)          :: output
   
   type(OFile)  :: output_cell_file
@@ -494,6 +491,10 @@ function run_castep(cutoff,kpoint_spacing,wd,dir,seedname,run_script, &
   call print_line('Result code: '//result_code)
   
   ! Read CASTEP file.
-  output = read_castep_output_file(dir//'/'//seedname//'.castep',structure)
+  output = read_castep_output_file( dir//'/'//seedname//'.castep', &
+                                  & structure,                     &
+                                  & wd,                            &
+                                  & seedname,                      &
+                                  & symmetry_precision)
 end function
 end module

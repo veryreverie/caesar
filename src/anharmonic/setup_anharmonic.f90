@@ -2,9 +2,16 @@
 ! Sets up anharmonic calculations.
 ! ======================================================================
 module setup_anharmonic_module
-  use constants_module, only : dp
-  use string_module
-  use io_module
+  use common_module
+  
+  use setup_harmonic_module
+  
+  use polynomial_module
+  use generate_qpoints_module
+  use normal_mode_symmetry_module
+  use coupling_module
+  use basis_function_module
+  use degeneracy_module
   implicit none
   
 contains
@@ -13,7 +20,6 @@ contains
 ! Generate keywords and helptext.
 ! ----------------------------------------------------------------------
 function setup_anharmonic_keywords() result(keywords)
-  use keyword_module
   implicit none
   
   type(KeywordData), allocatable :: keywords(:)
@@ -39,7 +45,6 @@ function setup_anharmonic_keywords() result(keywords)
 end function
 
 function setup_anharmonic_mode() result(output)
-  use caesar_modes_module
   implicit none
   
   type(CaesarMode) :: output
@@ -55,22 +60,6 @@ end function
 ! The main program.
 ! ----------------------------------------------------------------------
 subroutine setup_anharmonic(arguments)
-  use dictionary_module
-  use linear_algebra_module
-  use setup_harmonic_module
-  use structure_module
-  use qpoints_module
-  use normal_mode_module
-  use polynomial_module
-  use generate_qpoints_module
-  use logic_module
-  use integer_arrays_module
-  use normal_mode_symmetry_module
-  use symmetry_module
-  use ofile_module
-  use coupling_module
-  use basis_function_module
-  use degeneracy_module
   implicit none
   
   type(Dictionary), intent(in) :: arguments
@@ -86,6 +75,7 @@ subroutine setup_anharmonic(arguments)
   type(String)     :: seedname
   type(String)     :: file_type
   integer          :: qpoint_grid(3)
+  real(dp)         :: symmetry_precision
   
   ! Previously calculated data.
   type(StructureData)            :: structure
@@ -130,8 +120,11 @@ subroutine setup_anharmonic(arguments)
      & harmonic_path//'/setup_harmonic.used_settings')
   seedname = setup_harmonic_arguments%value('seedname')
   file_type = setup_harmonic_arguments%value('file_type')
+  symmetry_precision = &
+     & dble(setup_harmonic_arguments%value('symmetry_precision'))
   
-  structure = read_structure_file(harmonic_path//'/structure.dat')
+  structure = read_structure_file( harmonic_path//'/structure.dat', &
+                                 & symmetry_precision)
   harmonic_qpoints = read_qpoints_file(harmonic_path//'/qpoints.dat')
   
   ! Open logifile.
@@ -146,6 +139,7 @@ subroutine setup_anharmonic(arguments)
      & 3,3)
   anharmonic_supercell = construct_supercell( structure,                   &
                                             & anharmonic_supercell_matrix, &
+                                            & symmetry_precision,          &
                                             & calculate_symmetries=.false.)
   call write_structure_file( anharmonic_supercell, &
                            & wd//'/anharmonic_supercell.dat')

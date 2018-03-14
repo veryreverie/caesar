@@ -2,9 +2,10 @@
 ! The scf loop for vscfCoupled
 ! ======================================================================
 module scf_old_module
-  use string_module
   use io_module
-  use constants_module, only : dp
+  use precision_module
+  use algebra_module
+  implicit none
   
   type ScfOutput
     real(dp), allocatable :: scf_pot(:,:)
@@ -21,7 +22,6 @@ function scf(basis,coupled_pot,indep_pot,execution_mode,final_energy_pre, &
    & no_modes,integration_points,nbasis,                                  &
    & symmetry_mode,symmetry_ref,dq,state,                                 &
    & eigenvectors_old,omega,v0,coupled_integral) result(output)
-  use linear_algebra_module
   implicit none
   
   real(dp), intent(in) :: basis(:,:,:)

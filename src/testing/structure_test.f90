@@ -2,18 +2,14 @@
 ! Provides helper functions for testing StructureData.
 ! ======================================================================
 module structure_test_module
-  use constants_module, only : dp
-  use string_module
-  use io_module
+  use common_module
+  implicit none
 contains
 
 ! ----------------------------------------------------------------------
 ! Writes out structure.dat in a manner compatible with old Caesar.
 ! ----------------------------------------------------------------------
 subroutine write_old_structure_file(structure,filename)
-  use ofile_module
-  use structure_module
-  use linear_algebra_module
   implicit none
   
   type(StructureData), intent(in) :: structure

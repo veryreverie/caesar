@@ -2,16 +2,17 @@
 ! Interfaces to the QUIP library.
 ! ======================================================================
 module quip_wrapper_module
-  use constants_module, only : dp
-  use string_module
-  use io_module
+  use utils_module
   
-  use linear_algebra_module
-  
-  ! Use QUIP modules.
+  ! Use modules from QUIP itself.
   use quip_unified_wrapper_module, only : quip_unified_wrapper!,initialise
   !use libatoms_module, only : Atoms,read,write
   implicit none
+  
+  private
+  
+  public :: QuipResult
+  public :: call_quip
   
   type :: QuipResult
     real(dp)              :: energy
@@ -60,8 +61,8 @@ function call_quip(lattice,atomic_nos,positions,dir,seedname) result(output)
                            & do_energy           = .true.,          &
                            & do_force            = .true.,          &
                            & do_virial           = .true.,          &
-                           & quip_param_file     = quip_file,       &
-                           & quip_param_file_len = size(quip_file), &
+                           & quip_param_file     = char(quip_file), &
+                           & quip_param_file_len = len(quip_file),  &
                            & calc_args_str       = '',              &
                            & calc_args_str_len   = 0 )
 end function

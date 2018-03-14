@@ -8,10 +8,8 @@
 ! 09/10/2015 - Modified by JCAP to work with QUIP+GAP. equilibrium.dat is now in angstroms, not bohr, and in extended xyz format
 ! ======================================================================
 module positions_module
-  use string_module
-  use io_module
-  use constants_module, only : dp
-  use linear_algebra_module
+  use common_module
+  implicit none
   
   type :: PositionData
     logical                       :: scaling_check
@@ -25,7 +23,6 @@ contains
 ! The normal mode amplitudes to sample are calculated 
 ! ----------------------------------------------------------------------
 function max_amplitude(frequency,temperature) result(output)
-  use constants_module, only : kb_in_au
   implicit none
   
   real(dp), intent(in) :: frequency
@@ -52,8 +49,6 @@ end function max_amplitude
 
 function positions(structure, temperature, number_fit_points, frequency1, &
    &frequency2, current_number1, current_number2, disp1, disp2) result(output)
-  use structure_module
-  use linear_algebra_module
   implicit none
   
   type(StructureData), intent(in) :: structure

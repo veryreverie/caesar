@@ -2,11 +2,7 @@
 ! Holds information about a degenerate subspace.
 ! ======================================================================
 module degeneracy_module
-  use constants_module, only : dp
-  use string_module
-  use io_module
-  
-  use printable_module
+  use common_module
   implicit none
   
   private
@@ -52,9 +48,6 @@ contains
 ! Constructor.
 ! ----------------------------------------------------------------------
 function process_degeneracies(modes,mode_qpoints) result(output)
-  use normal_mode_module
-  use qpoints_module
-  use logic_module
   implicit none
   
   type(ComplexMode), intent(in)      :: modes(:)
@@ -112,7 +105,6 @@ end function
 ! Returns the degenerate modes.
 ! ----------------------------------------------------------------------
 function modes_DegenerateModes(this,modes) result(output)
-  use normal_mode_module
   implicit none
   
   class(DegenerateModes), intent(in) :: this
@@ -126,7 +118,6 @@ end function
 ! Returns the q-points corresponding to the degenerate modes.
 ! ----------------------------------------------------------------------
 function qpoints_DegenerateModes(this,qpoints) result(output)
-  use qpoints_module
   implicit none
   
   class(DegenerateModes), intent(in) :: this

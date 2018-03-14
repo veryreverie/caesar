@@ -2,12 +2,7 @@
 ! Generates the supercells needed to simulate phonons at all q-points.
 ! ======================================================================
 module generate_supercells_module
-  use constants_module, only : dp
-  use string_module
-  use io_module
-  
-  use structure_module
-  use qpoints_module
+  use common_module
   implicit none
   
   private
@@ -22,7 +17,6 @@ contains
 ! The linear combinations considered are a+b+c, a+b-c, a-b+c and -a+b+c.
 ! ----------------------------------------------------------------------
 function reduce_once(input,metric) result(output)
-  use linear_algebra_module
   implicit none
   
   type(IntVector),  intent(in) :: input(3)
@@ -71,7 +65,6 @@ end function
 !    - Each vector is shorter than any linear combination of those vectors.
 ! ----------------------------------------------------------------------
 function reduce(input,structure) result(output)
-  use linear_algebra_module
   implicit none
   
   type(IntMatrix),     intent(in) :: input
@@ -133,7 +126,6 @@ end function
 ! S is found s.t. |S| is as small as possible (whilst being >0).
 ! Returns answer in Hermite Normal Form.
 function find_hnf_supercell_matrix(qpoint) result(output)
-  use linear_algebra_module
   implicit none
   
   type(QpointData), intent(in) :: qpoint
@@ -223,8 +215,6 @@ end function
 ! ----------------------------------------------------------------------
 ! Throws an error if there is a problem.
 subroutine check_supercells(supercells,structure)
-  use utils_module, only : sum_squares
-  use ofile_module
   implicit none
   
   type(StructureData), intent(in) :: supercells(:)
@@ -282,7 +272,7 @@ subroutine check_supercells(supercells,structure)
       ! Check that R.R^T is the identity.
       rotation_identity = supercell%symmetries(j)%cartesian_rotation &
                       & * transpose(supercell%symmetries(j)%cartesian_rotation)
-      symmetry_errors(i) = sqrt(sum_squares( rotation_identity &
+      symmetry_errors(j) = sqrt(sum_squares( rotation_identity &
                                          & - make_identity_matrix(3)))
     enddo
     if (any(symmetry_errors>1e-10_dp)) then
@@ -306,9 +296,6 @@ end subroutine
 ! ----------------------------------------------------------------------
 function generate_supercells(structure,qpoints,symmetry_precision) &
    & result(output)
-  use linear_algebra_module
-  use structure_module
-  use group_module
   implicit none
   
   ! Inputs.

@@ -2,11 +2,7 @@
 ! Routines to calculate normal modes from dynamical matrices.
 ! ======================================================================
 module calculate_modes_module
-  use constants_module, only : dp
-  use string_module
-  use io_module
-  
-  use normal_mode_module
+  use common_module
   implicit none
   
   private
@@ -26,9 +22,6 @@ contains
 
 ! Calculate modes for a q-point other than one of the calculated q-points.
 function calculate_modes_interpolated(matrices,structure) result(output)
-  use structure_module
-  use atom_module
-  use eigenstuff_module
   implicit none
   
   type(ComplexMatrix), intent(in) :: matrices(:,:)
@@ -38,8 +31,6 @@ function calculate_modes_interpolated(matrices,structure) result(output)
   complex(dp), allocatable :: dyn_mat(:,:)
   
   type(HermitianEigenstuff), allocatable :: estuff(:)
-  
-  type(ComplexVector) :: displacement
   
   integer :: i,j,k,ialloc
   
@@ -97,15 +88,6 @@ end function
 ! Will lift degeneracies using symmetries.
 function calculate_modes_calculated(matrices,structure,qpoint, &
    &degenerate_energy,degeneracy_id,logfile) result(output)
-  use utils_module, only : sum_squares
-  use structure_module
-  use qpoints_module
-  use atom_module
-  use eigenstuff_module
-  use ofile_module
-  use symmetry_module
-  use logic_module
-  use normal_mode_symmetry_module
   implicit none
   
   type(ComplexMatrix), intent(in)    :: matrices(:,:)
@@ -127,7 +109,7 @@ function calculate_modes_calculated(matrices,structure,qpoint, &
   type(ComplexMatrix) :: symmetry
   real(dp)            :: check
   
-  integer :: i,j,k,ialloc
+  integer :: i,j
   
   ! Calculate normal modes as if at an arbitrary q-point.
   output = calculate_modes(matrices,structure)
@@ -235,14 +217,6 @@ end function
 ! Symmetries must all take the q-point to itself.
 recursive function lift_degeneracies(input,symmetries,qpoint,logfile) &
    & result(output)
-  use utils_module, only : sum_squares
-  use symmetry_module
-  use qpoints_module
-  use eigenstuff_module
-  use phase_module
-  use logic_module
-  use ofile_module
-  use normal_mode_symmetry_module
   implicit none
   
   type(ComplexMode),      intent(in)    :: input(:)
@@ -254,7 +228,6 @@ recursive function lift_degeneracies(input,symmetries,qpoint,logfile) &
   integer :: no_modes
   
   ! Symmetry information.
-  integer :: sym_id
   integer :: order
   
   type(SymmetryOperator) :: first_symmetry
@@ -267,7 +240,7 @@ recursive function lift_degeneracies(input,symmetries,qpoint,logfile) &
   ! Error checking.
   real(dp) :: check
   
-  integer :: i,j,k,ialloc
+  integer :: i,j
   
   ! All q-point data and eigenvalues will be unchanged.
   ! Copy over all data, and only change that which changes.

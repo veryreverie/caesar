@@ -1,9 +1,5 @@
 module castep_output_file_module
-  use constants_module, only : dp
-  use string_module
-  use io_module
-  
-  use output_file_module
+  use common_module
   implicit none
   
   type, extends(OutputFile) :: CastepOutputFile
@@ -12,13 +8,15 @@ module castep_output_file_module
   end type
 contains
 
-function read_castep_output_file(filename,structure) result(output)
-  use ifile_module
-  use structure_module
+function read_castep_output_file(filename,structure,dir,seedname, &
+   & symmetry_precision) result(output)
   implicit none
   
   type(String),        intent(in) :: filename
   type(StructureData), intent(in) :: structure
+  type(String),        intent(in) :: dir
+  type(String),        intent(in) :: seedname
+  real(dp),            intent(in) :: symmetry_precision
   type(CastepOutputFile)          :: output
   
   type(OutputFile) :: output_file
@@ -27,7 +25,12 @@ function read_castep_output_file(filename,structure) result(output)
   type(String), allocatable :: line(:)
   integer                   :: i
   
-  output_file = read_output_file(str('castep'),filename,structure)
+  output_file = read_output_file( str('castep'), &
+                                & filename,      &
+                                & structure,     &
+                                & dir,           &
+                                & seedname,      &
+                                & symmetry_precision)
   
   output%no_atoms = output_file%no_atoms
   output%species = output_file%species

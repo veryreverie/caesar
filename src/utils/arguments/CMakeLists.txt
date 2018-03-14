@@ -1,0 +1,15 @@
+cmake_minimum_required (VERSION 3.5 FATAL_ERROR)
+include(${CMAKE_SOURCE_DIR}/utils/include_guard.cmake)
+include_guard(arguments)
+
+add_library(arguments keyword.f90 help.f90 dictionary.f90 process_arguments.f90 caesar_modes.f90 arguments.f90)
+
+# Link against required modules.
+add_subdirectory(${CMAKE_SOURCE_DIR}/utils/precision precision/)
+target_link_libraries(arguments precision)
+
+add_subdirectory(${CMAKE_SOURCE_DIR}/utils/io io/)
+target_link_libraries(arguments io)
+
+add_subdirectory(${CMAKE_SOURCE_DIR}/utils/logic logic/)
+target_link_libraries(arguments logic)

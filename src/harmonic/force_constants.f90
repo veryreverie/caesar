@@ -2,11 +2,9 @@
 ! Reads harmonic forces, and generates the matrix of force constants.
 ! ======================================================================
 module force_constants_module
-  use constants_module, only : dp
-  use string_module
-  use io_module
+  use common_module
   
-  use linear_algebra_module
+  use unique_directions_module
   implicit none
   
   private
@@ -56,15 +54,9 @@ contains
 ! => F = sum(x,s)[f'^x'] . inverse( sum(x,s)[x'^x'] )
 !
 ! sum(x,s)[x'^x'] is block diagonal, so can be inverted in 3x3 blocks.
-function new_ForceConstants_forces(supercell,unique_directions,wd,sdir, &
-   & file_type,seedname,acoustic_sum_rule_forces,logfile) result(output)
-  use utils_module, only : sum_squares
-  use linear_algebra_module
-  use structure_module
-  use unique_directions_module
-  use group_module
-  use atom_module
-  use ofile_module
+function new_ForceConstants_forces(supercell,unique_directions,wd,sdir,      &
+   & file_type,seedname,acoustic_sum_rule_forces,symmetry_precision,logfile) &
+   & result(output)
   implicit none
   
   type(StructureData),   intent(in)    :: supercell
@@ -74,6 +66,7 @@ function new_ForceConstants_forces(supercell,unique_directions,wd,sdir, &
   type(String),          intent(in)    :: file_type
   type(String),          intent(in)    :: seedname
   logical,               intent(in)    :: acoustic_sum_rule_forces
+  real(dp),              intent(in)    :: symmetry_precision
   type(OFile),           intent(inout) :: logfile
   type(ForceConstants)                 :: output
   
@@ -87,13 +80,14 @@ function new_ForceConstants_forces(supercell,unique_directions,wd,sdir, &
   type(RealMatrix), allocatable :: xx(:)
   
   ! Read in forces (mass reduced).
-  forces = read_forces( supercell,         &
-                      & unique_directions, &
-                      & wd,                &
-                      & sdir,              &
-                      & file_type,         &
-                      & seedname,          &
-                      & acoustic_sum_rule_forces)
+  forces = read_forces( supercell,                &
+                      & unique_directions,        &
+                      & wd,                       &
+                      & sdir,                     &
+                      & file_type,                &
+                      & seedname,                 &
+                      & acoustic_sum_rule_forces, &
+                      & symmetry_precision)
   
   ! Construct sum[x'^x'].
   xx = construct_xx(unique_directions, supercell, logfile)
@@ -116,10 +110,6 @@ end function
 ! ----------------------------------------------------------------------
 function new_ForceConstants_constants(structure,force_constants,logfile) &
    & result(this)
-  use utils_module, only : sum_squares
-  use structure_module
-  use atom_module
-  use ofile_module
   implicit none
   
   type(StructureData), intent(in)    :: structure
@@ -185,7 +175,6 @@ end function
 ! Return the force constants between two atoms.
 ! ----------------------------------------------------------------------
 function constants(this,a,b) result(output)
-  use atom_module
   implicit none
   
   class(ForceConstants), intent(in) :: this
@@ -200,12 +189,7 @@ end function
 ! Read in forces, and mass-weight them.
 ! ----------------------------------------------------------------------
 function read_forces(supercell,unique_directions,wd,sdir,file_type,seedname, &
-   & acoustic_sum_rule_forces) result(output)
-  use structure_module
-  use unique_directions_module
-  use output_file_module
-  use linear_algebra_module
-  use atom_module
+   & acoustic_sum_rule_forces,symmetry_precision) result(output)
   implicit none
   
   type(StructureData),   intent(in) :: supercell
@@ -215,6 +199,7 @@ function read_forces(supercell,unique_directions,wd,sdir,file_type,seedname, &
   type(String),          intent(in) :: file_type
   type(String),          intent(in) :: seedname
   logical,               intent(in) :: acoustic_sum_rule_forces
+  real(dp),              intent(in) :: symmetry_precision
   type(RealVector), allocatable     :: output(:,:)
   
   ! DFT output data.
@@ -244,7 +229,8 @@ function read_forces(supercell,unique_directions,wd,sdir,file_type,seedname, &
        & sdir//'/atom.'//atom_string//'.'//direction//'/'//output_filename, &
        & supercell,                                                         &
        & wd,                                                                &
-       & seedname)
+       & seedname,                                                          &
+       & symmetry_precision)
     
     output(:,i) = output_file%forces(:)
     
@@ -272,12 +258,6 @@ end function
 ! Construct and check sum[x'^x'].
 ! ----------------------------------------------------------------------
 function construct_xx(unique_directions,supercell,logfile) result(output)
-  use utils_module, only : sum_squares
-  use unique_directions_module
-  use structure_module
-  use linear_algebra_module
-  use atom_module
-  use ofile_module
   implicit none
   
   type(UniqueDirection), intent(in)    :: unique_directions(:)
@@ -347,12 +327,6 @@ end function
 ! ----------------------------------------------------------------------
 function construct_fx(unique_directions,forces,supercell,logfile) &
    & result(output)
-  use utils_module, only : sum_squares
-  use unique_directions_module
-  use structure_module
-  use linear_algebra_module
-  use atom_module
-  use ofile_module
   implicit none
   
   type(UniqueDirection), intent(in)    :: unique_directions(:)
@@ -455,11 +429,6 @@ end function
 !    effectively sqrt(s) times shorter than the equivalent displacement in
 !    the 1x1x1 supercell.
 function construct_f(xx,fx,supercell,logfile) result(output)
-  use utils_module, only : sum_squares
-  use linear_algebra_module
-  use structure_module
-  use ofile_module
-  use atom_module
   implicit none
   
   type(RealMatrix),    intent(in)    :: xx(:)
@@ -559,13 +528,6 @@ end function
 !    changed too much by symmetrisation.
 ! Checks that the force constants have the correct symmetry properties.
 subroutine check(this,forces,supercell,unique_directions,logfile)
-  use utils_module, only : sum_squares
-  use linear_algebra_module
-  use structure_module
-  use unique_directions_module
-  use group_module
-  use ofile_module
-  use atom_module
   implicit none
   
   class(ForceConstants), intent(in)    :: this
@@ -610,7 +572,6 @@ subroutine check(this,forces,supercell,unique_directions,logfile)
 end subroutine
 
 subroutine write_file(this,filename)
-  use ofile_module
   implicit none
   
   class(ForceConstants), intent(in) :: this

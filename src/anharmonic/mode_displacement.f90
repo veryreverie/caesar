@@ -2,13 +2,9 @@
 ! A displacement in complex mode co-ordinates.
 ! ======================================================================
 module mode_displacement_module
-  use constants_module, only : dp
-  use string_module
-  use io_module
+  use common_module
   
   use single_mode_displacement_module
-  use stringable_module
-  use printable_module
   implicit none
   
   private

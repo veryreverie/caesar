@@ -1,14 +1,14 @@
 module calculate_gap_module
-  use constants_module, only : dp
-  use string_module
+  use precision_module
   use io_module
+  use arguments_module
+  implicit none
 contains
 
 ! ----------------------------------------------------------------------
 ! Generate keywords and helptext.
 ! ----------------------------------------------------------------------
 function calculate_gap_keywords() result(keywords)
-  use keyword_module
   implicit none
   
   type(KeywordData), allocatable :: keywords(:)
@@ -20,9 +20,6 @@ end function
 ! Main program.
 ! ----------------------------------------------------------------------
 subroutine calculate_gap(arguments)
-  use ifile_module
-  use ofile_module
-  use dictionary_module
   implicit none
   
   type(Dictionary), intent(in) :: arguments

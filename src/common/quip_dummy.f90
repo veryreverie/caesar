@@ -2,10 +2,13 @@
 ! A dummy module for when QUIP is not being linked against.
 ! ======================================================================
 module quip_wrapper_module
-  use constants_module, only : dp
-  use string_module
-  use io_module
+  use utils_module
   implicit none
+  
+  private
+  
+  public :: QuipResult
+  public :: call_quip
   
   type :: QuipResult
     real(dp)              :: energy

@@ -2,9 +2,7 @@
 ! Basis states, {|i>}, and integrals, {<i|u^p|j>}.
 ! ======================================================================
 module harmonic_states_module
-  use constants_module, only : dp
-  use string_module
-  use io_module
+  use common_module
   
   use single_mode_states_module
   implicit none
@@ -70,7 +68,6 @@ end function
 ! Returns the matrix of <i|u^power|j>.
 ! ----------------------------------------------------------------------
 function integrals(this,power) result(output)
-  use linear_algebra_module
   implicit none
   
   class(HarmonicStates), intent(in) :: this
@@ -98,7 +95,6 @@ end function
 ! Returns the matrix of <i|T|j>.
 ! ----------------------------------------------------------------------
 function kinetic_energies(this) result(output)
-  use linear_algebra_module
   implicit none
   
   class(HarmonicStates), intent(in) :: this
@@ -124,8 +120,6 @@ end function
 ! ----------------------------------------------------------------------
 function calculate_harmonic_states(mode,frequency,state_cutoff, &
    & potential_cutoff) result(output)
-  use normal_mode_module
-  use linear_algebra_module
   implicit none
   
   integer,          intent(in) :: mode

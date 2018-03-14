@@ -2,12 +2,10 @@
 ! A coefficient times a product of Univariates.
 ! ======================================================================
 module monomial_module
-  use constants_module, only : dp
-  use string_module
-  use io_module
+  use common_module
   
   use univariate_module
-  use stringable_module
+  use mode_displacement_module
   implicit none
   
   private
@@ -41,8 +39,6 @@ end function
 
 ! Evaluates a Monomial at a given displacement.
 function evaluate_Monomial(this,displacement) result(output)
-  use mode_displacement_module
-  use logic_module
   implicit none
   
   class(Monomial),        intent(in) :: this
@@ -72,7 +68,6 @@ end function
 
 ! Takes the derivative of the Monomial in the direction of the given mode.
 function derivative_Monomial(this,mode_id) result(output)
-  use logic_module
   implicit none
   
   class(Monomial), intent(in) :: this

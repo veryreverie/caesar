@@ -2,11 +2,12 @@
 ! A product of VSCF states.
 ! ======================================================================
 module product_states_module
-  use constants_module, only : dp
-  use string_module
-  use io_module
+  use common_module
   
   use vscf_states_module
+  use single_mode_states_module
+  use coupling_module
+  use grid_types_module
   implicit none
   
   type :: ProductStates
@@ -46,8 +47,6 @@ end function
 ! Evaluates the state at a given displacement in normal mode co-ordinates.
 ! ----------------------------------------------------------------------
 function evaluate(this,state,displacement) result(output)
-  use normal_mode_module
-  use single_mode_states_module
   implicit none
   
   class(ProductStates), intent(in) :: this
@@ -160,8 +159,6 @@ end function
 ! Constructs all relevant product states from single-mode states.
 ! ----------------------------------------------------------------------
 function construct_product_states(vscf_states,coupling) result(output)
-  use coupling_module
-  use grid_types_module
   implicit none
   
   type(VscfStates),   intent(in) :: vscf_states(:)

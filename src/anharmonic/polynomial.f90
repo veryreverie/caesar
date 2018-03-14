@@ -2,13 +2,10 @@
 ! A sum of monomials.
 ! ======================================================================
 module polynomial_module
-  use constants_module, only : dp
-  use string_module
-  use io_module
+  use common_module
   
   use monomial_module
-  use stringable_module
-  use printable_module
+  use mode_displacement_module
   implicit none
   
   private
@@ -41,7 +38,6 @@ end function
 
 ! Evaluates a Polynomial at a given displacement.
 function evaluate_Polynomial(this,displacement) result(output)
-  use mode_displacement_module
   implicit none
   
   class(Polynomial),      intent(in) :: this
@@ -59,7 +55,6 @@ end function
 
 ! Takes the derivative of the Polynomial in the direction of the given mode.
 function derivative_Polynomial(this,mode_id) result(output)
-  use logic_module
   implicit none
   
   class(Polynomial), intent(in) :: this

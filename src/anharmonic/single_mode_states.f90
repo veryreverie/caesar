@@ -2,9 +2,10 @@
 ! A generalised eigenstate along a single normal mode.
 ! ======================================================================
 module single_mode_states_module
-  use constants_module, only : dp
-  use string_module
-  use io_module
+  use common_module
+  
+  use coupling_module
+  implicit none
   
   ! An eigenstate of the form f(u)*e^-(w*u^2/2) where f is polynomial, e.g.
   !    ( a + b*(u1) + c*(u1)**2 )*e^(-w*(u1)^2/2) => frequency    = w,
@@ -223,8 +224,6 @@ end function
 ! N.B. basis_functions(i) = |i-1> because |0> is a state.
 function generate_harmonic_basis(mode,frequency,harmonic_states_cutoff) &
    & result(output)
-  use constants_module, only : pi
-  use coupling_module
   implicit none
   
   integer,  intent(in)               :: mode

@@ -2,16 +2,16 @@
 ! Program to calculate anharmonic 1-dimensional correction.
 ! ======================================================================
 module anharmonic_module
-  use constants_module, only : dp
-  use string_module
+  use precision_module
   use io_module
+  use arguments_module
+  implicit none
 contains
 
 ! ----------------------------------------------------------------------
 ! Generate keywords and helptext.
 ! ----------------------------------------------------------------------
 function anharmonic_keywords() result(keywords)
-  use keyword_module
   implicit none
   
   type(KeywordData), allocatable :: keywords(:)
@@ -31,16 +31,12 @@ end function
 ! Main program.
 ! ----------------------------------------------------------------------
 subroutine anharmonic(arguments)
-  use utils_module, only : mkdir
-  use ifile_module
-  use ofile_module
   use structure_module
   use dft_output_file_module
   use qpoints_module
   use calculate_anharmonic_correction_module
   use quadratic_spline_module
   use vscf_1d_module
-  use dictionary_module
   implicit none
   
   type(Dictionary), intent(in) :: arguments

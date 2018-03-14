@@ -7,9 +7,13 @@
 ! Should be run after calculate_normal_modes.
 ! Not required for anharmonic calculations.
 module calculate_harmonic_observables_module
-  use constants_module, only : dp
-  use string_module
-  use io_module
+  use common_module
+  
+  use force_constants_module
+  use dynamical_matrix_module
+  use min_images_module
+  use harmonic_properties_module
+  use setup_harmonic_module
   implicit none
 contains
 
@@ -17,7 +21,6 @@ contains
 ! Generate keywords and helptext.
 ! ----------------------------------------------------------------------
 function calculate_harmonic_observables_keywords() result(keywords)
-  use keyword_module
   implicit none
   
   type(KeywordData), allocatable :: keywords(:)
@@ -55,7 +58,6 @@ function calculate_harmonic_observables_keywords() result(keywords)
 end function
 
 function calculate_harmonic_observables_mode() result(output)
-  use caesar_modes_module
   implicit none
   
   type(CaesarMode) :: output
@@ -73,16 +75,6 @@ end function
 ! The main subroutine.
 ! ----------------------------------------------------------------------
 subroutine calculate_harmonic_observables(arguments)
-  use constants_module, only : kb_in_au
-  use dictionary_module
-  use structure_module
-  use qpoints_module
-  use group_module
-  use force_constants_module
-  use dynamical_matrix_module
-  use min_images_module
-  use harmonic_properties_module
-  use ofile_module
   implicit none
   
   type(Dictionary), intent(in) :: arguments
@@ -98,6 +90,10 @@ subroutine calculate_harmonic_observables(arguments)
   type(String),     allocatable :: path_labels(:)
   type(RealVector), allocatable :: path_qpoints(:)
   integer                       :: no_dos_samples
+  
+  ! Previous inputs.
+  type(Dictionary) :: setup_harmonic_arguments
+  real(dp)         :: symmetry_precision
   
   ! Previously calculated data.
   type(StructureData)                :: structure
@@ -164,11 +160,20 @@ subroutine calculate_harmonic_observables(arguments)
   enddo
   
   ! --------------------------------------------------
+  ! Read in previous arguments.
+  ! --------------------------------------------------
+  setup_harmonic_arguments = setup_harmonic_keywords()
+  call setup_harmonic_arguments%read_file(wd//'/setup_harmonic.used_settings')
+  symmetry_precision = &
+     & dble(setup_harmonic_arguments%value('symmetry_precision'))
+  
+  ! --------------------------------------------------
   ! Read in previously calculated data.
   ! --------------------------------------------------
-  structure = read_structure_file(wd//'/structure.dat')
+  structure = read_structure_file(wd//'/structure.dat', symmetry_precision)
   
-  large_supercell = read_structure_file(wd//'/large_supercell.dat')
+  large_supercell = read_structure_file( wd//'/large_supercell.dat', &
+                                       & symmetry_precision)
   
   qpoints = read_qpoints_file(wd//'/qpoints.dat')
   

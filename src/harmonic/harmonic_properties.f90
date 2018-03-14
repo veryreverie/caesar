@@ -3,12 +3,12 @@
 !    the matrix of force constants.
 ! ======================================================================
 module harmonic_properties_module
-  use constants_module, only : dp
-  use string_module
-  use io_module
-  use linear_algebra_module
-  use normal_mode_module
+  use common_module
+  
+  use min_images_module
+  use force_constants_module
   use dynamical_matrix_module
+  use harmonic_thermodynamics_module
   implicit none
 contains
 
@@ -19,12 +19,6 @@ contains
 subroutine generate_dos(supercell,min_images,force_constants,       &
    & thermal_energies,min_frequency,no_dos_samples,energy_filename, &
    & dos_filename,logfile)
-  use ofile_module
-  use structure_module
-  use min_images_module
-  use force_constants_module
-  use ofile_module
-  use harmonic_thermodynamics_module
   implicit none
   
   type(StructureData),  intent(in)    :: supercell
@@ -47,7 +41,6 @@ subroutine generate_dos(supercell,min_images,force_constants,       &
   real(dp) :: min_freq
   real(dp) :: max_freq
   real(dp) :: freq_spread
-  real(dp) :: frac(3)
   real(dp) :: bin_width
   
   ! Parameter for adding extra bins if needed.
@@ -60,7 +53,7 @@ subroutine generate_dos(supercell,min_images,force_constants,       &
   real(dp), allocatable :: entropy(:)
   
   ! Working variables.
-  type(RealVector)                          :: qpoint
+  real(dp)                                  :: qpoint(3)
   type(DynamicalMatrix)                     :: dyn_mat
   real(dp)                                  :: frequency
   integer                                   :: no_frequencies_ignored
@@ -88,9 +81,8 @@ subroutine generate_dos(supercell,min_images,force_constants,       &
   max_freq = 0.0_dp
   min_freq = 0.0_dp
   do i=1,no_prelims
-    call random_number(frac)
-    qpoint = vec(frac)
-    dyn_mat = DynamicalMatrix( qpoint,          &
+    call random_number(qpoint)
+    dyn_mat = DynamicalMatrix( vec(qpoint),     &
                              & supercell,       &
                              & force_constants, &
                              & min_images)
@@ -111,10 +103,10 @@ subroutine generate_dos(supercell,min_images,force_constants,       &
   endif
   
   ! Spread out min and max frequencies to leave safety margin.
-  freq_spread = max_freq-min_freq
-  min_freq = min_freq - safety_margin*freq_spread
-  max_freq = max_freq + safety_margin*freq_spread
-  bin_width=(max_freq-min_freq)/no_bins
+  freq_spread =  max_freq - min_freq
+  min_freq    =  min_freq - safety_margin*freq_spread
+  max_freq    =  max_freq + safety_margin*freq_spread
+  bin_width   = (max_freq - min_freq) / no_bins
   
   ! Calculate density of states.
   allocate( freq_dos(no_bins),                   &
@@ -128,9 +120,8 @@ subroutine generate_dos(supercell,min_images,force_constants,       &
   entropy = 0.0_dp
   no_frequencies_ignored = 0
   do i=1,no_dos_samples
-    call random_number(frac)
-    qpoint = vec(frac)
-    dyn_mat = DynamicalMatrix( qpoint,          &
+    call random_number(qpoint)
+    dyn_mat = DynamicalMatrix( vec(qpoint),     &
                              & supercell,       &
                              & force_constants, &
                              & min_images)
@@ -216,11 +207,6 @@ end subroutine
 subroutine generate_dispersion(large_supercell,min_images,force_constants, &
    & path_labels,path_qpoints,dispersion_filename,                         &
    & high_symmetry_points_filename,logfile)
-  use ofile_module
-  use structure_module
-  use min_images_module
-  use force_constants_module
-  use dynamical_matrix_module
   implicit none
   
   type(StructureData),  intent(in)    :: large_supercell

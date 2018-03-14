@@ -2,9 +2,7 @@
 ! Plots the results of calculate_normal_modes.
 ! ======================================================================
 module plot_normal_modes_module
-  use constants_module, only : dp
-  use string_module
-  use io_module
+  use common_module
   implicit none
 contains
 
@@ -12,16 +10,17 @@ contains
 ! Generates keywords and helptext.
 ! ----------------------------------------------------------------------
 function plot_normal_modes_keywords() result(keywords)
-  use keyword_module
   implicit none
   
   type(KeywordData), allocatable :: keywords(:)
   
-  keywords = [KeywordData::]
+  keywords = [                                                             &
+     & KeywordData( 'python_path',                                         &
+     &              'python_path is the path to the Python 3 executable.', &
+     &              default_value='python3') ]
 end function
 
 function plot_normal_modes_mode() result(output)
-  use caesar_modes_module
   implicit none
   
   type(CaesarMode) :: output
@@ -31,21 +30,23 @@ function plot_normal_modes_mode() result(output)
      &run from within a qpoint_ directory. The -d flag may be useful for this.'
   output%keywords = plot_normal_modes_keywords()
   output%main_subroutine => plot_normal_modes
+  output%suppress_settings_file = .true.
 end function
 
 ! ----------------------------------------------------------------------
 ! Main program.
 ! ----------------------------------------------------------------------
 subroutine plot_normal_modes(arguments)
-  use dictionary_module
   implicit none
   
   type(Dictionary), intent(in) :: arguments
   
   type(String) :: wd
+  type(String) :: python_path
   
   wd = arguments%value('working_directory')
+  python_path = arguments%value('python_path')
   
-  call execute_python(wd,str('plot_normal_modes.py'))
+  call execute_python(wd,str('plot_normal_modes.py'),python_path)
 end subroutine
 end module

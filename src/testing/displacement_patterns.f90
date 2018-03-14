@@ -15,9 +15,7 @@
 ! This is repeated no_gvectors*no_modes times
 
 module displacement_patterns_module
-  use constants_module, only : dp
-  use string_module
-  use io_module
+  use common_module
   implicit none
   
   type DispPatterns
@@ -54,7 +52,6 @@ function new_DispPatterns(no_gvectors,no_modes,no_atoms) result(this)
 end function
 
 function read_disp_patterns_file_character(filename,no_modes) result(this)
-  use ifile_module
   implicit none
   
   character(*), intent(in) :: filename

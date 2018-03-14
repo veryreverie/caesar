@@ -2,16 +2,24 @@ cmake_minimum_required (VERSION 3.5 FATAL_ERROR)
 include(${CMAKE_SOURCE_DIR}/utils/include_guard.cmake)
 include_guard(utils)
 
-# Compile compiler-specific functionality.
-if ("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "GNU")
-  add_library(compiler_specific compiler_specific_gfortran.f90)
-else()
-  add_library(compiler_specific compiler_specific_default.f90)
-endif()
-
 # Utility modules.
-add_library(utils system.c spglib_wrapper.c constants.f90 terminal.f90 error.f90 string_base.f90 string.f90 stringable.f90 printable.f90 io.f90 file.f90 ifile.f90 ofile.f90 utils.f90 logic.f90 keyword.f90 help.f90 dictionary.f90 fraction.f90 fraction_algebra.f90 phase.f90 linear_algebra.f90 qr_decomposition.f90 eigenstuff.f90 integer_arrays.f90 group.f90 process_arguments.f90 caesar_modes.f90)
-target_link_libraries(utils compiler_specific)
+add_library(utils utils.f90)
+
+# Link to subsidiary libraries.
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/precision precision/)
+target_link_libraries(utils precision)
+
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/io io/)
+target_link_libraries(utils io)
+
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/logic logic/)
+target_link_libraries(utils logic)
+
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/arguments arguments/)
+target_link_libraries(utils arguments)
+
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/algebra algebra/)
+target_link_libraries(utils algebra)
 
 # Link to LAPACK.
 find_package( LAPACK REQUIRED )

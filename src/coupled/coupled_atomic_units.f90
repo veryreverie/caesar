@@ -1,13 +1,9 @@
 module coupled_atomic_units_module
-  use string_module
-  use io_module
-  use constants_module, only : dp
+  use common_module
+  implicit none
 contains
 
 subroutine coupled_atomic_units()
-  use constants_module, only : ev_per_hartree
-  use ifile_module
-  use ofile_module
   implicit none
   
   integer :: no_modes,no_indep_data,no_data,no_cells,no_couplings,no_params,order

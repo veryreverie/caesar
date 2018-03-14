@@ -2,10 +2,12 @@
 ! A class for holding the information in a castep .castep or qe .out file.
 ! ======================================================================
 module output_file_module
-  use constants_module, only : dp
-  use string_module
-  use io_module
-  use linear_algebra_module
+  use utils_module
+  
+  use physical_constants_module
+  use structure_module
+  use input_file_module
+  use quip_wrapper_module
   implicit none
   
   private
@@ -69,9 +71,6 @@ function new_OutputFile(no_atoms) result(this)
 end function
 
 function read_castep_output_file(filename,structure) result(output)
-  use constants_module, only : angstrom_per_bohr, ev_per_hartree
-  use ifile_module
-  use structure_module
   implicit none
   
   type(String),        intent(in) :: filename
@@ -181,9 +180,6 @@ function read_castep_output_file(filename,structure) result(output)
 end function
 
 function read_qe_output_file(filename,structure) result(output)
-  use constants_module, only : ev_per_rydberg, ev_per_hartree
-  use ifile_module
-  use structure_module
   implicit none
   
   type(String),        intent(in) :: filename
@@ -261,17 +257,15 @@ function read_qe_output_file(filename,structure) result(output)
   enddo
 end function
 
-function run_quip_on_file(filename,structure,dir,seedname) result(output)
-  use constants_module, only : angstrom_per_bohr, ev_per_hartree
-  use input_file_module
-  use structure_module
-  use quip_wrapper_module
+function run_quip_on_file(filename,structure,dir,seedname,symmetry_precision) &
+   & result(output)
   implicit none
   
   type(String),        intent(in) :: filename
   type(StructureData), intent(in) :: structure
   type(String),        intent(in) :: dir
   type(String),        intent(in) :: seedname
+  real(dp),            intent(in) :: symmetry_precision
   type(OutputFile)                :: output
   
   type(StructureData) :: displaced_structure
@@ -285,9 +279,11 @@ function run_quip_on_file(filename,structure,dir,seedname) result(output)
   integer :: i,ialloc
   
   ! Read in displaced structure data.
-  displaced_structure = input_file_to_StructureData( str('castep'), &
-                                                   & filename,      &
-                                                   & 0.1_dp)
+  displaced_structure = input_file_to_StructureData( &
+                               & str('castep'),      &
+                               & filename,           &
+                               & symmetry_precision, &
+                               & calculate_symmetry=.false.)
   
   ! Convert structure information into basic types and QUIP units (eV/Angstrom).
   lattice = transpose(dble(displaced_structure%lattice)) * angstrom_per_bohr
@@ -313,9 +309,8 @@ function run_quip_on_file(filename,structure,dir,seedname) result(output)
   enddo
 end function
 
-function read_output_file(file_type,filename,structure,dir,seedname) &
-   & result(output)
-  use structure_module
+function read_output_file(file_type,filename,structure,dir,seedname, &
+   & symmetry_precision) result(output)
   implicit none
   
   type(String),        intent(in) :: file_type
@@ -323,6 +318,7 @@ function read_output_file(file_type,filename,structure,dir,seedname) &
   type(StructureData), intent(in) :: structure
   type(String),        intent(in) :: dir
   type(String),        intent(in) :: seedname
+  real(dp),            intent(in) :: symmetry_precision
   type(OutputFile)                :: output
   
   if (file_type=='castep') then
@@ -330,7 +326,11 @@ function read_output_file(file_type,filename,structure,dir,seedname) &
   elseif (file_type=='qe') then
     output = read_qe_output_file(filename,structure)
   elseif (file_type=='quip') then
-    output = run_quip_on_file(filename,structure,dir,seedname)
+    output = run_quip_on_file( filename,  &
+                             & structure, &
+                             & dir,       &
+                             & seedname,  &
+                             & symmetry_precision)
   endif
 end function
 end module

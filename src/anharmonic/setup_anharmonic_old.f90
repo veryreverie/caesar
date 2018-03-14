@@ -2,16 +2,20 @@
 ! Sets up anharmonic calculations.
 ! ======================================================================
 module setup_anharmonic_module
-  use constants_module, only : dp
-  use string_module
-  use io_module
+  use common_module
+  
+  use setup_harmonic_module
+  
+  use coupling_module
+  use sampling_points_module
+  use grid_types_module
+  implicit none
 contains
 
 ! ----------------------------------------------------------------------
 ! Generate keywords and helptext.
 ! ----------------------------------------------------------------------
 function setup_anharmonic_keywords() result(keywords)
-  use keyword_module
   implicit none
   
   type(KeywordData), allocatable :: keywords(:)
@@ -48,7 +52,6 @@ function setup_anharmonic_keywords() result(keywords)
 end function
 
 function setup_anharmonic_mode() result(output)
-  use caesar_modes_module
   implicit none
   
   type(CaesarMode) :: output
@@ -64,18 +67,6 @@ end function
 ! The main program.
 ! ----------------------------------------------------------------------
 subroutine setup_anharmonic(arguments)
-  use constants_module, only : kb_in_au
-  use utils_module, only : mkdir
-  use ifile_module
-  use setup_harmonic_module
-  use dictionary_module
-  use input_file_module
-  use structure_module
-  use qpoints_module
-  use normal_mode_module
-  use coupling_module
-  use sampling_points_module
-  use grid_types_module
   implicit none
   
   type(Dictionary), intent(in) :: arguments

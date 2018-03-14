@@ -2,9 +2,7 @@
 ! As normal_mode_module, but in real co-ordinates.
 ! ======================================================================
 module real_mode_module
-  use constants_module, only : dp
-  use string_module
-  use io_module
+  use common_module
   implicit none
   
   private
@@ -42,7 +40,6 @@ contains
 ! RealMode procedures.
 ! ----------------------------------------------------------------------
 subroutine write_file_RealMode(this,filename)
-  use ofile_module
   implicit none
   
   class(RealMode), intent(in) :: this
@@ -64,7 +61,6 @@ subroutine write_file_RealMode(this,filename)
 end subroutine
 
 function read_file_RealMode(filename) result(this)
-  use ifile_module
   implicit none
   
   type(String), intent(in) :: filename

@@ -2,9 +2,9 @@
 ! Anharmonic calculations for different grid types.
 ! ======================================================================
 module grid_types_module
-  use constants_module, only : dp
-  use string_module
-  use io_module
+  use common_module
+  
+  use mode_vector_module
   implicit none
   
   private
@@ -26,9 +26,6 @@ contains
 ! ----------------------------------------------------------------------
 function calculate_displacement(grid_type,sampling_point_indices, &
    & sample_spacing,qpoint) result(output)
-  use normal_mode_module
-  use qpoints_module
-  use mode_vector_module
   type(String),     intent(in) :: grid_type
   integer,          intent(in) :: sampling_point_indices(:)
   real(dp),         intent(in) :: sample_spacing(:)
@@ -56,9 +53,6 @@ end function
 
 function calculate_displacement_cubic(sampling_point_indices, &
    & sample_spacing,qpoint) result(output)
-  use normal_mode_module
-  use qpoints_module
-  use mode_vector_module
   implicit none
   
   integer,          intent(in) :: sampling_point_indices(:)
@@ -93,9 +87,6 @@ end function
 
 function calculate_displacement_octahedral(sampling_point_indices, &
    & sample_spacing,qpoint) result(output)
-  use normal_mode_module
-  use qpoints_module
-  use mode_vector_module
   implicit none
   
   integer,          intent(in) :: sampling_point_indices(:)
@@ -111,9 +102,6 @@ end function
 
 function calculate_displacement_spherical(sampling_point_indices, &
    & sample_spacing,qpoint) result(output)
-  use normal_mode_module
-  use qpoints_module
-  use mode_vector_module
   implicit none
   
   integer,          intent(in) :: sampling_point_indices(:)
@@ -301,7 +289,6 @@ end function
 ! --------------------------------------------------
 function octahedral_grid_size(no_dimensions,upper_bound,include_negatives) &
    & result(output)
-  use utils_module, only : factorial
   implicit none
   
   integer, intent(in) :: no_dimensions

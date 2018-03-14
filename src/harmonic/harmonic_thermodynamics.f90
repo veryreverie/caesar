@@ -2,9 +2,7 @@
 ! Calculates thermodynamic properties of an isolated harmonic oscillator.
 ! ======================================================================
 module harmonic_thermodynamics_module
-  use constants_module, only : dp
-  use string_module
-  use io_module
+  use common_module
   implicit none
   
   type :: ThermodynamicVariables

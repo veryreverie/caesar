@@ -2,11 +2,9 @@
 ! A term of the form (u_i)**n_i.
 ! ======================================================================
 module univariate_module
-  use constants_module, only : dp
-  use string_module
-  use io_module
+  use common_module
   
-  use stringable_module
+  use single_mode_displacement_module
   implicit none
   
   private
@@ -25,7 +23,6 @@ contains
 ! Evaluate the univariate at a give displacement.
 ! Checks that the displacement and univariate are in the same mode.
 function evaluate_Univariate(this,displacement) result(output)
-  use single_mode_displacement_module
   implicit none
   
   class(Univariate),            intent(in) :: this

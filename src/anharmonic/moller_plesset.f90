@@ -23,12 +23,7 @@
 !
 ! For convenience, the powers of x are dropped from here on.
 module perturbation_theory
-  use constants_module, only : dp
-  use string_module
-  use io_module
-  
-  use linear_algebra_module
-  use eigenstuff_module
+  use common_module
   implicit none
   
   ! Moller-Plesset corrections

@@ -2,11 +2,11 @@
 ! Converts input files to and from StructureData.
 ! ======================================================================
 module input_file_module
-  use constants_module, only : dp
-  use string_module
-  use io_module
-  use linear_algebra_module
+  use utils_module
   
+  use physical_constants_module
+  use structure_module
+  use basic_symmetry_module
   private
   
   public :: make_input_filename
@@ -14,7 +14,7 @@ module input_file_module
   public :: StructureData_to_input_file
   public :: reduce_input_file ! For testing purposes only.
   
-  type CastepInputFile
+  type :: CastepInputFile
     type(String), allocatable :: lattice_block(:)
     type(String), allocatable :: positions_block(:)
     type(String), allocatable :: masses_block(:)
@@ -54,7 +54,6 @@ end function
 
 ! Splits a .cell file into blocks.
 function parse_castep_input_file(filename) result(output)
-  use ifile_module
   implicit none
   
   type(String), intent(in) :: filename
@@ -197,20 +196,22 @@ function parse_castep_input_file(filename) result(output)
 end function
 
 ! ----------------------------------------------------------------------
-! Reading DFT input files to StructureData.
+! Reads DFT input files to StructureData.
 ! ----------------------------------------------------------------------
-function castep_input_file_to_StructureData(filename, symmetry_precision) &
-   & result(output)
-  use constants_module, only : pi, angstrom_per_bohr, kg_per_me, kg_per_amu
-  use structure_module
-  use linear_algebra_module
+function castep_input_file_to_StructureData(filename,symmetry_precision, &
+   & calculate_symmetry) result(output)
   implicit none
   
-  type(String), intent(in) :: filename
-  real(dp),     intent(in) :: symmetry_precision
-  type(StructureData)      :: output
+  type(String), intent(in)           :: filename
+  real(dp),     intent(in)           :: symmetry_precision
+  logical,      intent(in), optional :: calculate_symmetry
+  type(StructureData)                :: output
   
   type(CastepInputFile) :: cell_file
+  
+  ! Whether or not to calculate symmetries.
+  logical                          :: calculate_symmetry_flag
+  type(BasicSymmetry), allocatable :: empty_symmetries(:)
   
   ! Lattice variables.
   logical  :: lattice_is_cart
@@ -230,6 +231,12 @@ function castep_input_file_to_StructureData(filename, symmetry_precision) &
   ! Temporary variables.
   type(String), allocatable :: line(:)
   integer                   :: i,j,ialloc
+  
+  if (present(calculate_symmetry)) then
+    calculate_symmetry_flag = calculate_symmetry
+  else
+    calculate_symmetry_flag = .true.
+  endif
   
   cell_file = parse_castep_input_file(filename)
   
@@ -390,30 +397,47 @@ function castep_input_file_to_StructureData(filename, symmetry_precision) &
   endif
   
   ! Make output.
-  output = StructureData( mat(lattice),            &
-                        & make_identity_matrix(3), &
-                        & [zeroes(3)],             &
-                        & [zeroes(3)],             &
-                        & species,                 &
-                        & masses,                  &
-                        & positions,               &
-                        & symmetry_precision=symmetry_precision)
+  if (calculate_symmetry_flag) then
+    output = StructureData( mat(lattice),            &
+                          & make_identity_matrix(3), &
+                          & [zeroes(3)],             &
+                          & [zeroes(3)],             &
+                          & species,                 &
+                          & masses,                  &
+                          & positions,               &
+                          & symmetry_precision)
+  else
+    empty_symmetries = [BasicSymmetry::]
+    output = StructureData( mat(lattice),            &
+                          & make_identity_matrix(3), &
+                          & [zeroes(3)],             &
+                          & [zeroes(3)],             &
+                          & species,                 &
+                          & masses,                  &
+                          & positions,               &
+                          & symmetry_precision,      &
+                          & empty_symmetries)
+  endif
 end function
 
 function input_file_to_StructureData(file_type,filename, &
-   & symmetry_precision) result(output)
-  use structure_module
+   & symmetry_precision,calculate_symmetry) result(output)
   implicit none
   
-  type(String), intent(in) :: file_type
-  type(String), intent(in) :: filename
-  real(dp),     intent(in) :: symmetry_precision
-  type(StructureData)      :: output
+  type(String), intent(in)           :: file_type
+  type(String), intent(in)           :: filename
+  real(dp),     intent(in)           :: symmetry_precision
+  logical,      intent(in), optional :: calculate_symmetry
+  type(StructureData)                :: output
   
   if (file_type == 'castep') then
-    output = castep_input_file_to_StructureData(filename, symmetry_precision)
+    output = castep_input_file_to_StructureData( filename,           &
+                                               & symmetry_precision, &
+                                               & calculate_symmetry)
   elseif (file_type == 'quip') then
-    output = castep_input_file_to_StructureData(filename, symmetry_precision)
+    output = castep_input_file_to_StructureData( filename,           &
+                                               & symmetry_precision, &
+                                               & calculate_symmetry)
   else
     call print_line('Reading '//file_type//' input file not yet supported.')
     call err()
@@ -425,9 +449,6 @@ end function
 ! ----------------------------------------------------------------------
 subroutine StructureData_to_castep_input_file(structure,old_cell_filename, &
    & new_cell_filename)
-  use ofile_module
-  use structure_module
-  use fraction_algebra_module
   implicit none
   
   type(StructureData), intent(in)           :: structure
@@ -497,9 +518,6 @@ subroutine StructureData_to_castep_input_file(structure,old_cell_filename, &
 end subroutine
 
 subroutine StructureData_to_vasp_input_file(structure,poscar_filename)
-  use constants_module, only : angstrom_per_bohr
-  use ofile_module
-  use structure_module
   implicit none
   
   type(StructureData), intent(in) :: structure
@@ -571,9 +589,6 @@ end subroutine
 
 subroutine StructureData_to_qe_input_file(structure,old_qe_in_filename, &
    & new_qe_in_filename)
-  use ifile_module
-  use ofile_module
-  use structure_module
   implicit none
   
   type(StructureData), intent(in)           :: structure
@@ -629,7 +644,6 @@ end subroutine
 
 subroutine StructureData_to_input_file(file_type,structure,input_filename, &
    & output_filename)
-  use structure_module
   implicit none
   
   type(String),        intent(in)           :: file_type
@@ -667,7 +681,6 @@ end subroutine
 ! Converts a DFT input file into the form accepted by the old Caesar code.
 ! ----------------------------------------------------------------------
 subroutine reduce_castep_input_file(input_filename,output_filename)
-  use ofile_module
   implicit none
   
   type(String), intent(in) :: input_filename
