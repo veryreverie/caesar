@@ -17,6 +17,8 @@ module fraction_algebra_submodule
   public :: vec
   public :: mat
   public :: frac
+  public :: fracvec
+  public :: fracmat
   public :: dblevec
   public :: dblemat
   public :: size
@@ -62,8 +64,14 @@ module fraction_algebra_submodule
   interface frac
     module procedure frac_FractionVector
     module procedure frac_FractionMatrix
-    module procedure frac_IntVector
-    module procedure frac_IntMatrix
+  end interface
+  
+  interface fracvec
+    module procedure fracvec_IntVector
+  end interface
+  
+  interface fracmat
+    module procedure fracmat_IntMatrix
   end interface
   
   interface dblevec
@@ -274,7 +282,7 @@ function mat_IntFractions_shape(input,m,n) result(output)
   output = transpose(reshape(input, [m,n]))
 end function
 
-function frac_IntVector(input) result(output)
+function fracvec_IntVector(input) result(output)
   implicit none
   
   type(IntVector), intent(in)    :: input
@@ -283,7 +291,7 @@ function frac_IntVector(input) result(output)
   output = frac(int(input))
 end function
 
-function frac_IntMatrix(input) result(output)
+function fracmat_IntMatrix(input) result(output)
   implicit none
   
   type(IntMatrix), intent(in)    :: input

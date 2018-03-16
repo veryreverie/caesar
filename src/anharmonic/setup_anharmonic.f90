@@ -8,10 +8,10 @@ module setup_anharmonic_module
   
   use polynomial_module
   use generate_qpoints_module
-  use normal_mode_symmetry_module
   use coupling_module
   use basis_function_module
   use degeneracy_module
+  use degenerate_symmetry_module
   implicit none
   
 contains
@@ -41,7 +41,11 @@ function setup_anharmonic_keywords() result(keywords)
   &to and including u^4 are included.'),                                      &
   & KeywordData( 'coupling_order',                                            &
   &              'coupling_order is the maximum number of degenerate &
-  &subspaces which are coupled together.') ]
+  &subspaces which are coupled together.'),                                   &
+  & KeywordData( 'vscf_basis_functions_only',                                 &
+  &              'vscf_basis_functions_only specifies that the potential will &
+  &only be expanded in terms of basis functions which are relevant to vscf.', &
+  &              default_value='true') ]
 end function
 
 function setup_anharmonic_mode() result(output)
@@ -69,6 +73,7 @@ subroutine setup_anharmonic(arguments)
   type(String) :: harmonic_path
   integer      :: potential_expansion_order
   integer      :: coupling_order
+  logical      :: vscf_basis_functions_only
   
   ! Previous user inputs.
   type(Dictionary) :: setup_harmonic_arguments
@@ -92,8 +97,7 @@ subroutine setup_anharmonic(arguments)
   type(DegenerateModes), allocatable :: degenerate_subspaces(:)
   
   ! Symmetries.
-  type(SymmetryOperator)           :: symmetry
-  type(ComplexMatrix), allocatable :: symmetries(:,:)
+  type(DegenerateSymmetry), allocatable :: degenerate_symmetries(:)
   
   ! Coupling data.
   type(CoupledSubspaces), allocatable :: couplings(:)
@@ -113,6 +117,8 @@ subroutine setup_anharmonic(arguments)
   qpoint_grid = int(split(arguments%value('q-point_grid')))
   potential_expansion_order = int(arguments%value('potential_expansion_order'))
   coupling_order = int(arguments%value('coupling_order'))
+  vscf_basis_functions_only = &
+     & lgcl(arguments%value('vscf_basis_functions_only'))
   
   ! Retrieve previous data.
   setup_harmonic_arguments = setup_harmonic_keywords()
@@ -174,18 +180,14 @@ subroutine setup_anharmonic(arguments)
   degenerate_subspaces = process_degeneracies(normal_modes,mode_qpoints)
   
   ! Generate the symmetry operators in each subspace.
-  allocate( symmetries( size(degenerate_subspaces),  &
-          &             size(structure%symmetries)), &
+  allocate( degenerate_symmetries(size(structure%symmetries)), &
           & stat=ialloc); call err(ialloc)
   do i=1,size(structure%symmetries)
-    symmetry = structure%symmetries(i)
-    do j=1,size(degenerate_subspaces)
-      symmetries(j,i) = calculate_symmetry_in_normal_coordinates( &
-                   & degenerate_subspaces(j)%modes(normal_modes), &
-                   & degenerate_subspaces(j)%qpoints(qpoints),    &
-                   & symmetry,                                    &
-                   & logfile)
-    enddo
+    degenerate_symmetries(i) = DegenerateSymmetry( structure%symmetries(i), &
+                                                 & degenerate_subspaces,    &
+                                                 & normal_modes,            &
+                                                 & qpoints,                 &
+                                                 & logfile)
   enddo
   
   ! Generate all possible couplings between subspaces.
@@ -196,12 +198,13 @@ subroutine setup_anharmonic(arguments)
   ! Generate basis functions at each coupling.
   basis_functions = [Polynomial::]
   do i=1,size(couplings)
-    basis_functions = [ basis_functions,                                &
-                    &   generate_basis_functions( couplings(i),         &
-                    &                             normal_modes,         &
-                    &                             qpoints,              &
-                    &                             degenerate_subspaces, &
-                    &                             symmetries )          &
+    basis_functions = [ basis_functions,                                      &
+                    &   generate_basis_functions( couplings(i),               &
+                    &                             normal_modes,               &
+                    &                             qpoints,                    &
+                    &                             degenerate_subspaces,       &
+                    &                             degenerate_symmetries,      &
+                    &                             vscf_basis_functions_only ) &
                     & ]
   enddo
   

@@ -10,10 +10,15 @@ module coupling_module
   private
   
   public :: CoupledSubspaces
+  public :: CoupledModes
   public :: size
   public :: write_coupling_file
   public :: read_coupling_file
   public :: generate_subspace_coupling
+  public :: generate_mode_coupling
+  public :: operator(//)
+  public :: operator(==)
+  public :: operator(/=)
   
   ! A list of ids of degenerate subspaces which are coupled.
   type, extends(Stringable) :: CoupledSubspaces
@@ -30,11 +35,36 @@ module coupling_module
     procedure, public :: str => str_CoupledSubspaces
   end type
   
+  ! A list of ids of modes which are coupled.
+  type, extends(Stringable) :: CoupledModes
+    integer, allocatable :: ids(:)
+  contains
+    ! I/O.
+    procedure, public :: str => str_CoupledModes
+  end type
+  
   interface size
     module procedure size_CoupledSubspaces
+    module procedure size_CoupledModes
+  end interface
+  
+  interface operator(//)
+    module procedure concatenate_CoupledSubspaces_integer
+    module procedure concatenate_CoupledModes_integer
+  end interface
+  
+  interface operator(==)
+    module procedure equality_CoupledSubspaces_CoupledSubspaces
+    module procedure equality_CoupledModes_CoupledModes
+  end interface
+  
+  interface operator(/=)
+    module procedure non_equality_CoupledSubspaces_CoupledSubspaces
+    module procedure non_equality_CoupledModes_CoupledModes
   end interface
 contains
 
+! size() functions.
 function size_CoupledSubspaces(this) result(output)
   implicit none
   
@@ -44,6 +74,82 @@ function size_CoupledSubspaces(this) result(output)
   output = size(this%ids)
 end function
 
+function size_CoupledModes(this) result(output)
+  implicit none
+  
+  type(CoupledModes), intent(in) :: this
+  integer                        :: output
+  
+  output = size(this%ids)
+end function
+
+! Append an id to the coupling.
+function concatenate_CoupledSubspaces_integer(this,id) result(output)
+  implicit none
+  
+  type(CoupledSubspaces), intent(in) :: this
+  integer,                intent(in) :: id
+  type(CoupledSubspaces)             :: output
+  
+  output = CoupledSubspaces([this%ids, id])
+end function
+
+function concatenate_CoupledModes_integer(this,id) result(output)
+  implicit none
+  
+  type(CoupledModes), intent(in) :: this
+  integer,            intent(in) :: id
+  type(CoupledModes)             :: output
+  
+  output = CoupledModes([this%ids, id])
+end function
+
+! Compare couplings.
+impure elemental function equality_CoupledSubspaces_CoupledSubspaces(this, &
+   & that) result(output)
+  implicit none
+  
+  type(CoupledSubspaces), intent(in) :: this
+  type(CoupledSubspaces), intent(in) :: that
+  logical                            :: output
+  
+  output = all(this%ids==that%ids)
+end function
+
+impure elemental function equality_CoupledModes_CoupledModes(this,that) &
+   & result(output)
+  implicit none
+  
+  type(CoupledModes), intent(in) :: this
+  type(CoupledModes), intent(in) :: that
+  logical                        :: output
+  
+  output = all(this%ids==that%ids)
+end function
+
+impure elemental function non_equality_CoupledSubspaces_CoupledSubspaces( &
+   & this,that) result(output)
+  implicit none
+  
+  type(CoupledSubspaces), intent(in) :: this
+  type(CoupledSubspaces), intent(in) :: that
+  logical                            :: output
+  
+  output = .not. this==that
+end function
+
+impure elemental function non_equality_CoupledModes_CoupledModes(this,that) &
+   & result(output)
+  implicit none
+  
+  type(CoupledModes), intent(in) :: this
+  type(CoupledModes), intent(in) :: that
+  logical                        :: output
+  
+  output = .not. this==that
+end function
+
+! Use stored IDs to return the actual objects the IDs represent.
 function coupled_subspaces(this,subspaces) result(output)
   implicit none
   
@@ -64,6 +170,7 @@ function coupled_subspaces(this,subspaces) result(output)
   enddo
 end function
 
+! Check if a coupling is a subsidiary of another coupling.
 function is_subsidiary_of(this,that) result(output)
   implicit none
   
@@ -101,7 +208,10 @@ function generate_subspace_coupling(degenerate_modes, &
   integer,               intent(in)   :: coupling_order
   type(CoupledSubspaces), allocatable :: output(:)
   
-  integer :: i
+  type(CoupledSubspaces), allocatable :: old_couplings(:)
+  type(CoupledSubspaces), allocatable :: new_couplings(:)
+  
+  integer :: i,ialloc
   
   if (potential_expansion_order<2) then
     call print_line(ERROR//': potential_expansion_order must be at least 2.')
@@ -118,7 +228,17 @@ function generate_subspace_coupling(degenerate_modes, &
   output = [CoupledSubspaces::]
   
   do i=2,potential_expansion_order
-    output = [output, coupling_generator(degenerate_modes, i, coupling_order)]
+    ! N.B. the contents of this loop is equivalent to the line:
+    !    output = [output, coupling_generator(...)]
+    ! But that line triggers an apparent Nagfort bug.
+    old_couplings = output
+    new_couplings = coupling_generator(degenerate_modes, i, coupling_order)
+    
+    deallocate(output, stat=ialloc); call err(ialloc)
+    allocate( output(size(old_couplings)+size(new_couplings)), &
+            & stat=ialloc); call err(ialloc)
+    output(                      : size(old_couplings)) = old_couplings
+    output(size(old_couplings)+1 :                    ) = new_couplings
   enddo
 end function
 
@@ -144,36 +264,134 @@ recursive function coupling_generator(degenerate_modes, &
   type(CoupledSubspaces), allocatable          :: output(:)
   
   type(CoupledSubspaces) :: coupling
+  type(CoupledSubspaces) :: coupling_out
   
-  integer :: i,ialloc
+  type(CoupledSubspaces), allocatable :: old_couplings(:)
+  type(CoupledSubspaces), allocatable :: new_couplings(:)
   
-  if (.not. present(coupling_in)) then
-    output = [CoupledSubspaces::]
-    do i=1,size(degenerate_modes)
-      coupling = CoupledSubspaces([degenerate_modes(i)%id])
-      output = [output, coupling_generator( degenerate_modes(i:),      &
-                                          & potential_expansion_order, &
-                                          & coupling_order,            &
-                                          & coupling )                   ]
-    enddo
-  elseif (size(set(coupling_in%ids))==coupling_order) then
-    allocate( coupling%ids(potential_expansion_order), &
-            & stat=ialloc); call err(ialloc)
-    coupling%ids(:size(coupling_in)) = coupling_in%ids
-    do i=size(coupling_in)+1,potential_expansion_order
-      coupling%ids(i) = coupling%ids(i-1)
-    enddo
-    output = [coupling]
-  elseif (size(coupling_in)==potential_expansion_order) then
-    output = [coupling_in]
+  integer :: i
+  
+  if (present(coupling_in)) then
+    coupling = coupling_in
   else
+    coupling = CoupledSubspaces([integer::])
+  endif
+  
+  if (size(coupling)==potential_expansion_order) then
+    ! The input coupling already contains as many terms as required. Return it.
+    output = [coupling]
+  elseif (size(set(coupling%ids))==coupling_order) then
+    ! The input coupling already contains coupling_order distinct subspaces.
+    ! Append the last added subspace until potential_expansion_order.
+    ! e.g. if coupling_order=2 and potential_expansion_order=6 then
+    !    coupling_in=[3,3,4] -> coupling_out=[3,3,4,4,4,4].
+    coupling_out = coupling
+    do i=1,potential_expansion_order-size(coupling)
+      coupling_out = coupling_out//degenerate_modes(1)%id
+    enddo
+    output = [coupling_out]
+  else
+    ! Recursively call coupling_generator after appending each subspace id.
     output = [CoupledSubspaces::]
     do i=1,size(degenerate_modes)
-      coupling = CoupledSubspaces([coupling_in%ids, degenerate_modes(i)%id])
-      output = [output, coupling_generator( degenerate_modes(i:),      &
-                                          & potential_expansion_order, &
-                                          & coupling_order,            &
-                                          & coupling )                   ]
+      coupling_out = coupling//degenerate_modes(i)%id
+      
+      ! N.B. this is equivalent to output = [output, coupling_generator(...)]
+      ! But again, Nagfort appears to have a compiler bug at that line.
+      old_couplings = output
+      new_couplings = coupling_generator( degenerate_modes(i:),      &
+                                        & potential_expansion_order, &
+                                        & coupling_order,            &
+                                        & coupling_out)
+      output = [old_couplings, new_couplings]
+    enddo
+  endif
+end function
+
+! ----------------------------------------------------------------------
+! Recursively generates all sets of coupled modes within a set of coupled
+!    subspaces.
+! Only returns couplings with sum(q)=0, modulo G-vectors.
+! ----------------------------------------------------------------------
+recursive function generate_mode_coupling(coupled_subspaces,normal_modes, &
+   & qpoints,vscf_basis_functions_only,coupled_modes_in,sum_q_in)         &
+   & result(output)
+  implicit none
+  
+  type(DegenerateModes), intent(in)           :: coupled_subspaces(:)
+  type(ComplexMode),     intent(in)           :: normal_modes(:)
+  type(QpointData),      intent(in)           :: qpoints(:)
+  logical,               intent(in)           :: vscf_basis_functions_only
+  type(CoupledModes),    intent(in), optional :: coupled_modes_in
+  type(FractionVector),  intent(in), optional :: sum_q_in
+  type(CoupledModes), allocatable             :: output(:)
+  
+  type(QpointData), allocatable :: subspace_qpoints(:)
+  
+  type(CoupledModes)   :: coupled_modes
+  type(FractionVector) :: sum_q
+  
+  type(CoupledModes)   :: coupled_modes_out
+  type(FractionVector) :: sum_q_out
+  
+  logical :: q_must_be_zero
+  
+  integer :: i
+  
+  if (present(coupled_modes_in) .neqv. present(sum_q_in)) then
+    call print_line(CODE_ERROR//': generate_coupled_modes must be called with &
+       &all optional arguments or none.')
+    call err()
+  endif
+  
+  if (present(coupled_modes_in)) then
+    coupled_modes = coupled_modes_in
+    sum_q = sum_q_in
+  else
+    coupled_modes = CoupledModes([integer::])
+    sum_q = fracvec(zeroes(3))
+  endif
+  
+  if (size(coupled_subspaces)==0) then
+    ! There is nothing else to append. Check that the sum across q-points of
+    !    the mode coupling is zero, and return the mode couplings.
+    if (is_int(sum_q_in)) then
+      coupled_modes_out = coupled_modes
+      coupled_modes_out%ids = &
+         & coupled_modes_out%ids(sort(coupled_modes_out%ids))
+      output = [coupled_modes_out]
+    else
+      output = [CoupledModes::]
+    endif
+  else
+    ! If vscf_basis_functions_only is true, then only mode couplings which have
+    !    sum(q)=0 for all degenerate subspaces are allowed.
+    q_must_be_zero = .false.
+    if (vscf_basis_functions_only) then
+      if (size(coupled_subspaces)>=2) then
+        if (coupled_subspaces(2)%id/=coupled_subspaces(1)%id) then
+          q_must_be_zero = .true.
+        endif
+      endif
+    endif
+    
+    ! Loop over modes in this subspaces, recursively calling this function for
+    !    each in turn.
+    subspace_qpoints = coupled_subspaces(1)%qpoints(qpoints)
+    output = [CoupledModes::]
+    do i=1,size(coupled_subspaces(1))
+      coupled_modes_out = coupled_modes//coupled_subspaces(1)%mode_ids(i)
+      sum_q_out = sum_q + subspace_qpoints(i)%qpoint
+      if ((.not. q_must_be_zero) .or. is_int(sum_q)) then
+        output = [ output,                                            &
+               &   generate_mode_coupling( coupled_subspaces(2:),     &
+               &                           normal_modes,              &
+               &                           qpoints,                   &
+               &                           vscf_basis_functions_only, &
+               &                           coupled_modes_out,              &
+               &                           sum_q_out)                 &
+               & ]
+      endif
     enddo
   endif
 end function
@@ -433,6 +651,15 @@ recursive function str_CoupledSubspaces(this) result(output)
   
   class(CoupledSubspaces), intent(in) :: this
   type(String)                        :: output
+  
+  output = join(this%ids)
+end function
+
+recursive function str_CoupledModes(this) result(output)
+  implicit none
+  
+  class(CoupledModes), intent(in) :: this
+  type(String)                    :: output
   
   output = join(this%ids)
 end function

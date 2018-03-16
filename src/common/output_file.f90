@@ -270,9 +270,9 @@ function run_quip_on_file(filename,structure,dir,seedname,symmetry_precision) &
   
   type(StructureData) :: displaced_structure
   
-  real(dp)              :: lattice(3,3)
-  integer,  allocatable :: atomic_nos(:)
-  real(dp), allocatable :: positions(:,:)
+  type(QuipAtoms) :: quip_atoms
+  
+  type(String) :: quip_filename
   
   type(QuipResult) :: quip_result
   
@@ -285,19 +285,22 @@ function run_quip_on_file(filename,structure,dir,seedname,symmetry_precision) &
                                & symmetry_precision, &
                                & calculate_symmetry=.false.)
   
-  ! Convert structure information into basic types and QUIP units (eV/Angstrom).
-  lattice = transpose(dble(displaced_structure%lattice)) * angstrom_per_bohr
-  allocate( atomic_nos(displaced_structure%no_atoms),  &
-          & positions(3,displaced_structure%no_atoms), &
+  ! Convert structure information into QuipAtoms and QUIP units (eV/Angstrom).
+  quip_atoms%lattice = transpose(dble(displaced_structure%lattice)) &
+                   & * angstrom_per_bohr
+  allocate( quip_atoms%atomic_nos(displaced_structure%no_atoms),  &
+          & quip_atoms%positions(3,displaced_structure%no_atoms), &
           & stat=ialloc); call err(ialloc)
   do i=1,displaced_structure%no_atoms
-    atomic_nos(i) = int(displaced_structure%atoms(i)%species())
-    positions(:,i) = dble(displaced_structure%atoms(i)%cartesian_position()) &
-                 & * angstrom_per_bohr
+    quip_atoms%atomic_nos(i) = int(displaced_structure%atoms(i)%species())
+    quip_atoms%positions(:,i) =                                    &
+       &   dble(displaced_structure%atoms(i)%cartesian_position()) &
+       & * angstrom_per_bohr
   enddo
   
   ! Call QUIP.
-  quip_result = call_quip(lattice, atomic_nos, positions, dir, seedname)
+  quip_filename = dir//'/'//seedname//'_MEAM.xml'
+  quip_result = call_quip(quip_atoms, char(quip_filename))
   
   ! Convert QUIP's output into Caesar units (Bohr/Hartree) and types.
   output = OutputFile(displaced_structure%no_atoms)

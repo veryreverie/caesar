@@ -29,13 +29,10 @@ module physical_constants_module
   ! Atomic mass unit in kg.
   real(dp), parameter, public :: kg_per_amu = 1.660539040e-27_dp
   
-  ! Energy in cm-1 in eV.
-  real(dp), parameter, public :: ev_per_inverse_cm = 2.1947463137e-4_dp
-  
   ! --------------------------------------------------
   ! Derived values.
   ! --------------------------------------------------
   
   ! Boltzmann's constant in Hartree per Kelvin.
-  real(dp), parameter, public :: kb_in_au = kb_in_ev_per_k / ev_per_rydberg
+  real(dp), parameter, public :: kb_in_au = kb_in_ev_per_k / ev_per_hartree
 end module
