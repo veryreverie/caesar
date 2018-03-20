@@ -39,7 +39,7 @@ function max_amplitude(frequency,temperature) result(output)
     normal_mode_amplitude = 0.5_dp/frequency
     output = 5*sqrt(normal_mode_amplitude)
   else
-    thermal_energy = 0.5_dp*temperature*kb_in_au
+    thermal_energy = 0.5_dp*temperature*KB_IN_AU
     normal_mode_amplitude = (1/(exp(frequency/thermal_energy)-1)+0.5_dp) &
                         & / frequency
     output = 5*sqrt(normal_mode_amplitude)

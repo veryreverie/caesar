@@ -51,7 +51,7 @@ function vscf_1d(frequency, potential, Nbasis) result(output)
 
   ! Calculate basis functions (1-d Harmonic Oscillator wavefunctions).
   basis_frequency = abs(frequency)
-  bfp=(basis_frequency/pi)**0.25
+  bfp=(basis_frequency/PI)**0.25
   
   allocate(basis(Npoints,Nbasis))
   do i=1,Npoints

@@ -108,7 +108,7 @@ subroutine coupled_atomic_units()
   do i=1,no_couplings
     call output_file%print_line('# '//harmonic(i,:))
     do j=1,no_data
-      output = (energy(i,j)-energy_ref)/(no_cells*ev_per_hartree)
+      output = (energy(i,j)-energy_ref)/(no_cells*EV_PER_HARTREE)
       call output_file%print_line(positions(i,j,:)//' '//output)
     enddo
   enddo

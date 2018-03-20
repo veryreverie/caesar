@@ -490,7 +490,6 @@ function reconstruct_force_constants(large_supercell,qpoints, &
       do k=1,large_supercell%no_atoms
         atom_2 = large_supercell%atoms(k)
         
-        ! Calculate exp(2*pi*i * q.(R2-R1))
         r = large_supercell%rvectors(atom_2%rvec_id()) &
         & - large_supercell%rvectors(atom_1%rvec_id())
         

@@ -171,7 +171,7 @@ subroutine setup_anharmonic(arguments)
   ! Read and calculcate starting data.
   ! --------------------------------------------------
   ! Calculate thermal energy.
-  thermal_energy = temperature*kb_in_au
+  thermal_energy = temperature*KB_IN_AU
   
   ! Read in crystal structure.
   structure = read_structure_file(harmonic_path//'/structure.dat')

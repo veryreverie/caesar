@@ -7,5 +7,5 @@ module mathematical_constants_submodule
   
   private
   
-  real(dp), parameter, public :: pi = 3.14159265358979324_dp
+  real(dp), parameter, public :: PI = 3.14159265358979324_dp
 end module

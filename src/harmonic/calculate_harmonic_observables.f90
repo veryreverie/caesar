@@ -143,7 +143,7 @@ subroutine calculate_harmonic_observables(arguments)
   allocate( thermal_energies(no_temperature_steps), &
           & stat=ialloc); call err(ialloc)
   do i=1,no_temperature_steps
-    thermal_energies(i) = kb_in_au                                   &
+    thermal_energies(i) = KB_IN_AU                                   &
                       & * ( min_temperature*(no_temperature_steps-i) &
                       &   + max_temperature*(i-1) )                  &
                       & / (no_temperature_steps-1)

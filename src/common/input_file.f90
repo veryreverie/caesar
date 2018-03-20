@@ -248,7 +248,7 @@ function castep_input_file_to_StructureData(filename,symmetry_precision, &
   positions_are_abs = line(2)=='positions_abs'
   
   ! Parse lattice.
-  conversion = 1.0_dp / angstrom_per_bohr
+  conversion = 1.0_dp / ANGSTROM_PER_BOHR
   j=0
   do i=2,size(cell_file%lattice_block)-1
     line = split(lower_case(cell_file%lattice_block(i)))
@@ -263,13 +263,13 @@ function castep_input_file_to_StructureData(filename,symmetry_precision, &
     elseif (line(1) == 'a0') then
       conversion = 1.0_dp
     elseif (line(1) == 'm') then
-      conversion = 1e10_dp / angstrom_per_bohr
+      conversion = 1e10_dp / ANGSTROM_PER_BOHR
     elseif (line(1) == 'cm') then
-      conversion = 1e8_dp / angstrom_per_bohr
+      conversion = 1e8_dp / ANGSTROM_PER_BOHR
     elseif (line(1) == 'nm') then
-      conversion = 1e1_dp / angstrom_per_bohr
+      conversion = 1e1_dp / ANGSTROM_PER_BOHR
     elseif (line(1) == 'ang') then
-      conversion = 1.0_dp / angstrom_per_bohr
+      conversion = 1.0_dp / ANGSTROM_PER_BOHR
       
     elseif (lattice_is_cart) then
       j = j+1
@@ -284,7 +284,7 @@ function castep_input_file_to_StructureData(filename,symmetry_precision, &
       if (j==1) then
         lengths = dble(line(1:3)) * conversion
       elseif (j==2) then
-        angles = dble(line(1:3)) * pi/180
+        angles = dble(line(1:3)) * PI/180
       else
         call print_line(ERROR//': too many lattice lines found in '//filename)
         call err()
@@ -305,7 +305,7 @@ function castep_input_file_to_StructureData(filename,symmetry_precision, &
   endif
   
   ! Parse atomic positions.
-  conversion = angstrom_per_bohr
+  conversion = ANGSTROM_PER_BOHR
   j=0
   allocate( species(size(cell_file%positions_block)-2),     &
           & positions(size(cell_file%positions_block)-2,1), &
@@ -322,13 +322,13 @@ function castep_input_file_to_StructureData(filename,symmetry_precision, &
     elseif (line(1) == 'bohr' .or. line(1) == 'a0') then
       conversion = 1.0_dp
     elseif (line(1) == 'm') then
-      conversion = 1e10_dp / angstrom_per_bohr
+      conversion = 1e10_dp / ANGSTROM_PER_BOHR
     elseif (line(1) == 'cm') then
-      conversion = 1e8_dp / angstrom_per_bohr
+      conversion = 1e8_dp / ANGSTROM_PER_BOHR
     elseif (line(1) == 'nm') then
-      conversion = 1e1_dp / angstrom_per_bohr
+      conversion = 1e1_dp / ANGSTROM_PER_BOHR
     elseif (line(1) == 'ang') then
-      conversion = 1.0_dp / angstrom_per_bohr
+      conversion = 1.0_dp / ANGSTROM_PER_BOHR
     
     elseif (j>size(positions)) then
       call print_line(ERROR//': too many atom lines found in '//filename)
@@ -357,7 +357,7 @@ function castep_input_file_to_StructureData(filename,symmetry_precision, &
   endif
   
   ! Parse masses.
-  conversion = kg_per_amu / kg_per_me
+  conversion = KG_PER_AMU / KG_PER_ME
   allocate( masses_found(no_atoms), &
           & masses(no_atoms),       &
           & stat=ialloc); call err(ialloc)
@@ -373,11 +373,11 @@ function castep_input_file_to_StructureData(filename,symmetry_precision, &
     elseif (line(1) == 'me') then
       conversion = 1.0_dp
     elseif (line(1) == 'amu') then
-      conversion = kg_per_amu / kg_per_me
+      conversion = KG_PER_AMU / KG_PER_ME
     elseif (line(1) == 'kg') then
-      conversion = 1.0_dp / kg_per_me
+      conversion = 1.0_dp / KG_PER_ME
     elseif (line(1) == 'g') then
-      conversion = 1e-3_dp / kg_per_me
+      conversion = 1e-3_dp / KG_PER_ME
     
     ! Read in masses.
     else
@@ -566,7 +566,7 @@ subroutine StructureData_to_vasp_input_file(structure,poscar_filename)
   poscar_file = poscar_filename
   
   call poscar_file%print_line('Structure')
-  call poscar_file%print_line(angstrom_per_bohr)
+  call poscar_file%print_line(ANGSTROM_PER_BOHR)
   call poscar_file%print_line(structure%lattice)
   
   line = species(1)

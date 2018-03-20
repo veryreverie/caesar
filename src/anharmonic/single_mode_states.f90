@@ -235,7 +235,7 @@ function generate_harmonic_basis(mode,frequency,harmonic_states_cutoff) &
   
   integer :: i,ialloc
   
-  normalisation = (frequency/pi)**0.25_dp
+  normalisation = (frequency/PI)**0.25_dp
   
   allocate(output(harmonic_states_cutoff+1), stat=ialloc); call err(ialloc)
   

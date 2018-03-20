@@ -38,7 +38,7 @@ subroutine calculate_anharmonic_correction(structure,structure_grid,qpoints, &
   
   ! Calculate thermal energies
   do i=1,no_temperatures
-    betas(i) = 1.0_dp/((i-1)*dtemperature*kb_in_au)
+    betas(i) = 1.0_dp/((i-1)*dtemperature*KB_IN_AU)
   enddo
 
   ! Calculate partition function
@@ -80,7 +80,7 @@ subroutine calculate_anharmonic_correction(structure,structure_grid,qpoints, &
          enddo
        enddo
     endif
-    call result_file%print_line( 1.0_dp/(kb_in_au*betas(i))  //' '// &
+    call result_file%print_line( 1.0_dp/(KB_IN_AU*betas(i))  //' '// &
                                & renormalised_harmonic       //' '// &
                                & renormalised_eigenvals)
   enddo

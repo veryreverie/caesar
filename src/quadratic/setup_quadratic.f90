@@ -105,7 +105,7 @@ subroutine setup_quadratic(arguments)
   no_samples = int(arguments%value('no_samples'))
   displacement = dble(arguments%value('displacement'))
   
-  thermal_energy = temperature*kb_in_au
+  thermal_energy = temperature*KB_IN_AU
   
   ! --------------------------------------------------
   ! Read in previous settings.
@@ -230,7 +230,7 @@ subroutine setup_quadratic(arguments)
         ! Calculate new positions
         do l=1,supercell%no_atoms
           atom = supercell%atoms(l)
-          qr = 2*pi*qpoints_ibz(i)%qpoint*supercell%rvectors(atom%rvec_id())
+          qr = 2*PI*qpoints_ibz(i)%qpoint*supercell%rvectors(atom%rvec_id())
           disp = amplitude * real( mode%displacements(atom%prim_id()) &
                                & * cmplx(cos(qr),sin(qr),dp))
           call supercell%atoms(l)%set_cartesian_position( &

@@ -213,7 +213,7 @@ subroutine bs_quadratic(arguments)
                           & + deformation(i,j)                                &
                           & * ( 1                                             &
                           &   + 2                                             &
-                          &   / (exp(frequencies(i,j)/(temperature*kb_in_au)) &
+                          &   / (exp(frequencies(i,j)/(temperature*KB_IN_AU)) &
                           &     - 1))                                         &
                           & * multiplicity(i)                                 &
                           & / no_qpoints

@@ -40,7 +40,7 @@ subroutine hartree_to_ev(arguments)
   real(dp) :: input
   
   input = dble(arguments%value('energy_in_hartree'))
-  call print_line(input*ev_per_hartree)
+  call print_line(input*EV_PER_HARTREE)
 end subroutine
 
 end module

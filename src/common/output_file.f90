@@ -149,14 +149,14 @@ function read_castep_output_file(filename,structure) result(output)
   
   ! Read data
   line = split(castep_file%line(energy_line))
-  output%energy = dble(line(5)) / ev_per_hartree
+  output%energy = dble(line(5)) / EV_PER_HARTREE
   
   allocate(atom_found(output%no_atoms), stat=ialloc); call err(ialloc)
   atom_found = .false.
   do_i : do i=1,output%no_atoms
     line = split(castep_file%line(forces_start_line+5+i))
     species = line(2)
-    force = dble(line(4:6)) * angstrom_per_bohr / ev_per_hartree
+    force = dble(line(4:6)) * ANGSTROM_PER_BOHR / EV_PER_HARTREE
     do j=1,structure%no_atoms
       if (atom_found(j)) then
         cycle
@@ -242,12 +242,12 @@ function read_qe_output_file(filename,structure) result(output)
   enddo
   
   line = split(qe_file%line(energy_line))
-  output%energy = dble(line(5)) * ev_per_rydberg / ev_per_hartree
+  output%energy = dble(line(5)) * EV_PER_RYDBERG / EV_PER_HARTREE
   
   do i=1,forces_end_line-forces_start_line-3
     line = split(qe_file%line(forces_start_line+1+i))
     output%species(i) = species(int(line(4)))
-    output%forces(i) = dble(line(7:9)) * ev_per_rydberg / ev_per_hartree
+    output%forces(i) = dble(line(7:9)) * EV_PER_RYDBERG / EV_PER_HARTREE
     
     if (output%species(i)/=structure%atoms(i)%species()) then
       call print_line(ERROR//': The species in the qe output file do not match &
@@ -287,7 +287,7 @@ function run_quip_on_file(filename,structure,dir,seedname,symmetry_precision) &
   
   ! Convert structure information into QuipAtoms and QUIP units (eV/Angstrom).
   quip_atoms%lattice = transpose(dble(displaced_structure%lattice)) &
-                   & * angstrom_per_bohr
+                   & * ANGSTROM_PER_BOHR
   allocate( quip_atoms%atomic_nos(displaced_structure%no_atoms),  &
           & quip_atoms%positions(3,displaced_structure%no_atoms), &
           & stat=ialloc); call err(ialloc)
@@ -295,7 +295,7 @@ function run_quip_on_file(filename,structure,dir,seedname,symmetry_precision) &
     quip_atoms%atomic_nos(i) = int(displaced_structure%atoms(i)%species())
     quip_atoms%positions(:,i) =                                    &
        &   dble(displaced_structure%atoms(i)%cartesian_position()) &
-       & * angstrom_per_bohr
+       & * ANGSTROM_PER_BOHR
   enddo
   
   ! Call QUIP.
@@ -304,11 +304,12 @@ function run_quip_on_file(filename,structure,dir,seedname,symmetry_precision) &
   
   ! Convert QUIP's output into Caesar units (Bohr/Hartree) and types.
   output = OutputFile(displaced_structure%no_atoms)
-  output%energy = quip_result%energy / ev_per_hartree
+  output%energy = quip_result%energy / EV_PER_HARTREE
   do i=1,displaced_structure%no_atoms
     output%species(i) = displaced_structure%atoms(i)%species()
     output%forces(i) = quip_result%forces(:,i) &
-                   & / (angstrom_per_bohr * ev_per_hartree)
+                   & * ANGSTROM_PER_BOHR       &
+                   & / EV_PER_HARTREE
   enddo
 end function
 

@@ -351,7 +351,7 @@ subroutine vscf()
   call print_line('calculating basis functions...')
   do i=first_mode,last_mode
     i2 = i-first_mode+1
-    bfp=(omega(i2)/pi)**0.25_dp
+    bfp=(omega(i2)/PI)**0.25_dp
     
     do j=1,nbasis
       root_i_over_two(j)=sqrt(0.5_dp*j)
@@ -618,17 +618,17 @@ subroutine vscf()
   call output_file%print_line( '')
   call output_file%print_line( 'converged in '//t//' iterations.')
   call output_file%print_line( 'final energy (a.u., ev) '// &
-     & final_energy//' '//final_energy*ev_per_hartree)
+     & final_energy//' '//final_energy*EV_PER_HARTREE)
   call output_file%print_line( 'final energy puc (a.u., ev) '// &
      & final_energy/no_unit_cells                       //' '// &
-     & final_energy*ev_per_hartree/no_unit_cells)
+     & final_energy*EV_PER_HARTREE/no_unit_cells)
   call output_file%print_line( '')
   
   result_file = 'vscf_results.dat'
   call result_file%print_line( 'converged in '//t//' iterations.')
   call result_file%print_line( 'final energy (a.u., ev, cm-1) ' // &
                              & final_energy                //' '// &
-                             & final_energy*ev_per_hartree //' '// &
+                             & final_energy*EV_PER_HARTREE //' '// &
                              & final_energy*ev_per_inverse_cm)
   call result_file%print_line( 'energy difference is '//max_diff)
   
@@ -745,21 +745,21 @@ subroutine vscf()
     call print_line( '')
     call print_line( '     mp2 correction (a.u., ev, cm-1) '// &
                    & mp2                               //' '// &
-                   & mp2*ev_per_hartree                //' '// &
+                   & mp2*EV_PER_HARTREE                //' '// &
                    & mp2*ev_per_inverse_cm)
     call print_line( '     mp2 energy (a.u., ev, cm-1) '    // &
                    & final_energy+mp2                  //' '// &
-                   & (final_energy+mp2)*ev_per_hartree //' '// &
+                   & (final_energy+mp2)*EV_PER_HARTREE //' '// &
                    & (final_energy+mp2)*ev_per_inverse_cm)
     call print_line( '     mp2 energy puc (a.u., ev, cm-1) '  // &
        & (final_energy+mp2)/no_unit_cells                //' '// &
-       & (final_energy+mp2)*ev_per_hartree/no_unit_cells //' '// &
+       & (final_energy+mp2)*EV_PER_HARTREE/no_unit_cells //' '// &
        & (final_energy+mp2)*ev_per_inverse_cm/no_unit_cells)
     
     call result_file%print_line( '')
     call result_file%print_line( 'mp2 energy (a.u., ev, cm-1): '// &
        & final_energy+mp2                                  //' '// &
-       & (final_energy+mp2)*ev_per_hartree                 //' '// &
+       & (final_energy+mp2)*EV_PER_HARTREE                 //' '// &
        & (final_energy+mp2)*ev_per_inverse_cm)
     
     mp2_energy=final_energy+mp2
@@ -772,18 +772,18 @@ subroutine vscf()
   call print_line('')
   call print_line('-------summary of results-------')
   call print_line( 'harmonic energy (ev): '// &
-                 & harmonic_energy*ev_per_hartree/no_unit_cells)
+                 & harmonic_energy*EV_PER_HARTREE/no_unit_cells)
   call print_line( 'anharmonic energy (ev): '// &
-                 & anharmonic_energy*ev_per_hartree/no_unit_cells)
+                 & anharmonic_energy*EV_PER_HARTREE/no_unit_cells)
   call output_file%print_line( '')
   call output_file%print_line( '-------summary of results-------')
   call output_file%print_line( 'harmonic energy (ev): '// &
-     & harmonic_energy*ev_per_hartree/no_unit_cells)
+     & harmonic_energy*EV_PER_HARTREE/no_unit_cells)
   call output_file%print_line( 'anharmonic energy (ev): '// &
-     & anharmonic_energy*ev_per_hartree/no_unit_cells)
+     & anharmonic_energy*EV_PER_HARTREE/no_unit_cells)
   if (execution_mode==1) then
     call print_line( 'mp2 energy (ev): '// &
-                   & mp2_energy*ev_per_hartree/no_unit_cells)
+                   & mp2_energy*EV_PER_HARTREE/no_unit_cells)
   endif
 
   ! --------------------------------------------------
@@ -814,7 +814,7 @@ subroutine vscf()
     enddo
 
     ! Calculate partition function.
-    thermal_energy = temperature * kb_in_au
+    thermal_energy = temperature * KB_IN_AU
     part_fn = sum(exp(-shift_eigenvalues/thermal_energy), 2)
     har_part_fn = sum(exp(-shift_harmonic_freq/thermal_energy), 2)
 
@@ -899,17 +899,17 @@ subroutine vscf()
        & '-------summary of free energy results-------')
     call output_file%print_line( 'temperature (k): '//temperature)
     call output_file%print_line( 'harmonic free energy (ev): '// &
-       & hfenergy/no_unit_cells*ev_per_hartree)
+       & hfenergy/no_unit_cells*EV_PER_HARTREE)
     call output_file%print_line( 'anharmonic free energy (ev): '// &
-       & fenergy/no_unit_cells*ev_per_hartree)
+       & fenergy/no_unit_cells*EV_PER_HARTREE)
     call output_file%print_line( '')
     call output_file%print_line( &
        & '-------summary of int energy results-------')
     call output_file%print_line( 'temperature (k): '//temperature)
     call output_file%print_line( 'harmonic internal energy (ev): '// &
-       & hint_energy/no_unit_cells*ev_per_hartree)
+       & hint_energy/no_unit_cells*EV_PER_HARTREE)
     call output_file%print_line( 'anharmonic internal energy (ev): '// &
-       & int_energy/no_unit_cells*ev_per_hartree)
+       & int_energy/no_unit_cells*EV_PER_HARTREE)
   endif
 end subroutine
 

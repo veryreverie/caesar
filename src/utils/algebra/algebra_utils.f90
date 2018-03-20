@@ -5,6 +5,7 @@ module algebra_utils_submodule
   use precision_module
   use io_module
   
+  use mathematical_constants_submodule
   use linear_algebra_submodule
   implicit none
   
@@ -300,7 +301,6 @@ end function
 ! Returns exp(2*pi*i*input).
 ! ----------------------------------------------------------------------
 impure elemental function exp_2pii_real(input) result(output)
-  use mathematical_constants_submodule, only : pi
   implicit none
   
   real(dp), intent(in) :: input
@@ -308,7 +308,7 @@ impure elemental function exp_2pii_real(input) result(output)
   
   real(dp) :: exponent
   
-  exponent = 2*pi*input
+  exponent = 2*PI*input
   output = cmplx(cos(exponent),sin(exponent),dp)
 end function
 

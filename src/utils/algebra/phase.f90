@@ -60,7 +60,7 @@ function cmplx_PhaseData(this) result(output)
   
   real(dp) :: exponent
   
-  exponent = 2*pi*dble(this%fraction)
+  exponent = 2*PI*dble(this%fraction)
   output = cmplx(cos(exponent),sin(exponent),dp)
 end function
 
@@ -75,7 +75,7 @@ function calculate_phase(input,denom) result(output)
   real(dp)          :: phase_real
   type(IntFraction) :: phase_frac
   
-  phase_real = atan2(aimag(input), real(input)) / (2*pi)
+  phase_real = atan2(aimag(input), real(input)) / (2*PI)
   phase_frac = IntFraction(nint(phase_real*denom),denom)
   if (abs(dble(phase_frac)-phase_real)>0.01_dp) then
     call print_line(ERROR//': Phase incompatible with given denominator.')

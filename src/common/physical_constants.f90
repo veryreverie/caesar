@@ -12,27 +12,27 @@ module physical_constants_module
   ! --------------------------------------------------
   
   ! Hartree energy in eV.
-  real(dp), parameter, public :: ev_per_hartree = 27.21138602_dp
+  real(dp), parameter, public :: EV_PER_HARTREE = 27.21138602_dp
   
   ! Boltzmann's constant in eV/K.
-  real(dp), parameter, public :: kb_in_ev_per_k = 8.6173303e-5_dp
+  real(dp), parameter, public :: KB_IN_EV_PER_K = 8.6173303e-5_dp
   
   ! Rydberg constant in eV.
-  real(dp), parameter, public :: ev_per_rydberg = 13.605693009_dp
+  real(dp), parameter, public :: EV_PER_RYDBERG = 13.605693009_dp
   
   ! Bohr radius in Angstrom.
-  real(dp), parameter, public :: angstrom_per_bohr = 0.52917721067_dp
+  real(dp), parameter, public :: ANGSTROM_PER_BOHR = 0.52917721067_dp
   
   ! Electron mass in kg.
-  real(dp), parameter, public :: kg_per_me = 9.10938356e-31_dp
+  real(dp), parameter, public :: KG_PER_ME = 9.10938356E-31_dp
   
   ! Atomic mass unit in kg.
-  real(dp), parameter, public :: kg_per_amu = 1.660539040e-27_dp
+  real(dp), parameter, public :: KG_PER_AMU = 1.660539040E-27_dp
   
   ! --------------------------------------------------
   ! Derived values.
   ! --------------------------------------------------
   
   ! Boltzmann's constant in Hartree per Kelvin.
-  real(dp), parameter, public :: kb_in_au = kb_in_ev_per_k / ev_per_hartree
+  real(dp), parameter, public :: KB_IN_AU = KB_IN_EV_PER_K / EV_PER_HARTREE
 end module
