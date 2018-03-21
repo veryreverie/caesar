@@ -5,5 +5,4 @@ include_guard(logic)
 add_library(logic logic.f90)
 
 # Link against required modules.
-add_subdirectory(${CMAKE_SOURCE_DIR}/utils/io io/)
 target_link_libraries(logic io)

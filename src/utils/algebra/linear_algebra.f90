@@ -762,13 +762,9 @@ function zeroes_IntVector(n) result(output)
   integer, intent(in) :: n
   type(IntVector)     :: output
   
-  integer, allocatable :: contents(:)
+  integer :: i
   
-  integer :: ialloc
-  
-  allocate(contents(n), stat=ialloc); call err(ialloc)
-  contents = 0
-  output = contents
+  output = [(0,i=1,n)]
 end function
 
 ! Makes a mxn matrix full of zeroes.

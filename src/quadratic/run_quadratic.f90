@@ -3,9 +3,8 @@
 ! Runs DFT for anharmonic calculations.
 ! ======================================================================
 module run_quadratic_module
-  use precision_module
-  use io_module
-  use arguments_module
+  use common_module
+  implicit none
 contains
 
 ! ----------------------------------------------------------------------
@@ -34,9 +33,6 @@ end function
 ! The main program.
 ! ----------------------------------------------------------------------
 subroutine run_quadratic(arguments)
-  use structure_module
-  use qpoints_module
-  use dft_input_file_module
   implicit none
   
   type(Dictionary), intent(in) :: arguments

@@ -24,16 +24,22 @@ function calculate_normal_modes_keywords() result(keywords)
   
   type(KeywordData), allocatable :: keywords(:)
   
-  keywords = [                                                               &
-     & KeywordData( 'acoustic_sum_rule',                                     &
-     &              'acoustic_sum_rule specifies where the acoustic sum rule &
-     &is applied. The options are "off", "forces", "matrices" and "both".',  &
-     &              default_value='both'),                                   &
-     & KeywordData( 'degenerate_energy',                                     &
+  keywords = [                                                                &
+     & KeywordData( 'acoustic_sum_rule',                                      &
+     &              'acoustic_sum_rule specifies where the acoustic sum rule  &
+     &is applied. The options are "off", "forces", "matrices" and "both".',   &
+     &              default_value='both'),                                    &
+     & KeywordData( 'degenerate_energy',                                      &
      &              'degenerate_energy is the minimum energy difference &
      &between states before they are considered degenerate. This should be &
-     &given in Hartrees.',                                                  &
-     &              default_value='1e-5') ]
+     &given in Hartrees.',                                                    &
+     &              default_value='1e-5'),                                    &
+     & KeywordData( 'calculation_type',                                       &
+     &              'calculation_type specifies whether electronic structure &
+     &calculations have been run using a user-defined script and &
+     &run_harmonic, or should be run through Quip. Settings are: "script" and &
+     &"quip".',                                                               &
+     &              default_value='script') ]
 end function
 
 function calculate_normal_modes_mode() result(output)
@@ -65,6 +71,7 @@ subroutine calculate_normal_modes(arguments)
   logical          :: acoustic_sum_rule_forces
   logical          :: acoustic_sum_rule_matrices
   real(dp)         :: degenerate_energy
+  type(String)     :: calculation_type
   
   ! No. supercells file.
   type(IFile) :: no_supercells_file
@@ -134,6 +141,8 @@ subroutine calculate_normal_modes(arguments)
   
   degenerate_energy = dble(arguments%value('degenerate_energy'))
   
+  calculation_type = arguments%value('calculation_type')
+  
   ! --------------------------------------------------
   ! Read in previous arguments.
   ! --------------------------------------------------
@@ -150,7 +159,8 @@ subroutine calculate_normal_modes(arguments)
   structure = read_structure_file(wd//'/structure.dat',symmetry_precision)
   
   large_supercell = read_structure_file( wd//'/large_supercell.dat', &
-                                       & symmetry_precision)
+                                       & symmetry_precision,         &
+                                       & calculate_symmetry=.false.)
   
   qpoints = read_qpoints_file(wd//'/qpoints.dat')
   
@@ -181,6 +191,7 @@ subroutine calculate_normal_modes(arguments)
                                        & seedname,                 &
                                        & acoustic_sum_rule_forces, &
                                        & symmetry_precision,       &
+                                       & calculation_type,         &
                                        & force_logfile)
   enddo
   

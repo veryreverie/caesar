@@ -1,8 +1,10 @@
 ! ======================================================================
 ! Information about an atom.
 ! ======================================================================
-module atom_module
+module atom_submodule
   use utils_module
+  
+  use basic_structure_submodule
   implicit none
   
   private
@@ -55,13 +57,11 @@ contains
 ! ----------------------------------------------------------------------
 ! Constructor.
 ! ----------------------------------------------------------------------
-function new_AtomData(species,mass,cartesian_position,lattice,recip_lattice, &
-   & id,prim_id,rvec_id) result(this)
+function new_AtomData(basic_atom,lattice,recip_lattice,id,prim_id,rvec_id) &
+   & result(this)
   implicit none
   
-  type(String),     intent(in) :: species
-  real(dp),         intent(in) :: mass
-  type(RealVector), intent(in) :: cartesian_position
+  type(BasicAtom),  intent(in) :: basic_atom
   type(RealMatrix), intent(in) :: lattice
   type(RealMatrix), intent(in) :: recip_lattice
   integer,          intent(in) :: id
@@ -72,10 +72,10 @@ function new_AtomData(species,mass,cartesian_position,lattice,recip_lattice, &
   this%lattice_ = lattice
   this%recip_lattice_ = recip_lattice
   
-  this%species_ = species
-  this%mass_ = mass
+  this%species_ = basic_atom%species
+  this%mass_ = basic_atom%mass
   
-  call this%set_cartesian_position(cartesian_position)
+  call this%set_cartesian_position(basic_atom%cartesian_position)
   
   this%id_ = id
   this%prim_id_ = prim_id
@@ -85,7 +85,7 @@ end function
 ! ----------------------------------------------------------------------
 ! Getters.
 ! ----------------------------------------------------------------------
-function species(this) result(output)
+impure elemental function species(this) result(output)
   implicit none
   
   class(AtomData), intent(in) :: this
@@ -94,7 +94,7 @@ function species(this) result(output)
   output = this%species_
 end function
 
-function mass(this) result(output)
+impure elemental function mass(this) result(output)
   implicit none
   
   class(AtomData), intent(in) :: this
@@ -103,7 +103,7 @@ function mass(this) result(output)
   output = this%mass_
 end function
 
-function fractional_position(this) result(output)
+impure elemental function fractional_position(this) result(output)
   implicit none
   
   class(AtomData), intent(in) :: this
@@ -112,7 +112,7 @@ function fractional_position(this) result(output)
   output = this%fractional_position_
 end function
 
-function cartesian_position(this) result(output)
+impure elemental function cartesian_position(this) result(output)
   implicit none
   
   class(AtomData), intent(in) :: this
@@ -122,7 +122,7 @@ function cartesian_position(this) result(output)
 end function
 
 ! The id of the atom in the supercell, i.e. the atom is supercell%atoms(id).
-function id(this) result(output)
+impure elemental function id(this) result(output)
   implicit none
   
   class(AtomData), intent(in) :: this
@@ -132,7 +132,7 @@ function id(this) result(output)
 end function
 
 ! The id of the corresponding atom in the supercell's primitive cell.
-function prim_id(this) result(output)
+impure elemental function prim_id(this) result(output)
   implicit none
   
   class(AtomData), intent(in) :: this
@@ -143,7 +143,7 @@ end function
 
 ! The id of the R-vector which translates from the corresponding atom in the
 !    supercell's primitive cell to this atom.
-function rvec_id(this) result(output)
+impure elemental function rvec_id(this) result(output)
   implicit none
   
   class(AtomData), intent(in) :: this

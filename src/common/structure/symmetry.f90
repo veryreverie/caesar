@@ -1,11 +1,12 @@
 ! ======================================================================
 ! A symmetry operator, in various representations.
 ! ======================================================================
-module symmetry_module
+module symmetry_submodule
   use utils_module
   
-  use basic_symmetry_module
-  use qpoints_module
+  use basic_structure_submodule
+  use calculate_symmetry_submodule
+  use qpoint_submodule
   implicit none
   
   private

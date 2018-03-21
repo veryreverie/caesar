@@ -1,21 +1,16 @@
 ! ======================================================================
-! A holding class for a rotation and translation in fractional co-ordinates.
+! Uses spglib to calculate symmetry operations.
 ! ======================================================================
-module basic_symmetry_module
+module calculate_symmetry_submodule
   use utils_module
   
-  use atom_module
+  use basic_structure_submodule
+  use atom_submodule
   implicit none
   
   private
   
-  public :: BasicSymmetry
   public :: calculate_basic_symmetries
-  
-  type :: BasicSymmetry
-    type(IntMatrix)  :: rotation
-    type(RealVector) :: translation
-  end type
   
   ! ----------------------------------------------------------------------
   ! spglib interface.

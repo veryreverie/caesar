@@ -54,7 +54,7 @@ function calculate_harmonic_observables_keywords() result(keywords)
   &              'no_dos_samples is the number of points in reciprocal space &
   &at which the normal modes are calculated when calculating the vibrational &
   &density of states.',                                                       &
-  &              default_value='100000') ]
+  &              default_value='100000')]
 end function
 
 function calculate_harmonic_observables_mode() result(output)
@@ -173,7 +173,8 @@ subroutine calculate_harmonic_observables(arguments)
   structure = read_structure_file(wd//'/structure.dat', symmetry_precision)
   
   large_supercell = read_structure_file( wd//'/large_supercell.dat', &
-                                       & symmetry_precision)
+                                       & symmetry_precision,         &
+                                       & calculate_symmetry=.false.)
   
   qpoints = read_qpoints_file(wd//'/qpoints.dat')
   

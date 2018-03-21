@@ -6,7 +6,6 @@ module setup_harmonic_module
   use common_module
   
   use generate_supercells_module
-  use generate_qpoints_module
   use unique_directions_module
   implicit none
 contains
@@ -22,7 +21,8 @@ function setup_harmonic_keywords() result(keywords)
   keywords = [                                                                &
   & KeywordData( 'file_type',                                                 &
   &              'file_type is the file type which will be used for &
-  &single-point energy calculations. Settings are: castep quip.',             &
+  &single-point energy calculations. Settings are: "castep", "caesar" and &
+  &"xyz". Support for xyz files requires Caesar to be linked against Quip.',  &
   &              default_value='castep'),                                     &
   & KeywordData( 'seedname',                                                  &
   &              'seedname is the seedname from which file names are &
@@ -111,15 +111,6 @@ subroutine setup_harmonic(arguments)
   symmetry_precision = dble(arguments%value('symmetry_precision'))
   harmonic_displacement = dble(arguments%value('harmonic_displacement'))
   
-  ! Check dft code is supported
-  if (file_type/='castep' .and. file_type/='quip') then
-    call print_line('')
-    call print_line('Error: The file type '//file_type//' is not currently &
-       & supported.')
-    call print_line('Please choose one of: castep quip.')
-    stop
-  endif
-  
   ! Check dft input files exists.
   input_filename = make_input_filename(file_type,seedname)
   input_filename = wd//'/'//input_filename
@@ -147,7 +138,7 @@ subroutine setup_harmonic(arguments)
   large_supercell = construct_supercell( structure,              &
                                        & large_supercell_matrix, &
                                        & symmetry_precision,     &
-                                       & calculate_symmetries=.false.)
+                                       & calculate_symmetry=.false.)
   call write_structure_file(large_supercell, wd//'/large_supercell.dat')
   
   ! --------------------------------------------------

@@ -494,7 +494,7 @@ function orthonormal_basis_ComplexVectors(input,shortest_valid, &
   type(ComplexVector), allocatable          :: output(:)
   
   ! Working variables for diagonalisation.
-  type(ComplexMatrix)                    :: m2
+  type(ComplexMatrix)                    :: sum_outer_products
   type(HermitianEigenstuff), allocatable :: eigenstuff(:)
   real(dp),                  allocatable :: projections(:)
   
@@ -533,11 +533,12 @@ function orthonormal_basis_ComplexVectors(input,shortest_valid, &
   enddo
   
   ! Construct the sum of the outer products of the input vectors.
-  m2 = cmplxmat(zeroes(vector_length,vector_length))
+  sum_outer_products = cmplxmat(zeroes(vector_length,vector_length))
   do i=1,size(input)
-    m2 = m2 + outer_product(conjg(input(i)),input(i))
+    sum_outer_products = sum_outer_products &
+                     & + outer_product(input(i),conjg(input(i)))
   enddo
-  eigenstuff = diagonalise_hermitian(m2)
+  eigenstuff = diagonalise_hermitian(sum_outer_products)
   
   ! Transfer basis vectors to output.
   allocate(output(vector_length), stat=ialloc); call err(ialloc)

@@ -13,5 +13,4 @@ endif()
 target_link_libraries(io compiler_specific)
 
 # Link against required modules.
-add_subdirectory(${CMAKE_SOURCE_DIR}/utils/precision precision/)
 target_link_libraries(io precision)

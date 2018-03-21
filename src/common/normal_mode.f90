@@ -35,7 +35,7 @@
 module normal_mode_module
   use utils_module
   
-  use qpoints_module
+  use structure_module
   implicit none
   
   private

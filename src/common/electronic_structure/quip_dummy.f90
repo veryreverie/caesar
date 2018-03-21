@@ -1,7 +1,7 @@
 ! ======================================================================
 ! A dummy module for when QUIP is not being linked against.
 ! ======================================================================
-module quip_wrapper_module
+module quip_wrapper_submodule
   use utils_module
   implicit none
   

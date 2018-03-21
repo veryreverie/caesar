@@ -2,7 +2,7 @@ module castep_output_file_module
   use common_module
   implicit none
   
-  type, extends(OutputFile) :: CastepOutputFile
+  type, extends(ElectronicStructure) :: CastepOutputFile
     integer :: no_kpoints
     integer :: kpoints_mp_grid(3)
   end type
@@ -19,21 +19,20 @@ function read_castep_output_file(filename,structure,dir,seedname, &
   real(dp),            intent(in) :: symmetry_precision
   type(CastepOutputFile)          :: output
   
-  type(OutputFile) :: output_file
-  type(IFile)      :: castep_output_file
+  type(ElectronicStructure) :: output_file
+  type(IFile)               :: castep_output_file
   
   type(String), allocatable :: line(:)
   integer                   :: i
   
-  output_file = read_output_file( str('castep'), &
-                                & filename,      &
-                                & structure,     &
-                                & dir,           &
-                                & seedname,      &
-                                & symmetry_precision)
+  output_file = read_output_file( str('castep'),      &
+                                & filename,           &
+                                & structure,          &
+                                & dir,                &
+                                & seedname,           &
+                                & symmetry_precision, &
+                                & str('script'))
   
-  output%no_atoms = output_file%no_atoms
-  output%species = output_file%species
   output%energy = output_file%energy
   output%forces = output_file%forces
   

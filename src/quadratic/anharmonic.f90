@@ -2,9 +2,7 @@
 ! Program to calculate anharmonic 1-dimensional correction.
 ! ======================================================================
 module anharmonic_module
-  use precision_module
-  use io_module
-  use arguments_module
+  use common_module
   implicit none
 contains
 
@@ -31,9 +29,6 @@ end function
 ! Main program.
 ! ----------------------------------------------------------------------
 subroutine anharmonic(arguments)
-  use structure_module
-  use dft_output_file_module
-  use qpoints_module
   use calculate_anharmonic_correction_module
   use quadratic_spline_module
   use vscf_1d_module

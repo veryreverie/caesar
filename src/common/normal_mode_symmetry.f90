@@ -1,10 +1,8 @@
 module normal_mode_symmetry_module
   use utils_module
   
+  use structure_module
   use normal_mode_module
-  use symmetry_module
-  use atom_module
-  use qpoints_module
   implicit none
   
   private

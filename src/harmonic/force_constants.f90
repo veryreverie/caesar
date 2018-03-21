@@ -54,9 +54,9 @@ contains
 ! => F = sum(x,s)[f'^x'] . inverse( sum(x,s)[x'^x'] )
 !
 ! sum(x,s)[x'^x'] is block diagonal, so can be inverted in 3x3 blocks.
-function new_ForceConstants_forces(supercell,unique_directions,wd,sdir,      &
-   & file_type,seedname,acoustic_sum_rule_forces,symmetry_precision,logfile) &
-   & result(output)
+function new_ForceConstants_forces(supercell,unique_directions,wd,sdir, &
+   & file_type,seedname,acoustic_sum_rule_forces,symmetry_precision,    &
+   & calculation_type,logfile)  result(output)
   implicit none
   
   type(StructureData),   intent(in)    :: supercell
@@ -67,6 +67,7 @@ function new_ForceConstants_forces(supercell,unique_directions,wd,sdir,      &
   type(String),          intent(in)    :: seedname
   logical,               intent(in)    :: acoustic_sum_rule_forces
   real(dp),              intent(in)    :: symmetry_precision
+  type(String),          intent(in)    :: calculation_type
   type(OFile),           intent(inout) :: logfile
   type(ForceConstants)                 :: output
   
@@ -87,7 +88,8 @@ function new_ForceConstants_forces(supercell,unique_directions,wd,sdir,      &
                       & file_type,                &
                       & seedname,                 &
                       & acoustic_sum_rule_forces, &
-                      & symmetry_precision)
+                      & symmetry_precision,       &
+                      & calculation_type)
   
   ! Construct sum[x'^x'].
   xx = construct_xx(unique_directions, supercell, logfile)
@@ -189,7 +191,8 @@ end function
 ! Read in forces, and mass-weight them.
 ! ----------------------------------------------------------------------
 function read_forces(supercell,unique_directions,wd,sdir,file_type,seedname, &
-   & acoustic_sum_rule_forces,symmetry_precision) result(output)
+   & acoustic_sum_rule_forces,symmetry_precision,calculation_type)           &
+   & result(output)
   implicit none
   
   type(StructureData),   intent(in) :: supercell
@@ -200,11 +203,12 @@ function read_forces(supercell,unique_directions,wd,sdir,file_type,seedname, &
   type(String),          intent(in) :: seedname
   logical,               intent(in) :: acoustic_sum_rule_forces
   real(dp),              intent(in) :: symmetry_precision
+  type(String),          intent(in) :: calculation_type
   type(RealVector), allocatable     :: output(:,:)
   
   ! DFT output data.
-  type(String)     :: output_filename
-  type(OutputFile) :: output_file
+  type(String)              :: filename
+  type(ElectronicStructure) :: output_file
   
   ! Direction information.
   type(AtomData) :: atom
@@ -215,7 +219,19 @@ function read_forces(supercell,unique_directions,wd,sdir,file_type,seedname, &
   integer          :: i,j,ialloc
   type(RealVector) :: total
   
-  output_filename = make_output_filename(file_type,seedname)
+  ! If the calculation type is 'script' then the electronic structure
+  !    calculation has already been run, so the output file should be read
+  ! If the calculation type is 'quip' then the calculation is still to be run,
+  !    so the input file should be read.
+  if (calculation_type=='script') then
+    filename = make_output_filename(file_type,seedname)
+  elseif (calculation_type=='quip') then
+    filename  = make_input_filename(file_type,seedname)
+  else
+    call print_line(ERROR//': calculation_type must be either "script" or &
+       & "quip.')
+    call err()
+  endif
   
   allocate( output(supercell%no_atoms, size(unique_directions)), &
           & stat=ialloc); call err(ialloc)
@@ -224,13 +240,14 @@ function read_forces(supercell,unique_directions,wd,sdir,file_type,seedname, &
     direction = unique_directions(i)%direction
     atom_string = left_pad(atom%id(),str(supercell%no_atoms_prim))
     
-    output_file = read_output_file(                                         &
-       & file_type,                                                         &
-       & sdir//'/atom.'//atom_string//'.'//direction//'/'//output_filename, &
-       & supercell,                                                         &
-       & wd,                                                                &
-       & seedname,                                                          &
-       & symmetry_precision)
+    output_file = read_output_file(                                  &
+       & file_type,                                                  &
+       & sdir//'/atom.'//atom_string//'.'//direction//'/'//filename, &
+       & supercell,                                                  &
+       & wd,                                                         &
+       & seedname,                                                   &
+       & symmetry_precision,                                         &
+       & calculation_type)
     
     output(:,i) = output_file%forces(:)
     

@@ -1,7 +1,7 @@
 ! ======================================================================
 ! q-points of the primitive cell.
 ! ======================================================================
-module qpoints_module
+module qpoint_submodule
   use utils_module
   implicit none
   

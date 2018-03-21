@@ -2,11 +2,11 @@
 ! Generate the set of q-points of the primitive structure which correspond
 !    to G-vectors of a supercell.
 ! ======================================================================
-module generate_qpoints_module
+module generate_qpoints_submodule
   use utils_module
   
-  use structure_module
-  use qpoints_module
+  use structure_submodule
+  use qpoint_submodule
   implicit none
   
   private

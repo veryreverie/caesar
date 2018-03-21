@@ -7,7 +7,6 @@ module setup_anharmonic_module
   use setup_harmonic_module
   
   use polynomial_module
-  use generate_qpoints_module
   use coupling_module
   use basis_function_module
   use degeneracy_module
@@ -146,7 +145,7 @@ subroutine setup_anharmonic(arguments)
   anharmonic_supercell = construct_supercell( structure,                   &
                                             & anharmonic_supercell_matrix, &
                                             & symmetry_precision,          &
-                                            & calculate_symmetries=.false.)
+                                            & calculate_symmetry=.false.)
   call write_structure_file( anharmonic_supercell, &
                            & wd//'/anharmonic_supercell.dat')
   qpoints = generate_qpoints(anharmonic_supercell)
