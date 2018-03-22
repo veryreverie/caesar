@@ -75,17 +75,31 @@ subroutine write_input_file_xyz(structure,input_filename,output_filename)
   type(String),        intent(in), optional :: input_filename
   type(String),        intent(in)           :: output_filename
   
+  type(IFile) :: input_file_in
+  type(IFile) :: output_file_in
+  type(OFile) :: output_file_out
+  
   type(Atoms) :: quip_structure
   
-  integer :: ierr
-  
-  if (present(input_filename)) then
-    call read(quip_structure, char(input_filename), error=ierr)
-  endif
+  integer :: i
   
   quip_structure = structure
-  
   call write(quip_structure, char(output_filename))
+  
+  ! If an input file is given, replace the second line of the new output file
+  !    with that from the input file.
+  if (present(input_filename)) then
+    input_file_in = input_filename
+    output_file_in = output_filename
+    output_file_out = output_filename
+    do i=1,size(output_file_in)
+      if (i==2) then
+        call output_file_out%print_line(input_file_in%line(i))
+      else
+        call output_file_out%print_line(output_file_in%line(i))
+      endif
+    enddo
+  endif
 end subroutine
 
 function run_quip_on_structure(structure,dir,seedname) result(output)
@@ -135,23 +149,26 @@ end function
 subroutine assign_Atoms_StructureData(output,input)
   implicit none
   
-  type(Atoms),         intent(inout) :: output
-  type(StructureData), intent(in)    :: input
-  
-  real(dp), allocatable :: positions(:,:)
+  type(Atoms),         intent(out) :: output
+  type(StructureData), intent(in)  :: input
   
   integer :: i,ialloc
   
-  allocate(positions(3,size(input%atoms)), stat=ialloc); call err(ialloc)
-  do i=1,size(input%atoms)
-    positions(:,i) = dble(input%atoms(i)%cartesian_position()) &
-                 & * ANGSTROM_PER_BOHR
-  enddo
+  allocate( output%z(size(input%atoms)),     &
+          & output%mass(size(input%atoms)),  &
+          & output%pos(3,size(input%atoms)), &
+          & stat=ialloc); call err(ialloc)
   
   output%lattice = dble(transpose(input%lattice)) * ANGSTROM_PER_BOHR
+  
   output%z = int(input%atoms%species())
+  
   output%mass = input%atoms%mass() * KG_PER_ME / KG_PER_AMU
-  output%pos = positions
+  
+  do i=1,size(input%atoms)
+    output%pos(:,i) = dble(input%atoms(i)%cartesian_position()) &
+                  & * ANGSTROM_PER_BOHR
+  enddo
 end subroutine
 
 subroutine assign_BasicStructure_Atoms(output,input)
