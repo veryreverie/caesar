@@ -3,57 +3,65 @@
 ! ======================================================================
 module quip_wrapper_submodule
   use utils_module
+  
+  use structure_module
+  
+  use electronic_structure_data_submodule
   implicit none
   
   private
   
-  public :: QuipAtoms
-  public :: QuipResult
-  public :: call_quip
-  public :: read_quip_atoms
-  public :: write_quip_atoms
-  
-  type :: QuipResult
-    real(dp)              :: energy
-    real(dp), allocatable :: forces(:,:)
-    real(dp)              :: virial(3,3)
-  end type
-  
-  type :: QuipAtoms
-    real(dp)              :: lattice(3,3)
-    integer,  allocatable :: atomic_nos(:)
-    real(dp), allocatable :: positions(:,:)
-  end type
+  public :: make_input_filename_xyz
+  public :: read_input_file_xyz
+  public :: write_input_file_xyz
+  public :: run_quip_on_structure
 contains
 
-function call_quip(quip_atoms,quip_filename) result(output)
+function make_input_filename_xyz(seedname) result(output)
   implicit none
   
-  type(QuipAtoms), intent(in) :: quip_atoms
-  character(*),    intent(in) :: quip_filename
-  type(QuipResult)            :: output
+  type(String), intent(in) :: seedname
+  type(String)             :: output
   
-  call print_line(ERROR//': Caesar has not been linked against QUIP.')
+  call print_line(ERROR//': Cannot read .xyz files because Caesar has not &
+     &been linked against QUIP. Please use -DPATH_TO_QUIP when running cmake.')
   stop
 end function
 
-function read_quip_atoms(filename) result(output)
+function read_input_file_xyz(filename) result(output)
   implicit none
   
-  character(*), intent(in)  :: filename
-  type(QuipAtoms)           :: output
+  type(String), intent(in)  :: filename
+  type(BasicStructure)      :: output
   
-  call print_line(ERROR//': Caesar has not been linked against QUIP.')
+  call print_line(ERROR//': Cannot read .xyz files because Caesar has not &
+     &been linked against QUIP. Please use -DPATH_TO_QUIP when running cmake.')
   stop
 end function
 
-subroutine write_quip_atoms(filename,this)
+subroutine write_input_file_xyz(structure,input_filename,output_filename)
   implicit none
   
-  character(*),    intent(in) :: filename
-  type(QuipAtoms), intent(in) :: this
+  type(StructureData), intent(in)           :: structure
+  type(String),        intent(in), optional :: input_filename
+  type(String),        intent(in)           :: output_filename
   
-  call print_line(ERROR//': Caesar has not been linked against QUIP.')
+  call print_line(ERROR//': Cannot write .xyz files because Caesar has not &
+     &been linked against QUIP. Please use -DPATH_TO_QUIP when running cmake.')
   stop
 end subroutine
+
+function run_quip_on_structure(structure,dir,seedname) result(output)
+  implicit none
+  
+  type(StructureData), intent(in) :: structure
+  type(String),        intent(in) :: dir
+  type(String),        intent(in) :: seedname
+  type(ElectronicStructure)       :: output
+  
+  call print_line(ERROR//': Cannot run calculations using Quip because Caesar &
+     &has not been linked against QUIP. Please use -DPATH_TO_QUIP when &
+     &running cmake.')
+  stop
+end function
 end module

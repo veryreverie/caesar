@@ -41,6 +41,8 @@ function make_input_filename(file_type,seedname) result(output)
     output = make_input_filename_vasp(seedname)
   elseif (file_type == 'qe') then
     output = make_input_filename_qe(seedname)
+  elseif (file_type == 'xyz') then
+    output = make_input_filename_xyz(seedname)
   else
     call print_line('Unrecognised input file type: '//file_type)
     call err()
@@ -113,7 +115,7 @@ subroutine StructureData_to_input_file(file_type,structure,input_filename, &
   elseif (file_type=='castep') then
     call write_input_file_castep(structure,input_filename,output_filename)
   elseif (file_type=='xyz') then
-    call write_input_file_xyz(structure,output_filename)
+    call write_input_file_xyz(structure,input_filename,output_filename)
   else
     call print_line('Writing '//file_type//' input files not yet supported.')
     call err()
@@ -152,13 +154,9 @@ function read_output_file(file_type,filename,structure,dir,seedname, &
                                  & filename,           &
                                  & symmetry_precision, &
                                  & calculate_symmetry=.false.)
-    output = run_quip_on_file( displaced_structure, &
-                             & file_type, &
-                             & filename,  &
-                             & structure, &
-                             & dir,       &
-                             & seedname,  &
-                             & symmetry_precision)
+    output = run_quip_on_structure( displaced_structure, &
+                                  & dir,                 &
+                                  & seedname)
   else
     call print_line(ERROR//': calculation_type must be either "script" or &
        & "quip".')
