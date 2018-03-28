@@ -547,6 +547,7 @@ function read_output_file_castep(filename,structure) result(output)
          &match those in the input file.')
       call err()
     endif
+    atom_found(j) = .true.
     forces(j) = dble(line(4:6)) * ANGSTROM_PER_BOHR / EV_PER_HARTREE
   enddo
   

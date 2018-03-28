@@ -10,6 +10,8 @@ module univariate_module
   private
   
   public :: Univariate
+  public :: operator(==)
+  public :: operator(/=)
   
   type, extends(Stringable) :: Univariate
     integer :: id
@@ -18,6 +20,14 @@ module univariate_module
     procedure :: evaluate   => evaluate_Univariate
     procedure :: str        => str_Univariate
   end type
+  
+  interface operator(==)
+    module procedure equality_Univariate_Univariate
+  end interface
+  
+  interface operator(/=)
+    module procedure non_equality_Univariate_Univariate
+  end interface
 contains
 
 ! Evaluate the univariate at a give displacement.
@@ -36,6 +46,29 @@ function evaluate_Univariate(this,displacement) result(output)
   endif
   
   output = displacement%displacement**this%power
+end function
+
+! Comparison between univariates.
+impure elemental function equality_Univariate_Univariate(this,that) &
+   & result(output)
+  implicit none
+  
+  type(Univariate), intent(in) :: this
+  type(Univariate), intent(in) :: that
+  logical                      :: output
+  
+  output = this%id==that%id .and. this%power==that%power
+end function
+
+impure elemental function non_equality_Univariate_Univariate(this,that) &
+   & result(output)
+  implicit none
+  
+  type(Univariate), intent(in) :: this
+  type(Univariate), intent(in) :: that
+  logical                      :: output
+  
+  output = .not. this==that
 end function
 
 ! I/O.

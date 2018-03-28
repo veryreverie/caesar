@@ -4,6 +4,7 @@
 module polynomial_module
   use common_module
   
+  use univariate_module
   use monomial_module
   use mode_displacement_module
   implicit none
@@ -18,6 +19,7 @@ module polynomial_module
   contains
     procedure :: evaluate   => evaluate_Polynomial
     procedure :: derivative => derivative_Polynomial
+    
     procedure :: str        => str_Polynomial
   end type
   

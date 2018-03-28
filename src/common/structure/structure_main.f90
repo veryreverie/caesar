@@ -88,6 +88,10 @@ module structure_submodule
     procedure, public :: paired_rvectors
     procedure, public :: paired_gvectors
     
+    ! Return whether to treat a symmetry as sin or cos when converting to
+    !    real co-ordinates.
+    procedure, public :: symmetry_is_sin
+    
     ! Return groups corresponding to inverse symmetries or paired vectors.
     procedure, public :: inverse_symmetry_group
     procedure, public :: paired_rvector_group
@@ -143,6 +147,20 @@ function paired_gvectors(this,gvector_id) result(output)
   type(IntVector)                  :: output
   
   output = this%gvectors(this%gvector_paired_ids_(gvector_id))
+end function
+
+! Return whether to treat the symmetry as sin or cos when converting to
+!    real co-ordinates.
+! The choice is arbitrary, as long as one of each pair is sent each way,
+!    and symmetries which are their own pair are sent to cos.
+impure elemental function symmetry_is_sin(this,symmetry_id) result(output)
+  implicit none
+  
+  class(StructureData), intent(in) :: this
+  integer,              intent(in) :: symmetry_id
+  logical                          :: output
+  
+  output = this%symmetry_inverse_ids_(symmetry_id)<symmetry_id
 end function
 
 ! Return the symmetry group corresponding to the inverse of symmetry i.

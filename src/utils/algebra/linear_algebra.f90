@@ -28,6 +28,7 @@ module linear_algebra_submodule
   public :: cmplx
   public :: cmplxvec
   public :: cmplxmat
+  public :: row_matrix
   public :: real
   public :: aimag
   public :: conjg
@@ -41,6 +42,7 @@ module linear_algebra_submodule
   public :: operator(-)
   public :: operator(*)
   public :: operator(/)
+  public :: sum
   public :: l2_norm
   public :: outer_product
   public :: transpose
@@ -156,6 +158,12 @@ module linear_algebra_submodule
   interface cmplxmat
     module procedure cmplxmat_IntMatrices
     module procedure cmplxmat_RealMatrices
+  end interface
+  
+  interface row_matrix
+    module procedure row_matrix_IntVectors
+    module procedure row_matrix_RealVectors
+    module procedure row_matrix_ComplexVectors
   end interface
   
   interface real
@@ -345,6 +353,15 @@ module linear_algebra_submodule
     module procedure divide_ComplexMatrix_integer
     module procedure divide_ComplexMatrix_real
     module procedure divide_ComplexMatrix_complex
+  end interface
+  
+  interface sum
+    module procedure sum_IntVectors
+    module procedure sum_RealVectors
+    module procedure sum_ComplexVectors
+    module procedure sum_IntMatrices
+    module procedure sum_RealMatrices
+    module procedure sum_ComplexMatrices
   end interface
   
   interface l2_norm
@@ -894,6 +911,91 @@ function cmplxmat_RealMatrices(real,imag) result(output)
   else
     output = cmplx(dble(real),0,dp)
   endif
+end function
+
+! Makes a matrix whose rows are the input vectors.
+function row_matrix_IntVectors(input) result(output)
+  implicit none
+  
+  type(IntVector), intent(in) :: input(:)
+  integer, allocatable        :: output(:,:)
+  
+  integer :: i,ialloc
+  
+  if (size(input)==0) then
+    call print_line(CODE_ERROR//': Trying to make row matrix from empty &
+       &array.')
+    call err()
+  endif
+  
+  do i=2,size(input)
+    if (size(input(i))/=size(input(1))) then
+      call print_line(CODE_ERROR//': Trying to make row matrix from &
+         &inconsistent vectors.')
+      call err()
+    endif
+  enddo
+  
+  allocate(output(size(input), size(input,1)), stat=ialloc); call err(ialloc)
+  do i=1,size(input)
+    output(i,:) = int(input(i))
+  enddo
+end function
+
+function row_matrix_RealVectors(input) result(output)
+  implicit none
+  
+  type(RealVector), intent(in) :: input(:)
+  real(dp), allocatable        :: output(:,:)
+  
+  integer :: i,ialloc
+  
+  if (size(input)==0) then
+    call print_line(CODE_ERROR//': Trying to make row matrix from empty &
+       &array.')
+    call err()
+  endif
+  
+  do i=2,size(input)
+    if (size(input(i))/=size(input(1))) then
+      call print_line(CODE_ERROR//': Trying to make row matrix from &
+         &inconsistent vectors.')
+      call err()
+    endif
+  enddo
+  
+  allocate(output(size(input), size(input,1)), stat=ialloc); call err(ialloc)
+  do i=1,size(input)
+    output(i,:) = dble(input(i))
+  enddo
+end function
+
+function row_matrix_ComplexVectors(input) result(output)
+  implicit none
+  
+  type(ComplexVector), intent(in) :: input(:)
+  complex(dp), allocatable        :: output(:,:)
+  
+  integer :: i,ialloc
+  
+  if (size(input)==0) then
+    call print_line(CODE_ERROR//': Trying to make row matrix from empty &
+       &array.')
+    call err()
+  endif
+  
+  do i=2,size(input)
+    if (size(input(i))/=size(input(1))) then
+      call print_line(CODE_ERROR//': Trying to make row matrix from &
+         &inconsistent vectors.')
+      call err()
+    endif
+  enddo
+  
+  allocate(output(size(input), size(input(1))), stat=ialloc); call err(ialloc)
+  do i=1,size(input)
+    output(i,:) = cmplx(input(i))
+  enddo
 end function
 
 ! Real part of a complex object.
@@ -2489,6 +2591,121 @@ impure elemental function divide_ComplexMatrix_complex(a,b) result(output)
   type(ComplexMatrix)             :: output
   
   output = cmplx(a)/b
+end function
+
+! Sum.
+function sum_IntVectors(input) result(output)
+  implicit none
+  
+  type(IntVector), intent(in) :: input(:)
+  type(IntVector)             :: output
+  
+  integer :: i
+  
+  if (size(input)==0) then
+    call print_line(CODE_ERROR//': Trying to take the sum of an empty array.')
+    call err()
+  endif
+  
+  output = input(1)
+  do i=2,size(input)
+    output = output + input(i)
+  enddo
+end function
+
+function sum_RealVectors(input) result(output)
+  implicit none
+  
+  type(RealVector), intent(in) :: input(:)
+  type(RealVector)             :: output
+  
+  integer :: i
+  
+  if (size(input)==0) then
+    call print_line(CODE_ERROR//': Trying to take the sum of an empty array.')
+    call err()
+  endif
+  
+  output = input(1)
+  do i=2,size(input)
+    output = output + input(i)
+  enddo
+end function
+
+function sum_ComplexVectors(input) result(output)
+  implicit none
+  
+  type(ComplexVector), intent(in) :: input(:)
+  type(ComplexVector)             :: output
+  
+  integer :: i
+  
+  if (size(input)==0) then
+    call print_line(CODE_ERROR//': Trying to take the sum of an empty array.')
+    call err()
+  endif
+  
+  output = input(1)
+  do i=2,size(input)
+    output = output + input(i)
+  enddo
+end function
+
+function sum_IntMatrices(input) result(output)
+  implicit none
+  
+  type(IntMatrix), intent(in) :: input(:)
+  type(IntMatrix)             :: output
+  
+  integer :: i
+  
+  if (size(input)==0) then
+    call print_line(CODE_ERROR//': Trying to take the sum of an empty array.')
+    call err()
+  endif
+  
+  output = input(1)
+  do i=2,size(input)
+    output = output + input(i)
+  enddo
+end function
+
+function sum_RealMatrices(input) result(output)
+  implicit none
+  
+  type(RealMatrix), intent(in) :: input(:)
+  type(RealMatrix)             :: output
+  
+  integer :: i
+  
+  if (size(input)==0) then
+    call print_line(CODE_ERROR//': Trying to take the sum of an empty array.')
+    call err()
+  endif
+  
+  output = input(1)
+  do i=2,size(input)
+    output = output + input(i)
+  enddo
+end function
+
+function sum_ComplexMatrices(input) result(output)
+  implicit none
+  
+  type(ComplexMatrix), intent(in) :: input(:)
+  type(ComplexMatrix)             :: output
+  
+  integer :: i
+  
+  if (size(input)==0) then
+    call print_line(CODE_ERROR//': Trying to take the sum of an empty array.')
+    call err()
+  endif
+  
+  output = input(1)
+  do i=2,size(input)
+    output = output + input(i)
+  enddo
 end function
 
 ! L2 norm.

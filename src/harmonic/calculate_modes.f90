@@ -101,7 +101,7 @@ function calculate_modes_calculated(matrices,structure,qpoint, &
   real(dp) :: energy_difference
   
   ! Symmetry data.
-  type(SymmetryOperator), allocatable :: symmetries(:)
+  integer,                allocatable :: symmetry_ids(:)
   
   integer, allocatable :: states(:)
   
@@ -127,8 +127,7 @@ function calculate_modes_calculated(matrices,structure,qpoint, &
   endif
   
   ! Identify the symmetries which map the q-point to itself.
-  symmetries = structure%symmetries( filter( structure%symmetries, &
-                                           & leaves_q_invariant) )
+  symmetry_ids = filter(structure%symmetries, leaves_q_invariant)
   
   ! Assign degeneracy ids, which are equal if two states are degenerate,
   !    and different if they are not.
@@ -171,11 +170,12 @@ function calculate_modes_calculated(matrices,structure,qpoint, &
     output(states)%frequency = sum(output(states)%frequency) / size(states)
     
     ! Check that all symmetries map the degenerate subspace onto itself.
-    do j=1,size(symmetries)
-      symmetry = calculate_symmetry_in_normal_coordinates( output(states), &
-                                                         & qpoint,         &
-                                                         & symmetries(j),  &
-                                                         & logfile)
+    do j=1,size(symmetry_ids)
+      symmetry = calculate_symmetry_in_normal_coordinates( &
+                  & output(states),                        &
+                  & qpoint,                                &
+                  & structure%symmetries(symmetry_ids(j)), &
+                  & logfile)
       check = sqrt(sum_squares( symmetry*hermitian(symmetry) &
                             & - cmplxmat(make_identity_matrix(size(states)))))
       if (check>1e-2_dp) then
@@ -189,7 +189,8 @@ function calculate_modes_calculated(matrices,structure,qpoint, &
     ! Lift each degeneracy using symmetry operators.
     if (size(states)>1) then
       output(states) = lift_degeneracies( output(states), &
-                                        & symmetries,     &
+                                        & structure,      &
+                                        & symmetry_ids,   &
                                         & qpoint,         &
                                         & logfile)
     endif
@@ -215,12 +216,13 @@ end function
 ! --------------------------------------------------
 ! Input must be a list of degenerate modes.
 ! Symmetries must all take the q-point to itself.
-recursive function lift_degeneracies(input,symmetries,qpoint,logfile) &
-   & result(output)
+recursive function lift_degeneracies(input,structure,symmetry_ids, &
+   & qpoint,logfile) result(output)
   implicit none
   
   type(ComplexMode),      intent(in)    :: input(:)
-  type(SymmetryOperator), intent(in)    :: symmetries(:)
+  type(StructureData),    intent(in)    :: structure
+  integer,                intent(in)    :: symmetry_ids(:)
   type(QpointData),       intent(in)    :: qpoint
   type(OFile),            intent(inout) :: logfile
   type(ComplexMode), allocatable        :: output(:)
@@ -233,34 +235,35 @@ recursive function lift_degeneracies(input,symmetries,qpoint,logfile) &
   type(SymmetryOperator) :: first_symmetry
   type(ComplexMatrix) :: symmetry
   
-  type(UnitaryEigenstuff), allocatable :: estuff(:)
+  type(HermitianEigenstuff), allocatable :: estuff(:)
   
-  type(SymmetryOperator), allocatable :: commuting_symmetries(:)
+  real(dp), allocatable :: phases_real(:)
+  integer,  allocatable :: phases_int(:)
   
-  ! Error checking.
-  real(dp) :: check
+  type(SymmetryOperator), allocatable :: symmetries(:)
+  integer, allocatable :: commuting_symmetry_ids(:)
   
-  integer :: i,j
+  logical :: symmetry_is_sin
+  
+  integer :: i,j,k,ialloc
   
   ! All q-point data and eigenvalues will be unchanged.
   ! Copy over all data, and only change that which changes.
   output = input
   
-  ! Count the number of modes.
-  no_modes = size(input)
-  
-  if (no_modes==1) then
+  if (size(input)==1) then
     call print_line(CODE_ERROR//': Trying to lift the degeneracy of only one &
        &state.')
     call err()
   endif
   
-  if (size(symmetries)==0) then
+  if (size(symmetry_ids)==0) then
     call print_line(ERROR//': Unable to lift degeneracies using symmetry. &
        &Please try reducing degenerate_energy.')
     stop
   endif
 
+  symmetries = structure%symmetries(symmetry_ids)
   first_symmetry = symmetries(1)
   
   ! Construct the first symmetry in normal mode co-ordinates.
@@ -269,38 +272,78 @@ recursive function lift_degeneracies(input,symmetries,qpoint,logfile) &
                                                      & first_symmetry, &
                                                      & logfile)
   
+  ! Instead of directly calculating the eigenstuff of the unitary symmetry
+  !    matrices {U}, it is more stable to calculate the eigenstuff of the
+  !    Hermitian matrices {C=(U+U^T)/2} and {S=(U-U^T)/2i}.
+  ! The eigenvalues of U are e^(2*pi*i*j/n), so the eigenvalues of C and S are
+  !    cos(2*pi*j/n) and sin(2*pi*j/n) respectively.
+  ! Arbitrarily, if this matrix's conjugate has a later id
+  !    (or is the same matrix) then C is considered, else S is considered.
+  symmetry_is_sin = structure%symmetry_is_sin(symmetry_ids(1))
+  if (symmetry_is_sin) then
+    symmetry = (symmetry - hermitian(symmetry))/cmplx(0.0_dp,2.0_dp,dp)
+  else
+    symmetry = (symmetry + hermitian(symmetry))/2.0_dp
+  endif
+  
   ! Calculate the order of the first symmetry, n s.t. S^n=I.
   order = first_symmetry%symmetry_order(qpoint)
   
   ! Diagonalise the first symmetry, and construct diagonalised displacements.
   ! Only transform displacements if this symmetry lifts degeneracy.
-  estuff = diagonalise_unitary(symmetry,order)
-  if (estuff(1)%eval/=estuff(no_modes)%eval) then
-    do i=1,no_modes
-      output(i)%primitive_displacements = cmplxvec(zeroes(3))
-      do j=1,no_modes
-        output(i)%primitive_displacements = output(i)%primitive_displacements &
-                                        & + estuff(i)%evec(j)                 &
-                                        & * input(j)%primitive_displacements
-      enddo
-      
-      check = abs(l2_norm(output(i))-1)
-      call logfile%print_line('Error in mode normalisation: '// &
-         & check)
-      if (check>1e-10_dp) then
-        call print_line(WARNING//': Error in mode normalisation. Please check &
-           &log files.')
-        stop
+  estuff = diagonalise_hermitian(symmetry)
+  
+  ! Work out the phases of the eigenvalues (2*j in e^(2*pi*i*j/order)).
+  allocate( phases_real(size(input)), &
+          & phases_int(size(input)),  &
+          & stat=ialloc); call err(ialloc)
+  do i=1,size(input)
+    if (estuff(i)%eval>1.0_dp) then
+      if (estuff(i)%eval>1.01_dp) then
+        call err()
       endif
+      estuff(i)%eval = 1.0_dp
+    elseif (estuff(i)%eval<-1.0_dp) then
+      if (estuff(i)%eval<-1.01_dp) then
+        call err()
+      endif
+      estuff(i)%eval = -1.0_dp
+    endif
+    
+    if (symmetry_is_sin) then
+      phases_real(i) = asin(estuff(i)%eval)*order/PI
+    else
+      phases_real(i) = acos(estuff(i)%eval)*order/PI
+    endif
+    phases_int(i) = nint(phases_real(i))
+    if (abs(phases_int(i)-phases_real(i))>0.1_dp) then
+      call print_line(ERROR//': Symmetry with non-integer phase eigenvalue.')
+      call err()
+    endif
+    phases_int(i) = modulo(phases_int(i),2*order)
+  enddo
+  
+  ! If the symmetry lifts degeneracy (has multiple phases), then rotate the
+  !    input displacements into the symmetry's eigenbasis.
+  if (any(phases_int/=phases_int(1))) then
+    do i=1,size(input)
+      do j=1,size(output(i)%primitive_displacements)
+        output(i)%primitive_displacements(j) = cmplxvec(zeroes(3))
+        do k=1,size(estuff(i)%evec)
+          output(i)%primitive_displacements(j) =    &
+             & output(i)%primitive_displacements(j) &
+             & + estuff(i)%evec(k) * input(k)%primitive_displacements(j)
+        enddo
+      enddo
     enddo
   endif
   
   ! Lift remaining degeneracies using remaining symmetries.
   i = 1
-  do while(i<=no_modes)
+  do while(i<=size(input))
     ! The range i:j is the set of modes degenerate with mode i under the
     !    first symmetry.
-    j = last(estuff%eval==estuff(i)%eval)
+    j = last(phases_int==phases_int(i))
     
     if (j<i) then
       call err()
@@ -309,13 +352,15 @@ recursive function lift_degeneracies(input,symmetries,qpoint,logfile) &
     if (j>i) then
       ! Select only the symmetry operators which commute with the
       !    first symmetry.
-      commuting_symmetries = symmetries(filter(symmetries,commutes_with_first))
+      commuting_symmetry_ids = symmetry_ids(filter( symmetries, &
+                                                  & commutes_with_first))
       
       ! Lift further degeneracies using symmetries which commute with the
       !    first symmetry, not including the first symmetry.
-      output(i:j) = lift_degeneracies( output(i:j),              &
-                                     & commuting_symmetries(2:), &
-                                     & qpoint,                   &
+      output(i:j) = lift_degeneracies( output(i:j),                &
+                                     & structure,                  &
+                                     & commuting_symmetry_ids(2:), &
+                                     & qpoint,                     &
                                      & logfile)
     endif
     i = j+1

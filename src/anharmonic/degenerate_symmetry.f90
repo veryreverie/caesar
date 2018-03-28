@@ -71,12 +71,11 @@ function new_DegenerateSymmetry(symmetry,degenerate_subspaces,modes,qpoints, &
   enddo
 end function
 
-function calculate_symmetry(this,coupled_modes,no_duplicates) result(output)
+function calculate_symmetry(this,coupled_modes) result(output)
   implicit none
   
   class(DegenerateSymmetry), intent(in) :: this
   type(CoupledModes),        intent(in) :: coupled_modes(:)
-  integer,                   intent(in) :: no_duplicates(:)
   type(ComplexMatrix)                   :: output
   
   complex(dp), allocatable :: matrix(:,:)
@@ -90,10 +89,6 @@ function calculate_symmetry(this,coupled_modes,no_duplicates) result(output)
   integer,          allocatable :: sort_key(:)
   
   integer :: i,j,k,l,m,n,ialloc
-  
-  if (size(coupled_modes)/=size(no_duplicates)) then
-    call err()
-  endif
   
   if (size(coupled_modes)==0) then
     output = cmplxmat(zeroes(0,0))
@@ -131,12 +126,7 @@ function calculate_symmetry(this,coupled_modes,no_duplicates) result(output)
   
   allocate( matrix(size(coupled_modes),size(coupled_modes)), &
           & stat=ialloc); call err(ialloc)
-  do j=1,size(coupled_modes)
-    do k=1,size(coupled_modes)
-      matrix(k,j) = sqrt(no_duplicates(k)/real(no_duplicates(j),dp))
-    enddo
-  enddo
-  
+  matrix = 1
   do i=1,no_coupled_modes
     single_mode_symmetry = &
        & cmplx(this%single_mode_symmetries_(subspace_positions(1)%i(i)))

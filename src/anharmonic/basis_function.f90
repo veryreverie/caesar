@@ -5,6 +5,8 @@ module basis_function_module
   use common_module
   
   use coupling_module
+  use univariate_module
+  use monomial_module
   use polynomial_module
   use degeneracy_module
   use degenerate_symmetry_module
@@ -15,11 +17,12 @@ module basis_function_module
   public :: generate_basis_functions
 contains
 
-function generate_basis_functions(coupling,normal_modes,qpoints, &
+function generate_basis_functions(coupling,structure,normal_modes,qpoints, &
    & subspaces,degenerate_symmetries,vscf_basis_functions_only) result(output)
   implicit none
   
   type(CoupledSubspaces),   intent(in) :: coupling
+  type(StructureData),      intent(in) :: structure
   type(ComplexMode),        intent(in) :: normal_modes(:)
   type(QpointData),         intent(in) :: qpoints(:)
   type(DegenerateModes),    intent(in) :: subspaces(:)
@@ -29,19 +32,24 @@ function generate_basis_functions(coupling,normal_modes,qpoints, &
   
   type(DegenerateModes), allocatable :: coupled_subspaces(:)
   
-  type(CoupledModes), allocatable :: coupled_modes_with_duplicates(:)
   type(CoupledModes), allocatable :: coupled_modes(:)
-  integer,            allocatable :: no_duplicates(:)
   
   type(ComplexMatrix) :: symmetry
+  type(ComplexMatrix) :: projection
   
-  type(DegenerateModes) :: subspace
+  type(HermitianEigenstuff), allocatable :: estuff(:)
   
-  integer :: i,j,k,l,ialloc
+  integer :: i,ialloc
   
-  integer :: j2,k2
+  integer :: symmetry_order
   
-  integer :: m
+  type(Monomial), allocatable :: monomials(:)
+  type(Monomial), allocatable :: unique_monomials(:)
+  
+  integer, allocatable :: equal_monomials(:)
+  
+  real(dp), allocatable :: all_to_unique(:,:)
+  integer,  allocatable :: degeneracy(:)
   
   if (size(coupling)<2) then
     call print_line(CODE_ERROR//': Trying to generate basis functions with &
@@ -53,48 +61,120 @@ function generate_basis_functions(coupling,normal_modes,qpoints, &
   coupled_subspaces = coupling%coupled_subspaces(subspaces)
   
   ! Generate every allowed mode coupling within the coupled subspaces.
-  coupled_modes_with_duplicates = generate_mode_coupling( &
-                                     & coupled_subspaces, &
-                                     & normal_modes,      &
-                                     & qpoints,           &
-                                     & vscf_basis_functions_only)
+  coupled_modes = generate_mode_coupling( coupled_subspaces, &
+                                        & normal_modes,      &
+                                        & qpoints,           &
+                                        & vscf_basis_functions_only)
   
-  ! De-duplicate the list of mode couplings, and record how many times each
-  !    is duplicated.
-  coupled_modes =                                                        &
-     & coupled_modes_with_duplicates(set( coupled_modes_with_duplicates, &
-     &                                    equality_coupled_modes))
-  allocate( no_duplicates(size(coupled_modes)), &
-          & stat=ialloc); call err(ialloc)
+  if (size(coupled_modes)==0) then
+    output = [Polynomial::]
+    return
+  endif
+  
+  ! Convert coupled modes into Monomials with coefficient 1.
+  allocate(monomials(size(coupled_modes)), stat=ialloc); call err(ialloc)
   do i=1,size(coupled_modes)
-    no_duplicates(i) = count(coupled_modes_with_duplicates==coupled_modes(i))
+    monomials(i) = Monomial(coupled_modes(i))
   enddo
   
-  if (sum(no_duplicates)/=size(coupled_modes_with_duplicates)) then
-    call print_line(CODE_ERROR//': error de-duplicating mode couplings.')
+  ! Identify the unique monomials. (Those with all modes the same).
+  unique_monomials = monomials(set(monomials,compare_monomial_modes))
+  allocate( all_to_unique(size(unique_monomials),size(monomials)), &
+          & degeneracy(size(unique_monomials)),                    &
+          & stat=ialloc); call err(ialloc)
+  
+  ! Construct the mapping from all-monomial co-ordinates
+  !    to unique-monomial co-ordinates.
+  all_to_unique = 0
+  degeneracy = 0
+  do i=1,size(unique_monomials)
+    equal_monomials = filter( monomials,              &
+                            & compare_monomial_modes, &
+                            & unique_monomials(i))
+    degeneracy(i) = size(equal_monomials)
+    all_to_unique(i,equal_monomials) = 1/sqrt(real(degeneracy(i),dp))
+  enddo
+  
+  ! Construct projection matrix, which has allowed basis functions as
+  !    eigenvectors with eigenvalue 1, and sends all other functions to 0.
+  projection = cmplxmat(make_identity_matrix(size(unique_monomials)))
+  do i=1,size(degenerate_symmetries)
+    ! Constuct symmetry in coupled mode co-ordinates.
+    symmetry = degenerate_symmetries(i)%calculate_symmetry(coupled_modes)
+    
+    ! Convert symmetry into unique-monomial co-ordinates.
+    symmetry = mat(all_to_unique)*symmetry*mat(transpose(all_to_unique))
+    
+    ! Construct the projection matrix for this symmetry,
+    !    and multiply the total projection matrix by this.
+    symmetry_order = structure%symmetries(i)%symmetry_order()
+    projection = projection * projection_matrix(symmetry,symmetry_order)
+  enddo
+  
+  ! Diagonalise the projection matrix, and check its eigenvalues.
+  estuff = diagonalise_hermitian(projection)
+  if (any(abs(estuff%eval-1)>1e-2_dp .and. abs(estuff%eval)>1e-2_dp)) then
     call err()
   endif
   
-  do i=1,size(degenerate_symmetries)
-    symmetry = degenerate_symmetries(i)%calculate_symmetry( coupled_modes, &
-                                                          & no_duplicates)
-    call print_line('')
-    call print_line(sum_squares(real(symmetry*conjg(transpose(symmetry)))-make_identity_matrix(size(symmetry,1))))
+  ! Select only those eigenvectors with eigenvalue 1, and construct basis
+  !    functions from them.
+  estuff = estuff(filter(abs(estuff%eval-1)<1e-2_dp))
+  allocate(output(size(estuff)), stat=ialloc); call err(ialloc)
+  do i=1,size(estuff)
+    output(i) = Polynomial(estuff(i)%evec * unique_monomials)
   enddo
 contains
-  ! Lambda for comparing coupled_modes.
-  function equality_coupled_modes(this,that) result(output)
+  ! Lambda for comparing monomials.
+  function compare_monomial_modes(this,that) result(output)
     implicit none
     
     class(*), intent(in) :: this
     class(*), intent(in) :: that
     logical              :: output
     
-    select type(this); type is(CoupledModes)
-      select type(that); type is(CoupledModes)
-        output = this==that
+    select type(this); type is(Monomial)
+      select type(that); type is(Monomial)
+        if (size(this%modes)/=size(that%modes)) then
+          output = .false.
+        else
+          output = all(this%modes==that%modes)
+        endif
       end select
     end select
   end function
+end function
+
+! Given a unitary matrix U, s.t. U^n=I, returns the matrix
+!    H = sum(j=0,n-1) U^j / n
+! H is real and symmetric, and is a projection matrix which projects out the
+!    eigenvectors of U with eigenvalue 1.
+! Uses Horner's rule to calculate the sum with minimal multiplication.
+function projection_matrix(input,order) result(output)
+  implicit none
+  
+  type(ComplexMatrix), intent(in) :: input
+  integer,             intent(in) :: order
+  type(ComplexMatrix)             :: output
+  
+  type(ComplexMatrix) :: identity
+  
+  integer :: i
+  
+  if (order<1) then
+    call print_line(CODE_ERROR//': symmetry order may not be < 1.')
+    call err()
+  elseif (order>6) then
+    call print_line(CODE_ERROR//': symmetry order may not be > 6.')
+    call err()
+  endif
+  
+  identity = cmplxmat(make_identity_matrix(size(input,1)))
+  
+  output = identity
+  do i=2,order
+    output = input*output + identity
+  enddo
+  output = output/order
 end function
 end module

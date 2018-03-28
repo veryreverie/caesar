@@ -138,15 +138,17 @@ impure elemental function rotate_qpoint(this,qpoint) result(output)
 end function
 
 ! ----------------------------------------------------------------------
-! Calculates the order of a symmetry operation at a given q-point.
+! Calculates the order of a symmetry operation.
 ! The order is the smallest integer n>0 s.t. S^n=I, where I is the identity.
+! If qpoint is given, then the S^n is only considered to be the identity when
+!    the associated translation, R, is such that q.R is a multiple of two*pi.
 ! ----------------------------------------------------------------------
 function symmetry_order(this,qpoint) result(output)
   implicit none
   
-  class(SymmetryOperator), intent(in) :: this
-  type(QpointData),        intent(in) :: qpoint
-  integer                             :: output
+  class(SymmetryOperator), intent(in)           :: this
+  type(QpointData),        intent(in), optional :: qpoint
+  integer                                       :: output
   
   type(IntMatrix)   :: identity ! The identity matrix, I.
   type(IntMatrix)   :: rotation ! The rotation after n operations.
@@ -188,7 +190,9 @@ function symmetry_order(this,qpoint) result(output)
   
   ! Include the effect of the phase change.
   ! If S^n=e^{2piiq.R}, and q.R=a/b then S^(n*b)=I.
-  qr = qpoint%qpoint * rvector
-  output = output * qr%denominator()
+  if (present(qpoint)) then
+    qr = qpoint%qpoint * rvector
+    output = output * qr%denominator()
+  endif
 end function
 end module

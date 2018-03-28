@@ -1,7 +1,8 @@
 ! ======================================================================
-! Routines for finding the eigenvalues and eigenvectors of various matrices.
+! Routines for finding the eigenvalues and eigenvectors of Hermitian,
+!    symmetric and general matrices.
 ! ======================================================================
-module eigenstuff_submodule
+module hermitian_eigenstuff_submodule
   use precision_module
   use io_module
   
@@ -16,16 +17,11 @@ module eigenstuff_submodule
   public :: SymmetricEigenstuff
   public :: HermitianEigenstuff
   public :: ComplexEigenstuff
-  public :: UnitaryEigenstuff
   
   ! Diagonalisation routines.
   public :: diagonalise_symmetric
   public :: diagonalise_hermitian
   public :: diagonalise_complex
-  public :: diagonalise_unitary
-  
-  ! Orthonormalisation routines.
-  public :: orthonormal_basis
   
   ! --------------------------------------------------
   ! The eigen(values and vectors) of a matrix.
@@ -46,11 +42,6 @@ module eigenstuff_submodule
     complex(dp), allocatable :: right_evec(:)
   end type
   
-  type UnitaryEigenstuff
-    type(PhaseData)          :: eval
-    complex(dp), allocatable :: evec(:)
-  end type
-  
   ! --------------------------------------------------
   ! Interfaces.
   ! --------------------------------------------------
@@ -67,15 +58,6 @@ module eigenstuff_submodule
   interface diagonalise_complex
     module procedure diagonalise_complex_complexes
     module procedure diagonalise_complex_ComplexMatrix
-  end interface
-  
-  interface diagonalise_unitary
-    module procedure diagonalise_unitary_complexes
-    module procedure diagonalise_unitary_ComplexMatrix
-  end interface
-  
-  interface orthonormal_basis
-    module procedure orthonormal_basis_ComplexVectors
   end interface
   
   ! BLAS / LAPACK interface.
@@ -140,10 +122,11 @@ contains
 ! --------------------------------------------------
 ! Calculates the eigenvalues and eigenvectors of a real, symmetric matrix.
 ! --------------------------------------------------
-function diagonalise_symmetric_reals(input) result(output)
+function diagonalise_symmetric_reals(input,basis) result(output)
   implicit none
   
-  real(dp), intent(in)                   :: input(:,:)
+  real(dp),         intent(in)           :: input(:,:)
+  type(RealVector), intent(in), optional :: basis(:)
   type(SymmetricEigenstuff), allocatable :: output(:)
   
   ! dsyev variables.
@@ -155,7 +138,12 @@ function diagonalise_symmetric_reals(input) result(output)
   integer               :: info    ! Error code. 0 on success.
   
   ! Temporary variables.
-  integer :: i,ialloc
+  integer :: i,j,ialloc
+  
+  if (size(input,1)==0) then
+    output = [SymmetricEigenstuff::]
+    return
+  endif
   
   if (size(input,1)/=size(input,2)) then
     call print_line(CODE_ERROR//': Trying to find the eigenvalues of a &
@@ -163,11 +151,31 @@ function diagonalise_symmetric_reals(input) result(output)
     call err()
   endif
   
-  n = size(input,1)
+  if (present(basis)) then
+    if (size(basis)==0) then
+      output = [SymmetricEigenstuff::]
+      return
+    endif
+    
+    do i=1,size(basis)
+      if (size(basis(i))/=size(input,1)) then
+        call print_line(CODE_ERROR//': Trying to find the eigenavlues of a &
+           &matrix in an incompatible basis.')
+      endif
+    enddo
+  endif
+  
+  if (.not. present(basis)) then
+    a = input
+  else
+    a = row_matrix(basis)
+    a = dble(mat(a) * mat(input) * transpose(mat(a)))
+  endif
+  
+  n = size(a,1)
   allocate( w(n),        &
           & work(3*n-1), &
           & stat=ialloc); call err(ialloc)
-  a = input
   
   ! calculate optimal lwork
   call dsyev( jobz  = 'V',  &
@@ -205,27 +213,33 @@ function diagonalise_symmetric_reals(input) result(output)
   allocate(output(n), stat=ialloc); call err(ialloc)
   do i=1,n
     output(i)%eval = w(i)
-    output(i)%evec = a(:,i)
+    if (.not. present(basis)) then
+      output(i)%evec = a(:,i)
+    else
+      output(i)%evec = dble(sum(a(:,i)*basis))
+    endif
   enddo
 end function
 
-function diagonalise_symmetric_RealMatrix(input) result(output)
+function diagonalise_symmetric_RealMatrix(input,basis) result(output)
   implicit none
   
   type(RealMatrix), intent(in)           :: input
+  type(RealVector), intent(in), optional :: basis(:)
   type(SymmetricEigenstuff), allocatable :: output(:)
   
-  output = diagonalise_symmetric(dble(input))
+  output = diagonalise_symmetric(dble(input), basis)
 end function
 
 ! --------------------------------------------------
 ! Calculates the eigenvalues and eigenvectors of a complex, Hermitian matrix.
 ! --------------------------------------------------
-function diagonalise_hermitian_complexes(input) result(output)
+function diagonalise_hermitian_complexes(input,basis) result(output)
   implicit none
   
-  complex(dp), intent(in)                :: input(:,:)
-  type(HermitianEigenstuff), allocatable :: output(:)
+  complex(dp),         intent(in)           :: input(:,:)
+  type(ComplexVector), intent(in), optional :: basis(:)
+  type(HermitianEigenstuff), allocatable    :: output(:)
   
   ! zheev variables.
   integer                  :: n        ! The size of the input.
@@ -239,12 +253,43 @@ function diagonalise_hermitian_complexes(input) result(output)
   ! Temporary variables.
   integer :: i,ialloc
   
-  n = size(input,1)
+  if (size(input,1)==0) then
+    output = [HermitianEigenstuff::]
+    return
+  endif
+  
+  if (size(input,1)/=size(input,2)) then
+    call print_line(CODE_ERROR//': Trying to find the eigenvalues of a &
+       &non-square matrix.')
+    call err()
+  endif
+  
+  if (present(basis)) then
+    if (size(basis)==0) then
+      output = [HermitianEigenstuff::]
+      return
+    endif
+    
+    do i=1,size(basis)
+      if (size(basis(i))/=size(input,1)) then
+        call print_line(CODE_ERROR//': Trying to find the eigenavlues of a &
+           &matrix in an incompatible basis.')
+      endif
+    enddo
+  endif
+  
+  if (.not. present(basis)) then
+    a = input
+  else
+    a = row_matrix(basis)
+    a = cmplx(mat(a) * mat(input) * hermitian(mat(a)))
+  endif
+  
+  n = size(a,1)
   allocate( w(n),         &
           & rwork(3*n-2), &
           & work(3*n-1),  &
           & stat=ialloc); call err(ialloc)
-  a = input
   
   ! calculate optimal lwork
   call zheev( jobz  = 'V',   &
@@ -284,28 +329,35 @@ function diagonalise_hermitian_complexes(input) result(output)
   allocate(output(n), stat=ialloc); call err(ialloc)
   do i=1,n
     output(i)%eval = w(i)
-    output(i)%evec = a(:,i)
+    
+    if (.not. present(basis)) then
+      output(i)%evec = a(:,i)
+    else
+      output(i)%evec = cmplx(sum(a(:,i)*basis))
+    endif
   enddo
 end function
 
-function diagonalise_hermitian_ComplexMatrix(input) result(output)
+function diagonalise_hermitian_ComplexMatrix(input,basis) result(output)
   implicit none
   
-  type(ComplexMatrix), intent(in)        :: input
-  type(HermitianEigenstuff), allocatable :: output(:)
+  type(ComplexMatrix), intent(in)           :: input
+  type(ComplexVector), intent(in), optional :: basis(:)
+  type(HermitianEigenstuff), allocatable    :: output(:)
   
-  output = diagonalise_hermitian(cmplx(input))
+  output = diagonalise_hermitian(cmplx(input), basis)
 end function
 
 ! --------------------------------------------------
 ! Calculates the eigenvalues and eigenvectors of
 !    a general square complex matrix.
 ! --------------------------------------------------
-function diagonalise_complex_complexes(input) result(output)
+function diagonalise_complex_complexes(input,basis) result(output)
   implicit none
   
-  complex(dp), intent(in)              :: input(:,:)
-  type(ComplexEigenstuff), allocatable :: output(:)
+  complex(dp),         intent(in)           :: input(:,:)
+  type(ComplexVector), intent(in), optional :: basis(:)
+  type(ComplexEigenstuff), allocatable      :: output(:)
   
   ! zgeev variables.
   integer                  :: n        ! The size of the input.
@@ -321,14 +373,45 @@ function diagonalise_complex_complexes(input) result(output)
   ! Temporary variables.
   integer :: i,ialloc
   
-  n = size(input,1)
+  if (size(input,1)==0) then
+    output = [ComplexEigenstuff::]
+    return
+  endif
+  
+  if (size(input,1)/=size(input,2)) then
+    call print_line(CODE_ERROR//': Trying to find the eigenvalues of a &
+       &non-square matrix.')
+    call err()
+  endif
+  
+  if (present(basis)) then
+    if (size(basis)==0) then
+      output = [ComplexEigenstuff::]
+      return
+    endif
+    
+    do i=1,size(basis)
+      if (size(basis(i))/=size(input,1)) then
+        call print_line(CODE_ERROR//': Trying to find the eigenavlues of a &
+           &matrix in an incompatible basis.')
+      endif
+    enddo
+  endif
+  
+  if (.not. present(basis)) then
+    a = input
+  else
+    a = row_matrix(basis)
+    a = cmplx(mat(a) * mat(input) * transpose(mat(a)))
+  endif
+  
+  n = size(a,1)
   allocate( w(n),       &
           & vl(n,n),    &
           & vr(n,n),    &
           & rwork(2*n), &
           & work(2*n),  &
           & stat=ialloc); call err(ialloc)
-  a = input
   
   ! calculate optimal lwork.
   call zgeev( jobvl = 'V',   &
@@ -346,7 +429,7 @@ function diagonalise_complex_complexes(input) result(output)
             & rwork = rwork, &
             & info  = info)
   if (info /= 0) then
-    call print_line(ERROR//'in diagonalisation: zgeev error code: '//info)
+    call print_line(ERROR//' in diagonalisation: zgeev error code: '//info)
     call err()
   endif
   lwork = nint(real(work(1)))
@@ -369,210 +452,30 @@ function diagonalise_complex_complexes(input) result(output)
             & rwork = rwork, &
             & info  = info)
   if (info /= 0) then
-    call print_line(ERROR//'in diagonalisation: zheev error code: '//info)
+    call print_line(ERROR//' in diagonalisation: zheev error code: '//info)
     call err()
   endif
   
   allocate(output(n), stat=ialloc); call err(ialloc)
   do i=1,n
     output(i)%eval = w(i)
-    output(i)%left_evec = vl(:,i)
-    output(i)%right_evec = vr(:,i)
+    if (.not. present(basis)) then
+      output(i)%left_evec = vl(:,i)
+      output(i)%right_evec = vr(:,i)
+    else
+      output(i)%left_evec = cmplx(sum(vl(:,i)*basis))
+      output(i)%right_evec = cmplx(sum(vr(:,i)*conjg(basis)))
+    endif
   enddo
 end function
 
-function diagonalise_complex_ComplexMatrix(input) result(output)
+function diagonalise_complex_ComplexMatrix(input,basis) result(output)
   implicit none
   
-  type(ComplexMatrix), intent(in)      :: input
-  type(ComplexEigenstuff), allocatable :: output(:)
+  type(ComplexMatrix), intent(in)           :: input
+  type(ComplexVector), intent(in), optional :: basis(:)
+  type(ComplexEigenstuff), allocatable      :: output(:)
   
-  output = diagonalise_complex(cmplx(input))
-end function
-
-! --------------------------------------------------
-! Calculates the eigenvalues and eigenvectors of a unitary complex matrix.
-! --------------------------------------------------
-! Sorts outputs in order of the phase of the eigenvalue.
-function diagonalise_unitary_complexes(input,order) result(output)
-  use logic_module
-  implicit none
-  
-  complex(dp), intent(in)              :: input(:,:)
-  integer,     intent(in)              :: order
-  type(UnitaryEigenstuff), allocatable :: output(:)
-  
-  type(ComplexEigenstuff), allocatable :: estuff(:)
-  
-  integer,             allocatable :: degenerate_modes(:)
-  type(ComplexVector), allocatable :: degenerate_evecs(:)
-  
-  integer :: i,j,ialloc
-  
-  ! Diagonalise matrix.
-  estuff = diagonalise_complex(input)
-  
-  ! Convert eigenvalues to exact representation.
-  allocate(output(size(estuff)), stat=ialloc); call err(ialloc)
-  do i=1,size(estuff)
-    output(i)%eval = calculate_phase(estuff(i)%eval, order)
-    output(i)%evec = estuff(i)%right_evec
-  enddo
-  
-  ! Sort output in ascending order of phase.
-  output = output(sort(output,compare_phases))
-  
-  ! Orthonormalise degenerate eigenvectors.
-  do i=1,size(output)
-    degenerate_modes = filter(output%eval==output(i)%eval)
-    if (degenerate_modes(1)<i) then
-      ! This mode has already been processed.
-      cycle
-    elseif (size(degenerate_modes)==1) then
-      ! This mode is not degenerate with any other mode.
-      cycle
-    endif
-    
-    allocate( degenerate_evecs(size(degenerate_modes)), &
-            & stat=ialloc); call err(ialloc)
-    do j=1,size(degenerate_modes)
-      degenerate_evecs(j) = vec(output(degenerate_modes(j))%evec)
-    enddo
-    degenerate_evecs = orthonormal_basis(degenerate_evecs)
-    do j=1,size(degenerate_modes)
-      output(degenerate_modes(j))%evec = cmplx(degenerate_evecs(j))
-    enddo
-    deallocate(degenerate_evecs, stat=ialloc); call err(ialloc)
-  enddo
-contains
-  ! A lambda for ordering phases.
-  ! Captures nothing.
-  function compare_phases(this,that) result(output)
-    implicit none
-    
-    class(*), intent(in) :: this
-    class(*), intent(in) :: that
-    logical              :: output
-    
-    select type(this); type is(UnitaryEigenstuff)
-      select type(that); type is(UnitaryEigenstuff)
-        output = this%eval%fraction < that%eval%fraction
-      end select
-    end select
-  end function
-end function
-
-function diagonalise_unitary_ComplexMatrix(input,order) result(output)
-  implicit none
-  
-  type(ComplexMatrix), intent(in)      :: input
-  integer,             intent(in)      :: order
-  type(UnitaryEigenstuff), allocatable :: output(:)
-  
-  output = diagonalise_unitary(cmplx(input), order)
-end function
-
-! --------------------------------------------------
-! Construct the minimal orthonormal basis which spans the given vectors.
-! If neither shortest_valid nor longest_invalid are given then a complete
-!    basis for the input vectors is returned, regardless of the projection of
-!    each basis vector onto the input vectors.
-! If only shortest_valid is given, only basis vectors with an L2 projection
-!    onto the input vectors of at least shortest_valid are returned.
-! If longest_invalid is also given, then an error is thrown if there are any
-!    rejected basis vectors with an L2 projection onto the input vectors of
-!    more than longest_invalid.
-! --------------------------------------------------
-function orthonormal_basis_ComplexVectors(input,shortest_valid, &
-   & longest_invalid) result(output)
-  use logic_module
-  implicit none
-  
-  type(ComplexVector), intent(in)           :: input(:)
-  real(dp),            intent(in), optional :: shortest_valid
-  real(dp),            intent(in), optional :: longest_invalid
-  type(ComplexVector), allocatable          :: output(:)
-  
-  ! Working variables for diagonalisation.
-  type(ComplexMatrix)                    :: sum_outer_products
-  type(HermitianEigenstuff), allocatable :: eigenstuff(:)
-  real(dp),                  allocatable :: projections(:)
-  
-  integer :: vector_length
-  integer :: i,j,ialloc
-  
-  ! Check inputs are valid.
-  if (present(longest_invalid) .and. .not. present(shortest_valid)) then
-    call print_line(CODE_ERROR//': longest_invalid may not be passed to &
-       &orthonormalise unless shortest_valid is also passed.')
-    call err()
-  endif
-  
-  if (present(longest_invalid) .and. present(shortest_valid)) then
-    if (longest_invalid>shortest_valid) then
-      call print_line(CODE_ERROR//': longest_invalid must be shorter than &
-         &shortest_valid.')
-      call err()
-    endif
-  endif
-  
-  ! Return early if nothing to process.
-  if (size(input)==0) then
-    output = [ComplexVector::]
-    return
-  endif
-  
-  ! Check vector dimensionalities are consistent, and record said lengths.
-  vector_length = size(input(1))
-  do i=2,size(input)
-    if (size(input(i))/=vector_length) then
-      call print_line(CODE_ERROR//': Trying to orhonormalise vectors of &
-         &inconsistent lengths.')
-      call err()
-    endif
-  enddo
-  
-  ! Construct the sum of the outer products of the input vectors.
-  sum_outer_products = cmplxmat(zeroes(vector_length,vector_length))
-  do i=1,size(input)
-    sum_outer_products = sum_outer_products &
-                     & + outer_product(input(i),conjg(input(i)))
-  enddo
-  eigenstuff = diagonalise_hermitian(sum_outer_products)
-  
-  ! Transfer basis vectors to output.
-  allocate(output(vector_length), stat=ialloc); call err(ialloc)
-  do i=1,size(output)
-    output(i) = eigenstuff(i)%evec
-  enddo
-  
-  ! Find the projections of the basis vectors onto the input vectors.
-  allocate(projections(vector_length), stat=ialloc); call err(ialloc)
-  projections = 0.0_dp
-  do i=1,vector_length
-    do j=1,size(input)
-      projections(i) = projections(i) + abs(conjg(output(i))*input(j))
-    enddo
-  enddo
-  
-  ! Check that there are no vectors between the two projections.
-  ! N.B. since output vectors are normalised, there is no need to take
-  !    a square root.
-  if (present(longest_invalid)) then
-    if (any(projections>longest_invalid .and. projections<shortest_valid)) then
-      call print_line(ERROR//': orthonormalise produced a basis &
-         &vector with a projection between longest_invalid and &
-         &shortest_valid.')
-      call err()
-    endif
-  endif
-  
-  ! Only return basis vectors with a large enough projection onto the
-  !    input vectors.
-  ! N.B. since output vectors are normalised, there is no need to take
-  !    a square root.
-  if (present(shortest_valid)) then
-    output = output(filter(projections>shortest_valid))
-  endif
+  output = diagonalise_complex(cmplx(input), basis)
 end function
 end module

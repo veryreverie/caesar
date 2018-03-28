@@ -199,6 +199,7 @@ subroutine setup_anharmonic(arguments)
   do i=1,size(couplings)
     basis_functions = [ basis_functions,                                      &
                     &   generate_basis_functions( couplings(i),               &
+                    &                             structure,                  &
                     &                             normal_modes,               &
                     &                             qpoints,                    &
                     &                             degenerate_subspaces,       &
@@ -206,6 +207,12 @@ subroutine setup_anharmonic(arguments)
                     &                             vscf_basis_functions_only ) &
                     & ]
   enddo
+  
+  do i=1,size(basis_functions)
+    call print_line('')
+    call print_line(basis_functions(i))
+  enddo
+  call print_line(size(basis_functions))
   
   ! Combine degenerate sets to get full basis functions.
   ! TODO.

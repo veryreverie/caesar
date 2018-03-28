@@ -18,15 +18,18 @@ module logic_module
   public :: is_sorted
   public :: sort
   public :: set
+  public :: first_equivalent
   
   interface first
     module procedure first_logicals
     module procedure first_LogicalLambda
+    module procedure first_ComparisonLambda
   end interface
   
   interface last
     module procedure last_logicals
     module procedure last_LogicalLambda
+    module procedure last_ComparisonLambda
   end interface
   
   interface operate
@@ -35,11 +38,13 @@ module logic_module
   
   interface map
     module procedure map_LogicalLambda
+    module procedure map_ComparisonLambda
   end interface
   
   interface filter
     module procedure filter_logicals
     module procedure filter_LogicalLambda
+    module procedure filter_ComparisonLambda
   end interface
   
   interface locate
@@ -59,6 +64,11 @@ module logic_module
   interface set
     module procedure set_integers
     module procedure set_ComparisonLambda
+  end interface
+  
+  interface first_equivalent
+    module procedure first_equivalent_integers
+    module procedure first_equivalent_ComparisonLambda
   end interface
   
   interface
@@ -88,9 +98,12 @@ contains
 ! ----------------------------------------------------------------------
 ! The _logicals variants return the id of the first/last .true. in a 
 !    list of logicals. e.g. first([f,f,t,f]) returns 3.
-! The _lambda variants do the same, but for the lambda applied to the input,
+! The _LogicalLambda variants do the same, but for the first/last element for
+!    which the lambda retuns .true..
 !    e.g. first([1,1,2,1],equals_2) returns 3.
-! In both cases, returns 0 if all values are .false..
+! The _ComparisonLambda variants do the same but for the first/last element
+!    which compares to .true. with the given comparison value.
+! In all cases, returns 0 if all values are .false..
 ! If mask is present, only returns values where mask is .true..
 ! ----------------------------------------------------------------------
 
@@ -161,6 +174,27 @@ function first_LogicalLambda(input,lambda,mask) result(output)
   enddo
 end function
 
+function first_ComparisonLambda(input,lambda,comparison,mask) result(output)
+  implicit none
+  
+  class(*), intent(in)           :: input(:)
+  procedure(ComparisonLambda)    :: lambda
+  class(*), intent(in)           :: comparison
+  logical,  intent(in), optional :: mask(:)
+  integer                        :: output
+  
+  output = first(input,logical_lambda,mask)
+contains
+  function logical_lambda(input) result(output)
+    implicit none
+    
+    class(*), intent(in) :: input
+    logical              :: output
+    
+    output = lambda(input,comparison)
+  end function
+end function
+
 function last_logicals(input,mask) result(output)
   implicit none
   
@@ -228,6 +262,27 @@ function last_LogicalLambda(input,lambda,mask) result(output)
   enddo
 end function
 
+function last_ComparisonLambda(input,lambda,comparison,mask) result(output)
+  implicit none
+  
+  class(*), intent(in)           :: input(:)
+  procedure(ComparisonLambda)    :: lambda
+  class(*), intent(in)           :: comparison
+  logical,  intent(in), optional :: mask(:)
+  integer                        :: output
+  
+  output = last(input,logical_lambda,mask)
+contains
+  function logical_lambda(input) result(output)
+    implicit none
+    
+    class(*), intent(in) :: input
+    logical              :: output
+    
+    output = lambda(input,comparison)
+  end function
+end function
+
 ! ----------------------------------------------------------------------
 ! Operates with a lambda on every element on a list.
 ! e.g. if list=[2,3,7] then after operate(list,add_one) list=[3,4,8].
@@ -266,6 +321,26 @@ function map_LogicalLambda(input,lambda) result(output)
   enddo
 end function
 
+function map_ComparisonLambda(input,lambda,comparison) result(output)
+  implicit none
+  
+  class(*), intent(in)        :: input(:)
+  procedure(ComparisonLambda) :: lambda
+  class(*), intent(in)        :: comparison
+  logical, allocatable        :: output(:)
+  
+  output = map(input,logical_lambda)
+contains
+  function logical_lambda(input) result(output)
+    implicit none
+    
+    class(*), intent(in) :: input
+    logical              :: output
+    
+    output = lambda(input,comparison)
+  end function
+end function
+
 ! ----------------------------------------------------------------------
 ! The _logicals variant returns the indices of all elements where the
 !    value is .true..
@@ -279,28 +354,63 @@ end function
 !
 ! list(filter(list,lambda)) is equivalent to pack(list,map(list,lamba)).
 ! ----------------------------------------------------------------------
-function filter_logicals(input) result(output)
+function filter_logicals(input,mask) result(output)
   implicit none
   
-  logical, intent(in)  :: input(:)
-  integer, allocatable :: output(:)
+  logical, intent(in)           :: input(:)
+  logical, intent(in), optional :: mask(:)
+  integer, allocatable          :: output(:)
   
   integer :: i
   
+  if (present(mask)) then
+    if (size(mask)/=size(input)) then
+      call print_line(CODE_ERROR//': Input and Mask of different sizes.')
+      call err()
+    endif
+  endif
+  
   ! Make an array [1,2,3,...,size(input)].
   output = [(i,i=1,size(input))]
-  ! Return only those elements where input=true.
-  output = pack(output, mask=input)
+  if (present(mask)) then
+    ! Return only those elements where input=true and mask=true.
+    output = pack(output, mask=input.and.mask)
+  else
+    ! Return only those elements where input=true.
+    output = pack(output, mask=input)
+  endif
 end function
 
-function filter_LogicalLambda(input,lambda) result(output)
+function filter_LogicalLambda(input,lambda,mask) result(output)
   implicit none
   
-  class(*), intent(in)     :: input(:)
-  procedure(LogicalLambda) :: lambda
-  integer, allocatable     :: output(:)
+  class(*), intent(in)           :: input(:)
+  procedure(LogicalLambda)       :: lambda
+  logical,  intent(in), optional :: mask(:)
+  integer, allocatable           :: output(:)
   
-  output = filter(map(input,lambda))
+  output = filter(map(input,lambda),mask=mask)
+end function
+
+function filter_ComparisonLambda(input,lambda,comparison,mask) result(output)
+  implicit none
+  
+  class(*), intent(in)           :: input(:)
+  procedure(ComparisonLambda)    :: lambda
+  class(*), intent(in)           :: comparison
+  logical,  intent(in), optional :: mask(:)
+  integer, allocatable           :: output(:)
+  
+  output = filter(input,logical_lambda,mask)
+contains
+  function logical_lambda(input) result(output)
+    implicit none
+    
+    class(*), intent(in) :: input
+    logical              :: output
+    
+    output = lambda(input,comparison)
+  end function
 end function
 
 ! ----------------------------------------------------------------------
@@ -556,6 +666,55 @@ function set_ComparisonLambda(input,lambda,mask) result(output)
   enddo do_i
   
   output = output(:no_unique_elements)
+end function
+
+! ----------------------------------------------------------------------
+! The _integers variant returns a list output(i) is the position of
+!    the first input element equal to input(i).
+! e.g. first_equivalent([7,5,4,4,5]) = [1,2,3,3,2]
+! N.B. list(first_equivalent(list))==list.
+!
+! The _ComparisonLambda variant is the same, but uses a given lambda
+!    for equality, rather than integer equality.
+! ----------------------------------------------------------------------
+function first_equivalent_integers(input) result(output)
+  implicit none
+  
+  integer, intent(in)  :: input(:)
+  integer, allocatable :: output(:)
+  
+  integer :: i,ialloc
+  
+  allocate(output(size(input)), stat=ialloc); call err(ialloc)
+  do i=1,size(input)
+    output(i) = first(input==input(i))
+  enddo
+end function
+
+function first_equivalent_ComparisonLambda(input,lambda) result(output)
+  implicit none
+  
+  class(*), intent(in)        :: input(:)
+  procedure(ComparisonLambda) :: lambda
+  integer, allocatable        :: output(:)
+  
+  integer :: i,j,ialloc
+  
+  allocate(output(size(input)), stat=ialloc); call err(ialloc)
+  output = 0
+  do i=1,size(input)
+    do j=1,i
+      if (lambda(input(j),input(i))) then
+        output(i) = j
+        exit
+      endif
+    enddo
+  enddo
+  
+  if (any(output==0)) then
+    call print_line(CODE_ERROR//': Comparison failed.')
+    call err()
+  endif
 end function
 end module
 

@@ -356,10 +356,7 @@ recursive function generate_mode_coupling(coupled_subspaces,normal_modes, &
     ! There is nothing else to append. Check that the sum across q-points of
     !    the mode coupling is zero, and return the mode couplings.
     if (is_int(sum_q_in)) then
-      coupled_modes_out = coupled_modes
-      coupled_modes_out%ids = &
-         & coupled_modes_out%ids(sort(coupled_modes_out%ids))
-      output = [coupled_modes_out]
+      output = [coupled_modes]
     else
       output = [CoupledModes::]
     endif

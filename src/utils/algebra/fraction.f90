@@ -127,6 +127,7 @@ module fraction_submodule
     module procedure frac_character
     module procedure frac_String
     module procedure frac_integer
+    module procedure frac_integers
   end interface
   
   ! Check whether or not the fraction is an integer.
@@ -275,6 +276,17 @@ impure elemental function frac_integer(input) result(output)
   type(IntFraction)   :: output
   
   output = input
+end function
+
+! Conversion from numerator and denominator.
+function frac_integers(numerator,denominator) result(output)
+  implicit none
+  
+  integer, intent(in) :: numerator
+  integer, intent(in) :: denominator
+  type(IntFraction)   :: output
+  
+  output = IntFraction(numerator,denominator)
 end function
 
 ! ----------------------------------------------------------------------

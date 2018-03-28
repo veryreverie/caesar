@@ -16,7 +16,9 @@ module algebra_module
   use phase_submodule
   use fraction_algebra_submodule
   use qr_decomposition_submodule
-  use eigenstuff_submodule
+  use hermitian_eigenstuff_submodule
+  use orthonormal_submodule
+  use unitary_eigenstuff_submodule
   use integer_arrays_submodule
   use group_submodule
   implicit none
