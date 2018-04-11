@@ -6,11 +6,10 @@ module setup_anharmonic_module
   
   use setup_harmonic_module
   
-  use polynomial_module
-  use coupling_module
-  use basis_function_module
   use degeneracy_module
+  use coupling_module
   use degenerate_symmetry_module
+  use basis_function_module
   implicit none
   
 contains
@@ -84,8 +83,9 @@ subroutine setup_anharmonic(arguments)
   ! Previously calculated data.
   type(StructureData)            :: structure
   type(QpointData),  allocatable :: harmonic_qpoints(:)
-  type(ComplexMode), allocatable :: normal_modes(:)
+  type(ComplexMode), allocatable :: complex_modes(:)
   integer,           allocatable :: mode_qpoints(:)
+  type(RealMode),    allocatable :: real_modes(:)
   
   ! Anharmonic q-points and the corresponding supercell.
   type(IntMatrix)                :: anharmonic_supercell_matrix
@@ -102,7 +102,7 @@ subroutine setup_anharmonic(arguments)
   type(CoupledSubspaces), allocatable :: couplings(:)
   
   ! Basis functions.
-  type(Polynomial), allocatable :: basis_functions(:)
+  type(BasisFunction), allocatable :: basis_functions(:)
   
   ! Logfile.
   type(OFile) :: logfile
@@ -153,12 +153,12 @@ subroutine setup_anharmonic(arguments)
   
   ! Read in normal modes at anharmonic q-points, and record which new q-point
   !    each corresponds to.
-  allocate( normal_modes(size(qpoints)*structure%no_modes), &
-          & mode_qpoints(size(qpoints)*structure%no_modes), &
+  allocate( complex_modes(size(qpoints)*structure%no_modes), &
+          & mode_qpoints(size(qpoints)*structure%no_modes),  &
           & stat=ialloc); call err(ialloc)
   l = 0
   do i=1,size(qpoints)
-    j = first(harmonic_qpoints==qpoints(i))
+    j = first(harmonic_qpoints==qpoints(i),default=0)
     
     if (j==0) then
       call print_line(ERROR//': anharmonic q-point '//qpoints(i)%qpoint// &
@@ -168,7 +168,7 @@ subroutine setup_anharmonic(arguments)
     
     do k=1,structure%no_modes
       l = l+1
-      normal_modes(l) = ComplexMode(                              &
+      complex_modes(l) = ComplexMode(                             &
          & harmonic_path                                       // &
          & '/qpoint_'//left_pad(j,str(size(harmonic_qpoints))) // &
          & '/mode_'//left_pad(k,str(structure%no_modes))//'.dat')
@@ -176,7 +176,7 @@ subroutine setup_anharmonic(arguments)
     enddo
   enddo
   
-  degenerate_subspaces = process_degeneracies(normal_modes,mode_qpoints)
+  degenerate_subspaces = process_degeneracies(complex_modes,mode_qpoints)
   
   ! Generate the symmetry operators in each subspace.
   allocate( degenerate_symmetries(size(structure%symmetries)), &
@@ -184,7 +184,7 @@ subroutine setup_anharmonic(arguments)
   do i=1,size(structure%symmetries)
     degenerate_symmetries(i) = DegenerateSymmetry( structure%symmetries(i), &
                                                  & degenerate_subspaces,    &
-                                                 & normal_modes,            &
+                                                 & complex_modes,           &
                                                  & qpoints,                 &
                                                  & logfile)
   enddo
@@ -194,28 +194,24 @@ subroutine setup_anharmonic(arguments)
                                         & potential_expansion_order, &
                                         & coupling_order)
   
+  ! Construct real modes from complex modes.
+  real_modes = complex_to_real(complex_modes)
+  
   ! Generate basis functions at each coupling.
-  basis_functions = [Polynomial::]
+  basis_functions = [BasisFunction::]
   do i=1,size(couplings)
-    basis_functions = [ basis_functions,                                      &
-                    &   generate_basis_functions( couplings(i),               &
-                    &                             structure,                  &
-                    &                             normal_modes,               &
-                    &                             qpoints,                    &
-                    &                             degenerate_subspaces,       &
-                    &                             degenerate_symmetries,      &
-                    &                             vscf_basis_functions_only ) &
+    basis_functions = [ basis_functions,                                     &
+                    &   generate_basis_functions( couplings(i),              &
+                    &                             structure,                 &
+                    &                             complex_modes,             &
+                    &                             real_modes,                &
+                    &                             qpoints,                   &
+                    &                             degenerate_subspaces,      &
+                    &                             degenerate_symmetries,     &
+                    &                             vscf_basis_functions_only, &
+                    &                             logfile )                  &
                     & ]
   enddo
-  
-  do i=1,size(basis_functions)
-    call print_line('')
-    call print_line(basis_functions(i))
-  enddo
-  call print_line(size(basis_functions))
-  
-  ! Combine degenerate sets to get full basis functions.
-  ! TODO.
   
   ! Use basis functions to generate sampling points.
   ! TODO

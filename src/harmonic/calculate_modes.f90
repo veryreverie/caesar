@@ -57,6 +57,10 @@ function calculate_modes_interpolated(matrices,structure) result(output)
     !    be in ascending order of frequency. i->k reverses the order.
     k = structure%no_modes_prim - i + 1
     
+    ! Initialise id and paired_id to 0.
+    output(i)%id        = 0
+    output(i)%paired_id = 0
+    
     if (estuff(k)%eval>=0.0_dp) then
       ! Unstable mode.
       output(i)%frequency = - sqrt(estuff(k)%eval)
@@ -101,7 +105,7 @@ function calculate_modes_calculated(matrices,structure,qpoint, &
   real(dp) :: energy_difference
   
   ! Symmetry data.
-  integer,                allocatable :: symmetry_ids(:)
+  integer, allocatable :: symmetry_ids(:)
   
   integer, allocatable :: states(:)
   
@@ -176,14 +180,7 @@ function calculate_modes_calculated(matrices,structure,qpoint, &
                   & qpoint,                                &
                   & structure%symmetries(symmetry_ids(j)), &
                   & logfile)
-      check = sqrt(sum_squares( symmetry*hermitian(symmetry) &
-                            & - cmplxmat(make_identity_matrix(size(states)))))
-      if (check>1e-2_dp) then
-        call print_line(ERROR//': Rotation between degenerate modes at &
-           &q-point '//qpoint%qpoint//' not unitary. Please adjust &
-           &degenerate_energy so that it accurately captures degeneracies.')
-        stop
-      endif
+      call check_unitary(symmetry,logfile)
     enddo
     
     ! Lift each degeneracy using symmetry operators.
@@ -298,15 +295,16 @@ recursive function lift_degeneracies(input,structure,symmetry_ids, &
           & phases_int(size(input)),  &
           & stat=ialloc); call err(ialloc)
   do i=1,size(input)
+    ! Correct for numerical errors taking the eigenvalue outside the range
+    !    [-1,1].
+    if (abs(estuff(i)%eval)>1.01_dp) then
+      call print_line(ERROR//': Symmetry eigenvalue outside the range [-1,1].')
+      call err()
+    endif
+    
     if (estuff(i)%eval>1.0_dp) then
-      if (estuff(i)%eval>1.01_dp) then
-        call err()
-      endif
       estuff(i)%eval = 1.0_dp
     elseif (estuff(i)%eval<-1.0_dp) then
-      if (estuff(i)%eval<-1.01_dp) then
-        call err()
-      endif
       estuff(i)%eval = -1.0_dp
     endif
     

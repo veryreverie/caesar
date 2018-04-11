@@ -7,7 +7,7 @@
 !    - concatenated, using string//this or character//this.
 !    - printed to stdout, using print_line(this).
 !    - printed to file, using file%print_line(this).
-! Any type which extends Stringable must overload %str(). See the example
+! Any type which extends Stringable must overload %to_String(). See the example
 !    module below.
 module stringable_submodule
   use string_submodule
@@ -23,11 +23,11 @@ module stringable_submodule
   
   type, abstract :: Stringable
   contains
-    procedure(str_Stringable), deferred :: str
+    procedure(to_String_Stringable), deferred :: to_String
   end type
   
   abstract interface
-    recursive function str_Stringable(this) result(output)
+    recursive function to_String_Stringable(this) result(output)
       import String
       import Stringable
       implicit none
@@ -67,7 +67,7 @@ recursive subroutine assign_String_Stringable(output,input)
   type(String),      intent(out) :: output
   class(Stringable), intent(in)  :: input
   
-  output = input%str()
+  output = input%to_String()
 end subroutine
 
 ! ----------------------------------------------------------------------
@@ -81,7 +81,7 @@ recursive function concatenate_Stringable_character(this,that) result(output)
   character(*),      intent(in) :: that
   type(String)                  :: output
   
-  output = this%str()//that
+  output = this%to_String()//that
 end function
 
 ! String = character//Stringable
@@ -92,7 +92,7 @@ recursive function concatenate_character_Stringable(this,that) result(output)
   class(Stringable), intent(in) :: that
   type(String)                  :: output
   
-  output = this//that%str()
+  output = this//that%to_String()
 end function
 
 ! String = Stringable//String
@@ -103,7 +103,7 @@ recursive function concatenate_Stringable_String(this,that) result(output)
   type(String),      intent(in) :: that
   type(String)                  :: output
   
-  output = this%str()//that
+  output = this%to_String()//that
 end function
 
 ! String = String//Stringable
@@ -114,7 +114,7 @@ recursive function concatenate_String_Stringable(this,that) result(output)
   class(Stringable), intent(in) :: that
   type(String)                  :: output
   
-  output = this//that%str()
+  output = this//that%to_String()
 end function
 
 ! ----------------------------------------------------------------------
@@ -181,11 +181,11 @@ module stringable_example_submodule
   type, extends(Stringable) :: StringableExample
     integer :: contents
   contains
-    procedure, public :: str => str_StringableExample
+    procedure :: to_String => to_String_StringableExample
   end type
 contains
 
-recursive function str_StringableExample(this) result(output)
+recursive function to_String_StringableExample(this) result(output)
   implicit none
   
   class(StringableExample), intent(in) :: this

@@ -19,7 +19,7 @@ module integer_arrays_submodule
   type, extends(Stringable) :: IntArray1D
     integer, public, allocatable :: i(:)
   contains
-    procedure, public :: str => str_IntArray1D
+    procedure, public :: to_String => to_String_IntArray1D
     
     generic,   public  :: assignment (= ) => assign_IntArray1D_integers
     procedure, private ::                    assign_IntArray1D_integers
@@ -40,7 +40,7 @@ module integer_arrays_submodule
   type, extends(Printable) :: IntArray2D
     type(IntArray1D), allocatable :: i(:)
   contains
-    procedure, public :: str => str_IntArray2D
+    procedure, public :: to_String => to_String_IntArray2D
     
     generic,   public  :: assignment (= ) => assign_IntArray2D_IntArray1Ds
     procedure, private ::                    assign_IntArray2D_IntArray1Ds
@@ -306,7 +306,7 @@ end function
 ! ----------------------------------------------------------------------
 ! I/O.
 ! ----------------------------------------------------------------------
-recursive function str_IntArray1D(this) result(output)
+recursive function to_String_IntArray1D(this) result(output)
   implicit none
   
   class(IntArray1D), intent(in) :: this
@@ -315,7 +315,7 @@ recursive function str_IntArray1D(this) result(output)
   output = join(this%i)
 end function
 
-recursive function str_IntArray2D(this) result(output)
+recursive function to_String_IntArray2D(this) result(output)
   implicit none
   
   class(IntArray2D), intent(in) :: this

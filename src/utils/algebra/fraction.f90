@@ -106,7 +106,7 @@ module fraction_submodule
     procedure, private, pass(that) :: divide_integer_IntFraction
     
     ! I/O.
-    procedure, public :: str => str_IntFraction
+    procedure, public :: to_String => to_String_IntFraction
   end type
   
   ! Constructor.
@@ -675,7 +675,7 @@ end function
 ! ----------------------------------------------------------------------
 ! I/O.
 ! ----------------------------------------------------------------------
-function str_IntFraction(this) result(output)
+function to_String_IntFraction(this) result(output)
   implicit none
   
   class(IntFraction), intent(in) :: this

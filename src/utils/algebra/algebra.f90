@@ -21,5 +21,8 @@ module algebra_module
   use unitary_eigenstuff_submodule
   use integer_arrays_submodule
   use group_submodule
+  use integer_complex_submodule
+  use fraction_complex_submodule
+  use tests_submodule
   implicit none
 end module

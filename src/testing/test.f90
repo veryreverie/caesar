@@ -4,6 +4,12 @@
 module test_module
   use common_module
   implicit none
+  
+  private
+  
+  public :: test_keywords
+  public :: test_mode
+  public :: test
 contains
 
 ! ----------------------------------------------------------------------
@@ -29,6 +35,18 @@ function test_mode() result(output)
   output%suppress_from_helptext = .true.
 end function
 
+subroutine thing(a)
+  implicit none
+  
+  logical, intent(in), optional :: a
+  
+  if (present(a).lazyand.a) then
+    call print_line('True')
+  else
+    call print_line('Not present / False.')
+  endif
+end subroutine
+
 ! ----------------------------------------------------------------------
 ! Main function.
 ! ----------------------------------------------------------------------
@@ -39,56 +57,30 @@ subroutine test(arguments)
   
   type(String) :: wd
   
-  real(dp) :: one
-  real(dp) :: zero
-  real(dp) :: small
-  
-  type(RealVector), allocatable :: inputs(:)
-  type(RealVector), allocatable :: outputs(:)
+  logical, allocatable :: t
+  logical, allocatable :: f
+  logical, allocatable :: n(:)
   
   integer :: i
   
-  type(RealMatrix) :: matrix
-  type(UnitaryEigenstuff), allocatable :: estuff(:)
-  
   wd = arguments%value('working_directory')
   
-  matrix = dblemat(mat([ 1,0,0, &
-                       & 0,0,1, &
-                       & 0,1,0],3,3))
-  estuff = diagonalise_orthogonal(matrix,2)
-  do i=1,size(estuff)
-    call print_line(estuff(i)%eval)
-    call print_line(estuff(i)%evec)
+  t = .true.
+  f = .false.
+  
+  allocate(n(2))
+  n(1) = .true.
+  n(2) = .false.
+  do i=1,3
+    if (i<=size(n) .lazyand. n(i)) then
+      call print_line('n('//i//')=.true.')
+    else
+      call print_line('n('//i//')=.false.')
+    endif
   enddo
   
-  stop
-  
-  one = 1.0_dp
-  zero = 0.0_dp
-  small = 1e-10_dp
-  
-  inputs = [ vec([zero,zero,zero]),     &
-           & vec([small,-small,small]), &
-           & vec([zero,zero,small]),    &
-           & vec([-small,-small,zero]), &
-           & vec([zero,one,small]),     &
-           & vec([small,one,zero]),     &
-           & vec([small,small,zero]),   &
-           & vec([one,one,small]) ]
-  
-  call print_line('Inputs')
-  do i=1,size(inputs)
-    call print_line(inputs(i))
-  enddo
-  
-  outputs = orthonormal_basis(inputs,0.1_dp,1e-9_dp)
-  
-  call print_line('Outputs')
-  do i=1,size(outputs)
-    call print_line(outputs(i))
-  enddo
-  
-  
+  call thing(.true.)
+  call thing(.false.)
+  call thing()
 end subroutine
 end module

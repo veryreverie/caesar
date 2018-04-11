@@ -9,16 +9,27 @@ module logic_module
   
   private
   
+  public :: operator(.lazyand.)
+  public :: operator(.lazyor.)
   public :: first
   public :: last
   public :: operate
   public :: map
+  public :: count
   public :: filter
   public :: locate
   public :: is_sorted
   public :: sort
   public :: set
   public :: first_equivalent
+  
+  interface operator(.lazyand.)
+    module procedure lazy_and_logical_logical
+  end interface
+  
+  interface operator(.lazyor.)
+    module procedure lazy_or_logical_logical
+  end interface
   
   interface first
     module procedure first_logicals
@@ -39,6 +50,11 @@ module logic_module
   interface map
     module procedure map_LogicalLambda
     module procedure map_ComparisonLambda
+  end interface
+  
+  interface count
+    module procedure count_LogicalLambda
+    module procedure count_ComparisonLambda
   end interface
   
   interface filter
@@ -96,6 +112,41 @@ module logic_module
 contains
 
 ! ----------------------------------------------------------------------
+! Lazy logical operators. .lazyand. and .lazyor. work as .and. and .or.
+!    respectively, except that they are guaranteed not to look at the second
+!    argument if not necessary.
+! i.e. (.true. .lazyor. x) will return .true. and (.false. .lazyand. x) will
+!    return .false. even if present(x)==.false..
+! ----------------------------------------------------------------------
+impure elemental function lazy_and_logical_logical(this,that) result(output)
+  implicit none
+  
+  logical, intent(in) :: this
+  logical, intent(in) :: that
+  logical             :: output
+  
+  if (.not. this) then
+    output = .false.
+  else
+    output = that
+  endif
+end function
+
+impure elemental function lazy_or_logical_logical(this,that) result(output)
+  implicit none
+  
+  logical, intent(in) :: this
+  logical, intent(in) :: that
+  logical             :: output
+  
+  if (this) then
+    output = .true.
+  else
+    output = that
+  endif
+end function
+
+! ----------------------------------------------------------------------
 ! The _logicals variants return the id of the first/last .true. in a 
 !    list of logicals. e.g. first([f,f,t,f]) returns 3.
 ! The _LogicalLambda variants do the same, but for the first/last element for
@@ -103,15 +154,17 @@ contains
 !    e.g. first([1,1,2,1],equals_2) returns 3.
 ! The _ComparisonLambda variants do the same but for the first/last element
 !    which compares to .true. with the given comparison value.
-! In all cases, returns 0 if all values are .false..
+! If default is given, then this value is returned if all(input)==false.
+! If default is not given, then an error is thrown if all(input)==false.
 ! If mask is present, only returns values where mask is .true..
 ! ----------------------------------------------------------------------
 
-function first_logicals(input,mask) result(output)
+function first_logicals(input,mask,default) result(output)
   implicit none
   
   logical, intent(in)           :: input(:)
   logical, intent(in), optional :: mask(:)
+  integer, intent(in), optional :: default
   integer                       :: output
   
   integer :: i
@@ -137,15 +190,23 @@ function first_logicals(input,mask) result(output)
     endif
   enddo
   
-  output = 0
+  ! There is no value to return.
+  ! Return default if present, throw an error if not.
+  if (present(default)) then
+    output = default
+  else
+    call print_line(ERROR//': value not found.')
+    call err()
+  endif
 end function
 
-function first_LogicalLambda(input,lambda,mask) result(output)
+function first_LogicalLambda(input,lambda,mask,default) result(output)
   implicit none
   
   class(*), intent(in)           :: input(:)
   procedure(LogicalLambda)       :: lambda
   logical,  intent(in), optional :: mask(:)
+  integer,  intent(in), optional :: default
   integer                        :: output
   
   integer :: i
@@ -157,33 +218,42 @@ function first_LogicalLambda(input,lambda,mask) result(output)
     endif
   endif
   
-  output = 0
-  
   do i=1,size(input)
     if (present(mask)) then
       if (lambda(input(i)) .and. mask(i)) then
         output = i
-        exit
+        return
       endif
     else
       if (lambda(input(i))) then
         output = i
-        exit
+        return
       endif
     endif
   enddo
+  
+  ! There is no value to return.
+  ! Return default if present, throw an error if not.
+  if (present(default)) then
+    output = default
+  else
+    call print_line(ERROR//': value not found.')
+    call err()
+  endif
 end function
 
-function first_ComparisonLambda(input,lambda,comparison,mask) result(output)
+function first_ComparisonLambda(input,lambda,comparison,mask,default) &
+   & result(output)
   implicit none
   
   class(*), intent(in)           :: input(:)
   procedure(ComparisonLambda)    :: lambda
   class(*), intent(in)           :: comparison
   logical,  intent(in), optional :: mask(:)
+  integer,  intent(in), optional :: default
   integer                        :: output
   
-  output = first(input,logical_lambda,mask)
+  output = first(input,logical_lambda,mask,default)
 contains
   function logical_lambda(input) result(output)
     implicit none
@@ -195,11 +265,12 @@ contains
   end function
 end function
 
-function last_logicals(input,mask) result(output)
+function last_logicals(input,mask,default) result(output)
   implicit none
   
   logical, intent(in)           :: input(:)
   logical, intent(in), optional :: mask(:)
+  integer, intent(in), optional :: default
   integer                       :: output
   
   integer :: i
@@ -225,15 +296,23 @@ function last_logicals(input,mask) result(output)
     endif
   enddo
   
-  output = 0
+  ! There is no value to return.
+  ! Return default if present, throw an error if not.
+  if (present(default)) then
+    output = default
+  else
+    call print_line(ERROR//': value not found.')
+    call err()
+  endif
 end function
 
-function last_LogicalLambda(input,lambda,mask) result(output)
+function last_LogicalLambda(input,lambda,mask,default) result(output)
   implicit none
   
   class(*), intent(in)          :: input(:)
   procedure(LogicalLambda)      :: lambda
   logical, intent(in), optional :: mask(:)
+  integer, intent(in), optional :: default
   integer                       :: output
   
   integer :: i
@@ -251,27 +330,38 @@ function last_LogicalLambda(input,lambda,mask) result(output)
     if (present(mask)) then
       if (lambda(input(i)) .and. mask(i)) then
         output = i
-        exit
+        return
       endif
     else
       if (lambda(input(i))) then
         output = i
-        exit
+        return
       endif
     endif
   enddo
+  
+  ! There is no value to return.
+  ! Return default if present, throw an error if not.
+  if (present(default)) then
+    output = default
+  else
+    call print_line(ERROR//': value not found.')
+    call err()
+  endif
 end function
 
-function last_ComparisonLambda(input,lambda,comparison,mask) result(output)
+function last_ComparisonLambda(input,lambda,comparison,mask,default) &
+   & result(output)
   implicit none
   
   class(*), intent(in)           :: input(:)
   procedure(ComparisonLambda)    :: lambda
   class(*), intent(in)           :: comparison
   logical,  intent(in), optional :: mask(:)
+  integer,  intent(in), optional :: default
   integer                        :: output
   
-  output = last(input,logical_lambda,mask)
+  output = last(input,logical_lambda,mask,default)
 contains
   function logical_lambda(input) result(output)
     implicit none
@@ -339,6 +429,35 @@ contains
     
     output = lambda(input,comparison)
   end function
+end function
+
+! ----------------------------------------------------------------------
+! Works as the intrinsic count function, returning the number of true
+!    elements in the input array.
+! The _LogicalLambda variant counts the number of array elements for
+!    which the lambda returns true.
+! The _ComparisonLambda variant counts the number of array elements which
+!    compare to true with the given comparison element.
+! ----------------------------------------------------------------------
+function count_LogicalLambda(input,lambda) result(output)
+  implicit none
+  
+  class(*), intent(in)     :: input(:)
+  procedure(LogicalLambda) :: lambda
+  integer                  :: output
+  
+  output = count(map(input,lambda))
+end function
+
+function count_ComparisonLambda(input,lambda,comparison) result(output)
+  implicit none
+  
+  class(*), intent(in)        :: input(:)
+  procedure(ComparisonLambda) :: lambda
+  class(*), intent(in)        :: comparison
+  integer                     :: output
+  
+  output = count(map(input,lambda,comparison))
 end function
 
 ! ----------------------------------------------------------------------

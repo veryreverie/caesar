@@ -810,7 +810,7 @@ subroutine print_line_Printable(this)
   type(String), allocatable :: lines(:)
   integer                   :: i
   
-  lines = this%str()
+  lines = str(this)
   do i=1,size(lines)
     call print_line(lines(i))
   enddo

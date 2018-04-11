@@ -38,7 +38,7 @@ module group_submodule
     procedure, private :: operate_Group_Group
     
     ! I/O.
-    procedure :: str => str_Group
+    procedure, public :: to_String => to_String_Group
   end type
   
   interface size
@@ -140,7 +140,7 @@ end function
 ! ----------------------------------------------------------------------
 ! I/O.
 ! ----------------------------------------------------------------------
-function str_Group(this) result(output)
+function to_String_Group(this) result(output)
   implicit none
   
   class(Group), intent(in) :: this

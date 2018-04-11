@@ -30,13 +30,11 @@ module degeneracy_module
     integer, allocatable, private :: modes_(:)
     ! qpoints(qpoints_(i)) is the q-point of the i'th degenerate mode.
     integer, allocatable, private :: qpoints_(:)
-    ! mode_ids(pairs_(i)) gives the ID of the paired mode to mode_ids(i).
-    integer, allocatable, private :: pairs_(:)
   contains
     procedure, public :: modes => modes_DegenerateModes
     procedure, public :: qpoints => qpoints_DegenerateModes
     
-    procedure, public :: str => str_DegenerateModes
+    procedure, public :: to_String => to_String_DegenerateModes
   end type
   
   interface size
@@ -58,8 +56,11 @@ function process_degeneracies(modes,mode_qpoints) result(output)
   
   integer :: i,j,ialloc
   
-  ! Make a list of degeneracy ids, with each id appearing exactly once.
+  ! Make a list of degeneracy ids.
   degeneracy_ids = modes%degeneracy_id
+  ! Remove the purely translational modes.
+  degeneracy_ids = degeneracy_ids(filter(.not.modes%translational_mode))
+  ! De-duplicate the list, so that each id appears exactly once.
   degeneracy_ids = degeneracy_ids(set(degeneracy_ids))
   
   ! Generate subspaces.
@@ -69,23 +70,6 @@ function process_degeneracies(modes,mode_qpoints) result(output)
     output(i)%modes_ = filter(modes%degeneracy_id==output(i)%id)
     output(i)%mode_ids = modes(output(i)%modes_)%id
     output(i)%qpoints_ = mode_qpoints(output(i)%modes_)
-    allocate(output(i)%pairs_(size(output(i))), stat=ialloc); call err(ialloc)
-    do j=1,size(output(i))
-      output(i)%pairs_(j) = &
-         & first(output(i)%mode_ids==modes(output(i)%modes_(j))%paired_id)
-    enddo
-    
-    ! Check pairs. Each mode should be paired with exactly one other.
-    if (any(output(i)%pairs_==0)) then
-      call print_line(CODE_ERROR//': Error pairing degenerate modes.')
-      call err()
-    endif
-    do j=1,size(output(i))
-      if (output(i)%pairs_(output(i)%pairs_(j))/=j) then
-        call print_line(CODE_ERROR//': Error pairing degenerate modes.')
-        call err()
-      endif
-    enddo
   enddo
 end function
 
@@ -130,7 +114,7 @@ end function
 ! ----------------------------------------------------------------------
 ! I/O.
 ! ----------------------------------------------------------------------
-recursive function str_DegenerateModes(this) result(output)
+recursive function to_String_DegenerateModes(this) result(output)
   implicit none
   
   class(DegenerateModes), intent(in) :: this

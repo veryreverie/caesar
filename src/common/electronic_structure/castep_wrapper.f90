@@ -541,7 +541,9 @@ function read_output_file_castep(filename,structure) result(output)
   do i=1,structure%no_atoms
     line = split(castep_file%line(forces_start_line+5+i))
     species = line(2)
-    j = first(structure%atoms%species()==species, mask=.not.atom_found)
+    j = first( structure%atoms%species()==species, &
+             & mask    = .not.atom_found,          &
+             & default = 0)
     if (j==0) then
       call print_line(ERROR//': The atoms in the Castep output file do not &
          &match those in the input file.')

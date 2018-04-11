@@ -39,7 +39,7 @@ module fraction_algebra_submodule
     generic,   public  :: assignment(=) => assign_FractionVector_IntFractions
     procedure, private ::                  assign_FractionVector_IntFractions
     
-    procedure :: str => str_FractionVector
+    procedure, public :: to_String => to_String_FractionVector
   end type
   
   type, extends(Printable) :: FractionMatrix
@@ -48,7 +48,7 @@ module fraction_algebra_submodule
     generic,   public  :: assignment(=) => assign_FractionMatrix_IntFractions
     procedure, private ::                  assign_FractionMatrix_IntFractions
     
-    procedure, public  :: str => str_FractionMatrix
+    procedure, public :: to_String => to_String_FractionMatrix
   end type
   
   ! Conversions to and from vector and matrix types.
@@ -1168,7 +1168,7 @@ end function
 ! ----------------------------------------------------------------------
 ! I/O overloads.
 ! ----------------------------------------------------------------------
-function str_FractionVector(this) result(output)
+function to_String_FractionVector(this) result(output)
   implicit none
   
   class(FractionVector), intent(in) :: this
@@ -1185,7 +1185,7 @@ function str_FractionVector(this) result(output)
   enddo
 end function
 
-function str_FractionMatrix(this) result(output)
+function to_String_FractionMatrix(this) result(output)
   implicit none
   
   class(FractionMatrix), intent(in) :: this

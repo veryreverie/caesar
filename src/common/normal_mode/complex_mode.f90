@@ -1,38 +1,7 @@
 ! ======================================================================
-! Harmonic normal modes.
+! Harmonic normal modes, in complex co-ordinates.
 ! ======================================================================
-!
-! Most calculation happens in normal mode co-ordinates, but setting up
-!    DFT calculations requires conversion to cartesian, and the results of
-!    DFT have to be converted from cartesian forces.
-!
-! - Co-ordinates can be converted between real and normal modes via the
-!      relevant class constructors.
-! - Displacements in real mode co-ordinates can be converted into cartesian
-!      co-ordinates using real_mode_to_displacement.
-! - Forces can be converted into real mode co-ordinates using
-!      force_to_real_mode.
-!
-! d(R,j) = sqrt(m_j)(r(R,j)-r0(R,j))
-! f(R,j) = -dV/dd(R,j)
-!
-! x(q,j) = 1/N * sum_R [ d(R,j) * exp( i q.R) ]
-! d(R,j) =       sum_q [ x(q,j) * exp(-i q.R) ]
-!
-! N.B. if 2q=G then q.R is a half-integer.
-!    => exp(i q.R) = cos(q.R) = +/- 1
-!    => x(q,j) is real for all j.
-!
-! x(q,j) = 1/N       * sum_R [ d(R,j) * cos(q.R) ]           (for 2q=G only)
-! c(q,j) = sqrt(2)/N * sum_R [ d(R,j) * cos(q.R) ]           (for 2q/=G)
-! s(q,j) = sqrt(2)/N * sum_R [ d(R,j) * sin(q.R) ]           (for 2q/=G)
-! d(R,j) =           sum_q [x_q * cos(q,R)]                  (sum over 2q=G)
-!        + sqrt(2) * sum_q [c_q * cos(q.R) + s_q * sin(q.R)] (sum over 2q/=G)
-!
-! ux(q,k) = sum_j [ U(q,j,k) * x(q,j) ]        (for 2q=G only)
-! uc(q,k) = sum_j [ U(q,j,k) * c(q,j) ]        (for 2q/=G)
-! us(q,k) = sum_j [ U(q,j,k) * s(q,j) ]        (for 2q/=G)
-module normal_mode_module
+module complex_mode_submodule
   use utils_module
   
   use structure_module
@@ -41,9 +10,9 @@ module normal_mode_module
   private
   
   public :: ComplexMode
-  
   public :: operator(*)
   public :: l2_norm
+  public :: conjg
   
   ! A normal mode in complex co-ordinates.
   type ComplexMode
@@ -77,6 +46,10 @@ module normal_mode_module
   
   interface l2_norm
     module procedure l2_norm_ComplexMode
+  end interface
+  
+  interface conjg
+    module procedure conjg_ComplexMode
   end interface
 contains
 
@@ -159,7 +132,7 @@ end function
 ! ----------------------------------------------------------------------
 ! Find the dot product between two complex modes.
 ! ----------------------------------------------------------------------
-function dot_ComplexModes(this,that) result(output)
+impure elemental function dot_ComplexModes(this,that) result(output)
   implicit none
   
   type(ComplexMode), intent(in) :: this
@@ -167,15 +140,31 @@ function dot_ComplexModes(this,that) result(output)
   complex(dp)                   :: output
   
   output = sum( this%primitive_displacements &
-            & * conjg(that%primitive_displacements) )
+            & * that%primitive_displacements )
 end function
 
-function l2_norm_ComplexMode(this) result(output)
+impure elemental function l2_norm_ComplexMode(this) result(output)
   implicit none
   
   type(ComplexMode), intent(in) :: this
   real(dp)                      :: output
   
-  output = sqrt(real(this*this))
+  output = sqrt(real(this*conjg(this)))
+end function
+
+! ----------------------------------------------------------------------
+! Take the conjugate of the mode.
+! This is equivalent to the transformation q -> -q.
+! ----------------------------------------------------------------------
+impure elemental function conjg_ComplexMode(input) result(output)
+  implicit none
+  
+  type(ComplexMode), intent(in) :: input
+  type(ComplexMode)             :: output
+  
+  output                         = input
+  output%id                      = input%paired_id
+  output%paired_id               = input%id
+  output%primitive_displacements = conjg(input%primitive_displacements)
 end function
 end module

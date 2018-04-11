@@ -19,6 +19,8 @@ module coupling_module
   public :: operator(//)
   public :: operator(==)
   public :: operator(/=)
+  public :: construct_complex_monomial
+  public :: construct_real_monomial
   
   ! A list of ids of degenerate subspaces which are coupled.
   type, extends(Stringable) :: CoupledSubspaces
@@ -32,15 +34,22 @@ module coupling_module
     procedure, public :: is_subsidiary_of
     
     ! I/O.
-    procedure, public :: str => str_CoupledSubspaces
+    procedure, public :: to_String => to_String_CoupledSubspaces
   end type
   
   ! A list of ids of modes which are coupled.
   type, extends(Stringable) :: CoupledModes
     integer, allocatable :: ids(:)
+    ! Whether or not the complex basis functions corresponding to this coupling
+    !    are part of the Hamiltonian. i.e. they conserve Bloch momentum.
+    logical :: conserves_momentum
+    ! Whether or not the complex basis functions corresponding to this coupling
+    !    are part of the VSCF Hamiltonian. i.e. they conserve Bloch momentum
+    !    within every coupled subspace.
+    logical :: conserves_vscf
   contains
     ! I/O.
-    procedure, public :: str => str_CoupledModes
+    procedure, public :: to_String => to_String_CoupledModes
   end type
   
   interface size
@@ -63,6 +72,68 @@ module coupling_module
     module procedure non_equality_CoupledModes_CoupledModes
   end interface
 contains
+
+! Constructs a complex monomial from a mode coupling.
+function construct_complex_monomial(input,complex_modes) result(output)
+  implicit none
+  
+  type(CoupledModes), intent(in) :: input
+  type(ComplexMode),  intent(in) :: complex_modes(:)
+  type(ComplexMonomial)          :: output
+  
+  integer, allocatable :: mode_ids(:)
+  
+  integer :: id
+  integer :: paired_id
+  integer :: power
+  
+  integer :: i,ialloc
+  
+  mode_ids = input%ids
+  mode_ids = mode_ids(set(mode_ids))
+  mode_ids = mode_ids(sort(mode_ids))
+  output%coefficient = 1
+  allocate(output%modes(size(mode_ids)), stat=ialloc); call err(ialloc)
+  do i=1,size(mode_ids)
+    id = mode_ids(i)
+    paired_id = complex_modes(first(complex_modes%id==id))%paired_id
+    power = count(input%ids==id)
+    output%modes(i) = ComplexUnivariate( id        = id,        &
+                                       & paired_id = paired_id, &
+                                       & power     = power)
+  enddo
+end function
+
+! Constructs a real monomial from a mode coupling.
+function construct_real_monomial(input,real_modes) result(output)
+  implicit none
+  
+  type(CoupledModes), intent(in) :: input
+  type(RealMode),     intent(in) :: real_modes(:)
+  type(RealMonomial)             :: output
+  
+  integer, allocatable :: mode_ids(:)
+  
+  integer :: id
+  integer :: paired_id
+  integer :: power
+  
+  integer :: i,ialloc
+  
+  mode_ids = input%ids
+  mode_ids = mode_ids(set(mode_ids))
+  mode_ids = mode_ids(sort(mode_ids))
+  output%coefficient = 1
+  allocate(output%modes(size(mode_ids)), stat=ialloc); call err(ialloc)
+  do i=1,size(mode_ids)
+    id = mode_ids(i)
+    paired_id = real_modes(first(real_modes%id==id))%paired_id
+    power = count(input%ids==id)
+    output%modes(i) = RealUnivariate( id        = id,        &
+                                    & paired_id = paired_id, &
+                                    & power     = power)
+  enddo
+end function
 
 ! size() functions.
 function size_CoupledSubspaces(this) result(output)
@@ -101,7 +172,9 @@ function concatenate_CoupledModes_integer(this,id) result(output)
   integer,            intent(in) :: id
   type(CoupledModes)             :: output
   
-  output = CoupledModes([this%ids, id])
+  output = CoupledModes( ids                = [this%ids, id],          &
+                       & conserves_momentum = this%conserves_momentum, &
+                       & conserves_vscf     = this%conserves_vscf)
 end function
 
 ! Compare couplings.
@@ -162,10 +235,6 @@ function coupled_subspaces(this,subspaces) result(output)
   allocate(output(size(this)), stat=ialloc); call err(ialloc)
   do i=1,size(output)
     j = first(subspaces%id==this%ids(i))
-    if (j==0) then
-      call print_line(CODE_ERROR//': Unable to locate subspace.')
-      call err()
-    endif
     output(i) = subspaces(j)
   enddo
 end function
@@ -314,14 +383,12 @@ end function
 ! Only returns couplings with sum(q)=0, modulo G-vectors.
 ! ----------------------------------------------------------------------
 recursive function generate_mode_coupling(coupled_subspaces,normal_modes, &
-   & qpoints,vscf_basis_functions_only,coupled_modes_in,sum_q_in)         &
-   & result(output)
+   & qpoints,coupled_modes_in,sum_q_in) result(output)
   implicit none
   
   type(DegenerateModes), intent(in)           :: coupled_subspaces(:)
   type(ComplexMode),     intent(in)           :: normal_modes(:)
   type(QpointData),      intent(in)           :: qpoints(:)
-  logical,               intent(in)           :: vscf_basis_functions_only
   type(CoupledModes),    intent(in), optional :: coupled_modes_in
   type(FractionVector),  intent(in), optional :: sum_q_in
   type(CoupledModes), allocatable             :: output(:)
@@ -334,7 +401,7 @@ recursive function generate_mode_coupling(coupled_subspaces,normal_modes, &
   type(CoupledModes)   :: coupled_modes_out
   type(FractionVector) :: sum_q_out
   
-  logical :: q_must_be_zero
+  logical :: last_mode_in_coupling
   
   integer :: i
   
@@ -348,28 +415,28 @@ recursive function generate_mode_coupling(coupled_subspaces,normal_modes, &
     coupled_modes = coupled_modes_in
     sum_q = sum_q_in
   else
-    coupled_modes = CoupledModes([integer::])
+    coupled_modes = CoupledModes( ids                = [integer::], &
+                                & conserves_momentum = .true.,      &
+                                & conserves_vscf     = .true.)
     sum_q = fracvec(zeroes(3))
   endif
   
   if (size(coupled_subspaces)==0) then
     ! There is nothing else to append. Check that the sum across q-points of
     !    the mode coupling is zero, and return the mode couplings.
-    if (is_int(sum_q_in)) then
-      output = [coupled_modes]
-    else
-      output = [CoupledModes::]
+    if (.not. is_int(sum_q_in)) then
+      coupled_modes%conserves_momentum = .false.
+      coupled_modes%conserves_vscf     = .false.
     endif
+    output = [coupled_modes]
   else
     ! If vscf_basis_functions_only is true, then only mode couplings which have
     !    sum(q)=0 for all degenerate subspaces are allowed.
-    q_must_be_zero = .false.
-    if (vscf_basis_functions_only) then
-      if (size(coupled_subspaces)>=2) then
-        if (coupled_subspaces(2)%id/=coupled_subspaces(1)%id) then
-          q_must_be_zero = .true.
-        endif
-      endif
+    last_mode_in_coupling = .false.
+    if (size(coupled_subspaces)==1) then
+      last_mode_in_coupling = .true.
+    elseif (coupled_subspaces(2)%id/=coupled_subspaces(1)%id) then
+      last_mode_in_coupling = .true.
     endif
     
     ! Loop over modes in this subspaces, recursively calling this function for
@@ -379,16 +446,16 @@ recursive function generate_mode_coupling(coupled_subspaces,normal_modes, &
     do i=1,size(coupled_subspaces(1))
       coupled_modes_out = coupled_modes//coupled_subspaces(1)%mode_ids(i)
       sum_q_out = sum_q + subspace_qpoints(i)%qpoint
-      if ((.not. q_must_be_zero) .or. is_int(sum_q)) then
-        output = [ output,                                            &
-               &   generate_mode_coupling( coupled_subspaces(2:),     &
-               &                           normal_modes,              &
-               &                           qpoints,                   &
-               &                           vscf_basis_functions_only, &
-               &                           coupled_modes_out,              &
-               &                           sum_q_out)                 &
-               & ]
+      if (last_mode_in_coupling .and. .not. is_int(sum_q_out)) then
+        coupled_modes_out%conserves_vscf = .false.
       endif
+      output = [ output,                                            &
+             &   generate_mode_coupling( coupled_subspaces(2:),     &
+             &                           normal_modes,              &
+             &                           qpoints,                   &
+             &                           coupled_modes_out,         &
+             &                           sum_q_out)                 &
+             & ]
     enddo
   endif
 end function
@@ -643,7 +710,7 @@ end function
 ! ----------------------------------------------------------------------
 ! I/O.
 ! ----------------------------------------------------------------------
-recursive function str_CoupledSubspaces(this) result(output)
+recursive function to_String_CoupledSubspaces(this) result(output)
   implicit none
   
   class(CoupledSubspaces), intent(in) :: this
@@ -652,7 +719,7 @@ recursive function str_CoupledSubspaces(this) result(output)
   output = join(this%ids)
 end function
 
-recursive function str_CoupledModes(this) result(output)
+recursive function to_String_CoupledModes(this) result(output)
   implicit none
   
   class(CoupledModes), intent(in) :: this

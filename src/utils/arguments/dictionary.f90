@@ -206,7 +206,7 @@ function index_Dictionary_character(this,keyword) result(output)
   character(*),      intent(in) :: keyword
   integer                       :: output
   
-  output = first(this%keywords%keyword == keyword)
+  output = first(this%keywords%keyword == keyword,default=0)
   
   if (output==0) then
     call print_line(ERROR//': unexpected keyword: '//keyword//'.')
@@ -235,7 +235,7 @@ function index_by_flag_Dictionary_character(this,flag) result(output)
   character(1),      intent(in) :: flag
   integer                       :: output
   
-  output = first(this%keywords,flag_matches)
+  output = first(this%keywords,flag_matches,default=0)
   
   if (output==0) then
     call print_line(ERROR//': unexpected flag: '//flag//'.')

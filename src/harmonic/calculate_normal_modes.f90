@@ -106,6 +106,11 @@ subroutine calculate_normal_modes(arguments)
   integer :: mode_id
   integer :: degeneracy_id
   
+  complex(dp), allocatable :: pair_overlap(:)
+  integer,     allocatable :: degenerate_ids(:)
+  complex(dp)              :: phase
+  integer                  :: paired_pos
+  
   ! Logfiles.
   type(OFile) :: force_logfile
   type(OFile) :: qpoint_logfile
@@ -312,8 +317,64 @@ subroutine calculate_normal_modes(arguments)
   do i=1,size(dynamical_matrices)
     j = qpoints(i)%paired_qpoint
     
-    dynamical_matrices(i)%complex_modes%paired_id = &
-       & dynamical_matrices(j)%complex_modes%id
+    if (j/=i) then
+      ! If -q /= q, the modes are set up so that the conjugate of a
+      !    mode at q is simply the mode in the same position at -q.
+      dynamical_matrices(i)%complex_modes%paired_id = &
+         & dynamical_matrices(j)%complex_modes%id
+    else
+      ! If q = -q, then it is necessary to identify conjugate modes.
+      do k=1,size(dynamical_matrices(i)%complex_modes)
+        ! Calculate the overlap of the conjugate of mode k with the other
+        !    modes. N.B. since the dot product would normaly involve a conjg,
+        !    the two conjugates cancel.
+        degenerate_ids =                                                  &
+           & filter( dynamical_matrices(i)%complex_modes%degeneracy_id == &
+           &         dynamical_matrices(i)%complex_modes(k)%degeneracy_id)
+        pair_overlap = dynamical_matrices(i)%complex_modes(degenerate_ids) &
+                   & * dynamical_matrices(i)%complex_modes(k)
+        ! conjg(mode(k)) should equal one mode (down to a phase change),
+        !    and have no overlap with any other mode.
+        ! Check that this is true, and identify the one mode.
+        if (count(abs(pair_overlap)<1e-2)/=size(pair_overlap)-1) then
+          call print_line(ERROR//': Modes at qpoint '//i//' do not transform &
+             &as expected under parity.')
+          call print_line(pair_overlap)
+          call err()
+        endif
+        
+        ! Get the position of the paired mode in the list of degenerate modes.
+        paired_pos = first(abs(abs(pair_overlap)-1)<1e-2)
+        ! Find and normalise the phase of the mode.
+        ! Only relevant for when this mode is its own pair, and must be made
+        !    real.
+        phase = sqrt(pair_overlap(paired_pos))
+        phase = phase / abs(phase)
+        ! Convert from position in degenerate modes to position in all modes.
+        paired_pos = degenerate_ids(paired_pos)
+        
+        ! Pair up modes.
+        if (paired_pos==k) then
+          ! The mode is paired to itself. Set paired_id, and divide by the
+          !    phase so that the mode is real.
+          dynamical_matrices(i)%complex_modes(k)%paired_id = &
+             & dynamical_matrices(i)%complex_modes(k)%id
+          dynamical_matrices(i)%complex_modes(k)%primitive_displacements =    &
+             & cmplxvec(real(                                                 &
+             & dynamical_matrices(i)%complex_modes(k)%primitive_displacements &
+             & / phase))
+        elseif (paired_pos>k) then
+          ! The mode is paired to another.
+          dynamical_matrices(i)%complex_modes(k)%paired_id = &
+             & dynamical_matrices(i)%complex_modes(paired_pos)%id
+          dynamical_matrices(i)%complex_modes(paired_pos) = &
+             & conjg(dynamical_matrices(i)%complex_modes(k))
+        elseif (paired_pos<k) then
+          ! The mode has already been handled, when its pair came up.
+          cycle
+        endif
+      enddo
+    endif
   enddo
   
   ! --------------------------------------------------

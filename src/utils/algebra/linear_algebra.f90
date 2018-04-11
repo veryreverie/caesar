@@ -21,6 +21,8 @@ module linear_algebra_submodule
   public :: zeroes
   public :: make_identity_matrix
   public :: int
+  public :: intvec
+  public :: intmat
   public :: nint
   public :: dble
   public :: dblevec
@@ -31,6 +33,7 @@ module linear_algebra_submodule
   public :: row_matrix
   public :: real
   public :: aimag
+  public :: abs
   public :: conjg
   public :: size
   public :: trace
@@ -54,44 +57,144 @@ module linear_algebra_submodule
   ! --------------------------------------------------
   ! Vector and Matrix classes
   ! --------------------------------------------------
-  type, extends(Stringable) :: IntVector
+  ! The actual Vector an Matrix classes extend from Vectorable and Matrixable
+  !    classes so that fewer overloads are needed.
+  ! Any type which extends ***able can be converted to *** by calling
+  !    %to_***().
+  type, abstract, extends(Stringable) :: ComplexVectorable
+  contains
+    procedure(to_ComplexVector_ComplexVectorable), deferred :: &
+       & to_ComplexVector
+  end type
+  
+  type, abstract, extends(ComplexVectorable) :: RealVectorable
+  contains
+    procedure(to_RealVector_RealVectorable), deferred :: to_RealVector
+  end type
+  
+  type, abstract, extends(RealVectorable) :: IntVectorable
+  contains
+    procedure(to_IntVector_IntVectorable), deferred :: to_IntVector
+  end type
+  
+  type, extends(IntVectorable) :: IntVector
     integer, allocatable, private :: contents_(:)
   contains
-    procedure, public :: str => str_IntVector
+    procedure, public :: to_IntVector     => to_IntVector_IntVector
+    procedure, public :: to_RealVector    => to_RealVector_IntVector
+    procedure, public :: to_ComplexVector => to_ComplexVector_IntVector
+    procedure, public :: to_String        => to_String_IntVector
   end type
   
-  type, extends(Stringable) :: RealVector
+  type, extends(RealVectorable) :: RealVector
     real(dp), allocatable, private :: contents_(:)
   contains
-    procedure, public :: str => str_RealVector
+    procedure, public :: to_RealVector    => to_RealVector_RealVector
+    procedure, public :: to_ComplexVector => to_ComplexVector_RealVector
+    procedure, public :: to_String        => to_String_RealVector
   end type
   
-  type, extends(Stringable) :: ComplexVector
+  type, extends(ComplexVectorable) :: ComplexVector
     complex(dp), allocatable, private :: contents_(:)
   contains
-    procedure, public :: str => str_ComplexVector
+    procedure, public :: to_ComplexVector => to_ComplexVector_ComplexVector
+    procedure, public :: to_String        => to_String_ComplexVector
   end type
   
-  type, extends(Printable) :: IntMatrix
+  abstract interface
+    function to_ComplexVector_ComplexVectorable(this) result(output)
+      import ComplexVector
+      import ComplexVectorable
+      
+      class(ComplexVectorable), intent(in) :: this
+      type(ComplexVector)                  :: output
+    end function
+    
+    function to_RealVector_RealVectorable(this) result(output)
+      import RealVector
+      import RealVectorable
+      
+      class(RealVectorable), intent(in) :: this
+      type(RealVector)                  :: output
+    end function
+    
+    function to_IntVector_IntVectorable(this) result(output)
+      import IntVector
+      import IntVectorable
+      
+      class(IntVectorable), intent(in) :: this
+      type(IntVector)                  :: output
+    end function
+  end interface
+  
+  type, abstract, extends(Printable) :: ComplexMatrixable
+  contains
+    procedure(to_ComplexMatrix_ComplexMatrixable), deferred :: &
+       & to_ComplexMatrix
+  end type
+  
+  type, abstract, extends(ComplexMatrixable) :: RealMatrixable
+  contains
+    procedure(to_RealMatrix_RealMatrixable), deferred :: to_RealMatrix
+  end type
+  
+  type, abstract, extends(RealMatrixable) :: IntMatrixable
+  contains
+    procedure(to_IntMatrix_IntMatrixable), deferred :: to_IntMatrix
+  end type
+  
+  type, extends(IntMatrixable) :: IntMatrix
     integer, allocatable, private :: contents_(:,:)
   contains
-    procedure, public :: str => str_IntMatrix
+    procedure, public :: to_IntMatrix     => to_IntMatrix_IntMatrix
+    procedure, public :: to_RealMatrix    => to_RealMatrix_IntMatrix
+    procedure, public :: to_ComplexMatrix => to_ComplexMatrix_IntMatrix
+    procedure, public :: to_String        => to_String_IntMatrix
   end type
   
-  type, extends(Printable) :: RealMatrix
+  type, extends(RealMatrixable) :: RealMatrix
     real(dp), allocatable, private :: contents_(:,:)
   contains
-    procedure, public :: str => str_RealMatrix
+    procedure, public :: to_RealMatrix    => to_RealMatrix_RealMatrix
+    procedure, public :: to_ComplexMatrix => to_ComplexMatrix_RealMatrix
+    procedure, public :: to_String        => to_String_RealMatrix
   end type
   
-  type, extends(Printable) :: ComplexMatrix
+  type, extends(ComplexMatrixable) :: ComplexMatrix
     complex(dp), allocatable, private :: contents_(:,:)
   contains
-    procedure, public :: str => str_ComplexMatrix
+    procedure, public :: to_ComplexMatrix => to_ComplexMatrix_ComplexMatrix
+    procedure, public :: to_String        => to_String_ComplexMatrix
   end type
   
+  abstract interface
+    function to_ComplexMatrix_ComplexMatrixable(this) result(output)
+      import ComplexMatrix
+      import ComplexMatrixable
+      
+      class(ComplexMatrixable), intent(in) :: this
+      type(ComplexMatrix)                  :: output
+    end function
+    
+    function to_RealMatrix_RealMatrixable(this) result(output)
+      import RealMatrix
+      import RealMatrixable
+      
+      class(RealMatrixable), intent(in) :: this
+      type(RealMatrix)                  :: output
+    end function
+    
+    function to_IntMatrix_IntMatrixable(this) result(output)
+      import IntMatrix
+      import IntMatrixable
+      
+      class(IntMatrixable), intent(in) :: this
+      type(IntMatrix)                  :: output
+    end function
+  end interface
+  
   ! --------------------------------------------------
-  ! Overloads for vector / matrix operations.
+  ! Assignment and retrieval of contents.
   ! --------------------------------------------------
   interface assignment(=)
     module procedure assign_IntVector_integers
@@ -102,6 +205,24 @@ module linear_algebra_submodule
     module procedure assign_ComplexMatrix_complexes
   end interface
   
+  interface int
+    module procedure int_IntVector
+    module procedure int_IntMatrix
+  end interface
+  
+  interface dble
+    module procedure dble_RealVector
+    module procedure dble_RealMatrix
+  end interface
+  
+  interface cmplx
+    module procedure cmplx_ComplexVector
+    module procedure cmplx_ComplexMatrix
+  end interface
+  
+  ! --------------------------------------------------
+  ! Conversion between types.
+  ! --------------------------------------------------
   interface vec
     module procedure vec_integers
     module procedure vec_reals
@@ -117,93 +238,35 @@ module linear_algebra_submodule
     module procedure mat_complexes_shape
   end interface
   
-  interface zeroes
-    module procedure zeroes_IntVector
-    module procedure zeroes_IntMatrix
+  interface intvec
+    module procedure intvec_IntVectorable
   end interface
   
-  interface int
-    module procedure int_IntVector
-    module procedure int_IntMatrix
-  end interface
-  
-  interface nint
-    module procedure nint_RealVector
-    module procedure nint_RealMatrix
-  end interface
-  
-  interface dble
-    module procedure dble_RealVector
-    module procedure dble_RealMatrix
+  interface intmat
+    module procedure intmat_IntMatrixable
   end interface
   
   interface dblevec
-    module procedure dblevec_IntVector
+    module procedure dblevec_RealVectorable
   end interface
   
   interface dblemat
-    module procedure dblemat_IntMatrix
-  end interface
-  
-  interface cmplx
-    module procedure cmplx_ComplexVector
-    module procedure cmplx_ComplexMatrix
+    module procedure dblemat_RealMatrixable
   end interface
   
   interface cmplxvec
-    module procedure cmplxvec_IntVectors
-    module procedure cmplxvec_RealVectors
+    module procedure cmplxvec_ComplexVectorable
+    module procedure cmplxvec_RealVectorables
   end interface
   
   interface cmplxmat
-    module procedure cmplxmat_IntMatrices
-    module procedure cmplxmat_RealMatrices
+    module procedure cmplxmat_ComplexMatrixable
+    module procedure cmplxmat_RealMatrixables
   end interface
   
-  interface row_matrix
-    module procedure row_matrix_IntVectors
-    module procedure row_matrix_RealVectors
-    module procedure row_matrix_ComplexVectors
-  end interface
-  
-  interface real
-    module procedure real_ComplexVector
-    module procedure real_ComplexMatrix
-  end interface
-  
-  interface aimag
-    module procedure aimag_ComplexVector
-    module procedure aimag_ComplexMatrix
-  end interface
-  
-  interface conjg
-    module procedure conjg_ComplexVector
-    module procedure conjg_ComplexMatrix
-  end interface
-  
-  interface size
-    module procedure size_IntVector
-    module procedure size_RealVector
-    module procedure size_ComplexVector
-    module procedure size_IntMatrix
-    module procedure size_RealMatrix
-    module procedure size_ComplexMatrix
-  end interface
-  
-  interface trace
-    module procedure trace_IntMatrix
-    module procedure trace_RealMatrix
-    module procedure trace_ComplexMatrix
-  end interface
-  
-  interface commutator
-    module procedure commutator_IntMatrix_IntMatrix
-  end interface
-  
-  interface matrices_commute
-    module procedure matrices_commute_IntMatrix_IntMatrix
-  end interface
-  
+  ! --------------------------------------------------
+  ! Comparison and arithmetic.
+  ! --------------------------------------------------
   interface operator(==)
     module procedure equality_IntVector_IntVector
     module procedure equality_IntMatrix_IntMatrix
@@ -355,6 +418,68 @@ module linear_algebra_submodule
     module procedure divide_ComplexMatrix_complex
   end interface
   
+  ! --------------------------------------------------
+  ! Other operations.
+  ! --------------------------------------------------
+  interface zeroes
+    module procedure zeroes_IntVector
+    module procedure zeroes_IntMatrix
+  end interface
+  
+  interface nint
+    module procedure nint_RealVector
+    module procedure nint_RealMatrix
+  end interface
+  
+  interface real
+    module procedure real_ComplexVector
+    module procedure real_ComplexMatrix
+  end interface
+  
+  interface aimag
+    module procedure aimag_ComplexVector
+    module procedure aimag_ComplexMatrix
+  end interface
+  
+  interface abs
+    module procedure abs_ComplexVector
+    module procedure abs_ComplexMatrix
+  end interface
+  
+  interface conjg
+    module procedure conjg_ComplexVector
+    module procedure conjg_ComplexMatrix
+  end interface
+  
+  interface size
+    module procedure size_IntVector
+    module procedure size_RealVector
+    module procedure size_ComplexVector
+    module procedure size_IntMatrix
+    module procedure size_RealMatrix
+    module procedure size_ComplexMatrix
+  end interface
+  
+  interface trace
+    module procedure trace_IntMatrix
+    module procedure trace_RealMatrix
+    module procedure trace_ComplexMatrix
+  end interface
+  
+  interface commutator
+    module procedure commutator_IntMatrix_IntMatrix
+  end interface
+  
+  interface matrices_commute
+    module procedure matrices_commute_IntMatrix_IntMatrix
+  end interface
+  
+  interface row_matrix
+    module procedure row_matrix_IntVectors
+    module procedure row_matrix_RealVectors
+    module procedure row_matrix_ComplexVectors
+  end interface
+  
   interface sum
     module procedure sum_IntVectors
     module procedure sum_RealVectors
@@ -396,9 +521,6 @@ module linear_algebra_submodule
     module procedure invert_RealMatrix
   end interface
   
-  ! --------------------------------------------------
-  ! Linear least-squares optimisation.
-  ! --------------------------------------------------
   interface linear_least_squares
     module procedure linear_least_squares_reals_reals
     module procedure linear_least_squares_reals_RealVector
@@ -677,14 +799,193 @@ function cmplx_ComplexMatrix(input) result(output)
 end function
 
 ! ----------------------------------------------------------------------
-! All other Vector and Matrix operations.
+! Conversions between types.
 ! ----------------------------------------------------------------------
-! N.B. the number of procedures accessing contents_ directly is intentionally
-!    limited for stability reasons.
-! The above procedures behave well if contents_ has not been allocated,
-!    and this good behaviour is automatically passed to the procedures below.
+! Private conversion to other vector/matrix types.
+function to_IntVector_IntVector(this) result(output)
+  implicit none
+  
+  class(IntVector), intent(in) :: this
+  type(IntVector)              :: output
+  
+  output = this
+end function
 
-! Conversion to Vector and Matrix.
+function to_RealVector_IntVector(this) result(output)
+  implicit none
+  
+  class(IntVector), intent(in) :: this
+  type(RealVector)             :: output
+  
+  output = real(int(this),dp)
+end function
+
+function to_ComplexVector_IntVector(this) result(output)
+  implicit none
+  
+  class(IntVector), intent(in) :: this
+  type(ComplexVector)          :: output
+  
+  output = cmplx(int(this),0,dp)
+end function
+
+function to_RealVector_RealVector(this) result(output)
+  implicit none
+  
+  class(RealVector), intent(in) :: this
+  type(RealVector)              :: output
+  
+  output = this
+end function
+
+function to_ComplexVector_RealVector(this) result(output)
+  implicit none
+  
+  class(RealVector), intent(in) :: this
+  type(ComplexVector)           :: output
+  
+  output = cmplx(dble(this),0.0_dp,dp)
+end function
+
+function to_ComplexVector_ComplexVector(this) result(output)
+  implicit none
+  
+  class(ComplexVector), intent(in) :: this
+  type(ComplexVector)              :: output
+  
+  output = this
+end function
+
+function to_IntMatrix_IntMatrix(this) result(output)
+  implicit none
+  
+  class(IntMatrix), intent(in) :: this
+  type(IntMatrix)              :: output
+  
+  output = this
+end function
+
+function to_RealMatrix_IntMatrix(this) result(output)
+  implicit none
+  
+  class(IntMatrix), intent(in) :: this
+  type(RealMatrix)             :: output
+  
+  output = real(int(this),dp)
+end function
+
+function to_ComplexMatrix_IntMatrix(this) result(output)
+  implicit none
+  
+  class(IntMatrix), intent(in) :: this
+  type(ComplexMatrix)          :: output
+  
+  output = cmplx(int(this),0,dp)
+end function
+
+function to_RealMatrix_RealMatrix(this) result(output)
+  implicit none
+  
+  class(RealMatrix), intent(in) :: this
+  type(RealMatrix)              :: output
+  
+  output = this
+end function
+
+function to_ComplexMatrix_RealMatrix(this) result(output)
+  implicit none
+  
+  class(RealMatrix), intent(in) :: this
+  type(ComplexMatrix)           :: output
+  
+  output = cmplx(dble(this),0.0_dp,dp)
+end function
+
+function to_ComplexMatrix_ComplexMatrix(this) result(output)
+  implicit none
+  
+  class(ComplexMatrix), intent(in) :: this
+  type(ComplexMatrix)              :: output
+  
+  output = this
+end function
+
+! Public conversion to other vector/matrix types.
+impure elemental function intvec_IntVectorable(input) result(output)
+  implicit none
+  
+  class(IntVectorable), intent(in) :: input
+  type(IntVector)                  :: output
+  
+  output = input%to_IntVector()
+end function
+
+impure elemental function intmat_IntMatrixable(input) result(output)
+  implicit none
+  
+  class(IntMatrixable), intent(in) :: input
+  type(IntMatrix)                  :: output
+  
+  output = input%to_IntMatrix()
+end function
+
+impure elemental function dblevec_RealVectorable(input) result(output)
+  implicit none
+  
+  class(RealVectorable), intent(in) :: input
+  type(RealVector)                  :: output
+  
+  output = input%to_RealVector()
+end function
+
+impure elemental function dblemat_RealMatrixable(input) result(output)
+  implicit none
+  
+  class(RealMatrixable), intent(in) :: input
+  type(RealMatrix)                  :: output
+  
+  output = input%to_RealMatrix()
+end function
+
+impure elemental function cmplxvec_ComplexVectorable(input) result(output)
+  implicit none
+  
+  class(ComplexVectorable), intent(in) :: input
+  type(ComplexVector)                  :: output
+  
+  output = input%to_ComplexVector()
+end function
+
+impure elemental function cmplxvec_RealVectorables(real,imag) result(output)
+  implicit none
+  
+  class(RealVectorable), intent(in) :: real
+  class(RealVectorable), intent(in) :: imag
+  type(ComplexVector)               :: output
+  
+  output = cmplx(dble(real%to_RealVector()),dble(imag%to_RealVector()),dp)
+end function
+
+impure elemental function cmplxmat_ComplexMatrixable(input) result(output)
+  implicit none
+  
+  class(ComplexMatrixable), intent(in) :: input
+  type(ComplexMatrix)                  :: output
+  
+  output = input%to_ComplexMatrix()
+end function
+
+impure elemental function cmplxmat_RealMatrixables(real,imag) result(output)
+  implicit none
+  
+  class(RealMatrixable), intent(in) :: real
+  class(RealMatrixable), intent(in) :: imag
+  type(ComplexMatrix)               :: output
+  
+  output = cmplx(dble(real%to_RealMatrix()),dble(imag%to_RealMatrix()),dp)
+end function
+
+! Conversion to Vector and Matrix from intrinsic types.
 function vec_integers(input) result(output)
   implicit none
   
@@ -772,6 +1073,14 @@ function mat_complexes_shape(input,m,n) result(output)
   output = transpose(reshape(input, [m,n]))
 end function
 
+! ----------------------------------------------------------------------
+! All other Vector and Matrix operations.
+! ----------------------------------------------------------------------
+! N.B. the number of procedures accessing contents_ directly is intentionally
+!    limited for stability reasons.
+! The above procedures behave well if contents_ has not been allocated,
+!    and this good behaviour is automatically passed to the procedures below.
+
 ! Makes a length n vector full of zeroes.
 function zeroes_IntVector(n) result(output)
   implicit none
@@ -820,7 +1129,7 @@ function make_identity_matrix(n) result(output)
   output = contents
 end function
 
-! Conversion to other fundamental types.
+! Conversion to nearest integer.
 function nint_RealVector(input) result(output)
   implicit none
   
@@ -837,80 +1146,6 @@ function nint_RealMatrix(input) result(output)
   integer, allocatable         :: output(:,:)
   
   output = nint(dble(input))
-end function
-
-function dblevec_IntVector(input) result(output)
-  implicit none
-  
-  type(IntVector), intent(in) :: input
-  type(RealVector)            :: output
-  
-  output = real(int(input),dp)
-end function
-
-function dblemat_IntMatrix(input) result(output)
-  implicit none
-  
-  type(IntMatrix), intent(in) :: input
-  type(RealMatrix)            :: output
-  
-  output = real(int(input),dp)
-end function
-
-function cmplxvec_IntVectors(real,imag) result(output)
-  implicit none
-  
-  type(IntVector), intent(in)           :: real
-  type(IntVector), intent(in), optional :: imag
-  type(ComplexVector)                   :: output
-  
-  if (present(imag)) then
-    output = cmplx(int(real),int(imag),dp)
-  else
-    output = cmplx(int(real),0,dp)
-  endif
-end function
-
-function cmplxmat_IntMatrices(real,imag) result(output)
-  implicit none
-  
-  type(IntMatrix), intent(in)           :: real
-  type(IntMatrix), intent(in), optional :: imag
-  type(ComplexMatrix)                   :: output
-  
-  if (present(imag)) then
-    output = cmplx(int(real),int(imag),dp)
-  else
-    output = cmplx(int(real),0,dp)
-  endif
-end function
-
-function cmplxvec_RealVectors(real,imag) result(output)
-  implicit none
-  
-  type(RealVector), intent(in)           :: real
-  type(RealVector), intent(in), optional :: imag
-  type(ComplexVector)                    :: output
-  
-  if (present(imag)) then
-    output = cmplx(dble(real),dble(imag),dp)
-  else
-    output = cmplx(dble(real),0,dp)
-  endif
-end function
-
-function cmplxmat_RealMatrices(real,imag) result(output)
-  implicit none
-  
-  type(RealMatrix), intent(in)           :: real
-  type(RealMatrix), intent(in), optional :: imag
-  type(ComplexMatrix)                    :: output
-  
-  if (present(imag)) then
-    output = cmplx(dble(real),dble(imag),dp)
-  else
-    output = cmplx(dble(real),0,dp)
-  endif
 end function
 
 ! Makes a matrix whose rows are the input vectors.
@@ -1034,6 +1269,25 @@ impure elemental function aimag_ComplexMatrix(input) result(output)
   type(RealMatrix)                :: output
   
   output = aimag(cmplx(input))
+end function
+
+! Element-wise abs of a complex object.
+impure elemental function abs_ComplexVector(input) result(output)
+  implicit none
+  
+  type(ComplexVector), intent(in) :: input
+  type(RealVector)                :: output
+  
+  output = abs(cmplx(input))
+end function
+
+impure elemental function abs_ComplexMatrix(input) result(output)
+  implicit none
+  
+  type(ComplexMatrix), intent(in) :: input
+  type(RealMatrix)                :: output
+  
+  output = abs(cmplx(input))
 end function
 
 ! Conjugate of a complex object.
@@ -2936,85 +3190,6 @@ function invert_RealMatrix(input) result(output)
   output = invert(dble(input))
 end function
 
-! I/O overloads.
-function str_IntVector(this) result(output)
-  implicit none
-  
-  class(IntVector), intent(in) :: this
-  type(String)                 :: output
-  
-  output = join(int(this))
-end function
-
-function str_RealVector(this) result(output)
-  implicit none
-  
-  class(RealVector), intent(in) :: this
-  type(String)                  :: output
-  
-  output = join(dble(this))
-end function
-
-function str_ComplexVector(this) result(output)
-  implicit none
-  
-  class(ComplexVector), intent(in) :: this
-  type(String)                     :: output
-  
-  output = join(cmplx(this))
-end function
-
-function str_IntMatrix(this) result(output)
-  implicit none
-  
-  Class(IntMatrix), intent(in) :: this
-  type(String), allocatable    :: output(:)
-  
-  integer, allocatable :: contents(:,:)
-  
-  integer :: i,ialloc
-  
-  contents = int(this)
-  allocate(output(size(contents,1)), stat=ialloc); call err(ialloc)
-  do i=1,size(contents,1)
-    output(i) = join(contents(i,:))
-  enddo
-end function
-
-function str_RealMatrix(this) result(output)
-  implicit none
-  
-  Class(RealMatrix), intent(in) :: this
-  type(String), allocatable     :: output(:)
-  
-  real(dp), allocatable :: contents(:,:)
-  
-  integer :: i,ialloc
-  
-  contents = dble(this)
-  allocate(output(size(contents,1)), stat=ialloc); call err(ialloc)
-  do i=1,size(contents,1)
-    output(i) = join(contents(i,:))
-  enddo
-end function
-
-function str_ComplexMatrix(this) result(output)
-  implicit none
-  
-  Class(ComplexMatrix), intent(in) :: this
-  type(String), allocatable        :: output(:)
-  
-  complex(dp), allocatable :: contents(:,:)
-  
-  integer :: i,ialloc
-  
-  contents = cmplx(this)
-  allocate(output(size(contents,1)), stat=ialloc); call err(ialloc)
-  do i=1,size(contents,1)
-    output(i) = join(contents(i,:))
-  enddo
-end function
-
 ! --------------------------------------------------
 ! Finds x which minimises the least-squares fit l=(a.x-b)**2.
 ! --------------------------------------------------
@@ -3100,5 +3275,86 @@ function linear_least_squares_RealMatrix_RealVector(a,b) result(x)
   type(RealVector)             :: x
   
   x = linear_least_squares(dble(a),dble(b))
+end function
+
+! ----------------------------------------------------------------------
+! I/O overloads.
+! ----------------------------------------------------------------------
+function to_String_IntVector(this) result(output)
+  implicit none
+  
+  class(IntVector), intent(in) :: this
+  type(String)                 :: output
+  
+  output = join(int(this))
+end function
+
+function to_String_RealVector(this) result(output)
+  implicit none
+  
+  class(RealVector), intent(in) :: this
+  type(String)                  :: output
+  
+  output = join(dble(this))
+end function
+
+function to_String_ComplexVector(this) result(output)
+  implicit none
+  
+  class(ComplexVector), intent(in) :: this
+  type(String)                     :: output
+  
+  output = join(cmplx(this))
+end function
+
+function to_String_IntMatrix(this) result(output)
+  implicit none
+  
+  Class(IntMatrix), intent(in) :: this
+  type(String), allocatable    :: output(:)
+  
+  integer, allocatable :: contents(:,:)
+  
+  integer :: i,ialloc
+  
+  contents = int(this)
+  allocate(output(size(contents,1)), stat=ialloc); call err(ialloc)
+  do i=1,size(contents,1)
+    output(i) = join(contents(i,:))
+  enddo
+end function
+
+function to_String_RealMatrix(this) result(output)
+  implicit none
+  
+  Class(RealMatrix), intent(in) :: this
+  type(String), allocatable     :: output(:)
+  
+  real(dp), allocatable :: contents(:,:)
+  
+  integer :: i,ialloc
+  
+  contents = dble(this)
+  allocate(output(size(contents,1)), stat=ialloc); call err(ialloc)
+  do i=1,size(contents,1)
+    output(i) = join(contents(i,:))
+  enddo
+end function
+
+function to_String_ComplexMatrix(this) result(output)
+  implicit none
+  
+  Class(ComplexMatrix), intent(in) :: this
+  type(String), allocatable        :: output(:)
+  
+  complex(dp), allocatable :: contents(:,:)
+  
+  integer :: i,ialloc
+  
+  contents = cmplx(this)
+  allocate(output(size(contents,1)), stat=ialloc); call err(ialloc)
+  do i=1,size(contents,1)
+    output(i) = join(contents(i,:))
+  enddo
 end function
 end module

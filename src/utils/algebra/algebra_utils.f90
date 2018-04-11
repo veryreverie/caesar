@@ -18,6 +18,7 @@ module algebra_utils_submodule
   public :: sum_squares
   public :: exp_2pii
   public :: factorial
+  public :: binomial
   public :: int_sqrt
   
   ! Greatest common denominator.
@@ -160,30 +161,62 @@ function factorial(input) result(output)
   integer             :: output
   
   ! Lookup is saved between calls of this function.
-  integer, allocatable, save :: lookup(:)
+  integer, allocatable, save :: factorials(:)
   integer, allocatable       :: temp(:)
   
-  integer :: i,ialloc
+  integer :: i,j,ialloc
   
-  ! Initialise lookup the first time factorial is called.
-  if (.not. allocated(lookup)) then
-    lookup = [1]
-  endif
-  
-  ! If the requested factorial has not previously been calculated,
-  !    extends lookup to include it.
-  if (input>=size(lookup)) then
-    temp = lookup
-    deallocate(lookup, stat=ialloc); call err(ialloc)
-    allocate(lookup(input+1), stat=ialloc); call err(ialloc)
-    lookup(:size(temp)) = temp
-    do i=size(temp)+1,size(lookup)
-      lookup(i) = (i-1)*lookup(i-1)
+  ! The first time this function is called,
+  !    calculate all storable factorials, {i!} s.t. i!<=huge(0).
+  if (.not. allocated(factorials)) then
+    ! Find the largest integer i s.t. i! is too large to be
+    !    stored as an integer.
+    i = 0
+    j = 1
+    do
+      i = i+1
+      if (j>huge(0)/i) then
+        allocate(factorials(i), stat=ialloc); call err(ialloc)
+        exit
+      endif
+      j = j*i ! j = i!.
+    enddo
+    
+    ! Calculate and store all storable factorials.
+    factorials(1) = 1
+    do i=1,size(factorials)-1
+      factorials(i+1) = factorials(i)*i ! factorials(i+1) = i!.
     enddo
   endif
   
-  ! lookup(1) = 0!, so lookup(n+1) = n!.
-  output = lookup(input+1)
+  ! Check that the input integer, n, obeys n>=0,
+  !    and small enough that n! is storable as an integer.
+  if (input<0) then
+    call print_line( ERROR//': Trying to calculate the factorial of an &
+       &integer less than 0.')
+    call err()
+  elseif (input>=size(factorials)) then
+    call print_line( ERROR//': Trying to calculate the factorial of an &
+       &integer greater than '//size(factorials)-1//'.')
+    call err()
+  endif
+  
+  ! factorials(1) = 0!, so factorials(n+1) = n!.
+  output = factorials(input+1)
+end function
+
+! ----------------------------------------------------------------------
+! Calculates the binomial coefficient of two integers.
+! binomial(a,b) = a!/(b!*(a-b)!)
+! ----------------------------------------------------------------------
+function binomial(top,bottom) result(output)
+  implicit none
+  
+  integer, intent(in) :: top
+  integer, intent(in) :: bottom
+  integer             :: output
+  
+  output = factorial(top) / (factorial(bottom)*factorial(top-bottom))
 end function
 
 ! ----------------------------------------------------------------------

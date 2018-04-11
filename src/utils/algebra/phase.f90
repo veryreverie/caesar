@@ -21,7 +21,7 @@ module phase_submodule
   type, extends(Stringable) :: PhaseData
     type(IntFraction) :: fraction
   contains
-    procedure, public :: str => str_PhaseData
+    procedure, public :: to_String => to_String_PhaseData
   end type
   
   interface PhaseData
@@ -114,7 +114,7 @@ end function
 ! ----------------------------------------------------------------------
 ! I/O overload.
 ! ----------------------------------------------------------------------
-function str_PhaseData(this) result(output)
+function to_String_PhaseData(this) result(output)
   implicit none
   
   class(PhaseData), intent(in) :: this

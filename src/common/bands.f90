@@ -1,3 +1,7 @@
+! ======================================================================
+! Electronic band structure information.
+! ======================================================================
+! N.B. this module is entirely untested.
 module bands_module
   use utils_module
   implicit none

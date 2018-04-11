@@ -7,7 +7,6 @@ module sampling_points_module
   use algebra_module
   
   use coupling_module
-  use normal_mode_module
   use mode_vector_module
   implicit none
   

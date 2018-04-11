@@ -291,44 +291,16 @@ function conjg_DynamicalMatrix(input) result(output)
   type(DynamicalMatrix), intent(in) :: input
   type(DynamicalMatrix)             :: output
   
-  ! Array sizes.
-  integer :: no_atoms
-  integer :: no_modes
-  
   ! Temporary variables.
-  integer :: i,j,ialloc
-  
-  no_atoms = size(input%matrices_,1)
-  no_modes = size(input%complex_modes)
+  integer :: i,ialloc
   
   ! The dynamical matrix at G-q is the complex conjugate of that at q.
-  allocate( output%matrices_(no_atoms,no_atoms), &
-          & stat=ialloc); call err(ialloc)
-  do i=1,no_atoms
-    do j=1,no_atoms
-      output%matrices_(j,i) = conjg(input%matrices_(j,i))
-    enddo
-  enddo
-  
-  ! The frequencies of the normal modes at G-q are the same as those at q.
-  allocate(output%complex_modes(no_modes), stat=ialloc); call err(ialloc)
-  do i=1,no_modes
-    output%complex_modes(i)%frequency = input%complex_modes(i)%frequency
-    output%complex_modes(i)%soft_mode = input%complex_modes(i)%soft_mode
-    output%complex_modes(i)%translational_mode = &
-       & input%complex_modes(i)%translational_mode
-  enddo
+  ! N.B. the complex conjugate, not the Hermitian conjugate.
+  output%matrices_ = conjg(input%matrices_)
   
   ! The displacements of the normal modes at G-q are the complex conjugates
   !    of those at q.
-  do i=1,no_modes
-    allocate( output%complex_modes(i)%primitive_displacements(no_atoms), &
-            & stat=ialloc); call err(ialloc)
-    do j=1,no_atoms
-      output%complex_modes(i)%primitive_displacements(j) = &
-         & conjg(input%complex_modes(i)%primitive_displacements(j))
-    enddo
-  enddo
+  output%complex_modes = conjg(input%complex_modes)
 end function
 
 ! ----------------------------------------------------------------------

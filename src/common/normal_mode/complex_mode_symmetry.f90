@@ -1,8 +1,12 @@
-module normal_mode_symmetry_module
+! ======================================================================
+! Methods for converting symmetries into complex normal mode co-ordinates.
+! ======================================================================
+module complex_mode_symmetry_submodule
   use utils_module
   
   use structure_module
-  use normal_mode_module
+  
+  use complex_mode_submodule
   implicit none
   
   private
@@ -88,26 +92,14 @@ function calculate_symmetry_in_normal_coordinates_qpoint(modes,qpoint, &
           & stat=ialloc); call err(ialloc)
   do i=1,size(modes)
     do j=1,size(modes)
-      dot_products(j,i) = modes(j) * rotated_modes(i)
+      dot_products(j,i) = conjg(modes(j)) * rotated_modes(i)
     enddo
   enddo
   
   output = dot_products
   
   ! Check that the symmetry is unitary.
-  check = sqrt(sum_squares( output*hermitian(output) &
-                        & - cmplxmat(make_identity_matrix(size(modes)))))
-  if (check>1e-14_dp) then
-    ! This check happens many times, so the 1e-14 limit on logging prevents
-    !    clutter.
-    call logfile%print_line('Error in unitarity of rotation: ' &
-       & //check)
-  endif
-  if (check>1e-10_dp) then
-    call print_line(WARNING//': Rotation between degenerate modes not &
-       &unitary. Please try adjusting degenerate_energy. Please check log &
-       &files.')
-  endif
+  call check_unitary(output,logfile)
 end function
 
 ! Takes {q1}, {u1}, {q2}, {u2} and S. Outputs {u2.S.u1}.
@@ -153,7 +145,7 @@ function calculate_symmetry_in_normal_coordinates_qpoints(modes,qpoints, &
   do i=1,size(modes)
     do j=1,size(modes)
       if (qpoints(j)==rotated_qpoints(i)) then
-        dot_products(j,i) = modes(j) * rotated_modes(i)
+        dot_products(j,i) = conjg(modes(j)) * rotated_modes(i)
       else
         dot_products(j,i) = cmplx(0.0_dp,0.0_dp,dp)
       endif
@@ -163,18 +155,6 @@ function calculate_symmetry_in_normal_coordinates_qpoints(modes,qpoints, &
   output = dot_products
   
   ! Check that the symmetry is unitary.
-  check = sqrt(sum_squares( output*hermitian(output) &
-                        & - cmplxmat(make_identity_matrix(size(modes)))))
-  if (check>1e-14_dp) then
-    ! This check happens many times, so the 1e-14 limit on logging prevents
-    !    clutter.
-    call logfile%print_line('Error in unitarity of rotation: ' &
-       & //check)
-  endif
-  if (check>1e-10_dp) then
-    call print_line(WARNING//': Rotation between degenerate modes not &
-       &unitary. Please try adjusting degenerate_energy. Please check log &
-       &files.')
-  endif
+  call check_unitary(output,logfile)
 end function
 end module

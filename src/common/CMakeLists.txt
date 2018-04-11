@@ -3,7 +3,7 @@ include(${CMAKE_SOURCE_DIR}/utils/include_guard.cmake)
 include_guard(common)
 
 # Common modules.
-add_library(common bands.f90 normal_mode.f90 normal_mode_symmetry.f90 common.f90)
+add_library(common bands.f90 common.f90)
 
 # Include subsidiary modules.
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/structure structure/)
@@ -11,6 +11,9 @@ target_link_libraries(common structure)
 
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/electronic_structure electronic_structure/)
 target_link_libraries(common electronic_structure)
+
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/normal_mode normal_mode/)
+target_link_libraries(common normal_mode)
 
 # Link against utils module.
 target_link_libraries(common utils)
