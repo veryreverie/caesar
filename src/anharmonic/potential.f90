@@ -9,6 +9,8 @@ module potential_module
   use coupling_module
   use grid_types_module
   use harmonic_states_module
+  use vscf_states_module
+  use product_states_module
   implicit none
   
   private
@@ -468,7 +470,6 @@ end subroutine
 !    a                  * u1^p1 * ... * um^pm * ...
 ! -> a*<bra|um^nm|ket>) * u1^p1 * ... * um^0  * ...
 subroutine integrate_PolynomialPotential_VscfStates(this,states,bra,ket)
-  use vscf_states_module
   implicit none
   
   class(PolynomialPotential), intent(inout) :: this
@@ -498,7 +499,6 @@ end subroutine
 ! Takes two product states, |bra> and |ket>, and forms <bra|V|ket>
 ! ----------------------------------------------------------------------
 subroutine integrate_PolynomialPotential_ProductState(this,states,bra,ket)
-  use product_states_module
   implicit none
   
   class(PolynomialPotential), intent(inout) :: this
@@ -524,7 +524,6 @@ end subroutine
 ! As above, but returns the coefficient rather than modifying the potential.
 ! ----------------------------------------------------------------------
 function integrate_to_constant(this,states,bra,ket) result(output)
-  use product_states_module
   implicit none
   
   class(PolynomialPotential), intent(inout) :: this
@@ -550,7 +549,6 @@ end function
 ! output(i+1,j+1) = <i|H|j> = <i|(T+V)|j>
 function construct_hamiltonian(this,states) &
    & result(output)
-  use harmonic_states_module
   implicit none
   
   class(PolynomialPotential), intent(in) :: this

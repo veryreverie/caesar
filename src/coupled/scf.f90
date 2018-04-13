@@ -2,9 +2,7 @@
 ! The scf loop for vscfCoupled
 ! ======================================================================
 module scf_old_module
-  use io_module
-  use precision_module
-  use algebra_module
+  use common_module
   implicit none
   
   type ScfOutput

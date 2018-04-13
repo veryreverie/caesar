@@ -2,12 +2,13 @@
 ! I/O operations.
 ! ======================================================================
 module io_submodule
-  use iso_fortran_env,  only : output_unit
+  use iso_fortran_env, only : INPUT_UNIT, OUTPUT_UNIT
   use precision_module
   use terminal_submodule
   use error_submodule
   use string_submodule
   use stringable_submodule
+  use printable_submodule
   implicit none
   
   private
@@ -47,7 +48,7 @@ module io_submodule
   type(String) :: CWD
   type(String) :: OLD_PATH
   type(String) :: PYTHON_SCRIPTS_PATH
-  integer      :: OUTPUT_FILE_UNIT = output_unit
+  integer      :: OUTPUT_FILE_UNIT = OUTPUT_UNIT
   
   ! Command line flag and argument.
   type :: CommandLineFlag
@@ -469,14 +470,13 @@ function get_flag(args,flags_without_arguments,flags_with_arguments) &
 end function
 
 function read_line_from_user() result(line)
-  use iso_fortran_env, only : input_unit
   implicit none
   
   type(String) :: line
   
   character(1000) :: char_line
   
-  read(input_unit,'(a)') char_line
+  read(INPUT_UNIT,'(a)') char_line
   line = trim(char_line)
 end function
 
@@ -628,7 +628,7 @@ subroutine set_output_unit(file_unit)
   
   integer, intent(in) :: file_unit
   
-  if (OUTPUT_FILE_UNIT/=output_unit) then
+  if (OUTPUT_FILE_UNIT/=OUTPUT_UNIT) then
     call print_line('Code Error: attempted to redirect stdout when it was &
        &already redirected.')
     call err()
@@ -640,7 +640,7 @@ end subroutine
 subroutine unset_output_unit()
   implicit none
   
-  OUTPUT_FILE_UNIT = output_unit
+  OUTPUT_FILE_UNIT = OUTPUT_UNIT
 end subroutine
 
 ! ----------------------------------------------------------------------
@@ -648,7 +648,6 @@ end subroutine
 ! ----------------------------------------------------------------------
 ! Always aborts.
 subroutine err_none()
-  use error_submodule, only : abort_with_stacktrace
   implicit none
   
   call abort_with_stacktrace()
@@ -707,7 +706,7 @@ subroutine print_line_character(line,indent)
   last_space = 0
   
   ! If not writing to the terminal, ignore line-breaking.
-  if (OUTPUT_FILE_UNIT/=output_unit) then
+  if (OUTPUT_FILE_UNIT/=OUTPUT_UNIT) then
     line_ends(1) = len(line)
   
   ! If writing to the terminal, identify line breaks.
@@ -802,7 +801,6 @@ subroutine print_line_Stringable(this,indent)
 end subroutine
 
 subroutine print_line_Printable(this)
-  use printable_submodule
   implicit none
   
   class(Printable), intent(in) :: this
@@ -1020,7 +1018,7 @@ function colour_character_character(input,colour_name) result(output)
   character(2) :: colour_code
   
   ! Supress colour if outputting to file.
-  if (OUTPUT_FILE_UNIT/=output_unit) then
+  if (OUTPUT_FILE_UNIT/=OUTPUT_UNIT) then
     output = input
     return
   endif

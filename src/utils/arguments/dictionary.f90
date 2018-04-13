@@ -5,6 +5,7 @@ module dictionary_submodule
   use precision_module
   use io_module
   use keyword_submodule
+  use logic_module
   implicit none
   
   private
@@ -199,7 +200,6 @@ end function
 ! Throws an error if the keyword is not found.
 ! If there are duplicate keys, returns the first match.
 function index_Dictionary_character(this,keyword) result(output)
-  use logic_module
   implicit none
   
   class(Dictionary), intent(in) :: this
@@ -228,7 +228,6 @@ end function
 ! As above, but by flag rather than keyword.
 ! ----------------------------------------------------------------------
 function index_by_flag_Dictionary_character(this,flag) result(output)
-  use logic_module
   implicit none
   
   class(Dictionary), intent(in) :: this

@@ -37,7 +37,6 @@ contains
 ! --------------------------------------------------
 function orthonormal_basis_RealVectors(input,shortest_valid, &
    & longest_invalid) result(output)
-  use logic_module
   implicit none
   
   type(RealVector), intent(in)  :: input(:)
@@ -96,7 +95,6 @@ end function
 
 function orthonormal_basis_ComplexVectors(input,shortest_valid, &
    & longest_invalid) result(output)
-  use logic_module
   implicit none
   
   type(ComplexVector), intent(in)  :: input(:)
@@ -159,7 +157,6 @@ end function
 !    given an orthonormal basis for each subspace.
 ! ----------------------------------------------------------------------
 function intersection_basis_ComplexVectors(a,b) result(output)
-  use logic_module
   implicit none
   
   type(ComplexVector), intent(in)  :: a(:)

@@ -2,12 +2,11 @@
 ! Holds information about points to be sampled.
 ! ======================================================================
 module sampling_points_module
-  use precision_module
-  use io_module
-  use algebra_module
+  use common_module
   
   use coupling_module
   use mode_vector_module
+  use grid_types_module
   implicit none
   
   ! The ids of the sampling point.
@@ -84,8 +83,6 @@ end function
 ! ----------------------------------------------------------------------
 function generate_sampling_points(grid_type,coupling,no_modes, &
    & no_sampling_points,sample_spacing) result(output)
-  use coupling_module
-  use grid_types_module
   implicit none
   
   type(String), intent(in)         :: grid_type

@@ -6,6 +6,7 @@
 ! This ensures that all of the memory management is in one place, and that the
 !    String class cannot cause segfaults or allocation errors.
 module string_base_submodule
+  use error_submodule
   implicit none
   
   private
@@ -45,7 +46,6 @@ end subroutine
 
 ! Conversion to character(*). Effectively a getter.
 function char_StringBase(this) result(output)
-  use error_submodule
   implicit none
   
   class(StringBase), intent(in) :: this

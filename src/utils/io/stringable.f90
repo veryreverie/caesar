@@ -11,6 +11,7 @@
 !    module below.
 module stringable_submodule
   use string_submodule
+  use error_submodule
   implicit none
   
   private
@@ -132,7 +133,6 @@ recursive function str_Stringable_0d(this) result(output)
 end function
 
 recursive function str_Stringable_1d(this) result(output)
-  use error_submodule
   implicit none
   
   class(Stringable), intent(in) :: this(:)
@@ -151,7 +151,6 @@ recursive function str_Stringable_1d(this) result(output)
 end function
 
 recursive function str_Stringable_2d(this) result(output)
-  use error_submodule
   implicit none
   
   class(Stringable), intent(in) :: this(:,:)

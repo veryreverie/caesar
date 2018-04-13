@@ -1,7 +1,5 @@
 module vscf_1d_module
-  use precision_module
-  use io_module
-  use algebra_module
+  use common_module
   implicit none
   
   ! Holds anharmonic potential data

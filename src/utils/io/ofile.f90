@@ -5,6 +5,7 @@ module ofile_submodule
   use precision_module
   use string_submodule
   use stringable_submodule
+  use printable_submodule
   use io_submodule
   use file_submodule
   implicit none
@@ -141,7 +142,6 @@ subroutine print_line_Stringable(this,line)
 end subroutine
 
 subroutine print_line_Printable(this,line)
-  use printable_submodule
   implicit none
   
   class(OFile),     intent(inout) :: this

@@ -6,6 +6,7 @@
 !    separate compiler_specific_submodule files.
 module error_submodule
   use terminal_submodule
+  use compiler_specific_submodule
   implicit none
   
   private
@@ -23,7 +24,6 @@ contains
 
 ! Abort with a stacktrace.
 subroutine abort_with_stacktrace()
-  use compiler_specific_submodule
   implicit none
   
   call err_implementation()

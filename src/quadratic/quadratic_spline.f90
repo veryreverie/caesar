@@ -13,8 +13,8 @@
 !                                                                         !
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 module quadratic_spline_module
-  use precision_module
-  use io_module
+  use common_module
+  implicit none
 contains
 
 ! An example of creating cubic-spline approximation of

@@ -1,6 +1,6 @@
 module spline2_module
-  use io_module
-  use precision_module
+  use common_module
+  implicit none
   
   interface spline
     module procedure spline_1d

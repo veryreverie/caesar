@@ -5,6 +5,9 @@
 module process_arguments_submodule
   use precision_module
   use io_module
+  
+  use dictionary_submodule
+  use keyword_submodule
   implicit none
   
   private
@@ -16,8 +19,6 @@ contains
 ! Main program.
 ! ----------------------------------------------------------------------
 function process_arguments(args,keywords_in) result(arguments)
-  use dictionary_submodule
-  use keyword_submodule
   implicit none
   
   type(String),      intent(in) :: args(:)

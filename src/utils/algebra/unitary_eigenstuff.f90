@@ -162,7 +162,6 @@ end function
 ! --------------------------------------------------
 ! Sorts outputs in order of the phase of the eigenvalue.
 function diagonalise_unitary_complexes(input,order) result(output)
-  use logic_module
   implicit none
   
   complex(dp), intent(in)              :: input(:,:)

@@ -6,8 +6,7 @@
 ! ======================================================================
 program caesar
   ! Use utility modules.
-  use io_module
-  use arguments_module
+  use common_module
   
   ! Use convergence modules.
   use converge_cutoff_and_kpoints_module
@@ -33,7 +32,6 @@ program caesar
   
   ! Use misc modules.
   use hartree_to_eV_module
-  
   implicit none
   
   ! Command line arguments.

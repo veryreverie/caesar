@@ -3,6 +3,10 @@
 ! ======================================================================
 module anharmonic_module
   use common_module
+  
+  use calculate_anharmonic_correction_module
+  use quadratic_spline_module
+  use vscf_1d_module
   implicit none
 contains
 
@@ -29,9 +33,6 @@ end function
 ! Main program.
 ! ----------------------------------------------------------------------
 subroutine anharmonic(arguments)
-  use calculate_anharmonic_correction_module
-  use quadratic_spline_module
-  use vscf_1d_module
   implicit none
   
   type(Dictionary), intent(in) :: arguments

@@ -1,7 +1,5 @@
 module calculate_gap_module
-  use precision_module
-  use io_module
-  use arguments_module
+  use common_module
   implicit none
 contains
 
