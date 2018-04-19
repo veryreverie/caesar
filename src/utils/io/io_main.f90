@@ -618,6 +618,7 @@ subroutine set_io_settings()
   caesar_dir = slice(exe_location,1,len(exe_location)-11)
   OLD_PATH = caesar_dir//'/old'
   PYTHON_SCRIPTS_PATH = caesar_dir//'/python'
+  call unset_output_unit()
 end subroutine
 
 ! ----------------------------------------------------------------------
@@ -635,12 +636,14 @@ subroutine set_output_unit(file_unit)
   endif
   
   OUTPUT_FILE_UNIT = file_unit
+  call set_error_strings_uncoloured()
 end subroutine
 
 subroutine unset_output_unit()
   implicit none
   
   OUTPUT_FILE_UNIT = OUTPUT_UNIT
+  call set_error_strings_coloured()
 end subroutine
 
 ! ----------------------------------------------------------------------

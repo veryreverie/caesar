@@ -65,6 +65,8 @@ subroutine test(arguments)
   
   wd = arguments%value('working_directory')
   
+  call print_line(WARNING//' '//ERROR//' '//CODE_ERROR)
+  
   t = .true.
   f = .false.
   
