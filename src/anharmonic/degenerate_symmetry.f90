@@ -2,7 +2,7 @@ module degenerate_symmetry_module
   use common_module
   
   use degeneracy_module
-  use coupling_module
+  use coupled_modes_module
   implicit none
   
   private
@@ -88,7 +88,7 @@ function calculate_symmetry(this,coupled_modes) result(output)
   type(IntArray1D), allocatable :: mode_positions(:)
   integer,          allocatable :: sort_key(:)
   
-  integer :: i,j,k,l,m,n,ialloc
+  integer :: i,j,k,ialloc
   
   if (size(coupled_modes)==0) then
     output = cmplxmat(zeroes(0,0))

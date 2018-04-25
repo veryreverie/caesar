@@ -10,6 +10,8 @@
 module io_module
   use error_submodule
   use string_submodule
+  use print_submodule
+  use intrinsics_submodule
   use stringable_submodule
   use printable_submodule
   use io_submodule

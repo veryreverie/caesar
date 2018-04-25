@@ -7,9 +7,12 @@ module setup_anharmonic_module
   use setup_harmonic_module
   
   use degeneracy_module
-  use coupling_module
+  use coupled_subspaces_module
+  use subspace_monomial_module
+  use coupled_modes_module
   use degenerate_symmetry_module
   use basis_function_module
+  use basis_functions_module
   implicit none
   
 contains
@@ -33,13 +36,14 @@ function setup_anharmonic_keywords() result(keywords)
   &a Monkhorst-Pack grid. This should be specified as three integers &
   &separated by spaces. All q-points in this grid must also appear in the &
   &grid used for harmonic calculations.'),                                    &
+  & KeywordData( 'maximum_coupling_order',                                    &
+  &              'maximum_coupling_order is the maximum number of degenerate &
+  &subspaces which may be coupled together. Must be at least 1.'),            &
   & KeywordData( 'potential_expansion_order',                                 &
   &              'potential_expansion_order is the order up to which the &
   &potential is expanded. e.g. if potential_expansion_order=4 then terms up &
-  &to and including u^4 are included.'),                                      &
-  & KeywordData( 'coupling_order',                                            &
-  &              'coupling_order is the maximum number of degenerate &
-  &subspaces which are coupled together.'),                                   &
+  &to and including u^4 are included. Must be at least 2, and at least as &
+  &large as maximum_coupling_order.'),                                        &
   & KeywordData( 'vscf_basis_functions_only',                                 &
   &              'vscf_basis_functions_only specifies that the potential will &
   &only be expanded in terms of basis functions which are relevant to vscf.', &
@@ -70,7 +74,7 @@ subroutine setup_anharmonic(arguments)
   type(String) :: wd
   type(String) :: harmonic_path
   integer      :: potential_expansion_order
-  integer      :: coupling_order
+  integer      :: maximum_coupling_order
   logical      :: vscf_basis_functions_only
   
   ! Previous user inputs.
@@ -99,10 +103,17 @@ subroutine setup_anharmonic(arguments)
   type(DegenerateSymmetry), allocatable :: degenerate_symmetries(:)
   
   ! Coupling data.
-  type(CoupledSubspaces), allocatable :: couplings(:)
+  type(CoupledSubspaces), allocatable :: coupled_subspaces(:)
+  type(SubspaceMonomial), allocatable :: subspace_monomials(:)
   
   ! Basis functions.
-  type(BasisFunction), allocatable :: basis_functions(:)
+  type(BasisFunctions), allocatable :: basis_functions(:)
+  
+  ! Directories and files.
+  type(OFile)               :: coupling_file
+  type(String)              :: max_subspace_id
+  type(String), allocatable :: coupling_strings(:)
+  type(String)              :: coupling_dir
   
   ! Logfile.
   type(OFile) :: logfile
@@ -115,7 +126,7 @@ subroutine setup_anharmonic(arguments)
   harmonic_path = arguments%value('harmonic_path')
   qpoint_grid = int(split(arguments%value('q-point_grid')))
   potential_expansion_order = int(arguments%value('potential_expansion_order'))
-  coupling_order = int(arguments%value('coupling_order'))
+  maximum_coupling_order = int(arguments%value('maximum_coupling_order'))
   vscf_basis_functions_only = &
      & lgcl(arguments%value('vscf_basis_functions_only'))
   
@@ -177,6 +188,7 @@ subroutine setup_anharmonic(arguments)
   enddo
   
   degenerate_subspaces = process_degeneracies(complex_modes,mode_qpoints)
+  max_subspace_id = str(maxval(degenerate_subspaces%id))
   
   ! Generate the symmetry operators in each subspace.
   allocate( degenerate_symmetries(size(structure%symmetries)), &
@@ -189,32 +201,50 @@ subroutine setup_anharmonic(arguments)
                                                  & logfile)
   enddo
   
-  ! Generate all possible couplings between subspaces.
-  couplings = generate_subspace_coupling( degenerate_subspaces,      &
-                                        & potential_expansion_order, &
-                                        & coupling_order)
-  
   ! Construct real modes from complex modes.
   real_modes = complex_to_real(complex_modes)
   
+  ! Generate all sets of coupled subspaces, up to maximum_coupling_order.
+  coupled_subspaces = generate_coupled_subspaces( degenerate_subspaces, &
+                                                & maximum_coupling_order)
+  
   ! Generate basis functions at each coupling.
-  basis_functions = [BasisFunction::]
-  do i=1,size(couplings)
-    basis_functions = [ basis_functions,                                     &
-                    &   generate_basis_functions( couplings(i),              &
-                    &                             structure,                 &
-                    &                             complex_modes,             &
-                    &                             real_modes,                &
-                    &                             qpoints,                   &
-                    &                             degenerate_subspaces,      &
-                    &                             degenerate_symmetries,     &
-                    &                             vscf_basis_functions_only, &
-                    &                             logfile )                  &
-                    & ]
+  allocate( basis_functions(size(coupled_subspaces)), &
+          & stat=ialloc); call err(ialloc)
+  do i=1,size(coupled_subspaces)
+    subspace_monomials = generate_subspace_monomials( &
+                              & coupled_subspaces(i), &
+                              & potential_expansion_order)
+    basis_functions(i) = generate_basis_functions( subspace_monomials,        &
+                                                 & structure,                 &
+                                                 & complex_modes,             &
+                                                 & real_modes,                &
+                                                 & qpoints,                   &
+                                                 & degenerate_subspaces,      &
+                                                 & degenerate_symmetries,     &
+                                                 & vscf_basis_functions_only, &
+                                                 & logfile)
   enddo
   
   ! Use basis functions to generate sampling points.
   ! TODO
+  
+  ! Write out coupling and basis functions.
+  coupling_file = wd//'/coupling.dat'
+  do i=1,size(coupled_subspaces)
+    ! Add entry to coupling file for this coupling.
+    call coupling_file%print_line(coupled_subspaces(i))
+    
+    ! Construct directory name from coupled subspace ids.
+    coupling_strings = left_pad( coupled_subspaces(i)%ids, &
+                               & max_subspace_id)
+    coupling_dir = wd//'/coupling_'//join(coupling_strings,delimiter='-')
+    
+    call mkdir(coupling_dir)
+    
+    ! Write basis functions to file.
+    call basis_functions(i)%write_file(coupling_dir//'/basis_functions.dat')
+  enddo
   
   ! Write out sampling points.
   ! TODO

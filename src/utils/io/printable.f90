@@ -56,7 +56,8 @@ module printable_example_submodule
   use printable_submodule
   
   type, extends(Printable) :: PrintableExample
-    integer, allocatable :: contents(:)
+    type(String) :: row1
+    type(String) :: row2
   contains
     procedure :: to_String => to_String_PrintableExample
   end type
@@ -68,6 +69,7 @@ function to_String_PrintableExample(this) result(output)
   class(PrintableExample), intent(in) :: this
   type(String), allocatable           :: output(:)
   
-  output = str(this%contents)
+  output = [ this%row1, &
+           & this%row2 ]
 end function
 end module

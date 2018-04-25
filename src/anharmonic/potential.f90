@@ -6,7 +6,7 @@ module potential_module
   
   use monomial_module
   use sampling_points_module
-  use coupling_module
+  use coupled_modes_module
   use grid_types_module
   use harmonic_states_module
   use vscf_states_module

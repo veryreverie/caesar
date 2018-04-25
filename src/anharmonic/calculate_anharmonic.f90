@@ -7,7 +7,7 @@ module calculate_anharmonic_module
   use setup_harmonic_module
   
   use setup_anharmonic_module
-  use coupling_module
+  use coupled_modes_module
   use sampling_points_module
   use single_mode_states_module
   use harmonic_states_module

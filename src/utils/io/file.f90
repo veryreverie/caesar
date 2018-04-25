@@ -4,6 +4,8 @@
 ! ======================================================================
 module file_submodule
   use precision_module
+  
+  use error_submodule
   use string_submodule
   use io_submodule
   implicit none

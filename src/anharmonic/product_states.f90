@@ -6,7 +6,7 @@ module product_states_module
   
   use vscf_states_module
   use single_mode_states_module
-  use coupling_module
+  use coupled_modes_module
   use grid_types_module
   implicit none
   

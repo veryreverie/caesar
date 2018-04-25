@@ -120,6 +120,19 @@ module real_polynomial_submodule
   interface operator(+)
     module procedure add_RealPolynomialable_RealPolynomialable
   end interface
+  
+  ! I/O.
+  interface RealUnivariate
+    module procedure new_RealUnivariate_String
+  end interface
+  
+  interface RealMonomial
+    module procedure new_RealMonomial_String
+  end interface
+  
+  interface RealPolynomial
+    module procedure new_RealPolynomial_Strings
+  end interface
 contains
 
 ! ----------------------------------------------------------------------
@@ -476,6 +489,8 @@ end function
 ! ----------------------------------------------------------------------
 ! I/O.
 ! ----------------------------------------------------------------------
+
+! Converts a univariate to string, and back again.
 function to_String_RealUnivariate(this) result(output)
   implicit none
   
@@ -485,6 +500,25 @@ function to_String_RealUnivariate(this) result(output)
   output = 'u'//this%id//'^'//this%power
 end function
 
+function new_RealUnivariate_String(input) result(this)
+  implicit none
+  
+  type(String), intent(in) :: input
+  type(RealUnivariate)     :: this
+  
+  type(String), allocatable :: split_string(:)
+  
+  split_string = split(input,delimiter='^')
+  if (size(split_string)/=2) then
+    call print_line(ERROR//': Unable to convert string to univariate.')
+    call err()
+  endif
+  
+  this%id = int(slice(split_string(1),2,len(split_string(1))))
+  this%power = int(split_string(2))
+end function
+
+! Converts a monomial to string, and back again.
 function to_String_RealMonomial(this) result(output)
   implicit none
   
@@ -495,10 +529,30 @@ function to_String_RealMonomial(this) result(output)
   
   output = this%coefficient
   do i=1,size(this%modes)
-    output = output//'.'//str(this%modes(i))
+    output = output//'*'//str(this%modes(i))
   enddo
 end function
 
+function new_RealMonomial_String(input) result(this)
+  implicit none
+  
+  type(String), intent(in) :: input
+  type(RealMonomial)       :: this
+  
+  type(String), allocatable :: split_string(:)
+  
+  integer :: i,ialloc
+  
+  split_string = split(input,delimiter='*')
+  this%coefficient = dble(split_string(1))
+  allocate(this%modes(size(split_string)-1), stat=ialloc); call err(ialloc)
+  do i=1,size(this%modes)
+    this%modes(i) = RealUnivariate(split_string(i+1))
+  enddo
+end function
+
+! Converts a polynomial to string,
+!    and converts an array of strings to polynomial.
 function to_String_RealPolynomial(this) result(output)
   implicit none
   
@@ -515,6 +569,20 @@ function to_String_RealPolynomial(this) result(output)
   output = str(this%terms(1))
   do i=2,size(this)
     output = output//' + '//this%terms(i)
+  enddo
+end function
+
+function new_RealPolynomial_Strings(input) result(this)
+  implicit none
+  
+  type(String), intent(in) :: input(:)
+  type(RealPolynomial)     :: this
+  
+  integer :: i,ialloc
+  
+  allocate(this%terms(size(input)), stat=ialloc); call err(ialloc)
+  do i=1,size(input)
+    this%terms(i) = RealMonomial(input(i))
   enddo
 end function
 end module

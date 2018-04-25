@@ -6,7 +6,7 @@ module setup_anharmonic_module
   
   use setup_harmonic_module
   
-  use coupling_module
+  use coupled_modes_module
   use sampling_points_module
   use grid_types_module
   implicit none

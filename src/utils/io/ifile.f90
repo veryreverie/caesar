@@ -3,9 +3,10 @@
 ! ======================================================================
 module ifile_submodule
   use precision_module
+  
+  use error_submodule
   use string_submodule
   use io_submodule
-  
   use file_submodule
   implicit none
   
@@ -25,6 +26,7 @@ module ifile_submodule
     
     procedure, public :: line
     procedure, public :: split_line
+    procedure, public :: lines
   end type
   
   interface size
@@ -111,6 +113,18 @@ function split_line(this,line_number,delimiter) result(output)
   else
     output = split(line)
   endif
+end function
+
+! Returns an array of lines from the file.
+function lines(this,first_line_number,last_line_number) result(output)
+  implicit none
+  
+  class(IFile), intent(in)  :: this
+  integer,      intent(in)  :: first_line_number
+  integer,      intent(in)  :: last_line_number
+  type(String), allocatable :: output(:)
+  
+  output = this%lines_(first_line_number:last_line_number)
 end function
 
 ! Returns the number of lines in a file.

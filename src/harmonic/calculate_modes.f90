@@ -180,7 +180,7 @@ function calculate_modes_calculated(matrices,structure,qpoint, &
                   & qpoint,                                &
                   & structure%symmetries(symmetry_ids(j)), &
                   & logfile)
-      call check_unitary(symmetry,logfile)
+      call check_unitary(symmetry,'degenerate modes symmetry',logfile)
     enddo
     
     ! Lift each degeneracy using symmetry operators.

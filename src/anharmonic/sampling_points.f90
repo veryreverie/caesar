@@ -4,7 +4,7 @@
 module sampling_points_module
   use common_module
   
-  use coupling_module
+  use coupled_modes_module
   use mode_vector_module
   use grid_types_module
   implicit none

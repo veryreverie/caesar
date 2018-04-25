@@ -2,13 +2,15 @@
 ! I/O operations.
 ! ======================================================================
 module io_submodule
-  use iso_fortran_env, only : INPUT_UNIT, OUTPUT_UNIT
+  use iso_fortran_env, only : INPUT_UNIT
   use precision_module
   use terminal_submodule
   use error_submodule
   use string_submodule
   use stringable_submodule
   use printable_submodule
+  use print_submodule
+  use intrinsics_submodule
   implicit none
   
   private
@@ -16,39 +18,25 @@ module io_submodule
   ! Public types.
   public :: CommandLineFlag
   
-  ! Conversions from String.
-  public :: lgcl
-  public :: int
-  public :: dble
-  public :: cmplx
-  
   ! IO operations.
   public :: file_exists         ! checks if a file exists
   public :: command_line_args   ! Get arguments from the command line.
   public :: mkdir               ! Make a directory.
   public :: set_io_settings     ! Sets I/O settings.
-  public :: set_output_unit     ! Sets output file unit.
-  public :: unset_output_unit   ! Reverts output file unit to stdout.
   public :: system_call         ! Makes a system call.
   public :: get_flag            ! Reads a flag from the command line.
   public :: read_line_from_user ! Reads a line from the terminal.
-  public :: err                 ! Aborts with a stacktrace.
   public :: print_line          ! write(*,'(a)')
   public :: format_path         ! Converts any path into an absolute path.
   public :: execute_old_code    ! Runs one of the old caesar codes.
   public :: execute_python      ! Runs one of the python scripts.
-  public :: colour              ! Adds terminal colours to a string.
-  public :: left_pad            ! Left pads an integer.
-  public :: spaces              ! spaces(n) returns n spaces.
   
   ! I/O settings, specifying various input/output properties.
   ! Set by set_io_settings.
-  integer      :: TERMINAL_WIDTH = 79
   type(String) :: HOME
   type(String) :: CWD
   type(String) :: OLD_PATH
   type(String) :: PYTHON_SCRIPTS_PATH
-  integer      :: OUTPUT_FILE_UNIT = OUTPUT_UNIT
   
   ! Command line flag and argument.
   type :: CommandLineFlag
@@ -56,39 +44,12 @@ module io_submodule
     type(String) :: argument
   end type
   
-  interface lgcl
-    module procedure lgcl_character
-    module procedure lgcl_String
-  end interface
-  
-  interface int
-    module procedure int_character
-    module procedure int_String
-  end interface
-  
-  interface dble
-    module procedure dble_character
-    module procedure dble_String
-  end interface
-  
-  interface cmplx
-    module procedure cmplx_character
-    module procedure cmplx_String
-  end interface
-  
   interface file_exists
     module procedure file_exists_character
     module procedure file_exists_string
   end interface
   
-  interface err
-    module procedure err_none
-    module procedure err_allocate_flag
-  end interface
-  
   interface print_line
-    module procedure print_line_character
-    module procedure print_line_String
     module procedure print_line_Stringable
     module procedure print_line_Printable
     
@@ -106,18 +67,6 @@ module io_submodule
   interface format_path
     module procedure format_path_character
     module procedure format_path_String
-  end interface
-  
-  interface colour
-    module procedure colour_character_character
-    module procedure colour_String_character
-    module procedure colour_character_String
-    module procedure colour_String_String
-  end interface
-  
-  interface left_pad
-    module procedure left_pad_character
-    module procedure left_pad_String
   end interface
   
   ! C system call interface.
@@ -181,153 +130,11 @@ module io_submodule
       logical(kind=c_bool)                  :: success
     end function
   end interface
-  
-  ! C tput cols interface.
-  interface
-    function get_terminal_width_c(width) bind(c) result(success)
-      use, intrinsic :: iso_c_binding
-      implicit none
-      
-      integer(kind=c_int), intent(out) :: width
-      logical(kind=c_bool)             :: success
-    end function
-  end interface
-
 contains
 
 ! ----------------------------------------------------------------------
-! Conversion from String
+! String manipulation.
 ! ----------------------------------------------------------------------
-! Convert a character or String to logical.
-function lgcl_character(this) result(output)
-  implicit none
-  
-  character(*), intent(in) :: this
-  logical                  :: output
-  
-  integer :: ierr
-  
-  read(this,*,iostat=ierr) output
-  if (ierr/=0) then
-    call print_line(ERROR//': unable to convert the string "'//this//'" to &
-       &a logical.')
-    call err()
-  endif
-end function
-
-impure elemental function lgcl_String(this) result(output)
-  implicit none
-  
-  type(String), intent(in) :: this
-  logical                  :: output
-  
-  output = lgcl(char(this))
-end function
-
-! Convert a character or String to integer.
-function int_character(this) result(output)
-  implicit none
-  
-  character(*), intent(in) :: this
-  integer                  :: output
-  
-  integer :: ierr
-  
-  read(this,*,iostat=ierr) output
-  if (ierr/=0) then
-    call print_line(ERROR//': unable to convert the string "'//this//'" to &
-       &an integer.')
-    call err()
-  endif
-end function
-
-impure elemental function int_String(this) result(output)
-  implicit none
-  
-  type(String), intent(in) :: this
-  integer                  :: output
-  
-  output = int(char(this))
-end function
-
-! Convert a character or String to real(dp).
-! Can also convert fractions as strings to real(dp), e.g. '4/5' -> 0.8_dp.
-recursive function dble_character(this) result(output)
-  implicit none
-  
-  character(*), intent(in) :: this
-  real(dp)                 :: output
-  
-  type(String), allocatable :: split_string(:)
-  
-  integer :: ierr
-  
-  split_string = split(this,'/')
-  
-  if (size(split_string)==1) then
-    ! The string does not contain a '/': treat it as a real.
-    read(this,*,iostat=ierr) output
-    if (ierr/=0) then
-      call print_line(ERROR//': unable to convert the string "'//this//'" to &
-         &a real number.')
-      call err()
-    endif
-  elseif (size(split_string)==2) then
-    ! The string contains a '/': treat it as a fraction.
-    output = dble(char(split_string(1)))/dble(char(split_string(2)))
-  else
-    ! The string contains multiple '/'s: this is an error.
-    call print_line(ERROR//': unable to convert the string "'//this//'" to &
-       &a real number.')
-    call err()
-  endif
-end function
-
-impure elemental function dble_String(this) result(output)
-  implicit none
-  
-  type(String), intent(in) :: this
-  real(dp)                 :: output
-  
-  output = dble(char(this))
-end function
-
-! Convert a character or String to complex(dp).
-function cmplx_character(this) result(output)
-  implicit none
-  
-  character(*), intent(in) :: this
-  complex(dp)              :: output
-  
-  integer :: i
-  logical :: split_allowed
-  
-  split_allowed = .false.
-  do i=len(this)-1,1,-1
-    if (this(i:i)=='E') then
-      split_allowed = .true.
-    elseif (split_allowed .and. this(i:i)=='+') then
-      output = cmplx(  dble(this(1:i-1)),           &
-                    &  dble(this(i+1:len(this)-1)), &
-                    &  dp)
-      exit
-    elseif (split_allowed .and. this(i:i)=='-') then
-      output = cmplx(  dble(this(1:i-1)),           &
-                    & -dble(this(i+1:len(this)-1)), &
-                    &  dp)
-      exit
-    endif
-  enddo
-end function
-
-impure elemental function cmplx_String(this) result(output)
-  implicit none
-  
-  type(String), intent(in) :: this
-  complex(dp)              :: output
-  
-  output = cmplx(char(this))
-end function
 
 ! ----------------------------------------------------------------------
 ! I/O operations.
@@ -582,31 +389,13 @@ function get_exe_location() result(output)
   endif
 end function
 
-function get_terminal_width() result(output)
-  implicit none
-  
-  integer :: output
-  
-  integer :: width
-  logical :: success
-  
-  success = get_terminal_width_c(width)
-  if (.not. success) then
-    call print_line( 'Failed to get terminal width. &
-                     &Reverting to default of 79 characters.')
-    output = TERMINAL_WIDTH
-  else
-    output = width
-  endif
-end function
-
 subroutine set_io_settings()
   implicit none
   
   type(String) :: exe_location
   type(String) :: caesar_dir
   
-  TERMINAL_WIDTH = get_terminal_width()
+  call set_terminal_width()
   HOME = get_home_directory()
   CWD = get_current_directory()
   exe_location = get_exe_location()
@@ -622,174 +411,8 @@ subroutine set_io_settings()
 end subroutine
 
 ! ----------------------------------------------------------------------
-! Set or unset OUTPUT_FILE_UNIT as a file unit.
+! Provides the print_line function for non-character types.
 ! ----------------------------------------------------------------------
-subroutine set_output_unit(file_unit)
-  implicit none
-  
-  integer, intent(in) :: file_unit
-  
-  if (OUTPUT_FILE_UNIT/=OUTPUT_UNIT) then
-    call print_line('Code Error: attempted to redirect stdout when it was &
-       &already redirected.')
-    call err()
-  endif
-  
-  OUTPUT_FILE_UNIT = file_unit
-  call set_error_strings_uncoloured()
-end subroutine
-
-subroutine unset_output_unit()
-  implicit none
-  
-  OUTPUT_FILE_UNIT = OUTPUT_UNIT
-  call set_error_strings_coloured()
-end subroutine
-
-! ----------------------------------------------------------------------
-! Aborts with a stacktrace.
-! ----------------------------------------------------------------------
-! Always aborts.
-subroutine err_none()
-  implicit none
-  
-  call abort_with_stacktrace()
-end subroutine
-
-! Aborts if integer input /= 0.
-! Designed for use with allocate 'stat=ierr' flags.
-subroutine err_allocate_flag(this)
-  implicit none
-  
-  integer, intent(in) :: this
-  
-  if (this/=0) then
-    write(*,*) 'Allocation error.'
-    call err()
-  endif
-end subroutine
-
-! ----------------------------------------------------------------------
-! Subroutines to print lines, as write(), but with error checking
-!    and formatting.
-! ----------------------------------------------------------------------
-subroutine print_line_character(line,indent)
-  implicit none
-  
-  character(*), intent(in)           :: line
-  integer,      intent(in), optional :: indent
-  
-  integer              :: line_length
-  integer              :: no_lines
-  integer, allocatable :: line_starts(:)
-  integer, allocatable :: line_ends(:)
-  
-  integer                   :: last_space
-  logical                   :: reading_special
-  integer                   :: current_terminal_width
-  character(:), allocatable :: indent_spaces
-  character(:), allocatable :: overhang_spaces
-  
-  integer :: i,ierr,ialloc
-  
-  if (present(indent)) then
-    indent_spaces = spaces(indent)
-  else
-    indent_spaces = spaces(0)
-  endif
-  overhang_spaces = spaces(3)
-  
-  allocate( line_starts(max(len(line),1)), &
-          & line_ends(max(len(line),1)),   &
-          & stat=ialloc); call err(ialloc)
-  
-  current_terminal_width = TERMINAL_WIDTH - len(indent_spaces)
-  no_lines = 1
-  line_starts(1) = 1
-  last_space = 0
-  
-  ! If not writing to the terminal, ignore line-breaking.
-  if (OUTPUT_FILE_UNIT/=OUTPUT_UNIT) then
-    line_ends(1) = len(line)
-  
-  ! If writing to the terminal, identify line breaks.
-  else
-    reading_special = .false.
-    line_length = 0
-    do i=1,len(line)
-      ! Special characters, which don't display on the terminal.
-      if (line(i:i)==ESC) then
-        reading_special = .true.
-      elseif (reading_special) then
-        if (line(i:i)=='m') then
-          reading_special = .false.
-        endif
-      
-      ! Normal characters, which do display on the terminal.
-      else
-        line_length = line_length+1
-        if (line_length>current_terminal_width) then
-          if (last_space/=0) then
-            line_ends(no_lines) = last_space
-            line_starts(no_lines+1) = last_space+1
-          else
-            line_ends(no_lines) = i-1
-            line_starts(no_lines+1) = i
-          endif
-          line_length = line_length &
-                    & - (line_ends(no_lines)-line_starts(no_lines)+1)
-          no_lines = no_lines+1
-          last_space = 0
-          current_terminal_width = TERMINAL_WIDTH     &
-                               & - len(indent_spaces) &
-                               & - len(overhang_spaces)
-        elseif (line(i:i)==' ') then
-          last_space = i
-        endif
-      endif
-    enddo
-  endif
-  
-  line_ends(no_lines) = len(line)
-  
-  ! Write lines.
-  do i=1,no_lines
-    if (i==1) then
-      write(OUTPUT_FILE_UNIT,'(a)',iostat=ierr) &
-         & indent_spaces//line(line_starts(i):line_ends(i))
-    else
-      write(OUTPUT_FILE_UNIT,'(a)',iostat=ierr) &
-         & indent_spaces//overhang_spaces//line(line_starts(i):line_ends(i))
-    endif
-    
-    ! Check for errors and flush the write buffer.
-    if (ierr /= 0) then
-      write(OUTPUT_FILE_UNIT,'(a)') 'Error in print_line.'
-      call err()
-    endif
-    
-    flush(OUTPUT_FILE_UNIT,iostat=ierr)
-    
-    if (ierr /= 0) then
-      write(OUTPUT_FILE_UNIT,'(a)') 'Error in print_line.'
-      call err()
-    endif
-  enddo
-end subroutine
-
-subroutine print_line_String(line,indent)
-  implicit none
-  
-  type(String), intent(in)           :: line
-  integer,      intent(in), optional :: indent
-  
-  if (present(indent)) then
-    call print_line(char(line),indent)
-  else
-    call print_line(char(line))
-  endif
-end subroutine
-
 subroutine print_line_Stringable(this,indent)
   implicit none
   
@@ -880,21 +503,6 @@ subroutine print_line_complexes(this)
   
   call print_line(join(this))
 end subroutine
-
-function spaces(no_spaces) result(output)
-  implicit none
-  
-  integer, intent(in)       :: no_spaces
-  character(:), allocatable :: output
-  
-  integer :: i,ialloc
-  
-  allocate(character(no_spaces) :: output, stat=ialloc); call err(ialloc)
-  
-  do i=1,no_spaces
-    output(i:i) = ' '
-  enddo
-end function
 
 ! ----------------------------------------------------------------------
 ! Takes a directory name, and converts it into an absolute path
@@ -1004,152 +612,4 @@ subroutine execute_python(wd, filename, python_path)
     call err()
   endif
 end subroutine
-
-! ----------------------------------------------------------------------
-! Adds terminal colour to a string.
-! Does nothing if the output is going to a file.
-! ----------------------------------------------------------------------
-! N.B. can't detect "caesar > file", only supresses colour if "caesar -o file".
-function colour_character_character(input,colour_name) result(output)
-  implicit none
-  
-  character(*), intent(in) :: input
-  character(*), intent(in) :: colour_name
-  type(String)             :: output
-  
-  type(String) :: lower_case_name
-  character(2) :: colour_code
-  
-  ! Supress colour if outputting to file.
-  if (OUTPUT_FILE_UNIT/=OUTPUT_UNIT) then
-    output = input
-    return
-  endif
-  
-  lower_case_name = lower_case(colour_name)
-  
-  if (lower_case_name=='black') then
-    colour_code = '30'
-  elseif (lower_case_name=='red') then
-    colour_code = '31'
-  elseif (lower_case_name=='green') then
-    colour_code = '32'
-  elseif (lower_case_name=='yellow') then
-    colour_code = '33'
-  elseif (lower_case_name=='blue') then
-    colour_code = '34'
-  elseif (lower_case_name=='magenta') then
-    colour_code = '35'
-  elseif (lower_case_name=='cyan') then
-    colour_code = '36'
-  elseif (lower_case_name=='light gray') then
-    colour_code = '37'
-  elseif (lower_case_name=='dark gray') then
-    colour_code = '90'
-  elseif (lower_case_name=='light red') then
-    colour_code = '91'
-  elseif (lower_case_name=='light green') then
-    colour_code = '92'
-  elseif (lower_case_name=='light yellow') then
-    colour_code = '93'
-  elseif (lower_case_name=='light blue') then
-    colour_code = '94'
-  elseif (lower_case_name=='light magenta') then
-    colour_code = '95'
-  elseif (lower_case_name=='light cyan') then
-    colour_code = '96'
-  elseif (lower_case_name=='white') then
-    colour_code = '97'
-  else
-    call print_line('Error: '//colour_name//' is not an accepted colour.')
-    call err()
-  endif
-  
-  output = ESC//'['//colour_code//'m'//input//ESC//'[0m'
-end function
-
-function colour_String_character(input,colour_name) result(output)
-  implicit none
-  
-  character(*), intent(in) :: input
-  type(String), intent(in) :: colour_name
-  type(String)             :: output
-  
-  output = colour(input,char(colour_name))
-end function
-
-function colour_character_String(input,colour_name) result(output)
-  implicit none
-  
-  type(String), intent(in) :: input
-  character(*), intent(in) :: colour_name
-  type(String)             :: output
-  
-  output = colour(char(input),colour_name)
-end function
-
-function colour_String_String(input,colour_name) result(output)
-  implicit none
-  
-  type(String), intent(in) :: input
-  type(String), intent(in) :: colour_name
-  type(String)             :: output
-  
-  output = colour(char(input),char(colour_name))
-end function
-
-! ----------------------------------------------------------------------
-! Left pads an integer, by default with zeroes.
-! ----------------------------------------------------------------------
-
-! Left pads to match the length of a given string.
-! e.g. left_pad(5,'example') returns '0000005'.
-! Throws an error if the input is negative, or longer than the matching string.
-function left_pad_character(input,match,pad_character) result(output)
-  implicit none
-  
-  integer,      intent(in)           :: input
-  character(*), intent(in)           :: match
-  character(1), intent(in), optional :: pad_character
-  type(String)                       :: output
-  
-  character(1) :: pad
-  integer      :: i
-  
-  if (present(pad_character)) then
-    pad = pad_character
-  else
-    pad = '0'
-  endif
-  
-  if (input<0) then
-    call err()
-  endif
-  
-  output = str(input)
-  
-  if (len(output)>len(match)) then
-    call err()
-  endif
-  
-  do i=1,len(match)-len(output)
-    output = pad//output
-  enddo
-end function
-
-! As above.
-function left_pad_String(input,match,pad_character) result(output)
-  implicit none
-  
-  integer,      intent(in)           :: input
-  type(String), intent(in)           :: match
-  character(1), intent(in), optional :: pad_character
-  type(String)                       :: output
-  
-  if (present(pad_character)) then
-    output = left_pad(input, char(match), pad_character)
-  else
-    output = left_pad(input, char(match))
-  endif
-end function
 end module

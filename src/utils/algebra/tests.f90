@@ -15,21 +15,60 @@ module tests_submodule
   public :: check_hermitian
   public :: check_orthogonal
   public :: check_unitary
-  
   public :: check_orthonormal
+  public :: check_real
+  
+  interface check_symmetric
+    module procedure check_symmetric_String
+    module procedure check_symmetric_character
+  end interface
+  
+  interface check_hermitian
+    module procedure check_hermitian_String
+    module procedure check_hermitian_character
+  end interface
+  
+  interface check_orthogonal
+    module procedure check_orthogonal_String
+    module procedure check_orthogonal_character
+  end interface
+  
+  interface check_unitary
+    module procedure check_unitary_String
+    module procedure check_unitary_character
+  end interface
   
   interface check_orthonormal
-    module procedure check_orthonormal_RealMatrix
-    module procedure check_orthonormal_ComplexMatrix
+    module procedure check_orthonormal_RealMatrix_String
+    module procedure check_orthonormal_RealMatrix_character
+    module procedure check_orthonormal_ComplexMatrix_String
+    module procedure check_orthonormal_ComplexMatrix_character
+  end interface
+  
+  interface check_real
+    module procedure check_real_String
+    module procedure check_real_character
   end interface
 contains
 
-subroutine check_symmetric(input,logfile,warning_threshold)
+! ----------------------------------------------------------------------
+! Various checks for matrices.
+! ----------------------------------------------------------------------
+! Checks will print a warning message if they fail.
+! matrix_name will be used to make messages more descriptive.
+! If a logfile is present then it will always be written to.
+! warning_threshold is the threshold at which the test is failed.
+! ignore_threshold is the norm of the matrix below which the test is ignored.
+
+subroutine check_symmetric_String(input,matrix_name,logfile, &
+   & warning_threshold,ignore_threshold)
   implicit none
   
-  type(RealMatrix), intent(in)           :: input
-  type(OFile),      intent(inout)        :: logfile
-  real(dp),         intent(in), optional :: warning_threshold
+  type(RealMatrix), intent(in)              :: input
+  type(String),     intent(in)              :: matrix_name
+  type(OFile),      intent(inout), optional :: logfile
+  real(dp),         intent(in),    optional :: warning_threshold
+  real(dp),         intent(in),    optional :: ignore_threshold
   
   real(dp) :: threshold
   real(dp) :: error
@@ -41,28 +80,64 @@ subroutine check_symmetric(input,logfile,warning_threshold)
     threshold = 1e-10_dp
   endif
   
-  scale = sum_squares(input)
-  error = sum_squares(input-transpose(input))
+  scale = sqrt(sum_squares(input))
+  
+  ! Check if the norm of the input is smaller than ignore_threshold.
+  if (present(ignore_threshold)) then
+    if (scale<ignore_threshold) then
+      if (present(logfile)) then
+        call logfile%print_line(matrix_name//' has norm smaller than &
+           &threshold for ignoring symmetry check.')
+      endif
+      return
+    endif
+  endif
+  
   if (scale<1e-200_dp) then
     ! If scale is too small, error/scale will overflow.
-    call logfile%print_line('||M|| too small to calculate fractional error in &
-       &symmetry.')
+    if (present(logfile)) then
+      call logfile%print_line(matrix_name//' has norm too small to calculate &
+         &fractional error in symmetry.')
+    endif
   else
-    error = sqrt(error/scale)
-    call logfile%print_line('Fractional L2 error in symmetry: '//error)
+    error = sqrt(sum_squares(input-transpose(input))) / scale
+    if (present(logfile)) then
+      call logfile%print_line('Fractional L2 error in symmetry of '// &
+         & matrix_name//': '//error)
+    endif
     if (error>threshold) then
-      call print_line(WARNING//': Matrix not as symmetric as expected. &
-         &Fractional L2 error in symmetry: '//error)
+      call print_line(WARNING//': '//matrix_name//' not as symmetric as &
+         &expected. Fractional L2 error in symmetry: '//error)
     endif
   endif
 end subroutine
 
-subroutine check_hermitian(input,logfile,warning_threshold)
+subroutine check_symmetric_character(input,matrix_name,logfile, &
+   & warning_threshold,ignore_threshold)
   implicit none
   
-  type(ComplexMatrix), intent(in)           :: input
-  type(OFile),         intent(inout)        :: logfile
-  real(dp),            intent(in), optional :: warning_threshold
+  type(RealMatrix), intent(in)              :: input
+  character(*),     intent(in)              :: matrix_name
+  type(OFile),      intent(inout), optional :: logfile
+  real(dp),         intent(in),    optional :: warning_threshold
+  real(dp),         intent(in),    optional :: ignore_threshold
+  
+  call check_symmetric( input,             &
+                      & str(matrix_name),  &
+                      & logfile,           &
+                      & warning_threshold, &
+                      & ignore_threshold)
+end subroutine
+
+subroutine check_hermitian_String(input,matrix_name,logfile, &
+   & warning_threshold,ignore_threshold)
+  implicit none
+  
+  type(ComplexMatrix), intent(in)              :: input
+  type(String),        intent(in)              :: matrix_name
+  type(OFile),         intent(inout), optional :: logfile
+  real(dp),            intent(in),    optional :: warning_threshold
+  real(dp),            intent(in),    optional :: ignore_threshold
   
   real(dp) :: threshold
   real(dp) :: error
@@ -74,28 +149,62 @@ subroutine check_hermitian(input,logfile,warning_threshold)
     threshold = 1e-10_dp
   endif
   
-  scale = sum_squares(input)
-  error = sum_squares(input-hermitian(input))
+  scale = sqrt(sum_squares(input))
+  
+  ! Check if the norm of the input is smaller than ignore_threshold.
+  if (present(ignore_threshold)) then
+    if (scale<ignore_threshold) then
+      if (present(logfile)) then
+        call logfile%print_line(matrix_name//' has norm smaller than &
+           &threshold for ignoring symmetry check.')
+      endif
+      return
+    endif
+  endif
+  
   if (scale<1e-200_dp) then
     ! If scale is too small, error/scale will overflow.
-    call logfile%print_line('||M|| too small to calculate fractional error in &
-       &Hermicity.')
+    if (present(logfile)) then
+      call logfile%print_line(matrix_name//' has norm too small to calculate &
+         &fractional error in symmetry.')
+    endif
   else
-    error = sqrt(error/scale)
-    call logfile%print_line('Fractional L2 error in Hermicity: '//error)
+    error = sqrt(sum_squares(input-hermitian(input))) / scale
+    if (present(logfile)) then
+      call logfile%print_line('Fractional L2 error in symmetry of '// &
+         & matrix_name//': '//error)
+    endif
     if (error>threshold) then
-      call print_line(WARNING//': Matrix not as Hermitian as expected. &
-         &Fractional L2 error in Hermicity: '//error)
+      call print_line(WARNING//': '//matrix_name//' not as symmetric as &
+         &expected. Fractional L2 error in symmetry: '//error)
     endif
   endif
 end subroutine
 
-subroutine check_orthogonal(input,logfile,warning_threshold)
+subroutine check_hermitian_character(input,matrix_name,logfile, &
+   & warning_threshold,ignore_threshold)
   implicit none
   
-  type(RealMatrix), intent(in)           :: input
-  type(OFile),      intent(inout)        :: logfile
-  real(dp),         intent(in), optional :: warning_threshold
+  type(ComplexMatrix), intent(in)              :: input
+  character(*),        intent(in)              :: matrix_name
+  type(OFile),         intent(inout), optional :: logfile
+  real(dp),            intent(in),    optional :: warning_threshold
+  real(dp),            intent(in),    optional :: ignore_threshold
+  
+  call check_hermitian( input,             &
+                      & str(matrix_name),  &
+                      & logfile,           &
+                      & warning_threshold, &
+                      & ignore_threshold)
+end subroutine
+
+subroutine check_orthogonal_String(input,matrix_name,logfile,warning_threshold)
+  implicit none
+  
+  type(RealMatrix), intent(in)              :: input
+  type(String),     intent(in)              :: matrix_name
+  type(OFile),      intent(inout), optional :: logfile
+  real(dp),         intent(in),    optional :: warning_threshold
   
   real(dp) :: threshold
   
@@ -107,22 +216,39 @@ subroutine check_orthogonal(input,logfile,warning_threshold)
     threshold = 1e-10_dp
   endif
   
-  error = sum_squares( input*transpose(input) &
-                   & - make_identity_matrix(size(input,1)))
-  error = sqrt(error)
-  call logfile%print_line('Fractional L2 error in orthogonality: '//error)
+  error = sqrt(sum_squares( input*transpose(input) &
+                        & - make_identity_matrix(size(input,1))))
+  
+  if (present(logfile)) then
+    call logfile%print_line('Fractional L2 error in orthogonality of '// &
+       & matrix_name//': '//error)
+  endif
+  
   if (error>threshold) then
-    call print_line(WARNING//': Matrix not as orthogonal as expected. &
-       &Fractional L2 error in orthogonality: '//error)
+    call print_line(WARNING//': '//matrix_name//' not as orthogonal as &
+       &expected. Fractional L2 error in orthogonality: '//error)
   endif
 end subroutine
 
-subroutine check_unitary(input,logfile,warning_threshold)
+subroutine check_orthogonal_character(input,matrix_name,logfile, &
+   & warning_threshold)
   implicit none
   
-  type(ComplexMatrix), intent(in)           :: input
-  type(OFile),         intent(inout)        :: logfile
-  real(dp),            intent(in), optional :: warning_threshold
+  type(RealMatrix), intent(in)              :: input
+  character(*),     intent(in)              :: matrix_name
+  type(OFile),      intent(inout), optional :: logfile
+  real(dp),         intent(in),    optional :: warning_threshold
+  
+  call check_orthogonal(input,str(matrix_name),logfile,warning_threshold)
+end subroutine
+
+subroutine check_unitary_String(input,matrix_name,logfile,warning_threshold)
+  implicit none
+  
+  type(ComplexMatrix), intent(in)              :: input
+  type(String),        intent(in)              :: matrix_name
+  type(OFile),         intent(inout), optional :: logfile
+  real(dp),            intent(in),    optional :: warning_threshold
   
   real(dp) :: threshold
   
@@ -134,25 +260,41 @@ subroutine check_unitary(input,logfile,warning_threshold)
     threshold = 1e-10_dp
   endif
   
-  error = sum_squares( input*hermitian(input) &
-                   & - cmplxmat(make_identity_matrix(size(input,1))))
-  error = sqrt(error)
-  call logfile%print_line('Fractional L2 error in unitarity: '//error)
+  error = sqrt(sum_squares( input*hermitian(input) &
+                        & - cmplxmat(make_identity_matrix(size(input,1)))))
+  
+  if (present(logfile)) then
+    call logfile%print_line('Fractional L2 error in unitarity of '// &
+       & matrix_name//': '//error)
+  endif
+  
   if (error>threshold) then
-    call print_line(WARNING//': Matrix not as unitary as expected. &
+    call print_line(WARNING//': '//matrix_name//' not as unitary as expected. &
        &Fractional L2 error in unitarity: '//error)
   endif
 end subroutine
 
-subroutine check_orthonormal_RealMatrix(input,logfile,warning_threshold)
+subroutine check_unitary_character(input,matrix_name,logfile,warning_threshold)
   implicit none
   
-  type(RealMatrix), intent(in)           :: input
-  type(OFile),      intent(inout)        :: logfile
-  real(dp),         intent(in), optional :: warning_threshold
+  type(ComplexMatrix), intent(in)              :: input
+  character(*),        intent(in)              :: matrix_name
+  type(OFile),         intent(inout), optional :: logfile
+  real(dp),            intent(in),    optional :: warning_threshold
+  
+  call check_unitary(input,str(matrix_name),logfile,warning_threshold)
+end subroutine
+
+subroutine check_orthonormal_RealMatrix_String(input,matrix_name,logfile, &
+   & warning_threshold)
+  implicit none
+  
+  type(RealMatrix), intent(in)              :: input
+  type(String),     intent(in)              :: matrix_name
+  type(OFile),      intent(inout), optional :: logfile
+  real(dp),         intent(in),    optional :: warning_threshold
   
   real(dp) :: threshold
-  
   real(dp) :: error
   
   if (present(warning_threshold)) then
@@ -169,22 +311,40 @@ subroutine check_orthonormal_RealMatrix(input,logfile,warning_threshold)
                      & - cmplxmat(make_identity_matrix(size(input,2))))
   endif
   error = sqrt(error)
-  call logfile%print_line('Fractional L2 error in unitarity: '//error)
+  
+  if (present(logfile)) then
+    call logfile%print_line('Fractional L2 error in unitarity of '// &
+       & matrix_name//': '//error)
+  endif
+  
   if (error>threshold) then
-    call print_line(WARNING//': Matrix not as unitary as expected. &
+    call print_line(WARNING//': '//matrix_name//' not as unitary as expected. &
        &Fractional L2 error in unitarity: '//error)
   endif
 end subroutine
 
-subroutine check_orthonormal_ComplexMatrix(input,logfile,warning_threshold)
+subroutine check_orthonormal_RealMatrix_character(input,matrix_name,logfile, &
+   & warning_threshold)
   implicit none
   
-  type(ComplexMatrix), intent(in)           :: input
-  type(OFile),         intent(inout)        :: logfile
-  real(dp),            intent(in), optional :: warning_threshold
+  type(RealMatrix), intent(in)              :: input
+  character(*),     intent(in)              :: matrix_name
+  type(OFile),      intent(inout), optional :: logfile
+  real(dp),         intent(in),    optional :: warning_threshold
+  
+  call check_orthonormal(input,str(matrix_name),logfile,warning_threshold)
+end subroutine
+
+subroutine check_orthonormal_ComplexMatrix_String(input,matrix_name,logfile, &
+   & warning_threshold)
+  implicit none
+  
+  type(ComplexMatrix), intent(in)              :: input
+  type(String),        intent(in)              :: matrix_name
+  type(OFile),         intent(inout), optional :: logfile
+  real(dp),            intent(in),    optional :: warning_threshold
   
   real(dp) :: threshold
-  
   real(dp) :: error
   
   if (present(warning_threshold)) then
@@ -201,10 +361,68 @@ subroutine check_orthonormal_ComplexMatrix(input,logfile,warning_threshold)
                      & - cmplxmat(make_identity_matrix(size(input,2))))
   endif
   error = sqrt(error)
-  call logfile%print_line('Fractional L2 error in unitarity: '//error)
+  
+  if (present(logfile)) then
+    call logfile%print_line('Fractional L2 error in unitarity of '// &
+       & matrix_name//': '//error)
+  endif
+  
   if (error>threshold) then
-    call print_line(WARNING//': Matrix not as unitary as expected. &
+    call print_line(WARNING//': '//matrix_name//' not as unitary as expected. &
        &Fractional L2 error in unitarity: '//error)
   endif
+end subroutine
+
+subroutine check_orthonormal_ComplexMatrix_character(input,matrix_name, &
+   & logfile,warning_threshold)
+  implicit none
+  
+  type(ComplexMatrix), intent(in)              :: input
+  character(*),        intent(in)              :: matrix_name
+  type(OFile),         intent(inout), optional :: logfile
+  real(dp),            intent(in),    optional :: warning_threshold
+  
+  call check_orthonormal(input,str(matrix_name),logfile,warning_threshold)
+end subroutine
+
+subroutine check_real_String(input,matrix_name,logfile,warning_threshold)
+  implicit none
+  
+  type(ComplexMatrix), intent(in)              :: input
+  type(String),        intent(in)              :: matrix_name
+  type(OFile),         intent(inout), optional :: logfile
+  real(dp),            intent(in),    optional :: warning_threshold
+  
+  real(dp) :: threshold
+  real(dp) :: error
+  
+  if (present(warning_threshold)) then
+    threshold = warning_threshold
+  else
+    threshold = 1e-10_dp
+  endif
+  
+  error = sqrt(sum_squares(aimag(input)))
+  
+  if (present(logfile)) then
+    call logfile%print_line('L2 error in imaginary components of '// &
+       & matrix_name//': '//error)
+  endif
+  
+  if (error>threshold) then
+    call print_line(WARNING//': '//matrix_name//' not as real as expected. &
+       &L2 error in imaginary components: '//error)
+  endif
+end subroutine
+
+subroutine check_real_character(input,matrix_name,logfile,warning_threshold)
+  implicit none
+  
+  type(ComplexMatrix), intent(in)              :: input
+  character(*),        intent(in)              :: matrix_name
+  type(OFile),         intent(inout), optional :: logfile
+  real(dp),            intent(in),    optional :: warning_threshold
+  
+  call check_real(input,str(matrix_name),logfile,warning_threshold)
 end subroutine
 end module

@@ -1,29 +1,30 @@
 ! ======================================================================
-! Parsing and storage of which degenerate subspaces are coupled with which.
+! A "subspace" is a set of degenerate modes.
+! A subspace monomial is a product of subspaces.
 ! ======================================================================
-module coupling_module
+module subspace_monomial_module
   use common_module
   
   use degeneracy_module
+  use coupled_subspaces_module
   implicit none
   
   private
   
-  public :: CoupledSubspaces
-  public :: CoupledModes
+  public :: SubspaceMonomial
   public :: size
   public :: write_coupling_file
   public :: read_coupling_file
   public :: generate_subspace_coupling
-  public :: generate_mode_coupling
+  public :: generate_subspace_monomials
   public :: operator(//)
   public :: operator(==)
   public :: operator(/=)
-  public :: construct_complex_monomial
-  public :: construct_real_monomial
   
-  ! A list of ids of degenerate subspaces which are coupled.
-  type, extends(Stringable) :: CoupledSubspaces
+  type, extends(Stringable) :: SubspaceMonomial
+    ! The ids of the degenerate subspaces in the monomial.
+    ! e.g. if ids=[1,2,2,5] then the monomial is (s1).(s2)^2.(s5), where s1 is
+    !    the subspace with id 1.
     integer, allocatable :: ids(:)
   contains
     ! Returns the coupled subspaces.
@@ -34,199 +35,93 @@ module coupling_module
     procedure, public :: is_subsidiary_of
     
     ! I/O.
-    procedure, public :: to_String => to_String_CoupledSubspaces
+    procedure, public :: to_String => to_String_SubspaceMonomial
   end type
   
-  ! A list of ids of modes which are coupled.
-  type, extends(Stringable) :: CoupledModes
-    integer, allocatable :: ids(:)
-    ! Whether or not the complex basis functions corresponding to this coupling
-    !    are part of the Hamiltonian. i.e. they conserve Bloch momentum.
-    logical :: conserves_momentum
-    ! Whether or not the complex basis functions corresponding to this coupling
-    !    are part of the VSCF Hamiltonian. i.e. they conserve Bloch momentum
-    !    within every coupled subspace.
-    logical :: conserves_vscf
-  contains
-    ! I/O.
-    procedure, public :: to_String => to_String_CoupledModes
-  end type
-  
-  interface size
-    module procedure size_CoupledSubspaces
-    module procedure size_CoupledModes
+  interface SubspaceMonomial
+    module procedure new_SubspaceMonomial
   end interface
   
   interface operator(//)
-    module procedure concatenate_CoupledSubspaces_integer
-    module procedure concatenate_CoupledModes_integer
+    module procedure concatenate_SubspaceMonomial_integer
+  end interface
+  
+  interface size
+    module procedure size_SubspaceMonomial
   end interface
   
   interface operator(==)
-    module procedure equality_CoupledSubspaces_CoupledSubspaces
-    module procedure equality_CoupledModes_CoupledModes
+    module procedure equality_SubspaceMonomial_SubspaceMonomial
   end interface
   
   interface operator(/=)
-    module procedure non_equality_CoupledSubspaces_CoupledSubspaces
-    module procedure non_equality_CoupledModes_CoupledModes
+    module procedure non_equality_SubspaceMonomial_SubspaceMonomial
   end interface
 contains
 
-! Constructs a complex monomial from a mode coupling.
-function construct_complex_monomial(input,complex_modes) result(output)
+! ----------------------------------------------------------------------
+! Basic functionality.
+!    - Constructor.
+!    - Concatenation with subspace id.
+!    - size() function.
+!    - equality and non-equality with other SubspaceMonomials.
+! ----------------------------------------------------------------------
+function new_SubspaceMonomial() result(this)
   implicit none
   
-  type(CoupledModes), intent(in) :: input
-  type(ComplexMode),  intent(in) :: complex_modes(:)
-  type(ComplexMonomial)          :: output
+  type(SubspaceMonomial) :: this
   
-  integer, allocatable :: mode_ids(:)
-  
-  integer :: id
-  integer :: paired_id
-  integer :: power
-  
-  integer :: i,ialloc
-  
-  mode_ids = input%ids
-  mode_ids = mode_ids(set(mode_ids))
-  mode_ids = mode_ids(sort(mode_ids))
-  output%coefficient = 1
-  allocate(output%modes(size(mode_ids)), stat=ialloc); call err(ialloc)
-  do i=1,size(mode_ids)
-    id = mode_ids(i)
-    paired_id = complex_modes(first(complex_modes%id==id))%paired_id
-    power = count(input%ids==id)
-    output%modes(i) = ComplexUnivariate( id        = id,        &
-                                       & paired_id = paired_id, &
-                                       & power     = power)
-  enddo
+  this%ids = [integer::]
 end function
 
-! Constructs a real monomial from a mode coupling.
-function construct_real_monomial(input,real_modes) result(output)
+function concatenate_SubspaceMonomial_integer(this,id) result(output)
   implicit none
   
-  type(CoupledModes), intent(in) :: input
-  type(RealMode),     intent(in) :: real_modes(:)
-  type(RealMonomial)             :: output
+  type(SubspaceMonomial), intent(in) :: this
+  integer,                intent(in) :: id
+  type(SubspaceMonomial)             :: output
   
-  integer, allocatable :: mode_ids(:)
-  
-  integer :: id
-  integer :: paired_id
-  integer :: power
-  
-  integer :: i,ialloc
-  
-  mode_ids = input%ids
-  mode_ids = mode_ids(set(mode_ids))
-  mode_ids = mode_ids(sort(mode_ids))
-  output%coefficient = 1
-  allocate(output%modes(size(mode_ids)), stat=ialloc); call err(ialloc)
-  do i=1,size(mode_ids)
-    id = mode_ids(i)
-    paired_id = real_modes(first(real_modes%id==id))%paired_id
-    power = count(input%ids==id)
-    output%modes(i) = RealUnivariate( id        = id,        &
-                                    & paired_id = paired_id, &
-                                    & power     = power)
-  enddo
+  output = SubspaceMonomial([this%ids, id])
 end function
 
-! size() functions.
-function size_CoupledSubspaces(this) result(output)
+function size_SubspaceMonomial(this) result(output)
   implicit none
   
-  type(CoupledSubspaces), intent(in) :: this
+  type(SubspaceMonomial), intent(in) :: this
   integer                            :: output
   
   output = size(this%ids)
 end function
 
-function size_CoupledModes(this) result(output)
-  implicit none
-  
-  type(CoupledModes), intent(in) :: this
-  integer                        :: output
-  
-  output = size(this%ids)
-end function
-
-! Append an id to the coupling.
-function concatenate_CoupledSubspaces_integer(this,id) result(output)
-  implicit none
-  
-  type(CoupledSubspaces), intent(in) :: this
-  integer,                intent(in) :: id
-  type(CoupledSubspaces)             :: output
-  
-  output = CoupledSubspaces([this%ids, id])
-end function
-
-function concatenate_CoupledModes_integer(this,id) result(output)
-  implicit none
-  
-  type(CoupledModes), intent(in) :: this
-  integer,            intent(in) :: id
-  type(CoupledModes)             :: output
-  
-  output = CoupledModes( ids                = [this%ids, id],          &
-                       & conserves_momentum = this%conserves_momentum, &
-                       & conserves_vscf     = this%conserves_vscf)
-end function
-
-! Compare couplings.
-impure elemental function equality_CoupledSubspaces_CoupledSubspaces(this, &
+impure elemental function equality_SubspaceMonomial_SubspaceMonomial(this, &
    & that) result(output)
   implicit none
   
-  type(CoupledSubspaces), intent(in) :: this
-  type(CoupledSubspaces), intent(in) :: that
+  type(SubspaceMonomial), intent(in) :: this
+  type(SubspaceMonomial), intent(in) :: that
   logical                            :: output
   
   output = all(this%ids==that%ids)
 end function
 
-impure elemental function equality_CoupledModes_CoupledModes(this,that) &
-   & result(output)
-  implicit none
-  
-  type(CoupledModes), intent(in) :: this
-  type(CoupledModes), intent(in) :: that
-  logical                        :: output
-  
-  output = all(this%ids==that%ids)
-end function
-
-impure elemental function non_equality_CoupledSubspaces_CoupledSubspaces( &
+impure elemental function non_equality_SubspaceMonomial_SubspaceMonomial( &
    & this,that) result(output)
   implicit none
   
-  type(CoupledSubspaces), intent(in) :: this
-  type(CoupledSubspaces), intent(in) :: that
+  type(SubspaceMonomial), intent(in) :: this
+  type(SubspaceMonomial), intent(in) :: that
   logical                            :: output
   
   output = .not. this==that
 end function
 
-impure elemental function non_equality_CoupledModes_CoupledModes(this,that) &
-   & result(output)
-  implicit none
-  
-  type(CoupledModes), intent(in) :: this
-  type(CoupledModes), intent(in) :: that
-  logical                        :: output
-  
-  output = .not. this==that
-end function
-
+! ----------------------------------------------------------------------
 ! Use stored IDs to return the actual objects the IDs represent.
+! ----------------------------------------------------------------------
 function coupled_subspaces(this,subspaces) result(output)
   implicit none
   
-  class(CoupledSubspaces), intent(in) :: this
+  class(SubspaceMonomial), intent(in) :: this
   type(DegenerateModes),   intent(in) :: subspaces(:)
   type(DegenerateModes), allocatable  :: output(:)
   
@@ -239,29 +134,103 @@ function coupled_subspaces(this,subspaces) result(output)
   enddo
 end function
 
+! ----------------------------------------------------------------------
 ! Check if a coupling is a subsidiary of another coupling.
+! ----------------------------------------------------------------------
 function is_subsidiary_of(this,that) result(output)
   implicit none
   
-  Class(CoupledSubspaces), intent(in) :: this
-  type(CoupledSubspaces),  intent(in) :: that
+  Class(SubspaceMonomial), intent(in) :: this
+  type(SubspaceMonomial),  intent(in) :: that
   logical                             :: output
   
   integer :: i,j
   
-  output = .true.
-  
   ! Loop over the ids in this, checking if each is in that.
-  do_i : do i=1,size(this)
-    do j=1,size(that)
-      if (this%ids(i)==that%ids(j)) then
-        cycle do_i
-      endif
-    enddo
-    
-    ! Will only be reached if a mode in this is not present in that.
-    output = .false.
-  enddo do_i
+  do i=1,size(this)
+    j = first(that%ids==this%ids(i), default=0)
+    if (j==0) then
+      output = .false.
+      return
+    endif
+  enddo
+  
+  output = .true.
+end function
+
+! ----------------------------------------------------------------------
+! Generates all coupling monomials corresponding to a given subspace coupling,
+!    up to the given potential expansion order.
+! ----------------------------------------------------------------------
+! e.g. given the subspace coupling with ids [3,5] and potential order 3,
+!    will return coupling monomials [3,3,5] and [3,5,5].
+function generate_subspace_monomials(coupled_subspaces, &
+   & potential_expansion_order) result(output)
+  implicit none
+  
+  type(CoupledSubspaces), intent(in)  :: coupled_subspaces
+  integer,                intent(in)  :: potential_expansion_order
+  type(SubspaceMonomial), allocatable :: output(:)
+  
+  if (potential_expansion_order<min(2,size(coupled_subspaces))) then
+    call print_line(ERROR//': potential_expansion_order must be at least 2, &
+       &and at least as large as maximum_coupling_order.')
+    stop
+  endif
+  
+  output = generate_subspace_monomials_helper( SubspaceMonomial(), &
+                                             & coupled_subspaces,  &
+                                             & potential_expansion_order)
+end function
+
+! Helper function for generate_subspace_monomials.
+recursive function generate_subspace_monomials_helper(monomial_in, &
+   & coupled_subspaces,potential_expansion_order) result(output)
+  implicit none
+  
+  type(SubspaceMonomial), intent(in)  :: monomial_in
+  type(CoupledSubspaces), intent(in)  :: coupled_subspaces
+  integer,                intent(in)  :: potential_expansion_order
+  type(SubspaceMonomial), allocatable :: output(:)
+  
+  integer                :: first_subspace
+  type(CoupledSubspaces) :: remaining_subspaces
+  type(SubspaceMonomial) :: monomial
+  
+  output = [SubspaceMonomial::]
+  
+  ! This function appends a number of copies of the first subspace in
+  !    coupled_subspaces, then calls itself to append the next subspace etc.
+  
+  ! If there are no more subspaces to append, return the monomial.
+  if (size(coupled_subspaces)==0) then
+    if (size(monomial_in)>=2) then
+      output = [monomial_in]
+    endif
+    return
+  endif
+  
+  ! Generate the CoupledSubspaces containing the subspaces which are not
+  !    handled by this call of the function, that is to say all but the first.
+  ! Split the coupled subspaces into the first subspace, which will be handled
+  !    by this call of the function, and all the rest, which will be handled
+  !    by a recursive call.
+  first_subspace      = coupled_subspaces%ids(1)
+  remaining_subspaces = CoupledSubspaces(coupled_subspaces%ids(2:))
+  
+  ! Append copies of the first subspace as many times as still leaves space
+  !    for at least one copy of every remaining subspace, and then call this
+  !    function to handle the next subspace along.
+  monomial = monomial_in
+  do while(size(monomial)+size(coupled_subspaces)<=potential_expansion_order)
+    monomial = monomial // first_subspace
+    output = [ output,                             &
+           &   generate_subspace_monomials_helper( &
+           &            monomial,                  &
+           &            remaining_subspaces,       &
+           &            potential_expansion_order) &
+           & ]
+  enddo
 end function
 
 ! ----------------------------------------------------------------------
@@ -275,10 +244,10 @@ function generate_subspace_coupling(degenerate_modes, &
   type(DegenerateModes), intent(in)   :: degenerate_modes(:)
   integer,               intent(in)   :: potential_expansion_order
   integer,               intent(in)   :: coupling_order
-  type(CoupledSubspaces), allocatable :: output(:)
+  type(SubspaceMonomial), allocatable :: output(:)
   
-  type(CoupledSubspaces), allocatable :: old_couplings(:)
-  type(CoupledSubspaces), allocatable :: new_couplings(:)
+  type(SubspaceMonomial), allocatable :: old_couplings(:)
+  type(SubspaceMonomial), allocatable :: new_couplings(:)
   
   integer :: i,ialloc
   
@@ -294,7 +263,7 @@ function generate_subspace_coupling(degenerate_modes, &
     stop
   endif
   
-  output = [CoupledSubspaces::]
+  output = [SubspaceMonomial::]
   
   do i=2,potential_expansion_order
     ! N.B. the contents of this loop is equivalent to the line:
@@ -329,21 +298,21 @@ recursive function coupling_generator(degenerate_modes, &
   type(DegenerateModes),  intent(in)           :: degenerate_modes(:)
   integer,                intent(in)           :: potential_expansion_order
   integer,                intent(in)           :: coupling_order
-  type(CoupledSubspaces), intent(in), optional :: coupling_in
-  type(CoupledSubspaces), allocatable          :: output(:)
+  type(SubspaceMonomial), intent(in), optional :: coupling_in
+  type(SubspaceMonomial), allocatable          :: output(:)
   
-  type(CoupledSubspaces) :: coupling
-  type(CoupledSubspaces) :: coupling_out
+  type(SubspaceMonomial) :: coupling
+  type(SubspaceMonomial) :: coupling_out
   
-  type(CoupledSubspaces), allocatable :: old_couplings(:)
-  type(CoupledSubspaces), allocatable :: new_couplings(:)
+  type(SubspaceMonomial), allocatable :: old_couplings(:)
+  type(SubspaceMonomial), allocatable :: new_couplings(:)
   
   integer :: i
   
   if (present(coupling_in)) then
     coupling = coupling_in
   else
-    coupling = CoupledSubspaces([integer::])
+    coupling = SubspaceMonomial([integer::])
   endif
   
   if (size(coupling)==potential_expansion_order) then
@@ -361,7 +330,7 @@ recursive function coupling_generator(degenerate_modes, &
     output = [coupling_out]
   else
     ! Recursively call coupling_generator after appending each subspace id.
-    output = [CoupledSubspaces::]
+    output = [SubspaceMonomial::]
     do i=1,size(degenerate_modes)
       coupling_out = coupling//degenerate_modes(i)%id
       
@@ -378,95 +347,12 @@ recursive function coupling_generator(degenerate_modes, &
 end function
 
 ! ----------------------------------------------------------------------
-! Recursively generates all sets of coupled modes within a set of coupled
-!    subspaces.
-! Only returns couplings with sum(q)=0, modulo G-vectors.
-! ----------------------------------------------------------------------
-recursive function generate_mode_coupling(coupled_subspaces,normal_modes, &
-   & qpoints,coupled_modes_in,sum_q_in) result(output)
-  implicit none
-  
-  type(DegenerateModes), intent(in)           :: coupled_subspaces(:)
-  type(ComplexMode),     intent(in)           :: normal_modes(:)
-  type(QpointData),      intent(in)           :: qpoints(:)
-  type(CoupledModes),    intent(in), optional :: coupled_modes_in
-  type(FractionVector),  intent(in), optional :: sum_q_in
-  type(CoupledModes), allocatable             :: output(:)
-  
-  type(QpointData), allocatable :: subspace_qpoints(:)
-  
-  type(CoupledModes)   :: coupled_modes
-  type(FractionVector) :: sum_q
-  
-  type(CoupledModes)   :: coupled_modes_out
-  type(FractionVector) :: sum_q_out
-  
-  logical :: last_mode_in_coupling
-  
-  integer :: i
-  
-  if (present(coupled_modes_in) .neqv. present(sum_q_in)) then
-    call print_line(CODE_ERROR//': generate_coupled_modes must be called with &
-       &all optional arguments or none.')
-    call err()
-  endif
-  
-  if (present(coupled_modes_in)) then
-    coupled_modes = coupled_modes_in
-    sum_q = sum_q_in
-  else
-    coupled_modes = CoupledModes( ids                = [integer::], &
-                                & conserves_momentum = .true.,      &
-                                & conserves_vscf     = .true.)
-    sum_q = fracvec(zeroes(3))
-  endif
-  
-  if (size(coupled_subspaces)==0) then
-    ! There is nothing else to append. Check that the sum across q-points of
-    !    the mode coupling is zero, and return the mode couplings.
-    if (.not. is_int(sum_q_in)) then
-      coupled_modes%conserves_momentum = .false.
-      coupled_modes%conserves_vscf     = .false.
-    endif
-    output = [coupled_modes]
-  else
-    ! If vscf_basis_functions_only is true, then only mode couplings which have
-    !    sum(q)=0 for all degenerate subspaces are allowed.
-    last_mode_in_coupling = .false.
-    if (size(coupled_subspaces)==1) then
-      last_mode_in_coupling = .true.
-    elseif (coupled_subspaces(2)%id/=coupled_subspaces(1)%id) then
-      last_mode_in_coupling = .true.
-    endif
-    
-    ! Loop over modes in this subspaces, recursively calling this function for
-    !    each in turn.
-    subspace_qpoints = coupled_subspaces(1)%qpoints(qpoints)
-    output = [CoupledModes::]
-    do i=1,size(coupled_subspaces(1))
-      coupled_modes_out = coupled_modes//coupled_subspaces(1)%mode_ids(i)
-      sum_q_out = sum_q + subspace_qpoints(i)%qpoint
-      if (last_mode_in_coupling .and. .not. is_int(sum_q_out)) then
-        coupled_modes_out%conserves_vscf = .false.
-      endif
-      output = [ output,                                            &
-             &   generate_mode_coupling( coupled_subspaces(2:),     &
-             &                           normal_modes,              &
-             &                           qpoints,                   &
-             &                           coupled_modes_out,         &
-             &                           sum_q_out)                 &
-             & ]
-    enddo
-  endif
-end function
-
-! ----------------------------------------------------------------------
 ! File I/O.
 ! ----------------------------------------------------------------------
 subroutine write_coupling_file(this, filename)
   implicit none
   
-  type(CoupledSubspaces), intent(in) :: this(:)
+  type(SubspaceMonomial), intent(in) :: this(:)
   type(String),           intent(in) :: filename
   
   type(OFile) :: coupling_file
@@ -484,7 +370,7 @@ function read_coupling_file(filename) result(this)
   implicit none
   
   type(String), intent(in)            :: filename
-  type(CoupledSubspaces), allocatable :: this(:)
+  type(SubspaceMonomial), allocatable :: this(:)
   
   type(IFile) :: coupling_file
   integer     :: i,ialloc
@@ -516,9 +402,9 @@ end function
 function OLDFUNCTION_calculate_all_coupling(input, modes) result(output)
   implicit none
   
-  type(CoupledSubspaces), intent(in)  :: input(:)
+  type(SubspaceMonomial), intent(in)  :: input(:)
   type(ComplexMode),      intent(in)  :: modes(:)
-  type(CoupledSubspaces), allocatable :: output(:)
+  type(SubspaceMonomial), allocatable :: output(:)
   
   integer :: no_modes
   
@@ -528,7 +414,7 @@ function OLDFUNCTION_calculate_all_coupling(input, modes) result(output)
   integer,          allocatable :: sizes(:)
   type(IntArray2D), allocatable :: ids(:)
   
-  type(CoupledSubspaces), allocatable :: couplings(:)
+  type(SubspaceMonomial), allocatable :: couplings(:)
   integer,            allocatable :: couplings_sizes(:)
   
   logical, allocatable :: mode_unaccounted_for(:)
@@ -710,20 +596,11 @@ end function
 ! ----------------------------------------------------------------------
 ! I/O.
 ! ----------------------------------------------------------------------
-recursive function to_String_CoupledSubspaces(this) result(output)
+recursive function to_String_SubspaceMonomial(this) result(output)
   implicit none
   
-  class(CoupledSubspaces), intent(in) :: this
+  class(SubspaceMonomial), intent(in) :: this
   type(String)                        :: output
-  
-  output = join(this%ids)
-end function
-
-recursive function to_String_CoupledModes(this) result(output)
-  implicit none
-  
-  class(CoupledModes), intent(in) :: this
-  type(String)                    :: output
   
   output = join(this%ids)
 end function

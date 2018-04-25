@@ -140,11 +140,7 @@ recursive function str_Stringable_1d(this) result(output)
   
   integer :: i,ialloc
   
-  allocate(output(size(this)), stat=ialloc)
-  if (ialloc/=0) then
-    write(*,*) ERROR//': Allocation error.'
-    call abort_with_stacktrace()
-  endif
+  allocate(output(size(this)), stat=ialloc); call err(ialloc)
   do i=1,size(this)
     output(i) = str(this(i))
   enddo
@@ -158,11 +154,7 @@ recursive function str_Stringable_2d(this) result(output)
   
   integer :: i,ialloc
   
-  allocate(output(size(this,1),size(this,2)), stat=ialloc)
-  if (ialloc/=0) then
-    write(*,*) ERROR//': Allocation error.'
-    call abort_with_stacktrace()
-  endif
+  allocate(output(size(this,1),size(this,2)), stat=ialloc); call err(ialloc)
   do i=1,size(this,2)
     output(:,i) = str(this(:,i))
   enddo
@@ -178,7 +170,7 @@ module stringable_example_submodule
   implicit none
   
   type, extends(Stringable) :: StringableExample
-    integer :: contents
+    character(1) :: contents
   contains
     procedure :: to_String => to_String_StringableExample
   end type

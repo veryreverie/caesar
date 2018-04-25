@@ -5,7 +5,8 @@ module basis_function_module
   use common_module
   
   use degeneracy_module
-  use coupling_module
+  use subspace_monomial_module
+  use coupled_modes_module
   use degenerate_symmetry_module
   implicit none
   
@@ -14,18 +15,35 @@ module basis_function_module
   public :: BasisFunction
   public :: generate_basis_functions
   
-  type :: BasisFunction
-    type(RealPolynomial)    :: real_representation
+  type, extends(Printable) :: BasisFunction
+    ! The basis function in real co-ordinates.
+    type(RealPolynomial) :: real_representation
+    
+    ! The basis function in complex co-ordinates.
     type(ComplexPolynomial) :: complex_representation
+    
+    ! The term which is non-zero in this basis function but
+    !    zero in every other basis function.
+    type(RealMonomial)      :: unique_term
+  contains
+    procedure, public :: to_String => to_String_BasisFunction
   end type
+  
+  interface generate_basis_functions
+    module procedure generate_basis_functions_SubspaceMonomial
+  end interface
+  
+  interface BasisFunction
+    module procedure new_BasisFunction_Strings
+  end interface
 contains
 
-function generate_basis_functions(coupling,structure,complex_modes, &
-   & real_modes,qpoints,subspaces,degenerate_symmetries,            &
+function generate_basis_functions_SubspaceMonomial(coupling,structure, &
+   & complex_modes,real_modes,qpoints,subspaces,degenerate_symmetries, &
    & vscf_basis_functions_only,logfile) result(output)
   implicit none
   
-  type(CoupledSubspaces),   intent(in)    :: coupling
+  type(SubspaceMonomial),   intent(in)    :: coupling
   type(StructureData),      intent(in)    :: structure
   type(ComplexMode),        intent(in)    :: complex_modes(:)
   type(RealMode),           intent(in)    :: real_modes(:)
@@ -37,17 +55,15 @@ function generate_basis_functions(coupling,structure,complex_modes, &
   type(BasisFunction), allocatable        :: output(:)
   
   ! Coupling data.
-  type(DegenerateModes), allocatable :: coupled_subspaces(:)
-  type(CoupledModes),    allocatable :: coupled_modes(:)
+  type(CoupledModes), allocatable :: coupled_modes(:)
   
   ! Symmetry data.
   type(ComplexMatrix) :: symmetry
-  integer             :: symmetry_order
   type(ComplexMatrix) :: projection
   
   ! Monomials, in complex and real representations.
-  type(ComplexMonomial), allocatable :: monomials(:)
-  type(ComplexMonomial), allocatable :: unique_monomials(:)
+  type(ComplexMonomial), allocatable :: complex_monomials(:)
+  type(ComplexMonomial), allocatable :: unique_complex_monomials(:)
   type(RealMonomial),    allocatable :: real_monomials(:)
   type(RealMonomial),    allocatable :: unique_real_monomials(:)
   
@@ -65,7 +81,10 @@ function generate_basis_functions(coupling,structure,complex_modes, &
   real(dp),                  allocatable :: real_coefficients(:)
   complex(dp),               allocatable :: complex_coefficients(:)
   
-  integer :: i,ialloc
+  ! A list of which term is unique to which basis function.
+  integer, allocatable :: unique_term(:)
+  
+  integer :: i,j,ialloc
   
   if (size(coupling)<2) then
     call print_line(CODE_ERROR//': Trying to generate basis functions with &
@@ -73,55 +92,60 @@ function generate_basis_functions(coupling,structure,complex_modes, &
     call err()
   endif
   
-  ! List the subspaces which are coupled together in this coupling.
-  coupled_subspaces = coupling%coupled_subspaces(subspaces)
-  
-  ! Generate every allowed mode coupling within the coupled subspaces.
-  coupled_modes = generate_mode_coupling( coupled_subspaces, &
-                                        & complex_modes,     &
+  ! Generate every allowed mode coupling within the subspace coupling.
+  coupled_modes = generate_mode_coupling( coupling,      &
+                                        & subspaces,     &
+                                        & complex_modes, &
                                         & qpoints)
   
-  ! Convert coupled modes into RealMonomials with coefficient 1.
+  ! Convert coupled modes into real monomials with coefficient 1.
   allocate(real_monomials(size(coupled_modes)), stat=ialloc); call err(ialloc)
   do i=1,size(coupled_modes)
     real_monomials(i) = construct_real_monomial(coupled_modes(i),real_modes)
   enddo
   
+  ! Filter the mode couplings, to leave only those which conserve momentum.
   if (vscf_basis_functions_only) then
     coupled_modes = coupled_modes(filter(coupled_modes%conserves_vscf))
   else
     coupled_modes = coupled_modes(filter(coupled_modes%conserves_momentum))
   endif
-  
   if (size(coupled_modes)==0) then
     output = [BasisFunction::]
     return
   endif
   
-  ! Convert coupled modes into Monomials with coefficient 1.
-  allocate(monomials(size(coupled_modes)), stat=ialloc); call err(ialloc)
+  ! Convert coupled modes into complex monomials with coefficient 1.
+  allocate( complex_monomials(size(coupled_modes)), &
+          & stat=ialloc); call err(ialloc)
   do i=1,size(coupled_modes)
-    monomials(i) = construct_complex_monomial(coupled_modes(i),complex_modes)
+    complex_monomials(i) = construct_complex_monomial( coupled_modes(i), &
+                                                     & complex_modes)
   enddo
   
   ! Identify the unique monomials. (Those with all modes the same).
-  unique_monomials = monomials(set(monomials,compare_monomial_modes))
-  unique_real_monomials = real_monomials(set(real_monomials,compare_monomial_modes))
+  unique_complex_monomials = complex_monomials(set( complex_monomials, &
+                                                  & compare_monomial_modes))
+  unique_real_monomials = real_monomials(set( real_monomials, &
+                                            & compare_monomial_modes))
   
   ! Set the coefficient of each unique monomial, and construct the mapping
-  !    from monomials to unique_monomials.
+  !    from complex_monomials to unique_complex_monomials.
   ! In order for the symmetry operators to be unitary in both bases,
   !    it is necessary to preserve the L2 norm. As such, the coefficient
   !    of a unique_monomial representing n monomials is sqrt(n).
-  allocate( all_to_unique(size(unique_monomials),size(monomials)), &
+  allocate( all_to_unique( size(unique_complex_monomials), &
+          &                size(complex_monomials)),       &
           & stat=ialloc); call err(ialloc)
   all_to_unique = 0
-  do i=1,size(unique_monomials)
-    equal_monomials = filter( monomials,              &
+  do i=1,size(unique_complex_monomials)
+    equal_monomials = filter( complex_monomials,      &
                             & compare_monomial_modes, &
-                            & unique_monomials(i))
-    unique_monomials(i)%coefficient = sqrt(real(size(equal_monomials),dp))
-    all_to_unique(i,equal_monomials) = 1/real(unique_monomials(i)%coefficient)
+                            & unique_complex_monomials(i))
+    unique_complex_monomials(i)%coefficient = &
+       & sqrt(real(size(equal_monomials),dp))
+    all_to_unique(i,equal_monomials) = &
+       & 1/real(unique_complex_monomials(i)%coefficient)
   enddo
   
   do i=1,size(unique_real_monomials)
@@ -131,58 +155,89 @@ function generate_basis_functions(coupling,structure,complex_modes, &
     unique_real_monomials(i)%coefficient = sqrt(real(size(equal_monomials),dp))
   enddo
   
-  ! Identify the mapping from complex monomials to real monomials.
+  ! Identify the mapping from complex monomials to real monomials,
+  !    and check that this conversion is orthonormal (unitary, but m>=n).
   complex_to_real_conversion = conversion_matrix( unique_real_monomials, &
-                                                & unique_monomials)
-  
-  ! Check that the complex to real conversion is unitary.
-  call check_orthonormal(complex_to_real_conversion,logfile)
+                                                & unique_complex_monomials)
+  call check_orthonormal( complex_to_real_conversion,          &
+                        & 'complex to real conversion matrix', &
+                        & logfile)
   
   ! Construct projection matrix, which has allowed basis functions as
   !    eigenvectors with eigenvalue 1, and sends all other functions to 0.
-  projection = cmplxmat(make_identity_matrix(size(unique_monomials)))
+  projection = cmplxmat(make_identity_matrix(size(unique_complex_monomials)))
   do i=1,size(degenerate_symmetries)
-    ! Constuct symmetry in coupled mode co-ordinates.
-    symmetry = degenerate_symmetries(i)%calculate_symmetry(coupled_modes)
-    
-    ! Convert symmetry into unique-monomial co-ordinates.
-    symmetry = mat(all_to_unique)*symmetry*mat(transpose(all_to_unique))
+    ! Constuct symmetry in coupled mode co-ordinates,
+    !    and transform it into unique-monomial co-ordinates.
+    symmetry = mat(all_to_unique) &
+           & * degenerate_symmetries(i)%calculate_symmetry(coupled_modes) &
+           & * mat(transpose(all_to_unique))
+    call check_unitary(symmetry,'coupled symmetry matrix',logfile)
     
     ! Construct the projection matrix for this symmetry,
     !    and multiply the total projection matrix by this.
-    symmetry_order = structure%symmetries(i)%symmetry_order()
-    projection = projection * projection_matrix(symmetry,symmetry_order)
+    projection = projection                   &
+             & * projection_matrix( symmetry, &
+             &                      structure%symmetries(i)%symmetry_order())
   enddo
+  call check_hermitian( projection,          &
+                      & 'projection_matrix', &
+                      & logfile,             &
+                      & ignore_threshold=1e-10_dp)
   
-  ! Transform the projection matrix into real co-ordinates.
+  ! Transform the projection matrix into real co-ordinates,
+  !    and check that it is real and symmetric.
   projection = complex_to_real_conversion &
            & * projection                 &
            & * hermitian(complex_to_real_conversion)
+  call check_real(projection,'projection_matrix',logfile)
+  call check_symmetric( real(projection),    &
+                      & 'projection_matrix', &
+                      & logfile,             &
+                      & ignore_threshold=1e-10_dp)
   
-  if (sum_squares(aimag(projection))>1e-10_dp) then
-    call print_line(WARNING//': Projection matrix has imaginary components.')
-    call print_line( 'L2 norm of imaginary components: '// &
-                   & sum_squares(aimag(projection)))
-  endif
-  
-  ! Diagonalise the projection matrix, and check its eigenvalues.
+  ! Diagonalise the projection matrix,
+  !    check its eigenvalues are either 0 or 1,
+  !    and select only the eigenvectors with eigenvalue 1.
   estuff = diagonalise_symmetric(real(projection))
   if (any(abs(estuff%eval-1)>1e-2_dp .and. abs(estuff%eval)>1e-2_dp)) then
+    call print_line(ERROR//': Projection matrix has eigenvalues which are &
+       &neither 0 nor 1.')
     call err()
   endif
-  
-  ! Select only those eigenvectors with eigenvalue 1, and construct basis
-  !    functions from them.
   estuff = estuff(filter(abs(estuff%eval-1)<1e-2_dp))
+  
+  ! Take linear combinations of basis functions such that each basis function
+  !    contains at least term which is in no other basis function.
+  allocate(unique_term(size(estuff)), stat=ialloc); call err(ialloc)
+  do i=1,size(estuff)
+    ! Identify the largest term in basis function i.
+    unique_term(i) = maxloc(abs(estuff(i)%evec),1)
+    
+    ! Subtract a multiple of basis function i from all other basis functions,
+    !    such that the coefficient of unique_term(i) in all other basis
+    !    functions is zero.
+    do j=1,size(estuff)
+      if (j/=i) then
+        estuff(j)%evec = estuff(j)%evec                 &
+                     & - estuff(i)%evec                 &
+                     & * estuff(j)%evec(unique_term(i)) &
+                     & / estuff(i)%evec(unique_term(i))
+      endif
+    enddo
+  enddo
+  
+  ! Construct basis functions from the coefficients.
   allocate(output(size(estuff)), stat=ialloc); call err(ialloc)
   do i=1,size(estuff)
     real_coefficients = estuff(i)%evec
     complex_coefficients = cmplx( hermitian(complex_to_real_conversion) &
                               & * vec(real_coefficients))
-    output(i)%real_representation = RealPolynomial( real_coefficients &
-                                                & * unique_real_monomials)
-    output(i)%complex_representation = ComplexPolynomial( complex_coefficients&
-                                                      & * unique_monomials)
+    output(i)%real_representation = &
+       & RealPolynomial(real_coefficients * unique_real_monomials)
+    output(i)%complex_representation = &
+       & ComplexPolynomial(complex_coefficients * unique_complex_monomials)
+    output(i)%unique_term = unique_real_monomials(unique_term(i))
   enddo
 contains
   ! Lambda for comparing monomials.
@@ -224,9 +279,9 @@ end function
 
 ! Given a unitary matrix U, s.t. U^n=I, returns the matrix
 !    H = sum(j=0,n-1) U^j / n
-! H is real and symmetric, and is a projection matrix which projects out the
+! H is Hermitian, and is a projection matrix which projects out the
 !    eigenvectors of U with eigenvalue 1.
-! Uses Horner's rule to calculate the sum with minimal multiplication.
+! Uses Horner's rule to calculate the sum with minimal matrix multiplication.
 function projection_matrix(input,order) result(output)
   implicit none
   
@@ -253,5 +308,66 @@ function projection_matrix(input,order) result(output)
     output = input*output + identity
   enddo
   output = output/order
+end function
+
+! ----------------------------------------------------------------------
+! I/O.
+! ----------------------------------------------------------------------
+function to_String_BasisFunction(this) result(output)
+  implicit none
+  
+  class(BasisFunction), intent(in) :: this
+  type(String), allocatable        :: output(:)
+  
+  integer :: i,j,no_lines,ialloc
+  
+  no_lines = 4                              &
+         & + size(this%real_representation) &
+         & + size(this%complex_representation)
+  
+  allocate(output(no_lines), stat=ialloc); call err(ialloc)
+  output(1) = 'Real monomial unique to this basis function:'
+  output(2) = this%unique_term
+  output(3) = 'Basis function in real co-ordinates:'
+  j = 3
+  do i=1,size(this%real_representation)
+    j = j+1
+    output(j) = this%real_representation%terms(i)
+  enddo
+  j = j+1
+  output(j) = 'Basis function in complex co-ordinates:'
+  do i=1,size(this%complex_representation)
+    j = j+1
+    output(j) = this%complex_representation%terms(i)
+  enddo
+end function
+
+function new_BasisFunction_Strings(input) result(this)
+  implicit none
+  
+  type(String), intent(in) :: input(:)
+  type(BasisFunction)      :: this
+  
+  integer :: partition_line
+  
+  integer :: i,ialloc
+  
+  if (size(input)<4) then
+    call print_line(ERROR//': Basis function file shorter than expected.')
+    call err()
+  endif
+  
+  this%unique_term = RealMonomial(input(2))
+  
+  ! Locate the line between real terms and complex terms.
+  do i=4,size(input)
+    if (size(split(input(i)))>1) then
+      partition_line = i
+      exit
+    endif
+  enddo
+  
+  this%real_representation = RealPolynomial(input(3:partition_line-1))
+  this%complex_representation = ComplexPolynomial(input(partition_line+1:))
 end function
 end module

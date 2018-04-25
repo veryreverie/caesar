@@ -99,7 +99,7 @@ function calculate_symmetry_in_normal_coordinates_qpoint(modes,qpoint, &
   output = dot_products
   
   ! Check that the symmetry is unitary.
-  call check_unitary(output,logfile)
+  call check_unitary(output,'symmetry in normal co-ordinates',logfile)
 end function
 
 ! Takes {q1}, {u1}, {q2}, {u2} and S. Outputs {u2.S.u1}.
@@ -155,6 +155,6 @@ function calculate_symmetry_in_normal_coordinates_qpoints(modes,qpoints, &
   output = dot_products
   
   ! Check that the symmetry is unitary.
-  call check_unitary(output,logfile)
+  call check_unitary(output,'symmetry in normal co-ordinates',logfile)
 end function
 end module

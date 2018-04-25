@@ -12,18 +12,48 @@ module error_submodule
   public :: ERROR
   public :: CODE_ERROR
   public :: WARNING
+  public :: err
   public :: set_error_strings_coloured
   public :: set_error_strings_uncoloured
-  public :: abort_with_stacktrace
   
   ! Coloured error strings.
   character(:), allocatable, protected :: ERROR
   character(:), allocatable, protected :: CODE_ERROR
   character(:), allocatable, protected :: WARNING
+  
+  interface err
+    module procedure err_none
+    module procedure err_allocate_flag
+  end interface
 contains
 
+! ----------------------------------------------------------------------
+! Aborts with a stacktrace.
+! ----------------------------------------------------------------------
+! Always aborts.
+subroutine err_none()
+  implicit none
+  
+  call err_implementation()
+end subroutine
+
+! Aborts if integer input /= 0.
+! Designed for use with allocate 'stat=ierr' flags.
+subroutine err_allocate_flag(this)
+  implicit none
+  
+  integer, intent(in) :: this
+  
+  if (this/=0) then
+    write(*,*) ERROR//': Allocation error.'
+    call err()
+  endif
+end subroutine
+
+! ----------------------------------------------------------------------
 ! Set whether or not the error strings are enclosed by
 !    terminal colour escape characters.
+! ----------------------------------------------------------------------
 subroutine set_error_strings_coloured()
   implicit none
   
@@ -38,13 +68,6 @@ subroutine set_error_strings_uncoloured()
   ERROR = 'Error'
   CODE_ERROR = 'Code Error'
   WARNING = 'Warning'
-end subroutine
-
-! Abort with a stacktrace.
-subroutine abort_with_stacktrace()
-  implicit none
-  
-  call err_implementation()
 end subroutine
 end module
 

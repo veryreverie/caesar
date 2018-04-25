@@ -35,18 +35,6 @@ function test_mode() result(output)
   output%suppress_from_helptext = .true.
 end function
 
-subroutine thing(a)
-  implicit none
-  
-  logical, intent(in), optional :: a
-  
-  if (present(a).lazyand.a) then
-    call print_line('True')
-  else
-    call print_line('Not present / False.')
-  endif
-end subroutine
-
 ! ----------------------------------------------------------------------
 ! Main function.
 ! ----------------------------------------------------------------------
@@ -57,32 +45,23 @@ subroutine test(arguments)
   
   type(String) :: wd
   
-  logical, allocatable :: t
-  logical, allocatable :: f
-  logical, allocatable :: n(:)
+  type(String), allocatable :: temp(:)
+  type(String) :: two
   
   integer :: i
   
   wd = arguments%value('working_directory')
   
-  call print_line(WARNING//' '//ERROR//' '//CODE_ERROR)
+  two = '2'
   
-  t = .true.
-  f = .false.
-  
-  allocate(n(2))
-  n(1) = .true.
-  n(2) = .false.
-  do i=1,3
-    if (i<=size(n) .lazyand. n(i)) then
-      call print_line('n('//i//')=.true.')
-    else
-      call print_line('n('//i//')=.false.')
-    endif
-  enddo
-  
-  call thing(.true.)
-  call thing(.false.)
-  call thing()
+  call print_line(join(left_pad([3,5],'hi')))
+  call print_line(join(left_pad([1,2],'2')))
+  call print_line(str(maxval([1,2])))
+  call print_line(str(2))
+  temp = left_pad([1,2],'2')
+  temp = left_pad([1,2],two)
+  temp = left_pad([1,2],str(2))
+  temp = left_pad([1,2],str(maxval([1,2])))
+  call print_line(join(left_pad([1,2],str(maxval([1,2])))))
 end subroutine
 end module

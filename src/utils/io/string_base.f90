@@ -56,7 +56,7 @@ function char_StringBase(this) result(output)
   else
     write(*,*) CODE_ERROR//': Trying to use the contents of a string before &
        &it has been allocated.'
-    call abort_with_stacktrace()
+    call err()
   endif
 end function
 end module

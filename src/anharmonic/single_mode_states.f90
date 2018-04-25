@@ -4,7 +4,7 @@
 module single_mode_states_module
   use common_module
   
-  use coupling_module
+  use coupled_modes_module
   implicit none
   
   ! An eigenstate of the form f(u)*e^-(w*u^2/2) where f is polynomial, e.g.
