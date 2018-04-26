@@ -18,6 +18,7 @@ module coupled_subspaces_module
   
   type, extends(Stringable) :: CoupledSubspaces
     ! The ids of the degenerate subspaces which are coupled together.
+    ! ids is assumed to always be sorted in ascending order.
     integer, allocatable :: ids(:)
   contains
     ! I/O.

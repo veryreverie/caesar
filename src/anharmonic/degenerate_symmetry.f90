@@ -2,7 +2,7 @@ module degenerate_symmetry_module
   use common_module
   
   use degeneracy_module
-  use coupled_modes_module
+  use mode_monomial_module
   implicit none
   
   private
@@ -71,17 +71,17 @@ function new_DegenerateSymmetry(symmetry,degenerate_subspaces,modes,qpoints, &
   enddo
 end function
 
-function calculate_symmetry(this,coupled_modes) result(output)
+function calculate_symmetry(this,mode_monomials) result(output)
   implicit none
   
   class(DegenerateSymmetry), intent(in) :: this
-  type(CoupledModes),        intent(in) :: coupled_modes(:)
+  type(ModeMonomial),        intent(in) :: mode_monomials(:)
   type(ComplexMatrix)                   :: output
   
   complex(dp), allocatable :: matrix(:,:)
   complex(dp), allocatable :: single_mode_symmetry(:,:)
   
-  integer :: no_coupled_modes
+  integer :: no_mode_monomials
   
   type(IntArray1D), allocatable :: mode_ids(:)
   type(IntArray1D), allocatable :: subspace_positions(:)
@@ -90,24 +90,24 @@ function calculate_symmetry(this,coupled_modes) result(output)
   
   integer :: i,j,k,ialloc
   
-  if (size(coupled_modes)==0) then
+  if (size(mode_monomials)==0) then
     output = cmplxmat(zeroes(0,0))
     return
   endif
   
-  no_coupled_modes = size(coupled_modes(1))
-  do i=1,size(coupled_modes)
-    if (size(coupled_modes(i))/=no_coupled_modes) then
+  no_mode_monomials = size(mode_monomials(1))
+  do i=1,size(mode_monomials)
+    if (size(mode_monomials(i))/=no_mode_monomials) then
       call err()
     endif
   enddo
   
-  allocate( mode_ids(size(coupled_modes)),                   &
-          & subspace_positions(size(coupled_modes)),         &
-          & mode_positions(size(coupled_modes)),             &
+  allocate( mode_ids(size(mode_monomials)),                   &
+          & subspace_positions(size(mode_monomials)),         &
+          & mode_positions(size(mode_monomials)),             &
           & stat=ialloc); call err(ialloc)
-  do i=1,size(coupled_modes)
-    mode_ids(i) = coupled_modes(i)%ids
+  do i=1,size(mode_monomials)
+    mode_ids(i) = mode_monomials(i)%ids
     subspace_positions(i) = this%subspace_pos_(mode_ids(i)%i)
     mode_positions(i) = this%mode_pos_(mode_ids(i)%i)
     
@@ -118,20 +118,20 @@ function calculate_symmetry(this,coupled_modes) result(output)
     mode_positions(i) = mode_positions(i)%i(sort_key)
   enddo
   
-  do i=2,size(coupled_modes)
+  do i=2,size(mode_monomials)
     if (subspace_positions(i)/=subspace_positions(1)) then
       call err()
     endif
   enddo
   
-  allocate( matrix(size(coupled_modes),size(coupled_modes)), &
+  allocate( matrix(size(mode_monomials),size(mode_monomials)), &
           & stat=ialloc); call err(ialloc)
   matrix = 1
-  do i=1,no_coupled_modes
+  do i=1,no_mode_monomials
     single_mode_symmetry = &
        & cmplx(this%single_mode_symmetries_(subspace_positions(1)%i(i)))
-    do j=1,size(coupled_modes)
-      do k=1,size(coupled_modes)
+    do j=1,size(mode_monomials)
+      do k=1,size(mode_monomials)
         matrix(k,j) = matrix(k,j)                                   &
                   & * single_mode_symmetry( mode_positions(k)%i(i), &
                                           & mode_positions(j)%i(i))

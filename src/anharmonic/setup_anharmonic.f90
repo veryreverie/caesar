@@ -9,10 +9,11 @@ module setup_anharmonic_module
   use degeneracy_module
   use coupled_subspaces_module
   use subspace_monomial_module
-  use coupled_modes_module
+  use mode_monomial_module
   use degenerate_symmetry_module
   use basis_function_module
   use basis_functions_module
+  use sampling_points_module
   implicit none
   
 contains
@@ -47,7 +48,13 @@ function setup_anharmonic_keywords() result(keywords)
   & KeywordData( 'vscf_basis_functions_only',                                 &
   &              'vscf_basis_functions_only specifies that the potential will &
   &only be expanded in terms of basis functions which are relevant to vscf.', &
-  &              default_value='true') ]
+  &              default_value='true'),                                       &
+  & KeywordData( 'maximum_displacement',                                      &
+  &              'maximum_displacement is the largest distance any sampling &
+  &point will be from the equilibrium position. maximum_displacement should &
+  &be given in Bohr. Due to the use of mass-reduced co-ordinates, in systems &
+  &containing different elements modes with higher contributions from heavier &
+  &atoms will be displaced less far than this.') ]
 end function
 
 function setup_anharmonic_mode() result(output)
@@ -76,6 +83,7 @@ subroutine setup_anharmonic(arguments)
   integer      :: potential_expansion_order
   integer      :: maximum_coupling_order
   logical      :: vscf_basis_functions_only
+  real(dp)     :: maximum_displacement
   
   ! Previous user inputs.
   type(Dictionary) :: setup_harmonic_arguments
@@ -109,6 +117,10 @@ subroutine setup_anharmonic(arguments)
   ! Basis functions.
   type(BasisFunctions), allocatable :: basis_functions(:)
   
+  ! Sampling points and displacement data.
+  real(dp)                          :: maximum_weighted_displacement
+  type(SamplingPoints), allocatable :: sampling_points(:)
+  
   ! Directories and files.
   type(OFile)               :: coupling_file
   type(String)              :: max_subspace_id
@@ -129,6 +141,7 @@ subroutine setup_anharmonic(arguments)
   maximum_coupling_order = int(arguments%value('maximum_coupling_order'))
   vscf_basis_functions_only = &
      & lgcl(arguments%value('vscf_basis_functions_only'))
+  maximum_displacement = dble(arguments%value('maximum_displacement'))
   
   ! Retrieve previous data.
   setup_harmonic_arguments = setup_harmonic_keywords()
@@ -204,17 +217,28 @@ subroutine setup_anharmonic(arguments)
   ! Construct real modes from complex modes.
   real_modes = complex_to_real(complex_modes)
   
+  ! Calculate the maximum mass-weighted displacement from the maximum
+  !    displacement. This corresponds to a mode made entirely from the
+  !    lightest element moving up to maximum_displacement.
+  maximum_weighted_displacement = maximum_displacement &
+                              & * sqrt(minval(structure%atoms%mass()))
+  
   ! Generate all sets of coupled subspaces, up to maximum_coupling_order.
   coupled_subspaces = generate_coupled_subspaces( degenerate_subspaces, &
                                                 & maximum_coupling_order)
   
-  ! Generate basis functions at each coupling.
+  ! Loop over subspace couplings, generating basis functions and sampling
+  !    points for each.
   allocate( basis_functions(size(coupled_subspaces)), &
           & stat=ialloc); call err(ialloc)
   do i=1,size(coupled_subspaces)
+    ! Generate the set of subspace monomials corresponding to the subspace
+    !    coupling.
+    ! e.g. the coupling [1,2] might have monomials [1,2], [1,1,2] and [1,2,2].
     subspace_monomials = generate_subspace_monomials( &
                               & coupled_subspaces(i), &
                               & potential_expansion_order)
+    ! Generate basis functions at each coupling.
     basis_functions(i) = generate_basis_functions( subspace_monomials,        &
                                                  & structure,                 &
                                                  & complex_modes,             &
@@ -224,10 +248,13 @@ subroutine setup_anharmonic(arguments)
                                                  & degenerate_symmetries,     &
                                                  & vscf_basis_functions_only, &
                                                  & logfile)
+    ! Generate a set of sampling points from which the basis functions can
+    !    be constructed.
+    sampling_points(i) = generate_sampling_points( &
+                   & basis_functions(i)%functions, &
+                   & potential_expansion_order,    &
+                   & maximum_weighted_displacement)
   enddo
-  
-  ! Use basis functions to generate sampling points.
-  ! TODO
   
   ! Write out coupling and basis functions.
   coupling_file = wd//'/coupling.dat'

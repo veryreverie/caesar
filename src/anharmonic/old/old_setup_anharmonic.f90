@@ -1,7 +1,7 @@
 ! ======================================================================
 ! Sets up anharmonic calculations.
 ! ======================================================================
-module setup_anharmonic_module
+module old_setup_anharmonic_module
   use common_module
   
   use setup_harmonic_module

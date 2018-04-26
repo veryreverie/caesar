@@ -6,7 +6,7 @@ module basis_function_module
   
   use degeneracy_module
   use subspace_monomial_module
-  use coupled_modes_module
+  use mode_monomial_module
   use degenerate_symmetry_module
   implicit none
   
@@ -55,7 +55,7 @@ function generate_basis_functions_SubspaceMonomial(coupling,structure, &
   type(BasisFunction), allocatable        :: output(:)
   
   ! Coupling data.
-  type(CoupledModes), allocatable :: coupled_modes(:)
+  type(ModeMonomial), allocatable :: mode_monomials(:)
   
   ! Symmetry data.
   type(ComplexMatrix) :: symmetry
@@ -68,7 +68,7 @@ function generate_basis_functions_SubspaceMonomial(coupling,structure, &
   type(RealMonomial),    allocatable :: unique_real_monomials(:)
   
   ! Variables for converting from the basis of monomials corresponding to
-  !    coupled_modes into one with no duplicates.
+  !    mode_monomials into one with no duplicates.
   ! e.g. modes [3,3,7] and [3,7,3] both become u3^2.u7^1.
   integer,  allocatable :: equal_monomials(:)
   real(dp), allocatable :: all_to_unique(:,:)
@@ -93,33 +93,33 @@ function generate_basis_functions_SubspaceMonomial(coupling,structure, &
   endif
   
   ! Generate every allowed mode coupling within the subspace coupling.
-  coupled_modes = generate_mode_coupling( coupling,      &
-                                        & subspaces,     &
-                                        & complex_modes, &
-                                        & qpoints)
+  mode_monomials = generate_mode_coupling( coupling,      &
+                                         & subspaces,     &
+                                         & complex_modes, &
+                                         & qpoints)
   
   ! Convert coupled modes into real monomials with coefficient 1.
-  allocate(real_monomials(size(coupled_modes)), stat=ialloc); call err(ialloc)
-  do i=1,size(coupled_modes)
-    real_monomials(i) = construct_real_monomial(coupled_modes(i),real_modes)
+  allocate(real_monomials(size(mode_monomials)), stat=ialloc); call err(ialloc)
+  do i=1,size(mode_monomials)
+    real_monomials(i) = construct_real_monomial(mode_monomials(i),real_modes)
   enddo
   
   ! Filter the mode couplings, to leave only those which conserve momentum.
   if (vscf_basis_functions_only) then
-    coupled_modes = coupled_modes(filter(coupled_modes%conserves_vscf))
+    mode_monomials = mode_monomials(filter(mode_monomials%conserves_vscf))
   else
-    coupled_modes = coupled_modes(filter(coupled_modes%conserves_momentum))
+    mode_monomials = mode_monomials(filter(mode_monomials%conserves_momentum))
   endif
-  if (size(coupled_modes)==0) then
+  if (size(mode_monomials)==0) then
     output = [BasisFunction::]
     return
   endif
   
   ! Convert coupled modes into complex monomials with coefficient 1.
-  allocate( complex_monomials(size(coupled_modes)), &
+  allocate( complex_monomials(size(mode_monomials)), &
           & stat=ialloc); call err(ialloc)
-  do i=1,size(coupled_modes)
-    complex_monomials(i) = construct_complex_monomial( coupled_modes(i), &
+  do i=1,size(mode_monomials)
+    complex_monomials(i) = construct_complex_monomial( mode_monomials(i), &
                                                      & complex_modes)
   enddo
   
@@ -170,7 +170,7 @@ function generate_basis_functions_SubspaceMonomial(coupling,structure, &
     ! Constuct symmetry in coupled mode co-ordinates,
     !    and transform it into unique-monomial co-ordinates.
     symmetry = mat(all_to_unique) &
-           & * degenerate_symmetries(i)%calculate_symmetry(coupled_modes) &
+           & * degenerate_symmetries(i)%calculate_symmetry(mode_monomials) &
            & * mat(transpose(all_to_unique))
     call check_unitary(symmetry,'coupled symmetry matrix',logfile)
     
@@ -237,7 +237,7 @@ function generate_basis_functions_SubspaceMonomial(coupling,structure, &
        & RealPolynomial(real_coefficients * unique_real_monomials)
     output(i)%complex_representation = &
        & ComplexPolynomial(complex_coefficients * unique_complex_monomials)
-    output(i)%unique_term = unique_real_monomials(unique_term(i))
+    output(i)%unique_term = output(i)%real_representation%terms(unique_term(i))
   enddo
 contains
   ! Lambda for comparing monomials.
