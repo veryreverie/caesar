@@ -8,6 +8,7 @@ module ifile_submodule
   use string_submodule
   use io_submodule
   use file_submodule
+  use string_array_submodule
   implicit none
   
   private
@@ -27,6 +28,7 @@ module ifile_submodule
     procedure, public :: line
     procedure, public :: split_line
     procedure, public :: lines
+    procedure, public :: split_by_blank_lines
   end type
   
   interface size
@@ -151,5 +153,58 @@ function count_lines(filename) result(output)
     endif
   enddo
   close(file_unit)
+end function
+
+! Splits the file into sections, split by one or more blank lines.
+function split_by_blank_lines(this) result(output)
+  implicit none
+  
+  class(IFile), intent(in)       :: this
+  type(StringArray), allocatable :: output(:)
+  
+  logical, allocatable :: blank_line(:)
+  
+  integer :: no_sections
+  logical :: reading_section
+  
+  integer, allocatable :: first_lines(:)
+  integer, allocatable :: last_lines(:)
+  
+  integer :: i,ialloc
+  
+  allocate( first_lines(size(this)), &
+          & last_lines(size(this)),  &
+          & stat=ialloc); call err(ialloc)
+  no_sections = 0
+  reading_section = .false.
+  do i=1,size(this)
+    if (len(this%line(i))==0) then
+      ! This line is blank.
+      ! If reading a section, then the end of that section is the line above.
+      if (reading_section) then
+        last_lines(no_sections) = i-1
+        reading_section = .false.
+      endif
+    else
+      ! This line is not blank.
+      ! If not reading a section, then this line is the start of a new section.
+      if (.not. reading_section) then
+        no_sections = no_sections+1
+        first_lines(no_sections) = i
+        reading_section = .true.
+      endif
+    endif
+  enddo
+  
+  ! If a section is still being read, then that section ends on the last line
+  !    of the file.
+  if (reading_section) then
+    last_lines(no_sections) = size(this)
+  endif
+  
+  allocate(output(no_sections), stat=ialloc); call err(ialloc)
+  do i=1,no_sections
+    output(i) = StringArray(this%lines_(first_lines(i):last_lines(i)))
+  enddo
 end function
 end module  

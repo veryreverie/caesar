@@ -14,6 +14,7 @@ module io_module
   use intrinsics_submodule
   use stringable_submodule
   use printable_submodule
+  use string_array_submodule
   use io_submodule
   use ifile_submodule
   use ofile_submodule

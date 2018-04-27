@@ -45,23 +45,20 @@ subroutine test(arguments)
   
   type(String) :: wd
   
-  type(String), allocatable :: temp(:)
-  type(String) :: two
+  type(IFile)                    :: file
+  type(StringArray), allocatable :: strings(:)
   
   integer :: i
   
   wd = arguments%value('working_directory')
   
-  two = '2'
+  file = wd//'/file.dat'
+  strings = file%split_by_blank_lines()
   
-  call print_line(join(left_pad([3,5],'hi')))
-  call print_line(join(left_pad([1,2],'2')))
-  call print_line(str(maxval([1,2])))
-  call print_line(str(2))
-  temp = left_pad([1,2],'2')
-  temp = left_pad([1,2],two)
-  temp = left_pad([1,2],str(2))
-  temp = left_pad([1,2],str(maxval([1,2])))
-  call print_line(join(left_pad([1,2],str(maxval([1,2])))))
+  do i=1,size(strings)
+    call print_line('Section '//i//':')
+    call print_line(strings(i))
+  enddo
+  
 end subroutine
 end module

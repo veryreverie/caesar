@@ -20,6 +20,10 @@ module real_mode_displacement_submodule
   interface size
     module procedure size_RealModeDisplacement
   end interface
+  
+  interface RealModeDisplacement
+    module procedure new_RealModeDisplacement_Strings
+  end interface
 contains
 
 ! Return the number of modes along which the vector has displacements.
@@ -44,6 +48,20 @@ function to_String_RealModeDisplacement(this) result(output)
   allocate(output(size(this)), stat=ialloc); call err(ialloc)
   do i=1,size(this)
     output(i) = str(this%displacements(i))
+  enddo
+end function
+
+function new_RealModeDisplacement_Strings(input) result(this)
+  implicit none
+  
+  type(String), intent(in)   :: input(:)
+  type(RealModeDisplacement) :: this
+  
+  integer :: i,ialloc
+  
+  allocate(this%displacements(size(input)), stat=ialloc); call err(ialloc)
+  do i=1,size(this)
+    this%displacements(i) = RealSingleModeDisplacement(input(i))
   enddo
 end function
 end module

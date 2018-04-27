@@ -295,20 +295,20 @@ function new_KeywordData(keyword,helptext,default_value,default_keyword, &
   ! Check for incompatible arguments.
   if (present(is_optional)) then
     if (present(default_value) .or. present(default_keyword)) then
-      call print_line('Code Error: the argument "is_optional" should not be &
+      call print_line(CODE_ERROR//': the argument "is_optional" should not be &
          &given for keywords which have defaults.')
       call err()
     endif
   endif
   
   if (present(default_value) .and. present(default_keyword)) then
-    call print_line('Code Error: a keyword may not have a default value and &
+    call print_line(CODE_ERROR//': a keyword may not have a default value and &
        &default to another keyword.')
     call err()
   endif
   
   if (present(flag_without_arguments) .and. present(flag_with_arguments)) then
-    call print_line('Code Error: a keyword may not have two flags.')
+    call print_line(CODE_ERROR//': a keyword may not have two flags.')
     call err()
   endif
   
@@ -432,8 +432,8 @@ subroutine process_and_check(this)
   class(KeywordData), intent(inout) :: this
   
   if (this%default_type_==0 .and. .not. this%is_set()) then
-    call print_line('Error: the keyword '//this%keyword//' has not been set. &
-       &this keyword is not optional.')
+    call print_line(ERROR//': the keyword '//this%keyword//' has not been &
+       &set. this keyword is not optional.')
     stop
   endif
   

@@ -105,40 +105,16 @@ subroutine read_file_BasisFunctions(this,filename)
   class(BasisFunctions), intent(out) :: this
   type(String),          intent(in)  :: filename
   
-  type(IFile) :: file
-  
-  integer, allocatable :: first_lines(:)
-  integer, allocatable :: last_lines(:)
-  
-  integer :: no_basis_functions
+  type(IFile)                    :: file
+  type(StringArray), allocatable :: sections(:)
   
   integer :: i,ialloc
   
   file = filename
-  
-  allocate( first_lines(size(file)), &
-          & last_lines(size(file)),  &
-          & stat=ialloc); call err(ialloc)
-  
-  ! Identify separate basis functions by the blank lines between them.
-  no_basis_functions = 1
-  first_lines(1) = 2
-  do i=2,size(file)
-    if (len(file%line(i))==0) then
-      last_lines(no_basis_functions) = i-1
-      no_basis_functions = no_basis_functions+1
-      first_lines(no_basis_functions) = i+2
-    endif
-  enddo
-  last_lines(no_basis_functions) = size(file)
-  
-  first_lines = first_lines(:no_basis_functions)
-  last_lines = last_lines(:no_basis_functions)
-  
-  allocate(this%functions(no_basis_functions), stat=ialloc); call err(ialloc)
-  do i=1,size(this)
-    this%functions(i) = BasisFunction(file%lines(first_lines(i),last_lines(i)))
+  sections = file%split_by_blank_lines()
+  allocate(this%functions(size(sections)), stat=ialloc); call err(ialloc)
+  do i=1,size(sections)
+    this%functions(i) = BasisFunction(sections(i)%strings(2:))
   enddo
 end subroutine
-
 end module

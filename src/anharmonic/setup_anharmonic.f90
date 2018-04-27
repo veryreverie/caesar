@@ -230,6 +230,7 @@ subroutine setup_anharmonic(arguments)
   ! Loop over subspace couplings, generating basis functions and sampling
   !    points for each.
   allocate( basis_functions(size(coupled_subspaces)), &
+          & sampling_points(size(coupled_subspaces)), &
           & stat=ialloc); call err(ialloc)
   do i=1,size(coupled_subspaces)
     ! Generate the set of subspace monomials corresponding to the subspace
@@ -271,6 +272,9 @@ subroutine setup_anharmonic(arguments)
     
     ! Write basis functions to file.
     call basis_functions(i)%write_file(coupling_dir//'/basis_functions.dat')
+    
+    ! Write sampling points to file.
+    call sampling_points(i)%write_file(coupling_dir//'/sampling_points.dat')
   enddo
   
   ! Write out sampling points.

@@ -20,6 +20,10 @@ module complex_mode_displacement_submodule
   interface size
     module procedure size_ComplexModeDisplacement
   end interface
+  
+  interface ComplexModeDisplacement
+    module procedure new_ComplexModeDisplacement_Strings
+  end interface
 contains
 
 ! Return the number of modes along which the vector has displacements.
@@ -44,6 +48,20 @@ function to_String_ComplexModeDisplacement(this) result(output)
   allocate(output(size(this)), stat=ialloc); call err(ialloc)
   do i=1,size(this)
     output(i) = str(this%displacements(i))
+  enddo
+end function
+
+function new_ComplexModeDisplacement_Strings(input) result(this)
+  implicit none
+  
+  type(String), intent(in)      :: input(:)
+  type(ComplexModeDisplacement) :: this
+  
+  integer :: i,ialloc
+  
+  allocate(this%displacements(size(input)), stat=ialloc); call err(ialloc)
+  do i=1,size(this)
+    this%displacements(i) = ComplexSingleModeDisplacement(input(i))
   enddo
 end function
 end module

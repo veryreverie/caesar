@@ -1,5 +1,5 @@
 ! ======================================================================
-! Generates sampling points for sampling a given set of basis functions.
+! Sampling points for sampling a given set of basis functions.
 ! ======================================================================
 module sampling_points_module
   use common_module
@@ -17,8 +17,24 @@ module sampling_points_module
   
   type :: SamplingPoints
     type(RealModeDisplacement), allocatable :: points(:)
+  contains
+    procedure, public :: write_file => write_file_SamplingPoints
+    procedure, public :: read_file  => read_file_SamplingPoints
   end type
+  
+  interface size
+    module procedure size_SamplingPoints
+  end interface
 contains
+
+function size_SamplingPoints(this) result(output)
+  implicit none
+  
+  type(SamplingPoints), intent(in) :: this
+  integer                          :: output
+  
+  output = size(this%points)
+end function
 
 function generate_sampling_points(basis_functions,potential_expansion_order, &
    & maximum_weighted_displacement) result(output)
@@ -107,4 +123,45 @@ function generate_sampling_points_helper(monomials,potential_expansion_order, &
                                        & * sqrt(fractions)
   enddo
 end function
+
+! ----------------------------------------------------------------------
+! I/O.
+! ----------------------------------------------------------------------
+subroutine write_file_SamplingPoints(this,filename)
+  implicit none
+  
+  class(SamplingPoints), intent(in) :: this
+  type(String),          intent(in) :: filename
+  
+  type(OFile) :: file
+  
+  integer :: i
+  
+  file = filename
+  
+  do i=1,size(this)
+    call file%print_line('Sampling point '//i)
+    call file%print_line(this%points(i))
+    call file%print_line('')
+  enddo
+end subroutine
+
+subroutine read_file_SamplingPoints(this,filename)
+  implicit none
+  
+  class(SamplingPoints), intent(out) :: this
+  type(String),          intent(in)  :: filename
+  
+  type(IFile)                    :: file
+  type(StringArray), allocatable :: sections(:)
+  
+  integer :: i,ialloc
+  
+  file = filename
+  sections = file%split_by_blank_lines()
+  allocate(this%points(size(sections)), stat=ialloc); call err(ialloc)
+  do i=1,size(sections)
+    this%points(i) = RealModeDisplacement(sections(i)%strings(2:))
+  enddo
+end subroutine
 end module
