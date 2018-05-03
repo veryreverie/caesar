@@ -50,9 +50,6 @@ module io_submodule
   end interface
   
   interface print_line
-    module procedure print_line_Stringable
-    module procedure print_line_Printable
-    
     module procedure print_line_integer
     module procedure print_line_real
     module procedure print_line_logical
@@ -413,33 +410,6 @@ end subroutine
 ! ----------------------------------------------------------------------
 ! Provides the print_line function for non-character types.
 ! ----------------------------------------------------------------------
-subroutine print_line_Stringable(this,indent)
-  implicit none
-  
-  class(Stringable), intent(in)           :: this
-  integer,           intent(in), optional :: indent
-  
-  if (present(indent)) then
-    call print_line(str(this),indent)
-  else
-    call print_line(str(this))
-  endif
-end subroutine
-
-subroutine print_line_Printable(this)
-  implicit none
-  
-  class(Printable), intent(in) :: this
-  
-  type(String), allocatable :: lines(:)
-  integer                   :: i
-  
-  lines = str(this)
-  do i=1,size(lines)
-    call print_line(lines(i))
-  enddo
-end subroutine
-
 subroutine print_line_integer(this)
   implicit none
   

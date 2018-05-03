@@ -178,7 +178,7 @@ subroutine generate_dos(supercell,min_images,force_constants,       &
      & no_dos_samples*supercell%no_modes_prim//' modes sampled.')
   
   ! Write out density of states.
-  dos_file = dos_filename
+  dos_file = OFile(dos_filename)
   do i=1,no_bins
     call dos_file%print_line(                &
        & 'Bin: '//min_freq+bin_width*(i-1)// &
@@ -188,7 +188,7 @@ subroutine generate_dos(supercell,min_images,force_constants,       &
   enddo
   
   ! Write out thermodynamic variables.
-  energy_file = energy_filename
+  energy_file = OFile(energy_filename)
   call energy_file%print_line( 'kB * temperature (Hartree) | &
                               &U=<E> (Hartree) | &
                               &F=U-TS (Hartree) | &
@@ -270,7 +270,7 @@ subroutine generate_dispersion(large_supercell,min_images,force_constants, &
   enddo
   
   ! Write path to file.
-  high_symmetry_points_file = high_symmetry_points_filename
+  high_symmetry_points_file = OFile(high_symmetry_points_filename)
   do i=1,no_vertices
     call high_symmetry_points_file%print_line( &
        & 'q-point: '//path_labels(i)//' '//path_qpoints(i))
@@ -280,7 +280,7 @@ subroutine generate_dispersion(large_supercell,min_images,force_constants, &
   enddo
   
   ! Travel along q-space paths, calculating frequencies at each point.
-  dispersion_file = dispersion_filename
+  dispersion_file = OFile(dispersion_filename)
   do i=1,no_segments
     do j=0,points_per_segment(i)-1
       qpoint = ( (points_per_segment(i)-j)*path_qpoints(i)     &

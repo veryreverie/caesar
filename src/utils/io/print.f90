@@ -4,6 +4,8 @@
 ! print_line acts as the intrinsic write(*,*), but with the ability to be
 !    redirected to a file. Provides error checking and formatting dependent on
 !    whether the output is the terminal or a file.
+! print_lines acts as print_line, but for objects which are printed onto more
+!    than one line.
 ! colour adds terminal escape characters so that a string is coloured when
 !    printed to the terminal.
 module print_submodule
@@ -16,6 +18,7 @@ module print_submodule
   private
   
   public :: print_line
+  public :: print_lines
   public :: colour
   public :: set_output_unit
   public :: unset_output_unit
@@ -28,6 +31,11 @@ module print_submodule
   interface print_line
     module procedure print_line_character
     module procedure print_line_String
+  end interface
+  
+  interface print_lines
+    module procedure print_lines_Strings_character
+    module procedure print_lines_Strings_String
   end interface
   
   interface colour
@@ -163,17 +171,43 @@ subroutine print_line_String(line,indent)
   type(String), intent(in)           :: line
   integer,      intent(in), optional :: indent
   
-  if (present(indent)) then
-    call print_line(char(line),indent)
-  else
-    call print_line(char(line))
-  endif
+  call print_line(char(line),indent)
 end subroutine
 
-! --------------------------------------------------
+! ----------------------------------------------------------------------
+! As print_line, but for printing over multiple lines.
+! ----------------------------------------------------------------------
+subroutine print_lines_Strings_character(lines,indent,separating_line)
+  implicit none
+  
+  type(String), intent(in)           :: lines(:)
+  integer,      intent(in), optional :: indent
+  character(*), intent(in), optional :: separating_line
+  
+  integer :: i
+  
+  do i=1,size(lines)
+    call print_line(lines(i),indent)
+    if (present(separating_line)) then
+      call print_line(separating_line)
+    endif
+  enddo
+end subroutine
+
+subroutine print_lines_Strings_String(lines,indent,separating_line)
+  implicit none
+  
+  type(String), intent(in)           :: lines(:)
+  integer,      intent(in), optional :: indent
+  type(String), intent(in)           :: separating_line
+  
+  call print_lines(lines,indent,char(separating_line))
+end subroutine
+
+! ----------------------------------------------------------------------
 ! Adds terminal colour to a string.
 ! Does nothing if the output is going to a file.
-! --------------------------------------------------
+! ----------------------------------------------------------------------
 ! N.B. can't detect "caesar > file", only supresses colour if "caesar -o file".
 function colour_character_character(input,colour_name) result(output)
   implicit none

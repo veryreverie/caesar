@@ -98,11 +98,11 @@ subroutine write_input_file_vasp(structure,poscar_filename)
   enddo
   
   ! Write output file
-  poscar_file = poscar_filename
+  poscar_file = OFile(poscar_filename)
   
   call poscar_file%print_line('Structure')
   call poscar_file%print_line(ANGSTROM_PER_BOHR)
-  call poscar_file%print_line(structure%lattice)
+  call poscar_file%print_lines(structure%lattice)
   
   line = species(1)
   do i=2,no_species

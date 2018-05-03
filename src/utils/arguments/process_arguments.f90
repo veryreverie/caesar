@@ -97,7 +97,7 @@ function process_arguments(args,keywords_in) result(arguments)
   enddo
   
   ! Convert keywords into Dictionary.
-  arguments = keywords
+  arguments = Dictionary(keywords)
   
   ! --------------------------------------------------
   ! Parse command line arguments.

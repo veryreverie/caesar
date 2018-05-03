@@ -36,7 +36,7 @@ function read_castep_output_file(filename,structure,dir,seedname, &
   output%energy = output_file%energy
   output%forces = output_file%forces
   
-  castep_output_file = filename
+  castep_output_file = IFile(filename)
   do i=1,size(castep_output_file)
     line = split(lower_case(castep_output_file%line(i)))
     if (size(line)>=6) then

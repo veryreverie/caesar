@@ -20,16 +20,19 @@ module ifile_submodule
     type(String), private              :: filename_
     type(String), private, allocatable :: lines_(:)
   contains
-    generic, public :: assignment(=) => read_file_character, &
-                                      & read_file_String
-    procedure, private ::               read_file_character
-    procedure, private ::               read_file_String
-    
     procedure, public :: line
     procedure, public :: split_line
-    procedure, public :: lines
-    procedure, public :: split_by_blank_lines
+    
+    generic,   public  :: lines => lines_all, &
+                                 & lines_slice
+    procedure, private ::          lines_all
+    procedure, private ::          lines_slice
   end type
+  
+  interface IFile
+    module procedure new_IFile_character
+    module procedure new_IFile_String
+  end interface
   
   interface size
     module procedure size_IFile
@@ -37,11 +40,11 @@ module ifile_submodule
 contains
 
 ! Read a file from its filename.
-subroutine read_file_character(this,filename)
+function new_IFile_character(filename) result(this)
   implicit none
   
-  class(IFile), intent(out) :: this
-  character(*), intent(in)  :: filename
+  character(*), intent(in) :: filename
+  type(IFile)              :: this
   
   integer         :: file_length
   integer         :: file_unit
@@ -65,16 +68,16 @@ subroutine read_file_character(this,filename)
     this%lines_(i) = trim(line)
   enddo
   close(file_unit)
-end subroutine
+end function
 
-subroutine read_file_String(this,filename)
+function new_IFile_String(filename) result(this)
   implicit none
   
-  class(IFile), intent(out) :: this
-  type(String), intent(in)  :: filename
+  type(String), intent(in) :: filename
+  type(IFile)              :: this
   
-  this = char(filename)
-end subroutine
+  this = IFile(char(filename))
+end function
 
 ! The number of lines in the file.
 function size_IFile(this) result(output)
@@ -118,15 +121,24 @@ function split_line(this,line_number,delimiter) result(output)
 end function
 
 ! Returns an array of lines from the file.
-function lines(this,first_line_number,last_line_number) result(output)
+function lines_all(this) result(output)
+  implicit none
+  
+  class(IFile), intent(in)  :: this
+  type(StringArray)         :: output
+  
+  output = StringArray(this%lines_)
+end function
+
+function lines_slice(this,first_line_number,last_line_number) result(output)
   implicit none
   
   class(IFile), intent(in)  :: this
   integer,      intent(in)  :: first_line_number
   integer,      intent(in)  :: last_line_number
-  type(String), allocatable :: output(:)
+  type(StringArray)         :: output
   
-  output = this%lines_(first_line_number:last_line_number)
+  output = StringArray(this%lines_(first_line_number:last_line_number))
 end function
 
 ! Returns the number of lines in a file.
@@ -153,58 +165,5 @@ function count_lines(filename) result(output)
     endif
   enddo
   close(file_unit)
-end function
-
-! Splits the file into sections, split by one or more blank lines.
-function split_by_blank_lines(this) result(output)
-  implicit none
-  
-  class(IFile), intent(in)       :: this
-  type(StringArray), allocatable :: output(:)
-  
-  logical, allocatable :: blank_line(:)
-  
-  integer :: no_sections
-  logical :: reading_section
-  
-  integer, allocatable :: first_lines(:)
-  integer, allocatable :: last_lines(:)
-  
-  integer :: i,ialloc
-  
-  allocate( first_lines(size(this)), &
-          & last_lines(size(this)),  &
-          & stat=ialloc); call err(ialloc)
-  no_sections = 0
-  reading_section = .false.
-  do i=1,size(this)
-    if (len(this%line(i))==0) then
-      ! This line is blank.
-      ! If reading a section, then the end of that section is the line above.
-      if (reading_section) then
-        last_lines(no_sections) = i-1
-        reading_section = .false.
-      endif
-    else
-      ! This line is not blank.
-      ! If not reading a section, then this line is the start of a new section.
-      if (.not. reading_section) then
-        no_sections = no_sections+1
-        first_lines(no_sections) = i
-        reading_section = .true.
-      endif
-    endif
-  enddo
-  
-  ! If a section is still being read, then that section ends on the last line
-  !    of the file.
-  if (reading_section) then
-    last_lines(no_sections) = size(this)
-  endif
-  
-  allocate(output(no_sections), stat=ialloc); call err(ialloc)
-  do i=1,no_sections
-    output(i) = StringArray(this%lines_(first_lines(i):last_lines(i)))
-  enddo
 end function
 end module  

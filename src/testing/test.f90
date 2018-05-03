@@ -52,13 +52,12 @@ subroutine test(arguments)
   
   wd = arguments%value('working_directory')
   
-  file = wd//'/file.dat'
-  strings = file%split_by_blank_lines()
+  file = IFile(wd//'/file.dat')
+  strings = split(file%lines())
   
   do i=1,size(strings)
     call print_line('Section '//i//':')
-    call print_line(strings(i))
+    call print_lines(strings(i))
   enddo
-  
 end subroutine
 end module

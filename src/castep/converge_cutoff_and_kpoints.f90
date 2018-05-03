@@ -195,8 +195,8 @@ subroutine converge_cutoff_and_kpoints(arguments)
   ! --------------------------------------------------
   ! Read .cell and .param files.
   ! --------------------------------------------------
-  cell_file = wd//'/'//seedname//'.cell'
-  param_file = wd//'/'//seedname//'.param'
+  cell_file = IFile(wd//'/'//seedname//'.cell')
+  param_file = IFile(wd//'/'//seedname//'.param')
   
   structure = input_file_to_StructureData( str('castep'),              &
                                          & wd//'/'//seedname//'.cell', &
@@ -236,7 +236,7 @@ subroutine converge_cutoff_and_kpoints(arguments)
   ! Run cutoff convergence.
   ! --------------------------------------------------
   
-  progress_file = wd//'/convergence_progress.dat'
+  progress_file = OFile(wd//'/convergence_progress.dat')
   call progress_file%print_line( 'Energy cutoff convergence:')
   converged = .false.
   do i=1,no_cutoffs
@@ -311,7 +311,7 @@ subroutine converge_cutoff_and_kpoints(arguments)
   call progress_file%print_line( '')
   
   ! Write out energy convergence file.
-  cutoff_file = wd//'/cutoff_convergence.dat'
+  cutoff_file = OFile(wd//'/cutoff_convergence.dat')
   call cutoff_file%print_line( 'Final Energy Cutoff : '// &
                              & cutoffs(converged_step)//' eV')
   call cutoff_file%print_line( 'Energy Tolerance    : '// &
@@ -415,7 +415,7 @@ subroutine converge_cutoff_and_kpoints(arguments)
   endif
   
   ! Write out k-points file.
-  kpoints_file = wd//'/kpoints_convergence.dat'
+  kpoints_file = OFile(wd//'/kpoints_convergence.dat')
   call kpoints_file%print_line( 'Final k-point spacing : '// &
                               & kpoint_spacings(converged_step)//' 1/A')
   call kpoints_file%print_line( 'Final no. k-points    : '// &
@@ -470,14 +470,14 @@ function run_castep(cutoff,kpoint_spacing,wd,dir,seedname,run_script, &
   ! Write CASTEP inputs.
   call mkdir(dir)
   
-  output_cell_file = dir//'/'//seedname//'.cell'
+  output_cell_file = OFile(dir//'/'//seedname//'.cell')
   do i=1,size(cell_file)
     call output_cell_file%print_line(cell_file%line(i))
   enddo
   call output_cell_file%print_line( 'kpoints_mp_spacing : '// &
                                   & kpoint_spacing//' 1/bohr')
   
-  output_param_file = dir//'/'//seedname//'.param'
+  output_param_file = OFile(dir//'/'//seedname//'.param')
   do i=1,size(param_file)
     call output_param_file%print_line(param_file%line(i))
   enddo

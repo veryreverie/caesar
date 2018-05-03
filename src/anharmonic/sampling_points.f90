@@ -137,11 +137,10 @@ subroutine write_file_SamplingPoints(this,filename)
   
   integer :: i
   
-  file = filename
-  
+  file = OFile(filename)
   do i=1,size(this)
     call file%print_line('Sampling point '//i)
-    call file%print_line(this%points(i))
+    call file%print_lines(this%points(i))
     call file%print_line('')
   enddo
 end subroutine
@@ -157,8 +156,8 @@ subroutine read_file_SamplingPoints(this,filename)
   
   integer :: i,ialloc
   
-  file = filename
-  sections = file%split_by_blank_lines()
+  file = IFile(filename)
+  sections = split(file%lines())
   allocate(this%points(size(sections)), stat=ialloc); call err(ialloc)
   do i=1,size(sections)
     this%points(i) = RealModeDisplacement(sections(i)%strings(2:))

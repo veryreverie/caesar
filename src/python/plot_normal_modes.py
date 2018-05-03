@@ -50,8 +50,8 @@ def main():
   
   modes = []
   for filename in sorted(os.listdir()):
-    if filename[:5]=='mode_':
-      mode = int(filename[5:-4])
+    if filename[:13]=='complex_mode_':
+      mode = int(filename[13:-4])
       contents = [line.rstrip('\n').split() for line in open(filename)]
       reading_displacements = False
       for line in contents:

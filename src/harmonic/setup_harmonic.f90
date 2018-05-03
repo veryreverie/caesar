@@ -151,7 +151,7 @@ subroutine setup_harmonic(arguments)
   ! Generate non-diagonal supercells.
   supercells = generate_supercells(structure, qpoints, symmetry_precision)
   no_supercells = size(supercells)
-  no_supercells_file = wd//'/no_supercells.dat'
+  no_supercells_file = OFile(wd//'/no_supercells.dat')
   call no_supercells_file%print_line(no_supercells)
   
   ! Loop over supercells.

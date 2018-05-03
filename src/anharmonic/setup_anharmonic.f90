@@ -122,6 +122,7 @@ subroutine setup_anharmonic(arguments)
   type(SamplingPoints), allocatable :: sampling_points(:)
   
   ! Directories and files.
+  type(String)              :: qpoint_dir
   type(OFile)               :: coupling_file
   type(String)              :: max_subspace_id
   type(String), allocatable :: coupling_strings(:)
@@ -133,7 +134,11 @@ subroutine setup_anharmonic(arguments)
   ! Temporary variables.
   integer :: i,j,k,l,ialloc
   
-  ! Parse inputs.
+  ! ----------------------------------------------------------------------
+  ! Read in inputs.
+  ! ----------------------------------------------------------------------
+  
+  ! Parse new user inputs.
   wd = arguments%value('working_directory')
   harmonic_path = arguments%value('harmonic_path')
   qpoint_grid = int(split(arguments%value('q-point_grid')))
@@ -143,8 +148,8 @@ subroutine setup_anharmonic(arguments)
      & lgcl(arguments%value('vscf_basis_functions_only'))
   maximum_displacement = dble(arguments%value('maximum_displacement'))
   
-  ! Retrieve previous data.
-  setup_harmonic_arguments = setup_harmonic_keywords()
+  ! Retrieve data from previous stages.
+  setup_harmonic_arguments = Dictionary(setup_harmonic_keywords())
   call setup_harmonic_arguments%read_file( &
      & harmonic_path//'/setup_harmonic.used_settings')
   seedname = setup_harmonic_arguments%value('seedname')
@@ -156,11 +161,21 @@ subroutine setup_anharmonic(arguments)
                                  & symmetry_precision)
   harmonic_qpoints = read_qpoints_file(harmonic_path//'/qpoints.dat')
   
-  ! Open logifile.
-  logfile = wd//'/setup_anharmonic_logfile.dat'
+  ! ----------------------------------------------------------------------
+  ! Generate setup data.
+  ! ----------------------------------------------------------------------
   
-  ! Generate new q-point grid, and the supercell which has all anharmonic
-  !    q-points as G-vectors.
+  ! Open logfile.
+  logfile = OFile(wd//'/setup_anharmonic_logfile.dat')
+  
+  ! Calculate the maximum mass-weighted displacement from the maximum
+  !    displacement. This corresponds to a mode made entirely from the
+  !    lightest element moving up to maximum_displacement.
+  maximum_weighted_displacement = maximum_displacement &
+                              & * sqrt(minval(structure%atoms%mass()))
+  
+  ! Generate anharmonic q-point grid, and the supercell which has all
+  !    anharmonic q-points as G-vectors.
   anharmonic_supercell_matrix =                                &
      & mat([ qpoint_grid(1), 0             , 0            ,    &
      &       0             , qpoint_grid(2), 0            ,    &
@@ -170,14 +185,12 @@ subroutine setup_anharmonic(arguments)
                                             & anharmonic_supercell_matrix, &
                                             & symmetry_precision,          &
                                             & calculate_symmetry=.false.)
-  call write_structure_file( anharmonic_supercell, &
-                           & wd//'/anharmonic_supercell.dat')
   qpoints = generate_qpoints(anharmonic_supercell)
-  call write_qpoints_file(qpoints, wd//'/qpoints.dat')
   
-  ! Read in normal modes at anharmonic q-points, and record which new q-point
-  !    each corresponds to.
+  ! Read in harmonic normal modes which correspond to anharmonic q-points,
+  !    and record which new q-point each corresponds to.
   allocate( complex_modes(size(qpoints)*structure%no_modes), &
+          & real_modes(size(qpoints)*structure%no_modes),    &
           & mode_qpoints(size(qpoints)*structure%no_modes),  &
           & stat=ialloc); call err(ialloc)
   l = 0
@@ -190,20 +203,25 @@ subroutine setup_anharmonic(arguments)
       stop
     endif
     
+    qpoint_dir = &
+       & harmonic_path//'/qpoint_'//left_pad(j,str(size(harmonic_qpoints)))
     do k=1,structure%no_modes
       l = l+1
-      complex_modes(l) = ComplexMode(                             &
-         & harmonic_path                                       // &
-         & '/qpoint_'//left_pad(j,str(size(harmonic_qpoints))) // &
-         & '/mode_'//left_pad(k,str(structure%no_modes))//'.dat')
+      complex_modes(l) = ComplexMode( &
+         & qpoint_dir //              &
+         & '/complex_mode_'//left_pad(k,str(structure%no_modes))//'.dat')
       mode_qpoints(l) = i
     enddo
   enddo
   
-  degenerate_subspaces = process_degeneracies(complex_modes,mode_qpoints)
-  max_subspace_id = str(maxval(degenerate_subspaces%id))
+  ! Calculate real modes from complex modes.
+  real_modes = complex_to_real(complex_modes)
   
-  ! Generate the symmetry operators in each subspace.
+  ! Retrieve data on how normal modes are grouped into subspaces
+  !    of degenerate modes.
+  degenerate_subspaces = process_degeneracies(complex_modes,mode_qpoints)
+  
+  ! Generate the symmetry operators in each degenerate subspace.
   allocate( degenerate_symmetries(size(structure%symmetries)), &
           & stat=ialloc); call err(ialloc)
   do i=1,size(structure%symmetries)
@@ -213,15 +231,6 @@ subroutine setup_anharmonic(arguments)
                                                  & qpoints,                 &
                                                  & logfile)
   enddo
-  
-  ! Construct real modes from complex modes.
-  real_modes = complex_to_real(complex_modes)
-  
-  ! Calculate the maximum mass-weighted displacement from the maximum
-  !    displacement. This corresponds to a mode made entirely from the
-  !    lightest element moving up to maximum_displacement.
-  maximum_weighted_displacement = maximum_displacement &
-                              & * sqrt(minval(structure%atoms%mass()))
   
   ! Generate all sets of coupled subspaces, up to maximum_coupling_order.
   coupled_subspaces = generate_coupled_subspaces( degenerate_subspaces, &
@@ -257,8 +266,18 @@ subroutine setup_anharmonic(arguments)
                    & maximum_weighted_displacement)
   enddo
   
+  ! ----------------------------------------------------------------------
+  ! Write out setup data.
+  ! ----------------------------------------------------------------------
+  
+  ! Write out anharmonic supercell and q-points.
+  call write_structure_file( anharmonic_supercell, &
+                           & wd//'/anharmonic_supercell.dat')
+  call write_qpoints_file(qpoints, wd//'/qpoints.dat')
+  
   ! Write out coupling and basis functions.
-  coupling_file = wd//'/coupling.dat'
+  coupling_file = OFile(wd//'/coupling.dat')
+  max_subspace_id = str(maxval(degenerate_subspaces%id))
   do i=1,size(coupled_subspaces)
     ! Add entry to coupling file for this coupling.
     call coupling_file%print_line(coupled_subspaces(i))

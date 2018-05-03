@@ -274,10 +274,10 @@ subroutine write_input_file_castep(structure,old_cell_filename, &
   ! --------------------------------------------------
   ! Write new cell file.
   ! --------------------------------------------------
-  new_cell_file = new_cell_filename
+  new_cell_file = OFile(new_cell_filename)
   call new_cell_file%print_line('%block lattice_cart')
   call new_cell_file%print_line('bohr')
-  call new_cell_file%print_line(structure%lattice)
+  call new_cell_file%print_lines(structure%lattice)
   call new_cell_file%print_line('%endblock lattice_cart')
   call new_cell_file%print_line('')
   call new_cell_file%print_line('%block positions_abs')
@@ -333,7 +333,7 @@ function parse_castep_input_file(filename) result(output)
   type(String), allocatable :: line(:)
   integer                   :: i,j,k,ialloc
   
-  cell_file = filename
+  cell_file = IFile(filename)
   
   lattice_block_start = 0
   lattice_block_size = 0
@@ -476,7 +476,7 @@ function read_output_file_castep(filename,structure) result(output)
   ! Temporary variables.
   integer :: i,j,ialloc
   
-  castep_file = filename
+  castep_file = IFile(filename)
   
   ! Work out line numbers.
   energy_line = 0

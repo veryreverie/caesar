@@ -498,11 +498,11 @@ subroutine write_dynamical_matrix_file(dynamical_matrix,filename)
     call err()
   endif
   
-  matrix_file = filename
+  matrix_file = OFile(filename)
   do i=1,no_atoms
     do j=1,no_atoms
       call matrix_file%print_line('Atoms: '//i//' and '//j//'.')
-      call matrix_file%print_line(dynamical_matrix%matrices_(j,i))
+      call matrix_file%print_lines(dynamical_matrix%matrices_(j,i))
       call matrix_file%print_line('')
     enddo
   enddo
@@ -526,7 +526,7 @@ function read_dynamical_matrix_file(filename) result(dynamical_matrix)
   type(String), allocatable :: line(:)
   complex(dp)               :: matrix(3,3)
   
-  matrix_file = filename
+  matrix_file = IFile(filename)
   
   no_atoms = int_sqrt(size(matrix_file)/5)
   

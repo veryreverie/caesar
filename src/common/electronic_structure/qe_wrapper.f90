@@ -68,7 +68,7 @@ subroutine write_input_file_qe(structure,old_qe_in_filename,new_qe_in_filename)
   type(String), allocatable :: line(:)
   
   if (present(old_qe_in_filename)) then
-    old_qe_in_file = old_qe_in_filename
+    old_qe_in_file = IFile(old_qe_in_filename)
     
     ! --------------------------------------------------
     ! Transform q-points into supercell co-ordinates.
@@ -87,11 +87,11 @@ subroutine write_input_file_qe(structure,old_qe_in_filename,new_qe_in_filename)
   ! --------------------------------------------------
   ! Write output file
   ! --------------------------------------------------
-  new_qe_in_file = new_qe_in_filename
+  new_qe_in_file = OFile(new_qe_in_filename)
   call new_qe_in_file%print_line('nat='//structure%no_atoms)
   call new_qe_in_file%print_line('/&end')
   call new_qe_in_file%print_line('CELL_PARAMETERS bohr')
-  call new_qe_in_file%print_line(structure%lattice)
+  call new_qe_in_file%print_lines(structure%lattice)
   call new_qe_in_file%print_line('ATOMIC_POSITIONS bohr')
   do i=1,structure%no_atoms
     call new_qe_in_file%print_line( structure%atoms(i)%species() //' '// &
@@ -135,7 +135,7 @@ function read_output_file_qe(filename,structure) result(output)
   ! Temporary variables.
   integer :: i,ialloc
   
-  qe_file = filename
+  qe_file = IFile(filename)
   
   ! Work out line numbers.
   species_start_line = 0

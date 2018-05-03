@@ -152,11 +152,11 @@ subroutine linear_algebra_test(arguments)
   vec_of_vecs = [ vec([1,0,0]), vec([0,1,0]) ]
   
   call print_line('Matrix:')
-  call print_line(matrix)
+  call print_lines(matrix)
   
   matrix = transpose(matrix)
   call print_line('Transposed(Matrix):')
-  call print_line(matrix)
+  call print_lines(matrix)
   
   call print_line('Matrix*Vector:')
   vector = matrix*vector

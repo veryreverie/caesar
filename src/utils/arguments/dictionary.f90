@@ -17,14 +17,9 @@ module dictionary_submodule
   ! A dictionary of keys and values.
   ! ------------------------------
   type :: Dictionary
+    ! Accepted keywords.
     type(KeywordData), allocatable :: keywords(:)
   contains
-    ! ----------
-    ! Make a Dictionary from an array of keywords.
-    ! ----------
-    generic,   public  :: assignment(=) => assign_Dictionary_KeywordDatas
-    procedure, private :: assign_Dictionary_KeywordDatas
-    
     ! ----------
     ! Concatenate two Dictionaries.
     ! ----------
@@ -130,11 +125,8 @@ module dictionary_submodule
     
   end type
   
-  ! ------------------------------
-  ! Procedures acting on a Dictionary.
-  ! ------------------------------
   interface Dictionary
-    module procedure new_Dictionary
+    module procedure new_Dictionary_KeywordDatas
   end interface
   
   interface size
@@ -143,17 +135,15 @@ module dictionary_submodule
 contains
 
 ! ----------------------------------------------------------------------
-! Private allocate(Dictionary) subroutine.
+! Constructor from a KeywordData array.
 ! ----------------------------------------------------------------------
-function new_Dictionary(no_entries) result(this)
+function new_Dictionary_KeywordDatas(keywords) result(this)
   implicit none
   
-  integer, intent(in) :: no_entries
-  type(Dictionary)    :: this
+  type(KeywordData), intent(in) :: keywords(:)
+  type(Dictionary)              :: this
   
-  integer :: ialloc
-  
-  allocate(this%keywords(no_entries), stat=ialloc); call err(ialloc)
+  this%keywords = keywords
 end function
 
 ! ----------------------------------------------------------------------
@@ -167,18 +157,6 @@ function size_Dictionary(this) result(output)
   
   output = size(this%keywords)
 end function
-
-! ----------------------------------------------------------------------
-! Takes an array of KeywordData and returns a Dictionary.
-! ----------------------------------------------------------------------
-subroutine assign_Dictionary_KeywordDatas(this,that)
-  implicit none
-  
-  class(Dictionary), intent(out) :: this
-  type(KeywordData), intent(in)  :: that(:)
-  
-  this%keywords = that
-end subroutine
 
 ! ----------------------------------------------------------------------
 ! Concatenates two Dictionaries.
@@ -374,11 +352,7 @@ subroutine set_Dictionary_character_character(this,keyword,value, &
   character(*),      intent(in)           :: value
   logical,           intent(in), optional :: only_update_if_unset
   
-  if (present(only_update_if_unset)) then
-    call this%keywords(this%index(keyword))%set(value, only_update_if_unset) 
-  else
-    call this%keywords(this%index(keyword))%set(value)
-  endif
+  call this%keywords(this%index(keyword))%set(value, only_update_if_unset) 
 end subroutine
 
 subroutine set_Dictionary_character_String(this,keyword,value, &
@@ -390,11 +364,7 @@ subroutine set_Dictionary_character_String(this,keyword,value, &
   type(String),      intent(in)           :: value
   logical,           intent(in), optional :: only_update_if_unset
   
-  if (present(only_update_if_unset)) then
-    call this%set(keyword, char(value), only_update_if_unset)
-  else
-    call this%set(keyword, char(value))
-  endif
+  call this%set(keyword, char(value), only_update_if_unset)
 end subroutine
 
 subroutine set_Dictionary_String_character(this, keyword, value, &
@@ -406,11 +376,7 @@ subroutine set_Dictionary_String_character(this, keyword, value, &
   character(*),      intent(in)           :: value
   logical,           intent(in), optional :: only_update_if_unset
   
-  if (present(only_update_if_unset)) then
-    call this%set(char(keyword), value, only_update_if_unset)
-  else
-    call this%set(char(keyword), value)
-  endif
+  call this%set(char(keyword), value, only_update_if_unset)
 end subroutine
 
 subroutine set_Dictionary_String_String(this,keyword,value, &
@@ -422,11 +388,7 @@ subroutine set_Dictionary_String_String(this,keyword,value, &
   type(String),      intent(in)           :: value
   logical,           intent(in), optional :: only_update_if_unset
   
-  if (present(only_update_if_unset)) then
-    call this%set(char(keyword), char(value), only_update_if_unset)
-  else
-    call this%set(char(keyword), char(value))
-  endif
+  call this%set(char(keyword), char(value), only_update_if_unset)
 end subroutine
 
 ! ----------------------------------------------------------------------
@@ -505,7 +467,7 @@ subroutine write_file_Dictionary_character(this,filename)
   enddo
   
   if (to_write) then
-    dictionary_file = filename
+    dictionary_file = OFile(filename)
     do i=1,size(this)
       if (.not. this%keywords(i)%allowed_in_file) then
         cycle
@@ -561,7 +523,7 @@ subroutine read_file_Dictionary_character(this, filename, &
   endif
   
   ! Read file.
-  dictionary_file = filename
+  dictionary_file = IFile(filename)
   
   ! Process file.
   ! Each line is expected to be of the form '  key  value  ! comments  '
@@ -609,11 +571,7 @@ subroutine read_file_Dictionary_String(this, filename, &
   type(String),      intent(in)           :: filename
   logical,           intent(in), optional :: only_update_if_unset
   
-  if (present(only_update_if_unset)) then
-    call this%read_file(char(filename), only_update_if_unset)
-  else
-    call this%read_file(char(filename))
-  endif
+  call this%read_file(char(filename), only_update_if_unset)
 end subroutine
 
 ! ----------------------------------------------------------------------

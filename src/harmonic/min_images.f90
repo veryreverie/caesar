@@ -192,9 +192,9 @@ function min_images_brute_force(supercell,a,b) result(output)
       call print_line('Image R-vector: '//output%image_rvectors(i))
       call print_line('Input R-vector: '//rvector)
       call print_line('Supercell:')
-      call print_line(supercell%supercell)
+      call print_lines(supercell%supercell)
       call print_line('Recip Supercell:')
-      call print_line(supercell%recip_supercell)
+      call print_lines(supercell%recip_supercell)
       call err()
     endif
   enddo

@@ -598,13 +598,13 @@ subroutine write_file(this,filename)
   
   integer :: i,j
   
-  file = filename
+  file = OFile(filename)
   
   do i=1,size(this%constants_,1)
     do j=1,size(this%constants_,2)
      call file%print_line('')
      call file%print_line('i: '//i//', j: '//j)
-     call file%print_line(this%constants_(i,j))
+     call file%print_lines(this%constants_(i,j))
     enddo
   enddo
 end subroutine

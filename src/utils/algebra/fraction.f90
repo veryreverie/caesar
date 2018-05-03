@@ -106,7 +106,8 @@ module fraction_submodule
     procedure, private, pass(that) :: divide_integer_IntFraction
     
     ! I/O.
-    procedure, public :: to_String => to_String_IntFraction
+    procedure, public :: read  => read_IntFraction
+    procedure, public :: write => write_IntFraction
   end type
   
   ! Constructor.
@@ -244,18 +245,7 @@ impure elemental function frac_character(input) result(output)
   character(*), intent(in) :: input
   type(IntFraction)        :: output
   
-  type(String), allocatable :: split_string(:)
-  
-  split_string = split(input, '/')
-  if (size(split_string)==1) then
-    ! Assume the string is an integer.
-    output = int(split_string(1))
-  elseif (size(split_string)==2) then
-    ! Assume the string is of the form 'a/b'.
-    output = IntFraction(int(split_string(1)),int(split_string(2)))
-  else
-    call err()
-  endif
+  output = input
 end function
 
 ! Conversion from String.
@@ -265,7 +255,7 @@ impure elemental function frac_String(input) result(output)
   type(String), intent(in) :: input
   type(IntFraction)        :: output
   
-  output = frac(char(input))
+  output = input
 end function
 
 ! Conversion from integer.
@@ -530,7 +520,8 @@ end function
 ! Subtraction.
 ! ----------------------------------------------------------------------
 ! a/b + c/d = (ad-bc)/(bd).
-impure elemental function subtract_IntFraction_IntFraction(this,that) result(output)
+impure elemental function subtract_IntFraction_IntFraction(this,that) &
+   & result(output)
   implicit none
   
   class(IntFraction), intent(in) :: this
@@ -541,7 +532,8 @@ impure elemental function subtract_IntFraction_IntFraction(this,that) result(out
 end function
 
 ! a/b - c = (a-bc)/b.
-impure elemental function subtract_IntFraction_integer(this,that) result(output)
+impure elemental function subtract_IntFraction_integer(this,that) &
+   & result(output)
   implicit none
   
   class(IntFraction), intent(in) :: this
@@ -552,7 +544,8 @@ impure elemental function subtract_IntFraction_integer(this,that) result(output)
 end function
 
 ! a - b/c = (ac-b)/c.
-impure elemental function subtract_integer_IntFraction(this,that) result(output)
+impure elemental function subtract_integer_IntFraction(this,that) &
+   & result(output)
   implicit none
   
   integer,            intent(in) :: this
@@ -566,7 +559,8 @@ end function
 ! Multiplication.
 ! ----------------------------------------------------------------------
 ! a/b * c/d = (ac)/(bd).
-impure elemental function multiply_IntFraction_IntFraction(this,that) result(output)
+impure elemental function multiply_IntFraction_IntFraction(this,that) &
+   & result(output)
   implicit none
   
   class(IntFraction), intent(in) :: this
@@ -577,7 +571,8 @@ impure elemental function multiply_IntFraction_IntFraction(this,that) result(out
 end function
 
 ! a/b * c = ac/b.
-impure elemental function multiply_IntFraction_integer(this,that) result(output)
+impure elemental function multiply_IntFraction_integer(this,that) &
+   & result(output)
   implicit none
   
   class(IntFraction), intent(in) :: this
@@ -588,7 +583,8 @@ impure elemental function multiply_IntFraction_integer(this,that) result(output)
 end function
 
 ! a * b/c = ab/c.
-impure elemental function multiply_integer_IntFraction(this,that) result(output)
+impure elemental function multiply_integer_IntFraction(this,that) &
+   & result(output)
   implicit none
   
   integer,            intent(in) :: this
@@ -602,7 +598,8 @@ end function
 ! Division.
 ! ----------------------------------------------------------------------
 ! a/b / c/d = (ad)/(bc).
-impure elemental function divide_IntFraction_IntFraction(this,that) result(output)
+impure elemental function divide_IntFraction_IntFraction(this,that) &
+   & result(output)
   implicit none
   
   class(IntFraction), intent(in) :: this
@@ -675,16 +672,41 @@ end function
 ! ----------------------------------------------------------------------
 ! I/O.
 ! ----------------------------------------------------------------------
-function to_String_IntFraction(this) result(output)
+subroutine read_IntFraction(this,input)
+  implicit none
+  
+  class(IntFraction), intent(out) :: this
+  type(String),       intent(in)  :: input
+  
+  type(String), allocatable :: split_string(:)
+  
+  select type(this); type is(IntFraction)
+    split_string = split(input, '/')
+    if (size(split_string)==1) then
+      ! Assume the string is an integer.
+      this = int(split_string(1))
+    elseif (size(split_string)==2) then
+      ! Assume the string is of the form 'a/b'.
+      this = IntFraction(int(split_string(1)),int(split_string(2)))
+    else
+      call print_line('Error parsing fraction from string: '//input)
+      call err()
+    endif
+  end select
+end subroutine
+
+function write_IntFraction(this) result(output)
   implicit none
   
   class(IntFraction), intent(in) :: this
   type(String)                   :: output
   
-  if (is_int(this)) then
-   output = pad_int_to_str(this%n_)
-  else
-    output = pad_int_to_str(this%n_)//'/'//this%d_
-  endif
+  select type(this); type is(IntFraction)
+    if (is_int(this)) then
+     output = pad_int_to_str(this%n_)
+    else
+      output = pad_int_to_str(this%n_)//'/'//this%d_
+    endif
+  end select
 end function
 end module

@@ -75,7 +75,7 @@ subroutine write_qpoints_file(this,filename)
   
   integer :: i
   
-  qpoints_file = filename
+  qpoints_file = OFile(filename)
   do i=1,size(this)
     call qpoints_file%print_line( 'q-point '//i//', q=(qx/nx, qy/ny, qz/nz):')
     call qpoints_file%print_line( this(i)%qpoint)
@@ -100,7 +100,7 @@ function read_qpoints_file(filename) result(this)
   integer :: qpoint_line
   integer :: i,ialloc
   
-  qpoints_file = filename
+  qpoints_file = IFile(filename)
   no_qpoints = size(qpoints_file)/7
   allocate(this(no_qpoints), stat=ialloc); call err(ialloc)
   do i=1,no_qpoints

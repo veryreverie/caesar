@@ -111,6 +111,8 @@ subroutine calculate_normal_modes(arguments)
   complex(dp)              :: phase
   integer                  :: paired_pos
   
+  type(ComplexMode), allocatable :: complex_modes(:)
+  
   ! Logfiles.
   type(OFile) :: force_logfile
   type(OFile) :: qpoint_logfile
@@ -151,14 +153,14 @@ subroutine calculate_normal_modes(arguments)
   ! --------------------------------------------------
   ! Read in previous arguments.
   ! --------------------------------------------------
-  setup_harmonic_arguments = setup_harmonic_keywords()
+  setup_harmonic_arguments = Dictionary(setup_harmonic_keywords())
   call setup_harmonic_arguments%read_file(wd//'/setup_harmonic.used_settings')
   file_type = setup_harmonic_arguments%value('file_type')
   seedname = setup_harmonic_arguments%value('seedname')
   symmetry_precision = &
      & dble(setup_harmonic_arguments%value('symmetry_precision'))
   
-  no_supercells_file = wd//'/no_supercells.dat'
+  no_supercells_file = IFile(wd//'/no_supercells.dat')
   no_supercells = int(no_supercells_file%line(1))
   
   structure = read_structure_file(wd//'/structure.dat',symmetry_precision)
@@ -175,7 +177,7 @@ subroutine calculate_normal_modes(arguments)
   allocate( supercells(no_supercells),      &
           & force_constants(no_supercells), &
           & stat=ialloc); call err(ialloc)
-  force_logfile = wd//'/force_constants_log.dat'
+  force_logfile = OFile(wd//'/force_constants_log.dat')
   do i=1,no_supercells
     sdir = wd//'/Supercell_'//left_pad(i,str(no_supercells))
     
@@ -206,7 +208,7 @@ subroutine calculate_normal_modes(arguments)
   allocate( modes_calculated(size(qpoints)),   &
           & dynamical_matrices(size(qpoints)), &
           & stat=ialloc); call err(ialloc)
-  qpoint_logfile = wd//'/dynamical_matrix_log.dat'
+  qpoint_logfile = OFile(wd//'/dynamical_matrix_log.dat')
   modes_calculated = .false.
   
   degeneracy_id = 1
@@ -421,10 +423,11 @@ subroutine calculate_normal_modes(arguments)
                                     & qdir//'/dynamical_matrix.dat')
     
     ! Write out normal modes.
+    complex_modes = dynamical_matrices(i)%complex_modes
     do mode=1,structure%no_modes
       mode_string = left_pad(mode,str(structure%no_modes))
-      call dynamical_matrices(i)%complex_modes(mode)%write_file( &
-         & qdir//'/mode_'//mode_string//'.dat')
+      call complex_modes(mode)%write_file( &
+         & qdir//'/complex_mode_'//mode_string//'.dat')
     enddo
   enddo
 end subroutine

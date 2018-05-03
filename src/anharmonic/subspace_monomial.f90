@@ -359,7 +359,7 @@ subroutine write_coupling_file(this, filename)
   
   integer :: i
   
-  coupling_file = filename
+  coupling_file = OFile(filename)
   call coupling_file%print_line('! Couplings between degenerate subspaces.')
   do i=1,size(this)
     call coupling_file%print_line(this(i))
@@ -375,7 +375,7 @@ function read_coupling_file(filename) result(this)
   type(IFile) :: coupling_file
   integer     :: i,ialloc
   
-  coupling_file = filename
+  coupling_file = IFile(filename)
   allocate(this(size(coupling_file)-1), stat=ialloc); call err(ialloc)
   do i=1,size(this)
     this(i)%ids = int(split(coupling_file%line(i+1)))

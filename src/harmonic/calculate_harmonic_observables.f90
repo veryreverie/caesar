@@ -162,7 +162,7 @@ subroutine calculate_harmonic_observables(arguments)
   ! --------------------------------------------------
   ! Read in previous arguments.
   ! --------------------------------------------------
-  setup_harmonic_arguments = setup_harmonic_keywords()
+  setup_harmonic_arguments = Dictionary(setup_harmonic_keywords())
   call setup_harmonic_arguments%read_file(wd//'/setup_harmonic.used_settings')
   symmetry_precision = &
      & dble(setup_harmonic_arguments%value('symmetry_precision'))
@@ -190,7 +190,7 @@ subroutine calculate_harmonic_observables(arguments)
   ! Run calculations.
   ! --------------------------------------------------
   
-  logfile = wd//'/dos_and_dispersion_log.dat'
+  logfile = OFile(wd//'/dos_and_dispersion_log.dat')
   
   ! Construct the matrix of force constants from dynamical matrices.
   force_constants = reconstruct_force_constants( large_supercell,    &

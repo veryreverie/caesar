@@ -66,7 +66,7 @@ subroutine write_file_ComplexMode(this,filename)
   
   integer :: i
   
-  mode_file = filename
+  mode_file = OFile(filename)
   call mode_file%print_line('Mode ID                   : '//this%id)
   call mode_file%print_line('ID of paired mode         : '//this%paired_id)
   call mode_file%print_line('Mode frequency            : '//this%frequency)
@@ -93,7 +93,7 @@ function read_file_ComplexMode(filename) result(this)
   integer :: i,ialloc
   
   ! Read in mode file.
-  mode_file = filename
+  mode_file = IFile(filename)
   
   ! Read the id of this mode.
   line = split(mode_file%line(1))

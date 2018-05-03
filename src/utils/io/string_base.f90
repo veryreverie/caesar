@@ -35,7 +35,7 @@ contains
 !    operation.
 ! If it is desired that String be sped up, this should probably be changed to
 !    a smarter memory scheme, e.g. C++'s vector model.
-pure subroutine assign_StringBase_character(output,input)
+subroutine assign_StringBase_character(output,input)
   implicit none
   
   class(StringBase), intent(inout) :: output

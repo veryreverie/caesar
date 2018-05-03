@@ -71,7 +71,7 @@ function read_disp_patterns_file_character(filename,no_modes) result(this)
   integer :: i,j,k
   integer :: line_no
   
-  disp_patterns_file = filename
+  disp_patterns_file = IFile(filename)
   
   ! Find no_atoms and no_gvectors
   do i=1,size(disp_patterns_file)

@@ -94,10 +94,10 @@ subroutine run_harmonic(arguments)
   ! --------------------------------------------------
   ! Read in arguments to previous calculations.
   ! --------------------------------------------------
-  no_supercells_file = wd//'/no_supercells.dat'
+  no_supercells_file = IFile(wd//'/no_supercells.dat')
   no_supercells = int(no_supercells_file%line(1))
   
-  setup_harmonic_arguments = setup_harmonic_keywords()
+  setup_harmonic_arguments = Dictionary(setup_harmonic_keywords())
   call setup_harmonic_arguments%read_file(wd//'/setup_harmonic.used_settings')
   file_type = setup_harmonic_arguments%value('file_type')
   seedname = setup_harmonic_arguments%value('seedname')

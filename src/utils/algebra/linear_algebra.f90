@@ -83,7 +83,9 @@ module linear_algebra_submodule
     procedure, public :: to_IntVector     => to_IntVector_IntVector
     procedure, public :: to_RealVector    => to_RealVector_IntVector
     procedure, public :: to_ComplexVector => to_ComplexVector_IntVector
-    procedure, public :: to_String        => to_String_IntVector
+    
+    procedure, public :: read  => read_IntVector
+    procedure, public :: write => write_IntVector
   end type
   
   type, extends(RealVectorable) :: RealVector
@@ -91,14 +93,18 @@ module linear_algebra_submodule
   contains
     procedure, public :: to_RealVector    => to_RealVector_RealVector
     procedure, public :: to_ComplexVector => to_ComplexVector_RealVector
-    procedure, public :: to_String        => to_String_RealVector
+    
+    procedure, public :: read  => read_RealVector
+    procedure, public :: write => write_RealVector
   end type
   
   type, extends(ComplexVectorable) :: ComplexVector
     complex(dp), allocatable, private :: contents_(:)
   contains
     procedure, public :: to_ComplexVector => to_ComplexVector_ComplexVector
-    procedure, public :: to_String        => to_String_ComplexVector
+    
+    procedure, public :: read  => read_ComplexVector
+    procedure, public :: write => write_ComplexVector
   end type
   
   abstract interface
@@ -127,7 +133,7 @@ module linear_algebra_submodule
     end function
   end interface
   
-  type, abstract, extends(Printable) :: ComplexMatrixable
+  type, abstract, extends(Stringsable) :: ComplexMatrixable
   contains
     procedure(to_ComplexMatrix_ComplexMatrixable), deferred :: &
        & to_ComplexMatrix
@@ -149,7 +155,9 @@ module linear_algebra_submodule
     procedure, public :: to_IntMatrix     => to_IntMatrix_IntMatrix
     procedure, public :: to_RealMatrix    => to_RealMatrix_IntMatrix
     procedure, public :: to_ComplexMatrix => to_ComplexMatrix_IntMatrix
-    procedure, public :: to_String        => to_String_IntMatrix
+    
+    procedure, public :: read  => read_IntMatrix
+    procedure, public :: write => write_IntMatrix
   end type
   
   type, extends(RealMatrixable) :: RealMatrix
@@ -157,14 +165,18 @@ module linear_algebra_submodule
   contains
     procedure, public :: to_RealMatrix    => to_RealMatrix_RealMatrix
     procedure, public :: to_ComplexMatrix => to_ComplexMatrix_RealMatrix
-    procedure, public :: to_String        => to_String_RealMatrix
+    
+    procedure, public :: read  => read_RealMatrix
+    procedure, public :: write => write_RealMatrix
   end type
   
   type, extends(ComplexMatrixable) :: ComplexMatrix
     complex(dp), allocatable, private :: contents_(:,:)
   contains
     procedure, public :: to_ComplexMatrix => to_ComplexMatrix_ComplexMatrix
-    procedure, public :: to_String        => to_String_ComplexMatrix
+    
+    procedure, public :: read  => read_ComplexMatrix
+    procedure, public :: write => write_ComplexMatrix
   end type
   
   abstract interface
@@ -3280,34 +3292,107 @@ end function
 ! ----------------------------------------------------------------------
 ! I/O overloads.
 ! ----------------------------------------------------------------------
-function to_String_IntVector(this) result(output)
+subroutine read_IntVector(this,input)
+  implicit none
+  
+  class(IntVector), intent(out) :: this
+  type(String),     intent(in)  :: input
+  
+  select type(this); type is(IntVector)
+    this = int(split(input))
+  end select
+end subroutine
+
+function write_IntVector(this) result(output)
   implicit none
   
   class(IntVector), intent(in) :: this
   type(String)                 :: output
   
-  output = join(int(this))
+  select type(this); type is(IntVector)
+    output = join(int(this))
+  end select
 end function
 
-function to_String_RealVector(this) result(output)
+subroutine read_RealVector(this,input)
+  implicit none
+  
+  class(RealVector), intent(out) :: this
+  type(String),      intent(in)  :: input
+  
+  select type(this); type is(RealVector)
+    this = dble(split(input))
+  end select
+end subroutine
+
+function write_RealVector(this) result(output)
   implicit none
   
   class(RealVector), intent(in) :: this
   type(String)                  :: output
   
-  output = join(dble(this))
+  select type(this); type is(RealVector)
+    output = join(dble(this))
+  end select
 end function
 
-function to_String_ComplexVector(this) result(output)
+subroutine read_ComplexVector(this,input)
+  implicit none
+  
+  class(ComplexVector), intent(out) :: this
+  type(String),         intent(in)  :: input
+  
+  select type(this); type is(ComplexVector)
+    this = cmplx(split(input))
+  end select
+end subroutine
+
+function write_ComplexVector(this) result(output)
   implicit none
   
   class(ComplexVector), intent(in) :: this
   type(String)                     :: output
   
-  output = join(cmplx(this))
+  select type(this); type is(ComplexVector)
+    output = join(cmplx(this))
+  end select
 end function
 
-function to_String_IntMatrix(this) result(output)
+subroutine read_IntMatrix(this,input)
+  implicit none
+  
+  class(IntMatrix), intent(out) :: this
+  type(String),     intent(in)  :: input(:)
+  
+  integer, allocatable :: line(:)
+  integer, allocatable :: contents(:,:)
+  
+  integer :: i,ialloc
+  
+  select type(this); type is(IntMatrix)
+    if (size(input)==0) then
+      allocate(contents(0,0), stat=ialloc); call err(ialloc)
+    else
+      line = int(split(input(1)))
+      allocate( contents(size(input),size(line)), &
+              & stat=ialloc); call err(ialloc)
+      contents(1,:) = line
+      do i=2,size(input)
+        line = int(split(input(i)))
+        if (size(line)/=size(contents,2)) then
+          call print_line(ERROR//': Reading matrix: rows of different &
+             &lengths.')
+          call err()
+        endif
+        contents(i,:) = line
+      enddo
+    endif
+    
+    this = contents
+  end select
+end subroutine
+
+function write_IntMatrix(this) result(output)
   implicit none
   
   Class(IntMatrix), intent(in) :: this
@@ -3317,14 +3402,50 @@ function to_String_IntMatrix(this) result(output)
   
   integer :: i,ialloc
   
-  contents = int(this)
-  allocate(output(size(contents,1)), stat=ialloc); call err(ialloc)
-  do i=1,size(contents,1)
-    output(i) = join(contents(i,:))
-  enddo
+  select type(this); type is(IntMatrix)
+    contents = int(this)
+    allocate(output(size(contents,1)), stat=ialloc); call err(ialloc)
+    do i=1,size(contents,1)
+      output(i) = join(contents(i,:))
+    enddo
+  end select
 end function
 
-function to_String_RealMatrix(this) result(output)
+subroutine read_RealMatrix(this,input)
+  implicit none
+  
+  class(RealMatrix), intent(out) :: this
+  type(String),      intent(in)  :: input(:)
+  
+  real(dp), allocatable :: line(:)
+  real(dp), allocatable :: contents(:,:)
+  
+  integer :: i,ialloc
+  
+  select type(this); type is(RealMatrix)
+    if (size(input)==0) then
+      allocate(contents(0,0), stat=ialloc); call err(ialloc)
+    else
+      line = dble(split(input(1)))
+      allocate( contents(size(input),size(line)), &
+              & stat=ialloc); call err(ialloc)
+      contents(1,:) = line
+      do i=2,size(input)
+        line = dble(split(input(i)))
+        if (size(line)/=size(contents,2)) then
+          call print_line(ERROR//': Reading matrix: rows of different &
+             &lengths.')
+          call err()
+        endif
+        contents(i,:) = line
+      enddo
+    endif
+    
+    this = contents
+  end select
+end subroutine
+
+function write_RealMatrix(this) result(output)
   implicit none
   
   Class(RealMatrix), intent(in) :: this
@@ -3334,14 +3455,50 @@ function to_String_RealMatrix(this) result(output)
   
   integer :: i,ialloc
   
-  contents = dble(this)
-  allocate(output(size(contents,1)), stat=ialloc); call err(ialloc)
-  do i=1,size(contents,1)
-    output(i) = join(contents(i,:))
-  enddo
+  select type(this); type is(RealMatrix)
+    contents = dble(this)
+    allocate(output(size(contents,1)), stat=ialloc); call err(ialloc)
+    do i=1,size(contents,1)
+      output(i) = join(contents(i,:))
+    enddo
+  end select
 end function
 
-function to_String_ComplexMatrix(this) result(output)
+subroutine read_ComplexMatrix(this,input)
+  implicit none
+  
+  class(ComplexMatrix), intent(out) :: this
+  type(String),         intent(in)  :: input(:)
+  
+  complex(dp), allocatable :: line(:)
+  complex(dp), allocatable :: contents(:,:)
+  
+  integer :: i,ialloc
+  
+  select type(this); type is(ComplexMatrix)
+    if (size(input)==0) then
+      allocate(contents(0,0), stat=ialloc); call err(ialloc)
+    else
+      line = cmplx(split(input(1)))
+      allocate( contents(size(input),size(line)), &
+              & stat=ialloc); call err(ialloc)
+      contents(1,:) = line
+      do i=2,size(input)
+        line = cmplx(split(input(i)))
+        if (size(line)/=size(contents,2)) then
+          call print_line(ERROR//': Reading matrix: rows of different &
+             &lengths.')
+          call err()
+        endif
+        contents(i,:) = line
+      enddo
+    endif
+    
+    this = contents
+  end select
+end subroutine
+
+function write_ComplexMatrix(this) result(output)
   implicit none
   
   Class(ComplexMatrix), intent(in) :: this
@@ -3351,10 +3508,12 @@ function to_String_ComplexMatrix(this) result(output)
   
   integer :: i,ialloc
   
-  contents = cmplx(this)
-  allocate(output(size(contents,1)), stat=ialloc); call err(ialloc)
-  do i=1,size(contents,1)
-    output(i) = join(contents(i,:))
-  enddo
+  select type(this); type is(ComplexMatrix)
+    contents = cmplx(this)
+    allocate(output(size(contents,1)), stat=ialloc); call err(ialloc)
+    do i=1,size(contents,1)
+      output(i) = join(contents(i,:))
+    enddo
+  end select
 end function
 end module

@@ -89,7 +89,7 @@ function read_structure_file(filename,symmetry_precision,calculate_symmetry) &
   ! ------------------------------
   ! Work out layout of file.
   ! ------------------------------
-  structure_file = filename
+  structure_file = IFile(filename)
   do i=1,size(structure_file)
     line = split(lower_case(structure_file%line(i)))
     
@@ -290,10 +290,10 @@ subroutine write_structure_file(this,filename)
   
   integer :: i
   
-  structure_file = filename
+  structure_file = OFile(filename)
   
   call structure_file%print_line('Lattice')
-  call structure_file%print_line(this%lattice)
+  call structure_file%print_lines(this%lattice)
   call structure_file%print_line('Atoms')
   do i=1,this%no_atoms
     call structure_file%print_line( this%atoms(i)%species() //' '// &
@@ -305,7 +305,7 @@ subroutine write_structure_file(this,filename)
     call structure_file%print_line('Symmetry')
     do i=1,size(this%symmetries)
       call structure_file%print_line('Rotation:')
-      call structure_file%print_line(this%symmetries(i)%rotation)
+      call structure_file%print_lines(this%symmetries(i)%rotation)
       call structure_file%print_line('Translation:')
       call structure_file%print_line(this%symmetries(i)%translation)
       call structure_file%print_line('')
@@ -313,7 +313,7 @@ subroutine write_structure_file(this,filename)
   endif
   
   call structure_file%print_line('Supercell')
-  call structure_file%print_line(this%supercell)
+  call structure_file%print_lines(this%supercell)
   call structure_file%print_line('R-vectors')
   do i=1,this%sc_size
     call structure_file%print_line(this%rvectors(i))

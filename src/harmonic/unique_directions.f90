@@ -60,7 +60,7 @@ function read_unique_directions_file(filename) result(output)
   type(String), allocatable :: line(:)
   integer                   :: i,ialloc
   
-  unique_directions_file = filename
+  unique_directions_file = IFile(filename)
   
   no_directions = size(unique_directions_file)-1
   
@@ -87,7 +87,7 @@ subroutine write_unique_directions_file(unique_directions,filename)
   
   integer :: i
   
-  unique_directions_file = filename
+  unique_directions_file = OFile(filename)
   call unique_directions_file%print_line('Atoms to be perturbed in order to &
      &map out the harmonic Born-Oppenheimer surface:')
   do i=1,size(unique_directions)

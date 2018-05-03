@@ -8,7 +8,7 @@ module ofile_submodule
   use string_submodule
   use print_submodule
   use intrinsics_submodule
-  use stringable_submodule
+  use string_writeable_submodule
   use printable_submodule
   use io_submodule
   use file_submodule
@@ -24,29 +24,22 @@ module ofile_submodule
     integer,      private :: file_unit_
     logical,      private :: is_stdout_ = .false.
   contains
-    generic, public :: assignment(=) => open_character, &
-                                      & open_String
-    procedure, private ::               open_character
-    procedure, private ::               open_String
-    
     procedure, public :: make_stdout
     
-    generic, public :: print_line => print_line_character,  &
-                                   & print_line_String,     &
-                                   & print_line_Stringable, &
-                                   & print_line_Printable, &
-                                   & print_line_integer,    &
-                                   & print_line_real,       &
-                                   & print_line_logical,    &
-                                   & print_line_complex,    &
-                                   & print_line_integers,   &
-                                   & print_line_reals,      &
-                                   & print_line_logicals,   &
+    generic, public :: print_line => print_line_character,       &
+                                   & print_line_String,          &
+                                   & print_line_StringWriteable, &
+                                   & print_line_integer,         &
+                                   & print_line_real,            &
+                                   & print_line_logical,         &
+                                   & print_line_complex,         &
+                                   & print_line_integers,        &
+                                   & print_line_reals,           &
+                                   & print_line_logicals,        &
                                    & print_line_complexes
     procedure, private ::            print_line_character
     procedure, private ::            print_line_String
-    procedure, private ::            print_line_Stringable
-    procedure, private ::            print_line_Printable
+    procedure, private ::            print_line_StringWriteable
     procedure, private ::            print_line_integer
     procedure, private ::            print_line_real
     procedure, private ::            print_line_logical
@@ -56,30 +49,50 @@ module ofile_submodule
     procedure, private ::            print_line_logicals
     procedure, private ::            print_line_complexes
     
+    generic,   public  :: print_lines => print_lines_Strings_character,     &
+                                       & print_lines_Strings_String,        &
+                                       & print_lines_StringWriteables_character, &
+                                       & print_lines_StringWriteables_String,    &
+                                       & print_lines_Printable,             &
+                                       & print_lines_Printables_character,  &
+                                       & print_lines_Printables_String
+    procedure, private ::                print_lines_Strings_character
+    procedure, private ::                print_lines_Strings_String
+    procedure, private ::                print_lines_StringWriteables_character
+    procedure, private ::                print_lines_StringWriteables_String
+    procedure, private ::                print_lines_Printable
+    procedure, private ::                print_lines_Printables_character
+    procedure, private ::                print_lines_Printables_String
+    
     final :: finalizer
   end type
+  
+  interface OFile
+    module procedure new_OFile_character
+    module procedure new_OFile_String
+  end interface
 contains
 
 ! Opens a file for writing to, from its filename.
-subroutine open_character(this,filename)
+function new_OFile_character(filename) result(this)
   implicit none
   
-  class(OFile), intent(out) :: this
-  character(*), intent(in)  :: filename
+  character(*), intent(in) :: filename
+  type(OFile)              :: this
   
-  this%open_ = .true.
-  this%filename_ = filename
+  this%open_      = .true.
+  this%filename_  = filename
   this%file_unit_ = open_write_file(filename)
-end subroutine
+end function
 
-subroutine open_String(this,filename)
+function new_OFile_String(filename) result(this)
   implicit none
   
-  class(OFile), intent(out) :: this
-  type(String), intent(in)  :: filename
+  type(String), intent(in) :: filename
+  type(OFile)              :: this
   
-  this = char(filename)
-end subroutine
+  this = OFile(char(filename))
+end function
 
 ! Makes this file be stdout.
 subroutine make_stdout(this)
@@ -98,11 +111,11 @@ subroutine make_stdout(this)
 end subroutine
 
 ! Writes a line to the file.
-subroutine print_line_character(this,line)
+subroutine print_line_character(this,input)
   implicit none
   
   class(OFile), intent(inout) :: this
-  character(*), intent(in)    :: line
+  character(*), intent(in)    :: input
   
   integer :: ierr
   
@@ -112,7 +125,7 @@ subroutine print_line_character(this,line)
     call err()
   endif
   
-  write(this%file_unit_,'(a)',iostat=ierr) line
+  write(this%file_unit_,'(a)',iostat=ierr) input
   
   if (ierr/=0) then
     call print_line('Error in OFile::print_line.')
@@ -127,109 +140,191 @@ subroutine print_line_character(this,line)
   endif
 end subroutine
 
-subroutine print_line_String(this,line)
+subroutine print_line_String(this,input)
   implicit none
   
   class(OFile), intent(inout) :: this
-  type(String), intent(in)    :: line
+  type(String), intent(in)    :: input
   
-  call this%print_line(char(line))
+  call this%print_line(char(input))
 end subroutine
 
-subroutine print_line_Stringable(this,line)
+subroutine print_line_StringWriteable(this,input)
   implicit none
   
-  class(OFile),      intent(inout) :: this
-  class(Stringable), intent(in)    :: line
+  class(OFile),           intent(inout) :: this
+  class(StringWriteable), intent(in)    :: input
   
-  call this%print_line(str(line))
+  call this%print_line(str(input))
 end subroutine
 
-subroutine print_line_Printable(this,line)
+subroutine print_line_integer(this,input)
+  implicit none
+  
+  class(OFile), intent(inout) :: this
+  integer,      intent(in)    :: input
+  
+  call this%print_line(str(input))
+end subroutine
+
+subroutine print_line_real(this,input)
+  implicit none
+  
+  class(OFile), intent(inout) :: this
+  real(dp),     intent(in)    :: input
+  
+  call this%print_line(str(input))
+end subroutine
+
+subroutine print_line_logical(this,input)
+  implicit none
+  
+  class(OFile), intent(inout) :: this
+  logical,      intent(in)    :: input
+  
+  call this%print_line(str(input))
+end subroutine
+
+subroutine print_line_complex(this,input)
+  implicit none
+  
+  class(OFile), intent(inout) :: this
+  complex(dp),  intent(in)    :: input
+  
+  call this%print_line(str(input))
+end subroutine
+
+subroutine print_line_integers(this,input)
+  implicit none
+  
+  class(OFile), intent(inout) :: this
+  integer,      intent(in)    :: input(:)
+  
+  call this%print_line(join(input))
+end subroutine
+
+subroutine print_line_reals(this,input)
+  implicit none
+  
+  class(OFile), intent(inout) :: this
+  real(dp),     intent(in)    :: input(:)
+  
+  call this%print_line(join(input))
+end subroutine
+
+subroutine print_line_logicals(this,input)
+  implicit none
+  
+  class(OFile), intent(inout) :: this
+  logical,      intent(in)    :: input(:)
+  
+  call this%print_line(join(input))
+end subroutine
+
+subroutine print_line_complexes(this,input)
+  implicit none
+  
+  class(OFile), intent(inout) :: this
+  complex(dp),  intent(in)    :: input(:)
+  
+  call this%print_line(join(input))
+end subroutine
+
+! Writes multiple lines to a file.
+subroutine print_lines_Strings_character(this,input,separating_line)
+  implicit none
+  
+  class(OFile), intent(inout)        :: this
+  type(String), intent(in)           :: input(:)
+  character(*), intent(in), optional :: separating_line
+  
+  integer :: i
+  
+  do i=1,size(input)
+    call this%print_line(input(i))
+    if (present(separating_line)) then
+      call print_line(separating_line)
+    endif
+  enddo
+end subroutine
+
+subroutine print_lines_Strings_String(this,input,separating_line)
+  implicit none
+  
+  class(OFile), intent(inout) :: this
+  type(String), intent(in)    :: input(:)
+  type(String), intent(in)    :: separating_line
+  
+  call this%print_lines(input,char(separating_line))
+end subroutine
+
+subroutine print_lines_StringWriteables_character(this,input,separating_line)
+  implicit none
+  
+  class(OFile),           intent(inout)        :: this
+  class(StringWriteable), intent(in)           :: input(:)
+  character(*),           intent(in), optional :: separating_line
+  
+  integer :: i
+  
+  do i=1,size(input)
+    call this%print_line(input(i))
+    if (present(separating_line)) then
+      call print_line(separating_line)
+    endif
+  enddo
+end subroutine
+
+subroutine print_lines_StringWriteables_String(this,input,separating_line)
+  implicit none
+  
+  class(OFile),           intent(inout) :: this
+  class(StringWriteable), intent(in)    :: input(:)
+  type(String),           intent(in)    :: separating_line
+  
+  call this%print_lines(input,char(separating_line))
+end subroutine
+
+subroutine print_lines_Printable(this,input)
   implicit none
   
   class(OFile),     intent(inout) :: this
-  class(Printable), intent(in)    :: line
+  class(Printable), intent(in)    :: input
   
   type(String), allocatable :: lines(:)
   integer                   :: i
   
-  lines = str(line)
+  lines = str(input)
   do i=1,size(lines)
     call this%print_line(lines(i))
   enddo
 end subroutine
 
-subroutine print_line_integer(this,line)
+subroutine print_lines_Printables_character(this,input,separating_line)
   implicit none
   
-  class(OFile), intent(inout) :: this
-  integer,      intent(in)    :: line
+  class(OFile),     intent(inout)        :: this
+  class(Printable), intent(in)           :: input(:)
+  character(*),     intent(in), optional :: separating_line
   
-  call this%print_line(str(line))
+  integer :: i
+  
+  do i=1,size(input)
+    call this%print_lines(input(i))
+    if (present(separating_line)) then
+      call print_line(separating_line)
+    endif
+  enddo
 end subroutine
 
-subroutine print_line_real(this,line)
+subroutine print_lines_Printables_String(this,input,separating_line)
   implicit none
   
-  class(OFile), intent(inout) :: this
-  real(dp),     intent(in)    :: line
+  class(OFile),     intent(inout) :: this
+  class(Printable), intent(in)    :: input(:)
+  type(String),     intent(in)    :: separating_line
   
-  call this%print_line(str(line))
-end subroutine
-
-subroutine print_line_logical(this,line)
-  implicit none
-  
-  class(OFile), intent(inout) :: this
-  logical,      intent(in)    :: line
-  
-  call this%print_line(str(line))
-end subroutine
-
-subroutine print_line_complex(this,line)
-  implicit none
-  
-  class(OFile), intent(inout) :: this
-  complex(dp),  intent(in)    :: line
-  
-  call this%print_line(str(line))
-end subroutine
-
-subroutine print_line_integers(this,line)
-  implicit none
-  
-  class(OFile), intent(inout) :: this
-  integer,      intent(in)    :: line(:)
-  
-  call this%print_line(join(line))
-end subroutine
-
-subroutine print_line_reals(this,line)
-  implicit none
-  
-  class(OFile), intent(inout) :: this
-  real(dp),     intent(in)    :: line(:)
-  
-  call this%print_line(join(line))
-end subroutine
-
-subroutine print_line_logicals(this,line)
-  implicit none
-  
-  class(OFile), intent(inout) :: this
-  logical,      intent(in)    :: line(:)
-  
-  call this%print_line(join(line))
-end subroutine
-
-subroutine print_line_complexes(this,line)
-  implicit none
-  
-  class(OFile), intent(inout) :: this
-  complex(dp),  intent(in)    :: line(:)
-  
-  call this%print_line(join(line))
+  call this%print_lines(input,char(separating_line))
 end subroutine
 
 ! ----------------------------------------------------------------------

@@ -91,7 +91,7 @@ function read_castep_bands_file_character(filename) result(this)
   integer        :: i, j
   
   ! Read in bands file
-  bands_file = filename
+  bands_file = IFile(filename)
   
   ! Get no_qpoints and no_bands
   line = split(bands_file%line(1))
@@ -136,7 +136,7 @@ function read_vasp_bands_file_character(filename) result(this)
   integer        :: i, j
   
   ! Read in bands file
-  bands_file = filename
+  bands_file = IFile(filename)
   
   ! Get no_qpoints and no_bands
   line = split(bands_file%line(6))

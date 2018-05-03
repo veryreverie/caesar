@@ -90,11 +90,10 @@ subroutine write_file_BasisFunctions(this,filename)
   
   integer :: i,j
   
-  file = filename
-  
+  file = OFile(filename)
   do i=1,size(this%functions)
     call file%print_line('Basis function '//i)
-    call file%print_line(this%functions(i))
+    call file%print_lines(this%functions(i))
     call file%print_line('')
   enddo
 end subroutine
@@ -110,8 +109,8 @@ subroutine read_file_BasisFunctions(this,filename)
   
   integer :: i,ialloc
   
-  file = filename
-  sections = file%split_by_blank_lines()
+  file = IFile(filename)
+  sections = split(file%lines())
   allocate(this%functions(size(sections)), stat=ialloc); call err(ialloc)
   do i=1,size(sections)
     this%functions(i) = BasisFunction(sections(i)%strings(2:))

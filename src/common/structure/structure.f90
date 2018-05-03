@@ -18,5 +18,6 @@ module structure_module
   use calculate_symmetry_submodule
   use symmetry_submodule
   use structure_submodule
+  use supercell_submodule
   implicit none
 end module

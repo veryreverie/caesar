@@ -1,187 +1,146 @@
 ! ======================================================================
-! An abstract type, which allows extended types to be turned into strings.
+! An abstract type combining StringReadable and StringWriteable.
 ! ======================================================================
-! An abstract type, which allows extended types to be turned into strings.
-! Any type which extends Stringable can be:
-!    - converted to String, using string=this or str(this).
-!    - concatenated, using string//this or character//this.
-!    - printed to stdout, using print_line(this).
-!    - printed to file, using file%print_line(this).
-! Any type which extends Stringable must overload %to_String(). See the example
-!    module below.
+! Any type which extends Stringable has all the properties of StringReadable
+!    and StringWriteable.
+! Any type which extends Stringable must overload %write() and %read(string).
+! See example module below for how to extend this type.
+!
+! N.B.: Stringable extends StringWriteable, but duplicates the functionality 
+!    of StringReadable since Fortran does not support multiple inheritance.
 module stringable_submodule
   use string_submodule
-  use error_submodule
+  use string_array_submodule
+  use string_readable_submodule
+  use string_writeable_submodule
   implicit none
   
   private
   
   public :: Stringable
-  
   public :: assignment(=)
-  public :: operator(//)
-  public :: str
   
-  type, abstract :: Stringable
+  type, abstract, extends(StringWriteable) :: Stringable
   contains
-    procedure(to_String_Stringable), deferred :: to_String
+    procedure(read_Stringable), deferred :: read
   end type
   
   abstract interface
-    recursive function to_String_Stringable(this) result(output)
+    recursive subroutine read_Stringable(this,input)
       import String
       import Stringable
       implicit none
       
-      class(Stringable), intent(in) :: this
-      type(String)                  :: output
-    end function
+      class(Stringable), intent(out) :: this
+      type(String),      intent(in)  :: input
+    end subroutine
   end interface
   
-  ! String = this.
   interface assignment(=)
-    module procedure assign_String_Stringable
-  end interface
-    
-  ! String = char//this or this//char or String//this or this//String.
-  interface operator(//)
-    module procedure concatenate_Stringable_character
-    module procedure concatenate_character_Stringable
-    module procedure concatenate_Stringable_String
-    module procedure concatenate_String_Stringable
-  end interface
-  
-  ! String = str(this).
-  interface str
-    module procedure str_Stringable_0d
-    module procedure str_Stringable_1d
-    module procedure str_Stringable_2d
+    module procedure assign_Stringable_String
+    module procedure assign_Stringable_character
+    module procedure assign_Stringables_Strings
+    module procedure assign_Stringables_StringArray
   end interface
 contains
 
 ! ----------------------------------------------------------------------
-! String = Stringable.
+! Assign a Stringable type from a String type.
 ! ----------------------------------------------------------------------
-recursive subroutine assign_String_Stringable(output,input)
+recursive subroutine assign_Stringable_String(output,input)
   implicit none
   
-  type(String),      intent(out) :: output
-  class(Stringable), intent(in)  :: input
+  class(Stringable), intent(out) :: output
+  type(String),      intent(in)  :: input
   
-  output = input%to_String()
+  call output%read(input)
 end subroutine
 
-! ----------------------------------------------------------------------
-! Concatenation of string types and Stringable types.
-! ----------------------------------------------------------------------
-! String = Stringable//character
-recursive function concatenate_Stringable_character(this,that) result(output)
+recursive subroutine assign_Stringable_character(output,input)
   implicit none
   
-  class(Stringable), intent(in) :: this
-  character(*),      intent(in) :: that
-  type(String)                  :: output
+  class(Stringable), intent(out) :: output
+  character(*),      intent(in)  :: input
   
-  output = this%to_String()//that
-end function
+  output = str(input)
+end subroutine
 
-! String = character//Stringable
-recursive function concatenate_character_Stringable(this,that) result(output)
+recursive subroutine assign_Stringables_Strings(output,input)
   implicit none
   
-  character(*),      intent(in) :: this
-  class(Stringable), intent(in) :: that
-  type(String)                  :: output
-  
-  output = this//that%to_String()
-end function
-
-! String = Stringable//String
-recursive function concatenate_Stringable_String(this,that) result(output)
-  implicit none
-  
-  class(Stringable), intent(in) :: this
-  type(String),      intent(in) :: that
-  type(String)                  :: output
-  
-  output = this%to_String()//that
-end function
-
-! String = String//Stringable
-recursive function concatenate_String_Stringable(this,that) result(output)
-  implicit none
-  
-  type(String),      intent(in) :: this
-  class(Stringable), intent(in) :: that
-  type(String)                  :: output
-  
-  output = this//that%to_String()
-end function
-
-! ----------------------------------------------------------------------
-! String = str(Stringable).
-! ----------------------------------------------------------------------
-! N.B. can't use impure elemental because this must be recursive.
-! N.B. can't use err() because that relies on this module.
-recursive function str_Stringable_0d(this) result(output)
-  implicit none
-  
-  class(Stringable), intent(in) :: this
-  type(String)                  :: output
-  
-  output = this
-end function
-
-recursive function str_Stringable_1d(this) result(output)
-  implicit none
-  
-  class(Stringable), intent(in) :: this(:)
-  type(String), allocatable     :: output(:)
+  class(Stringable), allocatable, intent(out) :: output(:)
+  type(String),                   intent(in)  :: input(:)
   
   integer :: i,ialloc
   
-  allocate(output(size(this)), stat=ialloc); call err(ialloc)
-  do i=1,size(this)
-    output(i) = str(this(i))
+  allocate(output(size(input)), mold=output, stat=ialloc); call err(ialloc)
+  do i=1,size(input)
+    output(i) = input(i)
   enddo
-end function
+end subroutine
 
-recursive function str_Stringable_2d(this) result(output)
+recursive subroutine assign_Stringables_StringArray(output,input)
   implicit none
   
-  class(Stringable), intent(in) :: this(:,:)
-  type(String), allocatable     :: output(:,:)
+  class(Stringable), allocatable, intent(out) :: output(:)
+  type(StringArray),              intent(in)  :: input
   
-  integer :: i,ialloc
-  
-  allocate(output(size(this,1),size(this,2)), stat=ialloc); call err(ialloc)
-  do i=1,size(this,2)
-    output(:,i) = str(this(:,i))
-  enddo
-end function
+  output = input%strings
+end subroutine
 end module
 
 ! ======================================================================
-! An example module to demonstrate the use of Stringable.
+! An example module showing how to extend Stringable.
 ! ======================================================================
 module stringable_example_submodule
-  use stringable_submodule
   use string_submodule
+  use stringable_submodule
+  use error_submodule
   implicit none
   
+  private
+  
+  public :: StringableExample
+  
   type, extends(Stringable) :: StringableExample
-    character(1) :: contents
+    type(String) :: contents
   contains
-    procedure :: to_String => to_String_StringableExample
+    procedure, public :: read  => read_StringableExample
+    procedure, public :: write => write_StringableExample
   end type
 contains
 
-recursive function to_String_StringableExample(this) result(output)
+subroutine read_StringableExample(this,input)
+  implicit none
+  
+  class(StringableExample), intent(out) :: this
+  type(String),             intent(in)  :: input
+  
+  ! Select type needed to call non-polymorphic procedures, and to ensure that
+  !    read() is overloaded by any type which extends StringableExample.
+  select type(this); type is(StringableExample)
+    this%contents = input
+  class default
+    call print_line(CODE_ERROR//': Called the StringableExample version &
+       &of read() from a type other than StringableExample.')
+    call err()
+  end select
+end subroutine
+
+function write_StringableExample(this) result(output)
   implicit none
   
   class(StringableExample), intent(in) :: this
   type(String)                         :: output
   
-  output = str(this%contents)
+  ! Select type needed to call non-polymorphic procedures, and to ensure that
+  !    write() is overloaded by any type which extends StringableExample.
+  select type(this); type is(StringableExample)
+    output = str(this%contents)
+  class default
+    call print_line(CODE_ERROR//': Called the StringableExample version &
+       &of write() from a type other than StringableExample.')
+    call err()
+  end select
 end function
 end module

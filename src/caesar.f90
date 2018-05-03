@@ -47,7 +47,7 @@ program caesar
   type(KeywordData),         allocatable :: keywords(:)
   
   ! Processed input arguments.
-  type(Dictionary)          :: arguments
+  type(Dictionary) :: arguments
   
   ! The working directory.
   type(String) :: wd
@@ -148,7 +148,7 @@ program caesar
   ! Set output file, if appropriate.
   ! --------------------------------------------------
   if (arguments%is_set('output_file')) then
-    output_file = arguments%value('output_file')
+    output_file = OFile(arguments%value('output_file'))
     call output_file%make_stdout()
   endif
   
