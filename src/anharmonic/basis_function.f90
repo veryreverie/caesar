@@ -15,7 +15,7 @@ module basis_function_module
   public :: BasisFunction
   public :: generate_basis_functions
   
-  type, extends(Printable) :: BasisFunction
+  type, extends(Stringsable) :: BasisFunction
     ! The basis function in real co-ordinates.
     type(RealPolynomial) :: real_representation
     
@@ -26,15 +26,12 @@ module basis_function_module
     !    zero in every other basis function.
     type(RealMonomial)      :: unique_term
   contains
-    procedure, public :: to_String => to_String_BasisFunction
+    procedure, public :: read  => read_BasisFunction
+    procedure, public :: write => write_BasisFunction
   end type
   
   interface generate_basis_functions
     module procedure generate_basis_functions_SubspaceMonomial
-  end interface
-  
-  interface BasisFunction
-    module procedure new_BasisFunction_Strings
   end interface
 contains
 
@@ -313,7 +310,38 @@ end function
 ! ----------------------------------------------------------------------
 ! I/O.
 ! ----------------------------------------------------------------------
-function to_String_BasisFunction(this) result(output)
+subroutine read_BasisFunction(this,input)
+  implicit none
+  
+  class(BasisFunction), intent(out) :: this
+  type(String),         intent(in)  :: input(:)
+  
+  integer :: partition_line
+  
+  integer :: i,ialloc
+  
+  select type(this); type is(BasisFunction)
+    if (size(input)<4) then
+      call print_line(ERROR//': Basis function file shorter than expected.')
+      call err()
+    endif
+    
+    this%unique_term = input(2)
+    
+    ! Locate the line between real terms and complex terms.
+    do i=4,size(input)
+      if (size(split(input(i)))>1) then
+        partition_line = i
+        exit
+      endif
+    enddo
+    
+    this%real_representation = join(input(3:partition_line-1),delimiter=' + ')
+    this%complex_representation = join(input(partition_line+1:),delimiter=' + ')
+  end select
+end subroutine
+
+function write_BasisFunction(this) result(output)
   implicit none
   
   class(BasisFunction), intent(in) :: this
@@ -321,53 +349,26 @@ function to_String_BasisFunction(this) result(output)
   
   integer :: i,j,no_lines,ialloc
   
-  no_lines = 4                              &
-         & + size(this%real_representation) &
-         & + size(this%complex_representation)
-  
-  allocate(output(no_lines), stat=ialloc); call err(ialloc)
-  output(1) = 'Real monomial unique to this basis function:'
-  output(2) = this%unique_term
-  output(3) = 'Basis function in real co-ordinates:'
-  j = 3
-  do i=1,size(this%real_representation)
+  select type(this); type is(BasisFunction)
+    no_lines = 4                              &
+           & + size(this%real_representation) &
+           & + size(this%complex_representation)
+    
+    allocate(output(no_lines), stat=ialloc); call err(ialloc)
+    output(1) = 'Real monomial unique to this basis function:'
+    output(2) = str(this%unique_term)
+    output(3) = 'Basis function in real co-ordinates:'
+    j = 3
+    do i=1,size(this%real_representation)
+      j = j+1
+      output(j) = str(this%real_representation%terms(i))
+    enddo
     j = j+1
-    output(j) = this%real_representation%terms(i)
-  enddo
-  j = j+1
-  output(j) = 'Basis function in complex co-ordinates:'
-  do i=1,size(this%complex_representation)
-    j = j+1
-    output(j) = this%complex_representation%terms(i)
-  enddo
-end function
-
-function new_BasisFunction_Strings(input) result(this)
-  implicit none
-  
-  type(String), intent(in) :: input(:)
-  type(BasisFunction)      :: this
-  
-  integer :: partition_line
-  
-  integer :: i,ialloc
-  
-  if (size(input)<4) then
-    call print_line(ERROR//': Basis function file shorter than expected.')
-    call err()
-  endif
-  
-  this%unique_term = RealMonomial(input(2))
-  
-  ! Locate the line between real terms and complex terms.
-  do i=4,size(input)
-    if (size(split(input(i)))>1) then
-      partition_line = i
-      exit
-    endif
-  enddo
-  
-  this%real_representation = RealPolynomial(input(3:partition_line-1))
-  this%complex_representation = ComplexPolynomial(input(partition_line+1:))
+    output(j) = 'Basis function in complex co-ordinates:'
+    do i=1,size(this%complex_representation)
+      j = j+1
+      output(j) = str(this%complex_representation%terms(i))
+    enddo
+  end select
 end function
 end module

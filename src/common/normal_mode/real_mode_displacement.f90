@@ -11,18 +11,15 @@ module real_mode_displacement_submodule
   
   public :: RealModeDisplacement
   
-  type, extends(Printable) :: RealModeDisplacement
+  type, extends(Stringsable) :: RealModeDisplacement
     type(RealSingleModeDisplacement), allocatable :: displacements(:)
   contains
-    procedure, public :: to_String => to_String_RealModeDisplacement
+    procedure, public :: read  => read_RealModeDisplacement
+    procedure, public :: write => write_RealModeDisplacement
   end type
   
   interface size
     module procedure size_RealModeDisplacement
-  end interface
-  
-  interface RealModeDisplacement
-    module procedure new_RealModeDisplacement_Strings
   end interface
 contains
 
@@ -36,8 +33,26 @@ function size_RealModeDisplacement(input) result(output)
   output = size(input%displacements)
 end function
 
+! ----------------------------------------------------------------------
 ! I/O.
-function to_String_RealModeDisplacement(this) result(output)
+! ----------------------------------------------------------------------
+subroutine read_RealModeDisplacement(this,input)
+  implicit none
+  
+  class(RealModeDisplacement), intent(out) :: this
+  type(String),                intent(in)  :: input(:)
+  
+  integer :: i,ialloc
+  
+  select type(this); type is(RealModeDisplacement)
+    allocate(this%displacements(size(input)), stat=ialloc); call err(ialloc)
+    do i=1,size(this)
+      this%displacements(i) = input(i)
+    enddo
+  end select
+end subroutine
+
+function write_RealModeDisplacement(this) result(output)
   implicit none
   
   class(RealModeDisplacement), intent(in) :: this
@@ -45,23 +60,11 @@ function to_String_RealModeDisplacement(this) result(output)
   
   integer :: i,ialloc
   
-  allocate(output(size(this)), stat=ialloc); call err(ialloc)
-  do i=1,size(this)
-    output(i) = str(this%displacements(i))
-  enddo
-end function
-
-function new_RealModeDisplacement_Strings(input) result(this)
-  implicit none
-  
-  type(String), intent(in)   :: input(:)
-  type(RealModeDisplacement) :: this
-  
-  integer :: i,ialloc
-  
-  allocate(this%displacements(size(input)), stat=ialloc); call err(ialloc)
-  do i=1,size(this)
-    this%displacements(i) = RealSingleModeDisplacement(input(i))
-  enddo
+  select type(this); type is(RealModeDisplacement)
+    allocate(output(size(this)), stat=ialloc); call err(ialloc)
+    do i=1,size(this)
+      output(i) = str(this%displacements(i))
+    enddo
+  end select
 end function
 end module

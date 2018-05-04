@@ -17,6 +17,7 @@ module fraction_submodule
   public :: is_int
   public :: modulo
   public :: operator(-)
+  public :: abs
   
   type, extends(Stringable) :: IntFraction
     integer, private :: n_
@@ -144,6 +145,11 @@ module fraction_submodule
   ! Negative.
   interface operator(-)
     module procedure negative_IntFraction
+  end interface
+  
+  ! Absolute value.
+  interface abs
+    module procedure abs_IntFraction
   end interface
 contains
 
@@ -667,6 +673,18 @@ impure elemental function negative_IntFraction(this) result(output)
   type(IntFraction)             :: output
   
   output = IntFraction(-this%n_, this%d_)
+end function
+
+! ----------------------------------------------------------------------
+! Absolute value.
+! ----------------------------------------------------------------------
+impure elemental function abs_IntFraction(this) result(output)
+  implicit none
+  
+  type(IntFraction), intent(in) :: this
+  type(IntFraction)             :: output
+  
+  output = IntFraction(abs(this%n_), this%d_)
 end function
 
 ! ----------------------------------------------------------------------

@@ -57,7 +57,6 @@ subroutine test(arguments)
   
   do i=1,size(strings)
     call print_line('Section '//i//':')
-    call print_lines(strings(i))
   enddo
 end subroutine
 end module

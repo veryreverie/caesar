@@ -19,7 +19,8 @@ module integer_complex_submodule
     integer, private :: real_
     integer, private :: imag_
   contains
-    procedure, public :: to_String => to_String_IntComplex
+    procedure, public :: read  => read_IntComplex
+    procedure, public :: write => write_IntComplex
   end type
   
   interface IntComplex
@@ -203,17 +204,63 @@ impure elemental function multiply_integer_IntComplex(this,that) result(output)
   output%imag_ = this * aimag(that)
 end function
 
+! ----------------------------------------------------------------------
 ! I/O.
-function to_String_IntComplex(this) result(output)
+! ----------------------------------------------------------------------
+subroutine read_IntComplex(this,input)
+  implicit none
+  
+  class(IntComplex), intent(out) :: this
+  type(String),      intent(in)  :: input
+  
+  type(String), allocatable :: split_string(:)
+  integer                   :: real_part
+  integer                   :: imag_part
+  
+  select type(this); type is(IntComplex)
+    split_string = split(input,'+')
+    if (size(split_string)==2) then
+      ! input is of the form "a+bi" or "-a+bi".
+      real_part = int(split_string(1))
+      imag_part = int(slice(split_string(2),1,len(split_string(2))-1))
+    elseif (size(split_string)==1) then
+      ! input is of the form "a-bi" or "-a-bi".
+      split_string = split(input,'-')
+      if (size(split_string)==2) then
+        if (slice(input,1,1)=='-') then
+          real_part = -int(split_string(1))
+        else
+          real_part = int(split_string(1))
+        endif
+        imag_part = int(slice(split_string(2),1,len(split_string(2))-1))
+      else
+        call print_line(ERROR//': Unable to read IntComplex from string: '// &
+           & input)
+        call err()
+      endif
+    else
+      call print_line(ERROR//': Unable to read IntComplex from string: '// &
+         & input)
+      call err()
+    endif
+    
+    this = IntComplex(real_part,imag_part)
+  end select
+end subroutine
+
+function write_IntComplex(this) result(output)
   implicit none
   
   class(IntComplex), intent(in) :: this
   type(String)                  :: output
   
-  if (aimag(this)>=0) then
-    output = real(this)//'+'//aimag(this)//'i'
-  else
-    output = real(this)//'-'//-aimag(this)//'i'
-  endif
+  select type(this); type is(IntComplex)
+    ! N.B. abs() is called in both cases to stop +/-0 from breaking formatting.
+    if (aimag(this)>=0) then
+      output = real(this)//'+'//abs(aimag(this))//'i'
+    else
+      output = real(this)//'-'//abs(aimag(this))//'i'
+    endif
+  end select
 end function
 end module

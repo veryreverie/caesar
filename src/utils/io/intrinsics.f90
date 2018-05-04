@@ -42,10 +42,10 @@ module intrinsics_submodule
   end interface
   
   interface join
-    module procedure join_real
-    module procedure join_integer
-    module procedure join_logical
-    module procedure join_complex
+    module procedure join_reals
+    module procedure join_integers
+    module procedure join_logicals
+    module procedure join_complexes
   end interface
   
   interface lgcl
@@ -424,17 +424,17 @@ end function
 !    then concatenate them into a single string.
 ! ----------------------------------------------------------------------
 
-function join_real(this,delimiter) result(output)
+function join_reals(this,delimiter) result(output)
   implicit none
   
   real(dp),     intent(in)           :: this(:)
   character(*), intent(in), optional :: delimiter
   type(String)                       :: output
   
-  output = join(str(this),delimiter)
+  output = join(str(this), delimiter)
 end function
 
-function join_integer(this,delimiter,pad_sign) result(output)
+function join_integers(this,delimiter,pad_sign) result(output)
   implicit none
   
   integer,      intent(in)           :: this(:)
@@ -451,30 +451,30 @@ function join_integer(this,delimiter,pad_sign) result(output)
   endif
   
   if (to_pad) then
-    output = join(pad_int_to_str(this),delimiter)
+    output = join(pad_int_to_str(this), delimiter)
   else
-    output = join(str(this),delimiter)
+    output = join(str(this), delimiter)
   endif
 end function
 
-function join_logical(this,delimiter) result(output)
+function join_logicals(this,delimiter) result(output)
   implicit none
   
   logical,      intent(in)           :: this(:)
   character(*), intent(in), optional :: delimiter
   type(String)                       :: output
   
-  output = join(str(this),delimiter)
+  output = join(str(this), delimiter)
 end function
 
-function join_complex(this,delimiter) result(output)
+function join_complexes(this,delimiter) result(output)
   implicit none
   
   complex(dp),  intent(in)           :: this(:)
   character(*), intent(in), optional :: delimiter
   type(String)                       :: output
   
-  output = join(str(this),delimiter)
+  output = join(str(this), delimiter)
 end function
 
 ! ----------------------------------------------------------------------

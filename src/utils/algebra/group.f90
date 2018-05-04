@@ -38,7 +38,8 @@ module group_submodule
     procedure, private :: operate_Group_Group
     
     ! I/O.
-    procedure, public :: to_String => to_String_Group
+    procedure, public :: read  => read_Group
+    procedure, public :: write => write_Group
   end type
   
   interface size
@@ -140,12 +141,25 @@ end function
 ! ----------------------------------------------------------------------
 ! I/O.
 ! ----------------------------------------------------------------------
-function to_String_Group(this) result(output)
+subroutine read_Group(this,input)
+  implicit none
+  
+  class(Group), intent(out) :: this
+  type(String), intent(in)  :: input
+  
+  select type(this); type is(Group)
+    this = Group(int(split(input)))
+  end select
+end subroutine
+
+function write_Group(this) result(output)
   implicit none
   
   class(Group), intent(in) :: this
   type(String)             :: output
   
-  output = join(this%operation)
+  select type(this); type is(Group)
+    output = join(this%operation)
+  end select
 end function
 end module

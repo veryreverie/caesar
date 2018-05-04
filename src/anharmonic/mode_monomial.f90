@@ -24,7 +24,7 @@ module mode_monomial_module
   public :: construct_coupled_modes
   
   ! A list of ids of modes which are coupled.
-  type, extends(Stringable) :: ModeMonomial
+  type :: ModeMonomial
     integer, allocatable :: ids(:)
     ! Whether or not the complex basis functions corresponding to this coupling
     !    are part of the Hamiltonian. i.e. they conserve Bloch momentum.
@@ -33,9 +33,6 @@ module mode_monomial_module
     !    are part of the VSCF Hamiltonian. i.e. they conserve Bloch momentum
     !    within every coupled subspace.
     logical :: conserves_vscf
-  contains
-    ! I/O.
-    procedure, public :: to_String => to_String_ModeMonomial
   end type
   
   interface size
@@ -319,17 +316,5 @@ impure elemental function construct_coupled_modes_ComplexMonomial(this) &
   ids = this%modes%id
   ids = sort(ids)
   output = CoupledModes(ids)
-end function
-
-! ----------------------------------------------------------------------
-! I/O.
-! ----------------------------------------------------------------------
-recursive function to_String_ModeMonomial(this) result(output)
-  implicit none
-  
-  class(ModeMonomial), intent(in) :: this
-  type(String)                    :: output
-  
-  output = join(this%ids)
 end function
 end module

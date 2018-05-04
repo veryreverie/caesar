@@ -22,7 +22,8 @@ module coupled_subspaces_module
     integer, allocatable :: ids(:)
   contains
     ! I/O.
-    procedure, public :: to_String => to_String_CoupledSubspaces
+    procedure, public :: read  => read_CoupledSubspaces
+    procedure, public :: write => write_CoupledSubspaces
   end type
   
   interface CoupledSubspaces
@@ -139,12 +140,25 @@ end function
 ! ----------------------------------------------------------------------
 ! I/O.
 ! ----------------------------------------------------------------------
-recursive function to_String_CoupledSubspaces(this) result(output)
+subroutine read_CoupledSubspaces(this,input)
+  implicit none
+  
+  class(CoupledSubspaces), intent(out) :: this
+  type(String),            intent(in)  :: input
+  
+  select type(this); type is(CoupledSubspaces)
+    this = CoupledSubspaces(int(split(input)))
+  end select
+end subroutine
+
+function write_CoupledSubspaces(this) result(output)
   implicit none
   
   class(CoupledSubspaces), intent(in) :: this
   type(String)                        :: output
   
-  output = join(this%ids)
+  select type(this); type is(CoupledSubspaces)
+    output = join(this%ids)
+  end select
 end function
 end module

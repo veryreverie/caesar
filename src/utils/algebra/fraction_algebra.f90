@@ -39,16 +39,18 @@ module fraction_algebra_submodule
     generic,   public  :: assignment(=) => assign_FractionVector_IntFractions
     procedure, private ::                  assign_FractionVector_IntFractions
     
-    procedure, public :: to_String => to_String_FractionVector
+    procedure, public :: read  => read_FractionVector
+    procedure, public :: write => write_FractionVector
   end type
   
-  type, extends(Printable) :: FractionMatrix
+  type, extends(Stringsable) :: FractionMatrix
     type(IntFraction), allocatable, private :: contents_(:,:)
   contains
     generic,   public  :: assignment(=) => assign_FractionMatrix_IntFractions
     procedure, private ::                  assign_FractionMatrix_IntFractions
     
-    procedure, public :: to_String => to_String_FractionMatrix
+    procedure, public :: read  => read_FractionMatrix
+    procedure, public :: write => write_FractionMatrix
   end type
   
   ! Conversions to and from vector and matrix types.
@@ -1166,26 +1168,65 @@ impure elemental function exp_2pii_IntFraction(input) result(output)
 end function
 
 ! ----------------------------------------------------------------------
-! I/O overloads.
+! I/O.
 ! ----------------------------------------------------------------------
-function to_String_FractionVector(this) result(output)
+subroutine read_FractionVector(this,input)
+  implicit none
+  
+  class(FractionVector), intent(out) :: this
+  type(String),          intent(in)  :: input
+  
+  select type(this); type is(FractionVector)
+    this = frac(split(input))
+  end select
+end subroutine
+
+function write_FractionVector(this) result(output)
   implicit none
   
   class(FractionVector), intent(in) :: this
   type(String)                      :: output
   
-  type(IntFraction), allocatable :: contents(:)
-  
-  integer :: i
-  
-  contents = frac(this)
-  output = ''
-  do i=1,size(this)
-    output = output//' '//contents(i)
-  enddo
+  select type(this); type is(FractionVector)
+    output = join(frac(this))
+  end select
 end function
 
-function to_String_FractionMatrix(this) result(output)
+subroutine read_FractionMatrix(this,input)
+  implicit none
+  
+  class(FractionMatrix), intent(out) :: this
+  type(String),          intent(in)  :: input(:)
+  
+  type(IntFraction), allocatable :: line(:)
+  type(IntFraction), allocatable :: contents(:,:)
+  
+  integer :: i,ialloc
+  
+  select type(this); type is(FractionMatrix)
+    if (size(input)==0) then
+      allocate(contents(0,0), stat=ialloc); call err(ialloc)
+    else
+      line = frac(split(input(1)))
+      allocate( contents(size(input),size(line)), &
+              & stat=ialloc); call err(ialloc)
+      contents(1,:) = line
+      do i=2,size(input)
+        line = frac(split(input(i)))
+        if (size(line)/=size(contents,2)) then
+          call print_line(ERROR//': Reading matrix: rows of different &
+             &lengths.')
+          call err()
+        endif
+        contents(i,:) = line
+      enddo
+    endif
+    
+    this = contents
+  end select
+end subroutine
+
+function write_FractionMatrix(this) result(output)
   implicit none
   
   class(FractionMatrix), intent(in) :: this
@@ -1195,10 +1236,12 @@ function to_String_FractionMatrix(this) result(output)
   
   integer :: i,ialloc
   
-  allocate(output(size(this,1)), stat=ialloc); call err(ialloc)
-  
-  do i=1,size(this,1)
-    output(i) = join(str(contents(i,:)))
-  enddo
+  select type(this); type is(FractionMatrix)
+    contents = frac(this)
+    allocate(output(size(this,1)), stat=ialloc); call err(ialloc)
+    do i=1,size(this,1)
+      output(i) = join(contents(i,:))
+    enddo
+  end select
 end function
 end module

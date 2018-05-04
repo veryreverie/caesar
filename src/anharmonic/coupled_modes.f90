@@ -19,7 +19,8 @@ module coupled_modes_module
     integer, allocatable :: ids(:)
   contains
     ! I/O.
-    procedure, public :: to_String => to_String_CoupledModes
+    procedure, public :: read  => read_CoupledModes
+    procedure, public :: write => write_CoupledModes
   end type
   
   interface size
@@ -80,12 +81,25 @@ end function
 ! ----------------------------------------------------------------------
 ! I/O.
 ! ----------------------------------------------------------------------
-recursive function to_String_CoupledModes(this) result(output)
+subroutine read_CoupledModes(this,input)
+  implicit none
+  
+  class(CoupledModes), intent(out) :: this
+  type(String),        intent(in)  :: input
+  
+  select type(this); type is(CoupledModes)
+    this = CoupledModes(int(split(input)))
+  end select
+end subroutine
+
+function write_CoupledModes(this) result(output)
   implicit none
   
   class(CoupledModes), intent(in) :: this
   type(String)                    :: output
   
-  output = join(this%ids)
+  select type(this); type is(CoupledModes)
+    output = join(this%ids)
+  end select
 end function
 end module

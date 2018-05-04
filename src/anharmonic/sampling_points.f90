@@ -160,7 +160,7 @@ subroutine read_file_SamplingPoints(this,filename)
   sections = split(file%lines())
   allocate(this%points(size(sections)), stat=ialloc); call err(ialloc)
   do i=1,size(sections)
-    this%points(i) = RealModeDisplacement(sections(i)%strings(2:))
+    this%points(i) = sections(i)%strings(2:)
   enddo
 end subroutine
 end module

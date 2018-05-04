@@ -20,7 +20,7 @@ module stringsable_submodule
   public :: Stringsable
   public :: assignment(=)
   
-  type, abstract :: Stringsable
+  type, abstract, extends(StringsWriteable) :: Stringsable
   contains
     procedure(read_Stringsable), deferred :: read
   end type
@@ -39,7 +39,6 @@ module stringsable_submodule
   interface assignment(=)
     module procedure assign_Stringsable_Strings
     module procedure assign_Stringsable_StringArray
-    module procedure assign_Stringsables_StringArrays
   end interface
 contains
 
@@ -63,28 +62,15 @@ recursive subroutine assign_Stringsable_StringArray(output,input)
   
   output = input%strings
 end subroutine
-
-recursive subroutine assign_Stringsables_StringArrays(output,input)
-  implicit none
-  
-  class(Stringsable), allocatable, intent(out) :: output(:)
-  type(StringArray),               intent(in)  :: input(:)
-  
-  integer :: i,ialloc
-  
-  allocate(output(size(input)), mold=output, stat=ialloc); call err(ialloc)
-  do i=1,size(input)
-    output(i) = input(i)
-  enddo
-end subroutine
 end module
 
 ! ======================================================================
 ! An example module showing how to extend Stringsable.
 ! ======================================================================
-module strings_readable_example_submodule
+module stringsable_example_submodule
   use string_submodule
   use stringsable_submodule
+  use print_submodule
   use error_submodule
   implicit none
   

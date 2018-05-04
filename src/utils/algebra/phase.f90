@@ -21,7 +21,8 @@ module phase_submodule
   type, extends(Stringable) :: PhaseData
     type(IntFraction) :: fraction
   contains
-    procedure, public :: to_String => to_String_PhaseData
+    procedure, public :: read  => read_PhaseData
+    procedure, public :: write => write_PhaseData
   end type
   
   interface PhaseData
@@ -112,14 +113,27 @@ impure elemental function non_equality_PhaseData_PhaseData(this,that) &
 end function
 
 ! ----------------------------------------------------------------------
-! I/O overload.
+! I/O.
 ! ----------------------------------------------------------------------
-function to_String_PhaseData(this) result(output)
+subroutine read_PhaseData(this,input)
+  implicit none
+  
+  class(PhaseData), intent(out) :: this
+  type(String),     intent(in)  :: input
+  
+  select type(this); type is(PhaseData)
+    this = PhaseData(frac(slice(input,10,len(input)-1)))
+  end select
+end subroutine
+
+function write_PhaseData(this) result(output)
   implicit none
   
   class(PhaseData), intent(in) :: this
   type(String)                 :: output
   
-  output = 'exp(2pii*'//this%fraction//')'
+  select type(this); type is(PhaseData)
+    output = 'exp(2pii*'//this%fraction//')'
+  end select
 end function
 end module

@@ -111,6 +111,7 @@ end module
 module StringsWriteable_example_submodule
   use string_submodule
   use strings_writeable_submodule
+  use print_submodule
   use error_submodule
   implicit none
   

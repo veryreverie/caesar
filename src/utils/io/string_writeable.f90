@@ -21,9 +21,9 @@ module string_writeable_submodule
   private
   
   public :: StringWriteable
-  !public :: assignment(=)
-  public :: operator(//)
   public :: str
+  public :: operator(//)
+  public :: join
   public :: print_line
   public :: print_lines
   
@@ -43,11 +43,11 @@ module string_writeable_submodule
     end function
   end interface
   
-  !interface assignment(=)
-  !  module procedure assign_String_StringWriteable
-  !  module procedure assign_Strings_StringWriteables
-  !  module procedure assign_StringArray_StringWriteables
-  !end interface
+  interface str
+    module procedure str_StringWriteable_0D
+    module procedure str_StringWriteable_1D
+    module procedure str_StringWriteable_2D
+  end interface
     
   interface operator(//)
     module procedure concatenate_StringWriteable_character
@@ -56,10 +56,8 @@ module string_writeable_submodule
     module procedure concatenate_String_StringWriteable
   end interface
   
-  interface str
-    module procedure str_StringWriteable_0d
-    module procedure str_StringWriteable_1d
-    module procedure str_StringWriteable_2d
+  interface join
+    module procedure join_StringWriteable
   end interface
   
   interface print_line
@@ -72,95 +70,11 @@ module string_writeable_submodule
   end interface
 contains
 
-!! ----------------------------------------------------------------------
-!! Assign a string type from a StringWriteable type.
-!! ----------------------------------------------------------------------
-!recursive subroutine assign_String_StringWriteable(output,input)
-!  implicit none
-!  
-!  type(String),           intent(out) :: output
-!  class(StringWriteable), intent(in)  :: input
-!  
-!  output = input%write()
-!end subroutine
-!
-!recursive subroutine assign_Strings_StringWriteables(output,input)
-!  implicit none
-!  
-!  type(String), allocatable, intent(out) :: output(:)
-!  class(StringWriteable),    intent(in)  :: input(:)
-!  
-!  integer :: i,ialloc
-!  
-!  allocate(output(size(input)), stat=ialloc); call err(ialloc)
-!  do i=1,size(input)
-!    output(i) = input(i)
-!  enddo
-!end subroutine
-!
-!recursive subroutine assign_StringArray_StringWriteables(output,input)
-!  implicit none
-!  
-!  type(StringArray),      intent(out) :: output
-!  class(StringWriteable), intent(in)  :: input(:)
-!  
-!  output%strings = input
-!end subroutine
-
-! ----------------------------------------------------------------------
-! Concatenation of string types and StringWriteable types.
-! ----------------------------------------------------------------------
-! String = StringWriteable//character
-recursive function concatenate_StringWriteable_character(this,that) &
-   & result(output)
-  implicit none
-  
-  class(StringWriteable), intent(in) :: this
-  character(*),           intent(in) :: that
-  type(String)                       :: output
-  
-  output = this%write()//that
-end function
-
-! String = character//StringWriteable
-recursive function concatenate_character_StringWriteable(this,that) &
-   & result(output)
-  implicit none
-  
-  character(*),           intent(in) :: this
-  class(StringWriteable), intent(in) :: that
-  type(String)                       :: output
-  
-  output = this//that%write()
-end function
-
-! String = StringWriteable//String
-recursive function concatenate_StringWriteable_String(this,that) result(output)
-  implicit none
-  
-  class(StringWriteable), intent(in) :: this
-  type(String),           intent(in) :: that
-  type(String)                       :: output
-  
-  output = this%write()//that
-end function
-
-! String = String//StringWriteable
-recursive function concatenate_String_StringWriteable(this,that) result(output)
-  implicit none
-  
-  type(String),           intent(in) :: this
-  class(StringWriteable), intent(in) :: that
-  type(String)                       :: output
-  
-  output = this//that%write()
-end function
-
 ! ----------------------------------------------------------------------
 ! The str() function, which converts to string types.
 ! ----------------------------------------------------------------------
 ! N.B. can't use impure elemental because this must be recursive.
-recursive function str_StringWriteable_0d(this) result(output)
+recursive function str_StringWriteable_0D(this) result(output)
   implicit none
   
   class(StringWriteable), intent(in) :: this
@@ -169,7 +83,7 @@ recursive function str_StringWriteable_0d(this) result(output)
   output = this%write()
 end function
 
-recursive function str_StringWriteable_1d(this) result(output)
+recursive function str_StringWriteable_1D(this) result(output)
   implicit none
   
   class(StringWriteable), intent(in) :: this(:)
@@ -183,7 +97,7 @@ recursive function str_StringWriteable_1d(this) result(output)
   enddo
 end function
 
-recursive function str_StringWriteable_2d(this) result(output)
+recursive function str_StringWriteable_2D(this) result(output)
   implicit none
   
   class(StringWriteable), intent(in) :: this(:,:)
@@ -195,6 +109,69 @@ recursive function str_StringWriteable_2d(this) result(output)
   do i=1,size(this,2)
     output(:,i) = str(this(:,i))
   enddo
+end function
+
+! ----------------------------------------------------------------------
+! Concatenation of string types and StringWriteable types.
+! ----------------------------------------------------------------------
+! String = StringWriteable//character
+recursive function concatenate_StringWriteable_character(this,that) &
+   & result(output)
+  implicit none
+  
+  class(StringWriteable), intent(in) :: this
+  character(*),           intent(in) :: that
+  type(String)                       :: output
+  
+  output = str(this)//that
+end function
+
+! String = character//StringWriteable
+recursive function concatenate_character_StringWriteable(this,that) &
+   & result(output)
+  implicit none
+  
+  character(*),           intent(in) :: this
+  class(StringWriteable), intent(in) :: that
+  type(String)                       :: output
+  
+  output = this//str(that)
+end function
+
+! String = StringWriteable//String
+recursive function concatenate_StringWriteable_String(this,that) result(output)
+  implicit none
+  
+  class(StringWriteable), intent(in) :: this
+  type(String),           intent(in) :: that
+  type(String)                       :: output
+  
+  output = str(this)//that
+end function
+
+! String = String//StringWriteable
+recursive function concatenate_String_StringWriteable(this,that) result(output)
+  implicit none
+  
+  type(String),           intent(in) :: this
+  class(StringWriteable), intent(in) :: that
+  type(String)                       :: output
+  
+  output = this//str(that)
+end function
+
+! ----------------------------------------------------------------------
+! Convert a StringWriteable array to an array of Strings,
+!    then concatenate them into a single string.
+! ----------------------------------------------------------------------
+recursive function join_StringWriteable(this,delimiter) result(output)
+  implicit none
+  
+  class(StringWriteable), intent(in)           :: this(:)
+  character(*),           intent(in), optional :: delimiter
+  type(String)                                 :: output
+  
+  output = join(str(this), delimiter)
 end function
 
 ! ----------------------------------------------------------------------

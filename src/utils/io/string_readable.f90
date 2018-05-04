@@ -35,8 +35,6 @@ module string_readable_submodule
   interface assignment(=)
     module procedure assign_StringReadable_String
     module procedure assign_StringReadable_character
-    module procedure assign_StringReadables_Strings
-    module procedure assign_StringReadables_StringArray
   end interface
 contains
 
@@ -60,29 +58,6 @@ recursive subroutine assign_StringReadable_character(output,input)
   
   output = str(input)
 end subroutine
-
-recursive subroutine assign_StringReadables_Strings(output,input)
-  implicit none
-  
-  class(StringReadable), allocatable, intent(out) :: output(:)
-  type(String),                       intent(in)  :: input(:)
-  
-  integer :: i,ialloc
-  
-  allocate(output(size(input)), mold=output, stat=ialloc); call err(ialloc)
-  do i=1,size(input)
-    output(i) = input(i)
-  enddo
-end subroutine
-
-recursive subroutine assign_StringReadables_StringArray(output,input)
-  implicit none
-  
-  class(StringReadable), allocatable, intent(out) :: output(:)
-  type(StringArray),                  intent(in)  :: input
-  
-  output = input%strings
-end subroutine
 end module
 
 ! ======================================================================
@@ -91,6 +66,7 @@ end module
 module string_readable_example_submodule
   use string_submodule
   use string_readable_submodule
+  use print_submodule
   use error_submodule
   implicit none
   

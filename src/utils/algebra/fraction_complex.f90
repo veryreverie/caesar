@@ -22,7 +22,8 @@ module fraction_complex_submodule
     type(IntFraction), private :: real_
     type(IntFraction), private :: imag_
   contains
-    procedure, public :: to_String => to_String_FractionComplex
+    procedure, public :: read  => read_FractionComplex
+    procedure, public :: write => write_FractionComplex
   end type
   
   interface FractionComplex
@@ -368,17 +369,63 @@ impure elemental function multiply_integer_FractionComplex(this,that) &
   output%imag_ = this * aimag(that)
 end function
 
+! ----------------------------------------------------------------------
 ! I/O.
-function to_String_FractionComplex(this) result(output)
+! ----------------------------------------------------------------------
+subroutine read_FractionComplex(this,input)
+  implicit none
+  
+  class(FractionComplex), intent(out) :: this
+  type(String),           intent(in)  :: input
+  
+  type(String), allocatable :: split_string(:)
+  type(IntFraction)         :: real_part
+  type(IntFraction)         :: imag_part
+  
+  select type(this); type is(FractionComplex)
+    split_string = split(input,'+')
+    if (size(split_string)==2) then
+      ! input is of the form "a+bi" or "-a+bi".
+      real_part = frac(split_string(1))
+      imag_part = frac(slice(split_string(2),1,len(split_string(2))-1))
+    elseif (size(split_string)==1) then
+      ! input is of the form "a-bi" or "-a-bi".
+      split_string = split(input,'-')
+      if (size(split_string)==2) then
+        if (slice(input,1,1)=='-') then
+          real_part = -frac(split_string(1))
+        else
+          real_part = frac(split_string(1))
+        endif
+        imag_part = frac(slice(split_string(2),1,len(split_string(2))-1))
+      else
+        call print_line(ERROR//': Unable to read IntComplex from string: '// &
+           & input)
+        call err()
+      endif
+    else
+      call print_line(ERROR//': Unable to read IntComplex from string: '// &
+         & input)
+      call err()
+    endif
+    
+    this = FractionComplex(real_part,imag_part)
+  end select
+end subroutine
+
+function write_FractionComplex(this) result(output)
   implicit none
   
   class(FractionComplex), intent(in) :: this
   type(String)                       :: output
   
-  if (aimag(this)>=0) then
-    output = real(this)//'+'//aimag(this)//'i'
-  else
-    output = real(this)//'-'//-aimag(this)//'i'
-  endif
+  select type(this); type is(FractionComplex)
+    ! N.B. abs() is called in both cases to stop +/-0 from breaking formatting.
+    if (aimag(this)>=0) then
+      output = real(this)//'+'//abs(aimag(this))//'i'
+    else
+      output = real(this)//'-'//abs(aimag(this))//'i'
+    endif
+  end select
 end function
 end module

@@ -5,7 +5,6 @@
 module string_array_submodule
   use error_submodule
   use string_submodule
-  use printable_submodule
   implicit none
   
   private
@@ -14,10 +13,8 @@ module string_array_submodule
   public :: size
   public :: split
   
-  type, extends(Printable) :: StringArray
+  type :: StringArray
     type(String), allocatable :: strings(:)
-  contains
-    procedure, public :: to_String => to_String_StringArray
   end type
   
   interface StringArray
@@ -47,15 +44,6 @@ function new_StringArray_Strings(input) result(this)
   type(StringArray)        :: this
   
   this%strings = input
-end function
-
-function to_String_StringArray(this) result(output)
-  implicit none
-  
-  class(StringArray), intent(in) :: this
-  type(String), allocatable      :: output(:)
-  
-  output = this%strings
 end function
 
 function size_StringArray(this) result(output)

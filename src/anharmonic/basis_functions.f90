@@ -113,7 +113,7 @@ subroutine read_file_BasisFunctions(this,filename)
   sections = split(file%lines())
   allocate(this%functions(size(sections)), stat=ialloc); call err(ialloc)
   do i=1,size(sections)
-    this%functions(i) = BasisFunction(sections(i)%strings(2:))
+    this%functions(i) = sections(i)%strings(2:)
   enddo
 end subroutine
 end module

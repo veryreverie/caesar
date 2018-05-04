@@ -19,8 +19,6 @@ module integer_arrays_submodule
   type, extends(Stringable) :: IntArray1D
     integer, public, allocatable :: i(:)
   contains
-    procedure, public :: to_String => to_String_IntArray1D
-    
     generic,   public  :: assignment (= ) => assign_IntArray1D_integers
     procedure, private ::                    assign_IntArray1D_integers
     
@@ -34,14 +32,15 @@ module integer_arrays_submodule
     procedure, private             ::   concatenate_IntArray1D_integers
     procedure, private, pass(that) ::   concatenate_integers_IntArray1D
     procedure, private             ::   concatenate_IntArray1D_IntArray1D
+    
+    procedure, public :: read  => read_IntArray1D
+    procedure, public :: write => write_IntArray1D
   end type
   
   ! A array of IntArrays.
-  type, extends(Printable) :: IntArray2D
+  type, extends(Stringsable) :: IntArray2D
     type(IntArray1D), allocatable :: i(:)
   contains
-    procedure, public :: to_String => to_String_IntArray2D
-    
     generic,   public  :: assignment (= ) => assign_IntArray2D_IntArray1Ds
     procedure, private ::                    assign_IntArray2D_IntArray1Ds
     
@@ -55,6 +54,9 @@ module integer_arrays_submodule
     procedure, private             ::   concatenate_IntArray2D_IntArray1Ds
     procedure, private, pass(that) ::   concatenate_IntArray1Ds_IntArray2D
     procedure, private             ::   concatenate_IntArray2D_IntArray2D
+    
+    procedure, public :: read  => read_IntArray2D
+    procedure, public :: write => write_IntArray2D
   end type
   
   ! Type conversion to array.
@@ -306,16 +308,48 @@ end function
 ! ----------------------------------------------------------------------
 ! I/O.
 ! ----------------------------------------------------------------------
-recursive function to_String_IntArray1D(this) result(output)
+subroutine read_IntArray1D(this,input)
+  implicit none
+  
+  class(IntArray1D), intent(out) :: this
+  type(String),      intent(in)  :: input
+  
+  select type(this); type is(IntArray1D)
+    this = IntArray1D(int(split(input)))
+  end select
+end subroutine
+
+function write_IntArray1D(this) result(output)
   implicit none
   
   class(IntArray1D), intent(in) :: this
   type(String)                  :: output
   
-  output = join(this%i)
+  select type(this); type is(IntArray1D)
+    output = join(this%i)
+  end select
 end function
 
-recursive function to_String_IntArray2D(this) result(output)
+subroutine read_IntArray2D(this,input)
+  implicit none
+  
+  class(IntArray2D), intent(out) :: this
+  type(String),      intent(in)  :: input(:)
+  
+  type(IntArray1D), allocatable :: contents(:)
+  
+  integer :: i,ialloc
+  
+  select type(this); type is(IntArray2D)
+    allocate(contents(size(input)), stat=ialloc); call err(ialloc)
+    do i=1,size(contents)
+      contents(i) = input(i)
+    enddo
+    this = IntArray2D(contents)
+  end select
+end subroutine
+
+function write_IntArray2D(this) result(output)
   implicit none
   
   class(IntArray2D), intent(in) :: this
@@ -323,9 +357,11 @@ recursive function to_String_IntArray2D(this) result(output)
   
   integer :: i,ialloc
   
-  allocate(output(size(this)), stat=ialloc); call err(ialloc)
-  do i=1,size(this)
-    output(i) = str(this%i(i))
-  enddo
+  select type(this); type is(IntArray2D)
+    allocate(output(size(this)), stat=ialloc); call err(ialloc)
+    do i=1,size(this)
+      output(i) = str(this%i(i))
+    enddo
+  end select
 end function
 end module

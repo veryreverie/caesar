@@ -9,7 +9,7 @@ module ofile_submodule
   use print_submodule
   use intrinsics_submodule
   use string_writeable_submodule
-  use printable_submodule
+  use strings_writeable_submodule
   use io_submodule
   use file_submodule
   implicit none
@@ -53,16 +53,16 @@ module ofile_submodule
                                        & print_lines_Strings_String,        &
                                        & print_lines_StringWriteables_character, &
                                        & print_lines_StringWriteables_String,    &
-                                       & print_lines_Printable,             &
-                                       & print_lines_Printables_character,  &
-                                       & print_lines_Printables_String
+                                       & print_lines_StringsWriteable,             &
+                                       & print_lines_StringsWriteables_character,  &
+                                       & print_lines_StringsWriteables_String
     procedure, private ::                print_lines_Strings_character
     procedure, private ::                print_lines_Strings_String
     procedure, private ::                print_lines_StringWriteables_character
     procedure, private ::                print_lines_StringWriteables_String
-    procedure, private ::                print_lines_Printable
-    procedure, private ::                print_lines_Printables_character
-    procedure, private ::                print_lines_Printables_String
+    procedure, public ::                print_lines_StringsWriteable
+    procedure, private ::                print_lines_StringsWriteables_character
+    procedure, private ::                print_lines_StringsWriteables_String
     
     final :: finalizer
   end type
@@ -285,11 +285,11 @@ subroutine print_lines_StringWriteables_String(this,input,separating_line)
   call this%print_lines(input,char(separating_line))
 end subroutine
 
-subroutine print_lines_Printable(this,input)
+subroutine print_lines_StringsWriteable(this,input)
   implicit none
   
-  class(OFile),     intent(inout) :: this
-  class(Printable), intent(in)    :: input
+  class(OFile),            intent(inout) :: this
+  class(StringsWriteable), intent(in)    :: input
   
   type(String), allocatable :: lines(:)
   integer                   :: i
@@ -300,12 +300,12 @@ subroutine print_lines_Printable(this,input)
   enddo
 end subroutine
 
-subroutine print_lines_Printables_character(this,input,separating_line)
+subroutine print_lines_StringsWriteables_character(this,input,separating_line)
   implicit none
   
-  class(OFile),     intent(inout)        :: this
-  class(Printable), intent(in)           :: input(:)
-  character(*),     intent(in), optional :: separating_line
+  class(OFile),            intent(inout)        :: this
+  class(StringsWriteable), intent(in)           :: input(:)
+  character(*),            intent(in), optional :: separating_line
   
   integer :: i
   
@@ -317,12 +317,12 @@ subroutine print_lines_Printables_character(this,input,separating_line)
   enddo
 end subroutine
 
-subroutine print_lines_Printables_String(this,input,separating_line)
+subroutine print_lines_StringsWriteables_String(this,input,separating_line)
   implicit none
   
-  class(OFile),     intent(inout) :: this
-  class(Printable), intent(in)    :: input(:)
-  type(String),     intent(in)    :: separating_line
+  class(OFile),            intent(inout) :: this
+  class(StringsWriteable), intent(in)    :: input(:)
+  type(String),            intent(in)    :: separating_line
   
   call this%print_lines(input,char(separating_line))
 end subroutine

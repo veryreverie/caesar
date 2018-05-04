@@ -35,7 +35,8 @@ module subspace_monomial_module
     procedure, public :: is_subsidiary_of
     
     ! I/O.
-    procedure, public :: to_String => to_String_SubspaceMonomial
+    procedure, public :: read  => read_SubspaceMonomial
+    procedure, public :: write => write_SubspaceMonomial
   end type
   
   interface SubspaceMonomial
@@ -596,12 +597,25 @@ end function
 ! ----------------------------------------------------------------------
 ! I/O.
 ! ----------------------------------------------------------------------
-recursive function to_String_SubspaceMonomial(this) result(output)
+subroutine read_SubspaceMonomial(this,input)
+  implicit none
+  
+  class(SubspaceMonomial), intent(out) :: this
+  type(String),            intent(in)  :: input
+  
+  select type(this); type is(SubspaceMonomial)
+    this = SubspaceMonomial(int(split(input)))
+  end select
+end subroutine
+
+function write_SubspaceMonomial(this) result(output)
   implicit none
   
   class(SubspaceMonomial), intent(in) :: this
   type(String)                        :: output
   
-  output = join(this%ids)
+  select type(this); type is(SubspaceMonomial)
+    output = join(this%ids)
+  end select
 end function
 end module
