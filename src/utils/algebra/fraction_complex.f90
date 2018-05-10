@@ -383,14 +383,14 @@ subroutine read_FractionComplex(this,input)
   type(IntFraction)         :: imag_part
   
   select type(this); type is(FractionComplex)
-    split_string = split(input,'+')
+    split_string = split_line(input,'+')
     if (size(split_string)==2) then
       ! input is of the form "a+bi" or "-a+bi".
       real_part = frac(split_string(1))
       imag_part = frac(slice(split_string(2),1,len(split_string(2))-1))
     elseif (size(split_string)==1) then
       ! input is of the form "a-bi" or "-a-bi".
-      split_string = split(input,'-')
+      split_string = split_line(input,'-')
       if (size(split_string)==2) then
         if (slice(input,1,1)=='-') then
           real_part = -frac(split_string(1))

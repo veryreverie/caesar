@@ -4,8 +4,8 @@
 ! ======================================================================
 module unitary_eigenstuff_submodule
   use precision_module
+  use abstract_module
   use io_module
-  use logic_module
   
   use mathematical_constants_submodule
   use linear_algebra_submodule

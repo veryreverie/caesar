@@ -353,7 +353,7 @@ recursive function dble_character(this) result(output)
   
   integer :: ierr
   
-  split_string = split(this,'/')
+  split_string = split_line(this,'/')
   
   if (size(split_string)==1) then
     ! The string does not contain a '/': treat it as a real.

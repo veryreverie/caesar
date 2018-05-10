@@ -20,11 +20,25 @@ module complex_single_mode_displacement_submodule
     procedure, public :: read  => read_ComplexSingleModeDisplacement
     procedure, public :: write => write_ComplexSingleModeDisplacement
   end type
+  
+  interface ComplexSingleModeDisplacement
+    module procedure new_ComplexSingleModeDisplacement
+  end interface
 contains
 
-! ----------------------------------------------------------------------
+! Constructor.
+function new_ComplexSingleModeDisplacement(id,displacement) result(this)
+  implicit none
+  
+  integer,     intent(in)             :: id
+  complex(dp), intent(in)             :: displacement
+  type(ComplexSingleModeDisplacement) :: this
+  
+  this%id           = id
+  this%displacement = displacement
+end function
+
 ! I/O.
-! ----------------------------------------------------------------------
 subroutine read_ComplexSingleModeDisplacement(this,input)
   implicit none
   
@@ -36,7 +50,7 @@ subroutine read_ComplexSingleModeDisplacement(this,input)
   complex(dp)               :: displacement
   
   select type(this); type is(ComplexSingleModeDisplacement)
-    split_string = split(input)
+    split_string = split_line(input)
     if (size(split_string)/=3) then
       call print_line(ERROR//': unable to parse complex single mode &
          &displacement from string: '//input)

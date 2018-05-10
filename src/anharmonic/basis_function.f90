@@ -330,7 +330,7 @@ subroutine read_BasisFunction(this,input)
     
     ! Locate the line between real terms and complex terms.
     do i=4,size(input)
-      if (size(split(input(i)))>1) then
+      if (size(split_line(input(i)))>1) then
         partition_line = i
         exit
       endif

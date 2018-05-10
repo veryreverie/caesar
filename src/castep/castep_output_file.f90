@@ -38,7 +38,7 @@ function read_castep_output_file(filename,structure,dir,seedname, &
   
   castep_output_file = IFile(filename)
   do i=1,size(castep_output_file)
-    line = split(lower_case(castep_output_file%line(i)))
+    line = split_line(lower_case(castep_output_file%line(i)))
     if (size(line)>=6) then
       if (join(line(:3))=='number of kpoints') then
         output%no_kpoints = int(line(6))

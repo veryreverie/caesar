@@ -1,9 +1,9 @@
 project: caesar
 src_dir: ../src
-exclude_dir: ../src/old/harmonic/programs
-             ../src/old/quadratic/programs
-             ../src/quadratic
-             ../src/coupled
+exclude_dir: ../src/old/old/harmonic/programs
+             ../src/old/old/quadratic/programs
+             ../src/old/quadratic
+             ../src/old/coupled
 output_dir: ./ford
 graph_dir: ./ford/graphs
 summary: Caesar anharmonic phonon code.

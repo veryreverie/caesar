@@ -54,6 +54,10 @@ module real_polynomial_submodule
     procedure, public :: write => write_RealUnivariate
   end type
   
+  interface RealUnivariate
+    module procedure new_RealUnivariate
+  end interface
+  
   type, extends(RealMonomialable) :: RealMonomial
     real(dp)                          :: coefficient
     type(RealUnivariate), allocatable :: modes(:)
@@ -68,6 +72,10 @@ module real_polynomial_submodule
     procedure, public :: write => write_RealMonomial
   end type
   
+  interface RealMonomial
+    module procedure new_RealMonomial
+  end interface
+  
   type, extends(RealPolynomialable) :: RealPolynomial
     type(RealMonomial), allocatable :: terms(:)
   contains
@@ -79,6 +87,10 @@ module real_polynomial_submodule
     procedure, public :: read  => read_RealPolynomial
     procedure, public :: write => write_RealPolynomial
   end type
+  
+  interface RealPolynomial
+    module procedure new_RealPolynomial
+  end interface
   
   abstract interface
     function to_RealPolynomial_RealPolynomialable(this) result(output)
@@ -126,6 +138,42 @@ module real_polynomial_submodule
 contains
 
 ! ----------------------------------------------------------------------
+! Constructors.
+! ----------------------------------------------------------------------
+function new_RealUnivariate(id,paired_id,power) result(this)
+  implicit none
+  
+  integer, intent(in)  :: id
+  integer, intent(in)  :: paired_id
+  integer, intent(in)  :: power
+  type(RealUnivariate) :: this
+  
+  this%id        = id
+  this%paired_id = paired_id
+  this%power     = power
+end function
+
+function new_RealMonomial(coefficient,modes) result(this)
+  implicit none
+  
+  real(dp),             intent(in) :: coefficient
+  type(RealUnivariate), intent(in) :: modes(:)
+  type(RealMonomial)               :: this
+  
+  this%coefficient = coefficient
+  this%modes       = modes
+end function
+
+function new_RealPolynomial(terms) result(this)
+  implicit none
+  
+  type(RealMonomial), intent(in) :: terms(:)
+  type(RealPolynomial)           :: this
+  
+  this%terms = terms
+end function
+
+! ----------------------------------------------------------------------
 ! Conversions between types.
 ! ----------------------------------------------------------------------
 function to_RealMonomial_RealUnivariate(this) result(output)
@@ -134,8 +182,8 @@ function to_RealMonomial_RealUnivariate(this) result(output)
   class(RealUnivariate), intent(in) :: this
   type(RealMonomial)                :: output
   
-  output = RealMonomial( coefficient = cmplx(1.0_dp,0.0_dp,dp), &
-                          & modes       = [this])
+  output = RealMonomial( coefficient = 1.0_dp, &
+                       & modes       = [this])
 end function
 
 function to_RealPolynomial_RealUnivariate(this) result(output)
@@ -485,17 +533,17 @@ subroutine read_RealUnivariate(this,input)
   class(RealUnivariate), intent(out) :: this
   type(String),          intent(in)  :: input
   
-  type(String), allocatable :: split_string(:)
+  type(String), allocatable :: line(:)
   
   select type(this); type is(RealUnivariate)
-    split_string = split(input,delimiter='^')
-    if (size(split_string)/=2) then
+    line = split_line(input,delimiter='^')
+    if (size(line)/=2) then
       call print_line(ERROR//': Unable to convert string to univariate.')
       call err()
     endif
     
-    this%id = int(slice(split_string(1),2,len(split_string(1))))
-    this%power = int(split_string(2))
+    this%id = int(slice(line(1),2,len(line(1))))
+    this%power = int(line(2))
   end select
 end subroutine
 
@@ -516,16 +564,16 @@ subroutine read_RealMonomial(this,input)
   class(RealMonomial), intent(out) :: this
   type(String),        intent(in)  :: input
   
-  type(String), allocatable :: split_string(:)
+  type(String), allocatable :: line(:)
   
   integer :: i,ialloc
   
   select type(this); type is(RealMonomial)
-    split_string = split(input,delimiter='*')
-    this%coefficient = dble(split_string(1))
-    allocate(this%modes(size(split_string)-1), stat=ialloc); call err(ialloc)
+    line = split_line(input,delimiter='*')
+    this%coefficient = dble(line(1))
+    allocate(this%modes(size(line)-1), stat=ialloc); call err(ialloc)
     do i=1,size(this%modes)
-      this%modes(i) = split_string(i+1)
+      this%modes(i) = line(i+1)
     enddo
   end select
 end subroutine
@@ -552,16 +600,16 @@ subroutine read_RealPolynomial(this,input)
   class(RealPolynomial), intent(out) :: this
   type(String),          intent(in)  :: input
   
-  type(String), allocatable :: split_line(:)
+  type(String), allocatable :: line(:)
   
   integer :: i,ialloc
   
   select type(this); type is(RealPolynomial)
-    split_line = split(input)
-    split_line = split_line(filter(split_line/='+'))
-    allocate(this%terms(size(split_line)), stat=ialloc); call err(ialloc)
-    do i=1,size(split_line)
-      this%terms(i) = split_line(i)
+    line = split_line(input)
+    line = line(filter(line/='+'))
+    allocate(this%terms(size(line)), stat=ialloc); call err(ialloc)
+    do i=1,size(line)
+      this%terms(i) = line(i)
     enddo
   end select
 end subroutine

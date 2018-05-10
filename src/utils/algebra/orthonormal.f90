@@ -3,8 +3,8 @@
 ! ======================================================================
 module orthonormal_submodule
   use precision_module
+  use abstract_module
   use io_module
-  use logic_module
   
   use linear_algebra_submodule
   use hermitian_eigenstuff_submodule

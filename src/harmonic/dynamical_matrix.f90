@@ -12,19 +12,20 @@ module dynamical_matrix_module
   private
   
   public :: DynamicalMatrix
-  public :: write_dynamical_matrix_file
-  public :: read_dynamical_matrix_file
   public :: compare_dynamical_matrices
   public :: rotate_modes
   public :: conjg
   public :: reconstruct_force_constants
   
-  type :: DynamicalMatrix
+  type, extends(Stringsable) :: DynamicalMatrix
     type(ComplexMatrix), allocatable, private :: matrices_(:,:)
     type(ComplexMode),   allocatable :: complex_modes(:)
   contains
-    procedure, public  :: check
-    procedure, public  :: frequencies
+    procedure, public :: check
+    procedure, public :: frequencies
+    
+    procedure, public :: read  => read_DynamicalMatrix
+    procedure, public :: write => write_DynamicalMatrix
   end type
   
   interface DynamicalMatrix
@@ -479,72 +480,6 @@ function reconstruct_force_constants(large_supercell,qpoints, &
 end function
 
 ! ----------------------------------------------------------------------
-! Writes a dynamical matrix to file.
-! ----------------------------------------------------------------------
-subroutine write_dynamical_matrix_file(dynamical_matrix,filename)
-  implicit none
-  
-  type(DynamicalMatrix), intent(in) :: dynamical_matrix
-  type(String),          intent(in) :: filename
-  
-  type(OFile) :: matrix_file
-  
-  integer :: no_atoms
-  
-  integer :: i,j
-  
-  no_atoms = size(dynamical_matrix%matrices_,1)
-  if (size(dynamical_matrix%matrices_,2)/=no_atoms) then
-    call err()
-  endif
-  
-  matrix_file = OFile(filename)
-  do i=1,no_atoms
-    do j=1,no_atoms
-      call matrix_file%print_line('Atoms: '//i//' and '//j//'.')
-      call matrix_file%print_lines(dynamical_matrix%matrices_(j,i))
-      call matrix_file%print_line('')
-    enddo
-  enddo
-end subroutine
-
-! ----------------------------------------------------------------------
-! Reads a dynamical matrix from file.
-! ----------------------------------------------------------------------
-function read_dynamical_matrix_file(filename) result(dynamical_matrix)
-  implicit none
-  
-  type(String), intent(in) :: filename
-  type(DynamicalMatrix)    :: dynamical_matrix
-  
-  type(IFile) :: matrix_file
-  
-  integer :: no_atoms
-  
-  ! Temporary variables
-  integer                   :: i,j,k,ialloc
-  type(String), allocatable :: line(:)
-  complex(dp)               :: matrix(3,3)
-  
-  matrix_file = IFile(filename)
-  
-  no_atoms = int_sqrt(size(matrix_file)/5)
-  
-  allocate( dynamical_matrix%matrices_(no_atoms,no_atoms), &
-          & stat=ialloc); call err(ialloc)
-  
-  do i=1,no_atoms
-    do j=1,no_atoms
-      do k=1,3
-        line = split(matrix_file%line(5*(no_atoms*(i-1)+(j-1))+1+k))
-        matrix(k,:) = cmplx(line)
-      enddo
-      dynamical_matrix%matrices_(j,i) = matrix
-    enddo
-  enddo
-end function
-
-! ----------------------------------------------------------------------
 ! Rotate a dynamical matrix and set of normal modes onto a new q-point.
 ! ----------------------------------------------------------------------
 ! Construct data at q_new from data at q_old, where
@@ -777,4 +712,127 @@ subroutine compare_dynamical_matrices(a,b,logfile)
     call print_dyn_mat(b,colours)
   endif
 end subroutine
+
+! ----------------------------------------------------------------------
+! I/O.
+! ----------------------------------------------------------------------
+! ----------------------------------------------------------------------
+! Writes a dynamical matrix to file.
+! ----------------------------------------------------------------------
+subroutine write_dynamical_matrix_file(dynamical_matrix,filename)
+  implicit none
+  
+  type(DynamicalMatrix), intent(in) :: dynamical_matrix
+  type(String),          intent(in) :: filename
+  
+  type(OFile) :: matrix_file
+  
+  integer :: no_atoms
+  
+  integer :: i,j
+  
+  no_atoms = size(dynamical_matrix%matrices_,1)
+  if (size(dynamical_matrix%matrices_,2)/=no_atoms) then
+    call err()
+  endif
+  
+  matrix_file = OFile(filename)
+  do i=1,no_atoms
+    do j=1,no_atoms
+      call matrix_file%print_line('Atoms: '//i//' and '//j//'.')
+      call matrix_file%print_lines(dynamical_matrix%matrices_(j,i))
+      call matrix_file%print_line('')
+    enddo
+  enddo
+end subroutine
+
+! ----------------------------------------------------------------------
+! Reads a dynamical matrix from file.
+! ----------------------------------------------------------------------
+function read_dynamical_matrix_file(filename) result(dynamical_matrix)
+  implicit none
+  
+  type(String), intent(in) :: filename
+  type(DynamicalMatrix)    :: dynamical_matrix
+  
+  type(IFile) :: matrix_file
+  
+  integer :: no_atoms
+  
+  ! Temporary variables
+  integer                   :: i,j,k,ialloc
+  type(String), allocatable :: line(:)
+  complex(dp)               :: matrix(3,3)
+  
+  matrix_file = IFile(filename)
+  
+  no_atoms = int_sqrt(size(matrix_file)/5)
+  
+  allocate( dynamical_matrix%matrices_(no_atoms,no_atoms), &
+          & stat=ialloc); call err(ialloc)
+  
+  do i=1,no_atoms
+    do j=1,no_atoms
+      do k=1,3
+        line = split_line(matrix_file%line(5*(no_atoms*(i-1)+(j-1))+1+k))
+        matrix(k,:) = cmplx(line)
+      enddo
+      dynamical_matrix%matrices_(j,i) = matrix
+    enddo
+  enddo
+end function
+
+subroutine read_DynamicalMatrix(this,input)
+  implicit none
+  
+  class(DynamicalMatrix), intent(out) :: this
+  type(String),           intent(in)  :: input(:)
+  
+  type(StringArray), allocatable :: elements(:)
+  integer                        :: no_atoms
+  
+  integer :: i,j,k,ialloc
+  
+  select type(this); type is(DynamicalMatrix)
+    elements = split_into_sections(input)
+    no_atoms = int_sqrt(size(elements))
+    allocate(this%matrices_(no_atoms,no_atoms), stat=ialloc); call err(ialloc)
+    k = 0
+    do i=1,no_atoms
+      do j=1,no_atoms
+        k = k+1
+        this%matrices_(j,i) = elements(k)%strings(2:4)
+      enddo
+    enddo
+  end select
+end subroutine
+
+function write_DynamicalMatrix(this) result(output)
+  implicit none
+  
+  class(DynamicalMatrix), intent(in) :: this
+  type(String), allocatable          :: output(:)
+  
+  integer :: no_atoms
+  
+  integer :: i,j,k,ialloc
+  
+  select type(this); type is(DynamicalMatrix)
+    no_atoms = size(this%matrices_,1)
+    if (size(this%matrices_,2)/=no_atoms) then
+      call err()
+    endif
+    
+    allocate(output(5*no_atoms*no_atoms), stat=ialloc); call err(ialloc)
+    k = 0
+    do i=1,no_atoms
+      do j=1,no_atoms
+        k = k+1
+        output(5*k-4:5*k) = [ 'Atoms: ('//j//' '//i//')', &
+                            & str(this%matrices_(j,i)),   &
+                            & str('')                     ]
+      enddo
+    enddo
+  end select
+end function
 end module

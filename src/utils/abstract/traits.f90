@@ -1,7 +1,7 @@
 ! ======================================================================
 ! Provides base classes which can be extended to give useful traits.
 ! ======================================================================
-module traits_module
+module traits_submodule
   implicit none
   
   private

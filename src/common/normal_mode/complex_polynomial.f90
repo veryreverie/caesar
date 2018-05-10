@@ -58,6 +58,10 @@ module complex_polynomial_submodule
     procedure, public :: write => write_ComplexUnivariate
   end type
   
+  interface ComplexUnivariate
+    module procedure new_ComplexUnivariate
+  end interface
+  
   type, extends(ComplexMonomialable) :: ComplexMonomial
     complex(dp)                          :: coefficient
     type(ComplexUnivariate), allocatable :: modes(:)
@@ -74,6 +78,10 @@ module complex_polynomial_submodule
     procedure, public :: write => write_ComplexMonomial
   end type
   
+  interface ComplexMonomial
+    module procedure new_ComplexMonomial
+  end interface
+  
   type, extends(ComplexPolynomialable) :: ComplexPolynomial
     type(ComplexMonomial), allocatable :: terms(:)
   contains
@@ -86,6 +94,10 @@ module complex_polynomial_submodule
     procedure, public :: read  => read_ComplexPolynomial
     procedure, public :: write => write_ComplexPolynomial
   end type
+  
+  interface ComplexPolynomial
+    module procedure new_ComplexPolynomial
+  end interface
   
   abstract interface
     function to_ComplexPolynomial_ComplexPolynomialable(this) result(output)
@@ -140,6 +152,42 @@ module complex_polynomial_submodule
     module procedure add_ComplexPolynomialable_ComplexPolynomialable
   end interface
 contains
+
+! ----------------------------------------------------------------------
+! Constructors.
+! ----------------------------------------------------------------------
+function new_ComplexUnivariate(id,paired_id,power) result(this)
+  implicit none
+  
+  integer, intent(in)     :: id
+  integer, intent(in)     :: paired_id
+  integer, intent(in)     :: power
+  type(ComplexUnivariate) :: this
+  
+  this%id        = id
+  this%paired_id = paired_id
+  this%power     = power
+end function
+
+function new_ComplexMonomial(coefficient,modes) result(this)
+  implicit none
+  
+  complex(dp),             intent(in) :: coefficient
+  type(ComplexUnivariate), intent(in) :: modes(:)
+  type(ComplexMonomial)               :: this
+  
+  this%coefficient = coefficient
+  this%modes       = modes
+end function
+
+function new_ComplexPolynomial(terms) result(this)
+  implicit none
+  
+  type(ComplexMonomial), intent(in) :: terms(:)
+  type(ComplexPolynomial)           :: this
+  
+  this%terms = terms
+end function
 
 ! ----------------------------------------------------------------------
 ! Conversions between types.
@@ -572,7 +620,7 @@ subroutine read_ComplexUnivariate(this,input)
   type(String), allocatable :: split_string(:)
   
   select type(this); type is(ComplexUnivariate)
-    split_string = split(input,delimiter='^')
+    split_string = split_line(input,delimiter='^')
     if (size(split_string)/=2) then
       call print_line(ERROR//': Unable to convert string to univariate.')
       call err()
@@ -605,7 +653,7 @@ subroutine read_ComplexMonomial(this,input)
   integer :: i,ialloc
   
   select type(this); type is(ComplexMonomial)
-    split_string = split(input,delimiter='*')
+    split_string = split_line(input,delimiter='*')
     this%coefficient = dble(split_string(1))
     allocate(this%modes(size(split_string)-1), stat=ialloc); call err(ialloc)
     do i=1,size(this%modes)
@@ -636,16 +684,16 @@ subroutine read_ComplexPolynomial(this,input)
   class(ComplexPolynomial), intent(out) :: this
   type(String),             intent(in)  :: input
   
-  type(String), allocatable :: split_line(:)
+  type(String), allocatable :: line(:)
   
   integer :: i,ialloc
   
   select type(this); type is(ComplexPolynomial)
-    split_line = split(input)
-    split_line = split_line(filter(split_line/='+'))
-    allocate(this%terms(size(split_line)), stat=ialloc); call err(ialloc)
-    do i=1,size(split_line)
-      this%terms(i) = split_line(i)
+    line = split_line(input)
+    line = line(filter(line/='+'))
+    allocate(this%terms(size(line)), stat=ialloc); call err(ialloc)
+    do i=1,size(line)
+      this%terms(i) = line(i)
     enddo
   end select
 end subroutine

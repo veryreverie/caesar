@@ -19,7 +19,7 @@ module string_submodule
   public :: operator(//)
   public :: lower_case
   public :: spaces
-  public :: split
+  public :: split_line
   public :: slice
   public :: trim
   
@@ -77,9 +77,9 @@ module string_submodule
     module procedure lower_case_String
   end interface
   
-  interface split
-    module procedure split_character
-    module procedure split_String
+  interface split_line
+    module procedure split_line_character
+    module procedure split_line_String
   end interface
   
   interface slice
@@ -345,7 +345,7 @@ end function
 ! --------------------------------------------------
 ! Split a string by a given delimiter.
 ! --------------------------------------------------
-function split_character(this,delimiter) result(output)
+function split_line_character(this,delimiter) result(output)
   implicit none
   
   character(*), intent(in)           :: this
@@ -417,14 +417,14 @@ function split_character(this,delimiter) result(output)
   enddo
 end function
 
-function split_String(this,delimiter) result(output)
+function split_line_String(this,delimiter) result(output)
   implicit none
   
   type(String), intent(in)           :: this
   character(1), intent(in), optional :: delimiter
   type(String), allocatable          :: output(:)
   
-  output = split(char(this),delimiter)
+  output = split_line(char(this),delimiter)
 end function
 
 ! --------------------------------------------------

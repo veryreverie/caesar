@@ -23,6 +23,10 @@ module coupled_modes_module
     procedure, public :: write => write_CoupledModes
   end type
   
+  interface CoupledModes
+    module procedure new_CoupledModes
+  end interface
+  
   interface size
     module procedure size_CoupledModes
   end interface
@@ -35,6 +39,18 @@ module coupled_modes_module
     module procedure non_equality_CoupledModes_CoupledModes
   end interface
 contains
+
+! ----------------------------------------------------------------------
+! Constructor.
+! ----------------------------------------------------------------------
+function new_CoupledModes(ids) result(this)
+  implicit none
+  
+  integer, intent(in) :: ids(:)
+  type(CoupledModes)  :: this
+  
+  this%ids = ids
+end function
 
 ! ----------------------------------------------------------------------
 ! Basis type functionality: size() and comparison operators.
@@ -88,7 +104,7 @@ subroutine read_CoupledModes(this,input)
   type(String),        intent(in)  :: input
   
   select type(this); type is(CoupledModes)
-    this = CoupledModes(int(split(input)))
+    this = CoupledModes(int(split_line(input)))
   end select
 end subroutine
 

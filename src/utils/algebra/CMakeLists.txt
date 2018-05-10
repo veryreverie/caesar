@@ -6,5 +6,5 @@ add_library(algebra mathematical_constants.f90 linear_algebra.f90 algebra_utils.
 
 # Link against required modules.
 target_link_libraries(algebra precision)
-target_link_libraries(algebra logic)
+target_link_libraries(algebra abstract)
 target_link_libraries(algebra io)

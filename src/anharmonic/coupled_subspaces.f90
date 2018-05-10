@@ -45,12 +45,17 @@ contains
 !    - Concatenation with a DegenerateModes subspace.
 !    - size() function.
 ! ----------------------------------------------------------------------
-function new_CoupledSubspaces() result(output)
+function new_CoupledSubspaces(ids) result(output)
   implicit none
   
-  type(CoupledSubspaces) :: output
+  integer, intent(in), optional :: ids(:)
+  type(CoupledSubspaces)        :: output
   
-  output%ids = [integer::]
+  if (present(ids)) then
+    output%ids = ids
+  else
+    output%ids = [integer::]
+  endif
 end function
 
 function concatenate_CoupledSubspaces_DegenerateModes(input,subspace) &
@@ -147,7 +152,7 @@ subroutine read_CoupledSubspaces(this,input)
   type(String),            intent(in)  :: input
   
   select type(this); type is(CoupledSubspaces)
-    this = CoupledSubspaces(int(split(input)))
+    this = CoupledSubspaces(int(split_line(input)))
   end select
 end subroutine
 

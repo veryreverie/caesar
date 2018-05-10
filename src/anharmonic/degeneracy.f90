@@ -11,7 +11,7 @@ module degeneracy_module
   public :: process_degeneracies
   public :: size
   
-  type, extends(Stringsable) :: DegenerateModes
+  type, extends(NoDefaultConstructor) :: DegenerateModes
     ! --------------------------------------------------
     ! Public variables, corresponding to class ids.
     ! --------------------------------------------------
@@ -33,9 +33,6 @@ module degeneracy_module
   contains
     procedure, public :: modes => modes_DegenerateModes
     procedure, public :: qpoints => qpoints_DegenerateModes
-    
-    procedure, public :: read  => read_DegenerateModes
-    procedure, public :: write => write_DegenerateModes
   end type
   
   interface size
@@ -44,7 +41,7 @@ module degeneracy_module
 contains
 
 ! ----------------------------------------------------------------------
-! Constructor.
+! Construct the sets of degenerate modes.
 ! ----------------------------------------------------------------------
 function process_degeneracies(modes,mode_qpoints) result(output)
   implicit none
@@ -110,60 +107,5 @@ function qpoints_DegenerateModes(this,qpoints) result(output)
   type(QpointData), allocatable      :: output(:)
   
   output = qpoints(this%qpoints_)
-end function
-
-! ----------------------------------------------------------------------
-! I/O.
-! ----------------------------------------------------------------------
-subroutine read_DegenerateModes(this,input)
-  implicit none
-  
-  class(DegenerateModes), intent(out) :: this
-  type(String),           intent(in)  :: input(:)
-  
-  type(String), allocatable :: split_line(:)
-  integer                   :: id
-  integer,      allocatable :: mode_ids(:)
-  
-  select type(this); type is(DegenerateModes)
-    if (size(input)/=2) then
-      call print_line(ERROR//': Unable to read DegenerateModes from strings:')
-      call print_lines(input)
-      call err()
-    endif
-    
-    split_line = split(input(1))
-    if (size(split_line)/=4) then
-      call print_line(ERROR//': Unable to read DegenerateModes from strings:')
-      call print_lines(input)
-      call err()
-    endif
-    id = int(split_line(4))
-    
-    split_line = split(input(2))
-    if (size(split_line)<3) then
-      call print_line(ERROR//': Unable to read DegenerateModes from strings:')
-      call print_lines(input)
-      call err()
-    endif
-    mode_ids = int(split_line(4:))
-    
-    this = DegenerateModes(id, mode_ids)
-  end select
-end subroutine
-
-function write_DegenerateModes(this) result(output)
-  implicit none
-  
-  class(DegenerateModes), intent(in) :: this
-  type(String), allocatable          :: output(:)
-  
-  integer :: ialloc
-  
-  select type(this); type is(DegenerateModes)
-    allocate(output(2), stat=ialloc); call err(ialloc)
-    output(1) = 'Degeneracy ID : '//this%id
-    output(2) = 'Mode IDs      : '//join(this%mode_ids)
-  end select
 end function
 end module

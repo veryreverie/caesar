@@ -12,10 +12,10 @@
 ! Any type which extends StringWriteable must overload %write().
 ! See example module below for how to extend this type.
 module string_writeable_submodule
-  use string_submodule
+  use io_basic_module
+  use abstract_module
+  
   use string_array_submodule
-  use error_submodule
-  use print_submodule
   implicit none
   
   private
@@ -27,7 +27,7 @@ module string_writeable_submodule
   public :: print_line
   public :: print_lines
   
-  type, abstract :: StringWriteable
+  type, abstract, extends(NoDefaultConstructor) :: StringWriteable
   contains
     procedure(write_StringWriteable), deferred :: write
   end type
@@ -44,9 +44,9 @@ module string_writeable_submodule
   end interface
   
   interface str
-    module procedure str_StringWriteable_0D
-    module procedure str_StringWriteable_1D
-    module procedure str_StringWriteable_2D
+    module procedure str_StringWriteable
+    module procedure str_StringWriteables_character
+    module procedure str_StringWriteables_String
   end interface
     
   interface operator(//)
@@ -73,8 +73,7 @@ contains
 ! ----------------------------------------------------------------------
 ! The str() function, which converts to string types.
 ! ----------------------------------------------------------------------
-! N.B. can't use impure elemental because this must be recursive.
-recursive function str_StringWriteable_0D(this) result(output)
+recursive function str_StringWriteable(this) result(output)
   implicit none
   
   class(StringWriteable), intent(in) :: this
@@ -83,32 +82,41 @@ recursive function str_StringWriteable_0D(this) result(output)
   output = this%write()
 end function
 
-recursive function str_StringWriteable_1D(this) result(output)
+recursive function str_StringWriteables_character(this,separating_line) &
+   & result(output)
+  implicit none
+  
+  class(StringWriteable), intent(in)           :: this(:)
+  character(*),           intent(in), optional :: separating_line
+  type(String), allocatable                    :: output(:)
+  
+  integer :: i,ialloc
+  
+  if (present(separating_line)) then
+    allocate(output(2*size(this)-1), stat=ialloc); call err(ialloc)
+    do i=1,size(this)
+      output(2*i-1) = str(this(i))
+      if (i<size(this)) then
+        output(2*i) = separating_line
+      endif
+    enddo
+  else
+    allocate(output(size(this)), stat=ialloc); call err(ialloc)
+    do i=1,size(this)
+      output(i) = str(this(i))
+    enddo
+  endif
+end function
+
+recursive function str_StringWriteables_String(this,separating_line) &
+   & result(output)
   implicit none
   
   class(StringWriteable), intent(in) :: this(:)
+  type(String),           intent(in) :: separating_line
   type(String), allocatable          :: output(:)
   
-  integer :: i,ialloc
-  
-  allocate(output(size(this)), stat=ialloc); call err(ialloc)
-  do i=1,size(this)
-    output(i) = str(this(i))
-  enddo
-end function
-
-recursive function str_StringWriteable_2D(this) result(output)
-  implicit none
-  
-  class(StringWriteable), intent(in) :: this(:,:)
-  type(String), allocatable          :: output(:,:)
-  
-  integer :: i,ialloc
-  
-  allocate(output(size(this,1),size(this,2)), stat=ialloc); call err(ialloc)
-  do i=1,size(this,2)
-    output(:,i) = str(this(:,i))
-  enddo
+  output = str(this,char(separating_line))
 end function
 
 ! ----------------------------------------------------------------------
@@ -193,14 +201,7 @@ subroutine print_lines_StringWriteables_character(this,indent,separating_line)
   integer,                intent(in), optional :: indent
   character(*),           intent(in), optional :: separating_line
   
-  integer :: i
-  
-  do i=1,size(this)
-    call print_line(this(i), indent)
-    if (present(separating_line)) then
-      call print_line(separating_line, indent)
-    endif
-  enddo
+  call print_lines(str(this,separating_line),indent)
 end subroutine
 
 subroutine print_lines_StringWriteables_String(this,indent,separating_line)
@@ -210,7 +211,7 @@ subroutine print_lines_StringWriteables_String(this,indent,separating_line)
   integer,                intent(in), optional :: indent
   type(String),           intent(in)           :: separating_line
   
-  call print_lines(this, indent, char(separating_line))
+  call print_lines(str(this,separating_line),indent)
 end subroutine
 end module
 
@@ -218,9 +219,9 @@ end module
 ! An example module showing how to extend StringWriteable.
 ! ======================================================================
 module string_writeable_example_submodule
-  use string_submodule
+  use io_basic_module
+  
   use string_writeable_submodule
-  use error_submodule
   implicit none
   
   private

@@ -1,21 +1,15 @@
 ! ======================================================================
-! I/O functionality, including:
-!    - Variable-length strings.
-!    - Formatted and error-checked writing to the terminal.
+! More advanced I/O functionality, including:
 !    - File handling.
-!    - Base types from which all extended types can be printed out.
-!    - System calls.
+!    - Base types from which extended types can be written and read.
 ! ======================================================================
 ! This module is simply an interface for the various I/O submodules.
 module io_module
-  use error_submodule
-  use string_submodule
-  use print_submodule
-  use intrinsics_submodule
+  use io_basic_module
+  
   use string_writeable_submodule
   use strings_writeable_submodule
   use string_array_submodule
-  use io_submodule
   use ifile_submodule
   use ofile_submodule
   use string_readable_submodule

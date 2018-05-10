@@ -73,9 +73,6 @@ subroutine calculate_normal_modes(arguments)
   real(dp)         :: degenerate_energy
   type(String)     :: calculation_type
   
-  ! No. supercells file.
-  type(IFile) :: no_supercells_file
-  
   ! Setup data.
   integer                          :: no_supercells
   type(String)                     :: file_type
@@ -113,9 +110,13 @@ subroutine calculate_normal_modes(arguments)
   
   type(ComplexMode), allocatable :: complex_modes(:)
   
-  ! Logfiles.
-  type(OFile) :: force_logfile
-  type(OFile) :: qpoint_logfile
+  ! Files.
+  type(IFile)                    :: no_supercells_file
+  type(IFile)                    :: qpoint_file
+  type(OFile)                    :: dynamical_matrix_file
+  type(OFile)                    :: force_logfile
+  type(OFile)                    :: qpoint_logfile
+  type(StringArray), allocatable :: file_sections(:)
   
   ! Temporary variables.
   integer      :: i,j,k,ialloc
@@ -169,7 +170,12 @@ subroutine calculate_normal_modes(arguments)
                                        & symmetry_precision,         &
                                        & calculate_symmetry=.false.)
   
-  qpoints = read_qpoints_file(wd//'/qpoints.dat')
+  qpoint_file = IFile(wd//'/qpoints.dat')
+  file_sections = split_into_sections(qpoint_file%lines())
+  allocate(qpoints(size(file_sections)), stat=ialloc); call err(ialloc)
+  do i=1,size(qpoints)
+    qpoints(i) = file_sections(i)
+  enddo
   
   ! --------------------------------------------------
   ! Calculate the matrix of force constants corresponding to each supercell.
@@ -222,12 +228,13 @@ subroutine calculate_normal_modes(arguments)
         cycle
       endif
       
-      if (modes_calculated(qpoints(i)%paired_qpoint)) then
+      j = first(qpoints%id==qpoints(i)%paired_qpoint_id)
+      
+      if (modes_calculated(j)) then
         call qpoint_logfile%print_line('Constructing dynamical matrix and &
            &normal modes at q-point '//i//' as the conjugate of those at &
            &q-point '//j)
-        dynamical_matrices(i) = conjg( &
-           & dynamical_matrices(qpoints(i)%paired_qpoint))
+        dynamical_matrices(i) = conjg(dynamical_matrices(j))
         modes_calculated(i) = .true.
         cycle iter
       endif
@@ -317,7 +324,7 @@ subroutine calculate_normal_modes(arguments)
   
   ! Pair up modes.
   do i=1,size(dynamical_matrices)
-    j = qpoints(i)%paired_qpoint
+    j = first(qpoints%id==qpoints(i)%paired_qpoint_id)
     
     if (j/=i) then
       ! If -q /= q, the modes are set up so that the conjugate of a
@@ -394,7 +401,7 @@ subroutine calculate_normal_modes(arguments)
       do k=1,size(qpoints)
         rotated_qpoint = structure%symmetries(i) * qpoints(j)
         if (rotated_qpoint == qpoints(k)) then
-          if (qpoints(j)%paired_qpoint/=k) then
+          if (qpoints(j)%paired_qpoint_id/=k) then
             cycle
           endif
           rotated_matrix = rotate_modes( dynamical_matrices(j),   &
@@ -419,8 +426,8 @@ subroutine calculate_normal_modes(arguments)
     call mkdir(qdir)
     
     ! Write out dynamical matrix.
-    call write_dynamical_matrix_file( dynamical_matrices(i), &
-                                    & qdir//'/dynamical_matrix.dat')
+    dynamical_matrix_file = OFile(qdir//'/dynamical_matrix.dat')
+    call dynamical_matrix_file%print_lines(dynamical_matrices(i))
     
     ! Write out normal modes.
     complex_modes = dynamical_matrices(i)%complex_modes

@@ -42,11 +42,36 @@ module group_submodule
     procedure, public :: write => write_Group
   end type
   
+  interface Group
+    module procedure new_Group
+  end interface
+  
   interface size
     module procedure size_Group
   end interface
   
 contains
+  
+! ----------------------------------------------------------------------
+! Constructor and size() function.
+! ----------------------------------------------------------------------
+function new_Group(operation) result(this)
+  implicit none
+  
+  integer, intent(in) :: operation(:)
+  type(Group)         :: this
+  
+  this%operation = operation
+end function
+
+function size_Group(this) result(output)
+  implicit none
+  
+  type(Group), intent(in) :: this
+  integer                 :: output
+  
+  output = size(this%operation)
+end function
 
 ! ----------------------------------------------------------------------
 ! Comparisons with other groups.
@@ -71,19 +96,6 @@ function non_equality_Group_Group(this,that) result(output)
   logical                  :: output
   
   output = .not. this==that
-end function
-  
-! ----------------------------------------------------------------------
-! Group properties.
-! ----------------------------------------------------------------------
-! The number of operators in the group.
-function size_Group(this) result(output)
-  implicit none
-  
-  type(Group), intent(in) :: this
-  integer                 :: output
-  
-  output = size(this%operation)
 end function
 
 ! ----------------------------------------------------------------------
@@ -148,7 +160,7 @@ subroutine read_Group(this,input)
   type(String), intent(in)  :: input
   
   select type(this); type is(Group)
-    this = Group(int(split(input)))
+    this = Group(int(split_line(input)))
   end select
 end subroutine
 

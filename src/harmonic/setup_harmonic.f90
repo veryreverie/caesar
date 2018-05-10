@@ -94,12 +94,13 @@ subroutine setup_harmonic(arguments)
   type(RealVector)                   :: displacement
   type(RealVector)                   :: position
   
-  ! Temporary variables.
-  integer :: i,j
-  
   ! Files.
   type(String) :: input_filename
   type(OFile)  :: no_supercells_file
+  type(OFile)  :: qpoints_file
+  
+  ! Temporary variables.
+  integer :: i,j
   
   ! --------------------------------------------------
   ! Get settings from user, and check them.
@@ -107,7 +108,7 @@ subroutine setup_harmonic(arguments)
   wd = arguments%value('working_directory')
   file_type = arguments%value('file_type')
   seedname = arguments%value('seedname')
-  grid = int(split(arguments%value('q-point_grid')))
+  grid = int(split_line(arguments%value('q-point_grid')))
   symmetry_precision = dble(arguments%value('symmetry_precision'))
   harmonic_displacement = dble(arguments%value('harmonic_displacement'))
   
@@ -146,7 +147,8 @@ subroutine setup_harmonic(arguments)
   ! --------------------------------------------------
   ! Generate q-points in Monkhorst-Pack grid.
   qpoints = generate_qpoints(large_supercell)
-  call write_qpoints_file(qpoints, wd//'/qpoints.dat')
+  qpoints_file = OFile(wd//'/qpoints.dat')
+  call qpoints_file%print_lines(qpoints,separating_line='')
   
   ! Generate non-diagonal supercells.
   supercells = generate_supercells(structure, qpoints, symmetry_precision)

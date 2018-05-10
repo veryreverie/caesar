@@ -14,10 +14,10 @@
 ! Any type which extends StringsWriteable must overload %write().
 ! See example module below for how to extend this type.
 module strings_writeable_submodule
-  use string_submodule
+  use io_basic_module
+  use abstract_module
+  
   use string_array_submodule
-  use error_submodule
-  use print_submodule
   implicit none
   
   private
@@ -26,7 +26,7 @@ module strings_writeable_submodule
   public :: str
   public :: print_lines
   
-  type, abstract :: StringsWriteable
+  type, abstract, extends(NoDefaultConstructor) :: StringsWriteable
   contains
     procedure(write_StringsWriteable), deferred :: write
   end type
@@ -44,12 +44,14 @@ module strings_writeable_submodule
   
   interface str
     module procedure str_StringsWriteable
+    module procedure str_StringsWriteables_String
+    module procedure str_StringsWriteables_character
   end interface
   
   interface print_lines
     module procedure print_lines_StringsWriteable
-    module procedure print_lines_StringsWriteables_character
     module procedure print_lines_StringsWriteables_String
+    module procedure print_lines_StringsWriteables_character
   end interface
 contains
 
@@ -63,6 +65,41 @@ recursive function str_StringsWriteable(this) result(output)
   type(String), allocatable           :: output(:)
   
   output = this%write()
+end function
+
+recursive function str_StringsWriteables_String(this,separating_line) &
+   & result(output)
+  implicit none
+  
+  class(StringsWriteable), intent(in)           :: this(:)
+  type(String),            intent(in), optional :: separating_line
+  type(String), allocatable                     :: output(:)
+  
+  integer :: i
+  
+  if (size(this)==0) then
+    output = [String::]
+  else
+    output = str(this(1))
+    do i=2,size(this)
+      if (present(separating_line)) then
+        output = [output, separating_line, str(this(i))]
+      else
+        output = [output, str(this(i))]
+      endif
+    enddo
+  endif
+end function
+
+recursive function str_StringsWriteables_character(this,separating_line) &
+   & result(output)
+  implicit none
+  
+  class(StringsWriteable), intent(in) :: this(:)
+  character(*),            intent(in) :: separating_line
+  type(String), allocatable           :: output(:)
+  
+  output = str(this,str(separating_line))
 end function
 
 ! ----------------------------------------------------------------------
@@ -84,14 +121,7 @@ subroutine print_lines_StringsWriteables_character(this,indent,separating_line)
   integer,                 intent(in), optional :: indent
   character(*),            intent(in), optional :: separating_line
   
-  integer :: i
-  
-  do i=1,size(this)
-    call print_lines(this(i), indent)
-    if (present(separating_line)) then
-      call print_line(separating_line, indent)
-    endif
-  enddo
+  call print_lines(str(this,separating_line), indent)
 end subroutine
 
 subroutine print_lines_StringsWriteables_String(this,indent,separating_line)
@@ -101,7 +131,7 @@ subroutine print_lines_StringsWriteables_String(this,indent,separating_line)
   integer,                 intent(in), optional :: indent
   type(String),            intent(in)           :: separating_line
   
-  call print_lines(this, indent, char(separating_line))
+  call print_lines(str(this,separating_line), indent)
 end subroutine
 end module
 
@@ -109,10 +139,9 @@ end module
 ! An example module showing how to extend the StringsWriteable type.
 ! ======================================================================
 module StringsWriteable_example_submodule
-  use string_submodule
+  use io_basic_module
+  
   use strings_writeable_submodule
-  use print_submodule
-  use error_submodule
   implicit none
   
   private

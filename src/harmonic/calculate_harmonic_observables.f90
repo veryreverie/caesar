@@ -105,9 +105,14 @@ subroutine calculate_harmonic_observables(arguments)
   type(ForceConstants)          :: force_constants
   type(MinImages),  allocatable :: min_images(:,:)
   
-  ! Logfile.
-  type(OFile) :: logfile
+  ! Dynamical matrix for checking.
   type(DynamicalMatrix) :: dyn_mat
+  
+  ! Files.
+  type(IFile)                    :: qpoints_file
+  type(IFile)                    :: dynamical_matrix_file
+  type(OFile)                    :: logfile
+  type(StringArray), allocatable :: file_sections(:)
   
   ! Temporary variables.
   type(String), allocatable :: path_point(:)
@@ -121,7 +126,7 @@ subroutine calculate_harmonic_observables(arguments)
   max_temperature = dble(arguments%value('max_temperature'))
   no_temperature_steps = int(arguments%value('no_temperature_steps'))
   min_frequency = dble(arguments%value('min_frequency'))
-  path_string = split(arguments%value('path'), ',')
+  path_string = split_line(arguments%value('path'), ',')
   no_dos_samples = int(arguments%value('no_dos_samples'))
   
   ! Check inputs.
@@ -154,7 +159,7 @@ subroutine calculate_harmonic_observables(arguments)
           & path_labels(size(path_string)),  &
           & stat=ialloc); call err(ialloc)
   do i=1,size(path_string)
-    path_point = split(path_string(i))
+    path_point = split_line(path_string(i))
     path_labels(i) = path_point(1)
     path_qpoints(i) = dble(path_point(2:4))
   enddo
@@ -176,14 +181,20 @@ subroutine calculate_harmonic_observables(arguments)
                                        & symmetry_precision,         &
                                        & calculate_symmetry=.false.)
   
-  qpoints = read_qpoints_file(wd//'/qpoints.dat')
+  qpoints_file = IFile(wd//'/qpoints.dat')
+  file_sections = split_into_sections(qpoints_file%lines())
+  allocate(qpoints(size(file_sections)), stat=ialloc); call err(ialloc)
+  do i=1,size(qpoints)
+    qpoints(i) = file_sections(i)
+  enddo
   
   allocate( dynamical_matrices(size(qpoints)), &
           & stat=ialloc); call err(ialloc)
   do i=1,size(qpoints)
-    dynamical_matrices(i) = read_dynamical_matrix_file(  &
+    dynamical_matrix_file = IFile(                        &
        & wd//'/qpoint_'//left_pad(i,str(size(qpoints)))// &
        & '/dynamical_matrix.dat')
+    dynamical_matrices(i) = dynamical_matrix_file%lines()
   enddo
   
   ! --------------------------------------------------

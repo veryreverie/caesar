@@ -699,7 +699,7 @@ subroutine read_IntFraction(this,input)
   type(String), allocatable :: split_string(:)
   
   select type(this); type is(IntFraction)
-    split_string = split(input, '/')
+    split_string = split_line(input, '/')
     if (size(split_string)==1) then
       ! Assume the string is an integer.
       this = int(split_string(1))

@@ -3,9 +3,9 @@
 ! ======================================================================
 module dictionary_submodule
   use precision_module
+  use abstract_module
   use io_module
   use keyword_submodule
-  use logic_module
   implicit none
   
   private
@@ -539,8 +539,8 @@ subroutine read_file_Dictionary_character(this, filename, &
     endif
     
     ! Strip out anything after a comment character (!).
-    line = split(line(1), '!')
-    line = split(line(1))
+    line = split_line(line(1), '!')
+    line = split_line(line(1))
     
     ! Find keyword in arguments.
     j = this%index(lower_case(line(1)))

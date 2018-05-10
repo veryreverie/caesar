@@ -96,27 +96,27 @@ function read_file_ComplexMode(filename) result(this)
   mode_file = IFile(filename)
   
   ! Read the id of this mode.
-  line = split(mode_file%line(1))
+  line = split_line(mode_file%line(1))
   this%id = int(line(4))
   
   ! Read the id of this mode's pair.
-  line = split(mode_file%line(2))
+  line = split_line(mode_file%line(2))
   this%paired_id = int(line(6))
   
   ! Read frequency.
-  line = split(mode_file%line(3))
+  line = split_line(mode_file%line(3))
   this%frequency = dble(line(4))
   
   ! Read whether or not this mode is soft.
-  line = split(mode_file%line(4))
+  line = split_line(mode_file%line(4))
   this%soft_mode = lgcl(line(5))
   
   ! Read whether or not this mode is purely translational.
-  line = split(mode_file%line(5))
+  line = split_line(mode_file%line(5))
   this%translational_mode = lgcl(line(5))
   
   ! Read the degeneracy id of this mode.
-  line = split(mode_file%line(6))
+  line = split_line(mode_file%line(6))
   this%degeneracy_id = int(line(4))
   
   ! Read in the displacement associated with the mode.
@@ -124,7 +124,7 @@ function read_file_ComplexMode(filename) result(this)
   allocate( this%primitive_displacements(no_atoms), &
           & stat=ialloc); call err(ialloc)
   do i=1,no_atoms
-    line = split(mode_file%line(7+i))
+    line = split_line(mode_file%line(7+i))
     this%primitive_displacements(i) = cmplx(line)
   enddo
 end function

@@ -67,12 +67,17 @@ contains
 !    - size() function.
 !    - equality and non-equality with other SubspaceMonomials.
 ! ----------------------------------------------------------------------
-function new_SubspaceMonomial() result(this)
+function new_SubspaceMonomial(ids) result(this)
   implicit none
   
-  type(SubspaceMonomial) :: this
+  integer, intent(in), optional :: ids(:)
+  type(SubspaceMonomial)        :: this
   
-  this%ids = [integer::]
+  if (present(ids)) then
+    this%ids = ids
+  else
+    this%ids = [integer::]
+  endif
 end function
 
 function concatenate_SubspaceMonomial_integer(this,id) result(output)
@@ -379,7 +384,7 @@ function read_coupling_file(filename) result(this)
   coupling_file = IFile(filename)
   allocate(this(size(coupling_file)-1), stat=ialloc); call err(ialloc)
   do i=1,size(this)
-    this(i)%ids = int(split(coupling_file%line(i+1)))
+    this(i)%ids = int(split_line(coupling_file%line(i+1)))
   enddo
 end function
 
@@ -604,7 +609,7 @@ subroutine read_SubspaceMonomial(this,input)
   type(String),            intent(in)  :: input
   
   select type(this); type is(SubspaceMonomial)
-    this = SubspaceMonomial(int(split(input)))
+    this = SubspaceMonomial(int(split_line(input)))
   end select
 end subroutine
 

@@ -15,17 +15,30 @@ module sampling_points_module
   public :: SamplingPoints
   public :: generate_sampling_points
   
-  type :: SamplingPoints
+  type, extends(Stringsable) :: SamplingPoints
     type(RealModeDisplacement), allocatable :: points(:)
   contains
-    procedure, public :: write_file => write_file_SamplingPoints
-    procedure, public :: read_file  => read_file_SamplingPoints
+    procedure, public :: read  => read_SamplingPoints
+    procedure, public :: write => write_SamplingPoints
   end type
+  
+  interface SamplingPoints
+    module procedure new_SamplingPoints
+  end interface
   
   interface size
     module procedure size_SamplingPoints
   end interface
 contains
+
+function new_SamplingPoints(points) result(this)
+  implicit none
+  
+  type(RealModeDisplacement), intent(in) :: points(:)
+  type(SamplingPoints)                   :: this
+  
+  this%points = points
+end function
 
 function size_SamplingPoints(this) result(output)
   implicit none
@@ -127,40 +140,33 @@ end function
 ! ----------------------------------------------------------------------
 ! I/O.
 ! ----------------------------------------------------------------------
-subroutine write_file_SamplingPoints(this,filename)
-  implicit none
-  
-  class(SamplingPoints), intent(in) :: this
-  type(String),          intent(in) :: filename
-  
-  type(OFile) :: file
-  
-  integer :: i
-  
-  file = OFile(filename)
-  do i=1,size(this)
-    call file%print_line('Sampling point '//i)
-    call file%print_lines(this%points(i))
-    call file%print_line('')
-  enddo
-end subroutine
-
-subroutine read_file_SamplingPoints(this,filename)
+subroutine read_SamplingPoints(this,input)
   implicit none
   
   class(SamplingPoints), intent(out) :: this
-  type(String),          intent(in)  :: filename
+  type(String),          intent(in)  :: input(:)
   
-  type(IFile)                    :: file
-  type(StringArray), allocatable :: sections(:)
+  type(StringArray), allocatable :: points(:)
   
   integer :: i,ialloc
   
-  file = IFile(filename)
-  sections = split(file%lines())
-  allocate(this%points(size(sections)), stat=ialloc); call err(ialloc)
-  do i=1,size(sections)
-    this%points(i) = sections(i)%strings(2:)
-  enddo
+  select type(this); type is(SamplingPoints)
+    points = split_into_sections(input)
+    allocate(this%points(size(points)), stat=ialloc)
+    do i=1,size(points)
+      this%points(i) = points(i)
+    enddo
+  end select
 end subroutine
+
+function write_SamplingPoints(this) result(output)
+  implicit none
+  
+  class(SamplingPoints), intent(in) :: this
+  type(String), allocatable         :: output(:)
+  
+  select type(this); type is(SamplingPoints)
+    output = str(this%points,separating_line='')
+  end select
+end function
 end module

@@ -3299,7 +3299,7 @@ subroutine read_IntVector(this,input)
   type(String),     intent(in)  :: input
   
   select type(this); type is(IntVector)
-    this = int(split(input))
+    this = int(split_line(input))
   end select
 end subroutine
 
@@ -3321,7 +3321,7 @@ subroutine read_RealVector(this,input)
   type(String),      intent(in)  :: input
   
   select type(this); type is(RealVector)
-    this = dble(split(input))
+    this = dble(split_line(input))
   end select
 end subroutine
 
@@ -3343,7 +3343,7 @@ subroutine read_ComplexVector(this,input)
   type(String),         intent(in)  :: input
   
   select type(this); type is(ComplexVector)
-    this = cmplx(split(input))
+    this = cmplx(split_line(input))
   end select
 end subroutine
 
@@ -3373,12 +3373,12 @@ subroutine read_IntMatrix(this,input)
     if (size(input)==0) then
       allocate(contents(0,0), stat=ialloc); call err(ialloc)
     else
-      line = int(split(input(1)))
+      line = int(split_line(input(1)))
       allocate( contents(size(input),size(line)), &
               & stat=ialloc); call err(ialloc)
       contents(1,:) = line
       do i=2,size(input)
-        line = int(split(input(i)))
+        line = int(split_line(input(i)))
         if (size(line)/=size(contents,2)) then
           call print_line(ERROR//': Reading matrix: rows of different &
              &lengths.')
@@ -3426,12 +3426,12 @@ subroutine read_RealMatrix(this,input)
     if (size(input)==0) then
       allocate(contents(0,0), stat=ialloc); call err(ialloc)
     else
-      line = dble(split(input(1)))
+      line = dble(split_line(input(1)))
       allocate( contents(size(input),size(line)), &
               & stat=ialloc); call err(ialloc)
       contents(1,:) = line
       do i=2,size(input)
-        line = dble(split(input(i)))
+        line = dble(split_line(input(i)))
         if (size(line)/=size(contents,2)) then
           call print_line(ERROR//': Reading matrix: rows of different &
              &lengths.')
@@ -3479,12 +3479,12 @@ subroutine read_ComplexMatrix(this,input)
     if (size(input)==0) then
       allocate(contents(0,0), stat=ialloc); call err(ialloc)
     else
-      line = cmplx(split(input(1)))
+      line = cmplx(split_line(input(1)))
       allocate( contents(size(input),size(line)), &
               & stat=ialloc); call err(ialloc)
       contents(1,:) = line
       do i=2,size(input)
-        line = cmplx(split(input(i)))
+        line = cmplx(split_line(input(i)))
         if (size(line)/=size(contents,2)) then
           call print_line(ERROR//': Reading matrix: rows of different &
              &lengths.')

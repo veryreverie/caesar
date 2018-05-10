@@ -3,10 +3,8 @@
 ! ======================================================================
 module ifile_submodule
   use precision_module
+  use io_basic_module
   
-  use error_submodule
-  use string_submodule
-  use io_submodule
   use file_submodule
   use string_array_submodule
   implicit none
@@ -21,7 +19,6 @@ module ifile_submodule
     type(String), private, allocatable :: lines_(:)
   contains
     procedure, public :: line
-    procedure, public :: split_line
     
     generic,   public  :: lines => lines_all, &
                                  & lines_slice
@@ -98,26 +95,6 @@ function line(this,line_number) result(output)
   type(String)             :: output
   
   output = this%lines_(line_number)
-end function
-
-! Returns a line from the file, and splits it.
-function split_line(this,line_number,delimiter) result(output)
-  implicit none
-  
-  class(IFile), intent(in)  :: this
-  integer,      intent(in)  :: line_number
-  character,    optional    :: delimiter
-  type(String), allocatable :: output(:)
-  
-  type(String) :: line
-  
-  line = this%line(line_number)
-  
-  if (present(delimiter)) then
-    output = split(line,delimiter)
-  else
-    output = split(line)
-  endif
 end function
 
 ! Returns an array of lines from the file.

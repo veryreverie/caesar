@@ -10,19 +10,19 @@ module qpoint_submodule
   public :: QpointData
   public :: operator(==)
   public :: operator(/=)
-  public :: write_qpoints_file
-  public :: read_qpoints_file
   
-  type :: QpointData
+  type, extends(Stringsable) :: QpointData
     ! The q-point in fractional primitive reciprocal space co-ordinates.
     type(FractionVector) :: qpoint
     
-    ! Whether or not 2*q is a G-vector of the primitive cell.
-    logical :: is_paired_qpoint
-    
-    ! The id of q-point q' such that q+q' is a G-vector of the primitive cell.
-    integer :: paired_qpoint
+    ! The id of this q-point, q, and the q-point q' s.t. q+q' is
+    !    a G-vector of the primitive cell.
+    integer :: id
+    integer :: paired_qpoint_id
   contains
+    ! Whether or not 2*q is a G-vector of the primitive cell.
+    procedure, public :: is_paired_qpoint
+    
     ! The smallest value of |S| s.t. S.q is a vector of integers,
     !    i.e. such that this q-point is a G-vector of the supercell S.
     procedure, public :: min_sc_size
@@ -31,7 +31,16 @@ module qpoint_submodule
     !    elements are in [-1/2,1/2), i.e. that the q-point is in the primitive
     !    reciprocal cell.
     procedure, public :: translate_to_primitive
+    
+    ! I/O.
+    procedure, public :: read  => read_QpointData
+    procedure, public :: write => write_QpointData
   end type
+  
+  ! Constructor.
+  interface QpointData
+    module procedure new_QpointData
+  end interface
   
   ! Comparison of q-points.
   interface operator(==)
@@ -42,6 +51,34 @@ module qpoint_submodule
     module procedure non_equality_QpointData
   end interface
 contains
+
+! ----------------------------------------------------------------------
+! Constructor.
+! ----------------------------------------------------------------------
+function new_QpointData(qpoint,id,paired_qpoint_id) result(this)
+  implicit none
+  
+  type(FractionVector), intent(in) :: qpoint
+  integer,              intent(in) :: id
+  integer,              intent(in) :: paired_qpoint_id
+  type(QpointData)                 :: this
+  
+  this%qpoint           = qpoint
+  this%id               = id
+  this%paired_qpoint_id = paired_qpoint_id
+end function
+
+! ----------------------------------------------------------------------
+! Returns whether or not 2*q is a G-vector of the primitive cell.
+! ----------------------------------------------------------------------
+function is_paired_qpoint(this) result(output)
+  implicit none
+  
+  class(QpointData), intent(in) :: this
+  logical                       :: output
+  
+  output = this%id==this%paired_qpoint_id
+end function
 
 ! ----------------------------------------------------------------------
 ! Returns the smallest integer, s, s.t. there exists the matrix S
@@ -60,56 +97,6 @@ function min_sc_size(this) result(output)
   output = lcm( q(1)%denominator(), &
               & q(2)%denominator(), &
               & q(3)%denominator()  )
-end function
-
-! ----------------------------------------------------------------------
-! I/O.
-! ----------------------------------------------------------------------
-subroutine write_qpoints_file(this,filename)
-  implicit none
-  
-  type(QpointData), intent(in), allocatable :: this(:)
-  type(String),     intent(in)              :: filename
-  
-  type(OFile) :: qpoints_file
-  
-  integer :: i
-  
-  qpoints_file = OFile(filename)
-  do i=1,size(this)
-    call qpoints_file%print_line( 'q-point '//i//', q=(qx/nx, qy/ny, qz/nz):')
-    call qpoints_file%print_line( this(i)%qpoint)
-    call qpoints_file%print_line( 'Is 2q equal to a primitive G-vector?:')
-    call qpoints_file%print_line( this(i)%is_paired_qpoint)
-    call qpoints_file%print_line( "The ID of q' s.t. q+q' is a primitive &
-       &G-vector")
-    call qpoints_file%print_line( this(i)%paired_qpoint)
-    call qpoints_file%print_line( '')
-  enddo
-end subroutine
-
-function read_qpoints_file(filename) result(this)
-  implicit none
-  
-  type(String), intent(in)      :: filename
-  type(QpointData), allocatable :: this(:)
-  
-  type(IFile) :: qpoints_file
-  
-  integer :: no_qpoints
-  integer :: qpoint_line
-  integer :: i,ialloc
-  
-  qpoints_file = IFile(filename)
-  no_qpoints = size(qpoints_file)/7
-  allocate(this(no_qpoints), stat=ialloc); call err(ialloc)
-  do i=1,no_qpoints
-    qpoint_line = (i-1)*7
-    
-    this(i)%qpoint           = frac( qpoints_file%split_line(qpoint_line+2) )
-    this(i)%is_paired_qpoint = lgcl( qpoints_file%line(      qpoint_line+4) )
-    this(i)%paired_qpoint    = int(  qpoints_file%line(      qpoint_line+6) )
-  enddo
 end function
 
 ! ----------------------------------------------------------------------
@@ -161,5 +148,54 @@ impure elemental function non_equality_QpointData(this,that) result(output)
   logical                      :: output
   
   output = .not. this==that
+end function
+
+! ----------------------------------------------------------------------
+! I/O.
+! ----------------------------------------------------------------------
+subroutine read_QpointData(this,input)
+  implicit none
+  
+  class(QpointData), intent(out) :: this
+  type(String),      intent(in)  :: input(:)
+  
+  type(String), allocatable :: line(:)
+  
+  type(FractionVector) :: qpoint
+  integer              :: id
+  integer              :: paired_qpoint_id
+  
+  select type(this); type is(QpointData)
+    if (size(input)/=3) then
+      call print_line(ERROR//': Unable to parse q-point from string input:')
+      call print_lines(input)
+      call err()
+    endif
+    
+    line = split_line(input(1))
+    id = int(line(2))
+    
+    line = split_line(input(2))
+    qpoint = frac(line(3:5))
+    
+    line = split_line(input(3))
+    paired_qpoint_id = int(line(11))
+    
+    this = QpointData(qpoint,id,paired_qpoint_id)
+  end select
+end subroutine
+
+function write_QpointData(this) result(output)
+  implicit none
+  
+  class(QpointData), intent(in) :: this
+  type(String), allocatable     :: output(:)
+  
+  select type(this); type is(QpointData)
+    output = [ 'q-point '//this%id,                                 &
+             & 'q = '//this%qpoint,                                 &
+             & "The ID of q' s.t. q+q' is a primitive G-vector: "// &
+             &    this%paired_qpoint_id                             ]
+  end select
 end function
 end module

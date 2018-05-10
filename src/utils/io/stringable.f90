@@ -9,7 +9,8 @@
 ! N.B.: Stringable extends StringWriteable, but duplicates the functionality 
 !    of StringReadable since Fortran does not support multiple inheritance.
 module stringable_submodule
-  use string_submodule
+  use io_basic_module
+  
   use string_array_submodule
   use string_readable_submodule
   use string_writeable_submodule
@@ -68,10 +69,9 @@ end module
 ! An example module showing how to extend Stringable.
 ! ======================================================================
 module stringable_example_submodule
-  use string_submodule
+  use io_basic_module
+  
   use stringable_submodule
-  use print_submodule
-  use error_submodule
   implicit none
   
   private

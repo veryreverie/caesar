@@ -20,11 +20,25 @@ module real_single_mode_displacement_submodule
     procedure, public :: read  => read_RealSingleModeDisplacement
     procedure, public :: write => write_RealSingleModeDisplacement
   end type
+  
+  interface RealSingleModeDisplacement
+    module procedure new_RealSingleModeDisplacement
+  end interface
 contains
 
-! ----------------------------------------------------------------------
+! Constructor.
+function new_RealSingleModeDisplacement(id,displacement) result(this)
+  implicit none
+  
+  integer,  intent(in)             :: id
+  real(dp), intent(in)             :: displacement
+  type(RealSingleModeDisplacement) :: this
+  
+  this%id           = id
+  this%displacement = displacement
+end function
+
 ! I/O.
-! ----------------------------------------------------------------------
 subroutine read_RealSingleModeDisplacement(this,input)
   implicit none
   
@@ -36,7 +50,7 @@ subroutine read_RealSingleModeDisplacement(this,input)
   real(dp)                  :: displacement
   
   select type(this); type is(RealSingleModeDisplacement)
-    split_string = split(input)
+    split_string = split_line(input)
     if (size(split_string)/=3) then
       call print_line(ERROR//': unable to parse real single mode displacement &
          &from string: '//input)

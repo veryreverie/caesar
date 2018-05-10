@@ -3,8 +3,8 @@
 ! ======================================================================
 module qr_decomposition_submodule
   use precision_module
+  use abstract_module
   use io_module
-  use logic_module
   
   use linear_algebra_submodule
   implicit none

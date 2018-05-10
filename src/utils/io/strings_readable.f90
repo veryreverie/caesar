@@ -10,7 +10,9 @@
 ! Any type which extends StringsReadable must overload %read(strings).
 ! See example module below or how to extend this type.
 module strings_readable_submodule
-  use string_submodule
+  use io_basic_module
+  use abstract_module
+  
   use string_array_submodule
   implicit none
   
@@ -19,7 +21,7 @@ module strings_readable_submodule
   public :: StringsReadable
   public :: assignment(=)
   
-  type, abstract :: StringsReadable
+  type, abstract, extends(NoDefaultConstructor) :: StringsReadable
   contains
     procedure(read_StringsReadable), deferred :: read
   end type
@@ -67,10 +69,9 @@ end module
 ! An example module showing how to extend StringsReadable.
 ! ======================================================================
 module strings_readable_example_submodule
-  use string_submodule
+  use io_basic_module
+  
   use strings_readable_submodule
-  use print_submodule
-  use error_submodule
   implicit none
   
   private

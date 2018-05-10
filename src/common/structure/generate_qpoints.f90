@@ -31,6 +31,7 @@ function generate_qpoints(large_supercell) result(output)
   ! --------------------------------------------------
   allocate(output(large_supercell%sc_size), stat=ialloc); call err(ialloc)
   do i=1,large_supercell%sc_size
+    output(i)%id     = i
     output(i)%qpoint = transpose(large_supercell%recip_supercell) &
                    & * large_supercell%gvectors(i)
   enddo
@@ -62,14 +63,6 @@ function generate_qpoints(large_supercell) result(output)
     call err()
   endif
   
-  do i=1,size(output)
-    if (paired_qpoints(i)==i) then
-      output(i)%is_paired_qpoint = .true.
-    else
-      output(i)%is_paired_qpoint = .false.
-    endif
-    
-    output(i)%paired_qpoint = paired_qpoints(i)
-  enddo
+  output%paired_qpoint_id = paired_qpoints
 end function
 end module

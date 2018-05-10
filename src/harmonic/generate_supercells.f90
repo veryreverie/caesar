@@ -33,7 +33,7 @@ function generate_supercells(structure,qpoints,symmetry_precision) &
   type(IntMatrix) :: supercell_matrix
   
   ! Temporary variables.
-  integer :: i,j,k,l,ialloc
+  integer :: i,j,jp,k,l,lp,ialloc
   
   allocate( accounted_for(size(qpoints)), &
           & min_sc_sizes(size(qpoints)),  &
@@ -65,9 +65,10 @@ function generate_supercells(structure,qpoints,symmetry_precision) &
     do j=1,size(qpoints)
       if (.not. accounted_for(j)) then
         if (is_int(output(no_supercells)%supercell * qpoints(j)%qpoint)) then
-          ! Mark the q-point and its paired q-point as accounted for.
-          accounted_for(j) = .true.
-          accounted_for(qpoints(j)%paired_qpoint) = .true.
+          ! Mark the q-point, j, and its paired q-point, jp, as accounted for.
+          jp = first(qpoints%id==qpoints(j)%paired_qpoint_id)
+          accounted_for(j)  = .true.
+          accounted_for(jp) = .true.
           
           ! Find any symmetrically equivalent q-points,
           !    and mark them as accounted for.
@@ -75,9 +76,11 @@ function generate_supercells(structure,qpoints,symmetry_precision) &
             rotated_qpoint = structure%symmetries(k) * qpoints(j)
             do l=1,size(qpoints)
               if (qpoints(l) == rotated_qpoint) then
-                ! Mark the q-point and its paired q-point as accounted for.
-                accounted_for(l) = .true.
-                accounted_for(qpoints(l)%paired_qpoint) = .true.
+                ! Mark the q-point, l, and its paired q-point, lp,
+                !    as accounted for.
+                lp = first(qpoints%id==qpoints(l)%paired_qpoint_id)
+                accounted_for(l)  = .true.
+                accounted_for(lp) = .true.
               endif
             enddo
           enddo

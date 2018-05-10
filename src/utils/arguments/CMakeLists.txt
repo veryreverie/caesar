@@ -6,5 +6,5 @@ add_library(arguments keyword.f90 help.f90 dictionary.f90 process_arguments.f90 
 
 # Link against required modules.
 target_link_libraries(arguments precision)
+target_link_libraries(arguments abstract)
 target_link_libraries(arguments io)
-target_link_libraries(arguments logic)

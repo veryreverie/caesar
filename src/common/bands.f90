@@ -94,10 +94,10 @@ function read_castep_bands_file_character(filename) result(this)
   bands_file = IFile(filename)
   
   ! Get no_qpoints and no_bands
-  line = split(bands_file%line(1))
+  line = split_line(bands_file%line(1))
   no_qpoints = int(line(4))
   
-  line = split(bands_file%line(4))
+  line = split_line(bands_file%line(4))
   no_bands = int(line(4))
   
   this = BandsData(no_qpoints,no_bands)
@@ -139,7 +139,7 @@ function read_vasp_bands_file_character(filename) result(this)
   bands_file = IFile(filename)
   
   ! Get no_qpoints and no_bands
-  line = split(bands_file%line(6))
+  line = split_line(bands_file%line(6))
   no_qpoints = int(line(2))
   no_bands = int(line(3))
   

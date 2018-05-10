@@ -74,17 +74,17 @@ function read_input_file_castep(filename) result(output)
   cell_file = parse_castep_input_file(filename)
   
   ! Read data format.
-  line = split(lower_case(cell_file%lattice_block(1)))
+  line = split_line(lower_case(cell_file%lattice_block(1)))
   lattice_is_cart = line(2)=='lattice_cart'
   
-  line = split(lower_case(cell_file%positions_block(1)))
+  line = split_line(lower_case(cell_file%positions_block(1)))
   positions_are_abs = line(2)=='positions_abs'
   
   ! Parse lattice.
   conversion = 1.0_dp / ANGSTROM_PER_BOHR
   j=0
   do i=2,size(cell_file%lattice_block)-1
-    line = split(lower_case(cell_file%lattice_block(i)))
+    line = split_line(lower_case(cell_file%lattice_block(i)))
     
     ! Ignore comments.
     if (slice(line(1),1,1)=='!') then
@@ -145,7 +145,7 @@ function read_input_file_castep(filename) result(output)
           & stat=ialloc); call err(ialloc)
   
   do i=2,size(cell_file%positions_block)-1
-    line = split(lower_case(cell_file%positions_block(i)))
+    line = split_line(lower_case(cell_file%positions_block(i)))
     
     ! Ignore comments.
     if (slice(line(1),1,1)=='!') then
@@ -169,7 +169,7 @@ function read_input_file_castep(filename) result(output)
     ! Read in atomic positions.
     else
       j = j+1
-      line = split(cell_file%positions_block(i)) ! N.B. no lower_case
+      line = split_line(cell_file%positions_block(i)) ! N.B. no lower_case
       species(j) = line(1)
       positions(j) = dble(line(2:4))
     endif
@@ -196,7 +196,7 @@ function read_input_file_castep(filename) result(output)
           & stat=ialloc); call err(ialloc)
   masses_found = .false.
   do i=2,size(cell_file%masses_block)-1
-    line = split(lower_case(cell_file%masses_block(i)))
+    line = split_line(lower_case(cell_file%masses_block(i)))
     
     ! Ignore comments.
     if (slice(line(1),1,1)=='!') then
@@ -214,7 +214,7 @@ function read_input_file_castep(filename) result(output)
     
     ! Read in masses.
     else
-      line = split(cell_file%masses_block(i)) ! N.B. no lower_case
+      line = split_line(cell_file%masses_block(i)) ! N.B. no lower_case
       do j=1,no_atoms
         if (line(1)==species(j)) then
           masses_found(j) = .true.
@@ -264,7 +264,7 @@ subroutine write_input_file_castep(structure,old_cell_filename, &
     ! Transform electronic k-points from fractional primitive cell
     !    co-ordinates into fractional supercell co-ordinates.
     do i=2,size(old_cell_file%kpoints_block)-1
-      line = split(old_cell_file%kpoints_block(i))
+      line = split_line(old_cell_file%kpoints_block(i))
       kpoint = dble(line(1:3))
       kpoint = transpose(dblemat(structure%recip_supercell)) * kpoint
       old_cell_file%kpoints_block(i) = kpoint//' '//join(line(4:))
@@ -277,8 +277,7 @@ subroutine write_input_file_castep(structure,old_cell_filename, &
   new_cell_file = OFile(new_cell_filename)
   call new_cell_file%print_line('%block lattice_cart')
   call new_cell_file%print_line('bohr')
-  !call new_cell_file%print_lines(structure%lattice)
-  call new_cell_file%print_lines_StringsWriteable(structure%lattice)
+  call new_cell_file%print_lines(structure%lattice)
   call new_cell_file%print_line('%endblock lattice_cart')
   call new_cell_file%print_line('')
   call new_cell_file%print_line('%block positions_abs')
@@ -348,7 +347,7 @@ function parse_castep_input_file(filename) result(output)
   
   ! Work out line numbers.
   do i=1,size(cell_file)
-    line = split(lower_case(cell_file%line(i)))
+    line = split_line(lower_case(cell_file%line(i)))
     if (size(line) >= 2) then
       if (line(1)=='%block' .and. ( line(2)=='lattice_cart' .or. &
                                   & line(2)=='lattice_abc')) then
@@ -484,7 +483,7 @@ function read_output_file_castep(filename,structure) result(output)
   forces_start_line = 0
   forces_end_line = 0
   do i=1,size(castep_file)
-    line = split(lower_case(castep_file%line(i)))
+    line = split_line(lower_case(castep_file%line(i)))
     ! Energy.
     if (size(line)>=2) then
       if (line(1)=='final' .and. line(2)=='energy,') then
@@ -536,11 +535,11 @@ function read_output_file_castep(filename,structure) result(output)
   atom_found = .false.
   
   ! Read data.
-  line = split(castep_file%line(energy_line))
+  line = split_line(castep_file%line(energy_line))
   energy = dble(line(5)) / EV_PER_HARTREE
   
   do i=1,structure%no_atoms
-    line = split(castep_file%line(forces_start_line+5+i))
+    line = split_line(castep_file%line(forces_start_line+5+i))
     species = line(2)
     j = first( structure%atoms%species()==species, &
              & mask    = .not.atom_found,          &

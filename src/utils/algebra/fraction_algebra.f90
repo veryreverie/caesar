@@ -1177,7 +1177,7 @@ subroutine read_FractionVector(this,input)
   type(String),          intent(in)  :: input
   
   select type(this); type is(FractionVector)
-    this = frac(split(input))
+    this = frac(split_line(input))
   end select
 end subroutine
 
@@ -1207,12 +1207,12 @@ subroutine read_FractionMatrix(this,input)
     if (size(input)==0) then
       allocate(contents(0,0), stat=ialloc); call err(ialloc)
     else
-      line = frac(split(input(1)))
+      line = frac(split_line(input(1)))
       allocate( contents(size(input),size(line)), &
               & stat=ialloc); call err(ialloc)
       contents(1,:) = line
       do i=2,size(input)
-        line = frac(split(input(i)))
+        line = frac(split_line(input(i)))
         if (size(line)/=size(contents,2)) then
           call print_line(ERROR//': Reading matrix: rows of different &
              &lengths.')

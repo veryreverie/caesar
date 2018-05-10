@@ -91,7 +91,7 @@ function read_structure_file(filename,symmetry_precision,calculate_symmetry) &
   ! ------------------------------
   structure_file = IFile(filename)
   do i=1,size(structure_file)
-    line = split(lower_case(structure_file%line(i)))
+    line = split_line(lower_case(structure_file%line(i)))
     
     if (size(line)==0) then
       cycle
@@ -176,7 +176,7 @@ function read_structure_file(filename,symmetry_precision,calculate_symmetry) &
   ! Read in lattice.
   ! ------------------------------
   do i=1,3
-    lattice_matrix(i,:) = dble(split(structure_file%line(lattice_line+i)))
+    lattice_matrix(i,:) = dble(split_line(structure_file%line(lattice_line+i)))
   enddo
   
   ! ------------------------------
@@ -188,15 +188,16 @@ function read_structure_file(filename,symmetry_precision,calculate_symmetry) &
     gvectors = [vec([0,0,0])]
   else
     do i=1,3
-      supercell_matrix(i,:) = int(split(structure_file%line(supercell_line+i)))
+      supercell_matrix(i,:) = &
+         & int(split_line(structure_file%line(supercell_line+i)))
     enddo
     
     allocate( rvectors(sc_size), &
             & gvectors(sc_size), &
             & stat=ialloc); call err(ialloc)
     do i=1,sc_size
-      rvectors(i) = int(split(structure_file%line(rvectors_line+i)))
-      gvectors(i) = int(split(structure_file%line(gvectors_line+i)))
+      rvectors(i) = int(split_line(structure_file%line(rvectors_line+i)))
+      gvectors(i) = int(split_line(structure_file%line(gvectors_line+i)))
     enddo
   endif
   
@@ -213,7 +214,7 @@ function read_structure_file(filename,symmetry_precision,calculate_symmetry) &
           & atom_prim_ids(no_atoms),           &
           & stat=ialloc); call err(ialloc)
   do atom=1,no_atoms
-    line = split(structure_file%line(atoms_line+atom))
+    line = split_line(structure_file%line(atoms_line+atom))
     
     rvec = (atom-1)/no_atoms_prim + 1
     prim = modulo(atom-1,no_atoms_prim) + 1
@@ -243,12 +244,12 @@ function read_structure_file(filename,symmetry_precision,calculate_symmetry) &
     allocate(symmetries(no_symmetries), stat=ialloc); call err(ialloc)
     do i=1,no_symmetries
       do j=1,3
-        rotation_matrix(j,:) = int(split( &
+        rotation_matrix(j,:) = int(split_line( &
            & structure_file%line(symmetry_line+(i-1)*7+j+1)))
       enddo
       symmetries(i)%rotation = rotation_matrix
       symmetries(i)%translation = &
-         & dble(split(structure_file%line(symmetry_line+(i-1)*7+6)))
+         & dble(split_line(structure_file%line(symmetry_line+(i-1)*7+6)))
     enddo
   
     this = StructureData(                                            &

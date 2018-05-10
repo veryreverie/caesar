@@ -87,7 +87,7 @@ subroutine run_harmonic(arguments)
   ! Get inputs from user.
   ! --------------------------------------------------
   wd = arguments%value('working_directory')
-  supercells_to_run = int(split(arguments%value('supercells_to_run')))
+  supercells_to_run = int(split_line(arguments%value('supercells_to_run')))
   no_cores = int(arguments%value('no_cores'))
   run_script = arguments%value('run_script')
   

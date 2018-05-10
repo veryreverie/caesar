@@ -74,7 +74,7 @@ subroutine write_input_file_qe(structure,old_qe_in_filename,new_qe_in_filename)
     ! Transform q-points into supercell co-ordinates.
     ! --------------------------------------------------
     do i=1,size(old_qe_in_file)
-      line = split(lower_case(old_qe_in_file%line(i)))
+      line = split_line(lower_case(old_qe_in_file%line(i)))
       if (size(line) >= 1) then
         if (line(1)=='k_points') then
           call print_line('qe q-points not yet supported.')
@@ -140,7 +140,7 @@ function read_output_file_qe(filename,structure) result(output)
   ! Work out line numbers.
   species_start_line = 0
   do i=1,size(qe_file)
-    line = split(lower_case(qe_file%line(i)))
+    line = split_line(lower_case(qe_file%line(i)))
     ! Species.
     if (line(1)=='atomic' .and. line(2)=='species') then
       species_start_line = i
@@ -174,15 +174,15 @@ function read_output_file_qe(filename,structure) result(output)
   
   ! Read data.
   do i=1,species_end_line-species_start_line-1
-    line = split(qe_file%line(species_start_line+1))
+    line = split_line(qe_file%line(species_start_line+1))
     species(i) = line(1)
   enddo
   
-  line = split(qe_file%line(energy_line))
+  line = split_line(qe_file%line(energy_line))
   energy = dble(line(5)) * EV_PER_RYDBERG / EV_PER_HARTREE
   
   do i=1,forces_end_line-forces_start_line-3
-    line = split(qe_file%line(forces_start_line+1+i))
+    line = split_line(qe_file%line(forces_start_line+1+i))
     
     if (species(int(line(4)))/=structure%atoms(i)%species()) then
       call print_line(ERROR//': The species in the qe output file do not match &

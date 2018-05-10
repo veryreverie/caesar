@@ -75,7 +75,7 @@ function read_disp_patterns_file_character(filename,no_modes) result(this)
   
   ! Find no_atoms and no_gvectors
   do i=1,size(disp_patterns_file)
-    line = split(lower_case(disp_patterns_file%line(i)))
+    line = split_line(lower_case(disp_patterns_file%line(i)))
     if (size(line)>=1) then
       if (i/=1 .and. line(1)=="frequency") then
         lines_per_mode = i-1
@@ -91,10 +91,10 @@ function read_disp_patterns_file_character(filename,no_modes) result(this)
   do i=1,no_gvectors
     do j=1,no_modes
       line_no = ( (i-1)*no_modes + (j-1) )*(no_atoms+4) + 1
-      line = split(disp_patterns_file%line(line_no))
+      line = split_line(disp_patterns_file%line(line_no))
       this%frequencies(j,i) = dble(line(3))
       do k=1,no_atoms
-        line = split(disp_patterns_file%line(line_no + 2 + k))
+        line = split_line(disp_patterns_file%line(line_no + 2 + k))
         this%disp_patterns(:,k,j,i) = dble(line(1:3))
         this%prefactors(k,j,i) = dble(line(4))
       enddo

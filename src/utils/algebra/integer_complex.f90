@@ -218,14 +218,14 @@ subroutine read_IntComplex(this,input)
   integer                   :: imag_part
   
   select type(this); type is(IntComplex)
-    split_string = split(input,'+')
+    split_string = split_line(input,'+')
     if (size(split_string)==2) then
       ! input is of the form "a+bi" or "-a+bi".
       real_part = int(split_string(1))
       imag_part = int(slice(split_string(2),1,len(split_string(2))-1))
     elseif (size(split_string)==1) then
       ! input is of the form "a-bi" or "-a-bi".
-      split_string = split(input,'-')
+      split_string = split_line(input,'-')
       if (size(split_string)==2) then
         if (slice(input,1,1)=='-') then
           real_part = -int(split_string(1))

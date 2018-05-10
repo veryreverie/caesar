@@ -3,15 +3,14 @@
 ! Exists to allow heterogeneous 2-D arrays of type String.
 ! ======================================================================
 module string_array_submodule
-  use error_submodule
-  use string_submodule
+  use io_basic_module
   implicit none
   
   private
   
   public :: StringArray
   public :: size
-  public :: split
+  public :: split_into_sections
   
   type :: StringArray
     type(String), allocatable :: strings(:)
@@ -25,9 +24,11 @@ module string_array_submodule
     module procedure size_StringArray
   end interface
   
-  interface split
-    module procedure split_StringArray_character
-    module procedure split_StringArray_String
+  interface split_into_sections
+    module procedure split_into_sections_Strings_character
+    module procedure split_into_sections_Strings_String
+    module procedure split_into_sections_StringArray_character
+    module procedure split_into_sections_StringArray_String
   end interface
 contains
 
@@ -60,12 +61,12 @@ end function
 ! Splits by one or more strings which match delimiter.
 ! Delimiter defaults to an empty string, ''.
 ! ----------------------------------------------------------------------
-function split_StringArray_character(this,delimiter) result(output)
+function split_into_sections_Strings_character(this,delimiter) result(output)
   implicit none
   
-  type(StringArray), intent(in)           :: this
-  character(*),      intent(in), optional :: delimiter
-  type(StringArray), allocatable          :: output(:)
+  type(String), intent(in)           :: this(:)
+  character(*), intent(in), optional :: delimiter
+  type(StringArray), allocatable     :: output(:)
   
   type(String) :: delimiter_string
   
@@ -89,7 +90,7 @@ function split_StringArray_character(this,delimiter) result(output)
   no_sections = 0
   reading_section = .false.
   do i=1,size(this)
-    if (this%strings(i)==delimiter_string) then
+    if (this(i)==delimiter_string) then
       ! This line is the delimiter string.
       ! If reading a section, then the end of that section is the line above.
       if (reading_section) then
@@ -115,17 +116,38 @@ function split_StringArray_character(this,delimiter) result(output)
   
   allocate(output(no_sections), stat=ialloc); call err(ialloc)
   do i=1,no_sections
-    output(i) = StringArray(this%strings(first_lines(i):last_lines(i)))
+    output(i) = StringArray(this(first_lines(i):last_lines(i)))
   enddo
 end function
 
-function split_StringArray_String(this,delimiter) result(output)
+function split_into_sections_Strings_String(this,delimiter) result(output)
+  implicit none
+  
+  type(String), intent(in)       :: this(:)
+  type(String), intent(in)       :: delimiter
+  type(StringArray), allocatable :: output(:)
+  
+  output = split_into_sections(this,char(delimiter))
+end function
+
+function split_into_sections_StringArray_character(this,delimiter) &
+   & result(output)
+  implicit none
+  
+  type(StringArray), intent(in)           :: this
+  character(*),      intent(in), optional :: delimiter
+  type(StringArray), allocatable          :: output(:)
+  
+  output = split_into_sections(this%strings,delimiter)
+end function
+
+function split_into_sections_StringArray_String(this,delimiter) result(output)
   implicit none
   
   type(StringArray), intent(in)  :: this
   type(String),      intent(in)  :: delimiter
   type(StringArray), allocatable :: output(:)
   
-  output = split(this,char(delimiter))
+  output = split_into_sections(this%strings,char(delimiter))
 end function
 end module

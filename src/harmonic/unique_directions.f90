@@ -67,7 +67,7 @@ function read_unique_directions_file(filename) result(output)
   allocate(output(no_directions), stat=ialloc); call err(ialloc)
   
   do i=1,no_directions
-    line = unique_directions_file%split_line(i+1)
+    line = split_line(unique_directions_file%line(i+1))
     output(i)%atom_id = int(line(2))
     output(i)%direction = line(4)
     output(i)%displacement = dble(line(6:8))

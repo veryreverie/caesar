@@ -2,9 +2,9 @@
 ! A number of algorithms to do with logic and sorting.
 ! ======================================================================
 ! See the example module for some use cases.
-module logic_module
+module logic_submodule
   use precision_module
-  use io_module
+  use io_basic_module
   implicit none
   
   private
@@ -838,12 +838,12 @@ end function
 end module
 
 ! ======================================================================
-! Example use cases of procedures in logic_module.
+! Example use cases of procedures in logic_submodule.
 ! ======================================================================
-module logic_example_module
-  use io_module
+module logic_example_submodule
+  use io_basic_module
   
-  use logic_module
+  use logic_submodule
   implicit none
 contains
 

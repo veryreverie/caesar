@@ -123,13 +123,19 @@ subroutine setup_anharmonic(arguments)
   
   ! Directories and files.
   type(String)              :: qpoint_dir
-  type(OFile)               :: coupling_file
   type(String)              :: max_subspace_id
   type(String), allocatable :: coupling_strings(:)
   type(String)              :: coupling_dir
   
-  ! Logfile.
+  type(IFile)                    :: harmonic_qpoints_file
+  type(OFile)                    :: anharmonic_qpoints_file
+  type(StringArray), allocatable :: file_sections(:)
+  
+  ! Output files.
   type(OFile) :: logfile
+  type(OFile) :: coupling_file
+  type(OFile) :: basis_function_file
+  type(OFile) :: sampling_points_file
   
   ! Temporary variables.
   integer :: i,j,k,l,ialloc
@@ -141,7 +147,7 @@ subroutine setup_anharmonic(arguments)
   ! Parse new user inputs.
   wd = arguments%value('working_directory')
   harmonic_path = arguments%value('harmonic_path')
-  qpoint_grid = int(split(arguments%value('q-point_grid')))
+  qpoint_grid = int(split_line(arguments%value('q-point_grid')))
   potential_expansion_order = int(arguments%value('potential_expansion_order'))
   maximum_coupling_order = int(arguments%value('maximum_coupling_order'))
   vscf_basis_functions_only = &
@@ -159,7 +165,14 @@ subroutine setup_anharmonic(arguments)
   
   structure = read_structure_file( harmonic_path//'/structure.dat', &
                                  & symmetry_precision)
-  harmonic_qpoints = read_qpoints_file(harmonic_path//'/qpoints.dat')
+  
+  harmonic_qpoints_file = IFile(harmonic_path//'/qpoints.dat')
+  file_sections = split_into_sections(harmonic_qpoints_file%lines())
+  allocate( harmonic_qpoints(size(file_sections)), &
+          & stat=ialloc); call err(ialloc)
+  do i=1,size(harmonic_qpoints)
+    harmonic_qpoints(i) = file_sections(i)
+  enddo
   
   ! ----------------------------------------------------------------------
   ! Generate setup data.
@@ -273,15 +286,15 @@ subroutine setup_anharmonic(arguments)
   ! Write out anharmonic supercell and q-points.
   call write_structure_file( anharmonic_supercell, &
                            & wd//'/anharmonic_supercell.dat')
-  call write_qpoints_file(qpoints, wd//'/qpoints.dat')
+  anharmonic_qpoints_file = OFile(wd//'/qpoints.dat')
+  call anharmonic_qpoints_file%print_lines(qpoints,separating_line='')
   
   ! Write out coupling and basis functions.
   coupling_file = OFile(wd//'/coupling.dat')
+  call coupling_file%print_lines(coupled_subspaces)
+  
   max_subspace_id = str(maxval(degenerate_subspaces%id))
   do i=1,size(coupled_subspaces)
-    ! Add entry to coupling file for this coupling.
-    call coupling_file%print_line(coupled_subspaces(i))
-    
     ! Construct directory name from coupled subspace ids.
     coupling_strings = left_pad( coupled_subspaces(i)%ids, &
                                & max_subspace_id)
@@ -290,10 +303,12 @@ subroutine setup_anharmonic(arguments)
     call mkdir(coupling_dir)
     
     ! Write basis functions to file.
-    call basis_functions(i)%write_file(coupling_dir//'/basis_functions.dat')
+    basis_function_file = OFile(coupling_dir//'/basis_functions.dat')
+    call basis_function_file%print_lines(basis_functions(i))
     
     ! Write sampling points to file.
-    call sampling_points(i)%write_file(coupling_dir//'/sampling_points.dat')
+    sampling_points_file = OFile(coupling_dir//'/sampling_points.dat')
+    call sampling_points_file%print_lines(sampling_points(i))
   enddo
   
   ! Write out sampling points.

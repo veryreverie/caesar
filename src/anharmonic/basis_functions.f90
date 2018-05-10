@@ -18,11 +18,11 @@ module basis_functions_module
   public :: BasisFunctions
   public :: generate_basis_functions
   
-  type :: BasisFunctions
+  type, extends(Stringsable) :: BasisFunctions
     type(BasisFunction), allocatable :: functions(:)
   contains
-    procedure, public :: write_file => write_file_BasisFunctions
-    procedure, public :: read_file  => read_file_BasisFunctions
+    procedure, public :: read  => read_BasisFunctions
+    procedure, public :: write => write_BasisFunctions
   end type
   
   interface size
@@ -78,42 +78,35 @@ function generate_basis_functions_SubspaceMonomials(couplings,structure, &
 end function
 
 ! ----------------------------------------------------------------------
-! File I/O.
+! I/O.
 ! ----------------------------------------------------------------------
-subroutine write_file_BasisFunctions(this,filename)
-  implicit none
-  
-  class(BasisFunctions), intent(in) :: this
-  type(String),          intent(in) :: filename
-  
-  type(OFile) :: file
-  
-  integer :: i,j
-  
-  file = OFile(filename)
-  do i=1,size(this%functions)
-    call file%print_line('Basis function '//i)
-    call file%print_lines(this%functions(i))
-    call file%print_line('')
-  enddo
-end subroutine
-
-subroutine read_file_BasisFunctions(this,filename)
+subroutine read_BasisFunctions(this,input)
   implicit none
   
   class(BasisFunctions), intent(out) :: this
-  type(String),          intent(in)  :: filename
+  type(String),          intent(in)  :: input(:)
   
-  type(IFile)                    :: file
-  type(StringArray), allocatable :: sections(:)
+  type(StringArray), allocatable :: functions(:)
   
   integer :: i,ialloc
   
-  file = IFile(filename)
-  sections = split(file%lines())
-  allocate(this%functions(size(sections)), stat=ialloc); call err(ialloc)
-  do i=1,size(sections)
-    this%functions(i) = sections(i)%strings(2:)
-  enddo
+  select type(this); type is(BasisFunctions)
+    functions = split_into_sections(input)
+    allocate(this%functions(size(functions)), stat=ialloc); call err(ialloc)
+    do i=1,size(functions)
+      this%functions(i) = functions(i)
+    enddo
+  end select
 end subroutine
+
+function write_BasisFunctions(this) result(output)
+  implicit none
+  
+  class(BasisFunctions), intent(in) :: this
+  type(String), allocatable         :: output(:)
+  
+  select type(this); type is(BasisFunctions)
+    output = str(this%functions, separating_line='')
+  end select
+end function
 end module
