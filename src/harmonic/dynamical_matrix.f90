@@ -815,6 +815,8 @@ function write_DynamicalMatrix(this) result(output)
   
   integer :: no_atoms
   
+  type(String) :: matrix_strings(3)
+  
   integer :: i,j,k,ialloc
   
   select type(this); type is(DynamicalMatrix)
@@ -828,9 +830,10 @@ function write_DynamicalMatrix(this) result(output)
     do i=1,no_atoms
       do j=1,no_atoms
         k = k+1
-        output(5*k-4:5*k) = [ 'Atoms: ('//j//' '//i//')', &
-                            & str(this%matrices_(j,i)),   &
-                            & str('')                     ]
+        matrix_strings = str(this%matrices_(j,i))
+        output(5*k-4)       = 'Atoms: ('//j//' '//i//')'
+        output(5*k-3:5*k-1) = matrix_strings
+        output(5*k)         = ''
       enddo
     enddo
   end select

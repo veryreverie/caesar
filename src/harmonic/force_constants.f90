@@ -211,6 +211,7 @@ function read_forces(supercell,unique_directions,wd,sdir,file_type,seedname, &
   type(ElectronicStructure) :: output_file
   
   ! Direction information.
+  type(String)   :: directory
   type(AtomData) :: atom
   type(String)   :: direction
   type(String)   :: atom_string
@@ -239,16 +240,22 @@ function read_forces(supercell,unique_directions,wd,sdir,file_type,seedname, &
     atom = supercell%atoms(unique_directions(i)%atom_id)
     direction = unique_directions(i)%direction
     atom_string = left_pad(atom%id(),str(supercell%no_atoms_prim))
+    directory = sdir//'/atom.'//atom_string//'.'//direction
     
-    output_file = read_output_file(                                  &
-       & file_type,                                                  &
-       & sdir//'/atom.'//atom_string//'.'//direction//'/'//filename, &
-       & supercell,                                                  &
-       & wd,                                                         &
-       & seedname,                                                   &
-       & symmetry_precision,                                         &
-       & calculation_type)
+    output_file = read_output_file( file_type,                &
+                                  & directory//'/'//filename, &
+                                  & supercell,                &
+                                  & wd,                       &
+                                  & seedname,                 &
+                                  & symmetry_precision,       &
+                                  & calculation_type)
     
+    if (size(output_file%forces)/=supercell%no_atoms) then
+      call print_line(ERROR//': The number of forces calculated does not &
+         &match the number of atoms in the supercell.')
+      call print_line('Working in directory: '//directory)
+      call err()
+    endif
     output(:,i) = output_file%forces(:)
     
     ! Enforce continuous translational symmetry,

@@ -89,9 +89,9 @@ subroutine write_input_file_xyz(structure,input_filename,output_filename)
   ! If an input file is given, replace the second line of the new output file
   !    with that from the input file.
   if (present(input_filename)) then
-    input_file_in = input_filename
-    output_file_in = output_filename
-    output_file_out = output_filename
+    input_file_in = IFile(input_filename)
+    output_file_in = IFile(output_filename)
+    output_file_out = OFile(output_filename)
     do i=1,size(output_file_in)
       if (i==2) then
         call output_file_out%print_line(input_file_in%line(i))
