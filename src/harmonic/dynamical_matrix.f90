@@ -831,9 +831,11 @@ function write_DynamicalMatrix(this) result(output)
       do j=1,no_atoms
         k = k+1
         matrix_strings = str(this%matrices_(j,i))
-        output(5*k-4)       = 'Atoms: ('//j//' '//i//')'
-        output(5*k-3:5*k-1) = matrix_strings
-        output(5*k)         = ''
+        output(5*k-4) = 'Atoms: ('//j//' '//i//')'
+        output(5*k-3) = matrix_strings(1)
+        output(5*k-2) = matrix_strings(2)
+        output(5*k-1) = matrix_strings(3)
+        output(5*k)   = ''
       enddo
     enddo
   end select

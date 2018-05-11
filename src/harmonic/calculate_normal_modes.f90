@@ -92,7 +92,6 @@ subroutine calculate_normal_modes(arguments)
   ! Lte output data.
   logical, allocatable :: modes_calculated(:)
   integer              :: mode
-  type(String)         :: mode_string
   
   ! Normal modes and their symmetries.
   type(QpointData) :: rotated_qpoint
@@ -114,6 +113,7 @@ subroutine calculate_normal_modes(arguments)
   type(IFile)                    :: no_supercells_file
   type(IFile)                    :: qpoint_file
   type(OFile)                    :: dynamical_matrix_file
+  type(OFile)                    :: complex_modes_file
   type(OFile)                    :: force_logfile
   type(OFile)                    :: qpoint_logfile
   type(StringArray), allocatable :: file_sections(:)
@@ -431,11 +431,8 @@ subroutine calculate_normal_modes(arguments)
     
     ! Write out normal modes.
     complex_modes = dynamical_matrices(i)%complex_modes
-    do mode=1,structure%no_modes
-      mode_string = left_pad(mode,str(structure%no_modes))
-      call complex_modes(mode)%write_file( &
-         & qdir//'/complex_mode_'//mode_string//'.dat')
-    enddo
+    complex_modes_file = OFile(qdir//'/complex_modes.dat')
+    call complex_modes_file%print_lines(complex_modes,separating_line='')
   enddo
 end subroutine
 end module

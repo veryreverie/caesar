@@ -127,12 +127,16 @@ subroutine setup_anharmonic(arguments)
   type(String), allocatable :: coupling_strings(:)
   type(String)              :: coupling_dir
   
+  ! Input files.
   type(IFile)                    :: harmonic_qpoints_file
-  type(OFile)                    :: anharmonic_qpoints_file
+  type(IFile)                    :: harmonic_complex_modes_file
   type(StringArray), allocatable :: file_sections(:)
   
   ! Output files.
   type(OFile) :: logfile
+  type(OFile) :: anharmonic_qpoints_file
+  type(OFile) :: complex_modes_file
+  type(OFile) :: real_modes_file
   type(OFile) :: coupling_file
   type(OFile) :: basis_function_file
   type(OFile) :: sampling_points_file
@@ -218,11 +222,11 @@ subroutine setup_anharmonic(arguments)
     
     qpoint_dir = &
        & harmonic_path//'/qpoint_'//left_pad(j,str(size(harmonic_qpoints)))
+    harmonic_complex_modes_file = IFile(qpoint_dir//'/complex_modes.dat')
+    file_sections = split_into_sections(harmonic_complex_modes_file%lines())
     do k=1,structure%no_modes
       l = l+1
-      complex_modes(l) = ComplexMode( &
-         & qpoint_dir //              &
-         & '/complex_mode_'//left_pad(k,str(structure%no_modes))//'.dat')
+      complex_modes(l) = file_sections(k)
       mode_qpoints(l) = i
     enddo
   enddo
@@ -283,9 +287,17 @@ subroutine setup_anharmonic(arguments)
   ! Write out setup data.
   ! ----------------------------------------------------------------------
   
+  ! Write out complex and real normal modes.
+  complex_modes_file = OFile(wd//'/complex_modes.dat')
+  call complex_modes_file%print_lines(complex_modes,separating_line='')
+  
+  real_modes_file = OFile(wd//'/real_modes.dat')
+  call real_modes_file%print_lines(real_modes,separating_line='')
+  
   ! Write out anharmonic supercell and q-points.
   call write_structure_file( anharmonic_supercell, &
                            & wd//'/anharmonic_supercell.dat')
+  
   anharmonic_qpoints_file = OFile(wd//'/qpoints.dat')
   call anharmonic_qpoints_file%print_lines(qpoints,separating_line='')
   
