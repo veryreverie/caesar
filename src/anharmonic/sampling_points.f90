@@ -31,6 +31,7 @@ module sampling_points_module
   end interface
 contains
 
+! Constructor and size() function.
 function new_SamplingPoints(points) result(this)
   implicit none
   
@@ -49,6 +50,7 @@ function size_SamplingPoints(this) result(output)
   output = size(this%points)
 end function
 
+! Generates a set of sampling points for sampling a set of basis functions.
 function generate_sampling_points(basis_functions,potential_expansion_order, &
    & maximum_weighted_displacement) result(output)
   implicit none

@@ -26,6 +26,7 @@ module algebra_utils_submodule
     module procedure gcd_2
     module procedure gcd_3
     module procedure gcd_4
+    module procedure gcd_integers
   end interface
   
   ! Lowest common multiple.
@@ -33,6 +34,7 @@ module algebra_utils_submodule
     module procedure lcm_2
     module procedure lcm_3
     module procedure lcm_4
+    module procedure lcm_integers
   end interface
   
   ! The triple product of three vectors.
@@ -291,9 +293,32 @@ function gcd_4(int_1,int_2,int_3,int_4) result(output)
   output = gcd(gcd(int_1,int_2,int_3),int_4)
 end function
 
+! Calculate the gcd of an array of integers, by recusively finding
+!    pairwise gcds.
+! For convenience, gcd([a])=a if a/=0, and gcd([0])=1.
+recursive function gcd_integers(input) result(output)
+  implicit none
+  
+  integer, intent(in) :: input(:)
+  integer             :: output
+  
+  if (size(input)==0) then
+    call print_line(CODE_ERROR//': called gcd on an empty array.')
+    call err()
+  elseif (size(input)==1) then
+    if (input(1)==0) then
+      output = 1
+    else
+      output = abs(input(1))
+    endif
+  else
+    output = gcd([gcd(input(1),input(2)), input(3:)])
+  endif
+end function
+
 ! ----------------------------------------------------------------------
-! Calculate the lowest common multiple of two non-negative integers.
-! lcm(a,b) = a*b/gcd(a,b)
+! Calculate the lowest common multiple of two integers.
+! lcm(a,b) = |a*b|/gcd(a,b)
 ! ----------------------------------------------------------------------
 function lcm_2(int_1,int_2) result(output)
   implicit none
@@ -302,7 +327,7 @@ function lcm_2(int_1,int_2) result(output)
   integer, intent(in) :: int_2
   integer             :: output
   
-  output = int_1*int_2/gcd(int_1,int_2)
+  output = abs(int_1*int_2)/gcd(int_1,int_2)
 end function
 
 ! Calculate the lcm of more than two integers, by recursively finding
@@ -328,6 +353,25 @@ function lcm_4(int_1,int_2,int_3,int_4) result(output)
   integer             :: output
   
   output = lcm(lcm(int_1,int_2,int_3),int_4)
+end function
+
+! Calculate the lcm of an array of integers, by recusively finding
+!    pairwise lcms.
+! For convenience, lcm([a])=a if |a|.
+recursive function lcm_integers(input) result(output)
+  implicit none
+  
+  integer, intent(in) :: input(:)
+  integer             :: output
+  
+  if (size(input)==0) then
+    call print_line(CODE_ERROR//': called lcm on an empty array.')
+    call err()
+  elseif (size(input)==1) then
+    output = abs(input(1))
+  else
+    output = lcm([lcm(input(1),input(2)), input(3:)])
+  endif
 end function
 
 ! ----------------------------------------------------------------------

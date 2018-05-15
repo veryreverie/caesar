@@ -311,6 +311,13 @@ subroutine calculate_normal_modes(arguments)
   enddo iter
   
   ! --------------------------------------------------
+  ! Set mode q-point ids.
+  ! --------------------------------------------------
+  do i=1,size(dynamical_matrices)
+    dynamical_matrices(i)%complex_modes%qpoint_id = qpoints(i)%id
+  enddo
+  
+  ! --------------------------------------------------
   ! Assign ids to all modes, and pair up modes.
   ! --------------------------------------------------
   ! Assign ids

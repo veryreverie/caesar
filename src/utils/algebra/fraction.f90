@@ -171,7 +171,7 @@ end function
 ! ----------------------------------------------------------------------
 ! Getters.
 ! ----------------------------------------------------------------------
-function numerator(this) result(output)
+impure elemental function numerator(this) result(output)
   implicit none
   
   class(IntFraction), intent(in) :: this
@@ -180,7 +180,7 @@ function numerator(this) result(output)
   output = this%n_
 end function
 
-function denominator(this) result(output)
+impure elemental function denominator(this) result(output)
   implicit none
   
   class(IntFraction), intent(in) :: this

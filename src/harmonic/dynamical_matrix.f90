@@ -210,9 +210,9 @@ function new_DynamicalMatrix_interpolated(q,supercell,force_constants, &
   
   ! Evaluate the dynamical matrix.
   this%matrices_ = calculate_dynamical_matrix( q,               &
-                                            & supercell,       &
-                                            & force_constants, &
-                                            & min_images)
+                                             & supercell,       &
+                                             & force_constants, &
+                                             & min_images)
   
   
   ! Diagonalise the dynamical matrix, to obtain the normal mode

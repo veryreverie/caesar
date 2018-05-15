@@ -13,6 +13,11 @@ module supercell_submodule
   
   public :: construct_supercell
   public :: construct_supercell_matrix
+  
+  interface construct_supercell_matrix
+    module procedure construct_supercell_matrix_qpoint
+    module procedure construct_supercell_matrix_qpoints
+  end interface
 contains
 
 ! ----------------------------------------------------------------------
@@ -126,93 +131,138 @@ function reduce(input,structure) result(output)
 end function
 
 ! ----------------------------------------------------------------------
-! Find a supercell matrix, S, s.t. S.q is a vector of integers.
+! Find a supercell matrix, S, s.t. S.q is a vector of integers for all q.
 ! ----------------------------------------------------------------------
 ! S is found s.t. |S| is as small as possible (whilst being >0).
 ! Returns answer in Hermite Normal Form.
-function find_hnf_supercell_matrix(qpoint) result(output)
+function find_hnf_supercell_matrix(qpoints) result(output)
   implicit none
   
-  type(QpointData), intent(in) :: qpoint
-  type(IntMatrix)              :: output ! S.
+  type(QpointData), intent(in) :: qpoints(:)
+  type(IntMatrix)              :: output
   
-  ! The determinant of S.
-  integer :: sc_size
+  type(IntFraction), allocatable :: qpoint_components(:,:)
   
-  ! The elements of S.
-  integer :: s11,s12,s13
-  integer ::     s22,s23
-  integer ::         s33
+  ! The elements of S (s21=s31=s32=0).
+  integer :: s11, s12, s13
+  integer ::      s22, s23
+  integer ::           s33
   
-  ! Calculate the determinant of the output matrix.
-  sc_size = qpoint%min_sc_size()
+  integer :: output_matrix(3,3)
   
-  ! Loop over all matrices in Hermite Normal Form, defined as
-  !    s11*s22*s33 = |S| = sc_size.
-  !    s21=s31=s32=0
-  !    0 <= s12 < s22
-  !    0 <= s13 < s33
-  !    0 <= s23 < s33
-  do s11=1,sc_size
-    if (modulo(sc_size,s11)==0) then
-      do s22=1,sc_size/s11
-        if (modulo(sc_size,s11*s22)==0) then
-          s33=sc_size/(s11*s22)
-          do s12=0,s22-1
-            do s13=0,s33-1
-              do s23=0,s33-1
-                ! Construct S.
-                output = mat([ s11, s12, s13, &
-                             & 0  , s22, s23, &
-                             & 0  , 0  , s33  ], 3,3)
-                
-                ! Check if S.q is a vector of integers.
-                if (is_int(output*qpoint%qpoint)) then
-                  return
-                endif
-              enddo
-            enddo
-          enddo
-        endif
-      enddo
-    endif
+  integer :: s11_max,s22_max,s33_max
+  
+  integer :: i,ialloc
+  
+  output_matrix = 0
+  
+  allocate(qpoint_components(3,size(qpoints)), stat=ialloc); call err(ialloc)
+  do i=1,size(qpoints)
+    qpoint_components(:,i) = frac(qpoints(i)%qpoint)
   enddo
   
-  ! Throw an error if no supercell could be found.
-  call print_line(CODE_ERROR//': no supercell matrix found for q-point '// &
-     & qpoint%qpoint)
-  call err()
+  ! Calculate an upper bound on the diagonal elements.
+  ! (This is the case where s12=s13=s23=0).
+  s11_max = lcm(qpoint_components(1,:)%denominator())
+  s22_max = lcm(qpoint_components(2,:)%denominator())
+  s33_max = lcm(qpoint_components(3,:)%denominator())
+  
+  ! s33 is simply s33_max, since there are no matrix elements to the right
+  !    of s33.
+  s33 = s33_max
+  output_matrix(3,:) = [0, 0, s33]
+  
+  ! Loop over s22 and s23 to find the smallest s22.
+  do_s22 : do s22=1,s22_max
+    do s23=0,s33-1
+      if (all(is_int( s22*qpoint_components(2,:) &
+                  & + s23*qpoint_components(3,:) ))) then
+        output_matrix(2,:) = [0, s22, s23]
+        exit do_s22
+      endif
+    enddo
+  enddo do_s22
+  
+  if (output_matrix(2,2)==0) then
+    call print_line(ERROR//': Could not find supercell matrix.')
+    call err()
+  endif
+  
+  ! Loop over s11, s12 and s13 to find the smallest s11.
+  do_s11 : do s11=1,s11_max
+    do s12=0,s22-1
+      do s13=0,s33-1
+        if (all(is_int( s11*qpoint_components(1,:) &
+                    & + s12*qpoint_components(2,:) &
+                    & + s13*qpoint_components(3,:) ))) then
+          output_matrix(1,:) = [s11, s12, s13]
+          exit do_s11
+        endif
+      enddo
+    enddo
+  enddo do_s11
+  
+  if (output_matrix(1,1)==0) then
+    call print_line(ERROR//': Could not find supercell matrix.')
+    call err()
+  endif
+  
+  ! Transfer output_matrix to output.
+  output = output_matrix
+  
+  ! Check that S correctly transforms all q-points to integer vectors.
+  do i=1,size(qpoints)
+    if (.not. is_int(output*qpoints(i)%qpoint)) then
+      call print_line(CODE_ERROR//': Supercell matrix does not correctly &
+         &transform q-points.')
+      call err()
+    endif
+  enddo
 end function
 
 ! ----------------------------------------------------------------------
-! Construct the smallest matrix S s.t. S.q is a G-vector.
+! Construct the smallest matrix S s.t. S.q is a G-vector for all q.
 ! Smallest means:
 !    - |S| is as small as possible.
 !    - The vectors defined in fractional co-ordinates by the rows of S
 !         are as short as possible in cartesian co-ordinates.
 ! ----------------------------------------------------------------------
-function construct_supercell_matrix(qpoint,structure) result(output)
+function construct_supercell_matrix_qpoints(qpoints,structure) result(output)
   implicit none
   
-  type(QpointData),    intent(in) :: qpoint
+  type(QpointData),    intent(in) :: qpoints(:)
   type(StructureData), intent(in) :: structure
   type(IntMatrix)                 :: output
   
   type(IntMatrix)  :: supercell_hnf
   
+  integer :: i
+  
   ! Find the matrix S, s.t. S.q is a vector of integers.
   ! S is found in Hermite Normal Form.
-  supercell_hnf = find_hnf_supercell_matrix(qpoint)
+  supercell_hnf = find_hnf_supercell_matrix(qpoints)
   
   ! Reduce the matrix, s.t. the vectors defined by its rows are as short as
   !    possible when transformed into cartesian co-ordinates.
   output = reduce(supercell_hnf, structure)
   
   ! Check that S still transforms q to an integer vector.
-  if (.not. is_int(output*qpoint%qpoint)) then
-    call print_line(CODE_ERROR//': Error Minkowski reducing supercell.')
-    call err()
-  endif
+  do i=1,size(qpoints)
+    if (.not. is_int(output*qpoints(i)%qpoint)) then
+      call print_line(CODE_ERROR//': Error Minkowski reducing supercell.')
+      call err()
+    endif
+  enddo
+end function
+
+function construct_supercell_matrix_qpoint(qpoint,structure) result(output)
+  implicit none
+  
+  type(QpointData),    intent(in) :: qpoint
+  type(StructureData), intent(in) :: structure
+  type(IntMatrix)                 :: output
+  
+  output = construct_supercell_matrix([qpoint], structure)
 end function
 
 ! ----------------------------------------------------------------------

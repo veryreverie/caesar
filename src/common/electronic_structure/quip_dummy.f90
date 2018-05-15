@@ -15,6 +15,9 @@ module quip_wrapper_submodule
   public :: read_input_file_xyz
   public :: write_input_file_xyz
   public :: run_quip_on_structure
+  public :: QUIP_LINKED
+  
+  logical, parameter :: QUIP_LINKED = .false.
 contains
 
 function make_input_filename_xyz(seedname) result(output)

@@ -30,6 +30,9 @@ module complex_mode_submodule
     ! The displacements of atoms in the primitive cell.
     type(ComplexVector), allocatable :: primitive_displacements(:)
     
+    ! The id of the q-point at which this mode exits.
+    integer :: qpoint_id
+    
     ! An id which is shared between degenerate states, and different otherwise.
     integer :: degeneracy_id
   contains
@@ -58,7 +61,7 @@ contains
 ! Constructor.
 ! ----------------------------------------------------------------------
 function new_ComplexMode(id,paired_id,frequency,soft_mode,translational_mode, &
-   & primitive_displacements, degeneracy_id) result(this)
+   & primitive_displacements,qpoint_id,degeneracy_id) result(this)
   implicit none
   
   integer,             intent(in) :: id
@@ -67,16 +70,18 @@ function new_ComplexMode(id,paired_id,frequency,soft_mode,translational_mode, &
   logical,             intent(in) :: soft_mode
   logical,             intent(in) :: translational_mode
   type(ComplexVector), intent(in) :: primitive_displacements(:)
+  integer,             intent(in) :: qpoint_id
   integer,             intent(in) :: degeneracy_id
   type(ComplexMode)               :: this
   
-  this%id = id
-  this%paired_id = paired_id
-  this%frequency = frequency
-  this%soft_mode = soft_mode
-  this%translational_mode = translational_mode
+  this%id                      = id
+  this%paired_id               = paired_id
+  this%frequency               = frequency
+  this%soft_mode               = soft_mode
+  this%translational_mode      = translational_mode
   this%primitive_displacements = primitive_displacements
-  this%degeneracy_id = degeneracy_id
+  this%qpoint_id               = qpoint_id
+  this%degeneracy_id           = degeneracy_id
 end function
 
 ! ----------------------------------------------------------------------
@@ -133,6 +138,7 @@ subroutine read_ComplexMode(this,input)
   logical                          :: soft_mode
   logical                          :: translational_mode
   type(ComplexVector), allocatable :: primitive_displacements(:)
+  integer                          :: qpoint_id
   integer                          :: degeneracy_id
   
   type(String), allocatable :: line(:)
@@ -162,16 +168,20 @@ subroutine read_ComplexMode(this,input)
     line = split_line(input(5))
     translational_mode = lgcl(line(5))
     
-    ! Read the degeneracy id of this mode.
+    ! Read the qpoint id of this mode.
     line = split_line(input(6))
+    qpoint_id = int(line(4))
+    
+    ! Read the degeneracy id of this mode.
+    line = split_line(input(7))
     degeneracy_id = int(line(4))
     
     ! Read in the displacement associated with the mode.
-    no_atoms = size(input)-7
+    no_atoms = size(input)-8
     allocate( primitive_displacements(no_atoms), &
             & stat=ialloc); call err(ialloc)
     do i=1,no_atoms
-      line = split_line(input(7+i))
+      line = split_line(input(8+i))
       primitive_displacements(i) = cmplx(line)
     enddo
     
@@ -181,6 +191,7 @@ subroutine read_ComplexMode(this,input)
                       & soft_mode,               &
                       & translational_mode,      &
                       & primitive_displacements, &
+                      & qpoint_id,               &
                       & degeneracy_id)
   end select
 end subroutine
@@ -195,17 +206,18 @@ function write_ComplexMode(this) result(output)
   
   
   select type(this); type is(ComplexMode)
-    allocate( output(7+size(this%primitive_displacements)), &
+    allocate( output(8+size(this%primitive_displacements)), &
             & stat=ialloc); call err(ialloc)
     output(1) = 'Mode ID                   : '//this%id
     output(2) = 'ID of paired mode         : '//this%paired_id
     output(3) = 'Mode frequency            : '//this%frequency
     output(4) = 'Mode is soft              : '//this%soft_mode
     output(5) = 'Mode purely translational : '//this%translational_mode
-    output(6) = 'Degeneracy id             : '//this%degeneracy_id
-    output(7) = 'Displacements in primitive cell:'
+    output(6) = 'q-point id                : '//this%qpoint_id
+    output(7) = 'Degeneracy id             : '//this%degeneracy_id
+    output(8) = 'Displacements in primitive cell:'
     do i=1,size(this%primitive_displacements)
-      output(7+i) = str(this%primitive_displacements(i))
+      output(8+i) = str(this%primitive_displacements(i))
     enddo
   end select
 end function

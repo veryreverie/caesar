@@ -4,6 +4,9 @@
 module complex_mode_displacement_submodule
   use utils_module
   
+  use structure_module
+  
+  use complex_mode_submodule
   use complex_single_mode_displacement_submodule
   implicit none
   
@@ -14,6 +17,8 @@ module complex_mode_displacement_submodule
   type, extends(Stringsable) :: ComplexModeDisplacement
     type(ComplexSingleModeDisplacement), allocatable :: displacements(:)
   contains
+    procedure, public :: qpoints => qpoints_ComplexModeDisplacement
+    
     procedure, public :: read  => read_ComplexModeDisplacement
     procedure, public :: write => write_ComplexModeDisplacement
   end type
@@ -31,6 +36,34 @@ function size_ComplexModeDisplacement(input) result(output)
   integer                                   :: output
   
   output = size(input%displacements)
+end function
+
+! Returns a list of the q-points at which the displacement is non-zero.
+function qpoints_ComplexModeDisplacement(this,complex_modes,qpoints) &
+   & result(output)
+  implicit none
+  
+  class(ComplexModeDisplacement), intent(in) :: this
+  type(ComplexMode),              intent(in) :: complex_modes(:)
+  type(QPointData),               intent(in) :: qpoints(:)
+  type(QPointData), allocatable              :: output(:)
+  
+  integer, allocatable :: qpoint_ids(:)
+  
+  integer :: i,j,ialloc
+  
+  allocate(qpoint_ids(size(this%displacements)), stat=ialloc); call err(ialloc)
+  do i=1,size(this%displacements)
+    j = first(complex_modes%id==this%displacements(i)%id)
+    qpoint_ids(i) = complex_modes(j)%id
+  enddo
+  
+  qpoint_ids = qpoint_ids(set(qpoint_ids))
+  
+  allocate(output(size(qpoint_ids)), stat=ialloc); call err(ialloc)
+  do i=1,size(output)
+    output(i) = qpoints(first(qpoints%id==qpoint_ids(i)))
+  enddo
 end function
 
 ! ----------------------------------------------------------------------
