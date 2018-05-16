@@ -93,7 +93,9 @@ function process_arguments(args,keywords_in) result(arguments)
   enddo
   
   ! Convert keywords into Dictionary.
-  arguments = Dictionary(keywords)
+  ! N.B. the Dictionary() constructor will automatically prepend common
+  !    keywords to keywords_in.
+  arguments = Dictionary(keywords_in)
   
   ! --------------------------------------------------
   ! Parse command line arguments.

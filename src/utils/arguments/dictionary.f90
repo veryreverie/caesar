@@ -5,7 +5,9 @@ module dictionary_submodule
   use precision_module
   use abstract_module
   use io_module
+  
   use keyword_submodule
+  use common_keywords_submodule
   implicit none
   
   private
@@ -143,7 +145,7 @@ function new_Dictionary_KeywordDatas(keywords) result(this)
   type(KeywordData), intent(in) :: keywords(:)
   type(Dictionary)              :: this
   
-  this%keywords = keywords
+  this%keywords = [common_keywords(), keywords]
 end function
 
 ! ----------------------------------------------------------------------

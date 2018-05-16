@@ -48,27 +48,40 @@ def main():
       else:
         species.append(line[0])
   
+  # Read complex_modes.dat, and split it into modes.
   modes = []
-  for filename in sorted(os.listdir()):
-    if filename[:13]=='complex_mode_':
-      mode = int(filename[13:-4])
-      contents = [line.rstrip('\n').split() for line in open(filename)]
-      reading_displacements = False
-      for line in contents:
-        if len(line)>=2 and line[1]=='frequency':
-          frequency = float(line[3])
-          modes.append({ 'mode':mode,
-                         'frequency':frequency,
-                         'displacements':[]})
-        elif len(line)>=1 and line[0]=='Degeneracy':
-          modes[-1]['degeneracy'] = int(line[3])
-        elif len(line)>=1 and line[0]=='Displacements':
-          reading_displacements = not reading_displacements
-        elif reading_displacements:
-          modes[-1]['displacements'].append([])
-          for displacement in line:
-            modes[-1]['displacements'][-1].append(dblecomplex(displacement))
+  filename =='complex_modes.dat')
+  contents = [line.rstrip('\n').split() for line in open(filename)]
+  modes_contents = [[]]
+  for line in contents:
+    if len(line)==0:
+      if len(modes_contents[-1])!=0:
+        modes_contents.append([])
+    else:
+      modes_contents[-1].append(line)
   
+  # Parse each mode.
+  modes = []
+  for mode_contents in modes_contents:
+    mode = int(filename[13:-4])
+    contents = [line.rstrip('\n').split() for line in open(filename)]
+    reading_displacements = False
+    for line in mode_contents:
+      if len(line)>=2 and line[1]=='frequency':
+        frequency = float(line[3])
+        modes.append({ 'mode':mode,
+                       'frequency':frequency,
+                       'displacements':[]})
+      elif len(line)>=1 and line[0]=='Degeneracy':
+        modes[-1]['degeneracy'] = int(line[3])
+      elif len(line)>=1 and line[0]=='Displacements':
+        reading_displacements = not reading_displacements
+      elif reading_displacements:
+        modes[-1]['displacements'].append([])
+        for displacement in line:
+          modes[-1]['displacements'][-1].append(dblecomplex(displacement))
+  
+  # Generate plot.
   no_atoms = len(modes[0]['displacements'])
   
   fig, axes_numbered = plt.subplots(4, len(modes))
