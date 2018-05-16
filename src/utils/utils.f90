@@ -14,5 +14,6 @@ module utils_module
   use abstract_module
   use arguments_module
   use algebra_module
+  use random_module
   implicit none
 end module

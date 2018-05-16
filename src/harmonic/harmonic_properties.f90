@@ -18,7 +18,7 @@ contains
 ! ----------------------------------------------------------------------
 subroutine generate_dos(supercell,min_images,force_constants,       &
    & thermal_energies,min_frequency,no_dos_samples,energy_filename, &
-   & dos_filename,logfile)
+   & dos_filename,logfile,random_generator)
   implicit none
   
   type(StructureData),  intent(in)    :: supercell
@@ -30,6 +30,7 @@ subroutine generate_dos(supercell,min_images,force_constants,       &
   type(String),         intent(in)    :: energy_filename
   type(String),         intent(in)    :: dos_filename
   type(OFile),          intent(inout) :: logfile
+  type(RandomReal),     intent(in)    :: random_generator
   
   ! Calculation parameter.
   integer  :: no_bins
@@ -53,7 +54,7 @@ subroutine generate_dos(supercell,min_images,force_constants,       &
   real(dp), allocatable :: entropy(:)
   
   ! Working variables.
-  real(dp)                                  :: qpoint(3)
+  type(RealVector)                          :: qpoint
   type(DynamicalMatrix)                     :: dyn_mat
   real(dp)                                  :: frequency
   integer                                   :: no_frequencies_ignored
@@ -73,16 +74,13 @@ subroutine generate_dos(supercell,min_images,force_constants,       &
   print_every   = no_dos_samples/10
   safety_margin = 0.15_dp
   
-  ! Initialise the random number generator
-  call random_seed()
-  
   ! Establish (approximate) maximum and minimum frequencies and hence
   !    choose the bin width.
   max_freq = 0.0_dp
   min_freq = 0.0_dp
   do i=1,no_prelims
-    call random_number(qpoint)
-    dyn_mat = DynamicalMatrix( vec(qpoint),     &
+    qpoint = random_generator%random_numbers(3)
+    dyn_mat = DynamicalMatrix( qpoint,          &
                              & supercell,       &
                              & force_constants, &
                              & min_images)
@@ -120,8 +118,8 @@ subroutine generate_dos(supercell,min_images,force_constants,       &
   entropy = 0.0_dp
   no_frequencies_ignored = 0
   do i=1,no_dos_samples
-    call random_number(qpoint)
-    dyn_mat = DynamicalMatrix( vec(qpoint),     &
+    qpoint = random_generator%random_numbers(3)
+    dyn_mat = DynamicalMatrix( qpoint,          &
                              & supercell,       &
                              & force_constants, &
                              & min_images)

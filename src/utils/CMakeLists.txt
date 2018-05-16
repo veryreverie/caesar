@@ -18,11 +18,14 @@ target_link_libraries(utils abstract)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/io io/)
 target_link_libraries(utils io)
 
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/arguments arguments/)
-target_link_libraries(utils arguments)
-
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/algebra algebra/)
 target_link_libraries(utils algebra)
+
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/random random/)
+target_link_libraries(utils random)
+
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/arguments arguments/)
+target_link_libraries(utils arguments)
 
 # Link to LAPACK.
 find_package( LAPACK REQUIRED )

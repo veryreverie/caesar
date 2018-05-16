@@ -8,6 +8,7 @@ module process_arguments_submodule
   
   use dictionary_submodule
   use keyword_submodule
+  use common_keywords_submodule
   implicit none
   
   private
@@ -25,7 +26,6 @@ function process_arguments(args,keywords_in) result(arguments)
   type(KeywordData), intent(in) :: keywords_in(:)
   type(Dictionary)              :: arguments
   
-  type(KeywordData), allocatable :: universal_keywords(:)
   type(KeywordData), allocatable :: keywords(:)
   
   ! Flags.
@@ -49,12 +49,8 @@ function process_arguments(args,keywords_in) result(arguments)
   ! Construct empty dictionary from keywords.
   ! --------------------------------------------------
   
-  ! Concatenate input keywords with universal keywords ('help' etc.)
-  universal_keywords = make_universal_keywords()
-  allocate( keywords(size(keywords_in)+size(universal_keywords)), &
-          & stat=ialloc); call err(ialloc)
-  keywords(1:size(universal_keywords)) = universal_keywords
-  keywords(size(universal_keywords)+1:) = keywords_in
+  ! Concatenate input keywords with common keywords ('help' etc.)
+  keywords = [common_keywords(), keywords_in]
   
   ! Check that keywords with default_keyword reference extant keywords.
   do_i : do i=1,size(keywords)

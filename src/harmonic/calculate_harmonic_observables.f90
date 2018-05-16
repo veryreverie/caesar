@@ -81,6 +81,7 @@ subroutine calculate_harmonic_observables(arguments)
   
   ! Inputs.
   type(String)                  :: wd
+  type(RandomReal)              :: random_generator
   real(dp)                      :: min_temperature
   real(dp)                      :: max_temperature
   integer                       :: no_temperature_steps
@@ -122,6 +123,7 @@ subroutine calculate_harmonic_observables(arguments)
   ! Read in arguments from user.
   ! --------------------------------------------------
   wd = arguments%value('working_directory')
+  random_generator = RandomReal(int(arguments%value('random_seed')))
   min_temperature = dble(arguments%value('min_temperature'))
   max_temperature = dble(arguments%value('max_temperature'))
   no_temperature_steps = int(arguments%value('no_temperature_steps'))
@@ -243,6 +245,7 @@ subroutine calculate_harmonic_observables(arguments)
                    & no_dos_samples,                      &
                    & wd//'/thermodynamic_variables.dat',  &
                    & wd//'/phonon_density_of_states.dat', &
-                   & logfile)
+                   & logfile,                             &
+                   & random_generator)
 end subroutine
 end module
