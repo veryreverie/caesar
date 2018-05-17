@@ -138,7 +138,7 @@ function read_input_file_castep(filename) result(output)
   endif
   
   ! Parse atomic positions.
-  conversion = ANGSTROM_PER_BOHR
+  conversion = 1/ANGSTROM_PER_BOHR
   j=0
   allocate( species(size(cell_file%positions_block)-2),   &
           & positions(size(cell_file%positions_block)-2), &

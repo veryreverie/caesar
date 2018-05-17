@@ -40,7 +40,7 @@ subroutine help_default(caesar_modes)
                  & '[--options]')
   call print_line('')
   call print_line('')
-  call print_line('Accepted Flags:')
+  call print_line('Accepted arguments to all modes:')
   call print_line('')
   call print_line( colour('-h','white')//' [keyword] | '// &
                  & colour('--help','white')//' [keyword]',   &
