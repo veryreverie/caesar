@@ -50,7 +50,7 @@ def main():
   
   # Read complex_modes.dat, and split it into modes.
   modes = []
-  filename =='complex_modes.dat')
+  filename = 'complex_modes.dat'
   contents = [line.rstrip('\n').split() for line in open(filename)]
   modes_contents = [[]]
   for line in contents:
@@ -63,14 +63,12 @@ def main():
   # Parse each mode.
   modes = []
   for mode_contents in modes_contents:
-    mode = int(filename[13:-4])
     contents = [line.rstrip('\n').split() for line in open(filename)]
     reading_displacements = False
     for line in mode_contents:
       if len(line)>=2 and line[1]=='frequency':
         frequency = float(line[3])
-        modes.append({ 'mode':mode,
-                       'frequency':frequency,
+        modes.append({ 'frequency':frequency,
                        'displacements':[]})
       elif len(line)>=1 and line[0]=='Degeneracy':
         modes[-1]['degeneracy'] = int(line[3])

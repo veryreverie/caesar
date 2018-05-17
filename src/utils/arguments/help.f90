@@ -95,12 +95,20 @@ subroutine help_default(caesar_modes)
                  & indent=4)
   call print_line('')
   call print_line( colour('-o','white')//' filename | '// &
-                 & colour('--output_file','white')//' filenamename', &
+                 & colour('--output_file','white')//' filename', &
                  & indent=2)
   call print_line( 'Specifies a file to which all terminal output will be &
                  &written. This also disables terminal formatting, so should &
                  &be favoured over piping to file. If unset, terminal output &
                  &will go to the terminal.', &
+                 & indent=4)
+  call print_line('')
+  call print_line( colour('--random_seed','white')//' seed', &
+                 & indent=2)
+  call print_line( 'Specifies the seed which will be used to initialise any &
+                 &random number generation, allowing computations to be &
+                 &repeated exactly. If unset, the seed will be set to the &
+                 &current time in milliseconds.', &
                  & indent=4)
   call print_line('')
   call print_line('')
