@@ -113,7 +113,7 @@ def main():
     # Split the dispersion into >0 and <0 segments, and plot them with
     #    different colours.
     for x,y in zip(dispersion['path_length'],band):
-      if len(ys)==0 or ys[-1]*y>0:
+      if len(ys)==0 or ys[-1]*y>0 or y==0:
         # The line does not cross y=0, continue plotting.
         xs.append(x)
         ys.append(y)
