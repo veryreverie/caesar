@@ -123,7 +123,11 @@ subroutine calculate_harmonic_observables(arguments)
   ! Read in arguments from user.
   ! --------------------------------------------------
   wd = arguments%value('working_directory')
-  random_generator = RandomReal(int(arguments%value('random_seed')))
+  if (arguments%is_set('random_seed')) then
+    random_generator = RandomReal(int(arguments%value('random_seed')))
+  else
+    random_generator = RandomReal()
+  endif
   min_temperature = dble(arguments%value('min_temperature'))
   max_temperature = dble(arguments%value('max_temperature'))
   no_temperature_steps = int(arguments%value('no_temperature_steps'))

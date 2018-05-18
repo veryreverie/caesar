@@ -32,6 +32,7 @@ program caesar
   
   ! Use misc modules.
   use hartree_to_eV_module
+  use version_module
   implicit none
   
   ! Command line arguments.
@@ -125,6 +126,11 @@ program caesar
     call print_line(colour('caesar [mode] -h [keyword]','white')//'.')
     stop
   
+  ! Version calls.
+  elseif (mode=='--version') then
+    call print_version()
+    stop
+  
   ! Erroneous inputs.
   elseif (slice(mode,1,1) == '-') then
     call print_line(colour('Error: The first argument should be the mode, &
@@ -157,6 +163,14 @@ program caesar
   ! --------------------------------------------------
   if (arguments%is_set('help')) then
     call help(arguments%value('help'), mode, caesar_modes)
+    stop
+  endif
+  
+  ! --------------------------------------------------
+  ! Print version and quit, if requested.
+  ! --------------------------------------------------
+  if (arguments%is_set('version')) then
+    call print_version()
     stop
   endif
   

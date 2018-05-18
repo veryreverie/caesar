@@ -30,7 +30,7 @@ endif()
 
 # Add the main caesar executable as bin/caesar
 project(caesar)
-add_executable(caesar caesar.f90)
+add_executable(caesar version.f90 caesar.f90)
 
 set_target_properties(caesar PROPERTIES
   RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")

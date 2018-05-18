@@ -111,6 +111,11 @@ subroutine help_default(caesar_modes)
                  &current time in milliseconds.', &
                  & indent=4)
   call print_line('')
+  call print_line( colour('--version','white'), &
+                 & indent=2)
+  call print_line( 'Causes Caesar to display version information and quit.', &
+                 & indent=4)
+  call print_line('')
   call print_line('')
   call print_line('Accepted '//colour('modes','cyan')//':')
   

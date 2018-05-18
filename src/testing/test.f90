@@ -62,7 +62,11 @@ subroutine test(arguments)
     call print_line(random_real)
   enddo
   
-  randgen = RandomReal(int(arguments%value('random_seed')))
+  if (arguments%is_set('random_seed')) then
+    randgen = RandomReal(int(arguments%value('random_seed')))
+  else
+    randgen = RandomReal()
+  endif
   
   call print_line('')
   do i=1,5

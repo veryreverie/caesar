@@ -18,13 +18,6 @@ function common_keywords() result(output)
   
   type(KeywordData), allocatable :: output(:)
   
-  type(RandomReal) :: random_generator
-  type(String)     :: seed
-  
-  ! Initialise a random number generator to get a default value of random_seed.
-  random_generator = RandomReal()
-  seed = str(random_generator%get_seed())
-  
   output = [                                                                  &
   & KeywordData( 'interactive',                                               &
   &              'interactive specifies whether or not keywords can be &
@@ -66,6 +59,12 @@ function common_keywords() result(output)
   &initialise any random number generation, allowing computations to be &
   &repeated exactly. If unset, the seed will be set to the current time in &
   &milliseconds.',                                                            &
-  &              default_value=char(seed)) ]
+  &              is_optional=.true.),                                         &
+  & KeywordData( 'version',                                                   &
+  &              'version causes Caesar to print its version number and &
+  &quit.',                                                                    &
+  &              is_optional=.true.,                                          &
+  &              allowed_in_file=.false.,                                     &
+  &              can_be_interactive=.false.) ]
 end function
 end module
