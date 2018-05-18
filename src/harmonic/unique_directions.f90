@@ -3,15 +3,20 @@
 !    and thus which atoms should be displaced in which directions 
 !    in order to construct the matrix of force constants.
 ! ======================================================================
-! The symmetry operations to consider are nicely outlined here:
+! The symmetry operations to consider are outlined here:
 ! http://www.homepages.ucl.ac.uk/~ucfbdxa/phon/node4.html
 module unique_directions_module
   use common_module
   implicit none
   
+  private
+  
+  public :: UniqueDirection
+  public :: calculate_unique_directions
+  
   ! A direction in which an atom needs to be perturbed in order to map out
   !    the harmonic Born-Oppenheimer surface.
-  type UniqueDirection
+  type, extends(Stringsable) :: UniqueDirection
     ! Atom id.
     integer :: atom_id
     
@@ -20,17 +25,20 @@ module unique_directions_module
     
     ! The vector through which the atom is displaced.
     type(RealVector) :: displacement
+  contains
+    procedure, public :: read  => read_UniqueDirection
+    procedure, public :: write => write_UniqueDirection
   end type
   
   interface UniqueDirection
-    module procedure new_UniqueDirection_contents
+    module procedure new_UniqueDirection
   end interface
 contains
 
 ! ----------------------------------------------------------------------
 ! Constructor
 ! ----------------------------------------------------------------------
-function new_UniqueDirection_contents(atom_id,direction,displacement) &
+function new_UniqueDirection(atom_id,direction,displacement) &
    & result(output)
   implicit none
   
@@ -43,60 +51,6 @@ function new_UniqueDirection_contents(atom_id,direction,displacement) &
   output%direction    = direction
   output%displacement = displacement
 end function
-
-! ----------------------------------------------------------------------
-! Reads an array of UniqueDirection from a file.
-! ----------------------------------------------------------------------
-function read_unique_directions_file(filename) result(output)
-  implicit none
-  
-  type(String), intent(in)           :: filename
-  type(UniqueDirection), allocatable :: output(:)
-  
-  type(IFile) :: unique_directions_file
-  
-  integer :: no_directions
-  
-  type(String), allocatable :: line(:)
-  integer                   :: i,ialloc
-  
-  unique_directions_file = IFile(filename)
-  
-  no_directions = size(unique_directions_file)-1
-  
-  allocate(output(no_directions), stat=ialloc); call err(ialloc)
-  
-  do i=1,no_directions
-    line = split_line(unique_directions_file%line(i+1))
-    output(i)%atom_id = int(line(2))
-    output(i)%direction = line(4)
-    output(i)%displacement = dble(line(6:8))
-  enddo
-end function
-
-! ----------------------------------------------------------------------
-! Writes a UniqueDirections to a file.
-! ----------------------------------------------------------------------
-subroutine write_unique_directions_file(unique_directions,filename)
-  implicit none
-  
-  type(UniqueDirection), intent(in) :: unique_directions(:)
-  type(String),          intent(in) :: filename
-  
-  type(OFile) :: unique_directions_file
-  
-  integer :: i
-  
-  unique_directions_file = OFile(filename)
-  call unique_directions_file%print_line('Atoms to be perturbed in order to &
-     &map out the harmonic Born-Oppenheimer surface:')
-  do i=1,size(unique_directions)
-    call unique_directions_file%print_line(                &
-       & 'atom: '//unique_directions(i)%atom_id         // &
-       & ' direction: '//unique_directions(i)%direction // &
-       & ' displacement: '//unique_directions(i)%displacement)
-  enddo
-end subroutine
 
 ! ----------------------------------------------------------------------
 ! Works out which atoms need to be perturbed in which directions
@@ -358,4 +312,55 @@ subroutine check_unique_directions(unique_directions,structure, &
     endif
   enddo
 end subroutine
+
+! ----------------------------------------------------------------------
+! I/O.
+! ----------------------------------------------------------------------
+subroutine read_UniqueDirection(this,input)
+  implicit none
+  
+  class(UniqueDirection), intent(out) :: this
+  type(String),           intent(in)  :: input(:)
+  
+  type(String), allocatable :: line(:)
+  
+  integer          :: atom_id
+  type(String)     :: direction
+  type(RealVector) :: displacement
+  
+  select type(this); type is(UniqueDirection)
+    if (size(input)/=3) then
+      call print_line(ERROR//': Unable to parse UniqueDirection from strings:')
+      call print_lines(input)
+      call err()
+    endif
+    
+    ! Read in atom ID.
+    line = split_line(input(1))
+    atom_id = int(line(3))
+    
+    ! Read in displacement direction.
+    line = split_line(input(2))
+    direction = line(3)
+    
+    ! Read in displacement.
+    line = split_line(input(3))
+    displacement = dble(line(3:5))
+    
+    this = UniqueDirection(atom_id,direction,displacement)
+  end select
+end subroutine
+
+function write_UniqueDirection(this) result(output)
+  implicit none
+  
+  class(UniqueDirection), intent(in) :: this
+  type(String), allocatable          :: output(:)
+  
+  select type(this); type is(UniqueDirection)
+    output = [ 'Atom         : '//this%atom_id,     &
+             & 'Direction    : '//this%direction,   &
+             & 'Displacement : '//this%displacement ]
+  end select
+end function
 end module

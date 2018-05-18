@@ -57,7 +57,6 @@ subroutine run_harmonic(arguments)
   
   ! Previous user inputs.
   type(Dictionary) :: setup_harmonic_arguments
-  type(IFile)      :: no_supercells_file
   integer          :: no_supercells
   type(String)     :: file_type
   type(String)     :: seedname
@@ -77,10 +76,15 @@ subroutine run_harmonic(arguments)
   type(String)                       :: direction
   type(String)                       :: atom_string
   
+  ! Files and Directories.
+  type(IFile)                    :: no_supercells_file
+  type(IFile)                    :: unique_directions_file
+  type(StringArray), allocatable :: file_sections(:)
+  type(String)                   :: dir
+  type(String)                   :: sdir
+  
   ! Temporary variables.
-  integer      :: i,j
-  type(String) :: dir
-  type(String) :: sdir
+  integer      :: i,j,ialloc
   integer      :: result_code
   
   ! --------------------------------------------------
@@ -145,8 +149,13 @@ subroutine run_harmonic(arguments)
   do i=supercells_to_run(1),supercells_to_run(2)
     sdir = wd//'/Supercell_'//left_pad(i,str(no_supercells))
     
-    unique_directions = read_unique_directions_file( &
-       & sdir//'/unique_directions.dat')
+    unique_directions_file = IFile(sdir//'/unique_directions.dat')
+    file_sections = split_into_sections(unique_directions_file%lines())
+    allocate( unique_directions(size(file_sections)), &
+            & stat=ialloc); call err(ialloc)
+    do j=1,size(unique_directions)
+      unique_directions(j) = file_sections(j)
+    enddo
     
     do j=1,size(unique_directions)
       atom = unique_directions(j)%atom_id
@@ -160,6 +169,8 @@ subroutine run_harmonic(arguments)
          & file_type//' '//dir//' '//no_cores//' '//seedname)
       call print_line('Result code: '//result_code)
     enddo
+    
+    deallocate(unique_directions, stat=ialloc); call err(ialloc)
   enddo
 end subroutine
 end module

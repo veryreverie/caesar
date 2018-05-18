@@ -13,6 +13,7 @@ module complex_mode_displacement_submodule
   private
   
   public :: ComplexModeDisplacement
+  public :: size
   
   type, extends(Stringsable) :: ComplexModeDisplacement
     type(ComplexSingleModeDisplacement), allocatable :: displacements(:)

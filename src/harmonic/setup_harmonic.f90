@@ -98,6 +98,7 @@ subroutine setup_harmonic(arguments)
   type(String) :: input_filename
   type(OFile)  :: no_supercells_file
   type(OFile)  :: qpoints_file
+  type(OFile)  :: unique_directions_file
   
   ! Temporary variables.
   integer :: i,j
@@ -169,8 +170,9 @@ subroutine setup_harmonic(arguments)
     ! Calculate which forces need calculating.
     unique_directions = calculate_unique_directions( supercell, &
                                                    & harmonic_displacement)
-    call write_unique_directions_file( unique_directions, &
-                                     & sdir//'/unique_directions.dat')
+    unique_directions_file = OFile(sdir//'/unique_directions.dat')
+    call unique_directions_file%print_lines( unique_directions, &
+                                           & separating_line='')
     
     ! --------------------------------------------------
     ! Write energy and force calculation input files.

@@ -121,11 +121,16 @@ subroutine setup_anharmonic(arguments)
   real(dp)                          :: maximum_weighted_displacement
   type(SamplingPoints), allocatable :: sampling_points(:)
   
+  ! Supercell data.
+  type(IntMatrix)     :: supercell_matrix
+  type(StructureData) :: supercell
+  
   ! Directories and files.
   type(String)              :: qpoint_dir
   type(String)              :: max_subspace_id
   type(String), allocatable :: coupling_strings(:)
   type(String)              :: coupling_dir
+  type(String)              :: sampling_dir
   
   ! Input files.
   type(IFile)                    :: harmonic_qpoints_file
@@ -321,6 +326,21 @@ subroutine setup_anharmonic(arguments)
     ! Write sampling points to file.
     sampling_points_file = OFile(coupling_dir//'/sampling_points.dat')
     call sampling_points_file%print_lines(sampling_points(i))
+    
+    ! Generate supercells for each sampling point.
+    do j=1,size(sampling_points(i))
+      supercell_matrix = construct_supercell_matrix(                 &
+         & sampling_points(i)%points(j)%qpoints(real_modes,qpoints), &
+         & structure )
+      supercell = construct_supercell( structure,          &
+                                     & supercell_matrix,   &
+                                     & symmetry_precision, &
+                                     & calculate_symmetry = .false.)
+      sampling_dir = coupling_dir//'/sampling_point_'// &
+                   & left_pad(j,str(size(sampling_points(i))))
+      call mkdir(sampling_dir)
+      call write_structure_file(supercell, sampling_dir//'/structure.dat')
+    enddo
   enddo
   
   ! Write out sampling points.

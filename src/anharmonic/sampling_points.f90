@@ -14,6 +14,7 @@ module sampling_points_module
   
   public :: SamplingPoints
   public :: generate_sampling_points
+  public :: size
   
   type, extends(Stringsable) :: SamplingPoints
     type(RealModeDisplacement), allocatable :: points(:)

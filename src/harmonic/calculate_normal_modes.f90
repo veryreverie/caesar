@@ -112,6 +112,7 @@ subroutine calculate_normal_modes(arguments)
   ! Files.
   type(IFile)                    :: no_supercells_file
   type(IFile)                    :: qpoint_file
+  type(IFile)                    :: unique_directions_file
   type(OFile)                    :: dynamical_matrix_file
   type(OFile)                    :: complex_modes_file
   type(OFile)                    :: force_logfile
@@ -192,8 +193,13 @@ subroutine calculate_normal_modes(arguments)
                                        & symmetry_precision)
     
     ! Read in symmetry group and unique atoms.
-    unique_directions = read_unique_directions_file( &
-       & sdir//'/unique_directions.dat')
+    unique_directions_file = IFile(sdir//'/unique_directions.dat')
+    file_sections = split_into_sections(unique_directions_file%lines())
+    allocate( unique_directions(size(file_sections)), &
+            & stat=ialloc); call err(ialloc)
+    do j=1,size(unique_directions)
+      unique_directions(j) = file_sections(j)
+    enddo
     
     ! Calculate force constants.
     force_constants(i) = ForceConstants( supercells(i),            &
@@ -206,6 +212,7 @@ subroutine calculate_normal_modes(arguments)
                                        & symmetry_precision,       &
                                        & calculation_type,         &
                                        & force_logfile)
+    deallocate(unique_directions, stat=ialloc); call err(ialloc)
   enddo
   
   ! --------------------------------------------------

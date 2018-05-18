@@ -13,6 +13,7 @@ module real_mode_displacement_submodule
   private
   
   public :: RealModeDisplacement
+  public :: size
   
   type, extends(Stringsable) :: RealModeDisplacement
     type(RealSingleModeDisplacement), allocatable :: displacements(:)
@@ -54,7 +55,7 @@ function qpoints_RealModeDisplacement(this,real_modes,qpoints) result(output)
   allocate(qpoint_ids(size(this%displacements)), stat=ialloc); call err(ialloc)
   do i=1,size(this%displacements)
     j = first(real_modes%id==this%displacements(i)%id)
-    qpoint_ids(i) = real_modes(j)%id
+    qpoint_ids(i) = real_modes(j)%qpoint_id
   enddo
   
   qpoint_ids = qpoint_ids(set(qpoint_ids))
