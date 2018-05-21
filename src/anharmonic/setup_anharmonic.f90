@@ -14,6 +14,7 @@ module setup_anharmonic_module
   use basis_function_module
   use basis_functions_module
   use sampling_points_module
+  use vscf_rvector_module
   use vscf_rvectors_module
   implicit none
   
@@ -138,6 +139,7 @@ subroutine setup_anharmonic(arguments)
   type(String), allocatable :: coupling_strings(:)
   type(String)              :: coupling_dir
   type(String)              :: sampling_dir
+  type(String)              :: vscf_rvector_dir
   
   ! Input files.
   type(IFile)                    :: harmonic_qpoints_file
@@ -355,6 +357,14 @@ subroutine setup_anharmonic(arguments)
                                              & qpoints)
       vscf_rvectors_file = OFile(sampling_dir//'/vscf_rvectors.dat')
       call vscf_rvectors_file%print_lines(vscf_rvectors,separating_line='')
+      
+      ! Loop over VSCF R-vector permutations.
+      do k=1,size(vscf_rvectors)
+        vscf_rvector_dir =  &
+           & sampling_dir// &
+           & '/vscf_rvector_'//left_pad(k,str(size(vscf_rvectors)))
+        call mkdir(vscf_rvector_dir)
+      enddo
     enddo
   enddo
   

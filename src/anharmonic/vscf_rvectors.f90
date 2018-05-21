@@ -1,10 +1,12 @@
 ! ======================================================================
-! The R-vectors at which the displacements in a particular subspace must be
-!    sampled in order to construct the VSCF Hamiltonian.
+! As vscf_rvector_module, but produces a list of R-vector combinations
+!    rather than the R-vectors for each subspace individually.
 ! ======================================================================
 module vscf_rvectors_module
   use common_module
+  
   use sampling_points_module
+  use vscf_rvector_module
   implicit none
   
   private
@@ -14,8 +16,7 @@ module vscf_rvectors_module
   public :: construct_vscf_rvectors
   
   type, extends(Stringsable) :: VscfRvectors
-    integer                      :: subspace_id
-    type(IntVector), allocatable :: rvectors(:)
+    type(VscfRvector), allocatable :: vscf_rvectors(:)
   contains
     procedure, public :: read  => read_VscfRvectors
     procedure, public :: write => write_VscfRvectors
@@ -28,20 +29,40 @@ module vscf_rvectors_module
   interface size
     module procedure size_VscfRvectors
   end interface
+  
+  interface operator(//)
+    module procedure concatenate_VscfRvectors_VscfRvector
+  end interface
+  
+  ! Helper type.
+  type :: RvectorArray
+    integer                      :: subspace_id
+    type(IntVector), allocatable :: rvectors(:)
+  end type
+  
+  interface RvectorArray
+    module procedure new_RvectorArray
+  end interface
+  
+  interface size
+    module procedure size_RvectorArray
+  end interface
 contains
 
 ! ----------------------------------------------------------------------
-! Basic functionality: Constructor and size() function.
+! Constructor and size() function for VscfRvectors and RvectorArray.
 ! ----------------------------------------------------------------------
-function new_VscfRvectors(subspace_id,rvectors) result(this)
+function new_VscfRvectors(vscf_rvectors) result(this)
   implicit none
   
-  integer,         intent(in) :: subspace_id
-  type(IntVector), intent(in) :: rvectors(:)
-  type(VscfRvectors)          :: this
+  type(VscfRvector), intent(in), optional :: vscf_rvectors(:)
+  type(VscfRvectors)                      :: this
   
-  this%subspace_id = subspace_id
-  this%rvectors    = rvectors
+  if (present(vscf_rvectors)) then
+    this%vscf_rvectors = vscf_rvectors
+  else
+    this%vscf_rvectors = [VscfRvector::]
+  endif
 end function
 
 function size_VscfRvectors(this) result(output)
@@ -50,14 +71,49 @@ function size_VscfRvectors(this) result(output)
   type(VscfRvectors), intent(in) :: this
   integer                        :: output
   
+  output = size(this%vscf_rvectors)
+end function
+
+function new_RvectorArray(subspace_id,rvectors) result(this)
+  implicit none
+  
+  integer,         intent(in) :: subspace_id
+  type(IntVector), intent(in) :: rvectors(:)
+  type(RvectorArray)          :: this
+  
+  this%subspace_id = subspace_id
+  this%rvectors    = rvectors
+end function
+
+function size_RvectorArray(this) result(output)
+  implicit none
+  
+  type(RvectorArray), intent(in) :: this
+  integer                        :: output
+  
   output = size(this%rvectors)
 end function
 
 ! ----------------------------------------------------------------------
-! Construct a set of R-vectors for a given sampling point.
+! Concatenation of a VscfRvector to a VscfRvectors.
 ! ----------------------------------------------------------------------
-function construct_vscf_rvectors(sampling_point,supercell,real_modes,qpoints) &
-   & result(output)
+function concatenate_VscfRvectors_VscfRvector(this,that) result(output)
+  implicit none
+  
+  type(VscfRvectors), intent(in) :: this
+  type(VscfRvector),  intent(in) :: that
+  type(VscfRvectors)             :: output
+  
+  output = VscfRvectors([this%vscf_rvectors, that])
+end function
+
+! ----------------------------------------------------------------------
+! Construct VSCF R-vectors.
+! ----------------------------------------------------------------------
+! Constructs the list of all R-vectors for each subspace,
+!    and then calls a recursive helper function to generate all permutations.
+function construct_vscf_rvectors(sampling_point,supercell,real_modes, &
+   & qpoints) result(output)
   implicit none
   
   type(RealModeDisplacement), intent(in) :: sampling_point
@@ -65,6 +121,27 @@ function construct_vscf_rvectors(sampling_point,supercell,real_modes,qpoints) &
   type(RealMode),             intent(in) :: real_modes(:)
   type(QpointData),           intent(in) :: qpoints(:)
   type(VscfRvectors), allocatable        :: output(:)
+  
+  type(RvectorArray), allocatable :: subspace_rvectors(:)
+  
+  subspace_rvectors = construct_rvector_arrays( sampling_point, &
+                                              & supercell,      &
+                                              & real_modes,     &
+                                              & qpoints)
+  output = list_rvector_permutations(subspace_rvectors)
+end function
+
+! First helper function for construct_vscf_rvectors.
+! Constructs the R-vectors at which each subspace needs to be sampled.
+function construct_rvector_arrays(sampling_point,supercell,real_modes, &
+   & qpoints) result(output)
+  implicit none
+  
+  type(RealModeDisplacement), intent(in) :: sampling_point
+  type(StructureData),        intent(in) :: supercell
+  type(RealMode),             intent(in) :: real_modes(:)
+  type(QpointData),           intent(in) :: qpoints(:)
+  type(RvectorArray), allocatable        :: output(:)
   
   ! Modes and q-points.
   type(RealMode),   allocatable :: modes(:)
@@ -131,7 +208,7 @@ function construct_vscf_rvectors(sampling_point,supercell,real_modes,qpoints) &
       enddo
     enddo do_j
     
-    output(i) = VscfRvectors(subspace_ids(i),rvectors(:no_rvectors))
+    output(i) = RvectorArray(subspace_ids(i),rvectors(:no_rvectors))
     deallocate( rvectors, &
               & q_dot_r,  &
               & stat=ialloc); call err(ialloc)
@@ -148,6 +225,45 @@ function construct_vscf_rvectors(sampling_point,supercell,real_modes,qpoints) &
   output(minloc(rvector_counts,1))%rvectors = [zeroes(3)]
 end function
 
+! Second helper function for construct_vscf_rvectors.
+! Recursively constructs the permutations of R-vectors across subspaces.
+! N.B. rvectors_in should only be included when this function calls itself.
+recursive function list_rvector_permutations(rvector_arrays,vscf_rvectors_in) &
+   & result(output)
+  implicit none
+  
+  type(RvectorArray), intent(in)           :: rvector_arrays(:)
+  type(VscfRvectors), intent(in), optional :: vscf_rvectors_in
+  type(VscfRvectors), allocatable          :: output(:)
+  
+  type(VscfRvectors) :: vscf_rvectors
+  type(VscfRvector)  :: vscf_rvector
+  
+  integer :: i,ialloc
+  
+  if (present(vscf_rvectors_in)) then
+    vscf_rvectors = vscf_rvectors_in
+  else
+    vscf_rvectors = VscfRvectors()
+  endif
+  
+  output = [VscfRvectors::]
+  
+  do i=1,size(rvector_arrays(1))
+    vscf_rvector = VscfRvector( rvector_arrays(1)%subspace_id, &
+                              & rvector_arrays(1)%rvectors(i))
+    if (size(rvector_arrays)==1) then
+      output = [output, vscf_rvectors//vscf_rvector]
+    else
+      output = [                                                         &
+             &   output,                                                 &
+             &   list_rvector_permutations( rvector_arrays(2:),          &
+             &                              vscf_rvectors//vscf_rvector) &
+             & ]
+    endif
+  enddo
+end function
+
 ! ----------------------------------------------------------------------
 ! I/O.
 ! ----------------------------------------------------------------------
@@ -157,25 +273,13 @@ subroutine read_VscfRvectors(this,input)
   class(VscfRvectors), intent(out) :: this
   type(String),        intent(in)  :: input(:)
   
-  integer                      :: subspace_id
-  type(IntVector), allocatable :: rvectors(:)
-  
-  type(String), allocatable :: line(:)
-  
   integer :: i,ialloc
   
   select type(this); type is(VscfRvectors)
-    ! Read in subspace id.
-    line = split_line(input(1))
-    subspace_id = int(line(4))
-    
-    ! Read in R-vectors.
-    allocate(rvectors(size(input)-2), stat=ialloc); call err(ialloc)
-    do i=1,size(rvectors)
-      rvectors(i) = input(i+2)
+    allocate(this%vscf_rvectors(size(input)), stat=ialloc); call err(ialloc)
+    do i=1,size(this)
+      this%vscf_rvectors(i) = input(i)
     enddo
-    
-    this = VscfRvectors(subspace_id,rvectors)
   end select
 end subroutine
 
@@ -186,9 +290,7 @@ function write_VscfRvectors(this) result(output)
   type(String), allocatable       :: output(:)
   
   select type(this); type is(VscfRvectors)
-    output = [ 'Subspace ID : '//this%subspace_id, &
-             & str('R-vectors :'),                 &
-             & str(this%rvectors)                             ]
+    output = str(this%vscf_rvectors)
   end select
 end function
 end module
