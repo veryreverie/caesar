@@ -109,11 +109,17 @@ subroutine calculate_harmonic_observables(arguments)
   ! Dynamical matrix for checking.
   type(DynamicalMatrix) :: dyn_mat
   
-  ! Files.
+  ! Files and directories.
   type(IFile)                    :: qpoints_file
   type(IFile)                    :: dynamical_matrix_file
-  type(OFile)                    :: logfile
   type(StringArray), allocatable :: file_sections(:)
+  type(String)                   :: output_dir
+  type(OFile)                    :: dispersion_file
+  type(OFile)                    :: symmetry_points_file
+  type(OFile)                    :: sampled_qpoints_file
+  type(OFile)                    :: thermodynamic_file
+  type(OFile)                    :: pdos_file
+  type(OFile)                    :: logfile
   
   ! Temporary variables.
   type(String), allocatable :: path_point(:)
@@ -207,7 +213,17 @@ subroutine calculate_harmonic_observables(arguments)
   ! Run calculations.
   ! --------------------------------------------------
   
-  logfile = OFile(wd//'/dos_and_dispersion_log.dat')
+  ! Make directory for harmonic observables.
+  output_dir = wd//'/harmonic_observables'
+  call mkdir(output_dir)
+  
+  ! Open output files.
+  logfile              = OFile(output_dir//'/harmonic_observables_log.dat')
+  dispersion_file      = OFile(output_dir//'/phonon_dispersion_curve.dat')
+  symmetry_points_file = OFile(output_dir//'/high_symmetry_points.dat')
+  sampled_qpoints_file = OFile(output_dir//'/sampled_qpoints.dat')
+  thermodynamic_file   = OFile(output_dir//'/thermodynamic_variables.dat')
+  pdos_file            = OFile(output_dir//'/phonon_density_of_states.dat')
   
   ! Construct the matrix of force constants from dynamical matrices.
   force_constants = reconstruct_force_constants( large_supercell,    &
@@ -231,25 +247,26 @@ subroutine calculate_harmonic_observables(arguments)
   
   ! Generate harmonic phonon dispersion curve by interpolating between
   !    calculated q-points using Fourier interpolation.
-  call generate_dispersion( large_supercell,                    &
-                          & min_images,                         &
-                          & force_constants,                    &
-                          & path_labels,                        &
-                          & path_qpoints,                       &
-                          & wd//'/phonon_dispersion_curve.dat', &
-                          & wd//'/high_symmetry_points.dat',    &
+  call generate_dispersion( large_supercell,      &
+                          & min_images,           &
+                          & force_constants,      &
+                          & path_labels,          &
+                          & path_qpoints,         &
+                          & dispersion_file,      &
+                          & symmetry_points_file, &
                           & logfile)
   
   ! Generate harmonic phonon density of states, interpolating as above.
-  call generate_dos( large_supercell,                     &
-                   & min_images,                          &
-                   & force_constants,                     &
-                   & thermal_energies,                    &
-                   & min_frequency,                       &
-                   & no_dos_samples,                      &
-                   & wd//'/thermodynamic_variables.dat',  &
-                   & wd//'/phonon_density_of_states.dat', &
-                   & logfile,                             &
+  call generate_dos( large_supercell,      &
+                   & min_images,           &
+                   & force_constants,      &
+                   & thermal_energies,     &
+                   & min_frequency,        &
+                   & no_dos_samples,       &
+                   & sampled_qpoints_file, &
+                   & thermodynamic_file,   &
+                   & pdos_file,            &
+                   & logfile,              &
                    & random_generator)
 end subroutine
 end module

@@ -16,9 +16,9 @@ contains
 ! Calculate the frequency density-of-states by random sampling of
 !    the Brillouin zone.
 ! ----------------------------------------------------------------------
-subroutine generate_dos(supercell,min_images,force_constants,       &
-   & thermal_energies,min_frequency,no_dos_samples,energy_filename, &
-   & dos_filename,logfile,random_generator)
+subroutine generate_dos(supercell,min_images,force_constants,            &
+   & thermal_energies,min_frequency,no_dos_samples,sampled_qpoints_file, &
+   & thermodynamic_file,pdos_file,logfile,random_generator)
   implicit none
   
   type(StructureData),  intent(in)    :: supercell
@@ -27,8 +27,9 @@ subroutine generate_dos(supercell,min_images,force_constants,       &
   real(dp),             intent(in)    :: thermal_energies(:)
   real(dp),             intent(in)    :: min_frequency
   integer,              intent(in)    :: no_dos_samples
-  type(String),         intent(in)    :: energy_filename
-  type(String),         intent(in)    :: dos_filename
+  type(OFile),          intent(inout) :: sampled_qpoints_file
+  type(OFile),          intent(inout) :: thermodynamic_file
+  type(OFile),          intent(inout) :: pdos_file
   type(OFile),          intent(inout) :: logfile
   type(RandomReal),     intent(in)    :: random_generator
   
@@ -57,12 +58,9 @@ subroutine generate_dos(supercell,min_images,force_constants,       &
   type(RealVector)                          :: qpoint
   type(DynamicalMatrix)                     :: dyn_mat
   real(dp)                                  :: frequency
+  logical                                   :: any_frequencies_ignored
   integer                                   :: no_frequencies_ignored
   type(ThermodynamicVariables), allocatable :: thermodynamics(:)
-  
-  ! files.
-  type(OFile) :: energy_file
-  type(OFile) :: dos_file
   
   ! Temporary variables.
   integer :: bin
@@ -117,6 +115,8 @@ subroutine generate_dos(supercell,min_images,force_constants,       &
   free_energy = 0.0_dp
   entropy = 0.0_dp
   no_frequencies_ignored = 0
+  call sampled_qpoints_file%print_line('q-point (x,y,z) | &
+                                       &lowest frequency ignored')
   do i=1,no_dos_samples
     qpoint = random_generator%random_numbers(3)
     dyn_mat = DynamicalMatrix( qpoint,          &
@@ -127,6 +127,7 @@ subroutine generate_dos(supercell,min_images,force_constants,       &
                       & logfile,           &
                       & check_eigenstuff=.false.)
     
+    any_frequencies_ignored = .false.
     do j=1,supercell%no_modes_prim
       frequency = dyn_mat%complex_modes(j)%frequency
       
@@ -150,6 +151,7 @@ subroutine generate_dos(supercell,min_images,force_constants,       &
       
       ! Calculate thermodynamic quantities.
       if (frequency<min_frequency) then
+        any_frequencies_ignored = .true.
         no_frequencies_ignored = no_frequencies_ignored + 1
       else
         thermodynamics = ThermodynamicVariables(thermal_energies,frequency)
@@ -158,6 +160,8 @@ subroutine generate_dos(supercell,min_images,force_constants,       &
         entropy = entropy + thermodynamics%entropy
       endif
     enddo
+    
+    call sampled_qpoints_file%print_line(qpoint//' '//any_frequencies_ignored)
     
     if (modulo(i,print_every)==0) then
       call print_line('Sampling q-points: '//i//' of '//no_dos_samples// &
@@ -175,27 +179,25 @@ subroutine generate_dos(supercell,min_images,force_constants,       &
      &having frequencies less than min_frequency, out of '// &
      & no_dos_samples*supercell%no_modes_prim//' modes sampled.')
   
-  ! Write out density of states.
-  dos_file = OFile(dos_filename)
+  ! Write out phonon density of states.
   do i=1,no_bins
-    call dos_file%print_line(                &
-       & 'Bin: '//min_freq+bin_width*(i-1)// &
-       & ' to '//min_freq+bin_width*i)
-    call dos_file%print_line( 'Bin DOS: '//freq_dos(i))
-    call dos_file%print_line( '')
+    call pdos_file%print_line(                &
+        & 'Bin: '//min_freq+bin_width*(i-1)// &
+        & ' to '//min_freq+bin_width*i)
+    call pdos_file%print_line( 'Bin DOS: '//freq_dos(i))
+    call pdos_file%print_line( '')
   enddo
   
   ! Write out thermodynamic variables.
-  energy_file = OFile(energy_filename)
-  call energy_file%print_line( 'kB * temperature (Hartree) | &
-                              &U=<E> (Hartree) | &
-                              &F=U-TS (Hartree) | &
-                              &S (dimensionless)')
+  call thermodynamic_file%print_line('kB * temperature (Hartree) | &
+                                     &U=<E> (Hartree) | &
+                                     &F=U-TS (Hartree) | &
+                                     &S (dimensionless)')
   do i=1,size(thermal_energies)
-    call energy_file%print_line( thermal_energies(i) //' '// &
-                               & energy(i)           //' '// &
-                               & free_energy(i)      //' '// &
-                               & entropy(i))
+    call thermodynamic_file%print_line( thermal_energies(i) //' '// &
+                                      & energy(i)           //' '// &
+                                      & free_energy(i)      //' '// &
+                                      & entropy(i))
   enddo
 end subroutine
 
@@ -203,8 +205,7 @@ end subroutine
 ! Generates the phonon dispersion curve.
 ! ----------------------------------------------------------------------
 subroutine generate_dispersion(large_supercell,min_images,force_constants, &
-   & path_labels,path_qpoints,dispersion_filename,                         &
-   & high_symmetry_points_filename,logfile)
+   & path_labels,path_qpoints,dispersion_file,symmetry_points_file,logfile)
   implicit none
   
   type(StructureData),  intent(in)    :: large_supercell
@@ -212,8 +213,8 @@ subroutine generate_dispersion(large_supercell,min_images,force_constants, &
   type(ForceConstants), intent(in)    :: force_constants
   type(String),         intent(in)    :: path_labels(:)
   type(RealVector),     intent(in)    :: path_qpoints(:)
-  type(String),         intent(in)    :: dispersion_filename
-  type(String),         intent(in)    :: high_symmetry_points_filename
+  type(OFile),          intent(inout) :: dispersion_file
+  type(OFile),          intent(inout) :: symmetry_points_file
   type(OFile),          intent(inout) :: logfile
   
   ! Path variables.
@@ -229,10 +230,6 @@ subroutine generate_dispersion(large_supercell,min_images,force_constants, &
   ! q-point and dynamical matrix variables.
   type(RealVector)      :: qpoint
   type(DynamicalMatrix) :: dyn_mat
-  
-  ! File units.
-  type(OFile) :: dispersion_file
-  type(OFile) :: high_symmetry_points_file
   
   ! Temporary variables.
   integer :: i,j,ialloc
@@ -268,17 +265,15 @@ subroutine generate_dispersion(large_supercell,min_images,force_constants, &
   enddo
   
   ! Write path to file.
-  high_symmetry_points_file = OFile(high_symmetry_points_filename)
   do i=1,no_vertices
-    call high_symmetry_points_file%print_line( &
+    call symmetry_points_file%print_line( &
        & 'q-point: '//path_labels(i)//' '//path_qpoints(i))
-    call high_symmetry_points_file%print_line( &
+    call symmetry_points_file%print_line( &
        & 'Fraction along path: '//fractional_distances(i))
-    call high_symmetry_points_file%print_line('')
+    call symmetry_points_file%print_line('')
   enddo
   
   ! Travel along q-space paths, calculating frequencies at each point.
-  dispersion_file = OFile(dispersion_filename)
   do i=1,no_segments
     do j=0,points_per_segment(i)-1
       qpoint = ( (points_per_segment(i)-j)*path_qpoints(i)     &
