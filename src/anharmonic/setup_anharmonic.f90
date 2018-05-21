@@ -14,8 +14,14 @@ module setup_anharmonic_module
   use basis_function_module
   use basis_functions_module
   use sampling_points_module
+  use vscf_rvectors_module
   implicit none
   
+  private
+  
+  public :: setup_anharmonic_keywords
+  public :: setup_anharmonic_mode
+  public :: setup_anharmonic
 contains
 
 ! ----------------------------------------------------------------------
@@ -120,6 +126,7 @@ subroutine setup_anharmonic(arguments)
   ! Sampling points and displacement data.
   real(dp)                          :: maximum_weighted_displacement
   type(SamplingPoints), allocatable :: sampling_points(:)
+  type(VscfRvectors),   allocatable :: vscf_rvectors(:)
   
   ! Supercell data.
   type(IntMatrix)     :: supercell_matrix
@@ -145,6 +152,7 @@ subroutine setup_anharmonic(arguments)
   type(OFile) :: coupling_file
   type(OFile) :: basis_function_file
   type(OFile) :: sampling_points_file
+  type(OFile) :: vscf_rvectors_file
   
   ! Temporary variables.
   integer :: i,j,k,l,ialloc
@@ -340,6 +348,13 @@ subroutine setup_anharmonic(arguments)
                    & left_pad(j,str(size(sampling_points(i))))
       call mkdir(sampling_dir)
       call write_structure_file(supercell, sampling_dir//'/structure.dat')
+      
+      vscf_rvectors = construct_vscf_rvectors( sampling_points(i)%points(j), &
+                                             & supercell,                    &
+                                             & real_modes,                   &
+                                             & qpoints)
+      vscf_rvectors_file = OFile(sampling_dir//'/vscf_rvectors.dat')
+      call vscf_rvectors_file%print_lines(vscf_rvectors,separating_line='')
     enddo
   enddo
   

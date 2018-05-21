@@ -100,7 +100,7 @@ subroutine calculate_normal_modes(arguments)
   type(DynamicalMatrix)              :: rotated_matrix
   
   integer :: mode_id
-  integer :: degeneracy_id
+  integer :: subspace_id
   
   complex(dp), allocatable :: pair_overlap(:)
   integer,     allocatable :: degenerate_ids(:)
@@ -224,7 +224,7 @@ subroutine calculate_normal_modes(arguments)
   qpoint_logfile = OFile(wd//'/dynamical_matrix_log.dat')
   modes_calculated = .false.
   
-  degeneracy_id = 1
+  subspace_id = 1
   iter : do while (.not. all(modes_calculated))
     ! ------------------------------
     ! First, check if there is an un-calculated q-point whose conjugate has
@@ -298,10 +298,10 @@ subroutine calculate_normal_modes(arguments)
                                                  & force_constants,   &
                                                  & structure,         &
                                                  & degenerate_energy, &
-                                                 & degeneracy_id,     &
+                                                 & subspace_id,       &
                                                  & qpoint_logfile)
-          degeneracy_id =                                                  &
-             &   maxval(dynamical_matrices(i)%complex_modes%degeneracy_id) &
+          subspace_id =                                                  &
+             &   maxval(dynamical_matrices(i)%complex_modes%subspace_id) &
              & + 1
           modes_calculated(i) = .true.
           cycle iter
@@ -351,9 +351,9 @@ subroutine calculate_normal_modes(arguments)
         ! Calculate the overlap of the conjugate of mode k with the other
         !    modes. N.B. since the dot product would normaly involve a conjg,
         !    the two conjugates cancel.
-        degenerate_ids =                                                  &
-           & filter( dynamical_matrices(i)%complex_modes%degeneracy_id == &
-           &         dynamical_matrices(i)%complex_modes(k)%degeneracy_id)
+        degenerate_ids =                                                &
+           & filter( dynamical_matrices(i)%complex_modes%subspace_id == &
+           &         dynamical_matrices(i)%complex_modes(k)%subspace_id)
         pair_overlap = dynamical_matrices(i)%complex_modes(degenerate_ids) &
                    & * dynamical_matrices(i)%complex_modes(k)
         ! conjg(mode(k)) should equal one mode (down to a phase change),

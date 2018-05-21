@@ -88,7 +88,7 @@ function complex_to_real_Modes(input) result(output)
   output%soft_mode          = input%soft_mode
   output%translational_mode = input%translational_mode
   output%qpoint_id          = input%qpoint_id
-  output%degeneracy_id      = input%degeneracy_id
+  output%subspace_id        = input%subspace_id
   
   ! Convert displacements to real co-ordinates.
   do mode=1,size(input)
@@ -133,7 +133,7 @@ function real_to_complex_Modes(input) result(output)
   output%soft_mode          = input%soft_mode
   output%translational_mode = input%translational_mode
   output%qpoint_id          = input%qpoint_id
-  output%degeneracy_id      = input%degeneracy_id
+  output%subspace_id        = input%subspace_id
   
   ! Convert displacements to complex co-ordinates.
   do mode=1,size(input)

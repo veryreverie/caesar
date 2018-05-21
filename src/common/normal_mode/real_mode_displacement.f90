@@ -18,6 +18,7 @@ module real_mode_displacement_submodule
   type, extends(Stringsable) :: RealModeDisplacement
     type(RealSingleModeDisplacement), allocatable :: displacements(:)
   contains
+    procedure, public :: modes   => modes_RealModeDisplacement
     procedure, public :: qpoints => qpoints_RealModeDisplacement
     
     procedure, public :: read  => read_RealModeDisplacement
@@ -39,6 +40,22 @@ function size_RealModeDisplacement(input) result(output)
   output = size(input%displacements)
 end function
 
+! Returns a list of the modes at which the displacement is non-zero.
+function modes_RealModeDisplacement(this,real_modes) result(output)
+  implicit none
+  
+  class(RealModeDisplacement), intent(in) :: this
+  type(RealMode),              intent(in) :: real_modes(:)
+  type(RealMode), allocatable             :: output(:)
+  
+  integer :: i,ialloc
+  
+  allocate(output(size(this)), stat=ialloc); call err(ialloc)
+  do i=1,size(output)
+    output(i) = real_modes(first(real_modes%id==this%displacements(i)%id))
+  enddo
+end function
+
 ! Returns a list of the q-points at which the displacement is non-zero.
 function qpoints_RealModeDisplacement(this,real_modes,qpoints) result(output)
   implicit none
@@ -48,18 +65,20 @@ function qpoints_RealModeDisplacement(this,real_modes,qpoints) result(output)
   type(QPointData),            intent(in) :: qpoints(:)
   type(QPointData), allocatable           :: output(:)
   
+  type(RealMode), allocatable :: modes(:)
+  
   integer, allocatable :: qpoint_ids(:)
   
   integer :: i,j,ialloc
   
-  allocate(qpoint_ids(size(this%displacements)), stat=ialloc); call err(ialloc)
-  do i=1,size(this%displacements)
-    j = first(real_modes%id==this%displacements(i)%id)
-    qpoint_ids(i) = real_modes(j)%qpoint_id
-  enddo
+  ! List the q-point IDs of the modes in the displacement.
+  modes = this%modes(real_modes)
+  qpoint_ids = modes%qpoint_id
   
+  ! De-duplicate the q-point IDs.
   qpoint_ids = qpoint_ids(set(qpoint_ids))
   
+  ! List the q-points matching the IDs.
   allocate(output(size(qpoint_ids)), stat=ialloc); call err(ialloc)
   do i=1,size(output)
     output(i) = qpoints(first(qpoints%id==qpoint_ids(i)))

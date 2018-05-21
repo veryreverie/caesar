@@ -91,14 +91,14 @@ end function
 ! Calculate modes for one of the calculated q-points.
 ! Will lift degeneracies using symmetries.
 function calculate_modes_calculated(matrices,structure,qpoint, &
-   &degenerate_energy,degeneracy_id,logfile) result(output)
+   &degenerate_energy,subspace_id,logfile) result(output)
   implicit none
   
   type(ComplexMatrix), intent(in)    :: matrices(:,:)
   type(StructureData), intent(in)    :: structure
   type(QpointData),    intent(in)    :: qpoint
   real(dp),            intent(in)    :: degenerate_energy
-  integer,             intent(in)    :: degeneracy_id
+  integer,             intent(in)    :: subspace_id
   type(OFile),         intent(inout) :: logfile
   type(ComplexMode), allocatable     :: output(:)
   
@@ -135,17 +135,17 @@ function calculate_modes_calculated(matrices,structure,qpoint, &
   
   ! Assign degeneracy ids, which are equal if two states are degenerate,
   !    and different if they are not.
-  output(1)%degeneracy_id = degeneracy_id
+  output(1)%subspace_id = subspace_id
   do i=2,size(output)
     energy_difference = abs(output(i)%frequency-output(i-1)%frequency)
     if (energy_difference<degenerate_energy) then
-      output(i)%degeneracy_id = output(i-1)%degeneracy_id
+      output(i)%subspace_id = output(i-1)%subspace_id
       if (energy_difference>degenerate_energy/2) then
         call print_line(WARNING//': Degenerate energies within a factor of &
            &two of degenerate_energy at q-point '//qpoint%qpoint//'.')
       endif
     else
-      output(i)%degeneracy_id = output(i-1)%degeneracy_id + 1
+      output(i)%subspace_id = output(i-1)%subspace_id + 1
       if (energy_difference<degenerate_energy*2) then
         call print_line(WARNING//': Non-degenerate energies within a factor &
            &of two of degenerate_energy at q-point '//qpoint%qpoint//'.')
@@ -155,9 +155,9 @@ function calculate_modes_calculated(matrices,structure,qpoint, &
   
   ! Loop over degeneracy ids, checking each degenerate subspace, and lifting
   !    degeneracy using symmetry operators.
-  do i=degeneracy_id,output(size(output))%degeneracy_id
+  do i=subspace_id,output(size(output))%subspace_id
     ! Find the set of states with degeneracy id i.
-    states = filter(output%degeneracy_id==i)
+    states = filter(output%subspace_id==i)
     
     ! Check that degenerate states are consistent, i.e. that if two states
     !    are both degenerate with a third state that they are also degenerate

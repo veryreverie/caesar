@@ -30,11 +30,11 @@ module complex_mode_submodule
     ! The displacements of atoms in the primitive cell.
     type(ComplexVector), allocatable :: primitive_displacements(:)
     
-    ! The id of the q-point at which this mode exits.
+    ! The ID of the q-point at which this mode exits.
     integer :: qpoint_id
     
-    ! An id which is shared between degenerate states, and different otherwise.
-    integer :: degeneracy_id
+    ! The ID of the subspace modes which are degenerate with this mode.
+    integer :: subspace_id
   contains
     procedure, public :: read  => read_ComplexMode
     procedure, public :: write => write_ComplexMode
@@ -61,7 +61,7 @@ contains
 ! Constructor.
 ! ----------------------------------------------------------------------
 function new_ComplexMode(id,paired_id,frequency,soft_mode,translational_mode, &
-   & primitive_displacements,qpoint_id,degeneracy_id) result(this)
+   & primitive_displacements,qpoint_id,subspace_id) result(this)
   implicit none
   
   integer,             intent(in) :: id
@@ -71,7 +71,7 @@ function new_ComplexMode(id,paired_id,frequency,soft_mode,translational_mode, &
   logical,             intent(in) :: translational_mode
   type(ComplexVector), intent(in) :: primitive_displacements(:)
   integer,             intent(in) :: qpoint_id
-  integer,             intent(in) :: degeneracy_id
+  integer,             intent(in) :: subspace_id
   type(ComplexMode)               :: this
   
   this%id                      = id
@@ -81,7 +81,7 @@ function new_ComplexMode(id,paired_id,frequency,soft_mode,translational_mode, &
   this%translational_mode      = translational_mode
   this%primitive_displacements = primitive_displacements
   this%qpoint_id               = qpoint_id
-  this%degeneracy_id           = degeneracy_id
+  this%subspace_id             = subspace_id
 end function
 
 ! ----------------------------------------------------------------------
@@ -139,7 +139,7 @@ subroutine read_ComplexMode(this,input)
   logical                          :: translational_mode
   type(ComplexVector), allocatable :: primitive_displacements(:)
   integer                          :: qpoint_id
-  integer                          :: degeneracy_id
+  integer                          :: subspace_id
   
   type(String), allocatable :: line(:)
   
@@ -174,7 +174,7 @@ subroutine read_ComplexMode(this,input)
     
     ! Read the degeneracy id of this mode.
     line = split_line(input(7))
-    degeneracy_id = int(line(4))
+    subspace_id = int(line(4))
     
     ! Read in the displacement associated with the mode.
     no_atoms = size(input)-8
@@ -192,7 +192,7 @@ subroutine read_ComplexMode(this,input)
                       & translational_mode,      &
                       & primitive_displacements, &
                       & qpoint_id,               &
-                      & degeneracy_id)
+                      & subspace_id)
   end select
 end subroutine
 
@@ -214,7 +214,7 @@ function write_ComplexMode(this) result(output)
     output(4) = 'Mode is soft              : '//this%soft_mode
     output(5) = 'Mode purely translational : '//this%translational_mode
     output(6) = 'q-point id                : '//this%qpoint_id
-    output(7) = 'Degeneracy id             : '//this%degeneracy_id
+    output(7) = 'Degeneracy id             : '//this%subspace_id
     output(8) = 'Displacements in primitive cell:'
     do i=1,size(this%primitive_displacements)
       output(8+i) = str(this%primitive_displacements(i))

@@ -56,7 +56,7 @@ contains
 !    supercell.
 ! --------------------------------------------------
 function new_DynamicalMatrix_calculated(qpoint,supercells,force_constants, &
-   & structure,degenerate_energy,degeneracy_id,logfile) result(this)
+   & structure,degenerate_energy,subspace_id,logfile) result(this)
   implicit none
   
   type(QpointData),     intent(in)    :: qpoint
@@ -64,7 +64,7 @@ function new_DynamicalMatrix_calculated(qpoint,supercells,force_constants, &
   type(ForceConstants), intent(in)    :: force_constants(:)
   type(StructureData),  intent(in)    :: structure
   real(dp),             intent(in)    :: degenerate_energy
-  integer,              intent(in)    :: degeneracy_id
+  integer,              intent(in)    :: subspace_id
   type(OFile),          intent(inout) :: logfile
   type(DynamicalMatrix)               :: this
   
@@ -189,7 +189,7 @@ function new_DynamicalMatrix_calculated(qpoint,supercells,force_constants, &
                                       & structure,         &
                                       & qpoint,            &
                                       & degenerate_energy, &
-                                      & degeneracy_id,     &
+                                      & subspace_id,       &
                                       & logfile)
 end function
 
@@ -374,8 +374,8 @@ subroutine check(this,structure,logfile,check_eigenstuff)
       ! Ignore translational and degenerate modes.
       if (this%complex_modes(i)%translational_mode) then
         cycle
-      elseif (count( this%complex_modes%degeneracy_id &
-                & == this%complex_modes(i)%degeneracy_id)>1) then
+      elseif (count( this%complex_modes%subspace_id &
+                & == this%complex_modes(i)%subspace_id)>1) then
         cycle
       endif
       freq_1 = this%complex_modes(i)%frequency
@@ -399,8 +399,8 @@ subroutine check(this,structure,logfile,check_eigenstuff)
       ! Ignore translational and degenerate modes.
       if (this%complex_modes(i)%translational_mode) then
         cycle
-      elseif (count( this%complex_modes%degeneracy_id &
-                & == this%complex_modes(i)%degeneracy_id)>1) then
+      elseif (count( this%complex_modes%subspace_id &
+                & == this%complex_modes(i)%subspace_id)>1) then
         cycle
       endif
       

@@ -41,7 +41,7 @@ module degeneracy_module
 contains
 
 ! ----------------------------------------------------------------------
-! Construct the sets of degenerate modes.
+! Construct the degenerate subspaces.
 ! ----------------------------------------------------------------------
 function process_degeneracies(modes,mode_qpoints) result(output)
   implicit none
@@ -50,22 +50,22 @@ function process_degeneracies(modes,mode_qpoints) result(output)
   integer,           intent(in)      :: mode_qpoints(:)
   type(DegenerateModes), allocatable :: output(:)
   
-  integer, allocatable :: degeneracy_ids(:)
+  integer, allocatable :: subspace_ids(:)
   
   integer :: i,j,ialloc
   
   ! Make a list of degeneracy ids.
-  degeneracy_ids = modes%degeneracy_id
+  subspace_ids = modes%subspace_id
   ! Remove the purely translational modes.
-  degeneracy_ids = degeneracy_ids(filter(.not.modes%translational_mode))
+  subspace_ids = subspace_ids(filter(.not.modes%translational_mode))
   ! De-duplicate the list, so that each id appears exactly once.
-  degeneracy_ids = degeneracy_ids(set(degeneracy_ids))
+  subspace_ids = subspace_ids(set(subspace_ids))
   
   ! Generate subspaces.
-  allocate(output(size(degeneracy_ids)), stat=ialloc); call err(ialloc)
+  allocate(output(size(subspace_ids)), stat=ialloc); call err(ialloc)
   do i=1,size(output)
-    output(i)%id = degeneracy_ids(i)
-    output(i)%modes_ = filter(modes%degeneracy_id==output(i)%id)
+    output(i)%id = subspace_ids(i)
+    output(i)%modes_ = filter(modes%subspace_id==output(i)%id)
     output(i)%mode_ids = modes(output(i)%modes_)%id
     output(i)%qpoints_ = mode_qpoints(output(i)%modes_)
   enddo

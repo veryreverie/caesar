@@ -293,7 +293,7 @@ end function
 ! coupling_in is a recursive parameter. Each time coupling_generator is called,
 !    it adds one id to the given coupling, and calls itself again.
 ! e.g. coupling_generator(coupling_in=[1]) will call
-!     coupling_generator(coupling_in=[1,i]) with i in degeneracy_ids.
+!     coupling_generator(coupling_in=[1,i]) with i in subspace_ids.
 !
 ! Only returns couplings in ascending order, and with at most coupling_order
 !    distinct elements.
