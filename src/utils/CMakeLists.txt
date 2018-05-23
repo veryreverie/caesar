@@ -27,9 +27,11 @@ target_link_libraries(utils random)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/arguments arguments/)
 target_link_libraries(utils arguments)
 
-# Link to LAPACK.
-find_package( LAPACK REQUIRED )
-target_link_libraries(utils ${LAPACK_LIBRARIES})
+# Link to LAPACK, if required.
+if (NOT DEFINED FIND_LAPACK OR FIND_LAPACK)
+  find_package( LAPACK REQUIRED )
+  target_link_libraries(utils ${LAPACK_LIBRARIES})
+endif()
 
 # Link to spglib.
 find_library(spglib_library_path symspg)
