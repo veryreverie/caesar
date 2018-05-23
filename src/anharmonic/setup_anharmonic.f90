@@ -124,14 +124,18 @@ subroutine setup_anharmonic(arguments)
   ! Basis functions.
   type(BasisFunctions), allocatable :: basis_functions(:)
   
-  ! Sampling points and displacement data.
+  ! Sampling points.
   real(dp)                          :: maximum_weighted_displacement
   type(SamplingPoints), allocatable :: sampling_points(:)
-  type(VscfRvectors),   allocatable :: vscf_rvectors(:)
   
   ! Supercell data.
   type(IntMatrix)     :: supercell_matrix
   type(StructureData) :: supercell
+  
+  ! Displacement data.
+  type(VscfRvectors), allocatable :: vscf_rvectors(:)
+  type(CartesianDisplacement)     :: displacement
+  type(StructureData)             :: displaced_structure
   
   ! Directories and files.
   type(String)              :: qpoint_dir
@@ -140,6 +144,7 @@ subroutine setup_anharmonic(arguments)
   type(String)              :: coupling_dir
   type(String)              :: sampling_dir
   type(String)              :: vscf_rvector_dir
+  type(String)              :: input_filename
   
   ! Input files.
   type(IFile)                    :: harmonic_qpoints_file
@@ -364,11 +369,24 @@ subroutine setup_anharmonic(arguments)
            & sampling_dir// &
            & '/vscf_rvector_'//left_pad(k,str(size(vscf_rvectors)))
         call mkdir(vscf_rvector_dir)
+        
+        ! Construct displaced structure.
+        displacement = sampling_points(i)%points(j)%cartesian_displacement( &
+                                     & supercell,                           &
+                                     & real_modes,                          &
+                                     & qpoints,                             &
+                                     & vscf_rvectors(k)%rvectors(real_modes))
+        displaced_structure = displace_structure(supercell,displacement)
+        
+        ! Write displaced structure to file.
+        input_filename = make_input_filename(file_type,seedname)
+        call StructureData_to_input_file(     &
+                   & file_type,               &
+                   & displaced_structure,     &
+                   & wd//'/'//input_filename, &
+                   & vscf_rvector_dir//'/'//input_filename)
       enddo
     enddo
   enddo
-  
-  ! Write out sampling points.
-  ! TODO
 end subroutine
 end module

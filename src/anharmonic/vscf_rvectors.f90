@@ -18,6 +18,10 @@ module vscf_rvectors_module
   type, extends(Stringsable) :: VscfRvectors
     type(VscfRvector), allocatable :: vscf_rvectors(:)
   contains
+    ! List R-vectors for given modes.
+    procedure, public :: rvectors => rvectors_VscfRvectors
+    
+    ! I/O.
     procedure, public :: read  => read_VscfRvectors
     procedure, public :: write => write_VscfRvectors
   end type
@@ -105,6 +109,30 @@ function concatenate_VscfRvectors_VscfRvector(this,that) result(output)
   type(VscfRvectors)             :: output
   
   output = VscfRvectors([this%vscf_rvectors, that])
+end function
+
+! ----------------------------------------------------------------------
+! List R-vectors for the given set of modes.
+! ----------------------------------------------------------------------
+function rvectors_VscfRvectors(this,real_modes) result(output)
+  implicit none
+  
+  class(VscfRvectors), intent(in) :: this
+  type(RealMode),      intent(in) :: real_modes(:)
+  type(IntVector), allocatable    :: output(:)
+  
+  integer :: i,j,ialloc
+  
+  allocate(output(size(real_modes)), stat=ialloc); call err(ialloc)
+  do i=1,size(output)
+    j = first( this%vscf_rvectors%subspace_id==real_modes(i)%subspace_id, &
+             & default=0)
+    if (j==0) then
+      output(i) = zeroes(3)
+    else
+      output(i) = this%vscf_rvectors(j)%rvector
+    endif
+  enddo
 end function
 
 ! ----------------------------------------------------------------------

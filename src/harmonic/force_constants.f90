@@ -315,7 +315,7 @@ function construct_xx(unique_directions,supercell,logfile) result(output)
                              & * atom_1%id())
       
       x = supercell%symmetries(i)%cartesian_rotation &
-      & * unique_directions(j)%displacement
+      & * unique_directions(j)%atomic_displacement
       
       output(atom_1p%id()) = output(atom_1p%id()) + outer_product(x,x)
     enddo
@@ -392,7 +392,7 @@ function construct_fx(unique_directions,forces,supercell,logfile) &
                              & * atom_1%id())
       
       x = supercell%symmetries(i)%cartesian_rotation &
-      & * unique_directions(j)%displacement
+      & * unique_directions(j)%atomic_displacement
       
       do k=1,supercell%no_atoms
         atom_2 = supercell%atoms(k)
@@ -582,8 +582,8 @@ subroutine check(this,forces,supercell,unique_directions,logfile)
       atom_2 = supercell%atoms(j)
       
       calculated = forces(j,i)
-      fitted = this%constants(atom_2,atom_1)     &
-           & * unique_directions(i)%displacement &
+      fitted = this%constants(atom_2,atom_1)            &
+           & * unique_directions(i)%atomic_displacement &
            & / supercell%sc_size
       
       average = average + sum_squares((calculated+fitted)/2)

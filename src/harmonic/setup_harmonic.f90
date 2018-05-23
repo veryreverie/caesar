@@ -88,11 +88,9 @@ subroutine setup_harmonic(arguments)
   
   ! Perturbation direction information.
   type(UniqueDirection), allocatable :: unique_directions(:)
-  integer                            :: atom
   type(String)                       :: atom_string
-  type(String)                       :: direction
-  type(RealVector)                   :: displacement
-  type(RealVector)                   :: position
+  type(CartesianDisplacement)        :: displacement
+  type(StructureData)                :: displaced_structure
   
   ! Files.
   type(String) :: input_filename
@@ -178,31 +176,26 @@ subroutine setup_harmonic(arguments)
     ! Write energy and force calculation input files.
     ! --------------------------------------------------
     do j=1,size(unique_directions)
-      atom = unique_directions(j)%atom_id
-      direction = unique_directions(j)%direction
-      displacement = unique_directions(j)%displacement
-      
-      atom_string = left_pad(atom, str(structure%no_atoms))
-      path = sdir//'/atom.'//atom_string//'.'//direction
-      
-      ! Make harmonic run directories.
+      ! Make directory for running calculation in.
+      path =                                                                 &
+         & sdir                                                           // &
+         & '/atom.'                                                       // &
+         & left_pad(unique_directions(j)%atom_id,str(structure%no_atoms)) // &
+         & '.'                                                            // &
+         & unique_directions(j)%direction
       call mkdir(path)
       
-      ! Move relevant atom.
-      position = supercell%atoms(atom)%cartesian_position()
-      call supercell%atoms(atom)%set_cartesian_position( position &
-                                                     & + displacement)
-        
-      ! Write energy and force calculation input file.
+      ! Construct displaced structure.
+      displacement = unique_directions(j)%cartesian_displacement(supercell)
+      displaced_structure = displace_structure(supercell,displacement)
+      
+      ! Write displaced structure to file.
       input_filename = make_input_filename(file_type,seedname)
       call StructureData_to_input_file(     &
                  & file_type,               &
-                 & supercell,               &
+                 & displaced_structure,     &
                  & wd//'/'//input_filename, &
                  & path//'/'//input_filename)
-      
-      ! Reset moved atom.
-      call supercell%atoms(atom)%set_cartesian_position(position)
     enddo
   enddo
 end subroutine

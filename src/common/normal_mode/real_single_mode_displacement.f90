@@ -3,6 +3,11 @@
 ! ======================================================================
 module real_single_mode_displacement_submodule
   use utils_module
+  
+  use structure_module
+  
+  use cartesian_displacement_submodule
+  use real_mode_submodule
   implicit none
   
   private
@@ -17,6 +22,11 @@ module real_single_mode_displacement_submodule
     ! The displacement along the mode.
     real(dp) :: displacement
   contains
+    ! Convert to cartesian co-ordinates.
+    procedure, public :: cartesian_displacement => &
+       & cartesian_displacement_RealSingleModeDisplacement
+    
+    ! I/O.
     procedure, public :: read  => read_RealSingleModeDisplacement
     procedure, public :: write => write_RealSingleModeDisplacement
   end type
@@ -36,6 +46,27 @@ function new_RealSingleModeDisplacement(id,displacement) result(this)
   
   this%id           = id
   this%displacement = displacement
+end function
+
+! Conversion to cartesian co-ordinates.
+function cartesian_displacement_RealSingleModeDisplacement(this,real_mode, &
+   & structure,qpoint,rvector) result(output)
+  implicit none
+  
+  class(RealSingleModeDisplacement), intent(in)           :: this
+  type(RealMode),                    intent(in)           :: real_mode
+  type(StructureData),               intent(in)           :: structure
+  type(QpointData),                  intent(in)           :: qpoint
+  type(IntVector),                   intent(in), optional :: rvector
+  type(CartesianDisplacement)                             :: output
+  
+  if (real_mode%id/=this%id) then
+    call print_line(CODE_ERROR//': Mode and displacement incompatible.')
+    call err()
+  endif
+  
+  output = this%displacement &
+       & * real_mode%cartesian_displacement(structure,qpoint,rvector)
 end function
 
 ! I/O.

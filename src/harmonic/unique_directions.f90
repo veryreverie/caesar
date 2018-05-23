@@ -24,8 +24,14 @@ module unique_directions_module
     type(String) :: direction
     
     ! The vector through which the atom is displaced.
-    type(RealVector) :: displacement
+    type(RealVector) :: atomic_displacement
   contains
+    ! Construct the displacement for all atoms. This is atomic_displacement
+    !    for the displaced atom, and zero for all other atoms.
+    procedure, public :: cartesian_displacement => &
+       & cartesian_displacement_UniqueDirection
+    
+    ! I/O.
     procedure, public :: read  => read_UniqueDirection
     procedure, public :: write => write_UniqueDirection
   end type
@@ -38,18 +44,18 @@ contains
 ! ----------------------------------------------------------------------
 ! Constructor
 ! ----------------------------------------------------------------------
-function new_UniqueDirection(atom_id,direction,displacement) &
+function new_UniqueDirection(atom_id,direction,atomic_displacement) &
    & result(output)
   implicit none
   
   integer,          intent(in) :: atom_id
   type(String),     intent(in) :: direction
-  type(Realvector), intent(in) :: displacement
+  type(Realvector), intent(in) :: atomic_displacement
   type(UniqueDirection)        :: output
   
-  output%atom_id      = atom_id
-  output%direction    = direction
-  output%displacement = displacement
+  output%atom_id             = atom_id
+  output%direction           = direction
+  output%atomic_displacement = atomic_displacement
 end function
 
 ! ----------------------------------------------------------------------
@@ -298,7 +304,7 @@ subroutine check_unique_directions(unique_directions,structure, &
       atom_1p = structure%atoms( structure%symmetries(i)%atom_group &
                              & * atom_1%id())
       x = structure%symmetries(i)%cartesian_rotation &
-      & * unique_directions(j)%displacement
+      & * unique_directions(j)%atomic_displacement
       xx(atom_1p%id()) = xx(atom_1p%id()) + outer_product(x,x)
     enddo
   enddo
@@ -314,6 +320,28 @@ subroutine check_unique_directions(unique_directions,structure, &
 end subroutine
 
 ! ----------------------------------------------------------------------
+! Construct the displacement for all atoms. This is atomic_displacement
+!    for the displaced atom, and zero for all other atoms.
+! ----------------------------------------------------------------------
+function cartesian_displacement_UniqueDirection(this,structure) result(output)
+  implicit none
+  
+  class(UniqueDirection), intent(in) :: this
+  type(StructureData),    intent(in) :: structure
+  type(CartesianDisplacement)        :: output
+  
+  type(RealVector), allocatable :: displacements(:)
+  
+  integer :: ialloc
+  
+  allocate(displacements(structure%no_atoms), stat=ialloc); call err(ialloc)
+  displacements = dblevec(zeroes(3))
+  displacements(this%atom_id) = this%atomic_displacement
+  
+  output = CartesianDisplacement(displacements)
+end function
+
+! ----------------------------------------------------------------------
 ! I/O.
 ! ----------------------------------------------------------------------
 subroutine read_UniqueDirection(this,input)
@@ -326,7 +354,7 @@ subroutine read_UniqueDirection(this,input)
   
   integer          :: atom_id
   type(String)     :: direction
-  type(RealVector) :: displacement
+  type(RealVector) :: atomic_displacement
   
   select type(this); type is(UniqueDirection)
     if (size(input)/=3) then
@@ -345,9 +373,9 @@ subroutine read_UniqueDirection(this,input)
     
     ! Read in displacement.
     line = split_line(input(3))
-    displacement = dble(line(3:5))
+    atomic_displacement = dble(line(3:5))
     
-    this = UniqueDirection(atom_id,direction,displacement)
+    this = UniqueDirection(atom_id,direction,atomic_displacement)
   end select
 end subroutine
 
@@ -360,7 +388,7 @@ function write_UniqueDirection(this) result(output)
   select type(this); type is(UniqueDirection)
     output = [ 'Atom         : '//this%atom_id,     &
              & 'Direction    : '//this%direction,   &
-             & 'Displacement : '//this%displacement ]
+             & 'Displacement : '//this%atomic_displacement ]
   end select
 end function
 end module

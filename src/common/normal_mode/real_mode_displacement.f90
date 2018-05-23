@@ -6,6 +6,7 @@ module real_mode_displacement_submodule
   
   use structure_module
   
+  use cartesian_displacement_submodule
   use real_mode_submodule
   use real_single_mode_displacement_submodule
   implicit none
@@ -20,6 +21,9 @@ module real_mode_displacement_submodule
   contains
     procedure, public :: modes   => modes_RealModeDisplacement
     procedure, public :: qpoints => qpoints_RealModeDisplacement
+    
+    procedure, public :: cartesian_displacement => &
+       & cartesian_displacement_RealModeDisplacement
     
     procedure, public :: read  => read_RealModeDisplacement
     procedure, public :: write => write_RealModeDisplacement
@@ -83,6 +87,66 @@ function qpoints_RealModeDisplacement(this,real_modes,qpoints) result(output)
   do i=1,size(output)
     output(i) = qpoints(first(qpoints%id==qpoint_ids(i)))
   enddo
+end function
+
+! Returns the displacement in cartesian co-ordinates.
+function cartesian_displacement_RealModeDisplacement(this,structure, &
+   & real_modes,qpoints,rvectors) result(output)
+  implicit none
+  
+  class(RealModeDisplacement), intent(in)           :: this
+  type(StructureData),         intent(in)           :: structure
+  type(RealMode),              intent(in)           :: real_modes(:)
+  type(QpointData),            intent(in)           :: qpoints(:)
+  type(IntVector),             intent(in), optional :: rvectors(:)
+  type(CartesianDisplacement)                       :: output
+  
+  type(RealMode),   allocatable :: modes(:)
+  type(QpointData), allocatable :: mode_qpoints(:)
+  type(IntVector),  allocatable :: mode_rvectors(:)
+  
+  type(CartesianDisplacement), allocatable :: mode_displacements(:)
+  
+  integer :: i,j,ialloc
+  
+  ! Check inputs are consistent.
+  if (present(rvectors)) then
+    if (size(rvectors)/=size(real_modes)) then
+      call print_line(CODE_ERROR//': real_modes and rvectors are not of the &
+         &same length.')
+      call err()
+    endif
+  endif
+  
+  ! List the modes which have non-zero displacement,
+  !   and the q-points and R-vectors associated with those modes.
+  allocate( modes(size(this)),         &
+          & mode_qpoints(size(this)),  &
+          & mode_rvectors(size(this)), &
+          & stat=ialloc); call err(ialloc)
+  do i=1,size(modes)
+    j = first(real_modes%id==this%displacements(i)%id)
+    modes(i) = real_modes(j)
+    mode_qpoints(i) = qpoints(first(qpoints%id==modes(i)%qpoint_id))
+    if (present(rvectors)) then
+      mode_rvectors(i)=rvectors(j)
+    else
+      mode_rvectors(i) = zeroes(3)
+    endif
+  enddo
+  
+  ! Calculate the cartesian displacement due to each mode.
+  allocate(mode_displacements(size(modes)), stat=ialloc); call err(ialloc)
+  do i=1,size(modes)
+    mode_displacements(i) =                                             &
+       & this%displacements(i)%cartesian_displacement( modes(i),        &
+       &                                               structure,       &
+       &                                               mode_qpoints(i), &
+       &                                               mode_rvectors(i))
+  enddo
+  
+  ! Add together the contributions from all modes.
+  output = sum(mode_displacements)
 end function
 
 ! ----------------------------------------------------------------------

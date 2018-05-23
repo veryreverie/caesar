@@ -16,5 +16,6 @@ module normal_mode_module
   use real_polynomial_submodule
   use real_complex_conversion_submodule
   use complex_mode_symmetry_submodule
+  use cartesian_displacement_submodule
   implicit none
 end module

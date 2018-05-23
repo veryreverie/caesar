@@ -3,6 +3,10 @@
 ! ======================================================================
 module real_mode_submodule
   use utils_module
+  
+  use structure_module
+  
+  use cartesian_displacement_submodule
   implicit none
   
   private
@@ -31,6 +35,11 @@ module real_mode_submodule
     ! The ID of the subspace of modes which are degenerate with this mode.
     integer :: subspace_id
   contains
+    ! Return the cartesian displacement of this mode.
+    procedure, public :: cartesian_displacement => &
+       & cartesian_displacement_RealMode
+    
+    ! I/O.
     procedure, public :: read  => read_RealMode
     procedure, public :: write => write_RealMode
   end type
@@ -65,6 +74,57 @@ function new_RealMode(id,paired_id,frequency,soft_mode,translational_mode, &
   this%primitive_displacements = primitive_displacements
   this%qpoint_id               = qpoint_id
   this%subspace_id             = subspace_id
+end function
+
+! ----------------------------------------------------------------------
+! Return the displacement of this mode for a given structure.
+! ----------------------------------------------------------------------
+function cartesian_displacement_RealMode(this,structure,qpoint,rvector) &
+   & result(output)
+  implicit none
+  
+  class(RealMode),     intent(in)           :: this
+  type(StructureData), intent(in)           :: structure
+  type(QpointData),    intent(in)           :: qpoint
+  type(IntVector),     intent(in), optional :: rvector
+  type(CartesianDisplacement)               :: output
+  
+  type(RealVector), allocatable :: displacements(:)
+  
+  type(AtomData)   :: atom
+  type(RealVector) :: prim_displacement
+  type(IntVector)  :: atom_rvector
+  real(dp)         :: qr
+  
+  integer :: i,ialloc
+  
+  if (qpoint%id/=this%qpoint_id) then
+    call print_line(CODE_ERROR//': Mode and q-point incompatible.')
+    call err()
+  endif
+  
+  allocate(displacements(structure%no_atoms), stat=ialloc); call err(ialloc)
+  do i=1,size(displacements)
+    atom = structure%atoms(i)
+    prim_displacement = this%primitive_displacements(atom%prim_id())
+    atom_rvector      = structure%rvectors(atom%rvec_id())
+    
+    if (present(rvector)) then
+      atom_rvector = atom_rvector + rvector
+    endif
+    
+    qr = dble(qpoint%qpoint*atom_rvector)
+    
+    if (this%id<=this%paired_id) then
+      ! This is a cos(2 pi q.R) mode.
+      displacements(i) = prim_displacement * cos(2*PI*qr)
+    else
+      ! This is a sin(2 pi q.R) mode.
+      displacements(i) = prim_displacement * sin(2*PI*qr)
+    endif
+  enddo
+  
+  output = CartesianDisplacement(displacements)
 end function
 
 ! ----------------------------------------------------------------------
