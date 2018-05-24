@@ -34,6 +34,13 @@ contains
 subroutine err_none()
   implicit none
   
+  write(*,'(a)') ''
+  write(*,'(a)') 'Intentionally aborting with stacktrace.'
+  write(*,'(a)') ''
+  write(*,'(a)') 'compiler_specific.f90 and error.f90 can be ignored &
+                 &in stacktrace.'
+  write(*,'(a)') ''
+  
   call err_implementation()
 end subroutine
 
@@ -45,7 +52,8 @@ subroutine err_allocate_flag(this)
   integer, intent(in) :: this
   
   if (this/=0) then
-    write(*,*) ERROR//': Allocation error.'
+    write(*,'(a)') ''
+    write(*,'(a)') ERROR//': Allocation error.'
     call err()
   endif
 end subroutine

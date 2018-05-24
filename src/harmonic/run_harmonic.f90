@@ -19,17 +19,17 @@ function run_harmonic_keywords() result(keywords)
   type(KeywordData), allocatable :: keywords(:)
   
   keywords = [                                                                &
-  & KeywordData( 'supercells_to_run',                                        &
-  &               'supercells_to_run is the first and last supercell to run. &
+  & KeywordData( 'supercells_to_run',                                         &
+  &              'supercells_to_run is the first and last supercell to run. &
   &These should be specified as two integers separated by spaces.'),          &
-  & KeywordData( 'no_cores',                                                 &
-  &               'no_cores is the number of cores on which DFT will be run. &
-  &This is passed to the specified run script.',                              &
-  &               default_value='1'),                                         &
-  & KeywordData( 'run_script',                                               &
-  &               'run_script is the path to the script for running DFT. An &
+  & KeywordData( 'run_script',                                                &
+  &              'run_script is the path to the script for running DFT. An &
   &example run script can be found in doc/input_files.',                      &
-  &               is_path=.true.) ]
+  &              is_path=.true.),                                             &
+  & KeywordData( 'no_cores',                                                  &
+  &              'no_cores is the number of cores on which DFT will be run. &
+  &This is passed to the specified run script.',                              &
+  &              default_value='1') ]
 end function
 
 function run_harmonic_mode() result(output)
@@ -92,8 +92,8 @@ subroutine run_harmonic(arguments)
   ! --------------------------------------------------
   wd = arguments%value('working_directory')
   supercells_to_run = int(split_line(arguments%value('supercells_to_run')))
-  no_cores = int(arguments%value('no_cores'))
   run_script = arguments%value('run_script')
+  no_cores = int(arguments%value('no_cores'))
   
   ! --------------------------------------------------
   ! Read in arguments to previous calculations.
@@ -146,6 +146,7 @@ subroutine run_harmonic(arguments)
   ! --------------------------------------------------
   ! Run calculations
   ! --------------------------------------------------
+  ! Loop over supercells.
   do i=supercells_to_run(1),supercells_to_run(2)
     sdir = wd//'/Supercell_'//left_pad(i,str(no_supercells))
     
@@ -157,16 +158,24 @@ subroutine run_harmonic(arguments)
       unique_directions(j) = file_sections(j)
     enddo
     
+    ! Loop over displacements within each supercell.
     do j=1,size(unique_directions)
       atom = unique_directions(j)%atom_id
       direction = unique_directions(j)%direction
       atom_string = left_pad(atom,str(structure%no_atoms))
       
       dir = sdir//'/atom.'//atom_string//'.'//direction
+      
+      ! Run calculation at each displacement.
       call print_line('')
       call print_line('Running calculation in directory '//dir)
-      result_code = system_call( 'cd '//wd//'; '//run_script//' '// &
-         & file_type//' '//dir//' '//no_cores//' '//seedname)
+      result_code = system_call(  &
+         & 'cd '//wd//';' //' '// &
+         & run_script     //' '// &
+         & file_type      //' '// &
+         & dir            //' '// &
+         & no_cores       //' '// &
+         & seedname)
       call print_line('Result code: '//result_code)
     enddo
     

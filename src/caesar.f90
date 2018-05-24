@@ -23,7 +23,7 @@ program caesar
   
   ! Use anharmonic modules.
   use setup_anharmonic_module
-  !use run_anharmonic_module
+  use run_anharmonic_module
   !use calculate_anharmonic_module
   
   ! Use testing modules.
@@ -39,7 +39,7 @@ program caesar
   type(String), allocatable :: args(:)
   
   ! The first command line argument, the mode.
-  type(String)              :: mode
+  type(String) :: mode
   
   ! The chosen subroutine, and the keywords it accepts.
   type(CaesarModes)                      :: caesar_modes
@@ -80,8 +80,8 @@ program caesar
      & calculate_harmonic_observables_mode(), &
      & plot_dos_and_dispersion_mode(),        &
      & plot_thermodynamic_variables_mode(),   &
-     & setup_anharmonic_mode()                &
-!     & run_anharmonic_mode(),               &
+     & setup_anharmonic_mode(),               &
+     & run_anharmonic_mode()                  &
 !     & calculate_anharmonic_mode()          &
      &])
   
