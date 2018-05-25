@@ -102,6 +102,7 @@ subroutine run_anharmonic(arguments)
   type(IFile)                    :: vscf_rvectors_file
   type(String)                   :: vscf_rvectors_dir
   type(StringArray), allocatable :: file_sections(:)
+  type(String),      allocatable :: directories(:)
   
   ! Temporary variables.
   integer :: i,j,k,ialloc
@@ -156,6 +157,11 @@ subroutine run_anharmonic(arguments)
     enddo
   endif
   
+  ! --------------------------------------------------
+  ! List directories for running calculations in.
+  ! --------------------------------------------------
+  directories = [String::]
+  
   ! Loop over couplings.
   do i=1,size(coupled_subspaces_file%lines())
     coupling_string = join( left_pad( coupled_subspaces(i)%ids, &
@@ -194,20 +200,30 @@ subroutine run_anharmonic(arguments)
         vscf_rvectors_dir = sampling_points_dir//'/vscf_rvector_'// &
            & left_pad(k,str(size(vscf_rvectors)))
         
-        ! Run calculation at each R-vector.
-        call print_line('')
-        call print_line('Running calculation in directory '//vscf_rvectors_dir)
-        result_code = system_call(     &
-           & 'cd '//wd//';'    //' '// &
-           & run_script        //' '// &
-           & file_type         //' '// &
-           & vscf_rvectors_dir //' '// &
-           & no_cores          //' '// &
-           & seedname)
-        call print_line('Result code: '//result_code)
+        ! Add directory to directories list.
+        directories = [directories, vscf_rvectors_dir]
       enddo
       deallocate(vscf_rvectors,stat=ialloc); call err(ialloc)
     enddo
+  enddo
+  
+  ! --------------------------------------------------
+  ! Loop over directories, running calculations in each.
+  ! --------------------------------------------------
+  do i=1,size(directories)
+    ! Run calculation at each R-vector.
+    call print_line('')
+    call print_line( 'Running calculation in directory '//i// &
+                   & ' of '//size(directories)//':')
+    call print_line(vscf_rvectors_dir)
+    result_code = system_call(  &
+       & 'cd '//wd//';' //' '// &
+       & run_script     //' '// &
+       & file_type      //' '// &
+       & directories(i) //' '// &
+       & no_cores       //' '// &
+       & seedname)
+    call print_line('Result code: '//result_code)
   enddo
 end subroutine
 end module
