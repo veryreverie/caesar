@@ -6,7 +6,7 @@ module setup_anharmonic_module
   
   use setup_harmonic_module
   
-  use shared_module
+  use anharmonic_common_module
   use polynomial_module
   implicit none
   
@@ -277,6 +277,7 @@ subroutine setup_anharmonic(arguments)
     subspace_monomials = generate_subspace_monomials( &
                               & coupled_subspaces(i), &
                               & potential_expansion_order)
+    
     ! Generate basis functions at each coupling.
     basis_functions(i) = generate_basis_functions( subspace_monomials,        &
                                                  & structure,                 &

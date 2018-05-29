@@ -9,6 +9,7 @@ module polynomial_module
   use sampling_points_module
   use vscf_rvector_module
   use vscf_rvectors_module
+  use polynomial_potential_module
   implicit none
 contains
 end module

@@ -4,7 +4,7 @@
 module basis_function_module
   use common_module
   
-  use shared_module
+  use anharmonic_common_module
   implicit none
   
   private

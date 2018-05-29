@@ -6,7 +6,7 @@ module calculate_anharmonic_module
   
   use setup_harmonic_module
   
-  use shared_module
+  use anharmonic_common_module
   use polynomial_module
   
   use setup_anharmonic_module

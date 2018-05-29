@@ -6,7 +6,7 @@
 module basis_functions_module
   use common_module
   
-  use shared_module
+  use anharmonic_common_module
   
   use basis_function_module
   implicit none

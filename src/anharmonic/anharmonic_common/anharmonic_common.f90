@@ -3,8 +3,8 @@
 !    representation.
 ! ======================================================================
 ! This module is simply an interface for the various
-!    shared anharmonic submodules.
-module shared_module
+!    common anharmonic submodules.
+module anharmonic_common_module
   use degeneracy_module
   use coupled_subspaces_module
   use subspace_monomial_module

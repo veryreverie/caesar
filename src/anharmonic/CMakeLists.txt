@@ -6,8 +6,8 @@ add_library(anharmonic setup_anharmonic.f90 run_anharmonic.f90 calculate_anharmo
 target_include_directories(anharmonic PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
 # Include subsidiary modules.
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/shared shared/)
-target_link_libraries(anharmonic shared)
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/anharmonic_common anharmonic_common/)
+target_link_libraries(anharmonic anharmonic_common)
 
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/polynomial polynomial/)
 target_link_libraries(anharmonic polynomial)
