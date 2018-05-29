@@ -5,6 +5,17 @@ module single_mode_state_module
   use common_module
   implicit none
   
+  private
+  
+  public :: SingleModeState
+  public :: size
+  public :: operator(+)
+  public :: sum
+  public :: operator(-)
+  public :: operator(*)
+  public :: operator(/)
+  public :: generate_harmonic_basis
+  
   ! An eigenstate of the form f(u)*e^-(w*u^2/2) where f is polynomial, e.g.
   !    ( a + b*(u1) + c*(u1)**2 )*e^(-w*(u1)^2/2) => frequency    = w,
   !                                                  coefficients = [a,b,c]

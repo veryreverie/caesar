@@ -6,10 +6,8 @@
 module basis_functions_module
   use common_module
   
-  use degeneracy_module
-  use subspace_monomial_module
-  use coupled_modes_module
-  use degenerate_symmetry_module
+  use shared_module
+  
   use basis_function_module
   implicit none
   

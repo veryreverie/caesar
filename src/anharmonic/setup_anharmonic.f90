@@ -6,16 +6,8 @@ module setup_anharmonic_module
   
   use setup_harmonic_module
   
-  use degeneracy_module
-  use coupled_subspaces_module
-  use subspace_monomial_module
-  use mode_monomial_module
-  use degenerate_symmetry_module
-  use basis_function_module
-  use basis_functions_module
-  use sampling_points_module
-  use vscf_rvector_module
-  use vscf_rvectors_module
+  use shared_module
+  use polynomial_module
   implicit none
   
   private

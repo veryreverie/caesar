@@ -73,13 +73,15 @@ subroutine calculate_normal_modes(arguments)
   real(dp)         :: degenerate_energy
   type(String)     :: calculation_type
   
-  ! Setup data.
+  ! Arguments to setup_harmonic.
+  type(String) :: file_type
+  type(String) :: seedname
+  real(dp)     :: symmetry_precision
+  
+  ! Initial data calculated by setup_harmonic.
   integer                          :: no_supercells
-  type(String)                     :: file_type
-  type(String)                     :: seedname
   type(StructureData)              :: structure
   type(StructureData), allocatable :: supercells(:)
-  real(dp)                         :: symmetry_precision
   
   ! Force constant data.
   type(UniqueDirection), allocatable :: unique_directions(:)

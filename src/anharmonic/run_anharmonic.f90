@@ -1,14 +1,14 @@
 ! ======================================================================
-! Runs anharmonic DFT calculations.
+! Runs anharmonic DFT calculations, as set up by setup_anharmonic.
 ! ======================================================================
 module run_anharmonic_module
   use common_module
   
   use setup_harmonic_module
   
-  use coupled_subspaces_module
-  use sampling_points_module
-  use vscf_rvectors_module
+  use shared_module
+  use polynomial_module
+  
   use setup_anharmonic_module
   implicit none
   

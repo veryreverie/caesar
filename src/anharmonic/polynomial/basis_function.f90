@@ -4,10 +4,7 @@
 module basis_function_module
   use common_module
   
-  use degeneracy_module
-  use subspace_monomial_module
-  use mode_monomial_module
-  use degenerate_symmetry_module
+  use shared_module
   implicit none
   
   private

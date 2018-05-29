@@ -4,8 +4,8 @@
 module sampling_points_module
   use common_module
   
-  use coupled_modes_module
-  use mode_monomial_module
+  use shared_module
+  
   use basis_function_module
   use basis_functions_module
   implicit none
