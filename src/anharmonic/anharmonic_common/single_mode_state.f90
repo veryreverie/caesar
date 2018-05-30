@@ -336,7 +336,7 @@ function bloch_momentum(this,mode,qpoints) result(output)
   
   class(SingleModeState), intent(in) :: this
   type(ComplexMode),      intent(in) :: mode
-  type(QPointData),       intent(in) :: qpoints(:)
+  type(QpointData),       intent(in) :: qpoints(:)
   type(FractionVector)               :: output
   
   type(QpointData) :: qpoint

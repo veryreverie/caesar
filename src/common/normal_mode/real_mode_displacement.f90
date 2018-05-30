@@ -66,8 +66,8 @@ function qpoints_RealModeDisplacement(this,real_modes,qpoints) result(output)
   
   class(RealModeDisplacement), intent(in) :: this
   type(RealMode),              intent(in) :: real_modes(:)
-  type(QPointData),            intent(in) :: qpoints(:)
-  type(QPointData), allocatable           :: output(:)
+  type(QpointData),            intent(in) :: qpoints(:)
+  type(QpointData), allocatable           :: output(:)
   
   type(RealMode), allocatable :: modes(:)
   

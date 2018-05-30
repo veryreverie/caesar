@@ -53,12 +53,15 @@ end function
 
 ! Generates a set of sampling points for sampling a set of basis functions.
 function generate_sampling_points(basis_functions,potential_expansion_order, &
-   & maximum_weighted_displacement) result(output)
+   & maximum_weighted_displacement,frequency_of_max_displacement,real_modes) &
+   & result(output)
   implicit none
   
   type(BasisFunction), intent(in) :: basis_functions(:)
   integer,             intent(in) :: potential_expansion_order
   real(dp),            intent(in) :: maximum_weighted_displacement
+  real(dp),            intent(in) :: frequency_of_max_displacement
+  type(RealMode),      intent(in) :: real_modes(:)
   type(SamplingPoints)            :: output
   
   type(CoupledModes), allocatable :: couplings(:)
@@ -91,7 +94,9 @@ function generate_sampling_points(basis_functions,potential_expansion_order, &
        & points,                                                         &
        & generate_sampling_points_helper( unique_terms,                  &
        &                                  potential_expansion_order,     &
-       &                                  maximum_weighted_displacement) &
+       &                                  maximum_weighted_displacement, &
+       &                                  frequency_of_max_displacement, &
+       &                                  real_modes)                    &
        & ]
   enddo
   
@@ -115,28 +120,56 @@ end function
 
 ! Helper function for generate_sampling_points.
 function generate_sampling_points_helper(monomials,potential_expansion_order, &
-   & maximum_weighted_displacement) result(output)
+   & maximum_weighted_displacement,frequency_of_max_displacement,real_modes)  &
+   & result(output)
   implicit none
   
   type(RealMonomial), intent(in)          :: monomials(:)
   integer,            intent(in)          :: potential_expansion_order
   real(dp),           intent(in)          :: maximum_weighted_displacement
+  real(dp),           intent(in)          :: frequency_of_max_displacement
+  type(RealMode),     intent(in)          :: real_modes(:)
   type(RealModeDisplacement), allocatable :: output(:)
   
-  integer               :: power
-  real(dp), allocatable :: fractions(:)
+  integer        :: sum_powers
+  type(RealMode) :: mode
+  real(dp)       :: mode_power
+  real(dp)       :: mode_frequency
   
   integer :: i,j,ialloc
   
   allocate(output(size(monomials)), stat=ialloc); call err(ialloc)
   do i=1,size(output)
-    power = sum(monomials(i)%modes%power)
+    sum_powers = sum(monomials(i)%modes%power)
     allocate( output(i)%displacements(size(monomials(i))), &
             & stat=ialloc); call err(ialloc)
-    output(i)%displacements%id = monomials(i)%modes%id
-    fractions = monomials(i)%modes%power / real(power,dp)
-    output(i)%displacements%displacement = maximum_weighted_displacement &
-                                       & * sqrt(fractions)
+    do j=1,size(monomials(i))
+      output(i)%displacements(j)%id = monomials(i)%modes(j)%id
+      mode = real_modes(first(real_modes%id==monomials(i)%modes(j)%id))
+      
+      ! Calculate the displacement along mode j in monomial i.
+      ! This is equal to d_j = d_max *     ( p_i   / p_max          )
+      !                              * sqrt( w_min / max(w_j,w_min) )
+      !                              * sqrt( p_j   / p_i)
+      !    - d_max is the maximum mass-weighted displacement.
+      !    - p_j   is the power of mode j in monomial i.
+      !    - p_i   is the sum of the powers of the modes in monomial i.
+      !    - p_max is the maximum sum of powers in any monomial.
+      !    - w_j   is the frequency of mode j in monomial i.
+      !    - w_min is the frequency cutoff for displacement scaling.
+      !
+      ! As such the displacement corresponding to a given monomial
+      !    (the L2 sum across d_j for that monomial), is at most d_max.
+      mode_power = monomials(i)%modes(j)%power
+      mode_frequency = max(mode%frequency, frequency_of_max_displacement)
+      output(i)%displacements(j)%displacement =  &
+         &   maximum_weighted_displacement       &
+         & * sqrt( mode_power                    &
+         &       * sum_powers                    &
+         &       * frequency_of_max_displacement &
+         &       / mode_frequency )              &
+         & / potential_expansion_order
+    enddo
   enddo
 end function
 

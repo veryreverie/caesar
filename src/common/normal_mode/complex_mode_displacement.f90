@@ -46,8 +46,8 @@ function qpoints_ComplexModeDisplacement(this,complex_modes,qpoints) &
   
   class(ComplexModeDisplacement), intent(in) :: this
   type(ComplexMode),              intent(in) :: complex_modes(:)
-  type(QPointData),               intent(in) :: qpoints(:)
-  type(QPointData), allocatable              :: output(:)
+  type(QpointData),               intent(in) :: qpoints(:)
+  type(QpointData), allocatable              :: output(:)
   
   integer, allocatable :: qpoint_ids(:)
   

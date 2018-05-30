@@ -53,7 +53,12 @@ function setup_anharmonic_keywords() result(keywords)
   &point will be from the equilibrium position. maximum_displacement should &
   &be given in Bohr. Due to the use of mass-reduced co-ordinates, in systems &
   &containing different elements modes with higher contributions from heavier &
-  &atoms will be displaced less far than this.') ]
+  &atoms will be displaced less far than this.'),                             &
+  & KeywordData( 'frequency_of_max_displacement',                             &
+  &              'frequency_of_max_displacement is the frequency, w_min, at &
+  &which maximum displacement happens. Displacement along modes with w>w_min &
+  &is scaled by sqrt(w_min/w), and displacement along modes with w<w_min &
+  &is unscaled. w_min should be given in Hartree.') ]
 end function
 
 function setup_anharmonic_mode() result(output)
@@ -83,6 +88,7 @@ subroutine setup_anharmonic(arguments)
   integer      :: maximum_coupling_order
   logical      :: vscf_basis_functions_only
   real(dp)     :: maximum_displacement
+  real(dp)     :: frequency_of_max_displacement
   
   ! Previous user inputs.
   type(Dictionary) :: setup_harmonic_arguments
@@ -129,14 +135,16 @@ subroutine setup_anharmonic(arguments)
   type(CartesianDisplacement)     :: displacement
   type(StructureData)             :: displaced_structure
   
+  ! Potential data.
+  type(PotentialPointer) :: potential
+  
   ! Directories and files.
-  type(String)              :: qpoint_dir
-  type(String)              :: max_subspace_id
-  type(String), allocatable :: coupling_strings(:)
-  type(String)              :: coupling_dir
-  type(String)              :: sampling_dir
-  type(String)              :: vscf_rvector_dir
-  type(String)              :: input_filename
+  type(String) :: qpoint_dir
+  type(String) :: coupling_dir
+  type(String) :: sampling_points_dir
+  type(String) :: sampling_dir
+  type(String) :: vscf_rvector_dir
+  type(String) :: input_filename
   
   ! Input files.
   type(IFile)                    :: harmonic_qpoints_file
@@ -169,6 +177,8 @@ subroutine setup_anharmonic(arguments)
   vscf_basis_functions_only = &
      & lgcl(arguments%value('vscf_basis_functions_only'))
   maximum_displacement = dble(arguments%value('maximum_displacement'))
+  frequency_of_max_displacement = &
+     & dble(arguments%value('frequency_of_max_displacement'))
   
   ! Retrieve data from previous stages.
   setup_harmonic_arguments = Dictionary(setup_harmonic_keywords())
@@ -191,7 +201,7 @@ subroutine setup_anharmonic(arguments)
   enddo
   
   ! ----------------------------------------------------------------------
-  ! Generate setup data.
+  ! Generate setup data common to all potential representations.
   ! ----------------------------------------------------------------------
   
   ! Open logfile.
@@ -265,39 +275,8 @@ subroutine setup_anharmonic(arguments)
   coupled_subspaces = generate_coupled_subspaces( degenerate_subspaces, &
                                                 & maximum_coupling_order)
   
-  ! Loop over subspace couplings, generating basis functions and sampling
-  !    points for each.
-  allocate( basis_functions(size(coupled_subspaces)), &
-          & sampling_points(size(coupled_subspaces)), &
-          & stat=ialloc); call err(ialloc)
-  do i=1,size(coupled_subspaces)
-    ! Generate the set of subspace monomials corresponding to the subspace
-    !    coupling.
-    ! e.g. the coupling [1,2] might have monomials [1,2], [1,1,2] and [1,2,2].
-    subspace_monomials = generate_subspace_monomials( &
-                              & coupled_subspaces(i), &
-                              & potential_expansion_order)
-    
-    ! Generate basis functions at each coupling.
-    basis_functions(i) = generate_basis_functions( subspace_monomials,        &
-                                                 & structure,                 &
-                                                 & complex_modes,             &
-                                                 & real_modes,                &
-                                                 & qpoints,                   &
-                                                 & degenerate_subspaces,      &
-                                                 & degenerate_symmetries,     &
-                                                 & vscf_basis_functions_only, &
-                                                 & logfile)
-    ! Generate a set of sampling points from which the basis functions can
-    !    be constructed.
-    sampling_points(i) = generate_sampling_points( &
-                   & basis_functions(i)%functions, &
-                   & potential_expansion_order,    &
-                   & maximum_weighted_displacement)
-  enddo
-  
   ! ----------------------------------------------------------------------
-  ! Write out setup data.
+  ! Write out setup data common to all potential representations.
   ! ----------------------------------------------------------------------
   
   ! Write out complex and real normal modes.
@@ -318,68 +297,54 @@ subroutine setup_anharmonic(arguments)
   coupling_file = OFile(wd//'/coupling.dat')
   call coupling_file%print_lines(coupled_subspaces)
   
-  max_subspace_id = str(maxval(degenerate_subspaces%id))
-  do i=1,size(coupled_subspaces)
-    ! Construct directory name from coupled subspace ids.
-    coupling_strings = left_pad( coupled_subspaces(i)%ids, &
-                               & max_subspace_id)
-    coupling_dir = wd//'/coupling_'//join(coupling_strings,delimiter='-')
-    
-    call mkdir(coupling_dir)
-    
-    ! Write basis functions to file.
-    basis_function_file = OFile(coupling_dir//'/basis_functions.dat')
-    call basis_function_file%print_lines(basis_functions(i))
-    
-    ! Write sampling points to file.
-    sampling_points_file = OFile(coupling_dir//'/sampling_points.dat')
-    call sampling_points_file%print_lines(sampling_points(i))
-    
-    ! Generate supercells for each sampling point.
-    do j=1,size(sampling_points(i))
-      supercell_matrix = construct_supercell_matrix(                 &
-         & sampling_points(i)%points(j)%qpoints(real_modes,qpoints), &
-         & structure )
-      supercell = construct_supercell( structure,          &
-                                     & supercell_matrix,   &
-                                     & symmetry_precision, &
-                                     & calculate_symmetry = .false.)
-      sampling_dir = coupling_dir//'/sampling_point_'// &
-                   & left_pad(j,str(size(sampling_points(i))))
-      call mkdir(sampling_dir)
-      call write_structure_file(supercell, sampling_dir//'/structure.dat')
-      
-      vscf_rvectors = construct_vscf_rvectors( sampling_points(i)%points(j), &
-                                             & supercell,                    &
-                                             & real_modes,                   &
-                                             & qpoints)
-      vscf_rvectors_file = OFile(sampling_dir//'/vscf_rvectors.dat')
-      call vscf_rvectors_file%print_lines(vscf_rvectors,separating_line='')
-      
-      ! Loop over VSCF R-vector permutations.
-      do k=1,size(vscf_rvectors)
-        vscf_rvector_dir =  &
-           & sampling_dir// &
-           & '/vscf_rvector_'//left_pad(k,str(size(vscf_rvectors)))
-        call mkdir(vscf_rvector_dir)
-        
-        ! Construct displaced structure.
-        displacement = sampling_points(i)%points(j)%cartesian_displacement( &
-                                     & supercell,                           &
-                                     & real_modes,                          &
-                                     & qpoints,                             &
-                                     & vscf_rvectors(k)%rvectors(real_modes))
-        displaced_structure = displace_structure(supercell,displacement)
-        
-        ! Write displaced structure to file.
-        input_filename = make_input_filename(file_type,seedname)
-        call StructureData_to_input_file(     &
-                   & file_type,               &
-                   & displaced_structure,     &
-                   & wd//'/'//input_filename, &
-                   & vscf_rvector_dir//'/'//input_filename)
-      enddo
-    enddo
-  enddo
+  ! ----------------------------------------------------------------------
+  ! Generate and write out sampling points.
+  ! ----------------------------------------------------------------------
+  ! Make a directory for sampling points.
+  sampling_points_dir = wd//'/sampling_points'
+  call mkdir(sampling_points_dir)
+  
+  ! Initialise potential to the chosen representation.
+  potential = PolynomialPotential(potential_expansion_order)
+  
+  ! Generate the sampling points which will be used to map out the anharmonic
+  !    Born-Oppenheimer surface in the chosen representation.
+  call potential%generate_sampling_points( &
+          & sampling_points_dir,           &
+          & structure,                     &
+          & symmetry_precision,            &
+          & complex_modes,                 &
+          & real_modes,                    &
+          & qpoints,                       &
+          & degenerate_subspaces,          &
+          & degenerate_symmetries,         &
+          & coupled_subspaces,             &
+          & vscf_basis_functions_only,     &
+          & maximum_weighted_displacement, &
+          & frequency_of_max_displacement, &
+          & logfile,                       &
+          & write_structure_file_lambda)
+contains
+! Lambda of type WriteLambda to write a structure to file.
+! Captures:
+!    - file_type
+!    - seedname
+!    - wd
+subroutine write_structure_file_lambda(structure,directory)
+  implicit none
+  
+  type(StructureData), intent(in) :: structure
+  type(String),        intent(in) :: directory
+  
+  type(String) :: input_filename
+  
+  input_filename = make_input_filename(file_type,seedname)
+  call write_structure_file(structure,directory//'/structure.dat')
+  call StructureData_to_input_file( &
+         & file_type,               &
+         & structure,               &
+         & wd//'/'//input_filename, &
+         & directory//'/'//input_filename)
+end subroutine
 end subroutine
 end module

@@ -14,6 +14,7 @@ module anharmonic_common_module
   use single_mode_state_module
   use subspace_product_state_module
   use potential_module
+  use potential_pointer_module
   implicit none
 contains
 end module
