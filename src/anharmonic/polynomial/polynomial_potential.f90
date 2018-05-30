@@ -175,11 +175,6 @@ subroutine generate_sampling_points_PolynomialPotential(this,             &
       call vscf_rvectors_file%print_lines(vscf_rvectors,separating_line='')
       
       do k=1,size(vscf_rvectors)
-        ! Make a directory for each VSCF R-vector permutation.
-        vscf_rvectors_dir = sampling_dir// &
-           & '/vscf_rvectors_'//left_pad(k,str(size(vscf_rvectors)))
-        call mkdir(vscf_rvectors_dir)
-        
         ! Construct displaced structure.
         displacement =                                                 &
            & this%sampling_points(i)%points(j)%cartesian_displacement( &
@@ -189,10 +184,13 @@ subroutine generate_sampling_points_PolynomialPotential(this,             &
            &                             vscf_rvectors(k)%rvectors(real_modes))
         displaced_structure = displace_structure(supercell,displacement)
         
-        ! Write displaced structure file.
+        ! Create directory and structure files for displaced structure.
+        vscf_rvectors_dir = sampling_dir// &
+           & '/vscf_rvectors_'//left_pad(k,str(size(vscf_rvectors)))
         call write_lambda(displaced_structure,vscf_rvectors_dir)
       enddo
     enddo
   enddo
 end subroutine
+
 end module

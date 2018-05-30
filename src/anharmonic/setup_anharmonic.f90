@@ -104,47 +104,28 @@ subroutine setup_anharmonic(arguments)
   integer,           allocatable :: mode_qpoints(:)
   type(RealMode),    allocatable :: real_modes(:)
   
+  ! Maximum displacement in mass-weighted co-ordinates.
+  real(dp) :: maximum_weighted_displacement
+  
   ! Anharmonic q-points and the corresponding supercell.
   type(IntMatrix)                :: anharmonic_supercell_matrix
   type(StructureData)            :: anharmonic_supercell
   type(QpointData),  allocatable :: qpoints(:)
   
   ! Degeneracy data.
-  type(DegenerateModes), allocatable :: degenerate_subspaces(:)
-  
-  ! Symmetries.
+  type(DegenerateModes),    allocatable :: degenerate_subspaces(:)
   type(DegenerateSymmetry), allocatable :: degenerate_symmetries(:)
   
   ! Coupling data.
   type(CoupledSubspaces), allocatable :: coupled_subspaces(:)
-  type(SubspaceMonomial), allocatable :: subspace_monomials(:)
   
-  ! Basis functions.
-  type(BasisFunctions), allocatable :: basis_functions(:)
-  
-  ! Sampling points.
-  real(dp)                          :: maximum_weighted_displacement
-  type(SamplingPoints), allocatable :: sampling_points(:)
-  
-  ! Supercell data.
-  type(IntMatrix)     :: supercell_matrix
-  type(StructureData) :: supercell
-  
-  ! Displacement data.
-  type(VscfRvectors), allocatable :: vscf_rvectors(:)
-  type(CartesianDisplacement)     :: displacement
-  type(StructureData)             :: displaced_structure
-  
-  ! Potential data.
-  type(PotentialPointer) :: potential
+  ! Data specific to the chosen representation of the potential.
+  type(PotentialPointer)    :: potential
+  type(String), allocatable :: calculation_directories(:)
   
   ! Directories and files.
   type(String) :: qpoint_dir
-  type(String) :: coupling_dir
   type(String) :: sampling_points_dir
-  type(String) :: sampling_dir
-  type(String) :: vscf_rvector_dir
-  type(String) :: input_filename
   
   ! Input files.
   type(IFile)                    :: harmonic_qpoints_file
@@ -157,9 +138,7 @@ subroutine setup_anharmonic(arguments)
   type(OFile) :: complex_modes_file
   type(OFile) :: real_modes_file
   type(OFile) :: coupling_file
-  type(OFile) :: basis_function_file
-  type(OFile) :: sampling_points_file
-  type(OFile) :: vscf_rvectors_file
+  type(OFile) :: calculation_directories_file
   
   ! Temporary variables.
   integer :: i,j,k,l,ialloc
@@ -180,7 +159,7 @@ subroutine setup_anharmonic(arguments)
   frequency_of_max_displacement = &
      & dble(arguments%value('frequency_of_max_displacement'))
   
-  ! Retrieve data from previous stages.
+  ! Retrieve data from previous stages of Caesar.
   setup_harmonic_arguments = Dictionary(setup_harmonic_keywords())
   call setup_harmonic_arguments%read_file( &
      & harmonic_path//'/setup_harmonic.used_settings')
@@ -309,6 +288,10 @@ subroutine setup_anharmonic(arguments)
   
   ! Generate the sampling points which will be used to map out the anharmonic
   !    Born-Oppenheimer surface in the chosen representation.
+  ! N.B. calculation_directories will be updated automatically every time the
+  !    potential calls write_structure_file_lambda to make a new calculation
+  !    directory.
+  calculation_directories = [String::]
   call potential%generate_sampling_points( &
           & sampling_points_dir,           &
           & structure,                     &
@@ -323,28 +306,50 @@ subroutine setup_anharmonic(arguments)
           & maximum_weighted_displacement, &
           & frequency_of_max_displacement, &
           & logfile,                       &
-          & write_structure_file_lambda)
+          & write_and_record_calculation_directory)
+  
+  ! Write out calculation directories to file.
+  calculation_directories_file = OFile(wd//'/calculation_directories.dat')
+  call calculation_directories_file%print_lines(calculation_directories)
 contains
-! Lambda of type WriteLambda to write a structure to file.
-! Captures:
-!    - file_type
-!    - seedname
-!    - wd
-subroutine write_structure_file_lambda(structure,directory)
-  implicit none
-  
-  type(StructureData), intent(in) :: structure
-  type(String),        intent(in) :: directory
-  
-  type(String) :: input_filename
-  
-  input_filename = make_input_filename(file_type,seedname)
-  call write_structure_file(structure,directory//'/structure.dat')
-  call StructureData_to_input_file( &
-         & file_type,               &
-         & structure,               &
-         & wd//'/'//input_filename, &
-         & directory//'/'//input_filename)
-end subroutine
+  ! Lambda of type WriteLambda to write a structure to file.
+  ! Captures:
+  !    - file_type               (intent(in)   )
+  !    - seedname                (intent(in)   )
+  !    - wd                      (intent(in)   )
+  !    - calculation_directories (intent(inout))
+  subroutine write_and_record_calculation_directory(structure,directory)
+    implicit none
+    
+    type(StructureData), intent(in) :: structure
+    type(String),        intent(in) :: directory
+    
+    type(String) :: input_filename
+    
+    ! Check that the directory has not already been created by this lambda.
+    if (any(directory==calculation_directories)) then
+      call print_line(ERROR//': generate_sampling_points trying to create the &
+         &same calculation directory multiple times.')
+      call print_line('Duplicated directory: '//directory)
+      call err()
+    endif
+    
+    ! Make the new directory.
+    call mkdir(directory)
+    
+    ! Write a structure.dat file.
+    call write_structure_file(structure,directory//'/structure.dat')
+    
+    ! Write the equivalent electronic structure input file.
+    input_filename = make_input_filename(file_type,seedname)
+    call StructureData_to_input_file( &
+           & file_type,               &
+           & structure,               &
+           & wd//'/'//input_filename, &
+           & directory//'/'//input_filename)
+    
+    ! Record the directory to calculation_directories.
+    calculation_directories = [calculation_directories, directory]
+  end subroutine
 end subroutine
 end module
