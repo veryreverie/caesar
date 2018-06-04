@@ -28,12 +28,12 @@ function new_DegenerateSymmetry(symmetry,degenerate_subspaces,modes,qpoints, &
    & logfile) result(output)
   implicit none
   
-  type(SymmetryOperator), intent(in)    :: symmetry
-  type(DegenerateModes),  intent(in)    :: degenerate_subspaces(:)
-  type(ComplexMode),      intent(in)    :: modes(:)
-  type(QpointData),       intent(in)    :: qpoints(:)
-  type(OFile),            intent(inout) :: logfile
-  type(DegenerateSymmetry)              :: output
+  type(SymmetryOperator),   intent(in)    :: symmetry
+  type(DegenerateSubspace), intent(in)    :: degenerate_subspaces(:)
+  type(ComplexMode),        intent(in)    :: modes(:)
+  type(QpointData),         intent(in)    :: qpoints(:)
+  type(OFile),              intent(inout) :: logfile
+  type(DegenerateSymmetry)                :: output
   
   type(ComplexMode), allocatable :: degenerate_modes(:)
   type(QpointData),  allocatable :: degenerate_qpoints(:)
@@ -56,7 +56,7 @@ function new_DegenerateSymmetry(symmetry,degenerate_subspaces,modes,qpoints, &
   output%mode_pos_ = 0
   do i=1,size(degenerate_subspaces)
     degenerate_modes = degenerate_subspaces(i)%modes(modes)
-    degenerate_qpoints = degenerate_subspaces(i)%qpoints(qpoints)
+    degenerate_qpoints = degenerate_subspaces(i)%qpoints(modes,qpoints)
     output%single_mode_symmetries_(i) =                                &
        & calculate_symmetry_in_normal_coordinates( degenerate_modes,   &
        &                                           degenerate_qpoints, &

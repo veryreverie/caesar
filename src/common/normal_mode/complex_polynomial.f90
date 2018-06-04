@@ -60,6 +60,7 @@ module complex_polynomial_submodule
   
   interface ComplexUnivariate
     module procedure new_ComplexUnivariate
+    module procedure new_ComplexUnivariate_String
   end interface
   
   type, extends(ComplexMonomialable) :: ComplexMonomial
@@ -80,6 +81,7 @@ module complex_polynomial_submodule
   
   interface ComplexMonomial
     module procedure new_ComplexMonomial
+    module procedure new_ComplexMonomial_String
   end interface
   
   type, extends(ComplexPolynomialable) :: ComplexPolynomial
@@ -97,6 +99,7 @@ module complex_polynomial_submodule
   
   interface ComplexPolynomial
     module procedure new_ComplexPolynomial
+    module procedure new_ComplexPolynomial_String
   end interface
   
   abstract interface
@@ -159,13 +162,17 @@ contains
 function new_ComplexUnivariate(id,paired_id,power) result(this)
   implicit none
   
-  integer, intent(in)     :: id
-  integer, intent(in)     :: paired_id
-  integer, intent(in)     :: power
-  type(ComplexUnivariate) :: this
+  integer, intent(in)           :: id
+  integer, intent(in), optional :: paired_id
+  integer, intent(in)           :: power
+  type(ComplexUnivariate)       :: this
   
   this%id        = id
-  this%paired_id = paired_id
+  if (present(paired_id)) then
+    this%paired_id = paired_id
+  else
+    this%paired_id = 0
+  endif
   this%power     = power
 end function
 
@@ -617,17 +624,21 @@ subroutine read_ComplexUnivariate(this,input)
   class(ComplexUnivariate), intent(out) :: this
   type(String),             intent(in) :: input
   
-  type(String), allocatable :: split_string(:)
+  type(String), allocatable :: line(:)
+  integer                   :: id
+  integer                   :: power
   
   select type(this); type is(ComplexUnivariate)
-    split_string = split_line(input,delimiter='^')
-    if (size(split_string)/=2) then
+    line = split_line(input,delimiter='^')
+    if (size(line)/=2) then
       call print_line(ERROR//': Unable to convert string to univariate.')
       call err()
     endif
     
-    this%id = int(slice(split_string(1),2,len(split_string(1))))
-    this%power = int(split_string(2))
+    id = int(slice(line(1),2,len(line(1))))
+    power = int(line(2))
+    
+    this = ComplexUnivariate(id=id,power=power)
   end select
 end subroutine
 
@@ -642,23 +653,32 @@ function write_ComplexUnivariate(this) result(output)
   end select
 end function
 
+impure elemental function new_ComplexUnivariate_String(input) result(this)
+  implicit none
+  
+  type(String), intent(in) :: input
+  type(ComplexUnivariate)  :: this
+  
+  this = input
+end function
+
 subroutine read_ComplexMonomial(this,input)
   implicit none
   
   class(ComplexMonomial), intent(out) :: this
   type(String),           intent(in)  :: input
   
-  type(String), allocatable :: split_string(:)
-  
-  integer :: i,ialloc
+  type(String),            allocatable :: line(:)
+  complex(dp)                          :: coefficient
+  type(ComplexUnivariate), allocatable :: modes(:)
   
   select type(this); type is(ComplexMonomial)
-    split_string = split_line(input,delimiter='*')
-    this%coefficient = dble(split_string(1))
-    allocate(this%modes(size(split_string)-1), stat=ialloc); call err(ialloc)
-    do i=1,size(this%modes)
-      this%modes(i) = split_string(i+1)
-    enddo
+    line = split_line(input,delimiter='*')
+    
+    coefficient = cmplx(line(1))
+    modes = ComplexUnivariate(line(2:))
+    
+    this = ComplexMonomial(coefficient, modes)
   end select
 end subroutine
 
@@ -668,14 +688,18 @@ function write_ComplexMonomial(this) result(output)
   class(ComplexMonomial), intent(in) :: this
   type(String)                       :: output
   
-  integer :: i
-  
   select type(this); type is(ComplexMonomial)
-    output = this%coefficient
-    do i=1,size(this%modes)
-      output = output//'*'//this%modes(i)
-    enddo
+    output = this%coefficient//'*'//join(this%modes, delimiter='*')
   end select
+end function
+
+impure elemental function new_ComplexMonomial_String(input) result(this)
+  implicit none
+  
+  type(String), intent(in) :: input
+  type(ComplexMonomial)    :: this
+  
+  this = input
 end function
 
 subroutine read_ComplexPolynomial(this,input)
@@ -684,17 +708,12 @@ subroutine read_ComplexPolynomial(this,input)
   class(ComplexPolynomial), intent(out) :: this
   type(String),             intent(in)  :: input
   
-  type(String), allocatable :: line(:)
-  
-  integer :: i,ialloc
+  type(String), allocatable :: terms(:)
   
   select type(this); type is(ComplexPolynomial)
-    line = split_line(input)
-    line = line(filter(line/='+'))
-    allocate(this%terms(size(line)), stat=ialloc); call err(ialloc)
-    do i=1,size(line)
-      this%terms(i) = line(i)
-    enddo
+    terms = split_line(input)
+    terms = terms(filter(terms/='+'))
+    this = ComplexPolynomial(ComplexMonomial(terms))
   end select
 end subroutine
 
@@ -707,5 +726,14 @@ function write_ComplexPolynomial(this) result(output)
   select type(this); type is(ComplexPolynomial)
     output = join(this%terms, delimiter=' + ')
   end select
+end function
+
+impure elemental function new_ComplexPolynomial_String(input) result(this)
+  implicit none
+  
+  type(String), intent(in) :: input
+  type(ComplexPolynomial)  :: this
+  
+  this = input
 end function
 end module

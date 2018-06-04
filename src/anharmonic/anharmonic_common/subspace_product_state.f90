@@ -21,6 +21,7 @@ module subspace_product_state_module
   
   interface SubspaceProductState
     module procedure new_SubspaceProductState
+    module procedure new_SubspaceProductState_String
   end interface
   
   interface size
@@ -73,5 +74,14 @@ function write_SubspaceProductState(this) result(output)
   select type(this); type is(SubspaceProductState)
     output = join(this%state_ids)
   end select
+end function
+
+impure elemental function new_SubspaceProductState_String(input) result(this)
+  implicit none
+  
+  type(String), intent(in)   :: input
+  type(SubspaceProductState) :: this
+  
+  this = input
 end function
 end module

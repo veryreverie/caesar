@@ -38,6 +38,7 @@ module unique_directions_module
   
   interface UniqueDirection
     module procedure new_UniqueDirection
+    module procedure new_UniqueDirection_StringArray
   end interface
 contains
 
@@ -390,5 +391,14 @@ function write_UniqueDirection(this) result(output)
              & 'Direction    : '//this%direction,   &
              & 'Displacement : '//this%atomic_displacement ]
   end select
+end function
+
+impure elemental function new_UniqueDirection_StringArray(input) result(this)
+  implicit none
+  
+  type(StringArray), intent(in) :: input
+  type(UniqueDirection)         :: this
+  
+  this = input
 end function
 end module

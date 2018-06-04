@@ -6,16 +6,13 @@ module subspace_monomial_module
   use common_module
   
   use degeneracy_module
-  use coupled_subspaces_module
+  use subspace_coupling_module
   implicit none
   
   private
   
   public :: SubspaceMonomial
   public :: size
-  public :: write_coupling_file
-  public :: read_coupling_file
-  public :: generate_subspace_coupling
   public :: generate_subspace_monomials
   public :: operator(//)
   public :: operator(==)
@@ -41,10 +38,12 @@ module subspace_monomial_module
   
   interface SubspaceMonomial
     module procedure new_SubspaceMonomial
+    module procedure new_SubspaceMonomial_DegenerateSubspaces
+    module procedure new_SubspaceMonomial_String
   end interface
   
   interface operator(//)
-    module procedure concatenate_SubspaceMonomial_integer
+    module procedure concatenate_SubspaceMonomial_DegenerateSubspace
   end interface
   
   interface size
@@ -62,8 +61,8 @@ contains
 
 ! ----------------------------------------------------------------------
 ! Basic functionality.
-!    - Constructor.
-!    - Concatenation with subspace id.
+!    - Constructors.
+!    - Concatenation with DegenerateSubspace.
 !    - size() function.
 !    - equality and non-equality with other SubspaceMonomials.
 ! ----------------------------------------------------------------------
@@ -80,14 +79,24 @@ function new_SubspaceMonomial(ids) result(this)
   endif
 end function
 
-function concatenate_SubspaceMonomial_integer(this,id) result(output)
+function new_SubspaceMonomial_DegenerateSubspaces(subspaces) result(this)
   implicit none
   
-  type(SubspaceMonomial), intent(in) :: this
-  integer,                intent(in) :: id
-  type(SubspaceMonomial)             :: output
+  type(DegenerateSubspace), intent(in) :: subspaces(:)
+  type(SubspaceMonomial)               :: this
   
-  output = SubspaceMonomial([this%ids, id])
+  this%ids = subspaces%id
+end function
+
+function concatenate_SubspaceMonomial_DegenerateSubspace(this,subspace) &
+   & result(output)
+  implicit none
+  
+  type(SubspaceMonomial),   intent(in) :: this
+  type(DegenerateSubspace), intent(in) :: subspace
+  type(SubspaceMonomial)               :: output
+  
+  output = SubspaceMonomial([this%ids, subspace%id])
 end function
 
 function size_SubspaceMonomial(this) result(output)
@@ -127,9 +136,9 @@ end function
 function coupled_subspaces(this,subspaces) result(output)
   implicit none
   
-  class(SubspaceMonomial), intent(in) :: this
-  type(DegenerateModes),   intent(in) :: subspaces(:)
-  type(DegenerateModes), allocatable  :: output(:)
+  class(SubspaceMonomial),  intent(in)  :: this
+  type(DegenerateSubspace), intent(in)  :: subspaces(:)
+  type(DegenerateSubspace), allocatable :: output(:)
   
   integer :: i,j,ialloc
   
@@ -170,221 +179,94 @@ end function
 ! ----------------------------------------------------------------------
 ! e.g. given the subspace coupling with ids [3,5] and potential order 3,
 !    will return coupling monomials [3,3,5] and [3,5,5].
-function generate_subspace_monomials(coupled_subspaces, &
+function generate_subspace_monomials(subspace_coupling,subspaces, &
    & potential_expansion_order) result(output)
   implicit none
   
-  type(CoupledSubspaces), intent(in)  :: coupled_subspaces
-  integer,                intent(in)  :: potential_expansion_order
-  type(SubspaceMonomial), allocatable :: output(:)
+  type(SubspaceCoupling),   intent(in) :: subspace_coupling
+  type(DegenerateSubspace), intent(in) :: subspaces(:)
+  integer,                  intent(in) :: potential_expansion_order
+  type(SubspaceMonomial), allocatable  :: output(:)
   
-  if (potential_expansion_order<min(2,size(coupled_subspaces))) then
+  type(DegenerateSubspace), allocatable :: coupled_subspaces(:)
+  
+  ! Check inputs.
+  if (size(subspace_coupling)==0) then
+    call print_line(CODE_ERROR//': Empty subspace coupling.')
+    call err()
+  elseif (potential_expansion_order<min(2,size(subspace_coupling))) then
     call print_line(ERROR//': potential_expansion_order must be at least 2, &
        &and at least as large as maximum_coupling_order.')
     stop
   endif
   
-  output = generate_subspace_monomials_helper( SubspaceMonomial(), &
-                                             & coupled_subspaces,  &
+  ! Retrieve coupled subspaces from subspace coupling.
+  coupled_subspaces = subspace_coupling%coupled_subspaces(subspaces)
+  
+  ! Call recursive helper function to generate monomials.
+  output = generate_subspace_monomials_helper( coupled_subspaces, &
                                              & potential_expansion_order)
 end function
 
 ! Helper function for generate_subspace_monomials.
-recursive function generate_subspace_monomials_helper(monomial_in, &
-   & coupled_subspaces,potential_expansion_order) result(output)
+! This function appends a number of copies of the first subspace in
+!    coupled_subspaces, then calls itself to append the next subspace etc.
+! The optional argument monomial_in is a recursive argument which should only
+!    be provided by recursive calls.
+recursive function generate_subspace_monomials_helper(coupled_subspaces, &
+   & potential_expansion_order,monomial_in) result(output)
   implicit none
   
-  type(SubspaceMonomial), intent(in)  :: monomial_in
-  type(CoupledSubspaces), intent(in)  :: coupled_subspaces
-  integer,                intent(in)  :: potential_expansion_order
-  type(SubspaceMonomial), allocatable :: output(:)
+  type(DegenerateSubspace), intent(in)           :: coupled_subspaces(:)
+  integer,                  intent(in)           :: potential_expansion_order
+  type(SubspaceMonomial),   intent(in), optional :: monomial_in
+  type(SubspaceMonomial), allocatable            :: output(:)
   
-  integer                :: first_subspace
-  type(CoupledSubspaces) :: remaining_subspaces
+  type(DegenerateSubspace)              :: first_subspace
+  type(DegenerateSubspace), allocatable :: remaining_subspaces(:)
+  
   type(SubspaceMonomial) :: monomial
   
-  output = [SubspaceMonomial::]
-  
-  ! This function appends a number of copies of the first subspace in
-  !    coupled_subspaces, then calls itself to append the next subspace etc.
-  
-  ! If there are no more subspaces to append, return the monomial.
+  ! If there are no more subspaces to append, return the monomial,
+  !    but only if its size is at least 2.
+  ! Size 1 monomials are ignored because they correspond to linear terms in the
+  !    potential, which are zero because the structure is geometry optimised.
   if (size(coupled_subspaces)==0) then
-    if (size(monomial_in)>=2) then
+    if (.not. present(monomial_in)) then
+      call print_line(CODE_ERROR//': Empty subspace coupling.')
+      call err()
+    elseif (size(monomial_in)<2) then
+      output = [SubspaceMonomial::]
+    elseif (size(monomial_in)>=2) then
       output = [monomial_in]
     endif
+    
     return
   endif
   
-  ! Generate the CoupledSubspaces containing the subspaces which are not
-  !    handled by this call of the function, that is to say all but the first.
   ! Split the coupled subspaces into the first subspace, which will be handled
   !    by this call of the function, and all the rest, which will be handled
   !    by a recursive call.
-  first_subspace      = coupled_subspaces%ids(1)
-  remaining_subspaces = CoupledSubspaces(coupled_subspaces%ids(2:))
+  first_subspace      = coupled_subspaces(1)
+  remaining_subspaces = coupled_subspaces(2:)
   
   ! Append copies of the first subspace as many times as still leaves space
   !    for at least one copy of every remaining subspace, and then call this
   !    function to handle the next subspace along.
-  monomial = monomial_in
-  do while(size(monomial)+size(coupled_subspaces)<=potential_expansion_order)
-    monomial = monomial // first_subspace
-    output = [ output,                             &
-           &   generate_subspace_monomials_helper( &
-           &            monomial,                  &
-           &            remaining_subspaces,       &
-           &            potential_expansion_order) &
-           & ]
-  enddo
-end function
-
-! ----------------------------------------------------------------------
-! Generates all couplings between a given set of degeneracy ids at a given
-!    potential expansion order and coupling order.
-! ----------------------------------------------------------------------
-function generate_subspace_coupling(degenerate_modes, &
-   & potential_expansion_order,coupling_order) result(output)
-  implicit none
-  
-  type(DegenerateModes), intent(in)   :: degenerate_modes(:)
-  integer,               intent(in)   :: potential_expansion_order
-  integer,               intent(in)   :: coupling_order
-  type(SubspaceMonomial), allocatable :: output(:)
-  
-  type(SubspaceMonomial), allocatable :: old_couplings(:)
-  type(SubspaceMonomial), allocatable :: new_couplings(:)
-  
-  integer :: i,ialloc
-  
-  if (potential_expansion_order<2) then
-    call print_line(ERROR//': potential_expansion_order must be at least 2.')
-    stop
-  elseif (coupling_order<1) then
-    call print_line(ERROR//': coupling_order must be at least 1.')
-    stop
-  elseif (coupling_order>potential_expansion_order) then
-    call print_line(ERROR//': coupling_order must be less than or equal to &
-       &potential_expansion_order.')
-    stop
+  if (present(monomial_in)) then
+    monomial = monomial_in
+  else
+    monomial = SubspaceMonomial()
   endif
   
   output = [SubspaceMonomial::]
-  
-  do i=2,potential_expansion_order
-    ! N.B. the contents of this loop is equivalent to the line:
-    !    output = [output, coupling_generator(...)]
-    ! But that line triggers an apparent Nagfort bug.
-    old_couplings = output
-    new_couplings = coupling_generator(degenerate_modes, i, coupling_order)
-    
-    deallocate(output, stat=ialloc); call err(ialloc)
-    allocate( output(size(old_couplings)+size(new_couplings)), &
-            & stat=ialloc); call err(ialloc)
-    output(                      : size(old_couplings)) = old_couplings
-    output(size(old_couplings)+1 :                    ) = new_couplings
-  enddo
-end function
-
-! Helper function for generate_subspace coupling.
-! Recursively generates all the coupling at a specific
-!    potential_expansion_order.
-!
-! coupling_in is a recursive parameter. Each time coupling_generator is called,
-!    it adds one id to the given coupling, and calls itself again.
-! e.g. coupling_generator(coupling_in=[1]) will call
-!     coupling_generator(coupling_in=[1,i]) with i in subspace_ids.
-!
-! Only returns couplings in ascending order, and with at most coupling_order
-!    distinct elements.
-recursive function coupling_generator(degenerate_modes, &
-   & potential_expansion_order,coupling_order,coupling_in) result(output)
-  implicit none
-  
-  type(DegenerateModes),  intent(in)           :: degenerate_modes(:)
-  integer,                intent(in)           :: potential_expansion_order
-  integer,                intent(in)           :: coupling_order
-  type(SubspaceMonomial), intent(in), optional :: coupling_in
-  type(SubspaceMonomial), allocatable          :: output(:)
-  
-  type(SubspaceMonomial) :: coupling
-  type(SubspaceMonomial) :: coupling_out
-  
-  type(SubspaceMonomial), allocatable :: old_couplings(:)
-  type(SubspaceMonomial), allocatable :: new_couplings(:)
-  
-  integer :: i
-  
-  if (present(coupling_in)) then
-    coupling = coupling_in
-  else
-    coupling = SubspaceMonomial([integer::])
-  endif
-  
-  if (size(coupling)==potential_expansion_order) then
-    ! The input coupling already contains as many terms as required. Return it.
-    output = [coupling]
-  elseif (size(set(coupling%ids))==coupling_order) then
-    ! The input coupling already contains coupling_order distinct subspaces.
-    ! Append the last added subspace until potential_expansion_order.
-    ! e.g. if coupling_order=2 and potential_expansion_order=6 then
-    !    coupling_in=[3,3,4] -> coupling_out=[3,3,4,4,4,4].
-    coupling_out = coupling
-    do i=1,potential_expansion_order-size(coupling)
-      coupling_out = coupling_out//degenerate_modes(1)%id
-    enddo
-    output = [coupling_out]
-  else
-    ! Recursively call coupling_generator after appending each subspace id.
-    output = [SubspaceMonomial::]
-    do i=1,size(degenerate_modes)
-      coupling_out = coupling//degenerate_modes(i)%id
-      
-      ! N.B. this is equivalent to output = [output, coupling_generator(...)]
-      ! But again, Nagfort appears to have a compiler bug at that line.
-      old_couplings = output
-      new_couplings = coupling_generator( degenerate_modes(i:),      &
-                                        & potential_expansion_order, &
-                                        & coupling_order,            &
-                                        & coupling_out)
-      output = [old_couplings, new_couplings]
-    enddo
-  endif
-end function
-
-! ----------------------------------------------------------------------
-! File I/O.
-! ----------------------------------------------------------------------
-subroutine write_coupling_file(this, filename)
-  implicit none
-  
-  type(SubspaceMonomial), intent(in) :: this(:)
-  type(String),           intent(in) :: filename
-  
-  type(OFile) :: coupling_file
-  
-  integer :: i
-  
-  coupling_file = OFile(filename)
-  call coupling_file%print_line('! Couplings between degenerate subspaces.')
-  do i=1,size(this)
-    call coupling_file%print_line(this(i))
-  enddo
-end subroutine
-
-function read_coupling_file(filename) result(this)
-  implicit none
-  
-  type(String), intent(in)            :: filename
-  type(SubspaceMonomial), allocatable :: this(:)
-  
-  type(IFile) :: coupling_file
-  integer     :: i,ialloc
-  
-  coupling_file = IFile(filename)
-  allocate(this(size(coupling_file)-1), stat=ialloc); call err(ialloc)
-  do i=1,size(this)
-    this(i)%ids = int(split_line(coupling_file%line(i+1)))
+  do while(size(monomial)+size(remaining_subspaces)<=potential_expansion_order)
+    monomial = monomial // first_subspace
+    output = [ output,                                                        &
+           &   generate_subspace_monomials_helper( remaining_subspaces,       &
+           &                                       potential_expansion_order, &
+           &                                       monomial)                  &
+           & ]
   enddo
 end function
 
@@ -622,5 +504,14 @@ function write_SubspaceMonomial(this) result(output)
   select type(this); type is(SubspaceMonomial)
     output = join(this%ids)
   end select
+end function
+
+impure elemental function new_SubspaceMonomial_String(input) result(this)
+  implicit none
+  
+  type(String), intent(in) :: input
+  type(SubspaceMonomial)   :: this
+  
+  this = input
 end function
 end module

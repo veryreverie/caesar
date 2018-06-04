@@ -25,6 +25,7 @@ module sampling_points_module
   
   interface SamplingPoints
     module procedure new_SamplingPoints
+    module procedure new_SamplingPoints_StringArray
   end interface
   
   interface size
@@ -64,8 +65,8 @@ function generate_sampling_points(basis_functions,potential_expansion_order, &
   type(RealMode),      intent(in) :: real_modes(:)
   type(SamplingPoints)            :: output
   
-  type(CoupledModes), allocatable :: couplings(:)
-  type(CoupledModes), allocatable :: unique_couplings(:)
+  type(ModeCoupling), allocatable :: couplings(:)
+  type(ModeCoupling), allocatable :: unique_couplings(:)
   
   type(RealMonomial),  allocatable :: unique_terms(:)
   
@@ -76,10 +77,10 @@ function generate_sampling_points(basis_functions,potential_expansion_order, &
   ! Construct the mode coupling corresponding to the unique term in each
   !    basis function.
   ! e.g. (u7)^4*(u9)^3*(u11)^1 => [7,9,11].
-  couplings = construct_coupled_modes(basis_functions%unique_term)
+  couplings = ModeCoupling(basis_functions%unique_term)
   
   ! De-duplicate the couplings.
-  unique_couplings = couplings(set(couplings,compare_CoupledModes))
+  unique_couplings = couplings(set(couplings,compare_ModeCoupling))
   
   points = [RealModeDisplacement::]
   do i=1,size(unique_couplings)
@@ -102,16 +103,16 @@ function generate_sampling_points(basis_functions,potential_expansion_order, &
   
   output = SamplingPoints(points)
 contains
-  ! Lambda for comparing CoupledModes.
-  function compare_CoupledModes(this,that) result(output)
+  ! Lambda for comparing ModeCoupling.
+  function compare_ModeCoupling(this,that) result(output)
     implicit none
     
     class(*), intent(in) :: this
     class(*), intent(in) :: that
     logical              :: output
     
-    select type(this); type is(CoupledModes)
-      select type(that); type is(CoupledModes)
+    select type(this); type is(ModeCoupling)
+      select type(that); type is(ModeCoupling)
         output = this==that
       end select
     end select
@@ -182,16 +183,8 @@ subroutine read_SamplingPoints(this,input)
   class(SamplingPoints), intent(out) :: this
   type(String),          intent(in)  :: input(:)
   
-  type(StringArray), allocatable :: points(:)
-  
-  integer :: i,ialloc
-  
   select type(this); type is(SamplingPoints)
-    points = split_into_sections(input)
-    allocate(this%points(size(points)), stat=ialloc)
-    do i=1,size(points)
-      this%points(i) = points(i)
-    enddo
+    this = SamplingPoints(RealModeDisplacement(split_into_sections(input)))
   end select
 end subroutine
 
@@ -204,5 +197,14 @@ function write_SamplingPoints(this) result(output)
   select type(this); type is(SamplingPoints)
     output = str(this%points,separating_line='')
   end select
+end function
+
+impure elemental function new_SamplingPoints_StringArray(input) result(this)
+  implicit none
+  
+  type(StringArray), intent(in) :: input
+  type(SamplingPoints)          :: this
+  
+  this = input
 end function
 end module

@@ -229,7 +229,7 @@ module string_writeable_example_submodule
   public :: StringWriteableExample
   
   type, extends(StringWriteable) :: StringWriteableExample
-    character(1) :: contents
+    integer :: contents
   contains
     procedure, public :: write => write_StringWriteableExample
   end type

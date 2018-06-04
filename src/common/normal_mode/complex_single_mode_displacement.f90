@@ -23,6 +23,7 @@ module complex_single_mode_displacement_submodule
   
   interface ComplexSingleModeDisplacement
     module procedure new_ComplexSingleModeDisplacement
+    module procedure new_ComplexSingleModeDisplacement_String
   end interface
 contains
 
@@ -75,5 +76,15 @@ function write_ComplexSingleModeDisplacement(this) result(output)
   select type(this); type is(ComplexSingleModeDisplacement)
     output = 'u'//this%id//' = '//this%displacement
   end select
+end function
+
+impure elemental function new_ComplexSingleModeDisplacement_String(input) &
+   & result(this)
+  implicit none
+  
+  type(String), intent(in)            :: input
+  type(ComplexSingleModeDisplacement) :: this
+  
+  this = input
 end function
 end module

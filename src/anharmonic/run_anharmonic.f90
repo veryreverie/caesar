@@ -112,11 +112,7 @@ subroutine run_anharmonic(arguments)
   
   ! Read in calculation directories.
   calculation_directories_file = IFile(wd//'/calculation_directories.dat')
-  allocate( calculation_directories(size(calculation_directories_file)), &
-          & stat=ialloc); call err(ialloc)
-  do i=1,size(calculation_directories)
-    calculation_directories(i) = calculation_directories_file%line(i)
-  enddo
+  calculation_directories = calculation_directories_file%lines()
   
   ! Select only those calculations specified by calculations_to_run,
   !    if relevant.

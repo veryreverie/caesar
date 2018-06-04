@@ -114,6 +114,7 @@ module fraction_submodule
   ! Constructor.
   interface IntFraction
     module procedure new_IntFraction
+    module procedure new_IntFraction_String
   end interface
   
   ! Conversions to and from other types.
@@ -726,5 +727,14 @@ function write_IntFraction(this) result(output)
       output = pad_int_to_str(this%n_)//'/'//this%d_
     endif
   end select
+end function
+
+impure elemental function new_IntFraction_String(input) result(this)
+  implicit none
+  
+  type(String), intent(in) :: input
+  type(IntFraction)        :: this
+  
+  this = input
 end function
 end module

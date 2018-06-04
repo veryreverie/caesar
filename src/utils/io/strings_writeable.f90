@@ -149,13 +149,14 @@ module StringsWriteable_example_submodule
   public :: StringsWriteableExample
   
   type, extends(StringsWriteable) :: StringsWriteableExample
-    type(String) :: line1
-    type(String) :: line2
+    integer :: line1
+    integer :: line2
   contains
     procedure :: write => write_StringsWriteableExample
   end type
 contains
 
+! The %write() function.
 function write_StringsWriteableExample(this) result(output)
   implicit none
   
@@ -165,8 +166,8 @@ function write_StringsWriteableExample(this) result(output)
   ! Select type needed to call non-polymorphic procedures, and to ensure that
   !    write() is overloaded by any type which extends StringsWriteableExample.
   select type(this); type is(StringsWriteableExample)
-    output = [ this%line1, &
-             & this%line2 ]
+    output = [ str(this%line1), &
+             & str(this%line2) ]
   class default
     call print_line(CODE_ERROR//': Called the StringsWriteableExample version &
        &of write() from a type other than StringsWriteableExample.')

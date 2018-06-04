@@ -71,6 +71,7 @@ end module
 module strings_readable_example_submodule
   use io_basic_module
   
+  use string_array_submodule
   use strings_readable_submodule
   implicit none
   
@@ -79,13 +80,31 @@ module strings_readable_example_submodule
   public :: StringsReadableExample
   
   type, extends(StringsReadable) :: StringsReadableExample
-    type(String) :: line1
-    type(String) :: line2
+    integer :: line1
+    integer :: line2
   contains
     procedure, public :: read => read_StringsReadableExample
   end type
+  
+  interface StringsReadableExample
+    module procedure new_StringsReadableExample
+    module procedure new_StringsReadableExample_StringArray
+  end interface
 contains
 
+! Basic constructor.
+function new_StringsReadableExample(line1,line2) result(this)
+  implicit none
+  
+  integer, intent(in)          :: line1
+  integer, intent(in)          :: line2
+  type(StringsReadableExample) :: this
+  
+  this%line1 = line1
+  this%line2 = line2
+end function
+
+! The %read() subroutine.
 subroutine read_StringsReadableExample(this,input)
   implicit none
   
@@ -95,12 +114,24 @@ subroutine read_StringsReadableExample(this,input)
   ! Select type needed to call non-polymorphic procedures, and to ensure that
   !    read() is overloaded by any type which extends StringsReadableExample.
   select type(this); type is(StringsReadableExample)
-    this%line1 = input(1)
-    this%line2 = input(2)
+    this = StringsReadableExample(int(input(1)), int(input(2)))
   class default
     call print_line(CODE_ERROR//': Called the StringsReadableExample version &
        &of read() from a type other than StringsReadableExample.')
     call err()
   end select
 end subroutine
+
+! Constructor from StringArray.
+! As with string_readable, this constructor is not required but simplifies the
+!    read process.
+impure elemental function new_StringsReadableExample_StringArray(input) &
+   & result(this)
+  implicit none
+  
+  type(StringArray), intent(in) :: input
+  type(StringsReadableExample)  :: this
+  
+  this = input
+end function
 end module

@@ -40,6 +40,7 @@ module qpoint_submodule
   ! Constructor.
   interface QpointData
     module procedure new_QpointData
+    module procedure new_QpointData_StringArray
   end interface
   
   ! Comparison of q-points.
@@ -197,5 +198,14 @@ function write_QpointData(this) result(output)
              & "The ID of q' s.t. q+q' is a primitive G-vector: "// &
              &    this%paired_qpoint_id                             ]
   end select
+end function
+
+impure elemental function new_QpointData_StringArray(input) result(this)
+  implicit none
+  
+  type(StringArray), intent(in) :: input
+  type(QpointData)              :: this
+  
+  this = input
 end function
 end module

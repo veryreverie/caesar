@@ -29,10 +29,25 @@ module real_mode_displacement_submodule
     procedure, public :: write => write_RealModeDisplacement
   end type
   
+  interface RealModeDisplacement
+    module procedure new_RealModeDisplacement
+    module procedure new_RealModeDisplacement_StringArray
+  end interface
+  
   interface size
     module procedure size_RealModeDisplacement
   end interface
 contains
+
+! Constructor.
+function new_RealModeDisplacement(displacements) result(this)
+  implicit none
+  
+  type(RealSingleModeDisplacement), intent(in) :: displacements(:)
+  type(RealModeDisplacement)                   :: this
+  
+  this%displacements = displacements
+end function
 
 ! Return the number of modes along which the vector has displacements.
 function size_RealModeDisplacement(input) result(output)
@@ -158,13 +173,8 @@ subroutine read_RealModeDisplacement(this,input)
   class(RealModeDisplacement), intent(out) :: this
   type(String),                intent(in)  :: input(:)
   
-  integer :: i,ialloc
-  
   select type(this); type is(RealModeDisplacement)
-    allocate(this%displacements(size(input)), stat=ialloc); call err(ialloc)
-    do i=1,size(this)
-      this%displacements(i) = input(i)
-    enddo
+    this = RealModeDisplacement(RealSingleModeDisplacement(input))
   end select
 end subroutine
 
@@ -174,13 +184,18 @@ function write_RealModeDisplacement(this) result(output)
   class(RealModeDisplacement), intent(in) :: this
   type(String), allocatable               :: output(:)
   
-  integer :: i,ialloc
-  
   select type(this); type is(RealModeDisplacement)
-    allocate(output(size(this)), stat=ialloc); call err(ialloc)
-    do i=1,size(this)
-      output(i) = str(this%displacements(i))
-    enddo
+    output = str(this%displacements)
   end select
+end function
+
+impure elemental function new_RealModeDisplacement_StringArray(input) &
+   & result(this)
+  implicit none
+  
+  type(StringArray), intent(in) :: input
+  type(RealModeDisplacement)    :: this
+  
+  this = input
 end function
 end module

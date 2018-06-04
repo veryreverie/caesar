@@ -7,9 +7,7 @@
 module potential_pointer_module
   use common_module
   
-  use degeneracy_module
-  use coupled_subspaces_module
-  use degenerate_symmetry_module
+  use anharmonic_data_module
   use potential_module
   implicit none
   
@@ -23,6 +21,8 @@ module potential_pointer_module
   contains
     procedure, public :: generate_sampling_points => &
        & generate_sampling_points_PotentialPointer
+    procedure, public :: generate_potential => &
+       & generate_potential_PotentialPointer
   end type
   
   interface assignment(=)
@@ -49,29 +49,15 @@ subroutine assign_PotentialPointer_PotentialData(output,input)
 end subroutine
 
 ! Wrappers for all of PotentialData's methods.
-subroutine generate_sampling_points_PotentialPointer(this,                &
-   & sampling_points_dir,structure,symmetry_precision,complex_modes,      &
-   & real_modes,qpoints,degenerate_subspaces,degenerate_symmetries,       &
-   & coupled_subspaces,vscf_basis_functions_only,                         &
-   & maximum_weighted_displacement,frequency_of_max_displacement,logfile, &
-   & write_lambda)
+subroutine generate_sampling_points_PotentialPointer(this,inputs, &
+   & sampling_points_dir,logfile,write_lambda)
   implicit none
   
-  class(PotentialPointer),  intent(inout) :: this
-  type(String),             intent(in)    :: sampling_points_dir
-  type(StructureData),      intent(in)    :: structure
-  real(dp),                 intent(in)    :: symmetry_precision
-  type(ComplexMode),        intent(in)    :: complex_modes(:)
-  type(RealMode),           intent(in)    :: real_modes(:)
-  type(QpointData),         intent(in)    :: qpoints(:)
-  type(DegenerateModes),    intent(in)    :: degenerate_subspaces(:)
-  type(DegenerateSymmetry), intent(in)    :: degenerate_symmetries(:)
-  type(CoupledSubspaces),   intent(in)    :: coupled_subspaces(:)
-  logical,                  intent(in)    :: vscf_basis_functions_only
-  real(dp),                 intent(in)    :: maximum_weighted_displacement
-  real(dp),                 intent(in)    :: frequency_of_max_displacement
-  type(OFile),              intent(inout) :: logfile
-  procedure(WriteLambda)                  :: write_lambda
+  class(PotentialPointer), intent(inout) :: this
+  type(AnharmonicData),    intent(in)    :: inputs
+  type(String),            intent(in)    :: sampling_points_dir
+  type(OFile),             intent(inout) :: logfile
+  procedure(WriteLambda)                 :: write_lambda
   
   if (.not. allocated(this%potential)) then
     call print_line(CODE_ERROR//': Trying to use a PotentialPointer before &
@@ -79,21 +65,32 @@ subroutine generate_sampling_points_PotentialPointer(this,                &
     call err()
   endif
   
-  call this%potential%generate_sampling_points( &
-               & sampling_points_dir,           &
-               & structure,                     &
-               & symmetry_precision,            &
-               & complex_modes,                 &
-               & real_modes,                    &
-               & qpoints,                       &
-               & degenerate_subspaces,          &
-               & degenerate_symmetries,         &
-               & coupled_subspaces,             &
-               & vscf_basis_functions_only,     &
-               & maximum_weighted_displacement, &
-               & frequency_of_max_displacement, &
-               & logfile,                       &
-               & write_lambda)
+  call this%potential%generate_sampling_points( inputs,              &
+                                              & sampling_points_dir, &
+                                              & logfile,             &
+                                              & write_lambda)
+end subroutine
+
+subroutine generate_potential_PotentialPointer(this,inputs, &
+   & sampling_points_dir,logfile,read_lambda)
+  implicit none
+  
+  class(PotentialPointer), intent(inout) :: this
+  type(AnharmonicData),    intent(in)    :: inputs
+  type(String),            intent(in)    :: sampling_points_dir
+  type(OFile),             intent(inout) :: logfile
+  procedure(ReadLambda)                  :: read_lambda
+  
+  if (.not. allocated(this%potential)) then
+    call print_line(CODE_ERROR//': Trying to use a PotentialPointer before &
+       &it has been allocated.')
+    call err()
+  endif
+  
+  call this%potential%generate_potential( inputs,              &
+                                        & sampling_points_dir, &
+                                        & logfile,             &
+                                        & read_lambda)
 end subroutine
 end module
 
@@ -103,9 +100,7 @@ end module
 module potential_example_module
   use common_module
   
-  use degeneracy_module
-  use coupled_subspaces_module
-  use degenerate_symmetry_module
+  use anharmonic_data_module
   use potential_module
   use potential_pointer_module
   implicit none
@@ -119,6 +114,8 @@ module potential_example_module
   contains
     procedure, public :: generate_sampling_points => &
        & generate_sampling_points_PotentialDataExample
+    procedure, public :: generate_potential => &
+       & generate_potential_PotentialDataExample
   end type
   
   interface PotentialDataExample
@@ -138,33 +135,36 @@ function new_PotentialDataExample(example_contents) result(this)
 end function
 
 ! Overloads of PotentialData's methods.
-subroutine generate_sampling_points_PotentialDataExample(this,            &
-   & sampling_points_dir,structure,symmetry_precision,complex_modes,      &
-   & real_modes,qpoints,degenerate_subspaces,degenerate_symmetries,       &
-   & coupled_subspaces,vscf_basis_functions_only,                         &
-   & maximum_weighted_displacement,frequency_of_max_displacement,logfile, &
-   & write_lambda)
+subroutine generate_sampling_points_PotentialDataExample(this,inputs, &
+   & sampling_points_dir,logfile,write_lambda)
   implicit none
   
   class(PotentialDataExample), intent(inout) :: this
+  type(AnharmonicData),        intent(in)    :: inputs
   type(String),                intent(in)    :: sampling_points_dir
-  type(StructureData),         intent(in)    :: structure
-  real(dp),                    intent(in)    :: symmetry_precision
-  type(ComplexMode),           intent(in)    :: complex_modes(:)
-  type(RealMode),              intent(in)    :: real_modes(:)
-  type(QpointData),            intent(in)    :: qpoints(:)
-  type(DegenerateModes),       intent(in)    :: degenerate_subspaces(:)
-  type(DegenerateSymmetry),    intent(in)    :: degenerate_symmetries(:)
-  type(CoupledSubspaces),      intent(in)    :: coupled_subspaces(:)
-  logical,                     intent(in)    :: vscf_basis_functions_only
-  real(dp),                    intent(in)    :: maximum_weighted_displacement
-  real(dp),                    intent(in)    :: frequency_of_max_displacement
   type(OFile),                 intent(inout) :: logfile
   procedure(WriteLambda)                     :: write_lambda
   
-  ! Code to generate sampling points goes here.
   call print_line('PotentialDataExample: generating sampling points.')
   call print_line('Example contents = '//this%example_contents)
+  
+  ! Code to generate sampling points goes here.
+end subroutine
+
+subroutine generate_potential_PotentialDataExample(this,inputs, &
+   & sampling_points_dir,logfile,read_lambda)
+  implicit none
+  
+  class(PotentialDataExample), intent(inout) :: this
+  type(AnharmonicData),        intent(in)    :: inputs
+  type(String),                intent(in)    :: sampling_points_dir
+  type(OFile),                 intent(inout) :: logfile
+  procedure(ReadLambda)                      :: read_lambda
+  
+  call print_line('PotentialDataExample: generating potential.')
+  call print_line('Example contents = '//this%example_contents)
+  
+  ! Code to generate sampling points goes here.
 end subroutine
 
 ! The class in use.
@@ -179,19 +179,9 @@ subroutine potential_example_subroutine()
   type(String) :: example_contents
   
   ! Variables for generate_sampling points.
-  type(String)                          :: sampling_points_dir
-  type(StructureData)                   :: structure
-  real(dp)                              :: symmetry_precision
-  type(ComplexMode),        allocatable :: complex_modes(:)
-  type(RealMode),           allocatable :: real_modes(:)
-  type(QpointData),         allocatable :: qpoints(:)
-  type(DegenerateModes),    allocatable :: degenerate_subspaces(:)
-  type(DegenerateSymmetry), allocatable :: degenerate_symmetries(:)
-  type(CoupledSubspaces),   allocatable :: coupled_subspaces(:)
-  logical                               :: vscf_basis_functions_only
-  real(dp)                              :: maximum_weighted_displacement
-  real(dp)                              :: frequency_of_max_displacement
-  type(OFile)                           :: logfile
+  type(AnharmonicData) :: anharmonic_data
+  type(String)         :: sampling_points_dir
+  type(OFile)          :: logfile
   
   ! Set the pointer to point to a PotentialDataExample type.
   ! This is where any PotentialDataExample-specific data is input,
@@ -201,32 +191,43 @@ subroutine potential_example_subroutine()
   
   ! Now PotentialData's methods can be called.
   ! They will all be forwareded to the PotentialDataExample instance.
-  call potential%generate_sampling_points( &
-          & sampling_points_dir,           &
-          & structure,                     &
-          & symmetry_precision,            &
-          & complex_modes,                 &
-          & real_modes,                    &
-          & qpoints,                       &
-          & degenerate_subspaces,          &
-          & degenerate_symmetries,         &
-          & coupled_subspaces,             &
-          & vscf_basis_functions_only,     &
-          & maximum_weighted_displacement, &
-          & frequency_of_max_displacement, &
-          & logfile,                       &
-          & write_structure_file_lambda)
+  
+  ! Generates sampling points, in a manner specific to the representation.
+  call potential%generate_sampling_points( anharmonic_data,     &
+                                         & sampling_points_dir, &
+                                         & logfile,             &
+                                         & write_structure_file_lambda)
+  
+  ! Code to run electronic structure goes here.
+  
+  ! Generates the potential, in a manner specific to the representation.
+  call potential%generate_potential( anharmonic_data,     &
+                                   & sampling_points_dir, &
+                                   & logfile,             &
+                                   & read_electronic_structure_lambda)
 contains
-! Lambda of type WriteLambda.
-subroutine write_structure_file_lambda(structure,directory)
-  implicit none
+  ! Lambda of type WriteLambda.
+  subroutine write_structure_file_lambda(structure,directory)
+    implicit none
+    
+    type(StructureData), intent(in) :: structure
+    type(String),        intent(in) :: directory
+    
+    call print_line('Writing structure in directory '//directory)
+    
+    ! Code to write structure goes here.
+  end subroutine
   
-  type(StructureData), intent(in) :: structure
-  type(String),        intent(in) :: directory
-  
-  call print_line('Writing structure in directory '//directory)
-  
-  ! Code to write structure goes here.
-end subroutine
+  ! Lambda of type ReadLambda.
+  function read_electronic_structure_lambda(directory) result(output)
+    implicit none
+    
+    type(String), intent(in)  :: directory
+    type(ElectronicStructure) :: output
+    
+    call print_line('Reading electronic structure from directory '//directory)
+    
+    ! Code to read electronic structure goes here.
+  end function
 end subroutine
 end module

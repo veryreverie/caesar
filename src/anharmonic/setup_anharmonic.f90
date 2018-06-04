@@ -36,6 +36,11 @@ function setup_anharmonic_keywords() result(keywords)
   &a Monkhorst-Pack grid. This should be specified as three integers &
   &separated by spaces. All q-points in this grid must also appear in the &
   &grid used for harmonic calculations.'),                                    &
+  & KeywordData( 'potential_representation',                                  &
+  &              'potential_representation specifies the representation of &
+  &the potential which will be used for calculations. Options are &
+  &"polynomial".',                                                            &
+  &              default_value='polynomial'),                                 &
   & KeywordData( 'maximum_coupling_order',                                    &
   &              'maximum_coupling_order is the maximum number of degenerate &
   &subspaces which may be coupled together. Must be at least 1.'),            &
@@ -84,6 +89,8 @@ subroutine setup_anharmonic(arguments)
   ! User inputs.
   type(String) :: wd
   type(String) :: harmonic_path
+  integer      :: qpoint_grid(3)
+  type(String) :: potential_representation
   integer      :: potential_expansion_order
   integer      :: maximum_coupling_order
   logical      :: vscf_basis_functions_only
@@ -94,12 +101,12 @@ subroutine setup_anharmonic(arguments)
   type(Dictionary) :: setup_harmonic_arguments
   type(String)     :: seedname
   type(String)     :: file_type
-  integer          :: qpoint_grid(3)
   real(dp)         :: symmetry_precision
   
   ! Previously calculated data.
   type(StructureData)            :: structure
   type(QpointData),  allocatable :: harmonic_qpoints(:)
+  type(ComplexMode), allocatable :: qpoint_modes(:)
   type(ComplexMode), allocatable :: complex_modes(:)
   integer,           allocatable :: mode_qpoints(:)
   type(RealMode),    allocatable :: real_modes(:)
@@ -113,11 +120,14 @@ subroutine setup_anharmonic(arguments)
   type(QpointData),  allocatable :: qpoints(:)
   
   ! Degeneracy data.
-  type(DegenerateModes),    allocatable :: degenerate_subspaces(:)
+  type(DegenerateSubspace), allocatable :: degenerate_subspaces(:)
   type(DegenerateSymmetry), allocatable :: degenerate_symmetries(:)
   
   ! Coupling data.
-  type(CoupledSubspaces), allocatable :: coupled_subspaces(:)
+  type(SubspaceCoupling), allocatable :: subspace_coupling(:)
+  
+  ! Anharmonic data container.
+  type(AnharmonicData) :: anharmonic_data
   
   ! Data specific to the chosen representation of the potential.
   type(PotentialPointer)    :: potential
@@ -128,15 +138,15 @@ subroutine setup_anharmonic(arguments)
   type(String) :: sampling_points_dir
   
   ! Input files.
-  type(IFile)                    :: harmonic_qpoints_file
-  type(IFile)                    :: harmonic_complex_modes_file
-  type(StringArray), allocatable :: file_sections(:)
+  type(IFile) :: harmonic_qpoints_file
+  type(IFile) :: harmonic_complex_modes_file
   
   ! Output files.
   type(OFile) :: logfile
   type(OFile) :: anharmonic_qpoints_file
   type(OFile) :: complex_modes_file
   type(OFile) :: real_modes_file
+  type(OFile) :: subspaces_file
   type(OFile) :: coupling_file
   type(OFile) :: calculation_directories_file
   
@@ -151,6 +161,7 @@ subroutine setup_anharmonic(arguments)
   wd = arguments%value('working_directory')
   harmonic_path = arguments%value('harmonic_path')
   qpoint_grid = int(split_line(arguments%value('q-point_grid')))
+  potential_representation = arguments%value('potential_representation')
   potential_expansion_order = int(arguments%value('potential_expansion_order'))
   maximum_coupling_order = int(arguments%value('maximum_coupling_order'))
   vscf_basis_functions_only = &
@@ -159,7 +170,7 @@ subroutine setup_anharmonic(arguments)
   frequency_of_max_displacement = &
      & dble(arguments%value('frequency_of_max_displacement'))
   
-  ! Retrieve data from previous stages of Caesar.
+  ! Read setup_harmonic arguments.
   setup_harmonic_arguments = Dictionary(setup_harmonic_keywords())
   call setup_harmonic_arguments%read_file( &
      & harmonic_path//'/setup_harmonic.used_settings')
@@ -168,16 +179,12 @@ subroutine setup_anharmonic(arguments)
   symmetry_precision = &
      & dble(setup_harmonic_arguments%value('symmetry_precision'))
   
+  ! Read in structure and harmonic q-points.
   structure = read_structure_file( harmonic_path//'/structure.dat', &
                                  & symmetry_precision)
   
   harmonic_qpoints_file = IFile(harmonic_path//'/qpoints.dat')
-  file_sections = split_into_sections(harmonic_qpoints_file%lines())
-  allocate( harmonic_qpoints(size(file_sections)), &
-          & stat=ialloc); call err(ialloc)
-  do i=1,size(harmonic_qpoints)
-    harmonic_qpoints(i) = file_sections(i)
-  enddo
+  harmonic_qpoints = QpointData(harmonic_qpoints_file%sections())
   
   ! ----------------------------------------------------------------------
   ! Generate setup data common to all potential representations.
@@ -224,10 +231,10 @@ subroutine setup_anharmonic(arguments)
     qpoint_dir = &
        & harmonic_path//'/qpoint_'//left_pad(j,str(size(harmonic_qpoints)))
     harmonic_complex_modes_file = IFile(qpoint_dir//'/complex_modes.dat')
-    file_sections = split_into_sections(harmonic_complex_modes_file%lines())
+    qpoint_modes = ComplexMode(harmonic_complex_modes_file%sections())
     do k=1,structure%no_modes
       l = l+1
-      complex_modes(l) = file_sections(k)
+      complex_modes(l) = qpoint_modes(k)
       mode_qpoints(l) = i
     enddo
   enddo
@@ -251,19 +258,12 @@ subroutine setup_anharmonic(arguments)
   enddo
   
   ! Generate all sets of coupled subspaces, up to maximum_coupling_order.
-  coupled_subspaces = generate_coupled_subspaces( degenerate_subspaces, &
+  subspace_coupling = generate_coupled_subspaces( degenerate_subspaces, &
                                                 & maximum_coupling_order)
   
   ! ----------------------------------------------------------------------
   ! Write out setup data common to all potential representations.
   ! ----------------------------------------------------------------------
-  
-  ! Write out complex and real normal modes.
-  complex_modes_file = OFile(wd//'/complex_modes.dat')
-  call complex_modes_file%print_lines(complex_modes,separating_line='')
-  
-  real_modes_file = OFile(wd//'/real_modes.dat')
-  call real_modes_file%print_lines(real_modes,separating_line='')
   
   ! Write out anharmonic supercell and q-points.
   call write_structure_file( anharmonic_supercell, &
@@ -272,9 +272,19 @@ subroutine setup_anharmonic(arguments)
   anharmonic_qpoints_file = OFile(wd//'/qpoints.dat')
   call anharmonic_qpoints_file%print_lines(qpoints,separating_line='')
   
-  ! Write out coupling and basis functions.
-  coupling_file = OFile(wd//'/coupling.dat')
-  call coupling_file%print_lines(coupled_subspaces)
+  ! Write out complex and real normal modes.
+  complex_modes_file = OFile(wd//'/complex_modes.dat')
+  call complex_modes_file%print_lines(complex_modes,separating_line='')
+  
+  real_modes_file = OFile(wd//'/real_modes.dat')
+  call real_modes_file%print_lines(real_modes,separating_line='')
+  
+  ! Write out subspaces and subspace coupling.
+  subspaces_file = OFile(wd//'/degenerate_subspaces.dat')
+  call subspaces_file%print_lines(degenerate_subspaces,separating_line='')
+  
+  coupling_file = OFile(wd//'/subspace_coupling.dat')
+  call coupling_file%print_lines(subspace_coupling)
   
   ! ----------------------------------------------------------------------
   ! Generate and write out sampling points.
@@ -284,7 +294,27 @@ subroutine setup_anharmonic(arguments)
   call mkdir(sampling_points_dir)
   
   ! Initialise potential to the chosen representation.
-  potential = PolynomialPotential(potential_expansion_order)
+  if (potential_representation=='polynomial') then
+    potential = PolynomialPotential(potential_expansion_order)
+  else
+    call print_line( ERROR//': Unrecognised potential representation: '// &
+                   & potential_representation)
+    call err()
+  endif
+  
+  ! Load anharmonic data into container.
+  anharmonic_data = AnharmonicData( structure,                     &
+                                  & symmetry_precision,            &
+                                  & anharmonic_supercell,          &
+                                  & qpoints,                       &
+                                  & complex_modes,                 &
+                                  & real_modes,                    &
+                                  & degenerate_subspaces,          &
+                                  & degenerate_symmetries,         &
+                                  & subspace_coupling,             &
+                                  & vscf_basis_functions_only,     &
+                                  & maximum_weighted_displacement, &
+                                  & frequency_of_max_displacement )
   
   ! Generate the sampling points which will be used to map out the anharmonic
   !    Born-Oppenheimer surface in the chosen representation.
@@ -293,20 +323,10 @@ subroutine setup_anharmonic(arguments)
   !    directory.
   calculation_directories = [String::]
   call potential%generate_sampling_points( &
-          & sampling_points_dir,           &
-          & structure,                     &
-          & symmetry_precision,            &
-          & complex_modes,                 &
-          & real_modes,                    &
-          & qpoints,                       &
-          & degenerate_subspaces,          &
-          & degenerate_symmetries,         &
-          & coupled_subspaces,             &
-          & vscf_basis_functions_only,     &
-          & maximum_weighted_displacement, &
-          & frequency_of_max_displacement, &
-          & logfile,                       &
-          & write_and_record_calculation_directory)
+                    & anharmonic_data,     &
+                    & sampling_points_dir, &
+                    & logfile,             &
+                    & write_and_record_calculation_directory)
   
   ! Write out calculation directories to file.
   calculation_directories_file = OFile(wd//'/calculation_directories.dat')

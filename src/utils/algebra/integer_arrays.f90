@@ -27,6 +27,7 @@ module integer_arrays_submodule
   
   interface IntArray1D
     module procedure new_IntArray1D
+    module procedure new_IntArray1D_String
   end interface
   
   ! A array of IntArrays.
@@ -39,6 +40,7 @@ module integer_arrays_submodule
   
   interface IntArray2D
     module procedure new_IntArray2D
+    module procedure new_IntArray2D_StringArray
   end interface
   
   ! Size.
@@ -353,22 +355,23 @@ function write_IntArray1D(this) result(output)
   end select
 end function
 
+impure elemental function new_IntArray1D_String(input) result(this)
+  implicit none
+  
+  type(String), intent(in) :: input
+  type(IntArray1D)         :: this
+  
+  this = input
+end function
+
 subroutine read_IntArray2D(this,input)
   implicit none
   
   class(IntArray2D), intent(out) :: this
   type(String),      intent(in)  :: input(:)
   
-  type(IntArray1D), allocatable :: contents(:)
-  
-  integer :: i,ialloc
-  
   select type(this); type is(IntArray2D)
-    allocate(contents(size(input)), stat=ialloc); call err(ialloc)
-    do i=1,size(contents)
-      contents(i) = input(i)
-    enddo
-    this = IntArray2D(contents)
+    this = IntArray2D(IntArray1D(input))
   end select
 end subroutine
 
@@ -378,13 +381,17 @@ function write_IntArray2D(this) result(output)
   class(IntArray2D), intent(in) :: this
   type(String), allocatable     :: output(:)
   
-  integer :: i,ialloc
-  
   select type(this); type is(IntArray2D)
-    allocate(output(size(this)), stat=ialloc); call err(ialloc)
-    do i=1,size(this)
-      output(i) = str(this%i(i))
-    enddo
+    output = str(this%i)
   end select
+end function
+
+impure elemental function new_IntArray2D_StringArray(input) result(this)
+  implicit none
+  
+  type(StringArray), intent(in) :: input
+  type(IntArray2D)              :: this
+  
+  this = input
 end function
 end module

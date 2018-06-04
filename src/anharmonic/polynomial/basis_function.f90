@@ -27,10 +27,29 @@ module basis_function_module
     procedure, public :: write => write_BasisFunction
   end type
   
+  interface BasisFunction
+    module procedure new_BasisFunction
+    module procedure new_BasisFunction_StringArray
+  end interface
+  
   interface generate_basis_functions
     module procedure generate_basis_functions_SubspaceMonomial
   end interface
 contains
+
+function new_BasisFunction(real_representation,complex_representation, &
+   & unique_term) result(this)
+  implicit none
+  
+  type(RealPolynomial),    intent(in) :: real_representation
+  type(ComplexPolynomial), intent(in) :: complex_representation
+  type(RealMonomial),      intent(in) :: unique_term
+  type(BasisFunction)                 :: this
+  
+  this%real_representation    = real_representation
+  this%complex_representation = complex_representation
+  this%unique_term            = unique_term
+end function
 
 function generate_basis_functions_SubspaceMonomial(coupling,structure, &
    & complex_modes,real_modes,qpoints,subspaces,degenerate_symmetries, &
@@ -42,7 +61,7 @@ function generate_basis_functions_SubspaceMonomial(coupling,structure, &
   type(ComplexMode),        intent(in)    :: complex_modes(:)
   type(RealMode),           intent(in)    :: real_modes(:)
   type(QpointData),         intent(in)    :: qpoints(:)
-  type(DegenerateModes),    intent(in)    :: subspaces(:)
+  type(DegenerateSubspace), intent(in)    :: subspaces(:)
   type(DegenerateSymmetry), intent(in)    :: degenerate_symmetries(:)
   logical,                  intent(in)    :: vscf_basis_functions_only
   type(OFile),              intent(inout) :: logfile
@@ -87,15 +106,15 @@ function generate_basis_functions_SubspaceMonomial(coupling,structure, &
   endif
   
   ! Generate every allowed mode coupling within the subspace coupling.
-  mode_monomials = generate_mode_coupling( coupling,      &
-                                         & subspaces,     &
-                                         & complex_modes, &
-                                         & qpoints)
+  mode_monomials = generate_mode_monomials( coupling,      &
+                                          & subspaces,     &
+                                          & complex_modes, &
+                                          & qpoints)
   
   ! Convert coupled modes into real monomials with coefficient 1.
   allocate(real_monomials(size(mode_monomials)), stat=ialloc); call err(ialloc)
   do i=1,size(mode_monomials)
-    real_monomials(i) = construct_real_monomial(mode_monomials(i),real_modes)
+    real_monomials(i) = mode_monomials(i)%real_monomial(real_modes)
   enddo
   
   ! Filter the mode couplings, to leave only those which conserve momentum.
@@ -113,8 +132,7 @@ function generate_basis_functions_SubspaceMonomial(coupling,structure, &
   allocate( complex_monomials(size(mode_monomials)), &
           & stat=ialloc); call err(ialloc)
   do i=1,size(mode_monomials)
-    complex_monomials(i) = construct_complex_monomial( mode_monomials(i), &
-                                                     & complex_modes)
+    complex_monomials(i) = mode_monomials(i)%complex_monomial(complex_modes)
   enddo
   
   ! Identify the unique monomials. (Those with all modes the same).
@@ -227,11 +245,12 @@ function generate_basis_functions_SubspaceMonomial(coupling,structure, &
     real_coefficients = estuff(i)%evec
     complex_coefficients = cmplx( hermitian(complex_to_real_conversion) &
                               & * vec(real_coefficients))
-    output(i)%real_representation = &
-       & RealPolynomial(real_coefficients * unique_real_monomials)
-    output(i)%complex_representation = &
-       & ComplexPolynomial(complex_coefficients * unique_complex_monomials)
-    output(i)%unique_term = output(i)%real_representation%terms(unique_term(i))
+    output(i) = BasisFunction(                                                &
+       & real_representation=RealPolynomial( real_coefficients                &
+       &                                   * unique_real_monomials),          &
+       & complex_representation=ComplexPolynomial( complex_coefficients       &
+       &                                         * unique_complex_monomials), &
+       & unique_term=output(i)%real_representation%terms(unique_term(i)))
   enddo
 contains
   ! Lambda for comparing monomials.
@@ -315,6 +334,10 @@ subroutine read_BasisFunction(this,input)
   
   integer :: partition_line
   
+  type(RealMonomial)      :: unique_term
+  type(RealPolynomial)    :: real_representation
+  type(ComplexPolynomial) :: complex_representation
+  
   integer :: i,ialloc
   
   select type(this); type is(BasisFunction)
@@ -323,7 +346,7 @@ subroutine read_BasisFunction(this,input)
       call err()
     endif
     
-    this%unique_term = input(2)
+    unique_term = input(2)
     
     ! Locate the line between real terms and complex terms.
     do i=4,size(input)
@@ -333,8 +356,12 @@ subroutine read_BasisFunction(this,input)
       endif
     enddo
     
-    this%real_representation = join(input(3:partition_line-1),delimiter=' + ')
-    this%complex_representation = join(input(partition_line+1:),delimiter=' + ')
+    real_representation = join(input(3:partition_line-1),delimiter=' + ')
+    complex_representation = join(input(partition_line+1:),delimiter=' + ')
+    
+    this = BasisFunction( unique_term            = unique_term,         &
+                        & real_representation    = real_representation, &
+                        & complex_representation = complex_representation)
   end select
 end subroutine
 
@@ -367,5 +394,14 @@ function write_BasisFunction(this) result(output)
       output(j) = str(this%complex_representation%terms(i))
     enddo
   end select
+end function
+
+impure elemental function new_BasisFunction_StringArray(input) result(this)
+  implicit none
+  
+  type(StringArray), intent(in) :: input
+  type(BasisFunction)           :: this
+  
+  this = input
 end function
 end module

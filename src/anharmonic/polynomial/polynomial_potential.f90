@@ -23,6 +23,8 @@ module polynomial_potential_module
   contains
     procedure, public :: generate_sampling_points => &
        & generate_sampling_points_PolynomialPotential
+    procedure, public :: generate_potential => &
+       & generate_potential_PolynomialPotential
   end type
   
   interface PolynomialPotential
@@ -41,27 +43,13 @@ function new_PolynomialPotential(potential_expansion_order) result(this)
 end function
 
 ! Generate sampling points.
-subroutine generate_sampling_points_PolynomialPotential(this,             &
-   & sampling_points_dir,structure,symmetry_precision,complex_modes,      &
-   & real_modes,qpoints,degenerate_subspaces,degenerate_symmetries,       &
-   & coupled_subspaces,vscf_basis_functions_only,                         &
-   & maximum_weighted_displacement,frequency_of_max_displacement,logfile, &
-   & write_lambda)
+subroutine generate_sampling_points_PolynomialPotential(this,inputs, &
+   & sampling_points_dir,logfile,write_lambda)
   implicit none
   
   class(PolynomialPotential), intent(inout) :: this
+  type(AnharmonicData),       intent(in)    :: inputs
   type(String),               intent(in)    :: sampling_points_dir
-  type(StructureData),        intent(in)    :: structure
-  real(dp),                   intent(in)    :: symmetry_precision
-  type(ComplexMode),          intent(in)    :: complex_modes(:)
-  type(RealMode),             intent(in)    :: real_modes(:)
-  type(QpointData),           intent(in)    :: qpoints(:)
-  type(DegenerateModes),      intent(in)    :: degenerate_subspaces(:)
-  type(DegenerateSymmetry),   intent(in)    :: degenerate_symmetries(:)
-  type(CoupledSubspaces),     intent(in)    :: coupled_subspaces(:)
-  logical,                    intent(in)    :: vscf_basis_functions_only
-  real(dp),                   intent(in)    :: maximum_weighted_displacement
-  real(dp),                   intent(in)    :: frequency_of_max_displacement
   type(OFile),                intent(inout) :: logfile
   procedure(WriteLambda)                    :: write_lambda
   
@@ -95,38 +83,39 @@ subroutine generate_sampling_points_PolynomialPotential(this,             &
   
   ! Loop over subspace couplings, generating basis functions and sampling
   !    points for each.
-  allocate( this%basis_functions(size(coupled_subspaces)), &
-          & this%sampling_points(size(coupled_subspaces)), &
+  allocate( this%basis_functions(size(inputs%subspace_couplings)), &
+          & this%sampling_points(size(inputs%subspace_couplings)), &
           & stat=ialloc); call err(ialloc)
-  do i=1,size(coupled_subspaces)
+  do i=1,size(inputs%subspace_couplings)
     ! Generate the set of subspace monomials corresponding to the subspace
     !    coupling.
     ! e.g. the coupling [1,2] might have monomials [1,2], [1,1,2] and [1,2,2].
     subspace_monomials = generate_subspace_monomials( &
-                              & coupled_subspaces(i), &
-                              & this%potential_expansion_order)
+                      & inputs%subspace_couplings(i), &
+                      & inputs%degenerate_subspaces,  &
+                      & this%potential_expansion_order)
     
     
     ! Generate basis functions at each coupling.
     this%basis_functions(i) = generate_basis_functions( &
-                           & subspace_monomials,        &
-                           & structure,                 &
-                           & complex_modes,             &
-                           & real_modes,                &
-                           & qpoints,                   &
-                           & degenerate_subspaces,      &
-                           & degenerate_symmetries,     &
-                           & vscf_basis_functions_only, &
-                           & logfile)
+                    & subspace_monomials,               &
+                    & inputs%structure,                 &
+                    & inputs%complex_modes,             &
+                    & inputs%real_modes,                &
+                    & inputs%qpoints,                   &
+                    & inputs%degenerate_subspaces,      &
+                    & inputs%degenerate_symmetries,     &
+                    & inputs%vscf_basis_functions_only, &
+                    & logfile)
     
     ! Generate a set of sampling points from which the basis functions can
     !    be constructed.
     this%sampling_points(i) = generate_sampling_points( &
-                   & this%basis_functions(i)%functions, &
-                   & this%potential_expansion_order,    &
-                   & maximum_weighted_displacement,     &
-                   & frequency_of_max_displacement,     &
-                   & real_modes)
+                & this%basis_functions(i)%functions,    &
+                & this%potential_expansion_order,       &
+                & inputs%maximum_weighted_displacement, &
+                & inputs%frequency_of_max_displacement, &
+                & inputs%real_modes)
   enddo
   
   ! --------------------------------------------------
@@ -153,13 +142,14 @@ subroutine generate_sampling_points_PolynomialPotential(this,             &
       call mkdir(sampling_dir)
       
       ! Construct a supercell for each sampling point.
-      sampling_point_qpoints = &
-         & this%sampling_points(i)%points(j)%qpoints(real_modes,qpoints)
+      sampling_point_qpoints =                                           &
+         & this%sampling_points(i)%points(j)%qpoints( inputs%real_modes, &
+         &                                            inputs%qpoints)
       supercell_matrix = construct_supercell_matrix( sampling_point_qpoints, &
-                                                   & structure)
-      supercell = construct_supercell( structure,          &
-                                     & supercell_matrix,   &
-                                     & symmetry_precision, &
+                                                   & inputs%structure)
+      supercell = construct_supercell( inputs%structure,          &
+                                     & supercell_matrix,          &
+                                     & inputs%symmetry_precision, &
                                      & calculate_symmetry=.false.)
       
       ! Write out the supercell.
@@ -169,8 +159,8 @@ subroutine generate_sampling_points_PolynomialPotential(this,             &
       vscf_rvectors = construct_vscf_rvectors( &
           & this%sampling_points(i)%points(j), &
           & supercell,                         &
-          & real_modes,                        &
-          & qpoints)
+          & inputs%real_modes,                 &
+          & inputs%qpoints)
       vscf_rvectors_file = OFile(sampling_dir//'/vscf_rvectors.dat')
       call vscf_rvectors_file%print_lines(vscf_rvectors,separating_line='')
       
@@ -178,10 +168,10 @@ subroutine generate_sampling_points_PolynomialPotential(this,             &
         ! Construct displaced structure.
         displacement =                                                 &
            & this%sampling_points(i)%points(j)%cartesian_displacement( &
-           &                             supercell,                    &
-           &                             real_modes,                   &
-           &                             qpoints,                      &
-           &                             vscf_rvectors(k)%rvectors(real_modes))
+           &                      supercell,                           &
+           &                      inputs%real_modes,                   &
+           &                      inputs%qpoints,                      &
+           &                      vscf_rvectors(k)%rvectors(inputs%real_modes))
         displaced_structure = displace_structure(supercell,displacement)
         
         ! Create directory and structure files for displaced structure.
@@ -193,4 +183,17 @@ subroutine generate_sampling_points_PolynomialPotential(this,             &
   enddo
 end subroutine
 
+! Generate potential.
+subroutine generate_potential_PolynomialPotential(this,inputs, &
+   & sampling_points_dir,logfile,read_lambda)
+  implicit none
+  
+  class(PolynomialPotential), intent(inout) :: this
+  type(AnharmonicData),       intent(in)    :: inputs
+  type(String),               intent(in)    :: sampling_points_dir
+  type(OFile),                intent(inout) :: logfile
+  procedure(ReadLambda)                     :: read_lambda
+  
+  ! TODO
+end subroutine
 end module

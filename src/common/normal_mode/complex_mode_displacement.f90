@@ -24,10 +24,25 @@ module complex_mode_displacement_submodule
     procedure, public :: write => write_ComplexModeDisplacement
   end type
   
+  interface ComplexModeDisplacement
+    module procedure new_ComplexModeDisplacement
+    module procedure new_ComplexModeDisplacement_StringArray
+  end interface
+  
   interface size
     module procedure size_ComplexModeDisplacement
   end interface
 contains
+
+! Constructor.
+function new_ComplexModeDisplacement(displacements) result(this)
+  implicit none
+  
+  type(ComplexSingleModeDisplacement), intent(in) :: displacements(:)
+  type(ComplexModeDisplacement)                   :: this
+  
+  this%displacements = displacements
+end function
 
 ! Return the number of modes along which the vector has displacements.
 function size_ComplexModeDisplacement(input) result(output)
@@ -76,13 +91,8 @@ subroutine read_ComplexModeDisplacement(this,input)
   class(ComplexModeDisplacement), intent(out) :: this
   type(String),                   intent(in)  :: input(:)
   
-  integer :: i,ialloc
-  
   select type(this); type is(ComplexModeDisplacement)
-    allocate(this%displacements(size(input)), stat=ialloc); call err(ialloc)
-    do i=1,size(this)
-      this%displacements(i) = input(i)
-    enddo
+    this = ComplexModeDisplacement(ComplexSingleModeDisplacement(input))
   end select
 end subroutine
 
@@ -92,13 +102,18 @@ function write_ComplexModeDisplacement(this) result(output)
   class(ComplexModeDisplacement), intent(in) :: this
   type(String), allocatable                  :: output(:)
   
-  integer :: i,ialloc
-  
   select type(this); type is(ComplexModeDisplacement)
-    allocate(output(size(this)), stat=ialloc); call err(ialloc)
-    do i=1,size(this)
-      output(i) = str(this%displacements(i))
-    enddo
+    output = str(this%displacements)
   end select
+end function
+
+impure elemental function new_ComplexModeDisplacement_StringArray(input) &
+   & result(this)
+  implicit none
+  
+  type(StringArray), intent(in) :: input
+  type(ComplexModeDisplacement) :: this
+  
+  this = input
 end function
 end module

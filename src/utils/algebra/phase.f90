@@ -27,6 +27,7 @@ module phase_submodule
   
   interface PhaseData
     module procedure new_PhaseData
+    module procedure new_PhaseData_String
   end interface
   
   interface cmplx
@@ -135,5 +136,14 @@ function write_PhaseData(this) result(output)
   select type(this); type is(PhaseData)
     output = 'exp(2pii*'//this%fraction//')'
   end select
+end function
+
+impure elemental function new_PhaseData_String(input) result(this)
+  implicit none
+  
+  type(String), intent(in) :: input
+  type(PhaseData)          :: this
+  
+  this = input
 end function
 end module

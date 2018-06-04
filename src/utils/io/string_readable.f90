@@ -76,26 +76,54 @@ module string_readable_example_submodule
   public :: StringReadableExample
   
   type, extends(StringReadable) :: StringReadableExample
-    type(String) :: contents
+    integer :: contents
   contains
     procedure, public :: read  => read_StringReadableExample
   end type
+  
+  interface StringReadableExample
+    module procedure new_StringReadableExample
+    module procedure new_StringReadableExample_String
+  end interface
 contains
 
+! Basic constructor.
+function new_StringReadableExample(contents) result(this)
+  implicit none
+  
+  integer, intent(in)         :: contents
+  type(StringReadableExample) :: this
+  
+  this%contents = contents
+end function
+
+! The %read() routine, which is called by all StringReadable functionality.
 subroutine read_StringReadableExample(this,input)
   implicit none
   
   class(StringReadableExample), intent(out) :: this
   type(String),                 intent(in)  :: input
   
-  ! Select type needed to call non-polymorphic procedures, and to ensure that
-  !    read() is overloaded by any type which extends StringReadableExample.
+  ! Select type needed to call non-polymorphic procedures,
+  !    such as the StringReadableExample(input) constructor.
   select type(this); type is(StringReadableExample)
-    this%contents = input
+    this = StringReadableExample(int(input))
   class default
     call print_line(CODE_ERROR//': Called the StringReadableExample version &
        &of read() from a type other than StringReadableExample.')
     call err()
   end select
 end subroutine
+
+! A constructor from String, which calls %read() implicitly.
+! A constructor of this format is not required,
+!    but simplifies reading from file.
+impure elemental function new_StringReadableExample_String(input) result(this)
+  implicit none
+  
+  type(String), intent(in)    :: input
+  type(StringReadableExample) :: this
+  
+  this = input
+end function
 end module

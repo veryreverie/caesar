@@ -71,6 +71,7 @@ end module
 module stringsable_example_submodule
   use io_basic_module
   
+  use string_array_submodule
   use stringsable_submodule
   implicit none
   
@@ -79,28 +80,41 @@ module stringsable_example_submodule
   public :: StringsableExample
   
   type, extends(Stringsable) :: StringsableExample
-    type(String) :: line1
-    type(String) :: line2
+    integer :: line1
+    integer :: line2
   contains
     procedure, public :: read => read_StringsableExample
     procedure, public :: write => write_StringsableExample
   end type
+  
+  interface StringsableExample
+    module procedure new_StringsableExample
+    module procedure new_StringsableExample_StringArray
+  end interface
 contains
 
+! Basic constructor.
+function new_StringsableExample(line1,line2) result(this)
+  implicit none
+  
+  integer, intent(in)      :: line1
+  integer, intent(in)      :: line2
+  type(StringsableExample) :: this
+  
+  this%line1 = line1
+  this%line2 = line2
+end function
+
+! The %read() and %write() routines,
+!    as in strings_readable and strings_writeable.
 subroutine read_StringsableExample(this,input)
   implicit none
   
   class(StringsableExample), intent(out) :: this
   type(String),              intent(in)  :: input(:)
   
-  this%line1 = input(1)
-  this%line2 = input(2)
-  
-  ! Select type needed to call non-polymorphic procedures, and to ensure that
-  !    read() is overloaded by any type which extends StringsableExample.
   select type(this); type is(StringsableExample)
-    this%line1 = input(1)
-    this%line2 = input(2)
+    this = StringsableExample(int(input(1)), int(input(2)))
   class default
     call print_line(CODE_ERROR//': Called the StringsableExample version &
        &of read() from a type other than StringsableExample.')
@@ -114,15 +128,24 @@ function write_StringsableExample(this) result(output)
   class(StringsableExample), intent(in) :: this
   type(String), allocatable             :: output(:)
   
-  ! Select type needed to call non-polymorphic procedures, and to ensure that
-  !    write() is overloaded by any type which extends StringsableExample.
   select type(this); type is(StringsableExample)
-    output = [ this%line1, &
-             & this%line2 ]
+    output = [ str(this%line1), &
+             & str(this%line2) ]
   class default
     call print_line(CODE_ERROR//': Called the StringsableExample version &
        &of write() from a type other than StringsableExample.')
     call err()
   end select
+end function
+
+! Constructor from Stringarray.
+impure elemental function new_StringsableExample_StringArray(input) &
+   & result(this)
+  implicit none
+  
+  type(StringArray), intent(in) :: input
+  type(StringsableExample)      :: this
+  
+  this = input
 end function
 end module

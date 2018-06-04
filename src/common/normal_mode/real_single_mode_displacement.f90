@@ -33,6 +33,7 @@ module real_single_mode_displacement_submodule
   
   interface RealSingleModeDisplacement
     module procedure new_RealSingleModeDisplacement
+    module procedure new_RealSingleModeDisplacement_String
   end interface
 contains
 
@@ -106,5 +107,15 @@ function write_RealSingleModeDisplacement(this) result(output)
   select type(this); type is(RealSingleModeDisplacement)
     output = 'u'//this%id//' = '//this%displacement
   end select
+end function
+
+impure elemental function new_RealSingleModeDisplacement_String(input) &
+   & result(this)
+  implicit none
+  
+  type(String), intent(in)         :: input
+  type(RealSingleModeDisplacement) :: this
+  
+  this = input
 end function
 end module

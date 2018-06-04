@@ -43,6 +43,10 @@ module fraction_algebra_submodule
     procedure, public :: write => write_FractionVector
   end type
   
+  interface FractionVector
+    module procedure new_FractionVector_String
+  end interface
+  
   type, extends(Stringsable) :: FractionMatrix
     type(IntFraction), allocatable, private :: contents_(:,:)
   contains
@@ -52,6 +56,10 @@ module fraction_algebra_submodule
     procedure, public :: read  => read_FractionMatrix
     procedure, public :: write => write_FractionMatrix
   end type
+  
+  interface FractionMatrix
+    module procedure new_FractionMatrix_StringArray
+  end interface
   
   ! Conversions to and from vector and matrix types.
   interface vec
@@ -1192,6 +1200,15 @@ function write_FractionVector(this) result(output)
   end select
 end function
 
+impure elemental function new_FractionVector_String(input) result(this)
+  implicit none
+  
+  type(String), intent(in) :: input
+  type(FractionVector)     :: this
+  
+  this = input
+end function
+
 subroutine read_FractionMatrix(this,input)
   implicit none
   
@@ -1243,5 +1260,14 @@ function write_FractionMatrix(this) result(output)
       output(i) = join(contents(i,:))
     enddo
   end select
+end function
+
+impure elemental function new_FractionMatrix_StringArray(input) result(this)
+  implicit none
+  
+  type(StringArray), intent(in) :: input
+  type(FractionMatrix)          :: this
+  
+  this = input
 end function
 end module

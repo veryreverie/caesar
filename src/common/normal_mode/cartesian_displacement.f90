@@ -25,6 +25,7 @@ module cartesian_displacement_submodule
   
   interface CartesianDisplacement
     module procedure new_CartesianDisplacement
+    module procedure new_CartesianDisplacement_StringArray
   end interface
   
   interface size
@@ -156,17 +157,8 @@ subroutine read_CartesianDisplacement(this,input)
   class(CartesianDisplacement), intent(out) :: this
   type(String),                 intent(in)  :: input(:)
   
-  type(RealVector), allocatable :: displacements(:)
-  
-  integer :: i,ialloc
-  
   select type(this); type is(CartesianDisplacement)
-    allocate(displacements(size(input)), stat=ialloc); call err(ialloc)
-    do i=1,size(displacements)
-      displacements(i) = input(i)
-    enddo
-    
-    this = CartesianDisplacement(displacements)
+    this = CartesianDisplacement(RealVector(input))
   end select
 end subroutine
 
@@ -179,5 +171,15 @@ function write_CartesianDisplacement(this) result(output)
   select type(this); type is(CartesianDisplacement)
     output = str(this%displacements)
   end select
+end function
+
+impure elemental function new_CartesianDisplacement_StringArray(input) &
+   & result(this)
+  implicit none
+  
+  type(StringArray), intent(in) :: input
+  type(CartesianDisplacement)   :: this
+  
+  this = input
 end function
 end module

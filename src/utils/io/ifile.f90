@@ -24,6 +24,11 @@ module ifile_submodule
                                  & lines_slice
     procedure, private ::          lines_all
     procedure, private ::          lines_slice
+    
+    generic,   public  :: sections => sections_character, &
+                                    & sections_String
+    procedure, private ::             sections_character
+    procedure, private ::             sections_String
   end type
   
   interface IFile
@@ -102,9 +107,9 @@ function lines_all(this) result(output)
   implicit none
   
   class(IFile), intent(in)  :: this
-  type(StringArray)         :: output
+  type(String), allocatable :: output(:)
   
-  output = StringArray(this%lines_)
+  output = this%lines_
 end function
 
 function lines_slice(this,first_line_number,last_line_number) result(output)
@@ -113,9 +118,34 @@ function lines_slice(this,first_line_number,last_line_number) result(output)
   class(IFile), intent(in)  :: this
   integer,      intent(in)  :: first_line_number
   integer,      intent(in)  :: last_line_number
-  type(StringArray)         :: output
+  type(String), allocatable :: output(:)
   
-  output = StringArray(this%lines_(first_line_number:last_line_number))
+  output = this%lines_(first_line_number:last_line_number)
+end function
+
+! Equivalent to split_into_sections(this%lines(),delimiter).
+function sections_character(this,delimiter) result(output)
+  implicit none
+  
+  class(IFile), intent(in)           :: this
+  character(*), intent(in), optional :: delimiter
+  type(StringArray), allocatable     :: output(:)
+  
+  type(String), allocatable :: lines(:)
+  
+  lines = this%lines()
+  
+  output = split_into_sections(lines, delimiter)
+end function
+
+function sections_String(this,delimiter) result(output)
+  implicit none
+  
+  class(IFile), intent(in)       :: this
+  type(String), intent(in)       :: delimiter
+  type(StringArray), allocatable :: output(:)
+  
+  output = this%sections(char(delimiter))
 end function
 
 ! Returns the number of lines in a file.

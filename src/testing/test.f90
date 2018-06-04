@@ -11,139 +11,57 @@ module test_module
   public :: test_mode
   public :: test
   
-  type, abstract, extends(NoDefaultConstructor) :: Base
+  type, extends(Stringable) :: TestType
+    integer, allocatable :: contents(:)
   contains
-    procedure(shout_Base), public, deferred :: shout
+    procedure, public :: read  => read_TestType
+    procedure, public :: write => write_TestType
   end type
   
-  abstract interface
-    subroutine shout_Base(this)
-      import Base
-      implicit none
-      
-      class(Base), intent(in) :: this
-    end subroutine
-  end interface
-  
-  type, extends(Base) :: Concrete1
-    integer :: contents
-  contains
-    procedure, public :: shout => shout_Concrete1
-  end type
-  
-  interface Concrete1
-    module procedure new_Concrete1
-  end interface
-  
-  type, extends(Base) :: Concrete2
-    integer :: contents
-  contains
-    procedure, public :: shout => shout_Concrete2
-  end type
-  
-  interface Concrete2
-    module procedure new_Concrete2
-  end interface
-  
-  type, extends(Base) :: BasePointer
-    class(Base), allocatable :: contents
-  contains
-    procedure, public :: shout => shout_BasePointer
-  end type
-  
-  interface BasePointer
-    module procedure new_BasePointer
-  end interface
-  
-  interface assignment(=)
-    module procedure assign_BasePointer_Base
+  interface TestType
+    module procedure new_TestType
+    module procedure new_TestType_String
   end interface
 contains
 
-function new_Concrete1(contents) result(this)
+function new_TestType(input) result(this)
   implicit none
   
-  integer, intent(in) :: contents
-  type(Concrete1)     :: this
+  integer, intent(in) :: input(:)
+  type(TestType)      :: this
   
-  this%contents = contents
+  this%contents = input
 end function
 
-function new_Concrete2(contents) result(this)
+subroutine read_TestType(this,input)
   implicit none
   
-  integer, intent(in) :: contents
-  type(Concrete2)     :: this
+  class(TestType), intent(out) :: this
+  type(String),    intent(in)  :: input
   
-  this%contents = contents
-end function
-
-function new_BasePointer(contents) result(this)
-  implicit none
-  
-  class(Base), intent(in) :: contents
-  type(BasePointer)       :: this
-  
-  integer :: ialloc
-  
-  allocate(this%contents, source=contents, stat=ialloc); call err(ialloc)
-end function
-
-subroutine assign_BasePointer_Base(output,input)
-  implicit none
-  
-  type(BasePointer), intent(out) :: output
-  class(Base),       intent(in)  :: input
-  
-  integer :: ialloc
-  
-  select type(input); class is(BasePointer)
-    allocate( output%contents, source=input%contents, &
-            & stat=ialloc); call err(ialloc)
-  class default
-    allocate( output%contents, source=input, &
-            & stat=ialloc); call err(ialloc)
+  select type(this); type is(TestType)
+    this = TestType(int(split_line(input)))
   end select
 end subroutine
 
-subroutine shout_Concrete1(this)
+function write_TestType(this) result(output)
   implicit none
   
-  class(Concrete1), intent(in) :: this
+  class(TestType), intent(in) :: this
+  type(String)                :: output
   
-  call print_line('Concrete1. Value = '//this%contents)
-end subroutine
+  select type(this); type is(TestType)
+    output = join(this%contents)
+  end select
+end function
 
-subroutine shout_Concrete2(this)
+impure elemental function new_TestType_String(input) result(this)
   implicit none
   
-  class(Concrete2), intent(in) :: this
+  type(String), intent(in) :: input
+  type(TestType)           :: this
   
-  call print_line('Concrete2. Value = '//this%contents)
-end subroutine
-
-subroutine shout_BasePointer(this)
-  implicit none
-  
-  class(BasePointer), intent(in) :: this
-  
-  call this%contents%shout()
-end subroutine
-
-function choose(concrete,contents) result(output)
-  implicit none
-  
-  integer, intent(in)      :: concrete
-  integer, intent(in)      :: contents
-  type(BasePointer)        :: output
-  
-  if (concrete==1) then
-    output = Concrete1(contents)
-  elseif (concrete==2) then
-    output = Concrete2(contents)
-  else
-    call err()
-  endif
+  this = input
 end function
 
 ! ----------------------------------------------------------------------
@@ -169,6 +87,18 @@ function test_mode() result(output)
   output%suppress_from_helptext = .true.
 end function
 
+subroutine write_test(filename,test1)
+  implicit none
+  
+  type(String),   intent(in) :: filename
+  type(TestType), intent(in) :: test1(:)
+  
+  type(OFile) :: o_file
+  
+  o_file = OFile(filename)
+  call o_file%print_lines(test1)
+end subroutine
+
 ! ----------------------------------------------------------------------
 ! Main function.
 ! ----------------------------------------------------------------------
@@ -179,20 +109,27 @@ subroutine test(arguments)
   
   type(String) :: wd
   
-  type(BasePointer) :: thing
+  type(TestType), allocatable :: test1(:)
+  type(OFile)                 :: o_file
+  type(IFile)                 :: i_file
+  type(TestType), allocatable :: test2(:)
+  
+  integer :: a,b,c
   
   wd = arguments%value('working_directory')
   
-  thing = Concrete1(12)
-  call thing%shout()
+  a = 3
+  b = 4
+  c = 7
   
-  thing = Concrete2(43)
-  call thing%shout()
+  test1 = [ TestType([a,b,c]),   &
+          & TestType([c,b,b,b]), &
+          & TestType([a,c,a])    ]
   
-  thing = choose(1,42)
-  call thing%shout()
+  call write_test(wd//'/file.dat', test1)
   
-  thing = choose(2,39)
-  call thing%shout()
+  i_file = IFile(wd//'/file.dat')
+  test2 = TestType(i_file%lines())
+  call print_lines(test2)
 end subroutine
 end module

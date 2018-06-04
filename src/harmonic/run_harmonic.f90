@@ -77,11 +77,10 @@ subroutine run_harmonic(arguments)
   type(String)                       :: atom_string
   
   ! Files and Directories.
-  type(IFile)                    :: no_supercells_file
-  type(IFile)                    :: unique_directions_file
-  type(StringArray), allocatable :: file_sections(:)
-  type(String)                   :: dir
-  type(String)                   :: sdir
+  type(IFile)  :: no_supercells_file
+  type(IFile)  :: unique_directions_file
+  type(String) :: dir
+  type(String) :: sdir
   
   ! Temporary variables.
   integer      :: i,j,ialloc
@@ -151,12 +150,7 @@ subroutine run_harmonic(arguments)
     sdir = wd//'/Supercell_'//left_pad(i,str(no_supercells))
     
     unique_directions_file = IFile(sdir//'/unique_directions.dat')
-    file_sections = split_into_sections(unique_directions_file%lines())
-    allocate( unique_directions(size(file_sections)), &
-            & stat=ialloc); call err(ialloc)
-    do j=1,size(unique_directions)
-      unique_directions(j) = file_sections(j)
-    enddo
+    unique_directions = UniqueDirection(unique_directions_file%sections())
     
     ! Loop over displacements within each supercell.
     do j=1,size(unique_directions)

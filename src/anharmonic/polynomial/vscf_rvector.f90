@@ -19,6 +19,7 @@ module vscf_rvector_module
   
   interface VscfRvector
     module procedure new_VscfRvector
+    module procedure new_VscfRvector_String
   end interface
 contains
 
@@ -64,5 +65,14 @@ function write_VscfRvector(this) result(output)
   select type(this); type is(VscfRvector)
     output = 'Subspace: '//this%subspace_id//' R-vector: '//this%rvector
   end select
+end function
+
+impure elemental function new_VscfRvector_String(input) result(this)
+  implicit none
+  
+  type(String), intent(in) :: input
+  type(VscfRvector)        :: this
+  
+  this = input
 end function
 end module

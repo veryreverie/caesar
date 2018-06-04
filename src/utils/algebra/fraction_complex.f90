@@ -28,6 +28,7 @@ module fraction_complex_submodule
   
   interface FractionComplex
     module procedure new_FractionComplex
+    module procedure new_FractionComplex_String
   end interface
   
   interface real
@@ -427,5 +428,14 @@ function write_FractionComplex(this) result(output)
       output = real(this)//'-'//abs(aimag(this))//'i'
     endif
   end select
+end function
+
+impure elemental function new_FractionComplex_String(input) result(this)
+  implicit none
+  
+  type(String), intent(in) :: input
+  type(FractionComplex)    :: this
+  
+  this = input
 end function
 end module

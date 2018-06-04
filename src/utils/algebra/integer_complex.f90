@@ -25,6 +25,7 @@ module integer_complex_submodule
   
   interface IntComplex
     module procedure new_IntComplex
+    module procedure new_IntComplex_String
   end interface
   
   interface real
@@ -262,5 +263,14 @@ function write_IntComplex(this) result(output)
       output = real(this)//'-'//abs(aimag(this))//'i'
     endif
   end select
+end function
+
+impure elemental function new_IntComplex_String(input) result(this)
+  implicit none
+  
+  type(String), intent(in) :: input
+  type(IntComplex)         :: this
+  
+  this = input
 end function
 end module

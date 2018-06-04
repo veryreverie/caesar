@@ -44,6 +44,7 @@ module group_submodule
   
   interface Group
     module procedure new_Group
+    module procedure new_Group_String
   end interface
   
   interface size
@@ -173,5 +174,14 @@ function write_Group(this) result(output)
   select type(this); type is(Group)
     output = join(this%operation)
   end select
+end function
+
+impure elemental function new_Group_String(input) result(this)
+  implicit none
+  
+  type(String), intent(in) :: input
+  type(Group)              :: this
+  
+  this = input
 end function
 end module

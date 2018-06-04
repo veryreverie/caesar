@@ -42,6 +42,7 @@ module complex_mode_submodule
   
   interface ComplexMode
     module procedure new_ComplexMode
+    module procedure new_ComplexMode_StringArray
   end interface
   
   interface operator(*)
@@ -220,5 +221,14 @@ function write_ComplexMode(this) result(output)
       output(8+i) = str(this%primitive_displacements(i))
     enddo
   end select
+end function
+
+impure elemental function new_ComplexMode_StringArray(input) result(this)
+  implicit none
+  
+  type(StringArray), intent(in) :: input
+  type(ComplexMode)             :: this
+  
+  this = input
 end function
 end module

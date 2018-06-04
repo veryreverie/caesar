@@ -28,6 +28,7 @@ module vscf_rvectors_module
   
   interface VscfRvectors
     module procedure new_VscfRvectors
+    module procedure new_VscfRvectors_StringArray
   end interface
   
   interface size
@@ -301,13 +302,8 @@ subroutine read_VscfRvectors(this,input)
   class(VscfRvectors), intent(out) :: this
   type(String),        intent(in)  :: input(:)
   
-  integer :: i,ialloc
-  
   select type(this); type is(VscfRvectors)
-    allocate(this%vscf_rvectors(size(input)), stat=ialloc); call err(ialloc)
-    do i=1,size(this)
-      this%vscf_rvectors(i) = input(i)
-    enddo
+    this = VscfRvectors(VscfRvector(input))
   end select
 end subroutine
 
@@ -320,5 +316,14 @@ function write_VscfRvectors(this) result(output)
   select type(this); type is(VscfRvectors)
     output = str(this%vscf_rvectors)
   end select
+end function
+
+impure elemental function new_VscfRvectors_StringArray(input) result(this)
+  implicit none
+  
+  type(StringArray), intent(in) :: input
+  type(VscfRvectors)            :: this
+  
+  this = input
 end function
 end module

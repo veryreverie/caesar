@@ -110,16 +110,15 @@ subroutine calculate_harmonic_observables(arguments)
   type(DynamicalMatrix) :: dyn_mat
   
   ! Files and directories.
-  type(IFile)                    :: qpoints_file
-  type(IFile)                    :: dynamical_matrix_file
-  type(StringArray), allocatable :: file_sections(:)
-  type(String)                   :: output_dir
-  type(OFile)                    :: dispersion_file
-  type(OFile)                    :: symmetry_points_file
-  type(OFile)                    :: sampled_qpoints_file
-  type(OFile)                    :: thermodynamic_file
-  type(OFile)                    :: pdos_file
-  type(OFile)                    :: logfile
+  type(IFile)  :: qpoints_file
+  type(IFile)  :: dynamical_matrix_file
+  type(String) :: output_dir
+  type(OFile)  :: dispersion_file
+  type(OFile)  :: symmetry_points_file
+  type(OFile)  :: sampled_qpoints_file
+  type(OFile)  :: thermodynamic_file
+  type(OFile)  :: pdos_file
+  type(OFile)  :: logfile
   
   ! Temporary variables.
   type(String), allocatable :: path_point(:)
@@ -194,11 +193,7 @@ subroutine calculate_harmonic_observables(arguments)
                                        & calculate_symmetry=.false.)
   
   qpoints_file = IFile(wd//'/qpoints.dat')
-  file_sections = split_into_sections(qpoints_file%lines())
-  allocate(qpoints(size(file_sections)), stat=ialloc); call err(ialloc)
-  do i=1,size(qpoints)
-    qpoints(i) = file_sections(i)
-  enddo
+  qpoints = QpointData(qpoints_file%sections())
   
   allocate( dynamical_matrices(size(qpoints)), &
           & stat=ialloc); call err(ialloc)

@@ -23,6 +23,11 @@ module basis_functions_module
     procedure, public :: write => write_BasisFunctions
   end type
   
+  interface BasisFunctions
+    module procedure new_BasisFunctions
+    module procedure new_BasisFunctions_StringArray
+  end interface
+  
   interface size
     module procedure size_BasisFunctions
   end interface
@@ -31,6 +36,15 @@ module basis_functions_module
     module procedure generate_basis_functions_SubspaceMonomials
   end interface
 contains
+
+function new_BasisFunctions(functions) result(this)
+  implicit none
+  
+  type(BasisFunction), intent(in) :: functions(:)
+  type(BasisFunctions)            :: this
+  
+  this%functions = functions
+end function
 
 function size_BasisFunctions(this) result(output)
   implicit none
@@ -51,7 +65,7 @@ function generate_basis_functions_SubspaceMonomials(couplings,structure, &
   type(ComplexMode),        intent(in)    :: complex_modes(:)
   type(RealMode),           intent(in)    :: real_modes(:)
   type(QpointData),         intent(in)    :: qpoints(:)
-  type(DegenerateModes),    intent(in)    :: subspaces(:)
+  type(DegenerateSubspace), intent(in)    :: subspaces(:)
   type(DegenerateSymmetry), intent(in)    :: degenerate_symmetries(:)
   logical,                  intent(in)    :: vscf_basis_functions_only
   type(OFile),              intent(inout) :: logfile
@@ -84,16 +98,8 @@ subroutine read_BasisFunctions(this,input)
   class(BasisFunctions), intent(out) :: this
   type(String),          intent(in)  :: input(:)
   
-  type(StringArray), allocatable :: functions(:)
-  
-  integer :: i,ialloc
-  
   select type(this); type is(BasisFunctions)
-    functions = split_into_sections(input)
-    allocate(this%functions(size(functions)), stat=ialloc); call err(ialloc)
-    do i=1,size(functions)
-      this%functions(i) = functions(i)
-    enddo
+    this = BasisFunctions(BasisFunction(split_into_sections(input)))
   end select
 end subroutine
 
@@ -106,5 +112,14 @@ function write_BasisFunctions(this) result(output)
   select type(this); type is(BasisFunctions)
     output = str(this%functions, separating_line='')
   end select
+end function
+
+impure elemental function new_BasisFunctions_StringArray(input) result(this)
+  implicit none
+  
+  type(StringArray), intent(in) :: input
+  type(BasisFunctions)          :: this
+  
+  this = input
 end function
 end module

@@ -88,6 +88,10 @@ module linear_algebra_submodule
     procedure, public :: write => write_IntVector
   end type
   
+  interface IntVector
+    module procedure new_IntVector_String
+  end interface
+  
   type, extends(RealVectorable) :: RealVector
     real(dp), allocatable, private :: contents_(:)
   contains
@@ -98,6 +102,10 @@ module linear_algebra_submodule
     procedure, public :: write => write_RealVector
   end type
   
+  interface RealVector
+    module procedure new_RealVector_String
+  end interface
+  
   type, extends(ComplexVectorable) :: ComplexVector
     complex(dp), allocatable, private :: contents_(:)
   contains
@@ -106,6 +114,10 @@ module linear_algebra_submodule
     procedure, public :: read  => read_ComplexVector
     procedure, public :: write => write_ComplexVector
   end type
+  
+  interface ComplexVector
+    module procedure new_ComplexVector_String
+  end interface
   
   abstract interface
     function to_ComplexVector_ComplexVectorable(this) result(output)
@@ -160,6 +172,10 @@ module linear_algebra_submodule
     procedure, public :: write => write_IntMatrix
   end type
   
+  interface IntMatrix
+    module procedure new_IntMatrix_StringArray
+  end interface
+  
   type, extends(RealMatrixable) :: RealMatrix
     real(dp), allocatable, private :: contents_(:,:)
   contains
@@ -170,6 +186,10 @@ module linear_algebra_submodule
     procedure, public :: write => write_RealMatrix
   end type
   
+  interface RealMatrix
+    module procedure new_RealMatrix_StringArray
+  end interface
+  
   type, extends(ComplexMatrixable) :: ComplexMatrix
     complex(dp), allocatable, private :: contents_(:,:)
   contains
@@ -178,6 +198,10 @@ module linear_algebra_submodule
     procedure, public :: read  => read_ComplexMatrix
     procedure, public :: write => write_ComplexMatrix
   end type
+  
+  interface ComplexMatrix
+    module procedure new_ComplexMatrix_StringArray
+  end interface
   
   abstract interface
     function to_ComplexMatrix_ComplexMatrixable(this) result(output)
@@ -3314,6 +3338,15 @@ function write_IntVector(this) result(output)
   end select
 end function
 
+impure elemental function new_IntVector_String(input) result(this)
+  implicit none
+  
+  type(String), intent(in) :: input
+  type(IntVector)          :: this
+  
+  this = input
+end function
+
 subroutine read_RealVector(this,input)
   implicit none
   
@@ -3336,6 +3369,15 @@ function write_RealVector(this) result(output)
   end select
 end function
 
+impure elemental function new_RealVector_String(input) result(this)
+  implicit none
+  
+  type(String), intent(in) :: input
+  type(RealVector)         :: this
+  
+  this = input
+end function
+
 subroutine read_ComplexVector(this,input)
   implicit none
   
@@ -3356,6 +3398,15 @@ function write_ComplexVector(this) result(output)
   select type(this); type is(ComplexVector)
     output = join(cmplx(this))
   end select
+end function
+
+impure elemental function new_ComplexVector_String(input) result(this)
+  implicit none
+  
+  type(String), intent(in) :: input
+  type(ComplexVector)      :: this
+  
+  this = input
 end function
 
 subroutine read_IntMatrix(this,input)
@@ -3411,6 +3462,15 @@ function write_IntMatrix(this) result(output)
   end select
 end function
 
+impure elemental function new_IntMatrix_StringArray(input) result(this)
+  implicit none
+  
+  type(StringArray), intent(in) :: input
+  type(IntMatrix)               :: this
+  
+  this = input
+end function
+
 subroutine read_RealMatrix(this,input)
   implicit none
   
@@ -3464,6 +3524,15 @@ function write_RealMatrix(this) result(output)
   end select
 end function
 
+impure elemental function new_RealMatrix_StringArray(input) result(this)
+  implicit none
+  
+  type(StringArray), intent(in) :: input
+  type(RealMatrix)              :: this
+  
+  this = input
+end function
+
 subroutine read_ComplexMatrix(this,input)
   implicit none
   
@@ -3515,5 +3584,14 @@ function write_ComplexMatrix(this) result(output)
       output(i) = join(contents(i,:))
     enddo
   end select
+end function
+
+impure elemental function new_ComplexMatrix_StringArray(input) result(this)
+  implicit none
+  
+  type(StringArray), intent(in) :: input
+  type(ComplexMatrix)           :: this
+  
+  this = input
 end function
 end module

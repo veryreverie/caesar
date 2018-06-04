@@ -35,6 +35,7 @@ module single_mode_state_module
   
   interface SingleModeState
     module procedure new_SingleModeState
+    module procedure new_SingleModeState_String
   end interface
   
   interface size
@@ -424,5 +425,14 @@ function write_SingleModeState(this) result(output)
       output = output//'+'//abs(this%frequency)//'*|u|^2/2)'
     endif
   end select
+end function
+
+impure elemental function new_SingleModeState_String(input) result(this)
+  implicit none
+  
+  type(String), intent(in) :: input
+  type(SingleModeState)    :: this
+  
+  this = input
 end function
 end module

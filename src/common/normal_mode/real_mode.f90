@@ -46,6 +46,7 @@ module real_mode_submodule
   
   interface RealMode
     module procedure new_RealMode
+    module procedure new_RealMode_StringArray
   end interface
 contains
 
@@ -224,5 +225,15 @@ function write_RealMode(this) result(output)
       output(8+i) = str(this%primitive_displacements(i))
     enddo
   end select
+end function
+
+impure elemental function new_RealMode_StringArray(input) &
+   & result(this)
+  implicit none
+  
+  type(StringArray), intent(in) :: input
+  type(RealMode)                :: this
+  
+  this = input
 end function
 end module

@@ -79,23 +79,38 @@ module stringable_example_submodule
   public :: StringableExample
   
   type, extends(Stringable) :: StringableExample
-    type(String) :: contents
+    integer :: contents
   contains
     procedure, public :: read  => read_StringableExample
     procedure, public :: write => write_StringableExample
   end type
+  
+  interface StringableExample
+    module procedure new_StringableExample
+    module procedure new_StringableExample_String
+  end interface
 contains
 
+! Basic constructor.
+function new_StringableExample(contents) result(this)
+  implicit none
+  
+  integer, intent(in)     :: contents
+  type(StringableExample) :: this
+  
+  this%contents = contents
+end function
+
+! The %read() and %write() routines,
+!    as in string_readable and string_writeable.
 subroutine read_StringableExample(this,input)
   implicit none
   
   class(StringableExample), intent(out) :: this
   type(String),             intent(in)  :: input
   
-  ! Select type needed to call non-polymorphic procedures, and to ensure that
-  !    read() is overloaded by any type which extends StringableExample.
   select type(this); type is(StringableExample)
-    this%contents = input
+    this = StringableExample(int(input))
   class default
     call print_line(CODE_ERROR//': Called the StringableExample version &
        &of read() from a type other than StringableExample.')
@@ -109,8 +124,6 @@ function write_StringableExample(this) result(output)
   class(StringableExample), intent(in) :: this
   type(String)                         :: output
   
-  ! Select type needed to call non-polymorphic procedures, and to ensure that
-  !    write() is overloaded by any type which extends StringableExample.
   select type(this); type is(StringableExample)
     output = str(this%contents)
   class default
@@ -118,5 +131,15 @@ function write_StringableExample(this) result(output)
        &of write() from a type other than StringableExample.')
     call err()
   end select
+end function
+
+! The constructor from String, as in string_readable.
+impure elemental function new_StringableExample_String(input) result(this)
+  implicit none
+  
+  type(String), intent(in) :: input
+  type(StringableExample)  :: this
+  
+  this = input
 end function
 end module
