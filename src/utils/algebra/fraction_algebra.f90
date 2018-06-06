@@ -32,6 +32,8 @@ module fraction_algebra_submodule
   public :: operator(*)
   public :: operator(/)
   public :: exp_2pii
+  public :: cos_2pi
+  public :: sin_2pi
   
   type, extends(Stringable) :: FractionVector
     type(IntFraction), allocatable, private :: contents_(:)
@@ -194,9 +196,17 @@ module fraction_algebra_submodule
     module procedure divide_FractionMatrix_IntFraction
   end interface
   
-  ! exp(2*pi*i*input).
+  ! exp(2*pi*i*input), cos(2*pi*input) and sin(2*pi*input)
   interface exp_2pii
     module procedure exp_2pii_IntFraction
+  end interface
+  
+  interface cos_2pi
+    module procedure cos_2pi_IntFraction
+  end interface
+  
+  interface sin_2pi
+    module procedure sin_2pi_IntFraction
   end interface
 contains
 
@@ -1164,7 +1174,7 @@ impure elemental function divide_FractionMatrix_IntFraction(this,that) result(ou
 end function
 
 ! ----------------------------------------------------------------------
-! Returns exp(2*pi*i*input).
+! exp(2*pi*i*input), cos(2*pi*input) and sin(2*pi*input).
 ! ----------------------------------------------------------------------
 impure elemental function exp_2pii_IntFraction(input) result(output)
   implicit none
@@ -1173,6 +1183,24 @@ impure elemental function exp_2pii_IntFraction(input) result(output)
   complex(dp)                   :: output
   
   output = exp_2pii(dble(input))
+end function
+
+impure elemental function cos_2pi_IntFraction(input) result(output)
+  implicit none
+  
+  type(IntFraction), intent(in) :: input
+  real(dp)                      :: output
+  
+  output = cos_2pi(dble(input))
+end function
+
+impure elemental function sin_2pi_IntFraction(input) result(output)
+  implicit none
+  
+  type(IntFraction), intent(in) :: input
+  real(dp)                      :: output
+  
+  output = sin_2pi(dble(input))
 end function
 
 ! ----------------------------------------------------------------------

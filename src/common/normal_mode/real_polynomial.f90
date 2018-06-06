@@ -41,10 +41,12 @@ module real_polynomial_submodule
   end type
   
   type, extends(RealMonomialable) :: RealUnivariate
-    integer :: id
-    integer :: paired_id
-    integer :: power
+    integer          :: id
+    integer, private :: paired_id_
+    integer          :: power
   contains
+    procedure, public :: paired_id
+    
     procedure, public :: to_RealMonomial   => to_RealMonomial_RealUnivariate
     procedure, public :: to_RealPolynomial => to_RealPolynomial_RealUnivariate
     
@@ -151,13 +153,13 @@ function new_RealUnivariate(id,paired_id,power) result(this)
   integer, intent(in)           :: power
   type(RealUnivariate)          :: this
   
-  this%id        = id
+  this%id = id
   if (present(paired_id)) then
-    this%paired_id = paired_id
+    this%paired_id_ = paired_id
   else
-    this%paired_id = 0
+    this%paired_id_ = 0
   endif
-  this%power     = power
+  this%power = power
 end function
 
 function new_RealMonomial(coefficient,modes) result(this)
@@ -178,6 +180,24 @@ function new_RealPolynomial(terms) result(this)
   type(RealPolynomial)           :: this
   
   this%terms = terms
+end function
+
+! ----------------------------------------------------------------------
+! Getter for paired_id, with error checking.
+! ----------------------------------------------------------------------
+impure elemental function paired_id(this) result(output)
+  implicit none
+  
+  class(RealUnivariate), intent(in) :: this
+  integer                           :: output
+  
+  if (this%paired_id_==0) then
+    call print_line(CODE_ERROR//': Trying to use paired_id before it has &
+       & been set.')
+    call err()
+  endif
+  
+  output = this%paired_id_
 end function
 
 ! ----------------------------------------------------------------------

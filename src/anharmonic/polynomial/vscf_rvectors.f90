@@ -21,6 +21,25 @@ module vscf_rvectors_module
     ! List R-vectors for given modes.
     procedure, public :: rvectors => rvectors_VscfRvectors
     
+    ! Transform vectors in normal-mode co-ordinates.
+    generic,   public  :: transform => transform_ComplexModeDisplacement, &
+                                     & transform_RealModeDisplacement
+    procedure, private ::              transform_ComplexModeDisplacement
+    procedure, private ::              transform_RealModeDisplacement
+    
+    ! The inverse operation to transform.
+    generic,   public  :: inverse_transform =>                                &
+                                 & inverse_transform_ComplexModeDisplacement, &
+                                 & inverse_transform_RealModeDisplacement
+    procedure, private ::          inverse_transform_ComplexModeDisplacement
+    procedure, private ::          inverse_transform_RealModeDisplacement
+    
+    ! Helper functions for transform and inverse_transform.
+    generic,   private :: transform_ => transform__ComplexModeDisplacement, &
+                                      & transform__RealModeDisplacement
+    procedure, private ::               transform__ComplexModeDisplacement
+    procedure, private ::               transform__RealModeDisplacement
+    
     ! I/O.
     procedure, public :: read  => read_VscfRvectors
     procedure, public :: write => write_VscfRvectors
@@ -134,6 +153,233 @@ function rvectors_VscfRvectors(this,real_modes) result(output)
       output(i) = this%vscf_rvectors(j)%rvector
     endif
   enddo
+end function
+
+! ----------------------------------------------------------------------
+! Transform a displacement.
+! ----------------------------------------------------------------------
+function transform_ComplexModeDisplacement(this,displacement,modes,qpoints) &
+   & result(output)
+  implicit none
+  
+  class(VscfRvectors),           intent(in) :: this
+  type(ComplexModeDisplacement), intent(in) :: displacement
+  type(ComplexMode),             intent(in) :: modes(:)
+  type(QpointData),              intent(in) :: qpoints(:)
+  type(ComplexModeDisplacement)             :: output
+  
+  output = this%transform_( displacement, &
+                          & modes,        &
+                          & qpoints,      &
+                          & inverse=.false.)
+end function
+
+function transform_RealModeDisplacement(this,displacement,modes,qpoints) &
+   & result(output)
+  implicit none
+  
+  class(VscfRvectors),        intent(in) :: this
+  type(RealModeDisplacement), intent(in) :: displacement
+  type(RealMode),             intent(in) :: modes(:)
+  type(QpointData),           intent(in) :: qpoints(:)
+  type(RealModeDisplacement)             :: output
+  
+  output = this%transform_( displacement, &
+                          & modes,        &
+                          & qpoints,      &
+                          & inverse=.false.)
+end function
+
+function inverse_transform_ComplexModeDisplacement(this,displacement,modes, &
+   & qpoints) result(output)
+  implicit none
+  
+  class(VscfRvectors),           intent(in) :: this
+  type(ComplexModeDisplacement), intent(in) :: displacement
+  type(ComplexMode),             intent(in) :: modes(:)
+  type(QpointData),              intent(in) :: qpoints(:)
+  type(ComplexModeDisplacement)             :: output
+  
+  output = this%transform_( displacement, &
+                          & modes,        &
+                          & qpoints,      &
+                          & inverse=.true.)
+end function
+
+function inverse_transform_RealModeDisplacement(this,displacement,modes, &
+   & qpoints) result(output)
+  implicit none
+  
+  class(VscfRvectors),        intent(in) :: this
+  type(RealModeDisplacement), intent(in) :: displacement
+  type(RealMode),             intent(in) :: modes(:)
+  type(QpointData),           intent(in) :: qpoints(:)
+  type(RealModeDisplacement)             :: output
+  
+  output = this%transform_( displacement, &
+                          & modes,        &
+                          & qpoints,      &
+                          & inverse=.true.)
+end function
+
+function transform__ComplexModeDisplacement(this,displacement,modes,qpoints, &
+   & inverse) result(output)
+  implicit none
+  
+  class(VscfRvectors),           intent(in) :: this
+  type(ComplexModeDisplacement), intent(in) :: displacement
+  type(ComplexMode),             intent(in) :: modes(:)
+  type(QpointData),              intent(in) :: qpoints(:)
+  logical,                       intent(in) :: inverse
+  type(ComplexModeDisplacement)             :: output
+  
+  type(ComplexMode)    :: mode
+  type(IntVector)      :: r
+  type(FractionVector) :: q
+  
+  integer :: i,j
+  
+  output = displacement
+  
+  do i=1,size(output)
+    mode = modes(first(modes%id==displacement%displacements(i)%id))
+    j = first(this%vscf_rvectors%subspace_id==mode%subspace_id, default=0)
+    if (j==0) then
+      ! This mode is unaffected by the VSCF R-vector translation.
+      cycle
+    endif
+    
+    r = this%vscf_rvectors(j)%rvector
+    q = qpoints(first(qpoints%id==mode%qpoint_id))%qpoint
+    
+    if (inverse) then
+      r = -r
+    endif
+    
+    ! u_q -> exp{2*pi*i*q.R}u_q
+    output%displacements(i)%displacement = &
+       & exp_2pii(q*r) * displacement%displacements(i)%displacement
+  enddo
+end function
+
+function transform__RealModeDisplacement(this,displacement,modes,qpoints, &
+   & inverse) result(output)
+  implicit none
+  
+  class(VscfRvectors),        intent(in) :: this
+  type(RealModeDisplacement), intent(in) :: displacement
+  type(RealMode),             intent(in) :: modes(:)
+  type(QpointData),           intent(in) :: qpoints(:)
+  logical,                    intent(in) :: inverse
+  type(RealModeDisplacement)             :: output
+  
+  type(RealMode)       :: mode
+  type(IntVector)      :: r
+  type(FractionVector) :: q
+  
+  logical, allocatable :: mode_transformed(:)
+  real(dp)             :: new_displacement
+  real(dp)             :: paired_displacement
+  
+  integer :: i,j,ialloc
+  
+  output = displacement
+  
+  allocate(mode_transformed(size(displacement)), stat=ialloc); call err(ialloc)
+  mode_transformed = .false.
+  do i=1,size(displacement)
+    if (mode_transformed(i)) then
+      cycle
+    endif
+    
+    mode = modes(first(modes%id==displacement%displacements(i)%id))
+    
+    j = first(this%vscf_rvectors%subspace_id==mode%subspace_id, default=0)
+    if (j==0) then
+      ! This mode is unaffected by the VSCF R-vector translation.
+      cycle
+    endif
+    r = this%vscf_rvectors(j)%rvector
+    if (inverse) then
+      r = -r
+    endif
+    
+    q = qpoints(first(qpoints%id==mode%qpoint_id))%qpoint
+    
+    ! Calculate the transformed displacement along displacement i,
+    !    and along the mode paired to displacement i.
+    j = first(displacement%displacements%id==mode%paired_id, default=0)
+    if (j==i) then
+      ! The mode is its own pair, so cos(2*pi*q.R) = +/-1.
+      ! u -> cos(2*pi*q.r) * u.
+      new_displacement = cos_2pi(q*r) &
+                     & * displacement%displacements(i)%displacement
+    elseif (j==0) then
+      ! u_c -> cos(2*pi*q.R)u_c - sin(2*pi*q.R)u_s
+      ! u_s -> cos(2*pi*q.R)u_s + sin(2*pi*q.R)u_c
+      new_displacement = cos_2pi(q*r) &
+                     & * displacement%displacements(i)%displacement
+      if (mode%id<mode%paired_id) then
+        ! Displacement i is u_c, u_s = 0
+        paired_displacement = sin_2pi(q*r) &
+                          & * displacement%displacements(i)%displacement
+      else
+        ! Displacement i is u_s, u_c = 0
+        paired_displacement = -sin_2pi(q*r) &
+                          & * displacement%displacements(i)%displacement
+      endif
+    else
+      if (mode%id<mode%paired_id) then
+        ! Displacement i is u_c, displacement j is u_s.
+        new_displacement = cos_2pi(q*r)                               &
+                       & * displacement%displacements(i)%displacement &
+                       & - sin_2pi(q*r)                               &
+                       & * displacement%displacements(j)%displacement
+        paired_displacement = cos_2pi(q*r)                               &
+                          & * displacement%displacements(j)%displacement &
+                          & + sin_2pi(q*r)                               &
+                          & * displacement%displacements(i)%displacement
+      else
+        ! Displacement i is u_s, displacement j is u_c.
+        new_displacement = cos_2pi(q*r)                               &
+                       & * displacement%displacements(i)%displacement &
+                       & + sin_2pi(q*r)                               &
+                       & * displacement%displacements(j)%displacement
+        paired_displacement = cos_2pi(q*r)                               &
+                          & * displacement%displacements(j)%displacement &
+                          & - sin_2pi(q*r)                               &
+                          & * displacement%displacements(i)%displacement
+      endif
+    endif
+    
+    ! Update the displacement i.
+    output%displacements(i)%displacement = new_displacement
+    mode_transformed(i) = .true.
+    
+    ! Update the displacement paired to i.
+    if (j==0) then
+      ! The paired displacement was 0 before;
+      !    append the new paired displacement.
+      output%displacements = [ output%displacements,                  &
+                           &   RealSingleModeDisplacement(            &
+                           &      id           = mode%paired_id,      &
+                           &      displacement = paired_displacement) &
+                           & ]
+    elseif (j==i) then
+      ! The mode is its own pair; there is no separate pair to update.
+      continue
+    else
+      ! Update the displacement along the paired mode.
+      output%displacements(j)%displacement = paired_displacement
+      mode_transformed(j) = .true.
+    endif
+  enddo
+  
+  ! Check that all modes have been transformed.
+  if (.not. all(mode_transformed)) then
+    call print_line(ERROR//': error transforming modes.')
+    call err()
+  endif
 end function
 
 ! ----------------------------------------------------------------------

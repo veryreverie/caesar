@@ -560,6 +560,6 @@ function read_output_file_castep(filename,structure) result(output)
   endif
   
   ! Construct output.
-  output = ElectronicStructure(energy,forces)
+  output = ElectronicStructure(energy,CartesianForce(forces))
 end function
 end module

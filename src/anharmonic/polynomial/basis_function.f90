@@ -37,6 +37,9 @@ module basis_function_module
   end interface
 contains
 
+! ----------------------------------------------------------------------
+! Constructor.
+! ----------------------------------------------------------------------
 function new_BasisFunction(real_representation,complex_representation, &
    & unique_term) result(this)
   implicit none
@@ -51,6 +54,9 @@ function new_BasisFunction(real_representation,complex_representation, &
   this%unique_term            = unique_term
 end function
 
+! ----------------------------------------------------------------------
+! Generate basis functions.
+! ----------------------------------------------------------------------
 function generate_basis_functions_SubspaceMonomial(coupling,structure, &
    & complex_modes,real_modes,qpoints,subspaces,degenerate_symmetries, &
    & vscf_basis_functions_only,logfile) result(output)
@@ -95,8 +101,14 @@ function generate_basis_functions_SubspaceMonomial(coupling,structure, &
   complex(dp),               allocatable :: complex_coefficients(:)
   
   ! A list of which term is unique to which basis function.
-  integer, allocatable :: unique_term(:)
+  integer, allocatable :: unique_term_id(:)
   
+  ! Variables for constructing the output.
+  type(RealPolynomial)    :: real_representation
+  type(ComplexPolynomial) :: complex_representation
+  type(RealMonomial)      :: unique_term
+  
+  ! Temporary variables.
   integer :: i,j,ialloc
   
   if (size(coupling)<2) then
@@ -221,20 +233,20 @@ function generate_basis_functions_SubspaceMonomial(coupling,structure, &
   
   ! Take linear combinations of basis functions such that each basis function
   !    contains at least term which is in no other basis function.
-  allocate(unique_term(size(estuff)), stat=ialloc); call err(ialloc)
+  allocate(unique_term_id(size(estuff)), stat=ialloc); call err(ialloc)
   do i=1,size(estuff)
     ! Identify the largest term in basis function i.
-    unique_term(i) = maxloc(abs(estuff(i)%evec),1)
+    unique_term_id(i) = maxloc(abs(estuff(i)%evec),1)
     
     ! Subtract a multiple of basis function i from all other basis functions,
-    !    such that the coefficient of unique_term(i) in all other basis
+    !    such that the coefficient of unique_term_id(i) in all other basis
     !    functions is zero.
     do j=1,size(estuff)
       if (j/=i) then
-        estuff(j)%evec = estuff(j)%evec                 &
-                     & - estuff(i)%evec                 &
-                     & * estuff(j)%evec(unique_term(i)) &
-                     & / estuff(i)%evec(unique_term(i))
+        estuff(j)%evec = estuff(j)%evec                    &
+                     & - estuff(i)%evec                    &
+                     & * estuff(j)%evec(unique_term_id(i)) &
+                     & / estuff(i)%evec(unique_term_id(i))
       endif
     enddo
   enddo
@@ -245,12 +257,16 @@ function generate_basis_functions_SubspaceMonomial(coupling,structure, &
     real_coefficients = estuff(i)%evec
     complex_coefficients = cmplx( hermitian(complex_to_real_conversion) &
                               & * vec(real_coefficients))
-    output(i) = BasisFunction(                                                &
-       & real_representation=RealPolynomial( real_coefficients                &
-       &                                   * unique_real_monomials),          &
-       & complex_representation=ComplexPolynomial( complex_coefficients       &
-       &                                         * unique_complex_monomials), &
-       & unique_term=output(i)%real_representation%terms(unique_term(i)))
+    
+    real_representation = RealPolynomial( real_coefficients &
+                                      & * unique_real_monomials)
+    complex_representation = ComplexPolynomial( complex_coefficients &
+                                            & * unique_complex_monomials)
+    unique_term = real_representation%terms(unique_term_id(i))
+    
+    output(i) = BasisFunction( real_representation,    &
+                             & complex_representation, &
+                             & unique_term)
   enddo
 contains
   ! Lambda for comparing monomials.

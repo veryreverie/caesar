@@ -194,6 +194,6 @@ function read_output_file_qe(filename,structure) result(output)
   enddo
   
   ! Construct output.
-  output = ElectronicStructure(energy,forces)
+  output = ElectronicStructure(energy,CartesianForce(forces))
 end function
 end module

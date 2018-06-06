@@ -208,7 +208,7 @@ function read_forces(supercell,unique_directions,wd,sdir,file_type,seedname, &
   
   ! DFT output data.
   type(String)              :: filename
-  type(ElectronicStructure) :: output_file
+  type(ElectronicStructure) :: electronic_structure
   
   ! Direction information.
   type(String)   :: directory
@@ -242,21 +242,21 @@ function read_forces(supercell,unique_directions,wd,sdir,file_type,seedname, &
     atom_string = left_pad(atom%id(),str(supercell%no_atoms_prim))
     directory = sdir//'/atom.'//atom_string//'.'//direction
     
-    output_file = read_output_file( file_type,                &
-                                  & directory//'/'//filename, &
-                                  & supercell,                &
-                                  & wd,                       &
-                                  & seedname,                 &
-                                  & symmetry_precision,       &
-                                  & calculation_type)
+    electronic_structure = read_output_file( file_type,                &
+                                           & directory//'/'//filename, &
+                                           & supercell,                &
+                                           & wd,                       &
+                                           & seedname,                 &
+                                           & symmetry_precision,       &
+                                           & calculation_type)
     
-    if (size(output_file%forces)/=supercell%no_atoms) then
+    if (size(electronic_structure%forces)/=supercell%no_atoms) then
       call print_line(ERROR//': The number of forces calculated does not &
          &match the number of atoms in the supercell.')
       call print_line('Working in directory: '//directory)
       call err()
     endif
-    output(:,i) = output_file%forces(:)
+    output(:,i) = electronic_structure%forces%forces
     
     ! Enforce continuous translational symmetry,
     !    i.e. ensure sum(output,1)=0.

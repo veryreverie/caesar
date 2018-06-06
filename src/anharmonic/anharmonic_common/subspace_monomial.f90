@@ -260,7 +260,7 @@ recursive function generate_subspace_monomials_helper(coupled_subspaces, &
   endif
   
   output = [SubspaceMonomial::]
-  do while(size(monomial)+size(remaining_subspaces)<=potential_expansion_order)
+  do while(size(monomial)+size(coupled_subspaces)<=potential_expansion_order)
     monomial = monomial // first_subspace
     output = [ output,                                                        &
            &   generate_subspace_monomials_helper( remaining_subspaces,       &

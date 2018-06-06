@@ -80,15 +80,14 @@ end function
 ! ----------------------------------------------------------------------
 ! Return the displacement of this mode for a given structure.
 ! ----------------------------------------------------------------------
-function cartesian_displacement_RealMode(this,structure,qpoint,rvector) &
+function cartesian_displacement_RealMode(this,structure,qpoint) &
    & result(output)
   implicit none
   
-  class(RealMode),     intent(in)           :: this
-  type(StructureData), intent(in)           :: structure
-  type(QpointData),    intent(in)           :: qpoint
-  type(IntVector),     intent(in), optional :: rvector
-  type(CartesianDisplacement)               :: output
+  class(RealMode),     intent(in) :: this
+  type(StructureData), intent(in) :: structure
+  type(QpointData),    intent(in) :: qpoint
+  type(CartesianDisplacement)     :: output
   
   type(RealVector), allocatable :: displacements(:)
   
@@ -109,10 +108,6 @@ function cartesian_displacement_RealMode(this,structure,qpoint,rvector) &
     atom = structure%atoms(i)
     prim_displacement = this%primitive_displacements(atom%prim_id())
     atom_rvector      = structure%rvectors(atom%rvec_id())
-    
-    if (present(rvector)) then
-      atom_rvector = atom_rvector + rvector
-    endif
     
     qr = dble(qpoint%qpoint*atom_rvector)
     

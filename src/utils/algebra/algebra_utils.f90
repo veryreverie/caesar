@@ -17,6 +17,8 @@ module algebra_utils_submodule
   public :: l2_norm
   public :: sum_squares
   public :: exp_2pii
+  public :: cos_2pi
+  public :: sin_2pi
   public :: factorial
   public :: binomial
   public :: int_sqrt
@@ -56,10 +58,17 @@ module algebra_utils_submodule
     module procedure sum_squares_ComplexMatrix
   end interface
   
-  ! exp(2*pi*i*input).
+  ! exp(2*pi*i*input), cos(2*pi*input) and sin(2*pi*input).
   interface exp_2pii
     module procedure exp_2pii_real
-    module procedure exp_2pii_integer
+  end interface
+  
+  interface cos_2pi
+    module procedure cos_2pi_real
+  end interface
+  
+  interface sin_2pi
+    module procedure sin_2pi_real
   end interface
 contains
 
@@ -375,7 +384,7 @@ recursive function lcm_integers(input) result(output)
 end function
 
 ! ----------------------------------------------------------------------
-! Returns exp(2*pi*i*input).
+! exp(2*pi*i*input), cos(2*pi*input) and sin(2*pi*input).
 ! ----------------------------------------------------------------------
 impure elemental function exp_2pii_real(input) result(output)
   implicit none
@@ -389,12 +398,21 @@ impure elemental function exp_2pii_real(input) result(output)
   output = cmplx(cos(exponent),sin(exponent),dp)
 end function
 
-impure elemental function exp_2pii_integer(input) result(output)
+impure elemental function cos_2pi_real(input) result(output)
   implicit none
   
-  integer, intent(in) :: input
-  complex(dp)         :: output
+  real(dp), intent(in) :: input
+  real(dp)             :: output
   
-  output = exp_2pii(real(input,dp))
+  output = cos(2*PI*input)
+end function
+
+impure elemental function sin_2pi_real(input) result(output)
+  implicit none
+  
+  real(dp), intent(in) :: input
+  real(dp)             :: output
+  
+  output = sin(2*PI*input)
 end function
 end module

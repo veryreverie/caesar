@@ -43,10 +43,12 @@ module complex_polynomial_submodule
   end type
   
   type, extends(ComplexMonomialable) :: ComplexUnivariate
-    integer :: id
-    integer :: paired_id
-    integer :: power
+    integer          :: id
+    integer, private :: paired_id_
+    integer          :: power
   contains
+    procedure, public :: paired_id
+    
     procedure, public :: to_ComplexMonomial   => &
        & to_ComplexMonomial_ComplexUnivariate
     procedure, public :: to_ComplexPolynomial => &
@@ -167,13 +169,13 @@ function new_ComplexUnivariate(id,paired_id,power) result(this)
   integer, intent(in)           :: power
   type(ComplexUnivariate)       :: this
   
-  this%id        = id
+  this%id = id
   if (present(paired_id)) then
-    this%paired_id = paired_id
+    this%paired_id_ = paired_id
   else
-    this%paired_id = 0
+    this%paired_id_ = 0
   endif
-  this%power     = power
+  this%power = power
 end function
 
 function new_ComplexMonomial(coefficient,modes) result(this)
@@ -194,6 +196,24 @@ function new_ComplexPolynomial(terms) result(this)
   type(ComplexPolynomial)           :: this
   
   this%terms = terms
+end function
+
+! ----------------------------------------------------------------------
+! Getter for paired_id, with error checking.
+! ----------------------------------------------------------------------
+impure elemental function paired_id(this) result(output)
+  implicit none
+  
+  class(ComplexUnivariate), intent(in) :: this
+  integer                              :: output
+  
+  if (this%paired_id_==0) then
+    call print_line(CODE_ERROR//': Trying to use paired_id before it has &
+       & been set.')
+    call err()
+  endif
+  
+  output = this%paired_id_
 end function
 
 ! ----------------------------------------------------------------------
@@ -275,8 +295,8 @@ impure elemental function conjg_ComplexUnivariate(this) result(output)
   type(ComplexUnivariate), intent(in) :: this
   type(ComplexUnivariate)             :: output
   
-  output = ComplexUnivariate( id        = this%paired_id, &
-                            & paired_id = this%id,        &
+  output = ComplexUnivariate( id        = this%paired_id(), &
+                            & paired_id = this%id,          &
                             & power     = this%power)
 end function
 

@@ -114,7 +114,7 @@ function generate_mode_monomials(coupling,subspaces,normal_modes,qpoints) &
   type(DegenerateSubspace), intent(in) :: subspaces(:)
   type(ComplexMode),        intent(in) :: normal_modes(:)
   type(QpointData),         intent(in) :: qpoints(:)
-  type(ModeMonomial), allocatable     :: output(:)
+  type(ModeMonomial), allocatable      :: output(:)
   
   type(DegenerateSubspace), allocatable :: coupled_subspaces(:)
   
@@ -127,16 +127,16 @@ function generate_mode_monomials(coupling,subspaces,normal_modes,qpoints) &
                                          & qpoints)
 end function
 
-recursive function generate_mode_monomials_helper(coupled_subspaces, &
-   & normal_modes,qpoints,mode_monomial_in,sum_q_in) result(output)
+recursive function generate_mode_monomials_helper(subspaces,normal_modes, &
+   & qpoints,mode_monomial_in,sum_q_in) result(output)
   implicit none
   
-  type(DegenerateSubspace), intent(in)        :: coupled_subspaces(:)
-  type(ComplexMode),     intent(in)           :: normal_modes(:)
-  type(QpointData),      intent(in)           :: qpoints(:)
-  type(ModeMonomial),    intent(in), optional :: mode_monomial_in
-  type(FractionVector),  intent(in), optional :: sum_q_in
-  type(ModeMonomial), allocatable             :: output(:)
+  type(DegenerateSubspace), intent(in)           :: subspaces(:)
+  type(ComplexMode),        intent(in)           :: normal_modes(:)
+  type(QpointData),         intent(in)           :: qpoints(:)
+  type(ModeMonomial),       intent(in), optional :: mode_monomial_in
+  type(FractionVector),     intent(in), optional :: sum_q_in
+  type(ModeMonomial), allocatable                :: output(:)
   
   type(QpointData), allocatable :: subspace_qpoints(:)
   
@@ -166,7 +166,7 @@ recursive function generate_mode_monomials_helper(coupled_subspaces, &
     sum_q = fracvec(zeroes(3))
   endif
   
-  if (size(coupled_subspaces)==0) then
+  if (size(subspaces)==0) then
     ! There is nothing else to append. Check that the sum across q-points of
     !    the mode coupling is zero, and return the mode couplings.
     if (.not. is_int(sum_q_in)) then
@@ -178,28 +178,28 @@ recursive function generate_mode_monomials_helper(coupled_subspaces, &
     ! If vscf_basis_functions_only is true, then only mode couplings which have
     !    sum(q)=0 for all degenerate subspaces are allowed.
     last_mode_in_coupling = .false.
-    if (size(coupled_subspaces)==1) then
+    if (size(subspaces)==1) then
       last_mode_in_coupling = .true.
-    elseif (coupled_subspaces(2)%id/=coupled_subspaces(1)%id) then
+    elseif (subspaces(2)%id/=subspaces(1)%id) then
       last_mode_in_coupling = .true.
     endif
     
     ! Loop over modes in this subspaces, recursively calling this function for
     !    each in turn.
-    subspace_qpoints = coupled_subspaces(1)%qpoints(normal_modes,qpoints)
+    subspace_qpoints = subspaces(1)%qpoints(normal_modes,qpoints)
     output = [ModeMonomial::]
-    do i=1,size(coupled_subspaces(1))
-      mode_monomial_out = mode_monomial//coupled_subspaces(1)%mode_ids(i)
+    do i=1,size(subspaces(1))
+      mode_monomial_out = mode_monomial//subspaces(1)%mode_ids(i)
       sum_q_out = sum_q + subspace_qpoints(i)%qpoint
       if (last_mode_in_coupling .and. .not. is_int(sum_q_out)) then
         mode_monomial_out%conserves_vscf = .false.
       endif
-      output = [ output,                                                &
-             &   generate_mode_monomials_helper( coupled_subspaces(2:), &
-             &                                   normal_modes,          &
-             &                                   qpoints,               &
-             &                                   mode_monomial_out,     &
-             &                                   sum_q_out)             &
+      output = [ output,                                            &
+             &   generate_mode_monomials_helper( subspaces(2:),     &
+             &                                   normal_modes,      &
+             &                                   qpoints,           &
+             &                                   mode_monomial_out, &
+             &                                   sum_q_out)         &
              & ]
     enddo
   endif

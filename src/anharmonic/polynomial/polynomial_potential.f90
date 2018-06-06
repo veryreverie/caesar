@@ -62,13 +62,15 @@ subroutine generate_sampling_points_PolynomialPotential(this,inputs, &
   type(StructureData)           :: supercell
   
   ! Displacement data.
+  type(RealModeDisplacement)      :: sampling_point
+  type(RealModeDisplacement)      :: transformed_sampling_point
   type(VscfRvectors), allocatable :: vscf_rvectors(:)
   type(CartesianDisplacement)     :: displacement
   type(StructureData)             :: displaced_structure
   
   ! Directories and files.
   type(String) :: coupling_dir
-  type(OFile)  :: basis_function_file
+  type(OFile)  :: basis_functions_file
   type(OFile)  :: sampling_points_file
   type(String) :: sampling_dir
   type(OFile)  :: vscf_rvectors_file
@@ -94,7 +96,6 @@ subroutine generate_sampling_points_PolynomialPotential(this,inputs, &
                       & inputs%subspace_couplings(i), &
                       & inputs%degenerate_subspaces,  &
                       & this%potential_expansion_order)
-    
     
     ! Generate basis functions at each coupling.
     this%basis_functions(i) = generate_basis_functions( &
@@ -128,23 +129,25 @@ subroutine generate_sampling_points_PolynomialPotential(this,inputs, &
     call mkdir(coupling_dir)
     
     ! Write basis functions to file.
-    basis_function_file = OFile(coupling_dir//'/basis_functions.dat')
-    call basis_function_file%print_lines(this%basis_functions(i))
+    basis_functions_file = OFile(coupling_dir//'/basis_functions.dat')
+    call basis_functions_file%print_lines(this%basis_functions(i))
     
     ! Write sampling points to file.
     sampling_points_file = OFile(coupling_dir//'/sampling_points.dat')
     call sampling_points_file%print_lines(this%sampling_points(i))
     
     do j=1,size(this%sampling_points(i))
+      ! Select the sampling point for clarity.
+      sampling_point = this%sampling_points(i)%points(j)
+      
       ! Make a directory for each sampling point.
       sampling_dir = coupling_dir// &
          & '/sampling_point_'//left_pad(j,str(size(this%sampling_points(i))))
       call mkdir(sampling_dir)
       
       ! Construct a supercell for each sampling point.
-      sampling_point_qpoints =                                           &
-         & this%sampling_points(i)%points(j)%qpoints( inputs%real_modes, &
-         &                                            inputs%qpoints)
+      sampling_point_qpoints = sampling_point%qpoints( inputs%real_modes, &
+                                                     & inputs%qpoints)
       supercell_matrix = construct_supercell_matrix( sampling_point_qpoints, &
                                                    & inputs%structure)
       supercell = construct_supercell( inputs%structure,          &
@@ -156,22 +159,25 @@ subroutine generate_sampling_points_PolynomialPotential(this,inputs, &
       call write_structure_file(supercell, sampling_dir//'/structure.dat')
       
       ! Construct VSCF R-vectors.
-      vscf_rvectors = construct_vscf_rvectors( &
-          & this%sampling_points(i)%points(j), &
-          & supercell,                         &
-          & inputs%real_modes,                 &
-          & inputs%qpoints)
+      vscf_rvectors = construct_vscf_rvectors( sampling_point,    &
+                                             & supercell,         &
+                                             & inputs%real_modes, &
+                                             & inputs%qpoints)
       vscf_rvectors_file = OFile(sampling_dir//'/vscf_rvectors.dat')
       call vscf_rvectors_file%print_lines(vscf_rvectors,separating_line='')
       
       do k=1,size(vscf_rvectors)
+        ! Transform the sampling point by the VSCF R-vector.
+        transformed_sampling_point = vscf_rvectors(k)%transform( &
+                                            & sampling_point,    &
+                                            & inputs%real_modes, &
+                                            & inputs%qpoints)
+        
         ! Construct displaced structure.
-        displacement =                                                 &
-           & this%sampling_points(i)%points(j)%cartesian_displacement( &
-           &                      supercell,                           &
-           &                      inputs%real_modes,                   &
-           &                      inputs%qpoints,                      &
-           &                      vscf_rvectors(k)%rvectors(inputs%real_modes))
+        displacement = transformed_sampling_point%cartesian_displacement( &
+                                                     & supercell,         &
+                                                     & inputs%real_modes, &
+                                                     & inputs%qpoints)
         displaced_structure = displace_structure(supercell,displacement)
         
         ! Create directory and structure files for displaced structure.
@@ -193,6 +199,29 @@ subroutine generate_potential_PolynomialPotential(this,inputs, &
   type(String),               intent(in)    :: sampling_points_dir
   type(OFile),                intent(inout) :: logfile
   procedure(ReadLambda)                     :: read_lambda
+  
+  ! Directories and files.
+  type(String) :: coupling_dir
+  type(IFile)  :: basis_functions_file
+  type(IFile)  :: sampling_points_file
+  
+  ! Temporary variables.
+  integer :: i,ialloc
+  
+  ! Read in basis functions and sampling points.
+  allocate( this%basis_functions(size(inputs%subspace_couplings)), &
+          & this%sampling_points(size(inputs%subspace_couplings)), &
+          & stat=ialloc); call err(ialloc)
+  do i=1,size(this%sampling_points)
+    coupling_dir = sampling_points_dir// &
+       & '/coupling_'//left_pad(i,str(size(this%sampling_points)))
+    
+    basis_functions_file = IFile(coupling_dir//'/basis_functions.dat')
+    this%basis_functions(i) = basis_functions_file%lines()
+    
+    sampling_points_file = IFile(coupling_dir//'/sampling_points.dat')
+    this%sampling_points(i) = sampling_points_file%lines()
+  enddo
   
   ! TODO
 end subroutine

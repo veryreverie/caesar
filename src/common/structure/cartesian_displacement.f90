@@ -4,7 +4,7 @@
 module cartesian_displacement_submodule
   use utils_module
   
-  use structure_module
+  use structure_submodule
   implicit none
   
   private
@@ -38,7 +38,7 @@ module cartesian_displacement_submodule
   end interface
   
   interface operator(+)
-    module procedure add_CartesianDisplacement_Cartesiandisplacement
+    module procedure add_CartesianDisplacement_CartesianDisplacement
   end interface
   
   interface sum
@@ -125,8 +125,7 @@ function add_CartesianDisplacement_CartesianDisplacement(this,that) &
   type(CartesianDisplacement), intent(in) :: that
   type(CartesianDisplacement)             :: output
   
-  output = CartesianDisplacement( this%displacements &
-                              & + that%displacements)
+  output = CartesianDisplacement(this%displacements + that%displacements)
 end function
 
 function sum_CartesianDisplacements(input) result(output)

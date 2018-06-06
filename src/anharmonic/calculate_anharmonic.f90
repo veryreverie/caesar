@@ -5,6 +5,7 @@ module calculate_anharmonic_module
   use common_module
   
   use setup_harmonic_module
+  use calculate_normal_modes_module
   
   use anharmonic_common_module
   use polynomial_module
@@ -68,6 +69,10 @@ subroutine calculate_anharmonic(arguments)
   type(String)     :: seedname
   real(dp)         :: symmetry_precision
   
+  ! Arguments to calculate_normal_modes.
+  type(Dictionary) :: calculate_normal_modes_arguments
+  type(String)     :: calculation_type
+  
   ! Primitive structure.
   type(StructureData) :: structure
   
@@ -94,13 +99,15 @@ subroutine calculate_anharmonic(arguments)
   type(PotentialPointer) :: potential
   
   ! Files and directories.
-  type(OFile)  :: logfile
-  type(IFile)  :: qpoints_file
-  type(IFile)  :: complex_modes_file
-  type(IFile)  :: real_modes_file
-  type(IFile)  :: subspaces_file
-  type(IFile)  :: subspace_coupling_file
-  type(String) :: sampling_points_dir
+  type(OFile)               :: logfile
+  type(IFile)               :: qpoints_file
+  type(IFile)               :: complex_modes_file
+  type(IFile)               :: real_modes_file
+  type(IFile)               :: subspaces_file
+  type(IFile)               :: subspace_coupling_file
+  type(IFile)               :: calculation_directories_file
+  type(String), allocatable :: calculation_directories(:)
+  type(String)              :: sampling_points_dir
   
   ! Temporary variables.
   integer :: i,ialloc
@@ -135,6 +142,13 @@ subroutine calculate_anharmonic(arguments)
   seedname = setup_harmonic_arguments%value('seedname')
   symmetry_precision = &
      & dble(setup_harmonic_arguments%value('symmetry_precision'))
+  
+  ! Read in calculate_normal_modes arguments.
+  calculate_normal_modes_arguments = &
+     & Dictionary(calculate_normal_modes_keywords())
+  call calculate_normal_modes_arguments%read_file( &
+     & harmonic_path//'/calculate_normal_modes.used_settings')
+  calculation_type = calculate_normal_modes_arguments%value('calculation_type')
   
   ! Read in structure.
   structure = read_structure_file( harmonic_path//'/structure.dat', &
@@ -180,19 +194,8 @@ subroutine calculate_anharmonic(arguments)
   enddo
   
   ! ----------------------------------------------------------------------
-  ! Run representation-specific code.
-  ! ----------------------------------------------------------------------
-  
-  ! Initialise potential to the chosen representation
-  if (potential_representation=='polynomial') then
-    potential = PolynomialPotential(potential_expansion_order)
-  else
-    call print_line( ERROR//': Unrecognised potential representation: '// &
-                   & potential_representation)
-    call err()
-  endif
-  
   ! Load anharmonic data into container.
+  ! ----------------------------------------------------------------------
   anharmonic_data = AnharmonicData( structure,                     &
                                   & symmetry_precision,            &
                                   & anharmonic_supercell,          &
@@ -206,6 +209,25 @@ subroutine calculate_anharmonic(arguments)
                                   & maximum_weighted_displacement, &
                                   & frequency_of_max_displacement )
   
+  ! ----------------------------------------------------------------------
+  ! Read in calculation directories.
+  ! ----------------------------------------------------------------------
+  calculation_directories_file = IFile(wd//'/calculation_directories.dat')
+  calculation_directories = calculation_directories_file%lines()
+  
+  ! ----------------------------------------------------------------------
+  ! Run representation-specific code.
+  ! ----------------------------------------------------------------------
+  
+  ! Initialise potential to the chosen representation
+  if (potential_representation=='polynomial') then
+    potential = PolynomialPotential(potential_expansion_order)
+  else
+    call print_line( ERROR//': Unrecognised potential representation: '// &
+                   & potential_representation)
+    call err()
+  endif
+  
   ! Call potential-specific function.
   sampling_points_dir = wd//'/sampling_points'
   call potential%generate_potential( anharmonic_data,     &
@@ -214,13 +236,51 @@ subroutine calculate_anharmonic(arguments)
                                    & read_calculation_directory)
 contains
   ! Lambda to read electronic structure results from a directory.
+  ! Captures:
+  !    - calculation_directories
+  !    - symmetry_precision
+  !    - calculation_type
+  !    - file_type
+  !    - seedname
+  !    - wd
   function read_calculation_directory(directory) result(output)
     implicit none
     
     type(String), intent(in)  :: directory
     type(ElectronicStructure) :: output
     
-    ! TODO
+    type(StructureData) :: structure
+    type(String)        :: filename
+    
+    ! Check that directory is valid.
+    if (.not. any(directory==calculation_directories)) then
+      call print_line(CODE_ERROR//': Trying to read electronic structure from &
+         &a directory where such calculations were not run.')
+      call print_line('Directory: '//directory)
+      call err()
+    endif
+    
+    ! Read in structure.
+    structure = read_structure_file( directory//'/structure.dat', &
+                                   & symmetry_precision,          &
+                                   & calculate_symmetry=.false.)
+    
+    ! Construct filename.
+    if (calculation_type=='script') then
+      filename = make_output_filename(file_type,seedname)
+    else
+      filename = make_input_filename(file_type,seedname)
+    endif
+    filename = directory//'/'//filename
+    
+    ! Read in electronic structure.
+    output = read_output_file( file_type,          &
+                             & filename,           &
+                             & structure,          &
+                             & wd,                 &
+                             & seedname,           &
+                             & symmetry_precision, &
+                             & calculation_type)
   end function
 end subroutine
 end module

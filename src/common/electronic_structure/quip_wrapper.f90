@@ -214,6 +214,6 @@ subroutine assign_ElectronicStructure_QuipElectronicStructure(output,input)
   enddo
   
   output = ElectronicStructure( input%energy / EV_PER_HARTREE, &
-                              & forces)
+                              & CartesianForce(forces))
 end subroutine
 end module
