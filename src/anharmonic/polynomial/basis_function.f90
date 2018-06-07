@@ -372,7 +372,7 @@ subroutine read_BasisFunction(this,input)
       endif
     enddo
     
-    real_representation = join(input(3:partition_line-1),delimiter=' + ')
+    real_representation = join(input(4:partition_line-1),delimiter=' + ')
     complex_representation = join(input(partition_line+1:),delimiter=' + ')
     
     this = BasisFunction( unique_term            = unique_term,         &

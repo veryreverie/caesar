@@ -36,7 +36,7 @@ function calculate_anharmonic_mode() result(output)
   
   type(CaesarMode) :: output
   
-  output%mode_name = 'run_anharmonic'
+  output%mode_name = 'calculate_anharmonic'
   output%description = 'Uses the results of run_anharmonic to calculate &
      &anharmonic properties. Should be run after run_anharmonic.'
   output%keywords = calculate_anharmonic_keywords()
@@ -129,10 +129,11 @@ subroutine calculate_anharmonic(arguments)
   potential_expansion_order = &
      & int(setup_anharmonic_arguments%value('potential_expansion_order'))
   vscf_basis_functions_only = &
-     & lgcl(arguments%value('vscf_basis_functions_only'))
-  maximum_displacement = dble(arguments%value('maximum_displacement'))
+     & lgcl(setup_anharmonic_arguments%value('vscf_basis_functions_only'))
+  maximum_displacement = &
+     & dble(setup_anharmonic_arguments%value('maximum_displacement'))
   frequency_of_max_displacement = &
-     & dble(arguments%value('frequency_of_max_displacement'))
+     & dble(setup_anharmonic_arguments%value('frequency_of_max_displacement'))
   
   ! Read in setup_harmonic arguments.
   setup_harmonic_arguments = Dictionary(setup_harmonic_keywords())

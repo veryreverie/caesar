@@ -58,8 +58,7 @@ subroutine generate_dos(supercell,min_images,force_constants,            &
   type(RealVector)                          :: qpoint
   type(DynamicalMatrix)                     :: dyn_mat
   real(dp)                                  :: frequency
-  logical                                   :: any_frequencies_ignored
-  integer                                   :: no_frequencies_ignored
+  integer,                      allocatable :: no_frequencies_ignored(:)
   type(ThermodynamicVariables), allocatable :: thermodynamics(:)
   
   ! Temporary variables.
@@ -105,10 +104,11 @@ subroutine generate_dos(supercell,min_images,force_constants,            &
   bin_width   = (max_freq - min_freq) / no_bins
   
   ! Calculate density of states.
-  allocate( freq_dos(no_bins),                   &
-          & energy(size(thermal_energies)),      &
-          & free_energy(size(thermal_energies)), &
-          & entropy(size(thermal_energies)),     &
+  allocate( freq_dos(no_bins),                      &
+          & energy(size(thermal_energies)),         &
+          & free_energy(size(thermal_energies)),    &
+          & entropy(size(thermal_energies)),        &
+          & no_frequencies_ignored(no_dos_samples), &
           & stat=ialloc); call err(ialloc)
   freq_dos=0.0_dp
   energy = 0.0_dp
@@ -116,7 +116,7 @@ subroutine generate_dos(supercell,min_images,force_constants,            &
   entropy = 0.0_dp
   no_frequencies_ignored = 0
   call sampled_qpoints_file%print_line('q-point (x,y,z) | &
-                                       &lowest frequency ignored')
+                                       &number of frequencies ignored')
   do i=1,no_dos_samples
     qpoint = random_generator%random_numbers(3)
     dyn_mat = DynamicalMatrix( qpoint,          &
@@ -127,7 +127,6 @@ subroutine generate_dos(supercell,min_images,force_constants,            &
                       & logfile,           &
                       & check_eigenstuff=.false.)
     
-    any_frequencies_ignored = .false.
     do j=1,supercell%no_modes_prim
       frequency = dyn_mat%complex_modes(j)%frequency
       
@@ -151,8 +150,7 @@ subroutine generate_dos(supercell,min_images,force_constants,            &
       
       ! Calculate thermodynamic quantities.
       if (frequency<min_frequency) then
-        any_frequencies_ignored = .true.
-        no_frequencies_ignored = no_frequencies_ignored + 1
+        no_frequencies_ignored(i) = no_frequencies_ignored(i) + 1
       else
         thermodynamics = ThermodynamicVariables(thermal_energies,frequency)
         energy = energy + thermodynamics%energy
@@ -161,7 +159,8 @@ subroutine generate_dos(supercell,min_images,force_constants,            &
       endif
     enddo
     
-    call sampled_qpoints_file%print_line(qpoint//' '//any_frequencies_ignored)
+    call sampled_qpoints_file%print_line( qpoint//' '// &
+                                        & no_frequencies_ignored(i))
     
     if (modulo(i,print_every)==0) then
       call print_line('Sampling q-points: '//i//' of '//no_dos_samples// &
@@ -170,14 +169,21 @@ subroutine generate_dos(supercell,min_images,force_constants,            &
   enddo
   
   ! Normalise variables to be per unit cell.
+  ! N.B. the divisor is not corrected for ignored frequencies, since ignored
+  !    frequencies are considered to contribute zero energy, F and S.
+  ! (The contribution of a single low-frequency mode diverges, but assuming
+  !    that such modes are localised around Gamma with a typical phonon
+  !    dispersion then the integral across them approaches zero.)
   freq_dos    = freq_dos    / (no_dos_samples*bin_width)
   energy      = energy      / no_dos_samples
   free_energy = free_energy / no_dos_samples
   entropy     = entropy     / no_dos_samples
   
-  call print_line(WARNING//': '//no_frequencies_ignored//' modes ignored for &
-     &having frequencies less than min_frequency, out of '// &
-     & no_dos_samples*supercell%no_modes_prim//' modes sampled.')
+  if (any(no_frequencies_ignored/=0)) then
+    call print_line(WARNING//': '//sum(no_frequencies_ignored)//' modes &
+       &ignored for having frequencies less than min_frequency, out of '// &
+       & no_dos_samples*supercell%no_modes_prim//' modes sampled.')
+  endif
   
   ! Write out phonon density of states.
   do i=1,no_bins
@@ -189,10 +195,10 @@ subroutine generate_dos(supercell,min_images,force_constants,            &
   enddo
   
   ! Write out thermodynamic variables.
-  call thermodynamic_file%print_line('kB * temperature (Hartree) | &
-                                     &U=<E> (Hartree) | &
-                                     &F=U-TS (Hartree) | &
-                                     &S (dimensionless)')
+  call thermodynamic_file%print_line('kB * temperature (Hartree per cell) | &
+                                     &U=<E> (Hartree per cell) | &
+                                     &F=U-TS (Hartree per cell) | &
+                                     &S (per cell)')
   do i=1,size(thermal_energies)
     call thermodynamic_file%print_line( thermal_energies(i) //' '// &
                                       & energy(i)           //' '// &

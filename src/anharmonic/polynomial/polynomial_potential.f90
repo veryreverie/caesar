@@ -200,13 +200,23 @@ subroutine generate_potential_PolynomialPotential(this,inputs, &
   type(OFile),                intent(inout) :: logfile
   procedure(ReadLambda)                     :: read_lambda
   
+  type(StructureData)             :: supercell
+  type(VscfRvectors), allocatable :: vscf_rvectors(:)
+  type(ElectronicStructure)       :: electronic_structure
+  
+  type(ElectronicStructure), allocatable :: calculations(:)
+  type(ElectronicStructure), allocatable :: sampled_points(:)
+  
   ! Directories and files.
   type(String) :: coupling_dir
   type(IFile)  :: basis_functions_file
   type(IFile)  :: sampling_points_file
+  type(String) :: sampling_dir
+  type(IFile)  :: vscf_rvectors_file
+  type(String) :: vscf_rvectors_dir
   
   ! Temporary variables.
-  integer :: i,ialloc
+  integer :: i,j,k,ialloc
   
   ! Read in basis functions and sampling points.
   allocate( this%basis_functions(size(inputs%subspace_couplings)), &
@@ -216,13 +226,69 @@ subroutine generate_potential_PolynomialPotential(this,inputs, &
     coupling_dir = sampling_points_dir// &
        & '/coupling_'//left_pad(i,str(size(this%sampling_points)))
     
+    ! Read in basis functions and sampling points.
     basis_functions_file = IFile(coupling_dir//'/basis_functions.dat')
     this%basis_functions(i) = basis_functions_file%lines()
     
     sampling_points_file = IFile(coupling_dir//'/sampling_points.dat')
     this%sampling_points(i) = sampling_points_file%lines()
+    
+    allocate( sampled_points(size(this%sampling_points(i))), &
+            & stat=ialloc); call err(ialloc)
+    do j=1,size(this%sampling_points(i))
+      sampling_dir = coupling_dir// &
+         & '/sampling_point_'//left_pad(j,str(size(this%sampling_points(i))))
+      
+      ! Read in supercell and VSCF R-vectors.
+      supercell = read_structure_file( sampling_dir//'/structure.dat', &
+                                     & inputs%symmetry_precision,      &
+                                     & calculate_symmetry=.false.)
+      
+      vscf_rvectors_file = IFile(sampling_dir//'/vscf_rvectors.dat')
+      vscf_rvectors = VscfRvectors(vscf_rvectors_file%sections())
+      
+      allocate( calculations(size(vscf_rvectors)), &
+              & stat=ialloc); call err(ialloc)
+      do k=1,size(vscf_rvectors)
+        vscf_rvectors_dir = sampling_dir// &
+           & '/vscf_rvectors_'//left_pad(k,str(size(vscf_rvectors)))
+        calculations(k) = read_lambda(vscf_rvectors_dir)
+      enddo
+      
+      ! TODO: Transform into normal mode co-ordinates before averaging.
+      
+      ! sampled_points(j) = average(calculations,vscf_rvectors)
+      deallocate(calculations, stat=ialloc); call err(ialloc)
+    enddo
+    deallocate(sampled_points, stat=ialloc); call err(ialloc)
   enddo
   
   ! TODO
 end subroutine
+
+!! Average over VSCF R-vectors.
+!function average(calculations,vscf_rvectors) result(output)
+!  implicit none
+!  
+!  type(ElectronicStructure), intent(in) :: calculations(:)
+!  type(VscfRvectors),        intent(in) :: vscf_rvectors(:)
+!  type(ElectronicStructure)             :: output
+!  
+!  type(ElectronicStructure), allocatable :: untransformed_calculations(:)
+!  
+!  real(dp)             :: energy
+!  type(CartesianForce) :: forces(:)
+!  
+!  integer :: i,ialloc
+!  
+!  if (size(calculations)/=size(vscf_rvectors)) then
+!    call err()
+!  endif
+!  
+!  allocate( untransformed_calculations(size(calculations)), &
+!          & stat=ialloc); call err(ialloc)
+!  do i=1,size(calculations)
+!    untransformed_calculations = vscf_rvectors(i)%inverse_transform( &
+!  enddo
+!end function
 end module
