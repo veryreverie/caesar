@@ -33,6 +33,7 @@ module real_single_mode_displacement_submodule
   
   interface RealSingleModeDisplacement
     module procedure new_RealSingleModeDisplacement
+    module procedure new_RealSingleModeDisplacement_CartesianDisplacement
     module procedure new_RealSingleModeDisplacement_String
   end interface
 contains
@@ -49,7 +50,10 @@ function new_RealSingleModeDisplacement(id,displacement) result(this)
   this%displacement = displacement
 end function
 
-! Conversion to cartesian co-ordinates.
+! ----------------------------------------------------------------------
+! Conversions to and from cartesian co-ordinates.
+! ----------------------------------------------------------------------
+! Constructs the CartesianDisplacement corresponding to this displacement.
 function cartesian_displacement_RealSingleModeDisplacement(this,real_mode, &
    & structure,qpoint) result(output)
   implicit none
@@ -69,7 +73,62 @@ function cartesian_displacement_RealSingleModeDisplacement(this,real_mode, &
        & * real_mode%cartesian_displacement(structure,qpoint)
 end function
 
+! Constructs the displacement corresponding to the component of a cartesian
+!    displacement along this mode.
+function new_RealSingleModeDisplacement_CartesianDisplacement(mode, &
+   & displacement,structure,qpoint) result(this)
+  implicit none
+  
+  type(RealMode),              intent(in) :: mode
+  type(CartesianDisplacement), intent(in) :: displacement
+  type(StructureData),         intent(in) :: structure
+  type(QpointData),            intent(in) :: qpoint
+  type(RealSingleModeDisplacement)        :: this
+  
+  type(CartesianDisplacement) :: mode_displacement
+  
+  real(dp) :: numerator
+  real(dp) :: denominator
+  
+  integer :: i
+  
+  ! Modes are orthogonal in mass-reduced co-ordinates,
+  !    but normalised in cartesian co-ordinates.
+  ! If M is the mass-weighting matrix, M_ab = 1/sqrt(m_a*m_b),
+  !    where m_a and m_b are the masses of atoms a and b respectively, then
+  !
+  ! u_i and u_j are the cartesian representations of modes i and j.
+  ! r is the cartesian displacement.
+  !
+  ! u_i.u_i=1   for all i (Modes are normalised in cartesian co-ordinates.)
+  ! u_i.M.u_j=0 for i/=j  (Modes are orthogonal in mass-reduced co-ordinates.
+  !
+  ! r = sum_j a_j*u_j
+  ! => u_i.M.r = sum_j a_j*u_i.M.u_j = a_i*u_i.M.u_i
+  ! => a_j = u_i.M.r / u_i.M.u_i
+  
+  mode_displacement = mode%cartesian_displacement(structure,qpoint)
+  
+  numerator = 0
+  denominator = 0
+  do i=1,structure%no_atoms
+    numerator = numerator                          &
+            & + displacement%displacements(i)      &
+            & * mode_displacement%displacements(i) &
+            & / structure%atoms(i)%mass()
+    numerator = numerator &
+            & + mode_displacement%displacements(i) &
+            & * mode_displacement%displacements(i) &
+            & / structure%atoms(i)%mass()
+  enddo
+  
+  this = RealSingleModeDisplacement( id=mode%id, &
+                                   & displacement=numerator/denominator)
+end function
+
+! ----------------------------------------------------------------------
 ! I/O.
+! ----------------------------------------------------------------------
 subroutine read_RealSingleModeDisplacement(this,input)
   implicit none
   

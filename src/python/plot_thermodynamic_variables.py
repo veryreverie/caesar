@@ -76,14 +76,14 @@ def main():
   axes['entropy']['b'].set_xlim(xmin_hartree,xmax_hartree)
   axes['entropy']['t'].set_xlim(xmin_kelvin,xmax_kelvin)
   axes['entropy']['t'].tick_params(labeltop='off')
-  axes['entropy']['b'].set_xlabel(r"Thermal Energy, $k_BT$, (Ha)")
+  axes['entropy']['b'].set_xlabel(r"$k_BT$ (Ha)")
   
-  axes['energy']['l'].set_ylabel(r"Energy per cell (Ha)")
+  axes['energy']['l'].set_ylabel(r"Vibrational Energy per cell (Ha)")
   axes['energy']['l'].tick_params(axis='y',
                                   width=2,
                                   color=colours['turquoise'])
   axes['energy']['l'].spines['left'].set_color(colours['turquoise'])
-  axes['energy']['r'].set_ylabel(r"Free Energy per cell (Ha)")
+  axes['energy']['r'].set_ylabel(r"Vibrational Free Energy per cell (Ha)")
   axes['energy']['r'].tick_params(axis='y',
                                   width=2,
                                   color=colours['orange'])
@@ -96,9 +96,9 @@ def main():
   ymin_gibbs   = ymin_shannon * kb_in_au
   ymax_gibbs   = ymax_shannon * kb_in_au
   axes['entropy']['l'].set_ylim(ymin_shannon,ymax_shannon)
-  axes['entropy']['l'].set_ylabel(r"Shannon Entropy per cell, $S/k_B$, (arb. units)")
+  axes['entropy']['l'].set_ylabel(r"Vibrational Shannon Entropy per cell, $S/k_B$, (arb. units)")
   axes['entropy']['r'].set_ylim(ymin_gibbs,ymax_gibbs)
-  axes['entropy']['r'].set_ylabel(r"Gibbs Entropy per cell, $S$, (Ha per K)")
+  axes['entropy']['r'].set_ylabel(r"Vibrational Gibbs Entropy per cell, $S$, (Ha per K)")
   
   plt.show()
 

@@ -195,10 +195,11 @@ subroutine generate_dos(supercell,min_images,force_constants,            &
   enddo
   
   ! Write out thermodynamic variables.
-  call thermodynamic_file%print_line('kB * temperature (Hartree per cell) | &
-                                     &U=<E> (Hartree per cell) | &
-                                     &F=U-TS (Hartree per cell) | &
-                                     &S (per cell)')
+  call thermodynamic_file%print_line( &
+     &'kB * temperature (Hartree per cell) | &
+     &Vibrational Energy per cell, U=<E>, (Hartree) | &
+     &Vibrational Free Energy per cell, F=U-TS, (Hartree) | &
+     &Vibrational Shannon Entropy per cell, S/k_B, (arb. units)')
   do i=1,size(thermal_energies)
     call thermodynamic_file%print_line( thermal_energies(i) //' '// &
                                       & energy(i)           //' '// &

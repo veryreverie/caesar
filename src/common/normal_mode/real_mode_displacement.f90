@@ -31,6 +31,7 @@ module real_mode_displacement_submodule
   
   interface RealModeDisplacement
     module procedure new_RealModeDisplacement
+    module procedure new_RealModeDisplacement_CartesianDisplacement
     module procedure new_RealModeDisplacement_StringArray
   end interface
   
@@ -104,48 +105,71 @@ function qpoints_RealModeDisplacement(this,real_modes,qpoints) result(output)
   enddo
 end function
 
+! ----------------------------------------------------------------------
+! Conversions between CartesianDisplacement and RealModeDisplacement.
+! ----------------------------------------------------------------------
 ! Returns the displacement in cartesian co-ordinates.
 function cartesian_displacement_RealModeDisplacement(this,structure, &
-   & real_modes,qpoints) result(output)
+   & modes,qpoints) result(output)
   implicit none
   
   class(RealModeDisplacement), intent(in) :: this
   type(StructureData),         intent(in) :: structure
-  type(RealMode),              intent(in) :: real_modes(:)
+  type(RealMode),              intent(in) :: modes(:)
   type(QpointData),            intent(in) :: qpoints(:)
   type(CartesianDisplacement)             :: output
   
-  type(RealMode),   allocatable :: modes(:)
-  type(QpointData), allocatable :: mode_qpoints(:)
-  type(IntVector),  allocatable :: mode_rvectors(:)
+  type(RealMode)   :: mode
+  type(QpointData) :: qpoint
   
-  type(CartesianDisplacement), allocatable :: mode_displacements(:)
+  type(CartesianDisplacement), allocatable :: displacements(:)
   
-  integer :: i,j,ialloc
-  
-  ! List the modes which have non-zero displacement,
-  !   and the q-points and R-vectors associated with those modes.
-  allocate( modes(size(this)),         &
-          & mode_qpoints(size(this)),  &
-          & mode_rvectors(size(this)), &
-          & stat=ialloc); call err(ialloc)
-  do i=1,size(modes)
-    j = first(real_modes%id==this%displacements(i)%id)
-    modes(i) = real_modes(j)
-    mode_qpoints(i) = qpoints(first(qpoints%id==modes(i)%qpoint_id))
-  enddo
+  integer :: i,ialloc
   
   ! Calculate the cartesian displacement due to each mode.
-  allocate(mode_displacements(size(modes)), stat=ialloc); call err(ialloc)
-  do i=1,size(modes)
-    mode_displacements(i) =                                       &
-       & this%displacements(i)%cartesian_displacement( modes(i),  &
+  allocate(displacements(size(this)), stat=ialloc); call err(ialloc)
+  do i=1,size(this)
+    ! Find the mode and q-point associated with displacement i.
+    mode = modes(first(modes%id==this%displacements(i)%id))
+    qpoint = qpoints(first(qpoints%id==mode%qpoint_id))
+    
+    ! Calculate the displacement from mode i.
+    displacements(i) =                                            &
+       & this%displacements(i)%cartesian_displacement( mode,      &
        &                                               structure, &
-       &                                               mode_qpoints(i))
+       &                                               qpoint)
   enddo
   
   ! Add together the contributions from all modes.
-  output = sum(mode_displacements)
+  output = sum(displacements)
+end function
+
+! Converts a CartesianDisplacement to a RealModeDisplacement.
+function new_RealModeDisplacement_CartesianDisplacement(displacement, &
+   & structure,modes,qpoints) result(this)
+  implicit none
+  
+  type(CartesianDisplacement), intent(in) :: displacement
+  type(StructureData),         intent(in) :: structure
+  type(RealMode),              intent(in) :: modes(:)
+  type(QpointData),            intent(in) :: qpoints(:)
+  type(RealModeDisplacement)              :: this
+  
+  type(RealSingleModeDisplacement), allocatable :: displacements(:)
+  type(QpointData)                              :: qpoint
+  
+  integer :: i,ialloc
+  
+  allocate(displacements(size(modes)), stat=ialloc); call err(ialloc)
+  do i=1,size(modes)
+    qpoint = qpoints(first(qpoints%id==modes(i)%qpoint_id))
+    displacements(i) = RealSingleModeDisplacement( modes(i),     &
+                                                 & displacement, &
+                                                 & structure,    &
+                                                 & qpoint)
+  enddo
+  
+  this = RealModeDisplacement(displacements)
 end function
 
 ! ----------------------------------------------------------------------
