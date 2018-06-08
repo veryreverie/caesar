@@ -4,32 +4,29 @@
 module cartesian_displacement_submodule
   use utils_module
   
-  use structure_submodule
+  use structure_module
+  
+  use cartesian_vector_submodule
   implicit none
   
   private
   
   public :: CartesianDisplacement
-  public :: size
   public :: displace_structure
   public :: operator(*)
   public :: operator(+)
   public :: sum
   
-  type, extends(Stringsable) :: CartesianDisplacement
-    type(RealVector), allocatable :: displacements(:)
+  type, extends(CartesianVector) :: CartesianDisplacement
   contains
     procedure, public :: read  => read_CartesianDisplacement
     procedure, public :: write => write_CartesianDisplacement
   end type
   
   interface CartesianDisplacement
+    module procedure new_CartesianDisplacement_CartesianVector
     module procedure new_CartesianDisplacement
     module procedure new_CartesianDisplacement_StringArray
-  end interface
-  
-  interface size
-    module procedure size_CartesianDisplacement
   end interface
   
   interface operator(*)
@@ -47,24 +44,24 @@ module cartesian_displacement_submodule
 contains
 
 ! ----------------------------------------------------------------------
-! Basic functionality: constructor and size() function.
+! Constructors.
 ! ----------------------------------------------------------------------
+function new_CartesianDisplacement_CartesianVector(displacements) result(this)
+  implicit none
+  
+  type(CartesianVector), intent(in) :: displacements
+  type(CartesianDisplacement)       :: this
+  
+  this%CartesianVector = displacements
+end function
+
 function new_CartesianDisplacement(displacements) result(this)
   implicit none
   
   type(RealVector), intent(in) :: displacements(:)
   type(CartesianDisplacement)  :: this
   
-  this%displacements = displacements
-end function
-
-function size_CartesianDisplacement(this) result(output)
-  implicit none
-  
-  type(CartesianDisplacement), intent(in) :: this
-  integer                                 :: output
-  
-  output = size(this%displacements)
+  this = CartesianDisplacement(CartesianVector(displacements))
 end function
 
 ! ----------------------------------------------------------------------
@@ -90,7 +87,7 @@ function displace_structure(structure,displacement) result(output)
   do i=1,size(displacement)
     call output%atoms(i)%set_cartesian_position( &
         &   output%atoms(i)%cartesian_position() &
-        & + displacement%displacements(i))
+        & + displacement%vectors(i))
   enddo
 end function
 
@@ -104,7 +101,7 @@ function multiply_real_CartesianDisplacement(this,that) result(output)
   type(CartesianDisplacement), intent(in) :: that
   type(CartesianDisplacement)             :: output
   
-  output = CartesianDisplacement(this * that%displacements)
+  output = CartesianDisplacement(this * that%CartesianVector)
 end function
 
 function multiply_CartesianDisplacement_real(this,that) result(output)
@@ -114,7 +111,7 @@ function multiply_CartesianDisplacement_real(this,that) result(output)
   real(dp),                    intent(in) :: that
   type(CartesianDisplacement)             :: output
   
-  output = CartesianDisplacement(this%displacements * that)
+  output = CartesianDisplacement(this%CartesianVector * that)
 end function
 
 function add_CartesianDisplacement_CartesianDisplacement(this,that) &
@@ -125,7 +122,7 @@ function add_CartesianDisplacement_CartesianDisplacement(this,that) &
   type(CartesianDisplacement), intent(in) :: that
   type(CartesianDisplacement)             :: output
   
-  output = CartesianDisplacement(this%displacements + that%displacements)
+  output = CartesianDisplacement(this%CartesianVector + that%CartesianVector)
 end function
 
 function sum_CartesianDisplacements(input) result(output)
@@ -134,17 +131,7 @@ function sum_CartesianDisplacements(input) result(output)
   type(CartesianDisplacement), intent(in) :: input(:)
   type(CartesianDisplacement)             :: output
   
-  integer :: i
-  
-  if (size(input)==0) then
-    call print_line(ERROR//': Trying to sum() an empty array.')
-    call err()
-  endif
-  
-  output = input(1)
-  do i=2,size(input)
-    output = output + input(i)
-  enddo
+  output = CartesianDisplacement(sum(input%CartesianVector))
 end function
 
 ! ----------------------------------------------------------------------
@@ -157,7 +144,7 @@ subroutine read_CartesianDisplacement(this,input)
   type(String),                 intent(in)  :: input(:)
   
   select type(this); type is(CartesianDisplacement)
-    this = CartesianDisplacement(RealVector(input))
+    this = CartesianDisplacement(CartesianVector(StringArray(input)))
   end select
 end subroutine
 
@@ -168,7 +155,7 @@ function write_CartesianDisplacement(this) result(output)
   type(String), allocatable                :: output(:)
   
   select type(this); type is(CartesianDisplacement)
-    output = str(this%displacements)
+    output = str(this%CartesianVector)
   end select
 end function
 

@@ -49,12 +49,12 @@ impure elemental function rotate_complex_modes(input,symmetry,qpoint_from, &
   ! Allocate output, and transfer across all data.
   ! (Displacements need rotating, but everything else stays the same.)
   output = input
-  do atom_from=1,size(input%primitive_displacements)
+  do atom_from=1,size(input%primitive_vectors)
     atom_to = symmetry%prim_atom_group * atom_from
     r = symmetry%prim_rvector(atom_from)
-    output%primitive_displacements(atom_to) =       &
-       &   symmetry%cartesian_rotation              &
-       & * input%primitive_displacements(atom_from) &
+    output%primitive_vectors(atom_to) =       &
+       &   symmetry%cartesian_rotation        &
+       & * input%primitive_vectors(atom_from) &
        & * exp_2pii(qpoint_to%qpoint*r)
   enddo
 end function

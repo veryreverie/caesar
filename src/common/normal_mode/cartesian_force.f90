@@ -3,30 +3,27 @@
 ! ======================================================================
 module cartesian_force_submodule
   use utils_module
+  
+  use cartesian_vector_submodule
   implicit none
   
   private
   
   public :: CartesianForce
-  public :: size
   public :: operator(*)
   public :: operator(+)
   public :: sum
   
-  type, extends(Stringsable) :: CartesianForce
-    type(RealVector), allocatable :: forces(:)
+  type, extends(CartesianVector) :: CartesianForce
   contains
     procedure, public :: read  => read_CartesianForce
     procedure, public :: write => write_CartesianForce
   end type
   
   interface CartesianForce
+    module procedure new_CartesianForce_CartesianVector
     module procedure new_CartesianForce
     module procedure new_CartesianForce_StringArray
-  end interface
-  
-  interface size
-    module procedure size_CartesianForce
   end interface
   
   interface operator(*)
@@ -44,24 +41,24 @@ module cartesian_force_submodule
 contains
 
 ! ----------------------------------------------------------------------
-! Basic functionality: constructor and size() function.
+! Constructors.
 ! ----------------------------------------------------------------------
+function new_CartesianForce_CartesianVector(forces) result(this)
+  implicit none
+  
+  type(CartesianVector), intent(in) :: forces
+  type(CartesianForce)              :: this
+  
+  this%CartesianVector = forces
+end function
+
 function new_CartesianForce(forces) result(this)
   implicit none
   
   type(RealVector), intent(in) :: forces(:)
   type(CartesianForce)         :: this
   
-  this%forces = forces
-end function
-
-function size_CartesianForce(this) result(output)
-  implicit none
-  
-  type(CartesianForce), intent(in) :: this
-  integer                          :: output
-  
-  output = size(this%forces)
+  this = CartesianForce(CartesianVector(forces))
 end function
 
 ! ----------------------------------------------------------------------
@@ -74,7 +71,7 @@ function multiply_real_CartesianForce(this,that) result(output)
   type(CartesianForce), intent(in) :: that
   type(CartesianForce)             :: output
   
-  output = CartesianForce(this * that%forces)
+  output = CartesianForce(this * that%CartesianVector)
 end function
 
 function multiply_CartesianForce_real(this,that) result(output)
@@ -84,7 +81,7 @@ function multiply_CartesianForce_real(this,that) result(output)
   real(dp),             intent(in) :: that
   type(CartesianForce)             :: output
   
-  output = CartesianForce(this%forces * that)
+  output = CartesianForce(this%CartesianVector * that)
 end function
 
 function add_CartesianForce_CartesianForce(this,that) &
@@ -95,7 +92,7 @@ function add_CartesianForce_CartesianForce(this,that) &
   type(CartesianForce), intent(in) :: that
   type(CartesianForce)             :: output
   
-  output = CartesianForce(this%forces + that%forces)
+  output = CartesianForce(this%CartesianVector + that%CartesianVector)
 end function
 
 function sum_CartesianForces(input) result(output)
@@ -104,17 +101,7 @@ function sum_CartesianForces(input) result(output)
   type(CartesianForce), intent(in) :: input(:)
   type(CartesianForce)             :: output
   
-  integer :: i
-  
-  if (size(input)==0) then
-    call print_line(ERROR//': Trying to sum() an empty array.')
-    call err()
-  endif
-  
-  output = input(1)
-  do i=2,size(input)
-    output = output + input(i)
-  enddo
+  output = CartesianForce(sum(input%CartesianVector))
 end function
 
 ! ----------------------------------------------------------------------
@@ -127,7 +114,7 @@ subroutine read_CartesianForce(this,input)
   type(String),          intent(in)  :: input(:)
   
   select type(this); type is(CartesianForce)
-    this = CartesianForce(RealVector(input))
+    this = CartesianForce(CartesianVector(StringArray(input)))
   end select
 end subroutine
 
@@ -138,7 +125,7 @@ function write_CartesianForce(this) result(output)
   type(String), allocatable         :: output(:)
   
   select type(this); type is(CartesianForce)
-    output = str(this%forces)
+    output = str(this%CartesianVector)
   end select
 end function
 

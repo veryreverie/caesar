@@ -5,6 +5,7 @@ module electronic_structure_data_submodule
   use utils_module
   
   use structure_module
+  use normal_mode_module
   implicit none
   
   private

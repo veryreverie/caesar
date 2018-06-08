@@ -311,9 +311,9 @@ end function
 function evaluate_SingleModeState(this,u) result(output)
   implicit none
   
-  class(SingleModeState),              intent(in) :: this
-  type(ComplexSingleModeDisplacement), intent(in) :: u
-  real(dp)                                        :: output
+  class(SingleModeState),        intent(in) :: this
+  type(ComplexSingleModeVector), intent(in) :: u
+  real(dp)                                  :: output
   
   real(dp) :: term
   
@@ -323,9 +323,9 @@ function evaluate_SingleModeState(this,u) result(output)
   term = 1
   do i=0,size(this)
     output = output + this%coefficient(i) * term
-    term = term*u%displacement
+    term = term*u%magnitude
   enddo
-  output = output * exp(-0.5_dp*this%frequency*u%displacement*u%displacement)
+  output = output * exp(-0.5_dp*this%frequency*u%magnitude*u%magnitude)
 end function
 
 ! ----------------------------------------------------------------------

@@ -6,7 +6,7 @@ module real_mode_submodule
   
   use structure_module
   
-  use cartesian_displacement_submodule
+  use cartesian_vector_submodule
   implicit none
   
   private
@@ -23,8 +23,8 @@ module real_mode_submodule
     logical  :: soft_mode          ! True if frequency < -epsilon.
     logical  :: translational_mode ! True if frequency=0 and at gamma.
     
-    ! The displacements of atoms in the primitive cell.
-    type(RealVector), allocatable :: primitive_displacements(:)
+    ! The mode in primitive cartesian co-ordinates.
+    type(RealVector), allocatable :: primitive_vectors(:)
     
     ! The ID of the q-point corresponding to a complex mode related to this
     !    mode.
@@ -35,9 +35,8 @@ module real_mode_submodule
     ! The ID of the subspace of modes which are degenerate with this mode.
     integer :: subspace_id
   contains
-    ! Return the cartesian displacement of this mode.
-    procedure, public :: cartesian_displacement => &
-       & cartesian_displacement_RealMode
+    ! Return the mode in the cartesian co-ordinates of a given supercell.
+    procedure, public :: cartesian_vector => cartesian_vector_RealMode
     
     ! I/O.
     procedure, public :: read  => read_RealMode
@@ -54,7 +53,7 @@ contains
 ! Constructor.
 ! ----------------------------------------------------------------------
 function new_RealMode(id,paired_id,frequency,soft_mode,translational_mode, &
-   & primitive_displacements,qpoint_id,subspace_id) result(this)
+   & primitive_vectors,qpoint_id,subspace_id) result(this)
   implicit none
   
   integer,          intent(in) :: id
@@ -62,37 +61,37 @@ function new_RealMode(id,paired_id,frequency,soft_mode,translational_mode, &
   real(dp),         intent(in) :: frequency
   logical,          intent(in) :: soft_mode
   logical,          intent(in) :: translational_mode
-  type(RealVector), intent(in) :: primitive_displacements(:)
+  type(RealVector), intent(in) :: primitive_vectors(:)
   integer,          intent(in) :: qpoint_id
   integer,          intent(in) :: subspace_id
   type(RealMode)               :: this
   
-  this%id                      = id
-  this%paired_id               = paired_id
-  this%frequency               = frequency
-  this%soft_mode               = soft_mode
-  this%translational_mode      = translational_mode
-  this%primitive_displacements = primitive_displacements
-  this%qpoint_id               = qpoint_id
-  this%subspace_id             = subspace_id
+  this%id                 = id
+  this%paired_id          = paired_id
+  this%frequency          = frequency
+  this%soft_mode          = soft_mode
+  this%translational_mode = translational_mode
+  this%primitive_vectors  = primitive_vectors
+  this%qpoint_id          = qpoint_id
+  this%subspace_id        = subspace_id
 end function
 
 ! ----------------------------------------------------------------------
-! Return the displacement of this mode for a given structure.
+! Return the mode in the cartesian co-ordinates of a given supercell.
 ! ----------------------------------------------------------------------
-function cartesian_displacement_RealMode(this,structure,qpoint) &
+function cartesian_vector_RealMode(this,structure,qpoint) &
    & result(output)
   implicit none
   
   class(RealMode),     intent(in) :: this
   type(StructureData), intent(in) :: structure
   type(QpointData),    intent(in) :: qpoint
-  type(CartesianDisplacement)     :: output
+  type(CartesianVector)           :: output
   
-  type(RealVector), allocatable :: displacements(:)
+  type(RealVector), allocatable :: vectors(:)
   
   type(AtomData)   :: atom
-  type(RealVector) :: prim_displacement
+  type(RealVector) :: prim_vector
   type(IntVector)  :: atom_rvector
   real(dp)         :: qr
   
@@ -103,24 +102,24 @@ function cartesian_displacement_RealMode(this,structure,qpoint) &
     call err()
   endif
   
-  allocate(displacements(structure%no_atoms), stat=ialloc); call err(ialloc)
-  do i=1,size(displacements)
-    atom = structure%atoms(i)
-    prim_displacement = this%primitive_displacements(atom%prim_id())
-    atom_rvector      = structure%rvectors(atom%rvec_id())
+  allocate(vectors(structure%no_atoms), stat=ialloc); call err(ialloc)
+  do i=1,size(vectors)
+    atom         = structure%atoms(i)
+    prim_vector  = this%primitive_vectors(atom%prim_id())
+    atom_rvector = structure%rvectors(atom%rvec_id())
     
     qr = dble(qpoint%qpoint*atom_rvector)
     
     if (this%id<=this%paired_id) then
       ! This is a cos(2 pi q.R) mode.
-      displacements(i) = prim_displacement * cos(2*PI*qr)
+      vectors(i) = prim_vector * cos(2*PI*qr)
     else
       ! This is a sin(2 pi q.R) mode.
-      displacements(i) = prim_displacement * sin(2*PI*qr)
+      vectors(i) = prim_vector * sin(2*PI*qr)
     endif
   enddo
   
-  output = CartesianDisplacement(displacements)
+  output = CartesianVector(vectors)
 end function
 
 ! ----------------------------------------------------------------------
@@ -137,7 +136,7 @@ subroutine read_RealMode(this,input)
   real(dp)                      :: frequency
   logical                       :: soft_mode
   logical                       :: translational_mode
-  type(RealVector), allocatable :: primitive_displacements(:)
+  type(RealVector), allocatable :: primitive_vectors(:)
   integer                       :: qpoint_id
   integer                       :: subspace_id
   
@@ -176,22 +175,22 @@ subroutine read_RealMode(this,input)
     line = split_line(input(7))
     subspace_id = int(line(4))
     
-    ! Read in the displacement associated with the mode.
+    ! Read in the vector associated with the mode.
     no_atoms = size(input)-8
-    allocate( primitive_displacements(no_atoms), &
+    allocate( primitive_vectors(no_atoms), &
             & stat=ialloc); call err(ialloc)
     do i=1,no_atoms
       line = split_line(input(8+i))
-      primitive_displacements(i) = dble(line)
+      primitive_vectors(i) = dble(line)
     enddo
     
-    this = RealMode( id,                      &
-                   & paired_id,               &
-                   & frequency,               &
-                   & soft_mode,               &
-                   & translational_mode,      &
-                   & primitive_displacements, &
-                   & qpoint_id,               &
+    this = RealMode( id,                 &
+                   & paired_id,          &
+                   & frequency,          &
+                   & soft_mode,          &
+                   & translational_mode, &
+                   & primitive_vectors,  &
+                   & qpoint_id,          &
                    & subspace_id)
   end select
 end subroutine
@@ -206,7 +205,7 @@ function write_RealMode(this) result(output)
   
   
   select type(this); type is(RealMode)
-    allocate( output(8+size(this%primitive_displacements)), &
+    allocate( output(8+size(this%primitive_vectors)), &
             & stat=ialloc); call err(ialloc)
     output(1) = 'Mode ID                   : '//this%id
     output(2) = 'ID of paired mode         : '//this%paired_id
@@ -215,9 +214,9 @@ function write_RealMode(this) result(output)
     output(5) = 'Mode purely translational : '//this%translational_mode
     output(6) = 'q-point id                : '//this%qpoint_id
     output(7) = 'Degeneracy id             : '//this%subspace_id
-    output(8) = 'Displacements in primitive cell:'
-    do i=1,size(this%primitive_displacements)
-      output(8+i) = str(this%primitive_displacements(i))
+    output(8) = 'Mode in cartesian primitive cell co-ordinates:'
+    do i=1,size(this%primitive_vectors)
+      output(8+i) = str(this%primitive_vectors(i))
     enddo
   end select
 end function

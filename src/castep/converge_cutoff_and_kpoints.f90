@@ -255,7 +255,7 @@ subroutine converge_cutoff_and_kpoints(arguments)
                             & structure,                                 &
                             & symmetry_precision)
     cutoffs_energies(i) = castep_file%energy
-    cutoffs_forces(:,i) = castep_file%forces%forces
+    cutoffs_forces(:,i) = castep_file%forces%vectors
     
     if (i==1) then
       call progress_file%print_line( 'k-point grid : '// &
@@ -355,7 +355,7 @@ subroutine converge_cutoff_and_kpoints(arguments)
     kpoint_numbers(i) = castep_file%no_kpoints
     kpoint_grids(:,i) = castep_file%kpoints_mp_grid
     kpoints_energies(i) = castep_file%energy
-    kpoints_forces(:,i) = castep_file%forces%forces
+    kpoints_forces(:,i) = castep_file%forces%vectors
     
     call progress_file%print_line( '')
     call progress_file%print_line( 'k-point spacing : '// &

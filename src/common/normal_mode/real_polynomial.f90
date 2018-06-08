@@ -4,7 +4,7 @@
 module real_polynomial_submodule
   use utils_module
   
-  use real_single_mode_displacement_submodule
+  use real_single_mode_vector_submodule
   use real_mode_displacement_submodule
   implicit none
   
@@ -276,9 +276,9 @@ end function
 function evaluate_RealUnivariate(this,displacement) result(output)
   implicit none
   
-  class(RealUnivariate),            intent(in) :: this
-  type(RealSingleModeDisplacement), intent(in) :: displacement
-  real(dp)                                     :: output
+  class(RealUnivariate),      intent(in) :: this
+  type(RealSingleModeVector), intent(in) :: displacement
+  real(dp)                               :: output
   
   if (this%id/=displacement%id) then
     call print_line(CODE_ERROR//': Trying to evaluate a univariate at an &
@@ -286,7 +286,7 @@ function evaluate_RealUnivariate(this,displacement) result(output)
     call err()
   endif
   
-  output = displacement%displacement**this%power
+  output = displacement%magnitude**this%power
 end function
 
 function evaluate_RealMonomial(this,displacement) result(output)
@@ -302,7 +302,7 @@ function evaluate_RealMonomial(this,displacement) result(output)
   
   do i=1,size(this)
     ! Find the mode in the displacement which matches that in the monomial.
-    j = first(displacement%displacements%id==this%modes(i)%id,default=0)
+    j = first(displacement%vectors%id==this%modes(i)%id,default=0)
     
     ! If the mode is not present in the displacement, then the displacement
     !    is zero. As such, the monomial is zero. (0**n=0 if n>0).
@@ -313,7 +313,7 @@ function evaluate_RealMonomial(this,displacement) result(output)
     
     ! If the mode is present in both, evaluate the univariate at the
     !    displacement.
-    output = output * this%modes(i)%evaluate(displacement%displacements(j))
+    output = output * this%modes(i)%evaluate(displacement%vectors(j))
   enddo
 end function
 

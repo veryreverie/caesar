@@ -374,9 +374,9 @@ subroutine calculate_normal_modes(arguments)
           !    phase so that the mode is real.
           dynamical_matrices(i)%complex_modes(k)%paired_id = &
              & dynamical_matrices(i)%complex_modes(k)%id
-          dynamical_matrices(i)%complex_modes(k)%primitive_displacements =    &
-             & cmplxvec(real(                                                 &
-             & dynamical_matrices(i)%complex_modes(k)%primitive_displacements &
+          dynamical_matrices(i)%complex_modes(k)%primitive_vectors =    &
+             & cmplxvec(real(                                           &
+             & dynamical_matrices(i)%complex_modes(k)%primitive_vectors &
              & / phase))
         elseif (paired_pos>k) then
           ! The mode is paired to another.

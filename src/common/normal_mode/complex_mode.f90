@@ -27,8 +27,8 @@ module complex_mode_submodule
     logical  :: soft_mode          ! True if frequency < -epsilon.
     logical  :: translational_mode ! True if frequency=0 and at gamma.
     
-    ! The displacements of atoms in the primitive cell.
-    type(ComplexVector), allocatable :: primitive_displacements(:)
+    ! The mode in primitive cartesian co-ordinates.
+    type(ComplexVector), allocatable :: primitive_vectors(:)
     
     ! The ID of the q-point at which this mode exits.
     integer :: qpoint_id
@@ -62,7 +62,7 @@ contains
 ! Constructor.
 ! ----------------------------------------------------------------------
 function new_ComplexMode(id,paired_id,frequency,soft_mode,translational_mode, &
-   & primitive_displacements,qpoint_id,subspace_id) result(this)
+   & primitive_vectors,qpoint_id,subspace_id) result(this)
   implicit none
   
   integer,             intent(in) :: id
@@ -70,19 +70,19 @@ function new_ComplexMode(id,paired_id,frequency,soft_mode,translational_mode, &
   real(dp),            intent(in) :: frequency
   logical,             intent(in) :: soft_mode
   logical,             intent(in) :: translational_mode
-  type(ComplexVector), intent(in) :: primitive_displacements(:)
+  type(ComplexVector), intent(in) :: primitive_vectors(:)
   integer,             intent(in) :: qpoint_id
   integer,             intent(in) :: subspace_id
   type(ComplexMode)               :: this
   
-  this%id                      = id
-  this%paired_id               = paired_id
-  this%frequency               = frequency
-  this%soft_mode               = soft_mode
-  this%translational_mode      = translational_mode
-  this%primitive_displacements = primitive_displacements
-  this%qpoint_id               = qpoint_id
-  this%subspace_id             = subspace_id
+  this%id                 = id
+  this%paired_id          = paired_id
+  this%frequency          = frequency
+  this%soft_mode          = soft_mode
+  this%translational_mode = translational_mode
+  this%primitive_vectors  = primitive_vectors
+  this%qpoint_id          = qpoint_id
+  this%subspace_id        = subspace_id
 end function
 
 ! ----------------------------------------------------------------------
@@ -95,8 +95,7 @@ impure elemental function dot_ComplexMode_ComplexMode(this,that) result(output)
   type(ComplexMode), intent(in) :: that
   complex(dp)                   :: output
   
-  output = sum( this%primitive_displacements &
-            & * that%primitive_displacements )
+  output = sum(this%primitive_vectors * that%primitive_vectors)
 end function
 
 impure elemental function l2_norm_ComplexMode(this) result(output)
@@ -118,10 +117,10 @@ impure elemental function conjg_ComplexMode(input) result(output)
   type(ComplexMode), intent(in) :: input
   type(ComplexMode)             :: output
   
-  output                         = input
-  output%id                      = input%paired_id
-  output%paired_id               = input%id
-  output%primitive_displacements = conjg(input%primitive_displacements)
+  output                   = input
+  output%id                = input%paired_id
+  output%paired_id         = input%id
+  output%primitive_vectors = conjg(input%primitive_vectors)
 end function
 
 ! ----------------------------------------------------------------------
@@ -138,7 +137,7 @@ subroutine read_ComplexMode(this,input)
   real(dp)                         :: frequency
   logical                          :: soft_mode
   logical                          :: translational_mode
-  type(ComplexVector), allocatable :: primitive_displacements(:)
+  type(ComplexVector), allocatable :: primitive_vectors(:)
   integer                          :: qpoint_id
   integer                          :: subspace_id
   
@@ -177,22 +176,22 @@ subroutine read_ComplexMode(this,input)
     line = split_line(input(7))
     subspace_id = int(line(4))
     
-    ! Read in the displacement associated with the mode.
+    ! Read in the vector associated with the mode.
     no_atoms = size(input)-8
-    allocate( primitive_displacements(no_atoms), &
+    allocate( primitive_vectors(no_atoms), &
             & stat=ialloc); call err(ialloc)
     do i=1,no_atoms
       line = split_line(input(8+i))
-      primitive_displacements(i) = cmplx(line)
+      primitive_vectors(i) = cmplx(line)
     enddo
     
-    this = ComplexMode( id,                      &
-                      & paired_id,               &
-                      & frequency,               &
-                      & soft_mode,               &
-                      & translational_mode,      &
-                      & primitive_displacements, &
-                      & qpoint_id,               &
+    this = ComplexMode( id,                 &
+                      & paired_id,          &
+                      & frequency,          &
+                      & soft_mode,          &
+                      & translational_mode, &
+                      & primitive_vectors,  &
+                      & qpoint_id,          &
                       & subspace_id)
   end select
 end subroutine
@@ -205,9 +204,8 @@ function write_ComplexMode(this) result(output)
   
   integer :: i,ialloc
   
-  
   select type(this); type is(ComplexMode)
-    allocate( output(8+size(this%primitive_displacements)), &
+    allocate( output(8+size(this%primitive_vectors)), &
             & stat=ialloc); call err(ialloc)
     output(1) = 'Mode ID                   : '//this%id
     output(2) = 'ID of paired mode         : '//this%paired_id
@@ -217,8 +215,8 @@ function write_ComplexMode(this) result(output)
     output(6) = 'q-point id                : '//this%qpoint_id
     output(7) = 'Degeneracy id             : '//this%subspace_id
     output(8) = 'Displacements in primitive cell:'
-    do i=1,size(this%primitive_displacements)
-      output(8+i) = str(this%primitive_displacements(i))
+    do i=1,size(this%primitive_vectors)
+      output(8+i) = str(this%primitive_vectors(i))
     enddo
   end select
 end function

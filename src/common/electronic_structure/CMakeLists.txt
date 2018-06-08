@@ -32,3 +32,4 @@ endif()
 # Link against required modules.
 target_link_libraries(electronic_structure utils)
 target_link_libraries(electronic_structure structure)
+target_link_libraries(electronic_structure normal_mode)

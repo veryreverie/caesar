@@ -96,20 +96,20 @@ function complex_to_real_Modes(input) result(output)
       ! This mode is its own pair. It is already real.
       ! mode = i = j.
       ! r_i = c_i.
-      output(mode)%primitive_displacements = &
-         & real(input(mode)%primitive_displacements)
+      output(mode)%primitive_vectors = &
+         & real(input(mode)%primitive_vectors)
     elseif (input(mode)%id<input(mode)%paired_id) then
       ! Construct the cos(q.r) mode, r_i.
       ! mode = i.
       ! r_i = real(c_i)*sqrt(2).
-      output(mode)%primitive_displacements = &
-         & real(input(mode)%primitive_displacements)*sqrt(2.0_dp)
+      output(mode)%primitive_vectors = &
+         & real(input(mode)%primitive_vectors)*sqrt(2.0_dp)
     elseif (input(mode)%id>input(mode)%paired_id) then
       ! Construct the sin(q.r) mode, r_j.
       ! mode = j.
       ! r_j = -imag(c_j)*sqrt(2).
-      output(mode)%primitive_displacements = &
-         & -aimag(input(mode)%primitive_displacements)*sqrt(2.0_dp)
+      output(mode)%primitive_vectors = &
+         & -aimag(input(mode)%primitive_vectors)*sqrt(2.0_dp)
     else
       call err()
     endif
@@ -143,23 +143,23 @@ function real_to_complex_Modes(input) result(output)
       ! This mode is its own pair. It is real.
       ! mode = pair = i = j.
       ! c_i = r_i.
-      output(mode)%primitive_displacements = &
-         & cmplxvec(input(mode)%primitive_displacements)
+      output(mode)%primitive_vectors = &
+         & cmplxvec(input(mode)%primitive_vectors)
     elseif (input(mode)%id<input(pair)%id) then
       ! Construct the e^{+iq.r} mode, c_i.
       ! mode = i, pair = j.
       ! c_i = (r_i + i.r_j)/sqrt(2).
-      output(mode)%primitive_displacements =              &
-         & cmplxvec( input(mode)%primitive_displacements, &
-         &           input(pair)%primitive_displacements) &
+      output(mode)%primitive_vectors =              &
+         & cmplxvec( input(mode)%primitive_vectors, &
+         &           input(pair)%primitive_vectors) &
          & / sqrt(2.0_dp)
     elseif (input(mode)%paired_id<input(mode)%id) then
       ! Construct the e^{-iq.r} mode, c_j.
       ! mode = j, pair = i.
       ! c_j = (r_i - i.r_j)/sqrt(2).
-      output(mode)%primitive_displacements =              &
-         & cmplxvec( input(pair)%primitive_displacements, &
-         &          -input(mode)%primitive_displacements) &
+      output(mode)%primitive_vectors =              &
+         & cmplxvec( input(pair)%primitive_vectors, &
+         &          -input(mode)%primitive_vectors) &
          & / sqrt(2.0_dp)
     else
       call err()

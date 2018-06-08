@@ -72,19 +72,20 @@ function calculate_modes_interpolated(matrices,structure) result(output)
     output(i)%soft_mode = output(i)%frequency < -1.0e-6_dp
     output(i)%translational_mode = .false.
     
-    ! Calculate displacements in the primitive cell,
-    !    which are the non-mass-reduced eigenvectors of the dynamical matrix.
-    allocate( output(i)%primitive_displacements(structure%no_atoms_prim), &
+    ! Calculate the cartesian representation of the normal mode in
+    !    primitive cell co-ordinates.
+    ! This is the non-mass-reduced eigenvector of the dynamical matrix.
+    allocate( output(i)%primitive_vectors(structure%no_atoms_prim), &
             & stat=ialloc); call err(ialloc)
     do j=1,structure%no_atoms_prim
-      output(i)%primitive_displacements(j) = estuff(k)%evec(3*j-2:3*j) &
-                                         & * sqrt(structure%atoms(j)%mass())
+      output(i)%primitive_vectors(j) = estuff(k)%evec(3*j-2:3*j) &
+                                   & * sqrt(structure%atoms(j)%mass())
       
     enddo
     
     ! Re-normalise modes, now in non-mass-reduced co-ordinates.
-    output(i)%primitive_displacements = output(i)%primitive_displacements &
-                                    & / l2_norm(output(i))
+    output(i)%primitive_vectors = output(i)%primitive_vectors &
+                              & / l2_norm(output(i))
   enddo
 end function
 
@@ -322,15 +323,15 @@ recursive function lift_degeneracies(input,structure,symmetry_ids, &
   enddo
   
   ! If the symmetry lifts degeneracy (has multiple phases), then rotate the
-  !    input displacements into the symmetry's eigenbasis.
+  !    input vectors into the symmetry's eigenbasis.
   if (any(phases_int/=phases_int(1))) then
     do i=1,size(input)
-      do j=1,size(output(i)%primitive_displacements)
-        output(i)%primitive_displacements(j) = cmplxvec(zeroes(3))
+      do j=1,size(output(i)%primitive_vectors)
+        output(i)%primitive_vectors(j) = cmplxvec(zeroes(3))
         do k=1,size(estuff(i)%evec)
-          output(i)%primitive_displacements(j) =    &
-             & output(i)%primitive_displacements(j) &
-             & + estuff(i)%evec(k) * input(k)%primitive_displacements(j)
+          output(i)%primitive_vectors(j) =    &
+             & output(i)%primitive_vectors(j) &
+             & + estuff(i)%evec(k) * input(k)%primitive_vectors(j)
         enddo
       enddo
     enddo

@@ -7,79 +7,46 @@ module complex_mode_displacement_submodule
   use structure_module
   
   use complex_mode_submodule
-  use complex_single_mode_displacement_submodule
+  use complex_single_mode_vector_submodule
+  use complex_mode_vector_submodule
   implicit none
   
   private
   
   public :: ComplexModeDisplacement
-  public :: size
   
-  type, extends(Stringsable) :: ComplexModeDisplacement
-    type(ComplexSingleModeDisplacement), allocatable :: displacements(:)
+  type, extends(ComplexModeVector) :: ComplexModeDisplacement
   contains
-    procedure, public :: qpoints => qpoints_ComplexModeDisplacement
-    
     procedure, public :: read  => read_ComplexModeDisplacement
     procedure, public :: write => write_ComplexModeDisplacement
   end type
   
   interface ComplexModeDisplacement
-    module procedure new_ComplexModeDisplacement
+    module procedure new_ComplexModeDisplacement_ComplexModeVector
+    module procedure new_ComplexModeDisplacement_ComplexSingleModeVectors
     module procedure new_ComplexModeDisplacement_StringArray
-  end interface
-  
-  interface size
-    module procedure size_ComplexModeDisplacement
   end interface
 contains
 
-! Constructor.
-function new_ComplexModeDisplacement(displacements) result(this)
+! Constructors.
+function new_ComplexModeDisplacement_ComplexModeVector(displacement) &
+   & result(this)
   implicit none
   
-  type(ComplexSingleModeDisplacement), intent(in) :: displacements(:)
-  type(ComplexModeDisplacement)                   :: this
+  type(ComplexModeVector), intent(in) :: displacement
+  type(ComplexModeDisplacement)       :: this
   
-  this%displacements = displacements
+  this%ComplexModeVector = displacement
 end function
 
-! Return the number of modes along which the vector has displacements.
-function size_ComplexModeDisplacement(input) result(output)
+function new_ComplexModeDisplacement_ComplexSingleModeVectors(displacements) &
+   & result(this)
   implicit none
   
-  type(ComplexModeDisplacement), intent(in) :: input
-  integer                                   :: output
+  type(ComplexSingleModeVector), intent(in) :: displacements(:)
+  type(ComplexModeDisplacement)             :: this
   
-  output = size(input%displacements)
-end function
-
-! Returns a list of the q-points at which the displacement is non-zero.
-function qpoints_ComplexModeDisplacement(this,complex_modes,qpoints) &
-   & result(output)
-  implicit none
-  
-  class(ComplexModeDisplacement), intent(in) :: this
-  type(ComplexMode),              intent(in) :: complex_modes(:)
-  type(QpointData),               intent(in) :: qpoints(:)
-  type(QpointData), allocatable              :: output(:)
-  
-  integer, allocatable :: qpoint_ids(:)
-  
-  integer :: i,j,ialloc
-  
-  allocate(qpoint_ids(size(this%displacements)), stat=ialloc); call err(ialloc)
-  do i=1,size(this%displacements)
-    j = first(complex_modes%id==this%displacements(i)%id)
-    qpoint_ids(i) = complex_modes(j)%id
-  enddo
-  
-  qpoint_ids = qpoint_ids(set(qpoint_ids))
-  
-  allocate(output(size(qpoint_ids)), stat=ialloc); call err(ialloc)
-  do i=1,size(output)
-    output(i) = qpoints(first(qpoints%id==qpoint_ids(i)))
-  enddo
+  this = ComplexModeDisplacement(ComplexModeVector(displacements))
 end function
 
 ! ----------------------------------------------------------------------
@@ -92,7 +59,7 @@ subroutine read_ComplexModeDisplacement(this,input)
   type(String),                   intent(in)  :: input(:)
   
   select type(this); type is(ComplexModeDisplacement)
-    this = ComplexModeDisplacement(ComplexSingleModeDisplacement(input))
+    this = ComplexModeDisplacement(ComplexModeVector(StringArray(input)))
   end select
 end subroutine
 
@@ -103,7 +70,7 @@ function write_ComplexModeDisplacement(this) result(output)
   type(String), allocatable                  :: output(:)
   
   select type(this); type is(ComplexModeDisplacement)
-    output = str(this%displacements)
+    output = str(this%ComplexModeVector)
   end select
 end function
 

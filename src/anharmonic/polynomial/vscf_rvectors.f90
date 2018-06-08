@@ -242,7 +242,7 @@ function transform__ComplexModeDisplacement(this,displacement,modes,qpoints, &
   output = displacement
   
   do i=1,size(output)
-    mode = modes(first(modes%id==displacement%displacements(i)%id))
+    mode = modes(first(modes%id==displacement%vectors(i)%id))
     j = first(this%vscf_rvectors%subspace_id==mode%subspace_id, default=0)
     if (j==0) then
       ! This mode is unaffected by the VSCF R-vector translation.
@@ -257,8 +257,8 @@ function transform__ComplexModeDisplacement(this,displacement,modes,qpoints, &
     endif
     
     ! u_q -> exp{2*pi*i*q.R}u_q
-    output%displacements(i)%displacement = &
-       & exp_2pii(q*r) * displacement%displacements(i)%displacement
+    output%vectors(i)%magnitude = exp_2pii(q*r) &
+                              & * displacement%vectors(i)%magnitude
   enddo
 end function
 
@@ -292,7 +292,7 @@ function transform__RealModeDisplacement(this,displacement,modes,qpoints, &
       cycle
     endif
     
-    mode = modes(first(modes%id==displacement%displacements(i)%id))
+    mode = modes(first(modes%id==displacement%vectors(i)%id))
     
     j = first(this%vscf_rvectors%subspace_id==mode%subspace_id, default=0)
     if (j==0) then
@@ -308,69 +308,69 @@ function transform__RealModeDisplacement(this,displacement,modes,qpoints, &
     
     ! Calculate the transformed displacement along displacement i,
     !    and along the mode paired to displacement i.
-    j = first(displacement%displacements%id==mode%paired_id, default=0)
+    j = first(displacement%vectors%id==mode%paired_id, default=0)
     if (j==i) then
       ! The mode is its own pair, so cos(2*pi*q.R) = +/-1.
       ! u -> cos(2*pi*q.r) * u.
       new_displacement = cos_2pi(q*r) &
-                     & * displacement%displacements(i)%displacement
+                     & * displacement%vectors(i)%magnitude
     elseif (j==0) then
       ! u_c -> cos(2*pi*q.R)u_c - sin(2*pi*q.R)u_s
       ! u_s -> cos(2*pi*q.R)u_s + sin(2*pi*q.R)u_c
       new_displacement = cos_2pi(q*r) &
-                     & * displacement%displacements(i)%displacement
+                     & * displacement%vectors(i)%magnitude
       if (mode%id<mode%paired_id) then
         ! Displacement i is u_c, u_s = 0
         paired_displacement = sin_2pi(q*r) &
-                          & * displacement%displacements(i)%displacement
+                          & * displacement%vectors(i)%magnitude
       else
         ! Displacement i is u_s, u_c = 0
         paired_displacement = -sin_2pi(q*r) &
-                          & * displacement%displacements(i)%displacement
+                          & * displacement%vectors(i)%magnitude
       endif
     else
       if (mode%id<mode%paired_id) then
         ! Displacement i is u_c, displacement j is u_s.
-        new_displacement = cos_2pi(q*r)                               &
-                       & * displacement%displacements(i)%displacement &
-                       & - sin_2pi(q*r)                               &
-                       & * displacement%displacements(j)%displacement
-        paired_displacement = cos_2pi(q*r)                               &
-                          & * displacement%displacements(j)%displacement &
-                          & + sin_2pi(q*r)                               &
-                          & * displacement%displacements(i)%displacement
+        new_displacement = cos_2pi(q*r)                      &
+                       & * displacement%vectors(i)%magnitude &
+                       & - sin_2pi(q*r)                      &
+                       & * displacement%vectors(j)%magnitude
+        paired_displacement = cos_2pi(q*r)                      &
+                          & * displacement%vectors(j)%magnitude &
+                          & + sin_2pi(q*r)                      &
+                          & * displacement%vectors(i)%magnitude
       else
         ! Displacement i is u_s, displacement j is u_c.
-        new_displacement = cos_2pi(q*r)                               &
-                       & * displacement%displacements(i)%displacement &
-                       & + sin_2pi(q*r)                               &
-                       & * displacement%displacements(j)%displacement
-        paired_displacement = cos_2pi(q*r)                               &
-                          & * displacement%displacements(j)%displacement &
-                          & - sin_2pi(q*r)                               &
-                          & * displacement%displacements(i)%displacement
+        new_displacement = cos_2pi(q*r)                      &
+                       & * displacement%vectors(i)%magnitude &
+                       & + sin_2pi(q*r)                      &
+                       & * displacement%vectors(j)%magnitude
+        paired_displacement = cos_2pi(q*r)                      &
+                          & * displacement%vectors(j)%magnitude &
+                          & - sin_2pi(q*r)                      &
+                          & * displacement%vectors(i)%magnitude
       endif
     endif
     
     ! Update the displacement i.
-    output%displacements(i)%displacement = new_displacement
+    output%vectors(i)%magnitude = new_displacement
     mode_transformed(i) = .true.
     
     ! Update the displacement paired to i.
     if (j==0) then
       ! The paired displacement was 0 before;
       !    append the new paired displacement.
-      output%displacements = [ output%displacements,                  &
-                           &   RealSingleModeDisplacement(            &
-                           &      id           = mode%paired_id,      &
-                           &      displacement = paired_displacement) &
-                           & ]
+      output%vectors = [ output%vectors,                     &
+                     &   RealSingleModeVector(               &
+                     &      id          = mode%paired_id,    &
+                     &      magnitude = paired_displacement) &
+                     & ]
     elseif (j==i) then
       ! The mode is its own pair; there is no separate pair to update.
       continue
     else
       ! Update the displacement along the paired mode.
-      output%displacements(j)%displacement = paired_displacement
+      output%vectors(j)%magnitude = paired_displacement
       mode_transformed(j) = .true.
     endif
   enddo

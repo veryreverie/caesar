@@ -327,8 +327,8 @@ subroutine check(this,structure,logfile,check_eigenstuff)
   type(ComplexMode), allocatable :: modes(:)
   real(dp)                       :: freq_1
   real(dp)                       :: freq_2
-  type(ComplexVector)            :: prim_disp_1
-  type(ComplexVector)            :: prim_disp_2
+  type(ComplexVector)            :: prim_vec_1
+  type(ComplexVector)            :: prim_vec_2
   real(dp)                       :: average
   real(dp)                       :: difference
   logical                        :: check_estuff
@@ -406,20 +406,20 @@ subroutine check(this,structure,logfile,check_eigenstuff)
       endif
       
       do j=1,structure%no_atoms_prim
-        prim_disp_1 = this%complex_modes(i)%primitive_displacements(j)
-        prim_disp_2 = modes(i)%primitive_displacements(j)
+        prim_vec_1 = this%complex_modes(i)%primitive_vectors(j)
+        prim_vec_2 = modes(i)%primitive_vectors(j)
         ! Ignore phases.
-        prim_disp_1 = cmplxvec(vec(abs(cmplx(prim_disp_1))))
-        prim_disp_2 = cmplxvec(vec(abs(cmplx(prim_disp_2))))
-        average = average + sum_squares((prim_disp_1+prim_disp_2)/2)
-        difference = difference + sum_squares(prim_disp_1-prim_disp_2)
+        prim_vec_1 = cmplxvec(vec(abs(cmplx(prim_vec_1))))
+        prim_vec_2 = cmplxvec(vec(abs(cmplx(prim_vec_2))))
+        average = average + sum_squares((prim_vec_1+prim_vec_2)/2)
+        difference = difference + sum_squares(prim_vec_1-prim_vec_2)
       enddo
     enddo
-    call logfile%print_line(                                          &
-       & 'Fractional L2 error in rotated primitive displacements: '// &
+    call logfile%print_line(                                    &
+       & 'Fractional L2 error in rotated primitive vectors: '// &
        & sqrt(difference/average))
     if (sqrt(difference/average) > 1e-10_dp) then
-      call print_line(WARNING//': Error in primitive displacements. &
+      call print_line(WARNING//': Error in primitive vectors. &
          &Please check log files.')
       call print_line(difference//' / '//average)
     endif

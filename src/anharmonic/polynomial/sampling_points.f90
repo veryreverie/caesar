@@ -142,10 +142,10 @@ function generate_sampling_points_helper(monomials,potential_expansion_order, &
   allocate(output(size(monomials)), stat=ialloc); call err(ialloc)
   do i=1,size(output)
     sum_powers = sum(monomials(i)%modes%power)
-    allocate( output(i)%displacements(size(monomials(i))), &
+    allocate( output(i)%vectors(size(monomials(i))), &
             & stat=ialloc); call err(ialloc)
     do j=1,size(monomials(i))
-      output(i)%displacements(j)%id = monomials(i)%modes(j)%id
+      output(i)%vectors(j)%id = monomials(i)%modes(j)%id
       mode = real_modes(first(real_modes%id==monomials(i)%modes(j)%id))
       
       ! Calculate the displacement along mode j in monomial i.
@@ -163,7 +163,7 @@ function generate_sampling_points_helper(monomials,potential_expansion_order, &
       !    (the L2 sum across d_j for that monomial), is at most d_max.
       mode_power = monomials(i)%modes(j)%power
       mode_frequency = max(mode%frequency, frequency_of_max_displacement)
-      output(i)%displacements(j)%displacement =  &
+      output(i)%vectors(j)%magnitude =           &
          &   maximum_weighted_displacement       &
          & * sqrt( mode_power                    &
          &       * sum_powers                    &

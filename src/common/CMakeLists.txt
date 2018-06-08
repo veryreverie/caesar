@@ -9,11 +9,11 @@ add_library(common bands.f90 common.f90)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/structure structure/)
 target_link_libraries(common structure)
 
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/electronic_structure electronic_structure/)
-target_link_libraries(common electronic_structure)
-
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/normal_mode normal_mode/)
 target_link_libraries(common normal_mode)
+
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/electronic_structure electronic_structure/)
+target_link_libraries(common electronic_structure)
 
 # Link against utils module.
 target_link_libraries(common utils)

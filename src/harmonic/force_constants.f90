@@ -256,7 +256,7 @@ function read_forces(supercell,unique_directions,wd,sdir,file_type,seedname, &
       call print_line('Working in directory: '//directory)
       call err()
     endif
-    output(:,i) = electronic_structure%forces%forces
+    output(:,i) = electronic_structure%forces%vectors
     
     ! Enforce continuous translational symmetry,
     !    i.e. ensure sum(output,1)=0.

@@ -19,7 +19,5 @@ module structure_module
   use symmetry_submodule
   use structure_submodule
   use supercell_submodule
-  use cartesian_displacement_submodule
-  use cartesian_force_submodule
   implicit none
 end module
