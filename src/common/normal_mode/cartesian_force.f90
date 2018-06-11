@@ -11,6 +11,7 @@ module cartesian_force_submodule
   
   public :: CartesianForce
   public :: operator(*)
+  public :: operator(/)
   public :: operator(+)
   public :: sum
   
@@ -31,12 +32,21 @@ module cartesian_force_submodule
     module procedure multiply_CartesianForce_real
   end interface
   
+  interface operator(/)
+    module procedure divide_CartesianForce_real
+  end interface
+  
   interface operator(+)
     module procedure add_CartesianForce_CartesianForce
   end interface
   
   interface sum
     module procedure sum_CartesianForces
+  end interface
+  
+  interface operator(-)
+    module procedure negative_CartesianForce
+    module procedure subtract_CartesianForce_CartesianForce
   end interface
 contains
 
@@ -64,7 +74,8 @@ end function
 ! ----------------------------------------------------------------------
 ! Algebra.
 ! ----------------------------------------------------------------------
-function multiply_real_CartesianForce(this,that) result(output)
+impure elemental function multiply_real_CartesianForce(this,that) &
+   & result(output)
   implicit none
   
   real(dp),             intent(in) :: this
@@ -74,7 +85,8 @@ function multiply_real_CartesianForce(this,that) result(output)
   output = CartesianForce(this * that%CartesianVector)
 end function
 
-function multiply_CartesianForce_real(this,that) result(output)
+impure elemental function multiply_CartesianForce_real(this,that) &
+   & result(output)
   implicit none
   
   type(CartesianForce), intent(in) :: this
@@ -84,7 +96,17 @@ function multiply_CartesianForce_real(this,that) result(output)
   output = CartesianForce(this%CartesianVector * that)
 end function
 
-function add_CartesianForce_CartesianForce(this,that) &
+impure elemental function divide_CartesianForce_real(this,that) result(output)
+  implicit none
+  
+  type(CartesianForce), intent(in) :: this
+  real(dp),             intent(in) :: that
+  type(CartesianForce)             :: output
+  
+  output = CartesianForce(this%CartesianVector / that)
+end function
+
+impure elemental function add_CartesianForce_CartesianForce(this,that) &
    & result(output)
   implicit none
   
@@ -102,6 +124,26 @@ function sum_CartesianForces(input) result(output)
   type(CartesianForce)             :: output
   
   output = CartesianForce(sum(input%CartesianVector))
+end function
+
+impure elemental function negative_CartesianForce(this) result(output)
+  implicit none
+  
+  type(CartesianForce), intent(in) :: this
+  type(CartesianForce)             :: output
+  
+  output = CartesianForce(-this%CartesianVector)
+end function
+
+impure elemental function subtract_CartesianForce_CartesianForce(this,that) &
+   & result(output)
+  implicit none
+  
+  type(CartesianForce), intent(in) :: this
+  type(CartesianForce), intent(in) :: that
+  type(CartesianForce)             :: output
+  
+  output = CartesianForce(this%CartesianVector - that%CartesianVector)
 end function
 
 ! ----------------------------------------------------------------------

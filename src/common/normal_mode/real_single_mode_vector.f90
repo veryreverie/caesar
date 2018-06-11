@@ -13,6 +13,10 @@ module real_single_mode_vector_submodule
   private
   
   public :: RealSingleModeVector
+  public :: operator(*)
+  public :: operator(/)
+  public :: operator(+)
+  public :: operator(-)
   
   type, extends(Stringable) :: RealSingleModeVector
     ! The id of the mode.
@@ -35,6 +39,24 @@ module real_single_mode_vector_submodule
     module procedure new_RealSingleModeVector_CartesianVector
     module procedure new_RealSingleModeVector_String
   end interface
+  
+  interface operator(*)
+    module procedure multiply_real_RealSingleModeVector
+    module procedure multiply_RealSingleModeVector_real
+  end interface
+  
+  interface operator(/)
+    module procedure divide_RealSingleModeVector_real
+  end interface
+  
+  interface operator(+)
+    module procedure add_RealSingleModeVector_RealSingleModeVector
+  end interface
+  
+  interface operator(-)
+    module procedure negative_RealSingleModeVector
+    module procedure subtract_RealSingleModeVector_RealSingleModeVector
+  end interface
 contains
 
 ! Constructor.
@@ -47,6 +69,89 @@ function new_RealSingleModeVector(id,magnitude) result(this)
   
   this%id        = id
   this%magnitude = magnitude
+end function
+
+! ----------------------------------------------------------------------
+! Arithmetic.
+! ----------------------------------------------------------------------
+impure elemental function multiply_real_RealSingleModeVector(this,that) &
+   & result(output)
+  implicit none
+  
+  real(dp),                   intent(in) :: this
+  type(RealSingleModeVector), intent(in) :: that
+  type(RealSingleModeVector)             :: output
+  
+  output = RealSingleModeVector( id        = that%id, &
+                               & magnitude = this*that%magnitude)
+end function
+
+impure elemental function multiply_RealSingleModeVector_real(this,that) &
+   & result(output)
+  implicit none
+  
+  type(RealSingleModeVector), intent(in) :: this
+  real(dp),                   intent(in) :: that
+  type(RealSingleModeVector)             :: output
+  
+  output = RealSingleModeVector( id        = this%id, &
+                               & magnitude = this%magnitude*that)
+end function
+
+impure elemental function divide_RealSingleModeVector_real(this,that) &
+   & result(output)
+  implicit none
+  
+  type(RealSingleModeVector), intent(in) :: this
+  real(dp),                   intent(in) :: that
+  type(RealSingleModeVector)             :: output
+  
+  output = RealSingleModeVector( id        = this%id, &
+                               & magnitude = this%magnitude/that)
+end function
+
+impure elemental function add_RealSingleModeVector_RealSingleModeVector(this, &
+   & that)  result(output)
+  implicit none
+  
+  type(RealSingleModeVector), intent(in) :: this
+  type(RealSingleModeVector), intent(in) :: that
+  type(RealSingleModeVector)             :: output
+  
+  if (this%id/=that%id) then
+    call print_line(ERROR//': Trying to add vectors along different modes.')
+    call err()
+  endif
+  
+  output = RealSingleModeVector( id        = this%id, &
+                               & magnitude = this%magnitude+that%magnitude)
+end function
+
+impure elemental function negative_RealSingleModeVector(this) result(output)
+  implicit none
+  
+  type(RealSingleModeVector), intent(in) :: this
+  type(RealSingleModeVector)             :: output
+  
+  output = RealSingleModeVector(id=this%id, magnitude=-this%magnitude)
+end function
+
+impure elemental function subtract_RealSingleModeVector_RealSingleModeVector( &
+   & this,that) result(output)
+  implicit none
+  
+  type(RealSingleModeVector), intent(in) :: this
+  type(RealSingleModeVector), intent(in) :: that
+  type(RealSingleModeVector)             :: output
+  
+  if (this%id/=that%id) then
+    call print_line(ERROR//': Trying to subtract vectors along different &
+       &modes.')
+    call err()
+  endif
+  
+  output = RealSingleModeVector( id        = this%id, &
+                               & magnitude = this%magnitude-that%magnitude)
 end function
 
 ! ----------------------------------------------------------------------

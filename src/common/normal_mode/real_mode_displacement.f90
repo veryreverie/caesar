@@ -15,6 +15,11 @@ module real_mode_displacement_submodule
   private
   
   public :: RealModeDisplacement
+  public :: operator(*)
+  public :: operator(/)
+  public :: operator(+)
+  public :: sum
+  public :: operator(-)
   
   type, extends(RealModeVector) :: RealModeDisplacement
   contains
@@ -30,6 +35,28 @@ module real_mode_displacement_submodule
     module procedure new_RealModeDisplacement_RealSingleModeVectors
     module procedure new_RealModeDisplacement_CartesianDisplacement
     module procedure new_RealModeDisplacement_StringArray
+  end interface
+  
+  interface operator(*)
+    module procedure multiply_real_RealModeDisplacement
+    module procedure multiply_RealModeDisplacement_real
+  end interface
+  
+  interface operator(/)
+    module procedure divide_RealModeDisplacement_real
+  end interface
+  
+  interface operator(+)
+    module procedure add_RealModeDisplacement_RealModeDisplacement
+  end interface
+  
+  interface sum
+    module procedure sum_RealModeDisplacements
+  end interface
+  
+  interface operator(-)
+    module procedure negative_RealModeDisplacement
+    module procedure subtract_RealModeDisplacement_RealModeDisplacement
   end interface
 contains
 
@@ -51,6 +78,82 @@ function new_RealModeDisplacement_RealSingleModeVectors(displacements) &
   type(RealModeDisplacement)             :: this
   
   this = RealModeDisplacement(RealModeVector(displacements))
+end function
+
+! ----------------------------------------------------------------------
+! Arithmetic.
+! ----------------------------------------------------------------------
+impure elemental function multiply_real_RealModeDisplacement(this,that) &
+   & result(output)
+  implicit none
+  
+  real(dp),                   intent(in) :: this
+  type(RealModeDisplacement), intent(in) :: that
+  type(RealModeDisplacement)             :: output
+  
+  output = RealModeDisplacement(this*that%RealModeVector)
+end function
+
+impure elemental function multiply_RealModeDisplacement_real(this,that) &
+   & result(output)
+  implicit none
+  
+  type(RealModeDisplacement), intent(in) :: this
+  real(dp),                   intent(in) :: that
+  type(RealModeDisplacement)             :: output
+  
+  output = RealModeDisplacement(this%RealModeVector*that)
+end function
+
+impure elemental function divide_RealModeDisplacement_real(this,that) &
+   & result(output)
+  implicit none
+  
+  type(RealModeDisplacement), intent(in) :: this
+  real(dp),                   intent(in) :: that
+  type(RealModeDisplacement)             :: output
+  
+  output = RealModeDisplacement(this%RealModeVector/that)
+end function
+
+impure elemental function add_RealModeDisplacement_RealModeDisplacement(this, &
+   & that) result(output)
+  implicit none
+  
+  type(RealModeDisplacement), intent(in) :: this
+  type(RealModeDisplacement), intent(in) :: that
+  type(RealModeDisplacement)             :: output
+  
+  output = RealModeDisplacement(this%RealModeVector + that%RealModeVector)
+end function
+
+function sum_RealModeDisplacements(this) result(output)
+  implicit none
+  
+  type(RealModeDisplacement), intent(in) :: this(:)
+  type(RealModeDisplacement)             :: output
+  
+  output = RealModeDisplacement(sum(this%RealModeVector))
+end function
+
+impure elemental function negative_RealModeDisplacement(this) result(output)
+  implicit none
+  
+  type(RealModeDisplacement), intent(in) :: this
+  type(RealModeDisplacement)             :: output
+  
+  output = RealModeDisplacement(-this%RealModeVector)
+end function
+
+impure elemental function subtract_RealModeDisplacement_RealModeDisplacement( &
+   & this,that) result(output)
+  implicit none
+  
+  type(RealModeDisplacement), intent(in) :: this
+  type(RealModeDisplacement), intent(in) :: that
+  type(RealModeDisplacement)             :: output
+  
+  output = RealModeDisplacement(this%RealModeVector - that%RealModeVector)
 end function
 
 ! ----------------------------------------------------------------------

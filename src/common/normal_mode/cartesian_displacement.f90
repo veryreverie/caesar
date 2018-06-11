@@ -14,8 +14,10 @@ module cartesian_displacement_submodule
   public :: CartesianDisplacement
   public :: displace_structure
   public :: operator(*)
+  public :: operator(/)
   public :: operator(+)
   public :: sum
+  public :: operator(-)
   
   type, extends(CartesianVector) :: CartesianDisplacement
   contains
@@ -34,12 +36,21 @@ module cartesian_displacement_submodule
     module procedure multiply_CartesianDisplacement_real
   end interface
   
+  interface operator(/)
+    module procedure divide_CartesianDisplacement_real
+  end interface
+  
   interface operator(+)
     module procedure add_CartesianDisplacement_CartesianDisplacement
   end interface
   
   interface sum
     module procedure sum_CartesianDisplacements
+  end interface
+  
+  interface operator(-)
+    module procedure negative_CartesianDisplacement
+    module procedure subtract_CartesianDisplacement_CartesianDisplacement
   end interface
 contains
 
@@ -94,7 +105,8 @@ end function
 ! ----------------------------------------------------------------------
 ! Algebra.
 ! ----------------------------------------------------------------------
-function multiply_real_CartesianDisplacement(this,that) result(output)
+impure elemental function multiply_real_CartesianDisplacement(this,that) &
+   & result(output)
   implicit none
   
   real(dp),                    intent(in) :: this
@@ -104,7 +116,8 @@ function multiply_real_CartesianDisplacement(this,that) result(output)
   output = CartesianDisplacement(this * that%CartesianVector)
 end function
 
-function multiply_CartesianDisplacement_real(this,that) result(output)
+impure elemental function multiply_CartesianDisplacement_real(this,that) &
+   & result(output)
   implicit none
   
   type(CartesianDisplacement), intent(in) :: this
@@ -114,8 +127,19 @@ function multiply_CartesianDisplacement_real(this,that) result(output)
   output = CartesianDisplacement(this%CartesianVector * that)
 end function
 
-function add_CartesianDisplacement_CartesianDisplacement(this,that) &
+impure elemental function divide_CartesianDisplacement_real(this,that) &
    & result(output)
+  implicit none
+  
+  type(CartesianDisplacement), intent(in) :: this
+  real(dp),                    intent(in) :: that
+  type(CartesianDisplacement)             :: output
+  
+  output = CartesianDisplacement(this%CartesianVector / that)
+end function
+
+impure elemental function add_CartesianDisplacement_CartesianDisplacement( &
+   & this,that) result(output)
   implicit none
   
   type(CartesianDisplacement), intent(in) :: this
@@ -132,6 +156,27 @@ function sum_CartesianDisplacements(input) result(output)
   type(CartesianDisplacement)             :: output
   
   output = CartesianDisplacement(sum(input%CartesianVector))
+end function
+
+impure elemental function negative_CartesianDisplacement(this) result(output)
+  implicit none
+  
+  type(CartesianDisplacement), intent(in) :: this
+  type(CartesianDisplacement)             :: output
+  
+  output = CartesianDisplacement(-this%CartesianVector)
+end function
+
+impure elemental function                                            &
+   & subtract_CartesianDisplacement_CartesianDisplacement(this,that) &
+   & result(output)
+  implicit none
+  
+  type(CartesianDisplacement), intent(in) :: this
+  type(CartesianDisplacement), intent(in) :: that
+  type(CartesianDisplacement)             :: output
+  
+  output = CartesianDisplacement(this%CartesianVector - that%CartesianVector)
 end function
 
 ! ----------------------------------------------------------------------

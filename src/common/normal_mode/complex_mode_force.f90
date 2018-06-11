@@ -14,6 +14,11 @@ module complex_mode_force_submodule
   private
   
   public :: ComplexModeForce
+  public :: operator(*)
+  public :: operator(/)
+  public :: operator(+)
+  public :: sum
+  public :: operator(-)
   
   type, extends(ComplexModeVector) :: ComplexModeForce
   contains
@@ -25,6 +30,28 @@ module complex_mode_force_submodule
     module procedure new_ComplexModeForce_ComplexModeVector
     module procedure new_ComplexModeForce_ComplexSingleModeVectors
     module procedure new_ComplexModeForce_StringArray
+  end interface
+  
+  interface operator(*)
+    module procedure multiply_complex_ComplexModeForce
+    module procedure multiply_ComplexModeForce_complex
+  end interface
+  
+  interface operator(/)
+    module procedure divide_ComplexModeForce_complex
+  end interface
+  
+  interface operator(+)
+    module procedure add_ComplexModeForce_ComplexModeForce
+  end interface
+  
+  interface sum
+    module procedure sum_ComplexModeForces
+  end interface
+  
+  interface operator(-)
+    module procedure negative_ComplexModeForce
+    module procedure subtract_ComplexModeForce_ComplexModeForce
   end interface
 contains
 
@@ -46,6 +73,82 @@ function new_ComplexModeForce_ComplexSingleModeVectors(forces) &
   type(ComplexModeForce)                    :: this
   
   this = ComplexModeForce(ComplexModeVector(forces))
+end function
+
+! ----------------------------------------------------------------------
+! Arithmetic.
+! ----------------------------------------------------------------------
+impure elemental function multiply_complex_ComplexModeForce(this,that) &
+   & result(output)
+  implicit none
+  
+  complex(dp),            intent(in) :: this
+  type(ComplexModeForce), intent(in) :: that
+  type(ComplexModeForce)             :: output
+  
+  output = ComplexModeForce(this*that%ComplexModeVector)
+end function
+
+impure elemental function multiply_ComplexModeForce_complex(this,that) &
+   & result(output)
+  implicit none
+  
+  type(ComplexModeForce), intent(in) :: this
+  complex(dp),            intent(in) :: that
+  type(ComplexModeForce)             :: output
+  
+  output = ComplexModeForce(this%ComplexModeVector*that)
+end function
+
+impure elemental function divide_ComplexModeForce_complex(this,that) &
+   & result(output)
+  implicit none
+  
+  type(ComplexModeForce), intent(in) :: this
+  complex(dp),            intent(in) :: that
+  type(ComplexModeForce)             :: output
+  
+  output = ComplexModeForce(this%ComplexModeVector/that)
+end function
+
+impure elemental function add_ComplexModeForce_ComplexModeForce(this, &
+   & that) result(output)
+  implicit none
+  
+  type(ComplexModeForce), intent(in) :: this
+  type(ComplexModeForce), intent(in) :: that
+  type(ComplexModeForce)             :: output
+  
+  output = ComplexModeForce(this%ComplexModeVector + that%ComplexModeVector)
+end function
+
+function sum_ComplexModeForces(this) result(output)
+  implicit none
+  
+  type(ComplexModeForce), intent(in) :: this(:)
+  type(ComplexModeForce)             :: output
+  
+  output = ComplexModeForce(sum(this%ComplexModeVector))
+end function
+
+impure elemental function negative_ComplexModeForce(this) result(output)
+  implicit none
+  
+  type(ComplexModeForce), intent(in) :: this
+  type(ComplexModeForce)             :: output
+  
+  output = ComplexModeForce(-this%ComplexModeVector)
+end function
+
+impure elemental function subtract_ComplexModeForce_ComplexModeForce( &
+   & this,that) result(output)
+  implicit none
+  
+  type(ComplexModeForce), intent(in) :: this
+  type(ComplexModeForce), intent(in) :: that
+  type(ComplexModeForce)             :: output
+  
+  output = ComplexModeForce(this%ComplexModeVector - that%ComplexModeVector)
 end function
 
 ! ----------------------------------------------------------------------

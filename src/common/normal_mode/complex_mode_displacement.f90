@@ -14,6 +14,11 @@ module complex_mode_displacement_submodule
   private
   
   public :: ComplexModeDisplacement
+  public :: operator(*)
+  public :: operator(/)
+  public :: operator(+)
+  public :: sum
+  public :: operator(-)
   
   type, extends(ComplexModeVector) :: ComplexModeDisplacement
   contains
@@ -25,6 +30,28 @@ module complex_mode_displacement_submodule
     module procedure new_ComplexModeDisplacement_ComplexModeVector
     module procedure new_ComplexModeDisplacement_ComplexSingleModeVectors
     module procedure new_ComplexModeDisplacement_StringArray
+  end interface
+  
+  interface operator(*)
+    module procedure multiply_complex_ComplexModeDisplacement
+    module procedure multiply_ComplexModeDisplacement_complex
+  end interface
+  
+  interface operator(/)
+    module procedure divide_ComplexModeDisplacement_complex
+  end interface
+  
+  interface operator(+)
+    module procedure add_ComplexModeDisplacement_ComplexModeDisplacement
+  end interface
+  
+  interface sum
+    module procedure sum_ComplexModeDisplacements
+  end interface
+  
+  interface operator(-)
+    module procedure negative_ComplexModeDisplacement
+    module procedure subtract_ComplexModeDisplacement_ComplexModeDisplacement
   end interface
 contains
 
@@ -47,6 +74,85 @@ function new_ComplexModeDisplacement_ComplexSingleModeVectors(displacements) &
   type(ComplexModeDisplacement)             :: this
   
   this = ComplexModeDisplacement(ComplexModeVector(displacements))
+end function
+
+! ----------------------------------------------------------------------
+! Arithmetic.
+! ----------------------------------------------------------------------
+impure elemental function multiply_complex_ComplexModeDisplacement(this,that) &
+   & result(output)
+  implicit none
+  
+  complex(dp),                   intent(in) :: this
+  type(ComplexModeDisplacement), intent(in) :: that
+  type(ComplexModeDisplacement)             :: output
+  
+  output = ComplexModeDisplacement(this*that%ComplexModeVector)
+end function
+
+impure elemental function multiply_ComplexModeDisplacement_complex(this,that) &
+   & result(output)
+  implicit none
+  
+  type(ComplexModeDisplacement), intent(in) :: this
+  complex(dp),                   intent(in) :: that
+  type(ComplexModeDisplacement)             :: output
+  
+  output = ComplexModeDisplacement(this%ComplexModeVector*that)
+end function
+
+impure elemental function divide_ComplexModeDisplacement_complex(this,that) &
+   & result(output)
+  implicit none
+  
+  type(ComplexModeDisplacement), intent(in) :: this
+  complex(dp),                   intent(in) :: that
+  type(ComplexModeDisplacement)             :: output
+  
+  output = ComplexModeDisplacement(this%ComplexModeVector/that)
+end function
+
+impure elemental function add_ComplexModeDisplacement_ComplexModeDisplacement(&
+   & this,that) result(output)
+  implicit none
+  
+  type(ComplexModeDisplacement), intent(in) :: this
+  type(ComplexModeDisplacement), intent(in) :: that
+  type(ComplexModeDisplacement)             :: output
+  
+  output = ComplexModeDisplacement( this%ComplexModeVector &
+                                & + that%ComplexModeVector)
+end function
+
+function sum_ComplexModeDisplacements(this) result(output)
+  implicit none
+  
+  type(ComplexModeDisplacement), intent(in) :: this(:)
+  type(ComplexModeDisplacement)             :: output
+  
+  output = ComplexModeDisplacement(sum(this%ComplexModeVector))
+end function
+
+impure elemental function negative_ComplexModeDisplacement(this) result(output)
+  implicit none
+  
+  type(ComplexModeDisplacement), intent(in) :: this
+  type(ComplexModeDisplacement)             :: output
+  
+  output = ComplexModeDisplacement(-this%ComplexModeVector)
+end function
+
+impure elemental function                                                &
+   & subtract_ComplexModeDisplacement_ComplexModeDisplacement(this,that) &
+   & result(output)
+  implicit none
+  
+  type(ComplexModeDisplacement), intent(in) :: this
+  type(ComplexModeDisplacement), intent(in) :: that
+  type(ComplexModeDisplacement)             :: output
+  
+  output = ComplexModeDisplacement( this%ComplexModeVector &
+                                & - that%ComplexModeVector)
 end function
 
 ! ----------------------------------------------------------------------

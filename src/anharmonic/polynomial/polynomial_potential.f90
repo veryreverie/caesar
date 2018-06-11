@@ -207,6 +207,10 @@ subroutine generate_potential_PolynomialPotential(this,inputs, &
   type(ElectronicStructure), allocatable :: calculations(:)
   type(ElectronicStructure), allocatable :: sampled_points(:)
   
+  real(dp)                         :: energy
+  type(RealModeForce), allocatable :: forces(:)
+  type(RealModeForce)              :: force
+  
   ! Directories and files.
   type(String) :: coupling_dir
   type(IFile)  :: basis_functions_file
@@ -255,7 +259,24 @@ subroutine generate_potential_PolynomialPotential(this,inputs, &
         calculations(k) = read_lambda(vscf_rvectors_dir)
       enddo
       
-      ! TODO: Transform into normal mode co-ordinates before averaging.
+      ! Average the energy over all VSCF R-vectors, and normalise to be per
+      !    primitive cell.
+      energy = sum(calculations%energy) &
+           & / (size(calculations) * supercell%sc_size)
+      
+      ! Transform forces into normal mode co-ordinates, reverse the
+      !    VSCF R-vector transformation, and find the average.
+      allocate(forces(size(vscf_rvectors)), stat=ialloc); call err(ialloc)
+      do k=1,size(vscf_rvectors)
+        forces(k) = RealModeForce( calculations(k)%forces, &
+                                 & supercell,              &
+                                 & inputs%real_modes,      &
+                                 & inputs%qpoints)
+        forces(k) = vscf_rvectors(k)%inverse_transform( forces(k),         &
+                                                      & inputs%real_modes, &
+                                                      & inputs%qpoints)
+      enddo
+      force = sum(forces) / real(size(calculations),dp)
       
       ! sampled_points(j) = average(calculations,vscf_rvectors)
       deallocate(calculations, stat=ialloc); call err(ialloc)

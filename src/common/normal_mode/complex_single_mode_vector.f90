@@ -8,6 +8,10 @@ module complex_single_mode_vector_submodule
   private
   
   public :: ComplexSingleModeVector
+  public :: operator(*)
+  public :: operator(/)
+  public :: operator(+)
+  public :: operator(-)
   
   type, extends(Stringable) :: ComplexSingleModeVector
     ! The id of the mode.
@@ -24,6 +28,24 @@ module complex_single_mode_vector_submodule
     module procedure new_ComplexSingleModeVector
     module procedure new_ComplexSingleModeVector_String
   end interface
+  
+  interface operator(*)
+    module procedure multiply_complex_ComplexSingleModeVector
+    module procedure multiply_ComplexSingleModeVector_complex
+  end interface
+  
+  interface operator(/)
+    module procedure divide_ComplexSingleModeVector_complex
+  end interface
+  
+  interface operator(+)
+    module procedure add_ComplexSingleModeVector_ComplexSingleModeVector
+  end interface
+  
+  interface operator(-)
+    module procedure negative_ComplexSingleModeVector
+    module procedure subtract_ComplexSingleModeVector_ComplexSingleModeVector
+  end interface
 contains
 
 ! Constructor.
@@ -36,6 +58,88 @@ function new_ComplexSingleModeVector(id,magnitude) result(this)
   
   this%id        = id
   this%magnitude = magnitude
+end function
+
+! Arithmetic.
+impure elemental function multiply_complex_ComplexSingleModeVector(this,that) &
+   & result(output)
+  implicit none
+  
+  complex(dp),                   intent(in) :: this
+  type(ComplexSingleModeVector), intent(in) :: that
+  type(ComplexSingleModeVector)             :: output
+  
+  output = ComplexSingleModeVector( id        = that%id, &
+                                  & magnitude = this*that%magnitude)
+end function
+
+impure elemental function multiply_ComplexSingleModeVector_complex(this,that) &
+   & result(output)
+  implicit none
+  
+  type(ComplexSingleModeVector), intent(in) :: this
+  complex(dp),                   intent(in) :: that
+  type(ComplexSingleModeVector)             :: output
+  
+  output = ComplexSingleModeVector( id        = this%id, &
+                                  & magnitude = this%magnitude*that)
+end function
+
+impure elemental function divide_ComplexSingleModeVector_complex(this,that) &
+   & result(output)
+  implicit none
+  
+  type(ComplexSingleModeVector), intent(in) :: this
+  complex(dp),                   intent(in) :: that
+  type(ComplexSingleModeVector)             :: output
+  
+  output = ComplexSingleModeVector( id        = this%id, &
+                                  & magnitude = this%magnitude/that)
+end function
+
+impure elemental function add_ComplexSingleModeVector_ComplexSingleModeVector(&
+   & this,that) result(output)
+  implicit none
+  
+  type(ComplexSingleModeVector), intent(in) :: this
+  type(ComplexSingleModeVector), intent(in) :: that
+  type(ComplexSingleModeVector)             :: output
+  
+  if (this%id/=that%id) then
+    call print_line(ERROR//': Trying to add vectors along different modes.')
+    call err()
+  endif
+  
+  output = ComplexSingleModeVector( id        = this%id, &
+                                  & magnitude = this%magnitude+that%magnitude)
+end function
+
+impure elemental function negative_ComplexSingleModeVector(this) result(output)
+  implicit none
+  
+  type(ComplexSingleModeVector), intent(in) :: this
+  type(ComplexSingleModeVector)             :: output
+  
+  output = ComplexSingleModeVector(id=this%id, magnitude=-this%magnitude)
+end function
+
+impure elemental function                                                &
+   & subtract_ComplexSingleModeVector_ComplexSingleModeVector(this,that) &
+   & result(output)
+  implicit none
+  
+  type(ComplexSingleModeVector), intent(in) :: this
+  type(ComplexSingleModeVector), intent(in) :: that
+  type(ComplexSingleModeVector)             :: output
+  
+  if (this%id/=that%id) then
+    call print_line(ERROR//': Trying to subtract vectors along different &
+       &modes.')
+    call err()
+  endif
+  
+  output = ComplexSingleModeVector( id        = this%id, &
+                                  & magnitude = this%magnitude-that%magnitude)
 end function
 
 ! I/O.

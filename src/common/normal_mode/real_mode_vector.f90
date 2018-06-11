@@ -15,6 +15,11 @@ module real_mode_vector_submodule
   
   public :: RealModeVector
   public :: size
+  public :: operator(*)
+  public :: operator(/)
+  public :: operator(+)
+  public :: sum
+  public :: operator(-)
   
   type, extends(Stringsable) :: RealModeVector
     type(RealSingleModeVector), allocatable :: vectors(:)
@@ -37,6 +42,28 @@ module real_mode_vector_submodule
   
   interface size
     module procedure size_RealModeVector
+  end interface
+  
+  interface operator(*)
+    module procedure multiply_real_RealModeVector
+    module procedure multiply_RealModeVector_real
+  end interface
+  
+  interface operator(/)
+    module procedure divide_RealModeVector_real
+  end interface
+  
+  interface operator(+)
+    module procedure add_RealModeVector_RealModeVector
+  end interface
+  
+  interface sum
+    module procedure sum_RealModeVectors
+  end interface
+  
+  interface operator(-)
+    module procedure negative_RealModeVector
+    module procedure subtract_RealModeVector_RealModeVector
   end interface
 contains
 
@@ -102,6 +129,112 @@ function qpoints_RealModeVector(this,modes,qpoints) result(output)
   allocate(output(size(qpoint_ids)), stat=ialloc); call err(ialloc)
   do i=1,size(output)
     output(i) = qpoints(first(qpoints%id==qpoint_ids(i)))
+  enddo
+end function
+
+! ----------------------------------------------------------------------
+! Arithmetic.
+! ----------------------------------------------------------------------
+impure elemental function multiply_real_RealModeVector(this,that) &
+   & result(output)
+  implicit none
+  
+  real(dp),             intent(in) :: this
+  type(RealModeVector), intent(in) :: that
+  type(RealModeVector)             :: output
+  
+  output = RealModeVector(this*that%vectors)
+end function
+
+impure elemental function multiply_RealModeVector_real(this,that) &
+   & result(output)
+  implicit none
+  
+  type(RealModeVector), intent(in) :: this
+  real(dp),             intent(in) :: that
+  type(RealModeVector)             :: output
+  
+  output = RealModeVector(this%vectors*that)
+end function
+
+impure elemental function divide_RealModeVector_real(this,that) &
+   & result(output)
+  implicit none
+  
+  type(RealModeVector), intent(in) :: this
+  real(dp),             intent(in) :: that
+  type(RealModeVector)             :: output
+  
+  output = RealModeVector(this%vectors/that)
+end function
+
+impure elemental function add_RealModeVector_RealModeVector(this,that) &
+   & result(output)
+  implicit none
+  
+  type(RealModeVector), intent(in) :: this
+  type(RealModeVector), intent(in) :: that
+  type(RealModeVector)             :: output
+  
+  integer :: i,j
+  
+  output = this
+  do i=1,size(that)
+    j = first(this%vectors%id==that%vectors(i)%id, default=0)
+    if (j==0) then
+      output%vectors = [output%vectors, that%vectors(i)]
+    else
+      output%vectors(j) = output%vectors(j) + that%vectors(i)
+    endif
+  enddo
+end function
+
+function sum_RealModeVectors(this) result(output)
+  implicit none
+  
+  type(RealModeVector), intent(in) :: this(:)
+  type(RealModeVector)             :: output
+  
+  integer :: i
+  
+  if (size(this)==0) then
+    call print_line(ERROR//': Trying to sum an empty list.')
+    call err()
+  endif
+  
+  output = this(1)
+  do i=2,size(this)
+    output = output + this(i)
+  enddo
+end function
+
+impure elemental function negative_RealModeVector(this) result(output)
+  implicit none
+  
+  type(RealModeVector), intent(in) :: this
+  type(RealModeVector)             :: output
+  
+  output = RealModeVector(-this%vectors)
+end function
+
+impure elemental function subtract_RealModeVector_RealModeVector(this,that) &
+   & result(output)
+  implicit none
+  
+  type(RealModeVector), intent(in) :: this
+  type(RealModeVector), intent(in) :: that
+  type(RealModeVector)             :: output
+  
+  integer :: i,j
+  
+  output = this
+  do i=1,size(that)
+    j = first(this%vectors%id==that%vectors(i)%id, default=0)
+    if (j==0) then
+      output%vectors = [output%vectors, -that%vectors(i)]
+    else
+      output%vectors(j) = output%vectors(j) - that%vectors(i)
+    endif
   enddo
 end function
 

@@ -12,8 +12,10 @@ module cartesian_vector_submodule
   public :: CartesianVector
   public :: size
   public :: operator(*)
+  public :: operator(/)
   public :: operator(+)
   public :: sum
+  public :: operator(-)
   
   type, extends(Stringsable) :: CartesianVector
     type(RealVector), allocatable :: vectors(:)
@@ -36,12 +38,21 @@ module cartesian_vector_submodule
     module procedure multiply_CartesianVector_real
   end interface
   
+  interface operator(/)
+    module procedure divide_CartesianVector_real
+  end interface
+  
   interface operator(+)
     module procedure add_CartesianVector_CartesianVector
   end interface
   
   interface sum
     module procedure sum_CartesianVectors
+  end interface
+  
+  interface operator(-)
+    module procedure negative_CartesianVector
+    module procedure subtract_CartesianVector_CartesianVector
   end interface
 contains
 
@@ -69,7 +80,8 @@ end function
 ! ----------------------------------------------------------------------
 ! Algebra.
 ! ----------------------------------------------------------------------
-function multiply_real_CartesianVector(this,that) result(output)
+impure elemental function multiply_real_CartesianVector(this,that) &
+   & result(output)
   implicit none
   
   real(dp),              intent(in) :: this
@@ -79,7 +91,8 @@ function multiply_real_CartesianVector(this,that) result(output)
   output = CartesianVector(this * that%vectors)
 end function
 
-function multiply_CartesianVector_real(this,that) result(output)
+impure elemental function multiply_CartesianVector_real(this,that) &
+   & result(output)
   implicit none
   
   type(CartesianVector), intent(in) :: this
@@ -89,7 +102,17 @@ function multiply_CartesianVector_real(this,that) result(output)
   output = CartesianVector(this%vectors * that)
 end function
 
-function add_CartesianVector_CartesianVector(this,that) &
+impure elemental function divide_CartesianVector_real(this,that) result(output)
+  implicit none
+  
+  type(CartesianVector), intent(in) :: this
+  real(dp),              intent(in) :: that
+  type(CartesianVector)             :: output
+  
+  output = CartesianVector(this%vectors / that)
+end function
+
+impure elemental function add_CartesianVector_CartesianVector(this,that) &
    & result(output)
   implicit none
   
@@ -117,6 +140,26 @@ function sum_CartesianVectors(input) result(output)
   do i=2,size(input)
     output = output + input(i)
   enddo
+end function
+
+impure elemental function negative_CartesianVector(this) result(output)
+  implicit none
+  
+  type(CartesianVector), intent(in) :: this
+  type(CartesianVector)             :: output
+  
+  output = CartesianVector(-this%vectors)
+end function
+
+impure elemental function subtract_CartesianVector_CartesianVector(this,that) &
+   & result(output)
+  implicit none
+  
+  type(CartesianVector), intent(in) :: this
+  type(CartesianVector), intent(in) :: that
+  type(CartesianVector)             :: output
+  
+  output = CartesianVector(this%vectors - that%vectors)
 end function
 
 ! ----------------------------------------------------------------------

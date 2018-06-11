@@ -15,6 +15,11 @@ module real_mode_force_submodule
   private
   
   public :: RealModeForce
+  public :: operator(*)
+  public :: operator(/)
+  public :: operator(+)
+  public :: sum
+  public :: operator(-)
   
   type, extends(RealModeVector) :: RealModeForce
   contains
@@ -29,6 +34,28 @@ module real_mode_force_submodule
     module procedure new_RealModeForce_RealSingleModeVectors
     module procedure new_RealModeForce_CartesianForce
     module procedure new_RealModeForce_StringArray
+  end interface
+  
+  interface operator(*)
+    module procedure multiply_real_RealModeForce
+    module procedure multiply_RealModeForce_real
+  end interface
+  
+  interface operator(/)
+    module procedure divide_RealModeForce_real
+  end interface
+  
+  interface operator(+)
+    module procedure add_RealModeForce_RealModeForce
+  end interface
+  
+  interface sum
+    module procedure sum_RealModeForces
+  end interface
+  
+  interface operator(-)
+    module procedure negative_RealModeForce
+    module procedure subtract_RealModeForce_RealModeForce
   end interface
 contains
 
@@ -50,6 +77,82 @@ function new_RealModeForce_RealSingleModeVectors(forces) &
   type(RealModeForce)                    :: this
   
   this = RealModeForce(RealModeVector(forces))
+end function
+
+! ----------------------------------------------------------------------
+! Arithmetic.
+! ----------------------------------------------------------------------
+impure elemental function multiply_real_RealModeForce(this,that) &
+   & result(output)
+  implicit none
+  
+  real(dp),            intent(in) :: this
+  type(RealModeForce), intent(in) :: that
+  type(RealModeForce)             :: output
+  
+  output = RealModeForce(this*that%RealModeVector)
+end function
+
+impure elemental function multiply_RealModeForce_real(this,that) &
+   & result(output)
+  implicit none
+  
+  type(RealModeForce), intent(in) :: this
+  real(dp),            intent(in) :: that
+  type(RealModeForce)             :: output
+  
+  output = RealModeForce(this%RealModeVector*that)
+end function
+
+impure elemental function divide_RealModeForce_real(this,that) &
+   & result(output)
+  implicit none
+  
+  type(RealModeForce), intent(in) :: this
+  real(dp),            intent(in) :: that
+  type(RealModeForce)             :: output
+  
+  output = RealModeForce(this%RealModeVector/that)
+end function
+
+impure elemental function add_RealModeForce_RealModeForce(this, &
+   & that) result(output)
+  implicit none
+  
+  type(RealModeForce), intent(in) :: this
+  type(RealModeForce), intent(in) :: that
+  type(RealModeForce)             :: output
+  
+  output = RealModeForce(this%RealModeVector + that%RealModeVector)
+end function
+
+function sum_RealModeForces(this) result(output)
+  implicit none
+  
+  type(RealModeForce), intent(in) :: this(:)
+  type(RealModeForce)             :: output
+  
+  output = RealModeForce(sum(this%RealModeVector))
+end function
+
+impure elemental function negative_RealModeForce(this) result(output)
+  implicit none
+  
+  type(RealModeForce), intent(in) :: this
+  type(RealModeForce)             :: output
+  
+  output = RealModeForce(-this%RealModeVector)
+end function
+
+impure elemental function subtract_RealModeForce_RealModeForce( &
+   & this,that) result(output)
+  implicit none
+  
+  type(RealModeForce), intent(in) :: this
+  type(RealModeForce), intent(in) :: that
+  type(RealModeForce)             :: output
+  
+  output = RealModeForce(this%RealModeVector - that%RealModeVector)
 end function
 
 ! ----------------------------------------------------------------------

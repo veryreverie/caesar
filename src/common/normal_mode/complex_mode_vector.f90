@@ -14,6 +14,11 @@ module complex_mode_vector_submodule
   
   public :: ComplexModeVector
   public :: size
+  public :: operator(*)
+  public :: operator(/)
+  public :: operator(+)
+  public :: sum
+  public :: operator(-)
   
   type, extends(Stringsable) :: ComplexModeVector
     type(ComplexSingleModeVector), allocatable :: vectors(:)
@@ -32,6 +37,28 @@ module complex_mode_vector_submodule
   
   interface size
     module procedure size_ComplexModeVector
+  end interface
+  
+  interface operator(*)
+    module procedure multiply_complex_ComplexModeVector
+    module procedure multiply_ComplexModeVector_complex
+  end interface
+  
+  interface operator(/)
+    module procedure divide_ComplexModeVector_complex
+  end interface
+  
+  interface operator(+)
+    module procedure add_ComplexModeVector_ComplexModeVector
+  end interface
+  
+  interface sum
+    module procedure sum_ComplexModeVectors
+  end interface
+  
+  interface operator(-)
+    module procedure negative_ComplexModeVector
+    module procedure subtract_ComplexModeVector_ComplexModeVector
   end interface
 contains
 
@@ -97,6 +124,112 @@ function qpoints_ComplexModeVector(this,modes,qpoints) result(output)
   allocate(output(size(qpoint_ids)), stat=ialloc); call err(ialloc)
   do i=1,size(output)
     output(i) = qpoints(first(qpoints%id==qpoint_ids(i)))
+  enddo
+end function
+
+! ----------------------------------------------------------------------
+! Arithmetic.
+! ----------------------------------------------------------------------
+impure elemental function multiply_complex_ComplexModeVector(this,that) &
+   & result(output)
+  implicit none
+  
+  complex(dp),             intent(in) :: this
+  type(ComplexModeVector), intent(in) :: that
+  type(ComplexModeVector)             :: output
+  
+  output = ComplexModeVector(this*that%vectors)
+end function
+
+impure elemental function multiply_ComplexModeVector_complex(this,that) &
+   & result(output)
+  implicit none
+  
+  type(ComplexModeVector), intent(in) :: this
+  complex(dp),             intent(in) :: that
+  type(ComplexModeVector)             :: output
+  
+  output = ComplexModeVector(this%vectors*that)
+end function
+
+impure elemental function divide_ComplexModeVector_complex(this,that) &
+   & result(output)
+  implicit none
+  
+  type(ComplexModeVector), intent(in) :: this
+  complex(dp),             intent(in) :: that
+  type(ComplexModeVector)             :: output
+  
+  output = ComplexModeVector(this%vectors/that)
+end function
+
+impure elemental function add_ComplexModeVector_ComplexModeVector(this,that) &
+   & result(output)
+  implicit none
+  
+  type(ComplexModeVector), intent(in) :: this
+  type(ComplexModeVector), intent(in) :: that
+  type(ComplexModeVector)             :: output
+  
+  integer :: i,j
+  
+  output = this
+  do i=1,size(that)
+    j = first(this%vectors%id==that%vectors(i)%id, default=0)
+    if (j==0) then
+      output%vectors = [output%vectors, that%vectors(i)]
+    else
+      output%vectors(j) = output%vectors(j) + that%vectors(i)
+    endif
+  enddo
+end function
+
+function sum_ComplexModeVectors(this) result(output)
+  implicit none
+  
+  type(ComplexModeVector), intent(in) :: this(:)
+  type(ComplexModeVector)             :: output
+  
+  integer :: i
+  
+  if (size(this)==0) then
+    call print_line(ERROR//': Trying to sum an empty list.')
+    call err()
+  endif
+  
+  output = this(1)
+  do i=2,size(this)
+    output = output + this(i)
+  enddo
+end function
+
+impure elemental function negative_ComplexModeVector(this) result(output)
+  implicit none
+  
+  type(ComplexModeVector), intent(in) :: this
+  type(ComplexModeVector)             :: output
+  
+  output = ComplexModeVector(-this%vectors)
+end function
+
+impure elemental function subtract_ComplexModeVector_ComplexModeVector(this, &
+   & that) result(output)
+  implicit none
+  
+  type(ComplexModeVector), intent(in) :: this
+  type(ComplexModeVector), intent(in) :: that
+  type(ComplexModeVector)             :: output
+  
+  integer :: i,j
+  
+  output = this
+  do i=1,size(that)
+    j = first(this%vectors%id==that%vectors(i)%id, default=0)
+    if (j==0) then
+      output%vectors = [output%vectors, -that%vectors(i)]
+    else
+      output%vectors(j) = output%vectors(j) - that%vectors(i)
+    endif
   enddo
 end function
 
