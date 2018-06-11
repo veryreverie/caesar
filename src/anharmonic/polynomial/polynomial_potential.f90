@@ -10,6 +10,8 @@ module polynomial_potential_module
   use basis_functions_module
   use vscf_rvectors_module
   use sampling_points_module
+  use sample_result_module
+  use sample_results_module
   implicit none
   
   private
@@ -202,14 +204,10 @@ subroutine generate_potential_PolynomialPotential(this,inputs, &
   
   type(StructureData)             :: supercell
   type(VscfRvectors), allocatable :: vscf_rvectors(:)
-  type(ElectronicStructure)       :: electronic_structure
   
   type(ElectronicStructure), allocatable :: calculations(:)
-  type(ElectronicStructure), allocatable :: sampled_points(:)
   
-  real(dp)                         :: energy
-  type(RealModeForce), allocatable :: forces(:)
-  type(RealModeForce)              :: force
+  type(SampleResults), allocatable :: sample_results(:)
   
   ! Directories and files.
   type(String) :: coupling_dir
@@ -225,6 +223,7 @@ subroutine generate_potential_PolynomialPotential(this,inputs, &
   ! Read in basis functions and sampling points.
   allocate( this%basis_functions(size(inputs%subspace_couplings)), &
           & this%sampling_points(size(inputs%subspace_couplings)), &
+          & sample_results(size(inputs%subspace_couplings)),        &
           & stat=ialloc); call err(ialloc)
   do i=1,size(this%sampling_points)
     coupling_dir = sampling_points_dir// &
@@ -237,7 +236,7 @@ subroutine generate_potential_PolynomialPotential(this,inputs, &
     sampling_points_file = IFile(coupling_dir//'/sampling_points.dat')
     this%sampling_points(i) = sampling_points_file%lines()
     
-    allocate( sampled_points(size(this%sampling_points(i))), &
+    allocate( sample_results(i)%results(size(this%sampling_points(i))), &
             & stat=ialloc); call err(ialloc)
     do j=1,size(this%sampling_points(i))
       sampling_dir = coupling_dir// &
@@ -251,6 +250,7 @@ subroutine generate_potential_PolynomialPotential(this,inputs, &
       vscf_rvectors_file = IFile(sampling_dir//'/vscf_rvectors.dat')
       vscf_rvectors = VscfRvectors(vscf_rvectors_file%sections())
       
+      ! Read in electronic structure calculations.
       allocate( calculations(size(vscf_rvectors)), &
               & stat=ialloc); call err(ialloc)
       do k=1,size(vscf_rvectors)
@@ -259,29 +259,16 @@ subroutine generate_potential_PolynomialPotential(this,inputs, &
         calculations(k) = read_lambda(vscf_rvectors_dir)
       enddo
       
-      ! Average the energy over all VSCF R-vectors, and normalise to be per
-      !    primitive cell.
-      energy = sum(calculations%energy) &
-           & / (size(calculations) * supercell%sc_size)
+      ! Average electronic structure across VSCF R-vectors, and convert
+      !    to correct normalisation and real mode co-ordinates.
+      sample_results(i)%results(j) = SampleResult( vscf_rvectors,     &
+                                                 & calculations,      &
+                                                 & supercell,         &
+                                                 & inputs%real_modes, &
+                                                 & inputs%qpoints)
       
-      ! Transform forces into normal mode co-ordinates, reverse the
-      !    VSCF R-vector transformation, and find the average.
-      allocate(forces(size(vscf_rvectors)), stat=ialloc); call err(ialloc)
-      do k=1,size(vscf_rvectors)
-        forces(k) = RealModeForce( calculations(k)%forces, &
-                                 & supercell,              &
-                                 & inputs%real_modes,      &
-                                 & inputs%qpoints)
-        forces(k) = vscf_rvectors(k)%inverse_transform( forces(k),         &
-                                                      & inputs%real_modes, &
-                                                      & inputs%qpoints)
-      enddo
-      force = sum(forces) / real(size(calculations),dp)
-      
-      ! sampled_points(j) = average(calculations,vscf_rvectors)
       deallocate(calculations, stat=ialloc); call err(ialloc)
     enddo
-    deallocate(sampled_points, stat=ialloc); call err(ialloc)
   enddo
   
   ! TODO
