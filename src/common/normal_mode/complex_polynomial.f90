@@ -6,7 +6,7 @@ module complex_polynomial_submodule
   
   use complex_mode_submodule
   use complex_single_mode_vector_submodule
-  use complex_mode_displacement_submodule
+  use complex_mode_vector_submodule
   implicit none
   
   private
@@ -55,6 +55,7 @@ module complex_polynomial_submodule
        & to_ComplexPolynomial_ComplexUnivariate
     
     procedure, public :: evaluate   => evaluate_ComplexUnivariate
+    procedure, public :: derivative => derivative_ComplexUnivariate
     
     procedure, public :: read  => read_ComplexUnivariate
     procedure, public :: write => write_ComplexUnivariate
@@ -320,29 +321,30 @@ impure elemental function conjg_ComplexPolynomial(this) result(output)
   output = ComplexPolynomial(conjg(this%terms))
 end function
 
-! Evaluate a univariate, monomial or polynomial at a given displacement.
-function evaluate_ComplexUnivariate(this,displacement) result(output)
+! Evaluate a univariate, monomial or polynomial at a given vector.
+impure elemental function evaluate_ComplexUnivariate(this,vector) &
+   & result(output)
   implicit none
   
-  class(ComplexUnivariate),      intent(in) :: this
-  type(ComplexSingleModeVector), intent(in) :: displacement
-  complex(dp)                               :: output
+  class(ComplexUnivariate),       intent(in) :: this
+  class(ComplexSingleModeVector), intent(in) :: vector
+  complex(dp)                                :: output
   
-  if (this%id/=displacement%id) then
+  if (this%id/=vector%id) then
     call print_line(CODE_ERROR//': Trying to evaluate a univariate at an &
        &incompatible displacement.')
     call err()
   endif
   
-  output = displacement%magnitude**this%power
+  output = vector%magnitude**this%power
 end function
 
-function evaluate_ComplexMonomial(this,displacement) result(output)
+impure elemental function evaluate_ComplexMonomial(this,vector) result(output)
   implicit none
   
-  class(ComplexMonomial),        intent(in) :: this
-  type(ComplexModeDisplacement), intent(in) :: displacement
-  complex(dp)                               :: output
+  class(ComplexMonomial),   intent(in) :: this
+  class(ComplexModeVector), intent(in) :: vector
+  complex(dp)                          :: output
   
   integer :: i,j
   
@@ -350,98 +352,165 @@ function evaluate_ComplexMonomial(this,displacement) result(output)
   
   do i=1,size(this)
     ! Find the mode in the displacement which matches that in the monomial.
-    j = first(displacement%vectors%id==this%modes(i)%id,default=0)
+    j = first(vector%vectors%id==this%modes(i)%id,default=0)
     
-    ! If the mode is not present in the displacement, then the displacement
-    !    is zero. As such, the monomial is zero. (0**n=0 if n>0).
+    ! If the mode is not present in the vector, then the projection of the
+    !    vector along that mode is zero. As such, the monomial is zero.
+    !    (0^n=0 if n>0).
     if (j==0) then
       output = 0.0_dp
       return
     endif
     
-    ! If the mode is present in both, evaluate the univariate at the
-    !    displacement.
-    output = output * this%modes(i)%evaluate(displacement%vectors(j))
+    ! If the mode is present in both, evaluate the univariate at the vector.
+    output = output * this%modes(i)%evaluate(vector%vectors(j))
   enddo
 end function
 
-function evaluate_ComplexPolynomial(this,displacement) result(output)
-  implicit none
-  
-  class(ComplexPolynomial),      intent(in) :: this
-  type(ComplexModeDisplacement), intent(in) :: displacement
-  complex(dp)                               :: output
-  
-  integer :: i
-  
-  output = 0
-  
-  do i=1,size(this)
-    output = output + this%terms(i)%evaluate(displacement)
-  enddo
-end function
-
-! Take the derivative of a monomial or polynomial in the direction of the
-!    given mode.
-function derivative_ComplexMonomial(this,mode_id) result(output)
-  implicit none
-  
-  class(ComplexMonomial), intent(in) :: this
-  integer,                intent(in) :: mode_id
-  type(ComplexMonomial)              :: output
-  
-  integer :: i
-  
-  ! Find the univariate corresponding to the mode.
-  i = first(this%modes%id==mode_id,default=0)
-  
-  if (i==0) then
-    ! If the mode is not present, then the derivative is zero.
-    output%coefficient = 0
-    output%modes = [ComplexUnivariate::]
-  else
-    ! If the mode is present, then u^n -> n*u^(n-1).
-    output = this
-    output%coefficient = output%coefficient * output%modes(i)%power
-    output%modes(i)%power = output%modes(i)%power - 1
-    
-    ! If n-1=0, remove that univariate.
-    if (output%modes(i)%power==0) then
-      output%modes = [output%modes(:i-1), output%modes(i+1:)]
-    endif
-  endif
-end function
-
-function derivative_ComplexPolynomial(this,mode_id) result(output)
+impure elemental function evaluate_ComplexPolynomial(this,vector) &
+   & result(output)
   implicit none
   
   class(ComplexPolynomial), intent(in) :: this
-  integer,                  intent(in) :: mode_id
-  type(ComplexPolynomial)              :: output
+  class(ComplexModeVector), intent(in) :: vector
+  complex(dp)                          :: output
   
-  integer :: i,ialloc
+  output = sum(this%terms%evaluate(vector))
+end function
+
+! Take the derivative of a univariate, monomial or polynomial at a given
+!    vector.
+! d/d{u_i} ({u_i}^n) evaluated at u_i=U is n*U^{n-1}
+impure elemental function derivative_ComplexUnivariate(this,vector) &
+   & result(output)
+  implicit none
   
-  allocate(output%terms(size(this)), stat=ialloc); call err(ialloc)
+  class(ComplexUnivariate),       intent(in) :: this
+  class(ComplexSingleModeVector), intent(in) :: vector
+  type(ComplexSingleModeVector)              :: output
   
-  ! Take derivatives, term by term.
+  complex(dp) :: derivative
+  
+  if (this%id/=vector%id) then
+    call print_line(CODE_ERROR//': Trying to take the derivative of a &
+       & univariate at an incompatible displacement.')
+    call err()
+  endif
+  
+  if (this%power==1) then
+    derivative = 1.0_dp
+  else
+    derivative = this%power * vector%magnitude**(this%power-1)
+  endif
+  
+  output = ComplexSingleModeVector(id=this%id, magnitude=derivative)
+end function
+
+! d/d{u_i} (c*prod_j[ {u_j}^{n_j} ]) evaluated at {u_i=U_i} is
+!    c*prod_{j/=i}[ {U_j}^{n_j} ] * n_i * {U_i}^{n_i-1}
+impure elemental function derivative_ComplexMonomial(this,vector) &
+   & result(output)
+  implicit none
+  
+  class(ComplexMonomial),   intent(in) :: this
+  class(ComplexModeVector), intent(in) :: vector
+  type(ComplexModeVector)              :: output
+  
+  integer,                       allocatable :: vector_ids(:)
+  complex(dp),                   allocatable :: evaluations(:)
+  type(ComplexSingleModeVector), allocatable :: derivatives(:)
+  
+  logical,                       allocatable :: mask(:)
+  type(ComplexSingleModeVector), allocatable :: components(:)
+  
+  integer :: i,j,ialloc
+  
+  ! Match the components of the vector along each mode with the univariates
+  !    making up the monomial.
+  ! Evaluate and take the derivative of each univariate at the one-mode
+  !    component of the vector.
+  allocate( vector_ids(size(this)),  &
+          & evaluations(size(this)), &
+          & derivatives(size(this)), &
+          & stat=ialloc); call err(ialloc)
   do i=1,size(this)
-    output%terms(i) = this%terms(i)%derivative(mode_id)
+    ! Identify the vector corresponding to each mode.
+    ! If vector_ids(i)=0 then U_i=0.
+    vector_ids(i) = first(vector%vectors%id==this%modes(i)%id, default=0)
+    
+    ! Calculate {U_i}^{n_i}
+    if (vector_ids(i)==0) then
+      evaluations(i) = 0.0_dp
+    else
+      evaluations(i) = this%modes(i)%evaluate(vector%vectors(vector_ids(i)))
+    endif
+    
+    ! Calculate d/d{u_i} ({u_i}^{n_i}) evaluated at U_i.
+    if (vector_ids(i)==0) then
+      if (this%modes(i)%power==1) then
+        derivatives(i) = ComplexSingleModeVector( &
+                           & id=this%modes(i)%id, &
+                           & magnitude=cmplx(1.0_dp,0.0_dp,dp))
+      else
+        derivatives(i) = ComplexSingleModeVector( &
+                           & id=this%modes(i)%id, &
+                           & magnitude=cmplx(0.0_dp,0.0_dp,dp))
+      endif
+    else
+      derivatives(i) = this%modes(i)%derivative(vector%vectors(vector_ids(i)))
+    endif
   enddo
   
-  ! Remove the terms which are now zero.
-  output%terms = output%terms(filter(output%terms,non_zero))
-contains
-  ! A Lambda for identifying non-zero monomials.
-  function non_zero(input) result(output)
-    implicit none
-    
-    class(*), intent(in) :: input
-    logical              :: output
-    
-    select type(input); type is(ComplexMonomial)
-      output = size(input)/=0
-    end select
-  end function
+  ! Use the Univariate terms to calculate derivatives along each mode.
+  if (count(vector_ids==0)>1) then
+    ! If U_i is zero for more than one i, then
+    !    prod_{j/=i}[ {U_j}^{n_j} ] is always zero,
+    !    so all derivatives are zero.
+    components = [ComplexSingleModeVector::]
+  elseif (count(vector_ids==0)==1) then
+    i = first(vector_ids==0, default=0)
+    if (this%modes(i)%power>1) then
+      ! If n_i>1, then the derivative along u_i is also zero.
+      components = [ComplexSingleModeVector::]
+    else
+      ! If n_i=1, then the derivative is simply c*prod_{j/=i}[ {U_j}^{n_j}
+      components = [ this%coefficient                       &
+                 & * product( evaluations,                  &
+                 &            dim=1,                        &
+                 &            mask=[(j,j=1,size(this))]/=i) &
+                 & * derivatives(i)                         &
+                 & ]
+    endif
+  else
+    ! If no U_i are zero, then the monomial has non-zero derivatives along
+    !    each of its modes.
+    allocate(components(size(this)), stat=ialloc); call err(ialloc)
+    do i=1,size(this)
+      components(i) = this%coefficient                       &
+                  & * product( evaluations,                  &
+                  &            dim=1,                        &
+                  &            mask=[(j,j=1,size(this))]/=i) &
+                  & * derivatives(i)
+    enddo
+  endif
+  
+  ! Construct output from components along each mode.
+  output = ComplexModeVector(components)
+end function
+
+impure elemental function derivative_ComplexPolynomial(this,vector) &
+   & result(output)
+  implicit none
+  
+  class(ComplexPolynomial), intent(in) :: this
+  class(ComplexModeVector), intent(in) :: vector
+  type(ComplexModeVector)              :: output
+  
+  if (size(this)==0) then
+    output = ComplexModeVector([ComplexSingleModeVector::])
+  else
+    output = sum(this%terms%derivative(vector))
+  endif
 end function
 
 ! Multiplication and division by scalars.

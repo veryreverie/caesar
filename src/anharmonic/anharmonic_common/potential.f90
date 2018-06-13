@@ -27,6 +27,10 @@ module potential_module
     !    generate_sampling_points will all have been run.
     procedure(generate_potential_PotentialData), public, deferred :: &
        & generate_potential
+    
+    ! Return the energy and force at a given displacement.
+    procedure(energy_PotentialData), public, deferred :: energy
+    procedure(force_PotentialData),  public, deferred :: force
   end type
   
   interface
@@ -72,7 +76,8 @@ module potential_module
     end subroutine
     
     subroutine generate_potential_PotentialData(this,inputs, &
-       & sampling_points_dir,logfile,read_lambda)
+       & weighted_energy_force_ratio,sampling_points_dir,logfile,read_lambda)
+      import dp
       import PotentialData
       import AnharmonicData
       import String
@@ -81,10 +86,35 @@ module potential_module
       
       class(PotentialData), intent(inout) :: this
       type(AnharmonicData), intent(in)    :: inputs
+      real(dp),             intent(in)    :: weighted_energy_force_ratio
       type(String),         intent(in)    :: sampling_points_dir
       type(OFile),          intent(inout) :: logfile
       procedure(ReadLambda)               :: read_lambda
     end subroutine
+    
+    impure elemental function energy_PotentialData(this,displacement) &
+       & result(output)
+      import dp
+      import PotentialData
+      import RealModeDisplacement
+      implicit none
+      
+      class(PotentialData),       intent(in) :: this
+      type(RealModeDisplacement), intent(in) :: displacement
+      real(dp)                               :: output
+    end function
+    
+    impure elemental function force_PotentialData(this,displacement) &
+       & result(output)
+      import PotentialData
+      import RealModeDisplacement
+      import RealModeForce
+      implicit none
+      
+      class(PotentialData),       intent(in) :: this
+      type(RealModeDisplacement), intent(in) :: displacement
+      type(RealModeForce)                    :: output
+    end function
   end interface
 contains
 end module

@@ -12,6 +12,7 @@ module polynomial_potential_module
   use sampling_points_module
   use sample_result_module
   use sample_results_module
+  use fit_coefficients_module
   implicit none
   
   private
@@ -19,14 +20,18 @@ module polynomial_potential_module
   public :: PolynomialPotential
   
   type, extends(PotentialData) :: PolynomialPotential
-    integer                           :: potential_expansion_order
-    type(BasisFunctions), allocatable :: basis_functions(:)
-    type(SamplingPoints), allocatable :: sampling_points(:)
+    integer,                          private :: potential_expansion_order
+    real(dp),                         private :: energy_baseline
+    type(BasisFunction), allocatable, private :: basis_functions(:)
+    real(dp),            allocatable, private :: coefficients(:)
   contains
     procedure, public :: generate_sampling_points => &
        & generate_sampling_points_PolynomialPotential
     procedure, public :: generate_potential => &
        & generate_potential_PolynomialPotential
+    
+    procedure, public :: energy => energy_PolynomialPotential
+    procedure, public :: force  => force_PolynomialPotential
   end type
   
   interface PolynomialPotential
@@ -57,6 +62,8 @@ subroutine generate_sampling_points_PolynomialPotential(this,inputs, &
   
   ! Variables used when generating sampling points.
   type(SubspaceMonomial), allocatable :: subspace_monomials(:)
+  type(BasisFunctions),   allocatable :: basis_functions(:)
+  type(SamplingPoints),   allocatable :: sampling_points(:)
   
   ! Supercell variables.
   type(QpointData), allocatable :: sampling_point_qpoints(:)
@@ -87,8 +94,8 @@ subroutine generate_sampling_points_PolynomialPotential(this,inputs, &
   
   ! Loop over subspace couplings, generating basis functions and sampling
   !    points for each.
-  allocate( this%basis_functions(size(inputs%subspace_couplings)), &
-          & this%sampling_points(size(inputs%subspace_couplings)), &
+  allocate( basis_functions(size(inputs%subspace_couplings)), &
+          & sampling_points(size(inputs%subspace_couplings)), &
           & stat=ialloc); call err(ialloc)
   do i=1,size(inputs%subspace_couplings)
     ! Generate the set of subspace monomials corresponding to the subspace
@@ -100,51 +107,51 @@ subroutine generate_sampling_points_PolynomialPotential(this,inputs, &
                       & this%potential_expansion_order)
     
     ! Generate basis functions at each coupling.
-    this%basis_functions(i) = generate_basis_functions( &
-                    & subspace_monomials,               &
-                    & inputs%structure,                 &
-                    & inputs%complex_modes,             &
-                    & inputs%real_modes,                &
-                    & inputs%qpoints,                   &
-                    & inputs%degenerate_subspaces,      &
-                    & inputs%degenerate_symmetries,     &
-                    & inputs%vscf_basis_functions_only, &
-                    & logfile)
+    basis_functions(i) = generate_basis_functions( &
+               & subspace_monomials,               &
+               & inputs%structure,                 &
+               & inputs%complex_modes,             &
+               & inputs%real_modes,                &
+               & inputs%qpoints,                   &
+               & inputs%degenerate_subspaces,      &
+               & inputs%degenerate_symmetries,     &
+               & inputs%vscf_basis_functions_only, &
+               & logfile)
     
     ! Generate a set of sampling points from which the basis functions can
     !    be constructed.
-    this%sampling_points(i) = generate_sampling_points( &
-                & this%basis_functions(i)%functions,    &
-                & this%potential_expansion_order,       &
-                & inputs%maximum_weighted_displacement, &
-                & inputs%frequency_of_max_displacement, &
-                & inputs%real_modes)
+    sampling_points(i) = generate_sampling_points( &
+           & basis_functions(i)%functions,         &
+           & this%potential_expansion_order,       &
+           & inputs%maximum_weighted_displacement, &
+           & inputs%frequency_of_max_displacement, &
+           & inputs%real_modes)
   enddo
   
   ! --------------------------------------------------
   ! Write out basis functions and sampling points.
   ! --------------------------------------------------
-  do i=1,size(this%sampling_points)
+  do i=1,size(sampling_points)
     ! Make a directory for each coupling.
     coupling_dir = sampling_points_dir// &
-                 & '/coupling_'//left_pad(i,str(size(this%sampling_points)))
+                 & '/coupling_'//left_pad(i,str(size(sampling_points)))
     call mkdir(coupling_dir)
     
     ! Write basis functions to file.
     basis_functions_file = OFile(coupling_dir//'/basis_functions.dat')
-    call basis_functions_file%print_lines(this%basis_functions(i))
+    call basis_functions_file%print_lines(basis_functions(i))
     
     ! Write sampling points to file.
     sampling_points_file = OFile(coupling_dir//'/sampling_points.dat')
-    call sampling_points_file%print_lines(this%sampling_points(i))
+    call sampling_points_file%print_lines(sampling_points(i))
     
-    do j=1,size(this%sampling_points(i))
+    do j=1,size(sampling_points(i))
       ! Select the sampling point for clarity.
-      sampling_point = this%sampling_points(i)%points(j)
+      sampling_point = sampling_points(i)%points(j)
       
       ! Make a directory for each sampling point.
       sampling_dir = coupling_dir// &
-         & '/sampling_point_'//left_pad(j,str(size(this%sampling_points(i))))
+         & '/sampling_point_'//left_pad(j,str(size(sampling_points(i))))
       call mkdir(sampling_dir)
       
       ! Construct a supercell for each sampling point.
@@ -193,21 +200,34 @@ end subroutine
 
 ! Generate potential.
 subroutine generate_potential_PolynomialPotential(this,inputs, &
-   & sampling_points_dir,logfile,read_lambda)
+   & weighted_energy_force_ratio,sampling_points_dir,logfile,read_lambda)
   implicit none
   
   class(PolynomialPotential), intent(inout) :: this
   type(AnharmonicData),       intent(in)    :: inputs
+  real(dp),                   intent(in)    :: weighted_energy_force_ratio
   type(String),               intent(in)    :: sampling_points_dir
   type(OFile),                intent(inout) :: logfile
   procedure(ReadLambda)                     :: read_lambda
   
-  type(StructureData)             :: supercell
-  type(VscfRvectors), allocatable :: vscf_rvectors(:)
-  
+  ! Variables for processing electronic structure.
+  type(StructureData)                    :: supercell
+  type(VscfRvectors),        allocatable :: vscf_rvectors(:)
   type(ElectronicStructure), allocatable :: calculations(:)
   
-  type(SampleResults), allocatable :: sample_results(:)
+  ! Previously calculated basis functions.
+  type(BasisFunctions), allocatable :: basis_functions(:)
+  
+  ! Electronic structure results.
+  type(SamplingPoints), allocatable :: sampling_points(:)
+  type(SampleResults),  allocatable :: sample_results(:)
+  
+  ! Variables for generating coefficients.
+  logical,                    allocatable :: uncoupled(:)
+  type(BasisFunction),        allocatable :: uncoupled_basis_functions(:)
+  type(RealModeDisplacement), allocatable :: uncoupled_sampling_points(:)
+  type(SampleResult),         allocatable :: uncoupled_sample_results(:)
+  real(dp),                   allocatable :: coefficients(:)
   
   ! Directories and files.
   type(String) :: coupling_dir
@@ -220,27 +240,35 @@ subroutine generate_potential_PolynomialPotential(this,inputs, &
   ! Temporary variables.
   integer :: i,j,k,ialloc
   
+  ! --------------------------------------------------
   ! Read in basis functions and sampling points.
-  allocate( this%basis_functions(size(inputs%subspace_couplings)), &
-          & this%sampling_points(size(inputs%subspace_couplings)), &
-          & sample_results(size(inputs%subspace_couplings)),        &
+  ! --------------------------------------------------
+  allocate( basis_functions(size(inputs%subspace_couplings)), &
+          & sampling_points(size(inputs%subspace_couplings)), &
           & stat=ialloc); call err(ialloc)
-  do i=1,size(this%sampling_points)
+  do i=1,size(sampling_points)
     coupling_dir = sampling_points_dir// &
-       & '/coupling_'//left_pad(i,str(size(this%sampling_points)))
+       & '/coupling_'//left_pad(i,str(size(sampling_points)))
     
     ! Read in basis functions and sampling points.
     basis_functions_file = IFile(coupling_dir//'/basis_functions.dat')
-    this%basis_functions(i) = basis_functions_file%lines()
+    basis_functions(i) = basis_functions_file%lines()
     
     sampling_points_file = IFile(coupling_dir//'/sampling_points.dat')
-    this%sampling_points(i) = sampling_points_file%lines()
-    
-    allocate( sample_results(i)%results(size(this%sampling_points(i))), &
+    sampling_points(i) = sampling_points_file%lines()
+  enddo
+  
+  ! --------------------------------------------------
+  ! Read in energies and forces.
+  ! --------------------------------------------------
+  allocate( sample_results(size(inputs%subspace_couplings)),        &
+          & stat=ialloc); call err(ialloc)
+  do i=1,size(sampling_points)
+    allocate( sample_results(i)%results(size(sampling_points(i))), &
             & stat=ialloc); call err(ialloc)
-    do j=1,size(this%sampling_points(i))
+    do j=1,size(sampling_points(i))
       sampling_dir = coupling_dir// &
-         & '/sampling_point_'//left_pad(j,str(size(this%sampling_points(i))))
+         & '/sampling_point_'//left_pad(j,str(size(sampling_points(i))))
       
       ! Read in supercell and VSCF R-vectors.
       supercell = read_structure_file( sampling_dir//'/structure.dat', &
@@ -271,32 +299,89 @@ subroutine generate_potential_PolynomialPotential(this,inputs, &
     enddo
   enddo
   
-  ! TODO
+  ! --------------------------------------------------
+  ! Calculate basis function coefficients.
+  ! --------------------------------------------------
+  
+  ! Identify which subspace couplings only contain one subspace.
+  allocate( uncoupled(size(inputs%subspace_couplings)), &
+          & stat=ialloc); call err(ialloc)
+  do i=1,size(inputs%subspace_couplings)
+    if (size(inputs%subspace_couplings(i))==1) then
+      uncoupled(i) = .true.
+    else
+      uncoupled(i) = .false.
+    endif
+  enddo
+  
+  ! Calculate the coefficients of all basis functions which do not involve
+  !    subspace coupling at once. This takes O(no_modes^3) time.
+  uncoupled_basis_functions = [BasisFunction::]
+  uncoupled_sampling_points = [RealModeDisplacement::]
+  uncoupled_sample_results  = [SampleResult::]
+  do i=1,size(inputs%subspace_couplings)
+    if (uncoupled(i)) then
+      uncoupled_basis_functions = [ uncoupled_basis_functions, &
+                                  & basis_functions(i)%functions ]
+      uncoupled_sampling_points = [ uncoupled_sampling_points, &
+                                  & sampling_points(i)%points ]
+      uncoupled_sample_results = [ uncoupled_sample_results, &
+                                 & sample_results(i)%results ]
+    endif
+  enddo
+  
+  coefficients = fit_coefficients( uncoupled_basis_functions, &
+                                 & uncoupled_sampling_points, &
+                                 & uncoupled_sample_results,  &
+                                 & inputs%real_modes,         &
+                                 & weighted_energy_force_ratio)
+  
+  this%basis_functions = uncoupled_basis_functions
+  this%coefficients    = coefficients
+  
+  ! Calculate the coefficients of all basis functions involving subspace
+  !    coupling. These are calculated on a coupling-by-coupling basis.
+  do i=1,size(this%coefficients)
+    if (uncoupled(i)) then
+      cycle
+    endif
+    
+    coefficients = fit_coefficients( basis_functions(i)%functions, &
+                                   & sampling_points(i)%points,    &
+                                   & sample_results(i)%results,    &
+                                   & inputs%real_modes,            &
+                                   & weighted_energy_force_ratio,  &
+                                   & this)
+    
+    this%basis_functions = [this%basis_functions, basis_functions(i)%functions]
+    this%coefficients    = [this%coefficients, coefficients]
+  enddo
 end subroutine
 
-!! Average over VSCF R-vectors.
-!function average(calculations,vscf_rvectors) result(output)
-!  implicit none
-!  
-!  type(ElectronicStructure), intent(in) :: calculations(:)
-!  type(VscfRvectors),        intent(in) :: vscf_rvectors(:)
-!  type(ElectronicStructure)             :: output
-!  
-!  type(ElectronicStructure), allocatable :: untransformed_calculations(:)
-!  
-!  real(dp)             :: energy
-!  type(CartesianForce) :: forces(:)
-!  
-!  integer :: i,ialloc
-!  
-!  if (size(calculations)/=size(vscf_rvectors)) then
-!    call err()
-!  endif
-!  
-!  allocate( untransformed_calculations(size(calculations)), &
-!          & stat=ialloc); call err(ialloc)
-!  do i=1,size(calculations)
-!    untransformed_calculations = vscf_rvectors(i)%inverse_transform( &
-!  enddo
-!end function
+! Calculate the energy at a given displacement.
+impure elemental function energy_PolynomialPotential(this,displacement) &
+   & result(output)
+  implicit none
+  
+  class(PolynomialPotential), intent(in) :: this
+  type(RealModeDisplacement), intent(in) :: displacement
+  real(dp)                               :: output
+  
+  output = this%energy_baseline   &
+       & + sum( this%coefficients &
+       &      * this%basis_functions%evaluate(displacement))
+end function
+
+! Calculate the force at a given displacement.
+impure elemental function force_PolynomialPotential(this,displacement) &
+   & result(output)
+  implicit none
+  
+  class(PolynomialPotential), intent(in) :: this
+  type(RealModeDisplacement), intent(in) :: displacement
+  type(RealModeForce)                    :: output
+  
+  output = RealModeForce(sum( this%coefficients &
+                          & * this%basis_functions%derivative(displacement)))
+end function
 end module

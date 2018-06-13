@@ -5,7 +5,7 @@ module real_polynomial_submodule
   use utils_module
   
   use real_single_mode_vector_submodule
-  use real_mode_displacement_submodule
+  use real_mode_vector_submodule
   implicit none
   
   private
@@ -50,7 +50,8 @@ module real_polynomial_submodule
     procedure, public :: to_RealMonomial   => to_RealMonomial_RealUnivariate
     procedure, public :: to_RealPolynomial => to_RealPolynomial_RealUnivariate
     
-    procedure, public :: evaluate => evaluate_RealUnivariate
+    procedure, public :: evaluate   => evaluate_RealUnivariate
+    procedure, public :: derivative => derivative_RealUnivariate
     
     procedure, public :: read  => read_RealUnivariate
     procedure, public :: write => write_RealUnivariate
@@ -272,29 +273,29 @@ function size_RealPolynomial(this) result(output)
   output = size(this%terms)
 end function
 
-! Evaluate a univariate, monomial or polynomial at a given displacement.
-function evaluate_RealUnivariate(this,displacement) result(output)
+! Evaluate a univariate, monomial or polynomial at a given vector.
+impure elemental function evaluate_RealUnivariate(this,vector) result(output)
   implicit none
   
-  class(RealUnivariate),      intent(in) :: this
-  type(RealSingleModeVector), intent(in) :: displacement
-  real(dp)                               :: output
+  class(RealUnivariate),       intent(in) :: this
+  class(RealSingleModeVector), intent(in) :: vector
+  real(dp)                                :: output
   
-  if (this%id/=displacement%id) then
+  if (this%id/=vector%id) then
     call print_line(CODE_ERROR//': Trying to evaluate a univariate at an &
        &incompatible displacement.')
     call err()
   endif
   
-  output = displacement%magnitude**this%power
+  output = vector%magnitude**this%power
 end function
 
-function evaluate_RealMonomial(this,displacement) result(output)
+impure elemental function evaluate_RealMonomial(this,vector) result(output)
   implicit none
   
-  class(RealMonomial),        intent(in) :: this
-  type(RealModeDisplacement), intent(in) :: displacement
-  real(dp)                               :: output
+  class(RealMonomial),   intent(in) :: this
+  class(RealModeVector), intent(in) :: vector
+  real(dp)                          :: output
   
   integer :: i,j
   
@@ -302,98 +303,159 @@ function evaluate_RealMonomial(this,displacement) result(output)
   
   do i=1,size(this)
     ! Find the mode in the displacement which matches that in the monomial.
-    j = first(displacement%vectors%id==this%modes(i)%id,default=0)
+    j = first(vector%vectors%id==this%modes(i)%id,default=0)
     
-    ! If the mode is not present in the displacement, then the displacement
-    !    is zero. As such, the monomial is zero. (0**n=0 if n>0).
+    ! If the mode is not present in the vector, then the projection of the
+    !    vector along that mode is zero. As such, the monomial is zero.
+    !    (0^n=0 if n>0).
     if (j==0) then
       output = 0.0_dp
       return
     endif
     
-    ! If the mode is present in both, evaluate the univariate at the
-    !    displacement.
-    output = output * this%modes(i)%evaluate(displacement%vectors(j))
+    ! If the mode is present in both, evaluate the univariate at the vector.
+    output = output * this%modes(i)%evaluate(vector%vectors(j))
   enddo
 end function
 
-function evaluate_RealPolynomial(this,displacement) result(output)
-  implicit none
-  
-  class(RealPolynomial),      intent(in) :: this
-  type(RealModeDisplacement), intent(in) :: displacement
-  real(dp)                               :: output
-  
-  integer :: i
-  
-  output = 0
-  
-  do i=1,size(this)
-    output = output + this%terms(i)%evaluate(displacement)
-  enddo
-end function
-
-! Take the derivative of a monomial or polynomial in the direction of the
-!    given mode.
-function derivative_RealMonomial(this,mode_id) result(output)
-  implicit none
-  
-  class(RealMonomial), intent(in) :: this
-  integer,             intent(in) :: mode_id
-  type(RealMonomial)              :: output
-  
-  integer :: i
-  
-  ! Find the univariate corresponding to the mode.
-  i = first(this%modes%id==mode_id,default=0)
-  
-  if (i==0) then
-    ! If the mode is not present, then the derivative is zero.
-    output%coefficient = 0
-    output%modes = [RealUnivariate::]
-  else
-    ! If the mode is present, then u^n -> n*u^(n-1).
-    output = this
-    output%coefficient = output%coefficient * output%modes(i)%power
-    output%modes(i)%power = output%modes(i)%power - 1
-    
-    ! If n-1=0, remove that univariate.
-    if (output%modes(i)%power==0) then
-      output%modes = [output%modes(:i-1), output%modes(i+1:)]
-    endif
-  endif
-end function
-
-function derivative_RealPolynomial(this,mode_id) result(output)
+impure elemental function evaluate_RealPolynomial(this,vector) result(output)
   implicit none
   
   class(RealPolynomial), intent(in) :: this
-  integer,               intent(in) :: mode_id
-  type(RealPolynomial)              :: output
+  class(RealModeVector), intent(in) :: vector
+  real(dp)                          :: output
   
-  integer :: i,ialloc
+  output = sum(this%terms%evaluate(vector))
+end function
+
+! Take the derivative of a univariate, monomial or polynomial at a given
+!    vector.
+! d/d{u_i} ({u_i}^n) evaluated at u_i=U is n*U^{n-1}
+impure elemental function derivative_RealUnivariate(this,vector) result(output)
+  implicit none
   
-  allocate(output%terms(size(this)), stat=ialloc); call err(ialloc)
+  class(RealUnivariate),       intent(in) :: this
+  class(RealSingleModeVector), intent(in) :: vector
+  type(RealSingleModeVector)              :: output
   
-  ! Take derivatives, term by term.
+  real(dp) :: derivative
+  
+  if (this%id/=vector%id) then
+    call print_line(CODE_ERROR//': Trying to take the derivative of a &
+       & univariate at an incompatible displacement.')
+    call err()
+  endif
+  
+  if (this%power==1) then
+    derivative = 1.0_dp
+  else
+    derivative = this%power * vector%magnitude**(this%power-1)
+  endif
+  
+  output = RealSingleModeVector(id=this%id, magnitude=derivative)
+end function
+
+! d/d{u_i} (c*prod_j[ {u_j}^{n_j} ]) evaluated at {u_i=U_i} is
+!    c*prod_{j/=i}[ {U_j}^{n_j} ] * n_i * {U_i}^{n_i-1}
+impure elemental function derivative_RealMonomial(this,vector) result(output)
+  implicit none
+  
+  class(RealMonomial),   intent(in) :: this
+  class(RealModeVector), intent(in) :: vector
+  type(RealModeVector)              :: output
+  
+  integer,                    allocatable :: vector_ids(:)
+  real(dp),                   allocatable :: evaluations(:)
+  type(RealSingleModeVector), allocatable :: derivatives(:)
+  
+  logical,                    allocatable :: mask(:)
+  type(RealSingleModeVector), allocatable :: components(:)
+  
+  integer :: i,j,ialloc
+  
+  ! Match the components of the vector along each mode with the univariates
+  !    making up the monomial.
+  ! Evaluate and take the derivative of each univariate at the one-mode
+  !    component of the vector.
+  allocate( vector_ids(size(this)),  &
+          & evaluations(size(this)), &
+          & derivatives(size(this)), &
+          & stat=ialloc); call err(ialloc)
   do i=1,size(this)
-    output%terms(i) = this%terms(i)%derivative(mode_id)
+    ! Identify the vector corresponding to each mode.
+    ! If vector_ids(i)=0 then U_i=0.
+    vector_ids(i) = first(vector%vectors%id==this%modes(i)%id, default=0)
+    
+    ! Calculate {U_i}^{n_i}
+    if (vector_ids(i)==0) then
+      evaluations(i) = 0.0_dp
+    else
+      evaluations(i) = this%modes(i)%evaluate(vector%vectors(vector_ids(i)))
+    endif
+    
+    ! Calculate d/d{u_i} ({u_i}^{n_i}) evaluated at U_i.
+    if (vector_ids(i)==0) then
+      if (this%modes(i)%power==1) then
+        derivatives(i) = RealSingleModeVector( id=this%modes(i)%id, &
+                                             & magnitude=1.0_dp)
+      else
+        derivatives(i) = RealSingleModeVector( id=this%modes(i)%id, &
+                                             & magnitude=0.0_dp)
+      endif
+    else
+      derivatives(i) = this%modes(i)%derivative(vector%vectors(vector_ids(i)))
+    endif
   enddo
   
-  ! Remove the terms which are now zero.
-  output%terms = output%terms(filter(output%terms,non_zero))
-contains
-  ! A Lambda for identifying non-zero monomials.
-  function non_zero(input) result(output)
-    implicit none
-    
-    class(*), intent(in) :: input
-    logical              :: output
-    
-    select type(input); type is(RealMonomial)
-      output = size(input)/=0
-    end select
-  end function
+  ! Use the Univariate terms to calculate derivatives along each mode.
+  if (count(vector_ids==0)>1) then
+    ! If U_i is zero for more than one i, then
+    !    prod_{j/=i}[ {U_j}^{n_j} ] is always zero,
+    !    so all derivatives are zero.
+    components = [RealSingleModeVector::]
+  elseif (count(vector_ids==0)==1) then
+    i = first(vector_ids==0, default=0)
+    if (this%modes(i)%power>1) then
+      ! If n_i>1, then the derivative along u_i is also zero.
+      components = [RealSingleModeVector::]
+    else
+      ! If n_i=1, then the derivative is simply c*prod_{j/=i}[ {U_j}^{n_j}
+      components = [ this%coefficient                       &
+                 & * product( evaluations,                  &
+                 &            dim=1,                        &
+                 &            mask=[(j,j=1,size(this))]/=i) &
+                 & * derivatives(i)                         &
+                 & ]
+    endif
+  else
+    ! If no U_i are zero, then the monomial has non-zero derivatives along
+    !    each of its modes.
+    allocate(components(size(this)), stat=ialloc); call err(ialloc)
+    do i=1,size(this)
+      components(i) = this%coefficient                       &
+                  & * product( evaluations,                  &
+                  &            dim=1,                        &
+                  &            mask=[(j,j=1,size(this))]/=i) &
+                  & * derivatives(i)
+    enddo
+  endif
+  
+  ! Construct output from components along each mode.
+  output = RealModeVector(components)
+end function
+
+impure elemental function derivative_RealPolynomial(this,vector) result(output)
+  implicit none
+  
+  class(RealPolynomial), intent(in) :: this
+  class(RealModeVector), intent(in) :: vector
+  type(RealModeVector)              :: output
+  
+  if (size(this)==0) then
+    output = RealModeVector([RealSingleModeVector::])
+  else
+    output = sum(this%terms%derivative(vector))
+  endif
 end function
 
 ! Multiplication and division by scalars.

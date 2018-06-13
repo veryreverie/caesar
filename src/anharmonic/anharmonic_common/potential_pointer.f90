@@ -23,6 +23,11 @@ module potential_pointer_module
        & generate_sampling_points_PotentialPointer
     procedure, public :: generate_potential => &
        & generate_potential_PotentialPointer
+    
+    procedure, public :: energy => energy_PotentialPointer
+    procedure, public :: force  => force_PotentialPointer
+    
+    procedure, private :: check => check_PotentialPointer
   end type
   
   interface assignment(=)
@@ -48,6 +53,19 @@ subroutine assign_PotentialPointer_PotentialData(output,input)
   end select
 end subroutine
 
+! Checks that the pointer has been allocated before it is used.
+subroutine check_PotentialPointer(this)
+  implicit none
+  
+  class(PotentialPointer), intent(in) :: this
+  
+  if (.not. allocated(this%potential)) then
+    call print_line(CODE_ERROR//': Trying to use a PotentialPointer before &
+       &it has been allocated.')
+    call err()
+  endif
+end subroutine
+
 ! Wrappers for all of PotentialData's methods.
 subroutine generate_sampling_points_PotentialPointer(this,inputs, &
    & sampling_points_dir,logfile,write_lambda)
@@ -59,11 +77,7 @@ subroutine generate_sampling_points_PotentialPointer(this,inputs, &
   type(OFile),             intent(inout) :: logfile
   procedure(WriteLambda)                 :: write_lambda
   
-  if (.not. allocated(this%potential)) then
-    call print_line(CODE_ERROR//': Trying to use a PotentialPointer before &
-       &it has been allocated.')
-    call err()
-  endif
+  call this%check()
   
   call this%potential%generate_sampling_points( inputs,              &
                                               & sampling_points_dir, &
@@ -72,26 +86,50 @@ subroutine generate_sampling_points_PotentialPointer(this,inputs, &
 end subroutine
 
 subroutine generate_potential_PotentialPointer(this,inputs, &
-   & sampling_points_dir,logfile,read_lambda)
+   & weighted_energy_force_ratio,sampling_points_dir,logfile,read_lambda)
   implicit none
   
   class(PotentialPointer), intent(inout) :: this
   type(AnharmonicData),    intent(in)    :: inputs
+  real(dp),                intent(in)    :: weighted_energy_force_ratio
   type(String),            intent(in)    :: sampling_points_dir
   type(OFile),             intent(inout) :: logfile
   procedure(ReadLambda)                  :: read_lambda
   
-  if (.not. allocated(this%potential)) then
-    call print_line(CODE_ERROR//': Trying to use a PotentialPointer before &
-       &it has been allocated.')
-    call err()
-  endif
+  call this%check()
   
-  call this%potential%generate_potential( inputs,              &
-                                        & sampling_points_dir, &
-                                        & logfile,             &
+  call this%potential%generate_potential( inputs,                      &
+                                        & weighted_energy_force_ratio, &
+                                        & sampling_points_dir,         &
+                                        & logfile,                     &
                                         & read_lambda)
 end subroutine
+
+impure elemental function energy_PotentialPointer(this,displacement) &
+   & result(output)
+  implicit none
+  
+  class(PotentialPointer),    intent(in) :: this
+  type(RealModeDisplacement), intent(in) :: displacement
+  real(dp)                               :: output
+  
+  call this%check()
+  
+  output = this%potential%energy(displacement)
+end function
+
+impure elemental function force_PotentialPointer(this,displacement) &
+   & result(output)
+  implicit none
+  
+  class(PotentialPointer),    intent(in) :: this
+  type(RealModeDisplacement), intent(in) :: displacement
+  type(RealModeForce)                    :: output
+  
+  call this%check()
+  
+  output = this%potential%force(displacement)
+end function
 end module
 
 ! ======================================================================
@@ -116,6 +154,9 @@ module potential_example_module
        & generate_sampling_points_PotentialDataExample
     procedure, public :: generate_potential => &
        & generate_potential_PotentialDataExample
+    
+    procedure, public :: energy => energy_PotentialDataExample
+    procedure, public :: force  => force_PotentialDataExample
   end type
   
   interface PotentialDataExample
@@ -152,11 +193,12 @@ subroutine generate_sampling_points_PotentialDataExample(this,inputs, &
 end subroutine
 
 subroutine generate_potential_PotentialDataExample(this,inputs, &
-   & sampling_points_dir,logfile,read_lambda)
+   & weighted_energy_force_ratio,sampling_points_dir,logfile,read_lambda)
   implicit none
   
   class(PotentialDataExample), intent(inout) :: this
   type(AnharmonicData),        intent(in)    :: inputs
+  real(dp),                    intent(in)    :: weighted_energy_force_ratio
   type(String),                intent(in)    :: sampling_points_dir
   type(OFile),                 intent(inout) :: logfile
   procedure(ReadLambda)                      :: read_lambda
@@ -166,6 +208,34 @@ subroutine generate_potential_PotentialDataExample(this,inputs, &
   
   ! Code to generate sampling points goes here.
 end subroutine
+
+impure elemental function energy_PotentialDataExample(this,displacement) &
+   & result(output)
+  implicit none
+  
+  class(potentialDataExample), intent(in) :: this
+  type(RealModeDisplacement),  intent(in) :: displacement
+  real(dp)                                :: output
+  
+  call print_line('PotentialDataExample: calculating energy.')
+  call print_line('Example contents = '//this%example_contents)
+  
+  ! Code to calculate energies goes here.
+end function
+
+impure elemental function force_PotentialDataExample(this,displacement) &
+   & result(output)
+  implicit none
+  
+  class(potentialDataExample), intent(in) :: this
+  type(RealModeDisplacement),  intent(in) :: displacement
+  type(RealModeForce)                     :: output
+  
+  call print_line('PotentialDataExample: calculating force.')
+  call print_line('Example contents = '//this%example_contents)
+  
+  ! Code to calculate forces goes here.
+end function
 
 ! The class in use.
 subroutine potential_example_subroutine()
@@ -182,6 +252,14 @@ subroutine potential_example_subroutine()
   type(AnharmonicData) :: anharmonic_data
   type(String)         :: sampling_points_dir
   type(OFile)          :: logfile
+  
+  ! Variables for generate_potential.
+  real(dp) :: weighted_energy_force_ratio
+  
+  ! Variables for energy and force.
+  type(RealModeDisplacement) :: displacement
+  real(dp)                   :: energy
+  type(RealModeForce)        :: force
   
   ! Set the pointer to point to a PotentialDataExample type.
   ! This is where any PotentialDataExample-specific data is input,
@@ -201,10 +279,16 @@ subroutine potential_example_subroutine()
   ! Code to run electronic structure goes here.
   
   ! Generates the potential, in a manner specific to the representation.
-  call potential%generate_potential( anharmonic_data,     &
-                                   & sampling_points_dir, &
-                                   & logfile,             &
+  call potential%generate_potential( anharmonic_data,             &
+                                   & weighted_energy_force_ratio, &
+                                   & sampling_points_dir,         &
+                                   & logfile,                     &
                                    & read_electronic_structure_lambda)
+  
+  ! Once the potential has been generated, it can be used to calculate
+  !    energies and forces.
+  energy = potential%energy(displacement)
+  force  = potential%force(displacement)
 contains
   ! Lambda of type WriteLambda.
   subroutine write_structure_file_lambda(structure,directory)

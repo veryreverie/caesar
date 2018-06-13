@@ -28,7 +28,15 @@ function calculate_anharmonic_keywords() result(keywords)
   
   type(KeywordData), allocatable :: keywords(:)
   
-  keywords = [ KeywordData:: ]
+  keywords = [                                                             &
+  & KeywordData( 'energy_to_force_ratio',                                  &
+  &              'energy_to_force_ratio is the ratio of how penalised &
+  &deviations in energy are compared to deviations in forces when the &
+  &potential is being fitted. This should be given in units of (Hartree &
+  &per primitive cell) divided by (Hartree per bohr). Due to the use of &
+  &mass-weighted co-ordinates, in systems containing different elements &
+  &forces along modes with higher contributions from heavier elements will &
+  &be weighted less than this.')]
 end function
 
 function calculate_anharmonic_mode() result(output)
@@ -53,6 +61,10 @@ subroutine calculate_anharmonic(arguments)
   
   ! Working directory.
   type(String) :: wd
+  
+  ! Input arguments.
+  real(dp) :: energy_to_force_ratio
+  real(dp) :: weighted_energy_force_ratio
   
   ! Arguments to setup_anharmonic.
   type(Dictionary) :: setup_anharmonic_arguments
@@ -118,6 +130,7 @@ subroutine calculate_anharmonic(arguments)
   ! ----------------------------------------------------------------------
   
   wd = arguments%value('working_directory')
+  energy_to_force_ratio = dble(arguments%value('energy_to_force_ratio'))
   
   ! Read in setup_anharmonic arguments.
   setup_anharmonic_arguments = Dictionary(setup_anharmonic_keywords())
@@ -220,6 +233,10 @@ subroutine calculate_anharmonic(arguments)
   ! Run representation-specific code.
   ! ----------------------------------------------------------------------
   
+  ! Calculate weighted energy to force ratio.
+  weighted_energy_force_ratio = energy_to_force_ratio &
+                            & * sqrt(maxval(structure%atoms%mass()))
+  
   ! Initialise potential to the chosen representation
   if (potential_representation=='polynomial') then
     potential = PolynomialPotential(potential_expansion_order)
@@ -231,9 +248,10 @@ subroutine calculate_anharmonic(arguments)
   
   ! Call potential-specific function.
   sampling_points_dir = wd//'/sampling_points'
-  call potential%generate_potential( anharmonic_data,     &
-                                   & sampling_points_dir, &
-                                   & logfile,             &
+  call potential%generate_potential( anharmonic_data,             &
+                                   & weighted_energy_force_ratio, &
+                                   & sampling_points_dir,         &
+                                   & logfile,                     &
                                    & read_calculation_directory)
 contains
   ! Lambda to read electronic structure results from a directory.

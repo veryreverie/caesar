@@ -23,6 +23,9 @@ module basis_function_module
     !    zero in every other basis function.
     type(RealMonomial)      :: unique_term
   contains
+    procedure, public :: evaluate => evaluate_BasisFunction
+    procedure, public :: derivative => derivative_BasisFunction
+    
     procedure, public :: read  => read_BasisFunction
     procedure, public :: write => write_BasisFunction
   end type
@@ -337,6 +340,29 @@ function projection_matrix(input,order) result(output)
     output = input*output + identity
   enddo
   output = output/order
+end function
+
+! ----------------------------------------------------------------------
+! Evaluate the basis function and its derivatives.
+! ----------------------------------------------------------------------
+impure elemental function evaluate_BasisFunction(this,vector) result(output)
+  implicit none
+  
+  class(BasisFunction),  intent(in) :: this
+  class(RealModeVector), intent(in) :: vector
+  real(dp)                          :: output
+  
+  output = this%real_representation%evaluate(vector)
+end function
+
+impure elemental function derivative_BasisFunction(this,vector) result(output)
+  implicit none
+  
+  class(BasisFunction),  intent(in) :: this
+  class(RealModeVector), intent(in) :: vector
+  type(RealModeVector)              :: output
+  
+  output = this%real_representation%derivative(vector)
 end function
 
 ! ----------------------------------------------------------------------
