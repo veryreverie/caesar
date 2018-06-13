@@ -28,6 +28,9 @@ module potential_pointer_module
     procedure, public :: force  => force_PotentialPointer
     
     procedure, private :: check => check_PotentialPointer
+    
+    procedure, public :: read  => read_PotentialPointer
+    procedure, public :: write => write_PotentialPointer
   end type
   
   interface assignment(=)
@@ -130,6 +133,30 @@ impure elemental function force_PotentialPointer(this,displacement) &
   
   output = this%potential%force(displacement)
 end function
+
+subroutine read_PotentialPointer(this,input)
+  implicit none
+  
+  class(PotentialPointer), intent(out) :: this
+  type(String),            intent(in)  :: input(:)
+  
+  ! Since this%potential is polymorphic, it is not possible to determine its
+  !    type in an intent(out) subroutine.
+  ! As such, a PotentialPointer(StringArray) constructor is not provided.
+  call print_line(CODE_ERROR//' Unable to read a PotentialPointer.')
+  call err()
+end subroutine
+
+function write_PotentialPointer(this) result(output)
+  implicit none
+  
+  class(PotentialPointer), intent(in) :: this
+  type(String), allocatable           :: output(:)
+  
+  select type(this); type is(PotentialPointer)
+    output = str(this%potential)
+  end select
+end function
 end module
 
 ! ======================================================================
@@ -157,14 +184,20 @@ module potential_example_module
     
     procedure, public :: energy => energy_PotentialDataExample
     procedure, public :: force  => force_PotentialDataExample
+    
+    procedure, public :: read  => read_PotentialDataExample
+    procedure, public :: write => write_PotentialDataExample
   end type
   
   interface PotentialDataExample
     module procedure new_PotentialDataExample
+    module procedure new_PotentialDataExample_StringArray
   end interface
 contains
 
+! --------------------------------------------------
 ! Constructor for example class.
+! --------------------------------------------------
 ! This is where any PotentialDataExample-specific data is input.
 function new_PotentialDataExample(example_contents) result(this)
   implicit none
@@ -175,7 +208,9 @@ function new_PotentialDataExample(example_contents) result(this)
   this%example_contents = example_contents
 end function
 
+! --------------------------------------------------
 ! Overloads of PotentialData's methods.
+! --------------------------------------------------
 subroutine generate_sampling_points_PotentialDataExample(this,inputs, &
    & sampling_points_dir,logfile,write_lambda)
   implicit none
@@ -237,9 +272,42 @@ impure elemental function force_PotentialDataExample(this,displacement) &
   ! Code to calculate forces goes here.
 end function
 
-! The class in use.
-subroutine potential_example_subroutine()
+! --------------------------------------------------
+! I/O.
+! --------------------------------------------------
+subroutine read_PotentialDataExample(this,input)
   implicit none
+  
+  class(PotentialDataExample), intent(out) :: this
+  type(String),                intent(in)  :: input(:)
+  
+  ! Code to read potential from strings goes here.
+end subroutine
+
+function write_PotentialDataExample(this) result(output)
+  implicit none
+  
+  class(PotentialDataExample), intent(in) :: this
+  type(String), allocatable               :: output(:)
+  
+  ! Code to write potential to strings goes here.
+end function
+
+impure elemental function new_PotentialDataExample_StringArray(input) &
+   & result(this)
+  implicit none
+  
+  type(StringArray), intent(in) :: input
+  type(PotentialDataExample)    :: this
+  
+  this = input
+end function
+
+! The class in use.
+subroutine potential_example_subroutine(wd)
+  implicit none
+  
+  type(String), intent(in) :: wd
   
   ! A polymorphic pointer, which can store an object of any type which
   !    extends PotentialData.
@@ -260,6 +328,10 @@ subroutine potential_example_subroutine()
   type(RealModeDisplacement) :: displacement
   real(dp)                   :: energy
   type(RealModeForce)        :: force
+  
+  ! Files.
+  type(OFile) :: output_file
+  type(IFile) :: input_file
   
   ! Set the pointer to point to a PotentialDataExample type.
   ! This is where any PotentialDataExample-specific data is input,
@@ -289,6 +361,15 @@ subroutine potential_example_subroutine()
   !    energies and forces.
   energy = potential%energy(displacement)
   force  = potential%force(displacement)
+  
+  ! The potential can be written to file directly from the potential pointer's
+  !    write method, but must be read using the specific potential's
+  !    constructor.
+  output_file = OFile(wd//'example_potential.file')
+  call output_file%print_lines(potential)
+  
+  input_file = IFile(wd//'example_potential.file')
+  potential = PotentialDataExample(StringArray(input_file%lines()))
 contains
   ! Lambda of type WriteLambda.
   subroutine write_structure_file_lambda(structure,directory)

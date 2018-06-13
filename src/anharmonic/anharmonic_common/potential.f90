@@ -14,7 +14,7 @@ module potential_module
   public :: WriteLambda
   public :: ReadLambda
   
-  type, abstract, extends(NoDefaultConstructor) :: PotentialData
+  type, abstract, extends(Stringsable) :: PotentialData
   contains
     ! Given all input data, generate the set of sampling points at which
     !    electronic structure calculations should be run in order to

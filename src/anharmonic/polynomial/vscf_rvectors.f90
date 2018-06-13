@@ -369,6 +369,7 @@ function transform_RealModeVector(this,vector,modes,qpoints, &
     j = first(this%vscf_rvectors%subspace_id==mode%subspace_id, default=0)
     if (j==0) then
       ! This mode is unaffected by the VSCF R-vector translation.
+      mode_transformed(i) = .true.
       cycle
     endif
     r = this%vscf_rvectors(j)%rvector

@@ -49,18 +49,18 @@ function fit_coefficients(basis_functions,sampling_points,sample_results, &
   
   ! Calculate the energies and forces due to each basis function at each
   !    sampling point.
-  allocate( basis_function_energies( size(basis_functions),  &
-          &                          size(sampling_points)), &
-          & basis_function_forces( size(basis_functions),    &
-          &                        size(sampling_points)),   &
+  allocate( basis_function_energies( size(sampling_points),  &
+          &                          size(basis_functions)), &
+          & basis_function_forces( size(sampling_points),    &
+          &                        size(basis_functions)),   &
           & stat=ialloc); call err(ialloc)
-  do i=1,size(sampling_points)
-    do j=1,size(basis_functions)
+  do i=1,size(basis_functions)
+    do j=1,size(sampling_points)
       basis_function_energies(j,i) = &
-         & basis_functions(j)%real_representation%evaluate(sampling_points(i))
+         & basis_functions(i)%real_representation%evaluate(sampling_points(j))
       basis_function_forces(j,i) = RealModeForce(             &
-         & basis_functions(j)%real_representation%derivative( &
-         &    sampling_points(i)))
+         & basis_functions(i)%real_representation%derivative( &
+         &    sampling_points(j)))
     enddo
   enddo
   
@@ -102,7 +102,7 @@ function fit_coefficients(basis_functions,sampling_points,sample_results, &
   enddo
   
   l = 1
-  do j=1,size(sampling_points)
+  do i=1,size(sampling_points)
     b(l:l+size(modes)) = make_vector( sample_energies(i), &
                                     & sample_forces(i),   &
                                     & modes,              &
@@ -131,7 +131,7 @@ function make_vector(energy,force,modes,energy_force_ratio) result(output)
   allocate(output(1+size(modes)), stat=ialloc); call err(ialloc)
   output(1) = energy / energy_force_ratio
   do i=1,size(modes)
-    j = first(force%vectors%id==modes(i)%id)
+    j = first(force%vectors%id==modes(i)%id, default=0)
     if (j==0) then
       output(1+i) = 0.0_dp
     else

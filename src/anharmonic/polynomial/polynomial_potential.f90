@@ -32,10 +32,14 @@ module polynomial_potential_module
     
     procedure, public :: energy => energy_PolynomialPotential
     procedure, public :: force  => force_PolynomialPotential
+    
+    procedure, public :: read  => read_PolynomialPotential
+    procedure, public :: write => write_PolynomialPotential
   end type
   
   interface PolynomialPotential
     module procedure new_PolynomialPotential
+    module procedure new_PolynomialPotential_StringArray
   end interface
 contains
 
@@ -264,6 +268,8 @@ subroutine generate_potential_PolynomialPotential(this,inputs, &
   allocate( sample_results(size(inputs%subspace_couplings)),        &
           & stat=ialloc); call err(ialloc)
   do i=1,size(sampling_points)
+    coupling_dir = sampling_points_dir// &
+       & '/coupling_'//left_pad(i,str(size(sampling_points)))
     allocate( sample_results(i)%results(size(sampling_points(i))), &
             & stat=ialloc); call err(ialloc)
     do j=1,size(sampling_points(i))
@@ -339,9 +345,11 @@ subroutine generate_potential_PolynomialPotential(this,inputs, &
   this%basis_functions = uncoupled_basis_functions
   this%coefficients    = coefficients
   
+  ! TODO: calculate energy baseline
+  
   ! Calculate the coefficients of all basis functions involving subspace
   !    coupling. These are calculated on a coupling-by-coupling basis.
-  do i=1,size(this%coefficients)
+  do i=1,size(inputs%subspace_couplings)
     if (uncoupled(i)) then
       cycle
     endif
@@ -383,5 +391,38 @@ impure elemental function force_PolynomialPotential(this,displacement) &
   
   output = RealModeForce(sum( this%coefficients &
                           & * this%basis_functions%derivative(displacement)))
+end function
+
+! ----------------------------------------------------------------------
+! I/O.
+! ----------------------------------------------------------------------
+subroutine read_PolynomialPotential(this,input)
+  implicit none
+  
+  class(PolynomialPotential), intent(out) :: this
+  type(String),               intent(in)  :: input(:)
+  
+  select type(this); type is(PolynomialPotential)
+  end select
+end subroutine
+
+function write_PolynomialPotential(this) result(output)
+  implicit none
+  
+  class(PolynomialPotential), intent(in) :: this
+  type(String), allocatable              :: output(:)
+  
+  select type(this); type is(PolynomialPotential)
+  end select
+end function
+
+impure elemental function new_PolynomialPotential_StringArray(input) &
+   & result(this)
+  implicit none
+  
+  type(StringArray), intent(in) :: input
+  type(PolynomialPotential)     :: this
+  
+  this = input
 end function
 end module
