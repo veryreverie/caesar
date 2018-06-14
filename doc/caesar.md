@@ -4,6 +4,7 @@ exclude_dir: ../src/old/old/harmonic/programs
              ../src/old/old/quadratic/programs
              ../src/old/quadratic
              ../src/old/coupled
+             ../src/anharmonic/old
 output_dir: ./ford
 graph_dir: ./ford/graphs
 summary: Caesar anharmonic phonon code.

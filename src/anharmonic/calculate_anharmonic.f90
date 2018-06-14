@@ -120,6 +120,7 @@ subroutine calculate_anharmonic(arguments)
   type(IFile)               :: calculation_directories_file
   type(String), allocatable :: calculation_directories(:)
   type(String)              :: sampling_points_dir
+  type(OFile)               :: potential_file
   
   ! Temporary variables.
   integer :: i,ialloc
@@ -246,13 +247,17 @@ subroutine calculate_anharmonic(arguments)
     call err()
   endif
   
-  ! Call potential-specific function.
+  ! Generate the potential itself.
   sampling_points_dir = wd//'/sampling_points'
   call potential%generate_potential( anharmonic_data,             &
                                    & weighted_energy_force_ratio, &
                                    & sampling_points_dir,         &
                                    & logfile,                     &
                                    & read_calculation_directory)
+  
+  ! Write the potential to file.
+  potential_file = OFile(wd//'/potential.dat')
+  call potential_file%print_lines(potential)
 contains
   ! Lambda to read electronic structure results from a directory.
   ! Captures:

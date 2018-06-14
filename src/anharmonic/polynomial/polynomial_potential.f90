@@ -21,7 +21,7 @@ module polynomial_potential_module
   
   type, extends(PotentialData) :: PolynomialPotential
     integer,                          private :: potential_expansion_order
-    real(dp),                         private :: energy_baseline
+    real(dp),                         private :: reference_energy
     type(BasisFunction), allocatable, private :: basis_functions(:)
     real(dp),            allocatable, private :: coefficients(:)
   contains
@@ -39,11 +39,12 @@ module polynomial_potential_module
   
   interface PolynomialPotential
     module procedure new_PolynomialPotential
+    module procedure new_PolynomialPotential_BasisFunctions
     module procedure new_PolynomialPotential_StringArray
   end interface
 contains
 
-! Constructor.
+! Constructors.
 function new_PolynomialPotential(potential_expansion_order) result(this)
   implicit none
   
@@ -51,6 +52,22 @@ function new_PolynomialPotential(potential_expansion_order) result(this)
   type(PolynomialPotential) :: this
   
   this%potential_expansion_order = potential_expansion_order
+end function
+
+function new_PolynomialPotential_BasisFunctions(potential_expansion_order, &
+   & reference_energy,basis_functions,coefficients) result(this)
+  implicit none
+  
+  integer,             intent(in) :: potential_expansion_order
+  real(dp),            intent(in) :: reference_energy
+  type(BasisFunction), intent(in) :: basis_functions(:)
+  real(dp),            intent(in) :: coefficients(:)
+  type(PolynomialPotential)       :: this
+  
+  this%potential_expansion_order = potential_expansion_order
+  this%reference_energy          = reference_energy
+  this%basis_functions           = basis_functions
+  this%coefficients              = coefficients
 end function
 
 ! Generate sampling points.
@@ -228,6 +245,9 @@ subroutine generate_potential_PolynomialPotential(this,inputs, &
   
   ! Variables for generating coefficients.
   logical,                    allocatable :: uncoupled(:)
+  type(RealMonomial)                      :: constant_real_monomial
+  type(ComplexMonomial)                   :: constant_complex_monomial
+  type(BasisFunction)                     :: constant_basis_function
   type(BasisFunction),        allocatable :: uncoupled_basis_functions(:)
   type(RealModeDisplacement), allocatable :: uncoupled_sampling_points(:)
   type(SampleResult),         allocatable :: uncoupled_sample_results(:)
@@ -320,9 +340,22 @@ subroutine generate_potential_PolynomialPotential(this,inputs, &
     endif
   enddo
   
+  ! Construct a basis function representing a constant reference energy.
+  constant_real_monomial = RealMonomial( coefficient=1.0_dp, &
+                                       & modes=[RealUnivariate::])
+  constant_complex_monomial = ComplexMonomial( &
+        & coefficient=cmplx(1.0_dp,0.0_dp,dp), &
+        & modes=[ComplexUnivariate::])
+  constant_basis_function = BasisFunction(                             &
+     & real_representation = RealPolynomial([constant_real_monomial]), &
+     & complex_representation =                                        &
+     &    ComplexPolynomial([constant_complex_monomial]),              &
+     & unique_term = constant_real_monomial)
+  
   ! Calculate the coefficients of all basis functions which do not involve
-  !    subspace coupling at once. This takes O(no_modes^3) time.
-  uncoupled_basis_functions = [BasisFunction::]
+  !    subspace coupling at once.
+  
+  uncoupled_basis_functions = [constant_basis_function]
   uncoupled_sampling_points = [RealModeDisplacement::]
   uncoupled_sample_results  = [SampleResult::]
   do i=1,size(inputs%subspace_couplings)
@@ -342,10 +375,9 @@ subroutine generate_potential_PolynomialPotential(this,inputs, &
                                  & inputs%real_modes,         &
                                  & weighted_energy_force_ratio)
   
-  this%basis_functions = uncoupled_basis_functions
-  this%coefficients    = coefficients
-  
-  ! TODO: calculate energy baseline
+  this%reference_energy = coefficients(1)
+  this%basis_functions  = uncoupled_basis_functions
+  this%coefficients     = coefficients(2:)
   
   ! Calculate the coefficients of all basis functions involving subspace
   !    coupling. These are calculated on a coupling-by-coupling basis.
@@ -375,7 +407,7 @@ impure elemental function energy_PolynomialPotential(this,displacement) &
   type(RealModeDisplacement), intent(in) :: displacement
   real(dp)                               :: output
   
-  output = this%energy_baseline   &
+  output = this%reference_energy  &
        & + sum( this%coefficients &
        &      * this%basis_functions%evaluate(displacement))
 end function
@@ -402,7 +434,29 @@ subroutine read_PolynomialPotential(this,input)
   class(PolynomialPotential), intent(out) :: this
   type(String),               intent(in)  :: input(:)
   
+  integer                          :: potential_expansion_order
+  real(dp)                         :: reference_energy
+  type(BasisFunction), allocatable :: basis_functions(:)
+  real(dp),            allocatable :: coefficients(:)
+  
+  type(String),      allocatable :: line(:)
+  type(StringArray), allocatable :: sections(:)
+  
   select type(this); type is(PolynomialPotential)
+    line = split_line(input(1))
+    potential_expansion_order = int(line(3))
+    
+    line = split_line(input(2))
+    reference_energy = dble(line(3))
+    
+    sections = split_into_sections(input)
+    basis_functions = BasisFunction(sections(3:size(sections)-2))
+    coefficients = dble(sections(size(sections))%strings)
+    
+    this = PolynomialPotential( potential_expansion_order, &
+                              & reference_energy,          &
+                              & basis_functions,           &
+                              & coefficients)
   end select
 end subroutine
 
@@ -413,6 +467,15 @@ function write_PolynomialPotential(this) result(output)
   type(String), allocatable              :: output(:)
   
   select type(this); type is(PolynomialPotential)
+    output = [ 'Expansion order: '//this%potential_expansion_order, &
+             & 'Reference energy: '//this%reference_energy,         &
+             & str('Basis functions:'),                             &
+             & str(''),                                             &
+             & str(this%basis_functions, separating_line=''),       &
+             & str(''),                                             &
+             & str('Basis function coefficients:'),                 &
+             & str(''),                                             &
+             & str(this%coefficients)]
   end select
 end function
 
