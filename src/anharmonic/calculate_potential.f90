@@ -1,7 +1,7 @@
 ! ======================================================================
-! Calculates anharmonic properties, using the results of run_anharmonic.
+! Calculates the anharmonic potential, using the results of run_anharmonic.
 ! ======================================================================
-module calculate_anharmonic_module
+module calculate_potential_module
   use common_module
   
   use setup_harmonic_module
@@ -15,15 +15,15 @@ module calculate_anharmonic_module
   
   private
   
-  public :: calculate_anharmonic_keywords
-  public :: calculate_anharmonic_mode
-  public :: calculate_anharmonic
+  public :: calculate_potential_keywords
+  public :: calculate_potential_mode
+  public :: calculate_potential
 contains
 
 ! ----------------------------------------------------------------------
 ! Generate keywords and helptext.
 ! ----------------------------------------------------------------------
-function calculate_anharmonic_keywords() result(keywords)
+function calculate_potential_keywords() result(keywords)
   implicit none
   
   type(KeywordData), allocatable :: keywords(:)
@@ -39,22 +39,22 @@ function calculate_anharmonic_keywords() result(keywords)
   &be weighted less than this.')]
 end function
 
-function calculate_anharmonic_mode() result(output)
+function calculate_potential_mode() result(output)
   implicit none
   
   type(CaesarMode) :: output
   
-  output%mode_name = 'calculate_anharmonic'
+  output%mode_name = 'calculate_potential'
   output%description = 'Uses the results of run_anharmonic to calculate &
-     &anharmonic properties. Should be run after run_anharmonic.'
-  output%keywords = calculate_anharmonic_keywords()
-  output%main_subroutine => calculate_anharmonic
+     &the anharmonic potential. Should be run after run_anharmonic.'
+  output%keywords = calculate_potential_keywords()
+  output%main_subroutine => calculate_potential
 end function
 
 ! ----------------------------------------------------------------------
 ! Main program.
 ! ----------------------------------------------------------------------
-subroutine calculate_anharmonic(arguments)
+subroutine calculate_potential(arguments)
   implicit none
   
   type(Dictionary), intent(in) :: arguments
@@ -196,7 +196,7 @@ subroutine calculate_anharmonic(arguments)
   ! Re-calculate symmetries in degenerate subspaces.
   ! ----------------------------------------------------------------------
   ! Open logfile.
-  logfile = OFile(wd//'/calculate_anharmonic_logfile.dat')
+  logfile = OFile(wd//'/calculate_potential_logfile.dat')
   
   allocate( degenerate_symmetries(size(structure%symmetries)), &
           & stat=ialloc); call err(ialloc)

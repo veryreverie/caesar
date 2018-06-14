@@ -49,7 +49,7 @@ module potential_module
     
     ! Reads the results of the electronic structure calculation from the
     !    given directory.
-    ! Function implementation defined in calculate_anharmonic.f90.
+    ! Function implementation defined in calculate_potential.f90.
     function ReadLambda(directory) result(output)
       import String
       import ElectronicStructure

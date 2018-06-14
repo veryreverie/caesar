@@ -3238,7 +3238,7 @@ function linear_least_squares_reals_reals(a,b) result(output)
   
   ! LAPACK dgels variables.
   real(dp), allocatable :: a2(:,:)
-  real(dp), allocatable :: b2(:)
+  real(dp), allocatable :: b2(:,:)
   integer               :: m,n
   real(dp), allocatable :: work(:)
   integer               :: lwork
@@ -3260,11 +3260,11 @@ function linear_least_squares_reals_reals(a,b) result(output)
   
   ! Copy a and b so that they are not changed by dgels.
   a2 = a
-  b2 = b
+  b2 = reshape(b, [size(b),1])
   
   ! Calculate optimal workspace size.
   allocate(work(2*m*n), stat=ialloc); call err(ialloc)
-  call dgels('N',m,n,1,a2(1,1),m,b2(1),m,work(1),-1,info)
+  call dgels('N',m,n,1,a2,m,b2,m,work,-1,info)
   if (info/=0) then
     call print_line(ERROR//'in linear regression: dgels error code: '//info)
     call err()
@@ -3274,13 +3274,13 @@ function linear_least_squares_reals_reals(a,b) result(output)
   allocate(work(lwork), stat=ialloc); call err(ialloc)
   
   ! Run linear least-squares optimisation.
-  call dgels('N',m,n,1,a2(1,1),m,b2(1),m,work(1),lwork,info)
+  call dgels('N',m,n,1,a2,m,b2,m,work,lwork,info)
   if (info/=0) then
     call print_line(ERROR//'in linear regression: dgels error code: '//info)
     call err()
   endif
   
-  output = b2
+  output = b2(:n,1)
 end function
 
 function linear_least_squares_reals_RealVector(a,b) result(x)

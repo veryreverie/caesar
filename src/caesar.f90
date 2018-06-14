@@ -24,7 +24,7 @@ program caesar
   ! Use anharmonic modules.
   use setup_anharmonic_module
   use run_anharmonic_module
-  use calculate_anharmonic_module
+  use calculate_potential_module
   
   ! Use testing modules.
   use test_module
@@ -82,7 +82,7 @@ program caesar
      & plot_thermodynamic_variables_mode(),   &
      & setup_anharmonic_mode(),               &
      & run_anharmonic_mode(),                 &
-     & calculate_anharmonic_mode()            &
+     & calculate_potential_mode()             &
      &])
   
   ! --------------------------------------------------
