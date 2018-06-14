@@ -113,8 +113,6 @@ function fit_coefficients(basis_functions,sampling_points,sample_results, &
   ! Run linear least squares to get the basis function coefficients.
   ! This finds x s.t. (a.x-b)^2 is minimised.
   output = dble(linear_least_squares(a,b))
-  
-  call print_line(size(output)//' '//size(basis_functions))
 end function
 
 ! Convert an energy and force into a single vector which can be inserted

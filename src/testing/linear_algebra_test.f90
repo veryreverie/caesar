@@ -6,20 +6,6 @@ module linear_algebra_test_module
   implicit none
 contains
 
-! ----------------------------------------------------------------------
-! Generates keywords and helptext.
-! ----------------------------------------------------------------------
-function linear_algebra_test_keywords() result(keywords)
-  implicit none
-  
-  type(KeywordData), allocatable :: keywords(:)
-  
-  keywords = [KeywordData::]
-end function
-
-! ----------------------------------------------------------------------
-! Main program.
-! ----------------------------------------------------------------------
 subroutine linear_algebra_test(arguments)
   implicit none
   

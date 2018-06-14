@@ -15,20 +15,21 @@ module calculate_potential_module
   
   private
   
-  public :: calculate_potential_keywords
-  public :: calculate_potential_mode
   public :: calculate_potential
 contains
 
 ! ----------------------------------------------------------------------
 ! Generate keywords and helptext.
 ! ----------------------------------------------------------------------
-function calculate_potential_keywords() result(keywords)
+function calculate_potential() result(output)
   implicit none
   
-  type(KeywordData), allocatable :: keywords(:)
+  type(CaesarMode) :: output
   
-  keywords = [                                                             &
+  output%mode_name = 'calculate_potential'
+  output%description = 'Uses the results of run_anharmonic to calculate &
+     &the anharmonic potential. Should be run after run_anharmonic.'
+  output%keywords = [                                                      &
   & KeywordData( 'energy_to_force_ratio',                                  &
   &              'energy_to_force_ratio is the ratio of how penalised &
   &deviations in energy are compared to deviations in forces when the &
@@ -37,24 +38,13 @@ function calculate_potential_keywords() result(keywords)
   &mass-weighted co-ordinates, in systems containing different elements &
   &forces along modes with higher contributions from heavier elements will &
   &be weighted less than this.')]
-end function
-
-function calculate_potential_mode() result(output)
-  implicit none
-  
-  type(CaesarMode) :: output
-  
-  output%mode_name = 'calculate_potential'
-  output%description = 'Uses the results of run_anharmonic to calculate &
-     &the anharmonic potential. Should be run after run_anharmonic.'
-  output%keywords = calculate_potential_keywords()
-  output%main_subroutine => calculate_potential
+  output%main_subroutine => calculate_potential_subroutine
 end function
 
 ! ----------------------------------------------------------------------
 ! Main program.
 ! ----------------------------------------------------------------------
-subroutine calculate_potential(arguments)
+subroutine calculate_potential_subroutine(arguments)
   implicit none
   
   type(Dictionary), intent(in) :: arguments
@@ -93,8 +83,8 @@ subroutine calculate_potential(arguments)
   type(QpointData), allocatable :: qpoints(:)
   
   ! Normal modes.
-  type(ComplexMode),        allocatable :: complex_modes(:)
-  type(RealMode),           allocatable :: real_modes(:)
+  type(ComplexMode), allocatable :: complex_modes(:)
+  type(RealMode),    allocatable :: real_modes(:)
   
   ! maximum_displacement in mass-weighted co-ordinates.
   real(dp) :: maximum_weighted_displacement
@@ -107,7 +97,7 @@ subroutine calculate_potential(arguments)
   ! Anharmonic data container.
   type(AnharmonicData) :: anharmonic_data
   
-  ! Data specific to the chosen representation of the potential.
+  ! Anharmonic potential.
   type(PotentialPointer) :: potential
   
   ! Files and directories.
@@ -134,7 +124,7 @@ subroutine calculate_potential(arguments)
   energy_to_force_ratio = dble(arguments%value('energy_to_force_ratio'))
   
   ! Read in setup_anharmonic arguments.
-  setup_anharmonic_arguments = Dictionary(setup_anharmonic_keywords())
+  setup_anharmonic_arguments = Dictionary(setup_anharmonic())
   call setup_anharmonic_arguments%read_file( &
      & wd//'/setup_anharmonic.used_settings')
   harmonic_path = setup_anharmonic_arguments%value('harmonic_path')
@@ -150,7 +140,7 @@ subroutine calculate_potential(arguments)
      & dble(setup_anharmonic_arguments%value('frequency_of_max_displacement'))
   
   ! Read in setup_harmonic arguments.
-  setup_harmonic_arguments = Dictionary(setup_harmonic_keywords())
+  setup_harmonic_arguments = Dictionary(setup_harmonic())
   call setup_harmonic_arguments%read_file( &
      & harmonic_path//'/setup_harmonic.used_settings')
   file_type = setup_harmonic_arguments%value('file_type')
@@ -159,8 +149,7 @@ subroutine calculate_potential(arguments)
      & dble(setup_harmonic_arguments%value('symmetry_precision'))
   
   ! Read in calculate_normal_modes arguments.
-  calculate_normal_modes_arguments = &
-     & Dictionary(calculate_normal_modes_keywords())
+  calculate_normal_modes_arguments = Dictionary(calculate_normal_modes())
   call calculate_normal_modes_arguments%read_file( &
      & harmonic_path//'/calculate_normal_modes.used_settings')
   calculation_type = calculate_normal_modes_arguments%value('calculation_type')
@@ -193,7 +182,8 @@ subroutine calculate_potential(arguments)
   subspace_coupling = SubspaceCoupling(subspace_coupling_file%lines())
   
   ! ----------------------------------------------------------------------
-  ! Re-calculate symmetries in degenerate subspaces.
+  ! Re-calculate symmetries in degenerate subspaces
+  !    and maximum_weighted_displacement.
   ! ----------------------------------------------------------------------
   ! Open logfile.
   logfile = OFile(wd//'/calculate_potential_logfile.dat')
@@ -207,6 +197,9 @@ subroutine calculate_potential(arguments)
                                                  & qpoints,                 &
                                                  & logfile)
   enddo
+  
+  maximum_weighted_displacement = maximum_displacement &
+                              & * sqrt(minval(structure%atoms%mass()))
   
   ! ----------------------------------------------------------------------
   ! Load anharmonic data into container.

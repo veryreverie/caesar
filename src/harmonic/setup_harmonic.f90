@@ -8,17 +8,24 @@ module setup_harmonic_module
   use generate_supercells_module
   use unique_directions_module
   implicit none
+  
+  private
+  
+  public :: setup_harmonic
 contains
 
 ! ----------------------------------------------------------------------
 ! Generate keywords and helptext.
 ! ----------------------------------------------------------------------
-function setup_harmonic_keywords() result(keywords)
+function setup_harmonic() result(output)
   implicit none
   
-  type(KeywordData), allocatable :: keywords(:)
+  type(CaesarMode) :: output
   
-  keywords = [                                                                &
+  output%mode_name = 'setup_harmonic'
+  output%description = 'Sets up harmonic calculation. Generates supercells, &
+     &and prepares DFT inputs.'
+  output%keywords = [                                                         &
   & KeywordData( 'file_type',                                                 &
   &              'file_type is the file type which will be used for &
   &single-point energy calculations. Settings are: "castep", "caesar" and &
@@ -41,24 +48,13 @@ function setup_harmonic_keywords() result(keywords)
   &atoms will be displaced when mapping the harmonic Born-Oppenheimer &
   &surface.',                                                                 &
   &              default_value='0.01') ]
-end function
-
-function setup_harmonic_mode() result(output)
-  implicit none
-  
-  type(CaesarMode) :: output
-  
-  output%mode_name = 'setup_harmonic'
-  output%description = 'Sets up harmonic calculation. Generates supercells, &
-     &and prepares DFT inputs.'
-  output%keywords = setup_harmonic_keywords()
-  output%main_subroutine => setup_harmonic
+  output%main_subroutine => setup_harmonic_subroutine
 end function
 
 ! ----------------------------------------------------------------------
 ! Main program.
 ! ----------------------------------------------------------------------
-subroutine setup_harmonic(arguments)
+subroutine setup_harmonic_subroutine(arguments)
   implicit none
   
   type(Dictionary), intent(in) :: arguments

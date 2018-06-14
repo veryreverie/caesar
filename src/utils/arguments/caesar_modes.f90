@@ -6,7 +6,10 @@
 ! ======================================================================
 module caesar_modes_submodule
   use io_module
+  use abstract_module
+  
   use keyword_submodule
+  use dictionary_submodule
   implicit none
   
   private
@@ -14,12 +17,13 @@ module caesar_modes_submodule
   public :: CaesarMode
   public :: CaesarModes
   public :: MainSubroutine
+  public :: Dictionary
   
   ! An interface for the main subroutines of Caesar, each of which takes a
   !    dictionary of arguments and returns nothing.
   abstract interface
     subroutine MainSubroutine(arguments)
-      use dictionary_submodule
+      import Dictionary
       implicit none
       
       type(Dictionary), intent(in) :: arguments
@@ -62,6 +66,10 @@ module caesar_modes_submodule
   
   interface CaesarModes
     module procedure new_CaesarModes
+  end interface
+  
+  interface Dictionary
+    module procedure new_Dictionary_CaesarMode
   end interface
 contains
 
@@ -170,6 +178,16 @@ function new_CaesarMode_String_String(mode_name,description,keywords, &
                      & suppress_settings_file)
 end function
 
+! Construct a dictionary from a CaesarMode.
+function new_Dictionary_CaesarMode(mode) result(this)
+  implicit none
+  
+  type(CaesarMode), intent(in) :: mode
+  type(Dictionary)             :: this
+  
+  this = Dictionary(mode%keywords)
+end function
+
 ! Copies one CaesarMode to another.
 ! Required to be explicit due to an apparent nagfort 6.2 bug with automatic
 !    reallocation from an empty list.
@@ -227,26 +245,17 @@ function mode_character(this,mode_name) result(output)
   character(*),       intent(in) :: mode_name
   type(CaesarMode)               :: output
   
-  type(String) :: lower_case_name
-  logical      :: success
-  
   integer :: i
   
-  success = .false.
-  lower_case_name = lower_case(mode_name)
-  do i=1,size(this%modes_)
-    if (this%modes_(i)%mode_name==lower_case_name) then
-      output = this%modes_(i)
-      success = .true.
-      exit
-    endif
-  enddo
+  i = first(this%modes_%mode_name==lower_case(mode_name), default=0)
   
-  if (.not. success) then
-    call print_line(colour('Error: unrecognised mode: ','red')//mode_name)
+  if (i==0) then
+    call print_line(ERROR//': Unrecognised mode: '//mode_name)
     call print_line('Call '//colour('caesar -h','white')//' for help.')
     stop
   endif
+  
+  output = this%modes_(i)
 end function
 
 function mode_String(this,mode_name) result(output)

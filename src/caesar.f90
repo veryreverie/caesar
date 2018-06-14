@@ -25,6 +25,7 @@ program caesar
   use setup_anharmonic_module
   use run_anharmonic_module
   use calculate_potential_module
+  use calculate_states_module
   
   ! Use testing modules.
   use test_module
@@ -68,21 +69,22 @@ program caesar
   ! Read in mode interfaces.
   ! --------------------------------------------------
   ! Normal inputs. Fetch keywords and set subprocess.
-  caesar_modes = CaesarModes([                &
-     & hartree_to_ev_mode(),                  &
-     & test_mode(),                           &
-     & converge_cutoff_and_kpoints_mode(),    &
-     & plot_cutoff_and_kpoints_mode(),        &
-     & setup_harmonic_mode(),                 &
-     & run_harmonic_mode(),                   &
-     & calculate_normal_modes_mode(),         &
-     & plot_normal_modes_mode(),              &
-     & calculate_harmonic_observables_mode(), &
-     & plot_dos_and_dispersion_mode(),        &
-     & plot_thermodynamic_variables_mode(),   &
-     & setup_anharmonic_mode(),               &
-     & run_anharmonic_mode(),                 &
-     & calculate_potential_mode()             &
+  caesar_modes = CaesarModes([           &
+     & hartree_to_ev(),                  &
+     & test(),                           &
+     & converge_cutoff_and_kpoints(),    &
+     & plot_cutoff_and_kpoints(),        &
+     & setup_harmonic(),                 &
+     & run_harmonic(),                   &
+     & calculate_normal_modes(),         &
+     & plot_normal_modes(),              &
+     & calculate_harmonic_observables(), &
+     & plot_dos_and_dispersion(),        &
+     & plot_thermodynamic_variables(),   &
+     & setup_anharmonic(),               &
+     & run_anharmonic(),                 &
+     & calculate_potential(),            &
+     & calculate_states()                &
      &])
   
   ! --------------------------------------------------

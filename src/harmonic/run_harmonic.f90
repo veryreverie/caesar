@@ -8,17 +8,24 @@ module run_harmonic_module
   use setup_harmonic_module
   use unique_directions_module
   implicit none
+  
+  private
+  
+  public :: run_harmonic
 contains
 
 ! ----------------------------------------------------------------------
 ! Generate keywords and helptext.
 ! ----------------------------------------------------------------------
-function run_harmonic_keywords() result(keywords)
+function run_harmonic() result(output)
   implicit none
   
-  type(KeywordData), allocatable :: keywords(:)
+  type(CaesarMode) :: output
   
-  keywords = [                                                                &
+  output%mode_name = 'run_harmonic'
+  output%description = 'Runs DFT calculations set up by setup_harmonic. &
+     &should be run after setup_harmonic.'
+  output%keywords = [                                                         &
   & KeywordData( 'supercells_to_run',                                         &
   &              'supercells_to_run is the first and last supercell to run. &
   &These should be specified as two integers separated by spaces.'),          &
@@ -30,24 +37,13 @@ function run_harmonic_keywords() result(keywords)
   &              'no_cores is the number of cores on which DFT will be run. &
   &This is passed to the specified run script.',                              &
   &              default_value='1') ]
-end function
-
-function run_harmonic_mode() result(output)
-  implicit none
-  
-  type(CaesarMode) :: output
-  
-  output%mode_name = 'run_harmonic'
-  output%description = 'Runs DFT calculations set up by setup_harmonic. &
-     &should be run after setup_harmonic.'
-  output%keywords = run_harmonic_keywords()
-  output%main_subroutine => run_harmonic
+  output%main_subroutine => run_harmonic_subroutine
 end function
 
 ! ----------------------------------------------------------------------
 ! Main program.
 ! ----------------------------------------------------------------------
-subroutine run_harmonic(arguments)
+subroutine run_harmonic_subroutine(arguments)
   implicit none
   
   type(Dictionary), intent(in) :: arguments
@@ -100,7 +96,7 @@ subroutine run_harmonic(arguments)
   no_supercells_file = IFile(wd//'/no_supercells.dat')
   no_supercells = int(no_supercells_file%line(1))
   
-  setup_harmonic_arguments = Dictionary(setup_harmonic_keywords())
+  setup_harmonic_arguments = Dictionary(setup_harmonic())
   call setup_harmonic_arguments%read_file(wd//'/setup_harmonic.used_settings')
   file_type = setup_harmonic_arguments%value('file_type')
   seedname = setup_harmonic_arguments%value('seedname')

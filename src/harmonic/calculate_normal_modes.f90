@@ -14,17 +14,24 @@ module calculate_normal_modes_module
   use dynamical_matrix_module
   use force_constants_module
   implicit none
+  
+  private
+  
+  public :: calculate_normal_modes
 contains
 
 ! ----------------------------------------------------------------------
 ! Generate keywords and helptext.
 ! ----------------------------------------------------------------------
-function calculate_normal_modes_keywords() result(keywords)
+function calculate_normal_modes() result(output)
   implicit none
   
-  type(KeywordData), allocatable :: keywords(:)
+  type(CaesarMode) :: output
   
-  keywords = [                                                                &
+  output%mode_name = 'calculate_normal_modes'
+  output%description = 'Finds harmonic normal modes. Should be called &
+     &after run_harmonic.'
+  output%keywords = [                                                         &
      & KeywordData( 'acoustic_sum_rule',                                      &
      &              'acoustic_sum_rule specifies where the acoustic sum rule  &
      &is applied. The options are "off", "forces", "matrices" and "both".',   &
@@ -40,24 +47,13 @@ function calculate_normal_modes_keywords() result(keywords)
      &run_harmonic, or should be run through Quip. Settings are: "script" and &
      &"quip".',                                                               &
      &              default_value='script') ]
-end function
-
-function calculate_normal_modes_mode() result(output)
-  implicit none
-  
-  type(CaesarMode) :: output
-  
-  output%mode_name = 'calculate_normal_modes'
-  output%description = 'Finds harmonic normal modes. Should be called &
-     &after run_harmonic.'
-  output%keywords = calculate_normal_modes_keywords()
-  output%main_subroutine => calculate_normal_modes
+  output%main_subroutine => calculate_normal_modes_subroutine
 end function
 
 ! ----------------------------------------------------------------------
 ! Main program.
 ! ----------------------------------------------------------------------
-subroutine calculate_normal_modes(arguments)
+subroutine calculate_normal_modes_subroutine(arguments)
   implicit none
   
   type(Dictionary), intent(in) :: arguments
@@ -156,7 +152,7 @@ subroutine calculate_normal_modes(arguments)
   ! --------------------------------------------------
   ! Read in previous arguments.
   ! --------------------------------------------------
-  setup_harmonic_arguments = Dictionary(setup_harmonic_keywords())
+  setup_harmonic_arguments = Dictionary(setup_harmonic())
   call setup_harmonic_arguments%read_file(wd//'/setup_harmonic.used_settings')
   file_type = setup_harmonic_arguments%value('file_type')
   seedname = setup_harmonic_arguments%value('seedname')

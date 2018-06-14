@@ -12,20 +12,21 @@ module setup_anharmonic_module
   
   private
   
-  public :: setup_anharmonic_keywords
-  public :: setup_anharmonic_mode
   public :: setup_anharmonic
 contains
 
 ! ----------------------------------------------------------------------
 ! Generate keywords and helptext.
 ! ----------------------------------------------------------------------
-function setup_anharmonic_keywords() result(keywords)
+function setup_anharmonic() result(output)
   implicit none
   
-  type(KeywordData), allocatable :: keywords(:)
+  type(CaesarMode) :: output
   
-  keywords = [                                                                &
+  output%mode_name = 'setup_anharmonic'
+  output%description = 'Sets up anharmonic calculations. Should be run after &
+     &calculate_harmonic.'
+  output%keywords = [                                                         &
   & KeywordData( 'harmonic_path',                                             &
   &              'harmonic_path is the path to the directory where harmonic &
   &calculations were run.',                                                   &
@@ -64,24 +65,13 @@ function setup_anharmonic_keywords() result(keywords)
   &which maximum displacement happens. Displacement along modes with w>w_min &
   &is scaled by sqrt(w_min/w), and displacement along modes with w<w_min &
   &is unscaled. w_min should be given in Hartree.') ]
-end function
-
-function setup_anharmonic_mode() result(output)
-  implicit none
-  
-  type(CaesarMode) :: output
-  
-  output%mode_name = 'setup_anharmonic'
-  output%description = 'Sets up anharmonic calculations. Should be run after &
-     &calculate_harmonic.'
-  output%keywords = setup_anharmonic_keywords()
-  output%main_subroutine => setup_anharmonic
+  output%main_subroutine => setup_anharmonic_subroutine
 end function
 
 ! ----------------------------------------------------------------------
 ! The main program.
 ! ----------------------------------------------------------------------
-subroutine setup_anharmonic(arguments)
+subroutine setup_anharmonic_subroutine(arguments)
   implicit none
   
   type(Dictionary), intent(in) :: arguments
@@ -171,7 +161,7 @@ subroutine setup_anharmonic(arguments)
      & dble(arguments%value('frequency_of_max_displacement'))
   
   ! Read setup_harmonic arguments.
-  setup_harmonic_arguments = Dictionary(setup_harmonic_keywords())
+  setup_harmonic_arguments = Dictionary(setup_harmonic())
   call setup_harmonic_arguments%read_file( &
      & harmonic_path//'/setup_harmonic.used_settings')
   seedname = setup_harmonic_arguments%value('seedname')

@@ -15,17 +15,26 @@ module calculate_harmonic_observables_module
   use harmonic_properties_module
   use setup_harmonic_module
   implicit none
+  
+  private
+  
+  public :: calculate_harmonic_observables
 contains
 
 ! ----------------------------------------------------------------------
 ! Generate keywords and helptext.
 ! ----------------------------------------------------------------------
-function calculate_harmonic_observables_keywords() result(keywords)
+function calculate_harmonic_observables() result(output)
   implicit none
   
-  type(KeywordData), allocatable :: keywords(:)
+  type(CaesarMode) :: output
   
-  keywords = [                                                                &
+  output%mode_name = 'calculate_harmonic_observables'
+  output%description = 'Calculates several observables under the harmonic &
+     &approximation: the phonon density of states and dispersion curve, &
+     &and the energy, free energy and entropy per unit cell. Should be run &
+     &after calculate_harmonic.'
+  output%keywords = [                                                         &
   & KeywordData( 'min_temperature',                                           &
   &              'min_temperature is the minimum temperature at which &
   &thermodynamic quantities are calculated. min_temperature should be given &
@@ -55,26 +64,13 @@ function calculate_harmonic_observables_keywords() result(keywords)
   &at which the normal modes are calculated when calculating the vibrational &
   &density of states.',                                                       &
   &              default_value='100000')]
-end function
-
-function calculate_harmonic_observables_mode() result(output)
-  implicit none
-  
-  type(CaesarMode) :: output
-  
-  output%mode_name = 'calculate_harmonic_observables'
-  output%description = 'Calculates several observables under the harmonic &
-     &approximation: the phonon density of states and dispersion curve, &
-     &and the energy, free energy and entropy per unit cell. Should be run &
-     &after calculate_harmonic.'
-  output%keywords = calculate_harmonic_observables_keywords()
-  output%main_subroutine => calculate_harmonic_observables
+  output%main_subroutine => calculate_harmonic_observables_subroutine
 end function
 
 ! ----------------------------------------------------------------------
 ! The main subroutine.
 ! ----------------------------------------------------------------------
-subroutine calculate_harmonic_observables(arguments)
+subroutine calculate_harmonic_observables_subroutine(arguments)
   implicit none
   
   type(Dictionary), intent(in) :: arguments
@@ -178,7 +174,7 @@ subroutine calculate_harmonic_observables(arguments)
   ! --------------------------------------------------
   ! Read in previous arguments.
   ! --------------------------------------------------
-  setup_harmonic_arguments = Dictionary(setup_harmonic_keywords())
+  setup_harmonic_arguments = Dictionary(setup_harmonic())
   call setup_harmonic_arguments%read_file(wd//'/setup_harmonic.used_settings')
   symmetry_precision = &
      & dble(setup_harmonic_arguments%value('symmetry_precision'))

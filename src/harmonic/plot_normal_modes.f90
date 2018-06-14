@@ -4,23 +4,16 @@
 module plot_normal_modes_module
   use common_module
   implicit none
+  
+  private
+  
+  public :: plot_normal_modes
 contains
 
 ! ----------------------------------------------------------------------
 ! Generates keywords and helptext.
 ! ----------------------------------------------------------------------
-function plot_normal_modes_keywords() result(keywords)
-  implicit none
-  
-  type(KeywordData), allocatable :: keywords(:)
-  
-  keywords = [                                                             &
-     & KeywordData( 'python_path',                                         &
-     &              'python_path is the path to the Python 3 executable.', &
-     &              default_value='python3') ]
-end function
-
-function plot_normal_modes_mode() result(output)
+function plot_normal_modes() result(output)
   implicit none
   
   type(CaesarMode) :: output
@@ -28,15 +21,18 @@ function plot_normal_modes_mode() result(output)
   output%mode_name = 'plot_normal_modes'
   output%description = 'Plots the output of calculate_normal_modes. Should be &
      &run from within a qpoint_ directory. The -d flag may be useful for this.'
-  output%keywords = plot_normal_modes_keywords()
-  output%main_subroutine => plot_normal_modes
+  output%keywords = [                                                      &
+     & KeywordData( 'python_path',                                         &
+     &              'python_path is the path to the Python 3 executable.', &
+     &              default_value='python3') ]
+  output%main_subroutine => plot_normal_modes_subroutine
   output%suppress_settings_file = .true.
 end function
 
 ! ----------------------------------------------------------------------
 ! Main program.
 ! ----------------------------------------------------------------------
-subroutine plot_normal_modes(arguments)
+subroutine plot_normal_modes_subroutine(arguments)
   implicit none
   
   type(Dictionary), intent(in) :: arguments

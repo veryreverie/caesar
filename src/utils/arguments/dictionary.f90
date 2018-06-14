@@ -18,7 +18,7 @@ module dictionary_submodule
   ! ------------------------------
   ! A dictionary of keys and values.
   ! ------------------------------
-  type :: Dictionary
+  type, extends(NoDefaultConstructor) :: Dictionary
     ! Accepted keywords.
     type(KeywordData), allocatable :: keywords(:)
   contains

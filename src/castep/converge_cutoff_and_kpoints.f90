@@ -7,17 +7,23 @@ module converge_cutoff_and_kpoints_module
   
   use castep_output_file_module
   implicit none
+  
+  private
+  
+  public :: converge_cutoff_and_kpoints
 contains
 
 ! ----------------------------------------------------------------------
 ! Generate keywords and helptext.
 ! ----------------------------------------------------------------------
-function converge_cutoff_and_kpoints_keywords() result(keywords)
+function converge_cutoff_and_kpoints() result(output)
   implicit none
   
-  type(KeywordData), allocatable :: keywords(:)
+  type(CaesarMode) :: output
   
-  keywords = [                                                                &
+  output%mode_name = 'converge_cutoff_and_kpoints'
+  output%description = 'Converges cutoff energy and k-point spacing.'
+  output%keywords = [                                                         &
   & KeywordData( 'seedname',                                                 &
   &               'seedname is the CASTEP seedname from which file names are &
   &constructed.'),                                                            &
@@ -74,23 +80,13 @@ function converge_cutoff_and_kpoints_keywords() result(keywords)
   &the position of every atom to within symmetry_precision of an atom of the &
   &same element. symmetry_precision should be given in Bohr.',                &
   &              default_value='0.1') ]
-end function
-
-function converge_cutoff_and_kpoints_mode() result(output)
-  implicit none
-  
-  type(CaesarMode) :: output
-  
-  output%mode_name = 'converge_cutoff_and_kpoints'
-  output%description = 'Converges cutoff energy and k-point spacing.'
-  output%keywords = converge_cutoff_and_kpoints_keywords()
-  output%main_subroutine => converge_cutoff_and_kpoints
+  output%main_subroutine => converge_cutoff_and_kpoints_subroutine
 end function
 
 ! ----------------------------------------------------------------------
 ! Main program.
 ! ----------------------------------------------------------------------
-subroutine converge_cutoff_and_kpoints(arguments)
+subroutine converge_cutoff_and_kpoints_subroutine(arguments)
   implicit none
   
   type(Dictionary), intent(in) :: arguments

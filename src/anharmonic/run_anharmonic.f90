@@ -14,20 +14,21 @@ module run_anharmonic_module
   
   private
   
-  public :: run_anharmonic_keywords
-  public :: run_anharmonic_mode
   public :: run_anharmonic
 contains
 
 ! ----------------------------------------------------------------------
 ! Generate keywords and helptext.
 ! ----------------------------------------------------------------------
-function run_anharmonic_keywords() result(keywords)
+function run_anharmonic() result(output)
   implicit none
   
-  type(KeywordData), allocatable :: keywords(:)
+  type(CaesarMode) :: output
   
-  keywords = [                                                                &
+  output%mode_name = 'run_anharmonic'
+  output%description = 'Runs DFT calculations set up by setup_anharmonic. &
+     &Should be run after setup_anharmonic.'
+  output%keywords = [                                                         &
   & KeywordData( 'calculations_to_run',                                       &
   &              'calculations_to_run specifies the first and last &
   &calculations to run inclusive. These should be given as two integers &
@@ -43,24 +44,13 @@ function run_anharmonic_keywords() result(keywords)
   &              'no_cores is the number of cores on which DFT will be run. &
   &This is passed to the specified run script.',                              &
   &               default_value='1') ]
-end function
-
-function run_anharmonic_mode() result(output)
-  implicit none
-  
-  type(CaesarMode) :: output
-  
-  output%mode_name = 'run_anharmonic'
-  output%description = 'Runs DFT calculations set up by setup_anharmonic. &
-     &Should be run after setup_anharmonic.'
-  output%keywords = run_anharmonic_keywords()
-  output%main_subroutine => run_anharmonic
+  output%main_subroutine => run_anharmonic_subroutine
 end function
 
 ! ----------------------------------------------------------------------
 ! Main program.
 ! ----------------------------------------------------------------------
-subroutine run_anharmonic(arguments)
+subroutine run_anharmonic_subroutine(arguments)
   implicit none
   
   type(Dictionary), intent(in) :: arguments
@@ -98,13 +88,13 @@ subroutine run_anharmonic(arguments)
   no_cores = int(arguments%value('no_cores'))
   
   ! Read in setup_anharmonic settings.
-  setup_anharmonic_arguments = Dictionary(setup_anharmonic_keywords())
+  setup_anharmonic_arguments = Dictionary(setup_anharmonic())
   call setup_anharmonic_arguments%read_file( &
      & wd//'/setup_anharmonic.used_settings')
   harmonic_path = setup_anharmonic_arguments%value('harmonic_path')
   
   ! Read in setup_harmonic settings.
-  setup_harmonic_arguments = Dictionary(setup_harmonic_keywords())
+  setup_harmonic_arguments = Dictionary(setup_harmonic())
   call setup_harmonic_arguments%read_file( &
      & harmonic_path//'/setup_harmonic.used_settings')
   file_type = setup_harmonic_arguments%value('file_type')

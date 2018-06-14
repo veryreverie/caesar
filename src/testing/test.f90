@@ -7,8 +7,6 @@ module test_module
   
   private
   
-  public :: test_keywords
-  public :: test_mode
   public :: test
   
   type, extends(Stringable) :: TestType
@@ -67,23 +65,15 @@ end function
 ! ----------------------------------------------------------------------
 ! Generates keywords and helptext.
 ! ----------------------------------------------------------------------
-function test_keywords() result(keywords)
-  implicit none
-  
-  type(KeywordData), allocatable :: keywords(:)
-  
-  keywords = [KeywordData::]
-end function
-
-function test_mode() result(output)
+function test() result(output)
   implicit none
   
   type(CaesarMode) :: output
   
   output%mode_name = 'test'
   output%description = 'Runs temporary code for testing purposes.'
-  output%keywords = test_keywords()
-  output%main_subroutine => test
+  output%keywords = [KeywordData::]
+  output%main_subroutine => test_subroutine
   output%suppress_from_helptext = .true.
 end function
 
@@ -102,7 +92,7 @@ end subroutine
 ! ----------------------------------------------------------------------
 ! Main function.
 ! ----------------------------------------------------------------------
-subroutine test(arguments)
+subroutine test_subroutine(arguments)
   implicit none
   
   type(Dictionary), intent(in) :: arguments
