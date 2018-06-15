@@ -28,8 +28,9 @@ module ofile_target_submodule
     
     procedure, public :: make_stdout
     
-    generic, public :: print_line => print_line_character
-    procedure, private ::            print_line_character
+    generic,   public  :: print_line => &
+                        & print_line_character
+    procedure, private :: print_line_character
   end type
   
   interface OFileTarget

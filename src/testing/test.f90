@@ -1,6 +1,51 @@
 ! ======================================================================
 ! A test space, for temporary checking of misc. parts of the code.
 ! ======================================================================
+module a_module
+  implicit none
+  
+  private
+  
+  public :: A
+  
+  type, abstract :: A
+  contains
+    generic, public :: temp => &
+                     & temp_1
+    procedure(temp_1_A), private, deferred :: temp_1
+  end type
+  
+  abstract interface
+    subroutine temp_1_A(this)
+      import A
+      implicit none
+      
+      class(A), intent(in) :: this
+    end subroutine
+  end interface
+end module
+
+module b_module
+  use a_module
+  implicit none
+  
+  private
+  
+  public :: B
+  
+  type, extends(A) :: B
+  contains
+    procedure, private :: temp_1 => temp_1_B
+  end type
+contains
+
+subroutine temp_1_B(this)
+  implicit none
+  
+  class(B), intent(in) :: this
+end subroutine
+end module
+
 module test_module
   use common_module
   implicit none
@@ -8,59 +53,7 @@ module test_module
   private
   
   public :: test
-  
-  type, extends(Stringable) :: TestType
-    integer, allocatable :: contents(:)
-  contains
-    procedure, public :: read  => read_TestType
-    procedure, public :: write => write_TestType
-  end type
-  
-  interface TestType
-    module procedure new_TestType
-    module procedure new_TestType_String
-  end interface
 contains
-
-function new_TestType(input) result(this)
-  implicit none
-  
-  integer, intent(in) :: input(:)
-  type(TestType)      :: this
-  
-  this%contents = input
-end function
-
-subroutine read_TestType(this,input)
-  implicit none
-  
-  class(TestType), intent(out) :: this
-  type(String),    intent(in)  :: input
-  
-  select type(this); type is(TestType)
-    this = TestType(int(split_line(input)))
-  end select
-end subroutine
-
-function write_TestType(this) result(output)
-  implicit none
-  
-  class(TestType), intent(in) :: this
-  type(String)                :: output
-  
-  select type(this); type is(TestType)
-    output = join(this%contents)
-  end select
-end function
-
-impure elemental function new_TestType_String(input) result(this)
-  implicit none
-  
-  type(String), intent(in) :: input
-  type(TestType)           :: this
-  
-  this = input
-end function
 
 ! ----------------------------------------------------------------------
 ! Generates keywords and helptext.
@@ -77,18 +70,6 @@ function test() result(output)
   output%suppress_from_helptext = .true.
 end function
 
-subroutine write_test(filename,test1)
-  implicit none
-  
-  type(String),   intent(in) :: filename
-  type(TestType), intent(in) :: test1(:)
-  
-  type(OFile) :: o_file
-  
-  o_file = OFile(filename)
-  call o_file%print_lines(test1)
-end subroutine
-
 ! ----------------------------------------------------------------------
 ! Main function.
 ! ----------------------------------------------------------------------
@@ -99,27 +80,7 @@ subroutine test_subroutine(arguments)
   
   type(String) :: wd
   
-  type(TestType), allocatable :: test1(:)
-  type(OFile)                 :: o_file
-  type(IFile)                 :: i_file
-  type(TestType), allocatable :: test2(:)
-  
-  integer :: a,b,c
-  
   wd = arguments%value('working_directory')
   
-  a = 3
-  b = 4
-  c = 7
-  
-  test1 = [ TestType([a,b,c]),   &
-          & TestType([c,b,b,b]), &
-          & TestType([a,c,a])    ]
-  
-  call write_test(wd//'/file.dat', test1)
-  
-  i_file = IFile(wd//'/file.dat')
-  test2 = TestType(i_file%lines())
-  call print_lines(test2)
 end subroutine
 end module

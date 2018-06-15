@@ -30,43 +30,45 @@ module ofile_submodule
     
     procedure, public :: make_stdout
     
-    generic, public :: print_line => print_line_character,       &
-                                   & print_line_String,          &
-                                   & print_line_StringWriteable, &
-                                   & print_line_integer,         &
-                                   & print_line_real,            &
-                                   & print_line_logical,         &
-                                   & print_line_complex,         &
-                                   & print_line_integers,        &
-                                   & print_line_reals,           &
-                                   & print_line_logicals,        &
-                                   & print_line_complexes
-    procedure, private ::            print_line_character
-    procedure, private ::            print_line_String
-    procedure, private ::            print_line_StringWriteable
-    procedure, private ::            print_line_integer
-    procedure, private ::            print_line_real
-    procedure, private ::            print_line_logical
-    procedure, private ::            print_line_complex
-    procedure, private ::            print_line_integers
-    procedure, private ::            print_line_reals
-    procedure, private ::            print_line_logicals
-    procedure, private ::            print_line_complexes
+    generic,   public  :: print_line =>               &
+                        & print_line_character,       &
+                        & print_line_String,          &
+                        & print_line_StringWriteable, &
+                        & print_line_integer,         &
+                        & print_line_real,            &
+                        & print_line_logical,         &
+                        & print_line_complex,         &
+                        & print_line_integers,        &
+                        & print_line_reals,           &
+                        & print_line_logicals,        &
+                        & print_line_complexes
+    procedure, private :: print_line_character
+    procedure, private :: print_line_String
+    procedure, private :: print_line_StringWriteable
+    procedure, private :: print_line_integer
+    procedure, private :: print_line_real
+    procedure, private :: print_line_logical
+    procedure, private :: print_line_complex
+    procedure, private :: print_line_integers
+    procedure, private :: print_line_reals
+    procedure, private :: print_line_logicals
+    procedure, private :: print_line_complexes
     
-    generic, public :: print_lines => print_lines_Strings_character,          &
-                                    & print_lines_Strings_String,             &
-                                    & print_lines_StringWriteables_character, &
-                                    & print_lines_StringWriteables_String,    &
-                                    & print_lines_StringsWriteable,           &
-                                    & print_lines_StringsWriteables_character,&
-                                    & print_lines_StringsWriteables_String
-    procedure, private ::             print_lines_Strings_character
-    procedure, private ::             print_lines_Strings_String
-    procedure, private ::             print_lines_StringWriteables_character
-    procedure, private ::             print_lines_StringWriteables_String
-    procedure, private ::             print_lines_StringsWriteable
-    procedure, private ::             print_lines_StringsWriteables_character
-    procedure, private ::             print_lines_StringsWriteables_String
+    generic,   public  :: print_lines =>                          &
+                        & print_lines_Strings_character,          &
+                        & print_lines_Strings_String,             &
+                        & print_lines_StringWriteables_character, &
+                        & print_lines_StringWriteables_String,    &
+                        & print_lines_StringsWriteable,           &
+                        & print_lines_StringsWriteables_character,&
+                        & print_lines_StringsWriteables_String
+    procedure, private :: print_lines_Strings_character
+    procedure, private :: print_lines_Strings_String
+    procedure, private :: print_lines_StringWriteables_character
+    procedure, private :: print_lines_StringWriteables_String
+    procedure, private :: print_lines_StringsWriteable
+    procedure, private :: print_lines_StringsWriteables_character
+    procedure, private :: print_lines_StringsWriteables_String
   end type
   
   interface OFile

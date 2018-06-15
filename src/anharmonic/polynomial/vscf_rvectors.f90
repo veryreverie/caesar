@@ -22,31 +22,33 @@ module vscf_rvectors_module
     procedure, public :: rvectors => rvectors_VscfRvectors
     
     ! Transform vectors in normal-mode co-ordinates.
-    generic,   public  :: transform => transform_ComplexModeDisplacement, &
-                                     & transform_ComplexModeForce,        &
-                                     & transform_RealModeDisplacement,    &
-                                     & transform_RealModeForce
-    procedure, private ::              transform_ComplexModeDisplacement
-    procedure, private ::              transform_ComplexModeForce
-    procedure, private ::              transform_RealModeDisplacement
-    procedure, private ::              transform_RealModeForce
+    generic,   public  :: transform =>                       &
+                        & transform_ComplexModeDisplacement, &
+                        & transform_ComplexModeForce,        &
+                        & transform_RealModeDisplacement,    &
+                        & transform_RealModeForce
+    procedure, private :: transform_ComplexModeDisplacement
+    procedure, private :: transform_ComplexModeForce
+    procedure, private :: transform_RealModeDisplacement
+    procedure, private :: transform_RealModeForce
     
     ! The inverse operation to transform.
-    generic,   public  :: inverse_transform =>                                &
-                                 & inverse_transform_ComplexModeDisplacement, &
-                                 & inverse_transform_ComplexModeForce,        &
-                                 & inverse_transform_RealModeDisplacement,    &
-                                 & inverse_transform_RealModeForce
-    procedure, private ::          inverse_transform_ComplexModeDisplacement
-    procedure, private ::          inverse_transform_ComplexModeForce
-    procedure, private ::          inverse_transform_RealModeDisplacement
-    procedure, private ::          inverse_transform_RealModeForce
+    generic,   public  :: inverse_transform =>                       &
+                        & inverse_transform_ComplexModeDisplacement, &
+                        & inverse_transform_ComplexModeForce,        &
+                        & inverse_transform_RealModeDisplacement,    &
+                        & inverse_transform_RealModeForce
+    procedure, private :: inverse_transform_ComplexModeDisplacement
+    procedure, private :: inverse_transform_ComplexModeForce
+    procedure, private :: inverse_transform_RealModeDisplacement
+    procedure, private :: inverse_transform_RealModeForce
     
     ! Helper functions for transform and inverse_transform.
-    generic,   private :: transform_ => transform_ComplexModeVector, &
-                                      & transform_RealModeVector
-    procedure, private ::               transform_ComplexModeVector
-    procedure, private ::               transform_RealModeVector
+    generic,   private :: transform_ =>                &
+                        & transform_ComplexModeVector, &
+                        & transform_RealModeVector
+    procedure, private :: transform_ComplexModeVector
+    procedure, private :: transform_RealModeVector
     
     ! I/O.
     procedure, public :: read  => read_VscfRvectors

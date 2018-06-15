@@ -420,7 +420,6 @@ impure elemental function derivative_ComplexMonomial(this,vector) &
   complex(dp),                   allocatable :: evaluations(:)
   type(ComplexSingleModeVector), allocatable :: derivatives(:)
   
-  logical,                       allocatable :: mask(:)
   type(ComplexSingleModeVector), allocatable :: components(:)
   
   integer :: i,j,ialloc
@@ -477,7 +476,7 @@ impure elemental function derivative_ComplexMonomial(this,vector) &
       components = [ this%coefficient                       &
                  & * product( evaluations,                  &
                  &            dim=1,                        &
-                 &            mask=[(j,j=1,size(this))]/=i) &
+                 &            mask=[(j/=i,j=1,size(this))]) &
                  & * derivatives(i)                         &
                  & ]
     endif
@@ -489,7 +488,7 @@ impure elemental function derivative_ComplexMonomial(this,vector) &
       components(i) = this%coefficient                       &
                   & * product( evaluations,                  &
                   &            dim=1,                        &
-                  &            mask=[(j,j=1,size(this))]/=i) &
+                  &            mask=[(j/=i,j=1,size(this))]) &
                   & * derivatives(i)
     enddo
   endif

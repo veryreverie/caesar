@@ -23,8 +23,16 @@ module basis_function_module
     !    zero in every other basis function.
     type(RealMonomial)      :: unique_term
   contains
-    procedure, public :: evaluate => evaluate_BasisFunction
-    procedure, public :: derivative => derivative_BasisFunction
+    generic,   public  :: evaluate =>                            &
+                        & evaluate_RealModeVector_BasisFunction, &
+                        & evaluate_ComplexModeVector_BasisFunction
+    procedure, private :: evaluate_RealModeVector_BasisFunction
+    procedure, private :: evaluate_ComplexModeVector_BasisFunction
+    generic,   public  :: derivative =>                            &
+                        & derivative_RealModeVector_BasisFunction, &
+                        & derivative_ComplexModeVector_BasisFunction
+    procedure, private :: derivative_RealModeVector_BasisFunction
+    procedure, private :: derivative_ComplexModeVector_BasisFunction
     
     procedure, public :: read  => read_BasisFunction
     procedure, public :: write => write_BasisFunction
@@ -345,7 +353,8 @@ end function
 ! ----------------------------------------------------------------------
 ! Evaluate the basis function and its derivatives.
 ! ----------------------------------------------------------------------
-impure elemental function evaluate_BasisFunction(this,vector) result(output)
+impure elemental function evaluate_RealModeVector_BasisFunction(this,vector) &
+   & result(output)
   implicit none
   
   class(BasisFunction),  intent(in) :: this
@@ -355,7 +364,19 @@ impure elemental function evaluate_BasisFunction(this,vector) result(output)
   output = this%real_representation%evaluate(vector)
 end function
 
-impure elemental function derivative_BasisFunction(this,vector) result(output)
+impure elemental function evaluate_ComplexModeVector_BasisFunction(this, &
+   & vector) result(output)
+  implicit none
+  
+  class(BasisFunction),     intent(in) :: this
+  class(ComplexModeVector), intent(in) :: vector
+  real(dp)                             :: output
+  
+  output = this%complex_representation%evaluate(vector)
+end function
+
+impure elemental function derivative_RealModeVector_BasisFunction(this, &
+   & vector) result(output)
   implicit none
   
   class(BasisFunction),  intent(in) :: this
@@ -363,6 +384,17 @@ impure elemental function derivative_BasisFunction(this,vector) result(output)
   type(RealModeVector)              :: output
   
   output = this%real_representation%derivative(vector)
+end function
+
+impure elemental function derivative_ComplexModeVector_BasisFunction(this, &
+   & vector) result(output)
+  implicit none
+  
+  class(BasisFunction),  intent(in) :: this
+  class(ComplexModeVector), intent(in) :: vector
+  type(ComplexModeVector)              :: output
+  
+  output = this%complex_representation%derivative(vector)
 end function
 
 ! ----------------------------------------------------------------------

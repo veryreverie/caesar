@@ -34,7 +34,13 @@ function calculate_states() result(output)
   &of zero) along each mode at which the anharmonic potential will be sampled &
   &when determining the effective frequency with which the harmonic basis &
   &along that mode will be constructed.',                                     &
-  &              default_value='100') ]
+  &              default_value='100'),                                        &
+  & KeywordData( 'validate_potential',                                        &
+  &              'validate_potential specifies that the anharmonic potential &
+  &should be verified against fresh electronic structure calculations when &
+  &sampling. Depending on the electronic structure method, this is likely to &
+  &be very computationally intensive.',                                       &
+  &              default_value='false') ]
   output%main_subroutine => calculate_states_subroutine
 end function
 
@@ -51,12 +57,14 @@ subroutine calculate_states_subroutine(arguments)
   
   ! Input arguments.
   integer :: no_single_mode_samples
+  logical :: validate_potential
   
   ! Arguments to setup_anharmonic.
   type(Dictionary) :: setup_anharmonic_arguments
   type(String)     :: harmonic_path
   type(String)     :: potential_representation
   real(dp)         :: maximum_displacement
+  real(dp)         :: frequency_of_max_displacement
   
   ! Arguments to setup_harmonic.
   type(Dictionary) :: setup_harmonic_arguments
@@ -79,11 +87,20 @@ subroutine calculate_states_subroutine(arguments)
   ! Anharmonic potential.
   type(PotentialPointer) :: potential
   
+  ! Variables for generating effective mode frequencies.
+  real(dp),                 allocatable :: displacements(:)
+  real(dp),                 allocatable :: scaled_displacements(:)
+  type(EffectiveFrequency), allocatable :: effective_frequencies(:)
+  
   ! Files and directories.
   type(IFile) :: qpoints_file
   type(IFile) :: complex_modes_file
   type(IFile) :: real_modes_file
   type(IFile) :: potential_file
+  type(OFile) :: effective_frequencies_file
+  
+  ! Temporary variables.
+  integer :: i,j,ialloc
   
   ! --------------------------------------------------
   ! Read in inputs and previously calculated data.
@@ -92,6 +109,7 @@ subroutine calculate_states_subroutine(arguments)
   wd = arguments%value('working_directory')
   
   no_single_mode_samples = int(arguments%value('no_single_mode_samples'))
+  validate_potential = lgcl(arguments%value('validate_potential'))
   
   ! Read in setup_anharmonic arguments.
   setup_anharmonic_arguments = Dictionary(setup_anharmonic())
@@ -102,6 +120,8 @@ subroutine calculate_states_subroutine(arguments)
      & setup_anharmonic_arguments%value('potential_representation')
   maximum_displacement = &
      & dble(setup_anharmonic_arguments%value('maximum_displacement'))
+  frequency_of_max_displacement = &
+     & dble(setup_anharmonic_arguments%value('frequency_of_max_displacement'))
   
   ! Read in setup_harmonic arguments.
   setup_harmonic_arguments = Dictionary(setup_harmonic())
@@ -150,6 +170,27 @@ subroutine calculate_states_subroutine(arguments)
   ! Calculate effective harmonic potential, from which initial harmonic
   !    states are constructed.
   ! --------------------------------------------------
+  ! Calculate displacements before scaling by 1/sqrt(frequency).
+  displacements =                                               &
+     &   [(j,j=-no_single_mode_samples,no_single_mode_samples)] &
+     & * maximum_displacement                                   &
+     & / no_single_mode_samples
+  
+  allocate( effective_frequencies(size(complex_modes)), &
+          & stat=ialloc); call err(ialloc)
+  do i=1,size(complex_modes)
+    ! Scale displacement by 1/sqrt(frequency).
+    scaled_displacements = displacements                          &
+                       & * sqrt( frequency_of_max_displacement    &
+                       &       / max( complex_modes(i)%frequency, &
+                       &              frequency_of_max_displacement))
+    effective_frequencies(i) = EffectiveFrequency( scaled_displacements, &
+                                                 & complex_modes(i),     &
+                                                 & potential)
+  enddo
+  effective_frequencies_file = OFile(wd//'/effective_frequencies.dat')
+  call effective_frequencies_file%print_lines( effective_frequencies, &
+                                             & separating_line='')
   
 end subroutine
 end module

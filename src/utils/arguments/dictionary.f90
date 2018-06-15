@@ -90,11 +90,11 @@ module dictionary_submodule
     
     ! Appends to the value of a keyword.
     ! Returns an error if the keyword has no value set.
-    generic, public :: append_to_value =>                              &
-                     & append_to_value_Dictionary_character_character, &
-                     & append_to_value_Dictionary_character_String,    &
-                     & append_to_value_Dictionary_String_character,    &
-                     & append_to_value_Dictionary_String_String
+    generic,   public  :: append_to_value =>                              &
+                        & append_to_value_Dictionary_character_character, &
+                        & append_to_value_Dictionary_character_String,    &
+                        & append_to_value_Dictionary_String_character,    &
+                        & append_to_value_Dictionary_String_String
     procedure, private :: append_to_value_Dictionary_character_character
     procedure, private :: append_to_value_Dictionary_character_String
     procedure, private :: append_to_value_Dictionary_String_character

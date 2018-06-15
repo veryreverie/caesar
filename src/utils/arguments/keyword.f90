@@ -49,14 +49,18 @@ module keyword_submodule
     
     ! Setters.
     procedure, public  :: unset   => unset_KeywordData
-    generic,   public  :: set     => set_KeywordData_character, &
-                                   & set_KeywordData_String
-    procedure, private ::            set_KeywordData_character
-    procedure, private ::            set_KeywordData_String
-    generic,   public  :: append  => append_KeywordData_character, &
-                                   & append_KeywordData_String
-    procedure, private ::            append_KeywordData_character
-    procedure, private ::            append_KeywordData_String
+    
+    generic,   public  :: set =>                     &
+                        & set_KeywordData_character, &
+                        & set_KeywordData_String
+    procedure, private :: set_KeywordData_character
+    procedure, private :: set_KeywordData_String
+    
+    generic,   public  :: append =>                     &
+                        & append_KeywordData_character, &
+                        & append_KeywordData_String
+    procedure, private :: append_KeywordData_character
+    procedure, private :: append_KeywordData_String
     
     ! Getters.
     procedure, public :: is_set => is_set_KeywordData

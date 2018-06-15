@@ -40,6 +40,8 @@ module complex_mode_vector_submodule
   end interface
   
   interface operator(*)
+    module procedure multiply_real_ComplexModeVector
+    module procedure multiply_ComplexModeVector_real
     module procedure multiply_complex_ComplexModeVector
     module procedure multiply_ComplexModeVector_complex
   end interface
@@ -130,6 +132,28 @@ end function
 ! ----------------------------------------------------------------------
 ! Arithmetic.
 ! ----------------------------------------------------------------------
+impure elemental function multiply_real_ComplexModeVector(this,that) &
+   & result(output)
+  implicit none
+  
+  real(dp),                intent(in) :: this
+  type(ComplexModeVector), intent(in) :: that
+  type(ComplexModeVector)             :: output
+  
+  output = ComplexModeVector(this*that%vectors)
+end function
+
+impure elemental function multiply_ComplexModeVector_real(this,that) &
+   & result(output)
+  implicit none
+  
+  type(ComplexModeVector), intent(in) :: this
+  real(dp),                intent(in) :: that
+  type(ComplexModeVector)             :: output
+  
+  output = ComplexModeVector(this%vectors*that)
+end function
+
 impure elemental function multiply_complex_ComplexModeVector(this,that) &
    & result(output)
   implicit none

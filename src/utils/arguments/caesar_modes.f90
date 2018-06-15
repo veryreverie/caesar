@@ -56,10 +56,11 @@ module caesar_modes_submodule
   type :: CaesarModes
     type(CaesarMode), private, allocatable :: modes_(:)
   contains
-    generic,   public  :: mode => mode_character, &
-                                & mode_String
-    procedure, private ::         mode_character
-    procedure, private ::         mode_String
+    generic,   public  :: mode =>         &
+                        & mode_character, &
+                        & mode_String
+    procedure, private :: mode_character
+    procedure, private :: mode_String
     
     procedure, public  :: print_help => print_help_CaesarModes
   end type

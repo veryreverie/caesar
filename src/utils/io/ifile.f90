@@ -20,15 +20,17 @@ module ifile_submodule
   contains
     procedure, public :: line
     
-    generic,   public  :: lines => lines_all, &
-                                 & lines_slice
-    procedure, private ::          lines_all
-    procedure, private ::          lines_slice
+    generic,   public  :: lines =>   &
+                        & lines_all, &
+                        & lines_slice
+    procedure, private :: lines_all
+    procedure, private :: lines_slice
     
-    generic,   public  :: sections => sections_character, &
-                                    & sections_String
-    procedure, private ::             sections_character
-    procedure, private ::             sections_String
+    generic,   public  :: sections =>         &
+                        & sections_character, &
+                        & sections_String
+    procedure, private :: sections_character
+    procedure, private :: sections_String
   end type
   
   interface IFile

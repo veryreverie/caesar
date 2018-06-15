@@ -16,6 +16,7 @@ module anharmonic_common_module
   use anharmonic_data_module
   use potential_module
   use potential_pointer_module
+  use effective_frequency_module
   implicit none
 contains
 end module

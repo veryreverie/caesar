@@ -30,6 +30,8 @@ module complex_single_mode_vector_submodule
   end interface
   
   interface operator(*)
+    module procedure multiply_real_ComplexSingleModeVector
+    module procedure multiply_ComplexSingleModeVector_real
     module procedure multiply_complex_ComplexSingleModeVector
     module procedure multiply_ComplexSingleModeVector_complex
   end interface
@@ -61,6 +63,30 @@ function new_ComplexSingleModeVector(id,magnitude) result(this)
 end function
 
 ! Arithmetic.
+impure elemental function multiply_real_ComplexSingleModeVector(this,that) &
+   & result(output)
+  implicit none
+  
+  real(dp),                      intent(in) :: this
+  type(ComplexSingleModeVector), intent(in) :: that
+  type(ComplexSingleModeVector)             :: output
+  
+  output = ComplexSingleModeVector( id        = that%id, &
+                                  & magnitude = this*that%magnitude)
+end function
+
+impure elemental function multiply_ComplexSingleModeVector_real(this,that) &
+   & result(output)
+  implicit none
+  
+  type(ComplexSingleModeVector), intent(in) :: this
+  real(dp),                      intent(in) :: that
+  type(ComplexSingleModeVector)             :: output
+  
+  output = ComplexSingleModeVector( id        = this%id, &
+                                  & magnitude = this%magnitude*that)
+end function
+
 impure elemental function multiply_complex_ComplexSingleModeVector(this,that) &
    & result(output)
   implicit none

@@ -24,8 +24,14 @@ module potential_pointer_module
     procedure, public :: generate_potential => &
        & generate_potential_PotentialPointer
     
-    procedure, public :: energy => energy_PotentialPointer
-    procedure, public :: force  => force_PotentialPointer
+    procedure, public :: energy_RealModeDisplacement => &
+                       & energy_RealModeDisplacement_PotentialPointer
+    procedure, public :: energy_ComplexModeDisplacement => &
+                       & energy_ComplexModeDisplacement_PotentialPointer
+    procedure, public :: force_RealModeDisplacement => &
+                       & force_RealModeDisplacement_PotentialPointer
+    procedure, public :: force_ComplexModeDisplacement => &
+                       & force_ComplexModeDisplacement_PotentialPointer
     
     procedure, private :: check => check_PotentialPointer
     
@@ -108,8 +114,8 @@ subroutine generate_potential_PotentialPointer(this,inputs, &
                                         & read_lambda)
 end subroutine
 
-impure elemental function energy_PotentialPointer(this,displacement) &
-   & result(output)
+impure elemental function energy_RealModeDisplacement_PotentialPointer(this, &
+   & displacement) result(output)
   implicit none
   
   class(PotentialPointer),    intent(in) :: this
@@ -121,13 +127,39 @@ impure elemental function energy_PotentialPointer(this,displacement) &
   output = this%potential%energy(displacement)
 end function
 
-impure elemental function force_PotentialPointer(this,displacement) &
-   & result(output)
+impure elemental function energy_ComplexModeDisplacement_PotentialPointer( &
+   & this,displacement) result(output)
+  implicit none
+  
+  class(PotentialPointer),       intent(in) :: this
+  type(ComplexModeDisplacement), intent(in) :: displacement
+  complex(dp)                               :: output
+  
+  call this%check()
+  
+  output = this%potential%energy(displacement)
+end function
+
+impure elemental function force_RealModeDisplacement_PotentialPointer(this, &
+   & displacement) result(output)
   implicit none
   
   class(PotentialPointer),    intent(in) :: this
   type(RealModeDisplacement), intent(in) :: displacement
   type(RealModeForce)                    :: output
+  
+  call this%check()
+  
+  output = this%potential%force(displacement)
+end function
+
+impure elemental function force_ComplexModeDisplacement_PotentialPointer( &
+   & this,displacement) result(output)
+  implicit none
+  
+  class(PotentialPointer),       intent(in) :: this
+  type(ComplexModeDisplacement), intent(in) :: displacement
+  type(ComplexModeForce)                    :: output
   
   call this%check()
   
@@ -182,8 +214,14 @@ module potential_example_module
     procedure, public :: generate_potential => &
        & generate_potential_PotentialDataExample
     
-    procedure, public :: energy => energy_PotentialDataExample
-    procedure, public :: force  => force_PotentialDataExample
+    procedure, public :: energy_RealModeDisplacement => &
+                       & energy_RealModeDisplacement_PotentialDataExample
+    procedure, public :: energy_ComplexModeDisplacement => &
+                       & energy_ComplexModeDisplacement_PotentialDataExample
+    procedure, public :: force_RealModeDisplacement => &
+                       & force_RealModeDisplacement_PotentialDataExample
+    procedure, public :: force_ComplexModeDisplacement => &
+                       & force_ComplexModeDisplacement_PotentialDataExample
     
     procedure, public :: read  => read_PotentialDataExample
     procedure, public :: write => write_PotentialDataExample
@@ -244,8 +282,8 @@ subroutine generate_potential_PotentialDataExample(this,inputs, &
   ! Code to generate sampling points goes here.
 end subroutine
 
-impure elemental function energy_PotentialDataExample(this,displacement) &
-   & result(output)
+impure elemental function energy_RealModeDisplacement_PotentialDataExample( &
+   & this,displacement) result(output)
   implicit none
   
   class(potentialDataExample), intent(in) :: this
@@ -255,11 +293,25 @@ impure elemental function energy_PotentialDataExample(this,displacement) &
   call print_line('PotentialDataExample: calculating energy.')
   call print_line('Example contents = '//this%example_contents)
   
-  ! Code to calculate energies goes here.
+  ! Code to calculate energies at real displacements goes here.
 end function
 
-impure elemental function force_PotentialDataExample(this,displacement) &
-   & result(output)
+impure elemental function energy_ComplexModeDisplacement_PotentialDataExample(&
+   & this,displacement) result(output)
+  implicit none
+  
+  class(potentialDataExample),    intent(in) :: this
+  type(ComplexModeDisplacement),  intent(in) :: displacement
+  complex(dp)                                :: output
+  
+  call print_line('PotentialDataExample: calculating energy.')
+  call print_line('Example contents = '//this%example_contents)
+  
+  ! Code to calculate energies at complex displacements goes here.
+end function
+
+impure elemental function force_RealModeDisplacement_PotentialDataExample( &
+   & this,displacement) result(output)
   implicit none
   
   class(potentialDataExample), intent(in) :: this
@@ -269,7 +321,21 @@ impure elemental function force_PotentialDataExample(this,displacement) &
   call print_line('PotentialDataExample: calculating force.')
   call print_line('Example contents = '//this%example_contents)
   
-  ! Code to calculate forces goes here.
+  ! Code to calculate forces at real displacements goes here.
+end function
+
+impure elemental function force_ComplexModeDisplacement_PotentialDataExample( &
+   & this,displacement) result(output)
+  implicit none
+  
+  class(potentialDataExample),    intent(in) :: this
+  type(ComplexModeDisplacement),  intent(in) :: displacement
+  type(ComplexModeForce)                     :: output
+  
+  call print_line('PotentialDataExample: calculating force.')
+  call print_line('Example contents = '//this%example_contents)
+  
+  ! Code to calculate forces at complex displacements goes here.
 end function
 
 ! --------------------------------------------------
@@ -325,9 +391,12 @@ subroutine potential_example_subroutine(wd)
   real(dp) :: weighted_energy_force_ratio
   
   ! Variables for energy and force.
-  type(RealModeDisplacement) :: displacement
-  real(dp)                   :: energy
-  type(RealModeForce)        :: force
+  type(RealModeDisplacement) :: real_displacement
+  real(dp)                   :: real_energy
+  type(RealModeForce)        :: real_force
+  type(ComplexModeDisplacement) :: complex_displacement
+  complex(dp)                   :: complex_energy
+  type(ComplexModeForce)        :: complex_force
   
   ! Files.
   type(OFile) :: output_file
@@ -359,8 +428,10 @@ subroutine potential_example_subroutine(wd)
   
   ! Once the potential has been generated, it can be used to calculate
   !    energies and forces.
-  energy = potential%energy(displacement)
-  force  = potential%force(displacement)
+  real_energy = potential%energy(real_displacement)
+  real_force  = potential%force(real_displacement)
+  complex_energy = potential%energy(complex_displacement)
+  complex_force  = potential%force(complex_displacement)
   
   ! The potential can be written to file directly from the potential pointer's
   !    write method, but must be read using the specific potential's

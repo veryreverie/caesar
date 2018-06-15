@@ -33,6 +33,8 @@ module complex_mode_displacement_submodule
   end interface
   
   interface operator(*)
+    module procedure multiply_real_ComplexModeDisplacement
+    module procedure multiply_ComplexModeDisplacement_real
     module procedure multiply_complex_ComplexModeDisplacement
     module procedure multiply_ComplexModeDisplacement_complex
   end interface
@@ -79,6 +81,28 @@ end function
 ! ----------------------------------------------------------------------
 ! Arithmetic.
 ! ----------------------------------------------------------------------
+impure elemental function multiply_real_ComplexModeDisplacement(this,that) &
+   & result(output)
+  implicit none
+  
+  real(dp),                      intent(in) :: this
+  type(ComplexModeDisplacement), intent(in) :: that
+  type(ComplexModeDisplacement)             :: output
+  
+  output = ComplexModeDisplacement(this*that%ComplexModeVector)
+end function
+
+impure elemental function multiply_ComplexModeDisplacement_real(this,that) &
+   & result(output)
+  implicit none
+  
+  type(ComplexModeDisplacement), intent(in) :: this
+  real(dp),                      intent(in) :: that
+  type(ComplexModeDisplacement)             :: output
+  
+  output = ComplexModeDisplacement(this%ComplexModeVector*that)
+end function
+
 impure elemental function multiply_complex_ComplexModeDisplacement(this,that) &
    & result(output)
   implicit none

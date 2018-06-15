@@ -28,9 +28,19 @@ module potential_module
     procedure(generate_potential_PotentialData), public, deferred :: &
        & generate_potential
     
-    ! Return the energy and force at a given displacement.
-    procedure(energy_PotentialData), public, deferred :: energy
-    procedure(force_PotentialData),  public, deferred :: force
+    ! Return the energy and force at a given real or complex displacement.
+    generic, public :: energy => energy_RealModeDisplacement, &
+                               & energy_ComplexModeDisplacement
+    generic, public :: force  => force_RealModeDisplacement,  &
+                               & force_ComplexModeDisplacement
+    procedure(energy_RealModeDisplacement_PotentialData), private, &
+       & deferred :: energy_RealModeDisplacement
+    procedure(energy_ComplexModeDisplacement_PotentialData), private, &
+       & deferred :: energy_ComplexModeDisplacement
+    procedure(force_RealModeDisplacement_PotentialData), private, &
+       & deferred :: force_RealModeDisplacement
+    procedure(force_ComplexModeDisplacement_PotentialData), private, &
+       & deferred :: force_ComplexModeDisplacement
   end type
   
   interface
@@ -92,8 +102,8 @@ module potential_module
       procedure(ReadLambda)               :: read_lambda
     end subroutine
     
-    impure elemental function energy_PotentialData(this,displacement) &
-       & result(output)
+    impure elemental function energy_RealModeDisplacement_PotentialData(this, &
+       & displacement) result(output)
       import dp
       import PotentialData
       import RealModeDisplacement
@@ -104,8 +114,20 @@ module potential_module
       real(dp)                               :: output
     end function
     
-    impure elemental function force_PotentialData(this,displacement) &
-       & result(output)
+    impure elemental function energy_ComplexModeDisplacement_PotentialData( &
+       & this,displacement) result(output)
+      import dp
+      import PotentialData
+      import ComplexModeDisplacement
+      implicit none
+      
+      class(PotentialData),          intent(in) :: this
+      type(ComplexModeDisplacement), intent(in) :: displacement
+      complex(dp)                               :: output
+    end function
+    
+    impure elemental function force_RealModeDisplacement_PotentialData(this, &
+       & displacement) result(output)
       import PotentialData
       import RealModeDisplacement
       import RealModeForce
@@ -114,6 +136,18 @@ module potential_module
       class(PotentialData),       intent(in) :: this
       type(RealModeDisplacement), intent(in) :: displacement
       type(RealModeForce)                    :: output
+    end function
+    
+    impure elemental function force_ComplexModeDisplacement_PotentialData( &
+       & this,displacement) result(output)
+      import PotentialData
+      import ComplexModeDisplacement
+      import ComplexModeForce
+      implicit none
+      
+      class(PotentialData),          intent(in) :: this
+      type(ComplexModeDisplacement), intent(in) :: displacement
+      type(ComplexModeForce)                    :: output
     end function
   end interface
 contains

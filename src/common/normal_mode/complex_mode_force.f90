@@ -33,6 +33,8 @@ module complex_mode_force_submodule
   end interface
   
   interface operator(*)
+    module procedure multiply_real_ComplexModeForce
+    module procedure multiply_ComplexModeForce_real
     module procedure multiply_complex_ComplexModeForce
     module procedure multiply_ComplexModeForce_complex
   end interface
@@ -78,6 +80,28 @@ end function
 ! ----------------------------------------------------------------------
 ! Arithmetic.
 ! ----------------------------------------------------------------------
+impure elemental function multiply_real_ComplexModeForce(this,that) &
+   & result(output)
+  implicit none
+  
+  real(dp),               intent(in) :: this
+  type(ComplexModeForce), intent(in) :: that
+  type(ComplexModeForce)             :: output
+  
+  output = ComplexModeForce(this*that%ComplexModeVector)
+end function
+
+impure elemental function multiply_ComplexModeForce_real(this,that) &
+   & result(output)
+  implicit none
+  
+  type(ComplexModeForce), intent(in) :: this
+  real(dp),               intent(in) :: that
+  type(ComplexModeForce)             :: output
+  
+  output = ComplexModeForce(this%ComplexModeVector*that)
+end function
+
 impure elemental function multiply_complex_ComplexModeForce(this,that) &
    & result(output)
   implicit none

@@ -30,8 +30,14 @@ module polynomial_potential_module
     procedure, public :: generate_potential => &
        & generate_potential_PolynomialPotential
     
-    procedure, public :: energy => energy_PolynomialPotential
-    procedure, public :: force  => force_PolynomialPotential
+    procedure, public :: energy_RealModeDisplacement => &
+                       & energy_RealModeDisplacement_PolynomialPotential
+    procedure, public :: energy_ComplexModeDisplacement => &
+                       & energy_ComplexModeDisplacement_PolynomialPotential
+    procedure, public :: force_RealModeDisplacement => &
+                       & force_RealModeDisplacement_PolynomialPotential
+    procedure, public :: force_ComplexModeDisplacement => &
+                       & force_ComplexModeDisplacement_PolynomialPotential
     
     procedure, public :: read  => read_PolynomialPotential
     procedure, public :: write => write_PolynomialPotential
@@ -399,8 +405,8 @@ subroutine generate_potential_PolynomialPotential(this,inputs, &
 end subroutine
 
 ! Calculate the energy at a given displacement.
-impure elemental function energy_PolynomialPotential(this,displacement) &
-   & result(output)
+impure elemental function energy_RealModeDisplacement_PolynomialPotential( &
+   & this,displacement) result(output)
   implicit none
   
   class(PolynomialPotential), intent(in) :: this
@@ -412,9 +418,22 @@ impure elemental function energy_PolynomialPotential(this,displacement) &
        &      * this%basis_functions%evaluate(displacement))
 end function
 
+impure elemental function energy_ComplexModeDisplacement_PolynomialPotential( &
+   & this,displacement) result(output)
+  implicit none
+  
+  class(PolynomialPotential),    intent(in) :: this
+  type(ComplexModeDisplacement), intent(in) :: displacement
+  complex(dp)                               :: output
+  
+  output = this%reference_energy  &
+       & + sum( this%coefficients &
+       &      * this%basis_functions%evaluate(displacement))
+end function
+
 ! Calculate the force at a given displacement.
-impure elemental function force_PolynomialPotential(this,displacement) &
-   & result(output)
+impure elemental function force_RealModeDisplacement_PolynomialPotential( &
+   & this,displacement) result(output)
   implicit none
   
   class(PolynomialPotential), intent(in) :: this
@@ -423,6 +442,19 @@ impure elemental function force_PolynomialPotential(this,displacement) &
   
   output = RealModeForce(sum( this%coefficients &
                           & * this%basis_functions%derivative(displacement)))
+end function
+
+impure elemental function force_ComplexModeDisplacement_PolynomialPotential( &
+   & this,displacement) result(output)
+  implicit none
+  
+  class(PolynomialPotential),    intent(in) :: this
+  type(ComplexModeDisplacement), intent(in) :: displacement
+  type(ComplexModeForce)                    :: output
+  
+  output = ComplexModeForce(         &
+            & sum( this%coefficients &
+            &    * this%basis_functions%derivative(displacement)))
 end function
 
 ! ----------------------------------------------------------------------
