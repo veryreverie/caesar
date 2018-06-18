@@ -293,9 +293,6 @@ function conjg_DynamicalMatrix(input) result(output)
   type(DynamicalMatrix), intent(in) :: input
   type(DynamicalMatrix)             :: output
   
-  ! Temporary variables.
-  integer :: i,ialloc
-  
   ! The dynamical matrix at G-q is the complex conjugate of that at q.
   ! N.B. the complex conjugate, not the Hermitian conjugate.
   output%matrices_ = conjg(input%matrices_)

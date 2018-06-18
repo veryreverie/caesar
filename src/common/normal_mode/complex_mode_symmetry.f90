@@ -77,8 +77,6 @@ function calculate_symmetry_in_normal_coordinates_qpoint(modes,qpoint, &
   type(ComplexMode), allocatable :: rotated_modes(:)
   complex(dp),       allocatable :: dot_products(:,:)
   
-  real(dp) :: check
-  
   integer :: i,j,ialloc
   
   ! Calculate the rotated modes, S.u1.
@@ -116,8 +114,6 @@ function calculate_symmetry_in_normal_coordinates_qpoints(modes,qpoints, &
   type(QpointData),  allocatable :: rotated_qpoints(:)
   type(ComplexMode), allocatable :: rotated_modes(:)
   complex(dp),       allocatable :: dot_products(:,:)
-  
-  real(dp) :: check
   
   integer :: i,j,ialloc
   

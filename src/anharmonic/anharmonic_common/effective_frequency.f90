@@ -14,13 +14,13 @@ module effective_frequency_module
   public :: EffectiveFrequency
   
   type, extends(Stringsable) :: EffectiveFrequency
-    integer                  :: mode_id
-    real(dp)                 :: harmonic_frequency
-    real(dp)                 :: effective_frequency
-    real(dp),    allocatable :: displacements(:)
-    complex(dp), allocatable :: energies(:)
-    real(dp),    allocatable :: harmonic_energies(:)
-    real(dp),    allocatable :: effective_energies(:)
+    integer               :: mode_id
+    real(dp)              :: harmonic_frequency
+    real(dp)              :: effective_frequency
+    real(dp), allocatable :: displacements(:)
+    real(dp), allocatable :: energies(:)
+    real(dp), allocatable :: harmonic_energies(:)
+    real(dp), allocatable :: effective_energies(:)
   contains
     procedure, public :: read  => read_EffectiveFrequency
     procedure, public :: write => write_EffectiveFrequency
@@ -38,13 +38,13 @@ function new_EffectiveFrequency(mode_id,harmonic_frequency,        &
    & effective_energies) result(this)
   implicit none
   
-  integer,     intent(in)  :: mode_id
-  real(dp),    intent(in)  :: harmonic_frequency
-  real(dp),    intent(in)  :: effective_frequency
-  real(dp),    intent(in)  :: displacements(:)
-  complex(dp), intent(in)  :: energies(:)
-  real(dp),    intent(in)  :: harmonic_energies(:)
-  real(dp),    intent(in)  :: effective_energies(:)
+  integer,  intent(in)     :: mode_id
+  real(dp), intent(in)     :: harmonic_frequency
+  real(dp), intent(in)     :: effective_frequency
+  real(dp), intent(in)     :: displacements(:)
+  real(dp), intent(in)     :: energies(:)
+  real(dp), intent(in)     :: harmonic_energies(:)
+  real(dp), intent(in)     :: effective_energies(:)
   type(EffectiveFrequency) :: this
   
   this%mode_id             = mode_id
@@ -56,26 +56,30 @@ function new_EffectiveFrequency(mode_id,harmonic_frequency,        &
   this%effective_energies  = effective_energies
 end function
 
-function new_EffectiveFrequency_potential(displacements,mode,potential) &
-   & result(this)
+function new_EffectiveFrequency_potential(displacements,mode,real_modes, &
+   & potential) result(this)
   implicit none
   
   real(dp),             intent(in) :: displacements(:)
   type(ComplexMode),    intent(in) :: mode
+  type(RealMode),       intent(in) :: real_modes(:)
   class(PotentialData), intent(in) :: potential
   type(EffectiveFrequency)         :: this
   
   ! Output variables.
-  integer                  :: mode_id
-  real(dp)                 :: harmonic_frequency
-  real(dp)                 :: effective_frequency
-  complex(dp), allocatable :: energies(:)
-  real(dp),    allocatable :: harmonic_energies(:)
-  real(dp),    allocatable :: effective_energies(:)
+  integer               :: mode_id
+  real(dp)              :: harmonic_frequency
+  real(dp)              :: effective_frequency
+  real(dp), allocatable :: energies(:)
+  real(dp), allocatable :: harmonic_energies(:)
+  real(dp), allocatable :: effective_energies(:)
   
-  ! Displacement in complex mode co-ordinates.
-  type(ComplexSingleModeVector) :: single_mode_displacement
-  type(ComplexModeDisplacement) :: mode_displacement
+  real(dp) :: relative_energy
+  
+  ! Displacement in real mode co-ordinates.
+  type(RealMode)             :: real_mode
+  type(RealSingleModeVector) :: single_mode_displacement
+  type(RealModeDisplacement) :: mode_displacement
   
   ! Temporary variables.
   integer :: i,ialloc
@@ -83,15 +87,20 @@ function new_EffectiveFrequency_potential(displacements,mode,potential) &
   mode_id = mode%id
   harmonic_frequency = mode%frequency
   
+  relative_energy = potential%energy(RealModeDisplacement( &
+     & [RealSingleModeVector::]))
+  
+  real_mode = real_modes(first(real_modes%id==min(mode%id,mode%paired_id)))
+  
   allocate( energies(size(displacements)),           &
           & harmonic_energies(size(displacements)),  &
           & stat=ialloc); call err(ialloc)
   do i=1,size(displacements)
-    single_mode_displacement = ComplexSingleModeVector( &
-                                 & id=mode_id,          &
-                                 & magnitude=cmplx(displacements(i),0.0_dp,dp))
-    mode_displacement = ComplexModeDisplacement([single_mode_displacement])
-    energies(i) = potential%energy(mode_displacement)
+    single_mode_displacement = RealSingleModeVector( &
+                                       & id=mode_id, &
+                                       & magnitude=displacements(i))
+    mode_displacement = RealModeDisplacement([single_mode_displacement])
+    energies(i) = potential%energy(mode_displacement) - relative_energy
     harmonic_energies(i) = 0.5_dp             &
                        & * harmonic_frequency &
                        & * displacements(i)   &
@@ -137,8 +146,48 @@ subroutine read_EffectiveFrequency(this,input)
   class(EffectiveFrequency), intent(out) :: this
   type(String),              intent(in)  :: input(:)
   
+  integer               :: mode_id
+  real(dp)              :: harmonic_frequency
+  real(dp)              :: effective_frequency
+  real(dp), allocatable :: displacements(:)
+  real(dp), allocatable :: energies(:)
+  real(dp), allocatable :: harmonic_energies(:)
+  real(dp), allocatable :: effective_energies(:)
+  
+  type(String), allocatable :: line(:)
+  
+  integer :: i,ialloc
+  
   select type(this); type is(EffectiveFrequency)
-    ! TODO
+    line = split_line(input(1))
+    mode_id = int(line(3))
+    
+    line = split_line(input(3))
+    harmonic_frequency = dble(line(3))
+    
+    line = split_line(input(4))
+    effective_frequency = dble(line(3))
+    
+    allocate( displacements(size(input)-4),      &
+            & energies(size(input)-4),           &
+            & harmonic_energies(size(input)-4),  &
+            & effective_energies(size(input)-4), &
+            & stat=ialloc); call err(ialloc)
+    do i=1,size(input)-4
+      line = split_line(input(i+4))
+      displacements(i) = dble(line(1))
+      energies(i) = dble(line(2))
+      harmonic_energies = dble(line(3))
+      effective_energies = dble(line(4))
+    enddo
+    
+    this = EffectiveFrequency( mode_id,             &
+                             & harmonic_frequency,  &
+                             & effective_frequency, &
+                             & displacements,       &
+                             & energies,            &
+                             & harmonic_energies,   &
+                             & effective_energies)
   end select
 end subroutine
 
@@ -156,7 +205,7 @@ function write_EffectiveFrequency(this) result(output)
              & 'Effective frequency: '//this%effective_frequency,    &
              & str('Displacement | Anharmonic energy | Harmonic energy | &
              &Effective energy') ]
-    do i=1,size(this%energies)
+    do i=1,size(this%displacements)
       output = [ output,                           &
                & this%displacements(i)     //' '// &
                & this%energies(i)          //' '// &

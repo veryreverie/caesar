@@ -37,7 +37,7 @@ function process_arguments(args,keywords_in) result(arguments)
   logical :: interactive
   
   ! Temporary variables.
-  integer      :: i,j,ialloc
+  integer      :: i,j
   type(String) :: temp_string
   type(String) :: flags
   type(String) :: keyword

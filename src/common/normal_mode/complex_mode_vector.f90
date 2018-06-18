@@ -113,7 +113,7 @@ function qpoints_ComplexModeVector(this,modes,qpoints) result(output)
   
   integer, allocatable :: qpoint_ids(:)
   
-  integer :: i,j,ialloc
+  integer :: i,ialloc
   
   ! List the q-point IDs of the modes in the vector.
   non_zero_modes = this%modes(modes)

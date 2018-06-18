@@ -11,8 +11,6 @@ module anharmonic_common_module
   use mode_coupling_module
   use mode_monomial_module
   use degenerate_symmetry_module
-  use single_mode_state_module
-  use subspace_product_state_module
   use anharmonic_data_module
   use potential_module
   use potential_pointer_module

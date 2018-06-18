@@ -138,7 +138,7 @@ function diagonalise_symmetric_reals(input,basis) result(output)
   integer               :: info    ! Error code. 0 on success.
   
   ! Temporary variables.
-  integer :: i,j,ialloc
+  integer :: i,ialloc
   
   if (size(input,1)==0) then
     output = [SymmetricEigenstuff::]

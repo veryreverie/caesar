@@ -215,7 +215,7 @@ function new_StructureData(basic_structure,symmetry_precision, &
   type(BasicSymmetry), allocatable :: symmetries(:)
   
   ! Temporary variables.
-  integer :: id,prim_id,rvec_id
+  integer :: id
   integer :: i,j,ialloc
   
   ! Copy structure information: lattice vectors and numbers of atoms.
@@ -581,7 +581,6 @@ function calculate_symmetry_group(this) result(output)
   integer, allocatable :: symmetry_group(:)
   type(IntMatrix)      :: rotation_ij
   type(Group)          :: atom_group_ij
-  integer              :: identity
   
   integer :: i,j,k,ialloc
   
@@ -628,10 +627,7 @@ function calculate_symmetry_inverses(this) result(output)
   class(StructureData), intent(in) :: this
   integer, allocatable             :: output(:)
   
-  integer, allocatable :: symmetry_group(:)
-  type(IntMatrix)      :: rotation_ij
-  type(Group)          :: atom_group_ij
-  integer              :: identity
+  integer :: identity
   
   integer :: i,j,k,ialloc
   

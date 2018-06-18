@@ -62,16 +62,16 @@ end function
 ! ----------------------------------------------------------------------
 ! Construct the degenerate subspaces.
 ! ----------------------------------------------------------------------
-function process_degeneracies(modes,mode_qpoints) result(output)
+function process_degeneracies(modes) result(output)
   implicit none
   
   type(ComplexMode), intent(in)         :: modes(:)
-  integer,           intent(in)         :: mode_qpoints(:)
   type(DegenerateSubspace), allocatable :: output(:)
   
-  integer, allocatable :: subspace_ids(:)
+  integer,           allocatable :: subspace_ids(:)
+  type(ComplexMode), allocatable :: subspace_modes(:)
   
-  integer :: i,j,ialloc
+  integer :: i,ialloc
   
   ! Make a list of degeneracy ids.
   subspace_ids = modes%subspace_id
@@ -83,8 +83,9 @@ function process_degeneracies(modes,mode_qpoints) result(output)
   ! Generate subspaces.
   allocate(output(size(subspace_ids)), stat=ialloc); call err(ialloc)
   do i=1,size(output)
+    subspace_modes = modes(filter(modes%subspace_id==subspace_ids(i)))
     output(i)%id = subspace_ids(i)
-    output(i)%mode_ids = modes(filter(modes%subspace_id==output(i)%id))%id
+    output(i)%mode_ids = subspace_modes%id
   enddo
 end function
 

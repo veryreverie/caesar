@@ -368,7 +368,6 @@ impure elemental function derivative_RealMonomial(this,vector) result(output)
   real(dp),                   allocatable :: evaluations(:)
   type(RealSingleModeVector), allocatable :: derivatives(:)
   
-  logical,                    allocatable :: mask(:)
   type(RealSingleModeVector), allocatable :: components(:)
   
   integer :: i,j,ialloc

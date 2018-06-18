@@ -45,14 +45,15 @@ subroutine read_ElectronicStructure(this,input)
   class(ElectronicStructure), intent(out) :: this
   type(String),               intent(in)  :: input(:)
   
-  type(String), allocatable :: line(:)
-  
   real(dp)             :: energy
   type(CartesianForce) :: forces
   
-  line = split_line(input(1))
-  energy = dble(line(3))
-  forces = input(3:)
+  select type(this); type is(ElectronicStructure)
+    energy = dble(input(2))
+    forces = CartesianForce(StringArray(input(4:)))
+    
+    this = ElectronicStructure(energy,forces)
+  end select
 end subroutine
 
 function write_ElectronicStructure(this) result(output)
@@ -61,12 +62,12 @@ function write_ElectronicStructure(this) result(output)
   class(ElectronicStructure), intent(in) :: this
   type(String), allocatable              :: output(:)
   
-  integer :: i,ialloc
-  
-  allocate(output(2+size(this%forces)), stat=ialloc); call err(ialloc)
-  output(1) = 'Energy (Hartree): '//this%energy
-  output(2) = 'Forces (Hartree/Bohr):'
-  output(3:) = str(this%forces)
+  select type(this); type is(ElectronicStructure)
+    output = [ str('Energy (Hartree):'),      &
+             & str(this%energy),              &
+             & str('Forces (Hartree/Bohr):'), &
+             & str(this%forces)               ]
+  end select
 end function
 
 impure elemental function new_ElectronicStructure_StringArray(input) &

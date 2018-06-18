@@ -91,13 +91,15 @@ subroutine calculate_states_subroutine(arguments)
   real(dp),                 allocatable :: displacements(:)
   real(dp),                 allocatable :: scaled_displacements(:)
   type(EffectiveFrequency), allocatable :: effective_frequencies(:)
+  integer,                  allocatable :: qpoint_modes(:)
   
   ! Files and directories.
-  type(IFile) :: qpoints_file
-  type(IFile) :: complex_modes_file
-  type(IFile) :: real_modes_file
-  type(IFile) :: potential_file
-  type(OFile) :: effective_frequencies_file
+  type(IFile)  :: qpoints_file
+  type(IFile)  :: complex_modes_file
+  type(IFile)  :: real_modes_file
+  type(IFile)  :: potential_file
+  type(String) :: qpoint_dir
+  type(OFile)  :: effective_frequencies_file
   
   ! Temporary variables.
   integer :: i,j,ialloc
@@ -186,11 +188,24 @@ subroutine calculate_states_subroutine(arguments)
                        &              frequency_of_max_displacement))
     effective_frequencies(i) = EffectiveFrequency( scaled_displacements, &
                                                  & complex_modes(i),     &
+                                                 & real_modes,           &
                                                  & potential)
   enddo
-  effective_frequencies_file = OFile(wd//'/effective_frequencies.dat')
-  call effective_frequencies_file%print_lines( effective_frequencies, &
-                                             & separating_line='')
+  
+  ! --------------------------------------------------
+  ! Write effective frequencies to file, q-point by q-point.
+  ! --------------------------------------------------
+  do i=1,size(qpoints)
+    qpoint_dir = wd//'/qpoint_'//left_pad(i,str(size(qpoints)))
+    call mkdir(qpoint_dir)
+    
+    effective_frequencies_file = &
+       & OFile(qpoint_dir//'/effective_frequencies.dat')
+    qpoint_modes = filter(complex_modes%qpoint_id==qpoints(i)%id)
+    call effective_frequencies_file%print_lines( &
+          & effective_frequencies(qpoint_modes), &
+          & separating_line='')
+  enddo
   
 end subroutine
 end module

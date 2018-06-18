@@ -7,19 +7,12 @@ import matplotlib.patches as pch
 from matplotlib.collections import PatchCollection
 import os
 
+from utils import dblecomplex
+
 rc('font', **{'family':'serif','serif':['sffamily']})
 rc('text', usetex=True)
 params = {'text.latex.preamble' : [r'\usepackage{amsmath}']}
 plt.rcParams.update(params)
-
-def dblecomplex(displacement):
-  if displacement[0]=='-':
-    re = float(displacement[:24])
-    im = float(displacement[24:-1])
-  else:
-    re = float(displacement[:23])
-    im = float(displacement[23:-1])
-  return complex(re,im)
 
 def main():
   # Define some static data.

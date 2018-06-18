@@ -122,7 +122,7 @@ function real_to_complex_Modes(input) result(output)
   type(RealMode), intent(in)     :: input(:)
   type(ComplexMode), allocatable :: output(:)
   
-  integer :: i,j,mode,pair,ialloc
+  integer :: mode,pair,ialloc
   
   ! Allocate output, and copy over everything which is unchanged by the
   !    transformation to real co-ordinates.
@@ -229,12 +229,7 @@ impure elemental function element_ComplexMonomial_RealMonomial(this,that) &
   type(RealMonomial),    intent(in) :: that
   complex(dp)                       :: output
   
-  integer :: c_i_power
-  integer :: c_j_power
-  integer :: r_i_power
-  integer :: r_j_power
-  
-  integer :: i,j,k,l,ialloc
+  integer :: i,j,k,l
   
   if (sum(this%modes%power)/=sum(that%modes%power)) then
     output = 0

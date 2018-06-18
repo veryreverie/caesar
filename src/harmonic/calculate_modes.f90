@@ -112,7 +112,6 @@ function calculate_modes_calculated(matrices,structure,qpoint, &
   
   ! Error checking variables.
   type(ComplexMatrix) :: symmetry
-  real(dp)            :: check
   
   integer :: i,j
   
@@ -224,8 +223,6 @@ recursive function lift_degeneracies(input,structure,symmetry_ids, &
   type(QpointData),       intent(in)    :: qpoint
   type(OFile),            intent(inout) :: logfile
   type(ComplexMode), allocatable        :: output(:)
-  
-  integer :: no_modes
   
   ! Symmetry information.
   integer :: order

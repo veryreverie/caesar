@@ -98,7 +98,6 @@ subroutine setup_anharmonic_subroutine(arguments)
   type(QpointData),  allocatable :: harmonic_qpoints(:)
   type(ComplexMode), allocatable :: qpoint_modes(:)
   type(ComplexMode), allocatable :: complex_modes(:)
-  integer,           allocatable :: mode_qpoints(:)
   type(RealMode),    allocatable :: real_modes(:)
   
   ! Maximum displacement in mass-weighted co-ordinates.
@@ -204,11 +203,7 @@ subroutine setup_anharmonic_subroutine(arguments)
   
   ! Read in harmonic normal modes which correspond to anharmonic q-points,
   !    and record which new q-point each corresponds to.
-  allocate( complex_modes(size(qpoints)*structure%no_modes), &
-          & real_modes(size(qpoints)*structure%no_modes),    &
-          & mode_qpoints(size(qpoints)*structure%no_modes),  &
-          & stat=ialloc); call err(ialloc)
-  l = 0
+  complex_modes = [ComplexMode::]
   do i=1,size(qpoints)
     j = first(harmonic_qpoints==qpoints(i),default=0)
     
@@ -222,11 +217,7 @@ subroutine setup_anharmonic_subroutine(arguments)
        & harmonic_path//'/qpoint_'//left_pad(j,str(size(harmonic_qpoints)))
     harmonic_complex_modes_file = IFile(qpoint_dir//'/complex_modes.dat')
     qpoint_modes = ComplexMode(harmonic_complex_modes_file%sections())
-    do k=1,structure%no_modes
-      l = l+1
-      complex_modes(l) = qpoint_modes(k)
-      mode_qpoints(l) = i
-    enddo
+    complex_modes = [complex_modes, qpoint_modes]
   enddo
   
   ! Calculate real modes from complex modes.
@@ -234,7 +225,7 @@ subroutine setup_anharmonic_subroutine(arguments)
   
   ! Retrieve data on how normal modes are grouped into subspaces
   !    of degenerate modes.
-  degenerate_subspaces = process_degeneracies(complex_modes,mode_qpoints)
+  degenerate_subspaces = process_degeneracies(complex_modes)
   
   ! Generate the symmetry operators in each degenerate subspace.
   allocate( degenerate_symmetries(size(structure%symmetries)), &

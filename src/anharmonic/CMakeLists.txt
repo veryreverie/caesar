@@ -2,7 +2,7 @@ cmake_minimum_required (VERSION 3.5 FATAL_ERROR)
 include(${CMAKE_SOURCE_DIR}/utils/include_guard.cmake)
 include_guard(anharmonic)
 
-add_library(anharmonic setup_anharmonic.f90 run_anharmonic.f90 calculate_potential.f90 calculate_states.f90)
+add_library(anharmonic setup_anharmonic.f90 run_anharmonic.f90 calculate_potential.f90 calculate_states.f90 plot_effective_frequencies.f90)
 target_include_directories(anharmonic PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
 # Include subsidiary modules.

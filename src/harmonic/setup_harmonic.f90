@@ -84,7 +84,6 @@ subroutine setup_harmonic_subroutine(arguments)
   
   ! Perturbation direction information.
   type(UniqueDirection), allocatable :: unique_directions(:)
-  type(String)                       :: atom_string
   type(CartesianDisplacement)        :: displacement
   type(StructureData)                :: displaced_structure
   

@@ -26,6 +26,7 @@ program caesar
   use run_anharmonic_module
   use calculate_potential_module
   use calculate_states_module
+  use plot_effective_frequencies_module
   
   ! Use testing modules.
   use test_module
@@ -84,7 +85,8 @@ program caesar
      & setup_anharmonic(),               &
      & run_anharmonic(),                 &
      & calculate_potential(),            &
-     & calculate_states()                &
+     & calculate_states(),               &
+     & plot_effective_frequencies()      &
      &])
   
   ! --------------------------------------------------

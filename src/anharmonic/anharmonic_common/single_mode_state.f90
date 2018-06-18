@@ -396,6 +396,8 @@ subroutine read_SingleModeState(this,input)
       term = split_line(line(i),delimiter='*')
       coefficients(i) = dble(term(1))
     enddo
+    
+    this = SingleModeState(frequency, coefficients)
   end select
 end subroutine
 
@@ -405,8 +407,7 @@ function write_SingleModeState(this) result(output)
   class(SingleModeState), intent(in) :: this
   type(String)                       :: output
   
-  type(String) :: token
-  integer      :: i
+  integer :: i
   
   select type(this); type is(SingleModeState)
     output = '('//this%coefficient(0)

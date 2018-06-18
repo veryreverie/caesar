@@ -57,9 +57,10 @@ function new_AnharmonicData(structure,symmetry_precision,           &
   
   this%structure                     = structure
   this%symmetry_precision            = symmetry_precision
+  this%anharmonic_supercell          = anharmonic_supercell
+  this%qpoints                       = qpoints
   this%complex_modes                 = complex_modes
   this%real_modes                    = real_modes
-  this%qpoints                       = qpoints
   this%degenerate_subspaces          = degenerate_subspaces
   this%degenerate_symmetries         = degenerate_symmetries
   this%subspace_couplings            = subspace_couplings

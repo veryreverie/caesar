@@ -9,6 +9,7 @@ module logic_submodule
   
   private
   
+  ! Functions and subroutines.
   public :: operator(.lazyand.)
   public :: operator(.lazyor.)
   public :: first
@@ -22,6 +23,11 @@ module logic_submodule
   public :: sort
   public :: set
   public :: first_equivalent
+  
+  ! Lambdas.
+  public :: LogicalLambda
+  public :: ComparisonLambda
+  public :: OperationLambda
   
   interface operator(.lazyand.)
     module procedure lazy_and_logical_logical

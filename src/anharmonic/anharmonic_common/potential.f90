@@ -76,6 +76,7 @@ module potential_module
       import AnharmonicData
       import String
       import OFile
+      import WriteLambda
       implicit none
       
       class(PotentialData), intent(inout) :: this
@@ -92,6 +93,7 @@ module potential_module
       import AnharmonicData
       import String
       import OFile
+      import ReadLambda
       implicit none
       
       class(PotentialData), intent(inout) :: this
