@@ -75,7 +75,7 @@ subroutine run_anharmonic_subroutine(arguments)
   type(String), allocatable :: calculation_directories(:)
   
   ! Temporary variables.
-  integer :: i,ialloc
+  integer :: i
   integer :: result_code
   
   ! Read in inputs.

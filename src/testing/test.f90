@@ -1,51 +1,6 @@
 ! ======================================================================
 ! A test space, for temporary checking of misc. parts of the code.
 ! ======================================================================
-module a_module
-  implicit none
-  
-  private
-  
-  public :: A
-  
-  type, abstract :: A
-  contains
-    generic, public :: temp => &
-                     & temp_1
-    procedure(temp_1_A), private, deferred :: temp_1
-  end type
-  
-  abstract interface
-    subroutine temp_1_A(this)
-      import A
-      implicit none
-      
-      class(A), intent(in) :: this
-    end subroutine
-  end interface
-end module
-
-module b_module
-  use a_module
-  implicit none
-  
-  private
-  
-  public :: B
-  
-  type, extends(A) :: B
-  contains
-    procedure, private :: temp_1 => temp_1_B
-  end type
-contains
-
-subroutine temp_1_B(this)
-  implicit none
-  
-  class(B), intent(in) :: this
-end subroutine
-end module
-
 module test_module
   use common_module
   implicit none
@@ -53,6 +8,7 @@ module test_module
   private
   
   public :: test
+  
 contains
 
 ! ----------------------------------------------------------------------
@@ -80,7 +36,15 @@ subroutine test_subroutine(arguments)
   
   type(String) :: wd
   
+  type(SharedCounter) :: a,b
+  
   wd = arguments%value('working_directory')
+  
+  a = SharedCounter()
+  call print_line(a%is_only_pointer())
+  b = a
+  call print_line(a%is_only_pointer())
+  call print_line(b%is_only_pointer())
   
 end subroutine
 end module

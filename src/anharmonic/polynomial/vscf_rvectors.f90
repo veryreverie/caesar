@@ -585,7 +585,7 @@ recursive function list_rvector_permutations(rvector_arrays,vscf_rvectors_in) &
   type(VscfRvectors) :: vscf_rvectors
   type(VscfRvector)  :: vscf_rvector
   
-  integer :: i,ialloc
+  integer :: i
   
   if (present(vscf_rvectors_in)) then
     vscf_rvectors = vscf_rvectors_in

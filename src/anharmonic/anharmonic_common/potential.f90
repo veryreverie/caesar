@@ -33,13 +33,13 @@ module potential_module
                                & energy_ComplexModeDisplacement
     generic, public :: force  => force_RealModeDisplacement,  &
                                & force_ComplexModeDisplacement
-    procedure(energy_RealModeDisplacement_PotentialData), private, &
+    procedure(energy_RealModeDisplacement_PotentialData), public, &
        & deferred :: energy_RealModeDisplacement
-    procedure(energy_ComplexModeDisplacement_PotentialData), private, &
+    procedure(energy_ComplexModeDisplacement_PotentialData), public, &
        & deferred :: energy_ComplexModeDisplacement
-    procedure(force_RealModeDisplacement_PotentialData), private, &
+    procedure(force_RealModeDisplacement_PotentialData), public, &
        & deferred :: force_RealModeDisplacement
-    procedure(force_ComplexModeDisplacement_PotentialData), private, &
+    procedure(force_ComplexModeDisplacement_PotentialData), public, &
        & deferred :: force_ComplexModeDisplacement
   end type
   
@@ -63,6 +63,7 @@ module potential_module
     function ReadLambda(directory) result(output)
       import String
       import ElectronicStructure
+      implicit none
       
       type(String), intent(in)  :: directory
       type(ElectronicStructure) :: output
@@ -77,6 +78,7 @@ module potential_module
       import String
       import OFile
       import WriteLambda
+      import StructureData
       implicit none
       
       class(PotentialData), intent(inout) :: this
@@ -94,6 +96,7 @@ module potential_module
       import String
       import OFile
       import ReadLambda
+      import ElectronicStructure
       implicit none
       
       class(PotentialData), intent(inout) :: this

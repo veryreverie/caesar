@@ -72,7 +72,9 @@ function generate_sampling_points(basis_functions,potential_expansion_order, &
   
   type(RealModeDisplacement), allocatable :: points(:)
   
-  integer :: i,ialloc
+  integer, allocatable :: matching_couplings(:)
+  
+  integer :: i
   
   ! Construct the mode coupling corresponding to the unique term in each
   !    basis function.
@@ -86,8 +88,8 @@ function generate_sampling_points(basis_functions,potential_expansion_order, &
   do i=1,size(unique_couplings)
     ! Gather together all unique terms with couplings which are the same as
     !    unique_couplings(i).
-    unique_terms = &
-       & basis_functions(filter(couplings==unique_couplings(i)))%unique_term
+    matching_couplings = filter(couplings==unique_couplings(i))
+    unique_terms = basis_functions(matching_couplings)%unique_term
     
     ! Construct an array of sampling points for the unique terms,
     !    and append this to the output array.

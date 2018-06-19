@@ -3,6 +3,8 @@
 ! ======================================================================
 module shared_counter_submodule
   use io_basic_module
+  
+  use shared_counter_bugfix_submodule
   implicit none
   
   private
@@ -36,7 +38,11 @@ function new_SharedCounter() result(this)
   integer :: ialloc
   
   allocate(this%no_pointers_, stat=ialloc); call err(ialloc)
-  this%no_pointers_ = 0
+  if (SHARED_COUNTER_BUG) then
+    this%no_pointers_ = 0
+  else
+    this%no_pointers_ = 1
+  endif
 end function
 
 subroutine assign_SharedCounter_SharedCounter(output,input)

@@ -412,7 +412,7 @@ subroutine read_BasisFunction(this,input)
   type(RealPolynomial)    :: real_representation
   type(ComplexPolynomial) :: complex_representation
   
-  integer :: i,ialloc
+  integer :: i
   
   select type(this); type is(BasisFunction)
     if (size(input)<4) then

@@ -140,7 +140,7 @@ subroutine setup_anharmonic_subroutine(arguments)
   type(OFile) :: calculation_directories_file
   
   ! Temporary variables.
-  integer :: i,j,k,l,ialloc
+  integer :: i,j,ialloc
   
   ! ----------------------------------------------------------------------
   ! Read in inputs.

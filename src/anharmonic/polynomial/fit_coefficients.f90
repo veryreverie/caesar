@@ -38,7 +38,7 @@ function fit_coefficients(basis_functions,sampling_points,sample_results, &
   real(dp), allocatable :: a(:,:)
   real(dp), allocatable :: b(:)
   
-  integer :: i,j,k,l,m,ialloc
+  integer :: i,j,k,ialloc
   
   ! Check inputs are consistent.
   if (size(sampling_points)/=size(sample_results)) then
@@ -91,23 +91,23 @@ function fit_coefficients(basis_functions,sampling_points,sample_results, &
           & stat=ialloc); call err(ialloc)
   
   do i=1,size(basis_functions)
-    l = 1
+    k = 1
     do j=1,size(sampling_points)
-      a(l:l+size(modes),i) = make_vector( basis_function_energies(j,i), &
+      a(k:k+size(modes),i) = make_vector( basis_function_energies(j,i), &
                                         & basis_function_forces(j,i),   &
                                         & modes,                        &
                                         & energy_force_ratio)
-      l = l + 1+size(modes)
+      k = k + 1+size(modes)
     enddo
   enddo
   
-  l = 1
+  k = 1
   do i=1,size(sampling_points)
-    b(l:l+size(modes)) = make_vector( sample_energies(i), &
+    b(k:k+size(modes)) = make_vector( sample_energies(i), &
                                     & sample_forces(i),   &
                                     & modes,              &
                                     & energy_force_ratio)
-    l = l + 1+size(modes)
+    k = k + 1+size(modes)
   enddo
   
   ! Run linear least squares to get the basis function coefficients.

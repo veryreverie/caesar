@@ -29,6 +29,7 @@ program caesar
   use plot_effective_frequencies_module
   
   ! Use testing modules.
+  use check_counter_module
   use test_module
   use linear_algebra_test_module
   
@@ -59,7 +60,7 @@ program caesar
   type(OFile) :: output_file
   
   ! Temporary variables.
-  type(String)              :: filename
+  type(String) :: filename
   
   ! --------------------------------------------------
   ! Set IO variables for formatting and file parsing purposes.
@@ -71,8 +72,9 @@ program caesar
   ! --------------------------------------------------
   ! Normal inputs. Fetch keywords and set subprocess.
   caesar_modes = CaesarModes([           &
-     & hartree_to_ev(),                  &
      & test(),                           &
+     & check_counter(),                  &
+     & hartree_to_ev(),                  &
      & converge_cutoff_and_kpoints(),    &
      & plot_cutoff_and_kpoints(),        &
      & setup_harmonic(),                 &
