@@ -31,6 +31,10 @@ module cartesian_displacement_submodule
     module procedure new_CartesianDisplacement_StringArray
   end interface
   
+  interface displace_structure
+    module procedure displace_structure_CartesianDisplacement
+  end interface
+  
   interface operator(*)
     module procedure multiply_real_CartesianDisplacement
     module procedure multiply_CartesianDisplacement_real
@@ -78,7 +82,8 @@ end function
 ! ----------------------------------------------------------------------
 ! Construct the structure which is displaced from the input structure.
 ! ----------------------------------------------------------------------
-function displace_structure(structure,displacement) result(output)
+function displace_structure_CartesianDisplacement(structure,displacement) &
+   & result(output)
   implicit none
   
   type(StructureData),         intent(in) :: structure

@@ -6,6 +6,7 @@ module real_mode_displacement_submodule
   
   use structure_module
   
+  use mass_weighted_displacement_submodule
   use cartesian_displacement_submodule
   use real_mode_submodule
   use real_single_mode_vector_submodule
@@ -15,6 +16,8 @@ module real_mode_displacement_submodule
   private
   
   public :: RealModeDisplacement
+  public :: MassWeightedDisplacement
+  public :: CartesianDisplacement
   public :: operator(*)
   public :: operator(/)
   public :: operator(+)
@@ -23,9 +26,6 @@ module real_mode_displacement_submodule
   
   type, extends(RealModeVector) :: RealModeDisplacement
   contains
-    procedure, public :: cartesian_displacement => &
-       & cartesian_displacement_RealModeDisplacement
-    
     procedure, public :: read  => read_RealModeDisplacement
     procedure, public :: write => write_RealModeDisplacement
   end type
@@ -33,8 +33,17 @@ module real_mode_displacement_submodule
   interface RealModeDisplacement
     module procedure new_RealModeDisplacement_RealModeVector
     module procedure new_RealModeDisplacement_RealSingleModeVectors
+    module procedure new_RealModeDisplacement_MassWeightedDisplacement
     module procedure new_RealModeDisplacement_CartesianDisplacement
     module procedure new_RealModeDisplacement_StringArray
+  end interface
+  
+  interface MassWeightedDisplacement
+    module procedure new_MassWeightedDisplacement_RealModeDisplacement
+  end interface
+  
+  interface CartesianDisplacement
+    module procedure new_CartesianDisplacement_RealModeDisplacement
   end interface
   
   interface operator(*)
@@ -159,8 +168,23 @@ end function
 ! ----------------------------------------------------------------------
 ! Conversions between CartesianDisplacement and RealModeDisplacement.
 ! ----------------------------------------------------------------------
+! Returns the displacement in mass-weighted co-ordinates.
+function new_MassWeightedDisplacement_RealModeDisplacement(this,structure, &
+   & modes,qpoints) result(output)
+  implicit none
+  
+  class(RealModeDisplacement), intent(in) :: this
+  type(StructureData),         intent(in) :: structure
+  type(RealMode),              intent(in) :: modes(:)
+  type(QpointData),            intent(in) :: qpoints(:)
+  type(MassWeightedDisplacement)          :: output
+  
+  output = MassWeightedDisplacement( &
+     & MassWeightedVector(this,structure,modes,qpoints))
+end function
+
 ! Returns the displacement in cartesian co-ordinates.
-function cartesian_displacement_RealModeDisplacement(this,structure, &
+function new_CartesianDisplacement_RealModeDisplacement(this,structure, &
    & modes,qpoints) result(output)
   implicit none
   
@@ -170,8 +194,22 @@ function cartesian_displacement_RealModeDisplacement(this,structure, &
   type(QpointData),            intent(in) :: qpoints(:)
   type(CartesianDisplacement)             :: output
   
-  output = CartesianDisplacement( &
-     & this%cartesian_vector(structure,modes,qpoints))
+  output = CartesianDisplacement(CartesianVector(this,structure,modes,qpoints))
+end function
+
+! Converts a MassWeightedDisplacement to a RealModeDisplacement.
+function new_RealModeDisplacement_MassWeightedDisplacement(displacement, &
+   & structure,modes,qpoints) result(this)
+  implicit none
+  
+  type(MassWeightedDisplacement), intent(in) :: displacement
+  type(StructureData),            intent(in) :: structure
+  type(RealMode),                 intent(in) :: modes(:)
+  type(QpointData),               intent(in) :: qpoints(:)
+  type(RealModeDisplacement)                 :: this
+  
+  this = RealModeDisplacement( &
+     & RealModeVector(displacement,structure,modes,qpoints))
 end function
 
 ! Converts a CartesianDisplacement to a RealModeDisplacement.

@@ -210,10 +210,10 @@ subroutine generate_sampling_points_PolynomialPotential(this,inputs, &
                                             & inputs%qpoints)
         
         ! Construct displaced structure.
-        displacement = transformed_sampling_point%cartesian_displacement( &
-                                                     & supercell,         &
-                                                     & inputs%real_modes, &
-                                                     & inputs%qpoints)
+        displacement = CartesianDisplacement( transformed_sampling_point, &
+                                            & supercell,                  &
+                                            & inputs%real_modes,          &
+                                            & inputs%qpoints)
         displaced_structure = displace_structure(supercell,displacement)
         
         ! Create directory and structure files for displaced structure.
@@ -382,7 +382,7 @@ subroutine generate_potential_PolynomialPotential(this,inputs, &
                                  & weighted_energy_force_ratio)
   
   this%reference_energy = coefficients(1)
-  this%basis_functions  = uncoupled_basis_functions
+  this%basis_functions  = uncoupled_basis_functions(2:)
   this%coefficients     = coefficients(2:)
   
   ! Calculate the coefficients of all basis functions involving subspace
@@ -482,7 +482,7 @@ subroutine read_PolynomialPotential(this,input)
     reference_energy = dble(line(3))
     
     sections = split_into_sections(input)
-    basis_functions = BasisFunction(sections(3:size(sections)-2))
+    basis_functions = BasisFunction(sections(2:size(sections)-2))
     coefficients = dble(sections(size(sections))%strings)
     
     this = PolynomialPotential( potential_expansion_order, &

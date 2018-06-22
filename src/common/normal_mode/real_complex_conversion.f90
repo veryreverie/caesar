@@ -7,26 +7,26 @@
 ! N.B. u_i = u_j*.
 ! These modes can then be transformed to and from the real modes i and j
 !    as follows.
-! The complex u_i will be written c_i, and the real u_i will be written r_i.
+! The complex u_i and u_j will be written u+ and u-,
+!    and the real u_i and u_j will be written c and s respectively.
+!
+! N.B. Taking q to be the q-point of u+, u+ looks like e^{+2pi*i*q.r},
+!                                        u- looks like e^{-2pi*i*q.r},
+!                                        c  looks like cos(2pi*q.r),
+!                                        s  looks like sin(2pi*q.r).
 ! 
-! c_i = (r_i + i.r_j) /  sqrt(2)
-! c_j = (r_i - i.r_j) /  sqrt(2)
-! r_i = (c_i +   c_j) /  sqrt(2)    = real(c_i)*sqrt(2) =  real(c_j)*sqrt(2)
-! r_j = (c_i -   c_j) / (sqrt(2)*i) = imag(c_i)*sqrt(2) = -imag(c_j)*sqrt(2)
-! 
-! Under q -> -q : (c_i) -> (0  1) . (c_i)
-!                 (c_j)    (1  0)   (c_j)
-!
-!                 (r_i) -> (1  0) . (r_i)
-!                 (r_j)    (0 -1)   (r_j)
-!
-! N.B. Taking q to be the q-point of c_i, c_i looks like e^{+iq.r},
-!                                         c_j looks like e^{-iq.r},
-!                                         r_i looks like cos(q.r),
-!                                         r_j looks like sin(q.r).
-!
 ! N.B. the choice of r_i as the cos mode and r_j as the sin mode is arbitrary,
 !    but will be used consistently throughout.
+!
+! u+ = (c + i*s) /  sqrt(2)
+! u- = (c - i*s) /  sqrt(2)
+! c  = (u+ + u-) /  sqrt(2)    = real(u+)*sqrt(2) =  real(u-)*sqrt(2)
+! s  = (u+ - u-) / (sqrt(2)*i) = imag(u+)*sqrt(2) = -imag(u-)*sqrt(2)
+! 
+! Under q -> -q : u+ ->   u-
+!                 u- ->   u+
+!                 c  ->   c
+!                 s  -> - s
 !
 ! N.B. if i=j, then the mode is real (2q=G, so e^{+iq.r}=e^{-iq.r}=cos(q.r)).
 
@@ -77,42 +77,55 @@ function complex_to_real_Modes(input) result(output)
   type(ComplexMode), intent(in) :: input(:)
   type(RealMode), allocatable   :: output(:)
   
+  type(RealVector), allocatable :: mass_weighted_vector(:)
+  type(RealVector), allocatable :: cartesian_vector(:)
+  
+  integer :: qpoint_id_plus
+  integer :: qpoint_id_minus
+  
   integer :: mode,ialloc
   
-  ! Allocate output, and copy over everything which is unchanged by the
-  !    transformation to real co-ordinates.
   allocate(output(size(input)), stat=ialloc); call err(ialloc)
-  output%id                 = input%id
-  output%paired_id          = input%paired_id
-  output%frequency          = input%frequency
-  output%soft_mode          = input%soft_mode
-  output%translational_mode = input%translational_mode
-  output%qpoint_id          = input%qpoint_id
-  output%subspace_id        = input%subspace_id
-  
-  ! Convert displacements to real co-ordinates.
   do mode=1,size(input)
     if (input(mode)%id==input(mode)%paired_id) then
-      ! This mode is its own pair. It is already real.
-      ! mode = i = j.
-      ! r_i = c_i.
-      output(mode)%primitive_vectors = &
-         & real(input(mode)%primitive_vectors)
+      ! output(mode) is its own pair. It is already real.
+      ! c = u+.
+      qpoint_id_plus = input(mode)%qpoint_id
+      qpoint_id_minus = qpoint_id_plus
+      mass_weighted_vector = real(input(mode)%mass_weighted_vector)
+      cartesian_vector = real(input(mode)%cartesian_vector)
     elseif (input(mode)%id<input(mode)%paired_id) then
-      ! Construct the cos(q.r) mode, r_i.
-      ! mode = i.
-      ! r_i = real(c_i)*sqrt(2).
-      output(mode)%primitive_vectors = &
-         & real(input(mode)%primitive_vectors)*sqrt(2.0_dp)
+      ! output(mode) is c.
+      ! input(mode) is u+.
+      ! c = real(u+)*sqrt(2).
+      qpoint_id_plus = input(mode)%qpoint_id
+      qpoint_id_minus = input(mode)%paired_qpoint_id
+      mass_weighted_vector = real(input(mode)%mass_weighted_vector) &
+                         & * sqrt(2.0_dp)
+      cartesian_vector = real(input(mode)%cartesian_vector) * sqrt(2.0_dp)
     elseif (input(mode)%id>input(mode)%paired_id) then
-      ! Construct the sin(q.r) mode, r_j.
-      ! mode = j.
-      ! r_j = -imag(c_j)*sqrt(2).
-      output(mode)%primitive_vectors = &
-         & -aimag(input(mode)%primitive_vectors)*sqrt(2.0_dp)
+      ! output(mode) is s.
+      ! input(mode) is u-.
+      ! s = -imag(u-)*sqrt(2).
+      mass_weighted_vector = -aimag(input(mode)%mass_weighted_vector) &
+                         & * sqrt(2.0_dp)
+      cartesian_vector = -aimag(input(mode)%cartesian_vector) &
+                     & * sqrt(2.0_dp)
     else
       call err()
     endif
+    
+    output(mode) = RealMode(                                    &
+       & id                   = input(mode)%id,                 &
+       & paired_id            = input(mode)%paired_id,          &
+       & frequency            = input(mode)%frequency,          &
+       & soft_mode            = input(mode)%soft_mode,          &
+       & translational_mode   = input(mode)%translational_mode, &
+       & mass_weighted_vector = mass_weighted_vector,           &
+       & cartesian_vector     = cartesian_vector,               &
+       & qpoint_id_plus       = qpoint_id_plus,                 &
+       & qpoint_id_minus      = qpoint_id_minus,                &
+       & subspace_id          = input(mode)%subspace_id)
   enddo
 end function
 
@@ -122,48 +135,70 @@ function real_to_complex_Modes(input) result(output)
   type(RealMode), intent(in)     :: input(:)
   type(ComplexMode), allocatable :: output(:)
   
+  type(ComplexVector), allocatable :: mass_weighted_vector(:)
+  type(ComplexVector), allocatable :: cartesian_vector(:)
+  
+  integer :: qpoint_id
+  integer :: paired_qpoint_id
+  
   integer :: mode,pair,ialloc
   
-  ! Allocate output, and copy over everything which is unchanged by the
-  !    transformation to real co-ordinates.
   allocate(output(size(input)), stat=ialloc); call err(ialloc)
-  output%id                 = input%id
-  output%paired_id          = input%paired_id
-  output%frequency          = input%frequency
-  output%soft_mode          = input%soft_mode
-  output%translational_mode = input%translational_mode
-  output%qpoint_id          = input%qpoint_id
-  output%subspace_id        = input%subspace_id
-  
-  ! Convert displacements to complex co-ordinates.
   do mode=1,size(input)
-    ! Get the location of the paired mode with id j.
+    ! Get the location of the paired mode.
     pair = first(input%id==input(mode)%paired_id)
+    
+    ! Construct vectors and q-point ids.
     if (input(mode)%id==input(pair)%id) then
-      ! This mode is its own pair. It is real.
-      ! mode = pair = i = j.
-      ! c_i = r_i.
-      output(mode)%primitive_vectors = &
-         & cmplxvec(input(mode)%primitive_vectors)
+      ! output(mode) is its own pair. It is real.
+      ! u+ = c.
+      qpoint_id = input(mode)%qpoint_id_plus
+      paired_qpoint_id = qpoint_id
+      mass_weighted_vector = cmplxvec(input(mode)%mass_weighted_vector)
+      cartesian_vector = cmplxvec(input(mode)%cartesian_vector)
     elseif (input(mode)%id<input(pair)%id) then
-      ! Construct the e^{+iq.r} mode, c_i.
-      ! mode = i, pair = j.
-      ! c_i = (r_i + i.r_j)/sqrt(2).
-      output(mode)%primitive_vectors =              &
-         & cmplxvec( input(mode)%primitive_vectors, &
-         &           input(pair)%primitive_vectors) &
+      ! output(mode) is u+.
+      ! input(mode) is c, and input(pair) is s.
+      ! u+ = (c + i*s)/sqrt(2).
+      qpoint_id = input(mode)%qpoint_id_plus
+      paired_qpoint_id = input(mode)%qpoint_id_minus
+      mass_weighted_vector =                           &
+         & cmplxvec( input(mode)%mass_weighted_vector, &
+         &           input(pair)%mass_weighted_vector) &
+         & / sqrt(2.0_dp)
+      cartesian_vector =                           &
+         & cmplxvec( input(mode)%cartesian_vector, &
+         &           input(pair)%cartesian_vector) &
          & / sqrt(2.0_dp)
     elseif (input(mode)%paired_id<input(mode)%id) then
-      ! Construct the e^{-iq.r} mode, c_j.
-      ! mode = j, pair = i.
-      ! c_j = (r_i - i.r_j)/sqrt(2).
-      output(mode)%primitive_vectors =              &
-         & cmplxvec( input(pair)%primitive_vectors, &
-         &          -input(mode)%primitive_vectors) &
+      ! output(mode) is u-.
+      ! input(mode) is s, and input(pair) is c.
+      ! u- = (c - i*s)/sqrt(2).
+      qpoint_id = input(mode)%qpoint_id_minus
+      paired_qpoint_id = input(mode)%qpoint_id_plus
+      mass_weighted_vector =                           &
+         & cmplxvec( input(pair)%mass_weighted_vector, &
+         &         - input(mode)%mass_weighted_vector) &
+         & / sqrt(2.0_dp)
+      cartesian_vector =                           &
+         & cmplxvec( input(pair)%cartesian_vector, &
+         &         - input(mode)%cartesian_vector) &
          & / sqrt(2.0_dp)
     else
       call err()
     endif
+    
+    output(mode) = ComplexMode(                                 &
+       & id                   = input(mode)%id,                 &
+       & paired_id            = input(mode)%paired_id,          &
+       & frequency            = input(mode)%frequency,          &
+       & soft_mode            = input(mode)%soft_mode,          &
+       & translational_mode   = input(mode)%translational_mode, &
+       & mass_weighted_vector = mass_weighted_vector,           &
+       & cartesian_vector     = cartesian_vector,               &
+       & qpoint_id            = qpoint_id,                      &
+       & paired_qpoint_id     = paired_qpoint_id,               &
+       & subspace_id          = input(mode)%subspace_id)
   enddo
 end function
 

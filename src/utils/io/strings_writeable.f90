@@ -75,20 +75,16 @@ recursive function str_StringsWriteables_String(this,separating_line) &
   type(String),            intent(in), optional :: separating_line
   type(String), allocatable                     :: output(:)
   
-  integer :: i
+  type(StringArray), allocatable :: sections(:)
   
-  if (size(this)==0) then
-    output = [String::]
-  else
-    output = str(this(1))
-    do i=2,size(this)
-      if (present(separating_line)) then
-        output = [output, separating_line, str(this(i))]
-      else
-        output = [output, str(this(i))]
-      endif
-    enddo
-  endif
+  integer :: i,ialloc
+  
+  allocate(sections(size(this)), stat=ialloc); call err(ialloc)
+  do i=1,size(this)
+    sections(i) = StringArray(str(this(i)))
+  enddo
+  
+  output = str(join(sections,separating_line))
 end function
 
 recursive function str_StringsWriteables_character(this,separating_line) &

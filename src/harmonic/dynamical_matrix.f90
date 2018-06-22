@@ -403,8 +403,8 @@ subroutine check(this,structure,logfile,check_eigenstuff)
       endif
       
       do j=1,structure%no_atoms_prim
-        prim_vec_1 = this%complex_modes(i)%primitive_vectors(j)
-        prim_vec_2 = modes(i)%primitive_vectors(j)
+        prim_vec_1 = this%complex_modes(i)%mass_weighted_vector(j)
+        prim_vec_2 = modes(i)%mass_weighted_vector(j)
         ! Ignore phases.
         prim_vec_1 = cmplxvec(vec(abs(cmplx(prim_vec_1))))
         prim_vec_2 = cmplxvec(vec(abs(cmplx(prim_vec_2))))
@@ -501,10 +501,10 @@ function rotate_modes(input,symmetry,qpoint_from,qpoint_to) result(output)
                                             & qpoint_to)
   
   ! Rotate normal modes.
-  output%complex_modes = rotate_complex_modes( input%complex_modes, &
-                                             & symmetry,            &
-                                             & qpoint_from,         &
-                                             & qpoint_to)
+  output%complex_modes = transform( input%complex_modes, &
+                                  & symmetry,            &
+                                  & qpoint_from,         &
+                                  & qpoint_to)
 end function
 
 ! ----------------------------------------------------------------------

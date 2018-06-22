@@ -21,7 +21,8 @@ function plot_effective_frequencies() result(output)
   
   output%mode_name = 'plot_effective_frequencies'
   output%description = 'Plots the phonon density of states and dispersion &
-     &calculated by calculate_harmonic_observables.'
+     &calculated by calculate_harmonic_observables. Should be run from within &
+     &a qpoint_ directory. The -d flag may be useful for this.'
   output%keywords = [                                                      &
      & KeywordData( 'python_path',                                         &
      &              'python_path is the path to the Python 3 executable.', &

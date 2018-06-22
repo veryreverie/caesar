@@ -10,7 +10,10 @@ module string_array_submodule
   
   public :: StringArray
   public :: size
+  public :: str
   public :: split_into_sections
+  public :: operator(//)
+  public :: join
   
   type :: StringArray
     type(String), allocatable :: strings(:)
@@ -24,19 +27,38 @@ module string_array_submodule
     module procedure size_StringArray
   end interface
   
+  interface str
+    module procedure str_StringArray
+  end interface
+  
   interface split_into_sections
     module procedure split_into_sections_Strings_character
     module procedure split_into_sections_Strings_String
     module procedure split_into_sections_StringArray_character
     module procedure split_into_sections_StringArray_String
   end interface
+  
+  interface operator(//)
+    module procedure concatenate_StringArray_StringArray
+    module procedure concatenate_StringArray_String
+    module procedure concatenate_StringArray_character
+    module procedure concatenate_StringArray_Strings
+    module procedure concatenate_String_StringArray
+    module procedure concatenate_character_StringArray
+    module procedure concatenate_Strings_StringArray
+  end interface
+  
+  interface join
+    module procedure join_StringArrays_String
+    module procedure join_StringArrays_character
+  end interface
 contains
 
 ! --------------------------------------------------
 ! Basic functionality:
-!    - Converting between String(:) and StringArray.
-!    - Assignments between String(:) and StringArray.
+!    - Constructor.
 !    - The size() function.
+!    - The str() function.
 ! --------------------------------------------------
 function new_StringArray_Strings(input) result(this)
   implicit none
@@ -54,6 +76,15 @@ function size_StringArray(this) result(output)
   integer                       :: output
   
   output = size(this%strings)
+end function
+
+function str_StringArray(this) result(output)
+  implicit none
+  
+  type(StringArray), intent(in) :: this
+  type(String), allocatable     :: output(:)
+  
+  output = this%strings
 end function
 
 ! ----------------------------------------------------------------------
@@ -149,5 +180,128 @@ function split_into_sections_StringArray_String(this,delimiter) result(output)
   type(StringArray), allocatable :: output(:)
   
   output = split_into_sections(this%strings,char(delimiter))
+end function
+
+! ----------------------------------------------------------------------
+! Concatenate StringArrays and another string-like structure.
+! ----------------------------------------------------------------------
+function concatenate_StringArray_StringArray(this,that) result(output)
+  implicit none
+  
+  type(StringArray), intent(in) :: this
+  type(StringArray), intent(in) :: that
+  type(StringArray)             :: output
+  
+  output = StringArray([this%strings, that%strings])
+end function
+
+function concatenate_StringArray_String(this,that) result(output)
+  implicit none
+  
+  type(StringArray), intent(in) :: this
+  type(String),      intent(in) :: that
+  type(StringArray)             :: output
+  
+  output = StringArray([this%strings, that])
+end function
+
+function concatenate_StringArray_character(this,that) result(output)
+  implicit none
+  
+  type(StringArray), intent(in) :: this
+  character(*),      intent(in) :: that
+  type(StringArray)             :: output
+  
+  output = StringArray([this%strings, str(that)])
+end function
+
+function concatenate_StringArray_Strings(this,that) result(output)
+  implicit none
+  
+  type(StringArray), intent(in) :: this
+  type(String),      intent(in) :: that(:)
+  type(StringArray)             :: output
+  
+  output = StringArray([this%strings, that])
+end function
+
+function concatenate_String_StringArray(this,that) result(output)
+  implicit none
+  
+  type(String),      intent(in) :: this
+  type(StringArray), intent(in) :: that
+  type(StringArray)             :: output
+  
+  output = StringArray([this, that%strings])
+end function
+
+function concatenate_character_StringArray(this,that) result(output)
+  implicit none
+  
+  character(*),      intent(in) :: this
+  type(StringArray), intent(in) :: that
+  type(StringArray)             :: output
+  
+  output = StringArray([str(this), that%strings])
+end function
+
+function concatenate_Strings_StringArray(this,that) result(output)
+  implicit none
+  
+  type(String),      intent(in) :: this(:)
+  type(StringArray), intent(in) :: that
+  type(StringArray)             :: output
+  
+  output = StringArray([this, that%strings])
+end function
+
+function join_StringArrays_String(input,separating_line) result(output)
+  implicit none
+  
+  type(StringArray), intent(in)           :: input(:)
+  type(String),      intent(in), optional :: separating_line
+  type(StringArray)                       :: output
+  
+  integer                   :: no_strings
+  type(String), allocatable :: strings(:)
+  
+  integer :: i,j,ialloc
+  
+  if (size(input)==0) then
+    strings = [String::]
+  else
+    no_strings = size(input(1))
+    do i=2,size(input)
+      no_strings = no_strings+size(input(i))
+      if (present(separating_line)) then
+        no_strings = no_strings + 1
+      endif
+    enddo
+    
+    allocate(strings(no_strings), stat=ialloc); call err(ialloc)
+    
+    strings(:size(input(1))) = input(1)%strings
+    j = size(input(1))
+    do i=2,size(input)
+      if (present(separating_line)) then
+        strings(j+1) = separating_line
+        j = j+1
+      endif
+      strings(j+1:j+size(input(i))) = input(i)%strings
+      j = j+size(input(i))
+    enddo
+  endif
+  
+  output = StringArray(strings)
+end function
+
+function join_StringArrays_character(input,separating_line) result(output)
+  implicit none
+  
+  type(StringArray), intent(in) :: input(:)
+  character(*),      intent(in) :: separating_line
+  type(StringArray)             :: output
+  
+  output = join(input,str(separating_line))
 end function
 end module

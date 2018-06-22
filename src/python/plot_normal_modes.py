@@ -63,9 +63,9 @@ def main():
         frequency = float(line[3])
         modes.append({ 'frequency':frequency,
                        'displacements':[]})
-      elif len(line)>=1 and line[0]=='Degeneracy':
-        modes[-1]['degeneracy'] = int(line[3])
-      elif len(line)>=1 and line[0]=='Displacements':
+      elif len(line)>=1 and line[0]=='Subspace':
+        modes[-1]['subspace'] = int(line[3])
+      elif len(line)>=1 and line[0]=='Cartesian':
         reading_displacements = not reading_displacements
       elif reading_displacements:
         modes[-1]['displacements'].append([])
@@ -200,12 +200,12 @@ def main():
     axes[i][0].set_yticklabels(species)
     axes[i][0].tick_params(length=0)
   
-  # Add degeneracy labeling.
+  # Add subspace labeling.
   for i,mode in enumerate(modes):
-    if i>0 and mode['degeneracy']==modes[i-1]['degeneracy']:
+    if i>0 and mode['subspace']==modes[i-1]['subspace']:
       continue
     degenerate_modes = [j for j,x in enumerate(modes) \
-                        if x['degeneracy']==mode['degeneracy']]
+                        if x['subspace']==mode['subspace']]
     no_modes = len(degenerate_modes)
     padding = 0.1 # The padding around each subplot.
     offset = 0.08 # The amount by which degererate bars are shrunk.

@@ -7,6 +7,7 @@ module real_mode_vector_submodule
   use structure_module
   
   use cartesian_vector_submodule
+  use mass_weighted_vector_submodule
   use real_mode_submodule
   use real_single_mode_vector_submodule
   implicit none
@@ -15,6 +16,8 @@ module real_mode_vector_submodule
   
   public :: RealModeVector
   public :: size
+  public :: MassWeightedVector
+  public :: CartesianVector
   public :: operator(*)
   public :: operator(/)
   public :: operator(+)
@@ -27,21 +30,27 @@ module real_mode_vector_submodule
     procedure, public :: modes   => modes_RealModeVector
     procedure, public :: qpoints => qpoints_RealModeVector
     
-    procedure, public :: cartesian_vector => &
-       & cartesian_vector_RealModeVector
-    
     procedure, public :: read  => read_RealModeVector
     procedure, public :: write => write_RealModeVector
   end type
   
   interface RealModeVector
     module procedure new_RealModeVector
+    module procedure new_RealModeVector_MassWeightedVector
     module procedure new_RealModeVector_CartesianVector
     module procedure new_RealModeVector_StringArray
   end interface
   
   interface size
     module procedure size_RealModeVector
+  end interface
+  
+  interface MassWeightedVector
+    module procedure new_MassWeightedVector_RealModeVector
+  end interface
+  
+  interface CartesianVector
+    module procedure new_CartesianVector_RealModeVector
   end interface
   
   interface operator(*)
@@ -120,7 +129,8 @@ function qpoints_RealModeVector(this,modes,qpoints) result(output)
   
   ! List the q-point IDs of the modes in the vector.
   non_zero_modes = this%modes(modes)
-  qpoint_ids = non_zero_modes%qpoint_id
+  qpoint_ids = [ non_zero_modes%qpoint_id_plus, &
+               & non_zero_modes%qpoint_id_minus ]
   
   ! De-duplicate the q-point IDs.
   qpoint_ids = qpoint_ids(set(qpoint_ids))
@@ -239,10 +249,43 @@ impure elemental function subtract_RealModeVector_RealModeVector(this,that) &
 end function
 
 ! ----------------------------------------------------------------------
-! Conversions between CartesianVector and RealModeVector.
+! Conversions to and from mass-weighted and cartesian co-ordinates.
 ! ----------------------------------------------------------------------
+! Returns the vector in mass-weighted co-ordinates.
+function new_MassWeightedVector_RealModeVector(this,structure,modes,qpoints) &
+   & result(output)
+  implicit none
+  
+  class(RealModeVector), intent(in) :: this
+  type(StructureData),   intent(in) :: structure
+  type(RealMode),        intent(in) :: modes(:)
+  type(QpointData),      intent(in) :: qpoints(:)
+  type(MassWeightedVector)          :: output
+  
+  type(RealMode)   :: mode
+  type(QpointData) :: qpoint
+  
+  type(MassWeightedVector), allocatable :: vectors(:)
+  
+  integer :: i,ialloc
+  
+  ! Calculate the mass-weighted vector due to each mode.
+  allocate(vectors(size(this)), stat=ialloc); call err(ialloc)
+  do i=1,size(this)
+    ! Find the mode and q-point associated with vector i.
+    mode = modes(first(modes%id==this%vectors(i)%id))
+    qpoint = qpoints(first(qpoints%id==mode%qpoint_id_plus))
+    
+    ! Calculate the vector from mode i.
+    vectors(i) = MassWeightedVector(this%vectors(i),mode,structure,qpoint)
+  enddo
+  
+  ! Add together the contributions from all modes.
+  output = sum(vectors)
+end function
+
 ! Returns the vector in cartesian co-ordinates.
-function cartesian_vector_RealModeVector(this,structure, &
+function new_CartesianVector_RealModeVector(this,structure, &
    & modes,qpoints) result(output)
   implicit none
   
@@ -264,17 +307,42 @@ function cartesian_vector_RealModeVector(this,structure, &
   do i=1,size(this)
     ! Find the mode and q-point associated with vector i.
     mode = modes(first(modes%id==this%vectors(i)%id))
-    qpoint = qpoints(first(qpoints%id==mode%qpoint_id))
+    qpoint = qpoints(first(qpoints%id==mode%qpoint_id_plus))
     
     ! Calculate the vector from mode i.
-    vectors(i) =                                      &
-       & this%vectors(i)%cartesian_vector( mode,      &
-       &                                   structure, &
-       &                                   qpoint)
+    vectors(i) = CartesianVector(this%vectors(i),mode,structure,qpoint)
   enddo
   
   ! Add together the contributions from all modes.
   output = sum(vectors)
+end function
+
+! Converts a MassWeightedVector to a RealModeVector.
+function new_RealModeVector_MassWeightedVector(vector, &
+   & structure,modes,qpoints) result(this)
+  implicit none
+  
+  class(MassWeightedVector), intent(in) :: vector
+  type(StructureData),       intent(in) :: structure
+  type(RealMode),            intent(in) :: modes(:)
+  type(QpointData),          intent(in) :: qpoints(:)
+  type(RealModeVector)                  :: this
+  
+  type(RealSingleModeVector), allocatable :: vectors(:)
+  type(QpointData)                        :: qpoint
+  
+  integer :: i,ialloc
+  
+  allocate(vectors(size(modes)), stat=ialloc); call err(ialloc)
+  do i=1,size(modes)
+    qpoint = qpoints(first(qpoints%id==modes(i)%qpoint_id_plus))
+    vectors(i) = RealSingleModeVector( modes(i),  &
+                                     & vector,    &
+                                     & structure, &
+                                     & qpoint)
+  enddo
+  
+  this = RealModeVector(vectors)
 end function
 
 ! Converts a CartesianVector to a RealModeVector.
@@ -295,7 +363,7 @@ function new_RealModeVector_CartesianVector(vector, &
   
   allocate(vectors(size(modes)), stat=ialloc); call err(ialloc)
   do i=1,size(modes)
-    qpoint = qpoints(first(qpoints%id==modes(i)%qpoint_id))
+    qpoint = qpoints(first(qpoints%id==modes(i)%qpoint_id_plus))
     vectors(i) = RealSingleModeVector( modes(i),  &
                                      & vector,    &
                                      & structure, &

@@ -11,7 +11,6 @@ module complex_mode_symmetry_submodule
   
   private
   
-  public :: rotate_complex_modes
   public :: calculate_symmetry_in_normal_coordinates
   
   interface calculate_symmetry_in_normal_coordinates
@@ -19,46 +18,6 @@ module complex_mode_symmetry_submodule
     module procedure calculate_symmetry_in_normal_coordinates_qpoints
   end interface
 contains
-
-! ----------------------------------------------------------------------
-! Rotates a complex mode.
-! ----------------------------------------------------------------------
-! Checks that the symmetry correctly maps qpoint_from to qpoint_to.
-impure elemental function rotate_complex_modes(input,symmetry,qpoint_from, &
-   & qpoint_to) result(output)
-  implicit none
-  
-  type(ComplexMode),      intent(in) :: input
-  type(SymmetryOperator), intent(in) :: symmetry
-  type(QpointData),       intent(in) :: qpoint_from
-  type(QpointData),       intent(in) :: qpoint_to
-  type(ComplexMode)                  :: output
-  
-  integer :: atom_from
-  integer :: atom_to
-  
-  type(IntVector) :: r
-  
-  ! Check that the symmetry rotates the q-point as expected.
-  if (symmetry * qpoint_from /= qpoint_to) then
-    call print_line(CODE_ERROR//': Symmetry does not transform q-points as &
-       &expected.')
-    call err()
-  endif
-  
-  ! Allocate output, and transfer across all data.
-  ! (Displacements need rotating, but everything else stays the same.)
-  output = input
-  do atom_from=1,size(input%primitive_vectors)
-    atom_to = symmetry%prim_atom_group * atom_from
-    r = symmetry%prim_rvector(atom_from)
-    output%primitive_vectors(atom_to) =       &
-       &   symmetry%cartesian_rotation        &
-       & * input%primitive_vectors(atom_from) &
-       & * exp_2pii(qpoint_to%qpoint*r)
-  enddo
-end function
-
 ! ----------------------------------------------------------------------
 ! Calculates a symmetry in normal mode co-ordinates.
 ! ----------------------------------------------------------------------
@@ -80,17 +39,18 @@ function calculate_symmetry_in_normal_coordinates_qpoint(modes,qpoint, &
   integer :: i,j,ialloc
   
   ! Calculate the rotated modes, S.u1.
-  rotated_modes = rotate_complex_modes( modes,    &
-                                      & symmetry, &
-                                      & qpoint,   &
-                                      & qpoint)
+  rotated_modes = transform( modes,    &
+                           & symmetry, &
+                           & qpoint,   &
+                           & qpoint)
   
   ! Construct the overlap matrix, u2.S.u1.
   allocate( dot_products(size(modes),size(modes)), &
           & stat=ialloc); call err(ialloc)
   do i=1,size(modes)
     do j=1,size(modes)
-      dot_products(j,i) = conjg(modes(j)) * rotated_modes(i)
+      dot_products(j,i) = sum( conjg(modes(j)%mass_weighted_vector) &
+                           & * rotated_modes(i)%mass_weighted_vector)
     enddo
   enddo
   
@@ -130,10 +90,10 @@ function calculate_symmetry_in_normal_coordinates_qpoints(modes,qpoints, &
   enddo
   
   ! Calculate all rotated modes, S.u1.
-  rotated_modes = rotate_complex_modes( modes,    &
-                                      & symmetry, &
-                                      & qpoints,  &
-                                      & rotated_qpoints)
+  rotated_modes = transform( modes,    &
+                           & symmetry, &
+                           & qpoints,  &
+                           & rotated_qpoints)
   
   ! Construct the overlap matrix, u2.S.u1.
   allocate( dot_products(size(modes),size(modes)), &
@@ -141,7 +101,8 @@ function calculate_symmetry_in_normal_coordinates_qpoints(modes,qpoints, &
   do i=1,size(modes)
     do j=1,size(modes)
       if (qpoints(j)==rotated_qpoints(i)) then
-        dot_products(j,i) = conjg(modes(j)) * rotated_modes(i)
+        dot_products(j,i) = sum( conjg(modes(j)%mass_weighted_vector) &
+                             & * rotated_modes(i)%mass_weighted_vector)
       else
         dot_products(j,i) = cmplx(0.0_dp,0.0_dp,dp)
       endif

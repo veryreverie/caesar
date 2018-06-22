@@ -89,7 +89,6 @@ subroutine calculate_normal_modes_subroutine(arguments)
   
   ! Lte output data.
   logical, allocatable :: modes_calculated(:)
-  integer              :: mode
   
   ! Normal modes and their symmetries.
   type(QpointData) :: rotated_qpoint
@@ -117,7 +116,7 @@ subroutine calculate_normal_modes_subroutine(arguments)
   type(OFile) :: qpoint_logfile
   
   ! Temporary variables.
-  integer      :: i,j,k,ialloc
+  integer      :: i,j,k,l,ialloc
   type(String) :: sdir,qdir
   
   ! --------------------------------------------------
@@ -342,8 +341,14 @@ subroutine calculate_normal_modes_subroutine(arguments)
         degenerate_ids =                                                &
            & filter( dynamical_matrices(i)%complex_modes%subspace_id == &
            &         dynamical_matrices(i)%complex_modes(k)%subspace_id)
-        pair_overlap = dynamical_matrices(i)%complex_modes(degenerate_ids) &
-                   & * dynamical_matrices(i)%complex_modes(k)
+        allocate( pair_overlap(size(degenerate_ids)), &
+                & stat=ialloc); call err(ialloc)
+        do l=1,size(pair_overlap)
+          pair_overlap(l) = sum(                                             &
+             &   dynamical_matrices(i)%complex_modes(                        &
+             &                       degenerate_ids(l))%mass_weighted_vector &
+             & * dynamical_matrices(i)%complex_modes(k)%mass_weighted_vector )
+        enddo
         ! conjg(mode(k)) should equal one mode (down to a phase change),
         !    and have no overlap with any other mode.
         ! Check that this is true, and identify the one mode.
@@ -356,6 +361,7 @@ subroutine calculate_normal_modes_subroutine(arguments)
         
         ! Get the position of the paired mode in the list of degenerate modes.
         paired_pos = first(abs(abs(pair_overlap)-1)<1e-2)
+        
         ! Find and normalise the phase of the mode.
         ! Only relevant for when this mode is its own pair, and must be made
         !    real.
@@ -364,15 +370,21 @@ subroutine calculate_normal_modes_subroutine(arguments)
         ! Convert from position in degenerate modes to position in all modes.
         paired_pos = degenerate_ids(paired_pos)
         
+        deallocate(pair_overlap, stat=ialloc); call err(ialloc)
+        
         ! Pair up modes.
         if (paired_pos==k) then
           ! The mode is paired to itself. Set paired_id, and divide by the
           !    phase so that the mode is real.
           dynamical_matrices(i)%complex_modes(k)%paired_id = &
              & dynamical_matrices(i)%complex_modes(k)%id
-          dynamical_matrices(i)%complex_modes(k)%primitive_vectors =    &
-             & cmplxvec(real(                                           &
-             & dynamical_matrices(i)%complex_modes(k)%primitive_vectors &
+          dynamical_matrices(i)%complex_modes(k)%mass_weighted_vector =    &
+             & cmplxvec(real(                                              &
+             & dynamical_matrices(i)%complex_modes(k)%mass_weighted_vector &
+             & / phase))
+          dynamical_matrices(i)%complex_modes(k)%cartesian_vector =    &
+             & cmplxvec(real(                                          &
+             & dynamical_matrices(i)%complex_modes(k)%cartesian_vector &
              & / phase))
         elseif (paired_pos>k) then
           ! The mode is paired to another.

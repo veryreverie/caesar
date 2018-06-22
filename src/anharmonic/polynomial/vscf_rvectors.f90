@@ -379,7 +379,7 @@ function transform_RealModeVector(this,vector,modes,qpoints, &
       r = -r
     endif
     
-    q = qpoints(first(qpoints%id==mode%qpoint_id))%qpoint
+    q = qpoints(first(qpoints%id==mode%qpoint_id_plus))%qpoint
     
     ! Calculate the transformed vector along vector i,
     !    and along the mode paired to vector i.
@@ -517,7 +517,7 @@ function construct_rvector_arrays(sampling_point,supercell,real_modes, &
   ! List q-points corresponding to said modes.
   allocate(mode_qpoints(size(modes)), stat=ialloc); call err(ialloc)
   do i=1,size(modes)
-    mode_qpoints(i) = qpoints(first(qpoints%id==modes(i)%qpoint_id))
+    mode_qpoints(i) = qpoints(first(qpoints%id==modes(i)%qpoint_id_plus))
   enddo
   
   ! De-duplicate the subspace ids.

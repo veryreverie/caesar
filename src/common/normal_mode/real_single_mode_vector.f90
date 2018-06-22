@@ -1,5 +1,5 @@
 ! ======================================================================
-! A vector along a single real mode.
+! A vector along a single real mode, in mass-weighted co-ordinates.
 ! ======================================================================
 module real_single_mode_vector_submodule
   use utils_module
@@ -7,12 +7,15 @@ module real_single_mode_vector_submodule
   use structure_module
   
   use cartesian_vector_submodule
+  use mass_weighted_vector_submodule
   use real_mode_submodule
   implicit none
   
   private
   
   public :: RealSingleModeVector
+  public :: MassWeightedVector
+  public :: CartesianVector
   public :: operator(*)
   public :: operator(/)
   public :: operator(+)
@@ -22,13 +25,9 @@ module real_single_mode_vector_submodule
     ! The id of the mode.
     integer :: id
     
-    ! The magnitude of vector along the mode.
+    ! The magnitude of vector along the mode, in mass-weighted co-ordinates.
     real(dp) :: magnitude
   contains
-    ! Convert to cartesian co-ordinates.
-    procedure, public :: cartesian_vector => &
-       & cartesian_vector_RealSingleModeVector
-    
     ! I/O.
     procedure, public :: read  => read_RealSingleModeVector
     procedure, public :: write => write_RealSingleModeVector
@@ -36,8 +35,17 @@ module real_single_mode_vector_submodule
   
   interface RealSingleModeVector
     module procedure new_RealSingleModeVector
+    module procedure new_RealSingleModeVector_MassWeightedVector
     module procedure new_RealSingleModeVector_CartesianVector
     module procedure new_RealSingleModeVector_String
+  end interface
+  
+  interface MassWeightedVector
+    module procedure new_MassWeightedVector_RealSingleModeVector
+  end interface
+  
+  interface CartesianVector
+    module procedure new_CartesianVector_RealSingleModeVector
   end interface
   
   interface operator(*)
@@ -155,10 +163,29 @@ impure elemental function subtract_RealSingleModeVector_RealSingleModeVector( &
 end function
 
 ! ----------------------------------------------------------------------
-! Conversions to and from cartesian co-ordinates.
+! Conversions to and from mass-weighted cartesian co-ordinates.
 ! ----------------------------------------------------------------------
+! Constructs the MassWeightedVector corresponding to this vector.
+function new_MassWeightedVector_RealSingleModeVector(this,real_mode, &
+   & structure,qpoint) result(output)
+  implicit none
+  
+  class(RealSingleModeVector), intent(in) :: this
+  type(RealMode),              intent(in) :: real_mode
+  type(StructureData),         intent(in) :: structure
+  type(QpointData),            intent(in) :: qpoint
+  type(MassWeightedVector)                :: output
+  
+  if (real_mode%id/=this%id) then
+    call print_line(CODE_ERROR//': Mode and vector incompatible.')
+    call err()
+  endif
+  
+  output = this%magnitude * MassWeightedVector(real_mode,structure,qpoint)
+end function
+
 ! Constructs the CartesianVector corresponding to this vector.
-function cartesian_vector_RealSingleModeVector(this,real_mode,structure, &
+function new_CartesianVector_RealSingleModeVector(this,real_mode,structure, &
    & qpoint) result(output)
   implicit none
   
@@ -173,7 +200,48 @@ function cartesian_vector_RealSingleModeVector(this,real_mode,structure, &
     call err()
   endif
   
-  output = this%magnitude * real_mode%cartesian_vector(structure,qpoint)
+  output = CartesianVector(                                 &
+     & MassWeightedVector(this,real_mode,structure,qpoint), &
+     & structure)
+end function
+
+! Constructs the vector corresponding to the component of a mass-weighted
+!    vector along this mode.
+function new_RealSingleModeVector_MassWeightedVector(mode,vector,structure, &
+   & qpoint) result(this)
+  implicit none
+  
+  type(RealMode),           intent(in) :: mode
+  type(MassWeightedVector), intent(in) :: vector
+  type(StructureData),      intent(in) :: structure
+  type(QpointData),         intent(in) :: qpoint
+  type(RealSingleModeVector)           :: this
+  
+  type(MassWeightedVector) :: mode_vector
+  
+  real(dp) :: magnitude
+  
+  ! Modes are orthonormal in mass-reduced co-ordinates.
+  ! If M is the mass-weighting matrix, M_ab = 1/sqrt(m_a*m_b),
+  !    where m_a and m_b are the masses of atoms a and b respectively, then
+  !
+  ! u_i and u_j are the cartesian representations of modes i and j.
+  ! r is the cartesian vector.
+  !
+  ! u_i.M.u_j = 0 if i/=j
+  !           = n if i=j, where n is the number of primitive cells.
+  !
+  ! r = sum_j[ a_j*u_j ]
+  ! => u_i.M.r = sum_j[ a_j*u_i.M.u_j ] = a_i*u_i.M.u_i = a_i*n
+  ! => a_j = u_i.M.r / n
+  
+  mode_vector = MassWeightedVector(mode,structure,qpoint)
+  
+  magnitude = sum( vector%vectors       &
+          &      * mode_vector%vectors) &
+          & / structure%sc_size
+  
+  this = RealSingleModeVector(id=mode%id, magnitude=magnitude)
 end function
 
 ! Constructs the vector corresponding to the component of a cartesian
@@ -188,45 +256,10 @@ function new_RealSingleModeVector_CartesianVector(mode, &
   type(QpointData),      intent(in) :: qpoint
   type(RealSingleModeVector)        :: this
   
-  type(CartesianVector) :: mode_vector
-  
-  real(dp) :: numerator
-  real(dp) :: denominator
-  
-  integer :: i
-  
-  ! Modes are orthogonal in mass-reduced co-ordinates,
-  !    but normalised in cartesian co-ordinates.
-  ! If M is the mass-weighting matrix, M_ab = 1/sqrt(m_a*m_b),
-  !    where m_a and m_b are the masses of atoms a and b respectively, then
-  !
-  ! u_i and u_j are the cartesian representations of modes i and j.
-  ! r is the cartesian vector.
-  !
-  ! u_i.u_i=1   for all i (Modes are normalised in cartesian co-ordinates.)
-  ! u_i.M.u_j=0 for i/=j  (Modes are orthogonal in mass-reduced co-ordinates.
-  !
-  ! r = sum_j a_j*u_j
-  ! => u_i.M.r = sum_j a_j*u_i.M.u_j = a_i*u_i.M.u_i
-  ! => a_j = u_i.M.r / u_i.M.u_i
-  
-  mode_vector = mode%cartesian_vector(structure,qpoint)
-  
-  numerator = 0
-  denominator = 0
-  do i=1,structure%no_atoms
-    numerator = numerator               &
-            & + vector%vectors(i) &
-            & * mode_vector%vectors(i)  &
-            & / structure%atoms(i)%mass()
-    denominator = denominator            &
-              & + mode_vector%vectors(i) &
-              & * mode_vector%vectors(i) &
-              & / structure%atoms(i)%mass()
-  enddo
-  
-  this = RealSingleModeVector( id        = mode%id, &
-                             & magnitude = numerator/denominator)
+  this = RealSingleModeVector( mode,                                 &
+                             & MassWeightedVector(vector,structure), &
+                             & structure,                            &
+                             & qpoint)
 end function
 
 ! ----------------------------------------------------------------------

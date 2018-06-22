@@ -186,7 +186,7 @@ subroutine setup_anharmonic_subroutine(arguments)
   !    displacement. This corresponds to a mode made entirely from the
   !    lightest element moving up to maximum_displacement.
   maximum_weighted_displacement = maximum_displacement &
-                              & * sqrt(minval(structure%atoms%mass()))
+                              & / sqrt(minval(structure%atoms%mass()))
   
   ! Generate anharmonic q-point grid, and the supercell which has all
   !    anharmonic q-points as G-vectors.
@@ -217,6 +217,7 @@ subroutine setup_anharmonic_subroutine(arguments)
        & harmonic_path//'/qpoint_'//left_pad(j,str(size(harmonic_qpoints)))
     harmonic_complex_modes_file = IFile(qpoint_dir//'/complex_modes.dat')
     qpoint_modes = ComplexMode(harmonic_complex_modes_file%sections())
+    qpoint_modes%qpoint_id = qpoints(j)%id
     complex_modes = [complex_modes, qpoint_modes]
   enddo
   

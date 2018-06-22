@@ -91,7 +91,7 @@ subroutine calculate_states_subroutine(arguments)
   real(dp),                 allocatable :: displacements(:)
   real(dp),                 allocatable :: scaled_displacements(:)
   type(EffectiveFrequency), allocatable :: effective_frequencies(:)
-  integer,                  allocatable :: qpoint_modes(:)
+  type(EffectiveFrequency), allocatable :: qpoint_frequencies(:)
   
   ! Files and directories.
   type(IFile)  :: qpoints_file
@@ -196,15 +196,16 @@ subroutine calculate_states_subroutine(arguments)
   ! Write effective frequencies to file, q-point by q-point.
   ! --------------------------------------------------
   do i=1,size(qpoints)
+    qpoint_frequencies = &
+       & effective_frequencies(filter(complex_modes%qpoint_id==qpoints(i)%id))
+    
     qpoint_dir = wd//'/qpoint_'//left_pad(i,str(size(qpoints)))
     call mkdir(qpoint_dir)
     
     effective_frequencies_file = &
        & OFile(qpoint_dir//'/effective_frequencies.dat')
-    qpoint_modes = filter(complex_modes%qpoint_id==qpoints(i)%id)
-    call effective_frequencies_file%print_lines( &
-          & effective_frequencies(qpoint_modes), &
-          & separating_line='')
+    call effective_frequencies_file%print_lines( qpoint_frequencies, &
+                                               & separating_line='')
   enddo
   
 end subroutine

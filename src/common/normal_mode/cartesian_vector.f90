@@ -4,7 +4,7 @@
 module cartesian_vector_submodule
   use utils_module
   
-  use structure_submodule
+  use structure_module
   implicit none
   
   private

@@ -14,7 +14,7 @@ def main():
   # Define some static data.
   colours = {
     'turquoise':[102/255,194/255,165/255],
-    'Orange'   :[252/255,141/255, 98/255],
+    'orange'   :[252/255,141/255, 98/255],
     'blue'     :[141/255,160/255,203/255],
     'purple'   :[231/255,138/255,195/255],
     'green'    :[166/255,216/255, 84/255],
@@ -47,12 +47,62 @@ def main():
         modes[-1]['Harmonic energies'].append(float(line[2]))
         modes[-1]['Effective energies'].append(float(line[3]))
   
-  fig, axes = plt.subplots(1,len(modes))
+  fig, axes = plt.subplots(2,len(modes))
   
-  for mode,ax in zip(modes,axes):
-    ax.plot(mode['Displacements'],modes[0]['Anharmonic energies'])
-    ax.plot(mode['Displacements'],modes[0]['Harmonic energies'])
-    ax.plot(mode['Displacements'],modes[0]['Effective energies'])
+  # Plot data.
+  for ax in axes[0]:
+    for mode in modes:
+      ax.hlines([mode['Harmonic frequency']], 0, 1, color=colours['turquoise'])
+  
+  for mode,ax in zip(modes,axes[0]):
+      ax.hlines([mode['Harmonic frequency']], 0, 1, color=colours['orange'])
+  
+  for mode,ax in zip(modes,axes[1]):
+    ax.plot(mode['Displacements'], mode['Anharmonic energies'], 
+            color=colours['turquoise'])
+    ax.plot(mode['Displacements'], mode['Harmonic energies'],
+            color=colours['orange'])
+    ax.plot(mode['Displacements'], mode['Effective energies'],
+            color=colours['purple'])
+  
+  # Configure top axes.
+  min_frequency = modes[0]['Harmonic frequency']
+  max_frequency = modes[-1]['Harmonic frequency']
+  #for mode in modes:
+  #  min_frequency = min(min_frequency, mode['Effective frequency'])
+  #  max_frequency = max(max_frequency, mode['Effective frequency'])
+  
+  ymin = min_frequency - 0.1*(max_frequency-min_frequency)
+  ymax = max_frequency + 0.1*(max_frequency-min_frequency)
+  for ax in axes[0]:
+    ax.set_ylim(ymin,ymax)
+  
+  # Configure bottom axes.
+  min_energy = 0
+  max_energy = 0
+  for mode in modes:
+    min_energy = min(min_energy, min(mode['Anharmonic energies']))
+    #min_energy = min(min_energy, min(mode['Harmonic energies']))
+    min_energy = min(min_energy, min(mode['Effective energies']))
+    max_energy = max(max_energy, max(mode['Anharmonic energies']))
+    #max_energy = max(max_energy, max(mode['Harmonic energies']))
+    max_energy = max(max_energy, max(mode['Effective energies']))
+  
+  ymin = min_energy - 0.1*(max_energy-min_energy)
+  ymax = max_energy + 0.1*(max_energy-min_energy)
+  for ax in axes[1]:
+    ax.set_ylim(ymin,ymax)
+  
+  min_displacement = 0
+  max_displacement = 0
+  for mode in modes:
+    min_displacement = min(min_displacement, mode['Displacements'][0])
+    max_displacement = max(max_displacement, mode['Displacements'][-1])
+  
+  xmin = min_displacement - 0.1*(max_displacement-min_displacement)
+  xmax = max_displacement + 0.1*(max_displacement-min_displacement)
+  for ax in axes[1]:
+    ax.set_xlim(xmin,xmax)
   
   plt.show()
 

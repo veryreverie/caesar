@@ -46,10 +46,6 @@ module string_submodule
   
   ! Interfaces
   interface assignment(=)
-    module procedure assign_String_String
-  end interface
-  
-  interface assignment(=)
     module procedure assign_character_String
   end interface
   
@@ -95,16 +91,6 @@ contains
 ! --------------------------------------------------
 ! Assignment.
 ! --------------------------------------------------
-! String = String
-subroutine assign_String_String(output,input)
-  implicit none
-  
-  type(String),  intent(out) :: output
-  class(String), intent(in)  :: input
-  
-  output = char(input)
-end subroutine
-
 ! character = String
 subroutine assign_character_String(output,input)
   implicit none

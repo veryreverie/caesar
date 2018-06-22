@@ -200,9 +200,9 @@ function write_EffectiveFrequency(this) result(output)
   integer :: i
   
   select type(this); type is(EffectiveFrequency)
-    output = [ 'Mode ID: '//this%mode_id,                            &
-             & 'Harmonic frequency: '//this%harmonic_frequency,      &
-             & 'Effective frequency: '//this%effective_frequency,    &
+    output = [ 'Mode ID: '//this%mode_id,                                &
+             & 'Harmonic frequency: '//this%harmonic_frequency,          &
+             & 'Effective frequency: '//this%effective_frequency,        &
              & str('Displacement | Anharmonic energy | Harmonic energy | &
              &Effective energy') ]
     do i=1,size(this%displacements)

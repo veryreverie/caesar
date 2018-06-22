@@ -7,6 +7,7 @@ module real_mode_force_submodule
   use structure_module
   
   use cartesian_force_submodule
+  use mass_weighted_force_submodule
   use real_mode_submodule
   use real_single_mode_vector_submodule
   use real_mode_vector_submodule
@@ -15,6 +16,8 @@ module real_mode_force_submodule
   private
   
   public :: RealModeForce
+  public :: MassWeightedForce
+  public :: CartesianForce
   public :: operator(*)
   public :: operator(/)
   public :: operator(+)
@@ -23,8 +26,6 @@ module real_mode_force_submodule
   
   type, extends(RealModeVector) :: RealModeForce
   contains
-    procedure, public :: cartesian_force => cartesian_force_RealModeForce
-    
     procedure, public :: read  => read_RealModeForce
     procedure, public :: write => write_RealModeForce
   end type
@@ -32,8 +33,17 @@ module real_mode_force_submodule
   interface RealModeForce
     module procedure new_RealModeForce_RealModeVector
     module procedure new_RealModeForce_RealSingleModeVectors
+    module procedure new_RealModeForce_MassWeightedForce
     module procedure new_RealModeForce_CartesianForce
     module procedure new_RealModeForce_StringArray
+  end interface
+  
+  interface MassWeightedForce
+    module procedure new_MassWeightedForce_RealModeForce
+  end interface
+  
+  interface CartesianForce
+    module procedure new_CartesianForce_RealModeForce
   end interface
   
   interface operator(*)
@@ -158,8 +168,22 @@ end function
 ! ----------------------------------------------------------------------
 ! Conversions between CartesianForce and RealModeForce.
 ! ----------------------------------------------------------------------
+! Returns the force in mass-weighted co-ordinates.
+function new_MassWeightedForce_RealModeForce(this,structure, &
+   & modes,qpoints) result(output)
+  implicit none
+  
+  class(RealModeForce), intent(in) :: this
+  type(StructureData),  intent(in) :: structure
+  type(RealMode),       intent(in) :: modes(:)
+  type(QpointData),     intent(in) :: qpoints(:)
+  type(MassWeightedForce)          :: output
+  
+  output = MassWeightedForce(MassWeightedVector(this,structure,modes,qpoints))
+end function
+
 ! Returns the force in cartesian co-ordinates.
-function cartesian_force_RealModeForce(this,structure, &
+function new_CartesianForce_RealModeForce(this,structure, &
    & modes,qpoints) result(output)
   implicit none
   
@@ -169,7 +193,21 @@ function cartesian_force_RealModeForce(this,structure, &
   type(QpointData),     intent(in) :: qpoints(:)
   type(CartesianForce)             :: output
   
-  output = CartesianForce(this%cartesian_vector(structure,modes,qpoints))
+  output = CartesianForce(CartesianVector(this,structure,modes,qpoints))
+end function
+
+! Converts a MassWeightedForce to a RealModeForce.
+function new_RealModeForce_MassWeightedForce(force, &
+   & structure,modes,qpoints) result(this)
+  implicit none
+  
+  type(MassWeightedForce), intent(in) :: force
+  type(StructureData),     intent(in) :: structure
+  type(RealMode),          intent(in) :: modes(:)
+  type(QpointData),        intent(in) :: qpoints(:)
+  type(RealModeForce)                 :: this
+  
+  this = RealModeForce(RealModeVector(force,structure,modes,qpoints))
 end function
 
 ! Converts a CartesianForce to a RealModeForce.

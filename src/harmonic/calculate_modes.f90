@@ -32,7 +32,7 @@ function calculate_modes_interpolated(matrices,structure) result(output)
   
   type(HermitianEigenstuff), allocatable :: estuff(:)
   
-  integer :: i,j,k,ialloc
+  integer :: i,j,ialloc
   
   ! Convert (3x3Matrix) x no_atoms x no_atoms to no_modes x no_modes
   allocate( dyn_mat(structure%no_modes_prim,structure%no_modes_prim), &
@@ -46,47 +46,9 @@ function calculate_modes_interpolated(matrices,structure) result(output)
   ! Diagonalise dynamical matrix.
   estuff = diagonalise_hermitian(dyn_mat)
   
-  ! Calculate normal mode frequencies and displacements.
-  !          V = sum_i[ 0.5 * freq_i**2 * u_i**2]
-  ! -> F = -2V = sum_i[ - freq_i**2 * u_i**2 ]
-  allocate( output(structure%no_modes_prim),   &
-          & stat=ialloc); call err(ialloc)
-  do i=1,structure%no_modes_prim
-    
-    ! The eigenvalues are in descending order, but the normal modes should
-    !    be in ascending order of frequency. i->k reverses the order.
-    k = structure%no_modes_prim - i + 1
-    
-    ! Initialise id and paired_id to 0.
-    output(i)%id        = 0
-    output(i)%paired_id = 0
-    
-    if (estuff(k)%eval>=0.0_dp) then
-      ! Unstable mode.
-      output(i)%frequency = - sqrt(estuff(k)%eval)
-    else
-      ! Stable mode.
-      output(i)%frequency = sqrt(- estuff(k)%eval)
-    endif
-    
-    output(i)%soft_mode = output(i)%frequency < -1.0e-6_dp
-    output(i)%translational_mode = .false.
-    
-    ! Calculate the cartesian representation of the normal mode in
-    !    primitive cell co-ordinates.
-    ! This is the non-mass-reduced eigenvector of the dynamical matrix.
-    allocate( output(i)%primitive_vectors(structure%no_atoms_prim), &
-            & stat=ialloc); call err(ialloc)
-    do j=1,structure%no_atoms_prim
-      output(i)%primitive_vectors(j) = estuff(k)%evec(3*j-2:3*j) &
-                                   & * sqrt(structure%atoms(j)%mass())
-      
-    enddo
-    
-    ! Re-normalise modes, now in non-mass-reduced co-ordinates.
-    output(i)%primitive_vectors = output(i)%primitive_vectors &
-                              & / l2_norm(output(i))
-  enddo
+  ! Calculate normal modes.
+  ! Eigenvalues are reversed so that the complex modes are in ascending order.
+  output = ComplexMode(estuff(size(estuff):1:-1), structure)
 end function
 
 ! Calculate modes for one of the calculated q-points.
@@ -117,6 +79,10 @@ function calculate_modes_calculated(matrices,structure,qpoint, &
   
   ! Calculate normal modes as if at an arbitrary q-point.
   output = calculate_modes(matrices,structure)
+  
+  ! Set q-point ids.
+  output%qpoint_id = qpoint%id
+  output%paired_qpoint_id = qpoint%paired_qpoint_id
   
   ! Identify purely translational modes (at the gamma-point only).
   output%translational_mode = .false.
@@ -323,12 +289,16 @@ recursive function lift_degeneracies(input,structure,symmetry_ids, &
   !    input vectors into the symmetry's eigenbasis.
   if (any(phases_int/=phases_int(1))) then
     do i=1,size(input)
-      do j=1,size(output(i)%primitive_vectors)
-        output(i)%primitive_vectors(j) = cmplxvec(zeroes(3))
+      do j=1,size(output(i)%cartesian_vector)
+        output(i)%mass_weighted_vector(j) = cmplxvec(zeroes(3))
+        output(i)%cartesian_vector(j) = cmplxvec(zeroes(3))
         do k=1,size(estuff(i)%evec)
-          output(i)%primitive_vectors(j) =    &
-             & output(i)%primitive_vectors(j) &
-             & + estuff(i)%evec(k) * input(k)%primitive_vectors(j)
+          output(i)%mass_weighted_vector(j) =    &
+             & output(i)%mass_weighted_vector(j) &
+             & + estuff(i)%evec(k) * input(k)%mass_weighted_vector(j)
+          output(i)%cartesian_vector(j) =    &
+             & output(i)%cartesian_vector(j) &
+             & + estuff(i)%evec(k) * input(k)%cartesian_vector(j)
         enddo
       enddo
     enddo

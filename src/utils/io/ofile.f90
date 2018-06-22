@@ -326,6 +326,10 @@ subroutine print_lines_StringsWriteables_character(this,input,separating_line)
   class(StringsWriteable), intent(in)           :: input(:)
   character(*),            intent(in), optional :: separating_line
   
+  if (lbound(input,1)/=1) then
+    call err()
+  endif
+  
   call this%print_lines(str(input,separating_line))
 end subroutine
 
