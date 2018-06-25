@@ -54,22 +54,18 @@ contains
 ! => F = sum(x,s)[f'^x'] . inverse( sum(x,s)[x'^x'] )
 !
 ! sum(x,s)[x'^x'] is block diagonal, so can be inverted in 3x3 blocks.
-function new_ForceConstants_forces(supercell,unique_directions,wd,sdir, &
-   & file_type,seedname,acoustic_sum_rule_forces,symmetry_precision,    &
-   & calculation_type,logfile)  result(output)
+function new_ForceConstants_forces(supercell,unique_directions,sdir, &
+   & acoustic_sum_rule_forces,calculation_reader,logfile)  result(output)
   implicit none
   
-  type(StructureData),   intent(in)    :: supercell
-  type(UniqueDirection), intent(in)    :: unique_directions(:)
-  type(String),          intent(in)    :: wd
-  type(String),          intent(in)    :: sdir
-  type(String),          intent(in)    :: file_type
-  type(String),          intent(in)    :: seedname
-  logical,               intent(in)    :: acoustic_sum_rule_forces
-  real(dp),              intent(in)    :: symmetry_precision
-  type(String),          intent(in)    :: calculation_type
-  type(OFile),           intent(inout) :: logfile
-  type(ForceConstants)                 :: output
+  type(StructureData),     intent(in)    :: supercell
+  type(UniqueDirection),   intent(in)    :: unique_directions(:)
+  type(String),            intent(in)    :: sdir
+  logical,                 intent(in)    :: acoustic_sum_rule_forces
+  type(CalculationReader), intent(inout) :: calculation_reader
+  type(OFile),             intent(inout) :: logfile
+  type(ForceConstants)                   :: output
+  
   
   ! Forces (mass reduced).
   type(RealVector), allocatable :: forces(:,:)
@@ -83,13 +79,9 @@ function new_ForceConstants_forces(supercell,unique_directions,wd,sdir, &
   ! Read in forces (mass reduced).
   forces = read_forces( supercell,                &
                       & unique_directions,        &
-                      & wd,                       &
                       & sdir,                     &
-                      & file_type,                &
-                      & seedname,                 &
                       & acoustic_sum_rule_forces, &
-                      & symmetry_precision,       &
-                      & calculation_type)
+                      & calculation_reader        )
   
   ! Construct sum[x'^x'].
   xx = construct_xx(unique_directions, supercell, logfile)
@@ -190,24 +182,18 @@ end function
 ! ----------------------------------------------------------------------
 ! Read in forces, and mass-weight them.
 ! ----------------------------------------------------------------------
-function read_forces(supercell,unique_directions,wd,sdir,file_type,seedname, &
-   & acoustic_sum_rule_forces,symmetry_precision,calculation_type)           &
-   & result(output)
+function read_forces(supercell,unique_directions,sdir, &
+   & acoustic_sum_rule_forces,calculation_reader) result(output)
   implicit none
   
-  type(StructureData),   intent(in) :: supercell
-  type(UniqueDirection), intent(in) :: unique_directions(:)
-  type(String),          intent(in) :: wd
-  type(String),          intent(in) :: sdir
-  type(String),          intent(in) :: file_type
-  type(String),          intent(in) :: seedname
-  logical,               intent(in) :: acoustic_sum_rule_forces
-  real(dp),              intent(in) :: symmetry_precision
-  type(String),          intent(in) :: calculation_type
-  type(RealVector), allocatable     :: output(:,:)
+  type(StructureData),     intent(in)    :: supercell
+  type(UniqueDirection),   intent(in)    :: unique_directions(:)
+  type(String),            intent(in)    :: sdir
+  logical,                 intent(in)    :: acoustic_sum_rule_forces
+  type(CalculationReader), intent(inout) :: calculation_reader
+  type(RealVector), allocatable          :: output(:,:)
   
   ! DFT output data.
-  type(String)              :: filename
   type(ElectronicStructure) :: electronic_structure
   
   ! Direction information.
@@ -220,20 +206,6 @@ function read_forces(supercell,unique_directions,wd,sdir,file_type,seedname, &
   integer          :: i,j,ialloc
   type(RealVector) :: total
   
-  ! If the calculation type is 'script' then the electronic structure
-  !    calculation has already been run, so the output file should be read
-  ! If the calculation type is 'quip' then the calculation is still to be run,
-  !    so the input file should be read.
-  if (calculation_type=='script') then
-    filename = make_output_filename(file_type,seedname)
-  elseif (calculation_type=='quip') then
-    filename  = make_input_filename(file_type,seedname)
-  else
-    call print_line(ERROR//': calculation_type must be either "script" or &
-       & "quip.')
-    call err()
-  endif
-  
   allocate( output(supercell%no_atoms, size(unique_directions)), &
           & stat=ialloc); call err(ialloc)
   do i=1,size(unique_directions)
@@ -242,20 +214,7 @@ function read_forces(supercell,unique_directions,wd,sdir,file_type,seedname, &
     atom_string = left_pad(atom%id(),str(supercell%no_atoms_prim))
     directory = sdir//'/atom.'//atom_string//'.'//direction
     
-    electronic_structure = read_output_file( file_type,                &
-                                           & directory//'/'//filename, &
-                                           & supercell,                &
-                                           & wd,                       &
-                                           & seedname,                 &
-                                           & symmetry_precision,       &
-                                           & calculation_type)
-    
-    if (size(electronic_structure%forces)/=supercell%no_atoms) then
-      call print_line(ERROR//': The number of forces calculated does not &
-         &match the number of atoms in the supercell.')
-      call print_line('Working in directory: '//directory)
-      call err()
-    endif
+    electronic_structure = calculation_reader%read_calculation(directory)
     output(:,i) = electronic_structure%forces%vectors
     
     ! Enforce continuous translational symmetry,

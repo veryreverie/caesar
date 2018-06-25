@@ -3,6 +3,8 @@
 ! ======================================================================
 module complex_single_mode_vector_submodule
   use utils_module
+  
+  use complex_mode_submodule
   implicit none
   
   private
@@ -26,6 +28,7 @@ module complex_single_mode_vector_submodule
   
   interface ComplexSingleModeVector
     module procedure new_ComplexSingleModeVector
+    module procedure new_ComplexSingleModeVector_ComplexMode
     module procedure new_ComplexSingleModeVector_String
   end interface
   
@@ -50,8 +53,9 @@ module complex_single_mode_vector_submodule
   end interface
 contains
 
-! Constructor.
-function new_ComplexSingleModeVector(id,magnitude) result(this)
+! Constructors.
+impure elemental function new_ComplexSingleModeVector(id,magnitude) &
+   & result(this)
   implicit none
   
   integer,     intent(in)       :: id
@@ -60,6 +64,17 @@ function new_ComplexSingleModeVector(id,magnitude) result(this)
   
   this%id        = id
   this%magnitude = magnitude
+end function
+
+impure elemental function new_ComplexSingleModeVector_ComplexMode(mode, &
+   & magnitude) result(this)
+  implicit none
+  
+  type(ComplexMode), intent(in) :: mode
+  complex(dp),       intent(in) :: magnitude
+  type(ComplexSingleModeVector) :: this
+  
+  this = ComplexSingleModeVector(id=mode%id, magnitude=magnitude)
 end function
 
 ! Arithmetic.

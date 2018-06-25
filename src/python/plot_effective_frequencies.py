@@ -41,11 +41,15 @@ def main():
         modes[-1]['Anharmonic energies'] = []
         modes[-1]['Harmonic energies'] = []
         modes[-1]['Effective energies'] = []
+        if len(line)==13:
+          modes[-1]['Sampled energies'] = []
       else:
         modes[-1]['Displacements'].append(float(line[0]))
         modes[-1]['Anharmonic energies'].append(float(line[1]))
         modes[-1]['Harmonic energies'].append(float(line[2]))
         modes[-1]['Effective energies'].append(float(line[3]))
+        if 'Sampled energies' in modes[-1]:
+          modes[-1]['Sampled energies'].append(float(line[4]))
   
   fig, axes = plt.subplots(2,len(modes))
   
@@ -64,13 +68,13 @@ def main():
             color=colours['orange'])
     ax.plot(mode['Displacements'], mode['Effective energies'],
             color=colours['purple'])
+    if 'Sampled energies' in mode:
+      ax.plot(mode['Displacements'], mode['Sampled energies'],
+              color=colours['green'])
   
   # Configure top axes.
   min_frequency = modes[0]['Harmonic frequency']
   max_frequency = modes[-1]['Harmonic frequency']
-  #for mode in modes:
-  #  min_frequency = min(min_frequency, mode['Effective frequency'])
-  #  max_frequency = max(max_frequency, mode['Effective frequency'])
   
   ymin = min_frequency - 0.1*(max_frequency-min_frequency)
   ymax = max_frequency + 0.1*(max_frequency-min_frequency)
@@ -81,12 +85,15 @@ def main():
   min_energy = 0
   max_energy = 0
   for mode in modes:
-    min_energy = min(min_energy, min(mode['Anharmonic energies']))
-    #min_energy = min(min_energy, min(mode['Harmonic energies']))
-    min_energy = min(min_energy, min(mode['Effective energies']))
-    max_energy = max(max_energy, max(mode['Anharmonic energies']))
-    #max_energy = max(max_energy, max(mode['Harmonic energies']))
-    max_energy = max(max_energy, max(mode['Effective energies']))
+    #min_energy = min(min_energy, min(mode['Anharmonic energies']))
+    min_energy = min(min_energy, min(mode['Harmonic energies']))
+    #min_energy = min(min_energy, min(mode['Effective energies']))
+    #max_energy = max(max_energy, max(mode['Anharmonic energies']))
+    max_energy = max(max_energy, max(mode['Harmonic energies']))
+    #max_energy = max(max_energy, max(mode['Effective energies']))
+    if 'Sampled energies' in mode:
+      min_energy = min(min_energy, min(mode['Sampled energies']))
+      max_energy = max(max_energy, max(mode['Sampled energies']))
   
   ymin = min_energy - 0.1*(max_energy-min_energy)
   ymax = max_energy + 0.1*(max_energy-min_energy)

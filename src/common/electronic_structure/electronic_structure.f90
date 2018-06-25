@@ -8,6 +8,8 @@ module electronic_structure_module
   use structure_file_submodule
   use quip_wrapper_submodule
   use electronic_structure_file_submodule
-  use mass_weighted_forces_submodule
+  use calculation_writer_submodule
+  use calculation_runner_submodule
+  use calculation_reader_submodule
   implicit none
 end module

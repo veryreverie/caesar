@@ -77,41 +77,42 @@ end subroutine
 
 ! Wrappers for all of PotentialData's methods.
 subroutine generate_sampling_points_PotentialPointer(this,inputs, &
-   & sampling_points_dir,logfile,write_lambda)
+   & sampling_points_dir,calculation_writer,logfile)
   implicit none
   
   class(PotentialPointer), intent(inout) :: this
   type(AnharmonicData),    intent(in)    :: inputs
   type(String),            intent(in)    :: sampling_points_dir
+  type(CalculationWriter), intent(inout) :: calculation_writer
   type(OFile),             intent(inout) :: logfile
-  procedure(WriteLambda)                 :: write_lambda
   
   call this%check()
   
   call this%potential%generate_sampling_points( inputs,              &
                                               & sampling_points_dir, &
-                                              & logfile,             &
-                                              & write_lambda)
+                                              & calculation_writer,  &
+                                              & logfile              )
 end subroutine
 
-subroutine generate_potential_PotentialPointer(this,inputs, &
-   & weighted_energy_force_ratio,sampling_points_dir,logfile,read_lambda)
+subroutine generate_potential_PotentialPointer(this,inputs,              &
+   & weighted_energy_force_ratio,sampling_points_dir,calculation_reader, &
+   & logfile)
   implicit none
   
   class(PotentialPointer), intent(inout) :: this
   type(AnharmonicData),    intent(in)    :: inputs
   real(dp),                intent(in)    :: weighted_energy_force_ratio
   type(String),            intent(in)    :: sampling_points_dir
+  type(CalculationReader), intent(inout) :: calculation_reader
   type(OFile),             intent(inout) :: logfile
-  procedure(ReadLambda)                  :: read_lambda
   
   call this%check()
   
   call this%potential%generate_potential( inputs,                      &
                                         & weighted_energy_force_ratio, &
                                         & sampling_points_dir,         &
-                                        & logfile,                     &
-                                        & read_lambda)
+                                        & calculation_reader,          &
+                                        & logfile                      )
 end subroutine
 
 impure elemental function energy_RealModeDisplacement_PotentialPointer(this, &
@@ -250,14 +251,14 @@ end function
 ! Overloads of PotentialData's methods.
 ! --------------------------------------------------
 subroutine generate_sampling_points_PotentialDataExample(this,inputs, &
-   & sampling_points_dir,logfile,write_lambda)
+   & sampling_points_dir,calculation_writer,logfile)
   implicit none
   
   class(PotentialDataExample), intent(inout) :: this
   type(AnharmonicData),        intent(in)    :: inputs
   type(String),                intent(in)    :: sampling_points_dir
+  type(CalculationWriter),     intent(inout) :: calculation_writer
   type(OFile),                 intent(inout) :: logfile
-  procedure(WriteLambda)                     :: write_lambda
   
   call print_line('PotentialDataExample: generating sampling points.')
   call print_line('Example contents = '//this%example_contents)
@@ -265,16 +266,17 @@ subroutine generate_sampling_points_PotentialDataExample(this,inputs, &
   ! Code to generate sampling points goes here.
 end subroutine
 
-subroutine generate_potential_PotentialDataExample(this,inputs, &
-   & weighted_energy_force_ratio,sampling_points_dir,logfile,read_lambda)
+subroutine generate_potential_PotentialDataExample(this,inputs,          &
+   & weighted_energy_force_ratio,sampling_points_dir,calculation_reader, &
+   & logfile)
   implicit none
   
   class(PotentialDataExample), intent(inout) :: this
   type(AnharmonicData),        intent(in)    :: inputs
   real(dp),                    intent(in)    :: weighted_energy_force_ratio
   type(String),                intent(in)    :: sampling_points_dir
+  type(CalculationReader),     intent(inout) :: calculation_reader
   type(OFile),                 intent(inout) :: logfile
-  procedure(ReadLambda)                      :: read_lambda
   
   call print_line('PotentialDataExample: generating potential.')
   call print_line('Example contents = '//this%example_contents)
@@ -369,7 +371,9 @@ impure elemental function new_PotentialDataExample_StringArray(input) &
   this = input
 end function
 
+! --------------------------------------------------
 ! The class in use.
+! --------------------------------------------------
 subroutine potential_example_subroutine(wd)
   implicit none
   
@@ -383,12 +387,14 @@ subroutine potential_example_subroutine(wd)
   type(String) :: example_contents
   
   ! Variables for generate_sampling points.
-  type(AnharmonicData) :: anharmonic_data
-  type(String)         :: sampling_points_dir
-  type(OFile)          :: logfile
+  type(AnharmonicData)    :: anharmonic_data
+  type(String)            :: sampling_points_dir
+  type(CalculationWriter) :: calculation_writer
+  type(OFile)             :: logfile
   
   ! Variables for generate_potential.
-  real(dp) :: weighted_energy_force_ratio
+  real(dp)                :: weighted_energy_force_ratio
+  type(CalculationReader) :: calculation_reader
   
   ! Variables for energy and force.
   type(RealModeDisplacement) :: real_displacement
@@ -414,8 +420,8 @@ subroutine potential_example_subroutine(wd)
   ! Generates sampling points, in a manner specific to the representation.
   call potential%generate_sampling_points( anharmonic_data,     &
                                          & sampling_points_dir, &
-                                         & logfile,             &
-                                         & write_structure_file_lambda)
+                                         & calculation_writer,  &
+                                         & logfile              )
   
   ! Code to run electronic structure goes here.
   
@@ -423,8 +429,8 @@ subroutine potential_example_subroutine(wd)
   call potential%generate_potential( anharmonic_data,             &
                                    & weighted_energy_force_ratio, &
                                    & sampling_points_dir,         &
-                                   & logfile,                     &
-                                   & read_electronic_structure_lambda)
+                                   & calculation_reader,          &
+                                   & logfile                      )
   
   ! Once the potential has been generated, it can be used to calculate
   !    energies and forces.
@@ -441,29 +447,5 @@ subroutine potential_example_subroutine(wd)
   
   input_file = IFile(wd//'example_potential.file')
   potential = PotentialDataExample(StringArray(input_file%lines()))
-contains
-  ! Lambda of type WriteLambda.
-  subroutine write_structure_file_lambda(structure,directory)
-    implicit none
-    
-    type(StructureData), intent(in) :: structure
-    type(String),        intent(in) :: directory
-    
-    call print_line('Writing structure in directory '//directory)
-    
-    ! Code to write structure goes here.
-  end subroutine
-  
-  ! Lambda of type ReadLambda.
-  function read_electronic_structure_lambda(directory) result(output)
-    implicit none
-    
-    type(String), intent(in)  :: directory
-    type(ElectronicStructure) :: output
-    
-    call print_line('Reading electronic structure from directory '//directory)
-    
-    ! Code to read electronic structure goes here.
-  end function
 end subroutine
 end module

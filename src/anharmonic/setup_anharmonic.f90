@@ -100,6 +100,9 @@ subroutine setup_anharmonic_subroutine(arguments)
   type(ComplexMode), allocatable :: complex_modes(:)
   type(RealMode),    allocatable :: real_modes(:)
   
+  ! Electronic structure calculation writer.
+  type(CalculationWriter) :: calculation_writer
+  
   ! Maximum displacement in mass-weighted co-ordinates.
   real(dp) :: maximum_weighted_displacement
   
@@ -118,9 +121,8 @@ subroutine setup_anharmonic_subroutine(arguments)
   ! Anharmonic data container.
   type(AnharmonicData) :: anharmonic_data
   
-  ! Data specific to the chosen representation of the potential.
-  type(PotentialPointer)    :: potential
-  type(String), allocatable :: calculation_directories(:)
+  ! The potential.
+  type(PotentialPointer) :: potential
   
   ! Directories and files.
   type(String) :: qpoint_dir
@@ -174,6 +176,13 @@ subroutine setup_anharmonic_subroutine(arguments)
   
   harmonic_qpoints_file = IFile(harmonic_path//'/qpoints.dat')
   harmonic_qpoints = QpointData(harmonic_qpoints_file%sections())
+  
+  ! --------------------------------------------------
+  ! Initialise calculation writer.
+  ! --------------------------------------------------
+  calculation_writer = CalculationWriter( working_directory = wd,        &
+                                        & file_type         = file_type, &
+                                        & seedname          = seedname   )
   
   ! ----------------------------------------------------------------------
   ! Generate setup data common to all potential representations.
@@ -300,58 +309,15 @@ subroutine setup_anharmonic_subroutine(arguments)
   
   ! Generate the sampling points which will be used to map out the anharmonic
   !    Born-Oppenheimer surface in the chosen representation.
-  ! N.B. calculation_directories will be updated automatically every time the
-  !    potential calls write_structure_file_lambda to make a new calculation
-  !    directory.
-  calculation_directories = [String::]
   call potential%generate_sampling_points( &
                     & anharmonic_data,     &
                     & sampling_points_dir, &
-                    & logfile,             &
-                    & write_and_record_calculation_directory)
+                    & calculation_writer,  &
+                    & logfile              )
   
   ! Write out calculation directories to file.
   calculation_directories_file = OFile(wd//'/calculation_directories.dat')
-  call calculation_directories_file%print_lines(calculation_directories)
-contains
-  ! Lambda of type WriteLambda to write a structure to file.
-  ! Captures:
-  !    - file_type               (intent(in)   )
-  !    - seedname                (intent(in)   )
-  !    - wd                      (intent(in)   )
-  !    - calculation_directories (intent(inout))
-  subroutine write_and_record_calculation_directory(structure,directory)
-    implicit none
-    
-    type(StructureData), intent(in) :: structure
-    type(String),        intent(in) :: directory
-    
-    type(String) :: input_filename
-    
-    ! Check that the directory has not already been created by this lambda.
-    if (any(directory==calculation_directories)) then
-      call print_line(ERROR//': generate_sampling_points trying to create the &
-         &same calculation directory multiple times.')
-      call print_line('Duplicated directory: '//directory)
-      call err()
-    endif
-    
-    ! Make the new directory.
-    call mkdir(directory)
-    
-    ! Write a structure.dat file.
-    call write_structure_file(structure,directory//'/structure.dat')
-    
-    ! Write the equivalent electronic structure input file.
-    input_filename = make_input_filename(file_type,seedname)
-    call StructureData_to_input_file( &
-           & file_type,               &
-           & structure,               &
-           & wd//'/'//input_filename, &
-           & directory//'/'//input_filename)
-    
-    ! Record the directory to calculation_directories.
-    calculation_directories = [calculation_directories, directory]
-  end subroutine
+  call calculation_directories_file%print_lines( &
+     & calculation_writer%directories_written())
 end subroutine
 end module

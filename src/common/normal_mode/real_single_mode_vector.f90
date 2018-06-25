@@ -35,6 +35,7 @@ module real_single_mode_vector_submodule
   
   interface RealSingleModeVector
     module procedure new_RealSingleModeVector
+    module procedure new_RealSingleModeVector_RealMode
     module procedure new_RealSingleModeVector_MassWeightedVector
     module procedure new_RealSingleModeVector_CartesianVector
     module procedure new_RealSingleModeVector_String
@@ -67,8 +68,8 @@ module real_single_mode_vector_submodule
   end interface
 contains
 
-! Constructor.
-function new_RealSingleModeVector(id,magnitude) result(this)
+! Constructors.
+impure elemental function new_RealSingleModeVector(id,magnitude) result(this)
   implicit none
   
   integer,  intent(in)       :: id
@@ -77,6 +78,17 @@ function new_RealSingleModeVector(id,magnitude) result(this)
   
   this%id        = id
   this%magnitude = magnitude
+end function
+
+impure elemental function new_RealSingleModeVector_RealMode(mode,magnitude) &
+   & result(this)
+  implicit none
+  
+  type(RealMode), intent(in) :: mode
+  real(dp),       intent(in) :: magnitude
+  type(RealSingleModeVector) :: this
+  
+  this = RealSingleModeVector(mode%id, magnitude)
 end function
 
 ! ----------------------------------------------------------------------

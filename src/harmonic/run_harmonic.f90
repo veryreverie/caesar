@@ -51,6 +51,11 @@ subroutine run_harmonic_subroutine(arguments)
   ! Working directory
   type(String) :: wd
   
+  ! User inputs.
+  integer      :: supercells_to_run(2)
+  integer      :: no_cores
+  type(String) :: run_script
+  
   ! Previous user inputs.
   type(Dictionary) :: setup_harmonic_arguments
   integer          :: no_supercells
@@ -58,10 +63,8 @@ subroutine run_harmonic_subroutine(arguments)
   type(String)     :: seedname
   real(dp)         :: symmetry_precision
   
-  ! Terminal inputs.
-  integer      :: supercells_to_run(2)
-  integer      :: no_cores
-  type(String) :: run_script
+  ! Electronic structure calculation runner.
+  type(CalculationRunner) :: calculation_runner
   
   ! Structure data.
   type(StructureData) :: structure
@@ -79,8 +82,7 @@ subroutine run_harmonic_subroutine(arguments)
   type(String) :: sdir
   
   ! Temporary variables.
-  integer      :: i,j,ialloc
-  integer      :: result_code
+  integer :: i,j,ialloc
   
   ! --------------------------------------------------
   ! Get inputs from user.
@@ -102,12 +104,6 @@ subroutine run_harmonic_subroutine(arguments)
   seedname = setup_harmonic_arguments%value('seedname')
   symmetry_precision = &
      & dble(setup_harmonic_arguments%value('symmetry_precision'))
-  
-  ! --------------------------------------------------
-  ! Read in structure data.
-  ! --------------------------------------------------
-  structure = read_structure_file( wd//'/structure.dat', &
-                                 & symmetry_precision)
   
   ! --------------------------------------------------
   ! Check user inputs.
@@ -139,6 +135,21 @@ subroutine run_harmonic_subroutine(arguments)
   endif
   
   ! --------------------------------------------------
+  ! Initialise calculation runner.
+  ! --------------------------------------------------
+  calculation_runner = CalculationRunner( working_directory = wd,         &
+                                        & file_type         = file_type,  &
+                                        & seedname          = seedname,   &
+                                        & run_script        = run_script, &
+                                        & no_cores          = no_cores    )
+  
+  ! --------------------------------------------------
+  ! Read in structure data.
+  ! --------------------------------------------------
+  structure = read_structure_file( wd//'/structure.dat', &
+                                 & symmetry_precision)
+  
+  ! --------------------------------------------------
   ! Run calculations
   ! --------------------------------------------------
   ! Loop over supercells.
@@ -157,16 +168,7 @@ subroutine run_harmonic_subroutine(arguments)
       dir = sdir//'/atom.'//atom_string//'.'//direction
       
       ! Run calculation at each displacement.
-      call print_line('')
-      call print_line('Running calculation in directory '//dir)
-      result_code = system_call(  &
-         & 'cd '//wd//';' //' '// &
-         & run_script     //' '// &
-         & file_type      //' '// &
-         & dir            //' '// &
-         & no_cores       //' '// &
-         & seedname)
-      call print_line('Result code: '//result_code)
+      call calculation_runner%run_calculation(dir)
     enddo
     
     deallocate(unique_directions, stat=ialloc); call err(ialloc)

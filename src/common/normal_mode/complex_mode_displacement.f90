@@ -29,6 +29,7 @@ module complex_mode_displacement_submodule
   interface ComplexModeDisplacement
     module procedure new_ComplexModeDisplacement_ComplexModeVector
     module procedure new_ComplexModeDisplacement_ComplexSingleModeVectors
+    module procedure new_ComplexModeDisplacement_ComplexModes
     module procedure new_ComplexModeDisplacement_StringArray
   end interface
   
@@ -76,6 +77,17 @@ function new_ComplexModeDisplacement_ComplexSingleModeVectors(displacements) &
   type(ComplexModeDisplacement)             :: this
   
   this = ComplexModeDisplacement(ComplexModeVector(displacements))
+end function
+
+function new_ComplexModeDisplacement_ComplexModes(modes,displacements) &
+   & result(this)
+  implicit none
+  
+  type(ComplexMode), intent(in) :: modes(:)
+  complex(dp),       intent(in) :: displacements(:)
+  type(ComplexModeDisplacement) :: this
+  
+  this = ComplexModeDisplacement(ComplexModeVector(modes,displacements))
 end function
 
 ! ----------------------------------------------------------------------

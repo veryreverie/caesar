@@ -33,6 +33,7 @@ module real_mode_force_submodule
   interface RealModeForce
     module procedure new_RealModeForce_RealModeVector
     module procedure new_RealModeForce_RealSingleModeVectors
+    module procedure new_RealModeForce_RealModes
     module procedure new_RealModeForce_MassWeightedForce
     module procedure new_RealModeForce_CartesianForce
     module procedure new_RealModeForce_StringArray
@@ -87,6 +88,16 @@ function new_RealModeForce_RealSingleModeVectors(forces) &
   type(RealModeForce)                    :: this
   
   this = RealModeForce(RealModeVector(forces))
+end function
+
+function new_RealModeForce_RealModes(modes,forces) result(this)
+  implicit none
+  
+  type(RealMode), intent(in) :: modes(:)
+  real(dp),       intent(in) :: forces(:)
+  type(RealModeForce)        :: this
+  
+  this = RealModeForce(RealModeVector(modes,forces))
 end function
 
 ! ----------------------------------------------------------------------

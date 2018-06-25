@@ -32,6 +32,7 @@ module complex_mode_vector_submodule
   
   interface ComplexModeVector
     module procedure new_ComplexModeVector
+    module procedure new_ComplexModeVector_ComplexModes
     module procedure new_ComplexModeVector_StringArray
   end interface
   
@@ -64,7 +65,7 @@ module complex_mode_vector_submodule
   end interface
 contains
 
-! Constructor.
+! Constructors.
 function new_ComplexModeVector(vectors) result(this)
   implicit none
   
@@ -72,6 +73,16 @@ function new_ComplexModeVector(vectors) result(this)
   type(ComplexModeVector)                   :: this
   
   this%vectors = vectors
+end function
+
+function new_ComplexModeVector_ComplexModes(modes,magnitudes) result(this)
+  implicit none
+  
+  type(ComplexMode), intent(in) :: modes(:)
+  complex(dp),       intent(in) :: magnitudes(:)
+  type(ComplexModeVector)       :: this
+  
+  this = ComplexModeVector(ComplexSingleModeVector(modes,magnitudes))
 end function
 
 ! Return the number of modes along which the vector has vectors.

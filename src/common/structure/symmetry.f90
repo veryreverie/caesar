@@ -173,11 +173,7 @@ function symmetry_order(this,qpoint) result(output)
     rotation = this%rotation * rotation
     rvector = this%rotation * rvector + this%prim_rvector(atom_1)
     atom_1 = this%atom_group * atom_1
-    if (rotation==identity) then
-      if (atom_1/=1) then
-        call print_line(CODE_ERROR//': Unable to find order of symmetry.')
-        call err()
-      endif
+    if (rotation==identity .and. atom_1==1) then
       output = i
       exit
     endif

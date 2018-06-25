@@ -79,6 +79,9 @@ subroutine calculate_normal_modes_subroutine(arguments)
   type(StructureData)              :: structure
   type(StructureData), allocatable :: supercells(:)
   
+  ! Electronic structure calculation reader.
+  type(CalculationReader) :: calculation_reader
+  
   ! Force constant data.
   type(UniqueDirection), allocatable :: unique_directions(:)
   type(ForceConstants),  allocatable :: force_constants(:)
@@ -171,6 +174,16 @@ subroutine calculate_normal_modes_subroutine(arguments)
   qpoints = QpointData(qpoint_file%sections())
   
   ! --------------------------------------------------
+  ! Initialise calculation reader.
+  ! --------------------------------------------------
+  calculation_reader = CalculationReader(      &
+     & working_directory  = wd,                &
+     & file_type          = file_type,         &
+     & seedname           = seedname,          &
+     & calculation_type   = calculation_type,  &
+     & symmetry_precision = symmetry_precision )
+  
+  ! --------------------------------------------------
   ! Calculate the matrix of force constants corresponding to each supercell.
   ! --------------------------------------------------
   allocate( supercells(no_supercells),      &
@@ -191,13 +204,9 @@ subroutine calculate_normal_modes_subroutine(arguments)
     ! Calculate force constants.
     force_constants(i) = ForceConstants( supercells(i),            &
                                        & unique_directions,        &
-                                       & wd,                       &
                                        & sdir,                     &
-                                       & file_type,                &
-                                       & seedname,                 &
                                        & acoustic_sum_rule_forces, &
-                                       & symmetry_precision,       &
-                                       & calculation_type,         &
+                                       & calculation_reader,       &
                                        & force_logfile)
     deallocate(unique_directions, stat=ialloc); call err(ialloc)
   enddo

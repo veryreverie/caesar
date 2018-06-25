@@ -107,6 +107,11 @@ subroutine converge_cutoff_and_kpoints_subroutine(arguments)
   integer      :: no_converged_calculations
   real(dp)     :: symmetry_precision
   
+  ! Electronic structure calculation handlers.
+  type(CalculationWriter) :: calculation_writer
+  type(CalculationRunner) :: calculation_runner
+  type(CalculationReader) :: calculation_reader
+  
   ! The structure being converged.
   type(StructureData) :: structure
   real(dp)            :: recip_lattice(3,3)
@@ -187,6 +192,26 @@ subroutine converge_cutoff_and_kpoints_subroutine(arguments)
     call print_line('Error: no_converged_calculations must be at least 2.')
     stop
   endif
+  
+  ! --------------------------------------------------
+  ! Initialise calculation handlers.
+  ! --------------------------------------------------
+  calculation_writer = CalculationWriter( working_directory = wd,            &
+                                        & file_type         = str('castep'), &
+                                        & seedname          = seedname       )
+  
+  calculation_runner = CalculationRunner( working_directory = wd,            &
+                                        & file_type         = str('castep'), &
+                                        & seedname          = seedname,      &
+                                        & run_script        = run_script,    &
+                                        & no_cores          = no_cores       )
+  
+  calculation_reader = CalculationReader(      &
+     & working_directory  = wd,                &
+     & file_type          = str('castep'),     &
+     & seedname           = seedname,          &
+     & calculation_type   = str('script'),     &
+     & symmetry_precision = symmetry_precision )
   
   ! --------------------------------------------------
   ! Read .cell and .param files.

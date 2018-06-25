@@ -29,6 +29,7 @@ module complex_mode_force_submodule
   interface ComplexModeForce
     module procedure new_ComplexModeForce_ComplexModeVector
     module procedure new_ComplexModeForce_ComplexSingleModeVectors
+    module procedure new_ComplexModeForce_ComplexModes
     module procedure new_ComplexModeForce_StringArray
   end interface
   
@@ -75,6 +76,16 @@ function new_ComplexModeForce_ComplexSingleModeVectors(forces) &
   type(ComplexModeForce)                    :: this
   
   this = ComplexModeForce(ComplexModeVector(forces))
+end function
+
+function new_ComplexModeForce_ComplexModes(modes,forces) result(this)
+  implicit none
+  
+  type(ComplexMode), intent(in) :: modes(:)
+  complex(dp),       intent(in) :: forces(:)
+  type(ComplexModeForce)        :: this
+  
+  this = ComplexModeForce(ComplexModeVector(modes,forces))
 end function
 
 ! ----------------------------------------------------------------------

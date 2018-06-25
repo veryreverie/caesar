@@ -33,6 +33,7 @@ module real_mode_displacement_submodule
   interface RealModeDisplacement
     module procedure new_RealModeDisplacement_RealModeVector
     module procedure new_RealModeDisplacement_RealSingleModeVectors
+    module procedure new_RealModeDisplacement_RealModes
     module procedure new_RealModeDisplacement_MassWeightedDisplacement
     module procedure new_RealModeDisplacement_CartesianDisplacement
     module procedure new_RealModeDisplacement_StringArray
@@ -87,6 +88,16 @@ function new_RealModeDisplacement_RealSingleModeVectors(displacements) &
   type(RealModeDisplacement)             :: this
   
   this = RealModeDisplacement(RealModeVector(displacements))
+end function
+
+function new_RealModeDisplacement_RealModes(modes,displacements) result(this)
+  implicit none
+  
+  type(RealMode), intent(in) :: modes(:)
+  real(dp),       intent(in) :: displacements(:)
+  type(RealModeDisplacement) :: this
+  
+  this = RealModeDisplacement(RealModeVector(modes,displacements))
 end function
 
 ! ----------------------------------------------------------------------

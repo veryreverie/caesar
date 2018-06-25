@@ -11,8 +11,6 @@ module potential_module
   private
   
   public :: PotentialData
-  public :: WriteLambda
-  public :: ReadLambda
   
   type, abstract, extends(Stringsable) :: PotentialData
   contains
@@ -43,68 +41,40 @@ module potential_module
        & deferred :: force_ComplexModeDisplacement
   end type
   
-  interface
-    ! Takes a structure and a directory name,
-    !    makes the directory and sets up an electronic structure calculation
-    !    based on the structure.
-    ! Function implementation defined in run_anharmonic.f90.
-    subroutine WriteLambda(structure,directory)
-      import StructureData
-      import String
-      implicit none
-      
-      type(StructureData), intent(in) :: structure
-      type(String),        intent(in) :: directory
-    end subroutine
-    
-    ! Reads the results of the electronic structure calculation from the
-    !    given directory.
-    ! Function implementation defined in calculate_potential.f90.
-    function ReadLambda(directory) result(output)
-      import String
-      import ElectronicStructure
-      implicit none
-      
-      type(String), intent(in)  :: directory
-      type(ElectronicStructure) :: output
-    end function
-  end interface
-  
   abstract interface
     subroutine generate_sampling_points_PotentialData(this,inputs, &
-       & sampling_points_dir,logfile,write_lambda)
+       & sampling_points_dir,calculation_writer,logfile)
       import PotentialData
       import AnharmonicData
       import String
+      import CalculationWriter
       import OFile
-      import WriteLambda
-      import StructureData
       implicit none
       
-      class(PotentialData), intent(inout) :: this
-      type(AnharmonicData), intent(in)    :: inputs
-      type(String),         intent(in)    :: sampling_points_dir
-      type(OFile),          intent(inout) :: logfile
-      procedure(WriteLambda)              :: write_lambda
+      class(PotentialData),    intent(inout) :: this
+      type(AnharmonicData),    intent(in)    :: inputs
+      type(String),            intent(in)    :: sampling_points_dir
+      type(CalculationWriter), intent(inout) :: calculation_writer
+      type(OFile),             intent(inout) :: logfile
     end subroutine
     
-    subroutine generate_potential_PotentialData(this,inputs, &
-       & weighted_energy_force_ratio,sampling_points_dir,logfile,read_lambda)
+    subroutine generate_potential_PotentialData(this,inputs,                 &
+       & weighted_energy_force_ratio,sampling_points_dir,calculation_reader, &
+       & logfile)
       import dp
       import PotentialData
       import AnharmonicData
       import String
+      import CalculationReader
       import OFile
-      import ReadLambda
-      import ElectronicStructure
       implicit none
       
-      class(PotentialData), intent(inout) :: this
-      type(AnharmonicData), intent(in)    :: inputs
-      real(dp),             intent(in)    :: weighted_energy_force_ratio
-      type(String),         intent(in)    :: sampling_points_dir
-      type(OFile),          intent(inout) :: logfile
-      procedure(ReadLambda)               :: read_lambda
+      class(PotentialData),    intent(inout) :: this
+      type(AnharmonicData),    intent(in)    :: inputs
+      real(dp),                intent(in)    :: weighted_energy_force_ratio
+      type(String),            intent(in)    :: sampling_points_dir
+      type(CalculationReader), intent(inout) :: calculation_reader
+      type(OFile),             intent(inout) :: logfile
     end subroutine
     
     impure elemental function energy_RealModeDisplacement_PotentialData(this, &

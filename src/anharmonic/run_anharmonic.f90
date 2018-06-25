@@ -74,9 +74,11 @@ subroutine run_anharmonic_subroutine(arguments)
   type(IFile)               :: calculation_directories_file
   type(String), allocatable :: calculation_directories(:)
   
+  ! Electronic structure calculation runner.
+  type(CalculationRunner) :: calculation_runner
+  
   ! Temporary variables.
   integer :: i
-  integer :: result_code
   
   ! Read in inputs.
   wd = arguments%value('working_directory')
@@ -130,20 +132,14 @@ subroutine run_anharmonic_subroutine(arguments)
                                                      &calculations_to_run(2))
   endif
   
-  ! Loop over calculation directories, running calculations in each.
-  do i=1,size(calculation_directories)
-    call print_line('')
-    call print_line( 'Running calculation in directory '//i// &
-                   & ' of '//size(calculation_directories)//':')
-    call print_line(calculation_directories(i))
-    result_code = system_call(              &
-       & 'cd '//wd//';'             //' '// &
-       & run_script                 //' '// &
-       & file_type                  //' '// &
-       & calculation_directories(i) //' '// &
-       & no_cores                   //' '// &
-       & seedname)
-    call print_line('Result code: '//result_code)
-  enddo
+  ! Initialise calculation runner.
+  calculation_runner = CalculationRunner( working_directory = wd,         &
+                                        & file_type         = file_type,  &
+                                        & seedname          = seedname,   &
+                                        & run_script        = run_script, &
+                                        & no_cores          = no_cores)
+  
+  ! Run calculations.
+  call calculation_runner%run_calculations(calculation_directories)
 end subroutine
 end module

@@ -78,14 +78,14 @@ end function
 
 ! Generate sampling points.
 subroutine generate_sampling_points_PolynomialPotential(this,inputs, &
-   & sampling_points_dir,logfile,write_lambda)
+   & sampling_points_dir,calculation_writer,logfile)
   implicit none
   
   class(PolynomialPotential), intent(inout) :: this
   type(AnharmonicData),       intent(in)    :: inputs
   type(String),               intent(in)    :: sampling_points_dir
+  type(CalculationWriter),    intent(inout) :: calculation_writer
   type(OFile),                intent(inout) :: logfile
-  procedure(WriteLambda)                    :: write_lambda
   
   ! Variables used when generating sampling points.
   type(SubspaceMonomial), allocatable :: subspace_monomials(:)
@@ -219,23 +219,25 @@ subroutine generate_sampling_points_PolynomialPotential(this,inputs, &
         ! Create directory and structure files for displaced structure.
         vscf_rvectors_dir = sampling_dir// &
            & '/vscf_rvectors_'//left_pad(k,str(size(vscf_rvectors)))
-        call write_lambda(displaced_structure,vscf_rvectors_dir)
+        call calculation_writer%write_calculation( displaced_structure, &
+                                                 & vscf_rvectors_dir)
       enddo
     enddo
   enddo
 end subroutine
 
 ! Generate potential.
-subroutine generate_potential_PolynomialPotential(this,inputs, &
-   & weighted_energy_force_ratio,sampling_points_dir,logfile,read_lambda)
+subroutine generate_potential_PolynomialPotential(this,inputs,           &
+   & weighted_energy_force_ratio,sampling_points_dir,calculation_reader, &
+   & logfile)
   implicit none
   
   class(PolynomialPotential), intent(inout) :: this
   type(AnharmonicData),       intent(in)    :: inputs
   real(dp),                   intent(in)    :: weighted_energy_force_ratio
   type(String),               intent(in)    :: sampling_points_dir
+  type(CalculationReader),    intent(inout) :: calculation_reader
   type(OFile),                intent(inout) :: logfile
-  procedure(ReadLambda)                     :: read_lambda
   
   ! Variables for processing electronic structure.
   type(StructureData)                    :: supercell
@@ -316,7 +318,8 @@ subroutine generate_potential_PolynomialPotential(this,inputs, &
       do k=1,size(vscf_rvectors)
         vscf_rvectors_dir = sampling_dir// &
            & '/vscf_rvectors_'//left_pad(k,str(size(vscf_rvectors)))
-        calculations(k) = read_lambda(vscf_rvectors_dir)
+        calculations(k) = calculation_reader%read_calculation( &
+           & vscf_rvectors_dir)
       enddo
       
       ! Average electronic structure across VSCF R-vectors, and convert

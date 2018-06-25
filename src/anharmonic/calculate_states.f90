@@ -8,6 +8,7 @@ module calculate_states_module
   use polynomial_module
   
   use setup_harmonic_module
+  use calculate_normal_modes_module
   
   use setup_anharmonic_module
   implicit none
@@ -40,7 +41,15 @@ function calculate_states() result(output)
   &should be verified against fresh electronic structure calculations when &
   &sampling. Depending on the electronic structure method, this is likely to &
   &be very computationally intensive.',                                       &
-  &              default_value='false') ]
+  &              default_value='false'),                                      &
+  & KeywordData( 'run_script',                                                &
+  &              'run_script is the path to the script for running DFT. An &
+  &example run script can be found in doc/input_files.',                      &
+  &               is_path=.true.),                                            &
+  & KeywordData( 'no_cores',                                                  &
+  &              'no_cores is the number of cores on which DFT will be run. &
+  &This is passed to the specified run script.',                              &
+  &               default_value='1') ]
   output%main_subroutine => calculate_states_subroutine
 end function
 
@@ -56,8 +65,10 @@ subroutine calculate_states_subroutine(arguments)
   type(String) :: wd
   
   ! Input arguments.
-  integer :: no_single_mode_samples
-  logical :: validate_potential
+  integer      :: no_single_mode_samples
+  logical      :: validate_potential
+  type(String) :: run_script
+  integer      :: no_cores
   
   ! Arguments to setup_anharmonic.
   type(Dictionary) :: setup_anharmonic_arguments
@@ -66,8 +77,14 @@ subroutine calculate_states_subroutine(arguments)
   real(dp)         :: maximum_displacement
   real(dp)         :: frequency_of_max_displacement
   
+  ! Arguments to calculate_normal_modes.
+  type(Dictionary) :: calculate_normal_modes_arguments
+  type(String)     :: calculation_type
+  
   ! Arguments to setup_harmonic.
   type(Dictionary) :: setup_harmonic_arguments
+  type(String)     :: seedname
+  type(String)     :: file_type
   real(dp)         :: symmetry_precision
   
   ! Maximum displacement in mass-weighted co-ordinates.
@@ -87,11 +104,28 @@ subroutine calculate_states_subroutine(arguments)
   ! Anharmonic potential.
   type(PotentialPointer) :: potential
   
+  ! Electronic structure calculation handlers.
+  type(CalculationWriter) :: calculation_writer
+  type(CalculationRunner) :: calculation_runner
+  type(CalculationReader) :: calculation_reader
+  
   ! Variables for generating effective mode frequencies.
   real(dp),                 allocatable :: displacements(:)
   real(dp),                 allocatable :: scaled_displacements(:)
   type(EffectiveFrequency), allocatable :: effective_frequencies(:)
+  integer,                  allocatable :: qpoint_modes(:)
   type(EffectiveFrequency), allocatable :: qpoint_frequencies(:)
+  
+  ! Variables for validating potential.
+  real(dp), allocatable       :: sampled_energies(:)
+  type(IntMatrix)             :: supercell_matrix
+  type(StructureData)         :: supercell
+  type(ComplexMode)           :: complex_mode
+  type(RealMode)              :: real_mode
+  type(RealModeDisplacement)  :: real_mode_displacement
+  type(CartesianDisplacement) :: displacement
+  type(StructureData)         :: displaced_structure
+  type(ElectronicStructure)   :: electronic_structure
   
   ! Files and directories.
   type(IFile)  :: qpoints_file
@@ -100,9 +134,11 @@ subroutine calculate_states_subroutine(arguments)
   type(IFile)  :: potential_file
   type(String) :: qpoint_dir
   type(OFile)  :: effective_frequencies_file
+  type(String) :: mode_dir
+  type(String) :: displacement_dir
   
   ! Temporary variables.
-  integer :: i,j,ialloc
+  integer :: i,j,k,ialloc
   
   ! --------------------------------------------------
   ! Read in inputs and previously calculated data.
@@ -112,6 +148,8 @@ subroutine calculate_states_subroutine(arguments)
   
   no_single_mode_samples = int(arguments%value('no_single_mode_samples'))
   validate_potential = lgcl(arguments%value('validate_potential'))
+  run_script = arguments%value('run_script')
+  no_cores = int(arguments%value('no_cores'))
   
   ! Read in setup_anharmonic arguments.
   setup_anharmonic_arguments = Dictionary(setup_anharmonic())
@@ -125,10 +163,18 @@ subroutine calculate_states_subroutine(arguments)
   frequency_of_max_displacement = &
      & dble(setup_anharmonic_arguments%value('frequency_of_max_displacement'))
   
+  ! Read in calculate_normal_modes arguments.
+  calculate_normal_modes_arguments = Dictionary(calculate_normal_modes())
+  call calculate_normal_modes_arguments%read_file( &
+     & harmonic_path//'/calculate_normal_modes.used_settings')
+  calculation_type = calculate_normal_modes_arguments%value('calculation_type')
+  
   ! Read in setup_harmonic arguments.
   setup_harmonic_arguments = Dictionary(setup_harmonic())
   call setup_harmonic_arguments%read_file( &
      & harmonic_path//'/setup_harmonic.used_settings')
+  seedname = setup_harmonic_arguments%value('seedname')
+  file_type = setup_harmonic_arguments%value('file_type')
   symmetry_precision = &
      & dble(setup_harmonic_arguments%value('symmetry_precision'))
   
@@ -163,10 +209,30 @@ subroutine calculate_states_subroutine(arguments)
   endif
   
   ! --------------------------------------------------
+  ! Initialise calculation handlers.
+  ! --------------------------------------------------
+  calculation_writer = CalculationWriter( working_directory = wd,        &
+                                        & file_type         = file_type, &
+                                        & seedname          = seedname   )
+  
+  calculation_runner = CalculationRunner( working_directory = wd,         &
+                                        & file_type         = file_type,  &
+                                        & seedname          = seedname,   &
+                                        & run_script        = run_script, &
+                                        & no_cores          = no_cores    )
+  
+  calculation_reader = CalculationReader(      &
+     & working_directory  = wd,                &
+     & file_type          = file_type,         &
+     & seedname           = seedname,          &
+     & calculation_type   = calculation_type,  &
+     & symmetry_precision = symmetry_precision )
+  
+  ! --------------------------------------------------
   ! Re-calculate maximum_weighted_displacement.
   ! --------------------------------------------------
   maximum_weighted_displacement = maximum_displacement &
-                              & * sqrt(minval(structure%atoms%mass()))
+                              & / sqrt(minval(structure%atoms%mass()))
   
   ! --------------------------------------------------
   ! Calculate effective harmonic potential, from which initial harmonic
@@ -175,7 +241,7 @@ subroutine calculate_states_subroutine(arguments)
   ! Calculate displacements before scaling by 1/sqrt(frequency).
   displacements =                                               &
      &   [(j,j=-no_single_mode_samples,no_single_mode_samples)] &
-     & * maximum_displacement                                   &
+     & * maximum_weighted_displacement                          &
      & / no_single_mode_samples
   
   allocate( effective_frequencies(size(complex_modes)), &
@@ -186,6 +252,8 @@ subroutine calculate_states_subroutine(arguments)
                        & * sqrt( frequency_of_max_displacement    &
                        &       / max( complex_modes(i)%frequency, &
                        &              frequency_of_max_displacement))
+    
+    ! Sample the model potential to find the effective frequency.
     effective_frequencies(i) = EffectiveFrequency( scaled_displacements, &
                                                  & complex_modes(i),     &
                                                  & real_modes,           &
@@ -196,17 +264,72 @@ subroutine calculate_states_subroutine(arguments)
   ! Write effective frequencies to file, q-point by q-point.
   ! --------------------------------------------------
   do i=1,size(qpoints)
-    qpoint_frequencies = &
-       & effective_frequencies(filter(complex_modes%qpoint_id==qpoints(i)%id))
+    qpoint_modes = filter(complex_modes%qpoint_id==qpoints(i)%id)
     
     qpoint_dir = wd//'/qpoint_'//left_pad(i,str(size(qpoints)))
     call mkdir(qpoint_dir)
     
+    ! --------------------------------------------------
+    ! Validate the model potential by sampling the electronic structure at
+    !    the same points as the model potential.
+    ! --------------------------------------------------
+    if (validate_potential) then
+      ! Construct and write out supercell.
+      supercell_matrix = construct_supercell_matrix(qpoints(i), structure)
+      supercell = construct_supercell( structure,          &
+                                     & supercell_matrix,   &
+                                     & symmetry_precision, &
+                                     & calculate_symmetry=.false.)
+      call write_structure_file(supercell, qpoint_dir//'/structure.dat')
+      
+      do j=1,size(qpoint_modes)
+        complex_mode = complex_modes(qpoint_modes(j))
+        real_mode = real_modes(                         &
+           & first(real_modes%id==min( complex_mode%id, &
+           &                           complex_mode%paired_id)))
+        mode_dir = qpoint_dir//                           &
+           & '/complex_mode_'//left_pad( complex_mode%id, &
+           &                             str(size(complex_modes)))
+        call mkdir(mode_dir)
+        allocate( sampled_energies(size(displacements)), &
+                & stat=ialloc); call err(ialloc)
+        do k=1,size(sampled_energies)
+          real_mode_displacement = RealModeDisplacement( &
+             & [real_mode],                              &
+             & [effective_frequencies(qpoint_modes(j))%displacements(k)])
+          displacement = CartesianDisplacement( real_mode_displacement, &
+                                              & structure,              &
+                                              & real_modes,             &
+                                              & qpoints)
+          displaced_structure = displace_structure(supercell,displacement)
+          
+          displacement_dir = mode_dir// &
+             & '/displacement_'//left_pad(k,str(size(displacements)))
+          call calculation_writer%write_calculation( displaced_structure, &
+                                                   & displacement_dir)
+          
+          call calculation_runner%run_calculation(displacement_dir)
+          
+          electronic_structure = calculation_reader%read_calculation( &
+             & displacement_dir)
+          
+          sampled_energies(k) = electronic_structure%energy &
+                            & / supercell%sc_size
+        enddo
+        sampled_energies = sampled_energies  &
+                       & - sampled_energies((size(sampled_energies)+1)/2)
+        effective_frequencies(qpoint_modes(j))%sampled_energies = &
+           & sampled_energies
+        
+        deallocate(sampled_energies, stat=ialloc); call err(ialloc)
+      enddo
+    endif
+    
+    qpoint_frequencies = effective_frequencies(qpoint_modes)
     effective_frequencies_file = &
        & OFile(qpoint_dir//'/effective_frequencies.dat')
     call effective_frequencies_file%print_lines( qpoint_frequencies, &
                                                & separating_line='')
   enddo
-  
 end subroutine
 end module

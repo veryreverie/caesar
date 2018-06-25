@@ -75,6 +75,9 @@ subroutine calculate_potential_subroutine(arguments)
   type(Dictionary) :: calculate_normal_modes_arguments
   type(String)     :: calculation_type
   
+  ! Electronic structure calculation reader.
+  type(CalculationReader) :: calculation_reader
+  
   ! Primitive structure.
   type(StructureData) :: structure
   
@@ -101,24 +104,22 @@ subroutine calculate_potential_subroutine(arguments)
   type(PotentialPointer) :: potential
   
   ! Files and directories.
-  type(OFile)               :: logfile
-  type(IFile)               :: qpoints_file
-  type(IFile)               :: complex_modes_file
-  type(IFile)               :: real_modes_file
-  type(IFile)               :: subspaces_file
-  type(IFile)               :: subspace_coupling_file
-  type(IFile)               :: calculation_directories_file
-  type(String), allocatable :: calculation_directories(:)
-  type(String)              :: sampling_points_dir
-  type(OFile)               :: potential_file
+  type(OFile)  :: logfile
+  type(IFile)  :: qpoints_file
+  type(IFile)  :: complex_modes_file
+  type(IFile)  :: real_modes_file
+  type(IFile)  :: subspaces_file
+  type(IFile)  :: subspace_coupling_file
+  type(String) :: sampling_points_dir
+  type(OFile)  :: potential_file
   
   ! Temporary variables.
   integer :: i,ialloc
   
-  ! ----------------------------------------------------------------------
+  ! --------------------------------------------------
   ! Read in inputs and previously calculated data which is
   !    independent of the choice of potential representation.
-  ! ----------------------------------------------------------------------
+  ! --------------------------------------------------
   
   wd = arguments%value('working_directory')
   energy_to_force_ratio = dble(arguments%value('energy_to_force_ratio'))
@@ -181,10 +182,10 @@ subroutine calculate_potential_subroutine(arguments)
   subspace_coupling_file = IFile(wd//'/subspace_coupling.dat')
   subspace_coupling = SubspaceCoupling(subspace_coupling_file%lines())
   
-  ! ----------------------------------------------------------------------
+  ! --------------------------------------------------
   ! Re-calculate symmetries in degenerate subspaces
   !    and maximum_weighted_displacement.
-  ! ----------------------------------------------------------------------
+  ! --------------------------------------------------
   ! Open logfile.
   logfile = OFile(wd//'/calculate_potential_logfile.dat')
   
@@ -201,9 +202,9 @@ subroutine calculate_potential_subroutine(arguments)
   maximum_weighted_displacement = maximum_displacement &
                               & / sqrt(minval(structure%atoms%mass()))
   
-  ! ----------------------------------------------------------------------
+  ! --------------------------------------------------
   ! Load anharmonic data into container.
-  ! ----------------------------------------------------------------------
+  ! --------------------------------------------------
   anharmonic_data = AnharmonicData( structure,                     &
                                   & symmetry_precision,            &
                                   & anharmonic_supercell,          &
@@ -217,15 +218,19 @@ subroutine calculate_potential_subroutine(arguments)
                                   & maximum_weighted_displacement, &
                                   & frequency_of_max_displacement )
   
-  ! ----------------------------------------------------------------------
-  ! Read in calculation directories.
-  ! ----------------------------------------------------------------------
-  calculation_directories_file = IFile(wd//'/calculation_directories.dat')
-  calculation_directories = calculation_directories_file%lines()
+  ! --------------------------------------------------
+  ! Initialise calculation reader.
+  ! --------------------------------------------------
+  calculation_reader = CalculationReader(      &
+     & working_directory  = wd,                &
+     & file_type          = file_type,         &
+     & seedname           = seedname,          &
+     & calculation_type   = calculation_type,  &
+     & symmetry_precision = symmetry_precision )
   
-  ! ----------------------------------------------------------------------
+  ! --------------------------------------------------
   ! Run representation-specific code.
-  ! ----------------------------------------------------------------------
+  ! --------------------------------------------------
   
   ! Calculate weighted energy to force ratio.
   weighted_energy_force_ratio = energy_to_force_ratio &
@@ -245,59 +250,11 @@ subroutine calculate_potential_subroutine(arguments)
   call potential%generate_potential( anharmonic_data,             &
                                    & weighted_energy_force_ratio, &
                                    & sampling_points_dir,         &
-                                   & logfile,                     &
-                                   & read_calculation_directory)
+                                   & calculation_reader,          &
+                                   & logfile                      )
   
   ! Write the potential to file.
   potential_file = OFile(wd//'/potential.dat')
   call potential_file%print_lines(potential)
-contains
-  ! Lambda to read electronic structure results from a directory.
-  ! Captures:
-  !    - calculation_directories
-  !    - symmetry_precision
-  !    - calculation_type
-  !    - file_type
-  !    - seedname
-  !    - wd
-  function read_calculation_directory(directory) result(output)
-    implicit none
-    
-    type(String), intent(in)  :: directory
-    type(ElectronicStructure) :: output
-    
-    type(StructureData) :: structure
-    type(String)        :: filename
-    
-    ! Check that directory is valid.
-    if (.not. any(directory==calculation_directories)) then
-      call print_line(CODE_ERROR//': Trying to read electronic structure from &
-         &a directory where such calculations were not run.')
-      call print_line('Directory: '//directory)
-      call err()
-    endif
-    
-    ! Read in structure.
-    structure = read_structure_file( directory//'/structure.dat', &
-                                   & symmetry_precision,          &
-                                   & calculate_symmetry=.false.)
-    
-    ! Construct filename.
-    if (calculation_type=='script') then
-      filename = make_output_filename(file_type,seedname)
-    else
-      filename = make_input_filename(file_type,seedname)
-    endif
-    filename = directory//'/'//filename
-    
-    ! Read in electronic structure.
-    output = read_output_file( file_type,          &
-                             & filename,           &
-                             & structure,          &
-                             & wd,                 &
-                             & seedname,           &
-                             & symmetry_precision, &
-                             & calculation_type)
-  end function
 end subroutine
 end module

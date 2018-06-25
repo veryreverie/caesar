@@ -3,9 +3,9 @@ include(${CMAKE_SOURCE_DIR}/utils/include_guard.cmake)
 include_guard(electronic_structure)
 
 if (DEFINED PATH_TO_QUIP)
-  add_library(electronic_structure electronic_structure_data.f90 structure_file.f90 quip_wrapper.f90 castep_wrapper.f90 qe_wrapper.f90 vasp_wrapper.f90 electronic_structure_file.f90 mass_weighted_forces.f90 electronic_structure.f90)
+  add_library(electronic_structure electronic_structure_data.f90 structure_file.f90 quip_wrapper.f90 castep_wrapper.f90 qe_wrapper.f90 vasp_wrapper.f90 electronic_structure_file.f90 calculation_writer.f90 calculation_runner.f90 calculation_reader.f90 electronic_structure.f90)
 else ()
-  add_library(electronic_structure electronic_structure_data.f90 structure_file.f90 quip_dummy.f90 castep_wrapper.f90 qe_wrapper.f90 vasp_wrapper.f90 electronic_structure_file.f90 mass_weighted_forces.f90 electronic_structure.f90)
+  add_library(electronic_structure electronic_structure_data.f90 structure_file.f90 quip_dummy.f90 castep_wrapper.f90 qe_wrapper.f90 vasp_wrapper.f90 electronic_structure_file.f90 calculation_writer.f90 calculation_runner.f90 calculation_reader.f90 electronic_structure.f90)
 endif ()
 
 # Link to QUIP, if PATH_TO_QUIP is defined.

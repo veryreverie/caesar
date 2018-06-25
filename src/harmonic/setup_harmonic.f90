@@ -64,6 +64,9 @@ subroutine setup_harmonic_subroutine(arguments)
   type(String) :: file_type
   type(String) :: seedname
   
+  ! Electronic structure calculation writer.
+  type(CalculationWriter) :: calculation_writer
+  
   ! User input data.
   type(StructureData) :: structure
   integer             :: grid(3)
@@ -106,18 +109,18 @@ subroutine setup_harmonic_subroutine(arguments)
   symmetry_precision = dble(arguments%value('symmetry_precision'))
   harmonic_displacement = dble(arguments%value('harmonic_displacement'))
   
-  ! Check dft input files exists.
-  input_filename = make_input_filename(file_type,seedname)
-  input_filename = wd//'/'//input_filename
-  if (.not. file_exists(input_filename)) then
-    call print_line('Error: The input file '//input_filename// &
-       &' does not exist.')
-    stop
-  endif
+  ! --------------------------------------------------
+  ! Initialise calculation writer.
+  ! --------------------------------------------------
+  calculation_writer = CalculationWriter( working_directory = wd,        &
+                                        & file_type         = file_type, &
+                                        & seedname          = seedname   )
   
   ! --------------------------------------------------
   ! Read in input files.
   ! --------------------------------------------------
+  input_filename = make_input_filename(file_type,seedname)
+  input_filename = wd//'/'//input_filename
   structure = input_file_to_StructureData( file_type,      &
                                          & input_filename, &
                                          & symmetry_precision)
@@ -171,26 +174,18 @@ subroutine setup_harmonic_subroutine(arguments)
     ! Write energy and force calculation input files.
     ! --------------------------------------------------
     do j=1,size(unique_directions)
-      ! Make directory for running calculation in.
+      ! Construct displaced structure.
+      displacement = unique_directions(j)%cartesian_displacement(supercell)
+      displaced_structure = displace_structure(supercell,displacement)
+      
+      ! Write calculation input files.
       path =                                                                 &
          & sdir                                                           // &
          & '/atom.'                                                       // &
          & left_pad(unique_directions(j)%atom_id,str(structure%no_atoms)) // &
          & '.'                                                            // &
          & unique_directions(j)%direction
-      call mkdir(path)
-      
-      ! Construct displaced structure.
-      displacement = unique_directions(j)%cartesian_displacement(supercell)
-      displaced_structure = displace_structure(supercell,displacement)
-      
-      ! Write displaced structure to file.
-      input_filename = make_input_filename(file_type,seedname)
-      call StructureData_to_input_file(     &
-                 & file_type,               &
-                 & displaced_structure,     &
-                 & wd//'/'//input_filename, &
-                 & path//'/'//input_filename)
+      call calculation_writer%write_calculation(displaced_structure, path)
     enddo
   enddo
 end subroutine

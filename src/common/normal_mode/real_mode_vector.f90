@@ -36,6 +36,7 @@ module real_mode_vector_submodule
   
   interface RealModeVector
     module procedure new_RealModeVector
+    module procedure new_RealModeVector_RealModes
     module procedure new_RealModeVector_MassWeightedVector
     module procedure new_RealModeVector_CartesianVector
     module procedure new_RealModeVector_StringArray
@@ -76,7 +77,7 @@ module real_mode_vector_submodule
   end interface
 contains
 
-! Constructor.
+! Constructors.
 function new_RealModeVector(vectors) result(this)
   implicit none
   
@@ -84,6 +85,16 @@ function new_RealModeVector(vectors) result(this)
   type(RealModeVector)                   :: this
   
   this%vectors = vectors
+end function
+
+function new_RealModeVector_RealModes(modes,magnitudes) result(this)
+  implicit none
+  
+  type(RealMode), intent(in) :: modes(:)
+  real(dp),       intent(in) :: magnitudes(:)
+  type(RealModeVector)       :: this
+  
+  this = RealModeVector(RealSingleModeVector(modes,magnitudes))
 end function
 
 ! Return the number of modes along which the vector has vectors.
