@@ -119,6 +119,7 @@ function complex_to_real_Modes(input) result(output)
        & id                   = input(mode)%id,                 &
        & paired_id            = input(mode)%paired_id,          &
        & frequency            = input(mode)%frequency,          &
+       & spring_constant      = input(mode)%spring_constant,    &
        & soft_mode            = input(mode)%soft_mode,          &
        & translational_mode   = input(mode)%translational_mode, &
        & mass_weighted_vector = mass_weighted_vector,           &
@@ -192,6 +193,7 @@ function real_to_complex_Modes(input) result(output)
        & id                   = input(mode)%id,                 &
        & paired_id            = input(mode)%paired_id,          &
        & frequency            = input(mode)%frequency,          &
+       & spring_constant      = input(mode)%spring_constant,    &
        & soft_mode            = input(mode)%soft_mode,          &
        & translational_mode   = input(mode)%translational_mode, &
        & mass_weighted_vector = mass_weighted_vector,           &

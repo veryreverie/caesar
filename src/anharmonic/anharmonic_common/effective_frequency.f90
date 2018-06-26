@@ -62,47 +62,48 @@ function new_EffectiveFrequency(mode_id,harmonic_frequency,        &
 end function
 
 function new_EffectiveFrequency_potential(displacements,mode,real_modes, &
-   & potential) result(this)
+   & potential,structure) result(this)
   implicit none
   
   real(dp),             intent(in) :: displacements(:)
   type(ComplexMode),    intent(in) :: mode
   type(RealMode),       intent(in) :: real_modes(:)
   class(PotentialData), intent(in) :: potential
+  type(StructureData),  intent(in) :: structure
   type(EffectiveFrequency)         :: this
   
   ! Output variables.
-  integer               :: mode_id
-  real(dp)              :: harmonic_frequency
-  real(dp)              :: harmonic_coefficient
-  real(dp)              :: effective_coefficient
+  real(dp)              :: effective_spring_constant
+  real(dp)              :: effective_scaling
   real(dp)              :: effective_frequency
   real(dp), allocatable :: energies(:)
   real(dp), allocatable :: harmonic_energies(:)
   real(dp), allocatable :: effective_energies(:)
   
+  ! The energy of the structure in equilibrium (displacement=0).
   real(dp) :: relative_energy
   
   ! Displacement in real mode co-ordinates.
   type(RealMode)             :: real_mode
   type(RealModeDisplacement) :: mode_displacement
   
+  ! The average mass of atoms displaced by the mode,
+  !    weighted by the amount displaced.
+  real(dp) :: mode_mass
+  
   ! Temporary variables.
   integer :: i,ialloc
   
-  mode_id = mode%id
-  harmonic_frequency = mode%frequency
+  real_mode = real_modes(first(real_modes%id==min(mode%id,mode%paired_id)))
   
-  if (harmonic_frequency>=0) then
-    harmonic_coefficient =  0.5_dp * harmonic_frequency * harmonic_frequency
-  else
-    harmonic_coefficient = -0.5_dp * harmonic_frequency * harmonic_frequency
-  endif
-  
+  ! Calculate the energy at displacement=0.
   relative_energy = potential%energy(RealModeDisplacement( &
      & [RealSingleModeVector::]))
   
-  real_mode = real_modes(first(real_modes%id==min(mode%id,mode%paired_id)))
+  ! Calculate the average mass of atoms displaced.
+  mode_mass = sum( real_mode%cartesian_vector   &
+                 & * real_mode%cartesian_vector &
+                 & * structure%atoms%mass()     )
   
   allocate( energies(size(displacements)),           &
           & harmonic_energies(size(displacements)),  &
@@ -110,9 +111,11 @@ function new_EffectiveFrequency_potential(displacements,mode,real_modes, &
   do i=1,size(displacements)
     mode_displacement = RealModeDisplacement([real_mode],[displacements(i)])
     energies(i) = potential%energy(mode_displacement) - relative_energy
-    harmonic_energies(i) = harmonic_coefficient &
+    harmonic_energies(i) = 0.5_dp               &
+                       & * mode%spring_constant &
                        & * displacements(i)     &
-                       & * displacements(i)
+                       & * displacements(i)     &
+                       & * mode_mass
   enddo
   
   ! Fit effective harmonic potential, using 1-D linear least squares.
@@ -124,25 +127,25 @@ function new_EffectiveFrequency_potential(displacements,mode,real_modes, &
   ! -> 0 = dL/dx
   !      = sum_i[ 2*x*{h_i}^2 - 2*h_i*a_i ]
   ! -> x = sum_i[ h_i*a_i ] / sum_i[ {h_i}^2 ]
-  effective_coefficient = harmonic_coefficient            &
+  effective_spring_constant = mode%spring_constant        &
                       & * sum(harmonic_energies*energies) &
                       & / sum(harmonic_energies*harmonic_energies)
-  if (effective_coefficient>=0) then
-    effective_frequency =  sqrt( 2*effective_coefficient)
+  if (effective_spring_constant>=0) then
+    effective_frequency =  sqrt( effective_spring_constant/mode_mass)
   else
-    effective_frequency = -sqrt(-2*effective_coefficient)
+    effective_frequency = -sqrt(-effective_spring_constant/mode_mass)
   endif
   allocate( effective_energies(size(displacements)), &
           & stat=ialloc); call err(ialloc)
   do i=1,size(displacements)
-    effective_energies(i) = 0.5_dp                &
-                        & * effective_coefficient &
-                        & * displacements(i)      &
+    effective_energies(i) = 0.5_dp                    &
+                        & * effective_spring_constant &
+                        & * displacements(i)          &
                         & * displacements(i)
   enddo
   
-  this = EffectiveFrequency( mode_id,             &
-                           & harmonic_frequency,  &
+  this = EffectiveFrequency( mode%id,             &
+                           & mode%frequency,      &
                            & effective_frequency, &
                            & displacements,       &
                            & energies,            &

@@ -23,6 +23,7 @@ module real_mode_submodule
     
     ! The frequency, and frequency-relevant information.
     real(dp) :: frequency
+    real(dp) :: spring_constant    ! k, from w=sqrt(k/m), where w=frequency.
     logical  :: soft_mode          ! True if frequency < -epsilon.
     logical  :: translational_mode ! True if frequency=0 and at gamma.
     
@@ -66,14 +67,15 @@ contains
 ! ----------------------------------------------------------------------
 ! Basic constructor.
 ! ----------------------------------------------------------------------
-function new_RealMode(id,paired_id,frequency,soft_mode,translational_mode, &
-   & mass_weighted_vector,cartesian_vector,qpoint_id_plus,qpoint_id_minus, &
-   & subspace_id) result(this)
+function new_RealMode(id,paired_id,frequency,spring_constant,soft_mode,       &
+   & translational_mode,mass_weighted_vector,cartesian_vector,qpoint_id_plus, &
+   & qpoint_id_minus,subspace_id) result(this)
   implicit none
   
   integer,          intent(in) :: id
   integer,          intent(in) :: paired_id
   real(dp),         intent(in) :: frequency
+  real(dp),         intent(in) :: spring_constant
   logical,          intent(in) :: soft_mode
   logical,          intent(in) :: translational_mode
   type(RealVector), intent(in) :: mass_weighted_vector(:)
@@ -86,6 +88,7 @@ function new_RealMode(id,paired_id,frequency,soft_mode,translational_mode, &
   this%id                   = id
   this%paired_id            = paired_id
   this%frequency            = frequency
+  this%spring_constant      = spring_constant
   this%soft_mode            = soft_mode
   this%translational_mode   = translational_mode
   this%mass_weighted_vector = mass_weighted_vector
@@ -203,6 +206,7 @@ subroutine read_RealMode(this,input)
   integer                       :: id
   integer                       :: paired_id
   real(dp)                      :: frequency
+  real(dp)                      :: spring_constant
   logical                       :: soft_mode
   logical                       :: translational_mode
   type(RealVector), allocatable :: mass_weighted_vector(:)
@@ -224,45 +228,49 @@ subroutine read_RealMode(this,input)
     line = split_line(input(2))
     paired_id = int(line(6))
     
-    ! Read frequency.
+    ! Read frequency and spring constant.
     line = split_line(input(3))
     frequency = dble(line(4))
     
-    ! Read whether or not this mode is soft.
     line = split_line(input(4))
+    spring_constant = dble(line(4))
+    
+    ! Read whether or not this mode is soft.
+    line = split_line(input(5))
     soft_mode = lgcl(line(5))
     
     ! Read whether or not this mode is purely translational.
-    line = split_line(input(5))
+    line = split_line(input(6))
     translational_mode = lgcl(line(5))
     
     ! Read the q-qpoint id of the plus mode.
-    line = split_line(input(6))
+    line = split_line(input(7))
     qpoint_id_plus = int(line(5))
     
     ! Read the q-qpoint id of the minus mode.
-    line = split_line(input(7))
+    line = split_line(input(8))
     qpoint_id_minus = int(line(5))
     
     ! Read the degeneracy id of this mode.
-    line = split_line(input(8))
+    line = split_line(input(9))
     subspace_id = int(line(4))
     
     ! Read in the vector associated with the mode.
-    no_atoms = (size(input)-10)/2
-    mass_weighted_vector = RealVector(input(10:9+no_atoms))
+    no_atoms = (size(input)-11)/2
+    mass_weighted_vector = RealVector(input(11:10+no_atoms))
     cartesian_vector = RealVector(input(size(input)-no_atoms+1:))
     
     this = RealMode( id,                   &
                    & paired_id,            &
                    & frequency,            &
+                   & spring_constant,      &
                    & soft_mode,            &
                    & translational_mode,   &
                    & mass_weighted_vector, &
                    & cartesian_vector,     &
                    & qpoint_id_plus,       &
                    & qpoint_id_minus,      &
-                   & subspace_id)
+                   & subspace_id           )
   end select
 end subroutine
 
@@ -276,6 +284,7 @@ function write_RealMode(this) result(output)
     output = [ 'Mode ID                   : '//this%id,                 &
              & 'ID of paired mode         : '//this%paired_id,          &
              & 'Mode frequency            : '//this%frequency,          &
+             & 'Spring constant           : '//this%spring_constant,    &
              & 'Mode is soft              : '//this%soft_mode,          &
              & 'Mode purely translational : '//this%translational_mode, &
              & 'Positive q-point id       : '//this%qpoint_id_plus,     &

@@ -248,16 +248,17 @@ subroutine calculate_states_subroutine(arguments)
           & stat=ialloc); call err(ialloc)
   do i=1,size(complex_modes)
     ! Scale displacement by 1/sqrt(frequency).
-    scaled_displacements = displacements                          &
-                       & * sqrt( frequency_of_max_displacement    &
-                       &       / max( complex_modes(i)%frequency, &
-                       &              frequency_of_max_displacement))
+    scaled_displacements = displacements                             &
+                       & * sqrt( frequency_of_max_displacement       &
+                       &       / max( complex_modes(i)%frequency,    &
+                       &              frequency_of_max_displacement) )
     
     ! Sample the model potential to find the effective frequency.
     effective_frequencies(i) = EffectiveFrequency( scaled_displacements, &
                                                  & complex_modes(i),     &
                                                  & real_modes,           &
-                                                 & potential)
+                                                 & potential,            &
+                                                 & structure             )
   enddo
   
   ! --------------------------------------------------
