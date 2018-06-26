@@ -110,22 +110,22 @@ subroutine print_lines_StringsWriteable(this,indent)
   call print_lines(str(this), indent)
 end subroutine
 
-subroutine print_lines_StringsWriteables_character(this,indent,separating_line)
-  implicit none
-  
-  class(StringsWriteable), intent(in)           :: this(:)
-  integer,                 intent(in), optional :: indent
-  character(*),            intent(in), optional :: separating_line
-  
-  call print_lines(str(this,separating_line), indent)
-end subroutine
-
 subroutine print_lines_StringsWriteables_String(this,indent,separating_line)
   implicit none
   
   class(StringsWriteable), intent(in)           :: this(:)
   integer,                 intent(in), optional :: indent
-  type(String),            intent(in)           :: separating_line
+  type(String),            intent(in), optional :: separating_line
+  
+  call print_lines(str(this,separating_line), indent)
+end subroutine
+
+subroutine print_lines_StringsWriteables_character(this,indent,separating_line)
+  implicit none
+  
+  class(StringsWriteable), intent(in)           :: this(:)
+  integer,                 intent(in), optional :: indent
+  character(*),            intent(in)           :: separating_line
   
   call print_lines(str(this,separating_line), indent)
 end subroutine

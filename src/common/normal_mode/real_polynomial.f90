@@ -686,7 +686,11 @@ function write_RealMonomial(this) result(output)
   type(String)                    :: output
   
   select type(this); type is(RealMonomial)
-    output = this%coefficient//'*'//join(this%modes, delimiter='*')
+    if (size(this%modes)>0) then
+      output = this%coefficient//'*'//join(this%modes, delimiter='*')
+    else
+      output = this%coefficient
+    endif
   end select
 end function
 

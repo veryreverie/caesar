@@ -370,7 +370,7 @@ impure elemental function evaluate_ComplexModeVector_BasisFunction(this, &
   
   class(BasisFunction),     intent(in) :: this
   class(ComplexModeVector), intent(in) :: vector
-  real(dp)                             :: output
+  complex(dp)                          :: output
   
   output = this%complex_representation%evaluate(vector)
 end function
@@ -390,7 +390,7 @@ impure elemental function derivative_ComplexModeVector_BasisFunction(this, &
    & vector) result(output)
   implicit none
   
-  class(BasisFunction),  intent(in) :: this
+  class(BasisFunction),     intent(in) :: this
   class(ComplexModeVector), intent(in) :: vector
   type(ComplexModeVector)              :: output
   

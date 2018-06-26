@@ -33,7 +33,6 @@ function fit_coefficients(basis_functions,sampling_points,sample_results, &
   real(dp),            allocatable :: sample_energies(:)
   type(RealModeForce), allocatable :: sample_forces(:)
   
-  
   integer               :: degrees_of_freedom
   real(dp), allocatable :: a(:,:)
   real(dp), allocatable :: b(:)
@@ -56,11 +55,10 @@ function fit_coefficients(basis_functions,sampling_points,sample_results, &
           & stat=ialloc); call err(ialloc)
   do i=1,size(basis_functions)
     do j=1,size(sampling_points)
-      basis_function_energies(j,i) = &
-         & basis_functions(i)%real_representation%evaluate(sampling_points(j))
-      basis_function_forces(j,i) = RealModeForce(             &
-         & basis_functions(i)%real_representation%derivative( &
-         &    sampling_points(j)))
+      basis_function_energies(j,i) = basis_functions(i)%evaluate( &
+                                             & sampling_points(j) )
+      basis_function_forces(j,i) = RealModeForce(              &
+         & - basis_functions(i)%derivative(sampling_points(j)) )
     enddo
   enddo
   
@@ -135,7 +133,7 @@ function make_vector(energy,force,modes,energy_force_ratio) result(output)
     if (j==0) then
       output(1+i) = 0.0_dp
     else
-      output(1+i) = force%vectors(j)%id
+      output(1+i) = force%vectors(j)%magnitude
     endif
   enddo
 end function

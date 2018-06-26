@@ -13,12 +13,11 @@ module force_constants_module
   
   ! The matrix of force constants, F, such that F.x=f, where x and f are the
   !    displacement and force respectively.
-  type :: ForceConstants
+  type, extends(NoDefaultConstructor) :: ForceConstants
     type(RealMatrix), allocatable, private :: constants_(:,:)
   contains
     procedure, public :: constants
     procedure, public :: check
-    procedure, public :: write_file
   end type
   
   interface ForceConstants
@@ -552,26 +551,5 @@ subroutine check(this,forces,supercell,unique_directions,logfile)
   call logfile%print_line('Fractional L2 difference between forces &
      &before and after symmetrisation (this may be large): '// &
      &sqrt(difference/average))
-end subroutine
-
-subroutine write_file(this,filename)
-  implicit none
-  
-  class(ForceConstants), intent(in) :: this
-  type(String),          intent(in) :: filename
-  
-  type(OFile) :: file
-  
-  integer :: i,j
-  
-  file = OFile(filename)
-  
-  do i=1,size(this%constants_,1)
-    do j=1,size(this%constants_,2)
-     call file%print_line('')
-     call file%print_line('i: '//i//', j: '//j)
-     call file%print_lines(this%constants_(i,j))
-    enddo
-  enddo
 end subroutine
 end module
