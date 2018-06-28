@@ -21,7 +21,7 @@ module complex_mode_vector_submodule
   public :: operator(-)
   
   type, extends(Stringsable) :: ComplexModeVector
-    type(ComplexSingleModeVector), allocatable :: vectors(:)
+    type(ComplexSingleVector), allocatable :: vectors(:)
   contains 
     procedure, public :: modes   => modes_ComplexModeVector
     procedure, public :: qpoints => qpoints_ComplexModeVector
@@ -69,7 +69,7 @@ contains
 function new_ComplexModeVector(vectors) result(this)
   implicit none
   
-  type(ComplexSingleModeVector), intent(in) :: vectors(:)
+  type(ComplexSingleVector), intent(in) :: vectors(:)
   type(ComplexModeVector)                   :: this
   
   this%vectors = vectors
@@ -82,7 +82,7 @@ function new_ComplexModeVector_ComplexModes(modes,magnitudes) result(this)
   complex(dp),       intent(in) :: magnitudes(:)
   type(ComplexModeVector)       :: this
   
-  this = ComplexModeVector(ComplexSingleModeVector(modes,magnitudes))
+  this = ComplexModeVector(ComplexSingleVector(modes,magnitudes))
 end function
 
 ! Return the number of modes along which the vector has vectors.
@@ -278,7 +278,7 @@ subroutine read_ComplexModeVector(this,input)
   type(String),             intent(in)  :: input(:)
   
   select type(this); type is(ComplexModeVector)
-    this = ComplexModeVector(ComplexSingleModeVector(input))
+    this = ComplexModeVector(ComplexSingleVector(input))
   end select
 end subroutine
 

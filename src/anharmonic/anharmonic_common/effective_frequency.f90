@@ -98,7 +98,7 @@ function new_EffectiveFrequency_potential(displacements,mode,real_modes, &
   
   ! Calculate the energy at displacement=0.
   relative_energy = potential%energy(RealModeDisplacement( &
-     & [RealSingleModeVector::]))
+                             & [RealSingleDisplacement::]) )
   
   ! Calculate the average mass of atoms displaced.
   mode_mass = sum( real_mode%cartesian_vector   &
@@ -115,7 +115,7 @@ function new_EffectiveFrequency_potential(displacements,mode,real_modes, &
                        & * mode%spring_constant &
                        & * displacements(i)     &
                        & * displacements(i)     &
-                       & * mode_mass
+                       & / mode_mass
   enddo
   
   ! Fit effective harmonic potential, using 1-D linear least squares.
@@ -141,7 +141,8 @@ function new_EffectiveFrequency_potential(displacements,mode,real_modes, &
     effective_energies(i) = 0.5_dp                    &
                         & * effective_spring_constant &
                         & * displacements(i)          &
-                        & * displacements(i)
+                        & * displacements(i)          &
+                        & / mode_mass
   enddo
   
   this = EffectiveFrequency( mode%id,             &

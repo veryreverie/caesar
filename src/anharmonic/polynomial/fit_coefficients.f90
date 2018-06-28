@@ -55,10 +55,9 @@ function fit_coefficients(basis_functions,sampling_points,sample_results, &
           & stat=ialloc); call err(ialloc)
   do i=1,size(basis_functions)
     do j=1,size(sampling_points)
-      basis_function_energies(j,i) = basis_functions(i)%evaluate( &
-                                             & sampling_points(j) )
-      basis_function_forces(j,i) = RealModeForce(              &
-         & - basis_functions(i)%derivative(sampling_points(j)) )
+      basis_function_energies(j,i) = basis_functions(i)%energy( &
+                                           & sampling_points(j) )
+      basis_function_forces(j,i) = basis_functions(i)%force(sampling_points(j))
     enddo
   enddo
   

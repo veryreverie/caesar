@@ -5,8 +5,10 @@ module complex_polynomial_submodule
   use utils_module
   
   use complex_mode_submodule
-  use complex_single_mode_vector_submodule
-  use complex_mode_vector_submodule
+  use complex_single_mode_displacement_submodule
+  use complex_single_mode_force_submodule
+  use complex_mode_displacement_submodule
+  use complex_mode_force_submodule
   implicit none
   
   private
@@ -19,6 +21,12 @@ module complex_polynomial_submodule
   public :: operator(/)
   public :: operator(+)
   public :: conjg
+  public :: select_mode
+  public :: select_modes
+  public :: select_displacement
+  public :: select_displacements
+  public :: select_force
+  public :: select_forces
   
   ! --------------------------------------------------
   ! Types, and conversions between types.
@@ -54,8 +62,8 @@ module complex_polynomial_submodule
     procedure, public :: to_ComplexPolynomial => &
        & to_ComplexPolynomial_ComplexUnivariate
     
-    procedure, public :: evaluate   => evaluate_ComplexUnivariate
-    procedure, public :: derivative => derivative_ComplexUnivariate
+    procedure, public :: energy => energy_ComplexUnivariate
+    procedure, public :: force  => force_ComplexUnivariate
     
     procedure, public :: read  => read_ComplexUnivariate
     procedure, public :: write => write_ComplexUnivariate
@@ -75,8 +83,8 @@ module complex_polynomial_submodule
     procedure, public :: to_ComplexPolynomial => &
        & to_ComplexPolynomial_ComplexMonomial
     
-    procedure, public :: evaluate   => evaluate_ComplexMonomial
-    procedure, public :: derivative => derivative_ComplexMonomial
+    procedure, public :: energy => energy_ComplexMonomial
+    procedure, public :: force  => force_ComplexMonomial
     
     procedure, public :: read  => read_ComplexMonomial
     procedure, public :: write => write_ComplexMonomial
@@ -93,8 +101,8 @@ module complex_polynomial_submodule
     procedure, public :: to_ComplexPolynomial => &
        & to_ComplexPolynomial_ComplexPolynomial
     
-    procedure, public :: evaluate   => evaluate_ComplexPolynomial
-    procedure, public :: derivative => derivative_ComplexPolynomial
+    procedure, public :: energy => energy_ComplexPolynomial
+    procedure, public :: force  => force_ComplexPolynomial
     
     procedure, public :: read  => read_ComplexPolynomial
     procedure, public :: write => write_ComplexPolynomial
@@ -156,6 +164,30 @@ module complex_polynomial_submodule
   
   interface operator(+)
     module procedure add_ComplexPolynomialable_ComplexPolynomialable
+  end interface
+  
+  interface select_mode
+    module procedure select_mode_ComplexUnivariate
+  end interface
+  
+  interface select_modes
+    module procedure select_modes_ComplexUnivariates
+  end interface
+  
+  interface select_displacement
+    module procedure select_displacement_ComplexUnivariate
+  end interface
+  
+  interface select_displacements
+    module procedure select_displacements_ComplexUnivariates
+  end interface
+  
+  interface select_force
+    module procedure select_force_ComplexUnivariate
+  end interface
+  
+  interface select_forces
+    module procedure select_forces_ComplexUnivariates
   end interface
 contains
 
@@ -321,30 +353,32 @@ impure elemental function conjg_ComplexPolynomial(this) result(output)
   output = ComplexPolynomial(conjg(this%terms))
 end function
 
-! Evaluate a univariate, monomial or polynomial at a given vector.
-impure elemental function evaluate_ComplexUnivariate(this,vector) &
+! Evaluate the contribution to the energy from
+!    a univariate, monomial or polynomial at a given displacement.
+impure elemental function energy_ComplexUnivariate(this,displacement) &
    & result(output)
   implicit none
   
-  class(ComplexUnivariate),       intent(in) :: this
-  class(ComplexSingleModeVector), intent(in) :: vector
-  complex(dp)                                :: output
+  class(ComplexUnivariate),         intent(in) :: this
+  class(ComplexSingleDisplacement), intent(in) :: displacement
+  complex(dp)                                  :: output
   
-  if (this%id/=vector%id) then
+  if (this%id/=displacement%id) then
     call print_line(CODE_ERROR//': Trying to evaluate a univariate at an &
        &incompatible displacement.')
     call err()
   endif
   
-  output = vector%magnitude**this%power
+  output = displacement%magnitude**this%power
 end function
 
-impure elemental function evaluate_ComplexMonomial(this,vector) result(output)
+impure elemental function energy_ComplexMonomial(this,displacement) &
+   & result(output)
   implicit none
   
-  class(ComplexMonomial),   intent(in) :: this
-  class(ComplexModeVector), intent(in) :: vector
-  complex(dp)                          :: output
+  class(ComplexMonomial),         intent(in) :: this
+  class(ComplexModeDisplacement), intent(in) :: displacement
+  complex(dp)                                :: output
   
   integer :: i,j
   
@@ -352,132 +386,137 @@ impure elemental function evaluate_ComplexMonomial(this,vector) result(output)
   
   do i=1,size(this)
     ! Find the mode in the displacement which matches that in the monomial.
-    j = first(vector%vectors%id==this%modes(i)%id,default=0)
+    j = first(displacement%vectors%id==this%modes(i)%id,default=0)
     
-    ! If the mode is not present in the vector, then the projection of the
-    !    vector along that mode is zero. As such, the monomial is zero.
-    !    (0^n=0 if n>0).
+    ! If the mode is not present in the displacement,
+    !    then the displacement along that mode is zero.
+    ! As such, the monomial is zero. (0^n=0 if n>0).
     if (j==0) then
       output = 0.0_dp
       return
     endif
     
-    ! If the mode is present in both, evaluate the univariate at the vector.
-    output = output * this%modes(i)%evaluate(vector%vectors(j))
+    ! If the mode is present in both,
+    !    evaluate the univariate at the displacement.
+    output = output * this%modes(i)%energy(displacement%vectors(j))
   enddo
 end function
 
-impure elemental function evaluate_ComplexPolynomial(this,vector) &
+impure elemental function energy_ComplexPolynomial(this,displacement) &
    & result(output)
   implicit none
   
-  class(ComplexPolynomial), intent(in) :: this
-  class(ComplexModeVector), intent(in) :: vector
-  complex(dp)                          :: output
+  class(ComplexPolynomial),       intent(in) :: this
+  class(ComplexModeDisplacement), intent(in) :: displacement
+  complex(dp)                                :: output
   
-  output = sum(this%terms%evaluate(vector))
+  output = sum(this%terms%energy(displacement))
 end function
 
-! Take the derivative of a univariate, monomial or polynomial at a given
-!    vector.
-! d/d{u_i} ({u_i}^n) evaluated at u_i=U is n*U^{n-1}
-impure elemental function derivative_ComplexUnivariate(this,vector) &
+! Evaluate the contribution to the force from
+!    a univariate, monomial or polynomial at a given displacement.
+! -d/d{u_i} ({u_i}^n) evaluated at u_i=U is -n*U^{n-1}
+impure elemental function force_ComplexUnivariate(this,displacement) &
    & result(output)
   implicit none
   
-  class(ComplexUnivariate),       intent(in) :: this
-  class(ComplexSingleModeVector), intent(in) :: vector
-  type(ComplexSingleModeVector)              :: output
+  class(ComplexUnivariate),         intent(in) :: this
+  class(ComplexSingleDisplacement), intent(in) :: displacement
+  type(ComplexSingleForce)                     :: output
   
-  complex(dp) :: derivative
+  complex(dp) :: force
   
-  if (this%id/=vector%id) then
+  if (this%id/=displacement%id) then
     call print_line(CODE_ERROR//': Trying to take the derivative of a &
        & univariate at an incompatible displacement.')
     call err()
   endif
   
-  if (this%power==1) then
-    derivative = 1.0_dp
+  if (this%power<1) then
+    call err()
+  elseif (this%power==1) then
+    force = -1.0_dp
   else
-    derivative = this%power * vector%magnitude**(this%power-1)
+    force = -this%power * displacement%magnitude**(this%power-1)
   endif
   
-  output = ComplexSingleModeVector(id=this%id, magnitude=derivative)
+  output = ComplexSingleForce(id=this%id, magnitude=force)
 end function
 
-! d/d{u_i} (c*prod_j[ {u_j}^{n_j} ]) evaluated at {u_i=U_i} is
-!    c*prod_{j/=i}[ {U_j}^{n_j} ] * n_i * {U_i}^{n_i-1}
-impure elemental function derivative_ComplexMonomial(this,vector) &
+! -d/d{u_i} (c*prod_j[ {u_j}^{n_j} ]) evaluated at {u_i=U_i} is
+!    -c*prod_{j/=i}[ {U_j}^{n_j} ] * n_i * {U_i}^{n_i-1}
+impure elemental function force_ComplexMonomial(this,displacement) &
    & result(output)
   implicit none
   
-  class(ComplexMonomial),   intent(in) :: this
-  class(ComplexModeVector), intent(in) :: vector
-  type(ComplexModeVector)              :: output
+  class(ComplexMonomial),         intent(in) :: this
+  class(ComplexModeDisplacement), intent(in) :: displacement
+  type(ComplexModeForce)                     :: output
   
-  integer,                       allocatable :: vector_ids(:)
-  complex(dp),                   allocatable :: evaluations(:)
-  type(ComplexSingleModeVector), allocatable :: derivatives(:)
-  
-  type(ComplexSingleModeVector), allocatable :: components(:)
+  integer,                  allocatable :: displacement_ids(:)
+  complex(dp),              allocatable :: evaluations(:)
+  type(ComplexSingleForce), allocatable :: forces(:)
+  type(ComplexSingleForce), allocatable :: components(:)
   
   integer :: i,j,ialloc
   
-  ! Match the components of the vector along each mode with the univariates
-  !    making up the monomial.
+  ! Match the components of the displacement along each mode with the
+  !    univariates making up the monomial.
   ! Evaluate and take the derivative of each univariate at the one-mode
   !    component of the vector.
-  allocate( vector_ids(size(this)),  &
-          & evaluations(size(this)), &
-          & derivatives(size(this)), &
+  allocate( displacement_ids(size(this)),  &
+          & evaluations(size(this)),       &
+          & forces(size(this)),            &
           & stat=ialloc); call err(ialloc)
   do i=1,size(this)
     ! Identify the vector corresponding to each mode.
     ! If vector_ids(i)=0 then U_i=0.
-    vector_ids(i) = first(vector%vectors%id==this%modes(i)%id, default=0)
+    displacement_ids(i) = first( displacement%vectors%id==this%modes(i)%id, &
+                               & default=0)
     
     ! Calculate {U_i}^{n_i}
-    if (vector_ids(i)==0) then
+    if (displacement_ids(i)==0) then
       evaluations(i) = 0.0_dp
     else
-      evaluations(i) = this%modes(i)%evaluate(vector%vectors(vector_ids(i)))
+      evaluations(i) = this%modes(i)%energy(         &
+         & displacement%vectors(displacement_ids(i)) )
     endif
     
-    ! Calculate d/d{u_i} ({u_i}^{n_i}) evaluated at U_i.
-    if (vector_ids(i)==0) then
+    ! Calculate -d/d{u_i} ({u_i}^{n_i}) evaluated at U_i.
+    if (displacement_ids(i)==0) then
       if (this%modes(i)%power==1) then
-        derivatives(i) = ComplexSingleModeVector( &
-                           & id=this%modes(i)%id, &
-                           & magnitude=cmplx(1.0_dp,0.0_dp,dp))
+        forces(i) = ComplexSingleForce(         &
+           & id=this%modes(i)%id,               &
+           & magnitude=cmplx(-1.0_dp,0.0_dp,dp) )
       else
-        derivatives(i) = ComplexSingleModeVector( &
-                           & id=this%modes(i)%id, &
-                           & magnitude=cmplx(0.0_dp,0.0_dp,dp))
+        forces(i) = ComplexSingleForce(        &
+           & id=this%modes(i)%id,              &
+           & magnitude=cmplx(0.0_dp,0.0_dp,dp) )
       endif
     else
-      derivatives(i) = this%modes(i)%derivative(vector%vectors(vector_ids(i)))
+      forces(i) = this%modes(i)%force(               &
+         & displacement%vectors(displacement_ids(i)) )
     endif
   enddo
   
-  ! Use the Univariate terms to calculate derivatives along each mode.
-  if (count(vector_ids==0)>1) then
+  ! Use the Univariate terms to calculate forces along each mode.
+  if (count(displacement_ids==0)>1) then
     ! If U_i is zero for more than one i, then
     !    prod_{j/=i}[ {U_j}^{n_j} ] is always zero,
     !    so all derivatives are zero.
-    components = [ComplexSingleModeVector::]
-  elseif (count(vector_ids==0)==1) then
-    i = first(vector_ids==0, default=0)
+    components = [ComplexSingleForce::]
+  elseif (count(displacement_ids==0)==1) then
+    i = first(displacement_ids==0, default=0)
     if (this%modes(i)%power>1) then
       ! If n_i>1, then the derivative along u_i is also zero.
-      components = [ComplexSingleModeVector::]
+      components = [ComplexSingleForce::]
     else
       ! If n_i=1, then the derivative is simply c*prod_{j/=i}[ {U_j}^{n_j}
       components = [ this%coefficient                       &
                  & * product( evaluations,                  &
                  &            dim=1,                        &
                  &            mask=[(j/=i,j=1,size(this))]) &
-                 & * derivatives(i)                         &
+                 & * forces(i)                              &
                  & ]
     endif
   else
@@ -489,26 +528,26 @@ impure elemental function derivative_ComplexMonomial(this,vector) &
                   & * product( evaluations,                  &
                   &            dim=1,                        &
                   &            mask=[(j/=i,j=1,size(this))]) &
-                  & * derivatives(i)
+                  & * forces(i)
     enddo
   endif
   
   ! Construct output from components along each mode.
-  output = ComplexModeVector(components)
+  output = ComplexModeForce(components)
 end function
 
-impure elemental function derivative_ComplexPolynomial(this,vector) &
+impure elemental function force_ComplexPolynomial(this,displacement) &
    & result(output)
   implicit none
   
-  class(ComplexPolynomial), intent(in) :: this
-  class(ComplexModeVector), intent(in) :: vector
-  type(ComplexModeVector)              :: output
+  class(ComplexPolynomial),       intent(in) :: this
+  class(ComplexModeDisplacement), intent(in) :: displacement
+  type(ComplexModeForce)                     :: output
   
   if (size(this)==0) then
-    output = ComplexModeVector([ComplexSingleModeVector::])
+    output = ComplexModeForce([ComplexSingleForce::])
   else
-    output = sum(this%terms%derivative(vector))
+    output = sum(this%terms%force(displacement))
   endif
 end function
 
@@ -701,6 +740,90 @@ contains
       end select
     end select
   end function
+end function
+
+! ----------------------------------------------------------------------
+! Select modes, displacements or forces corresponding to
+!    a given univariate or univariates.
+! ----------------------------------------------------------------------
+function select_mode_ComplexUnivariate(univariate,modes) result(output)
+  implicit none
+  
+  type(ComplexUnivariate), intent(in) :: univariate
+  type(ComplexMode),       intent(in) :: modes(:)
+  type(ComplexMode)                   :: output
+  
+  output = modes(first(modes%id==univariate%id))
+end function
+
+function select_modes_ComplexUnivariates(univariates,modes) &
+   & result(output)
+  implicit none
+  
+  type(ComplexUnivariate), intent(in) :: univariates(:)
+  type(ComplexMode),       intent(in) :: modes(:)
+  type(ComplexMode), allocatable      :: output(:)
+  
+  integer :: i,ialloc
+  
+  allocate(output(size(univariates)), stat=ialloc); call err(ialloc)
+  do i=1,size(univariates)
+    output(i) = select_mode(univariates(i), modes)
+  enddo
+end function
+
+function select_displacement_ComplexUnivariate(univariate,displacements) &
+   & result(output)
+  implicit none
+  
+  type(ComplexUnivariate),         intent(in) :: univariate
+  type(ComplexSingleDisplacement), intent(in) :: displacements(:)
+  type(ComplexSingleDisplacement)             :: output
+  
+  output = displacements(first(displacements%id==univariate%id))
+end function
+
+function select_displacements_ComplexUnivariates(univariates,displacements) &
+   & result(output)
+  implicit none
+  
+  type(ComplexUnivariate),         intent(in)  :: univariates(:)
+  type(ComplexSingleDisplacement), intent(in)  :: displacements(:)
+  type(ComplexSingleDisplacement), allocatable :: output(:)
+  
+  integer :: i,ialloc
+  
+  allocate(output(size(univariates)), stat=ialloc); call err(ialloc)
+  do i=1,size(univariates)
+    output(i) = select_displacement(univariates(i), displacements)
+  enddo
+end function
+
+function select_force_ComplexUnivariate(univariate,forces) &
+   & result(output)
+  implicit none
+  
+  type(ComplexUnivariate),  intent(in) :: univariate
+  type(ComplexSingleForce), intent(in) :: forces(:)
+  type(ComplexSingleForce)             :: output
+  
+  output = forces(first(forces%id==univariate%id))
+end function
+
+function select_forces_ComplexUnivariates(univariates,forces) &
+   & result(output)
+  implicit none
+  
+  type(ComplexUnivariate),  intent(in)  :: univariates(:)
+  type(ComplexSingleForce), intent(in)  :: forces(:)
+  type(ComplexSingleForce), allocatable :: output(:)
+  
+  integer :: i,ialloc
+  
+  allocate(output(size(univariates)), stat=ialloc); call err(ialloc)
+  do i=1,size(univariates)
+    output(i) = select_force(univariates(i), forces)
+  enddo
 end function
 
 ! ----------------------------------------------------------------------

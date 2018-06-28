@@ -9,13 +9,13 @@ module real_mode_displacement_submodule
   use mass_weighted_displacement_submodule
   use cartesian_displacement_submodule
   use real_mode_submodule
-  use real_single_mode_vector_submodule
-  use real_mode_vector_submodule
+  use real_single_mode_displacement_submodule
   implicit none
   
   private
   
   public :: RealModeDisplacement
+  public :: size
   public :: MassWeightedDisplacement
   public :: CartesianDisplacement
   public :: operator(*)
@@ -24,19 +24,23 @@ module real_mode_displacement_submodule
   public :: sum
   public :: operator(-)
   
-  type, extends(RealModeVector) :: RealModeDisplacement
+  type, extends(Stringsable) :: RealModeDisplacement
+    type(RealSingleDisplacement), allocatable :: vectors(:)
   contains
     procedure, public :: read  => read_RealModeDisplacement
     procedure, public :: write => write_RealModeDisplacement
   end type
   
   interface RealModeDisplacement
-    module procedure new_RealModeDisplacement_RealModeVector
-    module procedure new_RealModeDisplacement_RealSingleModeVectors
+    module procedure new_RealModeDisplacement
     module procedure new_RealModeDisplacement_RealModes
     module procedure new_RealModeDisplacement_MassWeightedDisplacement
     module procedure new_RealModeDisplacement_CartesianDisplacement
     module procedure new_RealModeDisplacement_StringArray
+  end interface
+  
+  interface size
+    module procedure size_RealModeDisplacement
   end interface
   
   interface MassWeightedDisplacement
@@ -70,24 +74,14 @@ module real_mode_displacement_submodule
   end interface
 contains
 
-! Constructors.
-function new_RealModeDisplacement_RealModeVector(displacement) result(this)
+! Constructors and size() function.
+function new_RealModeDisplacement(displacements) result(this)
   implicit none
   
-  type(RealModeVector), intent(in) :: displacement
-  type(RealModeDisplacement)       :: this
+  type(RealSingleDisplacement), intent(in) :: displacements(:)
+  type(RealModeDisplacement)               :: this
   
-  this%RealModeVector = displacement
-end function
-
-function new_RealModeDisplacement_RealSingleModeVectors(displacements) &
-   & result(this)
-  implicit none
-  
-  type(RealSingleModeVector), intent(in) :: displacements(:)
-  type(RealModeDisplacement)             :: this
-  
-  this = RealModeDisplacement(RealModeVector(displacements))
+  this%vectors = displacements
 end function
 
 function new_RealModeDisplacement_RealModes(modes,displacements) result(this)
@@ -97,7 +91,16 @@ function new_RealModeDisplacement_RealModes(modes,displacements) result(this)
   real(dp),       intent(in) :: displacements(:)
   type(RealModeDisplacement) :: this
   
-  this = RealModeDisplacement(RealModeVector(modes,displacements))
+  this = RealModeDisplacement(RealSingleDisplacement(modes,displacements))
+end function
+
+function size_RealModeDisplacement(this) result(output)
+  implicit none
+  
+  type(RealModeDisplacement), intent(in) :: this
+  integer                                :: output
+  
+  output = size(this%vectors)
 end function
 
 ! ----------------------------------------------------------------------
@@ -111,7 +114,7 @@ impure elemental function multiply_real_RealModeDisplacement(this,that) &
   type(RealModeDisplacement), intent(in) :: that
   type(RealModeDisplacement)             :: output
   
-  output = RealModeDisplacement(this*that%RealModeVector)
+  output = RealModeDisplacement(this*that%vectors)
 end function
 
 impure elemental function multiply_RealModeDisplacement_real(this,that) &
@@ -122,7 +125,7 @@ impure elemental function multiply_RealModeDisplacement_real(this,that) &
   real(dp),                   intent(in) :: that
   type(RealModeDisplacement)             :: output
   
-  output = RealModeDisplacement(this%RealModeVector*that)
+  output = RealModeDisplacement(this%vectors*that)
 end function
 
 impure elemental function divide_RealModeDisplacement_real(this,that) &
@@ -133,7 +136,7 @@ impure elemental function divide_RealModeDisplacement_real(this,that) &
   real(dp),                   intent(in) :: that
   type(RealModeDisplacement)             :: output
   
-  output = RealModeDisplacement(this%RealModeVector/that)
+  output = RealModeDisplacement(this%vectors/that)
 end function
 
 impure elemental function add_RealModeDisplacement_RealModeDisplacement(this, &
@@ -144,7 +147,17 @@ impure elemental function add_RealModeDisplacement_RealModeDisplacement(this, &
   type(RealModeDisplacement), intent(in) :: that
   type(RealModeDisplacement)             :: output
   
-  output = RealModeDisplacement(this%RealModeVector + that%RealModeVector)
+  integer :: i,j
+  
+  output = this
+  do i=1,size(that)
+    j = first(this%vectors%id==that%vectors(i)%id, default=0)
+    if (j==0) then
+      output%vectors = [output%vectors, that%vectors(i)]
+    else
+      output%vectors(j) = output%vectors(j) + that%vectors(i)
+    endif
+  enddo
 end function
 
 function sum_RealModeDisplacements(this) result(output)
@@ -153,7 +166,17 @@ function sum_RealModeDisplacements(this) result(output)
   type(RealModeDisplacement), intent(in) :: this(:)
   type(RealModeDisplacement)             :: output
   
-  output = RealModeDisplacement(sum(this%RealModeVector))
+  integer :: i
+  
+  if (size(this)==0) then
+    call print_line(ERROR//': Trying to sum an empty list.')
+    call err()
+  endif
+  
+  output = this(1)
+  do i=2,size(this)
+    output = output + this(i)
+  enddo
 end function
 
 impure elemental function negative_RealModeDisplacement(this) result(output)
@@ -162,7 +185,7 @@ impure elemental function negative_RealModeDisplacement(this) result(output)
   type(RealModeDisplacement), intent(in) :: this
   type(RealModeDisplacement)             :: output
   
-  output = RealModeDisplacement(-this%RealModeVector)
+  output = RealModeDisplacement(-this%vectors)
 end function
 
 impure elemental function subtract_RealModeDisplacement_RealModeDisplacement( &
@@ -173,11 +196,11 @@ impure elemental function subtract_RealModeDisplacement_RealModeDisplacement( &
   type(RealModeDisplacement), intent(in) :: that
   type(RealModeDisplacement)             :: output
   
-  output = RealModeDisplacement(this%RealModeVector - that%RealModeVector)
+  output = this + (-that)
 end function
 
 ! ----------------------------------------------------------------------
-! Conversions between CartesianDisplacement and RealModeDisplacement.
+! Conversions to and from cartesian and mass-weighted co-ordinates.
 ! ----------------------------------------------------------------------
 ! Returns the displacement in mass-weighted co-ordinates.
 function new_MassWeightedDisplacement_RealModeDisplacement(this,structure, &
@@ -190,8 +213,15 @@ function new_MassWeightedDisplacement_RealModeDisplacement(this,structure, &
   type(QpointData),            intent(in) :: qpoints(:)
   type(MassWeightedDisplacement)          :: output
   
-  output = MassWeightedDisplacement( &
-     & MassWeightedVector(this,structure,modes,qpoints))
+  type(RealMode),   allocatable :: selected_modes(:)
+  type(QpointData), allocatable :: selected_qpoints(:)
+  
+  selected_modes = select_modes(this%vectors, modes)
+  selected_qpoints = select_qpoints(selected_modes, qpoints)
+  output = sum(MassWeightedDisplacement( this%vectors,    &
+                                       & selected_modes,  &
+                                       & structure,       &
+                                       & selected_qpoints ))
 end function
 
 ! Returns the displacement in cartesian co-ordinates.
@@ -205,7 +235,16 @@ function new_CartesianDisplacement_RealModeDisplacement(this,structure, &
   type(QpointData),            intent(in) :: qpoints(:)
   type(CartesianDisplacement)             :: output
   
-  output = CartesianDisplacement(CartesianVector(this,structure,modes,qpoints))
+  
+  type(RealMode),   allocatable :: selected_modes(:)
+  type(QpointData), allocatable :: selected_qpoints(:)
+  
+  selected_modes = select_modes(this%vectors, modes)
+  selected_qpoints = select_qpoints(selected_modes, qpoints)
+  output = sum(CartesianDisplacement( this%vectors,    &
+                                    & selected_modes,  &
+                                    & structure,       &
+                                    & selected_qpoints ))
 end function
 
 ! Converts a MassWeightedDisplacement to a RealModeDisplacement.
@@ -219,8 +258,14 @@ function new_RealModeDisplacement_MassWeightedDisplacement(displacement, &
   type(QpointData),               intent(in) :: qpoints(:)
   type(RealModeDisplacement)                 :: this
   
-  this = RealModeDisplacement( &
-     & RealModeVector(displacement,structure,modes,qpoints))
+  type(QpointData), allocatable :: selected_qpoints(:)
+  
+  selected_qpoints = select_qpoints(modes, qpoints)
+  
+  this = RealModeDisplacement(RealSingleDisplacement( modes,           &
+                                                    & displacement,    &
+                                                    & structure,       &
+                                                    & selected_qpoints ))
 end function
 
 ! Converts a CartesianDisplacement to a RealModeDisplacement.
@@ -234,8 +279,14 @@ function new_RealModeDisplacement_CartesianDisplacement(displacement, &
   type(QpointData),            intent(in) :: qpoints(:)
   type(RealModeDisplacement)              :: this
   
-  this = RealModeDisplacement( &
-     & RealModeVector(displacement,structure,modes,qpoints))
+  type(QpointData), allocatable :: selected_qpoints(:)
+  
+  selected_qpoints = select_qpoints(modes, qpoints)
+  
+  this = RealModeDisplacement(RealSingleDisplacement( modes,           &
+                                                    & displacement,    &
+                                                    & structure,       &
+                                                    & selected_qpoints ))
 end function
 
 ! ----------------------------------------------------------------------
@@ -248,7 +299,7 @@ subroutine read_RealModeDisplacement(this,input)
   type(String),                intent(in)  :: input(:)
   
   select type(this); type is(RealModeDisplacement)
-    this = RealModeDisplacement(RealModeVector(StringArray(input)))
+    this = RealModeDisplacement(RealSingleDisplacement(input))
   end select
 end subroutine
 
@@ -259,7 +310,7 @@ function write_RealModeDisplacement(this) result(output)
   type(String), allocatable               :: output(:)
   
   select type(this); type is(RealModeDisplacement)
-    output = str(this%RealModeVector)
+    output = str(this%vectors)
   end select
 end function
 

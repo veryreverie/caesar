@@ -4,8 +4,11 @@
 module real_polynomial_submodule
   use utils_module
   
-  use real_single_mode_vector_submodule
-  use real_mode_vector_submodule
+  use real_mode_submodule
+  use real_single_mode_displacement_submodule
+  use real_single_mode_force_submodule
+  use real_mode_displacement_submodule
+  use real_mode_force_submodule
   implicit none
   
   private
@@ -17,6 +20,12 @@ module real_polynomial_submodule
   public :: operator(*)
   public :: operator(/)
   public :: operator(+)
+  public :: select_mode
+  public :: select_modes
+  public :: select_displacement
+  public :: select_displacements
+  public :: select_force
+  public :: select_forces
   
   ! --------------------------------------------------
   ! Types, and conversions between types.
@@ -50,8 +59,8 @@ module real_polynomial_submodule
     procedure, public :: to_RealMonomial   => to_RealMonomial_RealUnivariate
     procedure, public :: to_RealPolynomial => to_RealPolynomial_RealUnivariate
     
-    procedure, public :: evaluate   => evaluate_RealUnivariate
-    procedure, public :: derivative => derivative_RealUnivariate
+    procedure, public :: energy => energy_RealUnivariate
+    procedure, public :: force  => force_RealUnivariate
     
     procedure, public :: read  => read_RealUnivariate
     procedure, public :: write => write_RealUnivariate
@@ -69,8 +78,8 @@ module real_polynomial_submodule
     procedure, public :: to_RealMonomial   => to_RealMonomial_RealMonomial
     procedure, public :: to_RealPolynomial => to_RealPolynomial_RealMonomial
     
-    procedure, public :: evaluate   => evaluate_RealMonomial
-    procedure, public :: derivative => derivative_RealMonomial
+    procedure, public :: energy => energy_RealMonomial
+    procedure, public :: force  => force_RealMonomial
     
     procedure, public :: read  => read_RealMonomial
     procedure, public :: write => write_RealMonomial
@@ -86,8 +95,8 @@ module real_polynomial_submodule
   contains
     procedure, public :: to_RealPolynomial => to_RealPolynomial_RealPolynomial
     
-    procedure, public :: evaluate   => evaluate_RealPolynomial
-    procedure, public :: derivative => derivative_RealPolynomial
+    procedure, public :: energy => energy_RealPolynomial
+    procedure, public :: force  => force_RealPolynomial
     
     procedure, public :: read  => read_RealPolynomial
     procedure, public :: write => write_RealPolynomial
@@ -140,6 +149,30 @@ module real_polynomial_submodule
   
   interface operator(+)
     module procedure add_RealPolynomialable_RealPolynomialable
+  end interface
+  
+  interface select_mode
+    module procedure select_mode_RealUnivariate
+  end interface
+  
+  interface select_modes
+    module procedure select_modes_RealUnivariates
+  end interface
+  
+  interface select_displacement
+    module procedure select_displacement_RealUnivariate
+  end interface
+  
+  interface select_displacements
+    module procedure select_displacements_RealUnivariates
+  end interface
+  
+  interface select_force
+    module procedure select_force_RealUnivariate
+  end interface
+  
+  interface select_forces
+    module procedure select_forces_RealUnivariates
   end interface
 contains
 
@@ -273,29 +306,32 @@ function size_RealPolynomial(this) result(output)
   output = size(this%terms)
 end function
 
-! Evaluate a univariate, monomial or polynomial at a given vector.
-impure elemental function evaluate_RealUnivariate(this,vector) result(output)
+! Evaluate the contribution to the energy from
+!    a univariate, monomial or polynomial at a given displacement.
+impure elemental function energy_RealUnivariate(this,displacement) &
+   & result(output)
   implicit none
   
-  class(RealUnivariate),       intent(in) :: this
-  class(RealSingleModeVector), intent(in) :: vector
-  real(dp)                                :: output
+  class(RealUnivariate),         intent(in) :: this
+  class(RealSingleDisplacement), intent(in) :: displacement
+  real(dp)                                  :: output
   
-  if (this%id/=vector%id) then
+  if (this%id/=displacement%id) then
     call print_line(CODE_ERROR//': Trying to evaluate a univariate at an &
        &incompatible displacement.')
     call err()
   endif
   
-  output = vector%magnitude**this%power
+  output = displacement%magnitude**this%power
 end function
 
-impure elemental function evaluate_RealMonomial(this,vector) result(output)
+impure elemental function energy_RealMonomial(this,displacement) &
+   & result(output)
   implicit none
   
-  class(RealMonomial),   intent(in) :: this
-  class(RealModeVector), intent(in) :: vector
-  real(dp)                          :: output
+  class(RealMonomial),         intent(in) :: this
+  class(RealModeDisplacement), intent(in) :: displacement
+  real(dp)                                :: output
   
   integer :: i,j
   
@@ -303,127 +339,134 @@ impure elemental function evaluate_RealMonomial(this,vector) result(output)
   
   do i=1,size(this)
     ! Find the mode in the displacement which matches that in the monomial.
-    j = first(vector%vectors%id==this%modes(i)%id,default=0)
+    j = first(displacement%vectors%id==this%modes(i)%id,default=0)
     
-    ! If the mode is not present in the vector, then the projection of the
-    !    vector along that mode is zero. As such, the monomial is zero.
-    !    (0^n=0 if n>0).
+    ! If the mode is not present in the displacement,
+    !    then the displacement along that mode is zero.
+    ! As such, the monomial is zero. (0^n=0 if n>0).
     if (j==0) then
       output = 0.0_dp
       return
     endif
     
-    ! If the mode is present in both, evaluate the univariate at the vector.
-    output = output * this%modes(i)%evaluate(vector%vectors(j))
+    ! If the mode is present in both,
+    !    evaluate the univariate at the displacement.
+    output = output * this%modes(i)%energy(displacement%vectors(j))
   enddo
 end function
 
-impure elemental function evaluate_RealPolynomial(this,vector) result(output)
+impure elemental function energy_RealPolynomial(this,displacement) &
+   & result(output)
   implicit none
   
-  class(RealPolynomial), intent(in) :: this
-  class(RealModeVector), intent(in) :: vector
-  real(dp)                          :: output
+  class(RealPolynomial),       intent(in) :: this
+  class(RealModeDisplacement), intent(in) :: displacement
+  real(dp)                                :: output
   
-  output = sum(this%terms%evaluate(vector))
+  output = sum(this%terms%energy(displacement))
 end function
 
-! Take the derivative of a univariate, monomial or polynomial at a given
-!    vector.
-! d/d{u_i} ({u_i}^n) evaluated at u_i=U is n*U^{n-1}
-impure elemental function derivative_RealUnivariate(this,vector) result(output)
+! Evaluate the contribution to the force from
+!    a univariate, monomial or polynomial at a given displacement.
+! -d/d{u_i} ({u_i}^n) evaluated at u_i=U is -n*U^{n-1}
+impure elemental function force_RealUnivariate(this,displacement) &
+   & result(output)
   implicit none
   
-  class(RealUnivariate),       intent(in) :: this
-  class(RealSingleModeVector), intent(in) :: vector
-  type(RealSingleModeVector)              :: output
+  class(RealUnivariate),         intent(in) :: this
+  class(RealSingleDisplacement), intent(in) :: displacement
+  type(RealSingleForce)                     :: output
   
-  real(dp) :: derivative
+  real(dp) :: force
   
-  if (this%id/=vector%id) then
+  if (this%id/=displacement%id) then
     call print_line(CODE_ERROR//': Trying to take the derivative of a &
        & univariate at an incompatible displacement.')
     call err()
   endif
   
-  if (this%power==1) then
-    derivative = 1.0_dp
+  if (this%power<1) then
+    call err()
+  elseif (this%power==1) then
+    force = -1.0_dp
   else
-    derivative = this%power * vector%magnitude**(this%power-1)
+    force = -this%power * displacement%magnitude**(this%power-1)
   endif
   
-  output = RealSingleModeVector(id=this%id, magnitude=derivative)
+  output = RealSingleForce(id=this%id, magnitude=force)
 end function
 
-! d/d{u_i} (c*prod_j[ {u_j}^{n_j} ]) evaluated at {u_i=U_i} is
-!    c*prod_{j/=i}[ {U_j}^{n_j} ] * n_i * {U_i}^{n_i-1}
-impure elemental function derivative_RealMonomial(this,vector) result(output)
+! -d/d{u_i} (c*prod_j[ {u_j}^{n_j} ]) evaluated at {u_i=U_i} is
+!    -c*prod_{j/=i}[ {U_j}^{n_j} ] * n_i * {U_i}^{n_i-1}
+impure elemental function force_RealMonomial(this,displacement) result(output)
   implicit none
   
-  class(RealMonomial),   intent(in) :: this
-  class(RealModeVector), intent(in) :: vector
-  type(RealModeVector)              :: output
+  class(RealMonomial),         intent(in) :: this
+  class(RealModeDisplacement), intent(in) :: displacement
+  type(RealModeForce)                     :: output
   
-  integer,                    allocatable :: vector_ids(:)
-  real(dp),                   allocatable :: evaluations(:)
-  type(RealSingleModeVector), allocatable :: derivatives(:)
-  
-  type(RealSingleModeVector), allocatable :: components(:)
+  integer,               allocatable :: displacement_ids(:)
+  real(dp),              allocatable :: evaluations(:)
+  type(RealSingleForce), allocatable :: forces(:)
+  type(RealSingleForce), allocatable :: components(:)
   
   integer :: i,j,ialloc
   
-  ! Match the components of the vector along each mode with the univariates
-  !    making up the monomial.
+  ! Match the components of the displacement along each mode with the
+  !    univariates making up the monomial.
   ! Evaluate and take the derivative of each univariate at the one-mode
   !    component of the vector.
-  allocate( vector_ids(size(this)),  &
-          & evaluations(size(this)), &
-          & derivatives(size(this)), &
+  allocate( displacement_ids(size(this)),  &
+          & evaluations(size(this)),       &
+          & forces(size(this)),            &
           & stat=ialloc); call err(ialloc)
   do i=1,size(this)
-    ! Identify the vector corresponding to each mode.
-    ! If vector_ids(i)=0 then U_i=0.
-    vector_ids(i) = first(vector%vectors%id==this%modes(i)%id, default=0)
+    ! Identify the displacement corresponding to each mode.
+    ! If displacement_ids(i)=0 then U_i=0.
+    displacement_ids(i) = first( displacement%vectors%id==this%modes(i)%id, &
+                               & default=0)
     
     ! Calculate {U_i}^{n_i}
-    if (vector_ids(i)==0) then
+    if (displacement_ids(i)==0) then
       evaluations(i) = 0.0_dp
     else
-      evaluations(i) = this%modes(i)%evaluate(vector%vectors(vector_ids(i)))
+      evaluations(i) = this%modes(i)%energy(         &
+         & displacement%vectors(displacement_ids(i)) )
     endif
     
-    ! Calculate d/d{u_i} ({u_i}^{n_i}) evaluated at U_i.
-    if (vector_ids(i)==0) then
+    ! Calculate -d/d{u_i} ({u_i}^{n_i}) evaluated at U_i.
+    if (displacement_ids(i)==0) then
       if (this%modes(i)%power==1) then
-        derivatives(i) = RealSingleModeVector( id=this%modes(i)%id, &
-                                             & magnitude=1.0_dp)
+        forces(i) = RealSingleForce( id=this%modes(i)%id, &
+                                   & magnitude=-1.0_dp    )
       else
-        derivatives(i) = RealSingleModeVector( id=this%modes(i)%id, &
-                                             & magnitude=0.0_dp)
+        forces(i) = RealSingleForce( id=this%modes(i)%id, &
+                                   & magnitude=0.0_dp     )
       endif
     else
-      derivatives(i) = this%modes(i)%derivative(vector%vectors(vector_ids(i)))
+      forces(i) = this%modes(i)%force(               &
+         & displacement%vectors(displacement_ids(i)) )
     endif
   enddo
   
-  ! Use the Univariate terms to calculate derivatives along each mode.
-  if (count(vector_ids==0)>1) then
+  ! Use the Univariate terms to calculate forces along each mode.
+  if (count(displacement_ids==0)>1) then
     ! If U_i is zero for more than one i, then
     !    prod_{j/=i}[ {U_j}^{n_j} ] is always zero,
     !    so all derivatives are zero.
-    components = [RealSingleModeVector::]
-  elseif (count(vector_ids==0)==1) then
-    i = first(vector_ids==0, default=0)
+    components = [RealSingleForce::]
+  elseif (count(displacement_ids==0)==1) then
+    i = first(displacement_ids==0, default=0)
     if (this%modes(i)%power>1) then
       ! If n_i>1, then the derivative along u_i is also zero.
-      components = [RealSingleModeVector::]
+      components = [RealSingleForce::]
     else
       ! If n_i=1, then the derivative is simply c*prod_{j/=i}[ {U_j}^{n_j}
       components = [ this%coefficient                       &
                  & * product( evaluations,                  &
                  &            dim=1,                        &
                  &            mask=[(j,j=1,size(this))]/=i) &
-                 & * derivatives(i)                         &
+                 & * forces(i)                              &
                  & ]
     endif
   else
@@ -435,25 +478,26 @@ impure elemental function derivative_RealMonomial(this,vector) result(output)
                   & * product( evaluations,                  &
                   &            dim=1,                        &
                   &            mask=[(j,j=1,size(this))]/=i) &
-                  & * derivatives(i)
+                  & * forces(i)
     enddo
   endif
   
   ! Construct output from components along each mode.
-  output = RealModeVector(components)
+  output = RealModeForce(components)
 end function
 
-impure elemental function derivative_RealPolynomial(this,vector) result(output)
+impure elemental function force_RealPolynomial(this,displacement) &
+   & result(output)
   implicit none
   
-  class(RealPolynomial), intent(in) :: this
-  class(RealModeVector), intent(in) :: vector
-  type(RealModeVector)              :: output
+  class(RealPolynomial),       intent(in) :: this
+  class(RealModeDisplacement), intent(in) :: displacement
+  type(RealModeForce)                     :: output
   
   if (size(this)==0) then
-    output = RealModeVector([RealSingleModeVector::])
+    output = RealModeForce([RealSingleForce::])
   else
-    output = sum(this%terms%derivative(vector))
+    output = sum(this%terms%force(displacement))
   endif
 end function
 
@@ -610,6 +654,90 @@ contains
       end select
     end select
   end function
+end function
+
+! ----------------------------------------------------------------------
+! Select modes, displacements or forces corresponding to
+!    a given univariate or univariates.
+! ----------------------------------------------------------------------
+function select_mode_RealUnivariate(univariate,modes) result(output)
+  implicit none
+  
+  type(RealUnivariate), intent(in) :: univariate
+  type(RealMode),       intent(in) :: modes(:)
+  type(RealMode)                   :: output
+  
+  output = modes(first(modes%id==univariate%id))
+end function
+
+function select_modes_RealUnivariates(univariates,modes) &
+   & result(output)
+  implicit none
+  
+  type(RealUnivariate), intent(in) :: univariates(:)
+  type(RealMode),       intent(in) :: modes(:)
+  type(RealMode), allocatable      :: output(:)
+  
+  integer :: i,ialloc
+  
+  allocate(output(size(univariates)), stat=ialloc); call err(ialloc)
+  do i=1,size(univariates)
+    output(i) = select_mode(univariates(i), modes)
+  enddo
+end function
+
+function select_displacement_RealUnivariate(univariate,displacements) &
+   & result(output)
+  implicit none
+  
+  type(RealUnivariate),         intent(in) :: univariate
+  type(RealSingleDisplacement), intent(in) :: displacements(:)
+  type(RealSingleDisplacement)             :: output
+  
+  output = displacements(first(displacements%id==univariate%id))
+end function
+
+function select_displacements_RealUnivariates(univariates,displacements) &
+   & result(output)
+  implicit none
+  
+  type(RealUnivariate),         intent(in)  :: univariates(:)
+  type(RealSingleDisplacement), intent(in)  :: displacements(:)
+  type(RealSingleDisplacement), allocatable :: output(:)
+  
+  integer :: i,ialloc
+  
+  allocate(output(size(univariates)), stat=ialloc); call err(ialloc)
+  do i=1,size(univariates)
+    output(i) = select_displacement(univariates(i), displacements)
+  enddo
+end function
+
+function select_force_RealUnivariate(univariate,forces) &
+   & result(output)
+  implicit none
+  
+  type(RealUnivariate),  intent(in) :: univariate
+  type(RealSingleForce), intent(in) :: forces(:)
+  type(RealSingleForce)             :: output
+  
+  output = forces(first(forces%id==univariate%id))
+end function
+
+function select_forces_RealUnivariates(univariates,forces) &
+   & result(output)
+  implicit none
+  
+  type(RealUnivariate),  intent(in)  :: univariates(:)
+  type(RealSingleForce), intent(in)  :: forces(:)
+  type(RealSingleForce), allocatable :: output(:)
+  
+  integer :: i,ialloc
+  
+  allocate(output(size(univariates)), stat=ialloc); call err(ialloc)
+  do i=1,size(univariates)
+    output(i) = select_force(univariates(i), forces)
+  enddo
 end function
 
 ! ----------------------------------------------------------------------

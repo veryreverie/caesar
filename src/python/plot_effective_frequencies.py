@@ -51,9 +51,24 @@ def main():
         if 'Sampled energies' in modes[-1]:
           modes[-1]['Sampled energies'].append(float(line[4]))
   
-  fig, axes = plt.subplots(2,len(modes))
+  for mode in modes:
+    mode['Anharmonic difference'] = []
+    for har,anh in zip(mode['Harmonic energies'],mode['Anharmonic energies']):
+       mode['Anharmonic difference'].append(anh-har)
+    
+    mode['Effective difference'] = []
+    for har,eff in zip(mode['Harmonic energies'],mode['Effective energies']):
+       mode['Effective difference'].append(eff-har)
+    
+    if 'Sampled energies' in mode:
+      mode['Sampled difference'] = []
+      for har,eff in zip(mode['Harmonic energies'],mode['Sampled energies']):
+         mode['Sampled difference'].append(eff-har)
   
   # Plot data.
+  
+  fig, axes = plt.subplots(3,len(modes))
+  
   for ax in axes[0]:
     for mode in modes:
       ax.hlines([mode['Harmonic frequency']], 0, 1, color=colours['turquoise'])
@@ -72,6 +87,15 @@ def main():
       ax.plot(mode['Displacements'], mode['Sampled energies'],
               color=colours['green'])
   
+  for mode,ax in zip(modes,axes[2]):
+    ax.plot(mode['Displacements'], mode['Anharmonic difference'], 
+            color=colours['turquoise'])
+    ax.plot(mode['Displacements'], mode['Effective difference'],
+            color=colours['purple'])
+    if 'Sampled difference' in mode:
+      ax.plot(mode['Displacements'], mode['Sampled difference'],
+              color=colours['green'])
+  
   # Configure top axes.
   min_frequency = modes[0]['Harmonic frequency']
   max_frequency = modes[-1]['Harmonic frequency']
@@ -81,16 +105,16 @@ def main():
   for ax in axes[0]:
     ax.set_ylim(ymin,ymax)
   
-  # Configure bottom axes.
+  # Configure middle y-axes.
   min_energy = 0
   max_energy = 0
   for mode in modes:
-    #min_energy = min(min_energy, min(mode['Anharmonic energies']))
+    min_energy = min(min_energy, min(mode['Anharmonic energies']))
     min_energy = min(min_energy, min(mode['Harmonic energies']))
-    #min_energy = min(min_energy, min(mode['Effective energies']))
-    #max_energy = max(max_energy, max(mode['Anharmonic energies']))
+    min_energy = min(min_energy, min(mode['Effective energies']))
+    max_energy = max(max_energy, max(mode['Anharmonic energies']))
     max_energy = max(max_energy, max(mode['Harmonic energies']))
-    #max_energy = max(max_energy, max(mode['Effective energies']))
+    max_energy = max(max_energy, max(mode['Effective energies']))
     if 'Sampled energies' in mode:
       min_energy = min(min_energy, min(mode['Sampled energies']))
       max_energy = max(max_energy, max(mode['Sampled energies']))
@@ -100,6 +124,24 @@ def main():
   for ax in axes[1]:
     ax.set_ylim(ymin,ymax)
   
+  # Configure bottom y-axes.
+  min_difference = 0
+  max_difference = 0
+  for mode in modes:
+    min_difference = min(min_difference, min(mode['Anharmonic difference']))
+    min_difference = min(min_difference, min(mode['Effective difference']))
+    max_difference = max(max_difference, max(mode['Anharmonic difference']))
+    max_difference = max(max_difference, max(mode['Effective difference']))
+    if 'Sampled difference' in mode:
+      min_difference = min(min_difference, min(mode['Sampled difference']))
+      max_difference = max(max_difference, max(mode['Sampled difference']))
+  
+  ymin = min_difference - 0.1*(max_difference-min_difference)
+  ymax = max_difference + 0.1*(max_difference-min_difference)
+  for ax in axes[2]:
+    ax.set_ylim(ymin,ymax)
+  
+  # Configure middle and bottom x-axes.
   min_displacement = 0
   max_displacement = 0
   for mode in modes:
@@ -109,6 +151,8 @@ def main():
   xmin = min_displacement - 0.1*(max_displacement-min_displacement)
   xmax = max_displacement + 0.1*(max_displacement-min_displacement)
   for ax in axes[1]:
+    ax.set_xlim(xmin,xmax)
+  for ax in axes[2]:
     ax.set_xlim(xmin,xmax)
   
   plt.show()

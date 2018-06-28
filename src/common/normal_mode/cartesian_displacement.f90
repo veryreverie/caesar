@@ -5,13 +5,12 @@ module cartesian_displacement_submodule
   use utils_module
   
   use structure_module
-  
-  use cartesian_vector_submodule
   implicit none
   
   private
   
   public :: CartesianDisplacement
+  public :: size
   public :: displace_structure
   public :: operator(*)
   public :: operator(/)
@@ -19,16 +18,20 @@ module cartesian_displacement_submodule
   public :: sum
   public :: operator(-)
   
-  type, extends(CartesianVector) :: CartesianDisplacement
+  type, extends(Stringsable) :: CartesianDisplacement
+    type(RealVector), allocatable :: vectors(:)
   contains
     procedure, public :: read  => read_CartesianDisplacement
     procedure, public :: write => write_CartesianDisplacement
   end type
   
   interface CartesianDisplacement
-    module procedure new_CartesianDisplacement_CartesianVector
     module procedure new_CartesianDisplacement
     module procedure new_CartesianDisplacement_StringArray
+  end interface
+  
+  interface size
+    module procedure size_CartesianDisplacement
   end interface
   
   interface displace_structure
@@ -59,24 +62,24 @@ module cartesian_displacement_submodule
 contains
 
 ! ----------------------------------------------------------------------
-! Constructors.
+! Constructor and size() function.
 ! ----------------------------------------------------------------------
-function new_CartesianDisplacement_CartesianVector(displacements) result(this)
-  implicit none
-  
-  type(CartesianVector), intent(in) :: displacements
-  type(CartesianDisplacement)       :: this
-  
-  this%CartesianVector = displacements
-end function
-
 function new_CartesianDisplacement(displacements) result(this)
   implicit none
   
   type(RealVector), intent(in) :: displacements(:)
   type(CartesianDisplacement)  :: this
   
-  this = CartesianDisplacement(CartesianVector(displacements))
+  this%vectors = displacements
+end function
+
+function size_CartesianDisplacement(this) result(output)
+  implicit none
+  
+  class(CartesianDisplacement), intent(in) :: this
+  integer                                  :: output
+  
+  output = size(this%vectors)
 end function
 
 ! ----------------------------------------------------------------------
@@ -118,7 +121,7 @@ impure elemental function multiply_real_CartesianDisplacement(this,that) &
   type(CartesianDisplacement), intent(in) :: that
   type(CartesianDisplacement)             :: output
   
-  output = CartesianDisplacement(this * that%CartesianVector)
+  output = CartesianDisplacement(this * that%vectors)
 end function
 
 impure elemental function multiply_CartesianDisplacement_real(this,that) &
@@ -129,7 +132,7 @@ impure elemental function multiply_CartesianDisplacement_real(this,that) &
   real(dp),                    intent(in) :: that
   type(CartesianDisplacement)             :: output
   
-  output = CartesianDisplacement(this%CartesianVector * that)
+  output = CartesianDisplacement(this%vectors * that)
 end function
 
 impure elemental function divide_CartesianDisplacement_real(this,that) &
@@ -140,7 +143,7 @@ impure elemental function divide_CartesianDisplacement_real(this,that) &
   real(dp),                    intent(in) :: that
   type(CartesianDisplacement)             :: output
   
-  output = CartesianDisplacement(this%CartesianVector / that)
+  output = CartesianDisplacement(this%vectors / that)
 end function
 
 impure elemental function add_CartesianDisplacement_CartesianDisplacement( &
@@ -151,7 +154,7 @@ impure elemental function add_CartesianDisplacement_CartesianDisplacement( &
   type(CartesianDisplacement), intent(in) :: that
   type(CartesianDisplacement)             :: output
   
-  output = CartesianDisplacement(this%CartesianVector + that%CartesianVector)
+  output = CartesianDisplacement(this%vectors + that%vectors)
 end function
 
 function sum_CartesianDisplacements(input) result(output)
@@ -160,7 +163,17 @@ function sum_CartesianDisplacements(input) result(output)
   type(CartesianDisplacement), intent(in) :: input(:)
   type(CartesianDisplacement)             :: output
   
-  output = CartesianDisplacement(sum(input%CartesianVector))
+  integer :: i
+  
+  if (size(input)==0) then
+    call print_line(ERROR//': Trying to sum an empty array.')
+    call err()
+  endif
+  
+  output = input(1)
+  do i=2,size(input)
+    output = output + input(i)
+  enddo
 end function
 
 impure elemental function negative_CartesianDisplacement(this) result(output)
@@ -169,7 +182,7 @@ impure elemental function negative_CartesianDisplacement(this) result(output)
   type(CartesianDisplacement), intent(in) :: this
   type(CartesianDisplacement)             :: output
   
-  output = CartesianDisplacement(-this%CartesianVector)
+  output = CartesianDisplacement(-this%vectors)
 end function
 
 impure elemental function                                            &
@@ -181,7 +194,7 @@ impure elemental function                                            &
   type(CartesianDisplacement), intent(in) :: that
   type(CartesianDisplacement)             :: output
   
-  output = CartesianDisplacement(this%CartesianVector - that%CartesianVector)
+  output = CartesianDisplacement(this%vectors - that%vectors)
 end function
 
 ! ----------------------------------------------------------------------
@@ -194,7 +207,7 @@ subroutine read_CartesianDisplacement(this,input)
   type(String),                 intent(in)  :: input(:)
   
   select type(this); type is(CartesianDisplacement)
-    this = CartesianDisplacement(CartesianVector(StringArray(input)))
+    this = CartesianDisplacement(RealVector(input))
   end select
 end subroutine
 
@@ -205,7 +218,7 @@ function write_CartesianDisplacement(this) result(output)
   type(String), allocatable                :: output(:)
   
   select type(this); type is(CartesianDisplacement)
-    output = str(this%CartesianVector)
+    output = str(this%vectors)
   end select
 end function
 

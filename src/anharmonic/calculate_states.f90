@@ -232,7 +232,7 @@ subroutine calculate_states_subroutine(arguments)
   ! Re-calculate maximum_weighted_displacement.
   ! --------------------------------------------------
   maximum_weighted_displacement = maximum_displacement &
-                              & / sqrt(minval(structure%atoms%mass()))
+                              & * sqrt(minval(structure%atoms%mass()))
   
   ! --------------------------------------------------
   ! Calculate effective harmonic potential, from which initial harmonic
@@ -299,7 +299,7 @@ subroutine calculate_states_subroutine(arguments)
              & [real_mode],                              &
              & [effective_frequencies(qpoint_modes(j))%displacements(k)])
           displacement = CartesianDisplacement( real_mode_displacement, &
-                                              & structure,              &
+                                              & supercell,              &
                                               & real_modes,             &
                                               & qpoints)
           displaced_structure = displace_structure(supercell,displacement)

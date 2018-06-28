@@ -200,7 +200,7 @@ subroutine calculate_potential_subroutine(arguments)
   enddo
   
   maximum_weighted_displacement = maximum_displacement &
-                              & / sqrt(minval(structure%atoms%mass()))
+                              & * sqrt(minval(structure%atoms%mass()))
   
   ! --------------------------------------------------
   ! Load anharmonic data into container.

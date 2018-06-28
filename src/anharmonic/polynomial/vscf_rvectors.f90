@@ -44,11 +44,8 @@ module vscf_rvectors_module
     procedure, private :: inverse_transform_RealModeForce
     
     ! Helper functions for transform and inverse_transform.
-    generic,   private :: transform_ =>                &
-                        & transform_ComplexModeVector, &
-                        & transform_RealModeVector
-    procedure, private :: transform_ComplexModeVector
-    procedure, private :: transform_RealModeVector
+    procedure, private :: transform_complex_magnitudes
+    procedure, private :: transform_real_magnitudes
     
     ! I/O.
     procedure, public :: read  => read_VscfRvectors
@@ -178,10 +175,28 @@ function transform_ComplexModeDisplacement(this,displacement,modes,qpoints) &
   type(QpointData),              intent(in) :: qpoints(:)
   type(ComplexModeDisplacement)             :: output
   
-  output = ComplexModeDisplacement(this%transform_( displacement, &
-                                                  & modes,        &
-                                                  & qpoints,      &
-                                                  & inverse=.false.))
+  type(ComplexMode), allocatable :: output_modes(:)
+  complex(dp),       allocatable :: magnitudes(:)
+  
+  integer :: i
+  
+  output_modes = select_modes(displacement%vectors, modes)
+  magnitudes = displacement%vectors%magnitude
+  
+  do i=1,size(output_modes)
+    if (.not. any(output_modes%id==output_modes(i)%paired_id)) then
+      output_modes = [ output_modes,                                     &
+                     & modes(first(modes%id==output_modes(i)%paired_id)) ]
+      magnitudes = [magnitudes, cmplx(0.0_dp,0.0_dp,dp)]
+    endif
+  enddo
+  
+  output = ComplexModeDisplacement(                          &
+     & output_modes,                                         &
+     & this%transform_complex_magnitudes( output_modes,      &
+     &                                    magnitudes,        &
+     &                                    qpoints,           &
+     &                                    inverse = .false. ))
 end function
 
 function transform_ComplexModeForce(this,force,modes,qpoints) &
@@ -194,10 +209,28 @@ function transform_ComplexModeForce(this,force,modes,qpoints) &
   type(QpointData),       intent(in) :: qpoints(:)
   type(ComplexModeForce)             :: output
   
-  output = ComplexModeForce(this%transform_( force,   &
-                                           & modes,   &
-                                           & qpoints, &
-                                           & inverse=.false.))
+  type(ComplexMode), allocatable :: output_modes(:)
+  complex(dp),       allocatable :: magnitudes(:)
+  
+  integer :: i
+  
+  output_modes = select_modes(force%vectors, modes)
+  magnitudes = force%vectors%magnitude
+  
+  do i=1,size(output_modes)
+    if (.not. any(output_modes%id==output_modes(i)%paired_id)) then
+      output_modes = [ output_modes,                                     &
+                     & modes(first(modes%id==output_modes(i)%paired_id)) ]
+      magnitudes = [magnitudes, cmplx(0.0_dp,0.0_dp,dp)]
+    endif
+  enddo
+  
+  output = ComplexModeForce(                                 &
+     & output_modes,                                         &
+     & this%transform_complex_magnitudes( output_modes,      &
+     &                                    magnitudes,        &
+     &                                    qpoints,           &
+     &                                    inverse = .false. ))
 end function
 
 function transform_RealModeDisplacement(this,displacement,modes,qpoints) &
@@ -210,10 +243,28 @@ function transform_RealModeDisplacement(this,displacement,modes,qpoints) &
   type(QpointData),           intent(in) :: qpoints(:)
   type(RealModeDisplacement)             :: output
   
-  output = RealModeDisplacement(this%transform_( displacement, &
-                                               & modes,        &
-                                               & qpoints,      &
-                                               & inverse=.false.))
+  type(RealMode), allocatable :: output_modes(:)
+  real(dp),       allocatable :: magnitudes(:)
+  
+  integer :: i
+  
+  output_modes = select_modes(displacement%vectors, modes)
+  magnitudes = displacement%vectors%magnitude
+  
+  do i=1,size(output_modes)
+    if (.not. any(output_modes%id==output_modes(i)%paired_id)) then
+      output_modes = [ output_modes,                                     &
+                     & modes(first(modes%id==output_modes(i)%paired_id)) ]
+      magnitudes = [magnitudes, 0.0_dp]
+    endif
+  enddo
+  
+  output = RealModeDisplacement(                          &
+     & output_modes,                                      &
+     & this%transform_real_magnitudes( output_modes,      &
+     &                                 magnitudes,        &
+     &                                 qpoints,           &
+     &                                 inverse = .false. ))
 end function
 
 function transform_RealModeForce(this,force,modes,qpoints) &
@@ -226,10 +277,28 @@ function transform_RealModeForce(this,force,modes,qpoints) &
   type(QpointData),    intent(in) :: qpoints(:)
   type(RealModeForce)             :: output
   
-  output = RealModeForce(this%transform_( force, &
-                                        & modes,        &
-                                        & qpoints,      &
-                                        & inverse=.false.))
+  type(RealMode), allocatable :: output_modes(:)
+  real(dp),       allocatable :: magnitudes(:)
+  
+  integer :: i
+  
+  output_modes = select_modes(force%vectors, modes)
+  magnitudes = force%vectors%magnitude
+  
+  do i=1,size(output_modes)
+    if (.not. any(output_modes%id==output_modes(i)%paired_id)) then
+      output_modes = [ output_modes,                                     &
+                     & modes(first(modes%id==output_modes(i)%paired_id)) ]
+      magnitudes = [magnitudes, 0.0_dp]
+    endif
+  enddo
+  
+  output = RealModeForce(                                 &
+     & output_modes,                                      &
+     & this%transform_real_magnitudes( output_modes,      &
+     &                                 magnitudes,        &
+     &                                 qpoints,           &
+     &                                 inverse = .false. ))
 end function
 
 function inverse_transform_ComplexModeDisplacement(this,displacement,modes, &
@@ -242,10 +311,28 @@ function inverse_transform_ComplexModeDisplacement(this,displacement,modes, &
   type(QpointData),              intent(in) :: qpoints(:)
   type(ComplexModeDisplacement)             :: output
   
-  output = ComplexModeDisplacement(this%transform_( displacement, &
-                                                  & modes,        &
-                                                  & qpoints,      &
-                                                  & inverse=.true.))
+  type(ComplexMode), allocatable :: output_modes(:)
+  complex(dp),       allocatable :: magnitudes(:)
+  
+  integer :: i
+  
+  output_modes = select_modes(displacement%vectors, modes)
+  magnitudes = displacement%vectors%magnitude
+  
+  do i=1,size(output_modes)
+    if (.not. any(output_modes%id==output_modes(i)%paired_id)) then
+      output_modes = [ output_modes,                                     &
+                     & modes(first(modes%id==output_modes(i)%paired_id)) ]
+      magnitudes = [magnitudes, cmplx(0.0_dp,0.0_dp,dp)]
+    endif
+  enddo
+  
+  output = ComplexModeDisplacement(                         &
+     & output_modes,                                        &
+     & this%transform_complex_magnitudes( output_modes,     &
+     &                                    magnitudes,       &
+     &                                    qpoints,          &
+     &                                    inverse = .true. ))
 end function
 
 function inverse_transform_ComplexModeForce(this,force,modes,qpoints) &
@@ -258,10 +345,28 @@ function inverse_transform_ComplexModeForce(this,force,modes,qpoints) &
   type(QpointData),       intent(in) :: qpoints(:)
   type(ComplexModeForce)             :: output
   
-  output = ComplexModeForce(this%transform_( force,   &
-                                           & modes,   &
-                                           & qpoints, &
-                                           & inverse=.true.))
+  type(ComplexMode), allocatable :: output_modes(:)
+  complex(dp),       allocatable :: magnitudes(:)
+  
+  integer :: i
+  
+  output_modes = select_modes(force%vectors, modes)
+  magnitudes = force%vectors%magnitude
+  
+  do i=1,size(output_modes)
+    if (.not. any(output_modes%id==output_modes(i)%paired_id)) then
+      output_modes = [ output_modes,                                     &
+                     & modes(first(modes%id==output_modes(i)%paired_id)) ]
+      magnitudes = [magnitudes, cmplx(0.0_dp,0.0_dp,dp)]
+    endif
+  enddo
+  
+  output = ComplexModeForce(                                &
+     & output_modes,                                        &
+     & this%transform_complex_magnitudes( output_modes,     &
+     &                                    magnitudes,       &
+     &                                    qpoints,          &
+     &                                    inverse = .true. ))
 end function
 
 function inverse_transform_RealModeDisplacement(this,displacement,modes, &
@@ -274,10 +379,28 @@ function inverse_transform_RealModeDisplacement(this,displacement,modes, &
   type(QpointData),           intent(in) :: qpoints(:)
   type(RealModeDisplacement)             :: output
   
-  output = RealModeDisplacement(this%transform_( displacement, &
-                                               & modes,        &
-                                               & qpoints,      &
-                                               & inverse=.true.))
+  type(RealMode), allocatable :: output_modes(:)
+  real(dp),       allocatable :: magnitudes(:)
+  
+  integer :: i
+  
+  output_modes = select_modes(displacement%vectors, modes)
+  magnitudes = displacement%vectors%magnitude
+  
+  do i=1,size(output_modes)
+    if (.not. any(output_modes%id==output_modes(i)%paired_id)) then
+      output_modes = [ output_modes,                                     &
+                     & modes(first(modes%id==output_modes(i)%paired_id)) ]
+      magnitudes = [magnitudes, 0.0_dp]
+    endif
+  enddo
+  
+  output = RealModeDisplacement(                         &
+     & output_modes,                                     &
+     & this%transform_real_magnitudes( output_modes,     &
+     &                                 magnitudes,       &
+     &                                 qpoints,          &
+     &                                 inverse = .true. ))
 end function
 
 function inverse_transform_RealModeForce(this,force,modes,qpoints) &
@@ -290,160 +413,139 @@ function inverse_transform_RealModeForce(this,force,modes,qpoints) &
   type(QpointData),    intent(in) :: qpoints(:)
   type(RealModeForce)             :: output
   
-  output = RealModeForce(this%transform_( force,        &
-                                        & modes,        &
-                                        & qpoints,      &
-                                        & inverse=.true.))
+  type(RealMode), allocatable :: output_modes(:)
+  real(dp),       allocatable :: magnitudes(:)
+  
+  integer :: i
+  
+  output_modes = select_modes(force%vectors, modes)
+  magnitudes = force%vectors%magnitude
+  
+  do i=1,size(output_modes)
+    if (.not. any(output_modes%id==output_modes(i)%paired_id)) then
+      output_modes = [ output_modes,                                     &
+                     & modes(first(modes%id==output_modes(i)%paired_id)) ]
+      magnitudes = [magnitudes, 0.0_dp]
+    endif
+  enddo
+  
+  output = RealModeForce(                                &
+     & output_modes,                                     &
+     & this%transform_real_magnitudes( output_modes,     &
+     &                                 magnitudes,       &
+     &                                 qpoints,          &
+     &                                 inverse = .true. ))
 end function
 
-function transform_ComplexModeVector(this,vector,modes,qpoints, &
+function transform_complex_magnitudes(this,modes,magnitudes,qpoints, &
    & inverse) result(output)
   implicit none
   
-  class(VscfRvectors),      intent(in) :: this
-  class(ComplexModeVector), intent(in) :: vector
-  type(ComplexMode),        intent(in) :: modes(:)
-  type(QpointData),         intent(in) :: qpoints(:)
-  logical,                  intent(in) :: inverse
-  type(ComplexModeVector)              :: output
+  class(VscfRvectors), intent(in)  :: this
+  type(ComplexMode),   intent(in)  :: modes(:)
+  complex(dp),         intent(in)  :: magnitudes(:)
+  type(QpointData),    intent(in)  :: qpoints(:)
+  logical,             intent(in)  :: inverse
+  complex(dp), allocatable         :: output(:)
   
-  type(ComplexMode)    :: mode
-  type(IntVector)      :: r
-  type(FractionVector) :: q
+  type(ComplexMode) :: mode
+  type(QpointData)  :: qpoint
+  type(IntVector)   :: rvector
   
-  integer :: i,j
+  integer :: i,j,ialloc
   
-  output = vector
-  
+  allocate(output(size(magnitudes)), stat=ialloc); call err(ialloc)
   do i=1,size(output)
-    mode = modes(first(modes%id==vector%vectors(i)%id))
+    mode = modes(i)
+    qpoint = select_qpoint(mode, qpoints)
+    
     j = first(this%vscf_rvectors%subspace_id==mode%subspace_id, default=0)
     if (j==0) then
       ! This mode is unaffected by the VSCF R-vector translation.
+      output(i) = magnitudes(i)
       cycle
     endif
     
-    r = this%vscf_rvectors(j)%rvector
-    q = qpoints(first(qpoints%id==mode%qpoint_id))%qpoint
-    
+    rvector = this%vscf_rvectors(j)%rvector
     if (inverse) then
-      r = -r
+      rvector = -rvector
     endif
     
-    ! u_q -> exp{2*pi*i*q.R}u_q
-    output%vectors(i)%magnitude = exp_2pii(q*r) &
-                              & * vector%vectors(i)%magnitude
+    ! u_q -> u_q * exp{2*pi*i*q.R}
+    output(i) = magnitudes(i) &
+              * exp_2pii(qpoint%qpoint*rvector)
   enddo
 end function
 
-function transform_RealModeVector(this,vector,modes,qpoints, &
+function transform_real_magnitudes(this,modes,magnitudes,qpoints, &
    & inverse) result(output)
   implicit none
   
   class(VscfRvectors),   intent(in) :: this
-  class(RealModeVector), intent(in) :: vector
   type(RealMode),        intent(in) :: modes(:)
+  real(dp),              intent(in) :: magnitudes(:)
   type(QpointData),      intent(in) :: qpoints(:)
   logical,               intent(in) :: inverse
-  type(RealModeVector)              :: output
+  real(dp), allocatable             :: output(:)
   
-  type(RealMode)       :: mode
-  type(IntVector)      :: r
-  type(FractionVector) :: q
+  type(RealMode)   :: mode
+  type(QpointData) :: qpoint
+  type(IntVector)  :: rvector
   
   logical, allocatable :: mode_transformed(:)
-  real(dp)             :: new_vector
-  real(dp)             :: paired_vector
   
   integer :: i,j,ialloc
   
-  output = vector
-  
-  allocate(mode_transformed(size(vector)), stat=ialloc); call err(ialloc)
+  allocate( output(size(magnitudes)),           &
+          & mode_transformed(size(magnitudes)), &
+          & stat=ialloc); call err(ialloc)
   mode_transformed = .false.
-  do i=1,size(vector)
+  do i=1,size(magnitudes)
     if (mode_transformed(i)) then
       cycle
     endif
     
-    mode = modes(first(modes%id==vector%vectors(i)%id))
+    mode   = modes(i)
+    qpoint = select_qpoint(mode, qpoints)
     
     j = first(this%vscf_rvectors%subspace_id==mode%subspace_id, default=0)
     if (j==0) then
       ! This mode is unaffected by the VSCF R-vector translation.
+      output(i) = magnitudes(i)
       mode_transformed(i) = .true.
       cycle
     endif
-    r = this%vscf_rvectors(j)%rvector
-    if (inverse) then
-      r = -r
-    endif
     
-    q = qpoints(first(qpoints%id==mode%qpoint_id_plus))%qpoint
+    rvector = this%vscf_rvectors(j)%rvector
+    if (inverse) then
+      rvector = -rvector
+    endif
     
     ! Calculate the transformed vector along vector i,
     !    and along the mode paired to vector i.
-    j = first(vector%vectors%id==mode%paired_id, default=0)
+    j = first(modes%id==mode%paired_id)
     if (j==i) then
       ! The mode is its own pair, so cos(2*pi*q.R) = +/-1.
       ! u -> cos(2*pi*q.r) * u.
-      new_vector = cos_2pi(q*r) * vector%vectors(i)%magnitude
-    elseif (j==0) then
-      ! u_c -> cos(2*pi*q.R)u_c - sin(2*pi*q.R)u_s
-      ! u_s -> cos(2*pi*q.R)u_s + sin(2*pi*q.R)u_c
-      new_vector = cos_2pi(q*r) * vector%vectors(i)%magnitude
-      if (mode%id<mode%paired_id) then
-        ! Displacement i is u_c, u_s = 0
-        paired_vector = sin_2pi(q*r) * vector%vectors(i)%magnitude
-      else
-        ! Displacement i is u_s, u_c = 0
-        paired_vector = -sin_2pi(q*r) * vector%vectors(i)%magnitude
-      endif
+      output(i) = cos_2pi(qpoint%qpoint*rvector) * magnitudes(i)
     else
       if (mode%id<mode%paired_id) then
         ! Displacement i is u_c, vector j is u_s.
-        new_vector = cos_2pi(q*r)                      &
-                       & * vector%vectors(i)%magnitude &
-                       & - sin_2pi(q*r)                &
-                       & * vector%vectors(j)%magnitude
-        paired_vector = cos_2pi(q*r)                      &
-                          & * vector%vectors(j)%magnitude &
-                          & + sin_2pi(q*r)                &
-                          & * vector%vectors(i)%magnitude
+        output(i) = cos_2pi(qpoint%qpoint*rvector)*magnitudes(i) &
+                & - sin_2pi(qpoint%qpoint*rvector)*magnitudes(j)
+        output(j) = cos_2pi(qpoint%qpoint*rvector)*magnitudes(j) &
+                & + sin_2pi(qpoint%qpoint*rvector)*magnitudes(i)
       else
         ! Displacement i is u_s, vector j is u_c.
-        new_vector = cos_2pi(q*r)                      &
-                       & * vector%vectors(i)%magnitude &
-                       & + sin_2pi(q*r)                &
-                       & * vector%vectors(j)%magnitude
-        paired_vector = cos_2pi(q*r)                      &
-                          & * vector%vectors(j)%magnitude &
-                          & - sin_2pi(q*r)                &
-                          & * vector%vectors(i)%magnitude
+        output(i) = cos_2pi(qpoint%qpoint*rvector)*magnitudes(i) &
+                & + sin_2pi(qpoint%qpoint*rvector)*magnitudes(j)
+        output(j) = cos_2pi(qpoint%qpoint*rvector)*magnitudes(j) &
+                & - sin_2pi(qpoint%qpoint*rvector)*magnitudes(i)
       endif
     endif
     
-    ! Update the vector i.
-    output%vectors(i)%magnitude = new_vector
     mode_transformed(i) = .true.
-    
-    ! Update the vector paired to i.
-    if (j==0) then
-      ! The paired vector was 0 before;
-      !    append the new paired vector.
-      output%vectors = [ output%vectors,                &
-                     &   RealSingleModeVector(          &
-                     &      id        = mode%paired_id, &
-                     &      magnitude = paired_vector)  &
-                     & ]
-    elseif (j==i) then
-      ! The mode is its own pair; there is no separate pair to update.
-      continue
-    else
-      ! Update the vector along the paired mode.
-      output%vectors(j)%magnitude = paired_vector
-      mode_transformed(j) = .true.
-    endif
+    mode_transformed(j) = .true.
   enddo
   
   ! Check that all modes have been transformed.
@@ -511,7 +613,7 @@ function construct_rvector_arrays(sampling_point,supercell,real_modes, &
   
   ! List the modes at which the sampling point has non-zero displacement,
   !    and list the corresponding subspace ids.
-  modes = sampling_point%modes(real_modes)
+  modes = select_modes(sampling_point%vectors, real_modes)
   subspace_ids = modes%subspace_id
   
   ! List q-points corresponding to said modes.

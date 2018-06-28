@@ -9,169 +9,169 @@ module complex_single_mode_vector_submodule
   
   private
   
-  public :: ComplexSingleModeVector
+  public :: ComplexSingleVector
   public :: operator(*)
   public :: operator(/)
   public :: operator(+)
   public :: operator(-)
   
-  type, extends(Stringable) :: ComplexSingleModeVector
+  type, extends(Stringable) :: ComplexSingleVector
     ! The id of the mode.
     integer :: id
     
     ! The magnitude of the vector along the mode.
     complex(dp) :: magnitude
   contains
-    procedure, public :: read  => read_ComplexSingleModeVector
-    procedure, public :: write => write_ComplexSingleModeVector
+    procedure, public :: read  => read_ComplexSingleVector
+    procedure, public :: write => write_ComplexSingleVector
   end type
   
-  interface ComplexSingleModeVector
-    module procedure new_ComplexSingleModeVector
-    module procedure new_ComplexSingleModeVector_ComplexMode
-    module procedure new_ComplexSingleModeVector_String
+  interface ComplexSingleVector
+    module procedure new_ComplexSingleVector
+    module procedure new_ComplexSingleVector_ComplexMode
+    module procedure new_ComplexSingleVector_String
   end interface
   
   interface operator(*)
-    module procedure multiply_real_ComplexSingleModeVector
-    module procedure multiply_ComplexSingleModeVector_real
-    module procedure multiply_complex_ComplexSingleModeVector
-    module procedure multiply_ComplexSingleModeVector_complex
+    module procedure multiply_real_ComplexSingleVector
+    module procedure multiply_ComplexSingleVector_real
+    module procedure multiply_complex_ComplexSingleVector
+    module procedure multiply_ComplexSingleVector_complex
   end interface
   
   interface operator(/)
-    module procedure divide_ComplexSingleModeVector_complex
+    module procedure divide_ComplexSingleVector_complex
   end interface
   
   interface operator(+)
-    module procedure add_ComplexSingleModeVector_ComplexSingleModeVector
+    module procedure add_ComplexSingleVector_ComplexSingleVector
   end interface
   
   interface operator(-)
-    module procedure negative_ComplexSingleModeVector
-    module procedure subtract_ComplexSingleModeVector_ComplexSingleModeVector
+    module procedure negative_ComplexSingleVector
+    module procedure subtract_ComplexSingleVector_ComplexSingleVector
   end interface
 contains
 
 ! Constructors.
-impure elemental function new_ComplexSingleModeVector(id,magnitude) &
+impure elemental function new_ComplexSingleVector(id,magnitude) &
    & result(this)
   implicit none
   
   integer,     intent(in)       :: id
   complex(dp), intent(in)       :: magnitude
-  type(ComplexSingleModeVector) :: this
+  type(ComplexSingleVector) :: this
   
   this%id        = id
   this%magnitude = magnitude
 end function
 
-impure elemental function new_ComplexSingleModeVector_ComplexMode(mode, &
+impure elemental function new_ComplexSingleVector_ComplexMode(mode, &
    & magnitude) result(this)
   implicit none
   
   type(ComplexMode), intent(in) :: mode
   complex(dp),       intent(in) :: magnitude
-  type(ComplexSingleModeVector) :: this
+  type(ComplexSingleVector) :: this
   
-  this = ComplexSingleModeVector(id=mode%id, magnitude=magnitude)
+  this = ComplexSingleVector(id=mode%id, magnitude=magnitude)
 end function
 
 ! Arithmetic.
-impure elemental function multiply_real_ComplexSingleModeVector(this,that) &
+impure elemental function multiply_real_ComplexSingleVector(this,that) &
    & result(output)
   implicit none
   
   real(dp),                      intent(in) :: this
-  type(ComplexSingleModeVector), intent(in) :: that
-  type(ComplexSingleModeVector)             :: output
+  type(ComplexSingleVector), intent(in) :: that
+  type(ComplexSingleVector)             :: output
   
-  output = ComplexSingleModeVector( id        = that%id, &
+  output = ComplexSingleVector( id        = that%id, &
                                   & magnitude = this*that%magnitude)
 end function
 
-impure elemental function multiply_ComplexSingleModeVector_real(this,that) &
+impure elemental function multiply_ComplexSingleVector_real(this,that) &
    & result(output)
   implicit none
   
-  type(ComplexSingleModeVector), intent(in) :: this
+  type(ComplexSingleVector), intent(in) :: this
   real(dp),                      intent(in) :: that
-  type(ComplexSingleModeVector)             :: output
+  type(ComplexSingleVector)             :: output
   
-  output = ComplexSingleModeVector( id        = this%id, &
+  output = ComplexSingleVector( id        = this%id, &
                                   & magnitude = this%magnitude*that)
 end function
 
-impure elemental function multiply_complex_ComplexSingleModeVector(this,that) &
+impure elemental function multiply_complex_ComplexSingleVector(this,that) &
    & result(output)
   implicit none
   
   complex(dp),                   intent(in) :: this
-  type(ComplexSingleModeVector), intent(in) :: that
-  type(ComplexSingleModeVector)             :: output
+  type(ComplexSingleVector), intent(in) :: that
+  type(ComplexSingleVector)             :: output
   
-  output = ComplexSingleModeVector( id        = that%id, &
+  output = ComplexSingleVector( id        = that%id, &
                                   & magnitude = this*that%magnitude)
 end function
 
-impure elemental function multiply_ComplexSingleModeVector_complex(this,that) &
+impure elemental function multiply_ComplexSingleVector_complex(this,that) &
    & result(output)
   implicit none
   
-  type(ComplexSingleModeVector), intent(in) :: this
+  type(ComplexSingleVector), intent(in) :: this
   complex(dp),                   intent(in) :: that
-  type(ComplexSingleModeVector)             :: output
+  type(ComplexSingleVector)             :: output
   
-  output = ComplexSingleModeVector( id        = this%id, &
+  output = ComplexSingleVector( id        = this%id, &
                                   & magnitude = this%magnitude*that)
 end function
 
-impure elemental function divide_ComplexSingleModeVector_complex(this,that) &
+impure elemental function divide_ComplexSingleVector_complex(this,that) &
    & result(output)
   implicit none
   
-  type(ComplexSingleModeVector), intent(in) :: this
+  type(ComplexSingleVector), intent(in) :: this
   complex(dp),                   intent(in) :: that
-  type(ComplexSingleModeVector)             :: output
+  type(ComplexSingleVector)             :: output
   
-  output = ComplexSingleModeVector( id        = this%id, &
+  output = ComplexSingleVector( id        = this%id, &
                                   & magnitude = this%magnitude/that)
 end function
 
-impure elemental function add_ComplexSingleModeVector_ComplexSingleModeVector(&
+impure elemental function add_ComplexSingleVector_ComplexSingleVector(&
    & this,that) result(output)
   implicit none
   
-  type(ComplexSingleModeVector), intent(in) :: this
-  type(ComplexSingleModeVector), intent(in) :: that
-  type(ComplexSingleModeVector)             :: output
+  type(ComplexSingleVector), intent(in) :: this
+  type(ComplexSingleVector), intent(in) :: that
+  type(ComplexSingleVector)             :: output
   
   if (this%id/=that%id) then
     call print_line(ERROR//': Trying to add vectors along different modes.')
     call err()
   endif
   
-  output = ComplexSingleModeVector( id        = this%id, &
+  output = ComplexSingleVector( id        = this%id, &
                                   & magnitude = this%magnitude+that%magnitude)
 end function
 
-impure elemental function negative_ComplexSingleModeVector(this) result(output)
+impure elemental function negative_ComplexSingleVector(this) result(output)
   implicit none
   
-  type(ComplexSingleModeVector), intent(in) :: this
-  type(ComplexSingleModeVector)             :: output
+  type(ComplexSingleVector), intent(in) :: this
+  type(ComplexSingleVector)             :: output
   
-  output = ComplexSingleModeVector(id=this%id, magnitude=-this%magnitude)
+  output = ComplexSingleVector(id=this%id, magnitude=-this%magnitude)
 end function
 
 impure elemental function                                                &
-   & subtract_ComplexSingleModeVector_ComplexSingleModeVector(this,that) &
+   & subtract_ComplexSingleVector_ComplexSingleVector(this,that) &
    & result(output)
   implicit none
   
-  type(ComplexSingleModeVector), intent(in) :: this
-  type(ComplexSingleModeVector), intent(in) :: that
-  type(ComplexSingleModeVector)             :: output
+  type(ComplexSingleVector), intent(in) :: this
+  type(ComplexSingleVector), intent(in) :: that
+  type(ComplexSingleVector)             :: output
   
   if (this%id/=that%id) then
     call print_line(ERROR//': Trying to subtract vectors along different &
@@ -179,22 +179,22 @@ impure elemental function                                                &
     call err()
   endif
   
-  output = ComplexSingleModeVector( id        = this%id, &
+  output = ComplexSingleVector( id        = this%id, &
                                   & magnitude = this%magnitude-that%magnitude)
 end function
 
 ! I/O.
-subroutine read_ComplexSingleModeVector(this,input)
+subroutine read_ComplexSingleVector(this,input)
   implicit none
   
-  class(ComplexSingleModeVector), intent(out) :: this
+  class(ComplexSingleVector), intent(out) :: this
   type(String),                   intent(in)  :: input
   
   type(String), allocatable :: split_string(:)
   integer                   :: id
   complex(dp)               :: magnitude
   
-  select type(this); type is(ComplexSingleModeVector)
+  select type(this); type is(ComplexSingleVector)
     split_string = split_line(input)
     if (size(split_string)/=3) then
       call print_line(ERROR//': unable to parse complex single mode &
@@ -207,27 +207,27 @@ subroutine read_ComplexSingleModeVector(this,input)
     id = int(slice(split_string(1),2,len(split_string(1))))
     magnitude = cmplx(split_string(3))
     
-    this = ComplexSingleModeVector(id,magnitude)
+    this = ComplexSingleVector(id,magnitude)
   end select
 end subroutine
 
-function write_ComplexSingleModeVector(this) result(output)
+function write_ComplexSingleVector(this) result(output)
   implicit none
   
-  class(ComplexSingleModeVector), intent(in) :: this
+  class(ComplexSingleVector), intent(in) :: this
   type(String)                               :: output
   
-  select type(this); type is(ComplexSingleModeVector)
+  select type(this); type is(ComplexSingleVector)
     output = 'u'//this%id//' = '//this%magnitude
   end select
 end function
 
-impure elemental function new_ComplexSingleModeVector_String(input) &
+impure elemental function new_ComplexSingleVector_String(input) &
    & result(this)
   implicit none
   
   type(String), intent(in)      :: input
-  type(ComplexSingleModeVector) :: this
+  type(ComplexSingleVector) :: this
   
   this = input
 end function

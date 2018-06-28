@@ -3,28 +3,31 @@
 ! ======================================================================
 module cartesian_force_submodule
   use utils_module
-  
-  use cartesian_vector_submodule
   implicit none
   
   private
   
   public :: CartesianForce
+  public :: size
   public :: operator(*)
   public :: operator(/)
   public :: operator(+)
   public :: sum
   
-  type, extends(CartesianVector) :: CartesianForce
+  type, extends(Stringsable) :: CartesianForce
+    type(RealVector), allocatable :: vectors(:)
   contains
     procedure, public :: read  => read_CartesianForce
     procedure, public :: write => write_CartesianForce
   end type
   
   interface CartesianForce
-    module procedure new_CartesianForce_CartesianVector
     module procedure new_CartesianForce
     module procedure new_CartesianForce_StringArray
+  end interface
+  
+  interface size
+    module procedure size_CartesianForce
   end interface
   
   interface operator(*)
@@ -51,24 +54,24 @@ module cartesian_force_submodule
 contains
 
 ! ----------------------------------------------------------------------
-! Constructors.
+! Constructor and size() function.
 ! ----------------------------------------------------------------------
-function new_CartesianForce_CartesianVector(forces) result(this)
-  implicit none
-  
-  type(CartesianVector), intent(in) :: forces
-  type(CartesianForce)              :: this
-  
-  this%CartesianVector = forces
-end function
-
 function new_CartesianForce(forces) result(this)
   implicit none
   
   type(RealVector), intent(in) :: forces(:)
   type(CartesianForce)         :: this
   
-  this = CartesianForce(CartesianVector(forces))
+  this%vectors = forces
+end function
+
+function size_CartesianForce(this) result(output)
+  implicit none
+  
+  class(CartesianForce), intent(in) :: this
+  integer                           :: output
+  
+  output = size(this%vectors)
 end function
 
 ! ----------------------------------------------------------------------
@@ -82,7 +85,7 @@ impure elemental function multiply_real_CartesianForce(this,that) &
   type(CartesianForce), intent(in) :: that
   type(CartesianForce)             :: output
   
-  output = CartesianForce(this * that%CartesianVector)
+  output = CartesianForce(this * that%vectors)
 end function
 
 impure elemental function multiply_CartesianForce_real(this,that) &
@@ -93,7 +96,7 @@ impure elemental function multiply_CartesianForce_real(this,that) &
   real(dp),             intent(in) :: that
   type(CartesianForce)             :: output
   
-  output = CartesianForce(this%CartesianVector * that)
+  output = CartesianForce(this%vectors * that)
 end function
 
 impure elemental function divide_CartesianForce_real(this,that) result(output)
@@ -103,7 +106,7 @@ impure elemental function divide_CartesianForce_real(this,that) result(output)
   real(dp),             intent(in) :: that
   type(CartesianForce)             :: output
   
-  output = CartesianForce(this%CartesianVector / that)
+  output = CartesianForce(this%vectors / that)
 end function
 
 impure elemental function add_CartesianForce_CartesianForce(this,that) &
@@ -114,7 +117,7 @@ impure elemental function add_CartesianForce_CartesianForce(this,that) &
   type(CartesianForce), intent(in) :: that
   type(CartesianForce)             :: output
   
-  output = CartesianForce(this%CartesianVector + that%CartesianVector)
+  output = CartesianForce(this%vectors + that%vectors)
 end function
 
 function sum_CartesianForces(input) result(output)
@@ -123,7 +126,17 @@ function sum_CartesianForces(input) result(output)
   type(CartesianForce), intent(in) :: input(:)
   type(CartesianForce)             :: output
   
-  output = CartesianForce(sum(input%CartesianVector))
+  integer :: i
+  
+  if (size(input)==0) then
+    call print_line(ERROR//': Trying to sum an empty array.')
+    call err()
+  endif
+  
+  output = input(1)
+  do i=2,size(input)
+    output = output + input(i)
+  enddo
 end function
 
 impure elemental function negative_CartesianForce(this) result(output)
@@ -132,7 +145,7 @@ impure elemental function negative_CartesianForce(this) result(output)
   type(CartesianForce), intent(in) :: this
   type(CartesianForce)             :: output
   
-  output = CartesianForce(-this%CartesianVector)
+  output = CartesianForce(-this%vectors)
 end function
 
 impure elemental function subtract_CartesianForce_CartesianForce(this,that) &
@@ -143,7 +156,7 @@ impure elemental function subtract_CartesianForce_CartesianForce(this,that) &
   type(CartesianForce), intent(in) :: that
   type(CartesianForce)             :: output
   
-  output = CartesianForce(this%CartesianVector - that%CartesianVector)
+  output = CartesianForce(this%vectors - that%vectors)
 end function
 
 ! ----------------------------------------------------------------------
@@ -156,7 +169,7 @@ subroutine read_CartesianForce(this,input)
   type(String),          intent(in)  :: input(:)
   
   select type(this); type is(CartesianForce)
-    this = CartesianForce(CartesianVector(StringArray(input)))
+    this = CartesianForce(RealVector(input))
   end select
 end subroutine
 
@@ -167,7 +180,7 @@ function write_CartesianForce(this) result(output)
   type(String), allocatable         :: output(:)
   
   select type(this); type is(CartesianForce)
-    output = str(this%CartesianVector)
+    output = str(this%vectors)
   end select
 end function
 

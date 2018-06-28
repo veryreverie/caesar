@@ -23,16 +23,16 @@ module basis_function_module
     !    zero in every other basis function.
     type(RealMonomial)      :: unique_term
   contains
-    generic,   public  :: evaluate =>                            &
-                        & evaluate_RealModeVector_BasisFunction, &
-                        & evaluate_ComplexModeVector_BasisFunction
-    procedure, private :: evaluate_RealModeVector_BasisFunction
-    procedure, private :: evaluate_ComplexModeVector_BasisFunction
-    generic,   public  :: derivative =>                            &
-                        & derivative_RealModeVector_BasisFunction, &
-                        & derivative_ComplexModeVector_BasisFunction
-    procedure, private :: derivative_RealModeVector_BasisFunction
-    procedure, private :: derivative_ComplexModeVector_BasisFunction
+    generic,   public  :: energy =>                            &
+                        & energy_RealModeVector_BasisFunction, &
+                        & energy_ComplexModeVector_BasisFunction
+    procedure, private :: energy_RealModeVector_BasisFunction
+    procedure, private :: energy_ComplexModeVector_BasisFunction
+    generic,   public  :: force =>                            &
+                        & force_RealModeVector_BasisFunction, &
+                        & force_ComplexModeVector_BasisFunction
+    procedure, private :: force_RealModeVector_BasisFunction
+    procedure, private :: force_ComplexModeVector_BasisFunction
     
     procedure, public :: read  => read_BasisFunction
     procedure, public :: write => write_BasisFunction
@@ -351,50 +351,50 @@ function projection_matrix(input,order) result(output)
 end function
 
 ! ----------------------------------------------------------------------
-! Evaluate the basis function and its derivatives.
+! Evaluate the energy and forces due to the basis function.
 ! ----------------------------------------------------------------------
-impure elemental function evaluate_RealModeVector_BasisFunction(this,vector) &
-   & result(output)
+impure elemental function energy_RealModeVector_BasisFunction(this, &
+   & displacement) result(output)
   implicit none
   
-  class(BasisFunction),  intent(in) :: this
-  class(RealModeVector), intent(in) :: vector
-  real(dp)                          :: output
+  class(BasisFunction),        intent(in) :: this
+  class(RealModeDisplacement), intent(in) :: displacement
+  real(dp)                                :: output
   
-  output = this%real_representation%evaluate(vector)
+  output = this%real_representation%energy(displacement)
 end function
 
-impure elemental function evaluate_ComplexModeVector_BasisFunction(this, &
-   & vector) result(output)
+impure elemental function energy_ComplexModeVector_BasisFunction(this, &
+   & displacement) result(output)
   implicit none
   
-  class(BasisFunction),     intent(in) :: this
-  class(ComplexModeVector), intent(in) :: vector
-  complex(dp)                          :: output
+  class(BasisFunction),           intent(in) :: this
+  class(ComplexModeDisplacement), intent(in) :: displacement
+  complex(dp)                                :: output
   
-  output = this%complex_representation%evaluate(vector)
+  output = this%complex_representation%energy(displacement)
 end function
 
-impure elemental function derivative_RealModeVector_BasisFunction(this, &
-   & vector) result(output)
+impure elemental function force_RealModeVector_BasisFunction(this, &
+   & displacement) result(output)
   implicit none
   
-  class(BasisFunction),  intent(in) :: this
-  class(RealModeVector), intent(in) :: vector
-  type(RealModeVector)              :: output
+  class(BasisFunction),        intent(in) :: this
+  class(RealModeDisplacement), intent(in) :: displacement
+  type(RealModeForce)                     :: output
   
-  output = this%real_representation%derivative(vector)
+  output = this%real_representation%force(displacement)
 end function
 
-impure elemental function derivative_ComplexModeVector_BasisFunction(this, &
-   & vector) result(output)
+impure elemental function force_ComplexModeVector_BasisFunction(this, &
+   & displacement) result(output)
   implicit none
   
-  class(BasisFunction),     intent(in) :: this
-  class(ComplexModeVector), intent(in) :: vector
-  type(ComplexModeVector)              :: output
+  class(BasisFunction),           intent(in) :: this
+  class(ComplexModeDisplacement), intent(in) :: displacement
+  type(ComplexModeForce)                     :: output
   
-  output = this%complex_representation%derivative(vector)
+  output = this%complex_representation%force(displacement)
 end function
 
 ! ----------------------------------------------------------------------

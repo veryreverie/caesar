@@ -9,13 +9,13 @@ module real_mode_force_submodule
   use cartesian_force_submodule
   use mass_weighted_force_submodule
   use real_mode_submodule
-  use real_single_mode_vector_submodule
-  use real_mode_vector_submodule
+  use real_single_mode_force_submodule
   implicit none
   
   private
   
   public :: RealModeForce
+  public :: size
   public :: MassWeightedForce
   public :: CartesianForce
   public :: operator(*)
@@ -24,19 +24,23 @@ module real_mode_force_submodule
   public :: sum
   public :: operator(-)
   
-  type, extends(RealModeVector) :: RealModeForce
+  type, extends(Stringsable) :: RealModeForce
+    type(RealSingleForce), allocatable :: vectors(:)
   contains
     procedure, public :: read  => read_RealModeForce
     procedure, public :: write => write_RealModeForce
   end type
   
   interface RealModeForce
-    module procedure new_RealModeForce_RealModeVector
-    module procedure new_RealModeForce_RealSingleModeVectors
+    module procedure new_RealModeForce
     module procedure new_RealModeForce_RealModes
     module procedure new_RealModeForce_MassWeightedForce
     module procedure new_RealModeForce_CartesianForce
     module procedure new_RealModeForce_StringArray
+  end interface
+  
+  interface size
+    module procedure size_RealModeForce
   end interface
   
   interface MassWeightedForce
@@ -70,24 +74,14 @@ module real_mode_force_submodule
   end interface
 contains
 
-! Constructors.
-function new_RealModeForce_RealModeVector(force) result(this)
+! Constructors and size() function.
+function new_RealModeForce(forces) result(this)
   implicit none
   
-  type(RealModeVector), intent(in) :: force
-  type(RealModeForce)              :: this
+  type(RealSingleForce), intent(in) :: forces(:)
+  type(RealModeForce)               :: this
   
-  this%RealModeVector = force
-end function
-
-function new_RealModeForce_RealSingleModeVectors(forces) &
-   & result(this)
-  implicit none
-  
-  type(RealSingleModeVector), intent(in) :: forces(:)
-  type(RealModeForce)                    :: this
-  
-  this = RealModeForce(RealModeVector(forces))
+  this%vectors = forces
 end function
 
 function new_RealModeForce_RealModes(modes,forces) result(this)
@@ -97,7 +91,16 @@ function new_RealModeForce_RealModes(modes,forces) result(this)
   real(dp),       intent(in) :: forces(:)
   type(RealModeForce)        :: this
   
-  this = RealModeForce(RealModeVector(modes,forces))
+  this = RealModeForce(RealSingleForce(modes,forces))
+end function
+
+function size_RealModeForce(this) result(output)
+  implicit none
+  
+  type(RealModeForce), intent(in) :: this
+  integer                         :: output
+  
+  output = size(this%vectors)
 end function
 
 ! ----------------------------------------------------------------------
@@ -111,7 +114,7 @@ impure elemental function multiply_real_RealModeForce(this,that) &
   type(RealModeForce), intent(in) :: that
   type(RealModeForce)             :: output
   
-  output = RealModeForce(this*that%RealModeVector)
+  output = RealModeForce(this*that%vectors)
 end function
 
 impure elemental function multiply_RealModeForce_real(this,that) &
@@ -122,7 +125,7 @@ impure elemental function multiply_RealModeForce_real(this,that) &
   real(dp),            intent(in) :: that
   type(RealModeForce)             :: output
   
-  output = RealModeForce(this%RealModeVector*that)
+  output = RealModeForce(this%vectors*that)
 end function
 
 impure elemental function divide_RealModeForce_real(this,that) &
@@ -133,7 +136,7 @@ impure elemental function divide_RealModeForce_real(this,that) &
   real(dp),            intent(in) :: that
   type(RealModeForce)             :: output
   
-  output = RealModeForce(this%RealModeVector/that)
+  output = RealModeForce(this%vectors/that)
 end function
 
 impure elemental function add_RealModeForce_RealModeForce(this, &
@@ -144,7 +147,17 @@ impure elemental function add_RealModeForce_RealModeForce(this, &
   type(RealModeForce), intent(in) :: that
   type(RealModeForce)             :: output
   
-  output = RealModeForce(this%RealModeVector + that%RealModeVector)
+  integer :: i,j
+  
+  output = this
+  do i=1,size(that)
+    j = first(this%vectors%id==that%vectors(i)%id, default=0)
+    if (j==0) then
+      output%vectors = [output%vectors, that%vectors(i)]
+    else
+      output%vectors(j) = output%vectors(j) + that%vectors(i)
+    endif
+  enddo
 end function
 
 function sum_RealModeForces(this) result(output)
@@ -153,7 +166,17 @@ function sum_RealModeForces(this) result(output)
   type(RealModeForce), intent(in) :: this(:)
   type(RealModeForce)             :: output
   
-  output = RealModeForce(sum(this%RealModeVector))
+  integer :: i
+  
+  if (size(this)==0) then
+    call print_line(ERROR//': Trying to sum an empty list.')
+    call err()
+  endif
+  
+  output = this(1)
+  do i=2,size(this)
+    output = output + this(i)
+  enddo
 end function
 
 impure elemental function negative_RealModeForce(this) result(output)
@@ -162,7 +185,7 @@ impure elemental function negative_RealModeForce(this) result(output)
   type(RealModeForce), intent(in) :: this
   type(RealModeForce)             :: output
   
-  output = RealModeForce(-this%RealModeVector)
+  output = RealModeForce(-this%vectors)
 end function
 
 impure elemental function subtract_RealModeForce_RealModeForce( &
@@ -173,11 +196,11 @@ impure elemental function subtract_RealModeForce_RealModeForce( &
   type(RealModeForce), intent(in) :: that
   type(RealModeForce)             :: output
   
-  output = RealModeForce(this%RealModeVector - that%RealModeVector)
+  output = this + (-that)
 end function
 
 ! ----------------------------------------------------------------------
-! Conversions between CartesianForce and RealModeForce.
+! Conversions to and from cartesian and mass-weighted co-ordinates.
 ! ----------------------------------------------------------------------
 ! Returns the force in mass-weighted co-ordinates.
 function new_MassWeightedForce_RealModeForce(this,structure, &
@@ -190,7 +213,15 @@ function new_MassWeightedForce_RealModeForce(this,structure, &
   type(QpointData),     intent(in) :: qpoints(:)
   type(MassWeightedForce)          :: output
   
-  output = MassWeightedForce(MassWeightedVector(this,structure,modes,qpoints))
+  type(RealMode),   allocatable :: selected_modes(:)
+  type(QpointData), allocatable :: selected_qpoints(:)
+  
+  selected_modes = select_modes(this%vectors, modes)
+  selected_qpoints = select_qpoints(selected_modes, qpoints)
+  output = sum(MassWeightedForce( this%vectors,    &
+                                & selected_modes,  &
+                                & structure,       &
+                                & selected_qpoints ))
 end function
 
 ! Returns the force in cartesian co-ordinates.
@@ -204,7 +235,15 @@ function new_CartesianForce_RealModeForce(this,structure, &
   type(QpointData),     intent(in) :: qpoints(:)
   type(CartesianForce)             :: output
   
-  output = CartesianForce(CartesianVector(this,structure,modes,qpoints))
+  type(RealMode),   allocatable :: selected_modes(:)
+  type(QpointData), allocatable :: selected_qpoints(:)
+  
+  selected_modes = select_modes(this%vectors, modes)
+  selected_qpoints = select_qpoints(selected_modes, qpoints)
+  output = sum(CartesianForce( this%vectors,    &
+                             & selected_modes,  &
+                             & structure,       &
+                             & selected_qpoints ))
 end function
 
 ! Converts a MassWeightedForce to a RealModeForce.
@@ -218,7 +257,14 @@ function new_RealModeForce_MassWeightedForce(force, &
   type(QpointData),        intent(in) :: qpoints(:)
   type(RealModeForce)                 :: this
   
-  this = RealModeForce(RealModeVector(force,structure,modes,qpoints))
+  type(QpointData), allocatable :: selected_qpoints(:)
+  
+  selected_qpoints = select_qpoints(modes, qpoints)
+  
+  this = RealModeForce(RealSingleForce( modes,           &
+                                      & force,           &
+                                      & structure,       &
+                                      & selected_qpoints ))
 end function
 
 ! Converts a CartesianForce to a RealModeForce.
@@ -232,7 +278,14 @@ function new_RealModeForce_CartesianForce(force, &
   type(QpointData),     intent(in) :: qpoints(:)
   type(RealModeForce)              :: this
   
-  this = RealModeForce(RealModeVector(force,structure,modes,qpoints))
+  type(QpointData), allocatable :: selected_qpoints(:)
+  
+  selected_qpoints = select_qpoints(modes, qpoints)
+  
+  this = RealModeForce(RealSingleForce( modes,           &
+                                      & force,           &
+                                      & structure,       &
+                                      & selected_qpoints ))
 end function
 
 ! ----------------------------------------------------------------------
@@ -245,7 +298,7 @@ subroutine read_RealModeForce(this,input)
   type(String),         intent(in)  :: input(:)
   
   select type(this); type is(RealModeForce)
-    this = RealModeForce(RealModeVector(StringArray(input)))
+    this = RealModeForce(RealSingleForce(input))
   end select
 end subroutine
 
@@ -256,7 +309,7 @@ function write_RealModeForce(this) result(output)
   type(String), allocatable        :: output(:)
   
   select type(this); type is(RealModeForce)
-    output = str(this%RealModeVector)
+    output = str(this%vectors)
   end select
 end function
 

@@ -6,15 +6,21 @@ module real_mode_submodule
   
   use structure_module
   
-  use cartesian_vector_submodule
-  use mass_weighted_vector_submodule
+  use cartesian_displacement_submodule
+  use cartesian_force_submodule
+  use mass_weighted_displacement_submodule
+  use mass_weighted_force_submodule
   implicit none
   
   private
   
   public :: RealMode
-  public :: MassWeightedVector
-  public :: CartesianVector
+  public :: MassWeightedDisplacement
+  public :: MassWeightedForce
+  public :: CartesianDisplacement
+  public :: CartesianForce
+  public :: select_qpoint
+  public :: select_qpoints
   
   ! A normal mode in real co-ordinates.
   type, extends(Stringsable) :: RealMode
@@ -45,6 +51,7 @@ module real_mode_submodule
     ! The ID of the subspace of modes which are degenerate with this mode.
     integer :: subspace_id
   contains
+    procedure, private :: construct_vector
     ! I/O.
     procedure, public :: read  => read_RealMode
     procedure, public :: write => write_RealMode
@@ -55,12 +62,28 @@ module real_mode_submodule
     module procedure new_RealMode_StringArray
   end interface
   
-  interface MassWeightedVector
-    module procedure new_MassWeightedVector_RealMode
+  interface MassWeightedDisplacement
+    module procedure new_MassWeightedDisplacement_RealMode
   end interface
   
-  interface CartesianVector
-    module procedure new_CartesianVector_RealMode
+  interface MassWeightedForce
+    module procedure new_MassWeightedForce_RealMode
+  end interface
+  
+  interface CartesianDisplacement
+    module procedure new_CartesianDisplacement_RealMode
+  end interface
+  
+  interface CartesianForce
+    module procedure new_CartesianForce_RealMode
+  end interface
+  
+  interface select_qpoint
+    module procedure select_qpoint_RealMode
+  end interface
+  
+  interface select_qpoints
+    module procedure select_qpoints_RealModes
   end interface
 contains
 
@@ -102,65 +125,76 @@ end function
 ! Return the mode in the mass-weighted or cartesian co-ordinates of
 !    a given supercell.
 ! ----------------------------------------------------------------------
-function new_MassWeightedVector_RealMode(this,structure,qpoint) result(output)
+impure elemental function new_MassWeightedDisplacement_RealMode(this, &
+   & structure,qpoint) result(output)
   implicit none
   
   class(RealMode),     intent(in) :: this
   type(StructureData), intent(in) :: structure
   type(QpointData),    intent(in) :: qpoint
-  type(MassWeightedVector)        :: output
+  type(MassWeightedDisplacement)  :: output
   
-  type(RealVector), allocatable :: vectors(:)
-  
-  type(AtomData)   :: atom
-  type(RealVector) :: prim_vector
-  type(IntVector)  :: atom_rvector
-  real(dp)         :: qr
-  
-  integer :: i,ialloc
-  
-  if (qpoint%id/=this%qpoint_id_plus.and.qpoint%id/=this%qpoint_id_minus) then
-    call print_line(CODE_ERROR//': Mode and q-point incompatible.')
-    call err()
-  endif
-  
-  allocate(vectors(structure%no_atoms), stat=ialloc); call err(ialloc)
-  do i=1,size(vectors)
-    atom         = structure%atoms(i)
-    prim_vector  = this%mass_weighted_vector(atom%prim_id())
-    atom_rvector = structure%rvectors(atom%rvec_id())
-    
-    if (qpoint%id==this%qpoint_id_plus) then
-      qr = dble(qpoint%qpoint*atom_rvector)
-    else
-      qr = -dble(qpoint%qpoint*atom_rvector)
-    endif
-    
-    if (this%id<=this%paired_id) then
-      ! This is a cos(2 pi q.R) mode.
-      vectors(i) = prim_vector * cos(2*PI*qr)
-    else
-      ! This is a sin(2 pi q.R) mode.
-      vectors(i) = prim_vector * sin(2*PI*qr)
-    endif
-  enddo
-  
-  output = MassWeightedVector(vectors)
+  output = MassWeightedDisplacement(this%construct_vector( &
+                              & this%mass_weighted_vector, &
+                              & structure,                 &
+                              & qpoint                     ))
 end function
 
-function new_CartesianVector_RealMode(this,structure,qpoint) result(output)
+impure elemental function new_MassWeightedForce_RealMode(this,structure, &
+   & qpoint) result(output)
   implicit none
   
   class(RealMode),     intent(in) :: this
   type(StructureData), intent(in) :: structure
   type(QpointData),    intent(in) :: qpoint
-  type(CartesianVector)           :: output
+  type(MassWeightedForce)         :: output
   
-  type(RealVector), allocatable :: vectors(:)
+  output = MassWeightedForce(this%construct_vector( &
+                       & this%mass_weighted_vector, &
+                       & structure,                 &
+                       & qpoint                     ))
+end function
+
+impure elemental function new_CartesianDisplacement_RealMode(this,structure, &
+   & qpoint) result(output)
+  implicit none
+  
+  class(RealMode),     intent(in) :: this
+  type(StructureData), intent(in) :: structure
+  type(QpointData),    intent(in) :: qpoint
+  type(CartesianDisplacement)     :: output
+  
+  output = CartesianDisplacement(this%construct_vector( &
+                               & this%cartesian_vector, &
+                               & structure,             &
+                               & qpoint                 ))
+end function
+
+impure elemental function new_CartesianForce_RealMode(this,structure,qpoint) &
+   & result(output)
+  implicit none
+  
+  class(RealMode),     intent(in) :: this
+  type(StructureData), intent(in) :: structure
+  type(QpointData),    intent(in) :: qpoint
+  type(CartesianForce)            :: output
+  
+  output = CartesianForce(this%construct_vector( &
+                        & this%cartesian_vector, &
+                        & structure,             &
+                        & qpoint                 ))
+end function
+
+function construct_vector(this,prim_vectors,structure,qpoint) result(output)
+  implicit none
+  
+  class(RealMode),     intent(in) :: this
+  type(RealVector),    intent(in) :: prim_vectors(:)
+  type(StructureData), intent(in) :: structure
+  type(QpointData),    intent(in) :: qpoint
+  type(RealVector), allocatable   :: output(:)
   
   type(AtomData)   :: atom
-  type(RealVector) :: prim_vector
-  type(IntVector)  :: atom_rvector
   real(dp)         :: qr
   
   integer :: i,ialloc
@@ -170,28 +204,52 @@ function new_CartesianVector_RealMode(this,structure,qpoint) result(output)
     call err()
   endif
   
-  allocate(vectors(structure%no_atoms), stat=ialloc); call err(ialloc)
-  do i=1,size(vectors)
+  allocate(output(structure%no_atoms), stat=ialloc); call err(ialloc)
+  do i=1,size(output)
     atom         = structure%atoms(i)
-    prim_vector  = this%cartesian_vector(atom%prim_id())
-    atom_rvector = structure%rvectors(atom%rvec_id())
     
     if (qpoint%id==this%qpoint_id_plus) then
-      qr = dble(qpoint%qpoint*atom_rvector)
+      qr =  dble(qpoint%qpoint*structure%rvectors(atom%rvec_id()))
     else
-      qr = -dble(qpoint%qpoint*atom_rvector)
+      qr = -dble(qpoint%qpoint*structure%rvectors(atom%rvec_id()))
     endif
     
     if (this%id<=this%paired_id) then
       ! This is a cos(2 pi q.R) mode.
-      vectors(i) = prim_vector * cos(2*PI*qr)
+      output(i) = prim_vectors(atom%prim_id()) * cos(2*PI*qr)
     else
       ! This is a sin(2 pi q.R) mode.
-      vectors(i) = prim_vector * sin(2*PI*qr)
+      output(i) = prim_vectors(atom%prim_id()) * sin(2*PI*qr)
     endif
   enddo
+end function
+
+! ----------------------------------------------------------------------
+! Select q-points corresponding to a given mode or modes.
+! ----------------------------------------------------------------------
+function select_qpoint_RealMode(mode,qpoints) result(output)
+  implicit none
   
-  output = CartesianVector(vectors)
+  type(RealMode),   intent(in) :: mode
+  type(QpointData), intent(in) :: qpoints(:)
+  type(QpointData)             :: output
+  
+  output = qpoints(first(qpoints%id==mode%qpoint_id_plus))
+end function
+
+function select_qpoints_RealModes(modes,qpoints) result(output)
+  implicit none
+  
+  type(RealMode),   intent(in)  :: modes(:)
+  type(QpointData), intent(in)  :: qpoints(:)
+  type(QpointData), allocatable :: output(:)
+  
+  integer :: i,ialloc
+  
+  allocate(output(size(modes)), stat=ialloc); call err(ialloc)
+  do i=1,size(modes)
+    output(i) = select_qpoint(modes(i), qpoints)
+  enddo
 end function
 
 ! ----------------------------------------------------------------------

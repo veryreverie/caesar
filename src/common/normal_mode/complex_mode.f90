@@ -12,6 +12,8 @@ module complex_mode_submodule
   public :: ComplexMode
   public :: conjg
   public :: transform
+  public :: select_qpoint
+  public :: select_qpoints
   
   ! A normal mode in complex co-ordinates.
   type, extends(Stringsable) :: ComplexMode
@@ -61,6 +63,14 @@ module complex_mode_submodule
   interface transform
     module procedure transform_ComplexMode
   end interface
+  
+  interface select_qpoint
+    module procedure select_qpoint_ComplexMode
+  end interface
+  
+  interface select_qpoints
+    module procedure select_qpoints_ComplexModes
+  end interface
 contains
 
 ! ----------------------------------------------------------------------
@@ -108,8 +118,10 @@ impure elemental function new_ComplexMode_HermitianEigenstuff(eigenstuff, &
   type(StructureData),       intent(in) :: structure
   type(ComplexMode)                     :: this
   
-  real(dp) :: frequency
-  real(dp) :: spring_constant
+  real(dp)       :: frequency
+  real(dp)       :: average_mass
+  type(AtomData) :: atom
+  real(dp)       :: spring_constant
   
   type(ComplexVector), allocatable :: mass_weighted_vector(:)
   type(ComplexVector), allocatable :: cartesian_vector(:)
@@ -153,10 +165,15 @@ impure elemental function new_ComplexMode_HermitianEigenstuff(eigenstuff, &
   ! => k = m*w^2
   ! m is the average mass of all atoms, weighted by how far each atom is
   !    displaced along the mode.
-  spring_constant = -eigenstuff%eval                  &
-                & * sum(real( cartesian_vector        &
-                &           * conjg(cartesian_vector) &
-                &           * structure%atoms%mass()  ))
+  average_mass = 0.0_dp
+  do i=1,size(cartesian_vector)
+    atom = structure%atoms(first(structure%atoms%prim_id()==i))
+    
+    average_mass = average_mass                                           &
+               & + real(cartesian_vector(i) * conjg(cartesian_vector(i))) &
+               & * atom%mass()
+  enddo
+  spring_constant = - eigenstuff%eval * average_mass
   
   ! Call private constructor.
   this = ComplexMode( id                   = 0,                    &
@@ -268,6 +285,34 @@ impure elemental function transform_ComplexMode(input,symmetry,qpoint_from, &
                       & qpoint_id            = qpoint_to%id,               &
                       & paired_qpoint_id     = qpoint_to%paired_qpoint_id, &
                       & subspace_id          = input%subspace_id)
+end function
+
+! ----------------------------------------------------------------------
+! Select q-points corresponding to a given mode or modes.
+! ----------------------------------------------------------------------
+function select_qpoint_ComplexMode(mode,qpoints) result(output)
+  implicit none
+  
+  type(ComplexMode), intent(in) :: mode
+  type(QpointData),  intent(in) :: qpoints(:)
+  type(QpointData)              :: output
+  
+  output = qpoints(first(qpoints%id==mode%qpoint_id))
+end function
+
+function select_qpoints_ComplexModes(modes,qpoints) result(output)
+  implicit none
+  
+  type(ComplexMode), intent(in) :: modes(:)
+  type(QpointData),  intent(in) :: qpoints(:)
+  type(QpointData), allocatable :: output(:)
+  
+  integer :: i,ialloc
+  
+  allocate(output(size(modes)), stat=ialloc); call err(ialloc)
+  do i=1,size(modes)
+    output(i) = select_qpoint(modes(i), qpoints)
+  enddo
 end function
 
 ! ----------------------------------------------------------------------

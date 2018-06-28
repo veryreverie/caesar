@@ -134,22 +134,21 @@ function generate_sampling_points_helper(monomials,potential_expansion_order, &
   type(RealMode),     intent(in)          :: real_modes(:)
   type(RealModeDisplacement), allocatable :: output(:)
   
-  integer        :: sum_powers
-  type(RealMode) :: mode
-  real(dp)       :: mode_power
-  real(dp)       :: mode_frequency
+  integer                                   :: sum_powers
+  type(RealSingleDisplacement), allocatable :: vectors(:)
+  type(RealMode)                            :: mode
+  real(dp)                                  :: mode_power
+  real(dp)                                  :: mode_frequency
+  real(dp)                                  :: magnitude
   
   integer :: i,j,ialloc
   
-  allocate(output(size(monomials)), stat=ialloc); call err(ialloc)
+  output = [RealModeDisplacement::]
+  
   do i=1,size(output)
     sum_powers = sum(monomials(i)%modes%power)
-    allocate( output(i)%vectors(size(monomials(i))), &
-            & stat=ialloc); call err(ialloc)
+    allocate(vectors(size(monomials(i))), stat=ialloc); call err(ialloc)
     do j=1,size(monomials(i))
-      output(i)%vectors(j)%id = monomials(i)%modes(j)%id
-      mode = real_modes(first(real_modes%id==monomials(i)%modes(j)%id))
-      
       ! Calculate the displacement along mode j in monomial i.
       ! This is equal to d_j = d_max *     ( p_i   / p_max          )
       !                              * sqrt( w_min / max(w_j,w_min) )
@@ -163,16 +162,20 @@ function generate_sampling_points_helper(monomials,potential_expansion_order, &
       !
       ! As such the displacement corresponding to a given monomial
       !    (the L2 sum across d_j for that monomial), is at most d_max.
+      mode = real_modes(first(real_modes%id==monomials(i)%modes(j)%id))
       mode_power = monomials(i)%modes(j)%power
       mode_frequency = max(mode%frequency, frequency_of_max_displacement)
-      output(i)%vectors(j)%magnitude =           &
-         &   maximum_weighted_displacement       &
-         & * sqrt( mode_power                    &
-         &       * sum_powers                    &
-         &       * frequency_of_max_displacement &
-         &       / mode_frequency )              &
-         & / potential_expansion_order
+      magnitude = maximum_weighted_displacement       &
+              & * sqrt( mode_power                    &
+              &       * sum_powers                    &
+              &       * frequency_of_max_displacement &
+              &       / mode_frequency )              &
+              & / potential_expansion_order
+      vectors(j) = RealSingleDisplacement(mode, magnitude)
     enddo
+    
+    output = [output, RealModeDisplacement(vectors)]
+    deallocate(vectors, stat=ialloc); call err(ialloc)
   enddo
 end function
 

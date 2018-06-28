@@ -6,31 +6,34 @@ module mass_weighted_force_submodule
   
   use structure_module
   
-  use cartesian_vector_submodule
   use cartesian_force_submodule
-  use mass_weighted_vector_submodule
   implicit none
   
   private
   
   public :: MassWeightedForce
+  public :: size
   public :: CartesianForce
   public :: operator(*)
   public :: operator(/)
   public :: operator(+)
   public :: sum
   
-  type, extends(MassWeightedVector) :: MassWeightedForce
+  type, extends(Stringsable) :: MassWeightedForce
+    type(RealVector), allocatable :: vectors(:)
   contains
     procedure, public :: read  => read_MassWeightedForce
     procedure, public :: write => write_MassWeightedForce
   end type
   
   interface MassWeightedForce
-    module procedure new_MassWeightedForce_MassWeightedVector
     module procedure new_MassWeightedForce
     module procedure new_MassWeightedForce_CartesianForce
     module procedure new_MassWeightedForce_StringArray
+  end interface
+  
+  interface size
+    module procedure size_MassWeightedForce
   end interface
   
   interface CartesianForce
@@ -61,24 +64,24 @@ module mass_weighted_force_submodule
 contains
 
 ! ----------------------------------------------------------------------
-! Constructors.
+! Constructor and size() function.
 ! ----------------------------------------------------------------------
-function new_MassWeightedForce_MassWeightedVector(forces) result(this)
-  implicit none
-  
-  type(MassWeightedVector), intent(in) :: forces
-  type(MassWeightedForce)              :: this
-  
-  this%MassWeightedVector = forces
-end function
-
 function new_MassWeightedForce(forces) result(this)
   implicit none
   
   type(RealVector), intent(in) :: forces(:)
   type(MassWeightedForce)      :: this
   
-  this = MassWeightedForce(MassWeightedVector(forces))
+  this%vectors = forces
+end function
+
+function size_MassWeightedForce(this) result(output)
+  implicit none
+  
+  type(MassWeightedForce), intent(in) :: this
+  integer                             :: output
+  
+  output = size(this%vectors)
 end function
 
 ! ----------------------------------------------------------------------
@@ -92,7 +95,7 @@ function new_MassWeightedForce_CartesianForce(input,structure) &
   type(StructureData),  intent(in) :: structure
   type(MassWeightedForce)          :: output
   
-  output = MassWeightedForce(MassWeightedVector(input,structure))
+  output = MassWeightedForce(input%vectors/sqrt(structure%atoms%mass()))
 end function
 
 function new_CartesianForce_MassWeightedForce(input,structure) &
@@ -103,7 +106,7 @@ function new_CartesianForce_MassWeightedForce(input,structure) &
   type(StructureData),     intent(in) :: structure
   type(CartesianForce)                :: output
   
-  output = CartesianForce(CartesianVector(input,structure))
+  output = CartesianForce(input%vectors*sqrt(structure%atoms%mass()))
 end function
 
 ! ----------------------------------------------------------------------
@@ -117,7 +120,7 @@ impure elemental function multiply_real_MassWeightedForce(this,that) &
   type(MassWeightedForce), intent(in) :: that
   type(MassWeightedForce)             :: output
   
-  output = MassWeightedForce(this * that%MassWeightedVector)
+  output = MassWeightedForce(this * that%vectors)
 end function
 
 impure elemental function multiply_MassWeightedForce_real(this,that) &
@@ -128,7 +131,7 @@ impure elemental function multiply_MassWeightedForce_real(this,that) &
   real(dp),                intent(in) :: that
   type(MassWeightedForce)             :: output
   
-  output = MassWeightedForce(this%MassWeightedVector * that)
+  output = MassWeightedForce(this%vectors * that)
 end function
 
 impure elemental function divide_MassWeightedForce_real(this,that) &
@@ -139,7 +142,7 @@ impure elemental function divide_MassWeightedForce_real(this,that) &
   real(dp),                intent(in) :: that
   type(MassWeightedForce)             :: output
   
-  output = MassWeightedForce(this%MassWeightedVector / that)
+  output = MassWeightedForce(this%vectors / that)
 end function
 
 impure elemental function add_MassWeightedForce_MassWeightedForce(this,that) &
@@ -150,7 +153,7 @@ impure elemental function add_MassWeightedForce_MassWeightedForce(this,that) &
   type(MassWeightedForce), intent(in) :: that
   type(MassWeightedForce)             :: output
   
-  output = MassWeightedForce(this%MassWeightedVector + that%MassWeightedVector)
+  output = MassWeightedForce(this%vectors + that%vectors)
 end function
 
 function sum_MassWeightedForces(input) result(output)
@@ -159,7 +162,17 @@ function sum_MassWeightedForces(input) result(output)
   type(MassWeightedForce), intent(in) :: input(:)
   type(MassWeightedForce)             :: output
   
-  output = MassWeightedForce(sum(input%MassWeightedVector))
+  integer :: i
+  
+  if (size(input)==0) then
+    call print_line(ERROR//': Trying to sum an empty array.')
+    call err()
+  endif
+  
+  output = input(1)
+  do i=2,size(input)
+    output = output + input(i)
+  enddo
 end function
 
 impure elemental function negative_MassWeightedForce(this) result(output)
@@ -168,7 +181,7 @@ impure elemental function negative_MassWeightedForce(this) result(output)
   type(MassWeightedForce), intent(in) :: this
   type(MassWeightedForce)             :: output
   
-  output = MassWeightedForce(-this%MassWeightedVector)
+  output = MassWeightedForce(-this%vectors)
 end function
 
 impure elemental function subtract_MassWeightedForce_MassWeightedForce(this, &
@@ -179,7 +192,7 @@ impure elemental function subtract_MassWeightedForce_MassWeightedForce(this, &
   type(MassWeightedForce), intent(in) :: that
   type(MassWeightedForce)             :: output
   
-  output = MassWeightedForce(this%MassWeightedVector - that%MassWeightedVector)
+  output = MassWeightedForce(this%vectors - that%vectors)
 end function
 
 ! ----------------------------------------------------------------------
@@ -192,7 +205,7 @@ subroutine read_MassWeightedForce(this,input)
   type(String),             intent(in)  :: input(:)
   
   select type(this); type is(MassWeightedForce)
-    this = MassWeightedForce(MassWeightedVector(StringArray(input)))
+    this = MassWeightedForce(RealVector(input))
   end select
 end subroutine
 
@@ -203,7 +216,7 @@ function write_MassWeightedForce(this) result(output)
   type(String), allocatable            :: output(:)
   
   select type(this); type is(MassWeightedForce)
-    output = str(this%MassWeightedVector)
+    output = str(this%vectors)
   end select
 end function
 

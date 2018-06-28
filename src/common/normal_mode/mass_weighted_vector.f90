@@ -5,15 +5,12 @@ module mass_weighted_vector_submodule
   use utils_module
   
   use structure_module
-  
-  use cartesian_vector_submodule
   implicit none
   
   private
   
   public :: MassWeightedVector
   public :: size
-  public :: CartesianVector
   public :: operator(*)
   public :: operator(/)
   public :: operator(+)
@@ -29,16 +26,11 @@ module mass_weighted_vector_submodule
   
   interface MassWeightedVector
     module procedure new_MassWeightedVector
-    module procedure new_MassWeightedVector_CartesianVector
     module procedure new_MassWeightedVector_StringArray
   end interface
   
   interface size
     module procedure size_MassWeightedVector
-  end interface
-  
-  interface CartesianVector
-    module procedure new_CartesianVector_MassWeightedVector
   end interface
   
   interface operator(*)
@@ -83,39 +75,6 @@ function size_MassWeightedVector(this) result(output)
   integer                               :: output
   
   output = size(this%vectors)
-end function
-
-! ----------------------------------------------------------------------
-! Conversion to and from non-mass-reduced cartesian co-ordinates.
-! ----------------------------------------------------------------------
-function new_MassWeightedVector_CartesianVector(input,structure) result(output)
-  implicit none
-  
-  class(CartesianVector), intent(in) :: input
-  type(StructureData),    intent(in) :: structure
-  type(MassWeightedVector)           :: output
-  
-  if (size(input)/=structure%no_atoms) then
-    call print_line(ERROR//': Vector and structure incompatible.')
-    call err()
-  endif
-  
-  output = MassWeightedVector(input%vectors/sqrt(structure%atoms%mass()))
-end function
-
-function new_CartesianVector_MassWeightedVector(input,structure) result(output)
-  implicit none
-  
-  class(MassWeightedVector), intent(in) :: input
-  type(StructureData),       intent(in) :: structure
-  type(CartesianVector)                 :: output
-  
-  if (size(input)/=structure%no_atoms) then
-    call print_line(ERROR//': Vector and structure incompatible.')
-    call err()
-  endif
-  
-  output = CartesianVector(input%vectors*sqrt(structure%atoms%mass()))
 end function
 
 ! ----------------------------------------------------------------------

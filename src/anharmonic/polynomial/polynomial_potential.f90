@@ -93,6 +93,7 @@ subroutine generate_sampling_points_PolynomialPotential(this,inputs, &
   type(SamplingPoints),   allocatable :: sampling_points(:)
   
   ! Supercell variables.
+  type(RealMode),   allocatable :: sampling_point_modes(:)
   type(QpointData), allocatable :: sampling_point_qpoints(:)
   type(IntMatrix)               :: supercell_matrix
   type(StructureData)           :: supercell
@@ -182,8 +183,10 @@ subroutine generate_sampling_points_PolynomialPotential(this,inputs, &
       call mkdir(sampling_dir)
       
       ! Construct a supercell for each sampling point.
-      sampling_point_qpoints = sampling_point%qpoints( inputs%real_modes, &
-                                                     & inputs%qpoints)
+      sampling_point_modes = select_modes( sampling_point%vectors, &
+                                         & inputs%real_modes       )
+      sampling_point_qpoints = select_qpoints( sampling_point_modes, &
+                                             & inputs%qpoints        )
       supercell_matrix = construct_supercell_matrix( sampling_point_qpoints, &
                                                    & inputs%structure)
       supercell = construct_supercell( inputs%structure,          &
@@ -416,9 +419,9 @@ impure elemental function energy_RealModeDisplacement_PolynomialPotential( &
   type(RealModeDisplacement), intent(in) :: displacement
   real(dp)                               :: output
   
-  output = this%reference_energy  &
-       & + sum( this%coefficients &
-       &      * this%basis_functions%evaluate(displacement))
+  output = this%reference_energy                          &
+       & + sum( this%coefficients                         &
+       &      * this%basis_functions%energy(displacement) )
 end function
 
 impure elemental function energy_ComplexModeDisplacement_PolynomialPotential( &
@@ -429,9 +432,9 @@ impure elemental function energy_ComplexModeDisplacement_PolynomialPotential( &
   type(ComplexModeDisplacement), intent(in) :: displacement
   complex(dp)                               :: output
   
-  output = this%reference_energy  &
-       & + sum( this%coefficients &
-       &      * this%basis_functions%evaluate(displacement))
+  output = this%reference_energy                          &
+       & + sum( this%coefficients                         &
+       &      * this%basis_functions%energy(displacement) )
 end function
 
 ! Calculate the force at a given displacement.
@@ -443,8 +446,8 @@ impure elemental function force_RealModeDisplacement_PolynomialPotential( &
   type(RealModeDisplacement), intent(in) :: displacement
   type(RealModeForce)                    :: output
   
-  output = RealModeForce(sum( this%coefficients &
-                          & * this%basis_functions%derivative(displacement)))
+  output = sum( this%coefficients                        &
+            & * this%basis_functions%force(displacement) )
 end function
 
 impure elemental function force_ComplexModeDisplacement_PolynomialPotential( &
@@ -455,9 +458,8 @@ impure elemental function force_ComplexModeDisplacement_PolynomialPotential( &
   type(ComplexModeDisplacement), intent(in) :: displacement
   type(ComplexModeForce)                    :: output
   
-  output = ComplexModeForce(         &
-            & sum( this%coefficients &
-            &    * this%basis_functions%derivative(displacement)))
+  output = sum( this%coefficients                        &
+            & * this%basis_functions%force(displacement) )
 end function
 
 ! ----------------------------------------------------------------------

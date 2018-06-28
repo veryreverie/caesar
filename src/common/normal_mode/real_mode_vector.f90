@@ -25,7 +25,7 @@ module real_mode_vector_submodule
   public :: operator(-)
   
   type, extends(Stringsable) :: RealModeVector
-    type(RealSingleModeVector), allocatable :: vectors(:)
+    type(RealSingleVector), allocatable :: vectors(:)
   contains
     procedure, public :: modes   => modes_RealModeVector
     procedure, public :: qpoints => qpoints_RealModeVector
@@ -81,7 +81,7 @@ contains
 function new_RealModeVector(vectors) result(this)
   implicit none
   
-  type(RealSingleModeVector), intent(in) :: vectors(:)
+  type(RealSingleVector), intent(in) :: vectors(:)
   type(RealModeVector)                   :: this
   
   this%vectors = vectors
@@ -94,7 +94,7 @@ function new_RealModeVector_RealModes(modes,magnitudes) result(this)
   real(dp),       intent(in) :: magnitudes(:)
   type(RealModeVector)       :: this
   
-  this = RealModeVector(RealSingleModeVector(modes,magnitudes))
+  this = RealModeVector(RealSingleVector(modes,magnitudes))
 end function
 
 ! Return the number of modes along which the vector has vectors.
@@ -339,7 +339,7 @@ function new_RealModeVector_MassWeightedVector(vector, &
   type(QpointData),          intent(in) :: qpoints(:)
   type(RealModeVector)                  :: this
   
-  type(RealSingleModeVector), allocatable :: vectors(:)
+  type(RealSingleVector), allocatable :: vectors(:)
   type(QpointData)                        :: qpoint
   
   integer :: i,ialloc
@@ -347,7 +347,7 @@ function new_RealModeVector_MassWeightedVector(vector, &
   allocate(vectors(size(modes)), stat=ialloc); call err(ialloc)
   do i=1,size(modes)
     qpoint = qpoints(first(qpoints%id==modes(i)%qpoint_id_plus))
-    vectors(i) = RealSingleModeVector( modes(i),  &
+    vectors(i) = RealSingleVector( modes(i),  &
                                      & vector,    &
                                      & structure, &
                                      & qpoint)
@@ -367,7 +367,7 @@ function new_RealModeVector_CartesianVector(vector, &
   type(QpointData),       intent(in) :: qpoints(:)
   type(RealModeVector)               :: this
   
-  type(RealSingleModeVector), allocatable :: vectors(:)
+  type(RealSingleVector), allocatable :: vectors(:)
   type(QpointData)                        :: qpoint
   
   integer :: i,ialloc
@@ -375,7 +375,7 @@ function new_RealModeVector_CartesianVector(vector, &
   allocate(vectors(size(modes)), stat=ialloc); call err(ialloc)
   do i=1,size(modes)
     qpoint = qpoints(first(qpoints%id==modes(i)%qpoint_id_plus))
-    vectors(i) = RealSingleModeVector( modes(i),  &
+    vectors(i) = RealSingleVector( modes(i),  &
                                      & vector,    &
                                      & structure, &
                                      & qpoint)
@@ -394,7 +394,7 @@ subroutine read_RealModeVector(this,input)
   type(String),          intent(in)  :: input(:)
   
   select type(this); type is(RealModeVector)
-    this = RealModeVector(RealSingleModeVector(input))
+    this = RealModeVector(RealSingleVector(input))
   end select
 end subroutine
 

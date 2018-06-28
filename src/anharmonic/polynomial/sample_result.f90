@@ -58,7 +58,7 @@ function new_SampleResult_calculations(vscf_rvectors,calculations,supercell, &
   type(RealModeForce), allocatable :: forces(:)
   
   ! Temporary variables.
-  integer :: i,ialloc
+  integer :: i,j,ialloc
   
   ! Average the energy over the calculations, and normalise to be per
   !    primitive cell.
@@ -73,11 +73,13 @@ function new_SampleResult_calculations(vscf_rvectors,calculations,supercell, &
                              & supercell,              &
                              & real_modes,             &
                              & qpoints)
+    
     ! Reverse the VSCF R-vector transformation.
     forces(i) = vscf_rvectors(i)%inverse_transform( forces(i),  &
                                                   & real_modes, &
                                                   & qpoints)
   enddo
+  
   ! Average the force over the calculations.
   force = sum(forces) / real(size(calculations),dp)
   

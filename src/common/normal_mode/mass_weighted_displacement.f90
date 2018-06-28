@@ -6,14 +6,13 @@ module mass_weighted_displacement_submodule
   
   use structure_module
   
-  use cartesian_vector_submodule
   use cartesian_displacement_submodule
-  use mass_weighted_vector_submodule
   implicit none
   
   private
   
   public :: MassWeightedDisplacement
+  public :: size
   public :: CartesianDisplacement
   public :: displace_structure
   public :: operator(*)
@@ -22,17 +21,21 @@ module mass_weighted_displacement_submodule
   public :: sum
   public :: operator(-)
   
-  type, extends(MassWeightedVector) :: MassWeightedDisplacement
+  type, extends(Stringsable) :: MassWeightedDisplacement
+    type(RealVector), allocatable :: vectors(:)
   contains
     procedure, public :: read  => read_MassWeightedDisplacement
     procedure, public :: write => write_MassWeightedDisplacement
   end type
   
   interface MassWeightedDisplacement
-    module procedure new_MassWeightedDisplacement_MassWeightedVector
     module procedure new_MassWeightedDisplacement
     module procedure new_MassWeightedDisplacement_CartesianDisplacement
     module procedure new_MassWeightedDisplacement_StringArray
+  end interface
+  
+  interface size
+    module procedure size_MassWeightedDisplacement
   end interface
   
   interface CartesianDisplacement
@@ -68,25 +71,24 @@ module mass_weighted_displacement_submodule
 contains
 
 ! ----------------------------------------------------------------------
-! Constructors.
+! Constructor and size() function.
 ! ----------------------------------------------------------------------
-function new_MassWeightedDisplacement_MassWeightedVector(displacements) &
-   & result(this)
-  implicit none
-  
-  type(MassWeightedVector), intent(in) :: displacements
-  type(MassWeightedDisplacement)       :: this
-  
-  this%MassWeightedVector = displacements
-end function
-
 function new_MassWeightedDisplacement(displacements) result(this)
   implicit none
   
   type(RealVector), intent(in)   :: displacements(:)
   type(MassWeightedDisplacement) :: this
   
-  this = MassWeightedDisplacement(MassWeightedVector(displacements))
+  this%vectors = displacements
+end function
+
+function size_MassWeightedDisplacement(this) result(output)
+  implicit none
+  
+  type(MassWeightedDisplacement), intent(in) :: this
+  integer                                    :: output
+  
+  output = size(this%vectors)
 end function
 
 ! ----------------------------------------------------------------------
@@ -100,7 +102,7 @@ function new_MassWeightedDisplacement_CartesianDisplacement(input,structure) &
   type(StructureData),         intent(in) :: structure
   type(MassWeightedDisplacement)          :: output
   
-  output = MassWeightedDisplacement(MassWeightedVector(input,structure))
+  output = MassWeightedDisplacement(input%vectors*sqrt(structure%atoms%mass()))
 end function
 
 function new_CartesianDisplacement_MassWeightedDisplacement(input,structure) &
@@ -111,9 +113,7 @@ function new_CartesianDisplacement_MassWeightedDisplacement(input,structure) &
   type(StructureData),            intent(in) :: structure
   type(CartesianDisplacement)                :: output
   
-  type(CartesianVector) :: temp
-  
-  output = CartesianDisplacement(CartesianVector(input,structure))
+  output = CartesianDisplacement(input%vectors/sqrt(structure%atoms%mass()))
 end function
 
 ! ----------------------------------------------------------------------
@@ -144,7 +144,7 @@ impure elemental function multiply_real_MassWeightedDisplacement(this,that) &
   type(MassWeightedDisplacement), intent(in) :: that
   type(MassWeightedDisplacement)             :: output
   
-  output = MassWeightedDisplacement(this * that%MassWeightedVector)
+  output = MassWeightedDisplacement(this * that%vectors)
 end function
 
 impure elemental function multiply_MassWeightedDisplacement_real(this,that) &
@@ -155,7 +155,7 @@ impure elemental function multiply_MassWeightedDisplacement_real(this,that) &
   real(dp),                       intent(in) :: that
   type(MassWeightedDisplacement)             :: output
   
-  output = MassWeightedDisplacement(this%MassWeightedVector * that)
+  output = MassWeightedDisplacement(this%vectors * that)
 end function
 
 impure elemental function divide_MassWeightedDisplacement_real(this,that) &
@@ -166,7 +166,7 @@ impure elemental function divide_MassWeightedDisplacement_real(this,that) &
   real(dp),                       intent(in) :: that
   type(MassWeightedDisplacement)             :: output
   
-  output = MassWeightedDisplacement(this%MassWeightedVector / that)
+  output = MassWeightedDisplacement(this%vectors / that)
 end function
 
 impure elemental function                                             &
@@ -178,8 +178,7 @@ impure elemental function                                             &
   type(MassWeightedDisplacement), intent(in) :: that
   type(MassWeightedDisplacement)             :: output
   
-  output = MassWeightedDisplacement( this%MassWeightedVector &
-                                 & + that%MassWeightedVector)
+  output = MassWeightedDisplacement(this%vectors + that%vectors)
 end function
 
 function sum_MassWeightedDisplacements(input) result(output)
@@ -188,7 +187,17 @@ function sum_MassWeightedDisplacements(input) result(output)
   type(MassWeightedDisplacement), intent(in) :: input(:)
   type(MassWeightedDisplacement)             :: output
   
-  output = MassWeightedDisplacement(sum(input%MassWeightedVector))
+  integer :: i
+  
+  if (size(input)==0) then
+    call print_line(ERROR//': Trying to sum an empty array.')
+    call err()
+  endif
+  
+  output = input(1)
+  do i=2,size(input)
+    output = output + input(i)
+  enddo
 end function
 
 impure elemental function negative_MassWeightedDisplacement(this) &
@@ -198,7 +207,7 @@ impure elemental function negative_MassWeightedDisplacement(this) &
   type(MassWeightedDisplacement), intent(in) :: this
   type(MassWeightedDisplacement)             :: output
   
-  output = MassWeightedDisplacement(-this%MassWeightedVector)
+  output = MassWeightedDisplacement(-this%vectors)
 end function
 
 impure elemental function                                                  &
@@ -210,8 +219,7 @@ impure elemental function                                                  &
   type(MassWeightedDisplacement), intent(in) :: that
   type(MassWeightedDisplacement)             :: output
   
-  output = MassWeightedDisplacement( this%MassWeightedVector &
-                                 & - that%MassWeightedVector)
+  output = MassWeightedDisplacement(this%vectors - that%vectors)
 end function
 
 ! ----------------------------------------------------------------------
@@ -224,7 +232,7 @@ subroutine read_MassWeightedDisplacement(this,input)
   type(String),                    intent(in)  :: input(:)
   
   select type(this); type is(MassWeightedDisplacement)
-    this = MassWeightedDisplacement(MassWeightedVector(StringArray(input)))
+    this = MassWeightedDisplacement(RealVector(input))
   end select
 end subroutine
 
@@ -235,7 +243,7 @@ function write_MassWeightedDisplacement(this) result(output)
   type(String), allocatable                   :: output(:)
   
   select type(this); type is(MassWeightedDisplacement)
-    output = str(this%MassWeightedVector)
+    output = str(this%vectors)
   end select
 end function
 

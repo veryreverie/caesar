@@ -6,18 +6,19 @@
 !    - Conversions between complex and real co-ordinates.
 ! ======================================================================
 module normal_mode_module
-  use cartesian_vector_submodule
   use cartesian_displacement_submodule
   use cartesian_force_submodule
+  use mass_weighted_displacement_submodule
+  use mass_weighted_force_submodule
   use real_mode_submodule
   use complex_mode_submodule
-  use real_single_mode_vector_submodule
-  use complex_single_mode_vector_submodule
-  use real_mode_vector_submodule
-  use complex_mode_vector_submodule
+  use real_single_mode_displacement_submodule
+  use real_single_mode_force_submodule
+  use complex_single_mode_displacement_submodule
+  use complex_single_mode_force_submodule
   use real_mode_displacement_submodule
-  use complex_mode_displacement_submodule
   use real_mode_force_submodule
+  use complex_mode_displacement_submodule
   use complex_mode_force_submodule
   use complex_polynomial_submodule
   use real_polynomial_submodule
