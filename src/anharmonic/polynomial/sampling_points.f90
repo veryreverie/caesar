@@ -145,7 +145,7 @@ function generate_sampling_points_helper(monomials,potential_expansion_order, &
   
   output = [RealModeDisplacement::]
   
-  do i=1,size(output)
+  do i=1,size(monomials)
     sum_powers = sum(monomials(i)%modes%power)
     allocate(vectors(size(monomials(i))), stat=ialloc); call err(ialloc)
     do j=1,size(monomials(i))
@@ -174,7 +174,24 @@ function generate_sampling_points_helper(monomials,potential_expansion_order, &
       vectors(j) = RealSingleDisplacement(mode, magnitude)
     enddo
     
-    output = [output, RealModeDisplacement(vectors)]
+    ! TODO
+    !output = [output, RealModeDisplacement(vectors)]
+    !output = [output, -RealModeDisplacement(vectors)]
+    do j=-3,3
+      if (j/=0) then
+        output = [output, (j/3.0_dp)*RealModeDisplacement(vectors)]
+      endif
+    enddo
+    !output = [output, 0.4_dp*RealModeDisplacement(vectors)]
+    !output = [output, -0.4_dp*RealModeDisplacement(vectors)]
+    !output = [output, 0.7_dp*RealModeDisplacement(vectors)]
+    !output = [output, -0.7_dp*RealModeDisplacement(vectors)]
+    !output = [output, RealModeDisplacement(vectors)]
+    !output = [output, -RealModeDisplacement(vectors)]
+    !output = [output, 1.3_dp*RealModeDisplacement(vectors)]
+    !output = [output, -1.3_dp*RealModeDisplacement(vectors)]
+    !output = [output, 1.6_dp*RealModeDisplacement(vectors)]
+    !output = [output, -1.6_dp*RealModeDisplacement(vectors)]
     deallocate(vectors, stat=ialloc); call err(ialloc)
   enddo
 end function

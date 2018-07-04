@@ -23,6 +23,14 @@ module complex_mode_displacement_submodule
   type, extends(Stringsable) :: ComplexModeDisplacement
     type(ComplexSingleDisplacement), allocatable :: vectors(:)
   contains
+    ! The component of the displacement along a given mode.
+    generic,   public  :: displacement =>  &
+                        & displacement_id, &
+                        & displacement_mode
+    procedure, private :: displacement_id
+    procedure, private :: displacement_mode
+    
+    ! I/O.
     procedure, public :: read  => read_ComplexModeDisplacement
     procedure, public :: write => write_ComplexModeDisplacement
   end type
@@ -210,6 +218,38 @@ impure elemental function                                                &
   type(ComplexModeDisplacement)             :: output
   
   output = this + (-that)
+end function
+
+! ----------------------------------------------------------------------
+! The displacement along a given mode.
+! ----------------------------------------------------------------------
+impure elemental function displacement_id(this,id) result(output)
+  implicit none
+  
+  class(ComplexModeDisplacement), intent(in) :: this
+  integer,                        intent(in) :: id
+  complex(dp)                                :: output
+  
+  type(ComplexSingleDisplacement) :: displacement
+  
+  integer :: i
+  
+  i = first(this%vectors%id==id, default=0)
+  if (i==0) then
+    output = 0.0_dp
+  else
+    output = this%vectors(i)%magnitude
+  endif
+end function
+
+impure elemental function displacement_mode(this,mode) result(output)
+  implicit none
+  
+  class(ComplexModeDisplacement), intent(in) :: this
+  type(ComplexMode),              intent(in) :: mode
+  complex(dp)                                :: output
+  
+  output = this%displacement(mode%id)
 end function
 
 ! ----------------------------------------------------------------------

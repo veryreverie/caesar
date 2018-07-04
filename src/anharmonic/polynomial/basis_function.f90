@@ -106,6 +106,9 @@ function generate_basis_functions_SubspaceMonomial(coupling,structure, &
   ! The conversion from complex co-ordinates to real co-ordinates.
   type(ComplexMatrix) :: complex_to_real_conversion
   
+  ! The conversion from real co-ordinates to complex co-ordinates.
+  type(ComplexMatrix) :: real_to_complex_conversion
+  
   ! Polynomial coefficients, in both bases.
   type(SymmetricEigenstuff), allocatable :: estuff(:)
   real(dp),                  allocatable :: real_coefficients(:)
@@ -190,13 +193,11 @@ function generate_basis_functions_SubspaceMonomial(coupling,structure, &
     unique_real_monomials(i)%coefficient = sqrt(real(size(equal_monomials),dp))
   enddo
   
-  ! Identify the mapping from complex monomials to real monomials,
-  !    and check that this conversion is orthonormal (unitary, but m>=n).
-  complex_to_real_conversion = conversion_matrix( unique_real_monomials, &
-                                                & unique_complex_monomials)
-  call check_orthonormal( complex_to_real_conversion,          &
-                        & 'complex to real conversion matrix', &
-                        & logfile)
+  ! Identify the mappings between complex monomials and real monomials.
+  complex_to_real_conversion = conversion_matrix( unique_real_monomials,   &
+                                                & unique_complex_monomials )
+  real_to_complex_conversion = conversion_matrix( unique_complex_monomials, &
+                                                & unique_real_monomials     )
   
   ! Construct projection matrix, which has allowed basis functions as
   !    eigenvectors with eigenvalue 1, and sends all other functions to 0.
@@ -224,7 +225,7 @@ function generate_basis_functions_SubspaceMonomial(coupling,structure, &
   !    and check that it is real and symmetric.
   projection = complex_to_real_conversion &
            & * projection                 &
-           & * hermitian(complex_to_real_conversion)
+           & * real_to_complex_conversion
   call check_real(projection,'projection_matrix',logfile)
   call check_symmetric( real(projection),    &
                       & 'projection_matrix', &
@@ -266,8 +267,8 @@ function generate_basis_functions_SubspaceMonomial(coupling,structure, &
   allocate(output(size(estuff)), stat=ialloc); call err(ialloc)
   do i=1,size(estuff)
     real_coefficients = estuff(i)%evec
-    complex_coefficients = cmplx( hermitian(complex_to_real_conversion) &
-                              & * vec(real_coefficients))
+    complex_coefficients = cmplx( real_to_complex_conversion &
+                              & * vec(real_coefficients)     )
     
     real_representation = RealPolynomial( real_coefficients &
                                       & * unique_real_monomials)

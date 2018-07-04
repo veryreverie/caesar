@@ -27,6 +27,7 @@ module keyword_submodule
     logical :: is_path
     logical :: allowed_in_file
     logical :: can_be_interactive
+    logical :: pass_to_python
     
     ! Defaults.
     ! 0=must be set,1=no default,2=default to value,3=default to keyword.
@@ -275,7 +276,7 @@ end function
 !    Defaults to ' '.
 function new_KeywordData(keyword,helptext,default_value,default_keyword, &
    & is_optional,is_path,allowed_in_file,can_be_interactive,             &
-   & flag_without_arguments,flag_with_arguments) result(this)
+   & flag_without_arguments,flag_with_arguments,pass_to_python) result(this)
   implicit none
   
   character(*), intent(in)           :: keyword
@@ -288,6 +289,7 @@ function new_KeywordData(keyword,helptext,default_value,default_keyword, &
   logical,      intent(in), optional :: can_be_interactive
   character(1), intent(in), optional :: flag_without_arguments
   character(1), intent(in), optional :: flag_with_arguments
+  logical,      intent(in), optional :: pass_to_python
   type(KeywordData)                  :: this
   
   ! Check for incompatible arguments.
@@ -340,6 +342,12 @@ function new_KeywordData(keyword,helptext,default_value,default_keyword, &
     this%flag_ = flag_with_arguments
   else
     this%flag_type_ = 0
+  endif
+  
+  if (present(pass_to_python)) then
+    this%pass_to_python = pass_to_python
+  else
+    this%pass_to_python = .false.
   endif
   
   ! Set default behaviour.

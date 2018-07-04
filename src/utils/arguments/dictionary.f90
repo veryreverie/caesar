@@ -66,6 +66,9 @@ module dictionary_submodule
     procedure, private :: value_Dictionary_character
     procedure, private :: value_Dictionary_String
     
+    ! Returns a list of python arguments.
+    procedure, public :: python_arguments
+    
     ! ----------
     ! Setters.
     ! ----------
@@ -317,6 +320,26 @@ function value_Dictionary_String(this,keyword) result(output)
   type(String)                  :: output
   
   output = this%value(char(keyword))
+end function
+
+! ----------------------------------------------------------------------
+! Return a list of python arguments.
+! ----------------------------------------------------------------------
+function python_arguments(this) result(output)
+  implicit none
+  
+  class(Dictionary), intent(in) :: this
+  type(String), allocatable     :: output(:)
+  
+  integer :: i
+  
+  output = [String::]
+  do i=1,size(this%keywords)
+    if (this%keywords(i)%is_set() .and. this%keywords(i)%pass_to_python) then
+      output = [ output,                                                 &
+               & this%keywords(i)%keyword//' '//this%keywords(i)%value() ]
+    endif
+  enddo
 end function
 
 ! ----------------------------------------------------------------------

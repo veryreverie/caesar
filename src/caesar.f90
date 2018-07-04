@@ -27,6 +27,8 @@ program caesar
   use calculate_potential_module
   use calculate_states_module
   use plot_effective_frequencies_module
+  use map_potential_module
+  use plot_potential_map_module
   
   ! Use testing modules.
   use check_counter_module
@@ -88,8 +90,10 @@ program caesar
      & run_anharmonic(),                 &
      & calculate_potential(),            &
      & calculate_states(),               &
-     & plot_effective_frequencies()      &
-     &])
+     & plot_effective_frequencies(),     &
+     & map_potential(),                  &
+     & plot_potential_map()              &
+     &                                   ])
   
   ! --------------------------------------------------
   ! Read in command line arguments and process the mode.

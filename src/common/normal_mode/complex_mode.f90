@@ -173,7 +173,7 @@ impure elemental function new_ComplexMode_HermitianEigenstuff(eigenstuff, &
                & + real(cartesian_vector(i) * conjg(cartesian_vector(i))) &
                & * atom%mass()
   enddo
-  spring_constant = - eigenstuff%eval * average_mass
+  spring_constant = - eigenstuff%eval
   
   ! Call private constructor.
   this = ComplexMode( id                   = 0,                    &

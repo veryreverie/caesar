@@ -39,64 +39,106 @@ def main():
       elif line[0]=='Displacement':
         modes[-1]['Displacements'] = []
         modes[-1]['Anharmonic energies'] = []
+        modes[-1]['Anharmonic forces'] = []
         modes[-1]['Harmonic energies'] = []
+        modes[-1]['Harmonic forces'] = []
         modes[-1]['Effective energies'] = []
-        if len(line)==13:
+        modes[-1]['Effective forces'] = []
+        if line[-2]=='Sampled':
           modes[-1]['Sampled energies'] = []
+          modes[-1]['Sampled forces'] = []
       else:
         modes[-1]['Displacements'].append(float(line[0]))
         modes[-1]['Anharmonic energies'].append(float(line[1]))
-        modes[-1]['Harmonic energies'].append(float(line[2]))
-        modes[-1]['Effective energies'].append(float(line[3]))
+        modes[-1]['Anharmonic forces'].append(float(line[2]))
+        modes[-1]['Harmonic energies'].append(float(line[3]))
+        modes[-1]['Harmonic forces'].append(float(line[4]))
+        modes[-1]['Effective energies'].append(float(line[5]))
+        modes[-1]['Effective forces'].append(float(line[6]))
         if 'Sampled energies' in modes[-1]:
-          modes[-1]['Sampled energies'].append(float(line[4]))
+          modes[-1]['Sampled energies'].append(float(line[7]))
+          modes[-1]['Sampled forces'].append(float(line[8]))
   
   for mode in modes:
-    mode['Anharmonic difference'] = []
-    for har,anh in zip(mode['Harmonic energies'],mode['Anharmonic energies']):
-       mode['Anharmonic difference'].append(anh-har)
+    mode['Harmonic energy difference'] = []
+    for harmonic,sampled in zip(mode['Harmonic energies'],
+                                mode['Sampled energies']):
+       mode['Harmonic energy difference'].append(harmonic-sampled)
     
-    mode['Effective difference'] = []
-    for har,eff in zip(mode['Harmonic energies'],mode['Effective energies']):
-       mode['Effective difference'].append(eff-har)
+    mode['Harmonic force difference'] = []
+    for harmonic,sampled in zip(mode['Harmonic forces'],
+                                mode['Sampled forces']):
+       mode['Harmonic force difference'].append(harmonic-sampled)
     
-    if 'Sampled energies' in mode:
-      mode['Sampled difference'] = []
-      for har,eff in zip(mode['Harmonic energies'],mode['Sampled energies']):
-         mode['Sampled difference'].append(eff-har)
+    mode['Anharmonic energy difference'] = []
+    for anharmonic,sampled in zip(mode['Anharmonic energies'],
+                                  mode['Sampled energies']):
+       mode['Anharmonic energy difference'].append(anharmonic-sampled)
+    
+    mode['Anharmonic force difference'] = []
+    for anharmonic,sampled in zip(mode['Anharmonic forces'],
+                                  mode['Sampled forces']):
+       mode['Anharmonic force difference'].append(anharmonic-sampled)
+    
+    mode['Effective energy difference'] = []
+    for effective,sampled in zip(mode['Effective energies'],
+                                 mode['Sampled energies']):
+       mode['Effective energy difference'].append(effective-sampled)
+    
+    mode['Effective force difference'] = []
+    for effective,sampled in zip(mode['Effective forces'],
+                                 mode['Sampled forces']):
+       mode['Effective force difference'].append(effective-sampled)
   
   # Plot data.
   
-  fig, axes = plt.subplots(3,len(modes))
+  fig, axes = plt.subplots(5,len(modes))
   
   for ax in axes[0]:
     for mode in modes:
       ax.hlines([mode['Harmonic frequency']], 0, 1, color=colours['turquoise'])
-  
   for mode,ax in zip(modes,axes[0]):
       ax.hlines([mode['Harmonic frequency']], 0, 1, color=colours['orange'])
   
   for mode,ax in zip(modes,axes[1]):
-    ax.plot(mode['Displacements'], mode['Anharmonic energies'], 
-            color=colours['turquoise'])
     ax.plot(mode['Displacements'], mode['Harmonic energies'],
-            color=colours['orange'])
+            color=colours['orange'], lw=2)
     ax.plot(mode['Displacements'], mode['Effective energies'],
-            color=colours['purple'])
+            color=colours['purple'], lw=2)
+    ax.plot(mode['Displacements'], mode['Anharmonic energies'], 
+            color=colours['turquoise'], lw=2)
     if 'Sampled energies' in mode:
       ax.plot(mode['Displacements'], mode['Sampled energies'],
-              color=colours['green'])
+              color=colours['green'], lw=2)
   
   for mode,ax in zip(modes,axes[2]):
-    ax.plot(mode['Displacements'], mode['Anharmonic difference'], 
-            color=colours['turquoise'])
-    ax.plot(mode['Displacements'], mode['Effective difference'],
-            color=colours['purple'])
-    if 'Sampled difference' in mode:
-      ax.plot(mode['Displacements'], mode['Sampled difference'],
-              color=colours['green'])
+    ax.plot(mode['Displacements'], mode['Harmonic forces'],
+            color=colours['orange'], lw=2)
+    ax.plot(mode['Displacements'], mode['Effective forces'],
+            color=colours['purple'], lw=2)
+    ax.plot(mode['Displacements'], mode['Anharmonic forces'], 
+            color=colours['turquoise'], lw=2)
+    if 'Sampled forces' in mode:
+      ax.plot(mode['Displacements'], mode['Sampled forces'],
+              color=colours['green'], lw=2)
   
-  # Configure top axes.
+  for mode,ax in zip(modes,axes[3]):
+    ax.plot(mode['Displacements'], mode['Harmonic energy difference'],
+            color=colours['orange'], lw=2)
+    ax.plot(mode['Displacements'], mode['Effective energy difference'],
+            color=colours['purple'], lw=2)
+    ax.plot(mode['Displacements'], mode['Anharmonic energy difference'], 
+            color=colours['turquoise'], lw=2)
+  
+  for mode,ax in zip(modes,axes[4]):
+    ax.plot(mode['Displacements'], mode['Harmonic force difference'],
+            color=colours['orange'], lw=2)
+    ax.plot(mode['Displacements'], mode['Effective force difference'],
+            color=colours['purple'], lw=2)
+    ax.plot(mode['Displacements'], mode['Anharmonic force difference'], 
+            color=colours['turquoise'], lw=2)
+  
+  # Configure frequency axes.
   min_frequency = modes[0]['Harmonic frequency']
   max_frequency = modes[-1]['Harmonic frequency']
   
@@ -105,7 +147,7 @@ def main():
   for ax in axes[0]:
     ax.set_ylim(ymin,ymax)
   
-  # Configure middle y-axes.
+  # Configure energy y-axes.
   min_energy = 0
   max_energy = 0
   for mode in modes:
@@ -124,24 +166,70 @@ def main():
   for ax in axes[1]:
     ax.set_ylim(ymin,ymax)
   
-  # Configure bottom y-axes.
-  min_difference = 0
-  max_difference = 0
+  # Configure force y-axes.
+  min_force = 0
+  max_force = 0
   for mode in modes:
-    min_difference = min(min_difference, min(mode['Anharmonic difference']))
-    min_difference = min(min_difference, min(mode['Effective difference']))
-    max_difference = max(max_difference, max(mode['Anharmonic difference']))
-    max_difference = max(max_difference, max(mode['Effective difference']))
-    if 'Sampled difference' in mode:
-      min_difference = min(min_difference, min(mode['Sampled difference']))
-      max_difference = max(max_difference, max(mode['Sampled difference']))
+    min_force = min(min_force, min(mode['Anharmonic forces']))
+    min_force = min(min_force, min(mode['Harmonic forces']))
+    min_force = min(min_force, min(mode['Effective forces']))
+    max_force = max(max_force, max(mode['Anharmonic forces']))
+    max_force = max(max_force, max(mode['Harmonic forces']))
+    max_force = max(max_force, max(mode['Effective forces']))
+    if 'Sampled forces' in mode:
+      min_force = min(min_force, min(mode['Sampled forces']))
+      max_force = max(max_force, max(mode['Sampled forces']))
   
-  ymin = min_difference - 0.1*(max_difference-min_difference)
-  ymax = max_difference + 0.1*(max_difference-min_difference)
+  ymin = min_force - 0.1*(max_force-min_force)
+  ymax = max_force + 0.1*(max_force-min_force)
   for ax in axes[2]:
     ax.set_ylim(ymin,ymax)
   
-  # Configure middle and bottom x-axes.
+  # Configure energy difference y-axes.
+  min_difference = 0
+  max_difference = 0
+  for mode in modes:
+    min_difference = min(min_difference,
+                         min(mode['Harmonic energy difference']))
+    min_difference = min(min_difference,
+                         min(mode['Anharmonic energy difference']))
+    min_difference = min(min_difference,
+                         min(mode['Effective energy difference']))
+    max_difference = max(max_difference,
+                         max(mode['Harmonic energy difference']))
+    max_difference = max(max_difference,
+                         max(mode['Anharmonic energy difference']))
+    max_difference = max(max_difference,
+                         max(mode['Effective energy difference']))
+  
+  ymin = min_difference - 0.1*(max_difference-min_difference)
+  ymax = max_difference + 0.1*(max_difference-min_difference)
+  for ax in axes[3]:
+    ax.set_ylim(ymin,ymax)
+  
+  # Configure force difference y-axes.
+  min_difference = 0
+  max_difference = 0
+  for mode in modes:
+    min_difference = min(min_difference,
+                         min(mode['Harmonic force difference']))
+    min_difference = min(min_difference,
+                         min(mode['Anharmonic force difference']))
+    min_difference = min(min_difference,
+                         min(mode['Effective force difference']))
+    max_difference = max(max_difference,
+                         max(mode['Harmonic force difference']))
+    max_difference = max(max_difference,
+                         max(mode['Anharmonic force difference']))
+    max_difference = max(max_difference,
+                         max(mode['Effective force difference']))
+  
+  ymin = min_difference - 0.1*(max_difference-min_difference)
+  ymax = max_difference + 0.1*(max_difference-min_difference)
+  for ax in axes[4]:
+    ax.set_ylim(ymin,ymax)
+  
+  # Configure displacement x-axes.
   min_displacement = 0
   max_displacement = 0
   for mode in modes:
@@ -153,6 +241,10 @@ def main():
   for ax in axes[1]:
     ax.set_xlim(xmin,xmax)
   for ax in axes[2]:
+    ax.set_xlim(xmin,xmax)
+  for ax in axes[3]:
+    ax.set_xlim(xmin,xmax)
+  for ax in axes[4]:
     ax.set_xlim(xmin,xmax)
   
   plt.show()

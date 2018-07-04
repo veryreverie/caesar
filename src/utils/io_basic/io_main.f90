@@ -185,7 +185,7 @@ subroutine mkdir(dirname)
   result_code = system_call( &
      & 'if [ ! -e '//dirname//' ]; then mkdir '//dirname//'; fi')
   if (result_code/=0) then
-    call print_line('Error: failed to make directory: '//dirname)
+    call print_line(ERROR//': failed to make directory: '//dirname)
     call err()
   endif
 end subroutine
@@ -261,7 +261,7 @@ function get_flag(args,flags_without_arguments,flags_with_arguments) &
     
     ! The flag is unexpected.
     if (output%flag=='?') then
-      call print_line('Error: unexpected flag "'//output%argument//'".')
+      call print_line(ERROR//': unexpected flag "'//output%argument//'".')
       stop
     
     ! The flag has no argument.
@@ -301,7 +301,7 @@ function get_home_directory() result(output)
   success = get_home_c(home_dir)
   
   if (.not. success) then
-    call print_line('Error: getenv("HOME") failed.')
+    call print_line(ERROR//': getenv("HOME") failed.')
     call err()
   endif
   
@@ -314,7 +314,7 @@ function get_home_directory() result(output)
   enddo
   
   if (output=='') then
-    call print_line('Error: home directory string not nul-terminated: '// &
+    call print_line(ERROR//': home directory string not nul-terminated: '// &
        & home_dir)
     call err()
   endif
@@ -334,7 +334,7 @@ function get_current_directory() result(output)
   success = get_cwd_c(result_size, current_dir)
   
   if (.not. success) then
-    call print_line('Error: getcwd failed.')
+    call print_line(ERROR//': getcwd failed.')
     call err()
   endif
   
@@ -347,7 +347,7 @@ function get_current_directory() result(output)
   enddo
   
   if (output=='') then
-    call print_line('Error: cwd string not nul-terminated: '//current_dir)
+    call print_line(ERROR//': cwd string not nul-terminated: '//current_dir)
     call err()
   endif
 end function
@@ -366,7 +366,7 @@ function get_exe_location() result(output)
   success = get_exe_location_c(result_size, exe_location)
   
   if (.not. success) then
-    call print_line('Error: readlink("/proc/self/exe") failed.')
+    call print_line(ERROR//': readlink("/proc/self/exe") failed.')
     call err()
   endif
   
@@ -379,7 +379,7 @@ function get_exe_location() result(output)
   enddo
   
   if (output=='') then
-    call print_line('Error: readlink string not nul-terminated: '// &
+    call print_line(ERROR//': readlink string not nul-terminated: '// &
        & exe_location)
     call err()
   endif
@@ -488,7 +488,7 @@ function format_path_character(path) result(output)
   length = len(path)
   
   if (length==0) then
-    call print_line('Error: no path provided.')
+    call print_line(ERROR//': no path provided.')
     call err()
   endif
   
@@ -555,7 +555,7 @@ subroutine execute_old_code(wd, filename)
      & '( PATH='//OLD_PATH//':$PATH; cd '//wd//'; '//filename//' )')
   
   if (result_code/=0) then
-    call print_line('Error: '//filename//' failed.')
+    call print_line(ERROR//': '//filename//' failed.')
     call err()
   endif
 end subroutine
@@ -563,21 +563,27 @@ end subroutine
 ! ----------------------------------------------------------------------
 ! Executes one of the Python scripts.
 ! ----------------------------------------------------------------------
-subroutine execute_python(wd, filename, python_path)
+subroutine execute_python(wd, filename, python_path, python_arguments)
   implicit none
   
-  type(String), intent(in) :: wd
-  type(String), intent(in) :: filename
-  type(String), intent(in) :: python_path
+  type(String), intent(in)           :: wd
+  type(String), intent(in)           :: filename
+  type(String), intent(in)           :: python_path
+  type(String), intent(in), optional :: python_arguments(:)
   
-  integer :: result_code
+  type(String) :: command
+  integer      :: result_code
   
-  result_code = system_call( 'cd '//wd//'; '//  &
-                           & python_path//' '// &
-                           & PYTHON_SCRIPTS_PATH//'/'//filename)
+  command = 'cd '//wd//'; '//python_path//' '//PYTHON_SCRIPTS_PATH//'/'//filename
+  
+  if (present(python_arguments)) then
+    command = command//' '//join(python_arguments)
+  endif
+  
+  result_code = system_call(command)
   
   if (result_code/=0) then
-    call print_line('Error: '//filename//' failed.')
+    call print_line(ERROR//': '//filename//' failed.')
     call err()
   endif
 end subroutine

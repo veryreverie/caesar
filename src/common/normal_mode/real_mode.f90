@@ -164,10 +164,10 @@ impure elemental function new_CartesianDisplacement_RealMode(this,structure, &
   type(QpointData),    intent(in) :: qpoint
   type(CartesianDisplacement)     :: output
   
-  output = CartesianDisplacement(this%construct_vector( &
-                               & this%cartesian_vector, &
-                               & structure,             &
-                               & qpoint                 ))
+  output = CartesianDisplacement( MassWeightedDisplacement( this,         &
+                                &                           structure,    &
+                                &                           qpoint     ), &
+                                & structure                               )
 end function
 
 impure elemental function new_CartesianForce_RealMode(this,structure,qpoint) &
@@ -179,10 +179,10 @@ impure elemental function new_CartesianForce_RealMode(this,structure,qpoint) &
   type(QpointData),    intent(in) :: qpoint
   type(CartesianForce)            :: output
   
-  output = CartesianForce(this%construct_vector( &
-                        & this%cartesian_vector, &
-                        & structure,             &
-                        & qpoint                 ))
+  output = CartesianForce( MassWeightedForce( this,         &
+                         &                    structure,    &
+                         &                    qpoint     ), &
+                         & structure                        )
 end function
 
 function construct_vector(this,prim_vectors,structure,qpoint) result(output)

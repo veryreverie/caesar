@@ -23,6 +23,14 @@ module complex_mode_force_submodule
   type, extends(Stringsable) :: ComplexModeForce
     type(ComplexSingleForce), allocatable :: vectors(:)
   contains
+    ! The component of the force along a given mode.
+    generic,   public  :: force =>  &
+                        & force_id, &
+                        & force_mode
+    procedure, private :: force_id
+    procedure, private :: force_mode
+    
+    ! I/O.
     procedure, public :: read  => read_ComplexModeForce
     procedure, public :: write => write_ComplexModeForce
   end type
@@ -207,6 +215,38 @@ impure elemental function subtract_ComplexModeForce_ComplexModeForce( &
   type(ComplexModeForce)             :: output
   
   output = this + (-that)
+end function
+
+! ----------------------------------------------------------------------
+! The displacement along a given mode.
+! ----------------------------------------------------------------------
+impure elemental function force_id(this,id) result(output)
+  implicit none
+  
+  class(ComplexModeForce), intent(in) :: this
+  integer,                 intent(in) :: id
+  complex(dp)                         :: output
+  
+  type(ComplexSingleForce) :: force
+  
+  integer :: i
+  
+  i = first(this%vectors%id==id, default=0)
+  if (i==0) then
+    output = 0.0_dp
+  else
+    output = this%vectors(i)%magnitude
+  endif
+end function
+
+impure elemental function force_mode(this,mode) result(output)
+  implicit none
+  
+  class(ComplexModeForce), intent(in) :: this
+  type(ComplexMode),       intent(in) :: mode
+  complex(dp)                         :: output
+  
+  output = this%force(mode%id)
 end function
 
 ! ----------------------------------------------------------------------

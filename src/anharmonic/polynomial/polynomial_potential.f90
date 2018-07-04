@@ -106,6 +106,7 @@ subroutine generate_sampling_points_PolynomialPotential(this,inputs, &
   type(StructureData)             :: displaced_structure
   
   ! Directories and files.
+  type(String) :: equilibrium_dir
   type(String) :: coupling_dir
   type(OFile)  :: basis_functions_file
   type(OFile)  :: sampling_points_file
@@ -159,6 +160,13 @@ subroutine generate_sampling_points_PolynomialPotential(this,inputs, &
   ! --------------------------------------------------
   ! Write out basis functions and sampling points.
   ! --------------------------------------------------
+  
+  ! Write out sampling point at equilibrium.
+  equilibrium_dir = sampling_points_dir//'/equilibrium'
+  call calculation_writer%write_calculation( inputs%structure, &
+                                           & equilibrium_dir   )
+  
+  ! Write out all other sampling points.
   do i=1,size(sampling_points)
     ! Make a directory for each coupling.
     coupling_dir = sampling_points_dir// &
@@ -254,11 +262,18 @@ subroutine generate_potential_PolynomialPotential(this,inputs,           &
   type(SamplingPoints), allocatable :: sampling_points(:)
   type(SampleResults),  allocatable :: sample_results(:)
   
+  ! Variables associated with the constant basis function
+  !    and the sampling point at zero displacement.
+  type(RealMonomial)         :: constant_real_monomial
+  type(ComplexMonomial)      :: constant_complex_monomial
+  type(BasisFunction)        :: constant_basis_function
+  type(RealModeDisplacement) :: equilibrium_sampling_point
+  type(String)               :: equilibrium_dir
+  type(ElectronicStructure)  :: equilibrium_electronic_structure
+  type(SampleResult)         :: equilibrium_sample_result
+  
   ! Variables for generating coefficients.
   logical,                    allocatable :: uncoupled(:)
-  type(RealMonomial)                      :: constant_real_monomial
-  type(ComplexMonomial)                   :: constant_complex_monomial
-  type(BasisFunction)                     :: constant_basis_function
   type(BasisFunction),        allocatable :: uncoupled_basis_functions(:)
   type(RealModeDisplacement), allocatable :: uncoupled_sampling_points(:)
   type(SampleResult),         allocatable :: uncoupled_sample_results(:)
@@ -274,6 +289,23 @@ subroutine generate_potential_PolynomialPotential(this,inputs,           &
   
   ! Temporary variables.
   integer :: i,j,k,ialloc
+  
+  ! --------------------------------------------------
+  ! Construct a basis function representing a constant reference energy,
+  !    and a sampling point representing the unperturbed structure.
+  ! --------------------------------------------------
+  constant_real_monomial = RealMonomial( coefficient=1.0_dp, &
+                                       & modes=[RealUnivariate::])
+  constant_complex_monomial = ComplexMonomial( &
+        & coefficient=cmplx(1.0_dp,0.0_dp,dp), &
+        & modes=[ComplexUnivariate::])
+  constant_basis_function = BasisFunction(                             &
+     & real_representation = RealPolynomial([constant_real_monomial]), &
+     & complex_representation =                                        &
+     &    ComplexPolynomial([constant_complex_monomial]),              &
+     & unique_term = constant_real_monomial)
+  
+  equilibrium_sampling_point = RealModeDisplacement([RealSingleDisplacement::])
   
   ! --------------------------------------------------
   ! Read in basis functions and sampling points.
@@ -296,6 +328,14 @@ subroutine generate_potential_PolynomialPotential(this,inputs,           &
   ! --------------------------------------------------
   ! Read in energies and forces.
   ! --------------------------------------------------
+  equilibrium_dir = sampling_points_dir//'/equilibrium'
+  equilibrium_electronic_structure  = calculation_reader%read_calculation( &
+                                                         & equilibrium_dir )
+  equilibrium_sample_result = SampleResult( equilibrium_electronic_structure, &
+                                          & inputs%structure,                 &
+                                          & inputs%real_modes,                &
+                                          & inputs%qpoints                    )
+  
   allocate( sample_results(size(inputs%subspace_couplings)),        &
           & stat=ialloc); call err(ialloc)
   do i=1,size(sampling_points)
@@ -352,24 +392,12 @@ subroutine generate_potential_PolynomialPotential(this,inputs,           &
     endif
   enddo
   
-  ! Construct a basis function representing a constant reference energy.
-  constant_real_monomial = RealMonomial( coefficient=1.0_dp, &
-                                       & modes=[RealUnivariate::])
-  constant_complex_monomial = ComplexMonomial( &
-        & coefficient=cmplx(1.0_dp,0.0_dp,dp), &
-        & modes=[ComplexUnivariate::])
-  constant_basis_function = BasisFunction(                             &
-     & real_representation = RealPolynomial([constant_real_monomial]), &
-     & complex_representation =                                        &
-     &    ComplexPolynomial([constant_complex_monomial]),              &
-     & unique_term = constant_real_monomial)
-  
   ! Calculate the coefficients of all basis functions which do not involve
   !    subspace coupling at once.
   
   uncoupled_basis_functions = [constant_basis_function]
-  uncoupled_sampling_points = [RealModeDisplacement::]
-  uncoupled_sample_results  = [SampleResult::]
+  uncoupled_sampling_points = [equilibrium_sampling_point]
+  uncoupled_sample_results  = [equilibrium_sample_result]
   do i=1,size(inputs%subspace_couplings)
     if (uncoupled(i)) then
       uncoupled_basis_functions = [ uncoupled_basis_functions, &

@@ -27,6 +27,14 @@ module real_mode_displacement_submodule
   type, extends(Stringsable) :: RealModeDisplacement
     type(RealSingleDisplacement), allocatable :: vectors(:)
   contains
+    ! The component of the displacement along a given mode.
+    generic,   public  :: displacement =>  &
+                        & displacement_id, &
+                        & displacement_mode
+    procedure, private :: displacement_id
+    procedure, private :: displacement_mode
+    
+    ! I/O.
     procedure, public :: read  => read_RealModeDisplacement
     procedure, public :: write => write_RealModeDisplacement
   end type
@@ -287,6 +295,38 @@ function new_RealModeDisplacement_CartesianDisplacement(displacement, &
                                                     & displacement,    &
                                                     & structure,       &
                                                     & selected_qpoints ))
+end function
+
+! ----------------------------------------------------------------------
+! The displacement along a given mode.
+! ----------------------------------------------------------------------
+impure elemental function displacement_id(this,id) result(output)
+  implicit none
+  
+  class(RealModeDisplacement), intent(in) :: this
+  integer,                     intent(in) :: id
+  real(dp)                                :: output
+  
+  type(RealSingleDisplacement) :: displacement
+  
+  integer :: i
+  
+  i = first(this%vectors%id==id, default=0)
+  if (i==0) then
+    output = 0.0_dp
+  else
+    output = this%vectors(i)%magnitude
+  endif
+end function
+
+impure elemental function displacement_mode(this,mode) result(output)
+  implicit none
+  
+  class(RealModeDisplacement), intent(in) :: this
+  type(RealMode),              intent(in) :: mode
+  real(dp)                                :: output
+  
+  output = this%displacement(mode%id)
 end function
 
 ! ----------------------------------------------------------------------

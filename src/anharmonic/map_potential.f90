@@ -1,7 +1,7 @@
 ! ======================================================================
-! Calculates anharmonic states using the anharmonic potential and VSCF.
+! Maps out the potential at finite displacements along multiple modes.
 ! ======================================================================
-module calculate_states_module
+module map_potential_module
   use common_module
   
   use anharmonic_common_module
@@ -15,20 +15,20 @@ module calculate_states_module
   
   private
   
-  public :: calculate_states
+  public :: map_potential
 contains
 
 ! ----------------------------------------------------------------------
 ! Generate keywords and helptext.
 ! ----------------------------------------------------------------------
-function calculate_states() result(output)
+function map_potential() result(output)
   implicit none
   
   type(CaesarMode) :: output
   
-  output%mode_name = 'calculate_states'
-  output%description = 'Runs VSCF on the anharmonic potential to calculate &
-     &states. Should be run after calculate_potential.'
+  output%mode_name = 'map_potential'
+  output%description = 'Maps out the potential at finite displacements along &
+     & multiple modes.'
   output%keywords = [                                                         &
   & KeywordData( 'no_single_mode_samples',                                    &
   &              'no_single_mode_samples is the number of points (either side &
@@ -50,13 +50,13 @@ function calculate_states() result(output)
   &              'no_cores is the number of cores on which DFT will be run. &
   &This is passed to the specified run script.',                              &
   &               default_value='1') ]
-  output%main_subroutine => calculate_states_subroutine
+  output%main_subroutine => map_potential_subroutine
 end function
 
 ! ----------------------------------------------------------------------
 ! Main program.
 ! ----------------------------------------------------------------------
-subroutine calculate_states_subroutine(arguments)
+subroutine map_potential_subroutine(arguments)
   implicit none
   
   type(Dictionary), intent(in) :: arguments
@@ -111,10 +111,19 @@ subroutine calculate_states_subroutine(arguments)
   
   ! Variables for generating effective mode frequencies.
   real(dp),                 allocatable :: displacements(:)
-  real(dp),                 allocatable :: scaled_displacements(:)
+  real(dp),                 allocatable :: scaled_displacements_i(:)
+  real(dp),                 allocatable :: scaled_displacements_j(:)
+  type(RealSingleDisplacement)          :: displacement_i
+  type(RealSingleDisplacement)          :: displacement_j
+  type(RealModeDisplacement)            :: displacement_ij
+  type(QpointData),         allocatable :: qpoints_ij(:)
   type(EffectiveFrequency), allocatable :: effective_frequencies(:)
   integer,                  allocatable :: qpoint_modes(:)
   type(EffectiveFrequency), allocatable :: qpoint_frequencies(:)
+  
+  real(dp), allocatable :: harmonic_energy(:,:)
+  real(dp), allocatable :: anharmonic_energy(:,:)
+  real(dp), allocatable :: sampled_energy(:,:)
   
   ! Variables for validating potential.
   real(dp), allocatable       :: sampled_energies(:)
@@ -134,13 +143,13 @@ subroutine calculate_states_subroutine(arguments)
   type(IFile)  :: complex_modes_file
   type(IFile)  :: real_modes_file
   type(IFile)  :: potential_file
-  type(String) :: qpoint_dir
-  type(OFile)  :: effective_frequencies_file
-  type(String) :: mode_dir
+  type(String) :: map_dir
+  type(String) :: modes_dir
   type(String) :: displacement_dir
+  type(OFile)  :: output_file
   
   ! Temporary variables.
-  integer :: i,j,k,ialloc
+  integer :: i,j,k,l,ialloc
   
   ! --------------------------------------------------
   ! Read in inputs and previously calculated data.
@@ -240,109 +249,104 @@ subroutine calculate_states_subroutine(arguments)
   ! Calculate effective harmonic potential, from which initial harmonic
   !    states are constructed.
   ! --------------------------------------------------
+  map_dir = wd//'/mapped_potential'
+  call mkdir(map_dir)
+  
   ! Calculate displacements before scaling by 1/sqrt(frequency).
   displacements =                                               &
      &   [(j,j=-no_single_mode_samples,no_single_mode_samples)] &
      & * maximum_weighted_displacement                          &
      & / no_single_mode_samples
   
-  allocate( effective_frequencies(size(complex_modes)), &
+  allocate( harmonic_energy(size(displacements), size(displacements)),   &
+          & anharmonic_energy(size(displacements), size(displacements)), &
+          & sampled_energy(size(displacements), size(displacements)),    &
           & stat=ialloc); call err(ialloc)
-  do i=1,size(complex_modes)
-    ! Scale displacement by 1/sqrt(frequency).
-    scaled_displacements = displacements                             &
-                       & * sqrt( frequency_of_max_displacement       &
-                       &       / max( complex_modes(i)%frequency,    &
-                       &              frequency_of_max_displacement) )
-    
-    ! Sample the model potential to find the effective frequency.
-    effective_frequencies(i) = EffectiveFrequency( scaled_displacements, &
-                                                 & complex_modes(i),     &
-                                                 & real_modes,           &
-                                                 & potential,            &
-                                                 & structure             )
-  enddo
-  
-  ! --------------------------------------------------
-  ! Write effective frequencies to file, q-point by q-point.
-  ! --------------------------------------------------
-  do i=1,size(qpoints)
-    qpoint_modes = filter(complex_modes%qpoint_id==qpoints(i)%id)
-    
-    qpoint_dir = wd//'/qpoint_'//left_pad(i,str(size(qpoints)))
-    call mkdir(qpoint_dir)
-    
-    ! --------------------------------------------------
-    ! Validate the model potential by sampling the electronic structure at
-    !    the same points as the model potential.
-    ! --------------------------------------------------
-    if (validate_potential) then
-      ! Construct and write out supercell.
-      supercell_matrix = construct_supercell_matrix(qpoints(i), structure)
-      supercell = construct_supercell( structure,          &
-                                     & supercell_matrix,   &
-                                     & symmetry_precision, &
-                                     & calculate_symmetry=.false.)
-      call write_structure_file(supercell, qpoint_dir//'/structure.dat')
+  do i=1,size(real_modes)
+    do j=i+1,size(real_modes)
+      modes_dir = map_dir//'/modes_'//                     &
+                & left_pad(i,str(size(real_modes)))//'_'// &
+                & left_pad(j,str(size(real_modes)))
+      call mkdir(modes_dir)
       
-      do j=1,size(qpoint_modes)
-        complex_mode = complex_modes(qpoint_modes(j))
-        real_mode = real_modes(                         &
-           & first(real_modes%id==min( complex_mode%id, &
-           &                           complex_mode%paired_id)))
-        mode_dir = qpoint_dir//                           &
-           & '/complex_mode_'//left_pad( complex_mode%id, &
-           &                             str(size(complex_modes)))
-        call mkdir(mode_dir)
-        allocate( sampled_energies(size(displacements)), &
-                & sampled_forces(size(displacements)),   &
-                & stat=ialloc); call err(ialloc)
-        do k=1,size(sampled_energies)
-          real_mode_displacement = RealModeDisplacement(                 &
-             & [real_mode],                                              &
-             & [effective_frequencies(qpoint_modes(j))%displacements(k)] )
-          displacement = CartesianDisplacement( real_mode_displacement, &
-                                              & supercell,              &
-                                              & real_modes,             &
-                                              & qpoints                 )
-          displaced_structure = displace_structure(supercell,displacement)
+      ! Scale displacement by 1/sqrt(frequency).
+      scaled_displacements_i = displacements                             &
+                           & * sqrt( frequency_of_max_displacement       &
+                           &       / max( complex_modes(i)%frequency,    &
+                           &              frequency_of_max_displacement) )
+      scaled_displacements_j = displacements                             &
+                           & * sqrt( frequency_of_max_displacement       &
+                           &       / max( complex_modes(j)%frequency,    &
+                           &              frequency_of_max_displacement) )
+      
+      if (validate_potential) then
+        qpoints_ij = select_qpoints([real_modes(i),real_modes(j)],qpoints)
+        supercell_matrix = construct_supercell_matrix( qpoints_ij, &
+                                                     & structure   )
+        supercell = construct_supercell( structure,                 &
+                                       & supercell_matrix,          &
+                                       & symmetry_precision,        &
+                                       & calculate_symmetry=.false. )
+        call write_structure_file(supercell, modes_dir//'/structure.dat')
+      endif
+      
+      do k=1,size(scaled_displacements_i)
+        do l=1,size(scaled_displacements_j)
+          displacement_i = RealSingleDisplacement( real_modes(i),            &
+                                                 & scaled_displacements_i(k) )
+          displacement_j = RealSingleDisplacement( real_modes(j),            &
+                                                 & scaled_displacements_j(l) )
+          displacement_ij = RealModeDisplacement([ displacement_i, &
+                                                 & displacement_j  ])
+          anharmonic_energy(k,l) = potential%energy(displacement_ij)
+          harmonic_energy(k,l) = 0.5_dp                        &
+                             & * real_modes(i)%spring_constant &
+                             & * scaled_displacements_i(k)     &
+                             & * scaled_displacements_i(k)     &
+                             & + 0.5_dp                        &
+                             & * real_modes(j)%spring_constant &
+                             & * scaled_displacements_j(l)     &
+                             & * scaled_displacements_j(l)
           
-          displacement_dir = mode_dir// &
-             & '/displacement_'//left_pad(k,str(size(displacements)))
-          call calculation_writer%write_calculation( displaced_structure, &
-                                                   & displacement_dir     )
-          
-          call calculation_runner%run_calculation(displacement_dir)
-          
-          electronic_structure = calculation_reader%read_calculation( &
-                                                   & displacement_dir )
-          
-          sampled_energies(k) = electronic_structure%energy &
-                            & / supercell%sc_size
-          sampled_force = RealModeForce( electronic_structure%forces, &
-                                       & supercell,                   &
-                                       & real_modes,                  &
-                                       & qpoints                      )
-          sampled_forces(k) = sampled_force%force(real_mode)
+          if (validate_potential) then
+            displacement = CartesianDisplacement( displacement_ij, &
+                                                & supercell,       &
+                                                & real_modes,      &
+                                                & qpoints          )
+            displaced_structure = displace_structure(supercell,displacement)
+            
+            displacement_dir = modes_dir//'/displacement_'//               &
+                             & left_pad(k,str(size(displacements)))//'_'// &
+                             & left_pad(l,str(size(displacements)))
+            call calculation_writer%write_calculation( displaced_structure, &
+                                                     & displacement_dir     )
+            call calculation_runner%run_calculation(displacement_dir)
+            electronic_structure = calculation_reader%read_calculation( &
+                                                     & displacement_dir )
+            
+            sampled_energy(k,l) = electronic_structure%energy &
+                              & / supercell%sc_size
+          endif
         enddo
-        sampled_energies = sampled_energies                                   &
-                       & - potential%energy(                                  &
-                       &     RealModeDisplacement([RealSingleDisplacement::]) )
-        effective_frequencies(qpoint_modes(j))%sampled_energies = &
-           & sampled_energies
-        effective_frequencies(qpoint_modes(j))%sampled_forces = sampled_forces
-        
-        deallocate( sampled_energies, &
-                  & sampled_forces,   &
-                  & stat=ialloc); call err(ialloc)
       enddo
-    endif
-    
-    qpoint_frequencies = effective_frequencies(qpoint_modes)
-    effective_frequencies_file = &
-       & OFile(qpoint_dir//'/effective_frequencies.dat')
-    call effective_frequencies_file%print_lines( qpoint_frequencies, &
-                                               & separating_line='')
+      
+      output_file = OFile(modes_dir//'/potential.dat')
+      
+      call output_file%print_line('x-direction mode ID: '//real_modes(i)%id)
+      call output_file%print_line('y-direction mode ID: '//real_modes(j)%id)
+      call output_file%print_line('x-direction displacements:')
+      call output_file%print_line(scaled_displacements_i)
+      call output_file%print_line('y-direction displacements:')
+      call output_file%print_line(scaled_displacements_j)
+      call output_file%print_line('Harmonic energies:')
+      call output_file%print_lines(mat(harmonic_energy))
+      call output_file%print_line('Anharmonic energies:')
+      call output_file%print_lines(mat(anharmonic_energy))
+      if (validate_potential) then
+        call output_file%print_line('Sampled energies:')
+        call output_file%print_lines(mat(sampled_energy))
+      endif
+    enddo
   enddo
 end subroutine
 end module
