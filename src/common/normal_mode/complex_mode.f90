@@ -25,18 +25,15 @@ module complex_mode_submodule
     
     ! The frequency, and frequency-relevant information.
     real(dp) :: frequency
-    real(dp) :: spring_constant    ! k, from w=sqrt(k/m), where w=frequency.
+    real(dp) :: spring_constant    ! k from V(u) = k*u*u/2.
     logical  :: soft_mode          ! True if frequency < -epsilon.
     logical  :: translational_mode ! True if frequency=0 and at gamma.
     
-    ! Unit vectors along the normal mode, in cartesian and mass-weighted
-    !    co-ordinates.
-    ! Normal modes are orthogonal in mass-weighted co-ordinates, so in general
-    !    they are not orthogonal in cartesian co-ordinates.
-    ! In both cases, the unit vectors are stored as displacements from
+    ! The unit vector along the normal mode, in mass-weighted co-ordinates.
+    ! The unit vectors are stored as displacements from
     !    equilibrium for each atom in the primitive cell.
-    type(ComplexVector), allocatable :: mass_weighted_vector(:)
-    type(ComplexVector), allocatable :: cartesian_vector(:)
+    ! Normal modes are orthonormal in mass-weighted co-ordinates.
+    type(ComplexVector), allocatable :: unit_vector(:)
     
     ! The ID of the q-point at which this mode exists,
     !    and that at which the pair to this mode exists.
@@ -76,9 +73,9 @@ contains
 ! ----------------------------------------------------------------------
 ! Basic constructor.
 ! ----------------------------------------------------------------------
-function new_ComplexMode(id,paired_id,frequency,spring_constant,soft_mode, &
-   & translational_mode,mass_weighted_vector,cartesian_vector,qpoint_id,   &
-   & paired_qpoint_id,subspace_id) result(this)
+function new_ComplexMode(id,paired_id,frequency,spring_constant,soft_mode,  &
+   & translational_mode,unit_vector,qpoint_id,paired_qpoint_id,subspace_id) &
+   & result(this)
   implicit none
   
   integer,             intent(in) :: id
@@ -87,24 +84,22 @@ function new_ComplexMode(id,paired_id,frequency,spring_constant,soft_mode, &
   real(dp),            intent(in) :: spring_constant
   logical,             intent(in) :: soft_mode
   logical,             intent(in) :: translational_mode
-  type(ComplexVector), intent(in) :: mass_weighted_vector(:)
-  type(ComplexVector), intent(in) :: cartesian_vector(:)
+  type(ComplexVector), intent(in) :: unit_vector(:)
   integer,             intent(in) :: qpoint_id
   integer,             intent(in) :: paired_qpoint_id
   integer,             intent(in) :: subspace_id
   type(ComplexMode)               :: this
   
-  this%id                   = id
-  this%paired_id            = paired_id
-  this%frequency            = frequency
-  this%spring_constant      = spring_constant
-  this%soft_mode            = soft_mode
-  this%translational_mode   = translational_mode
-  this%mass_weighted_vector = mass_weighted_vector
-  this%cartesian_vector     = cartesian_vector
-  this%qpoint_id            = qpoint_id
-  this%paired_qpoint_id     = paired_qpoint_id
-  this%subspace_id          = subspace_id
+  this%id                 = id
+  this%paired_id          = paired_id
+  this%frequency          = frequency
+  this%spring_constant    = spring_constant
+  this%soft_mode          = soft_mode
+  this%translational_mode = translational_mode
+  this%unit_vector        = unit_vector
+  this%qpoint_id          = qpoint_id
+  this%paired_qpoint_id   = paired_qpoint_id
+  this%subspace_id        = subspace_id
 end function
 
 ! ----------------------------------------------------------------------
@@ -119,12 +114,10 @@ impure elemental function new_ComplexMode_HermitianEigenstuff(eigenstuff, &
   type(ComplexMode)                     :: this
   
   real(dp)       :: frequency
-  real(dp)       :: average_mass
   type(AtomData) :: atom
   real(dp)       :: spring_constant
   
-  type(ComplexVector), allocatable :: mass_weighted_vector(:)
-  type(ComplexVector), allocatable :: cartesian_vector(:)
+  type(ComplexVector), allocatable :: unit_vector(:)
   
   integer :: i,ialloc
   
@@ -137,6 +130,7 @@ impure elemental function new_ComplexMode_HermitianEigenstuff(eigenstuff, &
   ! V = sum[ 0.5*w^2*u^2 ] where w is the frequency.
   ! F = -2V = sum[ -w^2*u^2 ]
   ! -> the evals of F are -w^2.
+  spring_constant = - eigenstuff%eval
   if (eigenstuff%eval>=0.0_dp) then
     ! Unstable mode.
     frequency = - sqrt(eigenstuff%eval)
@@ -147,46 +141,23 @@ impure elemental function new_ComplexMode_HermitianEigenstuff(eigenstuff, &
   
   ! Convert eigenvector with dimension no_modes into an array of
   !    3D vectors.
-  allocate( mass_weighted_vector(structure%no_atoms_prim), &
-          & cartesian_vector(structure%no_atoms_prim),     &
+  allocate( unit_vector(structure%no_atoms_prim), &
           & stat=ialloc); call err(ialloc)
   do i=1,structure%no_atoms_prim
-    mass_weighted_vector(i) = eigenstuff%evec(3*i-2:3*i)
-    cartesian_vector(i) = mass_weighted_vector(i) &
-                      & * sqrt(structure%atoms(i)%mass())
+    unit_vector(i) = eigenstuff%evec(3*i-2:3*i)
   enddo
-  
-  ! Normalise cartesian vector. (Mass-weighted vector is already normalised).
-  cartesian_vector = cartesian_vector &
-                 & / sqrt(sum(real(cartesian_vector*conjg(cartesian_vector))))
-  
-  ! Calculate spring constant.
-  !    w = sqrt(k/m)
-  ! => k = m*w^2
-  ! m is the average mass of all atoms, weighted by how far each atom is
-  !    displaced along the mode.
-  average_mass = 0.0_dp
-  do i=1,size(cartesian_vector)
-    atom = structure%atoms(first(structure%atoms%prim_id()==i))
-    
-    average_mass = average_mass                                           &
-               & + real(cartesian_vector(i) * conjg(cartesian_vector(i))) &
-               & * atom%mass()
-  enddo
-  spring_constant = - eigenstuff%eval
   
   ! Call private constructor.
-  this = ComplexMode( id                   = 0,                    &
-                    & paired_id            = 0,                    &
-                    & frequency            = frequency,            &
-                    & spring_constant      = spring_constant,      &
-                    & soft_mode            = frequency<-1.0e-6_dp, &
-                    & translational_mode   = .false.,              &
-                    & mass_weighted_vector = mass_weighted_vector, &
-                    & cartesian_vector     = cartesian_vector,     &
-                    & qpoint_id            = 0,                    &
-                    & paired_qpoint_id     = 0,                    &
-                    & subspace_id          = 0                     )
+  this = ComplexMode( id                 = 0,                    &
+                    & paired_id          = 0,                    &
+                    & frequency          = frequency,            &
+                    & spring_constant    = spring_constant,      &
+                    & soft_mode          = frequency<-1.0e-6_dp, &
+                    & translational_mode = .false.,              &
+                    & unit_vector        = unit_vector,          &
+                    & qpoint_id          = 0,                    &
+                    & paired_qpoint_id   = 0,                    &
+                    & subspace_id        = 0                     )
 end function
 
 ! ----------------------------------------------------------------------
@@ -199,18 +170,17 @@ impure elemental function conjg_ComplexMode(input) result(output)
   type(ComplexMode), intent(in) :: input
   type(ComplexMode)             :: output
   
-  output = ComplexMode(                                          &
-     & id                   = input%paired_id,                   &
-     & paired_id            = input%id,                          &
-     & frequency            = input%frequency,                   &
-     & spring_constant      = input%spring_constant,             &
-     & soft_mode            = input%soft_mode,                   &
-     & translational_mode   = input%translational_mode,          &
-     & mass_weighted_vector = conjg(input%mass_weighted_vector), &
-     & cartesian_vector     = conjg(input%cartesian_vector),     &
-     & qpoint_id            = input%paired_qpoint_id,            &
-     & paired_qpoint_id     = input%qpoint_id,                   &
-     & subspace_id          = input%subspace_id                  )
+  output = ComplexMode(                               &
+     & id                 = input%paired_id,          &
+     & paired_id          = input%id,                 &
+     & frequency          = input%frequency,          &
+     & spring_constant    = input%spring_constant,    &
+     & soft_mode          = input%soft_mode,          &
+     & translational_mode = input%translational_mode, &
+     & unit_vector        = conjg(input%unit_vector), &
+     & qpoint_id          = input%paired_qpoint_id,   &
+     & paired_qpoint_id   = input%qpoint_id,          &
+     & subspace_id        = input%subspace_id         )
 end function
 
 ! ----------------------------------------------------------------------
@@ -232,8 +202,7 @@ impure elemental function transform_ComplexMode(input,symmetry,qpoint_from, &
   
   type(IntVector) :: r
   
-  type(ComplexVector), allocatable :: mass_weighted_vector(:)
-  type(ComplexVector), allocatable :: cartesian_vector(:)
+  type(ComplexVector), allocatable :: unit_vector(:)
   
   integer :: ialloc
   
@@ -251,40 +220,32 @@ impure elemental function transform_ComplexMode(input,symmetry,qpoint_from, &
     call err()
   endif
   
-  no_atoms = size(input%mass_weighted_vector)
+  no_atoms = size(input%unit_vector)
   
   ! Allocate output, and transfer across all data.
   ! (Displacements need rotating, but everything else stays the same.)
-  allocate( mass_weighted_vector(no_atoms), &
-          & cartesian_vector(no_atoms),     &
+  allocate( unit_vector(no_atoms), &
           & stat=ialloc); call err(ialloc)
   output = input
   do atom_from=1,no_atoms
     atom_to = symmetry%prim_atom_group * atom_from
     r = symmetry%prim_rvector(atom_from)
     
-    mass_weighted_vector(atom_to) =              &
-       &   symmetry%cartesian_rotation           &
-       & * input%mass_weighted_vector(atom_from) &
-       & * exp_2pii(qpoint_to%qpoint*r)
-    
-    cartesian_vector(atom_to) =              &
-       &   symmetry%cartesian_rotation       &
-       & * input%cartesian_vector(atom_from) &
-       & * exp_2pii(qpoint_to%qpoint*r)
+    unit_vector(atom_to) = symmetry%cartesian_rotation  &
+                       & * input%unit_vector(atom_from) &
+                       & * exp_2pii(qpoint_to%qpoint*r)
   enddo
   
-  output = ComplexMode( id                   = 0,                          &
-                      & paired_id            = 0,                          &
-                      & frequency            = input%frequency,            &
-                      & spring_constant      = input%spring_constant,      &
-                      & soft_mode            = input%soft_mode,            &
-                      & translational_mode   = input%translational_mode,   &
-                      & mass_weighted_vector = mass_weighted_vector,       &
-                      & cartesian_vector     = cartesian_vector,           &
-                      & qpoint_id            = qpoint_to%id,               &
-                      & paired_qpoint_id     = qpoint_to%paired_qpoint_id, &
-                      & subspace_id          = input%subspace_id)
+  output = ComplexMode( id                 = 0,                          &
+                      & paired_id          = 0,                          &
+                      & frequency          = input%frequency,            &
+                      & spring_constant    = input%spring_constant,      &
+                      & soft_mode          = input%soft_mode,            &
+                      & translational_mode = input%translational_mode,   &
+                      & unit_vector        = unit_vector,                &
+                      & qpoint_id          = qpoint_to%id,               &
+                      & paired_qpoint_id   = qpoint_to%paired_qpoint_id, &
+                      & subspace_id        = input%subspace_id)
 end function
 
 ! ----------------------------------------------------------------------
@@ -330,8 +291,7 @@ subroutine read_ComplexMode(this,input)
   real(dp)                         :: spring_constant
   logical                          :: soft_mode
   logical                          :: translational_mode
-  type(ComplexVector), allocatable :: mass_weighted_vector(:)
-  type(ComplexVector), allocatable :: cartesian_vector(:)
+  type(ComplexVector), allocatable :: unit_vector(:)
   integer                          :: qpoint_id
   integer                          :: paired_qpoint_id
   integer                          :: subspace_id
@@ -377,20 +337,18 @@ subroutine read_ComplexMode(this,input)
     subspace_id = int(line(4))
     
     ! Read in the vectors along the direction of the mode.
-    no_atoms = (size(input)-11)/2
-    mass_weighted_vector = ComplexVector(input(11:10+no_atoms))
-    cartesian_vector = ComplexVector(input(size(input)-no_atoms+1:))
+    no_atoms = size(input)-10
+    unit_vector = ComplexVector(input(11:10+no_atoms))
     
-    this = ComplexMode( id,                   &
-                      & paired_id,            &
-                      & frequency,            &
-                      & spring_constant,      &
-                      & soft_mode,            &
-                      & translational_mode,   &
-                      & mass_weighted_vector, &
-                      & cartesian_vector,     &
-                      & qpoint_id,            &
-                      & paired_qpoint_id,     &
+    this = ComplexMode( id,                 &
+                      & paired_id,          &
+                      & frequency,          &
+                      & spring_constant,    &
+                      & soft_mode,          &
+                      & translational_mode, &
+                      & unit_vector,        &
+                      & qpoint_id,          &
+                      & paired_qpoint_id,   &
                       & subspace_id)
   end select
 end subroutine
@@ -412,9 +370,7 @@ function write_ComplexMode(this) result(output)
              & 'Paired q-point id         : '//this%paired_qpoint_id,   &
              & 'Subspace id               : '//this%subspace_id,        &
              & str('Mass-weighted displacements in primitive cell:'),   &
-             & str(this%mass_weighted_vector),                          &
-             & str('Cartesian displacements in primitive cell:'),       &
-             & str(this%cartesian_vector)                               ]
+             & str(this%unit_vector)                                    ]
   end select
 end function
 

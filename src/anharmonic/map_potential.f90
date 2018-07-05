@@ -298,8 +298,8 @@ subroutine map_potential_subroutine(arguments)
                                                  & scaled_displacements_j(l) )
           displacement_ij = RealModeDisplacement([ displacement_i, &
                                                  & displacement_j  ])
-          anharmonic_energy(k,l) = potential%energy(displacement_ij)
-          harmonic_energy(k,l) = 0.5_dp                        &
+          anharmonic_energy(l,k) = potential%energy(displacement_ij)
+          harmonic_energy(l,k) = 0.5_dp                        &
                              & * real_modes(i)%spring_constant &
                              & * scaled_displacements_i(k)     &
                              & * scaled_displacements_i(k)     &
@@ -324,11 +324,18 @@ subroutine map_potential_subroutine(arguments)
             electronic_structure = calculation_reader%read_calculation( &
                                                      & displacement_dir )
             
-            sampled_energy(k,l) = electronic_structure%energy &
+            sampled_energy(l,k) = electronic_structure%energy &
                               & / supercell%sc_size
           endif
         enddo
       enddo
+      
+      anharmonic_energy = anharmonic_energy                            &
+                      & - anharmonic_energy( no_single_mode_samples+1, &
+                      &                      no_single_mode_samples+1  )
+      sampled_energy = sampled_energy                            &
+                   & - sampled_energy( no_single_mode_samples+1, &
+                   &                   no_single_mode_samples+1  )
       
       output_file = OFile(modes_dir//'/potential.dat')
       

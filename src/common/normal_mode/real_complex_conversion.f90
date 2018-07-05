@@ -22,6 +22,11 @@
 ! u- = (c - i*s) /  sqrt(2)
 ! c  = (u+ + u-) /  sqrt(2)    = real(u+)*sqrt(2) =  real(u-)*sqrt(2)
 ! s  = (u+ - u-) / (sqrt(2)*i) = imag(u+)*sqrt(2) = -imag(u-)*sqrt(2)
+!
+! u+ = (a+ib)e^{2pi i q.R}
+! u- = (a-ib)e^{2pi i q.R}
+! c  = sqrt(2)(a*cos(2pi q.R) - b*sin(2pi q.R))
+! s  = sqrt(2)(a*sin(2pi q.R) + b*cos(2pi q.R))
 ! 
 ! Under q -> -q : u+ ->   u-
 !                 u- ->   u+
@@ -29,6 +34,7 @@
 !                 s  -> - s
 !
 ! N.B. if i=j, then the mode is real (2q=G, so e^{+iq.r}=e^{-iq.r}=cos(q.r)).
+! In this case, u+ = c, and u- = s = 0.
 
 module real_complex_conversion_submodule
   use utils_module
@@ -77,8 +83,11 @@ function complex_to_real_Modes(input) result(output)
   type(ComplexMode), intent(in) :: input(:)
   type(RealMode), allocatable   :: output(:)
   
-  type(RealVector), allocatable :: mass_weighted_vector(:)
-  type(RealVector), allocatable :: cartesian_vector(:)
+  type(RealVector), allocatable :: a(:)
+  type(RealVector), allocatable :: b(:)
+  
+  type(RealVector), allocatable :: cos_vector(:)
+  type(RealVector), allocatable :: sin_vector(:)
   
   integer :: qpoint_id_plus
   integer :: qpoint_id_minus
@@ -89,28 +98,33 @@ function complex_to_real_Modes(input) result(output)
   do mode=1,size(input)
     if (input(mode)%id==input(mode)%paired_id) then
       ! output(mode) is its own pair. It is already real.
-      ! c = u+.
+      ! c = u+, s = u- = 0.
       qpoint_id_plus = input(mode)%qpoint_id
       qpoint_id_minus = qpoint_id_plus
-      mass_weighted_vector = real(input(mode)%mass_weighted_vector)
-      cartesian_vector = real(input(mode)%cartesian_vector)
+      a = real(input(mode)%unit_vector)
+      b = cos_vector * 0.0_dp
+      cos_vector = a
+      sin_vector = b
     elseif (input(mode)%id<input(mode)%paired_id) then
       ! output(mode) is c.
       ! input(mode) is u+.
-      ! c = real(u+)*sqrt(2).
+      ! u+ = (a+ib)e^{2pi i q.R}
+      ! c  = sqrt(2)(a*cos(2pi q.R) - b*sin(2pi q.R))
       qpoint_id_plus = input(mode)%qpoint_id
       qpoint_id_minus = input(mode)%paired_qpoint_id
-      mass_weighted_vector = real(input(mode)%mass_weighted_vector) &
-                         & * sqrt(2.0_dp)
-      cartesian_vector = real(input(mode)%cartesian_vector) * sqrt(2.0_dp)
+      a = real( input(mode)%unit_vector)
+      b = aimag(input(mode)%unit_vector)
+      cos_vector =  sqrt(2.0_dp) * a
+      sin_vector = -sqrt(2.0_dp) * b
     elseif (input(mode)%id>input(mode)%paired_id) then
       ! output(mode) is s.
       ! input(mode) is u-.
-      ! s = -imag(u-)*sqrt(2).
-      mass_weighted_vector = -aimag(input(mode)%mass_weighted_vector) &
-                         & * sqrt(2.0_dp)
-      cartesian_vector = -aimag(input(mode)%cartesian_vector) &
-                     & * sqrt(2.0_dp)
+      ! u- = (a-ib)e^{2pi i q.R}
+      ! s  = sqrt(2)(a*sin(2pi q.R) + b*cos(2pi q.R))
+      a =  real( input(mode)%unit_vector)
+      b = -aimag(input(mode)%unit_vector)
+      cos_vector = sqrt(2.0_dp) * b
+      sin_vector = sqrt(2.0_dp) * a
     else
       call err()
     endif
@@ -122,8 +136,8 @@ function complex_to_real_Modes(input) result(output)
        & spring_constant      = input(mode)%spring_constant,    &
        & soft_mode            = input(mode)%soft_mode,          &
        & translational_mode   = input(mode)%translational_mode, &
-       & mass_weighted_vector = mass_weighted_vector,           &
-       & cartesian_vector     = cartesian_vector,               &
+       & cos_vector           = cos_vector,                     &
+       & sin_vector           = sin_vector,                     &
        & qpoint_id_plus       = qpoint_id_plus,                 &
        & qpoint_id_minus      = qpoint_id_minus,                &
        & subspace_id          = input(mode)%subspace_id)
@@ -136,71 +150,61 @@ function real_to_complex_Modes(input) result(output)
   type(RealMode), intent(in)     :: input(:)
   type(ComplexMode), allocatable :: output(:)
   
-  type(ComplexVector), allocatable :: mass_weighted_vector(:)
-  type(ComplexVector), allocatable :: cartesian_vector(:)
+  type(RealVector), allocatable :: a(:)
+  type(RealVector), allocatable :: b(:)
+  
+  type(ComplexVector), allocatable :: unit_vector(:)
   
   integer :: qpoint_id
   integer :: paired_qpoint_id
   
-  integer :: mode,pair,ialloc
+  integer :: i,ialloc
   
   allocate(output(size(input)), stat=ialloc); call err(ialloc)
-  do mode=1,size(input)
-    ! Get the location of the paired mode.
-    pair = first(input%id==input(mode)%paired_id)
-    
+  do i=1,size(input)
     ! Construct vectors and q-point ids.
-    if (input(mode)%id==input(pair)%id) then
-      ! output(mode) is its own pair. It is real.
-      ! u+ = c.
-      qpoint_id = input(mode)%qpoint_id_plus
+    if (input(i)%id==input(i)%paired_id) then
+      ! output(i) is its own pair. It is already real.
+      ! c = u+, s = u- = 0.
+      qpoint_id = input(i)%qpoint_id_plus
       paired_qpoint_id = qpoint_id
-      mass_weighted_vector = cmplxvec(input(mode)%mass_weighted_vector)
-      cartesian_vector = cmplxvec(input(mode)%cartesian_vector)
-    elseif (input(mode)%id<input(pair)%id) then
-      ! output(mode) is u+.
-      ! input(mode) is c, and input(pair) is s.
-      ! u+ = (c + i*s)/sqrt(2).
-      qpoint_id = input(mode)%qpoint_id_plus
-      paired_qpoint_id = input(mode)%qpoint_id_minus
-      mass_weighted_vector =                           &
-         & cmplxvec( input(mode)%mass_weighted_vector, &
-         &           input(pair)%mass_weighted_vector) &
-         & / sqrt(2.0_dp)
-      cartesian_vector =                           &
-         & cmplxvec( input(mode)%cartesian_vector, &
-         &           input(pair)%cartesian_vector) &
-         & / sqrt(2.0_dp)
-    elseif (input(mode)%paired_id<input(mode)%id) then
-      ! output(mode) is u-.
-      ! input(mode) is s, and input(pair) is c.
-      ! u- = (c - i*s)/sqrt(2).
-      qpoint_id = input(mode)%qpoint_id_minus
-      paired_qpoint_id = input(mode)%qpoint_id_plus
-      mass_weighted_vector =                           &
-         & cmplxvec( input(pair)%mass_weighted_vector, &
-         &         - input(mode)%mass_weighted_vector) &
-         & / sqrt(2.0_dp)
-      cartesian_vector =                           &
-         & cmplxvec( input(pair)%cartesian_vector, &
-         &         - input(mode)%cartesian_vector) &
-         & / sqrt(2.0_dp)
+      a = input(i)%cos_vector
+      unit_vector = cmplxvec(a)
+    elseif (input(i)%id<input(i)%paired_id) then
+      ! output(i) is u+.
+      ! input(i) is c.
+      ! c  = sqrt(2)(a*cos(2pi q.R) - b*sin(2pi q.R))
+      ! u+ = (a+ib)e^{2pi i q.R}
+      qpoint_id = input(i)%qpoint_id_plus
+      paired_qpoint_id = input(i)%qpoint_id_minus
+      a =  input(i)%cos_vector / sqrt(2.0_dp)
+      b = -input(i)%sin_vector / sqrt(2.0_dp)
+      unit_vector = cmplxvec(a,b)
+    elseif (input(i)%paired_id<input(i)%id) then
+      ! output(i) is u-.
+      ! input(i) is s.
+      ! s  = sqrt(2)(a*sin(2pi q.R) + b*cos(2pi q.R))
+      ! u- = (a-ib)e^{2pi i q.R}
+      qpoint_id = input(i)%qpoint_id_minus
+      paired_qpoint_id = input(i)%qpoint_id_plus
+      a = input(i)%sin_vector / sqrt(2.0_dp)
+      b = input(i)%cos_vector / sqrt(2.0_dp)
+      unit_vector = cmplxvec(a,-b)
     else
       call err()
     endif
     
-    output(mode) = ComplexMode(                                 &
-       & id                   = input(mode)%id,                 &
-       & paired_id            = input(mode)%paired_id,          &
-       & frequency            = input(mode)%frequency,          &
-       & spring_constant      = input(mode)%spring_constant,    &
-       & soft_mode            = input(mode)%soft_mode,          &
-       & translational_mode   = input(mode)%translational_mode, &
-       & mass_weighted_vector = mass_weighted_vector,           &
-       & cartesian_vector     = cartesian_vector,               &
-       & qpoint_id            = qpoint_id,                      &
-       & paired_qpoint_id     = paired_qpoint_id,               &
-       & subspace_id          = input(mode)%subspace_id)
+    output(i) = ComplexMode(                                 &
+       & id                   = input(i)%id,                 &
+       & paired_id            = input(i)%paired_id,          &
+       & frequency            = input(i)%frequency,          &
+       & spring_constant      = input(i)%spring_constant,    &
+       & soft_mode            = input(i)%soft_mode,          &
+       & translational_mode   = input(i)%translational_mode, &
+       & unit_vector          = unit_vector,                 &
+       & qpoint_id            = qpoint_id,                   &
+       & paired_qpoint_id     = paired_qpoint_id,            &
+       & subspace_id          = input(i)%subspace_id)
   enddo
 end function
 

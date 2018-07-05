@@ -403,8 +403,8 @@ subroutine check(this,structure,logfile,check_eigenstuff)
       endif
       
       do j=1,structure%no_atoms_prim
-        prim_vec_1 = this%complex_modes(i)%mass_weighted_vector(j)
-        prim_vec_2 = modes(i)%mass_weighted_vector(j)
+        prim_vec_1 = this%complex_modes(i)%unit_vector(j)
+        prim_vec_2 = modes(i)%unit_vector(j)
         ! Ignore phases.
         prim_vec_1 = cmplxvec(vec(abs(cmplx(prim_vec_1))))
         prim_vec_2 = cmplxvec(vec(abs(cmplx(prim_vec_2))))

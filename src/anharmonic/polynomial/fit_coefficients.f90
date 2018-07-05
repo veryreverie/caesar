@@ -37,12 +37,6 @@ function fit_coefficients(basis_functions,sampling_points,sample_results, &
   real(dp), allocatable :: a(:,:)
   real(dp), allocatable :: b(:)
   
-  real(dp), allocatable :: output_plus(:)
-  real(dp), allocatable :: output_minus(:)
-  type(RealVector) :: b_calc
-  type(RealVector) :: b_plus
-  type(RealVector) :: b_minus
-  
   integer :: i,j,k,ialloc
   
   ! Check inputs are consistent.
@@ -116,87 +110,6 @@ function fit_coefficients(basis_functions,sampling_points,sample_results, &
   ! Run linear least squares to get the basis function coefficients.
   ! This finds x s.t. (a.x-b)^2 is minimised.
   output = dble(linear_least_squares(a,b))
-  
-  call print_line('')
-  call print_line('sample_energies')
-  call print_line(vec(sample_energies))
-  call print_line('')
-  call print_line('basis function energies')
-  call print_lines(mat(basis_function_energies))
-  call print_line('')
-  call print_line('output')
-  call print_line(vec(output))
-  call print_line('')
-  call print_line('e2')
-  call print_line(mat(basis_function_energies)*vec(output))
-  call print_line('')
-  call print_line('de2')
-  call print_line(mat(basis_function_energies)*vec(output)-vec(sample_energies))
-  call print_line(sum(dble(mat(basis_function_energies)*vec(output)-vec(sample_energies))))
-  
-  output_plus = output
-  output_plus(size(output_plus)) = output_plus(size(output_plus)) + 1e-10_dp
-  output_minus = output
-  output_minus(size(output_minus)) = output_minus(size(output_minus)) - 1e-10_dp
-  b_calc = mat(basis_function_energies)*vec(output)
-  b_plus = mat(basis_function_energies)*vec(output_plus)
-  b_minus = mat(basis_function_energies)*vec(output_minus)
-  b_calc = b_calc - vec(sample_energies)
-  b_plus = b_plus - vec(sample_energies)
-  b_minus = b_minus - vec(sample_energies)
-  
-  call print_line('')
-  call print_line(l2_norm(b_calc))
-  call print_line(l2_norm(b_plus))
-  call print_line(l2_norm(b_minus))
-  
-  call print_line('')
-  call print_line(mat(basis_function_energies)*vec(output)-vec(sample_energies))
-  call print_line(l2_norm(mat(basis_function_energies)*vec(output)-vec(sample_energies)))
-  output = [ -1.27850995593425026E-01_dp, &
-           &  2.82176515823256270E-07_dp, &
-           &  0.0_dp,                     &
-           &  5.29673161654893300E-07_dp  ]
-  call print_line(mat(basis_function_energies)*vec(output)-vec(sample_energies))
-  call print_line(l2_norm(mat(basis_function_energies)*vec(output)-vec(sample_energies)))
-  stop
-  
-  call print_line('')
-  call print_line('sample_energies')
-  call print_line(vec(sample_energies))
-  call print_line('')
-  call print_line('basis function energies')
-  call print_lines(mat(basis_function_energies))
-  call print_line('')
-  call print_line('output')
-  call print_line(vec(output))
-  call print_line('')
-  call print_line('e2')
-  call print_line(mat(basis_function_energies)*vec(output))
-  call print_line('')
-  call print_line('de2')
-  call print_line(mat(basis_function_energies)*vec(output)-vec(sample_energies))
-  call print_line(sum(dble(mat(basis_function_energies)*vec(output)-vec(sample_energies))))
-  
-  output_plus = output
-  output_plus(size(output_plus)) = output_plus(size(output_plus)) + 1e-10_dp
-  output_minus = output
-  output_minus(size(output_minus)) = output_minus(size(output_minus)) - 1e-10_dp
-  b_calc = mat(basis_function_energies)*vec(output)
-  b_plus = mat(basis_function_energies)*vec(output_plus)
-  b_minus = mat(basis_function_energies)*vec(output_minus)
-  b_calc = b_calc - vec(sample_energies)
-  b_plus = b_plus - vec(sample_energies)
-  b_minus = b_minus - vec(sample_energies)
-  
-  call print_line('')
-  call print_line(l2_norm(b_calc))
-  call print_line(l2_norm(b_plus))
-  call print_line(l2_norm(b_minus))
-  
-  stop
-  
-  ! TODO
 end function
 
 ! Convert an energy and force into a single vector which can be inserted

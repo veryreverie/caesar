@@ -353,10 +353,10 @@ subroutine calculate_normal_modes_subroutine(arguments)
         allocate( pair_overlap(size(degenerate_ids)), &
                 & stat=ialloc); call err(ialloc)
         do l=1,size(pair_overlap)
-          pair_overlap(l) = sum(                                             &
-             &   dynamical_matrices(i)%complex_modes(                        &
-             &                       degenerate_ids(l))%mass_weighted_vector &
-             & * dynamical_matrices(i)%complex_modes(k)%mass_weighted_vector )
+          pair_overlap(l) = sum(                                    &
+             &   dynamical_matrices(i)%complex_modes(               &
+             &                       degenerate_ids(l))%unit_vector &
+             & * dynamical_matrices(i)%complex_modes(k)%unit_vector )
         enddo
         ! conjg(mode(k)) should equal one mode (down to a phase change),
         !    and have no overlap with any other mode.
@@ -387,14 +387,10 @@ subroutine calculate_normal_modes_subroutine(arguments)
           !    phase so that the mode is real.
           dynamical_matrices(i)%complex_modes(k)%paired_id = &
              & dynamical_matrices(i)%complex_modes(k)%id
-          dynamical_matrices(i)%complex_modes(k)%mass_weighted_vector =    &
-             & cmplxvec(real(                                              &
-             & dynamical_matrices(i)%complex_modes(k)%mass_weighted_vector &
-             & / phase))
-          dynamical_matrices(i)%complex_modes(k)%cartesian_vector =    &
+          dynamical_matrices(i)%complex_modes(k)%unit_vector =         &
              & cmplxvec(real(                                          &
-             & dynamical_matrices(i)%complex_modes(k)%cartesian_vector &
-             & / phase))
+             &      dynamical_matrices(i)%complex_modes(k)%unit_vector &
+             &    / phase                                              ))
         elseif (paired_pos>k) then
           ! The mode is paired to another.
           dynamical_matrices(i)%complex_modes(k)%paired_id = &

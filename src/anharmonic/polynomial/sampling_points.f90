@@ -174,24 +174,8 @@ function generate_sampling_points_helper(monomials,potential_expansion_order, &
       vectors(j) = RealSingleDisplacement(mode, magnitude)
     enddo
     
-    ! TODO
-    !output = [output, RealModeDisplacement(vectors)]
-    !output = [output, -RealModeDisplacement(vectors)]
-    do j=-3,3
-      if (j/=0) then
-        output = [output, (j/3.0_dp)*RealModeDisplacement(vectors)]
-      endif
-    enddo
-    !output = [output, 0.4_dp*RealModeDisplacement(vectors)]
-    !output = [output, -0.4_dp*RealModeDisplacement(vectors)]
-    !output = [output, 0.7_dp*RealModeDisplacement(vectors)]
-    !output = [output, -0.7_dp*RealModeDisplacement(vectors)]
-    !output = [output, RealModeDisplacement(vectors)]
-    !output = [output, -RealModeDisplacement(vectors)]
-    !output = [output, 1.3_dp*RealModeDisplacement(vectors)]
-    !output = [output, -1.3_dp*RealModeDisplacement(vectors)]
-    !output = [output, 1.6_dp*RealModeDisplacement(vectors)]
-    !output = [output, -1.6_dp*RealModeDisplacement(vectors)]
+    output = [output, RealModeDisplacement(vectors)]
+    output = [output, -RealModeDisplacement(vectors)]
     deallocate(vectors, stat=ialloc); call err(ialloc)
   enddo
 end function

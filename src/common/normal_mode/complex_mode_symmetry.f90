@@ -49,8 +49,8 @@ function calculate_symmetry_in_normal_coordinates_qpoint(modes,qpoint, &
           & stat=ialloc); call err(ialloc)
   do i=1,size(modes)
     do j=1,size(modes)
-      dot_products(j,i) = sum( conjg(modes(j)%mass_weighted_vector) &
-                           & * rotated_modes(i)%mass_weighted_vector)
+      dot_products(j,i) = sum( conjg(modes(j)%unit_vector)  &
+                           & * rotated_modes(i)%unit_vector )
     enddo
   enddo
   
@@ -101,8 +101,8 @@ function calculate_symmetry_in_normal_coordinates_qpoints(modes,qpoints, &
   do i=1,size(modes)
     do j=1,size(modes)
       if (qpoints(j)==rotated_qpoints(i)) then
-        dot_products(j,i) = sum( conjg(modes(j)%mass_weighted_vector) &
-                             & * rotated_modes(i)%mass_weighted_vector)
+        dot_products(j,i) = sum( conjg(modes(j)%unit_vector)  &
+                             & * rotated_modes(i)%unit_vector )
       else
         dot_products(j,i) = cmplx(0.0_dp,0.0_dp,dp)
       endif

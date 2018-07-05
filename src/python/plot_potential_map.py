@@ -3,8 +3,7 @@ import matplotlib.pyplot as plt
 import scipy.stats
 import numpy as np
 import operator
-from matplotlib import rc
-
+from matplotlib import rc, gridspec
 
 rc('font', **{'family':'serif','serif':['sffamily']})
 rc('text', usetex=True)
@@ -42,25 +41,73 @@ def main():
   harmonic_difference = [[x-y for x,y in zip(xs,ys)] for xs,ys in zip(harmonic_energy,sampled_energy)]
   anharmonic_difference = [[x-y for x,y in zip(xs,ys)] for xs,ys in zip(anharmonic_energy,sampled_energy)]
   
+  # Calculate data ranges.
+  min_energy = 0
+  max_energy = 0
+  min_difference = 0
+  max_difference = 0
+  
+  #min_energy = min(min_energy, np.min(harmonic_energy))
+  #min_energy = min(min_energy, np.min(anharmonic_energy))
+  min_energy = min(min_energy, np.min(sampled_energy))
+  #max_energy = max(max_energy, np.max(harmonic_energy))
+  #max_energy = max(max_energy, np.max(anharmonic_energy))
+  max_energy = max(max_energy, np.max(sampled_energy))
+  
+  min_difference = min(min_difference, np.min(harmonic_difference))
+  min_difference = min(min_difference, np.min(anharmonic_difference))
+  max_difference = max(max_difference, np.max(harmonic_difference))
+  max_difference = max(max_difference, np.max(anharmonic_difference))
+  
+  energy_levels = np.linspace(min_energy,max_energy,50)
+  if max_difference>abs(min_difference):
+    difference_levels = np.linspace(-max_difference,max_difference,50)
+  else:
+    difference_levels = np.linspace(min_difference,-min_difference,50)
+  
   # Plot data.
-  fig = plt.subplots(squeeze=False)
-  axes = [[plt.subplot2grid((2,3),(0,0)),
-           plt.subplot2grid((2,3),(0,1)),
-           plt.subplot2grid((2,3),(0,2))],
-          [plt.subplot2grid((2,3),(1,0)),
-           plt.subplot2grid((2,3),(1,1))]]
+  fig,axes = plt.subplots(squeeze=False)
+  gs = gridspec.GridSpec(2, 3)
+  axes = [[plt.subplot(gs[0,0]),
+           plt.subplot(gs[0,1]),
+           plt.subplot(gs[0,2])],
+          [plt.subplot(gs[1,0]),
+           plt.subplot(gs[1,1])]]
   
-  axes[0][0].contour(x_displacements,y_displacements,harmonic_energy)
-  axes[0][1].contour(x_displacements,y_displacements,anharmonic_energy)
-  axes[0][2].contour(x_displacements,y_displacements,sampled_energy)
+  eh = axes[0][0].contourf(x_displacements,y_displacements,harmonic_energy,
+                           levels=energy_levels,cmap=plt.cm.viridis)
+  ea = axes[0][1].contourf(x_displacements,y_displacements,anharmonic_energy,
+                           levels=energy_levels,cmap=plt.cm.viridis)
+  ec = axes[0][2].contourf(x_displacements,y_displacements,sampled_energy,
+                           levels=energy_levels,cmap=plt.cm.viridis)
   
-  axes[1][0].contour(x_displacements,y_displacements,harmonic_difference)
-  axes[1][1].contour(x_displacements,y_displacements,anharmonic_difference)
+  dh = axes[1][0].contourf(x_displacements,y_displacements,harmonic_difference,
+                           levels=difference_levels,cmap=plt.cm.bwr)
+  da = axes[1][1].contourf(x_displacements,y_displacements,
+                           anharmonic_difference, levels=difference_levels,
+                           cmap=plt.cm.bwr)
   
   # Configure axes.  
   for row in axes:
     for ax in row:
       ax.set_aspect('equal')
+  
+  # Add colourbars.
+  ecb_ax = fig.add_axes([0.6,0.05,0.1,0.45])
+  ecb = plt.colorbar(eh, ax=ecb_ax, orientation='vertical')
+  ecb_ax.set_axis_off()
+  
+  dcb_ax = fig.add_axes([0.71,0.05,0.1,0.45])
+  dcb = plt.colorbar(dh, ax=dcb_ax, orientation='vertical')
+  dcb_ax.set_axis_off()
+  
+  # Label axes.
+  axes[0][0].set_title(r'Harmonic energy $E_h$ (Ha per cell)')
+  axes[0][1].set_title(r'Anharmonic energy $E_a$ (Ha per cell)')
+  axes[0][2].set_title(r'Sampled energy $E_s$ (Ha per cell)')
+  
+  axes[1][0].set_title(r'$E_h-E_s$')
+  axes[1][1].set_title(r'$E_a-E_s$')
   
   plt.show()
 

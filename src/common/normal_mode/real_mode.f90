@@ -29,18 +29,19 @@ module real_mode_submodule
     
     ! The frequency, and frequency-relevant information.
     real(dp) :: frequency
-    real(dp) :: spring_constant    ! k, from w=sqrt(k/m), where w=frequency.
+    real(dp) :: spring_constant    ! k from v(u) = k*u*u/2.
     logical  :: soft_mode          ! True if frequency < -epsilon.
     logical  :: translational_mode ! True if frequency=0 and at gamma.
     
-    ! Unit vectors along the normal mode, in cartesian and mass-weighted
-    !    co-ordinates.
-    ! Normal modes are orthogonal in mass-weighted co-ordinates, so in general
-    !    they are not orthogonal in cartesian co-ordinates.
-    ! In both cases, the unit vectors are stored as displacements from
-    !    equilibrium for each atom in the primitive cell.
-    type(RealVector), allocatable :: mass_weighted_vector(:)
-    type(RealVector), allocatable :: cartesian_vector(:)
+    ! Unit vectors along the normal mode, in mass-weighted co-ordinates.
+    ! The unit vectors are stored as displacements from
+    !    equilibrium for each atom in a single primitive cell.
+    ! Normal modes are orthonormal in mass-weighted co-ordinates.
+    ! To get displacements in a specific unit cell,
+    !    the cos_vector is multiplied by cos(2*pi*q.R),
+    !    and the sin_vector is multiplied by sin(2*pi*q.R).
+    type(RealVector), allocatable :: cos_vector(:)
+    type(RealVector), allocatable :: sin_vector(:)
     
     ! The IDs of the q-points at which this mode exists.
     ! N.B. unlike complex modes, real modes are not localised to a single
@@ -91,8 +92,8 @@ contains
 ! Basic constructor.
 ! ----------------------------------------------------------------------
 function new_RealMode(id,paired_id,frequency,spring_constant,soft_mode,       &
-   & translational_mode,mass_weighted_vector,cartesian_vector,qpoint_id_plus, &
-   & qpoint_id_minus,subspace_id) result(this)
+   & translational_mode,cos_vector,sin_vector,qpoint_id_plus,qpoint_id_minus, &
+   & subspace_id) result(this)
   implicit none
   
   integer,          intent(in) :: id
@@ -101,24 +102,24 @@ function new_RealMode(id,paired_id,frequency,spring_constant,soft_mode,       &
   real(dp),         intent(in) :: spring_constant
   logical,          intent(in) :: soft_mode
   logical,          intent(in) :: translational_mode
-  type(RealVector), intent(in) :: mass_weighted_vector(:)
-  type(RealVector), intent(in) :: cartesian_vector(:)
+  type(RealVector), intent(in) :: cos_vector(:)
+  type(RealVector), intent(in) :: sin_vector(:)
   integer,          intent(in) :: qpoint_id_plus
   integer,          intent(in) :: qpoint_id_minus
   integer,          intent(in) :: subspace_id
   type(RealMode)               :: this
   
-  this%id                   = id
-  this%paired_id            = paired_id
-  this%frequency            = frequency
-  this%spring_constant      = spring_constant
-  this%soft_mode            = soft_mode
-  this%translational_mode   = translational_mode
-  this%mass_weighted_vector = mass_weighted_vector
-  this%cartesian_vector     = cartesian_vector
-  this%qpoint_id_plus       = qpoint_id_plus
-  this%qpoint_id_minus      = qpoint_id_minus
-  this%subspace_id          = subspace_id
+  this%id                 = id
+  this%paired_id          = paired_id
+  this%frequency          = frequency
+  this%spring_constant    = spring_constant
+  this%soft_mode          = soft_mode
+  this%translational_mode = translational_mode
+  this%cos_vector         = cos_vector
+  this%sin_vector         = sin_vector
+  this%qpoint_id_plus     = qpoint_id_plus
+  this%qpoint_id_minus    = qpoint_id_minus
+  this%subspace_id        = subspace_id
 end function
 
 ! ----------------------------------------------------------------------
@@ -134,10 +135,7 @@ impure elemental function new_MassWeightedDisplacement_RealMode(this, &
   type(QpointData),    intent(in) :: qpoint
   type(MassWeightedDisplacement)  :: output
   
-  output = MassWeightedDisplacement(this%construct_vector( &
-                              & this%mass_weighted_vector, &
-                              & structure,                 &
-                              & qpoint                     ))
+  output = MassWeightedDisplacement(this%construct_vector(structure,qpoint))
 end function
 
 impure elemental function new_MassWeightedForce_RealMode(this,structure, &
@@ -149,10 +147,7 @@ impure elemental function new_MassWeightedForce_RealMode(this,structure, &
   type(QpointData),    intent(in) :: qpoint
   type(MassWeightedForce)         :: output
   
-  output = MassWeightedForce(this%construct_vector( &
-                       & this%mass_weighted_vector, &
-                       & structure,                 &
-                       & qpoint                     ))
+  output = MassWeightedForce(this%construct_vector(structure,qpoint))
 end function
 
 impure elemental function new_CartesianDisplacement_RealMode(this,structure, &
@@ -185,17 +180,16 @@ impure elemental function new_CartesianForce_RealMode(this,structure,qpoint) &
                          & structure                        )
 end function
 
-function construct_vector(this,prim_vectors,structure,qpoint) result(output)
+function construct_vector(this,structure,qpoint) result(output)
   implicit none
   
   class(RealMode),     intent(in) :: this
-  type(RealVector),    intent(in) :: prim_vectors(:)
   type(StructureData), intent(in) :: structure
   type(QpointData),    intent(in) :: qpoint
   type(RealVector), allocatable   :: output(:)
   
-  type(AtomData)   :: atom
-  real(dp)         :: qr
+  type(AtomData)    :: atom
+  type(IntFraction) :: qr
   
   integer :: i,ialloc
   
@@ -206,21 +200,16 @@ function construct_vector(this,prim_vectors,structure,qpoint) result(output)
   
   allocate(output(structure%no_atoms), stat=ialloc); call err(ialloc)
   do i=1,size(output)
-    atom         = structure%atoms(i)
+    atom = structure%atoms(i)
     
     if (qpoint%id==this%qpoint_id_plus) then
-      qr =  dble(qpoint%qpoint*structure%rvectors(atom%rvec_id()))
+      qr =  qpoint%qpoint*structure%rvectors(atom%rvec_id())
     else
-      qr = -dble(qpoint%qpoint*structure%rvectors(atom%rvec_id()))
+      qr = -qpoint%qpoint*structure%rvectors(atom%rvec_id())
     endif
     
-    if (this%id<=this%paired_id) then
-      ! This is a cos(2 pi q.R) mode.
-      output(i) = prim_vectors(atom%prim_id()) * cos(2*PI*qr)
-    else
-      ! This is a sin(2 pi q.R) mode.
-      output(i) = prim_vectors(atom%prim_id()) * sin(2*PI*qr)
-    endif
+    output(i) = this%cos_vector(atom%prim_id()) * cos_2pi(qr) &
+            & + this%sin_vector(atom%prim_id()) * sin_2pi(qr)
   enddo
 end function
 
@@ -267,8 +256,8 @@ subroutine read_RealMode(this,input)
   real(dp)                      :: spring_constant
   logical                       :: soft_mode
   logical                       :: translational_mode
-  type(RealVector), allocatable :: mass_weighted_vector(:)
-  type(RealVector), allocatable :: cartesian_vector(:)
+  type(RealVector), allocatable :: cos_vector(:)
+  type(RealVector), allocatable :: sin_vector(:)
   integer                       :: qpoint_id_plus
   integer                       :: qpoint_id_minus
   integer                       :: subspace_id
@@ -314,21 +303,21 @@ subroutine read_RealMode(this,input)
     subspace_id = int(line(4))
     
     ! Read in the vector associated with the mode.
-    no_atoms = (size(input)-11)/2
-    mass_weighted_vector = RealVector(input(11:10+no_atoms))
-    cartesian_vector = RealVector(input(size(input)-no_atoms+1:))
+    no_atoms = (size(input)-12)/2
+    cos_vector = RealVector(input(12:11+no_atoms))
+    sin_vector = RealVector(input(13+no_atoms:12+2*no_atoms))
     
-    this = RealMode( id,                   &
-                   & paired_id,            &
-                   & frequency,            &
-                   & spring_constant,      &
-                   & soft_mode,            &
-                   & translational_mode,   &
-                   & mass_weighted_vector, &
-                   & cartesian_vector,     &
-                   & qpoint_id_plus,       &
-                   & qpoint_id_minus,      &
-                   & subspace_id           )
+    this = RealMode( id,                 &
+                   & paired_id,          &
+                   & frequency,          &
+                   & spring_constant,    &
+                   & soft_mode,          &
+                   & translational_mode, &
+                   & cos_vector,         &
+                   & sin_vector,         &
+                   & qpoint_id_plus,     &
+                   & qpoint_id_minus,    &
+                   & subspace_id         )
   end select
 end subroutine
 
@@ -348,10 +337,11 @@ function write_RealMode(this) result(output)
              & 'Positive q-point id       : '//this%qpoint_id_plus,     &
              & 'Negative q-point id       : '//this%qpoint_id_minus,    &
              & 'Subspace id               : '//this%subspace_id,        &
-             & str('Mass-weighted displacements in primitive cell:'),   &
-             & str(this%mass_weighted_vector),                          &
-             & str('Cartesian displacements in primitive cell:'),       &
-             & str(this%cartesian_vector)                               ]
+             & str('Mass-weighted unit vector in primitive cell:'),     &
+             & str('cos component:'),                                   &
+             & str(this%cos_vector),                                    &
+             & str('sin component:'),                                   &
+             & str(this%sin_vector)                                     ]
   end select
 end function
 

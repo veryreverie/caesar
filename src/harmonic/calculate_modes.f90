@@ -289,16 +289,11 @@ recursive function lift_degeneracies(input,structure,symmetry_ids, &
   !    input vectors into the symmetry's eigenbasis.
   if (any(phases_int/=phases_int(1))) then
     do i=1,size(input)
-      do j=1,size(output(i)%cartesian_vector)
-        output(i)%mass_weighted_vector(j) = cmplxvec(zeroes(3))
-        output(i)%cartesian_vector(j) = cmplxvec(zeroes(3))
+      do j=1,size(output(i)%unit_vector)
+        output(i)%unit_vector(j) = cmplxvec(zeroes(3))
         do k=1,size(estuff(i)%evec)
-          output(i)%mass_weighted_vector(j) =    &
-             & output(i)%mass_weighted_vector(j) &
-             & + estuff(i)%evec(k) * input(k)%mass_weighted_vector(j)
-          output(i)%cartesian_vector(j) =    &
-             & output(i)%cartesian_vector(j) &
-             & + estuff(i)%evec(k) * input(k)%cartesian_vector(j)
+          output(i)%unit_vector(j) = output(i)%unit_vector(j) &
+                                 & + estuff(i)%evec(k)*input(k)%unit_vector(j)
         enddo
       enddo
     enddo
