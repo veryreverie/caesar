@@ -65,7 +65,7 @@ def main():
                        'displacements':[]})
       elif len(line)>=1 and line[0]=='Subspace':
         modes[-1]['subspace'] = int(line[3])
-      elif len(line)>=1 and line[0]=='Cartesian':
+      elif len(line)>=1 and line[0]=='Mass-weighted':
         reading_displacements = not reading_displacements
       elif reading_displacements:
         modes[-1]['displacements'].append([])

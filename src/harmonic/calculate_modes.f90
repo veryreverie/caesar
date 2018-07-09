@@ -329,7 +329,9 @@ recursive function lift_degeneracies(input,structure,symmetry_ids, &
 contains
   ! Lambda for determining whether or not a symmetry commutes with the first
   !    symmetry.
-  ! Captures first_symmetry.
+  ! Captures:
+  !    - first_symmetry
+  !    - qpoint
   function commutes_with_first(input) result(output)
     implicit none
     
@@ -337,7 +339,7 @@ contains
     logical              :: output
     
     select type(input); type is(SymmetryOperator)
-      output = operators_commute(input,first_symmetry)
+      output = operators_commute(input,first_symmetry,qpoint)
     end select
   end function
 end function

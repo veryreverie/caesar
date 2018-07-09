@@ -95,12 +95,17 @@ end function
 ! ----------------------------------------------------------------------
 ! Returns whether or not two symmetry operators commute.
 ! ----------------------------------------------------------------------
-function operators_commute(this,that) result(output)
+function operators_commute(this,that,qpoint) result(output)
   implicit none
   
   type(SymmetryOperator), intent(in) :: this
   type(SymmetryOperator), intent(in) :: that
+  type(QpointData),       intent(in) :: qpoint
   logical                            :: output
+  
+  type(IntVector) :: commutator_rvector
+  
+  integer         :: i
   
   ! Check that the symmetries' rotations commute.
   if (.not. matrices_commute(this%rotation,that%rotation)) then
@@ -108,11 +113,26 @@ function operators_commute(this,that) result(output)
     return
   endif
   
-  ! Check that the atom to atom transformations commute.
+  ! Check that the atom to atom transformations commute
+  !    within a single unit cell.
   if (this%atom_group*that%atom_group /= that%atom_group*this%atom_group) then
     output = .false.
     return
   endif
+  
+  ! Check that R-vector translations commute.
+  ! The condition on for two operators to commute (in addition to those above)
+  !    is that the R-vector translation of their commutator is s.t. q.R=0.
+  do i=1,size(this%atom_group)
+    commutator_rvector = this%rotation*that%rvector(i)   &
+                     & + that%rvector(this%atom_group*i) &
+                     & - that%rotation*this%rvector(i)   &
+                     & - this%rvector(that%atom_group*i)
+    if (.not. is_int(qpoint%qpoint*commutator_rvector)) then
+      output = .false.
+      return
+    endif
+  enddo
   
   output = .true.
 end function

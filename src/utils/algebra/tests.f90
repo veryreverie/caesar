@@ -271,6 +271,7 @@ subroutine check_unitary_String(input,matrix_name,logfile,warning_threshold)
   if (error>threshold) then
     call print_line(WARNING//': '//matrix_name//' not as unitary as expected. &
        &Fractional L2 error in unitarity: '//error)
+    stop
   endif
 end subroutine
 

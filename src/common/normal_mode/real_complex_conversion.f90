@@ -102,7 +102,7 @@ function complex_to_real_Modes(input) result(output)
       qpoint_id_plus = input(mode)%qpoint_id
       qpoint_id_minus = qpoint_id_plus
       a = real(input(mode)%unit_vector)
-      b = cos_vector * 0.0_dp
+      b = a * 0.0_dp
       cos_vector = a
       sin_vector = b
     elseif (input(mode)%id<input(mode)%paired_id) then
