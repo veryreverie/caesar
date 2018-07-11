@@ -38,6 +38,7 @@ module unique_directions_module
   
   interface UniqueDirection
     module procedure new_UniqueDirection
+    module procedure new_UniqueDirection_Strings
     module procedure new_UniqueDirection_StringArray
   end interface
 contains
@@ -377,6 +378,8 @@ subroutine read_UniqueDirection(this,input)
     atomic_displacement = dble(line(3:5))
     
     this = UniqueDirection(atom_id,direction,atomic_displacement)
+  class default
+    call err()
   end select
 end subroutine
 
@@ -390,7 +393,18 @@ function write_UniqueDirection(this) result(output)
     output = [ 'Atom         : '//this%atom_id,     &
              & 'Direction    : '//this%direction,   &
              & 'Displacement : '//this%atomic_displacement ]
+  class default
+    call err()
   end select
+end function
+
+function new_UniqueDirection_Strings(input) result(this)
+  implicit none
+  
+  type(String), intent(in) :: input(:)
+  type(UniqueDirection)    :: this
+  
+  call this%read(input)
 end function
 
 impure elemental function new_UniqueDirection_StringArray(input) result(this)
@@ -399,6 +413,6 @@ impure elemental function new_UniqueDirection_StringArray(input) result(this)
   type(StringArray), intent(in) :: input
   type(UniqueDirection)         :: this
   
-  this = input
+  this = UniqueDirection(str(input))
 end function
 end module

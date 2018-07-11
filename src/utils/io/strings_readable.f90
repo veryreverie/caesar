@@ -19,7 +19,6 @@ module strings_readable_submodule
   private
   
   public :: StringsReadable
-  public :: assignment(=)
   
   type, abstract, extends(NoDefaultConstructor) :: StringsReadable
   contains
@@ -36,33 +35,7 @@ module strings_readable_submodule
       type(String),           intent(in)  :: input(:)
     end subroutine
   end interface
-  
-  interface assignment(=)
-    module procedure assign_StringsReadable_Strings
-    module procedure assign_StringsReadable_StringArray
-  end interface
 contains
-
-! ----------------------------------------------------------------------
-! Assign a StringsReadable type from a String type.
-! ----------------------------------------------------------------------
-recursive subroutine assign_StringsReadable_Strings(output,input)
-  implicit none
-  
-  class(StringsReadable), intent(out) :: output
-  type(String),           intent(in)  :: input(:)
-  
-  call output%read(input)
-end subroutine
-
-recursive subroutine assign_StringsReadable_StringArray(output,input)
-  implicit none
-  
-  class(StringsReadable), intent(out) :: output
-  type(StringArray),      intent(in)  :: input
-  
-  output = input%strings
-end subroutine
 end module
 
 ! ======================================================================
@@ -88,6 +61,7 @@ module strings_readable_example_submodule
   
   interface StringsReadableExample
     module procedure new_StringsReadableExample
+    module procedure new_StringsReadableExample_Strings
     module procedure new_StringsReadableExample_StringArray
   end interface
 contains
@@ -122,9 +96,20 @@ subroutine read_StringsReadableExample(this,input)
   end select
 end subroutine
 
-! Constructor from StringArray.
-! As with string_readable, this constructor is not required but simplifies the
-!    read process.
+! Constructor from String(:) or StringArray.
+! As with string_readable, these constructor are not required but simplify
+!    the read process.
+! These constructors can be copied directly into user-defined classes,
+!    with StringsReadableExample changed to the class name in all instances.
+function new_StringsReadableExample_Strings(input) result(this)
+  implicit none
+  
+  type(String), intent(in)     :: input(:)
+  type(StringsReadableExample) :: this
+  
+  call this%read(input)
+end function
+
 impure elemental function new_StringsReadableExample_StringArray(input) &
    & result(this)
   implicit none
@@ -132,6 +117,6 @@ impure elemental function new_StringsReadableExample_StringArray(input) &
   type(StringArray), intent(in) :: input
   type(StringsReadableExample)  :: this
   
-  this = input
+  this = StringsReadableExample(str(input))
 end function
 end module

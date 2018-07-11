@@ -31,6 +31,7 @@ module mass_weighted_displacement_submodule
   interface MassWeightedDisplacement
     module procedure new_MassWeightedDisplacement
     module procedure new_MassWeightedDisplacement_CartesianDisplacement
+    module procedure new_MassWeightedDisplacement_Strings
     module procedure new_MassWeightedDisplacement_StringArray
   end interface
   
@@ -233,6 +234,8 @@ subroutine read_MassWeightedDisplacement(this,input)
   
   select type(this); type is(MassWeightedDisplacement)
     this = MassWeightedDisplacement(RealVector(input))
+  class default
+    call err()
   end select
 end subroutine
 
@@ -244,7 +247,18 @@ function write_MassWeightedDisplacement(this) result(output)
   
   select type(this); type is(MassWeightedDisplacement)
     output = str(this%vectors)
+  class default
+    call err()
   end select
+end function
+
+function new_MassWeightedDisplacement_Strings(input) result(this)
+  implicit none
+  
+  type(String), intent(in)       :: input(:)
+  type(MassWeightedDisplacement) :: this
+  
+  call this%read(input)
 end function
 
 impure elemental function new_MassWeightedDisplacement_StringArray(input) &
@@ -254,6 +268,6 @@ impure elemental function new_MassWeightedDisplacement_StringArray(input) &
   type(StringArray), intent(in)  :: input
   type(MassWeightedDisplacement) :: this
   
-  this = input
+  this = MassWeightedDisplacement(str(input))
 end function
 end module

@@ -40,6 +40,7 @@ module basis_function_module
   
   interface BasisFunction
     module procedure new_BasisFunction
+    module procedure new_BasisFunction_Strings
     module procedure new_BasisFunction_StringArray
   end interface
   
@@ -125,6 +126,12 @@ function generate_basis_functions_SubspaceMonomial(coupling,structure, &
   ! Temporary variables.
   integer :: i,j,ialloc
   
+  logical :: printing
+  real(dp), allocatable :: thing(:,:)
+  ! TODO
+  
+  printing = all(coupling%ids==8)
+  
   if (size(coupling)<2) then
     call print_line(CODE_ERROR//': Trying to generate basis functions with &
        &order less than 2.')
@@ -193,11 +200,31 @@ function generate_basis_functions_SubspaceMonomial(coupling,structure, &
     unique_real_monomials(i)%coefficient = sqrt(real(size(equal_monomials),dp))
   enddo
   
+  if (printing) then
+    call print_line('')
+    call print_line('==============================')
+    call print_line('')
+    call print_line('Unique real monomials:')
+    call print_lines(unique_real_monomials)
+    call print_line('')
+    call print_line('Unique complex monomials:')
+    call print_lines(unique_complex_monomials)
+  endif
+  
   ! Identify the mappings between complex monomials and real monomials.
   complex_to_real_conversion = conversion_matrix( unique_real_monomials,   &
                                                 & unique_complex_monomials )
   real_to_complex_conversion = conversion_matrix( unique_complex_monomials, &
                                                 & unique_real_monomials     )
+  
+  if (printing .and. .false.) then
+    call print_line('')
+    call print_line('complex to real conversion:')
+    call print_lines(complex_to_real_conversion)
+    call print_line('')
+    call print_line('real to complex conversion:')
+    call print_lines(real_to_complex_conversion)
+  endif
   
   ! Construct projection matrix, which has allowed basis functions as
   !    eigenvectors with eigenvalue 1, and sends all other functions to 0.
@@ -215,11 +242,29 @@ function generate_basis_functions_SubspaceMonomial(coupling,structure, &
     projection = projection                   &
              & * projection_matrix( symmetry, &
              &                      structure%symmetries(i)%symmetry_order())
+    if (printing .and. size(symmetry,1)==8) then
+      call print_line('')
+      call print_line('Symmetry '//i)
+      thing = dble(abs(symmetry))
+      thing = thing([1,4,5,8],[1,4,5,8])
+      call print_lines(mat(thing))
+      !call print_line('')
+      !call print_line('Projection:')
+      !call print_lines(projection_matrix(           &
+      !   & symmetry,                                &
+      !   & structure%symmetries(i)%symmetry_order() ))
+    endif
   enddo
   call check_hermitian( projection,          &
                       & 'projection_matrix', &
                       & logfile,             &
                       & ignore_threshold=1e-10_dp)
+  
+  if (printing) then
+    call print_line('')
+    call print_line('Projection')
+    call print_lines(abs(projection))
+  endif
   
   ! Transform the projection matrix into real co-ordinates,
   !    and check that it is real and symmetric.
@@ -437,6 +482,8 @@ subroutine read_BasisFunction(this,input)
     this = BasisFunction( unique_term            = unique_term,         &
                         & real_representation    = real_representation, &
                         & complex_representation = complex_representation)
+  class default
+    call err()
   end select
 end subroutine
 
@@ -468,7 +515,18 @@ function write_BasisFunction(this) result(output)
       j = j+1
       output(j) = str(this%complex_representation%terms(i))
     enddo
+  class default
+    call err()
   end select
+end function
+
+function new_BasisFunction_Strings(input) result(this)
+  implicit none
+  
+  type(String), intent(in) :: input(:)
+  type(BasisFunction)      :: this
+  
+  call this%read(input)
 end function
 
 impure elemental function new_BasisFunction_StringArray(input) result(this)
@@ -477,6 +535,6 @@ impure elemental function new_BasisFunction_StringArray(input) result(this)
   type(StringArray), intent(in) :: input
   type(BasisFunction)           :: this
   
-  this = input
+  this = BasisFunction(str(input))
 end function
 end module

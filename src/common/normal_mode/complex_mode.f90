@@ -50,6 +50,7 @@ module complex_mode_submodule
   interface ComplexMode
     module procedure new_ComplexMode
     module procedure new_ComplexMode_HermitianEigenstuff
+    module procedure new_ComplexMode_Strings
     module procedure new_ComplexMode_StringArray
   end interface
   
@@ -350,6 +351,8 @@ subroutine read_ComplexMode(this,input)
                       & qpoint_id,          &
                       & paired_qpoint_id,   &
                       & subspace_id)
+  class default
+    call err()
   end select
 end subroutine
 
@@ -371,7 +374,18 @@ function write_ComplexMode(this) result(output)
              & 'Subspace id               : '//this%subspace_id,        &
              & str('Mass-weighted displacements in primitive cell:'),   &
              & str(this%unit_vector)                                    ]
+  class default
+    call err()
   end select
+end function
+
+function new_ComplexMode_Strings(input) result(this)
+  implicit none
+  
+  type(String), intent(in) :: input(:)
+  type(ComplexMode)        :: this
+  
+  call this%read(input)
 end function
 
 impure elemental function new_ComplexMode_StringArray(input) result(this)
@@ -380,6 +394,6 @@ impure elemental function new_ComplexMode_StringArray(input) result(this)
   type(StringArray), intent(in) :: input
   type(ComplexMode)             :: this
   
-  this = input
+  this = ComplexMode(str(input))
 end function
 end module

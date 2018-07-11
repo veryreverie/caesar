@@ -106,6 +106,8 @@ subroutine calculate_harmonic_observables_subroutine(arguments)
   type(DynamicalMatrix) :: dyn_mat
   
   ! Files and directories.
+  type(IFile)  :: structure_file
+  type(IFile)  :: large_supercell_file
   type(IFile)  :: qpoints_file
   type(IFile)  :: dynamical_matrix_file
   type(String) :: output_dir
@@ -182,11 +184,11 @@ subroutine calculate_harmonic_observables_subroutine(arguments)
   ! --------------------------------------------------
   ! Read in previously calculated data.
   ! --------------------------------------------------
-  structure = read_structure_file(wd//'/structure.dat', symmetry_precision)
+  structure_file = IFile(wd//'/structure.dat')
+  structure = StructureData(structure_file%lines())
   
-  large_supercell = read_structure_file( wd//'/large_supercell.dat', &
-                                       & symmetry_precision,         &
-                                       & calculate_symmetry=.false.)
+  large_supercell_file = IFile(wd//'/large_supercell.dat')
+  large_supercell = StructureData(large_supercell_file%lines())
   
   qpoints_file = IFile(wd//'/qpoints.dat')
   qpoints = QpointData(qpoints_file%sections())
@@ -197,7 +199,7 @@ subroutine calculate_harmonic_observables_subroutine(arguments)
     dynamical_matrix_file = IFile(                        &
        & wd//'/qpoint_'//left_pad(i,str(size(qpoints)))// &
        & '/dynamical_matrix.dat')
-    dynamical_matrices(i) = dynamical_matrix_file%lines()
+    dynamical_matrices(i) = DynamicalMatrix(dynamical_matrix_file%lines())
   enddo
   
   ! --------------------------------------------------

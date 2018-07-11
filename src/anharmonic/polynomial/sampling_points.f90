@@ -25,6 +25,7 @@ module sampling_points_module
   
   interface SamplingPoints
     module procedure new_SamplingPoints
+    module procedure new_SamplingPoints_Strings
     module procedure new_SamplingPoints_StringArray
   end interface
   
@@ -191,6 +192,8 @@ subroutine read_SamplingPoints(this,input)
   
   select type(this); type is(SamplingPoints)
     this = SamplingPoints(RealModeDisplacement(split_into_sections(input)))
+  class default
+    call err()
   end select
 end subroutine
 
@@ -202,7 +205,18 @@ function write_SamplingPoints(this) result(output)
   
   select type(this); type is(SamplingPoints)
     output = str(this%points,separating_line='')
+  class default
+    call err()
   end select
+end function
+
+function new_SamplingPoints_Strings(input) result(this)
+  implicit none
+  
+  type(String), intent(in) :: input(:)
+  type(SamplingPoints)     :: this
+  
+  call this%read(input)
 end function
 
 impure elemental function new_SamplingPoints_StringArray(input) result(this)
@@ -211,6 +225,6 @@ impure elemental function new_SamplingPoints_StringArray(input) result(this)
   type(StringArray), intent(in) :: input
   type(SamplingPoints)          :: this
   
-  this = input
+  this = SamplingPoints(str(input))
 end function
 end module

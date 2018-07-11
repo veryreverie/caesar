@@ -28,8 +28,15 @@ function map_potential() result(output)
   
   output%mode_name = 'map_potential'
   output%description = 'Maps out the potential at finite displacements along &
-     & multiple modes.'
+     & pairs of modes.'
   output%keywords = [                                                         &
+  & KeywordData( 'modes',                                                     &
+  &              'modes is the IDs of the real modes along which &
+  &displacements will be made. Modes should be given as a set of integer mode &
+  &IDs separated by spaces. All pairs will be mapped, so e.g. modes="1 4 5" &
+  &will result in the [1,4], [1,5] and [4,5] planes being mapped. If modes is &
+  &not supplied then all mode pairs will be mapped.',                         &
+  &              is_optional=.true.),                                         &
   & KeywordData( 'no_single_mode_samples',                                    &
   &              'no_single_mode_samples is the number of points (either side &
   &of zero) along each mode at which the anharmonic potential will be sampled &
@@ -65,10 +72,11 @@ subroutine map_potential_subroutine(arguments)
   type(String) :: wd
   
   ! Input arguments.
-  integer      :: no_single_mode_samples
-  logical      :: validate_potential
-  type(String) :: run_script
-  integer      :: no_cores
+  integer, allocatable :: modes(:)
+  integer              :: no_single_mode_samples
+  logical              :: validate_potential
+  type(String)         :: run_script
+  integer              :: no_cores
   
   ! Arguments to setup_anharmonic.
   type(Dictionary) :: setup_anharmonic_arguments
@@ -89,6 +97,9 @@ subroutine map_potential_subroutine(arguments)
   
   ! Maximum displacement in mass-weighted co-ordinates.
   real(dp) :: maximum_weighted_displacement
+  
+  ! Selected real modes.
+  type(RealMode), allocatable :: selected_modes(:)
   
   ! Primitive structure.
   type(StructureData) :: structure
@@ -139,12 +150,15 @@ subroutine map_potential_subroutine(arguments)
   type(ElectronicStructure)   :: electronic_structure
   
   ! Files and directories.
+  type(IFile)  :: structure_file
+  type(IFile)  :: anharmonic_supercell_file
   type(IFile)  :: qpoints_file
   type(IFile)  :: complex_modes_file
   type(IFile)  :: real_modes_file
   type(IFile)  :: potential_file
   type(String) :: map_dir
   type(String) :: modes_dir
+  type(OFile)  :: supercell_file
   type(String) :: displacement_dir
   type(OFile)  :: output_file
   
@@ -157,6 +171,9 @@ subroutine map_potential_subroutine(arguments)
   
   wd = arguments%value('working_directory')
   
+  if (arguments%is_set('modes')) then
+    modes = int(split_line(arguments%value('modes')))
+  endif
   no_single_mode_samples = int(arguments%value('no_single_mode_samples'))
   validate_potential = lgcl(arguments%value('validate_potential'))
   run_script = arguments%value('run_script')
@@ -190,14 +207,12 @@ subroutine map_potential_subroutine(arguments)
      & dble(setup_harmonic_arguments%value('symmetry_precision'))
   
   ! Read in structure.
-  structure = read_structure_file( harmonic_path//'/structure.dat', &
-                                 & symmetry_precision)
+  structure_file = IFile(harmonic_path//'/structure.dat')
+  structure = StructureData(structure_file%lines())
   
   ! Read in large anharmonic supercell and its q-points.
-  anharmonic_supercell = read_structure_file( &
-           & wd//'/anharmonic_supercell.dat', &
-           & symmetry_precision,              &
-           & calculate_symmetry=.false.)
+  anharmonic_supercell_file = IFile(wd//'/anharmonic_supercell.dat')
+  anharmonic_supercell = StructureData(anharmonic_supercell_file%lines())
   
   qpoints_file = IFile(wd//'/qpoints.dat')
   qpoints = QpointData(qpoints_file%sections())
@@ -212,7 +227,7 @@ subroutine map_potential_subroutine(arguments)
   ! Read in anharmonic potential.
   potential_file = IFile(wd//'/potential.dat')
   if (potential_representation=='polynomial') then
-    potential = PolynomialPotential(StringArray(potential_file%lines()))
+    potential = PolynomialPotential(potential_file%lines())
   else
     call print_line( ERROR//': Unrecognised potential representation : '// &
                    & potential_representation)
@@ -232,12 +247,11 @@ subroutine map_potential_subroutine(arguments)
                                         & run_script        = run_script, &
                                         & no_cores          = no_cores    )
   
-  calculation_reader = CalculationReader(      &
-     & working_directory  = wd,                &
-     & file_type          = file_type,         &
-     & seedname           = seedname,          &
-     & calculation_type   = calculation_type,  &
-     & symmetry_precision = symmetry_precision )
+  calculation_reader = CalculationReader(    &
+     & working_directory  = wd,              &
+     & file_type          = file_type,       &
+     & seedname           = seedname,        &
+     & calculation_type   = calculation_type )
   
   ! --------------------------------------------------
   ! Re-calculate maximum_weighted_displacement.
@@ -258,60 +272,74 @@ subroutine map_potential_subroutine(arguments)
      & * maximum_weighted_displacement                          &
      & / no_single_mode_samples
   
+  ! Select the specified modes.
+  if (arguments%is_set('modes')) then
+    ! De-duplicate and sort modes.
+    modes = modes(set(modes))
+    modes = modes(sort(modes))
+    
+    allocate(selected_modes(size(modes)), stat=ialloc); call err(ialloc)
+    do i=1,size(modes)
+      selected_modes(i) = real_modes(first(real_modes%id==modes(i)))
+    enddo
+  else
+    selected_modes = real_modes
+  endif
+  
   allocate( harmonic_energy(size(displacements), size(displacements)),   &
           & anharmonic_energy(size(displacements), size(displacements)), &
           & sampled_energy(size(displacements), size(displacements)),    &
           & stat=ialloc); call err(ialloc)
-  do i=1,size(real_modes)
-    do j=i+1,size(real_modes)
-      modes_dir = map_dir//'/modes_'//                     &
-                & left_pad(i,str(size(real_modes)))//'_'// &
-                & left_pad(j,str(size(real_modes)))
+  do i=1,size(selected_modes)
+    do j=i+1,size(selected_modes)
+      modes_dir = map_dir//'/modes_'//                                        &
+                & left_pad(selected_modes(i)%id,str(size(real_modes)))//'_'// &
+                & left_pad(selected_modes(j)%id,str(size(real_modes)))
       call mkdir(modes_dir)
       
       ! Scale displacement by 1/sqrt(frequency).
       scaled_displacements_i = displacements                             &
                            & * sqrt( frequency_of_max_displacement       &
-                           &       / max( complex_modes(i)%frequency,    &
+                           &       / max( selected_modes(i)%frequency,   &
                            &              frequency_of_max_displacement) )
       scaled_displacements_j = displacements                             &
                            & * sqrt( frequency_of_max_displacement       &
-                           &       / max( complex_modes(j)%frequency,    &
+                           &       / max( selected_modes(j)%frequency,   &
                            &              frequency_of_max_displacement) )
       
       if (validate_potential) then
-        qpoints_ij = select_qpoints([real_modes(i),real_modes(j)],qpoints)
+        qpoints_ij = select_qpoints( [selected_modes(i),selected_modes(j)], &
+                                   & qpoints                                )
         supercell_matrix = construct_supercell_matrix( qpoints_ij, &
                                                      & structure   )
-        supercell = construct_supercell( structure,                 &
-                                       & supercell_matrix,          &
-                                       & symmetry_precision,        &
-                                       & calculate_symmetry=.false. )
-        call write_structure_file(supercell, modes_dir//'/structure.dat')
+        supercell = construct_supercell( structure,       &
+                                       & supercell_matrix )
+        supercell_file = OFile(modes_dir//'/structure.dat')
+        call supercell_file%print_lines(supercell)
       endif
       
       do k=1,size(scaled_displacements_i)
         do l=1,size(scaled_displacements_j)
-          displacement_i = RealSingleDisplacement( real_modes(i),            &
+          displacement_i = RealSingleDisplacement( selected_modes(i),        &
                                                  & scaled_displacements_i(k) )
-          displacement_j = RealSingleDisplacement( real_modes(j),            &
+          displacement_j = RealSingleDisplacement( selected_modes(j),        &
                                                  & scaled_displacements_j(l) )
           displacement_ij = RealModeDisplacement([ displacement_i, &
                                                  & displacement_j  ])
           anharmonic_energy(l,k) = potential%energy(displacement_ij)
-          harmonic_energy(l,k) = 0.5_dp                        &
-                             & * real_modes(i)%spring_constant &
-                             & * scaled_displacements_i(k)     &
-                             & * scaled_displacements_i(k)     &
-                             & + 0.5_dp                        &
-                             & * real_modes(j)%spring_constant &
-                             & * scaled_displacements_j(l)     &
+          harmonic_energy(l,k) = 0.5_dp                            &
+                             & * selected_modes(i)%spring_constant &
+                             & * scaled_displacements_i(k)         &
+                             & * scaled_displacements_i(k)         &
+                             & + 0.5_dp                            &
+                             & * selected_modes(j)%spring_constant &
+                             & * scaled_displacements_j(l)         &
                              & * scaled_displacements_j(l)
           
           if (validate_potential) then
             displacement = CartesianDisplacement( displacement_ij, &
                                                 & supercell,       &
-                                                & real_modes,      &
+                                                & selected_modes,  &
                                                 & qpoints          )
             displaced_structure = displace_structure(supercell,displacement)
             
@@ -339,8 +367,10 @@ subroutine map_potential_subroutine(arguments)
       
       output_file = OFile(modes_dir//'/potential.dat')
       
-      call output_file%print_line('x-direction mode ID: '//real_modes(i)%id)
-      call output_file%print_line('y-direction mode ID: '//real_modes(j)%id)
+      call output_file%print_line('x-direction mode ID: '// &
+                                     & selected_modes(i)%id )
+      call output_file%print_line('y-direction mode ID: '// &
+                                     & selected_modes(j)%id )
       call output_file%print_line('x-direction displacements:')
       call output_file%print_line(scaled_displacements_i)
       call output_file%print_line('y-direction displacements:')

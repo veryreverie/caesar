@@ -9,7 +9,6 @@ module basic_structure_submodule
   
   public :: BasicAtom
   public :: BasicStructure
-  public :: BasicSymmetry
   public :: BasicSupercell
   
   type, extends(NoDefaultConstructor) :: BasicAtom
@@ -41,15 +40,6 @@ module basic_structure_submodule
   
   interface BasicSupercell
     module procedure new_BasicSupercell
-  end interface
-  
-  type, extends(NoDefaultConstructor) :: BasicSymmetry
-    type(IntMatrix)  :: rotation
-    type(RealVector) :: translation
-  end type
-  
-  interface BasicSymmetry
-    module procedure new_BasicSymmetry
   end interface
 contains
 
@@ -124,17 +114,5 @@ function new_BasicSupercell(supercell_matrix,rvectors,gvectors, &
   output%gvectors         = gvectors
   output%atom_rvector_ids = atom_rvector_ids
   output%atom_prim_ids    = atom_prim_ids
-end function
-
-function new_BasicSymmetry(rotation,translation) result(output)
-  implicit none
-  
-  type(IntMatrix),  intent(in) :: rotation
-  type(RealVector), intent(in) :: translation
-  
-  type(BasicSymmetry) :: output
-  
-  output%rotation    = rotation
-  output%translation = translation
 end function
 end module

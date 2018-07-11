@@ -73,6 +73,8 @@ subroutine write_calculation(this,structure,directory)
   type(StructureData),      intent(in)    :: structure
   type(String),             intent(in)    :: directory
   
+  type(OFile) :: structure_file
+  
   ! Check that the directory has not already been written to by this class.
   if (any(this%directories_==directory)) then
     call print_line(CODE_ERROR//': Trying to write an electronic structure &
@@ -85,7 +87,8 @@ subroutine write_calculation(this,structure,directory)
   ! Make the directory, and add a structure.dat file and
   !    an electronic structure input file.
   call mkdir(directory)
-  call write_structure_file(structure, directory//'/structure.dat')
+  structure_file = OFile(directory//'/structure.dat')
+  call structure_file%print_lines(structure)
   call StructureData_to_input_file(                        &
      & this%file_type_,                                    &
      & structure,                                          &

@@ -394,15 +394,12 @@ end function
 ! ----------------------------------------------------------------------
 ! Makes a supercell from a given primitive cell and supercell matrix.
 ! ----------------------------------------------------------------------
-function construct_supercell(structure,supercell_matrix,symmetry_precision, &
-   & calculate_symmetry) result(supercell)
+function construct_supercell(structure,supercell_matrix) result(output)
   implicit none
   
-  type(StructureData), intent(in)           :: structure
-  type(IntMatrix),     intent(in)           :: supercell_matrix
-  real(dp),            intent(in)           :: symmetry_precision
-  logical,             intent(in), optional :: calculate_symmetry
-  type(StructureData)                       :: supercell
+  type(StructureData), intent(in) :: structure
+  type(IntMatrix),     intent(in) :: supercell_matrix
+  type(StructureData)             :: output
   
   ! R-vector and G-vector information.
   type(IntVector), allocatable :: rvectors(:)
@@ -469,14 +466,12 @@ function construct_supercell(structure,supercell_matrix,symmetry_precision, &
   enddo
   
   ! Construct output.
-  supercell = StructureData(                                                  &
-     & BasicStructure( supercell_matrix*structure%lattice,                    &
-     &                 species2,                                              &
-     &                 masses2,                                               &
-     &                 positions2),                                           &
-     & symmetry_precision,                                                    &
-     & calculate_symmetry = calculate_symmetry,                               &
-     & basic_supercell    = BasicSupercell(                                   &
+  output = StructureData(                                                     &
+     & basic_structure = BasicStructure( supercell_matrix*structure%lattice,  &
+     &                                   species2,                            &
+     &                                   masses2,                             &
+     &                                   positions2),                         &
+     & basic_supercell = BasicSupercell(                                      &
      &         supercell_matrix,                                              &
      &         calculate_unique_vectors(supercell_matrix, .false.),           &
      &         calculate_unique_vectors(transpose(supercell_matrix), .true.), &
@@ -484,6 +479,6 @@ function construct_supercell(structure,supercell_matrix,symmetry_precision, &
      &         atom_prim_ids))
   
   ! Check output.
-  call check_supercell(supercell, structure)
+  call check_supercell(output, structure)
 end function
 end module

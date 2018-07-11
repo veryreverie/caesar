@@ -54,6 +54,7 @@ module vscf_rvectors_module
   
   interface VscfRvectors
     module procedure new_VscfRvectors
+    module procedure new_VscfRvectors_Strings
     module procedure new_VscfRvectors_StringArray
   end interface
   
@@ -723,6 +724,8 @@ subroutine read_VscfRvectors(this,input)
   
   select type(this); type is(VscfRvectors)
     this = VscfRvectors(VscfRvector(input))
+  class default
+    call err()
   end select
 end subroutine
 
@@ -734,7 +737,18 @@ function write_VscfRvectors(this) result(output)
   
   select type(this); type is(VscfRvectors)
     output = str(this%vscf_rvectors)
+  class default
+    call err()
   end select
+end function
+
+function new_VscfRvectors_Strings(input) result(this)
+  implicit none
+  
+  type(String), intent(in) :: input(:)
+  type(VscfRvectors)       :: this
+  
+  call this%read(input)
 end function
 
 impure elemental function new_VscfRvectors_StringArray(input) result(this)
@@ -743,6 +757,6 @@ impure elemental function new_VscfRvectors_StringArray(input) result(this)
   type(StringArray), intent(in) :: input
   type(VscfRvectors)            :: this
   
-  this = input
+  this = VscfRvectors(str(input))
 end function
 end module

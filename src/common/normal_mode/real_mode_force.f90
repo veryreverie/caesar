@@ -44,6 +44,7 @@ module real_mode_force_submodule
     module procedure new_RealModeForce_RealModes
     module procedure new_RealModeForce_MassWeightedForce
     module procedure new_RealModeForce_CartesianForce
+    module procedure new_RealModeForce_Strings
     module procedure new_RealModeForce_StringArray
   end interface
   
@@ -339,6 +340,8 @@ subroutine read_RealModeForce(this,input)
   
   select type(this); type is(RealModeForce)
     this = RealModeForce(RealSingleForce(input))
+  class default
+    call err()
   end select
 end subroutine
 
@@ -350,16 +353,26 @@ function write_RealModeForce(this) result(output)
   
   select type(this); type is(RealModeForce)
     output = str(this%vectors)
+  class default
+    call err()
   end select
 end function
 
-impure elemental function new_RealModeForce_StringArray(input) &
-   & result(this)
+function new_RealModeForce_Strings(input) result(this)
+  implicit none
+  
+  type(String), intent(in) :: input(:)
+  type(RealModeForce)      :: this
+  
+  call this%read(input)
+end function
+
+impure elemental function new_RealModeForce_StringArray(input) result(this)
   implicit none
   
   type(StringArray), intent(in) :: input
-  type(RealModeForce)    :: this
+  type(RealModeForce)           :: this
   
-  this = input
+  this = RealModeForce(str(input))
 end function
 end module

@@ -56,10 +56,9 @@ function generate_supercells(structure,qpoints,symmetry_precision) &
     ! Create a supercell for simulating this q-point.
     no_supercells = no_supercells+1
     supercell_matrix = construct_supercell_matrix(qpoints(i), structure)
-    output(no_supercells) = construct_supercell( &
-                             & structure,        &
-                             & supercell_matrix, &
-                             & symmetry_precision=symmetry_precision)
+    output(no_supercells) = construct_supercell( structure,       &
+                                               & supercell_matrix )
+    call output(no_supercells)%calculate_symmetry(symmetry_precision)
     
     ! Find all q-points which can be simulated using this supercell.
     do j=1,size(qpoints)

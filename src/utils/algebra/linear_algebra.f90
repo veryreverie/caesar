@@ -173,6 +173,7 @@ module linear_algebra_submodule
   end type
   
   interface IntMatrix
+    module procedure new_IntMatrix_Strings
     module procedure new_IntMatrix_StringArray
   end interface
   
@@ -187,6 +188,7 @@ module linear_algebra_submodule
   end type
   
   interface RealMatrix
+    module procedure new_RealMatrix_Strings
     module procedure new_RealMatrix_StringArray
   end interface
   
@@ -200,6 +202,7 @@ module linear_algebra_submodule
   end type
   
   interface ComplexMatrix
+    module procedure new_ComplexMatrix_Strings
     module procedure new_ComplexMatrix_StringArray
   end interface
   
@@ -3440,6 +3443,8 @@ subroutine read_IntMatrix(this,input)
     endif
     
     this = contents
+  class default
+    call err()
   end select
 end subroutine
 
@@ -3459,7 +3464,18 @@ function write_IntMatrix(this) result(output)
     do i=1,size(contents,1)
       output(i) = join(contents(i,:))
     enddo
+  class default
+    call err()
   end select
+end function
+
+function new_IntMatrix_Strings(input) result(this)
+  implicit none
+  
+  type(String), intent(in) :: input(:)
+  type(IntMatrix)          :: this
+  
+  call this%read(input)
 end function
 
 impure elemental function new_IntMatrix_StringArray(input) result(this)
@@ -3468,7 +3484,7 @@ impure elemental function new_IntMatrix_StringArray(input) result(this)
   type(StringArray), intent(in) :: input
   type(IntMatrix)               :: this
   
-  this = input
+  this = IntMatrix(str(input))
 end function
 
 subroutine read_RealMatrix(this,input)
@@ -3502,6 +3518,8 @@ subroutine read_RealMatrix(this,input)
     endif
     
     this = contents
+  class default
+    call err()
   end select
 end subroutine
 
@@ -3521,7 +3539,18 @@ function write_RealMatrix(this) result(output)
     do i=1,size(contents,1)
       output(i) = join(contents(i,:))
     enddo
+  class default
+    call err()
   end select
+end function
+
+function new_RealMatrix_Strings(input) result(this)
+  implicit none
+  
+  type(String), intent(in) :: input(:)
+  type(RealMatrix)         :: this
+  
+  call this%read(input)
 end function
 
 impure elemental function new_RealMatrix_StringArray(input) result(this)
@@ -3530,7 +3559,7 @@ impure elemental function new_RealMatrix_StringArray(input) result(this)
   type(StringArray), intent(in) :: input
   type(RealMatrix)              :: this
   
-  this = input
+  this = RealMatrix(str(input))
 end function
 
 subroutine read_ComplexMatrix(this,input)
@@ -3564,6 +3593,8 @@ subroutine read_ComplexMatrix(this,input)
     endif
     
     this = contents
+  class default
+    call err()
   end select
 end subroutine
 
@@ -3583,7 +3614,18 @@ function write_ComplexMatrix(this) result(output)
     do i=1,size(contents,1)
       output(i) = join(contents(i,:))
     enddo
+  class default
+    call err()
   end select
+end function
+
+function new_ComplexMatrix_Strings(input) result(this)
+  implicit none
+  
+  type(String), intent(in) :: input(:)
+  type(ComplexMatrix)      :: this
+  
+  call this%read(input)
 end function
 
 impure elemental function new_ComplexMatrix_StringArray(input) result(this)
@@ -3592,6 +3634,6 @@ impure elemental function new_ComplexMatrix_StringArray(input) result(this)
   type(StringArray), intent(in) :: input
   type(ComplexMatrix)           :: this
   
-  this = input
+  this = ComplexMatrix(str(input))
 end function
 end module

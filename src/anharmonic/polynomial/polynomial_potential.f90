@@ -46,6 +46,7 @@ module polynomial_potential_module
   interface PolynomialPotential
     module procedure new_PolynomialPotential
     module procedure new_PolynomialPotential_BasisFunctions
+    module procedure new_PolynomialPotential_Strings
     module procedure new_PolynomialPotential_StringArray
   end interface
 contains
@@ -111,6 +112,7 @@ subroutine generate_sampling_points_PolynomialPotential(this,inputs, &
   type(OFile)  :: basis_functions_file
   type(OFile)  :: sampling_points_file
   type(String) :: sampling_dir
+  type(OFile)  :: supercell_file
   type(OFile)  :: vscf_rvectors_file
   type(String) :: vscf_rvectors_dir
   
@@ -197,13 +199,12 @@ subroutine generate_sampling_points_PolynomialPotential(this,inputs, &
                                              & inputs%qpoints        )
       supercell_matrix = construct_supercell_matrix( sampling_point_qpoints, &
                                                    & inputs%structure)
-      supercell = construct_supercell( inputs%structure,          &
-                                     & supercell_matrix,          &
-                                     & inputs%symmetry_precision, &
-                                     & calculate_symmetry=.false.)
+      supercell = construct_supercell( inputs%structure, &
+                                     & supercell_matrix  )
       
       ! Write out the supercell.
-      call write_structure_file(supercell, sampling_dir//'/structure.dat')
+      supercell_file = OFile(sampling_dir//'/structure.dat')
+      call supercell_file%print_lines(supercell)
       
       ! Construct VSCF R-vectors.
       vscf_rvectors = construct_vscf_rvectors( sampling_point,    &
@@ -284,6 +285,7 @@ subroutine generate_potential_PolynomialPotential(this,inputs,           &
   type(IFile)  :: basis_functions_file
   type(IFile)  :: sampling_points_file
   type(String) :: sampling_dir
+  type(IFile)  :: supercell_file
   type(IFile)  :: vscf_rvectors_file
   type(String) :: vscf_rvectors_dir
   
@@ -319,10 +321,10 @@ subroutine generate_potential_PolynomialPotential(this,inputs,           &
     
     ! Read in basis functions and sampling points.
     basis_functions_file = IFile(coupling_dir//'/basis_functions.dat')
-    basis_functions(i) = basis_functions_file%lines()
+    basis_functions(i) = BasisFunctions(basis_functions_file%lines())
     
     sampling_points_file = IFile(coupling_dir//'/sampling_points.dat')
-    sampling_points(i) = sampling_points_file%lines()
+    sampling_points(i) = SamplingPoints(sampling_points_file%lines())
   enddo
   
   ! --------------------------------------------------
@@ -348,9 +350,8 @@ subroutine generate_potential_PolynomialPotential(this,inputs,           &
          & '/sampling_point_'//left_pad(j,str(size(sampling_points(i))))
       
       ! Read in supercell and VSCF R-vectors.
-      supercell = read_structure_file( sampling_dir//'/structure.dat', &
-                                     & inputs%symmetry_precision,      &
-                                     & calculate_symmetry=.false.)
+      supercell_file = IFile(sampling_dir//'/structure.dat')
+      supercell = StructureData(supercell_file%lines())
       
       vscf_rvectors_file = IFile(sampling_dir//'/vscf_rvectors.dat')
       vscf_rvectors = VscfRvectors(vscf_rvectors_file%sections())
@@ -522,6 +523,8 @@ subroutine read_PolynomialPotential(this,input)
                               & reference_energy,          &
                               & basis_functions,           &
                               & coefficients)
+  class default
+    call err()
   end select
 end subroutine
 
@@ -541,7 +544,18 @@ function write_PolynomialPotential(this) result(output)
              & str('Basis function coefficients:'),                 &
              & str(''),                                             &
              & str(this%coefficients)]
+  class default
+    call err()
   end select
+end function
+
+function new_PolynomialPotential_Strings(input) result(this)
+  implicit none
+  
+  type(String), intent(in)  :: input(:)
+  type(PolynomialPotential) :: this
+  
+  call this%read(input)
 end function
 
 impure elemental function new_PolynomialPotential_StringArray(input) &
@@ -551,6 +565,6 @@ impure elemental function new_PolynomialPotential_StringArray(input) &
   type(StringArray), intent(in) :: input
   type(PolynomialPotential)     :: this
   
-  this = input
+  this = PolynomialPotential(str(input))
 end function
 end module

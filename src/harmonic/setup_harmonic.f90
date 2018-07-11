@@ -92,8 +92,11 @@ subroutine setup_harmonic_subroutine(arguments)
   
   ! Files.
   type(String) :: input_filename
+  type(OFile)  :: structure_file
+  type(Ofile)  :: large_supercell_file
   type(OFile)  :: no_supercells_file
   type(OFile)  :: qpoints_file
+  type(OFile)  :: supercell_file
   type(OFile)  :: unique_directions_file
   
   ! Temporary variables.
@@ -119,12 +122,16 @@ subroutine setup_harmonic_subroutine(arguments)
   ! --------------------------------------------------
   ! Read in input files.
   ! --------------------------------------------------
-  input_filename = make_input_filename(file_type,seedname)
+  input_filename = make_input_filename(file_type, seedname)
   input_filename = wd//'/'//input_filename
-  structure = input_file_to_StructureData( file_type,      &
-                                         & input_filename, &
-                                         & symmetry_precision)
-  call write_structure_file(structure,wd//'/structure.dat')
+  structure = input_file_to_StructureData(file_type, input_filename)
+  
+  ! --------------------------------------------------
+  ! Generate symmetries of structure.
+  ! --------------------------------------------------
+  if (size(structure%symmetries)==0) then
+    call structure%calculate_symmetry(symmetry_precision)
+  endif
   
   ! --------------------------------------------------
   ! Generate large supercell, for which all q-points are G-vectors.
@@ -133,23 +140,26 @@ subroutine setup_harmonic_subroutine(arguments)
                               &   0      , grid(2), 0     ,    &
                               &   0      , 0      , grid(3) ], &
                               & 3,3)
-  large_supercell = construct_supercell( structure,              &
-                                       & large_supercell_matrix, &
-                                       & symmetry_precision,     &
-                                       & calculate_symmetry=.false.)
-  call write_structure_file(large_supercell, wd//'/large_supercell.dat')
+  large_supercell = construct_supercell( structure,             &
+                                       & large_supercell_matrix )
   
   ! --------------------------------------------------
   ! Generate supercells.
   ! --------------------------------------------------
   ! Generate q-points in Monkhorst-Pack grid.
   qpoints = generate_qpoints(large_supercell)
-  qpoints_file = OFile(wd//'/qpoints.dat')
-  call qpoints_file%print_lines(qpoints,separating_line='')
   
   ! Generate non-diagonal supercells.
   supercells = generate_supercells(structure, qpoints, symmetry_precision)
   no_supercells = size(supercells)
+  
+  ! Write out structure, q-point and supercell data.
+  structure_file = OFile(wd//'/structure.dat')
+  call structure_file%print_lines(structure)
+  large_supercell_file = OFile(wd//'/large_supercell.dat')
+  call large_supercell_file%print_lines(large_supercell)
+  qpoints_file = OFile(wd//'/qpoints.dat')
+  call qpoints_file%print_lines(qpoints,separating_line='')
   no_supercells_file = OFile(wd//'/no_supercells.dat')
   call no_supercells_file%print_line(no_supercells)
   
@@ -161,7 +171,8 @@ subroutine setup_harmonic_subroutine(arguments)
     
     ! Write out structure files.
     supercell = supercells(i)
-    call write_structure_file(supercell, sdir//'/structure.dat')
+    supercell_file = OFile(sdir//'/structure.dat')
+    call supercell_file%print_lines(supercell)
     
     ! Calculate which forces need calculating.
     unique_directions = calculate_unique_directions( supercell, &

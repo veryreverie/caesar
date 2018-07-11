@@ -27,6 +27,7 @@ module cartesian_displacement_submodule
   
   interface CartesianDisplacement
     module procedure new_CartesianDisplacement
+    module procedure new_CartesianDisplacement_Strings
     module procedure new_CartesianDisplacement_StringArray
   end interface
   
@@ -208,6 +209,8 @@ subroutine read_CartesianDisplacement(this,input)
   
   select type(this); type is(CartesianDisplacement)
     this = CartesianDisplacement(RealVector(input))
+  class default
+    call err()
   end select
 end subroutine
 
@@ -219,7 +222,18 @@ function write_CartesianDisplacement(this) result(output)
   
   select type(this); type is(CartesianDisplacement)
     output = str(this%vectors)
+  class default
+    call err()
   end select
+end function
+
+function new_CartesianDisplacement_Strings(input) result(this)
+  implicit none
+  
+  type(String), intent(in)    :: input(:)
+  type(CartesianDisplacement) :: this
+  
+  call this%read(input)
 end function
 
 impure elemental function new_CartesianDisplacement_StringArray(input) &
@@ -229,6 +243,6 @@ impure elemental function new_CartesianDisplacement_StringArray(input) &
   type(StringArray), intent(in) :: input
   type(CartesianDisplacement)   :: this
   
-  this = input
+  this = CartesianDisplacement(str(input))
 end function
 end module

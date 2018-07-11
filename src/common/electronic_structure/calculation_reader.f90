@@ -20,7 +20,6 @@ module calculation_reader_submodule
     type(String), private              :: file_type_
     type(String), private              :: seedname_
     type(String), private              :: calculation_type_
-    real(dp),     private              :: symmetry_precision_
     type(String), private              :: filename_
     type(String), private, allocatable :: directories_(:)
   contains
@@ -36,21 +35,19 @@ contains
 
 ! Constructor.
 function new_CalculationReader(working_directory,file_type,seedname, &
-   & calculation_type,symmetry_precision) result(this)
+   & calculation_type) result(this)
   implicit none
   
   type(String), intent(in) :: working_directory
   type(String), intent(in) :: file_type
   type(String), intent(in) :: seedname
   type(String), intent(in) :: calculation_type
-  real(dp),     intent(in) :: symmetry_precision
   type(CalculationReader)  :: this
     
   this%working_directory_  = working_directory
   this%file_type_          = file_type
   this%seedname_           = seedname
   this%calculation_type_   = calculation_type
-  this%symmetry_precision_ = symmetry_precision
   
   ! If the calculation type is 'script' then the electronic structure
   !    calculation has already been run, so the output file should be read
@@ -88,14 +85,14 @@ function read_calculation(this,directory) result(output)
   type(String),             intent(in)    :: directory
   type(ElectronicStructure)               :: output
   
+  type(IFile)         :: structure_file
   type(StructureData) :: structure
   
   type(OFile) :: electronic_structure_file
   
   ! Read in structure.
-  structure = read_structure_file( directory//'/structure.dat', &
-                                 & this%symmetry_precision_,    &
-                                 & calculate_symmetry=.false.   )
+  structure_file = IFile(directory//'/structure.dat')
+  structure = StructureData(structure_file%lines())
   
   ! Read the calculation.
   output = read_output_file( this%file_type_,                &
@@ -103,7 +100,6 @@ function read_calculation(this,directory) result(output)
                            & structure,                      &
                            & this%working_directory_,        &
                            & this%seedname_,                 &
-                           & this%symmetry_precision_,       &
                            & this%calculation_type_          )
   
   ! Write an electronic_structure.dat file.

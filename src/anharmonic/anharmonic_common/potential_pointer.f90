@@ -230,6 +230,7 @@ module potential_example_module
   
   interface PotentialDataExample
     module procedure new_PotentialDataExample
+    module procedure new_PotentialDataExample_Strings
     module procedure new_PotentialDataExample_StringArray
   end interface
 contains
@@ -361,6 +362,15 @@ function write_PotentialDataExample(this) result(output)
   ! Code to write potential to strings goes here.
 end function
 
+function new_PotentialDataExample_Strings(input) result(this)
+  implicit none
+  
+  type(String), intent(in)   :: input(:)
+  type(PotentialDataExample) :: this
+  
+  call this%read(input)
+end function
+
 impure elemental function new_PotentialDataExample_StringArray(input) &
    & result(this)
   implicit none
@@ -368,7 +378,7 @@ impure elemental function new_PotentialDataExample_StringArray(input) &
   type(StringArray), intent(in) :: input
   type(PotentialDataExample)    :: this
   
-  this = input
+  this = PotentialDataExample(str(input))
 end function
 
 ! --------------------------------------------------
@@ -446,6 +456,6 @@ subroutine potential_example_subroutine(wd)
   call output_file%print_lines(potential)
   
   input_file = IFile(wd//'example_potential.file')
-  potential = PotentialDataExample(StringArray(input_file%lines()))
+  potential = PotentialDataExample(input_file%lines())
 end subroutine
 end module

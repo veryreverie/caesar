@@ -76,6 +76,7 @@ subroutine run_harmonic_subroutine(arguments)
   type(String)                       :: atom_string
   
   ! Files and Directories.
+  type(IFile)  :: structure_file
   type(IFile)  :: no_supercells_file
   type(IFile)  :: unique_directions_file
   type(String) :: dir
@@ -95,15 +96,21 @@ subroutine run_harmonic_subroutine(arguments)
   ! --------------------------------------------------
   ! Read in arguments to previous calculations.
   ! --------------------------------------------------
-  no_supercells_file = IFile(wd//'/no_supercells.dat')
-  no_supercells = int(no_supercells_file%line(1))
-  
   setup_harmonic_arguments = Dictionary(setup_harmonic())
   call setup_harmonic_arguments%read_file(wd//'/setup_harmonic.used_settings')
   file_type = setup_harmonic_arguments%value('file_type')
   seedname = setup_harmonic_arguments%value('seedname')
   symmetry_precision = &
      & dble(setup_harmonic_arguments%value('symmetry_precision'))
+  
+  ! --------------------------------------------------
+  ! Read in previously calculated data.
+  ! --------------------------------------------------
+  structure_file = IFile(wd//'/structure.dat')
+  structure = StructureData(structure_file%lines())
+  
+  no_supercells_file = IFile(wd//'/no_supercells.dat')
+  no_supercells = int(no_supercells_file%line(1))
   
   ! --------------------------------------------------
   ! Check user inputs.
@@ -142,12 +149,6 @@ subroutine run_harmonic_subroutine(arguments)
                                         & seedname          = seedname,   &
                                         & run_script        = run_script, &
                                         & no_cores          = no_cores    )
-  
-  ! --------------------------------------------------
-  ! Read in structure data.
-  ! --------------------------------------------------
-  structure = read_structure_file( wd//'/structure.dat', &
-                                 & symmetry_precision)
   
   ! --------------------------------------------------
   ! Run calculations

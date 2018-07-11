@@ -22,6 +22,7 @@ module electronic_structure_data_submodule
   
   interface ElectronicStructure
     module procedure new_ElectronicStructure
+    module procedure new_ElectronicStructure_Strings
     module procedure new_ElectronicStructure_StringArray
   end interface
 contains
@@ -50,9 +51,11 @@ subroutine read_ElectronicStructure(this,input)
   
   select type(this); type is(ElectronicStructure)
     energy = dble(input(2))
-    forces = CartesianForce(StringArray(input(4:)))
+    forces = CartesianForce(input(4:))
     
     this = ElectronicStructure(energy,forces)
+  class default
+    call err()
   end select
 end subroutine
 
@@ -67,7 +70,18 @@ function write_ElectronicStructure(this) result(output)
              & str(this%energy),              &
              & str('Forces (Hartree/Bohr):'), &
              & str(this%forces)               ]
+  class default
+    call err()
   end select
+end function
+
+function new_ElectronicStructure_Strings(input) result(this)
+  implicit none
+  
+  type(String), intent(in) :: input(:)
+  type(ElectronicStructure)        :: this
+  
+  call this%read(input)
 end function
 
 impure elemental function new_ElectronicStructure_StringArray(input) &
@@ -75,8 +89,8 @@ impure elemental function new_ElectronicStructure_StringArray(input) &
   implicit none
   
   type(StringArray), intent(in) :: input
-  type(ElectronicStructure)     :: this
+  type(ElectronicStructure)             :: this
   
-  this = input
+  this = ElectronicStructure(str(input))
 end function
 end module

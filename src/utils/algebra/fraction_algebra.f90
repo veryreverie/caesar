@@ -60,6 +60,7 @@ module fraction_algebra_submodule
   end type
   
   interface FractionMatrix
+    module procedure new_FractionMatrix_Strings
     module procedure new_FractionMatrix_StringArray
   end interface
   
@@ -1268,6 +1269,8 @@ subroutine read_FractionMatrix(this,input)
     endif
     
     this = contents
+  class default
+    call err()
   end select
 end subroutine
 
@@ -1287,7 +1290,18 @@ function write_FractionMatrix(this) result(output)
     do i=1,size(this,1)
       output(i) = join(contents(i,:))
     enddo
+  class default
+    call err()
   end select
+end function
+
+function new_FractionMatrix_Strings(input) result(this)
+  implicit none
+  
+  type(String), intent(in) :: input(:)
+  type(FractionMatrix)     :: this
+  
+  call this%read(input)
 end function
 
 impure elemental function new_FractionMatrix_StringArray(input) result(this)
@@ -1296,6 +1310,6 @@ impure elemental function new_FractionMatrix_StringArray(input) result(this)
   type(StringArray), intent(in) :: input
   type(FractionMatrix)          :: this
   
-  this = input
+  this = FractionMatrix(str(input))
 end function
 end module

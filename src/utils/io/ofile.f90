@@ -327,6 +327,8 @@ subroutine print_lines_StringsWriteables_character(this,input,separating_line)
   character(*),            intent(in), optional :: separating_line
   
   if (lbound(input,1)/=1) then
+    call print_line(CODE_ERROR//': The lower bound of an array is not 1. This &
+       &is probably a compiler bug.')
     call err()
   endif
   

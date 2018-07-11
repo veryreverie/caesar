@@ -124,16 +124,18 @@ subroutine setup_anharmonic_subroutine(arguments)
   ! The potential.
   type(PotentialPointer) :: potential
   
-  ! Directories and files.
+  ! Directories.
   type(String) :: qpoint_dir
   type(String) :: sampling_points_dir
   
   ! Input files.
+  type(IFile) :: structure_file
   type(IFile) :: harmonic_qpoints_file
   type(IFile) :: harmonic_complex_modes_file
   
   ! Output files.
   type(OFile) :: logfile
+  type(Ofile) :: anharmonic_supercell_file
   type(OFile) :: anharmonic_qpoints_file
   type(OFile) :: complex_modes_file
   type(OFile) :: real_modes_file
@@ -171,8 +173,8 @@ subroutine setup_anharmonic_subroutine(arguments)
      & dble(setup_harmonic_arguments%value('symmetry_precision'))
   
   ! Read in structure and harmonic q-points.
-  structure = read_structure_file( harmonic_path//'/structure.dat', &
-                                 & symmetry_precision)
+  structure_file = IFile(harmonic_path//'/structure.dat')
+  structure = StructureData(structure_file%lines())
   
   harmonic_qpoints_file = IFile(harmonic_path//'/qpoints.dat')
   harmonic_qpoints = QpointData(harmonic_qpoints_file%sections())
@@ -204,10 +206,8 @@ subroutine setup_anharmonic_subroutine(arguments)
      &       0             , qpoint_grid(2), 0            ,    &
      &       0             , 0             , qpoint_grid(3) ], &
      & 3,3)
-  anharmonic_supercell = construct_supercell( structure,                   &
-                                            & anharmonic_supercell_matrix, &
-                                            & symmetry_precision,          &
-                                            & calculate_symmetry=.false.)
+  anharmonic_supercell = construct_supercell( structure,                  &
+                                            & anharmonic_supercell_matrix )
   qpoints = generate_qpoints(anharmonic_supercell)
   
   ! Read in harmonic normal modes which correspond to anharmonic q-points,
@@ -257,8 +257,8 @@ subroutine setup_anharmonic_subroutine(arguments)
   ! ----------------------------------------------------------------------
   
   ! Write out anharmonic supercell and q-points.
-  call write_structure_file( anharmonic_supercell, &
-                           & wd//'/anharmonic_supercell.dat')
+  anharmonic_supercell_file = OFile(wd//'/anharmonic_supercell.dat')
+  call anharmonic_supercell_file%print_lines(anharmonic_supercell)
   
   anharmonic_qpoints_file = OFile(wd//'/qpoints.dat')
   call anharmonic_qpoints_file%print_lines(qpoints,separating_line='')

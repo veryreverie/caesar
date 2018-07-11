@@ -4,6 +4,7 @@
 module calculate_symmetry_submodule
   use utils_module
   
+  use basic_symmetry_submodule
   use basic_structure_submodule
   use atom_submodule
   implicit none
@@ -143,8 +144,9 @@ function calculate_basic_symmetries(lattice,atoms,symmetry_precision) &
                                  & rotations,      &
                                  & translations)
   do i=1,no_symmetries
-    output(i)%rotation = rotations(:,:,i)
-    output(i)%translation = translations(:,i)
+    output(i) = BasicSymmetry( id          = i,                     &
+                             & rotation    = mat(rotations(:,:,i)), &
+                             & translation = vec(translations(:,i)) )
   enddo
   
   ! Deallocate C memory.

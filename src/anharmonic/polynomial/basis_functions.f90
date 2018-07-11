@@ -25,6 +25,7 @@ module basis_functions_module
   
   interface BasisFunctions
     module procedure new_BasisFunctions
+    module procedure new_BasisFunctions_Strings
     module procedure new_BasisFunctions_StringArray
   end interface
   
@@ -100,6 +101,8 @@ subroutine read_BasisFunctions(this,input)
   
   select type(this); type is(BasisFunctions)
     this = BasisFunctions(BasisFunction(split_into_sections(input)))
+  class default
+    call err()
   end select
 end subroutine
 
@@ -111,7 +114,18 @@ function write_BasisFunctions(this) result(output)
   
   select type(this); type is(BasisFunctions)
     output = str(this%functions, separating_line='')
+  class default
+    call err()
   end select
+end function
+
+function new_BasisFunctions_Strings(input) result(this)
+  implicit none
+  
+  type(String), intent(in) :: input(:)
+  type(BasisFunctions)     :: this
+  
+  call this%read(input)
 end function
 
 impure elemental function new_BasisFunctions_StringArray(input) result(this)
@@ -120,6 +134,6 @@ impure elemental function new_BasisFunctions_StringArray(input) result(this)
   type(StringArray), intent(in) :: input
   type(BasisFunctions)          :: this
   
-  this = input
+  this = BasisFunctions(str(input))
 end function
 end module

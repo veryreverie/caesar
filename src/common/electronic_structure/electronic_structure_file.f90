@@ -69,22 +69,19 @@ function make_output_filename(file_type,seedname) result(output)
 end function
 
 ! Reads an input file, and constructs a StructureData.
-function input_file_to_StructureData(file_type,filename, &
-   & symmetry_precision,calculate_symmetry) result(output)
+function input_file_to_StructureData(file_type,filename) result(output)
   implicit none
   
-  type(String), intent(in)           :: file_type
-  type(String), intent(in)           :: filename
-  real(dp),     intent(in)           :: symmetry_precision
-  logical,      intent(in), optional :: calculate_symmetry
-  type(StructureData)                :: output
+  type(String), intent(in) :: file_type
+  type(String), intent(in) :: filename
+  type(StructureData)      :: output
   
+  type(IFile)          :: structure_file
   type(BasicStructure) :: basic_structure
   
   if (file_type == 'caesar') then
-    output = read_structure_file( filename,           &
-                                & symmetry_precision, &
-                                & calculate_symmetry)
+    structure_file = IFile(filename)
+    output = StructureData(structure_file%lines())
   else
     if (file_type == 'castep') then
       basic_structure = read_input_file_castep(filename)
@@ -94,9 +91,7 @@ function input_file_to_StructureData(file_type,filename, &
       call print_line('Reading '//file_type//' input files not yet supported.')
       call err()
     endif
-    output = StructureData( basic_structure,    &
-                          & symmetry_precision, &
-                          & calculate_symmetry=calculate_symmetry)
+    output = StructureData(basic_structure)
   endif
 end function
 
@@ -110,8 +105,11 @@ subroutine StructureData_to_input_file(file_type,structure,input_filename, &
   type(String),        intent(in), optional :: input_filename
   type(String),        intent(in)           :: output_filename
   
+  type(OFile) :: structure_file
+  
   if (file_type=='caesar') then
-    call write_structure_file(structure,output_filename)
+    structure_file = OFile(output_filename)
+    call structure_file%print_lines(structure)
   elseif (file_type=='castep') then
     call write_input_file_castep(structure,input_filename,output_filename)
   elseif (file_type=='xyz') then
@@ -123,7 +121,7 @@ subroutine StructureData_to_input_file(file_type,structure,input_filename, &
 end subroutine
 
 function read_output_file(file_type,filename,structure,dir,seedname, &
-   & symmetry_precision,calculation_type) result(output)
+   & calculation_type) result(output)
   implicit none
   
   type(String),        intent(in) :: file_type
@@ -131,7 +129,6 @@ function read_output_file(file_type,filename,structure,dir,seedname, &
   type(StructureData), intent(in) :: structure
   type(String),        intent(in) :: dir
   type(String),        intent(in) :: seedname
-  real(dp),            intent(in) :: symmetry_precision
   type(String),        intent(in) :: calculation_type
   type(ElectronicStructure)       :: output
   
@@ -149,11 +146,8 @@ function read_output_file(file_type,filename,structure,dir,seedname, &
       call err()
     endif
   elseif (calculation_type=='quip') then
-    displaced_structure = input_file_to_StructureData( &
-                                 & file_type,          &
-                                 & filename,           &
-                                 & symmetry_precision, &
-                                 & calculate_symmetry=.false.)
+    displaced_structure = input_file_to_StructureData( file_type, &
+                                                     & filename   )
     output = run_quip_on_structure( displaced_structure, &
                                   & dir,                 &
                                   & seedname)

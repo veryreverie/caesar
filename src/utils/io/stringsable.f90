@@ -19,7 +19,6 @@ module stringsable_submodule
   private
   
   public :: Stringsable
-  public :: assignment(=)
   
   type, abstract, extends(StringsWriteable) :: Stringsable
   contains
@@ -36,33 +35,7 @@ module stringsable_submodule
       type(String),       intent(in)  :: input(:)
     end subroutine
   end interface
-  
-  interface assignment(=)
-    module procedure assign_Stringsable_Strings
-    module procedure assign_Stringsable_StringArray
-  end interface
 contains
-
-! ----------------------------------------------------------------------
-! Assign a Stringsable type from a String type.
-! ----------------------------------------------------------------------
-recursive subroutine assign_Stringsable_Strings(output,input)
-  implicit none
-  
-  class(Stringsable), intent(out) :: output
-  type(String),       intent(in)  :: input(:)
-  
-  call output%read(input)
-end subroutine
-
-recursive subroutine assign_Stringsable_StringArray(output,input)
-  implicit none
-  
-  class(Stringsable), intent(out) :: output
-  type(StringArray),  intent(in)  :: input
-  
-  output = input%strings
-end subroutine
 end module
 
 ! ======================================================================
@@ -89,6 +62,7 @@ module stringsable_example_submodule
   
   interface StringsableExample
     module procedure new_StringsableExample
+    module procedure new_StringsableExample_Strings
     module procedure new_StringsableExample_StringArray
   end interface
 contains
@@ -138,7 +112,20 @@ function write_StringsableExample(this) result(output)
   end select
 end function
 
-! Constructor from Stringarray.
+! Constructor from String(:) or StringArray.
+! As with string_readable, these constructor are not required but simplify
+!    the read process.
+! These constructors can be copied directly into user-defined classes,
+!    with StringsableExample changed to the class name in all instances.
+function new_StringsableExample_Strings(input) result(this)
+  implicit none
+  
+  type(String), intent(in) :: input(:)
+  type(StringsableExample) :: this
+  
+  call this%read(input)
+end function
+
 impure elemental function new_StringsableExample_StringArray(input) &
    & result(this)
   implicit none
@@ -146,6 +133,6 @@ impure elemental function new_StringsableExample_StringArray(input) &
   type(StringArray), intent(in) :: input
   type(StringsableExample)      :: this
   
-  this = input
+  this = StringsableExample(str(input))
 end function
 end module

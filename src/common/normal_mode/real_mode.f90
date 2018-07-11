@@ -60,6 +60,7 @@ module real_mode_submodule
   
   interface RealMode
     module procedure new_RealMode
+    module procedure new_RealMode_Strings
     module procedure new_RealMode_StringArray
   end interface
   
@@ -318,6 +319,8 @@ subroutine read_RealMode(this,input)
                    & qpoint_id_plus,     &
                    & qpoint_id_minus,    &
                    & subspace_id         )
+  class default
+    call err()
   end select
 end subroutine
 
@@ -342,16 +345,26 @@ function write_RealMode(this) result(output)
              & str(this%cos_vector),                                    &
              & str('sin component:'),                                   &
              & str(this%sin_vector)                                     ]
+  class default
+    call err()
   end select
 end function
 
-impure elemental function new_RealMode_StringArray(input) &
-   & result(this)
+function new_RealMode_Strings(input) result(this)
+  implicit none
+  
+  type(String), intent(in) :: input(:)
+  type(RealMode)           :: this
+  
+  call this%read(input)
+end function
+
+impure elemental function new_RealMode_StringArray(input) result(this)
   implicit none
   
   type(StringArray), intent(in) :: input
   type(RealMode)                :: this
   
-  this = input
+  this = RealMode(str(input))
 end function
 end module

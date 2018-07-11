@@ -44,6 +44,7 @@ module real_mode_displacement_submodule
     module procedure new_RealModeDisplacement_RealModes
     module procedure new_RealModeDisplacement_MassWeightedDisplacement
     module procedure new_RealModeDisplacement_CartesianDisplacement
+    module procedure new_RealModeDisplacement_Strings
     module procedure new_RealModeDisplacement_StringArray
   end interface
   
@@ -340,6 +341,8 @@ subroutine read_RealModeDisplacement(this,input)
   
   select type(this); type is(RealModeDisplacement)
     this = RealModeDisplacement(RealSingleDisplacement(input))
+  class default
+    call err()
   end select
 end subroutine
 
@@ -351,7 +354,18 @@ function write_RealModeDisplacement(this) result(output)
   
   select type(this); type is(RealModeDisplacement)
     output = str(this%vectors)
+  class default
+    call err()
   end select
+end function
+
+function new_RealModeDisplacement_Strings(input) result(this)
+  implicit none
+  
+  type(String), intent(in)   :: input(:)
+  type(RealModeDisplacement) :: this
+  
+  call this%read(input)
 end function
 
 impure elemental function new_RealModeDisplacement_StringArray(input) &
@@ -361,6 +375,6 @@ impure elemental function new_RealModeDisplacement_StringArray(input) &
   type(StringArray), intent(in) :: input
   type(RealModeDisplacement)    :: this
   
-  this = input
+  this = RealModeDisplacement(str(input))
 end function
 end module

@@ -34,6 +34,7 @@ module effective_frequency_module
   interface EffectiveFrequency
     module procedure new_EffectiveFrequency
     module procedure new_EffectiveFrequency_potential
+    module procedure new_EffectiveFrequency_Strings
     module procedure new_EffectiveFrequency_StringArray
   end interface
 contains
@@ -268,6 +269,8 @@ subroutine read_EffectiveFrequency(this,input)
                                & effective_energies,  &
                                & effective_forces)
     endif
+  class default
+    call err()
   end select
 end subroutine
 
@@ -317,7 +320,18 @@ function write_EffectiveFrequency(this) result(output)
                  & this%effective_forces(i)            ]
       enddo
     endif
+  class default
+    call err()
   end select
+end function
+
+function new_EffectiveFrequency_Strings(input) result(this)
+  implicit none
+  
+  type(String), intent(in) :: input(:)
+  type(EffectiveFrequency) :: this
+  
+  call this%read(input)
 end function
 
 impure elemental function new_EffectiveFrequency_StringArray(input) &
@@ -327,6 +341,6 @@ impure elemental function new_EffectiveFrequency_StringArray(input) &
   type(StringArray), intent(in) :: input
   type(EffectiveFrequency)      :: this
   
-  this = input
+  this = EffectiveFrequency(str(input))
 end function
 end module

@@ -105,6 +105,8 @@ subroutine calculate_potential_subroutine(arguments)
   
   ! Files and directories.
   type(OFile)  :: logfile
+  type(IFile)  :: structure_file
+  type(IFile)  :: anharmonic_supercell_file
   type(IFile)  :: qpoints_file
   type(IFile)  :: complex_modes_file
   type(IFile)  :: real_modes_file
@@ -156,14 +158,12 @@ subroutine calculate_potential_subroutine(arguments)
   calculation_type = calculate_normal_modes_arguments%value('calculation_type')
   
   ! Read in structure.
-  structure = read_structure_file( harmonic_path//'/structure.dat', &
-                                 & symmetry_precision)
+  structure_file = IFile(harmonic_path//'/structure.dat')
+  structure = StructureData(structure_file%lines())
   
   ! Read in large anharmonic supercell and its q-points.
-  anharmonic_supercell = read_structure_file( &
-           & wd//'/anharmonic_supercell.dat', &
-           & symmetry_precision,              &
-           & calculate_symmetry=.false.)
+  anharmonic_supercell_file = IFile(wd//'/anharmonic_supercell.dat')
+  anharmonic_supercell = StructureData(anharmonic_supercell_file%lines())
   
   qpoints_file = IFile(wd//'/qpoints.dat')
   qpoints = QpointData(qpoints_file%sections())
@@ -221,12 +221,11 @@ subroutine calculate_potential_subroutine(arguments)
   ! --------------------------------------------------
   ! Initialise calculation reader.
   ! --------------------------------------------------
-  calculation_reader = CalculationReader(      &
-     & working_directory  = wd,                &
-     & file_type          = file_type,         &
-     & seedname           = seedname,          &
-     & calculation_type   = calculation_type,  &
-     & symmetry_precision = symmetry_precision )
+  calculation_reader = CalculationReader(    &
+     & working_directory  = wd,              &
+     & file_type          = file_type,       &
+     & seedname           = seedname,        &
+     & calculation_type   = calculation_type )
   
   ! --------------------------------------------------
   ! Run representation-specific code.

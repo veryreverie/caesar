@@ -9,22 +9,16 @@
 !    as follows.
 ! The complex u_i and u_j will be written u+ and u-,
 !    and the real u_i and u_j will be written c and s respectively.
-!
-! N.B. Taking q to be the q-point of u+, u+ looks like e^{+2pi*i*q.r},
-!                                        u- looks like e^{-2pi*i*q.r},
-!                                        c  looks like cos(2pi*q.r),
-!                                        s  looks like sin(2pi*q.r).
+! The choice of which mode is u+/c and which is u-/s is arbitrary,
+!    but the choice of the mode with the smaller id is u+/c is used throughout.
 ! 
-! N.B. the choice of r_i as the cos mode and r_j as the sin mode is arbitrary,
-!    but will be used consistently throughout.
+! u+ = (c  + i*s) /  sqrt(2)
+! u- = (c  - i*s) /  sqrt(2)
+! c  = (u+ +  u-) /  sqrt(2)
+! s  = (u+ -  u-) / (sqrt(2)*i)
 !
-! u+ = (c + i*s) /  sqrt(2)
-! u- = (c - i*s) /  sqrt(2)
-! c  = (u+ + u-) /  sqrt(2)    = real(u+)*sqrt(2) =  real(u-)*sqrt(2)
-! s  = (u+ - u-) / (sqrt(2)*i) = imag(u+)*sqrt(2) = -imag(u-)*sqrt(2)
-!
-! u+ = (a+ib)e^{2pi i q.R}
-! u- = (a-ib)e^{2pi i q.R}
+! u+ = (a+ib)e^{ 2pi i q.R}
+! u- = (a-ib)e^{-2pi i q.R}
 ! c  = sqrt(2)(a*cos(2pi q.R) - b*sin(2pi q.R))
 ! s  = sqrt(2)(a*sin(2pi q.R) + b*cos(2pi q.R))
 ! 
@@ -34,7 +28,7 @@
 !                 s  -> - s
 !
 ! N.B. if i=j, then the mode is real (2q=G, so e^{+iq.r}=e^{-iq.r}=cos(q.r)).
-! In this case, u+ = c, and u- = s = 0.
+! In this case, u+ = c, and the mode has no pair (u- = s = 0).
 
 module real_complex_conversion_submodule
   use utils_module
@@ -52,11 +46,11 @@ module real_complex_conversion_submodule
   public :: conversion_matrix
   
   interface complex_to_real
-    module procedure complex_to_real_Modes
+    module procedure complex_to_real_mode
   end interface
   
   interface real_to_complex
-    module procedure real_to_complex_Modes
+    module procedure real_to_complex_mode
   end interface
   
   interface conversion_matrix
@@ -77,11 +71,11 @@ contains
 ! Functions for converting between real and complex co-ordinates.
 ! ----------------------------------------------------------------------
 ! Construct a set of real modes from a set of complex modes, and vice versa.
-function complex_to_real_Modes(input) result(output)
+impure elemental function complex_to_real_mode(input) result(output)
   implicit none
   
-  type(ComplexMode), intent(in) :: input(:)
-  type(RealMode), allocatable   :: output(:)
+  type(ComplexMode), intent(in) :: input
+  type(RealMode)                :: output
   
   type(RealVector), allocatable :: a(:)
   type(RealVector), allocatable :: b(:)
@@ -92,63 +86,60 @@ function complex_to_real_Modes(input) result(output)
   integer :: qpoint_id_plus
   integer :: qpoint_id_minus
   
-  integer :: mode,ialloc
+  if (input%id==input%paired_id) then
+    ! output = input is its own pair. It is already real.
+    ! c = u+, s = u- = 0.
+    qpoint_id_plus = input%qpoint_id
+    qpoint_id_minus = qpoint_id_plus
+    a = real(input%unit_vector)
+    b = a * 0.0_dp
+    cos_vector = a
+    sin_vector = b
+  elseif (input%id<input%paired_id) then
+    ! output is c.
+    ! input is u+.
+    ! u+ = (a+ib)e^{ 2pi i q.R}
+    ! c  = sqrt(2)(a*cos(2pi q.R) - b*sin(2pi q.R))
+    qpoint_id_plus = input%qpoint_id
+    qpoint_id_minus = input%paired_qpoint_id
+    a = real( input%unit_vector)
+    b = aimag(input%unit_vector)
+    cos_vector =  sqrt(2.0_dp) * a
+    sin_vector = -sqrt(2.0_dp) * b
+  elseif (input%id>input%paired_id) then
+    ! output is s.
+    ! input is u-.
+    ! u- = (a-ib)e^{-2pi i q.R}
+    ! s  = sqrt(2)(a*sin(2pi q.R) + b*cos(2pi q.R))
+    qpoint_id_plus = input%paired_qpoint_id
+    qpoint_id_minus = input%qpoint_id
+    a =  real( input%unit_vector)
+    b = -aimag(input%unit_vector)
+    cos_vector = sqrt(2.0_dp) * b
+    sin_vector = sqrt(2.0_dp) * a
+  else
+    call err()
+  endif
   
-  allocate(output(size(input)), stat=ialloc); call err(ialloc)
-  do mode=1,size(input)
-    if (input(mode)%id==input(mode)%paired_id) then
-      ! output(mode) is its own pair. It is already real.
-      ! c = u+, s = u- = 0.
-      qpoint_id_plus = input(mode)%qpoint_id
-      qpoint_id_minus = qpoint_id_plus
-      a = real(input(mode)%unit_vector)
-      b = a * 0.0_dp
-      cos_vector = a
-      sin_vector = b
-    elseif (input(mode)%id<input(mode)%paired_id) then
-      ! output(mode) is c.
-      ! input(mode) is u+.
-      ! u+ = (a+ib)e^{2pi i q.R}
-      ! c  = sqrt(2)(a*cos(2pi q.R) - b*sin(2pi q.R))
-      qpoint_id_plus = input(mode)%qpoint_id
-      qpoint_id_minus = input(mode)%paired_qpoint_id
-      a = real( input(mode)%unit_vector)
-      b = aimag(input(mode)%unit_vector)
-      cos_vector =  sqrt(2.0_dp) * a
-      sin_vector = -sqrt(2.0_dp) * b
-    elseif (input(mode)%id>input(mode)%paired_id) then
-      ! output(mode) is s.
-      ! input(mode) is u-.
-      ! u- = (a-ib)e^{2pi i q.R}
-      ! s  = sqrt(2)(a*sin(2pi q.R) + b*cos(2pi q.R))
-      a =  real( input(mode)%unit_vector)
-      b = -aimag(input(mode)%unit_vector)
-      cos_vector = sqrt(2.0_dp) * b
-      sin_vector = sqrt(2.0_dp) * a
-    else
-      call err()
-    endif
-    
-    output(mode) = RealMode(                                    &
-       & id                   = input(mode)%id,                 &
-       & paired_id            = input(mode)%paired_id,          &
-       & frequency            = input(mode)%frequency,          &
-       & spring_constant      = input(mode)%spring_constant,    &
-       & soft_mode            = input(mode)%soft_mode,          &
-       & translational_mode   = input(mode)%translational_mode, &
-       & cos_vector           = cos_vector,                     &
-       & sin_vector           = sin_vector,                     &
-       & qpoint_id_plus       = qpoint_id_plus,                 &
-       & qpoint_id_minus      = qpoint_id_minus,                &
-       & subspace_id          = input(mode)%subspace_id)
-  enddo
+  output = RealMode(                                  &
+     & id                 = input%id,                 &
+     & paired_id          = input%paired_id,          &
+     & frequency          = input%frequency,          &
+     & spring_constant    = input%spring_constant,    &
+     & soft_mode          = input%soft_mode,          &
+     & translational_mode = input%translational_mode, &
+     & cos_vector         = cos_vector,               &
+     & sin_vector         = sin_vector,               &
+     & qpoint_id_plus     = qpoint_id_plus,           &
+     & qpoint_id_minus    = qpoint_id_minus,          &
+     & subspace_id        = input%subspace_id         )
 end function
 
-function real_to_complex_Modes(input) result(output)
+impure elemental function real_to_complex_mode(input) result(output)
   implicit none
   
-  type(RealMode), intent(in)     :: input(:)
-  type(ComplexMode), allocatable :: output(:)
+  type(RealMode), intent(in) :: input
+  type(ComplexMode)          :: output
   
   type(RealVector), allocatable :: a(:)
   type(RealVector), allocatable :: b(:)
@@ -158,54 +149,49 @@ function real_to_complex_Modes(input) result(output)
   integer :: qpoint_id
   integer :: paired_qpoint_id
   
-  integer :: i,ialloc
+  ! Construct vectors and q-point ids.
+  if (input%id==input%paired_id) then
+    ! output = input is its own pair. It is already real.
+    ! c = u+, s = u- = 0.
+    qpoint_id = input%qpoint_id_plus
+    paired_qpoint_id = qpoint_id
+    a = input%cos_vector
+    unit_vector = cmplxvec(a)
+  elseif (input%id<input%paired_id) then
+    ! output is u+.
+    ! input is c.
+    ! c  = sqrt(2)(a*cos(2pi q.R) - b*sin(2pi q.R))
+    ! u+ = (a+ib)e^{2pi i q.R}
+    qpoint_id = input%qpoint_id_plus
+    paired_qpoint_id = input%qpoint_id_minus
+    a =  input%cos_vector / sqrt(2.0_dp)
+    b = -input%sin_vector / sqrt(2.0_dp)
+    unit_vector = cmplxvec(a,b)
+  elseif (input%paired_id<input%id) then
+    ! output is u-.
+    ! input is s.
+    ! s  = sqrt(2)(a*sin(2pi q.R) + b*cos(2pi q.R))
+    ! u- = (a-ib)e^{-2pi i q.R}
+    qpoint_id = input%qpoint_id_minus
+    paired_qpoint_id = input%qpoint_id_plus
+    a = input%sin_vector / sqrt(2.0_dp)
+    b = input%cos_vector / sqrt(2.0_dp)
+    unit_vector = cmplxvec(a,-b)
+  else
+    call err()
+  endif
   
-  allocate(output(size(input)), stat=ialloc); call err(ialloc)
-  do i=1,size(input)
-    ! Construct vectors and q-point ids.
-    if (input(i)%id==input(i)%paired_id) then
-      ! output(i) is its own pair. It is already real.
-      ! c = u+, s = u- = 0.
-      qpoint_id = input(i)%qpoint_id_plus
-      paired_qpoint_id = qpoint_id
-      a = input(i)%cos_vector
-      unit_vector = cmplxvec(a)
-    elseif (input(i)%id<input(i)%paired_id) then
-      ! output(i) is u+.
-      ! input(i) is c.
-      ! c  = sqrt(2)(a*cos(2pi q.R) - b*sin(2pi q.R))
-      ! u+ = (a+ib)e^{2pi i q.R}
-      qpoint_id = input(i)%qpoint_id_plus
-      paired_qpoint_id = input(i)%qpoint_id_minus
-      a =  input(i)%cos_vector / sqrt(2.0_dp)
-      b = -input(i)%sin_vector / sqrt(2.0_dp)
-      unit_vector = cmplxvec(a,b)
-    elseif (input(i)%paired_id<input(i)%id) then
-      ! output(i) is u-.
-      ! input(i) is s.
-      ! s  = sqrt(2)(a*sin(2pi q.R) + b*cos(2pi q.R))
-      ! u- = (a-ib)e^{2pi i q.R}
-      qpoint_id = input(i)%qpoint_id_minus
-      paired_qpoint_id = input(i)%qpoint_id_plus
-      a = input(i)%sin_vector / sqrt(2.0_dp)
-      b = input(i)%cos_vector / sqrt(2.0_dp)
-      unit_vector = cmplxvec(a,-b)
-    else
-      call err()
-    endif
-    
-    output(i) = ComplexMode(                                 &
-       & id                   = input(i)%id,                 &
-       & paired_id            = input(i)%paired_id,          &
-       & frequency            = input(i)%frequency,          &
-       & spring_constant      = input(i)%spring_constant,    &
-       & soft_mode            = input(i)%soft_mode,          &
-       & translational_mode   = input(i)%translational_mode, &
-       & unit_vector          = unit_vector,                 &
-       & qpoint_id            = qpoint_id,                   &
-       & paired_qpoint_id     = paired_qpoint_id,            &
-       & subspace_id          = input(i)%subspace_id)
-  enddo
+  output = ComplexMode(                               &
+     & id                 = input%id,                 &
+     & paired_id          = input%paired_id,          &
+     & frequency          = input%frequency,          &
+     & spring_constant    = input%spring_constant,    &
+     & soft_mode          = input%soft_mode,          &
+     & translational_mode = input%translational_mode, &
+     & unit_vector        = unit_vector,              &
+     & qpoint_id          = qpoint_id,                &
+     & paired_qpoint_id   = paired_qpoint_id,         &
+     & subspace_id        = input%subspace_id         )
 end function
 
 ! Construct the matrix M which converts from one co-ordinate set to the other,

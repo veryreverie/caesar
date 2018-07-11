@@ -40,6 +40,7 @@ module integer_arrays_submodule
   
   interface IntArray2D
     module procedure new_IntArray2D
+    module procedure new_IntArray2D_Strings
     module procedure new_IntArray2D_StringArray
   end interface
   
@@ -372,6 +373,8 @@ subroutine read_IntArray2D(this,input)
   
   select type(this); type is(IntArray2D)
     this = IntArray2D(IntArray1D(input))
+  class default
+    call err()
   end select
 end subroutine
 
@@ -383,7 +386,18 @@ function write_IntArray2D(this) result(output)
   
   select type(this); type is(IntArray2D)
     output = str(this%i)
+  class default
+    call err()
   end select
+end function
+
+function new_IntArray2D_Strings(input) result(this)
+  implicit none
+  
+  type(String), intent(in) :: input(:)
+  type(IntArray2D)         :: this
+  
+  call this%read(input)
 end function
 
 impure elemental function new_IntArray2D_StringArray(input) result(this)
@@ -392,6 +406,6 @@ impure elemental function new_IntArray2D_StringArray(input) result(this)
   type(StringArray), intent(in) :: input
   type(IntArray2D)              :: this
   
-  this = input
+  this = IntArray2D(str(input))
 end function
 end module

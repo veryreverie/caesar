@@ -31,6 +31,7 @@ module dynamical_matrix_module
   interface DynamicalMatrix
     module procedure new_DynamicalMatrix_calculated
     module procedure new_DynamicalMatrix_interpolated
+    module procedure new_DynamicalMatrix_Strings
     module procedure new_DynamicalMatrix_StringArray
   end interface
   
@@ -733,9 +734,11 @@ subroutine read_DynamicalMatrix(this,input)
     do i=1,no_atoms
       do j=1,no_atoms
         k = k+1
-        this%matrices_(j,i) = elements(k)%strings(2:4)
+        this%matrices_(j,i) = ComplexMatrix(elements(k)%strings(2:4))
       enddo
     enddo
+  class default
+    call err()
   end select
 end subroutine
 
@@ -770,7 +773,18 @@ function write_DynamicalMatrix(this) result(output)
         output(5*k)   = ''
       enddo
     enddo
+  class default
+    call err()
   end select
+end function
+
+function new_DynamicalMatrix_Strings(input) result(this)
+  implicit none
+  
+  type(String), intent(in) :: input(:)
+  type(DynamicalMatrix)    :: this
+  
+  call this%read(input)
 end function
 
 impure elemental function new_DynamicalMatrix_StringArray(input) result(this)
@@ -779,6 +793,6 @@ impure elemental function new_DynamicalMatrix_StringArray(input) result(this)
   type(StringArray), intent(in) :: input
   type(DynamicalMatrix)         :: this
   
-  this = input
+  this = DynamicalMatrix(str(input))
 end function
 end module

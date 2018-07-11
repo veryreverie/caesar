@@ -4,6 +4,7 @@
 module symmetry_submodule
   use utils_module
   
+  use basic_symmetry_submodule
   use basic_structure_submodule
   use calculate_symmetry_submodule
   use qpoint_submodule
@@ -12,12 +13,16 @@ module symmetry_submodule
   private
   
   public :: SymmetryOperator
+  public :: BasicSymmetry
   public :: operators_commute
   
   ! ----------------------------------------------------------------------
   ! A symmetry operation.
   ! ----------------------------------------------------------------------
   type :: SymmetryOperator
+    ! The ID of the symmetry.
+    integer :: id
+    
     ! The rotation and translation in fractional co-ordinates.
     ! R and T.
     type(IntMatrix)  :: rotation
@@ -57,6 +62,10 @@ module symmetry_submodule
   interface SymmetryOperator
     module procedure new_SymmetryOperator
   end interface
+  
+  interface BasicSymmetry
+    module procedure new_BasicSymmetry_SymmetryOperator
+  end interface
 contains
 
 ! ----------------------------------------------------------------------
@@ -75,6 +84,7 @@ function new_SymmetryOperator(symmetry,lattice,recip_lattice,atom_group, &
   type(IntVector),     intent(in) :: prim_rvector(:)
   type(SymmetryOperator)          :: output
   
+  output%id = symmetry%id
   output%rotation = symmetry%rotation
   output%translation = symmetry%translation
   
@@ -90,6 +100,19 @@ function new_SymmetryOperator(symmetry,lattice,recip_lattice,atom_group, &
   output%rvector         = rvector
   output%prim_atom_group = prim_atom_group
   output%prim_rvector    = prim_rvector
+end function
+
+! ----------------------------------------------------------------------
+! Constructs a BasicSymmetry from a SymmetryOperator.
+! ----------------------------------------------------------------------
+impure elemental function new_BasicSymmetry_SymmetryOperator(this) &
+   & result(output)
+  implicit none
+  
+  type(SymmetryOperator), intent(in) :: this
+  type(BasicSymmetry)                :: output
+  
+  output = BasicSymmetry(this%id, this%rotation, this%translation)
 end function
 
 ! ----------------------------------------------------------------------

@@ -130,11 +130,14 @@ subroutine calculate_states_subroutine(arguments)
   type(ElectronicStructure)   :: electronic_structure
   
   ! Files and directories.
+  type(IFile)  :: structure_file
+  type(IFile)  :: anharmonic_supercell_file
   type(IFile)  :: qpoints_file
   type(IFile)  :: complex_modes_file
   type(IFile)  :: real_modes_file
   type(IFile)  :: potential_file
   type(String) :: qpoint_dir
+  type(OFile)  :: supercell_file
   type(OFile)  :: effective_frequencies_file
   type(String) :: mode_dir
   type(String) :: displacement_dir
@@ -181,14 +184,12 @@ subroutine calculate_states_subroutine(arguments)
      & dble(setup_harmonic_arguments%value('symmetry_precision'))
   
   ! Read in structure.
-  structure = read_structure_file( harmonic_path//'/structure.dat', &
-                                 & symmetry_precision)
+  structure_file = IFile(harmonic_path//'/structure.dat')
+  structure = StructureData(structure_file%lines())
   
   ! Read in large anharmonic supercell and its q-points.
-  anharmonic_supercell = read_structure_file( &
-           & wd//'/anharmonic_supercell.dat', &
-           & symmetry_precision,              &
-           & calculate_symmetry=.false.)
+  anharmonic_supercell_file = IFile(wd//'/anharmonic_supercell.dat')
+  anharmonic_supercell = StructureData(anharmonic_supercell_file%lines())
   
   qpoints_file = IFile(wd//'/qpoints.dat')
   qpoints = QpointData(qpoints_file%sections())
@@ -203,7 +204,7 @@ subroutine calculate_states_subroutine(arguments)
   ! Read in anharmonic potential.
   potential_file = IFile(wd//'/potential.dat')
   if (potential_representation=='polynomial') then
-    potential = PolynomialPotential(StringArray(potential_file%lines()))
+    potential = PolynomialPotential(potential_file%lines())
   else
     call print_line( ERROR//': Unrecognised potential representation : '// &
                    & potential_representation)
@@ -223,12 +224,11 @@ subroutine calculate_states_subroutine(arguments)
                                         & run_script        = run_script, &
                                         & no_cores          = no_cores    )
   
-  calculation_reader = CalculationReader(      &
-     & working_directory  = wd,                &
-     & file_type          = file_type,         &
-     & seedname           = seedname,          &
-     & calculation_type   = calculation_type,  &
-     & symmetry_precision = symmetry_precision )
+  calculation_reader = CalculationReader(    &
+     & working_directory  = wd,              &
+     & file_type          = file_type,       &
+     & seedname           = seedname,        &
+     & calculation_type   = calculation_type )
   
   ! --------------------------------------------------
   ! Re-calculate maximum_weighted_displacement.
@@ -279,11 +279,10 @@ subroutine calculate_states_subroutine(arguments)
     if (validate_potential) then
       ! Construct and write out supercell.
       supercell_matrix = construct_supercell_matrix(qpoints(i), structure)
-      supercell = construct_supercell( structure,          &
-                                     & supercell_matrix,   &
-                                     & symmetry_precision, &
-                                     & calculate_symmetry=.false.)
-      call write_structure_file(supercell, qpoint_dir//'/structure.dat')
+      supercell = construct_supercell( structure,       &
+                                     & supercell_matrix )
+      supercell_file = OFile(qpoint_dir//'/structure.dat')
+      call supercell_file%print_lines(supercell)
       
       do j=1,size(qpoint_modes)
         complex_mode = complex_modes(qpoint_modes(j))

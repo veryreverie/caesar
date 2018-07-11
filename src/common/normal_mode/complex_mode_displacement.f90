@@ -38,6 +38,7 @@ module complex_mode_displacement_submodule
   interface ComplexModeDisplacement
     module procedure new_ComplexModeDisplacement
     module procedure new_ComplexModeDisplacement_ComplexModes
+    module procedure new_ComplexModeDisplacement_Strings
     module procedure new_ComplexModeDisplacement_StringArray
   end interface
   
@@ -263,6 +264,8 @@ subroutine read_ComplexModeDisplacement(this,input)
   
   select type(this); type is(ComplexModeDisplacement)
     this = ComplexModeDisplacement(ComplexSingleDisplacement(input))
+  class default
+    call err()
   end select
 end subroutine
 
@@ -274,7 +277,18 @@ function write_ComplexModeDisplacement(this) result(output)
   
   select type(this); type is(ComplexModeDisplacement)
     output = str(this%vectors)
+  class default
+    call err()
   end select
+end function
+
+function new_ComplexModeDisplacement_Strings(input) result(this)
+  implicit none
+  
+  type(String), intent(in)      :: input(:)
+  type(ComplexModeDisplacement) :: this
+  
+  call this%read(input)
 end function
 
 impure elemental function new_ComplexModeDisplacement_StringArray(input) &
@@ -284,6 +298,6 @@ impure elemental function new_ComplexModeDisplacement_StringArray(input) &
   type(StringArray), intent(in) :: input
   type(ComplexModeDisplacement) :: this
   
-  this = input
+  this = ComplexModeDisplacement(str(input))
 end function
 end module

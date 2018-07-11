@@ -11,6 +11,7 @@
 ! This module is simply an interface for the various structure submodules.
 module structure_module
   use physical_constants_submodule
+  use basic_symmetry_submodule
   use basic_structure_submodule
   use atom_submodule
   use qpoint_submodule

@@ -23,6 +23,7 @@ module cartesian_force_submodule
   
   interface CartesianForce
     module procedure new_CartesianForce
+    module procedure new_CartesianForce_Strings
     module procedure new_CartesianForce_StringArray
   end interface
   
@@ -170,6 +171,8 @@ subroutine read_CartesianForce(this,input)
   
   select type(this); type is(CartesianForce)
     this = CartesianForce(RealVector(input))
+  class default
+    call err()
   end select
 end subroutine
 
@@ -181,16 +184,26 @@ function write_CartesianForce(this) result(output)
   
   select type(this); type is(CartesianForce)
     output = str(this%vectors)
+  class default
+    call err()
   end select
 end function
 
-impure elemental function new_CartesianForce_StringArray(input) &
-   & result(this)
+function new_CartesianForce_Strings(input) result(this)
+  implicit none
+  
+  type(String), intent(in) :: input(:)
+  type(CartesianForce)     :: this
+  
+  call this%read(input)
+end function
+
+impure elemental function new_CartesianForce_StringArray(input) result(this)
   implicit none
   
   type(StringArray), intent(in) :: input
   type(CartesianForce)          :: this
   
-  this = input
+  this = CartesianForce(str(input))
 end function
 end module

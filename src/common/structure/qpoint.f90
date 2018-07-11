@@ -40,6 +40,7 @@ module qpoint_submodule
   ! Constructor.
   interface QpointData
     module procedure new_QpointData
+    module procedure new_QpointData_Strings
     module procedure new_QpointData_StringArray
   end interface
   
@@ -183,6 +184,8 @@ subroutine read_QpointData(this,input)
     paired_qpoint_id = int(line(11))
     
     this = QpointData(qpoint,id,paired_qpoint_id)
+  class default
+    call err()
   end select
 end subroutine
 
@@ -197,7 +200,18 @@ function write_QpointData(this) result(output)
              & 'q = '//this%qpoint,                                 &
              & "The ID of q' s.t. q+q' is a primitive G-vector: "// &
              &    this%paired_qpoint_id                             ]
+  class default
+    call err()
   end select
+end function
+
+function new_QpointData_Strings(input) result(this)
+  implicit none
+  
+  type(String), intent(in) :: input(:)
+  type(QpointData)         :: this
+  
+  call this%read(input)
 end function
 
 impure elemental function new_QpointData_StringArray(input) result(this)
@@ -206,6 +220,6 @@ impure elemental function new_QpointData_StringArray(input) result(this)
   type(StringArray), intent(in) :: input
   type(QpointData)              :: this
   
-  this = input
+  this = QpointData(str(input))
 end function
 end module

@@ -29,6 +29,7 @@ module mass_weighted_force_submodule
   interface MassWeightedForce
     module procedure new_MassWeightedForce
     module procedure new_MassWeightedForce_CartesianForce
+    module procedure new_MassWeightedForce_Strings
     module procedure new_MassWeightedForce_StringArray
   end interface
   
@@ -206,6 +207,8 @@ subroutine read_MassWeightedForce(this,input)
   
   select type(this); type is(MassWeightedForce)
     this = MassWeightedForce(RealVector(input))
+  class default
+    call err()
   end select
 end subroutine
 
@@ -217,7 +220,18 @@ function write_MassWeightedForce(this) result(output)
   
   select type(this); type is(MassWeightedForce)
     output = str(this%vectors)
+  class default
+    call err()
   end select
+end function
+
+function new_MassWeightedForce_Strings(input) result(this)
+  implicit none
+  
+  type(String), intent(in) :: input(:)
+  type(MassWeightedForce)  :: this
+  
+  call this%read(input)
 end function
 
 impure elemental function new_MassWeightedForce_StringArray(input) &
@@ -227,6 +241,6 @@ impure elemental function new_MassWeightedForce_StringArray(input) &
   type(StringArray), intent(in) :: input
   type(MassWeightedForce)       :: this
   
-  this = input
+  this = MassWeightedForce(str(input))
 end function
 end module

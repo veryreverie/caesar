@@ -38,6 +38,7 @@ module complex_mode_force_submodule
   interface ComplexModeForce
     module procedure new_ComplexModeForce
     module procedure new_ComplexModeForce_ComplexModes
+    module procedure new_ComplexModeForce_Strings
     module procedure new_ComplexModeForce_StringArray
   end interface
   
@@ -260,6 +261,8 @@ subroutine read_ComplexModeForce(this,input)
   
   select type(this); type is(ComplexModeForce)
     this = ComplexModeForce(ComplexSingleForce(input))
+  class default
+    call err()
   end select
 end subroutine
 
@@ -271,16 +274,26 @@ function write_ComplexModeForce(this) result(output)
   
   select type(this); type is(ComplexModeForce)
     output = str(this%vectors)
+  class default
+    call err()
   end select
 end function
 
-impure elemental function new_ComplexModeForce_StringArray(input) &
-   & result(this)
+function new_ComplexModeForce_Strings(input) result(this)
+  implicit none
+  
+  type(String), intent(in) :: input(:)
+  type(ComplexModeForce)   :: this
+  
+  call this%read(input)
+end function
+
+impure elemental function new_ComplexModeForce_StringArray(input) result(this)
   implicit none
   
   type(StringArray), intent(in) :: input
   type(ComplexModeForce)        :: this
   
-  this = input
+  this = ComplexModeForce(str(input))
 end function
 end module

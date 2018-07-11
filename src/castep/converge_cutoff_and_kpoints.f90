@@ -206,12 +206,11 @@ subroutine converge_cutoff_and_kpoints_subroutine(arguments)
                                         & run_script        = run_script,    &
                                         & no_cores          = no_cores       )
   
-  calculation_reader = CalculationReader(      &
-     & working_directory  = wd,                &
-     & file_type          = str('castep'),     &
-     & seedname           = seedname,          &
-     & calculation_type   = str('script'),     &
-     & symmetry_precision = symmetry_precision )
+  calculation_reader = CalculationReader(  &
+     & working_directory  = wd,            &
+     & file_type          = str('castep'), &
+     & seedname           = seedname,      &
+     & calculation_type   = str('script')  )
   
   ! --------------------------------------------------
   ! Read .cell and .param files.
@@ -219,9 +218,8 @@ subroutine converge_cutoff_and_kpoints_subroutine(arguments)
   cell_file = IFile(wd//'/'//seedname//'.cell')
   param_file = IFile(wd//'/'//seedname//'.param')
   
-  structure = input_file_to_StructureData( str('castep'),              &
-                                         & wd//'/'//seedname//'.cell', &
-                                         & 0.1_dp)
+  structure = input_file_to_StructureData( str('castep'),             &
+                                         & wd//'/'//seedname//'.cell' )
   
   recip_lattice = dble(structure%recip_lattice)
   average_reciprocal_length = 0.0_dp
@@ -515,7 +513,6 @@ function run_castep(cutoff,kpoint_spacing,wd,dir,seedname,run_script, &
   output = read_castep_output_file( dir//'/'//seedname//'.castep', &
                                   & structure,                     &
                                   & wd,                            &
-                                  & seedname,                      &
-                                  & symmetry_precision)
+                                  & seedname                       )
 end function
 end module

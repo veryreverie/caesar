@@ -8,15 +8,14 @@ module castep_output_file_module
   end type
 contains
 
-function read_castep_output_file(filename,structure,dir,seedname, &
-   & symmetry_precision) result(output)
+function read_castep_output_file(filename,structure,dir,seedname) &
+   & result(output)
   implicit none
   
   type(String),        intent(in) :: filename
   type(StructureData), intent(in) :: structure
   type(String),        intent(in) :: dir
   type(String),        intent(in) :: seedname
-  real(dp),            intent(in) :: symmetry_precision
   type(CastepOutputFile)          :: output
   
   type(ElectronicStructure) :: output_file
@@ -30,7 +29,6 @@ function read_castep_output_file(filename,structure,dir,seedname, &
                                 & structure,          &
                                 & dir,                &
                                 & seedname,           &
-                                & symmetry_precision, &
                                 & str('script'))
   
   output%energy = output_file%energy

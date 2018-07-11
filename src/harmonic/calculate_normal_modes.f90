@@ -110,8 +110,11 @@ subroutine calculate_normal_modes_subroutine(arguments)
   type(ComplexMode), allocatable :: complex_modes(:)
   
   ! Files.
+  type(IFile) :: structure_file
+  type(IFile) :: large_supercell_file
+  type(IFile) :: qpoints_file
   type(IFile) :: no_supercells_file
-  type(IFile) :: qpoint_file
+  type(IFile) :: supercell_file
   type(IFile) :: unique_directions_file
   type(OFile) :: dynamical_matrix_file
   type(OFile) :: complex_modes_file
@@ -161,27 +164,26 @@ subroutine calculate_normal_modes_subroutine(arguments)
   symmetry_precision = &
      & dble(setup_harmonic_arguments%value('symmetry_precision'))
   
+  structure_file = IFile(wd//'/structure.dat')
+  structure = StructureData(structure_file%lines())
+  
+  large_supercell_file = IFile(wd//'/large_supercell.dat')
+  large_supercell = StructureData(large_supercell_file%lines())
+  
+  qpoints_file = IFile(wd//'/qpoints.dat')
+  qpoints = QpointData(qpoints_file%sections())
+  
   no_supercells_file = IFile(wd//'/no_supercells.dat')
   no_supercells = int(no_supercells_file%line(1))
-  
-  structure = read_structure_file(wd//'/structure.dat',symmetry_precision)
-  
-  large_supercell = read_structure_file( wd//'/large_supercell.dat', &
-                                       & symmetry_precision,         &
-                                       & calculate_symmetry=.false.)
-  
-  qpoint_file = IFile(wd//'/qpoints.dat')
-  qpoints = QpointData(qpoint_file%sections())
   
   ! --------------------------------------------------
   ! Initialise calculation reader.
   ! --------------------------------------------------
-  calculation_reader = CalculationReader(      &
-     & working_directory  = wd,                &
-     & file_type          = file_type,         &
-     & seedname           = seedname,          &
-     & calculation_type   = calculation_type,  &
-     & symmetry_precision = symmetry_precision )
+  calculation_reader = CalculationReader(    &
+     & working_directory  = wd,              &
+     & file_type          = file_type,       &
+     & seedname           = seedname,        &
+     & calculation_type   = calculation_type )
   
   ! --------------------------------------------------
   ! Calculate the matrix of force constants corresponding to each supercell.
@@ -194,8 +196,8 @@ subroutine calculate_normal_modes_subroutine(arguments)
     sdir = wd//'/Supercell_'//left_pad(i,str(no_supercells))
     
     ! Read in supercell structure data.
-    supercells(i) = read_structure_file( sdir//'/structure.dat', &
-                                       & symmetry_precision)
+    supercell_file = IFile(sdir//'/structure.dat')
+    supercells(i) = StructureData(supercell_file%lines())
     
     ! Read in symmetry group and unique atoms.
     unique_directions_file = IFile(sdir//'/unique_directions.dat')

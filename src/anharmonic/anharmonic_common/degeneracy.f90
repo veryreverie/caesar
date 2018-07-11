@@ -28,6 +28,7 @@ module degeneracy_module
   
   interface DegenerateSubspace
     module procedure new_DegenerateSubspace
+    module procedure new_DegenerateSubspace_Strings
     module procedure new_DegenerateSubspace_StringArray
   end interface
   
@@ -151,6 +152,8 @@ subroutine read_DegenerateSubspace(this,input)
     mode_ids = int(line(5:))
     
     this = DegenerateSubspace(id,mode_ids)
+  class default
+    call err()
   end select
 end subroutine
 
@@ -163,7 +166,18 @@ function write_DegenerateSubspace(this) result(output)
   select type(this); type is(DegenerateSubspace)
     output = [ 'Degenerate subspace ID : '//this%id, &
              & 'Degenerate mode IDs    : '//this%mode_ids ]
+  class default
+    call err()
   end select
+end function
+
+function new_DegenerateSubspace_Strings(input) result(this)
+  implicit none
+  
+  type(String), intent(in) :: input(:)
+  type(DegenerateSubspace) :: this
+  
+  call this%read(input)
 end function
 
 impure elemental function new_DegenerateSubspace_StringArray(input) &
@@ -173,6 +187,6 @@ impure elemental function new_DegenerateSubspace_StringArray(input) &
   type(StringArray), intent(in) :: input
   type(DegenerateSubspace)      :: this
   
-  this = input
+  this = DegenerateSubspace(str(input))
 end function
 end module
