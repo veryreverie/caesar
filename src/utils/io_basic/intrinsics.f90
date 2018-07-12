@@ -6,12 +6,12 @@ module intrinsics_submodule
   
   use string_submodule
   use error_submodule
+  use print_settings_submodule
   use print_submodule
   implicit none
   
   private
   
-  public :: assignment(=)
   public :: str
   public :: left_pad
   public :: pad_int_to_str
@@ -21,18 +21,13 @@ module intrinsics_submodule
   public :: dble
   public :: cmplx
   public :: operator(//)
-  
-  interface assignment(=)
-    module procedure assign_String_logical
-    module procedure assign_String_integer
-    module procedure assign_String_real
-    module procedure assign_String_complex
-  end interface
+  public :: print_line
+  public :: print_lines
   
   interface str
+    module procedure str_logical
     module procedure str_integer
     module procedure str_real
-    module procedure str_logical
     module procedure str_complex
   end interface
   
@@ -42,9 +37,9 @@ module intrinsics_submodule
   end interface
   
   interface join
-    module procedure join_reals
-    module procedure join_integers
     module procedure join_logicals
+    module procedure join_integers
+    module procedure join_reals
     module procedure join_complexes
   end interface
   
@@ -69,6 +64,11 @@ module intrinsics_submodule
   end interface
 
   interface operator(//)
+    module procedure concatenate_character_logical
+    module procedure concatenate_logical_character
+    module procedure concatenate_String_logical
+    module procedure concatenate_logical_String
+    
     module procedure concatenate_character_integer
     module procedure concatenate_integer_character
     module procedure concatenate_String_integer
@@ -79,15 +79,15 @@ module intrinsics_submodule
     module procedure concatenate_String_real
     module procedure concatenate_real_String
     
-    module procedure concatenate_character_logical
-    module procedure concatenate_logical_character
-    module procedure concatenate_String_logical
-    module procedure concatenate_logical_String
-    
     module procedure concatenate_String_complex
     module procedure concatenate_complex_String
     module procedure concatenate_character_complex
     module procedure concatenate_complex_character
+    
+    module procedure concatenate_character_logicals
+    module procedure concatenate_logicals_character
+    module procedure concatenate_String_logicals
+    module procedure concatenate_logicals_String
     
     module procedure concatenate_character_integers
     module procedure concatenate_integers_character
@@ -99,126 +99,139 @@ module intrinsics_submodule
     module procedure concatenate_String_reals
     module procedure concatenate_reals_String
     
-    module procedure concatenate_character_logicals
-    module procedure concatenate_logicals_character
-    module procedure concatenate_String_logicals
-    module procedure concatenate_logicals_String
-    
     module procedure concatenate_character_complexes
     module procedure concatenate_complexes_character
     module procedure concatenate_String_complexes
     module procedure concatenate_complexes_String
   end interface
+  
+  interface print_line
+    module procedure print_line_logical
+    module procedure print_line_integer
+    module procedure print_line_real
+    module procedure print_line_complex
+    
+    module procedure print_line_logicals
+    module procedure print_line_integers
+    module procedure print_line_reals
+    module procedure print_line_complexes
+  end interface
+  
+  interface print_lines
+    module procedure print_lines_logicals
+    module procedure print_lines_integers
+    module procedure print_lines_reals
+    module procedure print_lines_complexes
+  end interface
 contains
 
 ! ----------------------------------------------------------------------
-! Assignment to String from intrinsic types.
+! The str() function, which converts types to String.
 ! ----------------------------------------------------------------------
 
-subroutine assign_String_logical(output,input)
+impure elemental function str_logical(input,settings) result(output)
   implicit none
   
-  type(String), intent(out) :: output
-  logical,      intent(in)  :: input
+  logical, intent(in)                       :: input
+  type(PrintSettings), intent(in), optional :: settings
+  type(String)                              :: output
   
   if (input) then
     output = 'T'
   else
     output = 'F'
   endif
-end subroutine
+end function
 
-subroutine assign_String_integer(output,input)
+impure elemental function str_integer(input,settings) result(output)
   implicit none
   
-  type(String), intent(out) :: output
-  integer,      intent(in)  :: input
+  integer, intent(in)                       :: input
+  type(PrintSettings), intent(in), optional :: settings
+  type(String)                              :: output
   
-  integer, parameter   :: int_width = 12
-  character(int_width) :: int_string
+  integer, parameter       :: max_int_width = 12
+  character(max_int_width) :: int_string
   
   write(int_string,"(I0)") input
   output = trim(int_string)
-end subroutine
+end function
 
-subroutine assign_String_real(output,input)
+impure elemental function str_real(input,settings) result(output)
   implicit none
   
-  type(String), intent(out) :: output
-  real(dp),     intent(in)  :: input
+  real(dp), intent(in)                      :: input
+  type(PrintSettings), intent(in), optional :: settings
+  type(String)                              :: output
   
-  integer, parameter    :: real_width = 25
-  integer, parameter    :: decimal_places = 17
-  type(String)          :: format_string
-  character(real_width) :: real_string
+  type(PrintSettings)       :: print_settings
+  integer                   :: real_width
+  type(String)              :: format_string
+  character(:), allocatable :: real_string
+  integer                   :: ialloc
   
-  format_string = "(ES"//real_width//'.'//decimal_places//")"
+  if (present(settings)) then
+    print_settings = settings
+  else
+    print_settings = PrintSettings()
+  endif
+  
+  ! - One character for the leading '-' or ' '.
+  ! - One character for the decimal point.
+  ! - Five characters for the trailing 'E+~~~' or 'E-~~~'.
+  real_width = print_settings%decimal_places + 8
+  
+  format_string = "(ES"                              // &
+                & str(real_width)                    // &
+                & '.'                                // &
+                & str(print_settings%decimal_places) // &
+                & ")"
+  
+  allocate( character(real_width) :: real_string, &
+          & stat=ialloc); call err(ialloc)
+  
   write(real_string, char(format_string)) input
   
   output = real_string
-end subroutine
+end function
 
-subroutine assign_String_complex(output,input)
+impure elemental function str_complex(input,settings) result(output)
   implicit none
   
-  type(String), intent(out) :: output
-  complex(dp),  intent(in)  :: input
+  complex(dp), intent(in)                   :: input
+  type(PrintSettings), intent(in), optional :: settings
+  type(String)                              :: output
   
-  integer, parameter                 :: real_width = 25
-  integer, parameter                 :: imag_width = 24
-  integer, parameter                 :: decimal_places = 17
-  type(String)                       :: format_string
-  character(real_width+imag_width+1) :: complex_string
+  type(PrintSettings)       :: print_settings
+  integer                   :: real_width
+  integer                   :: imag_width
+  type(String)              :: format_string
+  character(:), allocatable :: complex_string
+  integer                   :: ialloc
   
-  format_string = '('                                        // &
-                & 'ES'//real_width//'.'//decimal_places //','// &
-                & 'sp'                                  //','// &
-                & 'ES'//imag_width//'.'//decimal_places //','// &
-                & '"i"'                                      // &
-                & ')'
-  write(complex_string,char(format_string)) input
+  if (present(settings)) then
+    print_settings = settings
+  else
+    print_settings = PrintSettings()
+  endif
+  
+  real_width = print_settings%decimal_places + 8
+  imag_width = print_settings%decimal_places + 7 ! No leading '-' or ' '.
+  
+  format_string =                                                             &
+     & '('                                                                 // &
+     & 'ES'//str(real_width)//'.'//str(print_settings%decimal_places) //','// &
+     & 'sp'                                                           //','// &
+     & 'ES'//str(imag_width)//'.'//str(print_settings%decimal_places) //','// &
+     & '"i"'                                                               // &
+     & ')'
+  
+  allocate( character(real_width+imag_width+1) :: complex_string, &
+          & stat=ialloc); call err(ialloc)
+  
+  write(complex_string, char(format_string)) input
+  
   output = complex_string
-end subroutine
-
-! ----------------------------------------------------------------------
-! The str() function, which converts types to String.
-! a=str(b) is equivalent to a=b.
-! ----------------------------------------------------------------------
-
-impure elemental function str_logical(this) result(output)
-  implicit none
-  
-  logical, intent(in) :: this
-  type(String)        :: output
-  
-  output = this
-end function
-
-impure elemental function str_integer(this) result(output)
-  implicit none
-  
-  integer, intent(in) :: this
-  type(String)        :: output
-  
-  output = this
-end function
-
-impure elemental function str_real(this) result(output)
-  implicit none
-  
-  real(dp), intent(in) :: this
-  type(String)         :: output
-  
-  output = this
-end function
-
-impure elemental function str_complex(this) result(output)
-  implicit none
-  
-  complex(dp), intent(in) :: this
-  type(String)            :: output
-  
-  output = this
 end function
 
 ! ----------------------------------------------------------------------
@@ -236,15 +249,6 @@ impure elemental function left_pad_character(input,match,pad_character) &
   character(1), intent(in), optional :: pad_character
   type(String)                       :: output
   
-  character(1) :: pad
-  integer      :: i
-  
-  if (present(pad_character)) then
-    pad = pad_character
-  else
-    pad = '0'
-  endif
-  
   if (input<0) then
     call err()
   endif
@@ -255,9 +259,11 @@ impure elemental function left_pad_character(input,match,pad_character) &
     call err()
   endif
   
-  do i=1,len(match)-len(output)
-    output = pad//output
-  enddo
+  if (present(pad_character)) then
+    output = repeat(pad_character, len(match)-len(output)) // output
+  else
+    output = repeat('0', len(match)-len(output)) // output
+  endif
 end function
 
 impure elemental function left_pad_String(input,match,pad_character) &
@@ -276,13 +282,14 @@ end function
 ! Converts an integer to a String, and then pads the string so that positive
 !    and negative integers end up being the same length.
 ! --------------------------------------------------
-impure elemental function pad_int_to_str(this) result(output)
+impure elemental function pad_int_to_str(this,settings) result(output)
   implicit none
   
-  integer, intent(in) :: this
-  type(String)        :: output
+  integer,             intent(in)           :: this
+  type(PrintSettings), intent(in), optional :: settings
+  type(String)                              :: output
   
-  output = this
+  output = str(this,settings)
   if (slice(output,1,1)/='-') then
     output = ' '//output
   endif
@@ -424,23 +431,26 @@ end function
 !    then concatenate them into a single string.
 ! ----------------------------------------------------------------------
 
-function join_reals(this,delimiter) result(output)
+function join_logicals(this,delimiter,settings) result(output)
   implicit none
   
-  real(dp),     intent(in)           :: this(:)
-  character(*), intent(in), optional :: delimiter
-  type(String)                       :: output
+  logical,             intent(in)           :: this(:)
+  character(*),        intent(in), optional :: delimiter
+  type(PrintSettings), intent(in), optional :: settings
+  type(String)                              :: output
   
-  output = join(str(this), delimiter)
+  output = join( str(this,settings), &
+               & delimiter           )
 end function
 
-function join_integers(this,delimiter,pad_sign) result(output)
+function join_integers(this,delimiter,pad_sign,settings) result(output)
   implicit none
   
-  integer,      intent(in)           :: this(:)
-  character(*), intent(in), optional :: delimiter
-  logical,      intent(in), optional :: pad_sign
-  type(String)                       :: output
+  integer,             intent(in)           :: this(:)
+  character(*),        intent(in), optional :: delimiter
+  logical,             intent(in), optional :: pad_sign
+  type(PrintSettings), intent(in), optional :: settings
+  type(String)                              :: output
   
   logical :: to_pad
   
@@ -451,30 +461,36 @@ function join_integers(this,delimiter,pad_sign) result(output)
   endif
   
   if (to_pad) then
-    output = join(pad_int_to_str(this), delimiter)
+    output = join( pad_int_to_str(this, settings), &
+                 & delimiter                       )
   else
-    output = join(str(this), delimiter)
+    output = join( str(this, settings), &
+                 & delimiter            )
   endif
 end function
 
-function join_logicals(this,delimiter) result(output)
+function join_reals(this,delimiter,settings) result(output)
   implicit none
   
-  logical,      intent(in)           :: this(:)
-  character(*), intent(in), optional :: delimiter
-  type(String)                       :: output
+  real(dp),            intent(in)           :: this(:)
+  character(*),        intent(in), optional :: delimiter
+  type(PrintSettings), intent(in), optional :: settings
+  type(String)                              :: output
   
-  output = join(str(this), delimiter)
+  output = join( str(this, settings), &
+               & delimiter            )
 end function
 
-function join_complexes(this,delimiter) result(output)
+function join_complexes(this,delimiter,settings) result(output)
   implicit none
   
-  complex(dp),  intent(in)           :: this(:)
-  character(*), intent(in), optional :: delimiter
-  type(String)                       :: output
+  complex(dp),         intent(in)           :: this(:)
+  character(*),        intent(in), optional :: delimiter
+  type(PrintSettings), intent(in), optional :: settings
+  type(String)                              :: output
   
-  output = join(str(this), delimiter)
+  output = join( str(this,settings), &
+               & delimiter           )
 end function
 
 ! ----------------------------------------------------------------------
@@ -485,6 +501,28 @@ end function
 ! --------------------------------------------------
 ! Concatenation of string types and default types.
 ! --------------------------------------------------
+
+! String = String//logical
+function concatenate_String_logical(this,that) result(output)
+  implicit none
+  
+  class(String), intent(in) :: this
+  logical,       intent(in) :: that
+  type(String)              :: output
+  
+  output = this//str(that)
+end function
+
+! String = logical//String
+function concatenate_logical_String(this,that) result(output)
+  implicit none
+  
+  logical,       intent(in) :: this
+  class(String), intent(in) :: that
+  type(String)              :: output
+  
+  output = str(this)//that
+end function
 
 ! String = String//integer
 function concatenate_String_integer(this,that) result(output)
@@ -530,28 +568,6 @@ function concatenate_real_String(this,that) result(output)
   output = str(this)//that
 end function
 
-! String = String//logical
-function concatenate_String_logical(this,that) result(output)
-  implicit none
-  
-  class(String), intent(in) :: this
-  logical,       intent(in) :: that
-  type(String)              :: output
-  
-  output = this//str(that)
-end function
-
-! String = logical//String
-function concatenate_logical_String(this,that) result(output)
-  implicit none
-  
-  logical,       intent(in) :: this
-  class(String), intent(in) :: that
-  type(String)              :: output
-  
-  output = str(this)//that
-end function
-
 ! String = String//complex
 function concatenate_String_complex(this,that) result(output)
   implicit none
@@ -572,6 +588,28 @@ function concatenate_complex_String(this,that) result(output)
   type(String)              :: output
   
   output = str(this)//that
+end function
+
+! String = String//logical(:)
+function concatenate_String_logicals(this,that) result(output)
+  implicit none
+  
+  class(String), intent(in) :: this
+  logical,       intent(in) :: that(:)
+  type(String)              :: output
+  
+  output = this//join(that)
+end function
+
+! String = logical(:)//String
+function concatenate_logicals_String(this,that) result(output)
+  implicit none
+  
+  logical,       intent(in) :: this(:)
+  class(String), intent(in) :: that
+  type(String)              :: output
+  
+  output = join(this)//that
 end function
 
 ! String = String//integer(:)
@@ -618,28 +656,6 @@ function concatenate_reals_String(this,that) result(output)
   output = join(this)//that
 end function
 
-! String = String//logical(:)
-function concatenate_String_logicals(this,that) result(output)
-  implicit none
-  
-  class(String), intent(in) :: this
-  logical,       intent(in) :: that(:)
-  type(String)              :: output
-  
-  output = this//join(that)
-end function
-
-! String = logical(:)//String
-function concatenate_logicals_String(this,that) result(output)
-  implicit none
-  
-  logical,       intent(in) :: this(:)
-  class(String), intent(in) :: that
-  type(String)              :: output
-  
-  output = join(this)//that
-end function
-
 ! String = String//complex(:)
 function concatenate_String_complexes(this,that) result(output)
   implicit none
@@ -660,6 +676,28 @@ function concatenate_complexes_String(this,that) result(output)
   type(String)              :: output
   
   output = join(this)//that
+end function
+
+! String = character//logical
+function concatenate_character_logical(this,that) result(output)
+  implicit none
+  
+  character(*), intent(in) :: this
+  logical,      intent(in) :: that
+  type(String)             :: output
+  
+  output = this//str(that)
+end function
+
+! String = logical//character
+function concatenate_logical_character(this,that) result(output)
+  implicit none
+  
+  logical,      intent(in) :: this
+  character(*), intent(in) :: that
+  type(String)             :: output
+  
+  output = str(this)//that
 end function
 
 ! String = character//integer
@@ -706,28 +744,6 @@ function concatenate_real_character(this,that) result(output)
   output = str(this)//that
 end function
 
-! String = character//logical
-function concatenate_character_logical(this,that) result(output)
-  implicit none
-  
-  character(*), intent(in) :: this
-  logical,      intent(in) :: that
-  type(String)             :: output
-  
-  output = this//str(that)
-end function
-
-! String = logical//character
-function concatenate_logical_character(this,that) result(output)
-  implicit none
-  
-  logical,      intent(in) :: this
-  character(*), intent(in) :: that
-  type(String)             :: output
-  
-  output = str(this)//that
-end function
-
 ! String = character//complex
 function concatenate_character_complex(this,that) result(output)
   implicit none
@@ -748,6 +764,28 @@ function concatenate_complex_character(this,that) result(output)
   type(String)             :: output
   
   output = str(this)//that
+end function
+
+! String = character//logical(:)
+function concatenate_character_logicals(this,that) result(output)
+  implicit none
+  
+  character(*), intent(in) :: this
+  logical,      intent(in) :: that(:)
+  type(String)             :: output
+  
+  output = this//join(that)
+end function
+
+! String = logical(:)//character
+function concatenate_logicals_character(this,that) result(output)
+  implicit none
+  
+  logical,      intent(in) :: this(:)
+  character(*), intent(in) :: that
+  type(String)             :: output
+  
+  output = join(this)//that
 end function
 
 ! String = character//integer(:)
@@ -794,28 +832,6 @@ function concatenate_reals_character(this,that) result(output)
   output = join(this)//that
 end function
 
-! String = character//logical(:)
-function concatenate_character_logicals(this,that) result(output)
-  implicit none
-  
-  character(*), intent(in) :: this
-  logical,      intent(in) :: that(:)
-  type(String)             :: output
-  
-  output = this//join(that)
-end function
-
-! String = logical(:)//character
-function concatenate_logicals_character(this,that) result(output)
-  implicit none
-  
-  logical,      intent(in) :: this(:)
-  character(*), intent(in) :: that
-  type(String)             :: output
-  
-  output = join(this)//that
-end function
-
 ! String = character//complex(:)
 function concatenate_character_complexes(this,that) result(output)
   implicit none
@@ -837,4 +853,115 @@ function concatenate_complexes_character(this,that) result(output)
   
   output = join(this)//that
 end function
+
+! ----------------------------------------------------------------------
+! Provides the print_line and print_lines functions for non-character types.
+! ----------------------------------------------------------------------
+subroutine print_line_logical(this,settings)
+  implicit none
+  
+  logical,             intent(in)           :: this
+  type(PrintSettings), intent(in), optional :: settings
+  
+  call print_line(str(this,settings))
+end subroutine
+
+subroutine print_line_integer(this,settings)
+  implicit none
+  
+  integer,             intent(in)           :: this
+  type(PrintSettings), intent(in), optional :: settings
+  
+  call print_line(str(this,settings))
+end subroutine
+
+subroutine print_line_real(this,settings)
+  implicit none
+  
+  real(dp),            intent(in)           :: this
+  type(PrintSettings), intent(in), optional :: settings
+  
+  call print_line(str(this,settings))
+end subroutine
+
+subroutine print_line_complex(this,settings)
+  implicit none
+  
+  complex(dp),         intent(in)           :: this
+  type(PrintSettings), intent(in), optional :: settings
+  
+  call print_line(str(this,settings))
+end subroutine
+
+subroutine print_line_logicals(this,settings)
+  implicit none
+  
+  logical,             intent(in)           :: this(:)
+  type(PrintSettings), intent(in), optional :: settings
+  
+  call print_line(join(this, settings=settings))
+end subroutine
+
+subroutine print_line_integers(this,settings)
+  implicit none
+  
+  integer,             intent(in)           :: this(:)
+  type(PrintSettings), intent(in), optional :: settings
+  
+  call print_line(join(this, settings=settings))
+end subroutine
+
+subroutine print_line_reals(this,settings)
+  implicit none
+  
+  real(dp),            intent(in)           :: this(:)
+  type(PrintSettings), intent(in), optional :: settings
+  
+  call print_line(join(this, settings=settings))
+end subroutine
+
+subroutine print_line_complexes(this,settings)
+  implicit none
+  
+  complex(dp),         intent(in)           :: this(:)
+  type(PrintSettings), intent(in), optional :: settings
+  
+  call print_line(join(this, settings=settings))
+end subroutine
+
+subroutine print_lines_logicals(this,settings)
+  implicit none
+  
+  logical,             intent(in)           :: this(:)
+  type(PrintSettings), intent(in), optional :: settings
+  
+  call print_lines(str(this,settings))
+end subroutine
+
+subroutine print_lines_integers(this,settings)
+  implicit none
+  
+  integer,             intent(in)           :: this(:)
+  type(PrintSettings), intent(in), optional :: settings
+  
+  call print_lines(str(this,settings))
+end subroutine
+
+subroutine print_lines_reals(this,settings)
+  implicit none
+  
+  real(dp),            intent(in)           :: this(:)
+  type(PrintSettings), intent(in), optional :: settings
+  
+  call print_lines(str(this,settings))
+end subroutine
+
+subroutine print_lines_complexes(this,settings)
+  implicit none
+  
+  complex(dp),         intent(in)           :: this(:)
+  type(PrintSettings), intent(in), optional :: settings
+  
+  call print_lines(str(this,settings))
+end subroutine
 end module

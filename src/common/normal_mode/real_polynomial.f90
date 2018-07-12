@@ -817,7 +817,7 @@ function write_RealMonomial(this) result(output)
     if (size(this%modes)>0) then
       output = this%coefficient//'*'//join(this%modes, delimiter='*')
     else
-      output = this%coefficient
+      output = str(this%coefficient)
     endif
   end select
 end function

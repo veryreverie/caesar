@@ -1,7 +1,7 @@
 ! ======================================================================
-! I/O operations.
+! Various miscellaneous I/O operations.
 ! ======================================================================
-module io_submodule
+module io_utils_submodule
   use iso_fortran_env, only : INPUT_UNIT
   use precision_module
   
@@ -25,7 +25,6 @@ module io_submodule
   public :: system_call         ! Makes a system call.
   public :: get_flag            ! Reads a flag from the command line.
   public :: read_line_from_user ! Reads a line from the terminal.
-  public :: print_line          ! write(*,'(a)')
   public :: format_path         ! Converts any path into an absolute path.
   public :: execute_old_code    ! Runs one of the old caesar codes.
   public :: execute_python      ! Runs one of the python scripts.
@@ -46,18 +45,6 @@ module io_submodule
   interface file_exists
     module procedure file_exists_character
     module procedure file_exists_string
-  end interface
-  
-  interface print_line
-    module procedure print_line_integer
-    module procedure print_line_real
-    module procedure print_line_logical
-    module procedure print_line_complex
-    
-    module procedure print_line_integers
-    module procedure print_line_reals
-    module procedure print_line_logicals
-    module procedure print_line_complexes
   end interface
   
   interface format_path
@@ -404,73 +391,6 @@ subroutine set_io_settings()
   OLD_PATH = caesar_dir//'/old'
   PYTHON_SCRIPTS_PATH = caesar_dir//'/python'
   call unset_output_unit()
-end subroutine
-
-! ----------------------------------------------------------------------
-! Provides the print_line function for non-character types.
-! ----------------------------------------------------------------------
-subroutine print_line_integer(this)
-  implicit none
-  
-  integer, intent(in) :: this
-  
-  call print_line(''//this)
-end subroutine
-
-subroutine print_line_real(this)
-  implicit none
-  
-  real(dp), intent(in) :: this
-  
-  call print_line(''//this)
-end subroutine
-
-subroutine print_line_logical(this)
-  implicit none
-  
-  logical, intent(in) :: this
-  
-  call print_line(''//this)
-end subroutine
-
-subroutine print_line_complex(this)
-  implicit none
-  
-  complex(dp), intent(in) :: this
-  
-  call print_line(''//this)
-end subroutine
-
-subroutine print_line_integers(this)
-  implicit none
-  
-  integer, intent(in) :: this(:)
-  
-  call print_line(join(this))
-end subroutine
-
-subroutine print_line_reals(this)
-  implicit none
-  
-  real(dp), intent(in) :: this(:)
-  
-  call print_line(join(this))
-end subroutine
-
-subroutine print_line_logicals(this)
-  implicit none
-  
-  logical, intent(in) :: this(:)
-  
-  call print_line(join(this))
-end subroutine
-
-subroutine print_line_complexes(this)
-  implicit none
-  
-  complex(dp), intent(in) :: this(:)
-  
-  call print_line(join(this))
 end subroutine
 
 ! ----------------------------------------------------------------------

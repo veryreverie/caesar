@@ -13,6 +13,7 @@ module print_submodule
   use string_submodule
   use error_submodule
   use terminal_submodule
+  use print_settings_submodule
   implicit none
   
   private
@@ -61,11 +62,13 @@ contains
 ! Prints a character or string variable, either to the terminal or
 !    to the output file specified by OUTPUT_FILE_UNIT.
 ! ----------------------------------------------------------------------
-subroutine print_line_character(line,indent)
+subroutine print_line_character(line,settings)
   implicit none
   
-  character(*), intent(in)           :: line
-  integer,      intent(in), optional :: indent
+  character(*),        intent(in)           :: line
+  type(PrintSettings), intent(in), optional :: settings
+  
+  type(PrintSettings) :: print_settings
   
   integer              :: line_length
   integer              :: no_lines
@@ -80,18 +83,20 @@ subroutine print_line_character(line,indent)
   
   integer :: i,ierr,ialloc
   
-  if (present(indent)) then
-    indent_spaces = spaces(indent)
+  if (present(settings)) then
+    print_settings = settings
   else
-    indent_spaces = spaces(0)
+    print_settings = PrintSettings()
   endif
-  overhang_spaces = spaces(3)
+  
+  indent_spaces = spaces(print_settings%indent)
+  overhang_spaces = spaces(print_settings%overhang)
   
   allocate( line_starts(max(len(line),1)), &
           & line_ends(max(len(line),1)),   &
           & stat=ialloc); call err(ialloc)
   
-  current_terminal_width = TERMINAL_WIDTH - len(indent_spaces)
+  current_terminal_width = TERMINAL_WIDTH - print_settings%indent
   no_lines = 1
   line_starts(1) = 1
   last_space = 0
@@ -128,9 +133,9 @@ subroutine print_line_character(line,indent)
                     & - (line_ends(no_lines)-line_starts(no_lines)+1)
           no_lines = no_lines+1
           last_space = 0
-          current_terminal_width = TERMINAL_WIDTH     &
-                               & - len(indent_spaces) &
-                               & - len(overhang_spaces)
+          current_terminal_width = TERMINAL_WIDTH        &
+                               & - print_settings%indent &
+                               & - print_settings%overhang
         elseif (line(i:i)==' ') then
           last_space = i
         endif
@@ -165,43 +170,43 @@ subroutine print_line_character(line,indent)
   enddo
 end subroutine
 
-subroutine print_line_String(line,indent)
+subroutine print_line_String(line,settings)
   implicit none
   
-  type(String), intent(in)           :: line
-  integer,      intent(in), optional :: indent
+  type(String),        intent(in)           :: line
+  type(PrintSettings), intent(in), optional :: settings
   
-  call print_line(char(line),indent)
+  call print_line(char(line), settings)
 end subroutine
 
 ! ----------------------------------------------------------------------
 ! As print_line, but for printing over multiple lines.
 ! ----------------------------------------------------------------------
-subroutine print_lines_Strings_character(lines,indent,separating_line)
+subroutine print_lines_Strings_character(lines,separating_line,settings)
   implicit none
   
-  type(String), intent(in)           :: lines(:)
-  integer,      intent(in), optional :: indent
-  character(*), intent(in), optional :: separating_line
+  type(String),        intent(in)           :: lines(:)
+  character(*),        intent(in), optional :: separating_line
+  type(PrintSettings), intent(in), optional :: settings
   
   integer :: i
   
   do i=1,size(lines)
-    call print_line(lines(i),indent)
+    call print_line(lines(i), settings)
     if (present(separating_line)) then
-      call print_line(separating_line)
+      call print_line(separating_line, settings)
     endif
   enddo
 end subroutine
 
-subroutine print_lines_Strings_String(lines,indent,separating_line)
+subroutine print_lines_Strings_String(lines,separating_line,settings)
   implicit none
   
-  type(String), intent(in)           :: lines(:)
-  integer,      intent(in), optional :: indent
-  type(String), intent(in)           :: separating_line
+  type(String),        intent(in)           :: lines(:)
+  type(String),        intent(in)           :: separating_line
+  type(PrintSettings), intent(in), optional :: settings
   
-  call print_lines(lines,indent,char(separating_line))
+  call print_lines(lines, char(separating_line), settings)
 end subroutine
 
 ! ----------------------------------------------------------------------

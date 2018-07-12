@@ -110,7 +110,7 @@ subroutine write_input_file_vasp(structure,poscar_filename)
   enddo
   call poscar_file%print_line(line)
   
-  line = species_counts(1)
+  line = str(species_counts(1))
   do i=2,no_species
     line = line//' '//species_counts(i)
   enddo

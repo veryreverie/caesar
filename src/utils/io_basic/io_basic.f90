@@ -8,8 +8,9 @@
 module io_basic_module
   use error_submodule
   use string_submodule
+  use print_settings_submodule
   use print_submodule
   use intrinsics_submodule
-  use io_submodule
+  use io_utils_submodule
   implicit none
 end module

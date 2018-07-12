@@ -34,24 +34,24 @@ module ofile_submodule
                         & print_line_character,       &
                         & print_line_String,          &
                         & print_line_StringWriteable, &
+                        & print_line_logical,         &
                         & print_line_integer,         &
                         & print_line_real,            &
-                        & print_line_logical,         &
                         & print_line_complex,         &
+                        & print_line_logicals,        &
                         & print_line_integers,        &
                         & print_line_reals,           &
-                        & print_line_logicals,        &
                         & print_line_complexes
     procedure, private :: print_line_character
     procedure, private :: print_line_String
     procedure, private :: print_line_StringWriteable
+    procedure, private :: print_line_logical
     procedure, private :: print_line_integer
     procedure, private :: print_line_real
-    procedure, private :: print_line_logical
     procedure, private :: print_line_complex
+    procedure, private :: print_line_logicals
     procedure, private :: print_line_integers
     procedure, private :: print_line_reals
-    procedure, private :: print_line_logicals
     procedure, private :: print_line_complexes
     
     generic,   public  :: print_lines =>                          &
@@ -153,7 +153,7 @@ subroutine check_associated(this)
   endif
 end subroutine
 
-! Calls functionality of the associated file.
+! Makes the file the standard output.
 subroutine make_stdout(this)
   implicit none
   
@@ -163,168 +163,197 @@ subroutine make_stdout(this)
   call this%ofile_target%make_stdout()
 end subroutine
 
-subroutine print_line_character(this,input)
+! Prints to the file.
+subroutine print_line_character(this,input,settings)
   implicit none
   
-  class(OFile), intent(inout) :: this
-  character(*), intent(in)    :: input
+  class(OFile),        intent(inout)        :: this
+  character(*),        intent(in)           :: input
+  type(PrintSettings), intent(in), optional :: settings
   
   call this%check_associated()
-  call this%ofile_target%print_line(input)
+  call this%ofile_target%print_line(input,settings)
 end subroutine
 
-subroutine print_line_String(this,input)
+subroutine print_line_String(this,input,settings)
   implicit none
   
-  class(OFile), intent(inout) :: this
-  type(String), intent(in)    :: input
+  class(OFile),        intent(inout)        :: this
+  type(String),        intent(in)           :: input
+  type(PrintSettings), intent(in), optional :: settings
   
-  call this%print_line(char(input))
+  call this%print_line(char(input),settings)
 end subroutine
 
-subroutine print_line_StringWriteable(this,input)
+subroutine print_line_StringWriteable(this,input,settings)
   implicit none
   
-  class(OFile),           intent(inout) :: this
-  class(StringWriteable), intent(in)    :: input
+  class(OFile),           intent(inout)        :: this
+  class(StringWriteable), intent(in)           :: input
+  type(PrintSettings),    intent(in), optional :: settings
   
+  ! TODO: change to str(input,settings) when
+  !    StringWriteable can accept settings.
   call this%print_line(str(input))
 end subroutine
 
-subroutine print_line_integer(this,input)
+subroutine print_line_logical(this,input,settings)
   implicit none
   
-  class(OFile), intent(inout) :: this
-  integer,      intent(in)    :: input
+  class(OFile),        intent(inout)        :: this
+  logical,             intent(in)           :: input
+  type(PrintSettings), intent(in), optional :: settings
   
-  call this%print_line(str(input))
+  call this%print_line(str(input,settings))
 end subroutine
 
-subroutine print_line_real(this,input)
+subroutine print_line_integer(this,input,settings)
   implicit none
   
-  class(OFile), intent(inout) :: this
-  real(dp),     intent(in)    :: input
+  class(OFile),        intent(inout)        :: this
+  integer,             intent(in)           :: input
+  type(PrintSettings), intent(in), optional :: settings
   
-  call this%print_line(str(input))
+  call this%print_line(str(input,settings))
 end subroutine
 
-subroutine print_line_logical(this,input)
+subroutine print_line_real(this,input,settings)
   implicit none
   
-  class(OFile), intent(inout) :: this
-  logical,      intent(in)    :: input
+  class(OFile),        intent(inout)        :: this
+  real(dp),            intent(in)           :: input
+  type(PrintSettings), intent(in), optional :: settings
   
-  call this%print_line(str(input))
+  call this%print_line(str(input,settings))
 end subroutine
 
-subroutine print_line_complex(this,input)
+subroutine print_line_complex(this,input,settings)
   implicit none
   
-  class(OFile), intent(inout) :: this
-  complex(dp),  intent(in)    :: input
+  class(OFile),        intent(inout)        :: this
+  complex(dp),         intent(in)           :: input
+  type(PrintSettings), intent(in), optional :: settings
   
-  call this%print_line(str(input))
+  call this%print_line(str(input, settings=settings))
 end subroutine
 
-subroutine print_line_integers(this,input)
+subroutine print_line_logicals(this,input,settings)
   implicit none
   
-  class(OFile), intent(inout) :: this
-  integer,      intent(in)    :: input(:)
+  class(OFile),        intent(inout)        :: this
+  logical,             intent(in)           :: input(:)
+  type(PrintSettings), intent(in), optional :: settings
   
-  call this%print_line(join(input))
+  call this%print_line(join(input, settings=settings))
 end subroutine
 
-subroutine print_line_reals(this,input)
+subroutine print_line_integers(this,input,settings)
   implicit none
   
-  class(OFile), intent(inout) :: this
-  real(dp),     intent(in)    :: input(:)
+  class(OFile),        intent(inout)        :: this
+  integer,             intent(in)           :: input(:)
+  type(PrintSettings), intent(in), optional :: settings
   
-  call this%print_line(join(input))
+  call this%print_line(join(input, settings=settings))
 end subroutine
 
-subroutine print_line_logicals(this,input)
+subroutine print_line_reals(this,input,settings)
   implicit none
   
-  class(OFile), intent(inout) :: this
-  logical,      intent(in)    :: input(:)
+  class(OFile),        intent(inout)        :: this
+  real(dp),            intent(in)           :: input(:)
+  type(PrintSettings), intent(in), optional :: settings
   
-  call this%print_line(join(input))
+  call this%print_line(join(input, settings=settings))
 end subroutine
 
-subroutine print_line_complexes(this,input)
+subroutine print_line_complexes(this,input,settings)
   implicit none
   
-  class(OFile), intent(inout) :: this
-  complex(dp),  intent(in)    :: input(:)
+  class(OFile),        intent(inout)        :: this
+  complex(dp),         intent(in)           :: input(:)
+  type(PrintSettings), intent(in), optional :: settings
   
-  call this%print_line(join(input))
+  call this%print_line(join(input, settings=settings))
 end subroutine
 
-subroutine print_lines_Strings_character(this,input,separating_line)
+subroutine print_lines_Strings_character(this,input,separating_line,settings)
   implicit none
   
-  class(OFile), intent(inout)        :: this
-  type(String), intent(in)           :: input(:)
-  character(*), intent(in), optional :: separating_line
+  class(OFile),        intent(inout)        :: this
+  type(String),        intent(in)           :: input(:)
+  character(*),        intent(in), optional :: separating_line
+  type(PrintSettings), intent(in), optional :: settings
   
   integer :: i
   
   do i=1,size(input)
-    call this%print_line(input(i))
+    call this%print_line(input(i),settings)
     if (present(separating_line) .and. i<size(input)) then
-      call print_line(separating_line)
+      call print_line(separating_line,settings)
     endif
   enddo
 end subroutine
 
-subroutine print_lines_Strings_String(this,input,separating_line)
+subroutine print_lines_Strings_String(this,input,separating_line,settings)
   implicit none
   
-  class(OFile), intent(inout) :: this
-  type(String), intent(in)    :: input(:)
-  type(String), intent(in)    :: separating_line
+  class(OFile),        intent(inout)        :: this
+  type(String),        intent(in)           :: input(:)
+  type(String),        intent(in)           :: separating_line
+  type(PrintSettings), intent(in), optional :: settings
   
-  call this%print_lines(input,char(separating_line))
+  call this%print_lines(input,char(separating_line),settings)
 end subroutine
 
-subroutine print_lines_StringWriteables_character(this,input,separating_line)
+subroutine print_lines_StringWriteables_character(this,input,separating_line, &
+   & settings)
   implicit none
   
   class(OFile),           intent(inout)        :: this
   class(StringWriteable), intent(in)           :: input(:)
   character(*),           intent(in), optional :: separating_line
+  type(PrintSettings),    intent(in), optional :: settings
   
+  ! TODO: change to str(input,settings) when
+  !    StringWriteable can accept settings.
   call this%print_lines(str(input,separating_line))
 end subroutine
 
-subroutine print_lines_StringWriteables_String(this,input,separating_line)
+subroutine print_lines_StringWriteables_String(this,input,separating_line, &
+   & settings)
   implicit none
   
-  class(OFile),           intent(inout) :: this
-  class(StringWriteable), intent(in)    :: input(:)
-  type(String),           intent(in)    :: separating_line
+  class(OFile),           intent(inout)        :: this
+  class(StringWriteable), intent(in)           :: input(:)
+  type(String),           intent(in)           :: separating_line
+  type(PrintSettings),    intent(in), optional :: settings
   
+  ! TODO: change to str(input,settings) when
+  !    StringWriteable can accept settings.
   call this%print_lines(str(input,separating_line))
 end subroutine
 
-subroutine print_lines_StringsWriteable(this,input)
+subroutine print_lines_StringsWriteable(this,input,settings)
   implicit none
   
-  class(OFile),            intent(inout) :: this
-  class(StringsWriteable), intent(in)    :: input
+  class(OFile),            intent(inout)        :: this
+  class(StringsWriteable), intent(in)           :: input
+  type(PrintSettings),     intent(in), optional :: settings
   
+  ! TODO: change to str(input,settings) when
+  !    StringsWriteable can accept settings.
   call this%print_lines(str(input))
 end subroutine
 
-subroutine print_lines_StringsWriteables_character(this,input,separating_line)
+subroutine print_lines_StringsWriteables_character(this,input, &
+   & separating_line,settings)
   implicit none
   
   class(OFile),            intent(inout)        :: this
   class(StringsWriteable), intent(in)           :: input(:)
   character(*),            intent(in), optional :: separating_line
+  type(PrintSettings),     intent(in), optional :: settings
   
   if (lbound(input,1)/=1) then
     call print_line(CODE_ERROR//': The lower bound of an array is not 1. This &
@@ -332,16 +361,22 @@ subroutine print_lines_StringsWriteables_character(this,input,separating_line)
     call err()
   endif
   
+  ! TODO: change to str(input,settings) when
+  !    StringsWriteable can accept settings.
   call this%print_lines(str(input,separating_line))
 end subroutine
 
-subroutine print_lines_StringsWriteables_String(this,input,separating_line)
+subroutine print_lines_StringsWriteables_String(this,input,separating_line, &
+   & settings)
   implicit none
   
-  class(OFile),            intent(inout) :: this
-  class(StringsWriteable), intent(in)    :: input(:)
-  type(String),            intent(in)    :: separating_line
+  class(OFile),            intent(inout)        :: this
+  class(StringsWriteable), intent(in)           :: input(:)
+  type(String),            intent(in)           :: separating_line
+  type(PrintSettings),     intent(in), optional :: settings
   
+  ! TODO: change to str(input,settings) when
+  !    StringsWriteable can accept settings.
   call this%print_lines(str(input,separating_line))
 end subroutine
 end module

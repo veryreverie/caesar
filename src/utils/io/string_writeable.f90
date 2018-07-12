@@ -185,33 +185,30 @@ end function
 ! ----------------------------------------------------------------------
 ! Provides print_line and print_lines for types which extend StringWriteable.
 ! ----------------------------------------------------------------------
-subroutine print_line_StringWriteable(this,indent)
+subroutine print_line_StringWriteable(this)
   implicit none
   
-  class(StringWriteable), intent(in)           :: this
-  integer,                intent(in), optional :: indent
+  class(StringWriteable), intent(in) :: this
   
-  call print_line(str(this),indent)
+  call print_line(str(this))
 end subroutine
 
-subroutine print_lines_StringWriteables_character(this,indent,separating_line)
+subroutine print_lines_StringWriteables_character(this,separating_line)
   implicit none
   
   class(StringWriteable), intent(in)           :: this(:)
-  integer,                intent(in), optional :: indent
   character(*),           intent(in), optional :: separating_line
   
-  call print_lines(str(this,separating_line),indent)
+  call print_lines(str(this,separating_line))
 end subroutine
 
-subroutine print_lines_StringWriteables_String(this,indent,separating_line)
+subroutine print_lines_StringWriteables_String(this,separating_line)
   implicit none
   
-  class(StringWriteable), intent(in)           :: this(:)
-  integer,                intent(in), optional :: indent
-  type(String),           intent(in)           :: separating_line
+  class(StringWriteable), intent(in) :: this(:)
+  type(String),           intent(in) :: separating_line
   
-  call print_lines(str(this,separating_line),indent)
+  call print_lines(str(this,separating_line))
 end subroutine
 end module
 

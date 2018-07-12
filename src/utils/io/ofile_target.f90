@@ -106,11 +106,12 @@ subroutine make_stdout(this)
 end subroutine
 
 ! Writes a line to the file.
-subroutine print_line_character(this,input)
+subroutine print_line_character(this,input,settings)
   implicit none
   
-  class(OFileTarget), intent(inout) :: this
-  character(*),       intent(in)    :: input
+  class(OFileTarget),  intent(inout)        :: this
+  type(PrintSettings), intent(in), optional :: settings
+  character(*),        intent(in)           :: input
   
   integer :: ierr
   
