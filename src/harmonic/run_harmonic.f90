@@ -26,17 +26,22 @@ function run_harmonic() result(output)
   output%description = 'Runs DFT calculations set up by setup_harmonic. &
      &should be run after setup_harmonic.'
   output%keywords = [                                                         &
-  & KeywordData( 'supercells_to_run',                                         &
-  &              'supercells_to_run is the first and last supercell to run. &
-  &These should be specified as two integers separated by spaces.'),          &
-  & KeywordData( 'run_script',                                                &
-  &              'run_script is the path to the script for running DFT. An &
-  &example run script can be found in doc/input_files.',                      &
-  &              is_path=.true.),                                             &
-  & KeywordData( 'no_cores',                                                  &
-  &              'no_cores is the number of cores on which DFT will be run. &
-  &This is passed to the specified run script.',                              &
-  &              default_value='1') ]
+     & KeywordData( 'supercells_to_run',                                      &
+     &              'supercells_to_run is the first and last supercell to &
+     &run. These should be specified as two integers separated by spaces.'),  &
+     & KeywordData( 'run_script',                                             &
+     &              'run_script is the path to the script for running DFT. An &
+     &example run script can be found in doc/input_files.',                   &
+     &              is_path=.true.),                                          &
+     & KeywordData( 'no_cores',                                               &
+     &              'no_cores is the number of cores on which DFT will be &
+     &run. This is passed to the specified run script.',                      &
+     &              default_value='1'),                                       &
+     & KeywordData( 'calculation_type',                                       &
+     &              'calculation_type specifies whether any electronic &
+     &structure calculations should be run in addition to the user-defined &
+     &script. Settings are: "none" and "quip".',                              &
+     &              default_value='none') ]
   output%main_subroutine => run_harmonic_subroutine
 end function
 
@@ -55,6 +60,7 @@ subroutine run_harmonic_subroutine(arguments)
   integer      :: supercells_to_run(2)
   integer      :: no_cores
   type(String) :: run_script
+  type(String) :: calculation_type
   
   ! Previous user inputs.
   type(Dictionary) :: setup_harmonic_arguments
@@ -92,6 +98,7 @@ subroutine run_harmonic_subroutine(arguments)
   supercells_to_run = int(split_line(arguments%value('supercells_to_run')))
   run_script = arguments%value('run_script')
   no_cores = int(arguments%value('no_cores'))
+  calculation_type = arguments%value('calculation_type')
   
   ! --------------------------------------------------
   ! Read in arguments to previous calculations.
@@ -144,11 +151,13 @@ subroutine run_harmonic_subroutine(arguments)
   ! --------------------------------------------------
   ! Initialise calculation runner.
   ! --------------------------------------------------
-  calculation_runner = CalculationRunner( working_directory = wd,         &
-                                        & file_type         = file_type,  &
-                                        & seedname          = seedname,   &
-                                        & run_script        = run_script, &
-                                        & no_cores          = no_cores    )
+  calculation_runner = CalculationRunner(  &
+    & working_directory = wd,              &
+    & file_type         = file_type,       &
+    & seedname          = seedname,        &
+    & run_script        = run_script,      &
+    & no_cores          = no_cores,        &
+    & calculation_type  = calculation_type )
   
   ! --------------------------------------------------
   ! Run calculations

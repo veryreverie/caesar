@@ -144,12 +144,13 @@ subroutine setup_harmonic_subroutine(arguments)
                                        & large_supercell_matrix )
   
   ! --------------------------------------------------
-  ! Generate supercells.
-  ! --------------------------------------------------
   ! Generate q-points in Monkhorst-Pack grid.
+  ! --------------------------------------------------
   qpoints = generate_qpoints(large_supercell)
   
+  ! --------------------------------------------------
   ! Generate non-diagonal supercells.
+  ! --------------------------------------------------
   supercells = generate_supercells(structure, qpoints, symmetry_precision)
   no_supercells = size(supercells)
   

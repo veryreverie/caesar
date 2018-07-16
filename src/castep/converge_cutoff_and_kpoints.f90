@@ -204,13 +204,10 @@ subroutine converge_cutoff_and_kpoints_subroutine(arguments)
                                         & file_type         = str('castep'), &
                                         & seedname          = seedname,      &
                                         & run_script        = run_script,    &
-                                        & no_cores          = no_cores       )
+                                        & no_cores          = no_cores,      &
+                                        & calculation_type  = str('none')    )
   
-  calculation_reader = CalculationReader(  &
-     & working_directory  = wd,            &
-     & file_type          = str('castep'), &
-     & seedname           = seedname,      &
-     & calculation_type   = str('script')  )
+  calculation_reader = CalculationReader()
   
   ! --------------------------------------------------
   ! Read .cell and .param files.

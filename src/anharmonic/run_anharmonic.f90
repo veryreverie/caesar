@@ -29,21 +29,26 @@ function run_anharmonic() result(output)
   output%description = 'Runs DFT calculations set up by setup_anharmonic. &
      &Should be run after setup_anharmonic.'
   output%keywords = [                                                         &
-  & KeywordData( 'calculations_to_run',                                       &
-  &              'calculations_to_run specifies the first and last &
-  &calculations to run inclusive. These should be given as two integers &
-  &separated by a space. If not set then all calculations will be run. See &
-  &calculation_directories.dat for the entire list of calculations to be &
-  &run.',                                                                     &
-  &              is_optional=.true.),                                         &
-  & KeywordData( 'run_script',                                                &
-  &              'run_script is the path to the script for running DFT. An &
-  &example run script can be found in doc/input_files.',                      &
-  &               is_path=.true.),                                            &
-  & KeywordData( 'no_cores',                                                  &
-  &              'no_cores is the number of cores on which DFT will be run. &
-  &This is passed to the specified run script.',                              &
-  &               default_value='1') ]
+     & KeywordData( 'calculations_to_run',                                    &
+     &              'calculations_to_run specifies the first and last &
+     &calculations to run inclusive. These should be given as two integers &
+     &separated by a space. If not set then all calculations will be run. See &
+     &calculation_directories.dat for the entire list of calculations to be &
+     &run.',                                                                  &
+     &              is_optional=.true.),                                      &
+     & KeywordData( 'run_script',                                             &
+     &              'run_script is the path to the script for running DFT. An &
+     &example run script can be found in doc/input_files.',                   &
+     &               is_path=.true.),                                         &
+     & KeywordData( 'no_cores',                                               &
+     &              'no_cores is the number of cores on which DFT will be &
+     &run. This is passed to the specified run script.',                      &
+     &               default_value='1'),                                      &
+     & KeywordData( 'calculation_type',                                       &
+     &              'calculation_type specifies whether any electronic &
+     &structure calculations should be run in addition to the user-defined &
+     &script. Settings are: "none" and "quip".',                              &
+     &              default_value='none') ]
   output%main_subroutine => run_anharmonic_subroutine
 end function
 
@@ -62,6 +67,7 @@ subroutine run_anharmonic_subroutine(arguments)
   integer, allocatable :: calculations_to_run(:)
   type(String)         :: run_script
   integer              :: no_cores
+  type(String)         :: calculation_type
   
   ! Previous inputs.
   type(Dictionary) :: setup_harmonic_arguments
@@ -88,6 +94,7 @@ subroutine run_anharmonic_subroutine(arguments)
   endif
   run_script = arguments%value('run_script')
   no_cores = int(arguments%value('no_cores'))
+  calculation_type = arguments%value('calculation_type')
   
   ! Read in setup_anharmonic settings.
   setup_anharmonic_arguments = Dictionary(setup_anharmonic())
@@ -133,11 +140,13 @@ subroutine run_anharmonic_subroutine(arguments)
   endif
   
   ! Initialise calculation runner.
-  calculation_runner = CalculationRunner( working_directory = wd,         &
-                                        & file_type         = file_type,  &
-                                        & seedname          = seedname,   &
-                                        & run_script        = run_script, &
-                                        & no_cores          = no_cores)
+  calculation_runner = CalculationRunner(   &
+     & working_directory = wd,              &
+     & file_type         = file_type,       &
+     & seedname          = seedname,        &
+     & run_script        = run_script,      &
+     & no_cores          = no_cores,        &
+     & calculation_type  = calculation_type )
   
   ! Run calculations.
   call calculation_runner%run_calculations(calculation_directories)

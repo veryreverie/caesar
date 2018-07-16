@@ -176,15 +176,25 @@ impure elemental function str_real(input,settings) result(output)
     print_settings = PrintSettings()
   endif
   
-  ! - One character for the leading '-' or ' '.
-  ! - One character for the decimal point.
-  ! - Five characters for the trailing 'E+~~~' or 'E-~~~'.
-  real_width = print_settings%decimal_places + 8
+  if (print_settings%floating_point_format=='es') then
+    ! - One character for the leading '-' or ' '.
+    ! - One character for the decimal point.
+    ! - Five characters for the trailing 'E+~~~' or 'E-~~~'.
+    real_width = print_settings%decimal_places + 8
+  elseif (print_settings%floating_point_format=='f') then
+    ! - One character for the leading '-' or ' '.
+    real_width = print_settings%decimal_places &
+             & + print_settings%integer_digits &
+             & + 1
+  else
+    call err()
+  endif
   
-  format_string = "(ES"                              // &
-                & str(real_width)                    // &
-                & '.'                                // &
-                & str(print_settings%decimal_places) // &
+  format_string = '('                                  // &
+                & print_settings%floating_point_format // &
+                & str(real_width)                      // &
+                & '.'                                  // &
+                & str(print_settings%decimal_places)   // &
                 & ")"
   
   allocate( character(real_width) :: real_string, &
@@ -215,15 +225,27 @@ impure elemental function str_complex(input,settings) result(output)
     print_settings = PrintSettings()
   endif
   
-  real_width = print_settings%decimal_places + 8
-  imag_width = print_settings%decimal_places + 7 ! No leading '-' or ' '.
+  if (print_settings%floating_point_format=='es') then
+    real_width = print_settings%decimal_places + 8
+  elseif (print_settings%floating_point_format=='f') then
+    real_width = print_settings%decimal_places &
+             & + print_settings%integer_digits &
+             & + 1
+  else
+    call err()
+  endif
   
-  format_string =                                                             &
-     & '('                                                                 // &
-     & 'ES'//str(real_width)//'.'//str(print_settings%decimal_places) //','// &
-     & 'sp'                                                           //','// &
-     & 'ES'//str(imag_width)//'.'//str(print_settings%decimal_places) //','// &
-     & '"i"'                                                               // &
+  ! The imaginary part has no leading '-' or ' '.
+  imag_width = real_width - 1
+  
+  format_string =                                                       &
+     & '('                                                           // &
+     & print_settings%floating_point_format                          // &
+     & str(real_width)//'.'//str(print_settings%decimal_places) //','// &
+     & 'sp'                                                     //','// &
+     & print_settings%floating_point_format                          // &
+     & str(imag_width)//'.'//str(print_settings%decimal_places) //','// &
+     & '"i"'                                                         // &
      & ')'
   
   allocate( character(real_width+imag_width+1) :: complex_string, &

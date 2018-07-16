@@ -67,13 +67,10 @@ subroutine calculate_potential_subroutine(arguments)
   
   ! Arguments to setup_harmonic.
   type(Dictionary) :: setup_harmonic_arguments
-  type(String)     :: file_type
-  type(String)     :: seedname
   real(dp)         :: symmetry_precision
   
   ! Arguments to calculate_normal_modes.
   type(Dictionary) :: calculate_normal_modes_arguments
-  type(String)     :: calculation_type
   
   ! Electronic structure calculation reader.
   type(CalculationReader) :: calculation_reader
@@ -146,8 +143,6 @@ subroutine calculate_potential_subroutine(arguments)
   setup_harmonic_arguments = Dictionary(setup_harmonic())
   call setup_harmonic_arguments%read_file( &
      & harmonic_path//'/setup_harmonic.used_settings')
-  file_type = setup_harmonic_arguments%value('file_type')
-  seedname = setup_harmonic_arguments%value('seedname')
   symmetry_precision = &
      & dble(setup_harmonic_arguments%value('symmetry_precision'))
   
@@ -155,7 +150,6 @@ subroutine calculate_potential_subroutine(arguments)
   calculate_normal_modes_arguments = Dictionary(calculate_normal_modes())
   call calculate_normal_modes_arguments%read_file( &
      & harmonic_path//'/calculate_normal_modes.used_settings')
-  calculation_type = calculate_normal_modes_arguments%value('calculation_type')
   
   ! Read in structure.
   structure_file = IFile(harmonic_path//'/structure.dat')
@@ -221,11 +215,7 @@ subroutine calculate_potential_subroutine(arguments)
   ! --------------------------------------------------
   ! Initialise calculation reader.
   ! --------------------------------------------------
-  calculation_reader = CalculationReader(    &
-     & working_directory  = wd,              &
-     & file_type          = file_type,       &
-     & seedname           = seedname,        &
-     & calculation_type   = calculation_type )
+  calculation_reader = CalculationReader()
   
   ! --------------------------------------------------
   ! Run representation-specific code.

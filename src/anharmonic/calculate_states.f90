@@ -30,26 +30,31 @@ function calculate_states() result(output)
   output%description = 'Runs VSCF on the anharmonic potential to calculate &
      &states. Should be run after calculate_potential.'
   output%keywords = [                                                         &
-  & KeywordData( 'no_single_mode_samples',                                    &
-  &              'no_single_mode_samples is the number of points (either side &
-  &of zero) along each mode at which the anharmonic potential will be sampled &
-  &when determining the effective frequency with which the harmonic basis &
-  &along that mode will be constructed.',                                     &
-  &              default_value='100'),                                        &
-  & KeywordData( 'validate_potential',                                        &
-  &              'validate_potential specifies that the anharmonic potential &
-  &should be verified against fresh electronic structure calculations when &
-  &sampling. Depending on the electronic structure method, this is likely to &
-  &be very computationally intensive.',                                       &
-  &              default_value='false'),                                      &
-  & KeywordData( 'run_script',                                                &
-  &              'run_script is the path to the script for running DFT. An &
-  &example run script can be found in doc/input_files.',                      &
-  &               is_path=.true.),                                            &
-  & KeywordData( 'no_cores',                                                  &
-  &              'no_cores is the number of cores on which DFT will be run. &
-  &This is passed to the specified run script.',                              &
-  &               default_value='1') ]
+     & KeywordData( 'no_single_mode_samples',                                 &
+     &              'no_single_mode_samples is the number of points (either &
+     &side of zero) along each mode at which the anharmonic potential will be &
+     &sampled when determining the effective frequency with which the &
+     &harmonic basis along that mode will be constructed.',                   &
+     &              default_value='100'),                                     &
+     & KeywordData( 'validate_potential',                                     &
+     &              'validate_potential specifies that the anharmonic &
+     &potential should be verified against fresh electronic structure &
+     &calculations when sampling. Depending on the electronic structure &
+     &method, this is likely to be very computationally intensive.',          &
+     &              default_value='false'),                                   &
+     & KeywordData( 'run_script',                                             &
+     &              'run_script is the path to the script for running DFT. An &
+     &example run script can be found in doc/input_files.',                   &
+     &               is_path=.true.),                                         &
+     & KeywordData( 'no_cores',                                               &
+     &              'no_cores is the number of cores on which DFT will be &
+     &run. This is passed to the specified run script.',                      &
+     &               default_value='1'),                                      &
+     & KeywordData( 'calculation_type',                                       &
+     &              'calculation_type specifies whether any electronic &
+     &structure calculations should be run in addition to the user-defined &
+     &script. Settings are: "none" and "quip".',                              &
+     &              default_value='none') ]
   output%main_subroutine => calculate_states_subroutine
 end function
 
@@ -69,6 +74,7 @@ subroutine calculate_states_subroutine(arguments)
   logical      :: validate_potential
   type(String) :: run_script
   integer      :: no_cores
+  type(String) :: calculation_type
   
   ! Arguments to setup_anharmonic.
   type(Dictionary) :: setup_anharmonic_arguments
@@ -79,7 +85,6 @@ subroutine calculate_states_subroutine(arguments)
   
   ! Arguments to calculate_normal_modes.
   type(Dictionary) :: calculate_normal_modes_arguments
-  type(String)     :: calculation_type
   
   ! Arguments to setup_harmonic.
   type(Dictionary) :: setup_harmonic_arguments
@@ -155,6 +160,7 @@ subroutine calculate_states_subroutine(arguments)
   validate_potential = lgcl(arguments%value('validate_potential'))
   run_script = arguments%value('run_script')
   no_cores = int(arguments%value('no_cores'))
+  calculation_type = arguments%value('calculation_type')
   
   ! Read in setup_anharmonic arguments.
   setup_anharmonic_arguments = Dictionary(setup_anharmonic())
@@ -172,7 +178,6 @@ subroutine calculate_states_subroutine(arguments)
   calculate_normal_modes_arguments = Dictionary(calculate_normal_modes())
   call calculate_normal_modes_arguments%read_file( &
      & harmonic_path//'/calculate_normal_modes.used_settings')
-  calculation_type = calculate_normal_modes_arguments%value('calculation_type')
   
   ! Read in setup_harmonic arguments.
   setup_harmonic_arguments = Dictionary(setup_harmonic())
@@ -218,17 +223,15 @@ subroutine calculate_states_subroutine(arguments)
                                         & file_type         = file_type, &
                                         & seedname          = seedname   )
   
-  calculation_runner = CalculationRunner( working_directory = wd,         &
-                                        & file_type         = file_type,  &
-                                        & seedname          = seedname,   &
-                                        & run_script        = run_script, &
-                                        & no_cores          = no_cores    )
+  calculation_runner = CalculationRunner(   &
+     & working_directory = wd,              &
+     & file_type         = file_type,       &
+     & seedname          = seedname,        &
+     & run_script        = run_script,      &
+     & no_cores          = no_cores,        &
+     & calculation_type  = calculation_type )
   
-  calculation_reader = CalculationReader(    &
-     & working_directory  = wd,              &
-     & file_type          = file_type,       &
-     & seedname           = seedname,        &
-     & calculation_type   = calculation_type )
+  calculation_reader = CalculationReader()
   
   ! --------------------------------------------------
   ! Re-calculate maximum_weighted_displacement.

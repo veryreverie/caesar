@@ -11,5 +11,6 @@ module electronic_structure_module
   use calculation_writer_submodule
   use calculation_runner_submodule
   use calculation_reader_submodule
+  use phonon_file_submodule
   implicit none
 end module

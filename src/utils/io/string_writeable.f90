@@ -73,24 +73,38 @@ contains
 ! ----------------------------------------------------------------------
 ! The str() function, which converts to string types.
 ! ----------------------------------------------------------------------
-recursive function str_StringWriteable(this) result(output)
+recursive function str_StringWriteable(this,settings) result(output)
   implicit none
   
-  class(StringWriteable), intent(in) :: this
-  type(String)                       :: output
+  class(StringWriteable), intent(in)           :: this
+  type(PrintSettings),    intent(in), optional :: settings
+  type(String)                                 :: output
+  
+  if (present(settings)) then
+    call set_print_settings(settings)
+  endif
   
   output = this%write()
+  
+  if (present(settings)) then
+    call unset_print_settings()
+  endif
 end function
 
-recursive function str_StringWriteables_character(this,separating_line) &
-   & result(output)
+recursive function str_StringWriteables_character(this,separating_line, &
+   & settings) result(output)
   implicit none
   
   class(StringWriteable), intent(in)           :: this(:)
   character(*),           intent(in), optional :: separating_line
+  type(PrintSettings),    intent(in), optional :: settings
   type(String), allocatable                    :: output(:)
   
   integer :: i,ialloc
+  
+  if (present(settings)) then
+    call set_print_settings(settings)
+  endif
   
   if (present(separating_line)) then
     allocate(output(2*size(this)-1), stat=ialloc); call err(ialloc)
@@ -106,17 +120,30 @@ recursive function str_StringWriteables_character(this,separating_line) &
       output(i) = str(this(i))
     enddo
   endif
+  
+  if (present(settings)) then
+    call unset_print_settings()
+  endif
 end function
 
-recursive function str_StringWriteables_String(this,separating_line) &
+recursive function str_StringWriteables_String(this,separating_line,settings) &
    & result(output)
   implicit none
   
-  class(StringWriteable), intent(in) :: this(:)
-  type(String),           intent(in) :: separating_line
-  type(String), allocatable          :: output(:)
+  class(StringWriteable), intent(in)           :: this(:)
+  type(String),           intent(in)           :: separating_line
+  type(PrintSettings),    intent(in), optional :: settings
+  type(String), allocatable                    :: output(:)
   
-  output = str(this,char(separating_line))
+  if (present(settings)) then
+    call set_print_settings(settings)
+  endif
+  
+  output = str(this, char(separating_line))
+  
+  if (present(settings)) then
+    call unset_print_settings()
+  endif
 end function
 
 ! ----------------------------------------------------------------------
@@ -172,43 +199,80 @@ end function
 ! Convert a StringWriteable array to an array of Strings,
 !    then concatenate them into a single string.
 ! ----------------------------------------------------------------------
-recursive function join_StringWriteable(this,delimiter) result(output)
+recursive function join_StringWriteable(this,delimiter,settings) result(output)
   implicit none
   
   class(StringWriteable), intent(in)           :: this(:)
   character(*),           intent(in), optional :: delimiter
+  type(PrintSettings),    intent(in), optional :: settings
   type(String)                                 :: output
   
+  if (present(settings)) then
+    call set_print_settings(settings)
+  endif
+  
   output = join(str(this), delimiter)
+  
+  if (present(settings)) then
+    call unset_print_settings()
+  endif
 end function
 
 ! ----------------------------------------------------------------------
 ! Provides print_line and print_lines for types which extend StringWriteable.
 ! ----------------------------------------------------------------------
-subroutine print_line_StringWriteable(this)
+subroutine print_line_StringWriteable(this,settings)
   implicit none
   
-  class(StringWriteable), intent(in) :: this
+  class(StringWriteable), intent(in)           :: this
+  type(PrintSettings),    intent(in), optional :: settings
+  
+  if (present(settings)) then
+    call set_print_settings(settings)
+  endif
   
   call print_line(str(this))
+  
+  if (present(settings)) then
+    call unset_print_settings()
+  endif
 end subroutine
 
-subroutine print_lines_StringWriteables_character(this,separating_line)
+subroutine print_lines_StringWriteables_character(this,separating_line, &
+   & settings)
   implicit none
   
   class(StringWriteable), intent(in)           :: this(:)
   character(*),           intent(in), optional :: separating_line
+  type(PrintSettings),    intent(in), optional :: settings
+  
+  if (present(settings)) then
+    call set_print_settings(settings)
+  endif
   
   call print_lines(str(this,separating_line))
+  
+  if (present(settings)) then
+    call unset_print_settings()
+  endif
 end subroutine
 
-subroutine print_lines_StringWriteables_String(this,separating_line)
+subroutine print_lines_StringWriteables_String(this,separating_line,settings)
   implicit none
   
-  class(StringWriteable), intent(in) :: this(:)
-  type(String),           intent(in) :: separating_line
+  class(StringWriteable), intent(in)           :: this(:)
+  type(String),           intent(in)           :: separating_line
+  type(PrintSettings),    intent(in), optional :: settings
+  
+  if (present(settings)) then
+    call set_print_settings(settings)
+  endif
   
   call print_lines(str(this,separating_line))
+  
+  if (present(settings)) then
+    call unset_print_settings()
+  endif
 end subroutine
 end module
 

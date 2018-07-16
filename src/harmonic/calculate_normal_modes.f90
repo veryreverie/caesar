@@ -40,13 +40,7 @@ function calculate_normal_modes() result(output)
      &              'degenerate_energy is the minimum energy difference &
      &between states before they are considered degenerate. This should be &
      &given in Hartrees.',                                                    &
-     &              default_value='1e-5'),                                    &
-     & KeywordData( 'calculation_type',                                       &
-     &              'calculation_type specifies whether electronic structure &
-     &calculations have been run using a user-defined script and &
-     &run_harmonic, or should be run through Quip. Settings are: "script" and &
-     &"quip".',                                                               &
-     &              default_value='script') ]
+     &              default_value='1e-5')                                     ]
   output%main_subroutine => calculate_normal_modes_subroutine
 end function
 
@@ -67,10 +61,8 @@ subroutine calculate_normal_modes_subroutine(arguments)
   logical          :: acoustic_sum_rule_forces
   logical          :: acoustic_sum_rule_matrices
   real(dp)         :: degenerate_energy
-  type(String)     :: calculation_type
   
   ! Arguments to setup_harmonic.
-  type(String) :: file_type
   type(String) :: seedname
   real(dp)     :: symmetry_precision
   
@@ -106,8 +98,9 @@ subroutine calculate_normal_modes_subroutine(arguments)
   integer,     allocatable :: degenerate_ids(:)
   complex(dp)              :: phase
   integer                  :: paired_pos
+  integer                  :: paired_id
   
-  type(ComplexMode), allocatable :: complex_modes(:)
+  type(ComplexMode), allocatable :: complex_modes(:,:)
   
   ! Files.
   type(IFile) :: structure_file
@@ -120,6 +113,7 @@ subroutine calculate_normal_modes_subroutine(arguments)
   type(OFile) :: complex_modes_file
   type(OFile) :: force_logfile
   type(OFile) :: qpoint_logfile
+  type(OFile) :: phonon_file
   
   ! Temporary variables.
   integer      :: i,j,k,l,ialloc
@@ -152,14 +146,11 @@ subroutine calculate_normal_modes_subroutine(arguments)
   
   degenerate_energy = dble(arguments%value('degenerate_energy'))
   
-  calculation_type = arguments%value('calculation_type')
-  
   ! --------------------------------------------------
   ! Read in previous arguments.
   ! --------------------------------------------------
   setup_harmonic_arguments = Dictionary(setup_harmonic())
   call setup_harmonic_arguments%read_file(wd//'/setup_harmonic.used_settings')
-  file_type = setup_harmonic_arguments%value('file_type')
   seedname = setup_harmonic_arguments%value('seedname')
   symmetry_precision = &
      & dble(setup_harmonic_arguments%value('symmetry_precision'))
@@ -179,11 +170,7 @@ subroutine calculate_normal_modes_subroutine(arguments)
   ! --------------------------------------------------
   ! Initialise calculation reader.
   ! --------------------------------------------------
-  calculation_reader = CalculationReader(    &
-     & working_directory  = wd,              &
-     & file_type          = file_type,       &
-     & seedname           = seedname,        &
-     & calculation_type   = calculation_type )
+  calculation_reader = CalculationReader()
   
   ! --------------------------------------------------
   ! Calculate the matrix of force constants corresponding to each supercell.
@@ -315,97 +302,84 @@ subroutine calculate_normal_modes_subroutine(arguments)
     call err()
   enddo iter
   
-  ! --------------------------------------------------
-  ! Set mode q-point ids.
-  ! --------------------------------------------------
-  do i=1,size(dynamical_matrices)
-    dynamical_matrices(i)%complex_modes%qpoint_id = qpoints(i)%id
-  enddo
-  
-  ! --------------------------------------------------
-  ! Assign ids to all modes, and pair up modes.
-  ! --------------------------------------------------
-  ! Assign ids
-  mode_id = 0
-  do i=1,size(dynamical_matrices)
-    do j=1,size(dynamical_matrices(i)%complex_modes)
-      mode_id = mode_id+1
-      dynamical_matrices(i)%complex_modes(j)%id = mode_id
-    enddo
-  enddo
-  
-  ! Pair up modes.
-  do i=1,size(dynamical_matrices)
-    j = first(qpoints%id==qpoints(i)%paired_qpoint_id)
-    
-    if (j/=i) then
-      ! If -q /= q, the modes are set up so that the conjugate of a
-      !    mode at q is simply the mode in the same position at -q.
-      dynamical_matrices(i)%complex_modes%paired_id = &
-         & dynamical_matrices(j)%complex_modes%id
-    else
-      ! If q = -q, then it is necessary to identify conjugate modes.
-      do k=1,size(dynamical_matrices(i)%complex_modes)
-        ! Calculate the overlap of the conjugate of mode k with the other
-        !    modes. N.B. since the dot product would normaly involve a conjg,
-        !    the two conjugates cancel.
-        degenerate_ids =                                                &
-           & filter( dynamical_matrices(i)%complex_modes%subspace_id == &
-           &         dynamical_matrices(i)%complex_modes(k)%subspace_id)
-        allocate( pair_overlap(size(degenerate_ids)), &
-                & stat=ialloc); call err(ialloc)
-        do l=1,size(pair_overlap)
-          pair_overlap(l) = sum(                                    &
-             &   dynamical_matrices(i)%complex_modes(               &
-             &                       degenerate_ids(l))%unit_vector &
-             & * dynamical_matrices(i)%complex_modes(k)%unit_vector )
-        enddo
-        ! conjg(mode(k)) should equal one mode (down to a phase change),
-        !    and have no overlap with any other mode.
-        ! Check that this is true, and identify the one mode.
-        if (count(abs(pair_overlap)<1e-2)/=size(pair_overlap)-1) then
-          call print_line(ERROR//': Modes at qpoint '//i//' do not transform &
-             &as expected under parity.')
-          call print_line(pair_overlap)
-          call err()
-        endif
-        
-        ! Get the position of the paired mode in the list of degenerate modes.
-        paired_pos = first(abs(abs(pair_overlap)-1)<1e-2)
-        
-        ! Find and normalise the phase of the mode.
-        ! Only relevant for when this mode is its own pair, and must be made
-        !    real.
-        phase = sqrt(pair_overlap(paired_pos))
-        phase = phase / abs(phase)
-        ! Convert from position in degenerate modes to position in all modes.
-        paired_pos = degenerate_ids(paired_pos)
-        
-        deallocate(pair_overlap, stat=ialloc); call err(ialloc)
-        
-        ! Pair up modes.
-        if (paired_pos==k) then
-          ! The mode is paired to itself. Set paired_id, and divide by the
-          !    phase so that the mode is real.
-          dynamical_matrices(i)%complex_modes(k)%paired_id = &
-             & dynamical_matrices(i)%complex_modes(k)%id
-          dynamical_matrices(i)%complex_modes(k)%unit_vector =         &
-             & cmplxvec(real(                                          &
-             &      dynamical_matrices(i)%complex_modes(k)%unit_vector &
-             &    / phase                                              ))
-        elseif (paired_pos>k) then
-          ! The mode is paired to another.
-          dynamical_matrices(i)%complex_modes(k)%paired_id = &
-             & dynamical_matrices(i)%complex_modes(paired_pos)%id
-          dynamical_matrices(i)%complex_modes(paired_pos) = &
-             & conjg(dynamical_matrices(i)%complex_modes(k))
-        elseif (paired_pos<k) then
-          ! The mode has already been handled, when its pair came up.
-          cycle
-        endif
-      enddo
-    endif
-  enddo
+  ! %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+!  ! --------------------------------------------------
+!  ! Assign ids to all modes, and pair up modes.
+!  ! --------------------------------------------------
+!  ! Pair up modes.
+!  do i=1,size(dynamical_matrices)
+!    j = first(qpoints%id==qpoints(i)%paired_qpoint_id)
+!    
+!    if (j/=i) then
+!      !! If -q /= q, the modes are set up so that the conjugate of a
+!      !!    mode at q is simply the mode in the same position at -q.
+!      !dynamical_matrices(i)%complex_modes%paired_id = &
+!      !   & dynamical_matrices(j)%complex_modes%id
+!    else
+!      ! If q = -q, then it is necessary to identify conjugate modes.
+!      do k=1,size(dynamical_matrices(i)%complex_modes)
+!        ! Calculate the overlap of the conjugate of mode k with the other
+!        !    modes. N.B. since the dot product would normaly involve a conjg,
+!        !    the two conjugates cancel.
+!        degenerate_ids =                                                &
+!           & filter( dynamical_matrices(i)%complex_modes%subspace_id == &
+!           &         dynamical_matrices(i)%complex_modes(k)%subspace_id)
+!        allocate( pair_overlap(size(degenerate_ids)), &
+!                & stat=ialloc); call err(ialloc)
+!        do l=1,size(pair_overlap)
+!          pair_overlap(l) = sum(                                    &
+!             &   dynamical_matrices(i)%complex_modes(               &
+!             &                       degenerate_ids(l))%unit_vector &
+!             & * dynamical_matrices(i)%complex_modes(k)%unit_vector )
+!        enddo
+!        ! conjg(mode(k)) should equal one mode (down to a phase change),
+!        !    and have no overlap with any other mode.
+!        ! Check that this is true, and identify the one mode.
+!        if (count(abs(pair_overlap)<1e-2)/=size(pair_overlap)-1) then
+!          call print_line(ERROR//': Modes at qpoint '//i//' do not transform &
+!             &as expected under parity.')
+!          call print_line(pair_overlap)
+!          call err()
+!        endif
+!        
+!        ! Get the position of the paired mode in the list of degenerate modes.
+!        paired_pos = first(abs(abs(pair_overlap)-1)<1e-2)
+!        
+!        ! Find and normalise the phase of the mode.
+!        ! Only relevant for when this mode is its own pair, and must be made
+!        !    real.
+!        phase = sqrt(pair_overlap(paired_pos))
+!        phase = phase / abs(phase)
+!        
+!        ! Convert from position in degenerate modes to position in all modes.
+!        paired_id = degenerate_ids(paired_pos)
+!        
+!        deallocate(pair_overlap, stat=ialloc); call err(ialloc)
+!        
+!        ! Pair up modes.
+!        if (paired_id==k) then
+!          ! The mode is paired to itself. Set paired_id, and divide by the
+!          !    phase so that the mode is real.
+!          !dynamical_matrices(i)%complex_modes(k)%paired_id = &
+!          !   & dynamical_matrices(i)%complex_modes(k)%id
+!          dynamical_matrices(i)%complex_modes(k)%unit_vector =         &
+!             & cmplxvec(real(                                          &
+!             &      dynamical_matrices(i)%complex_modes(k)%unit_vector &
+!             &    / phase                                              ))
+!        elseif (paired_id>k) then
+!          ! The mode is paired to another.
+!          !dynamical_matrices(i)%complex_modes(k)%paired_id = &
+!          !   & dynamical_matrices(i)%complex_modes(paired_id)%id
+!          dynamical_matrices(i)%complex_modes(paired_id) = &
+!             & conjg(dynamical_matrices(i)%complex_modes(k))
+!        elseif (paired_id<k) then
+!          ! The mode has already been handled, when its pair came up.
+!          cycle
+!        endif
+!      enddo
+!    endif
+!  enddo
+  ! %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   
   ! --------------------------------------------------
   ! Check all dynamical matrices.
@@ -442,6 +416,8 @@ subroutine calculate_normal_modes_subroutine(arguments)
   ! --------------------------------------------------
   ! Write out output.
   ! --------------------------------------------------
+  allocate( complex_modes(structure%no_modes,size(qpoints)), &
+          & stat=ialloc); call err(ialloc)
   do i=1,size(qpoints)
     qdir = wd//'/qpoint_'//left_pad(i,str(size(qpoints)))
     call mkdir(qdir)
@@ -451,9 +427,14 @@ subroutine calculate_normal_modes_subroutine(arguments)
     call dynamical_matrix_file%print_lines(dynamical_matrices(i))
     
     ! Write out normal modes.
-    complex_modes = dynamical_matrices(i)%complex_modes
+    complex_modes(:,i) = dynamical_matrices(i)%complex_modes
     complex_modes_file = OFile(qdir//'/complex_modes.dat')
-    call complex_modes_file%print_lines(complex_modes,separating_line='')
+    call complex_modes_file%print_lines( dynamical_matrices(i)%complex_modes, &
+                                       & separating_line='')
   enddo
+  
+  ! Write out Castep .phonon file.
+  phonon_file = OFile(wd//'/'//make_phonon_filename(seedname))
+  call write_phonon_file(phonon_file,complex_modes,qpoints,structure)
 end subroutine
 end module

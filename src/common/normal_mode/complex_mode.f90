@@ -114,9 +114,8 @@ impure elemental function new_ComplexMode_HermitianEigenstuff(eigenstuff, &
   type(StructureData),       intent(in) :: structure
   type(ComplexMode)                     :: this
   
-  real(dp)       :: frequency
-  type(AtomData) :: atom
-  real(dp)       :: spring_constant
+  real(dp) :: frequency
+  real(dp) :: spring_constant
   
   type(ComplexVector), allocatable :: unit_vector(:)
   
@@ -198,12 +197,16 @@ impure elemental function transform_ComplexMode(input,symmetry,qpoint_from, &
   type(ComplexMode)                  :: output
   
   integer :: no_atoms
+  integer :: no_modes
   integer :: atom_from
   integer :: atom_to
   
   type(IntVector) :: r
   
   type(ComplexVector), allocatable :: unit_vector(:)
+  
+  integer :: id
+  integer :: paired_id
   
   integer :: ialloc
   
@@ -222,6 +225,7 @@ impure elemental function transform_ComplexMode(input,symmetry,qpoint_from, &
   endif
   
   no_atoms = size(input%unit_vector)
+  no_modes = 3*no_atoms
   
   ! Allocate output, and transfer across all data.
   ! (Displacements need rotating, but everything else stays the same.)
@@ -237,8 +241,13 @@ impure elemental function transform_ComplexMode(input,symmetry,qpoint_from, &
                        & * exp_2pii(qpoint_to%qpoint*r)
   enddo
   
-  output = ComplexMode( id                 = 0,                          &
-                      & paired_id          = 0,                          &
+  id = input%id + no_modes*(qpoint_to%id-qpoint_from%id)
+  paired_id = input%paired_id                         &
+          & + no_modes*( qpoint_to%paired_qpoint_id   &
+          &            - qpoint_from%paired_qpoint_id )
+  
+  output = ComplexMode( id                 = id,                         &
+                      & paired_id          = paired_id,                  &
                       & frequency          = input%frequency,            &
                       & spring_constant    = input%spring_constant,      &
                       & soft_mode          = input%soft_mode,            &

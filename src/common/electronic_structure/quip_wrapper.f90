@@ -156,20 +156,25 @@ subroutine assign_Atoms_StructureData(output,input)
   type(Atoms),         intent(out) :: output
   type(StructureData), intent(in)  :: input
   
+  type(String), allocatable :: split_species(:)
+  
   integer :: i,ialloc
   
-  allocate( output%z(size(input%atoms)),     &
-          & output%mass(size(input%atoms)),  &
-          & output%pos(3,size(input%atoms)), &
+  allocate( output%z(input%no_atoms),     &
+          & output%mass(input%no_atoms),  &
+          & output%pos(3,input%no_atoms), &
           & stat=ialloc); call err(ialloc)
   
   output%lattice = dble(transpose(input%lattice)) * ANGSTROM_PER_BOHR
   
-  output%z = int(input%atoms%species())
+  do i=1,input%no_atoms
+    split_species = split_line(input%atoms(i)%species(),':')
+    output%z(i) = int(split_species(2))
+  enddo
   
   output%mass = input%atoms%mass() * KG_PER_ME / KG_PER_AMU
   
-  do i=1,size(input%atoms)
+  do i=1,input%no_atoms
     output%pos(:,i) = dble(input%atoms(i)%cartesian_position()) &
                   & * ANGSTROM_PER_BOHR
   enddo

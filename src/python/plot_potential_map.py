@@ -47,11 +47,11 @@ def main():
   min_difference = 0
   max_difference = 0
   
-  #min_energy = min(min_energy, np.min(harmonic_energy))
-  #min_energy = min(min_energy, np.min(anharmonic_energy))
+  min_energy = min(min_energy, np.min(harmonic_energy))
+  min_energy = min(min_energy, np.min(anharmonic_energy))
   min_energy = min(min_energy, np.min(sampled_energy))
-  #max_energy = max(max_energy, np.max(harmonic_energy))
-  #max_energy = max(max_energy, np.max(anharmonic_energy))
+  max_energy = max(max_energy, np.max(harmonic_energy))
+  max_energy = max(max_energy, np.max(anharmonic_energy))
   max_energy = max(max_energy, np.max(sampled_energy))
   
   min_difference = min(min_difference, np.min(harmonic_difference))

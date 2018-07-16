@@ -11,7 +11,7 @@ module physical_constants_submodule
   ! Values taken from CODATA 2014, from NIST (physics.nist.gov) on 5/5/2017.
   ! --------------------------------------------------
   
-  ! Hartree energy in eV.
+  ! Twice Rydberg's constant in eV.
   real(dp), parameter, public :: EV_PER_HARTREE = 27.21138602_dp
   
   ! Boltzmann's constant in eV/K.
@@ -19,6 +19,9 @@ module physical_constants_submodule
   
   ! Rydberg constant in eV.
   real(dp), parameter, public :: EV_PER_RYDBERG = 13.605693009_dp
+  
+  ! Twice Rydberg's constant in inverse cm.
+  real(dp), parameter, public :: INVERSE_CM_PER_HARTREE = 2.194746313702e4_dp
   
   ! Bohr radius in Angstrom.
   real(dp), parameter, public :: ANGSTROM_PER_BOHR = 0.52917721067_dp

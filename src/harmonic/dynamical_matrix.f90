@@ -103,7 +103,7 @@ function new_DynamicalMatrix_calculated(qpoint,supercells,force_constants, &
     ! q' is defined such that rotation i maps qp onto q.
     ! N.B. q-points rotate as q->R^-T.q, so q' s.t. q'->q is given by
     !    q' = R^T.q = q.R.
-    q_prime = structure%inverse_symmetries(i) * qpoint
+    q_prime = structure%symmetries(i)%inverse_transform(qpoint)
     do j=1,size(supercells)
       if (is_int(supercells(j)%supercell*q_prime%qpoint)) then
         is_copy(j,i) = .true.
@@ -120,7 +120,7 @@ function new_DynamicalMatrix_calculated(qpoint,supercells,force_constants, &
           & stat=ialloc); call err(ialloc)
   k = 0
   do i=1,size(structure%symmetries)
-    q_prime = structure%inverse_symmetries(i) * qpoint
+    q_prime = structure%symmetries(i)%inverse_transform(qpoint)
     do j=1,size(supercells)
       if (is_copy(j,i)) then
         k = k+1

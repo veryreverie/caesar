@@ -16,11 +16,6 @@ module calculation_reader_submodule
   public :: CalculationReader
   
   type, extends(NoDefaultConstructor) :: CalculationReader
-    type(String), private              :: working_directory_
-    type(String), private              :: file_type_
-    type(String), private              :: seedname_
-    type(String), private              :: calculation_type_
-    type(String), private              :: filename_
     type(String), private, allocatable :: directories_(:)
   contains
     procedure, public :: directories_read
@@ -34,34 +29,10 @@ module calculation_reader_submodule
 contains
 
 ! Constructor.
-function new_CalculationReader(working_directory,file_type,seedname, &
-   & calculation_type) result(this)
+function new_CalculationReader() result(this)
   implicit none
   
-  type(String), intent(in) :: working_directory
-  type(String), intent(in) :: file_type
-  type(String), intent(in) :: seedname
-  type(String), intent(in) :: calculation_type
   type(CalculationReader)  :: this
-    
-  this%working_directory_  = working_directory
-  this%file_type_          = file_type
-  this%seedname_           = seedname
-  this%calculation_type_   = calculation_type
-  
-  ! If the calculation type is 'script' then the electronic structure
-  !    calculation has already been run, so the output file should be read
-  ! If the calculation type is 'quip' then the calculation is still to be run,
-  !    so the input file should be read.
-  if (calculation_type=='script') then
-    this%filename_ = make_output_filename(file_type,seedname)
-  elseif (calculation_type=='quip') then
-    this%filename_ = make_input_filename(file_type,seedname)
-  else
-    call print_line(ERROR//': calculation_type must be either "script" or &
-       & "quip.')
-    call err()
-  endif
   
   this%directories_ = [String::]
 end function
@@ -85,26 +56,10 @@ function read_calculation(this,directory) result(output)
   type(String),             intent(in)    :: directory
   type(ElectronicStructure)               :: output
   
-  type(IFile)         :: structure_file
-  type(StructureData) :: structure
+  type(IFile)         :: electronic_structure_file
   
-  type(OFile) :: electronic_structure_file
-  
-  ! Read in structure.
-  structure_file = IFile(directory//'/structure.dat')
-  structure = StructureData(structure_file%lines())
-  
-  ! Read the calculation.
-  output = read_output_file( this%file_type_,                &
-                           & directory//'/'//this%filename_, &
-                           & structure,                      &
-                           & this%working_directory_,        &
-                           & this%seedname_,                 &
-                           & this%calculation_type_          )
-  
-  ! Write an electronic_structure.dat file.
-  electronic_structure_file = OFile(directory//'/electronic_structure.dat')
-  call electronic_structure_file%print_lines(output)
+  electronic_structure_file = IFile(directory//'/electronic_structure.dat')
+  output = ElectronicStructure(electronic_structure_file%lines())
   
   ! Record the directory.
   this%directories_ = [this%directories_, directory]

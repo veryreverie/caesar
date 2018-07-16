@@ -23,6 +23,10 @@ module symmetry_submodule
     ! The ID of the symmetry.
     integer :: id
     
+    ! The ID of the symmetry S s.t. this symmetry * S is the identity,
+    !    up to R-vector translation.
+    integer :: inverse_symmetry_id
+    
     ! The rotation and translation in fractional co-ordinates.
     ! R and T.
     type(IntMatrix)  :: rotation
@@ -51,10 +55,17 @@ module symmetry_submodule
     !    co-ordinates.
     type(Group)                  :: prim_atom_group
     type(IntVector), allocatable :: prim_rvector(:)
+    
+    ! How the symmetry acts on other symmetries.
+    ! If this symmetry * symmetry_j = symmetry_k then symmetry_group*j=k.
+    ! N.B. these relations are true only up to R-vector translations.
+    type(Group) :: symmetry_group
   contains
     ! Rotating a q-point.
-    generic,   public  :: operator(*) => rotate_qpoint
-    procedure, private ::                rotate_qpoint
+    generic,   public  :: operator(*) => transform_qpoint
+    procedure, private ::                transform_qpoint
+    
+    procedure, public :: inverse_transform
     
     procedure, public :: symmetry_order
   end type
@@ -71,8 +82,9 @@ contains
 ! ----------------------------------------------------------------------
 ! Constructs a SymmetryOperator.
 ! ----------------------------------------------------------------------
-function new_SymmetryOperator(symmetry,lattice,recip_lattice,atom_group, &
-   & rvector,prim_atom_group,prim_rvector) result(output)
+function new_SymmetryOperator(symmetry,lattice,recip_lattice,atom_group,      &
+   & rvector,prim_atom_group,prim_rvector,symmetry_group,inverse_symmetry_id) &
+   & result(this)
   implicit none
   
   type(BasicSymmetry), intent(in) :: symmetry
@@ -82,24 +94,29 @@ function new_SymmetryOperator(symmetry,lattice,recip_lattice,atom_group, &
   type(IntVector),     intent(in) :: rvector(:)
   type(Group),         intent(in) :: prim_atom_group
   type(IntVector),     intent(in) :: prim_rvector(:)
-  type(SymmetryOperator)          :: output
+  type(Group),         intent(in) :: symmetry_group
+  integer,             intent(in) :: inverse_symmetry_id
+  type(SymmetryOperator)          :: this
   
-  output%id = symmetry%id
-  output%rotation = symmetry%rotation
-  output%translation = symmetry%translation
+  this%id = symmetry%id
+  this%rotation = symmetry%rotation
+  this%translation = symmetry%translation
   
-  output%cartesian_rotation = transpose(lattice) &
-                          & * symmetry%rotation  &
-                          & * recip_lattice
-  output%cartesian_translation = transpose(lattice) &
-                             & * symmetry%translation
+  this%cartesian_rotation = transpose(lattice) &
+                        & * symmetry%rotation  &
+                        & * recip_lattice
+  this%cartesian_translation = transpose(lattice) &
+                           & * symmetry%translation
   
-  output%recip_rotation_ = transpose(invert(symmetry%rotation))
+  this%recip_rotation_ = transpose(invert(symmetry%rotation))
   
-  output%atom_group      = atom_group
-  output%rvector         = rvector
-  output%prim_atom_group = prim_atom_group
-  output%prim_rvector    = prim_rvector
+  this%atom_group      = atom_group
+  this%rvector         = rvector
+  this%prim_atom_group = prim_atom_group
+  this%prim_rvector    = prim_rvector
+  
+  this%symmetry_group = symmetry_group
+  this%inverse_symmetry_id = inverse_symmetry_id
 end function
 
 ! ----------------------------------------------------------------------
@@ -163,7 +180,7 @@ end function
 ! ----------------------------------------------------------------------
 ! Rotates a q-point, and translates it back to the primitive reciprocal cell.
 ! ----------------------------------------------------------------------
-impure elemental function rotate_qpoint(this,qpoint) result(output)
+impure elemental function transform_qpoint(this,qpoint) result(output)
   implicit none
   
   class(SymmetryOperator), intent(in) :: this
@@ -175,6 +192,23 @@ impure elemental function rotate_qpoint(this,qpoint) result(output)
   
   ! Rotate q-point.
   output%qpoint = this%recip_rotation_ * qpoint%qpoint
+  
+  ! Translate q-point back into primitive reciprocal cell if necessary.
+  call output%translate_to_primitive()
+end function
+
+impure elemental function inverse_transform(this,qpoint) result(output)
+  implicit none
+  
+  class(SymmetryOperator), intent(in) :: this
+  type(QpointData),        intent(in) :: qpoint
+  type(QpointData)                    :: output
+  
+  ! Transfer across all metadata.
+  output = qpoint
+  
+  ! Rotate q-point.
+  output%qpoint = transpose(this%rotation) * qpoint%qpoint
   
   ! Translate q-point back into primitive reciprocal cell if necessary.
   call output%translate_to_primitive()

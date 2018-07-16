@@ -75,14 +75,24 @@ function calculate_modes_calculated(matrices,structure,qpoint, &
   ! Error checking variables.
   type(ComplexMatrix) :: symmetry
   
-  integer :: i,j
+  ! Variables for pairing up modes.
+  complex(dp), allocatable :: pair_overlap(:)
+  complex(dp)              :: phase
+  
+  integer :: i,j,k,ialloc
   
   ! Calculate normal modes as if at an arbitrary q-point.
   output = calculate_modes(matrices,structure)
   
-  ! Set q-point ids.
+  ! Set q-point ids and mode ids.
   output%qpoint_id = qpoint%id
   output%paired_qpoint_id = qpoint%paired_qpoint_id
+  
+  do i=1,size(output)
+    output(i)%id        = (qpoint%id-1)*structure%no_modes_prim + i
+    output(i)%paired_id = (qpoint%paired_qpoint_id-1)*structure%no_modes_prim &
+                      & + i
+  enddo
   
   ! Identify purely translational modes (at the gamma-point only).
   output%translational_mode = .false.
@@ -157,6 +167,52 @@ function calculate_modes_calculated(matrices,structure,qpoint, &
                                         & qpoint,         &
                                         & logfile)
     endif
+    
+    ! %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    ! If this q-point is its own pair, identify and pair up conjugate modes.
+    if (qpoint%id==qpoint%paired_qpoint_id) then
+      allocate(pair_overlap(size(states)), stat=ialloc); call err(ialloc)
+      do j=1,size(states)
+        ! Calculate the overlap of the conjugate of mode j with the other
+        !    degenerate modes.
+        ! N.B. since the dot product would normaly involve a conjugate,
+        !    the two conjugates cancel.
+        do k=1,size(states)
+          pair_overlap(k) = sum( output(states(j))%unit_vector &
+                             & * output(states(k))%unit_vector )
+        enddo
+        
+        ! conjg(mode(k)) should be equal to a mode (down to a phase change),
+        !    and have no overlap with any other mode.
+        ! Check that this is true, and identify the one mode.
+        if (count(abs(pair_overlap)<1e-2)/=size(pair_overlap)-1) then
+          call print_line(ERROR//': Modes at qpoint '//i//' do not transform &
+             &as expected under parity.')
+          call print_line(pair_overlap)
+          call err()
+        endif
+        
+        ! Get the position of the paired mode in both
+        !    the list of degenerate modes and the list of modes.
+        k = first(abs(abs(pair_overlap)-1)<1e-2)
+        
+        if (k==j) then
+          ! This state is its own conjugate; rotate the phase so that
+          !    the vector is real, and set the imaginary part to zero.
+          phase = sqrt(pair_overlap(j))
+          phase = phase / abs(phase)
+          output(states(j))%unit_vector = &
+             & cmplxvec(real(output(states(j))%unit_vector/phase))
+        elseif (k<j) then
+          ! Set the paired state to be the conjugate of this state.
+          output(states(j))%paired_id = output(states(k))%id
+          output(states(k))%paired_id = output(states(j))%id
+          output(states(j))%unit_vector = conjg(output(states(k))%unit_vector)
+        endif
+      enddo
+      deallocate(pair_overlap, stat=ialloc); call err(ialloc)
+    endif
+    ! %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   enddo
 contains
   ! Lambda for identifying if a symmetry leaves the q-point invariant.
@@ -240,7 +296,7 @@ recursive function lift_degeneracies(input,structure,symmetry_ids, &
   !    cos(2*pi*j/n) and sin(2*pi*j/n) respectively.
   ! Arbitrarily, if this matrix's conjugate has a later id
   !    (or is the same matrix) then C is considered, else S is considered.
-  symmetry_is_sin = structure%symmetry_is_sin(symmetry_ids(1))
+  symmetry_is_sin = first_symmetry%inverse_symmetry_id < first_symmetry%id
   if (symmetry_is_sin) then
     symmetry = (symmetry - hermitian(symmetry))/cmplx(0.0_dp,2.0_dp,dp)
   else

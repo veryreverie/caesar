@@ -303,25 +303,25 @@ function mat_IntFractions_shape(input,m,n) result(output)
   output = transpose(reshape(input, [m,n]))
 end function
 
-function fracvec_IntVector(input) result(output)
+impure elemental function fracvec_IntVector(input) result(output)
   implicit none
   
-  type(IntVector), intent(in)    :: input
-  type(IntFraction), allocatable :: output(:)
+  type(IntVector), intent(in) :: input
+  type(FractionVector)        :: output
   
   output = frac(int(input))
 end function
 
-function fracmat_IntMatrix(input) result(output)
+impure elemental function fracmat_IntMatrix(input) result(output)
   implicit none
   
   type(IntMatrix), intent(in)    :: input
-  type(IntFraction), allocatable :: output(:,:)
+  type(FractionMatrix)           :: output
   
   output = frac(int(input))
 end function
 
-function dblevec_FractionVector(input) result(output)
+impure elemental function dblevec_FractionVector(input) result(output)
   implicit none
   
   type(FractionVector), intent(in) :: input
@@ -330,7 +330,7 @@ function dblevec_FractionVector(input) result(output)
   output = dble(frac(input))
 end function
 
-function dblemat_FractionMatrix(input) result(output)
+impure elemental function dblemat_FractionMatrix(input) result(output)
   implicit none
   
   type(FractionMatrix), intent(in) :: input

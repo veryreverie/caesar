@@ -63,22 +63,17 @@ module structure_submodule
     type(IntVector), allocatable :: gvectors(:)
     
     ! --------------------------------------------------
-    ! Groups describing rotation by symmetry or addition of vectors.
+    ! Groups describing addition of vectors.
     ! --------------------------------------------------
-    ! The groups describing symmetry operations.
-    ! e.g. if S(i)*S(j)=S(k) then symmetry_group(i)*j = k.
-    type(Group), allocatable :: symmetry_group(:)
     ! The groups describing R-vector and G-vector operations.
     ! e.g. if Rvec(i)+Rvec(j)=Rvec(k) then rvec_group(i)*j=k.
     type(Group), allocatable :: rvector_group(:)
     type(Group), allocatable :: gvector_group(:)
     
     ! --------------------------------------------------
-    ! The IDs of inverse symmetries and paired R-vectors and G-vectors.
+    ! The IDs of paired R-vectors and G-vectors.
     ! Used to provide inverse and pair functions.
     ! --------------------------------------------------
-    ! S(i)*S(inverse_symmetry(i)) = identity.
-    integer, private, allocatable :: symmetry_inverse_ids_(:)
     ! The ID of the R-vector, j, s.t. rvectors(i) + rvectors(j) = 0.
     integer, allocatable :: rvector_paired_ids_(:)
     ! The ID of the G-vector, j, s.t. gvectors(i) + gvectors(j) = 0.
@@ -88,23 +83,14 @@ module structure_submodule
     procedure, public :: calculate_symmetry
     
     ! Return inverse symmetries or paired R-vectors / G-vectors.
-    procedure, public :: inverse_symmetries
     procedure, public :: paired_rvectors
     procedure, public :: paired_gvectors
     
-    ! Return whether to treat a symmetry as sin or cos when converting to
-    !    real co-ordinates.
-    procedure, public :: symmetry_is_sin
-    
-    ! Return groups corresponding to inverse symmetries or paired vectors.
-    procedure, public :: inverse_symmetry_group
+    ! Return groups corresponding to paired vectors.
     procedure, public :: paired_rvector_group
     procedure, public :: paired_gvector_group
     
     ! Procedures involved in constructing a StructureData.
-    procedure, private :: calculate_symmetry_operators
-    procedure, private :: calculate_symmetry_group
-    procedure, private :: calculate_symmetry_inverses
     procedure, private :: calculate_rvector_group
     procedure, private :: calculate_gvector_group
     
@@ -121,20 +107,9 @@ module structure_submodule
 contains
 
 ! ----------------------------------------------------------------------
-! Functions to provide inverse symmetries and paired R-vectors and G-vectors,
+! Functions to provide paired R-vectors and G-vectors,
 !    and the groups corresponding to those objects.
 ! ----------------------------------------------------------------------
-! Returns the inverse of a symmetry.
-function inverse_symmetries(this,symmetry_id) result(output)
-  implicit none
-  
-  class(StructureData), intent(in) :: this
-  integer,              intent(in) :: symmetry_id
-  type(SymmetryOperator)           :: output
-  
-  output = this%symmetries(this%symmetry_inverse_ids_(symmetry_id))
-end function
-
 ! Returns the pair of an R-vector.
 ! i.e. paired_rvectors(i) + rvectors(i) = 0, modulo supercell R-vectors.
 function paired_rvectors(this,rvector_id) result(output)
@@ -157,31 +132,6 @@ function paired_gvectors(this,gvector_id) result(output)
   type(IntVector)                  :: output
   
   output = this%gvectors(this%gvector_paired_ids_(gvector_id))
-end function
-
-! Return whether to treat the symmetry as sin or cos when converting to
-!    real co-ordinates.
-! The choice is arbitrary, as long as one of each pair is sent each way,
-!    and symmetries which are their own pair are sent to cos.
-impure elemental function symmetry_is_sin(this,symmetry_id) result(output)
-  implicit none
-  
-  class(StructureData), intent(in) :: this
-  integer,              intent(in) :: symmetry_id
-  logical                          :: output
-  
-  output = this%symmetry_inverse_ids_(symmetry_id)<symmetry_id
-end function
-
-! Return the symmetry group corresponding to the inverse of symmetry i.
-function inverse_symmetry_group(this,symmetry_id) result(output)
-  implicit none
-  
-  class(StructureData), intent(in) :: this
-  integer,              intent(in) :: symmetry_id
-  type(Group)                      :: output
-  
-  output = this%symmetry_group(this%symmetry_inverse_ids_(symmetry_id))
 end function
 
 ! Return the group describing the subtraction of R-vector i.
@@ -219,7 +169,6 @@ function new_StructureData(basic_structure,basic_supercell) result(this)
   ! Working variables.
   integer,             allocatable :: atom_rvector_ids(:)
   integer,             allocatable :: atom_prim_ids(:)
-  type(BasicSymmetry), allocatable :: symmetries(:)
   
   ! Temporary variables.
   integer :: id
@@ -334,8 +283,6 @@ function new_StructureData(basic_structure,basic_supercell) result(this)
   ! Fill out symmetry information with dummy data.
   this%symmetry_precision = 0.0_dp
   this%symmetries = [SymmetryOperator::]
-  this%symmetry_group = [Group::]
-  this%symmetry_inverse_ids_ = [integer::]
 end function
 
 ! ----------------------------------------------------------------------
@@ -349,6 +296,35 @@ subroutine calculate_symmetry(this,symmetry_precision,symmetries)
   type(BasicSymmetry),  intent(in), optional :: symmetries(:)
   
   type(BasicSymmetry), allocatable :: basic_symmetries(:)
+  
+  ! Atom group variables.
+  type(RealVector)             :: transformed_position
+  type(RealVector)             :: distance
+  real(dp),        allocatable :: offsets(:)
+  integer,         allocatable :: atom_group(:)
+  type(IntVector), allocatable :: rvectors(:,:)
+  integer,         allocatable :: prim_atom_group(:)
+  type(IntVector), allocatable :: prim_rvectors(:,:)
+  
+  type(Group), allocatable :: atom_groups(:)
+  type(Group), allocatable :: prim_atom_groups(:)
+  type(Group), allocatable :: symmetry_groups(:)
+  
+  type(AtomData) :: atom_j
+  type(AtomData) :: atom_k
+  
+  integer :: no_symmetries
+  
+  ! Variables for calculating symmetry groups.
+  integer, allocatable :: symmetry_group(:)
+  type(IntMatrix)      :: rotation_ij
+  type(Group)          :: atom_group_ij
+  
+  ! Variables for calculating symmetry inverses.
+  integer              :: identity_id
+  integer, allocatable :: inverse_symmetry_ids(:)
+  
+  integer :: i,j,k,ialloc
   
   this%symmetry_precision = symmetry_precision
   
@@ -365,10 +341,187 @@ subroutine calculate_symmetry(this,symmetry_precision,symmetries)
                                                  & symmetry_precision )
   endif
   
-  this%symmetries = this%calculate_symmetry_operators( basic_symmetries,  &
-                                                     & symmetry_precision )
-  this%symmetry_group = this%calculate_symmetry_group()
-  this%symmetry_inverse_ids_ = this%calculate_symmetry_inverses()
+  no_symmetries = size(basic_symmetries)
+  
+  ! Returns if the symmetry is only a dummy placeholder.
+  if (no_symmetries==0) then
+    return
+  endif
+
+  ! --------------------------------------------------
+  ! Calculates how symmetries map atoms onto other atoms.
+  ! --------------------------------------------------
+  ! If symmetry i maps atoms(j)%frac_pos to atoms(k)%frac_pos + R then
+  !    - this%symmetries(i)%atom_group * j = k.
+  !    - this%symmetries(i)%rvector(j)     = R.
+  
+  ! Work out which atoms map to which atoms under each symmetry operation.
+  allocate( offsets(this%no_atoms),                           &
+          & atom_group(this%no_atoms),                        &
+          & rvectors(this%no_atoms, no_symmetries),           &
+          & prim_atom_group(this%no_atoms_prim),              &
+          & prim_rvectors(this%no_atoms_prim, no_symmetries), &
+          & atom_groups(no_symmetries),                       &
+          & prim_atom_groups(no_symmetries),                  &
+          & symmetry_groups(no_symmetries),                   &
+          & stat=ialloc); call err(ialloc)
+  do i=1,no_symmetries
+    atom_group = 0
+    prim_atom_group = 0
+    do j=1,this%no_atoms
+      atom_j = this%atoms(j)
+      
+      ! Calculate the position of the transformed atom.
+      transformed_position = basic_symmetries(i)%rotation       &
+                         & * atom_j%fractional_position() &
+                         & + basic_symmetries(i)%translation
+      
+      ! Identify which atom is closest to the transformed position,
+      !    modulo supercell lattice vectors.
+      do k=1,this%no_atoms
+        distance = transformed_position - this%atoms(k)%fractional_position()
+        offsets(k) = l2_norm(distance - vec(nint(distance)))
+      enddo
+      atom_k = this%atoms(minloc(offsets,1))
+      atom_group(j) = atom_k%id()
+      
+      if (prim_atom_group(atom_j%prim_id())==0) then
+        prim_atom_group(atom_j%prim_id()) = atom_k%prim_id()
+      else
+        if (prim_atom_group(atom_j%prim_id())/=atom_k%prim_id()) then
+          call print_line( CODE_ERROR// &
+                         & ': Transformation of atoms inconsistent.')
+          call err()
+        endif
+      endif
+      
+      ! R * position(i) + t = position(j) + an R-vector.
+      ! Identify this R-vector, and record it.
+      rvectors(j,i) = nint( transformed_position &
+                        & - atom_k%fractional_position())
+      
+      ! If atom j is in the primitive cell,
+      !    record the primitive R-vector change.
+      if (atom_j%prim_id()==atom_j%id()) then
+        prim_rvectors(atom_j%id(),i) = this%rvectors(atom_k%rvec_id()) &
+                                   & + transpose(this%supercell)       &
+                                   & * rvectors(j,i)
+      endif
+      
+      ! Check that the transformed atom is acceptably close to its image.
+      if (offsets(atom_group(j))>symmetry_precision) then
+        call print_line(CODE_ERROR//': An acepted symmetry maps atom '//i// &
+           &' to further than symmetry_precision from atom '//atom_group(j))
+        call err()
+      elseif (l2_norm( transformed_position           &
+                   & - atom_k%fractional_position() &
+                   & - rvectors(j,i) )>symmetry_precision) then
+        call print_line(CODE_ERROR//': An acepted symmetry maps atom '//i// &
+           &' to further than symmetry_precision from atom '//atom_group(j))
+        call err()
+      endif
+    enddo
+    
+    ! Check that each symmetry is one-to-one, and that mapped atoms are of the
+    !    same species.
+    do j=1,this%no_atoms
+      if (count(atom_group==j)/=1) then
+        call print_line('Error: symmetry operation not one-to-one.')
+        call err()
+      endif
+      
+      if (this%atoms(atom_group(j))%species()/=this%atoms(j)%species()) then
+        call print_line('Error: symmetry operation between different species.')
+        call err()
+      endif
+    enddo
+    
+    atom_groups(i) = Group(atom_group)
+    prim_atom_groups(i) = Group(prim_atom_group)
+  enddo
+  
+  ! Calculate symmetry groups.
+  allocate( symmetry_group(no_symmetries), &
+          & stat=ialloc); call err(ialloc)
+  do i=1,no_symmetries
+    symmetry_group = 0
+    do j=1,no_symmetries
+      rotation_ij = basic_symmetries(i)%rotation &
+                & * basic_symmetries(j)%rotation
+      atom_group_ij = atom_groups(i) * atom_groups(j)
+      
+      if (count( basic_symmetries%rotation==rotation_ij .and. &
+               & atom_groups==atom_group_ij                   )/=1) then
+        call print_line(ERROR//': symmetry group inconsistent.')
+        call err()
+      endif
+      
+      symmetry_group(j) = first( basic_symmetries%rotation==rotation_ij .and. &
+                               & atom_groups==atom_group_ij                   )
+    enddo
+    
+    symmetry_groups(i) = Group(symmetry_group)
+  enddo
+  
+  ! Locate the identity operator. S*S=S iff S=I.
+  identity_id = 0
+  do i=1,no_symmetries
+    if (symmetry_groups(i)*i == i) then
+      if (identity_id==0) then
+        identity_id = i
+      else
+        call print_line(ERROR//': The identity symmetry has been found &
+           &twice.')
+        call err()
+      endif
+    endif
+  enddo
+  
+  if (identity_id==0) then
+    call print_line(ERROR//': The identity symmetry has not been found.')
+    call err()
+  endif
+  
+  ! Locate the inverse of each operator.
+  allocate(inverse_symmetry_ids(no_symmetries), stat=ialloc); call err(ialloc)
+  inverse_symmetry_ids = 0
+  do i=1,no_symmetries
+    do j=1,no_symmetries
+      if (symmetry_groups(i)*j==identity_id) then
+        if ( inverse_symmetry_ids(i)==0 .and. &
+           & inverse_symmetry_ids(j)==0       ) then
+          inverse_symmetry_ids(i) = j
+          inverse_symmetry_ids(j) = i
+        elseif ( inverse_symmetry_ids(i)/=j .or. &
+               & inverse_symmetry_ids(j)/=i      ) then
+          call print_line(ERROR//': Symmetry inverses are not consistent.')
+          call err()
+        endif
+      endif
+    enddo
+  enddo
+  
+  if (any(inverse_symmetry_ids==0)) then
+    call print_line(ERROR//': Unable to find all symmetry inverses.')
+    call err()
+  endif
+  
+  ! --------------------------------------------------
+  ! Record basic symmetry properties.
+  ! --------------------------------------------------
+  deallocate(this%symmetries, stat=ialloc); call err(ialloc)
+  allocate(this%symmetries(no_symmetries), stat=ialloc); call err(ialloc)
+  do i=1,no_symmetries
+    this%symmetries(i) = SymmetryOperator( basic_symmetries(i),    &
+                                         & this%lattice,           &
+                                         & this%recip_lattice,     &
+                                         & atom_groups(i),         &
+                                         & rvectors(:,i),          &
+                                         & prim_atom_groups(i),    &
+                                         & prim_rvectors(:,i),     &
+                                         & symmetry_groups(i),     &
+                                         & inverse_symmetry_ids(i) )
+  enddo
 end subroutine
 
 ! ----------------------------------------------------------------------
@@ -444,251 +597,6 @@ subroutine calculate_gvector_group(this)
     this%gvector_group(i) = Group(operation)
   enddo
 end subroutine
-
-! ----------------------------------------------------------------------
-! Calculates symmetry operations, in various representations.
-! ----------------------------------------------------------------------
-function calculate_symmetry_operators(this,symmetries,symmetry_precision) &
-   & result(output)
-  implicit none
-  
-  class(StructureData), intent(in)    :: this
-  type(BasicSymmetry),  intent(in)    :: symmetries(:)
-  real(dp),             intent(in)    :: symmetry_precision
-  type(SymmetryOperator), allocatable :: output(:)
-  
-  ! Atom group variables.
-  type(RealVector)             :: transformed_position
-  type(RealVector)             :: distance
-  real(dp),        allocatable :: offsets(:)
-  integer,         allocatable :: operations(:,:)
-  type(IntVector), allocatable :: rvectors(:,:)
-  integer,         allocatable :: prim_operations(:,:)
-  type(IntVector), allocatable :: prim_rvectors(:,:)
-  
-  type(AtomData) :: atom_j
-  type(AtomData) :: atom_k
-  
-  integer :: no_symmetries
-  
-  ! Temporary variables.
-  integer :: i,j,k,ialloc
-  
-  no_symmetries = size(symmetries)
-  
-  allocate(output(no_symmetries), stat=ialloc); call err(ialloc)
-  
-  ! Returns if the symmetry is only a dummy placeholder.
-  if (no_symmetries==0) then
-    return
-  endif
-
-  ! --------------------------------------------------
-  ! Calculates how symmetries map atoms onto other atoms.
-  ! --------------------------------------------------
-  ! If symmetry i maps atoms(j)%frac_pos to atoms(k)%frac_pos + R then
-  !    - output(i)%atom_group * j = k.
-  !    - output(i)%rvector(j)     = R.
-  
-  ! Work out which atoms map to which atoms under each symmetry operation.
-  allocate( offsets(this%no_atoms),                             &
-          & operations(this%no_atoms, no_symmetries),           &
-          & rvectors(this%no_atoms, no_symmetries),             &
-          & prim_operations(this%no_atoms_prim, no_symmetries), &
-          & prim_rvectors(this%no_atoms_prim, no_symmetries),   &
-          & stat=ialloc); call err(ialloc)
-  prim_operations = 0
-  do i=1,no_symmetries
-    do j=1,this%no_atoms
-      atom_j = this%atoms(j)
-      
-      ! Calculate the position of the transformed atom.
-      transformed_position = symmetries(i)%rotation       &
-                         & * atom_j%fractional_position() &
-                         & + symmetries(i)%translation
-      
-      ! Identify which atom is closest to the transformed position,
-      !    modulo supercell lattice vectors.
-      do k=1,this%no_atoms
-        distance = transformed_position - this%atoms(k)%fractional_position()
-        offsets(k) = l2_norm(distance - vec(nint(distance)))
-      enddo
-      atom_k = this%atoms(minloc(offsets,1))
-      operations(j,i) = atom_k%id()
-      
-      if (prim_operations(atom_j%prim_id(),i)==0) then
-        prim_operations(atom_j%prim_id(),i) = atom_k%prim_id()
-      else
-        if (prim_operations(atom_j%prim_id(),i)/=atom_k%prim_id()) then
-          call print_line( CODE_ERROR// &
-                         & ': Transformation of atoms inconsistent.')
-          call err()
-        endif
-      endif
-      
-      ! R * position(i) + t = position(j) + an R-vector.
-      ! Identify this R-vector, and record it.
-      rvectors(j,i) = nint( transformed_position &
-                        & - atom_k%fractional_position())
-      
-      ! If atom j is in the primitive cell,
-      !    record the primitive R-vector change.
-      if (atom_j%prim_id()==atom_j%id()) then
-        prim_rvectors(atom_j%id(),i) = this%rvectors(atom_k%rvec_id()) &
-                                   & + transpose(this%supercell)       &
-                                   & * rvectors(j,i)
-      endif
-      
-      ! Check that the transformed atom is acceptably close to its image.
-      if (offsets(operations(j,i))>symmetry_precision) then
-        call print_line(CODE_ERROR//': An acepted symmetry maps atom '//i// &
-           &' to further than symmetry_precision from atom '//operations(j,i))
-        call err()
-      elseif (l2_norm( transformed_position           &
-                   & - atom_k%fractional_position() &
-                   & - rvectors(j,i) )>symmetry_precision) then
-        call print_line(CODE_ERROR//': An acepted symmetry maps atom '//i// &
-           &' to further than symmetry_precision from atom '//operations(j,i))
-        call err()
-      endif
-    enddo
-  enddo
-  
-  ! Check that each symmetry is one-to-one, and that mapped atoms are of the
-  !    same species.
-  do i=1,no_symmetries
-    do j=1,this%no_atoms
-      if (count(operations(:,i)==j)/=1) then
-        call print_line('Error: symmetry operation not one-to-one.')
-        call err()
-      endif
-      
-      if (this%atoms(operations(j,i))%species()/=this%atoms(j)%species()) then
-        call print_line('Error: symmetry operation between different species.')
-        call err()
-      endif
-    enddo
-  enddo
-  
-  ! --------------------------------------------------
-  ! Record basic symmetry properties.
-  ! --------------------------------------------------
-  do i=1,no_symmetries
-    output(i) = SymmetryOperator( symmetries(i),               &
-                                & this%lattice,                &
-                                & this%recip_lattice,          &
-                                & Group(operations(:,i)),      &
-                                & rvectors(:,i),               &
-                                & Group(prim_operations(:,i)), &
-                                & prim_rvectors(:,i))
-  enddo
-end function
-
-! --------------------------------------------------
-! Calculates how symmetries map symmetries onto other symmetries.
-! --------------------------------------------------
-! symmetry_group(i) * j = k if symmetry i * symmetry j = symmetry k,
-!    modulo translations by lattice vectors.
-function calculate_symmetry_group(this) result(output)
-  implicit none
-  
-  class(StructureData), intent(in) :: this
-  type(Group), allocatable         :: output(:)
-  
-  integer, allocatable :: symmetry_group(:)
-  type(IntMatrix)      :: rotation_ij
-  type(Group)          :: atom_group_ij
-  
-  integer :: i,j,k,ialloc
-  
-  allocate( symmetry_group(size(this%symmetries)), &
-          & output(size(this%symmetries)),         &
-          & stat=ialloc); call err(ialloc)
-  do i=1,size(this%symmetries)
-    symmetry_group = 0
-    do j=1,size(this%symmetries)
-      rotation_ij = this%symmetries(i)%rotation &
-               & * this%symmetries(j)%rotation
-      atom_group_ij = this%symmetries(i)%atom_group &
-                & * this%symmetries(j)%atom_group
-      do k=1,size(this%symmetries)
-        if ( rotation_ij==this%symmetries(k)%rotation .and. &
-           & atom_group_ij==this%symmetries(k)%atom_group) then
-          if (symmetry_group(j)==0) then
-            symmetry_group(j) = k
-          elseif (symmetry_group(j)/=k) then
-            call print_line(ERROR//': Symmetry group inconsistent.')
-            call err()
-          endif
-        endif
-      enddo
-      
-      if (symmetry_group(j)==0) then
-        call print_line(ERROR//': symmetry '//i//' times symmetry '//j//' is &
-           &not itself a symmetry.')
-        call err()
-      endif
-    enddo
-    
-    output(i) = Group(symmetry_group)
-  enddo
-end function
-
-! --------------------------------------------------
-! Calculates the inverse of each symmetry.
-! --------------------------------------------------
-! If symmetry i * symmetry j = I then this%symmetry_inverse_ids_(i)=j.
-function calculate_symmetry_inverses(this) result(output)
-  implicit none
-  
-  class(StructureData), intent(in) :: this
-  integer, allocatable             :: output(:)
-  
-  integer :: identity
-  
-  integer :: i,j,k,ialloc
-  
-  ! Locate the identity operator. S*S=S iff S=I.
-  identity = 0
-  do i=1,size(this%symmetries)
-    if (this%symmetry_group(i)*i == i) then
-      if (identity==0) then
-        identity = i
-      else
-        call print_line(ERROR//': The identity symmetry has been found &
-           &twice.')
-        call err()
-      endif
-    endif
-  enddo
-  
-  if (identity==0) then
-    call print_line(ERROR//': The identity symmetry has not been found.')
-    call err()
-  endif
-  
-  ! Locate the inverse of each operator.
-  allocate(output(size(this%symmetries)), stat=ialloc); call err(ialloc)
-  output = 0
-  do i=1,size(this%symmetries)
-    do j=1,size(this%symmetries)
-      if (this%symmetry_group(i)*j==identity) then
-        if (output(i)==0 .and. output(j)==0) then
-          output(i) = j
-          output(j) = i
-        elseif (output(i)/=j .or. output(j)/=i) then
-          call print_line(ERROR//': Symmetry inverses are not consistent.')
-          call err()
-        endif
-      endif
-    enddo
-  enddo
-  
-  if (any(output==0)) then
-    call print_line(ERROR//': Unable to find all symmetry inverses.')
-    call err()
-  endif
-end function
 
 ! ----------------------------------------------------------------------
 ! I/O.
