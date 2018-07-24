@@ -211,7 +211,11 @@ impure elemental function transform_ComplexMode(input,symmetry,qpoint_from, &
   integer :: ialloc
   
   ! Check that inputs are consistent.
-  if (input%qpoint_id/=qpoint_from%id) then
+  if (size(symmetry%atom_group)/=size(input%unit_vector)) then
+    call print_line(CODE_ERROR//': Symmetry and Mode do not have the same &
+       & number of atoms. Modes must only be transformed using symmetries of &
+       & the primitive structure.')
+  elseif (input%qpoint_id/=qpoint_from%id) then
     call print_line(CODE_ERROR//': mode and q-point not compatible.')
     call print_line(input%qpoint_id//' '//qpoint_from%id)
     call err()
@@ -227,24 +231,22 @@ impure elemental function transform_ComplexMode(input,symmetry,qpoint_from, &
   no_atoms = size(input%unit_vector)
   no_modes = 3*no_atoms
   
-  ! Allocate output, and transfer across all data.
-  ! (Displacements need rotating, but everything else stays the same.)
-  allocate( unit_vector(no_atoms), &
-          & stat=ialloc); call err(ialloc)
-  output = input
-  do atom_from=1,no_atoms
-    atom_to = symmetry%prim_atom_group * atom_from
-    r = symmetry%prim_rvector(atom_from)
-    
-    unit_vector(atom_to) = symmetry%cartesian_rotation  &
-                       & * input%unit_vector(atom_from) &
-                       & * exp_2pii(qpoint_to%qpoint*r)
-  enddo
-  
   id = input%id + no_modes*(qpoint_to%id-qpoint_from%id)
   paired_id = input%paired_id                         &
           & + no_modes*( qpoint_to%paired_qpoint_id   &
           &            - qpoint_from%paired_qpoint_id )
+  
+  allocate( unit_vector(no_atoms), &
+          & stat=ialloc); call err(ialloc)
+  output = input
+  do atom_from=1,no_atoms
+    atom_to = symmetry%atom_group * atom_from
+    r = symmetry%rvectors(atom_from)
+    
+    unit_vector(atom_to) = symmetry%cartesian_tensor    &
+                       & * input%unit_vector(atom_from) &
+                       & * exp_2pii(-qpoint_to%qpoint*r)
+  enddo
   
   output = ComplexMode( id                 = id,                         &
                       & paired_id          = paired_id,                  &

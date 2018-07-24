@@ -100,8 +100,6 @@ impure elemental function operate_Group_Group(this,operand) result(output)
   type(Group), intent(in) :: operand
   type(Group)             :: output
   
-  integer :: i,ialloc
-  
   if (size(this)/=size(operand)) then
     call print_line('Error: groups can only operate on other groups of the &
        & same size.')

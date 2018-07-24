@@ -98,7 +98,6 @@ subroutine map_potential_subroutine(arguments)
   type(Dictionary) :: setup_harmonic_arguments
   type(String)     :: seedname
   type(String)     :: file_type
-  real(dp)         :: symmetry_precision
   
   ! Maximum displacement in mass-weighted co-ordinates.
   real(dp) :: maximum_weighted_displacement
@@ -133,23 +132,14 @@ subroutine map_potential_subroutine(arguments)
   type(RealSingleDisplacement)          :: displacement_j
   type(RealModeDisplacement)            :: displacement_ij
   type(QpointData),         allocatable :: qpoints_ij(:)
-  type(EffectiveFrequency), allocatable :: effective_frequencies(:)
-  integer,                  allocatable :: qpoint_modes(:)
-  type(EffectiveFrequency), allocatable :: qpoint_frequencies(:)
   
   real(dp), allocatable :: harmonic_energy(:,:)
   real(dp), allocatable :: anharmonic_energy(:,:)
   real(dp), allocatable :: sampled_energy(:,:)
   
   ! Variables for validating potential.
-  real(dp), allocatable       :: sampled_energies(:)
-  type(RealModeForce)         :: sampled_force
-  real(dp), allocatable       :: sampled_forces(:)
   type(IntMatrix)             :: supercell_matrix
   type(StructureData)         :: supercell
-  type(ComplexMode)           :: complex_mode
-  type(RealMode)              :: real_mode
-  type(RealModeDisplacement)  :: real_mode_displacement
   type(CartesianDisplacement) :: displacement
   type(StructureData)         :: displaced_structure
   type(ElectronicStructure)   :: electronic_structure
@@ -208,8 +198,6 @@ subroutine map_potential_subroutine(arguments)
      & harmonic_path//'/setup_harmonic.used_settings')
   seedname = setup_harmonic_arguments%value('seedname')
   file_type = setup_harmonic_arguments%value('file_type')
-  symmetry_precision = &
-     & dble(setup_harmonic_arguments%value('symmetry_precision'))
   
   ! Read in structure.
   structure_file = IFile(harmonic_path//'/structure.dat')

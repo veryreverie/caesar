@@ -12,6 +12,8 @@ module string_submodule
   
   public :: String
   public :: str
+  public :: operator(==)
+  public :: operator(/=)
   public :: char
   public :: assignment(=)
   public :: len
@@ -25,23 +27,6 @@ module string_submodule
   
   ! The class itself.
   type, extends(StringBase) :: String
-  contains
-    generic, public :: operator(==) => equality_String_String,    &
-                                     & equality_String_character, &
-                                     & equality_character_String
-    
-    generic, public :: operator(/=) => non_equality_String_String,    &
-                                     & non_equality_String_character, &
-                                     & non_equality_character_String
-    
-    
-    procedure, private             :: equality_String_String
-    procedure, private             :: equality_String_character
-    procedure, private, pass(that) :: equality_character_String
-    
-    procedure, private             :: non_equality_String_String
-    procedure, private             :: non_equality_String_character
-    procedure, private, pass(that) :: non_equality_character_String
   end type
   
   ! Interfaces
@@ -120,78 +105,6 @@ impure elemental function str_String(this) result(output)
   type(String)             :: output
   
   output = this
-end function
-
-! ----------------------------------------------------------------------
-! Equality
-! ----------------------------------------------------------------------
-! String==String
-impure elemental function equality_String_String(this,that) result(output)
-  implicit none
-  
-  class(String), intent(in) :: this
-  class(String), intent(in) :: that
-  logical                   :: output
-  
-  output = char(this)==char(that)
-end function
-
-! String==character
-impure elemental function equality_String_character(this,that) result(output)
-  implicit none
-  
-  class(String), intent(in) :: this
-  character(*),  intent(in) :: that
-  logical                   :: output
-  
-  output = char(this)==that
-end function
-
-! character==String
-impure elemental function equality_character_String(this,that) result(output)
-  implicit none
-  
-  character(*),  intent(in) :: this
-  class(String), intent(in) :: that
-  logical                   :: output
-  
-  output = this==char(that)
-end function
-
-! ----------------------------------------------------------------------
-! Non-equality
-! ----------------------------------------------------------------------
-! String/=String
-impure elemental function non_equality_String_String(this,that) result(output)
-  implicit none
-  
-  class(String), intent(in) :: this
-  class(String), intent(in) :: that
-  logical                   :: output
-  
-  output = .not. this==that
-end function
-
-! String/=character
-impure elemental function non_equality_String_character(this,that) result(output)
-  implicit none
-  
-  class(String), intent(in) :: this
-  character(*),  intent(in) :: that
-  logical                   :: output
-  
-  output = .not. this==that
-end function
-
-! character/=String
-impure elemental function non_equality_character_String(this,that) result(output)
-  implicit none
-  
-  character(*),  intent(in) :: this
-  class(String), intent(in) :: that
-  logical                   :: output
-  
-  output = .not. this==that
 end function
 
 ! ----------------------------------------------------------------------

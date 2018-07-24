@@ -185,7 +185,7 @@ impure elemental function str_real(input,settings) result(output)
     ! - One character for the leading '-' or ' '.
     real_width = print_settings%decimal_places &
              & + print_settings%integer_digits &
-             & + 1
+             & + 2
   else
     call err()
   endif
@@ -227,16 +227,15 @@ impure elemental function str_complex(input,settings) result(output)
   
   if (print_settings%floating_point_format=='es') then
     real_width = print_settings%decimal_places + 8
+    imag_width = real_width - 1
   elseif (print_settings%floating_point_format=='f') then
     real_width = print_settings%decimal_places &
              & + print_settings%integer_digits &
-             & + 1
+             & + 2
+    imag_width = real_width
   else
     call err()
   endif
-  
-  ! The imaginary part has no leading '-' or ' '.
-  imag_width = real_width - 1
   
   format_string =                                                       &
      & '('                                                           // &

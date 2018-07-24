@@ -838,10 +838,12 @@ subroutine read_RealPolynomial(this,input)
   type(String),          intent(in)  :: input
   
   type(String), allocatable :: terms(:)
+  type(String)              :: plus
   
+  plus = '+'
   select type(this); type is(RealPolynomial)
     terms = split_line(input)
-    terms = terms(filter(terms/='+'))
+    terms = terms(filter(terms/=plus))
     this = RealPolynomial(RealMonomial(terms))
   end select
 end subroutine

@@ -308,8 +308,6 @@ impure elemental function displacement_id(this,id) result(output)
   integer,                     intent(in) :: id
   real(dp)                                :: output
   
-  type(RealSingleDisplacement) :: displacement
-  
   integer :: i
   
   i = first(this%vectors%id==id, default=0)

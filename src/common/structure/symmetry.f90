@@ -13,6 +13,7 @@ module symmetry_submodule
   private
   
   public :: SymmetryOperator
+  public :: operator(*)
   public :: BasicSymmetry
   public :: operators_commute
   
@@ -27,44 +28,35 @@ module symmetry_submodule
     !    up to R-vector translation.
     integer :: inverse_symmetry_id
     
-    ! The rotation and translation in fractional co-ordinates.
-    ! R and T.
-    type(IntMatrix)  :: rotation
+    ! A symmetry is defined by the tensor, T, and translation, t,
+    !    both defined in fractional co-ordinates.
+    ! The symmetry S acts on the fractional co-ordinate r as:
+    !    r -> T.r + t
+    type(IntMatrix)  :: tensor
     type(RealVector) :: translation
     
-    ! The rotation and translation in cartesian co-ordinates.
-    ! (L^T)R(L^-T) and (L^T)T.
-    type(RealMatrix) :: cartesian_rotation
+    ! The tensor and translation in cartesian co-ordinates.
+    ! (L^T)T(L^-T) and (L^T)t.
+    type(RealMatrix) :: cartesian_tensor
     type(RealVector) :: cartesian_translation
     
-    ! The rotation in fractional reciprocal co-ordinates.
-    ! Used for rotating q-points, and other reciprocal space objects.
-    type(FractionMatrix), private :: recip_rotation_
+    ! The tensor in fractional reciprocal co-ordinates.
+    ! Used for transforming q-points, and other reciprocal space objects.
+    type(FractionMatrix), private :: recip_tensor_
     
     ! The mapping from atoms to other atoms.
-    ! rho_i and rho_j are the equilibrium positions of atom i and j.
-    ! R * rho_i + T = rho_j + rvector_i
+    ! r_i and r_j are the equilibrium positions of atom i and j.
+    ! T * r_i + t = r_j + R_i
     !    - atom_group*i = j,
-    !    - rvector(i) = rvector_i in fractional supercell co-ordinates.
+    !    - rvectors(i) = R_i in fractional supercell co-ordinates.
     type(Group)                  :: atom_group
-    type(IntVector), allocatable :: rvector(:)
-    
-    ! The mapping from atoms in the primitive cell to other atoms in the
-    !    primitive cell.
-    ! The entries in prim_rvector are given in fractional primitive cell
-    !    co-ordinates.
-    type(Group)                  :: prim_atom_group
-    type(IntVector), allocatable :: prim_rvector(:)
+    type(IntVector), allocatable :: rvectors(:)
     
     ! How the symmetry acts on other symmetries.
     ! If this symmetry * symmetry_j = symmetry_k then symmetry_group*j=k.
     ! N.B. these relations are true only up to R-vector translations.
     type(Group) :: symmetry_group
   contains
-    ! Rotating a q-point.
-    generic,   public  :: operator(*) => transform_qpoint
-    procedure, private ::                transform_qpoint
-    
     procedure, public :: inverse_transform
     
     procedure, public :: symmetry_order
@@ -72,6 +64,11 @@ module symmetry_submodule
   
   interface SymmetryOperator
     module procedure new_SymmetryOperator
+  end interface
+  
+  ! Transform a q-point.
+  interface operator(*)
+    module procedure transform_qpoint
   end interface
   
   interface BasicSymmetry
@@ -82,38 +79,30 @@ contains
 ! ----------------------------------------------------------------------
 ! Constructs a SymmetryOperator.
 ! ----------------------------------------------------------------------
-function new_SymmetryOperator(symmetry,lattice,recip_lattice,atom_group,      &
-   & rvector,prim_atom_group,prim_rvector,symmetry_group,inverse_symmetry_id) &
-   & result(this)
+function new_SymmetryOperator(symmetry,lattice,recip_lattice,symmetry_group, &
+   & inverse_symmetry_id) result(this)
   implicit none
   
   type(BasicSymmetry), intent(in) :: symmetry
   type(RealMatrix),    intent(in) :: lattice
   type(RealMatrix),    intent(in) :: recip_lattice
-  type(Group),         intent(in) :: atom_group
-  type(IntVector),     intent(in) :: rvector(:)
-  type(Group),         intent(in) :: prim_atom_group
-  type(IntVector),     intent(in) :: prim_rvector(:)
   type(Group),         intent(in) :: symmetry_group
   integer,             intent(in) :: inverse_symmetry_id
   type(SymmetryOperator)          :: this
   
-  this%id = symmetry%id
-  this%rotation = symmetry%rotation
+  this%id          = symmetry%id
+  this%tensor      = symmetry%tensor
   this%translation = symmetry%translation
+  this%atom_group  = symmetry%atom_group
+  this%rvectors    = symmetry%rvectors
   
-  this%cartesian_rotation = transpose(lattice) &
-                        & * symmetry%rotation  &
-                        & * recip_lattice
+  this%cartesian_tensor = transpose(lattice) &
+                      & * symmetry%tensor    &
+                      & * recip_lattice
   this%cartesian_translation = transpose(lattice) &
                            & * symmetry%translation
   
-  this%recip_rotation_ = transpose(invert(symmetry%rotation))
-  
-  this%atom_group      = atom_group
-  this%rvector         = rvector
-  this%prim_atom_group = prim_atom_group
-  this%prim_rvector    = prim_rvector
+  this%recip_tensor_ = transpose(invert(symmetry%tensor))
   
   this%symmetry_group = symmetry_group
   this%inverse_symmetry_id = inverse_symmetry_id
@@ -129,7 +118,11 @@ impure elemental function new_BasicSymmetry_SymmetryOperator(this) &
   type(SymmetryOperator), intent(in) :: this
   type(BasicSymmetry)                :: output
   
-  output = BasicSymmetry(this%id, this%rotation, this%translation)
+  output = BasicSymmetry( id          = this%id,          &
+                        & tensor      = this%tensor,      &
+                        & translation = this%translation, &
+                        & atom_group  = this%atom_group,  &
+                        & rvectors    = this%rvectors     )
 end function
 
 ! ----------------------------------------------------------------------
@@ -147,8 +140,8 @@ function operators_commute(this,that,qpoint) result(output)
   
   integer         :: i
   
-  ! Check that the symmetries' rotations commute.
-  if (.not. matrices_commute(this%rotation,that%rotation)) then
+  ! Check that the symmetries' tensors commute.
+  if (.not. matrices_commute(this%tensor,that%tensor)) then
     output = .false.
     return
   endif
@@ -164,10 +157,10 @@ function operators_commute(this,that,qpoint) result(output)
   ! The condition on for two operators to commute (in addition to those above)
   !    is that the R-vector translation of their commutator is s.t. q.R=0.
   do i=1,size(this%atom_group)
-    commutator_rvector = this%rotation*that%rvector(i)   &
-                     & + that%rvector(this%atom_group*i) &
-                     & - that%rotation*this%rvector(i)   &
-                     & - this%rvector(that%atom_group*i)
+    commutator_rvector = this%tensor*that%rvectors(i)     &
+                     & + that%rvectors(this%atom_group*i) &
+                     & - that%tensor*this%rvectors(i)     &
+                     & - this%rvectors(that%atom_group*i)
     if (.not. is_int(qpoint%qpoint*commutator_rvector)) then
       output = .false.
       return
@@ -178,7 +171,8 @@ function operators_commute(this,that,qpoint) result(output)
 end function
 
 ! ----------------------------------------------------------------------
-! Rotates a q-point, and translates it back to the primitive reciprocal cell.
+! Transforms a q-point, and translates it back to
+!    the primitive reciprocal cell.
 ! ----------------------------------------------------------------------
 impure elemental function transform_qpoint(this,qpoint) result(output)
   implicit none
@@ -190,8 +184,8 @@ impure elemental function transform_qpoint(this,qpoint) result(output)
   ! Transfer across all metadata.
   output = qpoint
   
-  ! Rotate q-point.
-  output%qpoint = this%recip_rotation_ * qpoint%qpoint
+  ! Transform q-point.
+  output%qpoint = this%recip_tensor_ * qpoint%qpoint
   
   ! Translate q-point back into primitive reciprocal cell if necessary.
   call output%translate_to_primitive()
@@ -207,8 +201,8 @@ impure elemental function inverse_transform(this,qpoint) result(output)
   ! Transfer across all metadata.
   output = qpoint
   
-  ! Rotate q-point.
-  output%qpoint = transpose(this%rotation) * qpoint%qpoint
+  ! Transform q-point.
+  output%qpoint = transpose(this%tensor) * qpoint%qpoint
   
   ! Translate q-point back into primitive reciprocal cell if necessary.
   call output%translate_to_primitive()
@@ -228,7 +222,7 @@ function symmetry_order(this,qpoint) result(output)
   integer                                       :: output
   
   type(IntMatrix)   :: identity ! The identity matrix, I.
-  type(IntMatrix)   :: rotation ! The rotation after n operations.
+  type(IntMatrix)   :: tensor   ! The tensor after n operations.
   type(IntVector)   :: rvector  ! The translation after n operations.
   integer           :: atom_1   ! atom 1 maps to this after n operations.
   type(IntFraction) :: qr       ! qpoint*rvector.
@@ -237,20 +231,20 @@ function symmetry_order(this,qpoint) result(output)
   
   identity = make_identity_matrix(3)
   
-  ! After (S^i) : r -> rotation * r + rvector.
+  ! After (S^i) : r -> tensor * r + rvector.
   ! After (S^0) : r -> r = I*r+0.
-  rotation = identity
-  rvector  = zeroes(3)
-  atom_1   = 1
+  tensor  = identity
+  rvector = zeroes(3)
+  atom_1  = 1
   
   ! Calculate n s.t. R^n=I. At this point, S^n=e^{2piiq.R}.
   output = 0
   do i=1,6
-    ! After S^i, r -> rotation * r + rvector.
-    rotation = this%rotation * rotation
-    rvector = this%rotation * rvector + this%prim_rvector(atom_1)
+    ! After S^i, r -> tensor * r + rvector.
+    tensor = this%tensor * tensor
+    rvector = this%tensor * rvector + this%rvectors(atom_1)
     atom_1 = this%atom_group * atom_1
-    if (rotation==identity .and. atom_1==1) then
+    if (tensor==identity .and. atom_1==1) then
       output = i
       exit
     endif

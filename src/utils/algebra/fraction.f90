@@ -11,12 +11,22 @@ module fraction_submodule
   private
   
   public :: IntFraction
+  public :: assignment(=)
+  public :: operator(==)
+  public :: operator(/=)
+  public :: operator(<)
+  public :: operator(>)
+  public :: operator(<=)
+  public :: operator(>=)
+  public :: operator(+)
+  public :: operator(-)
+  public :: operator(*)
+  public :: operator(/)
   public :: int
   public :: dble
   public :: frac
   public :: is_int
   public :: modulo
-  public :: operator(-)
   public :: abs
   
   type, extends(Stringable) :: IntFraction
@@ -30,86 +40,77 @@ module fraction_submodule
     ! Fraction simplification.
     procedure, private :: simplify
     
-    ! Conversion from integer.
-    generic,   public  :: assignment(=) => assign_IntFraction_integer
-    procedure, private ::                  assign_IntFraction_integer
-    
-    ! Comparison.
-    generic, public :: operator(==) => equality_IntFraction_IntFraction, &
-                                     & equality_IntFraction_integer,     &
-                                     & equality_integer_IntFraction
-    procedure, private              :: equality_IntFraction_IntFraction
-    procedure, private              :: equality_IntFraction_integer
-    procedure, private, pass(that)  :: equality_integer_IntFraction
-    
-    generic, public :: operator(/=) => non_equality_IntFraction_IntFraction, &
-                                     & non_equality_IntFraction_integer,     &
-                                     & non_equality_integer_IntFraction
-    procedure, private              :: non_equality_IntFraction_IntFraction
-    procedure, private              :: non_equality_IntFraction_integer
-    procedure, private, pass(that)  :: non_equality_integer_IntFraction
-    
-    generic, public :: operator(<) => lt_IntFraction_IntFraction, &
-                                    & lt_IntFraction_integer,     &
-                                    & lt_integer_IntFraction
-    procedure, private             :: lt_IntFraction_IntFraction
-    procedure, private             :: lt_IntFraction_integer
-    procedure, private, pass(that) :: lt_integer_IntFraction
-    
-    generic, public :: operator(>) => gt_IntFraction_IntFraction, &
-                                    & gt_IntFraction_integer,     &
-                                    & gt_integer_IntFraction
-    procedure, private             :: gt_IntFraction_IntFraction
-    procedure, private             :: gt_IntFraction_integer
-    procedure, private, pass(that) :: gt_integer_IntFraction
-    
-    generic, public :: operator(<=) => le_IntFraction_IntFraction, &
-                                     & le_IntFraction_integer,     &
-                                     & le_integer_IntFraction
-    procedure, private              :: le_IntFraction_IntFraction
-    procedure, private              :: le_IntFraction_integer
-    procedure, private, pass(that)  :: le_integer_IntFraction
-    
-    generic, public :: operator(>=) => ge_IntFraction_IntFraction, &
-                                     & ge_IntFraction_integer,     &
-                                     & ge_integer_IntFraction
-    procedure, private              :: ge_IntFraction_IntFraction
-    procedure, private              :: ge_IntFraction_integer
-    procedure, private, pass(that)  :: ge_integer_IntFraction
-    
-    ! Arithmetic.
-    generic, public :: operator(+) => add_IntFraction_IntFraction, &
-                                    & add_IntFraction_integer,     &
-                                    & add_integer_IntFraction
-    procedure, private             :: add_IntFraction_IntFraction
-    procedure, private             :: add_IntFraction_integer
-    procedure, private, pass(that) :: add_integer_IntFraction
-    
-    generic, public :: operator(-) => subtract_IntFraction_IntFraction, &
-                                    & subtract_IntFraction_integer,     &
-                                    & subtract_integer_IntFraction
-    procedure, private             :: subtract_IntFraction_IntFraction
-    procedure, private             :: subtract_IntFraction_integer
-    procedure, private, pass(that) :: subtract_integer_IntFraction
-    
-    generic, public :: operator(*) => multiply_IntFraction_IntFraction, &
-                                    & multiply_IntFraction_integer,     &
-                                    & multiply_integer_IntFraction
-    procedure, private             :: multiply_IntFraction_IntFraction
-    procedure, private             :: multiply_IntFraction_integer
-    procedure, private, pass(that) :: multiply_integer_IntFraction
-    
-    generic, public :: operator(/) => divide_IntFraction_IntFraction, &
-                                    & divide_IntFraction_integer,     &
-                                    & divide_integer_IntFraction
-    procedure, private             :: divide_IntFraction_IntFraction
-    procedure, private             :: divide_IntFraction_integer
-    procedure, private, pass(that) :: divide_integer_IntFraction
-    
     ! I/O.
     procedure, public :: read  => read_IntFraction
     procedure, public :: write => write_IntFraction
   end type
+  
+  ! Conversion from integer.
+  interface assignment(=)
+    module procedure assign_IntFraction_integer
+  end interface
+  
+  ! Comparison.
+  interface operator(==)
+    module procedure equality_IntFraction_IntFraction
+    module procedure equality_IntFraction_integer
+    module procedure equality_integer_IntFraction
+  end interface
+  
+  interface operator(/=)
+    module procedure non_equality_IntFraction_IntFraction
+    module procedure non_equality_IntFraction_integer
+    module procedure non_equality_integer_IntFraction
+  end interface
+  
+  interface operator(<)
+    module procedure lt_IntFraction_IntFraction
+    module procedure lt_IntFraction_integer
+    module procedure lt_integer_IntFraction
+  end interface
+  
+  interface operator(>)
+    module procedure gt_IntFraction_IntFraction
+    module procedure gt_IntFraction_integer
+    module procedure gt_integer_IntFraction
+  end interface
+  
+  interface operator(<=)
+    module procedure le_IntFraction_IntFraction
+    module procedure le_IntFraction_integer
+    module procedure le_integer_IntFraction
+  end interface
+  
+  interface operator(>=)
+    module procedure ge_IntFraction_IntFraction
+    module procedure ge_IntFraction_integer
+    module procedure ge_integer_IntFraction
+  end interface
+  
+  ! Arithmetic.
+  interface operator(+)
+    module procedure add_IntFraction_IntFraction
+    module procedure add_IntFraction_integer
+    module procedure add_integer_IntFraction
+  end interface
+  
+  interface operator(-)
+    module procedure subtract_IntFraction_IntFraction
+    module procedure subtract_IntFraction_integer
+    module procedure subtract_integer_IntFraction
+  end interface
+  
+  interface operator(*)
+    module procedure multiply_IntFraction_IntFraction
+    module procedure multiply_IntFraction_integer
+    module procedure multiply_integer_IntFraction
+  end interface
+  
+  interface operator(/)
+    module procedure divide_IntFraction_IntFraction
+    module procedure divide_IntFraction_integer
+    module procedure divide_integer_IntFraction
+  end interface
   
   ! Constructor.
   interface IntFraction

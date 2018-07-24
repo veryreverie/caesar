@@ -2,6 +2,9 @@
 ! Routines for finding the eigenvalues and eigenvectors of orthogonal
 !    and unitary matrices.
 ! ======================================================================
+! N.B. This module is untested, and is likely unstable.
+! Instead of diagonalising the unitary matrix U, it is numerically superior to
+!    construct and diagonalise the Hermitian matrices (U+U*) and (U-U*)/i.
 module unitary_eigenstuff_submodule
   use precision_module
   use abstract_module
@@ -52,8 +55,6 @@ function diagonalise_orthogonal_reals(input,order) result(output)
   type(RealMatrix)    :: cos_matrix
   type(ComplexMatrix) :: sin_matrix
   
-  complex(dp), allocatable :: sin_matrix2(:,:)
-  
   type(SymmetricEigenstuff), allocatable :: cos_estuff(:)
   type(HermitianEigenstuff), allocatable :: sin_estuff(:)
   
@@ -61,11 +62,9 @@ function diagonalise_orthogonal_reals(input,order) result(output)
   
   integer, allocatable :: ids(:)
   
-  integer :: i,j,k,ialloc
+  integer :: i,ialloc
   
   integer, allocatable :: cs(:)
-  
-  complex(dp), allocatable :: degenerate_sin_matrix(:,:)
   
   type(ComplexVector), allocatable :: degenerate_cos_basis(:)
   

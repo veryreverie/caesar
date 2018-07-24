@@ -198,7 +198,7 @@ subroutine generate_sampling_points_PolynomialPotential(this,inputs, &
       sampling_point_qpoints = select_qpoints( sampling_point_modes, &
                                              & inputs%qpoints        )
       supercell_matrix = construct_supercell_matrix( sampling_point_qpoints, &
-                                                   & inputs%structure)
+                                                   & inputs%structure        )
       supercell = construct_supercell( inputs%structure, &
                                      & supercell_matrix  )
       
@@ -210,7 +210,7 @@ subroutine generate_sampling_points_PolynomialPotential(this,inputs, &
       vscf_rvectors = construct_vscf_rvectors( sampling_point,    &
                                              & supercell,         &
                                              & inputs%real_modes, &
-                                             & inputs%qpoints)
+                                             & inputs%qpoints     )
       vscf_rvectors_file = OFile(sampling_dir//'/vscf_rvectors.dat')
       call vscf_rvectors_file%print_lines(vscf_rvectors,separating_line='')
       
@@ -219,20 +219,20 @@ subroutine generate_sampling_points_PolynomialPotential(this,inputs, &
         transformed_sampling_point = vscf_rvectors(k)%transform( &
                                             & sampling_point,    &
                                             & inputs%real_modes, &
-                                            & inputs%qpoints)
+                                            & inputs%qpoints     )
         
         ! Construct displaced structure.
         displacement = CartesianDisplacement( transformed_sampling_point, &
                                             & supercell,                  &
                                             & inputs%real_modes,          &
-                                            & inputs%qpoints)
+                                            & inputs%qpoints              )
         displaced_structure = displace_structure(supercell,displacement)
         
         ! Create directory and structure files for displaced structure.
         vscf_rvectors_dir = sampling_dir// &
            & '/vscf_rvectors_'//left_pad(k,str(size(vscf_rvectors)))
         call calculation_writer%write_calculation( displaced_structure, &
-                                                 & vscf_rvectors_dir)
+                                                 & vscf_rvectors_dir    )
       enddo
     enddo
   enddo

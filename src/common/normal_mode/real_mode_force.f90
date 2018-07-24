@@ -307,8 +307,6 @@ impure elemental function force_id(this,id) result(output)
   integer,              intent(in) :: id
   real(dp)                         :: output
   
-  type(RealSingleForce) :: force
-  
   integer :: i
   
   i = first(this%vectors%id==id, default=0)

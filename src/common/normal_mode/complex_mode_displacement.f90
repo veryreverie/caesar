@@ -231,8 +231,6 @@ impure elemental function displacement_id(this,id) result(output)
   integer,                        intent(in) :: id
   complex(dp)                                :: output
   
-  type(ComplexSingleDisplacement) :: displacement
-  
   integer :: i
   
   i = first(this%vectors%id==id, default=0)

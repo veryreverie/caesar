@@ -14,6 +14,7 @@ module fraction_algebra_submodule
   
   public :: FractionVector
   public :: FractionMatrix
+  public :: assignment(=)
   public :: vec
   public :: mat
   public :: frac
@@ -38,12 +39,13 @@ module fraction_algebra_submodule
   type, extends(Stringable) :: FractionVector
     type(IntFraction), allocatable, private :: contents_(:)
   contains
-    generic,   public  :: assignment(=) => assign_FractionVector_IntFractions
-    procedure, private ::                  assign_FractionVector_IntFractions
-    
     procedure, public :: read  => read_FractionVector
     procedure, public :: write => write_FractionVector
   end type
+  
+  interface assignment(=)
+    module procedure assign_FractionVector_IntFractions
+  end interface
   
   interface FractionVector
     module procedure new_FractionVector_String
@@ -52,12 +54,13 @@ module fraction_algebra_submodule
   type, extends(Stringsable) :: FractionMatrix
     type(IntFraction), allocatable, private :: contents_(:,:)
   contains
-    generic,   public  :: assignment(=) => assign_FractionMatrix_IntFractions
-    procedure, private ::                  assign_FractionMatrix_IntFractions
-    
     procedure, public :: read  => read_FractionMatrix
     procedure, public :: write => write_FractionMatrix
   end type
+  
+  interface assignment(=)
+    module procedure assign_FractionMatrix_IntFractions
+  end interface
   
   interface FractionMatrix
     module procedure new_FractionMatrix_Strings
@@ -1281,6 +1284,7 @@ function write_FractionMatrix(this) result(output)
   type(String), allocatable         :: output(:)
   
   type(IntFraction), allocatable :: contents(:,:)
+  type(IntFraction), allocatable :: row(:)
   
   integer :: i,ialloc
   
@@ -1288,7 +1292,8 @@ function write_FractionMatrix(this) result(output)
     contents = frac(this)
     allocate(output(size(this,1)), stat=ialloc); call err(ialloc)
     do i=1,size(this,1)
-      output(i) = join(contents(i,:))
+      row = contents(i,:)
+      output(i) = join(row)
     enddo
   class default
     call err()

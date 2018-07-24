@@ -272,7 +272,7 @@ function construct_xx(unique_directions,supercell,logfile) result(output)
       atom_1p = supercell%atoms( supercell%symmetries(i)%atom_group &
                              & * atom_1%id())
       
-      x = supercell%symmetries(i)%cartesian_rotation &
+      x = supercell%symmetries(i)%cartesian_tensor &
       & * unique_directions(j)%atomic_displacement
       
       output(atom_1p%id()) = output(atom_1p%id()) + outer_product(x,x)
@@ -288,9 +288,9 @@ function construct_xx(unique_directions,supercell,logfile) result(output)
       atom_1p = supercell%atoms( supercell%symmetries(i)%atom_group &
                              & * atom_1%id())
       matrix = output(atom_1p%id())
-      symmetric = supercell%symmetries(i)%cartesian_rotation &
-              & * output(atom_1%id())                        &
-              & * transpose(supercell%symmetries(i)%cartesian_rotation)
+      symmetric = supercell%symmetries(i)%cartesian_tensor &
+              & * output(atom_1%id())                      &
+              & * transpose(supercell%symmetries(i)%cartesian_tensor)
       average = average + sum_squares((matrix+symmetric)/2)
       difference = difference + sum_squares(matrix-symmetric)
     enddo
@@ -349,7 +349,7 @@ function construct_fx(unique_directions,forces,supercell,logfile) &
       atom_1p = supercell%atoms( supercell%symmetries(i)%atom_group &
                              & * atom_1%id())
       
-      x = supercell%symmetries(i)%cartesian_rotation &
+      x = supercell%symmetries(i)%cartesian_tensor &
       & * unique_directions(j)%atomic_displacement
       
       do k=1,supercell%no_atoms
@@ -357,7 +357,7 @@ function construct_fx(unique_directions,forces,supercell,logfile) &
         atom_2p = supercell%atoms( supercell%symmetries(i)%atom_group &
                                & * atom_2%id())
         
-        f = supercell%symmetries(i)%cartesian_rotation * forces(atom_2%id(),j)
+        f = supercell%symmetries(i)%cartesian_tensor * forces(atom_2%id(),j)
         
         output(atom_2p%id(),atom_1p%id()) = output(atom_2p%id(),atom_1p%id()) &
                                         & + outer_product(f,x)
@@ -385,9 +385,9 @@ function construct_fx(unique_directions,forces,supercell,logfile) &
         atom_2p = supercell%atoms( supercell%symmetries(i)%atom_group &
                                & * atom_2%id())
         matrix = output(atom_1p%id(),atom_2p%id())
-        symmetric = supercell%symmetries(i)%cartesian_rotation &
-                & * output(atom_1%id(),atom_2%id())            &
-                & * transpose(supercell%symmetries(i)%cartesian_rotation)
+        symmetric = supercell%symmetries(i)%cartesian_tensor &
+                & * output(atom_1%id(),atom_2%id())          &
+                & * transpose(supercell%symmetries(i)%cartesian_tensor)
         average = average + sum_squares((matrix+symmetric)/2)
         difference = difference + sum_squares(matrix-symmetric)
       enddo
@@ -466,9 +466,9 @@ function construct_f(xx,fx,supercell,logfile) result(output)
         atom_2p = supercell%atoms( supercell%symmetries(i)%atom_group &
                                & * atom_2%id())
         matrix = output%constants(atom_1p,atom_2p)
-        symmetric = supercell%symmetries(i)%cartesian_rotation &
-                & * output%constants(atom_1,atom_2)            &
-                & * transpose(supercell%symmetries(i)%cartesian_rotation)
+        symmetric = supercell%symmetries(i)%cartesian_tensor &
+                & * output%constants(atom_1,atom_2)          &
+                & * transpose(supercell%symmetries(i)%cartesian_tensor)
         average = average + sum_squares((matrix+symmetric)/2)
         difference = difference + sum_squares(matrix-symmetric)
       enddo

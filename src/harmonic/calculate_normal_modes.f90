@@ -64,7 +64,6 @@ subroutine calculate_normal_modes_subroutine(arguments)
   
   ! Arguments to setup_harmonic.
   type(String) :: seedname
-  real(dp)     :: symmetry_precision
   
   ! Initial data calculated by setup_harmonic.
   integer                          :: no_supercells
@@ -86,19 +85,12 @@ subroutine calculate_normal_modes_subroutine(arguments)
   logical, allocatable :: modes_calculated(:)
   
   ! Normal modes and their symmetries.
-  type(QpointData) :: rotated_qpoint
+  type(QpointData) :: transformed_qpoint
   
   type(DynamicalMatrix), allocatable :: dynamical_matrices(:)
-  type(DynamicalMatrix)              :: rotated_matrix
+  type(DynamicalMatrix)              :: transformed_matrix
   
-  integer :: mode_id
   integer :: subspace_id
-  
-  complex(dp), allocatable :: pair_overlap(:)
-  integer,     allocatable :: degenerate_ids(:)
-  complex(dp)              :: phase
-  integer                  :: paired_pos
-  integer                  :: paired_id
   
   type(ComplexMode), allocatable :: complex_modes(:,:)
   
@@ -116,7 +108,7 @@ subroutine calculate_normal_modes_subroutine(arguments)
   type(OFile) :: phonon_file
   
   ! Temporary variables.
-  integer      :: i,j,k,l,ialloc
+  integer      :: i,j,k,ialloc
   type(String) :: sdir,qdir
   
   ! --------------------------------------------------
@@ -152,8 +144,6 @@ subroutine calculate_normal_modes_subroutine(arguments)
   setup_harmonic_arguments = Dictionary(setup_harmonic())
   call setup_harmonic_arguments%read_file(wd//'/setup_harmonic.used_settings')
   seedname = setup_harmonic_arguments%value('seedname')
-  symmetry_precision = &
-     & dble(setup_harmonic_arguments%value('symmetry_precision'))
   
   structure_file = IFile(wd//'/structure.dat')
   structure = StructureData(structure_file%lines())
@@ -247,15 +237,15 @@ subroutine calculate_normal_modes_subroutine(arguments)
         endif
         
         do k=1,size(structure%symmetries)
-          rotated_qpoint = structure%symmetries(k) * qpoints(j)
-          if (rotated_qpoint == qpoints(i)) then
+          transformed_qpoint = structure%symmetries(k) * qpoints(j)
+          if (transformed_qpoint == qpoints(i)) then
             call qpoint_logfile%print_line('Constructing dynamical matrix and &
                &normal modes at q-point '//i//' using symmetry from those at &
                &q-point '//j)
-            dynamical_matrices(i) = rotate_modes( dynamical_matrices(j),   &
-                                                & structure%symmetries(k), &
-                                                & qpoints(j),              &
-                                                & qpoints(i))
+            dynamical_matrices(i) = transform_modes( dynamical_matrices(j),   &
+                                                   & structure%symmetries(k), &
+                                                   & qpoints(j),              &
+                                                   & qpoints(i))
             modes_calculated(i) = .true.
             cycle iter
           endif
@@ -302,85 +292,6 @@ subroutine calculate_normal_modes_subroutine(arguments)
     call err()
   enddo iter
   
-  ! %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-!  ! --------------------------------------------------
-!  ! Assign ids to all modes, and pair up modes.
-!  ! --------------------------------------------------
-!  ! Pair up modes.
-!  do i=1,size(dynamical_matrices)
-!    j = first(qpoints%id==qpoints(i)%paired_qpoint_id)
-!    
-!    if (j/=i) then
-!      !! If -q /= q, the modes are set up so that the conjugate of a
-!      !!    mode at q is simply the mode in the same position at -q.
-!      !dynamical_matrices(i)%complex_modes%paired_id = &
-!      !   & dynamical_matrices(j)%complex_modes%id
-!    else
-!      ! If q = -q, then it is necessary to identify conjugate modes.
-!      do k=1,size(dynamical_matrices(i)%complex_modes)
-!        ! Calculate the overlap of the conjugate of mode k with the other
-!        !    modes. N.B. since the dot product would normaly involve a conjg,
-!        !    the two conjugates cancel.
-!        degenerate_ids =                                                &
-!           & filter( dynamical_matrices(i)%complex_modes%subspace_id == &
-!           &         dynamical_matrices(i)%complex_modes(k)%subspace_id)
-!        allocate( pair_overlap(size(degenerate_ids)), &
-!                & stat=ialloc); call err(ialloc)
-!        do l=1,size(pair_overlap)
-!          pair_overlap(l) = sum(                                    &
-!             &   dynamical_matrices(i)%complex_modes(               &
-!             &                       degenerate_ids(l))%unit_vector &
-!             & * dynamical_matrices(i)%complex_modes(k)%unit_vector )
-!        enddo
-!        ! conjg(mode(k)) should equal one mode (down to a phase change),
-!        !    and have no overlap with any other mode.
-!        ! Check that this is true, and identify the one mode.
-!        if (count(abs(pair_overlap)<1e-2)/=size(pair_overlap)-1) then
-!          call print_line(ERROR//': Modes at qpoint '//i//' do not transform &
-!             &as expected under parity.')
-!          call print_line(pair_overlap)
-!          call err()
-!        endif
-!        
-!        ! Get the position of the paired mode in the list of degenerate modes.
-!        paired_pos = first(abs(abs(pair_overlap)-1)<1e-2)
-!        
-!        ! Find and normalise the phase of the mode.
-!        ! Only relevant for when this mode is its own pair, and must be made
-!        !    real.
-!        phase = sqrt(pair_overlap(paired_pos))
-!        phase = phase / abs(phase)
-!        
-!        ! Convert from position in degenerate modes to position in all modes.
-!        paired_id = degenerate_ids(paired_pos)
-!        
-!        deallocate(pair_overlap, stat=ialloc); call err(ialloc)
-!        
-!        ! Pair up modes.
-!        if (paired_id==k) then
-!          ! The mode is paired to itself. Set paired_id, and divide by the
-!          !    phase so that the mode is real.
-!          !dynamical_matrices(i)%complex_modes(k)%paired_id = &
-!          !   & dynamical_matrices(i)%complex_modes(k)%id
-!          dynamical_matrices(i)%complex_modes(k)%unit_vector =         &
-!             & cmplxvec(real(                                          &
-!             &      dynamical_matrices(i)%complex_modes(k)%unit_vector &
-!             &    / phase                                              ))
-!        elseif (paired_id>k) then
-!          ! The mode is paired to another.
-!          !dynamical_matrices(i)%complex_modes(k)%paired_id = &
-!          !   & dynamical_matrices(i)%complex_modes(paired_id)%id
-!          dynamical_matrices(i)%complex_modes(paired_id) = &
-!             & conjg(dynamical_matrices(i)%complex_modes(k))
-!        elseif (paired_id<k) then
-!          ! The mode has already been handled, when its pair came up.
-!          cycle
-!        endif
-!      enddo
-!    endif
-!  enddo
-  ! %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-  
   ! --------------------------------------------------
   ! Check all dynamical matrices.
   ! --------------------------------------------------
@@ -390,23 +301,23 @@ subroutine calculate_normal_modes_subroutine(arguments)
   enddo
   
   ! Check that dynamical matrices at q-points q and q' s.t. qS=q'
-  !    correctly rotate onto one another.
+  !    correctly transform onto one another.
   do i=1,size(structure%symmetries)
     do j=1,size(qpoints)
       do k=1,size(qpoints)
-        rotated_qpoint = structure%symmetries(i) * qpoints(j)
-        if (rotated_qpoint == qpoints(k)) then
+        transformed_qpoint = structure%symmetries(i) * qpoints(j)
+        if (transformed_qpoint == qpoints(k)) then
           if (qpoints(j)%paired_qpoint_id/=k) then
             cycle
           endif
-          rotated_matrix = rotate_modes( dynamical_matrices(j),   &
-                                       & structure%symmetries(i), &
-                                       & qpoints(j),              &
-                                       & qpoints(k))
+          transformed_matrix = transform_modes( dynamical_matrices(j),   &
+                                              & structure%symmetries(i), &
+                                              & qpoints(j),              &
+                                              & qpoints(k))
           call qpoint_logfile%print_line('Comparing symmetrically &
              &equivalent dynamical matrices.')
           call compare_dynamical_matrices( dynamical_matrices(k), &
-                                         & rotated_matrix,        &
+                                         & transformed_matrix,    &
                                          & qpoint_logfile)
         endif
       enddo

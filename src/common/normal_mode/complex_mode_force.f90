@@ -228,8 +228,6 @@ impure elemental function force_id(this,id) result(output)
   integer,                 intent(in) :: id
   complex(dp)                         :: output
   
-  type(ComplexSingleForce) :: force
-  
   integer :: i
   
   i = first(this%vectors%id==id, default=0)

@@ -96,9 +96,9 @@ function calculate_unique_directions(structure,harmonic_displacement) &
   ! Symmetry information.
   integer                :: point_group
   type(SymmetryOperator) :: symmetry
-  type(IntVector)        :: rotated_vectors(3)
+  type(IntVector)        :: transformed_vectors(3)
   integer                :: dot_prod(3,3)
-  type(IntVector)        :: rotated_x
+  type(IntVector)        :: transformed_x
   
   ! Unique direction variables.
   integer :: no_unique_directions
@@ -175,11 +175,12 @@ function calculate_unique_directions(structure,harmonic_displacement) &
         cycle
       endif
       
-      ! Calculate the dot products of the rotated vectors with other vectors.
+      ! Calculate the dot products of the transformed vectors with
+      !    other vectors.
       do k=1,3
-        rotated_vectors(k) = symmetry%rotation * unit_vectors(k)
+        transformed_vectors(k) = symmetry%tensor * unit_vectors(k)
         do l=1,3
-          dot_prod(l,k) = unit_vectors(l) * rotated_vectors(k)
+          dot_prod(l,k) = unit_vectors(l) * transformed_vectors(k)
         enddo
       enddo
       
@@ -201,17 +202,18 @@ function calculate_unique_directions(structure,harmonic_displacement) &
           ! The symmetry maps x onto another direction.
           if (point_group == x_to_one) then
             ! There is already a symmetry mapping x onto another direction.
-            ! Check if x and its two rotated copies are linearly independent.
-            if ( triple_product( unit_vectors(1),    &
-               &                 rotated_x,          &
-               &                 rotated_vectors(1)) &
+            ! Check if x and its two transformed copies are
+            !    linearly independent.
+            if ( triple_product( unit_vectors(1),         &
+               &                 transformed_x,           &
+               &                 transformed_vectors(1) ) &
                & /= 0) then
               point_group = x_to_all
             endif
           else
             ! This is the first symmetry mapping x onto another direction.
             point_group = x_to_one
-            rotated_x = rotated_vectors(1)
+            transformed_x = transformed_vectors(1)
           endif
         elseif (dot_prod(3,2)/=0) then
           ! The symmetry maps y onto z.
@@ -231,7 +233,7 @@ function calculate_unique_directions(structure,harmonic_displacement) &
       !    so displacements in the z direction are not needed.
       direction_required(5:6) = .false.
     elseif (point_group==x_to_one) then
-      if (rotated_x*vec([0,0,1])/=0) then
+      if (transformed_x*vec([0,0,1])/=0) then
         ! There is a symmetry mapping x onto z,
         !    so displacements in the z direction are not needed.
         direction_required(5:6) = .false.
@@ -305,7 +307,7 @@ subroutine check_unique_directions(unique_directions,structure, &
       atom_1 = structure%atoms(unique_directions(j)%atom_id)
       atom_1p = structure%atoms( structure%symmetries(i)%atom_group &
                              & * atom_1%id())
-      x = structure%symmetries(i)%cartesian_rotation &
+      x = structure%symmetries(i)%cartesian_tensor &
       & * unique_directions(j)%atomic_displacement
       xx(atom_1p%id()) = xx(atom_1p%id()) + outer_product(x,x)
     enddo

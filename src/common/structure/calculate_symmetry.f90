@@ -44,8 +44,8 @@ module calculate_symmetry_submodule
   end interface
   
   interface
-    subroutine spglib_retrieve_symmetries(spg_dataset_pointer, &
-       & rotations,translations) bind(c)
+    subroutine spglib_retrieve_symmetries(spg_dataset_pointer,tensors, &
+       & translations) bind(c)
       use, intrinsic :: iso_c_binding
       implicit none
       
@@ -53,7 +53,7 @@ module calculate_symmetry_submodule
       type(c_ptr), intent(in) :: spg_dataset_pointer
       
       ! Outputs.
-      integer(kind=c_int), intent(out) :: rotations(3,3,*)
+      integer(kind=c_int), intent(out) :: tensors(3,3,*)
       real(kind=c_double), intent(out) :: translations(3,*)
     end subroutine
   end interface
@@ -81,50 +81,69 @@ function calculate_basic_symmetries(lattice,atoms,symmetry_precision) &
   real(dp),         intent(in)     :: symmetry_precision
   type(BasicSymmetry), allocatable :: output(:)
   
-  ! spglib inputs.
-  integer, allocatable :: atom_types(:)
+  type(String) :: species
+  integer      :: no_atom_types
+  
+  ! spglib variables.
+  integer,  allocatable :: spglib_atom_types(:)
+  real(dp), allocatable :: spglib_positions(:,:)
+  integer,  allocatable :: spglib_tensors(:,:,:)
+  real(dp), allocatable :: spglib_translations(:,:)
   
   ! spglib data.
   logical(kind=c_bool) :: spglib_success
   type(c_ptr)          :: spg_dataset_pointer
   integer              :: no_symmetries
   
-  ! Temporary matrix storage, for passing to and from C.
-  real(dp), allocatable :: positions(:,:)
-  integer,  allocatable :: rotations(:,:,:)
-  real(dp), allocatable :: translations(:,:)
+  ! Output variables.
+  type(IntMatrix),  allocatable :: tensors(:)
+  type(RealVector), allocatable :: translations(:)
+  type(Group),      allocatable :: atom_groups(:)
+  type(IntVector),  allocatable :: rvectors(:,:)
   
-  integer :: atom_type
+  ! Variables for calculating atom groups and R-vectors.
+  type(RealVector)              :: transformed_position
+  type(RealVector), allocatable :: kj_displacements(:)
+  type(IntVector),  allocatable :: kj_rvectors(:)
+  real(dp),         allocatable :: kj_distances(:)
+  integer,          allocatable :: atom_group(:)
   
   ! Temporary variables.
-  integer :: i,j,ialloc
+  integer :: i,j,k,ialloc
   
-  allocate(atom_types(size(atoms)), stat=ialloc); call err(ialloc)
-  atom_type = 0
-  do_i : do i=1,size(atoms)
-    do j=1,i-1
-      if (atoms(i)%species()==atoms(j)%species()) then
-        atom_types(i) = atom_types(j)
-        cycle do_i
-      endif
-    enddo
-    atom_types(i) = atom_type
-    atom_type = atom_type+1
-  enddo do_i
+  ! --------------------------------------------------
+  ! Calculate tensors and translations.
+  ! --------------------------------------------------
+  
+  ! Calculate spglib_atom_types array.
+  ! spglib_atom_types(i) == spglib_atom_types(j) if and only if
+  !    atoms(i)%species() == atoms(j)%species().
+  allocate(spglib_atom_types(size(atoms)), stat=ialloc); call err(ialloc)
+  no_atom_types = 0
+  do i=1,size(atoms)
+    species = atoms(i)%species()
+    j = first(atoms%species()==species)
+    if (j==i) then
+      no_atom_types = no_atom_types + 1
+      spglib_atom_types(i) = no_atom_types
+    else
+      spglib_atom_types(i) = spglib_atom_types(j)
+    endif
+  enddo
   
   ! Calculate symmetries, without space to store them.
-  allocate(positions(3,size(atoms)), stat=ialloc); call err(ialloc)
+  allocate(spglib_positions(3,size(atoms)), stat=ialloc); call err(ialloc)
   do i=1,size(atoms)
-    positions(:,i) = dble(atoms(i)%fractional_position())
+    spglib_positions(:,i) = dble(atoms(i)%fractional_position())
   enddo
   call spglib_calculate_symmetries( dble(lattice),       &
-                                  & positions,           &
-                                  & atom_types,          &
+                                  & spglib_positions,    &
+                                  & spglib_atom_types,   &
                                   & size(atoms),         &
                                   & symmetry_precision,  &
                                   & spglib_success,      &
                                   & spg_dataset_pointer, &
-                                  & no_symmetries)
+                                  & no_symmetries        )
   
   ! Check for errors.
   if (.not. spglib_success) then
@@ -134,22 +153,92 @@ function calculate_basic_symmetries(lattice,atoms,symmetry_precision) &
   endif
   
   ! Allocate space for symmetries.
-  allocate( rotations(3,3,no_symmetries),     &
-          & translations(3,no_symmetries),    &
-          & output(no_symmetries), &
+  allocate( spglib_tensors(3,3,no_symmetries),    &
+          & spglib_translations(3,no_symmetries), &
           & stat=ialloc); call err(ialloc)
   
   ! Retrieve symmetries into allocated space.
   call spglib_retrieve_symmetries( spg_dataset_pointer, &
-                                 & rotations,      &
-                                 & translations)
-  do i=1,no_symmetries
-    output(i) = BasicSymmetry( id          = i,                     &
-                             & rotation    = mat(rotations(:,:,i)), &
-                             & translation = vec(translations(:,i)) )
-  enddo
+                                 & spglib_tensors,      &
+                                 & spglib_translations  )
   
   ! Deallocate C memory.
   call drop_spg_dataset(spg_dataset_pointer)
+  
+  ! Construct tensor and translation arrays.
+  allocate( tensors(no_symmetries),      &
+          & translations(no_symmetries), &
+          & stat=ialloc); call err(ialloc)
+  do i=1,no_symmetries
+    tensors(i) = mat(spglib_tensors(:,:,i))
+    translations(i) = vec(spglib_translations(:,i))
+  enddo
+  
+  ! --------------------------------------------------
+  ! Calculate atom group and R-vectors.
+  ! --------------------------------------------------
+  ! The symmetry S transforms atomic equilibrium positions, {r_i} in
+  !    fractional co-ordinates as:
+  ! r_i -> r_j + R
+  !
+  ! atom_group * i = j
+  ! rvectors(i) = R
+  allocate( atom_groups(no_symmetries),           &
+          & rvectors(size(atoms), no_symmetries), &
+          & kj_displacements(size(atoms)),        &
+          & kj_rvectors(size(atoms)),             &
+          & kj_distances(size(atoms)),            &
+          & atom_group(size(atoms)),              &
+          & stat=ialloc); call err(ialloc)
+  do i=1,no_symmetries
+    do j=1,size(atoms)
+      ! Calculate the position of the transformed atom.
+      transformed_position = tensors(i) * atoms(j)%fractional_position() &
+                         & + translations(i)
+      
+      do k=1,size(atoms)
+        ! Calculate the displacement from atom k to the transfomed atom j.
+        kj_displacements(k) = transformed_position &
+                          & - atoms(k)%fractional_position()
+        ! Calculate the nearest R-vector to the displacement.
+        kj_rvectors(k) = nint(kj_displacements(k))
+        ! Calculate the distance between the displacement and the nearest
+        !    R-vector.
+        kj_distances(k) = l2_norm(kj_displacements(k)-kj_rvectors(k))
+      enddo
+      
+      ! Check that exactly one k->j distance is small.
+      if (count(kj_distances<symmetry_precision)/=1) then
+        call print_line(ERROR//': Symmetries do not map atoms as expected.')
+        call err()
+      endif
+      
+      ! Identify the atom which symmetry i maps atom j to.
+      k = minloc(kj_distances,1)
+      
+      if (atoms(k)%species()/=atoms(j)%species()) then
+        call print_line(ERROR//': symmetry operation maps between atoms of &
+           &different species.')
+        call err()
+      endif
+      
+      atom_group(j) = atoms(k)%id()
+      rvectors(j,i) = kj_rvectors(k)
+    enddo
+    atom_groups(i) = Group(atom_group)
+  enddo
+  
+  ! --------------------------------------------------
+  ! Construct output.
+  ! --------------------------------------------------
+  
+  allocate(output(no_symmetries), stat=ialloc); call err(ialloc)
+  do i=1,no_symmetries
+    output(i) = BasicSymmetry( id          = i,               &
+                             & tensor      = tensors(i),      &
+                             & translation = translations(i), &
+                             & atom_group  = atom_groups(i),  &
+                             & rvectors    = rvectors(:,i)    )
+  enddo
 end function
 end module

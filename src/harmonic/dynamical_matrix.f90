@@ -13,7 +13,7 @@ module dynamical_matrix_module
   
   public :: DynamicalMatrix
   public :: compare_dynamical_matrices
-  public :: rotate_modes
+  public :: transform_modes
   public :: conjg
   public :: reconstruct_force_constants
   
@@ -37,11 +37,6 @@ module dynamical_matrix_module
   
   interface conjg
     module procedure conjg_DynamicalMatrix
-  end interface
-  
-  interface print_dyn_mat
-    module procedure print_dyn_mat_matrices
-    module procedure print_dyn_mat_DynamicalMatrix
   end interface
 contains
 
@@ -94,14 +89,14 @@ function new_DynamicalMatrix_calculated(qpoint,supercells,force_constants, &
     call err()
   endif
   
-  ! Identify how many parings of supercell and rotation
+  ! Identify how many parings of supercell and symmetry
   !    allow q to be simulated.
   allocate( is_copy(size(supercells),size(structure%symmetries)), &
           & stat=ialloc); call err(ialloc)
   is_copy = .false.
   do i=1,size(structure%symmetries)
-    ! q' is defined such that rotation i maps qp onto q.
-    ! N.B. q-points rotate as q->R^-T.q, so q' s.t. q'->q is given by
+    ! q' is defined such that symmetry i maps qp onto q.
+    ! N.B. q-points transform as q->R^-T.q, so q' s.t. q'->q is given by
     !    q' = R^T.q = q.R.
     q_prime = structure%symmetries(i)%inverse_transform(qpoint)
     do j=1,size(supercells)
@@ -113,7 +108,7 @@ function new_DynamicalMatrix_calculated(qpoint,supercells,force_constants, &
   no_copies = count(is_copy)
   
   ! Construct a copy of the dynamical matrix from each pair of supercell and
-  !    rotation.
+  !    symmetry.
   allocate( matrices(structure%no_atoms,structure%no_atoms,no_copies), &
           & sym_id(no_copies), &
           & sup_id(no_copies), &
@@ -127,10 +122,11 @@ function new_DynamicalMatrix_calculated(qpoint,supercells,force_constants, &
         matrix = calculate_dynamical_matrix( dblevec(q_prime%qpoint), &
                                            & supercells(j),           &
                                            & force_constants(j))
-        matrices(:,:,k) = rotate_dynamical_matrix( matrix,                  &
-                                                 & structure%symmetries(i), &
-                                                 & q_prime,                 &
-                                                 & qpoint)
+        matrices(:,:,k) = transform_dynamical_matrix( &
+                           & matrix,                  &
+                           & structure%symmetries(i), &
+                           & q_prime,                 &
+                           & qpoint)
         sym_id(k) = i
         sup_id(k) = j
       endif
@@ -278,7 +274,7 @@ function calculate_dynamical_matrix(q,supercell,force_constants,min_images) &
       output(atom_2%prim_id(),atom_1%prim_id()) =      &
          & output(atom_2%prim_id(),atom_1%prim_id())   &
          & + force_constants%constants(atom_2,atom_1)  &
-         & * sum(exp_2pii(-q*rvectors))                &
+         & * sum(exp_2pii(q*rvectors))                 &
          & / (supercell%sc_size*size(rvectors))
     enddo
   enddo
@@ -413,12 +409,12 @@ subroutine check(this,structure,logfile,check_eigenstuff)
         difference = difference + sum_squares(prim_vec_1-prim_vec_2)
       enddo
     enddo
-    call logfile%print_line(                                    &
-       & 'Fractional L2 error in rotated primitive vectors: '// &
-       & sqrt(difference/average))
+    call logfile%print_line(                                        &
+       & 'Fractional L2 error in transformed primitive vectors: '// &
+       & sqrt(difference/average)                                   )
     if (sqrt(difference/average) > 1e-10_dp) then
-      call print_line(WARNING//': Error in primitive vectors. &
-         &Please check log files.')
+      call print_line( WARNING//': Error in primitive vectors. &
+                     &Please check log files.'                 )
       call print_line(difference//' / '//average)
     endif
   endif
@@ -466,11 +462,11 @@ function reconstruct_force_constants(large_supercell,qpoints, &
         & - large_supercell%rvectors(atom_1%rvec_id())
         
         ! Add in the contribution to the force constant matrix.
-        force_constants(atom_1%id(),atom_2%id()) =                     &
-           &   force_constants(atom_1%id(),atom_2%id())                &
-           & + real( dynamical_matrices(i)%matrices_( atom_1%prim_id(), &
-           &                                         atom_2%prim_id()) &
-           &       * exp_2pii(q*r))
+        force_constants(atom_1%id(),atom_2%id()) =                       &
+           &   force_constants(atom_1%id(),atom_2%id())                  &
+           & + real( dynamical_matrices(i)%matrices_( atom_1%prim_id(),  &
+           &                                          atom_2%prim_id() ) &
+           &       * exp_2pii(-q*r)                                    )
       enddo
     enddo
   enddo
@@ -479,14 +475,15 @@ function reconstruct_force_constants(large_supercell,qpoints, &
 end function
 
 ! ----------------------------------------------------------------------
-! Rotate a dynamical matrix and set of normal modes onto a new q-point.
+! Transform a dynamical matrix and set of normal modes
+!    from one q-point to another.
 ! ----------------------------------------------------------------------
 ! Construct data at q_new from data at q_old, where
 !    R . q_old = q_new.
 ! N.B. the provided q-point should be q_new not q_old.
 ! The symmetry, S, maps equilibrium position ri to rj+R, and q-point q to q'.
 ! The +R needs to be corrected for, by multiplying the phase by exp(-iq'.R).
-function rotate_modes(input,symmetry,qpoint_from,qpoint_to) result(output)
+function transform_modes(input,symmetry,qpoint_from,qpoint_to) result(output)
   implicit none
   
   type(DynamicalMatrix),  intent(in)    :: input
@@ -495,13 +492,13 @@ function rotate_modes(input,symmetry,qpoint_from,qpoint_to) result(output)
   type(QpointData),       intent(in)    :: qpoint_to
   type(DynamicalMatrix)                 :: output
   
-  ! Rotate dynamical matrix.
-  output%matrices_ = rotate_dynamical_matrix( input%matrices_, &
-                                            & symmetry,        &
-                                            & qpoint_from,     &
-                                            & qpoint_to)
+  ! Transform dynamical matrix.
+  output%matrices_ = transform_dynamical_matrix( input%matrices_, &
+                                               & symmetry,        &
+                                               & qpoint_from,     &
+                                               & qpoint_to)
   
-  ! Rotate normal modes.
+  ! Transform normal modes.
   output%complex_modes = transform( input%complex_modes, &
                                   & symmetry,            &
                                   & qpoint_from,         &
@@ -509,9 +506,9 @@ function rotate_modes(input,symmetry,qpoint_from,qpoint_to) result(output)
 end function
 
 ! ----------------------------------------------------------------------
-! Rotate a dynamical matrix from one q-point to another.
+! Transform a dynamical matrix from one q-point to another.
 ! ----------------------------------------------------------------------
-function rotate_dynamical_matrix(input,symmetry,qpoint_from,qpoint_to) &
+function transform_dynamical_matrix(input,symmetry,qpoint_from,qpoint_to) &
    & result(output)
   implicit none
   
@@ -537,7 +534,7 @@ function rotate_dynamical_matrix(input,symmetry,qpoint_from,qpoint_to) &
   no_atoms = size(input,1)
   q = qpoint_to%qpoint
   
-  ! Check that the symmetry rotates the q-point as expected.
+  ! Check that the symmetry transforms the q-point as expected.
   if (symmetry * qpoint_from /= qpoint_to) then
     call print_line(CODE_ERROR//': Symmetry does not transform q-points as &
        &expected.')
@@ -549,68 +546,24 @@ function rotate_dynamical_matrix(input,symmetry,qpoint_from,qpoint_to) &
     call err()
   endif
   
-  ! Rotate dynamical matrix.
+  ! Transform dynamical matrix.
   allocate(output(no_atoms,no_atoms), stat=ialloc); call err(ialloc)
   do atom_1=1,no_atoms
     atom_1p = symmetry%atom_group * atom_1
-    r1 = symmetry%rvector(atom_1)
+    r1 = symmetry%rvectors(atom_1)
     do atom_2=1,no_atoms
       atom_2p = symmetry%atom_group * atom_2
-      r2 = symmetry%rvector(atom_2)
+      r2 = symmetry%rvectors(atom_2)
       
-      output(atom_2p,atom_1p) =        &
-         & symmetry%cartesian_rotation &
-         & * exp_2pii(q*r2)            &
-         & * input(atom_2,atom_1)      &
-         & * exp_2pii(-q*r1)           &
-         & * transpose(symmetry%cartesian_rotation)
+      output(atom_2p,atom_1p) =      &
+         & symmetry%cartesian_tensor &
+         & * exp_2pii(-q*r2)         &
+         & * input(atom_2,atom_1)    &
+         & * exp_2pii(q*r1)          &
+         & * transpose(symmetry%cartesian_tensor)
     enddo
   enddo
 end function
-
-subroutine print_dyn_mat_matrices(input,colours)
-  implicit none
-  
-  type(ComplexMatrix), intent(in)           :: input(:,:)
-  type(String),        intent(in), optional :: colours(:,:,:,:)
-  
-  integer :: no_atoms
-  integer :: i,j,k,l
-  
-  complex(dp) :: thingy(3,3)
-  character(50) :: thing
-  
-  type(String) :: line
-  
-  no_atoms = size(input,1)
-  
-  do i=1,no_atoms,no_atoms-1
-    do j=1,3
-      line = ''
-      do k=1,no_atoms,no_atoms-1
-        do l=1,3
-          thingy = cmplx(input(i,k))
-          write(thing,fmt='(f7.3,sp,f6.3,"i")') thingy(j,l)*1e6_dp
-          if (present(colours)) then
-            line = line//colour(trim(thing),colours(i,j,k,l))
-          else
-            line = line//trim(thing)
-          endif
-        enddo
-      enddo
-      call print_line(line)
-    enddo
-  enddo
-end subroutine
-
-subroutine print_dyn_mat_DynamicalMatrix(input,colours)
-  implicit none
-  
-  type(DynamicalMatrix), intent(in)           :: input
-  type(String),          intent(in), optional :: colours(:,:,:,:)
-  
-  call print_dyn_mat(input%matrices_,colours)
-end subroutine
 
 ! ----------------------------------------------------------------------
 ! Returns mode frequencies as a single array.
@@ -643,16 +596,11 @@ subroutine compare_dynamical_matrices(a,b,logfile)
   
   type(ComplexMatrix) :: mat_a
   type(ComplexMatrix) :: mat_b
-  complex(dp) :: ma(3,3)
-  complex(dp) :: mb(3,3)
   
   real(dp) :: average
   real(dp) :: difference
   
-  real(dp)                  :: l2_error
-  type(String), allocatable :: colours(:,:,:,:)
-  
-  integer :: i,j,k,l,ialloc
+  integer :: i,j
   
   no_atoms = size(a%matrices_,1)
   if (size(b%matrices_,1)/=no_atoms) then
@@ -660,8 +608,6 @@ subroutine compare_dynamical_matrices(a,b,logfile)
        &sizes.')
     call err()
   endif
-  
-  allocate(colours(no_atoms,3,no_atoms,3), stat=ialloc); call err(ialloc)
   
   average = 0.0_dp
   difference = 0.0_dp
@@ -671,32 +617,6 @@ subroutine compare_dynamical_matrices(a,b,logfile)
       mat_b = b%matrices_(j,i)
       average = average + sum_squares((mat_a+mat_b)/2)
       difference = difference + sum_squares(mat_a-mat_b)
-      
-      ma = cmplx(mat_a)
-      mb = cmplx(mat_b)
-      do k=1,3
-        do l=1,3
-          if (abs(ma(l,k)+mb(l,k))<1e-10_dp) then
-            ! If the absolute value is small, ignore the error.
-            colours(j,l,i,k) = 'green'
-            cycle
-          endif
-          l2_error = abs(ma(l,k)-mb(l,k))/abs((ma(l,k)+mb(l,k))/2)
-          if (l2_error>1e-2_dp) then
-            colours(j,l,i,k) = 'red'
-          elseif (l2_error>1e-4_dp) then
-            colours(j,l,i,k) = 'yellow'
-          elseif (l2_error>1e-6_dp) then
-            colours(j,l,i,k) = 'magenta'
-          elseif (l2_error>1e-8_dp) then
-            colours(j,l,i,k) = 'blue'
-          elseif (l2_error>1e-10_dp) then
-            colours(j,l,i,k) = 'cyan'
-          else
-            colours(j,l,i,k) = 'green'
-          endif
-        enddo
-      enddo
     enddo
   enddo
   call logfile%print_line('Fractional L2 difference between dynamical &
@@ -704,11 +624,6 @@ subroutine compare_dynamical_matrices(a,b,logfile)
   if (sqrt(difference/average)>1e-10_dp) then
     call print_line(WARNING//': Dynamical matrices differ. Please check &
        &log files.')
-    call print_line(difference//' /'//average)
-    call print_line('First matrix:')
-    call print_dyn_mat(a,colours)
-    call print_line('Second matrix:')
-    call print_dyn_mat(b,colours)
   endif
 end subroutine
 

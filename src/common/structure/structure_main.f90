@@ -297,34 +297,20 @@ subroutine calculate_symmetry(this,symmetry_precision,symmetries)
   
   type(BasicSymmetry), allocatable :: basic_symmetries(:)
   
-  ! Atom group variables.
-  type(RealVector)             :: transformed_position
-  type(RealVector)             :: distance
-  real(dp),        allocatable :: offsets(:)
-  integer,         allocatable :: atom_group(:)
-  type(IntVector), allocatable :: rvectors(:,:)
-  integer,         allocatable :: prim_atom_group(:)
-  type(IntVector), allocatable :: prim_rvectors(:,:)
-  
-  type(Group), allocatable :: atom_groups(:)
-  type(Group), allocatable :: prim_atom_groups(:)
   type(Group), allocatable :: symmetry_groups(:)
-  
-  type(AtomData) :: atom_j
-  type(AtomData) :: atom_k
   
   integer :: no_symmetries
   
   ! Variables for calculating symmetry groups.
   integer, allocatable :: symmetry_group(:)
-  type(IntMatrix)      :: rotation_ij
+  type(IntMatrix)      :: tensor_ij
   type(Group)          :: atom_group_ij
   
   ! Variables for calculating symmetry inverses.
   integer              :: identity_id
   integer, allocatable :: inverse_symmetry_ids(:)
   
-  integer :: i,j,k,ialloc
+  integer :: i,j,ialloc
   
   this%symmetry_precision = symmetry_precision
   
@@ -349,115 +335,29 @@ subroutine calculate_symmetry(this,symmetry_precision,symmetries)
   endif
 
   ! --------------------------------------------------
-  ! Calculates how symmetries map atoms onto other atoms.
+  ! Calculates how symmetries map symmetries onto other symmetries.
   ! --------------------------------------------------
-  ! If symmetry i maps atoms(j)%frac_pos to atoms(k)%frac_pos + R then
-  !    - this%symmetries(i)%atom_group * j = k.
-  !    - this%symmetries(i)%rvector(j)     = R.
-  
-  ! Work out which atoms map to which atoms under each symmetry operation.
-  allocate( offsets(this%no_atoms),                           &
-          & atom_group(this%no_atoms),                        &
-          & rvectors(this%no_atoms, no_symmetries),           &
-          & prim_atom_group(this%no_atoms_prim),              &
-          & prim_rvectors(this%no_atoms_prim, no_symmetries), &
-          & atom_groups(no_symmetries),                       &
-          & prim_atom_groups(no_symmetries),                  &
-          & symmetry_groups(no_symmetries),                   &
-          & stat=ialloc); call err(ialloc)
-  do i=1,no_symmetries
-    atom_group = 0
-    prim_atom_group = 0
-    do j=1,this%no_atoms
-      atom_j = this%atoms(j)
-      
-      ! Calculate the position of the transformed atom.
-      transformed_position = basic_symmetries(i)%rotation       &
-                         & * atom_j%fractional_position() &
-                         & + basic_symmetries(i)%translation
-      
-      ! Identify which atom is closest to the transformed position,
-      !    modulo supercell lattice vectors.
-      do k=1,this%no_atoms
-        distance = transformed_position - this%atoms(k)%fractional_position()
-        offsets(k) = l2_norm(distance - vec(nint(distance)))
-      enddo
-      atom_k = this%atoms(minloc(offsets,1))
-      atom_group(j) = atom_k%id()
-      
-      if (prim_atom_group(atom_j%prim_id())==0) then
-        prim_atom_group(atom_j%prim_id()) = atom_k%prim_id()
-      else
-        if (prim_atom_group(atom_j%prim_id())/=atom_k%prim_id()) then
-          call print_line( CODE_ERROR// &
-                         & ': Transformation of atoms inconsistent.')
-          call err()
-        endif
-      endif
-      
-      ! R * position(i) + t = position(j) + an R-vector.
-      ! Identify this R-vector, and record it.
-      rvectors(j,i) = nint( transformed_position &
-                        & - atom_k%fractional_position())
-      
-      ! If atom j is in the primitive cell,
-      !    record the primitive R-vector change.
-      if (atom_j%prim_id()==atom_j%id()) then
-        prim_rvectors(atom_j%id(),i) = this%rvectors(atom_k%rvec_id()) &
-                                   & + transpose(this%supercell)       &
-                                   & * rvectors(j,i)
-      endif
-      
-      ! Check that the transformed atom is acceptably close to its image.
-      if (offsets(atom_group(j))>symmetry_precision) then
-        call print_line(CODE_ERROR//': An acepted symmetry maps atom '//i// &
-           &' to further than symmetry_precision from atom '//atom_group(j))
-        call err()
-      elseif (l2_norm( transformed_position           &
-                   & - atom_k%fractional_position() &
-                   & - rvectors(j,i) )>symmetry_precision) then
-        call print_line(CODE_ERROR//': An acepted symmetry maps atom '//i// &
-           &' to further than symmetry_precision from atom '//atom_group(j))
-        call err()
-      endif
-    enddo
-    
-    ! Check that each symmetry is one-to-one, and that mapped atoms are of the
-    !    same species.
-    do j=1,this%no_atoms
-      if (count(atom_group==j)/=1) then
-        call print_line('Error: symmetry operation not one-to-one.')
-        call err()
-      endif
-      
-      if (this%atoms(atom_group(j))%species()/=this%atoms(j)%species()) then
-        call print_line('Error: symmetry operation between different species.')
-        call err()
-      endif
-    enddo
-    
-    atom_groups(i) = Group(atom_group)
-    prim_atom_groups(i) = Group(prim_atom_group)
-  enddo
   
   ! Calculate symmetry groups.
-  allocate( symmetry_group(no_symmetries), &
+  allocate( symmetry_group(no_symmetries),  &
+          & symmetry_groups(no_symmetries), &
           & stat=ialloc); call err(ialloc)
   do i=1,no_symmetries
     symmetry_group = 0
     do j=1,no_symmetries
-      rotation_ij = basic_symmetries(i)%rotation &
-                & * basic_symmetries(j)%rotation
-      atom_group_ij = atom_groups(i) * atom_groups(j)
+      tensor_ij = basic_symmetries(i)%tensor &
+              & * basic_symmetries(j)%tensor
+      atom_group_ij = basic_symmetries(i)%atom_group &
+                  & * basic_symmetries(j)%atom_group
       
-      if (count( basic_symmetries%rotation==rotation_ij .and. &
-               & atom_groups==atom_group_ij                   )/=1) then
+      if (count( basic_symmetries%tensor==tensor_ij .and.   &
+               & basic_symmetries%atom_group==atom_group_ij )/=1) then
         call print_line(ERROR//': symmetry group inconsistent.')
         call err()
       endif
       
-      symmetry_group(j) = first( basic_symmetries%rotation==rotation_ij .and. &
-                               & atom_groups==atom_group_ij                   )
+      symmetry_group(j) = first( basic_symmetries%tensor==tensor_ij .and.   &
+                               & basic_symmetries%atom_group==atom_group_ij )
     enddo
     
     symmetry_groups(i) = Group(symmetry_group)
@@ -515,10 +415,6 @@ subroutine calculate_symmetry(this,symmetry_precision,symmetries)
     this%symmetries(i) = SymmetryOperator( basic_symmetries(i),    &
                                          & this%lattice,           &
                                          & this%recip_lattice,     &
-                                         & atom_groups(i),         &
-                                         & rvectors(:,i),          &
-                                         & prim_atom_groups(i),    &
-                                         & prim_rvectors(:,i),     &
                                          & symmetry_groups(i),     &
                                          & inverse_symmetry_ids(i) )
   enddo

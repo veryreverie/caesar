@@ -13,6 +13,7 @@ module dictionary_submodule
   private
   
   public :: Dictionary
+  public :: operator(//)
   public :: size ! The number of key/value pairs.
   
   ! ------------------------------
@@ -23,20 +24,14 @@ module dictionary_submodule
     type(KeywordData), allocatable :: keywords(:)
   contains
     ! ----------
-    ! Concatenate two Dictionaries.
-    ! ----------
-    generic,   public  :: operator(//) => concatenate_Dictionary_Dictionary
-    procedure, private :: concatenate_Dictionary_Dictionary
-    
-    ! ----------
     ! Getters.
     ! ----------
     ! Private function to return the index of a keyword.
-    generic,   private :: index =>                    &
-                        & index_Dictionary_character, &
-                        & index_Dictionary_String
-    procedure, private :: index_Dictionary_character
+    generic,   private :: index =>                 &
+                        & index_Dictionary_String, &
+                        & index_Dictionary_character
     procedure, private :: index_Dictionary_String
+    procedure, private :: index_Dictionary_character
     
     ! As above, but by flag rather than by keyword.
     generic,   private :: index_by_flag =>                    &
@@ -134,6 +129,11 @@ module dictionary_submodule
     module procedure new_Dictionary_KeywordDatas
   end interface
   
+  ! Concatenate two Dictionaries.
+  interface operator(//)
+    module procedure concatenate_Dictionary_Dictionary
+  end interface
+  
   interface size
     module procedure size_Dictionary
   end interface
@@ -182,11 +182,11 @@ end function
 ! Private function.
 ! Throws an error if the keyword is not found.
 ! If there are duplicate keys, returns the first match.
-function index_Dictionary_character(this,keyword) result(output)
+function index_Dictionary_String(this,keyword) result(output)
   implicit none
   
   class(Dictionary), intent(in) :: this
-  character(*),      intent(in) :: keyword
+  type(String),      intent(in) :: keyword
   integer                       :: output
   
   output = first(this%keywords%keyword == keyword,default=0)
@@ -197,14 +197,14 @@ function index_Dictionary_character(this,keyword) result(output)
   endif
 end function
 
-function index_Dictionary_String(this,keyword) result(output)
+function index_Dictionary_character(this,keyword) result(output)
   implicit none
   
   class(Dictionary), intent(in) :: this
-  type(String),      intent(in) :: keyword
+  character(*),      intent(in) :: keyword
   integer                       :: output
   
-  output = this%index(char(keyword))
+  output = this%index(str(keyword))
 end function
 
 ! ----------------------------------------------------------------------

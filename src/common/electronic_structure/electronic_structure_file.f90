@@ -134,7 +134,7 @@ function read_output_file(file_type,filename,structure,dir,seedname, &
   
   type(StructureData) :: displaced_structure
   
-  if (calculation_type=='script') then
+  if (calculation_type=='none') then
     if (file_type=='castep') then
       output = read_output_file_castep(filename,structure)
     elseif (file_type=='qe') then

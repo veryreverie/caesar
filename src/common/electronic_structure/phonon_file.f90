@@ -35,8 +35,6 @@ subroutine write_phonon_file(phonon_file,complex_modes,qpoints,structure)
   real(dp)     :: real_part(3)
   real(dp)     :: imag_part(3)
   
-  type(String) :: line
-  
   integer :: i,j,k
   
   call set_print_settings(PrintSettings( floating_point_format = str('f'), &

@@ -90,7 +90,6 @@ subroutine calculate_states_subroutine(arguments)
   type(Dictionary) :: setup_harmonic_arguments
   type(String)     :: seedname
   type(String)     :: file_type
-  real(dp)         :: symmetry_precision
   
   ! Maximum displacement in mass-weighted co-ordinates.
   real(dp) :: maximum_weighted_displacement
@@ -185,8 +184,6 @@ subroutine calculate_states_subroutine(arguments)
      & harmonic_path//'/setup_harmonic.used_settings')
   seedname = setup_harmonic_arguments%value('seedname')
   file_type = setup_harmonic_arguments%value('file_type')
-  symmetry_precision = &
-     & dble(setup_harmonic_arguments%value('symmetry_precision'))
   
   ! Read in structure.
   structure_file = IFile(harmonic_path//'/structure.dat')
@@ -262,8 +259,7 @@ subroutine calculate_states_subroutine(arguments)
     effective_frequencies(i) = EffectiveFrequency( scaled_displacements, &
                                                  & complex_modes(i),     &
                                                  & real_modes,           &
-                                                 & potential,            &
-                                                 & structure             )
+                                                 & potential             )
   enddo
   
   ! --------------------------------------------------

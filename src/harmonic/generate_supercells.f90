@@ -26,7 +26,7 @@ function generate_supercells(structure,qpoints,symmetry_precision) &
   ! q-point variables.
   logical, allocatable :: accounted_for(:)
   integer, allocatable :: min_sc_sizes(:)
-  type(QpointData)     :: rotated_qpoint
+  type(QpointData)     :: transformed_qpoint
   
   ! Supercell variables.
   integer         :: no_supercells
@@ -72,9 +72,9 @@ function generate_supercells(structure,qpoints,symmetry_precision) &
           ! Find any symmetrically equivalent q-points,
           !    and mark them as accounted for.
           do k=1,size(structure%symmetries)
-            rotated_qpoint = structure%symmetries(k) * qpoints(j)
+            transformed_qpoint = structure%symmetries(k) * qpoints(j)
             do l=1,size(qpoints)
-              if (qpoints(l) == rotated_qpoint) then
+              if (qpoints(l) == transformed_qpoint) then
                 ! Mark the q-point, l, and its paired q-point, lp,
                 !    as accounted for.
                 lp = first(qpoints%id==qpoints(l)%paired_qpoint_id)

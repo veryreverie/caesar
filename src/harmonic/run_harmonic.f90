@@ -67,7 +67,6 @@ subroutine run_harmonic_subroutine(arguments)
   integer          :: no_supercells
   type(String)     :: file_type
   type(String)     :: seedname
-  real(dp)         :: symmetry_precision
   
   ! Electronic structure calculation runner.
   type(CalculationRunner) :: calculation_runner
@@ -107,8 +106,6 @@ subroutine run_harmonic_subroutine(arguments)
   call setup_harmonic_arguments%read_file(wd//'/setup_harmonic.used_settings')
   file_type = setup_harmonic_arguments%value('file_type')
   seedname = setup_harmonic_arguments%value('seedname')
-  symmetry_precision = &
-     & dble(setup_harmonic_arguments%value('symmetry_precision'))
   
   ! --------------------------------------------------
   ! Read in previously calculated data.

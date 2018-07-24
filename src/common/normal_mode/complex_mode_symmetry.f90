@@ -33,24 +33,24 @@ function calculate_symmetry_in_normal_coordinates_qpoint(modes,qpoint, &
   type(OFile),            intent(inout) :: logfile
   type(ComplexMatrix)                   :: output
   
-  type(ComplexMode), allocatable :: rotated_modes(:)
+  type(ComplexMode), allocatable :: transformed_modes(:)
   complex(dp),       allocatable :: dot_products(:,:)
   
   integer :: i,j,ialloc
   
-  ! Calculate the rotated modes, S.u1.
-  rotated_modes = transform( modes,    &
-                           & symmetry, &
-                           & qpoint,   &
-                           & qpoint)
+  ! Calculate the transformed modes, S.u1.
+  transformed_modes = transform( modes,    &
+                               & symmetry, &
+                               & qpoint,   &
+                               & qpoint    )
   
   ! Construct the overlap matrix, u2.S.u1.
   allocate( dot_products(size(modes),size(modes)), &
           & stat=ialloc); call err(ialloc)
   do i=1,size(modes)
     do j=1,size(modes)
-      dot_products(j,i) = sum( conjg(modes(j)%unit_vector)  &
-                           & * rotated_modes(i)%unit_vector )
+      dot_products(j,i) = sum( conjg(modes(j)%unit_vector)      &
+                           & * transformed_modes(i)%unit_vector )
     enddo
   enddo
   
@@ -71,8 +71,8 @@ function calculate_symmetry_in_normal_coordinates_qpoints(modes,qpoints, &
   type(OFile),            intent(inout) :: logfile
   type(ComplexMatrix)                   :: output
   
-  type(QpointData),  allocatable :: rotated_qpoints(:)
-  type(ComplexMode), allocatable :: rotated_modes(:)
+  type(QpointData),  allocatable :: transformed_qpoints(:)
+  type(ComplexMode), allocatable :: transformed_modes(:)
   complex(dp),       allocatable :: dot_products(:,:)
   
   integer :: i,j,ialloc
@@ -83,26 +83,26 @@ function calculate_symmetry_in_normal_coordinates_qpoints(modes,qpoints, &
     call err()
   endif
   
-  ! Rotate q-points.
-  allocate(rotated_qpoints(size(qpoints)), stat=ialloc); call err(ialloc)
+  ! Transform q-points.
+  allocate(transformed_qpoints(size(qpoints)), stat=ialloc); call err(ialloc)
   do i=1,size(qpoints)
-    rotated_qpoints(i) = symmetry * qpoints(i)
+    transformed_qpoints(i) = symmetry * qpoints(i)
   enddo
   
-  ! Calculate all rotated modes, S.u1.
-  rotated_modes = transform( modes,    &
-                           & symmetry, &
-                           & qpoints,  &
-                           & rotated_qpoints)
+  ! Calculate all transformed modes, S.u1.
+  transformed_modes = transform( modes,              &
+                               & symmetry,           &
+                               & qpoints,            &
+                               & transformed_qpoints )
   
   ! Construct the overlap matrix, u2.S.u1.
   allocate( dot_products(size(modes),size(modes)), &
           & stat=ialloc); call err(ialloc)
   do i=1,size(modes)
     do j=1,size(modes)
-      if (qpoints(j)==rotated_qpoints(i)) then
-        dot_products(j,i) = sum( conjg(modes(j)%unit_vector)  &
-                             & * rotated_modes(i)%unit_vector )
+      if (qpoints(j)==transformed_qpoints(i)) then
+        dot_products(j,i) = sum( conjg(modes(j)%unit_vector)      &
+                             & * transformed_modes(i)%unit_vector )
       else
         dot_products(j,i) = cmplx(0.0_dp,0.0_dp,dp)
       endif

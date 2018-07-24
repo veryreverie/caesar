@@ -36,15 +36,15 @@ subroutine test_subroutine(arguments)
   
   type(String) :: wd
   
-  type(SharedCounter) :: a,b
+  
+  type(String), allocatable :: a(:)
+  type(String)              :: b
   
   wd = arguments%value('working_directory')
   
-  a = SharedCounter()
-  call print_line(a%is_only_pointer())
-  b = a
-  call print_line(a%is_only_pointer())
-  call print_line(b%is_only_pointer())
+  a = [ str('11'), str('22') ]
+  b = str('aa')
+  call print_line(a==b)
   
 end subroutine
 end module

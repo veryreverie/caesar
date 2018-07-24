@@ -173,7 +173,6 @@ function factorial(input) result(output)
   
   ! Lookup is saved between calls of this function.
   integer, allocatable, save :: factorials(:)
-  integer, allocatable       :: temp(:)
   
   integer :: i,j,ialloc
   

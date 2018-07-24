@@ -279,7 +279,7 @@ impure elemental subroutine check_supercell(supercell,structure)
   integer               :: atom_1
   integer               :: atom_2
   type(RealVector)      :: fractional_difference
-  type(RealMatrix)      :: rotation_identity
+  type(RealMatrix)      :: tensor_identity
   real(dp), allocatable :: symmetry_errors(:)
   
   ! Temporary variables.
@@ -312,22 +312,22 @@ impure elemental subroutine check_supercell(supercell,structure)
     endif
   enddo
   
-  ! Check supercell rotations
+  ! Check supercell transformations.
   allocate( symmetry_errors(size(supercell%symmetries)), &
           & stat=ialloc); call err(ialloc)
   symmetry_errors = 0
   do i=1,size(supercell%symmetries)
     ! Check that R.R^T is the identity.
-    rotation_identity = supercell%symmetries(i)%cartesian_rotation &
-                    & * transpose(supercell%symmetries(i)%cartesian_rotation)
-    symmetry_errors(i) = sqrt(sum_squares( rotation_identity &
-                                       & - make_identity_matrix(3)))
+    tensor_identity = supercell%symmetries(i)%cartesian_tensor &
+                  & * transpose(supercell%symmetries(i)%cartesian_tensor)
+    symmetry_errors(i) = sqrt(sum_squares( tensor_identity         &
+                                       & - make_identity_matrix(3) ))
   enddo
   if (any(symmetry_errors>1e-10_dp)) then
     call print_line('')
     call print_line(WARNING//': At least one symmetry in supercell '// &
        & ' is not an orthogonal transformation.')
-    call print_line('Largest L2 deviation in R^T.R=I: '// &
+    call print_line('Largest L2 deviation in T^T.T=I: '// &
        & maxval(symmetry_errors))
     call print_line('This may be caused by small deviations from &
        &symmetry. Try adjusting the lattice vectors and atomic positions &

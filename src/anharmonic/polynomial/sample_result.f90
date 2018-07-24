@@ -53,9 +53,6 @@ function new_SampleResult_calculation(calculation,supercell,real_modes, &
   real(dp)            :: energy
   type(RealModeForce) :: force
   
-  ! Temporary variables.
-  integer :: i,j,ialloc
-  
   ! Normalise the energy by the number of unit cells in the supercell.
   energy = calculation%energy / supercell%sc_size
   
@@ -89,7 +86,7 @@ function new_SampleResult_calculations(vscf_rvectors,calculations,supercell, &
   type(RealModeForce) :: force
   
   ! Temporary variables.
-  integer :: i,j,ialloc
+  integer :: i,ialloc
   
   ! Normalise energies and change co-ordinates of forces.
   allocate(results(size(calculations)), stat=ialloc); call err(ialloc)

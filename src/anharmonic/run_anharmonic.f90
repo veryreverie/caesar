@@ -83,9 +83,6 @@ subroutine run_anharmonic_subroutine(arguments)
   ! Electronic structure calculation runner.
   type(CalculationRunner) :: calculation_runner
   
-  ! Temporary variables.
-  integer :: i
-  
   ! Read in inputs.
   wd = arguments%value('working_directory')
   if (arguments%is_set('calculations_to_run')) then

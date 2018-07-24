@@ -920,10 +920,12 @@ subroutine read_ComplexPolynomial(this,input)
   type(String),             intent(in)  :: input
   
   type(String), allocatable :: terms(:)
+  type(String)              :: plus
   
+  plus = '+'
   select type(this); type is(ComplexPolynomial)
     terms = split_line(input)
-    terms = terms(filter(terms/='+'))
+    terms = terms(filter(terms/=plus))
     this = ComplexPolynomial(ComplexMonomial(terms))
   end select
 end subroutine

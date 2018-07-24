@@ -64,7 +64,7 @@ function new_CalculationRunner(working_directory,file_type,seedname, &
   elseif (calculation_type=='quip') then
     this%filename_ = make_input_filename(file_type,seedname)
   else
-    call print_line(ERROR//': calculation_type must be either "script" or &
+    call print_line(ERROR//': calculation_type must be either "none" or &
        & "quip.')
     call err()
   endif
@@ -96,7 +96,6 @@ subroutine run_calculation(this,directory)
   type(OFile)               :: electronic_structure_file
   
   ! Run the calculation.
-  call print_line('')
   call print_line('Running calculation in directory '//directory)
   result_code = system_call( 'cd '//this%working_directory_//';' //' '// &
                            & this%run_script_                    //' '// &
@@ -129,23 +128,11 @@ subroutine run_calculations(this,directories)
   class(CalculationRunner), intent(inout) :: this
   type(String),             intent(in)    :: directories(:)
   
-  integer :: i,result_code
+  integer :: i
   
-  ! Run the calculations.
   do i=1,size(directories)
-    call print_line('')
-    call print_line( 'Running calculation in directory '// &
-                   & i//' of '//size(directories)//': '//directories(i))
-    result_code = system_call( 'cd '//this%working_directory_//';' //' '// &
-                             & this%run_script_                    //' '// &
-                             & this%file_type_                     //' '// &
-                             & directories(i)                      //' '// &
-                             & this%no_cores_                      //' '// &
-                             & this%seedname_                              )
-    call print_line('Result code: '//result_code)
+    call print_line(i//' of '//size(directories)//':')
+    call this%run_calculation(directories(i))
   enddo
-  
-  ! Record the directories.
-  this%directories_ = [this%directories_, directories]
 end subroutine
 end module

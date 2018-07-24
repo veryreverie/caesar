@@ -10,9 +10,11 @@ module basic_symmetry_submodule
   public :: BasicSymmetry
   
   type, extends(Stringsable) :: BasicSymmetry
-    integer          :: id
-    type(IntMatrix)  :: rotation
-    type(RealVector) :: translation
+    integer                      :: id
+    type(IntMatrix)              :: tensor
+    type(RealVector)             :: translation
+    type(Group)                  :: atom_group
+    type(IntVector), allocatable :: rvectors(:)
   contains
     procedure, public :: read  => read_BasicSymmetry
     procedure, public :: write => write_BasicSymmetry
@@ -26,17 +28,22 @@ module basic_symmetry_submodule
 contains
 
 ! Constructor.
-function new_BasicSymmetry(id,rotation,translation) result(output)
+function new_BasicSymmetry(id,tensor,translation,atom_group,rvectors) &
+   & result(this)
   implicit none
   
   integer,          intent(in) :: id
-  type(IntMatrix),  intent(in) :: rotation
+  type(IntMatrix),  intent(in) :: tensor
   type(RealVector), intent(in) :: translation
-  type(BasicSymmetry)          :: output
+  type(Group),      intent(in) :: atom_group
+  type(IntVector),  intent(in) :: rvectors(:)
+  type(BasicSymmetry)          :: this
   
-  output%id          = id
-  output%rotation    = rotation
-  output%translation = translation
+  this%id          = id
+  this%tensor      = tensor
+  this%translation = translation
+  this%atom_group  = atom_group
+  this%rvectors    = rvectors
 end function
 
 ! I/O.
@@ -46,19 +53,32 @@ subroutine read_BasicSymmetry(this,input)
   class(BasicSymmetry), intent(out) :: this
   type(String),         intent(in)  :: input(:)
   
-  integer          :: id
-  type(IntMatrix)  :: rotation
-  type(RealVector) :: translation
+  integer                      :: id
+  type(IntMatrix)              :: tensor
+  type(RealVector)             :: translation
+  integer,         allocatable :: atom_group(:)
+  type(IntVector), allocatable :: rvectors(:)
   
   type(String), allocatable :: line(:)
+  
+  integer :: i,ialloc
   
   select type(this); type is(BasicSymmetry)
     line = split_line(input(1))
     id = int(line(2))
-    rotation = IntMatrix(input(3:5))
+    tensor = IntMatrix(input(3:5))
     translation = RealVector(input(7))
     
-    this = BasicSymmetry(id,rotation,translation)
+    allocate( atom_group(size(input)-8), &
+            & rvectors(size(input)-8),   &
+            & stat=ialloc); call err(ialloc)
+    do i=1,size(atom_group)
+      line = split_line(input(8+i))
+      atom_group(i) = int(line(5))
+      rvectors(i) = vec(int(line(8:10)))
+    enddo
+    
+    this = BasicSymmetry(id,tensor,translation,Group(atom_group),rvectors)
   class default
     call err()
   end select
@@ -70,12 +90,25 @@ function write_BasicSymmetry(this) result(output)
   class(BasicSymmetry), intent(in) :: this
   type(String), allocatable        :: output(:)
   
+  type(String), allocatable :: atom_strings(:)
+  
+  integer :: i,ialloc
+  
+  allocate( atom_strings(size(this%rvectors)), &
+          & stat=ialloc); call err(ialloc)
+  do i=1,size(this%rvectors)
+    atom_strings(i) = 'Atom '//i//' -> Atom '//this%atom_group*i// &
+                    & ' + R-vector '//this%rvectors(i)
+  enddo
+  
   select type(this); type is(BasicSymmetry)
-    output = [ 'Operation '//this%id, &
-             & str('Rotation:'),      &
-             & str(this%rotation),    &
-             & str('Translation'),    &
-             & str(this%translation)  ]
+    output = [ 'Operation '//this%id,                          &
+             & str('Tensor in fractional co-ordinates:'),      &
+             & str(this%tensor),                               &
+             & str('Translation in fractional co-ordinates:'), &
+             & str(this%translation),                          &
+             & str('Effect on atoms:'),                        &
+             & atom_strings                                    ]
   class default
     call err()
   end select

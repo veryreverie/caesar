@@ -341,7 +341,7 @@ recursive function lift_degeneracies(input,structure,symmetry_ids, &
     phases_int(i) = modulo(phases_int(i),2*order)
   enddo
   
-  ! If the symmetry lifts degeneracy (has multiple phases), then rotate the
+  ! If the symmetry lifts degeneracy (has multiple phases), then transform the
   !    input vectors into the symmetry's eigenbasis.
   if (any(phases_int/=phases_int(1))) then
     do i=1,size(input)

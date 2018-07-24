@@ -18,6 +18,7 @@ module caesar_modes_submodule
   public :: CaesarModes
   public :: MainSubroutine
   public :: Dictionary
+  public :: assignment(=)
   
   ! An interface for the main subroutines of Caesar, each of which takes a
   !    dictionary of arguments and returns nothing.
@@ -41,9 +42,11 @@ module caesar_modes_submodule
     logical :: suppress_settings_file = .false.
   contains
     procedure :: print_help => print_help_CaesarMode
-    generic   :: assignment(=) => assign_CaesarMode
-    procedure :: assign_CaesarMode
   end type
+  
+  interface assignment(=)
+    module procedure :: assign_CaesarMode
+  end interface
   
   interface CaesarMode
     module procedure new_CaesarMode_character_character
@@ -56,11 +59,11 @@ module caesar_modes_submodule
   type :: CaesarModes
     type(CaesarMode), private, allocatable :: modes_(:)
   contains
-    generic,   public  :: mode =>         &
-                        & mode_character, &
-                        & mode_String
-    procedure, private :: mode_character
+    generic,   public  :: mode =>      &
+                        & mode_String, &
+                        & mode_character
     procedure, private :: mode_String
+    procedure, private :: mode_character
     
     procedure, public  :: print_help => print_help_CaesarModes
   end type
@@ -239,16 +242,20 @@ function new_CaesarModes(modes) result(output)
 end function
 
 ! Returns the mode with a given name.
-function mode_character(this,mode_name) result(output)
+function mode_String(this,mode_name) result(output)
   implicit none
   
   class(CaesarModes), intent(in) :: this
-  character(*),       intent(in) :: mode_name
+  type(String),       intent(in) :: mode_name
   type(CaesarMode)               :: output
+  
+  type(String) :: lower_case_mode_name
   
   integer :: i
   
-  i = first(this%modes_%mode_name==lower_case(mode_name), default=0)
+  lower_case_mode_name = lower_case(mode_name)
+  
+  i = first(this%modes_%mode_name==lower_case_mode_name, default=0)
   
   if (i==0) then
     call print_line(ERROR//': Unrecognised mode: '//mode_name)
@@ -259,14 +266,14 @@ function mode_character(this,mode_name) result(output)
   output = this%modes_(i)
 end function
 
-function mode_String(this,mode_name) result(output)
+function mode_character(this,mode_name) result(output)
   implicit none
   
   class(CaesarModes), intent(in) :: this
-  type(String),       intent(in) :: mode_name
+  character(*),       intent(in) :: mode_name
   type(CaesarMode)               :: output
   
-  output = this%mode(char(mode_name))
+  output = this%mode(str(mode_name))
 end function
 
 ! Prints helptext.

@@ -79,19 +79,17 @@ function new_EffectiveFrequency(mode_id,harmonic_frequency,                   &
 end function
 
 function new_EffectiveFrequency_potential(displacements,mode,real_modes, &
-   & potential,structure) result(this)
+   & potential) result(this)
   implicit none
   
   real(dp),             intent(in) :: displacements(:)
   type(ComplexMode),    intent(in) :: mode
   type(RealMode),       intent(in) :: real_modes(:)
   class(PotentialData), intent(in) :: potential
-  type(StructureData),  intent(in) :: structure
   type(EffectiveFrequency)         :: this
   
   ! Output variables.
   real(dp)              :: effective_spring_constant
-  real(dp)              :: effective_scaling
   real(dp)              :: effective_frequency
   real(dp), allocatable :: anharmonic_energies(:)
   real(dp), allocatable :: anharmonic_forces(:)

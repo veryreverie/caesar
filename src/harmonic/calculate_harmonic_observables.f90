@@ -90,7 +90,6 @@ subroutine calculate_harmonic_observables_subroutine(arguments)
   
   ! Previous inputs.
   type(Dictionary) :: setup_harmonic_arguments
-  real(dp)         :: symmetry_precision
   
   ! Previously calculated data.
   type(StructureData)                :: structure
@@ -178,8 +177,6 @@ subroutine calculate_harmonic_observables_subroutine(arguments)
   ! --------------------------------------------------
   setup_harmonic_arguments = Dictionary(setup_harmonic())
   call setup_harmonic_arguments%read_file(wd//'/setup_harmonic.used_settings')
-  symmetry_precision = &
-     & dble(setup_harmonic_arguments%value('symmetry_precision'))
   
   ! --------------------------------------------------
   ! Read in previously calculated data.

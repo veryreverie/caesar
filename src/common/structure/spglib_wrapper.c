@@ -46,7 +46,7 @@ void spglib_retrieve_symmetries
   // Inputs.
   const SpglibDataset ** spg_dataset,
   // Outputs.
-        int          (* rotations)[][3][3],
+        int          (* tensors)[][3][3],
         double       (* translations)[][3]
 )
 {
@@ -56,8 +56,8 @@ void spglib_retrieve_symmetries
     {
       for (int k=0;k<3;++k)
       {
-        // N.B. Transposes rotations from C layout to Fortran layout.
-        (*rotations)[i][j][k] = (*spg_dataset)->rotations[i][k][j];
+        // N.B. Transposes tensors from C layout to Fortran layout.
+        (*tensors)[i][j][k] = (*spg_dataset)->rotations[i][k][j];
       }
       (*translations)[i][j] = (*spg_dataset)->translations[i][j];
     }
