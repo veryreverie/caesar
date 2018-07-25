@@ -56,6 +56,11 @@ function new_IFile_character(filename) result(this)
   
   integer :: i,ierr,ialloc
   
+  if (.not. file_exists(filename)) then
+    call print_line(ERROR//': file does not exist: '//filename)
+    call err()
+  endif
+  
   this%filename_ = filename
   
   file_length = count_lines(filename)
@@ -66,7 +71,7 @@ function new_IFile_character(filename) result(this)
   do i=1,file_length
     read(file_unit,'(a)',iostat=ierr) line
     if (ierr/=0) then
-      call print_line('Error reading from '//filename)
+      call print_line(ERROR//': failed to read file: '//filename)
       call err()
     endif
     this%lines_(i) = trim(line)

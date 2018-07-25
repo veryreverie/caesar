@@ -214,19 +214,26 @@ subroutine setup_anharmonic_subroutine(arguments)
   !    and record which new q-point each corresponds to.
   complex_modes = [ComplexMode::]
   do i=1,size(qpoints)
-    j = first(harmonic_qpoints==qpoints(i),default=0)
     
+    ! Identify the matching harmonic q-point.
+    j = first(harmonic_qpoints==qpoints(i),default=0)
     if (j==0) then
       call print_line(ERROR//': anharmonic q-point '//qpoints(i)%qpoint// &
          &' is not also a harmonic q-point.')
       stop
     endif
     
+    ! Re-label the anharmonic q-point to have the same ID as the matching
+    !    harmonic q-point.
+    qpoints(i)%id = harmonic_qpoints(j)%id
+    qpoints(i)%paired_qpoint_id = harmonic_qpoints(j)%paired_qpoint_id
+    
+    ! Read in the modes at the harmonic q-point.
     qpoint_dir = &
        & harmonic_path//'/qpoint_'//left_pad(j,str(size(harmonic_qpoints)))
     harmonic_complex_modes_file = IFile(qpoint_dir//'/complex_modes.dat')
     qpoint_modes = ComplexMode(harmonic_complex_modes_file%sections())
-    qpoint_modes%qpoint_id = qpoints(j)%id
+    
     complex_modes = [complex_modes, qpoint_modes]
   enddo
   
