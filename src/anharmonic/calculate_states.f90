@@ -268,7 +268,8 @@ subroutine calculate_states_subroutine(arguments)
   do i=1,size(qpoints)
     qpoint_modes = filter(complex_modes%qpoint_id==qpoints(i)%id)
     
-    qpoint_dir = wd//'/qpoint_'//left_pad(i,str(size(qpoints)))
+    qpoint_dir = wd//'/qpoint_'//left_pad( qpoints(i)%id,          &
+                                         & str(maxval(qpoints%id)) )
     call mkdir(qpoint_dir)
     
     ! --------------------------------------------------

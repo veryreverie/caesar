@@ -1,5 +1,5 @@
 ! ======================================================================
-! A generalised eigenstate along a single complex normal mode.
+! A generalised eigenstate along a single real normal mode.
 ! ======================================================================
 module single_mode_state_module
   use common_module
@@ -14,7 +14,6 @@ module single_mode_state_module
   public :: operator(-)
   public :: operator(*)
   public :: operator(/)
-  public :: generate_harmonic_basis
   
   ! An eigenstate of the form f(u)*e^-(w*u^2/2) where f is polynomial, e.g.
   !    ( a + b*(u1) + c*(u1)**2 )*e^(-w*(u1)^2/2) => frequency    = w,
@@ -35,6 +34,7 @@ module single_mode_state_module
   
   interface SingleModeState
     module procedure new_SingleModeState
+    module procedure new_SingleModeState_mode
     module procedure new_SingleModeState_String
   end interface
   
@@ -70,19 +70,32 @@ contains
 !    - size() function
 !    - coefficient() getter
 ! ----------------------------------------------------------------------
-function new_SingleModeState(complex_mode,coefficients,frequency) result(this)
+function new_SingleModeState(mode_id,frequency,coefficients) result(this)
   implicit none
   
-  type(ComplexMode), intent(in)           :: complex_mode
-  real(dp),          intent(in)           :: coefficients(:)
-  real(dp),          intent(in), optional :: frequency
-  type(SingleModeState)                   :: this
+  integer,  intent(in)  :: mode_id
+  real(dp), intent(in)  :: coefficients(:)
+  real(dp), intent(in)  :: frequency
+  type(SingleModeState) :: this
   
-  this%mode_id = complex_mode%id
+  this%mode_id       = mode_id
+  this%frequency     = frequency
+  this%coefficients_ = coefficients
+end function
+
+function new_SingleModeState_mode(mode,frequency,coefficients) result(this)
+  implicit none
+  
+  type(RealMode), intent(in)           :: mode
+  real(dp),       intent(in), optional :: frequency
+  real(dp),       intent(in)           :: coefficients(:)
+  type(SingleModeState)                :: this
+  
+  this%mode_id = mode%id
   if (present(frequency)) then
     this%frequency = frequency
   else
-    this%frequency = complex_mode%frequency
+    this%frequency = mode%frequency
   endif
   this%coefficients_ = coefficients
 end function
@@ -243,77 +256,14 @@ function divide_SingleModeState_real(this,that) result(output)
 end function
 
 ! ----------------------------------------------------------------------
-! Generates the harmonic basis functions along a specific mode.
-! ----------------------------------------------------------------------
-! Uses the recurrence relation:
-!   |n> = sqrt(2*freq/n) u |n-1> - sqrt((n-1)/n) |n-2>
-! N.B. basis_functions(i) = |i-1> because |0> is a state.
-function generate_harmonic_basis(mode,harmonic_states_cutoff,frequency) &
-   & result(output)
-  implicit none
-  
-  type(ComplexMode), intent(in)           :: mode
-  integer,           intent(in)           :: harmonic_states_cutoff
-  real(dp),          intent(in), optional :: frequency
-  type(SingleModeState), allocatable      :: output(:)
-  
-  real(dp)              :: freq
-  real(dp)              :: normalisation
-  real(dp), allocatable :: coefficients(:)
-  
-  integer :: i,ialloc
-  
-  if (present(frequency)) then
-    freq = frequency
-  else
-    freq = mode%frequency
-  endif
-  
-  normalisation = (freq/PI)**0.25_dp
-  
-  allocate(output(harmonic_states_cutoff+1), stat=ialloc); call err(ialloc)
-  
-  ! Calculate |0>.
-  if (harmonic_states_cutoff >= 0) then
-    coefficients = [normalisation]
-    output(1) = SingleModeState(mode,coefficients,frequency)
-  endif
-  
-  ! Calculate |1>.
-  if (harmonic_states_cutoff >= 1) then
-    coefficients = [0.0_dp, normalisation*sqrt(freq*2)]
-    output(2) = SingleModeState(mode,coefficients,frequency)
-  endif
-  
-  do i=3,size(output)
-    ! Calculate |i-1> from |i-2> and |i-3>.
-    deallocate(coefficients, stat=ialloc); call err(ialloc)
-    allocate(coefficients(i), stat=ialloc); call err(ialloc)
-    coefficients = 0
-    
-    ! sqrt(2*freq/(i-1)) u |i-2>.
-    coefficients(2:) = coefficients(2:)        &
-                   & + sqrt(2*frequency/(i-1)) &
-                   & * output(i-1)%coefficients_(:i-1)
-    
-    ! -sqrt((i-2)/(i-1)) |i-3>.
-    coefficients(:i-2) = coefficients(:i-2)     &
-                     & - sqrt((i-2.0_dp)/(i-1)) &
-                     & * output(i-2)%coefficients_
-    
-    output(i) = SingleModeState(mode,coefficients,frequency)
-  enddo
-end function
-
-! ----------------------------------------------------------------------
 ! Evaluates the state at a given displacement, u, along the normal mode.
 ! ----------------------------------------------------------------------
 function evaluate_SingleModeState(this,u) result(output)
   implicit none
   
-  class(SingleModeState),        intent(in) :: this
-  type(ComplexSingleModeVector), intent(in) :: u
-  real(dp)                                  :: output
+  class(SingleModeState),       intent(in) :: this
+  type(RealSingleDisplacement), intent(in) :: u
+  real(dp)                                 :: output
   
   real(dp) :: term
   
@@ -357,8 +307,8 @@ end function
 ! I/O.
 ! ----------------------------------------------------------------------
 ! A state with coefficients=[3.1e2,7.4e-2,-4.9e-6] and
-!    frequency=[6.6e-4] becomes
-! '(3.1e2 +7.4e-2*u^1 -4.9e-6*u^2)e^(-6.6e-4*|u|^2)'
+!    frequency=[6.6e-4] along mode 7 becomes
+! 'u7: (3.1e2 +7.4e-2*u^1 -4.9e-6*u^2)e^(-6.6e-4*|u|^2)'
 subroutine read_SingleModeState(this,input)
   implicit none
   
@@ -368,15 +318,20 @@ subroutine read_SingleModeState(this,input)
   type(String), allocatable :: line(:)
   type(String), allocatable :: term(:)
   
+  integer               :: mode_id
   real(dp)              :: frequency
   real(dp), allocatable :: coefficients(:)
   
   integer :: i,ialloc
   
   select type(this); type is(SingleModeState)
-    ! Split the input into coefficients and exponent.
+    ! Split off the mode id term.
+    line = split_line(input,delimiter=':')
+    mode_id = int(slice(line(1),2,len(line(1))))
+    
+    ! Split into coefficients and exponent.
     ! line = ['(3.1e2 +7.4e-2*u^1 -4.9e-6*u^2', 'e^(-6.6e-4*|u|^2']
-    line = split_line(input,delimiter=')')
+    line = split_line(line(2),delimiter=')')
     if (size(line)/=2) then
       call print_line(ERROR//': Unable to parse string into SingleModeState:')
       call print_line(input)
@@ -397,7 +352,9 @@ subroutine read_SingleModeState(this,input)
       coefficients(i) = dble(term(1))
     enddo
     
-    this = SingleModeState(frequency, coefficients)
+    this = SingleModeState(mode_id, frequency, coefficients)
+  class default
+    call err()
   end select
 end subroutine
 
@@ -410,7 +367,7 @@ function write_SingleModeState(this) result(output)
   integer :: i
   
   select type(this); type is(SingleModeState)
-    output = '('//this%coefficient(0)
+    output = 'u'//this%mode_id//': ('//this%coefficient(0)
     do i=1,size(this)
       if (this%coefficient(i)>=0) then
         output = output//' +'//abs(this%coefficient(i))
@@ -425,6 +382,8 @@ function write_SingleModeState(this) result(output)
     else
       output = output//'+'//abs(this%frequency)//'*|u|^2/2)'
     endif
+  class default
+    call err()
   end select
 end function
 

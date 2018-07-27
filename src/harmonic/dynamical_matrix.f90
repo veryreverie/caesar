@@ -619,11 +619,19 @@ subroutine compare_dynamical_matrices(a,b,logfile)
       difference = difference + sum_squares(mat_a-mat_b)
     enddo
   enddo
-  call logfile%print_line('Fractional L2 difference between dynamical &
-     &matrices: '//sqrt(difference/average))
-  if (sqrt(difference/average)>1e-10_dp) then
-    call print_line(WARNING//': Dynamical matrices differ. Please check &
-       &log files.')
+  
+  if (average>1e-30_dp) then
+    call logfile%print_line('Fractional L2 difference between dynamical &
+       &matrices: '//sqrt(difference/average))
+    if (sqrt(difference/average)>1e-10_dp) then
+      call print_line(WARNING//': Dynamical matrices differ. Please check &
+         &log files.')
+      call print_line('Fractional L2 difference between dynamical &
+         &matrices: '//sqrt(difference/average))
+    endif
+  else
+    call logfile%print_line('Dynamical matrices too small to compare &
+       &fractional differences.')
   endif
 end subroutine
 

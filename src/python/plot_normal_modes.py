@@ -59,11 +59,13 @@ def main():
     contents = [line.rstrip('\n').split() for line in open(filename)]
     reading_displacements = False
     for line in mode_contents:
+      if len(line)>=4 and line[:2]==['Mode','ID']:
+        modes.append({'ID':int(line[3])})
       if len(line)>=2 and line[1]=='frequency':
         frequency = float(line[3])
-        modes.append({ 'frequency':frequency,
-                       'displacements':[]})
-      elif len(line)>=1 and line[0]=='Subspace':
+        modes[-1]['frequency']=frequency
+        modes[-1]['displacements']=[]
+      elif len(line)>=4 and line[0]=='Subspace':
         modes[-1]['subspace'] = int(line[3])
       elif len(line)>=1 and line[0]=='Mass-weighted':
         reading_displacements = not reading_displacements
@@ -199,6 +201,9 @@ def main():
     axes[i][0].set_yticks(eqm_pos)
     axes[i][0].set_yticklabels(species)
     axes[i][0].tick_params(length=0)
+  
+  for mode,ax in zip(modes,axes['zx']):
+    ax.set_xlabel('Mode '+str(mode['ID']))
   
   # Add subspace labeling.
   for i,mode in enumerate(modes):
