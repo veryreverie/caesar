@@ -6,8 +6,6 @@
 ! ======================================================================
 module subspace_coupling_module
   use common_module
-  
-  use degeneracy_module
   implicit none
   
   private
@@ -192,6 +190,6 @@ impure elemental function new_SubspaceCoupling_String(input) result(this)
   type(String), intent(in) :: input
   type(SubspaceCoupling)   :: this
   
-  this = input
+  call this%read(input)
 end function
 end module

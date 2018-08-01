@@ -19,7 +19,6 @@ module stringable_submodule
   private
   
   public :: Stringable
-  public :: assignment(=)
   
   type, abstract, extends(StringWriteable) :: Stringable
   contains
@@ -36,33 +35,7 @@ module stringable_submodule
       type(String),      intent(in)  :: input
     end subroutine
   end interface
-  
-  interface assignment(=)
-    module procedure assign_Stringable_String
-    module procedure assign_Stringable_character
-  end interface
 contains
-
-! ----------------------------------------------------------------------
-! Assign a Stringable type from a String type.
-! ----------------------------------------------------------------------
-recursive subroutine assign_Stringable_String(output,input)
-  implicit none
-  
-  class(Stringable), intent(out) :: output
-  type(String),      intent(in)  :: input
-  
-  call output%read(input)
-end subroutine
-
-recursive subroutine assign_Stringable_character(output,input)
-  implicit none
-  
-  class(Stringable), intent(out) :: output
-  character(*),      intent(in)  :: input
-  
-  output = str(input)
-end subroutine
 end module
 
 ! ======================================================================
@@ -140,6 +113,6 @@ impure elemental function new_StringableExample_String(input) result(this)
   type(String), intent(in) :: input
   type(StringableExample)  :: this
   
-  this = input
+  call this%read(input)
 end function
 end module

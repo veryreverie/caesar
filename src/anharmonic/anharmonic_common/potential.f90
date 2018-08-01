@@ -5,6 +5,8 @@
 module potential_module
   use common_module
   
+  use states_module
+  
   use anharmonic_data_module
   implicit none
   
@@ -27,10 +29,12 @@ module potential_module
        & generate_potential
     
     ! Return the energy and force at a given real or complex displacement.
-    generic, public :: energy => energy_RealModeDisplacement, &
-                               & energy_ComplexModeDisplacement
-    generic, public :: force  => force_RealModeDisplacement,  &
-                               & force_ComplexModeDisplacement
+    generic, public :: energy =>                    &
+                     & energy_RealModeDisplacement, &
+                     & energy_ComplexModeDisplacement
+    generic, public :: force  =>                   &
+                     & force_RealModeDisplacement, &
+                     & force_ComplexModeDisplacement
     procedure(energy_RealModeDisplacement_PotentialData), public, &
        & deferred :: energy_RealModeDisplacement
     procedure(energy_ComplexModeDisplacement_PotentialData), public, &
@@ -39,6 +43,15 @@ module potential_module
        & deferred :: force_RealModeDisplacement
     procedure(force_ComplexModeDisplacement_PotentialData), public, &
        & deferred :: force_ComplexModeDisplacement
+    
+    ! Evaluate <bra|potential|ket>.
+    generic, public :: braket =>              &
+                     & braket_SubspaceStates, &
+                     & braket_HarmonicSubspaceStates
+    procedure(braket_SubspaceStates_PotentialData), public, &
+       & deferred :: braket_SubspaceStates
+    procedure(braket_HarmonicSubspaceStates_PotentialData), public, &
+       & deferred :: braket_HarmonicSubspaceStates
   end type
   
   abstract interface
@@ -124,6 +137,28 @@ module potential_module
       type(ComplexModeDisplacement), intent(in) :: displacement
       type(ComplexModeForce)                    :: output
     end function
+    
+    subroutine braket_SubspaceStates_PotentialData(this,bra,ket)
+      import PotentialData
+      import SubspaceState
+      implicit none
+      
+      class(PotentialData), intent(inout) :: this
+      type(SubspaceState),  intent(in)    :: bra
+      type(SubspaceState),  intent(in)    :: ket
+    end subroutine
+    
+    subroutine braket_HarmonicSubspaceStates_PotentialData(this,bra,ket,bases)
+      import PotentialData
+      import HarmonicSubspaceState
+      import HarmonicModeBasis
+      implicit none
+      
+      class(PotentialData),        intent(inout) :: this
+      type(HarmonicSubspaceState), intent(in)    :: bra
+      type(HarmonicSubspaceState), intent(in)    :: ket
+      type(HarmonicModeBasis),     intent(in)    :: bases(:)
+    end subroutine
   end interface
 contains
 end module

@@ -366,6 +366,6 @@ impure elemental function new_RealSingleForce_String(input) result(this)
   type(String), intent(in) :: input
   type(RealSingleForce)    :: this
   
-  this = input
+  call this%read(input)
 end function
 end module

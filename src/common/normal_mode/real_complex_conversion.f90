@@ -269,9 +269,9 @@ impure elemental function element_ComplexMonomial_RealMonomial(this,that) &
   do i=1,size(this)
     ! Find the location of the mode paired to this one in 'this'.
     ! Also find the location of this mode and its pair in 'that'.
-    j = first(this%modes%paired_id() == this%modes(i)%id, default=0)
-    k = first(that%modes%id          == this%modes(i)%id, default=0)
-    l = first(that%modes%paired_id() == this%modes(i)%id, default=0)
+    j = first(this%modes%paired_id == this%modes(i)%id, default=0)
+    k = first(that%modes%id        == this%modes(i)%id, default=0)
+    l = first(that%modes%paired_id == this%modes(i)%id, default=0)
     
     if (j/=0 .and. j<i) then
       ! This pairing has already been accounted for, when the paired mode
@@ -335,9 +335,9 @@ impure elemental function element_RealMonomial_ComplexMonomial(this,that) &
   do i=1,size(this)
     ! Find the location of the mode paired to this one in 'this'.
     ! Also find the location of this mode and its pair in 'that'.
-    j = first(this%modes%paired_id() == this%modes(i)%id, default=0)
-    k = first(that%modes%id          == this%modes(i)%id, default=0)
-    l = first(that%modes%paired_id() == this%modes(i)%id, default=0)
+    j = first(this%modes%paired_id == this%modes(i)%id, default=0)
+    k = first(that%modes%id        == this%modes(i)%id, default=0)
+    l = first(that%modes%paired_id == this%modes(i)%id, default=0)
     
     if (j/=0 .and. j<i) then
       ! This pairing has already been accounted for, when the paired mode
@@ -395,7 +395,7 @@ impure elemental function element_ComplexUnivariates_RealUnivariates &
   
   ! Check for optional arguments, and identify which mode is i and which is j.
   if (present(this_pair)) then
-    if (this%id<this%paired_id()) then
+    if (this%id<this%paired_id) then
       up = this
       um = this_pair
     else
@@ -403,17 +403,17 @@ impure elemental function element_ComplexUnivariates_RealUnivariates &
       um = this
     endif
   else
-    if (this%id<this%paired_id()) then
+    if (this%id<this%paired_id) then
       up = this
-      um = ComplexUnivariate(this%paired_id(),this%id,power=0)
+      um = ComplexUnivariate(this%paired_id,this%id,power=0)
     else
-      up = ComplexUnivariate(this%paired_id(),this%id,power=0)
+      up = ComplexUnivariate(this%paired_id,this%id,power=0)
       um = this
     endif
   endif
   
   if (present(that_pair)) then
-    if (that%id<that%paired_id()) then
+    if (that%id<that%paired_id) then
       c = that
       s = that_pair
     else
@@ -421,20 +421,20 @@ impure elemental function element_ComplexUnivariates_RealUnivariates &
       s = that
     endif
   else
-    if (that%id<that%paired_id()) then
+    if (that%id<that%paired_id) then
       c = that
-      s = RealUnivariate(that%paired_id(),that%id,power=0)
+      s = RealUnivariate(that%paired_id,that%id,power=0)
     else
-      c = RealUnivariate(that%paired_id(),that%id,power=0)
+      c = RealUnivariate(that%paired_id,that%id,power=0)
       s = that
     endif
   endif
   
   ! Check that inputs are paired up.
-  if (up%paired_id()/=um%id .or. up%id/=um%paired_id()) then
+  if (up%paired_id/=um%id .or. up%id/=um%paired_id) then
     call print_line(CODE_ERROR//': Unpaired modes passed to function.')
     call err()
-  elseif (c%paired_id()/=s%id .or. c%id/=s%paired_id()) then
+  elseif (c%paired_id/=s%id .or. c%id/=s%paired_id) then
     call print_line(CODE_ERROR//': Unpaired modes passed to function.')
     call err()
   endif
@@ -517,7 +517,7 @@ impure elemental function element_RealUnivariates_ComplexUnivariates &
   
   ! Check for optional arguments, and identify which mode is i and which is j.
   if (present(this_pair)) then
-    if (this%id<this%paired_id()) then
+    if (this%id<this%paired_id) then
       c = this
       s = this_pair
     else
@@ -525,17 +525,17 @@ impure elemental function element_RealUnivariates_ComplexUnivariates &
       s = this
     endif
   else
-    if (this%id<this%paired_id()) then
+    if (this%id<this%paired_id) then
       c = this
-      s = RealUnivariate(this%paired_id(),this%id,power=0)
+      s = RealUnivariate(this%paired_id,this%id,power=0)
     else
-      c = RealUnivariate(this%paired_id(),this%id,power=0)
+      c = RealUnivariate(this%paired_id,this%id,power=0)
       s = this
     endif
   endif
   
   if (present(that_pair)) then
-    if (that%id<that%paired_id()) then
+    if (that%id<that%paired_id) then
       up = that
       um = that_pair
     else
@@ -543,20 +543,20 @@ impure elemental function element_RealUnivariates_ComplexUnivariates &
       um = that
     endif
   else
-    if (that%id<that%paired_id()) then
+    if (that%id<that%paired_id) then
       up = that
-      um = ComplexUnivariate(that%paired_id(),that%id,power=0)
+      um = ComplexUnivariate(that%paired_id,that%id,power=0)
     else
-      up = ComplexUnivariate(that%paired_id(),that%id,power=0)
+      up = ComplexUnivariate(that%paired_id,that%id,power=0)
       um = that
     endif
   endif
   
   ! Check that inputs are paired up.
-  if (up%paired_id()/=um%id .or. up%id/=um%paired_id()) then
+  if (up%paired_id/=um%id .or. up%id/=um%paired_id) then
     call print_line(CODE_ERROR//': Unpaired modes passed to function.')
     call err()
-  elseif (c%paired_id()/=s%id .or. c%id/=s%paired_id()) then
+  elseif (c%paired_id/=s%id .or. c%id/=s%paired_id) then
     call print_line(CODE_ERROR//': Unpaired modes passed to function.')
     call err()
   endif

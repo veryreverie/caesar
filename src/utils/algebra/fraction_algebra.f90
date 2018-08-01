@@ -1238,7 +1238,7 @@ impure elemental function new_FractionVector_String(input) result(this)
   type(String), intent(in) :: input
   type(FractionVector)     :: this
   
-  this = input
+  call this%read(input)
 end function
 
 subroutine read_FractionMatrix(this,input)

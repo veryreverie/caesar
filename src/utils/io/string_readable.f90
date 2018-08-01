@@ -16,7 +16,6 @@ module string_readable_submodule
   private
   
   public :: StringReadable
-  public :: assignment(=)
   
   type, abstract, extends(NoDefaultConstructor) :: StringReadable
   contains
@@ -33,33 +32,7 @@ module string_readable_submodule
       type(String),          intent(in)  :: input
     end subroutine
   end interface
-  
-  interface assignment(=)
-    module procedure assign_StringReadable_String
-    module procedure assign_StringReadable_character
-  end interface
 contains
-
-! ----------------------------------------------------------------------
-! Assign a StringReadable type from a String type.
-! ----------------------------------------------------------------------
-recursive subroutine assign_StringReadable_String(output,input)
-  implicit none
-  
-  class(StringReadable), intent(out) :: output
-  type(String),          intent(in)  :: input
-  
-  call output%read(input)
-end subroutine
-
-recursive subroutine assign_StringReadable_character(output,input)
-  implicit none
-  
-  class(StringReadable), intent(out) :: output
-  character(*),          intent(in)  :: input
-  
-  output = str(input)
-end subroutine
 end module
 
 ! ======================================================================
@@ -124,6 +97,6 @@ impure elemental function new_StringReadableExample_String(input) result(this)
   type(String), intent(in)    :: input
   type(StringReadableExample) :: this
   
-  this = input
+  call this%read(input)
 end function
 end module

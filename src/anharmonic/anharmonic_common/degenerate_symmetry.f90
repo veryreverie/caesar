@@ -1,7 +1,6 @@
 module degenerate_symmetry_module
   use common_module
   
-  use degeneracy_module
   use mode_monomial_module
   implicit none
   

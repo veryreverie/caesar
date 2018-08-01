@@ -3347,7 +3347,7 @@ impure elemental function new_IntVector_String(input) result(this)
   type(String), intent(in) :: input
   type(IntVector)          :: this
   
-  this = input
+  call this%read(input)
 end function
 
 subroutine read_RealVector(this,input)
@@ -3378,7 +3378,7 @@ impure elemental function new_RealVector_String(input) result(this)
   type(String), intent(in) :: input
   type(RealVector)         :: this
   
-  this = input
+  call this%read(input)
 end function
 
 subroutine read_ComplexVector(this,input)
@@ -3409,7 +3409,7 @@ impure elemental function new_ComplexVector_String(input) result(this)
   type(String), intent(in) :: input
   type(ComplexVector)      :: this
   
-  this = input
+  call this%read(input)
 end function
 
 subroutine read_IntMatrix(this,input)

@@ -253,7 +253,7 @@ impure elemental function frac_character(input) result(output)
   character(*), intent(in) :: input
   type(IntFraction)        :: output
   
-  output = input
+  output = frac(str(input))
 end function
 
 ! Conversion from String.
@@ -263,7 +263,7 @@ impure elemental function frac_String(input) result(output)
   type(String), intent(in) :: input
   type(IntFraction)        :: output
   
-  output = input
+  output = IntFraction(input)
 end function
 
 ! Conversion from integer.
@@ -736,6 +736,6 @@ impure elemental function new_IntFraction_String(input) result(this)
   type(String), intent(in) :: input
   type(IntFraction)        :: this
   
-  this = input
+  call this%read(input)
 end function
 end module

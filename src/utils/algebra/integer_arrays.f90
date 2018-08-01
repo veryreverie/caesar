@@ -362,7 +362,7 @@ impure elemental function new_IntArray1D_String(input) result(this)
   type(String), intent(in) :: input
   type(IntArray1D)         :: this
   
-  this = input
+  call this%read(input)
 end function
 
 subroutine read_IntArray2D(this,input)

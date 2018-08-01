@@ -436,6 +436,6 @@ impure elemental function new_FractionComplex_String(input) result(this)
   type(String), intent(in) :: input
   type(FractionComplex)    :: this
   
-  this = input
+  call this%read(input)
 end function
 end module

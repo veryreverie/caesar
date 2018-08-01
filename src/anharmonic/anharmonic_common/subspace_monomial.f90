@@ -5,7 +5,6 @@
 module subspace_monomial_module
   use common_module
   
-  use degeneracy_module
   use subspace_coupling_module
   implicit none
   
@@ -512,6 +511,6 @@ impure elemental function new_SubspaceMonomial_String(input) result(this)
   type(String), intent(in) :: input
   type(SubspaceMonomial)   :: this
   
-  this = input
+  call this%read(input)
 end function
 end module

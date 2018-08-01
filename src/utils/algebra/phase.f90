@@ -144,6 +144,6 @@ impure elemental function new_PhaseData_String(input) result(this)
   type(String), intent(in) :: input
   type(PhaseData)          :: this
   
-  this = input
+  call this%read(input)
 end function
 end module

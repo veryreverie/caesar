@@ -1,8 +1,12 @@
 ! ======================================================================
 ! Holds information about a degenerate subspace.
 ! ======================================================================
-module degeneracy_module
-  use common_module
+module degenerate_subspace_module
+  use utils_module
+  
+  use structure_module
+  
+  use complex_mode_submodule
   implicit none
   
   private

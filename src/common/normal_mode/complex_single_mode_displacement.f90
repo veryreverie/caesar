@@ -272,6 +272,6 @@ impure elemental function new_ComplexSingleDisplacement_String(input) &
   type(String), intent(in)        :: input
   type(ComplexSingleDisplacement) :: this
   
-  this = input
+  call this%read(input)
 end function
 end module

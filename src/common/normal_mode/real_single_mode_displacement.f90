@@ -372,6 +372,6 @@ impure elemental function new_RealSingleDisplacement_String(input) &
   type(String), intent(in)     :: input
   type(RealSingleDisplacement) :: this
   
-  this = input
+  call this%read(input)
 end function
 end module

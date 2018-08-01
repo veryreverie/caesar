@@ -7,6 +7,8 @@
 module potential_pointer_module
   use common_module
   
+  use states_module
+  
   use anharmonic_data_module
   use potential_module
   implicit none
@@ -32,6 +34,11 @@ module potential_pointer_module
                        & force_RealModeDisplacement_PotentialPointer
     procedure, public :: force_ComplexModeDisplacement => &
                        & force_ComplexModeDisplacement_PotentialPointer
+    
+    procedure, public :: braket_SubspaceStates => &
+                       & braket_SubspaceStates_PotentialPointer
+    procedure, public :: braket_HarmonicSubspaceStates => &
+                       & braket_HarmonicSubspaceStates_PotentialPointer
     
     procedure, private :: check => check_PotentialPointer
     
@@ -167,6 +174,31 @@ impure elemental function force_ComplexModeDisplacement_PotentialPointer( &
   output = this%potential%force(displacement)
 end function
 
+subroutine braket_SubspaceStates_PotentialPointer(this,bra,ket)
+  implicit none
+  
+  class(PotentialPointer), intent(inout) :: this
+  type(SubspaceState),     intent(in)    :: bra
+  type(SubspaceState),     intent(in)    :: ket
+  
+  call this%check()
+  
+  call this%potential%braket(bra,ket)
+end subroutine
+
+subroutine braket_HarmonicSubspaceStates_PotentialPointer(this,bra,ket,bases)
+  implicit none
+  
+  class(PotentialPointer),     intent(inout) :: this
+  type(HarmonicSubspaceState), intent(in)    :: bra
+  type(HarmonicSubspaceState), intent(in)    :: ket
+  type(HarmonicModeBasis),     intent(in)    :: bases(:)
+  
+  call this%check()
+  
+  call this%potential%braket(bra,ket,bases)
+end subroutine
+
 subroutine read_PotentialPointer(this,input)
   implicit none
   
@@ -198,6 +230,8 @@ end module
 module potential_example_module
   use common_module
   
+  use states_module
+  
   use anharmonic_data_module
   use potential_module
   use potential_pointer_module
@@ -223,6 +257,11 @@ module potential_example_module
                        & force_RealModeDisplacement_PotentialDataExample
     procedure, public :: force_ComplexModeDisplacement => &
                        & force_ComplexModeDisplacement_PotentialDataExample
+    
+    procedure, public :: braket_SubspaceStates => &
+                       & braket_SubspaceStates_PotentialDataExample
+    procedure, public :: braket_HarmonicSubspaceStates => &
+                       & braket_HarmonicSubspaceStates_PotentialDataExample
     
     procedure, public :: read  => read_PotentialDataExample
     procedure, public :: write => write_PotentialDataExample
@@ -341,6 +380,36 @@ impure elemental function force_ComplexModeDisplacement_PotentialDataExample( &
   ! Code to calculate forces at complex displacements goes here.
 end function
 
+subroutine braket_SubspaceStates_PotentialDataExample(this,bra,ket)
+  implicit none
+  
+  class(PotentialDataExample), intent(inout) :: this
+  type(SubspaceState),         intent(in)    :: bra
+  type(SubspaceState),         intent(in)    :: ket
+  
+  call print_line('PotentialDataExample: evaluating <bra|potential|ket>.')
+  
+  ! Code to integrate this potential between <bra| and |ket> goes here.
+end subroutine
+
+subroutine braket_HarmonicSubspaceStates_PotentialDataExample(this,bra,ket, &
+   & bases)
+  implicit none
+  
+  class(PotentialDataExample), intent(inout) :: this
+  type(HarmonicSubspaceState), intent(in)    :: bra
+  type(HarmonicSubspaceState), intent(in)    :: ket
+  type(HarmonicModeBasis),     intent(in)    :: bases(:)
+  
+  call print_line('PotentialDataExample: evaluating <bra|potential|ket> &
+     &in harmonic basis.')
+  
+  ! Code to integrate this potential between <bra| and |ket> goes here.
+  ! If nothing is gained by treating bra and ket as harmonic states,
+  !   this code can simply call the subroutine above, as:
+  ! call this%braket(SubspaceState(bra,bases), SubspaceState(ket,bases))
+end subroutine
+
 ! --------------------------------------------------
 ! I/O.
 ! --------------------------------------------------
@@ -414,6 +483,13 @@ subroutine potential_example_subroutine(wd)
   complex(dp)                   :: complex_energy
   type(ComplexModeForce)        :: complex_force
   
+  ! Variables for integrating potential.
+  type(SubspaceState)                  :: state_1
+  type(SubspaceState)                  :: state_2
+  type(HarmonicSubspaceState)          :: harmonic_state_1
+  type(HarmonicSubspaceState)          :: harmonic_state_2
+  type(HarmonicModeBasis), allocatable :: harmonic_bases(:)
+  
   ! Files.
   type(OFile) :: output_file
   type(IFile) :: input_file
@@ -448,6 +524,12 @@ subroutine potential_example_subroutine(wd)
   real_force  = potential%force(real_displacement)
   complex_energy = potential%energy(complex_displacement)
   complex_force  = potential%force(complex_displacement)
+  
+  ! The potential can also be integrated between two states,
+  !    with those states either explicitly represented or represented as
+  !    harmonic states.
+  call potential%braket(state_1,state_2)
+  call potential%braket(harmonic_state_1,harmonic_state_2,harmonic_bases)
   
   ! The potential can be written to file directly from the potential pointer's
   !    write method, but must be read using the specific potential's

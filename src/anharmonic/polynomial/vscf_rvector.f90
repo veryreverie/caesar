@@ -73,6 +73,6 @@ impure elemental function new_VscfRvector_String(input) result(this)
   type(String), intent(in) :: input
   type(VscfRvector)        :: this
   
-  this = input
+  call this%read(input)
 end function
 end module

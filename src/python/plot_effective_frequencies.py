@@ -155,6 +155,10 @@ def main():
   
   ymin = min_frequency - 0.1*(max_frequency-min_frequency)
   ymax = max_frequency + 0.1*(max_frequency-min_frequency)
+  
+  ymin = min(ymin, 0)
+  ymax = max(ymax, 0)
+  
   for ax in axes[0]:
     ax.set_ylim(ymin,ymax)
     ax.set_xticks([])

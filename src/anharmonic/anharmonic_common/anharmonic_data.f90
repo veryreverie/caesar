@@ -5,7 +5,6 @@
 module anharmonic_data_module
   use common_module
   
-  use degeneracy_module
   use degenerate_symmetry_module
   use subspace_coupling_module
   implicit none

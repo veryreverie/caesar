@@ -5,7 +5,6 @@
 ! This module is simply an interface for the various
 !    common anharmonic submodules.
 module anharmonic_common_module
-  use degeneracy_module
   use subspace_coupling_module
   use subspace_monomial_module
   use mode_coupling_module

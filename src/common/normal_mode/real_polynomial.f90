@@ -50,11 +50,11 @@ module real_polynomial_submodule
   end type
   
   type, extends(RealMonomialable) :: RealUnivariate
-    integer          :: id
-    integer, private :: paired_id_
-    integer          :: power
+    integer :: id
+    integer :: paired_id
+    integer :: power
   contains
-    procedure, public :: paired_id
+    procedure, private :: set_paired_id
     
     procedure, public :: to_RealMonomial   => to_RealMonomial_RealUnivariate
     procedure, public :: to_RealPolynomial => to_RealPolynomial_RealUnivariate
@@ -75,6 +75,8 @@ module real_polynomial_submodule
     real(dp)                          :: coefficient
     type(RealUnivariate), allocatable :: modes(:)
   contains
+    procedure, private :: set_paired_ids => set_paired_ids_RealMonomial
+    
     procedure, public :: to_RealMonomial   => to_RealMonomial_RealMonomial
     procedure, public :: to_RealPolynomial => to_RealPolynomial_RealMonomial
     
@@ -93,6 +95,8 @@ module real_polynomial_submodule
   type, extends(RealPolynomialable) :: RealPolynomial
     type(RealMonomial), allocatable :: terms(:)
   contains
+    procedure, private :: set_paired_ids => set_paired_ids_RealPolynomial
+    
     procedure, public :: to_RealPolynomial => to_RealPolynomial_RealPolynomial
     
     procedure, public :: energy => energy_RealPolynomial
@@ -182,18 +186,14 @@ contains
 function new_RealUnivariate(id,paired_id,power) result(this)
   implicit none
   
-  integer, intent(in)           :: id
-  integer, intent(in), optional :: paired_id
-  integer, intent(in)           :: power
-  type(RealUnivariate)          :: this
+  integer, intent(in)  :: id
+  integer, intent(in)  :: paired_id
+  integer, intent(in)  :: power
+  type(RealUnivariate) :: this
   
-  this%id = id
-  if (present(paired_id)) then
-    this%paired_id_ = paired_id
-  else
-    this%paired_id_ = 0
-  endif
-  this%power = power
+  this%id        = id
+  this%paired_id = paired_id
+  this%power     = power
 end function
 
 function new_RealMonomial(coefficient,modes) result(this)
@@ -217,22 +217,45 @@ function new_RealPolynomial(terms) result(this)
 end function
 
 ! ----------------------------------------------------------------------
-! Getter for paired_id, with error checking.
+! Setter for paired_id, using an array of modes.
 ! ----------------------------------------------------------------------
-impure elemental function paired_id(this) result(output)
+subroutine set_paired_id(this,modes)
   implicit none
   
-  class(RealUnivariate), intent(in) :: this
-  integer                           :: output
+  class(RealUnivariate), intent(inout) :: this
+  type(RealMode),        intent(in)    :: modes(:)
   
-  if (this%paired_id_==0) then
-    call print_line(CODE_ERROR//': Trying to use paired_id before it has &
-       & been set.')
-    call err()
-  endif
+  type(RealMode) :: mode
   
-  output = this%paired_id_
-end function
+  mode = modes(first(modes%id==this%id))
+  this%paired_id = mode%paired_id
+end subroutine
+
+subroutine set_paired_ids_RealMonomial(this,modes)
+  implicit none
+  
+  class(RealMonomial), intent(inout) :: this
+  type(RealMode),      intent(in)    :: modes(:)
+  
+  integer :: i
+  
+  do i=1,size(this%modes)
+    call this%modes(i)%set_paired_id(modes)
+  enddo
+end subroutine
+
+subroutine set_paired_ids_RealPolynomial(this,modes)
+  implicit none
+  
+  class(RealPolynomial), intent(inout) :: this
+  type(RealMode),        intent(in)    :: modes(:)
+  
+  integer :: i
+  
+  do i=1,size(this%terms)
+    call this%terms(i)%set_paired_ids(modes)
+  enddo
+end subroutine
 
 ! ----------------------------------------------------------------------
 ! Conversions between types.
@@ -751,19 +774,31 @@ subroutine read_RealUnivariate(this,input)
   
   type(String), allocatable :: line(:)
   integer                   :: id
+  integer                   :: paired_id
   integer                   :: power
   
   select type(this); type is(RealUnivariate)
-    line = split_line(input,delimiter='^')
+    ! If id=5, paired_id=7 and power=3 then:
+    ! input = '(u5=u7*)^7'
+    
+    ! Split off power.
+    line = split_line(input,delimiter='^') ! line = ['(u5=u7*)', '7']
     if (size(line)/=2) then
       call print_line(ERROR//': Unable to convert string to univariate.')
       call err()
     endif
-    
-    id = int(slice(line(1),2,len(line(1))))
     power = int(line(2))
     
-    this = RealUnivariate(id=id,power=power)
+    ! Split id and paired_id
+    line = split_line(line(1), delimiter='u') ! line = ['(', '5=', '7*)']
+    if (size(line)/=3) then
+      call print_line(ERROR//': Unable to convert string to univariate.')
+      call err()
+    endif
+    id = int(slice(line(2),1,len(line(2))-1))
+    paired_id = int(slice(line(3),1,len(line(3))-2))
+    
+    this = RealUnivariate(id=id, paired_id=paired_id, power=power)
   end select
 end subroutine
 
@@ -774,7 +809,7 @@ function write_RealUnivariate(this) result(output)
   type(String)                      :: output
   
   select type(this); type is(RealUnivariate)
-    output = 'u'//this%id//'^'//this%power
+    output = '(u'//this%id//'=u'//this%paired_id//'*)^'//this%power
   end select
 end function
 
@@ -784,7 +819,7 @@ impure elemental function new_RealUnivariate_String(input) result(this)
   type(String), intent(in) :: input
   type(RealUnivariate)     :: this
   
-  this = input
+  call this%read(input)
 end function
 
 subroutine read_RealMonomial(this,input)
@@ -797,11 +832,20 @@ subroutine read_RealMonomial(this,input)
   real(dp)                          :: coefficient
   type(RealUnivariate), allocatable :: modes(:)
   
+  integer :: i,ialloc
+  
   select type(this); type is(RealMonomial)
+    ! Splitting the input by '*' separates univariates, but also splits
+    !    each univariate in two.
     line = split_line(input,delimiter='*')
     
     coefficient = dble(line(1))
-    modes = RealUnivariate(line(2:))
+    
+    ! Each univariate must be re-assembled from its two parts.
+    allocate(modes((size(line)-1)/2), stat=ialloc); call err(ialloc)
+    do i=1,size(modes)
+      modes(i) = RealUnivariate(line(2*i)//'*'//line(2*i+1))
+    enddo
     
     this = RealMonomial(coefficient, modes)
   end select
@@ -825,10 +869,10 @@ end function
 impure elemental function new_RealMonomial_String(input) result(this)
   implicit none
   
-  type(String), intent(in) :: input
-  type(RealMonomial)       :: this
+  type(String),   intent(in) :: input
+  type(RealMonomial)         :: this
   
-  this = input
+  call this%read(input)
 end function
 
 subroutine read_RealPolynomial(this,input)
@@ -837,14 +881,18 @@ subroutine read_RealPolynomial(this,input)
   class(RealPolynomial), intent(out) :: this
   type(String),          intent(in)  :: input
   
-  type(String), allocatable :: terms(:)
-  type(String)              :: plus
+  type(String),       allocatable :: terms(:)
+  type(String)                    :: plus
+  type(RealMonomial), allocatable :: monomials(:)
   
   plus = '+'
   select type(this); type is(RealPolynomial)
     terms = split_line(input)
     terms = terms(filter(terms/=plus))
-    this = RealPolynomial(RealMonomial(terms))
+    
+    monomials = RealMonomial(terms)
+    
+    this = RealPolynomial(monomials)
   end select
 end subroutine
 
@@ -862,9 +910,9 @@ end function
 impure elemental function new_RealPolynomial_String(input) result(this)
   implicit none
   
-  type(String), intent(in) :: input
-  type(RealPolynomial)     :: this
+  type(String),   intent(in) :: input
+  type(RealPolynomial)       :: this
   
-  this = input
+  call this%read(input)
 end function
 end module

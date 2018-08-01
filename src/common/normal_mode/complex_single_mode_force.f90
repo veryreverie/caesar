@@ -263,6 +263,6 @@ impure elemental function new_ComplexSingleForce_String(input) &
   type(String), intent(in) :: input
   type(ComplexSingleForce) :: this
   
-  this = input
+  call this%read(input)
 end function
 end module

@@ -3,6 +3,7 @@
 ! ======================================================================
 module complex_polynomial_submodule
   use utils_module
+  use structure_module
   
   use complex_mode_submodule
   use complex_single_mode_displacement_submodule
@@ -42,6 +43,9 @@ module complex_polynomial_submodule
   contains
     procedure(to_ComplexPolynomial_ComplexPolynomialable), deferred, public &
        & :: to_ComplexPolynomial
+    
+    procedure(wavevector_ComplexPolynomialable), deferred, public &
+       & :: wavevector
   end type
   
   type, abstract, extends(ComplexPolynomialable) :: ComplexMonomialable
@@ -51,16 +55,19 @@ module complex_polynomial_submodule
   end type
   
   type, extends(ComplexMonomialable) :: ComplexUnivariate
-    integer          :: id
-    integer, private :: paired_id_
-    integer          :: power
+    integer :: id
+    integer :: paired_id
+    integer :: power
   contains
-    procedure, public :: paired_id
+    procedure, private :: set_paired_id
     
     procedure, public :: to_ComplexMonomial   => &
        & to_ComplexMonomial_ComplexUnivariate
     procedure, public :: to_ComplexPolynomial => &
        & to_ComplexPolynomial_ComplexUnivariate
+    
+    procedure, public :: wavevector => &
+                       & wavevector_ComplexUnivariate
     
     procedure, public :: energy => energy_ComplexUnivariate
     procedure, public :: force  => force_ComplexUnivariate
@@ -78,10 +85,15 @@ module complex_polynomial_submodule
     complex(dp)                          :: coefficient
     type(ComplexUnivariate), allocatable :: modes(:)
   contains
+    procedure, private :: set_paired_ids => set_paired_ids_ComplexMonomial
+    
     procedure, public :: to_ComplexMonomial   => &
        & to_ComplexMonomial_ComplexMonomial
     procedure, public :: to_ComplexPolynomial => &
        & to_ComplexPolynomial_ComplexMonomial
+    
+    procedure, public :: wavevector => &
+                       & wavevector_ComplexMonomial
     
     procedure, public :: energy => energy_ComplexMonomial
     procedure, public :: force  => force_ComplexMonomial
@@ -98,8 +110,13 @@ module complex_polynomial_submodule
   type, extends(ComplexPolynomialable) :: ComplexPolynomial
     type(ComplexMonomial), allocatable :: terms(:)
   contains
+    procedure, private :: set_paired_ids => set_paired_ids_ComplexPolynomial
+    
     procedure, public :: to_ComplexPolynomial => &
        & to_ComplexPolynomial_ComplexPolynomial
+    
+    procedure, public :: wavevector => &
+                       & wavevector_ComplexPolynomial
     
     procedure, public :: energy => energy_ComplexPolynomial
     procedure, public :: force  => force_ComplexPolynomial
@@ -121,6 +138,19 @@ module complex_polynomial_submodule
       
       class(ComplexPolynomialable), intent(in) :: this
       type(ComplexPolynomial)                  :: output
+    end function
+    
+    function wavevector_ComplexPolynomialable(this,modes,qpoints) &
+       & result(output)
+      import ComplexPolynomialable
+      import ComplexMode
+      import QpointData
+      implicit none
+      
+      class(ComplexPolynomialable), intent(in) :: this
+      type(ComplexMode),            intent(in) :: modes(:)
+      type(QpointData),             intent(in) :: qpoints(:)
+      type(QpointData)                         :: output
     end function
     
     function to_ComplexMonomial_ComplexMonomialable(this) result(output)
@@ -197,18 +227,14 @@ contains
 function new_ComplexUnivariate(id,paired_id,power) result(this)
   implicit none
   
-  integer, intent(in)           :: id
-  integer, intent(in), optional :: paired_id
-  integer, intent(in)           :: power
-  type(ComplexUnivariate)       :: this
+  integer, intent(in)     :: id
+  integer, intent(in)     :: paired_id
+  integer, intent(in)     :: power
+  type(ComplexUnivariate) :: this
   
-  this%id = id
-  if (present(paired_id)) then
-    this%paired_id_ = paired_id
-  else
-    this%paired_id_ = 0
-  endif
-  this%power = power
+  this%id        = id
+  this%paired_id = paired_id
+  this%power     = power
 end function
 
 function new_ComplexMonomial(coefficient,modes) result(this)
@@ -232,22 +258,45 @@ function new_ComplexPolynomial(terms) result(this)
 end function
 
 ! ----------------------------------------------------------------------
-! Getter for paired_id, with error checking.
+! Setter for paired_id, using an array of modes.
 ! ----------------------------------------------------------------------
-impure elemental function paired_id(this) result(output)
+subroutine set_paired_id(this,modes)
   implicit none
   
-  class(ComplexUnivariate), intent(in) :: this
-  integer                              :: output
+  class(ComplexUnivariate), intent(inout) :: this
+  type(ComplexMode),        intent(in)    :: modes(:)
   
-  if (this%paired_id_==0) then
-    call print_line(CODE_ERROR//': Trying to use paired_id before it has &
-       & been set.')
-    call err()
-  endif
+  type(ComplexMode) :: mode
   
-  output = this%paired_id_
-end function
+  mode = modes(first(modes%id==this%id))
+  this%paired_id = mode%paired_id
+end subroutine
+
+subroutine set_paired_ids_ComplexMonomial(this,modes)
+  implicit none
+  
+  class(ComplexMonomial), intent(inout) :: this
+  type(ComplexMode),      intent(in)    :: modes(:)
+  
+  integer :: i
+  
+  do i=1,size(this%modes)
+    call this%modes(i)%set_paired_id(modes)
+  enddo
+end subroutine
+
+subroutine set_paired_ids_ComplexPolynomial(this,modes)
+  implicit none
+  
+  class(ComplexPolynomial), intent(inout) :: this
+  type(ComplexMode),        intent(in)    :: modes(:)
+  
+  integer :: i
+  
+  do i=1,size(this%terms)
+    call this%terms(i)%set_paired_ids(modes)
+  enddo
+end subroutine
 
 ! ----------------------------------------------------------------------
 ! Conversions between types.
@@ -328,8 +377,8 @@ impure elemental function conjg_ComplexUnivariate(this) result(output)
   type(ComplexUnivariate), intent(in) :: this
   type(ComplexUnivariate)             :: output
   
-  output = ComplexUnivariate( id        = this%paired_id(), &
-                            & paired_id = this%id,          &
+  output = ComplexUnivariate( id        = this%paired_id, &
+                            & paired_id = this%id,        &
                             & power     = this%power)
 end function
 
@@ -351,6 +400,72 @@ impure elemental function conjg_ComplexPolynomial(this) result(output)
   type(ComplexPolynomial)             :: output
   
   output = ComplexPolynomial(conjg(this%terms))
+end function
+
+! Returns the Bloch wavevector of a univariate, monomial or polynomial.
+function wavevector_ComplexUnivariate(this,modes,qpoints) result(output)
+  implicit none
+  
+  class(ComplexUnivariate), intent(in) :: this
+  type(ComplexMode),        intent(in) :: modes(:)
+  type(QpointData),         intent(in) :: qpoints(:)
+  type(QpointData)                     :: output
+  
+  type(ComplexMode) :: mode
+  type(QpointData)  :: qpoint
+  
+  mode = modes(first(modes%id==this%id))
+  qpoint = qpoints(first(qpoints%id==mode%qpoint_id))
+  qpoint%qpoint = qpoint%qpoint * this%power
+  
+  output = qpoints(first(qpoints==qpoint))
+end function
+
+function wavevector_ComplexMonomial(this,modes,qpoints) result(output)
+  implicit none
+  
+  class(ComplexMonomial), intent(in) :: this
+  type(ComplexMode),      intent(in) :: modes(:)
+  type(QpointData),       intent(in) :: qpoints(:)
+  type(QpointData)                   :: output
+  
+  type(QpointData) :: wavevector
+  type(QpointData) :: mode_wavevector
+  
+  integer :: i
+  
+  wavevector%qpoint = fracvec(zeroes(3))
+  do i=1,size(this%modes)
+    mode_wavevector = this%modes(i)%wavevector(modes,qpoints)
+    wavevector%qpoint = wavevector%qpoint + mode_wavevector%qpoint
+  enddo
+  
+  output = qpoints(first(qpoints==wavevector))
+end function
+
+function wavevector_ComplexPolynomial(this,modes,qpoints) result(output)
+  implicit none
+  
+  class(ComplexPolynomial), intent(in) :: this
+  type(ComplexMode),        intent(in) :: modes(:)
+  type(QpointData),         intent(in) :: qpoints(:)
+  type(QpointData)                     :: output
+  
+  integer :: i
+  
+  if (size(this)==0) then
+    output%qpoint = fracvec(zeroes(3))
+    output = qpoints(first(qpoints==output))
+  else
+    output = this%terms(1)%wavevector(modes,qpoints)
+    do i=2,size(this)
+      if (this%terms(i)%wavevector(modes,qpoints)/=output) then
+        call print_line(ERROR//': Complex polynomial has inconsistent &
+           & wavevector.')
+        call err()
+      endif
+    enddo
+  endif
 end function
 
 ! Evaluate the contribution to the energy from
@@ -837,19 +952,31 @@ subroutine read_ComplexUnivariate(this,input)
   
   type(String), allocatable :: line(:)
   integer                   :: id
+  integer                   :: paired_id
   integer                   :: power
   
   select type(this); type is(ComplexUnivariate)
-    line = split_line(input,delimiter='^')
+    ! If id=5, paired_id=7 and power=3 then:
+    ! input = '(u5=u7*)^7'
+    
+    ! Split off power.
+    line = split_line(input,delimiter='^') ! line = ['(u5=u7*)', '7']
     if (size(line)/=2) then
       call print_line(ERROR//': Unable to convert string to univariate.')
       call err()
     endif
-    
-    id = int(slice(line(1),2,len(line(1))))
     power = int(line(2))
     
-    this = ComplexUnivariate(id=id,power=power)
+    ! Split id and paired_id
+    line = split_line(line(1), delimiter='u') ! line = ['(', '5=', '7*)']
+    if (size(line)/=3) then
+      call print_line(ERROR//': Unable to convert string to univariate.')
+      call err()
+    endif
+    id = int(slice(line(2),1,len(line(2))-1))
+    paired_id = int(slice(line(3),1,len(line(3))-2))
+    
+    this = ComplexUnivariate(id=id, paired_id=paired_id, power=power)
   end select
 end subroutine
 
@@ -860,7 +987,7 @@ function write_ComplexUnivariate(this) result(output)
   type(String)                         :: output
   
   select type(this); type is(ComplexUnivariate)
-    output = 'u'//this%id//'^'//this%power
+    output = '(u'//this%id//'=u'//this%paired_id//'*)^'//this%power
   end select
 end function
 
@@ -870,7 +997,7 @@ impure elemental function new_ComplexUnivariate_String(input) result(this)
   type(String), intent(in) :: input
   type(ComplexUnivariate)  :: this
   
-  this = input
+  call this%read(input)
 end function
 
 subroutine read_ComplexMonomial(this,input)
@@ -883,11 +1010,20 @@ subroutine read_ComplexMonomial(this,input)
   complex(dp)                          :: coefficient
   type(ComplexUnivariate), allocatable :: modes(:)
   
+  integer :: i,ialloc
+  
   select type(this); type is(ComplexMonomial)
+    ! Splitting the input by '*' separates univariates, but also splits
+    !    each univariate in two.
     line = split_line(input,delimiter='*')
     
     coefficient = cmplx(line(1))
-    modes = ComplexUnivariate(line(2:))
+    
+    ! Each univariate must be re-assembled from its two parts.
+    allocate(modes((size(line)-1)/2), stat=ialloc); call err(ialloc)
+    do i=1,size(modes)
+      modes(i) = ComplexUnivariate(line(2*i)//'*'//line(2*i+1))
+    enddo
     
     this = ComplexMonomial(coefficient, modes)
   end select
@@ -910,7 +1046,7 @@ impure elemental function new_ComplexMonomial_String(input) result(this)
   type(String), intent(in) :: input
   type(ComplexMonomial)    :: this
   
-  this = input
+  call this%read(input)
 end function
 
 subroutine read_ComplexPolynomial(this,input)
@@ -919,14 +1055,18 @@ subroutine read_ComplexPolynomial(this,input)
   class(ComplexPolynomial), intent(out) :: this
   type(String),             intent(in)  :: input
   
-  type(String), allocatable :: terms(:)
-  type(String)              :: plus
+  type(String),          allocatable :: terms(:)
+  type(String)                       :: plus
+  type(ComplexMonomial), allocatable :: monomials(:)
   
   plus = '+'
   select type(this); type is(ComplexPolynomial)
     terms = split_line(input)
     terms = terms(filter(terms/=plus))
-    this = ComplexPolynomial(ComplexMonomial(terms))
+    
+    monomials = ComplexMonomial(terms)
+    
+    this = ComplexPolynomial(monomials)
   end select
 end subroutine
 
@@ -947,6 +1087,6 @@ impure elemental function new_ComplexPolynomial_String(input) result(this)
   type(String), intent(in) :: input
   type(ComplexPolynomial)  :: this
   
-  this = input
+  call this%read(input)
 end function
 end module

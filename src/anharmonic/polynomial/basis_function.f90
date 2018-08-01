@@ -4,6 +4,7 @@
 module basis_function_module
   use common_module
   
+  use states_module
   use anharmonic_common_module
   implicit none
   
@@ -33,6 +34,12 @@ module basis_function_module
                         & force_ComplexModeVector_BasisFunction
     procedure, private :: force_RealModeVector_BasisFunction
     procedure, private :: force_ComplexModeVector_BasisFunction
+    
+    generic,   public  :: braket =>                            &
+                        & braket_SubspaceStates_BasisFunction, &
+                        & braket_HarmonicSubspaceStates_BasisFunction
+    procedure, private :: braket_SubspaceStates_BasisFunction
+    procedure, private :: braket_HarmonicSubspaceStates_BasisFunction
     
     procedure, public :: read  => read_BasisFunction
     procedure, public :: write => write_BasisFunction
@@ -163,10 +170,10 @@ function generate_basis_functions_SubspaceMonomial(coupling,structure, &
   enddo
   
   ! Identify the unique monomials. (Those with all modes the same).
-  unique_complex_monomials = complex_monomials(set( complex_monomials, &
-                                                  & compare_monomial_modes))
-  unique_real_monomials = real_monomials(set( real_monomials, &
-                                            & compare_monomial_modes))
+  unique_complex_monomials = complex_monomials(set( complex_monomials,     &
+                                                  & compare_monomial_modes ))
+  unique_real_monomials = real_monomials(set( real_monomials,        &
+                                            & compare_monomial_modes ))
   
   ! Set the coefficient of each unique monomial, and construct the mapping
   !    from complex_monomials to unique_complex_monomials.
@@ -271,15 +278,15 @@ function generate_basis_functions_SubspaceMonomial(coupling,structure, &
     complex_coefficients = cmplx( real_to_complex_conversion &
                               & * vec(real_coefficients)     )
     
-    real_representation = RealPolynomial( real_coefficients &
-                                      & * unique_real_monomials)
-    complex_representation = ComplexPolynomial( complex_coefficients &
-                                            & * unique_complex_monomials)
+    real_representation = RealPolynomial( real_coefficients     &
+                                      & * unique_real_monomials )
+    complex_representation = ComplexPolynomial( complex_coefficients     &
+                                            & * unique_complex_monomials )
     unique_term = real_representation%terms(unique_term_id(i))
     
     output(i) = BasisFunction( real_representation,    &
                              & complex_representation, &
-                             & unique_term)
+                             & unique_term             )
   enddo
 contains
   ! Lambda for comparing monomials.
@@ -400,6 +407,26 @@ impure elemental function force_ComplexModeVector_BasisFunction(this, &
 end function
 
 ! ----------------------------------------------------------------------
+! Integrate the basis function between two states.
+! ----------------------------------------------------------------------
+subroutine braket_SubspaceStates_BasisFunction(this,bra,ket)
+  implicit none
+  
+  class(BasisFunction), intent(in) :: this
+  type(SubspaceState),  intent(in) :: bra
+  type(SubspaceState),  intent(in) :: ket
+end subroutine
+
+subroutine braket_HarmonicSubspaceStates_BasisFunction(this,bra,ket,bases)
+  implicit none
+  
+  class(BasisFunction),        intent(in) :: this
+  type(HarmonicSubspaceState), intent(in) :: bra
+  type(HarmonicSubspaceState), intent(in) :: ket
+  type(HarmonicModeBasis),     intent(in) :: bases(:)
+end subroutine
+
+! ----------------------------------------------------------------------
 ! I/O.
 ! ----------------------------------------------------------------------
 subroutine read_BasisFunction(this,input)
@@ -422,7 +449,7 @@ subroutine read_BasisFunction(this,input)
       call err()
     endif
     
-    unique_term = input(2)
+    unique_term = RealMonomial(input(2))
     
     ! Locate the line between real terms and complex terms.
     do i=4,size(input)
@@ -432,8 +459,10 @@ subroutine read_BasisFunction(this,input)
       endif
     enddo
     
-    real_representation = join(input(4:partition_line-1),delimiter=' + ')
-    complex_representation = join(input(partition_line+1:),delimiter=' + ')
+    real_representation = RealPolynomial(                 &
+       & join(input(4:partition_line-1), delimiter=' + ') )
+    complex_representation = ComplexPolynomial(          &
+       & join(input(partition_line+1:), delimiter=' + ') )
     
     this = BasisFunction( unique_term            = unique_term,         &
                         & real_representation    = real_representation, &

@@ -179,6 +179,6 @@ impure elemental function new_Group_String(input) result(this)
   type(String), intent(in) :: input
   type(Group)              :: this
   
-  this = input
+  call this%read(input)
 end function
 end module

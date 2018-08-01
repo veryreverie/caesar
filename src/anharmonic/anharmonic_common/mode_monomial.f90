@@ -6,7 +6,6 @@
 module mode_monomial_module
   use common_module
   
-  use degeneracy_module
   use subspace_monomial_module
   use mode_coupling_module
   implicit none

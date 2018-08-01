@@ -154,6 +154,6 @@ impure elemental function new_ModeCoupling_String(input) result(this)
   type(String), intent(in) :: input
   type(ModeCoupling)       :: this
   
-  this = input
+  call this%read(input)
 end function
 end module
