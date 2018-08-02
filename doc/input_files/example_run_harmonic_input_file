@@ -3,5 +3,7 @@
 !    caesar run_harmonic -f example_run_harmonic_input_file
 
 supercells_to_run  1 10            ! This will run supercell 1 to supercell 10.
-no_cores           4
 run_script         ~/run_script.sh ! This is the path to the run script.
+no_cores           4
+
+! Since calculation_type is not specified, it will default to "none".

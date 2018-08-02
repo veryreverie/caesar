@@ -78,6 +78,7 @@ module complex_polynomial_submodule
   
   interface ComplexUnivariate
     module procedure new_ComplexUnivariate
+    module procedure new_ComplexUnivariate_ComplexMode
     module procedure new_ComplexUnivariate_String
   end interface
   
@@ -235,6 +236,18 @@ function new_ComplexUnivariate(id,paired_id,power) result(this)
   this%id        = id
   this%paired_id = paired_id
   this%power     = power
+end function
+
+function new_ComplexUnivariate_ComplexMode(mode,power) result(this)
+  implicit none
+  
+  type(ComplexMode), intent(in) :: mode
+  integer,           intent(in) :: power
+  type(ComplexUnivariate)       :: this
+  
+  this = ComplexUnivariate( id        = mode%id,        &
+                          & paired_id = mode%paired_id, &
+                          & power     = power           )
 end function
 
 function new_ComplexMonomial(coefficient,modes) result(this)
@@ -1036,7 +1049,11 @@ function write_ComplexMonomial(this) result(output)
   type(String)                       :: output
   
   select type(this); type is(ComplexMonomial)
-    output = this%coefficient//'*'//join(this%modes, delimiter='*')
+    if (size(this%modes)>0) then
+      output = this%coefficient//'*'//join(this%modes, delimiter='*')
+    else
+      output = str(this%coefficient)
+    endif
   end select
 end function
 

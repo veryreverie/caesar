@@ -334,6 +334,12 @@ function parse_castep_input_file(filename) result(output)
   type(String), allocatable :: line(:)
   integer                   :: i,j,k,ialloc
   
+  if (.not. file_exists(filename)) then
+    call print_line(ERROR//': '//filename//' does not exist. Please ensure &
+       &that the provided run script produces a .castep file.')
+    stop
+  endif
+  
   cell_file = IFile(filename)
   
   lattice_block_start = 0
@@ -476,6 +482,12 @@ function read_output_file_castep(filename,structure) result(output)
   
   ! Temporary variables.
   integer :: i,j,ialloc
+    
+  if (.not. file_exists(filename)) then
+    call print_line(ERROR//': '//filename//' does not exist. Please ensure &
+       &that the provided run script produces a .castep file.')
+    stop
+  endif
   
   castep_file = IFile(filename)
   

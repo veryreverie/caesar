@@ -217,9 +217,8 @@ function complex_monomial(this,complex_modes) result(output)
   
   integer, allocatable :: mode_ids(:)
   
-  integer :: id
-  integer :: paired_id
-  integer :: power
+  type(ComplexMode) :: mode
+  integer           :: power
   
   integer :: i,ialloc
   
@@ -229,12 +228,9 @@ function complex_monomial(this,complex_modes) result(output)
   output%coefficient = 1
   allocate(output%modes(size(mode_ids)), stat=ialloc); call err(ialloc)
   do i=1,size(mode_ids)
-    id = mode_ids(i)
-    paired_id = complex_modes(first(complex_modes%id==id))%paired_id
-    power = count(this%ids==id)
-    output%modes(i) = ComplexUnivariate( id        = id,        &
-                                       & paired_id = paired_id, &
-                                       & power     = power)
+    mode = complex_modes(first(complex_modes%id==mode_ids(i)))
+    power = count(this%ids==mode_ids(i))
+    output%modes(i) = ComplexUnivariate(mode=mode, power=power)
   enddo
 end function
 

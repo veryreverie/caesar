@@ -3,15 +3,12 @@
 ! ======================================================================
 module subspace_state_module
   use common_module
-  
-  use degenerate_subspace_module
-  use mode_state_module
   implicit none
   
   private
   
   public :: SubspaceState
-  public :: size
+  public :: generate_subspace_states
   public :: braket
   
   type, extends(Stringsable) :: SubspaceState
@@ -29,10 +26,6 @@ module subspace_state_module
     module procedure new_SubspaceState_StringArray
   end interface
   
-  interface size
-    module procedure size_SubspaceState
-  end interface
-  
   interface braket
     module procedure braket_SubspaceStates
     module procedure braket_SubspaceStates_ComplexMonomial
@@ -41,9 +34,7 @@ module subspace_state_module
 contains
 
 ! ----------------------------------------------------------------------
-! Basic functionality:
-!    - constructor.
-!    - size() function.
+! Constructor.
 ! ----------------------------------------------------------------------
 function new_SubspaceState(subspace_id,frequency,state) result(this)
   implicit none
@@ -58,13 +49,59 @@ function new_SubspaceState(subspace_id,frequency,state) result(this)
   this%state       = state
 end function
 
-function size_SubspaceState(this) result(output)
+! ----------------------------------------------------------------------
+! Generates subspace states up to a given power.
+! ----------------------------------------------------------------------
+function generate_subspace_states(subspace,frequency,modes,maximum_power) &
+   & result(output)
   implicit none
   
-  type(SubspaceState), intent(in) :: this
-  integer                         :: output
+  type(DegenerateSubspace), intent(in) :: subspace
+  real(dp),                 intent(in) :: frequency
+  type(ComplexMode),        intent(in) :: modes(:)
+  integer,                  intent(in) :: maximum_power
+  type(SubspaceState), allocatable     :: output(:)
   
-  output = size(this%state)
+  type(ComplexMode), allocatable :: subspace_modes(:)
+  type(ComplexMonomial)          :: monomial
+  type(SubspaceState)            :: state
+  
+  subspace_modes = subspace%modes(modes)
+  monomial = ComplexMonomial( coefficient = cmplx(1.0_dp,0.0_dp,dp), &
+                            & modes       = [ComplexUnivariate::]    )
+  state = SubspaceState( subspace_id = subspace%id, &
+                       & frequency   = frequency,   &
+                       & state       = monomial     )
+  output = generate_subspace_states_helper(subspace_modes,maximum_power,state)
+end function
+
+recursive function generate_subspace_states_helper(modes,power,state) &
+   & result(output)
+  implicit none
+  
+  type(ComplexMode),   intent(in)  :: modes(:)
+  integer,             intent(in)  :: power
+  type(SubspaceState), intent(in)  :: state
+  type(SubspaceState), allocatable :: output(:)
+  
+  type(SubspaceState) :: output_state
+  
+  integer :: i
+  
+  if (size(modes)==0 .or. power==0) then
+    output = [state]
+  else
+    output = [SubspaceState::]
+    output_state = state
+    do i=0,power
+      output = [ output,                                         &
+               & generate_subspace_states_helper( modes(2:),     &
+               &                                  power-i,       &
+               &                                  output_state ) ]
+      output_state%state = output_state%state &
+                       & * ComplexUnivariate(mode=modes(1), power=i)
+    enddo
+  endif
 end function
 
 ! ----------------------------------------------------------------------
@@ -136,10 +173,15 @@ function braket_SubspaceStates(bra,ket,subspace,supercell) result(output)
       
       mode_integrated(i) = .true.
     else
-      j = first(powers%modes%id==powers%modes(i)%paired_id)
+      j = first(powers%modes%id==powers%modes(i)%paired_id, default=0)
       
       n = powers%modes(i)%power
-      m = powers%modes(j)%power
+      
+      if (j==0) then
+        m = 0
+      else
+        m = powers%modes(j)%power
+      endif
       
       if (n/=m) then
         output = 0.0_dp

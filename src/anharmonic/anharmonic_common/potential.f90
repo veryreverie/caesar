@@ -45,13 +45,10 @@ module potential_module
        & deferred :: force_ComplexModeDisplacement
     
     ! Evaluate <bra|potential|ket>.
-    generic, public :: braket =>              &
-                     & braket_SubspaceStates, &
-                     & braket_HarmonicSubspaceStates
+    generic, public :: braket => &
+                     & braket_SubspaceStates
     procedure(braket_SubspaceStates_PotentialData), public, &
        & deferred :: braket_SubspaceStates
-    procedure(braket_HarmonicSubspaceStates_PotentialData), public, &
-       & deferred :: braket_HarmonicSubspaceStates
   end type
   
   abstract interface
@@ -138,26 +135,16 @@ module potential_module
       type(ComplexModeForce)                    :: output
     end function
     
-    subroutine braket_SubspaceStates_PotentialData(this,bra,ket)
+    subroutine braket_SubspaceStates_PotentialData(this,bra,ket,inputs)
       import PotentialData
       import SubspaceState
+      import AnharmonicData
       implicit none
       
       class(PotentialData), intent(inout) :: this
       type(SubspaceState),  intent(in)    :: bra
       type(SubspaceState),  intent(in)    :: ket
-    end subroutine
-    
-    subroutine braket_HarmonicSubspaceStates_PotentialData(this,bra,ket,bases)
-      import PotentialData
-      import HarmonicSubspaceState
-      import HarmonicModeBasis
-      implicit none
-      
-      class(PotentialData),        intent(inout) :: this
-      type(HarmonicSubspaceState), intent(in)    :: bra
-      type(HarmonicSubspaceState), intent(in)    :: ket
-      type(HarmonicModeBasis),     intent(in)    :: bases(:)
+      type(AnharmonicData), intent(in)    :: inputs
     end subroutine
   end interface
 contains

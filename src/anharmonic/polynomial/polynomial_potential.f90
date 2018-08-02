@@ -42,8 +42,6 @@ module polynomial_potential_module
     
     procedure, public :: braket_SubspaceStates => &
                        & braket_SubspaceStates_PolynomialPotential
-    procedure, public :: braket_HarmonicSubspaceStates => &
-                       & braket_HarmonicSubspaceStates_PolynomialPotential
     
     procedure, public :: read  => read_PolynomialPotential
     procedure, public :: write => write_PolynomialPotential
@@ -498,33 +496,18 @@ impure elemental function force_ComplexModeDisplacement_PolynomialPotential( &
 end function
 
 ! Integrate the potential between two states.
-subroutine braket_SubspaceStates_PolynomialPotential(this,bra,ket)
+subroutine braket_SubspaceStates_PolynomialPotential(this,bra,ket,inputs)
   implicit none
   
   class(PolynomialPotential), intent(inout) :: this
   type(SubspaceState),        intent(in)    :: bra
   type(SubspaceState),        intent(in)    :: ket
+  type(AnharmonicData),       intent(in)    :: inputs
   
   integer :: i
   
   do i=1,size(this%basis_functions)
-    call this%basis_functions(i)%braket(bra,ket)
-  enddo
-end subroutine
-
-subroutine braket_HarmonicSubspaceStates_PolynomialPotential(this,bra,ket, &
-   & bases)
-  implicit none
-  
-  class(PolynomialPotential),  intent(inout) :: this
-  type(HarmonicSubspaceState), intent(in)    :: bra
-  type(HarmonicSubspaceState), intent(in)    :: ket
-  type(HarmonicModeBasis),     intent(in)    :: bases(:)
-  
-  integer :: i
-  
-  do i=1,size(this%basis_functions)
-    call this%basis_functions(i)%braket(bra,ket,bases)
+    call this%basis_functions(i)%braket(bra,ket,inputs)
   enddo
 end subroutine
 
