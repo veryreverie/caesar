@@ -30,7 +30,11 @@ function calculate_states() result(output)
   output%mode_name = 'calculate_states'
   output%description = 'Calculates anharmonic states using VSCF. Should be &
      &run after calculate_potential.'
-  output%keywords = [KeywordData::]
+  output%keywords = [ &
+     & KeywordData( 'frequency_convergence', &
+     &              'frequency_convergence is the precision to which &
+     &frequencies will be converged when constructing the harmonic ground &
+     &state.')]
   output%main_subroutine => calculate_states_subroutine
 end function
 
@@ -41,6 +45,9 @@ subroutine calculate_states_subroutine(arguments)
   implicit none
   
   type(Dictionary), intent(in) :: arguments
+  
+  ! Input arguments.
+  real(dp) :: frequency_convergence
   
   ! Working directory,
   type(String) :: wd
@@ -105,6 +112,7 @@ subroutine calculate_states_subroutine(arguments)
   ! --------------------------------------------------
   
   wd = arguments%value('working_directory')
+  frequency_convergence = dble(arguments%value('frequency_convergence'))
   
   ! Read in setup_anharmonic arguments.
   setup_anharmonic_arguments = Dictionary(setup_anharmonic())
@@ -208,7 +216,7 @@ subroutine calculate_states_subroutine(arguments)
   ! --------------------------------------------------
   ! Calculate frequencies from which to generate a harmonic basis.
   ! --------------------------------------------------
-  call calculate_frequencies(potential, anharmonic_data)
+  call calculate_frequencies(potential, anharmonic_data, frequency_convergence)
   
 end subroutine
 end module

@@ -12,6 +12,8 @@ module basis_function_module
   
   public :: BasisFunction
   public :: generate_basis_functions
+  public :: operator(*)
+  public :: operator(/)
   
   type, extends(Stringsable) :: BasisFunction
     ! The basis function in real co-ordinates.
@@ -24,6 +26,8 @@ module basis_function_module
     !    zero in every other basis function.
     type(RealMonomial)      :: unique_term
   contains
+    procedure, public :: simplify
+    
     generic,   public  :: energy =>                            &
                         & energy_RealModeVector_BasisFunction, &
                         & energy_ComplexModeVector_BasisFunction
@@ -51,6 +55,15 @@ module basis_function_module
   
   interface generate_basis_functions
     module procedure generate_basis_functions_SubspaceMonomial
+  end interface
+  
+  interface operator(*)
+    module procedure multiply_BasisFunction_real
+    module procedure multiply_real_BasisFunction
+  end interface
+  
+  interface operator(/)
+    module procedure divide_BasisFunction_real
   end interface
 contains
 
@@ -285,6 +298,7 @@ function generate_basis_functions_SubspaceMonomial(coupling,structure, &
     output(i) = BasisFunction( real_representation,    &
                              & complex_representation, &
                              & unique_term             )
+    call output(i)%simplify()
   enddo
 contains
   ! Lambda for comparing monomials.
@@ -356,6 +370,18 @@ function projection_matrix(input,order) result(output)
   enddo
   output = output/order
 end function
+
+! ----------------------------------------------------------------------
+! Simplify the basis function.
+! ----------------------------------------------------------------------
+impure elemental subroutine simplify(this)
+  implicit none
+  
+  class(BasisFunction), intent(inout) :: this
+  
+  call this%real_representation%simplify()
+  call this%complex_representation%simplify()
+end subroutine
 
 ! ----------------------------------------------------------------------
 ! Evaluate the energy and forces due to the basis function.
@@ -460,6 +486,45 @@ subroutine braket_SubspaceStates_BasisFunction(this,bra,ket,inputs)
     deallocate(mode_in_subspace)
   enddo
 end subroutine
+
+! ----------------------------------------------------------------------
+! Arithmetic.
+! ----------------------------------------------------------------------
+impure elemental function multiply_BasisFunction_real(this,that) result(output)
+  implicit none
+  
+  real(dp),            intent(in) :: this
+  type(BasisFunction), intent(in) :: that
+  type(BasisFunction)             :: output
+  
+  output = BasisFunction( this * that%real_representation,    &
+                        & this * that%complex_representation, &
+                        & this * that%unique_term             )
+end function
+
+impure elemental function multiply_real_BasisFunction(this,that) result(output)
+  implicit none
+  
+  type(BasisFunction), intent(in) :: this
+  real(dp),            intent(in) :: that
+  type(BasisFunction)             :: output
+  
+  output = BasisFunction( this%real_representation * that,    &
+                        & this%complex_representation * that, &
+                        & this%unique_term * that             )
+end function
+
+impure elemental function divide_BasisFunction_real(this,that) result(output)
+  implicit none
+  
+  type(BasisFunction), intent(in) :: this
+  real(dp),            intent(in) :: that
+  type(BasisFunction)             :: output
+  
+  output = BasisFunction( this%real_representation / that,    &
+                        & this%complex_representation / that, &
+                        & this%unique_term / that             )
+end function
 
 ! ----------------------------------------------------------------------
 ! I/O.

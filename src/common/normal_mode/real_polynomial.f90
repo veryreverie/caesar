@@ -80,6 +80,8 @@ module real_polynomial_submodule
     procedure, public :: to_RealMonomial   => to_RealMonomial_RealMonomial
     procedure, public :: to_RealPolynomial => to_RealPolynomial_RealMonomial
     
+    procedure, public :: simplify => simplify_RealMonomial
+    
     procedure, public :: energy => energy_RealMonomial
     procedure, public :: force  => force_RealMonomial
     
@@ -98,6 +100,8 @@ module real_polynomial_submodule
     procedure, private :: set_paired_ids => set_paired_ids_RealPolynomial
     
     procedure, public :: to_RealPolynomial => to_RealPolynomial_RealPolynomial
+    
+    procedure, public :: simplify => simplify_RealPolynomial
     
     procedure, public :: energy => energy_RealPolynomial
     procedure, public :: force  => force_RealPolynomial
@@ -144,11 +148,16 @@ module real_polynomial_submodule
     module procedure multiply_RealMonomial_real
     module procedure multiply_real_RealMonomial
     
+    module procedure multiply_RealPolynomial_real
+    module procedure multiply_real_RealPolynomial
+    
     module procedure multiply_RealMonomialable_RealMonomialable
   end interface
   
   interface operator(/)
     module procedure divide_RealMonomial_real
+    
+    module procedure divide_RealPolynomial_real
   end interface
   
   interface operator(+)
@@ -328,6 +337,74 @@ function size_RealPolynomial(this) result(output)
   
   output = size(this%terms)
 end function
+
+! Simplify a monomial or polynomial.
+impure elemental subroutine simplify_RealMonomial(this)
+  implicit none
+  
+  class(RealMonomial), intent(inout) :: this
+  
+  integer :: i
+  
+  ! Sort modes in ascending order of ID.
+  this%modes = this%modes(sort(this%modes%id))
+  
+  ! Combine modes with the same ID, remove modes with power=0.
+  i = 1
+  do while(i<=size(this))
+    if (this%modes(i)%power<0) then
+      call err()
+    elseif (this%modes(i)%power==0) then
+      this%modes = [this%modes(:i-1), this%modes(i+1:)]
+      cycle
+    endif
+    
+    if (i>1) then
+      if (this%modes(i)%id==this%modes(i-1)%id) then
+        this%modes(i-1)%power = this%modes(i-1)%power + this%modes(i)%power
+        this%modes = [this%modes(:i-1), this%modes(i+1:)]
+        cycle
+      endif
+    endif
+    
+    i = i+1
+  enddo
+end subroutine
+
+impure elemental subroutine simplify_RealPolynomial(this)
+  implicit none
+  
+  class(RealPolynomial), intent(inout) :: this
+  
+  integer,            allocatable :: equivalent_monomial_locs(:)
+  type(RealMonomial), allocatable :: equivalent_monomials(:)
+  type(RealMonomial), allocatable :: monomials(:)
+  
+  real(dp) :: max_coefficient
+  
+  integer :: i,ialloc
+  
+  call this%terms%simplify()
+  
+  ! Add together any equivalent monomials.
+  equivalent_monomial_locs = first_equivalent( this%terms, &
+                                             & compare_monomial_modes)
+  allocate( monomials(maxval(equivalent_monomial_locs)), &
+          & stat=ialloc); call err(ialloc)
+  do i=1,size(monomials)
+    equivalent_monomials = this%terms(filter(equivalent_monomial_locs==i))
+    monomials(i) = equivalent_monomials(1)
+    monomials(i)%coefficient = sum(equivalent_monomials%coefficient)
+  enddo
+  
+  ! Remove any monomials with coefficient less than 1e10 times smaller than
+  !    the largest coefficient.
+  max_coefficient = maxval(abs(monomials%coefficient))
+  monomials = monomials(                                          &
+     & filter(abs(monomials%coefficient)>=max_coefficient/1e10_dp) )
+  
+  this%terms = monomials
+end subroutine
 
 ! Evaluate the contribution to the energy from
 !    a univariate, monomial or polynomial at a given displacement.
@@ -533,8 +610,7 @@ impure elemental function multiply_RealMonomial_real(this,that) &
   real(dp),           intent(in) :: that
   type(RealMonomial)             :: output
   
-  output = this
-  output%coefficient = output%coefficient * that
+  output = RealMonomial(this%coefficient*that, this%modes)
 end function
 
 impure elemental function multiply_real_RealMonomial(this,that) &
@@ -545,8 +621,29 @@ impure elemental function multiply_real_RealMonomial(this,that) &
   type(RealMonomial), intent(in) :: that
   type(RealMonomial)             :: output
   
-  output = that
-  output%coefficient = output%coefficient * this
+  output = RealMonomial(this*that%coefficient, that%modes)
+end function
+
+impure elemental function multiply_RealPolynomial_real(this,that) &
+   & result(output)
+  implicit none
+  
+  type(RealPolynomial), intent(in) :: this
+  real(dp),             intent(in) :: that
+  type(RealPolynomial)             :: output
+  
+  output = RealPolynomial(this%terms * that)
+end function
+
+impure elemental function multiply_real_RealPolynomial(this,that) &
+   & result(output)
+  implicit none
+  
+  real(dp),             intent(in) :: this
+  type(RealPolynomial), intent(in) :: that
+  type(RealPolynomial)             :: output
+  
+  output = RealPolynomial(this * that%terms)
 end function
 
 impure elemental function divide_RealMonomial_real(this,that) result(output)
@@ -556,8 +653,17 @@ impure elemental function divide_RealMonomial_real(this,that) result(output)
   real(dp),           intent(in) :: that
   type(RealMonomial)             :: output
   
-  output = this
-  output%coefficient = output%coefficient / that
+  output = RealMonomial(this%coefficient/that, this%modes)
+end function
+
+impure elemental function divide_RealPolynomial_real(this,that) result(output)
+  implicit none
+  
+  type(RealPolynomial), intent(in) :: this
+  real(dp),             intent(in) :: that
+  type(RealPolynomial)             :: output
+  
+  output = RealPolynomial(this%terms / that)
 end function
 
 ! Multiplication between Monomials and Monomial-like types.
@@ -657,26 +763,6 @@ function add_RealPolynomialable_RealPolynomialable(this,that) &
     endif
   enddo
   output%terms = output%terms(:no_terms)
-contains
-  ! Lambda for comparing monomials.
-  function compare_monomial_modes(this,that) result(output)
-    implicit none
-    
-    class(*), intent(in) :: this
-    class(*), intent(in) :: that
-    logical              :: output
-    
-    select type(this); type is(RealMonomial)
-      select type(that); type is(RealMonomial)
-        if (size(this%modes)/=size(that%modes)) then
-          output = .false.
-        else
-          output = all( this%modes%id==that%modes%id .and. &
-                      & this%modes%power==that%modes%power)
-        endif
-      end select
-    end select
-  end function
 end function
 
 ! ----------------------------------------------------------------------
@@ -761,6 +847,29 @@ function select_forces_RealUnivariates(univariates,forces) &
   do i=1,size(univariates)
     output(i) = select_force(univariates(i), forces)
   enddo
+end function
+
+! ----------------------------------------------------------------------
+! Helper functions.
+! ----------------------------------------------------------------------
+! Compares two monomial for equality up to coefficient.
+function compare_monomial_modes(this,that) result(output)
+  implicit none
+  
+  class(*), intent(in) :: this
+  class(*), intent(in) :: that
+  logical              :: output
+  
+  select type(this); type is(RealMonomial)
+    select type(that); type is(RealMonomial)
+      if (size(this%modes)/=size(that%modes)) then
+        output = .false.
+      else
+        output = all( this%modes%id==that%modes%id .and. &
+                    & this%modes%power==that%modes%power)
+      endif
+    end select
+  end select
 end function
 
 ! ----------------------------------------------------------------------

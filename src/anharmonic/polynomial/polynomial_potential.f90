@@ -24,12 +24,15 @@ module polynomial_potential_module
     integer,                          private :: potential_expansion_order
     real(dp),                         private :: reference_energy
     type(BasisFunction), allocatable, private :: basis_functions(:)
-    real(dp),            allocatable, private :: coefficients(:)
   contains
     procedure, public :: generate_sampling_points => &
        & generate_sampling_points_PolynomialPotential
     procedure, public :: generate_potential => &
        & generate_potential_PolynomialPotential
+    
+    procedure, public :: undisplaced_energy => &
+                       & undisplaced_energy_PolynomialPotential
+    procedure, public :: zero_energy => zero_energy_PolynomialPotential
     
     procedure, public :: energy_RealModeDisplacement => &
                        & energy_RealModeDisplacement_PolynomialPotential
@@ -66,19 +69,17 @@ function new_PolynomialPotential(potential_expansion_order) result(this)
 end function
 
 function new_PolynomialPotential_BasisFunctions(potential_expansion_order, &
-   & reference_energy,basis_functions,coefficients) result(this)
+   & reference_energy,basis_functions) result(this)
   implicit none
   
   integer,             intent(in) :: potential_expansion_order
   real(dp),            intent(in) :: reference_energy
   type(BasisFunction), intent(in) :: basis_functions(:)
-  real(dp),            intent(in) :: coefficients(:)
   type(PolynomialPotential)       :: this
   
   this%potential_expansion_order = potential_expansion_order
   this%reference_energy          = reference_energy
   this%basis_functions           = basis_functions
-  this%coefficients              = coefficients
 end function
 
 ! Generate sampling points.
@@ -421,8 +422,7 @@ subroutine generate_potential_PolynomialPotential(this,inputs,           &
                                  & weighted_energy_force_ratio)
   
   this%reference_energy = coefficients(1)
-  this%basis_functions  = uncoupled_basis_functions(2:)
-  this%coefficients     = coefficients(2:)
+  this%basis_functions  = coefficients(2:) * uncoupled_basis_functions(2:)
   
   ! Calculate the coefficients of all basis functions involving subspace
   !    coupling. These are calculated on a coupling-by-coupling basis.
@@ -436,11 +436,31 @@ subroutine generate_potential_PolynomialPotential(this,inputs,           &
                                    & sample_results(i)%results,    &
                                    & inputs%real_modes,            &
                                    & weighted_energy_force_ratio,  &
-                                   & this)
+                                   & this                          )
     
-    this%basis_functions = [this%basis_functions, basis_functions(i)%functions]
-    this%coefficients    = [this%coefficients, coefficients]
+    this%basis_functions = [ this%basis_functions,                       &
+                           & coefficients * basis_functions(i)%functions ]
   enddo
+end subroutine
+
+! Calculate the energy at zero displacement.
+impure elemental function undisplaced_energy_PolynomialPotential(this) &
+   & result(output)
+  implicit none
+  
+  class(PolynomialPotential), intent(in) :: this
+  real(dp)                               :: output
+  
+  output = this%energy(RealModeDisplacement([RealSingleDisplacement::]))
+end function
+
+! Set the undisplaced energy to zero.
+impure elemental subroutine zero_energy_PolynomialPotential(this)
+  implicit none
+  
+  class(PolynomialPotential), intent(inout) :: this
+  
+  this%reference_energy = this%reference_energy - this%undisplaced_energy()
 end subroutine
 
 ! Calculate the energy at a given displacement.
@@ -452,9 +472,8 @@ impure elemental function energy_RealModeDisplacement_PolynomialPotential( &
   type(RealModeDisplacement), intent(in) :: displacement
   real(dp)                               :: output
   
-  output = this%reference_energy                          &
-       & + sum( this%coefficients                         &
-       &      * this%basis_functions%energy(displacement) )
+  output = this%reference_energy &
+       & + sum(this%basis_functions%energy(displacement))
 end function
 
 impure elemental function energy_ComplexModeDisplacement_PolynomialPotential( &
@@ -465,9 +484,8 @@ impure elemental function energy_ComplexModeDisplacement_PolynomialPotential( &
   type(ComplexModeDisplacement), intent(in) :: displacement
   complex(dp)                               :: output
   
-  output = this%reference_energy                          &
-       & + sum( this%coefficients                         &
-       &      * this%basis_functions%energy(displacement) )
+  output = this%reference_energy &
+       & + sum(this%basis_functions%energy(displacement))
 end function
 
 ! Calculate the force at a given displacement.
@@ -479,8 +497,7 @@ impure elemental function force_RealModeDisplacement_PolynomialPotential( &
   type(RealModeDisplacement), intent(in) :: displacement
   type(RealModeForce)                    :: output
   
-  output = sum( this%coefficients                        &
-            & * this%basis_functions%force(displacement) )
+  output = sum(this%basis_functions%force(displacement))
 end function
 
 impure elemental function force_ComplexModeDisplacement_PolynomialPotential( &
@@ -491,8 +508,7 @@ impure elemental function force_ComplexModeDisplacement_PolynomialPotential( &
   type(ComplexModeDisplacement), intent(in) :: displacement
   type(ComplexModeForce)                    :: output
   
-  output = sum( this%coefficients                        &
-            & * this%basis_functions%force(displacement) )
+  output = sum(this%basis_functions%force(displacement))
 end function
 
 ! Integrate the potential between two states.
@@ -509,6 +525,8 @@ subroutine braket_SubspaceStates_PolynomialPotential(this,bra,ket,inputs)
   do i=1,size(this%basis_functions)
     call this%basis_functions(i)%braket(bra,ket,inputs)
   enddo
+  
+  call this%basis_functions%simplify()
 end subroutine
 
 ! ----------------------------------------------------------------------
@@ -523,7 +541,6 @@ subroutine read_PolynomialPotential(this,input)
   integer                          :: potential_expansion_order
   real(dp)                         :: reference_energy
   type(BasisFunction), allocatable :: basis_functions(:)
-  real(dp),            allocatable :: coefficients(:)
   
   type(String),      allocatable :: line(:)
   type(StringArray), allocatable :: sections(:)
@@ -536,13 +553,11 @@ subroutine read_PolynomialPotential(this,input)
     reference_energy = dble(line(3))
     
     sections = split_into_sections(input)
-    basis_functions = BasisFunction(sections(2:size(sections)-2))
-    coefficients = dble(sections(size(sections))%strings)
+    basis_functions = BasisFunction(sections(2:))
     
     this = PolynomialPotential( potential_expansion_order, &
                               & reference_energy,          &
-                              & basis_functions,           &
-                              & coefficients)
+                              & basis_functions            )
   class default
     call err()
   end select
@@ -559,11 +574,7 @@ function write_PolynomialPotential(this) result(output)
              & 'Reference energy: '//this%reference_energy,         &
              & str('Basis functions:'),                             &
              & str(''),                                             &
-             & str(this%basis_functions, separating_line=''),       &
-             & str(''),                                             &
-             & str('Basis function coefficients:'),                 &
-             & str(''),                                             &
-             & str(this%coefficients)]
+             & str(this%basis_functions, separating_line='')        ]
   class default
     call err()
   end select

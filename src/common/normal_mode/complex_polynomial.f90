@@ -21,6 +21,7 @@ module complex_polynomial_submodule
   public :: operator(*)
   public :: operator(/)
   public :: operator(+)
+  public :: sum
   public :: conjg
   public :: select_mode
   public :: select_modes
@@ -93,8 +94,9 @@ module complex_polynomial_submodule
     procedure, public :: to_ComplexPolynomial => &
        & to_ComplexPolynomial_ComplexMonomial
     
-    procedure, public :: wavevector => &
-                       & wavevector_ComplexMonomial
+    procedure, public :: simplify => simplify_ComplexMonomial
+    
+    procedure, public :: wavevector => wavevector_ComplexMonomial
     
     procedure, public :: energy => energy_ComplexMonomial
     procedure, public :: force  => force_ComplexMonomial
@@ -115,6 +117,8 @@ module complex_polynomial_submodule
     
     procedure, public :: to_ComplexPolynomial => &
        & to_ComplexPolynomial_ComplexPolynomial
+    
+    procedure, public :: simplify => simplify_ComplexPolynomial
     
     procedure, public :: wavevector => &
                        & wavevector_ComplexPolynomial
@@ -185,12 +189,20 @@ module complex_polynomial_submodule
     module procedure multiply_ComplexMonomial_complex
     module procedure multiply_complex_ComplexMonomial
     
+    module procedure multiply_ComplexPolynomial_real
+    module procedure multiply_real_ComplexPolynomial
+    module procedure multiply_ComplexPolynomial_complex
+    module procedure multiply_complex_ComplexPolynomial
+    
     module procedure multiply_ComplexMonomialable_ComplexMonomialable
   end interface
   
   interface operator(/)
     module procedure divide_ComplexMonomial_real
     module procedure divide_ComplexMonomial_complex
+    
+    module procedure divide_ComplexPolynomial_real
+    module procedure divide_ComplexPolynomial_complex
   end interface
   
   interface operator(+)
@@ -382,6 +394,74 @@ function size_ComplexPolynomial(this) result(output)
   
   output = size(this%terms)
 end function
+
+! Simplify a monomial or polynomial.
+impure elemental subroutine simplify_ComplexMonomial(this)
+  implicit none
+  
+  class(ComplexMonomial), intent(inout) :: this
+  
+  integer :: i
+  
+  ! Sort modes in ascending order of ID.
+  this%modes = this%modes(sort(this%modes%id))
+  
+  ! Combine modes with the same ID, remove modes with power=0.
+  i = 1
+  do while(i<=size(this))
+    if (this%modes(i)%power<0) then
+      call err()
+    elseif (this%modes(i)%power==0) then
+      this%modes = [this%modes(:i-1), this%modes(i+1:)]
+      cycle
+    endif
+    
+    if (i>1) then
+      if (this%modes(i)%id==this%modes(i-1)%id) then
+        this%modes(i-1)%power = this%modes(i-1)%power + this%modes(i)%power
+        this%modes = [this%modes(:i-1), this%modes(i+1:)]
+        cycle
+      endif
+    endif
+    
+    i = i+1
+  enddo
+end subroutine
+
+impure elemental subroutine simplify_ComplexPolynomial(this)
+  implicit none
+  
+  class(ComplexPolynomial), intent(inout) :: this
+  
+  integer,               allocatable :: equivalent_monomial_locs(:)
+  type(ComplexMonomial), allocatable :: equivalent_monomials(:)
+  type(ComplexMonomial), allocatable :: monomials(:)
+  
+  real(dp) :: max_coefficient
+  
+  integer :: i,ialloc
+  
+  call this%terms%simplify()
+  
+  ! Add together any equivalent monomials.
+  equivalent_monomial_locs = first_equivalent( this%terms, &
+                                             & compare_monomial_modes)
+  allocate( monomials(maxval(equivalent_monomial_locs)), &
+          & stat=ialloc); call err(ialloc)
+  do i=1,size(monomials)
+    equivalent_monomials = this%terms(filter(equivalent_monomial_locs==i))
+    monomials(i) = equivalent_monomials(1)
+    monomials(i)%coefficient = sum(equivalent_monomials%coefficient)
+  enddo
+  
+  ! Remove any monomials with coefficient less than 1e10 times smaller than
+  !    the largest coefficient.
+  max_coefficient = maxval(abs(monomials%coefficient))
+  monomials = monomials(                                          &
+     & filter(abs(monomials%coefficient)>=max_coefficient/1e10_dp) )
+  
+  this%terms = monomials
+end subroutine
 
 ! Find the conjugate of a univariate or monomial.
 impure elemental function conjg_ComplexUnivariate(this) result(output)
@@ -688,8 +768,7 @@ impure elemental function multiply_ComplexMonomial_real(this,that) &
   real(dp),              intent(in) :: that
   type(ComplexMonomial)             :: output
   
-  output = this
-  output%coefficient = output%coefficient * that
+  output = ComplexMonomial(this%coefficient*that, this%modes)
 end function
 
 impure elemental function multiply_real_ComplexMonomial(this,that) &
@@ -700,8 +779,7 @@ impure elemental function multiply_real_ComplexMonomial(this,that) &
   type(ComplexMonomial), intent(in) :: that
   type(ComplexMonomial)             :: output
   
-  output = that
-  output%coefficient = output%coefficient * this
+  output = ComplexMonomial(this*that%coefficient, that%modes)
 end function
 
 impure elemental function multiply_ComplexMonomial_complex(this,that) &
@@ -712,8 +790,7 @@ impure elemental function multiply_ComplexMonomial_complex(this,that) &
   complex(dp),           intent(in) :: that
   type(ComplexMonomial)             :: output
   
-  output = this
-  output%coefficient = output%coefficient * that
+  output = ComplexMonomial(this%coefficient*that, this%modes)
 end function
 
 impure elemental function multiply_complex_ComplexMonomial(this,that) &
@@ -724,19 +801,62 @@ impure elemental function multiply_complex_ComplexMonomial(this,that) &
   type(ComplexMonomial), intent(in) :: that
   type(ComplexMonomial)             :: output
   
-  output = that
-  output%coefficient = output%coefficient * this
+  output = ComplexMonomial(this*that%coefficient, that%modes)
 end function
 
-impure elemental function divide_ComplexMonomial_real(this,that) result(output)
+impure elemental function multiply_ComplexPolynomial_real(this,that) &
+   & result(output)
+  implicit none
+  
+  type(ComplexPolynomial), intent(in) :: this
+  real(dp),                intent(in) :: that
+  type(ComplexPolynomial)             :: output
+  
+  output = ComplexPolynomial(this%terms * that)
+end function
+
+impure elemental function multiply_real_ComplexPolynomial(this,that) &
+   & result(output)
+  implicit none
+  
+  real(dp),                intent(in) :: this
+  type(ComplexPolynomial), intent(in) :: that
+  type(ComplexPolynomial)             :: output
+  
+  output = ComplexPolynomial(this * that%terms)
+end function
+
+impure elemental function multiply_ComplexPolynomial_complex(this,that) &
+   & result(output)
+  implicit none
+  
+  type(ComplexPolynomial), intent(in) :: this
+  complex(dp),             intent(in) :: that
+  type(ComplexPolynomial)             :: output
+  
+  output = ComplexPolynomial(this%terms * that)
+end function
+
+impure elemental function multiply_complex_ComplexPolynomial(this,that) &
+   & result(output)
+  implicit none
+  
+  complex(dp),             intent(in) :: this
+  type(ComplexPolynomial), intent(in) :: that
+  type(ComplexPolynomial)             :: output
+  
+  output = ComplexPolynomial(this * that%terms)
+end function
+
+impure elemental function divide_ComplexMonomial_real(this,that) &
+   & result(output)
   implicit none
   
   type(ComplexMonomial), intent(in) :: this
   real(dp),              intent(in) :: that
   type(ComplexMonomial)             :: output
   
-  output = this
-  output%coefficient = output%coefficient / that
+  output = ComplexMonomial(this%coefficient/that, this%modes)
 end function
 
 impure elemental function divide_ComplexMonomial_complex(this,that) &
@@ -747,8 +867,29 @@ impure elemental function divide_ComplexMonomial_complex(this,that) &
   complex(dp),           intent(in) :: that
   type(ComplexMonomial)             :: output
   
-  output = this
-  output%coefficient = output%coefficient / that
+  output = ComplexMonomial(this%coefficient/that, this%modes)
+end function
+
+impure elemental function divide_ComplexPolynomial_real(this,that) &
+   & result(output)
+  implicit none
+  
+  type(ComplexPolynomial), intent(in) :: this
+  real(dp),                intent(in) :: that
+  type(ComplexPolynomial)             :: output
+  
+  output = ComplexPolynomial(this%terms / that)
+end function
+
+impure elemental function divide_ComplexPolynomial_complex(this,that) &
+   & result(output)
+  implicit none
+  
+  type(ComplexPolynomial), intent(in) :: this
+  complex(dp),             intent(in) :: that
+  type(ComplexPolynomial)             :: output
+  
+  output = ComplexPolynomial(this%terms / that)
 end function
 
 ! Multiplication between Monomials and Monomial-like types.
@@ -848,26 +989,6 @@ function add_ComplexPolynomialable_ComplexPolynomialable(this,that) &
     endif
   enddo
   output%terms = output%terms(:no_terms)
-contains
-  ! Lambda for comparing monomials.
-  function compare_monomial_modes(this,that) result(output)
-    implicit none
-    
-    class(*), intent(in) :: this
-    class(*), intent(in) :: that
-    logical              :: output
-    
-    select type(this); type is(ComplexMonomial)
-      select type(that); type is(ComplexMonomial)
-        if (size(this%modes)/=size(that%modes)) then
-          output = .false.
-        else
-          output = all( this%modes%id==that%modes%id .and. &
-                      & this%modes%power==that%modes%power)
-        endif
-      end select
-    end select
-  end function
 end function
 
 ! ----------------------------------------------------------------------
@@ -952,6 +1073,29 @@ function select_forces_ComplexUnivariates(univariates,forces) &
   do i=1,size(univariates)
     output(i) = select_force(univariates(i), forces)
   enddo
+end function
+
+! ----------------------------------------------------------------------
+! Helper functions.
+! ----------------------------------------------------------------------
+! Compares two monomials for equality up to coefficient.
+function compare_monomial_modes(this,that) result(output)
+  implicit none
+  
+  class(*), intent(in) :: this
+  class(*), intent(in) :: that
+  logical              :: output
+  
+  select type(this); type is(ComplexMonomial)
+    select type(that); type is(ComplexMonomial)
+      if (size(this%modes)/=size(that%modes)) then
+        output = .false.
+      else
+        output = all( this%modes%id==that%modes%id .and. &
+                    & this%modes%power==that%modes%power)
+      endif
+    end select
+  end select
 end function
 
 ! ----------------------------------------------------------------------

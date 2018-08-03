@@ -28,6 +28,11 @@ module potential_module
     procedure(generate_potential_PotentialData), public, deferred :: &
        & generate_potential
     
+    ! Return the energy at zero displacement, or set this energy to zero.
+    procedure(undisplaced_energy_PotentialData), public, deferred :: &
+       & undisplaced_energy
+    procedure(zero_energy_PotentialData), public, deferred :: zero_energy
+    
     ! Return the energy and force at a given real or complex displacement.
     generic, public :: energy =>                    &
                      & energy_RealModeDisplacement, &
@@ -85,6 +90,23 @@ module potential_module
       type(String),            intent(in)    :: sampling_points_dir
       type(CalculationReader), intent(inout) :: calculation_reader
       type(OFile),             intent(inout) :: logfile
+    end subroutine
+    
+    impure elemental function undisplaced_energy_PotentialData(this) &
+       & result(output)
+      import dp
+      import PotentialData
+      implicit none
+      
+      class(PotentialData), intent(in) :: this
+      real(dp)                         :: output
+    end function
+    
+    impure elemental subroutine zero_energy_PotentialData(this)
+      import PotentialData
+      implicit none
+      
+      class(PotentialData), intent(inout) :: this
     end subroutine
     
     impure elemental function energy_RealModeDisplacement_PotentialData(this, &

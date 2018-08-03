@@ -26,6 +26,10 @@ module potential_pointer_module
     procedure, public :: generate_potential => &
        & generate_potential_PotentialPointer
     
+    procedure, public :: undisplaced_energy => &
+                       & undisplaced_energy_PotentialPointer
+    procedure, public :: zero_energy => zero_energy_PotentialPointer
+    
     procedure, public :: energy_RealModeDisplacement => &
                        & energy_RealModeDisplacement_PotentialPointer
     procedure, public :: energy_ComplexModeDisplacement => &
@@ -118,6 +122,28 @@ subroutine generate_potential_PotentialPointer(this,inputs,              &
                                         & sampling_points_dir,         &
                                         & calculation_reader,          &
                                         & logfile                      )
+end subroutine
+
+impure elemental function undisplaced_energy_PotentialPointer(this) &
+   & result(output)
+  implicit none
+  
+  class(PotentialPointer), intent(in) :: this
+  real(dp)                            :: output
+  
+  call this%check()
+  
+  output = this%potential%undisplaced_energy()
+end function
+
+impure elemental subroutine zero_energy_PotentialPointer(this)
+  implicit none
+  
+  class(PotentialPointer), intent(inout) :: this
+  
+  call this%check()
+  
+  call this%potential%zero_energy()
 end subroutine
 
 impure elemental function energy_RealModeDisplacement_PotentialPointer(this, &
@@ -235,6 +261,10 @@ module potential_example_module
     procedure, public :: generate_potential => &
        & generate_potential_PotentialDataExample
     
+    procedure, public :: undisplaced_energy => &
+                       & undisplaced_energy_PotentialDataExample
+    procedure, public :: zero_energy => zero_energy_PotentialDataExample
+    
     procedure, public :: energy_RealModeDisplacement => &
                        & energy_RealModeDisplacement_PotentialDataExample
     procedure, public :: energy_ComplexModeDisplacement => &
@@ -306,6 +336,30 @@ subroutine generate_potential_PotentialDataExample(this,inputs,          &
   call print_line('Example contents = '//this%example_contents)
   
   ! Code to generate sampling points goes here.
+end subroutine
+
+impure elemental function undisplaced_energy_PotentialDataExample(this) &
+   & result(output)
+  implicit none
+  
+  class(PotentialDataExample), intent(in) :: this
+  real(dp)                                :: output
+  
+  call print_line('PotentialDataExample: calculating energy.')
+  call print_line('Example contents = '//this%example_contents)
+  
+  ! Code to calculate energies at no displacement goes here.
+end function
+
+impure elemental subroutine zero_energy_PotentialDataExample(this)
+  implicit none
+  
+  class(PotentialDataExample), intent(inout) :: this
+  
+  call print_line('PotentialDataExample: zeroing energy.')
+  call print_line('Example contents = '//this%example_contents)
+  
+  ! Code to zero the energy (s.t. undisplaced_energy()=0) goes here.
 end subroutine
 
 impure elemental function energy_RealModeDisplacement_PotentialDataExample( &
