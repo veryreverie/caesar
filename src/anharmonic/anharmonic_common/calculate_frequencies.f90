@@ -40,10 +40,12 @@ subroutine calculate_frequencies(potential,anharmonic_data, &
   
   type(PotentialPointer) :: new_potential
   
-  type(FrequencyArray), allocatable :: old_frequencies(:)
-  type(FrequencyArray), allocatable :: new_frequencies(:)
+  type(RealVector), allocatable :: old_frequencies(:)
+  type(RealVector), allocatable :: new_frequencies(:)
   
   real(dp) :: frequency
+  
+  integer :: first_pulay_iteration
   
   integer :: i,j,k,ialloc
   
@@ -72,53 +74,102 @@ subroutine calculate_frequencies(potential,anharmonic_data, &
     states(i) = subspace_states(1)
   enddo
   
-  old_frequencies = [FrequencyArray(frequencies)]
-  new_frequencies = [FrequencyArray::]
+  ! Find self-consistent frequencies which minimise the energy.
+  old_frequencies = [vec(frequencies)]
+  new_frequencies = [RealVector::]
   i = 1
-  do
-    ! Append an empty array to new_frequencies.
-    new_frequencies = [ new_frequencies,                               &
-                      & FrequencyArray([(0.0_dp,j=1,size(subspaces))]) ]
+  iter: do
+    ! Update the states to have the new frequencies.
+    call print_line('')
+    call print_line('========================================')
+    call print_line(old_frequencies(i))
+    states%frequency = dble(old_frequencies(i))
+    call print_line(states%frequency)
     
-    ! Calculate update frequencies.
-    do j=1,size(subspaces)
-      ! Integrate the potential across all other subspaces.
-      new_potential = potential
-      do k=1,size(subspaces)
-        if (k/=j) then
-          call new_potential%braket(states(k),states(k),anharmonic_data)
-        endif
-      enddo
-      
-      ! Set the constant energy to zero, to stabilise minima finding.
-      call new_potential%zero_energy()
-      
-      ! Find the frequency which minimises total energy.
-      new_frequencies(i)%frequencies(j) = optimise_frequency( &
-                                      & new_potential,        &
-                                      & states(j),            &
-                                      & anharmonic_data,      &
-                                      & frequency_convergence )
-    enddo
+    ! Calculate mean-field potentials from the old frequencies, and use these
+    !    mean-field potentials to calculate new frequencies.
+    new_frequencies = [ new_frequencies,                              &
+                      & optimise_frequencies( potential,              &
+                      &                       states,                 &
+                      &                       anharmonic_data,        &
+                      &                       frequency_convergence ) ]
+    call print_line(new_frequencies(i))
     
-    ! Use a Pulay scheme to update frequencies self-consistently.
-    old_frequencies = [ old_frequencies,                       &
-                      & pulay(old_frequencies,new_frequencies) ]
-    
-    ! Check whether the Pulay iteration has converged.
-    i = i+1
-    if (sum(abs( old_frequencies(i)%frequencies &
-             & - old_frequencies(i-1)%frequencies))<frequency_convergence) then
-      frequencies = old_frequencies(i)%frequencies
-      exit
+    ! Use a Pulay scheme to converge towards the self-consistent solution,
+    !    such that new frequencies = old frequencies.
+    if (i<=200) then
+      old_frequencies = [ old_frequencies,   &
+                        & new_frequencies(i) ]
+    else
+      old_frequencies = [ old_frequencies,                                &
+                        & pulay(old_frequencies(2:), new_frequencies(2:)) ]
     endif
-  enddo
+    
+    call print_line(old_frequencies(i+1))
+    call print_line('========================================')
+    
+    ! Check whether the frequencies have converged.
+    if (i>2) then
+      if ( sum(abs(dble(old_frequencies(i)-old_frequencies(i-1)))) &
+       & < frequency_convergence                                   ) then
+        frequencies = dble(old_frequencies(i))
+        exit iter
+      endif
+    endif
+    
+    ! Increment the loop counter.
+    i = i+1
+  enddo iter
   
   ! TODO
   ! Generate basis states from frequencies.
   ! Return basis.
   
 end subroutine
+
+! For each subspace, integrate the potential across all other subspaces
+!    to get a single-subspace mean-field potential.
+! Then find the subspace frequency which minimises the single-subspace energy.
+recursive function optimise_frequencies(potential,states,anharmonic_data, &
+   & frequency_convergence) result(output)
+  implicit none
+  
+  class(PotentialData), intent(in) :: potential
+  type(SubspaceState),  intent(in) :: states(:)
+  type(AnharmonicData), intent(in) :: anharmonic_data
+  real(dp),             intent(in) :: frequency_convergence
+  type(RealVector)                 :: output
+  
+  real(dp), allocatable  :: new_frequencies(:)
+  type(PotentialPointer) :: new_potential
+  
+  integer :: i,j,ialloc
+  
+  new_frequencies = [(0.0_dp,i=1,size(states))]
+  
+  ! Calculate update frequencies.
+  do i=1,size(states)
+    ! Integrate the potential across all other subspaces.
+    new_potential = potential
+    do j=1,size(states)
+      if (j/=i) then
+        call new_potential%braket(states(j),states(j),anharmonic_data)
+      endif
+    enddo
+    
+    ! Set the constant energy to zero, to stabilise minima finding.
+    call new_potential%zero_energy()
+    call print_lines(new_potential)
+    
+    ! Find the frequency which minimises total energy.
+    new_frequencies(i) = optimise_frequency( new_potential,        &
+                                           & states(i),            &
+                                           & anharmonic_data,      &
+                                           & frequency_convergence )
+  enddo
+  
+  output = new_frequencies
+end function
 
 ! Find the frequency which minimises energy in a single subspace.
 recursive function optimise_frequency(potential,state,anharmonic_data, &
@@ -145,8 +196,8 @@ recursive function optimise_frequency(potential,state,anharmonic_data, &
   
   integer :: i
   
-  old_frequency   = state%frequency
-  new_state       = state
+  old_frequency = state%frequency
+  new_state     = state
   
   ! Calculate [w-dw, w, w+dw].
   frequencies = old_frequency
@@ -158,7 +209,8 @@ recursive function optimise_frequency(potential,state,anharmonic_data, &
     new_potential = potential
     new_state%frequency = frequencies(i)
     call new_potential%braket(new_state,new_state,anharmonic_data)
-    energies(i) = new_potential%undisplaced_energy()
+    energies(i) = new_potential%undisplaced_energy() &
+              & + kinetic_energy(new_state, new_state)
   enddo
   
   ! Calculate dU/dw = (U(w+dw)-U(w-dw))/(2dw).
@@ -200,18 +252,5 @@ recursive function optimise_frequency(potential,state,anharmonic_data, &
                                  & frequency_convergence )
     endif
   endif
-end function
-
-! Use a Pulay scheme to minimise frequencies of all subspaces.
-function pulay(old_frequencies,new_frequencies) result(output)
-  implicit none
-  
-  type(FrequencyArray), intent(in) :: old_frequencies(:)
-  type(FrequencyArray), intent(in) :: new_frequencies(:)
-  type(FrequencyArray)             :: output
-  
-  output = old_frequencies(size(old_frequencies))
-  
-  ! TODO: Write Pulay scheme.
 end function
 end module

@@ -53,6 +53,7 @@ module linear_algebra_submodule
   public :: determinant
   public :: invert
   public :: linear_least_squares
+  public :: pulay
   
   ! --------------------------------------------------
   ! Vector and Matrix classes
@@ -3269,7 +3270,7 @@ function linear_least_squares_reals_reals(a,b) result(output)
   allocate(work(2*m*n), stat=ialloc); call err(ialloc)
   call dgels('N',m,n,1,a2,m,b2,m,work,-1,info)
   if (info/=0) then
-    call print_line(ERROR//'in linear regression: dgels error code: '//info)
+    call print_line(ERROR//' in linear regression: dgels error code: '//info)
     call err()
   endif
   lwork = nint(work(1))
@@ -3279,7 +3280,7 @@ function linear_least_squares_reals_reals(a,b) result(output)
   ! Run linear least-squares optimisation.
   call dgels('N',m,n,1,a2,m,b2,m,work,lwork,info)
   if (info/=0) then
-    call print_line(ERROR//'in linear regression: dgels error code: '//info)
+    call print_line(ERROR//' in linear regression: dgels error code: '//info)
     call err()
   endif
   
@@ -3314,6 +3315,76 @@ function linear_least_squares_RealMatrix_RealVector(a,b) result(x)
   type(RealVector)             :: x
   
   x = linear_least_squares(dble(a),dble(b))
+end function
+
+! A Pulay scheme to find self-consistent solution to f(x)=x.
+function pulay(input_vectors,output_vectors) result(output)
+  implicit none
+  
+  type(RealVector), intent(in) :: input_vectors(:)
+  type(RealVector), intent(in) :: output_vectors(:)
+  type(RealVector)             :: output
+  
+  type(Realvector), allocatable :: errors(:)
+  real(dp),         allocatable :: error_matrix(:,:)
+  real(dp),         allocatable :: lagrange_vector(:)
+  real(dp),         allocatable :: coefficients(:)
+  
+  integer :: n
+  
+  integer :: i,j,ialloc
+  
+  ! Each input vector x_i produces an output vector f(x_i) = x_i + e_i.
+  ! The aim is to construct x_{n+1} such that e_{n+1}=0.
+  ! If x_{n+1} = sum_{i=1}^n a_i x_i, it can be approximated that
+  !    e_{n+1} = sum_{i=1}^n a_i e_i.
+  ! Minimising e_{n+1} subject to sum_{i=1}^n a_i = 1 then becomes a linear
+  !    least squares problem, with equations:
+  ! sum_{i=1}^n e_i e_j a_j + l = 0
+  ! sum_{i=1}^n a_i             = 1
+  ! Or equivalently:
+  ! ( e1.e1, e1.e2, ... , e1.en,  1  ) (a_1)   ( 0 )
+  ! ( e2.e1, e2.e2, ... , e2.en,  1  ) (a_2)   ( 0 )
+  ! (  ... ,  ... , ... ,  ... , ... ) (...) = (...)
+  ! ( en.e1, en.e2, ... , en.en,  1  ) (a_n)   ( 0 )
+  ! (   1  ,   1  ,  1  ,   1  ,  0  ) ( l )   ( 1 )
+  
+  if (size(input_vectors)/=size(output_vectors)) then
+    call err()
+  endif
+  
+  n = size(input_vectors)
+  
+  ! Construct errors, e_i = f(x_i)-x_i.
+  errors = output_vectors - input_vectors
+  
+  ! Construct error matrix.
+  ! ( e1.e1, e1.e2, ... , e1.en,  1 )
+  ! ( e2.e1, e2.e2, ... , e2.en,  1 )
+  ! (  ... ,  ... , ... ,  ... , ...)
+  ! ( en.e1, en.e2, ... , en.en,  1 )
+  ! (   1  ,   1  , ... ,   1  ,  0 )
+  allocate(error_matrix(n+1,n+1), stat=ialloc); call err(ialloc)
+  do i=1,n
+    do j=1,n
+      error_matrix(j,i) = errors(j) * errors(i)
+    enddo
+  enddo
+  error_matrix(:n , n+1) = 1
+  error_matrix(n+1, :n ) = 1
+  error_matrix(n+1, n+1) = 0
+  
+  ! Construct lagrange vector.
+  ! (0, 0, ..., 0, 1)
+  allocate(lagrange_vector(n+1), stat=ialloc); call err(ialloc)
+  lagrange_vector(:n ) = 0
+  lagrange_vector(n+1) = 1
+  
+  ! Perform least-squares optimisation to get coefficients, {a_i}.
+  coefficients = dble(linear_least_squares(error_matrix, lagrange_vector))
+  
+  ! Construct output frequencies as x_n = sum_{i=1}^n a_i x_i.
+  output = sum(coefficients(:n)*input_vectors)
 end function
 
 ! ----------------------------------------------------------------------

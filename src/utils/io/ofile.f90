@@ -192,9 +192,7 @@ subroutine print_line_StringWriteable(this,input,settings)
   class(StringWriteable), intent(in)           :: input
   type(PrintSettings),    intent(in), optional :: settings
   
-  ! TODO: change to str(input,settings) when
-  !    StringWriteable can accept settings.
-  call this%print_line(str(input))
+  call this%print_line(str(input,settings))
 end subroutine
 
 subroutine print_line_logical(this,input,settings)
@@ -315,9 +313,7 @@ subroutine print_lines_StringWriteables_character(this,input,separating_line, &
   character(*),           intent(in), optional :: separating_line
   type(PrintSettings),    intent(in), optional :: settings
   
-  ! TODO: change to str(input,settings) when
-  !    StringWriteable can accept settings.
-  call this%print_lines(str(input,separating_line))
+  call this%print_lines(str(input,separating_line,settings))
 end subroutine
 
 subroutine print_lines_StringWriteables_String(this,input,separating_line, &
@@ -329,9 +325,7 @@ subroutine print_lines_StringWriteables_String(this,input,separating_line, &
   type(String),           intent(in)           :: separating_line
   type(PrintSettings),    intent(in), optional :: settings
   
-  ! TODO: change to str(input,settings) when
-  !    StringWriteable can accept settings.
-  call this%print_lines(str(input,separating_line))
+  call this%print_lines(str(input,separating_line,settings))
 end subroutine
 
 subroutine print_lines_StringsWriteable(this,input,settings)
@@ -341,9 +335,7 @@ subroutine print_lines_StringsWriteable(this,input,settings)
   class(StringsWriteable), intent(in)           :: input
   type(PrintSettings),     intent(in), optional :: settings
   
-  ! TODO: change to str(input,settings) when
-  !    StringsWriteable can accept settings.
-  call this%print_lines(str(input))
+  call this%print_lines(str(input,settings))
 end subroutine
 
 subroutine print_lines_StringsWriteables_character(this,input, &
@@ -361,9 +353,7 @@ subroutine print_lines_StringsWriteables_character(this,input, &
     call err()
   endif
   
-  ! TODO: change to str(input,settings) when
-  !    StringsWriteable can accept settings.
-  call this%print_lines(str(input,separating_line))
+  call this%print_lines(str(input,separating_line,settings))
 end subroutine
 
 subroutine print_lines_StringsWriteables_String(this,input,separating_line, &
@@ -375,8 +365,6 @@ subroutine print_lines_StringsWriteables_String(this,input,separating_line, &
   type(String),            intent(in)           :: separating_line
   type(PrintSettings),     intent(in), optional :: settings
   
-  ! TODO: change to str(input,settings) when
-  !    StringsWriteable can accept settings.
-  call this%print_lines(str(input,separating_line))
+  call this%print_lines(str(input,separating_line,settings))
 end subroutine
 end module
