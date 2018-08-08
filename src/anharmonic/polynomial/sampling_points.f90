@@ -59,12 +59,12 @@ function generate_sampling_points(basis_functions,potential_expansion_order, &
    & result(output)
   implicit none
   
-  type(BasisFunction), intent(in) :: basis_functions(:)
-  integer,             intent(in) :: potential_expansion_order
-  real(dp),            intent(in) :: maximum_weighted_displacement
-  real(dp),            intent(in) :: frequency_of_max_displacement
-  type(RealMode),      intent(in) :: real_modes(:)
-  type(SamplingPoints)            :: output
+  type(BasisFunctions), intent(in) :: basis_functions
+  integer,              intent(in) :: potential_expansion_order
+  real(dp),             intent(in) :: maximum_weighted_displacement
+  real(dp),             intent(in) :: frequency_of_max_displacement
+  type(RealMode),       intent(in) :: real_modes(:)
+  type(SamplingPoints)             :: output
   
   type(ModeCoupling), allocatable :: couplings(:)
   type(ModeCoupling), allocatable :: unique_couplings(:)
@@ -80,7 +80,7 @@ function generate_sampling_points(basis_functions,potential_expansion_order, &
   ! Construct the mode coupling corresponding to the unique term in each
   !    basis function.
   ! e.g. (u7)^4*(u9)^3*(u11)^1 => [7,9,11].
-  couplings = ModeCoupling(basis_functions%unique_term)
+  couplings = ModeCoupling(basis_functions%unique_terms)
   
   ! De-duplicate the couplings.
   unique_couplings = couplings(set(couplings,compare_ModeCoupling))
@@ -90,7 +90,7 @@ function generate_sampling_points(basis_functions,potential_expansion_order, &
     ! Gather together all unique terms with couplings which are the same as
     !    unique_couplings(i).
     matching_couplings = filter(couplings==unique_couplings(i))
-    unique_terms = basis_functions(matching_couplings)%unique_term
+    unique_terms = basis_functions%unique_terms(matching_couplings)
     
     ! Construct an array of sampling points for the unique terms,
     !    and append this to the output array.

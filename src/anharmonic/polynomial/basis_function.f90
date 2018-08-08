@@ -14,6 +14,8 @@ module basis_function_module
   public :: generate_basis_functions
   public :: operator(*)
   public :: operator(/)
+  public :: operator(+)
+  public :: operator(-)
   
   type, extends(Stringsable) :: BasisFunction
     ! The basis function in real co-ordinates.
@@ -21,10 +23,6 @@ module basis_function_module
     
     ! The basis function in complex co-ordinates.
     type(ComplexPolynomial) :: complex_representation
-    
-    ! The term which is non-zero in this basis function but
-    !    zero in every other basis function.
-    type(RealMonomial)      :: unique_term
   contains
     procedure, public :: simplify
     
@@ -65,23 +63,31 @@ module basis_function_module
   interface operator(/)
     module procedure divide_BasisFunction_real
   end interface
+  
+  interface operator(+)
+    module procedure add_BasisFunction_BasisFunction
+  end interface
+  
+  interface operator(-)
+    module procedure negative_BasisFunction
+    
+    module procedure subtract_BasisFunction_BasisFunction
+  end interface
 contains
 
 ! ----------------------------------------------------------------------
 ! Constructor.
 ! ----------------------------------------------------------------------
-function new_BasisFunction(real_representation,complex_representation, &
-   & unique_term) result(this)
+function new_BasisFunction(real_representation,complex_representation) &
+   & result(this)
   implicit none
   
   type(RealPolynomial),    intent(in) :: real_representation
   type(ComplexPolynomial), intent(in) :: complex_representation
-  type(RealMonomial),      intent(in) :: unique_term
   type(BasisFunction)                 :: this
   
   this%real_representation    = real_representation
   this%complex_representation = complex_representation
-  this%unique_term            = unique_term
 end function
 
 ! ----------------------------------------------------------------------
@@ -133,13 +139,9 @@ function generate_basis_functions_SubspaceMonomial(coupling,structure, &
   real(dp),                  allocatable :: real_coefficients(:)
   complex(dp),               allocatable :: complex_coefficients(:)
   
-  ! A list of which term is unique to which basis function.
-  integer, allocatable :: unique_term_id(:)
-  
   ! Variables for constructing the output.
   type(RealPolynomial)    :: real_representation
   type(ComplexPolynomial) :: complex_representation
-  type(RealMonomial)      :: unique_term
   
   ! Temporary variables.
   integer :: i,j,ialloc
@@ -181,10 +183,11 @@ function generate_basis_functions_SubspaceMonomial(coupling,structure, &
   enddo
   
   ! Identify the unique monomials. (Those with all modes the same).
-  unique_complex_monomials = complex_monomials(set( complex_monomials,     &
-                                                  & compare_monomial_modes ))
+  unique_complex_monomials = complex_monomials(set( &
+                       & complex_monomials,         &
+                       & compare_complex_monomials  ))
   unique_real_monomials = real_monomials(set( real_monomials,        &
-                                            & compare_monomial_modes ))
+                                            & compare_real_monomials ))
   
   ! Set the coefficient of each unique monomial, and construct the mapping
   !    from complex_monomials to unique_complex_monomials.
@@ -196,9 +199,9 @@ function generate_basis_functions_SubspaceMonomial(coupling,structure, &
           & stat=ialloc); call err(ialloc)
   all_to_unique = 0
   do i=1,size(unique_complex_monomials)
-    equal_monomials = filter( complex_monomials,      &
-                            & compare_monomial_modes, &
-                            & unique_complex_monomials(i))
+    equal_monomials = filter( complex_monomials,          &
+                            & compare_complex_monomials,  &
+                            & unique_complex_monomials(i) )
     unique_complex_monomials(i)%coefficient = &
        & sqrt(real(size(equal_monomials),dp))
     all_to_unique(i,equal_monomials) = &
@@ -206,9 +209,9 @@ function generate_basis_functions_SubspaceMonomial(coupling,structure, &
   enddo
   
   do i=1,size(unique_real_monomials)
-    equal_monomials = filter( real_monomials,         &
-                            & compare_monomial_modes, &
-                            & unique_real_monomials(i))
+    equal_monomials = filter( real_monomials,          &
+                            & compare_real_monomials,  &
+                            & unique_real_monomials(i) )
     unique_real_monomials(i)%coefficient = sqrt(real(size(equal_monomials),dp))
   enddo
   
@@ -262,26 +265,6 @@ function generate_basis_functions_SubspaceMonomial(coupling,structure, &
   endif
   estuff = estuff(filter(abs(estuff%eval-1)<1e-2_dp))
   
-  ! Take linear combinations of basis functions such that each basis function
-  !    contains at least term which is in no other basis function.
-  allocate(unique_term_id(size(estuff)), stat=ialloc); call err(ialloc)
-  do i=1,size(estuff)
-    ! Identify the largest term in basis function i.
-    unique_term_id(i) = maxloc(abs(estuff(i)%evec),1)
-    
-    ! Subtract a multiple of basis function i from all other basis functions,
-    !    such that the coefficient of unique_term_id(i) in all other basis
-    !    functions is zero.
-    do j=1,size(estuff)
-      if (j/=i) then
-        estuff(j)%evec = estuff(j)%evec                    &
-                     & - estuff(i)%evec                    &
-                     & * estuff(j)%evec(unique_term_id(i)) &
-                     & / estuff(i)%evec(unique_term_id(i))
-      endif
-    enddo
-  enddo
-  
   ! Construct basis functions from the coefficients.
   allocate(output(size(estuff)), stat=ialloc); call err(ialloc)
   do i=1,size(estuff)
@@ -293,49 +276,11 @@ function generate_basis_functions_SubspaceMonomial(coupling,structure, &
                                       & * unique_real_monomials )
     complex_representation = ComplexPolynomial( complex_coefficients     &
                                             & * unique_complex_monomials )
-    unique_term = real_representation%terms(unique_term_id(i))
     
-    output(i) = BasisFunction( real_representation,    &
-                             & complex_representation, &
-                             & unique_term             )
+    output(i) = BasisFunction( real_representation,   &
+                             & complex_representation )
     call output(i)%simplify()
   enddo
-contains
-  ! Lambda for comparing monomials.
-  function compare_monomial_modes(this,that) result(output)
-    implicit none
-    
-    class(*), intent(in) :: this
-    class(*), intent(in) :: that
-    logical              :: output
-    
-    select type(this)
-    type is(ComplexMonomial)
-      select type(that)
-      type is(ComplexMonomial)
-        if (size(this%modes)/=size(that%modes)) then
-          output = .false.
-        else
-          output = all( this%modes%id==that%modes%id .and. &
-                      & this%modes%power==that%modes%power)
-        endif
-      class default
-        call err()
-      end select
-    type is(RealMonomial)
-      select type(that)
-      type is(RealMonomial)
-        if (size(this%modes)/=size(that%modes)) then
-          output = .false.
-        else
-          output = all( this%modes%id==that%modes%id .and. &
-                      & this%modes%power==that%modes%power)
-        endif
-      class default
-        call err()
-      end select
-    end select
-  end function
 end function
 
 ! Given a unitary matrix U, s.t. U^n=I, returns the matrix
@@ -497,9 +442,8 @@ impure elemental function multiply_BasisFunction_real(this,that) result(output)
   type(BasisFunction), intent(in) :: that
   type(BasisFunction)             :: output
   
-  output = BasisFunction( this * that%real_representation,    &
-                        & this * that%complex_representation, &
-                        & this * that%unique_term             )
+  output = BasisFunction( this * that%real_representation,   &
+                        & this * that%complex_representation )
 end function
 
 impure elemental function multiply_real_BasisFunction(this,that) result(output)
@@ -509,9 +453,8 @@ impure elemental function multiply_real_BasisFunction(this,that) result(output)
   real(dp),            intent(in) :: that
   type(BasisFunction)             :: output
   
-  output = BasisFunction( this%real_representation * that,    &
-                        & this%complex_representation * that, &
-                        & this%unique_term * that             )
+  output = BasisFunction( this%real_representation * that,   &
+                        & this%complex_representation * that )
 end function
 
 impure elemental function divide_BasisFunction_real(this,that) result(output)
@@ -521,9 +464,44 @@ impure elemental function divide_BasisFunction_real(this,that) result(output)
   real(dp),            intent(in) :: that
   type(BasisFunction)             :: output
   
-  output = BasisFunction( this%real_representation / that,    &
-                        & this%complex_representation / that, &
-                        & this%unique_term / that             )
+  output = BasisFunction( this%real_representation / that,   &
+                        & this%complex_representation / that )
+end function
+
+impure elemental function add_BasisFunction_BasisFunction(this,that) &
+   & result(output)
+  implicit none
+  
+  type(BasisFunction), intent(in) :: this
+  type(BasisFunction), intent(in) :: that
+  type(BasisFunction)             :: output
+  
+  output = BasisFunction(                                      &
+     & this%real_representation+that%real_representation,      &
+     & this%complex_representation+that%complex_representation )
+end function
+
+impure elemental function negative_BasisFunction(this) result(output)
+  implicit none
+  
+  type(BasisFunction), intent(in) :: this
+  type(BasisFunction)             :: output
+  
+  output = BasisFunction( -this%real_representation,   &
+                        & -this%complex_representation )
+end function
+
+impure elemental function subtract_BasisFunction_BasisFunction(this,that) &
+   & result(output)
+  implicit none
+  
+  type(BasisFunction), intent(in) :: this
+  type(BasisFunction), intent(in) :: that
+  type(BasisFunction)             :: output
+  
+  output = BasisFunction(                                      &
+     & this%real_representation-that%real_representation,      &
+     & this%complex_representation-that%complex_representation )
 end function
 
 ! ----------------------------------------------------------------------
@@ -537,22 +515,14 @@ subroutine read_BasisFunction(this,input)
   
   integer :: partition_line
   
-  type(RealMonomial)      :: unique_term
   type(RealPolynomial)    :: real_representation
   type(ComplexPolynomial) :: complex_representation
   
   integer :: i
   
   select type(this); type is(BasisFunction)
-    if (size(input)<4) then
-      call print_line(ERROR//': Basis function file shorter than expected.')
-      call err()
-    endif
-    
-    unique_term = RealMonomial(input(2))
-    
     ! Locate the line between real terms and complex terms.
-    do i=4,size(input)
+    do i=2,size(input)
       if (size(split_line(input(i)))>1) then
         partition_line = i
         exit
@@ -560,13 +530,12 @@ subroutine read_BasisFunction(this,input)
     enddo
     
     real_representation = RealPolynomial(                 &
-       & join(input(4:partition_line-1), delimiter=' + ') )
+       & join(input(2:partition_line-1), delimiter=' + ') )
     complex_representation = ComplexPolynomial(          &
        & join(input(partition_line+1:), delimiter=' + ') )
     
-    this = BasisFunction( unique_term            = unique_term,         &
-                        & real_representation    = real_representation, &
-                        & complex_representation = complex_representation)
+    this = BasisFunction( real_representation    = real_representation,   &
+                        & complex_representation = complex_representation )
   class default
     call err()
   end select
@@ -578,28 +547,11 @@ function write_BasisFunction(this) result(output)
   class(BasisFunction), intent(in) :: this
   type(String), allocatable        :: output(:)
   
-  integer :: i,j,no_lines,ialloc
-  
   select type(this); type is(BasisFunction)
-    no_lines = 4                              &
-           & + size(this%real_representation) &
-           & + size(this%complex_representation)
-    
-    allocate(output(no_lines), stat=ialloc); call err(ialloc)
-    output(1) = 'Real monomial unique to this basis function:'
-    output(2) = str(this%unique_term)
-    output(3) = 'Basis function in real co-ordinates:'
-    j = 3
-    do i=1,size(this%real_representation)
-      j = j+1
-      output(j) = str(this%real_representation%terms(i))
-    enddo
-    j = j+1
-    output(j) = 'Basis function in complex co-ordinates:'
-    do i=1,size(this%complex_representation)
-      j = j+1
-      output(j) = str(this%complex_representation%terms(i))
-    enddo
+    output = [ str('Basis function in real co-ordinates:'),    &
+             & str(this%real_representation%terms),            &
+             & str('Basis function in complex co-ordinates:'), &
+             & str(this%complex_representation%terms)          ]
   class default
     call err()
   end select

@@ -20,12 +20,14 @@ module real_polynomial_submodule
   public :: operator(*)
   public :: operator(/)
   public :: operator(+)
+  public :: operator(-)
   public :: select_mode
   public :: select_modes
   public :: select_displacement
   public :: select_displacements
   public :: select_force
   public :: select_forces
+  public :: compare_real_monomials
   
   ! --------------------------------------------------
   ! Types, and conversions between types.
@@ -162,6 +164,12 @@ module real_polynomial_submodule
   
   interface operator(+)
     module procedure add_RealPolynomialable_RealPolynomialable
+  end interface
+  
+  interface operator(-)
+    module procedure negative_RealPolynomialable
+    
+    module procedure subtract_RealPolynomialable_RealPolynomialable
   end interface
   
   interface select_mode
@@ -387,8 +395,8 @@ impure elemental subroutine simplify_RealPolynomial(this)
   call this%terms%simplify()
   
   ! Add together any equivalent monomials.
-  equivalent_monomial_locs = first_equivalent( this%terms, &
-                                             & compare_monomial_modes)
+  equivalent_monomial_locs = first_equivalent( this%terms,            &
+                                             & compare_real_monomials )
   allocate( monomials(maxval(equivalent_monomial_locs)), &
           & stat=ialloc); call err(ialloc)
   do i=1,size(monomials)
@@ -751,8 +759,8 @@ function add_RealPolynomialable_RealPolynomialable(this,that) &
   no_terms = size(this_polynomial)
   do i=1,size(that_polynomial)
     j = first( this_polynomial%terms,    &
-             & compare_monomial_modes,   &
-             & that_polynomial%terms(j), &
+             & compare_real_monomials,   &
+             & that_polynomial%terms(i), &
              & default=0)
     if (j==0) then
       no_terms = no_terms + 1
@@ -763,6 +771,29 @@ function add_RealPolynomialable_RealPolynomialable(this,that) &
     endif
   enddo
   output%terms = output%terms(:no_terms)
+end function
+
+! The negative of a polynomial or polynomial-like type.
+function negative_RealPolynomialable(this) result(output)
+  implicit none
+  
+  class(RealPolynomialable), intent(in) :: this
+  type(RealPolynomial)                  :: output
+  
+  output = this%to_RealPolynomial()
+  output%terms%coefficient = - output%terms%coefficient
+end function
+
+! Subtraction between polynomials and polynomial-like types.
+function subtract_RealPolynomialable_RealPolynomialable(this,that) &
+   & result(output)
+  implicit none
+  
+  class(RealPolynomialable), intent(in) :: this
+  class(RealPolynomialable), intent(in) :: that
+  type(RealPolynomial)                  :: output
+  
+  output = this + (-that)
 end function
 
 ! ----------------------------------------------------------------------
@@ -850,10 +881,9 @@ function select_forces_RealUnivariates(univariates,forces) &
 end function
 
 ! ----------------------------------------------------------------------
-! Helper functions.
+! Compares two monomials for equality up to coefficient.
 ! ----------------------------------------------------------------------
-! Compares two monomial for equality up to coefficient.
-function compare_monomial_modes(this,that) result(output)
+function compare_real_monomials(this,that) result(output)
   implicit none
   
   class(*), intent(in) :: this

@@ -80,11 +80,7 @@ subroutine calculate_frequencies(potential,anharmonic_data, &
   i = 1
   iter: do
     ! Update the states to have the new frequencies.
-    call print_line('')
-    call print_line('========================================')
-    call print_line(old_frequencies(i))
     states%frequency = dble(old_frequencies(i))
-    call print_line(states%frequency)
     
     ! Calculate mean-field potentials from the old frequencies, and use these
     !    mean-field potentials to calculate new frequencies.
@@ -93,7 +89,6 @@ subroutine calculate_frequencies(potential,anharmonic_data, &
                       &                       states,                 &
                       &                       anharmonic_data,        &
                       &                       frequency_convergence ) ]
-    call print_line(new_frequencies(i))
     
     ! Use a Pulay scheme to converge towards the self-consistent solution,
     !    such that new frequencies = old frequencies.
@@ -104,9 +99,6 @@ subroutine calculate_frequencies(potential,anharmonic_data, &
       old_frequencies = [ old_frequencies,                                &
                         & pulay(old_frequencies(2:), new_frequencies(2:)) ]
     endif
-    
-    call print_line(old_frequencies(i+1))
-    call print_line('========================================')
     
     ! Check whether the frequencies have converged.
     if (i>2) then
@@ -120,6 +112,8 @@ subroutine calculate_frequencies(potential,anharmonic_data, &
     ! Increment the loop counter.
     i = i+1
   enddo iter
+  
+  call print_line('Frequencies: '//frequencies)
   
   ! TODO
   ! Generate basis states from frequencies.
@@ -159,13 +153,14 @@ recursive function optimise_frequencies(potential,states,anharmonic_data, &
     
     ! Set the constant energy to zero, to stabilise minima finding.
     call new_potential%zero_energy()
-    call print_lines(new_potential)
     
     ! Find the frequency which minimises total energy.
-    new_frequencies(i) = optimise_frequency( new_potential,        &
-                                           & states(i),            &
-                                           & anharmonic_data,      &
-                                           & frequency_convergence )
+    new_frequencies(i) = optimise_frequency(      &
+       & new_potential,                           &
+       & states(i),                               &
+       & anharmonic_data,                         &
+       & anharmonic_data%degenerate_subspaces(i), &
+       & frequency_convergence )
   enddo
   
   output = new_frequencies
@@ -173,14 +168,15 @@ end function
 
 ! Find the frequency which minimises energy in a single subspace.
 recursive function optimise_frequency(potential,state,anharmonic_data, &
-   & frequency_convergence) result(output)
+   & subspace,frequency_convergence) result(output)
   implicit none
   
-  class(PotentialData), intent(in) :: potential
-  type(SubspaceState),  intent(in) :: state
-  type(AnharmonicData), intent(in) :: anharmonic_data
-  real(dp),             intent(in) :: frequency_convergence
-  real(dp)                         :: output
+  class(PotentialData),     intent(in) :: potential
+  type(SubspaceState),      intent(in) :: state
+  type(AnharmonicData),     intent(in) :: anharmonic_data
+  type(DegenerateSubspace), intent(in) :: subspace
+  real(dp),                 intent(in) :: frequency_convergence
+  real(dp)                             :: output
   
   real(dp) :: frequencies(3)
   real(dp) :: energies(3)
@@ -209,8 +205,11 @@ recursive function optimise_frequency(potential,state,anharmonic_data, &
     new_potential = potential
     new_state%frequency = frequencies(i)
     call new_potential%braket(new_state,new_state,anharmonic_data)
-    energies(i) = new_potential%undisplaced_energy() &
-              & + kinetic_energy(new_state, new_state)
+    energies(i) = new_potential%undisplaced_energy()                   &
+              & + kinetic_energy( new_state,                           &
+              &                   new_state,                           &
+              &                   subspace,                            &
+              &                   anharmonic_data%anharmonic_supercell )
   enddo
   
   ! Calculate dU/dw = (U(w+dw)-U(w-dw))/(2dw).
@@ -221,6 +220,7 @@ recursive function optimise_frequency(potential,state,anharmonic_data, &
   second_derivative = (energies(1)+energies(3)-2*energies(2)) &
                   & / (0.01_dp*frequency_convergence)**2
   
+  ! Update the frequency, and check for convergence.
   ! At the extrema, (w=w1), dU/dw=0, so w1 = w - (dU/dw)/(d2U/dw2).
   ! If |w1-w|>w/2, or if dU/dw<0 then cap |w1-w| at w/2.
   if (abs(old_frequency)*second_derivative<=abs(first_derivative)) then
@@ -233,24 +233,22 @@ recursive function optimise_frequency(potential,state,anharmonic_data, &
       output = new_frequency
       return
     endif
-    
-    new_state%frequency = new_frequency
-    output = optimise_frequency( potential,            &
-                               & new_state,            &
-                               & anharmonic_data,      &
-                               & frequency_convergence )
   else
     new_frequency = old_frequency - first_derivative/second_derivative
     if (abs(new_frequency-old_frequency)<frequency_convergence) then
       output = new_frequency
       return
     else
-      new_state%frequency = new_frequency
-      output = optimise_frequency( potential,            &
-                                 & new_state,            &
-                                 & anharmonic_data,      &
-                                 & frequency_convergence )
     endif
   endif
+  
+  ! If the frequency hasn't converged, update the state to the new frequency,
+  !    and call this function with the new state.
+  new_state%frequency = new_frequency
+  output = optimise_frequency( potential,            &
+                             & new_state,            &
+                             & anharmonic_data,      &
+                             & subspace,             &
+                             & frequency_convergence )
 end function
 end module

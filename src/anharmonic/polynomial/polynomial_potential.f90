@@ -157,7 +157,7 @@ subroutine generate_sampling_points_PolynomialPotential(this,inputs, &
     ! Generate a set of sampling points from which the basis functions can
     !    be constructed.
     sampling_points(i) = generate_sampling_points( &
-           & basis_functions(i)%functions,         &
+           & basis_functions(i),                   &
            & this%potential_expansion_order,       &
            & inputs%maximum_weighted_displacement, &
            & inputs%frequency_of_max_displacement, &
@@ -309,8 +309,7 @@ subroutine generate_potential_PolynomialPotential(this,inputs,           &
   constant_basis_function = BasisFunction(                             &
      & real_representation = RealPolynomial([constant_real_monomial]), &
      & complex_representation =                                        &
-     &    ComplexPolynomial([constant_complex_monomial]),              &
-     & unique_term = constant_real_monomial)
+     &    ComplexPolynomial([constant_complex_monomial])               )
   
   equilibrium_sampling_point = RealModeDisplacement([RealSingleDisplacement::])
   
