@@ -18,6 +18,9 @@ module mode_monomial_module
   public :: operator(//)
   public :: operator(==)
   public :: operator(/=)
+  public :: ComplexMonomial
+  public :: RealMonomial
+  public :: ModeCoupling
   
   ! A list of ids of modes which are coupled.
   type :: ModeMonomial
@@ -29,12 +32,6 @@ module mode_monomial_module
     !    are part of the VSCF Hamiltonian. i.e. they conserve Bloch momentum
     !    within every coupled subspace.
     logical :: conserves_vscf
-  contains
-    ! Construct the ComplexMonomial, RealMonomial or ModeCoupling
-    !    corresponding to this ModeMonomial.
-    procedure, public :: complex_monomial
-    procedure, public :: real_monomial
-    procedure, public :: mode_coupling
   end type
   
   interface size
@@ -51,6 +48,20 @@ module mode_monomial_module
   
   interface operator(/=)
     module procedure non_equality_ModeMonomial_ModeMonomial
+  end interface
+  
+  ! Construct the ComplexMonomial, RealMonomial or ModeCoupling
+  !    corresponding to this ModeMonomial.
+  interface ComplexMonomial
+    module procedure new_ComplexMonomial_ModeMonomial
+  end interface
+  
+  interface RealMonomial
+    module procedure new_RealMonomial_ModeMonomial
+  end interface
+  
+  interface ModeCoupling
+    module procedure new_ModeCoupling_ModeMonomial
   end interface
 contains
 
@@ -208,12 +219,12 @@ end function
 ! Construct a ComplexMonomial, RealMonomial or ModeCoupling
 !    corresponding to this ModeMonomial.
 ! ----------------------------------------------------------------------
-function complex_monomial(this,complex_modes) result(output)
+function new_ComplexMonomial_ModeMonomial(this,complex_modes) result(output)
   implicit none
   
-  class(ModeMonomial), intent(in) :: this
-  type(ComplexMode),   intent(in) :: complex_modes(:)
-  type(ComplexMonomial)           :: output
+  type(ModeMonomial), intent(in) :: this
+  type(ComplexMode),  intent(in) :: complex_modes(:)
+  type(ComplexMonomial)          :: output
   
   integer, allocatable :: mode_ids(:)
   
@@ -225,23 +236,25 @@ function complex_monomial(this,complex_modes) result(output)
   mode_ids = this%ids
   mode_ids = mode_ids(set(mode_ids))
   mode_ids = mode_ids(sort(mode_ids))
-  output%coefficient = 1
-  allocate(output%modes(size(mode_ids)), stat=ialloc); call err(ialloc)
+  output = ComplexMonomial( coefficient = cmplx(1.0_dp,0.0_dp,dp), &
+                          & modes       = [ComplexUnivariate::]    )
   do i=1,size(mode_ids)
     mode = complex_modes(first(complex_modes%id==mode_ids(i)))
     power = count(this%ids==mode_ids(i))
-    output%modes(i) = ComplexUnivariate(mode=mode, power=power)
+    output = output * ComplexUnivariate(mode=mode, power=power)
   enddo
 end function
 
-function real_monomial(this,real_modes) result(output)
+function new_RealMonomial_ModeMonomial(this,real_modes) result(output)
   implicit none
   
-  class(ModeMonomial), intent(in) :: this
-  type(RealMode),      intent(in) :: real_modes(:)
-  type(RealMonomial)              :: output
+  type(ModeMonomial), intent(in) :: this
+  type(RealMode),     intent(in) :: real_modes(:)
+  type(RealMonomial)             :: output
   
   integer, allocatable :: mode_ids(:)
+  
+  type(RealMode) :: mode
   
   integer :: id
   integer :: paired_id
@@ -252,21 +265,18 @@ function real_monomial(this,real_modes) result(output)
   mode_ids = this%ids
   mode_ids = mode_ids(set(mode_ids))
   mode_ids = mode_ids(sort(mode_ids))
-  output%coefficient = 1
-  allocate(output%modes(size(mode_ids)), stat=ialloc); call err(ialloc)
+  output = RealMonomial( coefficient = 1.0_dp,            &
+                       & modes       = [RealUnivariate::] )
   do i=1,size(mode_ids)
-    id = mode_ids(i)
-    paired_id = real_modes(first(real_modes%id==id))%paired_id
-    power = count(this%ids==id)
-    output%modes(i) = RealUnivariate( id        = id,        &
-                                    & paired_id = paired_id, &
-                                    & power     = power)
+    mode = real_modes(first(real_modes%id==mode_ids(i)))
+    power = count(this%ids==mode_ids(i))
+    output = output * RealUnivariate(mode=mode, power=power)
   enddo
 end function
 
 ! e.g. if this has ids [2,1,2,3,1], the corresponding ModeCoupling
 !    has ids [1,2,3].
-impure elemental function mode_coupling(this) result(output)
+impure elemental function new_ModeCoupling_ModeMonomial(this) result(output)
   implicit none
   
   class(ModeMonomial), intent(in) :: this

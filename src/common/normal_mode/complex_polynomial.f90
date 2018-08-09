@@ -24,11 +24,8 @@ module complex_polynomial_submodule
   public :: operator(-)
   public :: sum
   public :: conjg
-  public :: select_mode
   public :: select_modes
-  public :: select_displacement
   public :: select_displacements
-  public :: select_force
   public :: select_forces
   public :: compare_complex_monomials
   
@@ -61,9 +58,8 @@ module complex_polynomial_submodule
     integer :: id
     integer :: paired_id
     integer :: power
+    integer :: paired_power
   contains
-    procedure, private :: set_paired_id
-    
     procedure, public :: to_ComplexMonomial   => &
        & to_ComplexMonomial_ComplexUnivariate
     procedure, public :: to_ComplexPolynomial => &
@@ -89,8 +85,6 @@ module complex_polynomial_submodule
     complex(dp)                          :: coefficient
     type(ComplexUnivariate), allocatable :: modes(:)
   contains
-    procedure, private :: set_paired_ids => set_paired_ids_ComplexMonomial
-    
     procedure, public :: to_ComplexMonomial   => &
        & to_ComplexMonomial_ComplexMonomial
     procedure, public :: to_ComplexPolynomial => &
@@ -115,8 +109,6 @@ module complex_polynomial_submodule
   type, extends(ComplexPolynomialable) :: ComplexPolynomial
     type(ComplexMonomial), allocatable :: terms(:)
   contains
-    procedure, private :: set_paired_ids => set_paired_ids_ComplexPolynomial
-    
     procedure, public :: to_ComplexPolynomial => &
        & to_ComplexPolynomial_ComplexPolynomial
     
@@ -217,27 +209,18 @@ module complex_polynomial_submodule
     module procedure subtract_ComplexPolynomialable_ComplexPolynomialable
   end interface
   
-  interface select_mode
-    module procedure select_mode_ComplexUnivariate
-  end interface
-  
   interface select_modes
+    module procedure select_modes_ComplexUnivariate
     module procedure select_modes_ComplexUnivariates
   end interface
   
-  interface select_displacement
-    module procedure select_displacement_ComplexUnivariate
-  end interface
-  
   interface select_displacements
+    module procedure select_displacements_ComplexUnivariate
     module procedure select_displacements_ComplexUnivariates
   end interface
   
-  interface select_force
-    module procedure select_force_ComplexUnivariate
-  end interface
-  
   interface select_forces
+    module procedure select_forces_ComplexUnivariate
     module procedure select_forces_ComplexUnivariates
   end interface
 contains
@@ -245,29 +228,64 @@ contains
 ! ----------------------------------------------------------------------
 ! Constructors.
 ! ----------------------------------------------------------------------
-function new_ComplexUnivariate(id,paired_id,power) result(this)
+function new_ComplexUnivariate(id,paired_id,power,paired_power) result(this)
   implicit none
   
   integer, intent(in)     :: id
   integer, intent(in)     :: paired_id
   integer, intent(in)     :: power
+  integer, intent(in)     :: paired_power
   type(ComplexUnivariate) :: this
   
-  this%id        = id
-  this%paired_id = paired_id
-  this%power     = power
+  if (id<=paired_id) then
+    if (id==paired_id .and. power/=paired_power) then
+      call print_line(CODE_ERROR//': modes the same, but powers differ.')
+      call err()
+    endif
+    this%id           = id
+    this%paired_id    = paired_id
+    this%power        = power
+    this%paired_power = paired_power
+  else
+    this%id           = paired_id
+    this%paired_id    = id
+    this%power        = paired_power
+    this%paired_power = power
+  endif
 end function
 
-function new_ComplexUnivariate_ComplexMode(mode,power) result(this)
+function new_ComplexUnivariate_ComplexMode(mode,power,paired_power) &
+   & result(this)
   implicit none
   
-  type(ComplexMode), intent(in) :: mode
-  integer,           intent(in) :: power
-  type(ComplexUnivariate)       :: this
+  type(ComplexMode), intent(in)           :: mode
+  integer,           intent(in)           :: power
+  integer,           intent(in), optional :: paired_power
+  type(ComplexUnivariate)                 :: this
   
-  this = ComplexUnivariate( id        = mode%id,        &
-                          & paired_id = mode%paired_id, &
-                          & power     = power           )
+  if (present(paired_power)) then
+    if (mode%id==mode%paired_id .and. power/=paired_power) then
+      call print_line(ERROR//': Mode is its own pair, but power does not &
+         & match paired_power.')
+      call err()
+    endif
+    this = ComplexUnivariate( id           = mode%id,        &
+                            & paired_id    = mode%paired_id, &
+                            & power        = power,          &
+                            & paired_power = paired_power    )
+  else
+    if (mode%id==mode%paired_id) then
+      this = ComplexUnivariate( id           = mode%id, &
+                              & paired_id    = mode%id, &
+                              & power        = power,   &
+                              & paired_power = power    )
+    else
+      this = ComplexUnivariate( id           = mode%id,        &
+                              & paired_id    = mode%paired_id, &
+                              & power        = power,          &
+                              & paired_power = 0               )
+    endif
+  endif
 end function
 
 function new_ComplexMonomial(coefficient,modes) result(this)
@@ -289,47 +307,6 @@ function new_ComplexPolynomial(terms) result(this)
   
   this%terms = terms
 end function
-
-! ----------------------------------------------------------------------
-! Setter for paired_id, using an array of modes.
-! ----------------------------------------------------------------------
-subroutine set_paired_id(this,modes)
-  implicit none
-  
-  class(ComplexUnivariate), intent(inout) :: this
-  type(ComplexMode),        intent(in)    :: modes(:)
-  
-  type(ComplexMode) :: mode
-  
-  mode = modes(first(modes%id==this%id))
-  this%paired_id = mode%paired_id
-end subroutine
-
-subroutine set_paired_ids_ComplexMonomial(this,modes)
-  implicit none
-  
-  class(ComplexMonomial), intent(inout) :: this
-  type(ComplexMode),      intent(in)    :: modes(:)
-  
-  integer :: i
-  
-  do i=1,size(this%modes)
-    call this%modes(i)%set_paired_id(modes)
-  enddo
-end subroutine
-
-subroutine set_paired_ids_ComplexPolynomial(this,modes)
-  implicit none
-  
-  class(ComplexPolynomial), intent(inout) :: this
-  type(ComplexMode),        intent(in)    :: modes(:)
-  
-  integer :: i
-  
-  do i=1,size(this%terms)
-    call this%terms(i)%set_paired_ids(modes)
-  enddo
-end subroutine
 
 ! ----------------------------------------------------------------------
 ! Conversions between types.
@@ -414,12 +391,12 @@ impure elemental subroutine simplify_ComplexMonomial(this)
   ! Sort modes in ascending order of ID.
   this%modes = this%modes(sort(this%modes%id))
   
-  ! Combine modes with the same ID, remove modes with power=0.
+  ! Combine modes with the same ID, remove modes with power=paired_power=0.
   i = 1
   do while(i<=size(this))
-    if (this%modes(i)%power<0) then
+    if (this%modes(i)%power<0 .or. this%modes(i)%paired_power<0) then
       call err()
-    elseif (this%modes(i)%power==0) then
+    elseif (this%modes(i)%power==0 .and. this%modes(i)%paired_power==0) then
       this%modes = [this%modes(:i-1), this%modes(i+1:)]
       cycle
     endif
@@ -427,6 +404,8 @@ impure elemental subroutine simplify_ComplexMonomial(this)
     if (i>1) then
       if (this%modes(i)%id==this%modes(i-1)%id) then
         this%modes(i-1)%power = this%modes(i-1)%power + this%modes(i)%power
+        this%modes(i-1)%paired_power = this%modes(i-1)%paired_power &
+                                   & + this%modes(i)%paired_power
         this%modes = [this%modes(:i-1), this%modes(i+1:)]
         cycle
       endif
@@ -478,9 +457,10 @@ impure elemental function conjg_ComplexUnivariate(this) result(output)
   type(ComplexUnivariate), intent(in) :: this
   type(ComplexUnivariate)             :: output
   
-  output = ComplexUnivariate( id        = this%paired_id, &
-                            & paired_id = this%id,        &
-                            & power     = this%power)
+  output = ComplexUnivariate( id           = this%paired_id,   &
+                            & paired_id    = this%id,          &
+                            & power        = this%power,       &
+                            & paired_power = this%paired_power )
 end function
 
 impure elemental function conjg_ComplexMonomial(this) result(output)
@@ -579,13 +559,15 @@ impure elemental function energy_ComplexUnivariate(this,displacement) &
   class(ComplexSingleDisplacement), intent(in) :: displacement
   complex(dp)                                  :: output
   
-  if (this%id/=displacement%id) then
+  if (displacement%id==this%id) then
+    output = displacement%magnitude**this%power
+  elseif (displacement%id==this%paired_id) then
+    output = displacement%magnitude**this%paired_power
+  else
     call print_line(CODE_ERROR//': Trying to evaluate a univariate at an &
        &incompatible displacement.')
     call err()
   endif
-  
-  output = displacement%magnitude**this%power
 end function
 
 impure elemental function energy_ComplexMonomial(this,displacement) &
@@ -596,25 +578,42 @@ impure elemental function energy_ComplexMonomial(this,displacement) &
   class(ComplexModeDisplacement), intent(in) :: displacement
   complex(dp)                                :: output
   
-  integer :: i,j
+  integer, allocatable :: ids(:)
+  
+  integer :: i,j,k
   
   output = this%coefficient
   
   do i=1,size(this)
     ! Find the mode in the displacement which matches that in the monomial.
-    j = first(displacement%vectors%id==this%modes(i)%id,default=0)
-    
-    ! If the mode is not present in the displacement,
-    !    then the displacement along that mode is zero.
-    ! As such, the monomial is zero. (0^n=0 if n>0).
-    if (j==0) then
-      output = 0.0_dp
-      return
+    if (this%modes(i)%id==this%modes(i)%paired_id) then
+      if (this%modes(i)%power/=0) then
+        ids = [this%modes(i)%id]
+      endif
+    else
+      if (this%modes(i)%power/=0) then
+        ids = [this%modes(i)%id]
+      endif
+      if (this%modes(i)%paired_power/=0) then
+        ids = [this%modes(i)%paired_id]
+      endif
     endif
     
-    ! If the mode is present in both,
-    !    evaluate the univariate at the displacement.
-    output = output * this%modes(i)%energy(displacement%vectors(j))
+    do j=1,size(ids)
+      k = first(displacement%vectors%id==ids(j), default=0) 
+      
+      ! If the mode is not present in the displacement,
+      !    then the displacement along that mode is zero.
+      ! As such, the monomial is zero. (0^n=0 if n>0).
+      if (k==0) then
+        output = 0.0_dp
+        return
+      endif
+      
+      ! If the mode is present in both,
+      !    evaluate the univariate at the displacement.
+      output = output * this%modes(i)%energy(displacement%vectors(k))
+    enddo
   enddo
 end function
 
@@ -642,18 +641,27 @@ impure elemental function force_ComplexUnivariate(this,displacement) &
   
   complex(dp) :: force
   
-  if (this%id/=displacement%id) then
+  if (displacement%id==this%id) then
+    if (this%power==0) then
+      force = 0.0_dp
+    elseif (this%power==1) then
+      force = -1.0_dp
+    else
+      force = -this%power * displacement%magnitude**(this%power-1)
+    endif
+  elseif (displacement%id==this%paired_id) then
+    if (this%paired_power==0) then
+      force = 0.0_dp
+    elseif (this%paired_power==1) then
+      force = -1.0_dp
+    else
+      force = -this%paired_power &
+          & * displacement%magnitude**(this%paired_power-1)
+    endif
+  else
     call print_line(CODE_ERROR//': Trying to take the derivative of a &
        & univariate at an incompatible displacement.')
     call err()
-  endif
-  
-  if (this%power<1) then
-    call err()
-  elseif (this%power==1) then
-    force = -1.0_dp
-  else
-    force = -this%power * displacement%magnitude**(this%power-1)
   endif
   
   output = ComplexSingleForce(id=this%id, magnitude=force)
@@ -669,9 +677,18 @@ impure elemental function force_ComplexMonomial(this,displacement) &
   class(ComplexModeDisplacement), intent(in) :: displacement
   type(ComplexModeForce)                     :: output
   
+  integer, allocatable :: id(:)
+  integer, allocatable :: power(:)
+  
+  integer                  :: displacement_id
+  complex(dp)              :: energy
+  type(ComplexSingleForce) :: force
+  
+  integer,                  allocatable :: powers(:)
   integer,                  allocatable :: displacement_ids(:)
-  complex(dp),              allocatable :: evaluations(:)
+  complex(dp),              allocatable :: energies(:)
   type(ComplexSingleForce), allocatable :: forces(:)
+  
   type(ComplexSingleForce), allocatable :: components(:)
   
   integer :: i,j,ialloc
@@ -680,39 +697,65 @@ impure elemental function force_ComplexMonomial(this,displacement) &
   !    univariates making up the monomial.
   ! Evaluate and take the derivative of each univariate at the one-mode
   !    component of the vector.
-  allocate( displacement_ids(size(this)),  &
-          & evaluations(size(this)),       &
-          & forces(size(this)),            &
-          & stat=ialloc); call err(ialloc)
+  powers = [integer::]
+  displacement_ids = [integer::]
+  energies = [complex(dp)::]
+  forces = [ComplexSingleForce::]
   do i=1,size(this)
-    ! Identify the vector corresponding to each mode.
-    ! If vector_ids(i)=0 then U_i=0.
-    displacement_ids(i) = first( displacement%vectors%id==this%modes(i)%id, &
-                               & default=0)
-    
-    ! Calculate {U_i}^{n_i}
-    if (displacement_ids(i)==0) then
-      evaluations(i) = 0.0_dp
-    else
-      evaluations(i) = this%modes(i)%energy(         &
-         & displacement%vectors(displacement_ids(i)) )
-    endif
-    
-    ! Calculate -d/d{u_i} ({u_i}^{n_i}) evaluated at U_i.
-    if (displacement_ids(i)==0) then
-      if (this%modes(i)%power==1) then
-        forces(i) = ComplexSingleForce(         &
-           & id=this%modes(i)%id,               &
-           & magnitude=cmplx(-1.0_dp,0.0_dp,dp) )
-      else
-        forces(i) = ComplexSingleForce(        &
-           & id=this%modes(i)%id,              &
-           & magnitude=cmplx(0.0_dp,0.0_dp,dp) )
+    id = [integer::]
+    power = [integer::]
+    if (this%modes(i)%id==this%modes(i)%paired_id) then
+      if (this%modes(i)%power>0) then
+        id = [id, this%modes(i)%id]
+        power = [power, this%modes(i)%power]
       endif
     else
-      forces(i) = this%modes(i)%force(               &
-         & displacement%vectors(displacement_ids(i)) )
+      if (this%modes(i)%power>0) then
+        id = [id, this%modes(i)%id]
+        power = [power, this%modes(i)%power]
+      endif
+      
+      if (this%modes(i)%paired_power>0) then
+        id = [id, this%modes(i)%paired_id]
+        power = [power, this%modes(i)%paired_power]
+      endif
     endif
+    
+    do j=1,size(id)
+      ! Identify the vector corresponding to each mode.
+      ! If vector_ids(i)=0 then U_i=0.
+      displacement_id = first( displacement%vectors%id==id(j), &
+                             & default=0)
+      
+      ! Calculate {U_i}^{n_i}
+      if (displacement_id==0) then
+        energy = 0.0_dp
+      else
+        energy = this%modes(i)%energy(             &
+           & displacement%vectors(displacement_id) )
+      endif
+      
+      ! Calculate -d/d{u_i} ({u_i}^{n_i}) evaluated at U_i.
+      if (displacement_id==0) then
+        if (power(j)==1) then
+          force = ComplexSingleForce(             &
+             & id=id(j),                          &
+             & magnitude=cmplx(-1.0_dp,0.0_dp,dp) )
+        else
+          force = ComplexSingleForce(            &
+             & id=id(j),                         &
+             & magnitude=cmplx(0.0_dp,0.0_dp,dp) )
+        endif
+      else
+        force = this%modes(i)%force(               &
+           & displacement%vectors(displacement_id) )
+      endif
+      
+      powers = [powers, power(j)]
+      displacement_ids = [displacement_ids, displacement_id]
+      energies = [energies, energy]
+      forces = [forces, force]
+    enddo
   enddo
   
   ! Use the Univariate terms to calculate forces along each mode.
@@ -723,13 +766,13 @@ impure elemental function force_ComplexMonomial(this,displacement) &
     components = [ComplexSingleForce::]
   elseif (count(displacement_ids==0)==1) then
     i = first(displacement_ids==0, default=0)
-    if (this%modes(i)%power>1) then
+    if (powers(i)>1) then
       ! If n_i>1, then the derivative along u_i is also zero.
       components = [ComplexSingleForce::]
     else
       ! If n_i=1, then the derivative is simply c*prod_{j/=i}[ {U_j}^{n_j}
       components = [ this%coefficient                       &
-                 & * product( evaluations,                  &
+                 & * product( energies,                     &
                  &            dim=1,                        &
                  &            mask=[(j/=i,j=1,size(this))]) &
                  & * forces(i)                              &
@@ -738,10 +781,10 @@ impure elemental function force_ComplexMonomial(this,displacement) &
   else
     ! If no U_i are zero, then the monomial has non-zero derivatives along
     !    each of its modes.
-    allocate(components(size(this)), stat=ialloc); call err(ialloc)
-    do i=1,size(this)
+    allocate(components(size(forces)), stat=ialloc); call err(ialloc)
+    do i=1,size(forces)
       components(i) = this%coefficient                       &
-                  & * product( evaluations,                  &
+                  & * product( energies,                     &
                   &            dim=1,                        &
                   &            mask=[(j/=i,j=1,size(this))]) &
                   & * forces(i)
@@ -909,6 +952,9 @@ function multiply_ComplexMonomialable_ComplexMonomialable(this,that) &
   class(ComplexMonomialable), intent(in) :: that
   type(ComplexMonomial)                  :: output
   
+  complex(dp)                          :: coefficient
+  type(ComplexUnivariate), allocatable :: modes(:)
+  
   type(ComplexMonomial) :: this_monomial
   type(ComplexMonomial) :: that_monomial
   
@@ -917,47 +963,53 @@ function multiply_ComplexMonomialable_ComplexMonomialable(this,that) &
   this_monomial = this%to_ComplexMonomial()
   that_monomial = that%to_ComplexMonomial()
   
-  output%coefficient = this_monomial%coefficient * that_monomial%coefficient
+  coefficient = this_monomial%coefficient * that_monomial%coefficient
   
   if (size(this_monomial)==0) then
-    output%modes = that_monomial%modes
+    modes = that_monomial%modes
   elseif (size(that_monomial)==0) then
-    output%modes = this_monomial%modes
+    modes = this_monomial%modes
   else
     i_this = 1
     i_that = 1
     i_out = 0
-    allocate( output%modes(size(this_monomial)+size(that_monomial)), &
+    allocate( modes(size(this_monomial)+size(that_monomial)), &
             & stat=ialloc); call err(ialloc)
     do while(i_this<=size(this_monomial) .and. i_that<=size(that_monomial))
       i_out = i_out + 1
       if (i_this>size(this_monomial)) then
-        output%modes(i_out) = that_monomial%modes(i_that)
+        modes(i_out) = that_monomial%modes(i_that)
         i_that = i_that + 1
       elseif (i_that>size(that_monomial)) then
-        output%modes(i_out) = this_monomial%modes(i_this)
+        modes(i_out) = this_monomial%modes(i_this)
         i_this = i_this + 1
       elseif ( this_monomial%modes(i_this)%id == &
              & that_monomial%modes(i_that)%id) then
-        output%modes(i_out)%id = this_monomial%modes(i_this)%id
-        output%modes(i_out)%power = this_monomial%modes(i_this)%power &
-                                & + that_monomial%modes(i_that)%power
+        modes(i_out) = ComplexUnivariate(                            &
+           & id           = this_monomial%modes(i_this)%id,          &
+           & paired_id    = this_monomial%modes(i_this)%paired_id,   &
+           & power        = this_monomial%modes(i_this)%power        &
+           &              + that_monomial%modes(i_that)%power,       &
+           & paired_power = this_monomial%modes(i_this)%paired_power &
+           &              + that_monomial%modes(i_that)%paired_power )
         i_this = i_this + 1
         i_that = i_that + 1
       elseif ( this_monomial%modes(i_this)%id < &
              & that_monomial%modes(i_that)%id) then
-        output%modes(i_out) = this_monomial%modes(i_this)
+        modes(i_out) = this_monomial%modes(i_this)
         i_this = i_this + 1
       elseif ( this_monomial%modes(i_this)%id > &
              & that_monomial%modes(i_that)%id) then
-        output%modes(i_out) = that_monomial%modes(i_that)
+        modes(i_out) = that_monomial%modes(i_that)
         i_that = i_that + 1
       else
         call err()
       endif
     enddo
-    output%modes = output%modes(:i_out)
+    modes = modes(:i_out)
   endif
+  
+  output = ComplexMonomial(coefficient, modes)
 end function
 
 ! Addition between polynomials and polynomial-like types.
@@ -1026,83 +1078,97 @@ end function
 ! Select modes, displacements or forces corresponding to
 !    a given univariate or univariates.
 ! ----------------------------------------------------------------------
-function select_mode_ComplexUnivariate(univariate,modes) result(output)
+function select_modes_ComplexUnivariate(input,modes) result(output)
   implicit none
   
-  type(ComplexUnivariate), intent(in) :: univariate
-  type(ComplexMode),       intent(in) :: modes(:)
-  type(ComplexMode)                   :: output
-  
-  output = modes(first(modes%id==univariate%id))
-end function
-
-function select_modes_ComplexUnivariates(univariates,modes) &
-   & result(output)
-  implicit none
-  
-  type(ComplexUnivariate), intent(in) :: univariates(:)
+  type(ComplexUnivariate), intent(in) :: input
   type(ComplexMode),       intent(in) :: modes(:)
   type(ComplexMode), allocatable      :: output(:)
   
-  integer :: i,ialloc
+  if (input%id==input%paired_id) then
+    output = [modes(first(modes%id==input%id))]
+  else
+    output = [ modes(first(modes%id==input%id)),       &
+             & modes(first(modes%id==input%paired_id)) ]
+  endif
+end function
+
+function select_modes_ComplexUnivariates(input,modes) &
+   & result(output)
+  implicit none
   
-  allocate(output(size(univariates)), stat=ialloc); call err(ialloc)
-  do i=1,size(univariates)
-    output(i) = select_mode(univariates(i), modes)
+  type(ComplexUnivariate), intent(in) :: input(:)
+  type(ComplexMode),       intent(in) :: modes(:)
+  type(ComplexMode), allocatable      :: output(:)
+  
+  integer :: i
+  
+  output = [ComplexMode::]
+  do i=1,size(input)
+    output = [output, select_modes(input(i), modes)]
   enddo
 end function
 
-function select_displacement_ComplexUnivariate(univariate,displacements) &
+function select_displacements_ComplexUnivariate(input,displacements) &
    & result(output)
   implicit none
   
-  type(ComplexUnivariate),         intent(in) :: univariate
-  type(ComplexSingleDisplacement), intent(in) :: displacements(:)
-  type(ComplexSingleDisplacement)             :: output
+  type(ComplexUnivariate),          intent(in) :: input
+  type(ComplexSingleDisplacement),  intent(in) :: displacements(:)
+  type(ComplexSingleDisplacement), allocatable :: output(:)
   
-  output = displacements(first(displacements%id==univariate%id))
+  if (input%id==input%paired_id) then
+    output = [displacements(first(displacements%id==input%id))]
+  else
+    output = [ displacements(first(displacements%id==input%id)),       &
+             & displacements(first(displacements%id==input%paired_id)) ]
+  endif
 end function
 
-function select_displacements_ComplexUnivariates(univariates,displacements) &
+function select_displacements_ComplexUnivariates(input,displacements) &
    & result(output)
   implicit none
   
-  type(ComplexUnivariate),         intent(in)  :: univariates(:)
+  type(ComplexUnivariate),         intent(in)  :: input(:)
   type(ComplexSingleDisplacement), intent(in)  :: displacements(:)
   type(ComplexSingleDisplacement), allocatable :: output(:)
   
-  integer :: i,ialloc
+  integer :: i
   
-  allocate(output(size(univariates)), stat=ialloc); call err(ialloc)
-  do i=1,size(univariates)
-    output(i) = select_displacement(univariates(i), displacements)
+  output = [ComplexSingleDisplacement::]
+  do i=1,size(input)
+    output = [output, select_displacements(input(i), displacements)]
   enddo
 end function
 
-function select_force_ComplexUnivariate(univariate,forces) &
-   & result(output)
+function select_forces_ComplexUnivariate(input,forces) result(output)
   implicit none
   
-  type(ComplexUnivariate),  intent(in) :: univariate
-  type(ComplexSingleForce), intent(in) :: forces(:)
-  type(ComplexSingleForce)             :: output
-  
-  output = forces(first(forces%id==univariate%id))
-end function
-
-function select_forces_ComplexUnivariates(univariates,forces) &
-   & result(output)
-  implicit none
-  
-  type(ComplexUnivariate),  intent(in)  :: univariates(:)
+  type(ComplexUnivariate),  intent(in)  :: input
   type(ComplexSingleForce), intent(in)  :: forces(:)
   type(ComplexSingleForce), allocatable :: output(:)
   
-  integer :: i,ialloc
+  if (input%id==input%paired_id) then
+    output = [forces(first(forces%id==input%id))]
+  else
+    output = [ forces(first(forces%id==input%id)),       &
+             & forces(first(forces%id==input%paired_id)) ]
+  endif
+end function
+
+function select_forces_ComplexUnivariates(input,forces) &
+   & result(output)
+  implicit none
   
-  allocate(output(size(univariates)), stat=ialloc); call err(ialloc)
-  do i=1,size(univariates)
-    output(i) = select_force(univariates(i), forces)
+  type(ComplexUnivariate),  intent(in)  :: input(:)
+  type(ComplexSingleForce), intent(in)  :: forces(:)
+  type(ComplexSingleForce), allocatable :: output(:)
+  
+  integer :: i
+  
+  output = [ComplexSingleForce::]
+  do i=1,size(input)
+    output = [output, select_forces(input(i), forces)]
   enddo
 end function
 
@@ -1121,8 +1187,9 @@ function compare_complex_monomials(this,that) result(output)
       if (size(this%modes)/=size(that%modes)) then
         output = .false.
       else
-        output = all( this%modes%id==that%modes%id .and. &
-                    & this%modes%power==that%modes%power)
+        output = all( this%modes%id==that%modes%id .and.               &
+                    & this%modes%power==that%modes%power .and.         &
+                    & this%modes%paired_power==that%modes%paired_power )
       endif
     end select
   end select
@@ -1141,29 +1208,48 @@ subroutine read_ComplexUnivariate(this,input)
   integer                   :: id
   integer                   :: paired_id
   integer                   :: power
+  integer                   :: paired_power
   
   select type(this); type is(ComplexUnivariate)
-    ! If id=5, paired_id=7 and power=3 then:
-    ! input = '(u5=u7*)^7'
+    ! If id=paired_id=5 and power=paired_power=3 then:
+    !    input = '(u5^3)'.
+    ! If id=5, paired_id=7, power=3 and paired_power=4 then:
+    !    input = '(u5^3*u7^4)'.
     
-    ! Split off power.
-    line = split_line(input,delimiter='^') ! line = ['(u5=u7*)', '7']
-    if (size(line)/=2) then
-      call print_line(ERROR//': Unable to convert string to univariate.')
+    ! Strip off brackets, and split into mode and paired mode.
+    line = split_line( slice(input,2,len(input)-1), &
+                     & delimiter='*')
+    
+    if (size(line)==1) then
+      ! line = [ 'u5^3' ]
+      ! ID = paired ID.
+      
+      ! Split into ID and power.
+      line = split_line(line(1), delimiter='^')
+      id = int(slice(line(1),2,len(line(1))))
+      power = int(line(2))
+      paired_id = id
+      paired_power = power
+    elseif (size(line)==2) then
+      ! line = [ 'u5^3', 'u7^4' ]
+      ! ID /= paired ID.
+      
+      ! Split into ID, power, paired ID, paired power.
+      line = [ split_line(line(1), delimiter='^'), &
+             & split_line(line(2), delimiter='^')  ]
+      id = int(slice(line(1),2,len(line(1))))
+      power = int(line(2))
+      paired_id = int(slice(line(3),2,len(line(3))))
+      paired_power = int(line(4))
+    else
+      call print_line(ERROR//': unable to parse ComplexUnivariate.')
       call err()
     endif
-    power = int(line(2))
     
-    ! Split id and paired_id
-    line = split_line(line(1), delimiter='u') ! line = ['(', '5=', '7*)']
-    if (size(line)/=3) then
-      call print_line(ERROR//': Unable to convert string to univariate.')
-      call err()
-    endif
-    id = int(slice(line(2),1,len(line(2))-1))
-    paired_id = int(slice(line(3),1,len(line(3))-2))
-    
-    this = ComplexUnivariate(id=id, paired_id=paired_id, power=power)
+    this = ComplexUnivariate( id           = id,          &
+                            & paired_id    = paired_id,   &
+                            & power        = power,       &
+                            & paired_power = paired_power )
   end select
 end subroutine
 
@@ -1174,7 +1260,12 @@ function write_ComplexUnivariate(this) result(output)
   type(String)                         :: output
   
   select type(this); type is(ComplexUnivariate)
-    output = '(u'//this%id//'=u'//this%paired_id//'*)^'//this%power
+    if (this%id==this%paired_id) then
+      output = '(u'//this%id//'^'//this%power//')'
+    else
+      output = '(u'//this%id//'^'//this%power// &
+             & '*u'//this%paired_id//'^'//this%paired_power//')'
+    endif
   end select
 end function
 
@@ -1200,16 +1291,25 @@ subroutine read_ComplexMonomial(this,input)
   integer :: i,ialloc
   
   select type(this); type is(ComplexMonomial)
-    ! Splitting the input by '*' separates univariates, but also splits
-    !    each univariate in two.
+    ! Splitting the input by '*' separates the coefficient and the modes,
+    !    but also splits some modes in two.
     line = split_line(input,delimiter='*')
     
     coefficient = cmplx(line(1))
     
-    ! Each univariate must be re-assembled from its two parts.
-    allocate(modes((size(line)-1)/2), stat=ialloc); call err(ialloc)
-    do i=1,size(modes)
-      modes(i) = ComplexUnivariate(line(2*i)//'*'//line(2*i+1))
+    modes = [ComplexUnivariate::]
+    i = 2
+    do while (i<=size(line))
+      ! Check if line(i) ends in a bracket.
+      if (slice(line(i),len(line(i)),len(line(i)))==')') then
+        ! line(i) is a mode on its own.
+        modes = [modes, ComplexUnivariate(line(i))]
+        i = i+1
+      else
+        ! line(i) and line(i+1) together make a mode.
+        modes = [modes, ComplexUnivariate(line(i)//'*'//line(i+1))]
+        i = i+2
+      endif
     enddo
     
     this = ComplexMonomial(coefficient, modes)

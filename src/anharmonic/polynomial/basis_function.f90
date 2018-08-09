@@ -161,7 +161,7 @@ function generate_basis_functions_SubspaceMonomial(coupling,structure, &
   ! Convert coupled modes into real monomials with coefficient 1.
   allocate(real_monomials(size(mode_monomials)), stat=ialloc); call err(ialloc)
   do i=1,size(mode_monomials)
-    real_monomials(i) = mode_monomials(i)%real_monomial(real_modes)
+    real_monomials(i) = RealMonomial(mode_monomials(i), real_modes)
   enddo
   
   ! Filter the mode couplings, to leave only those which conserve momentum.
@@ -179,10 +179,11 @@ function generate_basis_functions_SubspaceMonomial(coupling,structure, &
   allocate( complex_monomials(size(mode_monomials)), &
           & stat=ialloc); call err(ialloc)
   do i=1,size(mode_monomials)
-    complex_monomials(i) = mode_monomials(i)%complex_monomial(complex_modes)
+    complex_monomials(i) = ComplexMonomial(mode_monomials(i), complex_modes)
   enddo
   
-  ! Identify the unique monomials. (Those with all modes the same).
+  ! Identify the unique monomials.
+  ! unique_complex_monomials is the de-duplicated version of complex_monomials.
   unique_complex_monomials = complex_monomials(set( &
                        & complex_monomials,         &
                        & compare_complex_monomials  ))

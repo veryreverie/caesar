@@ -135,6 +135,9 @@ function generate_sampling_points_helper(monomials,potential_expansion_order, &
   type(RealMode),     intent(in)          :: real_modes(:)
   type(RealModeDisplacement), allocatable :: output(:)
   
+  integer, allocatable :: ids(:)
+  integer, allocatable :: powers(:)
+  
   integer                                   :: sum_powers
   type(RealSingleDisplacement), allocatable :: vectors(:)
   type(RealMode)                            :: mode
@@ -147,9 +150,25 @@ function generate_sampling_points_helper(monomials,potential_expansion_order, &
   output = [RealModeDisplacement::]
   
   do i=1,size(monomials)
-    sum_powers = sum(monomials(i)%modes%power)
-    allocate(vectors(size(monomials(i))), stat=ialloc); call err(ialloc)
+    ids = [integer::]
+    powers = [integer::]
     do j=1,size(monomials(i))
+      if (monomials(i)%modes(j)%power>0) then
+        ids = [ids, monomials(i)%modes(j)%id]
+        powers = [powers, monomials(i)%modes(j)%power]
+      endif
+      
+      if ( monomials(i)%modes(j)%paired_id/=monomials(i)%modes(j)%id .and. &
+         & monomials(i)%modes(j)%paired_power>0) then
+        ids = [ids, monomials(i)%modes(j)%id]
+        powers = [powers, monomials(i)%modes(j)%paired_power]
+      endif
+    enddo
+    
+    sum_powers = sum(powers)
+    
+    allocate(vectors(size(ids)), stat=ialloc); call err(ialloc)
+    do j=1,size(ids)
       ! Calculate the displacement along mode j in monomial i.
       ! This is equal to d_j = d_max *     ( p_i   / p_max          )
       !                              * sqrt( w_min / max(w_j,w_min) )
@@ -163,8 +182,8 @@ function generate_sampling_points_helper(monomials,potential_expansion_order, &
       !
       ! As such the displacement corresponding to a given monomial
       !    (the L2 sum across d_j for that monomial), is at most d_max.
-      mode = real_modes(first(real_modes%id==monomials(i)%modes(j)%id))
-      mode_power = monomials(i)%modes(j)%power
+      mode = real_modes(first(real_modes%id==ids(j)))
+      mode_power = powers(j)
       mode_frequency = max(mode%frequency, frequency_of_max_displacement)
       magnitude = maximum_weighted_displacement       &
               & * sqrt( mode_power                    &
@@ -172,6 +191,7 @@ function generate_sampling_points_helper(monomials,potential_expansion_order, &
               &       * frequency_of_max_displacement &
               &       / mode_frequency )              &
               & / potential_expansion_order
+      
       vectors(j) = RealSingleDisplacement(mode, magnitude)
     enddo
     

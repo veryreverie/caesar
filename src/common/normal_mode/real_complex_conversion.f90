@@ -256,56 +256,50 @@ impure elemental function element_ComplexMonomial_RealMonomial(this,that) &
   type(RealMonomial),    intent(in) :: that
   complex(dp)                       :: output
   
+  logical, allocatable :: that_mode_accounted(:)
+  
   integer :: i,j,k,l
   
-  if (sum(this%modes%power)/=sum(that%modes%power)) then
+  if ( sum(this%modes%power+this%modes%paired_power) /= &
+     & sum(that%modes%power+that%modes%paired_power)    ) then
     output = 0
     return
   endif
   
   output = this%coefficient / that%coefficient
+  
+  that_mode_accounted = [(.false., i=1, size(that))]
+  
   ! Loop over modes, multiplying the output by the overlap of each mode pair
   !    in 'this' with the eqivalent mode pair in 'that'.
   do i=1,size(this)
-    ! Find the location of the mode paired to this one in 'this'.
-    ! Also find the location of this mode and its pair in 'that'.
-    j = first(this%modes%paired_id == this%modes(i)%id, default=0)
-    k = first(that%modes%id        == this%modes(i)%id, default=0)
-    l = first(that%modes%paired_id == this%modes(i)%id, default=0)
+    ! Find the location of this%modes(i) in 'that'.
+    j = first(that%modes%id==this%modes(i)%id, default=0)
     
-    if (j/=0 .and. j<i) then
-      ! This pairing has already been accounted for, when the paired mode
-      !    came up.
-      cycle
-    endif
-    
-    if (k==0 .and. l==0) then
-      ! Neither this mode nor its pair is present in 'that'.
-      output = 0
-      return
-    elseif (j==0 .and. k==0) then
-      output = output * element( this=this%modes(i), &
-                               & that=that%modes(l))
-    elseif (j==0 .and. l==0) then
-      output = output * element( this=this%modes(i), &
-                               & that=that%modes(k))
-    elseif (j==0) then
-      output = output * element( this     =this%modes(i), &
-                               & that     =that%modes(k), &
-                               & that_pair=that%modes(l))
-    elseif (k==0) then
-      output = output * element( this     =this%modes(i), &
-                               & this_pair=this%modes(j), &
-                               & that     =that%modes(l))
-    elseif (l==0) then
-      output = output * element( this     =this%modes(i), &
-                               & this_pair=this%modes(j), &
-                               & that     =that%modes(k))
+    if (j==0) then
+      ! If the modes doesn't exist in that, and the mode in 'this' has
+      !    non-zero power, then the overlap between 'this' and 'that' is zero.
+      ! If the mode in 'this' has zero power, then the mode has zero power
+      !    in both, and can be neglected.
+      if (this%modes(i)%power/=0 .or. this%modes(i)%paired_power/=0) then
+        output = 0
+        return
+      endif
     else
-      output = output * element( this     =this%modes(i), &
-                               & this_pair=this%modes(j), &
-                               & that     =that%modes(k), &
-                               & that_pair=that%modes(l))
+      ! If the mode exists in both, account for it in the overlap.
+      output = output * element(this%modes(i), that%modes(j))
+      that_mode_accounted(j) = .true.
+    endif
+  enddo
+  
+  ! Check remaining modes in 'that'. If any have non-zero power then the
+  !    overlap is zero.
+  do i=1,size(that)
+    if (.not. that_mode_accounted(j)) then
+      if (that%modes(j)%power/=0 .or. that%modes(j)%paired_power/=0) then
+        output = 0
+        return
+      endif
     endif
   enddo
 end function
@@ -322,139 +316,85 @@ impure elemental function element_RealMonomial_ComplexMonomial(this,that) &
   type(ComplexMonomial), intent(in) :: that
   complex(dp)                       :: output
   
+  logical, allocatable :: that_mode_accounted(:)
+  
   integer :: i,j,k,l
   
-  if (sum(this%modes%power)/=sum(that%modes%power)) then
+  if ( sum(this%modes%power+this%modes%paired_power) /= &
+     & sum(that%modes%power+that%modes%paired_power)    ) then
     output = 0
     return
   endif
   
   output = this%coefficient / that%coefficient
+  
+  that_mode_accounted = [(.false., i=1, size(that))]
+  
   ! Loop over modes, multiplying the output by the overlap of each mode pair
   !    in 'this' with the eqivalent mode pair in 'that'.
   do i=1,size(this)
-    ! Find the location of the mode paired to this one in 'this'.
-    ! Also find the location of this mode and its pair in 'that'.
-    j = first(this%modes%paired_id == this%modes(i)%id, default=0)
-    k = first(that%modes%id        == this%modes(i)%id, default=0)
-    l = first(that%modes%paired_id == this%modes(i)%id, default=0)
+    ! Find the location of this%modes(i) in 'that'.
+    j = first(that%modes%id==this%modes(i)%id, default=0)
     
-    if (j/=0 .and. j<i) then
-      ! This pairing has already been accounted for, when the paired mode
-      !    came up.
-      cycle
-    endif
-    
-    if (k==0 .and. l==0) then
-      ! Neither this mode nor its pair is present in 'that'.
-      output = 0
-      return
-    elseif (j==0 .and. k==0) then
-      output = output * element( this=this%modes(i), &
-                               & that=that%modes(l))
-    elseif (j==0 .and. l==0) then
-      output = output * element( this=this%modes(i), &
-                               & that=that%modes(k))
-    elseif (j==0) then
-      output = output * element( this     =this%modes(i), &
-                               & that     =that%modes(k), &
-                               & that_pair=that%modes(l))
-    elseif (k==0) then
-      output = output * element( this     =this%modes(i), &
-                               & this_pair=this%modes(j), &
-                               & that     =that%modes(l))
-    elseif (l==0) then
-      output = output * element( this     =this%modes(i), &
-                               & this_pair=this%modes(j), &
-                               & that     =that%modes(k))
+    if (j==0) then
+      ! If the modes doesn't exist in that, and the mode in 'this' has
+      !    non-zero power, then the overlap between 'this' and 'that' is zero.
+      ! If the mode in 'this' has zero power, then the mode has zero power
+      !    in both, and can be neglected.
+      if (this%modes(i)%power/=0 .or. this%modes(i)%paired_power/=0) then
+        output = 0
+        return
+      endif
     else
-      output = output * element( this     =this%modes(i), &
-                               & this_pair=this%modes(j), &
-                               & that     =that%modes(k), &
-                               & that_pair=that%modes(l))
+      ! If the mode exists in both, account for it in the overlap.
+      output = output * element(this%modes(i), that%modes(j))
+      that_mode_accounted(j) = .true.
+    endif
+  enddo
+  
+  ! Check remaining modes in 'that'. If any have non-zero power then the
+  !    overlap is zero.
+  do i=1,size(that)
+    if (.not. that_mode_accounted(j)) then
+      if (that%modes(j)%power/=0 .or. that%modes(j)%paired_power/=0) then
+        output = 0
+        return
+      endif
     endif
   enddo
 end function
 
-impure elemental function element_ComplexUnivariates_RealUnivariates &
-   & (this,this_pair,that,that_pair) result(output)
+impure elemental function element_ComplexUnivariates_RealUnivariates(this, &
+   & that) result(output)
   implicit none
   
-  type(ComplexUnivariate), intent(in)           :: this
-  type(ComplexUnivariate), intent(in), optional :: this_pair
-  type(RealUnivariate),    intent(in)           :: that
-  type(RealUnivariate),    intent(in), optional :: that_pair
-  complex(dp)                                   :: output
-  
-  type(ComplexUnivariate) :: up ! u+ = (c  + i*s)/sqrt(2)
-  type(ComplexUnivariate) :: um ! u- = (c  - i*s)/sqrt(2)
-  type(RealUnivariate)    :: c  ! c  = (u+ + u- )/sqrt(2)
-  type(RealUnivariate)    :: s  ! s  = (u+ - u- )/sqrt(2)i
+  type(ComplexUnivariate), intent(in) :: this
+  type(RealUnivariate),    intent(in) :: that
+  complex(dp)                         :: output
   
   integer :: j,k,l,n
   
-  ! Check for optional arguments, and identify which mode is i and which is j.
-  if (present(this_pair)) then
-    if (this%id<this%paired_id) then
-      up = this
-      um = this_pair
-    else
-      up = this_pair
-      um = this
-    endif
-  else
-    if (this%id<this%paired_id) then
-      up = this
-      um = ComplexUnivariate(this%paired_id,this%id,power=0)
-    else
-      up = ComplexUnivariate(this%paired_id,this%id,power=0)
-      um = this
-    endif
-  endif
-  
-  if (present(that_pair)) then
-    if (that%id<that%paired_id) then
-      c = that
-      s = that_pair
-    else
-      c = that_pair
-      s = that
-    endif
-  else
-    if (that%id<that%paired_id) then
-      c = that
-      s = RealUnivariate(that%paired_id,that%id,power=0)
-    else
-      c = RealUnivariate(that%paired_id,that%id,power=0)
-      s = that
-    endif
-  endif
-  
   ! Check that inputs are paired up.
-  if (up%paired_id/=um%id .or. up%id/=um%paired_id) then
-    call print_line(CODE_ERROR//': Unpaired modes passed to function.')
-    call err()
-  elseif (c%paired_id/=s%id .or. c%id/=s%paired_id) then
+  if (this%id/=that%id) then
     call print_line(CODE_ERROR//': Unpaired modes passed to function.')
     call err()
   endif
   
-  ! If the modes don't match, or the powers don't match, then the element
-  !    is zero.
-  if (up%id/=c%id .or. um%id/=s%id) then
-    output = 0
-    return
-  elseif (up%power+um%power /= c%power+s%power) then
+  ! If the powers don't match, then the overlap is zero.
+  if (this%power+this%paired_power /= that%power+that%paired_power) then
     output = 0
     return
   endif
   
   ! Check if the mode is real. If so, the overlap is 1.
-  if (up%id==um%id) then
+  if (this%id==this%paired_id) then
     output = 1
     return
   endif
   
+  ! this = (u+)^j * (u-)^{n-j}.
+  ! that = (c )^k * (s )^{n-k}.
+  !
   ! (u+)^j * (u-)^{n-j} = sum_{k=0}^n M(j,k,n) c^k * s^{n-k}.
   !
   ! (u+)^j * (u-)^{n-j} = (c+is)^j * (c-is)^{n-j} / sqrt(2)^n
@@ -485,9 +425,9 @@ impure elemental function element_ComplexUnivariates_RealUnivariates &
   !
   ! => M(j,k,n) = i^{n-k} * (-1)^{n-j-k} / sqrt(2)^n
   !             * sum_{l=max(0,j+k-n)}^{min(j,k)} bin(j,l)*bin(n-j,k-l)*(-1)^l
-  j = up%power
-  k = c%power
-  n = up%power + um%power
+  j = this%power
+  k = that%power
+  n = this%power + this%paired_power
   output = 0
   do l=max(0,j+k-n),min(j,k)
     output = output + binomial(j,l)*binomial(n-j,k-l)*(-1)**l
@@ -499,84 +439,36 @@ impure elemental function element_ComplexUnivariates_RealUnivariates &
 end function
 
 impure elemental function element_RealUnivariates_ComplexUnivariates &
-   & (this,this_pair,that,that_pair) result(output)
+   & (this,that) result(output)
   implicit none
   
-  type(RealUnivariate),    intent(in)           :: this
-  type(RealUnivariate),    intent(in), optional :: this_pair
-  type(ComplexUnivariate), intent(in)           :: that
-  type(ComplexUnivariate), intent(in), optional :: that_pair
-  complex(dp)                                   :: output
-  
-  type(ComplexUnivariate) :: up ! u+ = (c  + i*s)/sqrt(2)
-  type(ComplexUnivariate) :: um ! u- = (c  - i*s)/sqrt(2)
-  type(RealUnivariate)    :: c  ! c  = (u+ + u- )/sqrt(2)
-  type(RealUnivariate)    :: s  ! s  = (u+ - u- )/sqrt(2)i
+  type(RealUnivariate),    intent(in) :: this
+  type(ComplexUnivariate), intent(in) :: that
+  complex(dp)                         :: output
   
   integer :: j,k,l,n
   
-  ! Check for optional arguments, and identify which mode is i and which is j.
-  if (present(this_pair)) then
-    if (this%id<this%paired_id) then
-      c = this
-      s = this_pair
-    else
-      c = this_pair
-      s = this
-    endif
-  else
-    if (this%id<this%paired_id) then
-      c = this
-      s = RealUnivariate(this%paired_id,this%id,power=0)
-    else
-      c = RealUnivariate(this%paired_id,this%id,power=0)
-      s = this
-    endif
-  endif
-  
-  if (present(that_pair)) then
-    if (that%id<that%paired_id) then
-      up = that
-      um = that_pair
-    else
-      up = that_pair
-      um = that
-    endif
-  else
-    if (that%id<that%paired_id) then
-      up = that
-      um = ComplexUnivariate(that%paired_id,that%id,power=0)
-    else
-      up = ComplexUnivariate(that%paired_id,that%id,power=0)
-      um = that
-    endif
-  endif
-  
   ! Check that inputs are paired up.
-  if (up%paired_id/=um%id .or. up%id/=um%paired_id) then
-    call print_line(CODE_ERROR//': Unpaired modes passed to function.')
-    call err()
-  elseif (c%paired_id/=s%id .or. c%id/=s%paired_id) then
+  if (this%id/=that%id) then
     call print_line(CODE_ERROR//': Unpaired modes passed to function.')
     call err()
   endif
   
-  ! If the modes don't match, or the powers don't match, then the element
-  !    is zero.
-  if (up%id/=c%id .or. um%id/=s%id) then
-    output = 0
-    return
-  elseif (up%power+um%power /= c%power+s%power) then
+  ! If the powers don't match, then the overlap is zero.
+  if (this%power+this%paired_power /= that%power+that%paired_power) then
     output = 0
     return
   endif
   
   ! Check if the mode is real. If so, the overlap is 1.
-  if (up%id==um%id) then
+  if (this%id==this%paired_id) then
     output = 1
     return
   endif
   
+  ! this = (c )^j * (s )^{n-j}.
+  ! that = (u+)^k * (u-)^{n-k}.
+  !
   ! c^j * s*{n-j} = sum_{k=0}^n M(j,k,n) (u+)^k * (u-)^{n-k}.
   !
   ! c^j * s^{n-j} = (u+ + u-)^j * ((u+ - u-)/i)^{n-j} / sqrt(2)^n
@@ -607,9 +499,9 @@ impure elemental function element_RealUnivariates_ComplexUnivariates &
   !
   ! => M(j,k,n) = i^{j-n} * (-1)^{n-j-k} / sqrt(2)^n
   !             * sum_{l=max(0,j+k-n)}^{min(j,k)} bin(j,l)*bin(n-j,k-l)*(-1)^l
-  j = c%power
-  k = up%power
-  n = c%power + s%power
+  j = this%power
+  k = that%power
+  n = this%power + this%paired_power
   output = 0
   do l=max(0,j+k-n),min(j,k)
     output = output + binomial(j,l)*binomial(n-j,k-l)*(-1)**l
