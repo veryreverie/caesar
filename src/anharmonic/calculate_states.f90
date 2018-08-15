@@ -30,11 +30,24 @@ function calculate_states() result(output)
   output%mode_name = 'calculate_states'
   output%description = 'Calculates anharmonic states using VSCF. Should be &
      &run after calculate_potential.'
-  output%keywords = [ &
-     & KeywordData( 'frequency_convergence', &
+  output%keywords = [                                                         &
+     & KeywordData( 'frequency_convergence',                                  &
      &              'frequency_convergence is the precision to which &
      &frequencies will be converged when constructing the harmonic ground &
-     &state.')]
+     &state.' ),                                                              &
+     & KeywordData( 'max_pulay_iterations',                                   &
+     &              'max_pulay_iterations is the maximum number of &
+     &self-consistency iterations which will be passed into the Pulay &
+     &scheme.',                                                               &
+     &              default_value='20' ),                                     &
+     & KeywordData( 'pre_pulay_iterations',                                   &
+     &              'pre_pulay_iterations is the number of damped iterations &
+     &which will be performed before the Pulay scheme is called.',            &
+     &              default_value='2' ),                                      &
+     & KeywordData( 'pre_pulay_damping',                                      &
+     &              'pre_pulay_damping is the damping factor of the pre-Pulay &
+     &iterations.',                                                           &
+     &              default_value='0.1' )                                     ]
   output%main_subroutine => calculate_states_subroutine
 end function
 
@@ -48,6 +61,9 @@ subroutine calculate_states_subroutine(arguments)
   
   ! Input arguments.
   real(dp) :: frequency_convergence
+  integer  :: max_pulay_iterations
+  integer  :: pre_pulay_iterations
+  real(dp) :: pre_pulay_damping
   
   ! Working directory,
   type(String) :: wd
@@ -113,6 +129,9 @@ subroutine calculate_states_subroutine(arguments)
   
   wd = arguments%value('working_directory')
   frequency_convergence = dble(arguments%value('frequency_convergence'))
+  max_pulay_iterations = int(arguments%value('max_pulay_iterations'))
+  pre_pulay_iterations = int(arguments%value('pre_pulay_iterations'))
+  pre_pulay_damping = dble(arguments%value('pre_pulay_damping'))
   
   ! Read in setup_anharmonic arguments.
   setup_anharmonic_arguments = Dictionary(setup_anharmonic())
@@ -216,7 +235,12 @@ subroutine calculate_states_subroutine(arguments)
   ! --------------------------------------------------
   ! Calculate frequencies from which to generate a harmonic basis.
   ! --------------------------------------------------
-  call calculate_frequencies(potential, anharmonic_data, frequency_convergence)
+  call calculate_frequencies( potential,             &
+                            & anharmonic_data,       &
+                            & frequency_convergence, &
+                            & max_pulay_iterations,  &
+                            & pre_pulay_iterations,  &
+                            & pre_pulay_damping      )
   
 end subroutine
 end module

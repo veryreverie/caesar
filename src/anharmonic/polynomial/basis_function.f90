@@ -93,12 +93,12 @@ end function
 ! ----------------------------------------------------------------------
 ! Generate basis functions.
 ! ----------------------------------------------------------------------
-function generate_basis_functions_SubspaceMonomial(coupling,structure, &
-   & complex_modes,real_modes,qpoints,subspaces,degenerate_symmetries, &
-   & vscf_basis_functions_only,logfile) result(output)
+function generate_basis_functions_SubspaceMonomial(subspace_monomial, &
+   & structure,complex_modes,real_modes,qpoints,subspaces,            &
+   & degenerate_symmetries,vscf_basis_functions_only,logfile) result(output)
   implicit none
   
-  type(SubspaceMonomial),   intent(in)    :: coupling
+  type(SubspaceMonomial),   intent(in)    :: subspace_monomial
   type(StructureData),      intent(in)    :: structure
   type(ComplexMode),        intent(in)    :: complex_modes(:)
   type(RealMode),           intent(in)    :: real_modes(:)
@@ -109,29 +109,17 @@ function generate_basis_functions_SubspaceMonomial(coupling,structure, &
   type(OFile),              intent(inout) :: logfile
   type(BasisFunction), allocatable        :: output(:)
   
-  ! Coupling data.
-  type(ModeMonomial), allocatable :: mode_monomials(:)
+  ! Monomials, in complex and real representations.
+  type(ComplexMonomial), allocatable :: complex_monomials(:)
+  type(RealMonomial),    allocatable :: real_monomials(:)
   
   ! Symmetry data.
   type(ComplexMatrix) :: symmetry
   type(ComplexMatrix) :: projection
   
-  ! Monomials, in complex and real representations.
-  type(ComplexMonomial), allocatable :: complex_monomials(:)
-  type(ComplexMonomial), allocatable :: unique_complex_monomials(:)
-  type(RealMonomial),    allocatable :: real_monomials(:)
-  type(RealMonomial),    allocatable :: unique_real_monomials(:)
-  
-  ! Variables for converting from the basis of monomials corresponding to
-  !    mode_monomials into one with no duplicates.
-  ! e.g. modes [3,3,7] and [3,7,3] both become u3^2.u7^1.
-  integer,  allocatable :: equal_monomials(:)
-  real(dp), allocatable :: all_to_unique(:,:)
-  
-  ! The conversion from complex co-ordinates to real co-ordinates.
+  ! The conversion from the complex monomial basis to the real monomial basis,
+  !    and vice-versa.
   type(ComplexMatrix) :: complex_to_real_conversion
-  
-  ! The conversion from real co-ordinates to complex co-ordinates.
   type(ComplexMatrix) :: real_to_complex_conversion
   
   ! Polynomial coefficients, in both bases.
@@ -146,103 +134,62 @@ function generate_basis_functions_SubspaceMonomial(coupling,structure, &
   ! Temporary variables.
   integer :: i,j,ialloc
   
-  if (size(coupling)<2) then
+  if (sum(subspace_monomial%powers)<2) then
     call print_line(CODE_ERROR//': Trying to generate basis functions with &
-       &order less than 2.')
+       &power less than 2.')
     call err()
   endif
   
-  ! Generate every allowed mode coupling within the subspace coupling.
-  mode_monomials = generate_mode_monomials( coupling,      &
-                                          & subspaces,     &
-                                          & complex_modes, &
-                                          & qpoints)
+  ! Generate the real monomials and complex monomials corresponding to the
+  !    subspace monomial, with coefficients such that symmetries are unitary.
+  real_monomials = generate_real_monomials( subspace_monomial, &
+                                          & subspaces,         &
+                                          & real_modes,        &
+                                          & qpoints            )
   
-  ! Convert coupled modes into real monomials with coefficient 1.
-  allocate(real_monomials(size(mode_monomials)), stat=ialloc); call err(ialloc)
-  do i=1,size(mode_monomials)
-    real_monomials(i) = RealMonomial(mode_monomials(i), real_modes)
-  enddo
+  complex_monomials = generate_complex_monomials(            &
+      & subspace_monomial,                                   &
+      & subspaces,                                           &
+      & complex_modes,                                       &
+      & qpoints,                                             &
+      & conserve_momentum=.true.,                            &
+      & conserve_subspace_momentum=vscf_basis_functions_only )
   
-  ! Filter the mode couplings, to leave only those which conserve momentum.
-  if (vscf_basis_functions_only) then
-    mode_monomials = mode_monomials(filter(mode_monomials%conserves_vscf))
-  else
-    mode_monomials = mode_monomials(filter(mode_monomials%conserves_momentum))
-  endif
-  if (size(mode_monomials)==0) then
+  if (size(complex_monomials)==0) then
     output = [BasisFunction::]
     return
   endif
   
-  ! Convert coupled modes into complex monomials with coefficient 1.
-  allocate( complex_monomials(size(mode_monomials)), &
-          & stat=ialloc); call err(ialloc)
-  do i=1,size(mode_monomials)
-    complex_monomials(i) = ComplexMonomial(mode_monomials(i), complex_modes)
-  enddo
-  
-  ! Identify the unique monomials.
-  ! unique_complex_monomials is the de-duplicated version of complex_monomials.
-  unique_complex_monomials = complex_monomials(set( &
-                       & complex_monomials,         &
-                       & compare_complex_monomials  ))
-  unique_real_monomials = real_monomials(set( real_monomials,        &
-                                            & compare_real_monomials ))
-  
-  ! Set the coefficient of each unique monomial, and construct the mapping
-  !    from complex_monomials to unique_complex_monomials.
-  ! In order for the symmetry operators to be unitary in both bases,
-  !    it is necessary to preserve the L2 norm. As such, the coefficient
-  !    of a unique_monomial representing n monomials is sqrt(n).
-  allocate( all_to_unique( size(unique_complex_monomials), &
-          &                size(complex_monomials)),       &
-          & stat=ialloc); call err(ialloc)
-  all_to_unique = 0
-  do i=1,size(unique_complex_monomials)
-    equal_monomials = filter( complex_monomials,          &
-                            & compare_complex_monomials,  &
-                            & unique_complex_monomials(i) )
-    unique_complex_monomials(i)%coefficient = &
-       & sqrt(real(size(equal_monomials),dp))
-    all_to_unique(i,equal_monomials) = &
-       & 1/real(unique_complex_monomials(i)%coefficient)
-  enddo
-  
-  do i=1,size(unique_real_monomials)
-    equal_monomials = filter( real_monomials,          &
-                            & compare_real_monomials,  &
-                            & unique_real_monomials(i) )
-    unique_real_monomials(i)%coefficient = sqrt(real(size(equal_monomials),dp))
-  enddo
-  
   ! Identify the mappings between complex monomials and real monomials.
-  complex_to_real_conversion = conversion_matrix( unique_real_monomials,   &
-                                                & unique_complex_monomials )
-  real_to_complex_conversion = conversion_matrix( unique_complex_monomials, &
-                                                & unique_real_monomials     )
+  complex_to_real_conversion = conversion_matrix( real_monomials,             &
+                                                & complex_monomials,          &
+                                                & include_coefficients=.true. )
+  
+  real_to_complex_conversion = conversion_matrix( complex_monomials,          &
+                                                & real_monomials,             &
+                                                & include_coefficients=.true. )
   
   ! Construct projection matrix, which has allowed basis functions as
   !    eigenvectors with eigenvalue 1, and sends all other functions to 0.
-  projection = cmplxmat(make_identity_matrix(size(unique_complex_monomials)))
+  projection = cmplxmat(make_identity_matrix(size(complex_monomials)))
   do i=1,size(degenerate_symmetries)
-    ! Constuct symmetry in coupled mode co-ordinates,
-    !    and transform it into unique-monomial co-ordinates.
-    symmetry = mat(all_to_unique) &
-           & * degenerate_symmetries(i)%calculate_symmetry(mode_monomials) &
-           & * mat(transpose(all_to_unique))
-    call check_unitary(symmetry,'coupled symmetry matrix',logfile)
+    ! Constuct symmetry in complex monomial co-ordinates.
+    symmetry = degenerate_symmetries(i)%calculate_symmetry( &
+                              & complex_monomials,          &
+                              & complex_modes,              &
+                              & include_coefficients=.true. )
+    call check_unitary(symmetry, 'symmetry in monomial basis', logfile)
     
     ! Construct the projection matrix for this symmetry,
     !    and multiply the total projection matrix by this.
-    projection = projection                   &
-             & * projection_matrix( symmetry, &
-             &                      structure%symmetries(i)%symmetry_order())
+    projection = projection                                                  &
+             & * projection_matrix( symmetry,                                &
+             &                      structure%symmetries(i)%symmetry_order() )
   enddo
-  call check_hermitian( projection,          &
-                      & 'projection_matrix', &
-                      & logfile,             &
-                      & ignore_threshold=1e-10_dp)
+  call check_hermitian( projection,               &
+                      & 'projection_matrix',      &
+                      & logfile,                  &
+                      & ignore_threshold=1e-10_dp )
   
   ! Transform the projection matrix into real co-ordinates,
   !    and check that it is real and symmetric.
@@ -250,10 +197,10 @@ function generate_basis_functions_SubspaceMonomial(coupling,structure, &
            & * projection                 &
            & * real_to_complex_conversion
   call check_real(projection,'projection_matrix',logfile)
-  call check_symmetric( real(projection),    &
-                      & 'projection_matrix', &
-                      & logfile,             &
-                      & ignore_threshold=1e-10_dp)
+  call check_symmetric( real(projection),         &
+                      & 'projection_matrix',      &
+                      & logfile,                  &
+                      & ignore_threshold=1e-10_dp )
   
   ! Diagonalise the projection matrix,
   !    check its eigenvalues are either 0 or 1,
@@ -262,6 +209,8 @@ function generate_basis_functions_SubspaceMonomial(coupling,structure, &
   if (any(abs(estuff%eval-1)>1e-2_dp .and. abs(estuff%eval)>1e-2_dp)) then
     call print_line(ERROR//': Projection matrix has eigenvalues which are &
        &neither 0 nor 1.')
+    call print_line('Eigenvalues:')
+    call print_line(estuff%eval)
     call err()
   endif
   estuff = estuff(filter(abs(estuff%eval-1)<1e-2_dp))
@@ -273,10 +222,10 @@ function generate_basis_functions_SubspaceMonomial(coupling,structure, &
     complex_coefficients = cmplx( real_to_complex_conversion &
                               & * vec(real_coefficients)     )
     
-    real_representation = RealPolynomial( real_coefficients     &
-                                      & * unique_real_monomials )
-    complex_representation = ComplexPolynomial( complex_coefficients     &
-                                            & * unique_complex_monomials )
+    real_representation = RealPolynomial( real_coefficients &
+                                      & * real_monomials    )
+    complex_representation = ComplexPolynomial( complex_coefficients &
+                                            & * complex_monomials    )
     
     output(i) = BasisFunction( real_representation,   &
                              & complex_representation )
@@ -401,8 +350,9 @@ subroutine braket_SubspaceStates_BasisFunction(this,bra,ket,inputs)
   
   ! Generate conversion between complex and real representation.
   complex_to_real_conversion = conversion_matrix( &
-                & this%real_representation%terms, &
-                & this%complex_representation%terms)
+             & this%real_representation%terms,    &
+             & this%complex_representation%terms, &
+             & include_coefficients = .false.     )
   
   ! Perform integration in complex co-ordinates.
   this%complex_representation = braket( bra,                         &

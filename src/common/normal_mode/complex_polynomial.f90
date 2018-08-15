@@ -65,6 +65,8 @@ module complex_polynomial_submodule
     procedure, public :: to_ComplexPolynomial => &
        & to_ComplexPolynomial_ComplexUnivariate
     
+    procedure, public :: total_power => total_power_ComplexUnivariate
+    
     procedure, public :: wavevector => &
                        & wavevector_ComplexUnivariate
     
@@ -91,6 +93,8 @@ module complex_polynomial_submodule
        & to_ComplexPolynomial_ComplexMonomial
     
     procedure, public :: simplify => simplify_ComplexMonomial
+    
+    procedure, public :: total_power => total_power_ComplexMonomial
     
     procedure, public :: wavevector => wavevector_ComplexMonomial
     
@@ -481,6 +485,29 @@ impure elemental function conjg_ComplexPolynomial(this) result(output)
   type(ComplexPolynomial)             :: output
   
   output = ComplexPolynomial(conjg(this%terms))
+end function
+
+! The total power of a univariate or monomial.
+impure elemental function total_power_ComplexUnivariate(this) result(output)
+  implicit none
+  
+  class(ComplexUnivariate), intent(in) :: this
+  integer                              :: output
+  
+  if (this%id==this%paired_id) then
+    output = this%power
+  else
+    output = this%power + this%paired_power
+  endif
+end function
+
+impure elemental function total_power_ComplexMonomial(this) result(output)
+  implicit none
+  
+  class(ComplexMonomial), intent(in) :: this
+  integer                            :: output
+  
+  output = sum(this%modes%total_power())
 end function
 
 ! Returns the Bloch wavevector of a univariate, monomial or polynomial.
@@ -944,8 +971,8 @@ impure elemental function divide_ComplexPolynomial_complex(this,that) &
 end function
 
 ! Multiplication between Monomials and Monomial-like types.
-function multiply_ComplexMonomialable_ComplexMonomialable(this,that) &
-   & result(output)
+impure elemental function multiply_ComplexMonomialable_ComplexMonomialable( &
+   & this,that) result(output)
   implicit none
   
   class(ComplexMonomialable), intent(in) :: this
@@ -1013,8 +1040,8 @@ function multiply_ComplexMonomialable_ComplexMonomialable(this,that) &
 end function
 
 ! Addition between polynomials and polynomial-like types.
-function add_ComplexPolynomialable_ComplexPolynomialable(this,that) &
-   & result(output)
+impure elemental function add_ComplexPolynomialable_ComplexPolynomialable( &
+   & this,that) result(output)
   implicit none
   
   class(ComplexPolynomialable), intent(in) :: this
@@ -1052,7 +1079,7 @@ function add_ComplexPolynomialable_ComplexPolynomialable(this,that) &
 end function
 
 ! The negative of a polynomial or polynomial-like type.
-function negative_ComplexPolynomialable(this) result(output)
+impure elemental function negative_ComplexPolynomialable(this) result(output)
   implicit none
   
   class(ComplexPolynomialable), intent(in) :: this
@@ -1063,7 +1090,8 @@ function negative_ComplexPolynomialable(this) result(output)
 end function
 
 ! Subtraction between polynomials and polynomial-like types.
-function subtract_ComplexPolynomialable_ComplexPolynomialable(this,that) &
+impure elemental function                                            &
+   & subtract_ComplexPolynomialable_ComplexPolynomialable(this,that) &
    & result(output)
   implicit none
   

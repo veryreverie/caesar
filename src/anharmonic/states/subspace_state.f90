@@ -211,11 +211,12 @@ impure elemental function braket_SubspaceStates(bra,ket) result(output)
   logical, allocatable :: bra_mode_integrated(:)
   logical, allocatable :: ket_mode_integrated(:)
   
-  integer :: i_bra,j_bra,i_ket,j_ket
-  integer :: i,j
-  integer :: p_i,p_j,q_i,q_j
+  type(ComplexUnivariate) :: bra_mode
+  type(ComplexUnivariate) :: ket_mode
   
-  integer :: k
+  integer :: id,paired_id
+  
+  integer :: i,j
   
   ! Check that the bra and the ket cover the same subspace.
   if (bra%subspace_id/=ket%subspace_id) then
@@ -228,133 +229,105 @@ impure elemental function braket_SubspaceStates(bra,ket) result(output)
   ket_mode_integrated = [(.false., i=1, size(ket%state))]
   
   output = 1.0_dp
+  
   do while (any(.not.bra_mode_integrated) .or. any(.not.ket_mode_integrated))
-    ! Identify an un-integrated mode with ID i.
-    ! Find j s.t. (u_i)^* = u_j.
-    ! Find i_bra,j_bra,i_ket and j_ket, the locations of modes i and j
-    !    respectively within the bra and ket respectively.
-    ! Find p_i,p_j,q_i and q_j, the powers of modes i and j respectively
-    !    within the bra and ket respectively.
-    i_bra = first(.not. bra_mode_integrated, default=0)
-    if (i_bra==0) then
-      j_bra = 0
-      p_i = 0
-      p_j = 0
-      
-      i_ket = first(.not. ket_mode_integrated)
-      i = ket%state%modes(i_ket)%id
-      j = ket%state%modes(i_ket)%paired_id
-      q_i = ket%state%modes(i_ket)%power
-      if (i==j) then
-        j_ket = i_ket
-        q_j   = q_i
-      else
-        j_ket = first(ket%state%modes%id==j, default=0)
-        if (j_ket==0) then
-          q_j = 0
-        else
-          q_j = ket%state%modes(j_ket)%power
-        endif
-      endif
+    ! Identify an un-integrated mode.
+    ! Find its ID and paired ID, and its location in the bra and the ket.
+    i = first(.not. bra_mode_integrated, default=0)
+    if (i==0) then
+      j = first(.not. ket_mode_integrated)
+      id = ket%state%modes(j)%id
+      paired_id = ket%state%modes(j)%paired_id
     else
-      i = bra%state%modes(i_bra)%id
-      j = bra%state%modes(i_bra)%paired_id
-      p_i = bra%state%modes(i)%power
-      
-      i_ket = first(ket%state%modes%id==i, default=0)
-      if (i_ket==0) then
-        q_i = 0
-      else
-        q_i = ket%state%modes(i_ket)%power
-      endif
-      
-      if (i==j) then
-        j_bra = i_bra
-        j_ket = i_ket
-        p_j   = p_i
-        q_j   = q_i
-      else
-        j_bra = first(bra%state%modes%id==j, default=0)
-        if (j_bra==0) then
-          p_j = 0
-        else
-          p_j = bra%state%modes(j_bra)%power
-        endif
-        
-        j_ket = first(ket%state%modes%id==j, default=0)
-        if (j_ket==0) then
-          q_j = 0
-        else
-          q_j = ket%state%modes(j_ket)%power
-        endif
-      endif
+      id = bra%state%modes(i)%id
+      paired_id = bra%state%modes(i)%paired_id
+      j = first(ket%state%modes%id==id, default=0)
     endif
     
-    ! Integrate over mode i and j (or just mod i if i==j).
-    if (i==j) then
-      ! <p_i|q_i> = 0                                               if p+q odd.
-      !
-      !           = prod_{k=1}^{(p_i+q_i)/2} [ 2k-1 ]
-      !           / sqrt( prod_{k=1}^{p_i} [ 2k-1 ]
-      !                 * prod_{k=1}^{q_i} [ 2k-1 ] )                otherwise.
-      !
-      if (modulo(p_i+q_i,1)==1) then
-        output = 0.0_dp
-        return
-      endif
-      
+    ! Multiply the output by the contribution from the mode.
+    if (i==0) then
+      bra_mode = ComplexUnivariate(id,paired_id,0,0)
+    else
+      bra_mode = bra%state%modes(i)
+    endif
+    
+    if (j==0) then
+      ket_mode = ComplexUnivariate(id,paired_id,0,0)
+    else
+      ket_mode = ket%state%modes(i)
+    endif
+    
+    output = output * braket_modes(bra_mode, ket_mode)
+    
+    ! Update bra_mode_integrated and ket_mode_integrated.
+    if (i/=0) then
+      bra_mode_integrated(i) = .true.
+    endif
+    
+    if (j/=0) then
+      ket_mode_integrated(j) = .true.
+    endif
+  enddo
+end function
+
+impure elemental function braket_modes(bra,ket) result(output)
+  implicit none
+  
+  type(ComplexUnivariate), intent(in) :: bra
+  type(ComplexUnivariate), intent(in) :: ket
+  real(dp)                            :: output
+  
+  integer :: p_i,p_j,q_i,q_j
+  
+  integer :: k
+  
+  p_i = bra%power
+  p_j = bra%paired_power
+  q_i = ket%power
+  q_j = ket%paired_power
+  
+  if (bra%id==bra%paired_id) then
+    ! <p_i|q_i> = 0                                               if p+q odd.
+    !
+    !           = prod_{k=1}^{(p_i+q_i)/2} [ 2k-1 ]
+    !           / sqrt( prod_{k=1}^{p_i} [ 2k-1 ]
+    !                 * prod_{k=1}^{q_i} [ 2k-1 ] )                otherwise.
+    !
+    if (modulo(p_i+q_i,1)==1) then
+      output = 0.0_dp
+    else
+      output = 1.0_dp
       do k=2,(p_i+q_i)/2
         output = output * (2*k-1)
       enddo
-      
       do k=2,p_i
         output = output / sqrt(real(2*k-1,dp))
       enddo
-      
       do k=2,q_i
         output = output / sqrt(real(2*k-1,dp))
       enddo
+    endif
+  else
+    ! <p_i,p_j|q_i,q_j> = 0                          if p_i-p_j-q_i+q_j /= 0.
+    !
+    !                   = prod_{k=1}^{p_i+p_j+q_i+q_j} [ k ]
+    !                   / sqrt( prod_{k=1}^{p_i+p_j} [ k ]
+    !                         * prod_{k=1}^{q_i+q_j} [ k ] )       otherwise.
+    if (p_i-p_j-q_i+q_j/=0) then
+      output = 0.0_dp
+      return
     else
-      ! <p_i,p_j|q_i,q_j> = 0                          if p_i-p_j-q_i+q_j /= 0.
-      !
-      !                   = prod_{k=1}^{p_i+p_j+q_i+q_j} [ k ]
-      !                   / sqrt( prod_{k=1}^{p_i+p_j} [ k ]
-      !                         * prod_{k=1}^{q_i+q_j} [ k ] )       otherwise.
-      if (p_i-p_j-q_i+q_j/=0) then
-        output = 0.0_dp
-        return
-      endif
-      
       do k=2,(p_i+p_j+q_i+q_j)
         output = output * k
       enddo
-      
       do k=2,(p_i+p_j)
         output = output / sqrt(real(k,dp))
       enddo
-      
       do k=2,(q_i+q_j)
         output = output / sqrt(real(k,dp))
       enddo
     endif
-    
-    ! Update bra_mode_integrated and ket_mode_integrated.
-    if (i_bra/=0) then
-      bra_mode_integrated(i_bra) = .true.
-    endif
-    
-    if (j_bra/=0) then
-      bra_mode_integrated(j_bra) = .true.
-    endif
-    
-    if (i_ket/=0) then
-      ket_mode_integrated(i_ket) = .true.
-    endif
-    
-    if (j_ket/=0) then
-      ket_mode_integrated(j_ket) = .true.
-    endif
-  enddo
+  endif
 end function
 
 ! ----------------------------------------------------------------------
@@ -391,15 +364,19 @@ impure elemental function braket_SubspaceStates_ComplexMonomial(bra,ket, &
   
   real(dp) :: coefficient
   
+  integer :: sum_n
+  
   logical, allocatable :: subspace_mode_integrated(:)
   logical, allocatable :: monomial_mode_integrated(:)
   
-  integer :: i_bra,j_bra,i_ket,j_ket
-  integer :: i_subspace,j_subspace,i_monomial,j_monomial
-  integer :: i,j
-  integer :: p_i,p_j,q_i,q_j,n_i,n_j
+  type(ComplexUnivariate) :: bra_mode
+  type(ComplexUnivariate) :: ket_mode
+  type(ComplexUnivariate) :: monomial_mode
   
-  integer :: k
+  integer :: i_subspace,i_bra,i_ket,i_monomial
+  integer :: id,paired_id
+  
+  integer :: i
   
   if (bra%subspace_id/=ket%subspace_id) then
     call print_line(ERROR//': bra and ket from different subspaces.')
@@ -409,9 +386,6 @@ impure elemental function braket_SubspaceStates_ComplexMonomial(bra,ket, &
     call err()
   endif
   
-  ! Calculate sqrt(2Nw_i).
-  sqrt_two_n_omega = sqrt(2.0_dp * supercell%sc_size * bra%frequency)
-  
   ! Integrate over modes in subspace.
   subspace_mode_integrated = [(.false., i=1, size(subspace))]
   monomial_mode_integrated = [(.false., i=1, size(monomial))]
@@ -420,153 +394,160 @@ impure elemental function braket_SubspaceStates_ComplexMonomial(bra,ket, &
   do while ((.not. all(subspace_mode_integrated)))
     ! Find the first mode in the subspace which has not yet been integrated.
     i_subspace = first(.not. subspace_mode_integrated)
-    i = subspace%mode_ids(i_subspace)
+    id = subspace%mode_ids(i_subspace)
     
-    ! Locate this mode (mode i) in the bra, the ket and the monomial.
-    i_bra = first(bra%state%modes%id==i, default=0)
-    i_ket = first(ket%state%modes%id==i, default=0)
-    i_monomial = first(monomial%modes%id==i, default=0)
+    ! Locate this mode in the bra, the ket and the monomial.
+    i_bra = first( bra%state%modes%id==id .or. bra%state%modes%paired_id==id, &
+                 & default=0                                                  )
+    i_ket = first( ket%state%modes%id==id .or. ket%state%modes%paired_id==id, &
+                 & default=0                                                  )
+    i_monomial = first(                                           &
+       & monomial%modes%id==id .or. monomial%modes%paired_id==id, &
+       & default=0                                                )
     
     ! If the mode does not appear in any, then the contribution is either
-    !    <0|(u_i)^0|0> = 0, or <0,p_j|(u_i)^0(u_j)^(n_j)|0,q_j>, in which
-    !    case the contribution will be handled when mode j is integrated.
+    !    <0|(u_i)^0|0> = 1 or <0,0|(u_i)^0(u_j)^0|0,0>=1,
+    !    so the mode can be neglected.
     if (i_bra==0 .and. i_ket==0 .and. i_monomial==0) then
       subspace_mode_integrated(i_subspace) = .true.
       cycle
     endif
     
-    ! Use mode locations to find p_i, n_i, q_i and j.
-    if (i_bra==0) then
-      p_i = 0
+    ! Use mode locations to find p_i, p_j, n_i, n_j, q_i, q_j,
+    !    and id and paired_id. N.B. id<=paired_id, so id may change from above.
+    if (i_bra/=0) then
+      id = bra%state%modes(i_bra)%id
+      paired_id = bra%state%modes(i_bra)%paired_id
+    elseif (i_ket/=0) then
+      id = ket%state%modes(i_ket)%id
+      paired_id = ket%state%modes(i_ket)%paired_id
+    elseif (i_monomial/=0) then
+      id = monomial%modes(i_monomial)%id
+      paired_id = monomial%modes(i_monomial)%paired_id
     else
-      p_i = bra%state%modes(i_bra)%power
-      j = bra%state%modes(i_bra)%paired_id
+      call err()
+    endif
+    
+    if (i_bra==0) then
+      bra_mode = ComplexUnivariate(id,paired_id,0,0)
+    else
+      bra_mode = bra%state%modes(i_bra)
     endif
     
     if (i_ket==0) then
-      q_i = 0
+      ket_mode = ComplexUnivariate(id,paired_id,0,0)
     else
-      q_i = ket%state%modes(i_ket)%power
-      j = ket%state%modes(i_ket)%paired_id
+      ket_mode = ket%state%modes(i_ket)
     endif
     
     if (i_monomial==0) then
-      n_i = 0
+      monomial_mode = ComplexUnivariate(id,paired_id,0,0)
     else
-      n_i = monomial%modes(i_monomial)%power
-      j = monomial%modes(i_monomial)%paired_id
+      monomial_mode = monomial%modes(i_monomial)
     endif
     
-    ! Locate mode j in the subspace, the bra, the ket and the monomial,
-    !    and use these locations to find p_j, n_j and q_j.
-    if (i==j) then
-      j_subspace = i_subspace
-      j_bra      = i_bra
-      j_ket      = i_ket
-      j_monomial = i_monomial
-      p_j        = p_i
-      n_j        = n_i
-      q_j        = q_i
-    else
-      j_subspace = first(subspace%mode_ids==j)
-      j_bra = first(bra%state%modes%id==j, default=0)
-      j_ket = first(ket%state%modes%id==j, default=0)
-      j_monomial = first(monomial%modes%id==j, default=0)
-      
-      if (j_bra==0) then
-        p_j = 0
-      else
-        p_j = bra%state%modes(j_bra)%power
-      endif
-      
-      if (j_ket==0) then
-        q_j = 0
-      else
-        q_j = ket%state%modes(j_ket)%power
-      endif
-      
-      if (j_monomial==0) then
-        n_j = 0
-      else
-        n_j = monomial%modes(j_monomial)%power
-      endif
-    endif
-    
-    ! Integrate over mode i and j (or just mode i if i==j).
-    if (i==j) then
-      ! <p_i|(u_i)^(n_i)|q_i> = 0                                 if p+n+q odd.
-      !
-      !                       = 1/sqrt(2Nw_i)^{n_i}
-      !                       * prod_{k=1}^{(p_i+n_i+q_i)/2} [ 2k-1 ]
-      !                       / sqrt( prod_{k=1}^{p_i} [ 2k-1 ]
-      !                             * prod_{k=1}^{q_i} [ 2k-1 ] )    otherwise.
-      !
-      if (modulo(p_i+n_i+q_i,1)==1) then
-        output = ComplexMonomial( coefficient=cmplx(0.0_dp,0.0_dp,dp), &
-                                & modes=[ComplexUnivariate::]          )
-        return
-      endif
-      
-      coefficient = coefficient / sqrt_two_n_omega**n_i
-      
-      do k=2,(p_i+n_i+q_i)/2
-        coefficient = coefficient * (2*k-1)
-      enddo
-      
-      do k=2,p_i
-        coefficient = coefficient / sqrt(real(2*k-1,dp))
-      enddo
-      
-      do k=2,q_i
-        coefficient = coefficient / sqrt(real(2*k-1,dp))
-      enddo
-    else
-      ! <p_i,p_j|(u_i)^(n_i) (u_j)^(n_j)|q_i,q_j> =
-      !    = 0                                 if p_i-p_j-n_i+n_j-q_i+q_j /= 0.
-      !
-      !    = 1/sqrt(2Nw_i)^{n_i+n_j}
-      !    * prod_{k=1}^{p_i+p_j+n_i+n_j+q_i+q_j} [ k ]
-      !    / sqrt( prod_{k=1}^{p_i+p_j} [ k ]
-      !          * prod_{k=1}^{q_i+q_j} [ k ] )                      otherwise.
-      if (p_i-p_j-n_i+n_j-q_i+q_j/=0) then
-        output = ComplexMonomial( coefficient=cmplx(0.0_dp,0.0_dp,dp), &
-                                & modes=[ComplexUnivariate::]          )
-        return
-      endif
-      
-      coefficient = coefficient / sqrt_two_n_omega**(n_i+n_j)
-      
-      do k=2,(p_i+p_j+n_i+n_j+q_i+q_j)/2
-        coefficient = coefficient * k
-      enddo
-      
-      do k=2,(p_i+p_j)
-        coefficient = coefficient / sqrt(real(k,dp))
-      enddo
-      
-      do k=2,(q_i+q_j)
-        coefficient = coefficient / sqrt(real(k,dp))
-      enddo
-    endif
+    coefficient = coefficient &
+              & * braket_modes_potential(bra_mode,ket_mode,monomial_mode)
     
     ! Update subspace_mode_integrated and monomial_mode_integrated.
-    subspace_mode_integrated(i_subspace) = .true.
-    subspace_mode_integrated(j_subspace) = .true.
+    subspace_mode_integrated(first(subspace%mode_ids==id)) = .true.
+    subspace_mode_integrated(first(subspace%mode_ids==paired_id)) = .true.
     
     if (i_monomial/=0) then
       monomial_mode_integrated(i_monomial) = .true.
     endif
-    
-    if (j_monomial/=0) then
-      monomial_mode_integrated(j_monomial) = .true.
+  enddo
+  
+  ! Calculate sqrt(2Nw_i).
+  sqrt_two_n_omega = sqrt(2.0_dp * supercell%sc_size * bra%frequency)
+  
+  sum_n = 0
+  do i=1,size(monomial)
+    if (monomial_mode_integrated(i)) then
+      if (monomial%modes(i)%id==monomial%modes(i)%paired_id) then
+        sum_n = sum_n &
+            & + monomial%modes(i)%power
+      else
+        sum_n = sum_n &
+            & + monomial%modes(i)%power + monomial%modes(i)%paired_power
+      endif
     endif
   enddo
+  
+  coefficient = coefficient / sqrt_two_n_omega**sum_n
   
   ! The output is the un-integrated modes of the monomial, multiplied by
   !    the new coefficient.
   output = ComplexMonomial(                                                &
      & coefficient = monomial%coefficient*coefficient,                     &
      & modes       = monomial%modes(filter(.not.monomial_mode_integrated)) )
+end function
+
+impure elemental function braket_modes_potential(bra,ket,potential) &
+   & result(output)
+  implicit none
+  
+  type(ComplexUnivariate), intent(in) :: bra
+  type(ComplexUnivariate), intent(in) :: ket
+  type(ComplexUnivariate), intent(in) :: potential
+  real(dp)                            :: output
+  
+  integer :: p_i,p_j,q_i,q_j,n_i,n_j
+  
+  integer :: k
+  
+  p_i = bra%power
+  p_j = bra%paired_power
+  q_i = ket%power
+  q_j = ket%paired_power
+  n_i = potential%power
+  n_j = potential%paired_power
+  
+  if (bra%id==bra%paired_id) then
+    ! <p_i|(u_i)^(n_i)|q_i> = 0                                 if p+n+q odd.
+    !
+    !                       = 1/sqrt(2Nw_i)^{n_i}
+    !                       * prod_{k=1}^{(p_i+n_i+q_i)/2} [ 2k-1 ]
+    !                       / sqrt( prod_{k=1}^{p_i} [ 2k-1 ]
+    !                             * prod_{k=1}^{q_i} [ 2k-1 ] )    otherwise.
+    !
+    if (modulo(p_i+n_i+q_i,1)==1) then
+      output = 0
+    else
+      output = 1
+      do k=2,(p_i+n_i+q_i)/2
+        output = output * (2*k-1)
+      enddo
+      do k=2,p_i
+        output = output / sqrt(real(2*k-1,dp))
+      enddo
+      do k=2,q_i
+        output = output / sqrt(real(2*k-1,dp))
+      enddo
+    endif
+  else
+    ! <p_i,p_j|(u_i)^(n_i) (u_j)^(n_j)|q_i,q_j> =
+    !    = 0                                 if p_i-p_j-n_i+n_j-q_i+q_j /= 0.
+    !
+    !    = 1/sqrt(2Nw_i)^{n_i+n_j}
+    !    * prod_{k=1}^{p_i+p_j+n_i+n_j+q_i+q_j} [ k ]
+    !    / sqrt( prod_{k=1}^{p_i+p_j} [ k ]
+    !          * prod_{k=1}^{q_i+q_j} [ k ] )                      otherwise.
+    if (p_i-p_j-n_i+n_j-q_i+q_j/=0) then
+      output = 0
+    else
+      output = 1
+      do k=2,(p_i+p_j+n_i+n_j+q_i+q_j)/2
+        output = output * k
+      enddo
+      do k=2,(p_i+p_j)
+        output = output / sqrt(real(k,dp))
+      enddo
+      do k=2,(q_i+q_j)
+        output = output / sqrt(real(k,dp))
+      enddo
+    endif
+  endif
 end function
 
 ! ----------------------------------------------------------------------
@@ -617,14 +598,18 @@ function kinetic_energy_SubspaceStates(bra,ket,subspace,supercell) &
   real(dp) :: prefactor
   real(dp) :: frequency
   
+  type(ComplexUnivariate) :: bra_mode
+  type(ComplexUnivariate) :: ket_mode
+  
   logical, allocatable :: bra_mode_integrated(:)
   logical, allocatable :: ket_mode_integrated(:)
   logical, allocatable :: subspace_mode_integrated(:)
   
-  integer :: i_bra,j_bra,i_ket,j_ket
-  integer :: p_i,p_j,q_i,q_j
+  integer :: i_bra,i_ket
   
-  integer :: i,j
+  integer :: id,paired_id
+  
+  integer :: i
   
   ! Check that the bra and the ket cover the same subspace.
   if (bra%subspace_id/=ket%subspace_id) then
@@ -642,91 +627,36 @@ function kinetic_energy_SubspaceStates(bra,ket,subspace,supercell) &
   subspace_mode_integrated = [(.false., i=1, size(subspace))]
   
   do while (any(.not. bra_mode_integrated) .or. any(.not. ket_mode_integrated))
-    ! Identify an un-integrated mode with ID i.
-    ! Find j s.t. (u_i)^* = u_j.
-    ! Find i_bra,j_bra,i_ket and j_ket, the locations of modes i and j
-    !    respectively within the bra and ket respectively.
-    ! Find p_i,p_j,q_i and q_j, the powers of modes i and j respectively
-    !    within the bra and ket respectively.
+    ! Identify an un-integrated mode.
+    ! Find i_bra and i_ket, the locations of the mode within the bra and
+    !    the ket respectively.
+    ! Find p_i,p_j,q_i and q_j.
     i_bra = first(.not. bra_mode_integrated, default=0)
     if (i_bra==0) then
-      j_bra = 0
-      p_i = 0
-      p_j = 0
-      
       i_ket = first(.not. ket_mode_integrated)
-      i = ket%state%modes(i_ket)%id
-      j = ket%state%modes(i_ket)%paired_id
-      q_i = ket%state%modes(i_ket)%power
-      if (i==j) then
-        j_ket = i_ket
-        q_j   = q_i
-      else
-        j_ket = first(ket%state%modes%id==j, default=0)
-        if (j_ket==0) then
-          q_j = 0
-        else
-          q_j = ket%state%modes(j_ket)%power
-        endif
-      endif
+      id = ket%state%modes(i_ket)%id
+      paired_id = ket%state%modes(i_ket)%paired_id
     else
-      i = bra%state%modes(i_bra)%id
-      j = bra%state%modes(i_bra)%paired_id
-      p_i = bra%state%modes(i)%power
-      
-      i_ket = first(ket%state%modes%id==i, default=0)
-      if (i_ket==0) then
-        q_i = 0
-      else
-        q_i = ket%state%modes(i_ket)%power
-      endif
-      
-      if (i==j) then
-        j_bra = i_bra
-        j_ket = i_ket
-        p_j   = p_i
-        q_j   = q_i
-      else
-        j_bra = first(bra%state%modes%id==j, default=0)
-        if (j_bra==0) then
-          p_j = 0
-        else
-          p_j = bra%state%modes(j_bra)%power
-        endif
-        
-        j_ket = first(ket%state%modes%id==j, default=0)
-        if (j_ket==0) then
-          q_j = 0
-        else
-          q_j = ket%state%modes(j_ket)%power
-        endif
-      endif
+      id = bra%state%modes(i_bra)%id
+      paired_id = bra%state%modes(i_bra)%paired_id
+      i_ket = first(ket%state%modes%id==id, default=0)
     endif
     
-    ! Calculate the contribution to the prefactor from modes i and j,
-    !    or just from mode i if i=j.
-    if (i==j) then
-      ! <p_i|T|q_i> = 1/2 w_i ( (1-p_i-q_i)/2 - 2p_iq_i/(p_i+q_i+1) ) <p_i|q_i>
-      prefactor = prefactor &
-              & + 0.5_dp    &
-              & * frequency &
-              & * ( (1-p_i-q_i)/2.0_dp - (2.0_dp*p_i*q_i)/(p_i+q_i+1) )
+    if (i_bra==0) then
+      bra_mode = ComplexUnivariate(id,paired_id,0,0)
     else
-      ! <p_i,p_j|T|q_i,q_j> = w_i ( (p_i+p_j+q_i+q_j+2)/4 
-      !                           - 2(p_ip_j+q_iq_j)/(p_i+p_j+q_i+q_j) )
-      !                     * <p_i,p_j|q_i,q_j>
-      !
-      ! N.B. (p_ip_j+q_iq_j)/(p_i+p_j+q_i+q_j) is zero if p_i=p_j=q_i=q_j=0.
-      ! The denominator is zero in this case, so care should be taken.
-      if (p_i+p_j+q_i+q_j==0) then
-        prefactor = prefactor + frequency / 2
-      else
-        prefactor = prefactor                                    &
-                & + frequency                                    &
-                & * ( (p_i+p_j+q_i+q_j+2)/4.0_dp                 &
-                &   - 2.0_dp*(p_i*p_j+q_i*q_j)/(p_i+p_j+q_i+q_j) )
-      endif
+      bra_mode = bra%state%modes(i_bra)
     endif
+    
+    if (i_ket==0) then
+      ket_mode = ComplexUnivariate(id,paired_id,0,0)
+    else
+      ket_mode = ket%state%modes(i_ket)
+    endif
+    
+    ! Calculate the contribution to the prefactor from the mode.
+    prefactor = prefactor &
+            & + kinetic_energy_prefactor(bra_mode,ket_mode,frequency)
     
     ! Update bra_mode_integrated ket_mode_integrated and
     !    subspace_mode_integrated.
@@ -734,20 +664,12 @@ function kinetic_energy_SubspaceStates(bra,ket,subspace,supercell) &
       bra_mode_integrated(i_bra) = .true.
     endif
     
-    if (j_bra/=0) then
-      bra_mode_integrated(j_bra) = .true.
-    endif
-    
     if (i_ket/=0) then
       ket_mode_integrated(i_ket) = .true.
     endif
     
-    if (j_ket/=0) then
-      ket_mode_integrated(j_ket) = .true.
-    endif
-    
-    subspace_mode_integrated(first(subspace%mode_ids==i)) = .true.
-    subspace_mode_integrated(first(subspace%mode_ids==j)) = .true.
+    subspace_mode_integrated(first(subspace%mode_ids==id)) = .true.
+    subspace_mode_integrated(first(subspace%mode_ids==paired_id)) = .true.
   enddo
   
   ! Account for modes in subspace which do not appear in bra or ket.
@@ -756,6 +678,43 @@ function kinetic_energy_SubspaceStates(bra,ket,subspace,supercell) &
   
   ! Calculate output, and normalise by the number of primitive cells.
   output = prefactor * braket(bra,ket) / supercell%sc_size
+end function
+
+impure elemental function kinetic_energy_prefactor(bra,ket,frequency) &
+   & result(output)
+  implicit none
+  
+  type(ComplexUnivariate), intent(in) :: bra
+  type(ComplexUnivariate), intent(in) :: ket
+  real(dp),                intent(in) :: frequency
+  real(dp)                            :: output
+  
+  integer :: p_i,p_j,q_i,q_j
+  
+  p_i = bra%power
+  p_j = bra%paired_power
+  q_i = ket%power
+  q_j = ket%paired_power
+  
+  if (bra%id==bra%paired_id) then
+    ! <p_i|T|q_i> = 1/2 w_i ( (1-p_i-q_i)/2 - 2p_iq_i/(p_i+q_i+1) ) <p_i|q_i>
+    output = 0.5_dp * frequency &
+         & * ( (1-p_i-q_i)/2.0_dp - (2.0_dp*p_i*q_i)/(p_i+q_i+1) )
+  else
+    ! <p_i,p_j|T|q_i,q_j> = w_i ( (p_i+p_j+q_i+q_j+2)/4 
+    !                           - 2(p_ip_j+q_iq_j)/(p_i+p_j+q_i+q_j) )
+    !                     * <p_i,p_j|q_i,q_j>
+    !
+    ! N.B. (p_ip_j+q_iq_j)/(p_i+p_j+q_i+q_j) is zero if p_i=p_j=q_i=q_j=0.
+    ! The denominator is zero in this case, so care should be taken.
+    if (p_i+p_j+q_i+q_j==0) then
+      output = frequency / 2
+    else
+      output = frequency                                    &
+           & * ( (p_i+p_j+q_i+q_j+2)/4.0_dp                 &
+           &   - 2.0_dp*(p_i*p_j+q_i*q_j)/(p_i+p_j+q_i+q_j) )
+    endif
+  endif
 end function
 
 ! ----------------------------------------------------------------------

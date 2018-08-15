@@ -194,14 +194,24 @@ impure elemental function real_to_complex_mode(input) result(output)
      & subspace_id        = input%subspace_id         )
 end function
 
-! Construct the matrix M which converts from one co-ordinate set to the other,
+! Construct the matrix M which converts from one basis set to the other,
 !    s.t. this = M * that.
-function conversion_matrix_ComplexMonomials_RealMonomials(this,that) &
-   & result(output)
+! If include_coefficients is .true. then the coefficients of the monomials are
+!    included in the definition of the basis. If .false., then the coefficients
+!    are not included.
+! e.g. if the real basis is A*u+ and B*u-, and the complex basis is C*c and
+!    D*s, where c=(u+)+i(u-) and s=(u+)-i(u-), then:
+!    - if .false. then the conversion matrix is (c) = ( 1  i) . (u+)
+!                                               (s)   ( 1 -i)   (u-)
+!    - if .true. then the conversion matrix is (Cc) = ( C/A  Ci/A) . (Au+)
+!                                              (Ds)   ( D/B -Di/B)   (Bu-)
+function conversion_matrix_ComplexMonomials_RealMonomials(this,that, &
+   & include_coefficients) result(output)
   implicit none
   
   type(ComplexMonomial), intent(in) :: this(:)
   type(RealMonomial),    intent(in) :: that(:)
+  logical,               intent(in) :: include_coefficients
   type(ComplexMatrix)               :: output
   
   complex(dp), allocatable :: matrix(:,:)
@@ -211,19 +221,20 @@ function conversion_matrix_ComplexMonomials_RealMonomials(this,that) &
   allocate(matrix(size(this),size(that)), stat=ialloc); call err(ialloc)
   do i=1,size(that)
     do j=1,size(this)
-      matrix(j,i) = element(this(j),that(i))
+      matrix(j,i) = element(this(j),that(i),include_coefficients)
     enddo
   enddo
   
   output = matrix
 end function
 
-function conversion_matrix_RealMonomials_ComplexMonomials(this,that) &
-   & result(output)
+function conversion_matrix_RealMonomials_ComplexMonomials(this,that, &
+   & include_coefficients) result(output)
   implicit none
   
   type(RealMonomial),    intent(in) :: this(:)
   type(ComplexMonomial), intent(in) :: that(:)
+  logical,               intent(in) :: include_coefficients
   type(ComplexMatrix)               :: output
   
   complex(dp), allocatable :: matrix(:,:)
@@ -233,7 +244,7 @@ function conversion_matrix_RealMonomials_ComplexMonomials(this,that) &
   allocate(matrix(size(this),size(that)), stat=ialloc); call err(ialloc)
   do i=1,size(that)
     do j=1,size(this)
-      matrix(j,i) = element(this(j),that(i))
+      matrix(j,i) = element(this(j),that(i),include_coefficients)
     enddo
   enddo
   
@@ -248,12 +259,13 @@ end function
 !
 ! Calculates the coefficient of 'that' in the expansion of 'this'.
 ! i.e. 'this' = sum[ element(this,that) * 'that' ].
-impure elemental function element_ComplexMonomial_RealMonomial(this,that) &
-   & result(output)
+impure elemental function element_ComplexMonomial_RealMonomial(this,that, &
+   & include_coefficients) result(output)
   implicit none
   
   type(ComplexMonomial), intent(in) :: this
   type(RealMonomial),    intent(in) :: that
+  logical,               intent(in) :: include_coefficients
   complex(dp)                       :: output
   
   logical, allocatable :: that_mode_accounted(:)
@@ -266,7 +278,7 @@ impure elemental function element_ComplexMonomial_RealMonomial(this,that) &
     return
   endif
   
-  output = this%coefficient / that%coefficient
+  output = 1.0_dp
   
   that_mode_accounted = [(.false., i=1, size(that))]
   
@@ -302,18 +314,23 @@ impure elemental function element_ComplexMonomial_RealMonomial(this,that) &
       endif
     endif
   enddo
+  
+  if (include_coefficients) then
+    output = output * this%coefficient / that%coefficient
+  endif
 end function
 
 ! Calculate an element for conversion_matrix.
 !
 ! Calculates the coefficient of 'that' in the expansion of 'this'.
 ! i.e. 'this' = sum[ element(this,that) * 'that' ].
-impure elemental function element_RealMonomial_ComplexMonomial(this,that) &
-   & result(output)
+impure elemental function element_RealMonomial_ComplexMonomial(this,that, &
+   & include_coefficients) result(output)
   implicit none
   
   type(RealMonomial),    intent(in) :: this
   type(ComplexMonomial), intent(in) :: that
+  logical,               intent(in) :: include_coefficients
   complex(dp)                       :: output
   
   logical, allocatable :: that_mode_accounted(:)
@@ -326,7 +343,7 @@ impure elemental function element_RealMonomial_ComplexMonomial(this,that) &
     return
   endif
   
-  output = this%coefficient / that%coefficient
+  output = 1.0_dp
   
   that_mode_accounted = [(.false., i=1, size(that))]
   
@@ -362,6 +379,10 @@ impure elemental function element_RealMonomial_ComplexMonomial(this,that) &
       endif
     endif
   enddo
+  
+  if (include_coefficients) then
+    output = output * this%coefficient / that%coefficient
+  endif
 end function
 
 impure elemental function element_ComplexUnivariates_RealUnivariates(this, &
@@ -395,35 +416,22 @@ impure elemental function element_ComplexUnivariates_RealUnivariates(this, &
   ! this = (u+)^j * (u-)^{n-j}.
   ! that = (c )^k * (s )^{n-k}.
   !
-  ! (u+)^j * (u-)^{n-j} = sum_{k=0}^n M(j,k,n) c^k * s^{n-k}.
+  ! (u+)^j * (u-)^{n-j} = sum_{k=0}^n M(j,k,n) c^k * s*{n-k}.
   !
-  ! (u+)^j * (u-)^{n-j} = (c+is)^j * (c-is)^{n-j} / sqrt(2)^n
+  ! (u+)^j * (u-)^{n-j} = (c+is)^j * (c-is)^(n-j) / sqrt(2)^n
   !
-  !    = sum_{l=0}^j     [ bin(j,l)   * c^l * ( is)^{j-l}   ]
-  !    * sum_{m=0}^{n-j} [ bin(n-j,m) * c^m * (-is)^{n-j-m} ]
-  !    / sqrt(2)^n
-  !
-  !    = sum_{l,m} [ bin(j,l) bin(n-j,m) c^{l+m} (is)^{n-l-m} (-1)^{n-j-m} ]
-  !    / sqrt(2)^n
+  ! => this = sum_{l=0}^j sum_{m=0}^{n-j}
+  !           [ bin(j,l) bin(n-j,m) i^(-n+2j-l+m) c^{l+m} s^{n-l-m} ]
+  !           / sqrt(2)^n
   !
   ! k = l+m
   !
-  ! 0 <= l <= j
+  ! => sum_{l=0}^n sum_{m=0}^{n-j} = sum_{k=0}^n sum_{l=max(0,j+k-n)}^{min(j,k)}
   !
-  !    0      <= m   <= n-j
-  ! => 0      <= k-l <= n-j
-  ! => -k     <= -l  <= n-j-k
-  ! => -n+j+k <= l   <= k
+  ! => that = sum_{k,l} [ bin(j,l)*bin(n-j,k-l) i^(-n+2j+k-2l) c^k s^{n-k} ]
+  !         / sqrt(2)^n
   !
-  ! => max(0,-n+j+k) <= l <= min(j,k)
-  !
-  ! => sum_{l,m} = sum_{k=0}^n sum_{l=max(0,-n+j+k)}^{min(j,k)}
-  !
-  ! => (u+)^j*(u-)^{n-j} =
-  !       sum_{k,l} [ bin(j,l)*bin(n-j,k-l) c^k (is)^{n-k} (-1)^{n-j-k+l} ]
-  !       / sqrt(2)^n
-  !
-  ! => M(j,k,n) = i^{n-k} * (-1)^{n-j-k} / sqrt(2)^n
+  ! => M(j,k,n) = i^{-n+2j+k} / sqrt(2)^n
   !             * sum_{l=max(0,j+k-n)}^{min(j,k)} bin(j,l)*bin(n-j,k-l)*(-1)^l
   j = this%power
   k = that%power
@@ -432,14 +440,13 @@ impure elemental function element_ComplexUnivariates_RealUnivariates(this, &
   do l=max(0,j+k-n),min(j,k)
     output = output + binomial(j,l)*binomial(n-j,k-l)*(-1)**l
   enddo
-  output = output                         &
-       & * cmplx(0.0_dp,1.0_dp,dp)**(n-k) &
-       & * (-1.0_dp)**(n-j-k)             &
+  output = output                              &
+       & * cmplx(0.0_dp,1.0_dp,dp)**(-n+2*j+k) &
        & / sqrt(2.0_dp)**n
 end function
 
-impure elemental function element_RealUnivariates_ComplexUnivariates &
-   & (this,that) result(output)
+impure elemental function element_RealUnivariates_ComplexUnivariates(this, &
+   & that) result(output)
   implicit none
   
   type(RealUnivariate),    intent(in) :: this
@@ -469,35 +476,22 @@ impure elemental function element_RealUnivariates_ComplexUnivariates &
   ! this = (c )^j * (s )^{n-j}.
   ! that = (u+)^k * (u-)^{n-k}.
   !
-  ! c^j * s*{n-j} = sum_{k=0}^n M(j,k,n) (u+)^k * (u-)^{n-k}.
+  ! c^j * s^{n-j} = sum_{k=0}^n M(j,k,n) (u+)^k * (u-)^{n-k}.
   !
   ! c^j * s^{n-j} = (u+ + u-)^j * ((u+ - u-)/i)^{n-j} / sqrt(2)^n
   !
-  !    = sum_{l=0}^j     [ bin(j,l)   * (u+)^l * ( u-)^{j-l}   ]
-  !    * sum_{m=0}^{n-j} [ bin(n-j,m) * (u+)^m * (-u-)^{n-j-m} ]
-  !    / (sqrt(2)^n * i^{n-j})
-  !
-  !    = sum_{l,m} [ bin(j,l) bin(n-j,m) (u+)^{l+m} (u-)^{n-l-m} (-1)^{n-j-m} ]
+  !    = sum_{l=0}^j sum_{m=0}^{n-j}
+  !      [ bin(j,l) bin(n-j,m) (u+)^{l+m} (u-)^{n-l-m} (-1)^{n-j-m} ]
   !    / (sqrt(2)^n * i^{n-j})
   !
   ! k = l+m
   !
-  ! 0 <= l <= j
+  ! => sum_{l=0}^n sum_{m=0}^{n-j} = sum_{k=0}^n sum_{l=max(0,j+k-n)}^{min(j,k)}
   !
-  !    0      <= m   <= n-j
-  ! => 0      <= k-l <= n-j
-  ! => -k     <= -l  <= n-j-k
-  ! => -n+j+k <= l   <= k
-  !
-  ! => max(0,-n+j+k) <= l <= min(j,k)
-  !
-  ! => sum_{l,m} = sum_{k=0}^n sum_{l=max(0,-n+j+k)}^{min(j,k)}
-  !
-  ! => c^j*s^{n-j} =
-  !      sum_{k,l} [ bin(j,l) bin(n-j,k-l) (u+)^k (u-)^{n-k} (-1)^{n-j-k+l} ]
+  ! => that = sum_{k,l}[ bin(j,l) bin(n-j,k-l) u+^k u-^{n-k} (-1)^{n-j-k+l} ]
   !      / (sqrt(2)^n * i^{n-j})
   !
-  ! => M(j,k,n) = i^{j-n} * (-1)^{n-j-k} / sqrt(2)^n
+  ! => M(j,k,n) = i^{n-j-2k} / sqrt(2)^n
   !             * sum_{l=max(0,j+k-n)}^{min(j,k)} bin(j,l)*bin(n-j,k-l)*(-1)^l
   j = this%power
   k = that%power
@@ -506,9 +500,8 @@ impure elemental function element_RealUnivariates_ComplexUnivariates &
   do l=max(0,j+k-n),min(j,k)
     output = output + binomial(j,l)*binomial(n-j,k-l)*(-1)**l
   enddo
-  output = output                         &
-       & * cmplx(0.0_dp,1.0_dp,dp)**(j-n) &
-       & * (-1.0_dp)**(n-j-k)             &
+  output = output                             &
+       & * cmplx(0.0_dp,1.0_dp,dp)**(n-j-2*k) &
        & / sqrt(2.0_dp)**n
 end function
 end module

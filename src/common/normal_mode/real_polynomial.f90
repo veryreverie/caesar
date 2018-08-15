@@ -60,6 +60,8 @@ module real_polynomial_submodule
     procedure, public :: to_RealMonomial   => to_RealMonomial_RealUnivariate
     procedure, public :: to_RealPolynomial => to_RealPolynomial_RealUnivariate
     
+    procedure, public :: total_power => total_power_RealUnivariate
+    
     procedure, public :: energy => energy_RealUnivariate
     procedure, public :: force  => force_RealUnivariate
     
@@ -81,6 +83,8 @@ module real_polynomial_submodule
     procedure, public :: to_RealPolynomial => to_RealPolynomial_RealMonomial
     
     procedure, public :: simplify => simplify_RealMonomial
+    
+    procedure, public :: total_power => total_power_RealMonomial
     
     procedure, public :: energy => energy_RealMonomial
     procedure, public :: force  => force_RealMonomial
@@ -417,6 +421,29 @@ impure elemental subroutine simplify_RealPolynomial(this)
   this%terms = monomials
 end subroutine
 
+! The total power of a univariate or monomial.
+impure elemental function total_power_RealUnivariate(this) result(output)
+  implicit none
+  
+  class(RealUnivariate), intent(in) :: this
+  integer                           :: output
+  
+  if (this%id==this%paired_id) then
+    output = this%power
+  else
+    output = this%power + this%paired_power
+  endif
+end function
+
+impure elemental function total_power_RealMonomial(this) result(output)
+  implicit none
+  
+  class(RealMonomial), intent(in) :: this
+  integer                         :: output
+  
+  output = sum(this%modes%total_power())
+end function
+
 ! Evaluate the contribution to the energy from
 !    a univariate, monomial or polynomial at a given displacement.
 impure elemental function energy_RealUnivariate(this,displacement) &
@@ -739,8 +766,8 @@ impure elemental function divide_RealPolynomial_real(this,that) result(output)
 end function
 
 ! Multiplication between Monomials and Monomial-like types.
-function multiply_RealMonomialable_RealMonomialable(this,that) &
-   & result(output)
+impure elemental function multiply_RealMonomialable_RealMonomialable(this, &
+   & that) result(output)
   implicit none
   
   class(RealMonomialable), intent(in) :: this
@@ -808,8 +835,8 @@ function multiply_RealMonomialable_RealMonomialable(this,that) &
 end function
 
 ! Addition between polynomials and polynomial-like types.
-function add_RealPolynomialable_RealPolynomialable(this,that) &
-   & result(output)
+impure elemental function add_RealPolynomialable_RealPolynomialable(this, &
+   & that) result(output)
   implicit none
   
   class(RealPolynomialable), intent(in) :: this
@@ -847,7 +874,7 @@ function add_RealPolynomialable_RealPolynomialable(this,that) &
 end function
 
 ! The negative of a polynomial or polynomial-like type.
-function negative_RealPolynomialable(this) result(output)
+impure elemental function negative_RealPolynomialable(this) result(output)
   implicit none
   
   class(RealPolynomialable), intent(in) :: this
@@ -858,8 +885,8 @@ function negative_RealPolynomialable(this) result(output)
 end function
 
 ! Subtraction between polynomials and polynomial-like types.
-function subtract_RealPolynomialable_RealPolynomialable(this,that) &
-   & result(output)
+impure elemental function subtract_RealPolynomialable_RealPolynomialable( &
+   & this,that) result(output)
   implicit none
   
   class(RealPolynomialable), intent(in) :: this

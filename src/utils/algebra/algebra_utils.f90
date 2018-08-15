@@ -21,7 +21,12 @@ module algebra_utils_submodule
   public :: sin_2pi
   public :: factorial
   public :: binomial
+  public :: multinomial
   public :: int_sqrt
+  
+  ! A list of factorials, stored to avoid re-calculating.
+  ! Calculated the first time a related function is called.
+  integer, allocatable :: FACTORIALS(:)
   
   ! Greatest common denominator.
   interface gcd
@@ -165,39 +170,13 @@ end function
 ! Factorial.
 ! Stores calculated results to avoid excess computation.
 ! ----------------------------------------------------------------------
-function factorial(input) result(output)
+impure elemental function factorial(input) result(output)
   implicit none
   
   integer, intent(in) :: input
   integer             :: output
   
-  ! Lookup is saved between calls of this function.
-  integer, allocatable, save :: factorials(:)
-  
-  integer :: i,j,ialloc
-  
-  ! The first time this function is called,
-  !    calculate all storable factorials, {i!} s.t. i!<=huge(0).
-  if (.not. allocated(factorials)) then
-    ! Find the largest integer i s.t. i! is too large to be
-    !    stored as an integer.
-    i = 0
-    j = 1
-    do
-      i = i+1
-      if (j>huge(0)/i) then
-        allocate(factorials(i), stat=ialloc); call err(ialloc)
-        exit
-      endif
-      j = j*i ! j = i!.
-    enddo
-    
-    ! Calculate and store all storable factorials.
-    factorials(1) = 1
-    do i=1,size(factorials)-1
-      factorials(i+1) = factorials(i)*i ! factorials(i+1) = i!.
-    enddo
-  endif
+  call calculate_factorials()
   
   ! Check that the input integer, n, obeys n>=0,
   !    and small enough that n! is storable as an integer.
@@ -205,28 +184,106 @@ function factorial(input) result(output)
     call print_line( ERROR//': Trying to calculate the factorial of an &
        &integer less than 0.')
     call err()
-  elseif (input>=size(factorials)) then
+  elseif (input>=size(FACTORIALS)) then
     call print_line( ERROR//': Trying to calculate the factorial of an &
-       &integer greater than '//size(factorials)-1//'.')
+       &integer greater than '//size(FACTORIALS)-1//'.')
     call err()
   endif
   
-  ! factorials(1) = 0!, so factorials(n+1) = n!.
-  output = factorials(input+1)
+  ! FACTORIALS(1) = 0!, so FACTORIALS(n+1) = n!.
+  output = FACTORIALS(input+1)
 end function
+
+subroutine calculate_factorials()
+  implicit none
+  
+  integer :: i,j,ialloc
+  
+  ! The first time this function is called,
+  !    calculate all storable factorials, {i!} s.t. i!<=huge(0).
+  if (.not. allocated(FACTORIALS)) then
+    ! Find the largest integer i s.t. i! is too large to be
+    !    stored as an integer.
+    i = 0
+    j = 1
+    do
+      i = i+1
+      if (j>huge(0)/i) then
+        allocate(FACTORIALS(i), stat=ialloc); call err(ialloc)
+        exit
+      endif
+      j = j*i ! j = i!.
+    enddo
+    
+    ! Calculate and store all storable factorials.
+    FACTORIALS(1) = 1
+    do i=1,size(FACTORIALS)-1
+      FACTORIALS(i+1) = FACTORIALS(i)*i ! FACTORIALS(i+1) = i!.
+    enddo
+  endif
+end subroutine
 
 ! ----------------------------------------------------------------------
 ! Calculates the binomial coefficient of two integers.
 ! binomial(a,b) = a!/(b!*(a-b)!)
 ! ----------------------------------------------------------------------
-function binomial(top,bottom) result(output)
+impure elemental function binomial(top,bottom) result(output)
   implicit none
   
   integer, intent(in) :: top
   integer, intent(in) :: bottom
   integer             :: output
   
-  output = factorial(top) / (factorial(bottom)*factorial(top-bottom))
+  if (top<0) then
+    call err()
+  elseif (bottom<0) then
+    call err()
+  elseif (bottom>top) then
+    call err()
+  endif
+  
+  call calculate_factorials()
+  
+  if (top<size(FACTORIALS)) then
+    output = factorial(top) / (factorial(bottom)*factorial(top-bottom))
+  else
+    call print_line(ERROR//': Currently unable to calculate binomial &
+       &coefficients involving factorials larger than '//            &
+       & size(FACTORIALS)-1//'!'                                     )
+    call err()
+  endif
+end function
+
+! ----------------------------------------------------------------------
+! Calculates the multinomial coefficient of a denominator and a set of
+!    numerators.
+! multinomial(a,[b,c,d,...]) = a!/(b!c!d!...)
+! ----------------------------------------------------------------------
+function multinomial(top,bottom) result(output)
+  implicit none
+  
+  integer, intent(in) :: top
+  integer, intent(in) :: bottom(:)
+  integer             :: output
+  
+  if (top<0) then
+    call err()
+  elseif (any(bottom<0)) then
+    call err()
+  elseif (sum(bottom)>top) then
+    call err()
+  endif
+  
+  call calculate_factorials()
+  
+  if (top<size(FACTORIALS)) then
+    output = factorial(top) / product(factorial(bottom))
+  else
+    call print_line(ERROR//': Currently unable to calculate multinomial &
+       &coefficients involving factorials larger than '//               &
+       & size(FACTORIALS)-1//'!'                                        )
+    call err()
+  endif
 end function
 
 ! ----------------------------------------------------------------------

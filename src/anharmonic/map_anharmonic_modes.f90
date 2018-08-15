@@ -289,9 +289,9 @@ subroutine map_anharmonic_modes_subroutine(arguments)
         real_mode = real_modes(                         &
            & first(real_modes%id==min( complex_mode%id, &
            &                           complex_mode%paired_id)))
-        mode_dir = qpoint_dir//                           &
-           & '/complex_mode_'//left_pad( complex_mode%id, &
-           &                             str(size(complex_modes)))
+        mode_dir = qpoint_dir//                                        &
+           & '/complex_mode_'//left_pad( complex_mode%id,              &
+           &                             str(maxval(complex_modes%id)) )
         call mkdir(mode_dir)
         allocate( sampled_energies(size(displacements)), &
                 & sampled_forces(size(displacements)),   &

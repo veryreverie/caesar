@@ -7,6 +7,7 @@ module degenerate_subspace_module
   use structure_module
   
   use complex_mode_submodule
+  use real_mode_submodule
   implicit none
   
   private
@@ -25,8 +26,17 @@ module degenerate_subspace_module
     ! The ids of the modes in the degenerate subspace.
     integer, allocatable, public :: mode_ids(:)
   contains
-    procedure, public :: modes => modes_DegenerateSubspace
-    procedure, public :: qpoints => qpoints_DegenerateSubspace
+    generic,   public  :: modes =>                               &
+                        & modes_DegenerateSubspace_ComplexModes, &
+                        & modes_DegenerateSubspace_RealModes
+    procedure, private :: modes_DegenerateSubspace_ComplexModes
+    procedure, private :: modes_DegenerateSubspace_RealModes
+    
+    generic,   public  :: qpoints =>                               &
+                        & qpoints_DegenerateSubspace_ComplexModes, &
+                        & qpoints_DegenerateSubspace_RealModes
+    procedure, private :: qpoints_DegenerateSubspace_ComplexModes
+    procedure, private :: qpoints_DegenerateSubspace_RealModes
     
     ! I/O.
     procedure, public :: read  => read_DegenerateSubspace
@@ -104,25 +114,35 @@ end function
 ! ----------------------------------------------------------------------
 ! Returns the degenerate modes.
 ! ----------------------------------------------------------------------
-function modes_DegenerateSubspace(this,modes) result(output)
+function modes_DegenerateSubspace_ComplexModes(this,modes) result(output)
   implicit none
   
   class(DegenerateSubspace), intent(in) :: this
   type(ComplexMode),         intent(in) :: modes(:)
   type(ComplexMode), allocatable        :: output(:)
   
-  integer :: i,ialloc
+  integer :: i
   
-  allocate(output(size(this)), stat=ialloc); call err(ialloc)
-  do i=1,size(this)
-    output(i) = modes(first(modes%id==this%mode_ids(i)))
-  enddo
+  output = [( modes(first(modes%id==this%mode_ids(i))), i=1, size(this) )]
+end function
+
+function modes_DegenerateSubspace_RealModes(this,modes) result(output)
+  implicit none
+  
+  class(DegenerateSubspace), intent(in) :: this
+  type(RealMode),            intent(in) :: modes(:)
+  type(RealMode), allocatable           :: output(:)
+  
+  integer :: i
+  
+  output = [( modes(first(modes%id==this%mode_ids(i))), i=1, size(this) )]
 end function
 
 ! ----------------------------------------------------------------------
 ! Returns the q-points corresponding to the degenerate modes.
 ! ----------------------------------------------------------------------
-function qpoints_DegenerateSubspace(this,modes,qpoints) result(output)
+function qpoints_DegenerateSubspace_ComplexModes(this,modes,qpoints) &
+   & result(output)
   implicit none
   
   class(DegenerateSubspace), intent(in) :: this
@@ -130,15 +150,33 @@ function qpoints_DegenerateSubspace(this,modes,qpoints) result(output)
   type(QpointData),          intent(in) :: qpoints(:)
   type(QpointData), allocatable         :: output(:)
   
-  type(ComplexMode) :: mode
+  type(ComplexMode), allocatable :: subspace_modes(:)
   
-  integer :: i,ialloc
+  integer :: i
   
-  allocate(output(size(this)), stat=ialloc); call err(ialloc)
-  do i=1,size(this)
-    mode = modes(first(modes%id==this%mode_ids(i)))
-    output(i) = qpoints(first(qpoints%id==mode%qpoint_id))
-  enddo
+  subspace_modes = this%modes(modes)
+  output = [( qpoints(first(qpoints%id==modes(i)%qpoint_id)), &
+            & i=1,                                            &
+            & size(this)                                      )]
+end function
+
+function qpoints_DegenerateSubspace_RealModes(this,modes,qpoints) &
+   & result(output)
+  implicit none
+  
+  class(DegenerateSubspace), intent(in) :: this
+  type(RealMode),            intent(in) :: modes(:)
+  type(QpointData),          intent(in) :: qpoints(:)
+  type(QpointData), allocatable         :: output(:)
+  
+  type(RealMode), allocatable :: subspace_modes(:)
+  
+  integer :: i
+  
+  subspace_modes = this%modes(modes)
+  output = [( qpoints(first(qpoints%id==modes(i)%qpoint_id_plus)), &
+            & i=1,                                                 &
+            & size(this)                                           )]
 end function
 
 ! ----------------------------------------------------------------------

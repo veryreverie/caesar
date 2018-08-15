@@ -409,12 +409,9 @@ function map_LogicalLambda(input,lambda) result(output)
   procedure(LogicalLambda) :: lambda
   logical, allocatable     :: output(:)
   
-  integer :: i,ialloc
+  integer :: i
   
-  allocate(output(size(input)), stat=ialloc); call err(ialloc)
-  do i=1,size(input)
-    output(i) = lambda(input(i))
-  enddo
+  output = [( lambda(input(i)), i=1, size(input) )]
 end function
 
 function map_ComparisonLambda(input,lambda,comparison) result(output)
@@ -656,6 +653,10 @@ end function
 ! e.g. if list = [1,3,2,1] then list(sort(list)) will return [1,1,2,3].
 ! e.g. if list = ['c','a','c','b'] then list(sort(list,first_alphabetically))
 !    will return ['a','b','c','c'].
+!
+! Both variants check if the list is sorted before sorting, since
+!    checking the list is an O(n) operation, whereas sorting the list is
+!    an O(n^2) operation.
 ! ----------------------------------------------------------------------
 function sort_integers(input) result(output)
   implicit none
@@ -667,16 +668,20 @@ function sort_integers(input) result(output)
   
   integer :: i,j,ialloc
   
-  allocate( sorted(size(input)), &
-          & output(size(input)), &
-          & stat=ialloc); call err(ialloc)
-  sorted = .false.
-  
-  do i=1,size(input)
-    j = minloc(input,1,mask=.not. sorted)
-    sorted(j) = .true.
-    output(i) = j
-  enddo
+  if (is_sorted(input)) then
+    output = [(i,i=1,size(input))]
+  else
+    allocate( sorted(size(input)), &
+            & output(size(input)), &
+            & stat=ialloc); call err(ialloc)
+    sorted = .false.
+    
+    do i=1,size(input)
+      j = minloc(input,1,mask=.not. sorted)
+      sorted(j) = .true.
+      output(i) = j
+    enddo
+  endif
 end function
 
 function sort_ComparisonLambda(input,lambda) result(output)
@@ -690,16 +695,20 @@ function sort_ComparisonLambda(input,lambda) result(output)
   
   integer :: i,j,ialloc
   
-  allocate( sorted(size(input)), &
-          & output(size(input)), &
-          & stat=ialloc); call err(ialloc)
-  sorted = .false.
-  
-  do i=1,size(input)
-    j = locate(input,lambda,mask=.not. sorted)
-    sorted(j) = .true.
-    output(i) = j
-  enddo
+  if (is_sorted(input,lambda)) then
+    output = [(i,i=1,size(input))]
+  else
+    allocate( sorted(size(input)), &
+            & output(size(input)), &
+            & stat=ialloc); call err(ialloc)
+    sorted = .false.
+    
+    do i=1,size(input)
+      j = locate(input,lambda,mask=.not. sorted)
+      sorted(j) = .true.
+      output(i) = j
+    enddo
+  endif
 end function
 
 ! ----------------------------------------------------------------------

@@ -96,7 +96,7 @@ function calculate_modes_calculated(matrices,structure,qpoint, &
   
   ! Identify purely translational modes (at the gamma-point only).
   output%translational_mode = .false.
-  if (is_int(qpoint%qpoint)) then
+  if (is_gvector(qpoint)) then
     ! Find the three modes with the minimum abs(frequency).
     do i=1,3
       j = minloc( abs(output%frequency), &

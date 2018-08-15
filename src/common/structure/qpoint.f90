@@ -10,6 +10,7 @@ module qpoint_submodule
   public :: QpointData
   public :: operator(==)
   public :: operator(/=)
+  public :: is_gvector
   
   type, extends(Stringsable) :: QpointData
     ! The q-point in fractional primitive reciprocal space co-ordinates.
@@ -150,6 +151,18 @@ impure elemental function non_equality_QpointData(this,that) result(output)
   logical                      :: output
   
   output = .not. this==that
+end function
+
+! ----------------------------------------------------------------------
+! Returns whether or not the q-point is a G-vector of the primitive cell.
+! ----------------------------------------------------------------------
+impure elemental function is_gvector(this) result(output)
+  implicit none
+  
+  type(QpointData), intent(in) :: this
+  logical                      :: output
+  
+  output = is_int(this%qpoint)
 end function
 
 ! ----------------------------------------------------------------------

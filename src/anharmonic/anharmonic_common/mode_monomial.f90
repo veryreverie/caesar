@@ -24,7 +24,7 @@ module mode_monomial_module
   
   ! A list of ids of modes which are coupled.
   type :: ModeMonomial
-    integer, allocatable :: ids(:)
+    integer, allocatable :: mode_ids(:)
     ! Whether or not the complex basis functions corresponding to this coupling
     !    are part of the Hamiltonian. i.e. they conserve Bloch momentum.
     logical :: conserves_momentum
@@ -72,20 +72,20 @@ function size_ModeMonomial(this) result(output)
   type(ModeMonomial), intent(in) :: this
   integer                        :: output
   
-  output = size(this%ids)
+  output = size(this%mode_ids)
 end function
 
 ! Append an id to the coupling.
-function concatenate_ModeMonomial_integer(this,id) result(output)
+function concatenate_ModeMonomial_integer(this,mode_id) result(output)
   implicit none
   
   type(ModeMonomial), intent(in) :: this
-  integer,            intent(in) :: id
+  integer,            intent(in) :: mode_id
   type(ModeMonomial)             :: output
   
-  output = ModeMonomial( ids                = [this%ids, id],          &
-                       & conserves_momentum = this%conserves_momentum, &
-                       & conserves_vscf     = this%conserves_vscf)
+  output = ModeMonomial( mode_ids           = [this%mode_ids, mode_id], &
+                       & conserves_momentum = this%conserves_momentum,  &
+                       & conserves_vscf     = this%conserves_vscf       )
 end function
 
 ! Compare couplings.
@@ -97,7 +97,7 @@ impure elemental function equality_ModeMonomial_ModeMonomial(this,that) &
   type(ModeMonomial), intent(in) :: that
   logical                        :: output
   
-  output = all(this%ids==that%ids)
+  output = all(this%mode_ids==that%mode_ids)
 end function
 
 impure elemental function non_equality_ModeMonomial_ModeMonomial(this,that) &
@@ -116,101 +116,103 @@ end function
 !    subspaces.
 ! Only returns couplings with sum(q)=0, modulo G-vectors.
 ! ----------------------------------------------------------------------
-function generate_mode_monomials(coupling,subspaces,normal_modes,qpoints) &
+function generate_mode_monomials(subspace_monomial,subspaces,modes,qpoints) &
    & result(output)
   implicit none
   
-  type(SubspaceMonomial),   intent(in) :: coupling
+  type(SubspaceMonomial),   intent(in) :: subspace_monomial
   type(DegenerateSubspace), intent(in) :: subspaces(:)
-  type(ComplexMode),        intent(in) :: normal_modes(:)
+  type(ComplexMode),        intent(in) :: modes(:)
   type(QpointData),         intent(in) :: qpoints(:)
   type(ModeMonomial), allocatable      :: output(:)
+  
+  type(ModeMonomial)   :: root_monomial
+  type(FractionVector) :: root_sum_q
   
   type(DegenerateSubspace), allocatable :: coupled_subspaces(:)
   
   ! List the subspaces which are coupled together in this coupling.
-  coupled_subspaces = coupling%coupled_subspaces(subspaces)
+  coupled_subspaces = subspace_monomial%coupled_subspaces(subspaces)
+  
+  root_monomial = ModeMonomial( mode_ids           = [integer::], &
+                              & conserves_momentum = .true.,      &
+                              & conserves_vscf     = .true.       )
+  root_sum_q = fracvec(zeroes(3))
   
   ! Generate all the sets of coupled modes within the coupled subspaces.
-  output = generate_mode_monomials_helper( coupled_subspaces, &
-                                         & normal_modes,      &
-                                         & qpoints)
+  output = generate_mode_monomials_helper( coupled_subspaces,        &
+                                         & subspace_monomial%powers, &
+                                         & modes,                    &
+                                         & qpoints,                  &
+                                         & root_monomial,            &
+                                         & root_sum_q                )
 end function
 
-recursive function generate_mode_monomials_helper(subspaces,normal_modes, &
-   & qpoints,mode_monomial_in,sum_q_in) result(output)
+recursive function generate_mode_monomials_helper(subspaces,powers, &
+   & normal_modes,qpoints,mode_monomial,sum_q) result(output)
   implicit none
   
-  type(DegenerateSubspace), intent(in)           :: subspaces(:)
-  type(ComplexMode),        intent(in)           :: normal_modes(:)
-  type(QpointData),         intent(in)           :: qpoints(:)
-  type(ModeMonomial),       intent(in), optional :: mode_monomial_in
-  type(FractionVector),     intent(in), optional :: sum_q_in
-  type(ModeMonomial), allocatable                :: output(:)
+  type(DegenerateSubspace), intent(in) :: subspaces(:)
+  integer,                  intent(in) :: powers(:)
+  type(ComplexMode),        intent(in) :: normal_modes(:)
+  type(QpointData),         intent(in) :: qpoints(:)
+  type(ModeMonomial),       intent(in) :: mode_monomial
+  type(FractionVector),     intent(in) :: sum_q
+  type(ModeMonomial), allocatable      :: output(:)
+  
+  integer :: first_subspace
   
   type(QpointData), allocatable :: subspace_qpoints(:)
   
-  type(ModeMonomial)   :: mode_monomial
-  type(FractionVector) :: sum_q
-  
-  type(ModeMonomial)   :: mode_monomial_out
-  type(FractionVector) :: sum_q_out
+  integer, allocatable :: new_powers(:)
+  type(ModeMonomial)   :: new_mode_monomial
+  type(FractionVector) :: new_sum_q
   
   logical :: last_mode_in_coupling
   
-  integer :: i
+  integer :: i,j
   
-  if (present(mode_monomial_in) .neqv. present(sum_q_in)) then
-    call print_line(CODE_ERROR//': generate_mode_monomial must be called with &
-       &all optional arguments or none.')
-    call err()
-  endif
+  i = first(powers/=0, default=0)
   
-  if (present(mode_monomial_in)) then
-    mode_monomial = mode_monomial_in
-    sum_q = sum_q_in
-  else
-    mode_monomial = ModeMonomial( ids                = [integer::], &
-                                & conserves_momentum = .true.,      &
-                                & conserves_vscf     = .true.)
-    sum_q = fracvec(zeroes(3))
-  endif
-  
-  if (size(subspaces)==0) then
+  if (i==0) then
     ! There is nothing else to append. Check that the sum across q-points of
     !    the mode coupling is zero, and return the mode couplings.
-    if (.not. is_int(sum_q_in)) then
-      mode_monomial%conserves_momentum = .false.
-      mode_monomial%conserves_vscf     = .false.
-    endif
     output = [mode_monomial]
+    if (.not. is_int(sum_q)) then
+      output%conserves_momentum = .false.
+      output%conserves_vscf     = .false.
+    endif
   else
     ! If vscf_basis_functions_only is true, then only mode couplings which have
     !    sum(q)=0 for all degenerate subspaces are allowed.
     last_mode_in_coupling = .false.
-    if (size(subspaces)==1) then
+    if (i==size(subspaces)) then
       last_mode_in_coupling = .true.
-    elseif (subspaces(2)%id/=subspaces(1)%id) then
+    elseif (subspaces(i+1)%id/=subspaces(i)%id) then
       last_mode_in_coupling = .true.
     endif
     
+    ! Update the array of powers.
+    new_powers = powers
+    new_powers(i) = new_powers(i)-1
+    
     ! Loop over modes in this subspaces, recursively calling this function for
     !    each in turn.
-    subspace_qpoints = subspaces(1)%qpoints(normal_modes,qpoints)
+    subspace_qpoints = subspaces(i)%qpoints(normal_modes,qpoints)
     output = [ModeMonomial::]
-    do i=1,size(subspaces(1))
-      mode_monomial_out = mode_monomial//subspaces(1)%mode_ids(i)
-      sum_q_out = sum_q + subspace_qpoints(i)%qpoint
-      if (last_mode_in_coupling .and. .not. is_int(sum_q_out)) then
-        mode_monomial_out%conserves_vscf = .false.
+    do j=1,size(subspaces(i))
+      new_mode_monomial = mode_monomial//subspaces(i)%mode_ids(j)
+      new_sum_q = sum_q + subspace_qpoints(j)%qpoint
+      if (last_mode_in_coupling .and. .not. is_int(new_sum_q)) then
+        new_mode_monomial%conserves_vscf = .false.
       endif
-      output = [ output,                                            &
-             &   generate_mode_monomials_helper( subspaces(2:),     &
-             &                                   normal_modes,      &
-             &                                   qpoints,           &
-             &                                   mode_monomial_out, &
-             &                                   sum_q_out)         &
-             & ]
+      output = [ output,                                             &
+             &   generate_mode_monomials_helper( subspaces,          &
+             &                                   new_powers,         &
+             &                                   normal_modes,       &
+             &                                   qpoints,            &
+             &                                   new_mode_monomial,  &
+             &                                   new_sum_q          )]
     enddo
   endif
 end function
@@ -233,14 +235,14 @@ function new_ComplexMonomial_ModeMonomial(this,complex_modes) result(output)
   
   integer :: i,ialloc
   
-  mode_ids = this%ids
+  mode_ids = this%mode_ids
   mode_ids = mode_ids(set(mode_ids))
   mode_ids = mode_ids(sort(mode_ids))
   output = ComplexMonomial( coefficient = cmplx(1.0_dp,0.0_dp,dp), &
                           & modes       = [ComplexUnivariate::]    )
   do i=1,size(mode_ids)
     mode = complex_modes(first(complex_modes%id==mode_ids(i)))
-    power = count(this%ids==mode_ids(i))
+    power = count(this%mode_ids==mode_ids(i))
     output = output * ComplexUnivariate(mode=mode, power=power)
   enddo
 end function
@@ -262,14 +264,14 @@ function new_RealMonomial_ModeMonomial(this,real_modes) result(output)
   
   integer :: i,ialloc
   
-  mode_ids = this%ids
+  mode_ids = this%mode_ids
   mode_ids = mode_ids(set(mode_ids))
   mode_ids = mode_ids(sort(mode_ids))
   output = RealMonomial( coefficient = 1.0_dp,            &
                        & modes       = [RealUnivariate::] )
   do i=1,size(mode_ids)
     mode = real_modes(first(real_modes%id==mode_ids(i)))
-    power = count(this%ids==mode_ids(i))
+    power = count(this%mode_ids==mode_ids(i))
     output = output * RealUnivariate(mode=mode, power=power)
   enddo
 end function
@@ -282,11 +284,11 @@ impure elemental function new_ModeCoupling_ModeMonomial(this) result(output)
   class(ModeMonomial), intent(in) :: this
   type(ModeCoupling)              :: output
   
-  integer, allocatable :: ids(:)
+  integer, allocatable :: mode_ids(:)
   
-  ids = this%ids
-  ids = ids(set(ids))
-  ids = ids(sort(ids))
-  output = ModeCoupling(ids)
+  mode_ids = this%mode_ids
+  mode_ids = mode_ids(set(mode_ids))
+  mode_ids = mode_ids(sort(mode_ids))
+  output = ModeCoupling(mode_ids)
 end function
 end module

@@ -16,12 +16,15 @@ module subspace_monomial_module
   public :: operator(//)
   public :: operator(==)
   public :: operator(/=)
+  public :: generate_complex_monomials
+  public :: generate_real_monomials
   
   type, extends(Stringable) :: SubspaceMonomial
-    ! The ids of the degenerate subspaces in the monomial.
-    ! e.g. if ids=[1,2,2,5] then the monomial is (s1).(s2)^2.(s5), where s1 is
-    !    the subspace with id 1.
+    ! The ids and powers of the degenerate subspaces in the monomial.
+    ! e.g. if ids=[1,2,5] and powers=[1,2,1] then the monomial is
+    !    (s1).(s2)^2.(s5), where s1 is the subspace with id 1.
     integer, allocatable :: ids(:)
+    integer, allocatable :: powers(:)
   contains
     ! Returns the coupled subspaces.
     procedure, public :: coupled_subspaces
@@ -37,6 +40,7 @@ module subspace_monomial_module
   
   interface SubspaceMonomial
     module procedure new_SubspaceMonomial
+    module procedure new_SubspaceMonomial_ids_powers
     module procedure new_SubspaceMonomial_DegenerateSubspaces
     module procedure new_SubspaceMonomial_String
   end interface
@@ -65,16 +69,25 @@ contains
 !    - size() function.
 !    - equality and non-equality with other SubspaceMonomials.
 ! ----------------------------------------------------------------------
-function new_SubspaceMonomial(ids) result(this)
+function new_SubspaceMonomial() result(this)
   implicit none
   
-  integer, intent(in), optional :: ids(:)
-  type(SubspaceMonomial)        :: this
+  type(SubspaceMonomial) :: this
   
-  if (present(ids)) then
-    this%ids = ids
-  else
-    this%ids = [integer::]
+  this%ids = [integer::]
+  this%powers = [integer::]
+end function
+
+function new_SubspaceMonomial_ids_powers(ids,powers) result(this)
+  implicit none
+  
+  integer, intent(in)    :: ids(:)
+  integer, intent(in)    :: powers(:)
+  type(SubspaceMonomial) :: this
+  
+  if (size(ids)/=size(powers)) then
+    call print_line(CODE_ERROR//': IDs and powers do not match.')
+    call err()
   endif
 end function
 
@@ -84,7 +97,12 @@ function new_SubspaceMonomial_DegenerateSubspaces(subspaces) result(this)
   type(DegenerateSubspace), intent(in) :: subspaces(:)
   type(SubspaceMonomial)               :: this
   
+  integer :: i
+  
   this%ids = subspaces%id
+  this%ids = this%ids(sort(this%ids))
+  this%ids = this%ids(set(this%ids))
+  this%powers = [(count(subspaces%id==this%ids(i)), i=1, size(subspaces))]
 end function
 
 function concatenate_SubspaceMonomial_DegenerateSubspace(this,subspace) &
@@ -95,7 +113,17 @@ function concatenate_SubspaceMonomial_DegenerateSubspace(this,subspace) &
   type(DegenerateSubspace), intent(in) :: subspace
   type(SubspaceMonomial)               :: output
   
-  output = SubspaceMonomial([this%ids, subspace%id])
+  integer :: i
+  
+  output = this
+  
+  i = first(this%ids==subspace%id, default=0)
+  if (i==0) then
+    output%ids = [output%ids, subspace%id]
+    output%powers = [output%powers, 1]
+  else
+    output%powers(i) = output%powers(i) + 1
+  endif
 end function
 
 function size_SubspaceMonomial(this) result(output)
@@ -115,7 +143,11 @@ impure elemental function equality_SubspaceMonomial_SubspaceMonomial(this, &
   type(SubspaceMonomial), intent(in) :: that
   logical                            :: output
   
-  output = all(this%ids==that%ids)
+  if (size(this)/=size(that)) then
+    output = .false.
+  else
+    output = all(this%ids==that%ids) .and. all(this%powers==that%powers)
+  endif
 end function
 
 impure elemental function non_equality_SubspaceMonomial_SubspaceMonomial( &
@@ -139,13 +171,9 @@ function coupled_subspaces(this,subspaces) result(output)
   type(DegenerateSubspace), intent(in)  :: subspaces(:)
   type(DegenerateSubspace), allocatable :: output(:)
   
-  integer :: i,j,ialloc
+  integer :: i
   
-  allocate(output(size(this)), stat=ialloc); call err(ialloc)
-  do i=1,size(output)
-    j = first(subspaces%id==this%ids(i))
-    output(i) = subspaces(j)
-  enddo
+  output = [( subspaces(first(subspaces%id==this%ids(i))), i=1, size(this) )]
 end function
 
 ! ----------------------------------------------------------------------
@@ -164,6 +192,9 @@ function is_subsidiary_of(this,that) result(output)
   do i=1,size(this)
     j = first(that%ids==this%ids(i), default=0)
     if (j==0) then
+      output = .false.
+      return
+    elseif (this%powers(i)>that%powers(j)) then
       output = .false.
       return
     endif
@@ -234,9 +265,9 @@ recursive function generate_subspace_monomials_helper(coupled_subspaces, &
     if (.not. present(monomial_in)) then
       call print_line(CODE_ERROR//': Empty subspace coupling.')
       call err()
-    elseif (size(monomial_in)<2) then
+    elseif (sum(monomial_in%powers)<2) then
       output = [SubspaceMonomial::]
-    elseif (size(monomial_in)>=2) then
+    else
       output = [monomial_in]
     endif
     
@@ -259,7 +290,8 @@ recursive function generate_subspace_monomials_helper(coupled_subspaces, &
   endif
   
   output = [SubspaceMonomial::]
-  do while(size(monomial)+size(coupled_subspaces)<=potential_expansion_order)
+  do while( sum(monomial%powers)+size(coupled_subspaces) <= &
+          & potential_expansion_order                       )
     monomial = monomial // first_subspace
     output = [ output,                                                        &
            &   generate_subspace_monomials_helper( remaining_subspaces,       &
@@ -270,214 +302,242 @@ recursive function generate_subspace_monomials_helper(coupled_subspaces, &
 end function
 
 ! ----------------------------------------------------------------------
-! Takes a list of couplings, and appends all subsidiary couplings.
+! Generate the ComplexMonomials or RealMonomials corresponding to
+!    a given SubspaceMonomial.
 ! ----------------------------------------------------------------------
-! e.g. [[3 5 7]] becomes [[], [3], [5], [3,5], [7], [3,7], [5,7], [3,5,7]]
-!
-! Algorithmic information:
-! The coupling with zero elements only produces itself.
-! The nth coupling produces all of the couplings from the previous couplings,
-!    both with and without n.
-! []      -> []
-! [1]     -> [], [1]
-! [1,2]   -> [], [1], [2], [1,2]
-! [1,2,3] -> [], [1], [2], [3], [1,2], [1,3], [2,3], [1,2,3]
-! These ids are then used as indices for the modes, so e.g.
-! [1,3,4] -> [], [1], [3], [4], [1,3], [1,4], [3,4], [1,3,4]
-! Then duplicates are removed and missing modes added, so e.g.
-! [1,3,4], [1,3] -> [], [1], [2], [3], [4], [1,3], [1,4], [3,4], [1,3,4]
-function OLDFUNCTION_calculate_all_coupling(input, modes) result(output)
+! The coefficients are chosen such that symmetry operations are unitary
+!    in the basis of monomials.
+function generate_complex_monomials(this,subspaces,modes,qpoints, &
+   & conserve_momentum,conserve_subspace_momentum) result(output)
   implicit none
   
-  type(SubspaceMonomial), intent(in)  :: input(:)
-  type(ComplexMode),      intent(in)  :: modes(:)
-  type(SubspaceMonomial), allocatable :: output(:)
+  type(SubspaceMonomial),   intent(in) :: this
+  type(DegenerateSubspace), intent(in) :: subspaces(:)
+  type(ComplexMode),        intent(in) :: modes(:)
+  type(QpointData),         intent(in) :: qpoints(:)
+  logical,                  intent(in) :: conserve_momentum
+  logical,                  intent(in) :: conserve_subspace_momentum
+  type(ComplexMonomial), allocatable   :: output(:)
   
-  integer :: no_modes
+  type(ComplexMonomial) :: root
   
-  integer :: max_no_coupled
-  integer :: no_couplings
+  type(DegenerateSubspace)       :: subspace
+  type(ComplexMode), allocatable :: subspace_modes(:)
   
-  integer,          allocatable :: sizes(:)
-  type(IntArray2D), allocatable :: ids(:)
+  type(ComplexMonomial), allocatable :: old_monomials(:)
+  type(ComplexMonomial), allocatable :: subspace_monomials(:)
   
-  type(SubspaceMonomial), allocatable :: couplings(:)
-  integer,            allocatable :: couplings_sizes(:)
+  integer :: i,j,ialloc
   
-  logical, allocatable :: mode_unaccounted_for(:)
-  logical, allocatable :: duplicate(:)
-  
-  integer :: i,j,k,l,ialloc
-  integer :: s
-  
-  no_modes = size(modes)
-  
-  ! ------------------------------
-  ! Check that no couplings include translational modes.
-  ! ------------------------------
-  do i=1,size(input)
-    do j=1,size(input(i))
-      if (modes(input(i)%ids(j))%translational_mode) then
-        call print_line('Error: the translational mode '//input(i)%ids(j)// &
-           & 'has been included in coupling '//i//' at the gamma-point.')
-        stop
-      endif
-    enddo
-  enddo
-  
-  ! ------------------------------
-  ! Check that all couplings are in ascending order and within [1,no_modes].
-  ! ------------------------------
-  do i=1,size(input)
-    do j=1,size(input(i))
-      if (input(i)%ids(j)<1 .or. input(i)%ids(j)>no_modes) then
-        call print_line('Error: mode '//j//' of coupling '//i//', '// &
-           & input(i)%ids//' is outside of the expected range.')
-        stop
-      endif
-      if (j>1) then
-        if (input(i)%ids(j)<=input(i)%ids(j-1)) then
-          call print_line('Error: coupling '//i//', '//input(i)%ids// &
-             & ' is not in ascending order.')
-          stop
-        endif
-      endif
-    enddo
-  enddo
-  
-  ! ------------------------------
-  ! Calculate the largest single coupling (e.g. [1,4,7] is size 3).
-  ! ------------------------------
-  max_no_coupled = 0
-  do i=1,size(input)
-    max_no_coupled = max(max_no_coupled, size(input(i)))
-  enddo
-  
-  ! ------------------------------
-  ! Calculate the number of individual terms for a given set of coupled modes.
-  ! e.g. [1,2] produces [1], [2] and [1,2], and is of size 3.
-  ! ------------------------------
-  allocate(sizes(max_no_coupled), stat=ialloc); call err(ialloc)
-  do i=1,max_no_coupled
-    sizes(i) = 2**i-1
-  enddo
-  
-  ! ------------------------------
-  ! Calculate ids.
-  ! ids = [[[1]], [[1],[2],[1,2]], [[1],[2],[1,2],[3],[1,3],[2,3],[1,2,3]] ...]
-  ! ------------------------------
-  
-  ! Allocate space for ids.
-  allocate(ids(max_no_coupled), stat=ialloc); call err(ialloc)
-  
-  ! Base case: single mode. ids(1) = [[1]]
-  if (size(ids)>0) then
-    ids(1) = [array([1])]
+  if (size(this)==0) then
+    output = [ComplexMonomial::]
+    return
   endif
   
-  ! Further cases : ids(i) = [ids(i-1), [i], ids(i-1)//i]
-  do i=2,size(ids)
-    ids(i) = ids(i-1) // [array([i])] // ids(i-1)
-    do j=sizes(i-1)+1,size(ids(i))
-      ids(i)%i(j) = ids(i)%i(j) // [i]
-    enddo
-  enddo
+  root = ComplexMonomial( coefficient=cmplx(1.0_dp,0.0_dp,dp), &
+                        & modes=[ComplexUnivariate::]          )
   
-  ! ------------------------------
-  ! Calculate the total number of couplings.
-  ! ------------------------------
-  no_couplings = 0
-  do i=1,size(input)
-    no_couplings = no_couplings + sizes(size(input(i)))
-  enddo
-  
-  ! ------------------------------
-  ! Calculate all couplings.
-  ! ------------------------------
-  allocate(couplings(no_couplings), stat=ialloc); call err(ialloc)
-  l = 0
-  do i=1,size(input)
-    s = size(input(i))
-    do j=l+1,l+sizes(s)
-      allocate( couplings(j)%ids(size(ids(s)%i(j))), &
+  do i=1,size(this)
+    subspace = subspaces(first(subspaces%id==this%ids(i)))
+    subspace_modes = subspace%modes(modes)
+    subspace_monomials = generate_subspace_complex_monomials( subspace_modes, &
+                                                            & this%powers(i), &
+                                                            & root            )
+    if (conserve_subspace_momentum) then
+      subspace_monomials = subspace_monomials(filter( subspace_monomials, &
+                                                    & conserves_momentum  ))
+    endif
+    
+    if (i==1) then
+      output = subspace_monomials
+    else
+      old_monomials = output
+      deallocate(output, stat=ialloc); call err(ialloc)
+      allocate( output(size(old_monomials)*size(subspace_monomials)), &
               & stat=ialloc); call err(ialloc)
-      do k=1,size(couplings(j))
-        couplings(j)%ids(k) = input(i)%ids( ids(s)%i(j)%i(k) )
+      do j=1,size(subspace_monomials)
+        output((j-1)*size(old_monomials)+1:j*size(old_monomials)) = &
+           & old_monomials * subspace_monomials(j)
       enddo
-    enddo
-    l = l + sizes(s)
-  enddo
-  
-  ! ------------------------------
-  ! Remove duplicates, and add in uncoupled modes.
-  ! ------------------------------
-  
-  ! Identify missing modes.
-  allocate(mode_unaccounted_for(no_modes), stat=ialloc); call err(ialloc)
-  mode_unaccounted_for = .true.
-  do i=1,size(couplings)
-    do j=1,size(couplings(i))
-      mode_unaccounted_for(couplings(i)%ids(j)) = .false.
-    enddo
-  enddo
-  
-  ! Mark translational modes as not missing.
-  do i=1,no_modes
-    if (modes(i)%translational_mode) then
-      mode_unaccounted_for(i) = .false.
     endif
   enddo
   
-  ! Identify duplicate modes.
-  allocate(duplicate(size(couplings)), stat=ialloc); call err(ialloc)
-  duplicate = .false.
-  do i=1,size(couplings)
-    do j=1,i-1
-      if (size(couplings(i))==size(couplings(j))) then
-        if (all(couplings(i)%ids==couplings(j)%ids)) then
-          duplicate(i) = .true.
-        endif
+  if (conserve_momentum) then
+    output = output(filter(output, conserves_momentum))
+  endif
+contains
+  ! Lambda for checking if a monomial conserves moementum.
+  ! Captures:
+  !    - modes
+  !    - qpoints
+  ! N.B. a monomial given by
+  !    prod_i (u_{q_i,i})^{n_i}
+  ! conserves momentum iff sum_i n_i q_i is a G-vector.
+  function conserves_momentum(input) result(output)
+    implicit none
+    
+    class(*), intent(in) :: input
+    logical              :: output
+    
+    select type(input); type is(ComplexMonomial)
+      output = is_gvector(input%wavevector(modes,qpoints))
+    end select
+  end function
+end function
+
+function generate_real_monomials(this,subspaces,modes,qpoints) result(output)
+  implicit none
+  
+  type(SubspaceMonomial),   intent(in) :: this
+  type(DegenerateSubspace), intent(in) :: subspaces(:)
+  type(RealMode),           intent(in) :: modes(:)
+  type(QpointData),         intent(in) :: qpoints(:)
+  type(RealMonomial), allocatable      :: output(:)
+  
+  type(RealMonomial) :: root
+  
+  type(DegenerateSubspace)    :: subspace
+  type(RealMode), allocatable :: subspace_modes(:)
+  
+  type(RealMonomial), allocatable :: old_monomials(:)
+  type(RealMonomial), allocatable :: subspace_monomials(:)
+  
+  integer :: i,j,ialloc
+  
+  if (size(this)==0) then
+    output = [RealMonomial::]
+    return
+  endif
+  
+  root = RealMonomial(coefficient=1.0_dp, modes=[RealUnivariate::])
+  
+  do i=1,size(this)
+    subspace = subspaces(first(subspaces%id==this%ids(i)))
+    subspace_modes = subspace%modes(modes)
+    subspace_monomials = generate_subspace_real_monomials( subspace_modes, &
+                                                         & this%powers(i), &
+                                                         & root            )
+    if (i==1) then
+      output = subspace_monomials
+    else
+      old_monomials = output
+      deallocate(output, stat=ialloc); call err(ialloc)
+      allocate( output(size(old_monomials)*size(subspace_monomials)), &
+              & stat=ialloc); call err(ialloc)
+      do j=1,size(subspace_monomials)
+        output((j-1)*size(old_monomials)+1:j*size(old_monomials)) = &
+           & old_monomials * subspace_monomials(j)
+      enddo
+    endif
+  enddo
+end function
+
+! Helper functions for the above. These generate monomials for a single
+!    subspace.
+recursive function generate_subspace_complex_monomials(modes,power,root) &
+   & result(output)
+  implicit none
+  
+  type(ComplexMode),     intent(in)  :: modes(:)
+  integer,               intent(in)  :: power
+  type(ComplexMonomial), intent(in)  :: root
+  type(ComplexMonomial), allocatable :: output(:)
+  
+  integer :: i
+  
+  if (size(modes)==0) then
+    if (power>0) then
+      call print_line(CODE_ERROR//': Monomial requires further modes, but no &
+         &modes remain to append.')
+      call err()
+    endif
+  endif
+  
+  if (power==0) then
+    output = [root]
+    output%coefficient = sqrt(real(no_permutations(output(1)),dp))
+  elseif (size(modes)==1) then
+    output = [root*ComplexUnivariate(mode=modes(1), power=power)]
+    output%coefficient = sqrt(real(no_permutations(output(1)),dp))
+  else
+    output = [generate_subspace_complex_monomials(modes(2:),power,root)]
+    do i=1,power
+      output = [ output,                                            &
+               & generate_subspace_complex_monomials(               &
+               &   modes(2:),                                       &
+               &   power-i,                                         &
+               &   root*ComplexUnivariate(mode=modes(1), power=i) ) ]
+    enddo
+  endif
+end function
+
+recursive function generate_subspace_real_monomials(modes,power,root) &
+   & result(output)
+  implicit none
+  
+  type(RealMode),     intent(in)  :: modes(:)
+  integer,            intent(in)  :: power
+  type(RealMonomial), intent(in)  :: root
+  type(RealMonomial), allocatable :: output(:)
+  
+  integer :: i
+  
+  if (size(modes)==0) then
+    if (power>0) then
+      call print_line(CODE_ERROR//': Monomial requires further modes, but no &
+         &modes remain to append.')
+      call err()
+    endif
+  endif
+  
+  if (power==0) then
+    output = [root]
+    output%coefficient = sqrt(real(no_permutations(output(1)),dp))
+  elseif (size(modes)==1) then
+    output = [root*RealUnivariate(mode=modes(1), power=power)]
+    output%coefficient = sqrt(real(no_permutations(output(1)),dp))
+  else
+    output = [generate_subspace_real_monomials(modes(2:),power,root)]
+    do i=1,power
+      output = [ output,                                         &
+               & generate_subspace_real_monomials(               &
+               &   modes(2:),                                    &
+               &   power-i,                                      &
+               &   root*RealUnivariate(mode=modes(1), power=i) ) ]
+    enddo
+  endif
+end function
+
+function no_permutations(input) result(output)
+  implicit none
+  
+  class(*), intent(in) :: input
+  integer              :: output
+  
+  integer, allocatable :: powers(:)
+  
+  integer :: i
+  
+  powers = [integer::]
+  select type(input); type is (ComplexMonomial)
+    do i=1,size(input)
+      powers = [powers, input%modes(i)%power]
+      if (input%modes(i)%id/=input%modes(i)%paired_id) then
+        powers = [powers, input%modes(i)%paired_power]
       endif
     enddo
-  enddo
+  type is(RealMonomial)
+    do i=1,size(input)
+      powers = [powers, input%modes(i)%power]
+      if (input%modes(i)%id/=input%modes(i)%paired_id) then
+        powers = [powers, input%modes(i)%paired_power]
+      endif
+    enddo
+  class default
+    call err()
+  end select
   
-  ! Construct output.
-  ! Couplings are sorted by size order.
-  allocate( output( size(couplings)             &
-          &       + count(mode_unaccounted_for) &
-          &       - count(duplicate)            &
-          &       + 1),                         &
-          & stat=ialloc); call err(ialloc)
-  
-  ! Add the blank coupling.
-  output(1)%ids=[integer::]
-  
-  ! Add in single modes which have not been specified as part of couplings.
-  j = 1
-  do i=1,size(mode_unaccounted_for)
-    if (mode_unaccounted_for(i)) then
-      j = j + 1
-      output(j)%ids = [i]
-    endif
-  enddo
-  
-  ! Add in all other couplings, in order of size.
-  allocate(couplings_sizes(size(couplings)), stat=ialloc); call err(ialloc)
-  
-  do i=1,size(couplings)
-    if (duplicate(i)) then
-      couplings_sizes(i) = -1
-    else
-      couplings_sizes(i) = size(couplings(i))
-    endif
-  enddo
-  
-  do i=1,size(couplings)-count(duplicate)
-    k = minloc(couplings_sizes, 1, mask=(couplings_sizes/=1))
-    j = j + 1
-    output(j) = couplings(k)
-    couplings_sizes(k) = -1
-  enddo
+  output = multinomial(sum(powers), powers)
 end function
 
 ! ----------------------------------------------------------------------
@@ -489,8 +549,25 @@ subroutine read_SubspaceMonomial(this,input)
   class(SubspaceMonomial), intent(out) :: this
   type(String),            intent(in)  :: input
   
+  integer, allocatable :: ids(:)
+  integer, allocatable :: powers(:)
+  
+  type(String), allocatable :: subspace_strings(:)
+  type(String), allocatable :: line(:)
+  
+  integer :: i,ialloc
+  
   select type(this); type is(SubspaceMonomial)
-    this = SubspaceMonomial(int(split_line(input)))
+    subspace_strings = split_line(input, delimiter='*')
+    allocate( ids(size(subspace_strings)),    &
+            & powers(size(subspace_strings)), &
+            & stat=ialloc); call err(ialloc)
+    do i=1,size(subspace_strings)
+      line = split_line(subspace_strings(i), delimiter='^')
+      ids(i) = int(slice(line(1),2,len(line(1))))
+      powers(i) = int(slice(line(2),1,len(line(2))-1))
+    enddo
+    this = SubspaceMonomial(ids, powers)
   end select
 end subroutine
 
@@ -500,8 +577,15 @@ function write_SubspaceMonomial(this) result(output)
   class(SubspaceMonomial), intent(in) :: this
   type(String)                        :: output
   
+  type(String), allocatable :: subspace_strings(:)
+  
+  integer :: i,ialloc
+  
   select type(this); type is(SubspaceMonomial)
-    output = join(this%ids)
+    subspace_strings = [( '(s'//this%ids(i)//'^'//this%powers(i)//')', &
+                        & i=0,                                         &
+                        & size(this)                                   )]
+    output = join(subspace_strings, delimiter='*')
   end select
 end function
 
