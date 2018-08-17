@@ -33,6 +33,11 @@ module print_settings_submodule
   
   logical             :: USE_CURRENT_PRINT_SETTINGS = .false.
   type(PrintSettings) :: CURRENT_PRINT_SETTINGS
+  
+  interface set_print_settings
+    module procedure set_print_settings_PrintSettings
+    module procedure set_print_settings_arguments
+  end interface
 contains
 
 ! Constructor.
@@ -81,13 +86,30 @@ function new_PrintSettings(indent,overhang,decimal_places, &
   endif
 end function
 
-subroutine set_print_settings(settings)
+subroutine set_print_settings_PrintSettings(settings)
   implicit none
   
   type(PrintSettings), intent(in) :: settings
   
   CURRENT_PRINT_SETTINGS = settings
   USE_CURRENT_PRINT_SETTINGS = .true.
+end subroutine
+
+subroutine set_print_settings_arguments(indent,overhang,decimal_places, &
+   & floating_point_format,integer_digits)
+  implicit none
+  
+  integer,      intent(in), optional :: indent
+  integer,      intent(in), optional :: overhang
+  integer,      intent(in), optional :: decimal_places
+  type(String), intent(in), optional :: floating_point_format
+  integer,      intent(in), optional :: integer_digits
+  
+  call set_print_settings(PrintSettings( indent,                &
+                                       & overhang,              &
+                                       & decimal_places,        &
+                                       & floating_point_format, &
+                                       & integer_digits         ))
 end subroutine
 
 subroutine unset_print_settings()

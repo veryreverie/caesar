@@ -141,6 +141,7 @@ subroutine setup_anharmonic_subroutine(arguments)
   type(OFile) :: real_modes_file
   type(OFile) :: subspaces_file
   type(OFile) :: coupling_file
+  type(OFile) :: symmetry_file
   type(OFile) :: calculation_directories_file
   
   ! Temporary variables.
@@ -237,6 +238,8 @@ subroutine setup_anharmonic_subroutine(arguments)
     complex_modes = [complex_modes, qpoint_modes]
   enddo
   
+  complex_modes = complex_modes(filter(.not.complex_modes%translational_mode))
+  
   ! Calculate real modes from complex modes.
   real_modes = complex_to_real(complex_modes)
   
@@ -268,21 +271,25 @@ subroutine setup_anharmonic_subroutine(arguments)
   call anharmonic_supercell_file%print_lines(anharmonic_supercell)
   
   anharmonic_qpoints_file = OFile(wd//'/qpoints.dat')
-  call anharmonic_qpoints_file%print_lines(qpoints,separating_line='')
+  call anharmonic_qpoints_file%print_lines(qpoints, separating_line='')
   
   ! Write out complex and real normal modes.
   complex_modes_file = OFile(wd//'/complex_modes.dat')
-  call complex_modes_file%print_lines(complex_modes,separating_line='')
+  call complex_modes_file%print_lines(complex_modes, separating_line='')
   
   real_modes_file = OFile(wd//'/real_modes.dat')
-  call real_modes_file%print_lines(real_modes,separating_line='')
+  call real_modes_file%print_lines(real_modes, separating_line='')
   
   ! Write out subspaces and subspace coupling.
   subspaces_file = OFile(wd//'/degenerate_subspaces.dat')
-  call subspaces_file%print_lines(degenerate_subspaces,separating_line='')
+  call subspaces_file%print_lines(degenerate_subspaces, separating_line='')
   
   coupling_file = OFile(wd//'/subspace_coupling.dat')
   call coupling_file%print_lines(subspace_coupling)
+  
+  ! Write out symmetries.
+  symmetry_file = OFile(wd//'/symmetries.dat')
+  call symmetry_file%print_lines(degenerate_symmetries, separating_line='')
   
   ! ----------------------------------------------------------------------
   ! Generate and write out sampling points.

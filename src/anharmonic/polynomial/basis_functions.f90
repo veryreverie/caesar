@@ -77,9 +77,10 @@ function generate_basis_functions_SubspaceMonomials(couplings,structure, &
   
   type(BasisFunction), allocatable :: basis_functions(:)
   
-  integer                         :: unique_term_id
-  type(RealMonomial)              :: unique_term
-  type(RealMonomial)              :: matching_term
+  integer            :: unique_term_id
+  type(RealMonomial) :: unique_term
+  integer            :: matching_term_location
+  type(RealMonomial) :: matching_term
   
   integer :: i,j,k
   
@@ -96,7 +97,7 @@ function generate_basis_functions_SubspaceMonomials(couplings,structure, &
                                               & degenerate_symmetries,     &
                                               & vscf_basis_functions_only, &
                                               & logfile                    )
-
+    
     ! Take linear combinations of basis functions such that each basis function
     !    contains at least term which is in no other basis function.
     do j=1,size(basis_functions)
@@ -112,15 +113,19 @@ function generate_basis_functions_SubspaceMonomials(couplings,structure, &
       !    functions is zero.
       do k=1,size(basis_functions)
         if (k/=j) then
-          ! TODO
-          matching_term = basis_functions(k)%real_representation%terms(first( &
-             & basis_functions(k)%real_representation%terms,                  &
-             & compare_real_monomials,                                        &
-             & unique_term                                                   ))
-          basis_functions(k) = basis_functions(k)        &
-                           & - basis_functions(j)        &
-                           & * matching_term%coefficient &
-                           & / unique_term%coefficient
+          matching_term_location = first(                    &
+             & basis_functions(k)%real_representation%terms, &
+             & compare_real_monomials,                       &
+             & unique_term,                                  &
+             & default=0                                     )
+          if (matching_term_location/=0) then
+            matching_term = basis_functions(k)%real_representation%terms( &
+                                                 & matching_term_location )
+            basis_functions(k) = basis_functions(k)        &
+                             & - basis_functions(j)        &
+                             & * matching_term%coefficient &
+                             & / unique_term%coefficient
+          endif
         endif
       enddo
       

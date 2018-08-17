@@ -324,10 +324,9 @@ function generate_complex_monomials(this,subspaces,modes,qpoints, &
   type(DegenerateSubspace)       :: subspace
   type(ComplexMode), allocatable :: subspace_modes(:)
   
-  type(ComplexMonomial), allocatable :: old_monomials(:)
   type(ComplexMonomial), allocatable :: subspace_monomials(:)
   
-  integer :: i,j,ialloc
+  integer :: i,j,k,ialloc
   
   if (size(this)==0) then
     output = [ComplexMonomial::]
@@ -351,14 +350,10 @@ function generate_complex_monomials(this,subspaces,modes,qpoints, &
     if (i==1) then
       output = subspace_monomials
     else
-      old_monomials = output
-      deallocate(output, stat=ialloc); call err(ialloc)
-      allocate( output(size(old_monomials)*size(subspace_monomials)), &
-              & stat=ialloc); call err(ialloc)
-      do j=1,size(subspace_monomials)
-        output((j-1)*size(old_monomials)+1:j*size(old_monomials)) = &
-           & old_monomials * subspace_monomials(j)
-      enddo
+      output = [(                                                            &
+         & (output(k)*subspace_monomials(j), j=1, size(subspace_monomials)), &
+         & k=1,                                                              &
+         & size(output)                                                      )]
     endif
   enddo
   
@@ -366,7 +361,7 @@ function generate_complex_monomials(this,subspaces,modes,qpoints, &
     output = output(filter(output, conserves_momentum))
   endif
 contains
-  ! Lambda for checking if a monomial conserves moementum.
+  ! Lambda for checking if a monomial conserves momentum.
   ! Captures:
   !    - modes
   !    - qpoints
@@ -399,10 +394,9 @@ function generate_real_monomials(this,subspaces,modes,qpoints) result(output)
   type(DegenerateSubspace)    :: subspace
   type(RealMode), allocatable :: subspace_modes(:)
   
-  type(RealMonomial), allocatable :: old_monomials(:)
   type(RealMonomial), allocatable :: subspace_monomials(:)
   
-  integer :: i,j,ialloc
+  integer :: i,j,k,ialloc
   
   if (size(this)==0) then
     output = [RealMonomial::]
@@ -420,14 +414,10 @@ function generate_real_monomials(this,subspaces,modes,qpoints) result(output)
     if (i==1) then
       output = subspace_monomials
     else
-      old_monomials = output
-      deallocate(output, stat=ialloc); call err(ialloc)
-      allocate( output(size(old_monomials)*size(subspace_monomials)), &
-              & stat=ialloc); call err(ialloc)
-      do j=1,size(subspace_monomials)
-        output((j-1)*size(old_monomials)+1:j*size(old_monomials)) = &
-           & old_monomials * subspace_monomials(j)
-      enddo
+      output = [(                                                            &
+         & (output(k)*subspace_monomials(j), j=1, size(subspace_monomials)), &
+         & k=1,                                                              &
+         & size(output)                                                      )]
     endif
   enddo
 end function

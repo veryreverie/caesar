@@ -210,6 +210,12 @@ subroutine check_orthogonal_String(input,matrix_name,logfile,warning_threshold)
   
   real(dp) :: error
   
+  if (size(input,1)/=size(input,2)) then
+    call print_line(ERROR//': '//matrix_name//" cannot be orthogonal because &
+       &it isn't square.")
+    call err()
+  endif
+  
   if (present(warning_threshold)) then
     threshold = warning_threshold
   else
@@ -254,6 +260,12 @@ subroutine check_unitary_String(input,matrix_name,logfile,warning_threshold)
   
   real(dp) :: error
   
+  if (size(input,1)/=size(input,2)) then
+    call print_line(ERROR//': '//matrix_name//" cannot be unitary because it &
+       &isn't square.")
+    call err()
+  endif
+  
   if (present(warning_threshold)) then
     threshold = warning_threshold
   else
@@ -271,6 +283,8 @@ subroutine check_unitary_String(input,matrix_name,logfile,warning_threshold)
   if (error>threshold) then
     call print_line(WARNING//': '//matrix_name//' not as unitary as expected. &
        &Fractional L2 error in unitarity: '//error)
+    call print_line(ERROR)
+    call err()
   endif
 end subroutine
 

@@ -193,6 +193,9 @@ module complex_polynomial_submodule
     module procedure multiply_complex_ComplexPolynomial
     
     module procedure multiply_ComplexMonomialable_ComplexMonomialable
+    
+    module procedure multiply_ComplexPolynomial_ComplexMonomialable
+    module procedure multiply_ComplexMonomialable_ComplexPolynomial
   end interface
   
   interface operator(/)
@@ -211,6 +214,10 @@ module complex_polynomial_submodule
     module procedure negative_ComplexPolynomialable
     
     module procedure subtract_ComplexPolynomialable_ComplexPolynomialable
+  end interface
+  
+  interface sum
+    module procedure sum_ComplexPolynomialables
   end interface
   
   interface select_modes
@@ -232,7 +239,8 @@ contains
 ! ----------------------------------------------------------------------
 ! Constructors.
 ! ----------------------------------------------------------------------
-function new_ComplexUnivariate(id,paired_id,power,paired_power) result(this)
+impure elemental function new_ComplexUnivariate(id,paired_id,power, &
+   & paired_power) result(this)
   implicit none
   
   integer, intent(in)     :: id
@@ -425,6 +433,7 @@ impure elemental subroutine simplify_ComplexPolynomial(this)
   class(ComplexPolynomial), intent(inout) :: this
   
   integer,               allocatable :: equivalent_monomial_locs(:)
+  integer,               allocatable :: unique_monomial_locs(:)
   type(ComplexMonomial), allocatable :: equivalent_monomials(:)
   type(ComplexMonomial), allocatable :: monomials(:)
   
@@ -437,10 +446,13 @@ impure elemental subroutine simplify_ComplexPolynomial(this)
   ! Add together any equivalent monomials.
   equivalent_monomial_locs = first_equivalent( this%terms,               &
                                              & compare_complex_monomials )
-  allocate( monomials(maxval(equivalent_monomial_locs)), &
+  unique_monomial_locs = equivalent_monomial_locs( &
+                   & set(equivalent_monomial_locs) )
+  allocate( monomials(size(unique_monomial_locs)), &
           & stat=ialloc); call err(ialloc)
   do i=1,size(monomials)
-    equivalent_monomials = this%terms(filter(equivalent_monomial_locs==i))
+    equivalent_monomials = this%terms(                             &
+       & filter(equivalent_monomial_locs==unique_monomial_locs(i)) )
     monomials(i) = equivalent_monomials(1)
     monomials(i)%coefficient = sum(equivalent_monomials%coefficient)
   enddo
@@ -524,7 +536,11 @@ function wavevector_ComplexUnivariate(this,modes,qpoints) result(output)
   
   mode = modes(first(modes%id==this%id))
   qpoint = qpoints(first(qpoints%id==mode%qpoint_id))
-  qpoint%qpoint = qpoint%qpoint * this%power
+  if (this%id==this%paired_id) then
+    qpoint%qpoint = qpoint%qpoint * this%power
+  else
+    qpoint%qpoint = qpoint%qpoint * (this%power-this%paired_power)
+  endif
   
   output = qpoints(first(qpoints==qpoint))
 end function
@@ -970,7 +986,7 @@ impure elemental function divide_ComplexPolynomial_complex(this,that) &
   output = ComplexPolynomial(this%terms / that)
 end function
 
-! Multiplication between Monomials and Monomial-like types.
+! Multiplication between Monomial-like types.
 impure elemental function multiply_ComplexMonomialable_ComplexMonomialable( &
    & this,that) result(output)
   implicit none
@@ -1002,7 +1018,7 @@ impure elemental function multiply_ComplexMonomialable_ComplexMonomialable( &
     i_out = 0
     allocate( modes(size(this_monomial)+size(that_monomial)), &
             & stat=ialloc); call err(ialloc)
-    do while(i_this<=size(this_monomial) .and. i_that<=size(that_monomial))
+    do while(i_this<=size(this_monomial) .or. i_that<=size(that_monomial))
       i_out = i_out + 1
       if (i_this>size(this_monomial)) then
         modes(i_out) = that_monomial%modes(i_that)
@@ -1037,6 +1053,29 @@ impure elemental function multiply_ComplexMonomialable_ComplexMonomialable( &
   endif
   
   output = ComplexMonomial(coefficient, modes)
+end function
+
+! Multiplication between polynomials and monomial-like types.
+impure elemental function multiply_ComplexPolynomial_ComplexMonomialable( &
+   & this,that) result(output)
+  implicit none
+  
+  type(ComplexPolynomial),    intent(in) :: this
+  class(ComplexMonomialable), intent(in) :: that
+  type(ComplexPolynomial)                :: output
+  
+  output = ComplexPolynomial(this%terms * that)
+end function
+
+impure elemental function multiply_ComplexMonomialable_ComplexPolynomial( &
+   & this,that) result(output)
+  implicit none
+  
+  class(ComplexMonomialable), intent(in) :: this
+  type(ComplexPolynomial),    intent(in) :: that
+  type(ComplexPolynomial)                :: output
+  
+  output = ComplexPolynomial(this * that%terms)
 end function
 
 ! Addition between polynomials and polynomial-like types.
@@ -1100,6 +1139,25 @@ impure elemental function                                            &
   type(ComplexPolynomial)                  :: output
   
   output = this + (-that)
+end function
+
+! Sum polynomial-like types.
+function sum_ComplexPolynomialables(input) result(output)
+  implicit none
+  
+  class(ComplexPolynomialable), intent(in) :: input(:)
+  type(ComplexPolynomial)                  :: output
+  
+  integer :: i
+  
+  if (size(input)==0) then
+    output = ComplexPolynomial([ComplexMonomial::])
+  else
+    output = input(1)%to_ComplexPolynomial()
+    do i=2,size(input)
+      !output = output + input(i)
+    enddo
+  endif
 end function
 
 ! ----------------------------------------------------------------------

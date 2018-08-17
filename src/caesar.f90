@@ -26,7 +26,7 @@ program caesar
   use run_anharmonic_module
   use calculate_potential_module
   use map_anharmonic_modes_module
-  use plot_effective_frequencies_module
+  use plot_anharmonic_modes_module
   use map_potential_module
   use plot_potential_map_module
   use calculate_states_module
@@ -91,7 +91,7 @@ program caesar
      & run_anharmonic(),                 &
      & calculate_potential(),            &
      & map_anharmonic_modes(),           &
-     & plot_effective_frequencies(),     &
+     & plot_anharmonic_modes(),          &
      & map_potential(),                  &
      & plot_potential_map(),             &
      & calculate_states()                ])

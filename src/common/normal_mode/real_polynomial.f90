@@ -21,6 +21,7 @@ module real_polynomial_submodule
   public :: operator(/)
   public :: operator(+)
   public :: operator(-)
+  public :: sum
   public :: select_mode
   public :: select_modes
   public :: select_displacement
@@ -154,6 +155,9 @@ module real_polynomial_submodule
     module procedure multiply_real_RealPolynomial
     
     module procedure multiply_RealMonomialable_RealMonomialable
+    
+    module procedure multiply_RealPolynomial_RealMonomialable
+    module procedure multiply_RealMonomialable_RealPolynomial
   end interface
   
   interface operator(/)
@@ -170,6 +174,10 @@ module real_polynomial_submodule
     module procedure negative_RealPolynomialable
     
     module procedure subtract_RealPolynomialable_RealPolynomialable
+  end interface
+  
+  interface sum
+    module procedure sum_RealPolynomialables
   end interface
   
   interface select_mode
@@ -200,7 +208,8 @@ contains
 ! ----------------------------------------------------------------------
 ! Constructors.
 ! ----------------------------------------------------------------------
-function new_RealUnivariate(id,paired_id,power,paired_power) result(this)
+impure elemental function new_RealUnivariate(id,paired_id,power, &
+   & paired_power) result(this)
   implicit none
   
   integer, intent(in)  :: id
@@ -392,6 +401,7 @@ impure elemental subroutine simplify_RealPolynomial(this)
   class(RealPolynomial), intent(inout) :: this
   
   integer,            allocatable :: equivalent_monomial_locs(:)
+  integer,            allocatable :: unique_monomial_locs(:)
   type(RealMonomial), allocatable :: equivalent_monomials(:)
   type(RealMonomial), allocatable :: monomials(:)
   
@@ -404,10 +414,13 @@ impure elemental subroutine simplify_RealPolynomial(this)
   ! Add together any equivalent monomials.
   equivalent_monomial_locs = first_equivalent( this%terms,            &
                                              & compare_real_monomials )
-  allocate( monomials(maxval(equivalent_monomial_locs)), &
+  unique_monomial_locs = equivalent_monomial_locs( &
+                   & set(equivalent_monomial_locs) )
+  allocate( monomials(size(unique_monomial_locs)), &
           & stat=ialloc); call err(ialloc)
   do i=1,size(monomials)
-    equivalent_monomials = this%terms(filter(equivalent_monomial_locs==i))
+    equivalent_monomials = this%terms(                             &
+       & filter(equivalent_monomial_locs==unique_monomial_locs(i)) )
     monomials(i) = equivalent_monomials(1)
     monomials(i)%coefficient = sum(equivalent_monomials%coefficient)
   enddo
@@ -765,7 +778,7 @@ impure elemental function divide_RealPolynomial_real(this,that) result(output)
   output = RealPolynomial(this%terms / that)
 end function
 
-! Multiplication between Monomials and Monomial-like types.
+! Multiplication between Monomial-like types.
 impure elemental function multiply_RealMonomialable_RealMonomialable(this, &
    & that) result(output)
   implicit none
@@ -797,7 +810,7 @@ impure elemental function multiply_RealMonomialable_RealMonomialable(this, &
     i_out = 0
     allocate( modes(size(this_monomial)+size(that_monomial)), &
             & stat=ialloc); call err(ialloc)
-    do while(i_this<=size(this_monomial) .and. i_that<=size(that_monomial))
+    do while(i_this<=size(this_monomial) .or. i_that<=size(that_monomial))
       i_out = i_out + 1
       if (i_this>size(this_monomial)) then
         modes(i_out) = that_monomial%modes(i_that)
@@ -832,6 +845,29 @@ impure elemental function multiply_RealMonomialable_RealMonomialable(this, &
   endif
   
   output = RealMonomial(coefficient, modes)
+end function
+
+! Multiplication between polynomials and monomial-like types.
+impure elemental function multiply_RealPolynomial_RealMonomialable( &
+   & this,that) result(output)
+  implicit none
+  
+  type(RealPolynomial),    intent(in) :: this
+  class(RealMonomialable), intent(in) :: that
+  type(RealPolynomial)                :: output
+  
+  output = RealPolynomial(this%terms * that)
+end function
+
+impure elemental function multiply_RealMonomialable_RealPolynomial( &
+   & this,that) result(output)
+  implicit none
+  
+  class(RealMonomialable), intent(in) :: this
+  type(RealPolynomial),    intent(in) :: that
+  type(RealPolynomial)                :: output
+  
+  output = RealPolynomial(this * that%terms)
 end function
 
 ! Addition between polynomials and polynomial-like types.
@@ -894,6 +930,25 @@ impure elemental function subtract_RealPolynomialable_RealPolynomialable( &
   type(RealPolynomial)                  :: output
   
   output = this + (-that)
+end function
+
+! Sum polynomial-like types.
+function sum_RealPolynomialables(input) result(output)
+  implicit none
+  
+  class(RealPolynomialable), intent(in) :: input(:)
+  type(RealPolynomial)                  :: output
+  
+  integer :: i
+  
+  if (size(input)==0) then
+    output = RealPolynomial([RealMonomial::])
+  else
+    output = input(1)%to_RealPolynomial()
+    do i=2,size(input)
+      output = output + input(i)
+    enddo
+  endif
 end function
 
 ! ----------------------------------------------------------------------

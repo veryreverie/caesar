@@ -155,9 +155,9 @@ function qpoints_DegenerateSubspace_ComplexModes(this,modes,qpoints) &
   integer :: i
   
   subspace_modes = this%modes(modes)
-  output = [( qpoints(first(qpoints%id==modes(i)%qpoint_id)), &
-            & i=1,                                            &
-            & size(this)                                      )]
+  output = [( qpoints(first(qpoints%id==subspace_modes(i)%qpoint_id)), &
+            & i=1,                                                     &
+            & size(subspace_modes)                                     )]
 end function
 
 function qpoints_DegenerateSubspace_RealModes(this,modes,qpoints) &
@@ -174,9 +174,9 @@ function qpoints_DegenerateSubspace_RealModes(this,modes,qpoints) &
   integer :: i
   
   subspace_modes = this%modes(modes)
-  output = [( qpoints(first(qpoints%id==modes(i)%qpoint_id_plus)), &
-            & i=1,                                                 &
-            & size(this)                                           )]
+  output = [( qpoints(first(qpoints%id==subspace_modes(i)%qpoint_id_plus)), &
+            & i=1,                                                          &
+            & size(subspace_modes)                                          )]
 end function
 
 ! ----------------------------------------------------------------------
