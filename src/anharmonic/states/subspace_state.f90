@@ -461,18 +461,7 @@ impure elemental function braket_SubspaceStates_ComplexMonomial(bra,ket, &
   ! Calculate sqrt(2Nw_i).
   sqrt_two_n_omega = sqrt(2.0_dp * supercell%sc_size * bra%frequency)
   
-  sum_n = 0
-  do i=1,size(monomial)
-    if (monomial_mode_integrated(i)) then
-      if (monomial%modes(i)%id==monomial%modes(i)%paired_id) then
-        sum_n = sum_n &
-            & + monomial%modes(i)%power
-      else
-        sum_n = sum_n &
-            & + monomial%modes(i)%power + monomial%modes(i)%paired_power
-      endif
-    endif
-  enddo
+  sum_n = sum(monomial%modes(filter(monomial_mode_integrated))%total_power())
   
   coefficient = coefficient / sqrt_two_n_omega**sum_n
   

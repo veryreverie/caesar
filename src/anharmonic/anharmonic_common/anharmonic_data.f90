@@ -15,7 +15,6 @@ module anharmonic_data_module
   
   type, extends(NoDefaultConstructor) :: AnharmonicData
     type(StructureData)                   :: structure
-    real(dp)                              :: symmetry_precision
     type(StructureData)                   :: anharmonic_supercell
     type(QpointData),         allocatable :: qpoints(:)
     type(ComplexMode),        allocatable :: complex_modes(:)
@@ -33,15 +32,13 @@ module anharmonic_data_module
   end interface
 contains
 
-function new_AnharmonicData(structure,symmetry_precision,           &
-   & anharmonic_supercell,qpoints,complex_modes,real_modes,         &
-   & degenerate_subspaces,degenerate_symmetries,subspace_couplings, &
-   & vscf_basis_functions_only,maximum_weighted_displacement,       &
-   & frequency_of_max_displacement) result(this)
+function new_AnharmonicData(structure,anharmonic_supercell,qpoints,       &
+   & complex_modes,real_modes,degenerate_subspaces,degenerate_symmetries, &
+   & subspace_couplings,vscf_basis_functions_only,                        &
+   & maximum_weighted_displacement,frequency_of_max_displacement) result(this)
   implicit none
   
   type(StructureData),      intent(in) :: structure
-  real(dp),                 intent(in) :: symmetry_precision
   type(StructureData),      intent(in) :: anharmonic_supercell
   type(QpointData),         intent(in) :: qpoints(:)
   type(ComplexMode),        intent(in) :: complex_modes(:)
@@ -55,7 +52,6 @@ function new_AnharmonicData(structure,symmetry_precision,           &
   type(AnharmonicData)                 :: this
   
   this%structure                     = structure
-  this%symmetry_precision            = symmetry_precision
   this%anharmonic_supercell          = anharmonic_supercell
   this%qpoints                       = qpoints
   this%complex_modes                 = complex_modes

@@ -91,7 +91,6 @@ subroutine setup_anharmonic_subroutine(arguments)
   type(Dictionary) :: setup_harmonic_arguments
   type(String)     :: seedname
   type(String)     :: file_type
-  real(dp)         :: symmetry_precision
   
   ! Previously calculated data.
   type(StructureData)            :: structure
@@ -170,8 +169,6 @@ subroutine setup_anharmonic_subroutine(arguments)
      & harmonic_path//'/setup_harmonic.used_settings')
   seedname = setup_harmonic_arguments%value('seedname')
   file_type = setup_harmonic_arguments%value('file_type')
-  symmetry_precision = &
-     & dble(setup_harmonic_arguments%value('symmetry_precision'))
   
   ! Read in structure and harmonic q-points.
   structure_file = IFile(harmonic_path//'/structure.dat')
@@ -309,7 +306,6 @@ subroutine setup_anharmonic_subroutine(arguments)
   
   ! Load anharmonic data into container.
   anharmonic_data = AnharmonicData( structure,                     &
-                                  & symmetry_precision,            &
                                   & anharmonic_supercell,          &
                                   & qpoints,                       &
                                   & complex_modes,                 &

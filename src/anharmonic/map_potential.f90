@@ -283,9 +283,11 @@ subroutine map_potential_subroutine(arguments)
           & stat=ialloc); call err(ialloc)
   do i=1,size(selected_modes)
     do j=i+1,size(selected_modes)
-      modes_dir = map_dir//'/modes_'//                                        &
-                & left_pad(selected_modes(i)%id,str(size(real_modes)))//'_'// &
-                & left_pad(selected_modes(j)%id,str(size(real_modes)))
+      modes_dir = map_dir//'/modes_'//                           &
+                & left_pad( selected_modes(i)%id,                &
+                &           str(maxval(real_modes%id)) ) //'_'// &
+                & left_pad( selected_modes(j)%id,                &
+                &           str(maxval(real_modes%id)) )
       call mkdir(modes_dir)
       
       ! Scale displacement by 1/sqrt(frequency).

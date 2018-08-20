@@ -138,6 +138,8 @@ subroutine calculate_frequencies(potential,anharmonic_data, &
   ! Generate basis states from frequencies.
   ! Return basis.
   
+  call print_line('')
+  call print_line('Frequencies:')
   call print_line(frequencies)
   
 end subroutine

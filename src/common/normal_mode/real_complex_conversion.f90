@@ -43,7 +43,8 @@ module real_complex_conversion_submodule
   
   public :: complex_to_real
   public :: real_to_complex
-  public :: conversion_matrix
+  public :: basis_conversion_matrix
+  public :: coefficient_conversion_matrix
   
   interface complex_to_real
     module procedure complex_to_real_mode
@@ -53,17 +54,19 @@ module real_complex_conversion_submodule
     module procedure real_to_complex_mode
   end interface
   
-  interface conversion_matrix
-    module procedure conversion_matrix_ComplexMonomials_RealMonomials
-    module procedure conversion_matrix_RealMonomials_ComplexMonomials
+  interface basis_conversion_matrix
+    module procedure basis_conversion_matrix_ComplexMonomials_RealMonomials
+    module procedure basis_conversion_matrix_RealMonomials_ComplexMonomials
+  end interface
+  
+  interface coefficient_conversion_matrix
+    module procedure coefficient_conversion_matrix_ComplexMonomials_RealMonomials
+    module procedure coefficient_conversion_matrix_RealMonomials_ComplexMonomials
   end interface
   
   interface element
     module procedure element_ComplexMonomial_RealMonomial
     module procedure element_RealMonomial_ComplexMonomial
-    
-    module procedure element_ComplexUnivariates_RealUnivariates
-    module procedure element_RealUnivariates_ComplexUnivariates
   end interface
 contains
 
@@ -205,7 +208,7 @@ end function
 !                                               (s)   ( 1 -i)   (u-)
 !    - if .true. then the conversion matrix is (Cc) = ( C/A  Ci/A) . (Au+)
 !                                              (Ds)   ( D/B -Di/B)   (Bu-)
-function conversion_matrix_ComplexMonomials_RealMonomials(this,that, &
+function basis_conversion_matrix_ComplexMonomials_RealMonomials(this,that, &
    & include_coefficients) result(output)
   implicit none
   
@@ -228,7 +231,7 @@ function conversion_matrix_ComplexMonomials_RealMonomials(this,that, &
   output = matrix
 end function
 
-function conversion_matrix_RealMonomials_ComplexMonomials(this,that, &
+function basis_conversion_matrix_RealMonomials_ComplexMonomials(this,that, &
    & include_coefficients) result(output)
   implicit none
   
@@ -252,6 +255,41 @@ function conversion_matrix_RealMonomials_ComplexMonomials(this,that, &
 end function
 
 ! ----------------------------------------------------------------------
+! Conversion matrices for coefficients rather than basis functions.
+! ----------------------------------------------------------------------
+! Coefficients transform in the opposite manner to basis functions.
+! If f(x) = sum_i a_ig_i(x) = sum_j b_jh_j(x) then if
+!    f_i(x) = sum_j C_ij h_j(x)
+!    h_j(x) = sum_i D_ji g_j(x)
+! where sum_j C_ij D_jk is the identity, then
+!    a_i    = sum_j D_ji b_j
+!    b_j    = sum_j C_ij a_i
+! So the conversion matrices are D^T and C^T rather than C and D.
+function coefficient_conversion_matrix_ComplexMonomials_RealMonomials(this, &
+   & that,include_coefficients) result(output)
+  implicit none
+  
+  type(ComplexMonomial), intent(in) :: this(:)
+  type(RealMonomial),    intent(in) :: that(:)
+  logical,               intent(in) :: include_coefficients
+  type(ComplexMatrix)               :: output
+  
+  output = transpose(basis_conversion_matrix(that,this,include_coefficients))
+end function
+
+function coefficient_conversion_matrix_RealMonomials_ComplexMonomials(this, &
+   & that,include_coefficients) result(output)
+  implicit none
+  
+  type(RealMonomial),    intent(in) :: this(:)
+  type(ComplexMonomial), intent(in) :: that(:)
+  logical,               intent(in) :: include_coefficients
+  type(ComplexMatrix)               :: output
+  
+  output = transpose(basis_conversion_matrix(that,this,include_coefficients))
+end function
+
+! ----------------------------------------------------------------------
 ! Private helper functions.
 ! ----------------------------------------------------------------------
 
@@ -270,7 +308,9 @@ impure elemental function element_ComplexMonomial_RealMonomial(this,that, &
   
   logical, allocatable :: that_mode_accounted(:)
   
-  integer :: i,j,k,l
+  complex(dp) :: overlap
+  
+  integer :: i,j,p,q,l,n
   
   if ( sum(this%modes%power+this%modes%paired_power) /= &
      & sum(that%modes%power+that%modes%paired_power)    ) then
@@ -299,7 +339,47 @@ impure elemental function element_ComplexMonomial_RealMonomial(this,that, &
       endif
     else
       ! If the mode exists in both, account for it in the overlap.
-      output = output * element(this%modes(i), that%modes(j))
+      if (this%modes(i)%total_power()/=that%modes(j)%total_power()) then
+        ! There is no overlap between this and that.
+        output = 0
+        return
+      elseif (this%modes(i)%id==this%modes(i)%paired_id) then
+        ! The mode is real. The overlap is 1.
+        continue
+      else
+        ! this%modes(i) = (u+)^p * (u-)^{n-p}.
+        ! that%modes(j) = (c )^q * (s )^{n-q}.
+        !
+        ! (u+)^p * (u-)^{n-p} = sum_{q=0}^n M(p,q,n) c^q * s*{n-q}.
+        !
+        ! (u+)^p * (u-)^{n-p} = (c+is)^p * (c-is)^(n-p) / sqrt(2)^n
+        !
+        ! => this = sum_{l=0}^p sum_{m=0}^{n-p}
+        !           [ bin(p,l) bin(n-p,m) i^(-n+2j-l+m) c^{l+m} s^{n-l-m} ]
+        !           / sqrt(2)^n
+        !
+        ! q = l+m
+        !
+        ! => sum_{l=0}^n sum_{m=0}^{n-p} = sum_{q=0}^n sum_{l=max(0,p+q-n)}^{min(p,q)}
+        !
+        ! => that = sum_{q,l} [ bin(p,l)*bin(n-p,q-l) i^(-n+2j+q-2l) c^q s^{n-q} ]
+        !         / sqrt(2)^n
+        !
+        ! => M(p,q,n) = i^{-n+2j+q} / sqrt(2)^n
+        !             * sum_{l=max(0,p+q-n)}^{min(p,q)} bin(p,l)*bin(n-p,q-l)*(-1)^l
+        p = this%modes(i)%power
+        q = that%modes(j)%power
+        n = this%modes(i)%total_power()
+        overlap = 0
+        do l=max(0,p+q-n),min(p,q)
+          overlap = overlap + binomial(p,l)*binomial(n-p,q-l)*(-1)**l
+        enddo
+        overlap = overlap                            &
+             & * cmplx(0.0_dp,1.0_dp,dp)**(-n+2*p+q) &
+             & / sqrt(2.0_dp)**n
+        output = output * overlap
+      endif
+      
       that_mode_accounted(j) = .true.
     endif
   enddo
@@ -335,7 +415,9 @@ impure elemental function element_RealMonomial_ComplexMonomial(this,that, &
   
   logical, allocatable :: that_mode_accounted(:)
   
-  integer :: i,j,k,l
+  complex(dp) :: overlap
+  
+  integer :: i,j,p,q,l,n
   
   if ( sum(this%modes%power+this%modes%paired_power) /= &
      & sum(that%modes%power+that%modes%paired_power)    ) then
@@ -364,7 +446,47 @@ impure elemental function element_RealMonomial_ComplexMonomial(this,that, &
       endif
     else
       ! If the mode exists in both, account for it in the overlap.
-      output = output * element(this%modes(i), that%modes(j))
+      if (this%modes(i)%total_power()/=that%modes(j)%total_power()) then
+        ! There is no overlap between this and that.
+        output = 0
+        return
+      elseif (this%modes(i)%id==this%modes(i)%paired_id) then
+        ! The mode is real. The overlap is 1.
+        continue
+      else
+        ! this%modes(i) = (c )^p * (s )^{n-p}.
+        ! that%modes(j) = (u+)^q * (u-)^{n-q}.
+        !
+        ! c^p * s^{n-p} = sum_{q=0}^n M(p,q,n) (u+)^q * (u-)^{n-q}.
+        !
+        ! c^p * s^{n-p} = (u+ + u-)^p * ((u+ - u-)/i)^{n-p} / sqrt(2)^n
+        !
+        !    = sum_{l=0}^p sum_{m=0}^{n-p}
+        !      [ bin(p,l) bin(n-p,m) (u+)^{l+m} (u-)^{n-l-m} (-1)^{n-p-m} ]
+        !    / (sqrt(2)^n * i^{n-p})
+        !
+        ! q = l+m
+        !
+        ! => sum_{l=0}^n sum_{m=0}^{n-p} = sum_{q=0}^n sum_{l=max(0,p+q-n)}^{min(p,q)}
+        !
+        ! => that = sum_{q,l}[ bin(p,l) bin(n-p,q-l) u+^q u-^{n-q} (-1)^{n-p-q+l} ]
+        !      / (sqrt(2)^n * i^{n-p})
+        !
+        ! => M(p,q,n) = i^{n-p-2k} / sqrt(2)^n
+        !             * sum_{l=max(0,p+q-n)}^{min(p,q)} bin(p,l)*bin(n-p,q-l)*(-1)^l
+        p = this%modes(i)%power
+        q = that%modes(j)%power
+        n = this%modes(i)%total_power()
+        overlap = 0
+        do l=max(0,p+q-n),min(p,q)
+          overlap = overlap + binomial(p,l)*binomial(n-p,q-l)*(-1)**l
+        enddo
+        overlap = overlap                             &
+             & * cmplx(0.0_dp,1.0_dp,dp)**(n-p-2*q) &
+             & / sqrt(2.0_dp)**n
+        output = output * overlap
+      endif
+      
       that_mode_accounted(j) = .true.
     endif
   enddo
@@ -383,125 +505,5 @@ impure elemental function element_RealMonomial_ComplexMonomial(this,that, &
   if (include_coefficients) then
     output = output * this%coefficient / that%coefficient
   endif
-end function
-
-impure elemental function element_ComplexUnivariates_RealUnivariates(this, &
-   & that) result(output)
-  implicit none
-  
-  type(ComplexUnivariate), intent(in) :: this
-  type(RealUnivariate),    intent(in) :: that
-  complex(dp)                         :: output
-  
-  integer :: j,k,l,n
-  
-  ! Check that inputs are paired up.
-  if (this%id/=that%id) then
-    call print_line(CODE_ERROR//': Unpaired modes passed to function.')
-    call err()
-  endif
-  
-  ! If the powers don't match, then the overlap is zero.
-  if (this%power+this%paired_power /= that%power+that%paired_power) then
-    output = 0
-    return
-  endif
-  
-  ! Check if the mode is real. If so, the overlap is 1.
-  if (this%id==this%paired_id) then
-    output = 1
-    return
-  endif
-  
-  ! this = (u+)^j * (u-)^{n-j}.
-  ! that = (c )^k * (s )^{n-k}.
-  !
-  ! (u+)^j * (u-)^{n-j} = sum_{k=0}^n M(j,k,n) c^k * s*{n-k}.
-  !
-  ! (u+)^j * (u-)^{n-j} = (c+is)^j * (c-is)^(n-j) / sqrt(2)^n
-  !
-  ! => this = sum_{l=0}^j sum_{m=0}^{n-j}
-  !           [ bin(j,l) bin(n-j,m) i^(-n+2j-l+m) c^{l+m} s^{n-l-m} ]
-  !           / sqrt(2)^n
-  !
-  ! k = l+m
-  !
-  ! => sum_{l=0}^n sum_{m=0}^{n-j} = sum_{k=0}^n sum_{l=max(0,j+k-n)}^{min(j,k)}
-  !
-  ! => that = sum_{k,l} [ bin(j,l)*bin(n-j,k-l) i^(-n+2j+k-2l) c^k s^{n-k} ]
-  !         / sqrt(2)^n
-  !
-  ! => M(j,k,n) = i^{-n+2j+k} / sqrt(2)^n
-  !             * sum_{l=max(0,j+k-n)}^{min(j,k)} bin(j,l)*bin(n-j,k-l)*(-1)^l
-  j = this%power
-  k = that%power
-  n = this%power + this%paired_power
-  output = 0
-  do l=max(0,j+k-n),min(j,k)
-    output = output + binomial(j,l)*binomial(n-j,k-l)*(-1)**l
-  enddo
-  output = output                              &
-       & * cmplx(0.0_dp,1.0_dp,dp)**(-n+2*j+k) &
-       & / sqrt(2.0_dp)**n
-end function
-
-impure elemental function element_RealUnivariates_ComplexUnivariates(this, &
-   & that) result(output)
-  implicit none
-  
-  type(RealUnivariate),    intent(in) :: this
-  type(ComplexUnivariate), intent(in) :: that
-  complex(dp)                         :: output
-  
-  integer :: j,k,l,n
-  
-  ! Check that inputs are paired up.
-  if (this%id/=that%id) then
-    call print_line(CODE_ERROR//': Unpaired modes passed to function.')
-    call err()
-  endif
-  
-  ! If the powers don't match, then the overlap is zero.
-  if (this%power+this%paired_power /= that%power+that%paired_power) then
-    output = 0
-    return
-  endif
-  
-  ! Check if the mode is real. If so, the overlap is 1.
-  if (this%id==this%paired_id) then
-    output = 1
-    return
-  endif
-  
-  ! this = (c )^j * (s )^{n-j}.
-  ! that = (u+)^k * (u-)^{n-k}.
-  !
-  ! c^j * s^{n-j} = sum_{k=0}^n M(j,k,n) (u+)^k * (u-)^{n-k}.
-  !
-  ! c^j * s^{n-j} = (u+ + u-)^j * ((u+ - u-)/i)^{n-j} / sqrt(2)^n
-  !
-  !    = sum_{l=0}^j sum_{m=0}^{n-j}
-  !      [ bin(j,l) bin(n-j,m) (u+)^{l+m} (u-)^{n-l-m} (-1)^{n-j-m} ]
-  !    / (sqrt(2)^n * i^{n-j})
-  !
-  ! k = l+m
-  !
-  ! => sum_{l=0}^n sum_{m=0}^{n-j} = sum_{k=0}^n sum_{l=max(0,j+k-n)}^{min(j,k)}
-  !
-  ! => that = sum_{k,l}[ bin(j,l) bin(n-j,k-l) u+^k u-^{n-k} (-1)^{n-j-k+l} ]
-  !      / (sqrt(2)^n * i^{n-j})
-  !
-  ! => M(j,k,n) = i^{n-j-2k} / sqrt(2)^n
-  !             * sum_{l=max(0,j+k-n)}^{min(j,k)} bin(j,l)*bin(n-j,k-l)*(-1)^l
-  j = this%power
-  k = that%power
-  n = this%power + this%paired_power
-  output = 0
-  do l=max(0,j+k-n),min(j,k)
-    output = output + binomial(j,l)*binomial(n-j,k-l)*(-1)**l
-  enddo
-  output = output                             &
-       & * cmplx(0.0_dp,1.0_dp,dp)**(n-j-2*k) &
-       & / sqrt(2.0_dp)**n
 end function
 end module

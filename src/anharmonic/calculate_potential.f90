@@ -67,7 +67,6 @@ subroutine calculate_potential_subroutine(arguments)
   
   ! Arguments to setup_harmonic.
   type(Dictionary) :: setup_harmonic_arguments
-  real(dp)         :: symmetry_precision
   
   ! Arguments to calculate_normal_modes.
   type(Dictionary) :: calculate_normal_modes_arguments
@@ -109,11 +108,9 @@ subroutine calculate_potential_subroutine(arguments)
   type(IFile)  :: real_modes_file
   type(IFile)  :: subspaces_file
   type(IFile)  :: subspace_coupling_file
+  type(IFile)  :: symmetry_file
   type(String) :: sampling_points_dir
   type(OFile)  :: potential_file
-  
-  ! Temporary variables.
-  integer :: i,ialloc
   
   ! --------------------------------------------------
   ! Read in inputs and previously calculated data which is
@@ -143,8 +140,6 @@ subroutine calculate_potential_subroutine(arguments)
   setup_harmonic_arguments = Dictionary(setup_harmonic())
   call setup_harmonic_arguments%read_file( &
      & harmonic_path//'/setup_harmonic.used_settings')
-  symmetry_precision = &
-     & dble(setup_harmonic_arguments%value('symmetry_precision'))
   
   ! Read in calculate_normal_modes arguments.
   calculate_normal_modes_arguments = Dictionary(calculate_normal_modes())
@@ -176,23 +171,11 @@ subroutine calculate_potential_subroutine(arguments)
   subspace_coupling_file = IFile(wd//'/subspace_coupling.dat')
   subspace_coupling = SubspaceCoupling(subspace_coupling_file%lines())
   
-  ! --------------------------------------------------
-  ! Re-calculate symmetries in degenerate subspaces
-  !    and maximum_weighted_displacement.
-  ! --------------------------------------------------
-  ! Open logfile.
-  logfile = OFile(wd//'/calculate_potential_logfile.dat')
+  ! Read in degenerate symmetries.
+  symmetry_file = IFile(wd//'/symmetries.dat')
+  degenerate_symmetries = DegenerateSymmetry(symmetry_file%sections())
   
-  allocate( degenerate_symmetries(size(structure%symmetries)), &
-          & stat=ialloc); call err(ialloc)
-  do i=1,size(structure%symmetries)
-    degenerate_symmetries(i) = DegenerateSymmetry( structure%symmetries(i), &
-                                                 & degenerate_subspaces,    &
-                                                 & complex_modes,           &
-                                                 & qpoints,                 &
-                                                 & logfile)
-  enddo
-  
+  ! Re-calculate maximum_weighted_displacement.
   maximum_weighted_displacement = maximum_displacement &
                               & * sqrt(minval(structure%atoms%mass()))
   
@@ -200,7 +183,6 @@ subroutine calculate_potential_subroutine(arguments)
   ! Load anharmonic data into container.
   ! --------------------------------------------------
   anharmonic_data = AnharmonicData( structure,                     &
-                                  & symmetry_precision,            &
                                   & anharmonic_supercell,          &
                                   & qpoints,                       &
                                   & complex_modes,                 &
@@ -233,6 +215,9 @@ subroutine calculate_potential_subroutine(arguments)
                    & potential_representation)
     call err()
   endif
+  
+  ! Open logfile.
+  logfile = OFile(wd//'/setup_anharmonic_logfile.dat')
   
   ! Generate the potential itself.
   sampling_points_dir = wd//'/sampling_points'
