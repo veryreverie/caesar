@@ -123,7 +123,6 @@ function generate_basis_functions_SubspaceMonomial(subspace_monomial, &
   type(ComplexMatrix) :: real_to_complex_conversion
   
   ! Polynomial coefficients, in both bases.
-  type(HermitianEigenstuff), allocatable :: hestuff(:)
   type(SymmetricEigenstuff), allocatable :: estuff(:)
   real(dp),                  allocatable :: real_coefficients(:)
   complex(dp),               allocatable :: complex_coefficients(:)
@@ -196,31 +195,10 @@ function generate_basis_functions_SubspaceMonomial(subspace_monomial, &
   
   ! Transform the projection matrix into real co-ordinates,
   !    and check that it is real and symmetric.
-  ! TODO
-  if (size(projection,1)==4) then
-    call set_print_settings(decimal_places=2)
-    call print_line('')
-    call print_lines(projection)
-    
-    hestuff = diagonalise_hermitian(projection)
-    do i=1,size(hestuff)
-      call print_line(hestuff(i)%eval)
-      call print_line(hestuff(i)%evec)
-    enddo
-    
-    call unset_print_settings()
-  endif
   projection = complex_to_real_conversion &
            & * projection                 &
            & * real_to_complex_conversion
   call check_real(projection,'projection_matrix',logfile)
-  if (size(projection,1)==4) then
-    call set_print_settings(decimal_places=2)
-    call print_line('')
-    call print_lines(projection)
-    
-    call unset_print_settings()
-  endif
   call check_symmetric( real(projection),         &
                       & 'projection_matrix',      &
                       & logfile,                  &
@@ -254,26 +232,6 @@ function generate_basis_functions_SubspaceMonomial(subspace_monomial, &
     output(i) = BasisFunction( real_representation,   &
                              & complex_representation )
     call output(i)%simplify()
-    
-    if (size(real_to_complex_conversion,1)==4) then
-      call set_print_settings(decimal_places=5)
-      call print_line('====================')
-      call print_line('')
-      call print_lines(real_to_complex_conversion)
-      call print_line('')
-      call print_line(real_coefficients)
-      call print_line('')
-      call print_line(complex_coefficients)
-      call print_line('')
-      call print_line(real_representation)
-      call print_line('')
-      call print_line(complex_representation)
-      call print_line('')
-      call print_line(imag(complex_representation%terms(1)%coefficient)/real(complex_representation%terms(1)%coefficient))
-      call print_line(real_representation%terms(1)%coefficient/real_representation%terms(4)%coefficient)
-      call print_line(real_representation%terms(3)%coefficient/real_representation%terms(2)%coefficient)
-      call unset_print_settings()
-    endif
   enddo
 end function
 

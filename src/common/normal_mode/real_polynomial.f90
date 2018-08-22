@@ -400,8 +400,6 @@ impure elemental subroutine simplify_RealPolynomial(this)
   
   class(RealPolynomial), intent(inout) :: this
   
-  integer,            allocatable :: equivalent_monomial_locs(:)
-  integer,            allocatable :: unique_monomial_locs(:)
   type(RealMonomial), allocatable :: equivalent_monomials(:)
   type(RealMonomial), allocatable :: monomials(:)
   
@@ -411,17 +409,11 @@ impure elemental subroutine simplify_RealPolynomial(this)
   
   call this%terms%simplify()
   
-  ! Add together any equivalent monomials.
-  equivalent_monomial_locs = first_equivalent( this%terms,            &
-                                             & compare_real_monomials )
-  unique_monomial_locs = equivalent_monomial_locs( &
-                   & set(equivalent_monomial_locs) )
-  allocate( monomials(size(unique_monomial_locs)), &
-          & stat=ialloc); call err(ialloc)
+  ! Add together monomials with the same powers.
+  monomials = this%terms(set(this%terms, compare_real_monomials))
   do i=1,size(monomials)
-    equivalent_monomials = this%terms(                             &
-       & filter(equivalent_monomial_locs==unique_monomial_locs(i)) )
-    monomials(i) = equivalent_monomials(1)
+    equivalent_monomials = this%terms(                          &
+       & filter(this%terms,compare_real_monomials,monomials(i)) )
     monomials(i)%coefficient = sum(equivalent_monomials%coefficient)
   enddo
   

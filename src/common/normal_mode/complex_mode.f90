@@ -186,6 +186,8 @@ end function
 ! ----------------------------------------------------------------------
 ! Transform a mode by a symmetry operator.
 ! ----------------------------------------------------------------------
+! N.B. the ID and paired ID will only be correct if 'symmetry' is the
+!    symmetry used to construct the transformed modes from the input modes.
 impure elemental function transform_ComplexMode(input,symmetry,qpoint_from, &
    & qpoint_to) result(output)
   implicit none

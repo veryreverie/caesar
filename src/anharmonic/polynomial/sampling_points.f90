@@ -66,57 +66,94 @@ function generate_sampling_points(basis_functions,potential_expansion_order, &
   type(RealMode),       intent(in) :: real_modes(:)
   type(SamplingPoints)             :: output
   
-  type(ModeCoupling), allocatable :: couplings(:)
-  type(ModeCoupling), allocatable :: unique_couplings(:)
-  
-  type(RealMonomial),  allocatable :: unique_terms(:)
+  type(RealMonomial), allocatable :: unique_bases(:)
+  type(RealMonomial), allocatable :: matching_bases(:)
   
   type(RealModeDisplacement), allocatable :: points(:)
   
-  integer, allocatable :: matching_couplings(:)
-  
   integer :: i
   
-  ! Construct the mode coupling corresponding to the unique term in each
-  !    basis function.
-  ! e.g. (u7)^4*(u9)^3*(u11)^1 => [7,9,11].
-  couplings = ModeCoupling(basis_functions%unique_terms)
+  ! Sampling points are generated in groups, where each group contains all
+  !    basis functions with the same modes with non-zero power.
+  ! e.g. u1^2, u1^3 and u1^4 are all in one group,
+  !    and u1^1*u3^2, u1^4&u3^1 and u1^5*u3^7 are all in one group.
   
-  ! De-duplicate the couplings.
-  unique_couplings = couplings(set(couplings,compare_ModeCoupling))
+  ! Identify one basis function in each group.
+  unique_bases = basis_functions%unique_terms(         &
+     & set(basis_functions%unique_terms,compare_modes) )
   
+  ! Loop over the groups.
   points = [RealModeDisplacement::]
-  do i=1,size(unique_couplings)
-    ! Gather together all unique terms with couplings which are the same as
-    !    unique_couplings(i).
-    matching_couplings = filter(couplings==unique_couplings(i))
-    unique_terms = basis_functions%unique_terms(matching_couplings)
+  do i=1,size(unique_bases)
+    ! Identify the basis functions in the group.
+    ! These are the basis functions equivalent to the representative function.
+    matching_bases = basis_functions%unique_terms(                          &
+       & filter(basis_functions%unique_terms,compare_modes,unique_bases(i)) )
     
-    ! Construct an array of sampling points for the unique terms,
-    !    and append this to the output array.
-    points = [                                                           &
-       & points,                                                         &
-       & generate_sampling_points_helper( unique_terms,                  &
-       &                                  potential_expansion_order,     &
-       &                                  maximum_weighted_displacement, &
-       &                                  frequency_of_max_displacement, &
-       &                                  real_modes)                    &
-       & ]
+    ! Generate the sampling points for the group of basis functions.
+    points = [                                                             &
+       & points,                                                           &
+       & generate_sampling_points_helper( matching_bases,                  &
+       &                                  potential_expansion_order,       &
+       &                                  maximum_weighted_displacement,   &
+       &                                  frequency_of_max_displacement,   &
+       &                                  real_modes                     ) ]
   enddo
   
   output = SamplingPoints(points)
 contains
-  ! Lambda for comparing ModeCoupling.
-  function compare_ModeCoupling(this,that) result(output)
+  ! Lambda for comparing if two RealMonomials contain the same set of modes
+  !    with non-zero power.
+  function compare_modes(this,that) result(output)
     implicit none
     
     class(*), intent(in) :: this
     class(*), intent(in) :: that
     logical              :: output
     
-    select type(this); type is(ModeCoupling)
-      select type(that); type is(ModeCoupling)
-        output = this==that
+    integer, allocatable :: this_ids(:)
+    integer, allocatable :: that_ids(:)
+    
+    integer :: i
+    
+    select type(this); type is(RealMonomial)
+      select type(that); type is(RealMonomial)
+        this_ids = [integer::]
+        do i=1,size(this)
+          if (this%modes(i)%power>0) then
+            this_ids = [this_ids, this%modes(i)%id]
+          endif
+          
+          if (this%modes(i)%paired_id/=this%modes(i)%id) then
+            if (this%modes(i)%paired_power>0) then
+              this_ids = [this_ids, this%modes(i)%paired_id]
+            endif
+          endif
+        enddo
+        
+        that_ids = [integer::]
+        do i=1,size(that)
+          if (that%modes(i)%power>0) then
+            that_ids = [that_ids, that%modes(i)%id]
+          endif
+          
+          if (that%modes(i)%paired_id/=that%modes(i)%id) then
+            if (that%modes(i)%paired_power>0) then
+              that_ids = [that_ids, that%modes(i)%paired_id]
+            endif
+          endif
+        enddo
+        
+        this_ids = this_ids(set(this_ids))
+        that_ids = that_ids(set(that_ids))
+        
+        if (size(this_ids)/=size(that_ids)) then
+          output = .false.
+        else
+          this_ids = this_ids(sort(this_ids))
+          that_ids = that_ids(sort(that_ids))
+          output = all(this_ids==that_ids)
+        endif
       end select
     end select
   end function
@@ -160,7 +197,7 @@ function generate_sampling_points_helper(monomials,potential_expansion_order, &
       
       if ( monomials(i)%modes(j)%paired_id/=monomials(i)%modes(j)%id .and. &
          & monomials(i)%modes(j)%paired_power>0) then
-        ids = [ids, monomials(i)%modes(j)%id]
+        ids = [ids, monomials(i)%modes(j)%paired_id]
         powers = [powers, monomials(i)%modes(j)%paired_power]
       endif
     enddo

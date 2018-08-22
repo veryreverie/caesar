@@ -432,8 +432,6 @@ impure elemental subroutine simplify_ComplexPolynomial(this)
   
   class(ComplexPolynomial), intent(inout) :: this
   
-  integer,               allocatable :: equivalent_monomial_locs(:)
-  integer,               allocatable :: unique_monomial_locs(:)
   type(ComplexMonomial), allocatable :: equivalent_monomials(:)
   type(ComplexMonomial), allocatable :: monomials(:)
   
@@ -443,17 +441,11 @@ impure elemental subroutine simplify_ComplexPolynomial(this)
   
   call this%terms%simplify()
   
-  ! Add together any equivalent monomials.
-  equivalent_monomial_locs = first_equivalent( this%terms,               &
-                                             & compare_complex_monomials )
-  unique_monomial_locs = equivalent_monomial_locs( &
-                   & set(equivalent_monomial_locs) )
-  allocate( monomials(size(unique_monomial_locs)), &
-          & stat=ialloc); call err(ialloc)
+  ! Add together monomials with the same powers.
+  monomials = this%terms(set(this%terms, compare_complex_monomials))
   do i=1,size(monomials)
-    equivalent_monomials = this%terms(                             &
-       & filter(equivalent_monomial_locs==unique_monomial_locs(i)) )
-    monomials(i) = equivalent_monomials(1)
+    equivalent_monomials = this%terms(                          &
+       & filter(this%terms,compare_complex_monomials,monomials(i)) )
     monomials(i)%coefficient = sum(equivalent_monomials%coefficient)
   enddo
   

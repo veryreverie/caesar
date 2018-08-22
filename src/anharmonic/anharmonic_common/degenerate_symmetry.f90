@@ -110,7 +110,7 @@ function new_DegenerateSymmetry(symmetry,subspaces,modes,qpoints, &
        & calculate_symmetry_in_normal_coordinates( degenerate_modes,   &
        &                                           degenerate_qpoints, &
        &                                           symmetry,           &
-       &                                           logfile)
+       &                                           logfile             )
   enddo
   
   allocate(this%symmetries_(size(modes)), stat=ialloc); call err(ialloc)
