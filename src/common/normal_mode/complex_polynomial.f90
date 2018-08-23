@@ -684,6 +684,7 @@ impure elemental function force_ComplexUnivariate(this,displacement) &
     else
       force = -this%power * displacement%magnitude**(this%power-1)
     endif
+    output = ComplexSingleForce(id=this%id, magnitude=force)
   elseif (displacement%id==this%paired_id) then
     if (this%paired_power==0) then
       force = 0.0_dp
@@ -693,13 +694,12 @@ impure elemental function force_ComplexUnivariate(this,displacement) &
       force = -this%paired_power &
           & * displacement%magnitude**(this%paired_power-1)
     endif
+    output = ComplexSingleForce(id=this%paired_id, magnitude=force)
   else
     call print_line(CODE_ERROR//': Trying to take the derivative of a &
        & univariate at an incompatible displacement.')
     call err()
   endif
-  
-  output = ComplexSingleForce(id=this%id, magnitude=force)
 end function
 
 ! -d/d{u_i} (c*prod_j[ {u_j}^{n_j} ]) evaluated at {u_i=U_i} is

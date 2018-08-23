@@ -172,10 +172,8 @@ def main():
   max_energy = 0
   for mode in modes:
     min_energy = min(min_energy, min(mode['Anharmonic energies']))
-    min_energy = min(min_energy, min(mode['Harmonic energies']))
     min_energy = min(min_energy, min(mode['Effective energies']))
     max_energy = max(max_energy, max(mode['Anharmonic energies']))
-    max_energy = max(max_energy, max(mode['Harmonic energies']))
     max_energy = max(max_energy, max(mode['Effective energies']))
     if sampling:
       min_energy = min(min_energy, min(mode['Sampled energies']))
@@ -194,10 +192,8 @@ def main():
   max_force = 0
   for mode in modes:
     min_force = min(min_force, min(mode['Anharmonic forces']))
-    min_force = min(min_force, min(mode['Harmonic forces']))
     min_force = min(min_force, min(mode['Effective forces']))
     max_force = max(max_force, max(mode['Anharmonic forces']))
-    max_force = max(max_force, max(mode['Harmonic forces']))
     max_force = max(max_force, max(mode['Effective forces']))
     if sampling:
       min_force = min(min_force, min(mode['Sampled forces']))
@@ -217,13 +213,9 @@ def main():
     max_difference = 0
     for mode in modes:
       min_difference = min(min_difference,
-                           min(mode['Harmonic energy difference']))
-      min_difference = min(min_difference,
                            min(mode['Anharmonic energy difference']))
       min_difference = min(min_difference,
                            min(mode['Effective energy difference']))
-      max_difference = max(max_difference,
-                           max(mode['Harmonic energy difference']))
       max_difference = max(max_difference,
                            max(mode['Anharmonic energy difference']))
       max_difference = max(max_difference,
@@ -231,6 +223,8 @@ def main():
     
     ymin = min_difference - 0.1*(max_difference-min_difference)
     ymax = max_difference + 0.1*(max_difference-min_difference)
+    ymin = min(ymin,-ymax)
+    ymax = max(ymax,-ymin)
     for ax in axes[3]:
       ax.set_ylim(ymin,ymax)
     for ax in axes[3][1:]:
@@ -243,13 +237,9 @@ def main():
     max_difference = 0
     for mode in modes:
       min_difference = min(min_difference,
-                           min(mode['Harmonic force difference']))
-      min_difference = min(min_difference,
                            min(mode['Anharmonic force difference']))
       min_difference = min(min_difference,
                            min(mode['Effective force difference']))
-      max_difference = max(max_difference,
-                           max(mode['Harmonic force difference']))
       max_difference = max(max_difference,
                            max(mode['Anharmonic force difference']))
       max_difference = max(max_difference,
@@ -257,6 +247,8 @@ def main():
     
     ymin = min_difference - 0.1*(max_difference-min_difference)
     ymax = max_difference + 0.1*(max_difference-min_difference)
+    ymin = min(ymin,-ymax)
+    ymax = max(ymax,-ymin)
     for ax in axes[4]:
       ax.set_ylim(ymin,ymax)
     for ax in axes[4][1:]:

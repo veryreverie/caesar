@@ -108,34 +108,38 @@ def main():
   axes['dispersion'].set_xlim(xmin,xmax)
   axes['dispersion'].set_ylim(ymin,ymax)
   for band in dispersion['bands']:
-    xs = []
-    ys = []
-    # Split the dispersion into >0 and <0 segments, and plot them with
-    #    different colours.
-    for x,y in zip(dispersion['path_length'],band):
-      if len(ys)==0 or ys[-1]*y>0 or y==0:
-        # The line does not cross y=0, continue plotting.
-        xs.append(x)
-        ys.append(y)
-      else:
-        # The line crosses y=0. Interpolate to find the crossing.
-        x_mid = (x*ys[-1]-xs[-1]*y)/(ys[-1]-y)
-        xs.append(x_mid)
-        ys.append(0)
-        # Plot the previous line segment.
-        if ys[-2]>0:
-          axes['dispersion'].plot(xs, ys, color=colours['turquoise'], lw=2)
+    xs = dispersion['path_length']
+    ys = band
+    # Plot each band segment by segment, (x,y(x),x+1,y(x+1)),
+    for x1,y1,x2,y2 in zip(xs[:-1],ys[:-1],xs[2:],ys[2:]):
+      if y1*y2<=0:
+        # The band crosses zero.
+        if y1==y2:
+          # The band is zero at both ends.
+          axes['dispersion'].plot([x1,x2], [y1,y2],
+                                  color=colours['turquoise'], lw=2)
         else:
-          axes['dispersion'].plot(xs, ys, color=colours['orange'], lw=2)
-        # Start the new line segment.
-        xs = [x_mid,x]
-        ys = [0,y]
-    
-    if len(ys)>0:
-      if ys[-1]>0:
-        axes['dispersion'].plot(xs, ys, color=colours['turquoise'], lw=2)
+          x_mid = (x2*y1-x1*y2)/(y1-y2)
+          if y1>0:
+            # The band crosses zero from above.
+            axes['dispersion'].plot([x1,x_mid], [y1,0],
+                                    color=colours['turquoise'], lw=2)
+            axes['dispersion'].plot([x_mid,x2], [0,y2],
+                                    color=colours['orange'], lw=2)
+          else:
+            # The band crosses zero from below.
+            axes['dispersion'].plot([x1,x_mid], [y1,0],
+                                    color=colours['orange'], lw=2)
+            axes['dispersion'].plot([x_mid,x2], [0,y2],
+                                    color=colours['turquoise'], lw=2)
       else:
-        axes['dispersion'].plot(xs, ys, color=colours['orange'], lw=2)
+        # the band does not cross zero.
+        if y1>0:
+          axes['dispersion'].plot([x1,x2], [y1,y2],
+                                  color=colours['turquoise'], lw=2)
+        else:
+          axes['dispersion'].plot([x1,x2], [y1,y2],
+                                  color=colours['orange'], lw=2)
   
   axes['dispersion'].vlines(points['path_lengths'],ymin,ymax,linestyle=':')
   axes['dispersion'].set_xticks(points['path_lengths'])
