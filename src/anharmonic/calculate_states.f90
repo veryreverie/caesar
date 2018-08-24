@@ -8,6 +8,7 @@ module calculate_states_module
   use setup_harmonic_module
   use calculate_normal_modes_module
   
+  use states_module
   use anharmonic_common_module
   use polynomial_module
   
@@ -47,7 +48,10 @@ function calculate_states() result(output)
      & KeywordData( 'pre_pulay_damping',                                      &
      &              'pre_pulay_damping is the damping factor of the pre-Pulay &
      &iterations.',                                                           &
-     &              default_value='0.1' )                                     ]
+     &              default_value='0.1' ),                                    &
+     & KeywordData( 'no_basis_states',                                        &
+     &              'no_basis states is the number of states along each mode &
+     &in the basis.')                                                         ]
   output%main_subroutine => calculate_states_subroutine
 end function
 
@@ -59,14 +63,15 @@ subroutine calculate_states_subroutine(arguments)
   
   type(Dictionary), intent(in) :: arguments
   
+  ! Working directory,
+  type(String) :: wd
+  
   ! Input arguments.
   real(dp) :: frequency_convergence
   integer  :: max_pulay_iterations
   integer  :: pre_pulay_iterations
   real(dp) :: pre_pulay_damping
-  
-  ! Working directory,
-  type(String) :: wd
+  integer  :: no_basis_states
   
   ! Arguments to setup_anharmonic.
   type(Dictionary) :: setup_anharmonic_arguments
@@ -108,6 +113,9 @@ subroutine calculate_states_subroutine(arguments)
   ! Anharmonic potential.
   type(PotentialPointer) :: potential
   
+  ! Basis states (normalised but not orthogonal).
+  type(SubspaceBasis), allocatable :: basis(:)
+  
   ! Files and directories.
   type(IFile) :: structure_file
   type(IFile) :: anharmonic_supercell_file
@@ -119,8 +127,7 @@ subroutine calculate_states_subroutine(arguments)
   type(IFile) :: symmetry_file
   type(IFile) :: potential_file
   
-  ! Temporary variables.
-  integer :: i,ialloc
+  integer :: i,j,k
   
   ! --------------------------------------------------
   ! Read in inputs and previously calculated data.
@@ -131,6 +138,7 @@ subroutine calculate_states_subroutine(arguments)
   max_pulay_iterations = int(arguments%value('max_pulay_iterations'))
   pre_pulay_iterations = int(arguments%value('pre_pulay_iterations'))
   pre_pulay_damping = dble(arguments%value('pre_pulay_damping'))
+  no_basis_states = int(arguments%value('no_basis_states'))
   
   ! Read in setup_anharmonic arguments.
   setup_anharmonic_arguments = Dictionary(setup_anharmonic())
@@ -217,14 +225,16 @@ subroutine calculate_states_subroutine(arguments)
                                   & frequency_of_max_displacement )
   
   ! --------------------------------------------------
-  ! Calculate frequencies from which to generate a harmonic basis.
+  ! Generate basis states by generating effective harmonic potential.
   ! --------------------------------------------------
-  call calculate_frequencies( potential,             &
-                            & anharmonic_data,       &
-                            & frequency_convergence, &
-                            & max_pulay_iterations,  &
-                            & pre_pulay_iterations,  &
-                            & pre_pulay_damping      )
+  basis = generate_basis( potential,             &
+                        & anharmonic_data,       &
+                        & frequency_convergence, &
+                        & max_pulay_iterations,  &
+                        & pre_pulay_iterations,  &
+                        & pre_pulay_damping,     &
+                        & no_basis_states        )
   
+  call print_lines(basis, separating_line='-----')
 end subroutine
 end module

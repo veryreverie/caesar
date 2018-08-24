@@ -9,6 +9,7 @@ module subspace_state_module
   
   public :: SubspaceState
   public :: generate_subspace_states
+  public :: finite_overlap
   public :: braket
   public :: kinetic_energy
   
@@ -48,7 +49,7 @@ module subspace_state_module
   ! (u_i)^* /= u_i:
   ! <p_i,p_j|q_i,q_j> = 0                              if p_i-p_j-q_i+q_j /= 0.
   !
-  !                   = prod_{k=1}^{p_i+p_j+q_i+q_j} [ k ]
+  !                   = prod_{k=1}^{(p_i+p_j+q_i+q_j)/2} [ k ]
   !                   / sqrt( prod_{k=1}^{p_i+p_j} [ k ]
   !                         * prod_{k=1}^{q_i+q_j} [ k ] )           otherwise.
   !
@@ -101,6 +102,10 @@ module subspace_state_module
     module procedure new_SubspaceState
     module procedure new_SubspaceState_Strings
     module procedure new_SubspaceState_StringArray
+  end interface
+  
+  interface finite_overlap
+    module procedure finite_overlap_SubspaceStates
   end interface
   
   interface braket
@@ -172,16 +177,133 @@ recursive function generate_subspace_states_helper(modes,power,state) &
   if (size(modes)==0 .or. power==0) then
     output = [state]
   else
-    output = [SubspaceState::]
-    output_state = state
-    do i=0,power
+    output = [ generate_subspace_states_helper( modes(2:),   &
+             &                                  power,       &
+             &                                  state      ) ]
+    do i=1,power
+      output_state = state
+      output_state%state = output_state%state &
+                       & * ComplexUnivariate(mode=modes(1), power=i)
       output = [ output,                                         &
                & generate_subspace_states_helper( modes(2:),     &
                &                                  power-i,       &
                &                                  output_state ) ]
-      output_state%state = output_state%state &
-                       & * ComplexUnivariate(mode=modes(1), power=i)
     enddo
+  endif
+end function
+
+! ----------------------------------------------------------------------
+! Returns whether or not braket(bra,ket) is non-zero.
+! ----------------------------------------------------------------------
+impure elemental function finite_overlap_SubspaceStates(bra,ket) result(output)
+  implicit none
+  
+  type(SubspaceState),      intent(in) :: bra
+  type(SubspaceState),      intent(in) :: ket
+  logical                              :: output
+  
+  logical, allocatable :: bra_mode_integrated(:)
+  logical, allocatable :: ket_mode_integrated(:)
+  
+  type(ComplexUnivariate) :: bra_mode
+  type(ComplexUnivariate) :: ket_mode
+  
+  integer :: id,paired_id
+  
+  integer :: i,j
+  
+  ! Check that the bra and the ket cover the same subspace.
+  if (bra%subspace_id/=ket%subspace_id) then
+    call print_line(ERROR//': bra and ket from different subspaces.')
+    call err()
+  endif
+  
+  ! Integrate over modes in subspace.
+  bra_mode_integrated = [(.false., i=1, size(bra%state))]
+  ket_mode_integrated = [(.false., i=1, size(ket%state))]
+  
+  do while (any(.not.bra_mode_integrated) .or. any(.not.ket_mode_integrated))
+    ! Identify an un-integrated mode.
+    ! Find its ID and paired ID, and its location in the bra and the ket.
+    i = first(.not. bra_mode_integrated, default=0)
+    if (i==0) then
+      j = first(.not. ket_mode_integrated)
+      id = ket%state%modes(j)%id
+      paired_id = ket%state%modes(j)%paired_id
+    else
+      id = bra%state%modes(i)%id
+      paired_id = bra%state%modes(i)%paired_id
+      j = first(ket%state%modes%id==id, default=0)
+    endif
+    
+    ! Multiply the output by the contribution from the mode.
+    if (i==0) then
+      bra_mode = ComplexUnivariate(id,paired_id,0,0)
+    else
+      bra_mode = bra%state%modes(i)
+    endif
+    
+    if (j==0) then
+      ket_mode = ComplexUnivariate(id,paired_id,0,0)
+    else
+      ket_mode = ket%state%modes(j)
+    endif
+    
+    if (.not. finite_overlap_modes(bra_mode,ket_mode)) then
+      output = .false.
+      return
+    endif
+    
+    ! Update bra_mode_integrated and ket_mode_integrated.
+    if (i/=0) then
+      bra_mode_integrated(i) = .true.
+    endif
+    
+    if (j/=0) then
+      ket_mode_integrated(j) = .true.
+    endif
+  enddo
+  
+  output = .true.
+end function
+
+impure elemental function finite_overlap_modes(bra,ket) result(output)
+  implicit none
+  
+  type(ComplexUnivariate), intent(in) :: bra
+  type(ComplexUnivariate), intent(in) :: ket
+  logical                             :: output
+  
+  integer :: p_i,p_j,q_i,q_j
+  
+  p_i = bra%power
+  p_j = bra%paired_power
+  q_i = ket%power
+  q_j = ket%paired_power
+  
+  if (bra%id==bra%paired_id) then
+    ! <p_i|q_i> = 0                                               if p+q odd.
+    !
+    !           = prod_{k=1}^{(p_i+q_i)/2} [ 2k-1 ]
+    !           / sqrt( prod_{k=1}^{p_i} [ 2k-1 ]
+    !                 * prod_{k=1}^{q_i} [ 2k-1 ] )                otherwise.
+    !
+    if (modulo(p_i+q_i,2)==1) then
+      output = .false.
+    else
+      output = .true.
+    endif
+  else
+    ! <p_i,p_j|q_i,q_j> = 0                          if p_i-p_j-q_i+q_j /= 0.
+    !
+    !                   = prod_{k=1}^{p_i+p_j+q_i+q_j} [ k ]
+    !                   / sqrt( prod_{k=1}^{p_i+p_j} [ k ]
+    !                         * prod_{k=1}^{q_i+q_j} [ k ] )       otherwise.
+    if (p_i-p_j-q_i+q_j/=0) then
+      output = .false.
+    else
+      output = .true.
+    endif
   endif
 end function
 
@@ -254,7 +376,7 @@ impure elemental function braket_SubspaceStates(bra,ket) result(output)
     if (j==0) then
       ket_mode = ComplexUnivariate(id,paired_id,0,0)
     else
-      ket_mode = ket%state%modes(i)
+      ket_mode = ket%state%modes(j)
     endif
     
     output = output * braket_modes(bra_mode, ket_mode)
@@ -293,7 +415,7 @@ impure elemental function braket_modes(bra,ket) result(output)
     !           / sqrt( prod_{k=1}^{p_i} [ 2k-1 ]
     !                 * prod_{k=1}^{q_i} [ 2k-1 ] )                otherwise.
     !
-    if (modulo(p_i+q_i,1)==1) then
+    if (modulo(p_i+q_i,2)==1) then
       output = 0.0_dp
     else
       output = 1.0_dp
@@ -317,7 +439,8 @@ impure elemental function braket_modes(bra,ket) result(output)
       output = 0.0_dp
       return
     else
-      do k=2,(p_i+p_j+q_i+q_j)
+      output = 1.0_dp
+      do k=2,(p_i+p_j+q_i+q_j)/2
         output = output * k
       enddo
       do k=2,(p_i+p_j)
@@ -500,7 +623,7 @@ impure elemental function braket_modes_potential(bra,ket,potential) &
     !                       / sqrt( prod_{k=1}^{p_i} [ 2k-1 ]
     !                             * prod_{k=1}^{q_i} [ 2k-1 ] )    otherwise.
     !
-    if (modulo(p_i+n_i+q_i,1)==1) then
+    if (modulo(p_i+n_i+q_i,2)==1) then
       output = 0
     else
       output = 1
@@ -728,7 +851,7 @@ subroutine read_SubspaceState(this,input)
     line = split_line(input(2))
     frequency = dble(line(2))
     
-    state = ComplexMonomial(input(4))
+    state = ComplexMonomial(slice(input(4),1,len(input(4))-3))
     
     this = SubspaceState(subspace_id,frequency,state)
   end select
@@ -744,7 +867,7 @@ function write_SubspaceState(this) result(output)
     output = [ 'Subspace '//this%subspace_id, &
              & 'Frequency '//this%frequency,  &
              & str('State'),                  &
-             & str(this%state)                ]
+             & str(this%state)//'|0>'         ]
   end select
 end function
 

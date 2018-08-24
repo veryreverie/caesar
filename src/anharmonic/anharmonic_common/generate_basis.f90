@@ -1,8 +1,12 @@
 ! ======================================================================
-! Calculates the frequencies of harmonic ground-states along each mode
-!    which minimise the total energy of that ground-state.
+! Generates a basis of states which span each degenerate subspace.
 ! ======================================================================
-module calculate_frequencies_module
+! The states are products single-mode states, of the form a(u_i)^(n_i)|0>.
+! The state |0> is the ground state of an effective harmonic potential,
+!    with harmonic frequencies chosen such that the energy of |0> w.r.t. the
+!    anharmonic potential is minimised.
+! N.B. these states are normalised, but they are NOT orthogonal.
+module generate_basis_module
   use common_module
   
   use states_module
@@ -14,19 +18,12 @@ module calculate_frequencies_module
   
   private
   
-  public :: calculate_frequencies
-  
-  type :: FrequencyArray
-    real(dp), allocatable :: frequencies(:)
-  end type
+  public :: generate_basis
 contains
 
-! The output is give as an array indexed as
-!    anharmonic_data%degenerate_subspaces.
-! (Every mode in a given subspace has the same frequency.)
-subroutine calculate_frequencies(potential,anharmonic_data, &
-   & frequency_convergence,max_pulay_iterations,pre_pulay_iterations, &
-   & pre_pulay_damping)
+function generate_basis(potential,anharmonic_data,frequency_convergence, &
+   & max_pulay_iterations,pre_pulay_iterations,pre_pulay_damping,        &
+   & no_basis_states) result(output)
   implicit none
   
   class(PotentialData), intent(in) :: potential
@@ -35,12 +32,14 @@ subroutine calculate_frequencies(potential,anharmonic_data, &
   integer,              intent(in) :: max_pulay_iterations
   integer,              intent(in) :: pre_pulay_iterations
   real(dp),             intent(in) :: pre_pulay_damping
+  integer,              intent(in) :: no_basis_states
+  type(SubspaceBasis), allocatable :: output(:)
   
   type(DegenerateSubspace), allocatable :: subspaces(:)
   real(dp),                 allocatable :: frequencies(:)
   
-  type(SubspaceState), allocatable :: subspace_states(:)
   type(SubspaceState), allocatable :: states(:)
+  type(SubspaceBasis)              :: subspace_basis
   
   type(RealVector), allocatable :: old_frequencies(:)
   type(RealVector), allocatable :: new_frequencies(:)
@@ -74,15 +73,14 @@ subroutine calculate_frequencies(potential,anharmonic_data, &
   ! Generate ground states at first guess frequencies.
   allocate(states(size(subspaces)), stat=ialloc); call err(ialloc)
   do i=1,size(subspaces)
-    subspace_states = generate_subspace_states( &
-               & subspaces(i),                  &
-               & frequencies(i),                &
-               & anharmonic_data%complex_modes, &
-               & 0                              )
-    if (size(subspace_states)/=1) then
+    subspace_basis = generate_subspace_basis( subspaces(i),                  &
+                                            & frequencies(i),                &
+                                            & anharmonic_data%complex_modes, &
+                                            & maximum_power = 0              )
+    if (size(subspace_basis)/=1) then
       call err()
     endif
-    states(i) = subspace_states(1)
+    states(i) = subspace_basis%states(1)
   enddo
   
   ! Find self-consistent frequencies which minimise the energy.
@@ -134,15 +132,15 @@ subroutine calculate_frequencies(potential,anharmonic_data, &
     exit iter
   enddo iter
   
-  ! TODO
-  ! Generate basis states from frequencies.
-  ! Return basis.
-  
-  call print_line('')
-  call print_line('Frequencies:')
-  call print_line(frequencies)
-  
-end subroutine
+  ! Use calculated effective harmonic frequencies to generate bases.
+  allocate(output(size(subspaces)), stat=ialloc); call err(ialloc)
+  do i=1,size(subspaces)
+    output(i) = generate_subspace_basis( subspaces(i),                     &
+                                       & frequencies(i),                   &
+                                       & anharmonic_data%complex_modes,    &
+                                       & maximum_power = no_basis_states-1 )
+  enddo
+end function
 
 ! For each subspace, integrate the potential across all other subspaces
 !    to get a single-subspace mean-field potential.
