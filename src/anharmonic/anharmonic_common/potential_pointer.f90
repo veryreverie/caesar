@@ -41,6 +41,8 @@ module potential_pointer_module
     
     procedure, public :: braket_SubspaceStates => &
                        & braket_SubspaceStates_PotentialPointer
+    procedure, public :: braket_SumStates => &
+                       & braket_SumStates_PotentialPointer
     
     procedure, private :: check => check_PotentialPointer
     
@@ -211,6 +213,19 @@ subroutine braket_SubspaceStates_PotentialPointer(this,bra,ket,inputs)
   call this%potential%braket(bra,ket,inputs)
 end subroutine
 
+subroutine braket_SumStates_PotentialPointer(this,bra,ket,inputs)
+  implicit none
+  
+  class(PotentialPointer), intent(inout) :: this
+  type(SumState),          intent(in)    :: bra
+  type(SumState),          intent(in)    :: ket
+  type(AnharmonicData),    intent(in)    :: inputs
+  
+  call this%check()
+  
+  call this%potential%braket(bra,ket,inputs)
+end subroutine
+
 subroutine read_PotentialPointer(this,input)
   implicit none
   
@@ -276,6 +291,8 @@ module potential_example_module
     
     procedure, public :: braket_SubspaceStates => &
                        & braket_SubspaceStates_PotentialDataExample
+    procedure, public :: braket_SumStates => &
+                       & braket_SumStates_PotentialDataExample
     
     procedure, public :: read  => read_PotentialDataExample
     procedure, public :: write => write_PotentialDataExample
@@ -424,6 +441,19 @@ subroutine braket_SubspaceStates_PotentialDataExample(this,bra,ket,inputs)
   class(PotentialDataExample), intent(inout) :: this
   type(SubspaceState),         intent(in)    :: bra
   type(SubspaceState),         intent(in)    :: ket
+  type(AnharmonicData),        intent(in)    :: inputs
+  
+  call print_line('PotentialDataExample: evaluating <bra|potential|ket>.')
+  
+  ! Code to integrate this potential between <bra| and |ket> goes here.
+end subroutine
+
+subroutine braket_SumStates_PotentialDataExample(this,bra,ket,inputs)
+  implicit none
+  
+  class(PotentialDataExample), intent(inout) :: this
+  type(SumState),              intent(in)    :: bra
+  type(SumState),              intent(in)    :: ket
   type(AnharmonicData),        intent(in)    :: inputs
   
   call print_line('PotentialDataExample: evaluating <bra|potential|ket>.')

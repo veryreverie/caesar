@@ -89,11 +89,20 @@ module subspace_state_module
   ! N.B. (p_ip_j+q_iq_j)/(p_i+p_j+q_i+q_j) is zero if p_i=p_j=q_i=q_j=0.
   ! The denominator is zero in this case, so care should be taken.
   
+  ! N.B. the coefficient of state_ is not used. Instead, states are implicitly
+  !    normalised such that <state|state>=1. This removes the need to keep
+  !    track of the various factors of two, pi, m (the geometric mean of the
+  !    atomic masses, arising as a result of mass reduction) and N (the number
+  !    of primitive cells in the supercell) , and allows the frequency to be
+  !    changed without having to re-calculate coefficients.
   type, extends(Stringsable) :: SubspaceState
-    integer               :: subspace_id
-    real(dp)              :: frequency
-    type(ComplexMonomial) :: state
+    integer                        :: subspace_id
+    real(dp)                       :: frequency
+    type(ComplexMonomial), private :: state_
   contains
+    procedure, public :: total_power => total_power_SubspaceState
+    procedure, public :: wavevector => wavevector_SubspaceState
+    ! I/O.
     procedure, public :: read  => read_SubspaceState
     procedure, public :: write => write_SubspaceState
   end type
@@ -132,7 +141,7 @@ function new_SubspaceState(subspace_id,frequency,state) result(this)
   
   this%subspace_id = subspace_id
   this%frequency   = frequency
-  this%state       = state
+  this%state_      = state
 end function
 
 ! ----------------------------------------------------------------------
@@ -182,14 +191,44 @@ recursive function generate_subspace_states_helper(modes,power,state) &
              &                                  state      ) ]
     do i=1,power
       output_state = state
-      output_state%state = output_state%state &
-                       & * ComplexUnivariate(mode=modes(1), power=i)
+      output_state%state_ = output_state%state_ &
+                        & * ComplexUnivariate(mode=modes(1), power=i)
       output = [ output,                                         &
                & generate_subspace_states_helper( modes(2:),     &
                &                                  power-i,       &
                &                                  output_state ) ]
     enddo
   endif
+end function
+
+! ----------------------------------------------------------------------
+! Returns the total power of a given state.
+! ----------------------------------------------------------------------
+! The total power of the state |product_{q,i} (u_{q,i})^(n_{q,i})> is equal to
+!    sum_{q,i}} n_{q,i}.
+impure elemental function total_power_SubspaceState(this) result(output)
+  implicit none
+  
+  class(SubspaceState), intent(in) :: this
+  integer                          :: output
+  
+  output = this%state_%total_power()
+end function
+
+! ----------------------------------------------------------------------
+! Returns the wavevector of a given state.
+! ----------------------------------------------------------------------
+! The wavevector of the state |product_{q,i} (u_{q,i})^(n_{q,i})> is equal to
+!    sum_{q,i}} n_{q,i}q.
+function wavevector_SubspaceState(this,modes,qpoints) result(output)
+  implicit none
+  
+  class(SubspaceState), intent(in) :: this
+  type(ComplexMode),    intent(in) :: modes(:)
+  type(QpointData),     intent(in) :: qpoints(:)
+  type(QpointData)                 :: output
+  
+  output = this%state_%wavevector(modes,qpoints)
 end function
 
 ! ----------------------------------------------------------------------
@@ -219,8 +258,8 @@ impure elemental function finite_overlap_SubspaceStates(bra,ket) result(output)
   endif
   
   ! Integrate over modes in subspace.
-  bra_mode_integrated = [(.false., i=1, size(bra%state))]
-  ket_mode_integrated = [(.false., i=1, size(ket%state))]
+  bra_mode_integrated = [(.false., i=1, size(bra%state_))]
+  ket_mode_integrated = [(.false., i=1, size(ket%state_))]
   
   do while (any(.not.bra_mode_integrated) .or. any(.not.ket_mode_integrated))
     ! Identify an un-integrated mode.
@@ -228,25 +267,25 @@ impure elemental function finite_overlap_SubspaceStates(bra,ket) result(output)
     i = first(.not. bra_mode_integrated, default=0)
     if (i==0) then
       j = first(.not. ket_mode_integrated)
-      id = ket%state%modes(j)%id
-      paired_id = ket%state%modes(j)%paired_id
+      id = ket%state_%modes(j)%id
+      paired_id = ket%state_%modes(j)%paired_id
     else
-      id = bra%state%modes(i)%id
-      paired_id = bra%state%modes(i)%paired_id
-      j = first(ket%state%modes%id==id, default=0)
+      id = bra%state_%modes(i)%id
+      paired_id = bra%state_%modes(i)%paired_id
+      j = first(ket%state_%modes%id==id, default=0)
     endif
     
     ! Multiply the output by the contribution from the mode.
     if (i==0) then
       bra_mode = ComplexUnivariate(id,paired_id,0,0)
     else
-      bra_mode = bra%state%modes(i)
+      bra_mode = bra%state_%modes(i)
     endif
     
     if (j==0) then
       ket_mode = ComplexUnivariate(id,paired_id,0,0)
     else
-      ket_mode = ket%state%modes(j)
+      ket_mode = ket%state_%modes(j)
     endif
     
     if (.not. finite_overlap_modes(bra_mode,ket_mode)) then
@@ -326,9 +365,9 @@ end function
 impure elemental function braket_SubspaceStates(bra,ket) result(output)
   implicit none
   
-  type(SubspaceState),      intent(in) :: bra
-  type(SubspaceState),      intent(in) :: ket
-  complex(dp)                          :: output
+  type(SubspaceState), intent(in) :: bra
+  type(SubspaceState), intent(in) :: ket
+  real(dp)                        :: output
   
   logical, allocatable :: bra_mode_integrated(:)
   logical, allocatable :: ket_mode_integrated(:)
@@ -347,8 +386,8 @@ impure elemental function braket_SubspaceStates(bra,ket) result(output)
   endif
   
   ! Integrate over modes in subspace.
-  bra_mode_integrated = [(.false., i=1, size(bra%state))]
-  ket_mode_integrated = [(.false., i=1, size(ket%state))]
+  bra_mode_integrated = [(.false., i=1, size(bra%state_))]
+  ket_mode_integrated = [(.false., i=1, size(ket%state_))]
   
   output = 1.0_dp
   
@@ -358,25 +397,25 @@ impure elemental function braket_SubspaceStates(bra,ket) result(output)
     i = first(.not. bra_mode_integrated, default=0)
     if (i==0) then
       j = first(.not. ket_mode_integrated)
-      id = ket%state%modes(j)%id
-      paired_id = ket%state%modes(j)%paired_id
+      id = ket%state_%modes(j)%id
+      paired_id = ket%state_%modes(j)%paired_id
     else
-      id = bra%state%modes(i)%id
-      paired_id = bra%state%modes(i)%paired_id
-      j = first(ket%state%modes%id==id, default=0)
+      id = bra%state_%modes(i)%id
+      paired_id = bra%state_%modes(i)%paired_id
+      j = first(ket%state_%modes%id==id, default=0)
     endif
     
     ! Multiply the output by the contribution from the mode.
     if (i==0) then
       bra_mode = ComplexUnivariate(id,paired_id,0,0)
     else
-      bra_mode = bra%state%modes(i)
+      bra_mode = bra%state_%modes(i)
     endif
     
     if (j==0) then
       ket_mode = ComplexUnivariate(id,paired_id,0,0)
     else
-      ket_mode = ket%state%modes(j)
+      ket_mode = ket%state_%modes(j)
     endif
     
     output = output * braket_modes(bra_mode, ket_mode)
@@ -520,10 +559,12 @@ impure elemental function braket_SubspaceStates_ComplexMonomial(bra,ket, &
     id = subspace%mode_ids(i_subspace)
     
     ! Locate this mode in the bra, the ket and the monomial.
-    i_bra = first( bra%state%modes%id==id .or. bra%state%modes%paired_id==id, &
-                 & default=0                                                  )
-    i_ket = first( ket%state%modes%id==id .or. ket%state%modes%paired_id==id, &
-                 & default=0                                                  )
+    i_bra = first( bra%state_%modes%id==id .or.    &
+                 & bra%state_%modes%paired_id==id, &
+                 & default=0                       )
+    i_ket = first( ket%state_%modes%id==id .or.    &
+                 & ket%state_%modes%paired_id==id, &
+                 & default=0                       )
     i_monomial = first(                                           &
        & monomial%modes%id==id .or. monomial%modes%paired_id==id, &
        & default=0                                                )
@@ -539,11 +580,11 @@ impure elemental function braket_SubspaceStates_ComplexMonomial(bra,ket, &
     ! Use mode locations to find p_i, p_j, n_i, n_j, q_i, q_j,
     !    and id and paired_id. N.B. id<=paired_id, so id may change from above.
     if (i_bra/=0) then
-      id = bra%state%modes(i_bra)%id
-      paired_id = bra%state%modes(i_bra)%paired_id
+      id = bra%state_%modes(i_bra)%id
+      paired_id = bra%state_%modes(i_bra)%paired_id
     elseif (i_ket/=0) then
-      id = ket%state%modes(i_ket)%id
-      paired_id = ket%state%modes(i_ket)%paired_id
+      id = ket%state_%modes(i_ket)%id
+      paired_id = ket%state_%modes(i_ket)%paired_id
     elseif (i_monomial/=0) then
       id = monomial%modes(i_monomial)%id
       paired_id = monomial%modes(i_monomial)%paired_id
@@ -554,13 +595,13 @@ impure elemental function braket_SubspaceStates_ComplexMonomial(bra,ket, &
     if (i_bra==0) then
       bra_mode = ComplexUnivariate(id,paired_id,0,0)
     else
-      bra_mode = bra%state%modes(i_bra)
+      bra_mode = bra%state_%modes(i_bra)
     endif
     
     if (i_ket==0) then
       ket_mode = ComplexUnivariate(id,paired_id,0,0)
     else
-      ket_mode = ket%state%modes(i_ket)
+      ket_mode = ket%state_%modes(i_ket)
     endif
     
     if (i_monomial==0) then
@@ -734,8 +775,8 @@ function kinetic_energy_SubspaceStates(bra,ket,subspace,supercell) &
   
   frequency = bra%frequency
   
-  bra_mode_integrated = [(.false., i=1, size(bra%state))]
-  ket_mode_integrated = [(.false., i=1, size(ket%state))]
+  bra_mode_integrated = [(.false., i=1, size(bra%state_))]
+  ket_mode_integrated = [(.false., i=1, size(ket%state_))]
   subspace_mode_integrated = [(.false., i=1, size(subspace))]
   
   do while (any(.not. bra_mode_integrated) .or. any(.not. ket_mode_integrated))
@@ -746,24 +787,24 @@ function kinetic_energy_SubspaceStates(bra,ket,subspace,supercell) &
     i_bra = first(.not. bra_mode_integrated, default=0)
     if (i_bra==0) then
       i_ket = first(.not. ket_mode_integrated)
-      id = ket%state%modes(i_ket)%id
-      paired_id = ket%state%modes(i_ket)%paired_id
+      id = ket%state_%modes(i_ket)%id
+      paired_id = ket%state_%modes(i_ket)%paired_id
     else
-      id = bra%state%modes(i_bra)%id
-      paired_id = bra%state%modes(i_bra)%paired_id
-      i_ket = first(ket%state%modes%id==id, default=0)
+      id = bra%state_%modes(i_bra)%id
+      paired_id = bra%state_%modes(i_bra)%paired_id
+      i_ket = first(ket%state_%modes%id==id, default=0)
     endif
     
     if (i_bra==0) then
       bra_mode = ComplexUnivariate(id,paired_id,0,0)
     else
-      bra_mode = bra%state%modes(i_bra)
+      bra_mode = bra%state_%modes(i_bra)
     endif
     
     if (i_ket==0) then
       ket_mode = ComplexUnivariate(id,paired_id,0,0)
     else
-      ket_mode = ket%state%modes(i_ket)
+      ket_mode = ket%state_%modes(i_ket)
     endif
     
     ! Calculate the contribution to the prefactor from the mode.
@@ -851,7 +892,12 @@ subroutine read_SubspaceState(this,input)
     line = split_line(input(2))
     frequency = dble(line(2))
     
-    state = ComplexMonomial(slice(input(4),1,len(input(4))-3))
+    if (input(4)=='|0>') then
+      state = ComplexMonomial( coefficient = cmplx(1.0_dp,0.0_dp,dp), &
+                             & modes       = [ComplexUnivariate::]    )
+    else
+      state = ComplexMonomial(1.0_dp//'*'//slice(input(4),2,len(input(4))-1))
+    endif
     
     this = SubspaceState(subspace_id,frequency,state)
   end select
@@ -863,11 +909,18 @@ function write_SubspaceState(this) result(output)
   class(SubspaceState), intent(in) :: this
   type(String), allocatable        :: output(:)
   
+  type(String) :: state_string
+  
   select type(this); type is(SubspaceState)
+    if (this%state_%total_power()==0) then
+      state_string = '|0>'
+    else
+      state_string = '|'//join(this%state_%modes,delimiter='*')//'>'
+    endif
     output = [ 'Subspace '//this%subspace_id, &
              & 'Frequency '//this%frequency,  &
              & str('State'),                  &
-             & str(this%state)//'|0>'         ]
+             & state_string                   ]
   end select
 end function
 

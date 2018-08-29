@@ -50,10 +50,13 @@ module potential_module
        & deferred :: force_ComplexModeDisplacement
     
     ! Evaluate <bra|potential|ket>.
-    generic, public :: braket => &
-                     & braket_SubspaceStates
+    generic, public :: braket =>              &
+                     & braket_SubspaceStates, &
+                     & braket_SumStates
     procedure(braket_SubspaceStates_PotentialData), public, &
        & deferred :: braket_SubspaceStates
+    procedure(braket_SumStates_PotentialData), public, &
+       & deferred :: braket_SumStates
   end type
   
   abstract interface
@@ -166,6 +169,18 @@ module potential_module
       class(PotentialData), intent(inout) :: this
       type(SubspaceState),  intent(in)    :: bra
       type(SubspaceState),  intent(in)    :: ket
+      type(AnharmonicData), intent(in)    :: inputs
+    end subroutine
+    
+    subroutine braket_SumStates_PotentialData(this,bra,ket,inputs)
+      import PotentialData
+      import SumState
+      import AnharmonicData
+      implicit none
+      
+      class(PotentialData), intent(inout) :: this
+      type(SumState),       intent(in)    :: bra
+      type(SumState),       intent(in)    :: ket
       type(AnharmonicData), intent(in)    :: inputs
     end subroutine
   end interface

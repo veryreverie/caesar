@@ -36,6 +36,9 @@ function calculate_states() result(output)
      &              'frequency_convergence is the precision to which &
      &frequencies will be converged when constructing the harmonic ground &
      &state.' ),                                                              &
+     & KeywordData( 'energy_convergence',                                     &
+     &              'energy_convergence is the precision to which energies &
+     &will be converged when constructing the VSCF ground state.' ),          &
      & KeywordData( 'max_pulay_iterations',                                   &
      &              'max_pulay_iterations is the maximum number of &
      &self-consistency iterations which will be passed into the Pulay &
@@ -68,6 +71,7 @@ subroutine calculate_states_subroutine(arguments)
   
   ! Input arguments.
   real(dp) :: frequency_convergence
+  real(dp) :: energy_convergence
   integer  :: max_pulay_iterations
   integer  :: pre_pulay_iterations
   real(dp) :: pre_pulay_damping
@@ -113,8 +117,11 @@ subroutine calculate_states_subroutine(arguments)
   ! Anharmonic potential.
   type(PotentialPointer) :: potential
   
-  ! Basis states (normalised but not orthogonal).
+  ! Basis states.
   type(SubspaceBasis), allocatable :: basis(:)
+  
+  ! VSCF ground states.
+  type(VscfGroundState), allocatable :: ground_states(:)
   
   ! Files and directories.
   type(IFile) :: structure_file
@@ -126,6 +133,8 @@ subroutine calculate_states_subroutine(arguments)
   type(IFile) :: subspace_coupling_file
   type(IFile) :: symmetry_file
   type(IFile) :: potential_file
+  type(OFile) :: basis_file
+  type(OFile) :: ground_state_file
   
   integer :: i,j,k
   
@@ -135,6 +144,7 @@ subroutine calculate_states_subroutine(arguments)
   
   wd = arguments%value('working_directory')
   frequency_convergence = dble(arguments%value('frequency_convergence'))
+  energy_convergence = dble(arguments%value('energy_convergence'))
   max_pulay_iterations = int(arguments%value('max_pulay_iterations'))
   pre_pulay_iterations = int(arguments%value('pre_pulay_iterations'))
   pre_pulay_damping = dble(arguments%value('pre_pulay_damping'))
@@ -234,7 +244,20 @@ subroutine calculate_states_subroutine(arguments)
                         & pre_pulay_iterations,  &
                         & pre_pulay_damping,     &
                         & no_basis_states        )
+  basis_file = OFile(wd//'/basis.dat')
+  call basis_file%print_lines(basis, separating_line='')
   
-  call print_lines(basis, separating_line='-----')
+  ! --------------------------------------------------
+  ! Run VSCF to generate ground states.
+  ! --------------------------------------------------
+  ground_states = run_vscf( potential,            &
+                          & basis,                &
+                          & energy_convergence,   &
+                          & max_pulay_iterations, &
+                          & pre_pulay_iterations, &
+                          & pre_pulay_damping,    &
+                          & anharmonic_data       )
+  ground_state_file = OFile(wd//'/ground_state.dat')
+  call ground_state_file%print_lines(ground_states, separating_line='')
 end subroutine
 end module

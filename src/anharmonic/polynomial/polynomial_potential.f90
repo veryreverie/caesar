@@ -45,6 +45,8 @@ module polynomial_potential_module
     
     procedure, public :: braket_SubspaceStates => &
                        & braket_SubspaceStates_PolynomialPotential
+    procedure, public :: braket_SumStates => &
+                       & braket_SumStates_PolynomialPotential
     
     procedure, public :: read  => read_PolynomialPotential
     procedure, public :: write => write_PolynomialPotential
@@ -517,6 +519,23 @@ subroutine braket_SubspaceStates_PolynomialPotential(this,bra,ket,inputs)
   class(PolynomialPotential), intent(inout) :: this
   type(SubspaceState),        intent(in)    :: bra
   type(SubspaceState),        intent(in)    :: ket
+  type(AnharmonicData),       intent(in)    :: inputs
+  
+  integer :: i
+  
+  do i=1,size(this%basis_functions)
+    call this%basis_functions(i)%braket(bra,ket,inputs)
+  enddo
+  
+  call this%basis_functions%simplify()
+end subroutine
+
+subroutine braket_SumStates_PolynomialPotential(this,bra,ket,inputs)
+  implicit none
+  
+  class(PolynomialPotential), intent(inout) :: this
+  type(SumState),             intent(in)    :: bra
+  type(SumState),             intent(in)    :: ket
   type(AnharmonicData),       intent(in)    :: inputs
   
   integer :: i

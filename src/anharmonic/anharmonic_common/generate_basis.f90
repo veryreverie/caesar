@@ -39,7 +39,7 @@ function generate_basis(potential,anharmonic_data,frequency_convergence, &
   real(dp),                 allocatable :: frequencies(:)
   
   type(SubspaceState), allocatable :: states(:)
-  type(SubspaceBasis)              :: subspace_basis
+  type(SubspaceState), allocatable :: subspace_states(:)
   
   type(RealVector), allocatable :: old_frequencies(:)
   type(RealVector), allocatable :: new_frequencies(:)
@@ -73,14 +73,15 @@ function generate_basis(potential,anharmonic_data,frequency_convergence, &
   ! Generate ground states at first guess frequencies.
   allocate(states(size(subspaces)), stat=ialloc); call err(ialloc)
   do i=1,size(subspaces)
-    subspace_basis = generate_subspace_basis( subspaces(i),                  &
-                                            & frequencies(i),                &
-                                            & anharmonic_data%complex_modes, &
-                                            & maximum_power = 0              )
-    if (size(subspace_basis)/=1) then
+    subspace_states = generate_subspace_states( &
+               & subspaces(i),                  &
+               & frequencies(i),                &
+               & anharmonic_data%complex_modes, &
+               & maximum_power = 0              )
+    if (size(subspace_states)/=1) then
       call err()
     endif
-    states(i) = subspace_basis%states(1)
+    states(i) = subspace_states(1)
   enddo
   
   ! Find self-consistent frequencies which minimise the energy.
@@ -138,6 +139,7 @@ function generate_basis(potential,anharmonic_data,frequency_convergence, &
     output(i) = generate_subspace_basis( subspaces(i),                     &
                                        & frequencies(i),                   &
                                        & anharmonic_data%complex_modes,    &
+                                       & anharmonic_data%qpoints,          &
                                        & maximum_power = no_basis_states-1 )
   enddo
 end function
