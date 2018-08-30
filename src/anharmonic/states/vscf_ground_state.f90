@@ -17,7 +17,6 @@ module vscf_ground_state_module
   
   type, extends(Stringsable) :: VscfGroundState
     integer               :: subspace_id
-    real(dp)              :: energy
     type(FractionVector)  :: wavevector
     real(dp), allocatable :: coefficients(:)
   contains
@@ -37,18 +36,16 @@ module vscf_ground_state_module
 contains
 
 ! Constructor.
-function new_VscfGroundState(subspace_id,energy,wavevector,coefficients) &
+function new_VscfGroundState(subspace_id,wavevector,coefficients) &
    & result(this)
   implicit none
   
   integer,              intent(in) :: subspace_id
-  real(dp),             intent(in) :: energy
   type(FractionVector), intent(in) :: wavevector
   real(dp),             intent(in) :: coefficients(:)
   type(VscfGroundState)            :: this
   
   this%subspace_id = subspace_id
-  this%energy = energy
   this%wavevector = wavevector
   this%coefficients = coefficients
 end function
@@ -100,10 +97,9 @@ impure elemental function initial_ground_state(basis) result(output)
   basis_to_states = dble(basis%wavevectors(i)%basis_to_states)
   coefficients = basis_to_states(j,:)
   
-  ! Construct output. The initial energy is just a placeholder.
+  ! Construct output.
   output = VscfGroundState(                            &
      & subspace_id  = basis%subspace_id,               &
-     & energy       = 0.0_dp,                          &
      & wavevector   = basis%wavevectors(i)%wavevector, &
      & coefficients = coefficients)
 end function
@@ -118,7 +114,6 @@ subroutine read_VscfGroundState(this,input)
   type(String),           intent(in)  :: input(:)
   
   integer               :: subspace_id
-  real(dp)              :: energy
   type(FractionVector)  :: wavevector
   real(dp), allocatable :: coefficients(:)
   
@@ -129,15 +124,12 @@ subroutine read_VscfGroundState(this,input)
     subspace_id = int(line(2))
     
     line = split_line(input(2))
-    energy = dble(line(2))
-    
-    line = split_line(input(3))
     wavevector = FractionVector(join(line(2:4)))
     
-    line = split_line(input(4))
+    line = split_line(input(3))
     coefficients = dble(line(:))
     
-    this = VscfGroundState(subspace_id,energy,wavevector,coefficients)
+    this = VscfGroundState(subspace_id,wavevector,coefficients)
   class default
     call err()
   end select
@@ -151,7 +143,6 @@ function write_VscfGroundState(this) result(output)
   
   select type(this); type is(VscfGroundState)
     output = [ 'Subspace '//this%subspace_id,     &
-             & 'Energy   '//this%energy,          &
              & 'Wavevector '//this%wavevector,    &
              & 'Coefficients '//this%coefficients ]
   class default

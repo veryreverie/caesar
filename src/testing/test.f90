@@ -36,15 +36,11 @@ subroutine test_subroutine(arguments)
   
   type(String) :: wd
   
+  integer, allocatable :: a(:)
   
-  type(String), allocatable :: a(:)
-  type(String)              :: b
+  integer :: i
   
-  wd = arguments%value('working_directory')
-  
-  a = [ str('11'), str('22') ]
-  b = str('aa')
-  call print_line(a==b)
-  
+  a = [( [1,i,2], i=1, 5 )]
+  call print_line(a)
 end subroutine
 end module
