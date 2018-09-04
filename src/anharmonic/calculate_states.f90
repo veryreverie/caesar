@@ -121,7 +121,9 @@ subroutine calculate_states_subroutine(arguments)
   type(SubspaceBasis), allocatable :: basis(:)
   
   ! VSCF ground states.
-  type(VscfGroundState), allocatable :: ground_states(:)
+  type(SubspacePotentialAndState), allocatable :: potentials_and_states(:)
+  type(VscfGroundState),           allocatable :: ground_states(:)
+  type(PotentialPointer),          allocatable :: subspace_potentials(:)
   
   ! Files and directories.
   type(IFile) :: structure_file
@@ -134,6 +136,7 @@ subroutine calculate_states_subroutine(arguments)
   type(IFile) :: symmetry_file
   type(IFile) :: potential_file
   type(OFile) :: basis_file
+  type(OFile) :: subspace_potentials_file
   type(OFile) :: ground_state_file
   
   integer :: i,j,k
@@ -248,15 +251,22 @@ subroutine calculate_states_subroutine(arguments)
   call basis_file%print_lines(basis, separating_line='')
   
   ! --------------------------------------------------
-  ! Run VSCF to generate ground states.
+  ! Run VSCF to generate single-subspace potentials and ground states.
   ! --------------------------------------------------
-  ground_states = run_vscf( potential,            &
-                          & basis,                &
-                          & energy_convergence,   &
-                          & max_pulay_iterations, &
-                          & pre_pulay_iterations, &
-                          & pre_pulay_damping,    &
-                          & anharmonic_data       )
+  potentials_and_states = run_vscf( potential,            &
+                                  & basis,                &
+                                  & energy_convergence,   &
+                                  & max_pulay_iterations, &
+                                  & pre_pulay_iterations, &
+                                  & pre_pulay_damping,    &
+                                  & anharmonic_data       )
+  
+  subspace_potentials = potentials_and_states%potential
+  subspace_potentials_file = OFile(wd//'/subspace_potentials.dat')
+  call subspace_potentials_file%print_lines( subspace_potentials, &
+                                           & separating_line=''   )
+  
+  ground_states = potentials_and_states%state
   ground_state_file = OFile(wd//'/ground_state.dat')
   call ground_state_file%print_lines(ground_states, separating_line='')
 end subroutine

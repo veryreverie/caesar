@@ -36,11 +36,63 @@ subroutine test_subroutine(arguments)
   
   type(String) :: wd
   
-  integer, allocatable :: a(:)
+  integer :: no_elements
   
-  integer :: i
+  integer, allocatable :: mins_in(:)
+  integer, allocatable :: maxs_in(:)
+  integer, allocatable :: mins_out(:)
+  integer, allocatable :: maxs_out(:)
   
-  a = [( [1,i,2], i=1, 5 )]
-  call print_line(a)
+  integer :: split
+  
+  integer, allocatable :: sums(:)
+  
+  integer :: nops
+  
+  integer :: i,j,k
+  
+  do k=1,64
+    no_elements = k
+    
+    nops = 0
+    
+    mins_in = [1]
+    maxs_in = [no_elements]
+    sums    = [(0,i=1,no_elements)]
+    do while (any(mins_in/=maxs_in)) 
+      mins_out = [integer::]
+      maxs_out = [integer::]
+      
+      do i=1,size(mins_in)
+        if (mins_in(i)==maxs_in(i)) then
+          mins_out = [mins_out, mins_in(i)]
+          maxs_out = [maxs_out, maxs_in(i)]
+        elseif (mins_in(i)/=maxs_in(i)) then
+          split = mins_in(i) + (maxs_in(i)-mins_in(i)+1)/2
+          
+          sums(split) = sums(mins_in(i))
+          do j=split,maxs_in(i)
+            sums(mins_in(i)) = sums(mins_in(i)) + 10**(j-1)
+            nops = nops + 1
+          enddo
+          do j=mins_in(i),split-1
+            sums(split) = sums(split) + 10**(j-1)
+            nops = nops + 1
+          enddo
+          
+          mins_out = [mins_out, mins_in(i), split     ]
+          maxs_out = [maxs_out, split-1   , maxs_in(i)]
+        endif
+      enddo
+      
+      mins_in = mins_out
+      maxs_in = maxs_out
+    enddo
+    
+    call print_line('')
+    call print_line(no_elements)
+    call print_line(sums)
+    call print_line('N ops: '//nops)
+  enddo
 end subroutine
 end module

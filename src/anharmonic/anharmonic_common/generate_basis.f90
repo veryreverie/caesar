@@ -157,29 +157,25 @@ function optimise_frequencies(potential,states,anharmonic_data, &
   real(dp),             intent(in) :: frequency_convergence
   type(RealVector)                 :: output
   
-  real(dp), allocatable  :: new_frequencies(:)
-  type(PotentialPointer) :: new_potential
+  type(PotentialPointer), allocatable :: subspace_potentials(:)
   
-  integer :: i,j,ialloc
+  real(dp), allocatable  :: new_frequencies(:)
+  
+  integer :: i
+  
+  ! Calculate the single-subspace potentials, defined as
+  !    V_i = (prod_{j/=i}<j|)V(prod_{j/=i}|j>).
+  subspace_potentials = generate_subspace_potentials( potential,      &
+                                                    & states,         &
+                                                    & anharmonic_data )
   
   new_frequencies = [(0.0_dp,i=1,size(states))]
   
   ! Calculate update frequencies.
   do i=1,size(states)
-    ! Integrate the potential across all other subspaces.
-    new_potential = potential
-    do j=1,size(states)
-      if (j/=i) then
-        call new_potential%braket(states(j),states(j),anharmonic_data)
-      endif
-    enddo
-    
-    ! Set the constant energy to zero, to stabilise minima finding.
-    call new_potential%zero_energy()
-    
     ! Find the frequency which minimises total energy.
     new_frequencies(i) = optimise_frequency(      &
-       & new_potential,                           &
+       & subspace_potentials(i),                  &
        & states(i),                               &
        & anharmonic_data,                         &
        & anharmonic_data%degenerate_subspaces(i), &

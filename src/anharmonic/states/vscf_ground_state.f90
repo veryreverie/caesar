@@ -51,7 +51,8 @@ function new_VscfGroundState(subspace_id,wavevector,coefficients) &
 end function
 
 ! Construct a SumState from a VscfGroundState.
-function new_SumState_VscfGroundState(state,basis) result(output)
+impure elemental function new_SumState_VscfGroundState(state,basis) &
+   & result(output)
   implicit none
   
   type(VscfGroundState), intent(in) :: state

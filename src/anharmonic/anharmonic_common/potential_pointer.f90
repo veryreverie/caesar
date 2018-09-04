@@ -17,6 +17,7 @@ module potential_pointer_module
   
   public :: PotentialPointer
   public :: assignment(=)
+  public :: generate_subspace_potentials
   
   type, extends(PotentialData) :: PotentialPointer
     class(PotentialData), allocatable :: potential
@@ -44,6 +45,8 @@ module potential_pointer_module
     procedure, public :: braket_SumStates => &
                        & braket_SumStates_PotentialPointer
     
+    procedure, private :: braket_helper
+    
     procedure, private :: check => check_PotentialPointer
     
     procedure, public :: read  => read_PotentialPointer
@@ -52,6 +55,11 @@ module potential_pointer_module
   
   interface assignment(=)
     module procedure assign_PotentialPointer_PotentialData
+  end interface
+  
+  interface generate_subspace_potentials
+    module procedure generate_subspace_potentials_SubspaceStates
+    module procedure generate_subspace_potentials_SumStates
   end interface
 contains
 
@@ -226,6 +234,159 @@ subroutine braket_SumStates_PotentialPointer(this,bra,ket,inputs)
   call this%potential%braket(bra,ket,inputs)
 end subroutine
 
+! ----------------------------------------------------------------------
+! Takes a potential V and an array of subspace states {|i>}, and generates the
+!    set of single-subspace potentials {V_i}, defined by
+!    V_i = (prod_{j/=i}<j|)V(prod_{j/=i}|j>).
+! ----------------------------------------------------------------------
+! The naive method of calculating {V_i} for n subspaces takes
+!    n(n-1) operations.
+! This can be accelerated using a bisection method, outlined below.
+! 
+! V0(1) = V, the input potential.
+! 
+! The first iteration splits the states into two intervals,
+!    [1,s-1] and [s,n], where s=n/2, and two potentials are calculated:
+!    - V1(1) = (<s|<s+1|...<n|)V0(1)(|s>|s+1>...|n>)
+!    - V1(s) = (<1|<2|...<s-1|)V0(1)(|1>|2>...|s-1>)
+! These intervals are recorded in terms of their min and max values:
+!   mins = [1  , s]
+!   maxs = [s-1, n]
+!
+! The next iteration splits each of the intervals into two intervals,
+!    copies the potential to both intervals, and integrates the potential
+!    corresponding to each interval over the states in the other interval.
+! This method takes O(n.log(n)) operations.
+function generate_subspace_potentials_SubspaceStates(potential,states,inputs) &
+   & result(output)
+  implicit none
+  
+  class(PotentialData), intent(in)    :: potential
+  type(SubspaceState),  intent(in)    :: states(:)
+  type(AnharmonicData), intent(in)    :: inputs
+  type(PotentialPointer), allocatable :: output(:)
+  
+  output = generate_subspace_potentials_helper(potential,states,inputs)
+end function
+
+function generate_subspace_potentials_SumStates(potential,states,inputs) &
+   & result(output)
+  implicit none
+  
+  class(PotentialData), intent(in)    :: potential
+  type(SumState),       intent(in)    :: states(:)
+  type(AnharmonicData), intent(in)    :: inputs
+  type(PotentialPointer), allocatable :: output(:)
+  
+  output = generate_subspace_potentials_helper(potential,states,inputs)
+end function
+
+function generate_subspace_potentials_helper(potential,states,inputs) &
+   & result(output)
+  implicit none
+  
+  class(PotentialData), intent(in)    :: potential
+  class(*),             intent(in)    :: states(:)
+  type(AnharmonicData), intent(in)    :: inputs
+  type(PotentialPointer), allocatable :: output(:)
+  
+  ! The minimum and maximum indices in each interval.
+  integer, allocatable :: mins_in(:)
+  integer, allocatable :: maxs_in(:)
+  integer, allocatable :: mins_out(:)
+  integer, allocatable :: maxs_out(:)
+  
+  ! The half-way point of each interval.
+  integer :: s
+  
+  integer :: i,j,ialloc
+  
+  if (size(states)==0) then
+    call print_line(ERROR//': No states to integrate over.')
+    call err()
+  endif
+  
+  ! Initialise to a single interval spanning all states,
+  !    and the un-integrated potential.
+  mins_in = [1]
+  maxs_in = [size(states)]
+  allocate(output(size(states)), stat=ialloc); call err(ialloc)
+  output(1) = potential
+  
+  ! Loop over iteration until every interval contains exactly one subspace.
+  do while (any(mins_in/=maxs_in))
+    mins_out = [integer::]
+    maxs_out = [integer::]
+    
+    ! Loop over intervals.
+    do i=1,size(mins_in)
+      if (mins_in(i)==maxs_in(i)) then
+        ! The interval contains only one subspace; nothing needs doing.
+        mins_out = [mins_out, mins_in(i)]
+        maxs_out = [maxs_out, maxs_in(i)]
+      else
+        ! The interval contains more than one subspace;
+        !    and generate two integrated potentials.
+        
+        ! Bisect the interval (or split it as evenly as possible).
+        s = mins_in(i) + (maxs_in(i)-mins_in(i)+1)/2
+        mins_out = [mins_out, mins_in(i), s     ]
+        maxs_out = [maxs_out, s-1   , maxs_in(i)]
+        
+        ! Copy the potential from the first interval to the second.
+        output(s) = output(mins_in(i))
+        
+        ! Integrate the first potential over all states in the second interval,
+        !    and the second potential over all states in the first interval.
+        do j=s,maxs_in(i)
+          call output(mins_in(i))%braket_helper(states(j),states(j),inputs)
+        enddo
+        do j=mins_in(i),s-1
+          call output(s)%braket_helper(states(j),states(j),inputs)
+        enddo
+      endif
+    enddo
+    
+    mins_in = mins_out
+    maxs_in = maxs_out
+  enddo
+  
+  ! Set the constant term to zero.
+  do i=1,size(output)
+    call output(i)%zero_energy()
+  enddo
+end function
+
+subroutine braket_helper(this,bra,ket,inputs)
+  implicit none
+  
+  class(PotentialPointer), intent(inout) :: this
+  class(*),                intent(in)    :: bra
+  class(*),                intent(in)    :: ket
+  type(AnharmonicData),    intent(in)    :: inputs
+  
+  call this%check()
+  
+  select type(bra); type is(SubspaceState)
+    select type(ket); type is(SubspaceState)
+      call this%braket(bra,ket,inputs)
+    class default
+      call err()
+    end select
+  type is(SumState)
+    select type(ket); type is(SumState)
+      call this%braket(bra,ket,inputs)
+    class default
+      call err()
+    end select
+  class default
+    call err()
+  end select
+end subroutine
+
+! ----------------------------------------------------------------------
+! I/O.
+! ----------------------------------------------------------------------
 subroutine read_PotentialPointer(this,input)
   implicit none
   

@@ -13,33 +13,53 @@ module vscf_module
   
   private
   
-  type StateAndEnergy
-    type(VscfGroundState), allocatable :: state(:)
-    real(dp)                           :: energy
+  public :: run_vscf
+  public :: SubspacePotentialAndState
+  
+  type, extends(NoDefaultConstructor) :: SubspacePotentialAndState
+    type(PotentialPointer) :: potential
+    type(VscfGroundState)  :: state
+    real(dp)               :: energy
   end type
   
-  public :: run_vscf
+  interface SubspacePotentialAndState
+    module procedure new_SubspacePotentialAndState
+  end interface
 contains
+
+impure elemental function new_SubspacePotentialAndState(potential,state, &
+   & energy) result(this)
+  implicit none
+  
+  type(PotentialPointer), intent(in) :: potential
+  type(VscfGroundState),  intent(in) :: state
+  real(dp),               intent(in) :: energy
+  type(SubspacePotentialAndState)    :: this
+  
+  this%potential = potential
+  this%state = state
+  this%energy = energy
+end function
 
 function run_vscf(potential,basis,energy_convergence,max_pulay_iterations, &
    & pre_pulay_iterations,pre_pulay_damping,anharmonic_data) result(output)
   implicit none
   
-  class(PotentialData), intent(in)   :: potential
-  type(SubspaceBasis),  intent(in)   :: basis(:)
-  real(dp),             intent(in)   :: energy_convergence
-  integer,              intent(in)   :: max_pulay_iterations
-  integer,              intent(in)   :: pre_pulay_iterations
-  real(dp),             intent(in)   :: pre_pulay_damping
-  type(AnharmonicData), intent(in)   :: anharmonic_data
-  type(VscfGroundState), allocatable :: output(:)
+  class(PotentialData), intent(in)             :: potential
+  type(SubspaceBasis),  intent(in)             :: basis(:)
+  real(dp),             intent(in)             :: energy_convergence
+  integer,              intent(in)             :: max_pulay_iterations
+  integer,              intent(in)             :: pre_pulay_iterations
+  real(dp),             intent(in)             :: pre_pulay_damping
+  type(AnharmonicData), intent(in)             :: anharmonic_data
+  type(SubspacePotentialAndState), allocatable :: output(:)
   
   type(VscfGroundState), allocatable :: old_guess(:)
   type(VscfGroundState), allocatable :: new_guess(:)
   
-  type(VscfGroundState), allocatable :: state(:)
-  type(StateAndEnergy)               :: state_and_energy
-  real(dp),              allocatable :: energies(:)
+  type(VscfGroundState),           allocatable :: state(:)
+  type(SubspacePotentialAndState), allocatable :: potentials_and_states(:)
+  real(dp),                        allocatable :: energies(:)
   
   type(RealVector), allocatable :: old_coefficients(:)
   type(RealVector), allocatable :: new_coefficients(:)
@@ -57,9 +77,9 @@ function run_vscf(potential,basis,energy_convergence,max_pulay_iterations, &
   iter: do
     ! Use the current state to calculate single-subspace potentials,
     !    and calculate the new ground states of these potentials.
-    state_and_energy = update(state,basis,potential,anharmonic_data)
-    state = state_and_energy%state
-    energies = [energies, state_and_energy%energy]
+    potentials_and_states = update(state,basis,potential,anharmonic_data)
+    state = potentials_and_states%state
+    energies = [energies, sum(potentials_and_states%energy)]
     new_coefficients = [new_coefficients, states_to_coefficients(state)]
     
     ! Use a damped iterative scheme or a Pulay scheme to converge towards the
@@ -94,7 +114,7 @@ function run_vscf(potential,basis,energy_convergence,max_pulay_iterations, &
     endif
     
     ! If the frequencies are converged, break out of the loop.
-    output = state
+    output = potentials_and_states
     exit iter
   enddo iter
 end function
@@ -105,21 +125,21 @@ end function
 function update(states,basis,potential,anharmonic_data) result(output)
   implicit none
   
-  type(VscfGroundState), intent(in)  :: states(:)
-  type(SubspaceBasis),   intent(in)  :: basis(:)
-  class(PotentialData),  intent(in)  :: potential
-  type(AnharmonicData),  intent(in)  :: anharmonic_data
-  type(StateAndEnergy)               :: output
+  type(VscfGroundState), intent(in)            :: states(:)
+  type(SubspaceBasis),   intent(in)            :: basis(:)
+  class(PotentialData),  intent(in)            :: potential
+  type(AnharmonicData),  intent(in)            :: anharmonic_data
+  type(SubspacePotentialAndState), allocatable :: output(:)
   
   type(StructureData) :: supercell
   
   type(DegenerateSubspace) :: subspace
   
-  type(PotentialPointer) :: new_potential
+  type(SumState),         allocatable :: subspace_states(:)
+  type(PotentialPointer), allocatable :: subspace_potentials(:)
+  type(PotentialPointer)              :: subspace_potential
   
   type(SymmetricEigenstuff), allocatable :: wavevector_ground_states(:)
-  
-  type(PotentialPointer) :: new_new_potential
   
   real(dp), allocatable :: hamiltonian(:,:)
   
@@ -128,26 +148,25 @@ function update(states,basis,potential,anharmonic_data) result(output)
   
   type(SymmetricEigenstuff), allocatable :: estuff(:)
   
+  type(VscfGroundState), allocatable :: ground_states(:)
+  real(dp),              allocatable :: energies(:)
+  
   integer :: i,j,k,l,ialloc
   
   supercell = anharmonic_data%anharmonic_supercell
   
-  allocate(output%state(size(states)), stat=ialloc); call err(ialloc)
-  output%energy = 0.0_dp
+  ! Generate the single-subspace potentials {V_i}, defined as
+  !    V_i = (prod_{j/=i}<j|)V(prod_{j/=i}|j>).
+  subspace_states = SumState(states,basis)
+  subspace_potentials = generate_subspace_potentials( potential,       &
+                                                    & subspace_states, &
+                                                    & anharmonic_data  )
+  
+  allocate( ground_states(size(states)), &
+          & energies(size(states)),      &
+          & stat=ialloc); call err(ialloc)
   do i=1,size(states)
     subspace = anharmonic_data%degenerate_subspaces(i)
-    
-    ! Integrate the potential across all other subspaces, to give the
-    !    single-subspace potential.
-    new_potential = potential
-    do j=1,size(states)
-      if (j/=i) then
-        call new_potential%braket( SumState(states(j),basis(j)), &
-                                 & SumState(states(j),basis(j)), &
-                                 & anharmonic_data               )
-      endif
-    enddo
-    call new_potential%zero_energy()
     
     ! Calculate the ground state at each wavevector.
     allocate( wavevector_ground_states(size(basis(i))), &
@@ -161,14 +180,14 @@ function update(states,basis,potential,anharmonic_data) result(output)
         do l=1,size(basis(i)%wavevectors(j))
           bra = basis(i)%wavevectors(j)%states(k)
           ket = basis(i)%wavevectors(j)%states(l)
-          new_new_potential = new_potential
-          call new_new_potential%braket( bra,            &
-                                       & ket,            &
-                                       & anharmonic_data )
-          hamiltonian(l,k) = new_new_potential%undisplaced_energy() &
-                         & + kinetic_energy( bra,                   &
-                         &                   ket,                   &
-                         &                   subspace,              &
+          subspace_potential = subspace_potentials(i)
+          call subspace_potential%braket( bra,            &
+                                        & ket,            &
+                                        & anharmonic_data )
+          hamiltonian(l,k) = subspace_potential%undisplaced_energy() &
+                         & + kinetic_energy( bra,                    &
+                         &                   ket,                    &
+                         &                   subspace,               &
                          &                   supercell )
         enddo
       enddo
@@ -198,14 +217,18 @@ function update(states,basis,potential,anharmonic_data) result(output)
       j = first(is_int(basis(i)%wavevectors%wavevector))
     endif
     
-    output%state(i) = VscfGroundState(                      &
+    ground_states(i) = VscfGroundState(                     &
        & subspace_id  = basis(i)%subspace_id,               &
        & wavevector   = basis(i)%wavevectors(j)%wavevector, &
        & coefficients = wavevector_ground_states(j)%evec    )
-    output%energy = output%energy + wavevector_ground_states(j)%eval
+    energies(i) = wavevector_ground_states(j)%eval
     
     deallocate(wavevector_ground_states, stat=ialloc); call err(ialloc)
   enddo
+  
+  output = SubspacePotentialAndState( subspace_potentials, &
+                                    & ground_states,       &
+                                    & energies             )
 end function
 
 ! Concatenates the coefficients of all the states together,

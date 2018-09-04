@@ -11,7 +11,7 @@ module anharmonic_common_module
   use anharmonic_data_module
   use potential_module
   use potential_pointer_module
-  use effective_frequency_module
+  use mode_map_module
   use generate_basis_module
   use vscf_module
   implicit none

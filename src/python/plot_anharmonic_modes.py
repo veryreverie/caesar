@@ -23,7 +23,7 @@ def main():
     'grey'     :[179/255,179/255,179/255]}
   
   # Read file.
-  file_name = 'effective_frequencies.dat'
+  file_name = 'mode_maps.dat'
   frequencies_file = [line.rstrip('\n').split() for line in open(file_name)]
   
   sampling = False
@@ -36,63 +36,75 @@ def main():
         modes.append({'ID':int(line[2])})
       elif line[0]=='Harmonic':
         modes[-1]['Harmonic frequency'] = float(line[2])
-      elif line[0]=='Effective':
-        modes[-1]['Effective frequency'] = float(line[2])
       elif line[0]=='Displacement':
         modes[-1]['Displacements'] = []
-        modes[-1]['Anharmonic energies'] = []
-        modes[-1]['Anharmonic forces'] = []
         modes[-1]['Harmonic energies'] = []
         modes[-1]['Harmonic forces'] = []
-        modes[-1]['Effective energies'] = []
-        modes[-1]['Effective forces'] = []
-        if line[-2]=='Sampled':
+        modes[-1]['Anharmonic cos energies'] = []
+        modes[-1]['Anharmonic cos forces'] = []
+        modes[-1]['Anharmonic sin energies'] = []
+        modes[-1]['Anharmonic sin forces'] = []
+        if line[-3]=='Sampled':
           sampling = True
-          modes[-1]['Sampled energies'] = []
-          modes[-1]['Sampled forces'] = []
+          modes[-1]['Sampled cos energies'] = []
+          modes[-1]['Sampled cos forces'] = []
+          modes[-1]['Sampled sin energies'] = []
+          modes[-1]['Sampled sin forces'] = []
       else:
         modes[-1]['Displacements'].append(float(line[0]))
-        modes[-1]['Anharmonic energies'].append(float(line[1]))
-        modes[-1]['Anharmonic forces'].append(float(line[2]))
-        modes[-1]['Harmonic energies'].append(float(line[3]))
-        modes[-1]['Harmonic forces'].append(float(line[4]))
-        modes[-1]['Effective energies'].append(float(line[5]))
-        modes[-1]['Effective forces'].append(float(line[6]))
+        modes[-1]['Harmonic energies'].append(float(line[1]))
+        modes[-1]['Harmonic forces'].append(float(line[2]))
+        modes[-1]['Anharmonic cos energies'].append(float(line[3]))
+        modes[-1]['Anharmonic cos forces'].append(float(line[4]))
+        modes[-1]['Anharmonic sin energies'].append(float(line[5]))
+        modes[-1]['Anharmonic sin forces'].append(float(line[6]))
         if sampling:
-          modes[-1]['Sampled energies'].append(float(line[7]))
-          modes[-1]['Sampled forces'].append(float(line[8]))
+          modes[-1]['Sampled cos energies'].append(float(line[7]))
+          modes[-1]['Sampled cos forces'].append(float(line[8]))
+          modes[-1]['Sampled sin energies'].append(float(line[9]))
+          modes[-1]['Sampled sin forces'].append(float(line[10]))
   
   if sampling:
     for mode in modes:
-      mode['Harmonic energy difference'] = []
+      mode['Harmonic cos energy difference'] = []
       for harmonic,sampled in zip(mode['Harmonic energies'],
-                                  mode['Sampled energies']):
-         mode['Harmonic energy difference'].append(harmonic-sampled)
+                                  mode['Sampled cos energies']):
+         mode['Harmonic cos energy difference'].append(harmonic-sampled)
       
-      mode['Harmonic force difference'] = []
+      mode['Harmonic cos force difference'] = []
       for harmonic,sampled in zip(mode['Harmonic forces'],
-                                  mode['Sampled forces']):
-         mode['Harmonic force difference'].append(harmonic-sampled)
+                                  mode['Sampled cos forces']):
+         mode['Harmonic cos force difference'].append(harmonic-sampled)
       
-      mode['Anharmonic energy difference'] = []
-      for anharmonic,sampled in zip(mode['Anharmonic energies'],
-                                    mode['Sampled energies']):
-         mode['Anharmonic energy difference'].append(anharmonic-sampled)
+      mode['Harmonic sin energy difference'] = []
+      for harmonic,sampled in zip(mode['Harmonic energies'],
+                                  mode['Sampled sin energies']):
+         mode['Harmonic sin energy difference'].append(harmonic-sampled)
       
-      mode['Anharmonic force difference'] = []
-      for anharmonic,sampled in zip(mode['Anharmonic forces'],
-                                    mode['Sampled forces']):
-         mode['Anharmonic force difference'].append(anharmonic-sampled)
+      mode['Harmonic sin force difference'] = []
+      for harmonic,sampled in zip(mode['Harmonic forces'],
+                                  mode['Sampled sin forces']):
+         mode['Harmonic sin force difference'].append(harmonic-sampled)
       
-      mode['Effective energy difference'] = []
-      for effective,sampled in zip(mode['Effective energies'],
-                                   mode['Sampled energies']):
-         mode['Effective energy difference'].append(effective-sampled)
+      mode['Anharmonic cos energy difference'] = []
+      for anharmonic,sampled in zip(mode['Anharmonic cos energies'],
+                                    mode['Sampled cos energies']):
+         mode['Anharmonic cos energy difference'].append(anharmonic-sampled)
       
-      mode['Effective force difference'] = []
-      for effective,sampled in zip(mode['Effective forces'],
-                                   mode['Sampled forces']):
-         mode['Effective force difference'].append(effective-sampled)
+      mode['Anharmonic cos force difference'] = []
+      for anharmonic,sampled in zip(mode['Anharmonic cos forces'],
+                                    mode['Sampled cos forces']):
+         mode['Anharmonic cos force difference'].append(anharmonic-sampled)
+      
+      mode['Anharmonic sin energy difference'] = []
+      for anharmonic,sampled in zip(mode['Anharmonic sin energies'],
+                                    mode['Sampled sin energies']):
+         mode['Anharmonic sin energy difference'].append(anharmonic-sampled)
+      
+      mode['Anharmonic sin force difference'] = []
+      for anharmonic,sampled in zip(mode['Anharmonic sin forces'],
+                                    mode['Sampled sin forces']):
+         mode['Anharmonic sin force difference'].append(anharmonic-sampled)
   
   # Plot data.
   
@@ -112,42 +124,50 @@ def main():
   for mode,ax in zip(modes,axes[1]):
     ax.plot(mode['Displacements'], mode['Harmonic energies'],
             color=colours['orange'], lw=2)
-    ax.plot(mode['Displacements'], mode['Effective energies'],
-            color=colours['purple'], lw=2)
-    ax.plot(mode['Displacements'], mode['Anharmonic energies'], 
+    ax.plot(mode['Displacements'], mode['Anharmonic cos energies'], 
             color=colours['turquoise'], lw=2)
+    ax.plot(mode['Displacements'], mode['Anharmonic sin energies'], 
+            color=colours['turquoise'], lw=2, linestyle='dashed')
     if sampling:
-      ax.plot(mode['Displacements'], mode['Sampled energies'],
+      ax.plot(mode['Displacements'], mode['Sampled cos energies'],
               color=colours['green'], lw=2)
+      ax.plot(mode['Displacements'], mode['Sampled sin energies'],
+              color=colours['green'], lw=2, linestyle='dashed')
   
   for mode,ax in zip(modes,axes[2]):
     ax.plot(mode['Displacements'], mode['Harmonic forces'],
             color=colours['orange'], lw=2)
-    ax.plot(mode['Displacements'], mode['Effective forces'],
-            color=colours['purple'], lw=2)
-    ax.plot(mode['Displacements'], mode['Anharmonic forces'], 
+    ax.plot(mode['Displacements'], mode['Anharmonic cos forces'], 
             color=colours['turquoise'], lw=2)
+    ax.plot(mode['Displacements'], mode['Anharmonic sin forces'], 
+            color=colours['turquoise'], lw=2, linestyle='dashed')
     if sampling:
-      ax.plot(mode['Displacements'], mode['Sampled forces'],
+      ax.plot(mode['Displacements'], mode['Sampled cos forces'],
               color=colours['green'], lw=2)
+      ax.plot(mode['Displacements'], mode['Sampled sin forces'],
+              color=colours['green'], lw=2, linestyle='dashed')
   
   if sampling:
     for mode,ax in zip(modes,axes[3]):
-      ax.plot(mode['Displacements'], mode['Harmonic energy difference'],
+      ax.plot(mode['Displacements'], mode['Harmonic cos energy difference'],
               color=colours['orange'], lw=2)
-      ax.plot(mode['Displacements'], mode['Effective energy difference'],
-              color=colours['purple'], lw=2)
-      ax.plot(mode['Displacements'], mode['Anharmonic energy difference'], 
+      ax.plot(mode['Displacements'], mode['Harmonic sin energy difference'],
+              color=colours['orange'], lw=2, linestyle='dashed')
+      ax.plot(mode['Displacements'], mode['Anharmonic cos energy difference'], 
               color=colours['turquoise'], lw=2)
+      ax.plot(mode['Displacements'], mode['Anharmonic sin energy difference'], 
+              color=colours['turquoise'], lw=2, linestyle='dashed')
   
   if sampling:
     for mode,ax in zip(modes,axes[4]):
-      ax.plot(mode['Displacements'], mode['Harmonic force difference'],
+      ax.plot(mode['Displacements'], mode['Harmonic cos force difference'],
               color=colours['orange'], lw=2)
-      ax.plot(mode['Displacements'], mode['Effective force difference'],
-              color=colours['purple'], lw=2)
-      ax.plot(mode['Displacements'], mode['Anharmonic force difference'], 
+      ax.plot(mode['Displacements'], mode['Harmonic sin force difference'],
+              color=colours['orange'], lw=2, linestyle='dashed')
+      ax.plot(mode['Displacements'], mode['Anharmonic cos force difference'], 
               color=colours['turquoise'], lw=2)
+      ax.plot(mode['Displacements'], mode['Anharmonic sin force difference'], 
+              color=colours['turquoise'], lw=2, linestyle='dashed')
   
   # Configure frequency axes.
   min_frequency = modes[0]['Harmonic frequency']
@@ -171,13 +191,15 @@ def main():
   min_energy = 0
   max_energy = 0
   for mode in modes:
-    min_energy = min(min_energy, min(mode['Anharmonic energies']))
-    min_energy = min(min_energy, min(mode['Effective energies']))
-    max_energy = max(max_energy, max(mode['Anharmonic energies']))
-    max_energy = max(max_energy, max(mode['Effective energies']))
+    min_energy = min(min_energy, min(mode['Anharmonic cos energies']))
+    min_energy = min(min_energy, min(mode['Anharmonic sin energies']))
+    max_energy = max(max_energy, max(mode['Anharmonic cos energies']))
+    max_energy = max(max_energy, max(mode['Anharmonic sin energies']))
     if sampling:
-      min_energy = min(min_energy, min(mode['Sampled energies']))
-      max_energy = max(max_energy, max(mode['Sampled energies']))
+      min_energy = min(min_energy, min(mode['Sampled cos energies']))
+      min_energy = min(min_energy, min(mode['Sampled sin energies']))
+      max_energy = max(max_energy, max(mode['Sampled cos energies']))
+      max_energy = max(max_energy, max(mode['Sampled sin energies']))
   
   ymin = min_energy - 0.1*(max_energy-min_energy)
   ymax = max_energy + 0.1*(max_energy-min_energy)
@@ -191,13 +213,15 @@ def main():
   min_force = 0
   max_force = 0
   for mode in modes:
-    min_force = min(min_force, min(mode['Anharmonic forces']))
-    min_force = min(min_force, min(mode['Effective forces']))
-    max_force = max(max_force, max(mode['Anharmonic forces']))
-    max_force = max(max_force, max(mode['Effective forces']))
+    min_force = min(min_force, min(mode['Anharmonic cos forces']))
+    min_force = min(min_force, min(mode['Anharmonic sin forces']))
+    max_force = max(max_force, max(mode['Anharmonic cos forces']))
+    max_force = max(max_force, max(mode['Anharmonic sin forces']))
     if sampling:
-      min_force = min(min_force, min(mode['Sampled forces']))
-      max_force = max(max_force, max(mode['Sampled forces']))
+      min_force = min(min_force, min(mode['Sampled cos forces']))
+      min_force = min(min_force, min(mode['Sampled sin forces']))
+      max_force = max(max_force, max(mode['Sampled cos forces']))
+      max_force = max(max_force, max(mode['Sampled sin forces']))
   
   ymin = min_force - 0.1*(max_force-min_force)
   ymax = max_force + 0.1*(max_force-min_force)
@@ -213,13 +237,13 @@ def main():
     max_difference = 0
     for mode in modes:
       min_difference = min(min_difference,
-                           min(mode['Anharmonic energy difference']))
+                           min(mode['Anharmonic cos energy difference']))
       min_difference = min(min_difference,
-                           min(mode['Effective energy difference']))
+                           min(mode['Anharmonic sin energy difference']))
       max_difference = max(max_difference,
-                           max(mode['Anharmonic energy difference']))
+                           max(mode['Anharmonic cos energy difference']))
       max_difference = max(max_difference,
-                           max(mode['Effective energy difference']))
+                           max(mode['Anharmonic sin energy difference']))
     
     ymin = min_difference - 0.1*(max_difference-min_difference)
     ymax = max_difference + 0.1*(max_difference-min_difference)
@@ -237,13 +261,13 @@ def main():
     max_difference = 0
     for mode in modes:
       min_difference = min(min_difference,
-                           min(mode['Anharmonic force difference']))
+                           min(mode['Anharmonic cos force difference']))
       min_difference = min(min_difference,
-                           min(mode['Effective force difference']))
+                           min(mode['Anharmonic sin force difference']))
       max_difference = max(max_difference,
-                           max(mode['Anharmonic force difference']))
+                           max(mode['Anharmonic cos force difference']))
       max_difference = max(max_difference,
-                           max(mode['Effective force difference']))
+                           max(mode['Anharmonic sin force difference']))
     
     ymin = min_difference - 0.1*(max_difference-min_difference)
     ymax = max_difference + 0.1*(max_difference-min_difference)

@@ -56,7 +56,7 @@ function new_SumState(subspace_id,states,coefficients) result(this)
   this%coefficients = coefficients
 end function
 
-impure elemental function size_SumState(this) result(output)
+function size_SumState(this) result(output)
   implicit none
   
   type(SumState), intent(in) :: this
