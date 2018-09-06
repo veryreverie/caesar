@@ -29,8 +29,7 @@ module potential_module
        & generate_potential
     
     ! Return the energy at zero displacement, or set this energy to zero.
-    procedure(undisplaced_energy_PotentialData), public, deferred :: &
-       & undisplaced_energy
+    procedure, public :: undisplaced_energy
     procedure(zero_energy_PotentialData), public, deferred :: zero_energy
     
     ! Return the energy and force at a given real or complex displacement.
@@ -50,13 +49,11 @@ module potential_module
        & deferred :: force_ComplexModeDisplacement
     
     ! Evaluate <bra|potential|ket>.
-    generic, public :: braket =>              &
-                     & braket_SubspaceStates, &
-                     & braket_SumStates
-    procedure(braket_SubspaceStates_PotentialData), public, &
-       & deferred :: braket_SubspaceStates
-    procedure(braket_SumStates_PotentialData), public, &
-       & deferred :: braket_SumStates
+    procedure(braket_PotentialData), public, deferred :: braket
+    
+    ! Evaluate <bra|potential|ket> in the case when <bra|potential|ket> is
+    !    a scalar.
+    procedure, public :: potential_energy
   end type
   
   abstract interface
@@ -94,16 +91,6 @@ module potential_module
       type(CalculationReader), intent(inout) :: calculation_reader
       type(OFile),             intent(inout) :: logfile
     end subroutine
-    
-    impure elemental function undisplaced_energy_PotentialData(this) &
-       & result(output)
-      import dp
-      import PotentialData
-      implicit none
-      
-      class(PotentialData), intent(in) :: this
-      real(dp)                         :: output
-    end function
     
     impure elemental subroutine zero_energy_PotentialData(this)
       import PotentialData
@@ -160,29 +147,48 @@ module potential_module
       type(ComplexModeForce)                    :: output
     end function
     
-    subroutine braket_SubspaceStates_PotentialData(this,bra,ket,inputs)
+    subroutine braket_PotentialData(this,bra,ket,inputs)
       import PotentialData
       import SubspaceState
       import AnharmonicData
       implicit none
       
       class(PotentialData), intent(inout) :: this
-      type(SubspaceState),  intent(in)    :: bra
-      type(SubspaceState),  intent(in)    :: ket
-      type(AnharmonicData), intent(in)    :: inputs
-    end subroutine
-    
-    subroutine braket_SumStates_PotentialData(this,bra,ket,inputs)
-      import PotentialData
-      import SumState
-      import AnharmonicData
-      implicit none
-      
-      class(PotentialData), intent(inout) :: this
-      type(SumState),       intent(in)    :: bra
-      type(SumState),       intent(in)    :: ket
+      class(SubspaceState), intent(in)    :: bra
+      class(SubspaceState), intent(in)    :: ket
       type(AnharmonicData), intent(in)    :: inputs
     end subroutine
   end interface
 contains
+
+function undisplaced_energy(this) result(output)
+  implicit none
+  
+  class(PotentialData), intent(in) :: this
+  real(dp)                         :: output
+  
+  type(RealModeDisplacement) :: zero_displacement
+  
+  zero_displacement = RealModeDisplacement([RealSingleDisplacement::])
+  
+  output = this%energy(zero_displacement)
+end function
+
+function potential_energy(this,bra,ket,inputs) result(output)
+  implicit none
+  
+  class(PotentialData), intent(in) :: this
+  class(SubspaceState), intent(in) :: bra
+  class(SubspaceState), intent(in) :: ket
+  type(AnharmonicData), intent(in) :: inputs
+  real(dp)                         :: output
+  
+  class(PotentialData), allocatable :: potential
+  
+  integer :: ialloc
+  
+  allocate(potential, source=this, stat=ialloc); call err(ialloc)
+  call potential%braket(bra,ket,inputs)
+  output = potential%undisplaced_energy()
+end function
 end module

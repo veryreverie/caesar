@@ -1,15 +1,16 @@
 ! ======================================================================
-! Calculates anharmonic states using the anharmonic potential and VSCF.
+! Maps the anharmonic potential along each normal mode.
 ! ======================================================================
 module map_anharmonic_modes_module
   use common_module
   
   use anharmonic_common_module
-  use polynomial_module
-  
+  use potentials_module
+
   use setup_harmonic_module
   use calculate_normal_modes_module
   
+  use mode_map_module
   use setup_anharmonic_module
   implicit none
   
@@ -79,7 +80,6 @@ subroutine map_anharmonic_modes_subroutine(arguments)
   ! Arguments to setup_anharmonic.
   type(Dictionary) :: setup_anharmonic_arguments
   type(String)     :: harmonic_path
-  type(String)     :: potential_representation
   real(dp)         :: maximum_displacement
   real(dp)         :: frequency_of_max_displacement
   
@@ -94,6 +94,9 @@ subroutine map_anharmonic_modes_subroutine(arguments)
   ! Maximum displacement in mass-weighted co-ordinates.
   real(dp) :: maximum_weighted_displacement
   
+  ! Anharmonic data.
+  type(AnharmonicData) :: anharmonic_data
+  
   ! Primitive structure.
   type(StructureData) :: structure
   
@@ -102,8 +105,9 @@ subroutine map_anharmonic_modes_subroutine(arguments)
   type(QpointData), allocatable :: qpoints(:)
   
   ! Normal modes.
-  type(ComplexMode), allocatable :: complex_modes(:)
-  type(RealMode),    allocatable :: real_modes(:)
+  type(ComplexMode),        allocatable :: complex_modes(:)
+  type(RealMode),           allocatable :: real_modes(:)
+  type(DegenerateSubspace), allocatable :: subspaces(:)
   
   ! Anharmonic potential.
   type(PotentialPointer) :: potential
@@ -118,8 +122,10 @@ subroutine map_anharmonic_modes_subroutine(arguments)
   real(dp),      allocatable :: scaled_displacements(:)
   type(ModeMap), allocatable :: mode_maps(:)
   integer,       allocatable :: qpoint_modes(:)
+  integer,       allocatable :: subspace_modes(:)
   integer,       allocatable :: paired_modes(:)
   type(ModeMap), allocatable :: qpoint_mode_maps(:)
+  type(ModeMap), allocatable :: subspace_mode_maps(:)
   
   ! Variables for validating potential.
   real(dp), allocatable       :: sampled_energies(:)
@@ -135,13 +141,10 @@ subroutine map_anharmonic_modes_subroutine(arguments)
   type(ElectronicStructure)   :: electronic_structure
   
   ! Files and directories.
-  type(IFile)  :: structure_file
-  type(IFile)  :: anharmonic_supercell_file
-  type(IFile)  :: qpoints_file
-  type(IFile)  :: complex_modes_file
-  type(IFile)  :: real_modes_file
+  type(IFile)  :: anharmonic_data_file
   type(IFile)  :: potential_file
   type(String) :: qpoint_dir
+  type(String) :: subspace_dir
   type(OFile)  :: supercell_file
   type(OFile)  :: mode_maps_file
   type(String) :: mode_dir
@@ -167,8 +170,6 @@ subroutine map_anharmonic_modes_subroutine(arguments)
   call setup_anharmonic_arguments%read_file( &
      & wd//'/setup_anharmonic.used_settings')
   harmonic_path = setup_anharmonic_arguments%value('harmonic_path')
-  potential_representation = &
-     & setup_anharmonic_arguments%value('potential_representation')
   maximum_displacement = &
      & dble(setup_anharmonic_arguments%value('maximum_displacement'))
   frequency_of_max_displacement = &
@@ -186,33 +187,21 @@ subroutine map_anharmonic_modes_subroutine(arguments)
   seedname = setup_harmonic_arguments%value('seedname')
   file_type = setup_harmonic_arguments%value('file_type')
   
-  ! Read in structure.
-  structure_file = IFile(harmonic_path//'/structure.dat')
-  structure = StructureData(structure_file%lines())
+  ! Read in anharmonic data.
+  anharmonic_data_file = IFile(wd//'/anharmonic_data.dat')
+  anharmonic_data = AnharmonicData(anharmonic_data_file%lines())
   
-  ! Read in large anharmonic supercell and its q-points.
-  anharmonic_supercell_file = IFile(wd//'/anharmonic_supercell.dat')
-  anharmonic_supercell = StructureData(anharmonic_supercell_file%lines())
-  
-  qpoints_file = IFile(wd//'/qpoints.dat')
-  qpoints = QpointData(qpoints_file%sections())
-  
-  ! Read in normal modes.
-  complex_modes_file = IFile(wd//'/complex_modes.dat')
-  complex_modes = ComplexMode(complex_modes_file%sections())
-  
-  real_modes_file = IFile(wd//'/real_modes.dat')
-  real_modes = RealMode(real_modes_file%sections())
+  structure = anharmonic_data%structure
+  anharmonic_supercell = anharmonic_data%anharmonic_supercell
+  qpoints = anharmonic_data%qpoints
+  complex_modes = anharmonic_data%complex_modes
+  real_modes = anharmonic_data%real_modes
+  subspaces = anharmonic_data%degenerate_subspaces
+  maximum_weighted_displacement = anharmonic_data%maximum_weighted_displacement
   
   ! Read in anharmonic potential.
   potential_file = IFile(wd//'/potential.dat')
-  if (potential_representation=='polynomial') then
-    potential = PolynomialPotential(potential_file%lines())
-  else
-    call print_line( ERROR//': Unrecognised potential representation : '// &
-                   & potential_representation)
-    call err()
-  endif
+  potential = PotentialPointer(potential_file%lines())
   
   ! --------------------------------------------------
   ! Initialise calculation handlers.
@@ -232,12 +221,6 @@ subroutine map_anharmonic_modes_subroutine(arguments)
   calculation_reader = CalculationReader()
   
   ! --------------------------------------------------
-  ! Re-calculate maximum_weighted_displacement.
-  ! --------------------------------------------------
-  maximum_weighted_displacement = maximum_displacement &
-                              & * sqrt(minval(structure%atoms%mass()))
-  
-  ! --------------------------------------------------
   ! Calculate effective harmonic potential, from which initial harmonic
   !    states are constructed.
   ! --------------------------------------------------
@@ -251,10 +234,10 @@ subroutine map_anharmonic_modes_subroutine(arguments)
           & stat=ialloc); call err(ialloc)
   do i=1,size(complex_modes)
     ! Scale displacement by 1/sqrt(frequency).
-    scaled_displacements = displacements                             &
-                       & * sqrt( frequency_of_max_displacement       &
-                       &       / max( complex_modes(i)%frequency,    &
-                       &              frequency_of_max_displacement) )
+    scaled_displacements = displacements                              &
+                       & * sqrt( frequency_of_max_displacement        &
+                       &       / max( complex_modes(i)%frequency,     &
+                       &              frequency_of_max_displacement ) )
     
     ! Sample the model potential to find the effective frequency.
     mode_maps(i) = ModeMap( scaled_displacements, &
@@ -361,8 +344,28 @@ subroutine map_anharmonic_modes_subroutine(arguments)
     qpoint_mode_maps = mode_maps(qpoint_modes)
     qpoint_dir = wd//'/qpoint_'//left_pad( qpoints(i)%id,          &
                                          & str(maxval(qpoints%id)) )
+    call mkdir(qpoint_dir)
     mode_maps_file = OFile(qpoint_dir//'/mode_maps.dat')
+    call mode_maps_file%print_line(                    &
+       & 'Harmonic frequencies: '//subspaces%frequency )
+    call mode_maps_file%print_line('')
     call mode_maps_file%print_lines(qpoint_mode_maps, separating_line='')
+  enddo
+  
+  do i=1,size(subspaces)
+    subspace_modes = filter([(                            &
+       & any(subspaces(i)%mode_ids==complex_modes(j)%id), &
+       & j=1,                                             &
+       & size(complex_modes)                              )])
+    subspace_mode_maps = mode_maps(subspace_modes)
+    subspace_dir = wd//'/subspace_'//left_pad( subspaces(i)%id,          &
+                                             & str(maxval(subspaces%id)) )
+    call mkdir(subspace_dir)
+    mode_maps_file = OFile(subspace_dir//'/mode_maps.dat')
+    call mode_maps_file%print_line(                    &
+       & 'Harmonic frequencies: '//subspaces%frequency )
+    call mode_maps_file%print_line('')
+    call mode_maps_file%print_lines(subspace_mode_maps, separating_line='')
   enddo
 end subroutine
 end module

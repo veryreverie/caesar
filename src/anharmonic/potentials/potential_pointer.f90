@@ -9,8 +9,8 @@ module potential_pointer_module
   
   use states_module
   
-  use anharmonic_data_module
-  use potential_module
+  use anharmonic_common_module
+  use polynomial_module
   implicit none
   
   private
@@ -20,6 +20,7 @@ module potential_pointer_module
   public :: generate_subspace_potentials
   
   type, extends(PotentialData) :: PotentialPointer
+    type(String)                      :: representation
     class(PotentialData), allocatable :: potential
   contains
     procedure, public :: generate_sampling_points => &
@@ -27,8 +28,6 @@ module potential_pointer_module
     procedure, public :: generate_potential => &
        & generate_potential_PotentialPointer
     
-    procedure, public :: undisplaced_energy => &
-                       & undisplaced_energy_PotentialPointer
     procedure, public :: zero_energy => zero_energy_PotentialPointer
     
     procedure, public :: energy_RealModeDisplacement => &
@@ -40,12 +39,7 @@ module potential_pointer_module
     procedure, public :: force_ComplexModeDisplacement => &
                        & force_ComplexModeDisplacement_PotentialPointer
     
-    procedure, public :: braket_SubspaceStates => &
-                       & braket_SubspaceStates_PotentialPointer
-    procedure, public :: braket_SumStates => &
-                       & braket_SumStates_PotentialPointer
-    
-    procedure, private :: braket_helper
+    procedure, public :: braket => braket_PotentialPointer
     
     procedure, private :: check => check_PotentialPointer
     
@@ -53,33 +47,37 @@ module potential_pointer_module
     procedure, public :: write => write_PotentialPointer
   end type
   
-  interface assignment(=)
-    module procedure assign_PotentialPointer_PotentialData
+  interface PotentialPointer
+    module procedure new_PotentialPointer
+    module procedure new_PotentialPointer_Strings
+    module procedure new_PotentialPointer_StringArray
   end interface
   
   interface generate_subspace_potentials
-    module procedure generate_subspace_potentials_SubspaceStates
-    module procedure generate_subspace_potentials_SumStates
+    module procedure generate_subspace_potentials_MonomialStates
+    module procedure generate_subspace_potentials_PolynomialStates
   end interface
 contains
 
 ! Assign a PotentialData from any type which extends PotentialData.
-subroutine assign_PotentialPointer_PotentialData(output,input)
+impure elemental function new_PotentialPointer(potential) result(this)
   implicit none
   
-  type(PotentialPointer), intent(out) :: output
-  class(PotentialData),   intent(in)  :: input
+  class(PotentialData), intent(in) :: potential
+  type(PotentialPointer)           :: this
   
   integer :: ialloc
   
-  select type(input); class is(PotentialPointer)
-    allocate( output%potential, source=input%potential, &
+  select type(potential); type is(PotentialPointer)
+    this = potential
+  type is(PolynomialPotential)
+    this%representation = 'polynomial'
+    allocate( this%potential, source=potential, &
             & stat=ialloc); call err(ialloc)
   class default
-    allocate( output%potential, source=input, &
-            & stat=ialloc); call err(ialloc)
+    call err()
   end select
-end subroutine
+end function
 
 ! Checks that the pointer has been allocated before it is used.
 subroutine check_PotentialPointer(this)
@@ -133,18 +131,6 @@ subroutine generate_potential_PotentialPointer(this,inputs,              &
                                         & calculation_reader,          &
                                         & logfile                      )
 end subroutine
-
-impure elemental function undisplaced_energy_PotentialPointer(this) &
-   & result(output)
-  implicit none
-  
-  class(PotentialPointer), intent(in) :: this
-  real(dp)                            :: output
-  
-  call this%check()
-  
-  output = this%potential%undisplaced_energy()
-end function
 
 impure elemental subroutine zero_energy_PotentialPointer(this)
   implicit none
@@ -208,25 +194,12 @@ impure elemental function force_ComplexModeDisplacement_PotentialPointer( &
   output = this%potential%force(displacement)
 end function
 
-subroutine braket_SubspaceStates_PotentialPointer(this,bra,ket,inputs)
+subroutine braket_PotentialPointer(this,bra,ket,inputs)
   implicit none
   
   class(PotentialPointer), intent(inout) :: this
-  type(SubspaceState),     intent(in)    :: bra
-  type(SubspaceState),     intent(in)    :: ket
-  type(AnharmonicData),    intent(in)    :: inputs
-  
-  call this%check()
-  
-  call this%potential%braket(bra,ket,inputs)
-end subroutine
-
-subroutine braket_SumStates_PotentialPointer(this,bra,ket,inputs)
-  implicit none
-  
-  class(PotentialPointer), intent(inout) :: this
-  type(SumState),          intent(in)    :: bra
-  type(SumState),          intent(in)    :: ket
+  class(SubspaceState),    intent(in)    :: bra
+  class(SubspaceState),    intent(in)    :: ket
   type(AnharmonicData),    intent(in)    :: inputs
   
   call this%check()
@@ -257,26 +230,26 @@ end subroutine
 !    copies the potential to both intervals, and integrates the potential
 !    corresponding to each interval over the states in the other interval.
 ! This method takes O(n.log(n)) operations.
-function generate_subspace_potentials_SubspaceStates(potential,states,inputs) &
+function generate_subspace_potentials_MonomialStates(potential,states,inputs) &
    & result(output)
   implicit none
   
   class(PotentialData), intent(in)    :: potential
-  type(SubspaceState),  intent(in)    :: states(:)
+  type(MonomialState),  intent(in)    :: states(:)
   type(AnharmonicData), intent(in)    :: inputs
   type(PotentialPointer), allocatable :: output(:)
   
   output = generate_subspace_potentials_helper(potential,states,inputs)
 end function
 
-function generate_subspace_potentials_SumStates(potential,states,inputs) &
+function generate_subspace_potentials_PolynomialStates(potential,states,inputs) &
    & result(output)
   implicit none
   
-  class(PotentialData), intent(in)    :: potential
-  type(SumState),       intent(in)    :: states(:)
-  type(AnharmonicData), intent(in)    :: inputs
-  type(PotentialPointer), allocatable :: output(:)
+  class(PotentialData),  intent(in)    :: potential
+  type(PolynomialState), intent(in)    :: states(:)
+  type(AnharmonicData),  intent(in)    :: inputs
+  type(PotentialPointer),  allocatable :: output(:)
   
   output = generate_subspace_potentials_helper(potential,states,inputs)
 end function
@@ -286,7 +259,7 @@ function generate_subspace_potentials_helper(potential,states,inputs) &
   implicit none
   
   class(PotentialData), intent(in)    :: potential
-  class(*),             intent(in)    :: states(:)
+  class(SubspaceState), intent(in)    :: states(:)
   type(AnharmonicData), intent(in)    :: inputs
   type(PotentialPointer), allocatable :: output(:)
   
@@ -311,7 +284,7 @@ function generate_subspace_potentials_helper(potential,states,inputs) &
   mins_in = [1]
   maxs_in = [size(states)]
   allocate(output(size(states)), stat=ialloc); call err(ialloc)
-  output(1) = potential
+  output(1) = PotentialPointer(potential)
   
   ! Loop over iteration until every interval contains exactly one subspace.
   do while (any(mins_in/=maxs_in))
@@ -339,10 +312,10 @@ function generate_subspace_potentials_helper(potential,states,inputs) &
         ! Integrate the first potential over all states in the second interval,
         !    and the second potential over all states in the first interval.
         do j=s,maxs_in(i)
-          call output(mins_in(i))%braket_helper(states(j),states(j),inputs)
+          call output(mins_in(i))%braket(states(j),states(j),inputs)
         enddo
         do j=mins_in(i),s-1
-          call output(s)%braket_helper(states(j),states(j),inputs)
+          call output(s)%braket(states(j),states(j),inputs)
         enddo
       endif
     enddo
@@ -357,33 +330,6 @@ function generate_subspace_potentials_helper(potential,states,inputs) &
   enddo
 end function
 
-subroutine braket_helper(this,bra,ket,inputs)
-  implicit none
-  
-  class(PotentialPointer), intent(inout) :: this
-  class(*),                intent(in)    :: bra
-  class(*),                intent(in)    :: ket
-  type(AnharmonicData),    intent(in)    :: inputs
-  
-  call this%check()
-  
-  select type(bra); type is(SubspaceState)
-    select type(ket); type is(SubspaceState)
-      call this%braket(bra,ket,inputs)
-    class default
-      call err()
-    end select
-  type is(SumState)
-    select type(ket); type is(SumState)
-      call this%braket(bra,ket,inputs)
-    class default
-      call err()
-    end select
-  class default
-    call err()
-  end select
-end subroutine
-
 ! ----------------------------------------------------------------------
 ! I/O.
 ! ----------------------------------------------------------------------
@@ -393,11 +339,22 @@ subroutine read_PotentialPointer(this,input)
   class(PotentialPointer), intent(out) :: this
   type(String),            intent(in)  :: input(:)
   
-  ! Since this%potential is polymorphic, it is not possible to determine its
-  !    type in an intent(out) subroutine.
-  ! As such, a PotentialPointer(StringArray) constructor is not provided.
-  call print_line(CODE_ERROR//' Unable to read a PotentialPointer.')
-  call err()
+  type(String), allocatable :: line(:)
+  
+  type(String) :: representation
+  
+  select type(this); type is(PotentialPointer)
+    line = split_line(input(1))
+    representation = line(3)
+    if (representation=='polynomial') then
+      this = PotentialPointer(PolynomialPotential(input(2:)))
+    else
+      call print_line( 'Unrecognised potential representation: '// &
+                     & representation)
+    endif
+  class default
+    call err()
+  end select
 end subroutine
 
 function write_PotentialPointer(this) result(output)
@@ -407,8 +364,27 @@ function write_PotentialPointer(this) result(output)
   type(String), allocatable           :: output(:)
   
   select type(this); type is(PotentialPointer)
-    output = str(this%potential)
+    output = [ 'Potential representation: '//this%representation, &
+             & str(this%potential)                                ]
   end select
+end function
+
+function new_PotentialPointer_Strings(input) result(this)
+  implicit none
+  
+  type(String), intent(in) :: input(:)
+  type(PotentialPointer)   :: this
+  
+  call this%read(input)
+end function
+
+impure elemental function new_PotentialPointer_StringArray(input) result(this)
+  implicit none
+  
+  type(StringArray), intent(in) :: input
+  type(PotentialPointer)        :: this
+  
+  this = PotentialPointer(str(input))
 end function
 end module
 
@@ -437,8 +413,6 @@ module potential_example_module
     procedure, public :: generate_potential => &
        & generate_potential_PotentialDataExample
     
-    procedure, public :: undisplaced_energy => &
-                       & undisplaced_energy_PotentialDataExample
     procedure, public :: zero_energy => zero_energy_PotentialDataExample
     
     procedure, public :: energy_RealModeDisplacement => &
@@ -450,10 +424,7 @@ module potential_example_module
     procedure, public :: force_ComplexModeDisplacement => &
                        & force_ComplexModeDisplacement_PotentialDataExample
     
-    procedure, public :: braket_SubspaceStates => &
-                       & braket_SubspaceStates_PotentialDataExample
-    procedure, public :: braket_SumStates => &
-                       & braket_SumStates_PotentialDataExample
+    procedure, public :: braket => braket_PotentialDataExample
     
     procedure, public :: read  => read_PotentialDataExample
     procedure, public :: write => write_PotentialDataExample
@@ -515,19 +486,6 @@ subroutine generate_potential_PotentialDataExample(this,inputs,          &
   
   ! Code to generate sampling points goes here.
 end subroutine
-
-impure elemental function undisplaced_energy_PotentialDataExample(this) &
-   & result(output)
-  implicit none
-  
-  class(PotentialDataExample), intent(in) :: this
-  real(dp)                                :: output
-  
-  call print_line('PotentialDataExample: calculating energy.')
-  call print_line('Example contents = '//this%example_contents)
-  
-  ! Code to calculate energies at no displacement goes here.
-end function
 
 impure elemental subroutine zero_energy_PotentialDataExample(this)
   implicit none
@@ -596,25 +554,12 @@ impure elemental function force_ComplexModeDisplacement_PotentialDataExample( &
   ! Code to calculate forces at complex displacements goes here.
 end function
 
-subroutine braket_SubspaceStates_PotentialDataExample(this,bra,ket,inputs)
+subroutine braket_PotentialDataExample(this,bra,ket,inputs)
   implicit none
   
   class(PotentialDataExample), intent(inout) :: this
-  type(SubspaceState),         intent(in)    :: bra
-  type(SubspaceState),         intent(in)    :: ket
-  type(AnharmonicData),        intent(in)    :: inputs
-  
-  call print_line('PotentialDataExample: evaluating <bra|potential|ket>.')
-  
-  ! Code to integrate this potential between <bra| and |ket> goes here.
-end subroutine
-
-subroutine braket_SumStates_PotentialDataExample(this,bra,ket,inputs)
-  implicit none
-  
-  class(PotentialDataExample), intent(inout) :: this
-  type(SumState),              intent(in)    :: bra
-  type(SumState),              intent(in)    :: ket
+  class(SubspaceState),        intent(in)    :: bra
+  class(SubspaceState),        intent(in)    :: ket
   type(AnharmonicData),        intent(in)    :: inputs
   
   call print_line('PotentialDataExample: evaluating <bra|potential|ket>.')
@@ -696,8 +641,8 @@ subroutine potential_example_subroutine(wd)
   type(ComplexModeForce)        :: complex_force
   
   ! Variables for integrating potential.
-  type(SubspaceState) :: state_1
-  type(SubspaceState) :: state_2
+  type(MonomialState) :: state_1
+  type(MonomialState) :: state_2
   
   ! Files.
   type(OFile) :: output_file
@@ -707,7 +652,7 @@ subroutine potential_example_subroutine(wd)
   ! This is where any PotentialDataExample-specific data is input,
   !    in this case the variable example_contents.
   example_contents = 'example'
-  potential = PotentialDataExample(example_contents)
+  potential = PotentialPointer(PotentialDataExample(example_contents))
   
   ! Now PotentialData's methods can be called.
   ! They will all be forwareded to the PotentialDataExample instance.
@@ -737,13 +682,12 @@ subroutine potential_example_subroutine(wd)
   ! The potential can also be integrated between two states.
   call potential%braket(state_1,state_2,anharmonic_data)
   
-  ! The potential can be written to file directly from the potential pointer's
-  !    write method, but must be read using the specific potential's
-  !    constructor.
+  ! The potential can be written to and read from file using the potential
+  !    pointer's methods.
   output_file = OFile(wd//'example_potential.file')
   call output_file%print_lines(potential)
   
   input_file = IFile(wd//'example_potential.file')
-  potential = PotentialDataExample(input_file%lines())
+  potential = PotentialPointer(input_file%lines())
 end subroutine
 end module

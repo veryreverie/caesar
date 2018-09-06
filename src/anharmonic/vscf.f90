@@ -6,9 +6,8 @@ module vscf_module
   
   use states_module
   
-  use anharmonic_data_module
-  use potential_module
-  use potential_pointer_module
+  use anharmonic_common_module
+  use potentials_module
   implicit none
   
   private
@@ -135,16 +134,15 @@ function update(states,basis,potential,anharmonic_data) result(output)
   
   type(DegenerateSubspace) :: subspace
   
-  type(SumState),         allocatable :: subspace_states(:)
+  type(PolynomialState),  allocatable :: subspace_states(:)
   type(PotentialPointer), allocatable :: subspace_potentials(:)
-  type(PotentialPointer)              :: subspace_potential
   
   type(SymmetricEigenstuff), allocatable :: wavevector_ground_states(:)
   
   real(dp), allocatable :: hamiltonian(:,:)
   
-  type(SubspaceState) :: bra
-  type(SubspaceState) :: ket
+  type(MonomialState) :: bra
+  type(MonomialState) :: ket
   
   type(SymmetricEigenstuff), allocatable :: estuff(:)
   
@@ -157,7 +155,7 @@ function update(states,basis,potential,anharmonic_data) result(output)
   
   ! Generate the single-subspace potentials {V_i}, defined as
   !    V_i = (prod_{j/=i}<j|)V(prod_{j/=i}|j>).
-  subspace_states = SumState(states,basis)
+  subspace_states = PolynomialState(states,basis)
   subspace_potentials = generate_subspace_potentials( potential,       &
                                                     & subspace_states, &
                                                     & anharmonic_data  )
@@ -180,14 +178,13 @@ function update(states,basis,potential,anharmonic_data) result(output)
         do l=1,size(basis(i)%wavevectors(j))
           bra = basis(i)%wavevectors(j)%states(k)
           ket = basis(i)%wavevectors(j)%states(l)
-          subspace_potential = subspace_potentials(i)
-          call subspace_potential%braket( bra,            &
-                                        & ket,            &
-                                        & anharmonic_data )
-          hamiltonian(l,k) = subspace_potential%undisplaced_energy() &
-                         & + kinetic_energy( bra,                    &
-                         &                   ket,                    &
-                         &                   subspace,               &
+          hamiltonian(l,k) = subspace_potentials(i)%potential_energy(   &
+                         &                            bra,              &
+                         &                            ket,              &
+                         &                            anharmonic_data ) &
+                         & + kinetic_energy( bra,                       &
+                         &                   ket,                       &
+                         &                   subspace,                  &
                          &                   supercell )
         enddo
       enddo

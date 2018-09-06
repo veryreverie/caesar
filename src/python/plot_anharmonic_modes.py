@@ -24,13 +24,15 @@ def main():
   
   # Read file.
   file_name = 'mode_maps.dat'
-  frequencies_file = [line.rstrip('\n').split() for line in open(file_name)]
+  modes_file = [line.rstrip('\n').split() for line in open(file_name)]
   
   sampling = False
   
+  frequencies = [float(x) for x in modes_file[0][2:]]
+  
   # Split file into modes.
   modes = []
-  for line in frequencies_file:
+  for line in modes_file[2:]:
     if len(line)>0:
       if line[0]=='Mode':
         modes.append({'ID':int(line[2])})
@@ -112,10 +114,12 @@ def main():
     fig, axes = plt.subplots(5,len(modes))
   else:
     fig, axes = plt.subplots(3,len(modes))
+  if len(modes)==1:
+    axes = [[ax] for ax in axes]
   
   for ax in axes[0]:
-    for mode in modes:
-      ax.hlines([mode['Harmonic frequency']], 0, 1, color=colours['turquoise'])
+    for frequency in frequencies:
+      ax.hlines([frequency], 0, 1, color=colours['turquoise'])
   for mode,ax in zip(modes,axes[0]):
       ax.hlines([mode['Harmonic frequency']], 0, 1, color=colours['orange'])
       ax.set_xlabel('Mode '+str(mode['ID']))
@@ -170,14 +174,11 @@ def main():
               color=colours['turquoise'], lw=2, linestyle='dashed')
   
   # Configure frequency axes.
-  min_frequency = modes[0]['Harmonic frequency']
-  max_frequency = modes[-1]['Harmonic frequency']
+  min_frequency = min(min(frequencies), 0)
+  max_frequency = max(max(frequencies), 0)
   
   ymin = min_frequency - 0.1*(max_frequency-min_frequency)
   ymax = max_frequency + 0.1*(max_frequency-min_frequency)
-  
-  ymin = min(ymin, 0)
-  ymax = max(ymax, 0)
   
   for ax in axes[0]:
     ax.set_ylim(ymin,ymax)

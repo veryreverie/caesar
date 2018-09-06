@@ -4,7 +4,7 @@
 module mode_map_module
   use common_module
   
-  use potential_module
+  use anharmonic_common_module
   implicit none
   
   private
@@ -135,13 +135,13 @@ function new_ModeMap_potential(displacements,mode,real_modes,potential) &
     
     displacement = RealModeDisplacement([cos_mode],[displacements(i)])
     anharmonic_cos_energies(i) = potential%energy(displacement) &
-                             & - potential%undisplaced_energy()
+                               - potential%undisplaced_energy()
     anharmonic_force = potential%force(displacement)
     anharmonic_cos_forces(i) = anharmonic_force%force(cos_mode)
     
     displacement = RealModeDisplacement([sin_mode],[displacements(i)])
     anharmonic_sin_energies(i) = potential%energy(displacement) &
-                             & - potential%undisplaced_energy()
+                               - potential%undisplaced_energy()
     anharmonic_force = potential%force(displacement)
     anharmonic_sin_forces(i) = anharmonic_force%force(sin_mode)
   enddo

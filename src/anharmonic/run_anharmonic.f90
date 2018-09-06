@@ -7,8 +7,8 @@ module run_anharmonic_module
   use setup_harmonic_module
   
   use anharmonic_common_module
-  use polynomial_module
-  
+  use potentials_module
+
   use setup_anharmonic_module
   implicit none
   

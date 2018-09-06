@@ -6,13 +6,13 @@ module vscf_ground_state_module
   use common_module
   
   use subspace_basis_module
-  use sum_state_module
+  use polynomial_state_module
   implicit none
   
   private
   
   public :: VscfGroundState
-  public :: SumState
+  public :: PolynomialState
   public :: initial_ground_state
   
   type, extends(Stringsable) :: VscfGroundState
@@ -30,8 +30,8 @@ module vscf_ground_state_module
     module procedure new_VscfGroundState_StringArray
   end interface
   
-  interface SumState
-    module procedure new_SumState_VscfGroundState
+  interface PolynomialState
+    module procedure new_PolynomialState_VscfGroundState
   end interface
 contains
 
@@ -50,14 +50,14 @@ function new_VscfGroundState(subspace_id,wavevector,coefficients) &
   this%coefficients = coefficients
 end function
 
-! Construct a SumState from a VscfGroundState.
-impure elemental function new_SumState_VscfGroundState(state,basis) &
+! Construct a PolynomialState from a VscfGroundState.
+impure elemental function new_PolynomialState_VscfGroundState(state,basis) &
    & result(output)
   implicit none
   
   type(VscfGroundState), intent(in) :: state
   type(SubspaceBasis),   intent(in) :: basis
-  type(SumState)                    :: output
+  type(PolynomialState)             :: output
   
   real(dp), allocatable :: coefficients(:)
   
@@ -68,9 +68,9 @@ impure elemental function new_SumState_VscfGroundState(state,basis) &
   coefficients = dble( basis%wavevectors(i)%basis_to_states &
                    & * vec(state%coefficients)              )
   
-  output = SumState( basis%subspace_id,           &
-                   & basis%wavevectors(i)%states, &
-                   & coefficients                 )
+  output = PolynomialState( basis%subspace_id,           &
+                          & basis%wavevectors(i)%states, &
+                          & coefficients                 )
 end function
 
 ! Generate initial guess. This is simply the basis state |0>, i.e. the
@@ -128,7 +128,7 @@ subroutine read_VscfGroundState(this,input)
     wavevector = FractionVector(join(line(2:4)))
     
     line = split_line(input(3))
-    coefficients = dble(line(:))
+    coefficients = dble(line(2:))
     
     this = VscfGroundState(subspace_id,wavevector,coefficients)
   class default

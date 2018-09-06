@@ -37,11 +37,7 @@ module basis_function_module
     procedure, private :: force_RealModeVector_BasisFunction
     procedure, private :: force_ComplexModeVector_BasisFunction
     
-    generic,   public  :: braket =>                            &
-                        & braket_SubspaceStates_BasisFunction, &
-                        & braket_SumStates_BasisFunction
-    procedure, private :: braket_SubspaceStates_BasisFunction
-    procedure, private :: braket_SumStates_BasisFunction
+    procedure, public :: braket => braket_BasisFunction
     
     procedure, public :: read  => read_BasisFunction
     procedure, public :: write => write_BasisFunction
@@ -332,67 +328,12 @@ end function
 ! ----------------------------------------------------------------------
 ! Integrate the basis function between two states.
 ! ----------------------------------------------------------------------
-subroutine braket_SubspaceStates_BasisFunction(this,bra,ket,inputs)
+subroutine braket_BasisFunction(this,bra,ket,inputs)
   implicit none
   
   class(BasisFunction), intent(inout) :: this
-  type(SubspaceState),  intent(in)    :: bra
-  type(SubspaceState),  intent(in)    :: ket
-  type(AnharmonicData), intent(in)    :: inputs
-  
-  type(DegenerateSubspace) :: subspace
-  
-  type(ComplexMatrix)      :: complex_to_real_conversion
-  complex(dp), allocatable :: complex_coefficients(:)
-  real(dp),    allocatable :: real_coefficients(:)
-  logical,     allocatable :: mode_in_subspace(:)
-  
-  integer :: i,j,ialloc
-  
-  subspace = inputs%degenerate_subspaces(                     &
-     & first(inputs%degenerate_subspaces%id==bra%subspace_id) )
-  
-  ! Generate conversion between complex and real representation.
-  complex_to_real_conversion = coefficient_conversion_matrix( &
-                         & this%real_representation%terms,    &
-                         & this%complex_representation%terms, &
-                         & include_coefficients = .false.     )
-  
-  ! Perform integration in complex co-ordinates.
-  this%complex_representation = braket( bra,                         &
-                                      & ket,                         &
-                                      & this%complex_representation, &
-                                      & subspace,                    &
-                                      & inputs%anharmonic_supercell)
-  
-  ! Use calculated complex coefficients and conversion to generate new
-  !    coefficients for real representation.
-  complex_coefficients = this%complex_representation%terms%coefficient
-  real_coefficients = real(cmplx( complex_to_real_conversion &
-                              & * vec(complex_coefficients)  ))
-  this%real_representation%terms%coefficient = real_coefficients
-  
-  ! Remove modes in real representation which have been integrated over.
-  do i=1,size(this%real_representation)
-    allocate( mode_in_subspace(size(this%real_representation%terms(i))), &
-            & stat=ialloc); call err(ialloc)
-    do j=1,size(this%real_representation%terms(i))
-      mode_in_subspace(j) = any(                            &
-         & this%real_representation%terms(i)%modes(j)%id == &
-         & subspace%mode_ids                                )
-    enddo
-    this%real_representation%terms(i)%modes = &
-       & this%real_representation%terms(i)%modes(filter(.not.mode_in_subspace))
-    deallocate(mode_in_subspace)
-  enddo
-end subroutine
-
-subroutine braket_SumStates_BasisFunction(this,bra,ket,inputs)
-  implicit none
-  
-  class(BasisFunction), intent(inout) :: this
-  type(SumState),       intent(in)    :: bra
-  type(SumState),       intent(in)    :: ket
+  class(SubspaceState), intent(in)    :: bra
+  class(SubspaceState), intent(in)    :: ket
   type(AnharmonicData), intent(in)    :: inputs
   
   type(DegenerateSubspace) :: subspace

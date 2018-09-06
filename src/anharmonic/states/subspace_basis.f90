@@ -4,7 +4,8 @@
 module subspace_basis_module
   use common_module
   
-  use subspace_state_module
+  use monomial_state_module
+  use braket_module
   implicit none
   
   private
@@ -22,7 +23,7 @@ module subspace_basis_module
     ! The wavevector.
     type(FractionVector) :: wavevector
     ! The states at the wavevector.
-    type(SubspaceState), allocatable :: states(:)
+    type(MonomialState), allocatable :: states(:)
     ! Conversion matrices from the stored states(:) (which are normalised
     !    but not in general orthogonal) to an orthonormal basis,
     !    and back again.
@@ -71,7 +72,7 @@ function new_SubspaceWavevectorBasis(subspace_id,frequency,wavevector,states, &
   integer,              intent(in) :: subspace_id
   real(dp),             intent(in) :: frequency
   type(FractionVector), intent(in) :: wavevector
-  type(SubspaceState),  intent(in) :: states(:)
+  type(MonomialState),  intent(in) :: states(:)
   type(RealMatrix),     intent(in) :: states_to_basis
   type(RealMatrix),     intent(in) :: basis_to_states
   type(SubspaceWavevectorBasis)    :: this
@@ -133,7 +134,7 @@ function generate_subspace_basis(subspace,frequency,modes,qpoints, &
   type(SubspaceBasis)                  :: output
   
   ! States in the basis.
-  type(SubspaceState), allocatable :: states(:)
+  type(MonomialState), allocatable :: states(:)
   
   ! Variables for matching wavevectors to states.
   type(QpointData), allocatable :: wavevectors(:)
@@ -142,12 +143,12 @@ function generate_subspace_basis(subspace,frequency,modes,qpoints, &
   type(IntArray1D), allocatable :: wavevector_state_ids(:)
   
   ! Variables for orthonormalising states.
-  type(SubspaceState),       allocatable :: wavevector_states(:)
+  type(MonomialState),       allocatable :: wavevector_states(:)
   real(dp),                  allocatable :: states_to_basis(:,:)
   real(dp),                  allocatable :: basis_to_states(:,:)
-  type(SubspaceState),       allocatable :: unique_states(:)
+  type(MonomialState),       allocatable :: unique_states(:)
   integer,                   allocatable :: matching_state_ids(:)
-  type(SubspaceState),       allocatable :: matching_states(:)
+  type(MonomialState),       allocatable :: matching_states(:)
   real(dp),                  allocatable :: state_overlaps(:,:)
   type(SymmetricEigenstuff), allocatable :: estuff(:)
   integer                                :: state
@@ -253,8 +254,8 @@ contains
     class(*), intent(in) :: ket
     logical              :: output
     
-    select type(bra); type is(SubspaceState)
-      select type(ket); type is(SubspaceState)
+    select type(bra); type is(MonomialState)
+      select type(ket); type is(MonomialState)
         output = finite_overlap(bra,ket)
       end select
     end select
@@ -273,7 +274,7 @@ subroutine read_SubspaceWavevectorBasis(this,input)
   integer                          :: subspace_id
   real(dp)                         :: frequency
   type(FractionVector)             :: wavevector
-  type(SubspaceState), allocatable :: states(:)
+  type(MonomialState), allocatable :: states(:)
   type(RealMatrix)                 :: states_to_basis
   type(RealMatrix)                 :: basis_to_states
   
@@ -297,7 +298,8 @@ subroutine read_SubspaceWavevectorBasis(this,input)
     
     allocate(states(no_states), stat=ialloc); call err(ialloc)
     do i=1,no_states
-      states(i) = SubspaceState([input(1:2), str('State'), input(4+i)])
+      line = split_line(input(4+i))
+      states(i) = MonomialState([input(1:2), str('State'), line(3)])
     enddo
     
     states_to_basis = RealMatrix(input(6+no_states:5+2*no_states))
@@ -331,7 +333,7 @@ function write_SubspaceWavevectorBasis(this) result(output)
              & str('States')                   ]
     do i=1,size(this%states)
       state_strings = str(this%states(i))
-      output = [output, state_strings(size(state_strings))]
+      output = [output, '|'//i//'> = '//state_strings(size(state_strings))]
     enddo
     output = [ output,                            &
              & str('States to Basis Conversion'), &

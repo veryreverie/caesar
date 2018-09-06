@@ -89,17 +89,18 @@ end function
 
 ! ----------------------------------------------------------------------
 ! Splits the array into sections.
-! Splits by one or more strings which match delimiter.
+! Splits by one or more strings which match separating_line.
 ! Delimiter defaults to an empty string, ''.
 ! ----------------------------------------------------------------------
-function split_into_sections_Strings_character(this,delimiter) result(output)
+function split_into_sections_Strings_character(this,separating_line) &
+   & result(output)
   implicit none
   
   type(String), intent(in)           :: this(:)
-  character(*), intent(in), optional :: delimiter
+  character(*), intent(in), optional :: separating_line
   type(StringArray), allocatable     :: output(:)
   
-  type(String) :: delimiter_string
+  type(String) :: separating_line_string
   
   integer :: no_sections
   logical :: reading_section
@@ -109,10 +110,10 @@ function split_into_sections_Strings_character(this,delimiter) result(output)
   
   integer :: i,ialloc
   
-  if (present(delimiter)) then
-    delimiter_string = delimiter
+  if (present(separating_line)) then
+    separating_line_string = separating_line
   else
-    delimiter_string = ''
+    separating_line_string = ''
   endif
   
   allocate( first_lines(size(this)), &
@@ -121,15 +122,15 @@ function split_into_sections_Strings_character(this,delimiter) result(output)
   no_sections = 0
   reading_section = .false.
   do i=1,size(this)
-    if (this(i)==delimiter_string) then
-      ! This line is the delimiter string.
+    if (this(i)==separating_line_string) then
+      ! This line is a separating_line string.
       ! If reading a section, then the end of that section is the line above.
       if (reading_section) then
         last_lines(no_sections) = i-1
         reading_section = .false.
       endif
     else
-      ! This line is not the delimiter string.
+      ! This line is not a separating_line string.
       ! If not reading a section, then this line is the start of a new section.
       if (.not. reading_section) then
         no_sections = no_sections+1
@@ -151,35 +152,37 @@ function split_into_sections_Strings_character(this,delimiter) result(output)
   enddo
 end function
 
-function split_into_sections_Strings_String(this,delimiter) result(output)
+function split_into_sections_Strings_String(this,separating_line) &
+   & result(output)
   implicit none
   
   type(String), intent(in)       :: this(:)
-  type(String), intent(in)       :: delimiter
+  type(String), intent(in)       :: separating_line
   type(StringArray), allocatable :: output(:)
   
-  output = split_into_sections(this,char(delimiter))
+  output = split_into_sections(this,char(separating_line))
 end function
 
-function split_into_sections_StringArray_character(this,delimiter) &
+function split_into_sections_StringArray_character(this,separating_line) &
    & result(output)
   implicit none
   
   type(StringArray), intent(in)           :: this
-  character(*),      intent(in), optional :: delimiter
+  character(*),      intent(in), optional :: separating_line
   type(StringArray), allocatable          :: output(:)
   
-  output = split_into_sections(this%strings,delimiter)
+  output = split_into_sections(this%strings,separating_line)
 end function
 
-function split_into_sections_StringArray_String(this,delimiter) result(output)
+function split_into_sections_StringArray_String(this,separating_line) &
+   & result(output)
   implicit none
   
   type(StringArray), intent(in)  :: this
-  type(String),      intent(in)  :: delimiter
+  type(String),      intent(in)  :: separating_line
   type(StringArray), allocatable :: output(:)
   
-  output = split_into_sections(this%strings,char(delimiter))
+  output = split_into_sections(this%strings,char(separating_line))
 end function
 
 ! ----------------------------------------------------------------------

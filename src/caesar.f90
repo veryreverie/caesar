@@ -30,6 +30,8 @@ program caesar
   use map_potential_module
   use plot_potential_map_module
   use calculate_states_module
+  use map_vscf_modes_module
+  use plot_vscf_modes_module
   
   ! Use testing modules.
   use check_counter_module
@@ -94,7 +96,9 @@ program caesar
      & plot_anharmonic_modes(),          &
      & map_potential(),                  &
      & plot_potential_map(),             &
-     & calculate_states()                ])
+     & calculate_states(),               &
+     & map_vscf_modes(),                 &
+     & plot_vscf_modes()                 ])
   
   ! --------------------------------------------------
   ! Read in command line arguments and process the mode.

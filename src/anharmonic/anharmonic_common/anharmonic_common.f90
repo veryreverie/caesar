@@ -10,10 +10,6 @@ module anharmonic_common_module
   use degenerate_symmetry_module
   use anharmonic_data_module
   use potential_module
-  use potential_pointer_module
-  use mode_map_module
-  use generate_basis_module
-  use vscf_module
   implicit none
 contains
 end module

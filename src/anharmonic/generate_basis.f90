@@ -11,9 +11,8 @@ module generate_basis_module
   
   use states_module
   
-  use potential_module
-  use potential_pointer_module
-  use anharmonic_data_module
+  use anharmonic_common_module
+  use potentials_module
   implicit none
   
   private
@@ -38,8 +37,8 @@ function generate_basis(potential,anharmonic_data,frequency_convergence, &
   type(DegenerateSubspace), allocatable :: subspaces(:)
   real(dp),                 allocatable :: frequencies(:)
   
-  type(SubspaceState), allocatable :: states(:)
-  type(SubspaceState), allocatable :: subspace_states(:)
+  type(MonomialState), allocatable :: states(:)
+  type(MonomialState), allocatable :: subspace_states(:)
   
   type(RealVector), allocatable :: old_frequencies(:)
   type(RealVector), allocatable :: new_frequencies(:)
@@ -152,7 +151,7 @@ function optimise_frequencies(potential,states,anharmonic_data, &
   implicit none
   
   class(PotentialData), intent(in) :: potential
-  type(SubspaceState),  intent(in) :: states(:)
+  type(MonomialState),  intent(in) :: states(:)
   type(AnharmonicData), intent(in) :: anharmonic_data
   real(dp),             intent(in) :: frequency_convergence
   type(RealVector)                 :: output
@@ -191,7 +190,7 @@ function optimise_frequency(potential,state,anharmonic_data,subspace, &
   implicit none
   
   class(PotentialData),     intent(in) :: potential
-  type(SubspaceState),      intent(in) :: state
+  type(MonomialState),      intent(in) :: state
   type(AnharmonicData),     intent(in) :: anharmonic_data
   type(DegenerateSubspace), intent(in) :: subspace
   real(dp),                 intent(in) :: frequency_convergence
@@ -200,8 +199,7 @@ function optimise_frequency(potential,state,anharmonic_data,subspace, &
   real(dp) :: frequencies(3)
   real(dp) :: energies(3)
   
-  type(SubspaceState)    :: new_state
-  type(PotentialPointer) :: new_potential
+  type(MonomialState)    :: new_state
   
   real(dp) :: first_derivative
   real(dp) :: second_derivative
@@ -222,10 +220,10 @@ function optimise_frequency(potential,state,anharmonic_data,subspace, &
     
     ! Calculate [U(w-dw), U(w), U(w+dw)].
     do i=1,3
-      new_potential = potential
       new_state%frequency = frequencies(i)
-      call new_potential%braket(new_state,new_state,anharmonic_data)
-      energies(i) = new_potential%undisplaced_energy()                   &
+      energies(i) = potential%potential_energy( new_state,               &
+                &                               new_state,               &
+                &                               anharmonic_data )        &
                 & + kinetic_energy( new_state,                           &
                 &                   new_state,                           &
                 &                   subspace,                            &

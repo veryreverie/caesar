@@ -130,29 +130,29 @@ function lines_slice(this,first_line_number,last_line_number) result(output)
   output = this%lines_(first_line_number:last_line_number)
 end function
 
-! Equivalent to split_into_sections(this%lines(),delimiter).
-function sections_character(this,delimiter) result(output)
+! Equivalent to split_into_sections(this%lines(),separating_line).
+function sections_character(this,separating_line) result(output)
   implicit none
   
   class(IFile), intent(in)           :: this
-  character(*), intent(in), optional :: delimiter
+  character(*), intent(in), optional :: separating_line
   type(StringArray), allocatable     :: output(:)
   
   type(String), allocatable :: lines(:)
   
   lines = this%lines()
   
-  output = split_into_sections(lines, delimiter)
+  output = split_into_sections(lines, separating_line)
 end function
 
-function sections_String(this,delimiter) result(output)
+function sections_String(this,separating_line) result(output)
   implicit none
   
   class(IFile), intent(in)       :: this
-  type(String), intent(in)       :: delimiter
+  type(String), intent(in)       :: separating_line
   type(StringArray), allocatable :: output(:)
   
-  output = this%sections(char(delimiter))
+  output = this%sections(char(separating_line))
 end function
 
 ! Returns the number of lines in a file.

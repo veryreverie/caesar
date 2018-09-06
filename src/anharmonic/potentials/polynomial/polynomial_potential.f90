@@ -30,8 +30,6 @@ module polynomial_potential_module
     procedure, public :: generate_potential => &
        & generate_potential_PolynomialPotential
     
-    procedure, public :: undisplaced_energy => &
-                       & undisplaced_energy_PolynomialPotential
     procedure, public :: zero_energy => zero_energy_PolynomialPotential
     
     procedure, public :: energy_RealModeDisplacement => &
@@ -43,10 +41,7 @@ module polynomial_potential_module
     procedure, public :: force_ComplexModeDisplacement => &
                        & force_ComplexModeDisplacement_PolynomialPotential
     
-    procedure, public :: braket_SubspaceStates => &
-                       & braket_SubspaceStates_PolynomialPotential
-    procedure, public :: braket_SumStates => &
-                       & braket_SumStates_PolynomialPotential
+    procedure, public :: braket => braket_PolynomialPotential
     
     procedure, public :: read  => read_PolynomialPotential
     procedure, public :: write => write_PolynomialPotential
@@ -444,17 +439,6 @@ subroutine generate_potential_PolynomialPotential(this,inputs,           &
   enddo
 end subroutine
 
-! Calculate the energy at zero displacement.
-impure elemental function undisplaced_energy_PolynomialPotential(this) &
-   & result(output)
-  implicit none
-  
-  class(PolynomialPotential), intent(in) :: this
-  real(dp)                               :: output
-  
-  output = this%energy(RealModeDisplacement([RealSingleDisplacement::]))
-end function
-
 ! Set the undisplaced energy to zero.
 impure elemental subroutine zero_energy_PolynomialPotential(this)
   implicit none
@@ -513,29 +497,12 @@ impure elemental function force_ComplexModeDisplacement_PolynomialPotential( &
 end function
 
 ! Integrate the potential between two states.
-subroutine braket_SubspaceStates_PolynomialPotential(this,bra,ket,inputs)
+subroutine braket_PolynomialPotential(this,bra,ket,inputs)
   implicit none
   
   class(PolynomialPotential), intent(inout) :: this
-  type(SubspaceState),        intent(in)    :: bra
-  type(SubspaceState),        intent(in)    :: ket
-  type(AnharmonicData),       intent(in)    :: inputs
-  
-  integer :: i
-  
-  do i=1,size(this%basis_functions)
-    call this%basis_functions(i)%braket(bra,ket,inputs)
-  enddo
-  
-  call this%basis_functions%simplify()
-end subroutine
-
-subroutine braket_SumStates_PolynomialPotential(this,bra,ket,inputs)
-  implicit none
-  
-  class(PolynomialPotential), intent(inout) :: this
-  type(SumState),             intent(in)    :: bra
-  type(SumState),             intent(in)    :: ket
+  class(SubspaceState),       intent(in)    :: bra
+  class(SubspaceState),       intent(in)    :: ket
   type(AnharmonicData),       intent(in)    :: inputs
   
   integer :: i

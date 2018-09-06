@@ -5,7 +5,7 @@ module map_potential_module
   use common_module
   
   use anharmonic_common_module
-  use polynomial_module
+  use potentials_module
   
   use setup_harmonic_module
   use calculate_normal_modes_module
@@ -87,7 +87,6 @@ subroutine map_potential_subroutine(arguments)
   ! Arguments to setup_anharmonic.
   type(Dictionary) :: setup_anharmonic_arguments
   type(String)     :: harmonic_path
-  type(String)     :: potential_representation
   real(dp)         :: maximum_displacement
   real(dp)         :: frequency_of_max_displacement
   
@@ -180,8 +179,6 @@ subroutine map_potential_subroutine(arguments)
   call setup_anharmonic_arguments%read_file( &
      & wd//'/setup_anharmonic.used_settings')
   harmonic_path = setup_anharmonic_arguments%value('harmonic_path')
-  potential_representation = &
-     & setup_anharmonic_arguments%value('potential_representation')
   maximum_displacement = &
      & dble(setup_anharmonic_arguments%value('maximum_displacement'))
   frequency_of_max_displacement = &
@@ -219,13 +216,7 @@ subroutine map_potential_subroutine(arguments)
   
   ! Read in anharmonic potential.
   potential_file = IFile(wd//'/potential.dat')
-  if (potential_representation=='polynomial') then
-    potential = PolynomialPotential(potential_file%lines())
-  else
-    call print_line( ERROR//': Unrecognised potential representation : '// &
-                   & potential_representation)
-    call err()
-  endif
+  potential = PotentialPointer(potential_file%lines())
   
   ! --------------------------------------------------
   ! Initialise calculation handlers.

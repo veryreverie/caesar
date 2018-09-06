@@ -7,7 +7,7 @@ module setup_anharmonic_module
   use setup_harmonic_module
   
   use anharmonic_common_module
-  use polynomial_module
+  use potentials_module
   implicit none
   
   private
@@ -134,6 +134,7 @@ subroutine setup_anharmonic_subroutine(arguments)
   
   ! Output files.
   type(OFile) :: logfile
+  type(OFile) :: anharmonic_data_file
   type(Ofile) :: anharmonic_supercell_file
   type(OFile) :: anharmonic_qpoints_file
   type(OFile) :: complex_modes_file
@@ -262,7 +263,6 @@ subroutine setup_anharmonic_subroutine(arguments)
   ! ----------------------------------------------------------------------
   ! Write out setup data common to all potential representations.
   ! ----------------------------------------------------------------------
-  
   ! Write out anharmonic supercell and q-points.
   anharmonic_supercell_file = OFile(wd//'/anharmonic_supercell.dat')
   call anharmonic_supercell_file%print_lines(anharmonic_supercell)
@@ -297,7 +297,8 @@ subroutine setup_anharmonic_subroutine(arguments)
   
   ! Initialise potential to the chosen representation.
   if (potential_representation=='polynomial') then
-    potential = PolynomialPotential(potential_expansion_order)
+    potential = PotentialPointer(                       &
+       & PolynomialPotential(potential_expansion_order) )
   else
     call print_line( ERROR//': Unrecognised potential representation: '// &
                    & potential_representation)
@@ -316,6 +317,10 @@ subroutine setup_anharmonic_subroutine(arguments)
                                   & vscf_basis_functions_only,     &
                                   & maximum_weighted_displacement, &
                                   & frequency_of_max_displacement )
+  
+  ! Write out anharmonic data.
+  anharmonic_data_file = OFile(wd//'/anharmonic_data.dat')
+  call anharmonic_data_file%print_lines(anharmonic_data)
   
   ! Generate the sampling points which will be used to map out the anharmonic
   !    Born-Oppenheimer surface in the chosen representation.
