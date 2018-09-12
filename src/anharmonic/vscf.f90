@@ -149,7 +149,7 @@ function update(states,basis,potential,anharmonic_data) result(output)
   type(VscfGroundState), allocatable :: ground_states(:)
   real(dp),              allocatable :: energies(:)
   
-  integer :: i,j,k,l,ialloc
+  integer :: i,j,k,l,m,ialloc
   
   supercell = anharmonic_data%anharmonic_supercell
   
@@ -190,9 +190,8 @@ function update(states,basis,potential,anharmonic_data) result(output)
       enddo
       
       ! Convert the Hamiltonian into an orthonormal basis.
-      hamiltonian = dble( basis(i)%wavevectors(j)%states_to_basis            &
-                      & * mat(hamiltonian)                                   &
-                      & * transpose(basis(i)%wavevectors(j)%states_to_basis) )
+      hamiltonian = &
+         & basis(i)%wavevectors(j)%operator_states_to_basis(hamiltonian)
       
       ! Diagonalise Hamiltonian to get new ground state.
       estuff = diagonalise_symmetric(hamiltonian)

@@ -187,6 +187,7 @@ function potential_energy(this,bra,ket,inputs) result(output)
   
   integer :: ialloc
   
+  
   allocate(potential, source=this, stat=ialloc); call err(ialloc)
   call potential%braket(bra,ket,inputs)
   output = potential%undisplaced_energy()

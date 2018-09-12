@@ -9,6 +9,7 @@ module map_vscf_modes_module
   use potentials_module
   
   use setup_anharmonic_module
+  use mode_map_module
   implicit none
   
   private
@@ -63,10 +64,10 @@ subroutine map_vscf_modes_subroutine(arguments)
   type(VscfGroundState),  allocatable :: ground_states(:)
   
   ! Variables for calculating displacements.
-  real(dp), allocatable      :: displacements(:)
-  real(dp), allocatable      :: scaled_displacements(:)
+  real(dp),      allocatable :: displacements(:)
+  real(dp),      allocatable :: scaled_displacements(:)
   type(RealMode)             :: mode
-  type(RealModeDisplacement) :: displacement
+  type(ModeMap), allocatable :: mode_maps(:)
   
   ! Files and directories.
   type(IFile)  :: anharmonic_data_file
@@ -74,11 +75,9 @@ subroutine map_vscf_modes_subroutine(arguments)
   type(IFile)  :: basis_file
   type(IFile)  :: ground_states_file
   type(String) :: subspace_dir
-  type(OFile)  :: vscf_mode_map_file
+  type(OFile)  :: mode_maps_file
   
-  real(dp), allocatable :: v(:,:)
-  
-  integer :: i,j,k,ialloc
+  integer :: i,j,ialloc
   
   ! Read in arguments.
   wd = arguments%value('working_directory')
@@ -117,30 +116,26 @@ subroutine map_vscf_modes_subroutine(arguments)
                        &       / max( basis(i)%frequency,             &
                        &              frequency_of_max_displacement ) )
     
-    ! Calculate the potential at each displacement along each mode.
-    allocate( v( 2*no_single_mode_samples+1,    &
-            &    size(subspaces(i))          ), &
-            & stat=ialloc); call err(ialloc)
+    
+    allocate(mode_maps(size(subspaces(i))), stat=ialloc); call err(ialloc)
     do j=1,size(subspaces(i))
       mode = real_modes(first(real_modes%id==subspaces(i)%mode_ids(j)))
-      do k=1,size(scaled_displacements)
-        displacement = RealModeDisplacement([mode],[scaled_displacements(k)])
-        v(k,j) = subspace_potentials(i)%energy(displacement)
-      enddo
+      mode_maps(j) = ModeMap( scaled_displacements,  &
+                            & mode,                  &
+                            & subspace_potentials(i) )
     enddo
     
     ! Write out displacements.
     subspace_dir = wd//'/subspace_'// &
        & left_pad(subspaces(i)%id,str(maxval(subspaces%id,1)))
     call mkdir(subspace_dir)
-    vscf_mode_map_file = OFile(subspace_dir//'/vscf_mode_maps.dat')
-    call vscf_mode_map_file%print_line('Displacements '//scaled_displacements)
-    do j=1,size(subspaces(i))
-      call vscf_mode_map_file%print_line(                 &
-         & 'Mode '//subspaces(i)%mode_ids(j)//' '//v(:,j) )
-    enddo
+    mode_maps_file = OFile(subspace_dir//'/vscf_mode_maps.dat')
+    call mode_maps_file%print_line(                    &
+       & 'Harmonic frequencies: '//subspaces%frequency )
+    call mode_maps_file%print_line('')
+    call mode_maps_file%print_lines(mode_maps, separating_line='')
     
-    deallocate(v, stat=ialloc); call err(ialloc)
+    deallocate(mode_maps, stat=ialloc); call err(ialloc)
   enddo
 end subroutine
 end module

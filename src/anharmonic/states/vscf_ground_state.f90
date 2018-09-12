@@ -45,8 +45,8 @@ function new_VscfGroundState(subspace_id,wavevector,coefficients) &
   real(dp),             intent(in) :: coefficients(:)
   type(VscfGroundState)            :: this
   
-  this%subspace_id = subspace_id
-  this%wavevector = wavevector
+  this%subspace_id  = subspace_id
+  this%wavevector   = wavevector
   this%coefficients = coefficients
 end function
 
@@ -65,8 +65,8 @@ impure elemental function new_PolynomialState_VscfGroundState(state,basis) &
   
   i = first(basis%wavevectors%wavevector==state%wavevector)
   
-  coefficients = dble( basis%wavevectors(i)%basis_to_states &
-                   & * vec(state%coefficients)              )
+  coefficients = &
+     & basis%wavevectors(i)%coefficients_basis_to_states(state%coefficients)
   
   output = PolynomialState( basis%subspace_id,           &
                           & basis%wavevectors(i)%states, &
@@ -82,26 +82,28 @@ impure elemental function initial_ground_state(basis) result(output)
   type(SubspaceBasis), intent(in) :: basis
   type(VscfGroundState)           :: output
   
-  integer,  allocatable :: powers(:)
-  real(dp), allocatable :: basis_to_states(:,:)
+  type(SubspaceWavevectorBasis) :: wavevector_basis
+  
   real(dp), allocatable :: coefficients(:)
   
-  integer :: i,j
+  integer :: i
   
   ! Find the wavevector [0,0,0].
-  i = first(is_int(basis%wavevectors%wavevector))
+  wavevector_basis = basis%wavevectors(            &
+     & first(is_int(basis%wavevectors%wavevector)) )
   
-  ! Find the state |0> at that wavevector.
-  j = first(basis%wavevectors(i)%states%total_power()==0)
+  ! Construct the coefficient vector in the basis of monomial states.
+  ! All coefficients are zero, except for the coefficient of |0>, which is one.
+  coefficients = [( 0.0_dp, i=1, size(wavevector_basis) )]
+  coefficients(first(wavevector_basis%states%total_power()==0)) = 1
   
-  ! Extract the coefficients of the basis functions which refer to |0>.
-  basis_to_states = dble(basis%wavevectors(i)%basis_to_states)
-  coefficients = basis_to_states(j,:)
+  ! Convert the coefficients into the orthonormal basis.
+  coefficients = wavevector_basis%coefficients_states_to_basis(coefficients)
   
   ! Construct output.
-  output = VscfGroundState(                            &
-     & subspace_id  = basis%subspace_id,               &
-     & wavevector   = basis%wavevectors(i)%wavevector, &
+  output = VscfGroundState(                        &
+     & subspace_id  = basis%subspace_id,           &
+     & wavevector   = wavevector_basis%wavevector, &
      & coefficients = coefficients)
 end function
 

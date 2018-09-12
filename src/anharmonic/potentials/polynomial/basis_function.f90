@@ -39,6 +39,10 @@ module basis_function_module
     
     procedure, public :: braket => braket_BasisFunction
     
+    procedure, public :: undisplaced_energy => undisplaced_energy_BasisFunction
+    
+    procedure, public :: is_constant => is_constant_BasisFunction
+    
     procedure, public :: read  => read_BasisFunction
     procedure, public :: write => write_BasisFunction
   end type
@@ -382,6 +386,46 @@ subroutine braket_BasisFunction(this,bra,ket,inputs)
     deallocate(mode_in_subspace)
   enddo
 end subroutine
+
+! ----------------------------------------------------------------------
+! Returns the energy at zero displacement.
+! ----------------------------------------------------------------------
+impure elemental function undisplaced_energy_BasisFunction(this) result(output)
+  implicit none
+  
+  class(BasisFunction), intent(in) :: this
+  real(dp)                         :: output
+  
+  type(RealModeDisplacement) :: zero_displacement
+  
+  zero_displacement = RealModeDisplacement([RealSingleDisplacement::])
+  
+  output = this%energy(zero_displacement)
+end function
+
+! ----------------------------------------------------------------------
+! Returns whether the basis function is constant,
+!    i.e. it doesn't depend on any co-ordinates.
+! ----------------------------------------------------------------------
+! Assumes that the basis function has been simplified.
+impure elemental function is_constant_BasisFunction(this) result(output)
+  implicit none
+  
+  class(BasisFunction), intent(in) :: this
+  logical                          :: output
+  
+  if (size(this%real_representation)>1) then
+    output = .false.
+  elseif (size(this%complex_representation)>1) then
+    output = .false.
+  elseif (size(this%real_representation%terms(1))>0) then
+    output = .false.
+  elseif (size(this%complex_representation%terms(1))>0) then
+    output = .false.
+  else
+    output = .true.
+  endif
+end function
 
 ! ----------------------------------------------------------------------
 ! Arithmetic.

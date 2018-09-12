@@ -27,9 +27,18 @@ module subspace_basis_module
     ! Conversion matrices from the stored states(:) (which are normalised
     !    but not in general orthogonal) to an orthonormal basis,
     !    and back again.
-    type(RealMatrix) :: states_to_basis
-    type(RealMatrix) :: basis_to_states
+    type(RealMatrix), private :: states_to_basis_
+    type(RealMatrix), private :: basis_to_states_
   contains
+    ! Transform vectors of coefficients.
+    procedure :: coefficients_states_to_basis
+    procedure :: coefficients_basis_to_states
+    
+    ! Transform operator matrices.
+    procedure :: operator_states_to_basis
+    procedure :: operator_basis_to_states
+    
+    ! I/O.
     procedure, public :: read  => read_SubspaceWavevectorBasis
     procedure, public :: write => write_SubspaceWavevectorBasis
   end type
@@ -82,12 +91,12 @@ function new_SubspaceWavevectorBasis(subspace_id,frequency,wavevector,states, &
     call err()
   endif
   
-  this%subspace_id     = subspace_id
-  this%frequency       = frequency
-  this%wavevector      = wavevector
-  this%states          = states
-  this%states_to_basis = states_to_basis
-  this%basis_to_states = basis_to_states
+  this%subspace_id      = subspace_id
+  this%frequency        = frequency
+  this%wavevector       = wavevector
+  this%states           = states
+  this%states_to_basis_ = states_to_basis
+  this%basis_to_states_ = basis_to_states
 end function
 
 function new_SubspaceBasis(subspace_id,frequency,wavevectors) result(this)
@@ -263,6 +272,59 @@ contains
 end function
 
 ! ----------------------------------------------------------------------
+! Transform coefficients between monomial states and the orthonormal basis.
+! ----------------------------------------------------------------------
+! N.B. the private matrices states_to_basis_ and basis_to_states_ define how
+!    the states themselves transform. The coefficients transform as the inverse
+!    transpose of this.
+function coefficients_states_to_basis(this,coefficients) result(output)
+  implicit none
+  
+  class(SubspaceWavevectorBasis), intent(in) :: this
+  real(dp),                       intent(in) :: coefficients(:)
+  real(dp), allocatable                      :: output(:)
+  
+  output = dble(transpose(this%basis_to_states_) * vec(coefficients))
+end function
+
+function coefficients_basis_to_states(this,coefficients) result(output)
+  implicit none
+  
+  class(SubspaceWavevectorBasis), intent(in) :: this
+  real(dp),                       intent(in) :: coefficients(:)
+  real(dp), allocatable                      :: output(:)
+  
+  output = dble(transpose(this%states_to_basis_) * vec(coefficients))
+end function
+
+! ----------------------------------------------------------------------
+! Transform operators between monomial states and the orthonormal basis.
+! ----------------------------------------------------------------------
+function operator_states_to_basis(this,operator) result(output)
+  implicit none
+  
+  class(SubspaceWavevectorBasis), intent(in) :: this
+  real(dp),                       intent(in) :: operator(:,:)
+  real(dp), allocatable                      :: output(:,:)
+  
+  output = dble( this%states_to_basis_            &
+             & * mat(operator)                    &
+             & * transpose(this%states_to_basis_) )
+end function
+
+function operator_basis_to_states(this,operator) result(output)
+  implicit none
+  
+  class(SubspaceWavevectorBasis), intent(in) :: this
+  real(dp),                       intent(in) :: operator(:,:)
+  real(dp), allocatable                      :: output(:,:)
+  
+  output = dble( this%basis_to_states_            &
+             & * mat(operator)                    &
+             & * transpose(this%basis_to_states_) )
+end function
+
+! ----------------------------------------------------------------------
 ! I/O.
 ! ----------------------------------------------------------------------
 subroutine read_SubspaceWavevectorBasis(this,input)
@@ -337,9 +399,9 @@ function write_SubspaceWavevectorBasis(this) result(output)
     enddo
     output = [ output,                            &
              & str('States to Basis Conversion'), &
-             & str(this%states_to_basis),         &
+             & str(this%states_to_basis_),        &
              & str('Basis to States Conversion'), &
-             & str(this%basis_to_states)          ]
+             & str(this%basis_to_states_)         ]
   class default
     call err()
   end select
@@ -383,8 +445,14 @@ subroutine read_SubspaceBasis(this,input)
   integer :: i,ialloc
   
   select type(this); type is(SubspaceBasis)
+    line = split_line(input(1))
+    subspace_id = int(line(2))
+    
+    line = split_line(input(2))
+    frequency = dble(line(2))
+    
     starting_lines = [integer::]
-    do i=1,size(input)
+    do i=3,size(input)
       line = split_line(input(i))
       if (size(line)>0) then
         if (line(1)=='Wavevector') then

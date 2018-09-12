@@ -17,14 +17,10 @@ module mode_map_module
     real(dp), allocatable :: displacements(:)
     real(dp), allocatable :: harmonic_energies(:)
     real(dp), allocatable :: harmonic_forces(:)
-    real(dp), allocatable :: anharmonic_cos_energies(:)
-    real(dp), allocatable :: anharmonic_cos_forces(:)
-    real(dp), allocatable :: anharmonic_sin_energies(:)
-    real(dp), allocatable :: anharmonic_sin_forces(:)
-    real(dp), allocatable :: sampled_cos_energies(:)
-    real(dp), allocatable :: sampled_cos_forces(:)
-    real(dp), allocatable :: sampled_sin_energies(:)
-    real(dp), allocatable :: sampled_sin_forces(:)
+    real(dp), allocatable :: anharmonic_energies(:)
+    real(dp), allocatable :: anharmonic_forces(:)
+    real(dp), allocatable :: sampled_energies(:)
+    real(dp), allocatable :: sampled_forces(:)
   contains
     procedure, public :: read  => read_ModeMap
     procedure, public :: write => write_ModeMap
@@ -38,11 +34,9 @@ module mode_map_module
   end interface
 contains
 
-function new_ModeMap(mode_id,harmonic_frequency,displacements, &
-   & harmonic_energies,harmonic_forces,anharmonic_cos_energies, &
-   & anharmonic_cos_forces,anharmonic_sin_energies,anharmonic_sin_forces, &
-   & sampled_cos_energies,sampled_cos_forces,sampled_sin_energies, &
-   & sampled_sin_forces) result(this)
+function new_ModeMap(mode_id,harmonic_frequency,displacements,                &
+   & harmonic_energies,harmonic_forces,anharmonic_energies,anharmonic_forces, &
+   & sampled_energies,sampled_forces) result(this)
   implicit none
   
   integer,  intent(in)           :: mode_id
@@ -50,61 +44,41 @@ function new_ModeMap(mode_id,harmonic_frequency,displacements, &
   real(dp), intent(in)           :: displacements(:)
   real(dp), intent(in)           :: harmonic_energies(:)
   real(dp), intent(in)           :: harmonic_forces(:)
-  real(dp), intent(in)           :: anharmonic_cos_energies(:)
-  real(dp), intent(in)           :: anharmonic_cos_forces(:)
-  real(dp), intent(in)           :: anharmonic_sin_energies(:)
-  real(dp), intent(in)           :: anharmonic_sin_forces(:)
-  real(dp), intent(in), optional :: sampled_cos_energies(:)
-  real(dp), intent(in), optional :: sampled_cos_forces(:)
-  real(dp), intent(in), optional :: sampled_sin_energies(:)
-  real(dp), intent(in), optional :: sampled_sin_forces(:)
+  real(dp), intent(in)           :: anharmonic_energies(:)
+  real(dp), intent(in)           :: anharmonic_forces(:)
+  real(dp), intent(in), optional :: sampled_energies(:)
+  real(dp), intent(in), optional :: sampled_forces(:)
   type(ModeMap)                  :: this
   
-  this%mode_id                 = mode_id
-  this%harmonic_frequency      = harmonic_frequency
-  this%displacements           = displacements
-  this%harmonic_energies       = harmonic_energies
-  this%harmonic_forces         = harmonic_forces
-  this%anharmonic_cos_energies = anharmonic_cos_energies
-  this%anharmonic_cos_forces   = anharmonic_cos_forces
-  this%anharmonic_sin_energies = anharmonic_sin_energies
-  this%anharmonic_sin_forces   = anharmonic_sin_forces
+  this%mode_id             = mode_id
+  this%harmonic_frequency  = harmonic_frequency
+  this%displacements       = displacements
+  this%harmonic_energies   = harmonic_energies
+  this%harmonic_forces     = harmonic_forces
+  this%anharmonic_energies = anharmonic_energies
+  this%anharmonic_forces   = anharmonic_forces
   
-  if (present(sampled_cos_energies)) then
-    this%sampled_cos_energies = sampled_cos_energies
+  if (present(sampled_energies)) then
+    this%sampled_energies = sampled_energies
   endif
-  if (present(sampled_cos_forces)) then
-    this%sampled_cos_forces = sampled_cos_forces
-  endif
-  if (present(sampled_sin_energies)) then
-    this%sampled_sin_energies = sampled_sin_energies
-  endif
-  if (present(sampled_sin_forces)) then
-    this%sampled_sin_forces = sampled_sin_forces
+  if (present(sampled_forces)) then
+    this%sampled_forces = sampled_forces
   endif
 end function
 
-function new_ModeMap_potential(displacements,mode,real_modes,potential) &
-   & result(this)
+function new_ModeMap_potential(displacements,mode,potential) result(this)
   implicit none
   
   real(dp),             intent(in) :: displacements(:)
-  type(ComplexMode),    intent(in) :: mode
-  type(RealMode),       intent(in) :: real_modes(:)
+  type(RealMode),       intent(in) :: mode
   class(PotentialData), intent(in) :: potential
   type(ModeMap)                    :: this
   
   ! Output variables.
   real(dp), allocatable :: harmonic_energies(:)
   real(dp), allocatable :: harmonic_forces(:)
-  real(dp), allocatable :: anharmonic_cos_energies(:)
-  real(dp), allocatable :: anharmonic_cos_forces(:)
-  real(dp), allocatable :: anharmonic_sin_energies(:)
-  real(dp), allocatable :: anharmonic_sin_forces(:)
-  
-  ! Displacement in real mode co-ordinates.
-  type(RealMode)             :: cos_mode
-  type(RealMode)             :: sin_mode
+  real(dp), allocatable :: anharmonic_energies(:)
+  real(dp), allocatable :: anharmonic_forces(:)
   
   ! Force in real mode co-ordinates.
   type(RealModeDisplacement) :: displacement
@@ -113,18 +87,13 @@ function new_ModeMap_potential(displacements,mode,real_modes,potential) &
   ! Temporary variables.
   integer :: i,ialloc
   
-  cos_mode = real_modes(first(real_modes%id==min(mode%id,mode%paired_id)))
-  sin_mode = real_modes(first(real_modes%id==max(mode%id,mode%paired_id)))
-  
-  allocate( harmonic_energies(size(displacements)),       &
-          & harmonic_forces(size(displacements)),         &
-          & anharmonic_cos_energies(size(displacements)), &
-          & anharmonic_cos_forces(size(displacements)),   &
-          & anharmonic_sin_energies(size(displacements)), &
-          & anharmonic_sin_forces(size(displacements)),   &
+  allocate( harmonic_energies(size(displacements)),   &
+          & harmonic_forces(size(displacements)),     &
+          & anharmonic_energies(size(displacements)), &
+          & anharmonic_forces(size(displacements)),   &
           & stat=ialloc); call err(ialloc)
   do i=1,size(displacements)
-    displacement = RealModeDisplacement([cos_mode],[displacements(i)])
+    displacement = RealModeDisplacement([mode],[displacements(i)])
     
     harmonic_energies(i) = 0.5_dp               &
                        & * mode%spring_constant &
@@ -133,28 +102,20 @@ function new_ModeMap_potential(displacements,mode,real_modes,potential) &
     harmonic_forces(i) = - mode%spring_constant &
                      & * displacements(i)
     
-    displacement = RealModeDisplacement([cos_mode],[displacements(i)])
-    anharmonic_cos_energies(i) = potential%energy(displacement) &
-                               - potential%undisplaced_energy()
+    displacement = RealModeDisplacement([mode],[displacements(i)])
+    anharmonic_energies(i) = potential%energy(displacement) &
+                           - potential%undisplaced_energy()
     anharmonic_force = potential%force(displacement)
-    anharmonic_cos_forces(i) = anharmonic_force%force(cos_mode)
-    
-    displacement = RealModeDisplacement([sin_mode],[displacements(i)])
-    anharmonic_sin_energies(i) = potential%energy(displacement) &
-                               - potential%undisplaced_energy()
-    anharmonic_force = potential%force(displacement)
-    anharmonic_sin_forces(i) = anharmonic_force%force(sin_mode)
+    anharmonic_forces(i) = anharmonic_force%force(mode)
   enddo
   
-  this = ModeMap( mode%id,                 &
-                & mode%frequency,          &
-                & displacements,           &
-                & harmonic_energies,       &
-                & harmonic_forces,         &
-                & anharmonic_cos_energies, &
-                & anharmonic_cos_forces,   &
-                & anharmonic_sin_energies, &
-                & anharmonic_sin_forces    )
+  this = ModeMap( mode%id,             &
+                & mode%frequency,      &
+                & displacements,       &
+                & harmonic_energies,   &
+                & harmonic_forces,     &
+                & anharmonic_energies, &
+                & anharmonic_forces    )
 end function
 
 ! ----------------------------------------------------------------------
@@ -171,14 +132,10 @@ subroutine read_ModeMap(this,input)
   real(dp), allocatable :: displacements(:)
   real(dp), allocatable :: harmonic_energies(:)
   real(dp), allocatable :: harmonic_forces(:)
-  real(dp), allocatable :: anharmonic_cos_energies(:)
-  real(dp), allocatable :: anharmonic_cos_forces(:)
-  real(dp), allocatable :: anharmonic_sin_energies(:)
-  real(dp), allocatable :: anharmonic_sin_forces(:)
-  real(dp), allocatable :: sampled_cos_energies(:)
-  real(dp), allocatable :: sampled_cos_forces(:)
-  real(dp), allocatable :: sampled_sin_energies(:)
-  real(dp), allocatable :: sampled_sin_forces(:)
+  real(dp), allocatable :: anharmonic_energies(:)
+  real(dp), allocatable :: anharmonic_forces(:)
+  real(dp), allocatable :: sampled_energies(:)
+  real(dp), allocatable :: sampled_forces(:)
   
   type(String), allocatable :: line(:)
   
@@ -191,21 +148,17 @@ subroutine read_ModeMap(this,input)
     line = split_line(input(2))
     harmonic_frequency = dble(line(3))
     
-    allocate( displacements(size(input)-3),           &
-            & harmonic_energies(size(input)-3),       &
-            & harmonic_forces(size(input)-3),         &
-            & anharmonic_cos_energies(size(input)-3), &
-            & anharmonic_cos_forces(size(input)-3),   &
-            & anharmonic_sin_energies(size(input)-3), &
-            & anharmonic_sin_forces(size(input)-3),   &
+    allocate( displacements(size(input)-3),       &
+            & harmonic_energies(size(input)-3),   &
+            & harmonic_forces(size(input)-3),     &
+            & anharmonic_energies(size(input)-3), &
+            & anharmonic_forces(size(input)-3),   &
             & stat=ialloc); call err(ialloc)
     
     line = split_line(input(3))
     if (line(size(line)-2)=='Sampled') then
-      allocate( sampled_cos_energies(size(input)-3), &
-              & sampled_cos_forces(size(input)-3),   &
-              & sampled_sin_energies(size(input)-3), &
-              & sampled_sin_forces(size(input)-3),   &
+      allocate( sampled_energies(size(input)-3), &
+              & sampled_forces(size(input)-3),   &
               & stat=ialloc); call err(ialloc)
     endif
     
@@ -214,42 +167,32 @@ subroutine read_ModeMap(this,input)
       displacements(i) = dble(line(1))
       harmonic_energies(i) = dble(line(2))
       harmonic_forces(i) = dble(line(3))
-      anharmonic_cos_energies(i) = dble(line(4))
-      anharmonic_cos_forces(i) = dble(line(5))
-      anharmonic_sin_energies(i) = dble(line(6))
-      anharmonic_sin_forces(i) = dble(line(7))
-      if (allocated(sampled_cos_energies)) then
-        sampled_cos_energies(i) = dble(line(8))
-        sampled_cos_forces(i) = dble(line(9))
-        sampled_sin_energies(i) = dble(line(10))
-        sampled_sin_forces(i) = dble(line(11))
+      anharmonic_energies(i) = dble(line(4))
+      anharmonic_forces(i) = dble(line(5))
+      if (allocated(sampled_energies)) then
+        sampled_energies(i) = dble(line(6))
+        sampled_forces(i) = dble(line(7))
       endif
     enddo
     
-    if (allocated(sampled_cos_energies)) then
-      this = ModeMap( mode_id,                 &
-                    & harmonic_frequency,      &
-                    & displacements,           &
-                    & harmonic_energies,       &
-                    & harmonic_forces,         &
-                    & anharmonic_cos_energies, &
-                    & anharmonic_cos_forces,   &
-                    & anharmonic_sin_energies, &
-                    & anharmonic_sin_forces,   &
-                    & sampled_cos_energies,    &
-                    & sampled_cos_forces,      &
-                    & sampled_sin_energies,    &
-                    & sampled_sin_forces       )
+    if (allocated(sampled_energies)) then
+      this = ModeMap( mode_id,             &
+                    & harmonic_frequency,  &
+                    & displacements,       &
+                    & harmonic_energies,   &
+                    & harmonic_forces,     &
+                    & anharmonic_energies, &
+                    & anharmonic_forces,   &
+                    & sampled_energies,    &
+                    & sampled_forces       )
     else
-      this = ModeMap( mode_id,                 &
-                    & harmonic_frequency,      &
-                    & displacements,           &
-                    & harmonic_energies,       &
-                    & harmonic_forces,         &
-                    & anharmonic_cos_energies, &
-                    & anharmonic_cos_forces,   &
-                    & anharmonic_sin_energies, &
-                    & anharmonic_sin_forces    )
+      this = ModeMap( mode_id,             &
+                    & harmonic_frequency,  &
+                    & displacements,       &
+                    & harmonic_energies,   &
+                    & harmonic_forces,     &
+                    & anharmonic_energies, &
+                    & anharmonic_forces    )
     endif
   class default
     call err()
@@ -267,40 +210,32 @@ function write_ModeMap(this) result(output)
   select type(this); type is(ModeMap)
     output = [ 'Mode ID: '//this%mode_id,                      &
              & 'Harmonic frequency: '//this%harmonic_frequency ]
-    if (allocated(this%sampled_cos_energies)) then
-      output = [ output,                                                    &
+    if (allocated(this%sampled_energies)) then
+      output = [ output,                                                &
                & str('Displacement | Harmonic energy | Harmonic force | &
-               &Anharmonic cos energy | Anharmonic cos force | Anharmonic sin &
-               &energy | Anharmonic sin force | Sampled cos energy | Sampled &
-               &cos force | Sampled sin energy | Sampled sin force')          ]
+               &Anharmonic energy | Anharmonic force | Sampled energy | &
+               &Sampled force')                                         ]
       do i=1,size(this%displacements)
-        output = [ output,                                 &
-                 & this%displacements(i)           //' '// &
-                 & this%harmonic_energies(i)       //' '// &
-                 & this%harmonic_forces(i)         //' '// &
-                 & this%anharmonic_cos_energies(i) //' '// &
-                 & this%anharmonic_cos_forces(i)   //' '// &
-                 & this%anharmonic_sin_energies(i) //' '// &
-                 & this%anharmonic_sin_forces(i)   //' '// &
-                 & this%sampled_cos_energies(i)    //' '// &
-                 & this%sampled_cos_forces(i)      //' '// &
-                 & this%sampled_sin_energies(i)    //' '// &
-                 & this%sampled_sin_forces(i)              ]
+        output = [ output,                             &
+                 & this%displacements(i)       //' '// &
+                 & this%harmonic_energies(i)   //' '// &
+                 & this%harmonic_forces(i)     //' '// &
+                 & this%anharmonic_energies(i) //' '// &
+                 & this%anharmonic_forces(i)   //' '// &
+                 & this%sampled_energies(i)    //' '// &
+                 & this%sampled_forces(i)              ]
       enddo
     else
-      output = [ output,                                                    &
+      output = [ output,                                                &
                & str('Displacement | Harmonic energy | Harmonic force | &
-               &Anharmonic cos energy | Anharmonic cos force | Anharmonic sin &
-               &energy | Anharmonic sin force')                               ]
+               &Anharmonic energy | Anharmonic force')                  ]
       do i=1,size(this%displacements)
-        output = [ output,                                 &
-                 & this%displacements(i)           //' '// &
-                 & this%harmonic_energies(i)       //' '// &
-                 & this%harmonic_forces(i)         //' '// &
-                 & this%anharmonic_cos_energies(i) //' '// &
-                 & this%anharmonic_cos_forces(i)   //' '// &
-                 & this%anharmonic_sin_energies(i) //' '// &
-                 & this%anharmonic_sin_forces(i)           ]
+        output = [ output,                             &
+                 & this%displacements(i)       //' '// &
+                 & this%harmonic_energies(i)   //' '// &
+                 & this%harmonic_forces(i)     //' '// &
+                 & this%anharmonic_energies(i) //' '// &
+                 & this%anharmonic_forces(i)           ]
       enddo
     endif
   class default

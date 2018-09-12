@@ -20,12 +20,12 @@ module monomial_state_module
   ! A state |n_1,n_2,...,n_> = |n_1>|n_2>...|n_>.
   !
   ! If (u_i)*=u_i then
-  !    |n_i> = prod_{k=1}^i[ sqrt(2Nw_i/(2k-1)) ] |0_i>
+  !    |n_i> = prod_{k=1}^i[ sqrt(2Nw_i/(2k-1)) ] (u_i)^(n_i) |0_i>
   !    |0_i> = sqrt(sqrt(m*w_i/pi)) exp(- 1/2 N w_i (u_i)^2 )
   !
   ! If (u_i)^*=u_j then
-  !    |n_i,n_j> = prod_{k=1}^{n_i+n_j}[ sqrt(2Nw_i/k) ] |0_i,0_j>
-  !    |0_i,0_j> = sqrt(m*w_i/pi) exp(- N w_i |u_i|^2 )
+  !    |n_i,n_j> = prod_{k=1}^{n_i+n_j}[ sqrt(4Nw_i/k) ] ui^ni uj^nj |0_i,0_j>
+  !    |0_i,0_j> = sqrt(2*m*w_i/pi) exp(- N w_i |u_i|^2 )
   ! N.B. w_i=w_j and |u_i|=|u_j|.
   !
   ! In both cases, states are normalised (<n_i|n_i>=1, <n_i,n_j|n_i,n_j>=1),
@@ -39,60 +39,6 @@ module monomial_state_module
   !
   ! N is the number of primitive cells in the anharmonic supercell.
   !
-  ! --------------------
-  ! <bra|ket>:
-  ! --------------------
-  !
-  ! (u_i)^* = u_i:
-  ! <p_i|q_i> = 0                                                   if p+q odd.
-  !
-  !           = prod_{k=1}^{(p_i+q_i)/2} [ 2k-1 ]
-  !           / sqrt( prod_{k=1}^{p_i} [ 2k-1 ]
-  !                 * prod_{k=1}^{q_i} [ 2k-1 ] )                    otherwise.
-  !
-  ! (u_i)^* /= u_i:
-  ! <p_i,p_j|q_i,q_j> = 0                              if p_i-p_j-q_i+q_j /= 0.
-  !
-  !                   = prod_{k=1}^{(p_i+p_j+q_i+q_j)/2} [ k ]
-  !                   / sqrt( prod_{k=1}^{p_i+p_j} [ k ]
-  !                         * prod_{k=1}^{q_i+q_j} [ k ] )           otherwise.
-  !
-  ! --------------------
-  ! Potential energy:
-  ! --------------------
-  !
-  ! (u_i)^* = u_i:
-  ! <p_i|(u_i)^(n_i)|q_i> = 0                                     if p+n+q odd.
-  !
-  !                       = 1/sqrt(2Nw_i)^{n_i}
-  !                       * prod_{k=1}^{(p_i+n_i+q_i)/2} [ 2k-1 ]
-  !                       / sqrt( prod_{k=1}^{p_i} [ 2k-1 ]
-  !                             * prod_{k=1}^{q_i} [ 2k-1 ] )        otherwise.
-  !
-  ! (u_i)^* /= u_i:
-  ! <p_i,p_j|(u_i)^(n_i) (u_j)^(n_j)|q_i,q_j> =
-  !    = 0                                     if p_i-p_j-n_i+n_j-q_i+q_j /= 0.
-  !
-  !    = 1/sqrt(2Nw_i)^{n_i+n_j}
-  !    * prod_{k=1}^{p_i+p_j+n_i+n_j+q_i+q_j} [ k ]
-  !    / sqrt( prod_{k=1}^{p_i+p_j} [ k ]
-  !          * prod_{k=1}^{q_i+q_j} [ k ] )                          otherwise.
-  !
-  ! --------------------
-  ! Kinetic energy:
-  ! --------------------
-  !
-  ! (u_i)^* = u_i:
-  ! <p_i|T|q_i> = 1/2 w_i  ( (1-p_i-q_i)/2 - 2p_iq_i/(p_i+q_i+1) ) <p_i|q_i>
-  !
-  ! (u_i)^* /= u_i:
-  ! <p_i,p_j|T|q_i,q_j> = w_i ( (p_i+p_j+q_i+q_j+2)/4 
-  !                           - 2(p_ip_j+q_iq_j)/(p_i+p_j+q_i+q_j) )
-  !                     * <p_i,p_j|q_i,q_j>
-  !
-  ! N.B. (p_ip_j+q_iq_j)/(p_i+p_j+q_i+q_j) is zero if p_i=p_j=q_i=q_j=0.
-  ! The denominator is zero in this case, so care should be taken.
-  
   ! N.B. the coefficient of state_ is not used. Instead, states are implicitly
   !    normalised such that <state|state>=1. This removes the need to keep
   !    track of the various factors of two, pi, m (the geometric mean of the
@@ -351,19 +297,6 @@ end function
 ! ----------------------------------------------------------------------
 ! Evaluates integrals of the form <bra|ket>.
 ! ----------------------------------------------------------------------
-! (u_i)^* = u_i:
-! <p_i|q_i> = 0                                                   if p+q odd.
-!
-!           = prod_{k=1}^{(p_i+q_i)/2} [ 2k-1 ]
-!           / sqrt( prod_{k=1}^{p_i} [ 2k-1 ]
-!                 * prod_{k=1}^{q_i} [ 2k-1 ] )                    otherwise.
-!
-! (u_i)^* /= u_i:
-! <p_i,p_j|q_i,q_j> = 0                              if p_i-p_j-q_i+q_j /= 0.
-!
-!                   = prod_{k=1}^{p_i+p_j+q_i+q_j} [ k ]
-!                   / sqrt( prod_{k=1}^{p_i+p_j} [ k ]
-!                         * prod_{k=1}^{q_i+q_j} [ k ] )           otherwise.
 impure elemental function braket_MonomialStates(bra,ket) result(output)
   implicit none
   
@@ -473,7 +406,7 @@ impure elemental function braket_modes(bra,ket) result(output)
   else
     ! <p_i,p_j|q_i,q_j> = 0                          if p_i-p_j-q_i+q_j /= 0.
     !
-    !                   = prod_{k=1}^{p_i+p_j+q_i+q_j} [ k ]
+    !                   = prod_{k=1}^{(p_i+p_j+q_i+q_j)/2} [ k ]
     !                   / sqrt( prod_{k=1}^{p_i+p_j} [ k ]
     !                         * prod_{k=1}^{q_i+q_j} [ k ] )       otherwise.
     if (p_i-p_j-q_i+q_j/=0) then
@@ -497,22 +430,6 @@ end function
 ! ----------------------------------------------------------------------
 ! Evaluates integrals of the form <bra|monomial|ket>.
 ! ----------------------------------------------------------------------
-! (u_i)^* = u_i:
-! <p_i|(u_i)^(n_i)|q_i> = 0                                     if p+n+q odd.
-!
-!                       = 1/sqrt(2Nw_i)^{n_i}
-!                       * prod_{k=1}^{(p_i+n_i+q_i)/2} [ 2k-1 ]
-!                       / sqrt( prod_{k=1}^{p_i} [ 2k-1 ]
-!                             * prod_{k=1}^{q_i} [ 2k-1 ] )        otherwise.
-!
-! (u_i)^* /= u_i:
-! <p_i,p_j|(u_i)^(n_i) (u_j)^(n_j)|q_i,q_j> =
-!    = 0                                     if p_i-p_j-n_i+n_j-q_i+q_j /= 0.
-!
-!    = 1/sqrt(2Nw_i)^{n_i+n_j}
-!    * prod_{k=1}^{p_i+p_j+n_i+n_j+q_i+q_j} [ k ]
-!    / sqrt( prod_{k=1}^{p_i+p_j} [ k ]
-!          * prod_{k=1}^{q_i+q_j} [ k ] )                          otherwise.
 impure elemental function braket_MonomialStates_ComplexMonomial(bra,ket, &
    & monomial,subspace,supercell) result(output)
   implicit none
@@ -539,6 +456,8 @@ impure elemental function braket_MonomialStates_ComplexMonomial(bra,ket, &
   
   integer :: i_subspace,i_bra,i_ket,i_monomial
   integer :: id,paired_id
+  
+  type(String), allocatable :: lines(:)
   
   integer :: i
   
@@ -624,7 +543,7 @@ impure elemental function braket_MonomialStates_ComplexMonomial(bra,ket, &
     endif
   enddo
   
-  ! Calculate sqrt(2Nw_i).
+  ! Calculate sqrt(4Nw_i).
   sqrt_two_n_omega = sqrt(2.0_dp * supercell%sc_size * bra%frequency)
   
   sum_n = sum(monomial%modes(filter(monomial_mode_integrated))%total_power())
@@ -685,7 +604,7 @@ impure elemental function braket_modes_potential(bra,ket,potential) &
     !    = 0                                 if p_i-p_j-n_i+n_j-q_i+q_j /= 0.
     !
     !    = 1/sqrt(2Nw_i)^{n_i+n_j}
-    !    * prod_{k=1}^{p_i+p_j+n_i+n_j+q_i+q_j} [ k ]
+    !    * prod_{k=1}^{(p_i+p_j+n_i+n_j+q_i+q_j)/2} [ k ]
     !    / sqrt( prod_{k=1}^{p_i+p_j} [ k ]
     !          * prod_{k=1}^{q_i+q_j} [ k ] )                      otherwise.
     if (p_i-p_j-n_i+n_j-q_i+q_j/=0) then
@@ -709,16 +628,6 @@ end function
 ! Evaluates <bra|T|ket>, where T is the kinetic energy operator.
 ! Gives the result per primitive cell.
 ! ----------------------------------------------------------------------
-! (u_i)^* = u_i:
-! <p_i|T|q_i> = 1/2 w_i  ( (1-p_i-q_i)/2 - 2p_iq_i/(p_i+q_i+1) ) <p_i|q_i>
-!
-! (u_i)^* /= u_i:
-! <p_i,p_j|T|q_i,q_j> = w_i ( (p_i+p_j+q_i+q_j+2)/4 
-!                           - 2(p_ip_j+q_iq_j)/(p_i+p_j+q_i+q_j) )
-!                     * <p_i,p_j|q_i,q_j>
-!
-! N.B. (p_ip_j+q_iq_j)/(p_i+p_j+q_i+q_j) is zero if p_i=p_j=q_i=q_j=0.
-! The denominator is zero in this case, so care should be taken.
 function kinetic_energy_MonomialStates(bra,ket,subspace,supercell) &
    & result(output)
   implicit none
@@ -832,21 +741,29 @@ impure elemental function kinetic_energy_prefactor(bra,ket,frequency) &
   
   if (bra%id==bra%paired_id) then
     ! <p_i|T|q_i> = 1/2 w_i ( (1-p_i-q_i)/2 - 2p_iq_i/(p_i+q_i+1) ) <p_i|q_i>
-    output = 0.5_dp * frequency &
-         & * ( (1-p_i-q_i)/2.0_dp - (2.0_dp*p_i*q_i)/(p_i+q_i+1) )
+    if (modulo(p_i+q_i,2)==0) then
+      output = 0.5_dp * frequency &
+           & * ( (1-p_i-q_i)/2.0_dp + (2.0_dp*p_i*q_i)/(p_i+q_i-1) )
+    else
+      output = 0.0_dp
+    endif
   else
-    ! <p_i,p_j|T|q_i,q_j> = w_i ( (p_i+p_j+q_i+q_j+2)/4 
-    !                           - 2(p_ip_j+q_iq_j)/(p_i+p_j+q_i+q_j) )
+    ! <p_i,p_j|T|q_i,q_j> = w_i ( 1/2
+    !                           + ((p_i-p_j)^2-(p_i-q_i)^2)
+    !                           / (p_i+p_j+q_i+q_j)         )
     !                     * <p_i,p_j|q_i,q_j>
     !
-    ! N.B. (p_ip_j+q_iq_j)/(p_i+p_j+q_i+q_j) is zero if p_i=p_j=q_i=q_j=0.
-    ! The denominator is zero in this case, so care should be taken.
-    if (p_i+p_j+q_i+q_j==0) then
-      output = frequency / 2
+    ! N.B. if p_i=p_j=q_i=q_j=0 then the second term is zero.
+    if (p_i+q_j==p_j+q_i) then
+      output = frequency/2
+      if (p_i+p_j+q_i+q_j/=0) then
+        output = output                        &
+             & + frequency                     &
+             & * ((p_i-p_j)**2 - (p_i-q_i)**2) &
+             & / (1.0_dp*(p_i+p_j+q_i+q_j))
+      endif
     else
-      output = frequency                                    &
-           & * ( (p_i+p_j+q_i+q_j+2)/4.0_dp                 &
-           &   - 2.0_dp*(p_i*p_j+q_i*q_j)/(p_i+p_j+q_i+q_j) )
+      output = 0.0_dp
     endif
   endif
 end function

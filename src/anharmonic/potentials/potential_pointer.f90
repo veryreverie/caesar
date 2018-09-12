@@ -52,11 +52,6 @@ module potential_pointer_module
     module procedure new_PotentialPointer_Strings
     module procedure new_PotentialPointer_StringArray
   end interface
-  
-  interface generate_subspace_potentials
-    module procedure generate_subspace_potentials_MonomialStates
-    module procedure generate_subspace_potentials_PolynomialStates
-  end interface
 contains
 
 ! Assign a PotentialData from any type which extends PotentialData.
@@ -230,32 +225,7 @@ end subroutine
 !    copies the potential to both intervals, and integrates the potential
 !    corresponding to each interval over the states in the other interval.
 ! This method takes O(n.log(n)) operations.
-function generate_subspace_potentials_MonomialStates(potential,states,inputs) &
-   & result(output)
-  implicit none
-  
-  class(PotentialData), intent(in)    :: potential
-  type(MonomialState),  intent(in)    :: states(:)
-  type(AnharmonicData), intent(in)    :: inputs
-  type(PotentialPointer), allocatable :: output(:)
-  
-  output = generate_subspace_potentials_helper(potential,states,inputs)
-end function
-
-function generate_subspace_potentials_PolynomialStates(potential,states,inputs) &
-   & result(output)
-  implicit none
-  
-  class(PotentialData),  intent(in)    :: potential
-  type(PolynomialState), intent(in)    :: states(:)
-  type(AnharmonicData),  intent(in)    :: inputs
-  type(PotentialPointer),  allocatable :: output(:)
-  
-  output = generate_subspace_potentials_helper(potential,states,inputs)
-end function
-
-function generate_subspace_potentials_helper(potential,states,inputs) &
-   & result(output)
+function generate_subspace_potentials(potential,states,inputs) result(output)
   implicit none
   
   class(PotentialData), intent(in)    :: potential

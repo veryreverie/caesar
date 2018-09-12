@@ -505,13 +505,27 @@ subroutine braket_PolynomialPotential(this,bra,ket,inputs)
   class(SubspaceState),       intent(in)    :: ket
   type(AnharmonicData),       intent(in)    :: inputs
   
+  logical,             allocatable :: is_constant(:)
+  type(BasisFunction), allocatable :: constant_terms(:)
+  
   integer :: i
+  
+  ! Integrate the reference energy and each basis function
+  !    between the bra and the ket.
+  this%reference_energy = this%reference_energy * braket(bra,ket)
   
   do i=1,size(this%basis_functions)
     call this%basis_functions(i)%braket(bra,ket,inputs)
   enddo
   
+  ! Simplify the output.
   call this%basis_functions%simplify()
+  
+  is_constant = this%basis_functions%is_constant()
+  constant_terms = this%basis_functions(filter(is_constant))
+  this%basis_functions = this%basis_functions(filter(.not.is_constant))
+  this%reference_energy = this%reference_energy &
+                      & + sum(constant_terms%undisplaced_energy())
 end subroutine
 
 ! ----------------------------------------------------------------------
