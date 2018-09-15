@@ -2,10 +2,15 @@
 ! Calculates thermodynamic properties of an isolated harmonic oscillator.
 ! ======================================================================
 module harmonic_thermodynamics_module
-  use common_module
+  use utils_module
   implicit none
   
-  type :: ThermodynamicVariables
+  private
+  
+  public :: ThermodynamicVariables
+  public :: calculate_bose_factor
+  
+  type, extends(NoDefaultConstructor) :: ThermodynamicVariables
     real(dp) :: energy
     real(dp) :: free_energy
     real(dp) :: entropy
@@ -32,7 +37,7 @@ impure elemental function new_ThermodynamicVariables(thermal_energy,frequency) r
     call err()
   elseif (frequency<0) then
     call print_line(CODE_ERROR//': Trying to calculate thermodynamic &
-       & quantities along a negative frequency mode.')
+       &quantities along a negative frequency mode.')
     call err()
   endif
   
@@ -67,6 +72,40 @@ impure elemental function new_ThermodynamicVariables(thermal_energy,frequency) r
     output%energy = frequency*(0.5_dp + 1/(exp_plus-1))
     output%free_energy = frequency*0.5_dp + thermal_energy*log(1-exp_minus)
     output%entropy = (output%energy-output%free_energy)/thermal_energy
+  endif
+end function
+
+! ----------------------------------------------------------------------
+! Returns n(T,E) = 1/(e^(E/T)-1), using numerically stable strategies.
+! ----------------------------------------------------------------------
+impure elemental function calculate_bose_factor(thermal_energy,energy) &
+   & result(output)
+  implicit none
+  
+  real(dp), intent(in) :: thermal_energy
+  real(dp), intent(in) :: energy
+  real(dp)             :: output
+  
+  real(dp) :: exp_minus
+  real(dp) :: exp_plus
+  
+  if (energy > 690*thermal_energy) then
+    ! Very low-temperature regime. exp(-690)<1e-300, below dp floating point.
+    output = 0.0_dp
+  elseif (energy > 23*thermal_energy) then
+    ! Low-temperature regime. exp(-23)<1e-9,
+    !    so O(exp(-2E/T)) < 1e-20 is below numerical error.
+    ! n(T,E) = exp(-E/T)/(1-exp(-E/T)) = exp(-E/T)(1+exp(-E/T)+O(exp(-2E/T)))
+    exp_minus = exp(-energy/thermal_energy)
+    output = exp_minus*(1+exp_minus)
+  elseif (energy*1e10 > thermal_energy) then
+    ! Usual regieme. Neither in low-temperature nor high-temperature limits.
+    exp_plus = exp(energy/thermal_energy)
+    output = 1/(exp_plus-1)
+  else
+    ! High-temperature regime. O((E/T)^2) < 1e-20 is below numerical error.
+    ! n(T,E) = 1/(1+E/T+0.5(E/T)^2-1+O((E/T)^3)) = T/E-0.5+O(E/T)
+    output = thermal_energy/energy - 0.5_dp
   endif
 end function
 end module

@@ -13,6 +13,7 @@ module common_module
   use structure_module
   use electronic_structure_module
   use normal_mode_module
+  use observables_module
   use bands_module
   implicit none
 end module

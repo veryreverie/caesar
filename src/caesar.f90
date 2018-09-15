@@ -32,6 +32,7 @@ program caesar
   use calculate_states_module
   use map_vscf_modes_module
   use plot_vscf_modes_module
+  use calculate_anharmonic_observables_module
   
   ! Use testing modules.
   use check_counter_module
@@ -76,29 +77,30 @@ program caesar
   ! Read in mode interfaces.
   ! --------------------------------------------------
   ! Normal inputs. Fetch keywords and set subprocess.
-  caesar_modes = CaesarModes([           &
-     & test(),                           &
-     & check_counter(),                  &
-     & hartree_to_ev(),                  &
-     & converge_cutoff_and_kpoints(),    &
-     & plot_cutoff_and_kpoints(),        &
-     & setup_harmonic(),                 &
-     & run_harmonic(),                   &
-     & calculate_normal_modes(),         &
-     & plot_normal_modes(),              &
-     & calculate_harmonic_observables(), &
-     & plot_dos_and_dispersion(),        &
-     & plot_thermodynamic_variables(),   &
-     & setup_anharmonic(),               &
-     & run_anharmonic(),                 &
-     & calculate_potential(),            &
-     & map_anharmonic_modes(),           &
-     & plot_anharmonic_modes(),          &
-     & map_potential(),                  &
-     & plot_potential_map(),             &
-     & calculate_states(),               &
-     & map_vscf_modes(),                 &
-     & plot_vscf_modes()                 ])
+  caesar_modes = CaesarModes([            &
+     & test(),                            &
+     & check_counter(),                   &
+     & hartree_to_ev(),                   &
+     & converge_cutoff_and_kpoints(),     &
+     & plot_cutoff_and_kpoints(),         &
+     & setup_harmonic(),                  &
+     & run_harmonic(),                    &
+     & calculate_normal_modes(),          &
+     & plot_normal_modes(),               &
+     & calculate_harmonic_observables(),  &
+     & plot_dos_and_dispersion(),         &
+     & plot_thermodynamic_variables(),    &
+     & setup_anharmonic(),                &
+     & run_anharmonic(),                  &
+     & calculate_potential(),             &
+     & map_anharmonic_modes(),            &
+     & plot_anharmonic_modes(),           &
+     & map_potential(),                   &
+     & plot_potential_map(),              &
+     & calculate_states(),                &
+     & map_vscf_modes(),                  &
+     & plot_vscf_modes(),                 &
+     & calculate_anharmonic_observables() ])
   
   ! --------------------------------------------------
   ! Read in command line arguments and process the mode.

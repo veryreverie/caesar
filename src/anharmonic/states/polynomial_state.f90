@@ -14,6 +14,7 @@ module polynomial_state_module
   public :: size
   public :: braket_PolynomialState
   public :: kinetic_energy_PolynomialState
+  public :: harmonic_potential_energy_PolynomialState
   
   type, extends(SubspaceState) :: PolynomialState
     type(MonomialState), allocatable :: states(:)
@@ -40,6 +41,10 @@ module polynomial_state_module
   
   interface kinetic_energy_PolynomialState
     module procedure kinetic_energy_PolynomialStates
+  end interface
+  
+  interface harmonic_potential_energy_PolynomialState
+    module procedure harmonic_potential_energy_PolynomialStates
   end interface
 contains
 
@@ -156,6 +161,36 @@ function kinetic_energy_PolynomialStates(bra,ket,subspace,supercell) &
            &                                 subspace,        &
            &                                 supercell      ) &
            & * bra%coefficients(i)                            &
+           & * ket%coefficients(j)
+    enddo
+  enddo
+end function
+
+! ----------------------------------------------------------------------
+! Evaluates <bra|V|ket>, where V is the harmonic potential energy operator.
+! Gives the result per primitive cell.
+! ----------------------------------------------------------------------
+function harmonic_potential_energy_PolynomialStates(bra,ket,subspace, &
+   & supercell) result(output)
+  implicit none
+  
+  type(PolynomialState),    intent(in) :: bra
+  type(PolynomialState),    intent(in) :: ket
+  type(DegenerateSubspace), intent(in) :: subspace
+  type(StructureData),      intent(in) :: supercell
+  real(dp)                             :: output
+  
+  integer :: i,j
+  
+  output = 0.0_dp
+  do i=1,size(bra)
+    do j=1,size(ket)
+      output = output                                                    &
+           & + harmonic_potential_energy_MonomialState( bra%states(i),   &
+           &                                            ket%states(j),   &
+           &                                            subspace,        &
+           &                                            supercell      ) &
+           & * bra%coefficients(i)                                       &
            & * ket%coefficients(j)
     enddo
   enddo

@@ -30,40 +30,40 @@ function calculate_harmonic_observables() result(output)
   type(CaesarMode) :: output
   
   output%mode_name = 'calculate_harmonic_observables'
-  output%description = 'Calculates several observables under the harmonic &
+  output%description = 'Calculates observables under the harmonic &
      &approximation: the phonon density of states and dispersion curve, &
      &and the energy, free energy and entropy per unit cell. Should be run &
-     &after calculate_harmonic.'
+     &after calculate_normal_modes.'
   output%keywords = [                                                         &
-  & KeywordData( 'min_temperature',                                           &
-  &              'min_temperature is the minimum temperature at which &
-  &thermodynamic quantities are calculated. min_temperature should be given &
-  &in Kelvin.'),                                                              &
-  & KeywordData( 'max_temperature',                                           &
-  &              'max_temperature is the maximum temperature at which &
-  &thermodynamic quantities are calculated. min_temperature should be given &
-  &in Kelvin.'),                                                              &
-  & KeywordData( 'no_temperature_steps',                                      &
-  &              'no_temperature_steps is the number of temperatures at which &
-  &thermodynamic quantities are calculated.',                                 &
-  &              default_value='0'),                                          &
-  & KeywordData( 'min_frequency',                                             &
-  &              'min_frequency is the frequency below which modes will be &
-  &ignored when calculating thermodynamic quantities. min_frequency should be &
-  &given in Hartree.',                                                        &
-  &              default_value='1e-8'),                                       &
-  & KeywordData( 'path',                                                      &
-  &              'path is the path through fractional reciprocal space which &
-  &will be mapped by the phonon dispersion curve. The path should be &
-  &specified as labels and q-points, separated by commas. The Gamma-point &
-  &should be labelled G.',                                                    &
-  &              default_value='G 0.0 0.0 0.0, R 0.5 0.5 0.5, M 0.0 0.5 0.5, &
-  &G 0.0 0.0 0.0, X 0.0 0.0 0.5'),                                            &
-  & KeywordData( 'no_dos_samples',                                            &
-  &              'no_dos_samples is the number of points in reciprocal space &
-  &at which the normal modes are calculated when calculating the vibrational &
-  &density of states.',                                                       &
-  &              default_value='100000')]
+     & KeywordData( 'min_temperature',                                        &
+     &              'min_temperature is the minimum temperature at which &
+     &thermodynamic quantities are calculated. min_temperature should be &
+     &given in Kelvin.'),                                                     &
+     & KeywordData( 'max_temperature',                                        &
+     &              'max_temperature is the maximum temperature at which &
+     &thermodynamic quantities are calculated. min_temperature should be &
+     &given in Kelvin.'),                                                     &
+     & KeywordData( 'no_temperature_steps',                                   &
+     &              'no_temperature_steps is the number of temperatures at &
+     &which thermodynamic quantities are calculated.',                        &
+     &              default_value='0'),                                       &
+     & KeywordData( 'min_frequency',                                          &
+     &              'min_frequency is the frequency below which modes will be &
+     &ignored when calculating thermodynamic quantities. min_frequency should &
+     &be given in Hartree.',                                                  &
+     &              default_value='1e-8'),                                    &
+     & KeywordData( 'path',                                                   &
+     &              'path is the path through fractional reciprocal space &
+     &which will be mapped by the phonon dispersion curve. The path should be &
+     &specified as labels and q-points, separated by commas. The Gamma-point &
+     &should be labelled G.',                                                 &
+     &              default_value='G 0.0 0.0 0.0, R 0.5 0.5 0.5, &
+     &M 0.0 0.5 0.5, G 0.0 0.0 0.0, X 0.0 0.0 0.5'),                          &
+     & KeywordData( 'no_dos_samples',                                         &
+     &              'no_dos_samples is the number of points in reciprocal &
+     &space at which the normal modes are calculated when calculating the &
+     &vibrational density of states.',                                        &
+     &              default_value='100000')                                   ]
   output%main_subroutine => calculate_harmonic_observables_subroutine
 end function
 

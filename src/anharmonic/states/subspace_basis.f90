@@ -25,10 +25,13 @@ module subspace_basis_module
     ! The states at the wavevector.
     type(MonomialState), allocatable :: states(:)
     ! Conversion matrices from the stored states(:) (which are normalised
-    !    but not in general orthogonal) to an orthonormal basis,
+    !    but not in general orthogonal) to an orthonormal harmonic basis,
     !    and back again.
     type(RealMatrix), private :: states_to_basis_
     type(RealMatrix), private :: basis_to_states_
+    ! The energies of the harmonic basis states in the effective harmonic
+    !    potential, stored as fractions of the harmonic frequency.
+    real(dp), allocatable :: harmonic_energies(:)
   contains
     ! Transform vectors of coefficients.
     procedure :: coefficients_states_to_basis
@@ -75,7 +78,7 @@ contains
 
 ! Constructors and size functions.
 function new_SubspaceWavevectorBasis(subspace_id,frequency,wavevector,states, &
-   & states_to_basis,basis_to_states) result(this)
+   & states_to_basis,basis_to_states,harmonic_energies) result(this)
   implicit none
   
   integer,              intent(in) :: subspace_id
@@ -84,6 +87,7 @@ function new_SubspaceWavevectorBasis(subspace_id,frequency,wavevector,states, &
   type(MonomialState),  intent(in) :: states(:)
   type(RealMatrix),     intent(in) :: states_to_basis
   type(RealMatrix),     intent(in) :: basis_to_states
+  real(dp),             intent(in) :: harmonic_energies(:)
   type(SubspaceWavevectorBasis)    :: this
   
   if (any(states%subspace_id/=subspace_id)) then
@@ -91,12 +95,13 @@ function new_SubspaceWavevectorBasis(subspace_id,frequency,wavevector,states, &
     call err()
   endif
   
-  this%subspace_id      = subspace_id
-  this%frequency        = frequency
-  this%wavevector       = wavevector
-  this%states           = states
-  this%states_to_basis_ = states_to_basis
-  this%basis_to_states_ = basis_to_states
+  this%subspace_id       = subspace_id
+  this%frequency         = frequency
+  this%wavevector        = wavevector
+  this%states            = states
+  this%states_to_basis_  = states_to_basis
+  this%basis_to_states_  = basis_to_states
+  this%harmonic_energies = harmonic_energies
 end function
 
 function new_SubspaceBasis(subspace_id,frequency,wavevectors) result(this)
@@ -107,9 +112,9 @@ function new_SubspaceBasis(subspace_id,frequency,wavevectors) result(this)
   type(SubspaceWavevectorBasis), intent(in) :: wavevectors(:)
   type(SubspaceBasis)                       :: this
   
-  this%subspace_id          = subspace_id
-  this%frequency            = frequency
-  this%wavevectors          = wavevectors
+  this%subspace_id = subspace_id
+  this%frequency   = frequency
+  this%wavevectors = wavevectors
 end function
 
 function size_SubspaceWavevectorBasis(this) result(output)
@@ -132,13 +137,14 @@ end function
 
 ! Generates states up to a given power.
 function generate_subspace_basis(subspace,frequency,modes,qpoints, &
-   & maximum_power) result(output)
+   & supercell,maximum_power) result(output)
   implicit none
   
   type(DegenerateSubspace), intent(in) :: subspace
   real(dp),                 intent(in) :: frequency
   type(ComplexMode),        intent(in) :: modes(:)
   type(QpointData),         intent(in) :: qpoints(:)
+  type(StructureData),      intent(in) :: supercell
   integer,                  intent(in) :: maximum_power
   type(SubspaceBasis)                  :: output
   
@@ -155,11 +161,17 @@ function generate_subspace_basis(subspace,frequency,modes,qpoints, &
   type(MonomialState),       allocatable :: wavevector_states(:)
   real(dp),                  allocatable :: states_to_basis(:,:)
   real(dp),                  allocatable :: basis_to_states(:,:)
+  real(dp),                  allocatable :: harmonic_energies(:)
   type(MonomialState),       allocatable :: unique_states(:)
   integer,                   allocatable :: matching_state_ids(:)
   type(MonomialState),       allocatable :: matching_states(:)
   real(dp),                  allocatable :: state_overlaps(:,:)
+  real(dp),                  allocatable :: harmonic_hamiltonian(:,:)
   type(SymmetricEigenstuff), allocatable :: estuff(:)
+  real(dp),                  allocatable :: matching_states_to_basis(:,:)
+  real(dp),                  allocatable :: matching_basis_to_states(:,:)
+  real(dp),                  allocatable :: matching_basis_to_harmonic(:,:)
+  real(dp),                  allocatable :: matching_harmonic_to_basis(:,:)
   integer                                :: state
   
   ! Output variables.
@@ -203,36 +215,98 @@ function generate_subspace_basis(subspace,frequency,modes,qpoints, &
           & stat=ialloc); call err(ialloc)
   do i=1,size(unique_wavevectors)
     wavevector_states = states(wavevector_state_ids(i)%i)
-    allocate( states_to_basis( size(wavevector_state_ids(i)), &
-            &           size(wavevector_state_ids(i))  ),     &
-            & basis_to_states( size(wavevector_state_ids(i)), &
-            &            size(wavevector_state_ids(i))  ),    &
+    allocate( states_to_basis( size(wavevector_state_ids(i)),   &
+            &           size(wavevector_state_ids(i))  ),       &
+            & basis_to_states( size(wavevector_state_ids(i)),   &
+            &            size(wavevector_state_ids(i))  ),      &
+            & harmonic_energies(size(wavevector_state_ids(i))), &
             & stat=ialloc); call err(ialloc)
     states_to_basis = 0
     basis_to_states = 0
     unique_states = wavevector_states(set(wavevector_states, states_overlap))
     state = 0
+    ! Loop over the sets of states with non-zero overlap.
     do j=1,size(unique_states)
+      ! Select the set of states with non-zero overlap.
       matching_state_ids = filter( wavevector_states, &
                                  & states_overlap,    &
                                  & unique_states(j)   )
       matching_states = wavevector_states(matching_state_ids)
-      allocate( state_overlaps(size(matching_states), size(matching_states)), &
+      allocate( state_overlaps( size(matching_states),              &
+              &                 size(matching_states)),             &
+              & harmonic_hamiltonian( size(matching_states),        &
+              &                       size(matching_states)),       &
+              & matching_states_to_basis( size(matching_states),    &
+              &                           size(matching_states)),   &
+              & matching_basis_to_states( size(matching_states),    &
+              &                           size(matching_states)),   &
+              & matching_basis_to_harmonic( size(matching_states),  &
+              &                             size(matching_states)), &
+              & matching_harmonic_to_basis( size(matching_states),  &
+              &                             size(matching_states)), &
               & stat=ialloc); call err(ialloc)
+      
+      ! Construct the overlap matrix between the states.
       do k=1,size(matching_states)
         do l=1,size(matching_states)
           state_overlaps(l,k) = braket(matching_states(l), matching_states(k))
+          harmonic_hamiltonian(l,k) = harmonic_potential_energy(          &
+                                  &          matching_states(l),          &
+                                  &          matching_states(k),          &
+                                  &          subspace,                    &
+                                  &          supercell           )        &
+                                  & + kinetic_energy( matching_states(l), &
+                                  &                   matching_states(k), &
+                                  &                   subspace,           &
+                                  &                   supercell           )
         enddo
       enddo
+      
+      ! Diagonalise the overlap matrix, and construct the mapping between
+      !    the monomial states and an orthonormal basis.
       estuff = diagonalise_symmetric(state_overlaps)
       do k=1,size(estuff)
-        state = state+1
-        states_to_basis(state, matching_state_ids) = estuff(k)%evec &
-                                                 & / sqrt(estuff(k)%eval)
-        basis_to_states(matching_state_ids, state) = estuff(k)%evec &
-                                                 & * sqrt(estuff(k)%eval)
+        matching_states_to_basis(k,:) = estuff(k)%evec / sqrt(estuff(k)%eval)
+        matching_basis_to_states(:,k) = estuff(k)%evec * sqrt(estuff(k)%eval)
       enddo
-      deallocate(state_overlaps)
+      
+      ! Transform the harmonic Hamiltonian into this orthonormal basis.
+      harmonic_hamiltonian = dble( mat(matching_states_to_basis)            &
+                               & * mat(harmonic_hamiltonian)                &
+                               & * transpose(mat(matching_states_to_basis)) )
+      
+      ! Diagonalise the Hamiltonian in the orthonormal basis, and construct
+      !    the mapping from the orthonromal basis to the harmonic basis.
+      ! N.B. the harmonic basis is also orthonormal.
+      estuff = diagonalise_symmetric(harmonic_hamiltonian)
+      do k=1,size(estuff)
+        matching_basis_to_harmonic(k,:) = estuff(k)%evec
+        matching_harmonic_to_basis(:,k) = estuff(k)%evec
+      enddo
+      
+      ! Transform the mapping between the monomial states and the orthonormal
+      !    basis so that it now maps between the monomial states and the
+      !    harmonic basis.
+      matching_states_to_basis = dble( mat(matching_basis_to_harmonic) &
+                                   & * mat(matching_states_to_basis)   )
+      matching_basis_to_states = dble( mat(matching_basis_to_states)   &
+                                   & * mat(matching_harmonic_to_basis) )
+      
+      ! Fill in output data.
+      states_to_basis(matching_state_ids,matching_state_ids) = &
+         & matching_states_to_basis
+      basis_to_states(matching_state_ids,matching_state_ids) = &
+         & matching_basis_to_states
+      harmonic_energies(matching_state_ids) = estuff%eval / frequency
+      
+      ! Deallocate temporary arrays.
+      deallocate( state_overlaps,             &
+                & harmonic_hamiltonian,       &
+                & matching_states_to_basis,   &
+                & matching_basis_to_states,   &
+                & matching_basis_to_harmonic, &
+                & matching_harmonic_to_basis, &
+                & stat=ialloc); call err(ialloc)
     enddo
     
     wavevector_bases(i) = SubspaceWavevectorBasis( &
@@ -241,10 +315,12 @@ function generate_subspace_basis(subspace,frequency,modes,qpoints, &
                    & unique_wavevectors(i)%qpoint, &
                    & wavevector_states,            &
                    & mat(states_to_basis),         &
-                   & mat(basis_to_states)          )
+                   & mat(basis_to_states),         &
+                   & harmonic_energies             )
     
-    deallocate( states_to_basis, &
-              & basis_to_states, &
+    deallocate( states_to_basis,   &
+              & basis_to_states,   &
+              & harmonic_energies, &
               & stat=ialloc); call err(ialloc)
   enddo
   
@@ -337,6 +413,7 @@ subroutine read_SubspaceWavevectorBasis(this,input)
   real(dp)                         :: frequency
   type(FractionVector)             :: wavevector
   type(MonomialState), allocatable :: states(:)
+  real(dp),            allocatable :: harmonic_energies(:)
   type(RealMatrix)                 :: states_to_basis
   type(RealMatrix)                 :: basis_to_states
   
@@ -356,7 +433,7 @@ subroutine read_SubspaceWavevectorBasis(this,input)
     line = split_line(input(3))
     wavevector = FractionVector(join(line(2:4)))
     
-    no_states = (size(input)-6)/3
+    no_states = (size(input)-7)/4
     
     allocate(states(no_states), stat=ialloc); call err(ialloc)
     do i=1,no_states
@@ -364,15 +441,22 @@ subroutine read_SubspaceWavevectorBasis(this,input)
       states(i) = MonomialState([input(1:2), str('State'), line(3)])
     enddo
     
-    states_to_basis = RealMatrix(input(6+no_states:5+2*no_states))
-    basis_to_states = RealMatrix(input(7+2*no_states:6+3*no_states))
+    allocate(harmonic_energies(no_states), stat=ialloc); call err(ialloc)
+    do i=1,no_states
+      line = split_line(input(5+no_states+i))
+      harmonic_energies(i) = dble(line(3))
+    enddo
     
-    this = SubspaceWavevectorBasis( subspace_id,     &
-                                  & frequency,       &
-                                  & wavevector,      &
-                                  & states,          &
-                                  & states_to_basis, &
-                                  & basis_to_states  )
+    states_to_basis = RealMatrix(input(7+2*no_states:6+3*no_states))
+    basis_to_states = RealMatrix(input(8+3*no_states:7+4*no_states))
+    
+    this = SubspaceWavevectorBasis( subspace_id,      &
+                                  & frequency,        &
+                                  & wavevector,       &
+                                  & states,           &
+                                  & states_to_basis,  &
+                                  & basis_to_states,  &
+                                  & harmonic_energies )
   class default
     call err()
   end select
@@ -396,6 +480,12 @@ function write_SubspaceWavevectorBasis(this) result(output)
     do i=1,size(this%states)
       state_strings = str(this%states(i))
       output = [output, '|'//i//'> = '//state_strings(size(state_strings))]
+    enddo
+    output = [ output,                  &
+             & str('Harmonic energies') ]
+    do i=1,size(this%harmonic_energies)
+      output = [ output,                                                  &
+               & 'E'//i//' = '//this%harmonic_energies(i)//' * frequency' ]
     enddo
     output = [ output,                            &
              & str('States to Basis Conversion'), &

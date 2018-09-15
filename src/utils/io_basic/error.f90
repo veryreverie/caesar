@@ -35,10 +35,11 @@ subroutine err_none()
   implicit none
   
   write(*,'(a)') ''
-  write(*,'(a)') 'Intentionally aborting with stacktrace.'
+  write(*,'(a)') LIGHT_MAGENTA_ESC//'Intentionally aborting with &
+                 &stacktrace.'//RESET_ESC
   write(*,'(a)') ''
-  write(*,'(a)') 'compiler_specific.f90 and error.f90 can be ignored &
-                 &in stacktrace.'
+  write(*,'(a)') LIGHT_MAGENTA_ESC//'compiler_specific.f90 and error.f90 &
+                 &can be ignored in stacktrace.'//RESET_ESC
   write(*,'(a)') ''
   
   call err_implementation()

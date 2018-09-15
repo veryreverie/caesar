@@ -16,6 +16,7 @@ module monomial_state_module
   public :: finite_overlap
   public :: braket_MonomialState
   public :: kinetic_energy_MonomialState
+  public :: harmonic_potential_energy_MonomialState
   
   ! A state |n_1,n_2,...,n_> = |n_1>|n_2>...|n_>.
   !
@@ -73,6 +74,10 @@ module monomial_state_module
   
   interface kinetic_energy_MonomialState
     module procedure kinetic_energy_MonomialStates
+  end interface
+  
+  interface harmonic_potential_energy_MonomialState
+    module procedure harmonic_potential_energy_MonomialStates
   end interface
 contains
 
@@ -762,6 +767,140 @@ impure elemental function kinetic_energy_prefactor(bra,ket,frequency) &
              & * ((p_i-p_j)**2 - (p_i-q_i)**2) &
              & / (1.0_dp*(p_i+p_j+q_i+q_j))
       endif
+    else
+      output = 0.0_dp
+    endif
+  endif
+end function
+
+! ----------------------------------------------------------------------
+! Evaluates <bra|V|ket>, where V is the harmonic potential energy operator.
+! Gives the result per primitive cell.
+! ----------------------------------------------------------------------
+function harmonic_potential_energy_MonomialStates(bra,ket,subspace,supercell) &
+   & result(output)
+  implicit none
+  
+  type(MonomialState),      intent(in) :: bra
+  type(MonomialState),      intent(in) :: ket
+  type(DegenerateSubspace), intent(in) :: subspace
+  type(StructureData),      intent(in) :: supercell
+  real(dp)                             :: output
+  
+  real(dp) :: prefactor
+  real(dp) :: frequency
+  
+  type(ComplexUnivariate) :: bra_mode
+  type(ComplexUnivariate) :: ket_mode
+  
+  logical, allocatable :: bra_mode_integrated(:)
+  logical, allocatable :: ket_mode_integrated(:)
+  logical, allocatable :: subspace_mode_integrated(:)
+  
+  integer :: i_bra,i_ket
+  
+  integer :: id,paired_id
+  
+  integer :: i
+  
+  ! Check that the bra and the ket cover the same subspace.
+  if (bra%subspace_id/=ket%subspace_id) then
+    call print_line(ERROR//': bra and ket from different subspaces.')
+    call err()
+  endif
+  
+  ! Calculate the prefactor, s.t. <bra|T|ket> = prefactor * <bra|ket>.
+  prefactor = 0.0_dp
+  
+  frequency = bra%frequency
+  
+  bra_mode_integrated = [(.false., i=1, size(bra%state_))]
+  ket_mode_integrated = [(.false., i=1, size(ket%state_))]
+  subspace_mode_integrated = [(.false., i=1, size(subspace))]
+  
+  do while (any(.not. bra_mode_integrated) .or. any(.not. ket_mode_integrated))
+    ! Identify an un-integrated mode.
+    ! Find i_bra and i_ket, the locations of the mode within the bra and
+    !    the ket respectively.
+    ! Find p_i,p_j,q_i and q_j.
+    i_bra = first(.not. bra_mode_integrated, default=0)
+    if (i_bra==0) then
+      i_ket = first(.not. ket_mode_integrated)
+      id = ket%state_%modes(i_ket)%id
+      paired_id = ket%state_%modes(i_ket)%paired_id
+    else
+      id = bra%state_%modes(i_bra)%id
+      paired_id = bra%state_%modes(i_bra)%paired_id
+      i_ket = first(ket%state_%modes%id==id, default=0)
+    endif
+    
+    if (i_bra==0) then
+      bra_mode = ComplexUnivariate(id,paired_id,0,0)
+    else
+      bra_mode = bra%state_%modes(i_bra)
+    endif
+    
+    if (i_ket==0) then
+      ket_mode = ComplexUnivariate(id,paired_id,0,0)
+    else
+      ket_mode = ket%state_%modes(i_ket)
+    endif
+    
+    ! Calculate the contribution to the prefactor from the mode.
+    prefactor = prefactor                                      &
+            & + harmonic_potential_energy_prefactor( bra_mode, &
+            &                                        ket_mode, &
+            &                                        frequency )
+    
+    ! Update bra_mode_integrated ket_mode_integrated and
+    !    subspace_mode_integrated.
+    if (i_bra/=0) then
+      bra_mode_integrated(i_bra) = .true.
+    endif
+    
+    if (i_ket/=0) then
+      ket_mode_integrated(i_ket) = .true.
+    endif
+    
+    subspace_mode_integrated(first(subspace%mode_ids==id)) = .true.
+    subspace_mode_integrated(first(subspace%mode_ids==paired_id)) = .true.
+  enddo
+  
+  ! Account for modes in subspace which do not appear in bra or ket.
+  prefactor = prefactor &
+          & + 0.25_dp * frequency * count(.not. subspace_mode_integrated)
+  
+  ! Calculate output, and normalise by the number of primitive cells.
+  output = prefactor * braket_MonomialState(bra,ket) / supercell%sc_size
+end function
+
+impure elemental function harmonic_potential_energy_prefactor(bra,ket, &
+   & frequency) result(output)
+  implicit none
+  
+  type(ComplexUnivariate), intent(in) :: bra
+  type(ComplexUnivariate), intent(in) :: ket
+  real(dp),                intent(in) :: frequency
+  real(dp)                            :: output
+  
+  integer :: p_i,p_j,q_i,q_j
+  
+  p_i = bra%power
+  p_j = bra%paired_power
+  q_i = ket%power
+  q_j = ket%paired_power
+  
+  if (bra%id==bra%paired_id) then
+    ! <p_i|V|q_i> = 1/4 w_i ( 1 + p_i + q_i ) <p_i|q_i>
+    if (modulo(p_i+q_i,2)==0) then
+      output = 0.25_dp * frequency * (1 + p_i + q_i)
+    else
+      output = 0.0_dp
+    endif
+  else
+    ! <p_i,p_j|V|q_i,q_j> = 1/4 w_i ( 2 + (p_i+p_j+q_i+q_j) ) <p_i,p_j|q_i,q_j>
+    if (p_i+q_j==p_j+q_i) then
+      output = 0.25_dp * frequency * (2+p_i+p_j+q_i+q_j)
     else
       output = 0.0_dp
     endif

@@ -33,8 +33,7 @@ function map_anharmonic_modes() result(output)
      & KeywordData( 'no_single_mode_samples',                                 &
      &              'no_single_mode_samples is the number of points (either &
      &side of zero) along each mode at which the anharmonic potential will be &
-     &sampled when determining the effective frequency with which the &
-     &harmonic basis along that mode will be constructed.',                   &
+     &sampled.',                                                              &
      &              default_value='100'),                                     &
      & KeywordData( 'validate_potential',                                     &
      &              'validate_potential specifies that the anharmonic &
@@ -108,7 +107,7 @@ subroutine map_anharmonic_modes_subroutine(arguments)
   type(CalculationRunner) :: calculation_runner
   type(CalculationReader) :: calculation_reader
   
-  ! Variables for generating effective mode frequencies.
+  ! Variables for sampline potential.
   real(dp),      allocatable :: displacements(:)
   real(dp),      allocatable :: scaled_displacements(:)
   type(ModeMap), allocatable :: mode_maps(:)
@@ -199,8 +198,7 @@ subroutine map_anharmonic_modes_subroutine(arguments)
   calculation_reader = CalculationReader()
   
   ! --------------------------------------------------
-  ! Calculate effective harmonic potential, from which initial harmonic
-  !    states are constructed.
+  ! Map the anharmonic potential.
   ! --------------------------------------------------
   ! Calculate displacements before scaling by 1/sqrt(frequency).
   displacements =                                               &
@@ -216,7 +214,7 @@ subroutine map_anharmonic_modes_subroutine(arguments)
                        &       / max( real_modes(i)%frequency,        &
                        &              frequency_of_max_displacement ) )
     
-    ! Sample the model potential to find the effective frequency.
+    ! Sample the model potential.
     mode_maps(i) = ModeMap( scaled_displacements, &
                           & real_modes(i),        &
                           & potential             )

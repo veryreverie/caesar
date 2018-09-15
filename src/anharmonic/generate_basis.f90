@@ -135,11 +135,13 @@ function generate_basis(potential,anharmonic_data,frequency_convergence, &
   ! Use calculated effective harmonic frequencies to generate bases.
   allocate(output(size(subspaces)), stat=ialloc); call err(ialloc)
   do i=1,size(subspaces)
-    output(i) = generate_subspace_basis( subspaces(i),                     &
-                                       & frequencies(i),                   &
-                                       & anharmonic_data%complex_modes,    &
-                                       & anharmonic_data%qpoints,          &
-                                       & maximum_power = no_basis_states-1 )
+    output(i) = generate_subspace_basis(       &
+       & subspaces(i),                         &
+       & frequencies(i),                       &
+       & anharmonic_data%complex_modes,        &
+       & anharmonic_data%qpoints,              &
+       & anharmonic_data%anharmonic_supercell, &
+       & maximum_power = no_basis_states-1     )
   enddo
 end function
 
@@ -239,7 +241,7 @@ function optimise_frequency(potential,state,anharmonic_data,subspace, &
                     & / (0.01_dp*frequency_convergence)**2
     
     ! Update the frequency, and check for convergence.
-    ! At the extrema, (w=w1), dU/dw=0, so w1 = w - (dU/dw)/(d2U/dw2).
+    ! At the extrema (w=w1), dU/dw=0. As such, w1 = w - (dU/dw)/(d2U/dw2).
     ! If |w1-w|>w/2, or if dU/dw<0 then cap |w1-w| at w/2.
     if (abs(old_frequency)*second_derivative<=abs(first_derivative)) then
       if (first_derivative>0) then

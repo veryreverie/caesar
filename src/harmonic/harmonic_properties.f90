@@ -8,7 +8,6 @@ module harmonic_properties_module
   use min_images_module
   use force_constants_module
   use dynamical_matrix_module
-  use harmonic_thermodynamics_module
   implicit none
 contains
 

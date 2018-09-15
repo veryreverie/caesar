@@ -5,6 +5,7 @@
 !    - Univariates, Monomials and Polynomials, which store basis functions.
 !    - Conversions between complex and real co-ordinates.
 ! ======================================================================
+! This module is simply an interface for the various normal mode submodules.
 module normal_mode_module
   use cartesian_displacement_submodule
   use cartesian_force_submodule
