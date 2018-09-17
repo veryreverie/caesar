@@ -38,6 +38,11 @@ function calculate_states() result(output)
      & KeywordData( 'energy_convergence',                                     &
      &              'energy_convergence is the precision to which energies &
      &will be converged when constructing the VSCF ground state.' ),          &
+     & KeywordData( 'no_converged_calculations',                              &
+     &              'no_converged_calculations is the number of consecutive &
+     &calculations which must be converged to within energy_convergence for &
+     &the VSCF procedure to terminate.',                                      &
+     &              default_value='5' ),                                      &
      & KeywordData( 'max_pulay_iterations',                                   &
      &              'max_pulay_iterations is the maximum number of &
      &self-consistency iterations which will be passed into the Pulay &
@@ -71,6 +76,7 @@ subroutine calculate_states_subroutine(arguments)
   ! Input arguments.
   real(dp) :: frequency_convergence
   real(dp) :: energy_convergence
+  integer  :: no_converged_calculations
   integer  :: max_pulay_iterations
   integer  :: pre_pulay_iterations
   real(dp) :: pre_pulay_damping
@@ -101,6 +107,7 @@ subroutine calculate_states_subroutine(arguments)
   wd = arguments%value('working_directory')
   frequency_convergence = dble(arguments%value('frequency_convergence'))
   energy_convergence = dble(arguments%value('energy_convergence'))
+  no_converged_calculations = int(arguments%value('no_converged_calculations'))
   max_pulay_iterations = int(arguments%value('max_pulay_iterations'))
   pre_pulay_iterations = int(arguments%value('pre_pulay_iterations'))
   pre_pulay_damping = dble(arguments%value('pre_pulay_damping'))
@@ -130,13 +137,14 @@ subroutine calculate_states_subroutine(arguments)
   ! --------------------------------------------------
   ! Run VSCF to generate single-subspace potentials and ground states.
   ! --------------------------------------------------
-  potentials_and_states = run_vscf( potential,            &
-                                  & basis,                &
-                                  & energy_convergence,   &
-                                  & max_pulay_iterations, &
-                                  & pre_pulay_iterations, &
-                                  & pre_pulay_damping,    &
-                                  & anharmonic_data       )
+  potentials_and_states = run_vscf( potential,                 &
+                                  & basis,                     &
+                                  & energy_convergence,        &
+                                  & no_converged_calculations, &
+                                  & max_pulay_iterations,      &
+                                  & pre_pulay_iterations,      &
+                                  & pre_pulay_damping,         &
+                                  & anharmonic_data            )
   
   subspace_potentials = potentials_and_states%potential
   subspace_potentials_file = OFile(wd//'/subspace_potentials.dat')

@@ -40,13 +40,15 @@ impure elemental function new_SubspacePotentialAndState(potential,state, &
   this%energy = energy
 end function
 
-function run_vscf(potential,basis,energy_convergence,max_pulay_iterations, &
-   & pre_pulay_iterations,pre_pulay_damping,anharmonic_data) result(output)
+function run_vscf(potential,basis,energy_convergence,                     &
+   & no_converged_calculations,max_pulay_iterations,pre_pulay_iterations, &
+   & pre_pulay_damping,anharmonic_data) result(output)
   implicit none
   
   class(PotentialData), intent(in)             :: potential
   type(SubspaceBasis),  intent(in)             :: basis(:)
   real(dp),             intent(in)             :: energy_convergence
+  integer,              intent(in)             :: no_converged_calculations
   integer,              intent(in)             :: max_pulay_iterations
   integer,              intent(in)             :: pre_pulay_iterations
   real(dp),             intent(in)             :: pre_pulay_damping
@@ -73,7 +75,7 @@ function run_vscf(potential,basis,energy_convergence,max_pulay_iterations, &
   new_coefficients = [RealVector::]
   
   i = 1
-  iter: do
+  do
     ! Use the current state to calculate single-subspace potentials,
     !    and calculate the new ground states of these potentials.
     potentials_and_states = update(state,basis,potential,anharmonic_data)
@@ -101,21 +103,14 @@ function run_vscf(potential,basis,energy_convergence,max_pulay_iterations, &
                    & '//energies(i))
     
     ! Check whether the energies have converged.
-    ! If the energies haven't converged, return to the top of the loop.
-    if (i<=5) then
-      cycle iter
-    else
-      do j=1,5
-        if (energies(i)-energies(i-j)>energy_convergence) then
-          cycle iter
-        endif
-      enddo
+    if (i>=no_converged_calculations) then
+      j = i-no_converged_calculations+1
+      if (all( abs(energies(j:i-1)-energies(i)) < energy_convergence )) then
+        output = potentials_and_states
+        exit
+      endif
     endif
-    
-    ! If the frequencies are converged, break out of the loop.
-    output = potentials_and_states
-    exit iter
-  enddo iter
+  enddo
 end function
 
 ! For each subspace, integrate the potential across the ground states of all

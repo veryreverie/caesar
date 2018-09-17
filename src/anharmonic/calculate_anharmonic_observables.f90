@@ -45,10 +45,16 @@ function calculate_anharmonic_observables() result(output)
      & KeywordData( 'no_basis_states',                                        &
      &              'no_basis states is the number of states along each mode &
      &in the basis.'),                                                        &
-     & KeywordData( 'energy_convergence',                                     &
-     &              'energy_convergence is the precision to which energies &
-     &will be converged when constructing the self-consistent anharmonic &
-     &approximation to the VSCF potential.' ),                                &
+     & KeywordData( 'frequency_convergence',                                  &
+     &              'frequency_convergence is the precision to which &
+     &self-consistent frequencies will be converged when constructing the &
+     &self-consistent anharmonic approximation to the VSCF potential. This &
+     &should be given in Hartree.' ),                                         &
+     & KeywordData( 'no_converged_calculations',                              &
+     &              'no_converged_calculations is the number of consecutive &
+     &calculations which must be converged to within frequency_convergence &
+     &for the self-consistent anharmonic procedure to terminate.',            &
+     &              default_value='5' ),                                      &
      & KeywordData( 'min_frequency',                                          &
      &              'min_frequency is the frequency below which modes will be &
      &ignored when calculating thermodynamic quantities. min_frequency should &
@@ -84,7 +90,8 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   real(dp)                      :: max_temperature
   integer                       :: no_temperature_steps
   integer                       :: no_basis_states
-  real(dp)                      :: energy_convergence
+  real(dp)                      :: frequency_convergence
+  integer                       :: no_converged_calculations
   real(dp)                      :: min_frequency
   real(dp),         allocatable :: thermal_energies(:)
   type(String),     allocatable :: path_string(:)
@@ -127,7 +134,8 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   min_temperature = dble(arguments%value('min_temperature'))
   max_temperature = dble(arguments%value('max_temperature'))
   no_temperature_steps = int(arguments%value('no_temperature_steps'))
-  energy_convergence = dble(arguments%value('energy_convergence'))
+  frequency_convergence = dble(arguments%value('frequency_convergence'))
+  no_converged_calculations = int(arguments%value('no_converged_calculations'))
   min_frequency = dble(arguments%value('min_frequency'))
   no_basis_states = int(arguments%value('no_basis_states'))
   path_string = split_line(arguments%value('path'), ',')
@@ -184,14 +192,14 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
     do j=1,size(subspace_potentials)
       subspace = anharmonic_data%degenerate_subspaces(j)
       effective_frequencies(j) = calculate_effective_frequency( &
-                                      & subspace_potentials(j), &
-                                      & subspace,               &
-                                      & anharmonic_data,        &
-                                      & thermal_energies(i),    &
-                                      & initial_frequencies(j), &
-                                      & no_basis_states,        &
-                                      & energy_convergence      )
-      
+                                    & subspace_potentials(j),   &
+                                    & subspace,                 &
+                                    & anharmonic_data,          &
+                                    & thermal_energies(i),      &
+                                    & initial_frequencies(j),   &
+                                    & no_basis_states,          &
+                                    & frequency_convergence,    &
+                                    & no_converged_calculations )
     enddo
     
     ! The starting point for calculating the effective frequencies at the

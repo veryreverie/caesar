@@ -21,9 +21,9 @@ contains
 ! The effective frequency of the VSCF potential Vv at thermal energy KbT is
 !    given by the frequency of the effective potential Vh(w) whose states
 !    minimise the free energy of the VSCF Hamiltonian.
-function calculate_effective_frequency(potential,subspace,anharmonic_data, &
-   & thermal_energy,initial_frequency,no_basis_states,energy_convergence)  &
-   & result(output)
+function calculate_effective_frequency(potential,subspace,anharmonic_data,   &
+   & thermal_energy,initial_frequency,no_basis_states,frequency_convergence, &
+   & no_converged_calculations) result(output)
   implicit none
   
   class(PotentialData),     intent(in) :: potential
@@ -32,7 +32,8 @@ function calculate_effective_frequency(potential,subspace,anharmonic_data, &
   real(dp),                 intent(in) :: thermal_energy
   real(dp),                 intent(in) :: initial_frequency
   integer,                  intent(in) :: no_basis_states
-  real(dp),                 intent(in) :: energy_convergence
+  real(dp),                 intent(in) :: frequency_convergence
+  integer,                  intent(in) :: no_converged_calculations
   real(dp)                             :: output
   
   real(dp)            :: frequency
@@ -45,7 +46,7 @@ function calculate_effective_frequency(potential,subspace,anharmonic_data, &
   real(dp), allocatable :: iteration_frequencies(:)
   real(dp), allocatable :: iteration_free_energies(:)
   
-  integer :: i
+  integer :: i,j
   
   ! Generate the harmonic basis at the initial frequency.
   frequency = initial_frequency
@@ -58,16 +59,17 @@ function calculate_effective_frequency(potential,subspace,anharmonic_data, &
   
   iteration_frequencies = [frequency]
   iteration_free_energies = [real(dp)::]
+  i = 1
   do
     ! Calculate [w-dw, w, w+dw].
-    frequencies = [ frequency - 0.01_dp*energy_convergence, &
+    frequencies = [ frequency - 0.01_dp*frequency_convergence, &
                   & frequency,                              &
-                  & frequency + 0.01_dp*energy_convergence  ]
+                  & frequency + 0.01_dp*frequency_convergence  ]
     
     ! Calculate[F(w-dw), F(w), F(w+dw)].
-    do i=1,3
-      basis%frequency = frequencies(i)
-      free_energies(i) = calculate_free_energy( potential,       &
+    do j=1,3
+      call basis%set_frequency(frequencies(j))
+      free_energies(j) = calculate_free_energy( potential,       &
                                               & basis,           &
                                               & subspace,        &
                                               & anharmonic_data, &
@@ -79,25 +81,45 @@ function calculate_effective_frequency(potential,subspace,anharmonic_data, &
     
     ! Calculate dF/dw = (F(w+dw) - F(w-dw)) / (2dw)
     first_derivative = (free_energies(3)-free_energies(1)) &
-                   & / (0.02_dp*energy_convergence)
+                   & / (0.02_dp*frequency_convergence)
     
     ! Calculate d2F/dw2 = (F(w+dw) + F(w-dw) - 2F(w)) / (dw)^2
     second_derivative = ( free_energies(1)     &
                     &   + free_energies(3)     &
                     &   - 2*free_energies(2) ) &
-                    & / (0.01_dp*energy_convergence)**2
+                    & / (0.01_dp*frequency_convergence)**2
     
     ! Update the frequency, and check for convergence.
     ! At the extrema (w=w1), dU/dw=0. As such, w1 = w - (dU/dw)/(d2U/dw2).
     ! If |w1-w|>w/2, or if dU/dw<0 then cap |w1-w| at w/2.
-    !if (abs(frequency)*second_derivative<=abs(first_derivative)) then
-    !  if (first_derivative>0) then
-    !    ! TODO
-        
+    if (abs(frequency)*second_derivative<=abs(first_derivative)) then
+      if (first_derivative>0) then
+        frequency = 0.5_dp * frequency
+      elseif (first_derivative<0) then
+        frequency = 1.5_dp * frequency
+      else
+        output = frequency
+        exit
+      endif
+    else
+      frequency = frequency - first_derivative / second_derivative
+    endif
+    
+    ! Append the new frequency to the array of frequencies,
+    !    and increment the loop counter.
+    iteration_frequencies = [iteration_frequencies, frequency]
+    i = i+1
+    
+    ! Check for convergence.
+    if (i>=no_converged_calculations) then
+      j = i-no_converged_calculations+1
+      if (all( abs(iteration_frequencies(j:i-1)-iteration_frequencies(i)) &
+           & < frequency_convergence )) then
+        output = frequency
+        exit
+      endif
+    endif
   enddo
-  
-  ! TODO
-  call err()
 end function
 
 ! ----------------------------------------------------------------------
@@ -131,8 +153,7 @@ function calculate_free_energy(potential,basis,subspace,anharmonic_data, &
   real(dp)                     :: frequency
   type(ThermodynamicVariables) :: harmonic_thermodynamics
   real(dp)                     :: harmonic_free_energy
-  real(dp), allocatable        :: harmonic_energies(:)
-  real(dp), allocatable        :: bose_factors(:)
+  real(dp), allocatable        :: state_weights(:)
   real(dp), allocatable        :: energy_difference(:,:)
   type(MonomialState)          :: bra
   type(MonomialState)          :: ket
@@ -145,7 +166,6 @@ function calculate_free_energy(potential,basis,subspace,anharmonic_data, &
   supercell = anharmonic_data%anharmonic_supercell
   
   frequency = basis%frequency
-  call print_line(frequency)
   
   ! Calculate the free energy of the harmonic system in the harmonic basis.
   harmonic_thermodynamics = ThermodynamicVariables(thermal_energy, frequency)
@@ -179,13 +199,15 @@ function calculate_free_energy(potential,basis,subspace,anharmonic_data, &
        & basis%wavevectors(i)%operator_states_to_basis(energy_difference)
     
     ! Calculate the thermal weights, {Ph_i} of the harmonic states.
-    harmonic_energies = basis%wavevectors(i)%harmonic_energies * frequency
-    bose_factors = calculate_bose_factor(thermal_energy, harmonic_energies)
+    state_weights = calculate_state_weight(        &
+       & thermal_energy,                           &
+       & frequency,                                &
+       & basis%wavevectors(i)%harmonic_occupations )
     
     ! Calculate thermal expectation of Vv-Vh.
     thermal_energy_difference =      &
        &   thermal_energy_difference &
-       & + sum([( bose_factors(j)*energy_difference(j,j), j=1, no_states )])
+       & + sum([( state_weights(j)*energy_difference(j,j), j=1, no_states )])
     
     deallocate(energy_difference, stat=ialloc); call err(ialloc)
   enddo

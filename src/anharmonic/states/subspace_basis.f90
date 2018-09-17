@@ -29,17 +29,20 @@ module subspace_basis_module
     !    and back again.
     type(RealMatrix), private :: states_to_basis_
     type(RealMatrix), private :: basis_to_states_
-    ! The energies of the harmonic basis states in the effective harmonic
-    !    potential, stored as fractions of the harmonic frequency.
-    real(dp), allocatable :: harmonic_energies(:)
+    ! The occupations of the harmonic basis states.
+    ! e.g. the occupation of |0> is zero, and the occupation of |2,4> is 6.
+    integer, allocatable :: harmonic_occupations(:)
   contains
+    ! Set the frequency of the basis.
+    procedure, public :: set_frequency => set_frequency_SubspaceWavevectorBasis
+    
     ! Transform vectors of coefficients.
-    procedure :: coefficients_states_to_basis
-    procedure :: coefficients_basis_to_states
+    procedure, public :: coefficients_states_to_basis
+    procedure, public :: coefficients_basis_to_states
     
     ! Transform operator matrices.
-    procedure :: operator_states_to_basis
-    procedure :: operator_basis_to_states
+    procedure, public :: operator_states_to_basis
+    procedure, public :: operator_basis_to_states
     
     ! I/O.
     procedure, public :: read  => read_SubspaceWavevectorBasis
@@ -54,6 +57,10 @@ module subspace_basis_module
     ! The states, wavevector by wavevector.
     type(SubspaceWavevectorBasis), allocatable :: wavevectors(:)
   contains
+    ! Set the frequency of the basis.
+    procedure, public :: set_frequency => set_frequency_SubspaceBasis
+    
+    ! I/O.
     procedure, public :: read  => read_SubspaceBasis
     procedure, public :: write => write_SubspaceBasis
   end type
@@ -78,7 +85,7 @@ contains
 
 ! Constructors and size functions.
 function new_SubspaceWavevectorBasis(subspace_id,frequency,wavevector,states, &
-   & states_to_basis,basis_to_states,harmonic_energies) result(this)
+   & states_to_basis,basis_to_states,harmonic_occupations) result(this)
   implicit none
   
   integer,              intent(in) :: subspace_id
@@ -87,7 +94,7 @@ function new_SubspaceWavevectorBasis(subspace_id,frequency,wavevector,states, &
   type(MonomialState),  intent(in) :: states(:)
   type(RealMatrix),     intent(in) :: states_to_basis
   type(RealMatrix),     intent(in) :: basis_to_states
-  real(dp),             intent(in) :: harmonic_energies(:)
+  integer,              intent(in) :: harmonic_occupations(:)
   type(SubspaceWavevectorBasis)    :: this
   
   if (any(states%subspace_id/=subspace_id)) then
@@ -95,13 +102,13 @@ function new_SubspaceWavevectorBasis(subspace_id,frequency,wavevector,states, &
     call err()
   endif
   
-  this%subspace_id       = subspace_id
-  this%frequency         = frequency
-  this%wavevector        = wavevector
-  this%states            = states
-  this%states_to_basis_  = states_to_basis
-  this%basis_to_states_  = basis_to_states
-  this%harmonic_energies = harmonic_energies
+  this%subspace_id          = subspace_id
+  this%frequency            = frequency
+  this%wavevector           = wavevector
+  this%states               = states
+  this%states_to_basis_     = states_to_basis
+  this%basis_to_states_     = basis_to_states
+  this%harmonic_occupations = harmonic_occupations
 end function
 
 function new_SubspaceBasis(subspace_id,frequency,wavevectors) result(this)
@@ -135,6 +142,28 @@ function size_SubspaceBasis(this) result(output)
   output = size(this%wavevectors)
 end function
 
+! Set the frequency of the basis.
+impure elemental subroutine set_frequency_SubspaceBasis(this,frequency)
+  implicit none
+  
+  class(SubspaceBasis), intent(inout) :: this
+  real(dp),             intent(in)    :: frequency
+  
+  this%frequency = frequency
+  call this%wavevectors%set_frequency(frequency)
+end subroutine
+
+impure elemental subroutine set_frequency_SubspaceWavevectorBasis(this, &
+   & frequency)
+  implicit none
+  
+  class(SubspaceWavevectorBasis), intent(inout) :: this
+  real(dp),                       intent(in)    :: frequency
+  
+  this%frequency = frequency
+  this%states%frequency = frequency
+end subroutine
+
 ! Generates states up to a given power.
 function generate_subspace_basis(subspace,frequency,modes,qpoints, &
    & supercell,maximum_power) result(output)
@@ -161,7 +190,7 @@ function generate_subspace_basis(subspace,frequency,modes,qpoints, &
   type(MonomialState),       allocatable :: wavevector_states(:)
   real(dp),                  allocatable :: states_to_basis(:,:)
   real(dp),                  allocatable :: basis_to_states(:,:)
-  real(dp),                  allocatable :: harmonic_energies(:)
+  integer,                   allocatable :: harmonic_occupations(:)
   type(MonomialState),       allocatable :: unique_states(:)
   integer,                   allocatable :: matching_state_ids(:)
   type(MonomialState),       allocatable :: matching_states(:)
@@ -215,11 +244,11 @@ function generate_subspace_basis(subspace,frequency,modes,qpoints, &
           & stat=ialloc); call err(ialloc)
   do i=1,size(unique_wavevectors)
     wavevector_states = states(wavevector_state_ids(i)%i)
-    allocate( states_to_basis( size(wavevector_state_ids(i)),   &
-            &           size(wavevector_state_ids(i))  ),       &
-            & basis_to_states( size(wavevector_state_ids(i)),   &
-            &            size(wavevector_state_ids(i))  ),      &
-            & harmonic_energies(size(wavevector_state_ids(i))), &
+    allocate( states_to_basis( size(wavevector_state_ids(i)),      &
+            &           size(wavevector_state_ids(i))  ),          &
+            & basis_to_states( size(wavevector_state_ids(i)),      &
+            &            size(wavevector_state_ids(i))  ),         &
+            & harmonic_occupations(size(wavevector_state_ids(i))), &
             & stat=ialloc); call err(ialloc)
     states_to_basis = 0
     basis_to_states = 0
@@ -297,7 +326,8 @@ function generate_subspace_basis(subspace,frequency,modes,qpoints, &
          & matching_states_to_basis
       basis_to_states(matching_state_ids,matching_state_ids) = &
          & matching_basis_to_states
-      harmonic_energies(matching_state_ids) = estuff%eval / frequency
+      harmonic_occupations(matching_state_ids) = &
+         & nint(estuff%eval / frequency - 0.5_dp*size(subspace))
       
       ! Deallocate temporary arrays.
       deallocate( state_overlaps,             &
@@ -316,11 +346,11 @@ function generate_subspace_basis(subspace,frequency,modes,qpoints, &
                    & wavevector_states,            &
                    & mat(states_to_basis),         &
                    & mat(basis_to_states),         &
-                   & harmonic_energies             )
+                   & harmonic_occupations          )
     
-    deallocate( states_to_basis,   &
-              & basis_to_states,   &
-              & harmonic_energies, &
+    deallocate( states_to_basis,      &
+              & basis_to_states,      &
+              & harmonic_occupations, &
               & stat=ialloc); call err(ialloc)
   enddo
   
@@ -413,7 +443,7 @@ subroutine read_SubspaceWavevectorBasis(this,input)
   real(dp)                         :: frequency
   type(FractionVector)             :: wavevector
   type(MonomialState), allocatable :: states(:)
-  real(dp),            allocatable :: harmonic_energies(:)
+  integer,             allocatable :: harmonic_occupations(:)
   type(RealMatrix)                 :: states_to_basis
   type(RealMatrix)                 :: basis_to_states
   
@@ -441,22 +471,22 @@ subroutine read_SubspaceWavevectorBasis(this,input)
       states(i) = MonomialState([input(1:2), str('State'), line(3)])
     enddo
     
-    allocate(harmonic_energies(no_states), stat=ialloc); call err(ialloc)
+    allocate(harmonic_occupations(no_states), stat=ialloc); call err(ialloc)
     do i=1,no_states
       line = split_line(input(5+no_states+i))
-      harmonic_energies(i) = dble(line(3))
+      harmonic_occupations(i) = int(line(3))
     enddo
     
     states_to_basis = RealMatrix(input(7+2*no_states:6+3*no_states))
     basis_to_states = RealMatrix(input(8+3*no_states:7+4*no_states))
     
-    this = SubspaceWavevectorBasis( subspace_id,      &
-                                  & frequency,        &
-                                  & wavevector,       &
-                                  & states,           &
-                                  & states_to_basis,  &
-                                  & basis_to_states,  &
-                                  & harmonic_energies )
+    this = SubspaceWavevectorBasis( subspace_id,         &
+                                  & frequency,           &
+                                  & wavevector,          &
+                                  & states,              &
+                                  & states_to_basis,     &
+                                  & basis_to_states,     &
+                                  & harmonic_occupations )
   class default
     call err()
   end select
@@ -481,11 +511,11 @@ function write_SubspaceWavevectorBasis(this) result(output)
       state_strings = str(this%states(i))
       output = [output, '|'//i//'> = '//state_strings(size(state_strings))]
     enddo
-    output = [ output,                  &
-             & str('Harmonic energies') ]
-    do i=1,size(this%harmonic_energies)
-      output = [ output,                                                  &
-               & 'E'//i//' = '//this%harmonic_energies(i)//' * frequency' ]
+    output = [ output,                     &
+             & str('Harmonic occupations') ]
+    do i=1,size(this%harmonic_occupations)
+      output = [ output,                                      &
+               & '|'//i//'> : '//this%harmonic_occupations(i) ]
     enddo
     output = [ output,                            &
              & str('States to Basis Conversion'), &
