@@ -2,7 +2,9 @@
 ! Subroutines for the calculation of minimum-image distances.
 ! ======================================================================
 module min_images_module
-  use common_module
+  use utils_module
+  
+  use structure_module
   implicit none
   
   private

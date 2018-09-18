@@ -189,6 +189,8 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
           & stat=ialloc); call err(ialloc)
   do i=1,size(thermal_energies)
     ! Calculate effective frequencies for each subspace.
+    call print_line('')
+    call print_line('Thermal energy '//i//' of '//size(thermal_energies))
     do j=1,size(subspace_potentials)
       subspace = anharmonic_data%degenerate_subspaces(j)
       effective_frequencies(j) = calculate_effective_frequency( &
@@ -201,6 +203,9 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
                                     & frequency_convergence,    &
                                     & no_converged_calculations )
     enddo
+    
+    call print_line('Self-consistent harmonic frequencies calculated.')
+    call print_line(effective_frequencies)
     
     ! The starting point for calculating the effective frequencies at the
     !    next temperature is the frequencies at this temperature.

@@ -9,9 +9,6 @@
 module calculate_harmonic_observables_module
   use common_module
   
-  use force_constants_module
-  use dynamical_matrix_module
-  use min_images_module
   use harmonic_properties_module
   use setup_harmonic_module
   implicit none

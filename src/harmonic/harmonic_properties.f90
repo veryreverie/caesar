@@ -4,10 +4,6 @@
 ! ======================================================================
 module harmonic_properties_module
   use common_module
-  
-  use min_images_module
-  use force_constants_module
-  use dynamical_matrix_module
   implicit none
 contains
 

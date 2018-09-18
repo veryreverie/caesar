@@ -2,7 +2,10 @@
 ! Routines to calculate normal modes from dynamical matrices.
 ! ======================================================================
 module calculate_modes_module
-  use common_module
+  use utils_module
+  
+  use structure_module
+  use normal_mode_module
   implicit none
   
   private
@@ -168,7 +171,6 @@ function calculate_modes_calculated(matrices,structure,qpoint, &
                                         & logfile)
     endif
     
-    ! %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     ! If this q-point is its own pair, identify and pair up conjugate modes.
     if (qpoint%id==qpoint%paired_qpoint_id) then
       allocate(pair_overlap(size(states)), stat=ialloc); call err(ialloc)
@@ -212,7 +214,6 @@ function calculate_modes_calculated(matrices,structure,qpoint, &
       enddo
       deallocate(pair_overlap, stat=ialloc); call err(ialloc)
     endif
-    ! %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   enddo
 contains
   ! Lambda for identifying if a symmetry leaves the q-point invariant.

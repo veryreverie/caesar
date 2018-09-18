@@ -10,9 +10,6 @@ module calculate_normal_modes_module
   
   use setup_harmonic_module
   use harmonic_properties_module
-  use unique_directions_module
-  use dynamical_matrix_module
-  use force_constants_module
   implicit none
   
   private

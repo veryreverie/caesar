@@ -12,7 +12,7 @@ This should be run from the directory where cmake should be built.
 'path' should be the path to the CAESAR/src/ directory.
 The executable 'caesar' will be placed in a 'bin' directory.
 
-Caesar requires the library 'spglib'. This must be on the library path in order for compilation to succeed.
+Caesar requires the library 'spglib'. The spglib 'lib' directory must be on LIB, and the spglib 'include/spglib' directory must be on PATH in order for compilation to succeed.
 
 The compiler can be specified using the flag -DCMAKE_Fortran_COMPILER, e.g.
 

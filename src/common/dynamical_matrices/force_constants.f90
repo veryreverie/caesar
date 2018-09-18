@@ -2,7 +2,10 @@
 ! Reads harmonic forces, and generates the matrix of force constants.
 ! ======================================================================
 module force_constants_module
-  use common_module
+  use utils_module
+  
+  use structure_module
+  use electronic_structure_module
   
   use unique_directions_module
   implicit none

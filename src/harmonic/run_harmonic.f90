@@ -6,7 +6,6 @@ module run_harmonic_module
   use common_module
   
   use setup_harmonic_module
-  use unique_directions_module
   implicit none
   
   private

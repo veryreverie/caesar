@@ -6,7 +6,6 @@ module setup_harmonic_module
   use common_module
   
   use generate_supercells_module
-  use unique_directions_module
   implicit none
   
   private

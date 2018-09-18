@@ -6,7 +6,10 @@
 ! The symmetry operations to consider are outlined here:
 ! http://www.homepages.ucl.ac.uk/~ucfbdxa/phon/node4.html
 module unique_directions_module
-  use common_module
+  use utils_module
+  
+  use structure_module
+  use normal_mode_module
   implicit none
   
   private

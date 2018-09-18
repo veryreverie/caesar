@@ -2,7 +2,10 @@
 ! The forces between atoms at a given q-point.
 ! ======================================================================
 module dynamical_matrix_module
-  use common_module
+  use utils_module
+  
+  use structure_module
+  use normal_mode_module
   
   use min_images_module
   use force_constants_module

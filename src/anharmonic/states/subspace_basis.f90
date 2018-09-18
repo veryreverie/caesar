@@ -326,8 +326,9 @@ function generate_subspace_basis(subspace,frequency,modes,qpoints, &
          & matching_states_to_basis
       basis_to_states(matching_state_ids,matching_state_ids) = &
          & matching_basis_to_states
-      harmonic_occupations(matching_state_ids) = &
-         & nint(estuff%eval / frequency - 0.5_dp*size(subspace))
+      harmonic_occupations(matching_state_ids) =           &
+         & nint( estuff%eval*supercell%sc_size / frequency &
+         &     - 0.5_dp*size(subspace)                     )
       
       ! Deallocate temporary arrays.
       deallocate( state_overlaps,             &
