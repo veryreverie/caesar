@@ -6,7 +6,6 @@ module symmetry_submodule
   
   use basic_symmetry_submodule
   use basic_structure_submodule
-  use calculate_symmetry_submodule
   use qpoint_submodule
   implicit none
   

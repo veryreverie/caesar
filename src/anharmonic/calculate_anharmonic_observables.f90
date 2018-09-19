@@ -100,7 +100,11 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   integer                       :: no_dos_samples
   
   ! Anharmonic data.
-  type(AnharmonicData) :: anharmonic_data
+  type(AnharmonicData)                  :: anharmonic_data
+  type(ComplexMode),        allocatable :: modes(:)
+  type(QpointData),         allocatable :: qpoints(:)
+  type(DegenerateSubspace), allocatable :: subspaces(:)
+  type(StructureData)                   :: supercell
   
   ! Single-subspace potentials.
   type(PotentialPointer), allocatable :: subspace_potentials(:)
@@ -108,19 +112,36 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   ! Single-subspace basis. Only used to initalise frequency-finding.
   type(SubspaceBasis), allocatable :: subspace_bases(:)
   
-  ! Subspace.
-  type(DegenerateSubspace) :: subspace
-  
   ! Finite-temperature effective harmonic frequencies.
   real(dp), allocatable :: initial_frequencies(:)
   real(dp), allocatable :: effective_frequencies(:)
   
-  ! Files and directories.
-  type(IFile) :: anharmonic_data_file
-  type(IFile) :: subspace_potentials_file
-  type(IFile) :: basis_file
+  ! Modes and dynamical matrices at each q-point.
+  type(DynamicalMatrix), allocatable :: dynamical_matrices(:)
+  type(ComplexMode),     allocatable :: qpoint_modes(:)
+  real(dp),              allocatable :: qpoint_frequencies(:)
   
-  integer :: i,j,ialloc
+  ! Force constants and minimum image data.
+  type(ForceConstants)         :: force_constants
+  type(MinImages), allocatable :: min_images(:,:)
+  
+  ! Files and directories.
+  type(IFile)  :: anharmonic_data_file
+  type(IFile)  :: subspace_potentials_file
+  type(IFile)  :: basis_file
+  type(String) :: output_dir
+  type(OFile)  :: logfile
+  type(String) :: temperature_dir
+  type(OFile)  :: dispersion_file
+  type(OFile)  :: symmetry_points_file
+  type(OFile)  :: sampled_qpoints_file
+  type(OFile)  :: thermodynamic_file
+  type(OFile)  :: pdos_file
+  
+  ! Temporary variables.
+  type(String), allocatable :: path_point(:)
+  
+  integer :: i,j,k,ialloc
   
   ! --------------------------------------------------
   ! Read in arguments from user.
@@ -166,9 +187,24 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
                       & / (no_temperature_steps-1)
   enddo
   
+  ! Generate path for dispersion calculation.
+  allocate( path_qpoints(size(path_string)), &
+          & path_labels(size(path_string)),  &
+          & stat=ialloc); call err(ialloc)
+  do i=1,size(path_string)
+    path_point = split_line(path_string(i))
+    path_labels(i) = path_point(1)
+    path_qpoints(i) = dble(path_point(2:4))
+  enddo
+  
   ! Read in anharmonic data.
   anharmonic_data_file = IFile(wd//'/anharmonic_data.dat')
   anharmonic_data = AnharmonicData(anharmonic_data_file%lines())
+  
+  modes = anharmonic_data%complex_modes
+  qpoints = anharmonic_data%qpoints
+  subspaces = anharmonic_data%degenerate_subspaces
+  supercell = anharmonic_data%anharmonic_supercell
   
   ! Read in subspace potentials.
   subspace_potentials_file = IFile(wd//'/subspace_potentials.dat')
@@ -179,6 +215,14 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   basis_file = IFile(wd//'/basis.dat')
   subspace_bases = SubspaceBasis(basis_file%sections())
   
+  ! Make output directory and open logfile.
+  output_dir = wd//'/anharmonic_observables'
+  call mkdir(output_dir)
+  logfile = OFile(output_dir//'/anharmonic_observables_log.dat')
+  
+  ! Construct minimum image data.
+  min_images = calculate_min_images(supercell)
+  
   ! --------------------------------------------------
   ! Generate observables for each temperature in turn.
   ! --------------------------------------------------
@@ -186,16 +230,21 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   !    of the harmonic ground state.
   initial_frequencies = subspace_bases%frequency
   allocate( effective_frequencies(size(subspace_potentials)), &
+          & dynamical_matrices(size(qpoints)),                &
           & stat=ialloc); call err(ialloc)
   do i=1,size(thermal_energies)
+    ! Make temperature directory.
+    temperature_dir = output_dir//'/temperature_'// &
+       & left_pad(i,str(size(thermal_energies)))
+    call mkdir(temperature_dir)
+    
     ! Calculate effective frequencies for each subspace.
     call print_line('')
     call print_line('Thermal energy '//i//' of '//size(thermal_energies))
     do j=1,size(subspace_potentials)
-      subspace = anharmonic_data%degenerate_subspaces(j)
       effective_frequencies(j) = calculate_effective_frequency( &
                                     & subspace_potentials(j),   &
-                                    & subspace,                 &
+                                    & subspaces(j),             &
                                     & anharmonic_data,          &
                                     & thermal_energies(i),      &
                                     & initial_frequencies(j),   &
@@ -210,6 +259,56 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
     ! The starting point for calculating the effective frequencies at the
     !    next temperature is the frequencies at this temperature.
     initial_frequencies = effective_frequencies
+    
+    ! Assemble the dynamical matrices at each q-point from the complex modes
+    !    and the effective frequencies.
+    do j=1,size(qpoints)
+      qpoint_modes = modes(filter(modes%qpoint_id==qpoints(j)%id))
+      qpoint_frequencies = [(                                              &
+         & effective_frequencies(                                          &
+         &    first(subspaces%id==qpoint_modes(k)%subspace_id) ),          &
+         & k=1,                                                            &
+         & size(qpoint_modes)                                              )]
+      dynamical_matrices(j) = DynamicalMatrix(qpoint_modes,qpoint_frequencies)
+    enddo
+    
+    ! Construct force constants.
+    force_constants = reconstruct_force_constants( supercell,          &
+                                                 & qpoints,            &
+                                                 & dynamical_matrices, &
+                                                 & logfile             )
+    
+    ! Generate self-consistent phonon dispersion curve by interpolating between
+    !    calculated q-points using Fourier interpolation.
+    dispersion_file = OFile(temperature_dir//'/phonon_dispersion_curve.dat')
+    symmetry_points_file = OFile(temperature_dir//'/high_symmetry_points.dat')
+    call generate_dispersion( supercell,            &
+                            & min_images,           &
+                            & force_constants,      &
+                            & path_labels,          &
+                            & path_qpoints,         &
+                            & dispersion_file,      &
+                            & symmetry_points_file, &
+                            & logfile               )
+    
+    ! Generate self-consistent phonon density of states,
+    !    interpolating as above.
+    sampled_qpoints_file = OFile(temperature_dir//'/sampled_qpoints.dat')
+    thermodynamic_file   = OFile(                        &
+       & temperature_dir//'/thermodynamic_variables.dat' )
+    pdos_file            = OFile(                        &
+       & temperature_dir//'/phonon_density_of_states.dat')
+    call generate_dos( supercell,             &
+                     & min_images,            &
+                     & force_constants,       &
+                     & [thermal_energies(i)], &
+                     & min_frequency,         &
+                     & no_dos_samples,        &
+                     & sampled_qpoints_file,  &
+                     & thermodynamic_file,    &
+                     & pdos_file,             &
+                     & logfile,               &
+                     & random_generator       )
   enddo
   
   ! TODO

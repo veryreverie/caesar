@@ -190,11 +190,12 @@ subroutine setup_harmonic_subroutine(arguments)
       displaced_structure = displace_structure(supercell,displacement)
       
       ! Write calculation input files.
-      path =                                                                 &
-         & sdir                                                           // &
-         & '/atom.'                                                       // &
-         & left_pad(unique_directions(j)%atom_id,str(structure%no_atoms)) // &
-         & '.'                                                            // &
+      path =                                                     &
+         & sdir                                               // &
+         & '/atom.'                                           // &
+         & left_pad( unique_directions(j)%atom_id,               &
+         &           str(maxval(unique_directions%atom_id)) ) // &
+         & '.'                                                // &
          & unique_directions(j)%direction
       call calculation_writer%write_calculation(displaced_structure, path)
     enddo

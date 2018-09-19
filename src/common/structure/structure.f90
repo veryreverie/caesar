@@ -16,7 +16,6 @@ module structure_module
   use atom_submodule
   use qpoint_submodule
   use generate_qpoints_submodule
-  use calculate_symmetry_submodule
   use symmetry_submodule
   use structure_submodule
   use supercell_submodule

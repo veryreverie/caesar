@@ -70,9 +70,6 @@ subroutine run_harmonic_subroutine(arguments)
   ! Electronic structure calculation runner.
   type(CalculationRunner) :: calculation_runner
   
-  ! Structure data.
-  type(StructureData) :: structure
-  
   ! Atom and direction data.
   type(UniqueDirection), allocatable :: unique_directions(:)
   integer                            :: atom
@@ -109,9 +106,6 @@ subroutine run_harmonic_subroutine(arguments)
   ! --------------------------------------------------
   ! Read in previously calculated data.
   ! --------------------------------------------------
-  structure_file = IFile(wd//'/structure.dat')
-  structure = StructureData(structure_file%lines())
-  
   no_supercells_file = IFile(wd//'/no_supercells.dat')
   no_supercells = int(no_supercells_file%line(1))
   
@@ -169,7 +163,7 @@ subroutine run_harmonic_subroutine(arguments)
     do j=1,size(unique_directions)
       atom = unique_directions(j)%atom_id
       direction = unique_directions(j)%direction
-      atom_string = left_pad(atom,str(structure%no_atoms))
+      atom_string = left_pad(atom, str(maxval(unique_directions%atom_id)))
       
       dir = sdir//'/atom.'//atom_string//'.'//direction
       

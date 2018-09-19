@@ -1,7 +1,7 @@
 ! ======================================================================
 ! Uses spglib to calculate symmetry operations.
 ! ======================================================================
-module calculate_symmetry_submodule
+module spglib_wrapper_submodule
   use utils_module
   
   use basic_symmetry_submodule
@@ -12,6 +12,10 @@ module calculate_symmetry_submodule
   private
   
   public :: calculate_basic_symmetries
+  
+  public :: SPGLIB_LINKED
+  
+  logical, parameter :: SPGLIB_LINKED = .true.
   
   ! ----------------------------------------------------------------------
   ! spglib interface.

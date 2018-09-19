@@ -3,7 +3,12 @@
 !    the matrix of force constants.
 ! ======================================================================
 module harmonic_properties_module
-  use common_module
+  use utils_module
+  
+  use structure_module
+  use dynamical_matrices_module
+  
+  use harmonic_thermodynamics_module
   implicit none
 contains
 
@@ -284,15 +289,15 @@ subroutine generate_dispersion(large_supercell,min_images,force_constants, &
       dyn_mat = DynamicalMatrix( qpoint,          &
                                & large_supercell, &
                                & force_constants, &
-                               & min_images)
-      call dyn_mat%check( large_supercell, &
-                        & logfile,         &
-                        & check_eigenstuff=.false.)
-      call dispersion_file%print_line( &
-         & 'Fraction along path: '//                &
-         & fractional_distances(i)+j*fractional_separation)
-      call dispersion_file%print_line( &
-         & 'Frequencies: '//dyn_mat%frequencies())
+                               & min_images       )
+      call dyn_mat%check( large_supercell,         &
+                        & logfile,                 &
+                        & check_eigenstuff=.false. )
+      call dispersion_file%print_line(                     &
+         & 'Fraction along path: '//                       &
+         & fractional_distances(i)+j*fractional_separation )
+      call dispersion_file%print_line(                      &
+         & 'Frequencies: '//dyn_mat%complex_modes%frequency )
     enddo
   enddo
   
@@ -301,13 +306,13 @@ subroutine generate_dispersion(large_supercell,min_images,force_constants, &
   dyn_mat = DynamicalMatrix( qpoint,          &
                            & large_supercell, &
                            & force_constants, &
-                           & min_images)
-  call dyn_mat%check( large_supercell, &
-                    & logfile,         &
-                    & check_eigenstuff=.false.)
-  call dispersion_file%print_line( &
-     & 'Fraction along path: '//1.0_dp)
-  call dispersion_file%print_line( &
-     & 'Frequencies: '//dyn_mat%frequencies())
+                           & min_images       )
+  call dyn_mat%check( large_supercell,         &
+                    & logfile,                 &
+                    & check_eigenstuff=.false. )
+  call dispersion_file%print_line(     &
+     & 'Fraction along path: '//1.0_dp )
+  call dispersion_file%print_line(                      &
+     & 'Frequencies: '//dyn_mat%complex_modes%frequency )
 end subroutine
 end module

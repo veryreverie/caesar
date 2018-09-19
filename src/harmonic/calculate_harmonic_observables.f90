@@ -9,7 +9,6 @@
 module calculate_harmonic_observables_module
   use common_module
   
-  use harmonic_properties_module
   use setup_harmonic_module
   implicit none
   
@@ -94,9 +93,9 @@ subroutine calculate_harmonic_observables_subroutine(arguments)
   type(QpointData),      allocatable :: qpoints(:)
   type(DynamicalMatrix), allocatable :: dynamical_matrices(:)
   
-  ! Working variables.
-  type(ForceConstants)          :: force_constants
-  type(MinImages),  allocatable :: min_images(:,:)
+  ! Force constants and minimum image data.
+  type(ForceConstants)         :: force_constants
+  type(MinImages), allocatable :: min_images(:,:)
   
   ! Dynamical matrix for checking.
   type(DynamicalMatrix) :: dyn_mat
@@ -216,7 +215,7 @@ subroutine calculate_harmonic_observables_subroutine(arguments)
   force_constants = reconstruct_force_constants( large_supercell,    &
                                                & qpoints,            &
                                                & dynamical_matrices, &
-                                               & logfile)
+                                               & logfile             )
   
   ! Calculate minimum image distances.
   min_images = calculate_min_images(large_supercell)
@@ -226,9 +225,9 @@ subroutine calculate_harmonic_observables_subroutine(arguments)
     dyn_mat = DynamicalMatrix( dblevec(qpoints(i)%qpoint), &
                              & large_supercell,            &
                              & force_constants,            &
-                             & min_images)
+                             & min_images                  )
     call logfile%print_line('Comparing dynamical matrices before and after &
-       &reconstruction of force constants.')
+       &reconstruction of force constants.'                                )
     call compare_dynamical_matrices(dynamical_matrices(i),dyn_mat,logfile)
   enddo
   
@@ -241,7 +240,7 @@ subroutine calculate_harmonic_observables_subroutine(arguments)
                           & path_qpoints,         &
                           & dispersion_file,      &
                           & symmetry_points_file, &
-                          & logfile)
+                          & logfile               )
   
   ! Generate harmonic phonon density of states, interpolating as above.
   call generate_dos( large_supercell,      &
@@ -254,6 +253,6 @@ subroutine calculate_harmonic_observables_subroutine(arguments)
                    & thermodynamic_file,   &
                    & pdos_file,            &
                    & logfile,              &
-                   & random_generator)
+                   & random_generator      )
 end subroutine
 end module

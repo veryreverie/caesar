@@ -12,8 +12,6 @@ This should be run from the directory where cmake should be built.
 'path' should be the path to the CAESAR/src/ directory.
 The executable 'caesar' will be placed in a 'bin' directory.
 
-Caesar requires the library 'spglib'. The spglib 'lib' directory must be on LIB, and the spglib 'include/spglib' directory must be on PATH in order for compilation to succeed.
-
 The compiler can be specified using the flag -DCMAKE_Fortran_COMPILER, e.g.
 
   cmake path -DCMAKE_Fortran_COMPILER:PATH=gfortran
@@ -29,22 +27,43 @@ nagfor 6.2 (release 6207)
 There is a known gfortran bug affecting shared counters. To test for this bug, call 'caesar check_counter'. If this bug is present, the behaviour can be corrected by setting the CMake variable CORRECT_COUNTER_BUG (e.g. by using the command line arguments -DCORRECT_COUNTER_BUG:LOGICAL=true).
 
 ----------------------------------------
+Spglib
+----------------------------------------
+By default, Caesar requires the library 'spglib'. The spglib 'lib' directory must be on LIB, and the spglib 'include/spglib' directory must be on PATH in order for compilation to succeed.
+
+----------------------------------------
 BLAS/LAPACK
 ----------------------------------------
 By default Caesar will use CMake's find_package(LAPACK) to search for a BLAS/LAPACK distribution.
 
 If multiple distributions are present, the specific distribution can be selected using the CMake variables BLAS_DIR, BLA_VENDOR and LAPACK_DIR.
 
-For build systems where BLAS/LAPACK are bundled with the compiler and do not need finding separately (e.g. when using the Cray Compiler Environment) the BLAS/LAPACK finder can be disabled by setting the CMake variable FIND_LAPACK to false (e.g. by using the command line argument -DFIND_LAPACK:LOGICAL=false).
+For build systems where BLAS/LAPACK are bundled with the compiler and do not need finding separately (e.g. when using the Cray Compiler Environment) the BLAS/LAPACK finder can be disabled by setting the CMake variable FIND_LAPACK to false, e.g. with the CMake command line argument
+
+   -DFIND_LAPACK:LOGICAL=false
+
+----------------------------------------
+Compiling without Spglib and BLAS/LAPACK
+----------------------------------------
+It is possible to suppress the requirement for Spglib and/or BLAS/LAPACK, by setting LINK_TO_SPGLIB or LINK_TO_LAPACK respectively to false, e.g. with the CMake command line arguments
+
+   -DLINK_TO_SPGLIB:LOGICAL=false
+   -DLINK_TO_LAPACK:LOGICAL=false
+
+This will disable symmetry finding and linear algebra respectively, which are required for several Caesar modes.
+
+The 'run' modes, run_harmonic and run_anharmonic, do not require spglib or BLAS/LAPACK, so not linking to either can be useful if compiling Caesar on a cluster where they are not available, with the intention of running setup and processing steps elsewhere.
 
 ----------------------------------------
 Quip
 ----------------------------------------
-Caesar can be linked against Quip. This is acheived by specifying
+Caesar can be linked against Quip by setting. This is acheived by setting PATH_TO_QUIP, e.g. with the CMake command line argument
 
   -DPATH_TO_QUIP=quipdir
 
 where quipdir is the Quip directory containing libatoms and libquip. These libraries must have been compiled using the same compiler used to compile Caesar.
+
+Quip requires BLAS/LAPACK, so PATH_TO_QUIP should not be specified if linking against BLAS/LAPACK has been suppressed.
 
 N.B. Quip requires atomic numbers, which are read from .cell files as the label on the atomic species, so e.g. titanium must be written as Ti:22.
 

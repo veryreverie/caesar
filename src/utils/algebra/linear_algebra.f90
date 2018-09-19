@@ -5,6 +5,8 @@
 module linear_algebra_submodule
   use precision_module
   use io_module
+  
+  use lapack_wrapper_module
   implicit none
   
   private
@@ -566,126 +568,6 @@ module linear_algebra_submodule
     module procedure linear_least_squares_reals_RealVector
     module procedure linear_least_squares_RealMatrix_reals
     module procedure linear_least_squares_RealMatrix_RealVector
-  end interface
-  
-  ! --------------------------------------------------
-  ! BLAS / LAPACK interface.
-  ! --------------------------------------------------
-  interface
-    ! Copies a real vector. Equivalent to dy = dx.
-    subroutine dcopy(n,dx,incx,dy,incy)
-      import :: dp
-      implicit none
-      
-      integer,  intent(in)  :: n     ! Length of vectors
-      real(dp), intent(in)  :: dx(*) ! Input vector
-      integer,  intent(in)  :: incx  ! Increment along dx
-      real(dp), intent(out) :: dy(*) ! Output vector
-      integer,  intent(in)  :: incy  ! Increment along dy
-    end subroutine
-    
-    ! Copies complex vector. Equivalent to zy = zx.
-    subroutine zcopy(n,zx,incx,zy,incy)
-      import :: dp
-      implicit none
-      
-      integer,     intent(in)  :: n     ! Length of vectors
-      complex(dp), intent(in)  :: zx(*) ! Input vector
-      integer,     intent(in)  :: incx  ! Increment along zx
-      complex(dp), intent(out) :: zy(*) ! Output vector
-      integer,     intent(in)  :: incy  ! Increment along zy
-    end subroutine
-    
-    ! Real dot product. Returns dx.dy.
-    function ddot(n,dx,incx,dy,incy) result(output)
-      import :: dp
-      implicit none
-      
-      integer,  intent(in) :: n     ! Length of vectors
-      real(dp), intent(in) :: dx(*) ! First vector
-      integer,  intent(in) :: incx  ! Increment along dx
-      real(dp), intent(in) :: dy(*) ! Second vector
-      integer,  intent(in) :: incy  ! Increment along dy
-      real(dp)             :: output
-    end function
-    
-    ! Multiplies real vector by real scalar. Equivalent to dx *= da.
-    subroutine dscal(n,da,dx,incx)
-      import :: dp
-      implicit none
-      
-      integer,  intent(in)    :: n     ! Length of vector
-      real(dp), intent(in)    :: da    ! Scalar
-      real(dp), intent(inout) :: dx(*) ! Vector
-      integer,  intent(in)    :: incx  ! Increment along dx
-    end subroutine
-    
-    ! Multiplies complex vector by complex scalar. Equivalent to zx *= za.
-    subroutine zscal(n,za,zx,incx)
-      import :: dp
-      implicit none
-      
-      integer,     intent(in)    :: n     ! Length of vector
-      complex(dp), intent(in)    :: za    ! Scalar
-      complex(dp), intent(inout) :: zx(*) ! Vector
-      integer,     intent(in)    :: incx  ! Increment along zx
-    end subroutine
-    
-    ! Complex norm. Returns sqrt(x.x).
-    function dznrm2(n,x,incx) result(output)
-      import :: dp
-      implicit none
-      
-      integer,     intent(in) :: n      ! Length of vector
-      complex(dp), intent(in) :: x(*)   ! Vector
-      integer,     intent(in) :: incx   ! Increment along x
-      real(dp)                :: output ! Result
-    end function
-    
-    ! Minimises the least-squares fit l=(a.x-b)**2.
-    subroutine dgels(trans,m,n,nrhs,a,lda,b,ldb,work,lwork,info)
-      import :: dp
-      implicit none
-      
-      character(1), intent(in)    :: trans    ! n/t: if t, a is transposed.
-      integer,      intent(in)    :: m        ! size(a,1)=size(b,1).
-      integer,      intent(in)    :: n        ! size(a,2)=size(x,1).
-      integer,      intent(in)    :: nrhs     ! size(b,2)=size(x,2).
-      integer,      intent(in)    :: lda      ! The leading dimension of a.
-      real(dp),     intent(inout) :: a(lda,*) ! The matrix a.
-      integer,      intent(in)    :: ldb      ! The leading dimension of b.
-      real(dp),     intent(inout) :: b(ldb,*) ! The matrix b.
-      real(dp),     intent(out)   :: work(*)  ! work(1) = optimal lwork.
-      integer,      intent(in)    :: lwork    ! size(work).
-      integer,      intent(out)   :: info     ! 0 on success.
-    end subroutine
-    
-    ! In-place LU factorisation. Required for dgetri. LU factorises a.
-    subroutine dgetrf(m,n,a,lda,ipiv,info)
-      import :: dp
-      implicit none
-      
-      integer,  intent(in)    :: m        ! size(a,1).
-      integer,  intent(in)    :: n        ! size(a,2).
-      integer,  intent(in)    :: lda      ! The leading dimension of a.
-      real(dp), intent(inout) :: a(lda,*) ! The matrix a.
-      integer,  intent(out)   :: ipiv(*)  ! Pivot indices. size=min(n,m).
-      integer,  intent(out)   :: info     ! 0 on success.
-    end subroutine
-    
-    ! In-place matrix inversion. Inverts a.
-    subroutine dgetri(n,a,lda,ipiv,work,lwork,info)
-      import :: dp
-      implicit none
-      
-      integer,  intent(in)    :: n        ! size(a,1)=size(a,2).
-      integer,  intent(in)    :: lda      ! The leading dimension of a.
-      real(dp), intent(inout) :: a(lda,*) ! The matrix to be inverted.
-      integer,  intent(in)    :: ipiv(*)  ! Pivot indices. size=n.
-      real(dp), intent(out)   :: work(*)  ! work(1) = optimal lwork.
-      integer,  intent(in)    :: lwork    ! size(work).
-      integer,  intent(out)   :: info     ! 0 on success.
-    end subroutine
   end interface
 contains
 

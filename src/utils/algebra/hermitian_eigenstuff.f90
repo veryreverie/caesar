@@ -6,6 +6,7 @@ module hermitian_eigenstuff_submodule
   use precision_module
   use io_module
   
+  use lapack_wrapper_module
   use linear_algebra_submodule
   use phase_submodule
   use qr_decomposition_submodule
@@ -58,64 +59,6 @@ module hermitian_eigenstuff_submodule
   interface diagonalise_complex
     module procedure diagonalise_complex_complexes
     module procedure diagonalise_complex_ComplexMatrix
-  end interface
-  
-  ! BLAS / LAPACK interface.
-  interface
-    ! Finds the eigenvalues of a real symmetric matrix.
-    subroutine dsyev(jobz,uplo,n,a,lda,w,work,lwork,info)
-      import :: dp
-      implicit none
-      
-      character(1), intent(in)    :: jobz     ! N/V: if v, calculate eigenvecs.
-      character(1), intent(in)    :: uplo     ! U/L: upper/lower triangle.
-      integer,      intent(in)    :: n        ! The order of a.
-      integer,      intent(in)    :: lda      ! The dimension of a.
-      real(dp),     intent(inout) :: a(lda,*) ! Symmetric matrix.
-      real(dp),     intent(out)   :: w(*)     ! Eigenvalues of a.
-      real(dp),     intent(out)   :: work(*)  ! work(1) = optimal lwork.
-      integer,      intent(in)    :: lwork    ! The length of work.
-      integer,      intent(out)   :: info     ! 0 on success.
-    end subroutine
-    
-    ! Finds the eigenvalues of a complex hermitian matrix.
-    subroutine zheev(jobz,uplo,n,a,lda,w,work,lwork,rwork,info)
-      import :: dp
-      implicit none
-      
-      character(1), intent(in)    :: jobz     ! N/V: if v, calculate eigenvecs.
-      character(1), intent(in)    :: uplo     ! U/L: upper/lower triangle.
-      integer,      intent(in)    :: n        ! The order of a.
-      integer,      intent(in)    :: lda      ! The dimension of a.
-      complex(dp),  intent(inout) :: a(lda,*) ! Hermitian matrix.
-      real(dp),     intent(out)   :: w(*)     ! Eigenvalues of a.
-      complex(dp),  intent(out)   :: work(*)  ! work(1) = optimal lwork.
-      integer,      intent(in)    :: lwork    ! The length of work.
-      real(dp),     intent(out)   :: rwork(*) ! Working array.
-      integer,      intent(out)   :: info     ! 0 on success.
-    end subroutine
-    
-    ! Find the eigenvalues of a general complex matrix.
-    subroutine zgeev(jobvl,jobvr,n,a,lda,w,vl,ldvl,vr,ldvr,work,lwork,rwork, &
-       &info)
-      import :: dp
-      implicit none
-      
-      character(1), intent(in)    :: jobvl      ! N/V: if v, calc. left evecs.
-      character(1), intent(in)    :: jobvr      ! N/V: if v, calc. right evecs.
-      integer,      intent(in)    :: n          ! The order of a.
-      integer,      intent(in)    :: lda        ! The dimension of a.
-      complex(dp),  intent(inout) :: a(lda,*)   ! Complex matrix.
-      complex(dp),  intent(out)   :: w(*)       ! Eigenvalues of a.
-      integer,      intent(in)    :: ldvl       ! The dimension of vl.
-      complex(dp),  intent(out)   :: vl(ldvl,*) ! Left eigenvectors of a.
-      integer,      intent(in)    :: ldvr       ! The dimension of vr.
-      complex(dp),  intent(out)   :: vr(ldvr,*) ! Right eigenvectors of a.
-      complex(dp),  intent(out)   :: work(*)    ! work(1) = optimal lwork.
-      integer,      intent(in)    :: lwork      ! The length of work.
-      real(dp),     intent(out)   :: rwork(*)   ! Working array.
-      integer,      intent(out)   :: info       ! 0 on success.
-    end subroutine
   end interface
 contains
 

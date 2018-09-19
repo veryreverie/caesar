@@ -23,7 +23,7 @@ def main():
     'grey'     :[179/255,179/255,179/255]}
   
   # Read in high symmetry points.
-  file_name = 'harmonic_observables/high_symmetry_points.dat'
+  file_name = 'high_symmetry_points.dat'
   points_file = [line.rstrip('\n').split() for line in open(file_name)]
   points = {'labels':[], 'q-points':[], 'path_lengths':[]}
   for line in points_file:
@@ -41,7 +41,7 @@ def main():
       points['labels'][i] = r'\Gamma'
   
   # Read in phonon dispersion.
-  file_name = 'harmonic_observables/phonon_dispersion_curve.dat'
+  file_name = 'phonon_dispersion_curve.dat'
   dispersion_file = [line.rstrip('\n').split() for line in open(file_name)]
   dispersion = {'path_length':[], 'frequencies':[], 'bands':[]}
   for line in dispersion_file:
@@ -80,7 +80,7 @@ def main():
   #  dispersion['bands'].append(band)
   
   # Read in dos.
-  file_name = 'harmonic_observables/phonon_density_of_states.dat'
+  file_name = 'phonon_density_of_states.dat'
   dos_file = [line.rstrip('\n').split() for line in open(file_name)]
   dos = {'bottoms':[], 'tops':[], 'middles':[], 'dos':[]}
   for line in dos_file:

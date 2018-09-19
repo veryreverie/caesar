@@ -132,6 +132,7 @@ function read_output_file(file_type,filename,structure,dir,seedname, &
   type(String),        intent(in) :: calculation_type
   type(ElectronicStructure)       :: output
   
+  type(IFile)         :: displaced_structure_file
   type(StructureData) :: displaced_structure
   
   if (calculation_type=='none') then
@@ -146,8 +147,8 @@ function read_output_file(file_type,filename,structure,dir,seedname, &
       call err()
     endif
   elseif (calculation_type=='quip') then
-    displaced_structure = input_file_to_StructureData( file_type, &
-                                                     & filename   )
+    displaced_structure_file = IFile(dir//'/structure.dat')
+    displaced_structure = StructureData(displaced_structure_file%lines())
     output = run_quip_on_structure( displaced_structure, &
                                   & dir,                 &
                                   & seedname)

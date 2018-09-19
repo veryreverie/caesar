@@ -27,23 +27,4 @@ target_link_libraries(utils random)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/arguments arguments/)
 target_link_libraries(utils arguments)
 
-# Link to LAPACK, if required.
-if (NOT DEFINED FIND_LAPACK OR FIND_LAPACK)
-  find_package( LAPACK REQUIRED )
-  target_link_libraries(utils ${LAPACK_LIBRARIES})
-endif()
-
-# Link to spglib.
-find_library(spglib_library_path symspg)
-if("${spglib_libray_path}" STREQUAL "spglib_library_path-NOTFOUND")
-  MESSAGE(FATAL_ERROR "libsymspg not found. Please ensure spglib is on LIB path.")
-endif()
-target_link_libraries(utils ${spglib_library_path})
-
-find_path(spglib_include_path spglib.h)
-if("${spglib_include_path}" STREQUAL "spglib_include_path-NOTFOUND")
-  MESSAGE(FATAL_ERROR "spglib.h not found. Please ensure spglib is on PATH.")
-endif()
-target_include_directories(utils PUBLIC ${spglib_include_path})
-
 target_include_directories(utils PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

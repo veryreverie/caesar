@@ -7,7 +7,7 @@ module structure_submodule
   use basic_symmetry_submodule
   use basic_structure_submodule
   use atom_submodule
-  use calculate_symmetry_submodule
+  use spglib_wrapper_submodule
   use symmetry_submodule
   implicit none
   
@@ -159,11 +159,14 @@ end function
 ! ----------------------------------------------------------------------
 ! Allocates all arrays, and sets no_ variables.
 ! ----------------------------------------------------------------------
-function new_StructureData(basic_structure,basic_supercell) result(this)
+function new_StructureData(basic_structure,basic_supercell, &
+   & recip_lattice_matrix,recip_supercell_matrix) result(this)
   implicit none
   
   type(BasicStructure), intent(in)           :: basic_structure
   type(BasicSupercell), intent(in), optional :: basic_supercell
+  type(RealMatrix),     intent(in), optional :: recip_lattice_matrix
+  type(FractionMatrix), intent(in), optional :: recip_supercell_matrix
   type(StructureData)                        :: this
   
   ! Working variables.
@@ -175,9 +178,13 @@ function new_StructureData(basic_structure,basic_supercell) result(this)
   integer :: i,j,ialloc
   
   ! Copy structure information: lattice vectors and numbers of atoms.
-  this%lattice         = basic_structure%lattice_matrix
-  this%recip_lattice   = transpose(invert(this%lattice))
-  this%volume          = abs(determinant(this%lattice))
+  this%lattice = basic_structure%lattice_matrix
+  if (present(recip_lattice_matrix)) then
+    this%recip_lattice = recip_lattice_matrix
+  else
+    this%recip_lattice = transpose(invert(this%lattice))
+  endif
+  this%volume = abs(determinant(this%lattice))
   
   this%no_atoms = size(basic_structure%atoms)
   this%no_modes = this%no_atoms*3
@@ -196,12 +203,16 @@ function new_StructureData(basic_structure,basic_supercell) result(this)
          & information.')
     endif
     
-    this%supercell       = basic_supercell%supercell_matrix
-    this%recip_supercell = transpose(invert(this%supercell))
-    this%rvectors        = basic_supercell%rvectors
-    this%gvectors        = basic_supercell%gvectors
-    atom_rvector_ids     = basic_supercell%atom_rvector_ids
-    atom_prim_ids        = basic_supercell%atom_prim_ids
+    this%supercell = basic_supercell%supercell_matrix
+    if (present(recip_supercell_matrix)) then
+      this%recip_supercell = recip_supercell_matrix
+    else
+      this%recip_supercell = transpose(invert(this%supercell))
+    endif
+    this%rvectors    = basic_supercell%rvectors
+    this%gvectors    = basic_supercell%gvectors
+    atom_rvector_ids = basic_supercell%atom_rvector_ids
+    atom_prim_ids    = basic_supercell%atom_prim_ids
   else
     this%sc_size = 1
     
@@ -504,14 +515,16 @@ subroutine read_StructureData(this,input)
   type(String),         intent(in)  :: input(:)
   
   ! line numbers
-  integer :: lattice_line      ! The line "Lattice"
-  integer :: atoms_line        ! The line "Atoms"
-  integer :: symmetry_line     ! The line "Symmetry"
-  integer :: symmetry_end_line ! The last line of the Symmetry block.
-  integer :: supercell_line    ! The line "Supercell"
-  integer :: rvectors_line     ! The line "R-vectors"
-  integer :: gvectors_line     ! The line "G-vectors"
-  integer :: end_line          ! The line "End"
+  integer :: lattice_line         ! The line "Lattice"
+  integer :: recip_lattice_line   ! The line "Reciprocal Lattice"
+  integer :: atoms_line           ! The line "Atoms"
+  integer :: symmetry_line        ! The line "Symmetry"
+  integer :: symmetry_end_line    ! The last line of the Symmetry block.
+  integer :: supercell_line       ! The line "Supercell"
+  integer :: recip_supercell_line ! The line "Reciprocal Supercell"
+  integer :: rvectors_line        ! The line "R-vectors"
+  integer :: gvectors_line        ! The line "G-vectors"
+  integer :: end_line             ! The line "End"
   
   ! Counts.
   integer     :: no_atoms
@@ -520,9 +533,11 @@ subroutine read_StructureData(this,input)
   
   ! Lattice.
   type(RealMatrix) :: lattice_matrix
+  type(RealMatrix) :: recip_lattice_matrix
   
   ! Supercell, R-vectors and G-vectors.
   type(IntMatrix)              :: supercell_matrix
+  type(FractionMatrix)         :: recip_supercell_matrix
   type(IntVector), allocatable :: rvectors(:)
   type(IntVector), allocatable :: gvectors(:)
   
@@ -540,6 +555,10 @@ subroutine read_StructureData(this,input)
   real(dp)                         :: symmetry_precision
   type(BasicSymmetry), allocatable :: symmetries(:)
   
+  ! Output data.
+  type(BasicStructure) :: basic_structure
+  type(BasicSupercell) :: basic_supercell
+  
   ! Temporary variables.
   integer                        :: i,ialloc
   type(StringArray), allocatable :: sections(:)
@@ -551,10 +570,12 @@ subroutine read_StructureData(this,input)
     ! Initialise line numbers.
     ! ------------------------------
     lattice_line = 0
+    recip_lattice_line = 0
     atoms_line = 0
     symmetry_line = 0
     symmetry_end_line = 0
     supercell_line = 0
+    recip_supercell_line = 0
     rvectors_line = 0
     gvectors_line = 0
     end_line = 0
@@ -569,20 +590,28 @@ subroutine read_StructureData(this,input)
         cycle
       endif
       
-      if (line(1)=="lattice") then
+      if (line(1)=='lattice') then
         lattice_line = i
-      elseif (line(1)=="atoms") then
+      elseif (line(1)=='atoms') then
         atoms_line = i
-      elseif (line(1)=="symmetry") then
+      elseif (line(1)=='symmetry') then
         symmetry_line = i
-      elseif (line(1)=="supercell") then
+      elseif (line(1)=='supercell') then
         supercell_line = i
-      elseif (line(1)=="r-vectors") then
+      elseif (line(1)=='r-vectors') then
         rvectors_line = i
-      elseif (line(1)=="g-vectors") then
+      elseif (line(1)=='g-vectors') then
         gvectors_line = i
-      elseif (line(1)=="end") then
+      elseif (line(1)=='end') then
         end_line = i
+      elseif (line(1)=='reciprocal') then
+        if (size(line)>1) then
+          if (line(2)=='lattice') then
+            recip_lattice_line = i
+          elseif (line(2)=='supercell') then
+            recip_supercell_line = i
+          endif
+        endif
       endif
     enddo
     
@@ -590,25 +619,50 @@ subroutine read_StructureData(this,input)
     ! Check layout is as expected.
     ! ------------------------------
     if (lattice_line/=1) then
-      call print_line('Error: line 1 of structure.dat is not "Lattice"')
+      call print_line(ERROR//': line 1 of structure.dat is not "Lattice"')
       call err()
-    elseif (atoms_line/=5) then
-      call print_line('Error: line 5 of structure.dat is not "Atoms"')
+    elseif (recip_lattice_line/=0 .and. recip_lattice_line/=5) then
+      call print_line(ERROR//': the line "Reciprocal Lattice" is not line 5 &
+         &of structure.dat')
+      call err()
+    elseif (recip_lattice_line==0 .and. atoms_line/=5) then
+      call print_line(ERROR//': line 5 of structure.dat is not four lines &
+         &after "Lattice".')
+      call err()
+    elseif (recip_lattice_line/=0 .and. atoms_line/=9) then
+      call print_line(ERROR//': line 5 of structure.dat is not four lines &
+         &after "Reciprocal Lattice".')
       call err()
     elseif (end_line/=size(input)) then
-      call print_line('Error: the last line of structure.dat is not "End"')
+      call print_line(ERROR//': the last line of structure.dat is not "End"')
       call err()
     elseif ( any([supercell_line,rvectors_line,gvectors_line]==0) .and. &
            & any([supercell_line,rvectors_line,gvectors_line]/=0)) then
-      call print_line('Error: some but not all of Supercell, R-vectors and &
+      call print_line(ERROR//': some but not all of Supercell, R-vectors and &
          &G-vectors are present in structure.dat.')
+      call err()
+    elseif (supercell_line==0 .and. recip_supercell_line/=0) then
+      call print_line(ERROR//': Reciprocal Supercell is present in &
+         &structure.dat, but Supercell is not.')
+      call err()
+    elseif ( recip_supercell_line/=0 .and.          &
+           & recip_supercell_line-supercell_line/=4 ) then
+      call print_line(ERROR//': The line "Reciprocal Supercell" is not four &
+         &lines after the line "Supercell" in structure.dat.')
       call err()
     endif
     
     if (supercell_line/=0) then
-      if (rvectors_line-supercell_line/=4) then
-        call print_line('Error: the lines "Supercell" and "R-vectors" in &
-           &structure.dat are not four lines apart.')
+      if (recip_supercell_line==0) then
+        if (rvectors_line-supercell_line/=4) then
+          call print_line(ERROR//': the lines "Supercell" and "R-vectors" in &
+             &structure.dat are not four lines apart.')
+        endif
+      else
+        if (rvectors_line-recip_supercell_line/=4) then
+          call print_line(ERROR//': the lines "Reciprocal Supercell" and &
+             &"R-vectors" in structure.dat are not four lines apart.')
+        endif
       endif
     endif
     
@@ -643,12 +697,16 @@ subroutine read_StructureData(this,input)
     no_atoms_prim = no_atoms/sc_size
     
     ! ------------------------------
-    ! Read in lattice.
+    ! Read in lattice (and reciprocal lattice if present).
     ! ------------------------------
     lattice_matrix = RealMatrix(input(lattice_line+1:lattice_line+3))
+    if (recip_lattice_line/=0) then
+      recip_lattice_matrix = RealMatrix(                    &
+         & input(recip_lattice_line+1:recip_lattice_line+3) )
+    endif
     
     ! ------------------------------
-    ! Read in supercell, R-vectors and G-vectors.
+    ! Read in supercell, reciprocal supercell, R-vectors and G-vectors.
     ! ------------------------------
     if (supercell_line==0) then
       supercell_matrix = make_identity_matrix(3)
@@ -656,6 +714,11 @@ subroutine read_StructureData(this,input)
       gvectors = [vec([0,0,0])]
     else
       supercell_matrix = IntMatrix(input(supercell_line+1:supercell_line+3))
+      
+      if (recip_supercell_line/=0) then
+        recip_supercell_matrix = FractionMatrix(                  &
+           & input(recip_supercell_line+1:recip_supercell_line+3) )
+      endif
       
       allocate( rvectors(sc_size), &
               & gvectors(sc_size), &
@@ -705,16 +768,31 @@ subroutine read_StructureData(this,input)
     ! ------------------------------
     ! Construct output without symmetry.
     ! ------------------------------
-    this = StructureData(                                      &
-       & basic_structure = BasicStructure( lattice_matrix,     &
-       &                                   species2,           &
-       &                                   masses2,            &
-       &                                   positions2      ),  &
-       & basic_supercell = BasicSupercell( supercell_matrix,   &
-       &                                   rvectors,           &
-       &                                   gvectors,           &
-       &                                   atom_rvector_ids,   &
-       &                                   atom_prim_ids     ) )
+    basic_structure = BasicStructure( lattice_matrix, &
+                                      species2,       &
+                                      masses2,        &
+                                      positions2      )
+    basic_supercell = BasicSupercell( supercell_matrix, &
+                                      rvectors,         &
+                                      gvectors,         &
+                                      atom_rvector_ids, &
+                                      atom_prim_ids     )
+    if (recip_lattice_line==0 .and. recip_supercell_line==0) then
+      this = StructureData(basic_structure, basic_supercell)
+    elseif (recip_lattice_line==0) then
+      this = StructureData( basic_structure,                                &
+                          & basic_supercell,                                &
+                          & recip_supercell_matrix = recip_supercell_matrix )
+    elseif (recip_supercell_line==0) then
+      this = StructureData( basic_structure,                            &
+                          & basic_supercell,                            &
+                          & recip_lattice_matrix = recip_lattice_matrix )
+    else
+      this = StructureData( basic_structure,                                &
+                          & basic_supercell,                                &
+                          & recip_lattice_matrix = recip_lattice_matrix,    &
+                          & recip_supercell_matrix = recip_supercell_matrix )
+    endif
     
     ! ------------------------------
     ! Read in symmetries if present, and add symmetry to output.
@@ -744,10 +822,12 @@ function write_StructureData(this) result(output)
   integer :: i
   
   select type(this); type is(StructureData)
-    output = [                    &
-             & str('Lattice'),    &
-             & str(this%lattice), &
-             & str('Atoms')       ]
+    output = [                            &
+             & str('Lattice'),            &
+             & str(this%lattice),         &
+             & str('Reciprocal Lattice'), &
+             & str(this%recip_lattice),   &
+             & str('Atoms')               ]
     do i=1,this%no_atoms
       output = [ output, &
                & this%atoms(i)%species() //' '//    &
@@ -763,14 +843,16 @@ function write_StructureData(this) result(output)
                & str(symmetries, separating_line='')          ]
     endif
     
-    output = [ output,              &
-             & str('Supercell'),    &
-             & str(this%supercell), &
-             & str('R-vectors'),    &
-             & str(this%rvectors),  &
-             & str('G-vectors'),    &
-             & str(this%gvectors),  &
-             & str('End')           ]
+    output = [ output,                      &
+             & str('Supercell'),            &
+             & str(this%supercell),         &
+             & str('Reciprocal Supercell'), &
+             & str(this%recip_supercell),   &
+             & str('R-vectors'),            &
+             & str(this%rvectors),          &
+             & str('G-vectors'),            &
+             & str(this%gvectors),          &
+             & str('End')                   ]
   class default
     call err()
   end select

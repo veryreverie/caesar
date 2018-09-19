@@ -9,7 +9,6 @@ module calculate_normal_modes_module
   use common_module
   
   use setup_harmonic_module
-  use harmonic_properties_module
   implicit none
   
   private

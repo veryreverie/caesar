@@ -6,6 +6,7 @@ module qr_decomposition_submodule
   use abstract_module
   use io_module
   
+  use lapack_wrapper_module
   use linear_algebra_submodule
   implicit none
   
@@ -30,72 +31,6 @@ module qr_decomposition_submodule
     module procedure qr_decomposition_RealMatrix
     module procedure qr_decomposition_complexes
     module procedure qr_decomposition_ComplexMatrix
-  end interface
-  
-  interface
-    ! Find the QR decomposition of a real matrix.
-    ! N.B. the output is given in terms of reflectors.
-    subroutine dgeqrf(m,n,a,lda,tau,work,lwork,info)
-      import :: dp
-      implicit none
-      
-      integer,  intent(in)    :: m        ! size(a,1).
-      integer,  intent(in)    :: n        ! size(a,2).
-      integer,  intent(in)    :: lda      ! The leading dimension of a.
-      real(dp), intent(inout) :: a(lda,*) ! Matrix a. Also R and reflectors.
-      real(dp), intent(out)   :: tau(*)   ! Factors of reflectors.
-      real(dp), intent(out)   :: work(*)  ! work(1) = optimal lwork.
-      integer,  intent(in)    :: lwork    ! The length of work.
-      integer,  intent(out)   :: info     ! 0 on success.
-    end subroutine
-    
-    ! Find the QR decomposition of a complex matrix.
-    ! N.B. the output is given in terms of reflectors.
-    subroutine zgeqrf(m,n,a,lda,tau,work,lwork,info)
-      import :: dp
-      implicit none
-      
-      integer,     intent(in)    :: m        ! size(a,1).
-      integer,     intent(in)    :: n        ! size(a,2).
-      integer,     intent(in)    :: lda      ! The leading dimension of a.
-      complex(dp), intent(inout) :: a(lda,*) ! Matrix a. Also R and reflectors.
-      complex(dp), intent(out)   :: tau(*)   ! Factors of reflectors.
-      complex(dp), intent(out)   :: work(*)  ! work(1) = optimal lwork.
-      integer,     intent(in)    :: lwork    ! The length of work.
-      integer,     intent(out)   :: info     ! 0 on success.
-    end subroutine
-    
-    ! Convert reflectors into the Q matrix.
-    subroutine dorgqr(m,n,k,a,lda,tau,work,lwork,info)
-      import :: dp
-      implicit none
-      
-      integer,  intent(in)    :: m        ! size(a,1).
-      integer,  intent(in)    :: n        ! size(a,2).
-      integer,  intent(in)    :: k        ! No. reflectors.
-      integer,  intent(in)    :: lda      ! The leading dimension of a.
-      real(dp), intent(inout) :: a(lda,*) ! The matrix a. Also the output.
-      real(dp), intent(in)    :: tau(*)   ! Factors of reflectors.
-      real(dp), intent(out)   :: work(*)  ! work(1) = optimal lwork.
-      integer,  intent(in)    :: lwork    ! The length of work.
-      integer,  intent(out)   :: info     ! 0 on success.
-    end subroutine
-    
-    ! Convert reflectors into the Q matrix.
-    subroutine zungqr(m,n,k,a,lda,tau,work,lwork,info)
-      import :: dp
-      implicit none
-      
-      integer,     intent(in)    :: m        ! size(a,1).
-      integer,     intent(in)    :: n        ! size(a,2).
-      integer,     intent(in)    :: k        ! No. reflectors.
-      integer,     intent(in)    :: lda      ! The leading dimension of a.
-      complex(dp), intent(inout) :: a(lda,*) ! The matrix a. Also the output.
-      complex(dp), intent(in)    :: tau(*)   ! Factors of reflectors.
-      complex(dp), intent(out)   :: work(*)  ! work(1) = optimal lwork.
-      integer,     intent(in)    :: lwork    ! The length of work.
-      integer,     intent(out)   :: info     ! 0 on success.
-    end subroutine
   end interface
 contains
 
