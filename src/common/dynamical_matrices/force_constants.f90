@@ -56,13 +56,14 @@ contains
 ! => F = sum(x,s)[f'^x'] . inverse( sum(x,s)[x'^x'] )
 !
 ! sum(x,s)[x'^x'] is block diagonal, so can be inverted in 3x3 blocks.
-function new_ForceConstants_forces(supercell,unique_directions,sdir, &
-   & acoustic_sum_rule_forces,calculation_reader,logfile)  result(output)
+function new_ForceConstants_forces(supercell,unique_directions,          &
+   & relative_supercell_dir,acoustic_sum_rule_forces,calculation_reader, &
+   & logfile)  result(output)
   implicit none
   
   type(StructureData),     intent(in)    :: supercell
   type(UniqueDirection),   intent(in)    :: unique_directions(:)
-  type(String),            intent(in)    :: sdir
+  type(String),            intent(in)    :: relative_supercell_dir
   logical,                 intent(in)    :: acoustic_sum_rule_forces
   type(CalculationReader), intent(inout) :: calculation_reader
   type(OFile),             intent(inout) :: logfile
@@ -81,7 +82,7 @@ function new_ForceConstants_forces(supercell,unique_directions,sdir, &
   ! Read in forces (mass reduced).
   forces = read_forces( supercell,                &
                       & unique_directions,        &
-                      & sdir,                     &
+                      & relative_supercell_dir,   &
                       & acoustic_sum_rule_forces, &
                       & calculation_reader        )
   
@@ -184,13 +185,13 @@ end function
 ! ----------------------------------------------------------------------
 ! Read in forces, and mass-weight them.
 ! ----------------------------------------------------------------------
-function read_forces(supercell,unique_directions,sdir, &
+function read_forces(supercell,unique_directions,relative_supercell_dir, &
    & acoustic_sum_rule_forces,calculation_reader) result(output)
   implicit none
   
   type(StructureData),     intent(in)    :: supercell
   type(UniqueDirection),   intent(in)    :: unique_directions(:)
-  type(String),            intent(in)    :: sdir
+  type(String),            intent(in)    :: relative_supercell_dir
   logical,                 intent(in)    :: acoustic_sum_rule_forces
   type(CalculationReader), intent(inout) :: calculation_reader
   type(RealVector), allocatable          :: output(:,:)
@@ -214,9 +215,14 @@ function read_forces(supercell,unique_directions,sdir, &
     atom = supercell%atoms(unique_directions(i)%atom_id)
     direction = unique_directions(i)%direction
     atom_string = left_pad(atom%id(),str(supercell%no_atoms_prim))
-    directory = sdir//'/atom.'//atom_string//'.'//direction
+    directory = relative_supercell_dir//'/atom.'//atom_string//'.'//direction
     
     electronic_structure = calculation_reader%read_calculation(directory)
+    if (size(electronic_structure%forces%vectors)/=supercell%no_atoms) then
+      call print_line( ERROR//': Wrong number of forces in '//directory// &
+                     & '/electronic_structure.dat')
+      call err()
+    endif
     output(:,i) = electronic_structure%forces%vectors
     
     ! Enforce continuous translational symmetry,

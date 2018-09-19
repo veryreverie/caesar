@@ -73,6 +73,8 @@ subroutine write_calculation(this,structure,directory)
   type(StructureData),      intent(in)    :: structure
   type(String),             intent(in)    :: directory
   
+  type(String) :: absolute_directory
+  
   type(OFile) :: structure_file
   
   ! Check that the directory has not already been written to by this class.
@@ -84,16 +86,27 @@ subroutine write_calculation(this,structure,directory)
     call err()
   endif
   
+  ! Check that the given directory is a relative path.
+  if (slice(directory,1,1)=='/' .or. slice(directory,1,1)=='~') then
+    call print_line(CODE_ERROR//': Trying to write an electronic structure &
+       &calculation to a directory specified by an absolute path. Paths &
+       &should be given relative to the working directory to allow for &
+       &different modes to be run on different machines. Directory given: '// &
+       & directory)
+    call err()
+  endif
+  
   ! Make the directory, and add a structure.dat file and
   !    an electronic structure input file.
-  call mkdir(directory)
-  structure_file = OFile(directory//'/structure.dat')
+  absolute_directory = this%working_directory_//'/'//directory
+  call mkdir(absolute_directory)
+  structure_file = OFile(absolute_directory//'/structure.dat')
   call structure_file%print_lines(structure)
   call StructureData_to_input_file(                        &
      & this%file_type_,                                    &
      & structure,                                          &
      & this%working_directory_//'/'//this%input_filename_, &
-     & directory//'/'//this%input_filename_                )
+     & absolute_directory//'/'//this%input_filename_       )
   
   ! Record the directory.
   this%directories_ = [this%directories_, directory]

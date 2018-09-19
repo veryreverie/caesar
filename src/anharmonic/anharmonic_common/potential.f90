@@ -57,8 +57,9 @@ module potential_module
   end type
   
   abstract interface
-    subroutine generate_sampling_points_PotentialData(this,inputs, &
-       & sampling_points_dir,calculation_writer,logfile)
+    subroutine generate_sampling_points_PotentialData(this,inputs,            &
+       & relative_sampling_points_dir,sampling_points_dir,calculation_writer, &
+       & logfile)
       import PotentialData
       import AnharmonicData
       import String
@@ -68,14 +69,15 @@ module potential_module
       
       class(PotentialData),    intent(inout) :: this
       type(AnharmonicData),    intent(in)    :: inputs
+      type(String),            intent(in)    :: relative_sampling_points_dir
       type(String),            intent(in)    :: sampling_points_dir
       type(CalculationWriter), intent(inout) :: calculation_writer
       type(OFile),             intent(inout) :: logfile
     end subroutine
     
-    subroutine generate_potential_PotentialData(this,inputs,                 &
-       & weighted_energy_force_ratio,sampling_points_dir,calculation_reader, &
-       & logfile)
+    subroutine generate_potential_PotentialData(this,inputs,       &
+       & weighted_energy_force_ratio,relative_sampling_points_dir, &
+       & sampling_points_dir,calculation_reader,logfile)
       import dp
       import PotentialData
       import AnharmonicData
@@ -87,6 +89,7 @@ module potential_module
       class(PotentialData),    intent(inout) :: this
       type(AnharmonicData),    intent(in)    :: inputs
       real(dp),                intent(in)    :: weighted_energy_force_ratio
+      type(String),            intent(in)    :: relative_sampling_points_dir
       type(String),            intent(in)    :: sampling_points_dir
       type(CalculationReader), intent(inout) :: calculation_reader
       type(OFile),             intent(inout) :: logfile

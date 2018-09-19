@@ -207,7 +207,7 @@ subroutine converge_cutoff_and_kpoints_subroutine(arguments)
                                         & no_cores          = no_cores,      &
                                         & calculation_type  = str('none')    )
   
-  calculation_reader = CalculationReader()
+  calculation_reader = CalculationReader(wd)
   
   ! --------------------------------------------------
   ! Read .cell and .param files.

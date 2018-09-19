@@ -71,8 +71,6 @@ subroutine run_anharmonic_subroutine(arguments)
   
   ! Previous inputs.
   type(Dictionary) :: setup_harmonic_arguments
-  type(Dictionary) :: setup_anharmonic_arguments
-  type(String)     :: harmonic_path
   type(String)     :: file_type
   type(String)     :: seedname
   
@@ -93,16 +91,10 @@ subroutine run_anharmonic_subroutine(arguments)
   no_cores = int(arguments%value('no_cores'))
   calculation_type = arguments%value('calculation_type')
   
-  ! Read in setup_anharmonic settings.
-  setup_anharmonic_arguments = Dictionary(setup_anharmonic())
-  call setup_anharmonic_arguments%read_file( &
-     & wd//'/setup_anharmonic.used_settings')
-  harmonic_path = setup_anharmonic_arguments%value('harmonic_path')
-  
   ! Read in setup_harmonic settings.
   setup_harmonic_arguments = Dictionary(setup_harmonic())
   call setup_harmonic_arguments%read_file( &
-     & harmonic_path//'/setup_harmonic.used_settings')
+     & wd//'/setup_harmonic.used_settings' )
   file_type = setup_harmonic_arguments%value('file_type')
   seedname = setup_harmonic_arguments%value('seedname')
   

@@ -80,8 +80,9 @@ subroutine run_harmonic_subroutine(arguments)
   type(IFile)  :: structure_file
   type(IFile)  :: no_supercells_file
   type(IFile)  :: unique_directions_file
-  type(String) :: dir
-  type(String) :: sdir
+  type(String) :: relative_supercell_dir
+  type(String) :: supercell_dir
+  type(String) :: relative_run_dir
   
   ! Temporary variables.
   integer :: i,j,ialloc
@@ -154,9 +155,10 @@ subroutine run_harmonic_subroutine(arguments)
   ! --------------------------------------------------
   ! Loop over supercells.
   do i=supercells_to_run(1),supercells_to_run(2)
-    sdir = wd//'/Supercell_'//left_pad(i,str(no_supercells))
+    relative_supercell_dir = 'Supercell_'//left_pad(i,str(no_supercells))
+    supercell_dir = wd//'/'//relative_supercell_dir
     
-    unique_directions_file = IFile(sdir//'/unique_directions.dat')
+    unique_directions_file = IFile(supercell_dir//'/unique_directions.dat')
     unique_directions = UniqueDirection(unique_directions_file%sections())
     
     ! Loop over displacements within each supercell.
@@ -165,10 +167,11 @@ subroutine run_harmonic_subroutine(arguments)
       direction = unique_directions(j)%direction
       atom_string = left_pad(atom, str(maxval(unique_directions%atom_id)))
       
-      dir = sdir//'/atom.'//atom_string//'.'//direction
+      relative_run_dir = relative_supercell_dir// &
+                       & '/atom.'//atom_string//'.'//direction
       
       ! Run calculation at each displacement.
-      call calculation_runner%run_calculation(dir)
+      call calculation_runner%run_calculation(relative_run_dir)
     enddo
     
     deallocate(unique_directions, stat=ialloc); call err(ialloc)

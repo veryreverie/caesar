@@ -125,6 +125,7 @@ subroutine setup_anharmonic_subroutine(arguments)
   
   ! Directories.
   type(String) :: qpoint_dir
+  type(String) :: relative_sampling_points_dir
   type(String) :: sampling_points_dir
   
   ! Input files.
@@ -170,6 +171,7 @@ subroutine setup_anharmonic_subroutine(arguments)
      & harmonic_path//'/setup_harmonic.used_settings')
   seedname = setup_harmonic_arguments%value('seedname')
   file_type = setup_harmonic_arguments%value('file_type')
+  call setup_harmonic_arguments%write_file(wd//'/setup_harmonic.used_settings')
   
   ! Read in structure and harmonic q-points.
   structure_file = IFile(harmonic_path//'/structure.dat')
@@ -292,6 +294,7 @@ subroutine setup_anharmonic_subroutine(arguments)
   ! Generate and write out sampling points.
   ! ----------------------------------------------------------------------
   ! Make a directory for sampling points.
+  relative_sampling_points_dir = 'sampling_points'
   sampling_points_dir = wd//'/sampling_points'
   call mkdir(sampling_points_dir)
   
@@ -325,10 +328,11 @@ subroutine setup_anharmonic_subroutine(arguments)
   ! Generate the sampling points which will be used to map out the anharmonic
   !    Born-Oppenheimer surface in the chosen representation.
   call potential%generate_sampling_points( &
-                    & anharmonic_data,     &
-                    & sampling_points_dir, &
-                    & calculation_writer,  &
-                    & logfile              )
+           & anharmonic_data,              &
+           & relative_sampling_points_dir, &
+           & sampling_points_dir,          &
+           & calculation_writer,           &
+           & logfile                       )
   
   ! Write out calculation directories to file.
   calculation_directories_file = OFile(wd//'/calculation_directories.dat')

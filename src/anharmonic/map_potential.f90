@@ -84,36 +84,23 @@ subroutine map_potential_subroutine(arguments)
   integer              :: no_cores
   type(String)         :: calculation_type
   
-  ! Arguments to setup_anharmonic.
-  type(Dictionary) :: setup_anharmonic_arguments
-  type(String)     :: harmonic_path
-  real(dp)         :: maximum_displacement
-  real(dp)         :: frequency_of_max_displacement
-  
-  ! Arguments to calculate_normal_modes.
-  type(Dictionary) :: calculate_normal_modes_arguments
-  
   ! Arguments to setup_harmonic.
   type(Dictionary) :: setup_harmonic_arguments
   type(String)     :: seedname
   type(String)     :: file_type
   
-  ! Maximum displacement in mass-weighted co-ordinates.
-  real(dp) :: maximum_weighted_displacement
+  ! Anharmonic data.
+  type(AnharmonicData)           :: anharmonic_data
+  type(StructureData)            :: structure
+  type(StructureData)            :: anharmonic_supercell
+  type(QpointData),  allocatable :: qpoints(:)
+  type(ComplexMode), allocatable :: complex_modes(:)
+  type(RealMode),    allocatable :: real_modes(:)
+  real(dp)                       :: frequency_of_max_displacement
+  real(dp)                       :: maximum_weighted_displacement
   
   ! Selected real modes.
   type(RealMode), allocatable :: selected_modes(:)
-  
-  ! Primitive structure.
-  type(StructureData) :: structure
-  
-  ! Large anharmonic supercell and its q-points.
-  type(StructureData)           :: anharmonic_supercell
-  type(QpointData), allocatable :: qpoints(:)
-  
-  ! Normal modes.
-  type(ComplexMode), allocatable :: complex_modes(:)
-  type(RealMode),    allocatable :: real_modes(:)
   
   ! Anharmonic potential.
   type(PotentialPointer) :: potential
@@ -144,16 +131,14 @@ subroutine map_potential_subroutine(arguments)
   type(ElectronicStructure)   :: electronic_structure
   
   ! Files and directories.
-  type(IFile)  :: structure_file
-  type(IFile)  :: anharmonic_supercell_file
-  type(IFile)  :: qpoints_file
-  type(IFile)  :: complex_modes_file
-  type(IFile)  :: real_modes_file
+  type(IFile)  :: anharmonic_data_file
   type(IFile)  :: potential_file
+  type(String) :: relative_map_dir
   type(String) :: map_dir
+  type(String) :: relative_modes_dir
   type(String) :: modes_dir
   type(OFile)  :: supercell_file
-  type(String) :: displacement_dir
+  type(String) :: relative_displacement_dir
   type(OFile)  :: output_file
   
   ! Temporary variables.
@@ -174,45 +159,24 @@ subroutine map_potential_subroutine(arguments)
   no_cores = int(arguments%value('no_cores'))
   calculation_type = arguments%value('calculation_type')
   
-  ! Read in setup_anharmonic arguments.
-  setup_anharmonic_arguments = Dictionary(setup_anharmonic())
-  call setup_anharmonic_arguments%read_file( &
-     & wd//'/setup_anharmonic.used_settings')
-  harmonic_path = setup_anharmonic_arguments%value('harmonic_path')
-  maximum_displacement = &
-     & dble(setup_anharmonic_arguments%value('maximum_displacement'))
-  frequency_of_max_displacement = &
-     & dble(setup_anharmonic_arguments%value('frequency_of_max_displacement'))
-  
-  ! Read in calculate_normal_modes arguments.
-  calculate_normal_modes_arguments = Dictionary(calculate_normal_modes())
-  call calculate_normal_modes_arguments%read_file( &
-     & harmonic_path//'/calculate_normal_modes.used_settings')
-  
   ! Read in setup_harmonic arguments.
   setup_harmonic_arguments = Dictionary(setup_harmonic())
   call setup_harmonic_arguments%read_file( &
-     & harmonic_path//'/setup_harmonic.used_settings')
+     & wd//'/setup_harmonic.used_settings' )
   seedname = setup_harmonic_arguments%value('seedname')
   file_type = setup_harmonic_arguments%value('file_type')
   
-  ! Read in structure.
-  structure_file = IFile(harmonic_path//'/structure.dat')
-  structure = StructureData(structure_file%lines())
+  ! Read in anharmonic data.
+  anharmonic_data_file = IFile(wd//'/anharmonic_data.dat')
+  anharmonic_data = AnharmonicData(anharmonic_data_file%lines())
   
-  ! Read in large anharmonic supercell and its q-points.
-  anharmonic_supercell_file = IFile(wd//'/anharmonic_supercell.dat')
-  anharmonic_supercell = StructureData(anharmonic_supercell_file%lines())
-  
-  qpoints_file = IFile(wd//'/qpoints.dat')
-  qpoints = QpointData(qpoints_file%sections())
-  
-  ! Read in normal modes.
-  complex_modes_file = IFile(wd//'/complex_modes.dat')
-  complex_modes = ComplexMode(complex_modes_file%sections())
-  
-  real_modes_file = IFile(wd//'/real_modes.dat')
-  real_modes = RealMode(real_modes_file%sections())
+  structure = anharmonic_data%structure
+  anharmonic_supercell = anharmonic_data%anharmonic_supercell
+  qpoints = anharmonic_data%qpoints
+  complex_modes = anharmonic_data%complex_modes
+  real_modes = anharmonic_data%real_modes
+  frequency_of_max_displacement = anharmonic_data%frequency_of_max_displacement
+  maximum_weighted_displacement = anharmonic_data%maximum_weighted_displacement
   
   ! Read in anharmonic potential.
   potential_file = IFile(wd//'/potential.dat')
@@ -233,18 +197,13 @@ subroutine map_potential_subroutine(arguments)
      & no_cores          = no_cores,        &
      & calculation_type  = calculation_type )
   
-  calculation_reader = CalculationReader()
-  
-  ! --------------------------------------------------
-  ! Re-calculate maximum_weighted_displacement.
-  ! --------------------------------------------------
-  maximum_weighted_displacement = maximum_displacement &
-                              & * sqrt(minval(structure%atoms%mass()))
+  calculation_reader = CalculationReader(wd)
   
   ! --------------------------------------------------
   ! Calculate effective harmonic potential, from which initial harmonic
   !    states are constructed.
   ! --------------------------------------------------
+  relative_map_dir = 'mapped_potential'
   map_dir = wd//'/mapped_potential'
   call mkdir(map_dir)
   
@@ -274,6 +233,11 @@ subroutine map_potential_subroutine(arguments)
           & stat=ialloc); call err(ialloc)
   do i=1,size(selected_modes)
     do j=i+1,size(selected_modes)
+      relative_modes_dir = relative_map_dir//'/modes_'//         &
+                & left_pad( selected_modes(i)%id,                &
+                &           str(maxval(real_modes%id)) ) //'_'// &
+                & left_pad( selected_modes(j)%id,                &
+                &           str(maxval(real_modes%id)) )
       modes_dir = map_dir//'/modes_'//                           &
                 & left_pad( selected_modes(i)%id,                &
                 &           str(maxval(real_modes%id)) ) //'_'// &
@@ -327,14 +291,16 @@ subroutine map_potential_subroutine(arguments)
                                                 & qpoints          )
             displaced_structure = displace_structure(supercell,displacement)
             
-            displacement_dir = modes_dir//'/displacement_'//               &
-                             & left_pad(k,str(size(displacements)))//'_'// &
+            relative_displacement_dir = relative_modes_dir               // &
+                             & '/displacement_'                          // &
+                             & left_pad(k,str(size(displacements)))//'_' // &
                              & left_pad(l,str(size(displacements)))
-            call calculation_writer%write_calculation( displaced_structure, &
-                                                     & displacement_dir     )
-            call calculation_runner%run_calculation(displacement_dir)
+            call calculation_writer%write_calculation( &
+                       & displaced_structure,          &
+                       & relative_displacement_dir     )
+            call calculation_runner%run_calculation(relative_displacement_dir)
             electronic_structure = calculation_reader%read_calculation( &
-                                                     & displacement_dir )
+                                            & relative_displacement_dir )
             
             sampled_energy(l,k) = electronic_structure%energy &
                               & / supercell%sc_size

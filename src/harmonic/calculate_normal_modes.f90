@@ -90,22 +90,24 @@ subroutine calculate_normal_modes_subroutine(arguments)
   
   type(ComplexMode), allocatable :: complex_modes(:,:)
   
-  ! Files.
-  type(IFile) :: structure_file
-  type(IFile) :: large_supercell_file
-  type(IFile) :: qpoints_file
-  type(IFile) :: no_supercells_file
-  type(IFile) :: supercell_file
-  type(IFile) :: unique_directions_file
-  type(OFile) :: dynamical_matrix_file
-  type(OFile) :: complex_modes_file
-  type(OFile) :: force_logfile
-  type(OFile) :: qpoint_logfile
-  type(OFile) :: phonon_file
+  ! Files and directories.
+  type(IFile)  :: structure_file
+  type(IFile)  :: large_supercell_file
+  type(IFile)  :: qpoints_file
+  type(IFile)  :: no_supercells_file
+  type(IFile)  :: supercell_file
+  type(IFile)  :: unique_directions_file
+  type(String) :: relative_supercell_dir
+  type(String) :: supercell_dir
+  type(String) :: qpoint_dir
+  type(OFile)  :: dynamical_matrix_file
+  type(OFile)  :: complex_modes_file
+  type(OFile)  :: force_logfile
+  type(OFile)  :: qpoint_logfile
+  type(OFile)  :: phonon_file
   
   ! Temporary variables.
   integer      :: i,j,k,ialloc
-  type(String) :: sdir,qdir
   
   ! --------------------------------------------------
   ! Read in arguments from user.
@@ -156,7 +158,7 @@ subroutine calculate_normal_modes_subroutine(arguments)
   ! --------------------------------------------------
   ! Initialise calculation reader.
   ! --------------------------------------------------
-  calculation_reader = CalculationReader()
+  calculation_reader = CalculationReader(wd)
   
   ! --------------------------------------------------
   ! Calculate the matrix of force constants corresponding to each supercell.
@@ -166,20 +168,21 @@ subroutine calculate_normal_modes_subroutine(arguments)
           & stat=ialloc); call err(ialloc)
   force_logfile = OFile(wd//'/force_constants_log.dat')
   do i=1,no_supercells
-    sdir = wd//'/Supercell_'//left_pad(i,str(no_supercells))
+    relative_supercell_dir = 'Supercell_'//left_pad(i,str(no_supercells))
+    supercell_dir = wd//'/'//relative_supercell_dir
     
     ! Read in supercell structure data.
-    supercell_file = IFile(sdir//'/structure.dat')
+    supercell_file = IFile(supercell_dir//'/structure.dat')
     supercells(i) = StructureData(supercell_file%lines())
     
     ! Read in symmetry group and unique atoms.
-    unique_directions_file = IFile(sdir//'/unique_directions.dat')
+    unique_directions_file = IFile(supercell_dir//'/unique_directions.dat')
     unique_directions = UniqueDirection(unique_directions_file%sections())
     
     ! Calculate force constants.
     force_constants(i) = ForceConstants( supercells(i),            &
                                        & unique_directions,        &
-                                       & sdir,                     &
+                                       & relative_supercell_dir,   &
                                        & acoustic_sum_rule_forces, &
                                        & calculation_reader,       &
                                        & force_logfile)
@@ -326,16 +329,16 @@ subroutine calculate_normal_modes_subroutine(arguments)
   allocate( complex_modes(structure%no_modes,size(qpoints)), &
           & stat=ialloc); call err(ialloc)
   do i=1,size(qpoints)
-    qdir = wd//'/qpoint_'//left_pad(i,str(size(qpoints)))
-    call mkdir(qdir)
+    qpoint_dir = wd//'/qpoint_'//left_pad(i,str(size(qpoints)))
+    call mkdir(qpoint_dir)
     
     ! Write out dynamical matrix.
-    dynamical_matrix_file = OFile(qdir//'/dynamical_matrix.dat')
+    dynamical_matrix_file = OFile(qpoint_dir//'/dynamical_matrix.dat')
     call dynamical_matrix_file%print_lines(dynamical_matrices(i))
     
     ! Write out normal modes.
     complex_modes(:,i) = dynamical_matrices(i)%complex_modes
-    complex_modes_file = OFile(qdir//'/complex_modes.dat')
+    complex_modes_file = OFile(qpoint_dir//'/complex_modes.dat')
     call complex_modes_file%print_lines( dynamical_matrices(i)%complex_modes, &
                                        & separating_line='')
   enddo

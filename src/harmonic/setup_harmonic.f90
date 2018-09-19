@@ -81,7 +81,8 @@ subroutine setup_harmonic_subroutine(arguments)
   type(StructureData)              :: supercell
   
   ! Directories.
-  type(String) :: sdir
+  type(String) :: relative_supercell_dir
+  type(String) :: supercell_dir
   type(String) :: path
   
   ! Perturbation direction information.
@@ -165,19 +166,21 @@ subroutine setup_harmonic_subroutine(arguments)
   
   ! Loop over supercells.
   do i=1,no_supercells
-    sdir=wd//'/Supercell_'//left_pad(i,str(no_supercells))
+    relative_supercell_dir = 'Supercell_'//left_pad(i,str(no_supercells))
+    supercell_dir = wd//'/'//relative_supercell_dir
     
-    call mkdir(sdir)
+    call mkdir(supercell_dir)
     
     ! Write out structure files.
     supercell = supercells(i)
-    supercell_file = OFile(sdir//'/structure.dat')
+    supercell_file = OFile(supercell_dir//'/structure.dat')
     call supercell_file%print_lines(supercell)
     
     ! Calculate which forces need calculating.
-    unique_directions = calculate_unique_directions( supercell, &
-                                                   & harmonic_displacement)
-    unique_directions_file = OFile(sdir//'/unique_directions.dat')
+    unique_directions = calculate_unique_directions( supercell,            &
+                                                   & harmonic_displacement )
+    unique_directions_file = OFile(              &
+       & supercell_dir//'/unique_directions.dat' )
     call unique_directions_file%print_lines( unique_directions, &
                                            & separating_line='')
     
@@ -191,7 +194,7 @@ subroutine setup_harmonic_subroutine(arguments)
       
       ! Write calculation input files.
       path =                                                     &
-         & sdir                                               // &
+         & relative_supercell_dir                             // &
          & '/atom.'                                           // &
          & left_pad( unique_directions(j)%atom_id,               &
          &           str(maxval(unique_directions%atom_id)) ) // &
