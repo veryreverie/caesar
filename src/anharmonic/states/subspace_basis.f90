@@ -16,10 +16,23 @@ module subspace_basis_module
   public :: generate_subspace_basis
   
   ! Conversions between bases of states.
-  !type, extends(Stringable) :: StateConversion
-  !  integer,  allocatable :: ids(:)
-  !  real(dp), allocatable :: coefficients(:)
-  !end type
+  type, extends(Stringable) :: StateConversion
+    integer,  allocatable :: ids(:)
+    real(dp), allocatable :: coefficients(:)
+  contains
+    ! I/O.
+    procedure, public :: read  => read_StateConversion
+    procedure, public :: write => write_StateConversion
+  end type
+  
+  interface StateConversion
+    module procedure new_StateConversion
+    module procedure new_StateConversion_String
+  end interface
+  
+  interface size
+    module procedure size_StateConversion
+  end interface
   
   ! The states at a single wavevector.
   type, extends(Stringsable) :: SubspaceWavevectorBasis
@@ -30,19 +43,13 @@ module subspace_basis_module
     type(FractionVector) :: wavevector
     ! The states at the wavevector.
     type(MonomialState), allocatable :: states(:)
-    ! Conversion matrices from the stored states(:) (which are normalised
-    !    but not in general orthogonal) to an orthonormal harmonic basis,
-    !    and back again.
-    type(RealMatrix), private :: states_to_basis_
-    type(RealMatrix), private :: basis_to_states_
+    ! Conversions between the states(:) in which calculations are performed
+    !    and the orthonormal harmonic basis, and vice versa.
+    type(StateConversion), allocatable, private :: states_to_basis_(:)
+    type(StateConversion), allocatable, private :: basis_to_states_(:)
     ! The occupations of the harmonic basis states.
     ! e.g. the occupation of |0> is zero, and the occupation of |2,4> is 6.
     integer, allocatable :: harmonic_occupations(:)
-    
-    type(IntArray1D), allocatable, private :: states_to_basis_ids_(:)
-    type(RealVector), allocatable, private :: states_to_basis_coefficients_(:)
-    type(IntArray1D), allocatable, private :: basis_to_states_ids_(:)
-    type(RealVector), allocatable, private :: basis_to_states_coefficients_(:)
   contains
     ! Set the frequency of the basis.
     procedure, public :: set_frequency => set_frequency_SubspaceWavevectorBasis
@@ -95,41 +102,56 @@ module subspace_basis_module
 contains
 
 ! Constructors and size functions.
-function new_SubspaceWavevectorBasis(subspace_id,frequency,wavevector,states, &
-   & states_to_basis,basis_to_states,harmonic_occupations) result(this)!,                    &
-!   & states_to_basis_ids,states_to_basis_coefficients,basis_to_states_ids,    &
-!   & basis_to_states_coefficients) result(this)
+function new_StateConversion(ids,coefficients) result(this)
   implicit none
   
-  integer,              intent(in) :: subspace_id
-  real(dp),             intent(in) :: frequency
-  type(FractionVector), intent(in) :: wavevector
-  type(MonomialState),  intent(in) :: states(:)
-  type(RealMatrix),     intent(in) :: states_to_basis
-  type(RealMatrix),     intent(in) :: basis_to_states
-  integer,              intent(in) :: harmonic_occupations(:)
-!  type(IntArray1D),     intent(in) :: states_to_basis_ids(:)
-!  type(RealVector),     intent(in) :: states_to_basis_coefficients(:)
-!  type(IntArray1D),     intent(in) :: basis_to_states_ids(:)
-!  type(RealVector),     intent(in) :: basis_to_states_coefficients(:)
-  type(SubspaceWavevectorBasis)    :: this
+  integer,  intent(in)  :: ids(:)
+  real(dp), intent(in)  :: coefficients(:)
+  type(StateConversion) :: this
+  
+  if (size(ids)/=size(coefficients)) then
+    call print_line(CODE_ERROR//': ids and coefficients do not match.')
+    call err()
+  endif
+  
+  this%ids          = ids
+  this%coefficients = coefficients
+end function
+
+function size_StateConversion(this) result(output)
+  implicit none
+  
+  type(StateConversion), intent(in) :: this
+  integer                           :: output
+  
+  output = size(this%ids)
+end function
+
+function new_SubspaceWavevectorBasis(subspace_id,frequency,wavevector,states, &
+   & states_to_basis,basis_to_states,harmonic_occupations) result(this)
+  implicit none
+  
+  integer,               intent(in) :: subspace_id
+  real(dp),              intent(in) :: frequency
+  type(FractionVector),  intent(in) :: wavevector
+  type(MonomialState),   intent(in) :: states(:)
+  type(StateConversion), intent(in) :: states_to_basis(:)
+  type(StateConversion), intent(in) :: basis_to_states(:)
+  integer,               intent(in) :: harmonic_occupations(:)
+  type(SubspaceWavevectorBasis)     :: this
   
   if (any(states%subspace_id/=subspace_id)) then
     call print_line(CODE_ERROR//": Subspaces don't match.")
     call err()
   endif
   
-  this%subspace_id                   = subspace_id
-  this%frequency                     = frequency
-  this%wavevector                    = wavevector
-  this%states                        = states
-  this%states_to_basis_              = states_to_basis
-  this%basis_to_states_              = basis_to_states
-  this%harmonic_occupations          = harmonic_occupations
-!  this%states_to_basis_ids_          = states_to_basis_ids
-!  this%states_to_basis_coefficients_ = states_to_basis_coefficients
-!  this%basis_to_states_ids_          = basis_to_states_ids
-!  this%basis_to_states_coefficients_ = basis_to_states_coefficients
+  this%subspace_id          = subspace_id
+  this%frequency            = frequency
+  this%wavevector           = wavevector
+  this%states               = states
+  this%states_to_basis_     = states_to_basis
+  this%basis_to_states_     = basis_to_states
+  this%harmonic_occupations = harmonic_occupations
 end function
 
 function new_SubspaceBasis(subspace_id,frequency,wavevectors) result(this)
@@ -228,6 +250,9 @@ function generate_subspace_basis(subspace,frequency,modes,qpoints, &
   type(IntArray1D), allocatable :: basis_to_states_ids(:)
   type(RealVector), allocatable :: states_to_basis_coefficients(:)
   type(RealVector), allocatable :: basis_to_states_coefficients(:)
+  
+  type(StateConversion), allocatable :: states_to_basis_2(:)
+  type(StateConversion), allocatable :: basis_to_states_2(:)
   
   ! Output variables.
   type(SubspaceWavevectorBasis), allocatable :: wavevector_bases(:)
@@ -370,13 +395,25 @@ function generate_subspace_basis(subspace,frequency,modes,qpoints, &
                 & stat=ialloc); call err(ialloc)
     enddo
     
+    allocate( states_to_basis_2(size(wavevector_state_ids(i))), &
+            & basis_to_states_2(size(wavevector_state_ids(i))), &
+            & stat=ialloc); call err(ialloc)
     do j=1,size(states_to_basis,1)
       states_to_basis_ids(j) = filter(abs(states_to_basis(j,:))>1e-10_dp)
       states_to_basis_coefficients(j) = &
          & states_to_basis(j,states_to_basis_ids(j)%i)
+      
       basis_to_states_ids(j) = filter(abs(basis_to_states(j,:))>1e-10_dp)
       basis_to_states_coefficients(j) = &
          & basis_to_states(j,basis_to_states_ids(j)%i)
+      
+      states_to_basis_2(j) = StateConversion(    &
+         & states_to_basis_ids(j)%i,             &
+         & dble(states_to_basis_coefficients(j)) )
+    
+      basis_to_states_2(j) = StateConversion(    &
+         & basis_to_states_ids(j)%i,             &
+         & dble(basis_to_states_coefficients(j)) )
     enddo
     
     wavevector_bases(i) = SubspaceWavevectorBasis( &
@@ -384,13 +421,9 @@ function generate_subspace_basis(subspace,frequency,modes,qpoints, &
                    & frequency,                    &
                    & unique_wavevectors(i)%qpoint, &
                    & wavevector_states,            &
-                   & mat(states_to_basis),         &
-                   & mat(basis_to_states),         &
-                   & harmonic_occupations)!,         &
-!                   & states_to_basis_ids,          &
-!                   & states_to_basis_coefficients, &
-!                   & basis_to_states_ids,          &
-!                   & basis_to_states_coefficients  )
+                   & states_to_basis_2,            &
+                   & basis_to_states_2,            &
+                   & harmonic_occupations          )
     
     deallocate( states_to_basis,              &
               & basis_to_states,              &
@@ -399,6 +432,8 @@ function generate_subspace_basis(subspace,frequency,modes,qpoints, &
               & states_to_basis_coefficients, &
               & basis_to_states_ids,          &
               & basis_to_states_coefficients, &
+              & states_to_basis_2,            &
+              & basis_to_states_2,            &
               & stat=ialloc); call err(ialloc)
   enddo
   
@@ -428,9 +463,6 @@ end function
 ! ----------------------------------------------------------------------
 ! Transform coefficients between monomial states and the orthonormal basis.
 ! ----------------------------------------------------------------------
-! N.B. the private matrices states_to_basis_ and basis_to_states_ define how
-!    the states themselves transform. The coefficients transform as the inverse
-!    transpose of this.
 function coefficients_states_to_basis(this,coefficients) result(output)
   implicit none
   
@@ -438,7 +470,16 @@ function coefficients_states_to_basis(this,coefficients) result(output)
   real(dp),                       intent(in) :: coefficients(:)
   real(dp), allocatable                      :: output(:)
   
-  output = dble(transpose(this%basis_to_states_) * vec(coefficients))
+  integer :: i
+  
+  output = [( 0.0_dp, i=1, size(this) )]
+  
+  do i=1,size(this)
+    output(this%basis_to_states_(i)%ids) =      &
+       &   output(this%basis_to_states_(i)%ids) &
+       & + coefficients(i)                      &
+       & * this%basis_to_states_(i)%coefficients
+  enddo
 end function
 
 function coefficients_basis_to_states(this,coefficients) result(output)
@@ -448,7 +489,16 @@ function coefficients_basis_to_states(this,coefficients) result(output)
   real(dp),                       intent(in) :: coefficients(:)
   real(dp), allocatable                      :: output(:)
   
-  output = dble(transpose(this%states_to_basis_) * vec(coefficients))
+  integer :: i
+  
+  output = [( 0.0_dp, i=1, size(this) )]
+  
+  do i=1,size(this)
+      output(this%states_to_basis_(i)%ids) =      &
+         &   output(this%states_to_basis_(i)%ids) &
+         & + coefficients(i)                      &
+         & * this%states_to_basis_(i)%coefficients
+  enddo
 end function
 
 ! ----------------------------------------------------------------------
@@ -461,9 +511,18 @@ function operator_states_to_basis(this,operator) result(output)
   real(dp),                       intent(in) :: operator(:,:)
   real(dp), allocatable                      :: output(:,:)
   
-  output = dble( this%states_to_basis_            &
-             & * mat(operator)                    &
-             & * transpose(this%states_to_basis_) )
+  integer :: i,j,ialloc
+  
+  allocate(output(size(this), size(this)), stat=ialloc); call err(ialloc)
+  output = 0.0_dp
+  do i=1,size(this)
+    do j=1,size(this)
+      output(j,i) = dble( vec(this%states_to_basis_(j)%coefficients)    &
+                      & * mat(operator( this%states_to_basis_(j)%ids,   &
+                      &                 this%states_to_basis_(i)%ids )) &
+                      & * vec(this%states_to_basis_(i)%coefficients)    )
+    enddo
+  enddo
 end function
 
 function operator_basis_to_states(this,operator) result(output)
@@ -473,27 +532,93 @@ function operator_basis_to_states(this,operator) result(output)
   real(dp),                       intent(in) :: operator(:,:)
   real(dp), allocatable                      :: output(:,:)
   
-  output = dble( this%basis_to_states_            &
-             & * mat(operator)                    &
-             & * transpose(this%basis_to_states_) )
+  integer :: i,j,ialloc
+  
+  allocate(output(size(this), size(this)), stat=ialloc); call err(ialloc)
+  output = 0.0_dp
+  do i=1,size(this)
+    do j=1,size(this)
+      output(j,i) = dble( vec(this%basis_to_states_(j)%coefficients)    &
+                      & * mat(operator( this%basis_to_states_(j)%ids,   &
+                      &                 this%basis_to_states_(i)%ids )) &
+                      & * vec(this%basis_to_states_(i)%coefficients)    )
+    enddo
+  enddo
 end function
 
 ! ----------------------------------------------------------------------
 ! I/O.
 ! ----------------------------------------------------------------------
+subroutine read_StateConversion(this,input)
+  implicit none
+  
+  class(StateConversion), intent(out) :: this
+  type(String),           intent(in)  :: input
+  
+  integer,  allocatable :: ids(:)
+  real(dp), allocatable :: coefficients(:)
+  
+  type(String), allocatable :: states(:)
+  type(String), allocatable :: line(:)
+  
+  integer :: i,ialloc
+  
+  select type(this); type is(StateConversion)
+    states = split_line(input)
+    allocate( ids(size(states)),          &
+            & coefficients(size(states)), &
+            & stat=ialloc); call err(ialloc)
+    do i=1,size(states)
+      line = split_line(states(i), delimiter='|')
+      coefficients(i) = dble(line(1))
+      ids(i) = int(slice(line(2),1,len(line(2))-1))
+    enddo
+    
+    this = StateConversion(ids, coefficients)
+  class default
+    call err()
+  end select
+end subroutine
+
+function write_StateConversion(this) result(output)
+  implicit none
+  
+  class(StateConversion), intent(in) :: this
+  type(String)                       :: output
+  
+  integer :: i
+  
+  select type(this); type is(StateConversion)
+    output = join([( this%coefficients(i)//'|'//this%ids(i)//'>', &
+                   & i=1,                                         &
+                   & size(this)                                   )])
+  class default
+    call err()
+  end select
+end function
+
+function new_StateConversion_String(input) result(this)
+  implicit none
+  
+  type(String), intent(in) :: input
+  type(StateConversion)    :: this
+  
+  call this%read(input)
+end function
+
 subroutine read_SubspaceWavevectorBasis(this,input)
   implicit none
   
   class(SubspaceWavevectorBasis), intent(out) :: this
   type(String),                   intent(in)  :: input(:)
   
-  integer                          :: subspace_id
-  real(dp)                         :: frequency
-  type(FractionVector)             :: wavevector
-  type(MonomialState), allocatable :: states(:)
-  integer,             allocatable :: harmonic_occupations(:)
-  type(RealMatrix)                 :: states_to_basis
-  type(RealMatrix)                 :: basis_to_states
+  integer                            :: subspace_id
+  real(dp)                           :: frequency
+  type(FractionVector)               :: wavevector
+  type(MonomialState),   allocatable :: states(:)
+  type(StateConversion), allocatable :: states_to_basis(:)
+  type(StateConversion), allocatable :: basis_to_states(:)
+  integer,               allocatable :: harmonic_occupations(:)
   
   type(String), allocatable :: line(:)
   
@@ -519,14 +644,22 @@ subroutine read_SubspaceWavevectorBasis(this,input)
       states(i) = MonomialState([input(1:2), str('State'), line(3)])
     enddo
     
-    allocate(harmonic_occupations(no_states), stat=ialloc); call err(ialloc)
+    allocate( states_to_basis(no_states), &
+            & basis_to_states(no_states), &
+            & stat=ialloc); call err(ialloc)
     do i=1,no_states
       line = split_line(input(5+no_states+i))
-      harmonic_occupations(i) = int(line(3))
+      states_to_basis(i) = StateConversion(join(line(3:)))
+      
+      line = split_line(input(6+2*no_states+i))
+      basis_to_states(i) = StateConversion(join(line(3:)))
     enddo
     
-    states_to_basis = RealMatrix(input(7+2*no_states:6+3*no_states))
-    basis_to_states = RealMatrix(input(8+3*no_states:7+4*no_states))
+    allocate(harmonic_occupations(no_states), stat=ialloc); call err(ialloc)
+    do i=1,no_states
+      line = split_line(input(7+3*no_states+i))
+      harmonic_occupations(i) = int(line(3))
+    enddo
     
     this = SubspaceWavevectorBasis( subspace_id,         &
                                   & frequency,           &
@@ -559,17 +692,27 @@ function write_SubspaceWavevectorBasis(this) result(output)
       state_strings = str(this%states(i))
       output = [output, '|'//i//'> = '//state_strings(size(state_strings))]
     enddo
+    
+    output = [ output,                             &
+             & str('States to Basis Conversion') ]
+    do i=1,size(this%states_to_basis_)
+      output = [ output,                                       &
+               & '|'//i//'> = '//str(this%states_to_basis_(i)) ] 
+    enddo
+    
+    output = [ output,                             &
+             & str('Basis to States Conversion') ]
+    do i=1,size(this%basis_to_states_)
+      output = [ output,                                       &
+               & '|'//i//'> = '//str(this%basis_to_states_(i)) ] 
+    enddo
+    
     output = [ output,                     &
              & str('Harmonic occupations') ]
     do i=1,size(this%harmonic_occupations)
       output = [ output,                                      &
                & '|'//i//'> : '//this%harmonic_occupations(i) ]
     enddo
-    output = [ output,                            &
-             & str('States to Basis Conversion'), &
-             & str(this%states_to_basis_),        &
-             & str('Basis to States Conversion'), &
-             & str(this%basis_to_states_)         ]
   class default
     call err()
   end select
