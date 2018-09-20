@@ -88,14 +88,12 @@ subroutine check_PotentialPointer(this)
 end subroutine
 
 ! Wrappers for all of PotentialData's methods.
-subroutine generate_sampling_points_PotentialPointer(this,inputs,         &
-   & relative_sampling_points_dir,sampling_points_dir,calculation_writer, &
-   & logfile)
+subroutine generate_sampling_points_PotentialPointer(this,inputs, &
+   & sampling_points_dir,calculation_writer,logfile)
   implicit none
   
   class(PotentialPointer), intent(inout) :: this
   type(AnharmonicData),    intent(in)    :: inputs
-  type(String),            intent(in)    :: relative_sampling_points_dir
   type(String),            intent(in)    :: sampling_points_dir
   type(CalculationWriter), intent(inout) :: calculation_writer
   type(OFile),             intent(inout) :: logfile
@@ -103,21 +101,19 @@ subroutine generate_sampling_points_PotentialPointer(this,inputs,         &
   call this%check()
   
   call this%potential%generate_sampling_points( inputs,                       &
-                                              & relative_sampling_points_dir, &
                                               & sampling_points_dir,          &
                                               & calculation_writer,           &
                                               & logfile                       )
 end subroutine
 
-subroutine generate_potential_PotentialPointer(this,inputs,    &
-   & weighted_energy_force_ratio,relative_sampling_points_dir, &
-   & sampling_points_dir,calculation_reader,logfile)
+subroutine generate_potential_PotentialPointer(this,inputs,              &
+   & weighted_energy_force_ratio,sampling_points_dir,calculation_reader, &
+   & logfile)
   implicit none
   
   class(PotentialPointer), intent(inout) :: this
   type(AnharmonicData),    intent(in)    :: inputs
   real(dp),                intent(in)    :: weighted_energy_force_ratio
-  type(String),            intent(in)    :: relative_sampling_points_dir
   type(String),            intent(in)    :: sampling_points_dir
   type(CalculationReader), intent(inout) :: calculation_reader
   type(OFile),             intent(inout) :: logfile
@@ -126,7 +122,6 @@ subroutine generate_potential_PotentialPointer(this,inputs,    &
   
   call this%potential%generate_potential( inputs,                       &
                                         & weighted_energy_force_ratio,  &
-                                        & relative_sampling_points_dir, &
                                         & sampling_points_dir,          &
                                         & calculation_reader,           &
                                         & logfile                       )
@@ -429,13 +424,11 @@ end function
 ! Overloads of PotentialData's methods.
 ! --------------------------------------------------
 subroutine generate_sampling_points_PotentialDataExample(this,inputs,     &
-   & relative_sampling_points_dir,sampling_points_dir,calculation_writer, &
-   & logfile)
+   & sampling_points_dir,calculation_writer,logfile)
   implicit none
   
   class(PotentialDataExample), intent(inout) :: this
   type(AnharmonicData),        intent(in)    :: inputs
-  type(String),                intent(in)    :: relative_sampling_points_dir
   type(String),                intent(in)    :: sampling_points_dir
   type(CalculationWriter),     intent(inout) :: calculation_writer
   type(OFile),                 intent(inout) :: logfile
@@ -446,15 +439,14 @@ subroutine generate_sampling_points_PotentialDataExample(this,inputs,     &
   ! Code to generate sampling points goes here.
 end subroutine
 
-subroutine generate_potential_PotentialDataExample(this,inputs, &
-   & weighted_energy_force_ratio,relative_sampling_points_dir,  &
-   & sampling_points_dir,calculation_reader,logfile)
+subroutine generate_potential_PotentialDataExample(this,inputs,          &
+   & weighted_energy_force_ratio,sampling_points_dir,calculation_reader, &
+   & logfile)
   implicit none
   
   class(PotentialDataExample), intent(inout) :: this
   type(AnharmonicData),        intent(in)    :: inputs
   real(dp),                    intent(in)    :: weighted_energy_force_ratio
-  type(String),                intent(in)    :: relative_sampling_points_dir
   type(String),                intent(in)    :: sampling_points_dir
   type(CalculationReader),     intent(inout) :: calculation_reader
   type(OFile),                 intent(inout) :: logfile
@@ -602,7 +594,6 @@ subroutine potential_example_subroutine(wd)
   
   ! Variables for generate_sampling points.
   type(AnharmonicData)    :: anharmonic_data
-  type(String)            :: relative_sampling_points_dir
   type(String)            :: sampling_points_dir
   type(CalculationWriter) :: calculation_writer
   type(OFile)             :: logfile
@@ -638,7 +629,6 @@ subroutine potential_example_subroutine(wd)
   
   ! Generates sampling points, in a manner specific to the representation.
   call potential%generate_sampling_points( anharmonic_data,              &
-                                         & relative_sampling_points_dir, &
                                          & sampling_points_dir,          &
                                          & calculation_writer,           &
                                          & logfile                       )
@@ -648,7 +638,6 @@ subroutine potential_example_subroutine(wd)
   ! Generates the potential, in a manner specific to the representation.
   call potential%generate_potential( anharmonic_data,              &
                                    & weighted_energy_force_ratio,  &
-                                   & relative_sampling_points_dir, &
                                    & sampling_points_dir,          &
                                    & calculation_reader,           &
                                    & logfile                       )

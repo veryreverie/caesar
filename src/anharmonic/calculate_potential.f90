@@ -69,7 +69,6 @@ subroutine calculate_potential_subroutine(arguments)
   
   ! Files and directories.
   type(IFile)  :: anharmonic_data_file
-  type(String) :: relative_sampling_points_dir
   type(String) :: sampling_points_dir
   type(OFile)  :: logfile
   type(OFile)  :: potential_file
@@ -113,14 +112,12 @@ subroutine calculate_potential_subroutine(arguments)
   logfile = OFile(wd//'/setup_anharmonic_logfile.dat')
   
   ! Generate the potential itself.
-  relative_sampling_points_dir = 'sampling_points'
-  sampling_points_dir = wd//'/sampling_points'
-  call potential%generate_potential( anharmonic_data,              &
-                                   & weighted_energy_force_ratio,  &
-                                   & relative_sampling_points_dir, &
-                                   & sampling_points_dir,          &
-                                   & calculation_reader,           &
-                                   & logfile                       )
+  sampling_points_dir = 'sampling_points'
+  call potential%generate_potential( anharmonic_data,             &
+                                   & weighted_energy_force_ratio, &
+                                   & sampling_points_dir,         &
+                                   & calculation_reader,          &
+                                   & logfile                      )
   
   ! Write the potential to file.
   potential_file = OFile(wd//'/potential.dat')

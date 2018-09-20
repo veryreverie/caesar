@@ -120,14 +120,12 @@ subroutine map_anharmonic_modes_subroutine(arguments)
   ! Files and directories.
   type(IFile)  :: anharmonic_data_file
   type(IFile)  :: potential_file
-  type(String) :: relative_qpoint_dir
   type(String) :: qpoint_dir
   type(String) :: subspace_dir
   type(OFile)  :: supercell_file
   type(OFile)  :: mode_maps_file
-  type(String) :: relative_mode_dir
   type(String) :: mode_dir
-  type(String) :: relative_displacement_dir
+  type(String) :: displacement_dir
   
   ! Temporary variables.
   integer :: i,j,k,ialloc
@@ -219,9 +217,7 @@ subroutine map_anharmonic_modes_subroutine(arguments)
                        & filter(real_modes%qpoint_id_minus==qpoints(i)%id) ]
       endif
       
-      relative_qpoint_dir = &
-         & 'qpoint_'//left_pad(qpoints(i)%id, str(maxval(qpoints%id)))
-      qpoint_dir = wd//'/'//relative_qpoint_dir
+      qpoint_dir = 'qpoint_'//left_pad(qpoints(i)%id, str(maxval(qpoints%id)))
       call mkdir(qpoint_dir)
       
       ! Construct and write out supercell.
@@ -233,10 +229,8 @@ subroutine map_anharmonic_modes_subroutine(arguments)
       
       do j=1,size(qpoint_modes)
         mode = real_modes(qpoint_modes(j))
-        relative_mode_dir = relative_qpoint_dir// &
-           & '/real_mode_'//left_pad(mode%id, str(maxval(real_modes%id)))
-        mode_dir = qpoint_dir// &
-           & '/real_mode_'//left_pad(mode%id, str(maxval(real_modes%id)))
+        mode_dir = qpoint_dir//'/real_mode_'// &
+                 & left_pad(mode%id, str(maxval(real_modes%id)))
         call mkdir(mode_dir)
         allocate( sampled_energies(size(displacements)), &
                 & sampled_forces(size(displacements)),   &
@@ -251,16 +245,16 @@ subroutine map_anharmonic_modes_subroutine(arguments)
                                               & qpoints                 )
           displaced_structure = displace_structure(supercell,displacement)
           
-          relative_displacement_dir = relative_mode_dir// &
-             & '/displacement_'//left_pad(k,str(size(displacements)))
+          displacement_dir = mode_dir//'/displacement_'// &
+                           & left_pad(k,str(size(displacements)))
           call calculation_writer%write_calculation( &
-                         & displaced_structure,      &
-                         & relative_displacement_dir )
+                              & displaced_structure, &
+                              & displacement_dir     )
           
-          call calculation_runner%run_calculation(relative_displacement_dir)
+          call calculation_runner%run_calculation(displacement_dir)
           
           electronic_structure = calculation_reader%read_calculation( &
-                                          & relative_displacement_dir )
+                                                   & displacement_dir )
           
           sampled_energies(k) = electronic_structure%energy &
                             & / supercell%sc_size

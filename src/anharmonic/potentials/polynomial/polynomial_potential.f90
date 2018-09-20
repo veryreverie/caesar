@@ -81,13 +81,11 @@ end function
 
 ! Generate sampling points.
 subroutine generate_sampling_points_PolynomialPotential(this,inputs,      &
-   & relative_sampling_points_dir,sampling_points_dir,calculation_writer, &
-   & logfile)
+   & sampling_points_dir,calculation_writer,logfile)
   implicit none
   
   class(PolynomialPotential), intent(inout) :: this
   type(AnharmonicData),       intent(in)    :: inputs
-  type(String),               intent(in)    :: relative_sampling_points_dir
   type(String),               intent(in)    :: sampling_points_dir
   type(CalculationWriter),    intent(inout) :: calculation_writer
   type(OFile),                intent(inout) :: logfile
@@ -111,16 +109,14 @@ subroutine generate_sampling_points_PolynomialPotential(this,inputs,      &
   type(StructureData)             :: displaced_structure
   
   ! Directories and files.
-  type(String) :: relative_equilibrium_dir
-  type(String) :: relative_coupling_dir
+  type(String) :: equilibrium_dir
   type(String) :: coupling_dir
   type(OFile)  :: basis_functions_file
   type(OFile)  :: sampling_points_file
-  type(String) :: relative_sampling_dir
   type(String) :: sampling_dir
   type(OFile)  :: supercell_file
   type(OFile)  :: vscf_rvectors_file
-  type(String) :: relative_vscf_rvectors_dir
+  type(String) :: vscf_rvectors_dir
   
   ! Temporary variables.
   integer :: i,j,k,ialloc
@@ -170,14 +166,14 @@ subroutine generate_sampling_points_PolynomialPotential(this,inputs,      &
   ! --------------------------------------------------
   
   ! Write out sampling point at equilibrium.
-  relative_equilibrium_dir = relative_sampling_points_dir//'/equilibrium'
-  call calculation_writer%write_calculation( inputs%structure,        &
-                                           & relative_equilibrium_dir )
+  equilibrium_dir = sampling_points_dir//'/equilibrium'
+  call calculation_writer%write_calculation( inputs%structure, &
+                                           & equilibrium_dir   )
   
   ! Write out all other sampling points.
   do i=1,size(sampling_points)
     ! Make a directory for each coupling.
-    relative_coupling_dir = relative_sampling_points_dir// &
+    coupling_dir = sampling_points_dir// &
        & '/coupling_'//left_pad(i,str(size(sampling_points)))
     coupling_dir = sampling_points_dir// &
                  & '/coupling_'//left_pad(i,str(size(sampling_points)))
@@ -196,8 +192,6 @@ subroutine generate_sampling_points_PolynomialPotential(this,inputs,      &
       sampling_point = sampling_points(i)%points(j)
       
       ! Make a directory for each sampling point.
-      relative_sampling_dir = relative_coupling_dir// &
-         & '/sampling_point_'//left_pad(j,str(size(sampling_points(i))))
       sampling_dir = coupling_dir// &
          & '/sampling_point_'//left_pad(j,str(size(sampling_points(i))))
       call mkdir(sampling_dir)
@@ -239,25 +233,24 @@ subroutine generate_sampling_points_PolynomialPotential(this,inputs,      &
         displaced_structure = displace_structure(supercell,displacement)
         
         ! Create directory and structure files for displaced structure.
-        relative_vscf_rvectors_dir = relative_sampling_dir// &
+        vscf_rvectors_dir = sampling_dir// &
            & '/vscf_rvectors_'//left_pad(k,str(size(vscf_rvectors)))
-        call calculation_writer%write_calculation( displaced_structure,       &
-                                                 & relative_vscf_rvectors_dir )
+        call calculation_writer%write_calculation( displaced_structure, &
+                                                 & vscf_rvectors_dir    )
       enddo
     enddo
   enddo
 end subroutine
 
 ! Generate potential.
-subroutine generate_potential_PolynomialPotential(this,inputs, &
-   & weighted_energy_force_ratio,relative_sampling_points_dir, &
-   & sampling_points_dir,calculation_reader,logfile)
+subroutine generate_potential_PolynomialPotential(this,inputs,           &
+   & weighted_energy_force_ratio,sampling_points_dir,calculation_reader, &
+   & logfile)
   implicit none
   
   class(PolynomialPotential), intent(inout) :: this
   type(AnharmonicData),       intent(in)    :: inputs
   real(dp),                   intent(in)    :: weighted_energy_force_ratio
-  type(String),               intent(in)    :: relative_sampling_points_dir
   type(String),               intent(in)    :: sampling_points_dir
   type(CalculationReader),    intent(inout) :: calculation_reader
   type(OFile),                intent(inout) :: logfile
@@ -291,16 +284,13 @@ subroutine generate_potential_PolynomialPotential(this,inputs, &
   real(dp),                   allocatable :: coefficients(:)
   
   ! Directories and files.
-  type(String) :: relative_equilibrium_dir
-  type(String) :: relative_coupling_dir
+  type(String) :: equilibrium_dir
   type(String) :: coupling_dir
   type(IFile)  :: basis_functions_file
   type(IFile)  :: sampling_points_file
-  type(String) :: relative_sampling_dir
   type(String) :: sampling_dir
   type(IFile)  :: supercell_file
   type(IFile)  :: vscf_rvectors_file
-  type(String) :: relative_vscf_rvectors_dir
   type(String) :: vscf_rvectors_dir
   
   ! Temporary variables.
@@ -343,9 +333,9 @@ subroutine generate_potential_PolynomialPotential(this,inputs, &
   ! --------------------------------------------------
   ! Read in energies and forces.
   ! --------------------------------------------------
-  relative_equilibrium_dir = relative_sampling_points_dir//'/equilibrium'
+  equilibrium_dir = sampling_points_dir//'/equilibrium'
   equilibrium_electronic_structure  = calculation_reader%read_calculation( &
-                                                & relative_equilibrium_dir )
+                                                         & equilibrium_dir )
   equilibrium_sample_result = SampleResult( equilibrium_electronic_structure, &
                                           & inputs%structure,                 &
                                           & inputs%real_modes,                &
@@ -354,15 +344,11 @@ subroutine generate_potential_PolynomialPotential(this,inputs, &
   allocate( sample_results(size(inputs%subspace_couplings)),        &
           & stat=ialloc); call err(ialloc)
   do i=1,size(sampling_points)
-    relative_coupling_dir = relative_sampling_points_dir// &
-       & '/coupling_'//left_pad(i,str(size(sampling_points)))
     coupling_dir = sampling_points_dir// &
        & '/coupling_'//left_pad(i,str(size(sampling_points)))
     allocate( sample_results(i)%results(size(sampling_points(i))), &
             & stat=ialloc); call err(ialloc)
     do j=1,size(sampling_points(i))
-      relative_sampling_dir = relative_coupling_dir// &
-         & '/sampling_point_'//left_pad(j,str(size(sampling_points(i))))
       sampling_dir = coupling_dir// &
          & '/sampling_point_'//left_pad(j,str(size(sampling_points(i))))
       
@@ -377,12 +363,10 @@ subroutine generate_potential_PolynomialPotential(this,inputs, &
       allocate( calculations(size(vscf_rvectors)), &
               & stat=ialloc); call err(ialloc)
       do k=1,size(vscf_rvectors)
-        relative_vscf_rvectors_dir = relative_sampling_dir// &
-           & '/vscf_rvectors_'//left_pad(k,str(size(vscf_rvectors)))
         vscf_rvectors_dir = sampling_dir// &
            & '/vscf_rvectors_'//left_pad(k,str(size(vscf_rvectors)))
         calculations(k) = calculation_reader%read_calculation( &
-           & relative_vscf_rvectors_dir)
+                                           & vscf_rvectors_dir )
       enddo
       
       ! Average electronic structure across VSCF R-vectors, and convert

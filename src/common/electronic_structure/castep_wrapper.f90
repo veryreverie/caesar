@@ -514,9 +514,9 @@ function read_output_file_castep(filename,structure) result(output)
       endif
     endif
     if (size(line)==1) then
-      if ( forces_start_line/=0 .and.       &
-         & forces_end_line==0   .and.       &
-         & line(1)==repeat('*',len(line(1)) ) then
+      if ( forces_start_line/=0 .and.        &
+         & forces_end_line==0   .and.        &
+         & line(1)==repeat('*',len(line(1))) ) then
         forces_end_line = i
       endif
     endif

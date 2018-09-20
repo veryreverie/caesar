@@ -133,12 +133,10 @@ subroutine map_potential_subroutine(arguments)
   ! Files and directories.
   type(IFile)  :: anharmonic_data_file
   type(IFile)  :: potential_file
-  type(String) :: relative_map_dir
   type(String) :: map_dir
-  type(String) :: relative_modes_dir
   type(String) :: modes_dir
   type(OFile)  :: supercell_file
-  type(String) :: relative_displacement_dir
+  type(String) :: displacement_dir
   type(OFile)  :: output_file
   
   ! Temporary variables.
@@ -201,8 +199,7 @@ subroutine map_potential_subroutine(arguments)
   ! Calculate effective harmonic potential, from which initial harmonic
   !    states are constructed.
   ! --------------------------------------------------
-  relative_map_dir = 'mapped_potential'
-  map_dir = wd//'/mapped_potential'
+  map_dir = 'mapped_potential'
   call mkdir(map_dir)
   
   ! Calculate displacements before scaling by 1/sqrt(frequency).
@@ -231,16 +228,11 @@ subroutine map_potential_subroutine(arguments)
           & stat=ialloc); call err(ialloc)
   do i=1,size(selected_modes)
     do j=i+1,size(selected_modes)
-      relative_modes_dir = relative_map_dir//'/modes_'//         &
-                & left_pad( selected_modes(i)%id,                &
-                &           str(maxval(real_modes%id)) ) //'_'// &
-                & left_pad( selected_modes(j)%id,                &
-                &           str(maxval(real_modes%id)) )
-      modes_dir = map_dir//'/modes_'//                           &
-                & left_pad( selected_modes(i)%id,                &
-                &           str(maxval(real_modes%id)) ) //'_'// &
-                & left_pad( selected_modes(j)%id,                &
-                &           str(maxval(real_modes%id)) )
+      modes_dir = map_dir//'/modes_'//                    &
+         & left_pad( selected_modes(i)%id,                &
+         &           str(maxval(real_modes%id)) ) //'_'// &
+         & left_pad( selected_modes(j)%id,                &
+         &           str(maxval(real_modes%id)) )
       call mkdir(modes_dir)
       
       ! Scale displacement by 1/sqrt(frequency).
@@ -289,16 +281,15 @@ subroutine map_potential_subroutine(arguments)
                                                 & qpoints          )
             displaced_structure = displace_structure(supercell,displacement)
             
-            relative_displacement_dir = relative_modes_dir               // &
+            displacement_dir = modes_dir                                 // &
                              & '/displacement_'                          // &
                              & left_pad(k,str(size(displacements)))//'_' // &
                              & left_pad(l,str(size(displacements)))
-            call calculation_writer%write_calculation( &
-                       & displaced_structure,          &
-                       & relative_displacement_dir     )
-            call calculation_runner%run_calculation(relative_displacement_dir)
+            call calculation_writer%write_calculation( displaced_structure, &
+                                                     & displacement_dir     )
+            call calculation_runner%run_calculation(displacement_dir)
             electronic_structure = calculation_reader%read_calculation( &
-                                            & relative_displacement_dir )
+                                                     & displacement_dir )
             
             sampled_energy(l,k) = electronic_structure%energy &
                               & / supercell%sc_size
