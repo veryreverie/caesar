@@ -16,7 +16,6 @@ module calculation_reader_submodule
   public :: CalculationReader
   
   type, extends(NoDefaultConstructor) :: CalculationReader
-    type(String), private              :: working_directory_
     type(String), private, allocatable :: directories_(:)
   contains
     procedure, public :: directories_read
@@ -30,14 +29,12 @@ module calculation_reader_submodule
 contains
 
 ! Constructor.
-function new_CalculationReader(working_directory) result(this)
+function new_CalculationReader() result(this)
   implicit none
   
-  type(String), intent(in) :: working_directory
-  type(CalculationReader)  :: this
+  type(CalculationReader) :: this
   
-  this%working_directory_ = working_directory
-  this%directories_       = [String::]
+  this%directories_ = [String::]
 end function
 
 ! Return a list of the directories from which calculations have been read.
@@ -59,12 +56,9 @@ function read_calculation(this,directory) result(output)
   type(String),             intent(in)    :: directory
   type(ElectronicStructure)               :: output
   
-  type(String) :: absolute_directory
   type(IFile)  :: electronic_structure_file
   
-  absolute_directory = this%working_directory_//'/'//directory
-  electronic_structure_file = IFile(                   &
-     & absolute_directory//'/electronic_structure.dat' )
+  electronic_structure_file = IFile(directory//'/electronic_structure.dat')
   output = ElectronicStructure(electronic_structure_file%lines())
   
   ! Record the directory.

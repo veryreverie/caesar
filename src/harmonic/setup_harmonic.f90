@@ -59,7 +59,6 @@ subroutine setup_harmonic_subroutine(arguments)
   type(Dictionary), intent(in) :: arguments
   
   ! User input variables.
-  type(String) :: wd
   type(String) :: file_type
   type(String) :: seedname
   
@@ -81,7 +80,6 @@ subroutine setup_harmonic_subroutine(arguments)
   type(StructureData)              :: supercell
   
   ! Directories.
-  type(String) :: relative_supercell_dir
   type(String) :: supercell_dir
   type(String) :: path
   
@@ -105,7 +103,6 @@ subroutine setup_harmonic_subroutine(arguments)
   ! --------------------------------------------------
   ! Get settings from user, and check them.
   ! --------------------------------------------------
-  wd = arguments%value('working_directory')
   file_type = arguments%value('file_type')
   seedname = arguments%value('seedname')
   grid = int(split_line(arguments%value('q-point_grid')))
@@ -115,15 +112,13 @@ subroutine setup_harmonic_subroutine(arguments)
   ! --------------------------------------------------
   ! Initialise calculation writer.
   ! --------------------------------------------------
-  calculation_writer = CalculationWriter( working_directory = wd,        &
-                                        & file_type         = file_type, &
-                                        & seedname          = seedname   )
+  calculation_writer = CalculationWriter( file_type = file_type, &
+                                        & seedname  = seedname   )
   
   ! --------------------------------------------------
   ! Read in input files.
   ! --------------------------------------------------
   input_filename = make_input_filename(file_type, seedname)
-  input_filename = wd//'/'//input_filename
   structure = input_file_to_StructureData(file_type, input_filename)
   
   ! --------------------------------------------------
@@ -155,19 +150,18 @@ subroutine setup_harmonic_subroutine(arguments)
   no_supercells = size(supercells)
   
   ! Write out structure, q-point and supercell data.
-  structure_file = OFile(wd//'/structure.dat')
+  structure_file = OFile('structure.dat')
   call structure_file%print_lines(structure)
-  large_supercell_file = OFile(wd//'/large_supercell.dat')
+  large_supercell_file = OFile('large_supercell.dat')
   call large_supercell_file%print_lines(large_supercell)
-  qpoints_file = OFile(wd//'/qpoints.dat')
+  qpoints_file = OFile('qpoints.dat')
   call qpoints_file%print_lines(qpoints,separating_line='')
-  no_supercells_file = OFile(wd//'/no_supercells.dat')
+  no_supercells_file = OFile('no_supercells.dat')
   call no_supercells_file%print_line(no_supercells)
   
   ! Loop over supercells.
   do i=1,no_supercells
-    relative_supercell_dir = 'Supercell_'//left_pad(i,str(no_supercells))
-    supercell_dir = wd//'/'//relative_supercell_dir
+    supercell_dir = 'Supercell_'//left_pad(i,str(no_supercells))
     
     call mkdir(supercell_dir)
     
@@ -194,7 +188,7 @@ subroutine setup_harmonic_subroutine(arguments)
       
       ! Write calculation input files.
       path =                                                     &
-         & relative_supercell_dir                             // &
+         & supercell_dir                                      // &
          & '/atom.'                                           // &
          & left_pad( unique_directions(j)%atom_id,               &
          &           str(maxval(unique_directions%atom_id)) ) // &

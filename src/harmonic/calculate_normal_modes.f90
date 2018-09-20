@@ -48,9 +48,6 @@ subroutine calculate_normal_modes_subroutine(arguments)
   
   type(Dictionary), intent(in) :: arguments
   
-  ! Working directory.
-  type(String) :: wd
-  
   ! Input arguments.
   type(Dictionary) :: setup_harmonic_arguments
   type(String)     :: acoustic_sum_rule
@@ -97,7 +94,6 @@ subroutine calculate_normal_modes_subroutine(arguments)
   type(IFile)  :: no_supercells_file
   type(IFile)  :: supercell_file
   type(IFile)  :: unique_directions_file
-  type(String) :: relative_supercell_dir
   type(String) :: supercell_dir
   type(String) :: qpoint_dir
   type(OFile)  :: dynamical_matrix_file
@@ -112,8 +108,6 @@ subroutine calculate_normal_modes_subroutine(arguments)
   ! --------------------------------------------------
   ! Read in arguments from user.
   ! --------------------------------------------------
-  wd = arguments%value('working_directory')
-  
   acoustic_sum_rule = arguments%value('acoustic_sum_rule')
   if (acoustic_sum_rule=='off') then
     acoustic_sum_rule_forces = .false.
@@ -140,25 +134,25 @@ subroutine calculate_normal_modes_subroutine(arguments)
   ! Read in previous arguments.
   ! --------------------------------------------------
   setup_harmonic_arguments = Dictionary(setup_harmonic())
-  call setup_harmonic_arguments%read_file(wd//'/setup_harmonic.used_settings')
+  call setup_harmonic_arguments%read_file('setup_harmonic.used_settings')
   seedname = setup_harmonic_arguments%value('seedname')
   
-  structure_file = IFile(wd//'/structure.dat')
+  structure_file = IFile('structure.dat')
   structure = StructureData(structure_file%lines())
   
-  large_supercell_file = IFile(wd//'/large_supercell.dat')
+  large_supercell_file = IFile('large_supercell.dat')
   large_supercell = StructureData(large_supercell_file%lines())
   
-  qpoints_file = IFile(wd//'/qpoints.dat')
+  qpoints_file = IFile('qpoints.dat')
   qpoints = QpointData(qpoints_file%sections())
   
-  no_supercells_file = IFile(wd//'/no_supercells.dat')
+  no_supercells_file = IFile('no_supercells.dat')
   no_supercells = int(no_supercells_file%line(1))
   
   ! --------------------------------------------------
   ! Initialise calculation reader.
   ! --------------------------------------------------
-  calculation_reader = CalculationReader(wd)
+  calculation_reader = CalculationReader()
   
   ! --------------------------------------------------
   ! Calculate the matrix of force constants corresponding to each supercell.
@@ -166,10 +160,9 @@ subroutine calculate_normal_modes_subroutine(arguments)
   allocate( supercells(no_supercells),      &
           & force_constants(no_supercells), &
           & stat=ialloc); call err(ialloc)
-  force_logfile = OFile(wd//'/force_constants_log.dat')
+  force_logfile = OFile('force_constants_log.dat')
   do i=1,no_supercells
-    relative_supercell_dir = 'Supercell_'//left_pad(i,str(no_supercells))
-    supercell_dir = wd//'/'//relative_supercell_dir
+    supercell_dir = 'Supercell_'//left_pad(i,str(no_supercells))
     
     ! Read in supercell structure data.
     supercell_file = IFile(supercell_dir//'/structure.dat')
@@ -182,7 +175,7 @@ subroutine calculate_normal_modes_subroutine(arguments)
     ! Calculate force constants.
     force_constants(i) = ForceConstants( supercells(i),            &
                                        & unique_directions,        &
-                                       & relative_supercell_dir,   &
+                                       & supercell_dir,            &
                                        & acoustic_sum_rule_forces, &
                                        & calculation_reader,       &
                                        & force_logfile)
@@ -195,7 +188,7 @@ subroutine calculate_normal_modes_subroutine(arguments)
   allocate( modes_calculated(size(qpoints)),   &
           & dynamical_matrices(size(qpoints)), &
           & stat=ialloc); call err(ialloc)
-  qpoint_logfile = OFile(wd//'/dynamical_matrix_log.dat')
+  qpoint_logfile = OFile('dynamical_matrix_log.dat')
   modes_calculated = .false.
   
   subspace_id = 1
@@ -329,7 +322,7 @@ subroutine calculate_normal_modes_subroutine(arguments)
   allocate( complex_modes(structure%no_modes,size(qpoints)), &
           & stat=ialloc); call err(ialloc)
   do i=1,size(qpoints)
-    qpoint_dir = wd//'/qpoint_'//left_pad(i,str(size(qpoints)))
+    qpoint_dir = 'qpoint_'//left_pad(i,str(size(qpoints)))
     call mkdir(qpoint_dir)
     
     ! Write out dynamical matrix.
@@ -344,7 +337,7 @@ subroutine calculate_normal_modes_subroutine(arguments)
   enddo
   
   ! Write out Castep .phonon file.
-  phonon_file = OFile(wd//'/'//make_phonon_filename(seedname))
+  phonon_file = OFile(make_phonon_filename(seedname))
   call write_phonon_file(phonon_file,complex_modes,qpoints,structure)
 end subroutine
 end module

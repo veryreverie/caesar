@@ -183,9 +183,8 @@ subroutine setup_anharmonic_subroutine(arguments)
   ! --------------------------------------------------
   ! Initialise calculation writer.
   ! --------------------------------------------------
-  calculation_writer = CalculationWriter( working_directory = wd,        &
-                                        & file_type         = file_type, &
-                                        & seedname          = seedname   )
+  calculation_writer = CalculationWriter( file_type = file_type, &
+                                        & seedname  = seedname   )
   
   ! ----------------------------------------------------------------------
   ! Generate setup data common to all potential representations.

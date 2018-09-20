@@ -25,6 +25,8 @@ function open_file(filename,status,action,access) result(unit_num)
   character(*), intent(in) :: access
   integer                  :: unit_num
   
+  type(String) :: formatted_filename
+  
   integer :: iostat
   logical :: opened
   
@@ -33,7 +35,7 @@ function open_file(filename,status,action,access) result(unit_num)
   unit_num = 0
   unit_found = .false.
   
-  ! Loop over file units until unused unit is found.
+  ! Loop over file units until an unused unit is found.
   do while (.not. unit_found)
     unit_num = unit_num + 1
     
@@ -54,10 +56,17 @@ function open_file(filename,status,action,access) result(unit_num)
     endif
   enddo
   
-  open(unit=unit_num,file=filename,status=status,action=action,&
-    &access=access,iostat=iostat)
+  ! Format filename.
+  formatted_filename = format_path(filename)
+  
+  open( unit   = unit_num,                 &
+      & file   = char(formatted_filename), &
+      & status = status,                   &
+      & action = action,                   &
+      & access = access,                   &
+      & iostat = iostat                    )
   if (iostat /= 0) then
-    call print_line('Error opening '//filename//' file.')
+    call print_line('Error opening '//formatted_filename//' file.')
     call err()
   endif
 end function

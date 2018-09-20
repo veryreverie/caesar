@@ -59,9 +59,6 @@ program caesar
   ! Processed input arguments.
   type(Dictionary) :: arguments
   
-  ! The working directory.
-  type(String) :: wd
-  
   ! The output file where stdout is piped if -o is specified.
   type(OFile) :: output_file
   
@@ -192,11 +189,15 @@ program caesar
   endif
   
   ! --------------------------------------------------
+  ! Set working directory.
+  ! --------------------------------------------------
+  call set_working_directory(arguments%value('working_directory'))
+  
+  ! --------------------------------------------------
   ! Write settings to file.
   ! --------------------------------------------------
   if (.not. caesar_mode%suppress_settings_file) then
-    wd = arguments%value('working_directory')
-    filename = wd//'/'//mode//'.used_settings'
+    filename = mode//'.used_settings'
     call arguments%write_file(filename)
   endif
   

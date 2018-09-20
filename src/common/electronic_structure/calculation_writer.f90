@@ -16,7 +16,6 @@ module calculation_writer_submodule
   public :: CalculationWriter
   
   type, extends(NoDefaultConstructor) :: CalculationWriter
-    type(String), private              :: working_directory_
     type(String), private              :: file_type_
     type(String), private              :: seedname_
     type(String), private              :: input_filename_
@@ -32,25 +31,22 @@ module calculation_writer_submodule
 contains
 
 ! Constructor.
-function new_CalculationWriter(working_directory,file_type,seedname) &
-   & result(this)
+function new_CalculationWriter(file_type,seedname) result(this)
   implicit none
   
-  type(String), intent(in) :: working_directory
   type(String), intent(in) :: file_type
   type(String), intent(in) :: seedname
   type(CalculationWriter)  :: this
   
-  this%working_directory_ = working_directory
-  this%file_type_         = file_type
-  this%seedname_          = seedname
-  this%input_filename_    = make_input_filename(file_type,seedname)
-  this%directories_       = [String::]
+  this%file_type_      = file_type
+  this%seedname_       = seedname
+  this%input_filename_ = make_input_filename(file_type,seedname)
+  this%directories_    = [String::]
   
   ! Check that the input file exists.
-  if (.not. file_exists(working_directory//'/'//this%input_filename_)) then
+  if (.not. file_exists(this%input_filename_)) then
     call print_line(ERROR//': The input file '//this%input_filename_// &
-       &' does not exist in the working directory '//this%working_directory_)
+                   &' does not exist in the working directory.'        )
     stop
   endif
 end function
@@ -73,8 +69,6 @@ subroutine write_calculation(this,structure,directory)
   type(StructureData),      intent(in)    :: structure
   type(String),             intent(in)    :: directory
   
-  type(String) :: absolute_directory
-  
   type(OFile) :: structure_file
   
   ! Check that the directory has not already been written to by this class.
@@ -86,27 +80,16 @@ subroutine write_calculation(this,structure,directory)
     call err()
   endif
   
-  ! Check that the given directory is a relative path.
-  if (slice(directory,1,1)=='/' .or. slice(directory,1,1)=='~') then
-    call print_line(CODE_ERROR//': Trying to write an electronic structure &
-       &calculation to a directory specified by an absolute path. Paths &
-       &should be given relative to the working directory to allow for &
-       &different modes to be run on different machines. Directory given: '// &
-       & directory)
-    call err()
-  endif
-  
   ! Make the directory, and add a structure.dat file and
   !    an electronic structure input file.
-  absolute_directory = this%working_directory_//'/'//directory
-  call mkdir(absolute_directory)
-  structure_file = OFile(absolute_directory//'/structure.dat')
+  call mkdir(directory)
+  structure_file = OFile(directory//'/structure.dat')
   call structure_file%print_lines(structure)
-  call StructureData_to_input_file(                        &
-     & this%file_type_,                                    &
-     & structure,                                          &
-     & this%working_directory_//'/'//this%input_filename_, &
-     & absolute_directory//'/'//this%input_filename_       )
+  call StructureData_to_input_file(              &
+     & this%file_type_,                          &
+     & structure,                                &
+     & this%input_filename_,                     &
+     & directory//'/'//this%input_filename_      )
   
   ! Record the directory.
   this%directories_ = [this%directories_, directory]

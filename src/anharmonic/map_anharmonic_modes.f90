@@ -169,19 +169,17 @@ subroutine map_anharmonic_modes_subroutine(arguments)
   ! --------------------------------------------------
   ! Initialise calculation handlers.
   ! --------------------------------------------------
-  calculation_writer = CalculationWriter( working_directory = wd,        &
-                                        & file_type         = file_type, &
-                                        & seedname          = seedname   )
+  calculation_writer = CalculationWriter( file_type = file_type, &
+                                        & seedname  = seedname   )
   
   calculation_runner = CalculationRunner(   &
-     & working_directory = wd,              &
      & file_type         = file_type,       &
      & seedname          = seedname,        &
      & run_script        = run_script,      &
      & no_cores          = no_cores,        &
      & calculation_type  = calculation_type )
   
-  calculation_reader = CalculationReader(wd)
+  calculation_reader = CalculationReader()
   
   ! --------------------------------------------------
   ! Map the anharmonic potential.

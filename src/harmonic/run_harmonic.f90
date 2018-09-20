@@ -52,9 +52,6 @@ subroutine run_harmonic_subroutine(arguments)
   
   type(Dictionary), intent(in) :: arguments
   
-  ! Working directory
-  type(String) :: wd
-  
   ! User inputs.
   integer      :: supercells_to_run(2)
   integer      :: no_cores
@@ -80,9 +77,8 @@ subroutine run_harmonic_subroutine(arguments)
   type(IFile)  :: structure_file
   type(IFile)  :: no_supercells_file
   type(IFile)  :: unique_directions_file
-  type(String) :: relative_supercell_dir
   type(String) :: supercell_dir
-  type(String) :: relative_run_dir
+  type(String) :: run_dir
   
   ! Temporary variables.
   integer :: i,j,ialloc
@@ -90,7 +86,6 @@ subroutine run_harmonic_subroutine(arguments)
   ! --------------------------------------------------
   ! Get inputs from user.
   ! --------------------------------------------------
-  wd = arguments%value('working_directory')
   supercells_to_run = int(split_line(arguments%value('supercells_to_run')))
   run_script = arguments%value('run_script')
   no_cores = int(arguments%value('no_cores'))
@@ -100,14 +95,14 @@ subroutine run_harmonic_subroutine(arguments)
   ! Read in arguments to previous calculations.
   ! --------------------------------------------------
   setup_harmonic_arguments = Dictionary(setup_harmonic())
-  call setup_harmonic_arguments%read_file(wd//'/setup_harmonic.used_settings')
+  call setup_harmonic_arguments%read_file('setup_harmonic.used_settings')
   file_type = setup_harmonic_arguments%value('file_type')
   seedname = setup_harmonic_arguments%value('seedname')
   
   ! --------------------------------------------------
   ! Read in previously calculated data.
   ! --------------------------------------------------
-  no_supercells_file = IFile(wd//'/no_supercells.dat')
+  no_supercells_file = IFile('no_supercells.dat')
   no_supercells = int(no_supercells_file%line(1))
   
   ! --------------------------------------------------
@@ -143,7 +138,6 @@ subroutine run_harmonic_subroutine(arguments)
   ! Initialise calculation runner.
   ! --------------------------------------------------
   calculation_runner = CalculationRunner(  &
-    & working_directory = wd,              &
     & file_type         = file_type,       &
     & seedname          = seedname,        &
     & run_script        = run_script,      &
@@ -155,8 +149,7 @@ subroutine run_harmonic_subroutine(arguments)
   ! --------------------------------------------------
   ! Loop over supercells.
   do i=supercells_to_run(1),supercells_to_run(2)
-    relative_supercell_dir = 'Supercell_'//left_pad(i,str(no_supercells))
-    supercell_dir = wd//'/'//relative_supercell_dir
+    supercell_dir = 'Supercell_'//left_pad(i,str(no_supercells))
     
     unique_directions_file = IFile(supercell_dir//'/unique_directions.dat')
     unique_directions = UniqueDirection(unique_directions_file%sections())
@@ -167,11 +160,10 @@ subroutine run_harmonic_subroutine(arguments)
       direction = unique_directions(j)%direction
       atom_string = left_pad(atom, str(maxval(unique_directions%atom_id)))
       
-      relative_run_dir = relative_supercell_dir// &
-                       & '/atom.'//atom_string//'.'//direction
+      run_dir = supercell_dir//'/atom.'//atom_string//'.'//direction
       
       ! Run calculation at each displacement.
-      call calculation_runner%run_calculation(relative_run_dir)
+      call calculation_runner%run_calculation(run_dir)
     enddo
     
     deallocate(unique_directions, stat=ialloc); call err(ialloc)

@@ -18,16 +18,17 @@ module io_utils_submodule
   public :: CommandLineFlag
   
   ! IO operations.
-  public :: file_exists         ! checks if a file exists
-  public :: command_line_args   ! Get arguments from the command line.
-  public :: mkdir               ! Make a directory.
-  public :: set_io_settings     ! Sets I/O settings.
-  public :: system_call         ! Makes a system call.
-  public :: get_flag            ! Reads a flag from the command line.
-  public :: read_line_from_user ! Reads a line from the terminal.
-  public :: format_path         ! Converts any path into an absolute path.
-  public :: execute_old_code    ! Runs one of the old caesar codes.
-  public :: execute_python      ! Runs one of the python scripts.
+  public :: file_exists           ! checks if a file exists
+  public :: command_line_args     ! Get arguments from the command line.
+  public :: mkdir                 ! Make a directory.
+  public :: set_io_settings       ! Sets I/O settings.
+  public :: set_working_directory ! Sets working directory.
+  public :: system_call           ! Makes a system call.
+  public :: get_flag              ! Reads a flag from the command line.
+  public :: read_line_from_user   ! Reads a line from the terminal.
+  public :: format_path           ! Converts any path into an absolute path.
+  public :: execute_old_code      ! Runs one of the old caesar codes.
+  public :: execute_python        ! Runs one of the python scripts.
   
   ! I/O settings, specifying various input/output properties.
   ! Set by set_io_settings.
@@ -50,6 +51,11 @@ module io_utils_submodule
   interface format_path
     module procedure format_path_character
     module procedure format_path_String
+  end interface
+  
+  interface set_working_directory
+    module procedure set_working_directory_character
+    module procedure set_working_directory_String
   end interface
   
   ! C system call interface.
@@ -130,7 +136,7 @@ function file_exists_character(filename) result(output)
   character(*), intent(in) :: filename
   logical                  :: output
   
-  inquire(file=filename, exist=output)
+  inquire(file=char(format_path(filename)), exist=output)
 end function
 
 function file_exists_string(filename) result(output)
@@ -167,12 +173,17 @@ subroutine mkdir(dirname)
   
   type(String), intent(in) :: dirname
   
+  type(String) :: formatted_dirname
+  
   integer :: result_code
   
-  result_code = system_call( &
-     & 'if [ ! -e '//dirname//' ]; then mkdir '//dirname//'; fi')
+  formatted_dirname = format_path(dirname)
+  
+  result_code = system_call('if [ ! -e '//formatted_dirname//' ]; &
+                           &then mkdir '//formatted_dirname//'; &
+                           &fi'                                   )
   if (result_code/=0) then
-    call print_line(ERROR//': failed to make directory: '//dirname)
+    call print_line(ERROR//': failed to make directory: '//formatted_dirname)
     call err()
   endif
 end subroutine
@@ -394,6 +405,25 @@ subroutine set_io_settings()
 end subroutine
 
 ! ----------------------------------------------------------------------
+! Sets current working directory to given value.
+! ----------------------------------------------------------------------
+subroutine set_working_directory_character(working_directory)
+  implicit none
+  
+  character(*), intent(in) :: working_directory
+  
+  CWD = format_path(working_directory)
+end subroutine
+
+subroutine set_working_directory_String(working_directory)
+  implicit none
+  
+  type(String), intent(in) :: working_directory
+  
+  call set_working_directory(char(working_directory))
+end subroutine
+
+! ----------------------------------------------------------------------
 ! Takes a directory name, and converts it into an absolute path
 !    in standard format (without a trailing '/').
 ! ----------------------------------------------------------------------
@@ -463,16 +493,15 @@ end function
 ! Adds the path to old Caesar to PATH in a subshell.
 ! Moves to the working directory.
 ! Runs the given file.
-subroutine execute_old_code(wd, filename)
+subroutine execute_old_code(filename)
   implicit none
   
-  type(String), intent(in) :: wd
   type(String), intent(in) :: filename
   
   integer :: result_code
   
   result_code = system_call( &
-     & '( PATH='//OLD_PATH//':$PATH; cd '//wd//'; '//filename//' )')
+     & '( PATH='//OLD_PATH//':$PATH; cd '//CWD//'; '//filename//' )')
   
   if (result_code/=0) then
     call print_line(ERROR//': '//filename//' failed.')
@@ -483,18 +512,19 @@ end subroutine
 ! ----------------------------------------------------------------------
 ! Executes one of the Python scripts.
 ! ----------------------------------------------------------------------
-subroutine execute_python(wd, filename, python_path, python_arguments)
+subroutine execute_python(filename, python_path, python_arguments)
   implicit none
   
-  type(String), intent(in)           :: wd
   type(String), intent(in)           :: filename
   type(String), intent(in)           :: python_path
   type(String), intent(in), optional :: python_arguments(:)
   
+  type(String) :: working_directory
   type(String) :: command
   integer      :: result_code
   
-  command = 'cd '//wd//'; '//python_path//' '//PYTHON_SCRIPTS_PATH//'/'//filename
+  command = 'cd '//CWD//'; &
+            &'//python_path//' '//PYTHON_SCRIPTS_PATH//'/'//filename
   
   if (present(python_arguments)) then
     command = command//' '//join(python_arguments)

@@ -505,20 +505,19 @@ function read_output_file_castep(filename,structure) result(output)
     endif
     ! Forces.
     if (size(line)>=2) then
-      if ( (line(1)=='***********************' .and. line(2)=='forces') .or. &
-         & (line(1)=='*****************' .and. line(2)=='symmetrised')  .or. &
-         & (line(1)=='*******************' .and. line(2)=='unconstrained')   &
-         & ) then
+      if ( line(1)==repeat('*',len(line(1))) .and. &
+         & ( line(2)=='forces'      .or.           &
+         &   line(2)=='symmetrised' .or.           &
+         &   line(2)=='unconstrained'    )         &
+         &                                         ) then
         forces_start_line = i
       endif
     endif
     if (size(line)==1) then
-      if ( forces_start_line/=0 .and. &
-         & forces_end_line==0   .and. &
-         & len(line(1))>=5) then
-        if (slice(line(1),1,5)=='*****') then
-          forces_end_line = i
-        endif
+      if ( forces_start_line/=0 .and.       &
+         & forces_end_line==0   .and.       &
+         & line(1)==repeat('*',len(line(1)) ) then
+        forces_end_line = i
       endif
     endif
   enddo

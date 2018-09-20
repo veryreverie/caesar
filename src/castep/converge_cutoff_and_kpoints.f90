@@ -196,27 +196,25 @@ subroutine converge_cutoff_and_kpoints_subroutine(arguments)
   ! --------------------------------------------------
   ! Initialise calculation handlers.
   ! --------------------------------------------------
-  calculation_writer = CalculationWriter( working_directory = wd,            &
-                                        & file_type         = str('castep'), &
-                                        & seedname          = seedname       )
+  calculation_writer = CalculationWriter( file_type = str('castep'), &
+                                        & seedname  = seedname       )
   
-  calculation_runner = CalculationRunner( working_directory = wd,            &
-                                        & file_type         = str('castep'), &
+  calculation_runner = CalculationRunner( file_type         = str('castep'), &
                                         & seedname          = seedname,      &
                                         & run_script        = run_script,    &
                                         & no_cores          = no_cores,      &
                                         & calculation_type  = str('none')    )
   
-  calculation_reader = CalculationReader(wd)
+  calculation_reader = CalculationReader()
   
   ! --------------------------------------------------
   ! Read .cell and .param files.
   ! --------------------------------------------------
-  cell_file = IFile(wd//'/'//seedname//'.cell')
-  param_file = IFile(wd//'/'//seedname//'.param')
+  cell_file = IFile(seedname//'.cell')
+  param_file = IFile(seedname//'.param')
   
-  structure = input_file_to_StructureData( str('castep'),             &
-                                         & wd//'/'//seedname//'.cell' )
+  structure = input_file_to_StructureData( str('castep'),    &
+                                         & seedname//'.cell' )
   
   recip_lattice = dble(structure%recip_lattice)
   average_reciprocal_length = 0.0_dp
@@ -252,13 +250,13 @@ subroutine converge_cutoff_and_kpoints_subroutine(arguments)
   ! Run cutoff convergence.
   ! --------------------------------------------------
   
-  progress_file = OFile(wd//'/convergence_progress.dat')
-  call progress_file%print_line( 'Energy cutoff convergence:')
+  progress_file = OFile('convergence_progress.dat')
+  call progress_file%print_line('Energy cutoff convergence:')
   converged = .false.
   do i=1,no_cutoffs
     cutoffs(i) = minimum_cutoff + (i-1)*cutoff_step
     
-    dir = wd//'/cutoff_'//cutoffs(i)
+    dir = 'cutoff_'//cutoffs(i)
     castep_file = run_castep( cutoffs(i),                                &
                             & average_reciprocal_length/minimum_kpoints, &
                             & wd,                                        &
@@ -327,7 +325,7 @@ subroutine converge_cutoff_and_kpoints_subroutine(arguments)
   call progress_file%print_line( '')
   
   ! Write out energy convergence file.
-  cutoff_file = OFile(wd//'/cutoff_convergence.dat')
+  cutoff_file = OFile('cutoff_convergence.dat')
   call cutoff_file%print_line( 'Final Energy Cutoff : '// &
                              & cutoffs(converged_step)//' eV')
   call cutoff_file%print_line( 'Energy Tolerance    : '// &
@@ -356,7 +354,7 @@ subroutine converge_cutoff_and_kpoints_subroutine(arguments)
   do i=1,no_kpoints
     kpoint_spacings(i) = average_reciprocal_length &
                      & / (minimum_kpoints + (i-1)*kpoints_step)
-    dir = wd//'/kpoints_'//minimum_kpoints+(i-1)*kpoints_step
+    dir = 'kpoints_'//minimum_kpoints+(i-1)*kpoints_step
     castep_file = run_castep( minimum_cutoff,     &
                             & kpoint_spacings(i), &
                             & wd,                 &
@@ -431,7 +429,7 @@ subroutine converge_cutoff_and_kpoints_subroutine(arguments)
   endif
   
   ! Write out k-points file.
-  kpoints_file = OFile(wd//'/kpoints_convergence.dat')
+  kpoints_file = OFile('kpoints_convergence.dat')
   call kpoints_file%print_line( 'Final k-point spacing : '// &
                               & kpoint_spacings(converged_step)//' 1/A')
   call kpoints_file%print_line( 'Final no. k-points    : '// &

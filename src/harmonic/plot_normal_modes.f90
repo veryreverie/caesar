@@ -37,12 +37,10 @@ subroutine plot_normal_modes_subroutine(arguments)
   
   type(Dictionary), intent(in) :: arguments
   
-  type(String) :: wd
   type(String) :: python_path
   
-  wd = arguments%value('working_directory')
   python_path = arguments%value('python_path')
   
-  call execute_python(wd,str('plot_normal_modes.py'),python_path)
+  call execute_python(str('plot_normal_modes.py'),python_path)
 end subroutine
 end module

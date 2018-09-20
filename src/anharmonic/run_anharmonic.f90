@@ -130,7 +130,6 @@ subroutine run_anharmonic_subroutine(arguments)
   
   ! Initialise calculation runner.
   calculation_runner = CalculationRunner(   &
-     & working_directory = wd,              &
      & file_type         = file_type,       &
      & seedname          = seedname,        &
      & run_script        = run_script,      &

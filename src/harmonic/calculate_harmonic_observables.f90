@@ -72,7 +72,6 @@ subroutine calculate_harmonic_observables_subroutine(arguments)
   type(Dictionary), intent(in) :: arguments
   
   ! Inputs.
-  type(String)                  :: wd
   type(RandomReal)              :: random_generator
   real(dp)                      :: min_temperature
   real(dp)                      :: max_temperature
@@ -120,7 +119,6 @@ subroutine calculate_harmonic_observables_subroutine(arguments)
   ! --------------------------------------------------
   ! Read in arguments from user.
   ! --------------------------------------------------
-  wd = arguments%value('working_directory')
   if (arguments%is_set('random_seed')) then
     random_generator = RandomReal(int(arguments%value('random_seed')))
   else
@@ -172,25 +170,25 @@ subroutine calculate_harmonic_observables_subroutine(arguments)
   ! Read in previous arguments.
   ! --------------------------------------------------
   setup_harmonic_arguments = Dictionary(setup_harmonic())
-  call setup_harmonic_arguments%read_file(wd//'/setup_harmonic.used_settings')
+  call setup_harmonic_arguments%read_file('setup_harmonic.used_settings')
   
   ! --------------------------------------------------
   ! Read in previously calculated data.
   ! --------------------------------------------------
-  structure_file = IFile(wd//'/structure.dat')
+  structure_file = IFile('structure.dat')
   structure = StructureData(structure_file%lines())
   
-  large_supercell_file = IFile(wd//'/large_supercell.dat')
+  large_supercell_file = IFile('large_supercell.dat')
   large_supercell = StructureData(large_supercell_file%lines())
   
-  qpoints_file = IFile(wd//'/qpoints.dat')
+  qpoints_file = IFile('qpoints.dat')
   qpoints = QpointData(qpoints_file%sections())
   
   allocate( dynamical_matrices(size(qpoints)), &
           & stat=ialloc); call err(ialloc)
   do i=1,size(qpoints)
-    dynamical_matrix_file = IFile(                        &
-       & wd//'/qpoint_'//left_pad(i,str(size(qpoints)))// &
+    dynamical_matrix_file = IFile(                   &
+       & 'qpoint_'//left_pad(i,str(size(qpoints)))// &
        & '/dynamical_matrix.dat')
     dynamical_matrices(i) = DynamicalMatrix(dynamical_matrix_file%lines())
   enddo
@@ -200,7 +198,7 @@ subroutine calculate_harmonic_observables_subroutine(arguments)
   ! --------------------------------------------------
   
   ! Make directory for harmonic observables.
-  output_dir = wd//'/harmonic_observables'
+  output_dir = 'harmonic_observables'
   call mkdir(output_dir)
   
   ! Open output files.

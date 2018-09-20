@@ -92,7 +92,7 @@ subroutine calculate_potential_subroutine(arguments)
   anharmonic_data = AnharmonicData(anharmonic_data_file%lines())
   
   ! Initialise calculation reader.
-  calculation_reader = CalculationReader(wd)
+  calculation_reader = CalculationReader()
   
   ! Calculate weighted energy to force ratio.
   weighted_energy_force_ratio = &

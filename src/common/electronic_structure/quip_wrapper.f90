@@ -121,7 +121,7 @@ function run_quip_on_structure(structure,dir,seedname) result(output)
   
   integer :: ialloc
   
-  quip_filename = dir//'/'//seedname//'_MEAM.xml'
+  quip_filename = format_path(dir//'/'//seedname//'_MEAM.xml')
   quip_structure = structure
   allocate( quip_electronic_structure%forces(3,structure%no_atoms), &
           & stat=ialloc); call err(ialloc)

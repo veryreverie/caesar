@@ -16,7 +16,6 @@ module calculation_runner_submodule
   public :: CalculationRunner
   
   type, extends(NoDefaultConstructor) :: CalculationRunner
-    type(String), private              :: working_directory_
     type(String), private              :: file_type_
     type(String), private              :: seedname_
     type(String), private              :: run_script_
@@ -36,11 +35,10 @@ module calculation_runner_submodule
 contains
 
 ! Constructor.
-function new_CalculationRunner(working_directory,file_type,seedname, &
-   & run_script,no_cores,calculation_type) result(this)
+function new_CalculationRunner(file_type,seedname,run_script,no_cores, &
+   & calculation_type) result(this)
   implicit none
   
-  type(String), intent(in) :: working_directory
   type(String), intent(in) :: file_type
   type(String), intent(in) :: seedname
   type(String), intent(in) :: run_script
@@ -48,12 +46,11 @@ function new_CalculationRunner(working_directory,file_type,seedname, &
   type(String), intent(in) :: calculation_type
   type(CalculationRunner)  :: this
     
-  this%working_directory_ = working_directory
-  this%file_type_         = file_type
-  this%seedname_          = seedname
-  this%run_script_        = run_script
-  this%no_cores_          = no_cores
-  this%calculation_type_  = calculation_type
+  this%file_type_        = file_type
+  this%seedname_         = seedname
+  this%run_script_       = run_script
+  this%no_cores_         = no_cores
+  this%calculation_type_ = calculation_type
   
   ! If the calculation type is 'none' then the electronic structure
   !    calculation has already been run, so the output file should be read
@@ -89,7 +86,7 @@ subroutine run_calculation(this,directory)
   class(CalculationRunner), intent(inout) :: this
   type(String),             intent(in)    :: directory
   
-  type(String) :: absolute_directory
+  type(String) :: working_directory
   
   integer                   :: result_code
   type(IFile)               :: structure_file
@@ -97,30 +94,29 @@ subroutine run_calculation(this,directory)
   type(ElectronicStructure) :: electronic_structure
   type(OFile)               :: electronic_structure_file
   
-  absolute_directory = this%working_directory_//'/'//directory
+  working_directory = format_path('.')
   
   ! Run the calculation.
-  call print_line('Running calculation in directory '//absolute_directory)
-  result_code = system_call( 'cd '//this%working_directory_//';' //' '// &
-                           & this%run_script_                    //' '// &
-                           & this%file_type_                     //' '// &
-                           & absolute_directory                  //' '// &
-                           & this%no_cores_                      //' '// &
-                           & this%seedname_                              )
+  call print_line('Running calculation in directory '//directory)
+  result_code = system_call( 'cd '//working_directory//';' //' '// &
+                           & this%run_script_              //' '// &
+                           & this%file_type_               //' '// &
+                           & directory                     //' '// &
+                           & this%no_cores_                //' '// &
+                           & this%seedname_                        )
   call print_line('Result code: '//result_code)
   
   ! Convert the electronic structure result into an ElectronicStructure.
-  structure_file = IFile(absolute_directory//'/structure.dat')
+  structure_file = IFile(directory//'/structure.dat')
   structure = StructureData(structure_file%lines())
-  electronic_structure = read_output_file(      &
-     & this%file_type_,                         &
-     & absolute_directory//'/'//this%filename_, &
-     & structure,                               &
-     & absolute_directory,                      &
-     & this%seedname_,                          &
-     & this%calculation_type_                   )
-  electronic_structure_file = OFile(                   &
-     & absolute_directory//'/electronic_structure.dat' )
+  electronic_structure = read_output_file( &
+         & this%file_type_,                &
+         & directory//'/'//this%filename_, &
+         & structure,                      &
+         & directory,                      &
+         & this%seedname_,                 &
+         & this%calculation_type_          )
+  electronic_structure_file = OFile(directory//'/electronic_structure.dat' )
   call electronic_structure_file%print_lines(electronic_structure)
   
   ! Record the directory.
