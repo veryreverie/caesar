@@ -45,9 +45,6 @@ subroutine map_vscf_modes_subroutine(arguments)
   
   type(Dictionary), intent(in) :: arguments
   
-  ! Working directory.
-  type(String) :: wd
-  
   ! Input arguments.
   integer :: no_single_mode_samples
   
@@ -80,11 +77,10 @@ subroutine map_vscf_modes_subroutine(arguments)
   integer :: i,j,ialloc
   
   ! Read in arguments.
-  wd = arguments%value('working_directory')
   no_single_mode_samples = int(arguments%value('no_single_mode_samples'))
   
   ! Read in anharmonic data.
-  anharmonic_data_file = IFile(wd//'/anharmonic_data.dat')
+  anharmonic_data_file = IFile('anharmonic_data.dat')
   anharmonic_data = AnharmonicData(anharmonic_data_file%lines())
   
   complex_modes = anharmonic_data%complex_modes
@@ -93,14 +89,14 @@ subroutine map_vscf_modes_subroutine(arguments)
   frequency_of_max_displacement = anharmonic_data%frequency_of_max_displacement
   
   ! Read in single-subspace potentials, bases and ground states.
-  subspace_potentials_file = IFile(wd//'/subspace_potentials.dat')
+  subspace_potentials_file = IFile('subspace_potentials.dat')
   subspace_potentials = PotentialPointer(                                &
      & subspace_potentials_file%sections(separating_line=repeat('=',70)) )
   
-  basis_file = IFile(wd//'/basis.dat')
+  basis_file = IFile('basis.dat')
   basis = SubspaceBasis(basis_file%sections())
   
-  ground_states_file = IFile(wd//'/ground_state.dat')
+  ground_states_file = IFile('ground_state.dat')
   ground_states = VscfGroundState(ground_states_file%sections())
   
   ! --------------------------------------------------
@@ -126,7 +122,7 @@ subroutine map_vscf_modes_subroutine(arguments)
     enddo
     
     ! Write out displacements.
-    subspace_dir = wd//'/subspace_'// &
+    subspace_dir = 'subspace_'// &
        & left_pad(subspaces(i)%id,str(maxval(subspaces%id,1)))
     call mkdir(subspace_dir)
     mode_maps_file = OFile(subspace_dir//'/vscf_mode_maps.dat')

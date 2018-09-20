@@ -34,8 +34,6 @@ subroutine test_subroutine(arguments)
   
   type(Dictionary), intent(in) :: arguments
   
-  type(String) :: wd
-  
   integer :: no_elements
   
   integer, allocatable :: mins_in(:)

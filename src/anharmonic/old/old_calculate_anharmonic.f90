@@ -77,7 +77,6 @@ subroutine calculate_anharmonic(arguments)
   type(Dictionary), intent(in) :: arguments
   
   ! Inputs.
-  type(String) :: wd
   real(dp)     :: energy_error
   real(dp)     :: force_error
   integer      :: harmonic_states_cutoff
@@ -136,7 +135,6 @@ subroutine calculate_anharmonic(arguments)
   ! --------------------------------------------------
   
   ! Read in inputs.
-  wd = arguments%value('working_directory')
   energy_error = dble(arguments%value('energy_error'))
   force_error = dble(arguments%value('force_error'))
   harmonic_states_cutoff = int(arguments%value('harmonic_states_cutoff'))
@@ -159,7 +157,7 @@ subroutine calculate_anharmonic(arguments)
   ! Read in setup_anharmonic settings.
   setup_anharmonic_arguments = setup_anharmonic_keywords()
   call setup_anharmonic_arguments%read_file( &
-     & wd//'/setup_anharmonic.used_settings')
+          & 'setup_anharmonic.used_settings' )
   harmonic_path = setup_anharmonic_arguments%value('harmonic_path')
   grid_type = setup_anharmonic_arguments%value('grid_type')
   
@@ -204,14 +202,14 @@ subroutine calculate_anharmonic(arguments)
     
     ! Read in coupling and sampling points.
     coupling = read_coupling_file( &
-       & wd//'/qpoint_'//left_pad(i,str(size(qpoints)))//'/coupling.dat')
+       & 'qpoint_'//left_pad(i,str(size(qpoints)))//'/coupling.dat')
     allocate(sampling(size(coupling)), stat=ialloc); call err(ialloc)
     do j=1,size(coupling)
       sampling(j)%coupling = coupling(j)
       sampling(j)%sampling_points = read_sampling_points_file( &
-         & wd//'/qpoint_'//left_pad(i,str(size(qpoints)))//    &
-         & '/coupling_'//left_pad(j,str(size(coupling)))//     &
-         & '/sampling_points.dat')
+             & 'qpoint_'//left_pad(i,str(size(qpoints)))//     &
+             & '/coupling_'//left_pad(j,str(size(coupling)))// &
+             & '/sampling_points.dat')
       no_sampling_points = size(sampling(j)%sampling_points)
       allocate( sampling(j)%energy(no_sampling_points),                    &
               & sampling(j)%forces(supercell%no_atoms,no_sampling_points), &
@@ -221,12 +219,11 @@ subroutine calculate_anharmonic(arguments)
       do k=1,no_sampling_points
         output_file = read_output_file(                                   &
            & file_type,                                                   &
-           & wd//                                                         &
-           &    '/qpoint_'//left_pad(i,str(size(qpoints)))//              &
+           & '/qpoint_'//left_pad(i,str(size(qpoints)))//                 &
            &    '/coupling_'//left_pad(j,str(size(coupling)))//           &
            &    '/sampling_point_'//left_pad(k,str(no_sampling_points))// &
-           &    '/'//output_filename, &
-           & supercell)
+           &    '/'//output_filename,                                     &
+           & supercell                                                    )
         sampling(j)%energy(k) = output_file%energy
         sampling(j)%forces(:,k) = output_file%forces
       enddo

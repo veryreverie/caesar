@@ -77,7 +77,6 @@ subroutine setup_anharmonic_subroutine(arguments)
   type(Dictionary), intent(in) :: arguments
   
   ! User inputs.
-  type(String) :: wd
   type(String) :: harmonic_path
   integer      :: qpoint_grid(3)
   type(String) :: potential_representation
@@ -152,7 +151,6 @@ subroutine setup_anharmonic_subroutine(arguments)
   ! ----------------------------------------------------------------------
   
   ! Parse new user inputs.
-  wd = arguments%value('working_directory')
   harmonic_path = arguments%value('harmonic_path')
   qpoint_grid = int(split_line(arguments%value('q-point_grid')))
   potential_representation = arguments%value('potential_representation')
@@ -170,7 +168,7 @@ subroutine setup_anharmonic_subroutine(arguments)
      & harmonic_path//'/setup_harmonic.used_settings')
   seedname = setup_harmonic_arguments%value('seedname')
   file_type = setup_harmonic_arguments%value('file_type')
-  call setup_harmonic_arguments%write_file(wd//'/setup_harmonic.used_settings')
+  call setup_harmonic_arguments%write_file('setup_harmonic.used_settings')
   
   ! Read in structure and harmonic q-points.
   structure_file = IFile(harmonic_path//'/structure.dat')
@@ -190,7 +188,7 @@ subroutine setup_anharmonic_subroutine(arguments)
   ! ----------------------------------------------------------------------
   
   ! Open logfile.
-  logfile = OFile(wd//'/setup_anharmonic_logfile.dat')
+  logfile = OFile('setup_anharmonic_logfile.dat')
   
   ! Calculate the maximum mass-weighted displacement from the maximum
   !    displacement. This corresponds to a mode made entirely from the
@@ -264,28 +262,28 @@ subroutine setup_anharmonic_subroutine(arguments)
   ! Write out setup data common to all potential representations.
   ! ----------------------------------------------------------------------
   ! Write out anharmonic supercell and q-points.
-  anharmonic_supercell_file = OFile(wd//'/anharmonic_supercell.dat')
+  anharmonic_supercell_file = OFile('anharmonic_supercell.dat')
   call anharmonic_supercell_file%print_lines(anharmonic_supercell)
   
-  anharmonic_qpoints_file = OFile(wd//'/qpoints.dat')
+  anharmonic_qpoints_file = OFile('qpoints.dat')
   call anharmonic_qpoints_file%print_lines(qpoints, separating_line='')
   
   ! Write out complex and real normal modes.
-  complex_modes_file = OFile(wd//'/complex_modes.dat')
+  complex_modes_file = OFile('complex_modes.dat')
   call complex_modes_file%print_lines(complex_modes, separating_line='')
   
-  real_modes_file = OFile(wd//'/real_modes.dat')
+  real_modes_file = OFile('real_modes.dat')
   call real_modes_file%print_lines(real_modes, separating_line='')
   
   ! Write out subspaces and subspace coupling.
-  subspaces_file = OFile(wd//'/degenerate_subspaces.dat')
+  subspaces_file = OFile('degenerate_subspaces.dat')
   call subspaces_file%print_lines(degenerate_subspaces, separating_line='')
   
-  coupling_file = OFile(wd//'/subspace_coupling.dat')
+  coupling_file = OFile('subspace_coupling.dat')
   call coupling_file%print_lines(subspace_coupling)
   
   ! Write out symmetries.
-  symmetry_file = OFile(wd//'/symmetries.dat')
+  symmetry_file = OFile('symmetries.dat')
   call symmetry_file%print_lines(degenerate_symmetries, separating_line='')
   
   ! ----------------------------------------------------------------------
@@ -319,7 +317,7 @@ subroutine setup_anharmonic_subroutine(arguments)
                                   & frequency_of_max_displacement )
   
   ! Write out anharmonic data.
-  anharmonic_data_file = OFile(wd//'/anharmonic_data.dat')
+  anharmonic_data_file = OFile('anharmonic_data.dat')
   call anharmonic_data_file%print_lines(anharmonic_data)
   
   ! Generate the sampling points which will be used to map out the anharmonic
@@ -331,7 +329,7 @@ subroutine setup_anharmonic_subroutine(arguments)
                     & logfile              )
   
   ! Write out calculation directories to file.
-  calculation_directories_file = OFile(wd//'/calculation_directories.dat')
+  calculation_directories_file = OFile('calculation_directories.dat')
   call calculation_directories_file%print_lines( &
      & calculation_writer%directories_written())
 end subroutine

@@ -70,9 +70,6 @@ subroutine calculate_states_subroutine(arguments)
   
   type(Dictionary), intent(in) :: arguments
   
-  ! Working directory,
-  type(String) :: wd
-  
   ! Input arguments.
   real(dp) :: frequency_convergence
   real(dp) :: energy_convergence
@@ -104,7 +101,6 @@ subroutine calculate_states_subroutine(arguments)
   type(OFile) :: ground_state_file
   
   ! Read in arguments.
-  wd = arguments%value('working_directory')
   frequency_convergence = dble(arguments%value('frequency_convergence'))
   energy_convergence = dble(arguments%value('energy_convergence'))
   no_converged_calculations = int(arguments%value('no_converged_calculations'))
@@ -114,11 +110,11 @@ subroutine calculate_states_subroutine(arguments)
   no_basis_states = int(arguments%value('no_basis_states'))
   
   ! Read in anharmonic data.
-  anharmonic_data_file = IFile(wd//'/anharmonic_data.dat')
+  anharmonic_data_file = IFile('anharmonic_data.dat')
   anharmonic_data = AnharmonicData(anharmonic_data_file%lines())
   
   ! Read in anharmonic potential.
-  potential_file = IFile(wd//'/potential.dat')
+  potential_file = IFile('potential.dat')
   potential = PotentialPointer(potential_file%lines())
   
   ! --------------------------------------------------
@@ -131,7 +127,7 @@ subroutine calculate_states_subroutine(arguments)
                         & pre_pulay_iterations,  &
                         & pre_pulay_damping,     &
                         & no_basis_states        )
-  basis_file = OFile(wd//'/basis.dat')
+  basis_file = OFile('basis.dat')
   call basis_file%print_lines(basis, separating_line='')
   
   ! --------------------------------------------------
@@ -147,12 +143,12 @@ subroutine calculate_states_subroutine(arguments)
                                   & anharmonic_data            )
   
   subspace_potentials = potentials_and_states%potential
-  subspace_potentials_file = OFile(wd//'/subspace_potentials.dat')
+  subspace_potentials_file = OFile('subspace_potentials.dat')
   call subspace_potentials_file%print_lines( subspace_potentials,           &
                                            & separating_line=repeat('=',70) )
   
   ground_states = potentials_and_states%state
-  ground_state_file = OFile(wd//'/ground_state.dat')
+  ground_state_file = OFile('ground_state.dat')
   call ground_state_file%print_lines(ground_states, separating_line='')
 end subroutine
 end module

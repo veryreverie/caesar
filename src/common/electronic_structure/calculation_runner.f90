@@ -20,6 +20,8 @@ module calculation_runner_submodule
     type(String), private              :: seedname_
     type(String), private              :: run_script_
     integer,      private              :: no_cores_
+    integer,      private              :: no_nodes_
+    type(String), private              :: run_script_data_
     type(String), private              :: calculation_type_
     type(String), private              :: filename_
     type(String), private, allocatable :: directories_(:)
@@ -36,13 +38,15 @@ contains
 
 ! Constructor.
 function new_CalculationRunner(file_type,seedname,run_script,no_cores, &
-   & calculation_type) result(this)
+   & no_nodes,run_script_data,calculation_type) result(this)
   implicit none
   
   type(String), intent(in) :: file_type
   type(String), intent(in) :: seedname
   type(String), intent(in) :: run_script
   integer,      intent(in) :: no_cores
+  integer,      intent(in) :: no_nodes
+  type(String), intent(in) :: run_script_data
   type(String), intent(in) :: calculation_type
   type(CalculationRunner)  :: this
     
@@ -50,6 +54,8 @@ function new_CalculationRunner(file_type,seedname,run_script,no_cores, &
   this%seedname_         = seedname
   this%run_script_       = run_script
   this%no_cores_         = no_cores
+  this%no_nodes_         = no_nodes
+  this%run_script_data_  = run_script_data
   this%calculation_type_ = calculation_type
   
   ! If the calculation type is 'none' then the electronic structure
@@ -103,7 +109,9 @@ subroutine run_calculation(this,directory)
                            & this%file_type_               //' '// &
                            & directory                     //' '// &
                            & this%no_cores_                //' '// &
-                           & this%seedname_                        )
+                           & this%no_nodes_                //' '// &
+                           & this%seedname_                //' '// &
+                           & this%run_script_data_                 )
   call print_line('Result code: '//result_code)
   
   ! Convert the electronic structure result into an ElectronicStructure.

@@ -15,6 +15,12 @@ module subspace_basis_module
   public :: size
   public :: generate_subspace_basis
   
+  ! Conversions between bases of states.
+  !type, extends(Stringable) :: StateConversion
+  !  integer,  allocatable :: ids(:)
+  !  real(dp), allocatable :: coefficients(:)
+  !end type
+  
   ! The states at a single wavevector.
   type, extends(Stringsable) :: SubspaceWavevectorBasis
     ! The ID and frequency of the subspace.
@@ -32,6 +38,11 @@ module subspace_basis_module
     ! The occupations of the harmonic basis states.
     ! e.g. the occupation of |0> is zero, and the occupation of |2,4> is 6.
     integer, allocatable :: harmonic_occupations(:)
+    
+    type(IntArray1D), allocatable, private :: states_to_basis_ids_(:)
+    type(RealVector), allocatable, private :: states_to_basis_coefficients_(:)
+    type(IntArray1D), allocatable, private :: basis_to_states_ids_(:)
+    type(RealVector), allocatable, private :: basis_to_states_coefficients_(:)
   contains
     ! Set the frequency of the basis.
     procedure, public :: set_frequency => set_frequency_SubspaceWavevectorBasis
@@ -85,7 +96,9 @@ contains
 
 ! Constructors and size functions.
 function new_SubspaceWavevectorBasis(subspace_id,frequency,wavevector,states, &
-   & states_to_basis,basis_to_states,harmonic_occupations) result(this)
+   & states_to_basis,basis_to_states,harmonic_occupations) result(this)!,                    &
+!   & states_to_basis_ids,states_to_basis_coefficients,basis_to_states_ids,    &
+!   & basis_to_states_coefficients) result(this)
   implicit none
   
   integer,              intent(in) :: subspace_id
@@ -95,6 +108,10 @@ function new_SubspaceWavevectorBasis(subspace_id,frequency,wavevector,states, &
   type(RealMatrix),     intent(in) :: states_to_basis
   type(RealMatrix),     intent(in) :: basis_to_states
   integer,              intent(in) :: harmonic_occupations(:)
+!  type(IntArray1D),     intent(in) :: states_to_basis_ids(:)
+!  type(RealVector),     intent(in) :: states_to_basis_coefficients(:)
+!  type(IntArray1D),     intent(in) :: basis_to_states_ids(:)
+!  type(RealVector),     intent(in) :: basis_to_states_coefficients(:)
   type(SubspaceWavevectorBasis)    :: this
   
   if (any(states%subspace_id/=subspace_id)) then
@@ -102,13 +119,17 @@ function new_SubspaceWavevectorBasis(subspace_id,frequency,wavevector,states, &
     call err()
   endif
   
-  this%subspace_id          = subspace_id
-  this%frequency            = frequency
-  this%wavevector           = wavevector
-  this%states               = states
-  this%states_to_basis_     = states_to_basis
-  this%basis_to_states_     = basis_to_states
-  this%harmonic_occupations = harmonic_occupations
+  this%subspace_id                   = subspace_id
+  this%frequency                     = frequency
+  this%wavevector                    = wavevector
+  this%states                        = states
+  this%states_to_basis_              = states_to_basis
+  this%basis_to_states_              = basis_to_states
+  this%harmonic_occupations          = harmonic_occupations
+!  this%states_to_basis_ids_          = states_to_basis_ids
+!  this%states_to_basis_coefficients_ = states_to_basis_coefficients
+!  this%basis_to_states_ids_          = basis_to_states_ids
+!  this%basis_to_states_coefficients_ = basis_to_states_coefficients
 end function
 
 function new_SubspaceBasis(subspace_id,frequency,wavevectors) result(this)
@@ -203,6 +224,11 @@ function generate_subspace_basis(subspace,frequency,modes,qpoints, &
   real(dp),                  allocatable :: matching_harmonic_to_basis(:,:)
   integer                                :: state
   
+  type(IntArray1D), allocatable :: states_to_basis_ids(:)
+  type(IntArray1D), allocatable :: basis_to_states_ids(:)
+  type(RealVector), allocatable :: states_to_basis_coefficients(:)
+  type(RealVector), allocatable :: basis_to_states_coefficients(:)
+  
   ! Output variables.
   type(SubspaceWavevectorBasis), allocatable :: wavevector_bases(:)
   
@@ -244,11 +270,15 @@ function generate_subspace_basis(subspace,frequency,modes,qpoints, &
           & stat=ialloc); call err(ialloc)
   do i=1,size(unique_wavevectors)
     wavevector_states = states(wavevector_state_ids(i)%i)
-    allocate( states_to_basis( size(wavevector_state_ids(i)),      &
-            &           size(wavevector_state_ids(i))  ),          &
-            & basis_to_states( size(wavevector_state_ids(i)),      &
-            &            size(wavevector_state_ids(i))  ),         &
-            & harmonic_occupations(size(wavevector_state_ids(i))), &
+    allocate( states_to_basis( size(wavevector_state_ids(i)),               &
+            &           size(wavevector_state_ids(i))  ),                   &
+            & basis_to_states( size(wavevector_state_ids(i)),               &
+            &            size(wavevector_state_ids(i))  ),                  &
+            & harmonic_occupations(size(wavevector_state_ids(i))),          &
+            & states_to_basis_ids(size(wavevector_state_ids(i))),           &
+            & basis_to_states_ids(size(wavevector_state_ids(i))),           &
+            & states_to_basis_coefficients(size(wavevector_state_ids(i))),  &
+            & basis_to_states_coefficients(size(wavevector_state_ids(i))),  &
             & stat=ialloc); call err(ialloc)
     states_to_basis = 0
     basis_to_states = 0
@@ -340,6 +370,15 @@ function generate_subspace_basis(subspace,frequency,modes,qpoints, &
                 & stat=ialloc); call err(ialloc)
     enddo
     
+    do j=1,size(states_to_basis,1)
+      states_to_basis_ids(j) = filter(abs(states_to_basis(j,:))>1e-10_dp)
+      states_to_basis_coefficients(j) = &
+         & states_to_basis(j,states_to_basis_ids(j)%i)
+      basis_to_states_ids(j) = filter(abs(basis_to_states(j,:))>1e-10_dp)
+      basis_to_states_coefficients(j) = &
+         & basis_to_states(j,basis_to_states_ids(j)%i)
+    enddo
+    
     wavevector_bases(i) = SubspaceWavevectorBasis( &
                    & subspace%id,                  &
                    & frequency,                    &
@@ -347,11 +386,19 @@ function generate_subspace_basis(subspace,frequency,modes,qpoints, &
                    & wavevector_states,            &
                    & mat(states_to_basis),         &
                    & mat(basis_to_states),         &
-                   & harmonic_occupations          )
+                   & harmonic_occupations)!,         &
+!                   & states_to_basis_ids,          &
+!                   & states_to_basis_coefficients, &
+!                   & basis_to_states_ids,          &
+!                   & basis_to_states_coefficients  )
     
-    deallocate( states_to_basis,      &
-              & basis_to_states,      &
-              & harmonic_occupations, &
+    deallocate( states_to_basis,              &
+              & basis_to_states,              &
+              & harmonic_occupations,         &
+              & states_to_basis_ids,          &
+              & states_to_basis_coefficients, &
+              & basis_to_states_ids,          &
+              & basis_to_states_coefficients, &
               & stat=ialloc); call err(ialloc)
   enddo
   

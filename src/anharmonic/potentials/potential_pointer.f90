@@ -580,10 +580,8 @@ end function
 ! --------------------------------------------------
 ! The class in use.
 ! --------------------------------------------------
-subroutine potential_example_subroutine(wd)
+subroutine potential_example_subroutine()
   implicit none
-  
-  type(String), intent(in) :: wd
   
   ! A polymorphic pointer, which can store an object of any type which
   !    extends PotentialData.
@@ -654,10 +652,10 @@ subroutine potential_example_subroutine(wd)
   
   ! The potential can be written to and read from file using the potential
   !    pointer's methods.
-  output_file = OFile(wd//'example_potential.file')
+  output_file = OFile('example_potential.file')
   call output_file%print_lines(potential)
   
-  input_file = IFile(wd//'example_potential.file')
+  input_file = IFile('example_potential.file')
   potential = PotentialPointer(input_file%lines())
 end subroutine
 end module

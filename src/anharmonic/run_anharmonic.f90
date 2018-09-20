@@ -41,9 +41,20 @@ function run_anharmonic() result(output)
      &example run script can be found in doc/input_files.',                   &
      &               is_path=.true.),                                         &
      & KeywordData( 'no_cores',                                               &
-     &              'no_cores is the number of cores on which DFT will be &
-     &run. This is passed to the specified run script.',                      &
-     &               default_value='1'),                                      &
+     &              'no_cores is the number of cores on which the electronic &
+     &structure calculation will be run. This is passed to the specified run &
+     &script.',                                                               &
+     &              default_value='1'),                                       &
+     & KeywordData( 'no_nodes',                                               &
+     &              'no_nodes is the number of nodes on which the electronic &
+     &structure calculation will be run. This is passed to the specified run &
+     &script.',                                                               &
+     &              default_value='1'),                                       &
+     & KeywordData( 'run_script_data',                                        &
+     &              'run_script_data will be passed to the specified run &
+     &script after all other arguments. This should be used to pass &
+     &information not covered by the other arguments.',                       &
+     &              default_value=''),                                        &
      & KeywordData( 'calculation_type',                                       &
      &              'calculation_type specifies whether any electronic &
      &structure calculations should be run in addition to the user-defined &
@@ -60,13 +71,12 @@ subroutine run_anharmonic_subroutine(arguments)
   
   type(Dictionary), intent(in) :: arguments
   
-  ! Working directory.
-  type(String) :: wd
-  
   ! Inputs
   integer, allocatable :: calculations_to_run(:)
   type(String)         :: run_script
   integer              :: no_cores
+  integer              :: no_nodes
+  type(String)         :: run_script_data
   type(String)         :: calculation_type
   
   ! Previous inputs.
@@ -82,24 +92,25 @@ subroutine run_anharmonic_subroutine(arguments)
   type(CalculationRunner) :: calculation_runner
   
   ! Read in inputs.
-  wd = arguments%value('working_directory')
   if (arguments%is_set('calculations_to_run')) then
     calculations_to_run = &
        & int(split_line(arguments%value('calculations_to_run')))
   endif
   run_script = arguments%value('run_script')
   no_cores = int(arguments%value('no_cores'))
+  no_nodes = int(arguments%value('no_nodes'))
+  run_script_data = arguments%value('run_script_data')
   calculation_type = arguments%value('calculation_type')
   
   ! Read in setup_harmonic settings.
   setup_harmonic_arguments = Dictionary(setup_harmonic())
   call setup_harmonic_arguments%read_file( &
-     & wd//'/setup_harmonic.used_settings' )
+          & 'setup_harmonic.used_settings' )
   file_type = setup_harmonic_arguments%value('file_type')
   seedname = setup_harmonic_arguments%value('seedname')
   
   ! Read in calculation directories.
-  calculation_directories_file = IFile(wd//'/calculation_directories.dat')
+  calculation_directories_file = IFile('calculation_directories.dat')
   calculation_directories = calculation_directories_file%lines()
   
   ! Select only those calculations specified by calculations_to_run,
@@ -129,12 +140,14 @@ subroutine run_anharmonic_subroutine(arguments)
   endif
   
   ! Initialise calculation runner.
-  calculation_runner = CalculationRunner(   &
-     & file_type         = file_type,       &
-     & seedname          = seedname,        &
-     & run_script        = run_script,      &
-     & no_cores          = no_cores,        &
-     & calculation_type  = calculation_type )
+  calculation_runner = CalculationRunner(  &
+     & file_type        = file_type,       &
+     & seedname         = seedname,        &
+     & run_script       = run_script,      &
+     & no_cores         = no_cores,        &
+     & no_nodes         = no_nodes,        &
+     & run_script_data  = run_script_data, &
+     & calculation_type = calculation_type )
   
   ! Run calculations.
   call calculation_runner%run_calculations(calculation_directories)

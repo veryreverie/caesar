@@ -11,9 +11,6 @@ subroutine linear_algebra_test(arguments)
   
   type(Dictionary), intent(in) :: arguments
   
-  ! Working directory.
-  type(String) :: wd
-  
   ! Working variables.
   type(IntVector)  :: iv1,iv2
   type(RealVector) :: rv1,rv2
@@ -27,8 +24,6 @@ subroutine linear_algebra_test(arguments)
   
   call print_line('')
   call print_line('Testing linear algebra.')
-  
-  wd = arguments%value('working_directory')
   
   iv1 = [ 2,3,-1 ]
   iv2 = [ 1,-2,3 ]

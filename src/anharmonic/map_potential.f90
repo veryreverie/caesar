@@ -54,9 +54,20 @@ function map_potential() result(output)
      &example run script can be found in doc/input_files.',                   &
      &               is_path=.true.),                                         &
      & KeywordData( 'no_cores',                                               &
-     &              'no_cores is the number of cores on which DFT will be &
-     &run. This is passed to the specified run script.',                      &
-     &               default_value='1'),                                      &
+     &              'no_cores is the number of cores on which the electronic &
+     &structure calculation will be run. This is passed to the specified run &
+     &script.',                                                               &
+     &              default_value='1'),                                       &
+     & KeywordData( 'no_nodes',                                               &
+     &              'no_nodes is the number of nodes on which the electronic &
+     &structure calculation will be run. This is passed to the specified run &
+     &script.',                                                               &
+     &              default_value='1'),                                       &
+     & KeywordData( 'run_script_data',                                        &
+     &              'run_script_data will be passed to the specified run &
+     &script after all other arguments. This should be used to pass &
+     &information not covered by the other arguments.',                       &
+     &              default_value=''),                                        &
      & KeywordData( 'calculation_type',                                       &
      &              'calculation_type specifies whether any electronic &
      &structure calculations should be run in addition to the user-defined &
@@ -73,15 +84,14 @@ subroutine map_potential_subroutine(arguments)
   
   type(Dictionary), intent(in) :: arguments
   
-  ! Working directory.
-  type(String) :: wd
-  
   ! Input arguments.
   integer, allocatable :: modes(:)
   integer              :: no_single_mode_samples
   logical              :: validate_potential
   type(String)         :: run_script
   integer              :: no_cores
+  integer              :: no_nodes
+  type(String)         :: run_script_data
   type(String)         :: calculation_type
   
   ! Arguments to setup_harmonic.
@@ -145,9 +155,6 @@ subroutine map_potential_subroutine(arguments)
   ! --------------------------------------------------
   ! Read in inputs and previously calculated data.
   ! --------------------------------------------------
-  
-  wd = arguments%value('working_directory')
-  
   if (arguments%is_set('modes')) then
     modes = int(split_line(arguments%value('modes')))
   endif
@@ -155,17 +162,19 @@ subroutine map_potential_subroutine(arguments)
   validate_potential = lgcl(arguments%value('validate_potential'))
   run_script = arguments%value('run_script')
   no_cores = int(arguments%value('no_cores'))
+  no_nodes = int(arguments%value('no_nodes'))
+  run_script_data = arguments%value('run_script_data')
   calculation_type = arguments%value('calculation_type')
   
   ! Read in setup_harmonic arguments.
   setup_harmonic_arguments = Dictionary(setup_harmonic())
   call setup_harmonic_arguments%read_file( &
-     & wd//'/setup_harmonic.used_settings' )
+          & 'setup_harmonic.used_settings' )
   seedname = setup_harmonic_arguments%value('seedname')
   file_type = setup_harmonic_arguments%value('file_type')
   
   ! Read in anharmonic data.
-  anharmonic_data_file = IFile(wd//'/anharmonic_data.dat')
+  anharmonic_data_file = IFile('anharmonic_data.dat')
   anharmonic_data = AnharmonicData(anharmonic_data_file%lines())
   
   structure = anharmonic_data%structure
@@ -177,7 +186,7 @@ subroutine map_potential_subroutine(arguments)
   maximum_weighted_displacement = anharmonic_data%maximum_weighted_displacement
   
   ! Read in anharmonic potential.
-  potential_file = IFile(wd//'/potential.dat')
+  potential_file = IFile('potential.dat')
   potential = PotentialPointer(potential_file%lines())
   
   ! --------------------------------------------------
@@ -190,7 +199,9 @@ subroutine map_potential_subroutine(arguments)
      & file_type         = file_type,       &
      & seedname          = seedname,        &
      & run_script        = run_script,      &
-     & no_cores          = no_cores,        &
+     & no_cores         = no_cores,        &
+     & no_nodes         = no_nodes,        &
+     & run_script_data  = run_script_data, &
      & calculation_type  = calculation_type )
   
   calculation_reader = CalculationReader()

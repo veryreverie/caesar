@@ -84,7 +84,6 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   type(Dictionary), intent(in) :: arguments
   
   ! Inputs.
-  type(String)                  :: wd
   type(RandomReal)              :: random_generator
   real(dp)                      :: min_temperature
   real(dp)                      :: max_temperature
@@ -146,7 +145,6 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   ! --------------------------------------------------
   ! Read in arguments from user.
   ! --------------------------------------------------
-  wd = arguments%value('working_directory')
   if (arguments%is_set('random_seed')) then
     random_generator = RandomReal(int(arguments%value('random_seed')))
   else
@@ -198,7 +196,7 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   enddo
   
   ! Read in anharmonic data.
-  anharmonic_data_file = IFile(wd//'/anharmonic_data.dat')
+  anharmonic_data_file = IFile('anharmonic_data.dat')
   anharmonic_data = AnharmonicData(anharmonic_data_file%lines())
   
   modes = anharmonic_data%complex_modes
@@ -207,16 +205,16 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   supercell = anharmonic_data%anharmonic_supercell
   
   ! Read in subspace potentials.
-  subspace_potentials_file = IFile(wd//'/subspace_potentials.dat')
+  subspace_potentials_file = IFile('subspace_potentials.dat')
   subspace_potentials = PotentialPointer(                                &
      & subspace_potentials_file%sections(separating_line=repeat('=',70)) )
   
   ! Read in subspace bases.
-  basis_file = IFile(wd//'/basis.dat')
+  basis_file = IFile('basis.dat')
   subspace_bases = SubspaceBasis(basis_file%sections())
   
   ! Make output directory and open logfile.
-  output_dir = wd//'/anharmonic_observables'
+  output_dir = 'anharmonic_observables'
   call mkdir(output_dir)
   logfile = OFile(output_dir//'/anharmonic_observables_log.dat')
   

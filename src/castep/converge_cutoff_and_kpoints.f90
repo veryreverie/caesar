@@ -31,10 +31,21 @@ function converge_cutoff_and_kpoints() result(output)
   &               'run_script is the path to the script for running CASTEP. &
   &An example run script can be found in doc/input_files.',                   &
   &               is_path=.true.),                                            &
-  & KeywordData( 'no_cores',                                                 &
-  &               'no_cores is the number of cores on which CASTEP will be &
-  &run. This is passed to the specified run script.',                         &
-  &               default_value='1'),                                         &
+     & KeywordData( 'no_cores',                                               &
+     &              'no_cores is the number of cores on which the electronic &
+     &structure calculation will be run. This is passed to the specified run &
+     &script.',                                                               &
+     &              default_value='1'),                                       &
+     & KeywordData( 'no_nodes',                                               &
+     &              'no_nodes is the number of nodes on which the electronic &
+     &structure calculation will be run. This is passed to the specified run &
+     &script.',                                                               &
+     &              default_value='1'),                                       &
+     & KeywordData( 'run_script_data',                                        &
+     &              'run_script_data will be passed to the specified run &
+     &script after all other arguments. This should be used to pass &
+     &information not covered by the other arguments.',                       &
+     &              default_value=''),                                        &
   & KeywordData( 'minimum_cutoff',                                           &
   &               'minimum_cutoff is the smallest cutoff energy which will be &
   &tested. minimum_cutoff must be an integer.',                               &
@@ -96,6 +107,8 @@ subroutine converge_cutoff_and_kpoints_subroutine(arguments)
   type(String) :: seedname
   type(String) :: run_script
   integer      :: no_cores
+  integer      :: no_nodes
+  type(String) :: run_script_data
   integer      :: minimum_cutoff
   integer      :: cutoff_step
   integer      :: maximum_cutoff
@@ -157,6 +170,8 @@ subroutine converge_cutoff_and_kpoints_subroutine(arguments)
   seedname = arguments%value('seedname')
   run_script = arguments%value('run_script')
   no_cores = int(arguments%value('no_cores'))
+  no_nodes = int(arguments%value('no_nodes'))
+  run_script_data = arguments%value('run_script_data')
   minimum_cutoff = int(arguments%value('minimum_cutoff'))
   cutoff_step = int(arguments%value('cutoff_step'))
   maximum_cutoff = int(arguments%value('maximum_cutoff'))
@@ -199,11 +214,13 @@ subroutine converge_cutoff_and_kpoints_subroutine(arguments)
   calculation_writer = CalculationWriter( file_type = str('castep'), &
                                         & seedname  = seedname       )
   
-  calculation_runner = CalculationRunner( file_type         = str('castep'), &
-                                        & seedname          = seedname,      &
-                                        & run_script        = run_script,    &
-                                        & no_cores          = no_cores,      &
-                                        & calculation_type  = str('none')    )
+  calculation_runner = CalculationRunner( file_type        = str('castep'),   &
+                                        & seedname         = seedname,        &
+                                        & run_script       = run_script,      &
+                                        & no_cores         = no_cores,        &
+                                        & no_nodes         = no_nodes,        &
+                                        & run_script_data  = run_script_data, &
+                                        & calculation_type = str('none')      )
   
   calculation_reader = CalculationReader()
   

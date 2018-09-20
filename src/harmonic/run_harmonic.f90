@@ -33,9 +33,20 @@ function run_harmonic() result(output)
      &example run script can be found in doc/input_files.',                   &
      &              is_path=.true.),                                          &
      & KeywordData( 'no_cores',                                               &
-     &              'no_cores is the number of cores on which DFT will be &
-     &run. This is passed to the specified run script.',                      &
+     &              'no_cores is the number of cores on which the electronic &
+     &structure calculation will be run. This is passed to the specified run &
+     &script.',                                                               &
      &              default_value='1'),                                       &
+     & KeywordData( 'no_nodes',                                               &
+     &              'no_nodes is the number of nodes on which the electronic &
+     &structure calculation will be run. This is passed to the specified run &
+     &script.',                                                               &
+     &              default_value='1'),                                       &
+     & KeywordData( 'run_script_data',                                        &
+     &              'run_script_data will be passed to the specified run &
+     &script after all other arguments. This should be used to pass &
+     &information not covered by the other arguments.',                       &
+     &              default_value=''),                                        &
      & KeywordData( 'calculation_type',                                       &
      &              'calculation_type specifies whether any electronic &
      &structure calculations should be run in addition to the user-defined &
@@ -55,6 +66,8 @@ subroutine run_harmonic_subroutine(arguments)
   ! User inputs.
   integer      :: supercells_to_run(2)
   integer      :: no_cores
+  integer      :: no_nodes
+  type(String) :: run_script_data
   type(String) :: run_script
   type(String) :: calculation_type
   
@@ -89,6 +102,8 @@ subroutine run_harmonic_subroutine(arguments)
   supercells_to_run = int(split_line(arguments%value('supercells_to_run')))
   run_script = arguments%value('run_script')
   no_cores = int(arguments%value('no_cores'))
+  no_nodes = int(arguments%value('no_nodes'))
+  run_script_data = arguments%value('run_script_data')
   calculation_type = arguments%value('calculation_type')
   
   ! --------------------------------------------------
@@ -128,6 +143,10 @@ subroutine run_harmonic_subroutine(arguments)
     call print_line('')
     call print_line('Error: no. cores must be >= 1')
     call err()
+  elseif (no_nodes<=0) then
+    call print_line('')
+    call print_line('Error: no. nodes must be >= 1')
+    call err()
   elseif (.not. file_exists(run_script)) then
     call print_line('')
     call print_line('Error: '//run_script//' does not exist.')
@@ -138,11 +157,13 @@ subroutine run_harmonic_subroutine(arguments)
   ! Initialise calculation runner.
   ! --------------------------------------------------
   calculation_runner = CalculationRunner(  &
-    & file_type         = file_type,       &
-    & seedname          = seedname,        &
-    & run_script        = run_script,      &
-    & no_cores          = no_cores,        &
-    & calculation_type  = calculation_type )
+     & file_type        = file_type,       &
+     & seedname         = seedname,        &
+     & run_script       = run_script,      &
+     & no_cores         = no_cores,        &
+     & no_nodes         = no_nodes,        &
+     & run_script_data  = run_script_data, &
+     & calculation_type = calculation_type )
   
   ! --------------------------------------------------
   ! Run calculations
