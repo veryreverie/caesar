@@ -150,7 +150,6 @@ function read_output_file(file_type,filename,structure,dir,seedname, &
     displaced_structure_file = IFile(dir//'/structure.dat')
     displaced_structure = StructureData(displaced_structure_file%lines())
     output = run_quip_on_structure( displaced_structure, &
-                                  & dir,                 &
                                   & seedname)
   else
     call print_line(ERROR//': calculation_type must be either "script" or &

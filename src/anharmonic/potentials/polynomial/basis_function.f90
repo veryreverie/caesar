@@ -414,17 +414,23 @@ impure elemental function is_constant_BasisFunction(this) result(output)
   class(BasisFunction), intent(in) :: this
   logical                          :: output
   
-  if (size(this%real_representation)>1) then
-    output = .false.
-  elseif (size(this%complex_representation)>1) then
-    output = .false.
-  elseif (size(this%real_representation%terms(1))>0) then
-    output = .false.
-  elseif (size(this%complex_representation%terms(1))>0) then
-    output = .false.
-  else
-    output = .true.
-  endif
+  integer :: i
+  
+  do i=1,size(this%real_representation)
+    if (size(this%real_representation%terms(i))>0) then
+      output = .false.
+      return
+    endif
+  enddo
+  
+  do i=1,size(this%complex_representation)
+    if (size(this%complex_representation%terms(i))>0) then
+      output = .false.
+      return
+    endif
+  enddo
+  
+  output = .true.
 end function
 
 ! ----------------------------------------------------------------------

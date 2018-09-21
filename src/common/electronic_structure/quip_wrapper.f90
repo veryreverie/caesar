@@ -106,11 +106,10 @@ subroutine write_input_file_xyz(structure,input_filename,output_filename)
   endif
 end subroutine
 
-function run_quip_on_structure(structure,dir,seedname) result(output)
+function run_quip_on_structure(structure,seedname) result(output)
   implicit none
   
   type(StructureData), intent(in) :: structure
-  type(String),        intent(in) :: dir
   type(String),        intent(in) :: seedname
   type(ElectronicStructure)       :: output
   
@@ -121,7 +120,7 @@ function run_quip_on_structure(structure,dir,seedname) result(output)
   
   integer :: ialloc
   
-  quip_filename = format_path(dir//'/'//seedname//'_MEAM.xml')
+  quip_filename = format_path(seedname//'_MEAM.xml')
   quip_structure = structure
   allocate( quip_electronic_structure%forces(3,structure%no_atoms), &
           & stat=ialloc); call err(ialloc)

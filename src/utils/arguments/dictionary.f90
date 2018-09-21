@@ -485,6 +485,8 @@ subroutine write_file_Dictionary_character(this,filename)
       cycle
     elseif (.not. this%keywords(i)%is_set()) then
       cycle
+    elseif (len(this%keywords(i)%value())==0) then
+      cycle
     else
       to_write = .true.
       max_length = max(max_length, len(this%keywords(i)%keyword))
@@ -497,6 +499,8 @@ subroutine write_file_Dictionary_character(this,filename)
       if (.not. this%keywords(i)%allowed_in_file) then
         cycle
       elseif (.not. this%keywords(i)%is_set()) then
+        cycle
+      elseif (len(this%keywords(i)%value())==0) then
         cycle
       else
         call dictionary_file%print_line(                           &

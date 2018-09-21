@@ -167,9 +167,12 @@ function calculate_free_energy(potential,basis,subspace,anharmonic_data, &
   
   frequency = basis%frequency
   
-  ! Calculate the free energy of the harmonic system in the harmonic basis.
+  ! Calculate the free energy per primitive cell
+  !    of the harmonic system in the harmonic basis.
   harmonic_thermodynamics = ThermodynamicVariables(thermal_energy, frequency)
-  harmonic_free_energy = size(subspace) * harmonic_thermodynamics%free_energy
+  harmonic_free_energy = size(subspace)                      &
+                     & * harmonic_thermodynamics%free_energy &
+                     & / supercell%sc_size
   
   ! Calculate the thermal expectation of Vv-Vh.
   thermal_energy_difference = 0

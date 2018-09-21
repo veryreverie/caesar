@@ -54,11 +54,10 @@ subroutine write_input_file_xyz(structure,input_filename,output_filename)
   stop
 end subroutine
 
-function run_quip_on_structure(structure,dir,seedname) result(output)
+function run_quip_on_structure(structure,seedname) result(output)
   implicit none
   
   type(StructureData), intent(in) :: structure
-  type(String),        intent(in) :: dir
   type(String),        intent(in) :: seedname
   type(ElectronicStructure)       :: output
   

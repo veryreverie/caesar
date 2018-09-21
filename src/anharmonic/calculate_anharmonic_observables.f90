@@ -176,14 +176,18 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   ! Generate thermal energies.
   ! thermal_energies(1)                    = min_temperature * kB.
   ! thermal_energies(no_temperature_steps) = max_temperature * kB.
-  allocate( thermal_energies(no_temperature_steps), &
-          & stat=ialloc); call err(ialloc)
-  do i=1,no_temperature_steps
-    thermal_energies(i) = KB_IN_AU                                   &
-                      & * ( min_temperature*(no_temperature_steps-i) &
-                      &   + max_temperature*(i-1) )                  &
-                      & / (no_temperature_steps-1)
-  enddo
+  if (no_temperature_steps==1) then
+    thermal_energies = [KB_IN_AU*min_temperature]
+  else
+    allocate( thermal_energies(no_temperature_steps), &
+            & stat=ialloc); call err(ialloc)
+    do i=1,no_temperature_steps
+      thermal_energies(i) = KB_IN_AU                                   &
+                        & * ( min_temperature*(no_temperature_steps-i) &
+                        &   + max_temperature*(i-1) )                  &
+                        & / (no_temperature_steps-1)
+    enddo
+  endif
   
   ! Generate path for dispersion calculation.
   allocate( path_qpoints(size(path_string)), &
@@ -238,7 +242,8 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
     
     ! Calculate effective frequencies for each subspace.
     call print_line('')
-    call print_line('Thermal energy '//i//' of '//size(thermal_energies))
+    call print_line('Thermal energy '//i//' of '//size(thermal_energies)// &
+       & ': '//thermal_energies(i)//' Ha')
     do j=1,size(subspace_potentials)
       effective_frequencies(j) = calculate_effective_frequency( &
                                     & subspace_potentials(j),   &
