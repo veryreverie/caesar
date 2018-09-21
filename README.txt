@@ -31,6 +31,19 @@ Spglib
 ----------------------------------------
 By default, Caesar requires the library 'spglib'. The spglib 'lib' directory must be on LIB, and the spglib 'include/spglib' directory must be on PATH in order for compilation to succeed.
 
+Caesar requires the C API of spglib, which can be obtained as:
+
+   git clone https://github.com/atztogo/spglib.git
+   cd spglib
+   mkdir _build
+   cd _build
+   cmake ..
+   make
+   mkdir _install
+   make DESTDIR=_install install
+
+spglib/_build/_install/lib should then be placed on LIB, and spglib/_build/_install/include should then be places on PATH.
+
 ----------------------------------------
 BLAS/LAPACK
 ----------------------------------------
