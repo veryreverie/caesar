@@ -10,7 +10,64 @@ module harmonic_properties_module
   
   use harmonic_thermodynamics_module
   implicit none
+  
+  ! The major points along the q-point path.
+  type, extends(Stringsable) :: QpointPath
+    type(String)     :: label
+    type(RealVector) :: qpoint
+    real(dp)         :: path_fraction
+  contains
+    procedure, public :: read  => read_QpointPath
+    procedure, public :: write => write_QpointPath
+  end type
+  
+  interface QpointPath
+    module procedure new_QpointPath
+    module procedure new_QpointPath_Strings
+    module procedure new_QpointPath_StringArray
+  end interface
+  
+  ! The minor points along the q-point path.
+  type, extends(Stringsable) :: PathFrequencies
+    real(dp)              :: path_fraction
+    real(dp), allocatable :: frequencies(:)
+  contains
+    procedure, public :: read  => read_PathFrequencies
+    procedure, public :: write => write_PathFrequencies
+  end type
+  
+  interface PathFrequencies
+    module procedure new_PathFrequencies
+    module procedure new_PathFrequencies_Strings
+    module procedure new_PathFrequencies_StringArray
+  end interface
 contains
+
+! Constructors.
+impure elemental function new_QpointPath(label,qpoint,path_fraction) &
+   & result(this)
+  implicit none
+  
+  type(String),     intent(in) :: label
+  type(RealVector), intent(in) :: qpoint
+  real(dp),         intent(in) :: path_fraction
+  type(QpointPath)             :: this
+  
+  this%label = label
+  this%qpoint = qpoint
+  this%path_fraction = path_fraction
+end function
+
+function new_PathFrequencies(path_fraction,frequencies) result(this)
+  implicit none
+  
+  real(dp), intent(in)  :: path_fraction
+  real(dp), intent(in)  :: frequencies(:)
+  type(PathFrequencies) :: this
+  
+  this%path_fraction = path_fraction
+  this%frequencies = frequencies
+end function
 
 ! ----------------------------------------------------------------------
 ! Calculate the frequency density-of-states by random sampling of
@@ -238,6 +295,10 @@ subroutine generate_dispersion(large_supercell,min_images,force_constants, &
   type(RealVector)      :: qpoint
   type(DynamicalMatrix) :: dyn_mat
   
+  ! Output variables.
+  type(QpointPath),      allocatable :: path(:)
+  type(PathFrequencies), allocatable :: frequencies(:)
+  
   ! Temporary variables.
   integer :: i,j,ialloc
   
@@ -271,16 +332,11 @@ subroutine generate_dispersion(large_supercell,min_images,force_constants, &
     points_per_segment(i) = nint(total_no_points*fractional_lengths(i))
   enddo
   
-  ! Write path to file.
-  do i=1,no_vertices
-    call symmetry_points_file%print_line( &
-       & 'q-point: '//path_labels(i)//' '//path_qpoints(i))
-    call symmetry_points_file%print_line( &
-       & 'Fraction along path: '//fractional_distances(i))
-    call symmetry_points_file%print_line('')
-  enddo
+  ! Store q-point path.
+  path = QpointPath(path_labels, path_qpoints, fractional_distances)
   
   ! Travel along q-space paths, calculating frequencies at each point.
+  frequencies = [PathFrequencies::]
   do i=1,no_segments
     do j=0,points_per_segment(i)-1
       qpoint = ( (points_per_segment(i)-j)*path_qpoints(i)     &
@@ -293,11 +349,11 @@ subroutine generate_dispersion(large_supercell,min_images,force_constants, &
       call dyn_mat%check( large_supercell,         &
                         & logfile,                 &
                         & check_eigenstuff=.false. )
-      call dispersion_file%print_line(                     &
-         & 'Fraction along path: '//                       &
-         & fractional_distances(i)+j*fractional_separation )
-      call dispersion_file%print_line(                      &
-         & 'Frequencies: '//dyn_mat%complex_modes%frequency )
+      frequencies = [                                                         &
+         & frequencies,                                                       &
+         & PathFrequencies(                                                   &
+         &    path_fraction=fractional_distances(i)+j*fractional_separation,  &
+         &    frequencies=dyn_mat%complex_modes%frequency                    )]
     enddo
   enddo
   
@@ -310,9 +366,131 @@ subroutine generate_dispersion(large_supercell,min_images,force_constants, &
   call dyn_mat%check( large_supercell,         &
                     & logfile,                 &
                     & check_eigenstuff=.false. )
-  call dispersion_file%print_line(     &
-     & 'Fraction along path: '//1.0_dp )
-  call dispersion_file%print_line(                      &
-     & 'Frequencies: '//dyn_mat%complex_modes%frequency )
+  frequencies = [                                     &
+     & frequencies,                                   &
+     & PathFrequencies(                               &
+     &    path_fraction=1.0_dp,                       &
+     &    frequencies=dyn_mat%complex_modes%frequency )]
+  
+  ! Write outputs to file.
+  call symmetry_points_file%print_lines(path, separating_line='')
+  call dispersion_file%print_lines(frequencies)
 end subroutine
+
+! ----------------------------------------------------------------------
+! I/O.
+! ----------------------------------------------------------------------
+subroutine read_QpointPath(this,input)
+  implicit none
+  
+  class(QpointPath), intent(out) :: this
+  type(String),      intent(in)  :: input(:)
+  
+  type(String)     :: label
+  type(RealVector) :: qpoint
+  real(dp)         :: path_fraction
+  
+  type(String), allocatable :: line(:)
+  
+  select type(this); type is(QpointPath)
+    line = split_line(input(1))
+    label = line(2)
+    qpoint = vec(dble(line(3:)))
+    
+    line = split_line(input(2))
+    path_fraction = dble(line(4))
+    
+    this = QpointPath(label,qpoint,path_fraction)
+  class default
+    call err()
+  end select
+end subroutine
+
+function write_QpointPath(this) result(output)
+  implicit none
+  
+  class(QpointPath), intent(in) :: this
+  type(String), allocatable        :: output(:)
+  
+  select type(this); type is(QpointPath)
+    output = [ 'q-point: '//this%label//' '//this%qpoint,  &
+             & 'Fraction along path: '//this%path_fraction ]
+  class default
+    call err()
+  end select
+end function
+
+function new_QpointPath_Strings(input) result(this)
+  implicit none
+  
+  type(String), intent(in) :: input(:)
+  type(QpointPath)         :: this
+  
+  call this%read(input)
+end function
+
+impure elemental function new_QpointPath_StringArray(input) result(this)
+  implicit none
+  
+  type(StringArray), intent(in) :: input
+  type(QpointPath)              :: this
+  
+  this = QpointPath(str(input))
+end function
+
+subroutine read_PathFrequencies(this,input)
+  implicit none
+  
+  class(PathFrequencies), intent(out) :: this
+  type(String),      intent(in)  :: input(:)
+  
+  real(dp)              :: path_fraction
+  real(dp), allocatable :: frequencies(:)
+  
+  type(String), allocatable :: line(:)
+  
+  select type(this); type is(PathFrequencies)
+    line = split_line(input(1))
+    path_fraction = dble(line(4))
+    
+    line = split_line(input(2))
+    frequencies = dble(line(2:))
+    
+    this = PathFrequencies(path_fraction,frequencies)
+  class default
+    call err()
+  end select
+end subroutine
+
+function write_PathFrequencies(this) result(output)
+  implicit none
+  
+  class(PathFrequencies), intent(in) :: this
+  type(String), allocatable          :: output(:)
+  
+  select type(this); type is(PathFrequencies)
+    output = [ 'Fraction along path: '//this%path_fraction, &
+             & 'Frequencies: '//this%frequencies            ]
+  class default
+    call err()
+  end select
+end function
+
+function new_PathFrequencies_Strings(input) result(this)
+  implicit none
+  
+  type(String), intent(in) :: input(:)
+  type(PathFrequencies)    :: this
+  
+  call this%read(input)
+end function
+
+impure elemental function new_PathFrequencies_StringArray(input) result(this)
+  implicit none
+  
+  type(StringArray), intent(in) :: input
+  type(PathFrequencies)         :: this
+  
+  this = PathFrequencies(str(input))
+end function
 end module

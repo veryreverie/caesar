@@ -265,36 +265,17 @@ function join_StringArrays_String(input,separating_line) result(output)
   type(String),      intent(in), optional :: separating_line
   type(StringArray)                       :: output
   
-  integer                   :: no_strings
   type(String), allocatable :: strings(:)
   
-  integer :: i,j,ialloc
+  integer :: i
   
-  if (size(input)==0) then
-    strings = [String::]
-  else
-    no_strings = size(input(1))
-    do i=2,size(input)
-      no_strings = no_strings+size(input(i))
-      if (present(separating_line)) then
-        no_strings = no_strings + 1
-      endif
-    enddo
-    
-    allocate(strings(no_strings), stat=ialloc); call err(ialloc)
-    
-    strings(:size(input(1))) = input(1)%strings
-    j = size(input(1))
-    do i=2,size(input)
-      if (present(separating_line)) then
-        strings(j+1) = separating_line
-        j = j+1
-      endif
-      strings(j+1:j+size(input(i))) = input(i)%strings
-      j = j+size(input(i))
-    enddo
-  endif
-  
+  strings = [String::]
+  do i=1,size(input)
+    strings = [strings, input(i)%strings]
+    if (i/=size(input) .and. present(separating_line)) then
+      strings = [strings, separating_line]
+    endif
+  enddo
   output = StringArray(strings)
 end function
 

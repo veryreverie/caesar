@@ -338,13 +338,25 @@ subroutine print_lines_StringsWriteable(this,input,settings)
   call this%print_lines(str(input,settings))
 end subroutine
 
+subroutine print_lines_StringsWriteables_String(this,input,separating_line, &
+   & settings)
+  implicit none
+  
+  class(OFile),            intent(inout)        :: this
+  class(StringsWriteable), intent(in)           :: input(:)
+  type(String),            intent(in), optional :: separating_line
+  type(PrintSettings),     intent(in), optional :: settings
+  
+  call this%print_lines(str(input,separating_line,settings))
+end subroutine
+
 subroutine print_lines_StringsWriteables_character(this,input, &
    & separating_line,settings)
   implicit none
   
   class(OFile),            intent(inout)        :: this
   class(StringsWriteable), intent(in)           :: input(:)
-  character(*),            intent(in), optional :: separating_line
+  character(*),            intent(in)           :: separating_line
   type(PrintSettings),     intent(in), optional :: settings
   
   if (lbound(input,1)/=1) then
@@ -352,18 +364,6 @@ subroutine print_lines_StringsWriteables_character(this,input, &
        &is probably a compiler bug.')
     call err()
   endif
-  
-  call this%print_lines(str(input,separating_line,settings))
-end subroutine
-
-subroutine print_lines_StringsWriteables_String(this,input,separating_line, &
-   & settings)
-  implicit none
-  
-  class(OFile),            intent(inout)        :: this
-  class(StringsWriteable), intent(in)           :: input(:)
-  type(String),            intent(in)           :: separating_line
-  type(PrintSettings),     intent(in), optional :: settings
   
   call this%print_lines(str(input,separating_line,settings))
 end subroutine
