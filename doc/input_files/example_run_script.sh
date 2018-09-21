@@ -1,4 +1,6 @@
 #!/bin/bash
+#!
+#! Example run script, to call DFT from inside castep.
 
 file_type=$1
 directory=$2
@@ -20,12 +22,12 @@ fi
 cd $directory
 
 if [ "$file_type" = "castep" ]; then
-  mpirun -n $cores_per_node castep.mpi $seedname
+  mpirun -ppn $cores_per_node -np $no_cores castep.mpi $seedname
 elif [ "$file_type" = "vasp" ]; then
   echo "Error! vasp run script not yet written."
   exit
 elif [ "$file_type" = "qe" ]; then
-  mpirun -n $cores_per_node pw.x -i $seedname.in > $seedname.out
+  mpirun -ppn $cores_per_node -np $no_cores pw.x -i $seedname.in > $seedname.out
 fi
 
 cd -
