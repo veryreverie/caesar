@@ -212,8 +212,13 @@ function calculate_basic_symmetries(lattice,atoms,symmetry_precision) &
       enddo
       
       ! Check that exactly one k->j distance is small.
-      if (count(kj_distances<symmetry_precision)/=1) then
-        call print_line(ERROR//': Symmetries do not map atoms as expected.')
+      if (count(kj_distances<symmetry_precision)==0) then
+        call print_line(ERROR//': A symmetry maps an atom onto space containing no atoms. Try increasing &
+                       &symmetry_precision.')
+        call err()
+      elseif (count(kj_distances<symmetry_precision)>1) then
+        call print_line(ERROR//': A symmetry maps an atom onto more than one atom. Try reducing &
+                       &symmetry_precision.')
         call err()
       endif
       

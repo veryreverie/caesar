@@ -41,6 +41,51 @@ module harmonic_properties_module
     module procedure new_PathFrequencies_Strings
     module procedure new_PathFrequencies_StringArray
   end interface
+  
+  ! The number of frequencies below the threshold at a given q-point.
+  type, extends(Stringable) :: SampledQpoint
+    type(RealVector) :: qpoint
+    integer          :: no_soft_frequencies
+  contains
+    procedure, public :: read  => read_SampledQpoint
+    procedure, public :: write => write_SampledQpoint
+  end type
+  
+  interface SampledQpoint
+    module procedure new_SampledQpoint
+    module procedure new_SampledQpoint_String
+  end interface
+  
+  ! The thermodynamic variables at a given temperature.
+  type, extends(Stringable) :: ThermodynamicData
+    real(dp) :: thermal_energy
+    real(dp) :: energy
+    real(dp) :: free_energy
+    real(dp) :: entropy
+  contains
+    procedure, public :: read  => read_ThermodynamicData
+    procedure, public :: write => write_ThermodynamicData
+  end type
+  
+  interface ThermodynamicData
+    module procedure new_ThermodynamicData
+    module procedure new_ThermodynamicData_String
+  end interface
+  
+  ! The phonon density of states (PDOS).
+  type, extends(Stringable) :: PdosBin
+    real(dp) :: min_frequency
+    real(dp) :: max_frequency
+    real(dp) :: occupation
+  contains
+    procedure, public :: read  => read_PdosBin
+    procedure, public :: write => write_PdosBin
+  end type
+  
+  interface PdosBin
+    module procedure new_PdosBin
+    module procedure new_PdosBin_String
+  end interface
 contains
 
 ! Constructors.
@@ -69,201 +114,47 @@ function new_PathFrequencies(path_fraction,frequencies) result(this)
   this%frequencies = frequencies
 end function
 
-! ----------------------------------------------------------------------
-! Calculate the frequency density-of-states by random sampling of
-!    the Brillouin zone.
-! ----------------------------------------------------------------------
-subroutine generate_dos(supercell,min_images,force_constants,            &
-   & thermal_energies,min_frequency,no_dos_samples,sampled_qpoints_file, &
-   & thermodynamic_file,pdos_file,logfile,random_generator)
+impure elemental function new_SampledQpoint(qpoint,no_soft_frequencies) &
+   & result(this)
   implicit none
   
-  type(StructureData),  intent(in)    :: supercell
-  type(MinImages),      intent(in)    :: min_images(:,:)
-  type(ForceConstants), intent(in)    :: force_constants
-  real(dp),             intent(in)    :: thermal_energies(:)
-  real(dp),             intent(in)    :: min_frequency
-  integer,              intent(in)    :: no_dos_samples
-  type(OFile),          intent(inout) :: sampled_qpoints_file
-  type(OFile),          intent(inout) :: thermodynamic_file
-  type(OFile),          intent(inout) :: pdos_file
-  type(OFile),          intent(inout) :: logfile
-  type(RandomReal),     intent(in)    :: random_generator
+  type(RealVector), intent(in) :: qpoint
+  integer,          intent(in) :: no_soft_frequencies
+  type(SampledQpoint)          :: this
   
-  ! Calculation parameter.
-  integer  :: no_bins
-  integer  :: no_prelims
-  integer  :: print_every
-  real(dp) :: safety_margin
+  this%qpoint = qpoint
+  this%no_soft_frequencies = no_soft_frequencies
+end function
+
+impure elemental function new_ThermodynamicData(thermal_energy,energy, &
+   & free_energy,entropy) result(this)
+  implicit none
   
-  ! Parameters calculated based on preliminary calculation.
-  real(dp) :: min_freq
-  real(dp) :: max_freq
-  real(dp) :: freq_spread
-  real(dp) :: bin_width
+  real(dp), intent(in)    :: thermal_energy
+  real(dp), intent(in)    :: energy
+  real(dp), intent(in)    :: free_energy
+  real(dp), intent(in)    :: entropy
+  type(ThermodynamicData) :: this
   
-  ! Parameter for adding extra bins if needed.
-  integer :: extra_bins
+  this%thermal_energy = thermal_energy
+  this%energy = energy
+  this%free_energy = free_energy
+  this%entropy = entropy
+end function
+
+impure elemental function new_PdosBin(min_frequency,max_frequency,occupation) &
+   & result(this)
+  implicit none
   
-  ! Output variables.
-  real(dp), allocatable :: freq_dos(:)
-  real(dp), allocatable :: energy(:)
-  real(dp), allocatable :: free_energy(:)
-  real(dp), allocatable :: entropy(:)
+  real(dp), intent(in) :: min_frequency
+  real(dp), intent(in) :: max_frequency
+  real(dp), intent(in) :: occupation
+  type(PdosBin)        :: this
   
-  ! Working variables.
-  type(RealVector)                          :: qpoint
-  type(DynamicalMatrix)                     :: dyn_mat
-  real(dp)                                  :: frequency
-  integer,                      allocatable :: no_frequencies_ignored(:)
-  type(ThermodynamicVariables), allocatable :: thermodynamics(:)
-  
-  ! Temporary variables.
-  integer :: bin
-  integer :: i,j,ialloc
-  
-  ! Set parameters for calculation.
-  no_bins       = no_dos_samples/100
-  no_prelims    = no_dos_samples/10
-  print_every   = no_dos_samples/10
-  safety_margin = 0.15_dp
-  
-  ! Establish (approximate) maximum and minimum frequencies and hence
-  !    choose the bin width.
-  max_freq = 0.0_dp
-  min_freq = 0.0_dp
-  do i=1,no_prelims
-    qpoint = random_generator%random_numbers(3)
-    dyn_mat = DynamicalMatrix( qpoint,          &
-                             & supercell,       &
-                             & force_constants, &
-                             & min_images)
-    call dyn_mat%check( supercell, &
-                      & logfile,   &
-                      & check_eigenstuff=.false.)
-    
-    min_freq = min( min_freq, &
-                  & dyn_mat%complex_modes(1)%frequency)
-    max_freq = max( max_freq, &
-                  & dyn_mat%complex_modes(supercell%no_modes_prim)%frequency)
-  enddo
-  
-  if (max_freq<=min_frequency) then
-    call print_line(ERROR//': The system is pathologically unstable; all &
-       &frequencies are less than min_frequency.')
-    stop
-  endif
-  
-  ! Spread out min and max frequencies to leave safety margin.
-  freq_spread =  max_freq - min_freq
-  min_freq    =  min_freq - safety_margin*freq_spread
-  max_freq    =  max_freq + safety_margin*freq_spread
-  bin_width   = (max_freq - min_freq) / no_bins
-  
-  ! Calculate density of states.
-  allocate( freq_dos(no_bins),                      &
-          & energy(size(thermal_energies)),         &
-          & free_energy(size(thermal_energies)),    &
-          & entropy(size(thermal_energies)),        &
-          & no_frequencies_ignored(no_dos_samples), &
-          & stat=ialloc); call err(ialloc)
-  freq_dos=0.0_dp
-  energy = 0.0_dp
-  free_energy = 0.0_dp
-  entropy = 0.0_dp
-  no_frequencies_ignored = 0
-  call sampled_qpoints_file%print_line('q-point (x,y,z) | &
-                                       &number of frequencies ignored')
-  do i=1,no_dos_samples
-    qpoint = random_generator%random_numbers(3)
-    dyn_mat = DynamicalMatrix( qpoint,          &
-                             & supercell,       &
-                             & force_constants, &
-                             & min_images)
-    call dyn_mat%check( supercell,         &
-                      & logfile,           &
-                      & check_eigenstuff=.false.)
-    
-    do j=1,supercell%no_modes_prim
-      frequency = dyn_mat%complex_modes(j)%frequency
-      
-      ! Bin frequency for density of states.
-      bin = ceiling( (frequency-min_freq) / bin_width)
-      if (bin<1) then
-        extra_bins  = 1-bin
-        min_freq    = min_freq    - extra_bins*bin_width
-        freq_spread = freq_spread + extra_bins*bin_width
-        freq_dos    = [dble(dblevec(zeroes(extra_bins))), freq_dos]
-        no_bins     = no_bins + extra_bins
-        bin         = bin     + extra_bins
-      elseif (bin>no_bins) then
-        extra_bins  = bin-no_bins
-        max_freq    = max_freq    + extra_bins*bin_width
-        freq_spread = freq_spread + extra_bins*bin_width
-        freq_dos    = [freq_dos, dble(dblevec(zeroes(extra_bins)))]
-        no_bins     = no_bins + extra_bins
-      endif
-      freq_dos(bin) = freq_dos(bin) + 1
-      
-      ! Calculate thermodynamic quantities.
-      if (frequency<min_frequency) then
-        no_frequencies_ignored(i) = no_frequencies_ignored(i) + 1
-      else
-        thermodynamics = ThermodynamicVariables(thermal_energies,frequency)
-        energy = energy + thermodynamics%energy
-        free_energy = free_energy + thermodynamics%free_energy
-        entropy = entropy + thermodynamics%entropy
-      endif
-    enddo
-    
-    call sampled_qpoints_file%print_line( qpoint//' '// &
-                                        & no_frequencies_ignored(i))
-    
-    if (modulo(i,print_every)==0) then
-      call print_line('Sampling q-points: '//i//' of '//no_dos_samples// &
-         & ' samples complete.')
-    endif
-  enddo
-  
-  ! Normalise variables to be per unit cell.
-  ! N.B. the divisor is not corrected for ignored frequencies, since ignored
-  !    frequencies are considered to contribute zero energy, F and S.
-  ! (The contribution of a single low-frequency mode diverges, but assuming
-  !    that such modes are localised around Gamma with a typical phonon
-  !    dispersion then the integral across them approaches zero.)
-  freq_dos    = freq_dos    / (no_dos_samples*bin_width)
-  energy      = energy      / no_dos_samples
-  free_energy = free_energy / no_dos_samples
-  entropy     = entropy     / no_dos_samples
-  
-  if (any(no_frequencies_ignored/=0)) then
-    call print_line(WARNING//': '//sum(no_frequencies_ignored)//' modes &
-       &ignored for having frequencies less than min_frequency, out of '// &
-       & no_dos_samples*supercell%no_modes_prim//' modes sampled.')
-  endif
-  
-  ! Write out phonon density of states.
-  do i=1,no_bins
-    call pdos_file%print_line(                &
-        & 'Bin: '//min_freq+bin_width*(i-1)// &
-        & ' to '//min_freq+bin_width*i)
-    call pdos_file%print_line( 'Bin DOS: '//freq_dos(i))
-    call pdos_file%print_line( '')
-  enddo
-  
-  ! Write out thermodynamic variables.
-  call thermodynamic_file%print_line( &
-     &'kB * temperature (Hartree per cell) | &
-     &Vibrational Energy per cell, U=<E>, (Hartree) | &
-     &Vibrational Free Energy per cell, F=U-TS, (Hartree) | &
-     &Vibrational Shannon Entropy per cell, S/k_B, (arb. units)')
-  do i=1,size(thermal_energies)
-    call thermodynamic_file%print_line( thermal_energies(i) //' '// &
-                                      & energy(i)           //' '// &
-                                      & free_energy(i)      //' '// &
-                                      & entropy(i))
-  enddo
-end subroutine
+  this%min_frequency = min_frequency
+  this%max_frequency = max_frequency
+  this%occupation = occupation
+end function
 
 ! ----------------------------------------------------------------------
 ! Generates the phonon dispersion curve.
@@ -378,6 +269,207 @@ subroutine generate_dispersion(large_supercell,min_images,force_constants, &
 end subroutine
 
 ! ----------------------------------------------------------------------
+! Calculate the frequency density-of-states by random sampling of
+!    the Brillouin zone.
+! ----------------------------------------------------------------------
+subroutine generate_dos(supercell,min_images,force_constants,            &
+   & thermal_energies,min_frequency,no_dos_samples,sampled_qpoints_file, &
+   & thermodynamic_file,pdos_file,logfile,random_generator)
+  implicit none
+  
+  type(StructureData),  intent(in)    :: supercell
+  type(MinImages),      intent(in)    :: min_images(:,:)
+  type(ForceConstants), intent(in)    :: force_constants
+  real(dp),             intent(in)    :: thermal_energies(:)
+  real(dp),             intent(in)    :: min_frequency
+  integer,              intent(in)    :: no_dos_samples
+  type(OFile),          intent(inout) :: sampled_qpoints_file
+  type(OFile),          intent(inout) :: thermodynamic_file
+  type(OFile),          intent(inout) :: pdos_file
+  type(OFile),          intent(inout) :: logfile
+  type(RandomReal),     intent(in)    :: random_generator
+  
+  ! Calculation parameter.
+  integer  :: no_bins
+  integer  :: no_prelims
+  integer  :: print_every
+  real(dp) :: safety_margin
+  
+  ! Parameters calculated based on preliminary calculation.
+  real(dp) :: min_freq
+  real(dp) :: max_freq
+  real(dp) :: freq_spread
+  real(dp) :: bin_width
+  
+  ! Parameter for adding extra bins if needed.
+  integer :: extra_bins
+  
+  ! Output variables.
+  real(dp), allocatable :: freq_dos(:)
+  real(dp), allocatable :: energy(:)
+  real(dp), allocatable :: free_energy(:)
+  real(dp), allocatable :: entropy(:)
+  
+  type(SampledQpoint),     allocatable :: qpoints(:)
+  type(ThermodynamicData), allocatable :: thermodynamic_data(:)
+  type(PdosBin),           allocatable :: pdos(:)
+  
+  ! Working variables.
+  type(RealVector)                          :: qpoint
+  type(DynamicalMatrix)                     :: dyn_mat
+  real(dp)                                  :: frequency
+  integer,                      allocatable :: no_frequencies_ignored(:)
+  type(ThermodynamicVariables), allocatable :: thermodynamics(:)
+  
+  ! Temporary variables.
+  integer :: bin
+  integer :: i,j,ialloc
+  
+  ! Set parameters for calculation.
+  no_bins       = no_dos_samples/100
+  no_prelims    = no_dos_samples/10
+  print_every   = no_dos_samples/10
+  safety_margin = 0.15_dp
+  
+  ! Establish (approximate) maximum and minimum frequencies and hence
+  !    choose the bin width.
+  max_freq = 0.0_dp
+  min_freq = 0.0_dp
+  do i=1,no_prelims
+    qpoint = random_generator%random_numbers(3)
+    dyn_mat = DynamicalMatrix( qpoint,          &
+                             & supercell,       &
+                             & force_constants, &
+                             & min_images)
+    call dyn_mat%check( supercell, &
+                      & logfile,   &
+                      & check_eigenstuff=.false.)
+    
+    min_freq = min( min_freq, &
+                  & dyn_mat%complex_modes(1)%frequency)
+    max_freq = max( max_freq, &
+                  & dyn_mat%complex_modes(supercell%no_modes_prim)%frequency)
+  enddo
+  
+  if (max_freq<=min_frequency) then
+    call print_line(ERROR//': The system is pathologically unstable; all &
+       &frequencies are less than min_frequency.')
+    stop
+  endif
+  
+  ! Spread out min and max frequencies to leave safety margin.
+  freq_spread =  max_freq - min_freq
+  min_freq    =  min_freq - safety_margin*freq_spread
+  max_freq    =  max_freq + safety_margin*freq_spread
+  bin_width   = (max_freq - min_freq) / no_bins
+  
+  ! Calculate density of states.
+  allocate( freq_dos(no_bins),                      &
+          & energy(size(thermal_energies)),         &
+          & free_energy(size(thermal_energies)),    &
+          & entropy(size(thermal_energies)),        &
+          & no_frequencies_ignored(no_dos_samples), &
+          & stat=ialloc); call err(ialloc)
+  freq_dos=0.0_dp
+  energy = 0.0_dp
+  free_energy = 0.0_dp
+  entropy = 0.0_dp
+  no_frequencies_ignored = 0
+  allocate(qpoints(no_dos_samples), stat=ialloc); call err(ialloc)
+  do i=1,no_dos_samples
+    qpoint = random_generator%random_numbers(3)
+    dyn_mat = DynamicalMatrix( qpoint,          &
+                             & supercell,       &
+                             & force_constants, &
+                             & min_images       )
+    call dyn_mat%check( supercell,               &
+                      & logfile,                 &
+                      & check_eigenstuff=.false. )
+    
+    do j=1,supercell%no_modes_prim
+      frequency = dyn_mat%complex_modes(j)%frequency
+      
+      ! Bin frequency for density of states.
+      bin = ceiling( (frequency-min_freq) / bin_width)
+      if (bin<1) then
+        extra_bins  = 1-bin
+        min_freq    = min_freq    - extra_bins*bin_width
+        freq_spread = freq_spread + extra_bins*bin_width
+        freq_dos    = [dble(dblevec(zeroes(extra_bins))), freq_dos]
+        no_bins     = no_bins + extra_bins
+        bin         = bin     + extra_bins
+      elseif (bin>no_bins) then
+        extra_bins  = bin-no_bins
+        max_freq    = max_freq    + extra_bins*bin_width
+        freq_spread = freq_spread + extra_bins*bin_width
+        freq_dos    = [freq_dos, dble(dblevec(zeroes(extra_bins)))]
+        no_bins     = no_bins + extra_bins
+      endif
+      freq_dos(bin) = freq_dos(bin) + 1
+      
+      ! Calculate thermodynamic quantities.
+      if (frequency<min_frequency) then
+        no_frequencies_ignored(i) = no_frequencies_ignored(i) + 1
+      else
+        thermodynamics = ThermodynamicVariables(thermal_energies,frequency)
+        energy = energy + thermodynamics%energy
+        free_energy = free_energy + thermodynamics%free_energy
+        entropy = entropy + thermodynamics%entropy
+      endif
+    enddo
+    
+    qpoints(i) = SampledQpoint(qpoint, no_frequencies_ignored(i))
+    
+    if (modulo(i,print_every)==0) then
+      call print_line('Sampling q-points: '//i//' of '//no_dos_samples// &
+         & ' samples complete.')
+    endif
+  enddo
+  
+  ! Normalise variables to be per unit cell.
+  ! N.B. the divisor is not corrected for ignored frequencies, since ignored
+  !    frequencies are considered to contribute zero energy, F and S.
+  ! (The contribution of a single low-frequency mode diverges, but assuming
+  !    that such modes are localised around Gamma with a typical phonon
+  !    dispersion then the integral across them approaches zero.)
+  freq_dos    = freq_dos    / (no_dos_samples*bin_width)
+  energy      = energy      / no_dos_samples
+  free_energy = free_energy / no_dos_samples
+  entropy     = entropy     / no_dos_samples
+  
+  if (any(no_frequencies_ignored/=0)) then
+    call print_line(WARNING//': '//sum(no_frequencies_ignored)//' modes &
+       &ignored for having frequencies less than min_frequency, out of '// &
+       & no_dos_samples*supercell%no_modes_prim//' modes sampled.')
+  endif
+  
+  ! Write out phonon density of states.
+  pdos = [( PdosBin( min_frequency = min_freq+(i-1)*bin_width,    &
+          &          max_frequency = min_freq+i*bin_width,        &
+          &          occupation    = freq_dos(i)               ), &
+          & i=1,                                                  &
+          & no_bins                                               )]
+  call pdos_file%print_lines(pdos)
+  
+  ! Write out thermodynamic variables.
+  thermodynamic_data = ThermodynamicData( thermal_energies, &
+                                        & energy,           &
+                                        & free_energy,      &
+                                        & entropy           )
+  call thermodynamic_file%print_line( &
+     &'kB * temperature (Hartree per cell) | &
+     &Vibrational Energy per cell, U=<E>, (Hartree) | &
+     &Vibrational Free Energy per cell, F=U-TS, (Hartree) | &
+     &Vibrational Shannon Entropy per cell, S/k_B, (arb. units)')
+  call thermodynamic_file%print_lines(thermodynamic_data)
+  
+  ! Write out sampled q-points.
+  call sampled_qpoints_file%print_line('q-point (x,y,z) | &
+                                       &number of frequencies ignored')
+  call sampled_qpoints_file%print_lines(qpoints)
+end subroutine
+
+! ----------------------------------------------------------------------
 ! I/O.
 ! ----------------------------------------------------------------------
 subroutine read_QpointPath(this,input)
@@ -442,7 +534,7 @@ subroutine read_PathFrequencies(this,input)
   implicit none
   
   class(PathFrequencies), intent(out) :: this
-  type(String),      intent(in)  :: input(:)
+  type(String),           intent(in)  :: input(:)
   
   real(dp)              :: path_fraction
   real(dp), allocatable :: frequencies(:)
@@ -492,5 +584,147 @@ impure elemental function new_PathFrequencies_StringArray(input) result(this)
   type(PathFrequencies)         :: this
   
   this = PathFrequencies(str(input))
+end function
+
+subroutine read_SampledQpoint(this,input)
+  implicit none
+  
+  class(SampledQpoint), intent(out) :: this
+  type(String),         intent(in)  :: input
+  
+  type(RealVector) :: qpoint
+  integer          :: no_soft_frequencies
+  
+  type(String), allocatable :: line(:)
+  
+  select type(this); type is(SampledQpoint)
+    line = split_line(input)
+    qpoint = vec(dble(line(:3)))
+    no_soft_frequencies = int(line(4))
+    
+    this = SampledQpoint(qpoint,no_soft_frequencies)
+  class default
+    call err()
+  end select
+end subroutine
+
+function write_SampledQpoint(this) result(output)
+  implicit none
+  
+  class(SampledQpoint), intent(in) :: this
+  type(String)                     :: output
+  
+  select type(this); type is(SampledQpoint)
+    output = this%qpoint//' '//this%no_soft_frequencies
+  class default
+    call err()
+  end select
+end function
+
+function new_SampledQpoint_String(input) result(this)
+  implicit none
+  
+  type(String), intent(in) :: input
+  type(SampledQpoint)      :: this
+  
+  call this%read(input)
+end function
+
+subroutine read_ThermodynamicData(this,input)
+  implicit none
+  
+  class(ThermodynamicData), intent(out) :: this
+  type(String),             intent(in)  :: input
+  
+  real(dp) :: thermal_energy
+  real(dp) :: energy
+  real(dp) :: free_energy
+  real(dp) :: entropy
+  
+  type(String), allocatable :: line(:)
+  
+  select type(this); type is(ThermodynamicData)
+    line = split_line(input)
+    thermal_energy = dble(line(1))
+    energy = dble(line(2))
+    free_energy = dble(line(3))
+    entropy = dble(line(4))
+    
+    this = ThermodynamicData(thermal_energy,energy,free_energy,entropy)
+  class default
+    call err()
+  end select
+end subroutine
+
+function write_ThermodynamicData(this) result(output)
+  implicit none
+  
+  class(ThermodynamicData), intent(in) :: this
+  type(String)                         :: output
+  
+  select type(this); type is(ThermodynamicData)
+    output = this%thermal_energy //' '// &
+           & this%energy         //' '// &
+           & this%free_energy    //' '// &
+           & this%entropy
+  class default
+    call err()
+  end select
+end function
+
+function new_ThermodynamicData_String(input) result(this)
+  implicit none
+  
+  type(String), intent(in) :: input
+  type(ThermodynamicData)  :: this
+  
+  call this%read(input)
+end function
+
+subroutine read_PdosBin(this,input)
+  implicit none
+  
+  class(PdosBin), intent(out) :: this
+  type(String),   intent(in)  :: input
+  
+  real(dp) :: min_frequency
+  real(dp) :: max_frequency
+  real(dp) :: occupation
+  
+  type(String), allocatable :: line(:)
+  
+  select type(this); type is(PdosBin)
+    line = split_line(input)
+    min_frequency = dble(line(3))
+    max_frequency = dble(line(5))
+    occupation = dble(line(7))
+    
+    this = PdosBin(min_frequency,max_frequency,occupation)
+  class default
+    call err()
+  end select
+end subroutine
+
+function write_PdosBin(this) result(output)
+  implicit none
+  
+  class(PdosBin), intent(in) :: this
+  type(String)                         :: output
+  
+  select type(this); type is(PdosBin)
+    output = 'Bin frequencies: '//this%min_frequency//' to &
+             &'//this%max_frequency//' PDOS: '//this%occupation
+  class default
+    call err()
+  end select
+end function
+
+function new_PdosBin_String(input) result(this)
+  implicit none
+  
+  type(String), intent(in) :: input
+  type(PdosBin)            :: this
+  
+  call this%read(input)
 end function
 end module
