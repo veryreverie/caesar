@@ -125,8 +125,9 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   type(MinImages), allocatable :: min_images(:,:)
   
   ! Dispersion and density of states.
-  type(PhononDispersion) :: phonon_dispersion
-  type(PhononDos)        :: phonon_dos
+  type(PhononDispersion)               :: phonon_dispersion
+  type(PhononDos)                      :: phonon_dos
+  type(ThermodynamicData), allocatable :: thermodynamic_data(:)
   
   ! Files and directories.
   type(IFile)  :: anharmonic_data_file
@@ -135,6 +136,7 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   type(String) :: output_dir
   type(OFile)  :: logfile
   type(String) :: temperature_dir
+  type(OFile)  :: temperature_file
   type(OFile)  :: dispersion_file
   type(OFile)  :: symmetry_points_file
   type(OFile)  :: sampled_qpoints_file
@@ -221,9 +223,14 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   basis_file = IFile('basis.dat')
   subspace_bases = SubspaceBasis(basis_file%sections())
   
-  ! Make output directory and open logfile.
+  ! Make output directory, write out temperatures, and open logfile.
   output_dir = 'anharmonic_observables'
   call mkdir(output_dir)
+  
+  temperature_file = OFile(output_dir//'/temperatures.dat')
+  call temperature_file%print_line('Thermal energies, KbT, (Ha):')
+  call temperature_file%print_lines(thermal_energies)
+  
   logfile = OFile(output_dir//'/anharmonic_observables_log.dat')
   
   ! Construct minimum image data.
@@ -237,6 +244,7 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   initial_frequencies = subspace_bases%frequency
   allocate( effective_frequencies(size(subspace_potentials)), &
           & dynamical_matrices(size(qpoints)),                &
+          & thermodynamic_data(size(thermal_energies)),       &
           & stat=ialloc); call err(ialloc)
   do i=1,size(thermal_energies)
     ! Make temperature directory.
@@ -320,14 +328,16 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
     pdos_file = OFile(temperature_dir//'/phonon_density_of_states.dat')
     call pdos_file%print_lines(phonon_dos%pdos)
     
-    thermodynamic_file = OFile(temperature_dir//'/thermodynamic_variables.dat')
-    call thermodynamic_file%print_line( &
-       &'kB * temperature (Hartree per cell) | &
-       &Vibrational Energy per cell, U=<E>, (Hartree) | &
-       &Vibrational Free Energy per cell, F=U-TS, (Hartree) | &
-       &Vibrational Shannon Entropy per cell, S/k_B, (arb. units)')
-    call thermodynamic_file%print_lines(phonon_dos%thermodynamic_data)
+    thermodynamic_data(i) = phonon_dos%thermodynamic_data(1)
   enddo
+  
+  thermodynamic_file = OFile(output_dir//'/thermodynamic_variables.dat')
+  call thermodynamic_file%print_line( &
+     &'kB * temperature (Hartree per cell) | &
+     &Vibrational Energy per cell, U=<E>, (Hartree) | &
+     &Vibrational Free Energy per cell, F=U-TS, (Hartree) | &
+     &Vibrational Shannon Entropy per cell, S/k_B, (arb. units)')
+  call thermodynamic_file%print_lines(thermodynamic_data)
   
   ! TODO
 end subroutine

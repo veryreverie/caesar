@@ -1,6 +1,6 @@
 ! ======================================================================
 ! Plots the thermodynamic variables calculated by
-!    calculate_harmonic_observables.
+!    calculate_harmonic_observables or calculate_anharmonic_observables.
 ! ======================================================================
 module plot_thermodynamic_variables_module
   use common_module
@@ -21,7 +21,10 @@ function plot_thermodynamic_variables() result(output)
   
   output%mode_name = 'plot_thermodynamic_variables'
   output%description = 'Plots the thermodynamic variables &
-     &calculated by calculate_harmonic_observables.'
+     &calculated by calculate_harmonic_observables or &
+     & calculate_anharmonic_observables. Should be called from within the &
+     &harmonic_observables or anharmonic_observables directory. The -d flag &
+     &may be useful for this.'
   output%keywords = [                                                      &
      & KeywordData( 'python_path',                                         &
      &              'python_path is the path to the Python 3 executable.', &

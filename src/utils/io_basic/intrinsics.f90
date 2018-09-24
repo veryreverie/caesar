@@ -29,6 +29,15 @@ module intrinsics_submodule
     module procedure str_integer
     module procedure str_real
     module procedure str_complex
+    
+    module procedure str_logicals_character
+    module procedure str_logicals_String
+    module procedure str_integers_character
+    module procedure str_integers_String
+    module procedure str_reals_character
+    module procedure str_reals_String
+    module procedure str_complexes_character
+    module procedure str_complexes_String
   end interface
   
   interface left_pad
@@ -118,10 +127,14 @@ module intrinsics_submodule
   end interface
   
   interface print_lines
-    module procedure print_lines_logicals
-    module procedure print_lines_integers
-    module procedure print_lines_reals
-    module procedure print_lines_complexes
+    module procedure print_lines_logicals_character
+    module procedure print_lines_logicals_String
+    module procedure print_lines_integers_character
+    module procedure print_lines_integers_String
+    module procedure print_lines_reals_character
+    module procedure print_lines_reals_String
+    module procedure print_lines_complexes_character
+    module procedure print_lines_complexes_String
   end interface
 contains
 
@@ -253,6 +266,126 @@ impure elemental function str_complex(input,settings) result(output)
   write(complex_string, char(format_string)) input
   
   output = complex_string
+end function
+
+function str_logicals_character(input,separating_line,settings) result(output)
+  implicit none
+  
+  logical,             intent(in)           :: input(:)
+  character(*),        intent(in), optional :: separating_line
+  type(PrintSettings), intent(in), optional :: settings
+  type(String), allocatable                 :: output(:)
+  
+  integer :: i
+  
+  output = [String::]
+  do i=1,size(input)
+    output = [output, str(input(i))]
+    if (i<size(input) .and. present(separating_line)) then
+      output = [output, str(separating_line)]
+    endif
+  enddo
+end function
+
+function str_logicals_String(input,separating_line,settings) result(output)
+  implicit none
+  
+  logical,             intent(in)           :: input(:)
+  type(String),        intent(in)           :: separating_line
+  type(PrintSettings), intent(in), optional :: settings
+  type(String), allocatable                 :: output(:)
+  
+  output = str(input,char(separating_line),settings)
+end function
+
+function str_integers_character(input,separating_line,settings) result(output)
+  implicit none
+  
+  integer,             intent(in)           :: input(:)
+  character(*),        intent(in), optional :: separating_line
+  type(PrintSettings), intent(in), optional :: settings
+  type(String), allocatable                 :: output(:)
+  
+  integer :: i
+  
+  output = [String::]
+  do i=1,size(input)
+    output = [output, str(input(i))]
+    if (i<size(input) .and. present(separating_line)) then
+      output = [output, str(separating_line)]
+    endif
+  enddo
+end function
+
+function str_integers_String(input,separating_line,settings) result(output)
+  implicit none
+  
+  integer,             intent(in)           :: input(:)
+  type(String),        intent(in)           :: separating_line
+  type(PrintSettings), intent(in), optional :: settings
+  type(String), allocatable                 :: output(:)
+  
+  output = str(input,char(separating_line),settings)
+end function
+
+function str_reals_character(input,separating_line,settings) result(output)
+  implicit none
+  
+  real(dp),            intent(in)           :: input(:)
+  character(*),        intent(in), optional :: separating_line
+  type(PrintSettings), intent(in), optional :: settings
+  type(String), allocatable                 :: output(:)
+  
+  integer :: i
+  
+  output = [String::]
+  do i=1,size(input)
+    output = [output, str(input(i))]
+    if (i<size(input) .and. present(separating_line)) then
+      output = [output, str(separating_line)]
+    endif
+  enddo
+end function
+
+function str_reals_String(input,separating_line,settings) result(output)
+  implicit none
+  
+  real(dp),            intent(in)           :: input(:)
+  type(String),        intent(in)           :: separating_line
+  type(PrintSettings), intent(in), optional :: settings
+  type(String), allocatable                 :: output(:)
+  
+  output = str(input,char(separating_line),settings)
+end function
+
+function str_complexes_character(input,separating_line,settings) result(output)
+  implicit none
+  
+  complex(dp),         intent(in)           :: input(:)
+  character(*),        intent(in), optional :: separating_line
+  type(PrintSettings), intent(in), optional :: settings
+  type(String), allocatable                 :: output(:)
+  
+  integer :: i
+  
+  output = [String::]
+  do i=1,size(input)
+    output = [output, str(input(i))]
+    if (i<size(input) .and. present(separating_line)) then
+      output = [output, str(separating_line)]
+    endif
+  enddo
+end function
+
+function str_complexes_String(input,separating_line,settings) result(output)
+  implicit none
+  
+  complex(dp),         intent(in)           :: input(:)
+  type(String),        intent(in)           :: separating_line
+  type(PrintSettings), intent(in), optional :: settings
+  type(String), allocatable                 :: output(:)
+  
+  output = str(input,char(separating_line),settings)
 end function
 
 ! ----------------------------------------------------------------------
@@ -950,39 +1083,83 @@ subroutine print_line_complexes(this,settings)
   call print_line(join(this, settings=settings))
 end subroutine
 
-subroutine print_lines_logicals(this,settings)
+subroutine print_lines_logicals_character(this,separating_line,settings)
   implicit none
   
   logical,             intent(in)           :: this(:)
+  character(*),        intent(in), optional :: separating_line
   type(PrintSettings), intent(in), optional :: settings
   
-  call print_lines(str(this,settings))
+  call print_lines(str(this,separating_line,settings))
 end subroutine
 
-subroutine print_lines_integers(this,settings)
+subroutine print_lines_logicals_String(this,separating_line,settings)
+  implicit none
+  
+  logical,             intent(in)           :: this(:)
+  type(String),        intent(in)           :: separating_line
+  type(PrintSettings), intent(in), optional :: settings
+  
+  call print_lines(str(this,separating_line,settings))
+end subroutine
+
+subroutine print_lines_integers_character(this,separating_line,settings)
   implicit none
   
   integer,             intent(in)           :: this(:)
+  character(*),        intent(in), optional :: separating_line
   type(PrintSettings), intent(in), optional :: settings
   
-  call print_lines(str(this,settings))
+  call print_lines(str(this,separating_line,settings))
 end subroutine
 
-subroutine print_lines_reals(this,settings)
+subroutine print_lines_integers_String(this,separating_line,settings)
+  implicit none
+  
+  integer,             intent(in)           :: this(:)
+  type(String),        intent(in)           :: separating_line
+  type(PrintSettings), intent(in), optional :: settings
+  
+  call print_lines(str(this,separating_line,settings))
+end subroutine
+
+subroutine print_lines_reals_character(this,separating_line,settings)
   implicit none
   
   real(dp),            intent(in)           :: this(:)
+  character(*),        intent(in), optional :: separating_line
   type(PrintSettings), intent(in), optional :: settings
   
-  call print_lines(str(this,settings))
+  call print_lines(str(this,separating_line,settings))
 end subroutine
 
-subroutine print_lines_complexes(this,settings)
+subroutine print_lines_reals_String(this,separating_line,settings)
+  implicit none
+  
+  real(dp),            intent(in)           :: this(:)
+  type(String),        intent(in)           :: separating_line
+  type(PrintSettings), intent(in), optional :: settings
+  
+  call print_lines(str(this,separating_line,settings))
+end subroutine
+
+subroutine print_lines_complexes_character(this,separating_line,settings)
   implicit none
   
   complex(dp),         intent(in)           :: this(:)
+  character(*),        intent(in), optional :: separating_line
   type(PrintSettings), intent(in), optional :: settings
   
-  call print_lines(str(this,settings))
+  call print_lines(str(this,separating_line,settings))
+end subroutine
+
+subroutine print_lines_complexes_String(this,separating_line,settings)
+  implicit none
+  
+  complex(dp),         intent(in)           :: this(:)
+  type(String),        intent(in)           :: separating_line
+  type(PrintSettings), intent(in), optional :: settings
+  
+  call print_lines(str(this,separating_line,settings))
 end subroutine
 end module

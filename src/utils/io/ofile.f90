@@ -54,14 +54,22 @@ module ofile_submodule
     procedure, private :: print_line_reals
     procedure, private :: print_line_complexes
     
-    generic,   public  :: print_lines =>                          &
-                        & print_lines_Strings_character,          &
-                        & print_lines_Strings_String,             &
-                        & print_lines_StringWriteables_character, &
-                        & print_lines_StringWriteables_String,    &
-                        & print_lines_StringsWriteable,           &
-                        & print_lines_StringsWriteables_character,&
-                        & print_lines_StringsWriteables_String
+    generic,   public  :: print_lines =>                           &
+                        & print_lines_Strings_character,           &
+                        & print_lines_Strings_String,              &
+                        & print_lines_StringWriteables_character,  &
+                        & print_lines_StringWriteables_String,     &
+                        & print_lines_StringsWriteable,            &
+                        & print_lines_StringsWriteables_character, &
+                        & print_lines_StringsWriteables_String,    &
+                        & print_lines_logicals_character,          &
+                        & print_lines_logicals_String,             &
+                        & print_lines_integers_character,          &
+                        & print_lines_integers_String,             &
+                        & print_lines_reals_character,             &
+                        & print_lines_reals_String,                &
+                        & print_lines_complexes_character,         &
+                        & print_lines_complexes_String
     procedure, private :: print_lines_Strings_character
     procedure, private :: print_lines_Strings_String
     procedure, private :: print_lines_StringWriteables_character
@@ -69,6 +77,14 @@ module ofile_submodule
     procedure, private :: print_lines_StringsWriteable
     procedure, private :: print_lines_StringsWriteables_character
     procedure, private :: print_lines_StringsWriteables_String
+    procedure, private :: print_lines_logicals_character
+    procedure, private :: print_lines_logicals_String
+    procedure, private :: print_lines_integers_character
+    procedure, private :: print_lines_integers_String
+    procedure, private :: print_lines_reals_character
+    procedure, private :: print_lines_reals_String
+    procedure, private :: print_lines_complexes_character
+    procedure, private :: print_lines_complexes_String
   end type
   
   interface OFile
@@ -364,6 +380,102 @@ subroutine print_lines_StringsWriteables_character(this,input, &
        &is probably a compiler bug.')
     call err()
   endif
+  
+  call this%print_lines(str(input,separating_line,settings))
+end subroutine
+
+subroutine print_lines_logicals_character(this,input,separating_line, &
+   & settings)
+  implicit none
+  
+  class(OFile),        intent(inout)        :: this
+  logical,             intent(in)           :: input(:)
+  character(*),        intent(in), optional :: separating_line
+  type(PrintSettings), intent(in), optional :: settings
+  
+  call this%print_lines(str(input,separating_line,settings))
+end subroutine
+
+subroutine print_lines_logicals_String(this,input,separating_line, &
+   & settings)
+  implicit none
+  
+  class(OFile),        intent(inout)        :: this
+  logical,             intent(in)           :: input(:)
+  type(String),        intent(in)           :: separating_line
+  type(PrintSettings), intent(in), optional :: settings
+  
+  call this%print_lines(str(input,separating_line,settings))
+end subroutine
+
+subroutine print_lines_integers_character(this,input,separating_line, &
+   & settings)
+  implicit none
+  
+  class(OFile),        intent(inout)        :: this
+  integer,             intent(in)           :: input(:)
+  character(*),        intent(in), optional :: separating_line
+  type(PrintSettings), intent(in), optional :: settings
+  
+  call this%print_lines(str(input,separating_line,settings))
+end subroutine
+
+subroutine print_lines_integers_String(this,input,separating_line, &
+   & settings)
+  implicit none
+  
+  class(OFile),        intent(inout)        :: this
+  integer,             intent(in)           :: input(:)
+  type(String),        intent(in)           :: separating_line
+  type(PrintSettings), intent(in), optional :: settings
+  
+  call this%print_lines(str(input,separating_line,settings))
+end subroutine
+
+subroutine print_lines_reals_character(this,input,separating_line, &
+   & settings)
+  implicit none
+  
+  class(OFile),        intent(inout)        :: this
+  real(dp),            intent(in)           :: input(:)
+  character(*),        intent(in), optional :: separating_line
+  type(PrintSettings), intent(in), optional :: settings
+  
+  call this%print_lines(str(input,separating_line,settings))
+end subroutine
+
+subroutine print_lines_reals_String(this,input,separating_line, &
+   & settings)
+  implicit none
+  
+  class(OFile),        intent(inout)        :: this
+  real(dp),            intent(in)           :: input(:)
+  type(String),        intent(in)           :: separating_line
+  type(PrintSettings), intent(in), optional :: settings
+  
+  call this%print_lines(str(input,separating_line,settings))
+end subroutine
+
+subroutine print_lines_complexes_character(this,input,separating_line, &
+   & settings)
+  implicit none
+  
+  class(OFile),        intent(inout)        :: this
+  complex(dp),         intent(in)           :: input(:)
+  character(*),        intent(in), optional :: separating_line
+  type(PrintSettings), intent(in), optional :: settings
+  
+  call this%print_lines(str(input,separating_line,settings))
+end subroutine
+
+subroutine print_lines_complexes_String(this,input,separating_line, &
+   & settings)
+  implicit none
+  
+  class(OFile),        intent(inout)        :: this
+  complex(dp),         intent(in)           :: input(:)
+  type(String),        intent(in)           :: separating_line
+  type(PrintSettings), intent(in), optional :: settings
   
   call this%print_lines(str(input,separating_line,settings))
 end subroutine

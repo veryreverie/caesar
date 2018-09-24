@@ -23,7 +23,7 @@ def main():
     'grey'     :[179/255,179/255,179/255]}
   
   # Read in data.
-  file_name = 'harmonic_observables/thermodynamic_variables.dat'
+  file_name = 'thermodynamic_variables.dat'
   variables_file = [line.rstrip('\n').split() for line in open(file_name)]
   thermal_energies = []
   energies = []

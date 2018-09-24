@@ -1,6 +1,6 @@
 ! ======================================================================
 ! Plots the phonon density of states and dispersion calculated by
-!    calculate_harmonic_observables.
+!    calculate_harmonic_observables or calculate_anharmonic_observables.
 ! ======================================================================
 module plot_dos_and_dispersion_module
   use common_module
@@ -21,8 +21,9 @@ function plot_dos_and_dispersion() result(output)
   
   output%mode_name = 'plot_dos_and_dispersion'
   output%description = 'Plots the phonon density of states and dispersion &
-     &calculated by calculate_harmonic_observables. Should be run from within &
-     &the harmonic_observables directory, or from a &
+     &calculated by calculate_harmonic_observables or &
+     &calculate_anharmonic_observables. Should be run from within the &
+     &harmonic_observables or anharmonic_observables directory, or from a &
      &anharmonic_observables/temperature_* directory. The -d flag may be &
      &useful for this.'
   output%keywords = [                                                      &

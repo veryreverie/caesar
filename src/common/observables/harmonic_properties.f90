@@ -16,6 +16,12 @@ module harmonic_properties_module
   public :: PhononDispersion
   public :: PhononDos
   
+  public :: QpointPath
+  public :: PathFrequencies
+  public :: SampledQpoint
+  public :: PdosBin
+  public :: ThermodynamicData
+  
   ! The major points along the q-point path.
   type, extends(Stringsable) :: QpointPath
     type(String)     :: label
@@ -61,6 +67,21 @@ module harmonic_properties_module
     module procedure new_SampledQpoint_String
   end interface
   
+  ! The phonon density of states (PDOS).
+  type, extends(Stringable) :: PdosBin
+    real(dp) :: min_frequency
+    real(dp) :: max_frequency
+    real(dp) :: occupation
+  contains
+    procedure, public :: read  => read_PdosBin
+    procedure, public :: write => write_PdosBin
+  end type
+  
+  interface PdosBin
+    module procedure new_PdosBin
+    module procedure new_PdosBin_String
+  end interface
+  
   ! The thermodynamic variables at a given temperature.
   type, extends(Stringable) :: ThermodynamicData
     real(dp) :: thermal_energy
@@ -75,21 +96,6 @@ module harmonic_properties_module
   interface ThermodynamicData
     module procedure new_ThermodynamicData
     module procedure new_ThermodynamicData_String
-  end interface
-  
-  ! The phonon density of states (PDOS).
-  type, extends(Stringable) :: PdosBin
-    real(dp) :: min_frequency
-    real(dp) :: max_frequency
-    real(dp) :: occupation
-  contains
-    procedure, public :: read  => read_PdosBin
-    procedure, public :: write => write_PdosBin
-  end type
-  
-  interface PdosBin
-    module procedure new_PdosBin
-    module procedure new_PdosBin_String
   end interface
   
   ! Return types.
@@ -153,6 +159,20 @@ impure elemental function new_SampledQpoint(qpoint,no_soft_frequencies) &
   this%no_soft_frequencies = no_soft_frequencies
 end function
 
+impure elemental function new_PdosBin(min_frequency,max_frequency,occupation) &
+   & result(this)
+  implicit none
+  
+  real(dp), intent(in) :: min_frequency
+  real(dp), intent(in) :: max_frequency
+  real(dp), intent(in) :: occupation
+  type(PdosBin)        :: this
+  
+  this%min_frequency = min_frequency
+  this%max_frequency = max_frequency
+  this%occupation = occupation
+end function
+
 impure elemental function new_ThermodynamicData(thermal_energy,energy, &
    & free_energy,entropy) result(this)
   implicit none
@@ -167,20 +187,6 @@ impure elemental function new_ThermodynamicData(thermal_energy,energy, &
   this%energy = energy
   this%free_energy = free_energy
   this%entropy = entropy
-end function
-
-impure elemental function new_PdosBin(min_frequency,max_frequency,occupation) &
-   & result(this)
-  implicit none
-  
-  real(dp), intent(in) :: min_frequency
-  real(dp), intent(in) :: max_frequency
-  real(dp), intent(in) :: occupation
-  type(PdosBin)        :: this
-  
-  this%min_frequency = min_frequency
-  this%max_frequency = max_frequency
-  this%occupation = occupation
 end function
 
 function new_PhononDispersion(path,frequencies) result(this)
