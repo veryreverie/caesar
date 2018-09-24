@@ -81,7 +81,7 @@ subroutine setup_harmonic_subroutine(arguments)
   
   ! Directories.
   type(String) :: supercell_dir
-  type(String) :: path
+  type(String) :: calculation_dir
   
   ! Perturbation direction information.
   type(UniqueDirection), allocatable :: unique_directions(:)
@@ -187,14 +187,12 @@ subroutine setup_harmonic_subroutine(arguments)
       displaced_structure = displace_structure(supercell,displacement)
       
       ! Write calculation input files.
-      path =                                                     &
-         & supercell_dir                                      // &
-         & '/atom.'                                           // &
-         & left_pad( unique_directions(j)%atom_id,               &
-         &           str(maxval(unique_directions%atom_id)) ) // &
-         & '.'                                                // &
-         & unique_directions(j)%direction
-      call calculation_writer%write_calculation(displaced_structure, path)
+      calculation_dir = supercell_dir//'/atom.'                            // &
+                      & left_pad( unique_directions(j)%atom_id,               &
+                      &           str(maxval(unique_directions%atom_id)) ) // &
+                      & '.'//unique_directions(j)%direction
+      call calculation_writer%write_calculation( displaced_structure, &
+                                               & calculation_dir      )
     enddo
   enddo
 end subroutine

@@ -67,8 +67,9 @@ subroutine calculate_normal_modes_subroutine(arguments)
   type(CalculationReader) :: calculation_reader
   
   ! Force constant data.
-  type(UniqueDirection), allocatable :: unique_directions(:)
-  type(ForceConstants),  allocatable :: force_constants(:)
+  type(UniqueDirection),     allocatable :: unique_directions(:)
+  type(ElectronicStructure), allocatable :: electronic_structure(:)
+  type(ForceConstants),      allocatable :: force_constants(:)
   
   ! q-point data.
   type(StructureData)           :: large_supercell
@@ -95,6 +96,7 @@ subroutine calculate_normal_modes_subroutine(arguments)
   type(IFile)  :: supercell_file
   type(IFile)  :: unique_directions_file
   type(String) :: supercell_dir
+  type(String) :: calculation_dir
   type(String) :: qpoint_dir
   type(OFile)  :: dynamical_matrix_file
   type(OFile)  :: complex_modes_file
@@ -103,7 +105,7 @@ subroutine calculate_normal_modes_subroutine(arguments)
   type(OFile)  :: phonon_file
   
   ! Temporary variables.
-  integer      :: i,j,k,ialloc
+  integer :: i,j,k,ialloc
   
   ! --------------------------------------------------
   ! Read in arguments from user.
@@ -172,14 +174,33 @@ subroutine calculate_normal_modes_subroutine(arguments)
     unique_directions_file = IFile(supercell_dir//'/unique_directions.dat')
     unique_directions = UniqueDirection(unique_directions_file%sections())
     
+    ! Read in electronic structure.
+    allocate( electronic_structure(size(unique_directions)), &
+            & stat=ialloc); call err(ialloc)
+    do j=1,size(unique_directions)
+      calculation_dir = supercell_dir//'/atom.'                            // &
+                      & left_pad( unique_directions(j)%atom_id,               &
+                      &           str(maxval(unique_directions%atom_id)) ) // &
+                      & '.'//unique_directions(j)%direction
+      electronic_structure(j) = calculation_reader%read_calculation( &
+                                                   & calculation_dir )
+      if ( size(electronic_structure(j)%forces%vectors) /= &
+         & supercells(i)%no_atoms                          ) then
+        call print_line( ERROR//': Wrong number of forces in '//      &
+                       & calculation_dir//'/electronic_structure.dat' )
+        call err()
+      endif
+    enddo
+    
     ! Calculate force constants.
     force_constants(i) = ForceConstants( supercells(i),            &
                                        & unique_directions,        &
-                                       & supercell_dir,            &
+                                       & electronic_structure,     &
                                        & acoustic_sum_rule_forces, &
-                                       & calculation_reader,       &
                                        & force_logfile)
-    deallocate(unique_directions, stat=ialloc); call err(ialloc)
+    deallocate( unique_directions,    &
+              & electronic_structure, &
+              & stat=ialloc); call err(ialloc)
   enddo
   
   ! --------------------------------------------------

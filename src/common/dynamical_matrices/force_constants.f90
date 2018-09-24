@@ -56,18 +56,17 @@ contains
 ! => F = sum(x,s)[f'^x'] . inverse( sum(x,s)[x'^x'] )
 !
 ! sum(x,s)[x'^x'] is block diagonal, so can be inverted in 3x3 blocks.
-function new_ForceConstants_forces(supercell,unique_directions,          &
-   & relative_supercell_dir,acoustic_sum_rule_forces,calculation_reader, &
-   & logfile)  result(output)
+function new_ForceConstants_forces(supercell,unique_directions, &
+   & electronic_structure,acoustic_sum_rule_forces,logfile)     &
+   & result(output)
   implicit none
   
-  type(StructureData),     intent(in)    :: supercell
-  type(UniqueDirection),   intent(in)    :: unique_directions(:)
-  type(String),            intent(in)    :: relative_supercell_dir
-  logical,                 intent(in)    :: acoustic_sum_rule_forces
-  type(CalculationReader), intent(inout) :: calculation_reader
-  type(OFile),             intent(inout) :: logfile
-  type(ForceConstants)                   :: output
+  type(StructureData),       intent(in)    :: supercell
+  type(UniqueDirection),     intent(in)    :: unique_directions(:)
+  type(ElectronicStructure), intent(in)    :: electronic_structure(:)
+  logical,                   intent(in)    :: acoustic_sum_rule_forces
+  type(OFile),               intent(inout) :: logfile
+  type(ForceConstants)                     :: output
   
   
   ! Forces (mass reduced).
@@ -79,12 +78,11 @@ function new_ForceConstants_forces(supercell,unique_directions,          &
   ! sum(s)[ x'^x' ] (diagonal blocks only).
   type(RealMatrix), allocatable :: xx(:)
   
-  ! Read in forces (mass reduced).
-  forces = read_forces( supercell,                &
-                      & unique_directions,        &
-                      & relative_supercell_dir,   &
-                      & acoustic_sum_rule_forces, &
-                      & calculation_reader        )
+  ! Parse forces from electronic structure data.
+  forces = parse_forces( supercell,               &
+                       & unique_directions,       &
+                       & electronic_structure,    &
+                       & acoustic_sum_rule_forces )
   
   ! Construct sum[x'^x'].
   xx = construct_xx(unique_directions, supercell, logfile)
@@ -183,65 +181,44 @@ function constants(this,a,b) result(output)
 end function
   
 ! ----------------------------------------------------------------------
-! Read in forces, and mass-weight them.
+! Parse forces from electronic structure data,
+!    enforce acoustic sum rules if requires,
+!    and mass-reduce forces.
 ! ----------------------------------------------------------------------
-function read_forces(supercell,unique_directions,relative_supercell_dir, &
-   & acoustic_sum_rule_forces,calculation_reader) result(output)
+function parse_forces(supercell,unique_directions,electronic_structure, &
+   & acoustic_sum_rule_forces) result(output)
   implicit none
   
-  type(StructureData),     intent(in)    :: supercell
-  type(UniqueDirection),   intent(in)    :: unique_directions(:)
-  type(String),            intent(in)    :: relative_supercell_dir
-  logical,                 intent(in)    :: acoustic_sum_rule_forces
-  type(CalculationReader), intent(inout) :: calculation_reader
-  type(RealVector), allocatable          :: output(:,:)
+  type(StructureData),       intent(in) :: supercell
+  type(UniqueDirection),     intent(in) :: unique_directions(:)
+  type(ElectronicStructure), intent(in) :: electronic_structure(:)
+  logical,                   intent(in) :: acoustic_sum_rule_forces
+  type(RealVector), allocatable         :: output(:,:)
   
-  ! DFT output data.
-  type(ElectronicStructure) :: electronic_structure
+  type(RealVector) :: sum_forces
   
-  ! Direction information.
-  type(String)   :: directory
-  type(AtomData) :: atom
-  type(String)   :: direction
-  type(String)   :: atom_string
+  type(AtomData) :: atom_i
   
-  ! Temporary variables.
-  integer          :: i,j,ialloc
-  type(RealVector) :: total
+  integer :: i,j,ialloc
   
   allocate( output(supercell%no_atoms, size(unique_directions)), &
           & stat=ialloc); call err(ialloc)
   do i=1,size(unique_directions)
-    atom = supercell%atoms(unique_directions(i)%atom_id)
-    direction = unique_directions(i)%direction
-    atom_string = left_pad(atom%id(),str(supercell%no_atoms_prim))
-    directory = relative_supercell_dir//'/atom.'//atom_string//'.'//direction
-    
-    electronic_structure = calculation_reader%read_calculation(directory)
-    if (size(electronic_structure%forces%vectors)/=supercell%no_atoms) then
-      call print_line( ERROR//': Wrong number of forces in '//directory// &
-                     & '/electronic_structure.dat')
-      call err()
-    endif
-    output(:,i) = electronic_structure%forces%vectors
+    output(:,i) = electronic_structure(i)%forces%vectors
     
     ! Enforce continuous translational symmetry,
     !    i.e. ensure sum(output,1)=0.
     ! This is the 'Accoustic sum rule'.
     if (acoustic_sum_rule_forces) then
-      total = dblevec(zeroes(3))
+      sum_forces = sum(output(:,i))
       do j=1,supercell%no_atoms
-        total = total+output(j,i)
-      enddo
-      do j=1,supercell%no_atoms
-        output(j,i) = output(j,i)-total/supercell%no_atoms
+        output(j,i) = output(j,i) - sum_forces/supercell%no_atoms
       enddo
     endif
     
     ! Mass-reduce forces.
-    do j=1,supercell%no_atoms
-      output(j,i) = output(j,i) / sqrt(atom%mass()*supercell%atoms(j)%mass())
-    enddo
+    atom_i = supercell%atoms(unique_directions(i)%atom_id)
+    output(:,i) = output(:,i) / sqrt(supercell%atoms%mass()*atom_i%mass())
   enddo
 end function
 
