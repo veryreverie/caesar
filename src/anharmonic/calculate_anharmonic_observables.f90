@@ -124,6 +124,10 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   type(ForceConstants)         :: force_constants
   type(MinImages), allocatable :: min_images(:,:)
   
+  ! Dispersion and density of states.
+  type(PhononDispersion) :: phonon_dispersion
+  type(PhononDos)        :: phonon_dos
+  
   ! Files and directories.
   type(IFile)  :: anharmonic_data_file
   type(IFile)  :: subspace_potentials_file
@@ -283,35 +287,46 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
     
     ! Generate self-consistent phonon dispersion curve by interpolating between
     !    calculated q-points using Fourier interpolation.
-    dispersion_file = OFile(temperature_dir//'/phonon_dispersion_curve.dat')
+    phonon_dispersion = PhononDispersion( supercell,            &
+                                        & min_images,           &
+                                        & force_constants,      &
+                                        & path_labels,          &
+                                        & path_qpoints,         &
+                                        & logfile               )
+    
     symmetry_points_file = OFile(temperature_dir//'/high_symmetry_points.dat')
-    call generate_dispersion( supercell,            &
-                            & min_images,           &
-                            & force_constants,      &
-                            & path_labels,          &
-                            & path_qpoints,         &
-                            & dispersion_file,      &
-                            & symmetry_points_file, &
-                            & logfile               )
+    call symmetry_points_file%print_lines( phonon_dispersion%path, &
+                                         & separating_line=''      )
+    
+    dispersion_file = OFile(temperature_dir//'/phonon_dispersion_curve.dat')
+    call dispersion_file%print_lines(phonon_dispersion%frequencies)
     
     ! Generate self-consistent phonon density of states,
     !    interpolating as above.
+    phonon_dos = PhononDos( supercell,             &
+                          & min_images,            &
+                          & force_constants,       &
+                          & [thermal_energies(i)], &
+                          & min_frequency,         &
+                          & no_dos_samples,        &
+                          & logfile,               &
+                          & random_generator       )
+    
     sampled_qpoints_file = OFile(temperature_dir//'/sampled_qpoints.dat')
-    thermodynamic_file   = OFile(                        &
-       & temperature_dir//'/thermodynamic_variables.dat' )
-    pdos_file            = OFile(                        &
-       & temperature_dir//'/phonon_density_of_states.dat')
-    call generate_dos( supercell,             &
-                     & min_images,            &
-                     & force_constants,       &
-                     & [thermal_energies(i)], &
-                     & min_frequency,         &
-                     & no_dos_samples,        &
-                     & sampled_qpoints_file,  &
-                     & thermodynamic_file,    &
-                     & pdos_file,             &
-                     & logfile,               &
-                     & random_generator       )
+    call sampled_qpoints_file%print_line('q-point (x,y,z) | &
+                                         &number of frequencies ignored')
+    call sampled_qpoints_file%print_lines(phonon_dos%qpoints)
+    
+    pdos_file = OFile(temperature_dir//'/phonon_density_of_states.dat')
+    call pdos_file%print_lines(phonon_dos%pdos)
+    
+    thermodynamic_file = OFile(temperature_dir//'/thermodynamic_variables.dat')
+    call thermodynamic_file%print_line( &
+       &'kB * temperature (Hartree per cell) | &
+       &Vibrational Energy per cell, U=<E>, (Hartree) | &
+       &Vibrational Free Energy per cell, F=U-TS, (Hartree) | &
+       &Vibrational Shannon Entropy per cell, S/k_B, (arb. units)')
+    call thermodynamic_file%print_lines(phonon_dos%thermodynamic_data)
   enddo
   
   ! TODO

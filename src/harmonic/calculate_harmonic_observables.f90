@@ -99,6 +99,10 @@ subroutine calculate_harmonic_observables_subroutine(arguments)
   ! Dynamical matrix for checking.
   type(DynamicalMatrix) :: dyn_mat
   
+  ! Dispersion and density of states.
+  type(PhononDispersion) :: phonon_dispersion
+  type(PhononDos)        :: phonon_dos
+  
   ! Files and directories.
   type(IFile)  :: structure_file
   type(IFile)  :: large_supercell_file
@@ -203,11 +207,6 @@ subroutine calculate_harmonic_observables_subroutine(arguments)
   
   ! Open output files.
   logfile              = OFile(output_dir//'/harmonic_observables_log.dat')
-  dispersion_file      = OFile(output_dir//'/phonon_dispersion_curve.dat')
-  symmetry_points_file = OFile(output_dir//'/high_symmetry_points.dat')
-  sampled_qpoints_file = OFile(output_dir//'/sampled_qpoints.dat')
-  thermodynamic_file   = OFile(output_dir//'/thermodynamic_variables.dat')
-  pdos_file            = OFile(output_dir//'/phonon_density_of_states.dat')
   
   ! Construct the matrix of force constants from dynamical matrices.
   force_constants = reconstruct_force_constants( large_supercell,    &
@@ -231,26 +230,44 @@ subroutine calculate_harmonic_observables_subroutine(arguments)
   
   ! Generate harmonic phonon dispersion curve by interpolating between
   !    calculated q-points using Fourier interpolation.
-  call generate_dispersion( large_supercell,      &
-                          & min_images,           &
-                          & force_constants,      &
-                          & path_labels,          &
-                          & path_qpoints,         &
-                          & dispersion_file,      &
-                          & symmetry_points_file, &
-                          & logfile               )
+  phonon_dispersion = PhononDispersion( large_supercell, &
+                                      & min_images,      &
+                                      & force_constants, &
+                                      & path_labels,     &
+                                      & path_qpoints,    &
+                                      & logfile          )
+  
+  symmetry_points_file = OFile(output_dir//'/high_symmetry_points.dat')
+  call symmetry_points_file%print_lines( phonon_dispersion%path, &
+                                       & separating_line=''      )
+  
+  dispersion_file = OFile(output_dir//'/phonon_dispersion_curve.dat')
+  call dispersion_file%print_lines(phonon_dispersion%frequencies)
   
   ! Generate harmonic phonon density of states, interpolating as above.
-  call generate_dos( large_supercell,      &
-                   & min_images,           &
-                   & force_constants,      &
-                   & thermal_energies,     &
-                   & min_frequency,        &
-                   & no_dos_samples,       &
-                   & sampled_qpoints_file, &
-                   & thermodynamic_file,   &
-                   & pdos_file,            &
-                   & logfile,              &
-                   & random_generator      )
+  phonon_dos = PhononDos( large_supercell,      &
+                        & min_images,           &
+                        & force_constants,      &
+                        & thermal_energies,     &
+                        & min_frequency,        &
+                        & no_dos_samples,       &
+                        & logfile,              &
+                        & random_generator      )
+  
+  sampled_qpoints_file = OFile(output_dir//'/sampled_qpoints.dat')
+  call sampled_qpoints_file%print_line('q-point (x,y,z) | &
+                                       &number of frequencies ignored')
+  call sampled_qpoints_file%print_lines(phonon_dos%qpoints)
+  
+  pdos_file = OFile(output_dir//'/phonon_density_of_states.dat')
+  call pdos_file%print_lines(phonon_dos%pdos)
+  
+  thermodynamic_file = OFile(output_dir//'/thermodynamic_variables.dat')
+  call thermodynamic_file%print_line( &
+     &'kB * temperature (Hartree per cell) | &
+     &Vibrational Energy per cell, U=<E>, (Hartree) | &
+     &Vibrational Free Energy per cell, F=U-TS, (Hartree) | &
+     &Vibrational Shannon Entropy per cell, S/k_B, (arb. units)')
+  call thermodynamic_file%print_lines(phonon_dos%thermodynamic_data)
 end subroutine
 end module

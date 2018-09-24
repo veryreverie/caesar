@@ -84,12 +84,10 @@ def main():
   dos_file = [line.rstrip('\n').split() for line in open(file_name)]
   dos = {'bottoms':[], 'tops':[], 'middles':[], 'dos':[]}
   for line in dos_file:
-    if len(line)>0 and line[0]=='Bin:':
-      dos['bottoms'].append(float(line[1]))
-      dos['tops'].append(float(line[3]))
-      dos['middles'].append((float(line[1])+float(line[3]))/2)
-    elif len(line)>0 and line[0]=='Bin':
-      dos['dos'].append(float(line[2]))
+    dos['bottoms'].append(float(line[2]))
+    dos['tops'].append(float(line[4]))
+    dos['middles'].append((float(line[2])+float(line[4]))/2)
+    dos['dos'].append(float(line[6]))
   
   
   # Plot everything.

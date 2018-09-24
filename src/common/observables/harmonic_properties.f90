@@ -11,6 +11,11 @@ module harmonic_properties_module
   use harmonic_thermodynamics_module
   implicit none
   
+  private
+  
+  public :: PhononDispersion
+  public :: PhononDos
+  
   ! The major points along the q-point path.
   type, extends(Stringsable) :: QpointPath
     type(String)     :: label
@@ -86,6 +91,28 @@ module harmonic_properties_module
     module procedure new_PdosBin
     module procedure new_PdosBin_String
   end interface
+  
+  ! Return types.
+  type, extends(NoDefaultConstructor) :: PhononDispersion
+    type(QpointPath),      allocatable :: path(:)
+    type(PathFrequencies), allocatable :: frequencies(:)
+  end type
+  
+  interface PhononDispersion
+    module procedure new_PhononDispersion
+    module procedure new_PhononDispersion_ForceConstants
+  end interface
+  
+  type, extends(NoDefaultConstructor) :: PhononDos
+    type(SampledQpoint),     allocatable :: qpoints(:)
+    type(PdosBin),           allocatable :: pdos(:)
+    type(ThermodynamicData), allocatable :: thermodynamic_data(:)
+  end type
+  
+  interface PhononDos
+    module procedure new_PhononDos
+    module procedure new_PhononDos_ForceConstants
+  end interface
 contains
 
 ! Constructors.
@@ -156,11 +183,33 @@ impure elemental function new_PdosBin(min_frequency,max_frequency,occupation) &
   this%occupation = occupation
 end function
 
+function new_PhononDispersion(path,frequencies) result(this)
+  implicit none
+  
+  type(QpointPath),      intent(in) :: path(:)
+  type(PathFrequencies), intent(in) :: frequencies(:)
+  type(PhononDispersion)            :: this
+  
+  this%path = path
+  this%frequencies = frequencies
+end function
+
+function new_PhononDos(qpoints,pdos,thermodynamic_data) result(this)
+  type(SampledQpoint),     intent(in) :: qpoints(:)
+  type(PdosBin),           intent(in) :: pdos(:)
+  type(ThermodynamicData), intent(in) :: thermodynamic_data(:)
+  type(PhononDos)                     :: this
+  
+  this%qpoints = qpoints
+  this%pdos = pdos
+  this%thermodynamic_data = thermodynamic_data
+end function
+
 ! ----------------------------------------------------------------------
 ! Generates the phonon dispersion curve.
 ! ----------------------------------------------------------------------
-subroutine generate_dispersion(large_supercell,min_images,force_constants, &
-   & path_labels,path_qpoints,dispersion_file,symmetry_points_file,logfile)
+function new_PhononDispersion_ForceConstants(large_supercell,min_images, &
+   & force_constants,path_labels,path_qpoints,logfile) result(this)
   implicit none
   
   type(StructureData),  intent(in)    :: large_supercell
@@ -168,9 +217,8 @@ subroutine generate_dispersion(large_supercell,min_images,force_constants, &
   type(ForceConstants), intent(in)    :: force_constants
   type(String),         intent(in)    :: path_labels(:)
   type(RealVector),     intent(in)    :: path_qpoints(:)
-  type(OFile),          intent(inout) :: dispersion_file
-  type(OFile),          intent(inout) :: symmetry_points_file
   type(OFile),          intent(inout) :: logfile
+  type(PhononDispersion)              :: this
   
   ! Path variables.
   integer,  parameter :: total_no_points = 1000
@@ -264,17 +312,16 @@ subroutine generate_dispersion(large_supercell,min_images,force_constants, &
      &    frequencies=dyn_mat%complex_modes%frequency )]
   
   ! Write outputs to file.
-  call symmetry_points_file%print_lines(path, separating_line='')
-  call dispersion_file%print_lines(frequencies)
-end subroutine
+  this = PhononDispersion(path, frequencies)
+end function
 
 ! ----------------------------------------------------------------------
 ! Calculate the frequency density-of-states by random sampling of
 !    the Brillouin zone.
 ! ----------------------------------------------------------------------
-subroutine generate_dos(supercell,min_images,force_constants,            &
-   & thermal_energies,min_frequency,no_dos_samples,sampled_qpoints_file, &
-   & thermodynamic_file,pdos_file,logfile,random_generator)
+function new_PhononDos_ForceConstants(supercell,min_images,force_constants, &
+   & thermal_energies,min_frequency,no_dos_samples,logfile,random_generator) &
+   & result(this)
   implicit none
   
   type(StructureData),  intent(in)    :: supercell
@@ -283,11 +330,9 @@ subroutine generate_dos(supercell,min_images,force_constants,            &
   real(dp),             intent(in)    :: thermal_energies(:)
   real(dp),             intent(in)    :: min_frequency
   integer,              intent(in)    :: no_dos_samples
-  type(OFile),          intent(inout) :: sampled_qpoints_file
-  type(OFile),          intent(inout) :: thermodynamic_file
-  type(OFile),          intent(inout) :: pdos_file
   type(OFile),          intent(inout) :: logfile
   type(RandomReal),     intent(in)    :: random_generator
+  type(PhononDos)                     :: this
   
   ! Calculation parameter.
   integer  :: no_bins
@@ -443,31 +488,20 @@ subroutine generate_dos(supercell,min_images,force_constants,            &
        & no_dos_samples*supercell%no_modes_prim//' modes sampled.')
   endif
   
-  ! Write out phonon density of states.
   pdos = [( PdosBin( min_frequency = min_freq+(i-1)*bin_width,    &
           &          max_frequency = min_freq+i*bin_width,        &
           &          occupation    = freq_dos(i)               ), &
           & i=1,                                                  &
           & no_bins                                               )]
-  call pdos_file%print_lines(pdos)
   
-  ! Write out thermodynamic variables.
   thermodynamic_data = ThermodynamicData( thermal_energies, &
                                         & energy,           &
                                         & free_energy,      &
                                         & entropy           )
-  call thermodynamic_file%print_line( &
-     &'kB * temperature (Hartree per cell) | &
-     &Vibrational Energy per cell, U=<E>, (Hartree) | &
-     &Vibrational Free Energy per cell, F=U-TS, (Hartree) | &
-     &Vibrational Shannon Entropy per cell, S/k_B, (arb. units)')
-  call thermodynamic_file%print_lines(thermodynamic_data)
   
-  ! Write out sampled q-points.
-  call sampled_qpoints_file%print_line('q-point (x,y,z) | &
-                                       &number of frequencies ignored')
-  call sampled_qpoints_file%print_lines(qpoints)
-end subroutine
+  
+  this = PhononDos(qpoints, pdos, thermodynamic_data)
+end function
 
 ! ----------------------------------------------------------------------
 ! I/O.
