@@ -46,7 +46,28 @@ module dynamical_matrix_module
     module procedure new_ComplexMode_interpolated
     module procedure new_ComplexMode_calculated
   end interface
+  
+  type, extends(NoDefaultConstructor) :: SplitModes
+    type(ComplexMode), allocatable :: modes(:)
+    integer,           allocatable :: ids(:)
+  end type
+  
+  interface SplitModes
+    module procedure new_SplitModes
+  end interface
 contains
+
+! Constructor.
+function new_SplitModes(modes,ids) result(this)
+  implicit none
+  
+  type(ComplexMode), intent(in) :: modes(:)
+  integer,           intent(in) :: ids(:)
+  type(SplitModes)              :: this
+  
+  this%modes = modes
+  this%ids = ids
+end function
 
 ! ----------------------------------------------------------------------
 ! Constructs the matrix of force constants in q-point co-ordinates,
@@ -482,7 +503,7 @@ function new_ComplexMode_calculated(matrices,structure,qpoint, &
   real(dp) :: energy_difference
   
   ! Symmetry data.
-  integer, allocatable :: symmetry_ids(:)
+  type(SymmetryOperator), allocatable :: symmetries(:)
   
   integer, allocatable :: states(:)
   
@@ -521,7 +542,8 @@ function new_ComplexMode_calculated(matrices,structure,qpoint, &
   endif
   
   ! Identify the symmetries which map the q-point to itself.
-  symmetry_ids = filter(structure%symmetries, leaves_q_invariant)
+  symmetries = structure%symmetries(filter( structure%symmetries, &
+                                          & leaves_q_invariant    ))
   
   ! Assign degeneracy ids, which are equal if two states are degenerate,
   !    and different if they are not.
@@ -538,7 +560,8 @@ function new_ComplexMode_calculated(matrices,structure,qpoint, &
       output(i)%subspace_id = output(i-1)%subspace_id + 1
       if (energy_difference<degenerate_energy*2) then
         call print_line(WARNING//': Non-degenerate energies within a factor &
-           &of two of degenerate_energy at q-point '//qpoint%qpoint//'.')
+           &of two of degenerate_energy at q-point '//qpoint%id//': '//&
+           &qpoint%qpoint//'.')
       endif
     endif
   enddo
@@ -564,12 +587,11 @@ function new_ComplexMode_calculated(matrices,structure,qpoint, &
     output(states)%frequency = sum(output(states)%frequency) / size(states)
     
     ! Check that all symmetries map the degenerate subspace onto itself.
-    do j=1,size(symmetry_ids)
-      symmetry = calculate_symmetry_in_normal_coordinates( &
-                  & output(states),                        &
-                  & qpoint,                                &
-                  & structure%symmetries(symmetry_ids(j)), &
-                  & logfile)
+    do j=1,size(symmetries)
+      symmetry = calculate_symmetry_in_normal_coordinates( output(states), &
+                                                         & qpoint,         &
+                                                         & symmetries(j),  &
+                                                         & logfile         )
       call check_unitary(symmetry,'degenerate modes symmetry',logfile)
     enddo
     
@@ -577,9 +599,9 @@ function new_ComplexMode_calculated(matrices,structure,qpoint, &
     if (size(states)>1) then
       output(states) = lift_degeneracies( output(states), &
                                         & structure,      &
-                                        & symmetry_ids,   &
+                                        & symmetries,     &
                                         & qpoint,         &
-                                        & logfile)
+                                        & logfile         )
     endif
     
     ! If this q-point is its own pair, identify and pair up conjugate modes.
@@ -647,38 +669,25 @@ end function
 ! --------------------------------------------------
 ! Input must be a list of degenerate modes.
 ! Symmetries must all take the q-point to itself.
-recursive function lift_degeneracies(input,structure,symmetry_ids, &
-   & qpoint,logfile) result(output)
+function lift_degeneracies(input,structure,symmetries,qpoint,logfile) &
+   & result(output)
   implicit none
   
   type(ComplexMode),      intent(in)    :: input(:)
   type(StructureData),    intent(in)    :: structure
-  integer,                intent(in)    :: symmetry_ids(:)
+  type(SymmetryOperator), intent(in)    :: symmetries(:)
   type(QpointData),       intent(in)    :: qpoint
   type(OFile),            intent(inout) :: logfile
   type(ComplexMode), allocatable        :: output(:)
   
-  ! Symmetry information.
-  integer :: order
-  
-  type(SymmetryOperator) :: first_symmetry
-  type(ComplexMatrix) :: symmetry
-  
-  type(HermitianEigenstuff), allocatable :: estuff(:)
-  
-  real(dp), allocatable :: phases_real(:)
-  integer,  allocatable :: phases_int(:)
-  
-  type(SymmetryOperator), allocatable :: symmetries(:)
-  integer, allocatable :: commuting_symmetry_ids(:)
-  
-  logical :: symmetry_is_sin
+  integer,                allocatable :: ids(:)
+  integer                             :: max_id
+  type(SymmetryOperator), allocatable :: commuting_symmetries(:)
+  type(SplitModes)                    :: modes_and_ids
+  logical                             :: symmetry_used
+  logical                             :: positive_superposition
   
   integer :: i,j,k,ialloc
-  
-  ! All q-point data and eigenvalues will be unchanged.
-  ! Copy over all data, and only change that which changes.
-  output = input
   
   if (size(input)==1) then
     call print_line(CODE_ERROR//': Trying to lift the degeneracy of only one &
@@ -686,119 +695,57 @@ recursive function lift_degeneracies(input,structure,symmetry_ids, &
     call err()
   endif
   
-  if (size(symmetry_ids)==0) then
-    call print_line(ERROR//': Unable to lift degeneracies using symmetry. &
-       &Please try reducing degenerate_energy.')
-    stop
-  endif
-
-  symmetries = structure%symmetries(symmetry_ids)
-  first_symmetry = symmetries(1)
+  output = input
+  commuting_symmetries = symmetries
+  ids = [(0,i=1,size(output))]
+  max_id = 0
   
-  ! Construct the first symmetry in normal mode co-ordinates.
-  symmetry = calculate_symmetry_in_normal_coordinates( input,          &
-                                                     & qpoint,         &
-                                                     & first_symmetry, &
-                                                     & logfile)
-  
-  ! Instead of directly calculating the eigenstuff of the unitary symmetry
-  !    matrices {U}, it is more stable to calculate the eigenstuff of the
-  !    Hermitian matrices {C=(U+U^T)/2} and {S=(U-U^T)/2i}.
-  ! The eigenvalues of U are e^(2*pi*i*j/n), so the eigenvalues of C and S are
-  !    cos(2*pi*j/n) and sin(2*pi*j/n) respectively.
-  ! Arbitrarily, if this matrix's conjugate has a later id
-  !    (or is the same matrix) then C is considered, else S is considered.
-  symmetry_is_sin = first_symmetry%inverse_symmetry_id < first_symmetry%id
-  if (symmetry_is_sin) then
-    symmetry = (symmetry - hermitian(symmetry))/cmplx(0.0_dp,2.0_dp,dp)
-  else
-    symmetry = (symmetry + hermitian(symmetry))/2.0_dp
-  endif
-  
-  ! Calculate the order of the first symmetry, n s.t. S^n=I.
-  order = first_symmetry%symmetry_order(qpoint)
-  
-  ! Diagonalise the first symmetry, and construct diagonalised displacements.
-  ! Only transform displacements if this symmetry lifts degeneracy.
-  estuff = diagonalise_hermitian(symmetry)
-  
-  ! Work out the phases of the eigenvalues (2*j in e^(2*pi*i*j/order)).
-  allocate( phases_real(size(input)), &
-          & phases_int(size(input)),  &
-          & stat=ialloc); call err(ialloc)
-  do i=1,size(input)
-    ! Correct for numerical errors taking the eigenvalue outside the range
-    !    [-1,1].
-    if (abs(estuff(i)%eval)>1.01_dp) then
-      call print_line(ERROR//': Symmetry eigenvalue outside the range [-1,1].')
-      call err()
+  do while(any(ids(:size(ids)-1)==ids(2:)))
+    if (size(commuting_symmetries)==0) then
+      call print_line(ERROR//': Unable to lift degeneracies using symmetry. &
+         &Please try reducing degenerate_energy.')
+      stop
     endif
     
-    if (estuff(i)%eval>1.0_dp) then
-      estuff(i)%eval = 1.0_dp
-    elseif (estuff(i)%eval<-1.0_dp) then
-      estuff(i)%eval = -1.0_dp
-    endif
+    symmetry_used = .false.
     
-    if (symmetry_is_sin) then
-      phases_real(i) = asin(estuff(i)%eval)*order/PI
-    else
-      phases_real(i) = acos(estuff(i)%eval)*order/PI
-    endif
-    phases_int(i) = nint(phases_real(i))
-    if (abs(phases_int(i)-phases_real(i))>0.1_dp) then
-      call print_line(ERROR//': Symmetry with non-integer phase eigenvalue.')
-      call err()
-    endif
-    phases_int(i) = modulo(phases_int(i),2*order)
-  enddo
-  
-  ! If the symmetry lifts degeneracy (has multiple phases), then transform the
-  !    input vectors into the symmetry's eigenbasis.
-  if (any(phases_int/=phases_int(1))) then
-    do i=1,size(input)
-      do j=1,size(output(i)%unit_vector)
-        output(i)%unit_vector(j) = cmplxvec(zeroes(3))
-        do k=1,size(estuff(i)%evec)
-          output(i)%unit_vector(j) = output(i)%unit_vector(j) &
-                                 & + estuff(i)%evec(k)*input(k)%unit_vector(j)
-        enddo
+    do i=1,2
+      positive_superposition = i==1
+      j = 1
+      do while(j<=size(ids))
+        ! The range j:k is the set of modes degenerate with mode j.
+        k = last(ids==ids(j))
+        if (k>j) then
+          modes_and_ids = split_modes( output(j:k),             &
+                                     & commuting_symmetries(1), &
+                                     & qpoint,                  &
+                                     & positive_superposition,  &
+                                     & logfile                  )
+          
+          if (any(modes_and_ids%ids/=modes_and_ids%ids(1))) then
+            output(j:k) = modes_and_ids%modes
+            ids(j:k) = max_id + modes_and_ids%ids
+            max_id = maxval(ids(j:k))
+            symmetry_used = .true.
+          endif
+        endif
+        j = k+1
       enddo
     enddo
-  endif
-  
-  ! Lift remaining degeneracies using remaining symmetries.
-  i = 1
-  do while(i<=size(input))
-    ! The range i:j is the set of modes degenerate with mode i under the
+    
+    ! Select only the symmetry operators which commute with the
     !    first symmetry.
-    j = last(phases_int==phases_int(i))
-    
-    if (j<i) then
-      call err()
+    if (symmetry_used) then
+      commuting_symmetries = commuting_symmetries(           &
+         & filter(commuting_symmetries, commutes_with_first) )
     endif
-    
-    if (j>i) then
-      ! Select only the symmetry operators which commute with the
-      !    first symmetry.
-      commuting_symmetry_ids = symmetry_ids(filter( symmetries, &
-                                                  & commutes_with_first))
-      
-      ! Lift further degeneracies using symmetries which commute with the
-      !    first symmetry, not including the first symmetry.
-      output(i:j) = lift_degeneracies( output(i:j),                &
-                                     & structure,                  &
-                                     & commuting_symmetry_ids(2:), &
-                                     & qpoint,                     &
-                                     & logfile)
-    endif
-    i = j+1
+    commuting_symmetries = commuting_symmetries(2:)
   enddo
 contains
   ! Lambda for determining whether or not a symmetry commutes with the first
   !    symmetry.
   ! Captures:
-  !    - first_symmetry
+  !    - symmetries
   !    - qpoint
   function commutes_with_first(input) result(output)
     implicit none
@@ -807,9 +754,107 @@ contains
     logical              :: output
     
     select type(input); type is(SymmetryOperator)
-      output = operators_commute(input,first_symmetry,qpoint)
+      output = operators_commute(input,symmetries(1),qpoint)
     end select
   end function
+end function
+
+function split_modes(input,symmetry,qpoint,positive_superposition,logfile) &
+   & result(output)
+  implicit none
+  
+  type(ComplexMode),      intent(in)    :: input(:)
+  type(SymmetryOperator), intent(in)    :: symmetry
+  type(QpointData),       intent(in)    :: qpoint
+  logical,                intent(in)    :: positive_superposition
+  type(OFile),            intent(inout) :: logfile
+  type(SplitModes)                      :: output
+  
+  integer                                :: order
+  type(ComplexMatrix)                    :: symmetry_matrix
+  type(HermitianEigenstuff), allocatable :: estuff(:)
+  real(dp),                  allocatable :: phases_real(:)
+  integer,                   allocatable :: phases_int(:)
+  type(ComplexMode),         allocatable :: modes(:)
+  integer,                   allocatable :: ids(:)
+  
+  integer :: i,j,k,ialloc
+  
+  ! Calculate the order of the symmetry, n s.t. U^n=I.
+  order = symmetry%symmetry_order(qpoint)
+  
+  ! Construct the symmetry, U, in normal mode co-ordinates.
+  symmetry_matrix = calculate_symmetry_in_normal_coordinates( input,    &
+                                                            & qpoint,   &
+                                                            & symmetry, &
+                                                            & logfile   )
+  
+  ! Instead of directly calculating the eigenstuff of the unitary symmetry
+  !    matrices {U}, it is more stable to calculate the eigenstuff of the
+  !    Hermitian matrices {C=(U+U^T)/2} and {S=(U-U^T)/2i}.
+  ! The eigenvalues of U are e^(2*pi*i*j/n), so the eigenvalues of C and S are
+  !    cos(2*pi*j/n) and sin(2*pi*j/n) respectively.
+  if (positive_superposition) then
+    symmetry_matrix = (symmetry_matrix + hermitian(symmetry_matrix)) &
+                  & / 2.0_dp
+  else
+    symmetry_matrix = (symmetry_matrix - hermitian(symmetry_matrix)) &
+                  & / cmplx(0.0_dp,2.0_dp,dp)
+  endif
+  
+  ! Diagonalise the Hermitian symmetry,
+  !    and convert the eigenvalues into phases.
+  estuff = diagonalise_hermitian(symmetry_matrix)
+  
+  ! Correct for numerical errors taking the eigenvalue outside the range
+  !    [-1,1].
+  if (any(abs(estuff%eval)>1.01_dp)) then
+    call print_line(ERROR//': Symmetry eigenvalue outside the range [-1,1].')
+    call err()
+  endif
+  estuff%eval = max(-1.0_dp, min(estuff%eval, 1.0_dp))
+  
+  ! Convert eigenvalues into phases.
+  ! If the eigenvalue is cos(2 pi j/order) then the phase is 2j.
+  if (positive_superposition) then
+    phases_real = acos(estuff%eval)*order/PI
+  else
+    phases_real = asin(estuff%eval)*order/PI
+  endif
+  allocate(phases_int(size(phases_real)), stat=ialloc); call err(ialloc)
+  phases_int = nint(phases_real)
+  if (any(abs(phases_int-phases_real)>0.1_dp)) then
+    call print_line(ERROR//': Symmetry with non-integer phase eigenvalue.')
+    call err()
+  endif
+  phases_int = modulo(phases_int, 2*order)
+  
+  ! If the symmetry lifts degeneracy (has multiple phases), then transform the
+  !    input vectors into the symmetry's eigenbasis.
+  modes = input
+  if (any(phases_int/=phases_int(1))) then
+    do i=1,size(input)
+      do j=1,size(modes(i)%unit_vector)
+        modes(i)%unit_vector(j) = cmplxvec(zeroes(3))
+        do k=1,size(estuff(i)%evec)
+          modes(i)%unit_vector(j) = modes(i)%unit_vector(j) &
+                                & + estuff(i)%evec(k)*input(k)%unit_vector(j)
+        enddo
+      enddo
+    enddo
+  endif
+  
+  i = 0
+  j = 1
+  allocate(ids(size(phases_int)), stat=ialloc); call err(ialloc)
+  do while(j<=size(ids))
+    k = last(phases_int==phases_int(j))
+    i = i+1
+    ids(j:k) = i
+    j = k+1
+  enddo
+  
+  output = SplitModes(modes, ids)
 end function
 
 ! ----------------------------------------------------------------------
