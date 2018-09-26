@@ -56,14 +56,24 @@ For build systems where BLAS/LAPACK are bundled with the compiler and do not nee
    -DFIND_LAPACK:LOGICAL=false
 
 ----------------------------------------
+ARPACK
+----------------------------------------
+By default Caesar will look for libarpack.a (or libarpack.so etc.) on LIB.
+
+If multiple distributions are present, the first found on LIB will be used.
+
+----------------------------------------
 Compiling without Spglib and BLAS/LAPACK
 ----------------------------------------
-It is possible to suppress the requirement for Spglib and/or BLAS/LAPACK, by setting LINK_TO_SPGLIB or LINK_TO_LAPACK respectively to false, e.g. with the CMake command line arguments
+It is possible to suppress the requirement for any of Spglib, BLAS/LAPACK and ARPACK, by setting LINK_TO_SPGLIB, LINK_TO_LAPACK or LINK_TO_ARPACK respectively to false, e.g. with the CMake command line arguments
 
    -DLINK_TO_SPGLIB:LOGICAL=false
    -DLINK_TO_LAPACK:LOGICAL=false
+   -DLINK_TO_ARPACK:LOGICAL=false
 
-This will disable symmetry finding and linear algebra respectively, which are required for several Caesar modes.
+N.B. ARPACK requires BLAS/LAPACK, so if LINK_TO_LAPACK is set to false then LINK_TO_ARPACK must also be set to false.
+
+This will disable symmetry finding, linear algebra and the Lanczos algorithm respectively. Symmetry finding (and thus spglib) is required for setup_harmonic, linear algebra (and thus BLAS/LAPACK) is required for most caesar modes not prfixed with run_ or plot_, and the Lanczos algorithm (and thus ARPACK) is required for calculate_states and calculate_anharmonic_observables.
 
 The 'run' modes, run_harmonic and run_anharmonic, do not require spglib or BLAS/LAPACK, so not linking to either can be useful if compiling Caesar on a cluster where they are not available, with the intention of running setup and processing steps elsewhere.
 

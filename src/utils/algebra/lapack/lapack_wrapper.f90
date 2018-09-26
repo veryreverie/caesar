@@ -44,7 +44,7 @@ module lapack_wrapper_module
   
   public :: LAPACK_LINKED
   
-  logical, parameter :: LAPACK_LINKED = .false.
+  logical, parameter :: LAPACK_LINKED = .true.
   
   interface
     ! Copies a real vector. Equivalent to dy = dx.

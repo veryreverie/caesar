@@ -29,11 +29,13 @@ module io_utils_submodule
   public :: format_path           ! Converts any path into an absolute path.
   public :: execute_old_code      ! Runs one of the old caesar codes.
   public :: execute_python        ! Runs one of the python scripts.
+  public :: call_caesar           ! Calls caesar with command line arguments.
   
   ! I/O settings, specifying various input/output properties.
   ! Set by set_io_settings.
   type(String) :: HOME
   type(String) :: CWD
+  type(String) :: EXE_LOCATION
   type(String) :: OLD_PATH
   type(String) :: PYTHON_SCRIPTS_PATH
   
@@ -56,6 +58,11 @@ module io_utils_submodule
   interface set_working_directory
     module procedure set_working_directory_character
     module procedure set_working_directory_String
+  end interface
+  
+  interface call_caesar
+    module procedure call_caesar_character
+    module procedure call_caesar_String
   end interface
   
   ! C system call interface.
@@ -386,19 +393,18 @@ end function
 subroutine set_io_settings()
   implicit none
   
-  type(String) :: exe_location
   type(String) :: caesar_dir
   
   call set_terminal_width()
   HOME = get_home_directory()
   CWD = get_current_directory()
-  exe_location = get_exe_location()
-  if (  slice(exe_location,len(exe_location)-10,len(exe_location)) &
+  EXE_LOCATION = get_exe_location()
+  if (  slice(EXE_LOCATION,len(EXE_LOCATION)-10,len(EXE_LOCATION)) &
    & /= '/bin/caesar') then
-    call print_line('Caesar executable in unexpected location: '//exe_location)
+    call print_line('Caesar executable in unexpected location: '//EXE_LOCATION)
     call err()
   endif
-  caesar_dir = slice(exe_location,1,len(exe_location)-11)
+  caesar_dir = slice(EXE_LOCATION,1,len(EXE_LOCATION)-11)
   OLD_PATH = caesar_dir//'/old'
   PYTHON_SCRIPTS_PATH = caesar_dir//'/python'
   call unset_output_unit()
@@ -536,5 +542,39 @@ subroutine execute_python(filename, python_path, python_arguments)
     call print_line(ERROR//': '//filename//' failed.')
     call err()
   endif
+end subroutine
+
+! ----------------------------------------------------------------------
+! Calls Caesar on the command line, with the given arguments.
+! ----------------------------------------------------------------------
+subroutine call_caesar_character(arguments)
+  implicit none
+  
+  character(*), intent(in), optional :: arguments
+  
+  type(String) :: command
+  integer      :: result_code
+  
+  command = 'cd '//CWD//'; '//EXE_LOCATION
+  if (present(arguments)) then
+    command = command//' '//arguments
+  endif
+  
+  result_code = system_call(command)
+  
+  if (result_code/=0) then
+    call print_line(ERROR//': Calling Caesar from within Caesar failed.')
+    call print_line('Caesar was called as:')
+    call print_line(command)
+    call err()
+  endif
+end subroutine
+
+subroutine call_caesar_String(arguments)
+  implicit none
+  
+  type(String), intent(in) :: arguments
+  
+  call call_caesar(char(arguments))
 end subroutine
 end module

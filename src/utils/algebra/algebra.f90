@@ -23,6 +23,7 @@ module algebra_module
   use group_submodule
   use integer_complex_submodule
   use fraction_complex_submodule
+  use lanczos_submodule
   use tests_submodule
   implicit none
 end module
