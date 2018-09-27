@@ -127,7 +127,7 @@ end function
 ! ----------------------------------------------------------------------
 ! Returns whether or not two symmetry operators commute.
 ! ----------------------------------------------------------------------
-function operators_commute(this,that,qpoint) result(output)
+impure elemental function operators_commute(this,that,qpoint) result(output)
   implicit none
   
   type(SymmetryOperator), intent(in) :: this

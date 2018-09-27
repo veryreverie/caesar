@@ -704,6 +704,7 @@ function lift_degeneracies(input,structure,symmetries,qpoint,logfile) &
     if (size(commuting_symmetries)==0) then
       call print_line(ERROR//': Unable to lift degeneracies using symmetry. &
          &Please try reducing degenerate_energy.')
+      call print_line('q-point '//qpoint%id//': '//qpoint%qpoint)
       stop
     endif
     
@@ -736,27 +737,13 @@ function lift_degeneracies(input,structure,symmetries,qpoint,logfile) &
     ! Select only the symmetry operators which commute with the
     !    first symmetry.
     if (symmetry_used) then
-      commuting_symmetries = commuting_symmetries(           &
-         & filter(commuting_symmetries, commutes_with_first) )
+      commuting_symmetries = commuting_symmetries(                 &
+         & filter( operators_commute( commuting_symmetries,        &
+         &                            commuting_symmetries(1),     &
+         &                            qpoint                   ) ) )
     endif
     commuting_symmetries = commuting_symmetries(2:)
   enddo
-contains
-  ! Lambda for determining whether or not a symmetry commutes with the first
-  !    symmetry.
-  ! Captures:
-  !    - symmetries
-  !    - qpoint
-  function commutes_with_first(input) result(output)
-    implicit none
-    
-    class(*), intent(in) :: input
-    logical              :: output
-    
-    select type(input); type is(SymmetryOperator)
-      output = operators_commute(input,symmetries(1),qpoint)
-    end select
-  end function
 end function
 
 function split_modes(input,symmetry,qpoint,positive_superposition,logfile) &
