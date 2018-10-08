@@ -11,11 +11,11 @@
 !    with the optional keyword separating_line to separate elements.
 ! Any type which extends StringWriteable must overload %write().
 ! See example module below for how to extend this type.
-module string_writeable_submodule
+module string_writeable_module
   use io_basic_module
   use abstract_module
   
-  use string_array_submodule
+  use string_array_module
   implicit none
   
   private
@@ -279,10 +279,10 @@ end module
 ! ======================================================================
 ! An example module showing how to extend StringWriteable.
 ! ======================================================================
-module string_writeable_example_submodule
+module string_writeable_example_module
   use io_basic_module
   
-  use string_writeable_submodule
+  use string_writeable_module
   implicit none
   
   private

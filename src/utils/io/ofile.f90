@@ -5,14 +5,14 @@
 !    the same file.
 ! Uses a SharedCounter to keep track of how many OFiles point to each
 !    OFileTarget, and calls close() when the last is deallocated.
-module ofile_submodule
+module ofile_module
   use precision_module
   use io_basic_module
   use abstract_module
   
-  use ofile_target_submodule
-  use string_writeable_submodule
-  use strings_writeable_submodule
+  use ofile_target_module
+  use string_writeable_module
+  use strings_writeable_module
   implicit none
   
   private

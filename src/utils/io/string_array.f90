@@ -2,7 +2,7 @@
 ! An array of type String.
 ! Exists to allow heterogeneous 2-D arrays of type String.
 ! ======================================================================
-module string_array_submodule
+module string_array_module
   use io_basic_module
   implicit none
   

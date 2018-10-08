@@ -1,12 +1,12 @@
 ! ======================================================================
 ! A symmetry operator, in various representations.
 ! ======================================================================
-module symmetry_submodule
+module symmetry_module
   use utils_module
   
-  use basic_symmetry_submodule
-  use basic_structure_submodule
-  use qpoint_submodule
+  use basic_symmetry_module
+  use basic_structure_module
+  use qpoint_module
   implicit none
   
   private
@@ -15,6 +15,7 @@ module symmetry_submodule
   public :: operator(*)
   public :: BasicSymmetry
   public :: operators_commute
+  public :: operators_anticommute
   
   ! ----------------------------------------------------------------------
   ! A symmetry operation.
@@ -135,15 +136,38 @@ impure elemental function operators_commute(this,that,qpoint) result(output)
   type(QpointData),       intent(in) :: qpoint
   logical                            :: output
   
-  type(IntVector) :: commutator_rvector
-  
-  integer         :: i
-  
-  ! Check that the symmetries' tensors commute.
-  if (.not. matrices_commute(this%tensor,that%tensor)) then
+  ! Check that the atom to atom transformations commute
+  !    within a single unit cell.
+  if (this%atom_group*that%atom_group /= that%atom_group*this%atom_group) then
     output = .false.
     return
   endif
+  
+  ! Check that either the symmetries' tensors and R-vectors both commute,
+  !    or that they both anti-commute (in which case the anti-commutation
+  !    cancels to leave commutation).
+  if ( matrices_commute(this%tensor,that%tensor) .and. &
+     & operator_rvectors_commute(this,that,qpoint)     ) then
+    output = .true.
+  elseif ( matrices_anticommute(this%tensor,that%tensor) .and. &
+         & operator_rvectors_anticommute(this,that,qpoint)     ) then
+    output = .true.
+  else
+    output = .false.
+  endif
+end function
+
+! ----------------------------------------------------------------------
+! Returns whether or not two symmetry operators anti-commute.
+! ----------------------------------------------------------------------
+impure elemental function operators_anticommute(this,that,qpoint) &
+   & result(output)
+  implicit none
+  
+  type(SymmetryOperator), intent(in) :: this
+  type(SymmetryOperator), intent(in) :: that
+  type(QpointData),       intent(in) :: qpoint
+  logical                            :: output
   
   ! Check that the atom to atom transformations commute
   !    within a single unit cell.
@@ -152,15 +176,73 @@ impure elemental function operators_commute(this,that,qpoint) result(output)
     return
   endif
   
-  ! Check that R-vector translations commute.
-  ! The condition on for two operators to commute (in addition to those above)
-  !    is that the R-vector translation of their commutator is s.t. q.R=0.
+  ! Check that either the symmetries' tensors commute and their R-vectors
+  !    anti-commute, or vice-versa.
+  if ( matrices_commute(this%tensor,that%tensor) .and. &
+     & operator_rvectors_anticommute(this,that,qpoint) ) then
+    output = .true.
+  elseif ( matrices_anticommute(this%tensor,that%tensor) .and. &
+         & operator_rvectors_commute(this,that,qpoint)         ) then
+    output = .true.
+  else
+    output = .false.
+  endif
+end function
+
+! ----------------------------------------------------------------------
+! Helper functions for operators_commute and operators_anticommute,
+!    returning whether or not the operators' R-vectors (anti-)commute.
+! ----------------------------------------------------------------------
+! The condition on for two operators to commute at q-point q
+!    is that the R-vector translation of their commutator is s.t. q.R=0.
+! The condition on for two operators to anti-commute at q-point q
+!    is that the R-vector translation of their commutator is s.t. q.R=1/2.
+impure elemental function operator_rvectors_commute(this,that,qpoint) &
+   & result(output)
+  implicit none
+  
+  type(SymmetryOperator), intent(in) :: this
+  type(SymmetryOperator), intent(in) :: that
+  type(QpointData),       intent(in) :: qpoint
+  logical                            :: output
+  
+  type(IntVector) :: commutator_rvector
+  integer         :: i
+  
   do i=1,size(this%atom_group)
     commutator_rvector = this%tensor*that%rvectors(i)     &
                      & + that%rvectors(this%atom_group*i) &
                      & - that%tensor*this%rvectors(i)     &
                      & - this%rvectors(that%atom_group*i)
     if (.not. is_int(qpoint%qpoint*commutator_rvector)) then
+      output = .false.
+      return
+    endif
+  enddo
+  
+  output = .true.
+end function
+
+impure elemental function operator_rvectors_anticommute(this,that,qpoint) &
+   & result(output)
+  implicit none
+  
+  type(SymmetryOperator), intent(in) :: this
+  type(SymmetryOperator), intent(in) :: that
+  type(QpointData),       intent(in) :: qpoint
+  logical                            :: output
+  
+  type(IntVector)   :: commutator_rvector
+  type(IntFraction) :: qr
+  integer           :: i
+  
+  do i=1,size(this%atom_group)
+    commutator_rvector = this%tensor*that%rvectors(i)     &
+                     & + that%rvectors(this%atom_group*i) &
+                     & - that%tensor*this%rvectors(i)     &
+                     & - this%rvectors(that%atom_group*i)
+    qr = qpoint%qpoint*commutator_rvector
+    if (is_int(qr) .or. .not. is_int(2*qr)) then
       output = .false.
       return
     endif
@@ -213,7 +295,7 @@ end function
 ! If qpoint is given, then the S^n is only considered to be the identity when
 !    the associated translation, R, is such that q.R is a multiple of two*pi.
 ! ----------------------------------------------------------------------
-function symmetry_order(this,qpoint) result(output)
+impure elemental function symmetry_order(this,qpoint) result(output)
   implicit none
   
   class(SymmetryOperator), intent(in)           :: this

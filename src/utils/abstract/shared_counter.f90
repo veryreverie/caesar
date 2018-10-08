@@ -1,10 +1,10 @@
 ! ======================================================================
 ! Provides a shared-pointer like counter.
 ! ======================================================================
-module shared_counter_submodule
+module shared_counter_module
   use io_basic_module
   
-  use shared_counter_bugfix_submodule
+  use shared_counter_bugfix_module
   implicit none
   
   private

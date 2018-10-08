@@ -3,10 +3,10 @@
 ! ======================================================================
 ! This module is simply an interface for the various arguments submodules.
 module arguments_module
-  use keyword_submodule
-  use help_submodule
-  use dictionary_submodule
-  use process_arguments_submodule
-  use caesar_modes_submodule
+  use keyword_module
+  use help_module
+  use argument_dictionary_module
+  use process_arguments_module
+  use caesar_modes_module
   implicit none
 end module

@@ -8,12 +8,12 @@
 !    than one line.
 ! colour adds terminal escape characters so that a string is coloured when
 !    printed to the terminal.
-module print_submodule
+module print_module
   use iso_fortran_env, only : OUTPUT_UNIT
-  use string_submodule
-  use error_submodule
-  use terminal_submodule
-  use print_settings_submodule
+  use string_module
+  use terminal_module
+  use error_module
+  use print_settings_module
   implicit none
   
   private

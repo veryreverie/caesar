@@ -1,15 +1,15 @@
 ! ======================================================================
 ! As complex_mode_module, but in real co-ordinates.
 ! ======================================================================
-module real_mode_submodule
+module real_mode_module
   use utils_module
   
   use structure_module
   
-  use cartesian_displacement_submodule
-  use cartesian_force_submodule
-  use mass_weighted_displacement_submodule
-  use mass_weighted_force_submodule
+  use cartesian_displacement_module
+  use cartesian_force_module
+  use mass_weighted_displacement_module
+  use mass_weighted_force_module
   implicit none
   
   private

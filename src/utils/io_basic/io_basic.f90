@@ -6,11 +6,11 @@
 ! ======================================================================
 ! This module is simply an interface for the various I/O submodules.
 module io_basic_module
-  use error_submodule
-  use string_submodule
-  use print_settings_submodule
-  use print_submodule
-  use intrinsics_submodule
-  use io_utils_submodule
+  use error_module
+  use string_module
+  use print_settings_module
+  use print_module
+  use intrinsics_module
+  use io_utils_module
   implicit none
 end module

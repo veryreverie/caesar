@@ -1,10 +1,10 @@
 ! ======================================================================
 ! A force along a single complex mode.
 ! ======================================================================
-module complex_single_mode_force_submodule
+module complex_single_mode_force_module
   use utils_module
   
-  use complex_mode_submodule
+  use complex_mode_module
   implicit none
   
   private

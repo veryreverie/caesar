@@ -2,9 +2,9 @@
 ! Provides the err() subroutine, which aborts with a stacktrace.
 ! Also provides coloured "Error" and "Warning" strings for messages.
 ! ======================================================================
-module error_submodule
-  use terminal_submodule
-  use compiler_specific_submodule
+module error_module
+  use terminal_module
+  use compiler_specific_module
   implicit none
   
   private

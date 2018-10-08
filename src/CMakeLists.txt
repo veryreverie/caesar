@@ -35,6 +35,7 @@ add_executable(caesar version.f90 caesar.f90)
 set_target_properties(caesar PROPERTIES
   RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
 
+# Link against subsidiary modules.
 add_subdirectory(${CMAKE_SOURCE_DIR}/utils utils/)
 target_link_libraries(caesar utils)
 

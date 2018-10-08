@@ -9,21 +9,21 @@
 ! ======================================================================
 ! This module is simply an interface for the various algebra submodules.
 module algebra_module
-  use mathematical_constants_submodule
-  use linear_algebra_submodule
-  use algebra_utils_submodule
-  use fraction_submodule
-  use phase_submodule
-  use fraction_algebra_submodule
-  use qr_decomposition_submodule
-  use hermitian_eigenstuff_submodule
-  use orthonormal_submodule
-  use unitary_eigenstuff_submodule
-  use integer_arrays_submodule
-  use group_submodule
-  use integer_complex_submodule
-  use fraction_complex_submodule
-  use lanczos_submodule
-  use tests_submodule
+  use mathematical_constants_module
+  use linear_algebra_module
+  use algebra_utils_module
+  use fraction_module
+  use phase_module
+  use fraction_algebra_module
+  use qr_decomposition_module
+  use hermitian_eigenstuff_module
+  use orthonormal_module
+  use unitary_eigenstuff_module
+  use integer_arrays_module
+  use operator_group_module
+  use integer_complex_module
+  use fraction_complex_module
+  use lanczos_module
+  use tests_module
   implicit none
 end module

@@ -8,12 +8,12 @@
 !
 ! N.B.: Stringsable extends StringsWriteable, but duplicates the functionality 
 !    of StringsReadable since Fortran does not support multiple inheritance.
-module stringsable_submodule
+module stringsable_module
   use io_basic_module
   
-  use string_array_submodule
-  use strings_readable_submodule
-  use strings_writeable_submodule
+  use string_array_module
+  use strings_readable_module
+  use strings_writeable_module
   implicit none
   
   private
@@ -41,11 +41,11 @@ end module
 ! ======================================================================
 ! An example module showing how to extend Stringsable.
 ! ======================================================================
-module stringsable_example_submodule
+module stringsable_example_module
   use io_basic_module
   
-  use string_array_submodule
-  use stringsable_submodule
+  use string_array_module
+  use stringsable_module
   implicit none
   
   private

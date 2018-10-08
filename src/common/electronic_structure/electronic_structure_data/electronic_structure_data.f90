@@ -1,7 +1,7 @@
 ! ======================================================================
 ! A class for holding calculated energy and forces.
 ! ======================================================================
-module electronic_structure_data_submodule
+module electronic_structure_data_module
   use utils_module
   
   use structure_module

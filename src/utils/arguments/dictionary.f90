@@ -1,13 +1,13 @@
 ! ======================================================================
 ! A dictionary of keys and values, both of type String.
 ! ======================================================================
-module dictionary_submodule
+module argument_dictionary_module
   use precision_module
   use abstract_module
   use io_module
   
-  use keyword_submodule
-  use common_keywords_submodule
+  use keyword_module
+  use common_keywords_module
   implicit none
   
   private

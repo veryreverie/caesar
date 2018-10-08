@@ -1,12 +1,12 @@
 ! ======================================================================
 ! A force in mass-weighted cartesian co-ordinates.
 ! ======================================================================
-module mass_weighted_force_submodule
+module mass_weighted_force_module
   use utils_module
   
   use structure_module
   
-  use cartesian_force_submodule
+  use cartesian_force_module
   implicit none
   
   private

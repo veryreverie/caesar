@@ -1,12 +1,12 @@
 ! ======================================================================
 ! A displacement in mass-weighted cartesian co-ordinates.
 ! ======================================================================
-module mass_weighted_displacement_submodule
+module mass_weighted_displacement_module
   use utils_module
   
   use structure_module
   
-  use cartesian_displacement_submodule
+  use cartesian_displacement_module
   implicit none
   
   private

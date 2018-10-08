@@ -1,15 +1,15 @@
 ! ======================================================================
 ! The building blocks of basis functions in complex co-ordinates.
 ! ======================================================================
-module complex_polynomial_submodule
+module complex_polynomial_module
   use utils_module
   use structure_module
   
-  use complex_mode_submodule
-  use complex_single_mode_displacement_submodule
-  use complex_single_mode_force_submodule
-  use complex_mode_displacement_submodule
-  use complex_mode_force_submodule
+  use complex_mode_module
+  use complex_single_mode_displacement_module
+  use complex_single_mode_force_module
+  use complex_mode_displacement_module
+  use complex_mode_force_module
   implicit none
   
   private

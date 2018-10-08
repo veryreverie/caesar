@@ -2,10 +2,10 @@
 ! A simple heap-allocated String class.
 ! Allows for inhomogeneous character arrays for e.g. storing files.
 ! ======================================================================
-module string_submodule
+module string_module
   use precision_module
-  use string_base_submodule
-  use error_submodule
+  use string_base_module
+  use error_module
   implicit none
   
   private

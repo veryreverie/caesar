@@ -1,12 +1,12 @@
 ! ======================================================================
 ! Input file.
 ! ======================================================================
-module ifile_submodule
+module ifile_module
   use precision_module
   use io_basic_module
   
-  use file_submodule
-  use string_array_submodule
+  use file_module
+  use string_array_module
   implicit none
   
   private

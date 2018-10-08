@@ -1,13 +1,13 @@
 ! ======================================================================
 ! Reads and writes CASTEP .cell files, and reads CASTEP .castep files.
 ! ======================================================================
-module castep_wrapper_submodule
+module castep_wrapper_module
   use utils_module
   
   use structure_module
   use normal_mode_module
   
-  use electronic_structure_data_submodule
+  use electronic_structure_data_module
   implicit none
   
   private
@@ -321,16 +321,23 @@ function parse_castep_input_file(filename) result(output)
   
   ! Line numbers.
   integer :: lattice_block_start
-  integer :: lattice_block_size
+  integer :: lattice_block_end
   integer :: positions_block_start
-  integer :: positions_block_size
+  integer :: positions_block_end
   integer :: masses_block_start
-  integer :: masses_block_size
+  integer :: masses_block_end
   integer :: kpoints_block_start
-  integer :: kpoints_block_size
-  integer :: remainder_size
+  integer :: kpoints_block_end
+  
+  ! Output variables.
+  type(String), allocatable :: lattice_block(:)
+  type(String), allocatable :: positions_block(:)
+  type(String), allocatable :: masses_block(:)
+  type(String), allocatable :: kpoints_block(:)
+  type(String), allocatable :: remainder(:)
   
   ! Temporary variables.
+  type(String), allocatable :: lines(:)
   type(String), allocatable :: line(:)
   integer                   :: i,j,k,ialloc
   
@@ -341,121 +348,124 @@ function parse_castep_input_file(filename) result(output)
   endif
   
   cell_file = IFile(filename)
+  lines = cell_file%lines()
   
-  lattice_block_start = 0
-  lattice_block_size = 0
-  positions_block_start = 0
-  positions_block_size = 0
-  masses_block_start = 0
-  masses_block_size = 0
-  kpoints_block_start = 0
-  kpoints_block_size = 0
-  remainder_size = 0
+  ! Remove blank lines.
+  lines = lines(filter([( len(lines(i))>0 ,i=1, size(lines) )]))
   
   ! Work out line numbers.
-  do i=1,size(cell_file)
-    line = split_line(lower_case(cell_file%line(i)))
+  lattice_block_start = 0
+  lattice_block_end = 0
+  positions_block_start = 0
+  positions_block_end = 0
+  masses_block_start = 0
+  masses_block_end = 0
+  kpoints_block_start = 0
+  kpoints_block_end = 0
+  do i=1,size(lines)
+    line = split_line(lower_case(lines(i)))
     if (size(line) >= 2) then
       if (line(1)=='%block' .and. ( line(2)=='lattice_cart' .or. &
                                   & line(2)=='lattice_abc')) then
         lattice_block_start = i
       elseif (line(1)=='%endblock' .and. ( line(2)=='lattice_cart' .or. &
                                          & line(2)=='lattice_abc')) then
-        lattice_block_size = i-lattice_block_start+1
+        lattice_block_end = i
       elseif (line(1)=='%block' .and. ( line(2)=='positions_abs' .or. &
                                       & line(2)=='positions_frac')) then
         positions_block_start = i
       elseif (line(1)=='%endblock' .and. ( line(2)=='positions_abs' .or. &
                                          & line(2)=='positions_frac')) then
-        positions_block_size = i-positions_block_start+1
+        positions_block_end = i
       elseif (line(1)=='%block' .and. line(2)=='species_mass') then
         masses_block_start = i
       elseif (line(1)=='%endblock' .and. line(2)=='species_mass') then
-        masses_block_size = i-masses_block_start+1
+        masses_block_end = i
       elseif (line(1)=='%block' .and. line(2)=='bs_kpoint_path') then
         kpoints_block_start = i
       elseif (line(1)=='%endblock' .and. line(2)=='bs_kpoint_path') then
-        kpoints_block_size = i-kpoints_block_start+1
+        kpoints_block_end = i
       endif
     endif
   enddo
-  
-  remainder_size = size(cell_file)      &
-               & - lattice_block_size   &
-               & - positions_block_size &
-               & - masses_block_size    &
-               & - kpoints_block_size
   
   ! Check required blocks exist and all blocks are of reasonable sizes.
   if (lattice_block_start==0) then
     call print_line(ERROR//': lattice block not present in '//filename)
     call err()
-  elseif (lattice_block_size <= 2) then
+  elseif (lattice_block_end-lattice_block_start < 3) then
     call print_line(ERROR//': lattice block of unexpected size in '//filename)
     call err()
   elseif (positions_block_start==0) then
     call print_line(ERROR//': positions block not present in '//filename)
     call err()
-  elseif (positions_block_size <= 2) then
+  elseif (positions_block_end-positions_block_start < 2) then
     call print_line( ERROR//': positions block of unexpected size in '// &
                    & filename)
     call err()
   elseif (masses_block_start==0) then
     call print_line(ERROR//': species_mass block not present in '//filename)
     call err()
-  elseif (masses_block_size <= 2) then
+  elseif (masses_block_end-masses_block_start < 2) then
     call print_line(ERROR//': species_mass block of unexpected size in '// &
        & filename)
     call err()
-  elseif (kpoints_block_start/=0 .and. kpoints_block_size<=2) then
-    call print_line(ERROR//': bs_kpoint_path block of unexpected size in '// &
-       & filename)
-    call err()
-  elseif (kpoints_block_start==0 .and. kpoints_block_size/=0) then
+  elseif ( kpoints_block_start/=0 .and.             &
+         & kpoints_block_end-kpoints_block_start <2 ) then
     call print_line(ERROR//': bs_kpoint_path block of unexpected size in '// &
        & filename)
     call err()
   endif
   
-  ! Allocate space for the blocks.
-  allocate( output%lattice_block(lattice_block_size),     &
-          & output%positions_block(positions_block_size), &
-          & output%masses_block(masses_block_size),       &
-          & output%kpoints_block(kpoints_block_size),     &
-          & output%remainder(remainder_size),             &
-          & stat=ialloc); call err(ialloc)
+  ! Copy over blocks.
+  lattice_block = lines(lattice_block_start:lattice_block_end)
+  positions_block = lines(positions_block_start:positions_block_end)
+  masses_block = lines(masses_block_start:masses_block_end)
+  if (kpoints_block_start==0) then
+    kpoints_block = [String::]
+  else
+    kpoints_block = lines(kpoints_block_start:kpoints_block_end)
+  endif
   
-  ! Copy across file contents.
-  k = 0
-  do i=1,size(cell_file)
-    
-    j = i-lattice_block_start+1
-    if (j>0 .and. j<=lattice_block_size) then
-      output%lattice_block(j) = cell_file%line(i)
+  ! Remove comment lines from blocks.
+  lattice_block = lattice_block(filter(                          &
+     & [( all(char(slice(lattice_block(i),1,1))/=['!','#',';']), &
+     &    i=1,                                                   &
+     &    size(lattice_block)                                    )]))
+  positions_block = positions_block(filter(                        &
+     & [( all(char(slice(positions_block(i),1,1))/=['!','#',';']), &
+     &    i=1,                                                     &
+     &    size(positions_block)                                    )]))
+  masses_block = masses_block(filter(                           &
+     & [( all(char(slice(masses_block(i),1,1))/=['!','#',';']), &
+     &    i=1,                                                  &
+     &    size(masses_block)                                    )]))
+  kpoints_block = kpoints_block(filter(                          &
+     & [( all(char(slice(kpoints_block(i),1,1))/=['!','#',';']), &
+     &    i=1,                                                   &
+     &    size(kpoints_block)                                    )]))
+  
+  ! Copy across remainder of file.
+  remainder = [String::]
+  do i=1,size(lines)
+    if (i>=lattice_block_start .and. i<=lattice_block_end) then
       cycle
-    endif
-    
-    j = i-positions_block_start+1
-    if (j>0 .and. j<=positions_block_size) then
-      output%positions_block(j) = cell_file%line(i)
+    elseif (i>=positions_block_start .and. i<=positions_block_end) then
       cycle
-    endif
-    
-    j = i-masses_block_start+1
-    if (j>0 .and. j<=masses_block_size) then
-      output%masses_block(j) = cell_file%line(i)
+    elseif (i>=masses_block_start .and. i<=masses_block_end) then
       cycle
-    endif
-    
-    j = i-kpoints_block_start+1
-    if (j>0 .and. j<kpoints_block_size) then
-      output%kpoints_block(j) = cell_file%line(i)
+    elseif (i>=kpoints_block_start .and. i<=kpoints_block_end) then
       cycle
+    else
+      remainder = [remainder, lines(i)]
     endif
-    
-    k = k+1
-    output%remainder(k) = cell_file%line(i)
   enddo
+  
+  output = CastepInputFile( lattice_block   = lattice_block,   &
+                          & positions_block = positions_block, &
+                          & masses_block    = masses_block,    &
+                          & kpoints_block   = kpoints_block,   &
+                          & remainder       = remainder        )
 end function
 
 function read_output_file_castep(filename,structure) result(output)

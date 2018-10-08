@@ -1,11 +1,11 @@
 ! ======================================================================
 ! Provides keywords common to all modes.
 ! ======================================================================
-module common_keywords_submodule
+module common_keywords_module
   use random_module
   use io_module
   
-  use keyword_submodule
+  use keyword_module
   implicit none
   
   private

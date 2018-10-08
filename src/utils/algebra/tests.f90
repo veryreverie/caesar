@@ -1,22 +1,28 @@
 ! ======================================================================
 ! Various matrix tests.
 ! ======================================================================
-module tests_submodule
+module tests_module
   use precision_module
   use io_module
   
-  use linear_algebra_submodule
-  use algebra_utils_submodule
+  use linear_algebra_module
+  use algebra_utils_module
   implicit none
   
   private
   
+  public :: check_identity
   public :: check_symmetric
   public :: check_hermitian
   public :: check_orthogonal
   public :: check_unitary
   public :: check_orthonormal
   public :: check_real
+  
+  interface check_identity
+    module procedure check_identity_String
+    module procedure check_identity_character
+  end interface
   
   interface check_symmetric
     module procedure check_symmetric_String
@@ -59,6 +65,59 @@ contains
 ! If a logfile is present then it will always be written to.
 ! warning_threshold is the threshold at which the test is failed.
 ! ignore_threshold is the norm of the matrix below which the test is ignored.
+
+subroutine check_identity_String(input,matrix_name,logfile, &
+   & warning_threshold,ignore_threshold)
+  implicit none
+  
+  type(RealMatrix), intent(in)              :: input
+  type(String),     intent(in)              :: matrix_name
+  type(OFile),      intent(inout), optional :: logfile
+  real(dp),         intent(in),    optional :: warning_threshold
+  real(dp),         intent(in),    optional :: ignore_threshold
+  
+  real(dp) :: threshold
+  real(dp) :: error
+  
+  if (size(input,1)/=size(input,2)) then
+    call print_line(ERROR//': Matrix cannot be identity because it is not &
+       &square.')
+    call err()
+  endif
+  
+  if (present(warning_threshold)) then
+    threshold = warning_threshold
+  else
+    threshold = 1e-10_dp
+  endif
+  
+  error = sqrt(sum_squares(input-make_identity_matrix(size(input,1))))
+  if (present(logfile)) then
+    call logfile%print_line('L2 difference between identity and '// &
+       & matrix_name//': '//error)
+  endif
+  if (error>threshold) then
+    call print_line(WARNING//': '//matrix_name//' is not the identity &
+       &to within the expected tolerance. L2 error : '//error)
+  endif
+end subroutine
+
+subroutine check_identity_character(input,matrix_name,logfile, &
+   & warning_threshold,ignore_threshold)
+  implicit none
+  
+  type(RealMatrix), intent(in)              :: input
+  character(*),     intent(in)              :: matrix_name
+  type(OFile),      intent(inout), optional :: logfile
+  real(dp),         intent(in),    optional :: warning_threshold
+  real(dp),         intent(in),    optional :: ignore_threshold
+  
+  call check_identity( input,             &
+                     & str(matrix_name),  &
+                     & logfile,           &
+                     & warning_threshold, &
+                     & ignore_threshold)
+end subroutine
 
 subroutine check_symmetric_String(input,matrix_name,logfile, &
    & warning_threshold,ignore_threshold)

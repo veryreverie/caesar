@@ -1,7 +1,7 @@
 ! ======================================================================
 ! A force in cartesian co-ordinates.
 ! ======================================================================
-module cartesian_force_submodule
+module cartesian_force_module
   use utils_module
   implicit none
   

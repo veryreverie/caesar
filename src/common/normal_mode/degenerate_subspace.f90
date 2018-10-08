@@ -6,8 +6,8 @@ module degenerate_subspace_module
   
   use structure_module
   
-  use complex_mode_submodule
-  use real_mode_submodule
+  use complex_mode_module
+  use real_mode_module
   implicit none
   
   private

@@ -1,13 +1,13 @@
 ! ======================================================================
 ! A displacement in complex mode co-ordinates.
 ! ======================================================================
-module complex_mode_displacement_submodule
+module complex_mode_displacement_module
   use utils_module
   
   use structure_module
   
-  use complex_mode_submodule
-  use complex_single_mode_displacement_submodule
+  use complex_mode_module
+  use complex_single_mode_displacement_module
   implicit none
   
   private

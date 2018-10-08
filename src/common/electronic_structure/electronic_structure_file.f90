@@ -1,17 +1,19 @@
 ! ======================================================================
 ! Converts input files to and from StructureData.
 ! ======================================================================
-module electronic_structure_file_submodule
+module electronic_structure_file_module
   use utils_module
   
   use structure_module
   
-  use electronic_structure_data_submodule
-  use structure_file_submodule
-  use castep_wrapper_submodule
-  use qe_wrapper_submodule
-  use vasp_wrapper_submodule
-  use quip_wrapper_submodule
+  use electronic_structure_data_module
+  
+  use quip_module
+  
+  use structure_file_module
+  use castep_wrapper_module
+  use qe_wrapper_module
+  use vasp_wrapper_module
   implicit none
   
   private
@@ -113,7 +115,8 @@ subroutine StructureData_to_input_file(file_type,structure,input_filename, &
   elseif (file_type=='castep') then
     call write_input_file_castep(structure,input_filename,output_filename)
   elseif (file_type=='xyz') then
-    call write_input_file_xyz(structure,input_filename,output_filename)
+    call write_input_file_xyz( BasicStructure(structure),     &
+                             & input_filename,output_filename )
   else
     call print_line('Writing '//file_type//' input files not yet supported.')
     call err()
@@ -149,8 +152,8 @@ function read_output_file(file_type,filename,structure,dir,seedname, &
   elseif (calculation_type=='quip') then
     displaced_structure_file = IFile(dir//'/structure.dat')
     displaced_structure = StructureData(displaced_structure_file%lines())
-    output = run_quip_on_structure( displaced_structure, &
-                                  & seedname)
+    output = run_quip_on_structure( BasicStructure(displaced_structure), &
+                                  & seedname                             )
   else
     call print_line(ERROR//': calculation_type must be either "script" or &
        & "quip".')

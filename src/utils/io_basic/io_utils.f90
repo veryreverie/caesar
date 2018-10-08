@@ -1,15 +1,15 @@
 ! ======================================================================
 ! Various miscellaneous I/O operations.
 ! ======================================================================
-module io_utils_submodule
+module io_utils_module
   use iso_fortran_env, only : INPUT_UNIT
   use precision_module
   
-  use terminal_submodule
-  use error_submodule
-  use string_submodule
-  use print_submodule
-  use intrinsics_submodule
+  use terminal_module
+  use error_module
+  use string_module
+  use print_module
+  use intrinsics_module
   implicit none
   
   private
@@ -30,6 +30,7 @@ module io_utils_submodule
   public :: execute_old_code      ! Runs one of the old caesar codes.
   public :: execute_python        ! Runs one of the python scripts.
   public :: call_caesar           ! Calls caesar with command line arguments.
+  public :: parse_c_string        ! Converts a C string to a Fortran String.
   
   ! I/O settings, specifying various input/output properties.
   ! Set by set_io_settings.
@@ -301,7 +302,6 @@ function get_home_directory() result(output)
   
   character(result_size) :: home_dir
   logical                :: success
-  integer                :: i
   
   success = get_home_c(home_dir)
   
@@ -310,19 +310,7 @@ function get_home_directory() result(output)
     call err()
   endif
   
-  output = ''
-  do i=1,result_size
-    if (home_dir(i:i)==char(0)) then
-      output = home_dir(:i-1)
-      exit
-    endif
-  enddo
-  
-  if (output=='') then
-    call print_line(ERROR//': home directory string not nul-terminated: '// &
-       & home_dir)
-    call err()
-  endif
+  output = parse_c_string(home_dir)
 end function
 
 function get_current_directory() result(output)
@@ -334,7 +322,6 @@ function get_current_directory() result(output)
   
   character(result_size) :: current_dir
   logical                :: success
-  integer                :: i
   
   success = get_cwd_c(result_size, current_dir)
   
@@ -343,18 +330,7 @@ function get_current_directory() result(output)
     call err()
   endif
   
-  output = ''
-  do i=1,result_size
-    if (current_dir(i:i)==char(0)) then
-      output = current_dir(:i-1)
-      exit
-    endif
-  enddo
-  
-  if (output=='') then
-    call print_line(ERROR//': cwd string not nul-terminated: '//current_dir)
-    call err()
-  endif
+  output = parse_c_string(current_dir)
 end function
 
 function get_exe_location() result(output)
@@ -366,7 +342,6 @@ function get_exe_location() result(output)
   
   character(result_size) :: exe_location
   logical                :: success
-  integer                :: i
   
   success = get_exe_location_c(result_size, exe_location)
   
@@ -375,19 +350,7 @@ function get_exe_location() result(output)
     call err()
   endif
   
-  output = ''
-  do i=1,result_size
-    if (exe_location(i:i)==char(0)) then
-      output = exe_location(:i-1)
-      exit
-    endif
-  enddo
-  
-  if (output=='') then
-    call print_line(ERROR//': readlink string not nul-terminated: '// &
-       & exe_location)
-    call err()
-  endif
+  output = parse_c_string(exe_location)
 end function
 
 subroutine set_io_settings()
@@ -577,4 +540,27 @@ subroutine call_caesar_String(arguments)
   
   call call_caesar(char(arguments))
 end subroutine
+
+function parse_c_string(input) result(output)
+  implicit none
+  
+  character(*), intent(in) :: input
+  type(String)             :: output
+  
+  integer :: i
+  
+  output = ''
+  do i=1,len(input)
+    if (input(i:i)==char(0)) then
+      output = input(:i-1)
+      exit
+    endif
+  enddo
+  
+  if (output=='') then
+    call print_line(ERROR//': C string string not nul-terminated: '// &
+       & input)
+    call err()
+  endif
+end function
 end module

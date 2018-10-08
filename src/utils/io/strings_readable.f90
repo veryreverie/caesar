@@ -9,11 +9,11 @@
 !    - read as an array from StringArray(:), using this(:)=string_array(:).
 ! Any type which extends StringsReadable must overload %read(strings).
 ! See example module below or how to extend this type.
-module strings_readable_submodule
+module strings_readable_module
   use io_basic_module
   use abstract_module
   
-  use string_array_submodule
+  use string_array_module
   implicit none
   
   private
@@ -41,11 +41,11 @@ end module
 ! ======================================================================
 ! An example module showing how to extend StringsReadable.
 ! ======================================================================
-module strings_readable_example_submodule
+module strings_readable_example_module
   use io_basic_module
   
-  use string_array_submodule
-  use strings_readable_submodule
+  use string_array_module
+  use strings_readable_module
   implicit none
   
   private

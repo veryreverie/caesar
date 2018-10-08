@@ -1,8 +1,8 @@
 ! ======================================================================
 ! Provides settings for changing how print_line and related functions work.
 ! ======================================================================
-module print_settings_submodule
-  use string_submodule
+module print_settings_module
+  use string_module
   implicit none
   
   private
@@ -28,7 +28,8 @@ module print_settings_submodule
   end type
   
   interface PrintSettings
-    module procedure new_PrintSettings
+    module procedure new_PrintSettings_character
+    module procedure new_PrintSettings_String
   end interface
   
   logical             :: USE_CURRENT_PRINT_SETTINGS = .false.
@@ -36,19 +37,20 @@ module print_settings_submodule
   
   interface set_print_settings
     module procedure set_print_settings_PrintSettings
-    module procedure set_print_settings_arguments
+    module procedure set_print_settings_arguments_character
+    module procedure set_print_settings_arguments_String
   end interface
 contains
 
 ! Constructor.
-function new_PrintSettings(indent,overhang,decimal_places, &
+function new_PrintSettings_character(indent,overhang,decimal_places, &
    & floating_point_format,integer_digits) result(this)
   implicit none
   
   integer,      intent(in), optional :: indent
   integer,      intent(in), optional :: overhang
   integer,      intent(in), optional :: decimal_places
-  type(String), intent(in), optional :: floating_point_format
+  character(*), intent(in), optional :: floating_point_format
   integer,      intent(in), optional :: integer_digits
   type(PrintSettings)                :: this
   
@@ -86,6 +88,24 @@ function new_PrintSettings(indent,overhang,decimal_places, &
   endif
 end function
 
+function new_PrintSettings_String(indent,overhang,decimal_places, &
+   & floating_point_format,integer_digits) result(this)
+  implicit none
+  
+  integer,      intent(in), optional :: indent
+  integer,      intent(in), optional :: overhang
+  integer,      intent(in), optional :: decimal_places
+  type(String), intent(in)           :: floating_point_format
+  integer,      intent(in), optional :: integer_digits
+  type(PrintSettings)                :: this
+  
+  this = PrintSettings( indent,                      &
+                      & overhang,                    &
+                      & decimal_places,              &
+                      & char(floating_point_format), &
+                      & integer_digits               )
+end function
+
 subroutine set_print_settings_PrintSettings(settings)
   implicit none
   
@@ -95,14 +115,31 @@ subroutine set_print_settings_PrintSettings(settings)
   USE_CURRENT_PRINT_SETTINGS = .true.
 end subroutine
 
-subroutine set_print_settings_arguments(indent,overhang,decimal_places, &
-   & floating_point_format,integer_digits)
+subroutine set_print_settings_arguments_character(indent,overhang, &
+   & decimal_places,floating_point_format,integer_digits)
   implicit none
   
   integer,      intent(in), optional :: indent
   integer,      intent(in), optional :: overhang
   integer,      intent(in), optional :: decimal_places
-  type(String), intent(in), optional :: floating_point_format
+  character(*), intent(in), optional :: floating_point_format
+  integer,      intent(in), optional :: integer_digits
+  
+  call set_print_settings(PrintSettings( indent,                &
+                                       & overhang,              &
+                                       & decimal_places,        &
+                                       & floating_point_format, &
+                                       & integer_digits         ))
+end subroutine
+
+subroutine set_print_settings_arguments_String(indent,overhang, &
+   & decimal_places,floating_point_format,integer_digits)
+  implicit none
+  
+  integer,      intent(in), optional :: indent
+  integer,      intent(in), optional :: overhang
+  integer,      intent(in), optional :: decimal_places
+  type(String), intent(in)           :: floating_point_format
   integer,      intent(in), optional :: integer_digits
   
   call set_print_settings(PrintSettings( indent,                &

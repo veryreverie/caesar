@@ -1,15 +1,16 @@
 ! ======================================================================
 ! Information about an atom.
 ! ======================================================================
-module atom_submodule
+module atom_data_module
   use utils_module
   
-  use basic_structure_submodule
+  use basic_atoms_module
   implicit none
   
   private
   
   public :: AtomData
+  public :: BasicAtom
   
   type :: AtomData
     ! Atom data.
@@ -52,6 +53,10 @@ module atom_submodule
   interface AtomData
     module procedure new_AtomData
   end interface
+  
+  interface BasicAtom
+    module procedure new_BasicAtom_AtomData
+  end interface
 contains
 
 ! ----------------------------------------------------------------------
@@ -80,6 +85,18 @@ function new_AtomData(basic_atom,lattice,recip_lattice,id,prim_id,rvec_id) &
   this%id_ = id
   this%prim_id_ = prim_id
   this%rvec_id_ = rvec_id
+end function
+
+! ----------------------------------------------------------------------
+! Conversion to BasicAtom.
+! ----------------------------------------------------------------------
+impure elemental function new_BasicAtom_AtomData(this) result(output)
+  implicit none
+  
+  type(AtomData), intent(in) :: this
+  type(BasicAtom)            :: output
+  
+  output = BasicAtom(this%species(), this%mass(), this%cartesian_position())
 end function
 
 ! ----------------------------------------------------------------------

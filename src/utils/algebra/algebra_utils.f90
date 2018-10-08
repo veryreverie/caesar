@@ -1,12 +1,12 @@
 ! ======================================================================
 ! various utilities
 ! ======================================================================
-module algebra_utils_submodule
+module algebra_utils_module
   use precision_module
   use io_module
   
-  use mathematical_constants_submodule
-  use linear_algebra_submodule
+  use mathematical_constants_module
+  use linear_algebra_module
   implicit none
   
   private
@@ -53,6 +53,7 @@ module algebra_utils_submodule
   ! The L2 norm of an array of reals.
   interface l2_norm
     module procedure l2_norm_reals
+    module procedure l2_norm_complexes
   end interface
   
   ! The sum of the elements squared of a matrix.
@@ -88,6 +89,15 @@ function l2_norm_reals(input) result(output)
   real(dp)             :: output
   
   output = sqrt(dot_product(input,input))
+end function
+
+function l2_norm_complexes(input) result(output)
+  implicit none
+  
+  complex(dp), intent(in) :: input(:)
+  real(dp)                :: output
+  
+  output = sqrt(abs(dot_product(input,input)))
 end function
 
 ! ----------------------------------------------------------------------

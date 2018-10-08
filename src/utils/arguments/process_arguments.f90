@@ -2,13 +2,13 @@
 ! Processes arguments from command line, file and interactive input.
 ! Stops with an error message if unexpected input is given.
 ! ======================================================================
-module process_arguments_submodule
+module process_arguments_module
   use precision_module
   use io_module
   
-  use dictionary_submodule
-  use keyword_submodule
-  use common_keywords_submodule
+  use argument_dictionary_module
+  use keyword_module
+  use common_keywords_module
   implicit none
   
   private

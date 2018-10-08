@@ -1,7 +1,7 @@
 ! ======================================================================
 ! q-points of the primitive cell.
 ! ======================================================================
-module qpoint_submodule
+module qpoint_module
   use utils_module
   implicit none
   
@@ -10,7 +10,6 @@ module qpoint_submodule
   public :: QpointData
   public :: operator(==)
   public :: operator(/=)
-  public :: is_gvector
   
   type, extends(Stringsable) :: QpointData
     ! The q-point in fractional primitive reciprocal space co-ordinates.
@@ -21,6 +20,9 @@ module qpoint_submodule
     integer :: id
     integer :: paired_qpoint_id
   contains
+    ! Whether or not q is a G-vector of the primitive cell.
+    procedure, public :: is_gvector
+    
     ! Whether or not 2*q is a G-vector of the primitive cell.
     procedure, public :: is_paired_qpoint
     
@@ -72,9 +74,21 @@ function new_QpointData(qpoint,id,paired_qpoint_id) result(this)
 end function
 
 ! ----------------------------------------------------------------------
+! Returns whether or not the q-point is a G-vector of the primitive cell.
+! ----------------------------------------------------------------------
+impure elemental function is_gvector(this) result(output)
+  implicit none
+  
+  class(QpointData), intent(in) :: this
+  logical                       :: output
+  
+  output = is_int(this%qpoint)
+end function
+
+! ----------------------------------------------------------------------
 ! Returns whether or not 2*q is a G-vector of the primitive cell.
 ! ----------------------------------------------------------------------
-function is_paired_qpoint(this) result(output)
+impure elemental function is_paired_qpoint(this) result(output)
   implicit none
   
   class(QpointData), intent(in) :: this
@@ -151,18 +165,6 @@ impure elemental function non_equality_QpointData(this,that) result(output)
   logical                      :: output
   
   output = .not. this==that
-end function
-
-! ----------------------------------------------------------------------
-! Returns whether or not the q-point is a G-vector of the primitive cell.
-! ----------------------------------------------------------------------
-impure elemental function is_gvector(this) result(output)
-  implicit none
-  
-  type(QpointData), intent(in) :: this
-  logical                      :: output
-  
-  output = is_int(this%qpoint)
 end function
 
 ! ----------------------------------------------------------------------

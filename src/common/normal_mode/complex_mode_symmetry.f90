@@ -1,12 +1,12 @@
 ! ======================================================================
 ! Methods for converting symmetries into complex normal mode co-ordinates.
 ! ======================================================================
-module complex_mode_symmetry_submodule
+module complex_mode_symmetry_module
   use utils_module
   
   use structure_module
   
-  use complex_mode_submodule
+  use complex_mode_module
   implicit none
   
   private
@@ -24,13 +24,12 @@ contains
 
 ! Takes q1, {u1}, q2, {u2} and S. Outputs {u2.S.u1}.
 function calculate_symmetry_in_normal_coordinates_qpoint(modes,qpoint, &
-   & symmetry,logfile) result(output)
+   & symmetry) result(output)
   implicit none
   
   type(ComplexMode),      intent(in)    :: modes(:)
   type(QpointData),       intent(in)    :: qpoint
   type(SymmetryOperator), intent(in)    :: symmetry
-  type(OFile),            intent(inout) :: logfile
   type(ComplexMatrix)                   :: output
   
   type(ComplexMode), allocatable :: transformed_modes(:)
@@ -55,20 +54,16 @@ function calculate_symmetry_in_normal_coordinates_qpoint(modes,qpoint, &
   enddo
   
   output = dot_products
-  
-  ! Check that the symmetry is unitary.
-  call check_unitary(output,'symmetry in normal co-ordinates',logfile)
 end function
 
 ! Takes {q1}, {u1}, {q2}, {u2} and S. Outputs {u2.S.u1}.
 function calculate_symmetry_in_normal_coordinates_qpoints(modes,qpoints, &
-   & symmetry,logfile) result(output)
+   & symmetry) result(output)
   implicit none
   
   type(ComplexMode),      intent(in)    :: modes(:)
   type(QpointData),       intent(in)    :: qpoints(:)
   type(SymmetryOperator), intent(in)    :: symmetry
-  type(OFile),            intent(inout) :: logfile
   type(ComplexMatrix)                   :: output
   
   type(QpointData),  allocatable :: transformed_qpoints(:)
@@ -110,8 +105,5 @@ function calculate_symmetry_in_normal_coordinates_qpoints(modes,qpoints, &
   enddo
   
   output = dot_products
-  
-  ! Check that the symmetry is unitary.
-  call check_unitary(output,'symmetry in normal co-ordinates',logfile)
 end function
 end module

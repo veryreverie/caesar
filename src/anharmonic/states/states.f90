@@ -1,7 +1,7 @@
 ! ======================================================================
 ! States in various representations.
 ! ======================================================================
-! This module is simply an interface for the various states submodules.
+! This module is simply an interface for the various states modules.
 module states_module
   use subspace_state_module
   use monomial_state_module

@@ -1,7 +1,7 @@
 ! ======================================================================
 ! A displacement in cartesian co-ordinates.
 ! ======================================================================
-module cartesian_displacement_submodule
+module cartesian_displacement_module
   use utils_module
   
   use structure_module

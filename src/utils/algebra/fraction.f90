@@ -1,11 +1,11 @@
 ! ======================================================================
 ! Integer fractions in an exact representation.
 ! ======================================================================
-module fraction_submodule
+module fraction_module
   use precision_module
   use io_module
   
-  use algebra_utils_submodule
+  use algebra_utils_module
   implicit none
   
   private

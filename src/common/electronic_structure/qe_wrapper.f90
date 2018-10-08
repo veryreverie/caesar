@@ -4,13 +4,13 @@
 
 ! N.B. This module has never been tested.
 
-module qe_wrapper_submodule
+module qe_wrapper_module
   use utils_module
   
   use structure_module
   use normal_mode_module
   
-  use electronic_structure_data_submodule
+  use electronic_structure_data_module
   implicit none
   
   private

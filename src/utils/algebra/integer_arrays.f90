@@ -1,7 +1,7 @@
 ! ======================================================================
 ! A heterogeneous multi-dimensional integer array.
 ! ======================================================================
-module integer_arrays_submodule
+module integer_arrays_module
   use precision_module
   use io_module
   implicit none

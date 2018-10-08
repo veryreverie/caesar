@@ -1,14 +1,14 @@
 ! ======================================================================
 ! A class which reads the results of electronic structure calculations.
 ! ======================================================================
-module calculation_reader_submodule
+module calculation_reader_module
   use utils_module
   
   use structure_module
   
-  use structure_file_submodule
-  use electronic_structure_data_submodule
-  use electronic_structure_file_submodule
+  use structure_file_module
+  use electronic_structure_data_module
+  use electronic_structure_file_module
   implicit none
   
   private

@@ -1,25 +1,16 @@
 ! ======================================================================
 ! A minimal representation of the Structure class.
 ! ======================================================================
-module basic_structure_submodule
+module basic_structure_module
   use utils_module
+  
+  use basic_atoms_module
   implicit none
   
   private
   
-  public :: BasicAtom
   public :: BasicStructure
   public :: BasicSupercell
-  
-  type, extends(NoDefaultConstructor) :: BasicAtom
-    type(String)     :: species
-    real(dp)         :: mass
-    type(RealVector) :: cartesian_position
-  end type
-  
-  interface BasicAtom
-    module procedure new_BasicAtom
-  end interface
   
   type, extends(NoDefaultConstructor) :: BasicStructure
     type(RealMatrix)             :: lattice_matrix
@@ -28,6 +19,7 @@ module basic_structure_submodule
   
   interface BasicStructure
     module procedure new_BasicStructure
+    module procedure new_BasicStructure_constructed
   end interface
   
   type, extends(NoDefaultConstructor) :: BasicSupercell
@@ -42,29 +34,26 @@ module basic_structure_submodule
     module procedure new_BasicSupercell
   end interface
 contains
-
-function new_BasicAtom(species,mass,cartesian_position) result(output)
+function new_BasicStructure(lattice_matrix,atoms) result(this)
   implicit none
   
-  type(String),     intent(in) :: species
-  real(dp),         intent(in) :: mass
-  type(RealVector), intent(in) :: cartesian_position
-  type(BasicAtom)              :: output
+  type(RealMatrix), intent(in) :: lattice_matrix
+  type(BasicAtom),  intent(in) :: atoms(:)
+  type(BasicStructure)         :: this
   
-  output%species            = species
-  output%mass               = mass
-  output%cartesian_position = cartesian_position
+  this%lattice_matrix = lattice_matrix
+  this%atoms = atoms
 end function
 
-function new_BasicStructure(lattice_matrix,species,masses, &
-   & cartesian_positions) result(output)
+function new_BasicStructure_constructed(lattice_matrix,species,masses, &
+   & cartesian_positions) result(this)
   implicit none
   
   type(RealMatrix), intent(in) :: lattice_matrix
   type(String),     intent(in) :: species(:)
   real(dp),         intent(in) :: masses(:)
   type(RealVector), intent(in) :: cartesian_positions(:)
-  type(BasicStructure)         :: output
+  type(BasicStructure)         :: this
   
   integer :: i,ialloc
   
@@ -78,10 +67,10 @@ function new_BasicStructure(lattice_matrix,species,masses, &
     call err()
   endif
   
-  output%lattice_matrix = lattice_matrix
-  allocate(output%atoms(size(species)), stat=ialloc); call err(ialloc)
-  do i=1,size(output%atoms)
-    output%atoms(i) = BasicAtom(species(i), masses(i), cartesian_positions(i))
+  this%lattice_matrix = lattice_matrix
+  allocate(this%atoms(size(species)), stat=ialloc); call err(ialloc)
+  do i=1,size(this%atoms)
+    this%atoms(i) = BasicAtom(species(i), masses(i), cartesian_positions(i))
   enddo
 end function
 

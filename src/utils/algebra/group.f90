@@ -12,7 +12,7 @@
 !    group*3 = 1
 ! Also:
 !    (group*group)*1 = group*(group*1) = group*2 = 3
-module group_submodule
+module operator_group_module
   use precision_module
   use io_module
   implicit none

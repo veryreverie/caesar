@@ -1,14 +1,14 @@
 ! ======================================================================
 ! The building blocks of basis functions in real co-ordinates.
 ! ======================================================================
-module real_polynomial_submodule
+module real_polynomial_module
   use utils_module
   
-  use real_mode_submodule
-  use real_single_mode_displacement_submodule
-  use real_single_mode_force_submodule
-  use real_mode_displacement_submodule
-  use real_mode_force_submodule
+  use real_mode_module
+  use real_single_mode_displacement_module
+  use real_single_mode_force_module
+  use real_mode_displacement_module
+  use real_mode_force_module
   implicit none
   
   private

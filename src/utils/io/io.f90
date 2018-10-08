@@ -7,14 +7,14 @@
 module io_module
   use io_basic_module
   
-  use string_writeable_submodule
-  use strings_writeable_submodule
-  use string_array_submodule
-  use ifile_submodule
-  use ofile_submodule
-  use string_readable_submodule
-  use strings_readable_submodule
-  use stringable_submodule
-  use stringsable_submodule
+  use string_writeable_module
+  use strings_writeable_module
+  use string_array_module
+  use ifile_module
+  use ofile_module
+  use string_readable_module
+  use strings_readable_module
+  use stringable_module
+  use stringsable_module
   implicit none
 end module

@@ -1,7 +1,7 @@
 ! ======================================================================
 ! Complex numbers with integer real and imaginary parts.
 ! ======================================================================
-module integer_complex_submodule
+module integer_complex_module
   use io_module
   implicit none
   

@@ -1,19 +1,21 @@
 ! ======================================================================
 ! All data relating to a given atomic configuration.
 ! ======================================================================
-module structure_submodule
+module structure_data_module
   use utils_module
   
-  use basic_symmetry_submodule
-  use basic_structure_submodule
-  use atom_submodule
-  use spglib_wrapper_submodule
-  use symmetry_submodule
+  use atom_module
+  use spglib_module
+  
+  use basic_symmetry_module
+  use basic_structure_module
+  use symmetry_module
   implicit none
   
   private
   
   public :: StructureData
+  public :: BasicStructure
   
   ! ----------------------------------------------------------------------
   ! The structure type.
@@ -103,6 +105,10 @@ module structure_submodule
     module procedure new_StructureData
     module procedure new_StructureData_Strings
     module procedure new_StructureData_StringArray
+  end interface
+  
+  interface BasicStructure
+    module procedure new_BasicStructure_StructureData
   end interface
 contains
 
@@ -297,6 +303,18 @@ function new_StructureData(basic_structure,basic_supercell, &
 end function
 
 ! ----------------------------------------------------------------------
+! Convert to a BasicStructure.
+! ----------------------------------------------------------------------
+impure elemental function new_BasicStructure_StructureData(this) result(output)
+  implicit none
+  
+  type(StructureData), intent(in) :: this
+  type(BasicStructure)            :: output
+  
+  output = BasicStructure(this%lattice, BasicAtom(this%atoms))
+end function
+
+! ----------------------------------------------------------------------
 ! Calculate symmetries.
 ! ----------------------------------------------------------------------
 subroutine calculate_symmetry(this,symmetry_precision,symmetries)
@@ -306,6 +324,7 @@ subroutine calculate_symmetry(this,symmetry_precision,symmetries)
   real(dp),             intent(in)           :: symmetry_precision
   type(BasicSymmetry),  intent(in), optional :: symmetries(:)
   
+  type(SpglibSymmetries)           :: spglib_symmetries
   type(BasicSymmetry), allocatable :: basic_symmetries(:)
   
   type(Group), allocatable :: symmetry_groups(:)
@@ -333,9 +352,12 @@ subroutine calculate_symmetry(this,symmetry_precision,symmetries)
     endif
     basic_symmetries = symmetries
   else
-    basic_symmetries = calculate_basic_symmetries( this%lattice,      &
-                                                 & this%atoms,        &
-                                                 & symmetry_precision )
+    spglib_symmetries = SpglibSymmetries( this%lattice,      &
+                                        & this%atoms,        &
+                                        & symmetry_precision )
+    basic_symmetries = BasicSymmetry( spglib_symmetries, &
+                                    & this%atoms,        &
+                                    & symmetry_precision )
   endif
   
   no_symmetries = size(basic_symmetries)

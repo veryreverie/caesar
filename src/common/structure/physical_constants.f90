@@ -1,7 +1,7 @@
 ! ======================================================================
 ! Global physical constants.
 ! ======================================================================
-module physical_constants_submodule
+module physical_constants_module
   use utils_module
   implicit none
   

@@ -1,13 +1,13 @@
 ! ======================================================================
 ! Routines for finding the QR decomposition of various matrices.
 ! ======================================================================
-module qr_decomposition_submodule
+module qr_decomposition_module
   use precision_module
   use abstract_module
   use io_module
   
   use lapack_wrapper_module
-  use linear_algebra_submodule
+  use linear_algebra_module
   implicit none
   
   private

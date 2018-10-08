@@ -1,7 +1,7 @@
 ! ======================================================================
 ! Harmonic normal modes, in complex co-ordinates.
 ! ======================================================================
-module complex_mode_submodule
+module complex_mode_module
   use utils_module
   
   use structure_module

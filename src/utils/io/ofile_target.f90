@@ -3,13 +3,13 @@
 ! ======================================================================
 ! OFileTarget keeps track of a single file.
 ! Multiple OFiles may point to a single OFileTarget.
-module ofile_target_submodule
+module ofile_target_module
   use precision_module
   use io_basic_module
   
-  use string_writeable_submodule
-  use strings_writeable_submodule
-  use file_submodule
+  use string_writeable_module
+  use strings_writeable_module
+  use file_module
   implicit none
   
   private

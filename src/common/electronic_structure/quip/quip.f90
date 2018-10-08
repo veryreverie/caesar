@@ -1,20 +1,20 @@
 ! ======================================================================
-! Interfaces to the QUIP library.
+! The wrapper for Quip.
 ! ======================================================================
-! Functionality includes:
-!    - Reading and writing .xyz files.
-!    - Calculating electronic structure.
-module quip_wrapper_submodule
+! N.B. Quip and Caesar have clashing modules, so the two-layer separation
+!    of quip_module and quip_wrapper module is necessary.
+! quip_wrapper_module should depend on no Caesar modules, and the only
+!    exposure quip_module should have to Quip should be through
+!    quip_wrapper_module.
+module quip_module
   use utils_module
   
-  use structure_module
+  use physical_constants_module
+  use basic_structure_module
+  use electronic_structure_data_module
   use normal_mode_module
   
-  use electronic_structure_data_submodule
-  
-  ! Use modules from QUIP itself.
-  use quip_unified_wrapper_module, only : quip_unified_wrapper,initialise
-  use libatoms_module, only : Atoms,read,write
+  use quip_wrapper_module
   implicit none
   
   private
@@ -23,9 +23,8 @@ module quip_wrapper_submodule
   public :: read_input_file_xyz
   public :: write_input_file_xyz
   public :: run_quip_on_structure
-  public :: QUIP_LINKED
   
-  logical, parameter :: QUIP_LINKED = .true.
+  public :: QUIP_LINKED
   
   type :: QuipElectronicStructure
     real(dp)              :: energy
@@ -34,7 +33,7 @@ module quip_wrapper_submodule
   end type
   
   interface assignment(=)
-    module procedure assign_Atoms_StructureData
+    module procedure assign_Atoms_BasicStructure
     module procedure assign_BasicStructure_Atoms
     module procedure assign_ElectronicStructure_QuipElectronicStructure
   end interface
@@ -64,20 +63,22 @@ function read_input_file_xyz(filename) result(output)
   
   integer :: ierr
   
-  call read(quip_structure, char(filename), error=ierr)
-  
-  call print_line('Shape pos: '//shape(quip_structure%pos))
-  call print_line('Shape mass: '//shape(quip_structure%mass))
-  
-  output = quip_structure
+  call print_line(ERROR//': Procedure to read .xyz files not yet implemented.')
+  call err()
+  !call read(quip_structure, char(filename), error=ierr)
+  !
+  !call print_line('Shape pos: '//shape(quip_structure%pos))
+  !call print_line('Shape mass: '//shape(quip_structure%mass))
+  !
+  !output = quip_structure
 end function
 
 subroutine write_input_file_xyz(structure,input_filename,output_filename)
   implicit none
   
-  type(StructureData), intent(in)           :: structure
-  type(String),        intent(in), optional :: input_filename
-  type(String),        intent(in)           :: output_filename
+  type(BasicStructure), intent(in)           :: structure
+  type(String),         intent(in), optional :: input_filename
+  type(String),         intent(in)           :: output_filename
   
   type(IFile) :: input_file_in
   type(IFile) :: output_file_in
@@ -87,31 +88,35 @@ subroutine write_input_file_xyz(structure,input_filename,output_filename)
   
   integer :: i
   
-  quip_structure = structure
-  call write(quip_structure, char(output_filename))
+  call print_line(ERROR//': Procedure to write .xyz files not yet &
+     &implemented.')
+  call err()
   
-  ! If an input file is given, replace the second line of the new output file
-  !    with that from the input file.
-  if (present(input_filename)) then
-    input_file_in = IFile(input_filename)
-    output_file_in = IFile(output_filename)
-    output_file_out = OFile(output_filename)
-    do i=1,size(output_file_in)
-      if (i==2) then
-        call output_file_out%print_line(input_file_in%line(i))
-      else
-        call output_file_out%print_line(output_file_in%line(i))
-      endif
-    enddo
-  endif
+  !quip_structure = structure
+  !call write(quip_structure, char(output_filename))
+  !
+  !! If an input file is given, replace the second line of the new output file
+  !!    with that from the input file.
+  !if (present(input_filename)) then
+  !  input_file_in = IFile(input_filename)
+  !  output_file_in = IFile(output_filename)
+  !  output_file_out = OFile(output_filename)
+  !  do i=1,size(output_file_in)
+  !    if (i==2) then
+  !      call output_file_out%print_line(input_file_in%line(i))
+  !    else
+  !      call output_file_out%print_line(output_file_in%line(i))
+  !    endif
+  !  enddo
+  !endif
 end subroutine
 
 function run_quip_on_structure(structure,seedname) result(output)
   implicit none
   
-  type(StructureData), intent(in) :: structure
-  type(String),        intent(in) :: seedname
-  type(ElectronicStructure)       :: output
+  type(BasicStructure), intent(in) :: structure
+  type(String),         intent(in) :: seedname
+  type(ElectronicStructure)        :: output
   
   type(String) :: quip_filename
   
@@ -122,11 +127,11 @@ function run_quip_on_structure(structure,seedname) result(output)
   
   quip_filename = format_path(seedname//'_MEAM.xml')
   quip_structure = structure
-  allocate( quip_electronic_structure%forces(3,structure%no_atoms), &
+  allocate( quip_electronic_structure%forces(3,size(structure%atoms)), &
           & stat=ialloc); call err(ialloc)
   
   call quip_unified_wrapper(                                   &
-     & n                   = structure%no_atoms,               &
+     & n                   = size(structure%atoms),            &
      & lattice             = quip_structure%lattice,           &
      & z                   = quip_structure%z,                 &
      & pos                 = quip_structure%pos,               &
@@ -149,32 +154,32 @@ end function
 ! ----------------------------------------------------------------------
 ! Conversions between Caesar and Quip types.
 ! ----------------------------------------------------------------------
-subroutine assign_Atoms_StructureData(output,input)
+subroutine assign_Atoms_BasicStructure(output,input)
   implicit none
   
-  type(Atoms),         intent(out) :: output
-  type(StructureData), intent(in)  :: input
+  type(Atoms),          intent(out) :: output
+  type(BasicStructure), intent(in)  :: input
   
   type(String), allocatable :: split_species(:)
   
   integer :: i,ialloc
   
-  allocate( output%z(input%no_atoms),     &
-          & output%mass(input%no_atoms),  &
-          & output%pos(3,input%no_atoms), &
+  allocate( output%z(size(input%atoms)),     &
+          & output%mass(size(input%atoms)),  &
+          & output%pos(3,size(input%atoms)), &
           & stat=ialloc); call err(ialloc)
   
-  output%lattice = dble(transpose(input%lattice)) * ANGSTROM_PER_BOHR
+  output%lattice = dble(transpose(input%lattice_matrix)) * ANGSTROM_PER_BOHR
   
-  do i=1,input%no_atoms
-    split_species = split_line(input%atoms(i)%species(),':')
+  do i=1,size(input%atoms)
+    split_species = split_line(input%atoms(i)%species,':')
     output%z(i) = int(split_species(2))
   enddo
   
-  output%mass = input%atoms%mass() * KG_PER_ME / KG_PER_AMU
+  output%mass = input%atoms%mass * KG_PER_ME / KG_PER_AMU
   
-  do i=1,input%no_atoms
-    output%pos(:,i) = dble(input%atoms(i)%cartesian_position()) &
+  do i=1,size(input%atoms)
+    output%pos(:,i) = dble(input%atoms(i)%cartesian_position) &
                   & * ANGSTROM_PER_BOHR
   enddo
 end subroutine

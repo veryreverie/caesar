@@ -2,7 +2,7 @@
 ! Assorted linear algebra / vector algebra subroutines.
 ! Includes interfaces for BLAS and LAPACK routines.
 ! ======================================================================
-module linear_algebra_submodule
+module linear_algebra_module
   use precision_module
   use io_module
   
@@ -40,7 +40,9 @@ module linear_algebra_submodule
   public :: size
   public :: trace
   public :: commutator
+  public :: anticommutator
   public :: matrices_commute
+  public :: matrices_anticommute
   public :: operator(==)
   public :: operator(/=)
   public :: operator(+)
@@ -512,8 +514,16 @@ module linear_algebra_submodule
     module procedure commutator_IntMatrix_IntMatrix
   end interface
   
+  interface anticommutator
+    module procedure anticommutator_IntMatrix_IntMatrix
+  end interface
+  
   interface matrices_commute
     module procedure matrices_commute_IntMatrix_IntMatrix
+  end interface
+  
+  interface matrices_anticommute
+    module procedure matrices_anticommute_IntMatrix_IntMatrix
   end interface
   
   interface row_matrix
@@ -1356,7 +1366,7 @@ function trace_ComplexMatrix(input) result(output)
   enddo
 end function
 
-! Find the commutator of two matrices.
+! Find the commutator or anti-commutator of two matrices.
 function commutator_IntMatrix_IntMatrix(this,that) result(output)
   implicit none
   
@@ -1381,7 +1391,31 @@ function commutator_IntMatrix_IntMatrix(this,that) result(output)
   output = this*that - that*this
 end function
 
-! Check if two matrices commute.
+function anticommutator_IntMatrix_IntMatrix(this,that) result(output)
+  implicit none
+  
+  type(IntMatrix), intent(in) :: this
+  type(IntMatrix), intent(in) :: that
+  type(IntMatrix)             :: output
+  
+  if (size(this,1)/=size(this,2)) then
+    call print_line(CODE_ERROR//': Trying to find a commutator involving a &
+       &non-square matrix.')
+    call err()
+  elseif (size(that,1)/=size(that,2)) then
+    call print_line(CODE_ERROR//': Trying to find a commutator involving a &
+       &non-square matrix.')
+    call err()
+  elseif (size(this,1)/=size(that,1)) then
+    call print_line(CODE_ERROR//': Trying to find commutator of matrices of &
+       &different sizes.')
+    call err()
+  endif
+  
+  output = this*that + that*this
+end function
+
+! Check if two matrices commute or anti-commute.
 function matrices_commute_IntMatrix_IntMatrix(this,that) result(output)
   implicit none
   
@@ -1390,6 +1424,16 @@ function matrices_commute_IntMatrix_IntMatrix(this,that) result(output)
   logical                     :: output
   
   output = commutator(this,that)==zeroes(size(this,1),size(this,1))
+end function
+
+function matrices_anticommute_IntMatrix_IntMatrix(this,that) result(output)
+  implicit none
+  
+  type(IntMatrix), intent(in) :: this
+  type(IntMatrix), intent(in) :: that
+  logical                     :: output
+  
+  output = anticommutator(this,that)==zeroes(size(this,1),size(this,1))
 end function
 
 ! Equality.

@@ -1,13 +1,13 @@
 ! ======================================================================
 ! A force in complex mode co-ordinates.
 ! ======================================================================
-module complex_mode_force_submodule
+module complex_mode_force_module
   use utils_module
   
   use structure_module
   
-  use complex_mode_submodule
-  use complex_single_mode_force_submodule
+  use complex_mode_module
+  use complex_single_mode_force_module
   implicit none
   
   private

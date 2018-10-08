@@ -2,13 +2,13 @@
 ! A class which writes and keeps track of electronic structure calculation
 !    input directories.
 ! ======================================================================
-module calculation_writer_submodule
+module calculation_writer_module
   use utils_module
   
   use structure_module
   
-  use structure_file_submodule
-  use electronic_structure_file_submodule
+  use structure_file_module
+  use electronic_structure_file_module
   implicit none
   
   private

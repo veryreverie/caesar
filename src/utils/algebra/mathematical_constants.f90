@@ -1,7 +1,7 @@
 ! ======================================================================
 ! Global mathematical constants.
 ! ======================================================================
-module mathematical_constants_submodule
+module mathematical_constants_module
   use precision_module
   implicit none
   

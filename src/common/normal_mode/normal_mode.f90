@@ -5,26 +5,27 @@
 !    - Univariates, Monomials and Polynomials, which store basis functions.
 !    - Conversions between complex and real co-ordinates.
 ! ======================================================================
-! This module is simply an interface for the various normal mode submodules.
+! This module is simply an interface for the various subsidiary
+!    normal mode modules.
 module normal_mode_module
-  use cartesian_displacement_submodule
-  use cartesian_force_submodule
-  use mass_weighted_displacement_submodule
-  use mass_weighted_force_submodule
-  use real_mode_submodule
-  use complex_mode_submodule
-  use real_single_mode_displacement_submodule
-  use real_single_mode_force_submodule
-  use complex_single_mode_displacement_submodule
-  use complex_single_mode_force_submodule
-  use real_mode_displacement_submodule
-  use real_mode_force_submodule
-  use complex_mode_displacement_submodule
-  use complex_mode_force_submodule
-  use complex_polynomial_submodule
-  use real_polynomial_submodule
-  use real_complex_conversion_submodule
-  use complex_mode_symmetry_submodule
+  use cartesian_displacement_module
+  use cartesian_force_module
+  use mass_weighted_displacement_module
+  use mass_weighted_force_module
+  use real_mode_module
+  use complex_mode_module
+  use real_single_mode_displacement_module
+  use real_single_mode_force_module
+  use complex_single_mode_displacement_module
+  use complex_single_mode_force_module
+  use real_mode_displacement_module
+  use real_mode_force_module
+  use complex_mode_displacement_module
+  use complex_mode_force_module
+  use complex_polynomial_module
+  use real_polynomial_module
+  use real_complex_conversion_module
+  use complex_mode_symmetry_module
   use degenerate_subspace_module
   implicit none
 end module

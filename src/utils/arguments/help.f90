@@ -1,11 +1,11 @@
 ! ======================================================================
 ! Handles input keywords and helptext.
 ! ======================================================================
-module help_submodule
+module help_module
   use precision_module
   use io_module
-  use keyword_submodule
-  use caesar_modes_submodule
+  use keyword_module
+  use caesar_modes_module
   implicit none
   
   private

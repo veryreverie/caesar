@@ -80,11 +80,13 @@ The 'run' modes, run_harmonic and run_anharmonic, do not require spglib or BLAS/
 ----------------------------------------
 Quip
 ----------------------------------------
-Caesar can be linked against Quip by setting. This is acheived by setting PATH_TO_QUIP, e.g. with the CMake command line argument
+Caesar can be linked against Quip by setting LINK_TO_QUIP, e.g. with the CMake command line argument
 
-  -DPATH_TO_QUIP=quipdir
+  -DLINK_TO_QUIP:LOGICAL=true
 
-where quipdir is the Quip directory containing libatoms and libquip. These libraries must have been compiled using the same compiler used to compile Caesar.
+The directory containing libquip.so and libatoms.so (or the equivalent .a etc. files) must be on LIB and PATH. These libraries must have been compiled using the same compiler used to compile Caesar.
+
+If multiple distributions are present, the first found on LIB will be used.
 
 Quip requires BLAS/LAPACK, so PATH_TO_QUIP should not be specified if linking against BLAS/LAPACK has been suppressed.
 

@@ -5,18 +5,18 @@
 ! N.B. This module is untested, and is likely unstable.
 ! Instead of diagonalising the unitary matrix U, it is numerically superior to
 !    construct and diagonalise the Hermitian matrices (U+U*) and (U-U*)/i.
-module unitary_eigenstuff_submodule
+module unitary_eigenstuff_module
   use precision_module
   use abstract_module
   use io_module
   
-  use mathematical_constants_submodule
-  use linear_algebra_submodule
-  use fraction_submodule
-  use phase_submodule
-  use qr_decomposition_submodule
-  use hermitian_eigenstuff_submodule
-  use orthonormal_submodule
+  use mathematical_constants_module
+  use linear_algebra_module
+  use fraction_module
+  use phase_module
+  use qr_decomposition_module
+  use hermitian_eigenstuff_module
+  use orthonormal_module
   implicit none
   
   private

@@ -1,14 +1,14 @@
 ! ======================================================================
 ! A displacement along a single real mode, in mass-weighted co-ordinates.
 ! ======================================================================
-module real_single_mode_displacement_submodule
+module real_single_mode_displacement_module
   use utils_module
   
   use structure_module
   
-  use cartesian_displacement_submodule
-  use mass_weighted_displacement_submodule
-  use real_mode_submodule
+  use cartesian_displacement_module
+  use mass_weighted_displacement_module
+  use real_mode_module
   implicit none
   
   private

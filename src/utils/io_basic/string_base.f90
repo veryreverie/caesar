@@ -5,8 +5,8 @@
 !    String and all of the procedures involving a String.
 ! This ensures that all of the memory management is in one place, and that the
 !    String class cannot cause segfaults or allocation errors.
-module string_base_submodule
-  use error_submodule
+module string_base_module
+  use error_module
   implicit none
   
   private

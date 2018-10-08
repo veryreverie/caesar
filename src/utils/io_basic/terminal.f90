@@ -1,7 +1,7 @@
 ! ======================================================================
 ! A selection of terminal escape sequences.
 ! ======================================================================
-module terminal_submodule
+module terminal_module
   implicit none
   
   private

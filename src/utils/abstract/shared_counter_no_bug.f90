@@ -1,7 +1,7 @@
 ! ======================================================================
 ! Defines the variable SHARED_COUNTER_BUG to .false.
 ! ======================================================================
-module shared_counter_bugfix_submodule
+module shared_counter_bugfix_module
   implicit none
   
   private

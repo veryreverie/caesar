@@ -67,15 +67,13 @@ function new_SingleModeSymmetry(mode_id,symmetric_mode_ids, &
   this%symmetric_mode_coefficients = symmetric_mode_coefficients
 end function
 
-function new_DegenerateSymmetry(symmetry,subspaces,modes,qpoints, &
-   & logfile) result(this)
+function new_DegenerateSymmetry(symmetry,subspaces,modes,qpoints) result(this)
   implicit none
   
   type(SymmetryOperator),   intent(in)    :: symmetry
   type(DegenerateSubspace), intent(in)    :: subspaces(:)
   type(ComplexMode),        intent(in)    :: modes(:)
   type(QpointData),         intent(in)    :: qpoints(:)
-  type(OFile),              intent(inout) :: logfile
   type(DegenerateSymmetry)                :: this
   
   type(ComplexMatrix), allocatable :: subspace_symmetries(:)
@@ -109,8 +107,7 @@ function new_DegenerateSymmetry(symmetry,subspaces,modes,qpoints, &
     subspace_symmetries(i) =                                           &
        & calculate_symmetry_in_normal_coordinates( degenerate_modes,   &
        &                                           degenerate_qpoints, &
-       &                                           symmetry,           &
-       &                                           logfile             )
+       &                                           symmetry            )
   enddo
   
   allocate(this%symmetries_(size(modes)), stat=ialloc); call err(ialloc)

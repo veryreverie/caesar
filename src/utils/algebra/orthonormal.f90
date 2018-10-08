@@ -1,14 +1,14 @@
 ! ======================================================================
 ! Routines for finding orthonormal bases for vector subspaces.
 ! ======================================================================
-module orthonormal_submodule
+module orthonormal_module
   use precision_module
   use abstract_module
   use io_module
   
-  use linear_algebra_submodule
-  use hermitian_eigenstuff_submodule
-  use qr_decomposition_submodule
+  use linear_algebra_module
+  use hermitian_eigenstuff_module
+  use qr_decomposition_module
   implicit none
   
   private

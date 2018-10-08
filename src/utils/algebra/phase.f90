@@ -2,12 +2,12 @@
 ! A complex phase, of the form exp(2*pi*i*frac), where frac is an integer
 !    fraction.
 ! ======================================================================
-module phase_submodule
+module phase_module
   use precision_module
   use io_module
   
-  use fraction_submodule
-  use mathematical_constants_submodule
+  use fraction_module
+  use mathematical_constants_module
   implicit none
   
   private

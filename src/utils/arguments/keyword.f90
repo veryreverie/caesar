@@ -1,7 +1,7 @@
 ! ======================================================================
 ! Keywords for input arguments.
 ! ======================================================================
-module keyword_submodule
+module keyword_module
   use precision_module
   use io_module
   implicit none

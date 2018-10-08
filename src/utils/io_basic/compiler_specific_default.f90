@@ -1,7 +1,7 @@
 ! ======================================================================
 ! Provides default implementations of compiler-specific functions.
 ! ======================================================================
-module compiler_specific_submodule
+module compiler_specific_module
   implicit none
   
   private

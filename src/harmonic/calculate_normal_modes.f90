@@ -31,12 +31,7 @@ function calculate_normal_modes() result(output)
      & KeywordData( 'acoustic_sum_rule',                                      &
      &              'acoustic_sum_rule specifies where the acoustic sum rule  &
      &is applied. The options are "off", "forces", "matrices" and "both".',   &
-     &              default_value='both'),                                    &
-     & KeywordData( 'degenerate_energy',                                      &
-     &              'degenerate_energy is the minimum energy difference &
-     &between states before they are considered degenerate. This should be &
-     &given in Hartrees.',                                                    &
-     &              default_value='1e-5')                                     ]
+     &              default_value='both')                                     ]
   output%main_subroutine => calculate_normal_modes_subroutine
 end function
 
@@ -53,7 +48,6 @@ subroutine calculate_normal_modes_subroutine(arguments)
   type(String)     :: acoustic_sum_rule
   logical          :: acoustic_sum_rule_forces
   logical          :: acoustic_sum_rule_matrices
-  real(dp)         :: degenerate_energy
   
   ! Arguments to setup_harmonic.
   type(String) :: seedname
@@ -129,8 +123,6 @@ subroutine calculate_normal_modes_subroutine(arguments)
        &"both".')
     stop
   endif
-  
-  degenerate_energy = dble(arguments%value('degenerate_energy'))
   
   ! --------------------------------------------------
   ! Read in previous arguments.
@@ -285,7 +277,6 @@ subroutine calculate_normal_modes_subroutine(arguments)
                                                  & supercells,        &
                                                  & force_constants,   &
                                                  & structure,         &
-                                                 & degenerate_energy, &
                                                  & subspace_id,       &
                                                  & qpoint_logfile)
           subspace_id =                                                  &

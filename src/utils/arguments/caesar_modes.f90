@@ -4,12 +4,12 @@
 !    - The keywords for each mode.
 !    - The helptext for said keyowrds.
 ! ======================================================================
-module caesar_modes_submodule
+module caesar_modes_module
   use io_module
   use abstract_module
   
-  use keyword_submodule
-  use dictionary_submodule
+  use keyword_module
+  use argument_dictionary_module
   implicit none
   
   private

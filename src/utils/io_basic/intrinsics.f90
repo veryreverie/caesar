@@ -1,13 +1,13 @@
 ! ======================================================================
 ! Provides I/O functionality for intrinsic types.
 ! ======================================================================
-module intrinsics_submodule
+module intrinsics_module
   use precision_module
   
-  use string_submodule
-  use error_submodule
-  use print_settings_submodule
-  use print_submodule
+  use string_module
+  use error_module
+  use print_settings_module
+  use print_module
   implicit none
   
   private

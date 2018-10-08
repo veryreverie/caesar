@@ -187,9 +187,6 @@ subroutine setup_anharmonic_subroutine(arguments)
   ! Generate setup data common to all potential representations.
   ! ----------------------------------------------------------------------
   
-  ! Open logfile.
-  logfile = OFile('setup_anharmonic_logfile.dat')
-  
   ! Calculate the maximum mass-weighted displacement from the maximum
   !    displacement. This corresponds to a mode made entirely from the
   !    lightest element moving up to maximum_displacement.
@@ -250,8 +247,7 @@ subroutine setup_anharmonic_subroutine(arguments)
     degenerate_symmetries(i) = DegenerateSymmetry( structure%symmetries(i), &
                                                  & degenerate_subspaces,    &
                                                  & complex_modes,           &
-                                                 & qpoints,                 &
-                                                 & logfile)
+                                                 & qpoints                  )
   enddo
   
   ! Generate all sets of coupled subspaces, up to maximum_coupling_order.
@@ -322,6 +318,7 @@ subroutine setup_anharmonic_subroutine(arguments)
   
   ! Generate the sampling points which will be used to map out the anharmonic
   !    Born-Oppenheimer surface in the chosen representation.
+  logfile = OFile('setup_anharmonic_logfile.dat')
   call potential%generate_sampling_points( &
                     & anharmonic_data,     &
                     & sampling_points_dir, &

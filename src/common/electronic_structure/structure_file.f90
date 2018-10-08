@@ -1,7 +1,7 @@
 ! ======================================================================
 ! Reads and writes structure.dat files from StructureData.
 ! ======================================================================
-module structure_file_submodule
+module structure_file_module
   use utils_module
   
   use structure_module

@@ -1,12 +1,12 @@
 ! ======================================================================
 ! Methods for generating supercells.
 ! ======================================================================
-module supercell_submodule
+module supercell_module
   use utils_module
   
-  use qpoint_submodule
-  use basic_structure_submodule
-  use structure_submodule
+  use qpoint_module
+  use basic_structure_module
+  use structure_data_module
   implicit none
   
   private
