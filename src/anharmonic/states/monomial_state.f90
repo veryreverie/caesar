@@ -12,6 +12,7 @@ module monomial_state_module
   private
   
   public :: MonomialState
+  public :: operator(*)
   public :: generate_subspace_states
   public :: finite_overlap
   public :: braket_MonomialState
@@ -63,6 +64,10 @@ module monomial_state_module
     module procedure new_MonomialState_StringArray
   end interface
   
+  interface operator(*)
+    module procedure multiply_MonomialState_MonomialState
+  end interface
+  
   interface finite_overlap
     module procedure finite_overlap_MonomialStates
   end interface
@@ -95,6 +100,21 @@ function new_MonomialState(subspace_id,frequency,state) result(this)
   this%subspace_id = subspace_id
   this%frequency   = frequency
   this%state_      = state
+end function
+
+! ----------------------------------------------------------------------
+! Multiply two monomial states together.
+! ----------------------------------------------------------------------
+impure elemental function multiply_MonomialState_MonomialState(this,that) &
+   & result(output)
+  implicit none
+  
+  type(MonomialState), intent(in) :: this
+  type(MonomialState), intent(in) :: that
+  type(MonomialState)             :: output
+  
+  output = this
+  output%state_ = output%state_*that%state_
 end function
 
 ! ----------------------------------------------------------------------

@@ -13,15 +13,16 @@ contains
 ! ----------------------------------------------------------------------
 ! Generates supercells.
 ! ----------------------------------------------------------------------
-function generate_supercells(structure,qpoints,symmetry_precision) &
-   & result(output)
+function generate_supercells(structure,qpoints,symmetry_precision, &
+   & loto_direction) result(output)
   implicit none
   
   ! Inputs.
-  type(StructureData), intent(in)  :: structure
-  type(QpointData),    intent(in)  :: qpoints(:)
-  real(dp),            intent(in)  :: symmetry_precision
-  type(StructureData), allocatable :: output(:)
+  type(StructureData),  intent(in)           :: structure
+  type(QpointData),     intent(in)           :: qpoints(:)
+  real(dp),             intent(in)           :: symmetry_precision
+  type(FractionVector), intent(in), optional :: loto_direction
+  type(StructureData), allocatable           :: output(:)
   
   ! q-point variables.
   logical, allocatable :: accounted_for(:)
@@ -58,7 +59,9 @@ function generate_supercells(structure,qpoints,symmetry_precision) &
     supercell_matrix = construct_supercell_matrix(qpoints(i), structure)
     output(no_supercells) = construct_supercell( structure,       &
                                                & supercell_matrix )
-    call output(no_supercells)%calculate_symmetry(symmetry_precision)
+    call output(no_supercells)%calculate_symmetry( &
+                 & symmetry_precision,             &
+                 & loto_direction = loto_direction )
     
     ! Find all q-points which can be simulated using this supercell.
     do j=1,size(qpoints)

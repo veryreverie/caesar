@@ -6,6 +6,7 @@ module subspace_basis_module
   
   use monomial_state_module
   use braket_module
+  use state_conversion_module
   implicit none
   
   private
@@ -14,25 +15,6 @@ module subspace_basis_module
   public :: SubspaceWavevectorBasis
   public :: size
   public :: generate_subspace_basis
-  
-  ! Conversions between bases of states.
-  type, extends(Stringable) :: StateConversion
-    integer,  allocatable :: ids(:)
-    real(dp), allocatable :: coefficients(:)
-  contains
-    ! I/O.
-    procedure, public :: read  => read_StateConversion
-    procedure, public :: write => write_StateConversion
-  end type
-  
-  interface StateConversion
-    module procedure new_StateConversion
-    module procedure new_StateConversion_String
-  end interface
-  
-  interface size
-    module procedure size_StateConversion
-  end interface
   
   ! The states at a single wavevector.
   type, extends(Stringsable) :: SubspaceWavevectorBasis
@@ -102,31 +84,6 @@ module subspace_basis_module
 contains
 
 ! Constructors and size functions.
-function new_StateConversion(ids,coefficients) result(this)
-  implicit none
-  
-  integer,  intent(in)  :: ids(:)
-  real(dp), intent(in)  :: coefficients(:)
-  type(StateConversion) :: this
-  
-  if (size(ids)/=size(coefficients)) then
-    call print_line(CODE_ERROR//': ids and coefficients do not match.')
-    call err()
-  endif
-  
-  this%ids          = ids
-  this%coefficients = coefficients
-end function
-
-function size_StateConversion(this) result(output)
-  implicit none
-  
-  type(StateConversion), intent(in) :: this
-  integer                           :: output
-  
-  output = size(this%ids)
-end function
-
 function new_SubspaceWavevectorBasis(subspace_id,frequency,wavevector,states, &
    & states_to_basis,basis_to_states,harmonic_occupations) result(this)
   implicit none
@@ -259,6 +216,29 @@ function generate_subspace_basis(subspace,frequency,modes,qpoints, &
   
   ! Temporary variables.
   integer :: i,j,k,l,ialloc
+  
+  type(StatesBasis)         :: states_basis
+  type(String), allocatable :: state_strings(:)
+  
+  states_basis = generate_subspace_basis_states( subspace,     &
+                                               & frequency,    &
+                                               & modes,        &
+                                               & maximum_power )
+  
+  call print_line('')
+  call print_line('states')
+  do i=1,size(states_basis)
+    state_strings = str(states_basis%monomial_states(i))
+    call print_line('|'//i//'> = '//state_strings(size(state_strings)))
+  enddo
+  call print_line('states to basis')
+  do i=1,size(states_basis)
+    call print_line('|'//i//'> = '//str(states_basis%states_to_basis(i)))
+  enddo
+  call print_line('basis to states')
+  do i=1,size(states_basis)
+    call print_line('|'//i//'> = '//str(states_basis%basis_to_states(i)))
+  enddo
   
   ! ------------------------------
   ! Generate all states in the basis.
@@ -549,63 +529,6 @@ end function
 ! ----------------------------------------------------------------------
 ! I/O.
 ! ----------------------------------------------------------------------
-subroutine read_StateConversion(this,input)
-  implicit none
-  
-  class(StateConversion), intent(out) :: this
-  type(String),           intent(in)  :: input
-  
-  integer,  allocatable :: ids(:)
-  real(dp), allocatable :: coefficients(:)
-  
-  type(String), allocatable :: states(:)
-  type(String), allocatable :: line(:)
-  
-  integer :: i,ialloc
-  
-  select type(this); type is(StateConversion)
-    states = split_line(input)
-    allocate( ids(size(states)),          &
-            & coefficients(size(states)), &
-            & stat=ialloc); call err(ialloc)
-    do i=1,size(states)
-      line = split_line(states(i), delimiter='|')
-      coefficients(i) = dble(line(1))
-      ids(i) = int(slice(line(2),1,len(line(2))-1))
-    enddo
-    
-    this = StateConversion(ids, coefficients)
-  class default
-    call err()
-  end select
-end subroutine
-
-function write_StateConversion(this) result(output)
-  implicit none
-  
-  class(StateConversion), intent(in) :: this
-  type(String)                       :: output
-  
-  integer :: i
-  
-  select type(this); type is(StateConversion)
-    output = join([( this%coefficients(i)//'|'//this%ids(i)//'>', &
-                   & i=1,                                         &
-                   & size(this)                                   )])
-  class default
-    call err()
-  end select
-end function
-
-function new_StateConversion_String(input) result(this)
-  implicit none
-  
-  type(String), intent(in) :: input
-  type(StateConversion)    :: this
-  
-  call this%read(input)
-end function
-
 subroutine read_SubspaceWavevectorBasis(this,input)
   implicit none
   

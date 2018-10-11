@@ -29,9 +29,18 @@ function calculate_normal_modes() result(output)
      &after run_harmonic.'
   output%keywords = [                                                         &
      & KeywordData( 'acoustic_sum_rule',                                      &
-     &              'acoustic_sum_rule specifies where the acoustic sum rule  &
+     &              'acoustic_sum_rule specifies where the acoustic sum rule &
      &is applied. The options are "off", "forces", "matrices" and "both".',   &
-     &              default_value='both')                                     ]
+     &              default_value='both'),                                    &
+     & KeywordData( 'loto_direction',                                         &
+     &              'loto_direction specifies the direction (in reciprocal &
+     &co-ordinates from which the gamma point is approached when calculating &
+     &LO/TO corrections. See setup_harmonic help for details. loto_direction &
+     &may only be specified here if it was not specified in setup_harmonic, &
+     &and if every symmetry of the system leaves it invariant, i.e. q.S=q for &
+     &all S, where S is the symmetry matrix and q is loto_direction. See &
+     &structure.dat for the list of symmetries.',                             &
+     &              is_optional = .true.)                                     ]
   output%main_subroutine => calculate_normal_modes_subroutine
 end function
 
@@ -44,13 +53,15 @@ subroutine calculate_normal_modes_subroutine(arguments)
   type(Dictionary), intent(in) :: arguments
   
   ! Input arguments.
-  type(Dictionary) :: setup_harmonic_arguments
-  type(String)     :: acoustic_sum_rule
-  logical          :: acoustic_sum_rule_forces
-  logical          :: acoustic_sum_rule_matrices
+  type(String)         :: acoustic_sum_rule
+  logical              :: acoustic_sum_rule_forces
+  logical              :: acoustic_sum_rule_matrices
+  type(FractionVector) :: loto_direction
+  logical              :: loto_direction_set
   
   ! Arguments to setup_harmonic.
-  type(String) :: seedname
+  type(Dictionary) :: setup_harmonic_arguments
+  type(String)     :: seedname
   
   ! Initial data calculated by setup_harmonic.
   integer                          :: no_supercells
@@ -144,9 +155,39 @@ subroutine calculate_normal_modes_subroutine(arguments)
   no_supercells = int(no_supercells_file%line(1))
   
   ! --------------------------------------------------
+  ! Initialise LO/TO splitting if necessary.
+  ! --------------------------------------------------
+  if (setup_harmonic_arguments%is_set('loto_direction')) then
+    loto_direction = FractionVector(                      &
+       & setup_harmonic_arguments%value('loto_direction') )
+    loto_direction_set = .true.
+  endif
+  
+  if (arguments%is_set('loto_direction')) then
+    if (loto_direction_set) then
+      call print_line(ERROR//': loto_direction may not be specified here, &
+         &since it was already specified in setup_harmonic.')
+      stop
+    endif
+    loto_direction = FractionVector(                      &
+       & setup_harmonic_arguments%value('loto_direction') )
+    loto_direction_set = .true.
+    if (any(structure%symmetries%tensor*loto_direction/=loto_direction)) then
+      call print_line(ERROR//': loto_direction has been specified in a &
+         &direction which is not invariant under symmetry. To specify this &
+         &direction, please set loto_direction when running setup_harmonic.')
+      stop
+    endif
+  endif
+  
+  ! --------------------------------------------------
   ! Initialise calculation reader.
   ! --------------------------------------------------
-  calculation_reader = CalculationReader()
+  if (loto_direction_set) then
+    calculation_reader = CalculationReader(loto_direction)
+  else
+    calculation_reader = CalculationReader()
+  endif
   
   ! --------------------------------------------------
   ! Calculate the matrix of force constants corresponding to each supercell.

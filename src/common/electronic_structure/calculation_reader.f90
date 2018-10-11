@@ -16,7 +16,8 @@ module calculation_reader_module
   public :: CalculationReader
   
   type, extends(NoDefaultConstructor) :: CalculationReader
-    type(String), private, allocatable :: directories_(:)
+    type(FractionVector), private, allocatable :: loto_direction_
+    type(String),         private, allocatable :: directories_(:)
   contains
     procedure, public :: directories_read
     procedure, public :: read_calculation
@@ -29,11 +30,15 @@ module calculation_reader_module
 contains
 
 ! Constructor.
-function new_CalculationReader() result(this)
+function new_CalculationReader(loto_direction) result(this)
   implicit none
   
-  type(CalculationReader) :: this
+  type(FractionVector), intent(in), optional :: loto_direction
+  type(CalculationReader)                    :: this
   
+  if (present(loto_direction)) then
+    this%loto_direction_ = loto_direction
+  endif
   this%directories_ = [String::]
 end function
 

@@ -317,12 +317,14 @@ end function
 ! ----------------------------------------------------------------------
 ! Calculate symmetries.
 ! ----------------------------------------------------------------------
-subroutine calculate_symmetry(this,symmetry_precision,symmetries)
+subroutine calculate_symmetry(this,symmetry_precision,symmetries, &
+   & loto_direction)
   implicit none
   
   class(StructureData), intent(inout)        :: this
   real(dp),             intent(in)           :: symmetry_precision
   type(BasicSymmetry),  intent(in), optional :: symmetries(:)
+  type(FractionVector), intent(in), optional :: loto_direction
   
   type(SpglibSymmetries)           :: spglib_symmetries
   type(BasicSymmetry), allocatable :: basic_symmetries(:)
@@ -351,6 +353,13 @@ subroutine calculate_symmetry(this,symmetry_precision,symmetries)
       call err()
     endif
     basic_symmetries = symmetries
+    if (present(loto_direction)) then
+      if (any(loto_direction*basic_symmetries%tensor/=loto_direction)) then
+        call print_line(ERROR//': A symmetry does not leave the LO/TO &
+           &direction invariant.')
+        call err()
+      endif
+    endif
   else
     spglib_symmetries = SpglibSymmetries( this%lattice,      &
                                         & this%atoms,        &
@@ -358,6 +367,10 @@ subroutine calculate_symmetry(this,symmetry_precision,symmetries)
     basic_symmetries = BasicSymmetry( spglib_symmetries, &
                                     & this%atoms,        &
                                     & symmetry_precision )
+    if (present(loto_direction)) then
+      basic_symmetries = basic_symmetries(filter(                 &
+         & loto_direction*basic_symmetries%tensor==loto_direction ))
+    endif
   endif
   
   no_symmetries = size(basic_symmetries)
