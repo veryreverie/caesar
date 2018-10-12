@@ -147,9 +147,10 @@ subroutine setup_harmonic_subroutine(arguments)
       call structure%calculate_symmetry( symmetry_precision,             &
                                        & loto_direction = loto_direction )
     else
-      if (any(loto_direction*structure%symmetries%tensor/=loto_direction)) then
-        call print_line(ERROR//': Symmetries have been specified which do not &
-           &leave the LO/TO direction invariant.')
+      if (any(loto_breaks_symmetry( structure%symmetries%tensor, &
+                                  & loto_direction               ))) then
+        call print_line(ERROR//': Symmetries have been specified which are &
+           &broken by the LO/TO direction.')
         stop
       endif
     endif

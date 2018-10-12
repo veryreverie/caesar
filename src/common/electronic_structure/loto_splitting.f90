@@ -96,4 +96,51 @@ function new_LotoCorrection_dfpt(born_charges,permittivity,loto_direction, &
   ! Construct output.
   this = LotoCorrection(energy,force)
 end function
+
+! Calculate the dynamical matrix correction.
+function dynamical_matrix_correction(born_charges,permittivity, &
+   & loto_direction,structure) result(output)
+  implicit none
+  
+  type(RealMatrix),     intent(in) :: born_charges(:)
+  type(RealMatrix),     intent(in) :: permittivity
+  type(FractionVector), intent(in) :: loto_direction
+  type(StructureData),  intent(in) :: structure
+  type(RealMatrix), allocatable    :: output(:,:)
+  
+  ! Normalised LO/TO direction.
+  type(RealVector) :: direction
+  
+  ! Temporary variables.
+  real(dp)                      :: scaling
+  type(RealVector), allocatable :: a(:)
+  integer                       :: i,j,ialloc
+  
+  ! If Z(i) is the Born effective charge on atom i,
+  !    |q>  is the normalised LO/TO direction,
+  !    V    is the volume of the primitive cell, and
+  !    e    is the permittivity,
+  ! The correction to the dynamical matrix D(i,j) is given by:
+  !
+  ! D(i,j) = (Z(i)^T)|q><q|Z(j) * 4*pi/(V<q|e|q>)
+
+  ! Normalise the LO/TO direction.
+  direction = dblevec(loto_direction)
+  direction = direction / l2_norm(direction)
+  
+  ! Calculate the scaling factor, 4*pi/(V<q|e|q>).
+  scaling = 4*PI / (structure%volume*direction*permittivity*direction)
+  
+  ! Calculate (Z(i)^T)|q>.
+  a = direction * born_charges
+  
+  ! Calculate the dynamical matrix correction.
+  allocate( output(size(born_charges),size(born_charges)), &
+          & stat=ialloc); call err(ialloc)
+  do i=1,size(born_charges)
+    do j=1,size(born_charges)
+      output(i,j) = outer_product(a(i), a(j)) * scaling
+    enddo
+  enddo
+end function
 end module

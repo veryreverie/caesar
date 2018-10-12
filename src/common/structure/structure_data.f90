@@ -354,9 +354,10 @@ subroutine calculate_symmetry(this,symmetry_precision,symmetries, &
     endif
     basic_symmetries = symmetries
     if (present(loto_direction)) then
-      if (any(loto_direction*basic_symmetries%tensor/=loto_direction)) then
-        call print_line(ERROR//': A symmetry does not leave the LO/TO &
-           &direction invariant.')
+      if (any(loto_breaks_symmetry( basic_symmetries%tensor, &
+                                  & loto_direction           ))) then
+        call print_line(ERROR//': A symmetry is broken by the LO/TO &
+           &direction.')
         call err()
       endif
     endif
@@ -368,8 +369,8 @@ subroutine calculate_symmetry(this,symmetry_precision,symmetries, &
                                     & this%atoms,        &
                                     & symmetry_precision )
     if (present(loto_direction)) then
-      basic_symmetries = basic_symmetries(filter(                 &
-         & loto_direction*basic_symmetries%tensor==loto_direction ))
+      basic_symmetries = basic_symmetries(filter(                            &
+         & .not.loto_breaks_symmetry(basic_symmetries%tensor,loto_direction) ))
     endif
   endif
   

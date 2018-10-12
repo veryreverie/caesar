@@ -98,16 +98,6 @@ subroutine calculate_potential_subroutine(arguments)
   ! Read in setup_harmonic arguments.
   setup_harmonic_arguments = Dictionary(setup_harmonic())
   call setup_harmonic_arguments%read_file('setup_harmonic.used_settings')
-  if (setup_harmonic_arguments%is_set('loto_direction')) then
-    if (loto_direction_set) then
-      call print_line(ERROR//': loto_direction may not be specified here, &
-         &since it was already specified in setup_harmonic.')
-      stop
-    endif
-    loto_direction = FractionVector(                      &
-       & setup_harmonic_arguments%value('loto_direction') )
-    loto_direction_set = .true.
-  endif
   
   ! Read in setup_anharmonic arguments.
   setup_anharmonic_arguments = Dictionary(setup_anharmonic())
@@ -138,11 +128,12 @@ subroutine calculate_potential_subroutine(arguments)
     loto_direction = FractionVector(                      &
        & setup_harmonic_arguments%value('loto_direction') )
     loto_direction_set = .true.
-    if (any( anharmonic_data%structure%symmetries%tensor*loto_direction &
-        & /= loto_direction                                             )) then
+    if (any(loto_breaks_symmetry(                     &
+       & anharmonic_data%structure%symmetries%tensor, &
+       & loto_direction                               ))) then
       call print_line(ERROR//': loto_direction has been specified in a &
-         &direction which is not invariant under symmetry. To specify this &
-         &direction, please set loto_direction when running setup_harmonic.')
+         &direction which breaks symmetry. To specify this direction, please &
+         &set loto_direction when running setup_harmonic.')
       stop
     endif
   endif

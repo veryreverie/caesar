@@ -16,6 +16,7 @@ module symmetry_module
   public :: BasicSymmetry
   public :: operators_commute
   public :: operators_anticommute
+  public :: loto_breaks_symmetry
   
   ! ----------------------------------------------------------------------
   ! A symmetry operation.
@@ -342,5 +343,30 @@ impure elemental function symmetry_order(this,qpoint) result(output)
     qr = qpoint%qpoint * rvector
     output = output * qr%denominator()
   endif
+end function
+
+! ----------------------------------------------------------------------
+! Returns whether or not the LO/TO direction breaks a given symmetry.
+! ----------------------------------------------------------------------
+! A symmetry is broken if its tensor transforms the LO/TO direction
+!    onto a different axis.
+! Symmetries which map the LO/TO direction onto minus itself are allowed.
+impure elemental function loto_breaks_symmetry(tensor,loto_direction) &
+   & result(output)
+  implicit none
+  
+  type(IntMatrix),      intent(in) :: tensor
+  type(FractionVector), intent(in) :: loto_direction
+  logical                          :: output
+  
+  type(FractionVector) :: transformed_direction
+  
+  ! A symmetry with tensor S acts on the LO/TO direction q as
+  !    S: q -> S^(-T).q
+  ! So the LO/TO direction breaks the symmetry if  q /= +/- S^(-T).q,
+  !    or equivalently if q.S /= +/- q
+  transformed_direction = loto_direction*tensor
+  output = transformed_direction /=  loto_direction .and. &
+         & transformed_direction /= -loto_direction
 end function
 end module

@@ -172,10 +172,11 @@ subroutine calculate_normal_modes_subroutine(arguments)
     loto_direction = FractionVector(                      &
        & setup_harmonic_arguments%value('loto_direction') )
     loto_direction_set = .true.
-    if (any(structure%symmetries%tensor*loto_direction/=loto_direction)) then
+    if (any(loto_breaks_symmetry( structure%symmetries%tensor, &
+                                & loto_direction               ))) then
       call print_line(ERROR//': loto_direction has been specified in a &
-         &direction which is not invariant under symmetry. To specify this &
-         &direction, please set loto_direction when running setup_harmonic.')
+         &direction which breaks symmetry. To specify this direction, please &
+         &set loto_direction when running setup_harmonic.')
       stop
     endif
   endif
