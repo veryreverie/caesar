@@ -326,29 +326,30 @@ function mode_basis_1d(subspace,frequency,mode,maximum_power) result(output)
   ! A harmonic basis state |i> is defined in terms of monomial states |j> as
   !    |i> = sum h_{i,j}|j>.
   ! h_{0,0} = 1.
-  ! h_{i,j} = sqrt(2j-1)        h_{i-1,j-1}
-  !         - (j+1)/sqrt(2j+1)) h_{i-1,j+1}
+  ! h_{i,j} = sqrt((2j-1)/i)       h_{i-1,j-1}
+  !         - (j+1)/sqrt(i(2j+1))) h_{i-1,j+1}
   allocate(states_to_basis(no_states), stat=ialloc); call err(ialloc)
   states_to_basis(1) = StateConversion(ids=[1], coefficients=[1.0_dp])
-  do i=2,no_states
+  do state=2,no_states
     ! Construct h_{i,j} from {h_{i-1,j}}.
-    id = i-1
-    states_to_basis(i) = StateConversion()
+    i  = state-1
+    id = state-1
+    states_to_basis(state) = StateConversion()
     do term=1,size(states_to_basis(id))
-      ! Add sqrt(2j-1) h_{i-1,j-1}
+      ! Add sqrt((2j-1)/i) h_{i-1,j-1}
       j = univariates(states_to_basis(id)%ids(term))%power + 1
-      coefficient = sqrt(2*j-1.0_dp) &
+      coefficient = sqrt((2*j-1.0_dp)/i) &
                 & * states_to_basis(id)%coefficients(term)
-      call states_to_basis(i)%add_element( id          = ids(j),     &
-                                         & coefficient = coefficient )
+      call states_to_basis(state)%add_element( id          = ids(j),     &
+                                             & coefficient = coefficient )
       
-      ! Subtract (j+1)/sqrt(2j+1) h_{i-1,j+1}.
+      ! Subtract (j+1)/sqrt(i(2j+1)) h_{i-1,j+1}.
       j = univariates(states_to_basis(id)%ids(term))%power - 1
       if (j>=0) then
-        coefficient = (-(j+1)/sqrt(2*j+1.0_dp)) &
+        coefficient = (-(j+1)/sqrt(i*(2*j+1.0_dp))) &
                   & * states_to_basis(id)%coefficients(term)
-        call states_to_basis(i)%add_element( id          = ids(j),     &
-                                           & coefficient = coefficient )
+        call states_to_basis(state)%add_element( id          = ids(j),     &
+                                               & coefficient = coefficient )
       endif
     enddo
   enddo
@@ -420,11 +421,12 @@ function mode_basis_2d(subspace,frequency,mode,maximum_power) result(output)
   ! A harmonic basis state |ip,im> is defined in terms of monomial states
   !    |jp,jm> as |ip,im> = sum h_{ip,im,jp,jm}|jp,jm>.
   ! h_{0,0,0,0} = 1.
-  ! h_{ip,im,jp,jm} = sqrt(jp+jm)          h_{ip-1, im, jp-1, jm  }
-  !                 - (jm+1)/sqrt(jp+jm+1) h_{ip-1, im, jp,   jm+1}
+  ! h_{ip,im,jp,jm} = sqrt((jp+jm)/ip)         h_{ip-1, im, jp-1, jm  }
+  !                 - (jm+1)/sqrt(ip(jp+jm+1)) h_{ip-1, im, jp,   jm+1}
   ! also
-  ! h_{ip,im,jp,jm} = sqrt(jp+jm)           h_{ip, im-1, jp,   jm-1}
-  !                 - (jp+1)/sqrt(jp+jm+1)  h_{ip, im-1, jp+1, jm  }
+  ! h_{ip,im,jp,jm} = sqrt((jp+jm)/im)          h_{ip, im-1, jp,   jm-1}
+  !                 - (jp+1)/sqrt(im(jp+jm+1))  h_{ip, im-1, jp+1, jm  }
+  
   allocate(states_to_basis(no_states), stat=ialloc); call err(ialloc)
   states_to_basis(1) = StateConversion(ids=[1], coefficients=[1.0_dp])
   do state=2,no_states
@@ -438,19 +440,19 @@ function mode_basis_2d(subspace,frequency,mode,maximum_power) result(output)
     if (ip>0) then
       id = ids(ip-1,im)
       do term=1,size(states_to_basis(id))
-        ! Add sqrt(jp+jm) h_{ip-1,im,jp-1,jm}
+        ! Add sqrt((jp+jm)/ip) h_{ip-1,im,jp-1,jm}
         jp = univariates(states_to_basis(id)%ids(term))%power + 1
         jm = univariates(states_to_basis(id)%ids(term))%paired_power
-        coefficient = sqrt(1.0_dp*(jp+jm)) &
+        coefficient = sqrt((1.0_dp*(jp+jm))/ip) &
                   & * states_to_basis(id)%coefficients(term)
         call states_to_basis(state)%add_element( id          = ids(jp,jm), &
                                                & coefficient = coefficient )
         
-        ! Subtract (jm+1)/sqrt(jp+jm+1) h_{ip-1,im,jp,jm+1}
+        ! Subtract (jm+1)/sqrt(ip(jp+jm+1)) h_{ip-1,im,jp,jm+1}
         jp = univariates(states_to_basis(id)%ids(term))%power
         jm = univariates(states_to_basis(id)%ids(term))%paired_power - 1
         if (jm>=0) then
-          coefficient = ((jm+1)/sqrt(jp+jm+1.0_dp)) &
+          coefficient = ((jm+1)/sqrt(ip*(jp+jm+1.0_dp))) &
                     & * states_to_basis(id)%coefficients(term)
           call states_to_basis(state)%add_element( id          = ids(jp,jm), &
                                                  & coefficient = coefficient )
@@ -459,20 +461,24 @@ function mode_basis_2d(subspace,frequency,mode,maximum_power) result(output)
     else
       id = ids(ip,im-1)
       do term=1,size(states_to_basis(id))
-        ! Add sqrt(jp+jm) h_{ip,im-1,jp-1,jm-1}
+        ! Add sqrt((jp+jm)/im) h_{ip,im-1,jp-1,jm-1}
         jp = univariates(states_to_basis(id)%ids(term))%power
         jm = univariates(states_to_basis(id)%ids(term))%paired_power + 1
-        coefficient = sqrt(1.0_dp*(jp+jm)) &
+        coefficient = sqrt((1.0_dp*(jp+jm))/im) &
                   & * states_to_basis(id)%coefficients(term)
         call states_to_basis(state)%add_element( id          = ids(jp,jm), &
                                                & coefficient = coefficient )
         
-        ! Subtract (jp+1)/sqrt(jp+jm+1) h_{ip,im-1,jp+1,jm}
+        ! Subtract (jp+1)/sqrt(im(jp+jm+1)) h_{ip,im-1,jp+1,jm}
         jp = univariates(states_to_basis(id)%ids(term))%power - 1
         jm = univariates(states_to_basis(id)%ids(term))%paired_power
         if (jp>=0) then
-          coefficient = ((jp+1)/sqrt(jp+jm+1.0_dp)) &
+          coefficient = ((jp+1)/sqrt(im*(jp+jm+1.0_dp))) &
                     & * states_to_basis(id)%coefficients(term)
+          if (ids(ip,im)==4) then
+            call print_line('JP '//jp//' JM '//jm)
+            call print_line(coefficient)
+          endif
           call states_to_basis(state)%add_element( id          = ids(jp,jm), &
                                                  & coefficient = coefficient )
         endif

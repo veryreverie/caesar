@@ -225,20 +225,21 @@ function generate_subspace_basis(subspace,frequency,modes,qpoints, &
                                                & modes,        &
                                                & maximum_power )
   
-  call print_line('')
-  call print_line('states')
-  do i=1,size(states_basis)
-    state_strings = str(states_basis%monomial_states(i))
-    call print_line('|'//i//'> = '//state_strings(size(state_strings)))
-  enddo
-  call print_line('states to basis')
-  do i=1,size(states_basis)
-    call print_line('|'//i//'> = '//str(states_basis%states_to_basis(i)))
-  enddo
-  call print_line('basis to states')
-  do i=1,size(states_basis)
-    call print_line('|'//i//'> = '//str(states_basis%basis_to_states(i)))
-  enddo
+  ! TODO
+  !call print_line('')
+  !call print_line('states')
+  !do i=1,size(states_basis)
+  !  state_strings = str(states_basis%monomial_states(i))
+  !  call print_line('|'//i//'> = '//state_strings(size(state_strings)))
+  !enddo
+  !call print_line('states to basis')
+  !do i=1,size(states_basis)
+  !  call print_line('|'//i//'> = '//str(states_basis%states_to_basis(i)))
+  !enddo
+  !call print_line('basis to states')
+  !do i=1,size(states_basis)
+  !  call print_line('|'//i//'> = '//str(states_basis%basis_to_states(i)))
+  !enddo
   
   ! ------------------------------
   ! Generate all states in the basis.
