@@ -234,7 +234,7 @@ subroutine setup_harmonic_subroutine(arguments)
     ! Write energy and force calculation input files.
     do j=1,size(unique_directions)
       ! Construct displaced structure.
-      displacement = unique_directions(j)%cartesian_displacement(supercell)
+      displacement = CartesianDisplacement(unique_directions(j), supercell)
       displaced_structure = displace_structure(supercell,displacement)
       
       ! Write calculation input files.

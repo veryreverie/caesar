@@ -28,6 +28,7 @@ module mass_weighted_force_module
   
   interface MassWeightedForce
     module procedure new_MassWeightedForce
+    module procedure new_MassWeightedForce_zero
     module procedure new_MassWeightedForce_CartesianForce
     module procedure new_MassWeightedForce_Strings
     module procedure new_MassWeightedForce_StringArray
@@ -83,6 +84,21 @@ function size_MassWeightedForce(this) result(output)
   integer                             :: output
   
   output = size(this%vectors)
+end function
+
+! ----------------------------------------------------------------------
+! Construct a zero force.
+! ----------------------------------------------------------------------
+impure elemental function new_MassWeightedForce_zero(structure) &
+   & result(this)
+  implicit none
+  
+  type(StructureData), intent(in) :: structure
+  type(MassWeightedForce)         :: this
+  
+  integer :: i
+  
+  this%vectors = [(dblevec(zeroes(3)), i=1, structure%no_atoms)]
 end function
 
 ! ----------------------------------------------------------------------

@@ -89,12 +89,6 @@ subroutine calculate_potential_subroutine(arguments)
   ! Read in arguments.
   energy_to_force_ratio = dble(arguments%value('energy_to_force_ratio'))
   
-  if (arguments%is_set('loto_direction')) then
-    loto_direction = FractionVector(                      &
-       & setup_harmonic_arguments%value('loto_direction') )
-    loto_direction_set = .true.
-  endif
-  
   ! Read in setup_harmonic arguments.
   setup_harmonic_arguments = Dictionary(setup_harmonic())
   call setup_harmonic_arguments%read_file('setup_harmonic.used_settings')
@@ -113,6 +107,7 @@ subroutine calculate_potential_subroutine(arguments)
   anharmonic_data = AnharmonicData(anharmonic_data_file%lines())
   
   ! Initialise LO/TO splitting if necessary.
+  loto_direction_set = .false.
   if (setup_harmonic_arguments%is_set('loto_direction')) then
     loto_direction = FractionVector(                      &
        & setup_harmonic_arguments%value('loto_direction') )

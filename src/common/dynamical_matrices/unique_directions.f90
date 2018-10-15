@@ -16,6 +16,7 @@ module unique_directions_module
   
   public :: UniqueDirection
   public :: calculate_unique_directions
+  public :: CartesianDisplacement
   
   ! A direction in which an atom needs to be perturbed in order to map out
   !    the harmonic Born-Oppenheimer surface.
@@ -29,11 +30,6 @@ module unique_directions_module
     ! The vector through which the atom is displaced.
     type(RealVector) :: atomic_displacement
   contains
-    ! Construct the displacement for all atoms. This is atomic_displacement
-    !    for the displaced atom, and zero for all other atoms.
-    procedure, public :: cartesian_displacement => &
-       & cartesian_displacement_UniqueDirection
-    
     ! I/O.
     procedure, public :: read  => read_UniqueDirection
     procedure, public :: write => write_UniqueDirection
@@ -43,6 +39,10 @@ module unique_directions_module
     module procedure new_UniqueDirection
     module procedure new_UniqueDirection_Strings
     module procedure new_UniqueDirection_StringArray
+  end interface
+  
+  interface CartesianDisplacement
+    module procedure new_CartesianDisplacement_UniqueDirection
   end interface
 contains
 
@@ -330,12 +330,13 @@ end subroutine
 ! Construct the displacement for all atoms. This is atomic_displacement
 !    for the displaced atom, and zero for all other atoms.
 ! ----------------------------------------------------------------------
-function cartesian_displacement_UniqueDirection(this,structure) result(output)
+impure elemental function new_CartesianDisplacement_UniqueDirection(input, &
+   & structure) result(this)
   implicit none
   
-  class(UniqueDirection), intent(in) :: this
-  type(StructureData),    intent(in) :: structure
-  type(CartesianDisplacement)        :: output
+  type(UniqueDirection), intent(in) :: input
+  type(StructureData),   intent(in) :: structure
+  type(CartesianDisplacement)       :: this
   
   type(RealVector), allocatable :: displacements(:)
   
@@ -343,9 +344,9 @@ function cartesian_displacement_UniqueDirection(this,structure) result(output)
   
   allocate(displacements(structure%no_atoms), stat=ialloc); call err(ialloc)
   displacements = dblevec(zeroes(3))
-  displacements(this%atom_id) = this%atomic_displacement
+  displacements(input%atom_id) = input%atomic_displacement
   
-  output = CartesianDisplacement(displacements)
+  this = CartesianDisplacement(displacements)
 end function
 
 ! ----------------------------------------------------------------------

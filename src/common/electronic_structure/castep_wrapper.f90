@@ -485,13 +485,18 @@ function read_output_file_castep(filename,structure) result(output)
   integer :: energy_line
   integer :: forces_start_line
   integer :: forces_end_line
+  integer :: permittivity_line
+  integer :: born_charges_line
   
   ! Output variables.
   real(dp)                      :: energy
   type(RealVector), allocatable :: forces(:)
+  real(dp)                      :: permittivity(3,3)
+  real(dp)                      :: born_charge(3,3)
+  type(RealMatrix), allocatable :: born_charges(:)
   
   ! Temporary variables.
-  integer :: i,j,ialloc
+  integer :: i,j,k,ialloc
     
   if (.not. file_exists(filename)) then
     call print_line(ERROR//': '//filename//' does not exist. Please ensure &
@@ -505,14 +510,18 @@ function read_output_file_castep(filename,structure) result(output)
   energy_line = 0
   forces_start_line = 0
   forces_end_line = 0
+  permittivity_line = 0
+  born_charges_line = 0
   do i=1,size(castep_file)
     line = split_line(lower_case(castep_file%line(i)))
+    
     ! Energy.
     if (size(line)>=2) then
       if (line(1)=='final' .and. line(2)=='energy,') then
         energy_line = i
       endif
     endif
+    
     ! Forces.
     if (size(line)>=2) then
       if ( line(1)==repeat('*',len(line(1))) .and. &
@@ -522,12 +531,24 @@ function read_output_file_castep(filename,structure) result(output)
          &                                         ) then
         forces_start_line = i
       endif
-    endif
-    if (size(line)==1) then
+    elseif (size(line)==1) then
       if ( forces_start_line/=0 .and.        &
          & forces_end_line==0   .and.        &
          & line(1)==repeat('*',len(line(1))) ) then
         forces_end_line = i
+      endif
+    endif
+    
+    ! Linear response (permittivity and Born effective charges).
+    if (size(line)>=3) then
+      if ( line(1)=='optical'       .and. &
+         & line(2)=='permittivity'  .and. &
+         & line(3)=='(f->infinity)'       ) then
+        permittivity_line = i
+      elseif ( line(1)=='born'      .and. &
+             & line(2)=='effective' .and. &
+             & line(3)=='charges'         ) then
+        born_charges_line = i
       endif
     endif
   enddo
@@ -536,30 +557,40 @@ function read_output_file_castep(filename,structure) result(output)
   if (energy_line==0) then
     call print_line('Error: Energy not found in '//char(filename))
     stop
-  endif
-  if (forces_start_line==0) then
+  elseif (forces_start_line==0) then
     call print_line('Error: Start of forces not found in '//char(filename))
     stop
-  endif
-  if (forces_end_line==0) then
+  elseif (forces_end_line==0) then
     call print_line('Error: End of forces not found in '//char(filename))
     stop
   elseif (forces_end_line-forces_start_line-7/=structure%no_atoms) then
     call print_line(ERROR//': The number of atoms in the Castep output file &
        &does not match that in the input file.')
     call err()
+  elseif (permittivity_line==0 .neqv. born_charges_line==0) then
+    call print_line(ERROR//': DFPT linear response is only partially present &
+       &in Castep output file.')
+    call err()
   endif
-  
-  ! Allocate arrays.
-  allocate( forces(structure%no_atoms),     &
-          & atom_found(structure%no_atoms), &
-          & stat=ialloc); call err(ialloc)
-  atom_found = .false.
   
   ! Read data.
   line = split_line(castep_file%line(energy_line))
   energy = dble(line(5)) / EV_PER_HARTREE
   
+  if (permittivity_line/=0) then
+    do i=1,3
+      line = split_line(castep_file%line(permittivity_line+1+i))
+      permittivity(i,:) = dble(line(1:3))
+    enddo
+  endif
+  
+  allocate( forces(structure%no_atoms),     &
+          & atom_found(structure%no_atoms), &
+          & stat=ialloc); call err(ialloc)
+  if (born_charges_line/=0) then
+    allocate(born_charges(structure%no_atoms), stat=ialloc); call err(ialloc)
+  endif
+  atom_found = .false.
   do i=1,structure%no_atoms
     line = split_line(castep_file%line(forces_start_line+5+i))
     species = line(2)
@@ -573,6 +604,23 @@ function read_output_file_castep(filename,structure) result(output)
     endif
     atom_found(j) = .true.
     forces(j) = dble(line(4:6)) * ANGSTROM_PER_BOHR / EV_PER_HARTREE
+    
+    if (born_charges_line/=0) then
+      do k=1,3
+        line = split_line(castep_file%line(born_charges_line+1+(i-1)*3+k))
+        if (k==1) then
+          if (line(1)/=species) then
+            call print_line(ERROR//': The Born charges and Forces in the &
+               &Castep output file do not match.')
+            call err()
+          endif
+          born_charge(k,:) = dble(line(3:5))
+        else
+          born_charge(k,:) = dble(line(1:3))
+        endif
+      enddo
+      born_charges(j) = mat(born_charge)
+    endif
   enddo
   
   if (.not. all(atom_found)) then
@@ -582,6 +630,13 @@ function read_output_file_castep(filename,structure) result(output)
   endif
   
   ! Construct output.
-  output = ElectronicStructure(energy,CartesianForce(forces))
+  if (permittivity_line==0) then
+    output = ElectronicStructure(energy, CartesianForce(forces))
+  else
+    output = ElectronicStructure( energy,                              &
+                                & CartesianForce(forces),              &
+                                & LinearResponse( mat(permittivity),   &
+                                &                 born_charges       ) )
+  endif
 end function
 end module

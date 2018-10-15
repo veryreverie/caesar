@@ -30,6 +30,7 @@ module mass_weighted_displacement_module
   
   interface MassWeightedDisplacement
     module procedure new_MassWeightedDisplacement
+    module procedure new_MassWeightedDisplacement_zero
     module procedure new_MassWeightedDisplacement_CartesianDisplacement
     module procedure new_MassWeightedDisplacement_Strings
     module procedure new_MassWeightedDisplacement_StringArray
@@ -90,6 +91,21 @@ function size_MassWeightedDisplacement(this) result(output)
   integer                                    :: output
   
   output = size(this%vectors)
+end function
+
+! ----------------------------------------------------------------------
+! Construct a zero displacement.
+! ----------------------------------------------------------------------
+impure elemental function new_MassWeightedDisplacement_zero(structure) &
+   & result(this)
+  implicit none
+  
+  type(StructureData), intent(in) :: structure
+  type(MassWeightedDisplacement)  :: this
+  
+  integer :: i
+  
+  this%vectors = [(dblevec(zeroes(3)), i=1, structure%no_atoms)]
 end function
 
 ! ----------------------------------------------------------------------

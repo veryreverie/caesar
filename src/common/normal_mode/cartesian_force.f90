@@ -3,6 +3,8 @@
 ! ======================================================================
 module cartesian_force_module
   use utils_module
+  
+  use structure_module
   implicit none
   
   private
@@ -23,6 +25,7 @@ module cartesian_force_module
   
   interface CartesianForce
     module procedure new_CartesianForce
+    module procedure new_CartesianForce_zero
     module procedure new_CartesianForce_Strings
     module procedure new_CartesianForce_StringArray
   end interface
@@ -73,6 +76,20 @@ function size_CartesianForce(this) result(output)
   integer                           :: output
   
   output = size(this%vectors)
+end function
+
+! ----------------------------------------------------------------------
+! Construct a zero force.
+! ----------------------------------------------------------------------
+impure elemental function new_CartesianForce_zero(structure) result(this)
+  implicit none
+  
+  type(StructureData), intent(in) :: structure
+  type(CartesianForce)            :: this
+  
+  integer :: i
+  
+  this%vectors = [(dblevec(zeroes(3)), i=1, structure%no_atoms)]
 end function
 
 ! ----------------------------------------------------------------------

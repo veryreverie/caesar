@@ -1,5 +1,5 @@
 ! ======================================================================
-! Calculate the LO/TO correction to the energy and force
+! Calculate the LO/TO correction to the energy and forces
 !    at a given displacement,
 !    using the electric field response calculated by DFPT.
 ! ======================================================================
@@ -8,46 +8,44 @@ module loto_splitting_module
   
   use normal_mode_module
   use structure_module
+  use electronic_structure_data_module
   implicit none
   
   private
   
   public :: LotoCorrection
+  public :: calculate_loto_correction
   
   type, extends(NoDefaultConstructor) :: LotoCorrection
-    real(dp)                      :: energy
-    type(RealVector), allocatable :: force(:)
+    real(dp)             :: energy
+    type(CartesianForce) :: forces
   end type
   
   interface LotoCorrection
     module procedure new_LotoCorrection
-    module procedure new_LotoCorrection_dfpt
+    module procedure new_LotoCorrection_LinearResponse
   end interface
 contains
 
 ! Constructor.
-function new_LotoCorrection(energy,force) result(this)
+function new_LotoCorrection(energy,forces) result(this)
   implicit none
   
-  real(dp),         intent(in) :: energy
-  type(RealVector), intent(in) :: force(:)
-  type(LotoCorrection)         :: this
+  real(dp),             intent(in) :: energy
+  type(CartesianForce), intent(in) :: forces
+  type(LotoCorrection)             :: this
   
   this%energy = energy
-  this%force = force
+  this%forces = forces
 end function
 
 ! N.B. The force correction is only valid under the assumption that
 !    the Born effective charges and the permitivity are constants.
-! born_charges are the Born effective charges.
-! permittivity is the Dielectric permittivity.
-! loto_direction is the direction along which q approaches 0.
-function new_LotoCorrection_dfpt(born_charges,permittivity,loto_direction, &
+function new_LotoCorrection_LinearResponse(linear_response,loto_direction, &
    & displacement,structure) result(this)
   implicit none
   
-  type(RealMatrix),            intent(in) :: born_charges(:)
-  type(RealMatrix),            intent(in) :: permittivity
+  type(LinearResponse),        intent(in) :: linear_response
   type(FractionVector),        intent(in) :: loto_direction
   type(CartesianDisplacement), intent(in) :: displacement
   type(StructureData),         intent(in) :: structure
@@ -62,7 +60,7 @@ function new_LotoCorrection_dfpt(born_charges,permittivity,loto_direction, &
   
   ! Output variables.
   real(dp)                      :: energy
-  type(RealVector), allocatable :: force(:)
+  type(RealVector), allocatable :: forces(:)
   
   ! Temporary variables.
   type(RealMatrix) :: identity
@@ -70,13 +68,15 @@ function new_LotoCorrection_dfpt(born_charges,permittivity,loto_direction, &
   type(RealMatrix) :: b
   type(RealMatrix) :: c
   
+  integer :: i
+  
   ! Normalise the LO/TO direction.
   direction = dblevec(loto_direction)
   direction = direction / l2_norm(direction)
   
   ! Calculate the susceptibility from the permittivity.
   identity = dblemat(make_identity_matrix(3))
-  susceptibility = permittivity - identity
+  susceptibility = linear_response%permittivity - identity
   
   ! If S is susceptibility,
   !    V is the unit cell volume and
@@ -89,21 +89,23 @@ function new_LotoCorrection_dfpt(born_charges,permittivity,loto_direction, &
   c = b + 0.5_dp*transpose(b)*susceptibility*b
   
   ! Calculate polarisation, energy correction and force correction.
-  polarisation = sum(born_charges*displacement%vectors)
+  polarisation = sum(linear_response%born_charges*displacement%vectors)
   energy = - polarisation * c * polarisation
-  force = polarisation * (c + transpose(c)) * born_charges
+  forces = [(                                                             &
+     & polarisation * (c+transpose(c)) * linear_response%born_charges(i), &
+     & i=1,                                                               &
+     & size(linear_response%born_charges)                                 )]
   
   ! Construct output.
-  this = LotoCorrection(energy,force)
+  this = LotoCorrection(energy, CartesianForce(forces))
 end function
 
 ! Calculate the dynamical matrix correction.
-function dynamical_matrix_correction(born_charges,permittivity, &
-   & loto_direction,structure) result(output)
+function dynamical_matrix_correction(linear_response,loto_direction, &
+   & structure) result(output)
   implicit none
   
-  type(RealMatrix),     intent(in) :: born_charges(:)
-  type(RealMatrix),     intent(in) :: permittivity
+  type(LinearResponse), intent(in) :: linear_response
   type(FractionVector), intent(in) :: loto_direction
   type(StructureData),  intent(in) :: structure
   type(RealMatrix), allocatable    :: output(:,:)
@@ -129,18 +131,39 @@ function dynamical_matrix_correction(born_charges,permittivity, &
   direction = direction / l2_norm(direction)
   
   ! Calculate the scaling factor, 4*pi/(V<q|e|q>).
-  scaling = 4*PI / (structure%volume*direction*permittivity*direction)
+  scaling = 4*PI &
+        & / (structure%volume*direction*linear_response%permittivity*direction)
   
   ! Calculate (Z(i)^T)|q>.
-  a = direction * born_charges
+  a = direction * linear_response%born_charges
   
   ! Calculate the dynamical matrix correction.
-  allocate( output(size(born_charges),size(born_charges)), &
+  allocate( output(structure%no_atoms,structure%no_atoms), &
           & stat=ialloc); call err(ialloc)
-  do i=1,size(born_charges)
-    do j=1,size(born_charges)
+  do i=1,structure%no_atoms
+    do j=1,structure%no_atoms
       output(i,j) = outer_product(a(i), a(j)) * scaling
     enddo
   enddo
+end function
+
+! ----------------------------------------------------------------------
+! Uses calculated LO/TO correction to update electronic structure output.
+! ----------------------------------------------------------------------
+function calculate_loto_correction(electronic_structure,loto_correction) &
+   & result(output)
+  implicit none
+  
+  type(ElectronicStructure), intent(in) :: electronic_structure
+  type(LotoCorrection),      intent(in) :: loto_correction
+  type(ElectronicStructure)             :: output
+  
+  real(dp)             :: energy
+  type(CartesianForce) :: forces
+  
+  energy = electronic_structure%energy + loto_correction%energy
+  forces = electronic_structure%forces + loto_correction%forces
+  
+  output = ElectronicStructure(energy, forces)
 end function
 end module

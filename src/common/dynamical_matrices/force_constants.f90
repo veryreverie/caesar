@@ -68,7 +68,6 @@ function new_ForceConstants_forces(supercell,unique_directions, &
   type(OFile),               intent(inout) :: logfile
   type(ForceConstants)                     :: output
   
-  
   ! Forces (mass reduced).
   type(RealVector), allocatable :: forces(:,:)
   

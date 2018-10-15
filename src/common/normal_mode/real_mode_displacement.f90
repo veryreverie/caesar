@@ -225,12 +225,16 @@ function new_MassWeightedDisplacement_RealModeDisplacement(this,structure, &
   type(RealMode),   allocatable :: selected_modes(:)
   type(QpointData), allocatable :: selected_qpoints(:)
   
-  selected_modes = select_modes(this%vectors, modes)
-  selected_qpoints = select_qpoints(selected_modes, qpoints)
-  output = sum(MassWeightedDisplacement( this%vectors,    &
-                                       & selected_modes,  &
-                                       & structure,       &
-                                       & selected_qpoints ))
+  if (size(this)==0) then
+    output = MassWeightedDisplacement(structure)
+  else
+    selected_modes = select_modes(this%vectors, modes)
+    selected_qpoints = select_qpoints(selected_modes, qpoints)
+    output = sum(MassWeightedDisplacement( this%vectors,    &
+                                         & selected_modes,  &
+                                         & structure,       &
+                                         & selected_qpoints ))
+  endif
 end function
 
 ! Returns the displacement in cartesian co-ordinates.
@@ -244,16 +248,19 @@ function new_CartesianDisplacement_RealModeDisplacement(this,structure, &
   type(QpointData),            intent(in) :: qpoints(:)
   type(CartesianDisplacement)             :: output
   
-  
   type(RealMode),   allocatable :: selected_modes(:)
   type(QpointData), allocatable :: selected_qpoints(:)
   
-  selected_modes = select_modes(this%vectors, modes)
-  selected_qpoints = select_qpoints(selected_modes, qpoints)
-  output = sum(CartesianDisplacement( this%vectors,    &
-                                    & selected_modes,  &
-                                    & structure,       &
-                                    & selected_qpoints ))
+  if (size(this)==0) then
+    output = CartesianDisplacement(structure)
+  else
+    selected_modes = select_modes(this%vectors, modes)
+    selected_qpoints = select_qpoints(selected_modes, qpoints)
+    output = sum(CartesianDisplacement( this%vectors,    &
+                                      & selected_modes,  &
+                                      & structure,       &
+                                      & selected_qpoints ))
+  endif
 end function
 
 ! Converts a MassWeightedDisplacement to a RealModeDisplacement.

@@ -265,16 +265,18 @@ subroutine generate_potential_PolynomialPotential(this,inputs,           &
   
   ! Electronic structure results.
   type(SamplingPoints), allocatable :: sampling_points(:)
+  type(CartesianDisplacement)       :: displacement
   type(SampleResults),  allocatable :: sample_results(:)
   
   ! Variables associated with the constant basis function
   !    and the sampling point at zero displacement.
-  type(RealMonomial)         :: constant_real_monomial
-  type(ComplexMonomial)      :: constant_complex_monomial
-  type(BasisFunction)        :: constant_basis_function
-  type(RealModeDisplacement) :: equilibrium_sampling_point
-  type(ElectronicStructure)  :: equilibrium_electronic_structure
-  type(SampleResult)         :: equilibrium_sample_result
+  type(RealMonomial)          :: constant_real_monomial
+  type(ComplexMonomial)       :: constant_complex_monomial
+  type(BasisFunction)         :: constant_basis_function
+  type(RealModeDisplacement)  :: equilibrium_sampling_point
+  type(CartesianDisplacement) :: equilibrium_displacement
+  type(ElectronicStructure)   :: equilibrium_electronic_structure
+  type(SampleResult)          :: equilibrium_sample_result
   
   ! Variables for generating coefficients.
   logical,                    allocatable :: uncoupled(:)
@@ -311,6 +313,11 @@ subroutine generate_potential_PolynomialPotential(this,inputs,           &
      &    ComplexPolynomial([constant_complex_monomial])               )
   
   equilibrium_sampling_point = RealModeDisplacement([RealSingleDisplacement::])
+  equilibrium_displacement = CartesianDisplacement( &
+                      & equilibrium_sampling_point, &
+                      & inputs%structure,           &
+                      & inputs%real_modes,          &
+                      & inputs%qpoints              )
   
   ! --------------------------------------------------
   ! Read in basis functions and sampling points.
@@ -335,7 +342,8 @@ subroutine generate_potential_PolynomialPotential(this,inputs,           &
   ! --------------------------------------------------
   equilibrium_dir = sampling_points_dir//'/equilibrium'
   equilibrium_electronic_structure  = calculation_reader%read_calculation( &
-                                                         & equilibrium_dir )
+                                                & equilibrium_dir,         &
+                                                & equilibrium_displacement )
   equilibrium_sample_result = SampleResult( equilibrium_electronic_structure, &
                                           & inputs%structure,                 &
                                           & inputs%real_modes,                &
@@ -356,6 +364,12 @@ subroutine generate_potential_PolynomialPotential(this,inputs,           &
       supercell_file = IFile(sampling_dir//'/structure.dat')
       supercell = StructureData(supercell_file%lines())
       
+      displacement = CartesianDisplacement( &
+            & sampling_points(i)%points(j), &
+            & supercell,                    &
+            & inputs%real_modes,            &
+            & inputs%qpoints                )
+      
       vscf_rvectors_file = IFile(sampling_dir//'/vscf_rvectors.dat')
       vscf_rvectors = VscfRvectors(vscf_rvectors_file%sections())
       
@@ -366,7 +380,8 @@ subroutine generate_potential_PolynomialPotential(this,inputs,           &
         vscf_rvectors_dir = sampling_dir// &
            & '/vscf_rvectors_'//left_pad(k,str(size(vscf_rvectors)))
         calculations(k) = calculation_reader%read_calculation( &
-                                           & vscf_rvectors_dir )
+                                          & vscf_rvectors_dir, &
+                                          & displacement       )
       enddo
       
       ! Average electronic structure across VSCF R-vectors, and convert

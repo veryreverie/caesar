@@ -157,6 +157,7 @@ subroutine calculate_normal_modes_subroutine(arguments)
   ! --------------------------------------------------
   ! Initialise LO/TO splitting if necessary.
   ! --------------------------------------------------
+  loto_direction_set = .false.
   if (setup_harmonic_arguments%is_set('loto_direction')) then
     loto_direction = FractionVector(                      &
        & setup_harmonic_arguments%value('loto_direction') )
@@ -217,7 +218,8 @@ subroutine calculate_normal_modes_subroutine(arguments)
                       &           str(maxval(unique_directions%atom_id)) ) // &
                       & '.'//unique_directions(j)%direction
       electronic_structure(j) = calculation_reader%read_calculation( &
-                                                   & calculation_dir )
+         & calculation_dir,                                          &
+         & CartesianDisplacement(unique_directions(j),supercells(i)) )
       if ( size(electronic_structure(j)%forces%vectors) /= &
          & supercells(i)%no_atoms                          ) then
         call print_line( ERROR//': Wrong number of forces in '//      &

@@ -27,6 +27,7 @@ module cartesian_displacement_module
   
   interface CartesianDisplacement
     module procedure new_CartesianDisplacement
+    module procedure new_CartesianDisplacement_zero
     module procedure new_CartesianDisplacement_Strings
     module procedure new_CartesianDisplacement_StringArray
   end interface
@@ -81,6 +82,21 @@ function size_CartesianDisplacement(this) result(output)
   integer                                  :: output
   
   output = size(this%vectors)
+end function
+
+! ----------------------------------------------------------------------
+! Construct a zero displacement.
+! ----------------------------------------------------------------------
+impure elemental function new_CartesianDisplacement_zero(structure) &
+   & result(this)
+  implicit none
+  
+  type(StructureData), intent(in) :: structure
+  type(CartesianDisplacement)     :: this
+  
+  integer :: i
+  
+  this%vectors = [(dblevec(zeroes(3)), i=1, structure%no_atoms)]
 end function
 
 ! ----------------------------------------------------------------------
