@@ -527,6 +527,7 @@ function read_output_file_castep(filename,structure) result(output)
       if ( line(1)==repeat('*',len(line(1))) .and. &
          & ( line(2)=='forces'      .or.           &
          &   line(2)=='symmetrised' .or.           &
+         &   line(2)=='constrained' .or.           &
          &   line(2)=='unconstrained'    )         &
          &                                         ) then
         forces_start_line = i
