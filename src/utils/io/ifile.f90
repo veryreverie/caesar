@@ -50,9 +50,9 @@ function new_IFile_character(filename) result(this)
   character(*), intent(in) :: filename
   type(IFile)              :: this
   
-  integer         :: file_length
-  integer         :: file_unit
-  character(1000) :: line
+  integer          :: file_length
+  integer          :: file_unit
+  character(10000) :: line
   
   integer :: i,ierr,ialloc
   

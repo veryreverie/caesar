@@ -286,6 +286,7 @@ function construct_xx(unique_directions,supercell,logfile) result(output)
   if (sqrt(difference/average) > 1e-10_dp) then
     call print_line(WARNING//': x^x is not as symmetric as expected. Please &
        &check log files.')
+    call print_line('Fractional L2 error: '//sqrt(difference/average))
   endif
 end function
 
@@ -384,6 +385,7 @@ function construct_fx(unique_directions,forces,supercell,logfile) &
   if (sqrt(difference/average) > 1e-10_dp) then
     call print_line(WARNING//': f^x is not as symmetric as expected. Please &
        &check log files.')
+    call print_line('Fractional L2 error: '//sqrt(difference/average))
   endif
 end function
 
@@ -465,6 +467,7 @@ function construct_f(xx,fx,supercell,logfile) result(output)
   if (sqrt(difference/average) > 1e-10_dp) then
     call print_line(WARNING//': F(i1,i2) is not as symmetric as expected. &
        &Please check log files.')
+    call print_line('Fractional L2 error: '//sqrt(difference/average))
   endif
   
   ! Check F(i1,i2)=F(i2,i1).

@@ -222,6 +222,7 @@ function new_DynamicalMatrix_calculated(qpoint,supercells,force_constants, &
     if (l2_error>1e-10_dp) then
       call print_line(WARNING//': Symmetrically equivalent dynamical &
          &matrices differ. Please check log files.')
+      call print_line('Fractional L2 error: '//l2_error)
     endif
   endif
   
@@ -433,6 +434,7 @@ subroutine check(this,structure,logfile,check_eigenstuff)
     if (sqrt(difference/average) > 1e-10_dp) then
       call print_line(WARNING//': Eigenfrequencies do not match. Please &
          &check log files.')
+      call print_line('Fractional L2 error: '//sqrt(difference/average))
     endif
     
     ! Check that the primitive displacements match.
@@ -464,7 +466,7 @@ subroutine check(this,structure,logfile,check_eigenstuff)
     if (sqrt(difference/average) > 1e-10_dp) then
       call print_line( WARNING//': Error in primitive vectors. &
                      &Please check log files.'                 )
-      call print_line(difference//' / '//average)
+      call print_line('Fractional L2 error: '//sqrt(difference/average))
     endif
   endif
 end subroutine
@@ -966,6 +968,7 @@ function new_SplitModes_ComplexModes(input,symmetry,qpoint, &
   
   ! Convert eigenvalues into phases.
   ! If the eigenvalue is cos(2 pi j/order) then the phase is j.
+  ! N.B. because sin(x)=a has two solutions, 
   if (positive_superposition) then
     phases_real = acos(estuff%eval)*order/(2.0_dp*PI)
   else
@@ -973,6 +976,21 @@ function new_SplitModes_ComplexModes(input,symmetry,qpoint, &
   endif
   allocate(phases_int(size(phases_real)), stat=ialloc); call err(ialloc)
   phases_int = nint(phases_real)
+  
+  ! sin(x)=sin(pi-x). Normally this will not cause problems, since the
+  !    actual value of x is unimportant, and it only matters that different
+  !    eigenvalues are distinguishable (which they are).
+  ! If order is odd, then only one of x and pi-x will give x=2pij/order
+  !    with j as an integer.
+  if (modulo(order,2)==1 .and. .not. positive_superposition) then
+    do i=1,size(phases_real)
+      if (abs(0.5_dp-abs(phases_int(i)-phases_real(i)))<0.1_dp) then
+        phases_real(i) = (order/2.0_dp)-phases_real(i)
+        phases_int(i) = nint(phases_real(i))
+      endif
+    enddo
+  endif
+  
   if (any(abs(phases_int-phases_real)>0.1_dp)) then
     call print_line(ERROR//': Symmetry with non-integer phase eigenvalue.')
     call err()

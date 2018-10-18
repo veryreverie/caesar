@@ -7,6 +7,7 @@ module subspace_basis_module
   use monomial_state_module
   use braket_module
   use state_conversion_module
+  use wavevector_basis_module
   implicit none
   
   private
@@ -217,29 +218,28 @@ function generate_subspace_basis(subspace,frequency,modes,qpoints, &
   ! Temporary variables.
   integer :: i,j,k,l,ialloc
   
-  type(StatesBasis)         :: states_basis
-  type(String), allocatable :: state_strings(:)
+  type(WavevectorBasis)       :: states_basis
+  type(String), allocatable   :: state_strings(:)
   
   states_basis = generate_subspace_basis_states( subspace,     &
                                                & frequency,    &
                                                & modes,        &
                                                & maximum_power )
   
-  ! TODO
-  !call print_line('')
-  !call print_line('states')
-  !do i=1,size(states_basis)
-  !  state_strings = str(states_basis%monomial_states(i))
-  !  call print_line('|'//i//'> = '//state_strings(size(state_strings)))
-  !enddo
-  !call print_line('states to basis')
-  !do i=1,size(states_basis)
-  !  call print_line('|'//i//'> = '//str(states_basis%states_to_basis(i)))
-  !enddo
-  !call print_line('basis to states')
-  !do i=1,size(states_basis)
-  !  call print_line('|'//i//'> = '//str(states_basis%basis_to_states(i)))
-  !enddo
+  call print_line('')
+  call print_line('states')
+  do i=1,size(states_basis)
+    state_strings = str(states_basis%monomial_states(i))
+    call print_line('|'//i//'> = '//state_strings(size(state_strings)))
+  enddo
+  call print_line('states to basis')
+  do i=1,size(states_basis)
+    call print_line('|'//i//'> = '//str(states_basis%states_to_basis(i)))
+  enddo
+  call print_line('basis to states')
+  do i=1,size(states_basis)
+    call print_line('|'//i//'> = '//str(states_basis%basis_to_states(i)))
+  enddo
   
   ! ------------------------------
   ! Generate all states in the basis.
@@ -456,10 +456,10 @@ function coefficients_states_to_basis(this,coefficients) result(output)
   output = [( 0.0_dp, i=1, size(this) )]
   
   do i=1,size(this)
-    output(this%basis_to_states_(i)%ids) =      &
-       &   output(this%basis_to_states_(i)%ids) &
-       & + coefficients(i)                      &
-       & * this%basis_to_states_(i)%coefficients
+    output(this%basis_to_states_(i)%ids()) =      &
+       &   output(this%basis_to_states_(i)%ids()) &
+       & + coefficients(i)                        &
+       & * this%basis_to_states_(i)%coefficients()
   enddo
 end function
 
@@ -475,10 +475,10 @@ function coefficients_basis_to_states(this,coefficients) result(output)
   output = [( 0.0_dp, i=1, size(this) )]
   
   do i=1,size(this)
-      output(this%states_to_basis_(i)%ids) =      &
-         &   output(this%states_to_basis_(i)%ids) &
-         & + coefficients(i)                      &
-         & * this%states_to_basis_(i)%coefficients
+      output(this%states_to_basis_(i)%ids()) =      &
+         &   output(this%states_to_basis_(i)%ids()) &
+         & + coefficients(i)                        &
+         & * this%states_to_basis_(i)%coefficients()
   enddo
 end function
 
@@ -498,10 +498,10 @@ function operator_states_to_basis(this,operator) result(output)
   output = 0.0_dp
   do i=1,size(this)
     do j=1,size(this)
-      output(j,i) = dble( vec(this%states_to_basis_(j)%coefficients)    &
-                      & * mat(operator( this%states_to_basis_(j)%ids,   &
-                      &                 this%states_to_basis_(i)%ids )) &
-                      & * vec(this%states_to_basis_(i)%coefficients)    )
+      output(j,i) = dble( vec(this%states_to_basis_(j)%coefficients())    &
+                      & * mat(operator( this%states_to_basis_(j)%ids(),   &
+                      &                 this%states_to_basis_(i)%ids() )) &
+                      & * vec(this%states_to_basis_(i)%coefficients())    )
     enddo
   enddo
 end function
@@ -519,10 +519,10 @@ function operator_basis_to_states(this,operator) result(output)
   output = 0.0_dp
   do i=1,size(this)
     do j=1,size(this)
-      output(j,i) = dble( vec(this%basis_to_states_(j)%coefficients)    &
-                      & * mat(operator( this%basis_to_states_(j)%ids,   &
-                      &                 this%basis_to_states_(i)%ids )) &
-                      & * vec(this%basis_to_states_(i)%coefficients)    )
+      output(j,i) = dble( vec(this%basis_to_states_(j)%coefficients())    &
+                      & * mat(operator( this%basis_to_states_(j)%ids(),   &
+                      &                 this%basis_to_states_(i)%ids() )) &
+                      & * vec(this%basis_to_states_(i)%coefficients())    )
     enddo
   enddo
 end function

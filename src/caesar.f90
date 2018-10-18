@@ -20,6 +20,7 @@ program caesar
   use calculate_harmonic_observables_module
   use plot_dos_and_dispersion_module
   use plot_thermodynamic_variables_module
+  use converge_qpoint_grid_module
   
   ! Use anharmonic modules.
   use setup_anharmonic_module
@@ -90,6 +91,7 @@ program caesar
      & calculate_harmonic_observables(),   &
      & plot_dos_and_dispersion(),          &
      & plot_thermodynamic_variables(),     &
+     & converge_qpoint_grid(),             &
      & setup_anharmonic(),                 &
      & run_anharmonic(),                   &
      & calculate_potential(),              &
