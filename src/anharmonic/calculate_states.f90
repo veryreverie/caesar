@@ -117,6 +117,8 @@ subroutine calculate_states_subroutine(arguments)
   potential_file = IFile('potential.dat')
   potential = PotentialPointer(potential_file%lines())
   
+  call print_line('Inputs read.')
+  
   ! --------------------------------------------------
   ! Generate basis states by generating effective harmonic potential.
   ! --------------------------------------------------
@@ -130,6 +132,8 @@ subroutine calculate_states_subroutine(arguments)
   basis_file = OFile('basis.dat')
   call basis_file%print_lines(basis, separating_line='')
   
+  call print_line('Basis generated.')
+  
   ! --------------------------------------------------
   ! Run VSCF to generate single-subspace potentials and ground states.
   ! --------------------------------------------------
@@ -141,6 +145,8 @@ subroutine calculate_states_subroutine(arguments)
                                   & pre_pulay_iterations,      &
                                   & pre_pulay_damping,         &
                                   & anharmonic_data            )
+  
+  call print_line('VSCF run.')
   
   subspace_potentials = potentials_and_states%potential
   subspace_potentials_file = OFile('subspace_potentials.dat')

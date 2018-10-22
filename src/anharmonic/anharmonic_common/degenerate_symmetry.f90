@@ -199,10 +199,10 @@ function calculate_symmetry(this,input,modes,include_coefficients) &
   do i=1,size(input)
     transformed_input = this%transform_monomial(input(i), modes)
     do j=1,size(input)
-      k = first( transformed_input%terms,   &
-               & compare_complex_monomials, &
-               & input(j),                  &
-               & default = 0                )
+      k = first_equivalent( transformed_input%terms,   &
+                          & input(j),                  &
+                          & compare_complex_monomials, &
+                          & default = 0                )
       if (k==0) then
         symmetry(j,i) = 0
       else
@@ -239,15 +239,15 @@ function transform_monomial(this,input,modes) result(output)
   allocate(mode_ids(input%total_power()), stat=ialloc); call err(ialloc)
   k = 0
   do i=1,size(input)
-    do j=1,input%modes(i)%power
+    do j=1,input%power(i)
       k = k+1
-      mode_ids(k) = input%modes(i)%id
+      mode_ids(k) = input%id(i)
     enddo
     
-    if (input%modes(i)%id/=input%modes(i)%paired_id) then
-      do j=1,input%modes(i)%paired_power
+    if (input%id(i)/=input%paired_id(i)) then
+      do j=1,input%paired_power(i)
         k = k+1
-        mode_ids(k) = input%modes(i)%paired_id
+        mode_ids(k) = input%paired_id(i)
       enddo
     endif
   enddo

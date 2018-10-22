@@ -16,30 +16,59 @@ module wavevector_basis_module
   public :: size
   public :: generate_subspace_basis_states
   
-  type, extends(NoDefaultConstructor) :: WavevectorBasis
-    integer                            :: maximum_power
-    type(MonomialState),   allocatable :: monomial_states(:)
-    type(StateConversion), allocatable :: states_to_basis(:)
-    type(StateConversion), allocatable :: basis_to_states(:)
+  type, extends(Stringsable) :: WavevectorBasis
+    integer                                     :: maximum_power
+    integer                                     :: subspace_id
+    real(dp)                                    :: frequency
+    type(FractionVector)                        :: wavevector
+    type(MonomialState),   allocatable          :: monomial_states(:)
+    type(StateConversion), allocatable, private :: states_to_basis_(:)
+    type(StateConversion), allocatable, private :: basis_to_states_(:)
+  contains
+    ! Set the frequency of the basis.
+    procedure, public :: set_frequency => set_frequency_WavevectorBasis
+    
+    ! Transform vectors of coefficients.
+    procedure, public :: coefficients_states_to_basis
+    procedure, public :: coefficients_basis_to_states
+    
+    ! Transform operator matrices.
+    procedure, public :: operator_states_to_basis
+    procedure, public :: operator_basis_to_states
+    
+    ! Return the occupations of the harmonic basis states.
+    procedure, public :: harmonic_occupation
+    procedure, public :: harmonic_occupations
+    
+    ! I/O.
+    procedure, public :: read  => read_WavevectorBasis
+    procedure, public :: write => write_WavevectorBasis
   end type
   
   interface WavevectorBasis
     module procedure new_WavevectorBasis
+    module procedure new_WavevectorBasis_Strings
+    module procedure new_WavevectorBasis_StringArray
   end interface
   
   interface size
     module procedure size_WavevectorBasis
   end interface
 contains
-function new_WavevectorBasis(maximum_power,monomial_states,states_to_basis, &
-   & basis_to_states) result(this)
+
+! Constructor and size function.
+function new_WavevectorBasis(maximum_power,subspace_id,frequency,wavevector, &
+   & monomial_states,states_to_basis,basis_to_states) result(this)
   implicit none
   
   integer,               intent(in) :: maximum_power
+  integer,               intent(in) :: subspace_id
+  real(dp),              intent(in) :: frequency
+  type(FractionVector),  intent(in) :: wavevector
   type(MonomialState),   intent(in) :: monomial_states(:)
   type(StateConversion), intent(in) :: states_to_basis(:)
   type(StateConversion), intent(in) :: basis_to_states(:)
-  type(WavevectorBasis)                 :: this
+  type(WavevectorBasis)             :: this
   
   if (size(monomial_states)/=size(states_to_basis)) then
     call print_line(CODE_ERROR//': monomial states and states to basis do not &
@@ -51,68 +80,58 @@ function new_WavevectorBasis(maximum_power,monomial_states,states_to_basis, &
     call err()
   endif
   
-  this%maximum_power   = maximum_power
-  this%monomial_states = monomial_states
-  this%states_to_basis = states_to_basis
-  this%basis_to_states = basis_to_states
+  this%maximum_power    = maximum_power
+  this%subspace_id      = subspace_id
+  this%frequency        = frequency
+  this%wavevector       = wavevector
+  this%monomial_states  = monomial_states
+  this%states_to_basis_ = states_to_basis
+  this%basis_to_states_ = basis_to_states
 end function
 
 function size_WavevectorBasis(this) result(output)
   implicit none
   
   type(WavevectorBasis), intent(in) :: this
-  integer                       :: output
+  integer                           :: output
   
   output = size(this%monomial_states)
 end function
 
+! Set the frequency of the basis.
+impure elemental subroutine set_frequency_WavevectorBasis(this,frequency)
+  implicit none
+  
+  class(WavevectorBasis), intent(inout) :: this
+  real(dp),               intent(in)    :: frequency
+  
+  this%frequency = frequency
+  this%monomial_states%frequency = frequency
+end subroutine
+
 ! ----------------------------------------------------------------------
 ! Generates states in a given subspace, up to a given power.
 ! ----------------------------------------------------------------------
-function generate_subspace_basis_states(subspace,frequency,modes, &
+function generate_subspace_basis_states(subspace,frequency,modes,qpoints, &
    & maximum_power) result(output)
   implicit none
   
   type(DegenerateSubspace), intent(in) :: subspace
   real(dp),                 intent(in) :: frequency
   type(ComplexMode),        intent(in) :: modes(:)
+  type(QpointData),         intent(in) :: qpoints(:)
   integer,                  intent(in) :: maximum_power
-  type(WavevectorBasis)                    :: output
-  
-  ! The state |0>.
-  type(ComplexMonomial) :: constant_monomial
-  type(MonomialState)   :: ground_state
-  type(StateConversion) :: ground_state_conversion
+  type(WavevectorBasis), allocatable   :: output(:)
   
   ! Variables for generating single-mode bases.
   type(ComplexMode), allocatable :: subspace_modes(:)
-  type(WavevectorBasis)              :: mode_basis
+  type(WavevectorBasis)          :: mode_basis
   
-  ! Variables for updating output with each mode.
-  integer, allocatable :: no_states(:)
-  integer, allocatable :: old_to_new(:)
+  ! The basis, before splitting by wavevector.
+  ! N.B. basis%wavevector will be zero, which is a placeholder.
+  type(WavevectorBasis) :: basis
   
-  integer  :: id
-  real(dp) :: coefficient
-  
-  type(MonomialState),   allocatable :: monomial_states(:)
-  type(StateConversion), allocatable :: states_to_basis(:)
-  type(StateConversion), allocatable :: basis_to_states(:)
-  
-  integer :: i,j,k,l,m,ialloc
-  
-  ! Construct the state |0>, to seed the generator.
-  constant_monomial = ComplexMonomial( coefficient = cmplx(1.0_dp,0.0_dp,dp), &
-                                     & modes       = [ComplexUnivariate::]    )
-  ground_state = MonomialState( subspace_id = subspace%id,      &
-                              & frequency   = frequency,        &
-                              & state       = constant_monomial )
-  ground_state_conversion = StateConversion( ids         =  [1],     &
-                                           & coefficients = [1.0_dp] )
-  output = WavevectorBasis( maximum_power   = maximum_power,             &
-                      & monomial_states = [ground_state],            &
-                      & states_to_basis = [ground_state_conversion], &
-                      & basis_to_states = [ground_state_conversion]  )
+  integer :: i
   
   ! List modes in the subspace, but only including one of each conjugate pair.
   subspace_modes = subspace%modes(modes)
@@ -133,82 +152,16 @@ function generate_subspace_basis_states(subspace,frequency,modes, &
                                 & maximum_power      )
     endif
     
-    ! Count the number of states corresponding to each state in the old output.
-    allocate( no_states(size(output)),  &
-            & old_to_new(size(output)), &
-            & stat=ialloc); call err(ialloc)
-    old_to_new(1) = 0
-    do j=1,size(no_states)
-      no_states(j) = count( mode_basis%monomial_states%total_power() &
-                       &  + output%monomial_states(j)%total_power()  &
-                       & <= maximum_power                            )
-      if (j<size(no_states)) then
-        old_to_new(j+1) = old_to_new(j) + no_states(j)
-      endif
-    enddo
-    
-    ! Generate states.
-    allocate(monomial_states(sum(no_states)), stat=ialloc); call err(ialloc)
-    do j=1,size(output)
-      do k=1,no_states(j)
-        monomial_states(old_to_new(j)+k) = output%monomial_states(j) &
-                                       & * mode_basis%monomial_states(k)
-      enddo
-    enddo
-    
-    ! Generate states-to-basis conversion.
-    allocate( states_to_basis(size(monomial_states)), &
-            & stat=ialloc); call err(ialloc)
-    do j=1,size(output)
-      do k=1,no_states(j)
-        states_to_basis(old_to_new(j)+k) = StateConversion()
-        do l=1,size(output%states_to_basis(j))
-          do m=1,size(mode_basis%states_to_basis(k))
-            id = old_to_new(output%states_to_basis(j)%id(l)) &
-               + mode_basis%states_to_basis(k)%id(m)
-            coefficient = output%states_to_basis(j)%coefficient(l) &
-                        * mode_basis%states_to_basis(k)%coefficient(m)
-            call states_to_basis(old_to_new(j)+k)%add_element( &
-                                   & id          = id,         &
-                                   & coefficient = coefficient )
-          enddo
-        enddo
-      enddo
-    enddo
-    
-    ! Generate basis-to-states conversion.
-    allocate( basis_to_states(size(monomial_states)), &
-            & stat=ialloc); call err(ialloc)
-    do j=1,size(output)
-      do k=1,no_states(j)
-        basis_to_states(old_to_new(j)+k) = StateConversion()
-        do l=1,size(output%basis_to_states(j))
-          do m=1,size(mode_basis%basis_to_states(k))
-            id = old_to_new(output%basis_to_states(j)%id(l)) &
-               + mode_basis%basis_to_states(k)%id(m)
-            coefficient = output%basis_to_states(j)%coefficient(l) &
-                        * mode_basis%basis_to_states(k)%coefficient(m)
-            call basis_to_states(old_to_new(j)+k)%add_element( &
-                                   & id          = id,         &
-                                   & coefficient = coefficient )
-          enddo
-        enddo
-      enddo
-    enddo
-    
-    ! Update output.
-    output = WavevectorBasis( maximum_power   = maximum_power,   &
-                        & monomial_states = monomial_states, &
-                        & states_to_basis = states_to_basis, &
-                        & basis_to_states = basis_to_states )
-    
-    deallocate( no_states,       &
-              & old_to_new,      &
-              & monomial_states, &
-              & states_to_basis, &
-              & basis_to_states, &
-              & stat=ialloc); call err(ialloc)
+    if (i==1) then
+      ! Seed the basis as the single-mode basis.
+      basis = mode_basis
+    else
+      ! Expand the basis to include the single-mode basis.
+      basis = tensor_product(basis, mode_basis)
+    endif
   enddo
+  
+  output = split_by_wavevector(basis,modes,qpoints)
 end function
 
 function mode_basis_1d(subspace,frequency,mode,maximum_power) result(output)
@@ -218,7 +171,7 @@ function mode_basis_1d(subspace,frequency,mode,maximum_power) result(output)
   real(dp),                 intent(in) :: frequency
   type(ComplexMode),        intent(in) :: mode
   integer,                  intent(in) :: maximum_power
-  type(WavevectorBasis)                    :: output
+  type(WavevectorBasis)                :: output
   
   integer, allocatable :: ids(:)
   
@@ -250,7 +203,8 @@ function mode_basis_1d(subspace,frequency,mode,maximum_power) result(output)
                &                  modes       = [univariates(i)]         ), &
                & i=1,                                                       &
                & no_states                                                  )]
-  monomials(1)%modes = [ComplexUnivariate::]
+  monomials(1) = ComplexMonomial( coefficient = cmplx(1.0_dp,0.0_dp,dp), &
+                                & modes       = [ComplexUnivariate::]    )
   monomial_states = [( MonomialState(subspace%id, frequency, monomials(i)), &
                      & i=1,                                                 &
                      & no_states                                            )]
@@ -316,10 +270,13 @@ function mode_basis_1d(subspace,frequency,mode,maximum_power) result(output)
   enddo
   
   ! Construct output.
-  output = WavevectorBasis( maximum_power   = maximum_power,   &
-                      & monomial_states = monomial_states, &
-                      & states_to_basis = states_to_basis, &
-                      & basis_to_states = basis_to_states  )
+  output = WavevectorBasis( maximum_power   = maximum_power,      &
+                          & subspace_id     = subspace%id,        &
+                          & frequency       = frequency,          &
+                          & wavevector      = fracvec(zeroes(3)), &
+                          & monomial_states = monomial_states,    &
+                          & states_to_basis = states_to_basis,    &
+                          & basis_to_states = basis_to_states     )
 end function
 
 function mode_basis_2d(subspace,frequency,mode,maximum_power) result(output)
@@ -329,7 +286,7 @@ function mode_basis_2d(subspace,frequency,mode,maximum_power) result(output)
   real(dp),                 intent(in) :: frequency
   type(ComplexMode),        intent(in) :: mode
   integer,                  intent(in) :: maximum_power
-  type(WavevectorBasis)                    :: output
+  type(WavevectorBasis)                :: output
   
   integer, allocatable :: ids(:,:) ! N.B. ids is zero-indexed.
   
@@ -373,7 +330,8 @@ function mode_basis_2d(subspace,frequency,mode,maximum_power) result(output)
                &                  modes       = [univariates(i)]         ), &
                & i=1,                                                       &
                & no_states                                                  )]
-  monomials(1)%modes = [ComplexUnivariate::]
+  monomials(1) = ComplexMonomial( coefficient = cmplx(1.0_dp,0.0_dp,dp), &
+                                & modes       = [ComplexUnivariate::]    )
   monomial_states = [( MonomialState(subspace%id, frequency, monomials(i)), &
                      & i=1,                                                 &
                      & no_states                                            )]
@@ -402,8 +360,7 @@ function mode_basis_2d(subspace,frequency,mode,maximum_power) result(output)
         ! Add sqrt((jp+jm)/ip) h[ip-1,im,jp-1,jm]
         jp = univariates(old%id(term))%power + 1
         jm = univariates(old%id(term))%paired_power
-        coefficient = sqrt((1.0_dp*(jp+jm))/ip) &
-                  & * old%coefficient(term)
+        coefficient = sqrt((1.0_dp*(jp+jm))/ip)*old%coefficient(term)
         call states_to_basis(state)%add_element( id          = ids(jp,jm), &
                                                & coefficient = coefficient )
         
@@ -411,8 +368,7 @@ function mode_basis_2d(subspace,frequency,mode,maximum_power) result(output)
         jp = univariates(old%id(term))%power
         jm = univariates(old%id(term))%paired_power - 1
         if (jm>=0) then
-          coefficient = ((jm+1)/sqrt(ip*(jp+jm+1.0_dp))) &
-                    & * old%coefficient(term)
+          coefficient = -((jm+1)/sqrt(ip*(jp+jm+1.0_dp)))*old%coefficient(term)
           call states_to_basis(state)%add_element( id          = ids(jp,jm), &
                                                  & coefficient = coefficient )
         endif
@@ -423,8 +379,7 @@ function mode_basis_2d(subspace,frequency,mode,maximum_power) result(output)
         ! Add sqrt((jp+jm)/im) h[ip,im-1,jp-1,jm-1]
         jp = univariates(old%id(term))%power
         jm = univariates(old%id(term))%paired_power + 1
-        coefficient = sqrt((1.0_dp*(jp+jm))/im) &
-                  & * old%coefficient(term)
+        coefficient = sqrt((1.0_dp*(jp+jm))/im)*old%coefficient(term)
         call states_to_basis(state)%add_element( id          = ids(jp,jm), &
                                                & coefficient = coefficient )
         
@@ -432,8 +387,7 @@ function mode_basis_2d(subspace,frequency,mode,maximum_power) result(output)
         jp = univariates(old%id(term))%power - 1
         jm = univariates(old%id(term))%paired_power
         if (jp>=0) then
-          coefficient = ((jp+1)/sqrt(im*(jp+jm+1.0_dp))) &
-                    & * old%coefficient(term)
+          coefficient = -((jp+1)/sqrt(im*(jp+jm+1.0_dp)))*old%coefficient(term)
           call states_to_basis(state)%add_element( id          = ids(jp,jm), &
                                                  & coefficient = coefficient )
         endif
@@ -502,9 +456,435 @@ function mode_basis_2d(subspace,frequency,mode,maximum_power) result(output)
   enddo
   
   ! Generate output.
+  output = WavevectorBasis( maximum_power   = maximum_power,      &
+                          & subspace_id     = subspace%id,        &
+                          & frequency       = frequency,          &
+                          & wavevector      = fracvec(zeroes(3)), &
+                          & monomial_states = monomial_states,    &
+                          & states_to_basis = states_to_basis,    &
+                          & basis_to_states = basis_to_states     )
+end function
+
+! Takes the basis over one set of modes in the subspace, and the basis over a
+!    disjoint set of modes in the same subspace, and constructs the basis
+!    over the union of the two sets, up to the maximum power.
+! e.g. if 'this has states |0>, |u1> and |u1^2>,
+!    and 'that' has states |0>, |u2> and |u2^2>, then the output will have
+!    states |0>, |u1>, |u2>, |u1^2>, |u1u2> and |u2^2>.
+! N.B. the states of 'that' must be sorted in ascending order of total power.
+function tensor_product(this,that) result(output)
+  implicit none
+  
+  type(WavevectorBasis), intent(in) :: this
+  type(WavevectorBasis), intent(in) :: that
+  type(WavevectorBasis)             :: output
+  
+  integer, allocatable :: this_powers(:)
+  integer, allocatable :: that_powers(:)
+  integer, allocatable :: no_states(:)
+  integer, allocatable :: this_to_output(:)
+  
+  integer  :: id
+  real(dp) :: coefficient
+  
+  ! Output variables.
+  integer                            :: maximum_power
+  integer                            :: subspace_id
+  real(dp)                           :: frequency
+  type(FractionVector)               :: wavevector
+  type(MonomialState),   allocatable :: monomial_states(:)
+  type(StateConversion), allocatable :: states_to_basis(:)
+  type(StateConversion), allocatable :: basis_to_states(:)
+  
+  integer :: i,j,k,l,ialloc
+  
+  ! Check that 'this' and 'that' are consistent.
+  if (this%maximum_power/=that%maximum_power) then
+    call print_line(CODE_ERROR//': Maximum powers do not match.')
+    call err()
+  elseif (this%subspace_id/=that%subspace_id) then
+    call print_line(CODE_ERROR//': Subspaces do not match.')
+    call err()
+  endif
+  
+  maximum_power = this%maximum_power
+  subspace_id   = this%subspace_id
+  frequency     = this%frequency
+  wavevector    = this%wavevector
+  
+  ! Check that the states in 'that' are in ascending order of total power.
+  this_powers = this%monomial_states%total_power()
+  that_powers = that%monomial_states%total_power()
+  if (any(that_powers(2:)<that_powers(:size(that)-1))) then
+    call print_line(CODE_ERROR//': Powers are not in ascending order.')
+    call err()
+  endif
+  
+  ! Count the number of output states corresponding to each state in 'this'.
+  no_states = [( count(that_powers + this_powers(i) <= maximum_power), &
+               & i=1,                                                  &
+               & size(this)                                            )]
+  this_to_output = [( sum(no_states(:i-1)), i=1, size(this) )]
+  
+  ! Generate monomial states.
+  allocate(monomial_states(sum(no_states)), stat=ialloc); call err(ialloc)
+  do i=1,size(this)
+    monomial_states(this_to_output(i)+1:this_to_output(i)+no_states(i)) = &
+       & this%monomial_states(i) * that%monomial_states(:no_states(i))
+  enddo
+  
+  ! Generate states-to-basis conversion.
+  allocate( states_to_basis(size(monomial_states)), &
+          & stat=ialloc); call err(ialloc)
+  do i=1,size(this)
+    do j=1,no_states(i)
+      states_to_basis(this_to_output(i)+j) = StateConversion()
+      do k=1,size(this%states_to_basis_(i))
+        do l=1,size(that%states_to_basis_(j))
+          id = this_to_output(this%states_to_basis_(i)%id(k)) &
+             + that%states_to_basis_(j)%id(l)
+          coefficient = this%states_to_basis_(i)%coefficient(k) &
+                      * that%states_to_basis_(j)%coefficient(l)
+          call states_to_basis(this_to_output(i)+j)%add_element( &
+                                     & id          = id,         &
+                                     & coefficient = coefficient )
+        enddo
+      enddo
+    enddo
+  enddo
+  
+  ! Generate basis-to-states conversion.
+  allocate( basis_to_states(size(monomial_states)), &
+          & stat=ialloc); call err(ialloc)
+  do i=1,size(this)
+    do j=1,no_states(i)
+      basis_to_states(this_to_output(i)+j) = StateConversion()
+      do k=1,size(this%basis_to_states_(i))
+        do l=1,size(that%basis_to_states_(j))
+          id = this_to_output(this%basis_to_states_(i)%id(k)) &
+             + that%basis_to_states_(j)%id(l)
+          coefficient = this%basis_to_states_(i)%coefficient(k) &
+                      * that%basis_to_states_(j)%coefficient(l)
+          call basis_to_states(this_to_output(i)+j)%add_element( &
+                                     & id          = id,         &
+                                     & coefficient = coefficient )
+        enddo
+      enddo
+    enddo
+  enddo
+  
+  ! Update output.
   output = WavevectorBasis( maximum_power   = maximum_power,   &
-                      & monomial_states = monomial_states, &
-                      & states_to_basis = states_to_basis, &
-                      & basis_to_states = basis_to_states  )
+                          & subspace_id     = subspace_id,     &
+                          & frequency       = frequency,       &
+                          & wavevector      = wavevector,      &
+                          & monomial_states = monomial_states, &
+                          & states_to_basis = states_to_basis, &
+                          & basis_to_states = basis_to_states  )
+end function
+
+! Splits up a WavevectorBasis by wavevector.
+function split_by_wavevector(input,modes,qpoints) result(output)
+  implicit none
+  
+  type(WavevectorBasis), intent(in)  :: input
+  type(ComplexMode),     intent(in)  :: modes(:)
+  type(QpointData),      intent(in)  :: qpoints(:)
+  type(WavevectorBasis), allocatable :: output(:)
+  
+  type(QpointData), allocatable :: wavevectors(:)
+  
+  integer, allocatable :: qpoint_set(:)
+  integer, allocatable :: wavevector_states(:)
+  integer, allocatable :: new_ids(:)
+  
+  ! Output variables.
+  integer                            :: maximum_power
+  integer                            :: subspace_id
+  real(dp)                           :: frequency
+  type(FractionVector)               :: wavevector
+  type(MonomialState),   allocatable :: monomial_states(:)
+  type(StateConversion), allocatable :: states_to_basis(:)
+  type(StateConversion), allocatable :: basis_to_states(:)
+  
+  integer :: i,j,ialloc
+  
+  wavevectors = [( input%monomial_states(i)%wavevector(modes,qpoints), &
+                 & i=1,                                                &
+                 & size(input)                                         )]
+  
+  qpoint_set = filter([(                                      &
+     & any(wavevectors%id==qpoints(i)%id), i=1, size(qpoints) )])
+  
+  allocate(output(size(qpoint_set)), stat=ialloc); call err(ialloc)
+  new_ids = [(0,i=1,size(input))]
+  do i=1,size(output)
+    ! Copy over the maximum power, subspace ID and frequency.
+    maximum_power = input%maximum_power
+    subspace_id = input%subspace_id
+    frequency = input%frequency
+    
+    ! Identify the states at the given wavevector.
+    wavevector = qpoints(qpoint_set(i))%qpoint
+    wavevector_states = filter(wavevectors%qpoint==wavevector)
+    monomial_states = input%monomial_states(wavevector_states)
+    states_to_basis = input%states_to_basis_(wavevector_states)
+    basis_to_states = input%basis_to_states_(wavevector_states)
+    
+    ! Re-map IDs to correspond to states at the given wavevector only.
+    new_ids(wavevector_states) = [(j,j=1,size(wavevector_states))]
+    do j=1,size(wavevector_states)
+      states_to_basis(j) = StateConversion(                  &
+         & ids          = new_ids(states_to_basis(j)%ids()), &
+         & coefficients = states_to_basis(j)%coefficients()  )
+      basis_to_states(j) = StateConversion(                  &
+         & ids          = new_ids(basis_to_states(j)%ids()), &
+         & coefficients = basis_to_states(j)%coefficients()  )
+    enddo
+    
+    ! Construct output.
+    output(i) = WavevectorBasis( maximum_power,   &
+                               & subspace_id,     &
+                               & frequency,       &
+                               & wavevector,      &
+                               & monomial_states, &
+                               & states_to_basis, &
+                               & basis_to_states  )
+  enddo
+end function
+
+! ----------------------------------------------------------------------
+! Transform coefficients between monomial states and the orthonormal basis.
+! ----------------------------------------------------------------------
+function coefficients_states_to_basis(this,coefficients) result(output)
+  implicit none
+  
+  class(WavevectorBasis), intent(in) :: this
+  real(dp),               intent(in) :: coefficients(:)
+  real(dp), allocatable              :: output(:)
+  
+  integer :: i
+  
+  output = [( 0.0_dp, i=1, size(this) )]
+  
+  do i=1,size(this)
+    output(this%basis_to_states_(i)%ids()) =      &
+       &   output(this%basis_to_states_(i)%ids()) &
+       & + coefficients(i)                        &
+       & * this%basis_to_states_(i)%coefficients()
+  enddo
+end function
+
+function coefficients_basis_to_states(this,coefficients) result(output)
+  implicit none
+  
+  class(WavevectorBasis), intent(in) :: this
+  real(dp),               intent(in) :: coefficients(:)
+  real(dp), allocatable              :: output(:)
+  
+  integer :: i
+  
+  output = [( 0.0_dp, i=1, size(this) )]
+  
+  do i=1,size(this)
+      output(this%states_to_basis_(i)%ids()) =      &
+         &   output(this%states_to_basis_(i)%ids()) &
+         & + coefficients(i)                        &
+         & * this%states_to_basis_(i)%coefficients()
+  enddo
+end function
+
+! ----------------------------------------------------------------------
+! Transform operators between monomial states and the orthonormal basis.
+! ----------------------------------------------------------------------
+function operator_states_to_basis(this,operator) result(output)
+  implicit none
+  
+  class(WavevectorBasis), intent(in) :: this
+  real(dp),               intent(in) :: operator(:,:)
+  real(dp), allocatable              :: output(:,:)
+  
+  integer :: i,j,ialloc
+  
+  allocate(output(size(this), size(this)), stat=ialloc); call err(ialloc)
+  output = 0.0_dp
+  do i=1,size(this)
+    do j=1,size(this)
+      output(j,i) = dble( vec(this%states_to_basis_(j)%coefficients())    &
+                      & * mat(operator( this%states_to_basis_(j)%ids(),   &
+                      &                 this%states_to_basis_(i)%ids() )) &
+                      & * vec(this%states_to_basis_(i)%coefficients())    )
+    enddo
+  enddo
+end function
+
+function operator_basis_to_states(this,operator) result(output)
+  implicit none
+  
+  class(WavevectorBasis), intent(in) :: this
+  real(dp),               intent(in) :: operator(:,:)
+  real(dp), allocatable              :: output(:,:)
+  
+  integer :: i,j,ialloc
+  
+  allocate(output(size(this), size(this)), stat=ialloc); call err(ialloc)
+  output = 0.0_dp
+  do i=1,size(this)
+    do j=1,size(this)
+      output(j,i) = dble( vec(this%basis_to_states_(j)%coefficients())    &
+                      & * mat(operator( this%basis_to_states_(j)%ids(),   &
+                      &                 this%basis_to_states_(i)%ids() )) &
+                      & * vec(this%basis_to_states_(i)%coefficients())    )
+    enddo
+  enddo
+end function
+
+! ----------------------------------------------------------------------
+! The occupation numbers of the harmonic states.
+! ----------------------------------------------------------------------
+! N.B. the occupation of harmonic state i is the same as the total power
+!    of monomial state i.
+impure elemental function harmonic_occupation(this,index) result(output)
+  implicit none
+  
+  class(WavevectorBasis), intent(in) :: this
+  integer,                intent(in) :: index
+  integer                            :: output
+  
+  output = this%monomial_states(index)%total_power()
+end function
+
+function harmonic_occupations(this) result(output)
+  implicit none
+  
+  class(WavevectorBasis), intent(in) :: this
+  integer, allocatable               :: output(:)
+  
+  output = this%monomial_states%total_power()
+end function
+
+! ----------------------------------------------------------------------
+! I/O.
+! ----------------------------------------------------------------------
+subroutine read_WavevectorBasis(this,input)
+  implicit none
+  
+  class(WavevectorBasis), intent(out) :: this
+  type(String),           intent(in)  :: input(:)
+  
+  integer                            :: maximum_power
+  integer                            :: subspace_id
+  real(dp)                           :: frequency
+  type(FractionVector)               :: wavevector
+  type(MonomialState),   allocatable :: states(:)
+  type(StateConversion), allocatable :: states_to_basis(:)
+  type(StateConversion), allocatable :: basis_to_states(:)
+  
+  type(String), allocatable :: line(:)
+  
+  integer :: no_states
+  
+  integer :: i,ialloc
+  
+  select type(this); type is(WavevectorBasis)
+    line = split_line(input(1))
+    maximum_power = int(line(4))
+    
+    line = split_line(input(2))
+    subspace_id = int(line(3))
+    
+    line = split_line(input(3))
+    frequency = dble(line(3))
+    
+    line = split_line(input(4))
+    wavevector = FractionVector(join(line(3:5)))
+    
+    no_states = (size(input)-7)/3
+    
+    allocate(states(no_states), stat=ialloc); call err(ialloc)
+    do i=1,no_states
+      line = split_line(input(5+i))
+      states(i) = MonomialState([input(2:3), str('State'), line(3)])
+    enddo
+    
+    allocate( states_to_basis(no_states), &
+            & basis_to_states(no_states), &
+            & stat=ialloc); call err(ialloc)
+    do i=1,no_states
+      line = split_line(input(6+no_states+i))
+      states_to_basis(i) = StateConversion(join(line(3:)))
+      
+      line = split_line(input(7+2*no_states+i))
+      basis_to_states(i) = StateConversion(join(line(3:)))
+    enddo
+    
+    this = WavevectorBasis( maximum_power,   &
+                          & subspace_id,     &
+                          & frequency,       &
+                          & wavevector,      &
+                          & states,          &
+                          & states_to_basis, &
+                          & basis_to_states  )
+  class default
+    call err()
+  end select
+end subroutine
+
+function write_WavevectorBasis(this) result(output)
+  implicit none
+  
+  class(WavevectorBasis), intent(in) :: this
+  type(String), allocatable          :: output(:)
+  
+  type(String), allocatable :: state_strings(:)
+  
+  integer :: i
+  
+  select type(this); type is(WavevectorBasis)
+    output = [ 'Maximum power : '//this%maximum_power, &
+             & 'Subspace      : '//this%subspace_id,   &
+             & 'Frequency     : '//this%frequency,     &
+             & 'Wavevector    : '//this%wavevector,    &
+             & str('Monomial States')                  ]
+    do i=1,size(this%monomial_states)
+      state_strings = str(this%monomial_states(i))
+      output = [output, '|'//i//'> = '//state_strings(size(state_strings))]
+    enddo
+    
+    output = [ output,                      &
+             & str('Harmonic Basis States') ]
+    do i=1,size(this%states_to_basis_)
+      output = [ output,                                       &
+               & '|'//i//'> = '//str(this%states_to_basis_(i)) ] 
+    enddo
+    
+    output = [ output,                                  &
+             & str('Monomial States in Harmonic Basis') ]
+    do i=1,size(this%basis_to_states_)
+      output = [ output,                                       &
+               & '|'//i//'> = '//str(this%basis_to_states_(i)) ] 
+    enddo
+  class default
+    call err()
+  end select
+end function
+
+function new_WavevectorBasis_Strings(input) result(this)
+  implicit none
+  
+  type(String), intent(in) :: input(:)
+  type(WavevectorBasis)    :: this
+  
+  call this%read(input)
+end function
+
+impure elemental function new_WavevectorBasis_StringArray(input) &
+   & result(this)
+  implicit none
+  
+  type(StringArray), intent(in) :: input
+  type(WavevectorBasis)         :: this
+  
+  this = WavevectorBasis(str(input))
 end function
 end module

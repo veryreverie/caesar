@@ -84,13 +84,25 @@ module complex_polynomial_module
   end interface
   
   type, extends(ComplexMonomialable) :: ComplexMonomial
-    complex(dp)                          :: coefficient
-    type(ComplexUnivariate), allocatable :: modes(:)
+    complex(dp)                                   :: coefficient
+    ! Modes is private so that it can be guaranteed to be sorted.
+    type(ComplexUnivariate), allocatable, private :: modes_(:)
   contains
     procedure, public :: to_ComplexMonomial   => &
        & to_ComplexMonomial_ComplexMonomial
     procedure, public :: to_ComplexPolynomial => &
        & to_ComplexPolynomial_ComplexMonomial
+    
+    procedure, public :: mode => mode_ComplexMonomial
+    procedure, public :: modes => modes_ComplexMonomial
+    procedure, public :: id  => id_ComplexMonomial
+    procedure, public :: ids => ids_ComplexMonomial
+    procedure, public :: paired_id  => paired_id_ComplexMonomial
+    procedure, public :: paired_ids => paired_ids_ComplexMonomial
+    procedure, public :: power  => power_ComplexMonomial
+    procedure, public :: powers => powers_ComplexMonomial
+    procedure, public :: paired_power  => paired_power_ComplexMonomial
+    procedure, public :: paired_powers => paired_powers_ComplexMonomial
     
     procedure, public :: simplify => simplify_ComplexMonomial
     
@@ -308,7 +320,7 @@ function new_ComplexMonomial(coefficient,modes) result(this)
   type(ComplexMonomial)               :: this
   
   this%coefficient = coefficient
-  this%modes       = modes
+  this%modes_      = modes(sort(modes%id))
 end function
 
 function new_ComplexPolynomial(terms) result(this)
@@ -380,7 +392,7 @@ function size_ComplexMonomial(this) result(output)
   type(ComplexMonomial), intent(in) :: this
   integer                           :: output
   
-  output = size(this%modes)
+  output = size(this%modes_)
 end function
 
 function size_ComplexPolynomial(this) result(output)
@@ -392,6 +404,103 @@ function size_ComplexPolynomial(this) result(output)
   output = size(this%terms)
 end function
 
+! Getters for monomials.
+impure elemental function mode_ComplexMonomial(this,index) result(output)
+  implicit none
+  
+  class(ComplexMonomial), intent(in) :: this
+  integer,                intent(in) :: index
+  type(ComplexUnivariate)            :: output
+  
+  output = this%modes_(index)
+end function
+
+function modes_ComplexMonomial(this) result(output)
+  implicit none
+  
+  class(ComplexMonomial), intent(in)   :: this
+  type(ComplexUnivariate), allocatable :: output(:)
+  
+  output = this%modes_
+end function
+
+impure elemental function id_ComplexMonomial(this,index) result(output)
+  implicit none
+  
+  class(ComplexMonomial), intent(in) :: this
+  integer,                intent(in) :: index
+  integer                            :: output
+  
+  output = this%modes_(index)%id
+end function
+
+function ids_ComplexMonomial(this) result(output)
+  implicit none
+  
+  class(ComplexMonomial), intent(in) :: this
+  integer, allocatable               :: output(:)
+  
+  output = this%modes_%id
+end function
+
+impure elemental function paired_id_ComplexMonomial(this,index) result(output)
+  implicit none
+  
+  class(ComplexMonomial), intent(in) :: this
+  integer,                intent(in) :: index
+  integer                            :: output
+  
+  output = this%modes_(index)%paired_id
+end function
+
+function paired_ids_ComplexMonomial(this) result(output)
+  implicit none
+  
+  class(ComplexMonomial), intent(in) :: this
+  integer, allocatable               :: output(:)
+  
+  output = this%modes_%paired_id
+end function
+
+impure elemental function power_ComplexMonomial(this,index) result(output)
+  implicit none
+  
+  class(ComplexMonomial), intent(in) :: this
+  integer,                intent(in) :: index
+  integer                            :: output
+  
+  output = this%modes_(index)%power
+end function
+
+function powers_ComplexMonomial(this) result(output)
+  implicit none
+  
+  class(ComplexMonomial), intent(in) :: this
+  integer, allocatable               :: output(:)
+  
+  output = this%modes_%power
+end function
+
+impure elemental function paired_power_ComplexMonomial(this,index) &
+   & result(output)
+  implicit none
+  
+  class(ComplexMonomial), intent(in) :: this
+  integer,                intent(in) :: index
+  integer                            :: output
+  
+  output = this%modes_(index)%paired_power
+end function
+
+function paired_powers_ComplexMonomial(this) result(output)
+  implicit none
+  
+  class(ComplexMonomial), intent(in) :: this
+  integer, allocatable               :: output(:)
+  
+  output = this%modes_%paired_power
+end function
+
 ! Simplify a monomial or polynomial.
 impure elemental subroutine simplify_ComplexMonomial(this)
   implicit none
@@ -400,25 +509,22 @@ impure elemental subroutine simplify_ComplexMonomial(this)
   
   integer :: i
   
-  ! Sort modes in ascending order of ID.
-  this%modes = this%modes(sort(this%modes%id))
-  
   ! Combine modes with the same ID, remove modes with power=paired_power=0.
   i = 1
   do while(i<=size(this))
-    if (this%modes(i)%power<0 .or. this%modes(i)%paired_power<0) then
+    if (this%modes_(i)%power<0 .or. this%modes_(i)%paired_power<0) then
       call err()
-    elseif (this%modes(i)%power==0 .and. this%modes(i)%paired_power==0) then
-      this%modes = [this%modes(:i-1), this%modes(i+1:)]
+    elseif (this%modes_(i)%power==0 .and. this%modes_(i)%paired_power==0) then
+      this%modes_ = [this%modes_(:i-1), this%modes_(i+1:)]
       cycle
     endif
     
     if (i>1) then
-      if (this%modes(i)%id==this%modes(i-1)%id) then
-        this%modes(i-1)%power = this%modes(i-1)%power + this%modes(i)%power
-        this%modes(i-1)%paired_power = this%modes(i-1)%paired_power &
-                                   & + this%modes(i)%paired_power
-        this%modes = [this%modes(:i-1), this%modes(i+1:)]
+      if (this%modes_(i)%id==this%modes_(i-1)%id) then
+        this%modes_(i-1)%power = this%modes_(i-1)%power + this%modes_(i)%power
+        this%modes_(i-1)%paired_power = this%modes_(i-1)%paired_power &
+                                    & + this%modes_(i)%paired_power
+        this%modes_ = [this%modes_(:i-1), this%modes_(i+1:)]
         cycle
       endif
     endif
@@ -478,8 +584,7 @@ impure elemental function conjg_ComplexMonomial(this) result(output)
   type(ComplexMonomial)             :: output
   
   output = ComplexMonomial( coefficient = conjg(this%coefficient), &
-                          & modes       = conjg(this%modes))
-  output%modes = output%modes(sort(output%modes%id))
+                          & modes       = conjg(this%modes_)       )
 end function
 
 impure elemental function conjg_ComplexPolynomial(this) result(output)
@@ -511,7 +616,7 @@ impure elemental function total_power_ComplexMonomial(this) result(output)
   class(ComplexMonomial), intent(in) :: this
   integer                            :: output
   
-  output = sum(this%modes%total_power())
+  output = sum(this%modes_%total_power())
 end function
 
 ! Returns the Bloch wavevector of a univariate, monomial or polynomial.
@@ -551,8 +656,8 @@ function wavevector_ComplexMonomial(this,modes,qpoints) result(output)
   integer :: i
   
   wavevector%qpoint = fracvec(zeroes(3))
-  do i=1,size(this%modes)
-    mode_wavevector = this%modes(i)%wavevector(modes,qpoints)
+  do i=1,size(this%modes_)
+    mode_wavevector = this%modes_(i)%wavevector(modes,qpoints)
     wavevector%qpoint = wavevector%qpoint + mode_wavevector%qpoint
   enddo
   
@@ -621,16 +726,16 @@ impure elemental function energy_ComplexMonomial(this,displacement) &
   
   do i=1,size(this)
     ! Find the mode in the displacement which matches that in the monomial.
-    if (this%modes(i)%id==this%modes(i)%paired_id) then
-      if (this%modes(i)%power/=0) then
-        ids = [this%modes(i)%id]
+    if (this%modes_(i)%id==this%modes_(i)%paired_id) then
+      if (this%modes_(i)%power/=0) then
+        ids = [this%modes_(i)%id]
       endif
     else
-      if (this%modes(i)%power/=0) then
-        ids = [this%modes(i)%id]
+      if (this%modes_(i)%power/=0) then
+        ids = [this%modes_(i)%id]
       endif
-      if (this%modes(i)%paired_power/=0) then
-        ids = [this%modes(i)%paired_id]
+      if (this%modes_(i)%paired_power/=0) then
+        ids = [this%modes_(i)%paired_id]
       endif
     endif
     
@@ -647,7 +752,7 @@ impure elemental function energy_ComplexMonomial(this,displacement) &
       
       ! If the mode is present in both,
       !    evaluate the univariate at the displacement.
-      output = output * this%modes(i)%energy(displacement%vectors(k))
+      output = output * this%modes_(i)%energy(displacement%vectors(k))
     enddo
   enddo
 end function
@@ -739,20 +844,20 @@ impure elemental function force_ComplexMonomial(this,displacement) &
   do i=1,size(this)
     id = [integer::]
     power = [integer::]
-    if (this%modes(i)%id==this%modes(i)%paired_id) then
-      if (this%modes(i)%power>0) then
-        id = [id, this%modes(i)%id]
-        power = [power, this%modes(i)%power]
+    if (this%modes_(i)%id==this%modes_(i)%paired_id) then
+      if (this%modes_(i)%power>0) then
+        id = [id, this%modes_(i)%id]
+        power = [power, this%modes_(i)%power]
       endif
     else
-      if (this%modes(i)%power>0) then
-        id = [id, this%modes(i)%id]
-        power = [power, this%modes(i)%power]
+      if (this%modes_(i)%power>0) then
+        id = [id, this%modes_(i)%id]
+        power = [power, this%modes_(i)%power]
       endif
       
-      if (this%modes(i)%paired_power>0) then
-        id = [id, this%modes(i)%paired_id]
-        power = [power, this%modes(i)%paired_power]
+      if (this%modes_(i)%paired_power>0) then
+        id = [id, this%modes_(i)%paired_id]
+        power = [power, this%modes_(i)%paired_power]
       endif
     endif
     
@@ -766,7 +871,7 @@ impure elemental function force_ComplexMonomial(this,displacement) &
       if (displacement_id==0) then
         energy = 0.0_dp
       else
-        energy = this%modes(i)%energy(             &
+        energy = this%modes_(i)%energy(            &
            & displacement%vectors(displacement_id) )
       endif
       
@@ -782,7 +887,7 @@ impure elemental function force_ComplexMonomial(this,displacement) &
              & magnitude=cmplx(0.0_dp,0.0_dp,dp) )
         endif
       else
-        force = this%modes(i)%force(               &
+        force = this%modes_(i)%force(              &
            & displacement%vectors(displacement_id) )
       endif
       
@@ -854,7 +959,7 @@ impure elemental function multiply_ComplexMonomial_real(this,that) &
   real(dp),              intent(in) :: that
   type(ComplexMonomial)             :: output
   
-  output = ComplexMonomial(this%coefficient*that, this%modes)
+  output = ComplexMonomial(this%coefficient*that, this%modes_)
 end function
 
 impure elemental function multiply_real_ComplexMonomial(this,that) &
@@ -865,7 +970,7 @@ impure elemental function multiply_real_ComplexMonomial(this,that) &
   type(ComplexMonomial), intent(in) :: that
   type(ComplexMonomial)             :: output
   
-  output = ComplexMonomial(this*that%coefficient, that%modes)
+  output = ComplexMonomial(this*that%coefficient, that%modes_)
 end function
 
 impure elemental function multiply_ComplexMonomial_complex(this,that) &
@@ -876,7 +981,7 @@ impure elemental function multiply_ComplexMonomial_complex(this,that) &
   complex(dp),           intent(in) :: that
   type(ComplexMonomial)             :: output
   
-  output = ComplexMonomial(this%coefficient*that, this%modes)
+  output = ComplexMonomial(this%coefficient*that, this%modes_)
 end function
 
 impure elemental function multiply_complex_ComplexMonomial(this,that) &
@@ -887,7 +992,7 @@ impure elemental function multiply_complex_ComplexMonomial(this,that) &
   type(ComplexMonomial), intent(in) :: that
   type(ComplexMonomial)             :: output
   
-  output = ComplexMonomial(this*that%coefficient, that%modes)
+  output = ComplexMonomial(this*that%coefficient, that%modes_)
 end function
 
 impure elemental function multiply_ComplexPolynomial_real(this,that) &
@@ -942,7 +1047,7 @@ impure elemental function divide_ComplexMonomial_real(this,that) &
   real(dp),              intent(in) :: that
   type(ComplexMonomial)             :: output
   
-  output = ComplexMonomial(this%coefficient/that, this%modes)
+  output = ComplexMonomial(this%coefficient/that, this%modes_)
 end function
 
 impure elemental function divide_ComplexMonomial_complex(this,that) &
@@ -953,7 +1058,7 @@ impure elemental function divide_ComplexMonomial_complex(this,that) &
   complex(dp),           intent(in) :: that
   type(ComplexMonomial)             :: output
   
-  output = ComplexMonomial(this%coefficient/that, this%modes)
+  output = ComplexMonomial(this%coefficient/that, this%modes_)
 end function
 
 impure elemental function divide_ComplexPolynomial_real(this,that) &
@@ -979,6 +1084,7 @@ impure elemental function divide_ComplexPolynomial_complex(this,that) &
 end function
 
 ! Multiplication between Monomial-like types.
+! Uses a merge to keep ids in ascending order.
 impure elemental function multiply_ComplexMonomialable_ComplexMonomialable( &
    & this,that) result(output)
   implicit none
@@ -1001,9 +1107,9 @@ impure elemental function multiply_ComplexMonomialable_ComplexMonomialable( &
   coefficient = this_monomial%coefficient * that_monomial%coefficient
   
   if (size(this_monomial)==0) then
-    modes = that_monomial%modes
+    modes = that_monomial%modes_
   elseif (size(that_monomial)==0) then
-    modes = this_monomial%modes
+    modes = this_monomial%modes_
   else
     i_this = 1
     i_that = 1
@@ -1013,29 +1119,29 @@ impure elemental function multiply_ComplexMonomialable_ComplexMonomialable( &
     do while(i_this<=size(this_monomial) .or. i_that<=size(that_monomial))
       i_out = i_out + 1
       if (i_this>size(this_monomial)) then
-        modes(i_out) = that_monomial%modes(i_that)
+        modes(i_out) = that_monomial%modes_(i_that)
         i_that = i_that + 1
       elseif (i_that>size(that_monomial)) then
-        modes(i_out) = this_monomial%modes(i_this)
+        modes(i_out) = this_monomial%modes_(i_this)
         i_this = i_this + 1
-      elseif ( this_monomial%modes(i_this)%id == &
-             & that_monomial%modes(i_that)%id) then
-        modes(i_out) = ComplexUnivariate(                            &
-           & id           = this_monomial%modes(i_this)%id,          &
-           & paired_id    = this_monomial%modes(i_this)%paired_id,   &
-           & power        = this_monomial%modes(i_this)%power        &
-           &              + that_monomial%modes(i_that)%power,       &
-           & paired_power = this_monomial%modes(i_this)%paired_power &
-           &              + that_monomial%modes(i_that)%paired_power )
+      elseif ( this_monomial%modes_(i_this)%id == &
+             & that_monomial%modes_(i_that)%id    ) then
+        modes(i_out) = ComplexUnivariate(                             &
+           & id           = this_monomial%modes_(i_this)%id,          &
+           & paired_id    = this_monomial%modes_(i_this)%paired_id,   &
+           & power        = this_monomial%modes_(i_this)%power        &
+           &              + that_monomial%modes_(i_that)%power,       &
+           & paired_power = this_monomial%modes_(i_this)%paired_power &
+           &              + that_monomial%modes_(i_that)%paired_power )
         i_this = i_this + 1
         i_that = i_that + 1
-      elseif ( this_monomial%modes(i_this)%id < &
-             & that_monomial%modes(i_that)%id) then
-        modes(i_out) = this_monomial%modes(i_this)
+      elseif ( this_monomial%modes_(i_this)%id < &
+             & that_monomial%modes_(i_that)%id   ) then
+        modes(i_out) = this_monomial%modes_(i_this)
         i_this = i_this + 1
-      elseif ( this_monomial%modes(i_this)%id > &
-             & that_monomial%modes(i_that)%id) then
-        modes(i_out) = that_monomial%modes(i_that)
+      elseif ( this_monomial%modes_(i_this)%id > &
+             & that_monomial%modes_(i_that)%id   ) then
+        modes(i_out) = that_monomial%modes_(i_that)
         i_that = i_that + 1
       else
         call err()
@@ -1094,10 +1200,10 @@ impure elemental function add_ComplexPolynomialable_ComplexPolynomialable( &
   output%terms(:size(this_polynomial)) = this_polynomial%terms
   no_terms = size(this_polynomial)
   do i=1,size(that_polynomial)
-    j = first( this_polynomial%terms,     &
-             & compare_complex_monomials, &
-             & that_polynomial%terms(i),  &
-             & default=0                  )
+    j = first_equivalent( this_polynomial%terms,     &
+                        & that_polynomial%terms(i),  &
+                        & compare_complex_monomials, &
+                        & default=0                  )
     if (j==0) then
       no_terms = no_terms + 1
       output%terms(no_terms) = that_polynomial%terms(i)
@@ -1262,12 +1368,12 @@ function compare_complex_monomials(this,that) result(output)
   
   select type(this); type is(ComplexMonomial)
     select type(that); type is(ComplexMonomial)
-      if (size(this%modes)/=size(that%modes)) then
+      if (size(this)/=size(that)) then
         output = .false.
       else
-        output = all( this%modes%id==that%modes%id .and.               &
-                    & this%modes%power==that%modes%power .and.         &
-                    & this%modes%paired_power==that%modes%paired_power )
+        output = all( this%modes_%id==that%modes_%id .and.               &
+                    & this%modes_%power==that%modes_%power .and.         &
+                    & this%modes_%paired_power==that%modes_%paired_power )
       endif
     end select
   end select
@@ -1401,8 +1507,8 @@ function write_ComplexMonomial(this) result(output)
   type(String)                       :: output
   
   select type(this); type is(ComplexMonomial)
-    if (size(this%modes)>0) then
-      output = this%coefficient//'*'//join(this%modes, delimiter='*')
+    if (size(this%modes_)>0) then
+      output = this%coefficient//'*'//join(this%modes_, delimiter='*')
     else
       output = str(this%coefficient)
     endif

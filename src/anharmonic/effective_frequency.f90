@@ -183,8 +183,8 @@ function calculate_free_energy(potential,basis,subspace,anharmonic_data, &
             & stat=ialloc); call err(ialloc)
     do j=1,no_states
       do k=1,no_states
-        bra = basis%wavevectors(i)%states(j)
-        ket = basis%wavevectors(i)%states(k)
+        bra = basis%wavevectors(i)%monomial_states(j)
+        ket = basis%wavevectors(i)%monomial_states(k)
         energy_difference(k,j) = potential%potential_energy(   &
                              &               bra,              &
                              &               ket,              &
@@ -202,10 +202,10 @@ function calculate_free_energy(potential,basis,subspace,anharmonic_data, &
        & basis%wavevectors(i)%operator_states_to_basis(energy_difference)
     
     ! Calculate the thermal weights, {Ph_i} of the harmonic states.
-    state_weights = calculate_state_weight(        &
-       & thermal_energy,                           &
-       & frequency,                                &
-       & basis%wavevectors(i)%harmonic_occupations )
+    state_weights = calculate_state_weight(          &
+       & thermal_energy,                             &
+       & frequency,                                  &
+       & basis%wavevectors(i)%harmonic_occupations() )
     
     ! Calculate thermal expectation of Vv-Vh.
     thermal_energy_difference =      &

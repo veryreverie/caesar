@@ -72,9 +72,11 @@ function new_StateConversion(ids,coefficients) result(this)
   this%ids_          = ids(sort_key)
   this%coefficients_ = coefficients(sort_key)
   
-  if (any(this%ids_(2:)==this%ids_(:size(this%ids_-1)))) then
-    call print_line(CODE_ERROR//': An ID has been given twice.')
-    call err()
+  if (size(this)>1) then
+    if (any(this%ids_(2:)==this%ids_(:size(this)-1))) then
+      call print_line(CODE_ERROR//': An ID has been given twice.')
+      call err()
+    endif
   endif
 end function
 
@@ -181,6 +183,7 @@ subroutine read_StateConversion(this,input)
   
   select type(this); type is(StateConversion)
     states = split_line(input)
+    states = states(filter([(modulo(i,2)==1,i=1,size(states))]))
     allocate( ids(size(states)),          &
             & coefficients(size(states)), &
             & stat=ialloc); call err(ialloc)
@@ -205,9 +208,10 @@ function write_StateConversion(this) result(output)
   integer :: i
   
   select type(this); type is(StateConversion)
-    output = join([( this%coefficients_(i)//'|'//this%ids_(i)//'>', &
-                   & i=1,                                           &
-                   & size(this)                                     )])
+    output = join( [( this%coefficients_(i)//'|'//this%ids_(i)//'>',     &
+                 &    i=1,                                               &
+                 &    size(this)                                     )], &
+                 & delimiter=' + '                                       )
   class default
     call err()
   end select

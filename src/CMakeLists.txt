@@ -13,7 +13,7 @@ set(CMAKE_Fortran_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/mod/)
 #    cmake /path/to/src -DCMAKE_Fortran_COMPILER:PATH=nagfor
 
 if ("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "GNU")
-  set(CMAKE_Fortran_FLAGS "-g -O0 -W -Wall -Wextra -pedantic -fmax-errors=1 -fcheck=all -fbacktrace -std=f2008 -fall-intrinsics -ffpe-trap=zero,overflow -fimplicit-none -no-pie")
+  set(CMAKE_Fortran_FLAGS "-g -pg -O0 -W -Wall -Wextra -pedantic -fmax-errors=1 -fcheck=all -fbacktrace -std=f2008 -fall-intrinsics -ffpe-trap=zero,overflow -fimplicit-none -no-pie")
 elseif("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "NAG")
   set(CMAKE_Fortran_FLAGS "-f2008 -I ${CMAKE_BINARY_DIR}/mod/ -C=all -u -nan -g -gline")
 elseif("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "Intel")

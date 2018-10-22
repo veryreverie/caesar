@@ -5,6 +5,7 @@
 module vscf_ground_state_module
   use common_module
   
+  use wavevector_basis_module
   use subspace_basis_module
   use polynomial_state_module
   implicit none
@@ -68,9 +69,9 @@ impure elemental function new_PolynomialState_VscfGroundState(state,basis) &
   coefficients = &
      & basis%wavevectors(i)%coefficients_basis_to_states(state%coefficients)
   
-  output = PolynomialState( basis%subspace_id,           &
-                          & basis%wavevectors(i)%states, &
-                          & coefficients                 )
+  output = PolynomialState( basis%subspace_id,                    &
+                          & basis%wavevectors(i)%monomial_states, &
+                          & coefficients                          )
 end function
 
 ! Generate initial guess. This is simply the basis state |0>, i.e. the
@@ -82,7 +83,7 @@ impure elemental function initial_ground_state(basis) result(output)
   type(SubspaceBasis), intent(in) :: basis
   type(VscfGroundState)           :: output
   
-  type(SubspaceWavevectorBasis) :: wavevector_basis
+  type(WavevectorBasis) :: wavevector_basis
   
   real(dp), allocatable :: coefficients(:)
   
@@ -95,7 +96,7 @@ impure elemental function initial_ground_state(basis) result(output)
   ! Construct the coefficient vector in the basis of monomial states.
   ! All coefficients are zero, except for the coefficient of |0>, which is one.
   coefficients = [( 0.0_dp, i=1, size(wavevector_basis) )]
-  coefficients(first(wavevector_basis%states%total_power()==0)) = 1
+  coefficients(first(wavevector_basis%harmonic_occupations()==0)) = 1
   
   ! Convert the coefficients into the orthonormal basis.
   coefficients = wavevector_basis%coefficients_states_to_basis(coefficients)

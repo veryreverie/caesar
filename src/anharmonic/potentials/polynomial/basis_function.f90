@@ -342,10 +342,11 @@ subroutine braket_BasisFunction(this,bra,ket,inputs)
   
   type(DegenerateSubspace) :: subspace
   
-  type(ComplexMatrix)      :: complex_to_real_conversion
-  complex(dp), allocatable :: complex_coefficients(:)
-  real(dp),    allocatable :: real_coefficients(:)
-  logical,     allocatable :: mode_in_subspace(:)
+  type(ComplexMatrix)               :: complex_to_real_conversion
+  complex(dp),          allocatable :: complex_coefficients(:)
+  real(dp),             allocatable :: real_coefficients(:)
+  type(RealUnivariate), allocatable :: real_modes(:)
+  logical,              allocatable :: mode_in_subspace(:)
   
   integer :: i,j,ialloc
   
@@ -374,16 +375,14 @@ subroutine braket_BasisFunction(this,bra,ket,inputs)
   
   ! Remove modes in real representation which have been integrated over.
   do i=1,size(this%real_representation)
-    allocate( mode_in_subspace(size(this%real_representation%terms(i))), &
-            & stat=ialloc); call err(ialloc)
-    do j=1,size(this%real_representation%terms(i))
-      mode_in_subspace(j) = any(                            &
-         & this%real_representation%terms(i)%modes(j)%id == &
-         & subspace%mode_ids                                )
-    enddo
-    this%real_representation%terms(i)%modes = &
-       & this%real_representation%terms(i)%modes(filter(.not.mode_in_subspace))
-    deallocate(mode_in_subspace)
+    real_modes = this%real_representation%terms(i)%modes()
+    mode_in_subspace = [( any(subspace%mode_ids==real_modes(j)%id), &
+                        & j=1,                                      &
+                        & size(real_modes)                          )]
+    real_modes = real_modes(filter(.not.mode_in_subspace))
+    this%real_representation%terms(i) = RealMonomial(                &
+       & modes       = real_modes,                                   &
+       & coefficient = this%real_representation%terms(i)%coefficient )
   enddo
 end subroutine
 

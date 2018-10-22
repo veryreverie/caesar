@@ -514,16 +514,16 @@ function no_permutations(input) result(output)
   powers = [integer::]
   select type(input); type is (ComplexMonomial)
     do i=1,size(input)
-      powers = [powers, input%modes(i)%power]
-      if (input%modes(i)%id/=input%modes(i)%paired_id) then
-        powers = [powers, input%modes(i)%paired_power]
+      powers = [powers, input%power(i)]
+      if (input%id(i)/=input%paired_id(i)) then
+        powers = [powers, input%paired_power(i)]
       endif
     enddo
   type is(RealMonomial)
     do i=1,size(input)
-      powers = [powers, input%modes(i)%power]
-      if (input%modes(i)%id/=input%modes(i)%paired_id) then
-        powers = [powers, input%modes(i)%paired_power]
+      powers = [powers, input%power(i)]
+      if (input%id(i)/=input%paired_id(i)) then
+        powers = [powers, input%paired_power(i)]
       endif
     enddo
   class default

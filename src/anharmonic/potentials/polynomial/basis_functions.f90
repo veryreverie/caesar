@@ -113,10 +113,10 @@ function generate_basis_functions_SubspaceMonomials(couplings,structure, &
       !    functions is zero.
       do k=1,size(basis_functions)
         if (k/=j) then
-          matching_term_location = first(                    &
+          matching_term_location = first_equivalent(         &
              & basis_functions(k)%real_representation%terms, &
-             & compare_real_monomials,                       &
              & unique_term,                                  &
+             & compare_real_monomials,                       &
              & default=0                                     )
           if (matching_term_location/=0) then
             matching_term = basis_functions(k)%real_representation%terms( &

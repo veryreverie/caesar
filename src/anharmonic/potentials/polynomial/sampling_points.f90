@@ -120,26 +120,26 @@ contains
       select type(that); type is(RealMonomial)
         this_ids = [integer::]
         do i=1,size(this)
-          if (this%modes(i)%power>0) then
-            this_ids = [this_ids, this%modes(i)%id]
+          if (this%power(i)>0) then
+            this_ids = [this_ids, this%id(i)]
           endif
           
-          if (this%modes(i)%paired_id/=this%modes(i)%id) then
-            if (this%modes(i)%paired_power>0) then
-              this_ids = [this_ids, this%modes(i)%paired_id]
+          if (this%paired_id(i)/=this%id(i)) then
+            if (this%paired_power(i)>0) then
+              this_ids = [this_ids, this%paired_id(i)]
             endif
           endif
         enddo
         
         that_ids = [integer::]
         do i=1,size(that)
-          if (that%modes(i)%power>0) then
-            that_ids = [that_ids, that%modes(i)%id]
+          if (that%power(i)>0) then
+            that_ids = [that_ids, that%id(i)]
           endif
           
-          if (that%modes(i)%paired_id/=that%modes(i)%id) then
-            if (that%modes(i)%paired_power>0) then
-              that_ids = [that_ids, that%modes(i)%paired_id]
+          if (that%paired_id(i)/=that%id(i)) then
+            if (that%paired_power(i)>0) then
+              that_ids = [that_ids, that%paired_id(i)]
             endif
           endif
         enddo
@@ -190,15 +190,15 @@ function generate_sampling_points_helper(monomials,potential_expansion_order, &
     ids = [integer::]
     powers = [integer::]
     do j=1,size(monomials(i))
-      if (monomials(i)%modes(j)%power>0) then
-        ids = [ids, monomials(i)%modes(j)%id]
-        powers = [powers, monomials(i)%modes(j)%power]
+      if (monomials(i)%power(j)>0) then
+        ids = [ids, monomials%id(j)]
+        powers = [powers, monomials(i)%power(j)]
       endif
       
-      if ( monomials(i)%modes(j)%paired_id/=monomials(i)%modes(j)%id .and. &
-         & monomials(i)%modes(j)%paired_power>0) then
-        ids = [ids, monomials(i)%modes(j)%paired_id]
-        powers = [powers, monomials(i)%modes(j)%paired_power]
+      if ( monomials(i)%paired_id(j)/=monomials(i)%id(j) .and. &
+         & monomials(i)%paired_power(j)>0                      ) then
+        ids = [ids, monomials(i)%paired_id(j)]
+        powers = [powers, monomials(i)%paired_power(j)]
       endif
     enddo
     

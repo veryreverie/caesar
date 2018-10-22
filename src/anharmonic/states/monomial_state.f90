@@ -240,25 +240,25 @@ impure elemental function finite_overlap_MonomialStates(bra,ket) result(output)
     i = first(.not. bra_mode_integrated, default=0)
     if (i==0) then
       j = first(.not. ket_mode_integrated)
-      id = ket%state_%modes(j)%id
-      paired_id = ket%state_%modes(j)%paired_id
+      id = ket%state_%id(j)
+      paired_id = ket%state_%paired_id(j)
     else
-      id = bra%state_%modes(i)%id
-      paired_id = bra%state_%modes(i)%paired_id
-      j = first(ket%state_%modes%id==id, default=0)
+      id = bra%state_%id(i)
+      paired_id = bra%state_%paired_id(i)
+      j = first_equivalent(ket%state_%ids(), id, default=0, sorted=.true.)
     endif
     
     ! Multiply the output by the contribution from the mode.
     if (i==0) then
       bra_mode = ComplexUnivariate(id,paired_id,0,0)
     else
-      bra_mode = bra%state_%modes(i)
+      bra_mode = bra%state_%mode(i)
     endif
     
     if (j==0) then
       ket_mode = ComplexUnivariate(id,paired_id,0,0)
     else
-      ket_mode = ket%state_%modes(j)
+      ket_mode = ket%state_%mode(j)
     endif
     
     if (.not. finite_overlap_modes(bra_mode,ket_mode)) then
@@ -357,25 +357,25 @@ impure elemental function braket_MonomialStates(bra,ket) result(output)
     i = first(.not. bra_mode_integrated, default=0)
     if (i==0) then
       j = first(.not. ket_mode_integrated)
-      id = ket%state_%modes(j)%id
-      paired_id = ket%state_%modes(j)%paired_id
+      id = ket%state_%id(j)
+      paired_id = ket%state_%paired_id(j)
     else
-      id = bra%state_%modes(i)%id
-      paired_id = bra%state_%modes(i)%paired_id
-      j = first(ket%state_%modes%id==id, default=0)
+      id = bra%state_%id(i)
+      paired_id = bra%state_%paired_id(i)
+      j = first_equivalent(ket%state_%ids(), id, default=0, sorted=.true.)
     endif
     
     ! Multiply the output by the contribution from the mode.
     if (i==0) then
       bra_mode = ComplexUnivariate(id,paired_id,0,0)
     else
-      bra_mode = bra%state_%modes(i)
+      bra_mode = bra%state_%mode(i)
     endif
     
     if (j==0) then
       ket_mode = ComplexUnivariate(id,paired_id,0,0)
     else
-      ket_mode = ket%state_%modes(j)
+      ket_mode = ket%state_%mode(j)
     endif
     
     output = output * braket_modes(bra_mode, ket_mode)
@@ -475,6 +475,8 @@ impure elemental function braket_MonomialStates_ComplexMonomial(bra,ket, &
   logical, allocatable :: subspace_mode_integrated(:)
   logical, allocatable :: monomial_mode_integrated(:)
   
+  type(ComplexUnivariate), allocatable :: monomial_modes(:)
+  
   type(ComplexUnivariate) :: bra_mode
   type(ComplexUnivariate) :: ket_mode
   type(ComplexUnivariate) :: monomial_mode
@@ -505,15 +507,38 @@ impure elemental function braket_MonomialStates_ComplexMonomial(bra,ket, &
     id = subspace%mode_ids(i_subspace)
     
     ! Locate this mode in the bra, the ket and the monomial.
-    i_bra = first( bra%state_%modes%id==id .or.    &
-                 & bra%state_%modes%paired_id==id, &
-                 & default=0                       )
-    i_ket = first( ket%state_%modes%id==id .or.    &
-                 & ket%state_%modes%paired_id==id, &
-                 & default=0                       )
-    i_monomial = first(                                           &
-       & monomial%modes%id==id .or. monomial%modes%paired_id==id, &
-       & default=0                                                )
+    i_bra = first_equivalent( bra%state_%ids(), &
+                            & id,               &
+                            & default = 0,      &
+                            & sorted  = .true.  )
+    if (i_bra==0) then
+      i_bra = first_equivalent( bra%state_%paired_ids(), &
+                              & id,                      &
+                              & default = 0,             &
+                              & sorted  = .true.         )
+    endif
+    
+    i_ket = first_equivalent( ket%state_%ids(), &
+                            & id,               &
+                            & default = 0,      &
+                            & sorted  = .true.  )
+    if (i_ket==0) then
+      i_ket = first_equivalent( ket%state_%paired_ids(), &
+                              & id,                      &
+                              & default = 0,             &
+                              & sorted  = .true.         )
+    endif
+    
+    i_monomial = first_equivalent( monomial%ids(),  &
+                                 & id,              &
+                                 & default = 0,     &
+                                 & sorted  = .true. )
+    if (i_monomial==0) then
+      i_monomial = first_equivalent( monomial%paired_ids(), &
+                                   & id,                    &
+                                   & default = 0,           &
+                                   & sorted  = .true.       )
+    endif
     
     ! If the mode does not appear in any, then the contribution is either
     !    <0|(u_i)^0|0> = 1 or <0,0|(u_i)^0(u_j)^0|0,0>=1,
@@ -524,16 +549,17 @@ impure elemental function braket_MonomialStates_ComplexMonomial(bra,ket, &
     endif
     
     ! Use mode locations to find p_i, p_j, n_i, n_j, q_i, q_j,
-    !    and id and paired_id. N.B. id<=paired_id, so id may change from above.
+    !    and id and paired_id.
+    ! N.B. id<=paired_id, so id may be changed from its value above.
     if (i_bra/=0) then
-      id = bra%state_%modes(i_bra)%id
-      paired_id = bra%state_%modes(i_bra)%paired_id
+      id = bra%state_%id(i_bra)
+      paired_id = bra%state_%paired_id(i_bra)
     elseif (i_ket/=0) then
-      id = ket%state_%modes(i_ket)%id
-      paired_id = ket%state_%modes(i_ket)%paired_id
+      id = ket%state_%id(i_ket)
+      paired_id = ket%state_%paired_id(i_ket)
     elseif (i_monomial/=0) then
-      id = monomial%modes(i_monomial)%id
-      paired_id = monomial%modes(i_monomial)%paired_id
+      id = monomial%id(i_monomial)
+      paired_id = monomial%paired_id(i_monomial)
     else
       call err()
     endif
@@ -541,19 +567,19 @@ impure elemental function braket_MonomialStates_ComplexMonomial(bra,ket, &
     if (i_bra==0) then
       bra_mode = ComplexUnivariate(id,paired_id,0,0)
     else
-      bra_mode = bra%state_%modes(i_bra)
+      bra_mode = bra%state_%mode(i_bra)
     endif
     
     if (i_ket==0) then
       ket_mode = ComplexUnivariate(id,paired_id,0,0)
     else
-      ket_mode = ket%state_%modes(i_ket)
+      ket_mode = ket%state_%mode(i_ket)
     endif
     
     if (i_monomial==0) then
       monomial_mode = ComplexUnivariate(id,paired_id,0,0)
     else
-      monomial_mode = monomial%modes(i_monomial)
+      monomial_mode = monomial%mode(i_monomial)
     endif
     
     coefficient = coefficient &
@@ -571,7 +597,9 @@ impure elemental function braket_MonomialStates_ComplexMonomial(bra,ket, &
   ! Calculate sqrt(4Nw_i).
   sqrt_two_n_omega = sqrt(2.0_dp * supercell%sc_size * bra%frequency)
   
-  sum_n = sum(monomial%modes(filter(monomial_mode_integrated))%total_power())
+  monomial_modes = monomial%modes()
+  
+  sum_n = sum(monomial_modes(filter(monomial_mode_integrated))%total_power())
   
   coefficient = coefficient / sqrt_two_n_omega**sum_n
   
@@ -579,7 +607,7 @@ impure elemental function braket_MonomialStates_ComplexMonomial(bra,ket, &
   !    the new coefficient.
   output = ComplexMonomial(                                                &
      & coefficient = monomial%coefficient*coefficient,                     &
-     & modes       = monomial%modes(filter(.not.monomial_mode_integrated)) )
+     & modes       = monomial_modes(filter(.not.monomial_mode_integrated)) )
 end function
 
 impure elemental function braket_modes_potential(bra,ket,potential) &
@@ -702,24 +730,24 @@ function kinetic_energy_MonomialStates(bra,ket,subspace,supercell) &
     i_bra = first(.not. bra_mode_integrated, default=0)
     if (i_bra==0) then
       i_ket = first(.not. ket_mode_integrated)
-      id = ket%state_%modes(i_ket)%id
-      paired_id = ket%state_%modes(i_ket)%paired_id
+      id = ket%state_%id(i_ket)
+      paired_id = ket%state_%paired_id(i_ket)
     else
-      id = bra%state_%modes(i_bra)%id
-      paired_id = bra%state_%modes(i_bra)%paired_id
-      i_ket = first(ket%state_%modes%id==id, default=0)
+      id = bra%state_%id(i_bra)
+      paired_id = bra%state_%paired_id(i_bra)
+      i_ket = first_equivalent(ket%state_%ids(), id, default=0, sorted=.true.)
     endif
     
     if (i_bra==0) then
       bra_mode = ComplexUnivariate(id,paired_id,0,0)
     else
-      bra_mode = bra%state_%modes(i_bra)
+      bra_mode = bra%state_%mode(i_bra)
     endif
     
     if (i_ket==0) then
       ket_mode = ComplexUnivariate(id,paired_id,0,0)
     else
-      ket_mode = ket%state_%modes(i_ket)
+      ket_mode = ket%state_%mode(i_ket)
     endif
     
     ! Calculate the contribution to the prefactor from the mode.
@@ -846,24 +874,24 @@ function harmonic_potential_energy_MonomialStates(bra,ket,subspace,supercell) &
     i_bra = first(.not. bra_mode_integrated, default=0)
     if (i_bra==0) then
       i_ket = first(.not. ket_mode_integrated)
-      id = ket%state_%modes(i_ket)%id
-      paired_id = ket%state_%modes(i_ket)%paired_id
+      id = ket%state_%id(i_ket)
+      paired_id = ket%state_%paired_id(i_ket)
     else
-      id = bra%state_%modes(i_bra)%id
-      paired_id = bra%state_%modes(i_bra)%paired_id
-      i_ket = first(ket%state_%modes%id==id, default=0)
+      id = bra%state_%id(i_bra)
+      paired_id = bra%state_%paired_id(i_bra)
+      i_ket = first_equivalent(ket%state_%ids(), id, default=0, sorted=.true.)
     endif
     
     if (i_bra==0) then
       bra_mode = ComplexUnivariate(id,paired_id,0,0)
     else
-      bra_mode = bra%state_%modes(i_bra)
+      bra_mode = bra%state_%mode(i_bra)
     endif
     
     if (i_ket==0) then
       ket_mode = ComplexUnivariate(id,paired_id,0,0)
     else
-      ket_mode = ket%state_%modes(i_ket)
+      ket_mode = ket%state_%mode(i_ket)
     endif
     
     ! Calculate the contribution to the prefactor from the mode.
@@ -944,10 +972,10 @@ subroutine read_MonomialState(this,input)
   
   select type(this); type is(MonomialState)
     line = split_line(input(1))
-    subspace_id = int(line(2))
+    subspace_id = int(line(3))
     
     line = split_line(input(2))
-    frequency = dble(line(2))
+    frequency = dble(line(3))
     
     if (input(4)=='|0>') then
       state = ComplexMonomial( coefficient = cmplx(1.0_dp,0.0_dp,dp), &
@@ -974,10 +1002,10 @@ function write_MonomialState(this) result(output)
     if (this%state_%total_power()==0) then
       state_string = '|0>'
     else
-      state_string = '|'//join(this%state_%modes,delimiter='*')//'>'
+      state_string = '|'//join(this%state_%modes(),delimiter='*')//'>'
     endif
-    output = [ 'Subspace '//this%subspace_id, &
-             & 'Frequency '//this%frequency,  &
+    output = [ 'Subspace  : '//this%subspace_id, &
+             & 'Frequency : '//this%frequency,  &
              & str('State'),                  &
              & state_string                   ]
   class default

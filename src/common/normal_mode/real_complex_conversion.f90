@@ -306,14 +306,16 @@ impure elemental function element_ComplexMonomial_RealMonomial(this,that, &
   logical,               intent(in) :: include_coefficients
   complex(dp)                       :: output
   
+  type(ComplexUnivariate) :: this_mode
+  type(RealUnivariate)    :: that_mode
+  
   logical, allocatable :: that_mode_accounted(:)
   
   complex(dp) :: overlap
   
   integer :: i,j,p,q,l,n
   
-  if ( sum(this%modes%power+this%modes%paired_power) /= &
-     & sum(that%modes%power+that%modes%paired_power)    ) then
+  if (this%total_power()/=that%total_power()) then
     output = 0
     return
   endif
@@ -325,30 +327,33 @@ impure elemental function element_ComplexMonomial_RealMonomial(this,that, &
   ! Loop over modes, multiplying the output by the overlap of each mode pair
   !    in 'this' with the eqivalent mode pair in 'that'.
   do i=1,size(this)
+    this_mode = this%mode(i)
+    
     ! Find the location of this%modes(i) in 'that'.
-    j = first(that%modes%id==this%modes(i)%id, default=0)
+    j = first_equivalent(that%ids(), this%id(i), default=0, sorted=.true.)
     
     if (j==0) then
       ! If the modes doesn't exist in that, and the mode in 'this' has
       !    non-zero power, then the overlap between 'this' and 'that' is zero.
       ! If the mode in 'this' has zero power, then the mode has zero power
       !    in both, and can be neglected.
-      if (this%modes(i)%power/=0 .or. this%modes(i)%paired_power/=0) then
+      if (this_mode%power/=0 .or. this_mode%paired_power/=0) then
         output = 0
         return
       endif
     else
+      that_mode = that%mode(j)
       ! If the mode exists in both, account for it in the overlap.
-      if (this%modes(i)%total_power()/=that%modes(j)%total_power()) then
+      if (this_mode%total_power()/=that_mode%total_power()) then
         ! There is no overlap between this and that.
         output = 0
         return
-      elseif (this%modes(i)%id==this%modes(i)%paired_id) then
+      elseif (this_mode%id==this_mode%paired_id) then
         ! The mode is real. The overlap is 1.
         continue
       else
-        ! this%modes(i) = (u+)^p * (u-)^{n-p}.
-        ! that%modes(j) = (c )^q * (s )^{n-q}.
+        ! this_mode = (u+)^p * (u-)^{n-p}.
+        ! that_mode = (c )^q * (s )^{n-q}.
         !
         ! (u+)^p * (u-)^{n-p} = sum_{q=0}^n M(p,q,n) c^q * s*{n-q}.
         !
@@ -367,9 +372,9 @@ impure elemental function element_ComplexMonomial_RealMonomial(this,that, &
         !
         ! => M(p,q,n) = i^{-n+2j+q} / sqrt(2)^n
         !             * sum_{l=max(0,p+q-n)}^{min(p,q)} bin(p,l)*bin(n-p,q-l)*(-1)^l
-        p = this%modes(i)%power
-        q = that%modes(j)%power
-        n = this%modes(i)%total_power()
+        p = this_mode%power
+        q = that_mode%power
+        n = this_mode%total_power()
         overlap = 0
         do l=max(0,p+q-n),min(p,q)
           overlap = overlap + binomial(p,l)*binomial(n-p,q-l)*(-1)**l
@@ -388,7 +393,7 @@ impure elemental function element_ComplexMonomial_RealMonomial(this,that, &
   !    overlap is zero.
   do i=1,size(that)
     if (.not. that_mode_accounted(j)) then
-      if (that%modes(j)%power/=0 .or. that%modes(j)%paired_power/=0) then
+      if (that%power(j)/=0 .or. that%paired_power(j)/=0) then
         output = 0
         return
       endif
@@ -413,14 +418,16 @@ impure elemental function element_RealMonomial_ComplexMonomial(this,that, &
   logical,               intent(in) :: include_coefficients
   complex(dp)                       :: output
   
+  type(RealUnivariate)    :: this_mode
+  type(ComplexUnivariate) :: that_mode
+  
   logical, allocatable :: that_mode_accounted(:)
   
   complex(dp) :: overlap
   
   integer :: i,j,p,q,l,n
   
-  if ( sum(this%modes%power+this%modes%paired_power) /= &
-     & sum(that%modes%power+that%modes%paired_power)    ) then
+  if (this%total_power()/=that%total_power()) then
     output = 0
     return
   endif
@@ -432,30 +439,34 @@ impure elemental function element_RealMonomial_ComplexMonomial(this,that, &
   ! Loop over modes, multiplying the output by the overlap of each mode pair
   !    in 'this' with the eqivalent mode pair in 'that'.
   do i=1,size(this)
+    this_mode = this%mode(i)
+    
     ! Find the location of this%modes(i) in 'that'.
-    j = first(that%modes%id==this%modes(i)%id, default=0)
+    j = first_equivalent(that%ids(), this%id(i), default=0, sorted=.true.)
     
     if (j==0) then
       ! If the modes doesn't exist in that, and the mode in 'this' has
       !    non-zero power, then the overlap between 'this' and 'that' is zero.
       ! If the mode in 'this' has zero power, then the mode has zero power
       !    in both, and can be neglected.
-      if (this%modes(i)%power/=0 .or. this%modes(i)%paired_power/=0) then
+      if (this%power(i)/=0 .or. this%paired_power(i)/=0) then
         output = 0
         return
       endif
     else
+      that_mode = that%mode(j)
+      
       ! If the mode exists in both, account for it in the overlap.
-      if (this%modes(i)%total_power()/=that%modes(j)%total_power()) then
+      if (this_mode%total_power()/=that_mode%total_power()) then
         ! There is no overlap between this and that.
         output = 0
         return
-      elseif (this%modes(i)%id==this%modes(i)%paired_id) then
+      elseif (this_mode%id==this_mode%paired_id) then
         ! The mode is real. The overlap is 1.
         continue
       else
-        ! this%modes(i) = (c )^p * (s )^{n-p}.
-        ! that%modes(j) = (u+)^q * (u-)^{n-q}.
+        ! this_mode = (c )^p * (s )^{n-p}.
+        ! that_mode = (u+)^q * (u-)^{n-q}.
         !
         ! c^p * s^{n-p} = sum_{q=0}^n M(p,q,n) (u+)^q * (u-)^{n-q}.
         !
@@ -474,9 +485,9 @@ impure elemental function element_RealMonomial_ComplexMonomial(this,that, &
         !
         ! => M(p,q,n) = i^{n-p-2k} / sqrt(2)^n
         !             * sum_{l=max(0,p+q-n)}^{min(p,q)} bin(p,l)*bin(n-p,q-l)*(-1)^l
-        p = this%modes(i)%power
-        q = that%modes(j)%power
-        n = this%modes(i)%total_power()
+        p = this_mode%power
+        q = that_mode%power
+        n = this_mode%total_power()
         overlap = 0
         do l=max(0,p+q-n),min(p,q)
           overlap = overlap + binomial(p,l)*binomial(n-p,q-l)*(-1)**l
@@ -495,7 +506,7 @@ impure elemental function element_RealMonomial_ComplexMonomial(this,that, &
   !    overlap is zero.
   do i=1,size(that)
     if (.not. that_mode_accounted(j)) then
-      if (that%modes(j)%power/=0 .or. that%modes(j)%paired_power/=0) then
+      if (that%power(j)/=0 .or. that%paired_power(j)/=0) then
         output = 0
         return
       endif
