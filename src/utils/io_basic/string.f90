@@ -244,6 +244,7 @@ end function
 ! --------------------------------------------------
 ! Split a string by a given delimiter.
 ! --------------------------------------------------
+! If no delimiter is specified, splits by whitespace.
 function split_line_character(this,delimiter) result(output)
   implicit none
   
@@ -251,26 +252,19 @@ function split_line_character(this,delimiter) result(output)
   character(1), intent(in), optional :: delimiter
   type(String), allocatable          :: output(:)
   
-  ! Set to delimiter if present, or ' ' if not.
-  character(1) :: delimiter_character
+  ! The position of a delimiter.
+  integer :: first
+  ! The position of the next delimiter after 'first'.
+  integer :: second
   
-  ! Locations to help parsing.
-  integer :: first  ! The position of a delimiter.
-  integer :: second ! The position of the next delimiter after 'first'.
-  integer :: count  ! The number of tokens.
+  ! The number of characters before the next space or tab.
+  integer :: next_space
+  integer :: next_tab
   
-  integer :: ialloc
   
-  if (present(delimiter)) then
-    delimiter_character = delimiter
-  else
-    delimiter_character = ' '
-  endif
-  
-  ! Count the number of tokens in the string.
   first = 0
   second = 0
-  count = 0
+  output = [String::]
   do
     ! Search after previously found delimiter.
     first = second
@@ -279,40 +273,33 @@ function split_line_character(this,delimiter) result(output)
       exit
     endif
     ! Find the next delimiter.
-    second = first + index(this(first+1:),delimiter_character)
-    ! Split the final token.
+    if (present(delimiter)) then
+      second = first + index(this(first+1:), delimiter)
+    else
+      ! If delimiter is not set, find the next space or tab character.
+      next_space = first + index(this(first+1:), ' ')
+      next_tab   = first + index(this(first+1:), '	') ! N.B. '[TAB]'
+      if (next_space==first) then
+        ! No space found.
+        second = next_tab
+      elseif (next_tab==first) then
+        ! No tab found.
+        second = next_space
+      else
+        second = min(next_tab,next_space)
+      endif
+    endif
+    ! If second==first there is no next delimiter. Parse the final token.
     if (second == first) then
       second = len(this)+1
     endif
-    ! Ignore multiple delimiters in a row.
+    ! If second==first+1, there are multiple delimiters in a row.
+    ! They are treated as a single delimiter.
     if (second == first+1) then
       cycle
     endif
-    count = count + 1
-  enddo
-  
-  ! Allocate output.
-  allocate(output(count), stat=ialloc); call err(ialloc)
-  
-  ! Split string. Logic as above, but tokens are transferred to output
-  !    rather than just being counted.
-  first = 0
-  second = 0
-  count = 0
-  do
-    first = second
-    if (first == len(this)+1) then
-      exit
-    endif
-    second = first + index(this(first+1:),delimiter_character)
-    if (second == first) then
-      second = len(this)+1
-    endif
-    if (second == first+1) then
-      cycle
-    endif
-    count = count + 1
-    output(count) = this(first+1:second-1)
+    ! Append the token to the output.
+    output = [output, str(this(first+1:second-1))]
   enddo
 end function
 
