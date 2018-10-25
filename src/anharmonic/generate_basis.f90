@@ -135,13 +135,14 @@ function generate_basis(potential,anharmonic_data,frequency_convergence, &
   ! Use calculated effective harmonic frequencies to generate bases.
   allocate(output(size(subspaces)), stat=ialloc); call err(ialloc)
   do i=1,size(subspaces)
-    output(i) = generate_subspace_basis(       &
-       & subspaces(i),                         &
-       & frequencies(i),                       &
-       & anharmonic_data%complex_modes,        &
-       & anharmonic_data%qpoints,              &
-       & anharmonic_data%anharmonic_supercell, &
-       & maximum_power = no_basis_states-1     )
+    output(i) = generate_subspace_basis(           &
+       & subspaces(i),                             &
+       & frequencies(i),                           &
+       & anharmonic_data%complex_modes,            &
+       & anharmonic_data%qpoints,                  &
+       & anharmonic_data%anharmonic_supercell,     &
+       & no_basis_states-1,                        &
+       & anharmonic_data%potential_expansion_order )
   enddo
 end function
 

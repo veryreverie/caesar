@@ -22,6 +22,8 @@ module anharmonic_data_module
     type(DegenerateSubspace), allocatable :: degenerate_subspaces(:)
     type(DegenerateSymmetry), allocatable :: degenerate_symmetries(:)
     type(SubspaceCoupling),   allocatable :: subspace_couplings(:)
+    integer                               :: maximum_coupling_order
+    integer                               :: potential_expansion_order
     logical                               :: vscf_basis_functions_only
     real(dp)                              :: maximum_weighted_displacement
     real(dp)                              :: frequency_of_max_displacement
@@ -39,8 +41,9 @@ contains
 
 function new_AnharmonicData(structure,anharmonic_supercell,qpoints,       &
    & complex_modes,real_modes,degenerate_subspaces,degenerate_symmetries, &
-   & subspace_couplings,vscf_basis_functions_only,                        &
-   & maximum_weighted_displacement,frequency_of_max_displacement) result(this)
+   & subspace_couplings,maximum_coupling_order,potential_expansion_order, &
+   & vscf_basis_functions_only,maximum_weighted_displacement,             &
+   & frequency_of_max_displacement) result(this)
   implicit none
   
   type(StructureData),      intent(in) :: structure
@@ -51,6 +54,8 @@ function new_AnharmonicData(structure,anharmonic_supercell,qpoints,       &
   type(DegenerateSubspace), intent(in) :: degenerate_subspaces(:)
   type(DegenerateSymmetry), intent(in) :: degenerate_symmetries(:)
   type(SubspaceCoupling),   intent(in) :: subspace_couplings(:)
+  integer,                  intent(in) :: maximum_coupling_order
+  integer,                  intent(in) :: potential_expansion_order
   logical,                  intent(in) :: vscf_basis_functions_only
   real(dp),                 intent(in) :: maximum_weighted_displacement
   real(dp),                 intent(in) :: frequency_of_max_displacement
@@ -64,6 +69,8 @@ function new_AnharmonicData(structure,anharmonic_supercell,qpoints,       &
   this%degenerate_subspaces          = degenerate_subspaces
   this%degenerate_symmetries         = degenerate_symmetries
   this%subspace_couplings            = subspace_couplings
+  this%maximum_coupling_order        = maximum_coupling_order
+  this%potential_expansion_order     = potential_expansion_order
   this%vscf_basis_functions_only     = vscf_basis_functions_only
   this%maximum_weighted_displacement = maximum_weighted_displacement
   this%frequency_of_max_displacement = frequency_of_max_displacement
@@ -86,6 +93,8 @@ subroutine read_AnharmonicData(this,input)
   type(DegenerateSubspace), allocatable :: degenerate_subspaces(:)
   type(DegenerateSymmetry), allocatable :: degenerate_symmetries(:)
   type(SubspaceCoupling),   allocatable :: subspace_couplings(:)
+  integer                               :: maximum_coupling_order
+  integer                               :: potential_expansion_order
   logical                               :: vscf_basis_functions_only
   real(dp)                              :: maximum_weighted_displacement
   real(dp)                              :: frequency_of_max_displacement
@@ -117,9 +126,11 @@ subroutine read_AnharmonicData(this,input)
     degenerate_symmetries = &
        & DegenerateSymmetry(split_into_sections(sections(7)))
     subspace_couplings = SubspaceCoupling(sections(8)%strings)
-    vscf_basis_functions_only = lgcl(sections(9)%strings(1))
-    maximum_weighted_displacement = dble(sections(10)%strings(1))
-    frequency_of_max_displacement = dble(sections(11)%strings(1))
+    maximum_coupling_order = int(sections(9)%strings(1))
+    potential_expansion_order = int(sections(10)%strings(1))
+    vscf_basis_functions_only = lgcl(sections(11)%strings(1))
+    maximum_weighted_displacement = dble(sections(12)%strings(1))
+    frequency_of_max_displacement = dble(sections(13)%strings(1))
     
     ! Construct the output.
     this = AnharmonicData( structure,                     &
@@ -130,6 +141,8 @@ subroutine read_AnharmonicData(this,input)
                          & degenerate_subspaces,          &
                          & degenerate_symmetries,         &
                          & subspace_couplings,            &
+                         & maximum_coupling_order,        &
+                         & potential_expansion_order,     &
                          & vscf_basis_functions_only,     &
                          & maximum_weighted_displacement, &
                          & frequency_of_max_displacement  )
@@ -172,6 +185,12 @@ function write_AnharmonicData(this) result(output)
              & separator,                                           &
              & str('Subspace couplings'),                           &
              & str(this%subspace_couplings),                        &
+             & separator,                                           &
+             & str('maximum coupling order'),                       &
+             & str(this%maximum_coupling_order),                    &
+             & separator,                                           &
+             & str('Potential expansion order'),                    &
+             & str(this%potential_expansion_order),                 &
              & separator,                                           &
              & str('VSCF basis functions only'),                    &
              & str(this%vscf_basis_functions_only),                 &

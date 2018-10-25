@@ -8,8 +8,6 @@ module subspace_basis_module
   use braket_module
   use state_conversion_module
   use wavevector_basis_module
-  
-  use old_wavevector_basis_module
   implicit none
   
   private
@@ -87,7 +85,7 @@ end subroutine
 
 ! Generates states up to a given power.
 function generate_subspace_basis(subspace,frequency,modes,qpoints, &
-   & supercell,maximum_power) result(output)
+   & supercell,maximum_power,potential_expansion_order) result(output)
   implicit none
   
   type(DegenerateSubspace), intent(in) :: subspace
@@ -96,43 +94,20 @@ function generate_subspace_basis(subspace,frequency,modes,qpoints, &
   type(QpointData),         intent(in) :: qpoints(:)
   type(StructureData),      intent(in) :: supercell
   integer,                  intent(in) :: maximum_power
+  integer,                  intent(in) :: potential_expansion_order
   type(SubspaceBasis)                  :: output
   
   type(WavevectorBasis), allocatable :: wavevectors(:)
   
-  type(SubspaceWavevectorBasis), allocatable :: old_wavevectors(:)
-  
   integer :: i,j,k
   real(dp), allocatable :: brakets(:,:)
   
-  wavevectors = generate_subspace_basis_states( subspace,     &
-                                              & frequency,    &
-                                              & modes,        &
-                                              & qpoints,      &
-                                              & maximum_power )
-  
-  ! TODO: remove below.
-!  old_wavevectors = generate_old_basis(subspace,frequency,modes,qpoints,supercell,maximum_power)
-!  
-!  do i=1,size(wavevectors)
-!    call print_line(repeat('=',50))
-!    call print_lines(wavevectors(i))
-!    call print_line(repeat('.',50))
-!    call print_lines(old_wavevectors(first(old_wavevectors%wavevector==wavevectors(i)%wavevector)))
-!    call print_line(repeat('-',50))
-!    
-!    allocate(brakets(size(wavevectors(i)),size(wavevectors(i))))
-!    do j=1,size(wavevectors(i))
-!      do k=1,size(wavevectors(i))
-!        brakets(j,k) = braket(wavevectors(i)%monomial_states(j), wavevectors(i)%monomial_states(k))
-!      enddo
-!    enddo
-!    brakets = wavevectors(i)%operator_states_to_basis(brakets)
-!    call print_line('')
-!    call print_lines(mat(brakets))
-!    deallocate(brakets)
-!  enddo
-  ! TODO: remove above.
+  wavevectors = generate_subspace_basis_states( subspace,                 &
+                                              & frequency,                &
+                                              & modes,                    &
+                                              & qpoints,                  &
+                                              & maximum_power,            &
+                                              & potential_expansion_order )
   
   output = SubspaceBasis( maximum_power, &
                         & subspace%id,   &

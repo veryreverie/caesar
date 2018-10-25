@@ -237,7 +237,8 @@ function intersection_basis_ComplexVectors(a,b) result(output)
   enddo
   
   ! Calculate the size of U by finding the first row of 0.
-  union_size = last(left_projections>0.1_dp,default=0)
+  union_size = first(left_projections<0.1_dp,default=size(left_projections)+1)&
+           & - 1
   
   ! Check that the U is larger than I, that the rows of 0 are zero,
   !    and that the rows of I are not small.

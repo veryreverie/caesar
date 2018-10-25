@@ -50,12 +50,13 @@ function calculate_effective_frequency(potential,subspace,anharmonic_data,   &
   
   ! Generate the harmonic basis at the initial frequency.
   frequency = initial_frequency
-  basis = generate_subspace_basis( subspace,                             &
-                                 & frequency,                            &
-                                 & anharmonic_data%complex_modes,        &
-                                 & anharmonic_data%qpoints,              &
-                                 & anharmonic_data%anharmonic_supercell, &
-                                 & maximum_power = no_basis_states-1     )
+  basis = generate_subspace_basis( subspace,                                 &
+                                 & frequency,                                &
+                                 & anharmonic_data%complex_modes,            &
+                                 & anharmonic_data%qpoints,                  &
+                                 & anharmonic_data%anharmonic_supercell,     &
+                                 & no_basis_states-1,                        &
+                                 & anharmonic_data%potential_expansion_order )
   
   iteration_frequencies = [frequency]
   iteration_free_energies = [real(dp)::]

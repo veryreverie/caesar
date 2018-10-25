@@ -14,9 +14,9 @@ module logic_module
   public :: lazy_and
   public :: lazy_or
   public :: first
-  public :: last
+  !public :: last
   public :: first_equivalent
-  public :: last_equivalent
+  !public :: last_equivalent
   public :: operate
   public :: map
   public :: count
@@ -36,20 +36,20 @@ module logic_module
     module procedure first_LogicalLambda
   end interface
   
-  interface last
-    module procedure last_logicals
-    module procedure last_LogicalLambda
-  end interface
+  !interface last
+  !  module procedure last_logicals
+  !  module procedure last_LogicalLambda
+  !end interface
   
   interface first_equivalent
     module procedure first_equivalent_integers
     module procedure first_equivalent_ComparisonLambda
   end interface
   
-  interface last_equivalent
-    module procedure last_equivalent_integers
-    module procedure last_equivalent_ComparisonLambda
-  end interface
+  !interface last_equivalent
+  !  module procedure last_equivalent_integers
+  !  module procedure last_equivalent_ComparisonLambda
+  !end interface
   
   interface operate
     module procedure operate_OperationLambda
@@ -214,6 +214,9 @@ end function
 !    true or masked, so t is moved to j (3b).       (3c)          f    t
 ! If j = f, then f is moved to i (3c).                   [...FXXXXX?XX?T...]
 
+! N.B. first and last are called a lot, so they are somewhat optimised.
+!    This is why they are not as compact as they could otherwise be.
+
 function first_logicals(input,mask,default,sorted) result(output)
   implicit none
   
@@ -245,21 +248,25 @@ function first_logicals(input,mask,default,sorted) result(output)
     input_is_sorted = .false.
   endif
   
+  ! Find the first true.
+  last_false = 0
+  first_true = size(input)+1
   if (input_is_sorted) then
     ! If the input is sorted, use a bisection method to find the first true.
-    last_false = 0
-    first_true = size(input)+1
     if (present(mask)) then
       do while(first_true-last_false>1)
         ! Bisect the input between the last known false and first known true.
         i = (last_false+first_true)/2
         ! Find the last unmasked value before i.
-        j = last(mask(last_false+1:i), default=0)
+        do j=i,last_false,-1
+          if (mask(j)) then
+            exit
+          endif
+        enddo
         ! Evaluate input(j), and update the bounds accordingly.
-        if (j==0) then
+        if (j==last_false) then
           last_false = i
         else
-          j = last_false+j
           if (input(j)) then
             first_true = j
           else
@@ -279,35 +286,32 @@ function first_logicals(input,mask,default,sorted) result(output)
         endif
       enddo
     endif
-    
-    if (first_true<=size(input)) then
-      output = first_true
-      return
-    endif
   else
     ! If the input is not sorted, simply iterate through the input.
     if (present(mask)) then
       do i=1,size(input)
         if (mask(i)) then
           if (input(i)) then
-            output = i
-            return
+            first_true = i
+            exit
           endif
         endif
       enddo
     else
       do i=1,size(input)
         if (input(i)) then
-          output = i
-          return
+          first_true = i
+          exit
         endif
       enddo
     endif
   endif
   
-  ! There is no value to return.
-  ! Return default if present, throw an error if not.
-  if (present(default)) then
+  ! Set the output to the first true, or the default value if present.
+  ! Throw an error if no true is found and no default is set.
+  if (first_true<=size(input)) then
+    output = first_true
+  elseif (present(default)) then
     output = default
   else
     call print_line(ERROR//': value not found.')
@@ -347,21 +351,25 @@ function first_LogicalLambda(input,lambda,mask,default,sorted) result(output)
     input_is_sorted = .false.
   endif
   
+  ! Find the first true.
+  last_false = 0
+  first_true = size(input)+1
   if (input_is_sorted) then
     ! If the input is sorted, use a bisection method to find the first true.
-    last_false = 0
-    first_true = size(input)+1
     if (present(mask)) then
       do while(first_true-last_false>1)
         ! Bisect the input between the last known false and first known true.
         i = (last_false+first_true)/2
         ! Find the last unmasked value before i.
-        j = last(mask(last_false+1:i), default=0)
+        do j=i,last_false,-1
+          if (mask(j)) then
+            exit
+          endif
+        enddo
         ! Evaluate input(j), and update the bounds accordingly.
-        if (j==0) then
+        if (j==last_false) then
           last_false = i
         else
-          j = last_false+j
           if (lambda(input(j))) then
             first_true = j
           else
@@ -381,35 +389,32 @@ function first_LogicalLambda(input,lambda,mask,default,sorted) result(output)
         endif
       enddo
     endif
-    
-    if (first_true<=size(input)) then
-      output = first_true
-      return
-    endif
   else
     ! If the input is not sorted, simply iterate through the input.
     if (present(mask)) then
       do i=1,size(input)
         if (mask(i)) then
           if (lambda(input(i))) then
-            output = i
-            return
+            first_true = i
+            exit
           endif
         endif
       enddo
     else
       do i=1,size(input)
         if (lambda(input(i))) then
-          output = i
-          return
+          first_true = i
+          exit
         endif
       enddo
     endif
   endif
   
-  ! There is no value to return.
-  ! Return default if present, throw an error if not.
-  if (present(default)) then
+  ! Set the output to the first true, or the default value if present.
+  ! Throw an error if no true is found and no default is set.
+  if (first_true<=size(input)) then
+    output = first_true
+  elseif (present(default)) then
     output = default
   else
     call print_line(ERROR//': value not found.')
@@ -417,204 +422,203 @@ function first_LogicalLambda(input,lambda,mask,default,sorted) result(output)
   endif
 end function
 
-function last_logicals(input,mask,default,sorted) result(output)
-  implicit none
-  
-  logical, intent(in)           :: input(:)
-  logical, intent(in), optional :: mask(:)
-  integer, intent(in), optional :: default
-  logical, intent(in), optional :: sorted
-  integer                       :: output
-  
-  logical :: input_is_sorted
-  
-  integer :: last_true
-  integer :: first_false
-  
-  integer :: i,j
-  
-  ! Check that mask is consistent with input.
-  if (present(mask)) then
-    if (size(input)/=size(mask)) then
-      call print_line(CODE_ERROR//': Input and Mask of different sizes.')
-      call err()
-    endif
-  endif
-  
-  ! Default sorted to false.
-  if (present(sorted)) then
-    input_is_sorted = sorted
-  else
-    input_is_sorted = .false.
-  endif
-  
-  if (input_is_sorted) then
-    ! If the input is sorted, use a bisection method to find the first true.
-    last_true = 0
-    first_false = size(input)+1
-    if (present(mask)) then
-      do while(first_false-last_true>1)
-        ! Bisect the input between the last known false and first known true.
-        i = (last_true+first_false+1)/2
-        ! Find the first unmasked value after i.
-        j = first(mask(i:first_false-1), default=0)
-        ! Evaluate input(j), and update the bounds accordingly.
-        if (j==0) then
-          first_false = i
-        else
-          j = i-1+j
-          if (input(j)) then
-            last_true = j
-          else
-            first_false = i
-          endif
-        endif
-      enddo
-    else
-      do while(first_false-last_true>1)
-        ! Bisect the input between the last known false and first known true.
-        i = (last_true+first_false)/2
-        ! Evaluate input(i), and update the bounds accordingly.
-        if (input(i)) then
-          last_true = i
-        else
-          first_false = i
-        endif
-      enddo
-    endif
-    
-    if (last_true>=1) then
-      output = last_true
-      return
-    endif
-  else
-    ! If the input is not sorted, simply iterate through the input.
-    if (present(mask)) then
-      do i=size(input),1,-1
-        if (input(i).and.mask(i)) then
-          output = i
-          return
-        endif
-      enddo
-    else
-      do i=size(input),1,-1
-        if (input(i)) then
-          output = i
-          return
-        endif
-      enddo
-    endif
-  endif
-  
-  ! There is no value to return.
-  ! Return default if present, throw an error if not.
-  if (present(default)) then
-    output = default
-  else
-    call print_line(ERROR//': value not found.')
-    call err()
-  endif
-end function
-
-function last_LogicalLambda(input,lambda,mask,default,sorted) result(output)
-  implicit none
-  
-  class(*), intent(in)           :: input(:)
-  procedure(LogicalLambda)       :: lambda
-  logical,  intent(in), optional :: mask(:)
-  integer,  intent(in), optional :: default
-  logical,  intent(in), optional :: sorted
-  integer                        :: output
-  
-  logical :: input_is_sorted
-  
-  integer :: first_false
-  integer :: last_true
-  
-  integer :: i,j
-  
-  ! Check that mask is consistent with input.
-  if (present(mask)) then
-    if (size(mask)/=size(input)) then
-      call print_line(CODE_ERROR//': Input and Mask of different sizes.')
-      call err()
-    endif
-  endif
-  
-  ! Default sorted to false.
-  if (present(sorted)) then
-    input_is_sorted = sorted
-  else
-    input_is_sorted = .false.
-  endif
-  
-  if (input_is_sorted) then
-    ! If the input is sorted, use a bisection method to find the first true.
-    last_true = 0
-    first_false = size(input)+1
-    if (present(mask)) then
-      do while(first_false-last_true>1)
-        ! Bisect the input between the last known false and first known true.
-        i = (last_true+first_false+1)/2
-        ! Find the first unmasked value after i.
-        j = first(mask(i:first_false-1), default=0)
-        ! Evaluate input(j), and update the bounds accordingly.
-        if (j==0) then
-          first_false = i
-        else
-          j = i-1+j
-          if (lambda(input(j))) then
-            last_true = j
-          else
-            first_false = i
-          endif
-        endif
-      enddo
-    else
-      do while(first_false-last_true>1)
-        ! Bisect the input between the last known false and first known true.
-        i = (last_true+first_false)/2
-        ! Evaluate input(i), and update the bounds accordingly.
-        if (lambda(input(i))) then
-          last_true = i
-        else
-          first_false = i
-        endif
-      enddo
-    endif
-    
-    if (last_true>=1) then
-      output = last_true
-      return
-    endif
-  else
-    ! If the input is not sorted, simply iterate through the input.
-    if (present(mask)) then
-      do i=size(input),1,-1
-        if (lambda(input(i)) .and. mask(i)) then
-          output = i
-          return
-        endif
-      enddo
-    else
-      do i=size(input),1,-1
-        if (lambda(input(i))) then
-          output = i
-          return
-        endif
-      enddo
-    endif
-  endif
-  
-  ! There is no value to return.
-  ! Return default if present, throw an error if not.
-  if (present(default)) then
-    output = default
-  else
-    call print_line(ERROR//': value not found.')
-    call err()
-  endif
-end function
+!function last_logicals(input,mask,default,sorted) result(output)
+!  implicit none
+!  
+!  logical, intent(in)           :: input(:)
+!  logical, intent(in), optional :: mask(:)
+!  integer, intent(in), optional :: default
+!  logical, intent(in), optional :: sorted
+!  integer                       :: output
+!  
+!  logical :: input_is_sorted
+!  
+!  integer :: last_true
+!  integer :: first_false
+!  
+!  integer :: i,j
+!  
+!  ! Check that mask is consistent with input.
+!  if (present(mask)) then
+!    if (size(input)/=size(mask)) then
+!      call print_line(CODE_ERROR//': Input and Mask of different sizes.')
+!      call err()
+!    endif
+!  endif
+!  
+!  ! Default sorted to false.
+!  if (present(sorted)) then
+!    input_is_sorted = sorted
+!  else
+!    input_is_sorted = .false.
+!  endif
+!  
+!  ! Find the last true.
+!  last_true = 0
+!  first_false = size(input)+1
+!  if (input_is_sorted) then
+!    ! If the input is sorted, use a bisection method to find the first true.
+!    if (present(mask)) then
+!      do while(first_false-last_true>1)
+!        ! Bisect the input between the last known false and first known true.
+!        i = (last_true+first_false+1)/2
+!        ! Find the first unmasked value after i.
+!        j = first(mask(i:first_false-1), default=0)
+!        ! Evaluate input(j), and update the bounds accordingly.
+!        if (j==0) then
+!          first_false = i
+!        else
+!          j = i-1+j
+!          if (input(j)) then
+!            last_true = j
+!          else
+!            first_false = i
+!          endif
+!        endif
+!      enddo
+!    else
+!      do while(first_false-last_true>1)
+!        ! Bisect the input between the last known false and first known true.
+!        i = (last_true+first_false)/2
+!        ! Evaluate input(i), and update the bounds accordingly.
+!        if (input(i)) then
+!          last_true = i
+!        else
+!          first_false = i
+!        endif
+!      enddo
+!    endif
+!  else
+!    ! If the input is not sorted, simply iterate through the input.
+!    if (present(mask)) then
+!      do i=size(input),1,-1
+!        if (mask(i)) then
+!          if (input(i)) then
+!            last_true = i
+!            exit
+!          endif
+!        endif
+!      enddo
+!    else
+!      do i=size(input),1,-1
+!        if (input(i)) then
+!          last_true = i
+!          exit
+!        endif
+!      enddo
+!    endif
+!  endif
+!  
+!  ! Set the output to the last true, or the default value if present.
+!  ! Throw an error if no true is found and no default is set.
+!  if (last_true>0) then
+!    output = last_true
+!  elseif (present(default)) then
+!    output = default
+!  else
+!    call print_line(ERROR//': value not found.')
+!    call err()
+!  endif
+!end function
+!
+!function last_LogicalLambda(input,lambda,mask,default,sorted) result(output)
+!  implicit none
+!  
+!  class(*), intent(in)           :: input(:)
+!  procedure(LogicalLambda)       :: lambda
+!  logical,  intent(in), optional :: mask(:)
+!  integer,  intent(in), optional :: default
+!  logical,  intent(in), optional :: sorted
+!  integer                        :: output
+!  
+!  logical :: input_is_sorted
+!  
+!  integer :: first_false
+!  integer :: last_true
+!  
+!  integer :: i,j
+!  
+!  ! Check that mask is consistent with input.
+!  if (present(mask)) then
+!    if (size(mask)/=size(input)) then
+!      call print_line(CODE_ERROR//': Input and Mask of different sizes.')
+!      call err()
+!    endif
+!  endif
+!  
+!  ! Default sorted to false.
+!  if (present(sorted)) then
+!    input_is_sorted = sorted
+!  else
+!    input_is_sorted = .false.
+!  endif
+!  
+!  last_true = 0
+!  first_false = size(input)+1
+!  if (input_is_sorted) then
+!    ! If the input is sorted, use a bisection method to find the first true.
+!    if (present(mask)) then
+!      do while(first_false-last_true>1)
+!        ! Bisect the input between the last known false and first known true.
+!        i = (last_true+first_false+1)/2
+!        ! Find the first unmasked value after i.
+!        j = first(mask(i:first_false-1), default=0)
+!        ! Evaluate input(j), and update the bounds accordingly.
+!        if (j==0) then
+!          first_false = i
+!        else
+!          j = i-1+j
+!          if (lambda(input(j))) then
+!            last_true = j
+!          else
+!            first_false = i
+!          endif
+!        endif
+!      enddo
+!    else
+!      do while(first_false-last_true>1)
+!        ! Bisect the input between the last known false and first known true.
+!        i = (last_true+first_false)/2
+!        ! Evaluate input(i), and update the bounds accordingly.
+!        if (lambda(input(i))) then
+!          last_true = i
+!        else
+!          first_false = i
+!        endif
+!      enddo
+!    endif
+!  else
+!    ! If the input is not sorted, simply iterate through the input.
+!    if (present(mask)) then
+!      do i=size(input),1,-1
+!        if (mask(i)) then
+!          if (lambda(input(i))) then
+!            last_true = i
+!            exit
+!          endif
+!        endif
+!      enddo
+!    else
+!      do i=size(input),1,-1
+!        if (lambda(input(i))) then
+!          last_true = i
+!          exit
+!        endif
+!      enddo
+!    endif
+!  endif
+!  
+!  ! Set the output to the last true, or the default value if present.
+!  ! Throw an error if no true is found and no default is set.
+!  if (last_true>0) then
+!    output = last_true
+!  elseif (present(default)) then
+!    output = default
+!  else
+!    call print_line(ERROR//': value not found.')
+!    call err()
+!  endif
+!end function
 
 ! ----------------------------------------------------------------------
 ! first_equivalent(input,i) is equivalent to first(input==i),
@@ -638,216 +642,356 @@ function first_equivalent_integers(input,comparison,mask,default,sorted) &
   logical, intent(in), optional :: sorted
   integer                       :: output
   
-  integer :: i
+  logical :: input_is_sorted
   
-  i = first(input,greater_than_or_equal,mask,default,sorted)
-  if (present(default)) then
-    if (i==default) then
-      output = default
-    elseif (input(i)/=comparison) then
-      output = default
-    else
-      output = i
-    endif
-  else
-    if (input(i)==comparison) then
-      output = i
-    else
-      call print_line(ERROR//': value not found.')
+  integer :: first_as_large
+  integer :: last_smaller
+  
+  integer :: i,j
+  
+  ! Check that mask is consistent with input.
+  if (present(mask)) then
+    if (size(input)/=size(mask)) then
+      call print_line(CODE_ERROR//': Input and Mask of different sizes.')
       call err()
     endif
   endif
-contains
-  ! Lambda for comparing the input to the comparison.
-  ! greater_than_or_equal_comparison(input) is equivalent to
-  !    input>=comparison.
-  ! Captures comparison.
-  function greater_than_or_equal(input) result(output)
-    implicit none
-    
-    class(*), intent(in) :: input
-    logical              :: output
-    
-    select type(input); type is(integer)
-      output = input>=comparison
-    end select
-  end function
+  
+  ! Default sorted to false.
+  if (present(sorted)) then
+    input_is_sorted = sorted
+  else
+    input_is_sorted = .false.
+  endif
+  
+  ! Find the first integer which is at least as large as the comparison.
+  last_smaller = 0
+  first_as_large = size(input)+1
+  if (input_is_sorted) then
+    ! If the input is sorted, use a bisection method.
+    if (present(mask)) then
+      do while(first_as_large-last_smaller>1)
+        ! Bisect the input between the last known value smaller than the
+        !    comparison and first known value as large as the comparison.
+        i = (last_smaller+first_as_large)/2
+        ! Find the last unmasked value before i.
+        do j=i,last_smaller,-1
+          if (mask(j)) then
+            exit
+          endif
+        enddo
+        ! Evaluate input(j)>=comparison, and update the bounds accordingly.
+        if (j==last_smaller) then
+          last_smaller = i
+        else
+          if (input(j)>=comparison) then
+            first_as_large = j
+          else
+            last_smaller = i
+          endif
+        endif
+      enddo
+    else
+      do while(first_as_large-last_smaller>1)
+        ! Bisect the input between the last known value smaller than the
+        !    comparison and first known value as large as the comparison.
+        i = (last_smaller+first_as_large)/2
+        ! Evaluate input(i)>=comparison, and update the bounds accordingly.
+        if (input(i)>=comparison) then
+          first_as_large = i
+        else
+          last_smaller = i
+        endif
+      enddo
+    endif
+  else
+    ! If the input is not sorted, simply iterate through the input.
+    if (present(mask)) then
+      do i=1,size(input)
+        if (mask(i)) then
+          if (input(i)>=comparison) then
+            first_as_large = i
+            exit
+          endif
+        endif
+      enddo
+    else
+      do i=1,size(input)
+        if (input(i)>=comparison) then
+          first_as_large = i
+          exit
+        endif
+      enddo
+    endif
+  endif
+  
+  ! Check whether the first value as large as the comparison is equal to the
+  !    comparison. If it is, return its position.
+  if (first_as_large<=size(input)) then
+    if (input(first_as_large)==comparison) then
+      output = first_as_large
+      return
+    endif
+  endif
+  
+  ! If the comparison is not present, return the default if one is given,
+  !    or throw an error if not.
+  if (present(default)) then
+    output = default
+  else
+    call print_line(ERROR//': value not found.')
+    call err()
+  endif
 end function
 
 function first_equivalent_ComparisonLambda(input,comparison,equality, &
-   & inequality,mask,default,sorted) result(output)
+   & greater_than_or_equal,mask,default,sorted) result(output)
   implicit none
   
   class(*), intent(in)                  :: input(:)
   class(*), intent(in)                  :: comparison
   procedure(ComparisonLambda)           :: equality
-  procedure(ComparisonLambda), optional :: inequality
+  procedure(ComparisonLambda), optional :: greater_than_or_equal
   logical,  intent(in),        optional :: mask(:)
   integer,  intent(in),        optional :: default
   logical,  intent(in),        optional :: sorted
   integer                               :: output
   
-  integer :: i
+  logical :: input_is_sorted
   
-  if (present(sorted) .and. .not. present(inequality)) then
-    if (.not. sorted) then
-      call print_line(CODE_ERROR//': sorted=true, but inequality not &
-         &present.')
+  integer :: first_as_large
+  integer :: last_smaller
+  
+  integer :: i,j
+  
+  ! Check that mask is consistent with input.
+  if (present(mask)) then
+    if (size(input)/=size(mask)) then
+      call print_line(CODE_ERROR//': Input and Mask of different sizes.')
       call err()
     endif
   endif
   
-  if (present(inequality)) then
-    i = first(input,inequality_lambda,mask,default,sorted)
-    if (present(default)) then
-      if (i==default) then
-        output = default
-      elseif (.not.equality(input(i),comparison)) then
-        output = default
-      else
-        output = i
-      endif
+  ! Default sorted to false.
+  if (present(sorted)) then
+    input_is_sorted = sorted
+  else
+    input_is_sorted = .false.
+  endif
+  
+  ! Check that if sorted is true that inequality has been given.
+  if (input_is_sorted .and. .not.present(greater_than_or_equal)) then
+    call print_line(CODE_ERROR//': sorted is true, but no >= function has &
+       &been given')
+    call err()
+  endif
+  
+  ! Find the first integer which is at least as large as the comparison.
+  last_smaller = 0
+  first_as_large = size(input)+1
+  if (input_is_sorted) then
+    ! If the input is sorted, use a bisection method.
+    if (present(mask)) then
+      do while(first_as_large-last_smaller>1)
+        ! Bisect the input between the last known value smaller than the
+        !    comparison and first known value as large as the comparison.
+        i = (last_smaller+first_as_large)/2
+        ! Find the last unmasked value before i.
+        do j=i,last_smaller,-1
+          if (mask(j)) then
+            exit
+          endif
+        enddo
+        ! Evaluate input(j)>=comparison, and update the bounds accordingly.
+        if (j==last_smaller) then
+          last_smaller = i
+        else
+          if (greater_than_or_equal(input(j),comparison)) then
+            first_as_large = j
+          else
+            last_smaller = i
+          endif
+        endif
+      enddo
     else
-      if (equality(input(i),comparison)) then
-        output = i
-      else
-        call print_line(ERROR//': value not found.')
-        call err()
-      endif
+      do while(first_as_large-last_smaller>1)
+        ! Bisect the input between the last known value smaller than the
+        !    comparison and first known value as large as the comparison.
+        i = (last_smaller+first_as_large)/2
+        ! Evaluate input(i)>=comparison, and update the bounds accordingly.
+        if (greater_than_or_equal(input(i),comparison)) then
+          first_as_large = i
+        else
+          last_smaller = i
+        endif
+      enddo
     endif
   else
-    output = first(input,equality_lambda,mask,default)
+    ! If the input is not sorted, simply iterate through the input.
+    if (present(greater_than_or_equal) .and. present(mask)) then
+      do i=1,size(input)
+        if (mask(i)) then
+          if (greater_than_or_equal(input(i),comparison)) then
+            first_as_large = i
+            exit
+          endif
+        endif
+      enddo
+    elseif (present(greater_than_or_equal)) then
+      do i=1,size(input)
+        if (greater_than_or_equal(input(i),comparison)) then
+          first_as_large = i
+          exit
+        endif
+      enddo
+    elseif (present(mask)) then
+      do i=1,size(input)
+        if (mask(i)) then
+          if (equality(input(i),comparison)) then
+            first_as_large = i
+            exit
+          endif
+        endif
+      enddo
+    else
+      do i=1,size(input)
+        if (equality(input(i),comparison)) then
+          first_as_large = i
+          exit
+        endif
+      enddo
+    endif
   endif
-contains
-  function inequality_lambda(input) result(output)
-    implicit none
-    
-    class(*), intent(in) :: input
-    logical              :: output
-    
-    output = inequality(input,comparison)
-  end function
   
-  function equality_lambda(input) result(output)
-    implicit none
-    
-    class(*), intent(in) :: input
-    logical              :: output
-    
-    output = equality(input,comparison)
-  end function
-end function
-
-function last_equivalent_integers(input,comparison,mask,default,sorted) &
-   & result(output)
-  implicit none
+  ! Check whether the first value as large as the comparison is equal to the
+  !    comparison. If it is, return its position.
+  if (first_as_large<=size(input)) then
+    if (equality(input(first_as_large),comparison)) then
+      output = first_as_large
+      return
+    endif
+  endif
   
-  integer, intent(in)           :: input(:)
-  integer, intent(in)           :: comparison
-  logical, intent(in), optional :: mask(:)
-  integer, intent(in), optional :: default
-  logical, intent(in), optional :: sorted
-  integer                       :: output
-  
-  integer :: i
-  
-  i = last(input,less_than_or_equal,mask,default,sorted)
+  ! If the comparison is not present, return the default if one is given,
+  !    or throw an error if not.
   if (present(default)) then
-    if (i==default) then
-      output = default
-    elseif (input(i)/=comparison) then
-      output = default
-    else
-      output = i
-    endif
+    output = default
   else
-    if (input(i)==comparison) then
-      output = i
-    else
-      call print_line(ERROR//': value not found.')
-      call err()
-    endif
+    call print_line(ERROR//': value not found.')
+    call err()
   endif
-contains
-  ! Lambda for comparing the input to the comparison.
-  ! less_than_or_equal_comparison(input) is equivalent to
-  !    input<=comparison.
-  ! Captures comparison.
-  function less_than_or_equal(input) result(output)
-    implicit none
-    
-    class(*), intent(in) :: input
-    logical              :: output
-    
-    select type(input); type is(integer)
-      output = input<=comparison
-    end select
-  end function
 end function
 
-function last_equivalent_ComparisonLambda(input,comparison,equality, &
-   & inequality,mask,default,sorted) result(output)
-  implicit none
-  
-  class(*), intent(in)                  :: input(:)
-  class(*), intent(in)                  :: comparison
-  procedure(ComparisonLambda)           :: equality
-  procedure(ComparisonLambda), optional :: inequality
-  logical,  intent(in),        optional :: mask(:)
-  integer,  intent(in),        optional :: default
-  logical,  intent(in),        optional :: sorted
-  integer                               :: output
-  
-  integer :: i
-  
-  if (present(sorted) .and. .not. present(inequality)) then
-    if (.not. sorted) then
-      call print_line(CODE_ERROR//': sorted=true, but inequality not &
-         &present.')
-      call err()
-    endif
-  endif
-  
-  if (present(inequality)) then
-    i = last(input,inequality_lambda,mask,default,sorted)
-    if (present(default)) then
-      if (i==default) then
-        output = default
-      elseif (.not.equality(input(i),comparison)) then
-        output = default
-      else
-        output = i
-      endif
-    else
-      if (equality(input(i),comparison)) then
-        output = i
-      else
-        call print_line(ERROR//': value not found.')
-        call err()
-      endif
-    endif
-  else
-    output = last(input,equality_lambda,mask,default)
-  endif
-contains
-  function inequality_lambda(input) result(output)
-    implicit none
-    
-    class(*), intent(in) :: input
-    logical              :: output
-    
-    output = inequality(input,comparison)
-  end function
-  
-  function equality_lambda(input) result(output)
-    implicit none
-    
-    class(*), intent(in) :: input
-    logical              :: output
-    
-    output = equality(input,comparison)
-  end function
-end function
+!function last_equivalent_integers(input,comparison,mask,default,sorted) &
+!   & result(output)
+!  implicit none
+!  
+!  integer, intent(in)           :: input(:)
+!  integer, intent(in)           :: comparison
+!  logical, intent(in), optional :: mask(:)
+!  integer, intent(in), optional :: default
+!  logical, intent(in), optional :: sorted
+!  integer                       :: output
+!  
+!  integer :: i
+!  
+!  i = last(input,less_than_or_equal,mask,default,sorted)
+!  if (present(default)) then
+!    if (i==default) then
+!      output = default
+!    elseif (input(i)/=comparison) then
+!      output = default
+!    else
+!      output = i
+!    endif
+!  else
+!    if (input(i)==comparison) then
+!      output = i
+!    else
+!      call print_line(ERROR//': value not found.')
+!      call err()
+!    endif
+!  endif
+!contains
+!  ! Lambda for comparing the input to the comparison.
+!  ! less_than_or_equal_comparison(input) is equivalent to
+!  !    input<=comparison.
+!  ! Captures comparison.
+!  function less_than_or_equal(input) result(output)
+!    implicit none
+!    
+!    class(*), intent(in) :: input
+!    logical              :: output
+!    
+!    select type(input); type is(integer)
+!      output = input<=comparison
+!    end select
+!  end function
+!end function
+!
+!function last_equivalent_ComparisonLambda(input,comparison,equality, &
+!   & inequality,mask,default,sorted) result(output)
+!  implicit none
+!  
+!  class(*), intent(in)                  :: input(:)
+!  class(*), intent(in)                  :: comparison
+!  procedure(ComparisonLambda)           :: equality
+!  procedure(ComparisonLambda), optional :: inequality
+!  logical,  intent(in),        optional :: mask(:)
+!  integer,  intent(in),        optional :: default
+!  logical,  intent(in),        optional :: sorted
+!  integer                               :: output
+!  
+!  integer :: i
+!  
+!  if (present(sorted) .and. .not. present(inequality)) then
+!    if (.not. sorted) then
+!      call print_line(CODE_ERROR//': sorted=true, but inequality not &
+!         &present.')
+!      call err()
+!    endif
+!  endif
+!  
+!  if (present(inequality)) then
+!    i = last(input,inequality_lambda,mask,default,sorted)
+!    if (present(default)) then
+!      if (i==default) then
+!        output = default
+!      elseif (.not.equality(input(i),comparison)) then
+!        output = default
+!      else
+!        output = i
+!      endif
+!    else
+!      if (equality(input(i),comparison)) then
+!        output = i
+!      else
+!        call print_line(ERROR//': value not found.')
+!        call err()
+!      endif
+!    endif
+!  else
+!    output = last(input,equality_lambda,mask,default)
+!  endif
+!contains
+!  function inequality_lambda(input) result(output)
+!    implicit none
+!    
+!    class(*), intent(in) :: input
+!    logical              :: output
+!    
+!    output = inequality(input,comparison)
+!  end function
+!  
+!  function equality_lambda(input) result(output)
+!    implicit none
+!    
+!    class(*), intent(in) :: input
+!    logical              :: output
+!    
+!    output = equality(input,comparison)
+!  end function
+!end function
 
 ! ----------------------------------------------------------------------
 ! Operates with a lambda on every element on a list.
@@ -1307,11 +1451,6 @@ subroutine logic_example()
   call print_line('first(logicals) should   = 2')
   call print_line('first(logicals) actually = '//first(logicals))
   
-  ! last(logicals)=5 because logicals(5) is the last true element.
-  call print_line('')
-  call print_line('last(logicals) should   = 5')
-  call print_line('last(logicals) actually = '//last(logicals))
-  
   integers = [ 0, 1, 1, 0, 0 ]
   
   ! Print out the array of integers.
@@ -1326,24 +1465,12 @@ subroutine logic_example()
   call print_line('first(integers==0) should   = 1')
   call print_line('first(integers==0) actually = '//first(integers,equals))
   
-  ! last(integers,equals)=5 when val=0, because integers(2) is
-  !    the last element which equals val.
-  call print_line('')
-  call print_line('last(integers==0) should   = 5')
-  call print_line('last(integers==0) actually = '//last(integers,equals))
-  
   val = 1
   ! first(integers,equals)=2 when val=1, because integers(2) is
   !    the first element which equals val.
   call print_line('')
   call print_line('first(integers==1) should   = 2')
   call print_line('first(integers==1) actually = '//first(integers,equals))
-  
-  ! last(integers,equals)=3 when val=1, because integers(2) is
-  !    the last element which equals val.
-  call print_line('')
-  call print_line('last(integers==1) should   = 3')
-  call print_line('last(integers==1) actually = '//last(integers,equals))
   
   ! map(integers,equals)=[F,T,T,F,F] when val=1.
   call print_line('')

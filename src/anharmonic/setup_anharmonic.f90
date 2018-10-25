@@ -308,9 +308,11 @@ subroutine setup_anharmonic_subroutine(arguments)
                                   & degenerate_subspaces,          &
                                   & degenerate_symmetries,         &
                                   & subspace_coupling,             &
+                                  & maximum_coupling_order,        &
+                                  & potential_expansion_order,     &
                                   & vscf_basis_functions_only,     &
                                   & maximum_weighted_displacement, &
-                                  & frequency_of_max_displacement )
+                                  & frequency_of_max_displacement  )
   
   ! Write out anharmonic data.
   anharmonic_data_file = OFile('anharmonic_data.dat')

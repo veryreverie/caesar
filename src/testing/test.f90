@@ -47,20 +47,16 @@ subroutine test_subroutine(arguments)
   a = [t,f,f,f,f,t]
   call print_line('A:        '//a)
   call print_line('first(a): '//first(a))
-  call print_line('last(a) : '//last(a))
   
   a = [f,f,t,f,t,f,f]
   call print_line('A:        '//a)
   call print_line('first(a): '//first(a))
-  call print_line('last(a) : '//last(a))
   
   a = [f,f,t,f,f,t,t,t,f,f,t,f,t,t,t,f,f,t,f,t,f,f,t,f,t,f,f]
   m = [f,f,f,t,f,t,t,f,t,f,f,f,t,f,t,f,t,t,f,t,t,f,t,f,t,f,t]
   call print_line('A:          '//a)
   call print_line('first(a)  : '//first(a))
-  call print_line('last(a)   : '//last(a))
   call print_line('first(a,m): '//first(a,mask=m))
-  call print_line('last(a,m) : '//last(a,mask=m))
   
   a = [f,f,f,f,f,f,f,f,f,f,t,t,t,t,t,t,t,t,t,t,t,t,t,t,t,t,t]
   call print_line('A:          '//a)
@@ -68,13 +64,6 @@ subroutine test_subroutine(arguments)
   call print_line('first(a,m): '//first(a,mask=m))
   call print_line('first(a)  : '//first(a,sorted=.true.))
   call print_line('first(a,m): '//first(a,mask=m,sorted=.true.))
-  
-  a = [t,t,t,t,t,t,t,t,t,t,f,f,f,f,f,f,f,f,f,f,f,f,f,f,f,f,f]
-  call print_line('A:         '//a)
-  call print_line('last(a)  : '//last(a))
-  call print_line('last(a,m): '//last(a,mask=m))
-  call print_line('last(a)  : '//last(a,sorted=.true.))
-  call print_line('last(a,m): '//last(a,mask=m,sorted=.true.))
   
   b = [1,3,4,5,7,9,15,17,19,22,25,28,30]
   call print_line('b       : '//b)

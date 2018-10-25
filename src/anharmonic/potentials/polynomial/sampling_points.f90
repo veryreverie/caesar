@@ -191,7 +191,7 @@ function generate_sampling_points_helper(monomials,potential_expansion_order, &
     powers = [integer::]
     do j=1,size(monomials(i))
       if (monomials(i)%power(j)>0) then
-        ids = [ids, monomials%id(j)]
+        ids = [ids, monomials(i)%id(j)]
         powers = [powers, monomials(i)%power(j)]
       endif
       

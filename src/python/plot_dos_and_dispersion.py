@@ -190,6 +190,7 @@ def main():
   
   
   axes['dos'] = ax_grid[1]
+  max_dos = 0
   for i,datum in reversed(list(enumerate(data))):
     if len(data)==1:
       zero = next(i for i,e in enumerate(datum['dos']['middles']) if e>0)
@@ -199,16 +200,22 @@ def main():
       axes['dos'].plot(datum['dos']['dos'][zero:],
                        datum['dos']['middles'][zero:],
                        color=colours['turquoise'],lw=2)
+      max_dos = max(max_dos, max(datum['dos']['dos']))
     else:
       axes['dos'].plot(datum['dos']['dos'],datum['dos']['middles'],
                        color=temp_colours[i],lw=2)
+      max_dos = max(max_dos, max(datum['dos']['dos']))
   axes['dos'].set_xticks([])
+  axes['dos'].set_xlim(0,1.1*max_dos)
   axes['dos'].minorticks_off()
   
   hartree_to_inverse_cm = 2.194746313702e5
   axes['cm'] = axes['dos'].twinx()
   axes['cm'].set_ylim(ymin*hartree_to_inverse_cm, ymax*hartree_to_inverse_cm)
   axes['cm'].set_ylabel(r'Frequency, cm$^{-1}$')
+  
+  #plt.tight_layout()
+  #plt.savefig('esdg_fig.pdf', bbox_inches='tight')
   
   plt.show()
 
