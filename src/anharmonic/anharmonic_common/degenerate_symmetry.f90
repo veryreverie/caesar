@@ -94,6 +94,7 @@ function new_DegenerateSymmetry(symmetry,subspaces,modes,qpoints) result(this)
   integer,                  allocatable :: symmetric_mode_positions(:)
   complex(dp),              allocatable :: symmetric_mode_coefficients(:)
   complex(dp),              allocatable :: subspace_symmetry(:,:)
+  integer,                  allocatable :: non_zero_elements(:)
   
   integer :: i,j,ialloc
   
@@ -148,10 +149,14 @@ function new_DegenerateSymmetry(symmetry,subspaces,modes,qpoints) result(this)
                         & symmetric_mode_positions,  &
                         & mode_i_position            )
     
+    ! Filter out the zero elements.
+    non_zero_elements = filter(abs(symmetric_mode_coefficients)>1e-10_dp)
+    
     ! Construct the symmetry.
-    this%symmetries_(i) = SingleModeSymmetry( mode%id,                    &
-                                            & symmetric_modes%id,         &
-                                            & symmetric_mode_coefficients )
+    this%symmetries_(i) = SingleModeSymmetry(           &
+       & mode%id,                                       &
+       & symmetric_modes(non_zero_elements)%id,         &
+       & symmetric_mode_coefficients(non_zero_elements) )
   enddo
 end function
 

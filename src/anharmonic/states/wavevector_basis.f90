@@ -8,6 +8,7 @@ module wavevector_basis_module
   use monomial_state_module
   use braket_module
   use state_conversion_module
+  use coupled_states_module
   implicit none
   
   private
@@ -18,13 +19,14 @@ module wavevector_basis_module
   
   type, extends(Stringsable) :: WavevectorBasis
     integer                                     :: maximum_power
+    integer                                     :: expansion_order
     integer                                     :: subspace_id
     real(dp)                                    :: frequency
     type(FractionVector)                        :: wavevector
     type(MonomialState),   allocatable          :: monomial_states(:)
     type(StateConversion), allocatable, private :: states_to_basis_(:)
     type(StateConversion), allocatable, private :: basis_to_states_(:)
-    type(IntArray1D),      allocatable, private :: connections_(:)
+    type(CoupledStates),   allocatable, private :: couplings_(:)
   contains
     ! Set the frequency of the basis.
     procedure, public :: set_frequency => set_frequency_WavevectorBasis
@@ -58,18 +60,20 @@ module wavevector_basis_module
 contains
 
 ! Constructor and size function.
-function new_WavevectorBasis(maximum_power,subspace_id,frequency,wavevector, &
-   & monomial_states,states_to_basis,basis_to_states,connections) result(this)
+function new_WavevectorBasis(maximum_power,expansion_order,subspace_id,    &
+   & frequency,wavevector,monomial_states,states_to_basis,basis_to_states, &
+   & couplings) result(this)
   implicit none
   
   integer,               intent(in) :: maximum_power
+  integer,               intent(in) :: expansion_order
   integer,               intent(in) :: subspace_id
   real(dp),              intent(in) :: frequency
   type(FractionVector),  intent(in) :: wavevector
   type(MonomialState),   intent(in) :: monomial_states(:)
   type(StateConversion), intent(in) :: states_to_basis(:)
   type(StateConversion), intent(in) :: basis_to_states(:)
-  type(IntArray1D),      intent(in) :: connections(:)
+  type(CoupledStates),   intent(in) :: couplings(:)
   type(WavevectorBasis)             :: this
   
   if (size(states_to_basis)/=size(monomial_states)) then
@@ -80,19 +84,20 @@ function new_WavevectorBasis(maximum_power,subspace_id,frequency,wavevector, &
     call print_line(CODE_ERROR//': monomial states and basis to states do not &
        &match.')
     call err()
-  elseif (size(connections)/=size(monomial_states)) then
-    call print_line(CODE_ERROR//': monomial states and connections do not &
+  elseif (size(couplings)/=size(monomial_states)) then
+    call print_line(CODE_ERROR//': monomial states and couplings do not &
        &match.')
   endif
   
   this%maximum_power    = maximum_power
+  this%expansion_order  = expansion_order
   this%subspace_id      = subspace_id
   this%frequency        = frequency
   this%wavevector       = wavevector
   this%monomial_states  = monomial_states
   this%states_to_basis_ = states_to_basis
   this%basis_to_states_ = basis_to_states
-  this%connections_     = connections
+  this%couplings_       = couplings
 end function
 
 function size_WavevectorBasis(this) result(output)
@@ -148,15 +153,17 @@ function generate_subspace_basis_states(subspace,frequency,modes,qpoints, &
   do i=1,size(subspace_modes)
     ! Generate the basis along a single mode (or a mode and its pair).
     if (subspace_modes(i)%paired_id==subspace_modes(i)%id) then
-      mode_basis = mode_basis_1d( subspace,          &
-                                & frequency,         &
-                                & subspace_modes(i), &
-                                & maximum_power      )
+      mode_basis = mode_basis_1d( subspace,                 &
+                                & frequency,                &
+                                & subspace_modes(i),        &
+                                & maximum_power,            &
+                                & potential_expansion_order )
     else
-      mode_basis = mode_basis_2d( subspace,          &
-                                & frequency,         &
-                                & subspace_modes(i), &
-                                & maximum_power      )
+      mode_basis = mode_basis_2d( subspace,                 &
+                                & frequency,                &
+                                & subspace_modes(i),        &
+                                & maximum_power,            &
+                                & potential_expansion_order )
     endif
     
     if (i==1) then
@@ -171,13 +178,15 @@ function generate_subspace_basis_states(subspace,frequency,modes,qpoints, &
   output = split_by_wavevector(basis,modes,qpoints)
 end function
 
-function mode_basis_1d(subspace,frequency,mode,maximum_power) result(output)
+function mode_basis_1d(subspace,frequency,mode,maximum_power, &
+   & potential_expansion_order) result(output)
   implicit none
   
   type(DegenerateSubspace), intent(in) :: subspace
   real(dp),                 intent(in) :: frequency
   type(ComplexMode),        intent(in) :: mode
   integer,                  intent(in) :: maximum_power
+  integer,                  intent(in) :: potential_expansion_order
   type(WavevectorBasis)                :: output
   
   integer, allocatable :: ids(:)
@@ -187,7 +196,7 @@ function mode_basis_1d(subspace,frequency,mode,maximum_power) result(output)
   type(MonomialState),     allocatable :: monomial_states(:)
   type(StateConversion),   allocatable :: states_to_basis(:)
   type(StateConversion),   allocatable :: basis_to_states(:)
-  type(IntArray1D),        allocatable :: connections(:)
+  type(CoupledStates),     allocatable :: couplings(:)
   
   integer               :: no_states
   integer               :: power
@@ -195,6 +204,9 @@ function mode_basis_1d(subspace,frequency,mode,maximum_power) result(output)
   integer               :: term
   real(dp)              :: coefficient
   type(StateConversion) :: old
+  
+  integer, allocatable :: coupling_ids(:)
+  integer, allocatable :: separations(:)
   
   integer :: i,j,ialloc
   
@@ -278,30 +290,38 @@ function mode_basis_1d(subspace,frequency,mode,maximum_power) result(output)
   enddo
   
   ! Calculate which states have non-zero <i|H|j> elements.
-  ! TODO
-  allocate(connections(no_states), stat=ialloc); call err(ialloc)
+  ! |i> = a^n|0> and |j> = a^m|0>.
+  ! If |n-m|>expansion_order then <i|H|j>=0.
+  allocate(couplings(no_states), stat=ialloc); call err(ialloc)
   do i=1,no_states
-    connections(i) = [integer::]
+    coupling_ids = [( j,                                         &
+                   & j=max(1,i-potential_expansion_order),      &
+                   & min(no_states,i+potential_expansion_order) )]
+    separations = [(abs(coupling_ids(j)-i), j=1, size(coupling_ids))]
+    couplings(i) = CoupledStates(coupling_ids,separations)
   enddo
   
   ! Construct output.
-  output = WavevectorBasis( maximum_power   = maximum_power,      &
-                          & subspace_id     = subspace%id,        &
-                          & frequency       = frequency,          &
-                          & wavevector      = fracvec(zeroes(3)), &
-                          & monomial_states = monomial_states,    &
-                          & states_to_basis = states_to_basis,    &
-                          & basis_to_states = basis_to_states,    &
-                          & connections     = connections         )
+  output = WavevectorBasis( maximum_power   = maximum_power,             &
+                          & expansion_order = potential_expansion_order, &
+                          & subspace_id     = subspace%id,               &
+                          & frequency       = frequency,                 &
+                          & wavevector      = fracvec(zeroes(3)),        &
+                          & monomial_states = monomial_states,           &
+                          & states_to_basis = states_to_basis,           &
+                          & basis_to_states = basis_to_states,           &
+                          & couplings       = couplings                  )
 end function
 
-function mode_basis_2d(subspace,frequency,mode,maximum_power) result(output)
+function mode_basis_2d(subspace,frequency,mode,maximum_power, &
+   & potential_expansion_order) result(output)
   implicit none
   
   type(DegenerateSubspace), intent(in) :: subspace
   real(dp),                 intent(in) :: frequency
   type(ComplexMode),        intent(in) :: mode
   integer,                  intent(in) :: maximum_power
+  integer,                  intent(in) :: potential_expansion_order
   type(WavevectorBasis)                :: output
   
   integer, allocatable :: ids(:,:) ! N.B. ids is zero-indexed.
@@ -311,7 +331,7 @@ function mode_basis_2d(subspace,frequency,mode,maximum_power) result(output)
   type(MonomialState),     allocatable :: monomial_states(:)
   type(StateConversion),   allocatable :: states_to_basis(:)
   type(StateConversion),   allocatable :: basis_to_states(:)
-  type(IntArray1D),        allocatable :: connections(:)
+  type(CoupledStates),     allocatable :: couplings(:)
   
   integer               :: no_states
   integer               :: power
@@ -320,6 +340,10 @@ function mode_basis_2d(subspace,frequency,mode,maximum_power) result(output)
   integer               :: id
   real(dp)              :: coefficient
   type(StateConversion) :: old
+  integer               :: separation
+  
+  integer, allocatable :: coupling_ids(:)
+  integer, allocatable :: separations(:)
   
   integer :: ip,im,jp,jm
   
@@ -473,21 +497,34 @@ function mode_basis_2d(subspace,frequency,mode,maximum_power) result(output)
   enddo
   
   ! Calculate which states have non-zero <i|H|j> elements.
-  ! TODO
-  allocate(connections(no_states), stat=ialloc); call err(ialloc)
+  ! |i> = (a+)^(m+).(a-)^(m-).|0>
+  ! |j> = (a+)^(n+).(a-)^(n-).|0>
+  ! If |m+ - n+| + |m- - n-| > potential_expansion_order then <i|H|j>=0.
+  allocate(couplings(no_states), stat=ialloc); call err(ialloc)
   do i=1,no_states
-    connections(i) = [integer::]
+    coupling_ids = [integer::]
+    separations = [integer::]
+    do j=1,no_states
+      separation = abs(univariates(i)%power-univariates(j)%power) &
+               & + abs(univariates(i)%paired_power-univariates(j)%paired_power)
+      if (separation<=potential_expansion_order) then
+        coupling_ids = [coupling_ids, j]
+        separations = [separations, separation]
+      endif
+    enddo
+    couplings(i) = CoupledStates(coupling_ids, separations)
   enddo
   
   ! Generate output.
-  output = WavevectorBasis( maximum_power   = maximum_power,      &
-                          & subspace_id     = subspace%id,        &
-                          & frequency       = frequency,          &
-                          & wavevector      = fracvec(zeroes(3)), &
-                          & monomial_states = monomial_states,    &
-                          & states_to_basis = states_to_basis,    &
-                          & basis_to_states = basis_to_states,    &
-                          & connections     = connections         )
+  output = WavevectorBasis( maximum_power   = maximum_power,             &
+                          & expansion_order = potential_expansion_order, &
+                          & subspace_id     = subspace%id,               &
+                          & frequency       = frequency,                 &
+                          & wavevector      = fracvec(zeroes(3)),        &
+                          & monomial_states = monomial_states,           &
+                          & states_to_basis = states_to_basis,           &
+                          & basis_to_states = basis_to_states,           &
+                          & couplings       = couplings                  )
 end function
 
 ! Takes the basis over one set of modes in the subspace, and the basis over a
@@ -511,16 +548,18 @@ function tensor_product(this,that) result(output)
   
   integer  :: id
   real(dp) :: coefficient
+  integer  :: separation
   
   ! Output variables.
   integer                            :: maximum_power
+  integer                            :: expansion_order
   integer                            :: subspace_id
   real(dp)                           :: frequency
   type(FractionVector)               :: wavevector
   type(MonomialState),   allocatable :: monomial_states(:)
   type(StateConversion), allocatable :: states_to_basis(:)
   type(StateConversion), allocatable :: basis_to_states(:)
-  type(IntArray1D),      allocatable :: connections(:)
+  type(CoupledStates),   allocatable :: couplings(:)
   
   integer :: i,j,k,l,ialloc
   
@@ -528,15 +567,19 @@ function tensor_product(this,that) result(output)
   if (this%maximum_power/=that%maximum_power) then
     call print_line(CODE_ERROR//': Maximum powers do not match.')
     call err()
+  elseif (this%expansion_order/=that%expansion_order) then
+    call print_line(CODE_ERROR//': Expansion orders do not match.')
+    call err()
   elseif (this%subspace_id/=that%subspace_id) then
     call print_line(CODE_ERROR//': Subspaces do not match.')
     call err()
   endif
   
-  maximum_power = this%maximum_power
-  subspace_id   = this%subspace_id
-  frequency     = this%frequency
-  wavevector    = this%wavevector
+  maximum_power   = this%maximum_power
+  expansion_order = this%expansion_order
+  subspace_id     = this%subspace_id
+  frequency       = this%frequency
+  wavevector      = this%wavevector
   
   ! Check that the states in 'that' are in ascending order of total power.
   this_powers = this%monomial_states%total_power()
@@ -568,9 +611,9 @@ function tensor_product(this,that) result(output)
       do k=1,size(this%states_to_basis_(i))
         do l=1,size(that%states_to_basis_(j))
           id = this_to_output(this%states_to_basis_(i)%id(k)) &
-             + that%states_to_basis_(j)%id(l)
+           & + that%states_to_basis_(j)%id(l)
           coefficient = this%states_to_basis_(i)%coefficient(k) &
-                      * that%states_to_basis_(j)%coefficient(l)
+                    & * that%states_to_basis_(j)%coefficient(l)
           call states_to_basis(this_to_output(i)+j)%add_element( &
                                      & id          = id,         &
                                      & coefficient = coefficient )
@@ -588,9 +631,9 @@ function tensor_product(this,that) result(output)
       do k=1,size(this%basis_to_states_(i))
         do l=1,size(that%basis_to_states_(j))
           id = this_to_output(this%basis_to_states_(i)%id(k)) &
-             + that%basis_to_states_(j)%id(l)
+           & + that%basis_to_states_(j)%id(l)
           coefficient = this%basis_to_states_(i)%coefficient(k) &
-                      * that%basis_to_states_(j)%coefficient(l)
+                    & * that%basis_to_states_(j)%coefficient(l)
           call basis_to_states(this_to_output(i)+j)%add_element( &
                                      & id          = id,         &
                                      & coefficient = coefficient )
@@ -599,22 +642,41 @@ function tensor_product(this,that) result(output)
     enddo
   enddo
   
-  ! Generate connections.
-  ! TODO
-  allocate(connections(size(monomial_states)), stat=ialloc); call err(ialloc)
-  do i=1,size(connections)
-    connections(i) = [integer::]
+  ! Generate couplings.
+  allocate(couplings(size(monomial_states)), stat=ialloc); call err(ialloc)
+  do i=1,size(this)
+    do j=1,no_states(i)
+      couplings(this_to_output(i)+j) = CoupledStates()
+      do k=1,size(this%couplings_(i))
+        do l=1,size(that%couplings_(j))
+          if ( that%couplings_(j)%id(l) >          &
+             & no_states(this%couplings_(i)%id(k)) ) then
+            exit
+          endif
+          id = this_to_output(this%couplings_(i)%id(k)) &
+           & + that%couplings_(j)%id(l)
+          separation = this%couplings_(i)%separation(k) &
+                   & + that%couplings_(j)%separation(l)
+          if (separation<=expansion_order) then
+            call couplings(this_to_output(i)+j)%add_coupling( &
+                                    & id         = id,        &
+                                    & separation = separation )
+          endif
+        enddo
+      enddo
+    enddo
   enddo
   
   ! Update output.
   output = WavevectorBasis( maximum_power   = maximum_power,   &
+                          & expansion_order = expansion_order, &
                           & subspace_id     = subspace_id,     &
                           & frequency       = frequency,       &
                           & wavevector      = wavevector,      &
                           & monomial_states = monomial_states, &
                           & states_to_basis = states_to_basis, &
                           & basis_to_states = basis_to_states, &
-                          & connections     = connections      )
+                          & couplings       = couplings        )
 end function
 
 ! Splits up a WavevectorBasis by wavevector.
@@ -631,16 +693,20 @@ function split_by_wavevector(input,modes,qpoints) result(output)
   integer, allocatable :: qpoint_set(:)
   integer, allocatable :: wavevector_states(:)
   integer, allocatable :: new_ids(:)
+  integer, allocatable :: ids(:)
+  integer, allocatable :: separations(:)
+  integer, allocatable :: allowed_couplings(:)
   
   ! Output variables.
   integer                            :: maximum_power
+  integer                            :: expansion_order
   integer                            :: subspace_id
   real(dp)                           :: frequency
   type(FractionVector)               :: wavevector
   type(MonomialState),   allocatable :: monomial_states(:)
   type(StateConversion), allocatable :: states_to_basis(:)
   type(StateConversion), allocatable :: basis_to_states(:)
-  type(IntArray1D),      allocatable :: connections(:)
+  type(CoupledStates),   allocatable :: couplings(:)
   
   integer :: i,j,ialloc
   
@@ -656,6 +722,7 @@ function split_by_wavevector(input,modes,qpoints) result(output)
   do i=1,size(output)
     ! Copy over the maximum power, subspace ID and frequency.
     maximum_power = input%maximum_power
+    expansion_order = input%expansion_order
     subspace_id = input%subspace_id
     frequency = input%frequency
     
@@ -665,7 +732,7 @@ function split_by_wavevector(input,modes,qpoints) result(output)
     monomial_states = input%monomial_states(wavevector_states)
     states_to_basis = input%states_to_basis_(wavevector_states)
     basis_to_states = input%basis_to_states_(wavevector_states)
-    connections     = input%connections_(wavevector_states)
+    couplings       = input%couplings_(wavevector_states)
     
     ! Re-map IDs to correspond to states at the given wavevector only.
     new_ids = 0
@@ -677,19 +744,24 @@ function split_by_wavevector(input,modes,qpoints) result(output)
       basis_to_states(j) = StateConversion(                  &
          & ids          = new_ids(basis_to_states(j)%ids()), &
          & coefficients = basis_to_states(j)%coefficients()  )
-      connections(j) = new_ids(connections(j)%i)
-      connections(j) = connections(j)%i(filter(connections(j)%i>0))
+      ids = couplings(j)%ids()
+      separations = couplings(j)%separations()
+      ids = new_ids(ids)
+      allowed_couplings = filter(ids>0)
+      couplings(j) = CoupledStates( ids(allowed_couplings),        &
+                                  & separations(allowed_couplings) )
     enddo
     
     ! Construct output.
     output(i) = WavevectorBasis( maximum_power,   &
+                               & expansion_order, &
                                & subspace_id,     &
                                & frequency,       &
                                & wavevector,      &
                                & monomial_states, &
                                & states_to_basis, &
                                & basis_to_states, &
-                               & connections      )
+                               & couplings        )
   enddo
 end function
 
@@ -813,13 +885,14 @@ subroutine read_WavevectorBasis(this,input)
   type(String),           intent(in)  :: input(:)
   
   integer                            :: maximum_power
+  integer                            :: expansion_order
   integer                            :: subspace_id
   real(dp)                           :: frequency
   type(FractionVector)               :: wavevector
   type(MonomialState),   allocatable :: states(:)
   type(StateConversion), allocatable :: states_to_basis(:)
   type(StateConversion), allocatable :: basis_to_states(:)
-  type(IntArray1D),      allocatable :: connections(:)
+  type(CoupledStates),   allocatable :: couplings(:)
   
   type(String), allocatable :: line(:)
   
@@ -832,44 +905,46 @@ subroutine read_WavevectorBasis(this,input)
     maximum_power = int(line(4))
     
     line = split_line(input(2))
-    subspace_id = int(line(3))
+    expansion_order = int(line(4))
     
     line = split_line(input(3))
-    frequency = dble(line(3))
+    subspace_id = int(line(3))
     
     line = split_line(input(4))
+    frequency = dble(line(3))
+    
+    line = split_line(input(5))
     wavevector = FractionVector(join(line(3:5)))
     
-    no_states = (size(input)-8)/4
+    no_states = (size(input)-9)/4
     
-    allocate(states(no_states), stat=ialloc); call err(ialloc)
-    do i=1,no_states
-      line = split_line(input(5+i))
-      states(i) = MonomialState([input(2:3), str('State'), line(3)])
-    enddo
-    
-    allocate( states_to_basis(no_states), &
+    allocate( states(no_states),          &
+            & states_to_basis(no_states), &
             & basis_to_states(no_states), &
-            & connections(no_states),     &
+            & couplings(no_states),       &
             & stat=ialloc); call err(ialloc)
     do i=1,no_states
-      line = split_line(input(6+no_states+i))
+      line = split_line(input(6+i))
+      states(i) = MonomialState([input(2:3), str('State'), line(3)])
+      
+      line = split_line(input(7+no_states+i))
       states_to_basis(i) = StateConversion(join(line(3:)))
       
-      line = split_line(input(7+2*no_states+i))
+      line = split_line(input(8+2*no_states+i))
       basis_to_states(i) = StateConversion(join(line(3:)))
       
-      connections(i) = IntArray1D(input(8+3*no_states+i))
+      couplings(i) = CoupledStates(input(9+3*no_states+i))
     enddo
     
     this = WavevectorBasis( maximum_power,   &
+                          & expansion_order, &
                           & subspace_id,     &
                           & frequency,       &
                           & wavevector,      &
                           & states,          &
                           & states_to_basis, &
                           & basis_to_states, &
-                          & connections      )
+                          & couplings        )
   class default
     call err()
   end select
@@ -886,11 +961,12 @@ function write_WavevectorBasis(this) result(output)
   integer :: i
   
   select type(this); type is(WavevectorBasis)
-    output = [ 'Maximum power : '//this%maximum_power, &
-             & 'Subspace      : '//this%subspace_id,   &
-             & 'Frequency     : '//this%frequency,     &
-             & 'Wavevector    : '//this%wavevector,    &
-             & str('Monomial States')                  ]
+    output = [ 'Maximum power   : '//this%maximum_power,   &
+             & 'Expansion order : '//this%expansion_order, &
+             & 'Subspace        : '//this%subspace_id,     &
+             & 'Frequency       : '//this%frequency,       &
+             & 'Wavevector      : '//this%wavevector,      &
+             & str('Monomial States')                      ]
     do i=1,size(this%monomial_states)
       state_strings = str(this%monomial_states(i))
       output = [output, '|'//i//'> = '//state_strings(size(state_strings))]
@@ -912,7 +988,7 @@ function write_WavevectorBasis(this) result(output)
     
     output = [ output,                                              &
              & str('Non-zero <i|H|j> integrals in Harmonic basis'), &
-             & str(this%connections_)                               ]
+             & str(this%couplings_)                                 ]
   class default
     call err()
   end select

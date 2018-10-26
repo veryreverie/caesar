@@ -142,13 +142,13 @@ subroutine add_element(this,id,coefficient)
   
   integer :: i
   
-  if (.not. (allocated(this%ids_).and.allocated(this%coefficients_))) then
-    call print_line(CODE_ERROR//': Trying to add and element to a &
+  if (.not. allocated(this%ids_)) then
+    call print_line(CODE_ERROR//': Trying to add an element to a &
        &StateConversion which has not been allocated.')
     call err()
   endif
   
-  i = first(this%ids_>=id, default=0)
+  i = first(this%ids_>=id, default=0, sorted=.true.)
   if (i==0) then
     this%ids_ = [this%ids_, id]
     this%coefficients_ = [this%coefficients_, coefficient]
