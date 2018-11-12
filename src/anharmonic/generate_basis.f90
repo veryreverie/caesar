@@ -72,7 +72,7 @@ function generate_basis(potential,anharmonic_data,frequency_convergence, &
   ! Generate ground states at first guess frequencies.
   allocate(states(size(subspaces)), stat=ialloc); call err(ialloc)
   do i=1,size(subspaces)
-    subspace_states = generate_subspace_states( &
+    subspace_states = generate_monomial_states( &
                & subspaces(i),                  &
                & frequencies(i),                &
                & anharmonic_data%complex_modes, &

@@ -150,7 +150,16 @@ function new_DegenerateSymmetry(symmetry,subspaces,modes,qpoints) result(this)
                         & mode_i_position            )
     
     ! Filter out the zero elements.
-    non_zero_elements = filter(abs(symmetric_mode_coefficients)>1e-10_dp)
+    !non_zero_elements = filter(abs(symmetric_mode_coefficients)>1e-5_dp)
+    !
+    !! Check symmetry elements.
+    !if (any( abs(symmetric_mode_coefficients)>1e-10_dp .and. &
+    !       & abs(symmetric_mode_coefficients)<1e-2_dp        )) then
+    !  call print_line(WARNING//': Symmetry '//this%symmetry_id//' acting on &
+    !     &mode '//mode%id//' has elements which are neither zero nor >0.01.')
+    !  call print_line('Symmetry elements: '//symmetric_mode_coefficients)
+    !endif
+    non_zero_elements = [(j,j=1,size(symmetric_mode_coefficients))]
     
     ! Construct the symmetry.
     this%symmetries_(i) = SingleModeSymmetry(           &

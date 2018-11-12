@@ -20,13 +20,17 @@ module algebra_utils_module
   public :: cos_2pi
   public :: sin_2pi
   public :: factorial
+  public :: real_factorial
   public :: binomial
+  public :: real_binomial
   public :: multinomial
+  public :: real_multinomial
   public :: int_sqrt
   
   ! A list of factorials, stored to avoid re-calculating.
   ! Calculated the first time a related function is called.
-  integer, allocatable :: FACTORIALS(:)
+  integer,  allocatable :: FACTORIALS(:)
+  real(dp), allocatable :: REAL_FACTORIALS(:)
   
   ! Greatest common denominator.
   interface gcd
@@ -196,7 +200,8 @@ impure elemental function factorial(input) result(output)
     call err()
   elseif (input>=size(FACTORIALS)) then
     call print_line( ERROR//': Trying to calculate the factorial of an &
-       &integer greater than '//size(FACTORIALS)-1//'.')
+       &integer greater than '//size(FACTORIALS)-1//'. This is too large to &
+       &fit in the standard integer type.')
     call err()
   endif
   
@@ -234,6 +239,66 @@ subroutine calculate_factorials()
 end subroutine
 
 ! ----------------------------------------------------------------------
+! Factorial, but giving the answer as a real.
+! Stores calculated results to avoid excess computation.
+! ----------------------------------------------------------------------
+impure elemental function real_factorial(input) result(output)
+  implicit none
+  
+  integer, intent(in) :: input
+  real(dp)            :: output
+  
+  call calculate_real_factorials(input)
+  
+  ! Check that the input integer, n, obeys n>=0,
+  !    and small enough that n! is storable as an integer.
+  if (input<0) then
+    call print_line( ERROR//': Trying to calculate the factorial of an &
+       &integer less than 0.')
+    call err()
+  elseif (input>=size(REAL_FACTORIALS)) then
+    call print_line( ERROR//': Trying to calculate the factorial of an &
+       &integer greater than '//size(REAL_FACTORIALS)-1//'. This is too large &
+       &to fit in the double-precision real type.')
+    call err()
+  endif
+  
+  ! REAL_FACTORIALS(1) = 0!, so REAL_FACTORIALS(n+1) = n!.
+  output = REAL_FACTORIALS(input+1)
+end function
+
+subroutine calculate_real_factorials(input)
+  implicit none
+  
+  integer, intent(in) :: input
+  
+  integer :: i,j,ialloc
+  
+  ! The first time this function is called,
+  !    calculate all storable factorials, {i!} s.t. i!<=huge(0).
+  if (.not. allocated(REAL_FACTORIALS)) then
+    ! Find the largest integer i s.t. i! is too large to be
+    !    stored as a real.
+    i = 0
+    j = 1
+    do
+      i = i+1
+      if (j>huge(0.0_dp)/i) then
+        allocate(REAL_FACTORIALS(i), stat=ialloc); call err(ialloc)
+        exit
+      endif
+      j = j*i ! j = i!.
+    enddo
+    
+    ! Calculate and store all storable factorials.
+    REAL_FACTORIALS(1) = 1.0_dp
+    do i=1,size(REAL_FACTORIALS)-1
+      REAL_FACTORIALS(i+1) = REAL_FACTORIALS(i)*i ! FACTORIALS(i+1) = i!.
+    enddo
+  endif
+end subroutine
+
+! ----------------------------------------------------------------------
 ! Calculates the binomial coefficient of two integers.
 ! binomial(a,b) = a!/(b!*(a-b)!)
 ! ----------------------------------------------------------------------
@@ -252,14 +317,38 @@ impure elemental function binomial(top,bottom) result(output)
     call err()
   endif
   
-  call calculate_factorials()
-  
   if (top<size(FACTORIALS)) then
     output = factorial(top) / (factorial(bottom)*factorial(top-bottom))
   else
     call print_line(ERROR//': Currently unable to calculate binomial &
        &coefficients involving factorials larger than '//            &
        & size(FACTORIALS)-1//'!'                                     )
+    call err()
+  endif
+end function
+
+impure elemental function real_binomial(top,bottom) result(output)
+  implicit none
+  
+  integer, intent(in) :: top
+  integer, intent(in) :: bottom
+  integer             :: output
+  
+  if (top<0) then
+    call err()
+  elseif (bottom<0) then
+    call err()
+  elseif (bottom>top) then
+    call err()
+  endif
+  
+  if (top<size(REAL_FACTORIALS)) then
+    output = real_factorial(top) &
+         & / (real_factorial(bottom)*real_factorial(top-bottom))
+  else
+    call print_line(ERROR//': Currently unable to calculate binomial &
+       &coefficients involving factorials larger than '//            &
+       & size(REAL_FACTORIALS)-1//'!'                                )
     call err()
   endif
 end function
@@ -292,6 +381,33 @@ function multinomial(top,bottom) result(output)
     call print_line(ERROR//': Currently unable to calculate multinomial &
        &coefficients involving factorials larger than '//               &
        & size(FACTORIALS)-1//'!'                                        )
+    call err()
+  endif
+end function
+
+function real_multinomial(top,bottom) result(output)
+  implicit none
+  
+  integer, intent(in) :: top
+  integer, intent(in) :: bottom(:)
+  integer             :: output
+  
+  if (top<0) then
+    call err()
+  elseif (any(bottom<0)) then
+    call err()
+  elseif (sum(bottom)>top) then
+    call err()
+  endif
+  
+  call calculate_factorials()
+  
+  if (top<size(REAL_FACTORIALS)) then
+    output = real_factorial(top) / product(real_factorial(bottom))
+  else
+    call print_line(ERROR//': Currently unable to calculate multinomial &
+       &coefficients involving factorials larger than '//               &
+       & size(REAL_FACTORIALS)-1//'!'                                   )
     call err()
   endif
 end function

@@ -71,10 +71,10 @@ subroutine calculate_normal_modes_subroutine(arguments)
   ! Electronic structure calculation reader.
   type(CalculationReader) :: calculation_reader
   
-  ! Force constant data.
+  ! Hessian matrix data.
   type(UniqueDirection),     allocatable :: unique_directions(:)
   type(ElectronicStructure), allocatable :: electronic_structure(:)
-  type(ForceConstants),      allocatable :: force_constants(:)
+  type(CartesianHessian),    allocatable :: hessian(:)
   
   ! q-point data.
   type(StructureData)           :: large_supercell
@@ -192,12 +192,12 @@ subroutine calculate_normal_modes_subroutine(arguments)
   endif
   
   ! --------------------------------------------------
-  ! Calculate the matrix of force constants corresponding to each supercell.
+  ! Calculate the Hessian matrix corresponding to each supercell.
   ! --------------------------------------------------
-  allocate( supercells(no_supercells),      &
-          & force_constants(no_supercells), &
+  allocate( supercells(no_supercells), &
+          & hessian(no_supercells),    &
           & stat=ialloc); call err(ialloc)
-  force_logfile = OFile('force_constants_log.dat')
+  force_logfile = OFile('hessian_log.dat')
   do i=1,no_supercells
     supercell_dir = 'Supercell_'//left_pad(i,str(no_supercells))
     
@@ -228,12 +228,12 @@ subroutine calculate_normal_modes_subroutine(arguments)
       endif
     enddo
     
-    ! Calculate force constants.
-    force_constants(i) = ForceConstants( supercells(i),            &
-                                       & unique_directions,        &
-                                       & electronic_structure,     &
-                                       & acoustic_sum_rule_forces, &
-                                       & force_logfile)
+    ! Calculate Hessian from the set of forces at each displacement.
+    hessian(i) = CartesianHessian( supercells(i),            &
+                                 & unique_directions,        &
+                                 & electronic_structure,     &
+                                 & acoustic_sum_rule_forces, &
+                                 & force_logfile             )
     deallocate( unique_directions,    &
               & electronic_structure, &
               & stat=ialloc); call err(ialloc)
@@ -317,12 +317,12 @@ subroutine calculate_normal_modes_subroutine(arguments)
           call qpoint_logfile%print_line('Constructing dynamical matrix and &
              &normal modes at q-point '//i//' directly from calculated force &
              &constants.')
-          dynamical_matrices(i) = DynamicalMatrix( qpoints(i),        &
-                                                 & supercells,        &
-                                                 & force_constants,   &
-                                                 & structure,         &
-                                                 & subspace_id,       &
-                                                 & qpoint_logfile)
+          dynamical_matrices(i) = DynamicalMatrix( qpoints(i),    &
+                                                 & supercells,    &
+                                                 & hessian,       &
+                                                 & structure,     &
+                                                 & subspace_id,   &
+                                                 & qpoint_logfile )
           subspace_id =                                                  &
              &   maxval(dynamical_matrices(i)%complex_modes%subspace_id) &
              & + 1

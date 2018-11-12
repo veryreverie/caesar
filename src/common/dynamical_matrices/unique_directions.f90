@@ -1,7 +1,7 @@
 ! ======================================================================
 ! Determines which directions are related by symmetry,
 !    and thus which atoms should be displaced in which directions 
-!    in order to construct the matrix of force constants.
+!    in order to construct the Hessian.
 ! ======================================================================
 ! The symmetry operations to consider are outlined here:
 ! http://www.homepages.ucl.ac.uk/~ucfbdxa/phon/node4.html

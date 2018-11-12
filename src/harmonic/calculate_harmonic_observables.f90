@@ -92,8 +92,8 @@ subroutine calculate_harmonic_observables_subroutine(arguments)
   type(QpointData),      allocatable :: qpoints(:)
   type(DynamicalMatrix), allocatable :: dynamical_matrices(:)
   
-  ! Force constants and minimum image data.
-  type(ForceConstants)         :: force_constants
+  ! Hessian matrix and minimum image data.
+  type(CartesianHessian)       :: hessian
   type(MinImages), allocatable :: min_images(:,:)
   
   ! Dynamical matrix for checking.
@@ -208,11 +208,11 @@ subroutine calculate_harmonic_observables_subroutine(arguments)
   ! Open output files.
   logfile              = OFile(output_dir//'/harmonic_observables_log.dat')
   
-  ! Construct the matrix of force constants from dynamical matrices.
-  force_constants = reconstruct_force_constants( large_supercell,    &
-                                               & qpoints,            &
-                                               & dynamical_matrices, &
-                                               & logfile             )
+  ! Construct the Hessian matrix from dynamical matrices.
+  hessian = reconstruct_hessian( large_supercell,    &
+                               & qpoints,            &
+                               & dynamical_matrices, &
+                               & logfile             )
   
   ! Calculate minimum image distances.
   min_images = calculate_min_images(large_supercell)
@@ -221,10 +221,10 @@ subroutine calculate_harmonic_observables_subroutine(arguments)
   do i=1,size(qpoints)
     dyn_mat = DynamicalMatrix( dblevec(qpoints(i)%qpoint), &
                              & large_supercell,            &
-                             & force_constants,            &
+                             & hessian,                    &
                              & min_images                  )
     call logfile%print_line('Comparing dynamical matrices before and after &
-       &reconstruction of force constants.'                                )
+       &reconstruction of Hessian.'                                        )
     call compare_dynamical_matrices(dynamical_matrices(i),dyn_mat,logfile)
   enddo
   
@@ -232,7 +232,7 @@ subroutine calculate_harmonic_observables_subroutine(arguments)
   !    calculated q-points using Fourier interpolation.
   phonon_dispersion = PhononDispersion( large_supercell, &
                                       & min_images,      &
-                                      & force_constants, &
+                                      & hessian,         &
                                       & path_labels,     &
                                       & path_qpoints,    &
                                       & logfile          )
@@ -245,14 +245,14 @@ subroutine calculate_harmonic_observables_subroutine(arguments)
   call dispersion_file%print_lines(phonon_dispersion%frequencies)
   
   ! Generate harmonic phonon density of states, interpolating as above.
-  phonon_dos = PhononDos( large_supercell,      &
-                        & min_images,           &
-                        & force_constants,      &
-                        & thermal_energies,     &
-                        & min_frequency,        &
-                        & no_dos_samples,       &
-                        & logfile,              &
-                        & random_generator      )
+  phonon_dos = PhononDos( large_supercell,  &
+                        & min_images,       &
+                        & hessian,          &
+                        & thermal_energies, &
+                        & min_frequency,    &
+                        & no_dos_samples,   &
+                        & logfile,          &
+                        & random_generator  )
   
   sampled_qpoints_file = OFile(output_dir//'/sampled_qpoints.dat')
   call sampled_qpoints_file%print_line('q-point (x,y,z) | &

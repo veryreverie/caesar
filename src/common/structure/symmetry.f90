@@ -15,6 +15,7 @@ module symmetry_module
   public :: operator(*)
   public :: BasicSymmetry
   public :: operators_commute
+  public :: superposed_operators_commute
   public :: operators_anticommute
   public :: loto_breaks_symmetry
   
@@ -151,6 +152,44 @@ impure elemental function operators_commute(this,that,qpoint) result(output)
      & operator_rvectors_commute(this,that,qpoint)     ) then
     output = .true.
   elseif ( matrices_anticommute(this%tensor,that%tensor) .and. &
+         & operator_rvectors_anticommute(this,that,qpoint)     ) then
+    output = .true.
+  else
+    output = .false.
+  endif
+end function
+
+! ----------------------------------------------------------------------
+! Returns whether or not (T+T*) superpositions of operators commute.
+! ----------------------------------------------------------------------
+impure elemental function superposed_operators_commute(this,that,qpoint) &
+   & result(output)
+  implicit none
+  
+  type(SymmetryOperator), intent(in) :: this
+  type(SymmetryOperator), intent(in) :: that
+  type(QpointData),       intent(in) :: qpoint
+  logical                            :: output
+  
+  type(IntMatrix) :: this_tensor
+  type(IntMatrix) :: that_tensor
+  
+  ! Check that the atom to atom transformations commute
+  !    within a single unit cell.
+  if (this%atom_group*that%atom_group /= that%atom_group*this%atom_group) then
+    output = .false.
+    return
+  endif
+  
+  ! Check that either the symmetries' (T+T*) tensors and R-vectors both
+  !    commute, or that they both anti-commute
+  !    (in which case the anti-commutation cancels to leave commutation).
+  this_tensor = this%tensor + transpose(this%tensor)
+  that_tensor = that%tensor + transpose(that%tensor)
+  if ( matrices_commute(this_tensor,that_tensor) .and. &
+     & operator_rvectors_commute(this,that,qpoint)     ) then
+    output = .true.
+  elseif ( matrices_anticommute(this_tensor,that_tensor) .and. &
          & operator_rvectors_anticommute(this,that,qpoint)     ) then
     output = .true.
   else

@@ -1,7 +1,7 @@
 ! ======================================================================
-! Reads harmonic forces, and generates the matrix of force constants.
+! Reads harmonic forces, and generates the cartesian Hessian matrix.
 ! ======================================================================
-module force_constants_module
+module cartesian_hessian_module
   use utils_module
   
   use structure_module
@@ -12,31 +12,32 @@ module force_constants_module
   
   private
   
-  public :: ForceConstants
+  public :: CartesianHessian
   
-  ! The matrix of force constants, F, such that F.x=f, where x and f are the
-  !    displacement and force respectively.
-  type, extends(NoDefaultConstructor) :: ForceConstants
-    type(RealMatrix), allocatable, private :: constants_(:,:)
+  ! The Hessian is the matrix of force constants, F, such that F.x=f,
+  !    where x and f are the cartesian displacement and cartesian force
+  !    respectively.
+  type, extends(NoDefaultConstructor) :: CartesianHessian
+    type(RealMatrix), allocatable, private :: elements_(:,:)
   contains
-    procedure, public :: constants
+    procedure, public :: elements
     procedure, public :: check
   end type
   
-  interface ForceConstants
-    module procedure new_ForceConstants_forces
-    module procedure new_ForceConstants_constants
+  interface CartesianHessian
+    module procedure new_CartesianHessian_forces
+    module procedure new_CartesianHessian_elements
   end interface
 contains
 
 ! ----------------------------------------------------------------------
-! Uses symmetry operations to construct force constants.
+! Uses symmetry operations to construct Hessian.
 ! ----------------------------------------------------------------------
 ! x is the collective vector of displacements, {xi}.
 ! f is the collective vector of forces, {fi}.
 ! Both are supercell%no_modes long.
 !
-! Under the harmonic approximation, the force constants, F, are defined as:
+! Under the harmonic approximation, the hessian, F, is defined as:
 !    U = - x.F.x / 2
 !
 !    f = -dU/dx = F.x
@@ -56,9 +57,8 @@ contains
 ! => F = sum(x,s)[f'^x'] . inverse( sum(x,s)[x'^x'] )
 !
 ! sum(x,s)[x'^x'] is block diagonal, so can be inverted in 3x3 blocks.
-function new_ForceConstants_forces(supercell,unique_directions, &
-   & electronic_structure,acoustic_sum_rule_forces,logfile)     &
-   & result(output)
+function new_CartesianHessian_forces(supercell,unique_directions, &
+   & electronic_structure,acoustic_sum_rule_forces,logfile) result(output)
   implicit none
   
   type(StructureData),       intent(in)    :: supercell
@@ -66,7 +66,7 @@ function new_ForceConstants_forces(supercell,unique_directions, &
   type(ElectronicStructure), intent(in)    :: electronic_structure(:)
   logical,                   intent(in)    :: acoustic_sum_rule_forces
   type(OFile),               intent(inout) :: logfile
-  type(ForceConstants)                     :: output
+  type(CartesianHessian)                   :: output
   
   ! Forces (mass reduced).
   type(RealVector), allocatable :: forces(:,:)
@@ -100,18 +100,18 @@ function new_ForceConstants_forces(supercell,unique_directions, &
 end function
 
 ! ----------------------------------------------------------------------
-! Constructs and checks force constants from given matrices.
+! Constructs and checks Hessian from given matrices.
 ! ----------------------------------------------------------------------
-function new_ForceConstants_constants(structure,force_constants,logfile) &
+function new_CartesianHessian_elements(structure,elements,logfile) &
    & result(this)
   implicit none
   
   type(StructureData), intent(in)    :: structure
-  type(RealMatrix),    intent(in)    :: force_constants(:,:)
+  type(RealMatrix),    intent(in)    :: elements(:,:)
   type(OFile),         intent(inout) :: logfile
-  type(ForceConstants)               :: this
+  type(CartesianHessian)             :: this
   
-  ! Variables for checking force constants.
+  ! Variables for checking Hessian.
   type(AtomData)   :: atom_i
   type(AtomData)   :: atom_j
   type(AtomData)   :: atom_k
@@ -126,8 +126,8 @@ function new_ForceConstants_constants(structure,force_constants,logfile) &
   
   integer :: i,j,k
   
-  ! Copy force constants into ForceConstants.
-  this%constants_ = force_constants
+  ! Copy elements into CartesianHessian.
+  this%elements_ = elements
   
   ! Check that the force constants between atom i and atom j are the same as
   !    those between atom i + R and atom j + R.
@@ -149,8 +149,8 @@ function new_ForceConstants_constants(structure,force_constants,logfile) &
         elseif (rvec_k/=rvec_ij) then
           cycle
         endif
-        matrix = this%constants_(atom_i%id(),atom_j%id())
-        copy = this%constants_(atom_i%prim_id(),atom_k%id())
+        matrix = this%elements_(atom_i%id(),atom_j%id())
+        copy = this%elements_(atom_i%prim_id(),atom_k%id())
         average = average + sum_squares((matrix+copy)/2)
         difference = difference + sum_squares(matrix-copy)
       enddo
@@ -159,7 +159,7 @@ function new_ForceConstants_constants(structure,force_constants,logfile) &
   call logfile%print_line('Fractional L2 difference in force constants at &
      &different R-vectors: '//sqrt(difference/average))
   if (sqrt(difference/average)>1.0e-10_dp) then
-    call print_line(WARNING//': Reconstructed force constants do not obey &
+    call print_line(WARNING//': Reconstructed Hessian does not obey &
        &R-vector symmetries. Please check log files.')
     call err()
   endif
@@ -168,15 +168,15 @@ end function
 ! ----------------------------------------------------------------------
 ! Return the force constants between two atoms.
 ! ----------------------------------------------------------------------
-function constants(this,a,b) result(output)
+function elements(this,a,b) result(output)
   implicit none
   
-  class(ForceConstants), intent(in) :: this
-  type(AtomData),        intent(in) :: a
-  type(AtomData),        intent(in) :: b
-  type(RealMatrix)                  :: output
+  class(CartesianHessian), intent(in) :: this
+  type(AtomData),          intent(in) :: a
+  type(AtomData),          intent(in) :: b
+  type(RealMatrix)                    :: output
   
-  output = this%constants_(a%id(),b%id())
+  output = this%elements_(a%id(),b%id())
 end function
   
 ! ----------------------------------------------------------------------
@@ -404,7 +404,7 @@ function construct_f(xx,fx,supercell,logfile) result(output)
   type(RealMatrix),    intent(in)    :: fx(:,:)
   type(StructureData), intent(in)    :: supercell
   type(OFile),         intent(inout) :: logfile
-  type(ForceConstants)               :: output
+  type(CartesianHessian)             :: output
   
   type(RealMatrix) :: xx_inverse
   
@@ -421,22 +421,22 @@ function construct_f(xx,fx,supercell,logfile) result(output)
   integer :: i,j,k,ialloc
   
   ! Construct F(i1,i2).
-  allocate(output%constants_(supercell%no_atoms,supercell%no_atoms), &
+  allocate(output%elements_(supercell%no_atoms,supercell%no_atoms), &
      & stat=ialloc); call err(ialloc)
   do i=1,supercell%no_atoms
     xx_inverse = invert(xx(i))
     do j=1,supercell%no_atoms
-      output%constants_(j,i) = fx(j,i) * xx_inverse * supercell%sc_size
+      output%elements_(j,i) = fx(j,i) * xx_inverse * supercell%sc_size
     enddo
   enddo
   
   ! Symmetrise F(i1,i2) under exchange of co-ordinates.
   do i=1,supercell%no_atoms
     do j=1,i
-      output%constants_(j,i) = ( output%constants_(j,i)              &
-                           &   + transpose(output%constants_(i,j)) ) &
-                           & / 2.0_dp
-      output%constants_(i,j) = transpose(output%constants_(j,i))
+      output%elements_(j,i) = ( output%elements_(j,i)              &
+                          &   + transpose(output%elements_(i,j)) ) &
+                          & / 2.0_dp
+      output%elements_(i,j) = transpose(output%elements_(j,i))
     enddo
   enddo
   
@@ -452,9 +452,9 @@ function construct_f(xx,fx,supercell,logfile) result(output)
         atom_2 = supercell%atoms(k)
         atom_2p = supercell%atoms( supercell%symmetries(i)%atom_group &
                                & * atom_2%id())
-        matrix = output%constants(atom_1p,atom_2p)
+        matrix = output%elements(atom_1p,atom_2p)
         symmetric = supercell%symmetries(i)%cartesian_tensor &
-                & * output%constants(atom_1,atom_2)          &
+                & * output%elements(atom_1,atom_2)           &
                 & * transpose(supercell%symmetries(i)%cartesian_tensor)
         average = average + sum_squares((matrix+symmetric)/2)
         difference = difference + sum_squares(matrix-symmetric)
@@ -477,8 +477,8 @@ function construct_f(xx,fx,supercell,logfile) result(output)
     atom_1 = supercell%atoms(i)
     do j=1,supercell%no_atoms
       atom_2 = supercell%atoms(j)
-      matrix = output%constants(atom_2,atom_1)
-      symmetric = transpose(output%constants(atom_1,atom_2))
+      matrix = output%elements(atom_2,atom_1)
+      symmetric = transpose(output%elements(atom_1,atom_2))
       average = average + sum_squares((matrix+symmetric)/2)
       difference = difference + sum_squares(matrix-symmetric)
     enddo
@@ -492,19 +492,19 @@ function construct_f(xx,fx,supercell,logfile) result(output)
 end function
 
 ! ----------------------------------------------------------------------
-! Checks the force constants against the calculated forces and symmetries.
+! Checks the Hessian against the calculated forces and symmetries.
 ! ----------------------------------------------------------------------
 ! Checks that the elements corresponding to calculated forces have not been
 !    changed too much by symmetrisation.
-! Checks that the force constants have the correct symmetry properties.
+! Checks that the Hessian has the correct symmetry properties.
 subroutine check(this,forces,supercell,unique_directions,logfile)
   implicit none
   
-  class(ForceConstants), intent(in)    :: this
-  type(RealVector),      intent(in)    :: forces(:,:)
-  type(StructureData),   intent(in)    :: supercell
-  type(UniqueDirection), intent(in)    :: unique_directions(:)
-  type(OFile),           intent(inout) :: logfile
+  class(CartesianHessian), intent(in)    :: this
+  type(RealVector),        intent(in)    :: forces(:,:)
+  type(StructureData),     intent(in)    :: supercell
+  type(UniqueDirection),   intent(in)    :: unique_directions(:)
+  type(OFile),             intent(inout) :: logfile
   
   ! Atoms.
   type(AtomData) :: atom_1
@@ -518,7 +518,7 @@ subroutine check(this,forces,supercell,unique_directions,logfile)
   
   integer :: i,j
   
-  ! Check force constants against raw forces.
+  ! Check Hessian against raw forces.
   average = 0
   difference = 0
   do i=1,size(unique_directions)
@@ -528,7 +528,7 @@ subroutine check(this,forces,supercell,unique_directions,logfile)
       atom_2 = supercell%atoms(j)
       
       calculated = forces(j,i)
-      fitted = this%constants(atom_2,atom_1)            &
+      fitted = this%elements(atom_2,atom_1)             &
            & * unique_directions(i)%atomic_displacement &
            & / supercell%sc_size
       

@@ -383,13 +383,18 @@ impure elemental function mode_RealMonomial(this,index) result(output)
   output = this%modes_(index)
 end function
 
-function modes_RealMonomial(this) result(output)
+function modes_RealMonomial(this,indices) result(output)
   implicit none
   
-  class(RealMonomial), intent(in)   :: this
-  type(RealUnivariate), allocatable :: output(:)
+  class(RealMonomial), intent(in)           :: this
+  integer,             intent(in), optional :: indices(:)
+  type(RealUnivariate), allocatable         :: output(:)
   
-  output = this%modes_
+  if (present(indices)) then
+    output = this%modes_(indices)
+  else
+    output = this%modes_
+  endif
 end function
 
 impure elemental function id_RealMonomial(this,index) result(output)
@@ -402,13 +407,18 @@ impure elemental function id_RealMonomial(this,index) result(output)
   output = this%modes_(index)%id
 end function
 
-function ids_RealMonomial(this) result(output)
+function ids_RealMonomial(this,indices) result(output)
   implicit none
   
-  class(RealMonomial), intent(in) :: this
-  integer, allocatable            :: output(:)
+  class(RealMonomial), intent(in)           :: this
+  integer,             intent(in), optional :: indices(:)
+  integer, allocatable                      :: output(:)
   
-  output = this%modes_%id
+  if (present(indices)) then
+    output = this%modes_(indices)%id
+  else
+    output = this%modes_%id
+  endif
 end function
 
 impure elemental function paired_id_RealMonomial(this,index) result(output)
@@ -421,13 +431,18 @@ impure elemental function paired_id_RealMonomial(this,index) result(output)
   output = this%modes_(index)%paired_id
 end function
 
-function paired_ids_RealMonomial(this) result(output)
+function paired_ids_RealMonomial(this,indices) result(output)
   implicit none
   
-  class(RealMonomial), intent(in) :: this
-  integer, allocatable            :: output(:)
+  class(RealMonomial), intent(in)           :: this
+  integer,             intent(in), optional :: indices(:)
+  integer, allocatable                      :: output(:)
   
-  output = this%modes_%paired_id
+  if (present(indices)) then
+    output = this%modes_(indices)%paired_id
+  else
+    output = this%modes_%paired_id
+  endif
 end function
 
 impure elemental function power_RealMonomial(this,index) result(output)
@@ -440,16 +455,22 @@ impure elemental function power_RealMonomial(this,index) result(output)
   output = this%modes_(index)%power
 end function
 
-function powers_RealMonomial(this) result(output)
+function powers_RealMonomial(this,indices) result(output)
   implicit none
   
-  class(RealMonomial), intent(in) :: this
-  integer, allocatable            :: output(:)
+  class(RealMonomial), intent(in)           :: this
+  integer,             intent(in), optional :: indices(:)
+  integer, allocatable                      :: output(:)
   
-  output = this%modes_%power
+  if (present(indices)) then
+    output = this%modes_(indices)%power
+  else
+    output = this%modes_%power
+  endif
 end function
 
-impure elemental function paired_power_RealMonomial(this,index) result(output)
+impure elemental function paired_power_RealMonomial(this,index) &
+   & result(output)
   implicit none
   
   class(RealMonomial), intent(in) :: this
@@ -459,13 +480,18 @@ impure elemental function paired_power_RealMonomial(this,index) result(output)
   output = this%modes_(index)%paired_power
 end function
 
-function paired_powers_RealMonomial(this) result(output)
+function paired_powers_RealMonomial(this,indices) result(output)
   implicit none
   
-  class(RealMonomial), intent(in) :: this
-  integer, allocatable            :: output(:)
+  class(RealMonomial), intent(in)           :: this
+  integer,             intent(in), optional :: indices(:)
+  integer, allocatable                      :: output(:)
   
-  output = this%modes_%paired_power
+  if (present(indices)) then
+    output = this%modes_(indices)%paired_power
+  else
+    output = this%modes_%paired_power
+  endif
 end function
 
 ! Simplify a monomial or polynomial.

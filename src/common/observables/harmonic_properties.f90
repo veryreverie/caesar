@@ -1,6 +1,6 @@
 ! ======================================================================
-! Routines to calculate a number of harmonic properties of the crystal given
-!    the matrix of force constants.
+! Routines to calculate a number of harmonic properties of the crystal from
+!    the Hessian matrix.
 ! ======================================================================
 module harmonic_properties_module
   use utils_module
@@ -106,7 +106,7 @@ module harmonic_properties_module
   
   interface PhononDispersion
     module procedure new_PhononDispersion
-    module procedure new_PhononDispersion_ForceConstants
+    module procedure new_PhononDispersion_CartesianHessian
   end interface
   
   type, extends(NoDefaultConstructor) :: PhononDos
@@ -117,7 +117,7 @@ module harmonic_properties_module
   
   interface PhononDos
     module procedure new_PhononDos
-    module procedure new_PhononDos_ForceConstants
+    module procedure new_PhononDos_CartesianHessian
   end interface
 contains
 
@@ -214,17 +214,17 @@ end function
 ! ----------------------------------------------------------------------
 ! Generates the phonon dispersion curve.
 ! ----------------------------------------------------------------------
-function new_PhononDispersion_ForceConstants(large_supercell,min_images, &
-   & force_constants,path_labels,path_qpoints,logfile) result(this)
+function new_PhononDispersion_CartesianHessian(large_supercell,min_images, &
+   & hessian,path_labels,path_qpoints,logfile) result(this)
   implicit none
   
-  type(StructureData),  intent(in)    :: large_supercell
-  type(MinImages),      intent(in)    :: min_images(:,:)
-  type(ForceConstants), intent(in)    :: force_constants
-  type(String),         intent(in)    :: path_labels(:)
-  type(RealVector),     intent(in)    :: path_qpoints(:)
-  type(OFile),          intent(inout) :: logfile
-  type(PhononDispersion)              :: this
+  type(StructureData),    intent(in)    :: large_supercell
+  type(MinImages),        intent(in)    :: min_images(:,:)
+  type(CartesianHessian), intent(in)    :: hessian
+  type(String),           intent(in)    :: path_labels(:)
+  type(RealVector),       intent(in)    :: path_qpoints(:)
+  type(OFile),            intent(inout) :: logfile
+  type(PhononDispersion)                :: this
   
   ! Path variables.
   integer,  parameter :: total_no_points = 1000
@@ -289,7 +289,7 @@ function new_PhononDispersion_ForceConstants(large_supercell,min_images, &
            & / points_per_segment(i)
       dyn_mat = DynamicalMatrix( qpoint,          &
                                & large_supercell, &
-                               & force_constants, &
+                               & hessian,         &
                                & min_images       )
       call dyn_mat%check( large_supercell,         &
                         & logfile,                 &
@@ -306,7 +306,7 @@ function new_PhononDispersion_ForceConstants(large_supercell,min_images, &
   qpoint = path_qpoints(no_vertices)
   dyn_mat = DynamicalMatrix( qpoint,          &
                            & large_supercell, &
-                           & force_constants, &
+                           & hessian,         &
                            & min_images       )
   call dyn_mat%check( large_supercell,         &
                     & logfile,                 &
@@ -325,20 +325,20 @@ end function
 ! Calculate the frequency density-of-states by random sampling of
 !    the Brillouin zone.
 ! ----------------------------------------------------------------------
-function new_PhononDos_ForceConstants(supercell,min_images,force_constants, &
+function new_PhononDos_CartesianHessian(supercell,min_images,hessian,        &
    & thermal_energies,min_frequency,no_dos_samples,logfile,random_generator) &
    & result(this)
   implicit none
   
-  type(StructureData),  intent(in)    :: supercell
-  type(MinImages),      intent(in)    :: min_images(:,:)
-  type(ForceConstants), intent(in)    :: force_constants
-  real(dp),             intent(in)    :: thermal_energies(:)
-  real(dp),             intent(in)    :: min_frequency
-  integer,              intent(in)    :: no_dos_samples
-  type(OFile),          intent(inout) :: logfile
-  type(RandomReal),     intent(in)    :: random_generator
-  type(PhononDos)                     :: this
+  type(StructureData),    intent(in)    :: supercell
+  type(MinImages),        intent(in)    :: min_images(:,:)
+  type(CartesianHessian), intent(in)    :: hessian
+  real(dp),               intent(in)    :: thermal_energies(:)
+  real(dp),               intent(in)    :: min_frequency
+  integer,                intent(in)    :: no_dos_samples
+  type(OFile),            intent(inout) :: logfile
+  type(RandomReal),       intent(in)    :: random_generator
+  type(PhononDos)                       :: this
   
   ! Calculation parameter.
   integer  :: no_bins
@@ -388,13 +388,13 @@ function new_PhononDos_ForceConstants(supercell,min_images,force_constants, &
   min_freq = 0.0_dp
   do i=1,no_prelims
     qpoint = random_generator%random_numbers(3)
-    dyn_mat = DynamicalMatrix( qpoint,          &
-                             & supercell,       &
-                             & force_constants, &
-                             & min_images)
-    call dyn_mat%check( supercell, &
-                      & logfile,   &
-                      & check_eigenstuff=.false.)
+    dyn_mat = DynamicalMatrix( qpoint,    &
+                             & supercell, &
+                             & hessian,   &
+                             & min_images )
+    call dyn_mat%check( supercell,               &
+                      & logfile,                 &
+                      & check_eigenstuff=.false. )
     
     min_freq = min( min_freq, &
                   & dyn_mat%complex_modes(1)%frequency)
@@ -429,10 +429,10 @@ function new_PhononDos_ForceConstants(supercell,min_images,force_constants, &
   allocate(qpoints(no_dos_samples), stat=ialloc); call err(ialloc)
   do i=1,no_dos_samples
     qpoint = random_generator%random_numbers(3)
-    dyn_mat = DynamicalMatrix( qpoint,          &
-                             & supercell,       &
-                             & force_constants, &
-                             & min_images       )
+    dyn_mat = DynamicalMatrix( qpoint,    &
+                             & supercell, &
+                             & hessian,   &
+                             & min_images )
     call dyn_mat%check( supercell,               &
                       & logfile,                 &
                       & check_eigenstuff=.false. )

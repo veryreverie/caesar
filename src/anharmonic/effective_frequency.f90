@@ -200,7 +200,7 @@ function calculate_free_energy(potential,basis,subspace,anharmonic_data, &
     
     ! Transform Vv-Vh into the effective harmonic basis.
     energy_difference = &
-       & basis%wavevectors(i)%operator_states_to_basis(energy_difference)
+       & basis%wavevectors(i)%hamiltonian_states_to_basis(energy_difference)
     
     ! Calculate the thermal weights, {Ph_i} of the harmonic states.
     state_weights = calculate_state_weight(          &

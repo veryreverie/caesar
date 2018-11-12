@@ -39,6 +39,10 @@ module wavevector_basis_module
     procedure, public :: operator_states_to_basis
     procedure, public :: operator_basis_to_states
     
+    ! Transform Hamiltonian matrices.
+    procedure, public :: hamiltonian_states_to_basis
+    procedure, public :: hamiltonian_basis_to_states
+    
     ! Return the occupations of the harmonic basis states.
     procedure, public :: harmonic_occupation
     procedure, public :: harmonic_occupations
@@ -852,6 +856,51 @@ function operator_basis_to_states(this,operator) result(output)
 end function
 
 ! ----------------------------------------------------------------------
+! As operator transformations, but uses symmetry to accelerate calculation.
+! ----------------------------------------------------------------------
+function hamiltonian_states_to_basis(this,hamiltonian) result(output)
+  implicit none
+  
+  class(WavevectorBasis), intent(in) :: this
+  real(dp),               intent(in) :: hamiltonian(:,:)
+  real(dp), allocatable              :: output(:,:)
+  
+  integer :: i,j,ialloc
+  
+  allocate(output(size(this), size(this)), stat=ialloc); call err(ialloc)
+  output = 0.0_dp
+  do i=1,size(this)
+    do j=1,size(this)
+      output(j,i) = dble( vec(this%states_to_basis_(j)%coefficients())       &
+                      & * mat(hamiltonian( this%states_to_basis_(j)%ids(),   &
+                      &                    this%states_to_basis_(i)%ids() )) &
+                      & * vec(this%states_to_basis_(i)%coefficients())       )
+    enddo
+  enddo
+end function
+
+function hamiltonian_basis_to_states(this,hamiltonian) result(output)
+  implicit none
+  
+  class(WavevectorBasis), intent(in) :: this
+  real(dp),               intent(in) :: hamiltonian(:,:)
+  real(dp), allocatable              :: output(:,:)
+  
+  integer :: i,j,ialloc
+  
+  allocate(output(size(this), size(this)), stat=ialloc); call err(ialloc)
+  output = 0.0_dp
+  do i=1,size(this)
+    do j=1,size(this)
+      output(j,i) = dble( vec(this%basis_to_states_(j)%coefficients())       &
+                      & * mat(hamiltonian( this%basis_to_states_(j)%ids(),   &
+                      &                    this%basis_to_states_(i)%ids() )) &
+                      & * vec(this%basis_to_states_(i)%coefficients())       )
+    enddo
+  enddo
+end function
+
+! ----------------------------------------------------------------------
 ! The occupation numbers of the harmonic states.
 ! ----------------------------------------------------------------------
 ! N.B. the occupation of harmonic state i is the same as the total power
@@ -925,7 +974,7 @@ subroutine read_WavevectorBasis(this,input)
             & stat=ialloc); call err(ialloc)
     do i=1,no_states
       line = split_line(input(6+i))
-      states(i) = MonomialState([input(2:3), str('State'), line(3)])
+      states(i) = MonomialState([input(3:4), str('State'), line(3)])
       
       line = split_line(input(7+no_states+i))
       states_to_basis(i) = StateConversion(join(line(3:)))

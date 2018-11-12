@@ -19,8 +19,11 @@ module subspace_basis_module
   ! All states spanning the subspace.
   type, extends(Stringsable) :: SubspaceBasis
     ! The maximum power of the monomial states.
-    ! N.B. this is also the maximum occupation of the harmonic basis states.
+    ! This is also the maximum occupation of the harmonic basis states.
     integer  :: maximum_power
+    ! The expansion order of the potential.
+    ! This is also the limit on coupling between states.
+    integer :: expansion_order
     ! The ID and frequency of the subspace.
     integer  :: subspace_id
     real(dp) :: frequency
@@ -47,20 +50,22 @@ module subspace_basis_module
 contains
 
 ! Constructors and size functions.
-function new_SubspaceBasis(maximum_power,subspace_id,frequency,wavevectors) &
-   & result(this)
+function new_SubspaceBasis(maximum_power,expansion_order,subspace_id, &
+   & frequency,wavevectors) result(this)
   implicit none
   
   integer,               intent(in) :: maximum_power
+  integer,               intent(in) :: expansion_order
   integer,               intent(in) :: subspace_id
   real(dp),              intent(in) :: frequency
   type(WavevectorBasis), intent(in) :: wavevectors(:)
   type(SubspaceBasis)               :: this
   
-  this%maximum_power = maximum_power
-  this%subspace_id   = subspace_id
-  this%frequency     = frequency
-  this%wavevectors   = wavevectors
+  this%maximum_power   = maximum_power
+  this%expansion_order = expansion_order
+  this%subspace_id     = subspace_id
+  this%frequency       = frequency
+  this%wavevectors     = wavevectors
 end function
 
 function size_SubspaceBasis(this) result(output)
@@ -109,10 +114,11 @@ function generate_subspace_basis(subspace,frequency,modes,qpoints, &
                                               & maximum_power,            &
                                               & potential_expansion_order )
   
-  output = SubspaceBasis( maximum_power, &
-                        & subspace%id,   &
-                        & frequency,     &
-                        & wavevectors    )
+  output = SubspaceBasis( maximum_power,             &
+                        & potential_expansion_order, &
+                        & subspace%id,               &
+                        & frequency,                 &
+                        & wavevectors                )
 end function
 
 ! ----------------------------------------------------------------------
@@ -125,6 +131,7 @@ subroutine read_SubspaceBasis(this,input)
   type(String),         intent(in)  :: input(:)
   
   integer                            :: maximum_power
+  integer                            :: expansion_order
   integer                            :: subspace_id
   real(dp)                           :: frequency
   type(WavevectorBasis), allocatable :: wavevectors(:)
@@ -142,13 +149,16 @@ subroutine read_SubspaceBasis(this,input)
     maximum_power = int(line(4))
     
     line = split_line(input(2))
-    subspace_id = int(line(3))
+    expansion_order = int(line(4))
     
     line = split_line(input(3))
+    subspace_id = int(line(3))
+    
+    line = split_line(input(4))
     frequency = dble(line(3))
     
     starting_lines = [integer::]
-    do i=3,size(input)
+    do i=5,size(input)
       line = split_line(input(i))
       if (size(line)>0) then
         if (line(1)=='Wavevector') then
@@ -161,11 +171,15 @@ subroutine read_SubspaceBasis(this,input)
     
     allocate(wavevectors(size(starting_lines)), stat=ialloc); call err(ialloc)
     do i=1,size(starting_lines)
-      wavevector_lines = [input(:3), input(starting_lines(i):ending_lines(i))]
+      wavevector_lines = [input(:4), input(starting_lines(i):ending_lines(i))]
       wavevectors(i) = WavevectorBasis(wavevector_lines)
     enddo
     
-    this = SubspaceBasis(maximum_power,subspace_id,frequency,wavevectors)
+    this = SubspaceBasis( maximum_power,   &
+                        & expansion_order, &
+                        & subspace_id,     &
+                        & frequency,       &
+                        & wavevectors      )
   class default
     call err()
   end select
@@ -182,12 +196,13 @@ function write_SubspaceBasis(this) result(output)
   integer :: i
   
   select type(this); type is(SubspaceBasis)
-    output = [ 'Maximum power : '//this%maximum_power, &
-             & 'Subspace      : '//this%subspace_id, &
-             & 'Frequency     : '//this%frequency   ]
+    output = [ 'Maximum power   : '//this%maximum_power,   &
+             & 'Expansion order : '//this%expansion_order, &
+             & 'Subspace        : '//this%subspace_id,     &
+             & 'Frequency       : '//this%frequency        ]
     do i=1,size(this%wavevectors)
       wavevector_strings = str(this%wavevectors(i))
-      output = [ output, wavevector_strings(4:) ]
+      output = [ output, wavevector_strings(5:) ]
     enddo
   class default
     call err()

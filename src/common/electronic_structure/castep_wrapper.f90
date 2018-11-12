@@ -516,40 +516,56 @@ function read_output_file_castep(filename,structure) result(output)
     line = split_line(lower_case(castep_file%line(i)))
     
     ! Energy.
-    if (size(line)>=2) then
-      if (line(1)=='final' .and. line(2)=='energy,') then
-        energy_line = i
+    if (energy_line==0) then
+      if (size(line)>=2) then
+        if (line(1)=='final' .and. line(2)=='energy,') then
+          energy_line = i
+        endif
       endif
     endif
     
     ! Forces.
-    if (size(line)>=2) then
-      if ( line(1)==repeat('*',len(line(1))) .and. &
-         & ( line(2)=='forces'      .or.           &
-         &   line(2)=='symmetrised' .or.           &
-         &   line(2)=='constrained' .or.           &
-         &   line(2)=='unconstrained'    )         &
-         &                                         ) then
-        forces_start_line = i
+    if (forces_start_line==0) then
+      if (size(line)>=2) then
+        if ( line(1)==repeat('*',len(line(1))) .and. &
+           & ( line(2)=='forces'      .or.           &
+           &   line(2)=='symmetrised' .or.           &
+           &   line(2)=='constrained' .or.           &
+           &   line(2)=='unconstrained'    )         &
+           &                                         ) then
+          forces_start_line = i
+        endif
       endif
-    elseif (size(line)==1) then
-      if ( forces_start_line/=0 .and.        &
-         & forces_end_line==0   .and.        &
-         & line(1)==repeat('*',len(line(1))) ) then
-        forces_end_line = i
+    endif
+    
+    if (forces_start_line/=0 .and. forces_end_line==0) then
+      if (size(line)==1) then
+        if ( forces_start_line/=0 .and.        &
+           & forces_end_line==0   .and.        &
+           & line(1)==repeat('*',len(line(1))) ) then
+          forces_end_line = i
+        endif
       endif
     endif
     
     ! Linear response (permittivity and Born effective charges).
-    if (size(line)>=3) then
-      if ( line(1)=='optical'       .and. &
-         & line(2)=='permittivity'  .and. &
-         & line(3)=='(f->infinity)'       ) then
-        permittivity_line = i
-      elseif ( line(1)=='born'      .and. &
-             & line(2)=='effective' .and. &
-             & line(3)=='charges'         ) then
-        born_charges_line = i
+    if (permittivity_line==0) then
+      if (size(line)>=3) then
+        if ( line(1)=='optical'       .and. &
+           & line(2)=='permittivity'  .and. &
+           & line(3)=='(f->infinity)'       ) then
+          permittivity_line = i
+        endif
+      endif
+    endif
+    
+    if (born_charges_line==0) then
+      if (size(line)>=3) then
+        if ( line(1)=='born'      .and. &
+               & line(2)=='effective' .and. &
+               & line(3)=='charges'         ) then
+          born_charges_line = i
+        endif
       endif
     endif
   enddo
@@ -565,6 +581,9 @@ function read_output_file_castep(filename,structure) result(output)
     call print_line('Error: End of forces not found in '//char(filename))
     stop
   elseif (forces_end_line-forces_start_line-7/=structure%no_atoms) then
+    call print_line(forces_start_line)
+    call print_line(forces_end_line)
+    call print_line(forces_end_line-forces_start_line-7//' '//structure%no_atoms)
     call print_line(ERROR//': The number of atoms in the Castep output file &
        &does not match that in the input file.')
     call err()

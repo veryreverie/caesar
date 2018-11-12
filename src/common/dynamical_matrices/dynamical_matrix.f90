@@ -8,7 +8,7 @@ module dynamical_matrix_module
   use normal_mode_module
   
   use min_images_module
-  use force_constants_module
+  use cartesian_hessian_module
   implicit none
   
   private
@@ -17,7 +17,7 @@ module dynamical_matrix_module
   public :: compare_dynamical_matrices
   public :: transform_modes
   public :: conjg
-  public :: reconstruct_force_constants
+  public :: reconstruct_hessian
   
   type, extends(Stringsable) :: DynamicalMatrix
     type(ComplexMatrix), allocatable, private :: matrices_(:,:)
@@ -93,28 +93,30 @@ function new_AntiSplitModes(modes) result(this)
 end function
 
 ! ----------------------------------------------------------------------
-! Constructs the matrix of force constants in q-point co-ordinates,
-!    given the matrix of force constants in supercell co-ordinates.
+! Constructs the dynamical matrix, which is the matrix of force constants in
+!    q-point co-ordinates,
+!    given the Hessian, which is the matrix of force constants in
+!    cartesian supercell co-ordinates.
 ! ----------------------------------------------------------------------
 
 ! --------------------------------------------------
 ! Construct the dynamical matrix at the specified q-point from the given
-!    force constants.
+!    Hessian.
 ! Considers all supercell, S, and symmetry, R, combinations such that
 !    S.R.q is a vector of integers, i.e. the q-point is a G-vector of the
 !    supercell.
 ! --------------------------------------------------
-function new_DynamicalMatrix_calculated(qpoint,supercells,force_constants, &
+function new_DynamicalMatrix_calculated(qpoint,supercells,hessian, &
    & structure,subspace_id,logfile) result(this)
   implicit none
   
-  type(QpointData),     intent(in)    :: qpoint
-  type(StructureData),  intent(in)    :: supercells(:)
-  type(ForceConstants), intent(in)    :: force_constants(:)
-  type(StructureData),  intent(in)    :: structure
-  integer,              intent(in)    :: subspace_id
-  type(OFile),          intent(inout) :: logfile
-  type(DynamicalMatrix)               :: this
+  type(QpointData),       intent(in)    :: qpoint
+  type(StructureData),    intent(in)    :: supercells(:)
+  type(CartesianHessian), intent(in)    :: hessian(:)
+  type(StructureData),    intent(in)    :: structure
+  integer,                intent(in)    :: subspace_id
+  type(OFile),            intent(inout) :: logfile
+  type(DynamicalMatrix)                 :: this
   
   type(QpointData) :: q_prime
   
@@ -133,8 +135,8 @@ function new_DynamicalMatrix_calculated(qpoint,supercells,force_constants, &
   real(dp),            allocatable :: differences(:,:)
   real(dp)                         :: l2_error
   
-  ! Check that the supercells and force constants correspond to one another.
-  if (size(supercells)/=size(force_constants)) then
+  ! Check that the supercells and Hessians correspond to one another.
+  if (size(supercells)/=size(hessian)) then
     call print_line(CODE_ERROR//': Force constants and supercells do not &
        &match.')
     call err()
@@ -161,8 +163,8 @@ function new_DynamicalMatrix_calculated(qpoint,supercells,force_constants, &
   ! Construct a copy of the dynamical matrix from each pair of supercell and
   !    symmetry.
   allocate( matrices(structure%no_atoms,structure%no_atoms,no_copies), &
-          & sym_id(no_copies), &
-          & sup_id(no_copies), &
+          & sym_id(no_copies),                                         &
+          & sup_id(no_copies),                                         &
           & stat=ialloc); call err(ialloc)
   k = 0
   do i=1,size(structure%symmetries)
@@ -172,12 +174,12 @@ function new_DynamicalMatrix_calculated(qpoint,supercells,force_constants, &
         k = k+1
         matrix = calculate_dynamical_matrix( dblevec(q_prime%qpoint), &
                                            & supercells(j),           &
-                                           & force_constants(j))
+                                           & hessian(j)               )
         matrices(:,:,k) = transform_dynamical_matrix( &
                            & matrix,                  &
                            & structure%symmetries(i), &
                            & q_prime,                 &
-                           & qpoint)
+                           & qpoint                   )
         sym_id(k) = i
         sup_id(k) = j
       endif
@@ -247,21 +249,21 @@ end function
 !    with the supercell.
 ! This is only an approximation, using a minimum-image convention.
 ! --------------------------------------------------
-function new_DynamicalMatrix_interpolated(q,supercell,force_constants, &
-   & min_images) result(this)
+function new_DynamicalMatrix_interpolated(q,supercell,hessian,min_images) &
+   & result(this)
   implicit none
   
-  type(RealVector),     intent(in) :: q
-  type(StructureData),  intent(in) :: supercell
-  type(ForceConstants), intent(in) :: force_constants
-  type(MinImages),      intent(in) :: min_images(:,:)
-  type(DynamicalMatrix)            :: this
+  type(RealVector),       intent(in) :: q
+  type(StructureData),    intent(in) :: supercell
+  type(CartesianHessian), intent(in) :: hessian
+  type(MinImages),        intent(in) :: min_images(:,:)
+  type(DynamicalMatrix)              :: this
   
   ! Evaluate the dynamical matrix.
-  this%matrices_ = calculate_dynamical_matrix( q,               &
-                                             & supercell,       &
-                                             & force_constants, &
-                                             & min_images)
+  this%matrices_ = calculate_dynamical_matrix( q,         &
+                                             & supercell, &
+                                             & hessian,   &
+                                             & min_images )
   
   
   ! Diagonalise the dynamical matrix, to obtain the normal mode
@@ -272,15 +274,15 @@ end function
 ! ----------------------------------------------------------------------
 ! Construct the dynamical matrix itself.
 ! ----------------------------------------------------------------------
-function calculate_dynamical_matrix(q,supercell,force_constants,min_images) &
+function calculate_dynamical_matrix(q,supercell,hessian,min_images) &
    & result(output)
   implicit none
   
-  type(RealVector),     intent(in)           :: q
-  type(StructureData),  intent(in)           :: supercell
-  type(ForceConstants), intent(in)           :: force_constants
-  type(MinImages),      intent(in), optional :: min_images(:,:)
-  type(ComplexMatrix), allocatable           :: output(:,:)
+  type(RealVector),       intent(in)           :: q
+  type(StructureData),    intent(in)           :: supercell
+  type(CartesianHessian), intent(in)           :: hessian
+  type(MinImages),        intent(in), optional :: min_images(:,:)
+  type(ComplexMatrix), allocatable             :: output(:,:)
   
   type(AtomData)               :: atom_1
   type(AtomData)               :: atom_2
@@ -322,10 +324,10 @@ function calculate_dynamical_matrix(q,supercell,force_constants,min_images) &
         rvectors = [rvector]
       endif
       
-      output(atom_2%prim_id(),atom_1%prim_id()) =      &
-         & output(atom_2%prim_id(),atom_1%prim_id())   &
-         & + force_constants%constants(atom_2,atom_1)  &
-         & * sum(exp_2pii(q*rvectors))                 &
+      output(atom_2%prim_id(),atom_1%prim_id()) =    &
+         & output(atom_2%prim_id(),atom_1%prim_id()) &
+         & + hessian%elements(atom_2,atom_1)         &
+         & * sum(exp_2pii(q*rvectors))               &
          & / (supercell%sc_size*size(rvectors))
     enddo
   enddo
@@ -827,7 +829,9 @@ function choose_basis_real(input,structure,symmetries,qpoint) &
   !    u1 and u2 are eigenvectors with different eigenvalues, then
   !    <u1|H|u2>=0 for all u1 and u2, and so the basis is well-defined.
   do i=1,size(symmetries)
-    if (all(operators_commute(symmetries(i),used_symmetries,qpoint))) then
+    if (all(superposed_operators_commute( symmetries(i),   &
+                                        & used_symmetries, &
+                                        & qpoint           ))) then
       symmetry_used = .false.
       
       ! Loop over each distinct id.
@@ -1121,20 +1125,20 @@ function new_DynamicalMatrix_ComplexModes(modes,frequencies) result(this)
 end function
 
 ! ----------------------------------------------------------------------
-! Construct the matrix of force constants for the large supercell, given the
+! Construct the Hessian for the large supercell, given the
 !    dynamical matrices at each q-point.
 ! ----------------------------------------------------------------------
-function reconstruct_force_constants(large_supercell,qpoints, &
-   & dynamical_matrices,logfile) result(output)
+function reconstruct_hessian(large_supercell,qpoints,dynamical_matrices, &
+   & logfile) result(output)
   implicit none
   
   type(StructureData),   intent(in)    :: large_supercell
   type(QpointData),      intent(in)    :: qpoints(:)
   type(DynamicalMatrix), intent(in)    :: dynamical_matrices(:)
   type(OFile),           intent(inout) :: logfile
-  type(ForceConstants)                 :: output
+  type(CartesianHessian)               :: output
   
-  type(RealMatrix), allocatable :: force_constants(:,:)
+  type(RealMatrix), allocatable :: hessian(:,:)
   
   type(AtomData) :: atom_1
   type(AtomData) :: atom_2
@@ -1144,10 +1148,10 @@ function reconstruct_force_constants(large_supercell,qpoints, &
   
   integer :: i,j,k,ialloc
   
-  allocate( force_constants( large_supercell%no_atoms,  &
-          &                  large_supercell%no_atoms), &
+  allocate( hessian( large_supercell%no_atoms,  &
+          &          large_supercell%no_atoms), &
           & stat=ialloc); call err(ialloc)
-  force_constants = dblemat(zeroes(3,3))
+  hessian = dblemat(zeroes(3,3))
   
   ! Loop across q-points, summing up the contribution from
   !    the dynamical matrix at each.
@@ -1161,17 +1165,17 @@ function reconstruct_force_constants(large_supercell,qpoints, &
         r = large_supercell%rvectors(atom_2%rvec_id()) &
         & - large_supercell%rvectors(atom_1%rvec_id())
         
-        ! Add in the contribution to the force constant matrix.
-        force_constants(atom_1%id(),atom_2%id()) =                       &
-           &   force_constants(atom_1%id(),atom_2%id())                  &
+        ! Add in the contribution to the Hessian.
+        hessian(atom_1%id(),atom_2%id()) =                               &
+           &   hessian(atom_1%id(),atom_2%id())                          &
            & + real( dynamical_matrices(i)%matrices_( atom_1%prim_id(),  &
            &                                          atom_2%prim_id() ) &
-           &       * exp_2pii(-q*r)                                    )
+           &       * exp_2pii(-q*r)                                      )
       enddo
     enddo
   enddo
   
-  output = ForceConstants(large_supercell, force_constants, logfile)
+  output = CartesianHessian(large_supercell, hessian, logfile)
 end function
 
 ! ----------------------------------------------------------------------

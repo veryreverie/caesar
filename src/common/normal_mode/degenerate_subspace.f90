@@ -23,8 +23,11 @@ module degenerate_subspace_module
     ! The harmonic frequency of the modes in the degenerate subspace.
     real(dp), public :: frequency
     
-    ! The ids of the modes in the degenerate subspace.
+    ! The IDs of the modes in the degenerate subspace.
     integer, allocatable, public :: mode_ids(:)
+    
+    ! paired_ids(i) is the ID of the mode paired to mode_ids(i).
+    integer, allocatable, public :: paired_ids(:)
   contains
     generic,   public  :: modes =>                               &
                         & modes_DegenerateSubspace_ComplexModes, &
@@ -57,17 +60,24 @@ contains
 ! ----------------------------------------------------------------------
 ! Basic functionality: constructor and size() function.
 ! ----------------------------------------------------------------------
-function new_DegenerateSubspace(id,frequency,mode_ids) result(this)
+function new_DegenerateSubspace(id,frequency,mode_ids,paired_ids) result(this)
   implicit none
   
   integer,  intent(in)     :: id
   real(dp), intent(in)     :: frequency
   integer,  intent(in)     :: mode_ids(:)
+  integer,  intent(in)     :: paired_ids(:)
   type(DegenerateSubspace) :: this
   
-  this%id        = id
-  this%frequency = frequency
-  this%mode_ids  = mode_ids
+  if (size(mode_ids)/=size(paired_ids)) then
+    call print_line(CODE_ERROR//': mode IDs and paired IDs do not match.')
+    call err()
+  endif
+  
+  this%id         = id
+  this%frequency  = frequency
+  this%mode_ids   = mode_ids
+  this%paired_ids = paired_ids
 end function
 
 function size_DegenerateSubspace(input) result(output)
@@ -105,9 +115,10 @@ function process_degeneracies(modes) result(output)
   do i=1,size(output)
     subspace_modes = modes(filter(modes%subspace_id==subspace_ids(i)))
     
-    output(i) = DegenerateSubspace( id        = subspace_ids(i),             &
-                                  & frequency = subspace_modes(1)%frequency, &
-                                  & mode_ids  = subspace_modes%id            )
+    output(i) = DegenerateSubspace( id         = subspace_ids(i),             &
+                                  & frequency  = subspace_modes(1)%frequency, &
+                                  & mode_ids   = subspace_modes%id,           &
+                                  & paired_ids = subspace_modes%paired_id     )
   enddo
 end function
 
@@ -191,6 +202,7 @@ subroutine read_DegenerateSubspace(this,input)
   integer              :: id
   real(dp)             :: frequency
   integer, allocatable :: mode_ids(:)
+  integer, allocatable :: paired_ids(:)
   
   type(String), allocatable :: line(:)
   
@@ -204,7 +216,10 @@ subroutine read_DegenerateSubspace(this,input)
     line = split_line(input(3))
     mode_ids = int(line(5:))
     
-    this = DegenerateSubspace(id, frequency, mode_ids)
+    line = split_line(input(4))
+    paired_ids = int(line(5:))
+    
+    this = DegenerateSubspace(id, frequency, mode_ids, paired_ids)
   class default
     call err()
   end select
@@ -219,7 +234,8 @@ function write_DegenerateSubspace(this) result(output)
   select type(this); type is(DegenerateSubspace)
     output = [ 'Degenerate subspace ID : '//this%id,        &
              & 'Frequency of modes     : '//this%frequency, &
-             & 'Degenerate mode IDs    : '//this%mode_ids   ]
+             & 'Degenerate mode IDs    : '//this%mode_ids,  &
+             & 'Paired mode IDS        : '//this%paired_ids ]
   class default
     call err()
   end select

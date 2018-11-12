@@ -1,12 +1,12 @@
 ! ======================================================================
 ! A state along each complex mode in a degenerate subspace,
-!    defined as propotional to a monomial times |0>, where |0> is the
-!    harmonic ground state.
+!    defined as a product of harmonic creation operators acting on |0>,
+!    where |0> is the harmonic ground state.
 ! ======================================================================
-! N.B. compare with HarmonicState:
-!    - monomial states are normalised but not orthogonal.
-!    - monomial states are easier to evaluate than harmonic states.
-module monomial_state_module
+! N.B. compare with MonomialState:
+!    - harmonic states are orthonormal.
+!    - harmonic states are harder to evaluate than monomial states.
+module harmonic_state_module
   use common_module
   
   use subspace_state_module
@@ -15,29 +15,30 @@ module monomial_state_module
   
   private
   
-  public :: MonomialState
+  public :: HarmonicState
   public :: operator(*)
-  public :: generate_monomial_states
+  public :: generate_harmonic_states
   public :: finite_overlap
-  public :: braket_MonomialState
-  public :: kinetic_energy_MonomialState
-  public :: harmonic_potential_energy_MonomialState
+  public :: braket_HarmonicState
+  public :: kinetic_energy_HarmonicState
+  public :: harmonic_potential_energy_HarmonicState
   
-  ! A MonomialState is a product of single-mode and double-mode states.
-  ! |n_1,n_2,n_3,...,n_> = |n_1>|n_2,n_3>...|n_>.
+  ! A HarmonicState is a product of single-mode and double-mode states
+  ! A state |n_1,n_2,n_3,...,n_> = |n_1>|n_2,n_3>...|n_>.
   !
   ! If a mode is its own conjugate, (u_i)* = u_i,
   !    then the single-mode states along mode u_i are:
-  ! |n_i> = prod_{k=1}^i[ sqrt(2Nw/(2k-1)) ] (u_i)^(n_i) |0_i>
+  ! |n_i> = 1/sqrt(n_i!) (a'_i)^(n_i) |0_i>
   ! |0_i> = sqrt(sqrt(m*w/pi)) exp(- 1/2 N w (u_i)^2 )
   !
   ! If a mode is not its own conjugate, (u_i)* = u_j,
   !    then the double-mode states along modes u_i and u_j are:
-  ! |n_i,n_j> = prod_{k=1}^{n_i+n_j}[ sqrt(4Nw/k) ] ui^ni uj^nj |0_i,0_j>
+  ! |n_i,n_j> = 1/sqrt(n_i!n_j!) (a'_i)^(n_i) (a'_j)^(n_j) |0_i,0_j>
   ! |0_i,0_j> = sqrt(2*m*w/pi) exp(- N w |u_i|^2 )
   !
-  ! In both cases, states are normalised (<n_i|n_i>=1, <n_i,n_j|n_i,n_j>=1),
-  !    but are in general not orthogonal (<p_i|q_i>/=0).
+  ! where a'_i is the creation operator along mode i.
+  !
+  ! In both cases, states are orthonormal.
   !
   ! w is the effective frequency of all modes in the subspace
   !    (in general not the same as the harmonic frequency).
@@ -53,47 +54,47 @@ module monomial_state_module
   !    atomic masses, arising as a result of mass reduction) and N (the number
   !    of primitive cells in the supercell) , and allows the frequency to be
   !    changed without having to re-calculate coefficients.
-  type, extends(SubspaceState) :: MonomialState
+  type, extends(SubspaceState) :: HarmonicState
     real(dp)                       :: frequency
     type(ComplexMonomial), private :: state_
   contains
-    procedure, public :: total_power => total_power_MonomialState
-    procedure, public :: wavevector => wavevector_MonomialState
+    procedure, public :: total_occupation => total_occupation_HarmonicState
+    procedure, public :: wavevector => wavevector_HarmonicState
     ! I/O.
-    procedure, public :: read  => read_MonomialState
-    procedure, public :: write => write_MonomialState
+    procedure, public :: read  => read_HarmonicState
+    procedure, public :: write => write_HarmonicState
   end type
   
-  interface MonomialState
-    module procedure new_MonomialState
-    module procedure new_MonomialState_Strings
-    module procedure new_MonomialState_StringArray
+  interface HarmonicState
+    module procedure new_HarmonicState
+    module procedure new_HarmonicState_Strings
+    module procedure new_HarmonicState_StringArray
   end interface
   
   interface operator(*)
-    module procedure multiply_MonomialState_MonomialState
+    module procedure multiply_HarmonicState_HarmonicState
   end interface
   
   interface finite_overlap
-    module procedure finite_overlap_MonomialStates
+    module procedure finite_overlap_HarmonicStates
   end interface
   
-  interface braket_MonomialState
-    module procedure braket_MonomialStates
-    module procedure braket_MonomialStates_ComplexMonomial
+  interface braket_HarmonicState
+    module procedure braket_HarmonicStates
+    module procedure braket_HarmonicStates_ComplexMonomial
   end interface
 contains
 
 ! ----------------------------------------------------------------------
 ! Constructor.
 ! ----------------------------------------------------------------------
-function new_MonomialState(subspace_id,frequency,state) result(this)
+function new_HarmonicState(subspace_id,frequency,state) result(this)
   implicit none
   
   integer,               intent(in) :: subspace_id
   real(dp),              intent(in) :: frequency
   type(ComplexMonomial), intent(in) :: state
-  type(MonomialState)               :: this
+  type(HarmonicState)               :: this
   
   this%subspace_id = subspace_id
   this%frequency   = frequency
@@ -101,30 +102,30 @@ function new_MonomialState(subspace_id,frequency,state) result(this)
 end function
 
 ! ----------------------------------------------------------------------
-! Multiply two monomial states together.
+! Multiply two harmonic states together.
 ! ----------------------------------------------------------------------
-impure elemental function multiply_MonomialState_MonomialState(this,that) &
+impure elemental function multiply_HarmonicState_HarmonicState(this,that) &
    & result(output)
   implicit none
   
-  type(MonomialState), intent(in) :: this
-  type(MonomialState), intent(in) :: that
-  type(MonomialState)             :: output
+  type(HarmonicState), intent(in) :: this
+  type(HarmonicState), intent(in) :: that
+  type(HarmonicState)             :: output
   
   if (this%subspace_id/=that%subspace_id) then
     call print_line(CODE_ERROR//': subspaces do not match.')
     call err()
   endif
   
-  output = MonomialState( this%subspace_id,       &
+  output = HarmonicState( this%subspace_id,       &
                         & this%frequency,         &
                         & this%state_*that%state_ )
 end function
 
 ! ----------------------------------------------------------------------
-! Generates all monomial states in a subspace up to a given power.
+! Generates all harmonic states in a subspace up to a given power.
 ! ----------------------------------------------------------------------
-function generate_monomial_states(subspace,frequency,modes,maximum_power) &
+function generate_harmonic_states(subspace,frequency,modes,maximum_power) &
    & result(output)
   implicit none
   
@@ -132,38 +133,38 @@ function generate_monomial_states(subspace,frequency,modes,maximum_power) &
   real(dp),                 intent(in) :: frequency
   type(ComplexMode),        intent(in) :: modes(:)
   integer,                  intent(in) :: maximum_power
-  type(MonomialState), allocatable     :: output(:)
+  type(HarmonicState), allocatable     :: output(:)
   
   type(ComplexMode), allocatable :: subspace_modes(:)
-  type(ComplexMonomial)          :: monomial
-  type(MonomialState)            :: state
+  type(ComplexMonomial)          :: harmonic
+  type(HarmonicState)            :: state
   
   subspace_modes = subspace%modes(modes)
-  monomial = ComplexMonomial( coefficient = cmplx(1.0_dp,0.0_dp,dp), &
+  harmonic = ComplexMonomial( coefficient = cmplx(1.0_dp,0.0_dp,dp), &
                             & modes       = [ComplexUnivariate::]    )
-  state = MonomialState( subspace_id = subspace%id, &
+  state = HarmonicState( subspace_id = subspace%id, &
                        & frequency   = frequency,   &
-                       & state       = monomial     )
-  output = generate_monomial_states_helper(subspace_modes,maximum_power,state)
+                       & state       = harmonic     )
+  output = generate_harmonic_states_helper(subspace_modes,maximum_power,state)
 end function
 
-recursive function generate_monomial_states_helper(modes,power,state) &
+recursive function generate_harmonic_states_helper(modes,power,state) &
    & result(output)
   implicit none
   
   type(ComplexMode),   intent(in)  :: modes(:)
   integer,             intent(in)  :: power
-  type(MonomialState), intent(in)  :: state
-  type(MonomialState), allocatable :: output(:)
+  type(HarmonicState), intent(in)  :: state
+  type(HarmonicState), allocatable :: output(:)
   
-  type(MonomialState) :: output_state
+  type(HarmonicState) :: output_state
   
   integer :: i
   
   if (size(modes)==0 .or. power==0) then
     output = [state]
   else
-    output = [ generate_monomial_states_helper( modes(2:),   &
+    output = [ generate_harmonic_states_helper( modes(2:),   &
              &                                  power,       &
              &                                  state      ) ]
     do i=1,power
@@ -171,7 +172,7 @@ recursive function generate_monomial_states_helper(modes,power,state) &
       output_state%state_ = output_state%state_ &
                         & * ComplexUnivariate(mode=modes(1), power=i)
       output = [ output,                                         &
-               & generate_monomial_states_helper( modes(2:),     &
+               & generate_harmonic_states_helper( modes(2:),     &
                &                                  power-i,       &
                &                                  output_state ) ]
     enddo
@@ -179,14 +180,14 @@ recursive function generate_monomial_states_helper(modes,power,state) &
 end function
 
 ! ----------------------------------------------------------------------
-! Returns the total power of a given state.
+! Returns the total occupation of a given state.
 ! ----------------------------------------------------------------------
-! The total power of the state |product_{q,i} (u_{q,i})^(n_{q,i})> is equal to
+! The occupation of the state product_{q,i} (a'_{q,i})^(n_{q,i})|0> is equal to
 !    sum_{q,i}} n_{q,i}.
-impure elemental function total_power_MonomialState(this) result(output)
+impure elemental function total_occupation_HarmonicState(this) result(output)
   implicit none
   
-  class(MonomialState), intent(in) :: this
+  class(HarmonicState), intent(in) :: this
   integer                          :: output
   
   output = this%state_%total_power()
@@ -195,12 +196,12 @@ end function
 ! ----------------------------------------------------------------------
 ! Returns the wavevector of a given state.
 ! ----------------------------------------------------------------------
-! The wavevector of the state |product_{q,i} (u_{q,i})^(n_{q,i})> is equal to
+! The wavevector of the state product_{q,i} (a'_{q,i})^(n_{q,i})|0> is equal to
 !    sum_{q,i}} n_{q,i}q.
-function wavevector_MonomialState(this,modes,qpoints) result(output)
+function wavevector_HarmonicState(this,modes,qpoints) result(output)
   implicit none
   
-  class(MonomialState), intent(in) :: this
+  class(HarmonicState), intent(in) :: this
   type(ComplexMode),    intent(in) :: modes(:)
   type(QpointData),     intent(in) :: qpoints(:)
   type(QpointData)                 :: output
@@ -211,16 +212,14 @@ end function
 ! ----------------------------------------------------------------------
 ! Returns whether or not braket(bra,ket) is non-zero.
 ! ----------------------------------------------------------------------
-impure elemental function finite_overlap_MonomialStates(bra,ket) result(output)
+impure elemental function finite_overlap_HarmonicStates(bra,ket) result(output)
   implicit none
   
-  type(MonomialState),      intent(in) :: bra
-  type(MonomialState),      intent(in) :: ket
+  type(HarmonicState),      intent(in) :: bra
+  type(HarmonicState),      intent(in) :: ket
   logical                              :: output
   
   type(StateHelper) :: helper
-  
-  integer :: p_i,p_j,q_i,q_j
   
   integer :: i
   
@@ -230,127 +229,41 @@ impure elemental function finite_overlap_MonomialStates(bra,ket) result(output)
     call err()
   endif
   
+  ! <p|q> = 1 if p=q.
+  !       = 0 otherwise.
   helper = StateHelper(bra%state_, ket%state_)
-  do i=1,size(helper)
-    p_i = helper%bra(i)%power
-    p_j = helper%bra(i)%paired_power
-    q_i = helper%ket(i)%power
-    q_j = helper%ket(i)%paired_power
-    
-    if (helper%bra(i)%id==helper%bra(i)%paired_id) then
-      ! <p_i|q_i>  = 0 if p+q odd.
-      !           /= 0 otherwise.
-      if (modulo(p_i+q_i,2)==1) then
-        output = .false.
-        return
-      endif
-    else
-      ! <p_i,p_j|q_i,q_j>  = 0 if p_i-p_j-q_i+q_j /= 0.
-      !                   /= 0 otherwise.
-      if (p_i-p_j-q_i+q_j/=0) then
-        output = .false.
-        return
-      endif
-    endif
-  enddo
-  output = .true.
+  output = all( helper%bra%power==helper%ket%power .and.         &
+              & helper%bra%paired_power==helper%ket%paired_power )
 end function
 
 ! ----------------------------------------------------------------------
 ! Evaluates integrals of the form <bra|ket>.
 ! ----------------------------------------------------------------------
-impure elemental function braket_MonomialStates(bra,ket) result(output)
+impure elemental function braket_HarmonicStates(bra,ket) result(output)
   implicit none
   
-  type(MonomialState), intent(in) :: bra
-  type(MonomialState), intent(in) :: ket
+  type(HarmonicState), intent(in) :: bra
+  type(HarmonicState), intent(in) :: ket
   real(dp)                        :: output
   
-  type(StateHelper) :: helper
-  
-  integer :: i
-  
-  ! Check that the bra and the ket cover the same subspace.
-  if (bra%subspace_id/=ket%subspace_id) then
-    call print_line(ERROR//': bra and ket from different subspaces.')
-    call err()
-  endif
-  
-  helper = StateHelper(bra%state_, ket%state_)
-  
-  output = product(braket_modes(helper%bra, helper%ket))
-end function
-
-impure elemental function braket_modes(bra,ket) result(output)
-  implicit none
-  
-  type(ComplexUnivariate), intent(in) :: bra
-  type(ComplexUnivariate), intent(in) :: ket
-  real(dp)                            :: output
-  
-  integer :: p_i,p_j,q_i,q_j
-  
-  integer :: k
-  
-  p_i = bra%power
-  p_j = bra%paired_power
-  q_i = ket%power
-  q_j = ket%paired_power
-  
-  if (bra%id==bra%paired_id) then
-    ! <p_i|q_i> = 0                                               if p+q odd.
-    !
-    !           = prod_{k=1}^{(p_i+q_i)/2} [ 2k-1 ]
-    !           / sqrt( prod_{k=1}^{p_i} [ 2k-1 ]
-    !                 * prod_{k=1}^{q_i} [ 2k-1 ] )                otherwise.
-    !
-    if (modulo(p_i+q_i,2)==1) then
-      output = 0.0_dp
-    else
-      output = 1.0_dp
-      do k=2,(p_i+q_i)/2
-        output = output * (2*k-1)
-      enddo
-      do k=2,p_i
-        output = output / sqrt(real(2*k-1,dp))
-      enddo
-      do k=2,q_i
-        output = output / sqrt(real(2*k-1,dp))
-      enddo
-    endif
+  ! <p|q> = 1 if p=q.
+  !       = 0 otherwise.
+  if (finite_overlap(bra,ket)) then
+    output = 1.0_dp
   else
-    ! <p_i,p_j|q_i,q_j> = 0                          if p_i-p_j-q_i+q_j /= 0.
-    !
-    !                   = prod_{k=1}^{(p_i+p_j+q_i+q_j)/2} [ k ]
-    !                   / sqrt( prod_{k=1}^{p_i+p_j} [ k ]
-    !                         * prod_{k=1}^{q_i+q_j} [ k ] )       otherwise.
-    if (p_i-p_j-q_i+q_j/=0) then
-      output = 0.0_dp
-      return
-    else
-      output = 1.0_dp
-      do k=2,(p_i+p_j+q_i+q_j)/2
-        output = output * k
-      enddo
-      do k=2,(p_i+p_j)
-        output = output / sqrt(real(k,dp))
-      enddo
-      do k=2,(q_i+q_j)
-        output = output / sqrt(real(k,dp))
-      enddo
-    endif
+    output = 0.0_dp
   endif
 end function
 
 ! ----------------------------------------------------------------------
 ! Evaluates integrals of the form <bra|monomial|ket>.
 ! ----------------------------------------------------------------------
-impure elemental function braket_MonomialStates_ComplexMonomial(bra,ket, &
+impure elemental function braket_HarmonicStates_ComplexMonomial(bra,ket, &
    & monomial,subspace,supercell) result(output)
   implicit none
   
-  type(MonomialState),      intent(in) :: bra
-  type(MonomialState),      intent(in) :: ket
+  type(HarmonicState),      intent(in) :: bra
+  type(HarmonicState),      intent(in) :: ket
   type(ComplexMonomial),    intent(in) :: monomial
   type(DegenerateSubspace), intent(in) :: subspace
   type(StructureData),      intent(in) :: supercell
@@ -419,51 +332,52 @@ impure elemental function braket_modes_potential(bra,ket,potential) &
   n_j = potential%paired_power
   
   if (bra%id==bra%paired_id) then
-    ! <p_i|(u_i)^(n_i)|q_i> = 0                                 if p+n+q odd.
-    !
+    ! <p_i|(u_i)^(n_i)|q_i> = 0                                   if p+n+q odd.
+    !                       = 0                                   if |p-q|>n.
     !                       = 1/sqrt(2Nw)^{n_i}
-    !                       * prod_{k=1}^{(p_i+n_i+q_i)/2} [ 2k-1 ]
-    !                       / sqrt( prod_{k=1}^{p_i} [ 2k-1 ]
-    !                             * prod_{k=1}^{q_i} [ 2k-1 ] )    otherwise.
+    !                       * n_i!sqrt(p_i!q_i!)
+    !                       * sum_{k=max(0,(n-p-q)/2)}^{(n-|p-q|)/2}
+    !                         [ 1 / I(p,n,q,k) ]
+    ! where I(p,n,q,k) = 2^k k! ((p-q+n)/2-k)! ((q-p+n)/2-k)! ((p+q-n)/2+k)!
     !
     ! N.B. the factor of 1/sqrt(2Nw)^{n_i} is neglected.
-    if (modulo(p_i+n_i+q_i,2)==1) then
-      output = 0
-    else
-      output = 1
-      do k=2,(p_i+n_i+q_i)/2
-        output = output * (2*k-1)
+    output = 0
+    if (modulo(p_i+n_i+q_i,2)==0) then
+      do k=max(0,(n_i-p_i-q_i)/2),(n_i-abs(p_i-q_i))/2
+        output = output                            &
+             & + 1.0_dp                            &
+             & / ( 2**k                            &
+             &   * real_factorial(k)               &
+             &   * real_factorial((p_i-q_i+n_i)/2-k) &
+             &   * real_factorial((q_i-p_i+n_i)/2-k) &
+             &   * real_factorial((p_i+q_i-n_i)/2+k) )
       enddo
-      do k=2,p_i
-        output = output / sqrt(real(2*k-1,dp))
-      enddo
-      do k=2,q_i
-        output = output / sqrt(real(2*k-1,dp))
-      enddo
+      output = output              &
+           & * real_factorial(n_i) &
+           & * sqrt(real_factorial(p_i)*real_factorial(q_i))
     endif
   else
     ! <p_i,p_j|(u_i)^(n_i) (u_j)^(n_j)|q_i,q_j> =
-    !    = 0                                 if p_i-p_j-n_i+n_j-q_i+q_j /= 0.
+    !   = 0                                  if p_i-p_j-n_i+n_j-q_i+q_j /=0.
+    !   = 0                                  if p_i-q_i > n_i or p_j-q_j > n_j.
+    !   = 1/sqrt(2Nw)^{n_i+n_j}
+    !   * sqrt(p_i!q_i!/p_j!q_j!)
+    !   * sum_{k=max(p_i,q_i)}^{min(n_i+q_i,n_j+p_i,p_i+p_j)} I
+    ! where I = bin(n_i,k-q_i) bin(n_j,k-p_i) (p_j+n_i+q_i-k)!/(p_i+q_i-k)!
     !
-    !    = 1/sqrt(2Nw)^{n_i+n_j}
-    !    * prod_{k=1}^{(p_i+p_j+n_i+n_j+q_i+q_j)/2} [ k ]
-    !    / sqrt( prod_{k=1}^{p_i+p_j} [ k ]
-    !          * prod_{k=1}^{q_i+q_j} [ k ] )                      otherwise.
-    !
-    ! N.B. the factor of 1/sqrt(2Nw)^{n_i+n_j} is neglected.
-    if (p_i-p_j-n_i+n_j-q_i+q_j/=0) then
-      output = 0
-    else
-      output = 1
-      do k=2,(p_i+p_j+n_i+n_j+q_i+q_j)/2
-        output = output * k
+    ! N.B. the factor of 1/sqrt(2Nq)^{n_i+n_j} is neglected.
+    ! N.B. the integral is invariant under i<->j, and under (p<->q,n_i<->n_j).
+    output = 0
+    if (p_i-p_j-n_i+n_j-q_i+q_j==0) then
+      do k=max(p_i,q_i),min(n_i+q_i,n_j+p_i,p_i+p_j)
+        output = output                        &
+             & * real_binomial(n_i,k-q_i)      &
+             & * real_binomial(n_j,k-p_i)      &
+             & * real_factorial(p_j+n_i+q_i-k) &
+             & / real_factorial(p_i+q_i-k)
       enddo
-      do k=2,(p_i+p_j)
-        output = output / sqrt(real(k,dp))
-      enddo
-      do k=2,(q_i+q_j)
-        output = output / sqrt(real(k,dp))
-      enddo
+      output = output * sqrt( (real_factorial(p_i)*real_factorial(q_i)) &
+                          & / (real_factorial(p_j)*real_factorial(q_j)) )
     endif
   endif
 end function
@@ -472,103 +386,19 @@ end function
 ! Evaluates <bra|T|ket>, where T is the kinetic energy operator.
 ! Gives the result per primitive cell.
 ! ----------------------------------------------------------------------
-function kinetic_energy_MonomialState(bra,ket,subspace,supercell) &
+function kinetic_energy_HarmonicState(bra,ket,subspace,supercell) &
    & result(output)
   implicit none
   
-  type(MonomialState),      intent(in) :: bra
-  type(MonomialState),      intent(in) :: ket
+  type(HarmonicState),      intent(in) :: bra
+  type(HarmonicState),      intent(in) :: ket
   type(DegenerateSubspace), intent(in) :: subspace
   type(StructureData),      intent(in) :: supercell
   real(dp)                             :: output
   
   type(StateHelper) :: helper
-  
-  real(dp) :: prefactor
-  
-  ! Check that the bra and the ket cover the same subspace.
-  if (bra%subspace_id/=ket%subspace_id) then
-    call print_line(CODE_ERROR//': bra and ket from different subspaces.')
-    call err()
-  elseif (bra%subspace_id/=subspace%id) then
-    call print_line(CODE_ERROR//': bra and subspace do not match.')
-    call err()
-  endif
-  
-  ! Process the bra and ket.
-  helper = StateHelper(bra%state_, ket%state_, subspace=subspace)
-  
-  ! Calculate the prefactor, s.t. <bra|T|ket> = prefactor * <bra|ket>.
-  prefactor = sum([kinetic_energy_prefactor( helper%bra,   &
-                                           & helper%ket,   &
-                                           & bra%frequency )])
-  
-  ! Calculate output, and normalise by the number of primitive cells.
-  output = prefactor * braket_MonomialState(bra,ket) / supercell%sc_size
-end function
-
-impure elemental function kinetic_energy_prefactor(bra,ket,frequency) &
-   & result(output)
-  implicit none
-  
-  type(ComplexUnivariate), intent(in) :: bra
-  type(ComplexUnivariate), intent(in) :: ket
-  real(dp),                intent(in) :: frequency
-  real(dp)                            :: output
   
   integer :: p_i,p_j,q_i,q_j
-  
-  p_i = bra%power
-  p_j = bra%paired_power
-  q_i = ket%power
-  q_j = ket%paired_power
-  
-  if (bra%id==bra%paired_id) then
-    ! <p_i|T|q_i> = 1/2 w_i ( (1-p_i-q_i)/2 - 2p_iq_i/(p_i+q_i+1) ) <p_i|q_i>
-    if (modulo(p_i+q_i,2)==0) then
-      output = 0.5_dp * frequency &
-           & * ( (1-p_i-q_i)/2.0_dp + (2.0_dp*p_i*q_i)/(p_i+q_i-1) )
-    else
-      output = 0.0_dp
-    endif
-  else
-    ! <p_i,p_j|T|q_i,q_j> = w_i ( 1/2
-    !                           + ((p_i-p_j)^2-(p_i-q_i)^2)
-    !                           / (p_i+p_j+q_i+q_j)         )
-    !                     * <p_i,p_j|q_i,q_j>
-    !
-    ! N.B. if p_i=p_j=q_i=q_j=0 then the second term is zero.
-    if (p_i+q_j==p_j+q_i) then
-      output = frequency/2
-      if (p_i+p_j+q_i+q_j/=0) then
-        output = output                        &
-             & + frequency                     &
-             & * ((p_i-p_j)**2 - (p_i-q_i)**2) &
-             & / (1.0_dp*(p_i+p_j+q_i+q_j))
-      endif
-    else
-      output = 0.0_dp
-    endif
-  endif
-end function
-
-! ----------------------------------------------------------------------
-! Evaluates <bra|V|ket>, where V is the harmonic potential energy operator.
-! Gives the result per primitive cell.
-! ----------------------------------------------------------------------
-function harmonic_potential_energy_MonomialState(bra,ket,subspace,supercell) &
-   & result(output)
-  implicit none
-  
-  type(MonomialState),      intent(in) :: bra
-  type(MonomialState),      intent(in) :: ket
-  type(DegenerateSubspace), intent(in) :: subspace
-  type(StructureData),      intent(in) :: supercell
-  real(dp)                             :: output
-  
-  type(StateHelper) :: helper
-  
-  real(dp) :: prefactor
   
   integer :: i
   
@@ -584,55 +414,127 @@ function harmonic_potential_energy_MonomialState(bra,ket,subspace,supercell) &
   ! Process the bra and ket.
   helper = StateHelper(bra%state_, ket%state_, subspace=subspace)
   
-  ! Calculate the prefactor, s.t. <bra|T|ket> = prefactor * <bra|ket>.
-  prefactor = sum([harmonic_potential_energy_prefactor( helper%bra,   &
-                                                      & helper%ket,   &
-                                                      & bra%frequency )])
+  ! Calculate the kinetic energy, up to a factor of the frequency, w.
+  output = 0.0_dp
+  do i=1,size(helper)
+    if (helper%bra(i)%id==helper%bra(i)%paired_id) then
+      ! <p|T|q> = -w/4 sqrt(q(q-1)) if q=p+2.
+      !         =  w/4 (2q+1)       if q=p.
+      !         = -w/4 sqrt(p(p-1)) if q=p-2.
+      !         = 0                 otherwise.
+      p_i = helper%bra(i)%power
+      q_i = helper%ket(i)%power
+      if (q_i==p_i+2) then
+        output = output - 0.25_dp * sqrt(q_i*(q_i-1.0_dp))
+      elseif (q_i==p_i) then
+        output = output + 0.25_dp * (2*q_i+1)
+      elseif (q_i==p_i-2) then
+        output = output - 0.25_dp * sqrt(p_i*(p_i-1.0_dp))
+      endif
+    else
+      ! <p_i,p_j|T|q_i,q_j> = -w/2 sqrt(q_iq_j) if q_i=p_i+1 and q_j=p_j+1.
+      !                     =  w/2 (q_i+q_j+1)  if q_i=p_i   and q_j=p_j.
+      !                     = -w/2 sqrt(p_ip_j) if q_i=p_i-1 and q_j=p_j-1.
+      !                     =  0                otherwise.
+      p_i = helper%bra(i)%power
+      p_j = helper%bra(i)%paired_power
+      q_i = helper%ket(i)%power
+      q_j = helper%ket(i)%paired_power
+      if (q_i==p_i+1 .and. q_j==p_j+1) then
+        output = output - 0.5_dp * sqrt(real(q_i*q_j,dp))
+      elseif (q_i==p_i .and. q_j==p_j) then
+        output = output + 0.5_dp * (q_i+q_j+1)
+      elseif (q_i==p_i-1 .and. q_j==p_j-1) then
+        output = output - 0.5_dp * sqrt(real(p_i*p_j,dp))
+      endif
+    endif
+  enddo
   
-  ! Calculate output, and normalise by the number of primitive cells.
-  output = prefactor * braket_MonomialState(bra,ket) / supercell%sc_size
+  ! Multiply by w, and normalise by the number of primitive cells in the
+  !    anharmonic supercell.
+  output = output*bra%frequency/supercell%sc_size
 end function
 
-impure elemental function harmonic_potential_energy_prefactor(bra,ket, &
-   & frequency) result(output)
+! ----------------------------------------------------------------------
+! Evaluates <bra|V|ket>, where V is the harmonic potential energy operator.
+! Gives the result per primitive cell.
+! ----------------------------------------------------------------------
+function harmonic_potential_energy_HarmonicState(bra,ket,subspace,supercell) &
+   & result(output)
   implicit none
   
-  type(ComplexUnivariate), intent(in) :: bra
-  type(ComplexUnivariate), intent(in) :: ket
-  real(dp),                intent(in) :: frequency
-  real(dp)                            :: output
+  type(HarmonicState),      intent(in) :: bra
+  type(HarmonicState),      intent(in) :: ket
+  type(DegenerateSubspace), intent(in) :: subspace
+  type(StructureData),      intent(in) :: supercell
+  real(dp)                             :: output
+  
+  type(StateHelper) :: helper
   
   integer :: p_i,p_j,q_i,q_j
   
-  p_i = bra%power
-  p_j = bra%paired_power
-  q_i = ket%power
-  q_j = ket%paired_power
+  integer :: i
   
-  if (bra%id==bra%paired_id) then
-    ! <p_i|V|q_i> = 1/4 w_i ( 1 + p_i + q_i ) <p_i|q_i>
-    if (modulo(p_i+q_i,2)==0) then
-      output = 0.25_dp * frequency * (1 + p_i + q_i)
-    else
-      output = 0.0_dp
-    endif
-  else
-    ! <p_i,p_j|V|q_i,q_j> = 1/4 w_i ( 2 + (p_i+p_j+q_i+q_j) ) <p_i,p_j|q_i,q_j>
-    if (p_i+q_j==p_j+q_i) then
-      output = 0.25_dp * frequency * (2+p_i+p_j+q_i+q_j)
-    else
-      output = 0.0_dp
-    endif
+  ! Check that the bra and the ket cover the same subspace.
+  if (bra%subspace_id/=ket%subspace_id) then
+    call print_line(CODE_ERROR//': bra and ket from different subspaces.')
+    call err()
+  elseif (bra%subspace_id/=subspace%id) then
+    call print_line(CODE_ERROR//': bra and subspace do not match.')
+    call err()
   endif
+  
+  ! Process the bra and ket.
+  helper = StateHelper(bra%state_, ket%state_, subspace=subspace)
+  
+  ! Calculate the harmonic potntial energy, up to a factor of the frequency, w.
+  output = 0.0_dp
+  do i=1,size(helper)
+    if (helper%bra(i)%id==helper%bra(i)%paired_id) then
+      ! <p|T|q> = w/4 sqrt(q(q-1)) if q=p+2.
+      !         = w/4 (2q+1)       if q=p.
+      !         = w/4 sqrt(p(p-1)) if q=p-2.
+      !         = 0                 otherwise.
+      p_i = helper%bra(i)%power
+      q_i = helper%ket(i)%power
+      if (q_i==p_i+2) then
+        output = output + 0.25_dp * sqrt(q_i*(q_i-1.0_dp))
+      elseif (q_i==p_i) then
+        output = output + 0.25_dp * (2*q_i+1)
+      elseif (q_i==p_i-2) then
+        output = output + 0.25_dp * sqrt(p_i*(p_i-1.0_dp))
+      endif
+    else
+      ! <p_i,p_j|T|q_i,q_j> = w/2 sqrt(q_iq_j) if q_i=p_i+1 and q_j=p_j+1.
+      !                     = w/2 (q_i+q_j+1)  if q_i=p_i   and q_j=p_j.
+      !                     = w/2 sqrt(p_ip_j) if q_i=p_i-1 and q_j=p_j-1.
+      !                     =  0                otherwise.
+      p_i = helper%bra(i)%power
+      p_j = helper%bra(i)%paired_power
+      q_i = helper%ket(i)%power
+      q_j = helper%ket(i)%paired_power
+      if (q_i==p_i+1 .and. q_j==p_j+1) then
+        output = output + 0.5_dp * sqrt(real(q_i*q_j,dp))
+      elseif (q_i==p_i .and. q_j==p_j) then
+        output = output + 0.5_dp * (q_i+q_j+1)
+      elseif (q_i==p_i-1 .and. q_j==p_j-1) then
+        output = output + 0.5_dp * sqrt(real(p_i*p_j,dp))
+      endif
+    endif
+  enddo
+  
+  ! Multiply by w, and normalise by the number of primitive cells in the
+  !    anharmonic supercell.
+  output = output*bra%frequency/supercell%sc_size
 end function
 
 ! ----------------------------------------------------------------------
 ! I/O.
 ! ----------------------------------------------------------------------
-subroutine read_MonomialState(this,input)
+subroutine read_HarmonicState(this,input)
   implicit none
   
-  class(MonomialState), intent(out) :: this
+  class(HarmonicState), intent(out) :: this
   type(String),         intent(in)  :: input(:)
   
   integer               :: subspace_id
@@ -640,8 +542,9 @@ subroutine read_MonomialState(this,input)
   type(ComplexMonomial) :: state
   
   type(String), allocatable :: line(:)
+  type(String)              :: state_string
   
-  select type(this); type is(MonomialState)
+  select type(this); type is(HarmonicState)
     line = split_line(input(1))
     subspace_id = int(line(3))
     
@@ -652,28 +555,31 @@ subroutine read_MonomialState(this,input)
       state = ComplexMonomial( coefficient = cmplx(1.0_dp,0.0_dp,dp), &
                              & modes       = [ComplexUnivariate::]    )
     else
-      state = ComplexMonomial(1.0_dp//'*'//slice(input(4),2,len(input(4))-1))
+      state_string = slice(input(4),2,len(input(4))-1)
+      state_string = replace(state_string,'a','u')
+      state = ComplexMonomial(1.0_dp//'*'//state_string)
     endif
     
-    this = MonomialState(subspace_id,frequency,state)
+    this = HarmonicState(subspace_id,frequency,state)
   class default
     call err()
   end select
 end subroutine
 
-function write_MonomialState(this) result(output)
+function write_HarmonicState(this) result(output)
   implicit none
   
-  class(MonomialState), intent(in) :: this
+  class(HarmonicState), intent(in) :: this
   type(String), allocatable        :: output(:)
   
   type(String) :: state_string
   
-  select type(this); type is(MonomialState)
+  select type(this); type is(HarmonicState)
     if (this%state_%total_power()==0) then
       state_string = '|0>'
     else
       state_string = '|'//join(this%state_%modes(),delimiter='*')//'>'
+      state_string = replace(state_string,'u','a')
     endif
     output = [ 'Subspace  : '//this%subspace_id, &
              & 'Frequency : '//this%frequency,   &
@@ -684,21 +590,21 @@ function write_MonomialState(this) result(output)
   end select
 end function
 
-function new_MonomialState_Strings(input) result(this)
+function new_HarmonicState_Strings(input) result(this)
   implicit none
   
   type(String), intent(in) :: input(:)
-  type(MonomialState)      :: this
+  type(HarmonicState)      :: this
   
   call this%read(input)
 end function
 
-impure elemental function new_MonomialState_StringArray(input) result(this)
+impure elemental function new_HarmonicState_StringArray(input) result(this)
   implicit none
   
   type(StringArray), intent(in) :: input
-  type(MonomialState)           :: this
+  type(HarmonicState)           :: this
   
-  this = MonomialState(str(input))
+  this = HarmonicState(str(input))
 end function
 end module

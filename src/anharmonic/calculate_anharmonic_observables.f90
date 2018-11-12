@@ -120,8 +120,8 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   type(ComplexMode),     allocatable :: qpoint_modes(:)
   real(dp),              allocatable :: qpoint_frequencies(:)
   
-  ! Force constants and minimum image data.
-  type(ForceConstants)         :: force_constants
+  ! Hessian matrix and minimum image data.
+  type(CartesianHessian)       :: hessian
   type(MinImages), allocatable :: min_images(:,:)
   
   ! Dispersion and density of states.
@@ -287,20 +287,20 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
       dynamical_matrices(j) = DynamicalMatrix(qpoint_modes,qpoint_frequencies)
     enddo
     
-    ! Construct force constants.
-    force_constants = reconstruct_force_constants( supercell,          &
-                                                 & qpoints,            &
-                                                 & dynamical_matrices, &
-                                                 & logfile             )
+    ! Construct Hessian from dynamical matrices.
+    hessian = reconstruct_hessian( supercell,          &
+                                 & qpoints,            &
+                                 & dynamical_matrices, &
+                                 & logfile             )
     
     ! Generate self-consistent phonon dispersion curve by interpolating between
     !    calculated q-points using Fourier interpolation.
-    phonon_dispersion = PhononDispersion( supercell,            &
-                                        & min_images,           &
-                                        & force_constants,      &
-                                        & path_labels,          &
-                                        & path_qpoints,         &
-                                        & logfile               )
+    phonon_dispersion = PhononDispersion( supercell,    &
+                                        & min_images,   &
+                                        & hessian,      &
+                                        & path_labels,  &
+                                        & path_qpoints, &
+                                        & logfile       )
     
     symmetry_points_file = OFile(temperature_dir//'/high_symmetry_points.dat')
     call symmetry_points_file%print_lines( phonon_dispersion%path, &
@@ -313,7 +313,7 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
     !    interpolating as above.
     phonon_dos = PhononDos( supercell,             &
                           & min_images,            &
-                          & force_constants,       &
+                          & hessian,               &
                           & [thermal_energies(i)], &
                           & min_frequency,         &
                           & no_dos_samples,        &

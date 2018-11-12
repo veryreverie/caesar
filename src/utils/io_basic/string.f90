@@ -24,6 +24,7 @@ module string_module
   public :: split_line
   public :: slice
   public :: trim
+  public :: replace
   
   ! The class itself.
   type, extends(StringBase) :: String
@@ -70,6 +71,11 @@ module string_module
   
   interface trim
     module procedure trim_String
+  end interface
+  
+  interface replace
+    module procedure replace_character
+    module procedure replace_String
   end interface
 contains
 
@@ -245,10 +251,10 @@ end function
 ! Split a string by a given delimiter.
 ! --------------------------------------------------
 ! If no delimiter is specified, splits by whitespace.
-function split_line_character(this,delimiter) result(output)
+function split_line_character(input,delimiter) result(output)
   implicit none
   
-  character(*), intent(in)           :: this
+  character(*), intent(in)           :: input
   character(1), intent(in), optional :: delimiter
   type(String), allocatable          :: output(:)
   
@@ -269,16 +275,16 @@ function split_line_character(this,delimiter) result(output)
     ! Search after previously found delimiter.
     first = second
     ! Exit if entire word split.
-    if (first == len(this)+1) then
+    if (first == len(input)+1) then
       exit
     endif
     ! Find the next delimiter.
     if (present(delimiter)) then
-      second = first + index(this(first+1:), delimiter)
+      second = first + index(input(first+1:), delimiter)
     else
       ! If delimiter is not set, find the next space or tab character.
-      next_space = first + index(this(first+1:), ' ')
-      next_tab   = first + index(this(first+1:), '	') ! N.B. '[TAB]'
+      next_space = first + index(input(first+1:), ' ')
+      next_tab   = first + index(input(first+1:), '	') ! N.B. '[TAB]'
       if (next_space==first) then
         ! No space found.
         second = next_tab
@@ -291,7 +297,7 @@ function split_line_character(this,delimiter) result(output)
     endif
     ! If second==first there is no next delimiter. Parse the final token.
     if (second == first) then
-      second = len(this)+1
+      second = len(input)+1
     endif
     ! If second==first+1, there are multiple delimiters in a row.
     ! They are treated as a single delimiter.
@@ -299,54 +305,88 @@ function split_line_character(this,delimiter) result(output)
       cycle
     endif
     ! Append the token to the output.
-    output = [output, str(this(first+1:second-1))]
+    output = [output, str(input(first+1:second-1))]
   enddo
 end function
 
-function split_line_String(this,delimiter) result(output)
+function split_line_String(input,delimiter) result(output)
   implicit none
   
-  type(String), intent(in)           :: this
+  type(String), intent(in)           :: input
   character(1), intent(in), optional :: delimiter
   type(String), allocatable          :: output(:)
   
-  output = split_line(char(this),delimiter)
+  output = split_line(char(input),delimiter)
 end function
 
 ! --------------------------------------------------
 ! Takes a slice of a String. slice(String,first,last) = character(first:last).
 ! --------------------------------------------------
-function slice_character(this,first,last) result(output)
+function slice_character(input,first,last) result(output)
   implicit none
   
-  character(*), intent(in) :: this
+  character(*), intent(in) :: input
   integer,      intent(in) :: first
   integer,      intent(in) :: last
   type(String)             :: output
   
-  output = this(first:last)
+  output = input(first:last)
 end function
 
-function slice_String(this,first,last) result(output)
+function slice_String(input,first,last) result(output)
   implicit none
   
-  type(String), intent(in) :: this
+  type(String), intent(in) :: input
   integer,      intent(in) :: first
   integer,      intent(in) :: last
   type(String)             :: output
   
-  output = slice(char(this),first,last)
+  output = slice(char(input),first,last)
 end function
 
 ! --------------------------------------------------
 ! Removes trailing spaces.
 ! --------------------------------------------------
-impure elemental function trim_String(this) result(output)
+impure elemental function trim_String(input) result(output)
   implicit none
   
-  type(String), intent(in) :: this
+  type(String), intent(in) :: input
   type(String)             :: output
   
-  output = trim(adjustl(char(this)))
+  output = trim(adjustl(char(input)))
+end function
+
+! --------------------------------------------------
+! Finds and replaces one character with another.
+! --------------------------------------------------
+function replace_character(input,from,to) result(output)
+  implicit none
+  
+  character(*), intent(in) :: input
+  character(1), intent(in) :: from
+  character(1), intent(in) :: to
+  type(String)             :: output
+  
+  integer :: i
+  
+  output = ''
+  do i=1,len(input)
+    if (input(i:i)==from) then
+      output = output//to
+    else
+      output = output//input(i:i)
+    endif
+  enddo
+end function
+
+function replace_String(input,from,to) result(output)
+  implicit none
+  
+  type(String), intent(in) :: input
+  character(*), intent(in) :: from
+  character(*), intent(in) :: to
+  type(String)             :: output
+  
+  output = replace(char(input),from,to)
 end function
 end module

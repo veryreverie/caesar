@@ -196,7 +196,7 @@ function update(states,basis,potential,anharmonic_data) result(output)
       
       ! Convert the Hamiltonian into an orthonormal basis.
       hamiltonian = &
-         & basis(i)%wavevectors(j)%operator_states_to_basis(hamiltonian)
+         & basis(i)%wavevectors(j)%hamiltonian_states_to_basis(hamiltonian)
       
       call print_line('Constructed Hamiltonian')
       

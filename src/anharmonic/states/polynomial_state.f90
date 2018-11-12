@@ -38,14 +38,6 @@ module polynomial_state_module
     module procedure braket_PolynomialStates
     module procedure braket_PolynomialStates_ComplexMonomial
   end interface
-  
-  interface kinetic_energy_PolynomialState
-    module procedure kinetic_energy_PolynomialStates
-  end interface
-  
-  interface harmonic_potential_energy_PolynomialState
-    module procedure harmonic_potential_energy_PolynomialStates
-  end interface
 contains
 
 ! Constructor and size function
@@ -140,7 +132,7 @@ end function
 ! Evaluates <bra|T|ket>, where T is the kinetic energy operator.
 ! Gives the result per primitive cell.
 ! ----------------------------------------------------------------------
-function kinetic_energy_PolynomialStates(bra,ket,subspace,supercell) &
+function kinetic_energy_PolynomialState(bra,ket,subspace,supercell) &
    & result(output)
   implicit none
   
@@ -170,7 +162,7 @@ end function
 ! Evaluates <bra|V|ket>, where V is the harmonic potential energy operator.
 ! Gives the result per primitive cell.
 ! ----------------------------------------------------------------------
-function harmonic_potential_energy_PolynomialStates(bra,ket,subspace, &
+function harmonic_potential_energy_PolynomialState(bra,ket,subspace, &
    & supercell) result(output)
   implicit none
   
