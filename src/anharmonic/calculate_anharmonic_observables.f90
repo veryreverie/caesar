@@ -89,6 +89,7 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   
   ! Inputs.
   type(RandomReal)              :: random_generator
+  integer                       :: random_generator_seed
   real(dp)                      :: min_temperature
   real(dp)                      :: max_temperature
   integer                       :: no_temperature_steps
@@ -174,6 +175,7 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   else
     random_generator = RandomReal()
   endif
+  random_generator_seed = random_generator%get_seed()
   min_temperature = dble(arguments%value('min_temperature'))
   max_temperature = dble(arguments%value('max_temperature'))
   no_temperature_steps = int(arguments%value('no_temperature_steps'))
@@ -335,6 +337,9 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
     
     ! Generate self-consistent phonon density of states,
     !    interpolating as above.
+    ! Re-seed the random generator each time, so that the results at different
+    !    temperatures can be compared free from random noise.
+    random_generator = RandomReal(random_generator_seed)
     phonon_dos = PhononDos( supercell,             &
                           & min_images,            &
                           & hessian,               &

@@ -408,6 +408,8 @@ subroutine check(this,structure,logfile,check_eigenstuff)
   if (sqrt(difference/average)>1.0e-10_dp) then
     call print_line(WARNING//': Dynamical matrix is not hermitian. Please &
        &check log files.')
+    call print_line('Fractional L2 error in hermicity: '// &
+       & sqrt(difference/average))
   endif
   
   ! Check that dynamical matrix and normal modes match.
