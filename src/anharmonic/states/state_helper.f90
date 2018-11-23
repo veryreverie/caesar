@@ -71,8 +71,8 @@ function new_StateHelper_bra_ket(bra,ket) result(this)
     elseif (id_bra<id_ket) then
       this%bra(n) = bra%mode(i_bra)
       this%ket(n) = ComplexUnivariate(          &
-         & id           = ket%id(i_ket),        &
-         & paired_id    = ket%paired_id(i_ket), &
+         & id           = bra%id(i_bra),        &
+         & paired_id    = bra%paired_id(i_bra), &
          & power        = 0,                    &
          & paired_power = 0                     )
       i_bra = i_bra + 1
@@ -227,8 +227,8 @@ function new_StateHelper_bra_ket_subspace(bra,ket,monomial,subspace) &
    & result(this)
   implicit none
   
-  type(ComplexMonomial),    intent(in)           :: bra
-  type(ComplexMonomial),    intent(in)           :: ket
+  type(ComplexMonomial),    intent(in), optional :: bra
+  type(ComplexMonomial),    intent(in), optional :: ket
   type(ComplexMonomial),    intent(in), optional :: monomial
   type(DegenerateSubspace), intent(in)           :: subspace
   type(StateHelper)                              :: this
@@ -245,18 +245,23 @@ function new_StateHelper_bra_ket_subspace(bra,ket,monomial,subspace) &
   
   unique_modes = filter(subspace%mode_ids<=subspace%paired_ids)
   
-  this%bra_in_subspace = [( any(bra%id(i)==subspace%mode_ids(unique_modes)), &
-                          & i=1,                                             &
-                          & size(bra)                                        )]
-  bra_modes = bra%modes(filter(this%bra_in_subspace))
-  this%ket_in_subspace = [( any(ket%id(i)==subspace%mode_ids(unique_modes)), &
-                          & i=1,                                             &
-                          & size(ket)                                        )]
-  ket_modes = ket%modes(filter(this%ket_in_subspace))
-  allocate( this%bra(size(unique_modes)),      &
-          & this%ket(size(unique_modes)),      &
-          & this%monomial(size(unique_modes)), &
-          & stat=ialloc); call err(ialloc)
+  if (present(bra)) then
+    this%bra_in_subspace = [(                             &
+       & any(bra%id(i)==subspace%mode_ids(unique_modes)), &
+       & i=1,                                             &
+       & size(bra)                                        )]
+    bra_modes = bra%modes(filter(this%bra_in_subspace))
+    allocate(this%bra(size(unique_modes)), stat=ialloc); call err(ialloc)
+  endif
+  
+  if (present(ket)) then
+    this%ket_in_subspace = [(                             &
+       & any(ket%id(i)==subspace%mode_ids(unique_modes)), &
+       & i=1,                                             &
+       & size(ket)                                        )]
+    ket_modes = ket%modes(filter(this%ket_in_subspace))
+    allocate(this%ket(size(unique_modes)), stat=ialloc); call err(ialloc)
+  endif
   
   if (present(monomial)) then
     this%monomial_in_subspace = [(                             &
@@ -275,26 +280,30 @@ function new_StateHelper_bra_ket_subspace(bra,ket,monomial,subspace) &
     paired_id = subspace%paired_ids(unique_modes(i_subspace))
     constant_mode = ComplexUnivariate(id, paired_id, 0, 0)
     
-    if (i_bra<=size(bra_modes)) then
-      if (bra_modes(i_bra)%id==id) then
-        this%bra(i_subspace) = bra_modes(i_bra)
-        i_bra = i_bra + 1
+    if (present(bra)) then
+      if (i_bra<=size(bra_modes)) then
+        if (bra_modes(i_bra)%id==id) then
+          this%bra(i_subspace) = bra_modes(i_bra)
+          i_bra = i_bra + 1
+        else
+          this%bra(i_subspace) = constant_mode
+        endif
       else
         this%bra(i_subspace) = constant_mode
       endif
-    else
-      this%bra(i_subspace) = constant_mode
     endif
     
-    if (i_ket<=size(ket_modes)) then
-      if (ket_modes(i_ket)%id==id) then
-        this%ket(i_subspace) = ket_modes(i_ket)
-        i_ket = i_ket + 1
+    if (present(ket)) then
+      if (i_ket<=size(ket_modes)) then
+        if (ket_modes(i_ket)%id==id) then
+          this%ket(i_subspace) = ket_modes(i_ket)
+          i_ket = i_ket + 1
+        else
+          this%ket(i_subspace) = constant_mode
+        endif
       else
         this%ket(i_subspace) = constant_mode
       endif
-    else
-      this%ket(i_subspace) = constant_mode
     endif
     
     if (present(monomial)) then

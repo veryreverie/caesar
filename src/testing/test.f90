@@ -36,10 +36,45 @@ subroutine test_subroutine(arguments)
   
   type(String) :: thing
   
-  thing = 'abcoisvsniov'
+  call print_line(-1e111_dp)
+  call print_line(-1e11_dp)
+  call print_line(-1e1_dp)
+  call print_line(-1e-1_dp)
+  call print_line(-1e-11_dp)
+  call print_line(-1e-111_dp)
   
-  call print_line(thing)
-  call print_line(replace(thing,'S','a'))
-  call print_line(thing)
+  call print_line(cmplx(-1e111_dp,0.0_dp,dp))
+  call print_line(cmplx(-1e11_dp,0.0_dp,dp))
+  call print_line(cmplx(-1e1_dp,0.0_dp,dp))
+  call print_line(cmplx(-1e-1_dp,0.0_dp,dp))
+  call print_line(cmplx(-1e-11_dp,0.0_dp,dp))
+  call print_line(cmplx(-1e-111_dp,0.0_dp,dp))
+  
+  call set_print_settings(decimal_places=3)
+  call print_line(-1e111_dp)
+  call print_line(-1e11_dp)
+  call print_line(-1e1_dp)
+  call print_line(-1e-1_dp)
+  call print_line(-1e-11_dp)
+  call print_line(-1e-111_dp)
+  
+  call print_line(cmplx(-1e111_dp,0.0_dp,dp))
+  call print_line(cmplx(-1e11_dp,0.0_dp,dp))
+  call print_line(cmplx(-1e1_dp,0.0_dp,dp))
+  call print_line(cmplx(-1e-1_dp,0.0_dp,dp))
+  call print_line(cmplx(-1e-11_dp,0.0_dp,dp))
+  call print_line(cmplx(-1e-111_dp,0.0_dp,dp))
+  
+  call unset_print_settings()
+  call set_print_settings(floating_point_format=str('f'))
+  call print_line(-1e1_dp)
+  call print_line(-1e-1_dp)
+  call print_line(-1e-11_dp)
+  call print_line(-1e-111_dp)
+  
+  call print_line(cmplx(-1e1_dp,0.0_dp,dp))
+  call print_line(cmplx(-1e-1_dp,0.0_dp,dp))
+  call print_line(cmplx(-1e-11_dp,0.0_dp,dp))
+  call print_line(cmplx(-1e-111_dp,0.0_dp,dp))
 end subroutine
 end module

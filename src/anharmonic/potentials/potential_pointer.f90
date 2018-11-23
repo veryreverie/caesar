@@ -41,6 +41,9 @@ module potential_pointer_module
     
     procedure, public :: braket => braket_PotentialPointer
     
+    procedure, public :: harmonic_expectation => &
+                       & harmonic_expectation_PotentialPointer
+    
     procedure, private :: check => check_PotentialPointer
     
     procedure, public :: read  => read_PotentialPointer
@@ -201,6 +204,27 @@ subroutine braket_PotentialPointer(this,bra,ket,inputs)
   
   call this%potential%braket(bra,ket,inputs)
 end subroutine
+
+function harmonic_expectation_PotentialPointer(this,frequency, &
+   & thermal_energy,no_states,subspace,inputs) result(output)
+  implicit none
+  
+  class(PotentialPointer),  intent(in) :: this
+  real(dp),                 intent(in) :: frequency
+  real(dp),                 intent(in) :: thermal_energy
+  integer,                  intent(in) :: no_states
+  type(DegenerateSubspace), intent(in) :: subspace
+  type(AnharmonicData),     intent(in) :: inputs
+  real(dp)                             :: output
+  
+  call this%check()
+  
+  output = this%potential%harmonic_expectation( frequency,      &
+                                              & thermal_energy, &
+                                              & no_states,      &
+                                              & subspace,       &
+                                              & inputs          )
+end function
 
 ! ----------------------------------------------------------------------
 ! Takes a potential V and an array of subspace states {|i>}, and generates the
@@ -396,6 +420,9 @@ module potential_example_module
     
     procedure, public :: braket => braket_PotentialDataExample
     
+    procedure, public :: harmonic_expectation => &
+                       & harmonic_expectation_PotentialDataExample
+    
     procedure, public :: read  => read_PotentialDataExample
     procedure, public :: write => write_PotentialDataExample
   end type
@@ -536,6 +563,24 @@ subroutine braket_PotentialDataExample(this,bra,ket,inputs)
   
   ! Code to integrate this potential between <bra| and |ket> goes here.
 end subroutine
+
+function harmonic_expectation_PotentialDataExample(this,frequency, &
+   & thermal_energy,no_states,subspace,inputs) result(output)
+  implicit none
+  
+  class(PotentialDataExample), intent(in) :: this
+  real(dp),                    intent(in) :: frequency
+  real(dp),                    intent(in) :: thermal_energy
+  integer,                     intent(in) :: no_states
+  type(DegenerateSubspace),    intent(in) :: subspace
+  type(AnharmonicData),        intent(in) :: inputs
+  real(dp)                                :: output
+  
+  call print_line('PotentialDataExample: evaluating harmonic expectation of &
+     &<V>.')
+  
+  ! Code to calculate thermal harmonic expectation goes here.
+end function
 
 ! --------------------------------------------------
 ! I/O.

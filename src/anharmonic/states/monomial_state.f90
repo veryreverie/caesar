@@ -80,6 +80,7 @@ module monomial_state_module
   
   interface braket_MonomialState
     module procedure braket_MonomialStates
+    module procedure braket_MonomialStates_ComplexUnivariate
     module procedure braket_MonomialStates_ComplexMonomial
   end interface
 contains
@@ -220,8 +221,6 @@ impure elemental function finite_overlap_MonomialStates(bra,ket) result(output)
   
   type(StateHelper) :: helper
   
-  integer :: p_i,p_j,q_i,q_j
-  
   integer :: i
   
   ! Check that the bra and the ket cover the same subspace.
@@ -232,28 +231,37 @@ impure elemental function finite_overlap_MonomialStates(bra,ket) result(output)
   
   helper = StateHelper(bra%state_, ket%state_)
   do i=1,size(helper)
-    p_i = helper%bra(i)%power
-    p_j = helper%bra(i)%paired_power
-    q_i = helper%ket(i)%power
-    q_j = helper%ket(i)%paired_power
-    
-    if (helper%bra(i)%id==helper%bra(i)%paired_id) then
-      ! <p_i|q_i>  = 0 if p+q odd.
-      !           /= 0 otherwise.
-      if (modulo(p_i+q_i,2)==1) then
-        output = .false.
-        return
-      endif
-    else
-      ! <p_i,p_j|q_i,q_j>  = 0 if p_i-p_j-q_i+q_j /= 0.
-      !                   /= 0 otherwise.
-      if (p_i-p_j-q_i+q_j/=0) then
-        output = .false.
-        return
-      endif
+    if (.not. finite_overlap_mode(helper%bra(i),helper%ket(i))) then
+      output = .false.
+      return
     endif
   enddo
   output = .true.
+end function
+
+impure elemental function finite_overlap_mode(bra,ket) result(output)
+  implicit none
+  
+  type(ComplexUnivariate), intent(in) :: bra
+  type(ComplexUnivariate), intent(in) :: ket
+  logical                             :: output
+  
+  integer :: p_i,p_j,q_i,q_j
+  
+  p_i = bra%power
+  p_j = bra%paired_power
+  q_i = ket%power
+  q_j = ket%paired_power
+  
+  if (bra%id==bra%paired_id) then
+    ! <p_i|q_i>  = 0 if p+q odd.
+    !           /= 0 otherwise.
+    output = modulo(p_i+q_i,2)==0
+  else
+    ! <p_i,p_j|q_i,q_j>  = 0 if p_i-p_j-q_i+q_j /= 0.
+    !                   /= 0 otherwise.
+    output = p_i-p_j-q_i+q_j==0
+  endif
 end function
 
 ! ----------------------------------------------------------------------
@@ -278,10 +286,10 @@ impure elemental function braket_MonomialStates(bra,ket) result(output)
   
   helper = StateHelper(bra%state_, ket%state_)
   
-  output = product(braket_modes(helper%bra, helper%ket))
+  output = product(braket_mode(helper%bra, helper%ket))
 end function
 
-impure elemental function braket_modes(bra,ket) result(output)
+impure elemental function braket_mode(bra,ket) result(output)
   implicit none
   
   type(ComplexUnivariate), intent(in) :: bra
@@ -343,6 +351,27 @@ impure elemental function braket_modes(bra,ket) result(output)
 end function
 
 ! ----------------------------------------------------------------------
+! Evaluates integrals of the form <bra|univariate|ket>.
+! ----------------------------------------------------------------------
+impure elemental function braket_MonomialStates_ComplexUnivariate(bra,ket, &
+   & univariate,subspace,supercell) result(output)
+  implicit none
+  
+  type(MonomialState),      intent(in) :: bra
+  type(MonomialState),      intent(in) :: ket
+  type(ComplexUnivariate),  intent(in) :: univariate
+  type(DegenerateSubspace), intent(in) :: subspace
+  type(StructureData),      intent(in) :: supercell
+  type(ComplexMonomial)                :: output
+  
+  output = braket_MonomialState( bra,                         &
+                               & ket,                         &
+                               & ComplexMonomial(univariate), &
+                               & subspace,                    &
+                               & supercell                    )
+end function
+
+! ----------------------------------------------------------------------
 ! Evaluates integrals of the form <bra|monomial|ket>.
 ! ----------------------------------------------------------------------
 impure elemental function braket_MonomialStates_ComplexMonomial(bra,ket, &
@@ -386,11 +415,11 @@ impure elemental function braket_MonomialStates_ComplexMonomial(bra,ket, &
   !    - N is the number of primitive cells in the anharmonic supercell.
   !    - w is the frequency of the modes in the subspace.
   !    - n is the power of the modes in the monomial which are integrated.
-  coefficient = monomial%coefficient                                    &
-            & * product([braket_modes_potential( helper%bra(i),         &
-            &                                    helper%ket(i),         &
-            &                                    helper%monomial(i) )]) &
-            & / sqrt(2.0_dp * supercell%sc_size * bra%frequency)        &
+  coefficient = monomial%coefficient                              &
+            & * product(braket_mode_potential( helper%bra,        &
+            &                                  helper%ket,        &
+            &                                  helper%monomial )) &
+            & / sqrt(2.0_dp * supercell%sc_size * bra%frequency)  &
             & **(monomial%total_power()-sum(monomial_modes%total_power()))
   
   ! Construct output.
@@ -398,7 +427,7 @@ impure elemental function braket_MonomialStates_ComplexMonomial(bra,ket, &
                           & modes       = monomial_modes )
 end function
 
-impure elemental function braket_modes_potential(bra,ket,potential) &
+impure elemental function braket_mode_potential(bra,ket,potential) &
    & result(output)
   implicit none
   
@@ -486,6 +515,8 @@ function kinetic_energy_MonomialState(bra,ket,subspace,supercell) &
   
   real(dp) :: prefactor
   
+  integer :: i
+  
   ! Check that the bra and the ket cover the same subspace.
   if (bra%subspace_id/=ket%subspace_id) then
     call print_line(CODE_ERROR//': bra and ket from different subspaces.')
@@ -498,22 +529,29 @@ function kinetic_energy_MonomialState(bra,ket,subspace,supercell) &
   ! Process the bra and ket.
   helper = StateHelper(bra%state_, ket%state_, subspace=subspace)
   
-  ! Calculate the prefactor, s.t. <bra|T|ket> = prefactor * <bra|ket>.
-  prefactor = sum([kinetic_energy_prefactor( helper%bra,   &
-                                           & helper%ket,   &
-                                           & bra%frequency )])
-  
-  ! Calculate output, and normalise by the number of primitive cells.
-  output = prefactor * braket_MonomialState(bra,ket) / supercell%sc_size
+  if (all(finite_overlap_mode(helper%bra, helper%ket))) then
+    ! Calculate the prefactor, s.t. <bra|T|ket> = prefactor * w * <bra|ket>.
+    ! <p1|<p2|...T|q1>|q2>... = <p1|T1|p1><p2|q2>... + <p1|q1><p2|T|q2>... + ...
+    !                         = (t1+t2+...)*w*<p1|q1><p2|q2>...
+    prefactor = sum(kinetic_energy_prefactor(helper%bra, helper%ket))
+    ! Calculate output, multiply by w,
+    !    and normalise by the number of primitive cells.
+    output = prefactor                     &
+         & * braket_MonomialState(bra,ket) &
+         & * bra%frequency                 &
+         & / supercell%sc_size
+  else
+    ! If more than one single- or double-mode state has zero overlap,
+    !    then the kinetic energy is zero.
+    output = 0.0_dp
+  endif
 end function
 
-impure elemental function kinetic_energy_prefactor(bra,ket,frequency) &
-   & result(output)
+impure elemental function kinetic_energy_prefactor(bra,ket) result(output)
   implicit none
   
   type(ComplexUnivariate), intent(in) :: bra
   type(ComplexUnivariate), intent(in) :: ket
-  real(dp),                intent(in) :: frequency
   real(dp)                            :: output
   
   integer :: p_i,p_j,q_i,q_j
@@ -525,12 +563,7 @@ impure elemental function kinetic_energy_prefactor(bra,ket,frequency) &
   
   if (bra%id==bra%paired_id) then
     ! <p_i|T|q_i> = 1/2 w_i ( (1-p_i-q_i)/2 - 2p_iq_i/(p_i+q_i+1) ) <p_i|q_i>
-    if (modulo(p_i+q_i,2)==0) then
-      output = 0.5_dp * frequency &
-           & * ( (1-p_i-q_i)/2.0_dp + (2.0_dp*p_i*q_i)/(p_i+q_i-1) )
-    else
-      output = 0.0_dp
-    endif
+    output = 0.5_dp * ( (1-p_i-q_i)/2.0_dp + (2.0_dp*p_i*q_i)/(p_i+q_i-1) )
   else
     ! <p_i,p_j|T|q_i,q_j> = w_i ( 1/2
     !                           + ((p_i-p_j)^2-(p_i-q_i)^2)
@@ -538,16 +571,11 @@ impure elemental function kinetic_energy_prefactor(bra,ket,frequency) &
     !                     * <p_i,p_j|q_i,q_j>
     !
     ! N.B. if p_i=p_j=q_i=q_j=0 then the second term is zero.
-    if (p_i+q_j==p_j+q_i) then
-      output = frequency/2
-      if (p_i+p_j+q_i+q_j/=0) then
-        output = output                        &
-             & + frequency                     &
-             & * ((p_i-p_j)**2 - (p_i-q_i)**2) &
-             & / (1.0_dp*(p_i+p_j+q_i+q_j))
-      endif
-    else
-      output = 0.0_dp
+    output = 0.5_dp
+    if (p_i+p_j+q_i+q_j/=0) then
+      output = output                        &
+           & + ((p_i-p_j)**2 - (p_i-q_i)**2) &
+           & / (1.0_dp*(p_i+p_j+q_i+q_j))
     endif
   endif
 end function
@@ -585,9 +613,9 @@ function harmonic_potential_energy_MonomialState(bra,ket,subspace,supercell) &
   helper = StateHelper(bra%state_, ket%state_, subspace=subspace)
   
   ! Calculate the prefactor, s.t. <bra|T|ket> = prefactor * <bra|ket>.
-  prefactor = sum([harmonic_potential_energy_prefactor( helper%bra,   &
-                                                      & helper%ket,   &
-                                                      & bra%frequency )])
+  prefactor = sum(harmonic_potential_energy_prefactor( helper%bra,   &
+                                                     & helper%ket,   &
+                                                     & bra%frequency ))
   
   ! Calculate output, and normalise by the number of primitive cells.
   output = prefactor * braket_MonomialState(bra,ket) / supercell%sc_size

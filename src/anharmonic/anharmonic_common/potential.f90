@@ -54,6 +54,11 @@ module potential_module
     ! Evaluate <bra|potential|ket> in the case when <bra|potential|ket> is
     !    a scalar.
     procedure, public :: potential_energy
+    
+    ! Evaluate the thermal expectation of the potential for a set of harmonic
+    !    states.
+    procedure(harmonic_expectation_PotentialData), public, deferred :: &
+       & harmonic_expectation
   end type
   
   abstract interface
@@ -158,6 +163,23 @@ module potential_module
       class(SubspaceState), intent(in)    :: ket
       type(AnharmonicData), intent(in)    :: inputs
     end subroutine
+    
+    function harmonic_expectation_PotentialData(this,frequency, &
+       & thermal_energy,no_states,subspace,inputs) result(output)
+      import PotentialData
+      import dp
+      import DegenerateSubspace
+      import AnharmonicData
+      implicit none
+      
+      class(PotentialData),     intent(in) :: this
+      real(dp),                 intent(in) :: frequency
+      real(dp),                 intent(in) :: thermal_energy
+      integer,                  intent(in) :: no_states
+      type(DegenerateSubspace), intent(in) :: subspace
+      type(AnharmonicData),     intent(in) :: inputs
+      real(dp)                             :: output
+    end function
   end interface
 contains
 

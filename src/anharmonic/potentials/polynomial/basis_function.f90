@@ -39,6 +39,9 @@ module basis_function_module
     
     procedure, public :: braket => braket_BasisFunction
     
+    procedure, public :: harmonic_expectation => &
+                       & harmonic_expectation_BasisFunction
+    
     procedure, public :: undisplaced_energy => undisplaced_energy_BasisFunction
     
     procedure, public :: is_constant => is_constant_BasisFunction
@@ -385,6 +388,35 @@ subroutine braket_BasisFunction(this,bra,ket,inputs)
        & coefficient = this%real_representation%terms(i)%coefficient )
   enddo
 end subroutine
+
+! ----------------------------------------------------------------------
+! Returns the thermal expectation of the basis function.
+! ----------------------------------------------------------------------
+function harmonic_expectation_BasisFunction(this,frequency,thermal_energy, &
+   & no_states,subspace,inputs) result(output)
+  implicit none
+  
+  class(BasisFunction),     intent(in) :: this
+  real(dp),                 intent(in) :: frequency
+  real(dp),                 intent(in) :: thermal_energy
+  integer,                  intent(in) :: no_states
+  type(DegenerateSubspace), intent(in) :: subspace
+  type(AnharmonicData),     intent(in) :: inputs
+  real(dp)                             :: output
+  
+  integer :: i
+  
+  output = 0
+  do i=1,size(this%complex_representation)
+    output = output                                                      &
+         & + harmonic_expectation( this%complex_representation%terms(i), &
+         &                         frequency,                            &
+         &                         thermal_energy,                       &
+         &                         no_states,                            &
+         &                         subspace,                             &
+         &                         inputs%anharmonic_supercell           )
+  enddo
+end function
 
 ! ----------------------------------------------------------------------
 ! Returns the energy at zero displacement.

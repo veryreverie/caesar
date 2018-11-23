@@ -5,6 +5,7 @@
 module states_module
   use subspace_state_module
   use monomial_state_module
+  use harmonic_state_module
   use polynomial_state_module
   use vscf_ground_state_module
   use braket_module

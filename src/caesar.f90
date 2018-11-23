@@ -30,7 +30,7 @@ program caesar
   use plot_anharmonic_modes_module
   use map_potential_module
   use plot_potential_map_module
-  use calculate_states_module
+  use calculate_vscf_potential_module
   use map_vscf_modes_module
   use plot_vscf_modes_module
   use calculate_anharmonic_observables_module
@@ -99,7 +99,7 @@ program caesar
      & plot_anharmonic_modes(),            &
      & map_potential(),                    &
      & plot_potential_map(),               &
-     & calculate_states(),                 &
+     & calculate_vscf_potential(),         &
      & map_vscf_modes(),                   &
      & plot_vscf_modes(),                  &
      & calculate_anharmonic_observables(), &

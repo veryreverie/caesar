@@ -22,6 +22,7 @@ module harmonic_state_module
   public :: braket_HarmonicState
   public :: kinetic_energy_HarmonicState
   public :: harmonic_potential_energy_HarmonicState
+  public :: harmonic_expectation
   
   ! A HarmonicState is a product of single-mode and double-mode states
   ! A state |n_1,n_2,n_3,...,n_> = |n_1>|n_2,n_3>...|n_>.
@@ -81,6 +82,7 @@ module harmonic_state_module
   
   interface braket_HarmonicState
     module procedure braket_HarmonicStates
+    module procedure braket_HarmonicStates_ComplexUnivariate
     module procedure braket_HarmonicStates_ComplexMonomial
   end interface
 contains
@@ -229,11 +231,26 @@ impure elemental function finite_overlap_HarmonicStates(bra,ket) result(output)
     call err()
   endif
   
+  helper = StateHelper(bra%state_, ket%state_)
+  do i=1,size(helper)
+    if (.not. finite_overlap_mode(helper%bra(i),helper%ket(i))) then
+      output = .false.
+      return
+    endif
+  enddo
+  output = .true.
+end function
+
+impure elemental function finite_overlap_mode(bra,ket) result(output)
+  implicit none
+  
+  type(ComplexUnivariate), intent(in) :: bra
+  type(ComplexUnivariate), intent(in) :: ket
+  logical                             :: output
+  
   ! <p|q> = 1 if p=q.
   !       = 0 otherwise.
-  helper = StateHelper(bra%state_, ket%state_)
-  output = all( helper%bra%power==helper%ket%power .and.         &
-              & helper%bra%paired_power==helper%ket%paired_power )
+  output = bra%power==ket%power .and. bra%paired_power==ket%paired_power
 end function
 
 ! ----------------------------------------------------------------------
@@ -253,6 +270,43 @@ impure elemental function braket_HarmonicStates(bra,ket) result(output)
   else
     output = 0.0_dp
   endif
+end function
+
+impure elemental function braket_mode(bra,ket) result(output)
+  implicit none
+  
+  type(ComplexUnivariate), intent(in) :: bra
+  type(ComplexUnivariate), intent(in) :: ket
+  real(dp)                            :: output
+  
+  ! <p|q> = 1 if p=q.
+  !       = 0 otherwise.
+  if (finite_overlap_mode(bra,ket)) then
+    output = 1.0_dp
+  else
+    output = 0.0_dp
+  endif
+end function
+
+! ----------------------------------------------------------------------
+! Evaluates integrals of the form <bra|univariate|ket>.
+! ----------------------------------------------------------------------
+impure elemental function braket_HarmonicStates_ComplexUnivariate(bra,ket, &
+   & univariate,subspace,supercell) result(output)
+  implicit none
+  
+  type(HarmonicState),      intent(in) :: bra
+  type(HarmonicState),      intent(in) :: ket
+  type(ComplexUnivariate),  intent(in) :: univariate
+  type(DegenerateSubspace), intent(in) :: subspace
+  type(StructureData),      intent(in) :: supercell
+  type(ComplexMonomial)                :: output
+  
+  output = braket_HarmonicState( bra,                         &
+                               & ket,                         &
+                               & ComplexMonomial(univariate), &
+                               & subspace,                    &
+                               & supercell                    )
 end function
 
 ! ----------------------------------------------------------------------
@@ -299,11 +353,11 @@ impure elemental function braket_HarmonicStates_ComplexMonomial(bra,ket, &
   !    - N is the number of primitive cells in the anharmonic supercell.
   !    - w is the frequency of the modes in the subspace.
   !    - n is the power of the modes in the monomial which are integrated.
-  coefficient = monomial%coefficient                                    &
-            & * product([braket_modes_potential( helper%bra(i),         &
-            &                                    helper%ket(i),         &
-            &                                    helper%monomial(i) )]) &
-            & / sqrt(2.0_dp * supercell%sc_size * bra%frequency)        &
+  coefficient = monomial%coefficient                              &
+            & * product(braket_mode_potential( helper%bra,        &
+            &                                  helper%ket,        &
+            &                                  helper%monomial )) &
+            & / sqrt(2.0_dp * supercell%sc_size * bra%frequency)  &
             & **(monomial%total_power()-sum(monomial_modes%total_power()))
   
   ! Construct output.
@@ -311,7 +365,7 @@ impure elemental function braket_HarmonicStates_ComplexMonomial(bra,ket, &
                           & modes       = monomial_modes )
 end function
 
-impure elemental function braket_modes_potential(bra,ket,potential) &
+impure elemental function braket_mode_potential(bra,ket,potential) &
    & result(output)
   implicit none
   
@@ -362,16 +416,16 @@ impure elemental function braket_modes_potential(bra,ket,potential) &
     !   = 0                                  if p_i-q_i > n_i or p_j-q_j > n_j.
     !   = 1/sqrt(2Nw)^{n_i+n_j}
     !   * sqrt(p_i!q_i!/p_j!q_j!)
-    !   * sum_{k=max(p_i,q_i)}^{min(n_i+q_i,n_j+p_i,p_i+p_j)} I
+    !   * sum_{k=max(p_i,q_i)}^{min(n_i+q_i,n_j+p_i,p_i+q_i)} I
     ! where I = bin(n_i,k-q_i) bin(n_j,k-p_i) (p_j+n_i+q_i-k)!/(p_i+q_i-k)!
     !
     ! N.B. the factor of 1/sqrt(2Nq)^{n_i+n_j} is neglected.
     ! N.B. the integral is invariant under i<->j, and under (p<->q,n_i<->n_j).
     output = 0
     if (p_i-p_j-n_i+n_j-q_i+q_j==0) then
-      do k=max(p_i,q_i),min(n_i+q_i,n_j+p_i,p_i+p_j)
+      do k=max(p_i,q_i),min(n_i+q_i,n_j+p_i,p_i+q_i)
         output = output                        &
-             & * real_binomial(n_i,k-q_i)      &
+             & + real_binomial(n_i,k-q_i)      &
              & * real_binomial(n_j,k-p_i)      &
              & * real_factorial(p_j+n_i+q_i-k) &
              & / real_factorial(p_i+q_i-k)
@@ -398,7 +452,7 @@ function kinetic_energy_HarmonicState(bra,ket,subspace,supercell) &
   
   type(StateHelper) :: helper
   
-  integer :: p_i,p_j,q_i,q_j
+  logical, allocatable :: finite_overlaps(:)
   
   integer :: i
   
@@ -414,45 +468,67 @@ function kinetic_energy_HarmonicState(bra,ket,subspace,supercell) &
   ! Process the bra and ket.
   helper = StateHelper(bra%state_, ket%state_, subspace=subspace)
   
+  ! Calculate which single- and double-mode states have non-zero overlaps.
+  finite_overlaps = finite_overlap_mode(helper%bra,helper%ket)
+  
   ! Calculate the kinetic energy, up to a factor of the frequency, w.
-  output = 0.0_dp
-  do i=1,size(helper)
-    if (helper%bra(i)%id==helper%bra(i)%paired_id) then
-      ! <p|T|q> = -w/4 sqrt(q(q-1)) if q=p+2.
-      !         =  w/4 (2q+1)       if q=p.
-      !         = -w/4 sqrt(p(p-1)) if q=p-2.
-      !         = 0                 otherwise.
-      p_i = helper%bra(i)%power
-      q_i = helper%ket(i)%power
-      if (q_i==p_i+2) then
-        output = output - 0.25_dp * sqrt(q_i*(q_i-1.0_dp))
-      elseif (q_i==p_i) then
-        output = output + 0.25_dp * (2*q_i+1)
-      elseif (q_i==p_i-2) then
-        output = output - 0.25_dp * sqrt(p_i*(p_i-1.0_dp))
-      endif
-    else
-      ! <p_i,p_j|T|q_i,q_j> = -w/2 sqrt(q_iq_j) if q_i=p_i+1 and q_j=p_j+1.
-      !                     =  w/2 (q_i+q_j+1)  if q_i=p_i   and q_j=p_j.
-      !                     = -w/2 sqrt(p_ip_j) if q_i=p_i-1 and q_j=p_j-1.
-      !                     =  0                otherwise.
-      p_i = helper%bra(i)%power
-      p_j = helper%bra(i)%paired_power
-      q_i = helper%ket(i)%power
-      q_j = helper%ket(i)%paired_power
-      if (q_i==p_i+1 .and. q_j==p_j+1) then
-        output = output - 0.5_dp * sqrt(real(q_i*q_j,dp))
-      elseif (q_i==p_i .and. q_j==p_j) then
-        output = output + 0.5_dp * (q_i+q_j+1)
-      elseif (q_i==p_i-1 .and. q_j==p_j-1) then
-        output = output - 0.5_dp * sqrt(real(p_i*p_j,dp))
-      endif
-    endif
-  enddo
+  if (all(finite_overlaps)) then
+    output = sum(kinetic_energy_mode(helper%bra, helper%ket))
+  elseif (count(.not.finite_overlaps)==1) then
+    i = first(.not.finite_overlaps)
+    output = kinetic_energy_mode(helper%bra(i), helper%ket(i))
+  else
+    output = 0
+    return
+  endif
   
   ! Multiply by w, and normalise by the number of primitive cells in the
   !    anharmonic supercell.
   output = output*bra%frequency/supercell%sc_size
+end function
+
+impure elemental function kinetic_energy_mode(bra,ket) result(output)
+  implicit none
+  
+  type(ComplexUnivariate), intent(in) :: bra
+  type(ComplexUnivariate), intent(in) :: ket
+  real(dp)                            :: output
+  
+  integer :: p_i,p_j,q_i,q_j
+  
+  output = 0.0_dp
+  
+  if (bra%id==bra%paired_id) then
+    ! <p|T|q> = -w/4 sqrt(q(q-1)) if q=p+2.
+    !         =  w/4 (2q+1)       if q=p.
+    !         = -w/4 sqrt(p(p-1)) if q=p-2.
+    !         = 0                 otherwise.
+    p_i = bra%power
+    q_i = ket%power
+    if (q_i==p_i+2) then
+      output = output - 0.25_dp * sqrt(q_i*(q_i-1.0_dp))
+    elseif (q_i==p_i) then
+      output = output + 0.25_dp * (2*q_i+1)
+    elseif (q_i==p_i-2) then
+      output = output - 0.25_dp * sqrt(p_i*(p_i-1.0_dp))
+    endif
+  else
+    ! <p_i,p_j|T|q_i,q_j> = -w/2 sqrt(q_iq_j) if q_i=p_i+1 and q_j=p_j+1.
+    !                     =  w/2 (q_i+q_j+1)  if q_i=p_i   and q_j=p_j.
+    !                     = -w/2 sqrt(p_ip_j) if q_i=p_i-1 and q_j=p_j-1.
+    !                     =  0                otherwise.
+    p_i = bra%power
+    p_j = bra%paired_power
+    q_i = ket%power
+    q_j = ket%paired_power
+    if (q_i==p_i+1 .and. q_j==p_j+1) then
+      output = output - 0.5_dp * sqrt(real(q_i*q_j,dp))
+    elseif (q_i==p_i .and. q_j==p_j) then
+      output = output + 0.5_dp * (q_i+q_j+1)
+    elseif (q_i==p_i-1 .and. q_j==p_j-1) then
+      output = output - 0.5_dp * sqrt(real(p_i*p_j,dp))
+    endif
+  endif
 end function
 
 ! ----------------------------------------------------------------------
@@ -471,7 +547,7 @@ function harmonic_potential_energy_HarmonicState(bra,ket,subspace,supercell) &
   
   type(StateHelper) :: helper
   
-  integer :: p_i,p_j,q_i,q_j
+  logical, allocatable :: finite_overlaps(:)
   
   integer :: i
   
@@ -487,45 +563,173 @@ function harmonic_potential_energy_HarmonicState(bra,ket,subspace,supercell) &
   ! Process the bra and ket.
   helper = StateHelper(bra%state_, ket%state_, subspace=subspace)
   
-  ! Calculate the harmonic potntial energy, up to a factor of the frequency, w.
-  output = 0.0_dp
-  do i=1,size(helper)
-    if (helper%bra(i)%id==helper%bra(i)%paired_id) then
-      ! <p|T|q> = w/4 sqrt(q(q-1)) if q=p+2.
-      !         = w/4 (2q+1)       if q=p.
-      !         = w/4 sqrt(p(p-1)) if q=p-2.
-      !         = 0                 otherwise.
-      p_i = helper%bra(i)%power
-      q_i = helper%ket(i)%power
-      if (q_i==p_i+2) then
-        output = output + 0.25_dp * sqrt(q_i*(q_i-1.0_dp))
-      elseif (q_i==p_i) then
-        output = output + 0.25_dp * (2*q_i+1)
-      elseif (q_i==p_i-2) then
-        output = output + 0.25_dp * sqrt(p_i*(p_i-1.0_dp))
-      endif
-    else
-      ! <p_i,p_j|T|q_i,q_j> = w/2 sqrt(q_iq_j) if q_i=p_i+1 and q_j=p_j+1.
-      !                     = w/2 (q_i+q_j+1)  if q_i=p_i   and q_j=p_j.
-      !                     = w/2 sqrt(p_ip_j) if q_i=p_i-1 and q_j=p_j-1.
-      !                     =  0                otherwise.
-      p_i = helper%bra(i)%power
-      p_j = helper%bra(i)%paired_power
-      q_i = helper%ket(i)%power
-      q_j = helper%ket(i)%paired_power
-      if (q_i==p_i+1 .and. q_j==p_j+1) then
-        output = output + 0.5_dp * sqrt(real(q_i*q_j,dp))
-      elseif (q_i==p_i .and. q_j==p_j) then
-        output = output + 0.5_dp * (q_i+q_j+1)
-      elseif (q_i==p_i-1 .and. q_j==p_j-1) then
-        output = output + 0.5_dp * sqrt(real(p_i*p_j,dp))
-      endif
-    endif
-  enddo
+  ! Calculate which single- and double-mode states have non-zero overlaps.
+  finite_overlaps = finite_overlap_mode(helper%bra,helper%ket)
+  
+  ! Calculate the harmonic potential energy,
+  !    up to a factor of the frequency, w.
+  if (all(finite_overlaps)) then
+    output = sum(harmonic_potential_energy_mode(helper%bra, helper%ket))
+  elseif (count(.not.finite_overlaps)==1) then
+    i = first(.not.finite_overlaps)
+    output = harmonic_potential_energy_mode(helper%bra(i), helper%ket(i))
+  else
+    output = 0
+    return
+  endif
   
   ! Multiply by w, and normalise by the number of primitive cells in the
   !    anharmonic supercell.
   output = output*bra%frequency/supercell%sc_size
+end function
+
+impure elemental function harmonic_potential_energy_mode(bra,ket) &
+   & result(output)
+  implicit none
+  
+  type(ComplexUnivariate), intent(in) :: bra
+  type(ComplexUnivariate), intent(in) :: ket
+  real(dp)                            :: output
+  
+  integer :: p_i,p_j,q_i,q_j
+  
+  output = 0.0_dp
+  
+  if (bra%id==bra%paired_id) then
+    ! <p|Vh|q> = w/4 sqrt(q(q-1)) if q=p+2.
+    !          = w/4 (2q+1)       if q=p.
+    !          = w/4 sqrt(p(p-1)) if q=p-2.
+    !          = 0                 otherwise.
+    p_i = bra%power
+    q_i = ket%power
+    if (q_i==p_i+2) then
+      output = output + 0.25_dp * sqrt(q_i*(q_i-1.0_dp))
+    elseif (q_i==p_i) then
+      output = output + 0.25_dp * (2*q_i+1)
+    elseif (q_i==p_i-2) then
+      output = output + 0.25_dp * sqrt(p_i*(p_i-1.0_dp))
+    endif
+  else
+    ! <p_i,p_j|Vh|q_i,q_j> = w/2 sqrt(q_iq_j) if q_i=p_i+1 and q_j=p_j+1.
+    !                      = w/2 (q_i+q_j+1)  if q_i=p_i   and q_j=p_j.
+    !                      = w/2 sqrt(p_ip_j) if q_i=p_i-1 and q_j=p_j-1.
+    !                      = 0                otherwise.
+    p_i = bra%power
+    p_j = bra%paired_power
+    q_i = ket%power
+    q_j = ket%paired_power
+    if (q_i==p_i+1 .and. q_j==p_j+1) then
+      output = output + 0.5_dp * sqrt(real(q_i*q_j,dp))
+    elseif (q_i==p_i .and. q_j==p_j) then
+      output = output + 0.5_dp * (q_i+q_j+1)
+    elseif (q_i==p_i-1 .and. q_j==p_j-1) then
+      output = output + 0.5_dp * sqrt(real(p_i*p_j,dp))
+    endif
+  endif
+end function
+
+! ----------------------------------------------------------------------
+! Calculates the thermal expectation of a monomial in a given harmonic
+!    basis.
+! ----------------------------------------------------------------------
+function harmonic_expectation(monomial,frequency,thermal_energy,no_states, &
+   & subspace,supercell) result(output)
+  implicit none
+  
+  type(ComplexMonomial),    intent(in) :: monomial
+  real(dp),                 intent(in) :: frequency
+  real(dp),                 intent(in) :: thermal_energy
+  integer,                  intent(in) :: no_states
+  type(DegenerateSubspace), intent(in) :: subspace
+  type(StructureData),      intent(in) :: supercell
+  real(dp)                             :: output
+  
+  type(StateHelper) :: helper
+  
+  ! Process the ground state and monomial.
+  helper = StateHelper(monomial=monomial, subspace=subspace)
+  
+  ! Calculate the harmonic expectation along each mode,
+  !    and multiply these together.
+  output = monomial%coefficient                                     &
+       & * product( harmonic_expectation_mode( helper%monomial,     &
+       &                                       frequency,           &
+       &                                       thermal_energy,      &
+       &                                       no_states,           &
+       &                                       subspace,            &
+       &                                       supercell        ) ) &
+       & / sqrt(2.0_dp * supercell%sc_size * frequency)             &
+       & ** monomial%total_power()
+end function
+
+impure elemental function harmonic_expectation_mode(univariate,frequency, &
+   & thermal_energy,no_states,subspace,supercell) result(output)
+  implicit none
+  
+  type(ComplexUnivariate),  intent(in) :: univariate
+  real(dp),                 intent(in) :: frequency
+  real(dp),                 intent(in) :: thermal_energy
+  integer,                  intent(in) :: no_states
+  type(DegenerateSubspace), intent(in) :: subspace
+  type(StructureData),      intent(in) :: supercell
+  real(dp)                             :: output
+  
+  type(ComplexUnivariate) :: state
+  
+  real(dp) :: thermal_weight
+  real(dp) :: sum_thermal_weights
+  
+  integer :: i,j
+  
+  output = 0.0_dp
+  sum_thermal_weights = 0.0_dp
+  
+  if (univariate%id==univariate%paired_id) then
+    do i=0,no_states
+      thermal_weight = calculate_state_weight( &
+                             & thermal_energy, &
+                             & frequency,      &
+                             & i,              &
+                             & 1               )
+      
+      state = ComplexUnivariate( id           = univariate%id, &
+                                 power        = i,             &
+                                 paired_id    = univariate%id, &
+                                 paired_power = i        )
+      
+      sum_thermal_weights = sum_thermal_weights + thermal_weight      
+      output = output + braket_mode_potential(state,state,univariate) &
+                    & * thermal_weight
+    enddo
+  else
+    do i=0,no_states
+      thermal_weight = calculate_state_weight( &
+                             & thermal_energy, &
+                             & frequency,      &
+                             & i,              &
+                             & 1               )
+      do j=0,i
+        state = ComplexUnivariate( id           = univariate%id,        &
+                                 & power        = i-j,                  &
+                                 & paired_id    = univariate%paired_id, &
+                                 & paired_power = j                     )
+        
+        sum_thermal_weights = sum_thermal_weights + thermal_weight      
+        output = output + braket_mode_potential(state,state,univariate) &
+                      & * thermal_weight
+      enddo
+    enddo
+  endif
+  
+  if (1-sum_thermal_weights>0.1_dp) then
+    call print_line(WARNING//': The sum across thermal weights is less than &
+       &1. This means that the basis is incomplete. Try increasing &
+       &no_vscha_basis_states.')
+    call print_line('Thermal weights: '//sum_thermal_weights)
+  elseif (sum_thermal_weights-1>0.1_dp) then
+    call print_line(WARNING//': The sum across weights is more than 1.')
+    call print_line('Thermal weights: '//sum_thermal_weights)
+  endif
 end function
 
 ! ----------------------------------------------------------------------

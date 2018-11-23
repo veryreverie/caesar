@@ -272,7 +272,8 @@ subroutine calculate_real_factorials(input)
   
   integer, intent(in) :: input
   
-  integer :: i,j,ialloc
+  integer  :: i,ialloc
+  real(dp) :: j
   
   ! The first time this function is called,
   !    calculate all storable factorials, {i!} s.t. i!<=huge(0).
@@ -317,6 +318,8 @@ impure elemental function binomial(top,bottom) result(output)
     call err()
   endif
   
+  call calculate_factorials()
+  
   if (top<size(FACTORIALS)) then
     output = factorial(top) / (factorial(bottom)*factorial(top-bottom))
   else
@@ -341,6 +344,8 @@ impure elemental function real_binomial(top,bottom) result(output)
   elseif (bottom>top) then
     call err()
   endif
+  
+  call calculate_real_factorials(top)
   
   if (top<size(REAL_FACTORIALS)) then
     output = real_factorial(top) &

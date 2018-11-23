@@ -108,6 +108,7 @@ module real_polynomial_module
   
   interface RealMonomial
     module procedure new_RealMonomial
+    module procedure new_RealMonomial_RealMonomialable
     module procedure new_RealMonomial_String
   end interface
   
@@ -127,6 +128,7 @@ module real_polynomial_module
   
   interface RealPolynomial
     module procedure new_RealPolynomial
+    module procedure new_RealPolynomial_RealPolynomialable
     module procedure new_RealPolynomial_String
   end interface
   
@@ -291,6 +293,15 @@ function new_RealMonomial(coefficient,modes) result(this)
   this%modes_      = modes(sort(modes%id))
 end function
 
+function new_RealMonomial_RealMonomialable(input) result(this)
+  implicit none
+  
+  class(RealMonomialable), intent(in) :: input
+  type(RealMonomial)                  :: this
+  
+  this = input%to_RealMonomial()
+end function
+
 function new_RealPolynomial(terms) result(this)
   implicit none
   
@@ -298,6 +309,15 @@ function new_RealPolynomial(terms) result(this)
   type(RealPolynomial)           :: this
   
   this%terms = terms
+end function
+
+function new_RealPolynomial_RealPolynomialable(input) result(this)
+  implicit none
+  
+  class(RealPolynomialable), intent(in) :: input
+  type(RealPolynomial)                  :: this
+  
+  this = input%to_RealPolynomial()
 end function
 
 ! ----------------------------------------------------------------------

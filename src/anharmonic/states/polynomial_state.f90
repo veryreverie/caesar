@@ -36,6 +36,7 @@ module polynomial_state_module
   
   interface braket_PolynomialState
     module procedure braket_PolynomialStates
+    module procedure braket_PolynomialStates_ComplexUnivariate
     module procedure braket_PolynomialStates_ComplexMonomial
   end interface
 contains
@@ -90,6 +91,40 @@ impure elemental function braket_PolynomialStates(bra,ket) result(output)
            & + braket_MonomialState(bra%states(i),ket%states(j)) &
            & * bra%coefficients(i)                               &
            & * ket%coefficients(j)
+    enddo
+  enddo
+end function
+
+impure elemental function braket_PolynomialStates_ComplexUnivariate(bra,ket, &
+   & univariate,subspace,supercell) result(output)
+  implicit none
+  
+  type(PolynomialState),    intent(in) :: bra
+  type(PolynomialState),    intent(in) :: ket
+  type(ComplexUnivariate),  intent(in) :: univariate
+  type(DegenerateSubspace), intent(in) :: subspace
+  type(StructureData),      intent(in) :: supercell
+  type(ComplexMonomial)                :: output
+  
+  type(ComplexMonomial) :: integrated_univariate
+  
+  integer :: i,j
+  
+  do i=1,size(bra)
+    do j=1,size(ket)
+      integrated_univariate = braket_MonomialState( bra%states(i),   &
+                         &                          ket%states(j),   &
+                         &                          univariate,      &
+                         &                          subspace,        &
+                         &                          supercell      ) &
+                         & * bra%coefficients(i)                     &
+                         & * ket%coefficients(j)
+      if (i==1 .and. j==1) then
+        output = integrated_univariate
+      else
+        output%coefficient = output%coefficient &
+                         & + integrated_univariate%coefficient
+      endif
     enddo
   enddo
 end function

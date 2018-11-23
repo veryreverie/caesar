@@ -11,4 +11,5 @@ target_link_libraries(potentials polynomial)
 
 # Link against other modules.
 target_link_libraries(potentials common)
+target_link_libraries(potentials states)
 target_link_libraries(potentials anharmonic_common)

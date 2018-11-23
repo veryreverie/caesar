@@ -96,7 +96,8 @@ impure elemental function initial_ground_state(basis) result(output)
   ! Construct the coefficient vector in the basis of monomial states.
   ! All coefficients are zero, except for the coefficient of |0>, which is one.
   coefficients = [( 0.0_dp, i=1, size(wavevector_basis) )]
-  coefficients(first(wavevector_basis%harmonic_occupations()==0)) = 1
+  coefficients(                                                      &
+     & first(wavevector_basis%harmonic_states%total_occupation()==0) ) = 1
   
   ! Convert the coefficients into the orthonormal basis.
   coefficients = wavevector_basis%coefficients_states_to_basis(coefficients)
@@ -105,7 +106,7 @@ impure elemental function initial_ground_state(basis) result(output)
   output = VscfGroundState(                        &
      & subspace_id  = basis%subspace_id,           &
      & wavevector   = wavevector_basis%wavevector, &
-     & coefficients = coefficients)
+     & coefficients = coefficients                 )
 end function
 
 ! ----------------------------------------------------------------------

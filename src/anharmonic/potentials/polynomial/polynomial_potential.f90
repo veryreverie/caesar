@@ -43,6 +43,9 @@ module polynomial_potential_module
     
     procedure, public :: braket => braket_PolynomialPotential
     
+    procedure, public :: harmonic_expectation => &
+                       & harmonic_expectation_PolynomialPotential
+    
     procedure, public :: read  => read_PolynomialPotential
     procedure, public :: write => write_PolynomialPotential
   end type
@@ -544,6 +547,33 @@ subroutine braket_PolynomialPotential(this,bra,ket,inputs)
   this%reference_energy = this%reference_energy &
                       & + sum(constant_terms%undisplaced_energy())
 end subroutine
+
+! Calculate the thermal expectation of the potential, <V>, for a set of
+!    harmonic states.
+function harmonic_expectation_PolynomialPotential(this,frequency, &
+   & thermal_energy,no_states,subspace,inputs) result(output)
+  implicit none
+  
+  class(PolynomialPotential), intent(in) :: this
+  real(dp),                   intent(in) :: frequency
+  real(dp),                   intent(in) :: thermal_energy
+  integer,                    intent(in) :: no_states
+  type(DegenerateSubspace),   intent(in) :: subspace
+  type(AnharmonicData),       intent(in) :: inputs
+  real(dp)                               :: output
+  
+  integer :: i
+  
+  output = this%reference_energy
+  do i=1,size(this%basis_functions)
+    output = output                                                        &
+         & + this%basis_functions(i)%harmonic_expectation( frequency,      &
+         &                                                 thermal_energy, &
+         &                                                 no_states,      &
+         &                                                 subspace,       &
+         &                                                 inputs          )
+  enddo
+end function
 
 ! ----------------------------------------------------------------------
 ! I/O.

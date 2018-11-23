@@ -76,15 +76,13 @@ function run_vscf(potential,basis,energy_convergence,                     &
   
   i = 1
   do
-    call print_line('Top of loop')
+    call print_line('VSCF self-consistency step '//i//'.')
     ! Use the current state to calculate single-subspace potentials,
     !    and calculate the new ground states of these potentials.
     potentials_and_states = update(state,basis,potential,anharmonic_data)
     state = potentials_and_states%state
     energies = [energies, sum(potentials_and_states%energy)]
     new_coefficients = [new_coefficients, states_to_coefficients(state)]
-    
-    call print_line('Updated potentials and states')
     
     ! Use a damped iterative scheme or a Pulay scheme to converge towards the
     !    self-consistent solution where new coefficients = old coefficients.
@@ -102,8 +100,8 @@ function run_vscf(potential,basis,energy_convergence,                     &
     i = i+1
     
     ! Output the current energy to the terminal.
-    call print_line('Ground-state energy at self-consistency step '//i//' :&
-                   & '//energies(i))
+    call print_line('Ground-state energy: '//energies(i))
+    call print_line('')
     
     ! Check whether the energies have converged.
     if (i>=no_converged_calculations) then
@@ -139,32 +137,29 @@ function update(states,basis,potential,anharmonic_data) result(output)
   
   real(dp), allocatable :: hamiltonian(:,:)
   
-  type(MonomialState) :: bra
-  type(MonomialState) :: ket
+  type(HarmonicState) :: bra
+  type(HarmonicState) :: ket
   
   type(SymmetricEigenstuff), allocatable :: estuff(:)
   
   type(VscfGroundState), allocatable :: ground_states(:)
   real(dp),              allocatable :: energies(:)
   
+  real(dp), allocatable :: coefficients(:)
+  
   integer :: i,j,k,l,m,ialloc
   
-  call print_line('Entered update')
-  
   supercell = anharmonic_data%anharmonic_supercell
-  
-  call print_line('Copied supercell')
   
   ! Generate the single-subspace potentials {V_i}, defined as
   !    V_i = (prod_{j/=i}<j|)V(prod_{j/=i}|j>).
   subspace_states = PolynomialState(states,basis)
-  call print_line('Generated polynomial states')
+  call print_line('Generating single-subspace potentials.')
   subspace_potentials = generate_subspace_potentials( potential,       &
                                                     & subspace_states, &
                                                     & anharmonic_data  )
   
-  call print_line('Generated subspace potentials')
-  
+  call print_line('Generating single-subspace ground states.')
   allocate( ground_states(size(states)), &
           & energies(size(states)),      &
           & stat=ialloc); call err(ialloc)
@@ -175,35 +170,26 @@ function update(states,basis,potential,anharmonic_data) result(output)
     allocate( wavevector_ground_states(size(basis(i))), &
             & stat=ialloc); call err(ialloc)
     do j=1,size(basis(i))
-      ! Calculate the Hamiltonian in terms of the (non-orthonormal) states.
+      ! Calculate the Hamiltonian in the harmonic basis.
       allocate( hamiltonian( size(basis(i)%wavevectors(j)),    &
               &              size(basis(i)%wavevectors(j))  ), &
               & stat=ialloc); call err(ialloc)
+      hamiltonian = 0.0_dp
       do k=1,size(basis(i)%wavevectors(j))
-        do l=1,size(basis(i)%wavevectors(j))
-          bra = basis(i)%wavevectors(j)%monomial_states(k)
-          ket = basis(i)%wavevectors(j)%monomial_states(l)
-          hamiltonian(l,k) = subspace_potentials(i)%potential_energy(   &
-                         &                            bra,              &
-                         &                            ket,              &
-                         &                            anharmonic_data ) &
-                         & + kinetic_energy( bra,                       &
-                         &                   ket,                       &
-                         &                   subspace,                  &
-                         &                   supercell )
+        bra = basis(i)%wavevectors(j)%harmonic_states(k)
+        do l=1,size(basis(i)%wavevectors(j)%harmonic_couplings(k))
+          m = basis(i)%wavevectors(j)%harmonic_couplings(k)%id(l)
+          ket = basis(i)%wavevectors(j)%harmonic_states(m)
+          hamiltonian(k,m) = subspace_potentials(i)%potential_energy( &
+                         &                           bra,             &
+                         &                           ket,             &
+                         &                           anharmonic_data) &
+                         & + kinetic_energy(bra, ket, subspace, supercell)
         enddo
       enddo
       
-      ! Convert the Hamiltonian into an orthonormal basis.
-      hamiltonian = &
-         & basis(i)%wavevectors(j)%hamiltonian_states_to_basis(hamiltonian)
-      
-      call print_line('Constructed Hamiltonian')
-      
       ! Diagonalise Hamiltonian to get new ground state.
       estuff = diagonalise_symmetric(hamiltonian)
-      
-      call print_line('Diagonalised Hamiltonian')
       
       ! Store the ground state at this wavevector in the
       !    wavevector-by-wavevector array.
@@ -222,11 +208,12 @@ function update(states,basis,potential,anharmonic_data) result(output)
       j = first(is_int(basis(i)%wavevectors%wavevector))
     endif
     
+    coefficients = wavevector_ground_states(j)%evec
+    energies(i) = wavevector_ground_states(j)%eval
     ground_states(i) = VscfGroundState(                     &
        & subspace_id  = basis(i)%subspace_id,               &
        & wavevector   = basis(i)%wavevectors(j)%wavevector, &
-       & coefficients = wavevector_ground_states(j)%evec    )
-    energies(i) = wavevector_ground_states(j)%eval
+       & coefficients = coefficients                        )
     
     deallocate(wavevector_ground_states, stat=ialloc); call err(ialloc)
   enddo

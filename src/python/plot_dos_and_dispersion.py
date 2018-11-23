@@ -26,8 +26,8 @@ def main():
   # Check if a temperatures.dat file exists.
   temperatures = []
   directories = []
-  if os.path.isfile('temperatures.dat'):
-    file_name = 'temperatures.dat'
+  file_name = 'temperatures.dat'
+  if os.path.isfile(file_name):
     temperature_file = [line.rstrip('\n').split() for line in open(file_name)]
     for i,line in enumerate(temperature_file[1:]):
       temperatures.append(float(line[0]))

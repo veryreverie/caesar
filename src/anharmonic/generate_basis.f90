@@ -1,11 +1,17 @@
 ! ======================================================================
 ! Generates a basis of states which span each degenerate subspace.
 ! ======================================================================
-! The states are products single-mode states, of the form a(u_i)^(n_i)|0>.
-! The state |0> is the ground state of an effective harmonic potential,
-!    with harmonic frequencies chosen such that the energy of |0> w.r.t. the
-!    anharmonic potential is minimised.
-! N.B. these states are normalised, but they are NOT orthogonal.
+! The states are products single- and double-mode states.
+! The single-mode states are in two forms:
+!    - monomial states: (u_i)^(n_i)|0>.
+!    - harmonic states: (a'_i)^(n_i)|0>.
+! The double-mode states are in two forms:
+!    - monomial states: (u_i)^(n_i)(u_j)^(n_j)|0,0>.
+!    - harmonic states: (a'_i)^(n_i)(a'_j)^(n_j)|0,0>.
+! In both cases, the states |0> and |0,0> are the ground states of an
+!    effective harmonic potential with harmonic frequencies chosen such that
+!    the energy of |0> and |0,0>  w.r.t. the anharmonic potential is minimised.
+! N.B. the monomial states are normalised, but they are NOT orthogonal.
 module generate_basis_module
   use common_module
   
@@ -135,14 +141,14 @@ function generate_basis(potential,anharmonic_data,frequency_convergence, &
   ! Use calculated effective harmonic frequencies to generate bases.
   allocate(output(size(subspaces)), stat=ialloc); call err(ialloc)
   do i=1,size(subspaces)
-    output(i) = generate_subspace_basis(           &
-       & subspaces(i),                             &
-       & frequencies(i),                           &
-       & anharmonic_data%complex_modes,            &
-       & anharmonic_data%qpoints,                  &
-       & anharmonic_data%anharmonic_supercell,     &
-       & no_basis_states-1,                        &
-       & anharmonic_data%potential_expansion_order )
+    output(i) = SubspaceBasis( subspaces(i),                              &
+                             & frequencies(i),                            &
+                             & anharmonic_data%complex_modes,             &
+                             & anharmonic_data%qpoints,                   &
+                             & anharmonic_data%anharmonic_supercell,      &
+                             & no_basis_states-1,                         &
+                             & anharmonic_data%potential_expansion_order, &
+                             & anharmonic_data%structure%symmetries       )
   enddo
 end function
 

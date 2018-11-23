@@ -9,6 +9,7 @@ module braket_module
   
   use subspace_state_module
   use monomial_state_module
+  use harmonic_state_module
   use polynomial_state_module
   implicit none
   
@@ -20,6 +21,7 @@ module braket_module
   
   interface braket
     module procedure braket_SubspaceStates
+    module procedure braket_SubspaceStates_ComplexUnivariate
     module procedure braket_SubspaceStates_ComplexMonomial
     module procedure braket_SubspaceStates_ComplexPolynomial
   end interface
@@ -46,9 +48,49 @@ impure elemental function braket_SubspaceStates(bra,ket) result(output)
     class default
       call err()
     end select
+  type is(HarmonicState)
+    select type(ket); type is(HarmonicState)
+      output = braket_HarmonicState(bra,ket)
+    class default
+      call err()
+    end select
   type is(PolynomialState)
     select type(ket); type is(PolynomialState)
       output = braket_PolynomialState(bra,ket)
+    class default
+      call err()
+    end select
+  class default
+    call err()
+  end select
+end function
+
+impure elemental function braket_SubspaceStates_ComplexUnivariate(bra,ket, &
+   & univariate,subspace,supercell) result(output)
+  implicit none
+  
+  class(SubspaceState),     intent(in) :: bra
+  class(SubspaceState),     intent(in) :: ket
+  type(ComplexUnivariate),  intent(in) :: univariate
+  type(DegenerateSubspace), intent(in) :: subspace
+  type(StructureData),      intent(in) :: supercell
+  type(ComplexMonomial)                :: output
+  
+  select type(bra); type is(MonomialState)
+    select type(ket); type is(MonomialState)
+      output = braket_MonomialState(bra,ket,univariate,subspace,supercell)
+    class default
+      call err()
+    end select
+  type is(HarmonicState)
+    select type(ket); type is(HarmonicState)
+      output = braket_HarmonicState(bra,ket,univariate,subspace,supercell)
+    class default
+      call err()
+    end select
+  type is(PolynomialState)
+    select type(ket); type is(PolynomialState)
+      output = braket_PolynomialState(bra,ket,univariate,subspace,supercell)
     class default
       call err()
     end select
@@ -71,6 +113,12 @@ impure elemental function braket_SubspaceStates_ComplexMonomial(bra,ket, &
   select type(bra); type is(MonomialState)
     select type(ket); type is(MonomialState)
       output = braket_MonomialState(bra,ket,monomial,subspace,supercell)
+    class default
+      call err()
+    end select
+  type is(HarmonicState)
+    select type(ket); type is(HarmonicState)
+      output = braket_HarmonicState(bra,ket,monomial,subspace,supercell)
     class default
       call err()
     end select
@@ -119,6 +167,12 @@ impure elemental function kinetic_energy_SubspaceStates(bra,ket,subspace, &
     class default
       call err()
     end select
+  type is(HarmonicState)
+    select type(ket); type is(HarmonicState)
+      output = kinetic_energy_HarmonicState(bra,ket,subspace,supercell)
+    class default
+      call err()
+    end select
   type is(PolynomialState)
     select type(ket); type is(PolynomialState)
       output = kinetic_energy_PolynomialState(bra,ket,subspace,supercell)
@@ -143,6 +197,15 @@ impure elemental function harmonic_potential_energy_SubspaceStates(bra,ket, &
   select type(bra); type is(MonomialState)
     select type(ket); type is(MonomialState)
       output = harmonic_potential_energy_MonomialState( bra,      &
+                                                      & ket,      &
+                                                      & subspace, &
+                                                      & supercell )
+    class default
+      call err()
+    end select
+  type is(HarmonicState)
+    select type(ket); type is(HarmonicState)
+      output = harmonic_potential_energy_HarmonicState( bra,      &
                                                       & ket,      &
                                                       & subspace, &
                                                       & supercell )

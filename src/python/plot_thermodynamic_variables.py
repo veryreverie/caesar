@@ -4,6 +4,7 @@ import scipy.stats
 import numpy as np
 import operator
 from matplotlib import rc
+import os.path
 
 rc('font', **{'family':'serif','serif':['sffamily']})
 rc('text', usetex=True)
@@ -23,18 +24,25 @@ def main():
     'grey'     :[179/255,179/255,179/255]}
   
   # Read in data.
-  file_name = 'thermodynamic_variables.dat'
-  variables_file = [line.rstrip('\n').split() for line in open(file_name)]
-  thermal_energies = []
-  energies = []
-  free_energies = []
-  entropies = []
-  for line in variables_file[1:]:
-    thermal_energies.append(float(line[0]))
-    energies.append(float(line[1]))
-    free_energies.append(float(line[2]))
-    entropies.append(float(line[3]))
+  names = ['vscha_', 'vscf_', 'uninterpolated_', '']
+  dashes = [[5,5], [10,2], [6,2,2,2], [1,0]]
   
+  data = []
+  for name,dash in zip(names,dashes):
+    file_name = name+'thermodynamic_variables.dat'
+    if os.path.isfile(file_name):
+      data.append({'name':name})
+      variables_file = [line.rstrip('\n').split() for line in open(file_name)]
+      data[-1]['dashes'] = dash
+      data[-1]['thermal energies'] = []
+      data[-1]['energies'] = []
+      data[-1]['free energies'] = []
+      data[-1]['entropies'] = []
+      for line in variables_file[1:]:
+        data[-1]['thermal energies'].append(float(line[0]))
+        data[-1]['energies'].append(float(line[1]))
+        data[-1]['free energies'].append(float(line[2]))
+        data[-1]['entropies'].append(float(line[3]))
   # Plot everything.
   fig, ax_grid = plt.subplots(2,
                               1,
@@ -48,25 +56,43 @@ def main():
                       'b':ax_grid[1],
                       'r':ax_grid[1].twinx(),
                       't':ax_grid[1].twiny()} }
-  axes['energy']['l'].plot(thermal_energies,
-                           energies,
-                           linewidth=2,
-                           color=colours['turquoise'])
-  axes['energy']['l'].plot(thermal_energies,
-                           free_energies,
-                           linewidth=2,
-                           color=colours['orange'])
-  axes['entropy']['l'].plot(thermal_energies,
-                            entropies,
-                            linewidth=2,
-                            color=colours['purple'])
+  
+  xmin_hartree = None
+  xmax_hartree = None
+  ymin_shannon = None
+  ymax_shannon = None
+  
+  for datum in data:
+    axes['energy']['l'].plot(datum['thermal energies'],
+                             datum['energies'],
+                             linewidth=1,
+                             dashes=datum['dashes'],
+                             color=colours['turquoise'])
+    axes['energy']['l'].plot(datum['thermal energies'],
+                             datum['free energies'],
+                             linewidth=1,
+                             dashes=datum['dashes'],
+                             color=colours['orange'])
+    axes['entropy']['l'].plot(datum['thermal energies'],
+                              datum['entropies'],
+                              linewidth=1,
+                              dashes=datum['dashes'],
+                              color=colours['purple'])
+    if xmin_hartree == None:
+      xmin_hartree = datum['thermal energies'][0]
+      xmax_hartree = datum['thermal energies'][-1]
+      ymin_shannon = min(datum['entropies'])
+      ymax_shannon = max(datum['entropies'])
+    else:
+      xmin_hartree = min(xmin_hartree, datum['thermal energies'][0])
+      xmax_hartree = max(xmax_hartree, datum['thermal energies'][-1])
+      ymin_shannon = min(ymin_shannon, min(datum['entropies']))
+      ymax_shannon = max(ymax_shannon, max(datum['entropies']))
   
   kb_in_ev_per_k = 8.6173303e-5
-  ev_per_rydberg = 13.605693009
-  kb_in_au = kb_in_ev_per_k / ev_per_rydberg
+  ev_per_hartree = 27.21138602
+  kb_in_au = kb_in_ev_per_k / ev_per_hartree
   
-  xmin_hartree = thermal_energies[0]
-  xmax_hartree = thermal_energies[-1]
   xmin_kelvin  = xmin_hartree/kb_in_au
   xmax_kelvin  = xmax_hartree/kb_in_au
   axes['energy']['b'].set_xlim(xmin_hartree,xmax_hartree)
@@ -91,8 +117,6 @@ def main():
     ax.spines['left'].set_color(colours['turquoise'])
     ax.spines['right'].set_color(colours['orange'])
   
-  ymin_shannon = min(entropies)
-  ymax_shannon = max(entropies)
   ymin_gibbs   = ymin_shannon * kb_in_au
   ymax_gibbs   = ymax_shannon * kb_in_au
   axes['entropy']['l'].set_ylim(ymin_shannon,ymax_shannon)

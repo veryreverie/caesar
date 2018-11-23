@@ -119,6 +119,7 @@ module complex_polynomial_module
   
   interface ComplexMonomial
     module procedure new_ComplexMonomial
+    module procedure new_ComplexMonomial_ComplexMonomialable
     module procedure new_ComplexMonomial_String
   end interface
   
@@ -142,6 +143,7 @@ module complex_polynomial_module
   
   interface ComplexPolynomial
     module procedure new_ComplexPolynomial
+    module procedure new_ComplexPolynomial_ComplexPolynomialable
     module procedure new_ComplexPolynomial_String
   end interface
   
@@ -323,6 +325,15 @@ function new_ComplexMonomial(coefficient,modes) result(this)
   this%modes_      = modes(sort(modes%id))
 end function
 
+function new_ComplexMonomial_ComplexMonomialable(input) result(this)
+  implicit none
+  
+  class(ComplexMonomialable), intent(in) :: input
+  type(ComplexMonomial)                  :: this
+  
+  this = input%to_ComplexMonomial()
+end function
+
 function new_ComplexPolynomial(terms) result(this)
   implicit none
   
@@ -330,6 +341,15 @@ function new_ComplexPolynomial(terms) result(this)
   type(ComplexPolynomial)           :: this
   
   this%terms = terms
+end function
+
+function new_ComplexPolynomial_ComplexPolynomialable(input) result(this)
+  implicit none
+  
+  class(ComplexPolynomialable), intent(in) :: input
+  type(ComplexPolynomial)                  :: this
+  
+  this = input%to_ComplexPolynomial()
 end function
 
 ! ----------------------------------------------------------------------

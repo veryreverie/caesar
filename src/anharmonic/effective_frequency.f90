@@ -36,27 +36,18 @@ function calculate_effective_frequency(potential,subspace,anharmonic_data,   &
   integer,                  intent(in) :: no_converged_calculations
   real(dp)                             :: output
   
-  real(dp)            :: frequency
-  type(SubspaceBasis) :: basis
-  real(dp)            :: frequencies(3)
-  real(dp)            :: free_energies(3)
-  real(dp)            :: first_derivative
-  real(dp)            :: second_derivative
+  real(dp) :: frequency
+  real(dp) :: frequencies(3)
+  real(dp) :: free_energies(3)
+  real(dp) :: first_derivative
+  real(dp) :: second_derivative
   
   real(dp), allocatable :: iteration_frequencies(:)
   real(dp), allocatable :: iteration_free_energies(:)
   
-  integer :: i,j
+  integer :: i,j,ialloc
   
-  ! Generate the harmonic basis at the initial frequency.
   frequency = initial_frequency
-  basis = generate_subspace_basis( subspace,                                 &
-                                 & frequency,                                &
-                                 & anharmonic_data%complex_modes,            &
-                                 & anharmonic_data%qpoints,                  &
-                                 & anharmonic_data%anharmonic_supercell,     &
-                                 & no_basis_states-1,                        &
-                                 & anharmonic_data%potential_expansion_order )
   
   iteration_frequencies = [frequency]
   iteration_free_energies = [real(dp)::]
@@ -69,12 +60,12 @@ function calculate_effective_frequency(potential,subspace,anharmonic_data,   &
     
     ! Calculate[F(w-dw), F(w), F(w+dw)].
     do j=1,3
-      call basis%set_frequency(frequencies(j))
       free_energies(j) = calculate_free_energy( potential,       &
-                                              & basis,           &
+                                              & frequency,       &
+                                              & thermal_energy,  &
+                                              & no_basis_states, &
                                               & subspace,        &
-                                              & anharmonic_data, &
-                                              & thermal_energy   )
+                                              & anharmonic_data  )
     enddo
     
     ! Append the free energy F(w) to the array of free energies.
@@ -139,83 +130,48 @@ end function
 !    Fv(h) = sum_i(Ph_i <ih|T+Vv|ih>) + KbT sum_i(Ph_i ln(Ph_i))
 !
 ! -> Fv(h) = Fh(h) + sum_i(Ph_i <ih|Vv-Vh|ih>)
-function calculate_free_energy(potential,basis,subspace,anharmonic_data, &
-   & thermal_energy) result(output)
+function calculate_free_energy(potential,frequency,thermal_energy,no_states, &
+   & subspace,anharmonic_data) result(output)
   implicit none
   
   class(PotentialData),     intent(in) :: potential
-  type(SubspaceBasis),      intent(in) :: basis
+  real(dp),                 intent(in) :: frequency
+  real(dp),                 intent(in) :: thermal_energy
+  integer,                  intent(in) :: no_states
   type(DegenerateSubspace), intent(in) :: subspace
   type(AnharmonicData),     intent(in) :: anharmonic_data
-  real(dp),                 intent(in) :: thermal_energy
   real(dp)                             :: output
   
-  type(StructureData)          :: supercell
-  real(dp)                     :: frequency
-  type(ThermodynamicVariables) :: harmonic_thermodynamics
-  real(dp)                     :: harmonic_free_energy
-  real(dp), allocatable        :: state_weights(:)
-  real(dp), allocatable        :: energy_difference(:,:)
-  type(MonomialState)          :: bra
-  type(MonomialState)          :: ket
-  real(dp)                     :: thermal_energy_difference
-  
-  integer :: no_states
-  
-  integer :: i,j,k,ialloc
+  type(StructureData)     :: supercell
+  type(ThermodynamicData) :: harmonic_thermodynamics
+  real(dp)                :: harmonic_free_energy
+  real(dp)                :: harmonic_potential_energy_expectation
+  real(dp)                :: anharmonic_potential_energy_expectation
   
   supercell = anharmonic_data%anharmonic_supercell
   
-  frequency = basis%frequency
-  
   ! Calculate the free energy per primitive cell
   !    of the harmonic system in the harmonic basis.
-  harmonic_thermodynamics = ThermodynamicVariables(thermal_energy, frequency)
-  harmonic_free_energy = size(subspace)                      &
-                     & * harmonic_thermodynamics%free_energy &
-                     & / supercell%sc_size
+  harmonic_thermodynamics = ThermodynamicData(thermal_energy, frequency)
+  harmonic_free_energy = harmonic_thermodynamics%free_energy &
+                     & * size(subspace)                      &
+                     & / real(supercell%sc_size,dp)
   
-  ! Calculate the thermal expectation of Vv-Vh.
-  thermal_energy_difference = 0
-  do i=1,size(basis)
-    ! Calculate Vv-Vh in monomial state co-ordinates.
-    no_states = size(basis%wavevectors(i))
-    allocate( energy_difference(no_states,no_states), &
-            & stat=ialloc); call err(ialloc)
-    do j=1,no_states
-      do k=1,no_states
-        bra = basis%wavevectors(i)%monomial_states(j)
-        ket = basis%wavevectors(i)%monomial_states(k)
-        energy_difference(k,j) = potential%potential_energy(   &
-                             &               bra,              &
-                             &               ket,              &
-                             &               anharmonic_data ) &
-                             & - harmonic_potential_energy(    &
-                             &                    bra,         &
-                             &                    ket,         &
-                             &                    subspace,    &
-                             &                    supercell )
-      enddo
-    enddo
-    
-    ! Transform Vv-Vh into the effective harmonic basis.
-    energy_difference = &
-       & basis%wavevectors(i)%hamiltonian_states_to_basis(energy_difference)
-    
-    ! Calculate the thermal weights, {Ph_i} of the harmonic states.
-    state_weights = calculate_state_weight(          &
-       & thermal_energy,                             &
-       & frequency,                                  &
-       & basis%wavevectors(i)%harmonic_occupations() )
-    
-    ! Calculate thermal expectation of Vv-Vh.
-    thermal_energy_difference =      &
-       &   thermal_energy_difference &
-       & + sum([( state_weights(j)*energy_difference(j,j), j=1, no_states )])
-    
-    deallocate(energy_difference, stat=ialloc); call err(ialloc)
-  enddo
+  ! Calculate <V> for the harmonic and anharmonic potentials.
   
-  output = harmonic_free_energy + thermal_energy_difference
+  ! U = <V> + <T>. Under the harmonic approximation, <V>=<T>, so <V>=U/2.
+  harmonic_potential_energy_expectation = harmonic_thermodynamics%energy &
+                                      & * size(subspace)                 &
+                                      & / (2.0_dp * real(supercell%sc_size,dp))
+  anharmonic_potential_energy_expectation =            &
+     & potential%harmonic_expectation( frequency,      &
+     &                                 thermal_energy, &
+     &                                 no_states,      &
+     &                                 subspace,       &
+     &                                 anharmonic_data )
+  
+  output = harmonic_free_energy                  &
+       & - harmonic_potential_energy_expectation &
+       & + anharmonic_potential_energy_expectation
 end function
 end module

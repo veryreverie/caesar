@@ -1,8 +1,8 @@
 ! ======================================================================
-! Calculates anharmonic states, using the potential calculated by
-!   calculate_potential.
+! Calculates single-subspace potentials and ground states
+!    from the potential calculated by calculate_potential.
 ! ======================================================================
-module calculate_states_module
+module calculate_vscf_potential_module
   use common_module
   
   use states_module
@@ -16,20 +16,21 @@ module calculate_states_module
   
   private
   
-  public :: calculate_states
+  public :: calculate_vscf_potential
 contains
 
 ! ----------------------------------------------------------------------
 ! Generates keywords and helptext.
 ! ----------------------------------------------------------------------
-function calculate_states() result(output)
+function calculate_vscf_potential() result(output)
   implicit none
   
   type(CaesarMode) :: output
   
-  output%mode_name = 'calculate_states'
-  output%description = 'Calculates anharmonic states using VSCF. Should be &
-     &run after calculate_potential.'
+  output%mode_name = 'calculate_vscf_potential'
+  output%description = 'Uses VSCF to split the anharmonic potential into a &
+     &sum of single-subspace potentials. Should be run after &
+     &calculate_potential.'
   output%keywords = [                                                         &
      & KeywordData( 'frequency_convergence',                                  &
      &              'frequency_convergence is the precision to which &
@@ -59,13 +60,13 @@ function calculate_states() result(output)
      & KeywordData( 'no_basis_states',                                        &
      &              'no_basis states is the number of states along each mode &
      &in the basis.')                                                         ]
-  output%main_subroutine => calculate_states_subroutine
+  output%main_subroutine => calculate_vscf_potential_subroutine
 end function
 
 ! ----------------------------------------------------------------------
 ! Main program.
 ! ----------------------------------------------------------------------
-subroutine calculate_states_subroutine(arguments)
+subroutine calculate_vscf_potential_subroutine(arguments)
   implicit none
   
   type(Dictionary), intent(in) :: arguments
@@ -117,8 +118,6 @@ subroutine calculate_states_subroutine(arguments)
   potential_file = IFile('potential.dat')
   potential = PotentialPointer(potential_file%lines())
   
-  call print_line('Inputs read.')
-  
   ! --------------------------------------------------
   ! Generate basis states by generating effective harmonic potential.
   ! --------------------------------------------------
@@ -132,8 +131,6 @@ subroutine calculate_states_subroutine(arguments)
   basis_file = OFile('basis.dat')
   call basis_file%print_lines(basis, separating_line='')
   
-  call print_line('Basis generated.')
-  
   ! --------------------------------------------------
   ! Run VSCF to generate single-subspace potentials and ground states.
   ! --------------------------------------------------
@@ -145,8 +142,6 @@ subroutine calculate_states_subroutine(arguments)
                                   & pre_pulay_iterations,      &
                                   & pre_pulay_damping,         &
                                   & anharmonic_data            )
-  
-  call print_line('VSCF run.')
   
   subspace_potentials = potentials_and_states%potential
   subspace_potentials_file = OFile('subspace_potentials.dat')

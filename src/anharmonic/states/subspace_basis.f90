@@ -4,7 +4,10 @@
 module subspace_basis_module
   use common_module
   
+  use subspace_state_module
+  use state_helper_module
   use monomial_state_module
+  use harmonic_state_module
   use braket_module
   use state_conversion_module
   use wavevector_basis_module
@@ -14,7 +17,6 @@ module subspace_basis_module
   
   public :: SubspaceBasis
   public :: size
-  public :: generate_subspace_basis
   
   ! All states spanning the subspace.
   type, extends(Stringsable) :: SubspaceBasis
@@ -28,6 +30,7 @@ module subspace_basis_module
     integer  :: subspace_id
     real(dp) :: frequency
     ! The states, wavevector by wavevector.
+    ! N.B. this only includes one wavevector from each symmetry-related set.
     type(WavevectorBasis), allocatable :: wavevectors(:)
   contains
     ! Set the frequency of the basis.
@@ -40,6 +43,7 @@ module subspace_basis_module
   
   interface SubspaceBasis
     module procedure new_SubspaceBasis
+    module procedure new_SubspaceBasis_subspace
     module procedure new_SubspaceBasis_Strings
     module procedure new_SubspaceBasis_StringArray
   end interface
@@ -88,9 +92,10 @@ impure elemental subroutine set_frequency_SubspaceBasis(this,frequency)
   call this%wavevectors%set_frequency(frequency)
 end subroutine
 
-! Generates states up to a given power.
-function generate_subspace_basis(subspace,frequency,modes,qpoints, &
-   & supercell,maximum_power,potential_expansion_order) result(output)
+! Generates states up to a given power, spanning the whole subspace.
+function new_SubspaceBasis_subspace(subspace,frequency,modes,qpoints, &
+   & supercell,maximum_power,potential_expansion_order,symmetries)    &
+   & result(output)
   implicit none
   
   type(DegenerateSubspace), intent(in) :: subspace
@@ -100,19 +105,18 @@ function generate_subspace_basis(subspace,frequency,modes,qpoints, &
   type(StructureData),      intent(in) :: supercell
   integer,                  intent(in) :: maximum_power
   integer,                  intent(in) :: potential_expansion_order
+  type(SymmetryOperator),   intent(in) :: symmetries(:)
   type(SubspaceBasis)                  :: output
   
   type(WavevectorBasis), allocatable :: wavevectors(:)
   
-  integer :: i,j,k
-  real(dp), allocatable :: brakets(:,:)
-  
-  wavevectors = generate_subspace_basis_states( subspace,                 &
-                                              & frequency,                &
-                                              & modes,                    &
-                                              & qpoints,                  &
-                                              & maximum_power,            &
-                                              & potential_expansion_order )
+  wavevectors = WavevectorBasis( subspace,                  &
+                               & frequency,                 &
+                               & modes,                     &
+                               & qpoints,                   &
+                               & maximum_power,             &
+                               & potential_expansion_order, &
+                               & symmetries                 )
   
   output = SubspaceBasis( maximum_power,             &
                         & potential_expansion_order, &

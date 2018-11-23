@@ -179,6 +179,7 @@ impure elemental function str_real(input,settings) result(output)
   
   type(PrintSettings)       :: print_settings
   integer                   :: real_width
+  type(String)              :: exponent_format
   type(String)              :: format_string
   character(:), allocatable :: real_string
   integer                   :: ialloc
@@ -194,11 +195,13 @@ impure elemental function str_real(input,settings) result(output)
     ! - One character for the decimal point.
     ! - Five characters for the trailing 'E+~~~' or 'E-~~~'.
     real_width = print_settings%decimal_places + 8
+    exponent_format = 'e3'
   elseif (print_settings%floating_point_format=='f') then
     ! - One character for the leading '-' or ' '.
     real_width = print_settings%decimal_places &
              & + print_settings%integer_digits &
              & + 2
+    exponent_format = ''
   else
     call err()
   endif
@@ -208,6 +211,7 @@ impure elemental function str_real(input,settings) result(output)
                 & str(real_width)                      // &
                 & '.'                                  // &
                 & str(print_settings%decimal_places)   // &
+                & exponent_format                      // &
                 & ")"
   
   allocate( character(real_width) :: real_string, &
@@ -228,6 +232,7 @@ impure elemental function str_complex(input,settings) result(output)
   type(PrintSettings)       :: print_settings
   integer                   :: real_width
   integer                   :: imag_width
+  type(String)              :: exponent_format
   type(String)              :: format_string
   character(:), allocatable :: complex_string
   integer                   :: ialloc
@@ -240,24 +245,26 @@ impure elemental function str_complex(input,settings) result(output)
   
   if (print_settings%floating_point_format=='es') then
     real_width = print_settings%decimal_places + 8
-    imag_width = real_width - 1
+    imag_width = real_width
+    exponent_format = 'e3'
   elseif (print_settings%floating_point_format=='f') then
     real_width = print_settings%decimal_places &
              & + print_settings%integer_digits &
              & + 2
     imag_width = real_width
+    exponent_format = ''
   else
     call err()
   endif
   
-  format_string =                                                       &
-     & '('                                                           // &
-     & print_settings%floating_point_format                          // &
-     & str(real_width)//'.'//str(print_settings%decimal_places) //','// &
-     & 'sp'                                                     //','// &
-     & print_settings%floating_point_format                          // &
-     & str(imag_width)//'.'//str(print_settings%decimal_places) //','// &
-     & '"i"'                                                         // &
+  format_string =                                                    &
+     & '('                                                        // &
+     & print_settings%floating_point_format//str(real_width) //'.'// &
+     & str(print_settings%decimal_places)//exponent_format   //','// &
+     & 'sp'                                                  //','// &
+     & print_settings%floating_point_format//str(imag_width) //'.'// &
+     & str(print_settings%decimal_places)//exponent_format   //','// &
+     & '"i"'                                                      // &
      & ')'
   
   allocate( character(real_width+imag_width+1) :: complex_string, &

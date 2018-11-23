@@ -8,7 +8,7 @@ module harmonic_properties_module
   use structure_module
   use dynamical_matrices_module
   
-  use harmonic_thermodynamics_module
+  use thermodynamic_data_module
   implicit none
   
   private
@@ -20,7 +20,6 @@ module harmonic_properties_module
   public :: PathFrequencies
   public :: SampledQpoint
   public :: PdosBin
-  public :: ThermodynamicData
   
   ! The major points along the q-point path.
   type, extends(Stringsable) :: QpointPath
@@ -80,22 +79,6 @@ module harmonic_properties_module
   interface PdosBin
     module procedure new_PdosBin
     module procedure new_PdosBin_String
-  end interface
-  
-  ! The thermodynamic variables at a given temperature.
-  type, extends(Stringable) :: ThermodynamicData
-    real(dp) :: thermal_energy
-    real(dp) :: energy
-    real(dp) :: free_energy
-    real(dp) :: entropy
-  contains
-    procedure, public :: read  => read_ThermodynamicData
-    procedure, public :: write => write_ThermodynamicData
-  end type
-  
-  interface ThermodynamicData
-    module procedure new_ThermodynamicData
-    module procedure new_ThermodynamicData_String
   end interface
   
   ! Return types.
@@ -171,22 +154,6 @@ impure elemental function new_PdosBin(min_frequency,max_frequency,occupation) &
   this%min_frequency = min_frequency
   this%max_frequency = max_frequency
   this%occupation = occupation
-end function
-
-impure elemental function new_ThermodynamicData(thermal_energy,energy, &
-   & free_energy,entropy) result(this)
-  implicit none
-  
-  real(dp), intent(in)    :: thermal_energy
-  real(dp), intent(in)    :: energy
-  real(dp), intent(in)    :: free_energy
-  real(dp), intent(in)    :: entropy
-  type(ThermodynamicData) :: this
-  
-  this%thermal_energy = thermal_energy
-  this%energy = energy
-  this%free_energy = free_energy
-  this%entropy = entropy
 end function
 
 function new_PhononDispersion(path,frequencies) result(this)
@@ -366,15 +333,15 @@ function new_PhononDos_CartesianHessian(supercell,min_images,hessian,        &
   type(PdosBin),           allocatable :: pdos(:)
   
   ! Working variables.
-  type(RealVector)                          :: qpoint
-  type(DynamicalMatrix)                     :: dyn_mat
-  real(dp)                                  :: frequency
-  integer,                      allocatable :: no_frequencies_ignored(:)
-  type(ThermodynamicVariables), allocatable :: thermodynamics(:)
+  type(RealVector)                     :: qpoint
+  type(DynamicalMatrix)                :: dyn_mat
+  real(dp)                             :: frequency
+  integer,                 allocatable :: no_frequencies_ignored(:)
+  type(ThermodynamicData), allocatable :: thermodynamics(:)
   
   ! Temporary variables.
   integer :: bin
-  integer :: i,j,ialloc
+  integer :: i,j,k,ialloc
   
   ! Set parameters for calculation.
   no_bins       = no_dos_samples/100
@@ -462,7 +429,10 @@ function new_PhononDos_CartesianHessian(supercell,min_images,hessian,        &
       if (frequency<min_frequency) then
         no_frequencies_ignored(i) = no_frequencies_ignored(i) + 1
       else
-        thermodynamics = ThermodynamicVariables(thermal_energies,frequency)
+        thermodynamics = [( ThermodynamicData( thermal_energies(k),    &
+                          &                    frequency            ), &
+                          & k=1,                                       &
+                          & size(thermal_energies)                     )]
         energy = energy + thermodynamics%energy
         free_energy = free_energy + thermodynamics%free_energy
         entropy = entropy + thermodynamics%entropy
@@ -666,57 +636,6 @@ function new_SampledQpoint_String(input) result(this)
   
   type(String), intent(in) :: input
   type(SampledQpoint)      :: this
-  
-  call this%read(input)
-end function
-
-subroutine read_ThermodynamicData(this,input)
-  implicit none
-  
-  class(ThermodynamicData), intent(out) :: this
-  type(String),             intent(in)  :: input
-  
-  real(dp) :: thermal_energy
-  real(dp) :: energy
-  real(dp) :: free_energy
-  real(dp) :: entropy
-  
-  type(String), allocatable :: line(:)
-  
-  select type(this); type is(ThermodynamicData)
-    line = split_line(input)
-    thermal_energy = dble(line(1))
-    energy = dble(line(2))
-    free_energy = dble(line(3))
-    entropy = dble(line(4))
-    
-    this = ThermodynamicData(thermal_energy,energy,free_energy,entropy)
-  class default
-    call err()
-  end select
-end subroutine
-
-function write_ThermodynamicData(this) result(output)
-  implicit none
-  
-  class(ThermodynamicData), intent(in) :: this
-  type(String)                         :: output
-  
-  select type(this); type is(ThermodynamicData)
-    output = this%thermal_energy //' '// &
-           & this%energy         //' '// &
-           & this%free_energy    //' '// &
-           & this%entropy
-  class default
-    call err()
-  end select
-end function
-
-function new_ThermodynamicData_String(input) result(this)
-  implicit none
-  
-  type(String), intent(in) :: input
-  type(ThermodynamicData)  :: this
   
   call this%read(input)
 end function
