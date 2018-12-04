@@ -61,7 +61,7 @@ function calculate_effective_frequency(potential,subspace,anharmonic_data,   &
     ! Calculate[F(w-dw), F(w), F(w+dw)].
     do j=1,3
       free_energies(j) = calculate_free_energy( potential,       &
-                                              & frequency,       &
+                                              & frequencies(j),  &
                                               & thermal_energy,  &
                                               & no_basis_states, &
                                               & subspace,        &

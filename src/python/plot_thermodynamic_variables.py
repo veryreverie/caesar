@@ -25,8 +25,8 @@ def main():
     'grey'     :[179/255,179/255,179/255]}
   
   # Read in data.
-  names  = ['Interpolated VSCHA', 'VSCF1', 'VSCF2', 'Uninterpolated', '', 'Uninterpolated VSCHA', 'VSCHA/VSCF']
-  fnames = ['interpolated_vscha_', 'vscf', 'limited_vscha_vscf_', 'uninterpolated_', '', 'vscha_', 'vscha_vscf_']
+  names  = ['Interpolated VSCHA', 'VSCF', 'Limited Basis VSCHA/VSCF', 'Uninterpolated', 'Harmonic', 'Uninterpolated VSCHA', 'VSCHA/VSCF']
+  fnames = ['interpolated_vscha_', 'vscf_', 'limited_vscha_vscf_', 'uninterpolated_', '', 'vscha_', 'vscha_vscf_']
   dashes = [[5,1], [6,0], [3,1,1,1], [2,1,2,1], [1,1], [1,1,1,1,1,1], [1,2,1,2]]
   
   data = []
