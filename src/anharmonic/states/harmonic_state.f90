@@ -376,6 +376,8 @@ impure elemental function braket_mode_potential(bra,ket,potential) &
   
   integer :: p_i,p_j,q_i,q_j,n_i,n_j
   
+  integer :: m,d,a
+  
   integer :: k
   
   p_i = bra%power
@@ -385,53 +387,63 @@ impure elemental function braket_mode_potential(bra,ket,potential) &
   n_i = potential%power
   n_j = potential%paired_power
   
+  ! N.B. the expressions below for the overlap integrals are factored so that
+  !   factorials of p and q are avoided, replaced with binomial coefficients
+  !   with small denomianators. This allows for states with very large p and q
+  !   to be included.
+  ! It is expected that n is much smaller than p and q.
+  
   if (bra%id==bra%paired_id) then
-    ! <p_i|(u_i)^(n_i)|q_i> = 0                                   if p+n+q odd.
-    !                       = 0                                   if |p-q|>n.
-    !                       = 1/sqrt(2Nw)^{n_i}
-    !                       * n_i!sqrt(p_i!q_i!)
-    !                       * sum_{k=max(0,(n-p-q)/2)}^{(n-|p-q|)/2}
-    !                         [ 1 / I(p,n,q,k) ]
-    ! where I(p,n,q,k) = 2^k k! ((p-q+n)/2-k)! ((q-p+n)/2-k)! ((p+q-n)/2+k)!
+    ! I = <p_i|(u_i)^(n_i)|q_i)> = 0 if p+q+n is odd, or |p-q|>n.
+    ! Otherwise, defining m=min(p,q), d=|p-q|, and a=(n-d)/2,
+    ! I = sum_{k=0}^{min(a,m)}[ J(k) ]
+    ! J = n_i!
+    !   * sqrt(binomial(m,k)*binomial(m+d,k+d))
+    !   / ( sqrt(2Nw)^n_i * 2^(a-k) * (a-k)! * sqrt((d+k)!k!) )
     !
     ! N.B. the factor of 1/sqrt(2Nw)^{n_i} is neglected.
     output = 0
-    if (modulo(p_i+n_i+q_i,2)==0) then
-      do k=max(0,(n_i-p_i-q_i)/2),(n_i-abs(p_i-q_i))/2
-        output = output                            &
-             & + 1.0_dp                            &
-             & / ( 2**k                            &
-             &   * real_factorial(k)               &
-             &   * real_factorial((p_i-q_i+n_i)/2-k) &
-             &   * real_factorial((q_i-p_i+n_i)/2-k) &
-             &   * real_factorial((p_i+q_i-n_i)/2+k) )
+    m = min(p_i,q_i)
+    d = abs(p_i-q_i)
+    a = (n_i-d)/2
+    if (modulo(n_i-d,2)==0) then
+      do k=0,min(a,m)
+        output = output &
+             & + real_factorial(n_i)            &
+             & * sqrt( real_binomial(m,k)       &
+             &       * real_binomial(m+d,k+d) ) &
+             & / ( 2**(a-k)                     &
+             &   * real_factorial(a-k)          &
+             &   * sqrt( real_factorial(k)      &
+             &         * real_factorial(d+k) )  )
       enddo
-      output = output              &
-           & * real_factorial(n_i) &
-           & * sqrt(real_factorial(p_i)*real_factorial(q_i))
     endif
   else
-    ! <p_i,p_j|(u_i)^(n_i) (u_j)^(n_j)|q_i,q_j> =
-    !   = 0                                  if p_i-p_j-n_i+n_j-q_i+q_j /=0.
-    !   = 0                                  if p_i-q_i > n_i or p_j-q_j > n_j.
-    !   = 1/sqrt(2Nw)^{n_i+n_j}
-    !   * sqrt(p_i!q_i!/p_j!q_j!)
-    !   * sum_{k=max(p_i,q_i)}^{min(n_i+q_i,n_j+p_i,p_i+q_i)} I
-    ! where I = bin(n_i,k-q_i) bin(n_j,k-p_i) (p_j+n_i+q_i-k)!/(p_i+q_i-k)!
+    ! I = <p_i,p_j|(u_i)^(n_i)*(u_j)^(n_j)|q_i,q_j>.
+    ! I = 0 if p_i-p_j-n_i+n_j-q_i+q_j/=0.
+    ! Otherwise, I=sum_{k=max(0,p_i-q_i)}^{min(n_i,p_i,n_j+p_i-q_i)}[J]
+    ! J = binomial(p_j+n_i-k)
+    !   * sqrt( binomial(n_i,k)
+    !         * binomial(n_j,k+q_i-p_i)
+    !         * binomial(p_i,k)
+    !         * binomial(q_i,k+q_i-p_i)
+    !         * n_i!
+    !         * n_j!                    )
+    !  / sqrt(2Nw)^n_i
     !
     ! N.B. the factor of 1/sqrt(2Nq)^{n_i+n_j} is neglected.
-    ! N.B. the integral is invariant under i<->j, and under (p<->q,n_i<->n_j).
     output = 0
     if (p_i-p_j-n_i+n_j-q_i+q_j==0) then
-      do k=max(p_i,q_i),min(n_i+q_i,n_j+p_i,p_i+q_i)
-        output = output                        &
-             & + real_binomial(n_i,k-q_i)      &
-             & * real_binomial(n_j,k-p_i)      &
-             & * real_factorial(p_j+n_i+q_i-k) &
-             & / real_factorial(p_i+q_i-k)
+      do k=max(0,p_i-q_i),min(n_i,p_i,n_j+p_i-q_i)
+        output = output                             &
+             & + real_binomial(p_j+n_i-k,n_i-k)     &
+             & * sqrt( real_binomial(n_i,k)         &
+             &       * real_binomial(n_j,k+q_i-p_i) &
+             &       * real_binomial(p_i,k)         &
+             &       * real_binomial(q_i,k+q_i-p_i) &
+             &       * real_factorial(n_i)          &
+             &       * real_factorial(n_j)          )
       enddo
-      output = output * sqrt( (real_factorial(p_i)*real_factorial(q_i)) &
-                          & / (real_factorial(p_j)*real_factorial(q_j)) )
     endif
   endif
 end function
@@ -707,7 +719,7 @@ impure elemental function harmonic_expectation_mode(univariate,frequency, &
                              & thermal_energy, &
                              & frequency,      &
                              & i,              &
-                             & 1               )
+                             & 2               )
       do j=0,i
         state = ComplexUnivariate( id           = univariate%id,        &
                                  & power        = i-j,                  &

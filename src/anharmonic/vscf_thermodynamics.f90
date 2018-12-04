@@ -13,13 +13,15 @@ module vscf_thermodynamics_module
   private
   
   public :: EnergySpectrum
-  public :: calculate_vscha_spectrum
+  public :: calculate_vscha_thermodynamics
   public :: calculate_vscf_spectrum
   public :: VscfThermodynamics
   !public :: calculate_vscf_thermodynamics
   
   type, extends(NoDefaultConstructor) :: EnergySpectrum
-    real(dp), allocatable :: energies(:)
+    real(dp), allocatable :: vscf_energies(:)
+    real(dp), allocatable :: vscha_energies(:)
+    integer,  allocatable :: vscha_occupations(:)
   end type
   
   ! Return type.
@@ -27,65 +29,59 @@ module vscf_thermodynamics_module
     type(ThermodynamicData) :: vscha
     type(ThermodynamicData) :: vscf
   end type
+  
+  interface EnergySpectrum
+    module procedure new_EnergySpectrum
+  end interface
 contains
 
-! Calculates the energy spectrum of the VSCHA states.
-function calculate_vscha_spectrum(vscha_frequency,potential,subspace, &
-   & anharmonic_data,no_basis_states) result(output)
+function new_EnergySpectrum(vscf_energies,vscha_energies,vscha_occupations) &
+   & result(this)
+  implicit none
+  
+  real(dp), allocatable :: vscf_energies(:)
+  real(dp), allocatable :: vscha_energies(:)
+  integer,  allocatable :: vscha_occupations(:)
+  type(EnergySpectrum)  :: this
+  
+  this%vscf_energies = vscf_energies
+  this%vscha_energies = vscha_energies
+  this%vscha_occupations = vscha_occupations
+end function
+
+! Calculates VSCHA thermodynamics.
+function calculate_vscha_thermodynamics(vscha_frequency,potential,subspace, &
+   & anharmonic_data,no_vscha_basis_states,thermal_energy) result(output)
   implicit none
   
   real(dp),                 intent(in) :: vscha_frequency
   class(PotentialData),     intent(in) :: potential
   type(DegenerateSubspace), intent(in) :: subspace
   type(AnharmonicData),     intent(in) :: anharmonic_data
-  integer,                  intent(in) :: no_basis_states
-  type(EnergySpectrum)                 :: output(2)
+  integer,                  intent(in) :: no_vscha_basis_states
+  real(dp),                 intent(in) :: thermal_energy
+  type(ThermodynamicData)              :: output(2)
   
-  ! Variables for constructing the basis.
-  type(StructureData) :: supercell
-  type(SubspaceBasis) :: basis
+  real(dp) :: harmonic_potential_expectation
+  real(dp) :: anharmonic_potential_expectation
   
-  ! Variables for calculating and diaconalising the VSCF Hamiltonian.
-  integer                                :: no_states
-  type(HarmonicState)                    :: state
-  real(dp),                  allocatable :: energies_1(:)
-  real(dp),                  allocatable :: energies_2(:)
-  
-  integer :: i,j,k,l,ialloc
-  
-  supercell = anharmonic_data%anharmonic_supercell
-  
-  basis = SubspaceBasis( subspace,                                  &
-                       & vscha_frequency,                           &
-                       & anharmonic_data%complex_modes,             &
-                       & anharmonic_data%qpoints,                   &
-                       & anharmonic_data%anharmonic_supercell,      &
-                       & no_basis_states-1,                         &
-                       & anharmonic_data%potential_expansion_order, &
-                       & anharmonic_data%structure%symmetries       )
-  
-  ! Calculate corrections, subtracting the harmonic zero point energy.
-  output(1)%energies = [real::]
-  output(2)%energies = [real::]
-  do i=1,size(basis)
-    no_states = size(basis%wavevectors(i))
-    allocate( energies_1(no_states), &
-            & energies_2(no_states), &
-            & stat=ialloc); call err(ialloc)
-    do j=1,no_states
-      state = basis%wavevectors(i)%harmonic_states(j)
-      energies_1(j) = kinetic_energy(state,state,subspace,supercell) &
-                  & + harmonic_potential_energy(state,state,subspace,supercell)
-      energies_2(j) = kinetic_energy(state,state,subspace,supercell) &
-                  & + potential%potential_energy(state,state,anharmonic_data)
-    enddo
-    
-    do j=1,basis%wavevectors(i)%degeneracy
-      output(1)%energies = [output(1)%energies, energies_1]
-      output(2)%energies = [output(2)%energies, energies_2]
-    enddo
-    deallocate(energies_1, energies_2, stat=ialloc); call err(ialloc)
-  enddo
+  output(1) = ThermodynamicData(thermal_energy, vscha_frequency) &
+          & * size(subspace)                                     &
+          & / real(anharmonic_data%anharmonic_supercell%sc_size,dp)
+  harmonic_potential_expectation = output(1)%energy / 2
+  anharmonic_potential_expectation = potential%harmonic_expectation( &
+                                            & vscha_frequency,       &
+                                            & thermal_energy,        &
+                                            & no_vscha_basis_states, &
+                                            & subspace,              &
+                                            & anharmonic_data        )
+  output(2) = output(1)
+  output(2)%energy = output(2)%energy               &
+                 & - harmonic_potential_expectation &
+                 & + anharmonic_potential_expectation
+  output(2)%free_energy = output(2)%free_energy          &
+                      & - harmonic_potential_expectation &
+                      & + anharmonic_potential_expectation
 end function
 
 ! Calculates the energy spectrum of the VSCF states.
@@ -104,12 +100,16 @@ function calculate_vscf_spectrum(vscha_frequency,potential,subspace, &
   type(StructureData) :: supercell
   type(SubspaceBasis) :: basis
   
-  ! Variables for calculating and diaconalising the VSCF Hamiltonian.
+  ! Variables for calculating and diagonalising the VSCF Hamiltonian.
   integer                                :: no_states
   type(HarmonicState)                    :: bra
   type(HarmonicState)                    :: ket
   real(dp),                  allocatable :: hamiltonian(:,:)
   type(SymmetricEigenstuff), allocatable :: estuff(:)
+  
+  real(dp), allocatable :: vscf_energies(:)
+  real(dp), allocatable :: vscha_energies(:)
+  integer,  allocatable :: vscha_occupations(:)
   
   integer :: i,j,k,l,ialloc
   
@@ -124,8 +124,9 @@ function calculate_vscf_spectrum(vscha_frequency,potential,subspace, &
                        & anharmonic_data%potential_expansion_order, &
                        & anharmonic_data%structure%symmetries       )
   
-  ! Calculate corrections, subtracting the harmonic zero point energy.
-  output%energies = [real::]
+  vscf_energies = [real::]
+  vscha_energies = [real::]
+  vscha_occupations = [integer::]
   do i=1,size(basis)
     no_states = size(basis%wavevectors(i))
     allocate( hamiltonian(no_states,no_states), &
@@ -139,16 +140,126 @@ function calculate_vscf_spectrum(vscha_frequency,potential,subspace, &
         
         hamiltonian(j,l) = kinetic_energy(bra, ket, subspace, supercell) &
                        & + potential%potential_energy(bra,ket,anharmonic_data)
+        if (j==l) then
+          vscha_energies = [vscha_energies, hamiltonian(j,l)]
+          vscha_occupations = [vscha_occupations, bra%total_occupation()]
+        endif
       enddo
     enddo
     
     estuff = diagonalise_symmetric(hamiltonian)
     do j=1,basis%wavevectors(i)%degeneracy
-      output%energies = [output%energies, estuff%eval]
+      vscf_energies = [vscf_energies, estuff%eval]
     enddo
     deallocate(hamiltonian, stat=ialloc); call err(ialloc)
   enddo
+  
+  vscf_energies = vscf_energies * supercell%sc_size
+  vscha_energies = vscha_energies * supercell%sc_size
+  
+  output = EnergySpectrum(vscf_energies, vscha_energies, vscha_occupations)
 end function
+
+!function calculate_vscf_thermodynamics(vscf_frequency,potential,subspace, &
+!   & anharmonic_data,no_vscha_basis_states,thermal_energy,vscf_spectrum)  &
+!   & result(output)
+!  implicit none
+!  
+!  real(dp)                 :: vscf_frequency
+!  class(PotentialData)     :: potential
+!  type(DegenerateSubspace) :: subspace
+!  type(AnharmonicData)     :: anharmonic_data
+!  integer                  :: no_vscha_basis_states
+!  real(dp)                 :: thermal_energy
+!  type(EnergySpectrum)     :: vscf_spectrum
+!  type(ThermodynamicData)  :: output
+!  
+!  type(ThermodynamicData) :: vscha_thermodynamics(2)
+!  
+!  real(dp) :: vscha_zpe
+!  real(dp) :: vscf_zpe
+!  
+!  real(dp) :: z1
+!  real(dp) :: dz1
+!  real(dp) :: z2
+!  real(dp) :: dz2
+!  
+!  real(dp), allocatable :: boltzmann_factors(:)
+!  
+!  vscha_zpe = minval(vscf_spectrum%vscha_energies)
+!  vscf_zpe = minval(vscf_spectrum%vscf_energies)
+!  
+!  if (vscf_frequency > 690*thermal_energy) then
+!    ! Very low-temperature regime. exp(-690)<1e-300, below dp floating point.
+!    energy = vscf_zpe
+!    free_energy = vscf_zpe
+!    entropy = 0
+!  else
+!    vscha_thermodynamics = calculate_vscha_thermodynamics( &
+!                                  & vscf_frequency,        &
+!                                  & potential,             &
+!                                  & subspace,              &
+!                                  & anharmonic_data,       &
+!                                  & no_vscha_basis_states, &
+!                                  & thermal_energy         )
+!    
+!    ! z is the partition function.
+!    ! dz is -dz/d(1/T), the derivative of z w/r/t 1/T.
+!    
+!    ! Calculate z and dz for the VSCF potential with VSCHA states
+!    !    and weightings.
+!    !    F = zpe - T*ln(z)
+!    ! -> z = ln((zpe-F)/T)
+!    !
+!    !     U = zpe + dz/z
+!    ! -> dz = z(U-zpe)
+!    z1 = exp((vscha_zpe-vscha_thermodynamics(2)%free_energy)/thermal_energy)
+!    dz1 = z1*(vscha_thermodynamics(2)%energy-vscha_zpe)
+!    
+!    ! p_i = exp((zpe-E_i)/T)
+!    ! z = sum_i p_i
+!    ! dz = sum_i (E_i-zpe) p_i
+!    boltzmann_factors = [                                           &
+!       exp((vscha_zpe-vscf_spectrum%vscha_energies)/thermal_energy) ]
+!    z2 = sum(boltzmann_factors)
+!    dz2 = sum((vscf_spectrum%vscha_energies-vscha_zpe)*boltzmann_factors)
+!  enddo
+!  
+!  !type(ThermodynamicData) :: thermodynamic_data(4)
+!  !
+!  !real(dp) :: partition_functions(4)
+!  !real(dp) :: eps(4)
+!  !
+!  !real(dp) :: energy
+!  !real(dp) :: free_energy
+!  !real(dp) :: entropy
+!  !
+!  !integer :: i
+!  !
+!  !thermodynamic_data(1:2) = calculate_vscha_thermodynamics( &
+!  !                                 & vscf_frequency,        &
+!  !                                 & potential,             &
+!  !                                 & subspace,              &
+!  !                                 & anharmonic_data,       &
+!  !                                 & no_vscha_basis_states, &
+!  !                                 & thermal_energy         )
+!  !
+!  !thermodynamic_data(3) = ThermodynamicData( thermal_energy,           &
+!  !                                         & vscf_spectrum(1)%energies )
+!  !thermodynamic_data(4) = ThermodynamicData( thermal_energy,           &
+!  !                                         & vscf_spectrum(2)%energies )
+!  !do i=1,4
+!  !  ! TODO: zero_energy(i) = ...
+!  !  partitions_functions(i) = exp( -thermodynamic_data(i)%free_energy &
+!  !                             & /  thermal_energy                    )
+!  !  eps(i) = thermodynamic_data(i)%energy * partition_functions(i)
+!  !enddo
+!  !energy = 
+!  !free_energy = -thermal_energy*log(                                  &
+!  !   &   exp(-vscha_thermodynamic_data(2)%free_energy/thermal_energy) &
+!  !   & + exp(-vscf_thermodynamic_data(1)%free_energy/thermal_energy)  &
+!  !   & - exp(-vscf_thermodynamic_data(2)%free_energy/thermal_energy)  )
+!end function
 
 !function calculate_vscf_thermodynamics(vscha_frequency,potential,subspace, &
 !   & anharmonic_data,thermal_energy,no_basis_states) result(output)

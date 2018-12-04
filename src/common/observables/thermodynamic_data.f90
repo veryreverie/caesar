@@ -86,7 +86,6 @@ function new_ThermodynamicData_spectrum(thermal_energy,energies) result(output)
   
   real(dp), allocatable :: boltzmann_factors(:)
   real(dp)              :: partition_function
-  real(dp), allocatable :: thermal_weights(:)
   
   real(dp) :: energy
   real(dp) :: free_energy
@@ -102,8 +101,7 @@ function new_ThermodynamicData_spectrum(thermal_energy,energies) result(output)
     ! Normal temperature range.
     boltzmann_factors = [exp(-reduced_energies/thermal_energy)]
     partition_function = sum(boltzmann_factors)
-    thermal_weights = boltzmann_factors / partition_function
-    energy = sum(thermal_weights*reduced_energies)
+    energy = sum(boltzmann_factors*reduced_energies) / partition_function
     free_energy = -thermal_energy * log(partition_function)
     entropy = (energy-free_energy)/thermal_energy
   else

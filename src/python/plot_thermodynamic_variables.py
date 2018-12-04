@@ -4,6 +4,7 @@ import scipy.stats
 import numpy as np
 import operator
 from matplotlib import rc
+import matplotlib.lines as mlines
 import os.path
 
 rc('font', **{'family':'serif','serif':['sffamily']})
@@ -24,12 +25,13 @@ def main():
     'grey'     :[179/255,179/255,179/255]}
   
   # Read in data.
-  names = ['vscha_', 'vscf_', 'uninterpolated_', '']
-  dashes = [[5,5], [10,2], [6,2,2,2], [1,0]]
+  names  = ['Interpolated VSCHA', 'VSCF1', 'VSCF2', 'Uninterpolated', '', 'Uninterpolated VSCHA', 'VSCHA/VSCF']
+  fnames = ['interpolated_vscha_', 'vscf', 'limited_vscha_vscf_', 'uninterpolated_', '', 'vscha_', 'vscha_vscf_']
+  dashes = [[5,1], [6,0], [3,1,1,1], [2,1,2,1], [1,1], [1,1,1,1,1,1], [1,2,1,2]]
   
   data = []
-  for name,dash in zip(names,dashes):
-    file_name = name+'thermodynamic_variables.dat'
+  for name,fname,dash in zip(names,fnames,dashes):
+    file_name = fname+'thermodynamic_variables.dat'
     if os.path.isfile(file_name):
       data.append({'name':name})
       variables_file = [line.rstrip('\n').split() for line in open(file_name)]
@@ -44,9 +46,10 @@ def main():
         data[-1]['free energies'].append(float(line[2]))
         data[-1]['entropies'].append(float(line[3]))
   # Plot everything.
-  fig, ax_grid = plt.subplots(2,
+  fig, ax_grid = plt.subplots(3,
                               1,
-                              sharex=True)
+                              sharex=True,
+                              gridspec_kw={'height_ratios':[3,3,1]})
   
   axes = {'energy' : {'l':ax_grid[0],
                       'b':ax_grid[0],
@@ -55,11 +58,14 @@ def main():
           'entropy': {'l':ax_grid[1],
                       'b':ax_grid[1],
                       'r':ax_grid[1].twinx(),
-                      't':ax_grid[1].twiny()} }
+                      't':ax_grid[1].twiny()},
+          'legend':  ax_grid[2]}
   
   xmin_hartree = None
   xmax_hartree = None
-  ymin_shannon = None
+  ymin_hartree = None
+  ymax_hartree = None
+  ymin_shannon = 0
   ymax_shannon = None
   
   for datum in data:
@@ -68,7 +74,7 @@ def main():
                              linewidth=1,
                              dashes=datum['dashes'],
                              color=colours['turquoise'])
-    axes['energy']['l'].plot(datum['thermal energies'],
+    axes['energy']['r'].plot(datum['thermal energies'],
                              datum['free energies'],
                              linewidth=1,
                              dashes=datum['dashes'],
@@ -81,13 +87,21 @@ def main():
     if xmin_hartree == None:
       xmin_hartree = datum['thermal energies'][0]
       xmax_hartree = datum['thermal energies'][-1]
-      ymin_shannon = min(datum['entropies'])
+      ymin_hartree = min(datum['free energies'])
+      ymax_hartree = max(datum['energies'])
       ymax_shannon = max(datum['entropies'])
     else:
       xmin_hartree = min(xmin_hartree, datum['thermal energies'][0])
       xmax_hartree = max(xmax_hartree, datum['thermal energies'][-1])
-      ymin_shannon = min(ymin_shannon, min(datum['entropies']))
+      ymin_hartree = min(ymin_hartree, min(datum['free energies']))
+      ymax_hartree = max(ymax_hartree, max(datum['energies']))
       ymax_shannon = max(ymax_shannon, max(datum['entropies']))
+  
+  ydiff_hartree = ymax_hartree-ymin_hartree
+  ymin_hartree = ymin_hartree-0.05*ydiff_hartree
+  ymax_hartree = ymax_hartree+0.05*ydiff_hartree
+  
+  ymax_shannon = 1.1*ymax_shannon
   
   kb_in_ev_per_k = 8.6173303e-5
   ev_per_hartree = 27.21138602
@@ -97,6 +111,8 @@ def main():
   xmax_kelvin  = xmax_hartree/kb_in_au
   axes['energy']['b'].set_xlim(xmin_hartree,xmax_hartree)
   axes['energy']['t'].set_xlim(xmin_kelvin,xmax_kelvin)
+  axes['energy']['l'].set_ylim(ymin_hartree,ymax_hartree)
+  axes['energy']['r'].set_ylim(ymin_hartree,ymax_hartree)
   axes['energy']['t'].set_xlabel(r"Temperature, $T$, (K)")
   axes['energy']['b'].tick_params(labelbottom='off')
   axes['entropy']['b'].set_xlim(xmin_hartree,xmax_hartree)
@@ -124,6 +140,26 @@ def main():
   axes['entropy']['r'].set_ylim(ymin_gibbs,ymax_gibbs)
   axes['entropy']['r'].set_ylabel(r"Vibrational Gibbs Entropy per cell, $S$, (Ha per K)")
   
+  # Format legend.
+  handles = []
+  labels = []
+  
+  things = [('energy','turquoise'),
+            ('free energy','orange'),
+            ('entropy','purple')]
+  for label,colour in things:
+    line = mlines.Line2D([],[],color=colours[colour])
+    handles.append(line)
+    labels.append(label)
+  for datum in data:
+    line = mlines.Line2D([],[],color=[0,0,0],dashes=datum['dashes'])
+    handles.append(line)
+    labels.append(datum['name'])
+  
+  axes['legend'].axis('off')
+  axes['legend'].legend(handles=handles, labels=labels, loc='center', ncol=3)
+  
+  # Show plot.
   plt.show()
 
 main()

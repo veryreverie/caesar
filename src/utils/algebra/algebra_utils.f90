@@ -27,10 +27,17 @@ module algebra_utils_module
   public :: real_multinomial
   public :: int_sqrt
   
-  ! A list of factorials, stored to avoid re-calculating.
+  ! An array of factorials, stored to avoid re-calculating.
   ! Calculated the first time a related function is called.
   integer,  allocatable :: FACTORIALS(:)
   real(dp), allocatable :: REAL_FACTORIALS(:)
+  
+  ! An array of binomials, stored to avoid re-calculating.
+  ! Calculated the first time a related function is called.
+  integer,  allocatable :: BINOMIALS(:,:)
+  integer,  allocatable :: BINOMIALS_CALCULATED(:)
+  real(dp), allocatable :: REAL_BINOMIALS(:,:)
+  integer,  allocatable :: REAL_BINOMIALS_CALCULATED(:)
   
   ! Greatest common denominator.
   interface gcd
@@ -310,6 +317,8 @@ impure elemental function binomial(top,bottom) result(output)
   integer, intent(in) :: bottom
   integer             :: output
   
+  integer :: smaller_bottom
+  
   if (top<0) then
     call err()
   elseif (bottom<0) then
@@ -318,24 +327,106 @@ impure elemental function binomial(top,bottom) result(output)
     call err()
   endif
   
-  call calculate_factorials()
+  ! binomial(n,k)=binomial(n,n-k). Pick whichever of k and n-k is smallest.
+  smaller_bottom = min(bottom,top-bottom)
   
-  if (top<size(FACTORIALS)) then
-    output = factorial(top) / (factorial(bottom)*factorial(top-bottom))
+  if (smaller_bottom==0) then
+    output = 1
   else
-    call print_line(ERROR//': Currently unable to calculate binomial &
-       &coefficients involving factorials larger than '//            &
-       & size(FACTORIALS)-1//'!'                                     )
-    call err()
+    call calculate_binomials(top,smaller_bottom)
+    
+    ! N.B. unlike factorials, binomial(n,k)=BINOMIALS(n,k),
+    !    since binomial(n,0)=1, and does not need to be stored.
+    output = BINOMIALS(top,smaller_bottom)
   endif
 end function
+
+subroutine calculate_binomials(top,bottom)
+  implicit none
+  
+  integer, intent(in) :: top
+  integer, intent(in) :: bottom
+  
+  integer, allocatable :: old_binomials(:,:)
+  
+  integer :: old_n,old_k
+  integer :: max_n,max_k
+  
+  integer :: n,k,ialloc
+  
+  ! If the BINOMIALS array is too small, reallocate it.
+  ! Uses a doubling strategy to reduce the number of reallocations.
+  if (.not. allocated(BINOMIALS)) then
+    ! Allocate BINOMIALS and BINOMIALS_CALCULATED, and initalise:
+    ! BINOMIALS = (1         )  BINOMIALS_CALCULATED=(1, 2, ..., k)
+    !             (2, 1      )
+    !             (3, ?, 1   )
+    !             (.  .  . . )
+    !             (k ...    1)
+    !             (.  .  .  .)
+    !             (n, ?, ?, ?)
+    allocate( BINOMIALS(top,bottom),        &
+            & BINOMIALS_CALCULATED(bottom), &
+            & stat=ialloc); call err(ialloc)
+    BINOMIALS(:,1) = [(n,n=1,top)]
+    BINOMIALS_CALCULATED(1) = top
+    do k=2,bottom
+      BINOMIALS(k,k) = 1
+      BINOMIALS_CALCULATED(k) = k
+    enddo
+  elseif (top>size(BINOMIALS,1) .or. bottom>size(BINOMIALS,2)) then
+    ! Reallocate BINOMIALS, and copy over the old contents.
+    old_n = size(BINOMIALS,1)
+    old_k = size(BINOMIALS,2)
+    max_n = max(top,2*old_n)
+    max_k = max(bottom,2*old_k)
+    old_binomials = BINOMIALS
+    deallocate(BINOMIALS, stat=ialloc); call err(ialloc)
+    allocate(BINOMIALS(max_n,max_k), stat=ialloc); call err(ialloc)
+    BINOMIALS(:old_n,:old_k) = old_binomials
+    
+    ! Set the (n,1) column to n.
+    BINOMIALS(old_n+1:,1) = [(n,n=old_n+1,max_n)]
+    
+    ! Set the (k,k) diagonal to 1.
+    do k=old_k+1,max_k
+      BINOMIALS(k,k) = 1
+    enddo
+    
+    ! Update BINOMIALS_CALCULATED.
+    BINOMIALS_CALCULATED(1) = max_n
+    BINOMIALS_CALCULATED = [BINOMIALS_CALCULATED, [(k,k=old_k+1,max_k)]]
+  endif
+  
+  ! If the requested binomial has not been calculated, calculate it.
+  ! Calculates binomials using the recurrence relation
+  !    b(n,k) = b(n-1,k) + b(n-1,k-1)
+  !    b(n,1) = n
+  !    b(n,n) = 1
+  if (BINOMIALS_CALCULATED(bottom)<top) then
+    ! Calculate b(n,0) up to b(top-bottom,0) and b(n,n) up to b(bottom,bottom).
+    do k=2,bottom
+      do n=BINOMIALS_CALCULATED(k)+1,top-bottom+k
+        if (huge(0)-BINOMIALS(n-1,k)<BINOMIALS(n-1,k-1)) then
+          call print_line(ERROR//': Binomial calculation overflowing. &
+             &Binomial('//top//','//bottom//') is too large.')
+          call err()
+        endif
+        BINOMIALS(n,k) = BINOMIALS(n-1,k)+BINOMIALS(n-1,k-1)
+      enddo
+      BINOMIALS_CALCULATED(k) = top-bottom+k
+    enddo
+  endif
+end subroutine
 
 impure elemental function real_binomial(top,bottom) result(output)
   implicit none
   
   integer, intent(in) :: top
   integer, intent(in) :: bottom
-  integer             :: output
+  real(dp)            :: output
+  
+  integer :: smaller_bottom
   
   if (top<0) then
     call err()
@@ -345,18 +436,98 @@ impure elemental function real_binomial(top,bottom) result(output)
     call err()
   endif
   
-  call calculate_real_factorials(top)
+  ! binomial(n,k)=binomial(n,n-k). Pick whichever of k and n-k is smallest.
+  smaller_bottom = min(bottom,top-bottom)
   
-  if (top<size(REAL_FACTORIALS)) then
-    output = real_factorial(top) &
-         & / (real_factorial(bottom)*real_factorial(top-bottom))
+  if (smaller_bottom==0) then
+    output = 1
   else
-    call print_line(ERROR//': Currently unable to calculate binomial &
-       &coefficients involving factorials larger than '//            &
-       & size(REAL_FACTORIALS)-1//'!'                                )
-    call err()
+    call calculate_real_binomials(top,smaller_bottom)
+    
+    ! N.B. unlike factorials, binomial(n,k)=BINOMIALS(n,k),
+    !    since binomial(n,0)=1, and does not need to be stored.
+    output = REAL_BINOMIALS(top,smaller_bottom)
   endif
 end function
+
+subroutine calculate_real_binomials(top,bottom)
+  implicit none
+  
+  integer, intent(in) :: top
+  integer, intent(in) :: bottom
+  
+  real(dp), allocatable :: old_binomials(:,:)
+  
+  integer :: old_n,old_k
+  integer :: max_n,max_k
+  
+  integer :: n,k,ialloc
+  
+  ! If the REAL_BINOMIALS array is too small, reallocate it.
+  ! Uses a doubling strategy to reduce the number of reallocations.
+  if (.not. allocated(REAL_BINOMIALS)) then
+    ! Allocate REAL_BINOMIALS and REAL_BINOMIALS_CALCULATED, and initalise:
+    ! REAL_BINOMIALS = (1         )  REAL_BINOMIALS_CALCULATED=(1, 2, ..., k)
+    !                  (2, 1      )
+    !                  (3, ?, 1   )
+    !                  (.  .  . . )
+    !                  (k ...    1)
+    !                  (.  .  .  .)
+    !                  (n, ?, ?, ?)
+    allocate( REAL_BINOMIALS(top,bottom),        &
+            & REAL_BINOMIALS_CALCULATED(bottom), &
+            & stat=ialloc); call err(ialloc)
+    REAL_BINOMIALS(:,1) = [(n,n=1,top)]
+    REAL_BINOMIALS_CALCULATED(1) = top
+    do k=2,bottom
+      REAL_BINOMIALS(k,k) = 1
+      REAL_BINOMIALS_CALCULATED(k) = k
+    enddo
+  elseif (top>size(REAL_BINOMIALS,1) .or. bottom>size(REAL_BINOMIALS,2)) then
+    ! Reallocate REAL_BINOMIALS, and copy over the old contents.
+    old_n = size(REAL_BINOMIALS,1)
+    old_k = size(REAL_BINOMIALS,2)
+    max_n = max(top,2*old_n)
+    max_k = max(bottom,2*old_k)
+    old_binomials = REAL_BINOMIALS
+    deallocate(REAL_BINOMIALS, stat=ialloc); call err(ialloc)
+    allocate(REAL_BINOMIALS(max_n,max_k), stat=ialloc); call err(ialloc)
+    REAL_BINOMIALS(:old_n,:old_k) = old_binomials
+    
+    ! Set the (n,1) column to n.
+    REAL_BINOMIALS(old_n+1:,1) = [(n,n=old_n+1,max_n)]
+    
+    ! Set the (k,k) diagonal to 1.
+    do k=old_k+1,max_k
+      REAL_BINOMIALS(k,k) = 1
+    enddo
+    
+    ! Update REAL_BINOMIALS_CALCULATED.
+    REAL_BINOMIALS_CALCULATED(1) = max_n
+    REAL_BINOMIALS_CALCULATED = [ REAL_BINOMIALS_CALCULATED, &
+                                & [(k,k=old_k+1,max_k)]      ]
+  endif
+  
+  ! If the requested binomial has not been calculated, calculate it.
+  ! Calculates binomials using the recurrence relation
+  !    b(n,k) = b(n-1,k) + b(n-1,k-1)
+  !    b(n,1) = n
+  !    b(n,n) = 1
+  if (REAL_BINOMIALS_CALCULATED(bottom)<top) then
+    ! Calculate b(n,0) up to b(top-bottom,0) and b(n,n) up to b(bottom,bottom).
+    do k=2,bottom
+      do n=REAL_BINOMIALS_CALCULATED(k)+1,top-bottom+k
+        if (huge(0)-REAL_BINOMIALS(n-1,k)<REAL_BINOMIALS(n-1,k-1)) then
+          call print_line(ERROR//': Binomial calculation overflowing. &
+             &Binomial('//top//','//bottom//') is too large.')
+          call err()
+        endif
+        REAL_BINOMIALS(n,k) = REAL_BINOMIALS(n-1,k)+REAL_BINOMIALS(n-1,k-1)
+      enddo
+      REAL_BINOMIALS_CALCULATED(k) = top-bottom+k
+    enddo
+  endif
+end subroutine
 
 ! ----------------------------------------------------------------------
 ! Calculates the multinomial coefficient of a denominator and a set of

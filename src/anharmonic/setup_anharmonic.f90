@@ -25,7 +25,7 @@ function setup_anharmonic() result(output)
   
   output%mode_name = 'setup_anharmonic'
   output%description = 'Sets up anharmonic calculations. Should be run after &
-     &calculate_harmonic.'
+     &calculate_normal_modes.'
   output%keywords = [                                                         &
   & KeywordData( 'harmonic_path',                                             &
   &              'harmonic_path is the path to the directory where harmonic &

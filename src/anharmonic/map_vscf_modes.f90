@@ -27,7 +27,7 @@ function map_vscf_modes() result(output)
   
   output%mode_name = 'map_vscf_modes'
   output%description = 'Maps the VSCF potential along normal modes. &
-     &Should be run after calculate_states.'
+     &Should be run after calculate_vscf_potential.'
   output%keywords = [                                                         &
      & KeywordData( 'no_single_mode_samples',                                 &
      &              'no_single_mode_samples is the number of points (either &
