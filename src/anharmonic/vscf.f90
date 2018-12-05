@@ -67,6 +67,9 @@ function run_vscf(potential,basis,energy_convergence,                     &
   
   type(RealVector) :: next_old_coefficients
   
+  type(FractionVector), allocatable :: state_wavevectors(:)
+  integer                           :: wavevector_changed
+  
   integer :: i,j
   
   state = initial_ground_state(basis)
@@ -84,9 +87,19 @@ function run_vscf(potential,basis,energy_convergence,                     &
     energies = [energies, sum(potentials_and_states%energy)]
     new_coefficients = [new_coefficients, states_to_coefficients(state)]
     
+    if (i==1) then
+      wavevector_changed = i
+    else
+      if (any(state%wavevector/=state_wavevectors)) then
+        wavevector_changed = i
+      endif
+    endif
+    
+    state_wavevectors = state%wavevector
+    
     ! Use a damped iterative scheme or a Pulay scheme to converge towards the
     !    self-consistent solution where new coefficients = old coefficients.
-    if (i<=pre_pulay_iterations) then
+    if (i-wavevector_changed<=pre_pulay_iterations) then
       next_old_coefficients = (1-pre_pulay_damping) * old_coefficients(i) &
                           & + pre_pulay_damping * new_coefficients(i)
     else
@@ -201,13 +214,6 @@ function update(states,basis,potential,anharmonic_data) result(output)
     ! Find the wavevector with the lowest energy ground-state.
     j = minloc(wavevector_ground_states%eval,1)
     
-    if (.not. is_int(basis(i)%wavevectors(j)%wavevector)) then
-      call print_line(WARNING//': Ground state has gained non-zero &
-         &wavevector. This will be ignored in favour of the zero-wavevector &
-         &ground state.')
-      j = first(is_int(basis(i)%wavevectors%wavevector))
-    endif
-    
     coefficients = wavevector_ground_states(j)%evec
     energies(i) = wavevector_ground_states(j)%eval
     ground_states(i) = VscfGroundState(                     &
@@ -232,12 +238,6 @@ function states_to_coefficients(states) result(output)
   type(RealVector)                  :: output
   
   integer :: i
-  
-  if (any(.not.is_int(states%wavevector))) then
-    call print_line(ERROR//': The ground state has gained a finite &
-       &wavevector. Caesar is at present unable to handle this.')
-    call err()
-  endif
   
   output = vec([( states(i)%coefficients, i=1, size(states) )])
 end function
