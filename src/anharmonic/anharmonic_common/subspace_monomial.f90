@@ -448,10 +448,10 @@ recursive function generate_subspace_complex_monomials(modes,power,root) &
   
   if (power==0) then
     output = [root]
-    output%coefficient = sqrt(real(no_permutations(output(1)),dp))
+    output%coefficient = sqrt(no_permutations(output(1)))
   elseif (size(modes)==1) then
     output = [root*ComplexUnivariate(mode=modes(1), power=power)]
-    output%coefficient = sqrt(real(no_permutations(output(1)),dp))
+    output%coefficient = sqrt(no_permutations(output(1)))
   else
     output = [generate_subspace_complex_monomials(modes(2:),power,root)]
     do i=1,power
@@ -485,10 +485,10 @@ recursive function generate_subspace_real_monomials(modes,power,root) &
   
   if (power==0) then
     output = [root]
-    output%coefficient = sqrt(real(no_permutations(output(1)),dp))
+    output%coefficient = sqrt(no_permutations(output(1)))
   elseif (size(modes)==1) then
     output = [root*RealUnivariate(mode=modes(1), power=power)]
-    output%coefficient = sqrt(real(no_permutations(output(1)),dp))
+    output%coefficient = sqrt(no_permutations(output(1)))
   else
     output = [generate_subspace_real_monomials(modes(2:),power,root)]
     do i=1,power
@@ -505,7 +505,7 @@ function no_permutations(input) result(output)
   implicit none
   
   class(*), intent(in) :: input
-  integer              :: output
+  real(dp)             :: output
   
   integer, allocatable :: powers(:)
   
@@ -530,7 +530,7 @@ function no_permutations(input) result(output)
     call err()
   end select
   
-  output = multinomial(sum(powers), powers)
+  output = real_multinomial(sum(powers), powers)
 end function
 
 ! ----------------------------------------------------------------------

@@ -21,23 +21,12 @@ module algebra_utils_module
   public :: sin_2pi
   public :: factorial
   public :: real_factorial
+  public :: log_factorial
   public :: binomial
   public :: real_binomial
   public :: multinomial
   public :: real_multinomial
   public :: int_sqrt
-  
-  ! An array of factorials, stored to avoid re-calculating.
-  ! Calculated the first time a related function is called.
-  integer,  allocatable :: FACTORIALS(:)
-  real(dp), allocatable :: REAL_FACTORIALS(:)
-  
-  ! An array of binomials, stored to avoid re-calculating.
-  ! Calculated the first time a related function is called.
-  integer,  allocatable :: BINOMIALS(:,:)
-  integer,  allocatable :: BINOMIALS_CALCULATED(:)
-  real(dp), allocatable :: REAL_BINOMIALS(:,:)
-  integer,  allocatable :: REAL_BINOMIALS_CALCULATED(:)
   
   ! Greatest common denominator.
   interface gcd
@@ -197,33 +186,41 @@ impure elemental function factorial(input) result(output)
   integer, intent(in) :: input
   integer             :: output
   
-  call calculate_factorials()
+  ! An array of factorials, stored to avoid re-calculating.
+  ! Calculated the first time a related function is called.
+  integer, allocatable, save :: factorials(:)
   
-  ! Check that the input integer, n, obeys n>=0,
-  !    and small enough that n! is storable as an integer.
+  ! Check that n>=0.
   if (input<0) then
     call print_line( ERROR//': Trying to calculate the factorial of an &
        &integer less than 0.')
     call err()
-  elseif (input>=size(FACTORIALS)) then
+  endif
+  
+  call calculate_factorials(factorials)
+  
+  ! Check that n is small enough that n! is storable as an integer.
+  if (input>=size(factorials)) then
     call print_line( ERROR//': Trying to calculate the factorial of an &
-       &integer greater than '//size(FACTORIALS)-1//'. This is too large to &
+       &integer greater than '//size(factorials)-1//'. This is too large to &
        &fit in the standard integer type.')
     call err()
   endif
   
-  ! FACTORIALS(1) = 0!, so FACTORIALS(n+1) = n!.
-  output = FACTORIALS(input+1)
+  ! factorials(1) = 0!, so factorials(n+1) = n!.
+  output = factorials(input+1)
 end function
 
-subroutine calculate_factorials()
+subroutine calculate_factorials(factorials)
   implicit none
+  
+  integer, intent(inout), allocatable :: factorials(:)
   
   integer :: i,j,ialloc
   
   ! The first time this function is called,
   !    calculate all storable factorials, {i!} s.t. i!<=huge(0).
-  if (.not. allocated(FACTORIALS)) then
+  if (.not. allocated(factorials)) then
     ! Find the largest integer i s.t. i! is too large to be
     !    stored as an integer.
     i = 0
@@ -231,16 +228,16 @@ subroutine calculate_factorials()
     do
       i = i+1
       if (j>huge(0)/i) then
-        allocate(FACTORIALS(i), stat=ialloc); call err(ialloc)
+        allocate(factorials(i), stat=ialloc); call err(ialloc)
         exit
       endif
       j = j*i ! j = i!.
     enddo
     
     ! Calculate and store all storable factorials.
-    FACTORIALS(1) = 1
-    do i=1,size(FACTORIALS)-1
-      FACTORIALS(i+1) = FACTORIALS(i)*i ! FACTORIALS(i+1) = i!.
+    factorials(1) = 1
+    do i=1,size(factorials)-1
+      factorials(i+1) = factorials(i)*i ! factorials(i+1) = i!.
     enddo
   endif
 end subroutine
@@ -255,36 +252,43 @@ impure elemental function real_factorial(input) result(output)
   integer, intent(in) :: input
   real(dp)            :: output
   
-  call calculate_real_factorials(input)
+  ! An array of factorials, stored to avoid re-calculating.
+  ! Calculated the first time a related function is called.
+  real(dp), allocatable, save :: real_factorials(:)
   
-  ! Check that the input integer, n, obeys n>=0,
-  !    and small enough that n! is storable as an integer.
+  ! Check that n>=0.
   if (input<0) then
     call print_line( ERROR//': Trying to calculate the factorial of an &
        &integer less than 0.')
     call err()
-  elseif (input>=size(REAL_FACTORIALS)) then
+  endif
+  
+  call calculate_real_factorials(real_factorials,input)
+  
+  ! Check that n is small enough that n! is storable as an dp float.
+  if (input>=size(real_factorials)) then
     call print_line( ERROR//': Trying to calculate the factorial of an &
-       &integer greater than '//size(REAL_FACTORIALS)-1//'. This is too large &
+       &integer greater than '//size(real_factorials)-1//'. This is too large &
        &to fit in the double-precision real type.')
     call err()
   endif
   
-  ! REAL_FACTORIALS(1) = 0!, so REAL_FACTORIALS(n+1) = n!.
-  output = REAL_FACTORIALS(input+1)
+  ! real_factorials(1) = 0!, so real_factorials(n+1) = n!.
+  output = real_factorials(input+1)
 end function
 
-subroutine calculate_real_factorials(input)
+subroutine calculate_real_factorials(real_factorials,input)
   implicit none
   
-  integer, intent(in) :: input
+  real(dp), intent(inout), allocatable :: real_factorials(:)
+  integer,  intent(in)                 :: input
   
   integer  :: i,ialloc
   real(dp) :: j
   
   ! The first time this function is called,
   !    calculate all storable factorials, {i!} s.t. i!<=huge(0).
-  if (.not. allocated(REAL_FACTORIALS)) then
+  if (.not. allocated(real_factorials)) then
     ! Find the largest integer i s.t. i! is too large to be
     !    stored as a real.
     i = 0
@@ -292,18 +296,79 @@ subroutine calculate_real_factorials(input)
     do
       i = i+1
       if (j>huge(0.0_dp)/i) then
-        allocate(REAL_FACTORIALS(i), stat=ialloc); call err(ialloc)
+        allocate(real_factorials(i), stat=ialloc); call err(ialloc)
         exit
       endif
       j = j*i ! j = i!.
     enddo
     
     ! Calculate and store all storable factorials.
-    REAL_FACTORIALS(1) = 1.0_dp
-    do i=1,size(REAL_FACTORIALS)-1
-      REAL_FACTORIALS(i+1) = REAL_FACTORIALS(i)*i ! FACTORIALS(i+1) = i!.
+    real_factorials(1) = 1.0_dp
+    do i=1,size(real_factorials)-1
+      real_factorials(i+1) = real_factorials(i)*i ! real_factorials(i+1) = i!.
     enddo
   endif
+end subroutine
+
+! ----------------------------------------------------------------------
+! Calculates ln(n!).
+! ----------------------------------------------------------------------
+impure elemental function log_factorial(input) result(output)
+  implicit none
+  
+  integer, intent(in) :: input
+  real(dp)            :: output
+  
+  ! An array of ln(n!), stored to avoid re-calculating.
+  real(dp), allocatable, save :: log_factorials(:)
+  integer,               save :: log_factorials_calculated
+  
+  if (input<0) then
+    call print_line( ERROR//': Trying to calculate the factorial of an &
+       &integer less than 0.')
+    call err()
+  endif
+  
+  call calculate_log_factorials( log_factorials,            &
+                               & log_factorials_calculated, &
+                               & input                      )
+  
+  ! log_factorials(1) = ln(0!), so ln(n!) = log_factorials(n+1).
+  output = log_factorials(input+1)
+end function
+
+subroutine calculate_log_factorials(log_factorials,log_factorials_calculated, &
+   & input)
+  implicit none
+  
+  real(dp), intent(inout), allocatable :: log_factorials(:)
+  integer,  intent(inout)              :: log_factorials_calculated
+  integer,  intent(in)                 :: input
+  
+  real(dp), allocatable :: old_log_factorials(:)
+  
+  integer :: n,ialloc
+  
+  ! Check if log_factorials needs expanding.
+  ! Uses a doubling strategy to minimise the number of re-allocations.
+  if (.not. allocated(log_factorials)) then
+    allocate(log_factorials(input+1), stat=ialloc); call err(ialloc)
+    log_factorials(1) = 0
+    log_factorials_calculated = 0
+  elseif (size(log_factorials)<=input) then
+    old_log_factorials = log_factorials
+    deallocate(log_factorials, stat=ialloc); call err(ialloc)
+    allocate( log_factorials(max(input+1,2*size(old_log_factorials))), &
+            & stat=ialloc); call err(ialloc)
+    log_factorials(:size(old_log_factorials)) = old_log_factorials
+  endif
+  
+  ! Calculate additional ln(n!) as needed.
+  ! Uses ln(n!) = ln((n-1)!) + ln(n).
+  ! N.B. log_factorials(1) = ln(0!), so ln(n!) = log_factorials(n+1).
+  do n=log_factorials_calculated+1,input
+    log_factorials(n+1) = log_factorials(n) + log(real(n,dp))
+  enddo
 end subroutine
 
 ! ----------------------------------------------------------------------
@@ -319,6 +384,11 @@ impure elemental function binomial(top,bottom) result(output)
   
   integer :: smaller_bottom
   
+  ! An array of binomials, stored to avoid re-calculating.
+  ! Calculated the first time a related function is called.
+  integer, allocatable, save :: binomials(:,:)
+  integer, allocatable, save :: binomials_calculated(:)
+  
   if (top<0) then
     call err()
   elseif (bottom<0) then
@@ -333,19 +403,21 @@ impure elemental function binomial(top,bottom) result(output)
   if (smaller_bottom==0) then
     output = 1
   else
-    call calculate_binomials(top,smaller_bottom)
+    call calculate_binomials(binomials,binomials_calculated,top,smaller_bottom)
     
-    ! N.B. unlike factorials, binomial(n,k)=BINOMIALS(n,k),
+    ! N.B. unlike factorials, binomial(n,k)=binomials(n,k),
     !    since binomial(n,0)=1, and does not need to be stored.
-    output = BINOMIALS(top,smaller_bottom)
+    output = binomials(top,smaller_bottom)
   endif
 end function
 
-subroutine calculate_binomials(top,bottom)
+subroutine calculate_binomials(binomials,binomials_calculated,top,bottom)
   implicit none
   
-  integer, intent(in) :: top
-  integer, intent(in) :: bottom
+  integer, intent(inout), allocatable :: binomials(:,:)
+  integer, intent(inout), allocatable :: binomials_calculated(:)
+  integer, intent(in)                 :: top
+  integer, intent(in)                 :: bottom
   
   integer, allocatable :: old_binomials(:,:)
   
@@ -354,48 +426,48 @@ subroutine calculate_binomials(top,bottom)
   
   integer :: n,k,ialloc
   
-  ! If the BINOMIALS array is too small, reallocate it.
+  ! If the binomials array is too small, reallocate it.
   ! Uses a doubling strategy to reduce the number of reallocations.
-  if (.not. allocated(BINOMIALS)) then
-    ! Allocate BINOMIALS and BINOMIALS_CALCULATED, and initalise:
-    ! BINOMIALS = (1         )  BINOMIALS_CALCULATED=(1, 2, ..., k)
+  if (.not. allocated(binomials)) then
+    ! Allocate binomials and binomials_calculated, and initalise:
+    ! binomials = (1         )  binomials_calculated=(1, 2, ..., k)
     !             (2, 1      )
     !             (3, ?, 1   )
     !             (.  .  . . )
     !             (k ...    1)
     !             (.  .  .  .)
     !             (n, ?, ?, ?)
-    allocate( BINOMIALS(top,bottom),        &
-            & BINOMIALS_CALCULATED(bottom), &
+    allocate( binomials(top,bottom),        &
+            & binomials_calculated(bottom), &
             & stat=ialloc); call err(ialloc)
-    BINOMIALS(:,1) = [(n,n=1,top)]
-    BINOMIALS_CALCULATED(1) = top
+    binomials(:,1) = [(n,n=1,top)]
+    binomials_calculated(1) = top
     do k=2,bottom
-      BINOMIALS(k,k) = 1
-      BINOMIALS_CALCULATED(k) = k
+      binomials(k,k) = 1
+      binomials_calculated(k) = k
     enddo
-  elseif (top>size(BINOMIALS,1) .or. bottom>size(BINOMIALS,2)) then
-    ! Reallocate BINOMIALS, and copy over the old contents.
-    old_n = size(BINOMIALS,1)
-    old_k = size(BINOMIALS,2)
+  elseif (top>size(binomials,1) .or. bottom>size(binomials,2)) then
+    ! Reallocate binomials, and copy over the old contents.
+    old_n = size(binomials,1)
+    old_k = size(binomials,2)
     max_n = max(top,2*old_n)
     max_k = max(bottom,2*old_k)
-    old_binomials = BINOMIALS
-    deallocate(BINOMIALS, stat=ialloc); call err(ialloc)
-    allocate(BINOMIALS(max_n,max_k), stat=ialloc); call err(ialloc)
-    BINOMIALS(:old_n,:old_k) = old_binomials
+    old_binomials = binomials
+    deallocate(binomials, stat=ialloc); call err(ialloc)
+    allocate(binomials(max_n,max_k), stat=ialloc); call err(ialloc)
+    binomials(:old_n,:old_k) = old_binomials
     
     ! Set the (n,1) column to n.
-    BINOMIALS(old_n+1:,1) = [(n,n=old_n+1,max_n)]
+    binomials(old_n+1:,1) = [(n,n=old_n+1,max_n)]
     
     ! Set the (k,k) diagonal to 1.
     do k=old_k+1,max_k
-      BINOMIALS(k,k) = 1
+      binomials(k,k) = 1
     enddo
     
-    ! Update BINOMIALS_CALCULATED.
-    BINOMIALS_CALCULATED(1) = max_n
-    BINOMIALS_CALCULATED = [BINOMIALS_CALCULATED, [(k,k=old_k+1,max_k)]]
+    ! Update binomials_calculated.
+    binomials_calculated(1) = max_n
+    binomials_calculated = [binomials_calculated, [(k,k=old_k+1,max_k)]]
   endif
   
   ! If the requested binomial has not been calculated, calculate it.
@@ -403,18 +475,18 @@ subroutine calculate_binomials(top,bottom)
   !    b(n,k) = b(n-1,k) + b(n-1,k-1)
   !    b(n,1) = n
   !    b(n,n) = 1
-  if (BINOMIALS_CALCULATED(bottom)<top) then
+  if (binomials_calculated(bottom)<top) then
     ! Calculate b(n,0) up to b(top-bottom,0) and b(n,n) up to b(bottom,bottom).
     do k=2,bottom
-      do n=BINOMIALS_CALCULATED(k)+1,top-bottom+k
-        if (huge(0)-BINOMIALS(n-1,k)<BINOMIALS(n-1,k-1)) then
+      do n=binomials_calculated(k)+1,top-bottom+k
+        if (huge(0)-binomials(n-1,k)<binomials(n-1,k-1)) then
           call print_line(ERROR//': Binomial calculation overflowing. &
              &Binomial('//top//','//bottom//') is too large.')
           call err()
         endif
-        BINOMIALS(n,k) = BINOMIALS(n-1,k)+BINOMIALS(n-1,k-1)
+        binomials(n,k) = binomials(n-1,k)+binomials(n-1,k-1)
       enddo
-      BINOMIALS_CALCULATED(k) = top-bottom+k
+      binomials_calculated(k) = top-bottom+k
     enddo
   endif
 end subroutine
@@ -428,6 +500,11 @@ impure elemental function real_binomial(top,bottom) result(output)
   
   integer :: smaller_bottom
   
+  ! An array of binomials, stored to avoid re-calculating.
+  ! Calculated the first time a related function is called.
+  real(dp), allocatable, save :: real_binomials(:,:)
+  integer,  allocatable, save :: real_binomials_calculated(:)
+  
   if (top<0) then
     call err()
   elseif (bottom<0) then
@@ -442,19 +519,25 @@ impure elemental function real_binomial(top,bottom) result(output)
   if (smaller_bottom==0) then
     output = 1
   else
-    call calculate_real_binomials(top,smaller_bottom)
+    call calculate_real_binomials( real_binomials,            &
+                                 & real_binomials_calculated, &
+                                 & top,                       &
+                                 & smaller_bottom             )
     
     ! N.B. unlike factorials, binomial(n,k)=BINOMIALS(n,k),
     !    since binomial(n,0)=1, and does not need to be stored.
-    output = REAL_BINOMIALS(top,smaller_bottom)
+    output = real_binomials(top,smaller_bottom)
   endif
 end function
 
-subroutine calculate_real_binomials(top,bottom)
+subroutine calculate_real_binomials(real_binomials,real_binomials_calculated, &
+   & top,bottom)
   implicit none
   
-  integer, intent(in) :: top
-  integer, intent(in) :: bottom
+  real(dp), intent(inout), allocatable :: real_binomials(:,:)
+  integer,  intent(inout), allocatable :: real_binomials_calculated(:)
+  integer,  intent(in)                 :: top
+  integer,  intent(in)                 :: bottom
   
   real(dp), allocatable :: old_binomials(:,:)
   
@@ -463,48 +546,48 @@ subroutine calculate_real_binomials(top,bottom)
   
   integer :: n,k,ialloc
   
-  ! If the REAL_BINOMIALS array is too small, reallocate it.
+  ! If the real_binomials array is too small, reallocate it.
   ! Uses a doubling strategy to reduce the number of reallocations.
-  if (.not. allocated(REAL_BINOMIALS)) then
-    ! Allocate REAL_BINOMIALS and REAL_BINOMIALS_CALCULATED, and initalise:
-    ! REAL_BINOMIALS = (1         )  REAL_BINOMIALS_CALCULATED=(1, 2, ..., k)
+  if (.not. allocated(real_binomials)) then
+    ! Allocate real_binomials and real_binomials_calculated, and initalise:
+    ! real_binomials = (1         )  real_binomials_calculated=(1, 2, ..., k)
     !                  (2, 1      )
     !                  (3, ?, 1   )
     !                  (.  .  . . )
     !                  (k ...    1)
     !                  (.  .  .  .)
     !                  (n, ?, ?, ?)
-    allocate( REAL_BINOMIALS(top,bottom),        &
-            & REAL_BINOMIALS_CALCULATED(bottom), &
+    allocate( real_binomials(top,bottom),        &
+            & real_binomials_calculated(bottom), &
             & stat=ialloc); call err(ialloc)
-    REAL_BINOMIALS(:,1) = [(n,n=1,top)]
-    REAL_BINOMIALS_CALCULATED(1) = top
+    real_binomials(:,1) = [(n,n=1,top)]
+    real_binomials_calculated(1) = top
     do k=2,bottom
-      REAL_BINOMIALS(k,k) = 1
-      REAL_BINOMIALS_CALCULATED(k) = k
+      real_binomials(k,k) = 1
+      real_binomials_calculated(k) = k
     enddo
-  elseif (top>size(REAL_BINOMIALS,1) .or. bottom>size(REAL_BINOMIALS,2)) then
-    ! Reallocate REAL_BINOMIALS, and copy over the old contents.
-    old_n = size(REAL_BINOMIALS,1)
-    old_k = size(REAL_BINOMIALS,2)
+  elseif (top>size(real_binomials,1) .or. bottom>size(real_binomials,2)) then
+    ! Reallocate real_binomials, and copy over the old contents.
+    old_n = size(real_binomials,1)
+    old_k = size(real_binomials,2)
     max_n = max(top,2*old_n)
     max_k = max(bottom,2*old_k)
-    old_binomials = REAL_BINOMIALS
-    deallocate(REAL_BINOMIALS, stat=ialloc); call err(ialloc)
-    allocate(REAL_BINOMIALS(max_n,max_k), stat=ialloc); call err(ialloc)
-    REAL_BINOMIALS(:old_n,:old_k) = old_binomials
+    old_binomials = real_binomials
+    deallocate(real_binomials, stat=ialloc); call err(ialloc)
+    allocate(real_binomials(max_n,max_k), stat=ialloc); call err(ialloc)
+    real_binomials(:old_n,:old_k) = old_binomials
     
     ! Set the (n,1) column to n.
-    REAL_BINOMIALS(old_n+1:,1) = [(n,n=old_n+1,max_n)]
+    real_binomials(old_n+1:,1) = [(n,n=old_n+1,max_n)]
     
     ! Set the (k,k) diagonal to 1.
     do k=old_k+1,max_k
-      REAL_BINOMIALS(k,k) = 1
+      real_binomials(k,k) = 1
     enddo
     
-    ! Update REAL_BINOMIALS_CALCULATED.
-    REAL_BINOMIALS_CALCULATED(1) = max_n
-    REAL_BINOMIALS_CALCULATED = [ REAL_BINOMIALS_CALCULATED, &
+    ! Update real_binomials_calculated.
+    real_binomials_calculated(1) = max_n
+    real_binomials_calculated = [ real_binomials_calculated, &
                                 & [(k,k=old_k+1,max_k)]      ]
   endif
   
@@ -513,18 +596,18 @@ subroutine calculate_real_binomials(top,bottom)
   !    b(n,k) = b(n-1,k) + b(n-1,k-1)
   !    b(n,1) = n
   !    b(n,n) = 1
-  if (REAL_BINOMIALS_CALCULATED(bottom)<top) then
+  if (real_binomials_calculated(bottom)<top) then
     ! Calculate b(n,0) up to b(top-bottom,0) and b(n,n) up to b(bottom,bottom).
     do k=2,bottom
-      do n=REAL_BINOMIALS_CALCULATED(k)+1,top-bottom+k
-        if (huge(0)-REAL_BINOMIALS(n-1,k)<REAL_BINOMIALS(n-1,k-1)) then
+      do n=real_binomials_calculated(k)+1,top-bottom+k
+        if (huge(0)-real_binomials(n-1,k)<real_binomials(n-1,k-1)) then
           call print_line(ERROR//': Binomial calculation overflowing. &
              &Binomial('//top//','//bottom//') is too large.')
           call err()
         endif
-        REAL_BINOMIALS(n,k) = REAL_BINOMIALS(n-1,k)+REAL_BINOMIALS(n-1,k-1)
+        real_binomials(n,k) = real_binomials(n-1,k)+real_binomials(n-1,k-1)
       enddo
-      REAL_BINOMIALS_CALCULATED(k) = top-bottom+k
+      real_binomials_calculated(k) = top-bottom+k
     enddo
   endif
 end subroutine
@@ -549,16 +632,7 @@ function multinomial(top,bottom) result(output)
     call err()
   endif
   
-  call calculate_factorials()
-  
-  if (top<size(FACTORIALS)) then
-    output = factorial(top) / product(factorial(bottom))
-  else
-    call print_line(ERROR//': Currently unable to calculate multinomial &
-       &coefficients involving factorials larger than '//               &
-       & size(FACTORIALS)-1//'!'                                        )
-    call err()
-  endif
+  output = factorial(top) / product(factorial(bottom))
 end function
 
 function real_multinomial(top,bottom) result(output)
@@ -576,16 +650,7 @@ function real_multinomial(top,bottom) result(output)
     call err()
   endif
   
-  call calculate_factorials()
-  
-  if (top<size(REAL_FACTORIALS)) then
-    output = real_factorial(top) / product(real_factorial(bottom))
-  else
-    call print_line(ERROR//': Currently unable to calculate multinomial &
-       &coefficients involving factorials larger than '//               &
-       & size(REAL_FACTORIALS)-1//'!'                                   )
-    call err()
-  endif
+  output = exp(log_factorial(top)-sum(log_factorial(bottom)))
 end function
 
 ! ----------------------------------------------------------------------
