@@ -261,7 +261,7 @@ subroutine setup_anharmonic_subroutine(arguments)
   anharmonic_supercell_file = OFile('anharmonic_supercell.dat')
   call anharmonic_supercell_file%print_lines(anharmonic_supercell)
   
-  anharmonic_qpoints_file = OFile('qpoints.dat')
+  anharmonic_qpoints_file = OFile('anharmonic_qpoints.dat')
   call anharmonic_qpoints_file%print_lines(qpoints, separating_line='')
   
   ! Write out complex and real normal modes.
