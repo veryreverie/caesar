@@ -361,8 +361,12 @@ function to_ComplexMonomial_ComplexUnivariate(this) result(output)
   class(ComplexUnivariate), intent(in) :: this
   type(ComplexMonomial)                :: output
   
-  output = ComplexMonomial( coefficient = cmplx(1.0_dp,0.0_dp,dp), &
-                          & modes       = [this])
+  select type(this); type is(ComplexUnivariate)
+    output = ComplexMonomial( coefficient = cmplx(1.0_dp,0.0_dp,dp), &
+                            & modes       = [this])
+  class default
+    call err()
+  end select
 end function
 
 function to_ComplexPolynomial_ComplexUnivariate(this) result(output)
@@ -371,7 +375,11 @@ function to_ComplexPolynomial_ComplexUnivariate(this) result(output)
   class(ComplexUnivariate), intent(in) :: this
   type(ComplexPolynomial)              :: output
   
-  output = ComplexPolynomial([this%to_ComplexMonomial()])
+  select type(this); type is(ComplexUnivariate)
+    output = ComplexPolynomial([this%to_ComplexMonomial()])
+  class default
+    call err()
+  end select
 end function
 
 function to_ComplexMonomial_ComplexMonomial(this) result(output)
@@ -380,7 +388,11 @@ function to_ComplexMonomial_ComplexMonomial(this) result(output)
   class(ComplexMonomial), intent(in) :: this
   type(ComplexMonomial)              :: output
   
-  output = this
+  select type(this); type is(ComplexMonomial)
+    output = this
+  class default
+    call err()
+  end select
 end function
 
 function to_ComplexPolynomial_ComplexMonomial(this) result(output)
@@ -389,7 +401,11 @@ function to_ComplexPolynomial_ComplexMonomial(this) result(output)
   class(ComplexMonomial), intent(in) :: this
   type(ComplexPolynomial)            :: output
   
-  output = ComplexPolynomial([this])
+  select type(this); type is(ComplexMonomial)
+    output = ComplexPolynomial([this])
+  class default
+    call err()
+  end select
 end function
 
 function to_ComplexPolynomial_ComplexPolynomial(this) result(output)
@@ -398,7 +414,11 @@ function to_ComplexPolynomial_ComplexPolynomial(this) result(output)
   class(ComplexPolynomial), intent(in) :: this
   type(ComplexPolynomial)              :: output
   
-  output = this
+  select type(this); type is(ComplexPolynomial)
+    output = this
+  class default
+    call err()
+  end select
 end function
 
 ! ----------------------------------------------------------------------

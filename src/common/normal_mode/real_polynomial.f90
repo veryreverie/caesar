@@ -329,8 +329,12 @@ function to_RealMonomial_RealUnivariate(this) result(output)
   class(RealUnivariate), intent(in) :: this
   type(RealMonomial)                :: output
   
-  output = RealMonomial( coefficient = 1.0_dp, &
-                       & modes       = [this])
+  select type(this); type is(RealUnivariate)
+    output = RealMonomial( coefficient = 1.0_dp, &
+                         & modes       = [this])
+  class default
+    call err()
+  end select
 end function
 
 function to_RealPolynomial_RealUnivariate(this) result(output)
@@ -339,7 +343,11 @@ function to_RealPolynomial_RealUnivariate(this) result(output)
   class(RealUnivariate), intent(in) :: this
   type(RealPolynomial)              :: output
   
-  output = RealPolynomial([this%to_RealMonomial()])
+  select type(this); type is(RealUnivariate)
+    output = RealPolynomial([this%to_RealMonomial()])
+  class default
+    call err()
+  end select
 end function
 
 function to_RealMonomial_RealMonomial(this) result(output)
@@ -348,7 +356,11 @@ function to_RealMonomial_RealMonomial(this) result(output)
   class(RealMonomial), intent(in) :: this
   type(RealMonomial)              :: output
   
-  output = this
+  select type(this); type is(RealMonomial)
+    output = this
+  class default
+    call err()
+  end select
 end function
 
 function to_RealPolynomial_RealMonomial(this) result(output)
@@ -357,7 +369,11 @@ function to_RealPolynomial_RealMonomial(this) result(output)
   class(RealMonomial), intent(in) :: this
   type(RealPolynomial)            :: output
   
-  output = RealPolynomial([this])
+  select type(this); type is(RealMonomial)
+    output = RealPolynomial([this])
+  class default
+    call err()
+  end select
 end function
 
 function to_RealPolynomial_RealPolynomial(this) result(output)
@@ -366,7 +382,11 @@ function to_RealPolynomial_RealPolynomial(this) result(output)
   class(RealPolynomial), intent(in) :: this
   type(RealPolynomial)              :: output
   
-  output = this
+  select type(this); type is(RealPolynomial)
+    output = this
+  class default
+    call err()
+  end select
 end function
 
 ! ----------------------------------------------------------------------
