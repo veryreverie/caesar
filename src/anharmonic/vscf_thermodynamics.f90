@@ -19,9 +19,10 @@ module vscf_thermodynamics_module
   !public :: calculate_vscf_thermodynamics
   
   type, extends(NoDefaultConstructor) :: EnergySpectrum
-    real(dp), allocatable :: vscf_energies(:)
-    real(dp), allocatable :: vscha_energies(:)
-    integer,  allocatable :: vscha_occupations(:)
+    type(VscfState), allocatable :: vscf_states(:)
+    real(dp),        allocatable :: vscf_energies(:)
+    real(dp),        allocatable :: vscha_energies(:)
+    integer,         allocatable :: vscha_occupations(:)
   end type
   
   ! Return type.
@@ -35,15 +36,17 @@ module vscf_thermodynamics_module
   end interface
 contains
 
-function new_EnergySpectrum(vscf_energies,vscha_energies,vscha_occupations) &
-   & result(this)
+function new_EnergySpectrum(vscf_states,vscf_energies,vscha_energies, &
+   & vscha_occupations) result(this)
   implicit none
   
-  real(dp), allocatable :: vscf_energies(:)
-  real(dp), allocatable :: vscha_energies(:)
-  integer,  allocatable :: vscha_occupations(:)
-  type(EnergySpectrum)  :: this
+  type(VscfState), intent(in) :: vscf_states(:)
+  real(dp),        intent(in) :: vscf_energies(:)
+  real(dp),        intent(in) :: vscha_energies(:)
+  integer,         intent(in) :: vscha_occupations(:)
+  type(EnergySpectrum)        :: this
   
+  this%vscf_states = vscf_states
   this%vscf_energies = vscf_energies
   this%vscha_energies = vscha_energies
   this%vscha_occupations = vscha_occupations
@@ -107,9 +110,11 @@ function calculate_vscf_spectrum(vscha_frequency,potential,subspace, &
   real(dp),                  allocatable :: hamiltonian(:,:)
   type(SymmetricEigenstuff), allocatable :: estuff(:)
   
-  real(dp), allocatable :: vscf_energies(:)
-  real(dp), allocatable :: vscha_energies(:)
-  integer,  allocatable :: vscha_occupations(:)
+  type(VscfState)              :: vscf_state
+  type(VscfState), allocatable :: vscf_states(:)
+  real(dp),        allocatable :: vscf_energies(:)
+  real(dp),        allocatable :: vscha_energies(:)
+  integer,         allocatable :: vscha_occupations(:)
   
   integer :: i,j,k,l,ialloc
   
@@ -124,6 +129,7 @@ function calculate_vscf_spectrum(vscha_frequency,potential,subspace, &
                        & anharmonic_data%potential_expansion_order, &
                        & anharmonic_data%structure%symmetries       )
   
+  vscf_states = [VscfState::]
   vscf_energies = [real::]
   vscha_energies = [real::]
   vscha_occupations = [integer::]
@@ -148,16 +154,28 @@ function calculate_vscf_spectrum(vscha_frequency,potential,subspace, &
     enddo
     
     estuff = diagonalise_symmetric(hamiltonian)
-    do j=1,basis%wavevectors(i)%degeneracy
-      vscf_energies = [vscf_energies, estuff%eval]
+    do j=1,size(estuff)
+      vscf_state = VscfState( subspace_id  = basis%subspace_id, &
+                            & wavevector   = basis%wavevectors(i)%wavevector, &
+                            & degeneracy   = basis%wavevectors(i)%degeneracy, &
+                            & energy       = estuff(j)%eval,                  &
+                            & coefficients = estuff(j)%evec                   )
+      do k=1,vscf_state%degeneracy
+        vscf_energies = [vscf_energies, vscf_state%energy]
+      enddo
+      vscf_states = [vscf_states, vscf_state]
     enddo
     deallocate(hamiltonian, stat=ialloc); call err(ialloc)
   enddo
   
+  ! Make energies extensive rather than intensive.
   vscf_energies = vscf_energies * supercell%sc_size
   vscha_energies = vscha_energies * supercell%sc_size
   
-  output = EnergySpectrum(vscf_energies, vscha_energies, vscha_occupations)
+  output = EnergySpectrum( vscf_states,      &
+                         & vscf_energies,    &
+                         & vscha_energies,   &
+                         & vscha_occupations )
 end function
 
 !function calculate_vscf_thermodynamics(vscf_frequency,potential,subspace, &

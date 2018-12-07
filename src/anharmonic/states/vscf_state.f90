@@ -1,8 +1,8 @@
 ! ======================================================================
-! The VSCF ground state of a given subspace,
-!    stored in terms of coefficients of SubspaceBasis states.
+! A VSCF state in a given subspace,
+!    stored in terms of coefficients of harmonic SubspaceBasis states.
 ! ======================================================================
-module vscf_ground_state_module
+module vscf_state_module
   use common_module
   
   use wavevector_basis_module
@@ -12,53 +12,59 @@ module vscf_ground_state_module
   
   private
   
-  public :: VscfGroundState
+  public :: VscfState
   public :: PolynomialState
   public :: initial_ground_state
   
-  type, extends(Stringsable) :: VscfGroundState
+  type, extends(Stringsable) :: VscfState
     integer               :: subspace_id
     type(FractionVector)  :: wavevector
+    integer               :: degeneracy
+    real(dp)              :: energy
     real(dp), allocatable :: coefficients(:)
   contains
-    procedure, public :: read  => read_VscfGroundState
-    procedure, public :: write => write_VscfGroundState
+    procedure, public :: read  => read_VscfState
+    procedure, public :: write => write_VscfState
   end type
   
-  interface VscfGroundState
-    module procedure new_VscfGroundState
-    module procedure new_VscfGroundState_Strings
-    module procedure new_VscfGroundState_StringArray
+  interface VscfState
+    module procedure new_VscfState
+    module procedure new_VscfState_Strings
+    module procedure new_VscfState_StringArray
   end interface
   
   interface PolynomialState
-    module procedure new_PolynomialState_VscfGroundState
+    module procedure new_PolynomialState_VscfState
   end interface
 contains
 
 ! Constructor.
-function new_VscfGroundState(subspace_id,wavevector,coefficients) &
+function new_VscfState(subspace_id,wavevector,degeneracy,energy,coefficients) &
    & result(this)
   implicit none
   
   integer,              intent(in) :: subspace_id
   type(FractionVector), intent(in) :: wavevector
+  integer,              intent(in) :: degeneracy
+  real(dp),             intent(in) :: energy
   real(dp),             intent(in) :: coefficients(:)
-  type(VscfGroundState)            :: this
+  type(VscfState)                  :: this
   
   this%subspace_id  = subspace_id
   this%wavevector   = wavevector
+  this%degeneracy   = degeneracy
+  this%energy       = energy
   this%coefficients = coefficients
 end function
 
-! Construct a PolynomialState from a VscfGroundState.
-impure elemental function new_PolynomialState_VscfGroundState(state,basis) &
+! Construct a PolynomialState from a VscfState.
+impure elemental function new_PolynomialState_VscfState(state,basis) &
    & result(output)
   implicit none
   
-  type(VscfGroundState), intent(in) :: state
-  type(SubspaceBasis),   intent(in) :: basis
-  type(PolynomialState)             :: output
+  type(VscfState),     intent(in) :: state
+  type(SubspaceBasis), intent(in) :: basis
+  type(PolynomialState)           :: output
   
   real(dp), allocatable :: coefficients(:)
   
@@ -81,7 +87,7 @@ impure elemental function initial_ground_state(basis) result(output)
   implicit none
   
   type(SubspaceBasis), intent(in) :: basis
-  type(VscfGroundState)           :: output
+  type(VscfState)                 :: output
   
   type(WavevectorBasis) :: wavevector_basis
   
@@ -103,73 +109,85 @@ impure elemental function initial_ground_state(basis) result(output)
   coefficients = wavevector_basis%coefficients_states_to_basis(coefficients)
   
   ! Construct output.
-  output = VscfGroundState(                        &
+  output = VscfState(                              &
      & subspace_id  = basis%subspace_id,           &
      & wavevector   = wavevector_basis%wavevector, &
+     & degeneracy   = wavevector_basis%degeneracy, &
+     & energy       = 0.0_dp,                      &
      & coefficients = coefficients                 )
 end function
 
 ! ----------------------------------------------------------------------
 ! I/O.
 ! ----------------------------------------------------------------------
-subroutine read_VscfGroundState(this,input)
+subroutine read_VscfState(this,input)
   implicit none
   
-  class(VscfGroundState), intent(out) :: this
-  type(String),           intent(in)  :: input(:)
+  class(VscfState), intent(out) :: this
+  type(String),     intent(in)  :: input(:)
   
   integer               :: subspace_id
   type(FractionVector)  :: wavevector
+  integer               :: degeneracy
+  real(dp)              :: energy
   real(dp), allocatable :: coefficients(:)
   
   type(String), allocatable :: line(:)
   
-  select type(this); type is(VscfGroundState)
+  select type(this); type is(VscfState)
     line = split_line(input(1))
-    subspace_id = int(line(2))
+    subspace_id = int(line(3))
     
     line = split_line(input(2))
-    wavevector = FractionVector(join(line(2:4)))
+    wavevector = FractionVector(join(line(3:5)))
     
     line = split_line(input(3))
-    coefficients = dble(line(2:))
+    degeneracy = int(line(3))
     
-    this = VscfGroundState(subspace_id,wavevector,coefficients)
+    line = split_line(input(4))
+    energy = dble(line(3))
+    
+    line = split_line(input(5))
+    coefficients = dble(line(3:))
+    
+    this = VscfState(subspace_id,wavevector,degeneracy,energy,coefficients)
   class default
     call err()
   end select
 end subroutine
 
-function write_VscfGroundState(this) result(output)
+function write_VscfState(this) result(output)
   implicit none
   
-  class(VscfGroundState), intent(in) :: this
-  type(String), allocatable          :: output(:)
+  class(VscfState), intent(in) :: this
+  type(String), allocatable    :: output(:)
   
-  select type(this); type is(VscfGroundState)
-    output = [ 'Subspace '//this%subspace_id,     &
-             & 'Wavevector '//this%wavevector,    &
-             & 'Coefficients '//this%coefficients ]
+  select type(this); type is(VscfState)
+    output = [ 'Subspace     : '//this%subspace_id, &
+             & 'Wavevector   : '//this%wavevector,  &
+             & 'Degeneracy   : '//this%degeneracy,  &
+             & 'Energy       : '//this%energy,      &
+             & 'Coefficients : '//this%coefficients ]
   class default
     call err()
   end select
 end function
 
-function new_VscfGroundState_Strings(input) result(this)
+function new_VscfState_Strings(input) result(this)
   implicit none
   
   type(String), intent(in) :: input(:)
-  type(VscfGroundState)    :: this
+  type(VscfState)          :: this
   
   call this%read(input)
 end function
 
-impure elemental function new_VscfGroundState_StringArray(input) result(this)
+impure elemental function new_VscfState_StringArray(input) result(this)
   implicit none
   
   type(StringArray), intent(in) :: input
-  type(VscfGroundState)         :: this
+  type(VscfState)               :: this
   
-  this = VscfGroundState(str(input))
+  this = VscfState(str(input))
 end function
 end module

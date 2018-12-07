@@ -17,8 +17,7 @@ module vscf_module
   
   type, extends(NoDefaultConstructor) :: SubspacePotentialAndState
     type(PotentialPointer) :: potential
-    type(VscfGroundState)  :: state
-    real(dp)               :: energy
+    type(VscfState)        :: state
   end type
   
   interface SubspacePotentialAndState
@@ -26,18 +25,16 @@ module vscf_module
   end interface
 contains
 
-impure elemental function new_SubspacePotentialAndState(potential,state, &
-   & energy) result(this)
+impure elemental function new_SubspacePotentialAndState(potential,state) &
+   & result(this)
   implicit none
   
   type(PotentialPointer), intent(in) :: potential
-  type(VscfGroundState),  intent(in) :: state
-  real(dp),               intent(in) :: energy
+  type(VscfState),        intent(in) :: state
   type(SubspacePotentialAndState)    :: this
   
   this%potential = potential
   this%state = state
-  this%energy = energy
 end function
 
 function run_vscf(potential,basis,energy_convergence,                     &
@@ -55,10 +52,7 @@ function run_vscf(potential,basis,energy_convergence,                     &
   type(AnharmonicData), intent(in)             :: anharmonic_data
   type(SubspacePotentialAndState), allocatable :: output(:)
   
-  type(VscfGroundState), allocatable :: old_guess(:)
-  type(VscfGroundState), allocatable :: new_guess(:)
-  
-  type(VscfGroundState),           allocatable :: state(:)
+  type(VscfState),                 allocatable :: state(:)
   type(SubspacePotentialAndState), allocatable :: potentials_and_states(:)
   real(dp),                        allocatable :: energies(:)
   
@@ -84,7 +78,7 @@ function run_vscf(potential,basis,energy_convergence,                     &
     !    and calculate the new ground states of these potentials.
     potentials_and_states = update(state,basis,potential,anharmonic_data)
     state = potentials_and_states%state
-    energies = [energies, sum(potentials_and_states%energy)]
+    energies = [energies, sum(potentials_and_states%state%energy)]
     new_coefficients = [new_coefficients, states_to_coefficients(state)]
     
     if (i==1) then
@@ -107,7 +101,18 @@ function run_vscf(potential,basis,energy_convergence,                     &
       next_old_coefficients = pulay(old_coefficients(j:), new_coefficients(j:))
     endif
     
+    ! Normalise coefficients, and append them to the list.
+    next_old_coefficients = normalise_coefficients( next_old_coefficients, &
+                                                  & state                  )
     old_coefficients = [old_coefficients, next_old_coefficients]
+    
+    ! Use the next iteration of old_coefficients to update the current state.
+    ! N.B. the energy of this state is unknown.
+    call print_line('')
+    call print_lines(state)
+    state = coefficients_to_states(next_old_coefficients,state)
+    call print_line('...')
+    call print_lines(state)
     
     ! Increment the loop counter.
     i = i+1
@@ -133,10 +138,10 @@ end function
 function update(states,basis,potential,anharmonic_data) result(output)
   implicit none
   
-  type(VscfGroundState), intent(in)            :: states(:)
-  type(SubspaceBasis),   intent(in)            :: basis(:)
-  class(PotentialData),  intent(in)            :: potential
-  type(AnharmonicData),  intent(in)            :: anharmonic_data
+  type(VscfState),      intent(in)             :: states(:)
+  type(SubspaceBasis),  intent(in)             :: basis(:)
+  class(PotentialData), intent(in)             :: potential
+  type(AnharmonicData), intent(in)             :: anharmonic_data
   type(SubspacePotentialAndState), allocatable :: output(:)
   
   type(StructureData) :: supercell
@@ -155,10 +160,7 @@ function update(states,basis,potential,anharmonic_data) result(output)
   
   type(SymmetricEigenstuff), allocatable :: estuff(:)
   
-  type(VscfGroundState), allocatable :: ground_states(:)
-  real(dp),              allocatable :: energies(:)
-  
-  real(dp), allocatable :: coefficients(:)
+  type(VscfState), allocatable :: ground_states(:)
   
   integer :: i,j,k,l,m,ialloc
   
@@ -174,7 +176,6 @@ function update(states,basis,potential,anharmonic_data) result(output)
   
   call print_line('Generating single-subspace ground states.')
   allocate( ground_states(size(states)), &
-          & energies(size(states)),      &
           & stat=ialloc); call err(ialloc)
   do i=1,size(states)
     subspace = anharmonic_data%degenerate_subspaces(i)
@@ -214,19 +215,18 @@ function update(states,basis,potential,anharmonic_data) result(output)
     ! Find the wavevector with the lowest energy ground-state.
     j = minloc(wavevector_ground_states%eval,1)
     
-    coefficients = wavevector_ground_states(j)%evec
-    energies(i) = wavevector_ground_states(j)%eval
-    ground_states(i) = VscfGroundState(                     &
+    ground_states(i) = VscfState(                           &
        & subspace_id  = basis(i)%subspace_id,               &
        & wavevector   = basis(i)%wavevectors(j)%wavevector, &
-       & coefficients = coefficients                        )
+       & degeneracy   = basis(i)%wavevectors(j)%degeneracy, &
+       & energy       = wavevector_ground_states(j)%eval,   &
+       & coefficients = wavevector_ground_states(j)%evec    )
     
     deallocate(wavevector_ground_states, stat=ialloc); call err(ialloc)
   enddo
   
   output = SubspacePotentialAndState( subspace_potentials, &
-                                    & ground_states,       &
-                                    & energies             )
+                                    & ground_states        )
 end function
 
 ! Concatenates the coefficients of all the states together,
@@ -234,8 +234,8 @@ end function
 function states_to_coefficients(states) result(output)
   implicit none
   
-  type(VscfGroundState), intent(in) :: states(:)
-  type(RealVector)                  :: output
+  type(VscfState), intent(in) :: states(:)
+  type(RealVector)            :: output
   
   integer :: i
   
@@ -248,9 +248,9 @@ end function
 function coefficients_to_states(input,states) result(output)
   implicit none
   
-  type(RealVector),      intent(in)  :: input
-  type(VscfGroundState), intent(in)  :: states(:)
-  type(VscfGroundState), allocatable :: output(:)
+  type(RealVector), intent(in)  :: input
+  type(VscfState),  intent(in)  :: states(:)
+  type(VscfState),  allocatable :: output(:)
   
   real(dp), allocatable :: coefficients(:)
   real(dp), allocatable :: state_coefficients(:)
@@ -264,9 +264,37 @@ function coefficients_to_states(input,states) result(output)
   do i=1,size(states)
     state_coefficients = coefficients(j+1:j+size(states(i)%coefficients))
     j = j+size(state_coefficients)
-    output(i) = VscfGroundState( subspace_id  = states(i)%subspace_id, &
-                               & wavevector   = states(i)%wavevector,  &
-                               & coefficients = state_coefficients     )
+    output(i) = VscfState( subspace_id  = states(i)%subspace_id, &
+                         & wavevector   = states(i)%wavevector,  &
+                         & degeneracy   = states(i)%degeneracy,  &
+                         & energy       = 0.0_dp,                &
+                         & coefficients = state_coefficients     )
   enddo
+end function
+
+! Normalises a set of coefficients, using a set of states to identify which
+!    coefficients correspond to which state.
+function normalise_coefficients(input,states) result(output)
+  implicit none
+  
+  type(RealVector), intent(in) :: input
+  type(VscfState),  intent(in) :: states(:)
+  type(RealVector)             :: output
+  
+  real(dp), allocatable :: coefficients(:)
+  real(dp), allocatable :: state_coefficients(:)
+  real(dp), allocatable :: new_coefficients(:)
+  
+  integer :: i,j
+  
+  coefficients = dble(input)
+  new_coefficients = [real::]
+  do i=1,size(states)
+    j = size(new_coefficients)
+    state_coefficients = coefficients(j+1:j+size(states(i)%coefficients))
+    state_coefficients = state_coefficients / l2_norm(state_coefficients)
+    new_coefficients = [new_coefficients, state_coefficients]
+  enddo
+  output = new_coefficients
 end function
 end module

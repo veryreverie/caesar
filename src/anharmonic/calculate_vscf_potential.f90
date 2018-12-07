@@ -91,7 +91,7 @@ subroutine calculate_vscf_potential_subroutine(arguments)
   
   ! VSCF ground states.
   type(SubspacePotentialAndState), allocatable :: potentials_and_states(:)
-  type(VscfGroundState),           allocatable :: ground_states(:)
+  type(VscfState),                 allocatable :: ground_states(:)
   type(PotentialPointer),          allocatable :: subspace_potentials(:)
   
   ! Files and directories.

@@ -58,7 +58,7 @@ subroutine map_vscf_modes_subroutine(arguments)
   ! Single-subspace potentials, bases and ground states.
   type(PotentialPointer), allocatable :: subspace_potentials(:)
   type(SubspaceBasis),    allocatable :: basis(:)
-  type(VscfGroundState),  allocatable :: ground_states(:)
+  type(VscfState),        allocatable :: ground_states(:)
   
   ! Variables for calculating displacements.
   real(dp),      allocatable :: displacements(:)
@@ -97,7 +97,7 @@ subroutine map_vscf_modes_subroutine(arguments)
   basis = SubspaceBasis(basis_file%sections())
   
   ground_states_file = IFile('ground_state.dat')
-  ground_states = VscfGroundState(ground_states_file%sections())
+  ground_states = VscfState(ground_states_file%sections())
   
   ! --------------------------------------------------
   ! Calculate the value of the VSCF potential along each mode.

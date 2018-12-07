@@ -391,9 +391,9 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
                                            & subspaces(i),           &
                                            & anharmonic_data,        &
                                            & no_vscf_basis_states    )
-    call print_line('VSCF states span '//    &
-       & maxval(vscf_spectrum%vscf_energies) &
-       &-minval(vscf_spectrum%vscf_energies)//' (Ha)')
+    call print_line('VSCF states span '//     &
+       &  maxval(vscf_spectrum%vscf_energies) &
+       & -minval(vscf_spectrum%vscf_energies) //' (Ha)')
     do j=1,size(thermal_energies)
       vscf1_thermodynamics(j) = vscf1_thermodynamics(j)                      &
                            & + ThermodynamicData( thermal_energies(j),     &

@@ -7,7 +7,7 @@ module states_module
   use monomial_state_module
   use harmonic_state_module
   use polynomial_state_module
-  use vscf_ground_state_module
+  use vscf_state_module
   use braket_module
   use subspace_basis_module
   use state_conversion_module
