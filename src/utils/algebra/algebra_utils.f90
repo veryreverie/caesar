@@ -640,7 +640,7 @@ function real_multinomial(top,bottom) result(output)
   
   integer, intent(in) :: top
   integer, intent(in) :: bottom(:)
-  integer             :: output
+  real(dp)            :: output
   
   if (top<0) then
     call err()

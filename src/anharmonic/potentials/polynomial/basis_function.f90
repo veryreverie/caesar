@@ -194,7 +194,7 @@ function generate_basis_functions_SubspaceMonomial(subspace_monomial, &
              &                      structure%symmetries(i)%symmetry_order() )
   enddo
   call check_hermitian( projection,               &
-                      & 'projection_matrix',      &
+                      & 'projection matrix',      &
                       & logfile,                  &
                       & ignore_threshold=1e-10_dp )
   
@@ -203,7 +203,7 @@ function generate_basis_functions_SubspaceMonomial(subspace_monomial, &
   projection = complex_to_real_conversion &
            & * projection                 &
            & * real_to_complex_conversion
-  call check_real(projection,'projection_matrix',logfile)
+  call check_real(projection,'projection matrix',logfile)
   call check_symmetric( real(projection),         &
                       & 'projection_matrix',      &
                       & logfile,                  &
