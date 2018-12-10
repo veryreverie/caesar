@@ -11,6 +11,7 @@ module states_module
   use braket_module
   use subspace_basis_module
   use state_conversion_module
+  use vscf_wavefunctions_module
   implicit none
 contains
 end module

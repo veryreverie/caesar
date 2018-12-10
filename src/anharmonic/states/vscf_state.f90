@@ -23,6 +23,8 @@ module vscf_state_module
     real(dp)              :: energy
     real(dp), allocatable :: coefficients(:)
   contains
+    procedure, public :: wavefunction => wavefunction_VscfState
+    ! I/O.
     procedure, public :: read  => read_VscfState
     procedure, public :: write => write_VscfState
   end type
@@ -115,6 +117,42 @@ impure elemental function initial_ground_state(basis) result(output)
      & degeneracy   = wavevector_basis%degeneracy, &
      & energy       = 0.0_dp,                      &
      & coefficients = coefficients                 )
+end function
+
+impure elemental function wavefunction_VscfState(this,basis,supercell) &
+   & result(output)
+  implicit none
+  
+  class(VscfState),    intent(in) :: this
+  type(SubspaceBasis), intent(in) :: basis
+  type(StructureData), intent(in) :: supercell
+  type(String)                    :: output
+  
+  type(WavevectorBasis) :: wavevector_basis
+  
+  real(dp),     allocatable :: coefficients(:)
+  type(String), allocatable :: terms(:)
+  
+  type(String) :: state
+  
+  integer :: i,ialloc
+  
+  wavevector_basis = basis%wavevectors(                     &
+     & first(basis%wavevectors%wavevector==this%wavevector) )
+  
+  coefficients = wavevector_basis%coefficients_basis_to_states( &
+                                            & this%coefficients )
+  allocate(terms(size(coefficients)), stat=ialloc); call err(ialloc)
+  do i=1,size(coefficients)
+    state = wavevector_basis%monomial_states(i)%wavefunction( &
+                                           & basis%frequency, &
+                                           & supercell        )
+    ! Trim the '|0>' from the state.
+    state = slice(state,1,len(state)-3)
+    
+    terms(i) = state
+  enddo
+  output = '('//join(terms,' + ')//')|0>'
 end function
 
 ! ----------------------------------------------------------------------

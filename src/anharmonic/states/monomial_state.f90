@@ -28,7 +28,7 @@ module monomial_state_module
   !
   ! If a mode is its own conjugate, (u_i)* = u_i,
   !    then the single-mode states along mode u_i are:
-  ! |n_i> = prod_{k=1}^i[ sqrt(2Nw/(2k-1)) ] (u_i)^(n_i) |0_i>
+  ! |n_i> = prod_{k=1}^{n_i}[ sqrt(2Nw/(2k-1)) ] (u_i)^(n_i) |0_i>
   ! |0_i> = sqrt(sqrt(m*w/pi)) exp(- 1/2 N w (u_i)^2 )
   !
   ! If a mode is not its own conjugate, (u_i)* = u_j,
@@ -59,6 +59,8 @@ module monomial_state_module
   contains
     procedure, public :: total_power => total_power_MonomialState
     procedure, public :: wavevector => wavevector_MonomialState
+    
+    procedure, public :: wavefunction => wavefunction_MonomialState
     ! I/O.
     procedure, public :: read  => read_MonomialState
     procedure, public :: write => write_MonomialState
@@ -207,6 +209,44 @@ function wavevector_MonomialState(this,modes,qpoints) result(output)
   type(QpointData)                 :: output
   
   output = this%state_%wavevector(modes,qpoints)
+end function
+
+! ----------------------------------------------------------------------
+! Returns the wavefunction of the state,
+!    with all coefficients accounted for.
+! ----------------------------------------------------------------------
+impure elemental function wavefunction_MonomialState(this,frequency, &
+   & supercell) result(output)
+  implicit none
+  
+  class(MonomialState), intent(in) :: this
+  real(dp),             intent(in) :: frequency
+  type(StructureData),  intent(in) :: supercell
+  type(String)                     :: output
+  
+  real(dp) :: coefficient
+  
+  type(ComplexUnivariate) :: mode
+  
+  integer :: i,k
+  
+  coefficient = 1
+  do i=1,size(this%state_)
+    mode = this%state_%mode(i)
+    if (mode%id==mode%paired_id) then
+      ! |n_i> = prod_{k=1}^{n_i}[ sqrt(2Nw/(2k-1)) ] (u_i)^(n_i) |0_i>
+      do k=1,mode%power
+        coefficient = coefficient * sqrt(2*supercell%sc_size*frequency/(2*k-1))
+      enddo
+    else
+      ! |n_i,n_j> = prod_{k=1}^{n_i+n_j}[ sqrt(4Nw/k) ] ui^ni uj^nj |0_i,0_j>
+      do k=1,mode%power+mode%paired_power
+        coefficient = coefficient * sqrt(4*supercell%sc_size*frequency/k)
+      enddo
+    endif
+  enddo
+  
+  output = coefficient//'*'//join(this%state_%modes(),delimiter='*')//'|0>'
 end function
 
 ! ----------------------------------------------------------------------

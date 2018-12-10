@@ -19,6 +19,7 @@ module vscf_thermodynamics_module
   !public :: calculate_vscf_thermodynamics
   
   type, extends(NoDefaultConstructor) :: EnergySpectrum
+    type(SubspaceBasis)          :: basis
     type(VscfState), allocatable :: vscf_states(:)
     real(dp),        allocatable :: vscf_energies(:)
     real(dp),        allocatable :: vscha_energies(:)
@@ -36,16 +37,18 @@ module vscf_thermodynamics_module
   end interface
 contains
 
-function new_EnergySpectrum(vscf_states,vscf_energies,vscha_energies, &
+function new_EnergySpectrum(basis,vscf_states,vscf_energies,vscha_energies, &
    & vscha_occupations) result(this)
   implicit none
   
-  type(VscfState), intent(in) :: vscf_states(:)
-  real(dp),        intent(in) :: vscf_energies(:)
-  real(dp),        intent(in) :: vscha_energies(:)
-  integer,         intent(in) :: vscha_occupations(:)
-  type(EnergySpectrum)        :: this
+  type(SubspaceBasis), intent(in) :: basis
+  type(VscfState),     intent(in) :: vscf_states(:)
+  real(dp),            intent(in) :: vscf_energies(:)
+  real(dp),            intent(in) :: vscha_energies(:)
+  integer,             intent(in) :: vscha_occupations(:)
+  type(EnergySpectrum)            :: this
   
+  this%basis = basis
   this%vscf_states = vscf_states
   this%vscf_energies = vscf_energies
   this%vscha_energies = vscha_energies
@@ -172,7 +175,8 @@ function calculate_vscf_spectrum(vscha_frequency,potential,subspace, &
   vscf_energies = vscf_energies * supercell%sc_size
   vscha_energies = vscha_energies * supercell%sc_size
   
-  output = EnergySpectrum( vscf_states,      &
+  output = EnergySpectrum( basis,            &
+                         & vscf_states,      &
                          & vscf_energies,    &
                          & vscha_energies,   &
                          & vscha_occupations )

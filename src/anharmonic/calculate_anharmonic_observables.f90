@@ -2,7 +2,7 @@
 ! Calculates, under the VSCF approximation:
 !
 ! ======================================================================
-! Should be run after calculate_states.
+! Should be run after calculate_vscf_potential.
 module calculate_anharmonic_observables_module
   use common_module
   
@@ -148,6 +148,7 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   real(dp)                :: vscf_frequency
   type(EnergySpectrum)    :: vscf_spectrum
   type(ThermodynamicData) :: vscha_thermo(2)
+  type(VscfWavefunctions) :: wavefunctions
   
   ! Files and directories.
   type(IFile)  :: anharmonic_data_file
@@ -160,6 +161,8 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   type(OFile)  :: dispersion_file
   type(OFile)  :: symmetry_points_file
   type(OFile)  :: sampled_qpoints_file
+  type(String) :: subspace_dir
+  type(OFile)  :: wavefunctions_file
   type(OFile)  :: vscha_thermodynamic_file
   type(OFile)  :: vscha1_thermodynamic_file
   type(OFile)  :: vscha2_thermodynamic_file
@@ -394,6 +397,17 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
     call print_line('VSCF states span '//     &
        &  maxval(vscf_spectrum%vscf_energies) &
        & -minval(vscf_spectrum%vscf_energies) //' (Ha)')
+    
+    subspace_dir = output_dir//'/subspace_'// &
+       & left_pad(subspaces(i)%id, str(maxval(subspaces%id)))
+    call mkdir(subspace_dir)
+    wavefunctions_file = OFile(subspace_dir//'/vscf_wavefunctions.dat')
+    wavefunctions = VscfWavefunctions( vscf_spectrum%vscf_states, &
+                                     & subspaces(i),              &
+                                     & vscf_spectrum%basis,       &
+                                     & supercell                  )
+    call wavefunctions_file%print_lines(wavefunctions)
+    
     do j=1,size(thermal_energies)
       vscf1_thermodynamics(j) = vscf1_thermodynamics(j)                      &
                            & + ThermodynamicData( thermal_energies(j),     &

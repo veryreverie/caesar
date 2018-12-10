@@ -36,6 +36,9 @@ module subspace_basis_module
     ! Set the frequency of the basis.
     procedure, public :: set_frequency => set_frequency_SubspaceBasis
     
+    ! Print the harmonic ground-state wavefunction of the basis.
+    procedure, public :: ground_state_wavefunction
+    
     ! I/O.
     procedure, public :: read  => read_SubspaceBasis
     procedure, public :: write => write_SubspaceBasis
@@ -123,6 +126,47 @@ function new_SubspaceBasis_subspace(subspace,frequency,modes,qpoints, &
                         & subspace%id,               &
                         & frequency,                 &
                         & wavevectors                )
+end function
+
+! Returns the harmonic ground-state wavefunction for the basis.
+function ground_state_wavefunction(this,subspace,supercell) result(output)
+  implicit none
+  
+  class(SubspaceBasis),     intent(in) :: this
+  type(DegenerateSubspace), intent(in) :: subspace
+  type(StructureData),      intent(in) :: supercell
+  type(String)                         :: output
+  
+  real(dp) :: mass
+  
+  real(dp)                  :: coefficient
+  type(String), allocatable :: terms(:)
+  
+  integer :: i
+  
+  ! Calculate the (geometric) average mass.
+  mass = product(supercell%atoms%mass())
+  mass = mass**(1.0_dp/size(supercell%atoms))
+  
+  ! Calculate the coefficient.
+  coefficient = 1
+  terms = [String::]
+  do i=1,size(subspace)
+    if (subspace%mode_ids(i)==subspace%paired_ids(i)) then
+      ! |0_i> = sqrt(sqrt(m*w/pi)) exp(- 1/2 N w (u_i)^2 )
+      coefficient = coefficient * (mass*this%frequency/PI)**0.25_dp
+      terms = [terms, 'u_'//subspace%mode_ids(i)//'^2']
+    elseif (subspace%mode_ids(i)<subspace%paired_ids(i)) then
+      ! |0_i,0_j> = sqrt(2*m*w/pi) exp(- N w |u_i|^2 )
+      coefficient = coefficient * (2*mass*this%frequency/PI)**0.5_dp
+      terms = [ terms,                                                    &
+              & '2*u_'//subspace%mode_ids(i)//'*'//subspace%paired_ids(i) ]
+    endif
+  enddo
+  
+  output = coefficient//'*e^('               // &
+     & (-supercell%sc_size*this%frequency/2) // &
+     & '*('//join(terms,' + ')//'))'
 end function
 
 ! ----------------------------------------------------------------------
