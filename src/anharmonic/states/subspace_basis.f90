@@ -155,18 +155,18 @@ function ground_state_wavefunction(this,subspace,supercell) result(output)
     if (subspace%mode_ids(i)==subspace%paired_ids(i)) then
       ! |0_i> = sqrt(sqrt(m*w/pi)) exp(- 1/2 N w (u_i)^2 )
       coefficient = coefficient * (mass*this%frequency/PI)**0.25_dp
-      terms = [terms, 'u_'//subspace%mode_ids(i)//'^2']
+      terms = [terms, 'u'//subspace%mode_ids(i)//'^2']
     elseif (subspace%mode_ids(i)<subspace%paired_ids(i)) then
       ! |0_i,0_j> = sqrt(2*m*w/pi) exp(- N w |u_i|^2 )
       coefficient = coefficient * (2*mass*this%frequency/PI)**0.5_dp
       terms = [ terms,                                                    &
-              & '2*u_'//subspace%mode_ids(i)//'*'//subspace%paired_ids(i) ]
+              & '2*u'//subspace%mode_ids(i)//'*u'//subspace%paired_ids(i) ]
     endif
   enddo
   
   output = coefficient//'*e^('               // &
      & (-supercell%sc_size*this%frequency/2) // &
-     & '*('//join(terms,' + ')//'))'
+     & '*('//join(terms,'+')//'))'
 end function
 
 ! ----------------------------------------------------------------------

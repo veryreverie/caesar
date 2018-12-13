@@ -39,9 +39,14 @@ function setup_harmonic() result(output)
      &in a Monkhorst-Pack grid. This should be specified as three integers &
      &separated by spaces.'),                                                 &
      & KeywordData( 'symmetry_precision',                                     &
-     &              'In order for a symmetry to be accepted, it must &
+     &              'symmetry_precision is the tolerance up to which a&
+     &symmetry is accepted. In order for a symmetry to be accepted, it must &
      &transform the position of every atom to within symmetry_precision of an &
-     &atom of the same element. symmetry_precision should be given in Bohr.', &
+     &atom of the same element. There must be no other atom within &
+     &symmetry_precision of this point. symmetry_precision should be given in &
+     &Bohr. Ideally, symmetry_precision should be much smaller than the &
+     &minimum inter-atomic distance, and much larger than the geometry &
+     &optimisation tolerance.',                                               &
      &              default_value='0.1'),                                     &
      & KeywordData( 'harmonic_displacement',                                  &
      &              'harmonic_displacement is the distance in bohr by which &

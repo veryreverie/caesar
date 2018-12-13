@@ -108,11 +108,7 @@ function run_vscf(potential,basis,energy_convergence,                     &
     
     ! Use the next iteration of old_coefficients to update the current state.
     ! N.B. the energy of this state is unknown.
-    call print_line('')
-    call print_lines(state)
     state = coefficients_to_states(next_old_coefficients,state)
-    call print_line('...')
-    call print_lines(state)
     
     ! Increment the loop counter.
     i = i+1

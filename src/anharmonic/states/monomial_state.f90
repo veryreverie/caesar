@@ -246,7 +246,11 @@ impure elemental function wavefunction_MonomialState(this,frequency, &
     endif
   enddo
   
-  output = coefficient//'*'//join(this%state_%modes(),delimiter='*')//'|0>'
+  if (size(this%state_)==0) then
+    output = str(coefficient)//'|0>'
+  else
+    output = coefficient//'*'//join(this%state_%modes(),delimiter='*')//'|0>'
+  endif
 end function
 
 ! ----------------------------------------------------------------------

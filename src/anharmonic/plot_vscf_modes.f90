@@ -19,9 +19,8 @@ function plot_vscf_modes() result(output)
   type(CaesarMode) :: output
   
   output%mode_name = 'plot_vscf_modes'
-  output%description = 'Plots the phonon density of states and dispersion &
-     &calculated by calculate_harmonic_observables. Should be run from within &
-     &a qpoint_ directory. The -d flag may be useful for this.'
+  output%description = 'Plots the mapping of the vscf modes produced by &
+     &map_vscf_modes.'
   output%keywords = [                                                      &
      & KeywordData( 'python_path',                                         &
      &              'python_path is the path to the Python 3 executable.', &

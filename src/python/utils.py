@@ -1,6 +1,26 @@
 # ======================================================================
 # Shared functions between python plotting scripts.
 # ======================================================================
+import os.path
+
+def read_file(filename):
+  if os.path.isfile(filename):
+    return [line.rstrip('\n').split() for line in open(filename)]
+  else:
+    raise ValueError('File '+filename+' does not exist.')
+
+def split_into_sections(flines):
+  sections = [[]]
+  for line in flines:
+    if len(line)==0:
+      if sections[-1]:
+        sections.append([])
+    else:
+      sections[-1].append(line)
+  if not sections[-1]:
+    sections = sections[:-1]
+  return sections
+  
 def dblecomplex(displacement):
   if displacement[0]=='-':
     re = float(displacement[:24])
@@ -11,7 +31,7 @@ def dblecomplex(displacement):
   return complex(re,im)
 
 def parse_mode_maps(filename):
-  lines = [line.rstrip('\n').split() for line in open(filename)]
+  lines = read_file(filename)
   
   sampling = False
   

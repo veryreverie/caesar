@@ -34,6 +34,7 @@ program caesar
   use map_vscf_modes_module
   use plot_vscf_modes_module
   use calculate_anharmonic_observables_module
+  use plot_vscf_states_module
   
   ! Use Castep modules.
   use converge_harmonic_frequencies_module
@@ -103,7 +104,8 @@ program caesar
      & map_vscf_modes(),                   &
      & plot_vscf_modes(),                  &
      & calculate_anharmonic_observables(), &
-     & converge_harmonic_frequencies()     ])
+     & converge_harmonic_frequencies(),    &
+     & plot_vscf_states()                  ])
   
   ! --------------------------------------------------
   ! Read in command line arguments and process the mode.
