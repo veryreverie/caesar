@@ -485,12 +485,15 @@ function read_output_file_castep(filename,structure) result(output)
   integer :: energy_line
   integer :: forces_start_line
   integer :: forces_end_line
+  integer :: stress_line
   integer :: permittivity_line
   integer :: born_charges_line
   
   ! Output variables.
   real(dp)                      :: energy
   type(RealVector), allocatable :: forces(:)
+  real(dp)                      :: stress(3,3)
+  type(RealMatrix)              :: virial
   real(dp)                      :: permittivity(3,3)
   real(dp)                      :: born_charge(3,3)
   type(RealMatrix), allocatable :: born_charges(:)
@@ -510,6 +513,7 @@ function read_output_file_castep(filename,structure) result(output)
   energy_line = 0
   forces_start_line = 0
   forces_end_line = 0
+  stress_line = 0
   permittivity_line = 0
   born_charges_line = 0
   do i=1,size(castep_file)
@@ -544,6 +548,17 @@ function read_output_file_castep(filename,structure) result(output)
            & forces_end_line==0   .and.        &
            & line(1)==repeat('*',len(line(1))) ) then
           forces_end_line = i
+        endif
+      endif
+    endif
+    
+    ! Stress tensor.
+    if (stress_line==0) then
+      if (size(line)>=4) then
+        if ( line(1)==repeat('*',len(line(1))) .and. &
+           & line(2)=='stress'                 .and. &
+           & line(3)=='tensor'                       ) then
+          stress_line = i
         endif
       endif
     endif
@@ -596,6 +611,20 @@ function read_output_file_castep(filename,structure) result(output)
   ! Read data.
   line = split_line(castep_file%line(energy_line))
   energy = dble(line(5)) / EV_PER_HARTREE
+  
+  if (stress_line/=0) then
+    do i=1,3
+      line = split_line(castep_file%line(stress_line+5+i))
+      stress(i,:) = dble(line(3:5))
+    enddo
+    
+    ! The virial tensor is the stress tensor * volume,
+    !    with dimensions of energy.
+    ! Stress is in GPa = 10^9 * J.m^-3 = 10^-21 * J.A^-3
+    ! The a.u. unit is Ha.bohr^-3
+    virial = mat( stress*structure%volume*1e-21_dp*ANGSTROM_PER_BOHR**3 &
+              & / JOULES_PER_HARTREE                                    )
+  endif
   
   if (permittivity_line/=0) then
     do i=1,3
@@ -650,11 +679,20 @@ function read_output_file_castep(filename,structure) result(output)
   endif
   
   ! Construct output.
-  if (permittivity_line==0) then
+  if (stress_line==0 .and. permittivity_line==0) then
     output = ElectronicStructure(energy, CartesianForce(forces))
+  elseif (permittivity_line==0) then
+    output = ElectronicStructure(energy, CartesianForce(forces), virial)
+  elseif (stress_line==0) then
+    output = ElectronicStructure(                               &
+       & energy,                                                &
+       & CartesianForce(forces),                                &
+       & linear_response = LinearResponse( mat(permittivity),   &
+       &                                   born_charges       ) )
   else
     output = ElectronicStructure( energy,                              &
                                 & CartesianForce(forces),              &
+                                & virial,                              &
                                 & LinearResponse( mat(permittivity),   &
                                 &                 born_charges       ) )
   endif

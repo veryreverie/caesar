@@ -20,6 +20,9 @@ module physical_constants_module
   ! Rydberg constant in eV.
   real(dp), parameter, public :: EV_PER_RYDBERG = 13.605693009_dp
   
+  ! Twice Rydberg's constant in J.
+  real(dp), parameter, public :: JOULES_PER_HARTREE = 4.359744650e-18_dp
+  
   ! Twice Rydberg's constant in inverse cm.
   real(dp), parameter, public :: INVERSE_CM_PER_HARTREE = 2.194746313702e4_dp
   

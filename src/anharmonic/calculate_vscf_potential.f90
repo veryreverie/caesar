@@ -59,7 +59,7 @@ function calculate_vscf_potential() result(output)
      &              default_value='0.1' ),                                    &
      & KeywordData( 'no_basis_states',                                        &
      &              'no_basis states is the number of states along each mode &
-     &in the basis.')                                                         ]
+     &in the basis. no_basis_states must be at least 1.')                     ]
   output%main_subroutine => calculate_vscf_potential_subroutine
 end function
 
@@ -109,6 +109,12 @@ subroutine calculate_vscf_potential_subroutine(arguments)
   pre_pulay_iterations = int(arguments%value('pre_pulay_iterations'))
   pre_pulay_damping = dble(arguments%value('pre_pulay_damping'))
   no_basis_states = int(arguments%value('no_basis_states'))
+  
+  ! Check arguments.
+  if (no_basis_states<1) then
+    call print_line(ERROR//': no_basis_states must be at least 1.')
+    stop
+  endif
   
   ! Read in anharmonic data.
   anharmonic_data_file = IFile('anharmonic_data.dat')

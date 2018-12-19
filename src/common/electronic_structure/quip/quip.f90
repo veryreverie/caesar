@@ -223,7 +223,8 @@ subroutine assign_ElectronicStructure_QuipElectronicStructure(output,input)
     forces(i) = input%forces(:,i) * ANGSTROM_PER_BOHR / EV_PER_HARTREE
   enddo
   
-  output = ElectronicStructure( input%energy / EV_PER_HARTREE, &
-                              & CartesianForce(forces))
+  output = ElectronicStructure( input%energy / EV_PER_HARTREE,     &
+                              & CartesianForce(forces),            &
+                              & mat(input%virial) / EV_PER_HARTREE )
 end subroutine
 end module
