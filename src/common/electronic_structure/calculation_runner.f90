@@ -23,6 +23,8 @@ module calculation_runner_module
     integer,      private              :: no_nodes_
     type(String), private              :: run_script_data_
     type(String), private              :: calculation_type_
+    logical,      private              :: exit_on_error_
+    logical,      private              :: repeat_calculations_
     type(String), private              :: filename_
     type(String), private, allocatable :: directories_(:)
   contains
@@ -38,7 +40,8 @@ contains
 
 ! Constructor.
 function new_CalculationRunner(file_type,seedname,run_script,no_cores, &
-   & no_nodes,run_script_data,calculation_type) result(this)
+   & no_nodes,run_script_data,calculation_type,exit_on_error,          &
+   & repeat_calculations) result(this)
   implicit none
   
   type(String), intent(in) :: file_type
@@ -48,15 +51,19 @@ function new_CalculationRunner(file_type,seedname,run_script,no_cores, &
   integer,      intent(in) :: no_nodes
   type(String), intent(in) :: run_script_data
   type(String), intent(in) :: calculation_type
+  logical,      intent(in) :: exit_on_error
+  logical,      intent(in) :: repeat_calculations
   type(CalculationRunner)  :: this
     
-  this%file_type_        = file_type
-  this%seedname_         = seedname
-  this%run_script_       = run_script
-  this%no_cores_         = no_cores
-  this%no_nodes_         = no_nodes
-  this%run_script_data_  = run_script_data
-  this%calculation_type_ = calculation_type
+  this%file_type_           = file_type
+  this%seedname_            = seedname
+  this%run_script_          = run_script
+  this%no_cores_            = no_cores
+  this%no_nodes_            = no_nodes
+  this%run_script_data_     = run_script_data
+  this%calculation_type_    = calculation_type
+  this%exit_on_error_       = exit_on_error
+  this%repeat_calculations_ = repeat_calculations
   
   ! If the calculation type is 'none' then the electronic structure
   !    calculation has already been run, so the output file should be read
@@ -102,6 +109,27 @@ subroutine run_calculation(this,directory)
   
   working_directory = format_path('.')
   
+  ! Check that this directory has not already been run.
+  if (any(this%directories_==directory)) then
+    call print_line(CODE_ERROR//': Trying to run an electronic structure &
+       &calculation in a directory in which an electronic structure &
+       &calculation has already been run by this execution of Caesar.')
+    call print_line('Directory: '//directory)
+    call err()
+  endif
+  
+  ! Record the directory.
+  this%directories_ = [this%directories_, directory]
+  
+  ! Check if the calculation has been run succesfully before.
+  if (.not. this%repeat_calculations_) then
+    if (file_exists(directory//'/electronic_structure.dat')) then
+      call print_line('Skipping successful calculation in directory '// &
+         & directory)
+      return
+    endif
+  endif
+  
   ! Run the calculation.
   call print_line('Running calculation in directory '//directory)
   result_code = system_call( 'cd '//working_directory//';' //' '// &
@@ -113,6 +141,15 @@ subroutine run_calculation(this,directory)
                            & this%seedname_                //' '// &
                            & this%run_script_data_                 )
   call print_line('Result code: '//result_code)
+  
+  ! Check the result code.
+  if (result_code/=0) then
+    if (this%exit_on_error_) then
+      stop
+    else
+      return
+    endif
+  endif
   
   ! Convert the electronic structure result into an ElectronicStructure.
   structure_file = IFile(directory//'/structure.dat')
@@ -126,9 +163,6 @@ subroutine run_calculation(this,directory)
          & this%calculation_type_          )
   electronic_structure_file = OFile(directory//'/electronic_structure.dat' )
   call electronic_structure_file%print_lines(electronic_structure)
-  
-  ! Record the directory.
-  this%directories_ = [this%directories_, directory]
 end subroutine
 
 ! Run a calculation in the given directories, and record the directories.

@@ -59,7 +59,17 @@ function run_anharmonic() result(output)
      &              'calculation_type specifies whether any electronic &
      &structure calculations should be run in addition to the user-defined &
      &script. Settings are: "none" and "quip".',                              &
-     &              default_value='none') ]
+     &              default_value='none'),                                    &
+     & KeywordData( 'exit_on_error',                                          &
+     &              'exit_on_error specifies whether or not the code will &
+     &exit if the electronic structure run script returns a result code other &
+     &than 0.',                                                               &
+     &              default_value='false'),                                   &
+     & KeywordData( 'repeat_calculations',                                    &
+     &              'repeat_calculations specifies whether or not electronic &
+     &calculations will be re-run if an electronic_structure.dat file is &
+     &found in their directory.',                                             &
+     &               default_value='true')                                    ]
   output%main_subroutine => run_anharmonic_subroutine
 end function
 
@@ -78,6 +88,8 @@ subroutine run_anharmonic_subroutine(arguments)
   integer              :: no_nodes
   type(String)         :: run_script_data
   type(String)         :: calculation_type
+  logical              :: exit_on_error
+  logical              :: repeat_calculations
   
   ! Previous inputs.
   type(Dictionary) :: setup_harmonic_arguments
@@ -101,6 +113,8 @@ subroutine run_anharmonic_subroutine(arguments)
   no_nodes = int(arguments%value('no_nodes'))
   run_script_data = arguments%value('run_script_data')
   calculation_type = arguments%value('calculation_type')
+  exit_on_error = lgcl(arguments%value('exit_on_error'))
+  repeat_calculations = lgcl(arguments%value('repeat_calculations'))
   
   ! Read in setup_harmonic settings.
   setup_harmonic_arguments = Dictionary(setup_harmonic())
@@ -140,14 +154,16 @@ subroutine run_anharmonic_subroutine(arguments)
   endif
   
   ! Initialise calculation runner.
-  calculation_runner = CalculationRunner(  &
-     & file_type        = file_type,       &
-     & seedname         = seedname,        &
-     & run_script       = run_script,      &
-     & no_cores         = no_cores,        &
-     & no_nodes         = no_nodes,        &
-     & run_script_data  = run_script_data, &
-     & calculation_type = calculation_type )
+  calculation_runner = CalculationRunner(        &
+     & file_type           = file_type,          &
+     & seedname            = seedname,           &
+     & run_script          = run_script,         &
+     & no_cores            = no_cores,           &
+     & no_nodes            = no_nodes,           &
+     & run_script_data     = run_script_data,    &
+     & calculation_type    = calculation_type,   &
+     & exit_on_error       = exit_on_error,      &
+     & repeat_calculations = repeat_calculations )
   
   ! Run calculations.
   call calculation_runner%run_calculations(calculation_directories)

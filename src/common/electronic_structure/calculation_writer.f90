@@ -74,9 +74,9 @@ subroutine write_calculation(this,structure,directory)
   ! Check that the directory has not already been written to by this class.
   if (any(this%directories_==directory)) then
     call print_line(CODE_ERROR//': Trying to write an electronic structure &
-       &calculation to a directory which has already been used in this &
-       &calculation:')
-    call print_line(directory)
+       &calculation to a directory in which an electronic structure &
+       &calculation has already been written by this execution of Caesar.')
+    call print_line('Directory: '//directory)
     call err()
   endif
   

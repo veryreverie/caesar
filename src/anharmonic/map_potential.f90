@@ -195,14 +195,17 @@ subroutine map_potential_subroutine(arguments)
   calculation_writer = CalculationWriter( file_type = file_type, &
                                         & seedname  = seedname   )
   
-  calculation_runner = CalculationRunner(   &
-     & file_type         = file_type,       &
-     & seedname          = seedname,        &
-     & run_script        = run_script,      &
-     & no_cores         = no_cores,        &
-     & no_nodes         = no_nodes,        &
-     & run_script_data  = run_script_data, &
-     & calculation_type  = calculation_type )
+  calculation_runner = CalculationRunner(      &
+     & file_type           = file_type,        &
+     & seedname            = seedname,         &
+     & run_script          = run_script,       &
+     & no_cores            = no_cores,         &
+     & no_nodes            = no_nodes,         &
+     & run_script_data     = run_script_data,  &
+     & calculation_type    = calculation_type, &
+     & exit_on_error       = .true.,           &
+     & repeat_calculations = .true.            )
+
   
   calculation_reader = CalculationReader()
   

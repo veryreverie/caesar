@@ -51,7 +51,17 @@ function run_harmonic() result(output)
      &              'calculation_type specifies whether any electronic &
      &structure calculations should be run in addition to the user-defined &
      &script. Settings are: "none" and "quip".',                              &
-     &              default_value='none') ]
+     &              default_value='none'),                                    &
+     & KeywordData( 'exit_on_error',                                          &
+     &              'exit_on_error specifies whether or not the code will &
+     &exit if the electronic structure run script returns a result code other &
+     &than 0.',                                                               &
+     &              default_value='false'),                                   &
+     & KeywordData( 'repeat_calculations',                                    &
+     &              'repeat_calculations specifies whether or not electronic &
+     &calculations will be re-run if an electronic_structure.dat file is &
+     &found in their directory.',                                             &
+     &               default_value='true')                                    ]
   output%main_subroutine => run_harmonic_subroutine
 end function
 
@@ -70,6 +80,8 @@ subroutine run_harmonic_subroutine(arguments)
   type(String) :: run_script_data
   type(String) :: run_script
   type(String) :: calculation_type
+  logical      :: exit_on_error
+  logical      :: repeat_calculations
   
   ! Previous user inputs.
   type(Dictionary) :: setup_harmonic_arguments
@@ -105,6 +117,8 @@ subroutine run_harmonic_subroutine(arguments)
   no_nodes = int(arguments%value('no_nodes'))
   run_script_data = arguments%value('run_script_data')
   calculation_type = arguments%value('calculation_type')
+  exit_on_error = lgcl(arguments%value('exit_on_error'))
+  repeat_calculations = lgcl(arguments%value('repeat_calculations'))
   
   ! --------------------------------------------------
   ! Read in arguments to previous calculations.
@@ -156,14 +170,16 @@ subroutine run_harmonic_subroutine(arguments)
   ! --------------------------------------------------
   ! Initialise calculation runner.
   ! --------------------------------------------------
-  calculation_runner = CalculationRunner(  &
-     & file_type        = file_type,       &
-     & seedname         = seedname,        &
-     & run_script       = run_script,      &
-     & no_cores         = no_cores,        &
-     & no_nodes         = no_nodes,        &
-     & run_script_data  = run_script_data, &
-     & calculation_type = calculation_type )
+  calculation_runner = CalculationRunner(        &
+     & file_type           = file_type,          &
+     & seedname            = seedname,           &
+     & run_script          = run_script,         &
+     & no_cores            = no_cores,           &
+     & no_nodes            = no_nodes,           &
+     & run_script_data     = run_script_data,    &
+     & calculation_type    = calculation_type,   &
+     & exit_on_error       = exit_on_error,      &
+     & repeat_calculations = repeat_calculations )
   
   ! --------------------------------------------------
   ! Run calculations

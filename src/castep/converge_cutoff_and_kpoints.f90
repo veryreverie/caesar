@@ -214,13 +214,16 @@ subroutine converge_cutoff_and_kpoints_subroutine(arguments)
   calculation_writer = CalculationWriter( file_type = str('castep'), &
                                         & seedname  = seedname       )
   
-  calculation_runner = CalculationRunner( file_type        = str('castep'),   &
-                                        & seedname         = seedname,        &
-                                        & run_script       = run_script,      &
-                                        & no_cores         = no_cores,        &
-                                        & no_nodes         = no_nodes,        &
-                                        & run_script_data  = run_script_data, &
-                                        & calculation_type = str('none')      )
+  calculation_runner = CalculationRunner(     &
+     & file_type           = str('castep'),   &
+     & seedname            = seedname,        &
+     & run_script          = run_script,      &
+     & no_cores            = no_cores,        &
+     & no_nodes            = no_nodes,        &
+     & run_script_data     = run_script_data, &
+     & calculation_type    = str('none'),     &
+     & exit_on_error       = .true.,          &
+     & repeat_calculations = .true.           )
   
   calculation_reader = CalculationReader()
   
