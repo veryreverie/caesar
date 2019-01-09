@@ -9,6 +9,7 @@ module anharmonic_common_module
   use subspace_monomial_module
   use degenerate_symmetry_module
   use anharmonic_data_module
+  use energy_spectrum_module
   use potential_module
   implicit none
 contains

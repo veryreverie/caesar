@@ -400,7 +400,6 @@ end function
 !    as long as the given match string.
 ! Uses pad_character to pad, which defaults to '0'.
 ! ----------------------------------------------------------------------
-
 impure elemental function left_pad_character(input,match,pad_character) &
    & result(output)
   implicit none

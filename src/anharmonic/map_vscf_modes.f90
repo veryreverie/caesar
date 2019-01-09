@@ -55,10 +55,8 @@ subroutine map_vscf_modes_subroutine(arguments)
   type(DegenerateSubspace), allocatable :: subspaces(:)
   real(dp)                              :: frequency_of_max_displacement
   
-  ! Single-subspace potentials, bases and ground states.
+  ! Single-subspace potentials.
   type(PotentialPointer), allocatable :: subspace_potentials(:)
-  type(SubspaceBasis),    allocatable :: basis(:)
-  type(VscfState),        allocatable :: ground_states(:)
   
   ! Variables for calculating displacements.
   real(dp),      allocatable :: displacements(:)
@@ -69,8 +67,6 @@ subroutine map_vscf_modes_subroutine(arguments)
   ! Files and directories.
   type(IFile)  :: anharmonic_data_file
   type(IFile)  :: subspace_potentials_file
-  type(IFile)  :: basis_file
-  type(IFile)  :: ground_states_file
   type(String) :: subspace_dir
   type(OFile)  :: mode_maps_file
   
@@ -88,16 +84,10 @@ subroutine map_vscf_modes_subroutine(arguments)
   subspaces = anharmonic_data%degenerate_subspaces
   frequency_of_max_displacement = anharmonic_data%frequency_of_max_displacement
   
-  ! Read in single-subspace potentials, bases and ground states.
+  ! Read in single-subspace potentials.
   subspace_potentials_file = IFile('subspace_potentials.dat')
   subspace_potentials = PotentialPointer(                                &
      & subspace_potentials_file%sections(separating_line=repeat('=',70)) )
-  
-  basis_file = IFile('basis.dat')
-  basis = SubspaceBasis(basis_file%sections())
-  
-  ground_states_file = IFile('ground_state.dat')
-  ground_states = VscfState(ground_states_file%sections())
   
   ! --------------------------------------------------
   ! Calculate the value of the VSCF potential along each mode.
@@ -109,7 +99,7 @@ subroutine map_vscf_modes_subroutine(arguments)
     ! Scale displacement by 1/sqrt(frequency).
     scaled_displacements = displacements                              &
                        & * sqrt( frequency_of_max_displacement        &
-                       &       / max( basis(i)%frequency,             &
+                       &       / max( subspaces(i)%frequency,         &
                        &              frequency_of_max_displacement ) )
     
     

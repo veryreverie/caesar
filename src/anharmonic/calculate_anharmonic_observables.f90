@@ -1,8 +1,7 @@
 ! ======================================================================
-! Calculates, under the VSCF approximation:
-!
+! Calculates observables under the VSCF approximation.
 ! ======================================================================
-! Should be run after calculate_vscf_potential.
+! Should be run after calculate_potential.
 module calculate_anharmonic_observables_module
   use common_module
   
@@ -10,6 +9,8 @@ module calculate_anharmonic_observables_module
   use anharmonic_common_module
   use potentials_module
   
+  use initial_frequencies_module
+  use vscf_module
   use effective_frequency_module
   use vscf_thermodynamics_module
   implicit none
@@ -29,8 +30,33 @@ function calculate_anharmonic_observables() result(output)
   
   output%mode_name = 'calculate_anharmonic_observables'
   output%description = 'Calculates observables under the VSCF approximation. &
-     &Should be run after calculate_vscf_potential.'
+     &Should be run after calculate_potential.'
   output%keywords = [                                                         &
+     & KeywordData( 'harmonic_frequency_convergence',                         &
+     &              'harmonic_frequency_convergence is the precision to which &
+     &frequencies will be converged when constructing the harmonic ground &
+     &state.' ),                                                              &
+     & KeywordData( 'energy_convergence',                                     &
+     &              'energy_convergence is the precision to which energies &
+     &will be converged when constructing the VSCF ground state.' ),          &
+     & KeywordData( 'no_converged_calculations_vscf',                         &
+     &              'no_converged_calculations_vscf is the number of &
+     &consecutive calculations which must be converged to within &
+     &energy_convergence for the VSCF procedure to terminate.',               &
+     &              default_value='5' ),                                      &
+     & KeywordData( 'max_pulay_iterations',                                   &
+     &              'max_pulay_iterations is the maximum number of &
+     &self-consistency iterations which will be passed into the Pulay &
+     &scheme.',                                                               &
+     &              default_value='20' ),                                     &
+     & KeywordData( 'pre_pulay_iterations',                                   &
+     &              'pre_pulay_iterations is the number of damped iterations &
+     &which will be performed before the Pulay scheme is called.',            &
+     &              default_value='2' ),                                      &
+     & KeywordData( 'pre_pulay_damping',                                      &
+     &              'pre_pulay_damping is the damping factor of the pre-Pulay &
+     &iterations.',                                                           &
+     &              default_value='0.1' ),                                    &
      & KeywordData( 'min_temperature',                                        &
      &              'min_temperature is the minimum temperature at which &
      &thermodynamic quantities are calculated. min_temperature should be &
@@ -51,10 +77,11 @@ function calculate_anharmonic_observables() result(output)
      &self-consistent frequencies will be converged when constructing the &
      &self-consistent anharmonic approximation to the VSCF potential. This &
      &should be given in Hartree.' ),                                         &
-     & KeywordData( 'no_converged_calculations',                              &
-     &              'no_converged_calculations is the number of consecutive &
-     &calculations which must be converged to within frequency_convergence &
-     &for the self-consistent anharmonic procedure to terminate.',            &
+     & KeywordData( 'no_converged_calculations_vscha',                        &
+     &              'no_converged_calculations_vscha is the number of &
+     &consecutive calculations which must be converged to within &
+     &frequency_convergence for the self-consistent anharmonic procedure to &
+     &terminate.',                                                            &
      &              default_value='5' ),                                      &
      & KeywordData( 'no_vscf_basis_states',                                   &
      &              'no_vscf_basis states is the number of states along each &
@@ -90,12 +117,18 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   ! Inputs.
   type(RandomReal)              :: random_generator
   integer                       :: random_generator_seed
+  real(dp)                      :: harmonic_frequency_convergence
+  real(dp)                      :: energy_convergence
+  integer                       :: no_converged_calculations_vscf
+  integer                       :: max_pulay_iterations
+  integer                       :: pre_pulay_iterations
+  real(dp)                      :: pre_pulay_damping
   real(dp)                      :: min_temperature
   real(dp)                      :: max_temperature
   integer                       :: no_temperature_steps
   integer                       :: no_vscha_basis_states
   real(dp)                      :: frequency_convergence
-  integer                       :: no_converged_calculations
+  integer                       :: no_converged_calculations_vscha
   integer                       :: no_vscf_basis_states
   real(dp)                      :: min_frequency
   real(dp),         allocatable :: thermal_energies(:)
@@ -111,14 +144,22 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   type(DegenerateSubspace), allocatable :: subspaces(:)
   type(StructureData)                   :: supercell
   
-  ! Single-subspace potentials.
-  type(PotentialPointer), allocatable :: subspace_potentials(:)
+  ! Anharmonic potential.
+  type(PotentialPointer) :: potential
   
-  ! Single-subspace basis. Only used to initalise frequency-finding.
-  type(SubspaceBasis), allocatable :: subspace_bases(:)
+  ! Single-subspace frequencies.
+  type(InitialFrequencies) :: initial_frequencies
+  
+  ! Basis states.
+  type(SubspaceBasis), allocatable :: basis(:)
+  
+  ! VSCF ground states.
+  type(SubspacePotentialAndState), allocatable :: potentials_and_states(:)
+  type(VscfState),                 allocatable :: ground_states(:)
+  type(PotentialPointer),          allocatable :: subspace_potentials(:)
   
   ! Finite-temperature effective harmonic frequencies.
-  real(dp), allocatable :: initial_frequencies(:)
+  real(dp), allocatable :: frequencies(:)
   real(dp), allocatable :: effective_frequencies(:,:)
   
   ! Modes and dynamical matrices at each q-point.
@@ -145,15 +186,14 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   type(ThermodynamicData), allocatable :: thermodynamics(:)
   
   ! VSCF correction data.
-  real(dp)                :: vscf_frequency
-  type(EnergySpectrum)    :: vscf_spectrum
-  type(ThermodynamicData) :: vscha_thermo(2)
-  type(VscfWavefunctions) :: wavefunctions
+  real(dp)                 :: vscf_frequency
+  type(VscfEnergySpectrum) :: vscf_spectrum
+  type(ThermodynamicData)  :: vscha_thermo(2)
+  type(VscfWavefunctions)  :: wavefunctions
   
   ! Files and directories.
   type(IFile)  :: anharmonic_data_file
-  type(IFile)  :: subspace_potentials_file
-  type(IFile)  :: basis_file
+  type(IFile)  :: potential_file
   type(String) :: output_dir
   type(OFile)  :: logfile
   type(String) :: temperature_dir
@@ -186,11 +226,20 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
     random_generator = RandomReal()
   endif
   random_generator_seed = random_generator%get_seed()
+  harmonic_frequency_convergence = dble(                 &
+     & arguments%value('harmonic_frequency_convergence') )
+  energy_convergence = dble(arguments%value('energy_convergence'))
+  no_converged_calculations_vscf = int(                  &
+     & arguments%value('no_converged_calculations_vscf') )
+  max_pulay_iterations = int(arguments%value('max_pulay_iterations'))
+  pre_pulay_iterations = int(arguments%value('pre_pulay_iterations'))
+  pre_pulay_damping = dble(arguments%value('pre_pulay_damping'))
   min_temperature = dble(arguments%value('min_temperature'))
   max_temperature = dble(arguments%value('max_temperature'))
   no_temperature_steps = int(arguments%value('no_temperature_steps'))
   frequency_convergence = dble(arguments%value('frequency_convergence'))
-  no_converged_calculations = int(arguments%value('no_converged_calculations'))
+  no_converged_calculations_vscha = int(                  &
+     & arguments%value('no_converged_calculations_vscha') )
   min_frequency = dble(arguments%value('min_frequency'))
   no_vscha_basis_states = int(arguments%value('no_vscha_basis_states'))
   path_string = split_line(arguments%value('path'), ',')
@@ -207,6 +256,9 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
     stop
   elseif (min_frequency<0) then
     call print_line(ERROR//': min_frequency must not be less than 0 Hartree.')
+    stop
+  elseif (no_vscf_basis_states<1) then
+    call print_line(ERROR//': no_vscf_basis_states must be at least 1.')
     stop
   endif
   
@@ -245,14 +297,45 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   subspaces = anharmonic_data%degenerate_subspaces
   supercell = anharmonic_data%anharmonic_supercell
   
-  ! Read in subspace potentials.
-  subspace_potentials_file = IFile('subspace_potentials.dat')
-  subspace_potentials = PotentialPointer(                                &
-     & subspace_potentials_file%sections(separating_line=repeat('=',70)) )
+  ! Read in anharmonic potential.
+  potential_file = IFile('potential.dat')
+  potential = PotentialPointer(potential_file%lines())
   
-  ! Read in subspace bases.
-  basis_file = IFile('basis.dat')
-  subspace_bases = SubspaceBasis(basis_file%sections())
+  ! Generate effective harmonic frequencies.
+  initial_frequencies = InitialFrequencies( potential,                      &
+                                          & anharmonic_data,                &
+                                          & harmonic_frequency_convergence, &
+                                          & max_pulay_iterations,           &
+                                          & pre_pulay_iterations,           &
+                                          & pre_pulay_damping               )
+  
+  ! Generate basis of states.
+  allocate( basis(size(anharmonic_data%degenerate_subspaces)), &
+          & stat=ialloc); call err(ialloc)
+  do i=1,size(basis)
+    basis(i) = SubspaceBasis(                             &
+       & anharmonic_data%degenerate_subspaces(i),         &
+       & initial_frequencies%frequency(                   &
+       &    anharmonic_data%degenerate_subspaces(i)%id ), &
+       & anharmonic_data%complex_modes,                   &
+       & anharmonic_data%qpoints,                         &
+       & anharmonic_data%anharmonic_supercell,            &
+       & no_vscf_basis_states-1,                          &
+       & anharmonic_data%potential_expansion_order,       &
+       & anharmonic_data%structure%symmetries             )
+  enddo
+  
+  ! Run VSCF to generate single-subspace potentials and ground states.
+  potentials_and_states = run_vscf( potential,                      &
+                                  & basis,                          &
+                                  & energy_convergence,             &
+                                  & no_converged_calculations_vscf, &
+                                  & max_pulay_iterations,           &
+                                  & pre_pulay_iterations,           &
+                                  & pre_pulay_damping,              &
+                                  & anharmonic_data                 )
+  
+  subspace_potentials = potentials_and_states%potential
   
   ! Make output directory, write out temperatures, and open logfile.
   output_dir = 'anharmonic_observables'
@@ -272,7 +355,7 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   ! --------------------------------------------------
   ! Initialise frequencies to the frequencies which minimise the energy
   !    of the harmonic ground state.
-  initial_frequencies = subspace_bases%frequency
+  frequencies = initial_frequencies%frequency(subspaces%id)
   allocate( effective_frequencies( size(subspace_potentials),      &
           &                        size(thermal_energies)),        &
           & dynamical_matrices(size(qpoints)),                     &
@@ -296,14 +379,14 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
        & ': KT = '//thermal_energies(i)//' Ha')
     do j=1,size(subspace_potentials)
       effective_frequencies(j,i) = calculate_effective_frequency( &
-                                      & subspace_potentials(j),   &
-                                      & subspaces(j),             &
-                                      & anharmonic_data,          &
-                                      & thermal_energies(i),      &
-                                      & initial_frequencies(j),   &
-                                      & no_vscha_basis_states,    &
-                                      & frequency_convergence,    &
-                                      & no_converged_calculations )
+                                & subspace_potentials(j),         &
+                                & subspaces(j),                   &
+                                & anharmonic_data,                &
+                                & thermal_energies(i),            &
+                                & frequencies(j),                 &
+                                & no_vscha_basis_states,          &
+                                & frequency_convergence,          &
+                                & no_converged_calculations_vscha )
     enddo
     
     call print_line('Self-consistent harmonic frequencies calculated.')
@@ -311,7 +394,7 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
     
     ! The starting point for calculating the effective frequencies at the
     !    next temperature is the frequencies at this temperature.
-    initial_frequencies = effective_frequencies(:,i)
+    frequencies = effective_frequencies(:,i)
     
     ! Assemble the dynamical matrices at each q-point from the complex modes
     !    and the effective frequencies.

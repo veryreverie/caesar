@@ -1,18 +1,8 @@
 ! ======================================================================
-! Generates a basis of states which span each degenerate subspace.
+! Finds the frequencies of the self-consistent harmonic potential which
+!    minimises the free energy at zero temperature.
 ! ======================================================================
-! The states are products single- and double-mode states.
-! The single-mode states are in two forms:
-!    - monomial states: (u_i)^(n_i)|0>.
-!    - harmonic states: (a'_i)^(n_i)|0>.
-! The double-mode states are in two forms:
-!    - monomial states: (u_i)^(n_i)(u_j)^(n_j)|0,0>.
-!    - harmonic states: (a'_i)^(n_i)(a'_j)^(n_j)|0,0>.
-! In both cases, the states |0> and |0,0> are the ground states of an
-!    effective harmonic potential with harmonic frequencies chosen such that
-!    the energy of |0> and |0,0>  w.r.t. the anharmonic potential is minimised.
-! N.B. the monomial states are normalised, but they are NOT orthogonal.
-module generate_basis_module
+module initial_frequencies_module
   use common_module
   
   use states_module
@@ -23,12 +13,73 @@ module generate_basis_module
   
   private
   
-  public :: generate_basis
+  public :: InitialFrequencies
+  
+  type, extends(Stringsable) :: InitialFrequencies
+    integer,  allocatable, private :: subspace_ids_(:)
+    real(dp), allocatable, private :: frequencies_(:)
+  contains
+    procedure, public :: frequency => frequency_InitialFrequencies
+    
+    ! I/O.
+    procedure, public :: read  => read_InitialFrequencies
+    procedure, public :: write => write_InitialFrequencies
+  end type
+  
+  interface InitialFrequencies
+    module procedure new_InitialFrequencies
+    module procedure new_InitialFrequencies_PotentialData
+    module procedure new_InitialFrequencies_Strings
+    module procedure new_InitialFrequencies_StringArray
+  end interface
+  
+  interface size
+    module procedure size_InitialFrequencies
+  end interface
 contains
 
-function generate_basis(potential,anharmonic_data,frequency_convergence, &
-   & max_pulay_iterations,pre_pulay_iterations,pre_pulay_damping,        &
-   & no_basis_states) result(output)
+! Constructor and size function.
+function new_InitialFrequencies(subspace_ids,frequencies) result(this)
+  implicit none
+  
+  integer,  intent(in)     :: subspace_ids(:)
+  real(dp), intent(in)     :: frequencies(:)
+  type(InitialFrequencies) :: this
+  
+  if (size(subspace_ids)/=size(frequencies)) then
+    call print_line(CODE_ERROR//': subspace_ids and frequencies do not match.')
+    call err()
+  endif
+  
+  this%subspace_ids_ = subspace_ids
+  this%frequencies_ = frequencies
+end function
+
+function size_InitialFrequencies(this) result(output)
+  implicit none
+  
+  type(InitialFrequencies), intent(in) :: this
+  integer                              :: output
+  
+  output = size(this%frequencies_)
+end function
+
+! Returns the frequency corresponding to the given subspace id.
+impure elemental function frequency_InitialFrequencies(this,subspace_id) &
+   & result(output)
+  implicit none
+  
+  class(InitialFrequencies), intent(in) :: this
+  integer,                   intent(in) :: subspace_id
+  real(dp)                              :: output
+  
+  output = this%frequencies_(first(this%subspace_ids_==subspace_id))
+end function
+
+! Calculate initial frequencies from a potential.
+function new_InitialFrequencies_PotentialData(potential,anharmonic_data, &
+   & frequency_convergence,max_pulay_iterations,pre_pulay_iterations,    &
+   & pre_pulay_damping) result(output)
   implicit none
   
   class(PotentialData), intent(in) :: potential
@@ -37,8 +88,7 @@ function generate_basis(potential,anharmonic_data,frequency_convergence, &
   integer,              intent(in) :: max_pulay_iterations
   integer,              intent(in) :: pre_pulay_iterations
   real(dp),             intent(in) :: pre_pulay_damping
-  integer,              intent(in) :: no_basis_states
-  type(SubspaceBasis), allocatable :: output(:)
+  type(InitialFrequencies)         :: output
   
   type(DegenerateSubspace), allocatable :: subspaces(:)
   real(dp),                 allocatable :: frequencies(:)
@@ -138,18 +188,7 @@ function generate_basis(potential,anharmonic_data,frequency_convergence, &
     exit iter
   enddo iter
   
-  ! Use calculated effective harmonic frequencies to generate bases.
-  allocate(output(size(subspaces)), stat=ialloc); call err(ialloc)
-  do i=1,size(subspaces)
-    output(i) = SubspaceBasis( subspaces(i),                              &
-                             & frequencies(i),                            &
-                             & anharmonic_data%complex_modes,             &
-                             & anharmonic_data%qpoints,                   &
-                             & anharmonic_data%anharmonic_supercell,      &
-                             & no_basis_states-1,                         &
-                             & anharmonic_data%potential_expansion_order, &
-                             & anharmonic_data%structure%symmetries       )
-  enddo
+  output = InitialFrequencies(subspaces%id, frequencies)
 end function
 
 ! For each subspace, integrate the potential across all other subspaces
@@ -273,5 +312,78 @@ function optimise_frequency(potential,state,anharmonic_data,subspace, &
     !    and return to the start of the loop.
     old_frequency = new_frequency
   enddo
+end function
+
+! ----------------------------------------------------------------------
+! I/O.
+! ----------------------------------------------------------------------
+subroutine read_InitialFrequencies(this,input)
+  implicit none
+  
+  class(InitialFrequencies), intent(out) :: this
+  type(String),              intent(in)  :: input(:)
+  
+  integer,  allocatable :: subspace_ids(:)
+  real(dp), allocatable :: frequencies(:)
+  
+  type(String), allocatable :: line(:)
+  
+  integer :: i,ialloc
+  
+  select type(this); type is(InitialFrequencies)
+    allocate( subspace_ids(size(input)), &
+            & frequencies(size(input)),  &
+            & stat=ialloc); call err(ialloc)
+    do i=1,size(input)
+      line = split_line(input(i))
+      subspace_ids(i) = int(line(2))
+      frequencies(i) = dble(line(6))
+    enddo
+    this = InitialFrequencies(subspace_ids, frequencies)
+  class default
+    call err()
+  end select
+end subroutine
+
+function write_InitialFrequencies(this) result(output)
+  implicit none
+  
+  class(InitialFrequencies), intent(in) :: this
+  type(String), allocatable             :: output(:)
+  
+  type(String) :: max_id
+  
+  integer :: i,ialloc
+  
+  select type(this); type is(InitialFrequencies)
+    max_id = str(maxval(this%subspace_ids_))
+    
+    allocate(output(size(this)), stat=ialloc); call err(ialloc)
+    do i=1,size(this)
+      output(i) = 'Subspace '//left_pad(this%subspace_ids_(i),max_id)//' : &
+         &frequency = '//this%frequencies_(i)
+    enddo
+  class default
+    call err()
+  end select
+end function
+
+function new_InitialFrequencies_Strings(input) result(this)
+  implicit none
+  
+  type(String), intent(in) :: input(:)
+  type(InitialFrequencies) :: this
+  
+  call this%read(input)
+end function
+
+impure elemental function new_InitialFrequencies_StringArray(input) &
+   & result(this)
+  implicit none
+  
+  type(StringArray), intent(in) :: input
+  type(InitialFrequencies)      :: this
+  
+  this = InitialFrequencies(str(input))
 end function
 end module

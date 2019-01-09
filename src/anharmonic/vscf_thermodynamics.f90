@@ -12,13 +12,13 @@ module vscf_thermodynamics_module
   
   private
   
-  public :: EnergySpectrum
+  public :: VscfEnergySpectrum
   public :: calculate_vscha_thermodynamics
   public :: calculate_vscf_spectrum
   public :: VscfThermodynamics
   !public :: calculate_vscf_thermodynamics
   
-  type, extends(NoDefaultConstructor) :: EnergySpectrum
+  type, extends(NoDefaultConstructor) :: VscfEnergySpectrum
     type(SubspaceBasis)          :: basis
     type(VscfState), allocatable :: vscf_states(:)
     real(dp),        allocatable :: vscf_energies(:)
@@ -32,13 +32,13 @@ module vscf_thermodynamics_module
     type(ThermodynamicData) :: vscf
   end type
   
-  interface EnergySpectrum
-    module procedure new_EnergySpectrum
+  interface VscfEnergySpectrum
+    module procedure new_VscfEnergySpectrum
   end interface
 contains
 
-function new_EnergySpectrum(basis,vscf_states,vscf_energies,vscha_energies, &
-   & vscha_occupations) result(this)
+function new_VscfEnergySpectrum(basis,vscf_states,vscf_energies, &
+   & vscha_energies,vscha_occupations) result(this)
   implicit none
   
   type(SubspaceBasis), intent(in) :: basis
@@ -46,7 +46,7 @@ function new_EnergySpectrum(basis,vscf_states,vscf_energies,vscha_energies, &
   real(dp),            intent(in) :: vscf_energies(:)
   real(dp),            intent(in) :: vscha_energies(:)
   integer,             intent(in) :: vscha_occupations(:)
-  type(EnergySpectrum)            :: this
+  type(VscfEnergySpectrum)        :: this
   
   this%basis = basis
   this%vscf_states = vscf_states
@@ -100,7 +100,7 @@ function calculate_vscf_spectrum(vscha_frequency,potential,subspace, &
   type(DegenerateSubspace), intent(in) :: subspace
   type(AnharmonicData),     intent(in) :: anharmonic_data
   integer,                  intent(in) :: no_basis_states
-  type(EnergySpectrum)                 :: output
+  type(VscfEnergySpectrum)             :: output
   
   ! Variables for constructing the basis.
   type(StructureData) :: supercell
@@ -175,11 +175,11 @@ function calculate_vscf_spectrum(vscha_frequency,potential,subspace, &
   vscf_energies = vscf_energies * supercell%sc_size
   vscha_energies = vscha_energies * supercell%sc_size
   
-  output = EnergySpectrum( basis,            &
-                         & vscf_states,      &
-                         & vscf_energies,    &
-                         & vscha_energies,   &
-                         & vscha_occupations )
+  output = VscfEnergySpectrum( basis,            &
+                             & vscf_states,      &
+                             & vscf_energies,    &
+                             & vscha_energies,   &
+                             & vscha_occupations )
 end function
 
 !function calculate_vscf_thermodynamics(vscf_frequency,potential,subspace, &
@@ -193,7 +193,7 @@ end function
 !  type(AnharmonicData)     :: anharmonic_data
 !  integer                  :: no_vscha_basis_states
 !  real(dp)                 :: thermal_energy
-!  type(EnergySpectrum)     :: vscf_spectrum
+!  type(VscfEnergySpectrum) :: vscf_spectrum
 !  type(ThermodynamicData)  :: output
 !  
 !  type(ThermodynamicData) :: vscha_thermodynamics(2)
