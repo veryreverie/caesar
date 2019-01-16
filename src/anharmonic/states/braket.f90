@@ -7,7 +7,8 @@
 module braket_module
   use common_module
   
-  use subspace_state_module
+  use anharmonic_common_module
+  
   use monomial_state_module
   use harmonic_state_module
   use polynomial_state_module

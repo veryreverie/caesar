@@ -17,6 +17,8 @@ module thermodynamic_data_module
   public :: operator(*)
   public :: operator(/)
   
+  public :: sum
+  
   type, extends(Stringable) :: ThermodynamicData
     real(dp) :: thermal_energy
     real(dp) :: energy
@@ -53,6 +55,10 @@ module thermodynamic_data_module
   interface operator(/)
     module procedure divide_ThermodynamicData_integer
     module procedure divide_ThermodynamicData_real
+  end interface
+  
+  interface sum
+    module procedure sum_ThermodynamicData
   end interface
 contains
 
@@ -305,6 +311,26 @@ impure elemental function divide_ThermodynamicData_real(this,that) &
                             & this%energy      / that, &
                             & this%free_energy / that, &
                             & this%entropy     / that  )
+end function
+
+function sum_ThermodynamicData(input) result(output)
+  implicit none
+  
+  type(ThermodynamicData), intent(in) :: input(:)
+  type(ThermodynamicData)             :: output
+  
+  integer :: i
+  
+  if (size(input)==0) then
+    call print_line(ERROR//': Trying to sum an empty list.')
+    call err()
+  endif
+  
+  output = input(1)
+  
+  do i=2,size(input)
+    output = output + input(i)
+  enddo
 end function
 
 ! ----------------------------------------------------------------------

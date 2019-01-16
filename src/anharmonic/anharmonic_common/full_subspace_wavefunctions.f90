@@ -1,18 +1,17 @@
 ! ======================================================================
-! Parses VSCF states to allow wavefunctions to be printed.
+! Wavefunctions spanning the full subspace.
 ! ======================================================================
-module vscf_wavefunctions_module
+module full_subspace_wavefunctions_module
   use common_module
   
-  use subspace_basis_module
-  use vscf_state_module
+  use subspace_wavefunctions_module
   implicit none
   
   private
   
-  public :: VscfWavefunctions
+  public :: FullSubspaceWavefunctions
   
-  type, extends(Stringsable) :: VscfWavefunctions
+  type, extends(SubspaceWavefunctions) :: FullSubspaceWavefunctions
     integer                   :: subspace_id
     integer,      allocatable :: mode_ids(:)
     integer,      allocatable :: paired_mode_ids(:)
@@ -21,31 +20,30 @@ module vscf_wavefunctions_module
     integer,      allocatable :: degeneracies(:)
     type(String), allocatable :: wavefunctions(:)
   contains
-    procedure, public :: read  => read_VscfWavefunctions
-    procedure, public :: write => write_VscfWavefunctions
+    procedure, public :: read  => read_FullSubspaceWavefunctions
+    procedure, public :: write => write_FullSubspaceWavefunctions
   end type
   
-  interface VscfWavefunctions
-    module procedure new_VscfWavefunctions
-    module procedure new_VscfWavefunctions_VscfStates
-    module procedure new_VscfWavefunctions_Strings
-    module procedure new_VscfWavefunctions_StringArray
+  interface FullSubspaceWavefunctions
+    module procedure new_FullSubspaceWavefunctions
+    module procedure new_FullSubspaceWavefunctions_Strings
+    module procedure new_FullSubspaceWavefunctions_StringArray
   end interface
   
 contains
 
-function new_VscfWavefunctions(subspace_id,mode_ids,paired_mode_ids,  &
+function new_FullSubspaceWavefunctions(subspace_id,mode_ids,paired_mode_ids, &
    & harmonic_ground_state,energies,degeneracies,wavefunctions) result(this)
   implicit none
     
-  integer,      intent(in) :: subspace_id
-  integer,      intent(in) :: mode_ids(:)
-  integer,      intent(in) :: paired_mode_ids(:)
-  type(String), intent(in) :: harmonic_ground_state
-  real(dp),     intent(in) :: energies(:)
-  integer,      intent(in) :: degeneracies(:)
-  type(String), intent(in) :: wavefunctions(:)
-  type(VscfWavefunctions)  :: this
+  integer,      intent(in)        :: subspace_id
+  integer,      intent(in)        :: mode_ids(:)
+  integer,      intent(in)        :: paired_mode_ids(:)
+  type(String), intent(in)        :: harmonic_ground_state
+  real(dp),     intent(in)        :: energies(:)
+  integer,      intent(in)        :: degeneracies(:)
+  type(String), intent(in)        :: wavefunctions(:)
+  type(FullSubspaceWavefunctions) :: this
   
   if (size(energies)/=size(degeneracies)) then
     call err()
@@ -62,39 +60,14 @@ function new_VscfWavefunctions(subspace_id,mode_ids,paired_mode_ids,  &
   this%wavefunctions = wavefunctions
 end function
 
-function new_VscfWavefunctions_VscfStates(states,subspace,basis,supercell) &
-   & result(this)
-  implicit none
-  
-  type(VscfState),          intent(in) :: states(:)
-  type(DegenerateSubspace), intent(in) :: subspace
-  type(SubspaceBasis),      intent(in) :: basis
-  type(StructureData),      intent(in) :: supercell
-  type(VscfWavefunctions)              :: this
-  
-  type(String)              :: ground_state
-  type(String), allocatable :: wavefunctions(:)
-  
-  ground_state = basis%ground_state_wavefunction(subspace,supercell)
-  wavefunctions = states%wavefunction(basis,supercell)
-  
-  this = VscfWavefunctions( subspace%id,         &
-                          & subspace%mode_ids,   &
-                          & subspace%paired_ids, &
-                          & ground_state,        &
-                          & states%energy,       &
-                          & states%degeneracy,   &
-                          & wavefunctions        )
-end function
-
 ! ----------------------------------------------------------------------
 ! I/O.
 ! ----------------------------------------------------------------------
-subroutine read_VscfWavefunctions(this,input)
+subroutine read_FullSubspaceWavefunctions(this,input)
   implicit none
   
-  class(VscfWavefunctions), intent(out) :: this
-  type(String),             intent(in)  :: input(:)
+  class(FullSubspaceWavefunctions), intent(out) :: this
+  type(String),                     intent(in)  :: input(:)
   
   integer                   :: subspace_id
   integer,      allocatable :: mode_ids(:)
@@ -110,7 +83,7 @@ subroutine read_VscfWavefunctions(this,input)
   
   integer :: i,ialloc
   
-  select type(this); type is(VscfWavefunctions)
+  select type(this); type is(FullSubspaceWavefunctions)
     line = split_line(input(1))
     subspace_id = int(line(3))
     
@@ -139,27 +112,27 @@ subroutine read_VscfWavefunctions(this,input)
       wavefunctions(i) = join(line(3:))
     enddo
     
-    this = VscfWavefunctions( subspace_id,           &
-                            & mode_ids,              &
-                            & paired_mode_ids,       &
-                            & harmonic_ground_state, &
-                            & energies,              &
-                            & degeneracies,          &
-                            & wavefunctions          )
+    this = FullSubspaceWavefunctions( subspace_id,           &
+                                    & mode_ids,              &
+                                    & paired_mode_ids,       &
+                                    & harmonic_ground_state, &
+                                    & energies,              &
+                                    & degeneracies,          &
+                                    & wavefunctions          )
   class default
     call err()
   end select
 end subroutine
 
-function write_VscfWavefunctions(this) result(output)
+function write_FullSubspaceWavefunctions(this) result(output)
   implicit none
   
-  class(VscfWavefunctions), intent(in) :: this
-  type(String), allocatable            :: output(:)
+  class(FullSubspaceWavefunctions), intent(in) :: this
+  type(String), allocatable                    :: output(:)
   
   integer :: i
   
-  select type(this); type is(VscfWavefunctions)
+  select type(this); type is(FullSubspaceWavefunctions)
     output = [ 'Subspace                   : '//this%subspace_id,           &
              & 'Mode IDs                   : '//this%mode_ids,              &
              & 'Paired Mode Ids            : '//this%paired_mode_ids,       &
@@ -179,21 +152,22 @@ function write_VscfWavefunctions(this) result(output)
   end select
 end function
 
-function new_VscfWavefunctions_Strings(input) result(this)
+function new_FullSubspaceWavefunctions_Strings(input) result(this)
   implicit none
   
-  type(String), intent(in) :: input(:)
-  type(VscfWavefunctions)  :: this
+  type(String), intent(in)        :: input(:)
+  type(FullSubspaceWavefunctions) :: this
   
   call this%read(input)
 end function
 
-impure elemental function new_VscfWavefunctions_StringArray(input) result(this)
+impure elemental function new_FullSubspaceWavefunctions_StringArray(input) &
+   & result(this)
   implicit none
   
-  type(StringArray), intent(in) :: input
-  type(VscfWavefunctions)       :: this
+  type(StringArray), intent(in)   :: input
+  type(FullSubspaceWavefunctions) :: this
   
-  this = VscfWavefunctions(str(input))
+  this = FullSubspaceWavefunctions(str(input))
 end function
 end module

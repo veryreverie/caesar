@@ -92,9 +92,8 @@ function new_InitialFrequencies_PotentialData(potential,anharmonic_data, &
   
   type(DegenerateSubspace), allocatable :: subspaces(:)
   real(dp),                 allocatable :: frequencies(:)
-  
-  type(MonomialState), allocatable :: states(:)
-  type(MonomialState), allocatable :: subspace_states(:)
+  type(FullSubspaceBasis),  allocatable :: subspace_bases(:)
+  class(SubspaceStates),    allocatable :: subspace_states(:)
   
   type(RealVector), allocatable :: old_frequencies(:)
   type(RealVector), allocatable :: new_frequencies(:)
@@ -125,33 +124,39 @@ function new_InitialFrequencies_PotentialData(potential,anharmonic_data, &
                         & anharmonic_data%frequency_of_max_displacement )
   enddo
   
-  ! Generate ground states at first guess frequencies.
-  allocate(states(size(subspaces)), stat=ialloc); call err(ialloc)
+  ! For each subspace, generate a basis containing only the |0> state.
+  ! Generate bases at first guess frequencies.
+  allocate(subspace_bases(size(subspaces)), stat=ialloc); call err(ialloc)
   do i=1,size(subspaces)
-    subspace_states = generate_monomial_states( &
-               & subspaces(i),                  &
-               & frequencies(i),                &
-               & anharmonic_data%complex_modes, &
-               & maximum_power = 0              )
-    if (size(subspace_states)/=1) then
-      call err()
-    endif
-    states(i) = subspace_states(1)
+    subspace_bases(i) = FullSubspaceBasis(                                 &
+       & subspace                  = subspaces(i),                         &
+       & frequency                 = frequencies(i),                       &
+       & modes                     = anharmonic_data%complex_modes,        &
+       & qpoints                   = anharmonic_data%qpoints,              &
+       & supercell                 = anharmonic_data%anharmonic_supercell, &
+       & maximum_power             = 0,                                    &
+       & potential_expansion_order = 0,                                    &
+       & symmetries                = anharmonic_data%structure%symmetries  )
   enddo
+  
+  ! Calculate the first guess ground states.
+  subspace_states = subspace_bases%initial_states(subspaces, anharmonic_data)
   
   ! Find self-consistent frequencies which minimise the energy.
   old_frequencies = [vec(frequencies)]
   new_frequencies = [RealVector::]
   i = 1
   iter: do
-    ! Update the states to have the new frequencies.
-    states%frequency = dble(old_frequencies(i))
+    ! Update the bases to have the new frequencies.
+    call subspace_bases%set_frequency(dble(old_frequencies(i)))
     
     ! Calculate mean-field potentials from the old frequencies, and use these
     !    mean-field potentials to calculate new frequencies.
     new_frequencies = [ new_frequencies,                              &
                       & optimise_frequencies( potential,              &
-                      &                       states,                 &
+                      &                       subspaces,              &
+                      &                       subspace_bases,         &
+                      &                       subspace_states,        &
                       &                       anharmonic_data,        &
                       &                       frequency_convergence ) ]
     
@@ -194,17 +199,19 @@ end function
 ! For each subspace, integrate the potential across all other subspaces
 !    to get a single-subspace mean-field potential.
 ! Then find the subspace frequency which minimises the single-subspace energy.
-function optimise_frequencies(potential,states,anharmonic_data, &
-   & frequency_convergence) result(output)
+function optimise_frequencies(potential,subspaces,subspace_bases, &
+   & subspace_states,anharmonic_data,frequency_convergence) result(output)
   implicit none
   
-  class(PotentialData), intent(in) :: potential
-  type(MonomialState),  intent(in) :: states(:)
-  type(AnharmonicData), intent(in) :: anharmonic_data
-  real(dp),             intent(in) :: frequency_convergence
-  type(RealVector)                 :: output
+  class(PotentialData),     intent(in) :: potential
+  type(DegenerateSubspace), intent(in) :: subspaces(:)
+  type(FullSubspaceBasis),  intent(in) :: subspace_bases(:)
+  class(SubspaceStates),    intent(in) :: subspace_states(:)
+  type(AnharmonicData),     intent(in) :: anharmonic_data
+  real(dp),                 intent(in) :: frequency_convergence
+  type(RealVector)                     :: output
   
-  type(PotentialPointer), allocatable :: subspace_potentials(:)
+  class(PotentialData), allocatable :: subspace_potentials(:)
   
   real(dp), allocatable  :: new_frequencies(:)
   
@@ -212,42 +219,47 @@ function optimise_frequencies(potential,states,anharmonic_data, &
   
   ! Calculate the single-subspace potentials, defined as
   !    V_i = (prod_{j/=i}<j|)V(prod_{j/=i}|j>).
-  subspace_potentials = generate_subspace_potentials( potential,      &
-                                                    & states,         &
-                                                    & anharmonic_data )
+  subspace_potentials = generate_subspace_potentials( potential,       &
+                                                    & subspaces,       &
+                                                    & subspace_bases,  &
+                                                    & subspace_states, &
+                                                    & anharmonic_data  )
   
-  new_frequencies = [(0.0_dp,i=1,size(states))]
+  new_frequencies = [(0.0_dp,i=1,size(subspace_states))]
   
   ! Calculate update frequencies.
-  do i=1,size(states)
+  do i=1,size(subspace_states)
     ! Find the frequency which minimises total energy.
-    new_frequencies(i) = optimise_frequency(      &
-       & subspace_potentials(i),                  &
-       & states(i),                               &
-       & anharmonic_data,                         &
-       & anharmonic_data%degenerate_subspaces(i), &
-       & frequency_convergence )
+    new_frequencies(i) = optimise_frequency( subspace_potentials(i), &
+                                           & subspaces(i),           &
+                                           & subspace_bases(i),      &
+                                           & subspace_states(i),     &
+                                           & anharmonic_data,        &
+                                           & frequency_convergence   )
   enddo
   
   output = new_frequencies
 end function
 
 ! Find the frequency which minimises energy in a single subspace.
-function optimise_frequency(potential,state,anharmonic_data,subspace, &
-   & frequency_convergence) result(output)
+function optimise_frequency(potential,subspace,subspace_basis,subspace_state, &
+   & anharmonic_data,frequency_convergence) result(output)
   implicit none
   
   class(PotentialData),     intent(in) :: potential
-  type(MonomialState),      intent(in) :: state
-  type(AnharmonicData),     intent(in) :: anharmonic_data
   type(DegenerateSubspace), intent(in) :: subspace
+  type(FullSubspaceBasis),  intent(in) :: subspace_basis
+  class(SubspaceStates),    intent(in) :: subspace_state
+  type(AnharmonicData),     intent(in) :: anharmonic_data
   real(dp),                 intent(in) :: frequency_convergence
   real(dp)                             :: output
   
   real(dp) :: frequencies(3)
   real(dp) :: energies(3)
   
-  type(MonomialState)    :: new_state
+  type(FullSubspaceBasis)           :: new_basis
+  class(SubspaceState), allocatable :: new_states(:)
+  class(SubspaceState), allocatable :: new_state
   
   real(dp) :: first_derivative
   real(dp) :: second_derivative
@@ -257,8 +269,8 @@ function optimise_frequency(potential,state,anharmonic_data,subspace, &
   
   integer :: i
   
-  old_frequency = state%frequency
-  new_state = state
+  old_frequency = subspace_basis%frequency
+  new_basis = subspace_basis
   
   do
     ! Calculate [w-dw, w, w+dw].
@@ -268,9 +280,15 @@ function optimise_frequency(potential,state,anharmonic_data,subspace, &
     
     ! Calculate [U(w-dw), U(w), U(w+dw)].
     do i=1,3
-      new_state%frequency = frequencies(i)
+      call new_basis%set_frequency(frequencies(i))
+      new_states = subspace_state%states(subspace, new_basis, anharmonic_data)
+      if (size(new_states)/=1) then
+        call err()
+      endif
+      new_state = new_states(1)
       energies(i) = potential%potential_energy( new_state,               &
                 &                               new_state,               &
+                &                               subspace,                &
                 &                               anharmonic_data )        &
                 & + kinetic_energy( new_state,                           &
                 &                   new_state,                           &

@@ -12,7 +12,6 @@ module calculate_anharmonic_observables_module
   use initial_frequencies_module
   use vscf_module
   use effective_frequency_module
-  use vscf_thermodynamics_module
   implicit none
   
   private
@@ -151,12 +150,12 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   type(InitialFrequencies) :: initial_frequencies
   
   ! Basis states.
-  type(SubspaceBasis), allocatable :: basis(:)
+  type(FullSubspaceBasis), allocatable :: basis(:)
   
   ! VSCF ground states.
-  type(SubspacePotentialAndState), allocatable :: potentials_and_states(:)
-  type(VscfState),                 allocatable :: ground_states(:)
-  type(PotentialPointer),          allocatable :: subspace_potentials(:)
+  type(VscfOutput),            allocatable :: vscf_output(:)
+  type(PotentialPointer),      allocatable :: subspace_potentials(:)
+  type(SubspaceStatesPointer), allocatable :: subspace_states(:)
   
   ! Finite-temperature effective harmonic frequencies.
   real(dp), allocatable :: frequencies(:)
@@ -172,24 +171,23 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   type(MinImages), allocatable :: min_images(:,:)
   
   ! Dispersion and density of states.
-  type(PhononDispersion)               :: phonon_dispersion
-  type(PhononDos)                      :: phonon_dos
+  type(PhononDispersion) :: phonon_dispersion
+  type(PhononDos)        :: phonon_dos
   
   ! Thermodynamic data.
-  type(VscfThermodynamics)             :: vscf_correction
   type(ThermodynamicData), allocatable :: vscha_thermodynamics(:)
-  type(ThermodynamicData), allocatable :: vscha1_thermodynamics(:)
-  type(ThermodynamicData), allocatable :: vscha2_thermodynamics(:)
-  type(ThermodynamicData), allocatable :: uninterpolated_thermodynamics(:)
-  type(ThermodynamicData), allocatable :: vscf1_thermodynamics(:)
-  type(ThermodynamicData), allocatable :: vscf2_thermodynamics(:)
-  type(ThermodynamicData), allocatable :: thermodynamics(:)
+  type(ThermodynamicData), allocatable :: vscha1_thermodynamics(:,:)
+  type(ThermodynamicData), allocatable :: vscha2_thermodynamics(:,:)
+  type(ThermodynamicData), allocatable :: vscf_thermodynamics(:,:)
   
   ! VSCF correction data.
-  real(dp)                 :: vscf_frequency
-  type(VscfEnergySpectrum) :: vscf_spectrum
-  type(ThermodynamicData)  :: vscha_thermo(2)
-  type(VscfWavefunctions)  :: wavefunctions
+  type(ThermodynamicData) :: vscha_thermo(2)
+  
+  type(EnergySpectra),                allocatable :: subspace_spectra(:)
+  type(SubspaceWavefunctionsPointer), allocatable :: subspace_wavefunctions(:)
+  
+  real(dp) :: harmonic_potential_expectation
+  real(dp) :: anharmonic_potential_expectation
   
   ! Files and directories.
   type(IFile)  :: anharmonic_data_file
@@ -206,9 +204,7 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   type(OFile)  :: vscha_thermodynamic_file
   type(OFile)  :: vscha1_thermodynamic_file
   type(OFile)  :: vscha2_thermodynamic_file
-  type(OFile)  :: uninterpolated_thermodynamic_file
-  type(OFile)  :: vscf1_thermodynamic_file
-  type(OFile)  :: vscf2_thermodynamic_file
+  type(OFile)  :: vscf_thermodynamic_file
   type(OFile)  :: thermodynamic_file
   type(OFile)  :: pdos_file
   
@@ -262,6 +258,30 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
     stop
   endif
   
+  ! --------------------------------------------------
+  ! Read in previously calculated data.
+  ! --------------------------------------------------
+  
+  ! Read in anharmonic data.
+  anharmonic_data_file = IFile('anharmonic_data.dat')
+  anharmonic_data = AnharmonicData(anharmonic_data_file%lines())
+  
+  modes = anharmonic_data%complex_modes
+  qpoints = anharmonic_data%qpoints
+  subspaces = anharmonic_data%degenerate_subspaces
+  supercell = anharmonic_data%anharmonic_supercell
+  
+  ! Read in anharmonic potential.
+  potential_file = IFile('potential.dat')
+  potential = PotentialPointer(potential_file%lines())
+  
+  ! --------------------------------------------------
+  ! Generate objects which don't depend on the potential:
+  !    - thermal energies from temperature range.
+  !    - dispersion path.
+  !    - minimum image data.
+  ! --------------------------------------------------
+  
   ! Generate thermal energies.
   ! thermal_energies(1)                    = min_temperature * kB.
   ! thermal_energies(no_temperature_steps) = max_temperature * kB.
@@ -288,55 +308,6 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
     path_qpoints(i) = dble(path_point(2:4))
   enddo
   
-  ! Read in anharmonic data.
-  anharmonic_data_file = IFile('anharmonic_data.dat')
-  anharmonic_data = AnharmonicData(anharmonic_data_file%lines())
-  
-  modes = anharmonic_data%complex_modes
-  qpoints = anharmonic_data%qpoints
-  subspaces = anharmonic_data%degenerate_subspaces
-  supercell = anharmonic_data%anharmonic_supercell
-  
-  ! Read in anharmonic potential.
-  potential_file = IFile('potential.dat')
-  potential = PotentialPointer(potential_file%lines())
-  
-  ! Generate effective harmonic frequencies.
-  initial_frequencies = InitialFrequencies( potential,                      &
-                                          & anharmonic_data,                &
-                                          & harmonic_frequency_convergence, &
-                                          & max_pulay_iterations,           &
-                                          & pre_pulay_iterations,           &
-                                          & pre_pulay_damping               )
-  
-  ! Generate basis of states.
-  allocate( basis(size(anharmonic_data%degenerate_subspaces)), &
-          & stat=ialloc); call err(ialloc)
-  do i=1,size(basis)
-    basis(i) = SubspaceBasis(                             &
-       & anharmonic_data%degenerate_subspaces(i),         &
-       & initial_frequencies%frequency(                   &
-       &    anharmonic_data%degenerate_subspaces(i)%id ), &
-       & anharmonic_data%complex_modes,                   &
-       & anharmonic_data%qpoints,                         &
-       & anharmonic_data%anharmonic_supercell,            &
-       & no_vscf_basis_states-1,                          &
-       & anharmonic_data%potential_expansion_order,       &
-       & anharmonic_data%structure%symmetries             )
-  enddo
-  
-  ! Run VSCF to generate single-subspace potentials and ground states.
-  potentials_and_states = run_vscf( potential,                      &
-                                  & basis,                          &
-                                  & energy_convergence,             &
-                                  & no_converged_calculations_vscf, &
-                                  & max_pulay_iterations,           &
-                                  & pre_pulay_iterations,           &
-                                  & pre_pulay_damping,              &
-                                  & anharmonic_data                 )
-  
-  subspace_potentials = potentials_and_states%potential
-  
   ! Make output directory, write out temperatures, and open logfile.
   output_dir = 'anharmonic_observables'
   call mkdir(output_dir)
@@ -351,21 +322,87 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   min_images = calculate_min_images(supercell)
   
   ! --------------------------------------------------
-  ! Generate observables for each temperature in turn.
+  ! Run VSCF on potential to generate single-subspace potentials.
   ! --------------------------------------------------
+  
+  ! Generate effective harmonic frequencies.
+  call print_line('Running zero-temperature VSCHA to obtain inital &
+     &frequencies.')
+  initial_frequencies = InitialFrequencies( potential,                      &
+                                          & anharmonic_data,                &
+                                          & harmonic_frequency_convergence, &
+                                          & max_pulay_iterations,           &
+                                          & pre_pulay_iterations,           &
+                                          & pre_pulay_damping               )
+  
+  ! Generate basis of states.
+  call print_line('Generating basis for VSCF.')
+  allocate( basis(size(anharmonic_data%degenerate_subspaces)), &
+          & stat=ialloc); call err(ialloc)
+  do i=1,size(basis)
+    basis(i) = FullSubspaceBasis(                         &
+       & anharmonic_data%degenerate_subspaces(i),         &
+       & initial_frequencies%frequency(                   &
+       &    anharmonic_data%degenerate_subspaces(i)%id ), &
+       & anharmonic_data%complex_modes,                   &
+       & anharmonic_data%qpoints,                         &
+       & anharmonic_data%anharmonic_supercell,            &
+       & no_vscf_basis_states-1,                          &
+       & anharmonic_data%potential_expansion_order,       &
+       & anharmonic_data%structure%symmetries             )
+  enddo
+  
+  ! Run VSCF to generate single-subspace potentials and ground states.
+  call print_line('Running VSCF')
+  vscf_output = run_vscf( potential,                      &
+                        & subspaces,                      &
+                        & basis,                          &
+                        & energy_convergence,             &
+                        & no_converged_calculations_vscf, &
+                        & max_pulay_iterations,           &
+                        & pre_pulay_iterations,           &
+                        & pre_pulay_damping,              &
+                        & anharmonic_data                 )
+  
+  subspace_potentials = vscf_output%potential
+  subspace_states = vscf_output%states
+  
+  subspace_spectra = subspace_states%spectra( subspaces,      &
+                                            & basis,          &
+                                            & anharmonic_data )
+  subspace_wavefunctions = SubspaceWavefunctionsPointer( &
+      & subspace_states%wavefunctions( subspaces,        &
+      &                                basis,            &
+      &                                anharmonic_data ) )
+  
+  ! Print VSCF spectra and wavefunction information.
+  do i=1,size(subspaces)
+    call print_line('VSCF spectrum in subspace '//subspaces(i)%id//' spans ' &
+                                     & //  subspace_spectra(i)%max_energy()  &
+                                     &   - subspace_spectra(i)%min_energy()  &
+                                     & // ' (Ha)'                            )
+    
+    subspace_dir = output_dir//'/subspace_'// &
+       & left_pad(subspaces(i)%id, str(maxval(subspaces%id)))
+    call mkdir(subspace_dir)
+    
+    wavefunctions_file = OFile(subspace_dir//'/vscf_wavefunctions.dat')
+    call wavefunctions_file%print_lines(subspace_wavefunctions(i))
+  enddo
+  
+  ! --------------------------------------------------
+  ! Generate observables under the VSCHA approximation.
+  ! --------------------------------------------------
+  
+  call print_line('VSCF calculations complete. Running VSCHA calculations.')
+  
   ! Initialise frequencies to the frequencies which minimise the energy
   !    of the harmonic ground state.
   frequencies = initial_frequencies%frequency(subspaces%id)
-  allocate( effective_frequencies( size(subspace_potentials),      &
-          &                        size(thermal_energies)),        &
-          & dynamical_matrices(size(qpoints)),                     &
-          & vscha_thermodynamics(size(thermal_energies)),          &
-          & vscha1_thermodynamics(size(thermal_energies)),          &
-          & vscha2_thermodynamics(size(thermal_energies)),          &
-          & uninterpolated_thermodynamics(size(thermal_energies)), &
-          & vscf1_thermodynamics(size(thermal_energies)),           &
-          & vscf2_thermodynamics(size(thermal_energies)),           &
-          & thermodynamics(size(thermal_energies)),                &
+  allocate( effective_frequencies( size(subspaces),          &
+          &                        size(thermal_energies) ), &
+          & dynamical_matrices(size(qpoints)),               &
+          & vscha_thermodynamics(size(thermal_energies)),    &
           & stat=ialloc); call err(ialloc)
   do i=1,size(thermal_energies)
     ! Make temperature directory.
@@ -457,93 +494,53 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
     vscha_thermodynamics(i) = phonon_dos%thermodynamic_data(1)
   enddo
   
-  call print_line('')
-  call print_line('VSCHA calculation complete. Running VSCF calculation.')
+  call print_line('VSCHA calculation complete.')
   
-  ! Calculate VSCF correction to thermodynamic quantities.
-  vscf1_thermodynamics = vscha_thermodynamics * 0
-  vscf2_thermodynamics = vscha_thermodynamics * 0
-  vscha1_thermodynamics = vscha_thermodynamics * 0
-  vscha2_thermodynamics = vscha_thermodynamics * 0
-  uninterpolated_thermodynamics = vscha_thermodynamics * 0
-  thermodynamics = vscha_thermodynamics * 0
-  do i=1,size(subspaces)
-    ! Calculate the VSCF spectrum,
-    !    using the VSCHA basis at the lowest temperature.
-    call print_line('Calculating VSCF spectrum in subspace '//subspaces(i)%id)
-    vscf_frequency = effective_frequencies(i,1)
-    vscf_spectrum = calculate_vscf_spectrum( vscf_frequency,         &
-                                           & subspace_potentials(i), &
-                                           & subspaces(i),           &
-                                           & anharmonic_data,        &
-                                           & no_vscf_basis_states    )
-    call print_line('VSCF states span '//     &
-       &  maxval(vscf_spectrum%vscf_energies) &
-       & -minval(vscf_spectrum%vscf_energies) //' (Ha)')
-    
-    subspace_dir = output_dir//'/subspace_'// &
-       & left_pad(subspaces(i)%id, str(maxval(subspaces%id)))
-    call mkdir(subspace_dir)
-    wavefunctions_file = OFile(subspace_dir//'/vscf_wavefunctions.dat')
-    wavefunctions = VscfWavefunctions( vscf_spectrum%vscf_states, &
-                                     & subspaces(i),              &
-                                     & vscf_spectrum%basis,       &
-                                     & supercell                  )
-    call wavefunctions_file%print_lines(wavefunctions)
-    
-    do j=1,size(thermal_energies)
-      vscf1_thermodynamics(j) = vscf1_thermodynamics(j)                      &
-                           & + ThermodynamicData( thermal_energies(j),     &
-                           &                      vscf_spectrum%vscf_energies )
-      vscf2_thermodynamics(j) = vscf2_thermodynamics(j)                      &
-                           & + ThermodynamicData( thermal_energies(j),     &
-                           &                      vscf_spectrum%vscha_energies )
+  ! --------------------------------------------------
+  ! Calculate observables under full VSCF.
+  ! --------------------------------------------------
+  
+  ! Calculate thermodynamic quantities.
+  allocate( vscha1_thermodynamics( size(subspaces),          &
+          &                        size(thermal_energies) ), &
+          & vscha2_thermodynamics( size(subspaces),          &
+          &                        size(thermal_energies) ), &
+          & vscf_thermodynamics( size(subspaces),            &
+          &                      size(thermal_energies) ),   &
+          & stat=ialloc); call err(ialloc)
+  do i=1,size(thermal_energies)
+    do j=1,size(subspaces)
+      vscf_thermodynamics(j,i) = ThermodynamicData( thermal_energies(i),  &
+                             &                      subspace_spectra(j) ) &
+                             & / supercell%sc_size
       
-      vscha_thermo = calculate_vscha_thermodynamics( &
-                       & effective_frequencies(i,j), &
-                       & subspace_potentials(i),     &
-                       & subspaces(i),               &
-                       & anharmonic_data,            &
-                       & no_vscha_basis_states,      &
-                       & thermal_energies(j)         )
-      vscha1_thermodynamics(j) = vscha1_thermodynamics(j) + vscha_thermo(1)
-      vscha2_thermodynamics(j) = vscha2_thermodynamics(j) + vscha_thermo(2)
-      !uninterpolated_thermodynamics(j) =                     &
-      !   &   uninterpolated_thermodynamics(j)                &
-      !   & + ThermodynamicData( thermal_energies(j),         &
-      !   &                      vscha_spectrum(1)%energies ) &
-      !   & / supercell%sc_size
-      !thermodynamics(j) =                                    &
-      !   &   thermodynamics(j)                               &
-      !   & + ThermodynamicData( thermal_energies(j),         &
-      !   &                      vscha_spectrum(2)%energies ) &
-      !   & / supercell%sc_size
+      vscha1_thermodynamics(j,i) =                         &
+         & ThermodynamicData( thermal_energies(i),         &
+         &                    effective_frequencies(j,i) ) &
+         & * size(subspaces(i))                            &
+         & / (1.0_dp*supercell%sc_size)
+      
+      vscha2_thermodynamics(j,i) = vscha1_thermodynamics(j,i)
+      harmonic_potential_expectation = vscha1_thermodynamics(j,i)%energy / 2
+      anharmonic_potential_expectation =                &
+         & subspace_potentials(j)%harmonic_expectation( &
+         &                  effective_frequencies(j,i), &
+         &                  thermal_energies(i),        &
+         &                  no_vscha_basis_states,      &
+         &                  subspaces(j),               &
+         &                  anharmonic_data             )
+      vscha2_thermodynamics(j,i)%energy =      &
+         &   vscha2_thermodynamics(j,i)%energy &
+         & - harmonic_potential_expectation    &
+         & + anharmonic_potential_expectation
+      vscha2_thermodynamics(j,i)%free_energy =      &
+         &   vscha2_thermodynamics(j,i)%free_energy &
+         & - harmonic_potential_expectation         &
+         & + anharmonic_potential_expectation
     enddo
   enddo
   
-  vscf1_thermodynamics = vscf1_thermodynamics / supercell%sc_size
-  vscf2_thermodynamics = vscf2_thermodynamics / supercell%sc_size
-  
-  ! --------------------------------------------------
   ! Write out thermodynamic results.
-  ! --------------------------------------------------
-  vscha1_thermodynamic_file = OFile(                    &
-     & output_dir//'/vscha_thermodynamic_variables.dat' )
-  call vscha1_thermodynamic_file%print_line( &
-     &'kB * temperature (Hartree per cell) | &
-     &Vibrational Energy per cell, U=<E>, (Hartree) | &
-     &Vibrational Free Energy per cell, F=U-TS, (Hartree) | &
-     &Vibrational Shannon Entropy per cell, S/k_B, (arb. units)')
-  call vscha1_thermodynamic_file%print_lines(vscha1_thermodynamics)
-  
-  vscha2_thermodynamic_file = OFile(                         &
-     & output_dir//'/vscha_vscf_thermodynamic_variables.dat' )
-  call vscha2_thermodynamic_file%print_line( &
-     &'kB * temperature (Hartree per cell) | &
-     &Vibrational Energy per cell, U=<E>, (Hartree) | &
-     &Vibrational Free Energy per cell, F=U-TS, (Hartree) | &
-     &Vibrational Shannon Entropy per cell, S/k_B, (arb. units)')
-  call vscha2_thermodynamic_file%print_lines(vscha2_thermodynamics)
   
   ! Just VSCHA with Fourier interpolation.
   vscha_thermodynamic_file = OFile(                                  &
@@ -555,32 +552,39 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
      &Vibrational Shannon Entropy per cell, S/k_B, (arb. units)')
   call vscha_thermodynamic_file%print_lines(vscha_thermodynamics)
   
+  ! VSCHA and VSCHA with <V>.
+  vscha1_thermodynamic_file = OFile(                    &
+     & output_dir//'/vscha_thermodynamic_variables.dat' )
+  call vscha1_thermodynamic_file%print_line( &
+     &'kB * temperature (Hartree per cell) | &
+     &Vibrational Energy per cell, U=<E>, (Hartree) | &
+     &Vibrational Free Energy per cell, F=U-TS, (Hartree) | &
+     &Vibrational Shannon Entropy per cell, S/k_B, (arb. units)')
+  do i=1,size(thermal_energies)
+    call vscha1_thermodynamic_file%print_line(sum(vscha1_thermodynamics(:,i)))
+  enddo
+  
+  vscha2_thermodynamic_file = OFile(                         &
+     & output_dir//'/vscha_vscf_thermodynamic_variables.dat' )
+  call vscha2_thermodynamic_file%print_line( &
+     &'kB * temperature (Hartree per cell) | &
+     &Vibrational Energy per cell, U=<E>, (Hartree) | &
+     &Vibrational Free Energy per cell, F=U-TS, (Hartree) | &
+     &Vibrational Shannon Entropy per cell, S/k_B, (arb. units)')
+  do i=1,size(thermal_energies)
+    call vscha2_thermodynamic_file%print_line(sum(vscha2_thermodynamics(:,i)))
+  enddo
+  
   ! Just VSCF without Fourier interpolation.
-  vscf1_thermodynamic_file = OFile(                     &
+  vscf_thermodynamic_file = OFile(                     &
      & output_dir//'/vscf_thermodynamic_variables.dat' )
-  call vscf1_thermodynamic_file%print_line( &
+  call vscf_thermodynamic_file%print_line( &
      &'kB * temperature (Hartree per cell) | &
      &Vibrational Energy per cell, U=<E>, (Hartree) | &
      &Vibrational Free Energy per cell, F=U-TS, (Hartree) | &
      &Vibrational Shannon Entropy per cell, S/k_B, (arb. units)')
-  call vscf1_thermodynamic_file%print_lines(vscf1_thermodynamics)
-  
-  vscf2_thermodynamic_file = OFile(                                  &
-     & output_dir//'/limited_vscha_vscf_thermodynamic_variables.dat' )
-  call vscf2_thermodynamic_file%print_line( &
-     &'kB * temperature (Hartree per cell) | &
-     &Vibrational Energy per cell, U=<E>, (Hartree) | &
-     &Vibrational Free Energy per cell, F=U-TS, (Hartree) | &
-     &Vibrational Shannon Entropy per cell, S/k_B, (arb. units)')
-  call vscf2_thermodynamic_file%print_lines(vscf2_thermodynamics)
-  
-  !! Interpolated VSCHA + uninterpolated (VSCF-VSCHA).
-  !thermodynamic_file = OFile(output_dir//'/thermodynamic_variables.dat')
-  !call thermodynamic_file%print_line( &
-  !   &'kB * temperature (Hartree per cell) | &
-  !   &Vibrational Energy per cell, U=<E>, (Hartree) | &
-  !   &Vibrational Free Energy per cell, F=U-TS, (Hartree) | &
-  !   &Vibrational Shannon Entropy per cell, S/k_B, (arb. units)')
-  !call thermodynamic_file%print_lines(vscf_thermodynamics)
+  do i=1,size(thermal_energies)
+    call vscf_thermodynamic_file%print_line(sum(vscf_thermodynamics(:,i)))
+  enddo
 end subroutine
 end module

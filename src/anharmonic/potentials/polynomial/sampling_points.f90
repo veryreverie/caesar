@@ -7,7 +7,6 @@ module sampling_points_module
   use anharmonic_common_module
   
   use basis_function_module
-  use basis_functions_module
   implicit none
   
   private
@@ -54,17 +53,17 @@ function size_SamplingPoints(this) result(output)
 end function
 
 ! Generates a set of sampling points for sampling a set of basis functions.
-function generate_sampling_points(basis_functions,potential_expansion_order, &
+function generate_sampling_points(unique_terms,potential_expansion_order, &
    & maximum_weighted_displacement,frequency_of_max_displacement,real_modes) &
    & result(output)
   implicit none
   
-  type(BasisFunctions), intent(in) :: basis_functions
-  integer,              intent(in) :: potential_expansion_order
-  real(dp),             intent(in) :: maximum_weighted_displacement
-  real(dp),             intent(in) :: frequency_of_max_displacement
-  type(RealMode),       intent(in) :: real_modes(:)
-  type(SamplingPoints)             :: output
+  type(RealMonomial), intent(in) :: unique_terms(:)
+  integer,            intent(in) :: potential_expansion_order
+  real(dp),           intent(in) :: maximum_weighted_displacement
+  real(dp),           intent(in) :: frequency_of_max_displacement
+  type(RealMode),     intent(in) :: real_modes(:)
+  type(SamplingPoints)           :: output
   
   type(RealMonomial), allocatable :: unique_bases(:)
   type(RealMonomial), allocatable :: matching_bases(:)
@@ -79,16 +78,16 @@ function generate_sampling_points(basis_functions,potential_expansion_order, &
   !    and u1^1*u3^2, u1^4&u3^1 and u1^5*u3^7 are all in one group.
   
   ! Identify one basis function in each group.
-  unique_bases = basis_functions%unique_terms(         &
-     & set(basis_functions%unique_terms,compare_modes) )
+  unique_bases = unique_terms(set(unique_terms, compare_modes))
   
   ! Loop over the groups.
   points = [RealModeDisplacement::]
   do i=1,size(unique_bases)
     ! Identify the basis functions in the group.
     ! These are the basis functions equivalent to the representative function.
-    matching_bases = basis_functions%unique_terms(                          &
-       & filter(basis_functions%unique_terms,compare_modes,unique_bases(i)) )
+    matching_bases = unique_terms(filter( unique_terms,   &
+                                        & compare_modes,  &
+                                        & unique_bases(i) ))
     
     ! Generate the sampling points for the group of basis functions.
     points = [                                                             &

@@ -46,6 +46,9 @@ module basis_function_module
     
     procedure, public :: is_constant => is_constant_BasisFunction
     
+    procedure, public :: coefficient => coefficient_BasisFunction
+    procedure, public :: set_coefficient => set_coefficient_BasisFunction
+    
     procedure, public :: read  => read_BasisFunction
     procedure, public :: write => write_BasisFunction
   end type
@@ -463,6 +466,46 @@ impure elemental function is_constant_BasisFunction(this) result(output)
   
   output = .true.
 end function
+
+! ----------------------------------------------------------------------
+! Converts the basis function to and from a single coefficient.
+! The coefficient is the sum of the absolute values of the
+!    real representation coefficients, with the sign of the first non-zero
+!    real representation coefficient.
+! These methods allow for simpler linear algebra with basis functions.
+! ----------------------------------------------------------------------
+impure elemental function coefficient_BasisFunction(this) result(output)
+  implicit none
+  
+  class(BasisFunction), intent(in) :: this
+  real(dp)                         :: output
+  
+  integer :: i
+  
+  output = sum(abs(this%real_representation%terms%coefficient))
+  
+  i = first(abs(this%real_representation%terms%coefficient)>0)
+  if (this%real_representation%terms(i)%coefficient<0) then
+    output = -output
+  endif
+end function
+
+impure elemental subroutine set_coefficient_BasisFunction(this,coefficient)
+  implicit none
+  
+  class(BasisFunction), intent(inout) :: this
+  real(dp),             intent(in)    :: coefficient
+  
+  real(dp) :: factor
+  
+  factor = coefficient / this%coefficient()
+  this%real_representation%terms%coefficient =      &
+     &   this%real_representation%terms%coefficient &
+     & * factor
+  this%complex_representation%terms%coefficient =      &
+     &   this%complex_representation%terms%coefficient &
+     & * factor
+end subroutine
 
 ! ----------------------------------------------------------------------
 ! Arithmetic.

@@ -10,7 +10,10 @@ module anharmonic_common_module
   use degenerate_symmetry_module
   use anharmonic_data_module
   use energy_spectrum_module
-  use potential_module
+  use subspace_wavefunctions_module
+  use full_subspace_wavefunctions_module
+  use subspace_wavefunctions_pointer_module
+  use abstract_classes_module
   implicit none
 contains
 end module

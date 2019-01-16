@@ -12,285 +12,243 @@ module vscf_module
   
   private
   
-  public :: run_vscf
-  public :: SubspacePotentialAndState
+  public :: VscfOutput
   
-  type, extends(NoDefaultConstructor) :: SubspacePotentialAndState
-    type(PotentialPointer) :: potential
-    type(VscfState)        :: state
+  public :: run_vscf
+  
+  type, extends(NoDefaultConstructor) :: VscfStep
+    type(PotentialPointer),      allocatable :: input_potentials(:)
+    type(SubspaceStatesPointer), allocatable :: states(:)
+    type(EnergySpectra),         allocatable :: spectra(:)
+    type(PotentialPointer),      allocatable :: output_potentials(:)
   end type
   
-  interface SubspacePotentialAndState
-    module procedure new_SubspacePotentialAndState
+  interface VscfStep
+    module procedure new_VscfStep
+  end interface
+  
+  type, extends(NoDefaultConstructor) :: VscfOutput
+    type(PotentialPointer)      :: potential
+    type(SubspaceStatesPointer) :: states
+  end type
+  
+  interface VscfOutput
+    module procedure new_VscfOutput
   end interface
 contains
 
-impure elemental function new_SubspacePotentialAndState(potential,state) &
+! Constructors.
+function new_VscfStep(input_potentials,states,spectra,output_potentials) &
    & result(this)
   implicit none
   
-  type(PotentialPointer), intent(in) :: potential
-  type(VscfState),        intent(in) :: state
-  type(SubspacePotentialAndState)    :: this
+  class(PotentialData),  intent(in) :: input_potentials(:)
+  class(SubspaceStates), intent(in) :: states(:)
+  type(EnergySpectra),   intent(in) :: spectra(:)
+  class(PotentialData),  intent(in) :: output_potentials(:)
+  type(VscfStep)                    :: this
   
-  this%potential = potential
-  this%state = state
+  if (size(input_potentials)/=size(states)) then
+    call print_line(CODE_ERROR//': Input potentials and states do not match.')
+    call err()
+  elseif (size(input_potentials)/=size(spectra)) then
+    call print_line(CODE_ERROR//': Input potentials and spectra do not match.')
+    call err()
+  elseif (size(input_potentials)/=size(output_potentials)) then
+    call print_line(CODE_ERROR//': Input potentials and output potentials do &
+       &not match.')
+    call err()
+  endif
+  
+  this%input_potentials = PotentialPointer(input_potentials)
+  this%states = SubspaceStatesPointer(states)
+  this%spectra = spectra
+  this%output_potentials = PotentialPointer(output_potentials)
 end function
 
-function run_vscf(potential,basis,energy_convergence,                     &
+impure elemental function new_VscfOutput(potential,states) result(this)
+  implicit none
+  
+  class(PotentialData),  intent(in) :: potential
+  Class(SubspaceStates), intent(in) :: states
+  type(VscfOutput)                  :: this
+  
+  this%potential = PotentialPointer(potential)
+  this%states = SubspaceStatesPointer(states)
+end function
+
+! ----------------------------------------------------------------------
+! Main functions.
+! ----------------------------------------------------------------------
+
+function run_vscf(potential,subspaces,subspace_bases,energy_convergence,  &
    & no_converged_calculations,max_pulay_iterations,pre_pulay_iterations, &
    & pre_pulay_damping,anharmonic_data) result(output)
   implicit none
   
-  class(PotentialData), intent(in)             :: potential
-  type(SubspaceBasis),  intent(in)             :: basis(:)
-  real(dp),             intent(in)             :: energy_convergence
-  integer,              intent(in)             :: no_converged_calculations
-  integer,              intent(in)             :: max_pulay_iterations
-  integer,              intent(in)             :: pre_pulay_iterations
-  real(dp),             intent(in)             :: pre_pulay_damping
-  type(AnharmonicData), intent(in)             :: anharmonic_data
-  type(SubspacePotentialAndState), allocatable :: output(:)
+  class(PotentialData),     intent(in) :: potential
+  type(DegenerateSubspace), intent(in) :: subspaces(:)
+  class(SubspaceBasis),     intent(in) :: subspace_bases(:)
+  real(dp),                 intent(in) :: energy_convergence
+  integer,                  intent(in) :: no_converged_calculations
+  integer,                  intent(in) :: max_pulay_iterations
+  integer,                  intent(in) :: pre_pulay_iterations
+  real(dp),                 intent(in) :: pre_pulay_damping
+  type(AnharmonicData),     intent(in) :: anharmonic_data
+  type(VscfOutput), allocatable        :: output(:)
   
-  type(VscfState),                 allocatable :: state(:)
-  type(SubspacePotentialAndState), allocatable :: potentials_and_states(:)
-  real(dp),                        allocatable :: energies(:)
+  type(PotentialPointer),      allocatable :: input_potentials(:)
+  type(SubspaceStatesPointer), allocatable :: subspace_states(:)
+  type(EnergySpectra),         allocatable :: subspace_spectra(:)
+  type(PotentialPointer),      allocatable :: output_potentials(:)
   
-  type(RealVector), allocatable :: old_coefficients(:)
-  type(RealVector), allocatable :: new_coefficients(:)
+  type(PotentialPointer), allocatable :: in_potentials(:)
+  type(PotentialPointer), allocatable :: out_potentials(:)
   
-  type(RealVector) :: next_old_coefficients
+  type(VscfStep), allocatable :: vscf_steps(:)
   
-  type(FractionVector), allocatable :: state_wavevectors(:)
-  integer                           :: wavevector_changed
+  integer :: i,j,k,ialloc
   
-  integer :: i,j
+  vscf_steps = [VscfStep::]
   
-  state = initial_ground_state(basis)
-  energies = [0.0_dp]
-  old_coefficients = [states_to_coefficients(state)]
-  new_coefficients = [RealVector::]
-  
+  ! Generate initial states,
+  !    and use these states to generate initial potentials.
+  call print_line('Generating initial states and potentials.')
+  subspace_states = SubspaceStatesPointer(subspace_bases%initial_states( &
+                                                       & subspaces,      &
+                                                       & anharmonic_data ))
+  input_potentials = generate_subspace_potentials( potential,       &
+                                                 & subspaces,       &
+                                                 & subspace_bases,  &
+                                                 & subspace_states, &
+                                                 & anharmonic_data  )
+    
   i = 1
   do
     call print_line('VSCF self-consistency step '//i//'.')
-    ! Use the current state to calculate single-subspace potentials,
-    !    and calculate the new ground states of these potentials.
-    potentials_and_states = update(state,basis,potential,anharmonic_data)
-    state = potentials_and_states%state
-    energies = [energies, sum(potentials_and_states%state%energy)]
-    new_coefficients = [new_coefficients, states_to_coefficients(state)]
     
-    if (i==1) then
-      wavevector_changed = i
-    else
-      if (any(state%wavevector/=state_wavevectors)) then
-        wavevector_changed = i
-      endif
-    endif
+    ! Use the single-subspace potentials to calculate the new states.
+    call print_line('Generating single-subspace ground states.')
+    subspace_states = SubspaceStatesPointer(                &
+       & subspace_bases%calculate_states( subspaces,        &
+       &                                  input_potentials, &
+       &                                  anharmonic_data   ) )
     
-    state_wavevectors = state%wavevector
+    ! Generate the energy spectra from the states.
+    subspace_spectra = subspace_states%spectra( subspaces,      &
+                                              & subspace_bases, &
+                                              & anharmonic_data )
+    call print_line('Ground-state energies: '//subspace_spectra%min_energy())
     
-    ! Use a damped iterative scheme or a Pulay scheme to converge towards the
-    !    self-consistent solution where new coefficients = old coefficients.
-    if (i-wavevector_changed<=pre_pulay_iterations) then
-      next_old_coefficients = (1-pre_pulay_damping) * old_coefficients(i) &
-                          & + pre_pulay_damping * new_coefficients(i)
-    else
-      j = max(2, i-max_pulay_iterations+1)
-      next_old_coefficients = pulay(old_coefficients(j:), new_coefficients(j:))
-    endif
+    ! Use the current single-subspace states to calculate the single-subspace
+    !    potentials.
+    call print_line('Generating single-subspace potentials.')
+    output_potentials = generate_subspace_potentials( potential,       &
+                                                    & subspaces,       &
+                                                    & subspace_bases,  &
+                                                    & subspace_states, &
+                                                    & anharmonic_data  )
     
-    ! Normalise coefficients, and append them to the list.
-    next_old_coefficients = normalise_coefficients( next_old_coefficients, &
-                                                  & state                  )
-    old_coefficients = [old_coefficients, next_old_coefficients]
-    
-    ! Use the next iteration of old_coefficients to update the current state.
-    ! N.B. the energy of this state is unknown.
-    state = coefficients_to_states(next_old_coefficients,state)
-    
-    ! Increment the loop counter.
-    i = i+1
-    
-    ! Output the current energy to the terminal.
-    call print_line('Ground-state energy: '//energies(i))
-    call print_line('')
+    ! Store the input and output potentials, states and spectra as the next
+    !    VSCF step.
+    vscf_steps = [ vscf_steps,                   &
+                 & VscfStep( input_potentials,   &
+                 &           subspace_states,    &
+                 &           subspace_spectra,   &
+                 &           output_potentials ) ]
     
     ! Check whether the energies have converged.
-    if (i>=no_converged_calculations) then
-      j = i-no_converged_calculations+1
-      if (all( abs(energies(j:i-1)-energies(i)) < energy_convergence )) then
-        output = potentials_and_states
+    if (i>no_converged_calculations) then
+      if (all(steps_converged(                          &
+         & vscf_steps(i-no_converged_calculations:i-1), &
+         & vscf_steps(i),                               &
+         & energy_convergence                           ))) then
+        output = VscfOutput(input_potentials, subspace_states)
         exit
       endif
     endif
-  enddo
-end function
-
-! For each subspace, integrate the potential across the ground states of all
-!    other subspaces to give a single-subspace potential, and then diagonalise
-!    this potential to give a new ground state.
-function update(states,basis,potential,anharmonic_data) result(output)
-  implicit none
-  
-  type(VscfState),      intent(in)             :: states(:)
-  type(SubspaceBasis),  intent(in)             :: basis(:)
-  class(PotentialData), intent(in)             :: potential
-  type(AnharmonicData), intent(in)             :: anharmonic_data
-  type(SubspacePotentialAndState), allocatable :: output(:)
-  
-  type(StructureData) :: supercell
-  
-  type(DegenerateSubspace) :: subspace
-  
-  type(PolynomialState),  allocatable :: subspace_states(:)
-  type(PotentialPointer), allocatable :: subspace_potentials(:)
-  
-  type(SymmetricEigenstuff), allocatable :: wavevector_ground_states(:)
-  
-  real(dp), allocatable :: hamiltonian(:,:)
-  
-  type(HarmonicState) :: bra
-  type(HarmonicState) :: ket
-  
-  type(SymmetricEigenstuff), allocatable :: estuff(:)
-  
-  type(VscfState), allocatable :: ground_states(:)
-  
-  integer :: i,j,k,l,m,ialloc
-  
-  supercell = anharmonic_data%anharmonic_supercell
-  
-  ! Generate the single-subspace potentials {V_i}, defined as
-  !    V_i = (prod_{j/=i}<j|)V(prod_{j/=i}|j>).
-  subspace_states = PolynomialState(states,basis)
-  call print_line('Generating single-subspace potentials.')
-  subspace_potentials = generate_subspace_potentials( potential,       &
-                                                    & subspace_states, &
-                                                    & anharmonic_data  )
-  
-  call print_line('Generating single-subspace ground states.')
-  allocate( ground_states(size(states)), &
-          & stat=ialloc); call err(ialloc)
-  do i=1,size(states)
-    subspace = anharmonic_data%degenerate_subspaces(i)
     
-    ! Calculate the ground state at each wavevector.
-    allocate( wavevector_ground_states(size(basis(i))), &
-            & stat=ialloc); call err(ialloc)
-    do j=1,size(basis(i))
-      ! Calculate the Hamiltonian in the harmonic basis.
-      allocate( hamiltonian( size(basis(i)%wavevectors(j)),    &
-              &              size(basis(i)%wavevectors(j))  ), &
-              & stat=ialloc); call err(ialloc)
-      hamiltonian = 0.0_dp
-      do k=1,size(basis(i)%wavevectors(j))
-        bra = basis(i)%wavevectors(j)%harmonic_states(k)
-        do l=1,size(basis(i)%wavevectors(j)%harmonic_couplings(k))
-          m = basis(i)%wavevectors(j)%harmonic_couplings(k)%id(l)
-          ket = basis(i)%wavevectors(j)%harmonic_states(m)
-          hamiltonian(k,m) = subspace_potentials(i)%potential_energy( &
-                         &                           bra,             &
-                         &                           ket,             &
-                         &                           anharmonic_data) &
-                         & + kinetic_energy(bra, ket, subspace, supercell)
-        enddo
+    ! If the energies have not converged, generate the next input potentials
+    !    using either a damped iterative scheme or a Pulay scheme.
+    if (i<=pre_pulay_iterations) then
+      input_potentials = PotentialPointer(                       &
+         & input_potentials%iterate_damped( output_potentials,   &
+         &                                  pre_pulay_damping,   &
+         &                                  anharmonic_data    ) )
+    else
+      do j=1,size(subspaces)
+        in_potentials = [( vscf_steps(k)%input_potentials(j), &
+                        &  k=i-max_pulay_iterations,          &
+                        &  i                                  )]
+        out_potentials = [( vscf_steps(k)%output_potentials(j), &
+                         &  k=i-max_pulay_iterations,           &
+                         &  i                                   )]
+        input_potentials(j) = PotentialPointer(                   &
+           & input_potentials(j)%iterate_pulay( in_potentials,    &
+           &                                    out_potentials,   &
+           &                                    anharmonic_data ) )
       enddo
-      
-      ! Diagonalise Hamiltonian to get new ground state.
-      estuff = diagonalise_symmetric(hamiltonian)
-      
-      ! Store the ground state at this wavevector in the
-      !    wavevector-by-wavevector array.
-      wavevector_ground_states(j) = estuff(1)
-      
-      deallocate(hamiltonian, stat=ialloc); call err(ialloc)
-    enddo
+    endif
     
-    ! Find the wavevector with the lowest energy ground-state.
-    j = minloc(wavevector_ground_states%eval,1)
-    
-    ground_states(i) = VscfState(                           &
-       & subspace_id  = basis(i)%subspace_id,               &
-       & wavevector   = basis(i)%wavevectors(j)%wavevector, &
-       & degeneracy   = basis(i)%wavevectors(j)%degeneracy, &
-       & energy       = wavevector_ground_states(j)%eval,   &
-       & coefficients = wavevector_ground_states(j)%evec    )
-    
-    deallocate(wavevector_ground_states, stat=ialloc); call err(ialloc)
-  enddo
-  
-  output = SubspacePotentialAndState( subspace_potentials, &
-                                    & ground_states        )
-end function
-
-! Concatenates the coefficients of all the states together,
-!    to allow the Pulay scheme to be called.
-function states_to_coefficients(states) result(output)
-  implicit none
-  
-  type(VscfState), intent(in) :: states(:)
-  type(RealVector)            :: output
-  
-  integer :: i
-  
-  output = vec([( states(i)%coefficients, i=1, size(states) )])
-end function
-
-! Reverses coefficients(), generating a set of states from a vector of
-!    coefficients.
-! Takes an array of states to act as a template for the output states.
-function coefficients_to_states(input,states) result(output)
-  implicit none
-  
-  type(RealVector), intent(in)  :: input
-  type(VscfState),  intent(in)  :: states(:)
-  type(VscfState),  allocatable :: output(:)
-  
-  real(dp), allocatable :: coefficients(:)
-  real(dp), allocatable :: state_coefficients(:)
-  
-  integer :: i,j,ialloc
-  
-  coefficients = dble(input)
-  
-  j = 0
-  allocate(output(size(states)), stat=ialloc); call err(ialloc)
-  do i=1,size(states)
-    state_coefficients = coefficients(j+1:j+size(states(i)%coefficients))
-    j = j+size(state_coefficients)
-    output(i) = VscfState( subspace_id  = states(i)%subspace_id, &
-                         & wavevector   = states(i)%wavevector,  &
-                         & degeneracy   = states(i)%degeneracy,  &
-                         & energy       = 0.0_dp,                &
-                         & coefficients = state_coefficients     )
+    ! Increment the loop counter.
+    i = i+1
   enddo
 end function
 
-! Normalises a set of coefficients, using a set of states to identify which
-!    coefficients correspond to which state.
-function normalise_coefficients(input,states) result(output)
+! Check if two vscf steps have converged w/r/t one another.
+impure elemental function steps_converged(this,that,energy_convergence) &
+   & result(output)
   implicit none
   
-  type(RealVector), intent(in) :: input
-  type(VscfState),  intent(in) :: states(:)
-  type(RealVector)             :: output
+  type(VscfStep), intent(in) :: this
+  type(VscfStep), intent(in) :: that
+  real(dp),       intent(in) :: energy_convergence
+  logical                    :: output
   
-  real(dp), allocatable :: coefficients(:)
-  real(dp), allocatable :: state_coefficients(:)
-  real(dp), allocatable :: new_coefficients(:)
+  output = all(converged(this%spectra, that%spectra, energy_convergence))
+end function
+
+! Appends a column to a spectra array.
+! output(i,:) = [old_spectra(i,:), new_spectra(i)].
+function append_spectra(old_spectra, new_spectra) result(output)
+  implicit none
   
-  integer :: i,j
+  type(EnergySpectra), intent(in)  :: old_spectra(:,:)
+  type(EnergySpectra), intent(in)  :: new_spectra(:)
+  type(EnergySpectra), allocatable :: output(:,:)
   
-  coefficients = dble(input)
-  new_coefficients = [real::]
-  do i=1,size(states)
-    j = size(new_coefficients)
-    state_coefficients = coefficients(j+1:j+size(states(i)%coefficients))
-    state_coefficients = state_coefficients / l2_norm(state_coefficients)
-    new_coefficients = [new_coefficients, state_coefficients]
-  enddo
-  output = new_coefficients
+  integer :: n,ialloc
+  
+  if (size(old_spectra,1)/=size(new_spectra)) then
+    call print_line(CODE_ERROR//': Incompatible sizes.')
+    call err()
+  endif
+  
+  n = size(old_spectra,2)
+  allocate(output(size(new_spectra), n+1), stat=ialloc); call err(ialloc)
+  output(:,:n) = old_spectra
+  output(:,n+1) = new_spectra
+end function
+
+! Appends a column to a potential array.
+! output(i,:) = [old_potentials(i,:), new_spectra(i)].
+function append_potentials(old_potentials, new_potentials) result(output)
+  implicit none
+  
+  type(PotentialPointer), intent(in)  :: old_potentials(:,:)
+  type(PotentialPointer), intent(in)  :: new_potentials(:)
+  type(PotentialPointer), allocatable :: output(:,:)
+  
+  integer :: n,ialloc
+  
+  if (size(old_potentials,1)/=size(new_potentials)) then
+    call print_line(CODE_ERROR//': Incompatible sizes.')
+    call err()
+  endif
+  
+  n = size(old_potentials,2)
+  allocate(output(size(new_potentials), n+1), stat=ialloc); call err(ialloc)
+  output(:,:n) = old_potentials
+  output(:,n+1) = new_potentials
 end function
 end module
