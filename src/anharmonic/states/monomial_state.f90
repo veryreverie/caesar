@@ -16,7 +16,10 @@ module monomial_state_module
   
   private
   
+  public :: startup_monomial_state
+  
   public :: MonomialState
+  
   public :: operator(*)
   public :: generate_monomial_states
   public :: finite_overlap
@@ -58,6 +61,8 @@ module monomial_state_module
     real(dp)                       :: frequency
     type(ComplexMonomial), private :: state_
   contains
+    procedure, public, nopass :: representation => representation_MonomialState
+    
     procedure, public :: total_power => total_power_MonomialState
     procedure, public :: wavevector => wavevector_MonomialState
     
@@ -88,6 +93,15 @@ module monomial_state_module
   end interface
 contains
 
+! Startup procedure.
+subroutine startup_monomial_state()
+  implicit none
+  
+  type(MonomialState) :: state
+  
+  call state%startup()
+end subroutine
+
 ! ----------------------------------------------------------------------
 ! Constructor.
 ! ----------------------------------------------------------------------
@@ -102,6 +116,17 @@ function new_MonomialState(subspace_id,frequency,state) result(this)
   this%subspace_id = subspace_id
   this%frequency   = frequency
   this%state_      = state
+end function
+
+! ----------------------------------------------------------------------
+! Type representation.
+! ----------------------------------------------------------------------
+impure elemental function representation_MonomialState() result(output)
+  implicit none
+  
+  type(String) :: output
+  
+  output = 'monomial'
 end function
 
 ! ----------------------------------------------------------------------

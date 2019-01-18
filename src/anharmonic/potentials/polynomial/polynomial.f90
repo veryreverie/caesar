@@ -7,4 +7,9 @@ module polynomial_module
   use polynomial_potential_module
   implicit none
 contains
+subroutine startup_polynomial()
+  implicit none
+  
+  call startup_polynomial_potential()
+end subroutine
 end module

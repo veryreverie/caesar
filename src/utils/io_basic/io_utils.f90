@@ -14,6 +14,9 @@ module io_utils_module
   
   private
   
+  ! Startup procedure.
+  public :: startup_io_utils ! Sets I/O settings.
+  
   ! Public types.
   public :: CommandLineFlag
   
@@ -21,7 +24,6 @@ module io_utils_module
   public :: file_exists           ! checks if a file exists
   public :: command_line_args     ! Get arguments from the command line.
   public :: mkdir                 ! Make a directory.
-  public :: set_io_settings       ! Sets I/O settings.
   public :: set_working_directory ! Sets working directory.
   public :: system_call           ! Makes a system call.
   public :: get_flag              ! Reads a flag from the command line.
@@ -33,7 +35,7 @@ module io_utils_module
   public :: parse_c_string        ! Converts a C string to a Fortran String.
   
   ! I/O settings, specifying various input/output properties.
-  ! Set by set_io_settings.
+  ! Set by startup_io_utils.
   type(String) :: HOME
   type(String) :: CWD
   type(String) :: EXE_LOCATION
@@ -353,7 +355,7 @@ function get_exe_location() result(output)
   output = parse_c_string(exe_location)
 end function
 
-subroutine set_io_settings()
+subroutine startup_io_utils()
   implicit none
   
   type(String) :: caesar_dir

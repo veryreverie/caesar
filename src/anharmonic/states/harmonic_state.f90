@@ -16,7 +16,10 @@ module harmonic_state_module
   
   private
   
+  public :: startup_harmonic_state
+  
   public :: HarmonicState
+  
   public :: operator(*)
   public :: generate_harmonic_states
   public :: finite_overlap
@@ -60,6 +63,9 @@ module harmonic_state_module
     real(dp)                       :: frequency
     type(ComplexMonomial), private :: state_
   contains
+    procedure, public, nopass :: representation => &
+                               & representation_HarmonicState
+    
     procedure, public :: total_occupation => total_occupation_HarmonicState
     procedure, public :: wavevector => wavevector_HarmonicState
     ! I/O.
@@ -88,6 +94,15 @@ module harmonic_state_module
   end interface
 contains
 
+! Startup procedure.
+subroutine startup_harmonic_state()
+  implicit none
+  
+  type(HarmonicState) :: state
+  
+  call state%startup()
+end subroutine
+
 ! ----------------------------------------------------------------------
 ! Constructor.
 ! ----------------------------------------------------------------------
@@ -102,6 +117,17 @@ function new_HarmonicState(subspace_id,frequency,state) result(this)
   this%subspace_id = subspace_id
   this%frequency   = frequency
   this%state_      = state
+end function
+
+! ----------------------------------------------------------------------
+! Type representation.
+! ----------------------------------------------------------------------
+impure elemental function representation_HarmonicState() result(output)
+  implicit none
+  
+  type(String) :: output
+  
+  output = 'harmonic'
 end function
 
 ! ----------------------------------------------------------------------

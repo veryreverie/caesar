@@ -29,6 +29,8 @@ module string_array_module
   
   interface str
     module procedure str_StringArray
+    module procedure str_StringArrays_String
+    module procedure str_StringArrays_character
   end interface
   
   interface split_into_sections
@@ -85,6 +87,26 @@ function str_StringArray(this) result(output)
   type(String), allocatable     :: output(:)
   
   output = this%strings
+end function
+
+function str_StringArrays_String(this,separating_line) result(output)
+  implicit none
+  
+  type(StringArray), intent(in)           :: this(:)
+  type(String),      intent(in), optional :: separating_line
+  type(String), allocatable               :: output(:)
+  
+  output = str(join(this, separating_line=separating_line))
+end function
+
+function str_StringArrays_character(this,separating_line) result(output)
+  implicit none
+  
+  type(StringArray), intent(in) :: this(:)
+  character(*),      intent(in) :: separating_line
+  type(String), allocatable     :: output(:)
+  
+  output = str(join(this, separating_line=str(separating_line)))
 end function
 
 ! ----------------------------------------------------------------------

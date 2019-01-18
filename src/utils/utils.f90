@@ -16,4 +16,10 @@ module utils_module
   use algebra_module
   use random_module
   implicit none
+contains
+subroutine startup_utils()
+  implicit none
+  
+  call startup_io()
+end subroutine
 end module

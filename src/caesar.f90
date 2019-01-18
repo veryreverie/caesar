@@ -13,27 +13,10 @@ program caesar
   use plot_cutoff_and_kpoints_module
   
   ! Use harmonic modules.
-  use setup_harmonic_module
-  use run_harmonic_module
-  use calculate_normal_modes_module
-  use plot_normal_modes_module
-  use calculate_harmonic_observables_module
-  use plot_dos_and_dispersion_module
-  use plot_thermodynamic_variables_module
-  use converge_qpoint_grid_module
+  use harmonic_module
   
   ! Use anharmonic modules.
-  use setup_anharmonic_module
-  use run_anharmonic_module
-  use calculate_potential_module
-  use map_anharmonic_modes_module
-  use plot_anharmonic_modes_module
-  use map_potential_module
-  use plot_potential_map_module
-  use map_vscf_modes_module
-  use plot_vscf_modes_module
-  use calculate_anharmonic_observables_module
-  use plot_vscf_states_module
+  use anharmonic_module
   
   ! Use Castep modules.
   use converge_harmonic_frequencies_module
@@ -70,9 +53,11 @@ program caesar
   type(String) :: filename
   
   ! --------------------------------------------------
-  ! Set IO variables for formatting and file parsing purposes.
+  ! Call startup subroutines,
+  !    which must be called before anything else happens.
   ! --------------------------------------------------
-  call set_io_settings()
+  call startup_utils()
+  call startup_anharmonic()
   
   ! --------------------------------------------------
   ! Read in mode interfaces.

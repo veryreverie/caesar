@@ -18,6 +18,8 @@ module polynomial_potential_module
   
   private
   
+  public :: startup_polynomial_potential
+  
   public :: PolynomialPotential
   
   type, extends(PotentialData) :: PolynomialPotential
@@ -25,6 +27,9 @@ module polynomial_potential_module
     real(dp), private :: reference_energy
     type(CouplingBasisFunctions), allocatable, private :: basis_functions(:)
   contains
+    procedure, public, nopass :: representation => &
+                               & representation_PolynomialPotential
+    
     procedure, public :: generate_sampling_points => &
        & generate_sampling_points_PolynomialPotential
     procedure, public :: generate_potential => &
@@ -61,6 +66,15 @@ module polynomial_potential_module
   end interface
 contains
 
+! Startup procedure.
+subroutine startup_polynomial_potential()
+  implicit none
+  
+  type(PolynomialPotential) :: potential
+  
+  call potential%startup()
+end subroutine
+
 ! Constructors.
 function new_PolynomialPotential(potential_expansion_order) result(this)
   implicit none
@@ -83,6 +97,15 @@ function new_PolynomialPotential_BasisFunctions(potential_expansion_order, &
   this%potential_expansion_order = potential_expansion_order
   this%reference_energy          = reference_energy
   this%basis_functions           = basis_functions
+end function
+
+! Type representation.
+impure elemental function representation_PolynomialPotential() result(output)
+  implicit none
+  
+  type(String) :: output
+  
+  output = 'polynomial'
 end function
 
 ! Generate sampling points.

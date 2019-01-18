@@ -17,6 +17,8 @@ module full_subspace_basis_and_states_module
   
   private
   
+  public :: startup_full_subspace_basis_and_states
+  
   public :: FullSubspaceBasis
   public :: FullSubspaceState
   public :: FullSubspaceStates
@@ -40,6 +42,9 @@ module full_subspace_basis_and_states_module
     ! N.B. this only includes one wavevector from each symmetry-related set.
     type(WavevectorBasis), allocatable :: wavevectors(:)
   contains
+    procedure, public, nopass :: representation => &
+                               & representation_FullSubspaceBasis
+    
     ! Set the frequency of the basis.
     procedure, public :: set_frequency => set_frequency_FullSubspaceBasis
     
@@ -68,14 +73,17 @@ module full_subspace_basis_and_states_module
     module procedure size_FullSubspaceBasis
   end interface
   
-  type, extends(Stringsable) :: FullSubspaceState
-    integer               :: subspace_id
+  type, extends(SubspaceState) :: FullSubspaceState
     type(FractionVector)  :: wavevector
     integer               :: degeneracy
     real(dp)              :: energy
     real(dp), allocatable :: coefficients(:)
   contains
+    procedure, public, nopass :: representation => &
+                               & representation_FullSubspaceState
+    
     procedure, public :: wavefunction => wavefunction_FullSubspaceState
+    
     ! I/O.
     procedure, public :: read  => read_FullSubspaceState
     procedure, public :: write => write_FullSubspaceState
@@ -94,16 +102,38 @@ module full_subspace_basis_and_states_module
   type, extends(SubspaceStates) :: FullSubspaceStates
     type(FullSubspaceState), allocatable :: vscf_states(:)
   contains
+    procedure, public, nopass :: representation => &
+                               & representation_FullSubspaceStates
+    
     procedure, public :: states => states_FullSubspaceStates
     procedure, public :: spectra => spectra_FullSubspaceStates
     procedure, public :: wavefunctions => wavefunctions_FullSubspaceStates
     procedure, public :: integrate => integrate_FullSubspaceStates
+    
+    ! I/O.
+    procedure, public :: read  => read_FullSubspaceStates
+    procedure, public :: write => write_FullSubspaceStates
   end type
   
   interface FullSubspaceStates
     module procedure new_FullSubspaceStates
+    module procedure new_FullSubspaceStates_Strings
+    module procedure new_FullSubspaceStates_StringArray
   end interface
 contains
+
+! Startup procedure.
+subroutine startup_full_subspace_basis_and_states()
+  implicit none
+  
+  type(FullSubspaceBasis)  :: basis
+  type(FullSubspaceState)  :: state
+  type(FullSubspaceStates) :: states
+  
+  call basis%startup()
+  call state%startup()
+  call states%startup()
+end subroutine
 
 ! ----------------------------------------------------------------------
 ! FullSubspaceBasis methods.
@@ -134,6 +164,15 @@ function size_FullSubspaceBasis(this) result(output)
   integer                             :: output
   
   output = size(this%wavevectors)
+end function
+
+! Type representation.
+impure elemental function representation_FullSubspaceBasis() result(output)
+  implicit none
+  
+  type(String) :: output
+  
+  output = 'full_subspace'
 end function
 
 ! Set the frequency of the basis.
@@ -338,6 +377,15 @@ function new_FullSubspaceState(subspace_id,wavevector,degeneracy,energy, &
   this%coefficients = coefficients
 end function
 
+! Type representation.
+impure elemental function representation_FullSubspaceState() result(output)
+  implicit none
+  
+  type(String) :: output
+  
+  output = 'full_subspace'
+end function
+
 ! Construct a PolynomialState from a FullSubspaceState.
 impure elemental function new_PolynomialState_FullSubspaceState(state,basis) &
    & result(output)
@@ -447,6 +495,15 @@ function new_FullSubspaceStates(vscf_states) result(this)
   this%vscf_states = vscf_states
 end function
 
+! Type representation.
+impure elemental function representation_FullSubspaceStates() result(output)
+  implicit none
+  
+  type(String) :: output
+  
+  output = 'full_subspace'
+end function
+
 ! States.
 function states_FullSubspaceStates(this,subspace,subspace_basis, &
    & anharmonic_data) result(output)
@@ -469,6 +526,10 @@ function states_FullSubspaceStates(this,subspace,subspace_basis, &
   end select
   
   allocate(output, source=states, stat=ialloc); call err(ialloc)
+  ! TODO:DEBUG
+  call print_line('')
+  call print_line('states() output:')
+  call print_lines(output)
 end function
 
 ! Energy spectra.
@@ -744,5 +805,55 @@ impure elemental function new_FullSubspaceState_StringArray(input) result(this)
   type(FullSubspaceState)       :: this
   
   this = FullSubspaceState(str(input))
+end function
+
+subroutine read_FullSubspaceStates(this,input)
+  implicit none
+  
+  class(FullSubspaceStates), intent(out) :: this
+  type(String),              intent(in)  :: input(:)
+  
+  type(FullSubspaceState), allocatable :: vscf_states(:)
+  
+  select type(this); type is(FullSubspaceStates)
+    vscf_states = FullSubspaceState(                           &
+       & split_into_sections( input,                           &
+       &                      separating_line=repeat('=',50) ) )
+    this = FullSubspaceStates(vscf_states)
+  class default
+    call err()
+  end select
+end subroutine
+
+function write_FullSubspaceStates(this) result(output)
+  implicit none
+  
+  class(FullSubspaceStates), intent(in) :: this
+  type(String), allocatable            :: output(:)
+  
+  select type(this); type is(FullSubspaceStates)
+    output = str(this%vscf_states, separating_line=repeat('=',50))
+  class default
+    call err()
+  end select
+end function
+
+function new_FullSubspaceStates_Strings(input) result(this)
+  implicit none
+  
+  type(String), intent(in) :: input(:)
+  type(FullSubspaceStates) :: this
+  
+  call this%read(input)
+end function
+
+impure elemental function new_FullSubspaceStates_StringArray(input) &
+   & result(this)
+  implicit none
+  
+  type(StringArray), intent(in) :: input
+  type(FullSubspaceStates)      :: this
+  
+  this = FullSubspaceStates(str(input))
 end function
 end module

@@ -17,4 +17,10 @@ module io_module
   use stringable_module
   use stringsable_module
   implicit none
+contains
+subroutine startup_io()
+  implicit none
+  
+  call startup_io_basic()
+end subroutine
 end module

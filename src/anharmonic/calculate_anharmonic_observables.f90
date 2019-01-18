@@ -83,7 +83,7 @@ function calculate_anharmonic_observables() result(output)
      &terminate.',                                                            &
      &              default_value='5' ),                                      &
      & KeywordData( 'no_vscf_basis_states',                                   &
-     &              'no_vscf_basis states is the number of states along each &
+     &              'no_vscf_basis_states is the number of states along each &
      &mode in the basis used for the VSCF calculation.'),                     &
      & KeywordData( 'min_frequency',                                          &
      &              'min_frequency is the frequency below which modes will be &

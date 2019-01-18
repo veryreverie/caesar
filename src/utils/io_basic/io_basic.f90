@@ -13,4 +13,10 @@ module io_basic_module
   use intrinsics_module
   use io_utils_module
   implicit none
+contains
+subroutine startup_io_basic()
+  implicit none
+  
+  call startup_io_utils()
+end subroutine
 end module

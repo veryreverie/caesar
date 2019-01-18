@@ -11,7 +11,10 @@ module polynomial_state_module
   
   private
   
+  public :: startup_polynomial_state
+  
   public :: PolynomialState
+  
   public :: size
   public :: braket_PolynomialState
   public :: kinetic_energy_PolynomialState
@@ -21,6 +24,9 @@ module polynomial_state_module
     type(MonomialState), allocatable :: states(:)
     real(dp),            allocatable :: coefficients(:)
   contains
+    procedure, public, nopass :: representation => &
+                               & representation_PolynomialState
+    ! I/O.
     procedure, public :: read  => read_PolynomialState
     procedure, public :: write => write_PolynomialState
   end type
@@ -41,6 +47,15 @@ module polynomial_state_module
     module procedure braket_PolynomialStates_ComplexMonomial
   end interface
 contains
+
+! Startup procedure.
+subroutine startup_polynomial_state()
+  implicit none
+  
+  type(PolynomialState) :: state
+  
+  call state%startup()
+end subroutine
 
 ! Constructor and size function
 function new_PolynomialState(subspace_id,states,coefficients) result(this)
@@ -71,6 +86,17 @@ function size_PolynomialState(this) result(output)
   integer                           :: output
   
   output = size(this%states)
+end function
+
+! ----------------------------------------------------------------------
+! Type representation.
+! ----------------------------------------------------------------------
+impure elemental function representation_PolynomialState() result(output)
+  implicit none
+  
+  type(String) :: output
+  
+  output = 'polynomial'
 end function
 
 ! ----------------------------------------------------------------------
@@ -233,15 +259,32 @@ subroutine read_PolynomialState(this,input)
   class(PolynomialState), intent(out) :: this
   type(String),           intent(in)  :: input(:)
   
-  integer               :: subspace_id
-  real(dp)              :: frequency
-  type(ComplexMonomial) :: state
+  integer                          :: subspace_id
+  real(dp),            allocatable :: coefficients(:)
+  type(MonomialState), allocatable :: states(:)
   
-  type(String), allocatable :: line(:)
+  type(StringArray), allocatable :: sections(:)
+  type(String),      allocatable :: line(:)
+  
+  integer :: i,ialloc
   
   select type(this); type is(PolynomialState)
-    ! TODO
-    call err()
+    line = split_line(input(1))
+    subspace_id = int(line(3))
+    
+    sections = split_into_sections(input(3:))
+    allocate( coefficients(size(sections)), &
+            & states(size(sections)),       &
+            & stat=ialloc); call err(ialloc)
+    do i=1,size(sections)
+      line = split_line(sections(i)%strings(1))
+      coefficients(i) = dble(line(3))
+      states(i) = MonomialState(sections(i)%strings(2:))
+    enddo
+    
+    this = PolynomialState( subspace_id  = subspace_id,  &
+                          & coefficients = coefficients, &
+                          & states       = states        )
   class default
     call err()
   end select
@@ -253,11 +296,18 @@ function write_PolynomialState(this) result(output)
   class(PolynomialState), intent(in) :: this
   type(String), allocatable          :: output(:)
   
-  type(String) :: state_string
+  type(StringArray), allocatable :: states(:)
+  
+  integer :: i
   
   select type(this); type is(PolynomialState)
-    ! TODO
-    call err()
+    states = [( StringArray( [ 'Coefficient : '//this%coefficients(i),     &
+              &                str(this%states(i))                    ] ), &
+              & i=1,                                                       &
+              & size(this)                                                 )]
+    output = [ 'Subspace : '//this%subspace_id,      &
+             & str(''),                              &
+             & str(join(states, separating_line='')) ]
   class default
     call err()
   end select
