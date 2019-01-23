@@ -66,6 +66,17 @@ module harmonic_state_module
     procedure, public, nopass :: representation => &
                                & representation_HarmonicState
     
+    procedure, public :: braket_SubspaceState => &
+                       & braket_SubspaceState_HarmonicState
+    procedure, public :: braket_ComplexUnivariate => &
+                       & braket_ComplexUnivariate_HarmonicState
+    procedure, public :: braket_ComplexMonomial => &
+                       & braket_ComplexMonomial_HarmonicState
+    procedure, public :: kinetic_energy => &
+                       & kinetic_energy_HarmonicState2
+    procedure, public :: harmonic_potential_energy => &
+                       & harmonic_potential_energy_HarmonicState2
+    
     procedure, public :: total_occupation => total_occupation_HarmonicState
     procedure, public :: wavevector => wavevector_HarmonicState
     ! I/O.
@@ -768,6 +779,154 @@ impure elemental function harmonic_expectation_mode(univariate,frequency, &
   elseif (sum_thermal_weights-1>0.1_dp) then
     call print_line(WARNING//': The sum across weights is more than 1.')
     call print_line('Thermal weights: '//sum_thermal_weights)
+  endif
+end function
+
+! ----------------------------------------------------------------------
+! SubspaceState methods.
+! ----------------------------------------------------------------------
+impure elemental function braket_SubspaceState_HarmonicState(this, &
+   & ket,subspace,subspace_basis,anharmonic_data) result(output)
+  implicit none
+  
+  class(HarmonicState),     intent(in)           :: this
+  class(SubspaceState),     intent(in), optional :: ket
+  type(DegenerateSubspace), intent(in)           :: subspace
+  class(SubspaceBasis),     intent(in)           :: subspace_basis
+  type(AnharmonicData),     intent(in)           :: anharmonic_data
+  real(dp)                                       :: output
+  
+  if (present(ket)) then
+    select type(ket); type is(HarmonicState)
+      output = braket_HarmonicState(this,ket)
+    class default
+      call err()
+    end select
+  else
+    output = braket_HarmonicState(this,this)
+  endif
+end function
+
+impure elemental function braket_ComplexUnivariate_HarmonicState( &
+   & this,univariate,ket,subspace,subspace_basis,anharmonic_data)        &
+   & result(output)
+  implicit none
+  
+  class(HarmonicState),     intent(in)           :: this
+  type(ComplexUnivariate),  intent(in)           :: univariate
+  class(SubspaceState),     intent(in), optional :: ket
+  type(DegenerateSubspace), intent(in)           :: subspace
+  class(SubspaceBasis),     intent(in)           :: subspace_basis
+  type(AnharmonicData),     intent(in)           :: anharmonic_data
+  type(ComplexMonomial)                          :: output
+  
+  if (present(ket)) then
+    select type(ket); type is(HarmonicState)
+      output = braket_HarmonicState( this,                                &
+                                   & ket,                                 &
+                                   & univariate,                          &
+                                   & subspace,                            &
+                                   & anharmonic_data%anharmonic_supercell )
+    class default
+      call err()
+    end select
+  else
+    output = braket_HarmonicState( this,                                &
+                                 & this,                                &
+                                 & univariate,                          &
+                                 & subspace,                            &
+                                 & anharmonic_data%anharmonic_supercell )
+  endif
+end function
+
+impure elemental function braket_ComplexMonomial_HarmonicState(this, &
+   & monomial,ket,subspace,subspace_basis,anharmonic_data) result(output)
+  implicit none
+  
+  class(HarmonicState),     intent(in)           :: this
+  type(ComplexMonomial),    intent(in)           :: monomial
+  class(SubspaceState),     intent(in), optional :: ket
+  type(DegenerateSubspace), intent(in)           :: subspace
+  class(SubspaceBasis),     intent(in)           :: subspace_basis
+  type(AnharmonicData),     intent(in)           :: anharmonic_data
+  type(ComplexMonomial)                          :: output
+  
+  if (present(ket)) then
+    select type(ket); type is(HarmonicState)
+      output = braket_HarmonicState( this,                                &
+                                   & ket,                                 &
+                                   & monomial,                            &
+                                   & subspace,                            &
+                                   & anharmonic_data%anharmonic_supercell )
+    class default
+      call err()
+    end select
+  else
+    output = braket_HarmonicState( this,                                &
+                                 & this,                                &
+                                 & monomial,                            &
+                                 & subspace,                            &
+                                 & anharmonic_data%anharmonic_supercell )
+  endif
+end function
+
+impure elemental function kinetic_energy_HarmonicState2(this,ket, &
+   & subspace,subspace_basis,anharmonic_data) result(output)
+  implicit none
+  
+  class(HarmonicState),     intent(in)           :: this
+  class(SubspaceState),     intent(in), optional :: ket
+  type(DegenerateSubspace), intent(in)           :: subspace
+  class(SubspaceBasis),     intent(in)           :: subspace_basis
+  type(AnharmonicData),     intent(in)           :: anharmonic_data
+  real(dp)                                       :: output
+  
+  if (present(ket)) then
+    select type(ket); type is(HarmonicState)
+      output = kinetic_energy_HarmonicState(    &
+         & this,                                &
+         & ket,                                 &
+         & subspace,                            &
+         & anharmonic_data%anharmonic_supercell )
+    class default
+      call err()
+    end select
+  else
+    output = kinetic_energy_HarmonicState(    &
+       & this,                                &
+       & this,                                &
+       & subspace,                            &
+       & anharmonic_data%anharmonic_supercell )
+  endif
+end function
+
+impure elemental function harmonic_potential_energy_HarmonicState2( &
+   & this,ket,subspace,subspace_basis,anharmonic_data) result(output)
+  implicit none
+  
+  class(HarmonicState),     intent(in)           :: this
+  class(SubspaceState),     intent(in), optional :: ket
+  type(DegenerateSubspace), intent(in)           :: subspace
+  class(SubspaceBasis),     intent(in)           :: subspace_basis
+  type(AnharmonicData),     intent(in)           :: anharmonic_data
+  real(dp)                                       :: output
+  
+  if (present(ket)) then
+    select type(ket); type is(HarmonicState)
+      output = harmonic_potential_energy_HarmonicState( &
+                 & this,                                &
+                 & ket,                                 &
+                 & subspace,                            &
+                 & anharmonic_data%anharmonic_supercell )
+    class default
+      call err()
+    end select
+  else
+    output = harmonic_potential_energy_HarmonicState( &
+               & this,                                &
+               & this,                                &
+               & subspace,                            &
+               & anharmonic_data%anharmonic_supercell )
   endif
 end function
 

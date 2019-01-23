@@ -77,14 +77,15 @@ impure elemental function frequency_InitialFrequencies(this,subspace_id) &
 end function
 
 ! Calculate initial frequencies from a potential.
-function new_InitialFrequencies_PotentialData(potential,anharmonic_data, &
-   & frequency_convergence,max_pulay_iterations,pre_pulay_iterations,    &
-   & pre_pulay_damping) result(output)
+function new_InitialFrequencies_PotentialData(potential,anharmonic_data,   &
+   & frequency_convergence,no_converged_calculations,max_pulay_iterations, &
+   & pre_pulay_iterations,pre_pulay_damping) result(output)
   implicit none
   
   class(PotentialData), intent(in) :: potential
   type(AnharmonicData), intent(in) :: anharmonic_data
   real(dp),             intent(in) :: frequency_convergence
+  integer,              intent(in) :: no_converged_calculations
   integer,              intent(in) :: max_pulay_iterations
   integer,              intent(in) :: pre_pulay_iterations
   real(dp),             intent(in) :: pre_pulay_damping
@@ -95,23 +96,13 @@ function new_InitialFrequencies_PotentialData(potential,anharmonic_data, &
   type(FullSubspaceBasis),     allocatable :: subspace_bases(:)
   type(SubspaceStatesPointer), allocatable :: subspace_states(:)
   
-  type(RealVector), allocatable :: old_frequencies(:)
-  type(RealVector), allocatable :: new_frequencies(:)
+  type(RealVector), allocatable :: input_frequencies(:)
+  type(RealVector), allocatable :: output_frequencies(:)
   
-  type(RealVector) :: next_old_frequencies
+  type(RealVector) :: input_frequency
+  type(RealVector) :: output_frequency
   
   integer :: i,j,ialloc
-  
-  if (pre_pulay_damping<0_dp .or. pre_pulay_damping>1_dp) then
-    call print_line(ERROR//': pre_pulay_damping must be between 0 and 1.')
-    stop
-  elseif (pre_pulay_iterations<0) then
-    call print_line(ERROR//': pre_pulay_iterations must be >= 0.')
-    stop
-  elseif (max_pulay_iterations<0) then
-    call print_line(ERROR//': max_pulay_iterations must be >= 0.')
-    stop
-  endif
   
   subspaces = anharmonic_data%degenerate_subspaces
   
@@ -144,57 +135,76 @@ function new_InitialFrequencies_PotentialData(potential,anharmonic_data, &
      & subspace_bases%initial_states(subspaces, anharmonic_data) )
   
   ! Find self-consistent frequencies which minimise the energy.
-  old_frequencies = [vec(frequencies)]
-  new_frequencies = [RealVector::]
+  input_frequencies = [vec(frequencies)]
+  output_frequencies = [RealVector::]
   i = 1
-  iter: do
-    ! Update the bases to have the new frequencies.
-    call subspace_bases%set_frequency(dble(old_frequencies(i)))
+  do
+    ! Update the bases to have the output frequencies.
+    call subspace_bases%set_frequency(dble(input_frequencies(i)))
     
-    ! Calculate mean-field potentials from the old frequencies, and use these
-    !    mean-field potentials to calculate new frequencies.
-    new_frequencies = [ new_frequencies,                              &
-                      & optimise_frequencies( potential,              &
-                      &                       subspaces,              &
-                      &                       subspace_bases,         &
-                      &                       subspace_states,        &
-                      &                       anharmonic_data,        &
-                      &                       frequency_convergence ) ]
+    ! Calculate mean-field potentials from the input frequencies, and use these
+    !    mean-field potentials to calculate output frequencies.
+    output_frequency = optimise_frequencies( potential,            &
+                                           & subspaces,            &
+                                           & subspace_bases,       &
+                                           & subspace_states,      &
+                                           & anharmonic_data,      &
+                                           & frequency_convergence )
+    output_frequencies = [output_frequencies, output_frequency]
     
     ! Use a damped iterative scheme or a Pulay scheme to converge towards the
-    !    self-consistent solution where new frequencies = old frequencies.
+    !    self-consistent solution where output frequencies = input frequencies.
     if (i<=pre_pulay_iterations) then
-      next_old_frequencies = (1-pre_pulay_damping) * old_frequencies(i) &
-                         & + pre_pulay_damping * new_frequencies(i)
+      input_frequency = pre_pulay_damping * input_frequencies(i) &
+                    & + (1-pre_pulay_damping) * output_frequencies(i)
     else
       j = max(2, i-max_pulay_iterations+1)
-      next_old_frequencies = pulay(old_frequencies(j:), new_frequencies(j:))
+      input_frequency = pulay(input_frequencies(j:), output_frequencies(j:))
     endif
     
-    old_frequencies = [old_frequencies, next_old_frequencies]
+    input_frequencies = [input_frequencies, input_frequency]
     
     ! Increment the loop counter.
     i = i+1
     
-    ! Check whether the frequencies have converged.
-    ! If the frequencies aren't converged, return to the top of the loop.
-    if (i<=5) then
-      cycle iter
-    else
-      do j=1,5
-        if ( sum(abs(dble(old_frequencies(i)-old_frequencies(i-j)))) &
-         & > frequency_convergence                                   ) then
-          cycle iter
-        endif
-      enddo
+    ! Check whether the frequencies have converged by the normal convergence
+    !    condition.
+    if (i>no_converged_calculations) then
+      if (all(steps_converged(                                 &
+         & input_frequencies(i-no_converged_calculations:i-1), &
+         & input_frequencies(i),                               &
+         & frequency_convergence                               ))) then
+        frequencies = dble(input_frequencies(i))
+        exit
+      endif
     endif
     
-    ! If the frequencies are converged, break out of the loop.
-    frequencies = dble(old_frequencies(i))
-    exit iter
-  enddo iter
+    ! Check whether the last two sets of frequencies have converged to a much
+    !    tighter convergence.
+    ! This is needed to avoid numerical problems with the Pulay scheme caused
+    !    by over-convergence.
+    if (steps_converged( input_frequencies(i),     &
+                       & input_frequencies(i-1),   &
+                       & frequency_convergence/100 )) then
+      frequencies = dble(input_frequencies(i))
+      exit
+    endif
+  enddo
   
   output = InitialFrequencies(subspaces%id, frequencies)
+end function
+
+! Returns whether or not two steps are converged relative to one another.
+impure elemental function steps_converged(this,that,frequency_convergence) &
+   & result(output)
+  implicit none
+  
+  type(RealVector), intent(in) :: this
+  type(RealVector), intent(in) :: that
+  real(dp),         intent(in) :: frequency_convergence
+  logical                      :: output
+  
+  output = all(abs(dble(this-that))<frequency_convergence)
 end function
 
 ! For each subspace, integrate the potential across all other subspaces
@@ -283,13 +293,6 @@ function optimise_frequency(potential,subspace,subspace_basis, &
     ! Calculate [U(w-dw), U(w), U(w+dw)].
     do i=1,3
       call new_basis%set_frequency(frequencies(i))
-      ! TODO:DEBUG
-      call print_line('')
-      call print_line('===== Subspace states =====')
-      call print_lines(subspace_states)
-      call print_line('=====    New basis    =====')
-      call print_lines(new_basis)
-      call print_line('=====                 =====')
       new_states = SubspaceStatePointer(             &
          & subspace_states%states( subspace,         &
          &                         new_basis,        &
@@ -298,14 +301,15 @@ function optimise_frequency(potential,subspace,subspace_basis, &
         call err()
       endif
       new_state = new_states(1)
-      energies(i) = potential%potential_energy( new_state,               &
-                &                               new_state,               &
-                &                               subspace,                &
-                &                               anharmonic_data )        &
-                & + kinetic_energy( new_state,                           &
-                &                   new_state,                           &
-                &                   subspace,                            &
-                &                   anharmonic_data%anharmonic_supercell )
+      energies(i) = potential_energy( new_state,        &
+                &                     potential,        &
+                &                     subspace,         &
+                &                     new_basis,        &
+                &                     anharmonic_data ) &
+                & + kinetic_energy( new_state,          &
+                &                   subspace,           &
+                &                   new_basis,          &
+                &                   anharmonic_data )
     enddo
     
     ! Calculate dU/dw = (U(w+dw)-U(w-dw))/(2dw).

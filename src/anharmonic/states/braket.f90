@@ -16,9 +16,9 @@ module braket_module
   
   private
   
-  public :: braket
-  public :: kinetic_energy
-  public :: harmonic_potential_energy
+ ! public :: braket
+ ! public :: kinetic_energy
+ ! public :: harmonic_potential_energy
   
   interface braket
     module procedure braket_SubspaceStates

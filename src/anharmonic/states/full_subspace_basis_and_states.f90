@@ -82,6 +82,17 @@ module full_subspace_basis_and_states_module
     procedure, public, nopass :: representation => &
                                & representation_FullSubspaceState
     
+    procedure, public :: braket_SubspaceState => &
+                       & braket_SubspaceState_FullSubspaceState
+    procedure, public :: braket_ComplexUnivariate => &
+                       & braket_ComplexUnivariate_FullSubspaceState
+    procedure, public :: braket_ComplexMonomial => &
+                       & braket_ComplexMonomial_FullSubspaceState
+    procedure, public :: kinetic_energy => &
+                       & kinetic_energy_FullSubspaceState2
+    procedure, public :: harmonic_potential_energy => &
+                       & harmonic_potential_energy_FullSubspaceState2
+    
     procedure, public :: wavefunction => wavefunction_FullSubspaceState
     
     ! I/O.
@@ -268,10 +279,9 @@ impure elemental function initial_states_FullSubspaceBasis(this,subspace, &
   class(FullSubspaceBasis), intent(in) :: this
   type(DegenerateSubspace), intent(in) :: subspace
   type(AnharmonicData),     intent(in) :: anharmonic_data
-  class(SubspaceStates), allocatable   :: output
+  type(SubspaceStatesPointer)          :: output
   
-  type(FullSubspaceState)  :: ground_state
-  type(FullSubspaceStates) :: states
+  type(FullSubspaceState) :: ground_state
   
   integer :: ialloc
   
@@ -279,10 +289,44 @@ impure elemental function initial_states_FullSubspaceBasis(this,subspace, &
   ground_state = initial_ground_state(this)
   
   ! Generate the set of states {|0>}.
-  states = FullSubspaceStates([ground_state])
+  output = SubspaceStatesPointer(FullSubspaceStates([ground_state]))
+end function
+
+! Generate initial guess. This is simply the basis state |0>, i.e. the
+!    ground state of the effective harmonic potential from which the basis
+!    states were generated.
+impure elemental function initial_ground_state(basis) result(output)
+  implicit none
   
-  ! Convert the set of states to the abstract type SubspaceStates.
-  allocate(output, source=states, stat=ialloc); call err(ialloc)
+  type(FullSubspaceBasis), intent(in) :: basis
+  type(FullSubspaceState)             :: output
+  
+  type(WavevectorBasis) :: wavevector_basis
+  
+  real(dp), allocatable :: coefficients(:)
+  
+  integer :: i
+  
+  ! Find the wavevector [0,0,0].
+  wavevector_basis = basis%wavevectors(            &
+     & first(is_int(basis%wavevectors%wavevector)) )
+  
+  ! Construct the coefficient vector in the basis of monomial states.
+  ! All coefficients are zero, except for the coefficient of |0>, which is one.
+  coefficients = [( 0.0_dp, i=1, size(wavevector_basis) )]
+  coefficients(                                                      &
+     & first(wavevector_basis%harmonic_states%total_occupation()==0) ) = 1
+  
+  ! Convert the coefficients into the orthonormal basis.
+  coefficients = wavevector_basis%coefficients_states_to_basis(coefficients)
+  
+  ! Construct output.
+  output = FullSubspaceState(                      &
+     & subspace_id  = basis%subspace_id,           &
+     & wavevector   = wavevector_basis%wavevector, &
+     & degeneracy   = wavevector_basis%degeneracy, &
+     & energy       = 0.0_dp,                      &
+     & coefficients = coefficients                 )
 end function
 
 ! Calculate the eigenstates of a single-subspace potential.
@@ -294,7 +338,7 @@ impure elemental function calculate_states_FullSubspaceBasis(this,subspace, &
   type(DegenerateSubspace), intent(in) :: subspace
   class(PotentialData),     intent(in) :: subspace_potential
   type(AnharmonicData),     intent(in) :: anharmonic_data
-  class(SubspaceStates), allocatable   :: output
+  type(SubspaceStatesPointer)          :: output
   
   ! Variables for constructing the basis.
   type(StructureData) :: supercell
@@ -325,12 +369,17 @@ impure elemental function calculate_states_FullSubspaceBasis(this,subspace, &
         l = this%wavevectors(i)%harmonic_couplings(j)%id(k)
         ket = this%wavevectors(i)%harmonic_states(l)
         
-        hamiltonian(j,l) = kinetic_energy(bra, ket, subspace, supercell) &
-                       & + subspace_potential%potential_energy(          &
-                       &                        bra,                     &
-                       &                        ket,                     &
-                       &                        subspace,                &
-                       &                        anharmonic_data )
+        hamiltonian(j,l) = kinetic_energy( bra,                  &
+                       &                   ket,                  &
+                       &                   subspace,             &
+                       &                   this,                 &
+                       &                   anharmonic_data )     &
+                       & + potential_energy( bra,                &
+                       &                     subspace_potential, &
+                       &                     ket,                &
+                       &                     subspace,           &
+                       &                     this,               &
+                       &                     anharmonic_data )
       enddo
     enddo
     
@@ -351,8 +400,7 @@ impure elemental function calculate_states_FullSubspaceBasis(this,subspace, &
     deallocate(hamiltonian, stat=ialloc); call err(ialloc)
   enddo
   
-  allocate( output, source=FullSubspaceStates(vscf_states), &
-          & stat=ialloc); call err(ialloc)
+  output = SubspaceStatesPointer(FullSubspaceStates(vscf_states))
 end function
 
 ! ----------------------------------------------------------------------
@@ -409,43 +457,6 @@ impure elemental function new_PolynomialState_FullSubspaceState(state,basis) &
                           & coefficients                          )
 end function
 
-! Generate initial guess. This is simply the basis state |0>, i.e. the
-!    ground state of the effective harmonic potential from which the basis
-!    states were generated.
-impure elemental function initial_ground_state(basis) result(output)
-  implicit none
-  
-  type(FullSubspaceBasis), intent(in) :: basis
-  type(FullSubspaceState)             :: output
-  
-  type(WavevectorBasis) :: wavevector_basis
-  
-  real(dp), allocatable :: coefficients(:)
-  
-  integer :: i
-  
-  ! Find the wavevector [0,0,0].
-  wavevector_basis = basis%wavevectors(            &
-     & first(is_int(basis%wavevectors%wavevector)) )
-  
-  ! Construct the coefficient vector in the basis of monomial states.
-  ! All coefficients are zero, except for the coefficient of |0>, which is one.
-  coefficients = [( 0.0_dp, i=1, size(wavevector_basis) )]
-  coefficients(                                                      &
-     & first(wavevector_basis%harmonic_states%total_occupation()==0) ) = 1
-  
-  ! Convert the coefficients into the orthonormal basis.
-  coefficients = wavevector_basis%coefficients_states_to_basis(coefficients)
-  
-  ! Construct output.
-  output = FullSubspaceState(                      &
-     & subspace_id  = basis%subspace_id,           &
-     & wavevector   = wavevector_basis%wavevector, &
-     & degeneracy   = wavevector_basis%degeneracy, &
-     & energy       = 0.0_dp,                      &
-     & coefficients = coefficients                 )
-end function
-
 impure elemental function wavefunction_FullSubspaceState(this,basis, &
    & supercell) result(output)
   implicit none
@@ -482,6 +493,195 @@ impure elemental function wavefunction_FullSubspaceState(this,basis, &
   output = '('//join(terms,' + ')//')|0>'
 end function
 
+impure elemental function braket_SubspaceState_FullSubspaceState(this, &
+   & ket,subspace,subspace_basis,anharmonic_data) result(output)
+  implicit none
+  
+  class(FullSubspaceState), intent(in)           :: this
+  class(SubspaceState),     intent(in), optional :: ket
+  type(DegenerateSubspace), intent(in)           :: subspace
+  class(SubspaceBasis),     intent(in)           :: subspace_basis
+  type(AnharmonicData),     intent(in)           :: anharmonic_data
+  real(dp)                                       :: output
+  
+  type(PolynomialState) :: bra_state
+  type(PolynomialState) :: ket_state
+  
+  select type(subspace_basis); type is(FullSubspaceBasis)
+    bra_state = PolynomialState(this,subspace_basis)
+    if (present(ket)) then
+      select type(ket); type is(FullSubspaceState)
+        ket_state = PolynomialState(ket,subspace_basis)
+        output = bra_state%braket( ket_state,      &
+                                 & subspace,       &
+                                 & subspace_basis, &
+                                 & anharmonic_data )
+      class default
+        call err()
+      end select
+    else
+      output = bra_state%braket( subspace        = subspace,       &
+                               & subspace_basis  = subspace_basis, &
+                               & anharmonic_data = anharmonic_data )
+    endif
+  class default
+    call err()
+  end select
+end function
+
+impure elemental function braket_ComplexUnivariate_FullSubspaceState( &
+   & this,univariate,ket,subspace,subspace_basis,anharmonic_data)        &
+   & result(output)
+  implicit none
+  
+  class(FullSubspaceState), intent(in)           :: this
+  type(ComplexUnivariate),  intent(in)           :: univariate
+  class(SubspaceState),     intent(in), optional :: ket
+  type(DegenerateSubspace), intent(in)           :: subspace
+  class(SubspaceBasis),     intent(in)           :: subspace_basis
+  type(AnharmonicData),     intent(in)           :: anharmonic_data
+  type(ComplexMonomial)                          :: output
+  
+  type(PolynomialState) :: bra_state
+  type(PolynomialState) :: ket_state
+  
+  select type(subspace_basis); type is(FullSubspaceBasis)
+    bra_state = PolynomialState(this,subspace_basis)
+    if (present(ket)) then
+      select type(ket); type is(FullSubspaceState)
+        ket_state = PolynomialState(ket,subspace_basis)
+        output = bra_state%braket( univariate,     &
+                                 & ket_state,      &
+                                 & subspace,       &
+                                 & subspace_basis, &
+                                 & anharmonic_data )
+      class default
+        call err()
+      end select
+    else
+      output = bra_state%braket( univariate      = univariate,     &
+                               & subspace        = subspace,       &
+                               & subspace_basis  = subspace_basis, &
+                               & anharmonic_data = anharmonic_data )
+    endif
+  class default
+    call err()
+  end select
+end function
+
+impure elemental function braket_ComplexMonomial_FullSubspaceState(this, &
+   & monomial,ket,subspace,subspace_basis,anharmonic_data) result(output)
+  implicit none
+  
+  class(FullSubspaceState), intent(in)           :: this
+  type(ComplexMonomial),    intent(in)           :: monomial
+  class(SubspaceState),     intent(in), optional :: ket
+  type(DegenerateSubspace), intent(in)           :: subspace
+  class(SubspaceBasis),     intent(in)           :: subspace_basis
+  type(AnharmonicData),     intent(in)           :: anharmonic_data
+  type(ComplexMonomial)                          :: output
+  
+  type(PolynomialState) :: bra_state
+  type(PolynomialState) :: ket_state
+  
+  select type(subspace_basis); type is(FullSubspaceBasis)
+    bra_state = PolynomialState(this,subspace_basis)
+    if (present(ket)) then
+      select type(ket); type is(FullSubspaceState)
+        ket_state = PolynomialState(ket,subspace_basis)
+        output = bra_state%braket( monomial,       &
+                                 & ket_state,      &
+                                 & subspace,       &
+                                 & subspace_basis, &
+                                 & anharmonic_data )
+      class default
+        call err()
+      end select
+    else
+      output = bra_state%braket( monomial        = monomial,       &
+                               & subspace        = subspace,       &
+                               & subspace_basis  = subspace_basis, &
+                               & anharmonic_data = anharmonic_data )
+    endif
+  class default
+    call err()
+  end select
+end function
+
+impure elemental function kinetic_energy_FullSubspaceState2(this,ket, &
+   & subspace,subspace_basis,anharmonic_data) result(output)
+  implicit none
+  
+  class(FullSubspaceState),     intent(in)           :: this
+  class(SubspaceState),     intent(in), optional :: ket
+  type(DegenerateSubspace), intent(in)           :: subspace
+  class(SubspaceBasis),     intent(in)           :: subspace_basis
+  type(AnharmonicData),     intent(in)           :: anharmonic_data
+  real(dp)                                       :: output
+  
+  type(PolynomialState) :: bra_state
+  type(PolynomialState) :: ket_state
+  
+  select type(subspace_basis); type is(FullSubspaceBasis)
+    bra_state = PolynomialState(this,subspace_basis)
+    if (present(ket)) then
+      select type(ket); type is(FullSubspaceState)
+        ket_state = PolynomialState(ket,subspace_basis)
+        output = bra_state%kinetic_energy( ket_state,      &
+                                         & subspace,       &
+                                         & subspace_basis, &
+                                         & anharmonic_data )
+      class default
+        call err()
+      end select
+    else
+      output = bra_state%kinetic_energy( subspace        = subspace,       &
+                                       & subspace_basis  = subspace_basis, &
+                                       & anharmonic_data = anharmonic_data )
+    endif
+  class default
+    call err()
+  end select
+end function
+
+impure elemental function harmonic_potential_energy_FullSubspaceState2( &
+   & this,ket,subspace,subspace_basis,anharmonic_data) result(output)
+  implicit none
+  
+  class(FullSubspaceState), intent(in)           :: this
+  class(SubspaceState),     intent(in), optional :: ket
+  type(DegenerateSubspace), intent(in)           :: subspace
+  class(SubspaceBasis),     intent(in)           :: subspace_basis
+  type(AnharmonicData),     intent(in)           :: anharmonic_data
+  real(dp)                                       :: output
+  
+  
+  type(PolynomialState) :: bra_state
+  type(PolynomialState) :: ket_state
+  
+  select type(subspace_basis); type is(FullSubspaceBasis)
+    bra_state = PolynomialState(this,subspace_basis)
+    if (present(ket)) then
+      select type(ket); type is(FullSubspaceState)
+        ket_state = PolynomialState(ket,subspace_basis)
+        output = bra_state%harmonic_potential_energy( ket_state,      &
+                                                    & subspace,       &
+                                                    & subspace_basis, &
+                                                    & anharmonic_data )
+      class default
+        call err()
+      end select
+    else
+      output = bra_state%harmonic_potential_energy( &
+                & subspace        = subspace,       &
+                & subspace_basis  = subspace_basis, &
+                & anharmonic_data = anharmonic_data )
+    endif
+  class default
+    call err()
+  end select
+end function
+
 ! ----------------------------------------------------------------------
 ! FullSubspaceStates methods.
 ! ----------------------------------------------------------------------
@@ -509,27 +709,20 @@ function states_FullSubspaceStates(this,subspace,subspace_basis, &
    & anharmonic_data) result(output)
   implicit none
   
-  class(FullSubspaceStates), intent(in) :: this
-  type(DegenerateSubspace),  intent(in) :: subspace
-  class(SubspaceBasis),      intent(in) :: subspace_basis
-  type(AnharmonicData),      intent(in) :: anharmonic_data
-  class(SubspaceState), allocatable     :: output(:)
-  
-  type(PolynomialState), allocatable :: states(:)
+  class(FullSubspaceStates), intent(in)   :: this
+  type(DegenerateSubspace),  intent(in)   :: subspace
+  class(SubspaceBasis),      intent(in)   :: subspace_basis
+  type(AnharmonicData),      intent(in)   :: anharmonic_data
+  type(SubspaceStatePointer), allocatable :: output(:)
   
   integer :: ialloc
   
   select type(subspace_basis); type is(FullSubspaceBasis)
-    states = PolynomialState(this%vscf_states, subspace_basis)
+    output = SubspaceStatePointer(PolynomialState( this%vscf_states, &
+                                                 & subspace_basis    ))
   class default
     call err()
   end select
-  
-  allocate(output, source=states, stat=ialloc); call err(ialloc)
-  ! TODO:DEBUG
-  call print_line('')
-  call print_line('states() output:')
-  call print_lines(output)
 end function
 
 ! Energy spectra.
@@ -552,11 +745,11 @@ impure elemental function wavefunctions_FullSubspaceStates(this,subspace, &
    & subspace_basis,anharmonic_data) result(output)
   implicit none
   
-  class(FullSubspaceStates), intent(in)     :: this
-  type(DegenerateSubspace),  intent(in)     :: subspace
-  class(SubspaceBasis),      intent(in)     :: subspace_basis
-  type(AnharmonicData),      intent(in)     :: anharmonic_data
-  class(SubspaceWavefunctions), allocatable :: output
+  class(FullSubspaceStates), intent(in) :: this
+  type(DegenerateSubspace),  intent(in) :: subspace
+  class(SubspaceBasis),      intent(in) :: subspace_basis
+  type(AnharmonicData),      intent(in) :: anharmonic_data
+  type(SubspaceWavefunctionsPointer)    :: output
   
   type(String)                    :: ground_state
   type(String), allocatable       :: state_wavefunctions(:)
@@ -586,7 +779,7 @@ impure elemental function wavefunctions_FullSubspaceStates(this,subspace, &
                                              & state_wavefunctions          )
     
     ! Convert the output to abstract class SubspaceWavefunctions.
-    allocate(output, source=wavefunctions, stat=ialloc); call err(ialloc)
+    output = SubspaceWavefunctionsPointer(wavefunctions)
   class default
     call print_line(CODE_ERROR//': Wrong kind of basis passed to &
        &FullSubspaceStates. Basis kind must be FullSubspaceBasis.')
@@ -604,26 +797,19 @@ impure elemental function integrate_FullSubspaceStates(this,potential, &
   type(DegenerateSubspace),  intent(in) :: subspace
   class(SubspaceBasis),      intent(in) :: subspace_basis
   type(AnharmonicData),      intent(in) :: anharmonic_data
-  class(PotentialData), allocatable     :: output
+  type(PotentialPointer)                :: output
   
   type(FullSubspaceState) :: ground_state
-  type(PolynomialState)   :: polynomial_state
   
-  integer :: i,ialloc
+  ! Identify the ground state.
+  ground_state = this%vscf_states(minloc(this%vscf_states%energy,1))
   
-  select type(subspace_basis); type is(FullSubspaceBasis)
-    ! Identify the ground state.
-    ground_state = this%vscf_states(minloc(this%vscf_states%energy,1))
-    polynomial_state = PolynomialState(ground_state, subspace_basis)
-    
-    ! Braket the potential between the ground state.
-    output = potential%braket( polynomial_state, &
-                             & polynomial_state, &
-                             & subspace,         &
-                             & anharmonic_data   )
-  class default
-    call err()
-  end select
+  ! Braket the potential between the ground state.
+  output = braket( ground_state,   &
+                 & potential,      &
+                 & subspace,       &
+                 & subspace_basis, &
+                 & anharmonic_data )
 end function
 
 ! ----------------------------------------------------------------------

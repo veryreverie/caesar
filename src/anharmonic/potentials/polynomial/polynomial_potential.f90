@@ -574,75 +574,86 @@ impure elemental function force_ComplexModeDisplacement_PolynomialPotential( &
 end function
 
 ! Integrate the potential between two states.
-function braket_PolynomialPotential(this,bra,ket,subspace,anharmonic_data) &
-   & result(output)
+function braket_PolynomialPotential(this,bra,ket,subspace,subspace_basis, &
+   & anharmonic_data) result(output)
   implicit none
   
-  class(PolynomialPotential), intent(in) :: this
-  class(SubspaceState),       intent(in) :: bra
-  class(SubspaceState),       intent(in) :: ket
-  type(DegenerateSubspace),   intent(in) :: subspace
-  type(AnharmonicData),       intent(in) :: anharmonic_data
-  class(PotentialData), allocatable      :: output
+  class(PolynomialPotential), intent(in)           :: this
+  class(SubspaceState),       intent(in)           :: bra
+  class(SubspaceState),       intent(in), optional :: ket
+  type(DegenerateSubspace),   intent(in)           :: subspace
+  class(SubspaceBasis),       intent(in)           :: subspace_basis
+  type(AnharmonicData),       intent(in)           :: anharmonic_data
+  type(PotentialPointer)                           :: output
+  
+  type(PolynomialPotential) :: potential
   
   logical, allocatable :: to_remove(:)
   
   integer :: i,j,k,l,ialloc
   
-  allocate(output, source=this, stat=ialloc); call err(ialloc)
-  select type(output); type is(PolynomialPotential)
-    ! Integrate the reference energy (N.B. <i|e|j> = e<i|j> if e is a scalar.).
-    output%reference_energy = output%reference_energy * braket(bra,ket)
-    
-    ! Integrate each basis function between the bra and the ket.
-    to_remove = [(.false., i=1, size(output%basis_functions))]
-    do i=1,size(output%basis_functions)
-      j = first(output%basis_functions(i)%coupling%ids==subspace%id, default=0)
-      if (j/=0) then
-        do k=1,size(output%basis_functions(i))
-          call output%basis_functions(i)%basis_functions(k)%braket( &
-                                                  & bra,            &
-                                                  & ket,            &
-                                                  & anharmonic_data )
-        enddo
-        
-        ! Simplify the output.
-        call output%basis_functions(i)%basis_functions%simplify()
-        
-        ! Update the coupling to remove the integrated subspace.
-        output%basis_functions(i)%coupling%ids = [         &
-           & output%basis_functions(i)%coupling%ids(:j-1), &
-           & output%basis_functions(j)%coupling%ids(j+1:)  ]
-        
-        ! Check if the basis function is now a constant.
-        ! If so, add the constant energy to the potential's reference energy,
-        !    and flag the term for removal.
-        ! Then check if a coupling is now the same as a previous coupling.
-        ! If so, combine the two and flag the duplicate term for removal.
-        if (size(output%basis_functions(i)%coupling)==0) then
-          output%reference_energy =      &
-             &   output%reference_energy &
-             & + sum(output%basis_functions(i)%basis_functions%undisplaced_energy())
+  potential = this
+  
+  ! Integrate the reference energy (N.B. <i|e|j> = e<i|j> if e is a scalar.).
+  potential%reference_energy = potential%reference_energy &
+                           & * braket( bra,               &
+                           &           ket,               &
+                           &           subspace,          &
+                           &           subspace_basis,    &
+                           &           anharmonic_data )
+  
+  ! Integrate each basis function between the bra and the ket.
+  to_remove = [(.false., i=1, size(potential%basis_functions))]
+  do i=1,size(potential%basis_functions)
+    j = first(potential%basis_functions(i)%coupling%ids==subspace%id, default=0)
+    if (j/=0) then
+      do k=1,size(potential%basis_functions(i))
+        call potential%basis_functions(i)%basis_functions(k)%braket( &
+                                                   & bra,            &
+                                                   & ket,            &
+                                                   & subspace,       &
+                                                   & subspace_basis, &
+                                                   & anharmonic_data )
+      enddo
+      
+      ! Simplify the potential.
+      call potential%basis_functions(i)%basis_functions%simplify()
+      
+      ! Update the coupling to remove the integrated subspace.
+      potential%basis_functions(i)%coupling%ids = [         &
+         & potential%basis_functions(i)%coupling%ids(:j-1), &
+         & potential%basis_functions(j)%coupling%ids(j+1:)  ]
+      
+      ! Check if the basis function is now a constant.
+      ! If so, add the constant energy to the potential's reference energy,
+      !    and flag the term for removal.
+      ! Then check if a coupling is now the same as a previous coupling.
+      ! If so, combine the two and flag the duplicate term for removal.
+      if (size(potential%basis_functions(i)%coupling)==0) then
+        potential%reference_energy =      &
+           &   potential%reference_energy &
+           & + sum(potential%basis_functions(i)%basis_functions%undisplaced_energy())
+        to_remove(i) = .true.
+      else
+        k = first([(                                          &
+           & all(    potential%basis_functions(i)%coupling%ids   &
+           &      == potential%basis_functions(l)%coupling%ids), &
+           & l=1,                                             &
+           & i-1                                              )], default=0)
+        if (k/=0) then
+          potential%basis_functions(k)%basis_functions = [   &
+             & potential%basis_functions(k)%basis_functions, &
+             & potential%basis_functions(i)%basis_functions  ]
           to_remove(i) = .true.
-        else
-          k = first([(                                          &
-             & all(    output%basis_functions(i)%coupling%ids   &
-             &      == output%basis_functions(l)%coupling%ids), &
-             & l=1,                                             &
-             & i-1                                              )], default=0)
-          if (k/=0) then
-            output%basis_functions(k)%basis_functions = [   &
-               & output%basis_functions(k)%basis_functions, &
-               & output%basis_functions(i)%basis_functions  ]
-            to_remove(i) = .true.
-          endif
         endif
       endif
-    enddo
-    
-    ! Remove constant terms.
-    output%basis_functions = output%basis_functions(filter(.not.to_remove))
-  end select
+    endif
+  enddo
+  
+  ! Remove constant terms.
+  potential%basis_functions = potential%basis_functions(filter(.not.to_remove))
+  
+  output = PotentialPointer(potential)
 end function
 
 ! Calculate the thermal expectation of the potential, <V>, for a set of
@@ -684,7 +695,9 @@ impure elemental function iterate_damped_PolynomialPotential(this, &
   class(PotentialData),       intent(in) :: new_potential
   real(dp),                   intent(in) :: damping
   type(AnharmonicData),       intent(in) :: anharmonic_data
-  class(PotentialData), allocatable      :: output
+  type(PotentialPointer)                 :: output
+  
+  type(PolynomialPotential) :: potential
   
   integer :: i,ialloc
   
@@ -692,22 +705,22 @@ impure elemental function iterate_damped_PolynomialPotential(this, &
     if (size(this%basis_functions)/=size(new_potential%basis_functions)) then
       call err()
     endif
-    allocate(output, source=this, stat=ialloc); call err(ialloc)
-    select type(output); type is(PolynomialPotential)
-      output%reference_energy = (1-damping)*this%reference_energy &
-                            & + damping*new_potential%reference_energy
-      do i=1,size(output%basis_functions)
-        if (    size(this%basis_functions(i))          &
-           & /= size(new_potential%basis_functions(i)) ) then
-          call err()
-        endif
-        call output%basis_functions(i)%basis_functions%set_coefficient(       &
-           &   (1-damping)                                                    &
-           & * this%basis_functions(i)%basis_functions%coefficient()          &
-           & + damping                                                        &
-           & * new_potential%basis_functions(i)%basis_functions%coefficient() )
-      enddo
-    end select
+    potential = this
+    potential%reference_energy = damping*this%reference_energy &
+                             & + (1-damping)*new_potential%reference_energy
+    do i=1,size(potential%basis_functions)
+      if (    size(this%basis_functions(i))          &
+         & /= size(new_potential%basis_functions(i)) ) then
+        call err()
+      endif
+      call potential%basis_functions(i)%basis_functions%set_coefficient(    &
+         &   damping                                                        &
+         & * this%basis_functions(i)%basis_functions%coefficient()          &
+         & + (1-damping)                                                    &
+         & * new_potential%basis_functions(i)%basis_functions%coefficient() )
+    enddo
+    
+    output = PotentialPointer(potential)
   class default
     call err()
   end select
@@ -718,14 +731,19 @@ function iterate_pulay_PolynomialPotential(this,input_potentials, &
   implicit none
   
   class(PolynomialPotential), intent(in) :: this
-  class(PotentialData),       intent(in) :: input_potentials(:)
-  class(PotentialData),       intent(in) :: output_potentials(:)
+  type(PotentialPointer),     intent(in) :: input_potentials(:)
+  type(PotentialPointer),     intent(in) :: output_potentials(:)
   type(AnharmonicData),       intent(in) :: anharmonic_data
-  class(PotentialData), allocatable      :: output
+  type(PotentialPointer)                 :: output
   
   type(RealVector), allocatable :: input_coefficients(:)
   type(RealVector), allocatable :: output_coefficients(:)
   real(dp),         allocatable :: pulay_coefficients(:)
+  
+  class(PotentialData), allocatable :: input_potential
+  class(PotentialData), allocatable :: output_potential
+  
+  type(PolynomialPotential) :: potential
   
   integer :: i,j,ialloc
   
@@ -733,48 +751,52 @@ function iterate_pulay_PolynomialPotential(this,input_potentials, &
     call err()
   endif
   
-  select type(input_potentials); type is(PolynomialPotential)
-    select type(output_potentials); type is(PolynomialPotential)
-      allocate(output, source=this, stat=ialloc); call err(ialloc)
-      select type(output); type is(PolynomialPotential)
-        ! Convert previous potential iterations to vectors of coefficients.
-        allocate( input_coefficients(size(input_potentials)),  &
-                & output_coefficients(size(input_potentials)), &
-                & stat=ialloc); call err(ialloc)
-        do i=1,size(input_potentials)
-            input_coefficients(i) = vec([(                 &
-               & input_potentials(i)%basis_functions(j     &
-               &          )%basis_functions%coefficient(), &
-               & j=1,                                      &
-               & size(input_potentials(i)%basis_functions) )])
-            output_coefficients(i) = vec([(                &
-               & output_potentials(i)%basis_functions(j    &
-               &          )%basis_functions%coefficient(), &
-               & j=1,                                      &
-               & size(input_potentials(i)%basis_functions) )])
-        enddo
-        
-        ! Use a Pulay scheme to construct the next set of coefficients.
-        pulay_coefficients = dble(pulay( input_coefficients, &
-                                       & output_coefficients ))
-        
-        ! Set the output coefficients from the Pulay coefficients.
-        j = 0
-        do i=1,size(output%basis_functions)
-          call output%basis_functions(i)%basis_functions%set_coefficient( &
-              & pulay_coefficients(j+1:j+size(output%basis_functions(i))) )
-          j = j + size(output%basis_functions(i))
-        enddo
-        if (j/=size(pulay_coefficients)) then
-          call err()
-        endif
-      end select
+  potential = this
+  
+  ! Convert previous potential iterations to vectors of coefficients.
+  allocate( input_coefficients(size(input_potentials)),  &
+          & output_coefficients(size(input_potentials)), &
+          & stat=ialloc); call err(ialloc)
+  do i=1,size(input_potentials)
+    input_potential = input_potentials(i)%potential()
+    select type(input_potential); type is(PolynomialPotential)
+      input_coefficients(i) = vec([(             &
+         & input_potential%basis_functions(j     &
+         &      )%basis_functions%coefficient(), &
+         & j=1,                                  &
+         & size(input_potential%basis_functions) )])
     class default
       call err()
     end select
-  class default
+    
+    output_potential = output_potentials(i)%potential()
+    select type(output_potential); type is(PolynomialPotential)
+      output_coefficients(i) = vec([(             &
+         & output_potential%basis_functions(j     &
+         &       )%basis_functions%coefficient(), &
+         & j=1,                                   &
+         & size(output_potential%basis_functions) )])
+    class default
+      call err()
+    end select
+  enddo
+  
+  ! Use a Pulay scheme to construct the next set of coefficients.
+  pulay_coefficients = dble(pulay( input_coefficients, &
+                                 & output_coefficients ))
+  
+  ! Set the output coefficients from the Pulay coefficients.
+  j = 0
+  do i=1,size(potential%basis_functions)
+    call potential%basis_functions(i)%basis_functions%set_coefficient( &
+        & pulay_coefficients(j+1:j+size(potential%basis_functions(i))) )
+    j = j + size(potential%basis_functions(i))
+  enddo
+  if (j/=size(pulay_coefficients)) then
     call err()
-  end select
+  endif
+  
+  output = PotentialPointer(potential)
 end function
 
 ! %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

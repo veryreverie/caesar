@@ -107,6 +107,8 @@ function run_vscf(potential,subspaces,subspace_bases,energy_convergence,  &
   
   type(VscfStep), allocatable :: vscf_steps(:)
   
+  integer :: first_pulay_step
+  
   integer :: i,j,k,ialloc
   
   vscf_steps = [VscfStep::]
@@ -157,12 +159,26 @@ function run_vscf(potential,subspaces,subspace_bases,energy_convergence,  &
                  &           subspace_spectra,   &
                  &           output_potentials ) ]
     
-    ! Check whether the energies have converged.
+    ! Check whether the energies have converged by the normal convergence
+    !    condition.
     if (i>no_converged_calculations) then
       if (all(steps_converged(                          &
          & vscf_steps(i-no_converged_calculations:i-1), &
          & vscf_steps(i),                               &
          & energy_convergence                           ))) then
+        output = VscfOutput(input_potentials, subspace_states)
+        exit
+      endif
+    endif
+    
+    ! Check whether the last two sets of energies have converged to a much
+    !    tighter convergence.
+    ! This is needed to avoid numerical problems with the Pulay scheme caused
+    !    by over-convergence.
+    if (i>1) then
+      if (steps_converged( vscf_steps(i),         &
+                         & vscf_steps(i-1),       &
+                         & energy_convergence/100 )) then
         output = VscfOutput(input_potentials, subspace_states)
         exit
       endif
@@ -176,12 +192,13 @@ function run_vscf(potential,subspaces,subspace_bases,energy_convergence,  &
          &                                  pre_pulay_damping,   &
          &                                  anharmonic_data    ) )
     else
+      first_pulay_step = max(1, i-max_pulay_iterations+1)
       do j=1,size(subspaces)
         in_potentials = [( vscf_steps(k)%input_potentials(j), &
-                        &  k=i-max_pulay_iterations,          &
+                        &  k=first_pulay_step,                &
                         &  i                                  )]
         out_potentials = [( vscf_steps(k)%output_potentials(j), &
-                         &  k=i-max_pulay_iterations,           &
+                         &  k=first_pulay_step,                 &
                          &  i                                   )]
         input_potentials(j) = PotentialPointer(                   &
            & input_potentials(j)%iterate_pulay( in_potentials,    &

@@ -193,16 +193,17 @@ impure elemental function force_ComplexModeDisplacement_PotentialDataExample( &
   ! Code to calculate forces at complex displacements goes here.
 end function
 
-function braket_PotentialDataExample(this,bra,ket,subspace,anharmonic_data) &
-   & result(output)
+function braket_PotentialDataExample(this,bra,ket,subspace,subspace_basis, &
+   & anharmonic_data) result(output)
   implicit none
   
-  class(PotentialDataExample), intent(in) :: this
-  class(SubspaceState),        intent(in) :: bra
-  class(SubspaceState),        intent(in) :: ket
-  type(DegenerateSubspace),    intent(in) :: subspace
-  type(AnharmonicData),        intent(in) :: anharmonic_data
-  class(PotentialData), allocatable       :: output
+  class(PotentialDataExample), intent(in)           :: this
+  class(SubspaceState),        intent(in)           :: bra
+  class(SubspaceState),        intent(in), optional :: ket
+  type(DegenerateSubspace),    intent(in)           :: subspace
+  class(SubspaceBasis),        intent(in)           :: subspace_basis
+  type(AnharmonicData),        intent(in)           :: anharmonic_data
+  type(PotentialPointer)                            :: output
   
   call print_line('PotentialDataExample: evaluating <bra|potential|ket>.')
   
@@ -235,7 +236,7 @@ impure elemental function iterate_damped_PotentialDataExample(this, &
   class(PotentialData),        intent(in) :: new_potential
   real(dp),                    intent(in) :: damping
   type(AnharmonicData),        intent(in) :: anharmonic_data
-  class(PotentialData), allocatable       :: output
+  type(PotentialPointer)                  :: output
   
   ! Code to generate the potential which is equal to:
   !    (1-damping)*this + damping*new_potential
@@ -247,10 +248,10 @@ function iterate_pulay_PotentialDataExample(this,input_potentials, &
   implicit none
   
   class(PotentialDataExample), intent(in) :: this
-  class(PotentialData),        intent(in) :: input_potentials(:)
-  class(PotentialData),        intent(in) :: output_potentials(:)
+  type(PotentialPointer),      intent(in) :: input_potentials(:)
+  type(PotentialPointer),      intent(in) :: output_potentials(:)
   type(AnharmonicData),        intent(in) :: anharmonic_data
-  class(PotentialData), allocatable       :: output
+  type(PotentialPointer)                  :: output
   
   ! Code to generate a new potential using a Pulay scheme goes here.
   ! See the PolynomialPotential Pulay scheme for an example.
@@ -320,17 +321,18 @@ subroutine potential_example_subroutine()
   type(CalculationReader) :: calculation_reader
   
   ! Variables for energy and force.
-  type(RealModeDisplacement) :: real_displacement
-  real(dp)                   :: real_energy
-  type(RealModeForce)        :: real_force
+  type(RealModeDisplacement)    :: real_displacement
+  real(dp)                      :: real_energy
+  type(RealModeForce)           :: real_force
   type(ComplexModeDisplacement) :: complex_displacement
   complex(dp)                   :: complex_energy
   type(ComplexModeForce)        :: complex_force
   
   ! Variables for integrating potential.
-  type(DegenerateSubspace) :: subspace
-  type(MonomialState)      :: state_1
-  type(MonomialState)      :: state_2
+  type(DegenerateSubspace)   :: subspace
+  type(SubspaceBasisPointer) :: subspace_basis
+  type(MonomialState)        :: state_1
+  type(MonomialState)        :: state_2
   
   ! Files.
   type(OFile) :: output_file
@@ -368,8 +370,12 @@ subroutine potential_example_subroutine()
   complex_force  = potential%force(complex_displacement)
   
   ! The potential can also be integrated between two states.
-  potential = PotentialPointer(                                   &
-     & potential%braket(state_1,state_2,subspace,anharmonic_data) )
+  potential = braket( state_1,        &
+                    & potential,      &
+                    & state_2,        &
+                    & subspace,       &
+                    & subspace_basis, &
+                    & anharmonic_data )
   
   ! The potential can be written to and read from file using the potential
   !    pointer's methods.

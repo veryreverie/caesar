@@ -63,6 +63,17 @@ module monomial_state_module
   contains
     procedure, public, nopass :: representation => representation_MonomialState
     
+    procedure, public :: braket_SubspaceState => &
+                       & braket_SubspaceState_MonomialState
+    procedure, public :: braket_ComplexUnivariate => &
+                       & braket_ComplexUnivariate_MonomialState
+    procedure, public :: braket_ComplexMonomial => &
+                       & braket_ComplexMonomial_MonomialState
+    procedure, public :: kinetic_energy => &
+                       & kinetic_energy_MonomialState2
+    procedure, public :: harmonic_potential_energy => &
+                       & harmonic_potential_energy_MonomialState2
+    
     procedure, public :: total_power => total_power_MonomialState
     procedure, public :: wavevector => wavevector_MonomialState
     
@@ -721,6 +732,154 @@ impure elemental function harmonic_potential_energy_prefactor(bra,ket, &
     else
       output = 0.0_dp
     endif
+  endif
+end function
+
+! ----------------------------------------------------------------------
+! SubspaceState methods.
+! ----------------------------------------------------------------------
+impure elemental function braket_SubspaceState_MonomialState(this, &
+   & ket,subspace,subspace_basis,anharmonic_data) result(output)
+  implicit none
+  
+  class(MonomialState),     intent(in)           :: this
+  class(SubspaceState),     intent(in), optional :: ket
+  type(DegenerateSubspace), intent(in)           :: subspace
+  class(SubspaceBasis),     intent(in)           :: subspace_basis
+  type(AnharmonicData),     intent(in)           :: anharmonic_data
+  real(dp)                                       :: output
+  
+  if (present(ket)) then
+    select type(ket); type is(MonomialState)
+      output = braket_MonomialState(this,ket)
+    class default
+      call err()
+    end select
+  else
+    output = braket_MonomialState(this,this)
+  endif
+end function
+
+impure elemental function braket_ComplexUnivariate_MonomialState( &
+   & this,univariate,ket,subspace,subspace_basis,anharmonic_data)        &
+   & result(output)
+  implicit none
+  
+  class(MonomialState),     intent(in)           :: this
+  type(ComplexUnivariate),  intent(in)           :: univariate
+  class(SubspaceState),     intent(in), optional :: ket
+  type(DegenerateSubspace), intent(in)           :: subspace
+  class(SubspaceBasis),     intent(in)           :: subspace_basis
+  type(AnharmonicData),     intent(in)           :: anharmonic_data
+  type(ComplexMonomial)                          :: output
+  
+  if (present(ket)) then
+    select type(ket); type is(MonomialState)
+      output = braket_MonomialState( this,                                &
+                                   & ket,                                 &
+                                   & univariate,                          &
+                                   & subspace,                            &
+                                   & anharmonic_data%anharmonic_supercell )
+    class default
+      call err()
+    end select
+  else
+    output = braket_MonomialState( this,                                &
+                                 & this,                                &
+                                 & univariate,                          &
+                                 & subspace,                            &
+                                 & anharmonic_data%anharmonic_supercell )
+  endif
+end function
+
+impure elemental function braket_ComplexMonomial_MonomialState(this, &
+   & monomial,ket,subspace,subspace_basis,anharmonic_data) result(output)
+  implicit none
+  
+  class(MonomialState),     intent(in)           :: this
+  type(ComplexMonomial),    intent(in)           :: monomial
+  class(SubspaceState),     intent(in), optional :: ket
+  type(DegenerateSubspace), intent(in)           :: subspace
+  class(SubspaceBasis),     intent(in)           :: subspace_basis
+  type(AnharmonicData),     intent(in)           :: anharmonic_data
+  type(ComplexMonomial)                          :: output
+  
+  if (present(ket)) then
+    select type(ket); type is(MonomialState)
+      output = braket_MonomialState( this,                                &
+                                   & ket,                                 &
+                                   & monomial,                            &
+                                   & subspace,                            &
+                                   & anharmonic_data%anharmonic_supercell )
+    class default
+      call err()
+    end select
+  else
+    output = braket_MonomialState( this,                                &
+                                 & this,                                &
+                                 & monomial,                            &
+                                 & subspace,                            &
+                                 & anharmonic_data%anharmonic_supercell )
+  endif
+end function
+
+impure elemental function kinetic_energy_MonomialState2(this,ket, &
+   & subspace,subspace_basis,anharmonic_data) result(output)
+  implicit none
+  
+  class(MonomialState),     intent(in)           :: this
+  class(SubspaceState),     intent(in), optional :: ket
+  type(DegenerateSubspace), intent(in)           :: subspace
+  class(SubspaceBasis),     intent(in)           :: subspace_basis
+  type(AnharmonicData),     intent(in)           :: anharmonic_data
+  real(dp)                                       :: output
+  
+  if (present(ket)) then
+    select type(ket); type is(MonomialState)
+      output = kinetic_energy_MonomialState(    &
+         & this,                                &
+         & ket,                                 &
+         & subspace,                            &
+         & anharmonic_data%anharmonic_supercell )
+    class default
+      call err()
+    end select
+  else
+    output = kinetic_energy_MonomialState(    &
+       & this,                                &
+       & this,                                &
+       & subspace,                            &
+       & anharmonic_data%anharmonic_supercell )
+  endif
+end function
+
+impure elemental function harmonic_potential_energy_MonomialState2( &
+   & this,ket,subspace,subspace_basis,anharmonic_data) result(output)
+  implicit none
+  
+  class(MonomialState),     intent(in)           :: this
+  class(SubspaceState),     intent(in), optional :: ket
+  type(DegenerateSubspace), intent(in)           :: subspace
+  class(SubspaceBasis),     intent(in)           :: subspace_basis
+  type(AnharmonicData),     intent(in)           :: anharmonic_data
+  real(dp)                                       :: output
+  
+  if (present(ket)) then
+    select type(ket); type is(MonomialState)
+      output = harmonic_potential_energy_MonomialState( &
+                 & this,                                &
+                 & ket,                                 &
+                 & subspace,                            &
+                 & anharmonic_data%anharmonic_supercell )
+    class default
+      call err()
+    end select
+  else
+    output = harmonic_potential_energy_MonomialState( &
+               & this,                                &
+               & this,                                &
+               & subspace,                            &
+               & anharmonic_data%anharmonic_supercell )
   endif
 end function
 

@@ -338,15 +338,16 @@ end function
 ! ----------------------------------------------------------------------
 ! Integrate the basis function between two states.
 ! ----------------------------------------------------------------------
-subroutine braket_BasisFunction(this,bra,ket,inputs)
+subroutine braket_BasisFunction(this,bra,ket,subspace,subspace_basis, &
+   & anharmonic_data)
   implicit none
   
-  class(BasisFunction), intent(inout) :: this
-  class(SubspaceState), intent(in)    :: bra
-  class(SubspaceState), intent(in)    :: ket
-  type(AnharmonicData), intent(in)    :: inputs
-  
-  type(DegenerateSubspace) :: subspace
+  class(BasisFunction),     intent(inout)        :: this
+  class(SubspaceState),     intent(in)           :: bra
+  class(SubspaceState),     intent(in), optional :: ket
+  type(DegenerateSubspace), intent(in)           :: subspace
+  class(SubspaceBasis),     intent(in)           :: subspace_basis
+  type(AnharmonicData),     intent(in)           :: anharmonic_data
   
   type(ComplexMatrix)               :: complex_to_real_conversion
   complex(dp),          allocatable :: complex_coefficients(:)
@@ -356,9 +357,6 @@ subroutine braket_BasisFunction(this,bra,ket,inputs)
   
   integer :: i,j,ialloc
   
-  subspace = inputs%degenerate_subspaces(                     &
-     & first(inputs%degenerate_subspaces%id==bra%subspace_id) )
-  
   ! Generate conversion between complex and real representation.
   complex_to_real_conversion = coefficient_conversion_matrix( &
                          & this%real_representation%terms,    &
@@ -367,10 +365,11 @@ subroutine braket_BasisFunction(this,bra,ket,inputs)
   
   ! Perform integration in complex co-ordinates.
   this%complex_representation = braket( bra,                         &
-                                      & ket,                         &
                                       & this%complex_representation, &
+                                      & ket,                         &
                                       & subspace,                    &
-                                      & inputs%anharmonic_supercell)
+                                      & subspace_basis,              &
+                                      & anharmonic_data              )
   
   ! Use calculated complex coefficients and conversion to generate new
   !    coefficients for real representation.
@@ -396,7 +395,7 @@ end subroutine
 ! Returns the thermal expectation of the basis function.
 ! ----------------------------------------------------------------------
 function harmonic_expectation_BasisFunction(this,frequency,thermal_energy, &
-   & no_states,subspace,inputs) result(output)
+   & no_states,subspace,anharmonic_data) result(output)
   implicit none
   
   class(BasisFunction),     intent(in) :: this
@@ -404,7 +403,7 @@ function harmonic_expectation_BasisFunction(this,frequency,thermal_energy, &
   real(dp),                 intent(in) :: thermal_energy
   integer,                  intent(in) :: no_states
   type(DegenerateSubspace), intent(in) :: subspace
-  type(AnharmonicData),     intent(in) :: inputs
+  type(AnharmonicData),     intent(in) :: anharmonic_data
   real(dp)                             :: output
   
   integer :: i
@@ -417,7 +416,7 @@ function harmonic_expectation_BasisFunction(this,frequency,thermal_energy, &
          &                         thermal_energy,                       &
          &                         no_states,                            &
          &                         subspace,                             &
-         &                         inputs%anharmonic_supercell           )
+         &                         anharmonic_data%anharmonic_supercell  )
   enddo
 end function
 

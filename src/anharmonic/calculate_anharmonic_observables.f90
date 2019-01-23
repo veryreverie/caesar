@@ -46,16 +46,20 @@ function calculate_anharmonic_observables() result(output)
      & KeywordData( 'max_pulay_iterations',                                   &
      &              'max_pulay_iterations is the maximum number of &
      &self-consistency iterations which will be passed into the Pulay &
-     &scheme.',                                                               &
+     &scheme. This must be at least 2.',                                      &
      &              default_value='20' ),                                     &
      & KeywordData( 'pre_pulay_iterations',                                   &
      &              'pre_pulay_iterations is the number of damped iterations &
-     &which will be performed before the Pulay scheme is called.',            &
+     &which will be performed before the Pulay scheme is called. This must be &
+     &at least 2.',                                                           &
      &              default_value='2' ),                                      &
      & KeywordData( 'pre_pulay_damping',                                      &
-     &              'pre_pulay_damping is the damping factor of the pre-Pulay &
-     &iterations.',                                                           &
-     &              default_value='0.1' ),                                    &
+     &              "pre_pulay_damping is the damping factor of the pre-Pulay &
+     &iterations. If potential at the start and end of iteration i are Vi and &
+     &Vi' respectively, then the potential at the start of iteration j, Vj, &
+     &is given by Vj = d*Vi+(1-d)*Vi'. Pre_pulay_damping must be between 0 &
+     &and 1 inclusive.",                                                      &
+     &              default_value='0.9' ),                                    &
      & KeywordData( 'min_temperature',                                        &
      &              'min_temperature is the minimum temperature at which &
      &thermodynamic quantities are calculated. min_temperature should be &
@@ -256,6 +260,15 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   elseif (no_vscf_basis_states<1) then
     call print_line(ERROR//': no_vscf_basis_states must be at least 1.')
     stop
+  elseif (pre_pulay_damping<0_dp .or. pre_pulay_damping>1_dp) then
+    call print_line(ERROR//': pre_pulay_damping must be between 0 and 1.')
+    stop
+  elseif (pre_pulay_iterations<2) then
+    call print_line(ERROR//': pre_pulay_iterations must be at least 2.')
+    stop
+  elseif (max_pulay_iterations<2) then
+    call print_line(ERROR//': max_pulay_iterations must be at least 2.')
+    stop
   endif
   
   ! --------------------------------------------------
@@ -331,6 +344,7 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   initial_frequencies = InitialFrequencies( potential,                      &
                                           & anharmonic_data,                &
                                           & harmonic_frequency_convergence, &
+                                          & no_converged_calculations_vscf, &
                                           & max_pulay_iterations,           &
                                           & pre_pulay_iterations,           &
                                           & pre_pulay_damping               )
@@ -517,7 +531,7 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
       vscha1_thermodynamics(j,i) =                         &
          & ThermodynamicData( thermal_energies(i),         &
          &                    effective_frequencies(j,i) ) &
-         & * size(subspaces(i))                            &
+         & * size(subspaces(j))                            &
          & / (1.0_dp*supercell%sc_size)
       
       vscha2_thermodynamics(j,i) = vscha1_thermodynamics(j,i)

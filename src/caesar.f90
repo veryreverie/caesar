@@ -25,6 +25,7 @@ program caesar
   use check_counter_module
   use test_module
   use linear_algebra_test_module
+  use update_basis_functions_module
   
   ! Use misc modules.
   use hartree_to_eV_module
@@ -88,7 +89,8 @@ program caesar
      & plot_vscf_modes(),                  &
      & calculate_anharmonic_observables(), &
      & converge_harmonic_frequencies(),    &
-     & plot_vscf_states()                  ])
+     & plot_vscf_states(),                 &
+     & update_basis_functions()            ])
   
   ! --------------------------------------------------
   ! Read in command line arguments and process the mode.
