@@ -16,9 +16,6 @@ module polynomial_state_module
   public :: PolynomialState
   
   public :: size
-  public :: braket_PolynomialState
-  public :: kinetic_energy_PolynomialState
-  public :: harmonic_potential_energy_PolynomialState
   
   type, extends(SubspaceState) :: PolynomialState
     type(MonomialState), allocatable :: states(:)
@@ -34,9 +31,9 @@ module polynomial_state_module
     procedure, public :: braket_ComplexMonomial => &
                        & braket_ComplexMonomial_PolynomialState
     procedure, public :: kinetic_energy => &
-                       & kinetic_energy_PolynomialState2
+                       & kinetic_energy_PolynomialState
     procedure, public :: harmonic_potential_energy => &
-                       & harmonic_potential_energy_PolynomialState2
+                       & harmonic_potential_energy_PolynomialState
     
     ! I/O.
     procedure, public :: read  => read_PolynomialState
@@ -51,12 +48,6 @@ module polynomial_state_module
   
   interface size
     module procedure size_PolynomialState
-  end interface
-  
-  interface braket_PolynomialState
-    module procedure braket_PolynomialStates
-    module procedure braket_PolynomialStates_ComplexUnivariate
-    module procedure braket_PolynomialStates_ComplexMonomial
   end interface
 contains
 
@@ -112,157 +103,6 @@ impure elemental function representation_PolynomialState() result(output)
 end function
 
 ! ----------------------------------------------------------------------
-! Integrals of the form <bra|ket> and <bra|potential|ket>.
-! ----------------------------------------------------------------------
-impure elemental function braket_PolynomialStates(bra,ket) result(output)
-  implicit none
-  
-  type(PolynomialState), intent(in) :: bra
-  type(PolynomialState), intent(in) :: ket
-  real(dp)                          :: output
-  
-  integer :: i,j
-  
-  output = 0.0_dp
-  do i=1,size(bra)
-    do j=1,size(ket)
-      output = output                                            &
-           & + braket_MonomialState(bra%states(i),ket%states(j)) &
-           & * bra%coefficients(i)                               &
-           & * ket%coefficients(j)
-    enddo
-  enddo
-end function
-
-impure elemental function braket_PolynomialStates_ComplexUnivariate(bra,ket, &
-   & univariate,subspace,supercell) result(output)
-  implicit none
-  
-  type(PolynomialState),    intent(in) :: bra
-  type(PolynomialState),    intent(in) :: ket
-  type(ComplexUnivariate),  intent(in) :: univariate
-  type(DegenerateSubspace), intent(in) :: subspace
-  type(StructureData),      intent(in) :: supercell
-  type(ComplexMonomial)                :: output
-  
-  type(ComplexMonomial) :: integrated_univariate
-  
-  integer :: i,j
-  
-  do i=1,size(bra)
-    do j=1,size(ket)
-      integrated_univariate = braket_MonomialState( bra%states(i),   &
-                         &                          ket%states(j),   &
-                         &                          univariate,      &
-                         &                          subspace,        &
-                         &                          supercell      ) &
-                         & * bra%coefficients(i)                     &
-                         & * ket%coefficients(j)
-      if (i==1 .and. j==1) then
-        output = integrated_univariate
-      else
-        output%coefficient = output%coefficient &
-                         & + integrated_univariate%coefficient
-      endif
-    enddo
-  enddo
-end function
-
-impure elemental function braket_PolynomialStates_ComplexMonomial(bra,ket, &
-   & monomial,subspace,supercell) result(output)
-  implicit none
-  
-  type(PolynomialState),    intent(in) :: bra
-  type(PolynomialState),    intent(in) :: ket
-  type(ComplexMonomial),    intent(in) :: monomial
-  type(DegenerateSubspace), intent(in) :: subspace
-  type(StructureData),      intent(in) :: supercell
-  type(ComplexMonomial)                :: output
-  
-  type(ComplexMonomial) :: integrated_monomial
-  
-  integer :: i,j
-  
-  do i=1,size(bra)
-    do j=1,size(ket)
-      integrated_monomial = braket_MonomialState( bra%states(i),   &
-                        &                         ket%states(j),   &
-                        &                         monomial,        &
-                        &                         subspace,        &
-                        &                         supercell      ) &
-                        & * bra%coefficients(i)                    &
-                        & * ket%coefficients(j)
-      if (i==1 .and. j==1) then
-        output = integrated_monomial
-      else
-        output%coefficient = output%coefficient &
-                         & + integrated_monomial%coefficient
-      endif
-    enddo
-  enddo
-end function
-
-! ----------------------------------------------------------------------
-! Evaluates <bra|T|ket>, where T is the kinetic energy operator.
-! Gives the result per primitive cell.
-! ----------------------------------------------------------------------
-function kinetic_energy_PolynomialState(bra,ket,subspace,supercell) &
-   & result(output)
-  implicit none
-  
-  type(PolynomialState),    intent(in) :: bra
-  type(PolynomialState),    intent(in) :: ket
-  type(DegenerateSubspace), intent(in) :: subspace
-  type(StructureData),      intent(in) :: supercell
-  real(dp)                             :: output
-  
-  integer :: i,j
-  
-  output = 0.0_dp
-  do i=1,size(bra)
-    do j=1,size(ket)
-      output = output                                         &
-           & + kinetic_energy_MonomialState( bra%states(i),   &
-           &                                 ket%states(j),   &
-           &                                 subspace,        &
-           &                                 supercell      ) &
-           & * bra%coefficients(i)                            &
-           & * ket%coefficients(j)
-    enddo
-  enddo
-end function
-
-! ----------------------------------------------------------------------
-! Evaluates <bra|V|ket>, where V is the harmonic potential energy operator.
-! Gives the result per primitive cell.
-! ----------------------------------------------------------------------
-function harmonic_potential_energy_PolynomialState(bra,ket,subspace, &
-   & supercell) result(output)
-  implicit none
-  
-  type(PolynomialState),    intent(in) :: bra
-  type(PolynomialState),    intent(in) :: ket
-  type(DegenerateSubspace), intent(in) :: subspace
-  type(StructureData),      intent(in) :: supercell
-  real(dp)                             :: output
-  
-  integer :: i,j
-  
-  output = 0.0_dp
-  do i=1,size(bra)
-    do j=1,size(ket)
-      output = output                                                    &
-           & + harmonic_potential_energy_MonomialState( bra%states(i),   &
-           &                                            ket%states(j),   &
-           &                                            subspace,        &
-           &                                            supercell      ) &
-           & * bra%coefficients(i)                                       &
-           & * ket%coefficients(j)
-    enddo
-  enddo
-end function
-
-! ----------------------------------------------------------------------
 ! SubspaceState methods.
 ! ----------------------------------------------------------------------
 impure elemental function braket_SubspaceState_PolynomialState(this, &
@@ -276,20 +116,45 @@ impure elemental function braket_SubspaceState_PolynomialState(this, &
   type(AnharmonicData),     intent(in)           :: anharmonic_data
   real(dp)                                       :: output
   
+  integer :: i,j
+  
   if (present(ket)) then
     select type(ket); type is(PolynomialState)
-      output = braket_PolynomialState(this,ket)
+      output = 0.0_dp
+      do i=1,size(this)
+        do j=1,size(ket)
+          output = output                    &
+               & + braket( this%states(i),   &
+               &           ket%states(j),    &
+               &           subspace,         &
+               &           subspace_basis,   &
+               &           anharmonic_data ) &
+               & * this%coefficients(i)      &
+               & * ket%coefficients(j)
+        enddo
+      enddo
     class default
       call err()
     end select
   else
-    output = braket_PolynomialState(this,this)
+    output = 0.0_dp
+    do i=1,size(this)
+      do j=1,size(this)
+        output = output                    &
+             & + braket( this%states(i),   &
+             &           this%states(j),   &
+             &           subspace,         &
+             &           subspace_basis,   &
+             &           anharmonic_data ) &
+             & * this%coefficients(i)      &
+             & * this%coefficients(j)
+      enddo
+    enddo
   endif
 end function
 
-impure elemental function braket_ComplexUnivariate_PolynomialState( &
-   & this,univariate,ket,subspace,subspace_basis,anharmonic_data)        &
-   & result(output)
+impure elemental function braket_ComplexUnivariate_PolynomialState(this, &
+   & univariate,ket,subspace,subspace_basis,anharmonic_data) result(output)
   implicit none
   
   class(PolynomialState),   intent(in)           :: this
@@ -300,22 +165,52 @@ impure elemental function braket_ComplexUnivariate_PolynomialState( &
   type(AnharmonicData),     intent(in)           :: anharmonic_data
   type(ComplexMonomial)                          :: output
   
+  type(ComplexMonomial) :: integrated_univariate
+  
+  integer :: i,j
+  
   if (present(ket)) then
     select type(ket); type is(PolynomialState)
-      output = braket_PolynomialState( this,                                &
-                                     & ket,                                 &
-                                     & univariate,                          &
-                                     & subspace,                            &
-                                     & anharmonic_data%anharmonic_supercell )
+      do i=1,size(this)
+        do j=1,size(ket)
+          integrated_univariate = braket( this%states(i),   &
+                             &            univariate,       &
+                             &            ket%states(j),    &
+                             &            subspace,         &
+                             &            subspace_basis,   &
+                             &            anharmonic_data ) &
+                             & * this%coefficients(i)       &
+                             & * ket%coefficients(j)
+          if (i==1 .and. j==1) then
+            output = integrated_univariate
+          else
+            output%coefficient = output%coefficient &
+                             & + integrated_univariate%coefficient
+          endif
+        enddo
+      enddo
     class default
       call err()
     end select
   else
-    output = braket_PolynomialState( this,                                &
-                                   & this,                                &
-                                   & univariate,                          &
-                                   & subspace,                            &
-                                   & anharmonic_data%anharmonic_supercell )
+    do i=1,size(this)
+      do j=1,size(this)
+        integrated_univariate = braket( this%states(i),   &
+                           &            univariate,       &
+                           &            this%states(j),   &
+                           &            subspace,         &
+                           &            subspace_basis,   &
+                           &            anharmonic_data ) &
+                           & * this%coefficients(i)       &
+                           & * this%coefficients(j)
+        if (i==1 .and. j==1) then
+          output = integrated_univariate
+        else
+          output%coefficient = output%coefficient &
+                           & + integrated_univariate%coefficient
+        endif
+      enddo
+    enddo
   endif
 end function
 
@@ -331,26 +226,56 @@ impure elemental function braket_ComplexMonomial_PolynomialState(this, &
   type(AnharmonicData),     intent(in)           :: anharmonic_data
   type(ComplexMonomial)                          :: output
   
+  type(ComplexMonomial) :: integrated_monomial
+  
+  integer :: i,j
+  
   if (present(ket)) then
     select type(ket); type is(PolynomialState)
-      output = braket_PolynomialState( this,                                &
-                                     & ket,                                 &
-                                     & monomial,                            &
-                                     & subspace,                            &
-                                     & anharmonic_data%anharmonic_supercell )
+      do i=1,size(this)
+        do j=1,size(ket)
+          integrated_monomial = braket( this%states(i),   &
+                            &           monomial,         &
+                            &           ket%states(j),    &
+                            &           subspace,         &
+                            &           subspace_basis,   &
+                            &           anharmonic_data ) &
+                            & * this%coefficients(i)      &
+                            & * ket%coefficients(j)
+          if (i==1 .and. j==1) then
+            output = integrated_monomial
+          else
+            output%coefficient = output%coefficient &
+                             & + integrated_monomial%coefficient
+          endif
+        enddo
+      enddo
     class default
       call err()
     end select
   else
-    output = braket_PolynomialState( this,                                &
-                                   & this,                                &
-                                   & monomial,                            &
-                                   & subspace,                            &
-                                   & anharmonic_data%anharmonic_supercell )
+    do i=1,size(this)
+      do j=1,size(this)
+        integrated_monomial = braket( this%states(i),   &
+                          &           monomial,         &
+                          &           this%states(j),   &
+                          &           subspace,         &
+                          &           subspace_basis,   &
+                          &           anharmonic_data ) &
+                          & * this%coefficients(i)      &
+                          & * this%coefficients(j)
+        if (i==1 .and. j==1) then
+          output = integrated_monomial
+        else
+          output%coefficient = output%coefficient &
+                           & + integrated_monomial%coefficient
+        endif
+      enddo
+    enddo
   endif
 end function
 
-impure elemental function kinetic_energy_PolynomialState2(this,ket, &
+impure elemental function kinetic_energy_PolynomialState(this,ket, &
    & subspace,subspace_basis,anharmonic_data) result(output)
   implicit none
   
@@ -361,26 +286,44 @@ impure elemental function kinetic_energy_PolynomialState2(this,ket, &
   type(AnharmonicData),     intent(in)           :: anharmonic_data
   real(dp)                                       :: output
   
+  integer :: i,j
+  
   if (present(ket)) then
     select type(ket); type is(PolynomialState)
-      output = kinetic_energy_PolynomialState(  &
-         & this,                                &
-         & ket,                                 &
-         & subspace,                            &
-         & anharmonic_data%anharmonic_supercell )
+      output = 0.0_dp
+      do i=1,size(this)
+        do j=1,size(ket)
+          output = output                            &
+               & + kinetic_energy( this%states(i),   &
+               &                   ket%states(j),    &
+               &                   subspace,         &
+               &                   subspace_basis,   &
+               &                   anharmonic_data ) &
+               & * this%coefficients(i)              &
+               & * ket%coefficients(j)
+        enddo
+      enddo
     class default
       call err()
     end select
   else
-    output = kinetic_energy_PolynomialState(  &
-       & this,                                &
-       & this,                                &
-       & subspace,                            &
-       & anharmonic_data%anharmonic_supercell )
+    output = 0.0_dp
+    do i=1,size(this)
+      do j=1,size(this)
+        output = output                            &
+             & + kinetic_energy( this%states(i),   &
+             &                   this%states(j),   &
+             &                   subspace,         &
+             &                   subspace_basis,   &
+             &                   anharmonic_data ) &
+             & * this%coefficients(i)              &
+             & * this%coefficients(j)
+      enddo
+    enddo
   endif
 end function
 
-impure elemental function harmonic_potential_energy_PolynomialState2( &
+impure elemental function harmonic_potential_energy_PolynomialState( &
    & this,ket,subspace,subspace_basis,anharmonic_data) result(output)
   implicit none
   
@@ -391,22 +334,41 @@ impure elemental function harmonic_potential_energy_PolynomialState2( &
   type(AnharmonicData),     intent(in)           :: anharmonic_data
   real(dp)                                       :: output
   
+  integer :: i,j
+  
+  
   if (present(ket)) then
     select type(ket); type is(PolynomialState)
-      output = harmonic_potential_energy_PolynomialState( &
-                   & this,                                &
-                   & ket,                                 &
-                   & subspace,                            &
-                   & anharmonic_data%anharmonic_supercell )
+      output = 0.0_dp
+      do i=1,size(this)
+        do j=1,size(ket)
+          output = output                                       &
+               & + harmonic_potential_energy( this%states(i),   &
+               &                              ket%states(j),    &
+               &                              subspace,         &
+               &                              subspace_basis,   &
+               &                              anharmonic_data ) &
+               & * this%coefficients(i)                         &
+               & * ket%coefficients(j)
+        enddo
+      enddo
     class default
       call err()
     end select
   else
-    output = harmonic_potential_energy_PolynomialState( &
-                 & this,                                &
-                 & this,                                &
-                 & subspace,                            &
-                 & anharmonic_data%anharmonic_supercell )
+    output = 0.0_dp
+    do i=1,size(this)
+      do j=1,size(this)
+        output = output                                       &
+             & + harmonic_potential_energy( this%states(i),   &
+             &                              this%states(j),   &
+             &                              subspace,         &
+             &                              subspace_basis,   &
+             &                              anharmonic_data ) &
+             & * this%coefficients(i)                         &
+             & * this%coefficients(j)
+      enddo
+    enddo
   endif
 end function
 

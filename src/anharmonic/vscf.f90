@@ -127,7 +127,7 @@ function run_vscf(potential,subspaces,subspace_bases,energy_convergence,  &
     
   i = 1
   do
-    call print_line('VSCF self-consistency step '//i//'.')
+    call print_line('Beginning VSCF self-consistency step '//i//'.')
     
     ! Use the single-subspace potentials to calculate the new states.
     call print_line('Generating single-subspace ground states.')

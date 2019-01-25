@@ -7,7 +7,6 @@ module wavevector_basis_module
   
   use monomial_state_module
   use harmonic_state_module
-  use braket_module
   use state_conversion_module
   use coupled_states_module
   implicit none

@@ -189,6 +189,8 @@ function new_InitialFrequencies_PotentialData(potential,anharmonic_data,   &
       frequencies = dble(input_frequencies(i))
       exit
     endif
+    
+    call print_line('Completed self-consistency step '//i-1//'.')
   enddo
   
   output = InitialFrequencies(subspaces%id, frequencies)
@@ -266,6 +268,8 @@ function optimise_frequency(potential,subspace,subspace_basis, &
   real(dp),                 intent(in) :: frequency_convergence
   real(dp)                             :: output
   
+  type(NewtonRaphson) :: solver
+  
   real(dp) :: frequencies(3)
   real(dp) :: energies(3)
   
@@ -273,24 +277,18 @@ function optimise_frequency(potential,subspace,subspace_basis, &
   type(SubspaceStatePointer), allocatable :: new_states(:)
   type(SubspaceStatePointer)              :: new_state
   
-  real(dp) :: first_derivative
-  real(dp) :: second_derivative
-  
-  real(dp) :: old_frequency
-  real(dp) :: new_frequency
-  
   integer :: i
   
-  old_frequency = subspace_basis%frequency
   new_basis = subspace_basis
   
+  solver = NewtonRaphson(                                     &
+     & starting_value        = subspace_basis%frequency,      &
+     & finite_displacement   = 0.01_dp*frequency_convergence, &
+     & convergence_threshold = frequency_convergence,         &
+     & lower_bound           = 0.0_dp                         )
   do
-    ! Calculate [w-dw, w, w+dw].
-    frequencies = [ old_frequency - 0.01_dp*frequency_convergence, &
-                  & old_frequency,                                 &
-                  & old_frequency + 0.01_dp*frequency_convergence  ]
+    frequencies = solver%get_inputs()
     
-    ! Calculate [U(w-dw), U(w), U(w+dw)].
     do i=1,3
       call new_basis%set_frequency(frequencies(i))
       new_states = SubspaceStatePointer(             &
@@ -312,39 +310,12 @@ function optimise_frequency(potential,subspace,subspace_basis, &
                 &                   anharmonic_data )
     enddo
     
-    ! Calculate dU/dw = (U(w+dw)-U(w-dw))/(2dw).
-    first_derivative = (energies(3)-energies(1)) &
-                   & / (0.02_dp*frequency_convergence)
+    call solver%set_outputs(energies)
     
-    ! Calculate d2U/dw2 = (U(w+dw)+U(w-dw)-2U(w))/(dw)^2.
-    second_derivative = (energies(1)+energies(3)-2*energies(2)) &
-                    & / (0.01_dp*frequency_convergence)**2
-    
-    ! Update the frequency, and check for convergence.
-    ! At the extrema (w=w1), dU/dw=0. As such, w1 = w - (dU/dw)/(d2U/dw2).
-    ! If |w1-w|>w/2, or if dU/dw<0 then cap |w1-w| at w/2.
-    if (abs(old_frequency)*second_derivative<=abs(first_derivative)) then
-      if (first_derivative>0) then
-        new_frequency = 0.5_dp * old_frequency
-      elseif (first_derivative<0) then
-        new_frequency = 1.5_dp * old_frequency
-      else
-        new_frequency = old_frequency
-        output = new_frequency
-        return
-      endif
-    else
-      new_frequency = old_frequency - first_derivative/second_derivative
-      if (abs(new_frequency-old_frequency)<frequency_convergence) then
-        output = new_frequency
-        return
-      else
-      endif
+    if (solver%converged()) then
+      output = solver%solution()
+      exit
     endif
-    
-    ! If the frequency hasn't converged, update the frequency,
-    !    and return to the start of the loop.
-    old_frequency = new_frequency
   enddo
 end function
 

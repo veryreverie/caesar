@@ -22,8 +22,8 @@ contains
 !    given by the frequency of the effective potential Vh(w) whose states
 !    minimise the free energy of the VSCF Hamiltonian.
 function calculate_effective_frequency(potential,subspace,anharmonic_data,   &
-   & thermal_energy,initial_frequency,no_basis_states,frequency_convergence, &
-   & no_converged_calculations) result(output)
+   & thermal_energy,initial_frequency,no_basis_states,frequency_convergence) &
+   & result(output)
   implicit none
   
   class(PotentialData),     intent(in) :: potential
@@ -33,83 +33,40 @@ function calculate_effective_frequency(potential,subspace,anharmonic_data,   &
   real(dp),                 intent(in) :: initial_frequency
   integer,                  intent(in) :: no_basis_states
   real(dp),                 intent(in) :: frequency_convergence
-  integer,                  intent(in) :: no_converged_calculations
   real(dp)                             :: output
   
   real(dp) :: frequency
   real(dp) :: frequencies(3)
   real(dp) :: free_energies(3)
-  real(dp) :: first_derivative
-  real(dp) :: second_derivative
   
-  real(dp), allocatable :: iteration_frequencies(:)
-  real(dp), allocatable :: iteration_free_energies(:)
+  type(NewtonRaphson) :: solver
   
-  integer :: i,j,ialloc
+  integer :: i
   
   frequency = initial_frequency
   
-  iteration_frequencies = [frequency]
-  iteration_free_energies = [real(dp)::]
-  i = 1
+  solver = NewtonRaphson(                                   &
+     & starting_value      = initial_frequency,             &
+     & finite_displacement = 0.01_dp*frequency_convergence, &
+     & convergence_threshold = frequency_convergence,       &
+     & lower_bound           = 0.0_dp                       )
   do
-    ! Calculate [w-dw, w, w+dw].
-    frequencies = [ frequency - 0.01_dp*frequency_convergence, &
-                  & frequency,                              &
-                  & frequency + 0.01_dp*frequency_convergence  ]
+    frequencies = solver%get_inputs()
     
-    ! Calculate[F(w-dw), F(w), F(w+dw)].
-    do j=1,3
-      free_energies(j) = calculate_free_energy( potential,       &
-                                              & frequencies(j),  &
+    do i=1,3
+      free_energies(i) = calculate_free_energy( potential,       &
+                                              & frequencies(i),  &
                                               & thermal_energy,  &
                                               & no_basis_states, &
                                               & subspace,        &
                                               & anharmonic_data  )
     enddo
     
-    ! Append the free energy F(w) to the array of free energies.
-    iteration_free_energies = [iteration_free_energies, free_energies(2)]
+    call solver%set_outputs(free_energies)
     
-    ! Calculate dF/dw = (F(w+dw) - F(w-dw)) / (2dw)
-    first_derivative = (free_energies(3)-free_energies(1)) &
-                   & / (0.02_dp*frequency_convergence)
-    
-    ! Calculate d2F/dw2 = (F(w+dw) + F(w-dw) - 2F(w)) / (dw)^2
-    second_derivative = ( free_energies(1)     &
-                    &   + free_energies(3)     &
-                    &   - 2*free_energies(2) ) &
-                    & / (0.01_dp*frequency_convergence)**2
-    
-    ! Update the frequency, and check for convergence.
-    ! At the extrema (w=w1), dU/dw=0. As such, w1 = w - (dU/dw)/(d2U/dw2).
-    ! If |w1-w|>w/2, or if dU/dw<0 then cap |w1-w| at w/2.
-    if (abs(frequency)*second_derivative<=abs(first_derivative)) then
-      if (first_derivative>0) then
-        frequency = 0.5_dp * frequency
-      elseif (first_derivative<0) then
-        frequency = 1.5_dp * frequency
-      else
-        output = frequency
-        exit
-      endif
-    else
-      frequency = frequency - first_derivative / second_derivative
-    endif
-    
-    ! Append the new frequency to the array of frequencies,
-    !    and increment the loop counter.
-    iteration_frequencies = [iteration_frequencies, frequency]
-    i = i+1
-    
-    ! Check for convergence.
-    if (i>=no_converged_calculations) then
-      j = i-no_converged_calculations+1
-      if (all( abs(iteration_frequencies(j:i-1)-iteration_frequencies(i)) &
-           & < frequency_convergence )) then
-        output = frequency
-        exit
-      endif
+    if (solver%converged()) then
+      output = solver%solution()
+      exit
     endif
   enddo
 end function

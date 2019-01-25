@@ -1852,7 +1852,7 @@ end function
 ! The braket function.
 ! ----------------------------------------------------------------------
 ! Calculates <state|state>.
-impure elemental function braket_state(state,subspace,subspace_basis, &
+recursive function braket_state(state,subspace,subspace_basis, &
    & anharmonic_data) result(output)
   implicit none
   
@@ -1868,7 +1868,7 @@ impure elemental function braket_state(state,subspace,subspace_basis, &
 end function
 
 ! Calculates <bra|ket>.
-impure elemental function braket_state_state(bra,ket,subspace, &
+recursive function braket_state_state(bra,ket,subspace, &
    & subspace_basis,anharmonic_data) result(output)
   implicit none
   
@@ -1886,7 +1886,7 @@ impure elemental function braket_state_state(bra,ket,subspace, &
 end function
 
 ! Calculates <state|V|state>.
-impure elemental function braket_state_ComplexUnivariate(state,potential, &
+recursive function braket_state_ComplexUnivariate(state,potential, &
    & subspace,subspace_basis,anharmonic_data) result(output)
   implicit none
   
@@ -1904,7 +1904,7 @@ impure elemental function braket_state_ComplexUnivariate(state,potential, &
 end function
 
 ! Calculates <bra|V|ket>.
-impure elemental function braket_state_ComplexUnivariate_state(bra, &
+recursive function braket_state_ComplexUnivariate_state(bra, &
    & potential,ket,subspace,subspace_basis,anharmonic_data) result(output)
   implicit none
   
@@ -1924,7 +1924,7 @@ impure elemental function braket_state_ComplexUnivariate_state(bra, &
 end function
 
 ! Calculates <state|V|state>.
-impure elemental function braket_state_ComplexMonomial(state,potential, &
+recursive function braket_state_ComplexMonomial(state,potential, &
    & subspace,subspace_basis,anharmonic_data) result(output)
   implicit none
   
@@ -1942,7 +1942,7 @@ impure elemental function braket_state_ComplexMonomial(state,potential, &
 end function
 
 ! Calculates <bra|V|ket>.
-impure elemental function braket_state_ComplexMonomial_state(bra, &
+recursive function braket_state_ComplexMonomial_state(bra, &
    & potential,ket,subspace,subspace_basis,anharmonic_data) result(output)
   implicit none
   
@@ -1962,7 +1962,7 @@ impure elemental function braket_state_ComplexMonomial_state(bra, &
 end function
 
 ! Calculates <state|V|state>.
-impure elemental function braket_state_ComplexPolynomial(state,potential, &
+recursive function braket_state_ComplexPolynomial(state,potential, &
    & subspace,subspace_basis,anharmonic_data) result(output)
   implicit none
   
@@ -1980,7 +1980,7 @@ impure elemental function braket_state_ComplexPolynomial(state,potential, &
 end function
 
 ! Calculates <bra|V|ket>.
-impure elemental function braket_state_ComplexPolynomial_state(bra, &
+recursive function braket_state_ComplexPolynomial_state(bra, &
    & potential,ket,subspace,subspace_basis,anharmonic_data) result(output)
   implicit none
   
@@ -2000,7 +2000,7 @@ impure elemental function braket_state_ComplexPolynomial_state(bra, &
 end function
 
 ! Calculates <state|V|state>.
-impure elemental function braket_state_potential(state,potential,subspace, &
+recursive function braket_state_potential(state,potential,subspace, &
    & subspace_basis,anharmonic_data) result(output)
   implicit none
   
@@ -2018,7 +2018,7 @@ impure elemental function braket_state_potential(state,potential,subspace, &
 end function
 
 ! Calculates <bra|V|ket>.
-impure elemental function braket_state_potential_state(bra,potential,ket, &
+recursive function braket_state_potential_state(bra,potential,ket, &
    & subspace,subspace_basis,anharmonic_data) result(output)
   implicit none
   
@@ -2038,7 +2038,7 @@ impure elemental function braket_state_potential_state(bra,potential,ket, &
 end function
 
 ! Calculates <state|T|state>.
-impure elemental function kinetic_energy_state(state,subspace, &
+recursive function kinetic_energy_state(state,subspace, &
    & subspace_basis,anharmonic_data) result(output)
   implicit none
   
@@ -2054,7 +2054,7 @@ impure elemental function kinetic_energy_state(state,subspace, &
 end function
 
 ! Calculates <bra|T|ket>.
-impure elemental function kinetic_energy_state_state(bra,ket,subspace, &
+recursive function kinetic_energy_state_state(bra,ket,subspace, &
    & subspace_basis,anharmonic_data) result(output)
   implicit none
   
@@ -2072,7 +2072,7 @@ impure elemental function kinetic_energy_state_state(bra,ket,subspace, &
 end function
 
 ! Calculates <state|Vh|state>, where Vh is the harmonic potential.
-impure elemental function harmonic_potential_energy_state(state,subspace, &
+recursive function harmonic_potential_energy_state(state,subspace, &
    & subspace_basis,anharmonic_data) result(output)
   implicit none
   
@@ -2089,7 +2089,7 @@ impure elemental function harmonic_potential_energy_state(state,subspace, &
 end function
 
 ! Calculates <bra|Vh|ket>, where Vh is the harmonic potential.
-impure elemental function harmonic_potential_energy_state_state(bra,ket, &
+recursive function harmonic_potential_energy_state_state(bra,ket, &
    & subspace,subspace_basis,anharmonic_data) result(output)
   implicit none
   
@@ -2107,8 +2107,8 @@ impure elemental function harmonic_potential_energy_state_state(bra,ket, &
 end function
 
 ! Calculates <state|V|state> as a constant.
-function potential_energy_state(state,potential,subspace,subspace_basis, &
-   & anharmonic_data) result(output)
+recursive function potential_energy_state(state,potential,subspace, &
+   & subspace_basis,anharmonic_data) result(output)
   implicit none
   
   class(SubspaceState),     intent(in) :: state
@@ -2129,7 +2129,7 @@ function potential_energy_state(state,potential,subspace,subspace_basis, &
 end function
 
 ! Calcualtes <bra|V|ket> as a constant.
-function potential_energy_state_state(bra,potential,ket,subspace, &
+recursive function potential_energy_state_state(bra,potential,ket,subspace, &
    & subspace_basis,anharmonic_data) result(output)
   implicit none
   

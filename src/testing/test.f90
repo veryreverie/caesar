@@ -318,6 +318,9 @@ subroutine test_subroutine(arguments)
   type(TCon1) :: t1
   type(TCon2) :: t2
   
+  call newton_raphson_example()
+  stop
+  
   call t1%update()
   call t2%update()
   

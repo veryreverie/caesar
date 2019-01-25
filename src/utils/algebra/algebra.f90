@@ -24,6 +24,7 @@ module algebra_module
   use integer_complex_module
   use fraction_complex_module
   use lanczos_module
+  use newton_raphson_module
   use tests_module
   implicit none
 end module

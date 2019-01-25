@@ -10,7 +10,6 @@ module full_subspace_basis_and_states_module
   use monomial_state_module
   use harmonic_state_module
   use polynomial_state_module
-  use braket_module
   use state_conversion_module
   use wavevector_basis_module
   implicit none

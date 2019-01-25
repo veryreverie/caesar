@@ -80,12 +80,6 @@ function calculate_anharmonic_observables() result(output)
      &self-consistent frequencies will be converged when constructing the &
      &self-consistent anharmonic approximation to the VSCF potential. This &
      &should be given in Hartree.' ),                                         &
-     & KeywordData( 'no_converged_calculations_vscha',                        &
-     &              'no_converged_calculations_vscha is the number of &
-     &consecutive calculations which must be converged to within &
-     &frequency_convergence for the self-consistent anharmonic procedure to &
-     &terminate.',                                                            &
-     &              default_value='5' ),                                      &
      & KeywordData( 'no_vscf_basis_states',                                   &
      &              'no_vscf_basis_states is the number of states along each &
      &mode in the basis used for the VSCF calculation.'),                     &
@@ -131,7 +125,6 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   integer                       :: no_temperature_steps
   integer                       :: no_vscha_basis_states
   real(dp)                      :: frequency_convergence
-  integer                       :: no_converged_calculations_vscha
   integer                       :: no_vscf_basis_states
   real(dp)                      :: min_frequency
   real(dp),         allocatable :: thermal_energies(:)
@@ -238,8 +231,6 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   max_temperature = dble(arguments%value('max_temperature'))
   no_temperature_steps = int(arguments%value('no_temperature_steps'))
   frequency_convergence = dble(arguments%value('frequency_convergence'))
-  no_converged_calculations_vscha = int(                  &
-     & arguments%value('no_converged_calculations_vscha') )
   min_frequency = dble(arguments%value('min_frequency'))
   no_vscha_basis_states = int(arguments%value('no_vscha_basis_states'))
   path_string = split_line(arguments%value('path'), ',')
@@ -436,8 +427,7 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
                                 & thermal_energies(i),            &
                                 & frequencies(j),                 &
                                 & no_vscha_basis_states,          &
-                                & frequency_convergence,          &
-                                & no_converged_calculations_vscha )
+                                & frequency_convergence           )
     enddo
     
     call print_line('Self-consistent harmonic frequencies calculated.')

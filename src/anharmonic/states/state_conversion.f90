@@ -5,7 +5,6 @@ module state_conversion_module
   use common_module
   
   use monomial_state_module
-  use braket_module
   implicit none
   
   private
