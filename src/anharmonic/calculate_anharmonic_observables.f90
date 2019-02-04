@@ -12,6 +12,7 @@ module calculate_anharmonic_observables_module
   use initial_frequencies_module
   use vscf_module
   use effective_frequency_module
+  use setup_anharmonic_module
   implicit none
   
   private
@@ -132,6 +133,10 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   type(String),     allocatable :: path_labels(:)
   type(RealVector), allocatable :: path_qpoints(:)
   integer                       :: no_dos_samples
+  
+  ! Previous inputs.
+  type(Dictionary) :: setup_anharmonic_arguments
+  logical          :: calculate_stress
   
   ! Anharmonic data.
   type(AnharmonicData)                  :: anharmonic_data
@@ -261,6 +266,14 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
     call print_line(ERROR//': max_pulay_iterations must be at least 2.')
     stop
   endif
+  
+  ! Read in setup_anharmonic settings.
+  setup_anharmonic_arguments = Dictionary(setup_anharmonic())
+  call setup_anharmonic_arguments%read_file('setup_anharmonic.used_settings')
+  
+  ! TODO: change this
+  calculate_stress = .false.
+  !calculate_stress = lgcl(setup_anharmonic_arguments%value('calculate_stress'))
   
   ! --------------------------------------------------
   ! Read in previously calculated data.

@@ -521,9 +521,9 @@ module abstract_classes_module
       type(OFile),             intent(inout) :: logfile
     end subroutine
     
-    subroutine generate_potential_PotentialData(this,anharmonic_data,        &
-       & weighted_energy_force_ratio,sampling_points_dir,calculation_reader, &
-       & logfile)
+    subroutine generate_potential_PotentialData(this,anharmonic_data,      &
+       & weighted_energy_force_ratio,calculate_stress,sampling_points_dir, &
+       & calculation_reader,logfile)
       import dp
       import PotentialData
       import AnharmonicData
@@ -535,6 +535,7 @@ module abstract_classes_module
       class(PotentialData),    intent(inout) :: this
       type(AnharmonicData),    intent(in)    :: anharmonic_data
       real(dp),                intent(in)    :: weighted_energy_force_ratio
+      logical,                 intent(in)    :: calculate_stress
       type(String),            intent(in)    :: sampling_points_dir
       type(CalculationReader), intent(inout) :: calculation_reader
       type(OFile),             intent(inout) :: logfile
@@ -1465,14 +1466,15 @@ subroutine generate_sampling_points_PotentialPointer(this,anharmonic_data, &
                                                & logfile              )
 end subroutine
 
-subroutine generate_potential_PotentialPointer(this,anharmonic_data,     &
-   & weighted_energy_force_ratio,sampling_points_dir,calculation_reader, &
-   & logfile)
+subroutine generate_potential_PotentialPointer(this,anharmonic_data,   &
+   & weighted_energy_force_ratio,calculate_stress,sampling_points_dir, &
+   & calculation_reader,logfile)
   implicit none
   
   class(PotentialPointer), intent(inout) :: this
   type(AnharmonicData),    intent(in)    :: anharmonic_data
   real(dp),                intent(in)    :: weighted_energy_force_ratio
+  logical,                 intent(in)    :: calculate_stress
   type(String),            intent(in)    :: sampling_points_dir
   type(CalculationReader), intent(inout) :: calculation_reader
   type(OFile),             intent(inout) :: logfile
@@ -1481,6 +1483,7 @@ subroutine generate_potential_PotentialPointer(this,anharmonic_data,     &
   
   call this%potential_%generate_potential( anharmonic_data,              &
                                          & weighted_energy_force_ratio,  &
+                                         & calculate_stress,             &
                                          & sampling_points_dir,          &
                                          & calculation_reader,           &
                                          & logfile                       )

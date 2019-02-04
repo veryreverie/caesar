@@ -203,6 +203,7 @@ subroutine map_potential_subroutine(arguments)
      & no_nodes            = no_nodes,         &
      & run_script_data     = run_script_data,  &
      & calculation_type    = calculation_type, &
+     & calculate_stress    = .false.,          &
      & exit_on_error       = .true.,           &
      & repeat_calculations = .true.            )
 

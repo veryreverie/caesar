@@ -3256,7 +3256,7 @@ function pulay(input_vectors,output_vectors) result(output)
   real(dp),         allocatable :: lagrange_vector(:)
   real(dp),         allocatable :: coefficients(:)
   
-  integer :: n
+  integer :: m,n
   
   integer :: i,j,ialloc
   
@@ -3276,10 +3276,21 @@ function pulay(input_vectors,output_vectors) result(output)
   ! (   1  ,   1  ,  1  ,   1  ,  0  ) ( l )   ( 1 )
   
   if (size(input_vectors)/=size(output_vectors)) then
+    call print_line(ERROR//': Input and output vectors do not match.')
     call err()
   endif
   
+  m = size(input_vectors(1))
   n = size(input_vectors)
+  
+  if (m<n) then
+    call print_line(ERROR//': m<n.')
+    call err()
+  elseif (any([(size(input_vectors(i)),i=1,n)]/=m)) then
+    call print_line(ERROR//': Input vectors inconsistent.')
+  elseif (any([(size(output_vectors(i)),i=1,n)]/=m)) then
+    call print_line(ERROR//': Output vectors inconsistent.')
+  endif
   
   ! Construct errors, e_i = f(x_i)-x_i.
   errors = output_vectors - input_vectors
@@ -3300,11 +3311,8 @@ function pulay(input_vectors,output_vectors) result(output)
   error_matrix(n+1, :n ) = 1
   error_matrix(n+1, n+1) = 0
   
-  ! Construct lagrange vector.
-  ! (0, 0, ..., 0, 1)
-  allocate(lagrange_vector(n+1), stat=ialloc); call err(ialloc)
-  lagrange_vector(:n ) = 0
-  lagrange_vector(n+1) = 1
+  ! Construct lagrange vector, equal to (0, 0, ..., 0, 1).
+  lagrange_vector = [(0.0_dp,i=1,n), 1.0_dp]
   
   ! Perform least-squares optimisation to get coefficients, {a_i}.
   coefficients = dble(linear_least_squares(error_matrix, lagrange_vector))

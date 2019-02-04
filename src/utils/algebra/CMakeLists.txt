@@ -13,5 +13,6 @@ target_link_libraries(algebra arpack)
 
 # Link against required modules.
 target_link_libraries(algebra precision)
+target_link_libraries(algebra clock)
 target_link_libraries(algebra abstract)
 target_link_libraries(algebra io)

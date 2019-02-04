@@ -222,6 +222,7 @@ subroutine converge_cutoff_and_kpoints_subroutine(arguments)
      & no_nodes            = no_nodes,        &
      & run_script_data     = run_script_data, &
      & calculation_type    = str('none'),     &
+     & calculate_stress    = .false.,         &
      & exit_on_error       = .true.,          &
      & repeat_calculations = .true.           )
   

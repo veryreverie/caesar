@@ -64,7 +64,12 @@ function setup_anharmonic() result(output)
   &              'frequency_of_max_displacement is the frequency, w_min, at &
   &which maximum displacement happens. Displacement along modes with w>w_min &
   &is scaled by sqrt(w_min/w), and displacement along modes with w<w_min &
-  &is unscaled. w_min should be given in Hartree.') ]
+  &is unscaled. w_min should be given in Hartree.'),                          &
+  & KeywordData( 'calculate_stress', &
+  &              'calculate_stress specifies whether or not to calculate &
+  &stress and pressure. If calculate_stress is true then all electronic &
+  &structure calculations must produce a stress tensor or virial tensor.',    &
+  &              default_value='true')                                        ]
   output%main_subroutine => setup_anharmonic_subroutine
 end function
 
@@ -85,6 +90,7 @@ subroutine setup_anharmonic_subroutine(arguments)
   logical      :: vscf_basis_functions_only
   real(dp)     :: maximum_displacement
   real(dp)     :: frequency_of_max_displacement
+  logical      :: calculate_stress
   
   ! Previous user inputs.
   type(Dictionary) :: setup_harmonic_arguments
@@ -161,6 +167,7 @@ subroutine setup_anharmonic_subroutine(arguments)
   maximum_displacement = dble(arguments%value('maximum_displacement'))
   frequency_of_max_displacement = &
      & dble(arguments%value('frequency_of_max_displacement'))
+  calculate_stress = lgcl(arguments%value('calculate_stress'))
   
   ! Read setup_harmonic arguments.
   setup_harmonic_arguments = Dictionary(setup_harmonic())

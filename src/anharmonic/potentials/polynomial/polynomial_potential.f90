@@ -263,14 +263,15 @@ subroutine generate_sampling_points_PolynomialPotential(this, &
 end subroutine
 
 ! Generate potential.
-subroutine generate_potential_PolynomialPotential(this,anharmonic_data,  &
-   & weighted_energy_force_ratio,sampling_points_dir,calculation_reader, &
-   & logfile)
+subroutine generate_potential_PolynomialPotential(this,anharmonic_data, &
+   & weighted_energy_force_ratio,calculate_stress,sampling_points_dir,  &
+   & calculation_reader,logfile)
   implicit none
   
   class(PolynomialPotential), intent(inout) :: this
   type(AnharmonicData),       intent(in)    :: anharmonic_data
   real(dp),                   intent(in)    :: weighted_energy_force_ratio
+  logical,                    intent(in)    :: calculate_stress
   type(String),               intent(in)    :: sampling_points_dir
   type(CalculationReader),    intent(inout) :: calculation_reader
   type(OFile),                intent(inout) :: logfile
@@ -494,6 +495,11 @@ subroutine generate_potential_PolynomialPotential(this,anharmonic_data,  &
        &    basis_functions = coefficients                         &
        &                    * basis_functions(i)%basis_functions ) ]
   enddo
+  
+  ! --------------------------------------------------
+  ! Calculate stress tensor mapping.
+  ! --------------------------------------------------
+  ! TODO
 end subroutine
 
 ! Set the undisplaced energy to zero.
@@ -630,22 +636,25 @@ function braket_PolynomialPotential(this,bra,ket,subspace,subspace_basis, &
       ! Then check if a coupling is now the same as a previous coupling.
       ! If so, combine the two and flag the duplicate term for removal.
       if (size(potential%basis_functions(i)%coupling)==0) then
-        potential%reference_energy =      &
-           &   potential%reference_energy &
-           & + sum(potential%basis_functions(i)%basis_functions%undisplaced_energy())
+        potential%reference_energy =           &
+           &   potential%reference_energy      &
+           & + sum(potential%basis_functions(i &
+           &          )%basis_functions%undisplaced_energy())
         to_remove(i) = .true.
       else
-        k = first([(                                          &
-           & all(    potential%basis_functions(i)%coupling%ids   &
-           &      == potential%basis_functions(l)%coupling%ids), &
-           & l=1,                                             &
-           & i-1                                              )], default=0)
-        if (k/=0) then
-          potential%basis_functions(k)%basis_functions = [   &
-             & potential%basis_functions(k)%basis_functions, &
-             & potential%basis_functions(i)%basis_functions  ]
-          to_remove(i) = .true.
-        endif
+        do k=1,i-1
+          if (    size(potential%basis_functions(k)%coupling%ids) &
+             & == size(potential%basis_functions(i)%coupling%ids) ) then
+            if (all( potential%basis_functions(k)%coupling%ids &
+                & == potential%basis_functions(i)%coupling%ids )) then
+              potential%basis_functions(k)%basis_functions = [   &
+                 & potential%basis_functions(k)%basis_functions, &
+                 & potential%basis_functions(i)%basis_functions  ]
+              to_remove(i) = .true.
+              exit
+            endif
+          endif
+        enddo
       endif
     endif
   enddo
@@ -798,145 +807,6 @@ function iterate_pulay_PolynomialPotential(this,input_potentials, &
   
   output = PotentialPointer(potential)
 end function
-
-! %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-! PART OF PULAY SCHEME.
-! %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-! TODO: convert this to a PotentialData function.
-!function pulay_scheme()
-!  implicit none
-!
-!  class(PotentialData),     intent(in) :: potential
-!  type(DegenerateSubspace), intent(in) :: subspaces(:)
-!  type(FullSubspaceBasis),  intent(in) :: subspace_bases(:)
-!  real(dp),                 intent(in) :: energy_convergence
-!  integer,                  intent(in) :: no_converged_calculations
-!  integer,                  intent(in) :: max_pulay_iterations
-!  integer,                  intent(in) :: pre_pulay_iterations
-!  real(dp),                 intent(in) :: pre_pulay_damping
-!  type(AnharmonicData),     intent(in) :: anharmonic_data
-!  type(VscfOutput), allocatable        :: output(:)
-!  
-!  type(PotentialPointer),  allocatable :: subspace_potentials(:)
-!  type(FullSubspaceState), allocatable :: subspace_states(:)
-!  real(dp),                allocatable :: energies(:)
-!  
-!  type(RealVector), allocatable :: old_coefficients(:)
-!  type(RealVector), allocatable :: new_coefficients(:)
-!  
-!  type(FullSubspaceState), allocatable :: input_states(:,:)
-!  type(FullSubspaceState), allocatable :: output_states(:,:)
-!  
-!  type(RealVector) :: next_old_coefficients
-!  
-!  type(FractionVector), allocatable :: state_wavevectors(:)
-!  integer                           :: wavevector_changed
-!  
-!  integer :: i,j,ialloc
-!    ! %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-!    new_coefficients = [ new_coefficients,                       &
-!                       & states_to_coefficients(subspace_states) ]
-!    
-!    if (i==1) then
-!      wavevector_changed = i
-!    else
-!      if (any(subspace_states%wavevector/=state_wavevectors)) then
-!        wavevector_changed = i
-!      endif
-!    endif
-!    
-!    state_wavevectors = subspace_states%wavevector
-!    
-!    ! Use a damped iterative scheme or a Pulay scheme to converge towards the
-!    !    self-consistent solution where new coefficients = old coefficients.
-!    if (i-wavevector_changed<=pre_pulay_iterations) then
-!      next_old_coefficients = (1-pre_pulay_damping) * old_coefficients(i) &
-!                          & + pre_pulay_damping * new_coefficients(i)
-!    else
-!      j = max(2, i-max_pulay_iterations+1)
-!      next_old_coefficients = pulay(old_coefficients(j:), new_coefficients(j:))
-!    endif
-!    
-!    ! Normalise coefficients, and append them to the list.
-!    next_old_coefficients = normalise_coefficients( next_old_coefficients, &
-!                                                  & subspace_states        )
-!    old_coefficients = [old_coefficients, next_old_coefficients]
-!    
-!    ! Use the next iteration of old_coefficients to update the current state.
-!    ! N.B. the energy of this state is unknown.
-!    subspace_states = coefficients_to_states( next_old_coefficients, &
-!                                            & subspace_states        )
-!    ! %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-!end function
-! Concatenates the coefficients of all the states together,
-!    to allow the Pulay scheme to be called.
-!function states_to_coefficients(states) result(output)
-!  implicit none
-!  
-!  type(FullSubspaceState), intent(in) :: states(:)
-!  type(RealVector)                    :: output
-!  
-!  integer :: i
-!  
-!  output = vec([( states(i)%coefficients, i=1, size(states) )])
-!end function
-!
-!! Reverses coefficients(), generating a set of states from a vector of
-!!    coefficients.
-!! Takes an array of states to act as a template for the output states.
-!function coefficients_to_states(input,states) result(output)
-!  implicit none
-!  
-!  type(RealVector),        intent(in)  :: input
-!  type(FullSubspaceState), intent(in)  :: states(:)
-!  type(FullSubspaceState), allocatable :: output(:)
-!  
-!  real(dp), allocatable :: coefficients(:)
-!  real(dp), allocatable :: state_coefficients(:)
-!  
-!  integer :: i,j,ialloc
-!  
-!  coefficients = dble(input)
-!  
-!  j = 0
-!  allocate(output(size(states)), stat=ialloc); call err(ialloc)
-!  do i=1,size(states)
-!    state_coefficients = coefficients(j+1:j+size(states(i)%coefficients))
-!    j = j+size(state_coefficients)
-!    output(i) = FullSubspaceState( subspace_id  = states(i)%subspace_id, &
-!                                 & wavevector   = states(i)%wavevector,  &
-!                                 & degeneracy   = states(i)%degeneracy,  &
-!                                 & energy       = 0.0_dp,                &
-!                                 & coefficients = state_coefficients     )
-!  enddo
-!end function
-!
-!! Normalises a set of coefficients, using a set of states to identify which
-!!    coefficients correspond to which state.
-!function normalise_coefficients(input,states) result(output)
-!  implicit none
-!  
-!  type(RealVector),        intent(in) :: input
-!  type(FullSubspaceState), intent(in) :: states(:)
-!  type(RealVector)                    :: output
-!  
-!  real(dp), allocatable :: coefficients(:)
-!  real(dp), allocatable :: state_coefficients(:)
-!  real(dp), allocatable :: new_coefficients(:)
-!  
-!  integer :: i,j
-!  
-!  coefficients = dble(input)
-!  new_coefficients = [real::]
-!  do i=1,size(states)
-!    j = size(new_coefficients)
-!    state_coefficients = coefficients(j+1:j+size(states(i)%coefficients))
-!    state_coefficients = state_coefficients / l2_norm(state_coefficients)
-!    new_coefficients = [new_coefficients, state_coefficients]
-!  enddo
-!  output = new_coefficients
-!end function
-! %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 ! ----------------------------------------------------------------------
 ! I/O.

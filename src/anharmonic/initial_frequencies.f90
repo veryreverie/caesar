@@ -99,8 +99,8 @@ function new_InitialFrequencies_PotentialData(potential,anharmonic_data,   &
   type(RealVector), allocatable :: input_frequencies(:)
   type(RealVector), allocatable :: output_frequencies(:)
   
-  type(RealVector) :: input_frequency
-  type(RealVector) :: output_frequency
+  real(dp), allocatable :: input_frequency(:)
+  real(dp), allocatable :: output_frequency(:)
   
   integer :: i,j,ialloc
   
@@ -150,19 +150,23 @@ function new_InitialFrequencies_PotentialData(potential,anharmonic_data,   &
                                            & subspace_states,      &
                                            & anharmonic_data,      &
                                            & frequency_convergence )
-    output_frequencies = [output_frequencies, output_frequency]
+    output_frequencies = [output_frequencies, vec(output_frequency)]
     
     ! Use a damped iterative scheme or a Pulay scheme to converge towards the
     !    self-consistent solution where output frequencies = input frequencies.
     if (i<=pre_pulay_iterations) then
-      input_frequency = pre_pulay_damping * input_frequencies(i) &
-                    & + (1-pre_pulay_damping) * output_frequencies(i)
+      input_frequency = pre_pulay_damping * dble(input_frequencies(i)) &
+                    & + (1-pre_pulay_damping) * dble(output_frequencies(i))
     else
       j = max(2, i-max_pulay_iterations+1)
-      input_frequency = pulay(input_frequencies(j:), output_frequencies(j:))
+      input_frequency = dble(pulay( input_frequencies(j:), &
+                                  & output_frequencies(j:) ))
     endif
     
-    input_frequencies = [input_frequencies, input_frequency]
+    ! Find and correct negative frequencies.
+    input_frequency = max(input_frequency, output_frequency/2)
+    
+    input_frequencies = [input_frequencies, vec(input_frequency)]
     
     ! Increment the loop counter.
     i = i+1
@@ -191,6 +195,8 @@ function new_InitialFrequencies_PotentialData(potential,anharmonic_data,   &
     endif
     
     call print_line('Completed self-consistency step '//i-1//'.')
+    call print_line( 'L2 Self-consistency error: '//                         &
+                   & l2_norm(output_frequencies(i-1)-input_frequencies(i-1)) )
   enddo
   
   output = InitialFrequencies(subspaces%id, frequencies)
@@ -222,13 +228,9 @@ function optimise_frequencies(potential,subspaces,subspace_bases, &
   class(SubspaceStates),    intent(in) :: subspace_states(:)
   type(AnharmonicData),     intent(in) :: anharmonic_data
   real(dp),                 intent(in) :: frequency_convergence
-  type(RealVector)                     :: output
+  real(dp), allocatable                :: output(:)
   
   type(PotentialPointer), allocatable :: subspace_potentials(:)
-  
-  real(dp), allocatable  :: new_frequencies(:)
-  
-  integer :: i
   
   ! Calculate the single-subspace potentials, defined as
   !    V_i = (prod_{j/=i}<j|)V(prod_{j/=i}|j>).
@@ -239,25 +241,20 @@ function optimise_frequencies(potential,subspaces,subspace_bases, &
      &                               subspace_states,   &
      &                               anharmonic_data  ) )
   
-  new_frequencies = [(0.0_dp,i=1,size(subspace_states))]
-  
-  ! Calculate update frequencies.
-  do i=1,size(subspace_states)
-    ! Find the frequency which minimises total energy.
-    new_frequencies(i) = optimise_frequency( subspace_potentials(i), &
-                                           & subspaces(i),           &
-                                           & subspace_bases(i),      &
-                                           & subspace_states(i),     &
-                                           & anharmonic_data,        &
-                                           & frequency_convergence   )
-  enddo
-  
-  output = new_frequencies
+  ! Calculate updated frequencies, which minimise the free energy subspace
+  !    by subspace.
+  output = optimise_frequency( subspace_potentials,  &
+                             & subspaces,            &
+                             & subspace_bases,       &
+                             & subspace_states,      &
+                             & anharmonic_data,      &
+                             & frequency_convergence )
 end function
 
 ! Find the frequency which minimises energy in a single subspace.
-function optimise_frequency(potential,subspace,subspace_basis, &
-   & subspace_states,anharmonic_data,frequency_convergence) result(output)
+impure elemental function optimise_frequency(potential,subspace,           &
+   & subspace_basis,subspace_states,anharmonic_data,frequency_convergence) &
+   & result(output)
   implicit none
   
   class(PotentialData),     intent(in) :: potential

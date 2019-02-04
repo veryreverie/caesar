@@ -23,6 +23,7 @@ module calculation_runner_module
     integer,      private              :: no_nodes_
     type(String), private              :: run_script_data_
     type(String), private              :: calculation_type_
+    logical,      private              :: calculate_stress_
     logical,      private              :: exit_on_error_
     logical,      private              :: repeat_calculations_
     type(String), private              :: filename_
@@ -40,8 +41,8 @@ contains
 
 ! Constructor.
 function new_CalculationRunner(file_type,seedname,run_script,no_cores, &
-   & no_nodes,run_script_data,calculation_type,exit_on_error,          &
-   & repeat_calculations) result(this)
+   & no_nodes,run_script_data,calculation_type,calculate_stress,       &
+   & exit_on_error,repeat_calculations) result(this)
   implicit none
   
   type(String), intent(in) :: file_type
@@ -51,6 +52,7 @@ function new_CalculationRunner(file_type,seedname,run_script,no_cores, &
   integer,      intent(in) :: no_nodes
   type(String), intent(in) :: run_script_data
   type(String), intent(in) :: calculation_type
+  logical,      intent(in) :: calculate_stress
   logical,      intent(in) :: exit_on_error
   logical,      intent(in) :: repeat_calculations
   type(CalculationRunner)  :: this
@@ -62,6 +64,7 @@ function new_CalculationRunner(file_type,seedname,run_script,no_cores, &
   this%no_nodes_            = no_nodes
   this%run_script_data_     = run_script_data
   this%calculation_type_    = calculation_type
+  this%calculate_stress_    = calculate_stress
   this%exit_on_error_       = exit_on_error
   this%repeat_calculations_ = repeat_calculations
   
@@ -161,6 +164,18 @@ subroutine run_calculation(this,directory)
          & directory,                      &
          & this%seedname_,                 &
          & this%calculation_type_          )
+  
+  ! If calculate_stress is .true., check that a stress tensor has been
+  !    calculated.
+  if (this%calculate_stress_) then
+    if (.not. electronic_structure%has_virial()) then
+      call print_line(ERROR//': Stress calculation has been requested, but no &
+         &stress tensor or virial tensor is present in electronic structure.')
+      call err()
+    endif
+  endif
+  
+  ! Print the electronic structure to file.
   electronic_structure_file = OFile(directory//'/electronic_structure.dat' )
   call electronic_structure_file%print_lines(electronic_structure)
 end subroutine

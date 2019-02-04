@@ -70,6 +70,7 @@ subroutine calculate_potential_subroutine(arguments)
   type(Dictionary) :: setup_anharmonic_arguments
   type(String)     :: potential_representation
   integer          :: potential_expansion_order
+  logical          :: calculate_stress
   
   ! Electronic structure calculation reader.
   type(CalculationReader) :: calculation_reader
@@ -101,6 +102,10 @@ subroutine calculate_potential_subroutine(arguments)
      & setup_anharmonic_arguments%value('potential_representation')
   potential_expansion_order = &
      & int(setup_anharmonic_arguments%value('potential_expansion_order'))
+  
+  ! TODO: change this.
+  calculate_stress = .false.
+  !calculate_stress = lgcl(setup_anharmonic_arguments%value('calculate_stress'))
   
   ! Read in anharmonic data.
   anharmonic_data_file = IFile('anharmonic_data.dat')
@@ -162,6 +167,7 @@ subroutine calculate_potential_subroutine(arguments)
   sampling_points_dir = 'sampling_points'
   call potential%generate_potential( anharmonic_data,             &
                                    & weighted_energy_force_ratio, &
+                                   & calculate_stress,            &
                                    & sampling_points_dir,         &
                                    & calculation_reader,          &
                                    & logfile                      )

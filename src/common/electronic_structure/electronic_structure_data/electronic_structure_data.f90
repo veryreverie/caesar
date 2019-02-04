@@ -17,11 +17,14 @@ module electronic_structure_data_module
   public :: ElectronicStructure
   
   type, extends(Stringsable) :: ElectronicStructure
-    real(dp)                          :: energy
-    type(CartesianForce)              :: forces
-    type(RealMatrix),     allocatable :: virial
-    type(LinearResponse), allocatable :: linear_response
+    real(dp)                                   :: energy
+    type(CartesianForce)                       :: forces
+    type(RealMatrix),     allocatable, private :: virial_
+    type(LinearResponse), allocatable          :: linear_response
   contains
+    procedure, public :: has_virial => has_virial_ElectronicStructure
+    procedure, public :: virial => virial_ElectronicStructure
+    ! I/O.
     procedure, public :: read  => read_ElectronicStructure
     procedure, public :: write => write_ElectronicStructure
   end type
@@ -47,10 +50,34 @@ function new_ElectronicStructure(energy,forces,virial,linear_response) &
   this%energy  = energy
   this%forces  = forces
   if (present(virial)) then
-    this%virial = virial
+    this%virial_ = virial
   endif
   if (present(linear_response)) then
     this%linear_response = linear_response
+  endif
+end function
+
+! Getters for the virial.
+impure elemental function has_virial_ElectronicStructure(this) result(output)
+  implicit none
+  
+  class(ElectronicStructure), intent(in) :: this
+  logical                                :: output
+  
+  output = allocated(this%virial_)
+end function
+
+impure elemental function virial_ElectronicStructure(this) result(output)
+  implicit none
+  
+  class(ElectronicStructure), intent(in) :: this
+  type(RealMatrix)                       :: output
+  
+  if (this%has_virial()) then
+    output = this%virial_
+  else
+    call print_line(ERROR//': Sample result does not contain virial.')
+    call err()
   endif
 end function
 
@@ -124,8 +151,8 @@ function write_ElectronicStructure(this) result(output)
              & str(this%energy),              &
              & str('Forces (Hartree/Bohr):'), &
              & str(this%forces)               ]
-    if (allocated(this%virial)) then
-      output = [output, str('Virial'), str(this%virial)]
+    if (allocated(this%virial_)) then
+      output = [output, str('Virial'), str(this%virial_)]
     endif
     if (allocated(this%linear_response)) then
       output = [output, str(this%linear_response)]

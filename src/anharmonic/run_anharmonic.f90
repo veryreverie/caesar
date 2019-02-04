@@ -96,6 +96,9 @@ subroutine run_anharmonic_subroutine(arguments)
   type(String)     :: file_type
   type(String)     :: seedname
   
+  type(Dictionary) :: setup_anharmonic_arguments
+  logical          :: calculate_stress
+  
   ! Calculation directories information.
   type(IFile)               :: calculation_directories_file
   type(String), allocatable :: calculation_directories(:)
@@ -122,6 +125,11 @@ subroutine run_anharmonic_subroutine(arguments)
           & 'setup_harmonic.used_settings' )
   file_type = setup_harmonic_arguments%value('file_type')
   seedname = setup_harmonic_arguments%value('seedname')
+  
+  ! Read in setup_anharmonic settings.
+  setup_anharmonic_arguments = Dictionary(setup_anharmonic())
+  call setup_anharmonic_arguments%read_file('setup_anharmonic.used_settings')
+  calculate_stress = lgcl(setup_anharmonic_arguments%value('calculate_stress'))
   
   ! Read in calculation directories.
   calculation_directories_file = IFile('calculation_directories.dat')
@@ -162,6 +170,7 @@ subroutine run_anharmonic_subroutine(arguments)
      & no_nodes            = no_nodes,           &
      & run_script_data     = run_script_data,    &
      & calculation_type    = calculation_type,   &
+     & calculate_stress    = calculate_stress,   &
      & exit_on_error       = exit_on_error,      &
      & repeat_calculations = repeat_calculations )
   
