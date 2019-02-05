@@ -140,7 +140,8 @@ function run_vscf(potential,subspaces,subspace_bases,energy_convergence,  &
     subspace_spectra = subspace_states%spectra( subspaces,      &
                                               & subspace_bases, &
                                               & anharmonic_data )
-    call print_line('Ground-state energies: '//subspace_spectra%min_energy())
+    call print_line( 'Ground-state energy: '//                    &
+                   & sum(subspace_spectra%min_energy())//' (Ha).' )
     
     ! Use the current single-subspace states to calculate the single-subspace
     !    potentials.

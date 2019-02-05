@@ -194,9 +194,9 @@ function new_InitialFrequencies_PotentialData(potential,anharmonic_data,   &
       exit
     endif
     
-    call print_line('Completed self-consistency step '//i-1//'.')
-    call print_line( 'L2 Self-consistency error: '//                         &
-                   & l2_norm(output_frequencies(i-1)-input_frequencies(i-1)) )
+    call print_line('Completed self-consistency step '//i-1//'. L2 error: '// &
+                   & l2_norm(output_frequencies(i-1)-input_frequencies(i-1)) &
+                   & //' (Ha).' )
   enddo
   
   output = InitialFrequencies(subspaces%id, frequencies)

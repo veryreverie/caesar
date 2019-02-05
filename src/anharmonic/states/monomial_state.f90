@@ -310,7 +310,7 @@ impure elemental function braket_SubspaceState_MonomialState(this, &
 end function
 
 impure elemental function braket_ComplexUnivariate_MonomialState( &
-   & this,univariate,ket,subspace,subspace_basis,anharmonic_data)        &
+   & this,univariate,ket,subspace,subspace_basis,anharmonic_data) &
    & result(output)
   implicit none
   
@@ -597,54 +597,30 @@ impure elemental function braket_mode(bra,ket) result(output)
   
   integer :: p_i,p_j,q_i,q_j
   
-  integer :: k
-  
   p_i = bra%power
   p_j = bra%paired_power
   q_i = ket%power
   q_j = ket%paired_power
   
   if (bra%id==bra%paired_id) then
-    ! <p_i|q_i> = 0                                               if p+q odd.
-    !
-    !           = prod_{k=1}^{(p_i+q_i)/2} [ 2k-1 ]
-    !           / sqrt( prod_{k=1}^{p_i} [ 2k-1 ]
-    !                 * prod_{k=1}^{q_i} [ 2k-1 ] )                otherwise.
-    !
+    ! <p_i|q_i> = 0                                      if p+q odd.
+    !           = f((p_i+q_i)/2) / sqrt(f(p_i)*f(q_i))   otherwise,
+    ! where f(x) is the odd factorial of x, f(x) = prod_{k=1}^x [ 2k-1 ].
     if (modulo(p_i+q_i,2)==1) then
       output = 0.0_dp
     else
-      output = 1.0_dp
-      do k=2,(p_i+q_i)/2
-        output = output * (2*k-1)
-      enddo
-      do k=2,p_i
-        output = output / sqrt(real(2*k-1,dp))
-      enddo
-      do k=2,q_i
-        output = output / sqrt(real(2*k-1,dp))
-      enddo
+      output = exp( log_odd_factorial((p_i+q_i)/2)                         &
+                & - 0.5_dp*(log_odd_factorial(p_i)+log_odd_factorial(q_i)) )
     endif
   else
     ! <p_i,p_j|q_i,q_j> = 0                          if p_i-p_j-q_i+q_j /= 0.
-    !
-    !                   = prod_{k=1}^{(p_i+p_j+q_i+q_j)/2} [ k ]
-    !                   / sqrt( prod_{k=1}^{p_i+p_j} [ k ]
-    !                         * prod_{k=1}^{q_i+q_j} [ k ] )       otherwise.
+    !                   = ((p_i+p_j+q_i+q_j)/2)!
+    !                   / sqrt((p_i+p_j)!(q_i+q_j)!) otherwise.
     if (p_i-p_j-q_i+q_j/=0) then
       output = 0.0_dp
-      return
     else
-      output = 1.0_dp
-      do k=2,(p_i+p_j+q_i+q_j)/2
-        output = output * k
-      enddo
-      do k=2,(p_i+p_j)
-        output = output / sqrt(real(k,dp))
-      enddo
-      do k=2,(q_i+q_j)
-        output = output / sqrt(real(k,dp))
-      enddo
+      output = exp( log_factorial((p_i+p_j+q_i+q_j)/2)                     &
+                & - 0.5_dp*(log_factorial(p_i+p_j)+log_factorial(q_i+q_j)) )
     endif
   endif
 end function
@@ -670,51 +646,33 @@ impure elemental function braket_mode_potential(bra,ket,potential) &
   n_j = potential%paired_power
   
   if (bra%id==bra%paired_id) then
-    ! <p_i|(u_i)^(n_i)|q_i> = 0                                 if p+n+q odd.
-    !
+    ! <p_i|(u_i)^(n_i)|q_i> = 0                     if p+n+q odd.
     !                       = 1/sqrt(2Nw)^{n_i}
-    !                       * prod_{k=1}^{(p_i+n_i+q_i)/2} [ 2k-1 ]
-    !                       / sqrt( prod_{k=1}^{p_i} [ 2k-1 ]
-    !                             * prod_{k=1}^{q_i} [ 2k-1 ] )    otherwise.
+    !                       * f((p_i+n_i+q_i)/2)
+    !                       / sqrt(f(p_i)*f(q_i))   otherwise,
+    ! where f(x) is the odd factorial of x, f(x) = prod_{k=1}^x [ 2k-1 ].
     !
     ! N.B. the factor of 1/sqrt(2Nw)^{n_i} is neglected.
     if (modulo(p_i+n_i+q_i,2)==1) then
       output = 0
     else
-      output = 1
-      do k=2,(p_i+n_i+q_i)/2
-        output = output * (2*k-1)
-      enddo
-      do k=2,p_i
-        output = output / sqrt(real(2*k-1,dp))
-      enddo
-      do k=2,q_i
-        output = output / sqrt(real(2*k-1,dp))
-      enddo
+      output = exp( log_odd_factorial((p_i+n_i+q_i)/2)                     &
+                & - 0.5_dp*(log_odd_factorial(p_i)+log_odd_factorial(q_i)) )
     endif
   else
     ! <p_i,p_j|(u_i)^(n_i) (u_j)^(n_j)|q_i,q_j> =
     !    = 0                                 if p_i-p_j-n_i+n_j-q_i+q_j /= 0.
     !
     !    = 1/sqrt(2Nw)^{n_i+n_j}
-    !    * prod_{k=1}^{(p_i+p_j+n_i+n_j+q_i+q_j)/2} [ k ]
-    !    / sqrt( prod_{k=1}^{p_i+p_j} [ k ]
-    !          * prod_{k=1}^{q_i+q_j} [ k ] )                      otherwise.
+    !    * ((p_i+p_j+n_i+n_j+q_i+q_j)/2)!
+    !    / sqrt( (p_i+p_j)! * (q_i+q_j)! )   otherwise.
     !
     ! N.B. the factor of 1/sqrt(2Nw)^{n_i+n_j} is neglected.
     if (p_i-p_j-n_i+n_j-q_i+q_j/=0) then
       output = 0
     else
-      output = 1
-      do k=2,(p_i+p_j+n_i+n_j+q_i+q_j)/2
-        output = output * k
-      enddo
-      do k=2,(p_i+p_j)
-        output = output / sqrt(real(k,dp))
-      enddo
-      do k=2,(q_i+q_j)
-        output = output / sqrt(real(k,dp))
-      enddo
+      output = exp( log_factorial((p_i+p_j+n_i+n_j+q_i+q_j)/2)             &
+                & - 0.5_dp*(log_factorial(p_i+p_j)+log_factorial(q_i+q_j)) )
     endif
   endif
 end function

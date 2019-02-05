@@ -22,10 +22,15 @@ module algebra_utils_module
   public :: factorial
   public :: real_factorial
   public :: log_factorial
+  public :: odd_factorial
+  public :: real_odd_factorial
+  public :: log_odd_factorial
   public :: binomial
   public :: real_binomial
+  public :: log_binomial
   public :: multinomial
   public :: real_multinomial
+  public :: log_multinomial
   public :: int_sqrt
   
   ! Greatest common denominator.
@@ -177,7 +182,7 @@ function triple_product_RealVector(a,b,c) result(output)
 end function
 
 ! ----------------------------------------------------------------------
-! Factorial.
+! Factorial. factorial(n)=n! = prod_{k=1}^n[ k ].
 ! Stores calculated results to avoid excess computation.
 ! ----------------------------------------------------------------------
 impure elemental function factorial(input) result(output)
@@ -311,7 +316,7 @@ subroutine calculate_real_factorials(real_factorials,input)
 end subroutine
 
 ! ----------------------------------------------------------------------
-! Calculates ln(n!).
+! Calculates ln(n!), the log of the factorial of the input.
 ! ----------------------------------------------------------------------
 impure elemental function log_factorial(input) result(output)
   implicit none
@@ -368,6 +373,209 @@ subroutine calculate_log_factorials(log_factorials,log_factorials_calculated, &
   ! N.B. log_factorials(1) = ln(0!), so ln(n!) = log_factorials(n+1).
   do n=log_factorials_calculated+1,input
     log_factorials(n+1) = log_factorials(n) + log(real(n,dp))
+  enddo
+end subroutine
+
+! ----------------------------------------------------------------------
+! The product of the first n odd numbers, rather than the first n numbers.
+! odd_factorial(n) = prod_{k=1}^n[ 2*k-1 ] = (2n-1)!/(2^n * (n-1)!).
+! Stores calculated results to avoid excess computation.
+! ----------------------------------------------------------------------
+impure elemental function odd_factorial(input) result(output)
+  implicit none
+  
+  integer, intent(in) :: input
+  integer             :: output
+  
+  ! An array of odd_factorials, stored to avoid re-calculating.
+  ! Calculated the first time a related function is called.
+  integer, allocatable, save :: odd_factorials(:)
+  
+  ! Check that n>=0.
+  if (input<0) then
+    call print_line( ERROR//': Trying to calculate the factorial of an &
+       &integer less than 0.')
+    call err()
+  endif
+  
+  call calculate_odd_factorials(odd_factorials)
+  
+  ! Check that n is small enough that n! is storable as an integer.
+  if (input>=size(odd_factorials)) then
+    call print_line( ERROR//': Trying to calculate the odd factorial of an &
+       &integer greater than '//size(odd_factorials)-1//'. This is too large &
+       &to fit in the standard integer type.')
+    call err()
+  endif
+  
+  ! odd_factorials(1) = odd_factorial(0),
+  !    so odd_factorials(n+1) = odd_factorial(n).
+  output = odd_factorials(input+1)
+end function
+
+subroutine calculate_odd_factorials(odd_factorials)
+  implicit none
+  
+  integer, intent(inout), allocatable :: odd_factorials(:)
+  
+  integer :: i,j,ialloc
+  
+  ! The first time this function is called,
+  !    calculate all storable factorials, {f(i)} s.t. f(i)<=huge(0).
+  if (.not. allocated(odd_factorials)) then
+    ! Find the largest integer i s.t. f(i) is too large to be
+    !    stored as an integer.
+    i = 0
+    j = 1
+    do
+      i = i+1
+      if (j>huge(0)/(2*i-1)) then
+        allocate(odd_factorials(i), stat=ialloc); call err(ialloc)
+        exit
+      endif
+      j = j*(2*i-1) ! j = f(i).
+    enddo
+    
+    ! Calculate and store all storable odd factorials.
+    odd_factorials(1) = 1
+    do i=1,size(odd_factorials)-1
+      ! oddfactorials(i+1) = f(i).
+      odd_factorials(i+1) = odd_factorials(i)*(2*i-1)
+    enddo
+  endif
+end subroutine
+
+! ----------------------------------------------------------------------
+! Odd factorial, but giving the answer as a real.
+! Stores calculated results to avoid excess computation.
+! ----------------------------------------------------------------------
+impure elemental function real_odd_factorial(input) result(output)
+  implicit none
+  
+  integer, intent(in) :: input
+  real(dp)            :: output
+  
+  ! An array of odd factorials, stored to avoid re-calculating.
+  ! Calculated the first time a related function is called.
+  real(dp), allocatable, save :: real_odd_factorials(:)
+  
+  ! Check that n>=0.
+  if (input<0) then
+    call print_line( ERROR//': Trying to calculate the odd factorial of an &
+       &integer less than 0.')
+    call err()
+  endif
+  
+  call calculate_real_odd_factorials(real_odd_factorials, input)
+  
+  ! Check that n is small enough that n! is storable as an dp float.
+  if (input>=size(real_odd_factorials)) then
+    call print_line( ERROR//': Trying to calculate the odd factorial of an &
+       &integer greater than '//size(real_odd_factorials)-1//'. This is too &
+       &large to fit in the double-precision real type.')
+    call err()
+  endif
+  
+  ! real_odd_factorials(1) = real_odd_factorial(0),
+  !    so real_odd_factorials(n+1) = real_odd_factorial(n).
+  output = real_odd_factorials(input+1)
+end function
+
+subroutine calculate_real_odd_factorials(real_odd_factorials,input)
+  implicit none
+  
+  real(dp), intent(inout), allocatable :: real_odd_factorials(:)
+  integer,  intent(in)                 :: input
+  
+  integer  :: i,ialloc
+  real(dp) :: j
+  
+  ! The first time this function is called,
+  !    calculate all storable odd factorials, {f(i)} s.t. f(i)<=huge(0).
+  if (.not. allocated(real_odd_factorials)) then
+    ! Find the largest integer i s.t. f(i) is too large to be
+    !    stored as a real.
+    i = 0
+    j = 1
+    do
+      i = i+1
+      if (j>huge(0.0_dp)/(2*i-1)) then
+        allocate(real_odd_factorials(i), stat=ialloc); call err(ialloc)
+        exit
+      endif
+      j = j*(2*i-1) ! j = f(i).
+    enddo
+    
+    ! Calculate and store all storable odd factorials.
+    real_odd_factorials(1) = 1.0_dp
+    do i=1,size(real_odd_factorials)-1
+      ! real_odd_factorials(i+1) = f(i).
+      real_odd_factorials(i+1) = real_odd_factorials(i)*(2*i-1)
+    enddo
+  endif
+end subroutine
+
+! ----------------------------------------------------------------------
+! Calculates ln(real_odd_factorial(n)),
+!    the log of the odd factorial of the input.
+! ----------------------------------------------------------------------
+impure elemental function log_odd_factorial(input) result(output)
+  implicit none
+  
+  integer, intent(in) :: input
+  real(dp)            :: output
+  
+  ! An array of ln(f(n)), stored to avoid re-calculating.
+  real(dp), allocatable, save :: log_odd_factorials(:)
+  integer,               save :: log_odd_factorials_calculated
+  
+  if (input<0) then
+    call print_line( ERROR//': Trying to calculate the odd factorial of an &
+       &integer less than 0.')
+    call err()
+  endif
+  
+  call calculate_log_odd_factorials( log_odd_factorials,            &
+                                   & log_odd_factorials_calculated, &
+                                   & input                          )
+  
+  ! log_odd_factorials(1) = ln(f(0)), so ln(f(n)) = log_odd_factorials(n+1).
+  output = log_odd_factorials(input+1)
+end function
+
+subroutine calculate_log_odd_factorials(log_odd_factorials, &
+   & log_odd_factorials_calculated,input)
+  implicit none
+  
+  real(dp), intent(inout), allocatable :: log_odd_factorials(:)
+  integer,  intent(inout)              :: log_odd_factorials_calculated
+  integer,  intent(in)                 :: input
+  
+  real(dp), allocatable :: old_log_odd_factorials(:)
+  
+  integer :: n,ialloc
+  
+  ! Check if log_odd_factorials needs expanding.
+  ! Uses a doubling strategy to minimise the number of re-allocations.
+  if (.not. allocated(log_odd_factorials)) then
+    allocate(log_odd_factorials(input+1), stat=ialloc); call err(ialloc)
+    log_odd_factorials(1) = 0
+    log_odd_factorials_calculated = 0
+  elseif (size(log_odd_factorials)<=input) then
+    old_log_odd_factorials = log_odd_factorials
+    deallocate(log_odd_factorials, stat=ialloc); call err(ialloc)
+    allocate( log_odd_factorials(max( input+1,                           &
+            &                         2*size(old_log_odd_factorials) )), &
+            & stat=ialloc); call err(ialloc)
+    log_odd_factorials(:size(old_log_odd_factorials)) = old_log_odd_factorials
+  endif
+  
+  ! Calculate additional ln(f(n)) as needed.
+  ! Uses ln(f(n)) = ln(f(n-1)) + ln(2*n-1).
+  ! N.B. log_odd_factorials(1) = ln(f(0)),
+  !    so ln(f(n)) = log_odd_factorials(n+1).
+  do n=log_odd_factorials_calculated+1,input
+    log_odd_factorials(n+1) = log_odd_factorials(n) + log(real((2*n-1),dp))
   enddo
 end subroutine
 
@@ -613,8 +821,24 @@ subroutine calculate_real_binomials(real_binomials,real_binomials_calculated, &
 end subroutine
 
 ! ----------------------------------------------------------------------
-! Calculates the multinomial coefficient of a denominator and a set of
-!    numerators.
+! Calculates ln(bin(top,bottom)) = ln(top!/(bottom!(top-bottom)!)),
+!    the log of the binomial of two integers.
+! ----------------------------------------------------------------------
+impure elemental function log_binomial(top,bottom) result(output)
+  implicit none
+  
+  integer, intent(in) :: top
+  integer, intent(in) :: bottom
+  real(dp)            :: output
+  
+  output = log_factorial(top)    &
+       & - log_factorial(bottom) &
+       & - log_factorial(top-bottom)
+end function
+
+! ----------------------------------------------------------------------
+! Calculates the multinomial coefficient of a numerator and a set of
+!    denominators.
 ! multinomial(a,[b,c,d,...]) = a!/(b!c!d!...)
 ! ----------------------------------------------------------------------
 function multinomial(top,bottom) result(output)
@@ -651,6 +875,20 @@ function real_multinomial(top,bottom) result(output)
   endif
   
   output = exp(log_factorial(top)-sum(log_factorial(bottom)))
+end function
+
+! ----------------------------------------------------------------------
+! Calculates ln(multinomial(top,bottom)) = ln(top!/product(bottom!)),
+!    the log of the multinomial of a numerator and set of denominators.
+! ----------------------------------------------------------------------
+function log_multinomial(top,bottom) result(output)
+  implicit none
+  
+  integer, intent(in) :: top
+  integer, intent(in) :: bottom(:)
+  real(dp)            :: output
+  
+  output = log_factorial(top) - sum(log_factorial(bottom))
 end function
 
 ! ----------------------------------------------------------------------

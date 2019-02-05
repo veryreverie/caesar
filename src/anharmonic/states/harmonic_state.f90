@@ -674,6 +674,8 @@ impure elemental function braket_mode_potential(bra,ket,potential) &
   
   integer :: k
   
+  real(dp) :: log_term
+  
   p_i = bra%power
   p_j = bra%paired_power
   q_i = ket%power
@@ -696,20 +698,20 @@ impure elemental function braket_mode_potential(bra,ket,potential) &
     !   / ( sqrt(2Nw)^n_i * 2^(a-k) * (a-k)! * sqrt((d+k)!k!) )
     !
     ! N.B. the factor of 1/sqrt(2Nw)^{n_i} is neglected.
+    !
+    ! Uses logs to avoid overflowing part way through calculations.
     output = 0
     m = min(p_i,q_i)
     d = abs(p_i-q_i)
     a = (n_i-d)/2
     if (modulo(n_i-d,2)==0) then
       do k=0,min(a,m)
-        output = output &
-             & + real_factorial(n_i)            &
-             & * sqrt( real_binomial(m,k)       &
-             &       * real_binomial(m+d,k+d) ) &
-             & / ( 2**(a-k)                     &
-             &   * real_factorial(a-k)          &
-             &   * sqrt( real_factorial(k)      &
-             &         * real_factorial(d+k) )  )
+        log_term = log_factorial(n_i)                               &
+               & + 0.5_dp*(log_binomial(m,k)+log_binomial(m+d,k+d)) &
+               & - (a-k)*log(2.0_dp)                                &
+               & - log_factorial(a-k)                               &
+               & - 0.5_dp*(log_factorial(k)+log_factorial(d+k))
+        output = output + exp(log_term)
       enddo
     endif
   else
@@ -726,17 +728,19 @@ impure elemental function braket_mode_potential(bra,ket,potential) &
     !  / sqrt(2Nw)^n_i
     !
     ! N.B. the factor of 1/sqrt(2Nq)^{n_i+n_j} is neglected.
+    !
+    ! Uses logs to avoid overflowing part way through calculations.
     output = 0
     if (p_i-p_j-n_i+n_j-q_i+q_j==0) then
       do k=max(0,p_i-q_i),min(n_i,p_i,n_j+p_i-q_i)
-        output = output                             &
-             & + real_binomial(p_j+n_i-k,n_i-k)     &
-             & * sqrt( real_binomial(n_i,k)         &
-             &       * real_binomial(n_j,k+q_i-p_i) &
-             &       * real_binomial(p_i,k)         &
-             &       * real_binomial(q_i,k+q_i-p_i) &
-             &       * real_factorial(n_i)          &
-             &       * real_factorial(n_j)          )
+        log_term = log_binomial(p_j+n_i-k,n_i-k)         &
+               & + 0.5_dp*( log_binomial(n_i, k)         &
+               &          + log_binomial(n_j, k+q_i-p_i) &
+               &          + log_binomial(p_i, k)         &
+               &          + log_binomial(q_i, k+q_i-p_i) &
+               &          + log_factorial(n_i)           &
+               &          + log_factorial(n_j)           )
+        output = output + exp(log_term)
       enddo
     endif
   endif

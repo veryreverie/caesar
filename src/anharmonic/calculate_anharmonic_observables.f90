@@ -393,13 +393,13 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
       &                                basis,            &
       &                                anharmonic_data ) )
   
+  i = minloc(subspace_spectra%max_energy()-subspace_spectra%min_energy(),1)
+  call print_line('Minimum VSCF energy span is '// &
+     & subspace_spectra(i)%max_energy()-subspace_spectra(i)%min_energy()// &
+     & ', in subspace '//subspaces(i)%id//'.' )
+  
   ! Print VSCF spectra and wavefunction information.
   do i=1,size(subspaces)
-    call print_line('VSCF spectrum in subspace '//subspaces(i)%id//' spans ' &
-                                     & //  subspace_spectra(i)%max_energy()  &
-                                     &   - subspace_spectra(i)%min_energy()  &
-                                     & // ' (Ha)'                            )
-    
     subspace_dir = output_dir//'/subspace_'// &
        & left_pad(subspaces(i)%id, str(maxval(subspaces%id)))
     call mkdir(subspace_dir)
@@ -441,10 +441,9 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
                                 & frequencies(j),                 &
                                 & no_vscha_basis_states,          &
                                 & frequency_convergence           )
+      call print_line('Self-consistent harmonic frequency in subspace '// &
+         &subspaces(j)%id//': '//effective_frequencies(j,i)//' (Ha).')
     enddo
-    
-    call print_line('Self-consistent harmonic frequencies calculated.')
-    call print_line(effective_frequencies(:,i))
     
     ! The starting point for calculating the effective frequencies at the
     !    next temperature is the frequencies at this temperature.

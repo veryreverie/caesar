@@ -377,7 +377,9 @@ impure elemental function element_ComplexMonomial_RealMonomial(this,that, &
         n = this_mode%total_power()
         overlap = 0
         do l=max(0,p+q-n),min(p,q)
-          overlap = overlap + binomial(p,l)*binomial(n-p,q-l)*(-1)**l
+          overlap = overlap                                      &
+                & + exp(log_binomial(p,l)+log_binomial(n-p,q-l)) &
+                & * (-1)**l
         enddo
         overlap = overlap                            &
              & * cmplx(0.0_dp,1.0_dp,dp)**(-n+2*p+q) &
@@ -490,7 +492,9 @@ impure elemental function element_RealMonomial_ComplexMonomial(this,that, &
         n = this_mode%total_power()
         overlap = 0
         do l=max(0,p+q-n),min(p,q)
-          overlap = overlap + binomial(p,l)*binomial(n-p,q-l)*(-1)**l
+          overlap = overlap                                      &
+                & + exp(log_binomial(p,l)+log_binomial(n-p,q-l)) &
+                & * (-1)**l
         enddo
         overlap = overlap                             &
              & * cmplx(0.0_dp,1.0_dp,dp)**(n-p-2*q) &

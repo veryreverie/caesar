@@ -41,26 +41,22 @@ function calculate_effective_frequency(potential,subspace,anharmonic_data,   &
   
   type(NewtonRaphson) :: solver
   
-  integer :: i
-  
   frequency = initial_frequency
   
-  solver = NewtonRaphson(                                   &
-     & starting_value      = initial_frequency,             &
-     & finite_displacement = 0.01_dp*frequency_convergence, &
-     & convergence_threshold = frequency_convergence,       &
-     & lower_bound           = 0.0_dp                       )
+  solver = NewtonRaphson(                                     &
+     & starting_value        = initial_frequency,             &
+     & finite_displacement   = 0.01_dp*frequency_convergence, &
+     & convergence_threshold = frequency_convergence,         &
+     & lower_bound           = 0.0_dp                         )
   do
     frequencies = solver%get_inputs()
     
-    do i=1,3
-      free_energies(i) = calculate_free_energy( potential,       &
-                                              & frequencies(i),  &
-                                              & thermal_energy,  &
-                                              & no_basis_states, &
-                                              & subspace,        &
-                                              & anharmonic_data  )
-    enddo
+    free_energies = calculate_free_energy( potential,       &
+                                         & frequencies,     &
+                                         & thermal_energy,  &
+                                         & no_basis_states, &
+                                         & subspace,        &
+                                         & anharmonic_data  )
     
     call solver%set_outputs(free_energies)
     
@@ -87,8 +83,8 @@ end function
 !    Fv(h) = sum_i(Ph_i <ih|T+Vv|ih>) + KbT sum_i(Ph_i ln(Ph_i))
 !
 ! -> Fv(h) = Fh(h) + sum_i(Ph_i <ih|Vv-Vh|ih>)
-function calculate_free_energy(potential,frequency,thermal_energy,no_states, &
-   & subspace,anharmonic_data) result(output)
+impure elemental function calculate_free_energy(potential,frequency, &
+   & thermal_energy,no_states,subspace,anharmonic_data) result(output)
   implicit none
   
   class(PotentialData),     intent(in) :: potential
