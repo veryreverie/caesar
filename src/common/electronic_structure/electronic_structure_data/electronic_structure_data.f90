@@ -19,11 +19,11 @@ module electronic_structure_data_module
   type, extends(Stringsable) :: ElectronicStructure
     real(dp)                                   :: energy
     type(CartesianForce)                       :: forces
-    type(RealMatrix),     allocatable, private :: virial_
+    type(RealMatrix),     allocatable, private :: stress_
     type(LinearResponse), allocatable          :: linear_response
   contains
-    procedure, public :: has_virial => has_virial_ElectronicStructure
-    procedure, public :: virial => virial_ElectronicStructure
+    procedure, public :: has_stress => has_stress_ElectronicStructure
+    procedure, public :: stress => stress_ElectronicStructure
     ! I/O.
     procedure, public :: read  => read_ElectronicStructure
     procedure, public :: write => write_ElectronicStructure
@@ -37,46 +37,46 @@ module electronic_structure_data_module
 contains
 
 ! Constructor.
-function new_ElectronicStructure(energy,forces,virial,linear_response) &
+function new_ElectronicStructure(energy,forces,stress,linear_response) &
    & result(this)
   implicit none
   
   real(dp),             intent(in)           :: energy
   type(CartesianForce), intent(in)           :: forces
-  type(RealMatrix),     intent(in), optional :: virial
+  type(RealMatrix),     intent(in), optional :: stress
   type(LinearResponse), intent(in), optional :: linear_response
   type(ElectronicStructure)                  :: this
   
   this%energy  = energy
   this%forces  = forces
-  if (present(virial)) then
-    this%virial_ = virial
+  if (present(stress)) then
+    this%stress_ = stress
   endif
   if (present(linear_response)) then
     this%linear_response = linear_response
   endif
 end function
 
-! Getters for the virial.
-impure elemental function has_virial_ElectronicStructure(this) result(output)
+! Getters for the stress.
+impure elemental function has_stress_ElectronicStructure(this) result(output)
   implicit none
   
   class(ElectronicStructure), intent(in) :: this
   logical                                :: output
   
-  output = allocated(this%virial_)
+  output = allocated(this%stress_)
 end function
 
-impure elemental function virial_ElectronicStructure(this) result(output)
+impure elemental function stress_ElectronicStructure(this) result(output)
   implicit none
   
   class(ElectronicStructure), intent(in) :: this
   type(RealMatrix)                       :: output
   
-  if (this%has_virial()) then
-    output = this%virial_
+  if (this%has_stress()) then
+    output = this%stress_
   else
-    call print_line(ERROR//': Sample result does not contain virial.')
+    call print_line(ERROR//': Sample result does not contain stress.')
     call err()
   endif
 end function
@@ -90,19 +90,19 @@ subroutine read_ElectronicStructure(this,input)
   
   real(dp)             :: energy
   type(CartesianForce) :: forces
-  type(RealMatrix)     :: virial
+  type(RealMatrix)     :: stress
   type(LinearResponse) :: linear_response
   
-  integer :: virial_line
+  integer :: stress_line
   integer :: linear_response_line
   integer :: i
   
   select type(this); type is(ElectronicStructure)
-    ! Check if the virial is present.
-    virial_line = 0
+    ! Check if the stress is present.
+    stress_line = 0
     do i=1,size(input)
-      if (input(i)=='Virial') then
-        virial_line = i
+      if (input(i)=='Stress' .or. input(i)=='Virial') then
+        stress_line = i
       endif
     enddo
     
@@ -114,26 +114,26 @@ subroutine read_ElectronicStructure(this,input)
       endif
     enddo
     
-    if (virial_line==0 .and. linear_response_line==0) then
+    if (stress_line==0 .and. linear_response_line==0) then
       energy = dble(input(2))
       forces = CartesianForce(input(4:))
       this = ElectronicStructure(energy,forces)
     elseif (linear_response_line==0) then
       energy = dble(input(2))
-      forces = CartesianForce(input(4:virial_line-1))
-      virial = RealMatrix(input(virial_line+1:))
-      this = ElectronicStructure(energy,forces,virial)
-    elseif (virial_line==0) then
+      forces = CartesianForce(input(4:stress_line-1))
+      stress = RealMatrix(input(stress_line+1:))
+      this = ElectronicStructure(energy,forces,stress)
+    elseif (stress_line==0) then
       energy = dble(input(2))
       forces = CartesianForce(input(4:linear_response_line-1))
       linear_response = LinearResponse(input(linear_response_line:))
       this = ElectronicStructure(energy,forces,linear_response=linear_response)
     else
       energy = dble(input(2))
-      forces = CartesianForce(input(4:virial_line-1))
-      virial = RealMatrix(input(virial_line+1:linear_response_line-1))
+      forces = CartesianForce(input(4:stress_line-1))
+      stress = RealMatrix(input(stress_line+1:linear_response_line-1))
       linear_response = LinearResponse(input(linear_response_line:))
-      this = ElectronicStructure(energy,forces,virial,linear_response)
+      this = ElectronicStructure(energy,forces,stress,linear_response)
     endif
   class default
     call err()
@@ -151,8 +151,8 @@ function write_ElectronicStructure(this) result(output)
              & str(this%energy),              &
              & str('Forces (Hartree/Bohr):'), &
              & str(this%forces)               ]
-    if (allocated(this%virial_)) then
-      output = [output, str('Virial'), str(this%virial_)]
+    if (allocated(this%stress_)) then
+      output = [output, str('Stress'), str(this%stress_)]
     endif
     if (allocated(this%linear_response)) then
       output = [output, str(this%linear_response)]

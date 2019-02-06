@@ -17,10 +17,10 @@ module sample_result_module
   type, extends(NoDefaultConstructor) :: SampleResult
     real(dp)                               :: energy
     type(RealModeForce)                    :: force
-    type(RealMatrix), allocatable, private :: virial_
+    type(RealMatrix), allocatable, private :: stress_
   contains
-    procedure, public :: has_virial => has_virial_SampleResult
-    procedure, public :: virial => virial_SampleResult
+    procedure, public :: has_stress => has_stress_SampleResult
+    procedure, public :: stress => stress_SampleResult
   end type
   
   interface SampleResult
@@ -31,41 +31,41 @@ module sample_result_module
 contains
 
 ! Constructor.
-function new_SampleResult(energy,force,virial) result(this)
+function new_SampleResult(energy,force,stress) result(this)
   implicit none
   
   real(dp),            intent(in)           :: energy
   type(RealModeForce), intent(in)           :: force
-  type(RealMatrix),    intent(in), optional :: virial
+  type(RealMatrix),    intent(in), optional :: stress
   type(SampleResult)                        :: this
   
   this%energy = energy
   this%force  = force
-  if (present(virial)) then
-    this%virial_ = virial
+  if (present(stress)) then
+    this%stress_ = stress
   endif
 end function
 
-! Getters for the virial.
-impure elemental function has_virial_SampleResult(this) result(output)
+! Getters for the stress.
+impure elemental function has_stress_SampleResult(this) result(output)
   implicit none
   
   class(SampleResult), intent(in) :: this
   logical                         :: output
   
-  output = allocated(this%virial_)
+  output = allocated(this%stress_)
 end function
 
-impure elemental function virial_SampleResult(this) result(output)
+impure elemental function stress_SampleResult(this) result(output)
   implicit none
   
   class(SampleResult), intent(in) :: this
   type(RealMatrix)                :: output
   
-  if (this%has_virial()) then
-    output = this%virial_
+  if (this%has_stress()) then
+    output = this%stress_
   else
-    call print_line(ERROR//': Sample result does not contain virial.')
+    call print_line(ERROR//': Sample result does not contain stress.')
     call err()
   endif
 end function
@@ -84,7 +84,7 @@ function new_SampleResult_calculation(calculation,supercell,real_modes, &
   ! Output variables.
   real(dp)            :: energy
   type(RealModeForce) :: force
-  type(RealMatrix)    :: virial
+  type(RealMatrix)    :: stress
   
   ! Normalise the energy by the number of unit cells in the supercell.
   energy = calculation%energy / supercell%sc_size
@@ -96,9 +96,9 @@ function new_SampleResult_calculation(calculation,supercell,real_modes, &
                        & qpoints)
   
   ! Construct output.
-  if (calculation%has_virial()) then
-    virial = calculation%virial()
-    this = SampleResult(energy,force,virial)
+  if (calculation%has_stress()) then
+    stress = calculation%stress()
+    this = SampleResult(energy,force,stress)
   else
     this = SampleResult(energy,force)
   endif
@@ -122,7 +122,7 @@ function new_SampleResult_calculations(vscf_rvectors,calculations,supercell, &
   ! Output variables.
   real(dp)            :: energy
   type(RealModeForce) :: force
-  type(RealMatrix)    :: virial
+  type(RealMatrix)    :: stress
   
   ! Temporary variables.
   integer :: i,ialloc
@@ -144,9 +144,9 @@ function new_SampleResult_calculations(vscf_rvectors,calculations,supercell, &
   ! Average over calculations.
   energy = sum(results%energy) / size(results)
   force = sum(results%force) / real(size(results),dp)
-  if (all(results%has_virial())) then
-    virial = sum(results%virial()) / size(results)
-    this = SampleResult(energy, force, virial)
+  if (all(results%has_stress())) then
+    stress = sum(results%stress()) / size(results)
+    this = SampleResult(energy, force, stress)
   else
     this = SampleResult(energy, force)
   endif

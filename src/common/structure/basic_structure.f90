@@ -15,6 +15,8 @@ module basic_structure_module
   type, extends(NoDefaultConstructor) :: BasicStructure
     type(RealMatrix)             :: lattice_matrix
     type(BasicAtom), allocatable :: atoms(:)
+  contains
+    procedure, public :: volume => volume_BasicStructure
   end type
   
   interface BasicStructure
@@ -103,5 +105,14 @@ function new_BasicSupercell(supercell_matrix,rvectors,gvectors, &
   output%gvectors         = gvectors
   output%atom_rvector_ids = atom_rvector_ids
   output%atom_prim_ids    = atom_prim_ids
+end function
+
+impure elemental function volume_BasicStructure(this) result(output)
+  implicit none
+  
+  class(BasicStructure), intent(in) :: this
+  real(dp)                          :: output
+  
+  output = abs(determinant(this%lattice_matrix))
 end function
 end module

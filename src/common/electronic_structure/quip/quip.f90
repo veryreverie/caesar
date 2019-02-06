@@ -29,7 +29,7 @@ module quip_module
   type :: QuipElectronicStructure
     real(dp)              :: energy
     real(dp), allocatable :: forces(:,:)
-    real(dp)              :: virial(3,3)
+    real(dp)              :: stress(3,3)
   end type
   
   interface assignment(=)
@@ -139,7 +139,7 @@ function run_quip_on_structure(structure,seedname) result(output)
      & init_args_str_len   = 10,                               &
      & energy              = quip_electronic_structure%energy, &
      & force               = quip_electronic_structure%forces, &
-     & virial              = quip_electronic_structure%virial, &
+     & virial              = quip_electronic_structure%stress, &
      & do_energy           = .true.,                           &
      & do_force            = .true.,                           &
      & do_virial           = .true.,                           &
@@ -147,6 +147,9 @@ function run_quip_on_structure(structure,seedname) result(output)
      & quip_param_file_len = len(quip_filename),               &
      & calc_args_str       = '',                               &
      & calc_args_str_len   = 0 )
+  
+  quip_electronic_structure%stress = quip_electronic_structure%stress &
+                                 & / structure%volume()
   
   output = quip_electronic_structure
 end function
@@ -225,6 +228,6 @@ subroutine assign_ElectronicStructure_QuipElectronicStructure(output,input)
   
   output = ElectronicStructure( input%energy / EV_PER_HARTREE,     &
                               & CartesianForce(forces),            &
-                              & mat(input%virial) / EV_PER_HARTREE )
+                              & mat(input%stress) / EV_PER_HARTREE )
 end subroutine
 end module

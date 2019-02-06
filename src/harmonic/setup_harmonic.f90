@@ -27,9 +27,9 @@ function setup_harmonic() result(output)
   output%keywords = [                                                         &
      & KeywordData( 'file_type',                                              &
      &              'file_type is the file type which will be used for &
-     &single-point energy calculations. Settings are: "castep", "caesar" and &
-     &"xyz". Support for xyz files requires Caesar to be linked against &
-     &Quip.',                                                                 &
+     &single-point energy calculations. Settings are: "castep", &
+     &"quantum_espresso", "caesar" and "xyz". Support for xyz files requires &
+     &Caesar to be linked against Quip.',                                     &
      &              default_value='castep'),                                  &
      & KeywordData( 'seedname',                                               &
      &              'seedname is the seedname from which file names are &

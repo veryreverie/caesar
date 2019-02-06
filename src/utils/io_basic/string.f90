@@ -333,7 +333,7 @@ function slice_character(input,first,last) result(output)
   output = input(first:last)
 end function
 
-function slice_String(input,first,last) result(output)
+impure elemental function slice_String(input,first,last) result(output)
   implicit none
   
   type(String), intent(in) :: input

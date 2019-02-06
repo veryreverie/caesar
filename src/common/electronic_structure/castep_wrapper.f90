@@ -12,6 +12,12 @@ module castep_wrapper_module
   
   private
   
+  public :: make_input_filename_castep
+  public :: make_output_filename_castep
+  public :: read_input_file_castep
+  public :: write_input_file_castep
+  public :: read_output_file_castep
+  
   type :: CastepInputFile
     type(String), allocatable :: lattice_block(:)
     type(String), allocatable :: positions_block(:)
@@ -19,12 +25,6 @@ module castep_wrapper_module
     type(String), allocatable :: kpoints_block(:)
     type(String), allocatable :: remainder(:)
   end type
-  
-  public :: make_input_filename_castep
-  public :: make_output_filename_castep
-  public :: read_input_file_castep
-  public :: write_input_file_castep
-  public :: read_output_file_castep
 contains
 
 function make_input_filename_castep(seedname) result(output)
@@ -48,8 +48,8 @@ end function
 function read_input_file_castep(filename) result(output)
   implicit none
   
-  type(String), intent(in)           :: filename
-  type(BasicStructure)               :: output
+  type(String), intent(in) :: filename
+  type(BasicStructure)     :: output
   
   type(CastepInputFile) :: cell_file
   
@@ -493,7 +493,6 @@ function read_output_file_castep(filename,structure) result(output)
   real(dp)                      :: energy
   type(RealVector), allocatable :: forces(:)
   real(dp)                      :: stress(3,3)
-  type(RealMatrix)              :: virial
   real(dp)                      :: permittivity(3,3)
   real(dp)                      :: born_charge(3,3)
   type(RealMatrix), allocatable :: born_charges(:)
@@ -615,15 +614,11 @@ function read_output_file_castep(filename,structure) result(output)
   if (stress_line/=0) then
     do i=1,3
       line = split_line(castep_file%line(stress_line+5+i))
-      stress(i,:) = dble(line(3:5))
+      ! Stress is in GPa = 10^9 * J.m^-3 = 10^-21 * J.A^-3
+      ! The a.u. unit is Ha.bohr^-3
+      stress(i,:) = dble(line(3:5)) &
+                & * 1e-21_dp*ANGSTROM_PER_BOHR**3/JOULES_PER_HARTREE
     enddo
-    
-    ! The virial tensor is the stress tensor * volume,
-    !    with dimensions of energy.
-    ! Stress is in GPa = 10^9 * J.m^-3 = 10^-21 * J.A^-3
-    ! The a.u. unit is Ha.bohr^-3
-    virial = mat( stress*structure%volume*1e-21_dp*ANGSTROM_PER_BOHR**3 &
-              & / JOULES_PER_HARTREE                                    )
   endif
   
   if (permittivity_line/=0) then
@@ -682,7 +677,7 @@ function read_output_file_castep(filename,structure) result(output)
   if (stress_line==0 .and. permittivity_line==0) then
     output = ElectronicStructure(energy, CartesianForce(forces))
   elseif (permittivity_line==0) then
-    output = ElectronicStructure(energy, CartesianForce(forces), virial)
+    output = ElectronicStructure(energy, CartesianForce(forces), mat(stress))
   elseif (stress_line==0) then
     output = ElectronicStructure(                               &
        & energy,                                                &
@@ -692,7 +687,7 @@ function read_output_file_castep(filename,structure) result(output)
   else
     output = ElectronicStructure( energy,                              &
                                 & CartesianForce(forces),              &
-                                & virial,                              &
+                                & mat(stress),                         &
                                 & LinearResponse( mat(permittivity),   &
                                 &                 born_charges       ) )
   endif

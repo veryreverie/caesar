@@ -168,9 +168,9 @@ subroutine run_calculation(this,directory)
   ! If calculate_stress is .true., check that a stress tensor has been
   !    calculated.
   if (this%calculate_stress_) then
-    if (.not. electronic_structure%has_virial()) then
+    if (.not. electronic_structure%has_stress()) then
       call print_line(ERROR//': Stress calculation has been requested, but no &
-         &stress tensor or virial tensor is present in electronic structure.')
+         &stress tensor or stress tensor is present in electronic structure.')
       call err()
     endif
   endif

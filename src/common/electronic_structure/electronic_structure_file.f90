@@ -41,7 +41,7 @@ function make_input_filename(file_type,seedname) result(output)
     output = make_input_filename_castep(seedname)
   elseif (file_type == 'vasp') then
     output = make_input_filename_vasp(seedname)
-  elseif (file_type == 'qe') then
+  elseif (file_type == 'quantum_espresso') then
     output = make_input_filename_qe(seedname)
   elseif (file_type == 'xyz') then
     output = make_input_filename_xyz(seedname)
@@ -62,7 +62,7 @@ function make_output_filename(file_type,seedname) result(output)
     output = make_output_filename_castep(seedname)
   elseif (file_type == 'vasp') then
     output = make_output_filename_vasp(seedname)
-  elseif (file_type == 'qe') then
+  elseif (file_type == 'quantum_espresso') then
     output = make_output_filename_qe(seedname)
   else
     call print_line('Unrecognised output file type: '//file_type)
@@ -87,6 +87,8 @@ function input_file_to_StructureData(file_type,filename) result(output)
   else
     if (file_type == 'castep') then
       basic_structure = read_input_file_castep(filename)
+    elseif (file_type == 'quantum_espresso') then
+      basic_structure = read_input_file_qe(filename)
     elseif (file_type == 'xyz') then
       basic_structure = read_input_file_xyz(filename)
     else
@@ -114,6 +116,8 @@ subroutine StructureData_to_input_file(file_type,structure,input_filename, &
     call structure_file%print_lines(structure)
   elseif (file_type=='castep') then
     call write_input_file_castep(structure,input_filename,output_filename)
+  elseif (file_type=='quantum_espresso') then
+    call write_input_file_qe(structure,input_filename,output_filename)
   elseif (file_type=='xyz') then
     call write_input_file_xyz( BasicStructure(structure),     &
                              & input_filename,output_filename )
@@ -141,7 +145,7 @@ function read_output_file(file_type,filename,structure,dir,seedname, &
   if (calculation_type=='none') then
     if (file_type=='castep') then
       output = read_output_file_castep(filename,structure)
-    elseif (file_type=='qe') then
+    elseif (file_type=='quantum_espresso') then
       output = read_output_file_qe(filename,structure)
     elseif (file_type=='vasp') then
       output = read_output_file_vasp(filename,structure)

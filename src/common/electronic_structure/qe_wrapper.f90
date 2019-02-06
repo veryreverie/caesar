@@ -20,6 +20,26 @@ module qe_wrapper_module
   public :: read_input_file_qe
   public :: write_input_file_qe
   public :: read_output_file_qe
+  
+  type, extends(Stringsable) :: QeInputFile
+    type(String), allocatable :: namelists(:)
+    type(String), allocatable :: atomic_species(:)
+    type(String), allocatable :: atomic_positions(:)
+    type(String), allocatable :: k_points(:)
+    type(String), allocatable :: cell_parameters(:)
+    type(String), allocatable :: occupations(:)
+    type(String), allocatable :: constraints(:)
+    type(String), allocatable :: atomic_forces(:)
+  contains
+    procedure, public :: read  => read_QeInputFile
+    procedure, public :: write => write_QeInputFile
+  end type
+  
+  interface QeInputFile
+    module procedure new_QeInputFile
+    module procedure new_QeInputFile_Strings
+    module procedure new_QeInputFile_StringArray
+  end interface
 contains
 
 function make_input_filename_qe(seedname) result(output)
@@ -40,17 +60,137 @@ function make_output_filename_qe(seedname) result(output)
   output = seedname//'.out'
 end function
 
-function read_input_file_qe(filename,symmetry_precision,calculate_symmetry) &
-   & result(output)
+function read_input_file_qe(filename) result(output)
   implicit none
   
-  type(String), intent(in)           :: filename
-  real(dp),     intent(in)           :: symmetry_precision
-  logical,      intent(in), optional :: calculate_symmetry
-  type(StructureData)                :: output
+  type(String), intent(in) :: filename
+  type(BasicStructure)     :: output
   
-  call print_line(CODE_ERROR//': Quantum Espresso not yet supported.')
-  call err()
+  ! File data.
+  type(IFile)       :: input_file
+  type(QeInputFile) :: qe_file
+  
+  ! Required variables.
+  type(RealMatrix)              :: lattice
+  type(String),     allocatable :: species(:)
+  type(RealVector), allocatable :: positions(:)
+  real(dp),         allocatable :: masses(:)
+  logical,          allocatable :: masses_set(:)
+  
+  ! Temporary variables.
+  type(String), allocatable :: line(:)
+  integer                   :: i,ialloc
+  
+  ! Read file.
+  input_file = IFile(filename)
+  qe_file = QeInputFile(input_file%lines())
+  
+  ! Parse lattice.
+  if (.not. allocated(qe_file%cell_parameters)) then
+    call print_line(ERROR//': Caesar requires cell_parameters card.')
+    stop
+  endif
+  line = split_line(lower_case(qe_file%cell_parameters(1)))
+  if (size(line)==1) then
+    call print_line(ERROR//': No unit given for cell_parameters card. This is &
+       &deprecated behaviour.')
+    stop
+  elseif ( line(2)=='bohr'   .or. &
+         & line(2)=='(bohr)' .or. &
+         & line(2)=='{bohr}'      ) then
+    lattice = RealMatrix(qe_file%cell_parameters(2:4))
+  elseif ( line(2)=='angstrom'   .or. &
+         & line(2)=='(angstrom)' .or. &
+         & line(2)=='{angstrom}'      ) then
+    lattice = RealMatrix(qe_file%cell_parameters(2:4)) / ANGSTROM_PER_BOHR
+  elseif ( line(2)=='alat'   .or. &
+         & line(2)=='(alat)' .or. &
+         & line(2)=='{alat}'      ) then
+    call print_line(ERROR//': Caesar cannot parse cell_parameters card in &
+       &"alat" format.')
+    stop
+  else
+    call print_line(ERROR//': Unrecognised cell_parameters card format: '// &
+       & line(2))
+    stop
+  endif
+  
+  ! Parse atomic positions.
+  line = split_line(lower_case(qe_file%atomic_positions(1)))
+  if (size(line)==1) then
+    call print_line(ERROR//': No unit given for atomic_positions card. This &
+       &is deprecated behaviour.')
+    stop
+  elseif ( line(2)=='alat'   .or. &
+         & line(2)=='(alat)' .or. &
+         & line(2)=='{alat}'      ) then
+    call print_line(ERROR//': Caesar cannot parse atomic_positions card in &
+       &"alat" format.')
+    stop
+  elseif ( line(2)=='bohr'   .or. &
+         & line(2)=='(bohr)' .or. &
+         & line(2)=='{bohr}'      ) then
+    allocate( species(size(qe_file%atomic_positions)-1),   &
+            & positions(size(qe_file%atomic_positions)-1), &
+            & stat=ialloc); call err(ialloc)
+    do i=1,size(species)
+      line = split_line(qe_file%atomic_positions(i+1))
+      species(i) = line(1)
+      positions(i) = dble(line(2:4))
+    enddo
+  elseif ( line(2)=='angstrom'   .or. &
+         & line(2)=='(angstrom)' .or. &
+         & line(2)=='{angstrom}'      ) then
+    allocate( species(size(qe_file%atomic_positions)-1),   &
+            & positions(size(qe_file%atomic_positions)-1), &
+            & stat=ialloc); call err(ialloc)
+    do i=1,size(species)
+      line = split_line(qe_file%atomic_positions(i+1))
+      species(i) = line(1)
+      positions(i) = dble(line(2:4)) / ANGSTROM_PER_BOHR
+    enddo
+  elseif ( line(2)=='crystal'   .or. &
+         & line(2)=='(crystal)' .or. &
+         & line(2)=='{crystal}'      ) then
+    allocate( species(size(qe_file%atomic_positions)-1),   &
+            & positions(size(qe_file%atomic_positions)-1), &
+            & stat=ialloc); call err(ialloc)
+    do i=1,size(species)
+      line = split_line(qe_file%atomic_positions(i+1))
+      species(i) = line(1)
+      positions(i) = dble(line(2:4))
+      positions(i) = transpose(lattice) * positions(i)
+    enddo
+  elseif ( line(2)=='crystal_sg'   .or. &
+         & line(2)=='(crystal_sg)' .or. &
+         & line(2)=='{crystal_sg}'      ) then
+    call print_line(ERROR//': Caesar cannot parse atomic_positions card in &
+       &crystal_sg format.')
+    stop
+  else
+    call print_line(ERROR//': Unrecognised atomic_positions card format: '// &
+       & line(2))
+    stop
+  endif
+  
+  ! Parse masses.
+  allocate(masses(size(species)), stat=ialloc); call err(ialloc)
+  masses_set = [(.false., i=1, size(masses))]
+  do i=2,size(qe_file%atomic_species)
+    line = split_line(qe_file%atomic_species(i))
+    masses(filter(species==line(1))) = dble(line(2))
+    masses_set(filter(species==line(1))) = .true.
+  enddo
+  if (.not. all(masses_set)) then
+    call print_line(ERROR//': Not all species present in atomic_species card.')
+    stop
+  endif
+  
+  ! Make output.
+  output = BasicStructure( lattice,  &
+                         & species,  &
+                         & masses,   &
+                         & positions )
 end function
 
 subroutine write_input_file_qe(structure,old_qe_in_filename,new_qe_in_filename)
@@ -60,51 +200,45 @@ subroutine write_input_file_qe(structure,old_qe_in_filename,new_qe_in_filename)
   type(String),        intent(in), optional :: old_qe_in_filename
   type(String),        intent(in)           :: new_qe_in_filename
   
-  ! The new and old qe input files.
-  type(IFile) :: old_qe_in_file
-  type(OFile) :: new_qe_in_file
+  type(IFile)       :: old_qe_in_file
+  type(OFile)       :: new_qe_in_file
+  type(QeInputFile) :: qe_file
   
-  ! Temporary variables
-  integer                   :: i
-  type(String), allocatable :: line(:)
+  integer :: i
   
-  if (present(old_qe_in_filename)) then
-    old_qe_in_file = IFile(old_qe_in_filename)
-    
-    ! --------------------------------------------------
-    ! Transform q-points into supercell co-ordinates.
-    ! --------------------------------------------------
-    do i=1,size(old_qe_in_file)
-      line = split_line(lower_case(old_qe_in_file%line(i)))
-      if (size(line) >= 1) then
-        if (line(1)=='k_points') then
-          call print_line('qe q-points not yet supported.')
-          call err()
-        endif
-      endif
-    enddo
+  if (.not. present(old_qe_in_filename)) then
+    call print_line(ERROR//': Unable to write QE input file without QE input &
+       &file to work from.')
+    call err()
   endif
   
-  ! --------------------------------------------------
-  ! Write output file
-  ! --------------------------------------------------
-  new_qe_in_file = OFile(new_qe_in_filename)
-  call new_qe_in_file%print_line('nat='//structure%no_atoms)
-  call new_qe_in_file%print_line('/&end')
-  call new_qe_in_file%print_line('CELL_PARAMETERS bohr')
-  call new_qe_in_file%print_lines(structure%lattice)
-  call new_qe_in_file%print_line('ATOMIC_POSITIONS bohr')
-  do i=1,structure%no_atoms
-    call new_qe_in_file%print_line( structure%atoms(i)%species() //' '// &
-                                  & structure%atoms(i)%cartesian_position())
+  ! Read in old QE file.
+  old_qe_in_file = IFile(old_qe_in_filename)
+  qe_file = QeInputFile(old_qe_in_file%lines())
+  
+  ! Change cell_parameters and atomic_positions cards to match new structure.
+  qe_file%cell_parameters = [ str('CELL_PARAMETERS bohr'), &
+                            & str(structure%lattice)       ]
+  
+  qe_file%atomic_positions = [                         &
+     & str('ATOMIC_POSITIONS bohr'),                   &
+     & ( structure%atoms(i)%species() //' '//          &
+     &      structure%atoms(i)%cartesian_position(),   &
+     &   i=1,                                          &
+     &   structure%no_atoms                          ) ]
+  
+  ! Update 'nat' in namelists.
+  do i=1,size(qe_file%namelists)
+    if (len(qe_file%namelists(i))>=4) then
+      if (slice(qe_file%namelists(i),1,4)=='nat=') then
+        qe_file%namelists(i) = 'nat='//structure%no_atoms
+      endif
+    endif
   enddo
   
-  ! Write old qe in file contents to new qe in file.
-  if (present(old_qe_in_filename)) then
-    do i=1,size(old_qe_in_file)
-      call new_qe_in_file%print_line(old_qe_in_file%line(i))
-    enddo
-  endif
+  ! Write out new QE file.
+  new_qe_in_file = OFile(new_qe_in_filename)
+  call new_qe_in_file%print_lines(qe_file)
 end subroutine
 
 function read_output_file_qe(filename,structure) result(output)
@@ -124,77 +258,367 @@ function read_output_file_qe(filename,structure) result(output)
   integer :: energy_line
   integer :: forces_start_line
   integer :: forces_end_line
+  integer :: stress_start_line
+  integer :: stress_end_line
+  
+  ! Counts.
+  integer :: no_species
+  integer :: no_forces
   
   ! QE 'type' to species conversion.
-  integer                   :: no_species
   type(String), allocatable :: species(:)
+  logical,      allocatable :: forces_found(:)
   
   ! Output variables.
   real(dp)                      :: energy
   type(RealVector), allocatable :: forces(:)
+  real(dp)                      :: stress(3,3)
   
   ! Temporary variables.
-  integer :: i,ialloc
+  integer :: i,j,ialloc
   
   qe_file = IFile(filename)
   
   ! Work out line numbers.
+  ! N.B. start lines are one before the start of the block.
+  ! end lines are the last lines in the block.
   species_start_line = 0
+  no_species = 0
+  energy_line = 0
+  forces_start_line = 0
+  no_forces = 0
+  stress_start_line = 0
+  
   do i=1,size(qe_file)
     line = split_line(lower_case(qe_file%line(i)))
+    
     ! Species.
-    if (line(1)=='atomic' .and. line(2)=='species') then
-      species_start_line = i
-    elseif ( species_start_line/=0 .and. &
-           & species_end_line==0   .and. &
-           & size(line)==0) then
-      species_end_line = i
+    if (size(line)>=2) then
+      if (line(1)=='atomic' .and. line(2)=='species') then
+        species_start_line = i
+      endif
+    endif
+    
+    if (species_start_line/=0 .and. no_species==0 .and. size(line)==0) then
+      no_species = i-1-species_start_line
+    endif
+    
     ! Energy.
-    elseif (line(1)=='!') then
-      energy_line=i
+    if (size(line)>=1) then
+      if (line(1)=='!') then
+        energy_line=i
+      endif
+    endif
+    
     ! Forces.
-    elseif (line(1)=='forces' .and. line(2)=='acting') then
-      forces_start_line = i
-    elseif (line(1)=='total' .and. line(2)=='force') then
-      forces_end_line = i
+    if (size(line)>=2) then
+      if (line(1)=='forces' .and. line(2)=='acting') then
+        forces_start_line = i+1
+      elseif (line(1)=='total' .and. line(2)=='force') then
+        no_forces = i-2-forces_start_line
+      endif
+    endif
+    
+    ! Stresses
+    if (size(line)>=2) then
+      if (line(1)=='total' .and. line(2)=='stress') then
+        stress_start_line = i
+      endif
     endif
   enddo
   
-  ! Check line numbers.
-  if (forces_end_line-forces_start_line-3/=structure%no_atoms) then
-    call print_line(ERROR//': The number of atoms in the Castep output file &
-       &does not match that in the input file.')
-    call err()
+  ! Check counts.
+  if (no_forces/=structure%no_atoms) then
+    call print_line(ERROR//': The number of atoms in the Quantum Espresso &
+       &output file does not match that in the input file.')
+    stop
   endif
   
   ! Allocate arrays.
-  no_species = species_end_line-species_start_line-1
   allocate( species(no_species),        &
           & forces(structure%no_atoms), &
           & stat=ialloc); call err(ialloc)
+  forces_found = [(.false.,i=1,structure%no_atoms)]
   
   ! Read data.
-  do i=1,species_end_line-species_start_line-1
-    line = split_line(qe_file%line(species_start_line+1))
+  do i=1,no_species
+    line = split_line(qe_file%line(species_start_line+i))
     species(i) = line(1)
   enddo
   
   line = split_line(qe_file%line(energy_line))
   energy = dble(line(5)) * EV_PER_RYDBERG / EV_PER_HARTREE
   
-  do i=1,forces_end_line-forces_start_line-3
-    line = split_line(qe_file%line(forces_start_line+1+i))
+  do i=1,no_forces
+    line = split_line(qe_file%line(forces_start_line+i))
     
-    if (species(int(line(4)))/=structure%atoms(i)%species()) then
-      call print_line(ERROR//': The species in the qe output file do not match &
-         &those in the input file.')
-      call err()
+    j = first( structure%atoms%species()==species(int(line(4))), &
+             & mask=.not.forces_found,                           &
+             & default=0                                         )
+    
+    if (j==0) then
+      call print_line(ERROR//': Unable to match species in Quantum Espresso &
+         &output file with those in input file.')
+      stop
     endif
     
-    forces(i) = dble(line(7:9)) * EV_PER_RYDBERG / EV_PER_HARTREE
+    forces(j) = dble(line(7:9)) * EV_PER_RYDBERG / EV_PER_HARTREE
+    forces_found(j) = .true.
+  enddo
+  
+  if (.not.all(forces_found)) then
+    call print_line(ERROR//': Unable to match forces in Quantum Espresso &
+       &output file with atoms in input file.')
+    stop
+  endif
+  
+  do i=1,3
+    line = split_line(qe_file%line(stress_start_line+i))
+    stress(i,:) = dble(line(1:3))  &
+              & * EV_PER_RYDBERG   &
+              & / EV_PER_HARTREE
   enddo
   
   ! Construct output.
-  output = ElectronicStructure(energy,CartesianForce(forces))
+  output = ElectronicStructure(energy,CartesianForce(forces),mat(stress))
+end function
+
+! ----------------------------------------------------------------------
+! QeInputFile methods.
+! ----------------------------------------------------------------------
+function new_QeInputFile(namelists,atomic_species,atomic_positions,k_points, &
+   & cell_parameters,occupations,constraints,atomic_forces) result(this)
+  implicit none
+  
+  type(String), intent(in)           :: namelists(:)
+  type(String), intent(in)           :: atomic_species(:)
+  type(String), intent(in)           :: atomic_positions(:)
+  type(String), intent(in)           :: k_points(:)
+  type(String), intent(in), optional :: cell_parameters(:)
+  type(String), intent(in), optional :: occupations(:)
+  type(String), intent(in), optional :: constraints(:)
+  type(String), intent(in), optional :: atomic_forces(:)
+  type(QeInputFile)                  :: this
+  
+  this%namelists = namelists
+  this%atomic_species = atomic_species
+  this%atomic_positions = atomic_positions
+  this%k_points = k_points
+  if (present(cell_parameters)) then
+    this%cell_parameters = cell_parameters
+  endif
+  if (present(occupations)) then
+    this%occupations = occupations
+  endif
+  if (present(constraints)) then
+    this%constraints = constraints
+  endif
+  if (present(atomic_forces)) then
+    this%atomic_forces = atomic_forces
+  endif
+end function
+
+subroutine read_QeInputFile(this,input)
+  implicit none
+  
+  class(QeInputFile), intent(out) :: this
+  type(String),       intent(in)  :: input(:)
+  
+  type(String), allocatable :: namelists(:)
+  type(String), allocatable :: atomic_species(:)
+  type(String), allocatable :: atomic_positions(:)
+  type(String), allocatable :: k_points(:)
+  type(String), allocatable :: cell_parameters(:)
+  type(String), allocatable :: occupations(:)
+  type(String), allocatable :: constraints(:)
+  type(String), allocatable :: atomic_forces(:)
+  
+  integer, allocatable :: namelists_end_lines(:)
+  
+  integer :: namelists_end_line
+  integer :: atomic_species_line
+  integer :: atomic_positions_line
+  integer :: k_points_line
+  integer :: cell_parameters_line
+  integer :: occupations_line
+  integer :: constraints_line
+  integer :: atomic_forces_line
+  
+  integer, allocatable :: end_lines(:)
+  integer              :: end_line
+  
+  type(String), allocatable :: line(:)
+  
+  integer :: i
+  
+  select type(this); type is(QeInputFile)
+    ! Locate lines.
+    namelists_end_lines = filter([(input(i)=='/',i=1,size(input))])
+    namelists_end_line = namelists_end_lines(size(namelists_end_lines))
+    
+    atomic_species_line = 0
+    atomic_positions_line = 0
+    k_points_line = 0
+    cell_parameters_line = 0
+    occupations_line = 0
+    constraints_line = 0
+    atomic_forces_line = 0
+    
+    end_lines = [integer::]
+    
+    do i=namelists_end_line+1,size(input)
+      line = split_line(lower_case(input(i)))
+      
+      if (line(1)=='atomic_species') then
+        if (atomic_species_line/=0) then
+          call print_line(ERROR//': atomic_species card appears twice.')
+          stop
+        endif
+        atomic_species_line = i
+        end_lines = [end_lines, i-1]
+      elseif (line(1)=='atomic_positions') then
+        if (atomic_positions_line/=0) then
+          call print_line(ERROR//': atomic_positions card appears twice.')
+          stop
+        endif
+        atomic_positions_line = i
+        end_lines = [end_lines, i-1]
+      elseif (line(1)=='k_points') then
+        if (k_points_line/=0) then
+          call print_line(ERROR//': k_points card appears twice.')
+          stop
+        endif
+        k_points_line = i
+        end_lines = [end_lines, i-1]
+      elseif (line(1)=='cell_parameters') then
+        if (cell_parameters_line/=0) then
+          call print_line(ERROR//': cell_parameters card appears twice.')
+          stop
+        endif
+        cell_parameters_line = i
+        end_lines = [end_lines, i-1]
+      elseif (line(1)=='occupations') then
+        if (occupations_line/=0) then
+          call print_line(ERROR//': occupations card appears twice.')
+          stop
+        endif
+        occupations_line = i
+        end_lines = [end_lines, i-1]
+      elseif (line(1)=='constraints') then
+        if (constraints_line/=0) then
+          call print_line(ERROR//': constraints card appears twice.')
+          stop
+        endif
+        constraints_line = i
+        end_lines = [end_lines, i-1]
+      elseif (line(1)=='atomic_forces') then
+        if (atomic_forces_line/=0) then
+          call print_line(ERROR//': atomic_forces card appears twice.')
+          stop
+        endif
+        atomic_forces_line = i
+        end_lines = [end_lines, i-1]
+      endif
+    enddo
+    
+    end_lines = [end_lines, size(input)]
+    
+    namelists = input(:namelists_end_line)
+    
+    if (atomic_species_line==0) then
+      call print_line(ERROR//': atomic_species card not present.')
+    else
+      end_line = minval(end_lines(filter(end_lines>=atomic_species_line)))
+      atomic_species = input(atomic_species_line:end_line)
+    endif
+    
+    if (atomic_positions_line==0) then
+      call print_line(ERROR//': atomic_positions card not present.')
+    else
+      end_line = minval(end_lines(filter(end_lines>=atomic_positions_line)))
+      atomic_positions = input(atomic_positions_line:end_line)
+    endif
+    
+    if (k_points_line==0) then
+      call print_line(ERROR//': k_points card not present.')
+    else
+      end_line = minval(end_lines(filter(end_lines>=k_points_line)))
+      k_points = input(k_points_line:end_line)
+    endif
+    
+    this = QeInputFile(namelists, atomic_species, atomic_positions, k_points)
+    
+    if (cell_parameters_line/=0) then
+      end_line = minval(end_lines(filter(end_lines>=cell_parameters_line)))
+      cell_parameters = input(cell_parameters_line:end_line)
+      this%cell_parameters = cell_parameters
+    endif
+    
+    if (occupations_line/=0) then
+      end_line = minval(end_lines(filter(end_lines>=occupations_line)))
+      occupations = input(occupations_line:end_line)
+      this%occupations = occupations
+    endif
+    
+    if (constraints_line/=0) then
+      end_line = minval(end_lines(filter(end_lines>=constraints_line)))
+      constraints = input(constraints_line:end_line)
+      this%constraints = constraints
+    endif
+    
+    if (atomic_forces_line/=0) then
+      end_line = minval(end_lines(filter(end_lines>=atomic_forces_line)))
+      atomic_forces = input(atomic_forces_line:end_line)
+      this%atomic_forces = atomic_forces
+    endif
+  class default
+    call err()
+  end select
+end subroutine
+
+function write_QeInputFile(this) result(output)
+  implicit none
+  
+  class(QeInputFile), intent(in) :: this
+  type(String), allocatable      :: output(:)
+  
+  select type(this); type is(QeInputFile)
+    output = [ this%namelists,        &
+             & this%atomic_species,   &
+             & this%atomic_positions, &
+             & this%k_points          ]
+    if (allocated(this%cell_parameters)) then
+      output = [output, this%cell_parameters]
+    endif
+    if (allocated(this%occupations)) then
+      output = [output, this%occupations]
+    endif
+    if (allocated(this%constraints)) then
+      output = [output, this%constraints]
+    endif
+    if (allocated(this%atomic_forces)) then
+      output = [output, this%atomic_forces]
+    endif
+  class default
+    call err()
+  end select
+end function
+
+function new_QeInputFile_Strings(input) result(this)
+  implicit none
+  
+  type(String), intent(in) :: input(:)
+  type(QeInputFile)        :: this
+  
+  call this%read(input)
+end function
+
+impure elemental function new_QeInputFile_StringArray(input) result(this)
+  implicit none
+  
+  type(StringArray), intent(in) :: input
+  type(QeInputFile)             :: this
+  
+  this = QeInputFile(str(input))
 end function
 end module
