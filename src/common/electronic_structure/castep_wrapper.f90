@@ -519,11 +519,11 @@ function read_output_file_castep(filename,structure) result(output)
     line = split_line(lower_case(castep_file%line(i)))
     
     ! Energy.
-    if (energy_line==0) then
-      if (size(line)>=2) then
-        if (line(1)=='final' .and. line(2)=='energy,') then
-          energy_line = i
-        endif
+    ! N.B. this line likely appears in the file three times for reasons of
+    !    finite basis correction. The third time is the final answer.
+    if (size(line)>=2) then
+      if (line(1)=='final' .and. line(2)=='energy,') then
+        energy_line = i
       endif
     endif
     
