@@ -45,10 +45,10 @@ subroutine update_basis_functions_subroutine(arguments)
   
   type(IFile)                   :: basis_function_ifile
   type(StringArray, allocatable :: sections(:)
-  type(String),     allocatable :: lines(:)
-  type(String)                  :: coupling_line
   type(OFile)                   :: basis_function_ofile
   type(String)                  :: new_line
+  
+  type(String), allocatable :: line(:)
   
   integer :: i
   
@@ -62,10 +62,22 @@ subroutine update_basis_functions_subroutine(arguments)
     
     new_line = 'Subspace Coupling: '//anharmonic_data%subspace_couplings(i)
     
+    ! Read in old file.
     basis_function_ifile = IFile(coupling_dir//'/basis_functions.dat')
     sections = basis_function_ifile%sections()
+    
+    ! Check the file hasn't already been updated.
+    line = split_line(lower_case(basis_function_ifile%line(1)))
+    if (line(1)=='subspace') then
+      call print_line(ERROR//': Basis function file already contains subspace &
+         &coupling.')
+      stop
+    endif
+    
+    ! Remove the unique monomials section, and add a subspace coupling section.
     sections = [StringArray([new_line]), sections(:size(sections)-1)]
     
+    ! Write out the new file.
     basis_function_ofile = OFile(coupling_dir//'/basis_functions.dat')
     call basis_function_ofile%print_lines(str(sections, separating_line=''))
   enddo
