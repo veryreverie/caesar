@@ -96,6 +96,11 @@ module structure_data_module
     procedure, private :: calculate_rvector_group
     procedure, private :: calculate_gvector_group
     
+    ! Primitive lattice procedures.
+    procedure, public :: prim_lattice
+    procedure, public :: prim_recip_lattice
+    procedure, public :: prim_volume
+    
     ! I/O.
     procedure, public :: read  => read_StructureData
     procedure, public :: write => write_StructureData
@@ -176,8 +181,8 @@ function new_StructureData(basic_structure,basic_supercell, &
   type(StructureData)                        :: this
   
   ! Working variables.
-  integer,             allocatable :: atom_rvector_ids(:)
-  integer,             allocatable :: atom_prim_ids(:)
+  integer, allocatable :: atom_rvector_ids(:)
+  integer, allocatable :: atom_prim_ids(:)
   
   ! Temporary variables.
   integer :: id
@@ -540,6 +545,37 @@ subroutine calculate_gvector_group(this)
     this%gvector_group(i) = Group(operation)
   enddo
 end subroutine
+
+! ----------------------------------------------------------------------
+! Calculate properties of the primitive lattice.
+! ----------------------------------------------------------------------
+function prim_lattice(this) result(output)
+  implicit none
+  
+  class(StructureData), intent(in) :: this
+  type(RealMatrix)                 :: output
+  
+  output = transpose(dblemat(this%recip_supercell)) * this%lattice
+end function
+
+function prim_recip_lattice(this) result(output)
+  implicit none
+  
+  class(StructureData), intent(in) :: this
+  type(RealMatrix)                 :: output
+  
+  output = transpose(invert(this%prim_lattice()))
+end function
+
+function prim_volume(this) result(output)
+  implicit none
+  
+  class(StructureData), intent(in) :: this
+  real(dp)                         :: output
+  
+  output = this%volume / this%sc_size
+  output = abs(determinant(this%prim_lattice()))
+end function
 
 ! ----------------------------------------------------------------------
 ! I/O.

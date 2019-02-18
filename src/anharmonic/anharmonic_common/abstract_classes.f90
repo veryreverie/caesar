@@ -3,7 +3,8 @@
 !    - SubspaceBasis defines the basis of states spanning a subspace.
 !    - SubspaceState defines a specific state, in terms of the basis.
 !    - SubspaceStates defines a set of states, again in terms of the basis.
-!    - PotentialData defines a potential.
+!    - PotentialData defines a potential surface.
+!    - StressData defines a stress surface.
 ! ======================================================================
 ! The intent is that SubspaceBasis is mostly unchanging, and specific sets
 !    of states are defined in terms of this basis.
@@ -18,6 +19,7 @@
 module abstract_classes_module
   use common_module
   
+  use subspace_coupling_module
   use anharmonic_data_module
   use energy_spectrum_module
   use subspace_wavefunctions_module
@@ -37,6 +39,9 @@ module abstract_classes_module
   
   public :: PotentialData
   public :: PotentialPointer
+  
+  public :: StressData
+  public :: StressPointer
   
   public :: generate_subspace_potentials
   public :: braket
@@ -202,6 +207,11 @@ module abstract_classes_module
     procedure(generate_potential_PotentialData), public, deferred :: &
        & generate_potential
     
+    ! Given the same data as above, and assuming that generate_potential
+    !    has already been called, generate a StressData.
+    procedure(generate_stress_PotentialData), public, deferred :: &
+       & generate_stress
+    
     ! Return the energy at zero displacement, or set this energy to zero.
     procedure, public :: undisplaced_energy
     procedure(zero_energy_PotentialData), public, deferred :: zero_energy
@@ -253,6 +263,8 @@ module abstract_classes_module
        & generate_sampling_points_PotentialPointer
     procedure, public :: generate_potential => &
        & generate_potential_PotentialPointer
+    procedure, public :: generate_stress => &
+       & generate_stress_PotentialPointer
     
     procedure, public :: zero_energy => zero_energy_PotentialPointer
     
@@ -283,6 +295,31 @@ module abstract_classes_module
   ! An array of all types which extend PotentialData.
   ! This array will be filled in by startup routines.
   type(PotentialPointer), allocatable :: TYPES_PotentialData(:)
+  
+  type, abstract, extends(Stringsable) :: StressData
+  contains
+    procedure(representation_StressData), public, deferred, nopass :: &
+       & representation
+    procedure, public :: startup => startup_StressData
+  end type
+  
+  type, extends(StressData) :: StressPointer
+    type(String),                   private :: representation_
+    class(StressData), allocatable, private :: stress_
+  contains
+    procedure, private :: check => check_StressPointer
+    
+    procedure, public, nopass :: representation => &
+                               & representation_StressPointer
+    
+    ! I/O.
+    procedure, public :: read  => read_StressPointer
+    procedure, public :: write => write_StressPointer
+  end type
+  
+  ! An array of all types which extend StressData.
+  ! This array will be filled in by startup routines.
+  type(StressPointer), allocatable :: TYPES_StressData(:)
   
   ! ----------------------------------------------------------------------
   ! Abstract interfaces, defining the functionality of the abstract classes.
@@ -521,9 +558,9 @@ module abstract_classes_module
       type(OFile),             intent(inout) :: logfile
     end subroutine
     
-    subroutine generate_potential_PotentialData(this,anharmonic_data,      &
-       & weighted_energy_force_ratio,calculate_stress,sampling_points_dir, &
-       & calculation_reader,logfile)
+    subroutine generate_potential_PotentialData(this,anharmonic_data,        &
+       & weighted_energy_force_ratio,sampling_points_dir,calculation_reader, &
+       & logfile)
       import dp
       import PotentialData
       import AnharmonicData
@@ -535,11 +572,35 @@ module abstract_classes_module
       class(PotentialData),    intent(inout) :: this
       type(AnharmonicData),    intent(in)    :: anharmonic_data
       real(dp),                intent(in)    :: weighted_energy_force_ratio
-      logical,                 intent(in)    :: calculate_stress
       type(String),            intent(in)    :: sampling_points_dir
       type(CalculationReader), intent(inout) :: calculation_reader
       type(OFile),             intent(inout) :: logfile
     end subroutine
+    
+    function generate_stress_PotentialData(this,anharmonic_data, &
+       & sampling_points_dir,stress_expansion_order,             &
+       & stress_subspace_coupling,vscf_basis_functions_only,     &
+       & calculation_reader,logfile) result(output)
+      import dp
+      import PotentialData
+      import AnharmonicData
+      import String
+      import SubspaceCoupling
+      import CalculationReader
+      import OFile
+      import StressPointer
+      implicit none
+      
+      class(PotentialData),    intent(in)    :: this
+      type(AnharmonicData),    intent(in)    :: anharmonic_data
+      type(String),            intent(in)    :: sampling_points_dir
+      integer,                 intent(in)    :: stress_expansion_order
+      type(SubspaceCoupling),  intent(in)    :: stress_subspace_coupling(:)
+      logical,                 intent(in)    :: vscf_basis_functions_only
+      type(CalculationReader), intent(inout) :: calculation_reader
+      type(OFile),             intent(inout) :: logfile
+      type(StressPointer)                    :: output
+    end function
     
     impure elemental subroutine zero_energy_PotentialData(this)
       import PotentialData
@@ -660,6 +721,14 @@ module abstract_classes_module
       type(AnharmonicData),   intent(in)  :: anharmonic_data
       type(PotentialPointer)              :: output
     end function
+    
+    ! StressData procedures.
+    impure elemental function representation_StressData() result(output)
+      import String
+      implicit none
+      
+      type(String) :: output
+    end function
   end interface
   
   ! --------------------------------------------------
@@ -687,6 +756,12 @@ module abstract_classes_module
     module procedure new_PotentialPointer
     module procedure new_PotentialPointer_Strings
     module procedure new_PotentialPointer_StringArray
+  end interface
+  
+  interface StressPointer
+    module procedure new_StressPointer
+    module procedure new_StressPointer_Strings
+    module procedure new_StressPointer_StringArray
   end interface
   
   ! --------------------------------------------------
@@ -795,6 +870,24 @@ subroutine startup_PotentialData(this)
      & i=1,                                                      &
      & size(TYPES_PotentialData)                                 )])) then
     TYPES_PotentialData = [TYPES_PotentialData, PotentialPointer(this)]
+  endif
+end subroutine
+
+subroutine startup_StressData(this)
+  implicit none
+  
+  class(StressData), intent(in) :: this
+  
+  integer :: i
+  
+  if (.not.allocated(TYPES_StressData)) then
+    TYPES_StressData = [StressPointer(this)]
+  elseif (.not.any([(                                      &
+     & this%representation()                               &
+     &    == TYPES_StressData(i)%stress_%representation(), &
+     & i=1,                                                &
+     & size(TYPES_StressData)                              )])) then
+    TYPES_StressData = [TYPES_StressData, StressPointer(this)]
   endif
 end subroutine
 
@@ -1466,15 +1559,14 @@ subroutine generate_sampling_points_PotentialPointer(this,anharmonic_data, &
                                                & logfile              )
 end subroutine
 
-subroutine generate_potential_PotentialPointer(this,anharmonic_data,   &
-   & weighted_energy_force_ratio,calculate_stress,sampling_points_dir, &
-   & calculation_reader,logfile)
+subroutine generate_potential_PotentialPointer(this,anharmonic_data,     &
+   & weighted_energy_force_ratio,sampling_points_dir,calculation_reader, &
+   & logfile)
   implicit none
   
   class(PotentialPointer), intent(inout) :: this
   type(AnharmonicData),    intent(in)    :: anharmonic_data
   real(dp),                intent(in)    :: weighted_energy_force_ratio
-  logical,                 intent(in)    :: calculate_stress
   type(String),            intent(in)    :: sampling_points_dir
   type(CalculationReader), intent(inout) :: calculation_reader
   type(OFile),             intent(inout) :: logfile
@@ -1483,11 +1575,36 @@ subroutine generate_potential_PotentialPointer(this,anharmonic_data,   &
   
   call this%potential_%generate_potential( anharmonic_data,              &
                                          & weighted_energy_force_ratio,  &
-                                         & calculate_stress,             &
                                          & sampling_points_dir,          &
                                          & calculation_reader,           &
                                          & logfile                       )
 end subroutine
+
+function generate_stress_PotentialPointer(this,anharmonic_data,           &
+   & sampling_points_dir,stress_expansion_order,stress_subspace_coupling, &
+   & vscf_basis_functions_only,calculation_reader,logfile) result(output)
+  implicit none
+  
+  class(PotentialPointer), intent(in)    :: this
+  type(AnharmonicData),    intent(in)    :: anharmonic_data
+  type(String),            intent(in)    :: sampling_points_dir
+  integer,                 intent(in)    :: stress_expansion_order
+  type(SubspaceCoupling),  intent(in)    :: stress_subspace_coupling(:)
+  logical,                 intent(in)    :: vscf_basis_functions_only
+  type(CalculationReader), intent(inout) :: calculation_reader
+  type(OFile),             intent(inout) :: logfile
+  type(StressPointer)                    :: output
+  
+  call this%check()
+  
+  output = this%potential_%generate_stress( anharmonic_data,           &
+                                          & sampling_points_dir,       &
+                                          & stress_expansion_order,    &
+                                          & stress_subspace_coupling,  &
+                                          & vscf_basis_functions_only, &
+                                          & calculation_reader,        &
+                                          & logfile                    )
+end function
 
 impure elemental subroutine zero_energy_PotentialPointer(this)
   implicit none
@@ -1700,6 +1817,111 @@ impure elemental function new_PotentialPointer_StringArray(input) result(this)
   type(PotentialPointer)        :: this
   
   this = PotentialPointer(str(input))
+end function
+
+! ----------------------------------------------------------------------
+! StressPointer methods.
+! ----------------------------------------------------------------------
+! Construct a StressPointer from any type which extends StressData.
+impure elemental function new_StressPointer(stress) result(this)
+  implicit none
+  
+  class(StressData), intent(in) :: stress
+  type(StressPointer)           :: this
+  
+  integer :: ialloc
+  
+  select type(stress); type is(StressPointer)
+    this = stress
+  class default
+    this%representation_ = stress%representation()
+    allocate( this%stress_, source=stress, &
+            & stat=ialloc); call err(ialloc)
+  end select
+end function
+
+! Checks that the pointer has been allocated before it is used.
+impure elemental subroutine check_StressPointer(this)
+  implicit none
+  
+  class(StressPointer), intent(in) :: this
+  
+  if (.not. allocated(this%stress_)) then
+    call print_line(CODE_ERROR//': Trying to use a StressPointer before &
+       &it has been allocated.')
+    call err()
+  endif
+end subroutine
+
+! Type representation.
+impure elemental function representation_StressPointer() result(output)
+  implicit none
+  
+  type(String) :: output
+  
+  output = 'pointer'
+end function
+
+! I/O.
+subroutine read_StressPointer(this,input)
+  implicit none
+  
+  class(StressPointer), intent(out) :: this
+  type(String),         intent(in)  :: input(:)
+  
+  type(String), allocatable :: line(:)
+  
+  type(String) :: representation
+  
+  integer :: i
+  
+  select type(this); type is(StressPointer)
+    line = split_line(input(1))
+    representation = line(3)
+    
+    ! Identify which type corresponds to the representation.
+    i = first([(                                                       &
+       & TYPES_StressData(i)%stress_%representation()==representation, &
+       & i=1,                                                          &
+       & size(TYPES_StressData)                                        )])
+    
+    ! Read the input into the element of the correct type,
+    !    and copy that element into the output.
+    call TYPES_StressData(i)%stress_%read(input(2:))
+    this = StressPointer(TYPES_StressData(i))
+  class default
+    call err()
+  end select
+end subroutine
+
+function write_StressPointer(this) result(output)
+  implicit none
+  
+  class(StressPointer), intent(in) :: this
+  type(String), allocatable        :: output(:)
+  
+  select type(this); type is(StressPointer)
+    output = [ 'Stress representation: '//this%representation_, &
+             & str(this%stress_)                                ]
+  end select
+end function
+
+function new_StressPointer_Strings(input) result(this)
+  implicit none
+  
+  type(String), intent(in) :: input(:)
+  type(StressPointer)      :: this
+  
+  call this%read(input)
+end function
+
+impure elemental function new_StressPointer_StringArray(input) result(this)
+  implicit none
+  
+  type(StringArray), intent(in) :: input
+  type(StressPointer)           :: this
+  
+  this = StressPointer(str(input))
 end function
 
 ! ----------------------------------------------------------------------

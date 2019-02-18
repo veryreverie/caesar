@@ -31,21 +31,21 @@ function converge_cutoff_and_kpoints() result(output)
   &               'run_script is the path to the script for running CASTEP. &
   &An example run script can be found in doc/input_files.',                   &
   &               is_path=.true.),                                            &
-     & KeywordData( 'no_cores',                                               &
-     &              'no_cores is the number of cores on which the electronic &
-     &structure calculation will be run. This is passed to the specified run &
-     &script.',                                                               &
-     &              default_value='1'),                                       &
-     & KeywordData( 'no_nodes',                                               &
-     &              'no_nodes is the number of nodes on which the electronic &
-     &structure calculation will be run. This is passed to the specified run &
-     &script.',                                                               &
-     &              default_value='1'),                                       &
-     & KeywordData( 'run_script_data',                                        &
-     &              'run_script_data will be passed to the specified run &
-     &script after all other arguments. This should be used to pass &
-     &information not covered by the other arguments.',                       &
-     &              default_value=''),                                        &
+  & KeywordData( 'no_cores',                                               &
+  &              'no_cores is the number of cores on which the electronic &
+  &structure calculation will be run. This is passed to the specified run &
+  &script.',                                                               &
+  &              default_value='1'),                                       &
+  & KeywordData( 'no_nodes',                                               &
+  &              'no_nodes is the number of nodes on which the electronic &
+  &structure calculation will be run. This is passed to the specified run &
+  &script.',                                                               &
+  &              default_value='1'),                                       &
+  & KeywordData( 'run_script_data',                                        &
+  &              'run_script_data will be passed to the specified run &
+  &script after all other arguments. This should be used to pass &
+  &information not covered by the other arguments.',                       &
+  &              default_value=''),                                        &
   & KeywordData( 'minimum_cutoff',                                           &
   &               'minimum_cutoff is the smallest cutoff energy which will be &
   &tested. minimum_cutoff must be an integer.',                               &

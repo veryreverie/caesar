@@ -15,16 +15,14 @@ run_script_data_2=$7
 
 cores_per_node=$((no_cores / no_nodes))
 
-# Copy across Castep .param file or Quantum Espresso .USP files.
+# Copy across Castep .param file.
 # This copies from the directory where Caesar is called (or that specified by
 #    the -d flag) to the working directory where the electronic structure
 #    calculation will be run.
 if [ "$file_type" = "castep" ]; then
   cp $seedname.param $directory
 elif [ "$file_type" = "quantum_espresso" ]; then
-  for i in *.UPF; do
-    cp "$i" "$directory/$i" || break
-  done
+  ::
 fi
 
 # cd into the directory where the electronic structure calculation will be run.

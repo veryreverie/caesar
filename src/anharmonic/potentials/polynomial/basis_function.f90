@@ -1,5 +1,5 @@
 ! ======================================================================
-! Generates basis functions.
+! Basis functions for generating the Born-Oppenheimer surface mapping.
 ! ======================================================================
 module basis_function_module
   use common_module
@@ -121,14 +121,14 @@ function generate_basis_functions_SubspaceMonomial(subspace_monomial, &
   type(ComplexMonomial), allocatable :: complex_monomials(:)
   type(RealMonomial),    allocatable :: real_monomials(:)
   
-  ! Symmetry data.
-  type(ComplexMatrix) :: symmetry
-  type(ComplexMatrix) :: projection
-  
   ! The conversion from the complex monomial basis to the real monomial basis,
   !    and vice-versa.
   type(ComplexMatrix) :: complex_to_real_conversion
   type(ComplexMatrix) :: real_to_complex_conversion
+  
+  ! Symmetry data.
+  type(ComplexMatrix) :: symmetry
+  type(ComplexMatrix) :: projection
   
   ! Polynomial coefficients, in both bases.
   type(SymmetricEigenstuff), allocatable :: estuff(:)

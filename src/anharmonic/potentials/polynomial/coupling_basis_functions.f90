@@ -14,8 +14,8 @@ module coupling_basis_functions_module
   
   public :: CouplingBasisFunctions
   public :: BasisFunctionsAndSamplingPoints
-  public :: generate_basis_functions
   public :: size
+  public :: generate_basis_functions
   
   type, extends(Stringsable) :: CouplingBasisFunctions
     type(SubspaceCoupling)           :: coupling
@@ -36,7 +36,7 @@ module coupling_basis_functions_module
   end interface
   
   interface generate_basis_functions
-    module procedure generate_basis_functions_SubspaceMonomials
+    module procedure generate_basis_functions_SubspaceCoupling
   end interface
   
   type :: BasisFunctionsAndSamplingPoints
@@ -65,7 +65,7 @@ function size_CouplingBasisFunctions(this) result(output)
   output = size(this%basis_functions)
 end function
 
-function generate_basis_functions_SubspaceMonomials(coupling,              &
+function generate_basis_functions_SubspaceCoupling(coupling,               &
    & potential_expansion_order,structure,complex_modes,real_modes,qpoints, &
    & subspaces,degenerate_symmetries,vscf_basis_functions_only,            &
    & maximum_weighted_displacement,frequency_of_max_displacement,logfile)  &
@@ -103,13 +103,13 @@ function generate_basis_functions_SubspaceMonomials(coupling,              &
   ! Generate the set of subspace monomials corresponding to the subspace
   !    coupling.
   ! e.g. the coupling [1,2] might have monomials [1,2], [1,1,2] and [1,2,2].
-  subspace_monomials = generate_subspace_monomials( &
-                        & coupling,                 &
-                        & subspaces,                &
-                        & potential_expansion_order )
+  subspace_monomials = generate_subspace_monomials(        &
+     & coupling,                                           &
+     & subspaces,                                          &
+     & minimum_expansion_order = 2,                        &
+     & maximum_expansion_order = potential_expansion_order )
     
-  
-  ! Loop over the subspace monomials corresponding to the coupling
+  ! Loop over the subspace monomials corresponding to the coupling.
   coupling_basis_functions = [BasisFunction::]
   coupling_unique_terms = [RealMonomial::]
   do i=1,size(subspace_monomials)

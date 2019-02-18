@@ -81,11 +81,17 @@ subroutine calculate_potential_subroutine(arguments)
   ! Anharmonic potential.
   type(PotentialPointer) :: potential
   
+  ! Stress
+  type(SubspaceCoupling), allocatable :: stress_subspace_coupling(:)
+  type(StressPointer)                 :: stress
+  
   ! Files and directories.
   type(IFile)  :: anharmonic_data_file
   type(String) :: sampling_points_dir
   type(OFile)  :: logfile
   type(OFile)  :: potential_file
+  type(OFile)  :: stress_subspace_coupling_file
+  type(OFile)  :: stress_file
   
   ! Read in arguments.
   energy_to_force_ratio = dble(arguments%value('energy_to_force_ratio'))
@@ -102,10 +108,7 @@ subroutine calculate_potential_subroutine(arguments)
      & setup_anharmonic_arguments%value('potential_representation')
   potential_expansion_order = &
      & int(setup_anharmonic_arguments%value('potential_expansion_order'))
-  
-  ! TODO: change this.
-  calculate_stress = .false.
-  !calculate_stress = lgcl(setup_anharmonic_arguments%value('calculate_stress'))
+  calculate_stress = lgcl(setup_anharmonic_arguments%value('calculate_stress'))
   
   ! Read in anharmonic data.
   anharmonic_data_file = IFile('anharmonic_data.dat')
@@ -138,7 +141,7 @@ subroutine calculate_potential_subroutine(arguments)
     endif
   endif
   
-  ! Initialise calculation reader.
+  ! Initialise calculation reader for Potential mapping.
   if (loto_direction_set) then
     calculation_reader = CalculationReader(loto_direction)
   else
@@ -163,17 +166,44 @@ subroutine calculate_potential_subroutine(arguments)
   ! Open logfile.
   logfile = OFile('setup_anharmonic_logfile.dat')
   
-  ! Generate the potential itself.
+  ! Generate the potential itself, and write it to file.
   sampling_points_dir = 'sampling_points'
   call potential%generate_potential( anharmonic_data,             &
                                    & weighted_energy_force_ratio, &
-                                   & calculate_stress,            &
                                    & sampling_points_dir,         &
                                    & calculation_reader,          &
                                    & logfile                      )
   
-  ! Write the potential to file.
   potential_file = OFile('potential.dat')
   call potential_file%print_lines(potential)
+  
+  ! If calculate_stress is true, generate the stress and write it to file.
+  if (calculate_stress) then
+    ! Re-initialise calculation reader for stress mapping.
+    if (loto_direction_set) then
+      calculation_reader = CalculationReader(loto_direction)
+    else
+      calculation_reader = CalculationReader()
+    endif
+    
+    ! Generates coupled subspaces for stress calculation.
+    stress_subspace_coupling = generate_coupled_subspaces( &
+                   & anharmonic_data%degenerate_subspaces, &
+                   & 1                                     )
+    stress_subspace_coupling_file = OFile('stress_subspace_coupling.dat')
+    call stress_subspace_coupling_file%print_lines(stress_subspace_coupling)
+    
+    ! Generate stress.
+    stress = potential%generate_stress(                        &
+       & anharmonic_data           = anharmonic_data,          &
+       & sampling_points_dir       = sampling_points_dir,      &
+       & stress_expansion_order    = 2,                        &
+       & stress_subspace_coupling  = stress_subspace_coupling, &
+       & vscf_basis_functions_only = .true.,                   &
+       & calculation_reader        = calculation_reader,       &
+       & logfile                   = logfile                   )
+    stress_file = OFile('stress.dat')
+    call stress_file%print_lines(stress)
+  endif
 end subroutine
 end module

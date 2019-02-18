@@ -304,66 +304,30 @@ subroutine test_subroutine(arguments)
   
   type(Dictionary), intent(in) :: arguments
   
-  integer :: i
+  integer :: i,j,k
   
-  class(TAbs), allocatable :: a_
+  integer :: x(9)
+  integer :: y(9)
+  integer :: z(3,3)
   
-  type(TPtr) :: c_
+  x = [1,1,1,2,2,2,3,3,3]
+  y = [1,2,3,1,2,3,1,2,3]
+  z = reshape([1,4,7,2,5,8,3,6,9], [3,3])
   
-  class(TAbs), allocatable :: as_(:)
-  class(TPtr), allocatable :: cs_(:)
+  call print_lines(mat(z))
   
-  type(String), allocatable :: strings(:)
-  
-  type(TCon1) :: t1
-  type(TCon2) :: t2
-  
-  call newton_raphson_example()
-  stop
-  
-  call t1%update()
-  call t2%update()
-  
-  call print_line('')
-  allocate(a_, source=TCon1(1))
-  call print_line(a_)
-  
-  call print_line('')
-  select type(a_); type is(TCon1)
-    call print_line('Type is TCon1')
-  type is(TCon2)
-    call print_line('Type is TCon2')
-  end select
-  
-  call print_line('')
-  c_ = TPtr(a_)
-  call print_line(c_)
-  
-  call print_line('')
-  allocate(as_(4), source=TCon1(1))
-  do i=1,size(as_)
-    call print_line(as_(i))
+  k = 0
+  do i=1,3
+    do j=1,3
+      k = k+1
+      call print_line('')
+      call print_line(i)
+      call print_line(j)
+      call print_line(k)
+      call print_line(x(k))
+      call print_line(y(k))
+      call print_line(z(i,j))
+    enddo
   enddo
-  
-  call print_line('')
-  deallocate(as_)
-  allocate(as_, source=[TCon1(1),TCon1(2)])
-  do i=1,size(as_)
-    call print_line(as_(i))
-  enddo
-  
-  call print_line('')
-  cs_ = [TPtr(TCon1(1)), TPtr(TCon1(2)), TPtr(TCon2(3))]
-  do i=1,size(cs_)
-    call print_line(cs_(i))
-  enddo
-  
-  call print_line('')
-  strings = str(cs_)
-  call print_lines(strings)
-  
-  call print_line('')
-  cs_ = TPtr(strings)
-  call print_lines(cs_)
 end subroutine
 end module

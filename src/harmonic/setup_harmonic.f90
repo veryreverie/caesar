@@ -142,7 +142,7 @@ subroutine setup_harmonic_subroutine(arguments)
   calculation_writer = CalculationWriter( file_type = file_type, &
                                         & seedname  = seedname   )
   
-  ! Read in input files.
+  ! Read in structure.
   input_filename = make_input_filename(file_type, seedname)
   structure = input_file_to_StructureData(file_type, input_filename)
   

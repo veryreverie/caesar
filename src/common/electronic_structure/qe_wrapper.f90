@@ -11,6 +11,7 @@ module qe_wrapper_module
   use normal_mode_module
   
   use electronic_structure_data_module
+  use kpoint_grid_module
   implicit none
   
   private
@@ -20,6 +21,8 @@ module qe_wrapper_module
   public :: read_input_file_qe
   public :: write_input_file_qe
   public :: read_output_file_qe
+  
+  public :: QeInputFile
   
   type, extends(Stringsable) :: QeInputFile
     type(String), allocatable :: namelists(:)
@@ -204,6 +207,11 @@ subroutine write_input_file_qe(structure,old_qe_in_filename,new_qe_in_filename)
   type(OFile)       :: new_qe_in_file
   type(QeInputFile) :: qe_file
   
+  integer  :: kpoint_grid(3)
+  real(dp) :: kpoint_spacing
+  
+  type(String), allocatable :: line(:)
+  
   integer :: i
   
   if (.not. present(old_qe_in_filename)) then
@@ -235,6 +243,37 @@ subroutine write_input_file_qe(structure,old_qe_in_filename,new_qe_in_filename)
       endif
     endif
   enddo
+  
+  ! Update k-point grid.
+  line = split_line(lower_case(qe_file%k_points(1)))
+  if ( line(2)/='automatic'   .and. &
+     & line(2)/='(automatic)' .and. &
+     & line(2)/='{automatic}'       ) then
+    call print_line(ERROR//': Unable to generate supercell k-point grid for &
+       &Quantum Espresso calculation whose k_points card is not in &
+       &"automatic" format.')
+    stop
+  endif
+  
+  line = split_line(qe_file%k_points(2))
+  kpoint_grid = int(line(1:3))
+  kpoint_spacing = calculate_kpoint_spacing( &
+     & kpoint_grid,                          &
+     & dble(structure%prim_recip_lattice())  )
+  kpoint_grid = calculate_kpoint_grid( &
+     & kpoint_spacing,                 &
+     & dble(structure%recip_lattice)   )
+  
+  if (size(line)==3) then
+    qe_file%k_points(2) = join(str(kpoint_grid))
+  elseif (size(line)==6) then
+    qe_file%k_points(2) = join([str(kpoint_grid), line(4:6)])
+  else
+    call print_line(ERROR//': k_points card has an unexpected number of &
+       &entries.')
+    stop
+  endif
+  
   
   ! Write out new QE file.
   new_qe_in_file = OFile(new_qe_in_filename)

@@ -27,7 +27,9 @@ function run_harmonic() result(output)
   output%keywords = [                                                         &
      & KeywordData( 'supercells_to_run',                                      &
      &              'supercells_to_run is the first and last supercell to &
-     &run. These should be specified as two integers separated by spaces.'),  &
+     &run. These should be specified as two integers separated by spaces. If &
+     &supercells_to_run is not set, all supercells will be run.',             &
+     &              is_optional=.true.),                                      &
      & KeywordData( 'run_script',                                             &
      &              'run_script is the path to the script for running DFT. An &
      &example run script can be found in doc/input_files.',                   &
@@ -99,7 +101,6 @@ subroutine run_harmonic_subroutine(arguments)
   type(String)                       :: atom_string
   
   ! Files and Directories.
-  type(IFile)  :: structure_file
   type(IFile)  :: no_supercells_file
   type(IFile)  :: unique_directions_file
   type(String) :: supercell_dir
@@ -111,7 +112,9 @@ subroutine run_harmonic_subroutine(arguments)
   ! --------------------------------------------------
   ! Get inputs from user.
   ! --------------------------------------------------
-  supercells_to_run = int(split_line(arguments%value('supercells_to_run')))
+  if (arguments%is_set('supercells_to_run')) then
+    supercells_to_run = int(split_line(arguments%value('supercells_to_run')))
+  endif
   run_script = arguments%value('run_script')
   no_cores = int(arguments%value('no_cores'))
   no_nodes = int(arguments%value('no_nodes'))
@@ -133,6 +136,10 @@ subroutine run_harmonic_subroutine(arguments)
   ! --------------------------------------------------
   no_supercells_file = IFile('no_supercells.dat')
   no_supercells = int(no_supercells_file%line(1))
+  
+  if (.not. arguments%is_set('supercells_to_run')) then
+    supercells_to_run = [1, no_supercells]
+  endif
   
   ! --------------------------------------------------
   ! Check user inputs.

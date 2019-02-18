@@ -207,15 +207,16 @@ end function
 ! Generates all coupling monomials corresponding to a given subspace coupling,
 !    up to the given potential expansion order.
 ! ----------------------------------------------------------------------
-! e.g. given the subspace coupling with ids [3,5] and potential order 3,
+! e.g. given the subspace coupling with ids [3,5] and expansion order 3,
 !    will return coupling monomials [3,3,5] and [3,5,5].
 function generate_subspace_monomials(subspace_coupling,subspaces, &
-   & potential_expansion_order) result(output)
+   & minimum_expansion_order,maximum_expansion_order) result(output)
   implicit none
   
   type(SubspaceCoupling),   intent(in) :: subspace_coupling
   type(DegenerateSubspace), intent(in) :: subspaces(:)
-  integer,                  intent(in) :: potential_expansion_order
+  integer,                  intent(in) :: minimum_expansion_order
+  integer,                  intent(in) :: maximum_expansion_order
   type(SubspaceMonomial), allocatable  :: output(:)
   
   type(DegenerateSubspace), allocatable :: coupled_subspaces(:)
@@ -224,9 +225,13 @@ function generate_subspace_monomials(subspace_coupling,subspaces, &
   if (size(subspace_coupling)==0) then
     call print_line(CODE_ERROR//': Empty subspace coupling.')
     call err()
-  elseif (potential_expansion_order<min(2,size(subspace_coupling))) then
-    call print_line(ERROR//': potential_expansion_order must be at least 2, &
-       &and at least as large as maximum_coupling_order.')
+  elseif (minimum_expansion_order<0) then
+    call print_line(ERROR//': minimum_expansion_order must be non-negative.')
+    stop
+  elseif (   maximum_expansion_order                               &
+         & < min(minimum_expansion_order, size(subspace_coupling)) ) then
+    call print_line(ERROR//': maximum_expansion_order must be at least as &
+       &large as minimum_expansion_order and the size of the coupling.')
     stop
   endif
   
@@ -234,8 +239,9 @@ function generate_subspace_monomials(subspace_coupling,subspaces, &
   coupled_subspaces = subspace_coupling%coupled_subspaces(subspaces)
   
   ! Call recursive helper function to generate monomials.
-  output = generate_subspace_monomials_helper( coupled_subspaces, &
-                                             & potential_expansion_order)
+  output = generate_subspace_monomials_helper( coupled_subspaces,       &
+                                             & minimum_expansion_order, &
+                                             & maximum_expansion_order  )
 end function
 
 ! Helper function for generate_subspace_monomials.
@@ -244,11 +250,13 @@ end function
 ! The optional argument monomial_in is a recursive argument which should only
 !    be provided by recursive calls.
 recursive function generate_subspace_monomials_helper(coupled_subspaces, &
-   & potential_expansion_order,monomial_in) result(output)
+   & minimum_expansion_order,maximum_expansion_order,monomial_in)        &
+   & result(output)
   implicit none
   
   type(DegenerateSubspace), intent(in)           :: coupled_subspaces(:)
-  integer,                  intent(in)           :: potential_expansion_order
+  integer,                  intent(in)           :: minimum_expansion_order
+  integer,                  intent(in)           :: maximum_expansion_order
   type(SubspaceMonomial),   intent(in), optional :: monomial_in
   type(SubspaceMonomial), allocatable            :: output(:)
   
@@ -258,14 +266,14 @@ recursive function generate_subspace_monomials_helper(coupled_subspaces, &
   type(SubspaceMonomial) :: monomial
   
   ! If there are no more subspaces to append, return the monomial,
-  !    but only if its size is at least 2.
+  !    but only if its size is at least minimum_expansion_order.
   ! Size 1 monomials are ignored because they correspond to linear terms in the
   !    potential, which are zero because the structure is geometry optimised.
   if (size(coupled_subspaces)==0) then
     if (.not. present(monomial_in)) then
       call print_line(CODE_ERROR//': Empty subspace coupling.')
       call err()
-    elseif (sum(monomial_in%powers)<2) then
+    elseif (sum(monomial_in%powers)<minimum_expansion_order) then
       output = [SubspaceMonomial::]
     else
       output = [monomial_in]
@@ -290,13 +298,14 @@ recursive function generate_subspace_monomials_helper(coupled_subspaces, &
   endif
   
   output = [SubspaceMonomial::]
-  do while( sum(monomial%powers)+size(coupled_subspaces) <= &
-          & potential_expansion_order                       )
+  do while(    sum(monomial%powers)+size(coupled_subspaces) &
+          & <= maximum_expansion_order                      )
     monomial = monomial // first_subspace
-    output = [ output,                                                        &
-           &   generate_subspace_monomials_helper( remaining_subspaces,       &
-           &                                       potential_expansion_order, &
-           &                                       monomial)                  &
+    output = [ output,                                                      &
+           &   generate_subspace_monomials_helper( remaining_subspaces,     &
+           &                                       minimum_expansion_order, &
+           &                                       maximum_expansion_order, &
+           &                                       monomial)                &
            & ]
   enddo
 end function

@@ -25,6 +25,8 @@ module potential_example_module
        & generate_sampling_points_PotentialDataExample
     procedure, public :: generate_potential => &
        & generate_potential_PotentialDataExample
+    procedure, public :: generate_stress => &
+       & generate_stress_PotentialDataExample
     
     procedure, public :: zero_energy => zero_energy_PotentialDataExample
     
@@ -109,14 +111,13 @@ subroutine generate_sampling_points_PotentialDataExample(this, &
 end subroutine
 
 subroutine generate_potential_PotentialDataExample(this,anharmonic_data, &
-   & weighted_energy_force_ratio,calculate_stress,sampling_points_dir,   &
-   & calculation_reader,logfile)
+   & weighted_energy_force_ratio,sampling_points_dir,calculation_reader, &
+   & logfile)
   implicit none
   
   class(PotentialDataExample), intent(inout) :: this
   type(AnharmonicData),        intent(in)    :: anharmonic_data
   real(dp),                    intent(in)    :: weighted_energy_force_ratio
-  logical,                     intent(in)    :: calculate_stress
   type(String),                intent(in)    :: sampling_points_dir
   type(CalculationReader),     intent(inout) :: calculation_reader
   type(OFile),                 intent(inout) :: logfile
@@ -126,6 +127,27 @@ subroutine generate_potential_PotentialDataExample(this,anharmonic_data, &
   
   ! Code to generate sampling points goes here.
 end subroutine
+
+function generate_stress_PotentialDataExample(this,anharmonic_data,       &
+   & sampling_points_dir,stress_expansion_order,stress_subspace_coupling, &
+   & vscf_basis_functions_only,calculation_reader,logfile) result(output)
+  implicit none
+  
+  class(PotentialDataExample), intent(in)    :: this
+  type(AnharmonicData),        intent(in)    :: anharmonic_data
+  type(String),                intent(in)    :: sampling_points_dir
+  integer,                     intent(in)    :: stress_expansion_order
+  type(SubspaceCoupling),      intent(in)    :: stress_subspace_coupling(:)
+  logical,                     intent(in)    :: vscf_basis_functions_only
+  type(CalculationReader),     intent(inout) :: calculation_reader
+  type(OFile),                 intent(inout) :: logfile
+  type(StressPointer)                        :: output
+  
+  call print_line('PotentialDataExample: generating stress.')
+  call print_line('Example contents = '//this%example_contents)
+  
+  ! Code to generate sampling points goes here.
+end function
 
 impure elemental subroutine zero_energy_PotentialDataExample(this)
   implicit none
@@ -359,7 +381,6 @@ subroutine potential_example_subroutine()
   ! Generates the potential, in a manner specific to the representation.
   call potential%generate_potential( anharmonic_data,             &
                                    & weighted_energy_force_ratio, &
-                                   & .false.,                     &
                                    & sampling_points_dir,         &
                                    & calculation_reader,          &
                                    & logfile                      )

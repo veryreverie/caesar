@@ -455,7 +455,7 @@ function write_ThermodynamicData(this) result(output)
   end select
 end function
 
-function new_ThermodynamicData_String(input) result(this)
+impure elemental function new_ThermodynamicData_String(input) result(this)
   implicit none
   
   type(String), intent(in) :: input

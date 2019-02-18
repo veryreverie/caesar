@@ -33,37 +33,60 @@ function converge_harmonic_frequencies() result(output)
      &module at present',                                                     &
      &              default_value='castep'),                                  &
      & KeywordData( 'seedname',                                               &
-     &               'seedname is the CASTEP seedname from which filenames &
+     &              'seedname is the CASTEP seedname from which filenames &
      &are constructed.'),                                                     &
      & KeywordData( 'minimum_cutoff',                                         &
      &              'minimum_cutoff is the smallest cutoff energy which will &
      &be tested. minimum_cutoff must be an integer. This cut-off energy will &
      &be used when converging harmonic frequencies and free energies with &
-     &respect to kpoint sampling',                                            &
-     &               default_value='300'),                                    &
+     &respect to k-point sampling. minimum_cutoff should be given in &
+     &Hartree.'),                                                             &
      & KeywordData( 'cutoff_step',                                            &
-     &               'cutoff_step is the step between each cutoff energy &
-     &which will be tested. cutoff_step must be an integer.',                 &
-     &               default_value='100'),                                    &
+     &              'cutoff_step is the step between each cutoff energy &
+     &which will be tested. cutoff_step must be an integer. cutoff_step &
+     &should be given in Hartree.'),                                          &
      & KeywordData( 'maximum_cutoff',                                         &
      &              'maximum_cutoff is the cutoff energy at which calculation &
      &will be terminated if convergence has not been reached. maximum_cutoff &
-     &must be an integer.',                                                   &
-     &               default_value='1200'),                                   &
-     & KeywordData( 'maximum_kpoint_spacing',                                 &
-     &              'maximum_kpoint_spacing is the largest k-point spacing &
-     &which will be tested. This is the kpoint spacing that will be used when &
-     &converging harmonic frequencies and free energies with respect to &
-     &cut-off energy',                                                        &
-     &               default_value='0.07'),                                   &
-     & KeywordData( 'kpoint_spacing_step',                                    &
-     &              'kpoint_spacing_step is the step between each kpoint &
-     &spacing which will be tested.',                                         &
-     &               default_value='0.01'),                                   &
-     & KeywordData( 'minimum_kpoint_spacing',                                 &
-     &              'minimum_kpoint_spacing is the kpoint spacing at which &
-     &calculation will be terminated if convergence has not been reached.',   &
-     &               default_value='0.01'),                                   &
+     &must be an integer. maximum_cutoff should be given in Hartree.'),       &
+     & KeywordData( 'maximum_k-point_spacing',                                &
+     &              'maximum_k-point_spacing is the largest k-point spacing &
+     &which will be tested. This is the k-point spacing that will be used &
+     &when converging harmonic frequencies and free energies with respect to &
+     &cut-off energy. maximum_k-point_spacing should be given in inverse &
+     &Bohr.'),                                                                &
+     & KeywordData( 'k-point_spacing_step',                                   &
+     &              'k-point_spacing_step is the step between each k-point &
+     &spacing which will be tested. k-point_spacing_step should be given in &
+     &inverse Bohr.'),                                                        &
+     & KeywordData( 'minimum_k-point_spacing',                                &
+     &              'minimum_k-point_spacing is the k-point spacing at which &
+     &calculation will be terminated if convergence has not been reached. &
+     &minimum_k-point_spacing should be given in inverse Bohr.'),             &
+     & KeywordData( 'converge_energies',                                      &
+     &              'converge_energies determines whether convergence of the &
+     &free energies is monitored as well as convergence of harmonic &
+     &frequencies.',                                                          &
+     &              default_value='false'),                                   &
+     & KeywordData( 'convergence_mode',                                       &
+     &              'convergence_mode determines which CASTEP parameters you &
+     &wish to vary in your convergence testing. Options are "cutoff", &
+     &"kpoints" and "both".',                                                 &
+     &              default_value='both'),                                    &
+     & KeywordData( 'freq_tolerance',                                         &
+     &              'freq_tolerance is the tolerance used in the convergence &
+     &of the harmonic frequencies.',                                          &
+     &              default_value='1e-8'),                                    &
+     & KeywordData( 'energy_tolerance',                                       &
+     &              'energy_tolerance is the tolerance used in the &
+     &convergence of the vibrational free energies. It is given in Hartree &
+     &per primitive unit cell.',                                              &
+     &              default_value='1e-6'),                                    &
+     & KeywordData( 'convergence_count',                                      &
+     &              'convergence_count is the number of consecutive &
+     &frequencies and/or energies that must be within the defined tolerance &
+     &of each other for convergence to be considered reached',                &
+     &              default_value='3'),                                       &
      & KeywordData( 'q-point_grid',                                           &
      &              'q-point_grid is the number of q-points in each direction &
      &in a Monkhorst-Pack grid. This should be specified as three integers &
@@ -93,16 +116,6 @@ function converge_harmonic_frequencies() result(output)
      &structure calculation will be run. This is passed to the specified run &
      &script.',                                                               &
      &              default_value='1'),                                       &
-     & KeywordData( 'converge_energies',                                      &
-     &              'converge_energies determines whether convergence of the &
-     &free energies is monitored as well as convergence of harmonic &
-     &frequencies. Options are "yes" and "no".',                              &
-     &              default_value='no'),                                      &
-     & KeywordData( 'convergence_mode',                                       &
-     &              'convergence_mode determines which CASTEP parameters you &
-     &wish to vary in your convergence testing. Options are "cutoff", &
-     &"kpoints" and "both".',                                                 &
-     &              default_value='both'),                                    &
      & KeywordData( 'acoustic_sum_rule',                                      &
      &              'acoustic_sum_rule specifies where the acoustic sum rule &
      &is applied. The options are "off", "forces", "matrices" and "both".',   &
@@ -137,27 +150,7 @@ function converge_harmonic_frequencies() result(output)
      &              'no_dos_samples is the number of points in reciprocal &
      &space at which the normal modes are calculated when calculating the &
      &vibrational density of states.',                                        &
-     &              default_value='100000'),                                  &
-     & KeywordData( 'pseudopotential_file',                                   &
-     &              'pseudopotential_file is the name of the pseudopotential &
-     &to be used in the CASTEP calculations. If no pseudpotential is needed &
-     &(eg. if you are using OTF generation) the value of this should be &
-     &"none".',                                                               &
-     &              default_value='none'),                                    &
-     & KeywordData( 'freq_tolerance',                                         &
-     &              'freq_tolerance is the tolerance used in the convergence &
-     &of the harmonic frequencies.',                                          &
-     &              default_value='1e-8'),                                    &
-     & KeywordData( 'energy_tolerance',                                       &
-     &              'energy_tolerance is the tolerance used in the &
-     &convergence of the vibrational free energies. It is given in Hartree &
-     &per unit cell',                                                         &
-     &              default_value='1e-6'),                                    &
-     & KeywordData( 'convergence_count',                                      &
-     &              'convergence_count is the number of consecutive &
-     &frequencies and/or energies that must be within the defined tolerance &
-     &of each other for convergence to be considered reached',                &
-     &              default_value='3')                                        ]
+     &              default_value='100000')                                   ]
   output%main_subroutine => converge_harmonic_frequencies_subroutine
 end function
 
@@ -173,15 +166,21 @@ subroutine converge_harmonic_frequencies_subroutine(arguments)
   type(String) :: wd
   type(String) :: seedname
   type(String) :: file_type
-  integer      :: minimum_cutoff, cutoff_step, maximum_cutoff
-  real(dp)     :: maximum_kpoint_spacing, kpoint_spacing_step, minimum_kpoint_spacing
+  real(dp)     :: minimum_cutoff
+  real(dp)     :: cutoff_step
+  real(dp)     :: maximum_cutoff
+  real(dp)     :: maximum_kpoint_spacing
+  real(dp)     :: kpoint_spacing_step
+  real(dp)     :: minimum_kpoint_spacing
   integer      :: grid(3)
   real(dp)     :: symmetry_precision
   real(dp)     :: harmonic_displacement
-  integer      :: no_cores, no_nodes
+  integer      :: no_cores
+  integer      :: no_nodes
   type(String) :: run_script
-  type(String) :: converge_energies
-  type(String) :: convergence_mode
+  logical      :: converge_energies
+  logical      :: converge_cutoff
+  logical      :: converge_kpoints
   type(String) :: acoustic_sum_rule
   real(dp)     :: min_temperature
   real(dp)     :: max_temperature
@@ -189,30 +188,35 @@ subroutine converge_harmonic_frequencies_subroutine(arguments)
   real(dp)     :: min_frequency
   type(String) :: path
   integer      :: no_dos_samples
-  type(String) :: pseudopotential_file
-  real(dp)     :: freq_tolerance, energy_tolerance
+  real(dp)     :: freq_tolerance
+  real(dp)     :: energy_tolerance
   integer      :: convergence_count
   
-  ! Files
-  type(IFile)            :: cell_file, param_file, supercell_file, pseudopot_file_in
-  type(OFile)            :: output_cell_file, output_param_file
-  type(OFile)            :: setup_harmonic_inputs, run_harmonic_inputs
-  type(OFile)            :: normal_mode_inputs, harm_obs_input, normal_modes, pseudopot_file_out
-  type(IFile)            :: complex_mode_file, therm_vars, freqfile1, freqfile2, enfile1, enfile2
-  type(OFile)            :: vib_free_en, freq_conv, energy_conv
+  ! Structure.
+  type(String)        :: input_filename
+  type(StructureData) :: structure
 
   ! Energy cut-offs and kpoint spacings
-  integer                       :: no_cutoffs, no_kpoint_spacings
-  integer,          allocatable :: cutoffs(:), kpoint_spacings(:)
+  integer               :: no_cutoffs
+  integer               :: no_kpoint_spacings
+  real(dp), allocatable :: cutoffs(:)
+  real(dp), allocatable :: kpoint_spacings(:)
+  
+  ! Variables to converge.
+  type(RealVector), allocatable :: frequencies(:)
+  type(RealVector), allocatable :: free_energies(:)
   
   ! Working variables
-  type(String) :: dir, qpoint_dir, copyfile, rmfile
-  real(dp)     :: var1, var2, var_diff, max_val
+  integer :: no_qpoints
+  logical :: frequencies_converged
+  logical :: energies_converged
+  
+  ! Files and directories.
+  type(String) :: dir
+  type(OFile)  :: output_file
   
   ! Temporary variables
-  integer      :: i, j, k, h, ialloc, no_qpoints, result_code, conv_count1, conv_count2
-  integer      :: freqconv_check, enconv_check
-  character (len = 100) :: line_to_trim, var1char, var2char
+  integer :: i,ialloc
   
   ! --------------------------------------------------
   ! Get settings from user, and check them.
@@ -223,17 +227,30 @@ subroutine converge_harmonic_frequencies_subroutine(arguments)
   minimum_cutoff = int(arguments%value('minimum_cutoff'))
   cutoff_step = int(arguments%value('cutoff_step'))
   maximum_cutoff = int(arguments%value('maximum_cutoff'))
-  maximum_kpoint_spacing = dble(arguments%value('maximum_kpoint_spacing'))
-  kpoint_spacing_step = dble(arguments%value('kpoint_spacing_step'))
-  minimum_kpoint_spacing = dble(arguments%value('minimum_kpoint_spacing'))
+  maximum_kpoint_spacing = dble(arguments%value('maximum_k-point_spacing'))
+  kpoint_spacing_step = dble(arguments%value('k-point_spacing_step'))
+  minimum_kpoint_spacing = dble(arguments%value('minimum_k-point_spacing'))
   grid = int(split_line(arguments%value('q-point_grid')))
+  no_qpoints = grid(1)*grid(2)*grid(3)
   symmetry_precision = dble(arguments%value('symmetry_precision'))
   harmonic_displacement = dble(arguments%value('harmonic_displacement'))
   no_cores = int(arguments%value('no_cores'))
   no_nodes = int(arguments%value('no_nodes'))
   run_script = arguments%value('run_script')
-  converge_energies = arguments%value('converge_energies')
-  convergence_mode = arguments%value('convergence_mode')
+  converge_energies = lgcl(arguments%value('converge_energies'))
+  if (arguments%value('convergence_mode')=='cutoff') then
+    converge_cutoff = .true.
+    converge_kpoints = .false.
+  elseif (arguments%value('convergence_mode')=='kpoints') then
+    converge_cutoff = .false.
+    converge_kpoints = .true.
+  elseif (arguments%value('convergence_mode')=='both') then
+    converge_cutoff = .true.
+    converge_kpoints = .true.
+  else
+    call print_line(ERROR//': unexpected value for convergence_mode.')
+    stop
+  endif
   acoustic_sum_rule = arguments%value('acoustic_sum_rule')
   min_temperature = dble(arguments%value('min_temperature'))
   max_temperature = dble(arguments%value('max_temperature'))
@@ -241,728 +258,512 @@ subroutine converge_harmonic_frequencies_subroutine(arguments)
   min_frequency = dble(arguments%value('min_frequency'))
   path = arguments%value('path')
   no_dos_samples = int(arguments%value('no_dos_samples'))
-  pseudopotential_file = arguments%value('pseudopotential_file')
   freq_tolerance = dble(arguments%value('freq_tolerance'))
   energy_tolerance = dble(arguments%value('energy_tolerance'))
   convergence_count = int(arguments%value('convergence_count'))
   
-  if (cutoff_step<10) then
-    call print_line('Error: cutoff_step is too small.')
-    stop
-  elseif (maximum_cutoff<=minimum_cutoff) then
-    call print_line('Error: maximum_cutoff is smaller than minimum_cutoff.')
+  if (maximum_cutoff<=minimum_cutoff) then
+    call print_line(ERROR//': maximum_cutoff is smaller than minimum_cutoff.')
     stop
   elseif (maximum_kpoint_spacing<=minimum_kpoint_spacing) then
-    call print_line('Error: maximum_kpoints is smaller than minimum_kpoints.')
+    call print_line(ERROR//': maximum_kpoints is smaller than &
+       &minimum_kpoints.')
     stop
-  elseif (minimum_kpoint_spacing<=0.004_dp) then
-    call print_line('Error: minimum_kpoint_spacing is too small.')
-    stop
-  elseif (maximum_kpoint_spacing>0.09_dp) then
-    call print_line('Error: maximum_kpoint_spacing is too large.')
-    stop
-  elseif (file_type/='castep') then
-    call print_line('Error: CASTEP is the only accepted file type for this mode.')
-    stop
-  elseif ((converge_energies/='yes').AND.(converge_energies/='no')) then
-    call print_line('Error: converge_energies must be "yes" or "no".')
-    stop
-  elseif ((convergence_mode/='cutoff').AND.(convergence_mode/='kpoints').AND.(convergence_mode/='both')) then
-    call print_line('Error: convergence_mode must be "cutoff", "kpoints" or "both".')
+  elseif (file_type/='castep' .and. file_type/='quantum_espresso') then
+    call print_line(ERROR//': castep and quantum_espresso are the only &
+       &accepted file types for this mode.')
     stop
   elseif (max_temperature<=min_temperature) then
-    call print_line('Error: max_temperature is smaller than min_temperature.')
+    call print_line(ERROR//': max_temperature is smaller than &
+       &min_temperature.')
     stop
   elseif (convergence_count<1) then
-    call print_line('Error: convergence_count must be at least 1.')
+    call print_line(ERROR//': convergence_count must be at least 1.')
     stop
   endif
   
-  ! --------------------------------------------------
-  ! Read .cell and .param files
-  ! --------------------------------------------------
-  cell_file = IFile(seedname//'.cell')
-  param_file = IFile(seedname//'.param')
-  if (pseudopotential_file/='none') then
-      pseudopot_file_in = IFile(pseudopotential_file)
-  endif
+  ! Read in structure.
+  input_filename = make_input_filename(file_type, seedname)
+  structure = input_file_to_StructureData(file_type, input_filename)
   
-  ! ---------------------------------------------------------------------------
-  ! Calculate number of steps in convergence calculations and number of qpoints
-  ! ---------------------------------------------------------------------------
-  no_cutoffs = (maximum_cutoff-minimum_cutoff)/cutoff_step &
-           & + 1
+  ! Open output file.
+  output_file = OFile('convergence.dat')
   
-  no_kpoint_spacings = nint((maximum_kpoint_spacing-minimum_kpoint_spacing)/kpoint_spacing_step) &
-           & + 1
-
-  no_qpoints = grid(1)*grid(2)*grid(3)
-  
-  ! --------------------------------------------------
-  ! Allocate arrays
-  ! --------------------------------------------------
-  allocate( cutoffs(no_cutoffs),                            &
-          & kpoint_spacings(no_kpoint_spacings),            &
-          & stat=ialloc); call err(ialloc)
-  
-  ! ---------------------------------------------------------
-  ! Create input files for cutoff convergence and run caesar
-  ! ---------------------------------------------------------
-  freq_conv = OFile('frequency_conv')
-  energy_conv = OFile('energy_conv')
-  conv_count1 = 0
-  conv_count2 = 0
-  freqconv_check = 0
-  if (converge_energies=='yes') then
-     enconv_check = 0
-  else 
-     enconv_check = 1
-  endif
-
-  if ((convergence_mode=='cutoff').OR.(convergence_mode=='both')) then
-    call freq_conv%print_line( 'Result for kpoint spacing: '//maximum_kpoint_spacing)
-    call energy_conv%print_line( 'Results for kpoint spacing: '//maximum_kpoint_spacing)
-
+  ! Run cut-off energy convergence.
+  if (converge_cutoff) then
+    ! Calculate the number of steps, and allocate cutoffs.
+    no_cutoffs = ceiling((maximum_cutoff-minimum_cutoff)/cutoff_step) &
+             & + 1
+    allocate(cutoffs(no_cutoffs), stat=ialloc); call err(ialloc)
+    
+    ! Initialise convergence checks and observable arrays.
+    frequencies_converged = .false.
+    energies_converged = .false.
+    if (.not. converge_energies) then
+     energies_converged = .true.
+    endif
+    
+    frequencies = [RealVector::]
+    free_energies = [RealVector::]
+    
+    ! Loop over cutoffs, running calculations at each.
     do i=1,no_cutoffs
-      if ((freqconv_check==0).OR.(enconv_check==0)) then
-        cutoffs(i) = minimum_cutoff + (i-1)*cutoff_step
-        dir = 'cutoff_'//cutoffs(i)
-
-        ! Write CASTEP cell and param files
-        output_cell_file = write_castep_cell( nint(maximum_kpoint_spacing*1000),   &
-                                        & dir, seedname, cell_file)
-
-         output_param_file = write_castep_param( cutoffs(i), dir, seedname, param_file)
-
-         if (pseudopotential_file/='none') then
-            pseudopot_file_out = OFile(dir//'/'//pseudopotential_file)
-            do j=1,size(pseudopot_file_in)
-                 call pseudopot_file_out%print_line( pseudopot_file_in%line(j))
-            enddo
-         endif
-         
-         ! Write setup_harmonic input file and call caesar in setup_harmonic mode
-         setup_harmonic_inputs = write_setup( file_type, seedname, grid, &
-                                       & symmetry_precision, harmonic_displacement, dir)
-
-         call call_caesar('setup_harmonic -f setup_inputs -d '//dir)
-
-         ! Write run_harmonic input files and call caesar in run_harmonic mode
-         supercell_file = IFile(dir//'/no_supercells.dat')
-         run_harmonic_inputs = write_runinput( supercell_file, run_script, no_cores, no_nodes, dir)
-  
-         call call_caesar('run_harmonic -f run_inputs -d '//dir)
-
-         normal_mode_inputs=write_normmode( acoustic_sum_rule, dir)
-         call call_caesar('calculate_normal_modes -f normal_mode_inputs -d '//dir)
-
-         normal_modes = OFile(dir//'/normal_mode_freq')
-
-         do j=1,no_qpoints
-           if (no_qpoints<10) then
-              qpoint_dir=dir//'/qpoint_'//j
-           elseif (no_qpoints>=10 .AND. no_qpoints<100) then
-              if (j<10) then
-                 qpoint_dir=dir//'/qpoint_0'//j
-              else
-                 qpoint_dir=dir//'/qpoint_'//j
-              endif
-           elseif (no_qpoints>=100 .AND. no_qpoints<1000) then
-              if (j<10) then
-                 qpoint_dir=dir//'/qpoint_00'//j
-              elseif (j>=10 .AND. j<100) then
-                 qpoint_dir=dir//'/qpoint_0'//j
-              else
-                 qpoint_dir=dir//'/qpoint_'//j
-              endif
-           else 
-              call print_line('Consider reducing vibrational grid size for convergence testing.')
-              stop
-           endif
-
-           complex_mode_file = IFile(qpoint_dir//'/complex_modes.dat')
-           do k=1,size(complex_mode_file)
-              h = findindex_string(complex_mode_file%line(k),str('Mode frequency'))
-              if (h>=1) then
-                 line_to_trim = complex_mode_file%line(k)
-                 call normal_modes%print_line( trim(line_to_trim(30:)))
-              endif
-           enddo
-         enddo
-
-         if ((converge_energies=='yes').AND.(enconv_check==0)) then
-           harm_obs_input=write_obs_input( min_temperature, max_temperature, no_temperature_steps, &
-                                         & min_frequency, path, no_dos_samples, dir)
-           call call_caesar('calculate_harmonic_observables -f harm_obs_input -d '//dir)
-
-           therm_vars = IFile(dir//'/harmonic_observables/thermodynamic_variables.dat')
-
-           vib_free_en = OFile(dir//'/free_energies')
-
-           do k=2,size(therm_vars)
-              line_to_trim = therm_vars%line(k)
-              call vib_free_en%print_line( trim(line_to_trim(55:77)))
-           enddo
-         endif
-
-         if (i>1) then
-            copyfile='cp '//dir//'/normal_mode_freq '//dir//'/normal_mode_freq2'
-            result_code=system_call(copyfile)
-            if (result_code/=0) then
-               call print_line(ERROR//': Copying file failed.')
-            endif
-            freqfile1=IFile(dir//'/normal_mode_freq2')
-            copyfile='cp cutoff_'//cutoffs(i-1)//'/normal_mode_freq cutoff_'//cutoffs(i-1)//'/normal_mode_freq2'
-            result_code=system_call(copyfile)
-            if (result_code/=0) then
-               call print_line(ERROR//': Coping file failed.')
-            endif
-            freqfile2=IFile('cutoff_'//cutoffs(i-1)//'/normal_mode_freq2')
-            max_val=0.0_dp
-            do j=1,size(freqfile1)
-               var1char=char(freqfile1%line(j))
-               var2char=char(freqfile2%line(j))
-               read(var1char,*) var1
-               read(var2char,*) var2
-               var_diff=abs(var1-var2)
-               if (var_diff>max_val) then
-                  max_val=var_diff
-               endif
-            enddo
-
-            call freq_conv%print_line( 'Cutoff energy changed from '//cutoffs(i-1)//' to '//cutoffs(i)//'eV')
-            call freq_conv%print_line( 'Maximum frequency change: '//max_val)
-
-            if (max_val<freq_tolerance) then
-               conv_count1 = conv_count1 + 1
-            else 
-               conv_count1 = 0
-            endif
-            call freq_conv%print_line( 'Convergence count: '//conv_count1)
-            if (conv_count1>=convergence_count) then
-               call freq_conv%print_line( ' ')
-               call freq_conv%print_line( 'Desired harmonic phonon frequency convergence reached at '//cutoffs(i)//'eV')
-            endif
-            call freq_conv%print_line( ' ')
-
-            rmfile='rm '//dir//'/normal_mode_freq2'
-            result_code=system_call(rmfile)
-            if (result_code/=0) then
-               call print_line(ERROR//': Removing file failed.')
-            endif
-            rmfile='rm cutoff_'//cutoffs(i-1)//'/normal_mode_freq2'
-            result_code=system_call(rmfile)
-            if (result_code/=0) then
-               call print_line(ERROR//': Removing file failed.')
-            endif
-
-            if ((converge_energies=='yes').AND.(enconv_check==0)) then
-
-               copyfile='cp '//dir//'/free_energies '//dir//'/free_energies2'
-               result_code=system_call(copyfile)
-               if (result_code/=0) then
-                  call print_line(ERROR//': Copying file failed.')
-               endif
-               enfile1=IFile(dir//'/free_energies2')
-               copyfile='cp cutoff_'//cutoffs(i-1)//'/free_energies cutoff_'//cutoffs(i-1)//'/free_energies2'
-               result_code=system_call(copyfile)
-               if (result_code/=0) then
-                  call print_line(ERROR//': Coping file failed.')
-               endif
-               enfile2=IFile('cutoff_'//cutoffs(i-1)//'/free_energies2')
-               max_val=0.0_dp
-               do j=1,(size(therm_vars)-1)
-                  var1char=char(enfile1%line(j))
-                  var2char=char(enfile2%line(j))
-                  read(var1char,*) var1
-                  read(var2char,*) var2
-                  var_diff=abs(var1-var2)
-                  if (var_diff>max_val) then
-                     max_val=var_diff
-                  endif
-               enddo
-
-               call energy_conv%print_line( 'Cutoff energy changed from '//cutoffs(i-1)//' to '//cutoffs(i)//'eV')
-               call energy_conv%print_line( 'Maximum free energy change: '//max_val//' Hartree per cell')
-
-               if (max_val<energy_tolerance) then
-                  conv_count2 = conv_count2 + 1
-               else 
-                  conv_count2 = 0
-               endif
-               call energy_conv%print_line( 'Convergence count: '//conv_count2)
-               if (conv_count2>=convergence_count)then
-                  call energy_conv%print_line( ' ')
-                  call energy_conv%print_line( 'Desired vibrational free energy convergence reached at '//cutoffs(i)//'eV')
-               endif
-               call energy_conv%print_line( ' ')
-
-               rmfile='rm '//dir//'/free_energies2'
-               result_code=system_call(rmfile)
-               if (result_code/=0) then
-                  call print_line(ERROR//': Removing file failed.')
-               endif
-               rmfile='rm cutoff_'//cutoffs(i-1)//'/free_energies2'
-               result_code=system_call(rmfile)
-               if (result_code/=0) then
-                  call print_line(ERROR//': Removing file failed.')
-               endif
-
-            endif
-
-         endif
-
+      cutoffs(i) = minimum_cutoff + (i-1)*cutoff_step
+      dir = 'cutoff_'//floor(cutoffs(i))//'.'// &
+         & left_pad(nint(1e2_dp*modulo(cutoffs(i),1.0_dp)), '  ')
+      call mkdir(dir)
+      
+      frequencies = [ frequencies,                                   &
+                    & calculate_frequencies( dir,                    &
+                    &                        structure,              &
+                    &                        maximum_kpoint_spacing, &
+                    &                        cutoffs(i),             &
+                    &                        seedname,               &
+                    &                        no_qpoints,             &
+                    &                        file_type,              &
+                    &                        grid,                   &
+                    &                        symmetry_precision,     &
+                    &                        harmonic_displacement,  &
+                    &                        run_script,             &
+                    &                        no_cores,               &
+                    &                        no_nodes,               &
+                    &                        acoustic_sum_rule       ) ]
+      
+      if (i>convergence_count) then
+        frequencies_converged = all(                                      &
+           &   maximum_difference( frequencies(i),                        &
+           &                       frequencies(i-convergence_count:i-1) ) &
+           & < freq_tolerance                                             )
       endif
 
-      if (conv_count1>=convergence_count) then
-         freqconv_check = 1
-      endif
-      if ((converge_energies=='yes').AND.(conv_count2>=convergence_count)) then
-         enconv_check = 1
-      endif
+      if (converge_energies .and. .not. energies_converged) then
+        free_energies = [ free_energies,                                 &
+                        & calculate_free_energies( dir,                  &
+                        &                          min_temperature,      &
+                        &                          max_temperature,      &
+                        &                          no_temperature_steps, &
+                        &                          min_frequency,        &
+                        &                          path,                 &
+                        &                          no_dos_samples        ) ]
 
+        if (i>convergence_count) then
+          energies_converged = all(                                           &
+             &   maximum_difference( free_energies(i),                        &
+             &                       free_energies(i-convergence_count:i-1) ) &
+             & < energy_tolerance                                             )
+        endif
+      endif
+      
+      call print_line('Cut-off energy: '//cutoffs(i)//' (eV)')
+      if (frequencies_converged .and. energies_converged) then
+        call print_line('Convergence reached.')
+        exit
+      endif
     enddo
-
-    if (conv_count1<convergence_count) then
-       call freq_conv%print_line( ' ')
-       call freq_conv%print_line( 'Desired convergence of harmonic frequencies wrt cut-off energy not achieved')
-       call freq_conv%print_line( ' ')
+    
+    if (.not. (frequencies_converged .or. energies_converged)) then
+      call print_line('Convergence not reached.')
     endif
-    if ((converge_energies=='yes').AND.(conv_count2<convergence_count)) then
-       call energy_conv%print_line( ' ')
-       call energy_conv%print_line( 'Desired convergence of vibrational free energy wrt cut-off energy not achieved')
-       call energy_conv%print_line( ' ')
+    
+    ! Write output file.
+    call output_file%print_line('Cutoff energy (Ha) | Mode frequencies (Ha)')
+    do i=1,size(frequencies)
+      call output_file%print_line(cutoffs(i)//' '//frequencies(i))
+    enddo
+    
+    if (converge_energies) then
+      call output_file%print_line('')
+      call output_file%print_line('Cutoff energy (Ha) | Free energies &
+         &(Ha per primitive cell)')
+      do i=1,size(free_energies)
+        call output_file%print_line(cutoffs(i)//' '//free_energies(i))
+      enddo
     endif
-
   endif
   
-  ! -----------------------------------------------------------------
-  ! Create input files for kpoint spacing convergence and run caesar
-  ! -----------------------------------------------------------------
-  
-  conv_count1 = 0
-  conv_count2 = 0
-  freqconv_check = 0
-  if (converge_energies=='yes') then
-     enconv_check = 0
-  else 
-     enconv_check = 1
+  if (converge_cutoff .and. converge_kpoints) then
+    call output_file%print_line('')
   endif
-
-  if ((convergence_mode=='kpoints').OR.(convergence_mode=='both')) then
-    call freq_conv%print_line( ' ')
-    call freq_conv%print_line( 'Result for cut-off energy: '//minimum_cutoff)
-    call energy_conv%print_line( ' ')
-    call energy_conv%print_line( 'Result for cut-off energy: '//minimum_cutoff)
-
+  
+  ! Run k-points spacing convergence.
+  if (converge_kpoints) then
+    ! Calculate number of steps, and allocate kpoint spacings.
+    no_kpoint_spacings = ceiling(                            &
+       &   (maximum_kpoint_spacing-minimum_kpoint_spacing)   &
+       & / kpoint_spacing_step                             ) &
+       & + 1
+    allocate( kpoint_spacings(no_kpoint_spacings), &
+            & stat=ialloc); call err(ialloc)
+    
+    ! Initialise convergence checks and observable arrays.
+    frequencies_converged = .false.
+    energies_converged = .false.
+    if (.not. converge_energies) then
+     energies_converged = .true.
+    endif
+    
+    frequencies = [RealVector::]
+    free_energies = [RealVector::]
+    
+    ! Loop over spacings, running calculations at each.
     do i=1,no_kpoint_spacings
-      if ((freqconv_check==0).OR.(enconv_check==0)) then
-         kpoint_spacings(i) = nint((maximum_kpoint_spacing-(i-1)*kpoint_spacing_step)*1000)
+      kpoint_spacings(i) = maximum_kpoint_spacing-(i-1)*kpoint_spacing_step
 
-         dir = 'kpoints_0.0'//kpoint_spacings(i)
-
-         ! Write CASTEP cell and param files
-         output_cell_file = write_castep_cell( kpoint_spacings(i),   &
-                                        & dir, seedname, cell_file)
-
-         output_param_file = write_castep_param( minimum_cutoff, dir, seedname, param_file)
-
-         if (pseudopotential_file/='none') then
-            pseudopot_file_out = OFile(dir//'/'//pseudopotential_file)
-            do j=1,size(pseudopot_file_in)
-              call pseudopot_file_out%print_line( pseudopot_file_in%line(j))
-            enddo
-         endif
-
-         ! Write setup_harmonic input file and call caesar in setup_harmonic mode
-         setup_harmonic_inputs = write_setup( file_type, seedname, grid, &
-                                       & symmetry_precision, harmonic_displacement, dir)
-
-         call call_caesar('setup_harmonic -f setup_inputs -d '//dir)
-
-         ! Write run_harmonic input files and call caesar in run_harmonic mode
-         supercell_file = IFile(dir//'/no_supercells.dat')
-         run_harmonic_inputs = write_runinput( supercell_file, run_script, no_cores, no_nodes, dir)
-
-         call call_caesar('run_harmonic -f run_inputs -d '//dir)
-
-         normal_mode_inputs=write_normmode( acoustic_sum_rule, dir)
-         call call_caesar('calculate_normal_modes -f normal_mode_inputs -d '//dir)
-
-         normal_modes = OFile(dir//'/normal_mode_freq')
-
-         do j=1,no_qpoints
-           if (no_qpoints<10) then
-              qpoint_dir=dir//'/qpoint_'//j
-           elseif (no_qpoints>=10 .AND. no_qpoints<100) then
-              if (j<10) then
-                 qpoint_dir=dir//'/qpoint_0'//j
-              else
-                 qpoint_dir=dir//'/qpoint_'//j
-              endif
-           elseif (no_qpoints>=100 .AND. no_qpoints<1000) then
-              if (j<10) then
-                 qpoint_dir=dir//'/qpoint_00'//j
-              elseif (j>=10 .AND. j<100) then
-                 qpoint_dir=dir//'/qpoint_0'//j
-              else
-                 qpoint_dir=dir//'/qpoint_'//j
-              endif
-           else 
-              call print_line('Consider reducing vibrational grid size for convergence testing.')
-              stop
-           endif
-
-           complex_mode_file = IFile(qpoint_dir//'/complex_modes.dat')
-           do k=1,size(complex_mode_file)
-              h = findindex_string(complex_mode_file%line(k),str('Mode frequency'))
-              if (h>=1) then
-                 line_to_trim = complex_mode_file%line(k)
-                 call normal_modes%print_line( trim(line_to_trim(30:)))
-              endif
-           enddo
-         enddo
-
-         if ((converge_energies=='yes').AND.(enconv_check==0)) then
-           harm_obs_input=write_obs_input( min_temperature, max_temperature, no_temperature_steps, &
-                                         & min_frequency, path, no_dos_samples, dir)
-           call call_caesar('calculate_harmonic_observables -f harm_obs_input -d '//dir)
-
-           therm_vars = IFile(dir//'/harmonic_observables/thermodynamic_variables.dat')
-
-           vib_free_en = OFile(dir//'/free_energies')
-
-           do k=2,size(therm_vars)
-              line_to_trim = therm_vars%line(k)
-              call vib_free_en%print_line( trim(line_to_trim(55:77)))
-           enddo
-         endif
-
-         if (i>1) then
-            copyfile='cp '//dir//'/normal_mode_freq '//dir//'/normal_mode_freq2'
-            result_code=system_call(copyfile)
-            if (result_code/=0) then
-               call print_line(ERROR//': Copying file failed.')
-            endif
-            freqfile1=IFile(dir//'/normal_mode_freq2')
-            copyfile='cp kpoints_0.0'//kpoint_spacings(i-1)//'/normal_mode_freq kpoints_0.0'&
-                                              &//kpoint_spacings(i-1)//'/normal_mode_freq2'
-            result_code=system_call(copyfile)
-            if (result_code/=0) then
-               call print_line(ERROR//': Coping file failed.')
-            endif
-            freqfile2=IFile('kpoints_0.0'//kpoint_spacings(i-1)//'/normal_mode_freq2')
-            max_val=0.0_dp
-            do j=1,size(freqfile1)
-               var1char=char(freqfile1%line(j))
-               var2char=char(freqfile2%line(j))
-               read(var1char,*) var1
-               read(var2char,*) var2
-               var_diff=abs(var1-var2)
-               if (var_diff>max_val) then
-                  max_val=var_diff
-               endif
-            enddo
-            call freq_conv%print_line( 'Kpoint spacing changing from 0.0'//kpoint_spacings(i-1)//' to 0.0'//kpoint_spacings(i))
-            call freq_conv%print_line( 'Maximum frequency change: '//max_val)
-
-            if (max_val<freq_tolerance) then
-               conv_count1 = conv_count1 + 1
-            else 
-               conv_count1 = 0
-            endif
-            call freq_conv%print_line( 'Convergence count: '//conv_count1)
-            if (conv_count1>=convergence_count) then
-               call freq_conv%print_line( ' ')
-               call freq_conv%print_line( 'Desired harmonic phonon frequency convergence reached at 0.0'&
-                                                              &//kpoint_spacings(i)//' kpoint spacing')
-            endif
-            call freq_conv%print_line( ' ')
-
-            rmfile='rm '//dir//'/normal_mode_freq2'
-            result_code=system_call(rmfile)
-            if (result_code/=0) then
-               call print_line(ERROR//': Removing file failed.')
-            endif
-            rmfile='rm kpoints_0.0'//kpoint_spacings(i-1)//'/normal_mode_freq2'
-            result_code=system_call(rmfile)
-            if (result_code/=0) then
-               call print_line(ERROR//': Removing file failed.')
-            endif
-
-            if ((converge_energies=='yes').AND.(enconv_check==0)) then
-               copyfile='cp '//dir//'/free_energies '//dir//'/free_energies2'
-               result_code=system_call(copyfile)
-               if (result_code/=0) then
-                  call print_line(ERROR//': Copying file failed.')
-               endif
-               enfile1=IFile(dir//'/free_energies2')
-
-               copyfile='cp kpoints_0.0'//kpoint_spacings(i-1)//'/free_energies kpoints_0.0'&
-                                               &//kpoint_spacings(i-1)//'/free_energies2'
-               result_code=system_call(copyfile)
-               if (result_code/=0) then
-                  call print_line(ERROR//': Coping file failed.')
-               endif
-               enfile2=IFile('kpoints_0.0'//kpoint_spacings(i-1)//'/free_energies2')
-               max_val=0.0_dp
-               do j=1,(size(therm_vars)-1)
-                  var1char=char(enfile1%line(j))
-                  var2char=char(enfile2%line(j))
-                  read(var1char,*) var1
-                  read(var2char,*) var2
-                  var_diff=abs(var1-var2)
-                  if (var_diff>max_val) then
-                     max_val=var_diff
-                  endif
-               enddo
-
-               call energy_conv%print_line( 'Kpoint spacing changing from 0.0'//kpoint_spacings(i-1)//' to 0.0'//kpoint_spacings(i))
-               call energy_conv%print_line( 'Maximum free energy change: '//max_val//' Hartree per cell')
-
-               if (max_val<energy_tolerance) then
-                  conv_count2 = conv_count2 + 1
-               else
-                  conv_count2 = 0
-               endif
-               call energy_conv%print_line( 'Convergence count: '//conv_count2)
-               if (conv_count2>=convergence_count) then
-                  call energy_conv%print_line( ' ')
-                  call energy_conv%print_line( 'Desired vibrational free energy convergence reached at 0.0'&
-                                                                         &//kpoint_spacings(i)//' kpoint spacing')
-               endif
-               call energy_conv%print_line( ' ')
-
-               rmfile='rm '//dir//'/free_energies2'
-               result_code=system_call(rmfile)
-               if (result_code/=0) then
-                  call print_line(ERROR//': Removing file failed.')
-               endif
-               rmfile='rm kpoints_0.0'//kpoint_spacings(i-1)//'/free_energies2'
-               result_code=system_call(rmfile)
-               if (result_code/=0) then
-                  call print_line(ERROR//': Removing file failed.')
-               endif
-            endif
-
-         endif
-
+      dir = 'kpoints_'//floor(kpoint_spacings(i))//'.'// &
+         & left_pad(nint(1e4_dp*modulo(kpoint_spacings(i),1.0_dp)), '    ')
+      call mkdir(dir)
+      
+      frequencies = [ frequencies,                                  &
+                    & calculate_frequencies( dir,                   &
+                    &                        structure,             &
+                    &                        kpoint_spacings(i),    &
+                    &                        minimum_cutoff,        &
+                    &                        seedname,              &
+                    &                        no_qpoints,            &
+                    &                        file_type,             &
+                    &                        grid,                  &
+                    &                        symmetry_precision,    &
+                    &                        harmonic_displacement, &
+                    &                        run_script,            &
+                    &                        no_cores,              &
+                    &                        no_nodes,              &
+                    &                        acoustic_sum_rule      ) ]
+      
+      if (i>convergence_count) then
+        frequencies_converged = all(                                      &
+           &   maximum_difference( frequencies(i),                        &
+           &                       frequencies(i-convergence_count:i-1) ) &
+           & < freq_tolerance                                             )
       endif
 
-      if (conv_count1>=convergence_count) then
-         freqconv_check = 1
-      endif
-      if ((converge_energies=='yes').AND.(conv_count2>=convergence_count)) then
-         enconv_check = 1
-      endif
+      if (converge_energies .and. .not. energies_converged) then
+        free_energies = [ free_energies,                                 &
+                        & calculate_free_energies( dir,                  &
+                        &                          min_temperature,      &
+                        &                          max_temperature,      &
+                        &                          no_temperature_steps, &
+                        &                          min_frequency,        &
+                        &                          path,                 &
+                        &                          no_dos_samples        ) ]
 
+        if (i>convergence_count) then
+          energies_converged = all(                                           &
+             &   maximum_difference( free_energies(i),                        &
+             &                       free_energies(i-convergence_count:i-1) ) &
+             & < energy_tolerance                                             )
+        endif
+      endif
+      
+      call print_line('K-point spacing: '//kpoint_spacings(i)//' (A^-1)')
+      if (frequencies_converged .and. energies_converged) then
+        call print_line('Convergence reached.')
+        exit
+      endif
     enddo
-
-    if (conv_count1<convergence_count) then
-       call freq_conv%print_line( ' ')
-       call freq_conv%print_line( 'Desired convergence of harmonic frequencies wrt kpoint sampling not achieved')
-       call freq_conv%print_line( ' ')
+    
+    if (.not. (frequencies_converged .or. energies_converged)) then
+      call print_line('Convergence not reached.')
     endif
-    if ((converge_energies=='yes').AND.(conv_count2<convergence_count)) then
-       call energy_conv%print_line( ' ')
-       call energy_conv%print_line( 'Desired convergence of vibrational free energy wrt kpoint sampling not achieved')
-       call energy_conv%print_line( ' ')
+    
+    ! Write output file.
+    call output_file%print_line('k-point spacing (Bohr^-1) | Mode frequencies &
+       &(Ha)')
+    do i=1,size(frequencies)
+      call output_file%print_line(kpoint_spacings(i)//' '//frequencies(i))
+    enddo
+    
+    if (converge_energies) then
+      call output_file%print_line('')
+      call output_file%print_line('k-point spacing (Bohr^-1) | Free energies &
+         &(Ha per primitive cell)')
+      do i=1,size(free_energies)
+        call output_file%print_line(kpoint_spacings(i)//' '//free_energies(i))
+      enddo
     endif
-
   endif
-
 end subroutine
 
-! ----------------------------------------------------------------------
-! FUNCTIONS
-! ----------------------------------------------------------------------
-
-! ----------------------------------------------------------------------
-! Make directory and write CASTEP cell file with particular k-point
-! spacing (replaces original kpoint spacing/grid in cell file if present)
-! ----------------------------------------------------------------------
-function write_castep_cell(kpoint_spacing,dir,seedname, &
-   & cell_file) result(output_cell_file)
+function calculate_frequencies(directory,structure,kpoint_spacing,cutoff,  &
+   & seedname,no_qpoints,file_type,grid,symmetry_precision,                &
+   & harmonic_displacement,run_script,no_cores,no_nodes,acoustic_sum_rule) &
+   & result(output)
   implicit none
   
-  integer,             intent(in) :: kpoint_spacing
-  type(String),        intent(in) :: dir, seedname
-  type(IFile),         intent(in) :: cell_file
-  
-  type(OFile)  :: output_cell_file
-  
-  integer :: i, j, k, l, h, replace
-  
-  call mkdir(dir)
-  replace = 0
-  output_cell_file = OFile(dir//'/'//seedname//'.cell')
-
-  do i=1,size(cell_file)
-    j = findindex_string(cell_file%line(i),str('mp_spacing'))
-    k = findindex_string(cell_file%line(i),str('mp_grid'))
-    l = findindex_string(cell_file%line(i),str('MP_SPACING'))
-    h = findindex_string(cell_file%line(i),str('MP_GRID'))
-! Replace if kpoint line, otherwise print original line
-    if ((j>=1).OR.(k>=1).OR.(l>=1).OR.(h>=1)) then
-       call output_cell_file%print_line( 'kpoints_mp_spacing 0.0'//kpoint_spacing)
-       replace = 1
-    else
-       call output_cell_file%print_line(cell_file%line(i))
-    endif
-  enddo
-
-! Print kpoint spacing if not present in original file
-  if (replace == 0) then
-     call output_cell_file%print_line( 'kpoints_mp_spacing 0.0'//kpoint_spacing)
-  endif
-
-end function
-
-! ----------------------------------------------------------------------
-! Write CASTEP param file with a particular cutoff
-! (replaces original cut-off energy in param file if present)
-! ----------------------------------------------------------------------
-function write_castep_param(cutoff,dir,seedname, &
-   & param_file) result(output_param_file)
-  implicit none
-  
-  integer,             intent(in) :: cutoff
-  type(String),        intent(in) :: dir, seedname
-  type(IFile),         intent(in) :: param_file
-  
-  type(OFile)  :: output_param_file
-  
-  integer :: i, j, k, replace
-
-  replace = 0
-  output_param_file = OFile(dir//'/'//seedname//'.param')
-
-  do i=1,size(param_file)
-    j = findindex_string(param_file%line(i),str('cut_off_energy'))
-    k = findindex_string(param_file%line(i),str('CUT_OFF_ENERGY'))
-! Replace if cut-off energy line, otherwise print original line
-    if ((j>=1).OR.(k>=1)) then
-       call output_param_file%print_line( 'cut_off_energy    : '//cutoff)
-       replace = 1
-    else
-       call output_param_file%print_line(param_file%line(i))
-    endif
-  enddo
-
-! Write energy cut-off if not present in original file
-  if (replace == 0) then
-     call output_param_file%print_line( 'cut_off_energy    : '//cutoff)
-  endif
-  
-end function
-
-! ----------------------------------------------------------------------
-! Write setup_harmonic input file in specified directory
-! ----------------------------------------------------------------------
-function write_setup(file_type, seedname, grid, symmetry_precision, &
-   & harmonic_displacement, dir) result(setup_harmonic_inputs)
-  implicit none
-  
+  type(String),        intent(in) :: directory
+  type(StructureData), intent(in) :: structure
+  real(dp),            intent(in) :: kpoint_spacing
+  real(dp),            intent(in) :: cutoff
+  type(String),        intent(in) :: seedname
+  integer,             intent(in) :: no_qpoints
+  type(String),        intent(in) :: file_type
   integer,             intent(in) :: grid(3)
-  type(String),        intent(in) :: dir, seedname, file_type
-  real(dp),            intent(in) :: symmetry_precision, harmonic_displacement
-  
-  type(OFile)  :: setup_harmonic_inputs
-  
-  setup_harmonic_inputs = OFile(dir//'/setup_inputs')
-  call setup_harmonic_inputs%print_line( 'file_type '//file_type)
-  call setup_harmonic_inputs%print_line( 'seedname '//seedname)
-  call setup_harmonic_inputs%print_line( 'q-point_grid '//grid)
-  call setup_harmonic_inputs%print_line( 'symmetry_precision '//symmetry_precision)
-  call setup_harmonic_inputs%print_line( 'harmonic_displacement '//harmonic_displacement)
-  
-end function
-
-! ----------------------------------------------------------------------
-! Write run_harmonic input file in specified directory
-! ----------------------------------------------------------------------
-function write_runinput( supercell_file, run_script, no_cores, no_nodes, dir) result(run_harmonic_inputs)
-  implicit none
-  
-  type(IFile),         intent(in) :: supercell_file
-  type(String),        intent(in) :: dir
+  real(dp),            intent(in) :: symmetry_precision
+  real(dp),            intent(in) :: harmonic_displacement
   type(String),        intent(in) :: run_script
-  integer,             intent(in) :: no_cores, no_nodes
-
+  integer,             intent(in) :: no_cores
+  integer,             intent(in) :: no_nodes
+  type(String),        intent(in) :: acoustic_sum_rule
+  type(RealVector)                :: output
+  
+  type(String) :: qpoint_dir
+  type(IFile)  :: complex_modes_file
+  
+  type(ComplexMode), allocatable :: modes(:)
+  
   integer :: i
-
-  type(OFile)  :: run_harmonic_inputs
   
-  run_harmonic_inputs = OFile(dir//'/run_inputs')
-  do i=1,size(supercell_file)
-    call run_harmonic_inputs%print_line( 'supercells_to_run 1 '//supercell_file%line(i))
+  ! Write DFT files
+  if (file_type=='castep') then
+    call write_castep_files(directory, seedname, kpoint_spacing, cutoff)
+  elseif (file_type=='quantum_espresso') then
+    call write_qe_file(directory, seedname, structure, kpoint_spacing, cutoff)
+  endif
+  
+  ! Call setup_harmonic.
+  call call_caesar(                                              &
+     & 'setup_harmonic -d '//directory                   //' '// &
+     & '--file_type '//file_type                         //' '// &
+     & '--seedname '//seedname                           //' '// &
+     & '--q-point_grid '//grid                           //' '// &
+     & '--symmetry_precision '//symmetry_precision       //' '// &
+     & '--harmonic_displacement '//harmonic_displacement         )
+  
+  ! Call run_harmonic.
+  call call_caesar( 'run_harmonic -d '//directory //' '// &
+                  & '--run_script '//run_script   //' '// &
+                  & '--no_cores '//no_cores       //' '// &
+                  & '--no_nodes '//no_nodes               )
+  
+  ! Call calculate_normal_modes.
+  call call_caesar( 'calculate_normal_modes -d '//directory   //' '// &
+                  & '--acoustic_sum_rule '//acoustic_sum_rule         )
+  
+  ! Read in normal modes.
+  modes = [ComplexMode::]
+  do i=1,no_qpoints
+    qpoint_dir = directory//'/qpoint_'//left_pad(i, str(no_qpoints))
+    complex_modes_file = IFile(qpoint_dir//'/complex_modes.dat')
+    modes = [modes, ComplexMode(complex_modes_file%sections())]
   enddo
-  call run_harmonic_inputs%print_line( 'run_script '//run_script)
-  call run_harmonic_inputs%print_line( 'no_cores '//no_cores)
-  call run_harmonic_inputs%print_line( 'no_nodes '//no_nodes)
   
+  output = vec(modes%frequency)
 end function
 
-! ----------------------------------------------------------------------
-! Index function for two strings
-! ----------------------------------------------------------------------
-function findindex_character(string1,string2) result(index_found)
+function calculate_free_energies(directory,min_temperature,max_temperature, &
+   & no_temperature_steps,min_frequency,path,no_dos_samples) result(output)
   implicit none
-  character(*), intent(in)     :: string1, string2
-  integer      :: index_found
   
-  index_found=index(string1,string2)
+  type(String), intent(in) :: directory
+  real(dp),     intent(in) :: min_temperature
+  real(dp),     intent(in) :: max_temperature
+  integer,      intent(in) :: no_temperature_steps
+  real(dp),     intent(in) :: min_frequency
+  type(String), intent(in) :: path
+  integer,      intent(in) :: no_dos_samples
+  type(RealVector)         :: output
+  
+  type(IFile)                          :: thermodynamics_file
+  type(String),            allocatable :: lines(:)
+  type(ThermodynamicData), allocatable :: thermodynamics(:)
+
+  ! Call calculate_harmonic_observables.
+  call call_caesar(                                            &
+     & 'calculate_harmonic_observables -d '//directory //' '// &
+     & '--min_temperature '//min_temperature           //' '// &
+     & '--max_temperature '//max_temperature           //' '// &
+     & '--no_temperature_steps '//no_temperature_steps //' '// &
+     & '--min_frequency '//min_frequency               //' '// &
+     & '--path '//path                                 //' '// &
+     & '--no_dos_samples '//no_dos_samples                     )
+  
+  ! Read in thermodynamic data.
+  thermodynamics_file = IFile(                                        &
+     & directory//'/harmonic_observables/thermodynamic_variables.dat' )
+  lines = thermodynamics_file%lines()
+  thermodynamics = ThermodynamicData(lines(2:))
+  
+  output = vec(thermodynamics%free_energy)
 end function
 
-function findindex_string(string1,string2) result(index_found)
+subroutine write_castep_files(directory,seedname,kpoint_spacing,cutoff)
   implicit none
-  type(String),        intent(in) :: string1, string2
-  integer      :: index_found
   
-  index_found = findindex_character(char(string1),char(string2))
-end function
+  type(String), intent(in) :: directory
+  type(String), intent(in) :: seedname
+  real(dp),     intent(in) :: kpoint_spacing
+  real(dp),     intent(in) :: cutoff
+  
+  type(IFile) :: input_cell_file
+  type(OFile) :: output_cell_file
+  type(IFile) :: input_param_file
+  type(OFile) :: output_param_file
+  
+  logical :: line_replaced
+  
+  type(String), allocatable :: lines(:)
+  type(String), allocatable :: line(:)
+  
+  integer :: i
+  
+  ! --------------------------------------------------
+  ! Update cell file.
+  ! --------------------------------------------------
+  
+  ! Read input cell file.
+  input_cell_file = IFile(seedname//'.cell')
+  lines = input_cell_file%lines()
+  
+  ! Update k-point spacing.
+  line_replaced = .false.
+  do i=1,size(lines)
+    line = split_line(lower_case(lines(i)))
+    if (size(line)>=1) then
+      if ( line(1)=='kpoint_mp_spacing'  .or. &
+         & line(1)=='kpoint_mp_grid'     .or. &
+         & line(1)=='kpoints_mp_spacing' .or. &
+         & line(1)=='kpoints_mp_grid'         ) then
+        lines(i) = 'kpoints_mp_spacing '//kpoint_spacing/ANGSTROM_PER_BOHR
+        line_replaced = .true.
+        exit
+      endif
+    endif
+  enddo
+  
+  if (.not. line_replaced) then
+    lines = [lines, 'kpoints_mp_spacing '//kpoint_spacing/ANGSTROM_PER_BOHR]
+  endif
+  
+  ! Write output cell file.
+  output_cell_file = OFile(directory//'/'//seedname//'.cell')
+  call output_cell_file%print_lines(lines)
+  
+  ! --------------------------------------------------
+  ! Update param file.
+  ! --------------------------------------------------
+  
+  ! Read input param file.
+  input_param_file = IFile(seedname//'.param')
+  lines = input_param_file%lines()
+  
+  ! Update electronic cut-off energy.
+  line_replaced = .false.
+  do i=1,size(lines)
+    line = split_line(lower_case(lines(i)))
+    if (line(1)=='cut_off_energy') then
+      lines(i) = 'cut_off_energy '//cutoff*EV_PER_HARTREE
+      line_replaced = .true.
+      exit
+    endif
+  enddo
+  
+  if (.not. line_replaced) then
+    lines = [lines, 'cut_off_energy '//cutoff*EV_PER_HARTREE]
+  endif
+  
+  ! Write output param file.
+  output_param_file = OFile(directory//'/'//seedname//'.param')
+  call output_param_file%print_lines(lines)
+end subroutine
 
-! ----------------------------------------------------------------------
-! Write calculate_normal_modes input file in specified directory
-! ----------------------------------------------------------------------
-function write_normmode( acoustic_sum_rule, dir) result(normal_mode_inputs)
+subroutine write_qe_file(directory,seedname,structure,kpoint_spacing,cutoff)
   implicit none
-  type(String),        intent(in) :: dir, acoustic_sum_rule
-
-  type(OFile)  :: normal_mode_inputs
   
-  normal_mode_inputs = OFile(dir//'/normal_mode_inputs')
-
-  call normal_mode_inputs%print_line( 'acoustic_sum_rule '//acoustic_sum_rule)
+  type(String),        intent(in) :: directory
+  type(String),        intent(in) :: seedname
+  type(StructureData), intent(in) :: structure
+  real(dp),            intent(in) :: kpoint_spacing
+  real(dp),            intent(in) :: cutoff
   
-end function
+  type(IFile)       :: input_file
+  type(QeInputFile) :: qe_input_file
+  type(OFile)       :: output_file
+  
+  integer :: kpoint_grid(3)
+  
+  integer  :: ecutwfc_line
+  integer  :: ecutrho_line
+  real(dp) :: ecutwfc
+  real(dp) :: ecutrho
+  
+  type(String), allocatable :: line(:)
+  
+  integer :: i
+  
+  ! Read input file.
+  input_file = IFile(seedname//'.in')
+  qe_input_file = QeInputFile(input_file%lines())
+  
+  ! Calculate k-point grid from spacing.
+  kpoint_grid = calculate_kpoint_grid( kpoint_spacing,               &
+                                     & dble(structure%recip_lattice) )
+  
+  line = split_line(qe_input_file%k_points(2))
+  if (size(line)==3) then
+    qe_input_file%k_points(2) = join(str(kpoint_grid))
+  elseif (size(line)==6) then
+    qe_input_file%k_points(2) = join([str(kpoint_grid), line(4:6)])
+  else
+    call print_line(ERROR//': k_points card has an unexpected number of &
+       &entries.')
+    stop
+  endif
+  
+  ! Locate cutoff lines.
+  ecutwfc_line = 0
+  ecutrho_line = 0
+  do i=1,size(qe_input_file%namelists)
+    line = split_line(lower_case(qe_input_file%namelists(i)), delimiter='=')
+    if (size(line)==2) then
+      if (line(1)=='ecutwfc') then
+        if (ecutwfc_line/=0) then
+          call print_line(ERROR//': ecutwfc appears twice in input file.')
+          stop
+        endif
+        ecutwfc_line = i
+      elseif (line(1)=='ecutrho') then
+        if (ecutrho_line/=0) then
+          call print_line(ERROR//': ecutrho appears twice in input file.')
+          stop
+        endif
+        ecutrho_line = i
+      endif
+    endif
+  enddo
+  
+  if (ecutwfc_line==0) then
+    call print_line(ERROR//': ecutwfc not present.')
+  endif
+  
+  line = split_line(qe_input_file%namelists(ecutwfc_line), delimiter='=')
+  ecutwfc = dble(line(2))
+  qe_input_file%namelists(ecutwfc_line) = &
+     & 'ecutwfc='//cutoff*EV_PER_HARTREE/EV_PER_RYDBERG
+  
+  if (ecutrho_line/=0) then
+    line = split_line(qe_input_file%namelists(ecutrho_line), delimiter='=')
+    ecutrho = dble(line(2))
+    qe_input_file%namelists(ecutrho_line) = &
+       & 'ecutrho='//ecutrho*cutoff/ecutwfc*EV_PER_HARTREE/EV_PER_RYDBERG
+  endif
+  
+  ! Write output file.
+  output_file = OFile(directory//'/'//seedname//'.in')
+  call output_file%print_lines(qe_input_file)
+end subroutine
 
-! ----------------------------------------------------------------------
-! Write calculate_harmonic_observables input file in specified directory
-! ----------------------------------------------------------------------
-function write_obs_input( min_temperature, max_temperature, no_temperature_steps, &
-                         & min_frequency, path, no_dos_samples, dir) result(harm_obs_input)
+! Find the maximum element-wise difference between two vectors.
+impure elemental function maximum_difference(this,that) result(output)
   implicit none
-
-  real(dp),            intent(in) :: min_temperature
-  real(dp),            intent(in) :: max_temperature
-  integer,             intent(in) :: no_temperature_steps
-  real(dp),            intent(in) :: min_frequency
-  type(String),        intent(in) :: path
-  integer,             intent(in) :: no_dos_samples
-  type(String),        intent(in) :: dir
-
-  type(OFile)  :: harm_obs_input
   
-  harm_obs_input = OFile(dir//'/harm_obs_input')
-
-  call harm_obs_input%print_line( 'min_temperature '//min_temperature)
-  call harm_obs_input%print_line( 'max_temperature '//max_temperature)
-  call harm_obs_input%print_line( 'no_temperature_steps '//no_temperature_steps)
-  call harm_obs_input%print_line( 'min_frequency '//min_frequency)
-  call harm_obs_input%print_line( 'path '//path)
-  call harm_obs_input%print_line( 'no_dos_samples '//no_dos_samples)
+  type(RealVector), intent(in) :: this
+  type(RealVector), intent(in) :: that
+  real(dp)                     :: output
   
+  if (size(this)/=size(that)) then
+    call print_line(CODE_ERROR//': Vectors of different lengths.')
+    call err()
+  endif
+  
+  output = maxval(abs(dble(this-that)))
 end function
-
 end module

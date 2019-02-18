@@ -51,6 +51,7 @@ module linear_algebra_module
   public :: operator(/)
   public :: sum
   public :: l2_norm
+  public :: cross_product
   public :: outer_product
   public :: transpose
   public :: hermitian
@@ -544,6 +545,11 @@ module linear_algebra_module
   interface l2_norm
     module procedure l2_norm_RealVector
     module procedure l2_norm_ComplexVector
+  end interface
+  
+  interface cross_product
+    module procedure cross_product_IntVector_IntVector
+    module procedure cross_product_RealVector_RealVector
   end interface
   
   interface outer_product
@@ -2945,6 +2951,43 @@ impure elemental function l2_norm_ComplexVector(input) result(output)
   real(dp)                        :: output
   
   output = sqrt(real(input*conjg(input)))
+end function
+
+! Cross product.
+function cross_product_IntVector_IntVector(a,b) result(output)
+  implicit none
+  
+  type(IntVector), intent(in) :: a
+  type(IntVector), intent(in) :: b
+  type(IntVector)             :: output
+  
+  if (size(a)/=3 .or. size(b)/=3) then
+    call print_line(CODE_ERROR//': Trying to take a cross product involving &
+       &a vector which has other than three components.')
+    call err()
+  endif
+  
+  output = [ a%contents_(2)*b%contents_(3) - b%contents_(2)*a%contents_(3), &
+           & a%contents_(3)*b%contents_(1) - b%contents_(3)*a%contents_(1), &
+           & a%contents_(1)*b%contents_(2) - b%contents_(1)*a%contents_(2)  ]
+end function
+
+function cross_product_RealVector_RealVector(a,b) result(output)
+  implicit none
+  
+  type(RealVector), intent(in) :: a
+  type(RealVector), intent(in) :: b
+  type(RealVector)             :: output
+  
+  if (size(a)/=3 .or. size(b)/=3) then
+    call print_line(CODE_ERROR//': Trying to take a cross product involving &
+       &a vector which has other than three components.')
+    call err()
+  endif
+  
+  output = [ a%contents_(2)*b%contents_(3) - b%contents_(2)*a%contents_(3), &
+           & a%contents_(3)*b%contents_(1) - b%contents_(3)*a%contents_(1), &
+           & a%contents_(1)*b%contents_(2) - b%contents_(1)*a%contents_(2)  ]
 end function
 
 ! Outer product.

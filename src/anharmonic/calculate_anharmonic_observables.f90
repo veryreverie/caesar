@@ -270,10 +270,7 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   ! Read in setup_anharmonic settings.
   setup_anharmonic_arguments = Dictionary(setup_anharmonic())
   call setup_anharmonic_arguments%read_file('setup_anharmonic.used_settings')
-  
-  ! TODO: change this
-  calculate_stress = .false.
-  !calculate_stress = lgcl(setup_anharmonic_arguments%value('calculate_stress'))
+  calculate_stress = lgcl(setup_anharmonic_arguments%value('calculate_stress'))
   
   ! --------------------------------------------------
   ! Read in previously calculated data.

@@ -9,11 +9,13 @@ module polynomial_potential_module
   
   use basis_function_module
   use coupling_basis_functions_module
+  use coupling_stress_basis_functions_module
   use vscf_rvectors_module
   use sampling_points_module
   use sample_result_module
   use sample_results_module
   use fit_coefficients_module
+  use polynomial_stress_module
   implicit none
   
   private
@@ -34,6 +36,8 @@ module polynomial_potential_module
        & generate_sampling_points_PolynomialPotential
     procedure, public :: generate_potential => &
        & generate_potential_PolynomialPotential
+    procedure, public :: generate_stress => &
+       & generate_stress_PolynomialPotential
     
     procedure, public :: zero_energy => zero_energy_PolynomialPotential
     
@@ -54,6 +58,7 @@ module polynomial_potential_module
     procedure, public :: iterate_damped => iterate_damped_PolynomialPotential
     procedure, public :: iterate_pulay => iterate_pulay_PolynomialPotential
     
+    ! I/O.
     procedure, public :: read  => read_PolynomialPotential
     procedure, public :: write => write_PolynomialPotential
   end type
@@ -263,30 +268,23 @@ subroutine generate_sampling_points_PolynomialPotential(this, &
 end subroutine
 
 ! Generate potential.
-subroutine generate_potential_PolynomialPotential(this,anharmonic_data, &
-   & weighted_energy_force_ratio,calculate_stress,sampling_points_dir,  &
-   & calculation_reader,logfile)
+subroutine generate_potential_PolynomialPotential(this,anharmonic_data,  &
+   & weighted_energy_force_ratio,sampling_points_dir,calculation_reader, &
+   & logfile)
   implicit none
   
   class(PolynomialPotential), intent(inout) :: this
   type(AnharmonicData),       intent(in)    :: anharmonic_data
   real(dp),                   intent(in)    :: weighted_energy_force_ratio
-  logical,                    intent(in)    :: calculate_stress
   type(String),               intent(in)    :: sampling_points_dir
   type(CalculationReader),    intent(inout) :: calculation_reader
   type(OFile),                intent(inout) :: logfile
-  
-  ! Variables for processing electronic structure.
-  type(StructureData)                    :: supercell
-  type(VscfRvectors),        allocatable :: vscf_rvectors(:)
-  type(ElectronicStructure), allocatable :: calculations(:)
   
   ! Previously calculated basis functions.
   type(CouplingBasisFunctions), allocatable :: basis_functions(:)
   
   ! Electronic structure results.
   type(SamplingPoints), allocatable :: sampling_points(:)
-  type(CartesianDisplacement)       :: displacement
   type(SampleResults),  allocatable :: sample_results(:)
   
   ! Variables associated with the constant basis function
@@ -308,13 +306,6 @@ subroutine generate_potential_PolynomialPotential(this,anharmonic_data, &
   
   ! Directories and files.
   type(String) :: equilibrium_dir
-  type(String) :: coupling_dir
-  type(IFile)  :: basis_functions_file
-  type(IFile)  :: sampling_points_file
-  type(String) :: sampling_dir
-  type(IFile)  :: supercell_file
-  type(IFile)  :: vscf_rvectors_file
-  type(String) :: vscf_rvectors_dir
   
   ! Temporary variables.
   integer :: i,j,k,ialloc
@@ -343,20 +334,10 @@ subroutine generate_potential_PolynomialPotential(this,anharmonic_data, &
   ! --------------------------------------------------
   ! Read in basis functions and sampling points.
   ! --------------------------------------------------
-  allocate( basis_functions(size(anharmonic_data%subspace_couplings)), &
-          & sampling_points(size(anharmonic_data%subspace_couplings)), &
-          & stat=ialloc); call err(ialloc)
-  do i=1,size(sampling_points)
-    coupling_dir = sampling_points_dir// &
-       & '/coupling_'//left_pad(i,str(size(sampling_points)))
-    
-    ! Read in basis functions and sampling points.
-    basis_functions_file = IFile(coupling_dir//'/basis_functions.dat')
-    basis_functions(i) = CouplingBasisFunctions(basis_functions_file%lines())
-    
-    sampling_points_file = IFile(coupling_dir//'/sampling_points.dat')
-    sampling_points(i) = SamplingPoints(sampling_points_file%lines())
-  enddo
+  basis_functions = read_basis_functions( anharmonic_data%subspace_couplings, &
+                                        & sampling_points_dir                 )
+  sampling_points = read_sampling_points( anharmonic_data%subspace_couplings, &
+                                        & sampling_points_dir                 )
   
   ! --------------------------------------------------
   ! Read in energies and forces.
@@ -370,52 +351,11 @@ subroutine generate_potential_PolynomialPotential(this,anharmonic_data, &
                                           & anharmonic_data%real_modes,       &
                                           & anharmonic_data%qpoints           )
   
-  allocate( sample_results(size(anharmonic_data%subspace_couplings)), &
-          & stat=ialloc); call err(ialloc)
-  do i=1,size(sampling_points)
-    coupling_dir = sampling_points_dir// &
-       & '/coupling_'//left_pad(i,str(size(sampling_points)))
-    allocate( sample_results(i)%results(size(sampling_points(i))), &
-            & stat=ialloc); call err(ialloc)
-    do j=1,size(sampling_points(i))
-      sampling_dir = coupling_dir// &
-         & '/sampling_point_'//left_pad(j,str(size(sampling_points(i))))
-      
-      ! Read in supercell and VSCF R-vectors.
-      supercell_file = IFile(sampling_dir//'/structure.dat')
-      supercell = StructureData(supercell_file%lines())
-      
-      displacement = CartesianDisplacement( sampling_points(i)%points(j), &
-                                          & supercell,                    &
-                                          & anharmonic_data%real_modes,   &
-                                          & anharmonic_data%qpoints       )
-      
-      vscf_rvectors_file = IFile(sampling_dir//'/vscf_rvectors.dat')
-      vscf_rvectors = VscfRvectors(vscf_rvectors_file%sections())
-      
-      ! Read in electronic structure calculations.
-      allocate( calculations(size(vscf_rvectors)), &
-              & stat=ialloc); call err(ialloc)
-      do k=1,size(vscf_rvectors)
-        vscf_rvectors_dir = sampling_dir// &
-           & '/vscf_rvectors_'//left_pad(k,str(size(vscf_rvectors)))
-        calculations(k) = calculation_reader%read_calculation( &
-                                          & vscf_rvectors_dir, &
-                                          & displacement       )
-      enddo
-      
-      ! Average electronic structure across VSCF R-vectors, and convert
-      !    to correct normalisation and real mode co-ordinates.
-      sample_results(i)%results(j) = SampleResult( &
-                     & vscf_rvectors,              &
-                     & calculations,               &
-                     & supercell,                  &
-                     & anharmonic_data%real_modes, &
-                     & anharmonic_data%qpoints     )
-      
-      deallocate(calculations, stat=ialloc); call err(ialloc)
-    enddo
-  enddo
+  sample_results = read_sample_results( anharmonic_data%subspace_couplings, &
+                                      & sampling_points,                    &
+                                      & sampling_points_dir,                &
+                                      & anharmonic_data,                    &
+                                      & calculation_reader                  )
   
   ! --------------------------------------------------
   ! Calculate basis function coefficients.
@@ -495,12 +435,188 @@ subroutine generate_potential_PolynomialPotential(this,anharmonic_data, &
        &    basis_functions = coefficients                         &
        &                    * basis_functions(i)%basis_functions ) ]
   enddo
-  
-  ! --------------------------------------------------
-  ! Calculate stress tensor mapping.
-  ! --------------------------------------------------
-  ! TODO
 end subroutine
+
+! Generate stress.
+function generate_stress_PolynomialPotential(this,anharmonic_data,        &
+   & sampling_points_dir,stress_expansion_order,stress_subspace_coupling, &
+   & vscf_basis_functions_only,calculation_reader,logfile) result(output)
+  implicit none
+  
+  class(PolynomialPotential), intent(in)    :: this
+  type(AnharmonicData),       intent(in)    :: anharmonic_data
+  type(String),               intent(in)    :: sampling_points_dir
+  integer,                    intent(in)    :: stress_expansion_order
+  type(SubspaceCoupling),     intent(in)    :: stress_subspace_coupling(:)
+  logical,                    intent(in)    :: vscf_basis_functions_only
+  type(CalculationReader),    intent(inout) :: calculation_reader
+  type(OFile),                intent(inout) :: logfile
+  type(StressPointer)                       :: output
+  
+  ! Stress basis functions.
+  type(CouplingStressBasisFunctions), allocatable :: basis_functions(:)
+  
+  ! Electronic structure results.
+  type(SamplingPoints), allocatable :: sampling_points(:)
+  type(SampleResults),  allocatable :: sample_results(:)
+  
+  integer :: i,ialloc
+  
+  ! Generate basis functions.
+  allocate( basis_functions(size(stress_subspace_coupling)), &
+          & stat=ialloc); call err(ialloc)
+  do i=1,size(basis_functions)
+    basis_functions(i) = generate_stress_basis_functions( &
+                 & stress_subspace_coupling(i),           &
+                 & stress_expansion_order,                &
+                 & anharmonic_data%structure,             &
+                 & anharmonic_data%complex_modes,         &
+                 & anharmonic_data%real_modes,            &
+                 & anharmonic_data%qpoints,               &
+                 & anharmonic_data%degenerate_subspaces,  &
+                 & anharmonic_data%degenerate_symmetries, &
+                 & vscf_basis_functions_only,             &
+                 & logfile                                )
+  enddo
+  
+  ! Read in sampling points.
+  sampling_points = read_sampling_points( anharmonic_data%subspace_couplings, &
+                                        & sampling_points_dir                 )
+  
+  ! Read in sample results.
+  sample_results = read_sample_results( anharmonic_data%subspace_couplings, &
+                                      & sampling_points,                    &
+                                      & sampling_points_dir,                &
+                                      & anharmonic_data,                    &
+                                      & calculation_reader                  )
+  
+  ! Fit basis functions.
+  
+  ! TODO: Fit basis functions before returning.
+  output = StressPointer(PolynomialStress( dblemat(make_identity_matrix(3)), &
+                                         & basis_functions                   ))
+end function
+
+! Helper functions for generate_potential and generate_stress.
+function read_sampling_points(couplings,sampling_points_directory) &
+   & result(output)
+  implicit none
+  
+  type(SubspaceCoupling), intent(in) :: couplings(:)
+  type(String),           intent(in) :: sampling_points_directory
+  type(SamplingPoints), allocatable  :: output(:)
+  
+  type(String) :: coupling_directory
+  type(IFile)  :: sampling_points_file
+  
+  integer :: i,ialloc
+  
+  allocate(output(size(couplings)), stat=ialloc); call err(ialloc)
+  do i=1,size(couplings)
+    coupling_directory = sampling_points_directory// &
+       & '/coupling_'//left_pad(i,str(size(couplings)))
+    
+    sampling_points_file = IFile(coupling_directory//'/sampling_points.dat')
+    output(i) = SamplingPoints(sampling_points_file%lines())
+  enddo
+end function
+
+function read_basis_functions(couplings,sampling_points_directory) &
+   & result(output)
+  implicit none
+  
+  type(SubspaceCoupling), intent(in)        :: couplings(:)
+  type(String),           intent(in)        :: sampling_points_directory
+  type(CouplingBasisFunctions), allocatable :: output(:)
+  
+  type(String) :: coupling_directory
+  type(IFile)  :: basis_functions_file
+  
+  integer :: i,ialloc
+  
+  allocate(output(size(couplings)), stat=ialloc); call err(ialloc)
+  do i=1,size(couplings)
+    coupling_directory = sampling_points_directory// &
+       & '/coupling_'//left_pad(i,str(size(couplings)))
+    
+    basis_functions_file = IFile(coupling_directory//'/basis_functions.dat')
+    output(i) = CouplingBasisFunctions(basis_functions_file%lines())
+  enddo
+end function
+
+function read_sample_results(couplings,sampling_points,            &
+   & sampling_points_directory,anharmonic_data,calculation_reader) &
+   & result(output)
+  implicit none
+  
+  type(SubspaceCoupling),  intent(in)    :: couplings(:)
+  type(SamplingPoints),    intent(in)    :: sampling_points(:)
+  type(String),            intent(in)    :: sampling_points_directory
+  type(AnharmonicData),    intent(in)    :: anharmonic_data
+  type(CalculationReader), intent(inout) :: calculation_reader
+  type(SampleResults), allocatable       :: output(:)
+  
+  type(StructureData)                    :: supercell
+  type(CartesianDisplacement)            :: displacement
+  type(VscfRvectors),        allocatable :: vscf_rvectors(:)
+  type(ElectronicStructure), allocatable :: calculations(:)
+  
+  ! Files and directories.
+  type(String) :: coupling_directory
+  type(String) :: sampling_directory
+  type(IFile)  :: supercell_file
+  type(IFile)  :: vscf_rvectors_file
+  type(String) :: vscf_rvectors_directory
+  
+  ! Temporary variables.
+  integer :: i,j,k,ialloc
+  
+  allocate(output(size(couplings)), stat=ialloc); call err(ialloc)
+  do i=1,size(couplings)
+    coupling_directory = sampling_points_directory// &
+       & '/coupling_'//left_pad(i,str(size(sampling_points)))
+    
+    allocate( output(i)%results(size(sampling_points(i))), &
+            & stat=ialloc); call err(ialloc)
+    do j=1,size(sampling_points(i))
+      sampling_directory = coupling_directory// &
+         & '/sampling_point_'//left_pad(j,str(size(sampling_points(i))))
+      
+      ! Read in supercell and VSCF R-vectors.
+      supercell_file = IFile(sampling_directory//'/structure.dat')
+      supercell = StructureData(supercell_file%lines())
+      
+      displacement = CartesianDisplacement( sampling_points(i)%points(j), &
+                                          & supercell,                    &
+                                          & anharmonic_data%real_modes,   &
+                                          & anharmonic_data%qpoints       )
+      
+      vscf_rvectors_file = IFile(sampling_directory//'/vscf_rvectors.dat')
+      vscf_rvectors = VscfRvectors(vscf_rvectors_file%sections())
+      
+      ! Read in electronic structure calculations.
+      allocate( calculations(size(vscf_rvectors)), &
+              & stat=ialloc); call err(ialloc)
+      do k=1,size(vscf_rvectors)
+        vscf_rvectors_directory = sampling_directory// &
+           & '/vscf_rvectors_'//left_pad(k,str(size(vscf_rvectors)))
+        calculations(k) = calculation_reader%read_calculation( &
+                                    & vscf_rvectors_directory, &
+                                    & displacement             )
+      enddo
+      
+      ! Average electronic structure across VSCF R-vectors, and convert
+      !    to correct normalisation and real mode co-ordinates.
+      output(i)%results(j) = SampleResult( vscf_rvectors,              &
+                                         & calculations,               &
+                                         & supercell,                  &
+                                         & anharmonic_data%real_modes, &
+                                         & anharmonic_data%qpoints     )
+      
+      deallocate(calculations, stat=ialloc); call err(ialloc)
+    enddo
+  enddo
+end function
 
 ! Set the undisplaced energy to zero.
 impure elemental subroutine zero_energy_PolynomialPotential(this)
@@ -596,7 +712,7 @@ function braket_PolynomialPotential(this,bra,ket,subspace,subspace_basis, &
   
   logical, allocatable :: to_remove(:)
   
-  integer :: i,j,k,l,ialloc
+  integer :: i,j,k
   
   potential = this
   
@@ -708,7 +824,7 @@ impure elemental function iterate_damped_PolynomialPotential(this, &
   
   type(PolynomialPotential) :: potential
   
-  integer :: i,ialloc
+  integer :: i
   
   select type(new_potential); type is(PolynomialPotential)
     if (size(this%basis_functions)/=size(new_potential%basis_functions)) then
