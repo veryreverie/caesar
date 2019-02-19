@@ -216,7 +216,7 @@ subroutine converge_harmonic_frequencies_subroutine(arguments)
   type(OFile)  :: output_file
   
   ! Temporary variables
-  integer :: i,ialloc
+  integer :: i
   
   ! --------------------------------------------------
   ! Get settings from user, and check them.
@@ -291,11 +291,6 @@ subroutine converge_harmonic_frequencies_subroutine(arguments)
   
   ! Run cut-off energy convergence.
   if (converge_cutoff) then
-    ! Calculate the number of steps, and allocate cutoffs.
-    no_cutoffs = ceiling((maximum_cutoff-minimum_cutoff)/cutoff_step) &
-             & + 1
-    allocate(cutoffs(no_cutoffs), stat=ialloc); call err(ialloc)
-    
     ! Initialise convergence checks and observable arrays.
     frequencies_converged = .false.
     energies_converged = .false.
@@ -307,9 +302,14 @@ subroutine converge_harmonic_frequencies_subroutine(arguments)
     free_energies = [RealVector::]
     
     ! Loop over cutoffs, running calculations at each.
+    no_cutoffs = ceiling((maximum_cutoff-minimum_cutoff)/cutoff_step) &
+             & + 1
+    cutoffs = [( minimum_cutoff + (i-1)*cutoff_step, &
+               & i=1,                                &
+               & no_cutoffs                          )]
     do i=1,no_cutoffs
-      cutoffs(i) = minimum_cutoff + (i-1)*cutoff_step
-      dir = 'cutoff_'//floor(cutoffs(i))//'.'// &
+      dir = 'cutoff_'//                                                       &
+         & left_pad(floor(cutoffs(i)),str(floor(cutoffs(no_cutoffs))))//'.'// &
          & left_pad(nint(1e2_dp*modulo(cutoffs(i),1.0_dp)), '  ')
       call mkdir(dir)
       
@@ -354,7 +354,7 @@ subroutine converge_harmonic_frequencies_subroutine(arguments)
         endif
       endif
       
-      call print_line('Cut-off energy: '//cutoffs(i)//' (eV)')
+      call print_line('Cut-off energy: '//cutoffs(i)//' (Ha)')
       if (frequencies_converged .and. energies_converged) then
         call print_line('Convergence reached.')
         exit
@@ -387,14 +387,6 @@ subroutine converge_harmonic_frequencies_subroutine(arguments)
   
   ! Run k-points spacing convergence.
   if (converge_kpoints) then
-    ! Calculate number of steps, and allocate kpoint spacings.
-    no_kpoint_spacings = ceiling(                            &
-       &   (maximum_kpoint_spacing-minimum_kpoint_spacing)   &
-       & / kpoint_spacing_step                             ) &
-       & + 1
-    allocate( kpoint_spacings(no_kpoint_spacings), &
-            & stat=ialloc); call err(ialloc)
-    
     ! Initialise convergence checks and observable arrays.
     frequencies_converged = .false.
     energies_converged = .false.
@@ -406,11 +398,19 @@ subroutine converge_harmonic_frequencies_subroutine(arguments)
     free_energies = [RealVector::]
     
     ! Loop over spacings, running calculations at each.
+    no_kpoint_spacings = ceiling(                            &
+       &   (maximum_kpoint_spacing-minimum_kpoint_spacing)   &
+       & / kpoint_spacing_step                             ) &
+       & + 1
+    kpoint_spacings = [( maximum_kpoint_spacing-(i-1)*kpoint_spacing_step, &
+                       & i=1,                                              &
+                       & no_kpoint_spacings                                )]
     do i=1,no_kpoint_spacings
-      kpoint_spacings(i) = maximum_kpoint_spacing-(i-1)*kpoint_spacing_step
-
-      dir = 'kpoints_'//floor(kpoint_spacings(i))//'.'// &
-         & left_pad(nint(1e4_dp*modulo(kpoint_spacings(i),1.0_dp)), '    ')
+      dir = 'kpoints_'//                                                      &
+         & left_pad( floor(kpoint_spacings(i)),                               &
+         &           str(floor(kpoint_spacings(no_kpoint_spacings))) )//'.'// &
+         & left_pad( nint(1e4_dp*modulo(kpoint_spacings(i),1.0_dp)),          &
+         &           '    '                                          )
       call mkdir(dir)
       
       frequencies = [ frequencies,                                  &
@@ -454,7 +454,7 @@ subroutine converge_harmonic_frequencies_subroutine(arguments)
         endif
       endif
       
-      call print_line('K-point spacing: '//kpoint_spacings(i)//' (A^-1)')
+      call print_line('K-point spacing: '//kpoint_spacings(i)//' (Bohr^-1)')
       if (frequencies_converged .and. energies_converged) then
         call print_line('Convergence reached.')
         exit
@@ -532,7 +532,9 @@ function calculate_frequencies(directory,structure,kpoint_spacing,cutoff,  &
   call call_caesar( 'run_harmonic -d '//directory //' '// &
                   & '--run_script '//run_script   //' '// &
                   & '--no_cores '//no_cores       //' '// &
-                  & '--no_nodes '//no_nodes               )
+                  & '--no_nodes '//no_nodes       //' '// &
+                  & '--exit_on_error true'        //' '// &
+                  & '--repeat_calculations true'          )
   
   ! Call calculate_normal_modes.
   call call_caesar( 'calculate_normal_modes -d '//directory   //' '// &

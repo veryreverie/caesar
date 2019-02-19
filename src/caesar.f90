@@ -20,6 +20,7 @@ program caesar
   
   ! Use Castep modules.
   use converge_harmonic_frequencies_module
+  use plot_harmonic_convergence_module
   
   ! Use testing modules.
   use check_counter_module
@@ -89,6 +90,7 @@ program caesar
      & plot_vscf_modes(),                  &
      & calculate_anharmonic_observables(), &
      & converge_harmonic_frequencies(),    &
+     & plot_harmonic_convergence(),        &
      & plot_vscf_states(),                 &
      & update_basis_functions()            ])
   
