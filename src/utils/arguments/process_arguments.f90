@@ -114,7 +114,7 @@ function process_arguments(args,keywords_in) result(arguments)
         call print_line(ERROR//': Caesar only takes one non-keyword &
            &argument. all other arguments should be preceded by "-" for flags &
            &or "--" for keywords.')
-        stop 1
+        call quit()
       endif
       mode_found = .true.
     endif
@@ -133,7 +133,7 @@ function process_arguments(args,keywords_in) result(arguments)
         else
           call print_line(ERROR//': keyword '//keyword//' has been given &
              &without a value on the command line.')
-          stop 1
+          call quit()
         endif
       endif
     endif

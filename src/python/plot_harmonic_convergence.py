@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import matplotlib.colors as colors
 import matplotlib.colorbar as colorbar
+import matplotlib.ticker as tick
 import scipy.stats
 import numpy as np
 import operator
@@ -44,20 +45,17 @@ def main():
     
     if data[i]['header'][0]=='k-point':
       data[i]['x type'] = 'k-point'
-      data[i]['x label'] = r'$k$-point spacing (bohr$^{-1}$)'
+      data[i]['x'] = [1/x for x in data[i]['x']]
     elif data[i]['header'][0]=='Cutoff':
       data[i]['x type'] = 'cutoff'
-      data[i]['x label'] = r'cut-off energy (Ha)'
     else:
       print(data[i]['header'][0])
       sys.exit()
     
     if data[i]['header'][4]=='Mode':
       data[i]['y type'] = 'frequencies'
-      data[i]['y label'] = r'error in mode frequencies (Ha)'
     elif data[i]['header'][4]=='Free':
       data[i]['y type'] = 'free energies'
-      data[i]['y label'] = r'error in free energies (Ha per primitive cell)'
     else:
       print('Error: unexpected header:')
       print(data[i]['header'])
@@ -101,17 +99,41 @@ def main():
     ax = entry['axis']
     cb = entry['cbar']
     
+    min_x = min(entry['x'])
+    max_x = max(entry['x'])
+    
     min_y = min(entry['converged'])
     max_y = max(entry['converged'])
     
+    # Plot data.
     for y,conv in zip(entry['dy'],entry['converged']):
       colour = cmap((conv-min_y)/(max_y-min_y))
       ax.plot(entry['x'],y,color=colour)
-    ax.set_xlabel(entry['x label'])
-    ax.set_ylabel(entry['y label'])
+    
+    # Configure x axis.
+    if entry['x type']=='cutoff':
+      ax.set_xlabel(r'cut-off energy (Ha)')
+    elif entry['x type']=='k-point':
+      ax.set_xlabel(r'1/$k$-point spacing (bohr)')
+      
+      ax2 = ax.twiny()
+      ax2.set_xlabel(r'$k$-point spacing (bohr$^{-1}$)')
+      ax2.set_xticks(entry['x'])
+      round_to_2 = lambda x,n: round(x, n-1-int(np.floor(np.log10(abs(x)))))
+      ax2.set_xticklabels([round_to_2(1/x,2) for x in entry['x']])
+      ax2.set_xlim(min_x, max_x)
     ax.set_xlim(entry['x'][0],entry['x'][-1])
+    
+    # Configure y axis.
+    if entry['y type']=='frequencies':
+      ax.set_ylabel(r'error in mode frequencies (Ha)')
+      cb.set_ylabel(r'Converged mode frequency (Ha)')
+    elif entry['y type']=='free energies':
+      ax.set_ylabel(r'error in free energies (Ha per primitive cell)')
+      cb.set_ylabel(r'Converged free energy (Ha per primitive cell)')
     ax.set_ylim(-1e-3,1e-3)
     
+    # Add colourbar.
     norm = colors.Normalize(vmin=min_y,vmax=max_y)
     colorbar.ColorbarBase(cb, cmap=cmap, norm=norm)
     cb.yaxis.set_ticks_position('left')

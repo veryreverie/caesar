@@ -227,12 +227,12 @@ function generate_subspace_monomials(subspace_coupling,subspaces, &
     call err()
   elseif (minimum_expansion_order<0) then
     call print_line(ERROR//': minimum_expansion_order must be non-negative.')
-    stop 1
+    call quit()
   elseif (   maximum_expansion_order                               &
          & < min(minimum_expansion_order, size(subspace_coupling)) ) then
     call print_line(ERROR//': maximum_expansion_order must be at least as &
        &large as minimum_expansion_order and the size of the coupling.')
-    stop 1
+    call quit()
   endif
   
   ! Retrieve coupled subspaces from subspace coupling.

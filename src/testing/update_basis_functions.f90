@@ -71,7 +71,7 @@ subroutine update_basis_functions_subroutine(arguments)
     if (line(1)=='subspace') then
       call print_line(ERROR//': Basis function file already contains subspace &
          &coupling.')
-      stop 1
+      call quit()
     endif
     
     ! Remove the unique monomials section, and add a subspace coupling section.

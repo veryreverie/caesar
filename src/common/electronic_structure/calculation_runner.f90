@@ -148,7 +148,7 @@ subroutine run_calculation(this,directory)
   ! Check the result code.
   if (result_code/=0) then
     if (this%exit_on_error_) then
-      stop 1
+      call quit()
     else
       return
     endif

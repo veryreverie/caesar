@@ -143,7 +143,7 @@ function generate_coupled_subspaces(subspaces,maximum_coupling_order) &
   ! Check input.
   if (maximum_coupling_order<1) then
     call print_line(ERROR//': maximum_coupling_order must be at least 1.')
-    stop 1
+    call quit()
   endif
   
   ! Call the helper function once for each coupling order.

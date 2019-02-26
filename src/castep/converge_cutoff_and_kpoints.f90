@@ -187,25 +187,25 @@ subroutine converge_cutoff_and_kpoints_subroutine(arguments)
   
   if (cutoff_step<10) then
     call print_line('Error: cutoff_step is too small.')
-    stop 1
+    call quit()
   elseif (maximum_cutoff<=minimum_cutoff) then
     call print_line('Error: maximum_cutoff is smaller than minimum_cutoff.')
-    stop 1
+    call quit()
   elseif (kpoints_step<1) then
     call print_line('Error: kpoints_step is too small.')
-    stop 1
+    call quit()
   elseif (maximum_kpoints<=minimum_kpoints) then
     call print_line('Error: maximum_kpoints is smaller than minimum_kpoints.')
-    stop 1
+    call quit()
   elseif (energy_convergence_threshold<=0.0_dp) then
     call print_line('Error: energy_convergence_threshold must be positive.')
-    stop 1
+    call quit()
   elseif (force_convergence_threshold<=0.0_dp) then
     call print_line('Error: force_convergence_threshold must be positive.')
-    stop 1
+    call quit()
   elseif (no_converged_calculations<2) then
     call print_line('Error: no_converged_calculations must be at least 2.')
-    stop 1
+    call quit()
   endif
   
   ! --------------------------------------------------
@@ -340,7 +340,7 @@ subroutine converge_cutoff_and_kpoints_subroutine(arguments)
                                & cutoffs_energies(converged_step)//' eV')
   else
     call print_line('Error: cutoff energy convergence not acheived.')
-    stop 1
+    call quit()
   endif
   
   call progress_file%print_line( '')
@@ -446,7 +446,7 @@ subroutine converge_cutoff_and_kpoints_subroutine(arguments)
                                & kpoints_energies(converged_step)//' eV')
   else
     call print_line('Error: k-point convergence not acheived.')
-    stop 1
+    call quit()
   endif
   
   ! Write out k-points file.

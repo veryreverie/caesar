@@ -193,7 +193,7 @@ function index_Dictionary_String(this,keyword) result(output)
   
   if (output==0) then
     call print_line(ERROR//': unexpected keyword: '//keyword//'.')
-    stop 1
+    call quit()
   endif
 end function
 
@@ -221,7 +221,7 @@ function index_by_flag_Dictionary_character(this,flag) result(output)
   
   if (output==0) then
     call print_line(ERROR//': unexpected flag: '//flag//'.')
-    stop 1
+    call quit()
   endif
 contains
   ! Lambda for checking if a flag matches.
@@ -584,7 +584,7 @@ subroutine read_file_Dictionary_character(this, filename, &
       if (size(line)==1) then
         call print_line(ERROR//': the keyword '//this%keywords(j)%keyword// &
            & 'has been specified without a value.')
-        stop 1
+        call quit()
       else
         call this%keywords(j)%set(join(line(2:)),only_if_unset)
       endif

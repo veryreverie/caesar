@@ -372,7 +372,7 @@ function new_PhononDos_CartesianHessian(supercell,min_images,hessian,        &
   if (max_freq<=min_frequency) then
     call print_line(ERROR//': The system is pathologically unstable; all &
        &frequencies are less than min_frequency.')
-    stop 1
+    call quit()
   endif
   
   ! Spread out min and max frequencies to leave safety margin.

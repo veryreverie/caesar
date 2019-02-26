@@ -221,7 +221,7 @@ subroutine setup_anharmonic_subroutine(arguments)
     if (j==0) then
       call print_line(ERROR//': anharmonic q-point '//qpoints(i)%qpoint// &
          &' is not also a harmonic q-point.')
-      stop 1
+      call quit()
     endif
     
     ! Re-label the anharmonic q-point to have the same ID as the matching

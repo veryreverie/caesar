@@ -134,7 +134,7 @@ subroutine setup_harmonic_subroutine(arguments)
     if (any(grid/=1)) then
       call print_line(ERROR//': Unable to calculate LO/TO splitting if &
          &q-point grid is not 1x1x1.')
-      stop 1
+      call quit()
     endif
   endif
   
@@ -156,7 +156,7 @@ subroutine setup_harmonic_subroutine(arguments)
                                   & loto_direction               ))) then
         call print_line(ERROR//': Symmetries have been specified which are &
            &broken by the LO/TO direction.')
-        stop 1
+        call quit()
       endif
     endif
   else

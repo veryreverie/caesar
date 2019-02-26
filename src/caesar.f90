@@ -105,7 +105,7 @@ program caesar
   if (size(args) < 2) then
     call print_line(colour('Error: no arguments given.','red'))
     call print_line('Call '//colour('caesar -h','white')//' for help.')
-    stop 1
+    call quit()
   endif
   
   ! Read in mode.
@@ -115,7 +115,7 @@ program caesar
   if (len(mode) < 2) then
     call print_line(colour('Error: unrecognised mode: ','red')//mode)
     call print_line('Call '//colour('caesar -h','white')//' for help.')
-    stop 1
+    call quit()
   
   ! Help calls, both correct and malformed.
   elseif (mode == '-h' .or. mode == '--help' .or. mode == 'help') then
@@ -127,25 +127,25 @@ program caesar
          &as')
       call print_line(colour('caesar [mode] -h [keyword]','white')//'.')
     endif
-    stop 1
+    call quit()
   elseif (slice(mode,1,2) == '-h') then
     call print_line(colour('Error: no mode specified.','red'))
     call print_line('For keyword-specific help, please also specify a mode, &
        &as')
     call print_line(colour('caesar [mode] -h [keyword]','white')//'.')
-    stop 1
+    call quit()
   
   ! Version calls.
   elseif (mode=='--version') then
     call print_version()
-    stop 1
+    call quit()
   
   ! Erroneous inputs.
   elseif (slice(mode,1,1) == '-') then
     call print_line(colour('Error: The first argument should be the mode, &
        &and not a flag or keyword.','red'))
     call print_line('Call '//colour('caesar -h','white')//' for help.')
-    stop 1
+    call quit()
   
   ! Normal inputs.
   else
@@ -172,7 +172,7 @@ program caesar
   ! --------------------------------------------------
   if (arguments%is_set('help')) then
     call help(arguments%value('help'), mode, caesar_modes)
-    stop 1
+    call quit()
   endif
   
   ! --------------------------------------------------
@@ -180,7 +180,7 @@ program caesar
   ! --------------------------------------------------
   if (arguments%is_set('version')) then
     call print_version()
-    stop 1
+    call quit()
   endif
   
   ! --------------------------------------------------

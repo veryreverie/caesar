@@ -440,7 +440,7 @@ subroutine process_and_check(this)
   if (this%default_type_==0 .and. .not. this%is_set()) then
     call print_line(ERROR//': the keyword '//this%keyword//' has not been &
        &set. this keyword is not optional.')
-    stop 1
+    call quit()
   endif
   
   if (this%is_path .and. this%is_set()) then

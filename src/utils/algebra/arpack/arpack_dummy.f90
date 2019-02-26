@@ -40,7 +40,6 @@ subroutine dsaupd(ido,bmat,n,which,nev,tol,resid,ncv,v,ldv,iparam,ipntr, &
      &has not been linked against ARPACK. Please use the CMake flag &
      &-DLINK_TO_ARPACK:LOGICAL=true to link against ARPACK.')
   call err()
-  stop 1
 end subroutine
 
 subroutine dseupd(rvec,howmny,select,d,z,ldz,sigma,bmat,n,which,nev,tol, &
@@ -74,6 +73,5 @@ subroutine dseupd(rvec,howmny,select,d,z,ldz,sigma,bmat,n,which,nev,tol, &
      &has not been linked against ARPACK. Please use the CMake flag &
      &-DLINK_TO_ARPACK:LOGICAL=true to link against ARPACK.')
   call err()
-  stop 1
 end subroutine
 end module

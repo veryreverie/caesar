@@ -141,20 +141,20 @@ subroutine run_anharmonic_subroutine(arguments)
     if (size(calculations_to_run)/=2) then
       call print_line(ERROR//': Unable to parse calculations_to_run.')
       call print_line('calculations_to_run = "'//calculations_to_run//'"')
-      stop 1
+      call quit()
     elseif (calculations_to_run(1)<1) then
       call print_line(ERROR//': Index of first calculation to run less than &
          &0.')
-      stop 1
+      call quit()
     elseif (calculations_to_run(2)>size(calculation_directories)) then
       call print_line(ERROR//': Index of last calculation to run greater than &
          &no. calculations. See calculation_directories.dat for the entire &
          &list of calculations to be run.')
-      stop 1
+      call quit()
     elseif (calculations_to_run(2)<calculations_to_run(1)) then
       call print_line(ERROR//': Index of last calculation to run less than &
          &index of first calculation to run.')
-      stop 1
+      call quit()
     endif
     
     calculation_directories = calculation_directories(calculations_to_run(1): &

@@ -60,7 +60,6 @@ subroutine dcopy(n,dx,incx,dy,incy)
      &not been linked against BLAS/LAPACK. Please use the CMake flag &
      &-DLINK_TO_LAPACK:LOGICAL=true to link against LAPACK.')
   call err()
-  stop 1
 end subroutine
 
 ! Copies complex vector. Equivalent to zy = zx.
@@ -77,7 +76,6 @@ subroutine zcopy(n,zx,incx,zy,incy)
      &not been linked against BLAS/LAPACK. Please use the CMake flag &
      &-DLINK_TO_LAPACK:LOGICAL=true to link against LAPACK.')
   call err()
-  stop 1
 end subroutine
 
 ! Real dot product. Returns dx.dy.
@@ -95,7 +93,6 @@ function ddot(n,dx,incx,dy,incy) result(output)
      &not been linked against BLAS/LAPACK. Please use the CMake flag &
      &-DLINK_TO_LAPACK:LOGICAL=true to link against LAPACK.')
   call err()
-  stop 1
 end function
 
 ! Multiplies real vector by real scalar. Equivalent to dx *= da.
@@ -111,7 +108,6 @@ subroutine dscal(n,da,dx,incx)
      &not been linked against BLAS/LAPACK. Please use the CMake flag &
      &-DLINK_TO_LAPACK:LOGICAL=true to link against LAPACK.')
   call err()
-  stop 1
 end subroutine
 
 ! Multiplies complex vector by complex scalar. Equivalent to zx *= za.
@@ -127,7 +123,6 @@ subroutine zscal(n,za,zx,incx)
      &not been linked against BLAS/LAPACK. Please use the CMake flag &
      &-DLINK_TO_LAPACK:LOGICAL=true to link against LAPACK.')
   call err()
-  stop 1
 end subroutine
 
 ! Complex norm. Returns sqrt(x.x).
@@ -143,7 +138,6 @@ function dznrm2(n,x,incx) result(output)
      &not been linked against BLAS/LAPACK. Please use the CMake flag &
      &-DLINK_TO_LAPACK:LOGICAL=true to link against LAPACK.')
   call err()
-  stop 1
 end function
 
 ! Minimises the least-squares fit l=(a.x-b)**2.
@@ -166,7 +160,6 @@ subroutine dgels(trans,m,n,nrhs,a,lda,b,ldb,work,lwork,info)
      &not been linked against BLAS/LAPACK. Please use the CMake flag &
      &-DLINK_TO_LAPACK:LOGICAL=true to link against LAPACK.')
   call err()
-  stop 1
 end subroutine
 
 ! In-place LU factorisation. Required for dgetri. LU factorises a.
@@ -184,7 +177,6 @@ subroutine dgetrf(m,n,a,lda,ipiv,info)
      &not been linked against BLAS/LAPACK. Please use the CMake flag &
      &-DLINK_TO_LAPACK:LOGICAL=true to link against LAPACK.')
   call err()
-  stop 1
 end subroutine
 
 ! In-place matrix inversion. Inverts a.
@@ -203,7 +195,6 @@ subroutine dgetri(n,a,lda,ipiv,work,lwork,info)
      &not been linked against BLAS/LAPACK. Please use the CMake flag &
      &-DLINK_TO_LAPACK:LOGICAL=true to link against LAPACK.')
   call err()
-  stop 1
 end subroutine
 
 ! Finds the eigenvalues of a real symmetric matrix.
@@ -224,7 +215,6 @@ subroutine dsyev(jobz,uplo,n,a,lda,w,work,lwork,info)
      &not been linked against BLAS/LAPACK. Please use the CMake flag &
      &-DLINK_TO_LAPACK:LOGICAL=true to link against LAPACK.')
   call err()
-  stop 1
 end subroutine
 
 ! Finds the eigenvalues of a complex hermitian matrix.
@@ -246,7 +236,6 @@ subroutine zheev(jobz,uplo,n,a,lda,w,work,lwork,rwork,info)
      &not been linked against BLAS/LAPACK. Please use the CMake flag &
      &-DLINK_TO_LAPACK:LOGICAL=true to link against LAPACK.')
   call err()
-  stop 1
 end subroutine
 
 ! Find the eigenvalues of a general complex matrix.
@@ -273,7 +262,6 @@ subroutine zgeev(jobvl,jobvr,n,a,lda,w,vl,ldvl,vr,ldvr,work,lwork,rwork, &
      &not been linked against BLAS/LAPACK. Please use the CMake flag &
      &-DLINK_TO_LAPACK:LOGICAL=true to link against LAPACK.')
   call err()
-  stop 1
 end subroutine
 
 ! Find the QR decomposition of a real matrix.
@@ -294,7 +282,6 @@ subroutine dgeqrf(m,n,a,lda,tau,work,lwork,info)
      &not been linked against BLAS/LAPACK. Please use the CMake flag &
      &-DLINK_TO_LAPACK:LOGICAL=true to link against LAPACK.')
   call err()
-  stop 1
 end subroutine
 
 ! Find the QR decomposition of a complex matrix.
@@ -315,7 +302,6 @@ subroutine zgeqrf(m,n,a,lda,tau,work,lwork,info)
      &not been linked against BLAS/LAPACK. Please use the CMake flag &
      &-DLINK_TO_LAPACK:LOGICAL=true to link against LAPACK.')
   call err()
-  stop 1
 end subroutine
 
 ! Convert reflectors into the Q matrix.
@@ -336,7 +322,6 @@ subroutine dorgqr(m,n,k,a,lda,tau,work,lwork,info)
      &not been linked against BLAS/LAPACK. Please use the CMake flag &
      &-DLINK_TO_LAPACK:LOGICAL=true to link against LAPACK.')
   call err()
-  stop 1
 end subroutine
 
 ! Convert reflectors into the Q matrix.
@@ -357,6 +342,5 @@ subroutine zungqr(m,n,k,a,lda,tau,work,lwork,info)
      &not been linked against BLAS/LAPACK. Please use the CMake flag &
      &-DLINK_TO_LAPACK:LOGICAL=true to link against LAPACK.')
   call err()
-  stop 1
 end subroutine
 end module

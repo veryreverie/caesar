@@ -37,32 +37,35 @@ function converge_harmonic_frequencies() result(output)
      &are constructed.'),                                                     &
      & KeywordData( 'minimum_cutoff',                                         &
      &              'minimum_cutoff is the smallest cutoff energy which will &
-     &be tested. minimum_cutoff must be an integer. This cut-off energy will &
-     &be used when converging harmonic frequencies and free energies with &
+     &be tested. This cut-off energy will also be used when converging with &
      &respect to k-point sampling. minimum_cutoff should be given in &
      &Hartree.'),                                                             &
-     & KeywordData( 'cutoff_step',                                            &
-     &              'cutoff_step is the step between each cutoff energy &
-     &which will be tested. cutoff_step must be an integer. cutoff_step &
-     &should be given in Hartree.'),                                          &
+     & KeywordData( 'no_cutoffs',                                             &
+     &              'no_cutoffs_steps is the number of cutoff energies which &
+     &which will be sampled.'),                                               &
      & KeywordData( 'maximum_cutoff',                                         &
      &              'maximum_cutoff is the cutoff energy at which calculation &
      &will be terminated if convergence has not been reached. maximum_cutoff &
-     &must be an integer. maximum_cutoff should be given in Hartree.'),       &
+     &should be given in Hartree.'),                                          &
      & KeywordData( 'maximum_k-point_spacing',                                &
      &              'maximum_k-point_spacing is the largest k-point spacing &
-     &which will be tested. This is the k-point spacing that will be used &
-     &when converging harmonic frequencies and free energies with respect to &
-     &cut-off energy. maximum_k-point_spacing should be given in inverse &
-     &Bohr.'),                                                                &
-     & KeywordData( 'k-point_spacing_step',                                   &
-     &              'k-point_spacing_step is the step between each k-point &
-     &spacing which will be tested. k-point_spacing_step should be given in &
-     &inverse Bohr.'),                                                        &
+     &which will be sampled. This is also the k-point spacing that will be &
+     &used when converging with respect to cut-off energy. &
+     &maximum_k-point_spacing should be given in inverse Bohr.'),             &
+     & KeywordData( 'no_k-point_spacings',                                    &
+     &              'no_k-point_spacings is the approximate number of k-point &
+     &spacings which will be sampled. N.B. since only k-point spacings &
+     &corresponding to integer k-point grids will be sampled.'),              &
      & KeywordData( 'minimum_k-point_spacing',                                &
      &              'minimum_k-point_spacing is the k-point spacing at which &
      &calculation will be terminated if convergence has not been reached. &
      &minimum_k-point_spacing should be given in inverse Bohr.'),             &
+     & KeywordData( 'k-point_parity',                                         &
+     &              'k-point_parity specifies which k-point grids are &
+     &sampled. If k-point_parity is "odd" or "even" then only k-point grids &
+     &with an odd or even number of k-points in all directions are sampled. &
+     &If k-point_parity is "both" then all k-point grids are samples.',       &
+     &              default_value='both'),                                    &
      & KeywordData( 'converge_energies',                                      &
      &              'converge_energies determines whether convergence of the &
      &free energies is monitored as well as convergence of harmonic &
@@ -172,11 +175,12 @@ subroutine converge_harmonic_frequencies_subroutine(arguments)
   type(String) :: seedname
   type(String) :: file_type
   real(dp)     :: minimum_cutoff
-  real(dp)     :: cutoff_step
+  integer      :: no_cutoffs
   real(dp)     :: maximum_cutoff
-  real(dp)     :: maximum_kpoint_spacing
-  real(dp)     :: kpoint_spacing_step
-  real(dp)     :: minimum_kpoint_spacing
+  real(dp)     :: maximum_spacing
+  integer      :: no_spacings
+  real(dp)     :: minimum_spacing
+  type(String) :: kpoint_parity
   integer      :: grid(3)
   real(dp)     :: symmetry_precision
   real(dp)     :: harmonic_displacement
@@ -204,10 +208,10 @@ subroutine converge_harmonic_frequencies_subroutine(arguments)
   type(StructureData) :: structure
 
   ! Energy cut-offs and kpoint spacings
-  integer               :: no_cutoffs
-  integer               :: no_kpoint_spacings
-  real(dp), allocatable :: cutoffs(:)
-  real(dp), allocatable :: kpoint_spacings(:)
+  real(dp),         allocatable :: cutoffs(:)
+  real(dp),         allocatable :: kpoint_spacings(:)
+  type(KpointGrid), allocatable :: kpoint_grids(:)
+  logical,          allocatable :: unique_grids(:)
   
   ! Variables to converge.
   type(RealVector), allocatable :: cutoff_frequencies(:)
@@ -227,7 +231,7 @@ subroutine converge_harmonic_frequencies_subroutine(arguments)
   type(String) :: dir
   
   ! Temporary variables
-  integer :: i
+  integer :: i,j,ialloc
   
   ! --------------------------------------------------
   ! Get settings from user, and check them.
@@ -235,12 +239,13 @@ subroutine converge_harmonic_frequencies_subroutine(arguments)
   wd = arguments%value('working_directory')
   file_type = arguments%value('file_type')
   seedname = arguments%value('seedname')
-  minimum_cutoff = int(arguments%value('minimum_cutoff'))
-  cutoff_step = int(arguments%value('cutoff_step'))
-  maximum_cutoff = int(arguments%value('maximum_cutoff'))
-  maximum_kpoint_spacing = dble(arguments%value('maximum_k-point_spacing'))
-  kpoint_spacing_step = dble(arguments%value('k-point_spacing_step'))
-  minimum_kpoint_spacing = dble(arguments%value('minimum_k-point_spacing'))
+  minimum_cutoff = dble(arguments%value('minimum_cutoff'))
+  no_cutoffs = int(arguments%value('no_cutoffs'))
+  maximum_cutoff = dble(arguments%value('maximum_cutoff'))
+  maximum_spacing = dble(arguments%value('maximum_k-point_spacing'))
+  no_spacings = int(arguments%value('no_k-point_spacings'))
+  minimum_spacing = dble(arguments%value('minimum_k-point_spacing'))
+  kpoint_parity = arguments%value('k-point_parity')
   grid = int(split_line(arguments%value('q-point_grid')))
   no_qpoints = grid(1)*grid(2)*grid(3)
   symmetry_precision = dble(arguments%value('symmetry_precision'))
@@ -260,7 +265,7 @@ subroutine converge_harmonic_frequencies_subroutine(arguments)
     converge_kpoints = .true.
   else
     call print_line(ERROR//': unexpected value for convergence_mode.')
-    stop 1
+    call quit()
   endif
   repeat_calculations = lgcl(arguments%value('repeat_calculations'))
   acoustic_sum_rule = arguments%value('acoustic_sum_rule')
@@ -283,22 +288,22 @@ subroutine converge_harmonic_frequencies_subroutine(arguments)
   
   if (maximum_cutoff<=minimum_cutoff) then
     call print_line(ERROR//': maximum_cutoff is smaller than minimum_cutoff.')
-    stop 1
-  elseif (maximum_kpoint_spacing<=minimum_kpoint_spacing) then
-    call print_line(ERROR//': maximum_kpoints is smaller than &
-       &minimum_kpoints.')
-    stop 1
+    call quit()
+  elseif (maximum_spacing<=minimum_spacing) then
+    call print_line(ERROR//': maximum_k-point_spacing is smaller than &
+       &minimum_k-point_spacing.')
+    call quit()
   elseif (file_type/='castep' .and. file_type/='quantum_espresso') then
     call print_line(ERROR//': castep and quantum_espresso are the only &
        &accepted file types for this mode.')
-    stop 1
+    call quit()
   elseif (max_temperature<=min_temperature) then
     call print_line(ERROR//': max_temperature is smaller than &
        &min_temperature.')
-    stop 1
+    call quit()
   elseif (convergence_count<1) then
     call print_line(ERROR//': convergence_count must be at least 1.')
-    stop 1
+    call quit()
   endif
   
   ! Read in structure.
@@ -306,12 +311,67 @@ subroutine converge_harmonic_frequencies_subroutine(arguments)
   structure = input_file_to_StructureData(file_type, input_filename)
   
   ! Initialise arrays.
-  cutoffs = [real::]
   cutoff_frequencies = [RealVector::]
   cutoff_free_energies = [RealVector::]
-  kpoint_spacings = [real::]
   kpoint_frequencies = [RealVector::]
   kpoint_free_energies = [RealVector::]
+  
+  ! Calculate spacings and cutoffs.
+  allocate( cutoffs(no_cutoffs),          &
+          & kpoint_spacings(no_spacings), &
+          & kpoint_grids(no_spacings),    &
+          & stat=ialloc); call err(ialloc)
+  do i=1,no_cutoffs
+    cutoffs(i) = ( (no_cutoffs-i)*minimum_cutoff   &
+             &   + (i-1)*maximum_cutoff          ) &
+             & / (no_cutoffs-1)
+  enddo
+  
+  do i=1,no_spacings
+    ! Evenly space k-point spacings in 1/spacing co-ordinates.
+    kpoint_spacings(i) = 1                                     &
+                     & / ( ( (no_spacings-i)/maximum_spacing   &
+                     &     + (i-1)/minimum_spacing           ) &
+                     &   / (no_spacings-1)                     )
+    
+    ! Calculate the k-point grid corresponding to each spacing.
+    kpoint_grids(i) = calculate_kpoint_grid( kpoint_spacings(i),           &
+                                           & dble(structure%recip_lattice) )
+    
+    ! Increase any grid elements which have the wrong parity.
+    if (kpoint_parity=='both') then
+      continue
+    elseif (kpoint_parity=='odd') then
+      do j=1,3
+        if (modulo(kpoint_grids(i)%grid(j),2)==0) then
+          kpoint_grids(i)%grid(j) = kpoint_grids(i)%grid(j)+1
+        endif
+      enddo
+    elseif (kpoint_parity=='even') then
+      do j=1,3
+        if (modulo(kpoint_grids(i)%grid(j),2)==1) then
+          kpoint_grids(i)%grid(j) = kpoint_grids(i)%grid(j)+1
+        endif
+      enddo
+    else
+      call print_line(ERROR//': Unexpected value for k-point_parity.')
+      call quit()
+    endif
+    
+    ! Re-calculate spacing to reflect the actual k-point grid.
+    kpoint_spacings(i) = calculate_kpoint_spacing( &
+                   & kpoint_grids(i),              &
+                   & dble(structure%recip_lattice) )
+  enddo
+  
+  ! Remove duplicate k-point grids.
+  unique_grids = [(.true., i=1, no_spacings)]
+  do i=2,no_spacings
+    unique_grids(i) = .not. all(kpoint_grids(i)%grid==kpoint_grids(i-1)%grid)
+  enddo
+  kpoint_spacings = kpoint_spacings(filter(unique_grids))
+  kpoint_grids = kpoint_grids(filter(unique_grids))
+  no_spacings = size(kpoint_spacings)
   
   ! Run cut-off energy convergence.
   if (converge_cutoff) then
@@ -323,34 +383,28 @@ subroutine converge_harmonic_frequencies_subroutine(arguments)
     endif
     
     ! Loop over cutoffs, running calculations at each.
-    no_cutoffs = ceiling((maximum_cutoff-minimum_cutoff)/cutoff_step) &
-             & + 1
-    cutoffs = [( minimum_cutoff + (i-1)*cutoff_step, &
-               & i=1,                                &
-               & no_cutoffs                          )]
     do i=1,no_cutoffs
       dir = 'cutoff_'//                                                       &
          & left_pad(floor(cutoffs(i)),str(floor(cutoffs(no_cutoffs))))//'.'// &
          & left_pad(nint(1e2_dp*modulo(cutoffs(i),1.0_dp)), '  ')
       call mkdir(dir)
       
-      cutoff_frequencies = [                              &
-         & cutoff_frequencies,                            &
-         & calculate_frequencies( dir,                    &
-         &                        structure,              &
-         &                        maximum_kpoint_spacing, &
-         &                        cutoffs(i),             &
-         &                        seedname,               &
-         &                        no_qpoints,             &
-         &                        file_type,              &
-         &                        grid,                   &
-         &                        symmetry_precision,     &
-         &                        harmonic_displacement,  &
-         &                        run_script,             &
-         &                        no_cores,               &
-         &                        no_nodes,               &
-         &                        repeat_calculations,    &
-         &                        acoustic_sum_rule       ) ]
+      cutoff_frequencies = [                             &
+         & cutoff_frequencies,                           &
+         & calculate_frequencies( dir,                   &
+         &                        kpoint_grids(1),       &
+         &                        cutoffs(i),            &
+         &                        seedname,              &
+         &                        no_qpoints,            &
+         &                        file_type,             &
+         &                        grid,                  &
+         &                        symmetry_precision,    &
+         &                        harmonic_displacement, &
+         &                        run_script,            &
+         &                        no_cores,              &
+         &                        no_nodes,              &
+         &                        repeat_calculations,   &
+         &                        acoustic_sum_rule      ) ]
       
       if (i>convergence_count) then
         frequencies_converged =                                    &
@@ -414,26 +468,14 @@ subroutine converge_harmonic_frequencies_subroutine(arguments)
     endif
     
     ! Loop over spacings, running calculations at each.
-    no_kpoint_spacings = ceiling(                            &
-       &   (maximum_kpoint_spacing-minimum_kpoint_spacing)   &
-       & / kpoint_spacing_step                             ) &
-       & + 1
-    kpoint_spacings = [( maximum_kpoint_spacing-(i-1)*kpoint_spacing_step, &
-                       & i=1,                                              &
-                       & no_kpoint_spacings                                )]
-    do i=1,no_kpoint_spacings
-      dir = 'kpoints_'//                                                      &
-         & left_pad( floor(kpoint_spacings(i)),                               &
-         &           str(floor(kpoint_spacings(no_kpoint_spacings))) )//'.'// &
-         & left_pad( nint(1e4_dp*modulo(kpoint_spacings(i),1.0_dp)),          &
-         &           '    '                                          )
+    do i=1,no_spacings
+      dir = 'kpoints_'//join(str(kpoint_grids(i)%grid), delimiter='_')
       call mkdir(dir)
       
       kpoint_frequencies = [                             &
          & kpoint_frequencies,                           &
          & calculate_frequencies( dir,                   &
-         &                        structure,             &
-         &                        kpoint_spacings(i),    &
+         &                        kpoint_grids(i),       &
          &                        minimum_cutoff,        &
          &                        seedname,              &
          &                        no_qpoints,            &
@@ -555,15 +597,14 @@ subroutine write_output_file(cutoffs,cutoff_frequencies,cutoff_free_energies, &
   endif
 end subroutine
 
-function calculate_frequencies(directory,structure,kpoint_spacing,cutoff,    &
-   & seedname,no_qpoints,file_type,grid,symmetry_precision,                  &
-   & harmonic_displacement,run_script,no_cores,no_nodes,repeat_calculations, &
-   & acoustic_sum_rule) result(output)
+function calculate_frequencies(directory,kpoint_grid,cutoff,seedname,    &
+   & no_qpoints,file_type,grid,symmetry_precision,harmonic_displacement, &
+   & run_script,no_cores,no_nodes,repeat_calculations,acoustic_sum_rule) &
+   & result(output)
   implicit none
   
   type(String),        intent(in) :: directory
-  type(StructureData), intent(in) :: structure
-  real(dp),            intent(in) :: kpoint_spacing
+  type(KpointGrid),    intent(in) :: kpoint_grid
   real(dp),            intent(in) :: cutoff
   type(String),        intent(in) :: seedname
   integer,             intent(in) :: no_qpoints
@@ -587,9 +628,9 @@ function calculate_frequencies(directory,structure,kpoint_spacing,cutoff,    &
   
   ! Write DFT files
   if (file_type=='castep') then
-    call write_castep_files(directory, seedname, kpoint_spacing, cutoff)
+    call write_castep_files(directory, seedname, kpoint_grid, cutoff)
   elseif (file_type=='quantum_espresso') then
-    call write_qe_file(directory, seedname, structure, kpoint_spacing, cutoff)
+    call write_qe_file(directory, seedname, kpoint_grid, cutoff)
   endif
   
   ! Call setup_harmonic.
@@ -663,13 +704,13 @@ function calculate_free_energies(directory,min_temperature,max_temperature, &
   output = vec(thermodynamics%free_energy)
 end function
 
-subroutine write_castep_files(directory,seedname,kpoint_spacing,cutoff)
+subroutine write_castep_files(directory,seedname,kpoint_grid,cutoff)
   implicit none
   
-  type(String), intent(in) :: directory
-  type(String), intent(in) :: seedname
-  real(dp),     intent(in) :: kpoint_spacing
-  real(dp),     intent(in) :: cutoff
+  type(String),     intent(in) :: directory
+  type(String),     intent(in) :: seedname
+  type(KpointGrid), intent(in) :: kpoint_grid
+  real(dp),         intent(in) :: cutoff
   
   type(IFile) :: input_cell_file
   type(OFile) :: output_cell_file
@@ -700,7 +741,7 @@ subroutine write_castep_files(directory,seedname,kpoint_spacing,cutoff)
          & line(1)=='kpoint_mp_grid'     .or. &
          & line(1)=='kpoints_mp_spacing' .or. &
          & line(1)=='kpoints_mp_grid'         ) then
-        lines(i) = 'kpoints_mp_spacing '//kpoint_spacing/ANGSTROM_PER_BOHR
+        lines(i) = 'kpoint_mp_grid '//kpoint_grid
         line_replaced = .true.
         exit
       endif
@@ -708,7 +749,7 @@ subroutine write_castep_files(directory,seedname,kpoint_spacing,cutoff)
   enddo
   
   if (.not. line_replaced) then
-    lines = [lines, 'kpoints_mp_spacing '//kpoint_spacing/ANGSTROM_PER_BOHR]
+    lines = [lines, 'kpoint_mp_grid '//kpoint_grid]
   endif
   
   ! Write output cell file.
@@ -743,20 +784,17 @@ subroutine write_castep_files(directory,seedname,kpoint_spacing,cutoff)
   call output_param_file%print_lines(lines)
 end subroutine
 
-subroutine write_qe_file(directory,seedname,structure,kpoint_spacing,cutoff)
+subroutine write_qe_file(directory,seedname,kpoint_grid,cutoff)
   implicit none
   
-  type(String),        intent(in) :: directory
-  type(String),        intent(in) :: seedname
-  type(StructureData), intent(in) :: structure
-  real(dp),            intent(in) :: kpoint_spacing
-  real(dp),            intent(in) :: cutoff
+  type(String),     intent(in) :: directory
+  type(String),     intent(in) :: seedname
+  type(KpointGrid), intent(in) :: kpoint_grid
+  real(dp),         intent(in) :: cutoff
   
   type(IFile)       :: input_file
   type(QeInputFile) :: qe_input_file
   type(OFile)       :: output_file
-  
-  integer :: kpoint_grid(3)
   
   integer  :: ecutwfc_line
   integer  :: ecutrho_line
@@ -771,19 +809,15 @@ subroutine write_qe_file(directory,seedname,structure,kpoint_spacing,cutoff)
   input_file = IFile(seedname//'.in')
   qe_input_file = QeInputFile(input_file%lines())
   
-  ! Calculate k-point grid from spacing.
-  kpoint_grid = calculate_kpoint_grid( kpoint_spacing,               &
-                                     & dble(structure%recip_lattice) )
-  
   line = split_line(qe_input_file%k_points(2))
   if (size(line)==3) then
-    qe_input_file%k_points(2) = join(str(kpoint_grid))
+    qe_input_file%k_points(2) = str(kpoint_grid)
   elseif (size(line)==6) then
     qe_input_file%k_points(2) = join([str(kpoint_grid), line(4:6)])
   else
     call print_line(ERROR//': k_points card has an unexpected number of &
        &entries.')
-    stop 1
+    call quit()
   endif
   
   ! Locate cutoff lines.
@@ -795,13 +829,13 @@ subroutine write_qe_file(directory,seedname,structure,kpoint_spacing,cutoff)
       if (line(1)=='ecutwfc') then
         if (ecutwfc_line/=0) then
           call print_line(ERROR//': ecutwfc appears twice in input file.')
-          stop 1
+          call quit()
         endif
         ecutwfc_line = i
       elseif (line(1)=='ecutrho') then
         if (ecutrho_line/=0) then
           call print_line(ERROR//': ecutrho appears twice in input file.')
-          stop 1
+          call quit()
         endif
         ecutrho_line = i
       endif

@@ -12,6 +12,7 @@ module error_module
   public :: ERROR
   public :: CODE_ERROR
   public :: WARNING
+  public :: quit
   public :: err
   public :: set_error_strings_coloured
   public :: set_error_strings_uncoloured
@@ -26,6 +27,15 @@ module error_module
     module procedure err_allocate_flag
   end interface
 contains
+
+! ----------------------------------------------------------------------
+! Aborts without a stacktrace.
+! ----------------------------------------------------------------------
+subroutine quit()
+  implicit none
+  
+  call quit_implementation()
+end subroutine
 
 ! ----------------------------------------------------------------------
 ! Aborts with a stacktrace.

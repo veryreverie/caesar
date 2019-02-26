@@ -126,7 +126,7 @@ subroutine calculate_potential_subroutine(arguments)
     if (loto_direction_set) then
       call print_line(ERROR//': loto_direction may not be specified here, &
          &since it was already specified in setup_harmonic.')
-      stop 1
+      call quit()
     endif
     loto_direction = FractionVector(                      &
        & setup_harmonic_arguments%value('loto_direction') )
@@ -137,7 +137,7 @@ subroutine calculate_potential_subroutine(arguments)
       call print_line(ERROR//': loto_direction has been specified in a &
          &direction which breaks symmetry. To specify this direction, please &
          &set loto_direction when running setup_harmonic.')
-      stop 1
+      call quit()
     endif
   endif
   

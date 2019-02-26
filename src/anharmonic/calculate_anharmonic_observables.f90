@@ -245,26 +245,26 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   ! Check inputs.
   if (min_temperature<0) then
     call print_line(ERROR//': min_temperature must not be less than 0K.')
-    stop 1
+    call quit()
   elseif (max_temperature<min_temperature) then
     call print_line(ERROR//': max_temperature must not be less than &
        &min_temperature.')
-    stop 1
+    call quit()
   elseif (min_frequency<0) then
     call print_line(ERROR//': min_frequency must not be less than 0 Hartree.')
-    stop 1
+    call quit()
   elseif (no_vscf_basis_states<1) then
     call print_line(ERROR//': no_vscf_basis_states must be at least 1.')
-    stop 1
+    call quit()
   elseif (pre_pulay_damping<0_dp .or. pre_pulay_damping>1_dp) then
     call print_line(ERROR//': pre_pulay_damping must be between 0 and 1.')
-    stop 1
+    call quit()
   elseif (pre_pulay_iterations<2) then
     call print_line(ERROR//': pre_pulay_iterations must be at least 2.')
-    stop 1
+    call quit()
   elseif (max_pulay_iterations<2) then
     call print_line(ERROR//': max_pulay_iterations must be at least 2.')
-    stop 1
+    call quit()
   endif
   
   ! Read in setup_anharmonic settings.
