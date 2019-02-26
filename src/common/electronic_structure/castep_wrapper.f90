@@ -344,7 +344,7 @@ function parse_castep_input_file(filename) result(output)
   if (.not. file_exists(filename)) then
     call print_line(ERROR//': '//filename//' does not exist. Please ensure &
        &that the provided run script produces a .castep file.')
-    stop
+    stop 1
   endif
   
   cell_file = IFile(filename)
@@ -503,7 +503,7 @@ function read_output_file_castep(filename,structure) result(output)
   if (.not. file_exists(filename)) then
     call print_line(ERROR//': '//filename//' does not exist. Please ensure &
        &that the provided run script produces a .castep file.')
-    stop
+    stop 1
   endif
   
   castep_file = IFile(filename)
@@ -587,13 +587,13 @@ function read_output_file_castep(filename,structure) result(output)
   ! Check line numbers.
   if (energy_line==0) then
     call print_line('Error: Energy not found in '//char(filename))
-    stop
+    stop 1
   elseif (forces_start_line==0) then
     call print_line('Error: Start of forces not found in '//char(filename))
-    stop
+    stop 1
   elseif (forces_end_line==0) then
     call print_line('Error: End of forces not found in '//char(filename))
-    stop
+    stop 1
   elseif (forces_end_line-forces_start_line-7/=structure%no_atoms) then
     call print_line(forces_start_line)
     call print_line(forces_end_line)

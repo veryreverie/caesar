@@ -116,6 +116,11 @@ function converge_harmonic_frequencies() result(output)
      &structure calculation will be run. This is passed to the specified run &
      &script.',                                                               &
      &              default_value='1'),                                       &
+     & KeywordData( 'repeat_calculations',                                    &
+     &              'repeat_calculations specifies whether or not electronic &
+     &calculations will be re-run if an electronic_structure.dat file is &
+     &found in their directory.',                                             &
+     &               default_value='true'),                                   &
      & KeywordData( 'acoustic_sum_rule',                                      &
      &              'acoustic_sum_rule specifies where the acoustic sum rule &
      &is applied. The options are "off", "forces", "matrices" and "both".',   &
@@ -181,6 +186,7 @@ subroutine converge_harmonic_frequencies_subroutine(arguments)
   logical      :: converge_energies
   logical      :: converge_cutoff
   logical      :: converge_kpoints
+  logical      :: repeat_calculations
   type(String) :: acoustic_sum_rule
   real(dp)     :: min_temperature
   real(dp)     :: max_temperature
@@ -191,6 +197,7 @@ subroutine converge_harmonic_frequencies_subroutine(arguments)
   real(dp)     :: freq_tolerance
   real(dp)     :: energy_tolerance
   integer      :: convergence_count
+  integer      :: random_seed
   
   ! Structure.
   type(String)        :: input_filename
@@ -203,17 +210,21 @@ subroutine converge_harmonic_frequencies_subroutine(arguments)
   real(dp), allocatable :: kpoint_spacings(:)
   
   ! Variables to converge.
-  type(RealVector), allocatable :: frequencies(:)
-  type(RealVector), allocatable :: free_energies(:)
+  type(RealVector), allocatable :: cutoff_frequencies(:)
+  type(RealVector), allocatable :: cutoff_free_energies(:)
+  type(RealVector), allocatable :: kpoint_frequencies(:)
+  type(RealVector), allocatable :: kpoint_free_energies(:)
   
   ! Working variables
   integer :: no_qpoints
   logical :: frequencies_converged
   logical :: energies_converged
   
+  ! Random generator for generating seed if not set.
+  type(RandomReal) :: random_generator
+  
   ! Files and directories.
   type(String) :: dir
-  type(OFile)  :: output_file
   
   ! Temporary variables
   integer :: i
@@ -249,8 +260,9 @@ subroutine converge_harmonic_frequencies_subroutine(arguments)
     converge_kpoints = .true.
   else
     call print_line(ERROR//': unexpected value for convergence_mode.')
-    stop
+    stop 1
   endif
+  repeat_calculations = lgcl(arguments%value('repeat_calculations'))
   acoustic_sum_rule = arguments%value('acoustic_sum_rule')
   min_temperature = dble(arguments%value('min_temperature'))
   max_temperature = dble(arguments%value('max_temperature'))
@@ -262,32 +274,44 @@ subroutine converge_harmonic_frequencies_subroutine(arguments)
   energy_tolerance = dble(arguments%value('energy_tolerance'))
   convergence_count = int(arguments%value('convergence_count'))
   
+  if (arguments%is_set('random_seed')) then
+    random_generator = RandomReal(int(arguments%value('random_seed')))
+  else
+    random_generator = RandomReal()
+  endif
+  random_seed = random_generator%get_seed()
+  
   if (maximum_cutoff<=minimum_cutoff) then
     call print_line(ERROR//': maximum_cutoff is smaller than minimum_cutoff.')
-    stop
+    stop 1
   elseif (maximum_kpoint_spacing<=minimum_kpoint_spacing) then
     call print_line(ERROR//': maximum_kpoints is smaller than &
        &minimum_kpoints.')
-    stop
+    stop 1
   elseif (file_type/='castep' .and. file_type/='quantum_espresso') then
     call print_line(ERROR//': castep and quantum_espresso are the only &
        &accepted file types for this mode.')
-    stop
+    stop 1
   elseif (max_temperature<=min_temperature) then
     call print_line(ERROR//': max_temperature is smaller than &
        &min_temperature.')
-    stop
+    stop 1
   elseif (convergence_count<1) then
     call print_line(ERROR//': convergence_count must be at least 1.')
-    stop
+    stop 1
   endif
   
   ! Read in structure.
   input_filename = make_input_filename(file_type, seedname)
   structure = input_file_to_StructureData(file_type, input_filename)
   
-  ! Open output file.
-  output_file = OFile('convergence.dat')
+  ! Initialise arrays.
+  cutoffs = [real::]
+  cutoff_frequencies = [RealVector::]
+  cutoff_free_energies = [RealVector::]
+  kpoint_spacings = [real::]
+  kpoint_frequencies = [RealVector::]
+  kpoint_free_energies = [RealVector::]
   
   ! Run cut-off energy convergence.
   if (converge_cutoff) then
@@ -297,9 +321,6 @@ subroutine converge_harmonic_frequencies_subroutine(arguments)
     if (.not. converge_energies) then
      energies_converged = .true.
     endif
-    
-    frequencies = [RealVector::]
-    free_energies = [RealVector::]
     
     ! Loop over cutoffs, running calculations at each.
     no_cutoffs = ceiling((maximum_cutoff-minimum_cutoff)/cutoff_step) &
@@ -313,47 +334,62 @@ subroutine converge_harmonic_frequencies_subroutine(arguments)
          & left_pad(nint(1e2_dp*modulo(cutoffs(i),1.0_dp)), '  ')
       call mkdir(dir)
       
-      frequencies = [ frequencies,                                   &
-                    & calculate_frequencies( dir,                    &
-                    &                        structure,              &
-                    &                        maximum_kpoint_spacing, &
-                    &                        cutoffs(i),             &
-                    &                        seedname,               &
-                    &                        no_qpoints,             &
-                    &                        file_type,              &
-                    &                        grid,                   &
-                    &                        symmetry_precision,     &
-                    &                        harmonic_displacement,  &
-                    &                        run_script,             &
-                    &                        no_cores,               &
-                    &                        no_nodes,               &
-                    &                        acoustic_sum_rule       ) ]
+      cutoff_frequencies = [                              &
+         & cutoff_frequencies,                            &
+         & calculate_frequencies( dir,                    &
+         &                        structure,              &
+         &                        maximum_kpoint_spacing, &
+         &                        cutoffs(i),             &
+         &                        seedname,               &
+         &                        no_qpoints,             &
+         &                        file_type,              &
+         &                        grid,                   &
+         &                        symmetry_precision,     &
+         &                        harmonic_displacement,  &
+         &                        run_script,             &
+         &                        no_cores,               &
+         &                        no_nodes,               &
+         &                        repeat_calculations,    &
+         &                        acoustic_sum_rule       ) ]
       
       if (i>convergence_count) then
-        frequencies_converged = all(                                      &
-           &   maximum_difference( frequencies(i),                        &
-           &                       frequencies(i-convergence_count:i-1) ) &
-           & < freq_tolerance                                             )
+        frequencies_converged =                                    &
+           & all( maximum_difference(                              &
+           &         cutoff_frequencies(i),                        &
+           &         cutoff_frequencies(i-convergence_count:i-1) ) &
+           &    < freq_tolerance                                   )
       endif
 
       if (converge_energies .and. .not. energies_converged) then
-        free_energies = [ free_energies,                                 &
-                        & calculate_free_energies( dir,                  &
-                        &                          min_temperature,      &
-                        &                          max_temperature,      &
-                        &                          no_temperature_steps, &
-                        &                          min_frequency,        &
-                        &                          path,                 &
-                        &                          no_dos_samples        ) ]
+        cutoff_free_energies = [                            &
+           & cutoff_free_energies,                          &
+           & calculate_free_energies( dir,                  &
+           &                          min_temperature,      &
+           &                          max_temperature,      &
+           &                          no_temperature_steps, &
+           &                          min_frequency,        &
+           &                          path,                 &
+           &                          no_dos_samples,       &
+           &                          random_seed           ) ]
 
         if (i>convergence_count) then
-          energies_converged = all(                                           &
-             &   maximum_difference( free_energies(i),                        &
-             &                       free_energies(i-convergence_count:i-1) ) &
-             & < energy_tolerance                                             )
+          energies_converged =                                         &
+             & all( maximum_difference(                                &
+             &         cutoff_free_energies(i),                        &
+             &         cutoff_free_energies(i-convergence_count:i-1) ) &
+             &    < energy_tolerance                                   )
         endif
       endif
       
+      ! Write output file.
+      call write_output_file( cutoffs,              &
+                            & cutoff_frequencies,   &
+                            & cutoff_free_energies, &
+                            & kpoint_spacings,      &
+                            & kpoint_frequencies,   &
+                            & kpoint_free_energies  )
+      
+      ! Check for convergence.
       call print_line('Cut-off energy: '//cutoffs(i)//' (Ha)')
       if (frequencies_converged .and. energies_converged) then
         call print_line('Convergence reached.')
@@ -365,25 +401,8 @@ subroutine converge_harmonic_frequencies_subroutine(arguments)
       call print_line('Convergence not reached.')
     endif
     
-    ! Write output file.
-    call output_file%print_line('Cutoff energy (Ha) | Mode frequencies (Ha)')
-    do i=1,size(frequencies)
-      call output_file%print_line(cutoffs(i)//' '//frequencies(i))
-    enddo
-    
-    if (converge_energies) then
-      call output_file%print_line('')
-      call output_file%print_line('Cutoff energy (Ha) | Free energies &
-         &(Ha per primitive cell)')
-      do i=1,size(free_energies)
-        call output_file%print_line(cutoffs(i)//' '//free_energies(i))
-      enddo
-    endif
   endif
   
-  if (converge_cutoff .and. converge_kpoints) then
-    call output_file%print_line('')
-  endif
   
   ! Run k-points spacing convergence.
   if (converge_kpoints) then
@@ -393,9 +412,6 @@ subroutine converge_harmonic_frequencies_subroutine(arguments)
     if (.not. converge_energies) then
      energies_converged = .true.
     endif
-    
-    frequencies = [RealVector::]
-    free_energies = [RealVector::]
     
     ! Loop over spacings, running calculations at each.
     no_kpoint_spacings = ceiling(                            &
@@ -413,46 +429,60 @@ subroutine converge_harmonic_frequencies_subroutine(arguments)
          &           '    '                                          )
       call mkdir(dir)
       
-      frequencies = [ frequencies,                                  &
-                    & calculate_frequencies( dir,                   &
-                    &                        structure,             &
-                    &                        kpoint_spacings(i),    &
-                    &                        minimum_cutoff,        &
-                    &                        seedname,              &
-                    &                        no_qpoints,            &
-                    &                        file_type,             &
-                    &                        grid,                  &
-                    &                        symmetry_precision,    &
-                    &                        harmonic_displacement, &
-                    &                        run_script,            &
-                    &                        no_cores,              &
-                    &                        no_nodes,              &
-                    &                        acoustic_sum_rule      ) ]
+      kpoint_frequencies = [                             &
+         & kpoint_frequencies,                           &
+         & calculate_frequencies( dir,                   &
+         &                        structure,             &
+         &                        kpoint_spacings(i),    &
+         &                        minimum_cutoff,        &
+         &                        seedname,              &
+         &                        no_qpoints,            &
+         &                        file_type,             &
+         &                        grid,                  &
+         &                        symmetry_precision,    &
+         &                        harmonic_displacement, &
+         &                        run_script,            &
+         &                        no_cores,              &
+         &                        no_nodes,              &
+         &                        repeat_calculations,   &
+         &                        acoustic_sum_rule      ) ]
       
       if (i>convergence_count) then
-        frequencies_converged = all(                                      &
-           &   maximum_difference( frequencies(i),                        &
-           &                       frequencies(i-convergence_count:i-1) ) &
-           & < freq_tolerance                                             )
+        frequencies_converged =                                    &
+           & all( maximum_difference(                              &
+           &         kpoint_frequencies(i),                        &
+           &         kpoint_frequencies(i-convergence_count:i-1) ) &
+           &    < freq_tolerance                                   )
       endif
 
       if (converge_energies .and. .not. energies_converged) then
-        free_energies = [ free_energies,                                 &
-                        & calculate_free_energies( dir,                  &
-                        &                          min_temperature,      &
-                        &                          max_temperature,      &
-                        &                          no_temperature_steps, &
-                        &                          min_frequency,        &
-                        &                          path,                 &
-                        &                          no_dos_samples        ) ]
+        kpoint_free_energies = [                            &
+           & kpoint_free_energies,                          &
+           & calculate_free_energies( dir,                  &
+           &                          min_temperature,      &
+           &                          max_temperature,      &
+           &                          no_temperature_steps, &
+           &                          min_frequency,        &
+           &                          path,                 &
+           &                          no_dos_samples,       &
+           &                          random_seed           ) ]
 
         if (i>convergence_count) then
-          energies_converged = all(                                           &
-             &   maximum_difference( free_energies(i),                        &
-             &                       free_energies(i-convergence_count:i-1) ) &
-             & < energy_tolerance                                             )
+          energies_converged =                                         &
+             & all( maximum_difference(                                &
+             &         kpoint_free_energies(i),                        &
+             &         kpoint_free_energies(i-convergence_count:i-1) ) &
+             &    < energy_tolerance                                   )
         endif
       endif
+      
+      ! Write output file.
+      call write_output_file( cutoffs,              &
+                            & cutoff_frequencies,   &
+                            & cutoff_free_energies, &
+                            & kpoint_spacings,      &
+                            & kpoint_frequencies,   &
+                            & kpoint_free_energies  )
       
       call print_line('K-point spacing: '//kpoint_spacings(i)//' (Bohr^-1)')
       if (frequencies_converged .and. energies_converged) then
@@ -464,29 +494,71 @@ subroutine converge_harmonic_frequencies_subroutine(arguments)
     if (.not. (frequencies_converged .or. energies_converged)) then
       call print_line('Convergence not reached.')
     endif
-    
-    ! Write output file.
-    call output_file%print_line('k-point spacing (Bohr^-1) | Mode frequencies &
-       &(Ha)')
-    do i=1,size(frequencies)
-      call output_file%print_line(kpoint_spacings(i)//' '//frequencies(i))
-    enddo
-    
-    if (converge_energies) then
-      call output_file%print_line('')
-      call output_file%print_line('k-point spacing (Bohr^-1) | Free energies &
-         &(Ha per primitive cell)')
-      do i=1,size(free_energies)
-        call output_file%print_line(kpoint_spacings(i)//' '//free_energies(i))
-      enddo
-    endif
   endif
 end subroutine
 
-function calculate_frequencies(directory,structure,kpoint_spacing,cutoff,  &
-   & seedname,no_qpoints,file_type,grid,symmetry_precision,                &
-   & harmonic_displacement,run_script,no_cores,no_nodes,acoustic_sum_rule) &
-   & result(output)
+subroutine write_output_file(cutoffs,cutoff_frequencies,cutoff_free_energies, &
+   & kpoint_spacings,kpoint_frequencies,kpoint_free_energies)
+  implicit none
+  
+  real(dp),         intent(in), optional :: cutoffs(:)
+  type(RealVector), intent(in), optional :: cutoff_frequencies(:)
+  type(RealVector), intent(in), optional :: cutoff_free_energies(:)
+  real(dp),         intent(in), optional :: kpoint_spacings(:)
+  type(RealVector), intent(in), optional :: kpoint_frequencies(:)
+  type(RealVector), intent(in), optional :: kpoint_free_energies(:)
+  
+  type(OFile)  :: output_file
+  
+  integer :: i
+  
+  ! Open output file.
+  output_file = OFile('convergence.dat')
+  
+  if (size(cutoff_frequencies)>0) then
+    call output_file%print_line('Cutoff energy (Ha) | Mode frequencies (Ha)')
+    do i=1,size(cutoff_frequencies)
+      call output_file%print_line(cutoffs(i)//' '//cutoff_frequencies(i))
+    enddo
+  endif
+  
+  if (size(cutoff_free_energies)>0) then
+    call output_file%print_line('')
+    call output_file%print_line('Cutoff energy (Ha) | Free energies &
+       &(Ha per primitive cell)')
+    do i=1,size(cutoff_free_energies)
+      call output_file%print_line(cutoffs(i)//' '//cutoff_free_energies(i))
+    enddo
+  endif
+  
+  if (size(cutoff_frequencies)>0 .and. size(kpoint_frequencies)>0) then
+    call output_file%print_line('')
+  endif
+  
+  if (size(kpoint_frequencies)>0) then
+    call output_file%print_line('k-point spacing (Bohr^-1) | Mode frequencies &
+       &(Ha)')
+    do i=1,size(kpoint_frequencies)
+      call output_file%print_line( kpoint_spacings(i) //' '// &
+                                 & kpoint_frequencies(i)      )
+    enddo
+  endif
+  
+  if (size(kpoint_free_energies)>0) then
+    call output_file%print_line('')
+    call output_file%print_line('k-point spacing (Bohr^-1) | Free energies &
+       &(Ha per primitive cell)')
+    do i=1,size(kpoint_free_energies)
+      call output_file%print_line( kpoint_spacings(i)//' '// &
+                                 & kpoint_free_energies(i)   )
+    enddo
+  endif
+end subroutine
+
+function calculate_frequencies(directory,structure,kpoint_spacing,cutoff,    &
+   & seedname,no_qpoints,file_type,grid,symmetry_precision,                  &
+   & harmonic_displacement,run_script,no_cores,no_nodes,repeat_calculations, &
+   & acoustic_sum_rule) result(output)
   implicit none
   
   type(String),        intent(in) :: directory
@@ -502,6 +574,7 @@ function calculate_frequencies(directory,structure,kpoint_spacing,cutoff,  &
   type(String),        intent(in) :: run_script
   integer,             intent(in) :: no_cores
   integer,             intent(in) :: no_nodes
+  logical,             intent(in) :: repeat_calculations
   type(String),        intent(in) :: acoustic_sum_rule
   type(RealVector)                :: output
   
@@ -529,12 +602,12 @@ function calculate_frequencies(directory,structure,kpoint_spacing,cutoff,  &
      & '--harmonic_displacement '//harmonic_displacement         )
   
   ! Call run_harmonic.
-  call call_caesar( 'run_harmonic -d '//directory //' '// &
-                  & '--run_script '//run_script   //' '// &
-                  & '--no_cores '//no_cores       //' '// &
-                  & '--no_nodes '//no_nodes       //' '// &
-                  & '--exit_on_error true'        //' '// &
-                  & '--repeat_calculations true'          )
+  call call_caesar( 'run_harmonic -d '//directory         //' '// &
+                  & '--run_script '//run_script           //' '// &
+                  & '--no_cores '//no_cores               //' '// &
+                  & '--no_nodes '//no_nodes               //' '// &
+                  & '--exit_on_error true'                //' '// &
+                  & '--repeat_calculations '//repeat_calculations )
   
   ! Call calculate_normal_modes.
   call call_caesar( 'calculate_normal_modes -d '//directory   //' '// &
@@ -552,7 +625,8 @@ function calculate_frequencies(directory,structure,kpoint_spacing,cutoff,  &
 end function
 
 function calculate_free_energies(directory,min_temperature,max_temperature, &
-   & no_temperature_steps,min_frequency,path,no_dos_samples) result(output)
+   & no_temperature_steps,min_frequency,path,no_dos_samples,random_seed)    &
+   & result(output)
   implicit none
   
   type(String), intent(in) :: directory
@@ -562,6 +636,7 @@ function calculate_free_energies(directory,min_temperature,max_temperature, &
   real(dp),     intent(in) :: min_frequency
   type(String), intent(in) :: path
   integer,      intent(in) :: no_dos_samples
+  integer,      intent(in) :: random_seed
   type(RealVector)         :: output
   
   type(IFile)                          :: thermodynamics_file
@@ -576,7 +651,8 @@ function calculate_free_energies(directory,min_temperature,max_temperature, &
      & '--no_temperature_steps '//no_temperature_steps //' '// &
      & '--min_frequency '//min_frequency               //' '// &
      & '--path '//path                                 //' '// &
-     & '--no_dos_samples '//no_dos_samples                     )
+     & '--no_dos_samples '//no_dos_samples             //' '// &
+     & '--random_seed '//random_seed                           )
   
   ! Read in thermodynamic data.
   thermodynamics_file = IFile(                                        &
@@ -707,7 +783,7 @@ subroutine write_qe_file(directory,seedname,structure,kpoint_spacing,cutoff)
   else
     call print_line(ERROR//': k_points card has an unexpected number of &
        &entries.')
-    stop
+    stop 1
   endif
   
   ! Locate cutoff lines.
@@ -719,13 +795,13 @@ subroutine write_qe_file(directory,seedname,structure,kpoint_spacing,cutoff)
       if (line(1)=='ecutwfc') then
         if (ecutwfc_line/=0) then
           call print_line(ERROR//': ecutwfc appears twice in input file.')
-          stop
+          stop 1
         endif
         ecutwfc_line = i
       elseif (line(1)=='ecutrho') then
         if (ecutrho_line/=0) then
           call print_line(ERROR//': ecutrho appears twice in input file.')
-          stop
+          stop 1
         endif
         ecutrho_line = i
       endif

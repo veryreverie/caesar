@@ -26,16 +26,16 @@ module basis_function_module
   contains
     procedure, public :: simplify
     
-    generic,   public  :: energy =>                            &
-                        & energy_RealModeVector_BasisFunction, &
-                        & energy_ComplexModeVector_BasisFunction
-    procedure, private :: energy_RealModeVector_BasisFunction
-    procedure, private :: energy_ComplexModeVector_BasisFunction
-    generic,   public  :: force =>                            &
-                        & force_RealModeVector_BasisFunction, &
-                        & force_ComplexModeVector_BasisFunction
-    procedure, private :: force_RealModeVector_BasisFunction
-    procedure, private :: force_ComplexModeVector_BasisFunction
+    generic,   public  :: energy =>                                  &
+                        & energy_RealModeDisplacement_BasisFunction, &
+                        & energy_ComplexModeDisplacement_BasisFunction
+    procedure, private :: energy_RealModeDisplacement_BasisFunction
+    procedure, private :: energy_ComplexModeDisplacement_BasisFunction
+    generic,   public  :: force =>                                  &
+                        & force_RealModeDisplacement_BasisFunction, &
+                        & force_ComplexModeDisplacement_BasisFunction
+    procedure, private :: force_RealModeDisplacement_BasisFunction
+    procedure, private :: force_ComplexModeDisplacement_BasisFunction
     
     procedure, public :: braket => braket_BasisFunction
     
@@ -140,7 +140,7 @@ function generate_basis_functions_SubspaceMonomial(subspace_monomial, &
   type(ComplexPolynomial) :: complex_representation
   
   ! Temporary variables.
-  integer :: i,j,ialloc
+  integer :: i,ialloc
   
   if (sum(subspace_monomial%powers)<2) then
     call print_line(CODE_ERROR//': Trying to generate basis functions with &
@@ -291,7 +291,7 @@ end subroutine
 ! ----------------------------------------------------------------------
 ! Evaluate the energy and forces due to the basis function.
 ! ----------------------------------------------------------------------
-impure elemental function energy_RealModeVector_BasisFunction(this, &
+impure elemental function energy_RealModeDisplacement_BasisFunction(this, &
    & displacement) result(output)
   implicit none
   
@@ -302,7 +302,7 @@ impure elemental function energy_RealModeVector_BasisFunction(this, &
   output = this%real_representation%energy(displacement)
 end function
 
-impure elemental function energy_ComplexModeVector_BasisFunction(this, &
+impure elemental function energy_ComplexModeDisplacement_BasisFunction(this, &
    & displacement) result(output)
   implicit none
   
@@ -313,7 +313,7 @@ impure elemental function energy_ComplexModeVector_BasisFunction(this, &
   output = this%complex_representation%energy(displacement)
 end function
 
-impure elemental function force_RealModeVector_BasisFunction(this, &
+impure elemental function force_RealModeDisplacement_BasisFunction(this, &
    & displacement) result(output)
   implicit none
   
@@ -324,7 +324,7 @@ impure elemental function force_RealModeVector_BasisFunction(this, &
   output = this%real_representation%force(displacement)
 end function
 
-impure elemental function force_ComplexModeVector_BasisFunction(this, &
+impure elemental function force_ComplexModeDisplacement_BasisFunction(this, &
    & displacement) result(output)
   implicit none
   
@@ -355,7 +355,7 @@ subroutine braket_BasisFunction(this,bra,ket,subspace,subspace_basis, &
   type(RealUnivariate), allocatable :: real_modes(:)
   logical,              allocatable :: mode_in_subspace(:)
   
-  integer :: i,j,ialloc
+  integer :: i,j
   
   ! Generate conversion between complex and real representation.
   complex_to_real_conversion = coefficient_conversion_matrix( &
@@ -512,23 +512,23 @@ end subroutine
 impure elemental function multiply_BasisFunction_real(this,that) result(output)
   implicit none
   
-  real(dp),            intent(in) :: this
-  type(BasisFunction), intent(in) :: that
-  type(BasisFunction)             :: output
-  
-  output = BasisFunction( this * that%real_representation,   &
-                        & this * that%complex_representation )
-end function
-
-impure elemental function multiply_real_BasisFunction(this,that) result(output)
-  implicit none
-  
   type(BasisFunction), intent(in) :: this
   real(dp),            intent(in) :: that
   type(BasisFunction)             :: output
   
   output = BasisFunction( this%real_representation * that,   &
                         & this%complex_representation * that )
+end function
+
+impure elemental function multiply_real_BasisFunction(this,that) result(output)
+  implicit none
+  
+  real(dp),            intent(in) :: this
+  type(BasisFunction), intent(in) :: that
+  type(BasisFunction)             :: output
+  
+  output = BasisFunction( this * that%real_representation,   &
+                        & this * that%complex_representation )
 end function
 
 impure elemental function divide_BasisFunction_real(this,that) result(output)

@@ -138,14 +138,14 @@ subroutine calculate_harmonic_observables_subroutine(arguments)
   ! Check inputs.
   if (min_temperature<0) then
     call print_line(ERROR//': min_temperature must not be less than 0K.')
-    stop
+    stop 1
   elseif (max_temperature<min_temperature) then
     call print_line(ERROR//': max_temperature must not be less than &
        &min_temperature.')
-    stop
+    stop 1
   elseif (min_frequency<0) then
     call print_line(ERROR//': min_frequency must not be less than 0 Hartree.')
-    stop
+    stop 1
   endif
   
   ! Generate thermal energies.

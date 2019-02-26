@@ -260,7 +260,7 @@ function mode_String(this,mode_name) result(output)
   if (i==0) then
     call print_line(ERROR//': Unrecognised mode: '//mode_name)
     call print_line('Call '//colour('caesar -h','white')//' for help.')
-    stop
+    stop 1
   endif
   
   output = this%modes_(i)

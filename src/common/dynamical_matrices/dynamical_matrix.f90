@@ -776,7 +776,7 @@ function choose_basis_complex(input,structure,symmetries,qpoint) &
   if (size(set(ids))/=size(ids)) then
     call print_line(ERROR//': Unable to lift degeneracies using symmetry.')
     call print_line('q-point '//qpoint%id//': '//qpoint%qpoint)
-    stop
+    stop 1
   endif
 end function
 

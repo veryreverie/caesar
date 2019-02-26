@@ -23,6 +23,11 @@ module polynomial_stress_module
   contains
     procedure, public, nopass :: representation => &
                                & representation_PolynomialStress
+    
+    procedure, public :: stress_RealModeDisplacement => &
+                       & stress_RealModeDisplacement_PolynomialStress
+    procedure, public :: stress_ComplexModeDisplacement => &
+                       & stress_ComplexModeDisplacement_PolynomialStress
     ! I/O.
     procedure, public :: read  => read_PolynomialStress
     procedure, public :: write => write_PolynomialStress
@@ -63,6 +68,39 @@ impure elemental function representation_PolynomialStress() result(output)
   type(String) :: output
   
   output = 'polynomial'
+end function
+
+! Calculate the stress at a given displacement.
+impure elemental function stress_RealModeDisplacement_PolynomialStress(this, &
+   & displacement) result(output)
+  implicit none
+  
+  class(PolynomialStress),    intent(in) :: this
+  type(RealModeDisplacement), intent(in) :: displacement
+  type(RealMatrix)                       :: output
+  
+  if (size(this%basis_functions_)>0) then
+    output = this%reference_stress_ &
+         & + sum(this%basis_functions_%stress(displacement))
+  else
+    output = this%reference_stress_
+  endif
+end function
+
+impure elemental function stress_ComplexModeDisplacement_PolynomialStress( &
+   & this,displacement) result(output)
+  implicit none
+  
+  class(PolynomialStress),       intent(in) :: this
+  type(ComplexModeDisplacement), intent(in) :: displacement
+  type(ComplexMatrix)                       :: output
+  
+  if (size(this%basis_functions_)>0) then
+    output = cmplxmat(this%reference_stress_) &
+         & + sum(this%basis_functions_%stress(displacement))
+  else
+    output = cmplxmat(this%reference_stress_)
+  endif
 end function
 
 ! ----------------------------------------------------------------------

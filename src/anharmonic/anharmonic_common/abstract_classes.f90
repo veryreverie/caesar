@@ -301,6 +301,15 @@ module abstract_classes_module
     procedure(representation_StressData), public, deferred, nopass :: &
        & representation
     procedure, public :: startup => startup_StressData
+    
+    ! Return the stress at a given real or complex displacement.
+    generic, public :: stress =>                    &
+                     & stress_RealModeDisplacement, &
+                     & stress_ComplexModeDisplacement
+    procedure(stress_RealModeDisplacement_StressData), public, &
+       & deferred :: stress_RealModeDisplacement
+    procedure(stress_ComplexModeDisplacement_StressData), public, &
+       & deferred :: stress_ComplexModeDisplacement
   end type
   
   type, extends(StressData) :: StressPointer
@@ -311,6 +320,11 @@ module abstract_classes_module
     
     procedure, public, nopass :: representation => &
                                & representation_StressPointer
+    
+    procedure, public :: stress_RealModeDisplacement => &
+                       & stress_RealModeDisplacement_StressPointer
+    procedure, public :: stress_ComplexModeDisplacement => &
+                       & stress_ComplexModeDisplacement_StressPointer
     
     ! I/O.
     procedure, public :: read  => read_StressPointer
@@ -728,6 +742,30 @@ module abstract_classes_module
       implicit none
       
       type(String) :: output
+    end function
+    
+    impure elemental function stress_RealModeDisplacement_StressData(this, &
+       & displacement) result(output)
+      import StressData
+      import RealModeDisplacement
+      import RealMatrix
+      implicit none
+      
+      class(StressData),          intent(in) :: this
+      type(RealModeDisplacement), intent(in) :: displacement
+      type(RealMatrix)                       :: output
+    end function
+    
+    impure elemental function stress_ComplexModeDisplacement_StressData( &
+       & this,displacement) result(output)
+      import StressData
+      import ComplexModeDisplacement
+      import ComplexMatrix
+      implicit none
+      
+      class(StressData),             intent(in) :: this
+      type(ComplexModeDisplacement), intent(in) :: displacement
+      type(ComplexMatrix)                       :: output
     end function
   end interface
   
@@ -1860,6 +1898,32 @@ impure elemental function representation_StressPointer() result(output)
   type(String) :: output
   
   output = 'pointer'
+end function
+
+impure elemental function stress_RealModeDisplacement_StressPointer(this, &
+   & displacement) result(output)
+  implicit none
+  
+  class(StressPointer),       intent(in) :: this
+  type(RealModeDisplacement), intent(in) :: displacement
+  type(RealMatrix)                       :: output
+  
+  call this%check()
+  
+  output = this%stress_%stress(displacement)
+end function
+
+impure elemental function stress_ComplexModeDisplacement_StressPointer( &
+   & this,displacement) result(output)
+  implicit none
+  
+  class(StressPointer),          intent(in) :: this
+  type(ComplexModeDisplacement), intent(in) :: displacement
+  type(ComplexMatrix)                       :: output
+  
+  call this%check()
+  
+  output = this%stress_%stress(displacement)
 end function
 
 ! I/O.

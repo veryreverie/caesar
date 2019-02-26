@@ -199,16 +199,16 @@ subroutine converge_qpoint_grid_subroutine(arguments)
   
   if (file_type/='castep') then
     call print_line('Error: CASTEP is the only accepted file type for this mode.')
-    stop
+    stop 1
   elseif ((converge_energies/='yes').AND.(converge_energies/='no')) then
     call print_line('Error: converge_energies must be "yes" or "no".')
-    stop
+    stop 1
   elseif (convergence_count<1) then
     call print_line('Error: convergence_count must be at least 1.')
-    stop
+    stop 1
   elseif (qgrid_start>=qgrid_end) then
     call print_line('Error: qgrid_start must be less than qgrid_end.')
-    stop
+    stop 1
   endif
 
   ! ---------------------------------------------------------
@@ -289,7 +289,7 @@ subroutine converge_qpoint_grid_subroutine(arguments)
               endif
            else 
               call print_line('Very large vibrational grid.')
-              stop
+              stop 1
            endif
 
            complex_mode_file = IFile(qpoint_dir//'/complex_modes.dat')

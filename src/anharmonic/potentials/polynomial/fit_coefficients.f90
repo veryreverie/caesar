@@ -28,16 +28,14 @@ function fit_coefficients(basis_functions,sampling_points,sample_results, &
   class(PotentialData),       intent(in), optional :: potential
   real(dp), allocatable                            :: output(:)
   
-  real(dp),            allocatable :: basis_function_energies(:,:)
-  type(RealModeForce), allocatable :: basis_function_forces(:,:)
-  real(dp),            allocatable :: sample_energies(:)
-  type(RealModeForce), allocatable :: sample_forces(:)
+  real(dp)            :: energy
+  type(RealModeForce) :: forces
   
-  integer               :: degrees_of_freedom
+  integer               :: dimensions
   real(dp), allocatable :: a(:,:)
   real(dp), allocatable :: b(:)
   
-  integer :: i,j,k,ialloc
+  integer :: i,j,ialloc
   
   ! Check inputs are consistent.
   if (size(sampling_points)/=size(sample_results)) then
@@ -46,70 +44,46 @@ function fit_coefficients(basis_functions,sampling_points,sample_results, &
     call err()
   endif
   
+  ! Each calculation yields size(modes) forces and one energy.
+  dimensions = 1+size(modes)
+  
   ! Calculate the energies and forces due to each basis function at each
   !    sampling point.
-  allocate( basis_function_energies( size(sampling_points),  &
-          &                          size(basis_functions)), &
-          & basis_function_forces( size(sampling_points),    &
-          &                        size(basis_functions)),   &
+  allocate( a(size(sampling_points)*dimensions, size(basis_functions)), &
           & stat=ialloc); call err(ialloc)
   do i=1,size(basis_functions)
     do j=1,size(sampling_points)
-      basis_function_energies(j,i) = basis_functions(i)%energy( &
-                                           & sampling_points(j) )
-      basis_function_forces(j,i) = basis_functions(i)%force(sampling_points(j))
+      energy = basis_functions(i)%energy(sampling_points(j))
+      forces = basis_functions(i)%force(sampling_points(j))
+      
+      a((j-1)*dimensions+1:j*dimensions, i) = make_vector( energy,            &
+                                                         & forces,            &
+                                                         & modes,             &
+                                                         & energy_force_ratio )
     enddo
   enddo
   
   ! Calculate the energies and forces sampled at each sampling point.
-  allocate( sample_energies(size(sampling_points)), &
-          & sample_forces(size(sampling_points)),   &
-          & stat=ialloc); call err(ialloc)
+  allocate(b(size(sampling_points)*dimensions), stat=ialloc); call err(ialloc)
   do i=1,size(sampling_points)
-    sample_energies(i) = sample_results(i)%energy
-    sample_forces(i) = sample_results(i)%force
-  enddo
-  
-  ! Subtract the energy and forces from the existing potential.
-  if (present(potential)) then
-    do i=1,size(sampling_points)
-      sample_energies(i) = sample_energies(i) &
-                       & - potential%energy(sampling_points(i))
-      sample_forces(i) = sample_forces(i) &
-                     & - potential%force(sampling_points(i))
-    enddo
-  endif
-  
-  ! Convert basis function energies and forces into a single matrix,
-  !    and sampled energies and forces into a single vector.
-  degrees_of_freedom = size(sampling_points) * (1+size(modes))
-  allocate( a(degrees_of_freedom,size(basis_functions)), &
-          & b(degrees_of_freedom),                       &
-          & stat=ialloc); call err(ialloc)
-  
-  do i=1,size(basis_functions)
-    k = 1
-    do j=1,size(sampling_points)
-      a(k:k+size(modes),i) = make_vector( basis_function_energies(j,i), &
-                                        & basis_function_forces(j,i),   &
-                                        & modes,                        &
-                                        & energy_force_ratio)
-      k = k + 1+size(modes)
-    enddo
-  enddo
-  
-  k = 1
-  do i=1,size(sampling_points)
-    b(k:k+size(modes)) = make_vector( sample_energies(i), &
-                                    & sample_forces(i),   &
-                                    & modes,              &
-                                    & energy_force_ratio)
-    k = k + 1+size(modes)
+    energy = sample_results(i)%energy
+    forces = sample_results(i)%force
+    
+    ! Subtract the energy and forces from the existing potential.
+    if (present(potential)) then
+      energy = energy - potential%energy(sampling_points(i))
+      forces = forces - potential%force(sampling_points(i))
+    endif
+    
+    b((i-1)*dimensions+1:i*dimensions) = make_vector( energy,             &
+                                                    & forces,             &
+                                                    & modes,              &
+                                                    & energy_force_ratio  )
   enddo
   
   ! Run linear least squares to get the basis function coefficients.
   ! This finds x s.t. (a.x-b)^2 is minimised.
-  output = dble(linear_least_squares(a,b))
+  output = dble(linear_least_squares(a, b))
 end function
 
 ! Convert an energy and force into a single vector which can be inserted

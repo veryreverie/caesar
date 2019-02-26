@@ -21,6 +21,18 @@ module coupling_basis_functions_module
     type(SubspaceCoupling)           :: coupling
     type(BasisFunction), allocatable :: basis_functions(:)
   contains
+    generic,   public  :: energy =>                                           &
+                        & energy_RealModeDisplacement_CouplingBasisFunctions, &
+                        & energy_ComplexModeDisplacement_CouplingBasisFunctions
+    procedure, private :: energy_RealModeDisplacement_CouplingBasisFunctions
+    procedure, private :: energy_ComplexModeDisplacement_CouplingBasisFunctions
+    generic,   public  :: force =>                                           &
+                        & force_RealModeDisplacement_CouplingBasisFunctions, &
+                        & force_ComplexModeDisplacement_CouplingBasisFunctions
+    procedure, private :: force_RealModeDisplacement_CouplingBasisFunctions
+    procedure, private :: force_ComplexModeDisplacement_CouplingBasisFunctions
+    
+    ! I/O.
     procedure, public :: read  => read_CouplingBasisFunctions
     procedure, public :: write => write_CouplingBasisFunctions
   end type
@@ -63,6 +75,61 @@ function size_CouplingBasisFunctions(this) result(output)
   integer                                  :: output
   
   output = size(this%basis_functions)
+end function
+
+impure elemental function energy_RealModeDisplacement_CouplingBasisFunctions( &
+   & this,displacement) result(output)
+  implicit none
+  
+  class(CouplingBasisFunctions), intent(in) :: this
+  class(RealModeDisplacement),   intent(in) :: displacement
+  real(dp)                                  :: output
+  
+  output = sum(this%basis_functions%energy(displacement))
+end function
+
+impure elemental function                                                     &
+   & energy_ComplexModeDisplacement_CouplingBasisFunctions(this,displacement) &
+   & result(output)
+  implicit none
+  
+  class(CouplingBasisFunctions),  intent(in) :: this
+  class(ComplexModeDisplacement), intent(in) :: displacement
+  complex(dp)                                :: output
+  
+  output = sum(this%basis_functions%energy(displacement))
+end function
+
+impure elemental function force_RealModeDisplacement_CouplingBasisFunctions( &
+   & this,displacement) result(output)
+  implicit none
+  
+  class(CouplingBasisFunctions), intent(in) :: this
+  class(RealModeDisplacement),   intent(in) :: displacement
+  type(RealModeForce)                       :: output
+  
+  if (size(this%basis_functions)>0) then
+    output = sum(this%basis_functions%force(displacement))
+  else
+    output = RealModeForce(RealSingleForce(displacement%vectors%id,0.0_dp))
+  endif
+end function
+
+impure elemental function                                                    &
+   & force_ComplexModeDisplacement_CouplingBasisFunctions(this,displacement) &
+   & result(output)
+  implicit none
+  
+  class(CouplingBasisFunctions),  intent(in) :: this
+  class(ComplexModeDisplacement), intent(in) :: displacement
+  type(ComplexModeForce)                     :: output
+  
+  if (size(this%basis_functions)>0) then
+    output = sum(this%basis_functions%force(displacement))
+  else
+    output = ComplexModeForce(ComplexSingleForce( displacement%vectors%id, &
+                                                & (0.0_dp,0.0_dp)          ))
+  endif
 end function
 
 function generate_basis_functions_SubspaceCoupling(coupling,               &

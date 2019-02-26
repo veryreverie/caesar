@@ -47,7 +47,7 @@ function new_CalculationWriter(file_type,seedname) result(this)
   if (.not. file_exists(this%input_filename_)) then
     call print_line(ERROR//': The input file '//this%input_filename_// &
                    &' does not exist in the working directory.'        )
-    stop
+    stop 1
   endif
 end function
 

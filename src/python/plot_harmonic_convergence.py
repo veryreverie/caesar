@@ -1,5 +1,7 @@
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
+import matplotlib.colors as colors
+import matplotlib.colorbar as colorbar
 import scipy.stats
 import numpy as np
 import operator
@@ -35,41 +37,86 @@ def main():
     data[i] = {}
     data[i]['header'] = entry[0]
     data[i]['x'] = [float(line[0]) for line in entry[1:]]
-    data[i]['y'] = zip(*[[float(x) for x in line[1:]] for line in entry[1:]])
+    data[i]['y'] = [[float(x) for x in line[1:]] for line in entry[1:]]
+    data[i]['y'] = list(zip(*data[i]['y']))
+    data[i]['converged'] = [line[-1] for line in data[i]['y']]
     data[i]['dy'] = [[y-line[-1] for y in line] for line in data[i]['y']]
     
     if data[i]['header'][0]=='k-point':
+      data[i]['x type'] = 'k-point'
       data[i]['x label'] = r'$k$-point spacing (bohr$^{-1}$)'
     elif data[i]['header'][0]=='Cutoff':
+      data[i]['x type'] = 'cutoff'
       data[i]['x label'] = r'cut-off energy (Ha)'
     else:
       print(data[i]['header'][0])
       sys.exit()
     
     if data[i]['header'][4]=='Mode':
+      data[i]['y type'] = 'frequencies'
       data[i]['y label'] = r'error in mode frequencies (Ha)'
-    elif data[i]['header'][0]=='Free':
+    elif data[i]['header'][4]=='Free':
+      data[i]['y type'] = 'free energies'
       data[i]['y label'] = r'error in free energies (Ha per primitive cell)'
     else:
-      print(data[i]['header'][4])
+      print('Error: unexpected header:')
+      print(data[i]['header'])
       sys.exit()
   
   # Plot data.
-  fig, ax_grid = plt.subplots(1, len(data))
-  
   if len(data)==1:
-    ax_grid = [ax_grid]
+    fig, ax_grid = plt.subplots(1,2,gridspec_kw={'width_ratios':[15,1]})
+    data[0]['axis'] = ax_grid[0]
+    data[0]['cbar'] = ax_grid[1]
+  elif len(data)==2:
+    if data[1]['y type']=='free energies':
+      fig, ax_grid = plt.subplots(2,2,gridspec_kw={'width_ratios':[15,1]})
+      data[0]['axis'] = ax_grid[0][0]
+      data[0]['cbar'] = ax_grid[0][1]
+      data[1]['axis'] = ax_grid[1][0]
+      data[1]['cbar'] = ax_grid[1][1]
+    else:
+      fig, ax_grid = plt.subplots(1,4,gridspec_kw={'width_ratios':[15,1,15,1]})
+      data[0]['axis'] = ax_grid[0]
+      data[0]['cbar'] = ax_grid[1]
+      data[1]['axis'] = ax_grid[2]
+      data[1]['cbar'] = ax_grid[3]
+  elif len(data)==4:
+    fig, ax_grid = plt.subplots(2,4,gridspec_kw={'width_ratios':[15,1,15,1]})
+    data[0]['axis'] = ax_grid[0][0]
+    data[0]['cbar'] = ax_grid[0][1]
+    data[1]['axis'] = ax_grid[1][0]
+    data[1]['cbar'] = ax_grid[1][1]
+    data[2]['axis'] = ax_grid[0][2]
+    data[2]['cbar'] = ax_grid[0][3]
+    data[3]['axis'] = ax_grid[1][2]
+    data[3]['cbar'] = ax_grid[1][3]
+  else:
+    print('Error: '+len(data)+' entries.')
+    sys.exit()
   
-  for entry, ax in zip(data, ax_grid):
-    for y in entry['dy']:
-      ax.plot(entry['x'],y)
+  cmap = plt.get_cmap('viridis')
+  
+  for entry in data:
+    ax = entry['axis']
+    cb = entry['cbar']
+    
+    min_y = min(entry['converged'])
+    max_y = max(entry['converged'])
+    
+    for y,conv in zip(entry['dy'],entry['converged']):
+      colour = cmap((conv-min_y)/(max_y-min_y))
+      ax.plot(entry['x'],y,color=colour)
     ax.set_xlabel(entry['x label'])
     ax.set_ylabel(entry['y label'])
     ax.set_xlim(entry['x'][0],entry['x'][-1])
-    ax.set_ylim(-1e-4,1e-4)
+    ax.set_ylim(-1e-3,1e-3)
+    
+    norm = colors.Normalize(vmin=min_y,vmax=max_y)
+    colorbar.ColorbarBase(cb, cmap=cmap, norm=norm)
+    cb.yaxis.set_ticks_position('left')
   
   plt.show()
-  
 
 if __name__=='__main__':
   main()

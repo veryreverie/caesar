@@ -146,12 +146,12 @@ subroutine help_specific(keyword,mode,caesar_modes)
     do i=1,size(keywords)
       call keywords(i)%print_help()
     enddo
-    stop
+    stop 1
   else
     do i=1,size(keywords)
       if (keywords(i)%keyword==keyword) then
         call keywords(i)%print_help()
-        stop
+        stop 1
       endif
     enddo
     

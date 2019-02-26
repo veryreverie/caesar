@@ -21,6 +21,16 @@ module coupling_stress_basis_functions_module
     type(SubspaceCoupling)                 :: coupling
     type(StressBasisFunction), allocatable :: basis_functions(:)
   contains
+    generic,   public  ::                                          &
+       & stress =>                                                 &
+       & stress_RealModeDisplacement_CouplingStressBasisFunctions, &
+       & stress_ComplexModeDisplacement_CouplingStressBasisFunctions
+    procedure, private :: &
+       & stress_RealModeDisplacement_CouplingStressBasisFunctions
+    procedure, private :: &
+       & stress_ComplexModeDisplacement_CouplingStressBasisFunctions
+    
+    ! I/O.
     procedure, public :: read  => read_CouplingStressBasisFunctions
     procedure, public :: write => write_CouplingStressBasisFunctions
   end type
@@ -60,6 +70,38 @@ function size_CouplingStressBasisFunctions(this) result(output)
   integer                                         :: output
   
   output = size(this%basis_functions)
+end function
+
+impure elemental function                                           &
+   & stress_RealModeDisplacement_CouplingStressBasisFunctions(this, &
+   & displacement) result(output)
+  implicit none
+  
+  class(CouplingStressBasisFunctions), intent(in) :: this
+  class(RealModeDisplacement),         intent(in) :: displacement
+  type(RealMatrix)                                :: output
+  
+  if (size(this%basis_functions)>0) then
+    output = sum(this%basis_functions%stress(displacement))
+  else
+    output = dblemat(zeroes(3,3))
+  endif
+end function
+
+impure elemental function                                              &
+   & stress_ComplexModeDisplacement_CouplingStressBasisFunctions(this, &
+   & displacement) result(output)
+  implicit none
+  
+  class(CouplingStressBasisFunctions), intent(in) :: this
+  class(ComplexModeDisplacement),      intent(in) :: displacement
+  type(ComplexMatrix)                             :: output
+  
+  if (size(this%basis_functions)>0) then
+    output = sum(this%basis_functions%stress(displacement))
+  else
+    output = cmplxmat(zeroes(3,3))
+  endif
 end function
 
 ! Generate stress basis functions.

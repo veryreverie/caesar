@@ -9,12 +9,14 @@ module polynomial_potential_module
   
   use basis_function_module
   use coupling_basis_functions_module
+  use stress_basis_function_module
   use coupling_stress_basis_functions_module
   use vscf_rvectors_module
   use sampling_points_module
   use sample_result_module
   use sample_results_module
   use fit_coefficients_module
+  use fit_stress_coefficients_module
   use polynomial_stress_module
   implicit none
   
@@ -280,147 +282,56 @@ subroutine generate_potential_PolynomialPotential(this,anharmonic_data,  &
   type(CalculationReader),    intent(inout) :: calculation_reader
   type(OFile),                intent(inout) :: logfile
   
-  ! Previously calculated basis functions.
+  ! Basis functions and sampling points.
   type(CouplingBasisFunctions), allocatable :: basis_functions(:)
+  type(SamplingPoints),         allocatable :: sampling_points(:)
+  type(SampleResults),          allocatable :: sample_results(:)
   
-  ! Electronic structure results.
-  type(SamplingPoints), allocatable :: sampling_points(:)
-  type(SampleResults),  allocatable :: sample_results(:)
-  
-  ! Variables associated with the constant basis function
-  !    and the sampling point at zero displacement.
-  type(RealMonomial)          :: constant_real_monomial
-  type(ComplexMonomial)       :: constant_complex_monomial
+  ! Basis functions and sampling points corresponding to the un-displaced
+  !    structure and the constant basis function.
   type(BasisFunction)         :: constant_basis_function
   type(RealModeDisplacement)  :: equilibrium_sampling_point
-  type(CartesianDisplacement) :: equilibrium_displacement
-  type(ElectronicStructure)   :: equilibrium_electronic_structure
   type(SampleResult)          :: equilibrium_sample_result
   
-  ! Variables for generating coefficients.
-  logical,                    allocatable :: uncoupled(:)
-  type(BasisFunction),        allocatable :: uncoupled_basis_functions(:)
-  type(RealModeDisplacement), allocatable :: uncoupled_sampling_points(:)
-  type(SampleResult),         allocatable :: uncoupled_sample_results(:)
-  real(dp),                   allocatable :: coefficients(:)
-  
-  ! Directories and files.
-  type(String) :: equilibrium_dir
+  ! Basis function coefficients.
+  real(dp), allocatable :: coefficients(:)
   
   ! Temporary variables.
   integer :: i,j,k,ialloc
-  
-  ! --------------------------------------------------
-  ! Construct a basis function representing a constant reference energy,
-  !    and a sampling point representing the unperturbed structure.
-  ! --------------------------------------------------
-  constant_real_monomial = RealMonomial( coefficient=1.0_dp, &
-                                       & modes=[RealUnivariate::])
-  constant_complex_monomial = ComplexMonomial( &
-        & coefficient=cmplx(1.0_dp,0.0_dp,dp), &
-        & modes=[ComplexUnivariate::])
-  constant_basis_function = BasisFunction(                             &
-     & real_representation = RealPolynomial([constant_real_monomial]), &
-     & complex_representation =                                        &
-     &    ComplexPolynomial([constant_complex_monomial])               )
-  
-  equilibrium_sampling_point = RealModeDisplacement([RealSingleDisplacement::])
-  equilibrium_displacement = CartesianDisplacement( &
-                      & equilibrium_sampling_point, &
-                      & anharmonic_data%structure,  &
-                      & anharmonic_data%real_modes, &
-                      & anharmonic_data%qpoints     )
   
   ! --------------------------------------------------
   ! Read in basis functions and sampling points.
   ! --------------------------------------------------
   basis_functions = read_basis_functions( anharmonic_data%subspace_couplings, &
                                         & sampling_points_dir                 )
+  constant_basis_function = generate_constant_basis_function()
+  
   sampling_points = read_sampling_points( anharmonic_data%subspace_couplings, &
                                         & sampling_points_dir                 )
+  equilibrium_sampling_point = generate_equilibrium_sampling_point()
   
   ! --------------------------------------------------
-  ! Read in energies and forces.
+  ! Read in electronic structure data.
   ! --------------------------------------------------
-  equilibrium_dir = sampling_points_dir//'/equilibrium'
-  equilibrium_electronic_structure  = calculation_reader%read_calculation( &
-                                                & equilibrium_dir,         &
-                                                & equilibrium_displacement )
-  equilibrium_sample_result = SampleResult( equilibrium_electronic_structure, &
-                                          & anharmonic_data%structure,        &
-                                          & anharmonic_data%real_modes,       &
-                                          & anharmonic_data%qpoints           )
-  
   sample_results = read_sample_results( anharmonic_data%subspace_couplings, &
                                       & sampling_points,                    &
                                       & sampling_points_dir,                &
                                       & anharmonic_data,                    &
                                       & calculation_reader                  )
+  equilibrium_sample_result = read_equilibrium_sample_result( &
+                                & equilibrium_sampling_point, &
+                                & sampling_points_dir,        &
+                                & anharmonic_data,            &
+                                & calculation_reader          )
   
   ! --------------------------------------------------
-  ! Calculate basis function coefficients.
+  ! Fit basis function coefficients.
   ! --------------------------------------------------
   
-  ! Identify which subspace couplings only contain one subspace.
-  allocate( uncoupled(size(anharmonic_data%subspace_couplings)), &
-          & stat=ialloc); call err(ialloc)
+  this%reference_energy = equilibrium_sample_result%energy
+  this%basis_functions = [CouplingBasisFunctions::]
+  
   do i=1,size(anharmonic_data%subspace_couplings)
-    if (size(anharmonic_data%subspace_couplings(i))==1) then
-      uncoupled(i) = .true.
-    else
-      uncoupled(i) = .false.
-    endif
-  enddo
-  
-  ! Calculate the coefficients of all basis functions which do not involve
-  !    subspace coupling at once.
-  
-  uncoupled_basis_functions = [constant_basis_function]
-  uncoupled_sampling_points = [equilibrium_sampling_point]
-  uncoupled_sample_results  = [equilibrium_sample_result]
-  do i=1,size(anharmonic_data%subspace_couplings)
-    if (uncoupled(i)) then
-      uncoupled_basis_functions = [ uncoupled_basis_functions,         &
-                                  & basis_functions(i)%basis_functions ]
-      uncoupled_sampling_points = [ uncoupled_sampling_points, &
-                                  & sampling_points(i)%points ]
-      uncoupled_sample_results = [ uncoupled_sample_results, &
-                                 & sample_results(i)%results ]
-    endif
-  enddo
-  
-  coefficients = fit_coefficients( uncoupled_basis_functions,  &
-                                 & uncoupled_sampling_points,  &
-                                 & uncoupled_sample_results,   &
-                                 & anharmonic_data%real_modes, &
-                                 & weighted_energy_force_ratio )
-  
-  this%reference_energy = coefficients(1)
-  allocate( this%basis_functions(count(uncoupled)), &
-          & stat=ialloc); call err(ialloc)
-  j = 0
-  k = 1
-  do i=1,size(anharmonic_data%subspace_couplings)
-    if (uncoupled(i)) then
-      j = j+1
-      this%basis_functions(j) = CouplingBasisFunctions(                   &
-         & coupling        = basis_functions(i)%coupling,                 &
-         & basis_functions = coefficients(k+1:k+size(basis_functions(i))) &
-         &                 * basis_functions(i)%basis_functions           )
-      k = k+size(basis_functions(i))
-    endif
-  enddo
-  if (k/=size(coefficients)) then
-    call err()
-  endif
-  
-  ! Calculate the coefficients of all basis functions involving subspace
-  !    coupling. These are calculated on a coupling-by-coupling basis.
-  do i=1,size(anharmonic_data%subspace_couplings)
-    if (uncoupled(i)) then
-      cycle
-    endif
-    
     coefficients = fit_coefficients( basis_functions(i)%basis_functions, &
                                    & sampling_points(i)%points,          &
                                    & sample_results(i)%results,          &
@@ -459,8 +370,21 @@ function generate_stress_PolynomialPotential(this,anharmonic_data,        &
   ! Electronic structure results.
   type(SamplingPoints), allocatable :: sampling_points(:)
   type(SampleResults),  allocatable :: sample_results(:)
+  type(SamplingPoints), allocatable :: stress_sampling_points(:)
+  type(SampleResults),  allocatable :: stress_sample_results(:)
   
-  integer :: i,ialloc
+  ! Electronic structure results corresponding to the un-displaced structure.
+  type(RealModeDisplacement) :: equilibrium_sampling_point
+  type(SampleResult)         :: equilibrium_sample_result
+  
+  ! The stress.
+  type(PolynomialStress) :: stress
+  
+  ! Basis function coefficients.
+  real(dp), allocatable :: coefficients(:)
+  
+  ! Temporary variables.
+  integer :: i,j,ialloc
   
   ! Generate basis functions.
   allocate( basis_functions(size(stress_subspace_coupling)), &
@@ -479,25 +403,49 @@ function generate_stress_PolynomialPotential(this,anharmonic_data,        &
                  & logfile                                )
   enddo
   
-  ! Read in sampling points.
+  ! Read in all sampling points and sample results.
   sampling_points = read_sampling_points( anharmonic_data%subspace_couplings, &
                                         & sampling_points_dir                 )
+  equilibrium_sampling_point = generate_equilibrium_sampling_point()
   
-  ! Read in sample results.
   sample_results = read_sample_results( anharmonic_data%subspace_couplings, &
                                       & sampling_points,                    &
                                       & sampling_points_dir,                &
                                       & anharmonic_data,                    &
                                       & calculation_reader                  )
+  equilibrium_sample_result = read_equilibrium_sample_result( &
+                                & equilibrium_sampling_point, &
+                                & sampling_points_dir,        &
+                                & anharmonic_data,            &
+                                & calculation_reader          )
+  
+  ! Set the un-displaced stress tensor.
+  stress = PolynomialStress( equilibrium_sample_result%stress(), &
+                           & [CouplingStressBasisFunctions::]    )
   
   ! Fit basis functions.
+  do i=1,size(basis_functions)
+    j = first(stress_subspace_coupling==basis_functions(i)%coupling)
+    
+    coefficients = fit_stress_coefficients(  &
+       & basis_functions(i)%basis_functions, &
+       & sampling_points(j)%points,          &
+       & sample_results(j)%results,          &
+       & stress                              )
+    
+    basis_functions(i)%basis_functions = basis_functions(i)%basis_functions &
+                                     & * coefficients
+  enddo
   
-  ! TODO: Fit basis functions before returning.
-  output = StressPointer(PolynomialStress( dblemat(make_identity_matrix(3)), &
-                                         & basis_functions                   ))
+  ! Assemble output.
+  stress = PolynomialStress( equilibrium_sample_result%stress(), &
+                           & basis_functions                     )
+  output = StressPointer(stress)
 end function
 
 ! Helper functions for generate_potential and generate_stress.
+
+! Reads sampling points.
 function read_sampling_points(couplings,sampling_points_directory) &
    & result(output)
   implicit none
@@ -521,6 +469,16 @@ function read_sampling_points(couplings,sampling_points_directory) &
   enddo
 end function
 
+! Generates the sampling point for the equilibrium structure.
+function generate_equilibrium_sampling_point() result(output)
+  implicit none
+  
+  type(RealModeDisplacement) :: output
+  
+  output = RealModeDisplacement([RealSingleDisplacement::])
+end function
+
+! Reads basis functions.
 function read_basis_functions(couplings,sampling_points_directory) &
    & result(output)
   implicit none
@@ -544,6 +502,27 @@ function read_basis_functions(couplings,sampling_points_directory) &
   enddo
 end function
 
+! Generates the basis function which is just a constant.
+function generate_constant_basis_function() result(output)
+  implicit none
+  
+  type(BasisFunction) :: output
+  
+  type(RealMonomial)    :: constant_real_monomial
+  type(ComplexMonomial) :: constant_complex_monomial
+  
+  constant_real_monomial = RealMonomial( &
+      & coefficient = 1.0_dp,            &
+      & modes       = [RealUnivariate::] )
+  constant_complex_monomial = ComplexMonomial( &
+         & coefficient = (1.0_dp,0.0_dp),      &
+         & modes       = [ComplexUnivariate::] )
+  output = BasisFunction(                                                     &
+     & real_representation = RealPolynomial([constant_real_monomial]),        &
+     & complex_representation = ComplexPolynomial([constant_complex_monomial]))
+end function
+
+! Reads sample results.
 function read_sample_results(couplings,sampling_points,            &
    & sampling_points_directory,anharmonic_data,calculation_reader) &
    & result(output)
@@ -618,6 +597,38 @@ function read_sample_results(couplings,sampling_points,            &
   enddo
 end function
 
+! Reads the sample result corresponding to equilibrium.
+function read_equilibrium_sample_result(equilibrium_sampling_point, &
+   & sampling_points_directory,anharmonic_data,calculation_reader)  &
+   & result(output)
+  implicit none
+  
+  type(RealModeDisplacement), intent(in)    :: equilibrium_sampling_point
+  type(String),               intent(in)    :: sampling_points_directory
+  type(AnharmonicData),       intent(in)    :: anharmonic_data
+  type(CalculationReader),    intent(inout) :: calculation_reader
+  type(SampleResult)                        :: output
+  
+  type(CartesianDisplacement) :: displacement
+  type(ElectronicStructure)   :: electronic_structure
+  
+  ! The vector of length 0 as a CartesianDisplacement.
+  displacement = CartesianDisplacement( &
+          & equilibrium_sampling_point, &
+          & anharmonic_data%structure,  &
+          & anharmonic_data%real_modes, &
+          & anharmonic_data%qpoints     )
+  
+  electronic_structure = calculation_reader%read_calculation( &
+                 & sampling_points_directory//'/equilibrium', &
+                 & displacement                               )
+  
+  output = SampleResult( electronic_structure,       &
+                       & anharmonic_data%structure,  &
+                       & anharmonic_data%real_modes, &
+                       & anharmonic_data%qpoints     )
+end function
+
 ! Set the undisplaced energy to zero.
 impure elemental subroutine zero_energy_PolynomialPotential(this)
   implicit none
@@ -636,13 +647,8 @@ impure elemental function energy_RealModeDisplacement_PolynomialPotential( &
   type(RealModeDisplacement), intent(in) :: displacement
   real(dp)                               :: output
   
-  integer :: i
-  
-  output = this%reference_energy
-  do i=1,size(this%basis_functions)
-    output = output &
-         & + sum(this%basis_functions(i)%basis_functions%energy(displacement))
-  enddo
+  output = this%reference_energy &
+       & + sum(this%basis_functions%energy(displacement))
 end function
 
 impure elemental function energy_ComplexModeDisplacement_PolynomialPotential( &
@@ -653,13 +659,8 @@ impure elemental function energy_ComplexModeDisplacement_PolynomialPotential( &
   type(ComplexModeDisplacement), intent(in) :: displacement
   complex(dp)                               :: output
   
-  integer :: i
-  
-  output = this%reference_energy
-  do i=1,size(this%basis_functions)
-    output = output &
-         & + sum(this%basis_functions(i)%basis_functions%energy(displacement))
-  enddo
+  output = this%reference_energy &
+       & + sum(this%basis_functions%energy(displacement))
 end function
 
 ! Calculate the force at a given displacement.
@@ -671,12 +672,11 @@ impure elemental function force_RealModeDisplacement_PolynomialPotential( &
   type(RealModeDisplacement), intent(in) :: displacement
   type(RealModeForce)                    :: output
   
-  integer :: i
-  
-  output = sum([(                                                        &
-     & sum(this%basis_functions(i)%basis_functions%force(displacement)), &
-     & i=1,                                                              &
-     & size(this%basis_functions)                                        )])
+  if (size(this%basis_functions)>0) then
+    output = sum(this%basis_functions%force(displacement))
+  else
+    output = RealModeForce(RealSingleForce(displacement%vectors%id,0.0_dp))
+  endif
 end function
 
 impure elemental function force_ComplexModeDisplacement_PolynomialPotential( &
@@ -687,12 +687,12 @@ impure elemental function force_ComplexModeDisplacement_PolynomialPotential( &
   type(ComplexModeDisplacement), intent(in) :: displacement
   type(ComplexModeForce)                    :: output
   
-  integer :: i
-  
-  output = sum([(                                                        &
-     & sum(this%basis_functions(i)%basis_functions%force(displacement)), &
-     & i=1,                                                              &
-     & size(this%basis_functions)                                        )])
+  if (size(this%basis_functions)>0) then
+    output = sum(this%basis_functions%force(displacement))
+  else
+    output = ComplexModeForce(ComplexSingleForce( displacement%vectors%id, &
+                                                & (0.0_dp,0.0_dp)          ))
+  endif
 end function
 
 ! Integrate the potential between two states.

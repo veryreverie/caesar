@@ -13,6 +13,8 @@ contains
 subroutine err_implementation()
   implicit none
   
-  call abort
+  call backtrace
+  
+  stop 1
 end subroutine
 end module

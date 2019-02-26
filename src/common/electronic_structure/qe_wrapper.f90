@@ -91,13 +91,13 @@ function read_input_file_qe(filename) result(output)
   ! Parse lattice.
   if (.not. allocated(qe_file%cell_parameters)) then
     call print_line(ERROR//': Caesar requires cell_parameters card.')
-    stop
+    stop 1
   endif
   line = split_line(lower_case(qe_file%cell_parameters(1)))
   if (size(line)==1) then
     call print_line(ERROR//': No unit given for cell_parameters card. This is &
        &deprecated behaviour.')
-    stop
+    stop 1
   elseif ( line(2)=='bohr'   .or. &
          & line(2)=='(bohr)' .or. &
          & line(2)=='{bohr}'      ) then
@@ -111,11 +111,11 @@ function read_input_file_qe(filename) result(output)
          & line(2)=='{alat}'      ) then
     call print_line(ERROR//': Caesar cannot parse cell_parameters card in &
        &"alat" format.')
-    stop
+    stop 1
   else
     call print_line(ERROR//': Unrecognised cell_parameters card format: '// &
        & line(2))
-    stop
+    stop 1
   endif
   
   ! Parse atomic positions.
@@ -123,13 +123,13 @@ function read_input_file_qe(filename) result(output)
   if (size(line)==1) then
     call print_line(ERROR//': No unit given for atomic_positions card. This &
        &is deprecated behaviour.')
-    stop
+    stop 1
   elseif ( line(2)=='alat'   .or. &
          & line(2)=='(alat)' .or. &
          & line(2)=='{alat}'      ) then
     call print_line(ERROR//': Caesar cannot parse atomic_positions card in &
        &"alat" format.')
-    stop
+    stop 1
   elseif ( line(2)=='bohr'   .or. &
          & line(2)=='(bohr)' .or. &
          & line(2)=='{bohr}'      ) then
@@ -169,11 +169,11 @@ function read_input_file_qe(filename) result(output)
          & line(2)=='{crystal_sg}'      ) then
     call print_line(ERROR//': Caesar cannot parse atomic_positions card in &
        &crystal_sg format.')
-    stop
+    stop 1
   else
     call print_line(ERROR//': Unrecognised atomic_positions card format: '// &
        & line(2))
-    stop
+    stop 1
   endif
   
   ! Parse masses.
@@ -186,7 +186,7 @@ function read_input_file_qe(filename) result(output)
   enddo
   if (.not. all(masses_set)) then
     call print_line(ERROR//': Not all species present in atomic_species card.')
-    stop
+    stop 1
   endif
   
   ! Make output.
@@ -252,7 +252,7 @@ subroutine write_input_file_qe(structure,old_qe_in_filename,new_qe_in_filename)
     call print_line(ERROR//': Unable to generate supercell k-point grid for &
        &Quantum Espresso calculation whose k_points card is not in &
        &"automatic" format.')
-    stop
+    stop 1
   endif
   
   line = split_line(qe_file%k_points(2))
@@ -271,7 +271,7 @@ subroutine write_input_file_qe(structure,old_qe_in_filename,new_qe_in_filename)
   else
     call print_line(ERROR//': k_points card has an unexpected number of &
        &entries.')
-    stop
+    stop 1
   endif
   
   
@@ -370,7 +370,7 @@ function read_output_file_qe(filename,structure) result(output)
   if (no_forces/=structure%no_atoms) then
     call print_line(ERROR//': The number of atoms in the Quantum Espresso &
        &output file does not match that in the input file.')
-    stop
+    stop 1
   endif
   
   ! Allocate arrays.
@@ -398,7 +398,7 @@ function read_output_file_qe(filename,structure) result(output)
     if (j==0) then
       call print_line(ERROR//': Unable to match species in Quantum Espresso &
          &output file with those in input file.')
-      stop
+      stop 1
     endif
     
     forces(j) = dble(line(7:9)) * EV_PER_RYDBERG / EV_PER_HARTREE
@@ -408,7 +408,7 @@ function read_output_file_qe(filename,structure) result(output)
   if (.not.all(forces_found)) then
     call print_line(ERROR//': Unable to match forces in Quantum Espresso &
        &output file with atoms in input file.')
-    stop
+    stop 1
   endif
   
   do i=1,3
@@ -511,49 +511,49 @@ subroutine read_QeInputFile(this,input)
       if (line(1)=='atomic_species') then
         if (atomic_species_line/=0) then
           call print_line(ERROR//': atomic_species card appears twice.')
-          stop
+          stop 1
         endif
         atomic_species_line = i
         end_lines = [end_lines, i-1]
       elseif (line(1)=='atomic_positions') then
         if (atomic_positions_line/=0) then
           call print_line(ERROR//': atomic_positions card appears twice.')
-          stop
+          stop 1
         endif
         atomic_positions_line = i
         end_lines = [end_lines, i-1]
       elseif (line(1)=='k_points') then
         if (k_points_line/=0) then
           call print_line(ERROR//': k_points card appears twice.')
-          stop
+          stop 1
         endif
         k_points_line = i
         end_lines = [end_lines, i-1]
       elseif (line(1)=='cell_parameters') then
         if (cell_parameters_line/=0) then
           call print_line(ERROR//': cell_parameters card appears twice.')
-          stop
+          stop 1
         endif
         cell_parameters_line = i
         end_lines = [end_lines, i-1]
       elseif (line(1)=='occupations') then
         if (occupations_line/=0) then
           call print_line(ERROR//': occupations card appears twice.')
-          stop
+          stop 1
         endif
         occupations_line = i
         end_lines = [end_lines, i-1]
       elseif (line(1)=='constraints') then
         if (constraints_line/=0) then
           call print_line(ERROR//': constraints card appears twice.')
-          stop
+          stop 1
         endif
         constraints_line = i
         end_lines = [end_lines, i-1]
       elseif (line(1)=='atomic_forces') then
         if (atomic_forces_line/=0) then
           call print_line(ERROR//': atomic_forces card appears twice.')
-          stop
+          stop 1
         endif
         atomic_forces_line = i
         end_lines = [end_lines, i-1]

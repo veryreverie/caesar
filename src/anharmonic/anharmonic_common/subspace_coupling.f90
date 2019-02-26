@@ -13,6 +13,8 @@ module subspace_coupling_module
   public :: SubspaceCoupling
   public :: generate_coupled_subspaces
   public :: size
+  public :: operator(==)
+  public :: operator(/=)
   
   type, extends(Stringable) :: SubspaceCoupling
     ! The ids of the degenerate subspaces which are coupled together.
@@ -38,6 +40,14 @@ module subspace_coupling_module
   interface size
     module procedure size_SubspaceCoupling
   end interface
+  
+  interface operator(==)
+    module procedure equality_SubspaceCoupling
+  end interface
+  
+  interface operator(/=)
+    module procedure non_equality_SubspaceCoupling
+  end interface
 contains
 
 ! ----------------------------------------------------------------------
@@ -45,6 +55,7 @@ contains
 !    - Constructor.
 !    - Concatenation with a DegenerateSubspace subspace.
 !    - size() function.
+!    - == and /= operators.
 ! ----------------------------------------------------------------------
 function new_SubspaceCoupling(ids) result(output)
   implicit none
@@ -79,6 +90,42 @@ function size_SubspaceCoupling(this) result(output)
   output = size(this%ids)
 end function
 
+impure elemental function equality_SubspaceCoupling(this,that) result(output)
+  implicit none
+  
+  type(SubspaceCoupling), intent(in) :: this
+  type(SubspaceCoupling), intent(in) :: that
+  logical                            :: output
+  
+  integer, allocatable :: this_ids(:)
+  integer, allocatable :: that_ids(:)
+  
+  this_ids = this%ids
+  this_ids = this_ids(set(this_ids))
+  this_ids = this_ids(sort(this_ids))
+  
+  that_ids = that%ids
+  that_ids = that_ids(set(that_ids))
+  that_ids = that_ids(sort(that_ids))
+  
+  if (size(this_ids)/=size(that_ids)) then
+    output = .false.
+  else
+    output = all(this_ids==that_ids)
+  endif
+end function
+
+impure elemental function non_equality_SubspaceCoupling(this,that) &
+   & result(output)
+  implicit none
+  
+  type(SubspaceCoupling), intent(in) :: this
+  type(SubspaceCoupling), intent(in) :: that
+  logical                            :: output
+  
+  output = .not. this==that
+end function
+
 ! ----------------------------------------------------------------------
 ! Generates all sets of coupled subspaces up to a given order.
 ! ----------------------------------------------------------------------
@@ -96,7 +143,7 @@ function generate_coupled_subspaces(subspaces,maximum_coupling_order) &
   ! Check input.
   if (maximum_coupling_order<1) then
     call print_line(ERROR//': maximum_coupling_order must be at least 1.')
-    stop
+    stop 1
   endif
   
   ! Call the helper function once for each coupling order.

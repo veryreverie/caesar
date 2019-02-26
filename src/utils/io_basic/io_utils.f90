@@ -270,7 +270,7 @@ function get_flag(args,flags_without_arguments,flags_with_arguments) &
     ! The flag is unexpected.
     if (output%flag=='?') then
       call print_line(ERROR//': unexpected flag "'//output%argument//'".')
-      stop
+      stop 1
     
     ! The flag has no argument.
     elseif (output%flag==':') then

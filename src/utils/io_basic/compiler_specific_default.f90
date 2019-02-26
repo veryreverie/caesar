@@ -23,6 +23,6 @@ subroutine err_implementation()
   write(*,'(a)') "Stacktrace not implemented for this compiler."
   write(*,*)
   
-  stop
+  stop 1
 end subroutine
 end module

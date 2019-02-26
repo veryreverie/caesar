@@ -34,6 +34,6 @@ function new_SpglibSymmetries_calculated(lattice,atoms,symmetry_precision) &
   call print_line(ERROR//': Cannot calculate symmetries because Caesar has &
      &not been linked against spglib. Please use the CMake flag &
      &-DLINK_TO_SPGLIB:LOGICAL=true to link against spglib.')
-  stop
+  stop 1
 end function
 end module

@@ -97,20 +97,20 @@ subroutine read_ElectronicStructure(this,input)
   integer :: linear_response_line
   integer :: i
   
+  type(String), allocatable :: line(:)
+  
   select type(this); type is(ElectronicStructure)
-    ! Check if the stress is present.
+    ! Check if the stress and linear response are present.
     stress_line = 0
-    do i=1,size(input)
-      if (input(i)=='Stress' .or. input(i)=='Virial') then
-        stress_line = i
-      endif
-    enddo
-    
-    ! Check if linear response is present.
     linear_response_line = 0
     do i=1,size(input)
-      if (input(i)=='Permittivity') then
-        linear_response_line = i
+      line = split_line(lower_case(input(i)))
+      if (size(line)>=1) then
+        if (line(1)=='stress' .or. line(1)=='virial') then
+          stress_line = i
+        elseif (line(1)=='permittivity') then
+          linear_response_line = i
+        endif
       endif
     enddo
     
@@ -152,7 +152,9 @@ function write_ElectronicStructure(this) result(output)
              & str('Forces (Hartree/Bohr):'), &
              & str(this%forces)               ]
     if (allocated(this%stress_)) then
-      output = [output, str('Stress'), str(this%stress_)]
+      output = [ output,                         &
+               & str('Stress (Hartree/Bohr^3)'), &
+               & str(this%stress_)               ]
     endif
     if (allocated(this%linear_response)) then
       output = [output, str(this%linear_response)]

@@ -12,10 +12,18 @@ module stress_basis_function_module
   
   public :: StressBasisFunction
   public :: generate_stress_basis_functions
+  public :: operator(*)
+  public :: operator(/)
   
   type, extends(Stringsable) :: StressBasisFunction
     type(BasisFunction) :: elements(3,3)
   contains
+    generic,   public  :: stress =>                                        &
+                        & stress_RealModeDisplacement_StressBasisFunction, &
+                        & stress_ComplexModeDisplacement_StressBasisFunction
+    procedure, private :: stress_RealModeDisplacement_StressBasisFunction
+    procedure, private :: stress_ComplexModeDisplacement_StressBasisFunction
+    
     ! I/O.
     procedure, public :: read  => read_StressBasisFunction
     procedure, public :: write => write_StressBasisFunction
@@ -29,6 +37,15 @@ module stress_basis_function_module
   
   interface generate_stress_basis_functions
     module procedure generate_stress_basis_functions_SubspaceMonomial
+  end interface
+  
+  interface operator(*)
+    module procedure multiply_StressBasisFunction_real
+    module procedure multiply_real_StressBasisFunction
+  end interface
+  
+  interface operator(/)
+    module procedure divide_StressBasisFunction_real
   end interface
 contains
 
@@ -267,6 +284,87 @@ function projection_matrix(input,order) result(output)
     output = input*output + identity
   enddo
   output = output/order
+end function
+
+! ----------------------------------------------------------------------
+! Evaluate the stress due to the basis function.
+! ----------------------------------------------------------------------
+impure elemental function stress_RealModeDisplacement_StressBasisFunction( &
+   & this,displacement) result(output)
+  implicit none
+  
+  class(StressBasisFunction),  intent(in) :: this
+  class(RealModeDisplacement), intent(in) :: displacement
+  type(RealMatrix)                        :: output
+  
+  real(dp) :: elements(3,3)
+  
+  integer :: i,j
+  
+  do i=1,3
+    do j=1,3
+      elements(j,i) = this%elements(j,i)%energy(displacement)
+    enddo
+  enddo
+  
+  output = mat(elements)
+end function
+
+impure elemental function stress_ComplexModeDisplacement_StressBasisFunction( &
+   & this,displacement) result(output)
+  implicit none
+  
+  class(StressBasisFunction),     intent(in) :: this
+  class(ComplexModeDisplacement), intent(in) :: displacement
+  type(ComplexMatrix)                        :: output
+  
+  complex(dp) :: elements(3,3)
+  
+  integer :: i,j
+  
+  do i=1,3
+    do j=1,3
+      elements(j,i) = this%elements(j,i)%energy(displacement)
+    enddo
+  enddo
+  
+  output = mat(elements)
+end function
+
+! ----------------------------------------------------------------------
+! Arithmetic.
+! ----------------------------------------------------------------------
+impure elemental function multiply_StressBasisFunction_real(this,that) &
+   & result(output)
+  implicit none
+  
+  type(StressBasisFunction), intent(in) :: this
+  real(dp),                  intent(in) :: that
+  type(StressBasisFunction)             :: output
+  
+  output = StressBasisFunction(this%elements * that)
+end function
+
+impure elemental function multiply_real_StressBasisFunction(this,that) &
+   & result(output)
+  implicit none
+  
+  real(dp),                  intent(in) :: this
+  type(StressBasisFunction), intent(in) :: that
+  type(StressBasisFunction)             :: output
+  
+  output = StressBasisFunction(this * that%elements)
+end function
+
+impure elemental function divide_StressBasisFunction_real(this,that) &
+   & result(output)
+  implicit none
+  
+  type(StressBasisFunction), intent(in) :: this
+  real(dp),                  intent(in) :: that
+  type(StressBasisFunction)             :: output
+  
+  output = StressBasisFunction(this%elements / that)
 end function
 
 ! ----------------------------------------------------------------------
