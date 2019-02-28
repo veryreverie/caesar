@@ -3,6 +3,7 @@
 ! ======================================================================
 module keyword_module
   use precision_module
+  use abstract_module
   use io_module
   implicit none
   
@@ -456,8 +457,19 @@ subroutine print_help(this)
   
   class(KeywordData), intent(in) :: this
   
+  type(String), allocatable :: helptext(:)
+  integer                   :: i
+  
+  ! Find the first instance of the keyword in the helptext,
+  !    and colour it white.
+  helptext = split_line(this%helptext)
+  i = first(helptext==this%keyword, default=0)
+  if (i/=0) then
+    helptext(i) = colour(helptext(i), 'white')
+  endif
+  
   call print_line('')
-  call print_line(this%helptext)
+  call print_line(join(helptext))
   if (this%default_type_==0) then
     call print_line('This keyword is non-optional.')
   elseif (this%default_type_==1) then

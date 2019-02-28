@@ -24,7 +24,7 @@ module basis_function_module
     ! The basis function in complex co-ordinates.
     type(ComplexPolynomial) :: complex_representation
   contains
-    procedure, public :: simplify
+    procedure, public :: simplify => simplify_BasisFunction
     
     generic,   public  :: energy =>                                  &
                         & energy_RealModeDisplacement_BasisFunction, &
@@ -279,7 +279,7 @@ end function
 ! ----------------------------------------------------------------------
 ! Simplify the basis function.
 ! ----------------------------------------------------------------------
-impure elemental subroutine simplify(this)
+impure elemental subroutine simplify_BasisFunction(this)
   implicit none
   
   class(BasisFunction), intent(inout) :: this
@@ -338,8 +338,8 @@ end function
 ! ----------------------------------------------------------------------
 ! Integrate the basis function between two states.
 ! ----------------------------------------------------------------------
-subroutine braket_BasisFunction(this,bra,ket,subspace,subspace_basis, &
-   & anharmonic_data)
+impure elemental subroutine braket_BasisFunction(this,bra,ket,subspace, &
+   & subspace_basis,anharmonic_data)
   implicit none
   
   class(BasisFunction),     intent(inout)        :: this
@@ -394,8 +394,8 @@ end subroutine
 ! ----------------------------------------------------------------------
 ! Returns the thermal expectation of the basis function.
 ! ----------------------------------------------------------------------
-function harmonic_expectation_BasisFunction(this,frequency,thermal_energy, &
-   & no_states,subspace,anharmonic_data) result(output)
+impure elemental function harmonic_expectation_BasisFunction(this,frequency, &
+   & thermal_energy,no_states,subspace,anharmonic_data) result(output)
   implicit none
   
   class(BasisFunction),     intent(in) :: this

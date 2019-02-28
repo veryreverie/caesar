@@ -49,6 +49,8 @@ module abstract_classes_module
   public :: harmonic_potential_energy
   public :: potential_energy
   
+  public :: generate_subspace_stresses
+  
   ! ----------------------------------------------------------------------
   ! Abstract and pointer type definitions.
   ! ----------------------------------------------------------------------
@@ -163,7 +165,12 @@ module abstract_classes_module
     procedure(states_SubspaceStates),        public, deferred :: states
     procedure(spectra_SubspaceStates),       public, deferred :: spectra
     procedure(wavefunctions_SubspaceStates), public, deferred :: wavefunctions
-    procedure(integrate_SubspaceStates),     public, deferred :: integrate
+    
+    generic, public :: integrate => integrate_potential, integrate_stress
+    procedure(integrate_potential_SubspaceStates), public, deferred :: &
+       & integrate_potential
+    procedure(integrate_stress_SubspaceStates), public, deferred :: &
+       & integrate_stress
   end type
   
   type, extends(SubspaceStates) :: SubspaceStatesPointer
@@ -178,7 +185,10 @@ module abstract_classes_module
     procedure, public :: states => states_SubspaceStatesPointer
     procedure, public :: spectra => spectra_SubspaceStatesPointer
     procedure, public :: wavefunctions => wavefunctions_SubspaceStatesPointer
-    procedure, public :: integrate => integrate_SubspaceStatesPointer
+    procedure, public :: integrate_potential => &
+                       & integrate_potential_SubspaceStatesPointer
+    procedure, public :: integrate_stress => &
+                       & integrate_stress_SubspaceStatesPointer
     
     ! I/O.
     procedure, public :: read  => read_SubspaceStatesPointer
@@ -302,6 +312,10 @@ module abstract_classes_module
        & representation
     procedure, public :: startup => startup_StressData
     
+    ! Return the stress at zero displacement, or set this stress to zero.
+    procedure, public :: undisplaced_stress
+    procedure(zero_stress_StressData), public, deferred :: zero_stress
+    
     ! Return the stress at a given real or complex displacement.
     generic, public :: stress =>                    &
                      & stress_RealModeDisplacement, &
@@ -310,6 +324,14 @@ module abstract_classes_module
        & deferred :: stress_RealModeDisplacement
     procedure(stress_ComplexModeDisplacement_StressData), public, &
        & deferred :: stress_ComplexModeDisplacement
+    
+    ! Evaluate <bra|stress|ket>.
+    procedure(braket_StressData), public, deferred :: braket
+    
+    ! Evaluate the thermal expectation of the stress for a set of harmonic
+    !    states.
+    procedure(harmonic_expectation_StressData), public, deferred :: &
+       & harmonic_expectation
   end type
   
   type, extends(StressData) :: StressPointer
@@ -321,10 +343,17 @@ module abstract_classes_module
     procedure, public, nopass :: representation => &
                                & representation_StressPointer
     
+    procedure, public :: zero_stress => zero_stress_StressPointer
+    
     procedure, public :: stress_RealModeDisplacement => &
                        & stress_RealModeDisplacement_StressPointer
     procedure, public :: stress_ComplexModeDisplacement => &
                        & stress_ComplexModeDisplacement_StressPointer
+    
+    procedure, public :: braket => braket_StressPointer
+    
+    procedure, public :: harmonic_expectation => &
+                       & harmonic_expectation_StressPointer
     
     ! I/O.
     procedure, public :: read  => read_StressPointer
@@ -530,8 +559,8 @@ module abstract_classes_module
       type(SubspaceWavefunctionsPointer)   :: output
     end function
     
-    impure elemental function integrate_SubspaceStates(this,potential, &
-       & subspace,subspace_basis,anharmonic_data) result(output)
+    impure elemental function integrate_potential_SubspaceStates(this, &
+       & potential,subspace,subspace_basis,anharmonic_data) result(output)
       import SubspaceStates
       import PotentialData
       import DegenerateSubspace
@@ -546,6 +575,24 @@ module abstract_classes_module
       class(SubspaceBasis),     intent(in) :: subspace_basis
       type(AnharmonicData),     intent(in) :: anharmonic_data
       type(PotentialPointer)               :: output
+    end function
+    
+    impure elemental function integrate_stress_SubspaceStates(this,stress, &
+       & subspace,subspace_basis,anharmonic_data) result(output)
+      import SubspaceStates
+      import StressData
+      import DegenerateSubspace
+      import SubspaceBasis
+      import AnharmonicData
+      import StressPointer
+      implicit none
+      
+      class(SubspaceStates),    intent(in) :: this
+      class(StressData),        intent(in) :: stress
+      type(DegenerateSubspace), intent(in) :: subspace
+      class(SubspaceBasis),     intent(in) :: subspace_basis
+      type(AnharmonicData),     intent(in) :: anharmonic_data
+      type(StressPointer)                  :: output
     end function
     
     ! PotentialData procedures.
@@ -744,6 +791,13 @@ module abstract_classes_module
       type(String) :: output
     end function
     
+    impure elemental subroutine zero_stress_StressData(this)
+      import StressData
+      implicit none
+      
+      class(StressData), intent(inout) :: this
+    end subroutine
+    
     impure elemental function stress_RealModeDisplacement_StressData(this, &
        & displacement) result(output)
       import StressData
@@ -766,6 +820,43 @@ module abstract_classes_module
       class(StressData),             intent(in) :: this
       type(ComplexModeDisplacement), intent(in) :: displacement
       type(ComplexMatrix)                       :: output
+    end function
+    
+    function braket_StressData(this,bra,ket,subspace,subspace_basis, &
+       & anharmonic_data) result(output)
+      import StressData
+      import SubspaceState
+      import DegenerateSubspace
+      import SubspaceBasis
+      import AnharmonicData
+      import StressPointer
+      implicit none
+      
+      class(StressData),        intent(in)           :: this
+      class(SubspaceState),     intent(in)           :: bra
+      class(SubspaceState),     intent(in), optional :: ket
+      type(DegenerateSubspace), intent(in)           :: subspace
+      class(SubspaceBasis),     intent(in)           :: subspace_basis
+      type(AnharmonicData),     intent(in)           :: anharmonic_data
+      type(StressPointer)                            :: output
+    end function
+    
+    function harmonic_expectation_StressData(this,frequency, &
+       & thermal_energy,no_states,subspace,anharmonic_data) result(output)
+      import StressData
+      import dp
+      import DegenerateSubspace
+      import AnharmonicData
+      import RealMatrix
+      implicit none
+      
+      class(StressData),        intent(in) :: this
+      real(dp),                 intent(in) :: frequency
+      real(dp),                 intent(in) :: thermal_energy
+      integer,                  intent(in) :: no_states
+      type(DegenerateSubspace), intent(in) :: subspace
+      type(AnharmonicData),     intent(in) :: anharmonic_data
+      type(RealMatrix)                     :: output
     end function
   end interface
   
@@ -818,6 +909,8 @@ module abstract_classes_module
     module procedure braket_state_ComplexPolynomial_state
     module procedure braket_state_potential
     module procedure braket_state_potential_state
+    module procedure braket_state_stress
+    module procedure braket_state_stress_state
   end interface
   
   interface kinetic_energy
@@ -1443,8 +1536,8 @@ impure elemental function wavefunctions_SubspaceStatesPointer(this,subspace, &
                                      & anharmonic_data )
 end function
 
-impure elemental function integrate_SubspaceStatesPointer(this,potential, &
-   & subspace,subspace_basis,anharmonic_data) result(output)
+impure elemental function integrate_potential_SubspaceStatesPointer(this, &
+   & potential,subspace,subspace_basis,anharmonic_data) result(output)
   implicit none
   
   class(SubspaceStatesPointer), intent(in) :: this
@@ -1457,6 +1550,25 @@ impure elemental function integrate_SubspaceStatesPointer(this,potential, &
   call this%check()
   
   output = this%states_%integrate( potential,      &
+                                 & subspace,       &
+                                 & subspace_basis, &
+                                 & anharmonic_data )
+end function
+
+impure elemental function integrate_stress_SubspaceStatesPointer(this, &
+   & stress,subspace,subspace_basis,anharmonic_data) result(output)
+  implicit none
+  
+  class(SubspaceStatesPointer), intent(in) :: this
+  class(StressData),            intent(in) :: stress
+  type(DegenerateSubspace),     intent(in) :: subspace
+  class(SubspaceBasis),         intent(in) :: subspace_basis
+  type(AnharmonicData),         intent(in) :: anharmonic_data
+  type(StressPointer)                      :: output
+  
+  call this%check()
+  
+  output = this%states_%integrate( stress,         &
                                  & subspace,       &
                                  & subspace_basis, &
                                  & anharmonic_data )
@@ -1900,6 +2012,16 @@ impure elemental function representation_StressPointer() result(output)
   output = 'pointer'
 end function
 
+impure elemental subroutine zero_stress_StressPointer(this)
+  implicit none
+  
+  class(StressPointer), intent(inout) :: this
+  
+  call this%check()
+  
+  call this%stress_%zero_stress()
+end subroutine
+
 impure elemental function stress_RealModeDisplacement_StressPointer(this, &
    & displacement) result(output)
   implicit none
@@ -1924,6 +2046,48 @@ impure elemental function stress_ComplexModeDisplacement_StressPointer( &
   call this%check()
   
   output = this%stress_%stress(displacement)
+end function
+
+function braket_StressPointer(this,bra,ket,subspace,subspace_basis, &
+   & anharmonic_data) result(output)
+  implicit none
+  
+  class(StressPointer),     intent(in)           :: this
+  class(SubspaceState),     intent(in)           :: bra
+  class(SubspaceState),     intent(in), optional :: ket
+  type(DegenerateSubspace), intent(in)           :: subspace
+  class(SubspaceBasis),     intent(in)           :: subspace_basis
+  type(AnharmonicData),     intent(in)           :: anharmonic_data
+  type(StressPointer)                            :: output
+  
+  call this%check()
+  
+  output = this%stress_%braket( bra,            &
+                              & ket,            &
+                              & subspace,       &
+                              & subspace_basis, &
+                              & anharmonic_data )
+end function
+
+function harmonic_expectation_StressPointer(this,frequency, &
+   & thermal_energy,no_states,subspace,anharmonic_data) result(output)
+  implicit none
+  
+  class(StressPointer),     intent(in) :: this
+  real(dp),                 intent(in) :: frequency
+  real(dp),                 intent(in) :: thermal_energy
+  integer,                  intent(in) :: no_states
+  type(DegenerateSubspace), intent(in) :: subspace
+  type(AnharmonicData),     intent(in) :: anharmonic_data
+  type(RealMatrix)                     :: output
+  
+  call this%check()
+  
+  output = this%stress_%harmonic_expectation( frequency,      &
+                                            & thermal_energy, &
+                                            & no_states,      &
+                                            & subspace,       &
+                                            & anharmonic_data )
 end function
 
 ! I/O.
@@ -2326,6 +2490,44 @@ recursive function braket_state_potential_state(bra,potential,ket, &
                            & anharmonic_data = anharmonic_data )
 end function
 
+! Calculates <state|stress|state>.
+recursive function braket_state_stress(state,stress,subspace, &
+   & subspace_basis,anharmonic_data) result(output)
+  implicit none
+  
+  class(SubspaceState),     intent(in) :: state
+  class(StressData),        intent(in) :: stress
+  type(DegenerateSubspace), intent(in) :: subspace
+  class(SubspaceBasis),     intent(in) :: subspace_basis
+  type(AnharmonicData),     intent(in) :: anharmonic_data
+  type(StressPointer)                  :: output
+  
+  output = stress%braket( bra             = state,          &
+                        & subspace        = subspace,       &
+                        & subspace_basis  = subspace_basis, &
+                        & anharmonic_data = anharmonic_data )
+end function
+
+! Calculates <bra|stress|ket>.
+recursive function braket_state_stress_state(bra,stress,ket, &
+   & subspace,subspace_basis,anharmonic_data) result(output)
+  implicit none
+  
+  class(SubspaceState),     intent(in) :: bra
+  class(StressData),        intent(in) :: stress
+  class(SubspaceState),     intent(in) :: ket
+  type(DegenerateSubspace), intent(in) :: subspace
+  class(SubspaceBasis),     intent(in) :: subspace_basis
+  type(AnharmonicData),     intent(in) :: anharmonic_data
+  type(StressPointer)                  :: output
+  
+  output = stress%braket( bra             = bra,            &
+                        & ket             = ket,            &
+                        & subspace        = subspace,       &
+                        & subspace_basis  = subspace_basis, &
+                        & anharmonic_data = anharmonic_data )
+end function
+
 ! Calculates <state|T|state>.
 recursive function kinetic_energy_state(state,subspace, &
    & subspace_basis,anharmonic_data) result(output)
@@ -2439,5 +2641,107 @@ recursive function potential_energy_state_state(bra,potential,ket,subspace, &
                                & subspace_basis, &
                                & anharmonic_data )
   output = integrated_potential%undisplaced_energy()
+end function
+
+! ----------------------------------------------------------------------
+! StressData methods.
+! ----------------------------------------------------------------------
+function undisplaced_stress(this) result(output)
+  implicit none
+  
+  class(StressData), intent(in) :: this
+  type(RealMatrix)              :: output
+  
+  type(RealModeDisplacement) :: zero_displacement
+  
+  zero_displacement = RealModeDisplacement([RealSingleDisplacement::])
+  
+  output = this%stress(zero_displacement)
+end function
+
+function generate_subspace_stresses(stress,subspaces,subspace_bases, &
+   & subspace_states,anharmonic_data) result(output)
+  implicit none
+  
+  class(StressData),        intent(in) :: stress
+  type(DegenerateSubspace), intent(in) :: subspaces(:)
+  class(SubspaceBasis),     intent(in) :: subspace_bases(:)
+  class(SubspaceStates),    intent(in) :: subspace_states(:)
+  type(AnharmonicData),     intent(in) :: anharmonic_data
+  type(StressPointer), allocatable     :: output(:)
+  
+  ! The minimum and maximum indices in each interval.
+  integer, allocatable :: mins_in(:)
+  integer, allocatable :: maxs_in(:)
+  integer, allocatable :: mins_out(:)
+  integer, allocatable :: maxs_out(:)
+  
+  ! The half-way point of each interval.
+  integer :: s
+  
+  integer :: i,j,ialloc
+  
+  if (size(subspace_states)==0) then
+    call print_line(ERROR//': No states to integrate over.')
+    call err()
+  endif
+  
+  ! Initialise to a single interval spanning all states,
+  !    and the un-integrated stress.
+  mins_in = [1]
+  maxs_in = [size(subspace_states)]
+  allocate(output(size(subspace_states)), stat=ialloc); call err(ialloc)
+  output(1) = StressPointer(stress)
+  
+  ! Loop over iteration until every interval contains exactly one subspace.
+  do while (any(mins_in/=maxs_in))
+    mins_out = [integer::]
+    maxs_out = [integer::]
+    
+    ! Loop over intervals.
+    do i=1,size(mins_in)
+      if (mins_in(i)==maxs_in(i)) then
+        ! The interval contains only one subspace; nothing needs doing.
+        mins_out = [mins_out, mins_in(i)]
+        maxs_out = [maxs_out, maxs_in(i)]
+      else
+        ! The interval contains more than one subspace;
+        !    and generate two integrated stresses.
+        
+        ! Bisect the interval (or split it as evenly as possible).
+        s = mins_in(i) + (maxs_in(i)-mins_in(i)+1)/2
+        mins_out = [mins_out, mins_in(i), s     ]
+        maxs_out = [maxs_out, s-1   , maxs_in(i)]
+        
+        ! Copy the stress from the first interval to the second.
+        output(s) = output(mins_in(i))
+        
+        ! Integrate the first stress over all states in the second interval,
+        !    and the second stress over all states in the first interval.
+        do j=s,maxs_in(i)
+          output(mins_in(i)) = StressPointer(                      &
+             & subspace_states(j)%integrate( output(mins_in(i)),   &
+             &                               subspaces(j),         &
+             &                               subspace_bases(j),    &
+             &                               anharmonic_data     ) )
+        enddo
+        do j=mins_in(i),s-1
+          output(s) = StressPointer(                              &
+             & subspace_states(j)%integrate( output(s),           &
+             &                               subspaces(j),        &
+             &                               subspace_bases(j),   &
+             &                               anharmonic_data    ) )
+        enddo
+      endif
+    enddo
+    
+    mins_in = mins_out
+    maxs_in = maxs_out
+  enddo
+  
+  ! Set the constant term to zero.
+  do i=1,size(output)
+    call output(i)%zero_stress()
+  enddo
 end function
 end module

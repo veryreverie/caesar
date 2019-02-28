@@ -14,7 +14,7 @@ contains
 subroutine quit_implementation()
   implicit none
   
-  stop 1
+  call exit(1)
 end subroutine
 
 ! Aborts with a stacktrace.
@@ -23,6 +23,6 @@ subroutine err_implementation()
   
   call backtrace
   
-  stop 1
+  call exit(1)
 end subroutine
 end module

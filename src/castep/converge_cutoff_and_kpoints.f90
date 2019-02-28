@@ -47,41 +47,41 @@ function converge_cutoff_and_kpoints() result(output)
   &information not covered by the other arguments.',                       &
   &              default_value=''),                                        &
   & KeywordData( 'minimum_cutoff',                                           &
-  &               'minimum_cutoff is the smallest cutoff energy which will be &
+  &              'minimum_cutoff is the smallest cutoff energy which will be &
   &tested. minimum_cutoff must be an integer.',                               &
   &               default_value='300'),                                       &
   & KeywordData( 'cutoff_step',                                              &
-  &               'cutoff_step is the step between each cutoff energy which &
+  &              'cutoff_step is the step between each cutoff energy which &
   &will be tested. cutoff_step must be an integer.',                          &
   &               default_value='50'),                                        &
   & KeywordData( 'maximum_cutoff',                                           &
-  &               'maximum_cutoff is the cutoff energy at which calculation &
+  &              'maximum_cutoff is the cutoff energy at which calculation &
   &will be terminated if convergence has not been reached. maximum_cutoff &
   &must be an integer.',                                                      &
   &               default_value='1500'),                                      &
   & KeywordData( 'minimum_kpoints',                                          &
-  &               'minimum_kpoints is the smallest number of k-points which &
+  &              'minimum_kpoints is the smallest number of k-points which &
   &will be tested. This is the average number of k-points in each direction. &
   &minimum_kpoints must be an integer.',                                      &
   &               default_value='1'),                                         &
   & KeywordData( 'kpoints_step',                                             &
-  &               'kpoints_step is the step between each number of k-points &
+  &              'kpoints_step is the step between each number of k-points &
   &which will be tested. kpoints_step must be an integer, and should be even &
   &if consistent sampling of the gamma point is desirable.',                  &
   &               default_value='2'),                                         &
   & KeywordData( 'maximum_kpoints',                                          &
-  &               'maximum_kpoints is the number of k-points at which &
+  &              'maximum_kpoints is the number of k-points at which &
   &calculation will be terminated if convergence has not been reached. &
   &maximum_kpoints must be an integer.',                                      &
   &               default_value='30'),                                        &
   & KeywordData( 'energy_convergence_threshold',                             &
-  &               'energy_convergence_threshold is the accuracy to which the &
+  &              'energy_convergence_threshold is the accuracy to which the &
   &energy  must converge in order for the cutoff energy to be accepted.'),    &
   & KeywordData( 'force_convergence_threshold',                              &
-  &               'force_convergence_threshold is the accuracy to which the &
+  &              'force_convergence_threshold is the accuracy to which the &
   &forces must converge in order for the cutoff energy to be accepted.'),     &
   & KeywordData( 'no_converged_calculations',                                &
-  &               'no_converged_calculations is the number of calculations &
+  &              'no_converged_calculations is the number of calculations &
   &which must be within both thresholds in order to accept convergence. The &
   &cutoff energy and k-point spacing of the first such calculation will be &
   &accepted.',                                                                &

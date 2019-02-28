@@ -128,10 +128,11 @@ def main():
     if entry['y type']=='frequencies':
       ax.set_ylabel(r'error in mode frequencies (Ha)')
       cb.set_ylabel(r'Converged mode frequency (Ha)')
+      ax.set_ylim(-1e-3,1e-3)
     elif entry['y type']=='free energies':
       ax.set_ylabel(r'error in free energies (Ha per primitive cell)')
       cb.set_ylabel(r'Converged free energy (Ha per primitive cell)')
-    ax.set_ylim(-1e-3,1e-3)
+      ax.set_ylim(-1e-2,1e-2)
     
     # Add colourbar.
     norm = colors.Normalize(vmin=min_y,vmax=max_y)

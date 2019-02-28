@@ -16,13 +16,24 @@ module stress_basis_function_module
   public :: operator(/)
   
   type, extends(Stringsable) :: StressBasisFunction
-    type(BasisFunction) :: elements(3,3)
+    ! This will always be 3x3, but is allocatable to avoid stack overflows.
+    type(BasisFunction), private, allocatable :: elements_(:,:)
   contains
+    procedure, public :: simplify => simplify_StressBasisFunction
+    
     generic,   public  :: stress =>                                        &
                         & stress_RealModeDisplacement_StressBasisFunction, &
                         & stress_ComplexModeDisplacement_StressBasisFunction
     procedure, private :: stress_RealModeDisplacement_StressBasisFunction
     procedure, private :: stress_ComplexModeDisplacement_StressBasisFunction
+    
+    procedure, public :: braket => braket_StressBasisFunction
+    
+    procedure, public :: harmonic_expectation => &
+                       & harmonic_expectation_StressBasisFunction
+    
+    procedure, public :: undisplaced_stress => &
+                       & undisplaced_stress_StressBasisFunction
     
     ! I/O.
     procedure, public :: read  => read_StressBasisFunction
@@ -56,7 +67,7 @@ function new_StressBasisFunction(elements) result(this)
   type(BasisFunction), intent(in) :: elements(3,3)
   type(StressBasisFunction)       :: this
   
-  this%elements = elements
+  this%elements_ = elements
 end function
 
 ! Generate basis functions.
@@ -287,6 +298,17 @@ function projection_matrix(input,order) result(output)
 end function
 
 ! ----------------------------------------------------------------------
+! Simplify the basis function.
+! ----------------------------------------------------------------------
+impure elemental subroutine simplify_StressBasisFunction(this)
+  implicit none
+  
+  class(StressBasisFunction), intent(inout) :: this
+  
+  call this%elements_%simplify()
+end subroutine
+
+! ----------------------------------------------------------------------
 ! Evaluate the stress due to the basis function.
 ! ----------------------------------------------------------------------
 impure elemental function stress_RealModeDisplacement_StressBasisFunction( &
@@ -303,7 +325,7 @@ impure elemental function stress_RealModeDisplacement_StressBasisFunction( &
   
   do i=1,3
     do j=1,3
-      elements(j,i) = this%elements(j,i)%energy(displacement)
+      elements(j,i) = this%elements_(j,i)%energy(displacement)
     enddo
   enddo
   
@@ -324,11 +346,77 @@ impure elemental function stress_ComplexModeDisplacement_StressBasisFunction( &
   
   do i=1,3
     do j=1,3
-      elements(j,i) = this%elements(j,i)%energy(displacement)
+      elements(j,i) = this%elements_(j,i)%energy(displacement)
     enddo
   enddo
   
   output = mat(elements)
+end function
+
+! ----------------------------------------------------------------------
+! Integrate the basis function between two states.
+! ----------------------------------------------------------------------
+subroutine braket_StressBasisFunction(this,bra,ket,subspace,subspace_basis, &
+   & anharmonic_data)
+  implicit none
+  
+  class(StressBasisFunction), intent(inout)        :: this
+  class(SubspaceState),       intent(in)           :: bra
+  class(SubspaceState),       intent(in), optional :: ket
+  type(DegenerateSubspace),   intent(in)           :: subspace
+  class(SubspaceBasis),       intent(in)           :: subspace_basis
+  type(AnharmonicData),       intent(in)           :: anharmonic_data
+  
+  call this%elements_%braket(bra,ket,subspace,subspace_basis,anharmonic_data)
+end subroutine
+
+! ----------------------------------------------------------------------
+! Returns the thermal expectation of the basis function.
+! ----------------------------------------------------------------------
+impure elemental function harmonic_expectation_StressBasisFunction(this, &
+   & frequency,thermal_energy,no_states,subspace,anharmonic_data)        &
+   & result(output)
+  implicit none
+  
+  class(StressBasisFunction),  intent(in) :: this
+  real(dp),                    intent(in) :: frequency
+  real(dp),                    intent(in) :: thermal_energy
+  integer,                     intent(in) :: no_states
+  type(DegenerateSubspace),    intent(in) :: subspace
+  type(AnharmonicData),        intent(in) :: anharmonic_data
+  type(RealMatrix)                        :: output
+  
+  real(dp) :: elements(3,3)
+  
+  integer :: i,j
+  
+  do i=1,3
+    do j=1,3
+      elements(j,i) = this%elements_(j,i)%harmonic_expectation( &
+                                              & frequency,      &
+                                              & thermal_energy, &
+                                              & no_states,      &
+                                              & subspace,       &
+                                              & anharmonic_data )
+    enddo
+  enddo
+end function
+
+! ----------------------------------------------------------------------
+! Returns the stress at zero displacement.
+! ----------------------------------------------------------------------
+impure elemental function undisplaced_stress_StressBasisFunction(this) &
+   & result(output)
+  implicit none
+  
+  class(StressBasisFunction), intent(in) :: this
+  type(RealMatrix)                       :: output
+  
+  type(RealModeDisplacement) :: zero_displacement
+  
+  zero_displacement = RealModeDisplacement([RealSingleDisplacement::])
+  
+  output = this%stress(zero_displacement)
 end function
 
 ! ----------------------------------------------------------------------
@@ -342,7 +430,7 @@ impure elemental function multiply_StressBasisFunction_real(this,that) &
   real(dp),                  intent(in) :: that
   type(StressBasisFunction)             :: output
   
-  output = StressBasisFunction(this%elements * that)
+  output = StressBasisFunction(this%elements_ * that)
 end function
 
 impure elemental function multiply_real_StressBasisFunction(this,that) &
@@ -353,7 +441,7 @@ impure elemental function multiply_real_StressBasisFunction(this,that) &
   type(StressBasisFunction), intent(in) :: that
   type(StressBasisFunction)             :: output
   
-  output = StressBasisFunction(this * that%elements)
+  output = StressBasisFunction(this * that%elements_)
 end function
 
 impure elemental function divide_StressBasisFunction_real(this,that) &
@@ -364,7 +452,7 @@ impure elemental function divide_StressBasisFunction_real(this,that) &
   real(dp),                  intent(in) :: that
   type(StressBasisFunction)             :: output
   
-  output = StressBasisFunction(this%elements / that)
+  output = StressBasisFunction(this%elements_ / that)
 end function
 
 ! ----------------------------------------------------------------------
@@ -413,9 +501,9 @@ function write_StressBasisFunction(this) result(output)
         if (i/=1 .or. j/=1) then
           output = [output, str('')]
         endif
-        output = [ output,                       &
-                 & 'Element ('//i//' '//j//'):', &
-                 & str(this%elements(i,j))       ]
+        output = [ output,                        &
+                 & 'Element ('//i//' '//j//'):',  &
+                 & str(this%elements_(i,j))       ]
       enddo
     enddo
   class default

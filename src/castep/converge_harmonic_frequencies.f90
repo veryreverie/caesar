@@ -23,8 +23,9 @@ function converge_harmonic_frequencies() result(output)
   type(CaesarMode) :: output
   
   output%mode_name = 'converge_harmonic_frequencies'
-  output%description = 'Converges harmonic frequencies w/r/t cutoff energy &
-     &and k-point spacing.'
+  output%description = 'Converges harmonic frequencies and free energies &
+     &w/r/t cutoff energy, k-point spacing and electronic smearing. N.B. only &
+     &the value being converged will be changed in each input file.'
   output%keywords = [                                                         &
      & KeywordData( 'file_type',                                              &
      &              'file_type is the file type which will be used for &
@@ -35,23 +36,28 @@ function converge_harmonic_frequencies() result(output)
      & KeywordData( 'seedname',                                               &
      &              'seedname is the CASTEP seedname from which filenames &
      &are constructed.'),                                                     &
+     & KeywordData( 'converge_cutoff',                                        &
+     &              'converge_cutoff specifies whether or not cutoff energies &
+     &will be converged.',                                                    &
+     &              default_value='true'),                                    &
      & KeywordData( 'minimum_cutoff',                                         &
      &              'minimum_cutoff is the smallest cutoff energy which will &
-     &be tested. This cut-off energy will also be used when converging with &
-     &respect to k-point sampling. minimum_cutoff should be given in &
-     &Hartree.'),                                                             &
+     &be tested. minimum_cutoff should be given in Hartree.'),                &
      & KeywordData( 'no_cutoffs',                                             &
-     &              'no_cutoffs_steps is the number of cutoff energies which &
-     &which will be sampled.'),                                               &
+     &              'no_cutoffs is the number of cutoff energies which will &
+     &be sampled.'),                                                          &
      & KeywordData( 'maximum_cutoff',                                         &
      &              'maximum_cutoff is the cutoff energy at which calculation &
      &will be terminated if convergence has not been reached. maximum_cutoff &
      &should be given in Hartree.'),                                          &
+     & KeywordData( 'converge_k-point_spacing',                               &
+     &              'converge_k-point_spacing specifies whether or not &
+     &k-point spacing will be converged.',                                    &
+     &              default_value='true'),                                    &
      & KeywordData( 'maximum_k-point_spacing',                                &
      &              'maximum_k-point_spacing is the largest k-point spacing &
-     &which will be sampled. This is also the k-point spacing that will be &
-     &used when converging with respect to cut-off energy. &
-     &maximum_k-point_spacing should be given in inverse Bohr.'),             &
+     &which will be sampled. maximum_k-point_spacing should be given in &
+     &inverse Bohr.'),                                                        &
      & KeywordData( 'no_k-point_spacings',                                    &
      &              'no_k-point_spacings is the approximate number of k-point &
      &spacings which will be sampled. N.B. since only k-point spacings &
@@ -66,16 +72,25 @@ function converge_harmonic_frequencies() result(output)
      &with an odd or even number of k-points in all directions are sampled. &
      &If k-point_parity is "both" then all k-point grids are samples.',       &
      &              default_value='both'),                                    &
+     & KeywordData( 'converge_smearing',                                      &
+     &              'converge_smearing specifies whether or not electron &
+     &smearing will be converged.',                                           &
+     &              default_value='true'),                                    &
+     & KeywordData( 'maximum_smearing',                                       &
+     &              'maximum_smearing is the largest electronic smearing &
+     &which will be sampled. maximum_smearing should be given in Hartree.'),  &
+     & KeywordData( 'no_smearings',                                           &
+     &              'no_smearings is the number of electronic smearings which &
+     &which will be sampled.'),                                               &
+     & KeywordData( 'minimum_smearing',                                       &
+     &              'minimum_smearing is the electronic smearing at which &
+     &calculation will be terminated if convergence has not been reached. &
+     &minimum_smearing should be given in Hartree.'),                         &
      & KeywordData( 'converge_energies',                                      &
      &              'converge_energies determines whether convergence of the &
      &free energies is monitored as well as convergence of harmonic &
      &frequencies.',                                                          &
      &              default_value='false'),                                   &
-     & KeywordData( 'convergence_mode',                                       &
-     &              'convergence_mode determines which CASTEP parameters you &
-     &wish to vary in your convergence testing. Options are "cutoff", &
-     &"kpoints" and "both".',                                                 &
-     &              default_value='both'),                                    &
      & KeywordData( 'freq_tolerance',                                         &
      &              'freq_tolerance is the tolerance used in the convergence &
      &of the harmonic frequencies.',                                          &
@@ -174,13 +189,23 @@ subroutine converge_harmonic_frequencies_subroutine(arguments)
   type(String) :: wd
   type(String) :: seedname
   type(String) :: file_type
+  
+  logical      :: converge_cutoff
   real(dp)     :: minimum_cutoff
   integer      :: no_cutoffs
   real(dp)     :: maximum_cutoff
+  
+  logical      :: converge_spacing
   real(dp)     :: maximum_spacing
   integer      :: no_spacings
   real(dp)     :: minimum_spacing
   type(String) :: kpoint_parity
+  
+  logical      :: converge_smearing
+  real(dp)     :: minimum_smearing
+  integer      :: no_smearings
+  real(dp)     :: maximum_smearing
+  
   integer      :: grid(3)
   real(dp)     :: symmetry_precision
   real(dp)     :: harmonic_displacement
@@ -188,8 +213,6 @@ subroutine converge_harmonic_frequencies_subroutine(arguments)
   integer      :: no_nodes
   type(String) :: run_script
   logical      :: converge_energies
-  logical      :: converge_cutoff
-  logical      :: converge_kpoints
   logical      :: repeat_calculations
   type(String) :: acoustic_sum_rule
   real(dp)     :: min_temperature
@@ -212,12 +235,15 @@ subroutine converge_harmonic_frequencies_subroutine(arguments)
   real(dp),         allocatable :: kpoint_spacings(:)
   type(KpointGrid), allocatable :: kpoint_grids(:)
   logical,          allocatable :: unique_grids(:)
+  real(dp),         allocatable :: smearings(:)
   
   ! Variables to converge.
   type(RealVector), allocatable :: cutoff_frequencies(:)
   type(RealVector), allocatable :: cutoff_free_energies(:)
   type(RealVector), allocatable :: kpoint_frequencies(:)
   type(RealVector), allocatable :: kpoint_free_energies(:)
+  type(RealVector), allocatable :: smearing_frequencies(:)
+  type(RealVector), allocatable :: smearing_free_energies(:)
   
   ! Working variables
   integer :: no_qpoints
@@ -228,7 +254,7 @@ subroutine converge_harmonic_frequencies_subroutine(arguments)
   type(RandomReal) :: random_generator
   
   ! Files and directories.
-  type(String) :: dir
+  type(String) :: directory
   
   ! Temporary variables
   integer :: i,j,ialloc
@@ -239,13 +265,23 @@ subroutine converge_harmonic_frequencies_subroutine(arguments)
   wd = arguments%value('working_directory')
   file_type = arguments%value('file_type')
   seedname = arguments%value('seedname')
+  
+  converge_cutoff = lgcl(arguments%value('converge_cutoff'))
   minimum_cutoff = dble(arguments%value('minimum_cutoff'))
   no_cutoffs = int(arguments%value('no_cutoffs'))
   maximum_cutoff = dble(arguments%value('maximum_cutoff'))
+  
+  converge_spacing = lgcl(arguments%value('converge_k-point_spacing'))
   maximum_spacing = dble(arguments%value('maximum_k-point_spacing'))
   no_spacings = int(arguments%value('no_k-point_spacings'))
   minimum_spacing = dble(arguments%value('minimum_k-point_spacing'))
   kpoint_parity = arguments%value('k-point_parity')
+  
+  converge_smearing = lgcl(arguments%value('converge_smearing'))
+  maximum_smearing = dble(arguments%value('maximum_smearing'))
+  no_smearings = int(arguments%value('no_smearings'))
+  minimum_smearing = dble(arguments%value('minimum_smearing'))
+  
   grid = int(split_line(arguments%value('q-point_grid')))
   no_qpoints = grid(1)*grid(2)*grid(3)
   symmetry_precision = dble(arguments%value('symmetry_precision'))
@@ -254,19 +290,6 @@ subroutine converge_harmonic_frequencies_subroutine(arguments)
   no_nodes = int(arguments%value('no_nodes'))
   run_script = arguments%value('run_script')
   converge_energies = lgcl(arguments%value('converge_energies'))
-  if (arguments%value('convergence_mode')=='cutoff') then
-    converge_cutoff = .true.
-    converge_kpoints = .false.
-  elseif (arguments%value('convergence_mode')=='kpoints') then
-    converge_cutoff = .false.
-    converge_kpoints = .true.
-  elseif (arguments%value('convergence_mode')=='both') then
-    converge_cutoff = .true.
-    converge_kpoints = .true.
-  else
-    call print_line(ERROR//': unexpected value for convergence_mode.')
-    call quit()
-  endif
   repeat_calculations = lgcl(arguments%value('repeat_calculations'))
   acoustic_sum_rule = arguments%value('acoustic_sum_rule')
   min_temperature = dble(arguments%value('min_temperature'))
@@ -293,6 +316,10 @@ subroutine converge_harmonic_frequencies_subroutine(arguments)
     call print_line(ERROR//': maximum_k-point_spacing is smaller than &
        &minimum_k-point_spacing.')
     call quit()
+  elseif (maximum_smearing<=minimum_smearing) then
+    call print_line(ERROR//': maximum_smearing is smaller than &
+       &minimum_smearing.')
+    call quit()
   elseif (file_type/='castep' .and. file_type/='quantum_espresso') then
     call print_line(ERROR//': castep and quantum_espresso are the only &
        &accepted file types for this mode.')
@@ -315,16 +342,25 @@ subroutine converge_harmonic_frequencies_subroutine(arguments)
   cutoff_free_energies = [RealVector::]
   kpoint_frequencies = [RealVector::]
   kpoint_free_energies = [RealVector::]
+  smearing_frequencies = [RealVector::]
+  smearing_free_energies = [RealVector::]
   
-  ! Calculate spacings and cutoffs.
+  ! Calculate spacings, smearings and cutoffs.
   allocate( cutoffs(no_cutoffs),          &
           & kpoint_spacings(no_spacings), &
           & kpoint_grids(no_spacings),    &
+          & smearings(no_smearings),      &
           & stat=ialloc); call err(ialloc)
   do i=1,no_cutoffs
     cutoffs(i) = ( (no_cutoffs-i)*minimum_cutoff   &
              &   + (i-1)*maximum_cutoff          ) &
              & / (no_cutoffs-1)
+  enddo
+  
+  do i=1,no_smearings
+    smearings(i) = ( (no_smearings-i)*minimum_smearing   &
+               &   + (i-1)*maximum_smearing          ) &
+               & / (no_smearings-1)
   enddo
   
   do i=1,no_spacings
@@ -373,7 +409,9 @@ subroutine converge_harmonic_frequencies_subroutine(arguments)
   kpoint_grids = kpoint_grids(filter(unique_grids))
   no_spacings = size(kpoint_spacings)
   
+  ! --------------------------------------------------
   ! Run cut-off energy convergence.
+  ! --------------------------------------------------
   if (converge_cutoff) then
     ! Initialise convergence checks and observable arrays.
     frequencies_converged = .false.
@@ -384,27 +422,28 @@ subroutine converge_harmonic_frequencies_subroutine(arguments)
     
     ! Loop over cutoffs, running calculations at each.
     do i=1,no_cutoffs
-      dir = 'cutoff_'//                                                       &
-         & left_pad(floor(cutoffs(i)),str(floor(cutoffs(no_cutoffs))))//'.'// &
-         & left_pad(nint(1e2_dp*modulo(cutoffs(i),1.0_dp)), '  ')
-      call mkdir(dir)
+      directory = 'cutoff_'//str(                                &
+         & cutoffs(i),                                           &
+         & settings=PrintSettings( decimal_places        = 2,    &
+         &                         floating_point_format = 'f' ) )
+      call mkdir(directory)
       
-      cutoff_frequencies = [                             &
-         & cutoff_frequencies,                           &
-         & calculate_frequencies( dir,                   &
-         &                        kpoint_grids(1),       &
-         &                        cutoffs(i),            &
-         &                        seedname,              &
-         &                        no_qpoints,            &
-         &                        file_type,             &
-         &                        grid,                  &
-         &                        symmetry_precision,    &
-         &                        harmonic_displacement, &
-         &                        run_script,            &
-         &                        no_cores,              &
-         &                        no_nodes,              &
-         &                        repeat_calculations,   &
-         &                        acoustic_sum_rule      ) ]
+      cutoff_frequencies = [                                 &
+         & cutoff_frequencies,                               &
+         & calculate_frequencies(                            &
+         &    directory             = directory,             &
+         &    cutoff                = cutoffs(i),            &
+         &    seedname              = seedname,              &
+         &    no_qpoints            = no_qpoints,            &
+         &    file_type             = file_type,             &
+         &    grid                  = grid,                  &
+         &    symmetry_precision    = symmetry_precision,    &
+         &    harmonic_displacement = harmonic_displacement, &
+         &    run_script            = run_script,            &
+         &    no_cores              = no_cores,              &
+         &    no_nodes              = no_nodes,              &
+         &    repeat_calculations   = repeat_calculations,   &
+         &    acoustic_sum_rule     = acoustic_sum_rule      ) ]
       
       if (i>convergence_count) then
         frequencies_converged =                                    &
@@ -417,7 +456,7 @@ subroutine converge_harmonic_frequencies_subroutine(arguments)
       if (converge_energies .and. .not. energies_converged) then
         cutoff_free_energies = [                            &
            & cutoff_free_energies,                          &
-           & calculate_free_energies( dir,                  &
+           & calculate_free_energies( directory,            &
            &                          min_temperature,      &
            &                          max_temperature,      &
            &                          no_temperature_steps, &
@@ -436,12 +475,15 @@ subroutine converge_harmonic_frequencies_subroutine(arguments)
       endif
       
       ! Write output file.
-      call write_output_file( cutoffs,              &
-                            & cutoff_frequencies,   &
-                            & cutoff_free_energies, &
-                            & kpoint_spacings,      &
-                            & kpoint_frequencies,   &
-                            & kpoint_free_energies  )
+      call write_output_file( cutoffs,               &
+                            & cutoff_frequencies,    &
+                            & cutoff_free_energies,  &
+                            & kpoint_spacings,       &
+                            & kpoint_frequencies,    &
+                            & kpoint_free_energies,  &
+                            & smearings,             &
+                            & smearing_frequencies,  &
+                            & smearing_free_energies )
       
       ! Check for convergence.
       call print_line('Cut-off energy: '//cutoffs(i)//' (Ha)')
@@ -454,12 +496,12 @@ subroutine converge_harmonic_frequencies_subroutine(arguments)
     if (.not. (frequencies_converged .or. energies_converged)) then
       call print_line('Convergence not reached.')
     endif
-    
   endif
   
-  
+  ! --------------------------------------------------
   ! Run k-points spacing convergence.
-  if (converge_kpoints) then
+  ! --------------------------------------------------
+  if (converge_spacing) then
     ! Initialise convergence checks and observable arrays.
     frequencies_converged = .false.
     energies_converged = .false.
@@ -469,25 +511,25 @@ subroutine converge_harmonic_frequencies_subroutine(arguments)
     
     ! Loop over spacings, running calculations at each.
     do i=1,no_spacings
-      dir = 'kpoints_'//join(str(kpoint_grids(i)%grid), delimiter='_')
-      call mkdir(dir)
+      directory = 'kpoints_'//join(str(kpoint_grids(i)%grid), delimiter='_')
+      call mkdir(directory)
       
-      kpoint_frequencies = [                             &
-         & kpoint_frequencies,                           &
-         & calculate_frequencies( dir,                   &
-         &                        kpoint_grids(i),       &
-         &                        minimum_cutoff,        &
-         &                        seedname,              &
-         &                        no_qpoints,            &
-         &                        file_type,             &
-         &                        grid,                  &
-         &                        symmetry_precision,    &
-         &                        harmonic_displacement, &
-         &                        run_script,            &
-         &                        no_cores,              &
-         &                        no_nodes,              &
-         &                        repeat_calculations,   &
-         &                        acoustic_sum_rule      ) ]
+      kpoint_frequencies = [                                 &
+         & kpoint_frequencies,                               &
+         & calculate_frequencies(                            &
+         &    directory             = directory,             &
+         &    kpoint_grid           = kpoint_grids(i),       &
+         &    seedname              = seedname,              &
+         &    no_qpoints            = no_qpoints,            &
+         &    file_type             = file_type,             &
+         &    grid                  = grid,                  &
+         &    symmetry_precision    = symmetry_precision,    &
+         &    harmonic_displacement = harmonic_displacement, &
+         &    run_script            = run_script,            &
+         &    no_cores              = no_cores,              &
+         &    no_nodes              = no_nodes,              &
+         &    repeat_calculations   = repeat_calculations,   &
+         &    acoustic_sum_rule     = acoustic_sum_rule      ) ]
       
       if (i>convergence_count) then
         frequencies_converged =                                    &
@@ -500,7 +542,7 @@ subroutine converge_harmonic_frequencies_subroutine(arguments)
       if (converge_energies .and. .not. energies_converged) then
         kpoint_free_energies = [                            &
            & kpoint_free_energies,                          &
-           & calculate_free_energies( dir,                  &
+           & calculate_free_energies( directory,            &
            &                          min_temperature,      &
            &                          max_temperature,      &
            &                          no_temperature_steps, &
@@ -519,12 +561,15 @@ subroutine converge_harmonic_frequencies_subroutine(arguments)
       endif
       
       ! Write output file.
-      call write_output_file( cutoffs,              &
-                            & cutoff_frequencies,   &
-                            & cutoff_free_energies, &
-                            & kpoint_spacings,      &
-                            & kpoint_frequencies,   &
-                            & kpoint_free_energies  )
+      call write_output_file( cutoffs,               &
+                            & cutoff_frequencies,    &
+                            & cutoff_free_energies,  &
+                            & kpoint_spacings,       &
+                            & kpoint_frequencies,    &
+                            & kpoint_free_energies,  &
+                            & smearings,             &
+                            & smearing_frequencies,  &
+                            & smearing_free_energies )
       
       call print_line('K-point spacing: '//kpoint_spacings(i)//' (Bohr^-1)')
       if (frequencies_converged .and. energies_converged) then
@@ -537,18 +582,110 @@ subroutine converge_harmonic_frequencies_subroutine(arguments)
       call print_line('Convergence not reached.')
     endif
   endif
+  
+  ! Run electronic smearing convergence.
+  if (converge_smearing) then
+    ! Initialise convergence checks and observable arrays.
+    frequencies_converged = .false.
+    energies_converged = .false.
+    if (.not. converge_energies) then
+     energies_converged = .true.
+    endif
+    
+    ! Loop over cutoffs, running calculations at each.
+    do i=1,no_smearings
+      directory = 'smearing_'//str(                              &
+         & smearings(i),                                         &
+         & settings=PrintSettings( decimal_places        = 2,    &
+         &                         floating_point_format = 'f' ) )
+      call mkdir(directory)
+      
+      smearing_frequencies = [                               &
+         & smearing_frequencies,                             &
+         & calculate_frequencies(                            &
+         &    directory             = directory,             &
+         &    smearing              = smearings(i),          &
+         &    seedname              = seedname,              &
+         &    no_qpoints            = no_qpoints,            &
+         &    file_type             = file_type,             &
+         &    grid                  = grid,                  &
+         &    symmetry_precision    = symmetry_precision,    &
+         &    harmonic_displacement = harmonic_displacement, &
+         &    run_script            = run_script,            &
+         &    no_cores              = no_cores,              &
+         &    no_nodes              = no_nodes,              &
+         &    repeat_calculations   = repeat_calculations,   &
+         &    acoustic_sum_rule     = acoustic_sum_rule      ) ]
+      
+      if (i>convergence_count) then
+        frequencies_converged =                                    &
+           & all( maximum_difference(                              &
+           &         smearing_frequencies(i),                        &
+           &         smearing_frequencies(i-convergence_count:i-1) ) &
+           &    < freq_tolerance                                   )
+      endif
+
+      if (converge_energies .and. .not. energies_converged) then
+        smearing_free_energies = [                          &
+           & smearing_free_energies,                        &
+           & calculate_free_energies( directory,            &
+           &                          min_temperature,      &
+           &                          max_temperature,      &
+           &                          no_temperature_steps, &
+           &                          min_frequency,        &
+           &                          path,                 &
+           &                          no_dos_samples,       &
+           &                          random_seed           ) ]
+
+        if (i>convergence_count) then
+          energies_converged =                                         &
+             & all( maximum_difference(                                &
+             &         smearing_free_energies(i),                        &
+             &         smearing_free_energies(i-convergence_count:i-1) ) &
+             &    < energy_tolerance                                   )
+        endif
+      endif
+      
+      ! Write output file.
+      call write_output_file( cutoffs,               &
+                            & cutoff_frequencies,    &
+                            & cutoff_free_energies,  &
+                            & kpoint_spacings,       &
+                            & kpoint_frequencies,    &
+                            & kpoint_free_energies,  &
+                            & smearings,             &
+                            & smearing_frequencies,  &
+                            & smearing_free_energies )
+      
+      ! Check for convergence.
+      call print_line('Electronic smearing: '//smearings(i)//' (Ha)')
+      if (frequencies_converged .and. energies_converged) then
+        call print_line('Convergence reached.')
+        exit
+      endif
+    enddo
+    
+    if (.not. (frequencies_converged .or. energies_converged)) then
+      call print_line('Convergence not reached.')
+    endif
+    
+  endif
 end subroutine
 
 subroutine write_output_file(cutoffs,cutoff_frequencies,cutoff_free_energies, &
-   & kpoint_spacings,kpoint_frequencies,kpoint_free_energies)
+   & kpoint_spacings,kpoint_frequencies,kpoint_free_energies,smearings,       &
+   & smearing_frequencies,smearing_free_energies                              )
   implicit none
   
-  real(dp),         intent(in), optional :: cutoffs(:)
-  type(RealVector), intent(in), optional :: cutoff_frequencies(:)
-  type(RealVector), intent(in), optional :: cutoff_free_energies(:)
-  real(dp),         intent(in), optional :: kpoint_spacings(:)
-  type(RealVector), intent(in), optional :: kpoint_frequencies(:)
-  type(RealVector), intent(in), optional :: kpoint_free_energies(:)
+  real(dp),         intent(in) :: cutoffs(:)
+  type(RealVector), intent(in) :: cutoff_frequencies(:)
+  type(RealVector), intent(in) :: cutoff_free_energies(:)
+  real(dp),         intent(in) :: kpoint_spacings(:)
+  type(RealVector), intent(in) :: kpoint_frequencies(:)
+  type(RealVector), intent(in) :: kpoint_free_energies(:)
+  real(dp),         intent(in) :: smearings(:)
+  type(RealVector), intent(in) :: smearing_frequencies(:)
+  type(RealVector), intent(in) :: smearing_free_energies(:)
   
   type(OFile)  :: output_file
   
@@ -595,29 +732,55 @@ subroutine write_output_file(cutoffs,cutoff_frequencies,cutoff_free_energies, &
                                  & kpoint_free_energies(i)   )
     enddo
   endif
+  
+  if ( ( size(cutoff_frequencies)>0 .or.         &
+     &   size(kpoint_frequencies)>0      ) .and. &
+     & size(smearing_frequencies)>0              ) then
+    call output_file%print_line('')
+  endif
+  
+  if (size(smearing_frequencies)>0) then
+    call output_file%print_line('Electronic smearing (Hartree) | Mode &
+       &frequencies (Ha)')
+    do i=1,size(smearing_frequencies)
+      call output_file%print_line( smearings(i)    //' '// &
+                                 & smearing_frequencies(i) )
+    enddo
+  endif
+  
+  if (size(smearing_free_energies)>0) then
+    call output_file%print_line('')
+    call output_file%print_line('Electronic smearing (Hartree) | Free &
+       &energies (Ha per primitive cell)')
+    do i=1,size(smearing_free_energies)
+      call output_file%print_line( smearings(i)      //' '// &
+                                 & smearing_free_energies(i) )
+    enddo
+  endif
 end subroutine
 
-function calculate_frequencies(directory,kpoint_grid,cutoff,seedname,    &
-   & no_qpoints,file_type,grid,symmetry_precision,harmonic_displacement, &
-   & run_script,no_cores,no_nodes,repeat_calculations,acoustic_sum_rule) &
-   & result(output)
+function calculate_frequencies(directory,cutoff,kpoint_grid,smearing,        &
+   & seedname,no_qpoints,file_type,grid,symmetry_precision,                  &
+   & harmonic_displacement,run_script,no_cores,no_nodes,repeat_calculations, &
+   & acoustic_sum_rule) result(output)
   implicit none
   
-  type(String),        intent(in) :: directory
-  type(KpointGrid),    intent(in) :: kpoint_grid
-  real(dp),            intent(in) :: cutoff
-  type(String),        intent(in) :: seedname
-  integer,             intent(in) :: no_qpoints
-  type(String),        intent(in) :: file_type
-  integer,             intent(in) :: grid(3)
-  real(dp),            intent(in) :: symmetry_precision
-  real(dp),            intent(in) :: harmonic_displacement
-  type(String),        intent(in) :: run_script
-  integer,             intent(in) :: no_cores
-  integer,             intent(in) :: no_nodes
-  logical,             intent(in) :: repeat_calculations
-  type(String),        intent(in) :: acoustic_sum_rule
-  type(RealVector)                :: output
+  type(String),        intent(in)           :: directory
+  real(dp),            intent(in), optional :: cutoff
+  type(KpointGrid),    intent(in), optional :: kpoint_grid
+  real(dp),            intent(in), optional :: smearing
+  type(String),        intent(in)           :: seedname
+  integer,             intent(in)           :: no_qpoints
+  type(String),        intent(in)           :: file_type
+  integer,             intent(in)           :: grid(3)
+  real(dp),            intent(in)           :: symmetry_precision
+  real(dp),            intent(in)           :: harmonic_displacement
+  type(String),        intent(in)           :: run_script
+  integer,             intent(in)           :: no_cores
+  integer,             intent(in)           :: no_nodes
+  logical,             intent(in)           :: repeat_calculations
+  type(String),        intent(in)           :: acoustic_sum_rule
+  type(RealVector)                          :: output
   
   type(String) :: qpoint_dir
   type(IFile)  :: complex_modes_file
@@ -626,11 +789,19 @@ function calculate_frequencies(directory,kpoint_grid,cutoff,seedname,    &
   
   integer :: i
   
+  ! Check input.
+  if (count([ present(cutoff),      &
+            & present(kpoint_grid), &
+            & present(smearing)     ])/=1) then
+    call print_line(CODE_ERROR//': calculate_frequencies must be passed &
+       &exactly one of cutoff, kpoint_grid and smearing.')
+  endif
+  
   ! Write DFT files
   if (file_type=='castep') then
-    call write_castep_files(directory, seedname, kpoint_grid, cutoff)
+    call write_castep_files(directory, seedname, cutoff, kpoint_grid, smearing)
   elseif (file_type=='quantum_espresso') then
-    call write_qe_file(directory, seedname, kpoint_grid, cutoff)
+    call write_qe_file(directory, seedname, cutoff, kpoint_grid, smearing)
   endif
   
   ! Call setup_harmonic.
@@ -704,13 +875,14 @@ function calculate_free_energies(directory,min_temperature,max_temperature, &
   output = vec(thermodynamics%free_energy)
 end function
 
-subroutine write_castep_files(directory,seedname,kpoint_grid,cutoff)
+subroutine write_castep_files(directory,seedname,cutoff,kpoint_grid,smearing)
   implicit none
   
-  type(String),     intent(in) :: directory
-  type(String),     intent(in) :: seedname
-  type(KpointGrid), intent(in) :: kpoint_grid
-  real(dp),         intent(in) :: cutoff
+  type(String),     intent(in)           :: directory
+  type(String),     intent(in)           :: seedname
+  real(dp),         intent(in), optional :: cutoff
+  type(KpointGrid), intent(in), optional :: kpoint_grid
+  real(dp),         intent(in), optional :: smearing
   
   type(IFile) :: input_cell_file
   type(OFile) :: output_cell_file
@@ -733,23 +905,25 @@ subroutine write_castep_files(directory,seedname,kpoint_grid,cutoff)
   lines = input_cell_file%lines()
   
   ! Update k-point spacing.
-  line_replaced = .false.
-  do i=1,size(lines)
-    line = split_line(lower_case(lines(i)))
-    if (size(line)>=1) then
-      if ( line(1)=='kpoint_mp_spacing'  .or. &
-         & line(1)=='kpoint_mp_grid'     .or. &
-         & line(1)=='kpoints_mp_spacing' .or. &
-         & line(1)=='kpoints_mp_grid'         ) then
-        lines(i) = 'kpoint_mp_grid '//kpoint_grid
-        line_replaced = .true.
-        exit
+  if (present(kpoint_grid)) then
+    line_replaced = .false.
+    do i=1,size(lines)
+      line = split_line(lower_case(lines(i)))
+      if (size(line)>=1) then
+        if ( line(1)=='kpoint_mp_spacing'  .or. &
+           & line(1)=='kpoint_mp_grid'     .or. &
+           & line(1)=='kpoints_mp_spacing' .or. &
+           & line(1)=='kpoints_mp_grid'         ) then
+          lines(i) = 'kpoint_mp_grid '//kpoint_grid
+          line_replaced = .true.
+          exit
+        endif
       endif
+    enddo
+    
+    if (.not. line_replaced) then
+      lines = [lines, 'kpoint_mp_grid '//kpoint_grid]
     endif
-  enddo
-  
-  if (.not. line_replaced) then
-    lines = [lines, 'kpoint_mp_grid '//kpoint_grid]
   endif
   
   ! Write output cell file.
@@ -765,18 +939,37 @@ subroutine write_castep_files(directory,seedname,kpoint_grid,cutoff)
   lines = input_param_file%lines()
   
   ! Update electronic cut-off energy.
-  line_replaced = .false.
-  do i=1,size(lines)
-    line = split_line(lower_case(lines(i)))
-    if (line(1)=='cut_off_energy') then
-      lines(i) = 'cut_off_energy '//cutoff*EV_PER_HARTREE
-      line_replaced = .true.
-      exit
+  if (present(cutoff)) then
+    line_replaced = .false.
+    do i=1,size(lines)
+      line = split_line(lower_case(lines(i)))
+      if (line(1)=='cut_off_energy') then
+        lines(i) = 'cut_off_energy '//cutoff*EV_PER_HARTREE
+        line_replaced = .true.
+        exit
+      endif
+    enddo
+    
+    if (.not. line_replaced) then
+      lines = [lines, 'cut_off_energy '//cutoff*EV_PER_HARTREE]
     endif
-  enddo
+  endif
   
-  if (.not. line_replaced) then
-    lines = [lines, 'cut_off_energy '//cutoff*EV_PER_HARTREE]
+  ! Update electronic smearing.
+  if (present(smearing)) then
+    line_replaced = .false.
+    do i=1,size(lines)
+      line = split_line(lower_case(lines(i)))
+      if (line(1)=='smearing_width') then
+        lines(i) = 'smearing_width '//smearing/KB_IN_AU//' K'
+        line_replaced = .true.
+        exit
+      endif
+    enddo
+    
+    if (.not. line_replaced) then
+      lines = [lines, 'smearing_width '//smearing/KB_IN_AU//' K']
+    endif
   endif
   
   ! Write output param file.
@@ -784,13 +977,14 @@ subroutine write_castep_files(directory,seedname,kpoint_grid,cutoff)
   call output_param_file%print_lines(lines)
 end subroutine
 
-subroutine write_qe_file(directory,seedname,kpoint_grid,cutoff)
+subroutine write_qe_file(directory,seedname,cutoff,kpoint_grid,smearing)
   implicit none
   
-  type(String),     intent(in) :: directory
-  type(String),     intent(in) :: seedname
-  type(KpointGrid), intent(in) :: kpoint_grid
-  real(dp),         intent(in) :: cutoff
+  type(String),     intent(in)           :: directory
+  type(String),     intent(in)           :: seedname
+  real(dp),         intent(in), optional :: cutoff
+  type(KpointGrid), intent(in), optional :: kpoint_grid
+  real(dp),         intent(in), optional :: smearing
   
   type(IFile)       :: input_file
   type(QeInputFile) :: qe_input_file
@@ -801,6 +995,8 @@ subroutine write_qe_file(directory,seedname,kpoint_grid,cutoff)
   real(dp) :: ecutwfc
   real(dp) :: ecutrho
   
+  integer :: smearing_line
+  
   type(String), allocatable :: line(:)
   
   integer :: i
@@ -809,53 +1005,78 @@ subroutine write_qe_file(directory,seedname,kpoint_grid,cutoff)
   input_file = IFile(seedname//'.in')
   qe_input_file = QeInputFile(input_file%lines())
   
-  line = split_line(qe_input_file%k_points(2))
-  if (size(line)==3) then
-    qe_input_file%k_points(2) = str(kpoint_grid)
-  elseif (size(line)==6) then
-    qe_input_file%k_points(2) = join([str(kpoint_grid), line(4:6)])
-  else
-    call print_line(ERROR//': k_points card has an unexpected number of &
-       &entries.')
-    call quit()
-  endif
-  
-  ! Locate cutoff lines.
-  ecutwfc_line = 0
-  ecutrho_line = 0
-  do i=1,size(qe_input_file%namelists)
-    line = split_line(lower_case(qe_input_file%namelists(i)), delimiter='=')
-    if (size(line)==2) then
-      if (line(1)=='ecutwfc') then
-        if (ecutwfc_line/=0) then
-          call print_line(ERROR//': ecutwfc appears twice in input file.')
-          call quit()
-        endif
-        ecutwfc_line = i
-      elseif (line(1)=='ecutrho') then
-        if (ecutrho_line/=0) then
-          call print_line(ERROR//': ecutrho appears twice in input file.')
-          call quit()
-        endif
-        ecutrho_line = i
-      endif
+  ! Update k-point grid.
+  if (present(kpoint_grid)) then
+    line = split_line(qe_input_file%k_points(2))
+    if (size(line)==3) then
+      qe_input_file%k_points(2) = str(kpoint_grid)
+    elseif (size(line)==6) then
+      qe_input_file%k_points(2) = join([str(kpoint_grid), line(4:6)])
+    else
+      call print_line(ERROR//': k_points card has an unexpected number of &
+         &entries.')
+      call quit()
     endif
-  enddo
-  
-  if (ecutwfc_line==0) then
-    call print_line(ERROR//': ecutwfc not present.')
   endif
   
-  line = split_line(qe_input_file%namelists(ecutwfc_line), delimiter='=')
-  ecutwfc = dble(line(2))
-  qe_input_file%namelists(ecutwfc_line) = &
-     & 'ecutwfc='//cutoff*EV_PER_HARTREE/EV_PER_RYDBERG
+  ! Update electronic cutoff.
+  if (present(cutoff)) then
+    ecutwfc_line = 0
+    ecutrho_line = 0
+    do i=1,size(qe_input_file%namelists)
+      line = split_line(lower_case(qe_input_file%namelists(i)), delimiter='=')
+      if (size(line)==2) then
+        if (line(1)=='ecutwfc') then
+          if (ecutwfc_line/=0) then
+            call print_line(ERROR//': ecutwfc appears twice in input file.')
+            call quit()
+          endif
+          ecutwfc_line = i
+        elseif (line(1)=='ecutrho') then
+          if (ecutrho_line/=0) then
+            call print_line(ERROR//': ecutrho appears twice in input file.')
+            call quit()
+          endif
+          ecutrho_line = i
+        endif
+      endif
+    enddo
+    
+    if (ecutwfc_line==0) then
+      call print_line(ERROR//': ecutwfc not present.')
+      call err()
+    endif
+    
+    line = split_line(qe_input_file%namelists(ecutwfc_line), delimiter='=')
+    ecutwfc = dble(line(2))
+    qe_input_file%namelists(ecutwfc_line) = &
+       & 'ecutwfc='//cutoff*EV_PER_HARTREE/EV_PER_RYDBERG//','
+    
+    if (ecutrho_line/=0) then
+      line = split_line(qe_input_file%namelists(ecutrho_line), delimiter='=')
+      ecutrho = dble(line(2))
+      qe_input_file%namelists(ecutrho_line) = 'ecutrho='// &
+         & ecutrho*cutoff/ecutwfc*EV_PER_HARTREE/EV_PER_RYDBERG//','
+    endif
+  endif
   
-  if (ecutrho_line/=0) then
-    line = split_line(qe_input_file%namelists(ecutrho_line), delimiter='=')
-    ecutrho = dble(line(2))
-    qe_input_file%namelists(ecutrho_line) = &
-       & 'ecutrho='//ecutrho*cutoff/ecutwfc*EV_PER_HARTREE/EV_PER_RYDBERG
+  ! Update electronic smearing.
+  if (present(smearing)) then
+    smearing_line = 0
+    do i=1,size(qe_input_file%namelists)
+      line = split_line(qe_input_file%namelists(i), delimiter='=')
+      if (line(1)=='degauss') then
+        smearing_line = i
+      endif
+    enddo
+    
+    if (smearing_line==0) then
+      call print_line(ERROR//': "degauss" not present in .in file.')
+      call err()
+    else
+      qe_input_file%namelists(smearing_line) = 'degauss='// &
+         & smearing*EV_PER_HARTREE/EV_PER_RYDBERG//','
+    endif
   endif
   
   ! Write output file.

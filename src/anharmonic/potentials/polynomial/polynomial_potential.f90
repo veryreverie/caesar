@@ -795,19 +795,12 @@ function harmonic_expectation_PolynomialPotential(this,frequency, &
   type(AnharmonicData),       intent(in) :: anharmonic_data
   real(dp)                               :: output
   
-  integer :: i,j
-  
-  output = this%reference_energy
-  do i=1,size(this%basis_functions)
-    do j=1,size(this%basis_functions(i))
-      output = output                                                        &
-           & + this%basis_functions(i)%basis_functions(j)%harmonic_expectation( frequency,      &
-           &                                                 thermal_energy, &
-           &                                                 no_states,      &
-           &                                                 subspace,       &
-           &                                                 anharmonic_data )
-    enddo
-  enddo
+  output = this%reference_energy                                          &
+       & + sum(this%basis_functions%harmonic_expectation( frequency,      &
+       &                                                  thermal_energy, &
+       &                                                  no_states,      &
+       &                                                  subspace,       &
+       &                                                  anharmonic_data ))
 end function
 
 ! Generates the next iteration of the potential, either following a damped

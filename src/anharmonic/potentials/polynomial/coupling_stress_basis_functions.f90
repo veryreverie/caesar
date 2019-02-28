@@ -30,6 +30,9 @@ module coupling_stress_basis_functions_module
     procedure, private :: &
        & stress_ComplexModeDisplacement_CouplingStressBasisFunctions
     
+    procedure, public :: harmonic_expectation => &
+                       & harmonic_expectation_CouplingStressBasisFunctions
+    
     ! I/O.
     procedure, public :: read  => read_CouplingStressBasisFunctions
     procedure, public :: write => write_CouplingStressBasisFunctions
@@ -101,6 +104,30 @@ impure elemental function                                              &
     output = sum(this%basis_functions%stress(displacement))
   else
     output = cmplxmat(zeroes(3,3))
+  endif
+end function
+
+impure elemental function harmonic_expectation_CouplingStressBasisFunctions( &
+   & this,frequency,thermal_energy,no_states,subspace,anharmonic_data)       &
+   & result(output)
+  implicit none
+  
+  class(CouplingStressBasisFunctions), intent(in) :: this
+  real(dp),                            intent(in) :: frequency
+  real(dp),                            intent(in) :: thermal_energy
+  integer,                             intent(in) :: no_states
+  type(DegenerateSubspace),            intent(in) :: subspace
+  type(AnharmonicData),                intent(in) :: anharmonic_data
+  type(RealMatrix)                                :: output
+  
+  if (size(this%basis_functions)==0) then
+    output = dblemat(zeroes(3,3))
+  else
+    output = sum(this%basis_functions%harmonic_expectation( frequency,      &
+                                                          & thermal_energy, &
+                                                          & no_states,      &
+                                                          & subspace,       &
+                                                          & anharmonic_data ))
   endif
 end function
 

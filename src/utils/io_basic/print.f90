@@ -70,16 +70,18 @@ subroutine print_line_character(line,settings)
   
   type(PrintSettings) :: print_settings
   
-  integer              :: line_length
-  integer              :: no_lines
-  integer, allocatable :: line_starts(:)
-  integer, allocatable :: line_ends(:)
-  
   integer                   :: last_space
+  integer                   :: first_none_space
   logical                   :: reading_special
   integer                   :: current_terminal_width
   character(:), allocatable :: indent_spaces
   character(:), allocatable :: overhang_spaces
+  
+  logical,      allocatable :: is_space(:)
+  logical,      allocatable :: is_special(:)
+  integer,      allocatable :: positions(:)
+  integer                   :: line_start
+  type(String), allocatable :: lines(:)
   
   integer :: i,ierr,ialloc
   
@@ -92,67 +94,104 @@ subroutine print_line_character(line,settings)
   indent_spaces = spaces(print_settings%indent)
   overhang_spaces = spaces(print_settings%overhang)
   
-  allocate( line_starts(max(len(line),1)), &
-          & line_ends(max(len(line),1)),   &
-          & stat=ialloc); call err(ialloc)
-  
-  current_terminal_width = TERMINAL_WIDTH - print_settings%indent
-  no_lines = 1
-  line_starts(1) = 1
-  last_space = 0
-  
-  ! If not writing to the terminal, ignore line-breaking.
+  ! Break the line up into multiple lines such that line breaks happen at
+  !    spaces only.
   if (OUTPUT_FILE_UNIT/=OUTPUT_UNIT) then
-    line_ends(1) = len(line)
-  
-  ! If writing to the terminal, identify line breaks.
+    ! If not writing to the terminal, ignore line-breaking.
+    lines = [str(line)]
+  elseif (len(line)==0) then
+    lines = [str(line)]
   else
+    ! Identify which characters are spaces.
+    is_space = [(line(i:i)==' ', i=1, len(line))]
+    
+    ! Identify which characters are part of invisible escape strings.
+    allocate(is_special(len(line)), stat=ialloc); call err(ialloc)
     reading_special = .false.
-    line_length = 0
     do i=1,len(line)
-      ! Special characters, which don't display on the terminal.
       if (line(i:i)==ESC) then
         reading_special = .true.
+        is_special(i) = .true.
       elseif (reading_special) then
         if (line(i:i)=='m') then
           reading_special = .false.
         endif
-      
-      ! Normal characters, which do display on the terminal.
+        is_special(i) = .true.
       else
-        line_length = line_length+1
-        if (line_length>current_terminal_width) then
-          if (last_space/=0) then
-            line_ends(no_lines) = last_space
-            line_starts(no_lines+1) = last_space+1
-          else
-            line_ends(no_lines) = i-1
-            line_starts(no_lines+1) = i
-          endif
-          line_length = line_length &
-                    & - (line_ends(no_lines)-line_starts(no_lines)+1)
-          no_lines = no_lines+1
-          last_space = 0
-          current_terminal_width = TERMINAL_WIDTH        &
-                               & - print_settings%indent &
-                               & - print_settings%overhang
-        elseif (line(i:i)==' ') then
-          last_space = i
-        endif
+        is_special(i) = .false.
       endif
+    enddo
+    
+    ! Identify the position of each character in the visible string,
+    !    ignoring invisible escape strings.
+    allocate(positions(len(line)), stat=ialloc); call err(ialloc)
+    if (is_special(1)) then
+      positions(1) = 0
+    else
+      positions(1) = 1
+    endif
+    do i=2,size(positions)
+      if (is_special(i)) then
+        positions(i) = positions(i-1)
+      else
+        positions(i) = positions(i-1)+1
+      endif
+    enddo
+    
+    ! Identify lines.
+    current_terminal_width = TERMINAL_WIDTH - print_settings%indent
+    line_start = 1
+    lines = [String::]
+    do
+      ! Find the last space which fits onto one terminal line,
+      !    and the first none-space character which does not fit.
+      last_space = 0
+      first_none_space = 0
+      do i=1,size(positions)
+        if (positions(i)<=current_terminal_width .and. is_space(i)) then
+          last_space = i
+        elseif (positions(i)>current_terminal_width .and..not.is_space(i)) then
+          first_none_space = i
+          exit
+        endif
+      enddo
+      
+      ! If the line does not need to be split, or cannot be split,
+      !    add it in its entirety.
+      if (last_space==0 .or. first_none_space==0) then
+        lines = [lines, str(line(line_start:len(line)))]
+        exit
+      endif
+      
+      ! Find the first none-space character on the next line.
+      do i=first_none_space,last_space,-1
+        if (is_space(i)) then
+          first_none_space = i+1
+          exit
+        endif
+      enddo
+      
+      ! Add the line, and update variables to process next line.
+      lines = [lines, str(line(line_start:line_start+last_space-2))]
+      line_start = line_start + first_none_space-1
+      is_space = is_space(first_none_space:)
+      positions = positions(first_none_space:) - positions(first_none_space-1)
+      
+      ! Account for the overhang in the terminal width.
+      current_terminal_width = TERMINAL_WIDTH        &
+                           & - print_settings%indent &
+                           & - print_settings%overhang
     enddo
   endif
   
-  line_ends(no_lines) = len(line)
-  
   ! Write lines.
-  do i=1,no_lines
+  do i=1,size(lines)
     if (i==1) then
       write(OUTPUT_FILE_UNIT,'(a)',iostat=ierr) &
-         & indent_spaces//line(line_starts(i):line_ends(i))
+         & indent_spaces//char(lines(i))
     else
       write(OUTPUT_FILE_UNIT,'(a)',iostat=ierr) &
-         & indent_spaces//overhang_spaces//line(line_starts(i):line_ends(i))
+         & indent_spaces//overhang_spaces//char(lines(i))
     endif
     
     ! Check for errors and flush the write buffer.

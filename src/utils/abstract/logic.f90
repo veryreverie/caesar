@@ -14,7 +14,7 @@ module logic_module
   public :: lazy_and
   public :: lazy_or
   public :: first
-  !public :: last
+  public :: last
   public :: first_equivalent
   !public :: last_equivalent
   public :: operate
@@ -36,10 +36,10 @@ module logic_module
     module procedure first_LogicalLambda
   end interface
   
-  !interface last
-  !  module procedure last_logicals
-  !  module procedure last_LogicalLambda
-  !end interface
+  interface last
+    module procedure last_logicals
+    module procedure last_LogicalLambda
+  end interface
   
   interface first_equivalent
     module procedure first_equivalent_integers
@@ -422,203 +422,88 @@ function first_LogicalLambda(input,lambda,mask,default,sorted) result(output)
   endif
 end function
 
-!function last_logicals(input,mask,default,sorted) result(output)
-!  implicit none
-!  
-!  logical, intent(in)           :: input(:)
-!  logical, intent(in), optional :: mask(:)
-!  integer, intent(in), optional :: default
-!  logical, intent(in), optional :: sorted
-!  integer                       :: output
-!  
-!  logical :: input_is_sorted
-!  
-!  integer :: last_true
-!  integer :: first_false
-!  
-!  integer :: i,j
-!  
-!  ! Check that mask is consistent with input.
-!  if (present(mask)) then
-!    if (size(input)/=size(mask)) then
-!      call print_line(CODE_ERROR//': Input and Mask of different sizes.')
-!      call err()
-!    endif
-!  endif
-!  
-!  ! Default sorted to false.
-!  if (present(sorted)) then
-!    input_is_sorted = sorted
-!  else
-!    input_is_sorted = .false.
-!  endif
-!  
-!  ! Find the last true.
-!  last_true = 0
-!  first_false = size(input)+1
-!  if (input_is_sorted) then
-!    ! If the input is sorted, use a bisection method to find the first true.
-!    if (present(mask)) then
-!      do while(first_false-last_true>1)
-!        ! Bisect the input between the last known false and first known true.
-!        i = (last_true+first_false+1)/2
-!        ! Find the first unmasked value after i.
-!        j = first(mask(i:first_false-1), default=0)
-!        ! Evaluate input(j), and update the bounds accordingly.
-!        if (j==0) then
-!          first_false = i
-!        else
-!          j = i-1+j
-!          if (input(j)) then
-!            last_true = j
-!          else
-!            first_false = i
-!          endif
-!        endif
-!      enddo
-!    else
-!      do while(first_false-last_true>1)
-!        ! Bisect the input between the last known false and first known true.
-!        i = (last_true+first_false)/2
-!        ! Evaluate input(i), and update the bounds accordingly.
-!        if (input(i)) then
-!          last_true = i
-!        else
-!          first_false = i
-!        endif
-!      enddo
-!    endif
-!  else
-!    ! If the input is not sorted, simply iterate through the input.
-!    if (present(mask)) then
-!      do i=size(input),1,-1
-!        if (mask(i)) then
-!          if (input(i)) then
-!            last_true = i
-!            exit
-!          endif
-!        endif
-!      enddo
-!    else
-!      do i=size(input),1,-1
-!        if (input(i)) then
-!          last_true = i
-!          exit
-!        endif
-!      enddo
-!    endif
-!  endif
-!  
-!  ! Set the output to the last true, or the default value if present.
-!  ! Throw an error if no true is found and no default is set.
-!  if (last_true>0) then
-!    output = last_true
-!  elseif (present(default)) then
-!    output = default
-!  else
-!    call print_line(ERROR//': value not found.')
-!    call err()
-!  endif
-!end function
-!
-!function last_LogicalLambda(input,lambda,mask,default,sorted) result(output)
-!  implicit none
-!  
-!  class(*), intent(in)           :: input(:)
-!  procedure(LogicalLambda)       :: lambda
-!  logical,  intent(in), optional :: mask(:)
-!  integer,  intent(in), optional :: default
-!  logical,  intent(in), optional :: sorted
-!  integer                        :: output
-!  
-!  logical :: input_is_sorted
-!  
-!  integer :: first_false
-!  integer :: last_true
-!  
-!  integer :: i,j
-!  
-!  ! Check that mask is consistent with input.
-!  if (present(mask)) then
-!    if (size(mask)/=size(input)) then
-!      call print_line(CODE_ERROR//': Input and Mask of different sizes.')
-!      call err()
-!    endif
-!  endif
-!  
-!  ! Default sorted to false.
-!  if (present(sorted)) then
-!    input_is_sorted = sorted
-!  else
-!    input_is_sorted = .false.
-!  endif
-!  
-!  last_true = 0
-!  first_false = size(input)+1
-!  if (input_is_sorted) then
-!    ! If the input is sorted, use a bisection method to find the first true.
-!    if (present(mask)) then
-!      do while(first_false-last_true>1)
-!        ! Bisect the input between the last known false and first known true.
-!        i = (last_true+first_false+1)/2
-!        ! Find the first unmasked value after i.
-!        j = first(mask(i:first_false-1), default=0)
-!        ! Evaluate input(j), and update the bounds accordingly.
-!        if (j==0) then
-!          first_false = i
-!        else
-!          j = i-1+j
-!          if (lambda(input(j))) then
-!            last_true = j
-!          else
-!            first_false = i
-!          endif
-!        endif
-!      enddo
-!    else
-!      do while(first_false-last_true>1)
-!        ! Bisect the input between the last known false and first known true.
-!        i = (last_true+first_false)/2
-!        ! Evaluate input(i), and update the bounds accordingly.
-!        if (lambda(input(i))) then
-!          last_true = i
-!        else
-!          first_false = i
-!        endif
-!      enddo
-!    endif
-!  else
-!    ! If the input is not sorted, simply iterate through the input.
-!    if (present(mask)) then
-!      do i=size(input),1,-1
-!        if (mask(i)) then
-!          if (lambda(input(i))) then
-!            last_true = i
-!            exit
-!          endif
-!        endif
-!      enddo
-!    else
-!      do i=size(input),1,-1
-!        if (lambda(input(i))) then
-!          last_true = i
-!          exit
-!        endif
-!      enddo
-!    endif
-!  endif
-!  
-!  ! Set the output to the last true, or the default value if present.
-!  ! Throw an error if no true is found and no default is set.
-!  if (last_true>0) then
-!    output = last_true
-!  elseif (present(default)) then
-!    output = default
-!  else
-!    call print_line(ERROR//': value not found.')
-!    call err()
-!  endif
-!end function
+function last_logicals(input,mask,default,sorted) result(output)
+  implicit none
+  
+  logical, intent(in)           :: input(:)
+  logical, intent(in), optional :: mask(:)
+  integer, intent(in), optional :: default
+  logical, intent(in), optional :: sorted
+  integer                       :: output
+  
+  ! Check that mask is consistent with input.
+  if (present(mask)) then
+    if (size(input)/=size(mask)) then
+      call print_line(CODE_ERROR//': Input and Mask of different sizes.')
+      call err()
+    endif
+  endif
+  
+  ! Call 'first' on the reversed input.
+  if (present(mask)) then
+    output = size(input)+1 - first( input   = input(size(input):1:-1), &
+                                  & mask    = mask(size(input):1:-1),  &
+                                  & default = 0,                       &
+                                  & sorted  = sorted                   )
+  else
+    output = size(input)+1 - first( input   = input(size(input):1:-1), &
+                                  & default = 0,                       &
+                                  & sorted  = sorted                   )
+  endif
+  
+  ! Set default if required.
+  if (output==size(input)+1) then
+    if (present(default)) then
+      output = default
+    else
+      call print_line(ERROR//': value not found.')
+      call err()
+    endif
+  endif
+end function
+
+function last_LogicalLambda(input,lambda,mask,default,sorted) result(output)
+  implicit none
+  
+  class(*), intent(in)           :: input(:)
+  procedure(LogicalLambda)       :: lambda
+  logical,  intent(in), optional :: mask(:)
+  integer,  intent(in), optional :: default
+  logical,  intent(in), optional :: sorted
+  integer                        :: output
+  
+  ! Check that mask is consistent with input.
+  if (present(mask)) then
+    if (size(input)/=size(mask)) then
+      call print_line(CODE_ERROR//': Input and Mask of different sizes.')
+      call err()
+    endif
+  endif
+  
+  ! Call 'first' on the reversed input.
+  if (present(mask)) then
+    output = size(input)+1 - first( input   = input(size(input):1:-1), &
+                                  & lambda  = lambda,                  &
+                                  & mask    = mask(size(input):1:-1),  &
+                                  & default = 0,                       &
+                                  & sorted  = sorted                   )
+  else
+    output = size(input)+1 - first( input   = input(size(input):1:-1), &
+                                  & lambda  = lambda,                  &
+                                  & default = 0,                       &
+                                  & sorted  = sorted                   )
+  endif
+  
+  ! Set default if required.
+  if (output==size(input)+1) then
+    if (present(default)) then
+      output = default
+    else
+      call print_line(ERROR//': value not found.')
+      call err()
+    endif
+  endif
+end function
 
 ! ----------------------------------------------------------------------
 ! first_equivalent(input,i) is equivalent to first(input==i),

@@ -74,7 +74,7 @@ function calculate_anharmonic_observables() result(output)
      &which thermodynamic quantities are calculated.',                        &
      &              default_value='0'),                                       &
      & KeywordData( 'no_vscha_basis_states',                                  &
-     &              'no_vscha_basis states is the number of states along each &
+     &              'no_vscha_basis_states is the number of states along each &
      &mode in the basis used for the VSCHA calculation.'),                    &
      & KeywordData( 'frequency_convergence',                                  &
      &              'frequency_convergence is the precision to which &
@@ -148,6 +148,9 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   ! Anharmonic potential.
   type(PotentialPointer) :: potential
   
+  ! Anharmonic stress.
+  type(StressPointer) :: stress
+  
   ! Single-subspace frequencies.
   type(InitialFrequencies) :: initial_frequencies
   
@@ -158,6 +161,7 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   type(VscfOutput),            allocatable :: vscf_output(:)
   type(PotentialPointer),      allocatable :: subspace_potentials(:)
   type(SubspaceStatesPointer), allocatable :: subspace_states(:)
+  type(StressPointer),         allocatable :: subspace_stresses(:)
   
   ! Finite-temperature effective harmonic frequencies.
   real(dp), allocatable :: frequencies(:)
@@ -182,9 +186,6 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   type(ThermodynamicData), allocatable :: vscha2_thermodynamics(:,:)
   type(ThermodynamicData), allocatable :: vscf_thermodynamics(:,:)
   
-  ! VSCF correction data.
-  type(ThermodynamicData) :: vscha_thermo(2)
-  
   type(EnergySpectra),                allocatable :: subspace_spectra(:)
   type(SubspaceWavefunctionsPointer), allocatable :: subspace_wavefunctions(:)
   
@@ -194,6 +195,7 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   ! Files and directories.
   type(IFile)  :: anharmonic_data_file
   type(IFile)  :: potential_file
+  type(IFile)  :: stress_file
   type(String) :: output_dir
   type(OFile)  :: logfile
   type(String) :: temperature_dir
@@ -288,6 +290,12 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   ! Read in anharmonic potential.
   potential_file = IFile('potential.dat')
   potential = PotentialPointer(potential_file%lines())
+  
+  ! Read in anharmonic stress.
+  if (calculate_stress) then
+    stress_file = IFile('stress.dat')
+    stress = StressPointer(stress_file%lines())
+  endif
   
   ! --------------------------------------------------
   ! Generate objects which don't depend on the potential:
@@ -404,6 +412,17 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
     wavefunctions_file = OFile(subspace_dir//'/vscf_wavefunctions.dat')
     call wavefunctions_file%print_lines(subspace_wavefunctions(i))
   enddo
+  
+  ! --------------------------------------------------
+  ! Generate single-subspace stresses using VSCF states..
+  ! --------------------------------------------------
+  if (calculate_stress) then
+    subspace_stresses = generate_subspace_stresses( stress,          &
+                                                  & subspaces,       &
+                                                  & basis,           &
+                                                  & subspace_states, &
+                                                  & anharmonic_data  )
+  endif
   
   ! --------------------------------------------------
   ! Generate observables under the VSCHA approximation.

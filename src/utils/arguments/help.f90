@@ -30,6 +30,11 @@ subroutine help_default(caesar_modes)
   
   type(CaesarModes), intent(in) :: caesar_modes
   
+  call print_line('caesar - Calculates harmonic and anharmonic vibrational &
+     &contributions to crystal properties.')
+  call print_line('')
+  call print_line('Usage:')
+  call print_line('')
   call print_line( colour('caesar','white')                          // &
                  & colour(' mode ','cyan')                           // &
                  & '['//colour('-h','white')//' [keyword]] '         // &
@@ -120,6 +125,46 @@ subroutine help_default(caesar_modes)
   call print_line('Accepted '//colour('modes','cyan')//':')
   
   call caesar_modes%print_help()
+  
+  call print_line('')
+  call print_line('Return code:')
+  call print_line('')
+  call print_line( 'Caesar will return 0 on successful termination, and 1 &
+                 &otherwise.',                                            &
+                 & settings=PrintSettings(indent=2))
+  call print_line('')
+  call print_line('Suggested usage:')
+  call print_line('')
+  call print_line( 'For harmonic phonon calculations:', &
+                 & settings=PrintSettings(indent=2)     )
+  call print_line( colour('caesar','white')//' '//  &
+                 & colour('setup_harmonic','cyan'), &
+                 & settings=PrintSettings(indent=4) )
+  call print_line( colour('caesar','white')//' '//  &
+                 & colour('run_harmonic','cyan'),   &
+                 & settings=PrintSettings(indent=4) )
+  call print_line( colour('caesar','white')//' '//          &
+                 & colour('calculate_normal_modes','cyan'), &
+                 & settings=PrintSettings(indent=4)         )
+  call print_line( colour('caesar','white')//' '//                  &
+                 & colour('calculate_harmonic_observables','cyan'), &
+                 & settings=PrintSettings(indent=4)                 )
+  call print_line('')
+  call print_line( 'For anharmonic phonon calculations (after harmonic &
+                 &calculations):',                                     &
+                 & settings=PrintSettings(indent=2)                    )
+  call print_line( colour('caesar','white')//' '//    &
+                 & colour('setup_anharmonic','cyan'), &
+                 & settings=PrintSettings(indent=4)   )
+  call print_line( colour('caesar','white')//' '//  &
+                 & colour('run_anharmonic','cyan'), &
+                 & settings=PrintSettings(indent=4) )
+  call print_line( colour('caesar','white')//' '//       &
+                 & colour('calculate_potential','cyan'), &
+                 & settings=PrintSettings(indent=4)      )
+  call print_line( colour('caesar','white')//' '//                    &
+                 & colour('calculate_anharmonic_observables','cyan'), &
+                 & settings=PrintSettings(indent=4)                   )
 end subroutine
 
 ! Prints the helptext for a particular mode or keyword.

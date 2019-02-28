@@ -118,7 +118,10 @@ module full_subspace_basis_and_states_module
     procedure, public :: states => states_FullSubspaceStates
     procedure, public :: spectra => spectra_FullSubspaceStates
     procedure, public :: wavefunctions => wavefunctions_FullSubspaceStates
-    procedure, public :: integrate => integrate_FullSubspaceStates
+    procedure, public :: integrate_potential => &
+                       & integrate_potential_FullSubspaceStates
+    procedure, public :: integrate_stress => &
+                       & integrate_stress_FullSubspaceStates
     
     ! I/O.
     procedure, public :: read  => read_FullSubspaceStates
@@ -787,8 +790,8 @@ impure elemental function wavefunctions_FullSubspaceStates(this,subspace, &
 end function
 
 ! Integrate a potential.
-impure elemental function integrate_FullSubspaceStates(this,potential, &
-   & subspace,subspace_basis,anharmonic_data) result(output)
+impure elemental function integrate_potential_FullSubspaceStates(this, &
+   & potential,subspace,subspace_basis,anharmonic_data) result(output)
   implicit none
   
   class(FullSubspaceStates), intent(in) :: this
@@ -806,6 +809,31 @@ impure elemental function integrate_FullSubspaceStates(this,potential, &
   ! Braket the potential between the ground state.
   output = braket( ground_state,   &
                  & potential,      &
+                 & subspace,       &
+                 & subspace_basis, &
+                 & anharmonic_data )
+end function
+
+! Integrate a stress.
+impure elemental function integrate_stress_FullSubspaceStates(this,stress, &
+   & subspace,subspace_basis,anharmonic_data) result(output)
+  implicit none
+  
+  class(FullSubspaceStates), intent(in) :: this
+  class(StressData),         intent(in) :: stress
+  type(DegenerateSubspace),  intent(in) :: subspace
+  class(SubspaceBasis),      intent(in) :: subspace_basis
+  type(AnharmonicData),      intent(in) :: anharmonic_data
+  type(StressPointer)                   :: output
+  
+  type(FullSubspaceState) :: ground_state
+  
+  ! Identify the ground state.
+  ground_state = this%vscf_states(minloc(this%vscf_states%energy,1))
+  
+  ! Braket the stress between the ground state.
+  output = braket( ground_state,   &
+                 & stress,         &
                  & subspace,       &
                  & subspace_basis, &
                  & anharmonic_data )

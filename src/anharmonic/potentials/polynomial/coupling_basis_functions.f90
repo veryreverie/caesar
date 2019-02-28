@@ -32,6 +32,9 @@ module coupling_basis_functions_module
     procedure, private :: force_RealModeDisplacement_CouplingBasisFunctions
     procedure, private :: force_ComplexModeDisplacement_CouplingBasisFunctions
     
+    procedure, public :: harmonic_expectation => &
+                       & harmonic_expectation_CouplingBasisFunctions
+    
     ! I/O.
     procedure, public :: read  => read_CouplingBasisFunctions
     procedure, public :: write => write_CouplingBasisFunctions
@@ -130,6 +133,26 @@ impure elemental function                                                    &
     output = ComplexModeForce(ComplexSingleForce( displacement%vectors%id, &
                                                 & (0.0_dp,0.0_dp)          ))
   endif
+end function
+
+impure elemental function harmonic_expectation_CouplingBasisFunctions(this, &
+   & frequency,thermal_energy,no_states,subspace,anharmonic_data)           &
+   & result(output)
+  implicit none
+  
+  class(CouplingBasisFunctions), intent(in) :: this
+  real(dp),                      intent(in) :: frequency
+  real(dp),                      intent(in) :: thermal_energy
+  integer,                       intent(in) :: no_states
+  type(DegenerateSubspace),      intent(in) :: subspace
+  type(AnharmonicData),          intent(in) :: anharmonic_data
+  real(dp)                                  :: output
+  
+  output = sum(this%basis_functions%harmonic_expectation( frequency,      &
+                                                        & thermal_energy, &
+                                                        & no_states,      &
+                                                        & subspace,       &
+                                                        & anharmonic_data ))
 end function
 
 function generate_basis_functions_SubspaceCoupling(coupling,               &
