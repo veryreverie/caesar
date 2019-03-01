@@ -422,10 +422,10 @@ subroutine converge_harmonic_frequencies_subroutine(arguments)
     
     ! Loop over cutoffs, running calculations at each.
     do i=1,no_cutoffs
-      directory = 'cutoff_'//str(                                &
+      directory = 'cutoff_'//trim(str(                           &
          & cutoffs(i),                                           &
          & settings=PrintSettings( decimal_places        = 2,    &
-         &                         floating_point_format = 'f' ) )
+         &                         floating_point_format = 'f' ) ))
       call mkdir(directory)
       
       cutoff_frequencies = [                                 &
@@ -463,7 +463,8 @@ subroutine converge_harmonic_frequencies_subroutine(arguments)
            &                          min_frequency,        &
            &                          path,                 &
            &                          no_dos_samples,       &
-           &                          random_seed           ) ]
+           &                          random_seed,          &
+           &                          repeat_calculations   ) ]
 
         if (i>convergence_count) then
           energies_converged =                                         &
@@ -549,7 +550,8 @@ subroutine converge_harmonic_frequencies_subroutine(arguments)
            &                          min_frequency,        &
            &                          path,                 &
            &                          no_dos_samples,       &
-           &                          random_seed           ) ]
+           &                          random_seed,          &
+           &                          repeat_calculations   ) ]
 
         if (i>convergence_count) then
           energies_converged =                                         &
@@ -594,10 +596,10 @@ subroutine converge_harmonic_frequencies_subroutine(arguments)
     
     ! Loop over cutoffs, running calculations at each.
     do i=1,no_smearings
-      directory = 'smearing_'//str(                              &
+      directory = 'smearing_'//trim(str(                         &
          & smearings(i),                                         &
          & settings=PrintSettings( decimal_places        = 2,    &
-         &                         floating_point_format = 'f' ) )
+         &                         floating_point_format = 'f' ) ))
       call mkdir(directory)
       
       smearing_frequencies = [                               &
@@ -635,7 +637,8 @@ subroutine converge_harmonic_frequencies_subroutine(arguments)
            &                          min_frequency,        &
            &                          path,                 &
            &                          no_dos_samples,       &
-           &                          random_seed           ) ]
+           &                          random_seed,          &
+           &                          repeat_calculations   ) ]
 
         if (i>convergence_count) then
           energies_converged =                                         &
@@ -837,8 +840,8 @@ function calculate_frequencies(directory,cutoff,kpoint_grid,smearing,        &
 end function
 
 function calculate_free_energies(directory,min_temperature,max_temperature, &
-   & no_temperature_steps,min_frequency,path,no_dos_samples,random_seed)    &
-   & result(output)
+   & no_temperature_steps,min_frequency,path,no_dos_samples,random_seed,    &
+   & repeat_calculations) result(output)
   implicit none
   
   type(String), intent(in) :: directory
@@ -849,26 +852,30 @@ function calculate_free_energies(directory,min_temperature,max_temperature, &
   type(String), intent(in) :: path
   integer,      intent(in) :: no_dos_samples
   integer,      intent(in) :: random_seed
+  logical,      intent(in) :: repeat_calculations
   type(RealVector)         :: output
   
+  type(String)                         :: file_name
   type(IFile)                          :: thermodynamics_file
   type(String),            allocatable :: lines(:)
   type(ThermodynamicData), allocatable :: thermodynamics(:)
 
   ! Call calculate_harmonic_observables.
-  call call_caesar(                                            &
-     & 'calculate_harmonic_observables -d '//directory //' '// &
-     & '--min_temperature '//min_temperature           //' '// &
-     & '--max_temperature '//max_temperature           //' '// &
-     & '--no_temperature_steps '//no_temperature_steps //' '// &
-     & '--min_frequency '//min_frequency               //' '// &
-     & '--path '//path                                 //' '// &
-     & '--no_dos_samples '//no_dos_samples             //' '// &
-     & '--random_seed '//random_seed                           )
+  file_name = directory//'/harmonic_observables/thermodynamic_variables.dat'
+  if (repeat_calculations .or. .not. file_exists(file_name)) then
+    call call_caesar(                                            &
+       & 'calculate_harmonic_observables -d '//directory //' '// &
+       & '--min_temperature '//min_temperature           //' '// &
+       & '--max_temperature '//max_temperature           //' '// &
+       & '--no_temperature_steps '//no_temperature_steps //' '// &
+       & '--min_frequency '//min_frequency               //' '// &
+       & '--path '//path                                 //' '// &
+       & '--no_dos_samples '//no_dos_samples             //' '// &
+       & '--random_seed '//random_seed                           )
+  endif
   
   ! Read in thermodynamic data.
-  thermodynamics_file = IFile(                                        &
-     & directory//'/harmonic_observables/thermodynamic_variables.dat' )
+  thermodynamics_file = IFile(file_name)
   lines = thermodynamics_file%lines()
   thermodynamics = ThermodynamicData(lines(2:))
   
@@ -1050,13 +1057,13 @@ subroutine write_qe_file(directory,seedname,cutoff,kpoint_grid,smearing)
     line = split_line(qe_input_file%namelists(ecutwfc_line), delimiter='=')
     ecutwfc = dble(line(2))
     qe_input_file%namelists(ecutwfc_line) = &
-       & 'ecutwfc='//cutoff*EV_PER_HARTREE/EV_PER_RYDBERG//','
+       & 'ecutwfc='//cutoff*RYDBERG_PER_HARTREE//','
     
     if (ecutrho_line/=0) then
       line = split_line(qe_input_file%namelists(ecutrho_line), delimiter='=')
       ecutrho = dble(line(2))
       qe_input_file%namelists(ecutrho_line) = 'ecutrho='// &
-         & ecutrho*cutoff/ecutwfc*EV_PER_HARTREE/EV_PER_RYDBERG//','
+         & ecutrho*cutoff/ecutwfc*RYDBERG_PER_HARTREE//','
     endif
   endif
   
@@ -1075,7 +1082,7 @@ subroutine write_qe_file(directory,seedname,cutoff,kpoint_grid,smearing)
       call err()
     else
       qe_input_file%namelists(smearing_line) = 'degauss='// &
-         & smearing*EV_PER_HARTREE/EV_PER_RYDBERG//','
+         & smearing*RYDBERG_PER_HARTREE//','
     endif
   endif
   

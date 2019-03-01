@@ -17,9 +17,6 @@ module physical_constants_module
   ! Boltzmann's constant in eV/K.
   real(dp), parameter, public :: KB_IN_EV_PER_K = 8.6173303e-5_dp
   
-  ! Rydberg constant in eV.
-  real(dp), parameter, public :: EV_PER_RYDBERG = 13.605693009_dp
-  
   ! Twice Rydberg's constant in J.
   real(dp), parameter, public :: JOULES_PER_HARTREE = 4.359744650e-18_dp
   
@@ -34,6 +31,13 @@ module physical_constants_module
   
   ! Atomic mass unit in kg.
   real(dp), parameter, public :: KG_PER_AMU = 1.660539040E-27_dp
+  
+  ! --------------------------------------------------
+  ! Fundamental constants.
+  ! --------------------------------------------------
+  
+  ! Rydberg's constant in Hartree.
+  real(dp), parameter, public :: RYDBERG_PER_HARTREE = 2.0_dp
   
   ! --------------------------------------------------
   ! Derived values.

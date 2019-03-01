@@ -29,7 +29,7 @@ module polynomial_potential_module
   type, extends(PotentialData) :: PolynomialPotential
     integer,  private :: potential_expansion_order
     real(dp), private :: reference_energy
-    type(CouplingBasisFunctions), allocatable, private :: basis_functions(:)
+    type(CouplingBasisFunctions), allocatable, private :: basis_functions_(:)
   contains
     procedure, public, nopass :: representation => &
                                & representation_PolynomialPotential
@@ -103,7 +103,7 @@ function new_PolynomialPotential_BasisFunctions(potential_expansion_order, &
   
   this%potential_expansion_order = potential_expansion_order
   this%reference_energy          = reference_energy
-  this%basis_functions           = basis_functions
+  this%basis_functions_          = basis_functions
 end function
 
 ! Type representation.
@@ -329,22 +329,22 @@ subroutine generate_potential_PolynomialPotential(this,anharmonic_data,  &
   ! --------------------------------------------------
   
   this%reference_energy = equilibrium_sample_result%energy
-  this%basis_functions = [CouplingBasisFunctions::]
+  this%basis_functions_ = [CouplingBasisFunctions::]
   
   do i=1,size(anharmonic_data%subspace_couplings)
-    coefficients = fit_coefficients( basis_functions(i)%basis_functions, &
-                                   & sampling_points(i)%points,          &
-                                   & sample_results(i)%results,          &
-                                   & anharmonic_data%real_modes,         &
-                                   & weighted_energy_force_ratio,        &
-                                   & this                                )
+    coefficients = fit_coefficients( basis_functions(i)%basis_functions(), &
+                                   & sampling_points(i)%points,            &
+                                   & sample_results(i)%results,            &
+                                   & anharmonic_data%real_modes,           &
+                                   & weighted_energy_force_ratio,          &
+                                   & this                                  )
     
-    this%basis_functions = [                                       &
-       & this%basis_functions,                                     &
-       & CouplingBasisFunctions(                                   &
-       &    coupling = basis_functions(i)%coupling,                &
-       &    basis_functions = coefficients                         &
-       &                    * basis_functions(i)%basis_functions ) ]
+    this%basis_functions_ = [                                        &
+       & this%basis_functions_,                                      &
+       & CouplingBasisFunctions(                                     &
+       &    coupling = basis_functions(i)%coupling,                  &
+       &    basis_functions = coefficients                           &
+       &                    * basis_functions(i)%basis_functions() ) ]
   enddo
 end subroutine
 
@@ -427,14 +427,15 @@ function generate_stress_PolynomialPotential(this,anharmonic_data,        &
   do i=1,size(basis_functions)
     j = first(stress_subspace_coupling==basis_functions(i)%coupling)
     
-    coefficients = fit_stress_coefficients(  &
-       & basis_functions(i)%basis_functions, &
-       & sampling_points(j)%points,          &
-       & sample_results(j)%results,          &
-       & stress                              )
+    coefficients = fit_stress_coefficients(    &
+       & basis_functions(i)%basis_functions(), &
+       & sampling_points(j)%points,            &
+       & sample_results(j)%results,            &
+       & stress                                )
     
-    basis_functions(i)%basis_functions = basis_functions(i)%basis_functions &
-                                     & * coefficients
+    basis_functions(i) = CouplingStressBasisFunctions(     &
+       & basis_functions(i)%coupling,                      &
+       & coefficients*basis_functions(i)%basis_functions() )
   enddo
   
   ! Assemble output.
@@ -648,7 +649,7 @@ impure elemental function energy_RealModeDisplacement_PolynomialPotential( &
   real(dp)                               :: output
   
   output = this%reference_energy &
-       & + sum(this%basis_functions%energy(displacement))
+       & + sum(this%basis_functions_%energy(displacement))
 end function
 
 impure elemental function energy_ComplexModeDisplacement_PolynomialPotential( &
@@ -660,7 +661,7 @@ impure elemental function energy_ComplexModeDisplacement_PolynomialPotential( &
   complex(dp)                               :: output
   
   output = this%reference_energy &
-       & + sum(this%basis_functions%energy(displacement))
+       & + sum(this%basis_functions_%energy(displacement))
 end function
 
 ! Calculate the force at a given displacement.
@@ -672,8 +673,8 @@ impure elemental function force_RealModeDisplacement_PolynomialPotential( &
   type(RealModeDisplacement), intent(in) :: displacement
   type(RealModeForce)                    :: output
   
-  if (size(this%basis_functions)>0) then
-    output = sum(this%basis_functions%force(displacement))
+  if (size(this%basis_functions_)>0) then
+    output = sum(this%basis_functions_%force(displacement))
   else
     output = RealModeForce(RealSingleForce(displacement%vectors%id,0.0_dp))
   endif
@@ -687,8 +688,8 @@ impure elemental function force_ComplexModeDisplacement_PolynomialPotential( &
   type(ComplexModeDisplacement), intent(in) :: displacement
   type(ComplexModeForce)                    :: output
   
-  if (size(this%basis_functions)>0) then
-    output = sum(this%basis_functions%force(displacement))
+  if (size(this%basis_functions_)>0) then
+    output = sum(this%basis_functions_%force(displacement))
   else
     output = ComplexModeForce(ComplexSingleForce( displacement%vectors%id, &
                                                 & (0.0_dp,0.0_dp)          ))
@@ -725,58 +726,45 @@ function braket_PolynomialPotential(this,bra,ket,subspace,subspace_basis, &
                            &           anharmonic_data )
   
   ! Integrate each basis function between the bra and the ket.
-  to_remove = [(.false., i=1, size(potential%basis_functions))]
-  do i=1,size(potential%basis_functions)
-    j = first(potential%basis_functions(i)%coupling%ids==subspace%id, default=0)
-    if (j/=0) then
-      do k=1,size(potential%basis_functions(i))
-        call potential%basis_functions(i)%basis_functions(k)%braket( &
-                                                   & bra,            &
-                                                   & ket,            &
-                                                   & subspace,       &
-                                                   & subspace_basis, &
-                                                   & anharmonic_data )
-      enddo
-      
-      ! Simplify the potential.
-      call potential%basis_functions(i)%basis_functions%simplify()
-      
-      ! Update the coupling to remove the integrated subspace.
-      potential%basis_functions(i)%coupling%ids = [         &
-         & potential%basis_functions(i)%coupling%ids(:j-1), &
-         & potential%basis_functions(j)%coupling%ids(j+1:)  ]
-      
-      ! Check if the basis function is now a constant.
-      ! If so, add the constant energy to the potential's reference energy,
-      !    and flag the term for removal.
-      ! Then check if a coupling is now the same as a previous coupling.
-      ! If so, combine the two and flag the duplicate term for removal.
-      if (size(potential%basis_functions(i)%coupling)==0) then
-        potential%reference_energy =           &
-           &   potential%reference_energy      &
-           & + sum(potential%basis_functions(i &
-           &          )%basis_functions%undisplaced_energy())
-        to_remove(i) = .true.
-      else
-        do k=1,i-1
-          if (    size(potential%basis_functions(k)%coupling%ids) &
-             & == size(potential%basis_functions(i)%coupling%ids) ) then
-            if (all( potential%basis_functions(k)%coupling%ids &
-                & == potential%basis_functions(i)%coupling%ids )) then
-              potential%basis_functions(k)%basis_functions = [   &
-                 & potential%basis_functions(k)%basis_functions, &
-                 & potential%basis_functions(i)%basis_functions  ]
-              to_remove(i) = .true.
-              exit
-            endif
+  do i=1,size(potential%basis_functions_)
+    potential%basis_functions_(i) =  potential%basis_functions_(i)%braket( &
+                                                         & bra,            &
+                                                         & ket,            &
+                                                         & subspace,       &
+                                                         & subspace_basis, &
+                                                         & anharmonic_data )
+  enddo
+  
+  ! Check if the basis function is now a constant.
+  ! If so, add the constant energy to the potential's reference energy,
+  !    and flag the term for removal.
+  ! Then check if a coupling is now the same as a previous coupling.
+  ! If so, combine the two and flag the duplicate term for removal.
+  to_remove = [(.false., i=1, size(potential%basis_functions_))]
+  do i=1,size(potential%basis_functions_)
+    if (size(potential%basis_functions_(i)%coupling)==0) then
+      potential%reference_energy =      &
+         &   potential%reference_energy &
+         & + potential%basis_functions_(i)%undisplaced_energy()
+      to_remove(i) = .true.
+    else
+      do j=1,i-1
+        if (    potential%basis_functions_(i)%coupling &
+           & == potential%basis_functions_(j)%coupling ) then
+          if (to_remove(j)) then
+            call err()
           endif
-        enddo
-      endif
+          call potential%basis_functions_(j)%append( &
+                     & potential%basis_functions_(i) )
+          to_remove(i) = .true.
+        endif
+      enddo
     endif
   enddo
   
-  ! Remove constant terms.
-  potential%basis_functions = potential%basis_functions(filter(.not.to_remove))
+  ! Remove constant and duplicate terms.
+  potential%basis_functions_ = potential%basis_functions_( &
+                                  & filter(.not.to_remove) )
   
   output = PotentialPointer(potential)
 end function
@@ -795,12 +783,12 @@ function harmonic_expectation_PolynomialPotential(this,frequency, &
   type(AnharmonicData),       intent(in) :: anharmonic_data
   real(dp)                               :: output
   
-  output = this%reference_energy                                          &
-       & + sum(this%basis_functions%harmonic_expectation( frequency,      &
-       &                                                  thermal_energy, &
-       &                                                  no_states,      &
-       &                                                  subspace,       &
-       &                                                  anharmonic_data ))
+  output = this%reference_energy                                           &
+       & + sum(this%basis_functions_%harmonic_expectation( frequency,      &
+       &                                                   thermal_energy, &
+       &                                                   no_states,      &
+       &                                                   subspace,       &
+       &                                                   anharmonic_data ))
 end function
 
 ! Generates the next iteration of the potential, either following a damped
@@ -820,22 +808,20 @@ impure elemental function iterate_damped_PolynomialPotential(this, &
   integer :: i
   
   select type(new_potential); type is(PolynomialPotential)
-    if (size(this%basis_functions)/=size(new_potential%basis_functions)) then
+    if (size(this%basis_functions_)/=size(new_potential%basis_functions_)) then
       call err()
     endif
     potential = this
     potential%reference_energy = damping*this%reference_energy &
                              & + (1-damping)*new_potential%reference_energy
-    do i=1,size(potential%basis_functions)
-      if (    size(this%basis_functions(i))          &
-         & /= size(new_potential%basis_functions(i)) ) then
+    do i=1,size(potential%basis_functions_)
+      if (    size(this%basis_functions_(i))          &
+         & /= size(new_potential%basis_functions_(i)) ) then
         call err()
       endif
-      call potential%basis_functions(i)%basis_functions%set_coefficient(    &
-         &   damping                                                        &
-         & * this%basis_functions(i)%basis_functions%coefficient()          &
-         & + (1-damping)                                                    &
-         & * new_potential%basis_functions(i)%basis_functions%coefficient() )
+      call potential%basis_functions_(i)%set_coefficients(                  &
+         &   damping * this%basis_functions_(i)%coefficients()              &
+         & + (1-damping) * new_potential%basis_functions_(i)%coefficients() )
     enddo
     
     output = PotentialPointer(potential)
@@ -878,22 +864,20 @@ function iterate_pulay_PolynomialPotential(this,input_potentials, &
   do i=1,size(input_potentials)
     input_potential = input_potentials(i)%potential()
     select type(input_potential); type is(PolynomialPotential)
-      input_coefficients(i) = vec([(             &
-         & input_potential%basis_functions(j     &
-         &      )%basis_functions%coefficient(), &
-         & j=1,                                  &
-         & size(input_potential%basis_functions) )])
+      input_coefficients(i) = vec([(                           &
+         & input_potential%basis_functions_(j)%coefficients(), &
+         & j=1,                                                &
+         & size(input_potential%basis_functions_)              )])
     class default
       call err()
     end select
     
     output_potential = output_potentials(i)%potential()
     select type(output_potential); type is(PolynomialPotential)
-      output_coefficients(i) = vec([(             &
-         & output_potential%basis_functions(j     &
-         &       )%basis_functions%coefficient(), &
-         & j=1,                                   &
-         & size(output_potential%basis_functions) )])
+      output_coefficients(i) = vec([(                           &
+         & output_potential%basis_functions_(j)%coefficients(), &
+         & j=1,                                                 &
+         & size(output_potential%basis_functions_)              )])
     class default
       call err()
     end select
@@ -905,10 +889,10 @@ function iterate_pulay_PolynomialPotential(this,input_potentials, &
   
   ! Set the output coefficients from the Pulay coefficients.
   j = 0
-  do i=1,size(potential%basis_functions)
-    call potential%basis_functions(i)%basis_functions%set_coefficient( &
-        & pulay_coefficients(j+1:j+size(potential%basis_functions(i))) )
-    j = j + size(potential%basis_functions(i))
+  do i=1,size(potential%basis_functions_)
+    call potential%basis_functions_(i)%set_coefficients(                &
+        & pulay_coefficients(j+1:j+size(potential%basis_functions_(i))) )
+    j = j + size(potential%basis_functions_(i))
   enddo
   if (j/=size(pulay_coefficients)) then
     call err()
@@ -958,11 +942,11 @@ function write_PolynomialPotential(this) result(output)
   type(String), allocatable              :: output(:)
   
   select type(this); type is(PolynomialPotential)
-    output = [ 'Expansion order: '//this%potential_expansion_order,      &
-             & 'Reference energy: '//this%reference_energy,              &
-             & str('Basis functions:'),                                  &
-             & str(''),                                                  &
-             & str(this%basis_functions, separating_line=repeat('=',50)) ]
+    output = [ 'Expansion order: '//this%potential_expansion_order,       &
+             & 'Reference energy: '//this%reference_energy,               &
+             & str('Basis functions:'),                                   &
+             & str(''),                                                   &
+             & str(this%basis_functions_, separating_line=repeat('=',50)) ]
   class default
     call err()
   end select

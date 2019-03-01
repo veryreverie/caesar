@@ -143,64 +143,50 @@ function braket_PolynomialStress(this,bra,ket,subspace,subspace_basis, &
   
   ! Integrate the reference stress (N.B. <i|e|j> = e<i|j> if e is a scalar.).
   stress%reference_stress_ = stress%reference_stress_ &
-                        & * braket( bra,              &
-                        &           ket,              &
-                        &           subspace,         &
-                        &           subspace_basis,   &
-                        &           anharmonic_data )
+                         & * braket( bra,             &
+                         &           ket,             &
+                         &           subspace,        &
+                         &           subspace_basis,  &
+                         &           anharmonic_data )
   
   ! Integrate each basis function between the bra and the ket.
+  do i=1,size(stress%basis_functions_)
+    stress%basis_functions_(i) = stress%basis_functions_(i)%braket( &
+                                                  & bra,            &
+                                                  & ket,            &
+                                                  & subspace,       &
+                                                  & subspace_basis, &
+                                                  & anharmonic_data )
+  enddo
+  
+  ! Check if the basis function is now a constant.
+  ! If so, add the constant stress to the potential's reference stress,
+  !    and flag the term for removal.
+  ! Then check if a coupling is now the same as a previous coupling.
+  ! If so, combine the two and flag the duplicate term for removal.
   to_remove = [(.false., i=1, size(stress%basis_functions_))]
   do i=1,size(stress%basis_functions_)
-    j = first(stress%basis_functions_(i)%coupling%ids==subspace%id, default=0)
-    if (j/=0) then
-      do k=1,size(stress%basis_functions_(i))
-        call stress%basis_functions_(i)%basis_functions(k)%braket( &
-                                                 & bra,            &
-                                                 & ket,            &
-                                                 & subspace,       &
-                                                 & subspace_basis, &
-                                                 & anharmonic_data )
-      enddo
-      
-      ! Simplify the stress.
-      call stress%basis_functions_(i)%basis_functions%simplify()
-      
-      ! Update the coupling to remove the integrated subspace.
-      stress%basis_functions_(i)%coupling%ids = [         &
-         & stress%basis_functions_(i)%coupling%ids(:j-1), &
-         & stress%basis_functions_(j)%coupling%ids(j+1:)  ]
-      
-      ! Check if the basis function is now a constant.
-      ! If so, add the constant energy to the stress's reference energy,
-      !    and flag the term for removal.
-      ! Then check if a coupling is now the same as a previous coupling.
-      ! If so, combine the two and flag the duplicate term for removal.
-      if (size(stress%basis_functions_(i)%coupling)==0) then
-        stress%reference_stress_ =           &
-           &   stress%reference_stress_      &
-           & + sum(stress%basis_functions_(i &
-           &          )%basis_functions%undisplaced_stress())
-        to_remove(i) = .true.
-      else
-        do k=1,i-1
-          if (    size(stress%basis_functions_(k)%coupling%ids) &
-             & == size(stress%basis_functions_(i)%coupling%ids) ) then
-            if (all( stress%basis_functions_(k)%coupling%ids &
-                & == stress%basis_functions_(i)%coupling%ids )) then
-              stress%basis_functions_(k)%basis_functions = [   &
-                 & stress%basis_functions_(k)%basis_functions, &
-                 & stress%basis_functions_(i)%basis_functions  ]
-              to_remove(i) = .true.
-              exit
-            endif
+    if (size(stress%basis_functions_(i)%coupling)==0) then
+      stress%reference_stress_ =      &
+         &   stress%reference_stress_ &
+         & + stress%basis_functions_(i)%undisplaced_stress()
+      to_remove(i) = .true.
+    else
+      do j=1,i-1
+        if (    stress%basis_functions_(i)%coupling &
+           & == stress%basis_functions_(j)%coupling ) then
+          if (to_remove(j)) then
+            call err()
           endif
-        enddo
-      endif
+          call stress%basis_functions_(j)%append( &
+                     & stress%basis_functions_(i) )
+          to_remove(i) = .true.
+        endif
+      enddo
     endif
   enddo
   
-  ! Remove constant terms.
+  ! Remove constant and duplicate terms.
   stress%basis_functions_ = stress%basis_functions_(filter(.not.to_remove))
   
   output = StressPointer(stress)

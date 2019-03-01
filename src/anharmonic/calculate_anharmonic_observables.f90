@@ -398,10 +398,20 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
       &                                basis,            &
       &                                anharmonic_data ) )
   
+  
+  ! Print finite basis error information.
   i = minloc(subspace_spectra%max_energy()-subspace_spectra%min_energy(),1)
+  call print_line('')
   call print_line('Minimum VSCF energy span is '// &
      & subspace_spectra(i)%max_energy()-subspace_spectra(i)%min_energy()// &
-     & ', in subspace '//subspaces(i)%id//'.' )
+     & '(Ha), in subspace '//subspaces(i)%id//'.' )
+  call print_line('This is equivalent to a temperature span of '// &
+     & (subspace_spectra(i)%max_energy()-subspace_spectra(i)%min_energy()) &
+     & / KB_IN_AU//' (K).')
+  call print_line('VSCF finite basis error should be within 5% up to ~'// &
+     & (subspace_spectra(i)%max_energy()-subspace_spectra(i)%min_energy()) &
+     & /(-log(0.05_dp)*KB_IN_AU)//' (K).')
+  call print_line('')
   
   ! Print VSCF spectra and wavefunction information.
   do i=1,size(subspaces)
@@ -417,12 +427,21 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   ! Generate single-subspace stresses using VSCF states..
   ! --------------------------------------------------
   if (calculate_stress) then
+    call print_line('Generating single-subspaces stresses.')
     subspace_stresses = generate_subspace_stresses( stress,          &
                                                   & subspaces,       &
                                                   & basis,           &
                                                   & subspace_states, &
                                                   & anharmonic_data  )
   endif
+  
+  do i=1,size(subspaces)
+    call print_line(repeat('=',50))
+    call print_lines(subspace_potentials(i))
+    call print_line('')
+    call print_lines(subspace_stresses(i))
+    call print_line(repeat('=',50))
+  enddo
   
   ! --------------------------------------------------
   ! Generate observables under the VSCHA approximation.

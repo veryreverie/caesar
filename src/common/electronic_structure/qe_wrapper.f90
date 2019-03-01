@@ -386,7 +386,7 @@ function read_output_file_qe(filename,structure) result(output)
   enddo
   
   line = split_line(qe_file%line(energy_line))
-  energy = dble(line(5)) * EV_PER_RYDBERG / EV_PER_HARTREE
+  energy = dble(line(5)) / RYDBERG_PER_HARTREE
   
   do i=1,no_forces
     line = split_line(qe_file%line(forces_start_line+i))
@@ -401,7 +401,7 @@ function read_output_file_qe(filename,structure) result(output)
       call quit()
     endif
     
-    forces(j) = dble(line(7:9)) * EV_PER_RYDBERG / EV_PER_HARTREE
+    forces(j) = dble(line(7:9)) / RYDBERG_PER_HARTREE
     forces_found(j) = .true.
   enddo
   
@@ -413,9 +413,7 @@ function read_output_file_qe(filename,structure) result(output)
   
   do i=1,3
     line = split_line(qe_file%line(stress_start_line+i))
-    stress(i,:) = dble(line(1:3))  &
-              & * EV_PER_RYDBERG   &
-              & / EV_PER_HARTREE
+    stress(i,:) = dble(line(1:3)) / RYDBERG_PER_HARTREE
   enddo
   
   ! Construct output.

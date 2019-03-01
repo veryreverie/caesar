@@ -44,8 +44,6 @@ module basis_function_module
     
     procedure, public :: undisplaced_energy => undisplaced_energy_BasisFunction
     
-    procedure, public :: is_constant => is_constant_BasisFunction
-    
     procedure, public :: coefficient => coefficient_BasisFunction
     procedure, public :: set_coefficient => set_coefficient_BasisFunction
     
@@ -434,36 +432,6 @@ impure elemental function undisplaced_energy_BasisFunction(this) result(output)
   zero_displacement = RealModeDisplacement([RealSingleDisplacement::])
   
   output = this%energy(zero_displacement)
-end function
-
-! ----------------------------------------------------------------------
-! Returns whether the basis function is constant,
-!    i.e. it doesn't depend on any co-ordinates.
-! ----------------------------------------------------------------------
-! Assumes that the basis function has been simplified.
-impure elemental function is_constant_BasisFunction(this) result(output)
-  implicit none
-  
-  class(BasisFunction), intent(in) :: this
-  logical                          :: output
-  
-  integer :: i
-  
-  do i=1,size(this%real_representation)
-    if (size(this%real_representation%terms(i))>0) then
-      output = .false.
-      return
-    endif
-  enddo
-  
-  do i=1,size(this%complex_representation)
-    if (size(this%complex_representation%terms(i))>0) then
-      output = .false.
-      return
-    endif
-  enddo
-  
-  output = .true.
 end function
 
 ! ----------------------------------------------------------------------
