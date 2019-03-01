@@ -93,6 +93,8 @@ subroutine calculate_normal_modes_subroutine(arguments)
   
   type(ComplexMode), allocatable :: complex_modes(:,:)
   
+  type(CartesianHessian) :: supercell_hessian
+  
   ! Files and directories.
   type(IFile)  :: structure_file
   type(IFile)  :: large_supercell_file
@@ -107,7 +109,8 @@ subroutine calculate_normal_modes_subroutine(arguments)
   type(OFile)  :: complex_modes_file
   type(OFile)  :: force_logfile
   type(OFile)  :: qpoint_logfile
-  type(OFile)  :: phonon_file
+  type(OFile)  :: castep_phonon_file
+  type(OFile)  :: qe_force_constants_file
   
   ! Temporary variables.
   integer :: i,j,k,ialloc
@@ -393,7 +396,21 @@ subroutine calculate_normal_modes_subroutine(arguments)
   enddo
   
   ! Write out Castep .phonon file.
-  phonon_file = OFile(make_phonon_filename(seedname))
-  call write_phonon_file(phonon_file,complex_modes,qpoints,structure)
+  castep_phonon_file = OFile(make_castep_phonon_filename(seedname))
+  call write_castep_phonon_file( castep_phonon_file, &
+                               & complex_modes,      &
+                               & qpoints,            &
+                               & structure           )
+  
+  ! Construct supercell Hessian, and write out QE force constants file.
+  supercell_hessian = reconstruct_hessian( large_supercell,    &
+                                         & qpoints,            &
+                                         & dynamical_matrices, &
+                                         & force_logfile       )
+  qe_force_constants_file = OFile(make_qe_force_constants_filename(seedname))
+  call write_qe_force_constants_file( qe_force_constants_file, &
+                                    & supercell_hessian,       &
+                                    & structure,               &
+                                    & large_supercell          )
 end subroutine
 end module

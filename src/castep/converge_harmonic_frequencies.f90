@@ -358,8 +358,8 @@ subroutine converge_harmonic_frequencies_subroutine(arguments)
   enddo
   
   do i=1,no_smearings
-    smearings(i) = ( (no_smearings-i)*minimum_smearing   &
-               &   + (i-1)*maximum_smearing          ) &
+    smearings(i) = ( (no_smearings-i)*maximum_smearing &
+               &   + (i-1)*minimum_smearing          ) &
                & / (no_smearings-1)
   enddo
   
@@ -598,7 +598,7 @@ subroutine converge_harmonic_frequencies_subroutine(arguments)
     do i=1,no_smearings
       directory = 'smearing_'//trim(str(                         &
          & smearings(i),                                         &
-         & settings=PrintSettings( decimal_places        = 2,    &
+         & settings=PrintSettings( decimal_places        = 6,    &
          &                         floating_point_format = 'f' ) ))
       call mkdir(directory)
       

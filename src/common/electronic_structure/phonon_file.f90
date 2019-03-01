@@ -1,5 +1,5 @@
 ! ======================================================================
-! Writes a Castep .phonon file for visualisation purposes.
+! Writes a Castep .phonon file.
 ! ======================================================================
 module phonon_file_module
   use utils_module
@@ -9,11 +9,11 @@ module phonon_file_module
   
   private
   
-  public make_phonon_filename
-  public write_phonon_file
+  public :: make_castep_phonon_filename
+  public :: write_castep_phonon_file
 contains
 
-function make_phonon_filename(seedname) result(output)
+function make_castep_phonon_filename(seedname) result(output)
   implicit none
   
   type(String), intent(in) :: seedname
@@ -22,7 +22,8 @@ function make_phonon_filename(seedname) result(output)
   output = seedname//'.phonon'
 end function
 
-subroutine write_phonon_file(phonon_file,complex_modes,qpoints,structure)
+subroutine write_castep_phonon_file(phonon_file,complex_modes,qpoints, &
+   & structure)
   implicit none
   
   type(OFile),           intent(inout) :: phonon_file

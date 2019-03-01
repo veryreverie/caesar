@@ -206,7 +206,7 @@ subroutine calculate_harmonic_observables_subroutine(arguments)
   call mkdir(output_dir)
   
   ! Open output files.
-  logfile              = OFile(output_dir//'/harmonic_observables_log.dat')
+  logfile = OFile(output_dir//'/harmonic_observables_log.dat')
   
   ! Construct the Hessian matrix from dynamical matrices.
   hessian = reconstruct_hessian( large_supercell,    &
