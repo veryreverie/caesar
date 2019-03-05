@@ -44,6 +44,7 @@ subroutine write_qe_force_constants_file(fc_file,hessian,structure,supercell)
   integer :: rvector(3)
   
   real(dp) :: matrix(3,3)
+  real(dp) :: none_mass_reduced_force
   
   integer, allocatable :: ids(:,:,:,:,:,:)
   
@@ -102,8 +103,8 @@ subroutine write_qe_force_constants_file(fc_file,hessian,structure,supercell)
     enddo
   enddo
   
-  ! Calculate 'alat'.
-  alat = structure%volume**(1/3.0_dp)
+  ! Calculate 'alat', the length of the 'a' lattice vector.
+  alat = l2_norm(vec([1,0,0])*structure%lattice)
   
   ! Construct species mapping.
   species = [String::]
@@ -129,7 +130,9 @@ subroutine write_qe_force_constants_file(fc_file,hessian,structure,supercell)
                          & 0.0_dp                        )
   call fc_file%print_lines(structure%lattice/alat)
   do i=1,size(species)
-    call fc_file%print_line(i//" '"//species(i)//"' "//masses(i))
+    call fc_file%print_line( i                    //" '"// &
+                           & species(i)           //"' "// &
+                           & masses(i)*RYDBERG_MASS_PER_ME )
   enddo
   do p1=1,size(structure%atoms)
     atom_species = structure%atoms(p1)%species()
@@ -153,8 +156,14 @@ subroutine write_qe_force_constants_file(fc_file,hessian,structure,supercell)
                 a2 = ids(2,r1,r2,r3,p1,p2)
                 matrix = dble(hessian%elements( supercell%atoms(a1), &
                                               & supercell%atoms(a2)  ))
-                call fc_file%print_line(                      &
-                   & r1//' '//r2//' '//r3//' '//matrix(i1,i2) )
+                none_mass_reduced_force = matrix(i1,i2)                    &
+                                      & * sqrt( structure%atoms(p1)%mass() &
+                                      &       * structure%atoms(p2)%mass() )
+                call fc_file%print_line(                             &
+                   & r1                                      //' '// &
+                   & r2                                      //' '// &
+                   & r3                                      //' '// &
+                   & - none_mass_reduced_force * RYDBERG_PER_HARTREE )
               enddo
             enddo
           enddo

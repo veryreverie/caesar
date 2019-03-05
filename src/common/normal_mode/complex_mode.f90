@@ -14,6 +14,7 @@ module complex_mode_module
   public :: transform
   public :: select_qpoint
   public :: select_qpoints
+  public :: generate_translational_modes
   
   ! A normal mode in complex co-ordinates.
   type, extends(Stringsable) :: ComplexMode
@@ -287,6 +288,46 @@ function select_qpoints_ComplexModes(modes,qpoints) result(output)
   allocate(output(size(modes)), stat=ialloc); call err(ialloc)
   do i=1,size(modes)
     output(i) = select_qpoint(modes(i), qpoints)
+  enddo
+end function
+
+! ----------------------------------------------------------------------
+! Generate the three purely translational modes at the gamma point.
+! ----------------------------------------------------------------------
+function generate_translational_modes(structure,qpoints) result(output)
+  implicit none
+  
+  type(StructureData), intent(in) :: structure
+  type(QpointData),    intent(in) :: qpoints(:)
+  type(ComplexMode), allocatable  :: output(:)
+  
+  type(QpointData) :: gamma_qpoint
+  
+  integer                          :: id
+  complex(dp)                      :: vector(3)
+  type(ComplexVector), allocatable :: unit_vector(:)
+  
+  integer :: i,j,ialloc
+  
+  allocate(output(3), stat=ialloc); call err(ialloc)
+  
+  gamma_qpoint = qpoints(first(qpoints%is_gvector()))
+  
+  do i=1,3
+    id = (gamma_qpoint%id-1)*structure%no_modes+i
+    vector = [((0.0_dp,0.0_dp),j=1,3)]
+    vector(i) = cmplx(sqrt(1.0_dp/structure%no_modes),0.0_dp,dp)
+    unit_vector = [(vec(vector),j=1,structure%no_modes)]
+    output(i) = ComplexMode( id                 = id,              &
+                           & paired_id          = id,              &
+                           & frequency          = 0.0_dp,          &
+                           & spring_constant    = 0.0_dp,          &
+                           & soft_mode          = .false.,         &
+                           & translational_mode = .true.,          &
+                           & unit_vector        = unit_vector,     &
+                           & qpoint_id          = gamma_qpoint%id, &
+                           & paired_qpoint_id   = gamma_qpoint%id, &
+                           & subspace_id        = 0                )
   enddo
 end function
 

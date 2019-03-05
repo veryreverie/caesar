@@ -34,6 +34,9 @@ def main():
   convergence_file = read_file(file_name)
   data = split_into_sections(convergence_file)
   
+  x_axes = []
+  y_axes = []
+  
   for i,entry in enumerate(data):
     data[i] = {}
     data[i]['header'] = entry[0]
@@ -48,9 +51,10 @@ def main():
       data[i]['x'] = [1/x for x in data[i]['x']]
     elif data[i]['header'][0]=='Cutoff':
       data[i]['x type'] = 'cutoff'
+    elif data[i]['header'][0]=='Electronic':
+      data[i]['x type'] = 'smearing'
     else:
-      print(data[i]['header'][0])
-      sys.exit()
+      raise ValueError('Unexpected header: '+' '.join(entry[0]))
     
     if data[i]['header'][4]=='Mode':
       data[i]['y type'] = 'frequencies'
@@ -60,38 +64,29 @@ def main():
       print('Error: unexpected header:')
       print(data[i]['header'])
       sys.exit()
+    
+    if data[i]['x type'] not in x_axes:
+      x_axes.append(data[i]['x type'])
+    
+    if data[i]['y type'] not in y_axes:
+      y_axes.append(data[i]['y type'])
   
   # Plot data.
-  if len(data)==1:
-    fig, ax_grid = plt.subplots(1,2,gridspec_kw={'width_ratios':[15,1]})
-    data[0]['axis'] = ax_grid[0]
-    data[0]['cbar'] = ax_grid[1]
-  elif len(data)==2:
-    if data[1]['y type']=='free energies':
-      fig, ax_grid = plt.subplots(2,2,gridspec_kw={'width_ratios':[15,1]})
-      data[0]['axis'] = ax_grid[0][0]
-      data[0]['cbar'] = ax_grid[0][1]
-      data[1]['axis'] = ax_grid[1][0]
-      data[1]['cbar'] = ax_grid[1][1]
-    else:
-      fig, ax_grid = plt.subplots(1,4,gridspec_kw={'width_ratios':[15,1,15,1]})
-      data[0]['axis'] = ax_grid[0]
-      data[0]['cbar'] = ax_grid[1]
-      data[1]['axis'] = ax_grid[2]
-      data[1]['cbar'] = ax_grid[3]
-  elif len(data)==4:
-    fig, ax_grid = plt.subplots(2,4,gridspec_kw={'width_ratios':[15,1,15,1]})
-    data[0]['axis'] = ax_grid[0][0]
-    data[0]['cbar'] = ax_grid[0][1]
-    data[1]['axis'] = ax_grid[1][0]
-    data[1]['cbar'] = ax_grid[1][1]
-    data[2]['axis'] = ax_grid[0][2]
-    data[2]['cbar'] = ax_grid[0][3]
-    data[3]['axis'] = ax_grid[1][2]
-    data[3]['cbar'] = ax_grid[1][3]
-  else:
-    print('Error: '+len(data)+' entries.')
-    sys.exit()
+  width_ratios = [x for _ in x_axes for x in [15,1]]
+  fig, ax_grid = plt.subplots(len(y_axes),
+                              2*len(x_axes),
+                              gridspec_kw={'width_ratios':width_ratios})
+  if len(y_axes)==1:
+    ax_grid = [ax_grid]
+  ax_grid = [[[x,y] for x,y in zip(ax[::2],ax[1::2])] for ax in ax_grid]
+  
+  for i,entry in enumerate(data):
+    data[i]['axis'] = ax_grid[y_axes.index(entry['y type'])]\
+                             [x_axes.index(entry['x type'])]\
+                             [0]
+    data[i]['cbar'] = ax_grid[y_axes.index(entry['y type'])]\
+                             [x_axes.index(entry['x type'])]\
+                             [1]
   
   cmap = plt.get_cmap('viridis')
   
@@ -122,17 +117,19 @@ def main():
       round_to_2 = lambda x,n: round(x, n-1-int(np.floor(np.log10(abs(x)))))
       ax2.set_xticklabels([round_to_2(1/x,2) for x in entry['x']])
       ax2.set_xlim(min_x, max_x)
+    elif entry['x type']=='smearing':
+      ax.set_xlabel(r'electronic smearing (Ha)')
     ax.set_xlim(entry['x'][0],entry['x'][-1])
     
     # Configure y axis.
     if entry['y type']=='frequencies':
       ax.set_ylabel(r'error in mode frequencies (Ha)')
       cb.set_ylabel(r'Converged mode frequency (Ha)')
-      ax.set_ylim(-1e-3,1e-3)
+      ax.set_ylim(-1e-4,1e-4)
     elif entry['y type']=='free energies':
       ax.set_ylabel(r'error in free energies (Ha per primitive cell)')
       cb.set_ylabel(r'Converged free energy (Ha per primitive cell)')
-      ax.set_ylim(-1e-2,1e-2)
+      ax.set_ylim(-1e-3,1e-3)
     
     # Add colourbar.
     norm = colors.Normalize(vmin=min_y,vmax=max_y)

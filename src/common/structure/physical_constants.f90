@@ -39,10 +39,15 @@ module physical_constants_module
   ! Rydberg's constant in Hartree.
   real(dp), parameter, public :: RYDBERG_PER_HARTREE = 2.0_dp
   
+  real(dp), parameter, public :: RYDBERG_MASS_PER_ME = 0.5_dp
+  
   ! --------------------------------------------------
   ! Derived values.
   ! --------------------------------------------------
   
   ! Boltzmann's constant in Hartree per Kelvin.
   real(dp), parameter, public :: KB_IN_AU = KB_IN_EV_PER_K / EV_PER_HARTREE
+  
+  ! AMU in ME.
+  real(dp), parameter, public :: AMU_PER_ME = KG_PER_ME / KG_PER_AMU
 end module

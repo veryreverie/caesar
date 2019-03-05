@@ -9,6 +9,8 @@ module calculate_anharmonic_observables_module
   use anharmonic_common_module
   use potentials_module
   
+  use setup_harmonic_module
+  
   use initial_frequencies_module
   use vscf_module
   use effective_frequency_module
@@ -135,6 +137,8 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   integer                       :: no_dos_samples
   
   ! Previous inputs.
+  type(Dictionary) :: setup_harmonic_arguments
+  type(String)     :: seedname
   type(Dictionary) :: setup_anharmonic_arguments
   logical          :: calculate_stress
   
@@ -167,7 +171,8 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   real(dp), allocatable :: frequencies(:)
   real(dp), allocatable :: effective_frequencies(:,:)
   
-  ! Modes and dynamical matrices at each q-point.
+  ! VSCHA variables; modes and dynamical matrices at each q-point.
+  type(ComplexMode),     allocatable :: vscha_modes(:,:)
   type(DynamicalMatrix), allocatable :: dynamical_matrices(:)
   type(ComplexMode),     allocatable :: qpoint_modes(:)
   real(dp),              allocatable :: qpoint_frequencies(:)
@@ -204,6 +209,8 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   type(OFile)  :: symmetry_points_file
   type(OFile)  :: sampled_qpoints_file
   type(String) :: subspace_dir
+  type(OFile)  :: vscha_castep_phonon_file
+  type(OFile)  :: vscha_qe_force_constants_file
   type(OFile)  :: wavefunctions_file
   type(OFile)  :: vscha_thermodynamic_file
   type(OFile)  :: vscha1_thermodynamic_file
@@ -268,6 +275,11 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
     call print_line(ERROR//': max_pulay_iterations must be at least 2.')
     call quit()
   endif
+  
+  ! Read in setup_harmonic settings.
+  setup_harmonic_arguments = Dictionary(setup_harmonic())
+  call setup_harmonic_arguments%read_file('setup_harmonic.used_settings')
+  seedname = setup_harmonic_arguments%value('seedname')
   
   ! Read in setup_anharmonic settings.
   setup_anharmonic_arguments = Dictionary(setup_anharmonic())
@@ -435,14 +447,6 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
                                                   & anharmonic_data  )
   endif
   
-  do i=1,size(subspaces)
-    call print_line(repeat('=',50))
-    call print_lines(subspace_potentials(i))
-    call print_line('')
-    call print_lines(subspace_stresses(i))
-    call print_line(repeat('=',50))
-  enddo
-  
   ! --------------------------------------------------
   ! Generate observables under the VSCHA approximation.
   ! --------------------------------------------------
@@ -452,10 +456,12 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   ! Initialise frequencies to the frequencies which minimise the energy
   !    of the harmonic ground state.
   frequencies = initial_frequencies%frequency(subspaces%id)
-  allocate( effective_frequencies( size(subspaces),          &
-          &                        size(thermal_energies) ), &
-          & dynamical_matrices(size(qpoints)),               &
-          & vscha_thermodynamics(size(thermal_energies)),    &
+  allocate( effective_frequencies( size(subspaces),             &
+          &                        size(thermal_energies) ),    &
+          & vscha_modes( anharmonic_data%structure%no_modes,    &
+          &              size(qpoints)                       ), &
+          & dynamical_matrices(size(qpoints)),                  &
+          & vscha_thermodynamics(size(thermal_energies)),       &
           & stat=ialloc); call err(ialloc)
   do i=1,size(thermal_energies)
     ! Make temperature directory.
@@ -494,6 +500,16 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
          &    i                                                 ),         &
          & k=1,                                                            &
          & size(qpoint_modes)                                              )]
+      if (size(qpoint_modes)==anharmonic_data%structure%no_modes) then
+        vscha_modes(:,j) = qpoint_modes
+        vscha_modes(:,j)%frequency = qpoint_frequencies
+      else
+        vscha_modes(:3,j) = generate_translational_modes( &
+                             & anharmonic_data%structure, &
+                             & qpoints                    )
+        vscha_modes(4:,j) = qpoint_modes
+        vscha_modes(4:,j)%frequency = qpoint_frequencies
+      endif
       dynamical_matrices(j) = DynamicalMatrix(qpoint_modes,qpoint_frequencies)
     enddo
     
@@ -502,6 +518,21 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
                                  & qpoints,            &
                                  & dynamical_matrices, &
                                  & logfile             )
+    
+    ! Write out Castep .phonon file and QE .fc file for the VSCHA modes.
+    vscha_castep_phonon_file = OFile(                                &
+       & temperature_dir//'/'//make_castep_phonon_filename(seedname) )
+    call write_castep_phonon_file( vscha_castep_phonon_file, &
+                                 & vscha_modes,              &
+                                 & qpoints,                  &
+                                 & anharmonic_data%structure )
+    
+    vscha_qe_force_constants_file = OFile(                                &
+       & temperature_dir//'/'//make_qe_force_constants_filename(seedname) )
+    call write_qe_force_constants_file( vscha_qe_force_constants_file, &
+                                      & hessian,                       &
+                                      & anharmonic_data%structure,     &
+                                      & supercell                      )
     
     ! Generate self-consistent phonon dispersion curve by interpolating between
     !    calculated q-points using Fourier interpolation.

@@ -181,7 +181,7 @@ function read_input_file_qe(filename) result(output)
   masses_set = [(.false., i=1, size(masses))]
   do i=2,size(qe_file%atomic_species)
     line = split_line(qe_file%atomic_species(i))
-    masses(filter(species==line(1))) = dble(line(2))
+    masses(filter(species==line(1))) = dble(line(2))*KG_PER_AMU/KG_PER_ME
     masses_set(filter(species==line(1))) = .true.
   enddo
   if (.not. all(masses_set)) then
@@ -367,7 +367,11 @@ function read_output_file_qe(filename,structure) result(output)
   enddo
   
   ! Check counts.
-  if (no_forces/=structure%no_atoms) then
+  if (forces_start_line==0) then
+    call print_line(ERROR//': No forces found in Quantum Espresso output &
+       &file.')
+    call quit()
+  elseif (no_forces/=structure%no_atoms) then
     call print_line(ERROR//': The number of atoms in the Quantum Espresso &
        &output file does not match that in the input file.')
     call quit()
