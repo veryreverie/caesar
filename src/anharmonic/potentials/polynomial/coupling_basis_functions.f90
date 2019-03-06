@@ -394,6 +394,13 @@ subroutine read_CouplingBasisFunctions(this,input)
   
   select type(this); type is(CouplingBasisFunctions)
     line = split_line(input(1))
+    
+    if (lower_case(line(1))=='basis') then
+      call print_line(ERROR//': Basis functions file appears to be in old &
+         &format. Please run update_basis_functions.')
+      call quit()
+    endif
+    
     coupling = SubspaceCoupling(int(line(3:)))
     
     basis_functions = BasisFunction(split_into_sections(input(3:)))
