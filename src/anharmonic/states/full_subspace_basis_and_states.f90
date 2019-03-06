@@ -88,9 +88,11 @@ module full_subspace_basis_and_states_module
     procedure, public :: braket_ComplexMonomial => &
                        & braket_ComplexMonomial_FullSubspaceState
     procedure, public :: kinetic_energy => &
-                       & kinetic_energy_FullSubspaceState2
+                       & kinetic_energy_FullSubspaceState
     procedure, public :: harmonic_potential_energy => &
-                       & harmonic_potential_energy_FullSubspaceState2
+                       & harmonic_potential_energy_FullSubspaceState
+    procedure, public :: kinetic_stress => &
+                       & kinetic_stress_FullSubspaceState
     
     procedure, public :: wavefunction => wavefunction_FullSubspaceState
     
@@ -610,11 +612,11 @@ impure elemental function braket_ComplexMonomial_FullSubspaceState(this, &
   end select
 end function
 
-impure elemental function kinetic_energy_FullSubspaceState2(this,ket, &
+impure elemental function kinetic_energy_FullSubspaceState(this,ket, &
    & subspace,subspace_basis,anharmonic_data) result(output)
   implicit none
   
-  class(FullSubspaceState),     intent(in)           :: this
+  class(FullSubspaceState), intent(in)           :: this
   class(SubspaceState),     intent(in), optional :: ket
   type(DegenerateSubspace), intent(in)           :: subspace
   class(SubspaceBasis),     intent(in)           :: subspace_basis
@@ -646,7 +648,7 @@ impure elemental function kinetic_energy_FullSubspaceState2(this,ket, &
   end select
 end function
 
-impure elemental function harmonic_potential_energy_FullSubspaceState2( &
+impure elemental function harmonic_potential_energy_FullSubspaceState( &
    & this,ket,subspace,subspace_basis,anharmonic_data) result(output)
   implicit none
   
@@ -656,7 +658,6 @@ impure elemental function harmonic_potential_energy_FullSubspaceState2( &
   class(SubspaceBasis),     intent(in)           :: subspace_basis
   type(AnharmonicData),     intent(in)           :: anharmonic_data
   real(dp)                                       :: output
-  
   
   type(PolynomialState) :: bra_state
   type(PolynomialState) :: ket_state
@@ -678,6 +679,42 @@ impure elemental function harmonic_potential_energy_FullSubspaceState2( &
                 & subspace        = subspace,       &
                 & subspace_basis  = subspace_basis, &
                 & anharmonic_data = anharmonic_data )
+    endif
+  class default
+    call err()
+  end select
+end function
+
+impure elemental function kinetic_stress_FullSubspaceState(this,ket, &
+   & subspace,subspace_basis,anharmonic_data) result(output)
+  implicit none
+  
+  class(FullSubspaceState), intent(in)           :: this
+  class(SubspaceState),     intent(in), optional :: ket
+  type(DegenerateSubspace), intent(in)           :: subspace
+  class(SubspaceBasis),     intent(in)           :: subspace_basis
+  type(AnharmonicData),     intent(in)           :: anharmonic_data
+  type(RealMatrix)                               :: output
+  
+  type(PolynomialState) :: bra_state
+  type(PolynomialState) :: ket_state
+  
+  select type(subspace_basis); type is(FullSubspaceBasis)
+    bra_state = PolynomialState(this,subspace_basis)
+    if (present(ket)) then
+      select type(ket); type is(FullSubspaceState)
+        ket_state = PolynomialState(ket,subspace_basis)
+        output = bra_state%kinetic_stress( ket_state,      &
+                                         & subspace,       &
+                                         & subspace_basis, &
+                                         & anharmonic_data )
+      class default
+        call err()
+      end select
+    else
+      output = bra_state%kinetic_stress( subspace        = subspace,       &
+                                       & subspace_basis  = subspace_basis, &
+                                       & anharmonic_data = anharmonic_data )
     endif
   class default
     call err()
@@ -728,18 +765,43 @@ function states_FullSubspaceStates(this,subspace,subspace_basis, &
 end function
 
 ! Energy spectra.
-impure elemental function spectra_FullSubspaceStates(this,subspace, &
-   & subspace_basis,anharmonic_data) result(output)
+impure elemental function spectra_FullSubspaceStates(this,subspace,     &
+   & subspace_potential,subspace_stress,subspace_basis,anharmonic_data) &
+   & result(output)
   implicit none
   
-  class(FullSubspaceStates), intent(in) :: this
-  type(DegenerateSubspace),  intent(in) :: subspace
-  class(SubspaceBasis),      intent(in) :: subspace_basis
-  type(AnharmonicData),      intent(in) :: anharmonic_data
-  type(EnergySpectra)                   :: output
+  class(FullSubspaceStates), intent(in)           :: this
+  type(DegenerateSubspace),  intent(in)           :: subspace
+  class(PotentialData),      intent(in)           :: subspace_potential
+  class(StressData),         intent(in), optional :: subspace_stress
+  class(SubspaceBasis),      intent(in)           :: subspace_basis
+  type(AnharmonicData),      intent(in)           :: anharmonic_data
+  type(EnergySpectra)                             :: output
   
-  output = EnergySpectra([EnergySpectrum( this%vscf_states%energy,    &
-                                        & this%vscf_states%degeneracy )])
+  type(RealMatrix), allocatable :: stress(:)
+  
+  integer :: i,ialloc
+  
+  if (present(subspace_stress)) then
+    allocate(stress(size(this%vscf_states)), stat=ialloc); call err(ialloc)
+    do i=1,size(this%vscf_states)
+      stress(i) = potential_stress( this%vscf_states(i), &
+              &                     subspace_stress,     &
+              &                     subspace,            &
+              &                     subspace_basis,      &
+              &                     anharmonic_data   )  &
+              & + kinetic_stress( this%vscf_states(i),   &
+              &                   subspace,              &
+              &                   subspace_basis,        &
+              &                   anharmonic_data      )
+    enddo
+    output = EnergySpectra([EnergySpectrum( this%vscf_states%energy,     &
+                                          & this%vscf_states%degeneracy, &
+                                          & stress                       )])
+  else
+    output = EnergySpectra([EnergySpectrum( this%vscf_states%energy,    &
+                                          & this%vscf_states%degeneracy )])
+  endif
 end function
 
 ! Wavefunctions.

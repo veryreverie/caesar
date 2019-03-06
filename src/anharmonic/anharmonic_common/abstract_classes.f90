@@ -50,6 +50,8 @@ module abstract_classes_module
   public :: potential_energy
   
   public :: generate_subspace_stresses
+  public :: kinetic_stress
+  public :: potential_stress
   
   ! ----------------------------------------------------------------------
   ! Abstract and pointer type definitions.
@@ -125,6 +127,11 @@ module abstract_classes_module
     !    energy.
     procedure(harmonic_potential_energy_SubspaceState), public, deferred :: &
        & harmonic_potential_energy
+    
+    ! Either <this|stress|this> or <this|stress|ket>, where stress is the
+    !    kinetic stress.
+    procedure(kinetic_stress_SubspaceState), public, deferred :: &
+       & kinetic_stress
   end type
   
   type, extends(SubspaceState) :: SubspaceStatePointer
@@ -146,6 +153,8 @@ module abstract_classes_module
                        & kinetic_energy_SubspaceStatePointer
     procedure, public :: harmonic_potential_energy => &
                        & harmonic_potential_energy_SubspaceStatePointer
+    procedure, public :: kinetic_stress => &
+                       & kinetic_stress_SubspaceStatePointer
     
     ! I/O.
     procedure, public :: read  => read_SubspaceStatePointer
@@ -503,6 +512,23 @@ module abstract_classes_module
       real(dp)                                       :: output
     end function
     
+    impure elemental function kinetic_stress_SubspaceState(this,ket, &
+       & subspace,subspace_basis,anharmonic_data) result(output)
+      import SubspaceState
+      import DegenerateSubspace
+      import SubspaceBasis
+      import AnharmonicData
+      import RealMatrix
+      implicit none
+      
+      class(SubspaceState),     intent(in)           :: this
+      class(SubspaceState),     intent(in), optional :: ket
+      type(DegenerateSubspace), intent(in)           :: subspace
+      class(SubspaceBasis),     intent(in)           :: subspace_basis
+      type(AnharmonicData),     intent(in)           :: anharmonic_data
+      type(RealMatrix)                               :: output
+    end function
+    
     ! SubspaceStates procedures.
     impure elemental function representation_SubspaceStates() result(output)
       import String
@@ -527,20 +553,25 @@ module abstract_classes_module
       type(SubspaceStatePointer), allocatable :: output(:)
     end function
     
-    impure elemental function spectra_SubspaceStates(this,subspace, &
-       & subspace_basis,anharmonic_data) result(output)
+    impure elemental function spectra_SubspaceStates(this,subspace,         &
+       & subspace_potential,subspace_stress,subspace_basis,anharmonic_data) &
+       & result(output)
       import SubspaceStates
       import DegenerateSubspace
+      import PotentialData
+      import StressData
       import SubspaceBasis
       import AnharmonicData
       import EnergySpectra
       implicit none
       
-      class(SubspaceStates),    intent(in) :: this
-      type(DegenerateSubspace), intent(in) :: subspace
-      class(SubspaceBasis),     intent(in) :: subspace_basis
-      type(AnharmonicData),     intent(in) :: anharmonic_data
-      type(EnergySpectra)                  :: output
+      class(SubspaceStates),    intent(in)           :: this
+      type(DegenerateSubspace), intent(in)           :: subspace
+      class(PotentialData),     intent(in)           :: subspace_potential
+      class(StressData),        intent(in), optional :: subspace_stress
+      class(SubspaceBasis),     intent(in)           :: subspace_basis
+      type(AnharmonicData),     intent(in)           :: anharmonic_data
+      type(EnergySpectra)                            :: output
     end function
     
     impure elemental function wavefunctions_SubspaceStates(this,subspace, &
@@ -926,6 +957,16 @@ module abstract_classes_module
   interface potential_energy
     module procedure potential_energy_state
     module procedure potential_energy_state_state
+  end interface
+  
+  interface kinetic_stress
+    module procedure kinetic_stress_state
+    module procedure kinetic_stress_state_state
+  end interface
+  
+  interface potential_stress
+    module procedure potential_stress_state
+    module procedure potential_stress_state_state
   end interface
 contains
 
@@ -1380,6 +1421,39 @@ impure elemental function harmonic_potential_energy_SubspaceStatePointer( &
   endif
 end function
 
+impure elemental function kinetic_stress_SubspaceStatePointer(this,ket, &
+   & subspace,subspace_basis,anharmonic_data) result(output)
+  implicit none
+  
+  class(SubspaceStatePointer), intent(in)           :: this
+  class(SubspaceState),        intent(in), optional :: ket
+  type(DegenerateSubspace),    intent(in)           :: subspace
+  class(SubspaceBasis),        intent(in)           :: subspace_basis
+  type(AnharmonicData),        intent(in)           :: anharmonic_data
+  type(RealMatrix)                                  :: output
+  
+  call this%check()
+  
+  if (present(ket)) then
+    select type(ket); type is(SubspaceStatePointer)
+      call ket%check()
+      output = this%state_%kinetic_stress( ket%state_,     &
+                                         & subspace,       &
+                                         & subspace_basis, &
+                                         & anharmonic_data )
+    class default
+      output = this%state_%kinetic_stress( ket,            &
+                                         & subspace,       &
+                                         & subspace_basis, &
+                                         & anharmonic_data )
+    end select
+  else
+    output = this%state_%kinetic_stress( subspace        = subspace,       &
+                                       & subspace_basis  = subspace_basis, &
+                                       & anharmonic_data = anharmonic_data )
+  endif
+end function
+
 ! I/O.
 subroutine read_SubspaceStatePointer(this,input)
   implicit none
@@ -1504,19 +1578,26 @@ function states_SubspaceStatesPointer(this,subspace,subspace_basis, &
                              & anharmonic_data )
 end function
 
-impure elemental function spectra_SubspaceStatesPointer(this,subspace, &
-   & subspace_basis,anharmonic_data) result(output)
+impure elemental function spectra_SubspaceStatesPointer(this,subspace,  &
+   & subspace_potential,subspace_stress,subspace_basis,anharmonic_data) &
+   & result(output)
   implicit none
   
-  class(SubspaceStatesPointer), intent(in) :: this
-  type(DegenerateSubspace),     intent(in) :: subspace
-  class(SubspaceBasis),         intent(in) :: subspace_basis
-  type(AnharmonicData),         intent(in) :: anharmonic_data
-  type(EnergySpectra)                      :: output
+  class(SubspaceStatesPointer), intent(in)           :: this
+  type(DegenerateSubspace),     intent(in)           :: subspace
+  class(PotentialData),         intent(in)           :: subspace_potential
+  class(StressData),            intent(in), optional :: subspace_stress
+  class(SubspaceBasis),         intent(in)           :: subspace_basis
+  type(AnharmonicData),         intent(in)           :: anharmonic_data
+  type(EnergySpectra)                                :: output
   
   call this%check()
   
-  output = this%states_%spectra(subspace, subspace_basis, anharmonic_data)
+  output = this%states_%spectra( subspace,           &
+                               & subspace_potential, &
+                               & subspace_stress,    &
+                               & subspace_basis,     &
+                               & anharmonic_data     )
 end function
 
 impure elemental function wavefunctions_SubspaceStatesPointer(this,subspace, &
@@ -1897,8 +1978,6 @@ function iterate_pulay_PotentialPointer(this,input_potentials, &
   type(PotentialPointer),  intent(in) :: output_potentials(:)
   type(AnharmonicData),    intent(in) :: anharmonic_data
   type(PotentialPointer)              :: output
-  
-  integer :: i
   
   call this%check()
   
@@ -2619,7 +2698,7 @@ recursive function potential_energy_state(state,potential,subspace, &
   output = integrated_potential%undisplaced_energy()
 end function
 
-! Calcualtes <bra|V|ket> as a constant.
+! Calculates <bra|V|ket> as a constant.
 recursive function potential_energy_state_state(bra,potential,ket,subspace, &
    & subspace_basis,anharmonic_data) result(output)
   implicit none
@@ -2743,5 +2822,85 @@ function generate_subspace_stresses(stress,subspaces,subspace_bases, &
   do i=1,size(output)
     call output(i)%zero_stress()
   enddo
+end function
+
+! Calculates <state|stress|state> for the kinetic stress.
+recursive function kinetic_stress_state(state,subspace, &
+   & subspace_basis,anharmonic_data) result(output)
+  implicit none
+  
+  class(SubspaceState),     intent(in) :: state
+  type(DegenerateSubspace), intent(in) :: subspace
+  class(SubspaceBasis),     intent(in) :: subspace_basis
+  type(AnharmonicData),     intent(in) :: anharmonic_data
+  type(RealMatrix)                     :: output
+  
+  output = state%kinetic_stress( subspace        = subspace,       &
+                               & subspace_basis  = subspace_basis, &
+                               & anharmonic_data = anharmonic_data )
+end function
+
+! Calculates <bra|stress|ket> for the kinetic stress.
+recursive function kinetic_stress_state_state(bra,ket,subspace, &
+   & subspace_basis,anharmonic_data) result(output)
+  implicit none
+  
+  class(SubspaceState),     intent(in) :: bra
+  class(SubspaceState),     intent(in) :: ket
+  type(DegenerateSubspace), intent(in) :: subspace
+  class(SubspaceBasis),     intent(in) :: subspace_basis
+  type(AnharmonicData),     intent(in) :: anharmonic_data
+  type(RealMatrix)                     :: output
+  
+  output = bra%kinetic_stress( ket             = ket,            &
+                             & subspace        = subspace,       &
+                             & subspace_basis  = subspace_basis, &
+                             & anharmonic_data = anharmonic_data )
+end function
+
+! Calculates <state|stress|state> as a constant, for the potential stress.
+recursive function potential_stress_state(state,stress,subspace, &
+   & subspace_basis,anharmonic_data) result(output)
+  implicit none
+  
+  class(SubspaceState),     intent(in) :: state
+  class(StressData),        intent(in) :: stress
+  type(DegenerateSubspace), intent(in) :: subspace
+  class(SubspaceBasis),     intent(in) :: subspace_basis
+  type(AnharmonicData),     intent(in) :: anharmonic_data
+  type(RealMatrix)                     :: output
+  
+  type(StressPointer), allocatable :: integrated_stress
+  
+  integrated_stress = braket( state,          &
+                            & stress,         &
+                            & subspace,       &
+                            & subspace_basis, &
+                            & anharmonic_data )
+  output = integrated_stress%undisplaced_stress()
+end function
+
+! Calculates <bra|stress|ket> as a constant, for the potential stress.
+recursive function potential_stress_state_state(bra,stress,ket,subspace, &
+   & subspace_basis,anharmonic_data) result(output)
+  implicit none
+  
+  class(SubspaceState),     intent(in) :: bra
+  class(StressData),        intent(in) :: stress
+  class(SubspaceState),     intent(in) :: ket
+  type(DegenerateSubspace), intent(in) :: subspace
+  class(SubspaceBasis),     intent(in) :: subspace_basis
+  type(AnharmonicData),     intent(in) :: anharmonic_data
+  type(RealMatrix)                     :: output
+  
+  type(StressPointer), allocatable :: integrated_stress
+  
+  integrated_stress = braket( bra,            &
+                            & stress,         &
+                            & ket,            &
+                            & subspace,       &
+                            & subspace_basis, &
+                            & anharmonic_data )
+  output = integrated_stress%undisplaced_stress()
 end function
 end module

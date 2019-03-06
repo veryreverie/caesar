@@ -34,6 +34,8 @@ module polynomial_state_module
                        & kinetic_energy_PolynomialState
     procedure, public :: harmonic_potential_energy => &
                        & harmonic_potential_energy_PolynomialState
+    procedure, public :: kinetic_stress => &
+                       & kinetic_stress_PolynomialState
     
     ! I/O.
     procedure, public :: read  => read_PolynomialState
@@ -366,6 +368,54 @@ impure elemental function harmonic_potential_energy_PolynomialState( &
              &                              subspace_basis,   &
              &                              anharmonic_data ) &
              & * this%coefficients(i)                         &
+             & * this%coefficients(j)
+      enddo
+    enddo
+  endif
+end function
+
+impure elemental function kinetic_stress_PolynomialState(this,ket, &
+   & subspace,subspace_basis,anharmonic_data) result(output)
+  implicit none
+  
+  class(PolynomialState),   intent(in)           :: this
+  class(SubspaceState),     intent(in), optional :: ket
+  type(DegenerateSubspace), intent(in)           :: subspace
+  class(SubspaceBasis),     intent(in)           :: subspace_basis
+  type(AnharmonicData),     intent(in)           :: anharmonic_data
+  type(RealMatrix)                               :: output
+  
+  integer :: i,j
+  
+  if (present(ket)) then
+    select type(ket); type is(PolynomialState)
+      output = dblemat(zeroes(3,3))
+      do i=1,size(this)
+        do j=1,size(ket)
+          output = output                            &
+               & + kinetic_stress( this%states(i),   &
+               &                   ket%states(j),    &
+               &                   subspace,         &
+               &                   subspace_basis,   &
+               &                   anharmonic_data ) &
+               & * this%coefficients(i)              &
+               & * ket%coefficients(j)
+        enddo
+      enddo
+    class default
+      call err()
+    end select
+  else
+    output = dblemat(zeroes(3,3))
+    do i=1,size(this)
+      do j=1,size(this)
+        output = output                            &
+             & + kinetic_stress( this%states(i),   &
+             &                   this%states(j),   &
+             &                   subspace,         &
+             &                   subspace_basis,   &
+             &                   anharmonic_data ) &
+             & * this%coefficients(i)              &
              & * this%coefficients(j)
       enddo
     enddo

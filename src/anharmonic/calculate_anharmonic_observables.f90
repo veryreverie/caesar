@@ -402,9 +402,33 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   subspace_potentials = vscf_output%potential
   subspace_states = vscf_output%states
   
-  subspace_spectra = subspace_states%spectra( subspaces,      &
-                                            & basis,          &
-                                            & anharmonic_data )
+  ! Use VSCF states to generate single-subspace stresses.
+  if (calculate_stress) then
+    call print_line('Generating single-subspaces stresses.')
+    subspace_stresses = generate_subspace_stresses( stress,          &
+                                                  & subspaces,       &
+                                                  & basis,           &
+                                                  & subspace_states, &
+                                                  & anharmonic_data  )
+  endif
+  
+  ! Generate energy spectra and wavefunctions from states.
+  call print_line('Generating single-subspace spectra.')
+  if (calculate_stress) then
+    subspace_spectra = subspace_states%spectra(    &
+       & subspace           = subspaces,           &
+       & subspace_potential = subspace_potentials, &
+       & subspace_stress    = subspace_stresses,   &
+       & subspace_basis     = basis,               &
+       & anharmonic_data    = anharmonic_data      )
+  else
+    subspace_spectra = subspace_states%spectra(    &
+       & subspace           = subspaces,           &
+       & subspace_potential = subspace_potentials, &
+       & subspace_basis     = basis,               &
+       & anharmonic_data    = anharmonic_data      )
+  endif
+  
   subspace_wavefunctions = SubspaceWavefunctionsPointer( &
       & subspace_states%wavefunctions( subspaces,        &
       &                                basis,            &
@@ -434,18 +458,6 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
     wavefunctions_file = OFile(subspace_dir//'/vscf_wavefunctions.dat')
     call wavefunctions_file%print_lines(subspace_wavefunctions(i))
   enddo
-  
-  ! --------------------------------------------------
-  ! Generate single-subspace stresses using VSCF states..
-  ! --------------------------------------------------
-  if (calculate_stress) then
-    call print_line('Generating single-subspaces stresses.')
-    subspace_stresses = generate_subspace_stresses( stress,          &
-                                                  & subspaces,       &
-                                                  & basis,           &
-                                                  & subspace_states, &
-                                                  & anharmonic_data  )
-  endif
   
   ! --------------------------------------------------
   ! Generate observables under the VSCHA approximation.

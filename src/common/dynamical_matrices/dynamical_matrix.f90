@@ -617,7 +617,7 @@ function new_ComplexMode_calculated(matrices,structure,qpoint, &
       if (subspace_ids(j)==subspace_ids(i)) then
         continue
       elseif ( qpoint%is_paired_qpoint() .and.                            &
-             & abs(sum(output(i)%unit_vector*output(j)%unit_vector))>1e-4 &
+             & abs(sum(output(i)%unit_vector*output(j)%unit_vector))>1e-3 &
              & ) then
         ! If conjg(u1).u2 is non-zero then u1 and u2 are degenerate.
         ! This is only possible at 2q=G.
@@ -629,7 +629,7 @@ function new_ComplexMode_calculated(matrices,structure,qpoint, &
                                            & [output(i), output(j)],   &
                                            & qpoint,                   &
                                            & symmetries(k)           ) )
-          if (abs(symmetry(1,2))>1e-4 .or. abs(symmetry(2,1))>1e-4) then
+          if (abs(symmetry(1,2))>1e-3 .or. abs(symmetry(2,1))>1e-3) then
             subspace_ids(filter(subspace_ids==subspace_ids(j))) = &
                & subspace_ids(i)
             exit

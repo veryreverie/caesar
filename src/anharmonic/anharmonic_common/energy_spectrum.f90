@@ -14,8 +14,9 @@ module energy_spectrum_module
   
   ! A spectrum in a single space.
   type, extends(Stringable) :: EnergySpectrum
-    real(dp), allocatable :: spectrum(:)
-    integer,  allocatable :: degeneracies(:)
+    real(dp),         allocatable          :: spectrum(:)
+    integer,          allocatable          :: degeneracies(:)
+    type(RealMatrix), allocatable, private :: stresses_(:)
   contains
     procedure, public :: min_energy => min_energy_EnergySpectrum
     procedure, public :: max_energy => max_energy_EnergySpectrum
@@ -68,16 +69,18 @@ module energy_spectrum_module
 contains
 
 ! Constructors and size functions.
-function new_EnergySpectrum(spectrum,degeneracies) result(this)
+function new_EnergySpectrum(spectrum,degeneracies,stresses) result(this)
   implicit none
   
-  real(dp), intent(in)           :: spectrum(:)
-  integer,  intent(in), optional :: degeneracies(:)
-  type(EnergySpectrum)           :: this
+  real(dp),         intent(in)           :: spectrum(:)
+  integer,          intent(in), optional :: degeneracies(:)
+  type(RealMatrix), intent(in), optional :: stresses(:)
+  type(EnergySpectrum)                   :: this
   
   integer :: i
   
   this%spectrum = spectrum
+  
   if (present(degeneracies)) then
     if (size(degeneracies)/=size(spectrum)) then
       call print_line(CODE_ERROR//': spectrum and degeneracies do not match.')
@@ -86,6 +89,14 @@ function new_EnergySpectrum(spectrum,degeneracies) result(this)
     this%degeneracies = degeneracies
   else
     this%degeneracies = [(1,i=1,size(spectrum))]
+  endif
+  
+  if (present(stresses)) then
+    if (size(stresses)/=size(spectrum)) then
+      call print_line(CODE_ERROR//': spectrum and stresses do not match.')
+      call err()
+    endif
+    this%stresses_ = stresses
   endif
 end function
 

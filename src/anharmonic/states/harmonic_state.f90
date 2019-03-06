@@ -72,6 +72,8 @@ module harmonic_state_module
                        & kinetic_energy_HarmonicState
     procedure, public :: harmonic_potential_energy => &
                        & harmonic_potential_energy_HarmonicState
+    procedure, public :: kinetic_stress => &
+                       & kinetic_stress_HarmonicState
     
     procedure, public :: total_occupation => total_occupation_HarmonicState
     procedure, public :: wavevector => wavevector_HarmonicState
@@ -614,6 +616,20 @@ impure elemental function harmonic_potential_energy_HarmonicState(this,ket, &
   ! Multiply by w, and normalise by the number of primitive cells in the
   !    anharmonic supercell.
   output = output*this%frequency/anharmonic_data%anharmonic_supercell%sc_size
+end function
+
+impure elemental function kinetic_stress_HarmonicState(this,ket, &
+   & subspace,subspace_basis,anharmonic_data) result(output)
+  implicit none
+  
+  class(HarmonicState),     intent(in)           :: this
+  class(SubspaceState),     intent(in), optional :: ket
+  type(DegenerateSubspace), intent(in)           :: subspace
+  class(SubspaceBasis),     intent(in)           :: subspace_basis
+  type(AnharmonicData),     intent(in)           :: anharmonic_data
+  type(RealMatrix)                               :: output
+
+  ! TODO
 end function
 
 ! ----------------------------------------------------------------------

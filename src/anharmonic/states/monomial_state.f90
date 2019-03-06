@@ -69,6 +69,8 @@ module monomial_state_module
                        & kinetic_energy_MonomialState
     procedure, public :: harmonic_potential_energy => &
                        & harmonic_potential_energy_MonomialState
+    procedure, public :: kinetic_stress => &
+                       & kinetic_stress_MonomialState
     
     procedure, public :: total_power => total_power_MonomialState
     procedure, public :: wavevector => wavevector_MonomialState
@@ -530,6 +532,20 @@ impure elemental function harmonic_potential_energy_MonomialState( &
   output = prefactor                                            &
        & * braket(this,subspace,subspace_basis,anharmonic_data) &
        & / anharmonic_data%anharmonic_supercell%sc_size
+end function
+
+impure elemental function kinetic_stress_MonomialState(this,ket, &
+   & subspace,subspace_basis,anharmonic_data) result(output)
+  implicit none
+  
+  class(MonomialState),     intent(in)           :: this
+  class(SubspaceState),     intent(in), optional :: ket
+  type(DegenerateSubspace), intent(in)           :: subspace
+  class(SubspaceBasis),     intent(in)           :: subspace_basis
+  type(AnharmonicData),     intent(in)           :: anharmonic_data
+  type(RealMatrix)                               :: output
+  
+  ! TODO
 end function
 
 ! ----------------------------------------------------------------------
