@@ -8,10 +8,6 @@ program caesar
   ! Use utility modules.
   use common_module
   
-  ! Use convergence modules.
-  use converge_cutoff_and_kpoints_module
-  use plot_cutoff_and_kpoints_module
-  
   ! Use harmonic modules.
   use harmonic_module
   
@@ -69,8 +65,6 @@ program caesar
      & test(),                             &
      & check_counter(),                    &
      & hartree_to_ev(),                    &
-     & converge_cutoff_and_kpoints(),      &
-     & plot_cutoff_and_kpoints(),          &
      & setup_harmonic(),                   &
      & run_harmonic(),                     &
      & calculate_normal_modes(),           &
