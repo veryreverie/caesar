@@ -122,14 +122,17 @@ def main():
     ax.set_xlim(entry['x'][0],entry['x'][-1])
     
     # Configure y axis.
+    ev_per_hartree = 27.2114
     if entry['y type']=='frequencies':
       ax.set_ylabel(r'error in mode frequencies (Ha)')
       cb.set_ylabel(r'Converged mode frequency (Ha)')
       ax.set_ylim(-1e-4,1e-4)
+      ax.hlines([1e-3/(3*ev_per_hartree),-1e-3/(3*ev_per_hartree)],min_x,max_x)
     elif entry['y type']=='free energies':
       ax.set_ylabel(r'error in free energies (Ha per primitive cell)')
       cb.set_ylabel(r'Converged free energy (Ha per primitive cell)')
       ax.set_ylim(-1e-3,1e-3)
+      ax.hlines([11*1e-3/ev_per_hartree,-11*1e-3/ev_per_hartree],min_x,max_x)
     
     # Add colourbar.
     norm = colors.Normalize(vmin=min_y,vmax=max_y)

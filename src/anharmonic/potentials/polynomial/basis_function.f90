@@ -19,11 +19,17 @@ module basis_function_module
   
   type, extends(Stringsable) :: BasisFunction
     ! The basis function in real co-ordinates.
-    type(RealPolynomial) :: real_representation
+    type(RealPolynomial), private :: real_representation_
     
     ! The basis function in complex co-ordinates.
-    type(ComplexPolynomial) :: complex_representation
+    type(ComplexPolynomial), private :: complex_representation_
+    
+    ! A leading coefficient.
+    real(dp), private :: coefficient_
   contains
+    procedure, public :: real_representation
+    procedure, public :: complex_representation
+    
     procedure, public :: simplify => simplify_BasisFunction
     
     generic,   public  :: energy =>                                  &
@@ -44,8 +50,9 @@ module basis_function_module
     
     procedure, public :: undisplaced_energy => undisplaced_energy_BasisFunction
     
-    procedure, public :: coefficient => coefficient_BasisFunction
-    procedure, public :: set_coefficient => set_coefficient_BasisFunction
+    procedure, private :: internal_coefficient
+    procedure, public  :: coefficient => coefficient_BasisFunction
+    procedure, public  :: set_coefficient => set_coefficient_BasisFunction
     
     procedure, public :: read  => read_BasisFunction
     procedure, public :: write => write_BasisFunction
@@ -92,8 +99,30 @@ function new_BasisFunction(real_representation,complex_representation) &
   type(ComplexPolynomial), intent(in) :: complex_representation
   type(BasisFunction)                 :: this
   
-  this%real_representation    = real_representation
-  this%complex_representation = complex_representation
+  this%real_representation_    = real_representation
+  this%complex_representation_ = complex_representation
+  this%coefficient_            = 1.0_dp
+end function
+
+! ----------------------------------------------------------------------
+! Getters.
+! ----------------------------------------------------------------------
+impure elemental function real_representation(this) result(output)
+  implicit none
+  
+  class(BasisFunction), intent(in) :: this
+  type(RealPolynomial)             :: output
+  
+  output = this%coefficient_*this%real_representation_
+end function
+
+impure elemental function complex_representation(this) result(output)
+  implicit none
+  
+  class(BasisFunction), intent(in) :: this
+  type(ComplexPolynomial)          :: output
+  
+  output = this%coefficient_*this%complex_representation_
 end function
 
 ! ----------------------------------------------------------------------
@@ -282,8 +311,8 @@ impure elemental subroutine simplify_BasisFunction(this)
   
   class(BasisFunction), intent(inout) :: this
   
-  call this%real_representation%simplify()
-  call this%complex_representation%simplify()
+  call this%real_representation_%simplify()
+  call this%complex_representation_%simplify()
 end subroutine
 
 ! ----------------------------------------------------------------------
@@ -297,7 +326,8 @@ impure elemental function energy_RealModeDisplacement_BasisFunction(this, &
   class(RealModeDisplacement), intent(in) :: displacement
   real(dp)                                :: output
   
-  output = this%real_representation%energy(displacement)
+  output = this%coefficient_ &
+       & * this%real_representation_%energy(displacement)
 end function
 
 impure elemental function energy_ComplexModeDisplacement_BasisFunction(this, &
@@ -308,7 +338,8 @@ impure elemental function energy_ComplexModeDisplacement_BasisFunction(this, &
   class(ComplexModeDisplacement), intent(in) :: displacement
   complex(dp)                                :: output
   
-  output = this%complex_representation%energy(displacement)
+  output = this%coefficient_ &
+       & * this%complex_representation_%energy(displacement)
 end function
 
 impure elemental function force_RealModeDisplacement_BasisFunction(this, &
@@ -319,7 +350,8 @@ impure elemental function force_RealModeDisplacement_BasisFunction(this, &
   class(RealModeDisplacement), intent(in) :: displacement
   type(RealModeForce)                     :: output
   
-  output = this%real_representation%force(displacement)
+  output = this%coefficient_ &
+       & * this%real_representation_%force(displacement)
 end function
 
 impure elemental function force_ComplexModeDisplacement_BasisFunction(this, &
@@ -330,7 +362,8 @@ impure elemental function force_ComplexModeDisplacement_BasisFunction(this, &
   class(ComplexModeDisplacement), intent(in) :: displacement
   type(ComplexModeForce)                     :: output
   
-  output = this%complex_representation%force(displacement)
+  output = this%coefficient_ &
+       & * this%complex_representation_%force(displacement)
 end function
 
 ! ----------------------------------------------------------------------
@@ -357,35 +390,35 @@ impure elemental subroutine braket_BasisFunction(this,bra,ket,subspace, &
   
   ! Generate conversion between complex and real representation.
   complex_to_real_conversion = coefficient_conversion_matrix( &
-                         & this%real_representation%terms,    &
-                         & this%complex_representation%terms, &
-                         & include_coefficients = .false.     )
+                        & this%real_representation_%terms,    &
+                        & this%complex_representation_%terms, &
+                        & include_coefficients = .false.      )
   
   ! Perform integration in complex co-ordinates.
-  this%complex_representation = braket( bra,                         &
-                                      & this%complex_representation, &
-                                      & ket,                         &
-                                      & subspace,                    &
-                                      & subspace_basis,              &
-                                      & anharmonic_data              )
+  this%complex_representation_ = braket( bra,                          &
+                                       & this%complex_representation_, &
+                                       & ket,                          &
+                                       & subspace,                     &
+                                       & subspace_basis,               &
+                                       & anharmonic_data               )
   
   ! Use calculated complex coefficients and conversion to generate new
   !    coefficients for real representation.
-  complex_coefficients = this%complex_representation%terms%coefficient
+  complex_coefficients = this%complex_representation_%terms%coefficient
   real_coefficients = real(cmplx( complex_to_real_conversion &
                               & * vec(complex_coefficients)  ))
-  this%real_representation%terms%coefficient = real_coefficients
+  this%real_representation_%terms%coefficient = real_coefficients
   
   ! Remove modes in real representation which have been integrated over.
-  do i=1,size(this%real_representation)
-    real_modes = this%real_representation%terms(i)%modes()
+  do i=1,size(this%real_representation_)
+    real_modes = this%real_representation_%terms(i)%modes()
     mode_in_subspace = [( any(subspace%mode_ids==real_modes(j)%id), &
                         & j=1,                                      &
                         & size(real_modes)                          )]
     real_modes = real_modes(filter(.not.mode_in_subspace))
-    this%real_representation%terms(i) = RealMonomial(                &
-       & modes       = real_modes,                                   &
-       & coefficient = this%real_representation%terms(i)%coefficient )
+    this%real_representation_%terms(i) = RealMonomial(                &
+       & modes       = real_modes,                                    &
+       & coefficient = this%real_representation_%terms(i)%coefficient )
   enddo
 end subroutine
 
@@ -407,15 +440,16 @@ impure elemental function harmonic_expectation_BasisFunction(this,frequency, &
   integer :: i
   
   output = 0
-  do i=1,size(this%complex_representation)
-    output = output                                                      &
-         & + harmonic_expectation( this%complex_representation%terms(i), &
-         &                         frequency,                            &
-         &                         thermal_energy,                       &
-         &                         no_states,                            &
-         &                         subspace,                             &
-         &                         anharmonic_data%anharmonic_supercell  )
+  do i=1,size(this%complex_representation_)
+    output = output                                                       &
+         & + harmonic_expectation( this%complex_representation_%terms(i), &
+         &                         frequency,                             &
+         &                         thermal_energy,                        &
+         &                         no_states,                             &
+         &                         subspace,                              &
+         &                         anharmonic_data%anharmonic_supercell   )
   enddo
+  output = output * this%coefficient_
 end function
 
 ! ----------------------------------------------------------------------
@@ -447,14 +481,7 @@ impure elemental function coefficient_BasisFunction(this) result(output)
   class(BasisFunction), intent(in) :: this
   real(dp)                         :: output
   
-  integer :: i
-  
-  output = sum(abs(this%real_representation%terms%coefficient))
-  
-  i = first(abs(this%real_representation%terms%coefficient)>0)
-  if (this%real_representation%terms(i)%coefficient<0) then
-    output = -output
-  endif
+  output = this%coefficient_ * this%internal_coefficient()
 end function
 
 impure elemental subroutine set_coefficient_BasisFunction(this,coefficient)
@@ -463,16 +490,32 @@ impure elemental subroutine set_coefficient_BasisFunction(this,coefficient)
   class(BasisFunction), intent(inout) :: this
   real(dp),             intent(in)    :: coefficient
   
-  real(dp) :: factor
+  real(dp) :: internal_coefficient
   
-  factor = coefficient / this%coefficient()
-  this%real_representation%terms%coefficient =      &
-     &   this%real_representation%terms%coefficient &
-     & * factor
-  this%complex_representation%terms%coefficient =      &
-     &   this%complex_representation%terms%coefficient &
-     & * factor
+  internal_coefficient = this%internal_coefficient()
+  
+  if (abs(internal_coefficient)>1.0e-300_dp) then
+    this%coefficient_ = coefficient / this%internal_coefficient()
+  endif
 end subroutine
+
+function internal_coefficient(this) result(output)
+  implicit none
+  
+  class(BasisFunction), intent(in) :: this
+  real(dp)                         :: output
+  
+  integer ::  i
+  
+  output = sum(abs(this%real_representation_%terms%coefficient))
+  
+  i = first(abs(this%real_representation_%terms%coefficient)>0, default=0)
+  if (i/=0) then
+    if (this%real_representation_%terms(i)%coefficient<0) then
+      output = -output
+    endif
+  endif
+end function
 
 ! ----------------------------------------------------------------------
 ! Arithmetic.
@@ -484,8 +527,8 @@ impure elemental function multiply_BasisFunction_real(this,that) result(output)
   real(dp),            intent(in) :: that
   type(BasisFunction)             :: output
   
-  output = BasisFunction( this%real_representation * that,   &
-                        & this%complex_representation * that )
+  output = this
+  output%coefficient_ = output%coefficient_ * that
 end function
 
 impure elemental function multiply_real_BasisFunction(this,that) result(output)
@@ -495,8 +538,8 @@ impure elemental function multiply_real_BasisFunction(this,that) result(output)
   type(BasisFunction), intent(in) :: that
   type(BasisFunction)             :: output
   
-  output = BasisFunction( this * that%real_representation,   &
-                        & this * that%complex_representation )
+  output = that
+  output%coefficient_ = this * output%coefficient_
 end function
 
 impure elemental function divide_BasisFunction_real(this,that) result(output)
@@ -506,8 +549,8 @@ impure elemental function divide_BasisFunction_real(this,that) result(output)
   real(dp),            intent(in) :: that
   type(BasisFunction)             :: output
   
-  output = BasisFunction( this%real_representation / that,   &
-                        & this%complex_representation / that )
+  output = this
+  output%coefficient_ = output%coefficient_ / that
 end function
 
 impure elemental function add_BasisFunction_BasisFunction(this,that) &
@@ -518,9 +561,9 @@ impure elemental function add_BasisFunction_BasisFunction(this,that) &
   type(BasisFunction), intent(in) :: that
   type(BasisFunction)             :: output
   
-  output = BasisFunction(                                      &
-     & this%real_representation+that%real_representation,      &
-     & this%complex_representation+that%complex_representation )
+  output = BasisFunction(                                          &
+     & this%real_representation()+that%real_representation(),      &
+     & this%complex_representation()+that%complex_representation() )
 end function
 
 impure elemental function negative_BasisFunction(this) result(output)
@@ -529,8 +572,8 @@ impure elemental function negative_BasisFunction(this) result(output)
   type(BasisFunction), intent(in) :: this
   type(BasisFunction)             :: output
   
-  output = BasisFunction( -this%real_representation,   &
-                        & -this%complex_representation )
+  output = this
+  output%coefficient_ = -output%coefficient_
 end function
 
 impure elemental function subtract_BasisFunction_BasisFunction(this,that) &
@@ -541,9 +584,9 @@ impure elemental function subtract_BasisFunction_BasisFunction(this,that) &
   type(BasisFunction), intent(in) :: that
   type(BasisFunction)             :: output
   
-  output = BasisFunction(                                      &
-     & this%real_representation-that%real_representation,      &
-     & this%complex_representation-that%complex_representation )
+  output = BasisFunction(                                          &
+     & this%real_representation()-that%real_representation(),      &
+     & this%complex_representation()-that%complex_representation() )
 end function
 
 ! ----------------------------------------------------------------------
@@ -589,11 +632,16 @@ function write_BasisFunction(this) result(output)
   class(BasisFunction), intent(in) :: this
   type(String), allocatable        :: output(:)
   
+  type(RealPolynomial)    :: real_representation
+  type(ComplexPolynomial) :: complex_representation
+  
   select type(this); type is(BasisFunction)
+    real_representation = this%real_representation()
+    complex_representation = this%complex_representation()
     output = [ str('Basis function in real co-ordinates:'),    &
-             & str(this%real_representation%terms),            &
+             & str(real_representation%terms),                 &
              & str('Basis function in complex co-ordinates:'), &
-             & str(this%complex_representation%terms)          ]
+             & str(complex_representation%terms)               ]
   class default
     call err()
   end select

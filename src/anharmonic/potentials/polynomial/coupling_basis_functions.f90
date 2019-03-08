@@ -243,6 +243,9 @@ function generate_basis_functions_SubspaceCoupling(coupling,               &
   type(BasisFunction), allocatable :: coupling_basis_functions(:)
   type(RealMonomial),  allocatable :: coupling_unique_terms(:)
   
+  type(RealPolynomial) :: real_representation_j
+  type(RealPolynomial) :: real_representation_k
+  
   integer            :: unique_term_id
   integer            :: matching_term_location
   type(RealMonomial) :: matching_term
@@ -279,25 +282,23 @@ function generate_basis_functions_SubspaceCoupling(coupling,               &
             & stat=ialloc); call err(ialloc)
     do j=1,size(unique_terms)
       ! Identify the largest term in basis function i.
-      unique_term_id = maxloc(                                            &
-         & abs(basis_functions(j)%real_representation%terms%coefficient), &
-         & 1                                                              )
-      unique_terms(j) = &
-         & basis_functions(j)%real_representation%terms(unique_term_id)
+      real_representation_j = basis_functions(j)%real_representation()
+      unique_term_id = maxloc(abs(real_representation_j%terms%coefficient), 1)
+      unique_terms(j) = real_representation_j%terms(unique_term_id)
       
       ! Subtract a multiple of basis function i from all other basis functions,
       !    such that the coefficient of unique_term_id(i) in all other basis
       !    functions is zero.
       do k=1,size(basis_functions)
         if (k/=j) then
-          matching_term_location = first_equivalent(         &
-             & basis_functions(k)%real_representation%terms, &
-             & unique_terms(j),                              &
-             & compare_real_monomials,                       &
-             & default=0                                     )
+          real_representation_k = basis_functions(k)%real_representation()
+          matching_term_location = first_equivalent( &
+                      & real_representation_k%terms, &
+                      & unique_terms(j),             &
+                      & compare_real_monomials,      &
+                      & default=0                    )
           if (matching_term_location/=0) then
-            matching_term = basis_functions(k)%real_representation%terms( &
-                                                 & matching_term_location )
+            matching_term = real_representation_k%terms(matching_term_location)
             basis_functions(k) = basis_functions(k)        &
                              & - basis_functions(j)        &
                              & * matching_term%coefficient &
