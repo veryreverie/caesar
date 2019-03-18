@@ -21,7 +21,10 @@ function snap_to_symmetry() result(output)
   type(CaesarMode) :: output
   
   output%mode_name = 'snap_to_symmetry'
-  output%description = 'Uses spglib to snap a structure to a symmetry.'
+  output%description = 'Uses spglib to snap a structure to a symmetry. The &
+     &symmetry to which the structure is snapped is found by calling spglib &
+     &with the given symmetry precision. The routine attempts to find the &
+     &snapped structure which is as close to the input structure as possible.'
   output%keywords = [                                                         &
      & KeywordData( 'file_type',                                              &
      &              'file_type is the file type which will be used for &

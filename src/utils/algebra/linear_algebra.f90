@@ -3542,10 +3542,7 @@ function pulay(input_vectors,output_vectors) result(output)
   m = size(input_vectors(1))
   n = size(input_vectors)
   
-  if (m<n) then
-    call print_line(ERROR//': m<n.')
-    call err()
-  elseif (any([(size(input_vectors(i)),i=1,n)]/=m)) then
+  if (any([(size(input_vectors(i)),i=1,n)]/=m)) then
     call print_line(ERROR//': Input vectors inconsistent.')
   elseif (any([(size(output_vectors(i)),i=1,n)]/=m)) then
     call print_line(ERROR//': Output vectors inconsistent.')
