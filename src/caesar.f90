@@ -65,6 +65,7 @@ program caesar
      & test(),                             &
      & check_counter(),                    &
      & hartree_to_ev(),                    &
+     & snap_to_symmetry(),                 &
      & setup_harmonic(),                   &
      & run_harmonic(),                     &
      & calculate_normal_modes(),           &

@@ -8,7 +8,6 @@ module structure_data_module
   use spglib_module
   
   use basic_symmetry_module
-  use basic_structure_module
   use symmetry_module
   implicit none
   
@@ -42,6 +41,7 @@ module structure_data_module
     ! Symmetry data (in fractional co-ordinates).
     ! ------------------------------
     real(dp)                            :: symmetry_precision
+    type(String)                        :: space_group
     type(SymmetryOperator), allocatable :: symmetries(:)
     
     ! ------------------------------
@@ -81,6 +81,9 @@ module structure_data_module
     ! The ID of the G-vector, j, s.t. gvectors(i) + gvectors(j) = 0.
     integer, allocatable :: gvector_paired_ids_(:)
   contains
+    ! Snaps the structure to symmetry.
+    procedure, public :: snap_to_symmetry => snap_to_symmetry_StructureData
+    
     ! Calculate the symmetry operators of the structure.
     procedure, public :: calculate_symmetry
     
@@ -304,6 +307,7 @@ function new_StructureData(basic_structure,basic_supercell, &
   
   ! Fill out symmetry information with dummy data.
   this%symmetry_precision = 0.0_dp
+  this%space_group = ''
   this%symmetries = [SymmetryOperator::]
 end function
 
@@ -317,6 +321,30 @@ impure elemental function new_BasicStructure_StructureData(this) result(output)
   type(BasicStructure)            :: output
   
   output = BasicStructure(this%lattice, BasicAtom(this%atoms))
+end function
+
+! ----------------------------------------------------------------------
+! Snaps the structure to symmetry.
+! ----------------------------------------------------------------------
+function snap_to_symmetry_StructureData(this,symmetry_precision) result(output)
+  implicit none
+  
+  class(StructureData), intent(in)           :: this
+  real(dp),             intent(in), optional :: symmetry_precision
+  type(StructureData)                        :: output
+  
+  real(dp)             :: precision
+  type(BasicStructure) :: structure
+  
+  if (present(symmetry_precision)) then
+    precision = symmetry_precision
+  else
+    precision = this%symmetry_precision
+  endif
+  
+  structure = snap_to_symmetry(this%lattice, this%atoms, precision)
+  
+  output = StructureData(structure)
 end function
 
 ! ----------------------------------------------------------------------
@@ -334,6 +362,7 @@ subroutine calculate_symmetry(this,symmetry_precision,symmetries, &
   type(SpglibSymmetries)           :: spglib_symmetries
   type(BasicSymmetry), allocatable :: basic_symmetries(:)
   
+  type(String)             :: space_group
   type(Group), allocatable :: symmetry_groups(:)
   
   integer :: no_symmetries
@@ -349,7 +378,7 @@ subroutine calculate_symmetry(this,symmetry_precision,symmetries, &
   
   integer :: i,j,ialloc
   
-  this%symmetry_precision = symmetry_precision
+  space_group = ''
   
   if (present(symmetries)) then
     if (size(symmetries)==0) then
@@ -370,6 +399,7 @@ subroutine calculate_symmetry(this,symmetry_precision,symmetries, &
     spglib_symmetries = SpglibSymmetries( this%lattice,      &
                                         & this%atoms,        &
                                         & symmetry_precision )
+    space_group = spglib_symmetries%international_symbol
     basic_symmetries = BasicSymmetry( spglib_symmetries, &
                                     & this%atoms,        &
                                     & symmetry_precision )
@@ -462,6 +492,9 @@ subroutine calculate_symmetry(this,symmetry_precision,symmetries, &
   ! Record basic symmetry properties.
   ! --------------------------------------------------
   deallocate(this%symmetries, stat=ialloc); call err(ialloc)
+  
+  this%symmetry_precision = symmetry_precision
+  this%space_group = space_group
   allocate(this%symmetries(no_symmetries), stat=ialloc); call err(ialloc)
   do i=1,no_symmetries
     this%symmetries(i) = SymmetryOperator( basic_symmetries(i),    &
@@ -625,6 +658,7 @@ subroutine read_StructureData(this,input)
   
   ! Symmetry data.
   real(dp)                         :: symmetry_precision
+  integer                          :: operator_start_line
   type(BasicSymmetry), allocatable :: symmetries(:)
   
   ! Output data.
@@ -873,7 +907,17 @@ subroutine read_StructureData(this,input)
       line = split_line(input(symmetry_line+1))
       symmetry_precision = dble(line(2))
       
-      sections = split_into_sections(input(symmetry_line+2:symmetry_end_line))
+      line = split_line(lower_case(input(symmetry_line+2)))
+      if (line(1)=='Space') then
+        this%space_group = line(3)
+        operator_start_line = symmetry_line+3
+      else
+        this%space_group = ''
+        operator_start_line = symmetry_line+2
+      endif
+      
+      sections = split_into_sections(                   &
+         & input(operator_start_line:symmetry_end_line) )
       symmetries = BasicSymmetry(sections)
       
       call this%calculate_symmetry(symmetry_precision, symmetries)
@@ -912,6 +956,7 @@ function write_StructureData(this) result(output)
       output = [ output,                                      &
                & str('Symmetry'),                             &
                & str('Precision: '//this%symmetry_precision), &
+               & str('Space Group: '//this%space_group),      &
                & str(symmetries, separating_line='')          ]
     endif
     

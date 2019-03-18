@@ -27,7 +27,7 @@ else()
 endif()
 
 if ("${CMAKE_C_COMPILER_ID}" STREQUAL "GNU")
-  set(CMAKE_C_FLAGS "-g -O0 -W -Wall -Wextra -pedantic -fmax-errors=1 -std=c99")
+  set(CMAKE_C_FLAGS "-g -pg -O0 -W -Wall -Wextra -pedantic -fmax-errors=1 -std=c99")
 endif()
 
 # Add the main caesar executable as bin/caesar

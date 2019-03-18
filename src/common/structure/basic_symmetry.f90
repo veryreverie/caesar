@@ -43,6 +43,8 @@ function new_BasicSymmetry(id,tensor,translation,atom_group,rvectors) &
   type(IntVector),  intent(in) :: rvectors(:)
   type(BasicSymmetry)          :: this
   
+  integer :: ialloc
+  
   this%id          = id
   this%tensor      = tensor
   this%translation = translation
@@ -73,6 +75,11 @@ function new_BasicSymmetry_SpglibSymmetries(input,atoms,symmetry_precision) &
   
   ! Temporary variables.
   integer :: i,j,k,ialloc
+  
+  ! --------------------------------------------------
+  ! Output symmetry information.
+  ! --------------------------------------------------
+  call print_line('Space group: '//input%international_symbol)
   
   ! --------------------------------------------------
   ! Calculate atom group and R-vectors.

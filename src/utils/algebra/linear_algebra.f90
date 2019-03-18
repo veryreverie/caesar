@@ -90,6 +90,8 @@ module linear_algebra_module
     procedure, public :: to_RealVector    => to_RealVector_IntVector
     procedure, public :: to_ComplexVector => to_ComplexVector_IntVector
     
+    procedure, public :: element => element_IntVector
+    
     procedure, public :: read  => read_IntVector
     procedure, public :: write => write_IntVector
   end type
@@ -104,6 +106,8 @@ module linear_algebra_module
     procedure, public :: to_RealVector    => to_RealVector_RealVector
     procedure, public :: to_ComplexVector => to_ComplexVector_RealVector
     
+    procedure, public :: element => element_RealVector
+    
     procedure, public :: read  => read_RealVector
     procedure, public :: write => write_RealVector
   end type
@@ -116,6 +120,8 @@ module linear_algebra_module
     complex(dp), allocatable, private :: contents_(:)
   contains
     procedure, public :: to_ComplexVector => to_ComplexVector_ComplexVector
+    
+    procedure, public :: element => element_ComplexVector
     
     procedure, public :: read  => read_ComplexVector
     procedure, public :: write => write_ComplexVector
@@ -174,6 +180,10 @@ module linear_algebra_module
     procedure, public :: to_RealMatrix    => to_RealMatrix_IntMatrix
     procedure, public :: to_ComplexMatrix => to_ComplexMatrix_IntMatrix
     
+    procedure, public :: element => element_IntMatrix
+    procedure, public :: row     => row_IntMatrix
+    procedure, public :: column  => column_IntMatrix
+    
     procedure, public :: read  => read_IntMatrix
     procedure, public :: write => write_IntMatrix
   end type
@@ -189,6 +199,10 @@ module linear_algebra_module
     procedure, public :: to_RealMatrix    => to_RealMatrix_RealMatrix
     procedure, public :: to_ComplexMatrix => to_ComplexMatrix_RealMatrix
     
+    procedure, public :: element => element_RealMatrix
+    procedure, public :: row     => row_RealMatrix
+    procedure, public :: column  => column_RealMatrix
+    
     procedure, public :: read  => read_RealMatrix
     procedure, public :: write => write_RealMatrix
   end type
@@ -202,6 +216,10 @@ module linear_algebra_module
     complex(dp), allocatable, private :: contents_(:,:)
   contains
     procedure, public :: to_ComplexMatrix => to_ComplexMatrix_ComplexMatrix
+    
+    procedure, public :: element => element_ComplexMatrix
+    procedure, public :: row     => row_ComplexMatrix
+    procedure, public :: column  => column_ComplexMatrix
     
     procedure, public :: read  => read_ComplexMatrix
     procedure, public :: write => write_ComplexMatrix
@@ -737,6 +755,204 @@ function cmplx_ComplexMatrix(input) result(output)
 end function
 
 ! ----------------------------------------------------------------------
+! Getters for elements, rows and columns.
+! ----------------------------------------------------------------------
+impure elemental function element_IntVector(this,i) result(output)
+  implicit none
+  
+  class(IntVector), intent(in) :: this
+  integer,          intent(in) :: i
+  integer                      :: output
+  
+  if (i>0 .and. i<=size(this)) then
+    output = this%contents_(i)
+  else
+    call print_line(CODE_ERROR//': Trying to access an element outside of &
+       &the vector.')
+    call err()
+  endif
+end function
+
+impure elemental function element_RealVector(this,i) result(output)
+  implicit none
+  
+  class(RealVector), intent(in) :: this
+  integer,           intent(in) :: i
+  real(dp)                      :: output
+  
+  if (i>0 .and. i<=size(this)) then
+    output = this%contents_(i)
+  else
+    call print_line(CODE_ERROR//': Trying to access an element outside of &
+       &the vector.')
+    call err()
+  endif
+end function
+
+impure elemental function element_ComplexVector(this,i) result(output)
+  implicit none
+  
+  class(ComplexVector), intent(in) :: this
+  integer,              intent(in) :: i
+  complex(dp)                      :: output
+  
+  if (i>0 .and. i<=size(this)) then
+    output = this%contents_(i)
+  else
+    call print_line(CODE_ERROR//': Trying to access an element outside of &
+       &the vector.')
+    call err()
+  endif
+end function
+
+impure elemental function element_IntMatrix(this,i,j) result(output)
+  implicit none
+  
+  class(IntMatrix), intent(in) :: this
+  integer,          intent(in) :: i
+  integer,          intent(in) :: j
+  integer                      :: output
+  
+  if (i>0 .and. i<=size(this,1) .and. j>0 .and. j<=size(this,2)) then
+    output = this%contents_(i,j)
+  else
+    call print_line(CODE_ERROR//': Trying to access an element outside of &
+       &the matrix.')
+    call err()
+  endif
+end function
+
+impure elemental function row_IntMatrix(this,i) result(output)
+  implicit none
+  
+  class(IntMatrix), intent(in) :: this
+  integer,          intent(in) :: i
+  type(IntVector)              :: output
+  
+  if (i>0 .and. i<=size(this,1)) then
+    output = vec(this%contents_(i,:))
+  else
+    call print_line(CODE_ERROR//': Trying to access an element outside of &
+       &the matrix.')
+    call err()
+  endif
+end function
+
+impure elemental function column_IntMatrix(this,j) result(output)
+  implicit none
+  
+  class(IntMatrix), intent(in) :: this
+  integer,          intent(in) :: j
+  type(IntVector)              :: output
+  
+  if (j>0 .and. j<=size(this,2)) then
+    output = vec(this%contents_(:,j))
+  else
+    call print_line(CODE_ERROR//': Trying to access an element outside of &
+       &the matrix.')
+    call err()
+  endif
+end function
+
+impure elemental function element_RealMatrix(this,i,j) result(output)
+  implicit none
+  
+  class(RealMatrix), intent(in) :: this
+  integer,           intent(in) :: i
+  integer,           intent(in) :: j
+  real(dp)                      :: output
+  
+  if (i>0 .and. i<=size(this,1) .and. j>0 .and. j<=size(this,2)) then
+    output = this%contents_(i,j)
+  else
+    call print_line(CODE_ERROR//': Trying to access an element outside of &
+       &the matrix.')
+    call err()
+  endif
+end function
+
+impure elemental function row_RealMatrix(this,i) result(output)
+  implicit none
+  
+  class(RealMatrix), intent(in) :: this
+  integer,           intent(in) :: i
+  type(RealVector)              :: output
+  
+  if (i>0 .and. i<=size(this,1)) then
+    output = vec(this%contents_(i,:))
+  else
+    call print_line(CODE_ERROR//': Trying to access an element outside of &
+       &the matrix.')
+    call err()
+  endif
+end function
+
+impure elemental function column_RealMatrix(this,j) result(output)
+  implicit none
+  
+  class(RealMatrix), intent(in) :: this
+  integer,           intent(in) :: j
+  type(RealVector)              :: output
+  
+  if (j>0 .and. j<=size(this,2)) then
+    output = vec(this%contents_(:,j))
+  else
+    call print_line(CODE_ERROR//': Trying to access an element outside of &
+       &the matrix.')
+    call err()
+  endif
+end function
+
+impure elemental function element_ComplexMatrix(this,i,j) result(output)
+  implicit none
+  
+  class(ComplexMatrix), intent(in) :: this
+  integer,              intent(in) :: i
+  integer,              intent(in) :: j
+  complex(dp)                      :: output
+  
+  if (i>0 .and. i<=size(this,1) .and. j>0 .and. j<=size(this,2)) then
+    output = this%contents_(i,j)
+  else
+    call print_line(CODE_ERROR//': Trying to access an element outside of &
+       &the matrix.')
+    call err()
+  endif
+end function
+
+impure elemental function row_ComplexMatrix(this,i) result(output)
+  implicit none
+  
+  class(ComplexMatrix), intent(in) :: this
+  integer,              intent(in) :: i
+  type(ComplexVector)              :: output
+  
+  if (i>0 .and. i<=size(this,1)) then
+    output = vec(this%contents_(i,:))
+  else
+    call print_line(CODE_ERROR//': Trying to access an element outside of &
+       &the matrix.')
+    call err()
+  endif
+end function
+
+impure elemental function column_ComplexMatrix(this,j) result(output)
+  implicit none
+  
+  class(ComplexMatrix), intent(in) :: this
+  integer,              intent(in) :: j
+  type(ComplexVector)              :: output
+  
+  if (j>0 .and. j<=size(this,2)) then
+    output = vec(this%contents_(:,j))
+  else
+    call print_line(CODE_ERROR//': Trying to access an element outside of &
+       &the matrix.')
+    call err()
+  endif
+end function
+
+! ----------------------------------------------------------------------
 ! Conversions between types.
 ! ----------------------------------------------------------------------
 ! Private conversion to other vector/matrix types.
@@ -1068,22 +1284,22 @@ function make_identity_matrix(n) result(output)
 end function
 
 ! Conversion to nearest integer.
-function nint_RealVector(input) result(output)
+impure elemental function nint_RealVector(input) result(output)
   implicit none
   
   type(RealVector), intent(in) :: input
-  integer, allocatable         :: output(:)
+  type(IntVector)              :: output
   
-  output = nint(dble(input))
+  output = vec(nint(dble(input)))
 end function
 
-function nint_RealMatrix(input) result(output)
+impure elemental function nint_RealMatrix(input) result(output)
   implicit none
   
   type(RealMatrix), intent(in) :: input
-  integer, allocatable         :: output(:,:)
+  type(IntMatrix)              :: output
   
-  output = nint(dble(input))
+  output = mat(nint(dble(input)))
 end function
 
 ! Makes a matrix whose rows are the input vectors.

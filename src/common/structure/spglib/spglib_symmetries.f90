@@ -10,12 +10,9 @@ module spglib_symmetries_module
   public :: SpglibSymmetries
   public :: size
   
-  type, extends(NoDefaultConstructor) :: SpglibSymmetries
+  type, extends(Stringsable) :: SpglibSymmetries
     integer                       :: spacegroup_number
-    integer                       :: hall_number
     type(String)                  :: international_symbol
-    type(String)                  :: hall_symbol
-    type(String)                  :: choice
     type(RealMatrix)              :: transformation
     type(RealVector)              :: origin_shift
     integer                       :: n_operations
@@ -23,10 +20,15 @@ module spglib_symmetries_module
     type(RealVector), allocatable :: translations(:)
     integer                       :: n_atoms
     type(String)                  :: pointgroup_symbol
+  contains
+    procedure, public :: read  => read_SpglibSymmetries
+    procedure, public :: write => write_SpglibSymmetries
   end type
   
   interface SpglibSymmetries
     module procedure new_SpglibSymmetries
+    module procedure new_SpglibSymmetries_Strings
+    module procedure new_SpglibSymmetries_StringArray
   end interface
   
   interface size
@@ -34,16 +36,13 @@ module spglib_symmetries_module
   end interface
 contains
 
-function new_SpglibSymmetries(spacegroup_number,hall_number,              &
-   & international_symbol,hall_symbol,choice,transformation,origin_shift, &
-   & n_operations,tensors,translations,n_atoms,pointgroup_symbol) result(this)
+function new_SpglibSymmetries(spacegroup_number,international_symbol,       &
+   & transformation,origin_shift,n_operations,tensors,translations,n_atoms, &
+   & pointgroup_symbol) result(this)
   implicit none
   
   integer,          intent(in) :: spacegroup_number
-  integer,          intent(in) :: hall_number
   type(String),     intent(in) :: international_symbol
-  type(String),     intent(in) :: hall_symbol
-  type(String),     intent(in) :: choice
   type(RealMatrix), intent(in) :: transformation
   type(RealVector), intent(in) :: origin_shift
   integer,          intent(in) :: n_operations
@@ -64,8 +63,7 @@ function new_SpglibSymmetries(spacegroup_number,hall_number,              &
   endif
   
   this%spacegroup_number = spacegroup_number
-  this%hall_number = hall_number
-  this%choice = choice
+  this%international_symbol = international_symbol
   this%transformation = transformation
   this%origin_shift = origin_shift
   this%n_operations = n_operations
@@ -82,5 +80,68 @@ function size_SpglibSymmetries(this) result(output)
   integer                            :: output
   
   output = size(this%tensors)
+end function
+
+! ----------------------------------------------------------------------
+! I/O.
+! ----------------------------------------------------------------------
+subroutine read_SpglibSymmetries(this,input)
+  implicit none
+  
+  class(SpglibSymmetries), intent(out) :: this
+  type(String),           intent(in)  :: input(:)
+  
+  select type(this); type is(SpglibSymmetries)
+    call err()
+  class default
+    call err()
+  end select
+end subroutine
+
+function write_SpglibSymmetries(this) result(output)
+  implicit none
+  
+  class(SpglibSymmetries), intent(in) :: this
+  type(String), allocatable          :: output(:)
+  
+  integer :: i
+  
+  select type(this); type is(SpglibSymmetries)
+    output = [ 'Spacegroup Number    : '//this%spacegroup_number,    &
+             & 'International Symbol : '//this%international_symbol, &
+             & 'Pointgroup Symbol    : '//this%pointgroup_symbol,    &
+             & str('Transformation       : '),                       &
+             & str(this%transformation),                             &
+             & 'Origin Shift         : '//this%origin_shift,         &
+             & 'No. Atoms            : '//this%n_atoms,              &
+             & 'No. Operations       : '//this%n_operations,         &
+             & str('Operations           : ')                        ]
+    do i=1,this%n_operations
+      output = [ output,                   &
+               & str(this%tensors(i)),     &
+               & str(this%translations(i)) ]
+    enddo
+  class default
+    call err()
+  end select
+end function
+
+function new_SpglibSymmetries_Strings(input) result(this)
+  implicit none
+  
+  type(String), intent(in) :: input(:)
+  type(SpglibSymmetries)   :: this
+  
+  call this%read(input)
+end function
+
+impure elemental function new_SpglibSymmetries_StringArray(input) &
+   & result(this)
+  implicit none
+  
+  type(StringArray), intent(in) :: input
+  type(SpglibSymmetries)        :: this
+  
+  this = SpglibSymmetries(str(input))
 end function
 end module

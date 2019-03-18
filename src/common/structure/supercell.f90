@@ -4,8 +4,9 @@
 module supercell_module
   use utils_module
   
+  use atom_module
+  
   use qpoint_module
-  use basic_structure_module
   use structure_data_module
   implicit none
   
@@ -303,9 +304,9 @@ impure elemental subroutine check_supercell(supercell,structure)
     fractional_difference = structure%recip_lattice       &
        & * ( supercell%atoms(atom_1)%cartesian_position() &
        &   - supercell%atoms(atom_2)%cartesian_position())
-    if ( l2_norm( fractional_difference             &
-     &          - vec(nint(fractional_difference))) &
-     & > 1.0e-10_dp) then
+    if ( l2_norm( fractional_difference         &
+     &          - nint(fractional_difference) ) &
+     & > 1.0e-10_dp                             ) then
       call print_line(CODE_ERROR//': atoms '//atom_1//' and '//atom_2// &
          & ' in supercell are not related by an R-vector')
       call err()

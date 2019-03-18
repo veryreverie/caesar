@@ -13,7 +13,6 @@ module structure_module
   use atom_module
   
   use physical_constants_module
-  use basic_structure_module
   use qpoint_module
   use generate_qpoints_module
   use symmetry_module

@@ -45,11 +45,6 @@ module atom_data_module
     procedure, public :: set_cartesian_position
   end type
   
-  type :: HasLattice
-    type(RealMatrix) :: lattice
-    type(RealMatrix) :: recip_lattice
-  end type
-  
   interface AtomData
     module procedure new_AtomData
   end interface

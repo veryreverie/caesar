@@ -53,6 +53,12 @@ function setup_harmonic() result(output)
      &atoms will be displaced when mapping the harmonic Born-Oppenheimer &
      &surface.',                                                              &
      &              default_value='0.01'),                                    &
+     & KeywordData( 'snap_to_symmetry',                                       &
+     &              'snap_to_symmetry specifies whether or not to enforce &
+     &exact symmetry on the structure before running calculations. If &
+     &snap_to_symmetry is set to false, and the symmetry error is large, this &
+     &may lead to errors and potential crashes in later calculations.',       &
+     &              default_value='true'),                                    &
      & KeywordData( 'loto_direction',                                         &
      &              'loto_direction specifies the direction (in reciprocal &
      &co-ordinates from which the gamma point is approached when calculating &
@@ -77,18 +83,19 @@ subroutine setup_harmonic_subroutine(arguments)
   type(Dictionary), intent(in) :: arguments
   
   ! User input variables.
-  type(String) :: file_type
-  type(String) :: seedname
+  type(String)         :: file_type
+  type(String)         :: seedname
+  integer              :: grid(3)
+  real(dp)             :: symmetry_precision
+  real(dp)             :: harmonic_displacement
+  logical              :: snap_to_symmetry
+  type(Fractionvector) :: loto_direction
   
   ! Electronic structure calculation writer.
   type(CalculationWriter) :: calculation_writer
   
-  ! User input data.
+  ! The structure.
   type(StructureData)  :: structure
-  integer              :: grid(3)
-  real(dp)             :: symmetry_precision
-  real(dp)             :: harmonic_displacement
-  type(Fractionvector) :: loto_direction
   
   ! Variables for checking that the input is a primitive cell.
   type(IntMatrix) :: identity_matrix
@@ -128,7 +135,7 @@ subroutine setup_harmonic_subroutine(arguments)
   grid = int(split_line(arguments%value('q-point_grid')))
   symmetry_precision = dble(arguments%value('symmetry_precision'))
   harmonic_displacement = dble(arguments%value('harmonic_displacement'))
-  
+  snap_to_symmetry = lgcl(arguments%value('snap_to_symmetry'))
   if (arguments%is_set('loto_direction')) then
     loto_direction = FractionVector(arguments%value('loto_direction'))
     if (any(grid/=1)) then
@@ -145,6 +152,11 @@ subroutine setup_harmonic_subroutine(arguments)
   ! Read in structure.
   input_filename = make_input_filename(file_type, seedname)
   structure = input_file_to_StructureData(file_type, input_filename)
+  
+  ! Snap structure to symmetry.
+  if (snap_to_symmetry) then
+    structure = structure%snap_to_symmetry(symmetry_precision)
+  endif
   
   ! Generate symmetries of structure.
   if (arguments%is_set('loto_direction')) then

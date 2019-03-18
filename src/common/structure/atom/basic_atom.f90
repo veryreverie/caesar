@@ -19,7 +19,9 @@ module basic_atoms_module
     module procedure new_BasicAtom
   end interface
 contains
-function new_BasicAtom(species,mass,cartesian_position) result(output)
+
+impure elemental function new_BasicAtom(species,mass,cartesian_position) &
+   & result(output)
   implicit none
   
   type(String),     intent(in) :: species

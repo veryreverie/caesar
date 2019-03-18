@@ -4,8 +4,9 @@
 module symmetry_module
   use utils_module
   
+  use atom_module
+  
   use basic_symmetry_module
-  use basic_structure_module
   use qpoint_module
   implicit none
   

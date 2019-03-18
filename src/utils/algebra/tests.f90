@@ -18,6 +18,7 @@ module tests_module
   public :: check_unitary
   public :: check_orthonormal
   public :: check_real
+  public :: check_int
   
   interface check_identity
     module procedure check_identity_String
@@ -54,6 +55,11 @@ module tests_module
   interface check_real
     module procedure check_real_String
     module procedure check_real_character
+  end interface
+  
+  interface check_int
+    module procedure check_int_String
+    module procedure check_int_character
   end interface
 contains
 
@@ -495,5 +501,46 @@ subroutine check_real_character(input,matrix_name,logfile,warning_threshold)
   real(dp),            intent(in),    optional :: warning_threshold
   
   call check_real(input,str(matrix_name),logfile,warning_threshold)
+end subroutine
+
+subroutine check_int_String(input,matrix_name,logfile,warning_threshold)
+  implicit none
+  
+  type(RealMatrix), intent(in)              :: input
+  type(String),     intent(in)              :: matrix_name
+  type(OFile),      intent(inout), optional :: logfile
+  real(dp),         intent(in),    optional :: warning_threshold
+  
+  real(dp) :: threshold
+  real(dp) :: error
+  
+  if (present(warning_threshold)) then
+    threshold = warning_threshold
+  else
+    threshold = 1e-10_dp
+  endif
+  
+  error = sqrt(sum_squares(input-nint(input)))
+  
+  if (present(logfile)) then
+    call logfile%print_line('L2 error in difference from integer of &
+       &components of '//matrix_name//': '//error)
+  endif
+  
+  if (error>threshold) then
+    call print_line(WARNING//': '//matrix_name//' not as close to integers as &
+       &expected. L2 error in components: '//error)
+  endif
+end subroutine
+
+subroutine check_int_character(input,matrix_name,logfile,warning_threshold)
+  implicit none
+  
+  type(RealMatrix), intent(in)              :: input
+  character(*),     intent(in)              :: matrix_name
+  type(OFile),      intent(inout), optional :: logfile
+  real(dp),         intent(in),    optional :: warning_threshold
+  
+  call check_int(input,str(matrix_name),logfile,warning_threshold)
 end subroutine
 end module
