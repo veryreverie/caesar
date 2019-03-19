@@ -234,16 +234,13 @@ function snap_to_symmetry(lattice,atoms,symmetry_precision) result(output)
   
   type(RealMatrix) :: snapped_lattice
   type(RealMatrix) :: unsnapped_lattice
-  type(RealMatrix) :: rotation
   type(RealMatrix) :: real_transformation
   type(IntMatrix)  :: transformation
   
   type(RealMatrix) :: new_lattice
   
   type(RealVector), allocatable :: old_frac_positions(:)
-  type(RealVector), allocatable :: check_frac_positions(:)
   type(RealVector), allocatable :: new_frac_positions(:)
-  integer,          allocatable :: mapping(:)
   
   real(dp) :: max_lattice_change
   real(dp) :: max_atom_change
@@ -278,11 +275,11 @@ function snap_to_symmetry(lattice,atoms,symmetry_precision) result(output)
   endif
   ! unsnapped = transformation . input.
   unsnapped_lattice = mat(spg_lattice)
-  check_frac_positions = [(vec(spg_positions(:,i)), i=1, size(atoms))]
   
   ! Call Spglib such that the lattice vectors are also snapped.
   ! N.B. this will in general rotate the structure by an arbitrary amount.
-  ! N.B. this may also invert and re-order the atomic positions.
+  ! N.B. this may also in general translate the structure by an arbitrary
+  !    amount.
   spg_lattice = old_lattice
   spg_positions = old_positions
   spg_types = old_types
@@ -301,52 +298,11 @@ function snap_to_symmetry(lattice,atoms,symmetry_precision) result(output)
   snapped_lattice    = mat(spg_lattice)
   new_frac_positions = [(vec(spg_positions(:,i)), i=1, size(atoms))]
   
-  ! Check if the positions have been inverted by spglib,
-  !    and undo the inversion if they have.
-  if (   sum(l2_norm( new_frac_positions                              &
-     &              - check_frac_positions                            &
-     &              - nint( new_frac_positions                        &
-     &                    - check_frac_positions ) ))                 &
-     & > sum(l2_norm( new_frac_positions(size(atoms):1:-1)            &
-     &              + check_frac_positions                            &
-     &              - nint( new_frac_positions(size(atoms):1:-1)      &
-     &                    + check_frac_positions                 ) )) ) then
-    new_frac_positions = - new_frac_positions
-  endif
-  
   ! Construct (transformation . output), i.e. the lattice which has
   !    the lengths and angles of the snapped lattice,
   !    but the orientation of the un-snapped lattice.
   new_lattice = standardize_lattice(snapped_lattice) &
             & * standard_transformation(unsnapped_lattice)
-  
-  ! Construct the old atomic co-ordinates in the fractional co-ordinates of the
-  !    new lattice.
-  old_frac_positions = [(    invert(transpose(new_lattice)) &
-                        &  * transpose(lattice)             &
-                        &  * vec(old_positions(:,i)),       &
-                        & i=1,                              &
-                        & size(atoms)                       )]
-  
-  ! Construct the mapping from the new positions to the old positions.
-  mapping = [(                                                               &
-     & minloc( l2_norm( new_frac_positions-old_frac_positions(i)             &
-     &                - nint(new_frac_positions-old_frac_positions(i)) ),    &
-     &         1                                                          ), &
-     & i=1,                                                                  &
-     & size(atoms)                                                           )]
-  if (size(mapping)/=size(set(mapping))) then
-    call print_line(CODE_ERROR//': spglib atom mapping is not one-to-one.')
-    call err()
-  endif
-  
-  ! Translate the atomic positions by the correct lattice vectors,
-  !    and transform the atomic positions into cartesian co-ordinates.
-  new_frac_positions = [(   new_frac_positions(mapping(i))          &
-                        & - nint( new_frac_positions(mapping(i))    &
-                        &       - old_frac_positions(i)          ), &
-                        & i=1,                                      &
-                        & size(atoms)                               )]
   
   ! Construct the 'transformation' matrix.
   real_transformation = transpose(lattice * invert(unsnapped_lattice))
@@ -357,6 +313,39 @@ function snap_to_symmetry(lattice,atoms,symmetry_precision) result(output)
        &determinant 1.')
     call err()
   endif
+  
+  ! Construct the old atomic co-ordinates in the fractional co-ordinates of the
+  !    new lattice.
+  old_frac_positions = [(    invert(transpose(new_lattice)) &
+                        &  * transpose(lattice)             &
+                        &  * vec(old_positions(:,i)),       &
+                        & i=1,                              &
+                        & size(atoms)                       )]
+  
+  ! Translate the entire cell by three translations:
+  !    - The first ensures that new_frac_positions(i) and old_frac_positions(i)
+  !         are approximately separated by a lattice vector.
+  !    - The second calculates that lattice vector, and subtracts it from
+  !         new_positions(i), such that it approximately equals
+  !         old_frac_positions(i).
+  !    - The third moves the new frac positions to be as close as possible to
+  !         the old frac positions.
+  new_frac_positions = [(   new_frac_positions(i)                          &
+                        & - (new_frac_positions(1)-old_frac_positions(1)), &
+                        & i=1,                                             &
+                        & size(atoms)                                      )]
+  
+  new_frac_positions = [(   new_frac_positions(i)          &
+                        & - nint( new_frac_positions(i)    &
+                        &       - old_frac_positions(i) ), &
+                        & i=1,                             &
+                        & size(atoms)                      )]
+  
+  new_frac_positions = [(   new_frac_positions(i)                      &
+                        & - sum(new_frac_positions-old_frac_positions) &
+                        & / size(atoms),                               &
+                        & i=1,                                         &
+                        & size(atoms)                                  )]
   
   ! Transform the lattice and atoms by this transformation, to return to the
   !    original cell.
@@ -405,10 +394,6 @@ function standardize_lattice(lattice) result(output)
   real(dp) :: ax
   real(dp) :: bx, by
   real(dp) :: cx, cy, cz
-  real(dp) :: norms(3)
-  real(dp) :: matrix(3,3)
-  
-  integer :: i
   
   !                   ( a.a a.b a.c )
   ! Construct L.T^T = ( b.a b.b b.c )
