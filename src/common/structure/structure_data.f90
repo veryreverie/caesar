@@ -910,10 +910,10 @@ subroutine read_StructureData(this,input)
       line = split_line(lower_case(input(symmetry_line+2)))
       if (line(1)=='Space') then
         this%space_group = line(3)
-        operator_start_line = symmetry_line+3
+        operator_start_line = symmetry_line+4
       else
         this%space_group = ''
-        operator_start_line = symmetry_line+2
+        operator_start_line = symmetry_line+3
       endif
       
       sections = split_into_sections(                   &
