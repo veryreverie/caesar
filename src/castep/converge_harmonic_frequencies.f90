@@ -22,23 +22,25 @@ subroutine startup_converge_harmonic_frequencies()
   
   type(CaesarMode) :: mode
   
+  type(CaesarMode) :: setup_harmonic_mode
+  type(CaesarMode) :: run_harmonic_mode
+  type(CaesarMode) :: calculate_normal_modes_mode
+  type(CaesarMode) :: calculate_harmonic_observables_mode
+  
+  setup_harmonic_mode = CaesarMode('setup_harmonic')
+  run_harmonic_mode = CaesarMode('run_harmonic')
+  calculate_normal_modes_mode = CaesarMode('calculate_normal_modes')
+  calculate_harmonic_observables_mode = &
+     & CaesarMode('calculate_harmonic_observables')
+  
   mode%mode_name = 'converge_harmonic_frequencies'
   mode%description = 'Converges harmonic frequencies and free energies &
      &w/r/t cutoff energy, k-point spacing and electronic smearing. N.B. only &
      &the value being converged will be changed in each input file.'
   mode%keywords = [                                                           &
-     & KeywordData( 'file_type',                                              &
-     &              'file_type is the file type which will be used for &
-     &single-point energy calculations. Usual settings are: "castep", &
-     &"caesar" and "xyz", but only CASTEP is supported by this convergence &
-     &module at present',                                                     &
-     &              default_value='castep'),                                  &
-     & KeywordData( 'seedname',                                               &
-     &              'seedname is the CASTEP seedname from which filenames &
-     &are constructed.'),                                                     &
-     & KeywordData( 'converge_cutoff',                                        &
-     &              'converge_cutoff specifies whether or not cutoff energies &
-     &will be converged.',                                                    &
+     & KeywordData( 'converge_cutoff',                                      &
+     &              'converge_cutoff specifies whether or not electronic &
+     &cut-off energy will be converged.',                                     &
      &              default_value='true'),                                    &
      & KeywordData( 'minimum_cutoff',                                         &
      &              'minimum_cutoff is the smallest cutoff energy which will &
@@ -104,77 +106,16 @@ subroutine startup_converge_harmonic_frequencies()
      &              'convergence_count is the number of consecutive &
      &frequencies and/or energies that must be within the defined tolerance &
      &of each other for convergence to be considered reached',                &
-     &              default_value='3'),                                       &
-     & KeywordData( 'q-point_grid',                                           &
-     &              'q-point_grid is the number of q-points in each direction &
-     &in a Monkhorst-Pack grid. This should be specified as three integers &
-     &separated by spaces.'),                                                 &
-     & KeywordData( 'symmetry_precision',                                     &
-     &              'In order for a symmetry to be accepted, it must &
-     &transform the position of every atom to within symmetry_precision of an &
-     &atom of the same element. symmetry_precision should be given in Bohr.', &
-     &              default_value='0.1'),                                     &
-     & KeywordData( 'harmonic_displacement',                                  &
-     &              'harmonic_displacement is the distance in bohr by which &
-     &atoms will be displaced when mapping the harmonic Born-Oppenheimer &
-     &surface.',                                                              &
-     &              default_value='0.01'),                                    &
-     & KeywordData( 'run_script',                                             &
-     &              'run_script is the path to the script for running DFT. An &
-     &example run script can be found in doc/input_files. This script should &
-     &have executable file permissions and should run CASTEP',                &
-     &              is_path=.true.),                                          &
-     & KeywordData( 'no_cores',                                               &
-     &              'no_cores is the number of cores on which the electronic &
-     &structure calculation will be run. This is passed to the specified run &
-     &script.',                                                               &
-     &              default_value='1'),                                       &
-     & KeywordData( 'no_nodes',                                               &
-     &              'no_nodes is the number of nodes on which the electronic &
-     &structure calculation will be run. This is passed to the specified run &
-     &script.',                                                               &
-     &              default_value='1'),                                       &
-     & KeywordData( 'repeat_calculations',                                    &
-     &              'repeat_calculations specifies whether or not electronic &
-     &calculations will be re-run if an electronic_structure.dat file is &
-     &found in their directory.',                                             &
-     &               default_value='true'),                                   &
-     & KeywordData( 'acoustic_sum_rule',                                      &
-     &              'acoustic_sum_rule specifies where the acoustic sum rule &
-     &is applied. The options are "off", "forces", "matrices" and "both".',   &
-     &              default_value='both'),                                    &
-     & KeywordData( 'min_temperature',                                        &
-     &              'min_temperature is the minimum temperature at which &
-     &thermodynamic quantities are calculated. min_temperature should be &
-     &given in Kelvin.',                                                      &
-     &              default_value='0'),                                       &
-     & KeywordData( 'max_temperature',                                        &
-     &              'max_temperature is the maximum temperature at which &
-     &thermodynamic quantities are calculated. min_temperature should be &
-     &given in Kelvin.',                                                      &
-     &              default_value='500'),                                     &
-     & KeywordData( 'no_temperature_steps',                                   &
-     &              'no_temperature_steps is the number of temperatures at &
-     &which thermodynamic quantities are calculated.',                        &
-     &              default_value='6'),                                       &
-     & KeywordData( 'min_frequency',                                          &
-     &              'min_frequency is the frequency below which modes will be &
-     &ignored when calculating thermodynamic quantities. min_frequency should &
-     &be given in Hartree.',                                                  &
-     &              default_value='1e-8'),                                    &
-     & KeywordData( 'path',                                                   &
-     &              'path is the path through fractional reciprocal space &
-     &which will be mapped by the phonon dispersion curve. The path should be &
-     &specified as labels and q-points, separated by commas. The Gamma-point &
-     &should be labelled G.',                                                 &
-     &              default_value='G 0.0 0.0 0.0, R 0.5 0.5 0.5,              &
-     &M 0.0 0.5 0.5, G 0.0 0.0 0.0, X 0.0 0.0 0.5'),                          &
-     & KeywordData( 'no_dos_samples',                                         &
-     &              'no_dos_samples is the number of points in reciprocal &
-     &space at which the normal modes are calculated when calculating the &
-     &vibrational density of states.',                                        &
-     &              default_value='100000')                                   ]
+     &              default_value='3')                                        ]
+  mode%keywords = [ mode%keywords,                               &
+                  & setup_harmonic_mode%keywords,                &
+                  & run_harmonic_mode%keywords,                  &
+                  & calculate_normal_modes_mode%keywords,        &
+                  & calculate_harmonic_observables_mode%keywords ]
   mode%main_subroutine => converge_harmonic_frequencies_subroutine
+  
+  call mode%remove_keyword('supercells_to_run')
+  call mode%remove_keyword('exit_on_error')
   
   call add_mode(mode)
 end subroutine
@@ -209,20 +150,8 @@ subroutine converge_harmonic_frequencies_subroutine(arguments)
   real(dp)     :: maximum_smearing
   
   integer      :: grid(3)
-  real(dp)     :: symmetry_precision
-  real(dp)     :: harmonic_displacement
-  integer      :: no_cores
-  integer      :: no_nodes
-  type(String) :: run_script
   logical      :: converge_energies
   logical      :: repeat_calculations
-  type(String) :: acoustic_sum_rule
-  real(dp)     :: min_temperature
-  real(dp)     :: max_temperature
-  integer      :: no_temperature_steps
-  real(dp)     :: min_frequency
-  type(String) :: path
-  integer      :: no_dos_samples
   real(dp)     :: freq_tolerance
   real(dp)     :: energy_tolerance
   integer      :: convergence_count
@@ -286,20 +215,8 @@ subroutine converge_harmonic_frequencies_subroutine(arguments)
   
   grid = int(split_line(arguments%value('q-point_grid')))
   no_qpoints = grid(1)*grid(2)*grid(3)
-  symmetry_precision = dble(arguments%value('symmetry_precision'))
-  harmonic_displacement = dble(arguments%value('harmonic_displacement'))
-  no_cores = int(arguments%value('no_cores'))
-  no_nodes = int(arguments%value('no_nodes'))
-  run_script = arguments%value('run_script')
   converge_energies = lgcl(arguments%value('converge_energies'))
   repeat_calculations = lgcl(arguments%value('repeat_calculations'))
-  acoustic_sum_rule = arguments%value('acoustic_sum_rule')
-  min_temperature = dble(arguments%value('min_temperature'))
-  max_temperature = dble(arguments%value('max_temperature'))
-  no_temperature_steps = int(arguments%value('no_temperature_steps'))
-  min_frequency = dble(arguments%value('min_frequency'))
-  path = arguments%value('path')
-  no_dos_samples = int(arguments%value('no_dos_samples'))
   freq_tolerance = dble(arguments%value('freq_tolerance'))
   energy_tolerance = dble(arguments%value('energy_tolerance'))
   convergence_count = int(arguments%value('convergence_count'))
@@ -325,10 +242,6 @@ subroutine converge_harmonic_frequencies_subroutine(arguments)
   elseif (file_type/='castep' .and. file_type/='quantum_espresso') then
     call print_line(ERROR//': castep and quantum_espresso are the only &
        &accepted file types for this mode.')
-    call quit()
-  elseif (max_temperature<=min_temperature) then
-    call print_line(ERROR//': max_temperature is smaller than &
-       &min_temperature.')
     call quit()
   elseif (convergence_count<1) then
     call print_line(ERROR//': convergence_count must be at least 1.')
@@ -430,22 +343,14 @@ subroutine converge_harmonic_frequencies_subroutine(arguments)
          &                         floating_point_format = 'f' ) ))
       call mkdir(directory)
       
-      cutoff_frequencies = [                                 &
-         & cutoff_frequencies,                               &
-         & calculate_frequencies(                            &
-         &    directory             = directory,             &
-         &    cutoff                = cutoffs(i),            &
-         &    seedname              = seedname,              &
-         &    no_qpoints            = no_qpoints,            &
-         &    file_type             = file_type,             &
-         &    grid                  = grid,                  &
-         &    symmetry_precision    = symmetry_precision,    &
-         &    harmonic_displacement = harmonic_displacement, &
-         &    run_script            = run_script,            &
-         &    no_cores              = no_cores,              &
-         &    no_nodes              = no_nodes,              &
-         &    repeat_calculations   = repeat_calculations,   &
-         &    acoustic_sum_rule     = acoustic_sum_rule      ) ]
+      cutoff_frequencies = [                               &
+         & cutoff_frequencies,                             &
+         & calculate_frequencies( directory  = directory,  &
+         &                        cutoff     = cutoffs(i), &
+         &                        seedname   = seedname,   &
+         &                        no_qpoints = no_qpoints, &
+         &                        file_type  = file_type,  &
+         &                        arguments  = arguments   ) ]
       
       if (i>convergence_count) then
         frequencies_converged =                                    &
@@ -459,14 +364,8 @@ subroutine converge_harmonic_frequencies_subroutine(arguments)
         cutoff_free_energies = [                            &
            & cutoff_free_energies,                          &
            & calculate_free_energies( directory,            &
-           &                          min_temperature,      &
-           &                          max_temperature,      &
-           &                          no_temperature_steps, &
-           &                          min_frequency,        &
-           &                          path,                 &
-           &                          no_dos_samples,       &
-           &                          random_seed,          &
-           &                          repeat_calculations   ) ]
+           &                          repeat_calculations,  &
+           &                          arguments             ) ]
 
         if (i>convergence_count) then
           energies_converged =                                         &
@@ -517,22 +416,14 @@ subroutine converge_harmonic_frequencies_subroutine(arguments)
       directory = 'kpoints_'//join(str(kpoint_grids(i)%grid), delimiter='_')
       call mkdir(directory)
       
-      kpoint_frequencies = [                                 &
-         & kpoint_frequencies,                               &
-         & calculate_frequencies(                            &
-         &    directory             = directory,             &
-         &    kpoint_grid           = kpoint_grids(i),       &
-         &    seedname              = seedname,              &
-         &    no_qpoints            = no_qpoints,            &
-         &    file_type             = file_type,             &
-         &    grid                  = grid,                  &
-         &    symmetry_precision    = symmetry_precision,    &
-         &    harmonic_displacement = harmonic_displacement, &
-         &    run_script            = run_script,            &
-         &    no_cores              = no_cores,              &
-         &    no_nodes              = no_nodes,              &
-         &    repeat_calculations   = repeat_calculations,   &
-         &    acoustic_sum_rule     = acoustic_sum_rule      ) ]
+      kpoint_frequencies = [                                     &
+         & kpoint_frequencies,                                   &
+         & calculate_frequencies( directory   = directory,       &
+         &                        kpoint_grid = kpoint_grids(i), &
+         &                        seedname    = seedname,        &
+         &                        no_qpoints  = no_qpoints,      &
+         &                        file_type   = file_type,       &
+         &                        arguments   = arguments        ) ]
       
       if (i>convergence_count) then
         frequencies_converged =                                    &
@@ -546,14 +437,8 @@ subroutine converge_harmonic_frequencies_subroutine(arguments)
         kpoint_free_energies = [                            &
            & kpoint_free_energies,                          &
            & calculate_free_energies( directory,            &
-           &                          min_temperature,      &
-           &                          max_temperature,      &
-           &                          no_temperature_steps, &
-           &                          min_frequency,        &
-           &                          path,                 &
-           &                          no_dos_samples,       &
-           &                          random_seed,          &
-           &                          repeat_calculations   ) ]
+           &                          repeat_calculations,  &
+           &                          arguments             ) ]
 
         if (i>convergence_count) then
           energies_converged =                                         &
@@ -606,20 +491,12 @@ subroutine converge_harmonic_frequencies_subroutine(arguments)
       
       smearing_frequencies = [                               &
          & smearing_frequencies,                             &
-         & calculate_frequencies(                            &
-         &    directory             = directory,             &
-         &    smearing              = smearings(i),          &
-         &    seedname              = seedname,              &
-         &    no_qpoints            = no_qpoints,            &
-         &    file_type             = file_type,             &
-         &    grid                  = grid,                  &
-         &    symmetry_precision    = symmetry_precision,    &
-         &    harmonic_displacement = harmonic_displacement, &
-         &    run_script            = run_script,            &
-         &    no_cores              = no_cores,              &
-         &    no_nodes              = no_nodes,              &
-         &    repeat_calculations   = repeat_calculations,   &
-         &    acoustic_sum_rule     = acoustic_sum_rule      ) ]
+         & calculate_frequencies( directory  = directory,    &
+         &                        smearing   = smearings(i), &
+         &                        seedname   = seedname,     &
+         &                        no_qpoints = no_qpoints,   &
+         &                        file_type  = file_type,    &
+         &                        arguments  = arguments     ) ]
       
       if (i>convergence_count) then
         frequencies_converged =                                    &
@@ -633,14 +510,8 @@ subroutine converge_harmonic_frequencies_subroutine(arguments)
         smearing_free_energies = [                          &
            & smearing_free_energies,                        &
            & calculate_free_energies( directory,            &
-           &                          min_temperature,      &
-           &                          max_temperature,      &
-           &                          no_temperature_steps, &
-           &                          min_frequency,        &
-           &                          path,                 &
-           &                          no_dos_samples,       &
-           &                          random_seed,          &
-           &                          repeat_calculations   ) ]
+           &                          repeat_calculations,  &
+           &                          arguments             ) ]
 
         if (i>convergence_count) then
           energies_converged =                                         &
@@ -764,28 +635,23 @@ subroutine write_output_file(cutoffs,cutoff_frequencies,cutoff_free_energies, &
   endif
 end subroutine
 
-function calculate_frequencies(directory,cutoff,kpoint_grid,smearing,        &
-   & seedname,no_qpoints,file_type,grid,symmetry_precision,                  &
-   & harmonic_displacement,run_script,no_cores,no_nodes,repeat_calculations, &
-   & acoustic_sum_rule) result(output)
+function calculate_frequencies(directory,cutoff,kpoint_grid,smearing,     &
+   & seedname,no_qpoints,file_type,arguments) result(output)
   implicit none
   
-  type(String),        intent(in)           :: directory
-  real(dp),            intent(in), optional :: cutoff
-  type(KpointGrid),    intent(in), optional :: kpoint_grid
-  real(dp),            intent(in), optional :: smearing
-  type(String),        intent(in)           :: seedname
-  integer,             intent(in)           :: no_qpoints
-  type(String),        intent(in)           :: file_type
-  integer,             intent(in)           :: grid(3)
-  real(dp),            intent(in)           :: symmetry_precision
-  real(dp),            intent(in)           :: harmonic_displacement
-  type(String),        intent(in)           :: run_script
-  integer,             intent(in)           :: no_cores
-  integer,             intent(in)           :: no_nodes
-  logical,             intent(in)           :: repeat_calculations
-  type(String),        intent(in)           :: acoustic_sum_rule
-  type(RealVector)                          :: output
+  type(String),     intent(in)           :: directory
+  real(dp),         intent(in), optional :: cutoff
+  type(KpointGrid), intent(in), optional :: kpoint_grid
+  real(dp),         intent(in), optional :: smearing
+  type(String),     intent(in)           :: seedname
+  integer,          intent(in)           :: no_qpoints
+  type(String),     intent(in)           :: file_type
+  type(Dictionary), intent(in)           :: arguments
+  type(RealVector)                       :: output
+  
+  type(Dictionary) :: setup_harmonic_arguments
+  type(Dictionary) :: run_harmonic_arguments
+  type(Dictionary) :: calculate_normal_modes_arguments
   
   type(String) :: qpoint_dir
   type(IFile)  :: complex_modes_file
@@ -810,25 +676,30 @@ function calculate_frequencies(directory,cutoff,kpoint_grid,smearing,        &
   endif
   
   ! Call setup_harmonic.
-  call call_caesar(                                              &
-     & 'setup_harmonic -d '//directory                   //' '// &
-     & '--file_type '//file_type                         //' '// &
-     & '--seedname '//seedname                           //' '// &
-     & '--q-point_grid '//grid                           //' '// &
-     & '--symmetry_precision '//symmetry_precision       //' '// &
-     & '--harmonic_displacement '//harmonic_displacement         )
+  setup_harmonic_arguments = Dictionary(CaesarMode('setup_harmonic'))
+  call setup_harmonic_arguments%set(arguments)
+  call setup_harmonic_arguments%set('working_directory', directory)
+  call setup_harmonic_arguments%set( 'output_file',                      &
+                                   & directory//'/setup_harmonic.output' )
+  call call_caesar('setup_harmonic', setup_harmonic_arguments)
   
   ! Call run_harmonic.
-  call call_caesar( 'run_harmonic -d '//directory         //' '// &
-                  & '--run_script '//run_script           //' '// &
-                  & '--no_cores '//no_cores               //' '// &
-                  & '--no_nodes '//no_nodes               //' '// &
-                  & '--exit_on_error true'                //' '// &
-                  & '--repeat_calculations '//repeat_calculations )
+  run_harmonic_arguments = Dictionary(CaesarMode('run_harmonic'))
+  call run_harmonic_arguments%set(arguments)
+  call run_harmonic_arguments%set('working_directory', directory)
+  call run_harmonic_arguments%set( 'output_file',                    &
+                                 & directory//'/run_harmonic.output' )
+  call call_caesar('run_harmonic', run_harmonic_arguments)
   
   ! Call calculate_normal_modes.
-  call call_caesar( 'calculate_normal_modes -d '//directory   //' '// &
-                  & '--acoustic_sum_rule '//acoustic_sum_rule         )
+  calculate_normal_modes_arguments = &
+     & Dictionary(CaesarMode('calculate_normal_modes'))
+  call calculate_normal_modes_arguments%set(arguments)
+  call calculate_normal_modes_arguments%set('working_directory', directory)
+  call calculate_normal_modes_arguments%set(       &
+     & 'output_file',                              &
+     & directory//'/calculate_normal_modes.output' )
+  call call_caesar('calculate_normal_modes', calculate_normal_modes_arguments)
   
   ! Read in normal modes.
   modes = [ComplexMode::]
@@ -841,21 +712,16 @@ function calculate_frequencies(directory,cutoff,kpoint_grid,smearing,        &
   output = vec(modes%frequency)
 end function
 
-function calculate_free_energies(directory,min_temperature,max_temperature, &
-   & no_temperature_steps,min_frequency,path,no_dos_samples,random_seed,    &
-   & repeat_calculations) result(output)
+function calculate_free_energies(directory,repeat_calculations,arguments) &
+   & result(output)
   implicit none
   
-  type(String), intent(in) :: directory
-  real(dp),     intent(in) :: min_temperature
-  real(dp),     intent(in) :: max_temperature
-  integer,      intent(in) :: no_temperature_steps
-  real(dp),     intent(in) :: min_frequency
-  type(String), intent(in) :: path
-  integer,      intent(in) :: no_dos_samples
-  integer,      intent(in) :: random_seed
-  logical,      intent(in) :: repeat_calculations
-  type(RealVector)         :: output
+  type(String),     intent(in) :: directory
+  logical,          intent(in) :: repeat_calculations
+  type(Dictionary), intent(in) :: arguments
+  type(RealVector)             :: output
+  
+  type(Dictionary) :: calculate_harmonic_observables_arguments
   
   type(String)                         :: file_name
   type(IFile)                          :: thermodynamics_file
@@ -865,15 +731,16 @@ function calculate_free_energies(directory,min_temperature,max_temperature, &
   ! Call calculate_harmonic_observables.
   file_name = directory//'/harmonic_observables/thermodynamic_variables.dat'
   if (repeat_calculations .or. .not. file_exists(file_name)) then
-    call call_caesar(                                            &
-       & 'calculate_harmonic_observables -d '//directory //' '// &
-       & '--min_temperature '//min_temperature           //' '// &
-       & '--max_temperature '//max_temperature           //' '// &
-       & '--no_temperature_steps '//no_temperature_steps //' '// &
-       & '--min_frequency '//min_frequency               //' '// &
-       & '--path '//path                                 //' '// &
-       & '--no_dos_samples '//no_dos_samples             //' '// &
-       & '--random_seed '//random_seed                           )
+    calculate_harmonic_observables_arguments = &
+       & Dictionary(CaesarMode('calculate_harmonic_observables'))
+    call calculate_harmonic_observables_arguments%set(arguments)
+    call calculate_harmonic_observables_arguments%set( 'working_directory', &
+                                                     & directory            )
+    call calculate_harmonic_observables_arguments%set(       &
+       & 'output_file',                                      &
+       & directory//'/calculate_harmonic_observables.output' )
+    call call_caesar( 'calculate_harmonic_observables',        &
+                    & calculate_harmonic_observables_arguments )
   endif
   
   ! Read in thermodynamic data.

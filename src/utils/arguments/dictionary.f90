@@ -14,7 +14,8 @@ module argument_dictionary_module
   
   public :: Dictionary
   public :: operator(//)
-  public :: size ! The number of key/value pairs.
+  public :: size
+  public :: call_caesar
   
   ! ------------------------------
   ! A dictionary of keys and values.
@@ -79,12 +80,13 @@ module argument_dictionary_module
                         & set_Dictionary_character_character, &
                         & set_Dictionary_character_String,    &
                         & set_Dictionary_String_character,    &
-                        & set_Dictionary_String_String
+                        & set_Dictionary_String_String,       &
+                        & set_Dictionary_Dictionary
     procedure, private :: set_Dictionary_character_character
     procedure, private :: set_Dictionary_character_String
     procedure, private :: set_Dictionary_String_character
     procedure, private :: set_Dictionary_String_String
-  
+    procedure, private :: set_Dictionary_Dictionary
     
     ! Appends to the value of a keyword.
     ! Returns an error if the keyword has no value set.
@@ -122,7 +124,6 @@ module argument_dictionary_module
     procedure, public :: set_interactively => set_interactively_Dictionary
     procedure, public :: process_and_check_inputs => &
                        & process_and_check_inputs_Dictionary
-    
   end type
   
   interface Dictionary
@@ -136,6 +137,11 @@ module argument_dictionary_module
   
   interface size
     module procedure size_Dictionary
+  end interface
+  
+  interface call_caesar
+    module procedure call_caesar_String_Dictionary
+    module procedure call_caesar_character_Dictionary
   end interface
 contains
 
@@ -417,6 +423,31 @@ subroutine set_Dictionary_String_String(this,keyword,value, &
 end subroutine
 
 ! ----------------------------------------------------------------------
+! Sets all values from another dictionary.
+! ----------------------------------------------------------------------
+subroutine set_Dictionary_Dictionary(this,that)
+  implicit none
+  
+  class(Dictionary), intent(inout) :: this
+  type(Dictionary),  intent(in)    :: that
+  
+  type(String) :: keyword
+  
+  integer :: i
+  
+  do i=1,size(this%keywords)
+    keyword = this%keywords(i)%keyword
+    if (keyword/='interactive' .and. keyword/='input_file') then
+      if (any(keyword==that%keywords%keyword)) then
+        if (that%is_set(keyword)) then
+          call this%set(keyword, that%value(keyword))
+        endif
+      endif
+    endif
+  enddo
+end subroutine
+
+! ----------------------------------------------------------------------
 ! Appends to the value corresponding to a given keyword.
 ! ----------------------------------------------------------------------
 subroutine append_to_value_Dictionary_character_character(this,keyword,value)
@@ -653,5 +684,41 @@ subroutine process_and_check_inputs_Dictionary(this)
   do i=1,size(this)
     call this%keywords(i)%process_and_check()
   enddo
+end subroutine
+
+! ----------------------------------------------------------------------
+! Calls Caesar with a given dictionary of arguments.
+! ----------------------------------------------------------------------
+subroutine call_caesar_String_Dictionary(mode,arguments)
+  implicit none
+  
+  type(String),     intent(in) :: mode
+  type(Dictionary), intent(in) :: arguments
+  
+  type(String) :: command_line_arguments
+  
+  integer :: i
+  
+  command_line_arguments = mode
+  do i=1,size(arguments%keywords)
+    if (arguments%keywords(i)%is_set()) then
+      if (arguments%keywords(i)%value()/='') then
+        command_line_arguments = command_line_arguments              //' '// &
+                               & '--'//arguments%keywords(i)%keyword //' '// &
+                               & arguments%keywords(i)%value()
+      endif
+    endif
+  enddo
+  
+  call call_caesar(command_line_arguments)
+end subroutine
+
+subroutine call_caesar_character_Dictionary(mode,arguments)
+  implicit none
+  
+  character(*),     intent(in) :: mode
+  type(Dictionary), intent(in) :: arguments
+  
+  call call_caesar(str(mode), arguments)
 end subroutine
 end module

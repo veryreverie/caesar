@@ -42,7 +42,13 @@ module caesar_modes_module
     logical :: suppress_from_helptext = .false.
     logical :: suppress_settings_file = .false.
   contains
-    procedure :: print_help => print_help_CaesarMode
+    procedure, public :: print_help => print_help_CaesarMode
+    
+    generic,   public  :: remove_keyword =>      &
+                        & remove_keyword_String, &
+                        & remove_keyword_character
+    procedure, private :: remove_keyword_String
+    procedure, private :: remove_keyword_character
   end type
   
   interface assignment(=)
@@ -211,6 +217,30 @@ function new_CaesarMode_String_String(mode_name,description,keywords, &
                      & suppress_from_helptext, &
                      & suppress_settings_file)
 end function
+
+! Remove a keyword from a CaesarMode.
+impure elemental subroutine remove_keyword_String(this,keyword)
+  implicit none
+  
+  class(CaesarMode), intent(inout) :: this
+  type(string),      intent(in)    :: keyword
+  
+  integer :: i
+  
+  i = first(this%keywords%keyword==keyword, default=0)
+  if (i/=0) then
+    this%keywords = [this%keywords(:i-1), this%keywords(i+1:)]
+  endif
+end subroutine
+
+subroutine remove_keyword_character(this,keyword)
+  implicit none
+  
+  class(CaesarMode), intent(inout) :: this
+  character(*),      intent(in)    :: keyword
+  
+  call this%remove_keyword(str(keyword))
+end subroutine
 
 ! Construct a dictionary from a CaesarMode.
 function new_Dictionary_CaesarMode(mode) result(this)
