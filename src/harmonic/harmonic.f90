@@ -12,7 +12,7 @@ module harmonic_module
   use calculate_harmonic_observables_module
   use plot_dos_and_dispersion_module
   use plot_thermodynamic_variables_module
-  use converge_qpoint_grid_module
+  use converge_harmonic_qpoints_module
   implicit none
 contains
 subroutine startup_harmonic()
@@ -27,5 +27,6 @@ subroutine startup_harmonic()
   call startup_calculate_harmonic_observables()
   call startup_plot_dos_and_dispersion()
   call startup_plot_thermodynamic_variables()
+  call startup_converge_harmonic_qpoints()
 end subroutine
 end module

@@ -12,6 +12,8 @@ module kpoint_grid_module
   public :: KpointGrid
   public :: calculate_kpoint_spacing
   public :: calculate_kpoint_grid
+  public :: operator(==)
+  public :: operator(/=)
   
   type, extends(Stringable) :: KpointGrid
     integer :: grid(3)
@@ -23,6 +25,14 @@ module kpoint_grid_module
   interface KpointGrid
     module procedure new_KpointGrid
     module procedure new_KpointGrid_String
+  end interface
+  
+  interface operator(==)
+    module procedure equality_KpointGrid
+  end interface
+  
+  interface operator(/=)
+    module procedure non_equality_KpointGrid
   end interface
 contains
 
@@ -73,6 +83,29 @@ function calculate_kpoint_grid(kpoint_spacing,recip_lattice) result(output)
   output = KpointGrid(ceiling( [ l2_norm(a)/kpoint_spacing,    &
                              &   l2_norm(b)/kpoint_spacing,    &
                              &   l2_norm(c)/kpoint_spacing  ]  ))
+end function
+
+! ----------------------------------------------------------------------
+! Comparison.
+! ----------------------------------------------------------------------
+impure elemental function equality_KpointGrid(this,that) result(output)
+  implicit none
+  
+  type(KpointGrid), intent(in) :: this
+  type(KpointGrid), intent(in) :: that
+  logical                      :: output
+  
+  output = all(this%grid==that%grid)
+end function
+
+impure elemental function non_equality_KpointGrid(this,that) result(output)
+  implicit none
+  
+  type(KpointGrid), intent(in) :: this
+  type(KpointGrid), intent(in) :: that
+  logical                      :: output
+  
+  output = .not. this==that
 end function
 
 ! ----------------------------------------------------------------------

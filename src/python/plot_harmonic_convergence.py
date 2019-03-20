@@ -49,6 +49,9 @@ def main():
     if data[i]['header'][0]=='k-point':
       data[i]['x type'] = 'k-point'
       data[i]['x'] = [1/x for x in data[i]['x']]
+    elif data[i]['header'][0]=='q-point':
+      data[i]['x type'] = 'q-point'
+      data[i]['x'] = [1/x for x in data[i]['x']]
     elif data[i]['header'][0]=='Cutoff':
       data[i]['x type'] = 'cutoff'
     elif data[i]['header'][0]=='Electronic':
@@ -113,6 +116,15 @@ def main():
       
       ax2 = ax.twiny()
       ax2.set_xlabel(r'$k$-point spacing (bohr$^{-1}$)')
+      ax2.set_xticks(entry['x'])
+      round_to_2 = lambda x,n: round(x, n-1-int(np.floor(np.log10(abs(x)))))
+      ax2.set_xticklabels([round_to_2(1/x,2) for x in entry['x']])
+      ax2.set_xlim(min_x, max_x)
+    elif entry['x type']=='q-point':
+      ax.set_xlabel(r'1/$q$-point spacing (bohr)')
+      
+      ax2 = ax.twiny()
+      ax2.set_xlabel(r'$q$-point spacing (bohr$^{-1}$)')
       ax2.set_xticks(entry['x'])
       round_to_2 = lambda x,n: round(x, n-1-int(np.floor(np.log10(abs(x)))))
       ax2.set_xticklabels([round_to_2(1/x,2) for x in entry['x']])

@@ -62,7 +62,7 @@ subroutine startup_converge_harmonic_frequencies()
      &inverse Bohr.'),                                                        &
      & KeywordData( 'no_k-point_spacings',                                    &
      &              'no_k-point_spacings is the approximate number of k-point &
-     &spacings which will be sampled. N.B. since only k-point spacings &
+     &spacings which will be sampled. N.B. only k-point spacings &
      &corresponding to integer k-point grids will be sampled.'),              &
      & KeywordData( 'minimum_k-point_spacing',                                &
      &              'minimum_k-point_spacing is the k-point spacing at which &
@@ -121,15 +121,14 @@ subroutine startup_converge_harmonic_frequencies()
 end subroutine
 
 ! ----------------------------------------------------------------------
-! Main program
+! Main program.
 ! ----------------------------------------------------------------------
 subroutine converge_harmonic_frequencies_subroutine(arguments)
   implicit none
   
   type(Dictionary), intent(in) :: arguments
   
-  ! User inputs
-  type(String) :: wd
+  ! User inputs.
   type(String) :: seedname
   type(String) :: file_type
   
@@ -193,7 +192,6 @@ subroutine converge_harmonic_frequencies_subroutine(arguments)
   ! --------------------------------------------------
   ! Get settings from user, and check them.
   ! --------------------------------------------------
-  wd = arguments%value('working_directory')
   file_type = arguments%value('file_type')
   seedname = arguments%value('seedname')
   
@@ -280,10 +278,9 @@ subroutine converge_harmonic_frequencies_subroutine(arguments)
   
   do i=1,no_spacings
     ! Evenly space k-point spacings in 1/spacing co-ordinates.
-    kpoint_spacings(i) = 1                                     &
-                     & / ( ( (no_spacings-i)/maximum_spacing   &
-                     &     + (i-1)/minimum_spacing           ) &
-                     &   / (no_spacings-1)                     )
+    kpoint_spacings(i) = (no_spacings-1)                   &
+                     & / ( (no_spacings-i)/maximum_spacing &
+                     &   + (i-1)/minimum_spacing           )
     
     ! Calculate the k-point grid corresponding to each spacing.
     kpoint_grids(i) = calculate_kpoint_grid( kpoint_spacings(i),           &
@@ -316,10 +313,10 @@ subroutine converge_harmonic_frequencies_subroutine(arguments)
   enddo
   
   ! Remove duplicate k-point grids.
-  unique_grids = [(.true., i=1, no_spacings)]
-  do i=2,no_spacings
-    unique_grids(i) = .not. all(kpoint_grids(i)%grid==kpoint_grids(i-1)%grid)
-  enddo
+  unique_grids = [ .true.,                                 &
+                 & ( kpoint_grids(i)/=kpoint_grids(i-1),   &
+                 &   i=2,                                  &
+                 &   no_spacings                         ) ]
   kpoint_spacings = kpoint_spacings(filter(unique_grids))
   kpoint_grids = kpoint_grids(filter(unique_grids))
   no_spacings = size(kpoint_spacings)
@@ -365,6 +362,7 @@ subroutine converge_harmonic_frequencies_subroutine(arguments)
            & cutoff_free_energies,                          &
            & calculate_free_energies( directory,            &
            &                          repeat_calculations,  &
+           &                          random_seed,          &
            &                          arguments             ) ]
 
         if (i>convergence_count) then
@@ -438,6 +436,7 @@ subroutine converge_harmonic_frequencies_subroutine(arguments)
            & kpoint_free_energies,                          &
            & calculate_free_energies( directory,            &
            &                          repeat_calculations,  &
+           &                          random_seed,          &
            &                          arguments             ) ]
 
         if (i>convergence_count) then
@@ -511,6 +510,7 @@ subroutine converge_harmonic_frequencies_subroutine(arguments)
            & smearing_free_energies,                        &
            & calculate_free_energies( directory,            &
            &                          repeat_calculations,  &
+           &                          random_seed,          &
            &                          arguments             ) ]
 
         if (i>convergence_count) then
@@ -712,12 +712,13 @@ function calculate_frequencies(directory,cutoff,kpoint_grid,smearing,     &
   output = vec(modes%frequency)
 end function
 
-function calculate_free_energies(directory,repeat_calculations,arguments) &
-   & result(output)
+function calculate_free_energies(directory,repeat_calculations,random_seed, &
+   & arguments) result(output)
   implicit none
   
   type(String),     intent(in) :: directory
   logical,          intent(in) :: repeat_calculations
+  integer,          intent(in) :: random_seed
   type(Dictionary), intent(in) :: arguments
   type(RealVector)             :: output
   
@@ -739,6 +740,8 @@ function calculate_free_energies(directory,repeat_calculations,arguments) &
     call calculate_harmonic_observables_arguments%set(       &
        & 'output_file',                                      &
        & directory//'/calculate_harmonic_observables.output' )
+    call calculate_harmonic_observables_arguments%set( 'random_seed',   &
+                                                     & str(random_seed) )
     call call_caesar( 'calculate_harmonic_observables',        &
                     & calculate_harmonic_observables_arguments )
   endif
