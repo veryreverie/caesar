@@ -9,31 +9,28 @@ module calculate_anharmonic_observables_module
   use anharmonic_common_module
   use potentials_module
   
-  use setup_harmonic_module
-  
   use initial_frequencies_module
   use vscf_module
   use effective_frequency_module
-  use setup_anharmonic_module
   implicit none
   
   private
   
-  public :: calculate_anharmonic_observables
+  public :: startup_calculate_anharmonic_observables
 contains
 
 ! ----------------------------------------------------------------------
 ! Generate keywords and helptext.
 ! ----------------------------------------------------------------------
-function calculate_anharmonic_observables() result(output)
+subroutine startup_calculate_anharmonic_observables()
   implicit none
   
-  type(CaesarMode) :: output
+  type(CaesarMode) :: mode
   
-  output%mode_name = 'calculate_anharmonic_observables'
-  output%description = 'Calculates observables under the VSCF approximation. &
+  mode%mode_name = 'calculate_anharmonic_observables'
+  mode%description = 'Calculates observables under the VSCF approximation. &
      &Should be run after calculate_potential.'
-  output%keywords = [                                                         &
+  mode%keywords = [                                                           &
      & KeywordData( 'harmonic_frequency_convergence',                         &
      &              'harmonic_frequency_convergence is the precision to which &
      &frequencies will be converged when constructing the harmonic ground &
@@ -103,8 +100,10 @@ function calculate_anharmonic_observables() result(output)
      &space at which the normal modes are calculated when calculating the &
      &vibrational density of states.',                                        &
      &              default_value='100000')                                   ]
-  output%main_subroutine => calculate_anharmonic_observables_subroutine
-end function
+  mode%main_subroutine => calculate_anharmonic_observables_subroutine
+  
+  call add_mode(mode)
+end subroutine
 
 ! ----------------------------------------------------------------------
 ! The main subroutine.
@@ -277,12 +276,12 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   endif
   
   ! Read in setup_harmonic settings.
-  setup_harmonic_arguments = Dictionary(setup_harmonic())
+  setup_harmonic_arguments = Dictionary(CaesarMode('setup_harmonic'))
   call setup_harmonic_arguments%read_file('setup_harmonic.used_settings')
   seedname = setup_harmonic_arguments%value('seedname')
   
   ! Read in setup_anharmonic settings.
-  setup_anharmonic_arguments = Dictionary(setup_anharmonic())
+  setup_anharmonic_arguments = Dictionary(CaesarMode('setup_anharmonic'))
   call setup_anharmonic_arguments%read_file('setup_anharmonic.used_settings')
   calculate_stress = lgcl(setup_anharmonic_arguments%value('calculate_stress'))
   

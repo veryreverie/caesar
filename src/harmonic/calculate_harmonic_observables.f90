@@ -8,29 +8,27 @@
 ! Not required for anharmonic calculations.
 module calculate_harmonic_observables_module
   use common_module
-  
-  use setup_harmonic_module
   implicit none
   
   private
   
-  public :: calculate_harmonic_observables
+  public :: startup_calculate_harmonic_observables
 contains
 
 ! ----------------------------------------------------------------------
 ! Generate keywords and helptext.
 ! ----------------------------------------------------------------------
-function calculate_harmonic_observables() result(output)
+subroutine startup_calculate_harmonic_observables()
   implicit none
   
-  type(CaesarMode) :: output
+  type(CaesarMode) :: mode
   
-  output%mode_name = 'calculate_harmonic_observables'
-  output%description = 'Calculates observables under the harmonic &
+  mode%mode_name = 'calculate_harmonic_observables'
+  mode%description = 'Calculates observables under the harmonic &
      &approximation: the phonon density of states and dispersion curve, &
      &and the energy, free energy and entropy per unit cell. Should be run &
      &after calculate_normal_modes.'
-  output%keywords = [                                                         &
+  mode%keywords = [                                                           &
      & KeywordData( 'min_temperature',                                        &
      &              'min_temperature is the minimum temperature at which &
      &thermodynamic quantities are calculated. min_temperature should be &
@@ -60,8 +58,10 @@ function calculate_harmonic_observables() result(output)
      &space at which the normal modes are calculated when calculating the &
      &vibrational density of states.',                                        &
      &              default_value='100000')                                   ]
-  output%main_subroutine => calculate_harmonic_observables_subroutine
-end function
+  mode%main_subroutine => calculate_harmonic_observables_subroutine
+  
+  call add_mode(mode)
+end subroutine
 
 ! ----------------------------------------------------------------------
 ! The main subroutine.
@@ -173,7 +173,7 @@ subroutine calculate_harmonic_observables_subroutine(arguments)
   ! --------------------------------------------------
   ! Read in previous arguments.
   ! --------------------------------------------------
-  setup_harmonic_arguments = Dictionary(setup_harmonic())
+  setup_harmonic_arguments = Dictionary(CaesarMode('setup_harmonic'))
   call setup_harmonic_arguments%read_file('setup_harmonic.used_settings')
   
   ! --------------------------------------------------

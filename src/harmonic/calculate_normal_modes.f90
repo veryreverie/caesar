@@ -7,27 +7,25 @@
 !    is the pattern of displacement corresponding to the normal mode.
 module calculate_normal_modes_module
   use common_module
-  
-  use setup_harmonic_module
   implicit none
   
   private
   
-  public :: calculate_normal_modes
+  public :: startup_calculate_normal_modes
 contains
 
 ! ----------------------------------------------------------------------
 ! Generate keywords and helptext.
 ! ----------------------------------------------------------------------
-function calculate_normal_modes() result(output)
+subroutine startup_calculate_normal_modes()
   implicit none
   
-  type(CaesarMode) :: output
+  type(CaesarMode) :: mode
   
-  output%mode_name = 'calculate_normal_modes'
-  output%description = 'Finds harmonic normal modes. Should be called &
+  mode%mode_name = 'calculate_normal_modes'
+  mode%description = 'Finds harmonic normal modes. Should be called &
      &after run_harmonic.'
-  output%keywords = [                                                         &
+  mode%keywords = [                                                           &
      & KeywordData( 'acoustic_sum_rule',                                      &
      &              'acoustic_sum_rule specifies where the acoustic sum rule &
      &is applied. The options are "off", "forces", "matrices" and "both".',   &
@@ -41,8 +39,10 @@ function calculate_normal_modes() result(output)
      &all S, where S is the symmetry matrix and q is loto_direction. See &
      &structure.dat for the list of symmetries.',                             &
      &              is_optional = .true.)                                     ]
-  output%main_subroutine => calculate_normal_modes_subroutine
-end function
+  mode%main_subroutine => calculate_normal_modes_subroutine
+  
+  call add_mode(mode)
+end subroutine
 
 ! ----------------------------------------------------------------------
 ! Main program.
@@ -141,7 +141,7 @@ subroutine calculate_normal_modes_subroutine(arguments)
   ! --------------------------------------------------
   ! Read in previous arguments.
   ! --------------------------------------------------
-  setup_harmonic_arguments = Dictionary(setup_harmonic())
+  setup_harmonic_arguments = Dictionary(CaesarMode('setup_harmonic'))
   call setup_harmonic_arguments%read_file('setup_harmonic.used_settings')
   seedname = setup_harmonic_arguments%value('seedname')
   

@@ -6,29 +6,25 @@ module calculate_potential_module
   
   use anharmonic_common_module
   use potentials_module
-  
-  use setup_harmonic_module
-  
-  use setup_anharmonic_module
   implicit none
   
   private
   
-  public :: calculate_potential
+  public :: startup_calculate_potential
 contains
 
 ! ----------------------------------------------------------------------
 ! Generate keywords and helptext.
 ! ----------------------------------------------------------------------
-function calculate_potential() result(output)
+subroutine startup_calculate_potential()
   implicit none
   
-  type(CaesarMode) :: output
+  type(CaesarMode) :: mode
   
-  output%mode_name = 'calculate_potential'
-  output%description = 'Uses the results of run_anharmonic to calculate &
+  mode%mode_name = 'calculate_potential'
+  mode%description = 'Uses the results of run_anharmonic to calculate &
      &the anharmonic potential. Should be run after run_anharmonic.'
-  output%keywords = [                                                      &
+  mode%keywords = [                                                           &
      & KeywordData( 'energy_to_force_ratio',                                  &
      &              'energy_to_force_ratio is the ratio of how penalised &
      &deviations in energy are compared to deviations in forces when the &
@@ -46,8 +42,10 @@ function calculate_potential() result(output)
      &all S, where S is the symmetry matrix and q is loto_direction. See &
      &structure.dat for the list of symmetries.',                             &
      &              is_optional = .true.)                                     ]
-  output%main_subroutine => calculate_potential_subroutine
-end function
+  mode%main_subroutine => calculate_potential_subroutine
+  
+  call add_mode(mode)
+end subroutine
 
 ! ----------------------------------------------------------------------
 ! Main program.
@@ -97,11 +95,11 @@ subroutine calculate_potential_subroutine(arguments)
   energy_to_force_ratio = dble(arguments%value('energy_to_force_ratio'))
   
   ! Read in setup_harmonic arguments.
-  setup_harmonic_arguments = Dictionary(setup_harmonic())
+  setup_harmonic_arguments = Dictionary(CaesarMode('setup_harmonic'))
   call setup_harmonic_arguments%read_file('setup_harmonic.used_settings')
   
   ! Read in setup_anharmonic arguments.
-  setup_anharmonic_arguments = Dictionary(setup_anharmonic())
+  setup_anharmonic_arguments = Dictionary(CaesarMode('setup_anharmonic'))
   call setup_anharmonic_arguments%read_file( &
           & 'setup_anharmonic.used_settings' )
   potential_representation = &

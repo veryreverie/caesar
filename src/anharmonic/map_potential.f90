@@ -6,30 +6,25 @@ module map_potential_module
   
   use anharmonic_common_module
   use potentials_module
-  
-  use setup_harmonic_module
-  use calculate_normal_modes_module
-  
-  use setup_anharmonic_module
   implicit none
   
   private
   
-  public :: map_potential
+  public :: startup_map_potential
 contains
 
 ! ----------------------------------------------------------------------
 ! Generate keywords and helptext.
 ! ----------------------------------------------------------------------
-function map_potential() result(output)
+subroutine startup_map_potential()
   implicit none
   
-  type(CaesarMode) :: output
+  type(CaesarMode) :: mode
   
-  output%mode_name = 'map_potential'
-  output%description = 'Maps out the potential at finite displacements along &
+  mode%mode_name = 'map_potential'
+  mode%description = 'Maps out the potential at finite displacements along &
      & pairs of modes.'
-  output%keywords = [                                                         &
+  mode%keywords = [                                                           &
      & KeywordData( 'modes',                                                  &
      &              'modes is the IDs of the real modes along which &
      &displacements will be made. Modes should be given as a set of integer &
@@ -73,8 +68,10 @@ function map_potential() result(output)
      &structure calculations should be run in addition to the user-defined &
      &script. Settings are: "none" and "quip".',                              &
      &              default_value='none') ]
-  output%main_subroutine => map_potential_subroutine
-end function
+  mode%main_subroutine => map_potential_subroutine
+  
+  call add_mode(mode)
+end subroutine
 
 ! ----------------------------------------------------------------------
 ! Main program.
@@ -167,7 +164,7 @@ subroutine map_potential_subroutine(arguments)
   calculation_type = arguments%value('calculation_type')
   
   ! Read in setup_harmonic arguments.
-  setup_harmonic_arguments = Dictionary(setup_harmonic())
+  setup_harmonic_arguments = Dictionary(CaesarMode('setup_harmonic'))
   call setup_harmonic_arguments%read_file( &
           & 'setup_harmonic.used_settings' )
   seedname = setup_harmonic_arguments%value('seedname')

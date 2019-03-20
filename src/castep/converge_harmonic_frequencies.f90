@@ -11,22 +11,22 @@ module converge_harmonic_frequencies_module
   
   private
   
-  public :: converge_harmonic_frequencies
+  public :: startup_converge_harmonic_frequencies
 contains
 
 ! ----------------------------------------------------------------------
 ! Generate keywords and helptext
 ! ----------------------------------------------------------------------
-function converge_harmonic_frequencies() result(output)
+subroutine startup_converge_harmonic_frequencies()
   implicit none
   
-  type(CaesarMode) :: output
+  type(CaesarMode) :: mode
   
-  output%mode_name = 'converge_harmonic_frequencies'
-  output%description = 'Converges harmonic frequencies and free energies &
+  mode%mode_name = 'converge_harmonic_frequencies'
+  mode%description = 'Converges harmonic frequencies and free energies &
      &w/r/t cutoff energy, k-point spacing and electronic smearing. N.B. only &
      &the value being converged will be changed in each input file.'
-  output%keywords = [                                                         &
+  mode%keywords = [                                                           &
      & KeywordData( 'file_type',                                              &
      &              'file_type is the file type which will be used for &
      &single-point energy calculations. Usual settings are: "castep", &
@@ -174,8 +174,10 @@ function converge_harmonic_frequencies() result(output)
      &space at which the normal modes are calculated when calculating the &
      &vibrational density of states.',                                        &
      &              default_value='100000')                                   ]
-  output%main_subroutine => converge_harmonic_frequencies_subroutine
-end function
+  mode%main_subroutine => converge_harmonic_frequencies_subroutine
+  
+  call add_mode(mode)
+end subroutine
 
 ! ----------------------------------------------------------------------
 ! Main program

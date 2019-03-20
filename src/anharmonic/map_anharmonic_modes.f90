@@ -6,30 +6,27 @@ module map_anharmonic_modes_module
   
   use anharmonic_common_module
   use potentials_module
-
-  use setup_harmonic_module
   
   use mode_map_module
-  use setup_anharmonic_module
   implicit none
   
   private
   
-  public :: map_anharmonic_modes
+  public :: startup_map_anharmonic_modes
 contains
 
 ! ----------------------------------------------------------------------
 ! Generate keywords and helptext.
 ! ----------------------------------------------------------------------
-function map_anharmonic_modes() result(output)
+subroutine startup_map_anharmonic_modes()
   implicit none
   
-  type(CaesarMode) :: output
+  type(CaesarMode) :: mode
   
-  output%mode_name = 'map_anharmonic_modes'
-  output%description = 'Maps the anharmonic potential along normal modes. &
+  mode%mode_name = 'map_anharmonic_modes'
+  mode%description = 'Maps the anharmonic potential along normal modes. &
      &Should be run after calculate_potential.'
-  output%keywords = [                                                         &
+  mode%keywords = [                                                           &
      & KeywordData( 'no_single_mode_samples',                                 &
      &              'no_single_mode_samples is the number of points (either &
      &side of zero) along each mode at which the anharmonic potential will be &
@@ -65,8 +62,10 @@ function map_anharmonic_modes() result(output)
      &structure calculations should be run in addition to the user-defined &
      &script. Settings are: "none" and "quip".',                              &
      &              default_value='none') ]
-  output%main_subroutine => map_anharmonic_modes_subroutine
-end function
+  mode%main_subroutine => map_anharmonic_modes_subroutine
+  
+  call add_mode(mode)
+end subroutine
 
 ! ----------------------------------------------------------------------
 ! Main program.
@@ -152,7 +151,7 @@ subroutine map_anharmonic_modes_subroutine(arguments)
   calculation_type = arguments%value('calculation_type')
   
   ! Read in setup_harmonic arguments.
-  setup_harmonic_arguments = Dictionary(setup_harmonic())
+  setup_harmonic_arguments = Dictionary(CaesarMode('setup_harmonic'))
   call setup_harmonic_arguments%read_file( &
           & 'setup_harmonic.used_settings' )
   seedname = setup_harmonic_arguments%value('seedname')

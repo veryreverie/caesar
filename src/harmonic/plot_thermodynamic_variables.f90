@@ -8,30 +8,32 @@ module plot_thermodynamic_variables_module
   
   private
   
-  public :: plot_thermodynamic_variables
+  public :: startup_plot_thermodynamic_variables
 contains
 
 ! ----------------------------------------------------------------------
 ! Generates keywords and helptext.
 ! ----------------------------------------------------------------------
-function plot_thermodynamic_variables() result(output)
+subroutine startup_plot_thermodynamic_variables()
   implicit none
   
-  type(CaesarMode) :: output
+  type(CaesarMode) :: mode
   
-  output%mode_name = 'plot_thermodynamic_variables'
-  output%description = 'Plots the thermodynamic variables &
+  mode%mode_name = 'plot_thermodynamic_variables'
+  mode%description = 'Plots the thermodynamic variables &
      &calculated by calculate_harmonic_observables or &
      & calculate_anharmonic_observables. Should be called from within the &
      &harmonic_observables or anharmonic_observables directory. The -d flag &
      &may be useful for this.'
-  output%keywords = [                                                      &
+  mode%keywords = [                                                        &
      & KeywordData( 'python_path',                                         &
      &              'python_path is the path to the Python 3 executable.', &
      &              default_value='python3') ]
-  output%main_subroutine => plot_thermodynamic_variables_subroutine
-  output%suppress_settings_file = .true.
-end function
+  mode%main_subroutine => plot_thermodynamic_variables_subroutine
+  mode%suppress_settings_file = .true.
+  
+  call add_mode(mode)
+end subroutine
 
 ! ----------------------------------------------------------------------
 ! Main program.

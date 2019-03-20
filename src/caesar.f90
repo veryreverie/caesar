@@ -5,27 +5,11 @@
 ! Call Caesar -h for details.
 ! ======================================================================
 program caesar
-  ! Use utility modules.
   use common_module
-  
-  ! Use harmonic modules.
   use harmonic_module
-  
-  ! Use anharmonic modules.
   use anharmonic_module
-  
-  ! Use Castep modules.
-  use converge_harmonic_frequencies_module
-  use plot_harmonic_convergence_module
-  
-  ! Use testing modules.
-  use check_counter_module
-  use test_module
-  use linear_algebra_test_module
-  use update_basis_functions_module
-  
-  ! Use misc modules.
-  use hartree_to_eV_module
+  use castep_module
+  use testing_module
   use version_module
   implicit none
   
@@ -36,7 +20,6 @@ program caesar
   type(String) :: mode
   
   ! The chosen subroutine, and the keywords it accepts.
-  type(CaesarModes)                      :: caesar_modes
   type(CaesarMode)                       :: caesar_mode
   procedure(MainSubroutine), pointer     :: main_subroutine => null ()
   type(KeywordData),         allocatable :: keywords(:)
@@ -55,39 +38,10 @@ program caesar
   !    which must be called before anything else happens.
   ! --------------------------------------------------
   call startup_utils()
+  call startup_harmonic()
   call startup_anharmonic()
-  
-  ! --------------------------------------------------
-  ! Read in mode interfaces.
-  ! --------------------------------------------------
-  ! Normal inputs. Fetch keywords and set subprocess.
-  caesar_modes = CaesarModes([             &
-     & test(),                             &
-     & check_counter(),                    &
-     & hartree_to_ev(),                    &
-     & snap_to_symmetry(),                 &
-     & setup_harmonic(),                   &
-     & run_harmonic(),                     &
-     & calculate_normal_modes(),           &
-     & plot_normal_modes(),                &
-     & calculate_harmonic_observables(),   &
-     & plot_dos_and_dispersion(),          &
-     & plot_thermodynamic_variables(),     &
-     & converge_qpoint_grid(),             &
-     & setup_anharmonic(),                 &
-     & run_anharmonic(),                   &
-     & calculate_potential(),              &
-     & map_anharmonic_modes(),             &
-     & plot_anharmonic_modes(),            &
-     & map_potential(),                    &
-     & plot_potential_map(),               &
-     & map_vscf_modes(),                   &
-     & plot_vscf_modes(),                  &
-     & calculate_anharmonic_observables(), &
-     & converge_harmonic_frequencies(),    &
-     & plot_harmonic_convergence(),        &
-     & plot_vscf_states(),                 &
-     & update_basis_functions()            ])
+  call startup_castep()
+  call startup_testing()
   
   ! --------------------------------------------------
   ! Read in command line arguments and process the mode.
@@ -115,7 +69,7 @@ program caesar
   ! Help calls, both correct and malformed.
   elseif (mode == '-h' .or. mode == '--help' .or. mode == 'help') then
     if (size(args) == 2) then
-      call help(caesar_modes)
+      call help()
     else
       call print_line(colour('Error: no mode specified.','red'))
       call print_line('For keyword-specific help, please also specify a mode, &
@@ -144,7 +98,7 @@ program caesar
   
   ! Normal inputs.
   else
-    caesar_mode = caesar_modes%mode(mode)
+    caesar_mode = CaesarMode(mode)
     keywords = caesar_mode%keywords
     main_subroutine => caesar_mode%main_subroutine
   endif
@@ -166,7 +120,7 @@ program caesar
   ! Handle help calls.
   ! --------------------------------------------------
   if (arguments%is_set('help')) then
-    call help(arguments%value('help'), mode, caesar_modes)
+    call help(arguments%value('help'), mode)
     call quit()
   endif
   

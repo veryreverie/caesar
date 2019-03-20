@@ -4,29 +4,27 @@
 module setup_anharmonic_module
   use common_module
   
-  use setup_harmonic_module
-  
   use anharmonic_common_module
   use potentials_module
   implicit none
   
   private
   
-  public :: setup_anharmonic
+  public :: startup_setup_anharmonic
 contains
 
 ! ----------------------------------------------------------------------
 ! Generate keywords and helptext.
 ! ----------------------------------------------------------------------
-function setup_anharmonic() result(output)
+subroutine startup_setup_anharmonic()
   implicit none
   
-  type(CaesarMode) :: output
+  type(CaesarMode) :: mode
   
-  output%mode_name = 'setup_anharmonic'
-  output%description = 'Sets up anharmonic calculations. Should be run after &
+  mode%mode_name = 'setup_anharmonic'
+  mode%description = 'Sets up anharmonic calculations. Should be run after &
      &calculate_normal_modes.'
-  output%keywords = [                                                         &
+  mode%keywords = [                                                           &
   & KeywordData( 'harmonic_path',                                             &
   &              'harmonic_path is the path to the directory where harmonic &
   &calculations were run.',                                                   &
@@ -70,8 +68,10 @@ function setup_anharmonic() result(output)
   &stress and pressure. If calculate_stress is true then all electronic &
   &structure calculations must produce a stress tensor or virial tensor.',    &
   &              default_value='true')                                        ]
-  output%main_subroutine => setup_anharmonic_subroutine
-end function
+  mode%main_subroutine => setup_anharmonic_subroutine
+  
+  call add_mode(mode)
+end subroutine
 
 ! ----------------------------------------------------------------------
 ! The main program.
@@ -170,7 +170,7 @@ subroutine setup_anharmonic_subroutine(arguments)
   calculate_stress = lgcl(arguments%value('calculate_stress'))
   
   ! Read setup_harmonic arguments.
-  setup_harmonic_arguments = Dictionary(setup_harmonic())
+  setup_harmonic_arguments = Dictionary(CaesarMode('setup_harmonic'))
   call setup_harmonic_arguments%read_file( &
      & harmonic_path//'/setup_harmonic.used_settings')
   seedname = setup_harmonic_arguments%value('seedname')

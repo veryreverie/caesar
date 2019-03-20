@@ -278,23 +278,25 @@ module test_module
   
   private
   
-  public :: test
+  public :: startup_test
 contains
 
 ! ----------------------------------------------------------------------
 ! Generates keywords and helptext.
 ! ----------------------------------------------------------------------
-function test() result(output)
+subroutine startup_test()
   implicit none
   
-  type(CaesarMode) :: output
+  type(CaesarMode) :: mode
   
-  output%mode_name = 'test'
-  output%description = 'Runs temporary code for testing purposes.'
-  output%keywords = [KeywordData::]
-  output%main_subroutine => test_subroutine
-  output%suppress_from_helptext = .true.
-end function
+  mode%mode_name = 'test'
+  mode%description = 'Runs temporary code for testing purposes.'
+  mode%keywords = [KeywordData::]
+  mode%main_subroutine => test_subroutine
+  mode%suppress_from_helptext = .true.
+  
+  call add_mode(mode)
+end subroutine
 
 ! ----------------------------------------------------------------------
 ! Main function.

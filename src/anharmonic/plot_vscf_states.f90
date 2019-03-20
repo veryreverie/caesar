@@ -7,27 +7,29 @@ module plot_vscf_states_module
   
   private
   
-  public :: plot_vscf_states
+  public :: startup_plot_vscf_states
 contains
 
 ! ----------------------------------------------------------------------
 ! Generates keywords and helptext.
 ! ----------------------------------------------------------------------
-function plot_vscf_states() result(output)
+subroutine startup_plot_vscf_states()
   implicit none
   
-  type(CaesarMode) :: output
+  type(CaesarMode) :: mode
   
-  output%mode_name = 'plot_vscf_states'
-  output%description = 'plots the wavefunctions of the VSCF states, &
+  mode%mode_name = 'plot_vscf_states'
+  mode%description = 'plots the wavefunctions of the VSCF states, &
      &calculated by calculate_anharmonic_observables.'
-  output%keywords = [                                                      &
+  mode%keywords = [                                                        &
      & KeywordData( 'python_path',                                         &
      &              'python_path is the path to the Python 3 executable.', &
      &              default_value='python3') ]
-  output%main_subroutine => plot_vscf_states_subroutine
-  output%suppress_settings_file = .true.
-end function
+  mode%main_subroutine => plot_vscf_states_subroutine
+  mode%suppress_settings_file = .true.
+  
+  call add_mode(mode)
+end subroutine
 
 ! ----------------------------------------------------------------------
 ! Main program.

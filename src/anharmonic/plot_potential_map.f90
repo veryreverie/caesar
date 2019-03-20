@@ -8,27 +8,29 @@ module plot_potential_map_module
   
   private
   
-  public :: plot_potential_map
+  public :: startup_plot_potential_map
 contains
 
 ! ----------------------------------------------------------------------
 ! Generates keywords and helptext.
 ! ----------------------------------------------------------------------
-function plot_potential_map() result(output)
+subroutine startup_plot_potential_map()
   implicit none
   
-  type(CaesarMode) :: output
+  type(CaesarMode) :: mode
   
-  output%mode_name = 'plot_potential_map'
-  output%description = 'Plots the mapping of the anharmonic potential &
+  mode%mode_name = 'plot_potential_map'
+  mode%description = 'Plots the mapping of the anharmonic potential &
      &calculated by map_potential.'
-  output%keywords = [                                                      &
+  mode%keywords = [                                                      &
      & KeywordData( 'python_path',                                         &
      &              'python_path is the path to the Python 3 executable.', &
      &              default_value='python3') ]
-  output%main_subroutine => plot_potential_map_subroutine
-  output%suppress_settings_file = .true.
-end function
+  mode%main_subroutine => plot_potential_map_subroutine
+  mode%suppress_settings_file = .true.
+  
+  call add_mode(mode)
+end subroutine
 
 ! ----------------------------------------------------------------------
 ! Main program.

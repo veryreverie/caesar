@@ -9,23 +9,23 @@ module snap_to_symmetry_module
   
   private
   
-  public :: snap_to_symmetry
+  public :: startup_snap_to_symmetry
 contains
 
 ! ----------------------------------------------------------------------
 ! Generate keywords and helptext.
 ! ----------------------------------------------------------------------
-function snap_to_symmetry() result(output)
+subroutine startup_snap_to_symmetry()
   implicit none
   
-  type(CaesarMode) :: output
+  type(CaesarMode) :: mode
   
-  output%mode_name = 'snap_to_symmetry'
-  output%description = 'Uses spglib to snap a structure to a symmetry. The &
+  mode%mode_name = 'snap_to_symmetry'
+  mode%description = 'Uses spglib to snap a structure to a symmetry. The &
      &symmetry to which the structure is snapped is found by calling spglib &
      &with the given symmetry precision. The routine attempts to find the &
      &snapped structure which is as close to the input structure as possible.'
-  output%keywords = [                                                         &
+  mode%keywords = [                                                           &
      & KeywordData( 'file_type',                                              &
      &              'file_type is the file type which will be used for &
      &single-point energy calculations. Settings are: "castep", &
@@ -45,8 +45,10 @@ function snap_to_symmetry() result(output)
      &minimum inter-atomic distance, and much larger than the geometry &
      &optimisation tolerance.',                                               &
      &              default_value='0.1')                                      ]
-  output%main_subroutine => snap_to_symmetry_subroutine
-end function
+  mode%main_subroutine => snap_to_symmetry_subroutine
+  
+  call add_mode(mode)
+end subroutine
 
 ! ----------------------------------------------------------------------
 ! Main program.

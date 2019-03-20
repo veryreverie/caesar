@@ -4,31 +4,27 @@
 module run_anharmonic_module
   use common_module
   
-  use setup_harmonic_module
-  
   use anharmonic_common_module
   use potentials_module
-
-  use setup_anharmonic_module
   implicit none
   
   private
   
-  public :: run_anharmonic
+  public :: startup_run_anharmonic
 contains
 
 ! ----------------------------------------------------------------------
 ! Generate keywords and helptext.
 ! ----------------------------------------------------------------------
-function run_anharmonic() result(output)
+subroutine startup_run_anharmonic()
   implicit none
   
-  type(CaesarMode) :: output
+  type(CaesarMode) :: mode
   
-  output%mode_name = 'run_anharmonic'
-  output%description = 'Runs DFT calculations set up by setup_anharmonic. &
+  mode%mode_name = 'run_anharmonic'
+  mode%description = 'Runs DFT calculations set up by setup_anharmonic. &
      &Should be run after setup_anharmonic.'
-  output%keywords = [                                                         &
+  mode%keywords = [                                                           &
      & KeywordData( 'calculations_to_run',                                    &
      &              'calculations_to_run specifies the first and last &
      &calculations to run inclusive. These should be given as two integers &
@@ -70,8 +66,10 @@ function run_anharmonic() result(output)
      &calculations will be re-run if an electronic_structure.dat file is &
      &found in their directory.',                                             &
      &               default_value='true')                                    ]
-  output%main_subroutine => run_anharmonic_subroutine
-end function
+  mode%main_subroutine => run_anharmonic_subroutine
+  
+  call add_mode(mode)
+end subroutine
 
 ! ----------------------------------------------------------------------
 ! Main program.
@@ -120,14 +118,14 @@ subroutine run_anharmonic_subroutine(arguments)
   repeat_calculations = lgcl(arguments%value('repeat_calculations'))
   
   ! Read in setup_harmonic settings.
-  setup_harmonic_arguments = Dictionary(setup_harmonic())
+  setup_harmonic_arguments = Dictionary(CaesarMode('setup_harmonic'))
   call setup_harmonic_arguments%read_file( &
           & 'setup_harmonic.used_settings' )
   file_type = setup_harmonic_arguments%value('file_type')
   seedname = setup_harmonic_arguments%value('seedname')
   
   ! Read in setup_anharmonic settings.
-  setup_anharmonic_arguments = Dictionary(setup_anharmonic())
+  setup_anharmonic_arguments = Dictionary(CaesarMode('setup_anharmonic'))
   call setup_anharmonic_arguments%read_file('setup_anharmonic.used_settings')
   calculate_stress = lgcl(setup_anharmonic_arguments%value('calculate_stress'))
   

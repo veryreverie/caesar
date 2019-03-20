@@ -7,22 +7,24 @@ module check_counter_module
   
   private
   
-  public :: check_counter
+  public :: startup_check_counter
 contains
 
 ! ----------------------------------------------------------------------
 ! Generates keywords and helptext.
 ! ----------------------------------------------------------------------
-function check_counter() result(output)
+subroutine startup_check_counter()
   implicit none
   
-  type(CaesarMode) :: output
+  type(CaesarMode) :: mode
   
-  output%mode_name = 'check_counter'
-  output%description = 'Checks for a gfortran bug with shared counters.'
-  output%keywords = [KeywordData::]
-  output%main_subroutine => check_counter_subroutine
-end function
+  mode%mode_name = 'check_counter'
+  mode%description = 'Checks for a gfortran bug with shared counters.'
+  mode%keywords = [KeywordData::]
+  mode%main_subroutine => check_counter_subroutine
+  
+  call add_mode(mode)
+end subroutine
 
 ! ----------------------------------------------------------------------
 ! Main function.

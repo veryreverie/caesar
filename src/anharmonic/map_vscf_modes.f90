@@ -8,34 +8,35 @@ module map_vscf_modes_module
   use anharmonic_common_module
   use potentials_module
   
-  use setup_anharmonic_module
   use mode_map_module
   implicit none
   
   private
   
-  public :: map_vscf_modes
+  public :: startup_map_vscf_modes
 contains
 
 ! ----------------------------------------------------------------------
 ! Generate keywords and helptext.
 ! ----------------------------------------------------------------------
-function map_vscf_modes() result(output)
+subroutine startup_map_vscf_modes()
   implicit none
   
-  type(CaesarMode) :: output
+  type(CaesarMode) :: mode
   
-  output%mode_name = 'map_vscf_modes'
-  output%description = 'Maps the VSCF potential along normal modes. &
+  mode%mode_name = 'map_vscf_modes'
+  mode%description = 'Maps the VSCF potential along normal modes. &
      &Should be run after calculate_vscf_potential.'
-  output%keywords = [                                                         &
+  mode%keywords = [                                                           &
      & KeywordData( 'no_single_mode_samples',                                 &
      &              'no_single_mode_samples is the number of points (either &
      &side of zero) along each mode at which the VSCF potential will be &
      &sampled when determining the effective frequency with which the &
      &harmonic basis along that mode will be constructed.')                   ]
-  output%main_subroutine => map_vscf_modes_subroutine
-end function
+  mode%main_subroutine => map_vscf_modes_subroutine
+  
+  call add_mode(mode)
+end subroutine
 
 ! ----------------------------------------------------------------------
 ! Main program.

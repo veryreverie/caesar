@@ -4,27 +4,25 @@
 ! ======================================================================
 module run_harmonic_module
   use common_module
-  
-  use setup_harmonic_module
   implicit none
   
   private
   
-  public :: run_harmonic
+  public :: startup_run_harmonic
 contains
 
 ! ----------------------------------------------------------------------
 ! Generate keywords and helptext.
 ! ----------------------------------------------------------------------
-function run_harmonic() result(output)
+subroutine startup_run_harmonic()
   implicit none
   
-  type(CaesarMode) :: output
+  type(CaesarMode) :: mode
   
-  output%mode_name = 'run_harmonic'
-  output%description = 'Runs DFT calculations set up by setup_harmonic. &
+  mode%mode_name = 'run_harmonic'
+  mode%description = 'Runs DFT calculations set up by setup_harmonic. &
      &should be run after setup_harmonic.'
-  output%keywords = [                                                         &
+  mode%keywords = [                                                           &
      & KeywordData( 'supercells_to_run',                                      &
      &              'supercells_to_run is the first and last supercell to &
      &run. These should be specified as two integers separated by spaces. If &
@@ -64,8 +62,10 @@ function run_harmonic() result(output)
      &calculations will be re-run if an electronic_structure.dat file is &
      &found in their directory.',                                             &
      &               default_value='true')                                    ]
-  output%main_subroutine => run_harmonic_subroutine
-end function
+  mode%main_subroutine => run_harmonic_subroutine
+  
+  call add_mode(mode)
+end subroutine
 
 ! ----------------------------------------------------------------------
 ! Main program.
@@ -126,7 +126,7 @@ subroutine run_harmonic_subroutine(arguments)
   ! --------------------------------------------------
   ! Read in arguments to previous calculations.
   ! --------------------------------------------------
-  setup_harmonic_arguments = Dictionary(setup_harmonic())
+  setup_harmonic_arguments = Dictionary(CaesarMode('setup_harmonic'))
   call setup_harmonic_arguments%read_file('setup_harmonic.used_settings')
   file_type = setup_harmonic_arguments%value('file_type')
   seedname = setup_harmonic_arguments%value('seedname')

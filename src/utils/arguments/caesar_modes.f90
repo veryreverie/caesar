@@ -19,6 +19,7 @@ module caesar_modes_module
   public :: MainSubroutine
   public :: Dictionary
   public :: assignment(=)
+  public :: add_mode
   
   ! An interface for the main subroutines of Caesar, each of which takes a
   !    dictionary of arguments and returns nothing.
@@ -49,6 +50,8 @@ module caesar_modes_module
   end interface
   
   interface CaesarMode
+    module procedure new_CaesarMode_character
+    module procedure new_CaesarMode_String
     module procedure new_CaesarMode_character_character
     module procedure new_CaesarMode_character_String
     module procedure new_CaesarMode_String_character
@@ -70,16 +73,43 @@ module caesar_modes_module
   
   interface CaesarModes
     module procedure new_CaesarModes
+    module procedure new_CaesarModes_CaesarMode
   end interface
   
   interface Dictionary
     module procedure new_Dictionary_CaesarMode
+  end interface
+  
+  ! An array of modes, which will be populated at startup.
+  type(CaesarModes) :: CAESAR_MODES
+  
+  interface add_mode
+    module procedure add_mode_CaesarMode
   end interface
 contains
 
 ! ----------------------------------------------------------------------
 ! CaesarMode procedures.
 ! ----------------------------------------------------------------------
+
+! Constructor which picks the requested mode from CAESAR_MODES.
+function new_CaesarMode_character(mode) result(this)
+  implicit none
+  
+  character(*), intent(in) :: mode
+  type(CaesarMode)         :: this
+  
+  this = CAESAR_MODES%mode(mode)
+end function
+
+function new_CaesarMode_String(mode) result(this)
+  implicit none
+  
+  type(String), intent(in) :: mode
+  type(CaesarMode)         :: this
+  
+  this = CaesarMode(char(mode))
+end function
 
 ! Constructor for CaesarMode type. Takes:
 !    - The name of the mode, e.g. 'harmonic'. This is converted to lower case.
@@ -232,13 +262,26 @@ end subroutine
 ! ----------------------------------------------------------------------
 
 ! Constructor for CaesarModes.
-function new_CaesarModes(modes) result(output)
+function new_CaesarModes() result(this)
+  implicit none
+  
+  type(CaesarModes) :: this
+  
+  if (.not. allocated(CAESAR_MODES%modes_)) then
+    call print_line(CODE_ERROR//': CAESAR_MODES has not been allocated.')
+    call err()
+  else
+    this = CAESAR_MODES
+  endif
+end function
+
+function new_CaesarModes_CaesarMode(modes) result(this)
   implicit none
   
   type(CaesarMode), intent(in) :: modes(:)
-  type(CaesarModes)            :: output
+  type(CaesarModes)            :: this
   
-  output%modes_ = modes
+  this%modes_ = modes
 end function
 
 ! Returns the mode with a given name.
@@ -287,5 +330,23 @@ subroutine print_help_CaesarModes(this)
   do i=1,size(this%modes_)
     call this%modes_(i)%print_help()
   enddo
+end subroutine
+
+! Add a mode to the list of modes.
+subroutine add_mode_CaesarMode(mode)
+  implicit none
+  
+  type(CaesarMode), intent(in) :: mode
+  
+  if (.not. allocated(CAESAR_MODES%modes_)) then
+    CAESAR_MODES%modes_ = [mode]
+  else
+    if (any(CAESAR_MODES%modes_%mode_name==mode%mode_name)) then
+      call print_line(CODE_ERROR//': Trying to add the same mode twice.')
+      call err()
+    else
+      CAESAR_MODES%modes_ = [CAESAR_MODES%modes_, mode]
+    endif
+  endif
 end subroutine
 end module

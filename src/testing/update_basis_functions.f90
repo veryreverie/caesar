@@ -9,26 +9,28 @@ module update_basis_functions_module
   
   private
   
-  public :: update_basis_functions
+  public :: startup_update_basis_functions
 contains
 
 ! ----------------------------------------------------------------------
 ! Generate keywords and helptext.
 ! ----------------------------------------------------------------------
-function update_basis_functions() result(output)
+subroutine startup_update_basis_functions()
   implicit none
   
-  type(CaesarMode) :: output
+  type(CaesarMode) :: mode
   
-  output%mode_name = 'update_basis_functions'
-  output%description = 'Updates the format of files to allow calculations &
+  mode%mode_name = 'update_basis_functions'
+  mode%description = 'Updates the format of files to allow calculations &
      &performed using Caesar from December 2018 and earlier to be used with &
      &Caesar from January 2019 and later. If this update is run, neither &
      &setup_anharmonic nor run_anharmonic need be run again, but &
      &calculate_potential and later steps will need re-running.'
-  output%keywords = [KeywordData::]
-  output%main_subroutine => update_basis_functions_subroutine
-end function
+  mode%keywords = [KeywordData::]
+  mode%main_subroutine => update_basis_functions_subroutine
+  
+  call add_mode(mode)
+end subroutine
 
 ! ----------------------------------------------------------------------
 ! Main program.

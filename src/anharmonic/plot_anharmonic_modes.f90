@@ -8,27 +8,29 @@ module plot_anharmonic_modes_module
   
   private
   
-  public :: plot_anharmonic_modes
+  public :: startup_plot_anharmonic_modes
 contains
 
 ! ----------------------------------------------------------------------
 ! Generates keywords and helptext.
 ! ----------------------------------------------------------------------
-function plot_anharmonic_modes() result(output)
+subroutine startup_plot_anharmonic_modes()
   implicit none
   
-  type(CaesarMode) :: output
+  type(CaesarMode) :: mode
   
-  output%mode_name = 'plot_anharmonic_modes'
-  output%description = 'Plots the anharmonic modes mapped by &
+  mode%mode_name = 'plot_anharmonic_modes'
+  mode%description = 'Plots the anharmonic modes mapped by &
      &map_anharmonic_modes.'
-  output%keywords = [                                                      &
+  mode%keywords = [                                                        &
      & KeywordData( 'python_path',                                         &
      &              'python_path is the path to the Python 3 executable.', &
      &              default_value='python3') ]
-  output%main_subroutine => plot_anharmonic_modes_subroutine
-  output%suppress_settings_file = .true.
-end function
+  mode%main_subroutine => plot_anharmonic_modes_subroutine
+  mode%suppress_settings_file = .true.
+  
+  call add_mode(mode)
+end subroutine
 
 ! ----------------------------------------------------------------------
 ! Main program.

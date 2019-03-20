@@ -5,25 +5,27 @@ module hartree_to_ev_module
   
   private
   
-  public :: hartree_to_ev
+  public :: startup_hartree_to_ev
 contains
 
 ! ----------------------------------------------------------------------
 ! Generate keywords and helptext.
 ! ----------------------------------------------------------------------
-function hartree_to_ev() result(output)
+subroutine startup_hartree_to_ev()
   implicit none
   
-  type(CaesarMode) :: output
+  type(CaesarMode) :: mode
   
-  output%mode_name = 'hartree_to_ev'
-  output%description = 'Converts energy in eV to energy in Hartree.'
-  output%keywords = [                                                      &
+  mode%mode_name = 'hartree_to_ev'
+  mode%description = 'Converts energy in eV to energy in Hartree.'
+  mode%keywords = [                                                        &
   & KeywordData( 'energy_in_hartree',                                      &
   &              'energy_in_hartree is the input energy, in Hartree atomic &
   &units.') ]
-  output%main_subroutine => hartree_to_ev_subroutine
-end function
+  mode%main_subroutine => hartree_to_ev_subroutine
+  
+  call add_mode(mode)
+end subroutine
 
 ! ----------------------------------------------------------------------
 ! Main program.

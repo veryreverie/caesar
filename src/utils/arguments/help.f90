@@ -25,10 +25,12 @@ contains
 ! ----------------------------------------------------------------------
   
 ! Print default helptext.
-subroutine help_default(caesar_modes)
+subroutine help_default()
   implicit none
   
-  type(CaesarModes), intent(in) :: caesar_modes
+  type(CaesarModes) :: caesar_modes
+  
+  caesar_modes = CaesarModes()
   
   call print_line('caesar - Calculates harmonic and anharmonic vibrational &
      &contributions to crystal properties.')
@@ -168,18 +170,19 @@ subroutine help_default(caesar_modes)
 end subroutine
 
 ! Prints the helptext for a particular mode or keyword.
-subroutine help_specific(keyword,mode,caesar_modes)
+subroutine help_specific(keyword,mode)
   implicit none
   
-  type(String),      intent(in) :: keyword
-  type(String),      intent(in) :: mode
-  type(CaesarModes), intent(in) :: caesar_modes
+  type(String), intent(in) :: keyword
+  type(String), intent(in) :: mode
   
+  type(CaesarModes)              :: caesar_modes
   type(CaesarMode)               :: caesar_mode
   type(KeywordData), allocatable :: keywords(:)
   
   integer :: i
   
+  caesar_modes = CaesarModes()
   caesar_mode = caesar_modes%mode(mode)
   keywords = caesar_mode%keywords
   

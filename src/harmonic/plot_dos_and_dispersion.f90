@@ -8,31 +8,33 @@ module plot_dos_and_dispersion_module
   
   private
   
-  public :: plot_dos_and_dispersion
+  public :: startup_plot_dos_and_dispersion
 contains
 
 ! ----------------------------------------------------------------------
 ! Generates keywords and helptext.
 ! ----------------------------------------------------------------------
-function plot_dos_and_dispersion() result(output)
+subroutine startup_plot_dos_and_dispersion()
   implicit none
   
-  type(CaesarMode) :: output
+  type(CaesarMode) :: mode
   
-  output%mode_name = 'plot_dos_and_dispersion'
-  output%description = 'Plots the phonon density of states and dispersion &
+  mode%mode_name = 'plot_dos_and_dispersion'
+  mode%description = 'Plots the phonon density of states and dispersion &
      &calculated by calculate_harmonic_observables or &
      &calculate_anharmonic_observables. Should be run from within the &
      &harmonic_observables or anharmonic_observables directory, or from a &
      &anharmonic_observables/temperature_* directory. The -d flag may be &
      &useful for this.'
-  output%keywords = [                                                      &
+  mode%keywords = [                                                        &
      & KeywordData( 'python_path',                                         &
      &              'python_path is the path to the Python 3 executable.', &
      &              default_value='python3') ]
-  output%main_subroutine => plot_dos_and_dispersion_subroutine
-  output%suppress_settings_file = .true.
-end function
+  mode%main_subroutine => plot_dos_and_dispersion_subroutine
+  mode%suppress_settings_file = .true.
+  
+  call add_mode(mode)
+end subroutine
 
 ! ----------------------------------------------------------------------
 ! Main program.
