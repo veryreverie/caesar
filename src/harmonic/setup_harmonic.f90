@@ -190,7 +190,7 @@ subroutine setup_harmonic_subroutine(arguments)
     call print_line(ERROR//': The input structure has a purely translational &
        &symmetry. This is usually because it is not a primitive cell of the &
        &system.')
-    call print_line('If the structure is known to be the primitive cell of &
+    call print_line('If the structure is known to be a primitive cell of &
        &the system, try lowering symmetry_precision.')
     call print_line('N.B. running phonon calculations on a system with a unit &
        &cell which is x*y*z primitive cells is equivalent to running the &

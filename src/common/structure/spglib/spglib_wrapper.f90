@@ -311,6 +311,15 @@ function snap_to_symmetry(lattice,atoms,symmetry_precision) result(output)
   if (determinant(transformation)/=1) then
     call print_line(ERROR//': Spglib transformation matrix does not have &
        &determinant 1.')
+    call print_line('This may be because the input structure is not a &
+       &primitive cell.')
+    call print_line('If the structure is known to be a primitive cell of &
+       &the system, try lowering symmetry_precision.')
+    call print_line('N.B. running phonon calculations on a system with a unit &
+       &cell which is x*y*z primitive cells is equivalent to running the &
+       &calculation on that primitive cell but with an x*y*z q-point grid. &
+       &Please increase the q-point grid rather than running calculations on &
+       &a supercell.')
     call err()
   endif
   
