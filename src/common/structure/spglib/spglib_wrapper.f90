@@ -308,7 +308,7 @@ function snap_to_symmetry(lattice,atoms,symmetry_precision) result(output)
   real_transformation = transpose(lattice * invert(unsnapped_lattice))
   call check_int(real_transformation, 'spglib transformation matrix')
   transformation = nint(real_transformation)
-  if (determinant(transformation)/=1) then
+  if (abs(determinant(transformation))/=1) then
     call print_line(ERROR//': Spglib transformation matrix does not have &
        &determinant 1.')
     call print_line('This may be because the input structure is not a &

@@ -61,6 +61,8 @@ def main():
     
     if data[i]['header'][4]=='Mode':
       data[i]['y type'] = 'frequencies'
+      no_modes = len(entry[1])-1
+      no_atoms = no_modes/3
     elif data[i]['header'][4]=='Free':
       data[i]['y type'] = 'free energies'
     else:
@@ -144,7 +146,7 @@ def main():
       ax.set_ylabel(r'error in free energies (Ha per primitive cell)')
       cb.set_ylabel(r'Converged free energy (Ha per primitive cell)')
       ax.set_ylim(-1e-3,1e-3)
-      ax.hlines([11*1e-3/ev_per_hartree,-11*1e-3/ev_per_hartree],min_x,max_x)
+      ax.hlines([no_atoms*1e-3/ev_per_hartree,-no_atoms*1e-3/ev_per_hartree],min_x,max_x)
     
     # Add colourbar.
     norm = colors.Normalize(vmin=min_y,vmax=max_y)
