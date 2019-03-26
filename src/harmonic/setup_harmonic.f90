@@ -234,7 +234,6 @@ subroutine setup_harmonic_subroutine(arguments)
   
   ! Loop over supercells, writing out calculation directories for each.
   do i=1,no_supercells
-    call print_line('Generating supercell '//i)
     supercell_dir = 'Supercell_'//left_pad(i,str(no_supercells))
     
     call mkdir(supercell_dir)

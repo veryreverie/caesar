@@ -361,26 +361,11 @@ subroutine calculate_symmetry(this,symmetry_precision,symmetries, &
   
   type(SpglibSymmetries)           :: spglib_symmetries
   type(BasicSymmetry), allocatable :: basic_symmetries(:)
+  type(String)                     :: space_group
   
-  type(String)             :: space_group
-  type(Group), allocatable :: symmetry_groups(:)
-  
-  integer :: no_symmetries
-  
-  ! Variables for calculating symmetry groups.
-  integer, allocatable :: symmetry_group(:)
-  type(IntMatrix)      :: tensor_ij
-  type(Group)          :: atom_group_ij
-  
-  ! Variables for calculating symmetry inverses.
-  integer              :: identity_id
-  integer, allocatable :: inverse_symmetry_ids(:)
-  
-  integer :: i,j,ialloc
-  
-  space_group = ''
-  
+  ! Construct basic symmetries from inputs.
   if (present(symmetries)) then
+    space_group = ''
     if (size(symmetries)==0) then
       call print_line(ERROR//': No symmetries given. There must be at least &
          &the identity symmetry.')
@@ -408,46 +393,139 @@ subroutine calculate_symmetry(this,symmetry_precision,symmetries, &
          & .not.loto_breaks_symmetry(basic_symmetries%tensor,loto_direction) ))
     endif
   endif
-  
-  no_symmetries = size(basic_symmetries)
-  
-  ! Returns if the symmetry is only a dummy placeholder.
-  if (no_symmetries==0) then
-    return
-  endif
 
+  ! Record basic symmetry properties.
+  if (size(basic_symmetries)>0) then
+    this%symmetries = process_basic_symmetries(this, basic_symmetries)
+  else
+    this%symmetries = [SymmetryOperator::]
+  endif
+  this%symmetry_precision = symmetry_precision
+  this%space_group = space_group
+end subroutine
+
+function process_basic_symmetries(structure,input) result(output)
+  implicit none
+  
+  type(StructureData), intent(in)     :: structure
+  type(BasicSymmetry), intent(in)     :: input(:)
+  type(SymmetryOperator), allocatable :: output(:)
+  
+  ! A symmetry, indexed s, can be uniquely characterised by two indices:
+  !    - its tensor, indexed t.
+  !    - the R-vector of the atom it sends atom 1 to, id a, indexed r.
+  type(IntMatrix), allocatable :: tensors(:)
+  integer,         allocatable :: rt_to_s(:,:)
+  integer,         allocatable :: s_to_r(:)
+  integer,         allocatable :: s_to_t(:)
+  integer,         allocatable :: s_to_atom(:)
+  integer,         allocatable :: rs_per_t(:)
+  
+  integer :: no_rs
+  integer :: no_ts
+  
+  type(IntMatrix) :: tensor
+  integer         :: atom
+  
+  integer :: s,r,t
+  
+  integer, allocatable :: sort_key(:)
+  
+  ! Variables for calculating symmetry groups.
+  integer,     allocatable :: symmetry_group(:)
+  type(Group), allocatable :: symmetry_groups(:)
+  
+  ! Variables for calculating symmetry inverses.
+  integer              :: identity_id
+  integer, allocatable :: inverse_symmetry_ids(:)
+  
+  integer :: i,j,ialloc
+  
+  ! Check that the number of symmetries is divisible by the number of
+  !    R-vectors.
+  if (modulo(size(input),structure%sc_size)/=0) then
+    call print_line(ERROR//': The number of symmetries is not divisible by &
+    &the number of R-vectors.')
+    call err()
+  endif
+  
+  ! Identify the id of the atom which each symmetry maps atom 1 to.
+  s_to_atom = [(input(s)%atom_group * 1, s=1, size(input))]
+  
+  ! Identify the mappings between s,t and r.
+  no_rs = structure%sc_size
+  no_ts = size(input)/no_rs
+  allocate( tensors(no_ts),        &
+          & rt_to_s(no_rs, no_ts), &
+          & s_to_r(size(input)),   &
+          & s_to_t(size(input)),   &
+          & rs_per_t(no_ts),       &
+          & stat=ialloc); call err(ialloc)
+  no_ts = 0
+  rs_per_t = 0
+  do s=1,size(input)
+    t = first(tensors(:no_ts)==input(s)%tensor, default=0)
+    if (t==0) then
+      no_ts = no_ts+1
+      tensors(no_ts) = input(s)%tensor
+      t = no_ts
+    endif
+    
+    rs_per_t(t) = rs_per_t(t) + 1
+    r = rs_per_t(t)
+    
+    s_to_r(s) = r
+    s_to_t(s) = t
+    rt_to_s(r,t) = s
+  enddo
+  
+  ! Check that the various counts are correct.
+  if (no_ts/=size(tensors)) then
+    call print_line(CODE_ERROR//': Unable to process symmetries.')
+    call err()
+  elseif (any(rs_per_t/=no_rs)) then
+    call print_line(CODE_ERROR//': Unable to process symmetries.')
+    call err()
+  endif
+  
+  ! Sort all the symmetries with the same unique tensor,
+  !    in ascending order of a.
+  do t=1,size(tensors)
+    sort_key = sort(s_to_atom(rt_to_s(:,t)))
+    rt_to_s(:,t) = rt_to_s(sort_key,t)
+    s_to_r(rt_to_s(:,t)) = [(r,r=1,no_rs)]
+  enddo
+  
   ! --------------------------------------------------
   ! Calculates how symmetries map symmetries onto other symmetries.
   ! --------------------------------------------------
   
   ! Calculate symmetry groups.
-  allocate( symmetry_group(no_symmetries),  &
-          & symmetry_groups(no_symmetries), &
+  allocate( symmetry_group(size(input)),  &
+          & symmetry_groups(size(input)), &
           & stat=ialloc); call err(ialloc)
-  do i=1,no_symmetries
+  do i=1,size(input)
     symmetry_group = 0
-    do j=1,no_symmetries
-      tensor_ij = basic_symmetries(i)%tensor &
-              & * basic_symmetries(j)%tensor
-      atom_group_ij = basic_symmetries(i)%atom_group &
-                  & * basic_symmetries(j)%atom_group
+    do j=1,size(input)
+      ! Identify the action of symmetry i * symmetry j
+      !    in terms of tensor and atom.
+      tensor = input(i)%tensor*input(j)%tensor
+      atom   = input(i)%atom_group * (input(j)%atom_group * 1)
       
-      if (count( basic_symmetries%tensor==tensor_ij .and.   &
-               & basic_symmetries%atom_group==atom_group_ij )/=1) then
-        call print_line(ERROR//': symmetry group inconsistent.')
-        call err()
-      endif
-      
-      symmetry_group(j) = first( basic_symmetries%tensor==tensor_ij .and.   &
-                               & basic_symmetries%atom_group==atom_group_ij )
+      ! Use the tensor and atom to identify the symmetry.
+      ! N.B. the use of first_equivalent makes this step scale with
+      !    log(n) in the number of q-points.
+      t = first(tensors==tensor)
+      r = first_equivalent(s_to_atom(rt_to_s(:,t)), atom, sorted=.true.)
+      s = rt_to_s(r,t)
+      symmetry_group(j) = s
     enddo
-    
     symmetry_groups(i) = Group(symmetry_group)
   enddo
   
   ! Locate the identity operator. S*S=S iff S=I.
   identity_id = 0
-  do i=1,no_symmetries
+  do i=1,size(input)
     if (symmetry_groups(i)*i == i) then
       if (identity_id==0) then
         identity_id = i
@@ -465,10 +543,11 @@ subroutine calculate_symmetry(this,symmetry_precision,symmetries, &
   endif
   
   ! Locate the inverse of each operator.
-  allocate(inverse_symmetry_ids(no_symmetries), stat=ialloc); call err(ialloc)
+  allocate( inverse_symmetry_ids(size(input)), &
+          & stat=ialloc); call err(ialloc)
   inverse_symmetry_ids = 0
-  do i=1,no_symmetries
-    do j=1,no_symmetries
+  do i=1,size(input)
+    do j=1,size(input)
       if (symmetry_groups(i)*j==identity_id) then
         if ( inverse_symmetry_ids(i)==0 .and. &
            & inverse_symmetry_ids(j)==0       ) then
@@ -489,21 +568,18 @@ subroutine calculate_symmetry(this,symmetry_precision,symmetries, &
   endif
   
   ! --------------------------------------------------
-  ! Record basic symmetry properties.
+  ! Construct output.
   ! --------------------------------------------------
-  deallocate(this%symmetries, stat=ialloc); call err(ialloc)
-  
-  this%symmetry_precision = symmetry_precision
-  this%space_group = space_group
-  allocate(this%symmetries(no_symmetries), stat=ialloc); call err(ialloc)
-  do i=1,no_symmetries
-    this%symmetries(i) = SymmetryOperator( basic_symmetries(i),    &
-                                         & this%lattice,           &
-                                         & this%recip_lattice,     &
-                                         & symmetry_groups(i),     &
-                                         & inverse_symmetry_ids(i) )
+  allocate( output(size(input)), &
+          & stat=ialloc); call err(ialloc)
+  do i=1,size(input)
+    output(i) = SymmetryOperator( input(i),                &
+                                & structure%lattice,       &
+                                & structure%recip_lattice, &
+                                & symmetry_groups(i),      &
+                                & inverse_symmetry_ids(i)  )
   enddo
-end subroutine
+end function
 
 ! ----------------------------------------------------------------------
 ! Calculate the relationships between R-vectors, modulo the supercell.
