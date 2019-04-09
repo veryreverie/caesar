@@ -44,8 +44,8 @@ target_link_libraries(caesar utils)
 add_subdirectory(${CMAKE_SOURCE_DIR}/common common/)
 target_link_libraries(caesar common)
 
-add_subdirectory(${CMAKE_SOURCE_DIR}/castep castep/)
-target_link_libraries(caesar castep)
+add_subdirectory(${CMAKE_SOURCE_DIR}/dft dft/)
+target_link_libraries(caesar dft)
 
 add_subdirectory(${CMAKE_SOURCE_DIR}/harmonic harmonic/)
 target_link_libraries(caesar harmonic)

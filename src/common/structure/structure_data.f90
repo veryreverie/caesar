@@ -396,190 +396,24 @@ subroutine calculate_symmetry(this,symmetry_precision,symmetries, &
 
   ! Record basic symmetry properties.
   if (size(basic_symmetries)>0) then
-    this%symmetries = process_basic_symmetries(this, basic_symmetries)
+    ! Check that the number of symmetries is divisible by the number of
+    !    R-vectors.
+    if (modulo(size(basic_symmetries),this%sc_size)/=0) then
+      call print_line(ERROR//': The number of symmetries is not divisible by &
+      &the number of R-vectors.')
+      call err()
+    endif
+    
+    ! Process symmetries.
+    this%symmetries = SymmetryOperator( basic_symmetries,  &
+                                      & this%lattice,      &
+                                      & this%recip_lattice )
   else
     this%symmetries = [SymmetryOperator::]
   endif
   this%symmetry_precision = symmetry_precision
   this%space_group = space_group
 end subroutine
-
-function process_basic_symmetries(structure,input) result(output)
-  implicit none
-  
-  type(StructureData), intent(in)     :: structure
-  type(BasicSymmetry), intent(in)     :: input(:)
-  type(SymmetryOperator), allocatable :: output(:)
-  
-  ! A symmetry, indexed s, can be uniquely characterised by two indices:
-  !    - its tensor, indexed t.
-  !    - the R-vector of the atom it sends atom 1 to, id a, indexed r.
-  type(IntMatrix), allocatable :: tensors(:)
-  integer,         allocatable :: rt_to_s(:,:)
-  integer,         allocatable :: s_to_r(:)
-  integer,         allocatable :: s_to_t(:)
-  integer,         allocatable :: s_to_atom(:)
-  integer,         allocatable :: rs_per_t(:)
-  
-  integer :: no_rs
-  integer :: no_ts
-  
-  type(IntMatrix) :: tensor
-  integer         :: atom
-  
-  integer :: s,r,t
-  
-  integer, allocatable :: sort_key(:)
-  
-  ! Variables for calculating symmetry groups.
-  integer,     allocatable :: symmetry_group(:)
-  type(Group), allocatable :: symmetry_groups(:)
-  
-  ! Variables for calculating symmetry inverses.
-  integer              :: identity_id
-  integer, allocatable :: inverse_symmetry_ids(:)
-  
-  integer :: i,j,ialloc
-  
-  ! Check that the number of symmetries is divisible by the number of
-  !    R-vectors.
-  if (modulo(size(input),structure%sc_size)/=0) then
-    call print_line(ERROR//': The number of symmetries is not divisible by &
-    &the number of R-vectors.')
-    call err()
-  endif
-  
-  ! Identify the id of the atom which each symmetry maps atom 1 to.
-  s_to_atom = [(input(s)%atom_group * 1, s=1, size(input))]
-  
-  ! Identify the mappings between s,t and r.
-  no_rs = structure%sc_size
-  no_ts = size(input)/no_rs
-  allocate( tensors(no_ts),        &
-          & rt_to_s(no_rs, no_ts), &
-          & s_to_r(size(input)),   &
-          & s_to_t(size(input)),   &
-          & rs_per_t(no_ts),       &
-          & stat=ialloc); call err(ialloc)
-  no_ts = 0
-  rs_per_t = 0
-  do s=1,size(input)
-    t = first(tensors(:no_ts)==input(s)%tensor, default=0)
-    if (t==0) then
-      no_ts = no_ts+1
-      tensors(no_ts) = input(s)%tensor
-      t = no_ts
-    endif
-    
-    rs_per_t(t) = rs_per_t(t) + 1
-    r = rs_per_t(t)
-    
-    s_to_r(s) = r
-    s_to_t(s) = t
-    rt_to_s(r,t) = s
-  enddo
-  
-  ! Check that the various counts are correct.
-  if (no_ts/=size(tensors)) then
-    call print_line(CODE_ERROR//': Unable to process symmetries.')
-    call err()
-  elseif (any(rs_per_t/=no_rs)) then
-    call print_line(CODE_ERROR//': Unable to process symmetries.')
-    call err()
-  endif
-  
-  ! Sort all the symmetries with the same unique tensor,
-  !    in ascending order of a.
-  do t=1,size(tensors)
-    sort_key = sort(s_to_atom(rt_to_s(:,t)))
-    rt_to_s(:,t) = rt_to_s(sort_key,t)
-    s_to_r(rt_to_s(:,t)) = [(r,r=1,no_rs)]
-  enddo
-  
-  ! --------------------------------------------------
-  ! Calculates how symmetries map symmetries onto other symmetries.
-  ! --------------------------------------------------
-  
-  ! Calculate symmetry groups.
-  allocate( symmetry_group(size(input)),  &
-          & symmetry_groups(size(input)), &
-          & stat=ialloc); call err(ialloc)
-  do i=1,size(input)
-    symmetry_group = 0
-    do j=1,size(input)
-      ! Identify the action of symmetry i * symmetry j
-      !    in terms of tensor and atom.
-      tensor = input(i)%tensor*input(j)%tensor
-      atom   = input(i)%atom_group * (input(j)%atom_group * 1)
-      
-      ! Use the tensor and atom to identify the symmetry.
-      ! N.B. the use of first_equivalent makes this step scale with
-      !    log(n) in the number of q-points.
-      t = first(tensors==tensor)
-      r = first_equivalent(s_to_atom(rt_to_s(:,t)), atom, sorted=.true.)
-      s = rt_to_s(r,t)
-      symmetry_group(j) = s
-    enddo
-    symmetry_groups(i) = Group(symmetry_group)
-  enddo
-  
-  ! Locate the identity operator. S*S=S iff S=I.
-  identity_id = 0
-  do i=1,size(input)
-    if (symmetry_groups(i)*i == i) then
-      if (identity_id==0) then
-        identity_id = i
-      else
-        call print_line(ERROR//': The identity symmetry has been found &
-           &twice.')
-        call err()
-      endif
-    endif
-  enddo
-  
-  if (identity_id==0) then
-    call print_line(ERROR//': The identity symmetry has not been found.')
-    call err()
-  endif
-  
-  ! Locate the inverse of each operator.
-  allocate( inverse_symmetry_ids(size(input)), &
-          & stat=ialloc); call err(ialloc)
-  inverse_symmetry_ids = 0
-  do i=1,size(input)
-    do j=1,size(input)
-      if (symmetry_groups(i)*j==identity_id) then
-        if ( inverse_symmetry_ids(i)==0 .and. &
-           & inverse_symmetry_ids(j)==0       ) then
-          inverse_symmetry_ids(i) = j
-          inverse_symmetry_ids(j) = i
-        elseif ( inverse_symmetry_ids(i)/=j .or. &
-               & inverse_symmetry_ids(j)/=i      ) then
-          call print_line(ERROR//': Symmetry inverses are not consistent.')
-          call err()
-        endif
-      endif
-    enddo
-  enddo
-  
-  if (any(inverse_symmetry_ids==0)) then
-    call print_line(ERROR//': Unable to find all symmetry inverses.')
-    call err()
-  endif
-  
-  ! --------------------------------------------------
-  ! Construct output.
-  ! --------------------------------------------------
-  allocate( output(size(input)), &
-          & stat=ialloc); call err(ialloc)
-  do i=1,size(input)
-    output(i) = SymmetryOperator( input(i),                &
-                                & structure%lattice,       &
-                                & structure%recip_lattice, &
-                                & symmetry_groups(i),      &
-                                & inverse_symmetry_ids(i)  )
-  enddo
-end function
 
 ! ----------------------------------------------------------------------
 ! Calculate the relationships between R-vectors, modulo the supercell.

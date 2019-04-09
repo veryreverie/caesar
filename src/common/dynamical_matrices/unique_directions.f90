@@ -300,7 +300,7 @@ subroutine check_unique_directions(unique_directions,structure, &
   
   integer :: i,j,ialloc
   
-  min_determinant = 1.0e-7_dp * abs(triple_product(a,b,c))
+  min_determinant = 1.0e-7_dp * abs(triple_product(a,b,c))**2
   
   ! Construct xx = sum[ (S.x)^(S.x) ].
   allocate(xx(structure%no_atoms), stat=ialloc); call err(ialloc)
@@ -321,6 +321,7 @@ subroutine check_unique_directions(unique_directions,structure, &
     if (determinant(xx(i))<min_determinant) then
       call print_line(CODE_ERROR//": error generating unique directions; &
          &x'^x' can't be inverted.")
+      call print_lines(xx(i))
       call err()
     endif
   enddo

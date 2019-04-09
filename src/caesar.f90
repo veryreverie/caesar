@@ -8,7 +8,7 @@ program caesar
   use common_module
   use harmonic_module
   use anharmonic_module
-  use castep_module
+  use dft_module
   use testing_module
   use version_module
   implicit none
@@ -40,7 +40,7 @@ program caesar
   call startup_utils()
   call startup_harmonic()
   call startup_anharmonic()
-  call startup_castep()
+  call startup_dft()
   call startup_testing()
   
   ! --------------------------------------------------

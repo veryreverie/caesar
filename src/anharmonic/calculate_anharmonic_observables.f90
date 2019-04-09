@@ -555,11 +555,10 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
                                         & logfile       )
     
     symmetry_points_file = OFile(temperature_dir//'/high_symmetry_points.dat')
-    call symmetry_points_file%print_lines( phonon_dispersion%path, &
-                                         & separating_line=''      )
+    call symmetry_points_file%print_lines(phonon_dispersion%path())
     
     dispersion_file = OFile(temperature_dir//'/phonon_dispersion_curve.dat')
-    call dispersion_file%print_lines(phonon_dispersion%frequencies)
+    call dispersion_file%print_lines(phonon_dispersion%frequencies())
     
     ! Generate self-consistent phonon density of states,
     !    interpolating as above.

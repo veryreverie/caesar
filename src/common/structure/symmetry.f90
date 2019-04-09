@@ -27,10 +27,6 @@ module symmetry_module
     ! The ID of the symmetry.
     integer :: id
     
-    ! The ID of the symmetry S s.t. this symmetry * S is the identity,
-    !    up to R-vector translation.
-    integer :: inverse_symmetry_id
-    
     ! A symmetry is defined by the tensor, T, and translation, t,
     !    both defined in fractional co-ordinates.
     ! The symmetry S acts on the fractional co-ordinate r as:
@@ -54,11 +50,6 @@ module symmetry_module
     !    - rvectors(i) = R_i in fractional supercell co-ordinates.
     type(Group)                  :: atom_group
     type(IntVector), allocatable :: rvectors(:)
-    
-    ! How the symmetry acts on other symmetries.
-    ! If this symmetry * symmetry_j = symmetry_k then symmetry_group*j=k.
-    ! N.B. these relations are true only up to R-vector translations.
-    type(Group) :: symmetry_group
   contains
     procedure, public :: inverse_transform
     
@@ -82,15 +73,13 @@ contains
 ! ----------------------------------------------------------------------
 ! Constructs a SymmetryOperator.
 ! ----------------------------------------------------------------------
-function new_SymmetryOperator(symmetry,lattice,recip_lattice,symmetry_group, &
-   & inverse_symmetry_id) result(this)
+impure elemental function new_SymmetryOperator(symmetry,lattice, &
+   & recip_lattice) result(this)
   implicit none
   
   type(BasicSymmetry), intent(in) :: symmetry
   type(RealMatrix),    intent(in) :: lattice
   type(RealMatrix),    intent(in) :: recip_lattice
-  type(Group),         intent(in) :: symmetry_group
-  integer,             intent(in) :: inverse_symmetry_id
   type(SymmetryOperator)          :: this
   
   this%id          = symmetry%id
@@ -106,9 +95,6 @@ function new_SymmetryOperator(symmetry,lattice,recip_lattice,symmetry_group, &
                            & * symmetry%translation
   
   this%recip_tensor_ = transpose(invert(symmetry%tensor))
-  
-  this%symmetry_group = symmetry_group
-  this%inverse_symmetry_id = inverse_symmetry_id
 end function
 
 ! ----------------------------------------------------------------------

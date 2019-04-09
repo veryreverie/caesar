@@ -38,18 +38,17 @@ module harmonic_properties_module
   end interface
   
   ! The minor points along the q-point path.
-  type, extends(Stringsable) :: PathFrequencies
+  type, extends(StringsWriteable) :: PathFrequencies
     real(dp)              :: path_fraction
+    type(RealVector)      :: qpoint
     real(dp), allocatable :: frequencies(:)
+    type(DynamicalMatrix) :: dynamical_matrix
   contains
-    procedure, public :: read  => read_PathFrequencies
     procedure, public :: write => write_PathFrequencies
   end type
   
   interface PathFrequencies
     module procedure new_PathFrequencies
-    module procedure new_PathFrequencies_Strings
-    module procedure new_PathFrequencies_StringArray
   end interface
   
   ! The number of frequencies below the threshold at a given q-point.
@@ -83,8 +82,12 @@ module harmonic_properties_module
   
   ! Return types.
   type, extends(NoDefaultConstructor) :: PhononDispersion
-    type(QpointPath),      allocatable :: path(:)
-    type(PathFrequencies), allocatable :: frequencies(:)
+    type(QpointPath),      allocatable, private :: path_(:)
+    type(PathFrequencies), allocatable, private :: frequencies_(:)
+  contains
+    procedure, public :: path => path_PhononDispersion
+    procedure, public :: frequencies => frequencies_PhononDispersion
+    procedure, public :: json => json_PhononDispersion
   end type
   
   interface PhononDispersion
@@ -119,15 +122,20 @@ impure elemental function new_QpointPath(label,qpoint,path_fraction) &
   this%path_fraction = path_fraction
 end function
 
-function new_PathFrequencies(path_fraction,frequencies) result(this)
+function new_PathFrequencies(path_fraction,qpoint,frequencies, &
+   & dynamical_matrix) result(this)
   implicit none
   
-  real(dp), intent(in)  :: path_fraction
-  real(dp), intent(in)  :: frequencies(:)
-  type(PathFrequencies) :: this
+  real(dp),              intent(in) :: path_fraction
+  type(RealVector),      intent(in) :: qpoint
+  real(dp),              intent(in) :: frequencies(:)
+  type(DynamicalMatrix), intent(in) :: dynamical_matrix
+  type(PathFrequencies)             :: this
   
   this%path_fraction = path_fraction
+  this%qpoint = qpoint
   this%frequencies = frequencies
+  this%dynamical_matrix = dynamical_matrix
 end function
 
 impure elemental function new_SampledQpoint(qpoint,no_soft_frequencies) &
@@ -163,8 +171,8 @@ function new_PhononDispersion(path,frequencies) result(this)
   type(PathFrequencies), intent(in) :: frequencies(:)
   type(PhononDispersion)            :: this
   
-  this%path = path
-  this%frequencies = frequencies
+  this%path_ = path
+  this%frequencies_ = frequencies
 end function
 
 function new_PhononDos(qpoints,pdos,thermodynamic_data) result(this)
@@ -265,7 +273,9 @@ function new_PhononDispersion_CartesianHessian(large_supercell,min_images, &
          & frequencies,                                                       &
          & PathFrequencies(                                                   &
          &    path_fraction=fractional_distances(i)+j*fractional_separation,  &
-         &    frequencies=dyn_mat%complex_modes%frequency                    )]
+         &    qpoint = qpoint,                                                &
+         &    frequencies=dyn_mat%complex_modes%frequency,                    &
+         &    dynamical_matrix = dyn_mat                                     )]
     enddo
   enddo
   
@@ -278,14 +288,260 @@ function new_PhononDispersion_CartesianHessian(large_supercell,min_images, &
   call dyn_mat%check( large_supercell,         &
                     & logfile,                 &
                     & check_eigenstuff=.false. )
-  frequencies = [                                     &
-     & frequencies,                                   &
-     & PathFrequencies(                               &
-     &    path_fraction=1.0_dp,                       &
-     &    frequencies=dyn_mat%complex_modes%frequency )]
+  frequencies = [                                      &
+     & frequencies,                                    &
+     & PathFrequencies(                                &
+     &    path_fraction=1.0_dp,                        &
+     &    qpoint = qpoint,                             &
+     &    frequencies=dyn_mat%complex_modes%frequency, &
+     &    dynamical_matrix = dyn_mat                   )]
   
   ! Write outputs to file.
   this = PhononDispersion(path, frequencies)
+end function
+
+! ----------------------------------------------------------------------
+! Various printouts of the phonon dispersion.
+! ----------------------------------------------------------------------
+function path_PhononDispersion(this) result(output)
+  implicit none
+  
+  class(PhononDispersion), intent(in) :: this
+  type(String), allocatable           :: output(:)
+  
+  output = str(this%path_, separating_line='')
+end function
+
+function frequencies_PhononDispersion(this) result(output)
+  implicit none
+  
+  class(PhononDispersion), intent(in) :: this
+  type(String), allocatable           :: output(:)
+  
+  output = str(this%frequencies_)
+end function
+
+function json_PhononDispersion(this,seedname,structure) result(output)
+  implicit none
+  
+  class(PhononDispersion), intent(in) :: this
+  type(String),            intent(in) :: seedname
+  type(StructureData),     intent(in) :: structure
+  type(String), allocatable           :: output(:)
+  
+  type(RealVector) :: vector
+  
+  type(String)              :: lattice(3)
+  type(String)              :: atom_types
+  type(String)              :: atom_numbers
+  type(String), allocatable :: atom_pos_car(:)
+  type(String), allocatable :: atom_pos_red(:)
+  type(String), allocatable :: highsym_qpts(:)
+  type(String), allocatable :: qpoints(:)
+  type(String), allocatable :: distances(:)
+  type(String), allocatable :: eigenvalues(:)
+  type(String), allocatable :: vectors(:)
+  
+  complex(dp) :: element
+  
+  integer :: i,j,k,l,n,ialloc
+  
+  ! Construct lattice strings.
+  do i=1,3
+    lattice(i) = '    ['
+    do j=1,3
+      lattice(i) = lattice(i)//structure%lattice%element(i,j)
+      if (j/=3) then
+        lattice(i) = lattice(i)//','
+      endif
+    enddo
+    lattice(i) = lattice(i)//']'
+    if (i/=3) then
+      lattice(i) = lattice(i)//','
+    endif
+  enddo
+  
+  ! Construct atom_types string.
+  atom_types = '['
+  do i=1,size(structure%atoms)
+    atom_types = atom_types//'"'//structure%atoms(i)%species()//'"'
+    if (i/=size(structure%atoms)) then
+      atom_types = atom_types//','
+    endif
+  enddo
+  atom_types = atom_types//']'
+  
+  ! Construct atom_numbers string.
+  atom_numbers = '['
+  do i=1,size(structure%atoms)
+    atom_numbers = atom_numbers//atomic_symbol_to_number( &
+                           & structure%atoms(i)%species() )
+    if (i/=size(structure%atoms)) then
+      atom_numbers = atom_numbers//','
+    endif
+  enddo
+  atom_numbers = atom_numbers//']'
+  
+  ! Construct atom_pos_car strings.
+  allocate(atom_pos_car(size(structure%atoms)), stat=ialloc); call err(ialloc)
+  do i=1,size(structure%atoms)
+    atom_pos_car(i) = '    ['
+    vector = structure%atoms(i)%cartesian_position()
+    do j=1,3
+      atom_pos_car(i) = atom_pos_car(i)//vector%element(j)
+      if (j/=3) then
+        atom_pos_car(i) = atom_pos_car(i)//','
+      endif
+    enddo
+    atom_pos_car(i) = atom_pos_car(i)//']'
+    if (i/=size(structure%atoms)) then
+      atom_pos_car(i) = atom_pos_car(i)//','
+    endif
+  enddo
+  
+  ! Construct atom_pos_red strings.
+  allocate(atom_pos_red(size(structure%atoms)), stat=ialloc); call err(ialloc)
+  do i=1,size(structure%atoms)
+    atom_pos_red(i) = '    ['
+    vector = structure%atoms(i)%fractional_position()
+    do j=1,3
+      atom_pos_red(i) = atom_pos_red(i)//vector%element(j)
+      if (j/=3) then
+        atom_pos_red(i) = atom_pos_red(i)//','
+      endif
+    enddo
+    atom_pos_red(i) = atom_pos_red(i)//']'
+    if (i/=size(structure%atoms)) then
+      atom_pos_red(i) = atom_pos_red(i)//','
+    endif
+  enddo
+  
+  ! Construct highsym_qpts.
+  allocate(highsym_qpts(size(this%path_)), stat=ialloc); call err(ialloc)
+  do i=1,size(this%path_)
+    highsym_qpts(i) =                                                     &
+       & '    ['                                                       // &
+       & nint(this%path_(i)%path_fraction*(size(this%frequencies_)-1)) // &
+       & ',"'                                                          // &
+       & this%path_(i)%label                                           // &
+       & '"]'
+    if (i/=size(this%path_)) then
+      highsym_qpts(i) = highsym_qpts(i)//','
+    endif
+  enddo
+  
+  ! Construct qpoints.
+  allocate(qpoints(size(this%frequencies_)), stat=ialloc); call err(ialloc)
+  do i=1,size(this%frequencies_)
+    qpoints(i) = '    ['
+    do j=1,3
+      qpoints(i) = qpoints(i)//this%frequencies_(i)%qpoint%element(j)
+      if (j/=3) then
+        qpoints(i) = qpoints(i)//','
+      endif
+    enddo
+    qpoints(i) = qpoints(i)//']'
+    if (i/=size(this%frequencies_)) then
+      qpoints(i) = qpoints(i)//','
+    endif
+  enddo
+  
+  ! Construct distances.
+  allocate(distances(size(this%frequencies_)), stat=ialloc); call err(ialloc)
+  do i=1,size(this%frequencies_)
+    distances(i) = '  '//this%frequencies_(i)%path_fraction
+    if (i/=size(this%frequencies_)) then
+      distances(i) = distances(i)//','
+    endif
+  enddo
+  
+  ! Construct eigenvalues strings.
+  allocate(eigenvalues(size(this%frequencies_)), stat=ialloc); call err(ialloc)
+  do i=1,size(this%frequencies_)
+    eigenvalues(i) = '    ['
+    do j=1,size(this%frequencies_(i)%frequencies)
+      eigenvalues(i) = eigenvalues(i)//this%frequencies_(i)%frequencies(j)
+      if (j/=size(this%frequencies_(i)%frequencies)) then
+        eigenvalues(i) = eigenvalues(i)//','
+      endif
+    enddo
+    eigenvalues(i) = eigenvalues(i)//']'
+    if (i/=size(this%frequencies_)) then
+      eigenvalues(i) = eigenvalues(i)//','
+    endif
+  enddo
+  
+  ! Construct eigenvectors strings.
+  allocate( vectors(size(this%frequencies_)*(structure%no_modes+2)), &
+          & stat=ialloc); call err(ialloc)
+  do i=1,size(this%frequencies_)
+    n = (i-1)*(structure%no_modes+2) + 1
+    vectors(n) = '    ['
+    do j=1,structure%no_modes
+      n = (i-1)*(structure%no_modes+2) + j + 1
+      vectors(n) = '      ['
+      do k=1,structure%no_atoms
+        vectors(n) = vectors(n)//'['
+        do l=1,3
+          element = this%frequencies_(i                &
+                  & )%dynamical_matrix%complex_modes(j &
+                  & )%unit_vector(k                    &
+                  & )%element(l)
+          vectors(n) = vectors(n)//'['//real(element)//','//aimag(element)//']'
+          if (l/=3) then
+            vectors(n) = vectors(n)//','
+          endif
+        enddo
+        vectors(n) = vectors(n)//']'
+        if (k/=structure%no_atoms) then
+          vectors(n) = vectors(n)//','
+        endif
+      enddo
+      vectors(n) = vectors(n)//']'
+      if (j/=structure%no_modes) then
+        vectors(n) = vectors(n)//','
+      endif
+    enddo
+    n = i*(structure%no_modes+2)
+    vectors(n) = '    ]'
+    if (i/=size(this%frequencies_)) then
+      vectors(n) = vectors(n)//','
+    endif
+  enddo
+  
+  ! Construct output.
+  output = [ str('{'),                                   &
+           & '  "name": "'//seedname//'",',              &
+           & '  "natoms": '//size(structure%atoms)//',', &
+           & str('  "lattice": ['),                      &
+           & lattice,                                    &
+           & str('  ],'),                                &
+           & '  "atom_types": '//atom_types//',',        &
+           & '  "atom_numbers": '//atom_numbers//',',    &
+           & '  "formula": "'//seedname//'",',           &
+           & str('  "repetitions": [1,1,1],'),           &
+           & str('  "atom_pos_car": ['),                 &
+           & atom_pos_car,                               &
+           & str('  ],'),                                &
+           & str('  "atom_pos_red": ['),                 &
+           & atom_pos_red,                               &
+           & str('  ],'),                                &
+           & str('  "highsym_qpts": ['),                 &
+           & highsym_qpts,                               &
+           & str('  ],'),                                &
+           & str('  "qpoints": ['),                      &
+           & qpoints,                                    &
+           & str('  ],'),                                &
+           & str('  "distances": ['),                    &
+           & distances,                                  &
+           & str('  ],'),                                &
+           & str('  "eigenvalues": ['),                  &
+           & eigenvalues,                                &
+           & str('  ],'),                                &
+           & str('  "vectors": ['),                      &
+           & vectors,                                    &
+           & str('  ]'),                                 &
+           & str('}')                                    ]
 end function
 
 ! ----------------------------------------------------------------------
@@ -540,30 +796,6 @@ impure elemental function new_QpointPath_StringArray(input) result(this)
   this = QpointPath(str(input))
 end function
 
-subroutine read_PathFrequencies(this,input)
-  implicit none
-  
-  class(PathFrequencies), intent(out) :: this
-  type(String),           intent(in)  :: input(:)
-  
-  real(dp)              :: path_fraction
-  real(dp), allocatable :: frequencies(:)
-  
-  type(String), allocatable :: line(:)
-  
-  select type(this); type is(PathFrequencies)
-    line = split_line(input(1))
-    path_fraction = dble(line(4))
-    
-    line = split_line(input(2))
-    frequencies = dble(line(2:))
-    
-    this = PathFrequencies(path_fraction,frequencies)
-  class default
-    call err()
-  end select
-end subroutine
-
 function write_PathFrequencies(this) result(output)
   implicit none
   
@@ -576,24 +808,6 @@ function write_PathFrequencies(this) result(output)
   class default
     call err()
   end select
-end function
-
-function new_PathFrequencies_Strings(input) result(this)
-  implicit none
-  
-  type(String), intent(in) :: input(:)
-  type(PathFrequencies)    :: this
-  
-  call this%read(input)
-end function
-
-impure elemental function new_PathFrequencies_StringArray(input) result(this)
-  implicit none
-  
-  type(StringArray), intent(in) :: input
-  type(PathFrequencies)         :: this
-  
-  this = PathFrequencies(str(input))
 end function
 
 subroutine read_SampledQpoint(this,input)

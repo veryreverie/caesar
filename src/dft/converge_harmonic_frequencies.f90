@@ -1,6 +1,6 @@
 ! ======================================================================
 ! Converges harmonic frequencies and free energies w/r/t
-!    CASTEP cutoff energy and k-point spacing.
+!    DFT cutoff energy, k-point spacing and electronic smearing.
 ! Runs multiple harmonic caesar calculations with different
 !    cutoff energies and k-point spacings.
 ! ======================================================================

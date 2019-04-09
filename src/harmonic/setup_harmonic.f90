@@ -225,10 +225,13 @@ subroutine setup_harmonic_subroutine(arguments)
   ! Write out structure, q-point and supercell data.
   structure_file = OFile('structure.dat')
   call structure_file%print_lines(structure)
+  
   large_supercell_file = OFile('large_supercell.dat')
   call large_supercell_file%print_lines(large_supercell)
+  
   qpoints_file = OFile('qpoints.dat')
   call qpoints_file%print_lines(qpoints,separating_line='')
+  
   no_supercells_file = OFile('no_supercells.dat')
   call no_supercells_file%print_line(no_supercells)
   

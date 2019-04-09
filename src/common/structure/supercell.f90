@@ -343,53 +343,89 @@ end subroutine
 ! Either calculates the R-vectors of the primitive cell which are unique
 !    in the supercell, or the G-vectors of the reciprocal supercell which are
 !    unique in the reciprocal primitive cell.
-function calculate_unique_vectors(lattice,centre_on_origin) result(output)
+function calculate_unique_vectors(supercell,centre_on_origin) result(output)
   implicit none
   
-  ! Lattice vectors are the rows of lattice.
-  type(IntMatrix), intent(in)  :: lattice
+  ! Supercell vectors are the rows of supercell.
+  type(IntMatrix), intent(in)  :: supercell
   logical,         intent(in)  :: centre_on_origin
   type(IntVector), allocatable :: output(:)
   
-  integer         :: lattice_size
+  integer         :: supercell_size
   integer         :: no_vectors
   type(IntVector) :: frac_vec
   type(IntVector) :: prim_vec
-  integer         :: i,j,k,ialloc
+  integer         :: i,j,k,l,ialloc
   
-  if (size(lattice,1)/=3 .or. size(lattice,2)/=3) then
-    call print_line('Error: lattice is not 3x3.')
+  integer                      :: repeats(3)
+  type(IntVector), allocatable :: frac_vecs(:)
+  
+  if (size(supercell,1)/=3 .or. size(supercell,2)/=3) then
+    call print_line('Error: supercell matrix is not 3x3.')
     call err()
   endif
   
-  lattice_size = abs(determinant(lattice))
+  supercell_size = abs(determinant(supercell))
   
-  allocate(output(lattice_size), stat=ialloc); call err(ialloc)
-  
-  no_vectors = 0
-  do i=0,lattice_size-1
-    do j=0,lattice_size-1
-      do k=0,lattice_size-1
-        
+  frac_vecs = [IntVector::]
+  repeats = [(gcd([int(supercell%row(i)),supercell_size]),i=1,3)]
+  do i=0,supercell_size/repeats(1)-1
+    do j=0,supercell_size/repeats(2)-1
+      do k=0,supercell_size/repeats(3)-1
         ! Construct vectors in scaled fractional primitive co-ordinates.
-        ! (scaled by lattice_size, to preserve integer representation).
+        ! (scaled by supercell_size, to preserve integer representation).
         if (centre_on_origin) then
-          frac_vec = [i-lattice_size/2,j-lattice_size/2,k-lattice_size/2]
+          frac_vec = [i,j,k] - supercell_size/2
         else
           frac_vec = [i,j,k]
         endif
         
         ! Transform to scaled fractional supercell co-ordinates.
-        prim_vec = transpose(lattice)*frac_vec
+        prim_vec = transpose(supercell)*frac_vec
         
         ! Check if the scaled co-ordinate is scaling*(integer co-ordinate).
-        if (all(modulo(int(prim_vec),lattice_size)==0)) then
-          no_vectors = no_vectors+1
-          output(no_vectors) = prim_vec / lattice_size
+        if (all(modulo(int(prim_vec),supercell_size)==0)) then
+          frac_vecs = [frac_vecs, frac_vec]
         endif
       enddo
     enddo
   enddo
+  
+  if (size(frac_vecs)/=supercell_size/product(repeats)) then
+    call err()
+  endif
+  
+  allocate(output(supercell_size), stat=ialloc); call err(ialloc)
+  no_vectors = 0
+  do i=0,repeats(1)-1
+    do j=0,repeats(2)-1
+      do k=0,repeats(3)-1
+        do l=1,size(frac_vecs)
+          no_vectors = no_vectors+1
+          ! Construct each vector in fractional primitive co-ordinates,
+          !    in each repeating unit.
+          frac_vec = frac_vecs(l) + vec([ i*supercell_size/repeats(1), &
+                                        & j*supercell_size/repeats(2), &
+                                        & k*supercell_size/repeats(3)  ])
+        
+          ! Transform to scaled fractional supercell co-ordinates.
+          prim_vec = transpose(supercell)*frac_vec
+          
+          ! Check that the scaled co-ordinate is scaling*(integer co-ordinate).
+          if (any(modulo(int(prim_vec),supercell_size)/=0)) then
+            call err()
+          endif
+          
+          output(no_vectors) = prim_vec/supercell_size
+        enddo
+      enddo
+    enddo
+  enddo
+  
+  if (no_vectors/=supercell_size) then
+    call print_line(ERROR//': Unable to find all supercell vectors.')
+    call err()
+  endif
 end function
 
 ! ----------------------------------------------------------------------
@@ -415,6 +451,9 @@ function construct_supercell(structure,supercell_matrix) result(output)
   type(RealVector), allocatable :: positions2(:)
   integer,          allocatable :: atom_rvector_ids(:)
   integer,          allocatable :: atom_prim_ids(:)
+  
+  type(BasicStructure) :: basic_structure
+  type(BasicSupercell) :: basic_supercell
   
   ! Temporary variables
   integer :: sc_size
@@ -467,17 +506,16 @@ function construct_supercell(structure,supercell_matrix) result(output)
   enddo
   
   ! Construct output.
-  output = StructureData(                                                     &
-     & basic_structure = BasicStructure( supercell_matrix*structure%lattice,  &
-     &                                   species2,                            &
-     &                                   masses2,                             &
-     &                                   positions2),                         &
-     & basic_supercell = BasicSupercell(                                      &
-     &         supercell_matrix,                                              &
-     &         calculate_unique_vectors(supercell_matrix, .false.),           &
-     &         calculate_unique_vectors(transpose(supercell_matrix), .true.), &
-     &         atom_rvector_ids,                                              &
-     &         atom_prim_ids))
+  basic_structure = BasicStructure( supercell_matrix*structure%lattice,  &
+                                  & species2,                            &
+                                  & masses2,                             &
+                                  & positions2                           )
+  basic_supercell = BasicSupercell( supercell_matrix,                    &
+                                  & rvectors,                            &
+                                  & gvectors,                            &
+                                  & atom_rvector_ids,                    &
+                                  & atom_prim_ids)    
+  output = StructureData(basic_structure, basic_supercell)
   
   ! Check output.
   call check_supercell(output, structure)
