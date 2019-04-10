@@ -22,13 +22,13 @@ module keyword_module
     character(1), private :: flag_
     
     ! Helptext for help calls.
-    type(String) :: helptext
+    type(String), private :: helptext_
     
     ! Properties of the value.
-    logical :: is_path
-    logical :: allowed_in_file
-    logical :: can_be_interactive
-    logical :: pass_to_python
+    logical, private :: is_path_
+    logical, private :: allowed_in_file_
+    logical, private :: can_be_interactive_
+    logical, private :: pass_to_python_
     
     ! Defaults.
     ! 0=must be set,1=no default,2=default to value,3=default to keyword.
@@ -67,6 +67,11 @@ module keyword_module
     ! Getters.
     procedure, public :: is_set => is_set_KeywordData
     procedure, public :: value  => value_KeywordData
+    
+    procedure, public :: is_path            => is_path_KeywordData
+    procedure, public :: allowed_in_file    => allowed_in_file_KeywordData
+    procedure, public :: can_be_interactive => can_be_interactive_KeywordData
+    procedure, public :: pass_to_python     => pass_to_python_KeywordData
     
     ! Set interactively from user.
     procedure, public :: set_interactively
@@ -233,7 +238,7 @@ end subroutine
 ! ----------------------------------------------------------------------
 ! Getters.
 ! ----------------------------------------------------------------------
-function is_set_KeywordData(this) result(output)
+impure elemental function is_set_KeywordData(this) result(output)
   implicit none
   
   class(KeywordData), intent(in) :: this
@@ -242,7 +247,7 @@ function is_set_KeywordData(this) result(output)
   output = this%is_set_
 end function
 
-function value_KeywordData(this) result(output)
+impure elemental function value_KeywordData(this) result(output)
   implicit none
   
   class(KeywordData), intent(in) :: this
@@ -253,6 +258,43 @@ function value_KeywordData(this) result(output)
   endif
   output = this%value_
 end function
+
+function is_path_KeywordData(this) result(output)
+  implicit none
+  
+  class(KeywordData), intent(in) :: this
+  logical                        :: output
+  
+  output = this%is_path_
+end function
+
+function allowed_in_file_KeywordData(this) result(output)
+  implicit none
+  
+  class(KeywordData), intent(in) :: this
+  logical                        :: output
+  
+  output = this%allowed_in_file_
+end function
+
+function can_be_interactive_KeywordData(this) result(output)
+  implicit none
+  
+  class(KeywordData), intent(in) :: this
+  logical                        :: output
+  
+  output = this%can_be_interactive_
+end function
+
+function pass_to_python_KeywordData(this) result(output)
+  implicit none
+  
+  class(KeywordData), intent(in) :: this
+  logical                        :: output
+  
+  output = this%pass_to_python_
+end function
+
 
 ! ----------------------------------------------------------------------
 ! Takes a keyword, helptext and options and returns a KeywordData.
@@ -315,24 +357,24 @@ function new_KeywordData(keyword,helptext,default_value,default_keyword, &
   
   ! Set properties.
   this%keyword = lower_case(keyword)
-  this%helptext = helptext
+  this%helptext_ = helptext
   
   if (present(is_path)) then
-    this%is_path = is_path
+    this%is_path_ = is_path
   else
-    this%is_path = .false.
+    this%is_path_ = .false.
   endif
   
   if (present(allowed_in_file)) then
-    this%allowed_in_file = allowed_in_file
+    this%allowed_in_file_ = allowed_in_file
   else
-    this%allowed_in_file = .true.
+    this%allowed_in_file_ = .true.
   endif
   
   if (present(can_be_interactive)) then
-    this%can_be_interactive = can_be_interactive
+    this%can_be_interactive_ = can_be_interactive
   else
-    this%can_be_interactive = .true.
+    this%can_be_interactive_ = .true.
   endif
   
   if (present(flag_without_arguments)) then
@@ -346,9 +388,9 @@ function new_KeywordData(keyword,helptext,default_value,default_keyword, &
   endif
   
   if (present(pass_to_python)) then
-    this%pass_to_python = pass_to_python
+    this%pass_to_python_ = pass_to_python
   else
-    this%pass_to_python = .false.
+    this%pass_to_python_ = .false.
   endif
   
   ! Set default behaviour.
@@ -383,7 +425,7 @@ subroutine set_interactively(this)
   type(String) :: input
   
   call print_line('')
-  call print_line(this%helptext)
+  call print_line(this%helptext_)
   if (this%is_set()) then
     call print_line(this%keyword//' currently has the value "'//this%value() &
        & //'".')
@@ -444,7 +486,7 @@ subroutine process_and_check(this)
     call quit()
   endif
   
-  if (this%is_path .and. this%is_set()) then
+  if (this%is_path_ .and. this%is_set()) then
     this%value_ = format_path(this%value_)
   endif
 end subroutine
@@ -462,7 +504,7 @@ subroutine print_help(this)
   
   ! Find the first instance of the keyword in the helptext,
   !    and colour it white.
-  helptext = split_line(this%helptext)
+  helptext = split_line(this%helptext_)
   i = first(helptext==this%keyword, default=0)
   if (i/=0) then
     helptext(i) = colour(helptext(i), 'white')

@@ -106,7 +106,7 @@ program caesar
   ! --------------------------------------------------
   ! Process arguments and flags.
   ! --------------------------------------------------
-  arguments = process_arguments(args,keywords)
+  arguments = Dictionary(args,keywords)
   
   ! --------------------------------------------------
   ! Set output file, if appropriate.

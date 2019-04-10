@@ -201,6 +201,8 @@ subroutine setup_harmonic_subroutine(arguments)
   endif
   
   ! Generate large supercell, for which all q-points are G-vectors.
+  call print_line('Generating large supercell. &
+     &(This may take a while if the q-point grid is large).')
   large_supercell_matrix = mat( [ grid(1), 0      , 0     ,    &
                               &   0      , grid(2), 0     ,    &
                               &   0      , 0      , grid(3) ], &

@@ -67,10 +67,9 @@ module structure_data_module
     ! --------------------------------------------------
     ! Groups describing addition of vectors.
     ! --------------------------------------------------
-    ! The groups describing R-vector and G-vector operations.
-    ! e.g. if Rvec(i)+Rvec(j)=Rvec(k) then rvec_group(i)*j=k.
+    ! The group describing R-vector operations.
+    ! e.g. if rvector(i)+rvector(j)=rvector(k) then rvector_group(i)*j=k.
     type(Group), allocatable :: rvector_group(:)
-    type(Group), allocatable :: gvector_group(:)
     
     ! --------------------------------------------------
     ! The IDs of paired R-vectors and G-vectors.
@@ -93,11 +92,9 @@ module structure_data_module
     
     ! Return groups corresponding to paired vectors.
     procedure, public :: paired_rvector_group
-    procedure, public :: paired_gvector_group
     
     ! Procedures involved in constructing a StructureData.
     procedure, private :: calculate_rvector_group
-    procedure, private :: calculate_gvector_group
     
     ! Primitive lattice procedures.
     procedure, public :: prim_lattice
@@ -157,17 +154,6 @@ function paired_rvector_group(this,rvector_id) result(output)
   type(Group)                      :: output
   
   output = this%rvector_group(this%rvector_paired_ids_(rvector_id))
-end function
-
-! Return the group describing the subtraction of G-vector i.
-function paired_gvector_group(this,gvector_id) result(output)
-  implicit none
-  
-  class(StructureData), intent(in) :: this
-  integer,              intent(in) :: gvector_id
-  type(Group)                      :: output
-  
-  output = this%gvector_group(this%gvector_paired_ids_(gvector_id))
 end function
 
 ! ----------------------------------------------------------------------
@@ -291,7 +277,6 @@ function new_StructureData(basic_structure,basic_supercell, &
   endif
   
   call this%calculate_rvector_group()
-  call this%calculate_gvector_group()
   
   ! Fill out atom data: atomic species, masses and positions.
   allocate( this%atoms(this%no_atoms), &
@@ -424,69 +409,35 @@ subroutine calculate_rvector_group(this)
   
   class(StructureData), intent(inout) :: this
   
-  integer, allocatable :: operation(:)
+  integer, allocatable :: operations(:,:)
   
   type(IntVector) :: rvector_k
   
   integer :: i,j,k,ialloc
   
-  allocate( operation(this%sc_size),          &
-          & this%rvector_group(this%sc_size), &
+  allocate( operations(this%sc_size,this%sc_size), &
+          & this%rvector_group(this%sc_size),      &
           & stat=ialloc); call err(ialloc)
+  operations = 0
   do i=1,this%sc_size
-    operation = 0
-    do j=1,this%sc_size
+    do j=1,i
       rvector_k = this%rvectors(i)+this%rvectors(j)
       do k=1,this%sc_size
         if (is_int(this%recip_supercell*(rvector_k-this%rvectors(k)))) then
-          operation(j) = k
+          operations(i,j) = k
+          operations(j,i) = k
+          exit
         endif
       enddo
     enddo
-    if (any(operation==0)) then
-      call print_line('Error: R-vector group incomplete.')
-      call err()
-    endif
-    this%rvector_group(i) = Group(operation)
   enddo
-end subroutine
-
-! ----------------------------------------------------------------------
-! Calculate the relationships between G-vectors, modulo the reciprocal
-!    primitive lattice.
-! so if gvec(:,i)+gvec(:,j)=gvec(:,k) then output(i)*j=k
-! ----------------------------------------------------------------------
-subroutine calculate_gvector_group(this)
-  implicit none
   
-  class(StructureData), intent(inout) :: this
+  if (any(operations==0)) then
+    call print_line('Error: R-vector group incomplete.')
+    call err()
+  endif
   
-  integer, allocatable :: operation(:)
-  
-  type(IntVector) :: gvector_k
-  
-  integer :: i,j,k,ialloc
-  
-  allocate( operation(this%sc_size), &
-          & this%gvector_group(this%sc_size),    &
-          & stat=ialloc); call err(ialloc)
-  do i=1,this%sc_size
-    operation = 0
-    do j=1,this%sc_size
-      gvector_k = this%gvectors(i)+this%gvectors(j)
-      do k=1,this%sc_size
-        if (is_int( transpose(this%recip_supercell) &
-                & * (gvector_k-this%gvectors(k)))) then
-          operation(j) = k
-        endif
-      enddo
-    enddo
-    if (any(operation==0)) then
-      call print_line('Error: G-vector group incomplete.')
-      call err()
-    endif
-    this%gvector_group(i) = Group(operation)
-  enddo
+  this%rvector_group = [(Group(operations(i,:)), i=1, this%sc_size)]
 end subroutine
 
 ! ----------------------------------------------------------------------

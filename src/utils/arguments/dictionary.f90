@@ -13,7 +13,6 @@ module argument_dictionary_module
   private
   
   public :: Dictionary
-  public :: operator(//)
   public :: size
   public :: call_caesar
   
@@ -22,7 +21,7 @@ module argument_dictionary_module
   ! ------------------------------
   type, extends(NoDefaultConstructor) :: Dictionary
     ! Accepted keywords.
-    type(KeywordData), allocatable :: keywords(:)
+    type(KeywordData), allocatable, private :: keywords_(:)
   contains
     ! ----------
     ! Getters.
@@ -128,11 +127,7 @@ module argument_dictionary_module
   
   interface Dictionary
     module procedure new_Dictionary_KeywordDatas
-  end interface
-  
-  ! Concatenate two Dictionaries.
-  interface operator(//)
-    module procedure concatenate_Dictionary_Dictionary
+    module procedure new_Dictionary_arguments
   end interface
   
   interface size
@@ -146,15 +141,256 @@ module argument_dictionary_module
 contains
 
 ! ----------------------------------------------------------------------
-! Constructor from a KeywordData array.
+! Constructors.
 ! ----------------------------------------------------------------------
+! Construct a Dictionary from and array of KeywordData.
 function new_Dictionary_KeywordDatas(keywords) result(this)
   implicit none
   
   type(KeywordData), intent(in) :: keywords(:)
   type(Dictionary)              :: this
   
-  this%keywords = [common_keywords(), keywords]
+  this%keywords_ = [common_keywords(), keywords]
+end function
+
+! Construct a Dictionary from the command line input to Caesar.
+function new_Dictionary_arguments(args,keywords_in) result(arguments)
+  implicit none
+  
+  type(String),      intent(in) :: args(:)
+  type(KeywordData), intent(in) :: keywords_in(:)
+  type(Dictionary)              :: arguments
+  
+  type(KeywordData), allocatable :: keywords(:)
+  
+  ! Flags.
+  type(String)          :: flags_without_arguments
+  type(String)          :: flags_with_arguments
+  type(CommandLineFlag) :: this
+  
+  ! Whether or not interactive mode is requested.
+  logical :: interactive
+  
+  ! Temporary variables.
+  integer      :: i,j
+  type(String) :: temp_string
+  type(String) :: flags
+  type(String) :: keyword
+  logical      :: boolean_flag
+  logical      :: mode_found
+  type(String) :: default_keyword
+  
+  ! --------------------------------------------------
+  ! Construct empty dictionary from keywords.
+  ! --------------------------------------------------
+  
+  ! Concatenate input keywords with common keywords ('help' etc.)
+  keywords = [common_keywords(), keywords_in]
+  
+  ! Check that keywords with default_keyword reference extant keywords.
+  do_i : do i=1,size(keywords)
+    default_keyword = keywords(i)%defaults_to_keyword()
+    if (default_keyword/='') then
+      do j=1,size(keywords)
+        if (keywords(j)%keyword == default_keyword) then
+          cycle do_i
+        endif
+      enddo
+      call print_line(CODE_ERROR//': default keyword "'//default_keyword// &
+         & '" is not a keyword')
+      call err()
+    endif
+  enddo do_i
+  
+  ! Parse allowed flags.
+  flags_without_arguments = ''
+  flags_with_arguments = ''
+  do i=1,size(keywords)
+    if (keywords(i)%has_flag()) then
+      if (keywords(i)%flag_takes_argument()) then
+        flags_with_arguments = flags_with_arguments//keywords(i)%flag()
+      else
+        flags_without_arguments = flags_without_arguments//keywords(i)%flag()
+      endif
+    endif
+  enddo
+  
+  ! Check that there are no duplicate flags.
+  flags = flags_without_arguments//flags_with_arguments
+  do i=1,len(flags)
+    do j=i+1,len(flags)
+      if (slice(flags,i,i)==slice(flags,j,j)) then
+        call print_line(CODE_ERROR//': the flag '//slice(flags,i,i)//' refers &
+           &to two separate keywords.')
+        call err()
+      endif
+    enddo
+  enddo
+  
+  ! Convert keywords into Dictionary.
+  ! N.B. the Dictionary() constructor will automatically prepend common
+  !    keywords to keywords_in.
+  arguments = Dictionary(keywords_in)
+  
+  ! --------------------------------------------------
+  ! Parse command line arguments.
+  ! --------------------------------------------------
+  
+  keyword = ''
+  mode_found = .false.
+  do
+    this = get_flag(args, flags_without_arguments, flags_with_arguments)
+    
+    ! ------------------------------
+    ! Check if this is the first argument, which should be the mode.
+    ! ------------------------------
+    if (this%flag==' ' .and. this%argument/=' ' .and. keyword=='') then
+      if (mode_found) then
+        call print_line(ERROR//': Caesar only takes one non-keyword &
+           &argument. all other arguments should be preceded by "-" for flags &
+           &or "--" for keywords.')
+        call quit()
+      endif
+      mode_found = .true.
+    endif
+    
+    ! ------------------------------
+    ! Check the previous keyword has been given a value.
+    ! ------------------------------
+    ! Only required when this is a flag, keyword, or the end of args.
+    if (keyword/='' .and. (this%flag/=' ' .or. this%argument==' ')) then
+      if (.not. arguments%is_set(keyword)) then
+        if (boolean_flag) then
+          call arguments%set(keyword,'true')
+        elseif (keyword=='help') then
+          call arguments%set(keyword,'')
+          return
+        else
+          call print_line(ERROR//': keyword '//keyword//' has been given &
+             &without a value on the command line.')
+          call quit()
+        endif
+      endif
+    endif
+      
+    ! ------------------------------
+    ! Check if this is a keyword (preceeded by '--').
+    ! ------------------------------
+    if (this%flag=='-') then
+      boolean_flag = .false.
+      keyword = lower_case(this%argument)
+    endif
+    
+    ! ------------------------------
+    ! Check if this is a flag (preceeded by '-' or another flag).
+    ! ------------------------------
+    if (this%flag/='-' .and. this%flag/=' ') then
+      if (index(char(flags_without_arguments),this%flag)/=0) then
+        boolean_flag = .true.
+      else
+        boolean_flag = .false.
+      endif
+      keyword = arguments%flag_to_keyword(this%flag)
+      if (this%argument/='') then
+        call arguments%set(keyword,this%argument)
+      endif
+    endif
+    
+    ! ------------------------------
+    ! Check if this is neither a flag nor a keyword.
+    ! ------------------------------
+    ! Append this to the value of the active keyword.
+    if (this%flag==' ' .and. this%argument/=' ' .and. keyword/='') then
+      if (arguments%is_set(keyword)) then
+        call arguments%append_to_value(keyword, ' '//this%argument)
+      else
+        call arguments%set(keyword, this%argument)
+      endif
+    endif
+    
+    ! ------------------------------
+    ! If none of the above are true, this should be the end of args.
+    ! ------------------------------
+    if (this%flag==' ' .and. this%argument==' ') then
+      exit
+    endif
+  enddo
+  
+  ! --------------------------------------------------
+  ! Check if interactive mode is requested.
+  ! --------------------------------------------------
+  if (arguments%is_set('interactive')) then
+    interactive = lgcl(arguments%value('interactive'))
+  else
+    interactive = .false.
+  endif
+  
+  ! --------------------------------------------------
+  ! Check if help is requested.
+  ! --------------------------------------------------
+  if (arguments%is_set('help')) then
+    return
+  endif
+  
+  if (interactive) then
+    call print_line('')
+    call print_line('Is help requested? Press <Enter> to skip or enter any &
+       &value for help.')
+    if (read_line_from_user()/='') then
+      call print_line('Please enter a keyword for further information, or &
+         &press <Enter> for information about accepted keywords.')
+      call arguments%set('help',read_line_from_user())
+      return
+    endif
+  endif
+  
+  ! --------------------------------------------------
+  ! Process input file, if requested.
+  ! --------------------------------------------------
+  if (interactive) then
+    if (arguments%is_set('input_file')) then
+      call print_line('Current settings are to read arguments from file '// &
+         & arguments%value('input_file'))
+      call print_line('Please press <Enter> to confirm this, or enter any &
+         &value to change this setting.')
+      if (read_line_from_user()/='') then
+        call arguments%unset('input_file')
+      endif
+    endif
+    
+    ! N.B. no elseif, because the above may unset input_file.
+    if (.not. arguments%is_set('input_file')) then
+      call print_line('Should further arguments be read from a file?')
+      call print_line('Please enter a file path, or press <Enter> to skip.')
+      temp_string = read_line_from_user()
+      if (temp_string/='') then
+        call arguments%set('input_file', temp_string)
+      endif
+    endif
+  endif
+  
+  if (arguments%is_set('input_file')) then
+    if (interactive) then
+      call print_line('Please note that settings given on the command line &
+         &override those read from file.')
+    endif
+    call arguments%read_file( arguments%value('input_file'), &
+                            & only_update_if_unset = .true. )
+  endif
+  
+  ! --------------------------------------------------
+  ! Get interactive arguments, if requested.
+  ! --------------------------------------------------
+  if (interactive) then
+    call arguments%set_interactively()
+  endif
+  
+  ! --------------------------------------------------
+  ! Set all defaults.
+  ! Convert all paths to absolute format (from /).
+  ! Check that all non-optional keywords have been set.
+  ! --------------------------------------------------
+  call arguments%process_and_check_inputs()
 end function
 
 ! ----------------------------------------------------------------------
@@ -166,20 +402,7 @@ function size_Dictionary(this) result(output)
   type(Dictionary), intent(in) :: this
   integer                      :: output
   
-  output = size(this%keywords)
-end function
-
-! ----------------------------------------------------------------------
-! Concatenates two Dictionaries.
-! ----------------------------------------------------------------------
-function concatenate_Dictionary_Dictionary(this,that) result(output)
-  implicit none
-  
-  class(Dictionary), intent(in) :: this
-  class(Dictionary), intent(in) :: that
-  type(Dictionary)              :: output
-  
-  output%keywords = [this%keywords, that%keywords]
+  output = size(this%keywords_)
 end function
 
 ! ----------------------------------------------------------------------
@@ -195,7 +418,7 @@ function index_Dictionary_String(this,keyword) result(output)
   type(String),      intent(in) :: keyword
   integer                       :: output
   
-  output = first(this%keywords%keyword == keyword,default=0)
+  output = first(this%keywords_%keyword == keyword,default=0)
   
   if (output==0) then
     call print_line(ERROR//': unexpected keyword: '//keyword//'.')
@@ -223,7 +446,7 @@ function index_by_flag_Dictionary_character(this,flag) result(output)
   character(1),      intent(in) :: flag
   integer                       :: output
   
-  output = first(this%keywords,flag_matches,default=0)
+  output = first(this%keywords_,flag_matches,default=0)
   
   if (output==0) then
     call print_line(ERROR//': unexpected flag: '//flag//'.')
@@ -268,7 +491,7 @@ function flag_to_keyword_Dictionary_character(this,flag) result(output)
   character(1),      intent(in) :: flag
   type(String)                  :: output
   
-  output = this%keywords(this%index_by_flag(flag))%keyword
+  output = this%keywords_(this%index_by_flag(flag))%keyword
 end function
 
 function flag_to_keyword_Dictionary_String(this,flag) result(output)
@@ -291,7 +514,7 @@ function is_set_Dictionary_character(this,keyword) result(output)
   character(*),      intent(in) :: keyword
   logical                       :: output
   
-  output = this%keywords(this%index(keyword))%is_set()
+  output = this%keywords_(this%index(keyword))%is_set()
 end function
 
 function is_set_Dictionary_String(this,keyword) result(output)
@@ -315,7 +538,7 @@ function value_Dictionary_character(this,keyword) result(output)
   character(*),      intent(in) :: keyword
   type(String)                  :: output
   
-  output = this%keywords(this%index(keyword))%value()
+  output = this%keywords_(this%index(keyword))%value()
 end function
 
 function value_Dictionary_String(this,keyword) result(output)
@@ -340,10 +563,11 @@ function python_arguments(this) result(output)
   integer :: i
   
   output = [String::]
-  do i=1,size(this%keywords)
-    if (this%keywords(i)%is_set() .and. this%keywords(i)%pass_to_python) then
-      output = [ output,                                                 &
-               & this%keywords(i)%keyword//' '//this%keywords(i)%value() ]
+  do i=1,size(this%keywords_)
+    if ( this%keywords_(i)%is_set() .and.   &
+       & this%keywords_(i)%pass_to_python() ) then
+      output = [ output,                                                   &
+               & this%keywords_(i)%keyword//' '//this%keywords_(i)%value() ]
     endif
   enddo
 end function
@@ -357,7 +581,7 @@ subroutine unset_Dictionary_character(this, keyword)
   class(Dictionary), intent(inout) :: this
   character(*),      intent(in)    :: keyword
   
-  call this%keywords(this%index(keyword))%unset()
+  call this%keywords_(this%index(keyword))%unset()
 end subroutine
 
 subroutine unset_Dictionary_String(this, keyword)
@@ -383,7 +607,7 @@ subroutine set_Dictionary_character_character(this,keyword,value, &
   character(*),      intent(in)           :: value
   logical,           intent(in), optional :: only_update_if_unset
   
-  call this%keywords(this%index(keyword))%set(value, only_update_if_unset) 
+  call this%keywords_(this%index(keyword))%set(value, only_update_if_unset) 
 end subroutine
 
 subroutine set_Dictionary_character_String(this,keyword,value, &
@@ -435,10 +659,10 @@ subroutine set_Dictionary_Dictionary(this,that)
   
   integer :: i
   
-  do i=1,size(this%keywords)
-    keyword = this%keywords(i)%keyword
+  do i=1,size(this%keywords_)
+    keyword = this%keywords_(i)%keyword
     if (keyword/='interactive' .and. keyword/='input_file') then
-      if (any(keyword==that%keywords%keyword)) then
+      if (any(keyword==that%keywords_%keyword)) then
         if (that%is_set(keyword)) then
           call this%set(keyword, that%value(keyword))
         endif
@@ -457,7 +681,7 @@ subroutine append_to_value_Dictionary_character_character(this,keyword,value)
   character(*),      intent(in)    :: keyword
   character(*),      intent(in)    :: value
   
-  call this%keywords(this%index(keyword))%append(value)
+  call this%keywords_(this%index(keyword))%append(value)
 end subroutine
 
 subroutine append_to_value_Dictionary_character_String(this,keyword,value)
@@ -512,32 +736,32 @@ subroutine write_file_Dictionary_character(this,filename)
   to_write = .false.
   max_length = 0
   do i=1,size(this)
-    if (.not. this%keywords(i)%allowed_in_file) then
+    if (.not. this%keywords_(i)%allowed_in_file()) then
       cycle
-    elseif (.not. this%keywords(i)%is_set()) then
+    elseif (.not. this%keywords_(i)%is_set()) then
       cycle
-    elseif (len(this%keywords(i)%value())==0) then
+    elseif (len(this%keywords_(i)%value())==0) then
       cycle
     else
       to_write = .true.
-      max_length = max(max_length, len(this%keywords(i)%keyword))
+      max_length = max(max_length, len(this%keywords_(i)%keyword))
     endif
   enddo
   
   if (to_write) then
     dictionary_file = OFile(filename)
     do i=1,size(this)
-      if (.not. this%keywords(i)%allowed_in_file) then
+      if (.not. this%keywords_(i)%allowed_in_file()) then
         cycle
-      elseif (.not. this%keywords(i)%is_set()) then
+      elseif (.not. this%keywords_(i)%is_set()) then
         cycle
-      elseif (len(this%keywords(i)%value())==0) then
+      elseif (len(this%keywords_(i)%value())==0) then
         cycle
       else
-        call dictionary_file%print_line(                           &
-           & this%keywords(i)%keyword //                           &
-           & spaces(max_length-len(this%keywords(i)%keyword)+1) // &
-           & this%keywords(i)%value())
+        call dictionary_file%print_line(                            &
+           & this%keywords_(i)%keyword //                           &
+           & spaces(max_length-len(this%keywords_(i)%keyword)+1) // &
+           & this%keywords_(i)%value())
       endif
     enddo
   endif
@@ -604,20 +828,20 @@ subroutine read_file_Dictionary_character(this, filename, &
     
     ! Find keyword in arguments.
     j = this%index(lower_case(line(1)))
-    if (.not. this%keywords(j)%allowed_in_file) then
-      call print_line(ERROR//': the keyword '//this%keywords(j)%keyword// &
+    if (.not. this%keywords_(j)%allowed_in_file()) then
+      call print_line(ERROR//': the keyword '//this%keywords_(j)%keyword// &
          & ' should not appear in input files.')
       call err()
-    elseif (only_if_unset .and. this%keywords(j)%is_set()) then
-      call print_line(WARNING//': the keyword '//this%keywords(j)%keyword// &
+    elseif (only_if_unset .and. this%keywords_(j)%is_set()) then
+      call print_line(WARNING//': the keyword '//this%keywords_(j)%keyword// &
          & ' has been specified in multiple places.')
     else
       if (size(line)==1) then
-        call print_line(ERROR//': the keyword '//this%keywords(j)%keyword// &
+        call print_line(ERROR//': the keyword '//this%keywords_(j)%keyword// &
            & 'has been specified without a value.')
         call quit()
       else
-        call this%keywords(j)%set(join(line(2:)),only_if_unset)
+        call this%keywords_(j)%set(join(line(2:)),only_if_unset)
       endif
     endif
   enddo
@@ -647,8 +871,8 @@ subroutine set_interactively_Dictionary(this)
   integer :: i
   
   do i=1,size(this)
-    if (this%keywords(i)%can_be_interactive) then
-      call this%keywords(i)%set_interactively()
+    if (this%keywords_(i)%can_be_interactive()) then
+      call this%keywords_(i)%set_interactively()
     endif
   enddo
 end subroutine
@@ -663,15 +887,15 @@ subroutine process_and_check_inputs_Dictionary(this)
   integer :: i,j
   
   do_i : do i=1,size(this)
-    if (.not. this%keywords(i)%is_set()) then
-      default_keyword = this%keywords(i)%defaults_to_keyword()
+    if (.not. this%keywords_(i)%is_set()) then
+      default_keyword = this%keywords_(i)%defaults_to_keyword()
       if (default_keyword == '') then
-        call this%keywords(i)%set_default()
+        call this%keywords_(i)%set_default()
       else
         do j=1,size(this)
-          if (this%keywords(j)%keyword==default_keyword) then
-            if (this%keywords(j)%is_set()) then
-              call this%keywords(i)%set(this%keywords(j)%value())
+          if (this%keywords_(j)%keyword==default_keyword) then
+            if (this%keywords_(j)%is_set()) then
+              call this%keywords_(i)%set(this%keywords_(j)%value())
             endif
             cycle do_i
           endif
@@ -682,7 +906,7 @@ subroutine process_and_check_inputs_Dictionary(this)
   enddo do_i
   
   do i=1,size(this)
-    call this%keywords(i)%process_and_check()
+    call this%keywords_(i)%process_and_check()
   enddo
 end subroutine
 
@@ -700,12 +924,12 @@ subroutine call_caesar_String_Dictionary(mode,arguments)
   integer :: i
   
   command_line_arguments = mode
-  do i=1,size(arguments%keywords)
-    if (arguments%keywords(i)%is_set()) then
-      if (arguments%keywords(i)%value()/='') then
-        command_line_arguments = command_line_arguments              //' '// &
-                               & '--'//arguments%keywords(i)%keyword //' '// &
-                               & arguments%keywords(i)%value()
+  do i=1,size(arguments%keywords_)
+    if (arguments%keywords_(i)%is_set()) then
+      if (arguments%keywords_(i)%value()/='') then
+        command_line_arguments = command_line_arguments               //' '// &
+                               & '--'//arguments%keywords_(i)%keyword //' '// &
+                               & arguments%keywords_(i)%value()
       endif
     endif
   enddo
