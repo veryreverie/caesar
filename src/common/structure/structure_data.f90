@@ -774,7 +774,7 @@ subroutine read_StructureData(this,input)
         operator_start_line = symmetry_line+4
       else
         this%space_group = ''
-        operator_start_line = symmetry_line+3
+        operator_start_line = symmetry_line+2
       endif
       
       sections = split_into_sections(                   &
