@@ -14,7 +14,7 @@ module keyword_module
   ! A keyword for getting input arguments from the user.
   type KeywordData
     ! Keyword.
-    type(String) :: keyword
+    type(String), private :: keyword_
     
     ! Flag (alternative one-character keyword).
     ! 0=no flag,1=flag without arguments,2=flag which takes arguments.
@@ -38,6 +38,9 @@ module keyword_module
     ! The value itself.
     logical,      private :: is_set_
     type(String), private :: value_
+    
+    ! Dependencies on other keywords.
+    type(String), allocatable :: exclusive_with_(:)
   contains
     ! Flag-related procedures.
     procedure, public :: has_flag            => has_flag_KeywordData
@@ -65,13 +68,16 @@ module keyword_module
     procedure, private :: append_KeywordData_String
     
     ! Getters.
-    procedure, public :: is_set => is_set_KeywordData
-    procedure, public :: value  => value_KeywordData
+    procedure, public :: keyword => keyword_KeywordData
+    procedure, public :: is_set  => is_set_KeywordData
+    procedure, public :: value   => value_KeywordData
     
     procedure, public :: is_path            => is_path_KeywordData
     procedure, public :: allowed_in_file    => allowed_in_file_KeywordData
     procedure, public :: can_be_interactive => can_be_interactive_KeywordData
     procedure, public :: pass_to_python     => pass_to_python_KeywordData
+    
+    procedure, public :: exclusive_with => exclusive_with_KeywordData
     
     ! Set interactively from user.
     procedure, public :: set_interactively
@@ -238,6 +244,15 @@ end subroutine
 ! ----------------------------------------------------------------------
 ! Getters.
 ! ----------------------------------------------------------------------
+impure elemental function keyword_KeywordData(this) result(output)
+  implicit none
+  
+  class(KeywordData), intent(in) :: this
+  type(String)                   :: output
+  
+  output = this%keyword_
+end function
+
 impure elemental function is_set_KeywordData(this) result(output)
   implicit none
   
@@ -254,6 +269,8 @@ impure elemental function value_KeywordData(this) result(output)
   type(String)                   :: output
   
   if (.not. this%is_set()) then
+    call print_line(CODE_ERROR//': Requesting the value of keyword '// &
+       & this%keyword()//', which has not been set.')
     call err()
   endif
   output = this%value_
@@ -295,18 +312,30 @@ function pass_to_python_KeywordData(this) result(output)
   output = this%pass_to_python_
 end function
 
+function exclusive_with_KeywordData(this) result(output)
+  implicit none
+  
+  class(KeywordData), intent(in) :: this
+  type(String), allocatable      :: output(:)
+  
+  output = this%exclusive_with_
+end function
 
 ! ----------------------------------------------------------------------
 ! Takes a keyword, helptext and options and returns a KeywordData.
 ! ----------------------------------------------------------------------
+! keyword is the name of the keyword, by which it can be accesed both in the
+!    code and by the user.
+! helptext is the text which will print for the keyword when help is called
+!    for.
 ! default_value is the value which will be defaulted to if the keyword is not
 !    specified. Defaults to not set.
 ! default_keyword is the keyword whose value will be copied if the keyword is
 !    not specified. Defaults to not set.
-! At most one of default_value and default_keyword should be specified.
+! N.B. At most one of default_value and default_keyword should be specified.
 ! is_optional specifies whether or not the keyword is required to be given.
-!    is_optional defaults to .false. unless a default is given, when it
-!    defaults to and is required to be .true..
+!    is_optional defaults to .false. unless a default or exclusive_with is
+!    given, when it defaults to, and is required to be, .true..
 ! is_path specifies that the value will be a path to a file or directory.
 !    Paths are converted to absolute paths (from /) automatically.
 !    Defaults to .false..
@@ -317,9 +346,15 @@ end function
 !    Defaults to .true.
 ! flag specifies the flag by which the keyword can be alternately called.
 !    Defaults to ' '.
+! pass_to_python specifies that the keyword should be passed to python.
+! exclusive_with specifies which other keywords this keyword is mutually
+!    exclusive with. The code guarantees that at most one of each mutually
+!    exclusive set of keywords is set. N.B. it is not guaranteed that at least
+!    one of each set is set; they could all be unset.
 function new_KeywordData(keyword,helptext,default_value,default_keyword, &
    & is_optional,is_path,allowed_in_file,can_be_interactive,             &
-   & flag_without_arguments,flag_with_arguments,pass_to_python) result(this)
+   & flag_without_arguments,flag_with_arguments,pass_to_python,          &
+   & exclusive_with) result(this)
   implicit none
   
   character(*), intent(in)           :: keyword
@@ -333,13 +368,17 @@ function new_KeywordData(keyword,helptext,default_value,default_keyword, &
   character(1), intent(in), optional :: flag_without_arguments
   character(1), intent(in), optional :: flag_with_arguments
   logical,      intent(in), optional :: pass_to_python
+  type(String), intent(in), optional :: exclusive_with(:)
   type(KeywordData)                  :: this
   
   ! Check for incompatible arguments.
   if (present(is_optional)) then
-    if (present(default_value) .or. present(default_keyword)) then
+    if ( present(default_value)   .or. &
+       & present(default_keyword) .or. &
+       & present(exclusive_with)       ) then
       call print_line(CODE_ERROR//': the argument "is_optional" should not be &
-         &given for keywords which have defaults.')
+         &given for keywords which have defaults or which are mutually &
+         &exclusive with other keywords.')
       call err()
     endif
   endif
@@ -356,7 +395,7 @@ function new_KeywordData(keyword,helptext,default_value,default_keyword, &
   endif
   
   ! Set properties.
-  this%keyword = lower_case(keyword)
+  this%keyword_ = lower_case(keyword)
   this%helptext_ = helptext
   
   if (present(is_path)) then
@@ -393,6 +432,17 @@ function new_KeywordData(keyword,helptext,default_value,default_keyword, &
     this%pass_to_python_ = .false.
   endif
   
+  if (present(exclusive_with)) then
+    if (size(exclusive_with)==0) then
+      call print_line(ERROR//': exclusive_with has been specified, but no &
+         &keywords given.')
+      call err()
+    endif
+    this%exclusive_with_ = exclusive_with
+  else
+    this%exclusive_with_ = [String::]
+  endif
+  
   ! Set default behaviour.
   if (present(is_optional)) then
     if (is_optional) then
@@ -406,6 +456,8 @@ function new_KeywordData(keyword,helptext,default_value,default_keyword, &
   elseif (present(default_keyword)) then
     this%default_type_ = 3
     this%default_ = default_keyword
+  elseif (present(exclusive_with)) then
+    this%default_type_ = 1
   else
     this%default_type_ = 0
   endif
@@ -417,27 +469,42 @@ end function
 ! ----------------------------------------------------------------------
 ! Sets the keyword interactively, asking the user for a value.
 ! ----------------------------------------------------------------------
-subroutine set_interactively(this)
+recursive subroutine set_interactively(this)
   implicit none
   
   class(KeywordData), intent(inout) :: this
+  
+  type(String), allocatable :: exclusives(:)
   
   type(String) :: input
   
   call print_line('')
   call print_line(this%helptext_)
+  exclusives = this%exclusive_with_
+  if (size(exclusives)==1) then
+    call print_line('This keyword is mutually exclusive with keyword '// &
+       & exclusives(1)                                                // &
+       & '. Only one of these keywords should be specified.'             )
+  elseif (size(exclusives)>1) then
+    call print_line('This keyword is mutually exclusive with keywords '// &
+       & join(exclusives(:size(exclusives)-1),delimiter=', ')          // &
+       & ' and '                                                       // &
+       & exclusives(size(exclusives))                                  // &
+       & '. Only one of these keywords should be specified.'              )
+  endif
   if (this%is_set()) then
-    call print_line(this%keyword//' currently has the value "'//this%value() &
+    call print_line(this%keyword_//' currently has the value "'//this%value() &
        & //'".')
-    call print_line('Please press <Enter> to accept this value, or enter a &
-       & new value.')
+    call print_line('Please press <Enter> to accept this value, or enter &
+       &anything for other options.')
     input = read_line_from_user()
     if (input/='') then
-      call this%set(input)
+      call this%unset()
+      call this%set_interactively()
     endif
   else
     if (this%default_type_==0) then
-      call print_line(this%keyword//' is unset and has no default.')
+      call print_line(this%keyword_//' is unset and has no default.')
       do while (.not. this%is_set())
         call print_line('Please enter a value.')
         input = read_line_from_user()
@@ -447,16 +514,16 @@ subroutine set_interactively(this)
       enddo
     else
       if (this%default_type_==1) then
-        call print_line(this%keyword//' is unset and is optional.')
+        call print_line(this%keyword_//' is unset and is optional.')
         call print_line('Please press <Enter> to leave it unset, or enter a &
            &value.')
       elseif (this%default_type_==2) then
-        call print_line(this%keyword//' is unset, and will default to the &
+        call print_line(this%keyword_//' is unset, and will default to the &
            &value "'//this%default_//'".')
         call print_line('Please press <Enter> to accept this value, or enter &
            &a value.')
       elseif (this%default_type_==3) then
-        call print_line(this%keyword//' is unset, and will default to the &
+        call print_line(this%keyword_//' is unset, and will default to the &
            &keyword "'//this%default_//'".')
         call print_line('Please press <Enter> to accept this default, or &
            &enter a value.')
@@ -481,7 +548,7 @@ subroutine process_and_check(this)
   class(KeywordData), intent(inout) :: this
   
   if (this%default_type_==0 .and. .not. this%is_set()) then
-    call print_line(ERROR//': the keyword '//this%keyword//' has not been &
+    call print_line(ERROR//': the keyword '//this%keyword_//' has not been &
        &set. this keyword is not optional.')
     call quit()
   endif
@@ -500,18 +567,35 @@ subroutine print_help(this)
   class(KeywordData), intent(in) :: this
   
   type(String), allocatable :: helptext(:)
+  type(String), allocatable :: exclusives(:)
   integer                   :: i
   
   ! Find the first instance of the keyword in the helptext,
   !    and colour it white.
   helptext = split_line(this%helptext_)
-  i = first(helptext==this%keyword, default=0)
+  i = first(helptext==this%keyword_, default=0)
   if (i/=0) then
     helptext(i) = colour(helptext(i), 'white')
   endif
   
   call print_line('')
   call print_line(join(helptext))
+  
+  exclusives = [( colour(this%exclusive_with_(i),'white'), &
+                & i=1,                                     &
+                & size(this%exclusive_with_)               )]
+  if (size(exclusives)==1) then
+    call print_line('This keyword is mutually exclusive with keyword '// &
+       & exclusives(1)                                                // &
+       & '. Only one of these keywords should be specified.'             )
+  elseif (size(exclusives)>1) then
+    call print_line('This keyword is mutually exclusive with keywords '// &
+       & join(exclusives(:size(exclusives)-1),delimiter=', ')          // &
+       & ' and '                                                       // &
+       & exclusives(size(exclusives))                                  // &
+       & '. Only one of these keywords should be specified.'              )
+  endif
+  
   if (this%default_type_==0) then
     call print_line('This keyword is non-optional.')
   elseif (this%default_type_==1) then

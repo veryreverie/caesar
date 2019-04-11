@@ -769,13 +769,15 @@ subroutine read_StructureData(this,input)
       symmetry_precision = dble(line(2))
       
       line = split_line(lower_case(input(symmetry_line+2)))
-      if (line(1)=='Space') then
+      if (line(1)=='space') then
         this%space_group = line(3)
-        operator_start_line = symmetry_line+4
+        operator_start_line = symmetry_line+3
       else
         this%space_group = ''
         operator_start_line = symmetry_line+2
       endif
+      call print_line(input(symmetry_line))
+      call print_line(input(operator_start_line))
       
       sections = split_into_sections(                   &
          & input(operator_start_line:symmetry_end_line) )

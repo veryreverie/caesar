@@ -375,7 +375,8 @@ subroutine converge_harmonic_frequencies_subroutine(arguments)
       endif
       
       ! Write output file.
-      call write_output_file( cutoffs,               &
+      call write_output_file( structure,             &
+                            & cutoffs,               &
                             & cutoff_frequencies,    &
                             & cutoff_free_energies,  &
                             & kpoint_spacings,       &
@@ -449,7 +450,8 @@ subroutine converge_harmonic_frequencies_subroutine(arguments)
       endif
       
       ! Write output file.
-      call write_output_file( cutoffs,               &
+      call write_output_file( structure,             &
+                            & cutoffs,               &
                             & cutoff_frequencies,    &
                             & cutoff_free_energies,  &
                             & kpoint_spacings,       &
@@ -523,7 +525,8 @@ subroutine converge_harmonic_frequencies_subroutine(arguments)
       endif
       
       ! Write output file.
-      call write_output_file( cutoffs,               &
+      call write_output_file( structure,             &
+                            & cutoffs,               &
                             & cutoff_frequencies,    &
                             & cutoff_free_energies,  &
                             & kpoint_spacings,       &
@@ -548,20 +551,22 @@ subroutine converge_harmonic_frequencies_subroutine(arguments)
   endif
 end subroutine
 
-subroutine write_output_file(cutoffs,cutoff_frequencies,cutoff_free_energies, &
-   & kpoint_spacings,kpoint_frequencies,kpoint_free_energies,smearings,       &
-   & smearing_frequencies,smearing_free_energies                              )
+subroutine write_output_file(structure,cutoffs,cutoff_frequencies, &
+   & cutoff_free_energies,kpoint_spacings,kpoint_frequencies,      &
+   & kpoint_free_energies,smearings,smearing_frequencies,          &
+   & smearing_free_energies)
   implicit none
   
-  real(dp),         intent(in) :: cutoffs(:)
-  type(RealVector), intent(in) :: cutoff_frequencies(:)
-  type(RealVector), intent(in) :: cutoff_free_energies(:)
-  real(dp),         intent(in) :: kpoint_spacings(:)
-  type(RealVector), intent(in) :: kpoint_frequencies(:)
-  type(RealVector), intent(in) :: kpoint_free_energies(:)
-  real(dp),         intent(in) :: smearings(:)
-  type(RealVector), intent(in) :: smearing_frequencies(:)
-  type(RealVector), intent(in) :: smearing_free_energies(:)
+  type(StructureData), intent(in) :: structure
+  real(dp),            intent(in) :: cutoffs(:)
+  type(RealVector),    intent(in) :: cutoff_frequencies(:)
+  type(RealVector),    intent(in) :: cutoff_free_energies(:)
+  real(dp),            intent(in) :: kpoint_spacings(:)
+  type(RealVector),    intent(in) :: kpoint_frequencies(:)
+  type(RealVector),    intent(in) :: kpoint_free_energies(:)
+  real(dp),            intent(in) :: smearings(:)
+  type(RealVector),    intent(in) :: smearing_frequencies(:)
+  type(RealVector),    intent(in) :: smearing_free_energies(:)
   
   type(OFile)  :: output_file
   
@@ -569,6 +574,10 @@ subroutine write_output_file(cutoffs,cutoff_frequencies,cutoff_free_energies, &
   
   ! Open output file.
   output_file = OFile('convergence.dat')
+  
+  call output_file%print_line('No. atoms   : '//structure%no_atoms)
+  call output_file%print_line('Cell volume : '//structure%volume)
+  call output_file%print_line('')
   
   if (size(cutoff_frequencies)>0) then
     call output_file%print_line('Cutoff energy (Ha) | Mode frequencies (Ha)')

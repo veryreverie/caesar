@@ -227,7 +227,7 @@ impure elemental subroutine remove_keyword_String(this,keyword)
   
   integer :: i
   
-  i = first(this%keywords%keyword==keyword, default=0)
+  i = first(this%keywords%keyword()==keyword, default=0)
   if (i/=0) then
     this%keywords = [this%keywords(:i-1), this%keywords(i+1:)]
   endif

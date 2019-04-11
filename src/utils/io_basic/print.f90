@@ -331,7 +331,8 @@ function colour_character_String(input,colour_name) result(output)
   output = colour(char(input),colour_name)
 end function
 
-function colour_String_String(input,colour_name) result(output)
+impure elemental function colour_String_String(input,colour_name) &
+   & result(output)
   implicit none
   
   type(String), intent(in) :: input

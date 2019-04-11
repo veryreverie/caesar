@@ -34,6 +34,10 @@ def main():
   convergence_file = read_file(file_name)
   data = split_into_sections(convergence_file)
   
+  if data[0][0][0]=='No.':
+    no_atoms = int(data[0][0][3])
+    data = data[1:]
+  
   x_axes = []
   y_axes = []
   

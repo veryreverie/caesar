@@ -197,7 +197,7 @@ subroutine help_specific(keyword,mode)
     call quit()
   else
     do i=1,size(keywords)
-      if (keywords(i)%keyword==keyword) then
+      if (keywords(i)%keyword()==keyword) then
         call keywords(i)%print_help()
         call quit()
       endif

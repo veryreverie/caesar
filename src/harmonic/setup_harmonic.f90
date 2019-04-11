@@ -127,6 +127,7 @@ subroutine setup_harmonic_subroutine(arguments)
   type(OFile)  :: qpoints_file
   type(OFile)  :: supercell_file
   type(OFile)  :: unique_directions_file
+  type(OFile)  :: calculation_directories_file
   
   ! Temporary variables.
   integer :: i,j
@@ -271,5 +272,10 @@ subroutine setup_harmonic_subroutine(arguments)
                                                & calculation_dir      )
     enddo
   enddo
+  
+  ! Write out calculation directories to file.
+  calculation_directories_file = OFile('harmonic_calculation_directories.dat')
+  call calculation_directories_file%print_lines( &
+     & calculation_writer%directories_written()  )
 end subroutine
 end module

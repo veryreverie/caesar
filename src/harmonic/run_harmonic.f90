@@ -24,10 +24,19 @@ subroutine startup_run_harmonic()
      &should be run after setup_harmonic.'
   mode%keywords = [                                                           &
      & KeywordData( 'supercells_to_run',                                      &
-     &              'supercells_to_run is the first and last supercell to &
-     &run. These should be specified as two integers separated by spaces. If &
-     &supercells_to_run is not set, all supercells will be run.',             &
-     &              is_optional=.true.),                                      &
+     &              'supercells_to_run is the indices of the first and last &
+     &supercell to run. These should be specified as two integers separated &
+     &by a space. If neither supercells_to_run nor directories_to_run is set, &
+     &all calculations will be run.',                                         &
+     &              exclusive_with=[str('calculations_to_run')]),             &
+     & KeywordData( 'calculations_to_run', &
+     &              'calculations_to_run is the indices of the first and last &
+     &directories to run inclusive. These should be given as two integers &
+     &separated by a space. If neither supercells_to_run nor &
+     &directories_to_run is set, all calculations will be run. See &
+     &harmonic_calculation_directories.dat for the entire list of &
+     &calculations to be run.',                                               &
+     &              exclusive_with=[str('supercells_to_run')]),               &
      & KeywordData( 'run_script',                                             &
      &              'run_script is the path to the script for running DFT. An &
      &example run script can be found in doc/input_files.',                   &
@@ -77,6 +86,7 @@ subroutine run_harmonic_subroutine(arguments)
   
   ! User inputs.
   integer      :: supercells_to_run(2)
+  integer      :: calculations_to_run(2)
   integer      :: no_cores
   integer      :: no_nodes
   type(String) :: run_script_data
@@ -101,10 +111,12 @@ subroutine run_harmonic_subroutine(arguments)
   type(String)                       :: atom_string
   
   ! Files and Directories.
-  type(IFile)  :: no_supercells_file
-  type(IFile)  :: unique_directions_file
-  type(String) :: supercell_dir
-  type(String) :: run_dir
+  type(IFile)               :: no_supercells_file
+  type(IFile)               :: unique_directions_file
+  type(IFile)               :: calculation_directories_file
+  type(String)              :: supercell_dir
+  type(String)              :: run_dir
+  type(String), allocatable :: run_dirs(:)
   
   ! Temporary variables.
   integer :: i,j,ialloc
@@ -112,9 +124,6 @@ subroutine run_harmonic_subroutine(arguments)
   ! --------------------------------------------------
   ! Get inputs from user.
   ! --------------------------------------------------
-  if (arguments%is_set('supercells_to_run')) then
-    supercells_to_run = int(split_line(arguments%value('supercells_to_run')))
-  endif
   run_script = arguments%value('run_script')
   no_cores = int(arguments%value('no_cores'))
   no_nodes = int(arguments%value('no_nodes'))
@@ -137,30 +146,22 @@ subroutine run_harmonic_subroutine(arguments)
   no_supercells_file = IFile('no_supercells.dat')
   no_supercells = int(no_supercells_file%line(1))
   
-  if (.not. arguments%is_set('supercells_to_run')) then
+  if (arguments%is_set('supercells_to_run')) then
+    supercells_to_run = int(split_line(arguments%value('supercells_to_run')))
+    calculations_to_run = [0,0]
+  elseif (arguments%is_set('calculations_to_run')) then
+    supercells_to_run = [0,0]
+    calculations_to_run = int(split_line(       &
+       & arguments%value('calculations_to_run') ))
+  else
     supercells_to_run = [1, no_supercells]
+    calculations_to_run = [0,0]
   endif
   
   ! --------------------------------------------------
   ! Check user inputs.
   ! --------------------------------------------------
-  if (supercells_to_run(1)<=0) then
-    call print_line('')
-    call print_line('Error: first supercell must be > 0')
-    call err()
-  elseif (supercells_to_run(1)>no_supercells) then
-    call print_line('')
-    call print_line('Error: first supercell must be <= '//no_supercells)
-    call err()
-  elseif (supercells_to_run(2)<supercells_to_run(1)) then
-    call print_line('')
-    call print_line('Error: first supercell must be <= last supercell.')
-    call err()
-  elseif (supercells_to_run(2)>no_supercells) then
-    call print_line('')
-    call print_line('Error: last supercell must be <= '//no_supercells)
-    call err()
-  elseif (no_cores<=0) then
+  if (no_cores<=0) then
     call print_line('')
     call print_line('Error: no. cores must be >= 1')
     call err()
@@ -190,28 +191,73 @@ subroutine run_harmonic_subroutine(arguments)
      & repeat_calculations = repeat_calculations )
   
   ! --------------------------------------------------
+  ! Calculate which directories to run.
+  ! --------------------------------------------------
+  if (.not. arguments%is_set('calculations_to_run')) then
+    if (supercells_to_run(1)<=0) then
+      call print_line('')
+      call print_line('Error: first supercell must be > 0')
+      call err()
+    elseif (supercells_to_run(1)>no_supercells) then
+      call print_line('')
+      call print_line('Error: first supercell must be <= '//no_supercells)
+      call err()
+    elseif (supercells_to_run(2)<supercells_to_run(1)) then
+      call print_line('')
+      call print_line('Error: first supercell must be <= last supercell.')
+      call err()
+    elseif (supercells_to_run(2)>no_supercells) then
+      call print_line('')
+      call print_line('Error: last supercell must be <= '//no_supercells)
+      call err()
+    endif
+    
+    ! Loop over supercells.
+    run_dirs = [String::]
+    do i=supercells_to_run(1),supercells_to_run(2)
+      supercell_dir = 'Supercell_'//left_pad(i,str(no_supercells))
+      
+      unique_directions_file = IFile(supercell_dir//'/unique_directions.dat')
+      unique_directions = UniqueDirection(unique_directions_file%sections())
+      
+      ! Loop over displacements within each supercell.
+      do j=1,size(unique_directions)
+        atom = unique_directions(j)%atom_id
+        direction = unique_directions(j)%direction
+        atom_string = left_pad(atom, str(maxval(unique_directions%atom_id)))
+        
+        run_dir = supercell_dir//'/atom.'//atom_string//'.'//direction
+        
+        ! Run calculation at each displacement.
+        run_dirs = [run_dirs, run_dir]
+      enddo
+      
+      deallocate(unique_directions, stat=ialloc); call err(ialloc)
+    enddo
+  else
+    calculation_directories_file = IFile(       &
+       & 'harmonic_calculation_directories.dat' )
+    run_dirs = calculation_directories_file%lines()
+    
+    if (calculations_to_run(1)<0) then
+      call print_line(ERROR//': first calculation to run must be >0.')
+      call quit()
+    elseif (calculations_to_run(2)>size(run_dirs)) then
+      call print_line(ERROR//': last calculation to run must be <='// &
+         & size(run_dirs)//'.')
+      call quit()
+    elseif (calculations_to_run(2)<calculations_to_run(1)) then
+      call print_line(ERROR//': last calculation ro run must be >= first &
+         &calculation to run.')
+      call err()
+    endif
+    
+    run_dirs = run_dirs(calculations_to_run(1):calculations_to_run(2))
+  endif
+  
+  ! --------------------------------------------------
   ! Run calculations
   ! --------------------------------------------------
-  ! Loop over supercells.
-  do i=supercells_to_run(1),supercells_to_run(2)
-    supercell_dir = 'Supercell_'//left_pad(i,str(no_supercells))
-    
-    unique_directions_file = IFile(supercell_dir//'/unique_directions.dat')
-    unique_directions = UniqueDirection(unique_directions_file%sections())
-    
-    ! Loop over displacements within each supercell.
-    do j=1,size(unique_directions)
-      atom = unique_directions(j)%atom_id
-      direction = unique_directions(j)%direction
-      atom_string = left_pad(atom, str(maxval(unique_directions%atom_id)))
-      
-      run_dir = supercell_dir//'/atom.'//atom_string//'.'//direction
-      
-      ! Run calculation at each displacement.
-      call calculation_runner%run_calculation(run_dir)
-    enddo
-    
-    deallocate(unique_directions, stat=ialloc); call err(ialloc)
-  enddo
+  call calculation_runner%run_calculations(run_dirs)
 end subroutine
 end module

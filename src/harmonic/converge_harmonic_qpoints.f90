@@ -192,7 +192,8 @@ subroutine converge_harmonic_qpoints_subroutine(arguments)
          & < energy_tolerance                                             )
     endif
     
-    call write_output_file( qpoint_spacings, &
+    call write_output_file( structure,       &
+                          & qpoint_spacings, &
                           & free_energies    )
     
     call print_line('q-point spacing: '//qpoint_spacings(i)//' (Bohr^-1)')
@@ -298,17 +299,22 @@ subroutine copy_file(input,output)
   call out_file%print_lines(in_file%lines())
 end subroutine
 
-subroutine write_output_file(qpoint_spacings,free_energies)
+subroutine write_output_file(structure,qpoint_spacings,free_energies)
   implicit none
   
-  real(dp),         intent(in) :: qpoint_spacings(:)
-  type(RealVector), intent(in) :: free_energies(:)
+  type(StructureData), intent(in) :: structure
+  real(dp),            intent(in) :: qpoint_spacings(:)
+  type(RealVector),    intent(in) :: free_energies(:)
   
   type(OFile) :: output_file
   
   integer :: i
   
   output_file = OFile('convergence.dat')
+  
+  call output_file%print_line('No. atoms   : '//structure%no_atoms)
+  call output_file%print_line('Cell volume : '//structure%volume)
+  call output_file%print_line('')
   
   call output_file%print_line('q-point spacing (Bohr^-1) | Free energies &
      &(Ha per primitive cell)')

@@ -41,7 +41,7 @@ module argument_dictionary_module
     procedure, private :: index_by_flag_Dictionary_String
     
     ! Returns the corresponding keyword.
-    generic,   public  :: flag_to_keyword =>                    &
+    generic,   private :: flag_to_keyword =>                    &
                         & flag_to_keyword_Dictionary_character, &
                         & flag_to_keyword_Dictionary_String
     procedure, private :: flag_to_keyword_Dictionary_character
@@ -89,7 +89,7 @@ module argument_dictionary_module
     
     ! Appends to the value of a keyword.
     ! Returns an error if the keyword has no value set.
-    generic,   public  :: append_to_value =>                              &
+    generic,   private :: append_to_value =>                              &
                         & append_to_value_Dictionary_character_character, &
                         & append_to_value_Dictionary_character_String,    &
                         & append_to_value_Dictionary_String_character,    &
@@ -120,9 +120,9 @@ module argument_dictionary_module
     ! ----------
     ! Set defaults, process paths and check non-optional keywords are set.
     ! ----------
-    procedure, public :: set_interactively => set_interactively_Dictionary
-    procedure, public :: process_and_check_inputs => &
-                       & process_and_check_inputs_Dictionary
+    procedure, public  :: set_interactively => set_interactively_Dictionary
+    procedure, private :: process_and_check_inputs => &
+                        & process_and_check_inputs_Dictionary
   end type
   
   interface Dictionary
@@ -150,7 +150,37 @@ function new_Dictionary_KeywordDatas(keywords) result(this)
   type(KeywordData), intent(in) :: keywords(:)
   type(Dictionary)              :: this
   
+  type(String), allocatable :: exclusives_i(:)
+  type(String), allocatable :: exclusives_k(:)
+  
+  integer :: i,j,k,l
+  
   this%keywords_ = [common_keywords(), keywords]
+  
+  ! Check that if keyword a is exclusive with keyword b then keyword b is also
+  !    exclusive with keyword a.
+  do i=1,size(this%keywords_)
+    exclusives_i = this%keywords_(i)%exclusive_with()
+    do j=1,size(exclusives_i)
+      if (.not. any(this%keywords_%keyword()==exclusives_i(j))) then
+        call print_line(CODE_ERROR//': keyword '// &
+           & this%keywords_(i)%keyword()//' is mutually exclusive with &
+           &keyword '//exclusives_i(j)//', which is not a keyword.')
+        call err()
+      endif
+      
+      k = this%index(exclusives_i(j))
+      exclusives_k = this%keywords_(k)%exclusive_with()
+      if (.not. any([( this%keywords_(i)%keyword()==exclusives_k(l), &
+                     & l=1,                                          &
+                     & size(exclusives_k)                            )])) then
+        call print_line(CODE_ERROR//': mutually exclusive keyword lists &
+           &inconsistent between keywords '//this%keywords_(i)%keyword()//' &
+           &and '//this%keywords_(k)%keyword()//'.')
+        call err()
+      endif
+    enddo
+  enddo
 end function
 
 ! Construct a Dictionary from the command line input to Caesar.
@@ -192,7 +222,7 @@ function new_Dictionary_arguments(args,keywords_in) result(arguments)
     default_keyword = keywords(i)%defaults_to_keyword()
     if (default_keyword/='') then
       do j=1,size(keywords)
-        if (keywords(j)%keyword == default_keyword) then
+        if (keywords(j)%keyword() == default_keyword) then
           cycle do_i
         endif
       enddo
@@ -411,14 +441,14 @@ end function
 ! Private function.
 ! Throws an error if the keyword is not found.
 ! If there are duplicate keys, returns the first match.
-function index_Dictionary_String(this,keyword) result(output)
+impure elemental function index_Dictionary_String(this,keyword) result(output)
   implicit none
   
   class(Dictionary), intent(in) :: this
   type(String),      intent(in) :: keyword
   integer                       :: output
   
-  output = first(this%keywords_%keyword == keyword,default=0)
+  output = first(this%keywords_%keyword() == keyword, default=0)
   
   if (output==0) then
     call print_line(ERROR//': unexpected keyword: '//keyword//'.')
@@ -471,7 +501,8 @@ contains
   end function
 end function
 
-function index_by_flag_Dictionary_String(this,flag) result(output)
+impure elemental function index_by_flag_Dictionary_String(this,flag) &
+   & result(output)
   implicit none
   
   class(Dictionary), intent(in) :: this
@@ -491,7 +522,7 @@ function flag_to_keyword_Dictionary_character(this,flag) result(output)
   character(1),      intent(in) :: flag
   type(String)                  :: output
   
-  output = this%keywords_(this%index_by_flag(flag))%keyword
+  output = this%keywords_(this%index_by_flag(flag))%keyword()
 end function
 
 function flag_to_keyword_Dictionary_String(this,flag) result(output)
@@ -566,8 +597,8 @@ function python_arguments(this) result(output)
   do i=1,size(this%keywords_)
     if ( this%keywords_(i)%is_set() .and.   &
        & this%keywords_(i)%pass_to_python() ) then
-      output = [ output,                                                   &
-               & this%keywords_(i)%keyword//' '//this%keywords_(i)%value() ]
+      output = [ output,                                                     &
+               & this%keywords_(i)%keyword()//' '//this%keywords_(i)%value() ]
     endif
   enddo
 end function
@@ -660,9 +691,9 @@ subroutine set_Dictionary_Dictionary(this,that)
   integer :: i
   
   do i=1,size(this%keywords_)
-    keyword = this%keywords_(i)%keyword
+    keyword = this%keywords_(i)%keyword()
     if (keyword/='interactive' .and. keyword/='input_file') then
-      if (any(keyword==that%keywords_%keyword)) then
+      if (any(keyword==that%keywords_%keyword())) then
         if (that%is_set(keyword)) then
           call this%set(keyword, that%value(keyword))
         endif
@@ -744,7 +775,7 @@ subroutine write_file_Dictionary_character(this,filename)
       cycle
     else
       to_write = .true.
-      max_length = max(max_length, len(this%keywords_(i)%keyword))
+      max_length = max(max_length, len(this%keywords_(i)%keyword()))
     endif
   enddo
   
@@ -758,9 +789,9 @@ subroutine write_file_Dictionary_character(this,filename)
       elseif (len(this%keywords_(i)%value())==0) then
         cycle
       else
-        call dictionary_file%print_line(                            &
-           & this%keywords_(i)%keyword //                           &
-           & spaces(max_length-len(this%keywords_(i)%keyword)+1) // &
+        call dictionary_file%print_line(                              &
+           & this%keywords_(i)%keyword() //                           &
+           & spaces(max_length-len(this%keywords_(i)%keyword())+1) // &
            & this%keywords_(i)%value())
       endif
     enddo
@@ -829,16 +860,18 @@ subroutine read_file_Dictionary_character(this, filename, &
     ! Find keyword in arguments.
     j = this%index(lower_case(line(1)))
     if (.not. this%keywords_(j)%allowed_in_file()) then
-      call print_line(ERROR//': the keyword '//this%keywords_(j)%keyword// &
+      call print_line(ERROR//': the keyword '//this%keywords_(j)%keyword()// &
          & ' should not appear in input files.')
       call err()
     elseif (only_if_unset .and. this%keywords_(j)%is_set()) then
-      call print_line(WARNING//': the keyword '//this%keywords_(j)%keyword// &
-         & ' has been specified in multiple places.')
+      call print_line(WARNING//': the keyword '//    &
+         & this%keywords_(j)%keyword()         //    &
+         & ' has been specified in multiple places.' )
     else
       if (size(line)==1) then
-        call print_line(ERROR//': the keyword '//this%keywords_(j)%keyword// &
-           & 'has been specified without a value.')
+        call print_line(ERROR//': the keyword '//  &
+           & this%keywords_(j)%keyword()       //  &
+           & 'has been specified without a value.' )
         call quit()
       else
         call this%keywords_(j)%set(join(line(2:)),only_if_unset)
@@ -868,11 +901,26 @@ subroutine set_interactively_Dictionary(this)
   
   class(Dictionary), intent(inout) :: this
   
+  type(String), allocatable :: exclusives(:)
+  
   integer :: i
   
   do i=1,size(this)
+    ! Check if this keyword can be set interactively.
     if (this%keywords_(i)%can_be_interactive()) then
-      call this%keywords_(i)%set_interactively()
+      ! Check if this keyword is mutually exclusive with a keyword which has
+      !    already been set.
+      exclusives = this%keywords_(i)%exclusive_with()
+      exclusives = exclusives(filter(this%index(exclusives)<i))
+      if (.not.any([(this%is_set(exclusives(i)),i=1,size(exclusives))])) then
+        ! This keyword is not mutually exclusive with a keyword which has
+        !    already been set; set it interactively.
+        call this%keywords_(i)%set_interactively()
+      else
+        ! This keyword is mutually exclusive with a keyword which has
+        !    already been set; unset it.
+        call this%keywords_(i)%unset()
+      endif
     endif
   enddo
 end subroutine
@@ -882,18 +930,29 @@ subroutine process_and_check_inputs_Dictionary(this)
   
   class(Dictionary), intent(inout) :: this
   
+  type(String), allocatable :: exclusives(:)
+  
   type(String) :: default_keyword
   
-  integer :: i,j
+  integer :: i,j,k
   
   do_i : do i=1,size(this)
-    if (.not. this%keywords_(i)%is_set()) then
+    if (this%keywords_(i)%is_set()) then
+      exclusives = this%keywords_(i)%exclusive_with()
+      j = first([(this%is_set(exclusives(k)),k=1,size(exclusives))], default=0)
+      if (j/=0) then
+        call print_line(ERROR//': the keywords '//this%keywords_(i)%keyword() &
+           &//' and '//exclusives(j)//' are mutually exclusive but have both &
+           &been set.')
+        call quit()
+      endif
+    else
       default_keyword = this%keywords_(i)%defaults_to_keyword()
       if (default_keyword == '') then
         call this%keywords_(i)%set_default()
       else
         do j=1,size(this)
-          if (this%keywords_(j)%keyword==default_keyword) then
+          if (this%keywords_(j)%keyword()==default_keyword) then
             if (this%keywords_(j)%is_set()) then
               call this%keywords_(i)%set(this%keywords_(j)%value())
             endif
@@ -927,8 +986,10 @@ subroutine call_caesar_String_Dictionary(mode,arguments)
   do i=1,size(arguments%keywords_)
     if (arguments%keywords_(i)%is_set()) then
       if (arguments%keywords_(i)%value()/='') then
-        command_line_arguments = command_line_arguments               //' '// &
-                               & '--'//arguments%keywords_(i)%keyword //' '// &
+        command_line_arguments = command_line_arguments                 // &
+                               & ' '                                    // &
+                               & '--'//arguments%keywords_(i)%keyword() // &
+                               & ' '                                    // &
                                & arguments%keywords_(i)%value()
       endif
     endif

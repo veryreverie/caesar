@@ -337,6 +337,6 @@ subroutine setup_anharmonic_subroutine(arguments)
   ! Write out calculation directories to file.
   calculation_directories_file = OFile('calculation_directories.dat')
   call calculation_directories_file%print_lines( &
-     & calculation_writer%directories_written())
+     & calculation_writer%directories_written()  )
 end subroutine
 end module
