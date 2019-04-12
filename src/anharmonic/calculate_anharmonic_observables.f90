@@ -374,6 +374,10 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   allocate( basis(size(anharmonic_data%degenerate_subspaces)), &
           & stat=ialloc); call err(ialloc)
   do i=1,size(basis)
+    call print_line( 'Generating basis in subspace '               // &
+                   & anharmonic_data%degenerate_subspaces(i)%id    // &
+                   & ', containing modes '                         // &
+                   & anharmonic_data%degenerate_subspaces(i)%mode_ids )
     basis(i) = FullSubspaceBasis(                         &
        & anharmonic_data%degenerate_subspaces(i),         &
        & initial_frequencies%frequency(                   &

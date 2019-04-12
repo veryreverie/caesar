@@ -148,7 +148,7 @@ subroutine print_line_character(line,settings)
       last_space = 0
       first_none_space = 0
       do i=1,size(positions)
-        if (positions(i)<=current_terminal_width .and. is_space(i)) then
+        if (positions(i)<=current_terminal_width+1 .and. is_space(i)) then
           last_space = i
         elseif (positions(i)>current_terminal_width .and..not.is_space(i)) then
           first_none_space = i
