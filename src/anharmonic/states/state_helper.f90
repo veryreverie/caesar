@@ -6,6 +6,8 @@
 !    where previously implicit modes are now explicit with power zero.
 module state_helper_module
   use common_module
+  
+  use anharmonic_data_module
   implicit none
   
   type, extends(NoDefaultConstructor) :: StateHelper
@@ -223,16 +225,19 @@ function new_StateHelper_bra_ket_monomial(bra,ket,monomial) result(this)
   this%monomial = this%monomial(:n)
 end function
 
-function new_StateHelper_bra_ket_subspace(bra,ket,monomial,subspace) &
-   & result(this)
+function new_StateHelper_bra_ket_subspace(bra,ket,monomial,subspace, &
+   & anharmonic_data,qpoint) result(this)
   implicit none
   
   type(ComplexMonomial),    intent(in), optional :: bra
   type(ComplexMonomial),    intent(in), optional :: ket
   type(ComplexMonomial),    intent(in), optional :: monomial
   type(DegenerateSubspace), intent(in)           :: subspace
+  type(AnharmonicData),     intent(in)           :: anharmonic_data
+  type(QpointData),         intent(in), optional :: qpoint
   type(StateHelper)                              :: this
   
+  type(QpointData),        allocatable :: subspace_qpoints(:)
   integer,                 allocatable :: unique_modes(:)
   type(ComplexUnivariate), allocatable :: bra_modes(:)
   type(ComplexUnivariate), allocatable :: ket_modes(:)
@@ -243,7 +248,15 @@ function new_StateHelper_bra_ket_subspace(bra,ket,monomial,subspace) &
   
   integer :: i,ialloc
   
-  unique_modes = filter(subspace%mode_ids<=subspace%paired_ids)
+  
+  if (present(qpoint)) then
+    subspace_qpoints = subspace%qpoints( anharmonic_data%complex_modes, &
+                                       & anharmonic_data%qpoints        )
+    unique_modes = filter( subspace%mode_ids<=subspace%paired_ids .and. &
+                         & subspace_qpoints%id==qpoint%id               )
+  else
+    unique_modes = filter(subspace%mode_ids<=subspace%paired_ids)
+  endif
   
   if (present(bra)) then
     this%bra_in_subspace = [(                             &

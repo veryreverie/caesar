@@ -370,7 +370,7 @@ end function
 ! Integrate the basis function between two states.
 ! ----------------------------------------------------------------------
 impure elemental subroutine braket_BasisFunction(this,bra,ket,subspace, &
-   & subspace_basis,anharmonic_data)
+   & subspace_basis,anharmonic_data,qpoint)
   implicit none
   
   class(BasisFunction),     intent(inout)        :: this
@@ -379,6 +379,7 @@ impure elemental subroutine braket_BasisFunction(this,bra,ket,subspace, &
   type(DegenerateSubspace), intent(in)           :: subspace
   class(SubspaceBasis),     intent(in)           :: subspace_basis
   type(AnharmonicData),     intent(in)           :: anharmonic_data
+  type(QpointData),         intent(in), optional :: qpoint
   
   type(ComplexMatrix)               :: complex_to_real_conversion
   complex(dp),          allocatable :: complex_coefficients(:)
@@ -400,7 +401,8 @@ impure elemental subroutine braket_BasisFunction(this,bra,ket,subspace, &
                                        & ket,                          &
                                        & subspace,                     &
                                        & subspace_basis,               &
-                                       & anharmonic_data               )
+                                       & anharmonic_data,              &
+                                       & qpoint                        )
   
   ! Use calculated complex coefficients and conversion to generate new
   !    coefficients for real representation.
@@ -447,7 +449,8 @@ impure elemental function harmonic_expectation_BasisFunction(this,frequency, &
          &                         thermal_energy,                        &
          &                         no_states,                             &
          &                         subspace,                              &
-         &                         anharmonic_data%anharmonic_supercell   )
+         &                         anharmonic_data%anharmonic_supercell,  &
+         &                         anharmonic_data                        )
   enddo
   output = output * this%coefficient_
 end function

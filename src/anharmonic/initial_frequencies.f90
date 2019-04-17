@@ -91,10 +91,10 @@ function new_InitialFrequencies_PotentialData(potential,anharmonic_data,   &
   real(dp),             intent(in) :: pre_pulay_damping
   type(InitialFrequencies)         :: output
   
-  type(DegenerateSubspace),    allocatable :: subspaces(:)
-  real(dp),                    allocatable :: frequencies(:)
-  type(FullSubspaceBasis),     allocatable :: subspace_bases(:)
-  type(SubspaceStatesPointer), allocatable :: subspace_states(:)
+  type(DegenerateSubspace), allocatable :: subspaces(:)
+  real(dp),                 allocatable :: frequencies(:)
+  type(FullSubspaceBasis),  allocatable :: subspace_bases(:)
+  type(FullSubspaceStates), allocatable :: subspace_states(:)
   
   type(RealVector), allocatable :: input_frequencies(:)
   type(RealVector), allocatable :: output_frequencies(:)
@@ -131,8 +131,12 @@ function new_InitialFrequencies_PotentialData(potential,anharmonic_data,   &
   enddo
   
   ! Calculate the first guess ground states.
-  subspace_states = SubspaceStatesPointer(                       &
-     & subspace_bases%initial_states(subspaces, anharmonic_data) )
+  subspace_states = [(                                           &
+     & FullSubspaceStates(                                       &
+     &    subspace_bases(i)%initial_states( subspaces(i),        &
+     &                                      anharmonic_data ) ), &
+     & i=1,                                                      &
+     & size(subspaces)                                           )]
   
   ! Find self-consistent frequencies which minimise the energy.
   input_frequencies = [vec(frequencies)]
@@ -225,7 +229,7 @@ function optimise_frequencies(potential,subspaces,subspace_bases, &
   class(PotentialData),     intent(in) :: potential
   type(DegenerateSubspace), intent(in) :: subspaces(:)
   type(FullSubspaceBasis),  intent(in) :: subspace_bases(:)
-  class(SubspaceStates),    intent(in) :: subspace_states(:)
+  type(FullSubspaceStates), intent(in) :: subspace_states(:)
   type(AnharmonicData),     intent(in) :: anharmonic_data
   real(dp),                 intent(in) :: frequency_convergence
   real(dp), allocatable                :: output(:)
@@ -260,7 +264,7 @@ impure elemental function optimise_frequency(potential,subspace,           &
   class(PotentialData),     intent(in) :: potential
   type(DegenerateSubspace), intent(in) :: subspace
   type(FullSubspaceBasis),  intent(in) :: subspace_basis
-  class(SubspaceStates),    intent(in) :: subspace_states
+  type(FullSubspaceStates), intent(in) :: subspace_states
   type(AnharmonicData),     intent(in) :: anharmonic_data
   real(dp),                 intent(in) :: frequency_convergence
   real(dp)                             :: output
@@ -270,9 +274,8 @@ impure elemental function optimise_frequency(potential,subspace,           &
   real(dp) :: frequencies(3)
   real(dp) :: energies(3)
   
-  type(FullSubspaceBasis)                 :: new_basis
-  type(SubspaceStatePointer), allocatable :: new_states(:)
-  type(SubspaceStatePointer)              :: new_state
+  type(FullSubspaceBasis) :: new_basis
+  type(PolynomialState)   :: new_state
   
   integer :: i
   
@@ -288,14 +291,7 @@ impure elemental function optimise_frequency(potential,subspace,           &
     
     do i=1,3
       call new_basis%set_frequency(frequencies(i))
-      new_states = SubspaceStatePointer(             &
-         & subspace_states%states( subspace,         &
-         &                         new_basis,        &
-         &                         anharmonic_data ) )
-      if (size(new_states)/=1) then
-        call err()
-      endif
-      new_state = new_states(1)
+      new_state = PolynomialState(subspace_states%vscf_states(1), new_basis)
       energies(i) = potential_energy( new_state,        &
                 &                     potential,        &
                 &                     subspace,         &

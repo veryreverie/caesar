@@ -67,6 +67,7 @@ module polynomial_potential_module
   
   interface PolynomialPotential
     module procedure new_PolynomialPotential
+    module procedure new_PolynomialPotential_PotentialData
     module procedure new_PolynomialPotential_BasisFunctions
     module procedure new_PolynomialPotential_Strings
     module procedure new_PolynomialPotential_StringArray
@@ -90,6 +91,21 @@ function new_PolynomialPotential(potential_expansion_order) result(this)
   type(PolynomialPotential) :: this
   
   this%potential_expansion_order = potential_expansion_order
+end function
+
+recursive function new_PolynomialPotential_PotentialData(input) result(this)
+  implicit none
+  
+  class(PotentialData), intent(in) :: input
+  type(PolynomialPotential)        :: this
+  
+  select type(input); type is(PolynomialPotential)
+    this = input
+  type is(PotentialPointer)
+    this = PolynomialPotential(input%potential())
+  class default
+    call err()
+  end select
 end function
 
 function new_PolynomialPotential_BasisFunctions(potential_expansion_order, &
@@ -698,7 +714,7 @@ end function
 
 ! Integrate the potential between two states.
 function braket_PolynomialPotential(this,bra,ket,subspace,subspace_basis, &
-   & anharmonic_data) result(output)
+   & anharmonic_data,qpoint) result(output)
   implicit none
   
   class(PolynomialPotential), intent(in)           :: this
@@ -707,6 +723,7 @@ function braket_PolynomialPotential(this,bra,ket,subspace,subspace_basis, &
   type(DegenerateSubspace),   intent(in)           :: subspace
   class(SubspaceBasis),       intent(in)           :: subspace_basis
   type(AnharmonicData),       intent(in)           :: anharmonic_data
+  type(QpointData),           intent(in), optional :: qpoint
   type(PotentialPointer)                           :: output
   
   type(PolynomialPotential) :: potential
@@ -723,16 +740,17 @@ function braket_PolynomialPotential(this,bra,ket,subspace,subspace_basis, &
                            &           ket,               &
                            &           subspace,          &
                            &           subspace_basis,    &
-                           &           anharmonic_data )
+                           &           anharmonic_data    )
   
   ! Integrate each basis function between the bra and the ket.
   do i=1,size(potential%basis_functions_)
     potential%basis_functions_(i) =  potential%basis_functions_(i)%braket( &
-                                                         & bra,            &
-                                                         & ket,            &
-                                                         & subspace,       &
-                                                         & subspace_basis, &
-                                                         & anharmonic_data )
+                                                        & bra,             &
+                                                        & ket,             &
+                                                        & subspace,        &
+                                                        & subspace_basis,  &
+                                                        & anharmonic_data, &
+                                                        & qpoint           )
   enddo
   
   ! Check if the basis function is now a constant.
@@ -803,31 +821,31 @@ impure elemental function iterate_damped_PolynomialPotential(this, &
   type(AnharmonicData),       intent(in) :: anharmonic_data
   type(PotentialPointer)                 :: output
   
+  type(PolynomialPotential) :: poly_potential
+  
   type(PolynomialPotential) :: potential
   
   integer :: i
   
-  select type(new_potential); type is(PolynomialPotential)
-    if (size(this%basis_functions_)/=size(new_potential%basis_functions_)) then
+  poly_potential = PolynomialPotential(new_potential)
+  
+  if (size(this%basis_functions_)/=size(poly_potential%basis_functions_)) then
+    call err()
+  endif
+  potential = this
+  potential%reference_energy = damping*this%reference_energy &
+                           & + (1-damping)*poly_potential%reference_energy
+  do i=1,size(potential%basis_functions_)
+    if (    size(this%basis_functions_(i))           &
+       & /= size(poly_potential%basis_functions_(i)) ) then
       call err()
     endif
-    potential = this
-    potential%reference_energy = damping*this%reference_energy &
-                             & + (1-damping)*new_potential%reference_energy
-    do i=1,size(potential%basis_functions_)
-      if (    size(this%basis_functions_(i))          &
-         & /= size(new_potential%basis_functions_(i)) ) then
-        call err()
-      endif
-      call potential%basis_functions_(i)%set_coefficients(                  &
-         &   damping * this%basis_functions_(i)%coefficients()              &
-         & + (1-damping) * new_potential%basis_functions_(i)%coefficients() )
-    enddo
-    
-    output = PotentialPointer(potential)
-  class default
-    call err()
-  end select
+    call potential%basis_functions_(i)%set_coefficients(                   &
+       &   damping * this%basis_functions_(i)%coefficients()               &
+       & + (1-damping) * poly_potential%basis_functions_(i)%coefficients() )
+  enddo
+  
+  output = PotentialPointer(potential)
 end function
 
 function iterate_pulay_PolynomialPotential(this,input_potentials, &
@@ -844,8 +862,8 @@ function iterate_pulay_PolynomialPotential(this,input_potentials, &
   type(RealVector), allocatable :: output_coefficients(:)
   real(dp),         allocatable :: pulay_coefficients(:)
   
-  class(PotentialData), allocatable :: input_potential
-  class(PotentialData), allocatable :: output_potential
+  type(PolynomialPotential), allocatable :: input_potential
+  type(PolynomialPotential), allocatable :: output_potential
   
   type(PolynomialPotential) :: potential
   
@@ -862,25 +880,17 @@ function iterate_pulay_PolynomialPotential(this,input_potentials, &
           & output_coefficients(size(input_potentials)), &
           & stat=ialloc); call err(ialloc)
   do i=1,size(input_potentials)
-    input_potential = input_potentials(i)%potential()
-    select type(input_potential); type is(PolynomialPotential)
-      input_coefficients(i) = vec([(                           &
-         & input_potential%basis_functions_(j)%coefficients(), &
-         & j=1,                                                &
-         & size(input_potential%basis_functions_)              )])
-    class default
-      call err()
-    end select
+    input_potential = PolynomialPotential(input_potentials(i))
+    input_coefficients(i) = vec([(                           &
+       & input_potential%basis_functions_(j)%coefficients(), &
+       & j=1,                                                &
+       & size(input_potential%basis_functions_)              )])
     
-    output_potential = output_potentials(i)%potential()
-    select type(output_potential); type is(PolynomialPotential)
-      output_coefficients(i) = vec([(                           &
-         & output_potential%basis_functions_(j)%coefficients(), &
-         & j=1,                                                 &
-         & size(output_potential%basis_functions_)              )])
-    class default
-      call err()
-    end select
+    output_potential = PolynomialPotential(output_potentials(i))
+    output_coefficients(i) = vec([(                           &
+       & output_potential%basis_functions_(j)%coefficients(), &
+       & j=1,                                                 &
+       & size(output_potential%basis_functions_)              )])
   enddo
   
   ! Use a Pulay scheme to construct the next set of coefficients.

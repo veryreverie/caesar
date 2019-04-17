@@ -131,10 +131,15 @@ function run_vscf(potential,subspaces,subspace_bases,energy_convergence,  &
     
     ! Use the single-subspace potentials to calculate the new states.
     call print_line('Generating single-subspace ground states.')
-    subspace_states = SubspaceStatesPointer(                &
-       & subspace_bases%calculate_states( subspaces,        &
-       &                                  input_potentials, &
-       &                                  anharmonic_data   ) )
+    subspace_states = SubspaceStatesPointer(                           &
+       & subspace_bases%calculate_states( subspaces,                   &
+       &                                  input_potentials,            &
+       &                                  energy_convergence,          &
+       &                                  no_converged_calculations,   &
+       &                                  max_pulay_iterations,        &
+       &                                  pre_pulay_iterations,        &
+       &                                  pre_pulay_damping,           &
+       &                                  anharmonic_data            ) )
     
     ! Generate the energy spectra from the states.
     subspace_spectra = subspace_states%spectra( &

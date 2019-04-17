@@ -160,7 +160,7 @@ impure elemental function                                                    &
 end function
 
 impure elemental function braket_CouplingBasisFunctions(this,bra,ket, &
-   & subspace,subspace_basis,anharmonic_data) result(output)
+   & subspace,subspace_basis,anharmonic_data,qpoint) result(output)
   implicit none
   
   class(CouplingBasisFunctions), intent(in)           :: this
@@ -169,6 +169,7 @@ impure elemental function braket_CouplingBasisFunctions(this,bra,ket, &
   type(DegenerateSubspace),      intent(in)           :: subspace
   class(SubspaceBasis),          intent(in)           :: subspace_basis
   type(AnharmonicData),          intent(in)           :: anharmonic_data
+  type(QpointData),              intent(in), optional :: qpoint
   type(CouplingBasisFunctions)                        :: output
   
   integer :: i,j
@@ -178,11 +179,12 @@ impure elemental function braket_CouplingBasisFunctions(this,bra,ket, &
   i = first(output%coupling%ids==subspace%id, default=0)
   if (i/=0) then
     do j=1,size(output)
-      call output%basis_functions_(j)%braket( bra,            &
-                                            & ket,            &
-                                            & subspace,       &
-                                            & subspace_basis, &
-                                            & anharmonic_data )
+      call output%basis_functions_(j)%braket( bra,             &
+                                            & ket,             &
+                                            & subspace,        &
+                                            & subspace_basis,  &
+                                            & anharmonic_data, &
+                                            & qpoint           )
     enddo
     
     ! Simplify the potential.

@@ -217,7 +217,7 @@ impure elemental function force_ComplexModeDisplacement_PotentialDataExample( &
 end function
 
 function braket_PotentialDataExample(this,bra,ket,subspace,subspace_basis, &
-   & anharmonic_data) result(output)
+   & anharmonic_data,qpoint) result(output)
   implicit none
   
   class(PotentialDataExample), intent(in)           :: this
@@ -226,6 +226,7 @@ function braket_PotentialDataExample(this,bra,ket,subspace,subspace_basis, &
   type(DegenerateSubspace),    intent(in)           :: subspace
   class(SubspaceBasis),        intent(in)           :: subspace_basis
   type(AnharmonicData),        intent(in)           :: anharmonic_data
+  type(QpointData),            intent(in), optional :: qpoint
   type(PotentialPointer)                            :: output
   
   call print_line('PotentialDataExample: evaluating <bra|potential|ket>.')

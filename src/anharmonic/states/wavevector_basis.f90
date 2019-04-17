@@ -1,6 +1,9 @@
 ! ======================================================================
 ! A basis of monomial and harmonic states for a given subspace
 !    at a given wavevector.
+! N.B. the wavevector in this context is the wavevector of the state,
+!    not the wavevector of the mode.
+! e.g. the state |p> along a mode at q-point q has a wavevector of p*q.
 ! ======================================================================
 module wavevector_basis_module
   use common_module
@@ -134,18 +137,20 @@ end subroutine
 ! ----------------------------------------------------------------------
 ! Generates states in a given subspace, up to a given power.
 ! ----------------------------------------------------------------------
+! If qpoint is specified, only modes at that q-point are included.
 function new_WavevectorBasis_subspace(subspace,frequency,modes,qpoints, &
-   & maximum_power,potential_expansion_order,symmetries) result(output)
+   & maximum_power,potential_expansion_order,symmetries,qpoint) result(output)
   implicit none
   
-  type(DegenerateSubspace), intent(in) :: subspace
-  real(dp),                 intent(in) :: frequency
-  type(ComplexMode),        intent(in) :: modes(:)
-  type(QpointData),         intent(in) :: qpoints(:)
-  integer,                  intent(in) :: maximum_power
-  integer,                  intent(in) :: potential_expansion_order
-  type(SymmetryOperator),   intent(in) :: symmetries(:)
-  type(WavevectorBasis), allocatable   :: output(:)
+  type(DegenerateSubspace), intent(in)           :: subspace
+  real(dp),                 intent(in)           :: frequency
+  type(ComplexMode),        intent(in)           :: modes(:)
+  type(QpointData),         intent(in)           :: qpoints(:)
+  integer,                  intent(in)           :: maximum_power
+  integer,                  intent(in)           :: potential_expansion_order
+  type(SymmetryOperator),   intent(in)           :: symmetries(:)
+  type(QpointData),         intent(in), optional :: qpoint
+  type(WavevectorBasis), allocatable             :: output(:)
   
   ! Variables for generating single-mode bases.
   type(ComplexMode), allocatable :: subspace_modes(:)
@@ -161,6 +166,12 @@ function new_WavevectorBasis_subspace(subspace,frequency,modes,qpoints, &
   subspace_modes = subspace%modes(modes)
   subspace_modes = subspace_modes(filter(          &
      & subspace_modes%paired_id>=subspace_modes%id ))
+  
+  ! Filter for modes at the given q-point.
+  if (present(qpoint)) then
+    subspace_modes = subspace_modes(filter(  &
+       & subspace_modes%qpoint_id==qpoint%id ))
+  endif
   
   do i=1,size(subspace_modes)
     ! Generate the basis along a single mode (or a mode and its pair).

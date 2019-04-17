@@ -84,6 +84,7 @@ module harmonic_state_module
   
   interface HarmonicState
     module procedure new_HarmonicState
+    module procedure new_HarmonicState_SubspaceState
     module procedure new_HarmonicState_Strings
     module procedure new_HarmonicState_StringArray
   end interface
@@ -120,6 +121,21 @@ function new_HarmonicState(subspace_id,frequency,state) result(this)
   this%subspace_id = subspace_id
   this%frequency   = frequency
   this%state_      = state
+end function
+
+recursive function new_HarmonicState_SubspaceState(input) result(this)
+  implicit none
+  
+  class(SubspaceState), intent(in) :: input
+  type(HarmonicState)              :: this
+  
+  select type(input); type is(HarmonicState)
+    this = input
+  type is(SubspaceStatePointer)
+    this = HarmonicState(input%state())
+  class default
+    call err()
+  end select
 end function
 
 ! ----------------------------------------------------------------------
@@ -246,7 +262,7 @@ end function
 !    basis.
 ! ----------------------------------------------------------------------
 function harmonic_expectation(monomial,frequency,thermal_energy,no_states, &
-   & subspace,supercell) result(output)
+   & subspace,supercell,anharmonic_data) result(output)
   implicit none
   
   type(ComplexMonomial),    intent(in) :: monomial
@@ -255,12 +271,15 @@ function harmonic_expectation(monomial,frequency,thermal_energy,no_states, &
   integer,                  intent(in) :: no_states
   type(DegenerateSubspace), intent(in) :: subspace
   type(StructureData),      intent(in) :: supercell
+  type(AnharmonicData),     intent(in) :: anharmonic_data
   real(dp)                             :: output
   
   type(StateHelper) :: helper
   
   ! Process the ground state and monomial.
-  helper = StateHelper(monomial=monomial, subspace=subspace)
+  helper = StateHelper( monomial        = monomial,       &
+                      & subspace        = subspace,       &
+                      & anharmonic_data = anharmonic_data )
   
   ! Calculate the harmonic expectation along each mode,
   !    and multiply these together.
@@ -363,22 +382,18 @@ impure elemental function braket_SubspaceState_HarmonicState(this, &
   !       = 0 otherwise.
   
   if (present(ket)) then
-    select type(ket); type is(HarmonicState)
-      if (finite_overlap(this,ket)) then
-        output = 1.0_dp
-      else
-        output = 0.0_dp
-      endif
-    class default
-      call err()
-    end select
+    if (finite_overlap(this,HarmonicState(ket))) then
+      output = 1.0_dp
+    else
+      output = 0.0_dp
+    endif
   else
     output = 1.0_dp
   endif
 end function
 
-impure elemental function braket_ComplexUnivariate_HarmonicState( &
-   & this,univariate,ket,subspace,subspace_basis,anharmonic_data)        &
+impure elemental function braket_ComplexUnivariate_HarmonicState(this, &
+   & univariate,ket,subspace,subspace_basis,anharmonic_data,qpoint)    &
    & result(output)
   implicit none
   
@@ -388,30 +403,29 @@ impure elemental function braket_ComplexUnivariate_HarmonicState( &
   type(DegenerateSubspace), intent(in)           :: subspace
   class(SubspaceBasis),     intent(in)           :: subspace_basis
   type(AnharmonicData),     intent(in)           :: anharmonic_data
+  type(QpointData),         intent(in), optional :: qpoint
   type(ComplexMonomial)                          :: output
   
   if (present(ket)) then
-    select type(ket); type is(HarmonicState)
-      output = braket( this,                        &
-                     & ComplexMonomial(univariate), &
-                     & ket,                         &
-                     & subspace,                    &
-                     & subspace_basis,              &
-                     & anharmonic_data              )
-    class default
-      call err()
-    end select
+    output = braket( this,                        &
+                   & ComplexMonomial(univariate), &
+                   & HarmonicState(ket),          &
+                   & subspace,                    &
+                   & subspace_basis,              &
+                   & anharmonic_data,             &
+                   & qpoint                       )
   else
     output = braket( this,                        &
                    & ComplexMonomial(univariate), &
                    & subspace,                    &
                    & subspace_basis,              &
-                   & anharmonic_data              )
+                   & anharmonic_data,             &
+                   & qpoint                       )
   endif
 end function
 
-impure elemental function braket_ComplexMonomial_HarmonicState(this, &
-   & monomial,ket,subspace,subspace_basis,anharmonic_data) result(output)
+impure elemental function braket_ComplexMonomial_HarmonicState(this,monomial, &
+   & ket,subspace,subspace_basis,anharmonic_data,qpoint) result(output)
   implicit none
   
   class(HarmonicState),     intent(in)           :: this
@@ -420,9 +434,11 @@ impure elemental function braket_ComplexMonomial_HarmonicState(this, &
   type(DegenerateSubspace), intent(in)           :: subspace
   class(SubspaceBasis),     intent(in)           :: subspace_basis
   type(AnharmonicData),     intent(in)           :: anharmonic_data
+  type(QpointData),         intent(in), optional :: qpoint
   type(ComplexMonomial)                          :: output
   
-  type(StateHelper) :: helper
+  type(HarmonicState) :: harmonic_ket
+  type(StateHelper)   :: helper
   
   type(ComplexUnivariate), allocatable :: monomial_modes(:)
   complex(dp)                          :: coefficient
@@ -430,65 +446,47 @@ impure elemental function braket_ComplexMonomial_HarmonicState(this, &
   integer :: i
   
   if (present(ket)) then
-    select type(ket); type is(HarmonicState)
-      ! Process the bra, ket and monomial.
-      helper = StateHelper(this%state_, ket%state_, monomial, subspace)
-      
-      ! Extract the modes in the monomial which are not part of the subspace.
-      monomial_modes = monomial%modes(              &
-         & filter(.not.helper%monomial_in_subspace) )
-      
-      ! Calculate the coefficient of the output.
-      ! This is the input coefficient times the integral over all modes in the
-      !    subspace.
-      ! The helper function calculates this integral for each single- or
-      !    double-mode, up to a factor of 1/(2Nw)^(n/2), where
-      !    - N is the number of primitive cells in the anharmonic supercell.
-      !    - w is the frequency of the modes in the subspace.
-      !    - n is the power of the modes in the monomial which are integrated.
-      coefficient = monomial%coefficient                                 &
-                & * product(braket_mode_potential( helper%bra,           &
-                &                                  helper%ket,           &
-                &                                  helper%monomial ))    &
-                & / sqrt( 2.0_dp                                         &
-                &       * anharmonic_data%anharmonic_supercell%sc_size   &
-                &       * this%frequency                               ) &
-                & **(monomial%total_power()-sum(monomial_modes%total_power()))
-      
-      ! Construct output.
-      output = ComplexMonomial( coefficient = coefficient,   &
-                              & modes       = monomial_modes )
-    class default
-      call err()
-    end select
+    ! Process the bra, ket and monomial.
+    harmonic_ket = HarmonicState(ket)
+    helper = StateHelper( this%state_,         &
+                        & harmonic_ket%state_, &
+                        & monomial,            &
+                        & subspace,            &
+                        & anharmonic_data,     &
+                        & qpoint               )
   else
     ! Process the bra, ket and monomial.
-    helper = StateHelper(this%state_, this%state_, monomial, subspace)
-    
-    ! Extract the modes in the monomial which are not part of the subspace.
-    monomial_modes = monomial%modes(filter(.not.helper%monomial_in_subspace))
-    
-    ! Calculate the coefficient of the output.
-    ! This is the input coefficient times the integral over all modes in the
-    !    subspace.
-    ! The helper function calculates this integral for each single- or double-
-    !    mode, up to a factor of 1/(2Nw)^(n/2), where
-    !    - N is the number of primitive cells in the anharmonic supercell.
-    !    - w is the frequency of the modes in the subspace.
-    !    - n is the power of the modes in the monomial which are integrated.
-    coefficient = monomial%coefficient                                 &
-              & * product(braket_mode_potential( helper%bra,           &
-              &                                  helper%ket,           &
-              &                                  helper%monomial ))    &
-              & / sqrt( 2.0_dp                                         &
-              &       * anharmonic_data%anharmonic_supercell%sc_size   &
-              &       * this%frequency                               ) &
-              & **(monomial%total_power()-sum(monomial_modes%total_power()))
-    
-    ! Construct output.
-    output = ComplexMonomial( coefficient = coefficient,   &
-                            & modes       = monomial_modes )
+    helper = StateHelper( this%state_,     &
+                        & this%state_,     &
+                        & monomial,        &
+                        & subspace,        &
+                        & anharmonic_data, &
+                        & qpoint           )
   endif
+  
+  ! Extract the modes in the monomial which are not part of the subspace.
+  monomial_modes = monomial%modes(filter(.not.helper%monomial_in_subspace))
+  
+  ! Calculate the coefficient of the output.
+  ! This is the input coefficient times the integral over all modes in the
+  !    subspace.
+  ! The helper function calculates this integral for each single- or double-
+  !    mode, up to a factor of 1/(2Nw)^(n/2), where
+  !    - N is the number of primitive cells in the anharmonic supercell.
+  !    - w is the frequency of the modes in the subspace.
+  !    - n is the power of the modes in the monomial which are integrated.
+  coefficient = monomial%coefficient                                 &
+            & * product(braket_mode_potential( helper%bra,           &
+            &                                  helper%ket,           &
+            &                                  helper%monomial ))    &
+            & / sqrt( 2.0_dp                                         &
+            &       * anharmonic_data%anharmonic_supercell%sc_size   &
+            &       * this%frequency                               ) &
+            & **(monomial%total_power()-sum(monomial_modes%total_power()))
+  
+  ! Construct output.
+  output = ComplexMonomial( coefficient = coefficient,   &
+                          & modes       = monomial_modes )
 end function
 
 impure elemental function kinetic_energy_HarmonicState(this,ket, &
@@ -502,50 +500,40 @@ impure elemental function kinetic_energy_HarmonicState(this,ket, &
   type(AnharmonicData),     intent(in)           :: anharmonic_data
   real(dp)                                       :: output
   
-  type(StateHelper) :: helper
+  type(HarmonicState) :: harmonic_ket
+  type(StateHelper)   :: helper
   
   logical, allocatable :: finite_overlaps(:)
   
   integer :: i
   
   if (present(ket)) then
-    select type(ket); type is(HarmonicState)
-      ! Process the bra and ket.
-      helper = StateHelper(this%state_, ket%state_, subspace=subspace)
-      
-      ! Calculate which single- and double-mode states have non-zero overlaps.
-      finite_overlaps = finite_overlap_mode(helper%bra,helper%ket)
-      
-      ! Calculate the kinetic energy, up to a factor of the frequency, w.
-      if (all(finite_overlaps)) then
-        output = sum(kinetic_energy_mode(helper%bra, helper%ket))
-      elseif (count(.not.finite_overlaps)==1) then
-        i = first(.not.finite_overlaps)
-        output = kinetic_energy_mode(helper%bra(i), helper%ket(i))
-      else
-        output = 0
-        return
-      endif
-    class default
-      call err()
-    end select
+    ! Process the bra and ket.
+    harmonic_ket = HarmonicState(ket)
+    helper = StateHelper( this%state_,                      &
+                        & harmonic_ket%state_,              &
+                        & subspace        = subspace,       &
+                        & anharmonic_data = anharmonic_data )
   else
     ! Process the bra and ket.
-    helper = StateHelper(this%state_, this%state_, subspace=subspace)
-    
-    ! Calculate which single- and double-mode states have non-zero overlaps.
-    finite_overlaps = finite_overlap_mode(helper%bra,helper%ket)
-    
-    ! Calculate the kinetic energy, up to a factor of the frequency, w.
-    if (all(finite_overlaps)) then
-      output = sum(kinetic_energy_mode(helper%bra, helper%ket))
-    elseif (count(.not.finite_overlaps)==1) then
-      i = first(.not.finite_overlaps)
-      output = kinetic_energy_mode(helper%bra(i), helper%ket(i))
-    else
-      output = 0
-      return
-    endif
+    helper = StateHelper( this%state_,                      &
+                        & this%state_,                      &
+                        & subspace        = subspace,       &
+                        & anharmonic_data = anharmonic_data )
+  endif
+  
+  ! Calculate which single- and double-mode states have non-zero overlaps.
+  finite_overlaps = finite_overlap_mode(helper%bra,helper%ket)
+  
+  ! Calculate the kinetic energy, up to a factor of the frequency, w.
+  if (all(finite_overlaps)) then
+    output = sum(kinetic_energy_mode(helper%bra, helper%ket))
+  elseif (count(.not.finite_overlaps)==1) then
+    i = first(.not.finite_overlaps)
+    output = kinetic_energy_mode(helper%bra(i), helper%ket(i))
+  else
+    output = 0
+    return
   endif
   
   ! Multiply by w, and normalise by the number of primitive cells in the
@@ -564,7 +552,8 @@ impure elemental function harmonic_potential_energy_HarmonicState(this,ket, &
   type(AnharmonicData),     intent(in)           :: anharmonic_data
   real(dp)                                       :: output
   
-  type(StateHelper) :: helper
+  type(HarmonicState) :: harmonic_ket
+  type(StateHelper)   :: helper
   
   logical, allocatable :: finite_overlaps(:)
   
@@ -572,45 +561,33 @@ impure elemental function harmonic_potential_energy_HarmonicState(this,ket, &
   
   
   if (present(ket)) then
-    select type(ket); type is(HarmonicState)
-      ! Process the bra and ket.
-      helper = StateHelper(this%state_, ket%state_, subspace=subspace)
-      
-      ! Calculate which single- and double-mode states have non-zero overlaps.
-      finite_overlaps = finite_overlap_mode(helper%bra,helper%ket)
-      
-      ! Calculate the harmonic potential energy,
-      !    up to a factor of the frequency, w.
-      if (all(finite_overlaps)) then
-        output = sum(harmonic_potential_energy_mode(helper%bra, helper%ket))
-      elseif (count(.not.finite_overlaps)==1) then
-        i = first(.not.finite_overlaps)
-        output = harmonic_potential_energy_mode(helper%bra(i), helper%ket(i))
-      else
-        output = 0
-        return
-      endif
-    class default
-      call err()
-    end select
+    ! Process the bra and ket.
+    harmonic_ket = HarmonicState(ket)
+    helper = StateHelper( this%state_,                      &
+                        & harmonic_ket%state_,              &
+                        & subspace        = subspace,       &
+                        & anharmonic_data = anharmonic_data )
   else
     ! Process the bra and ket.
-    helper = StateHelper(this%state_, this%state_, subspace=subspace)
-    
-    ! Calculate which single- and double-mode states have non-zero overlaps.
-    finite_overlaps = finite_overlap_mode(helper%bra,helper%ket)
-    
-    ! Calculate the harmonic potential energy,
-    !    up to a factor of the frequency, w.
-    if (all(finite_overlaps)) then
-      output = sum(harmonic_potential_energy_mode(helper%bra, helper%ket))
-    elseif (count(.not.finite_overlaps)==1) then
-      i = first(.not.finite_overlaps)
-      output = harmonic_potential_energy_mode(helper%bra(i), helper%ket(i))
-    else
-      output = 0
-      return
-    endif
+    helper = StateHelper( this%state_,                      &
+                        & this%state_,                      &
+                        & subspace        = subspace,       &
+                        & anharmonic_data = anharmonic_data )
+  endif
+  
+  ! Calculate which single- and double-mode states have non-zero overlaps.
+  finite_overlaps = finite_overlap_mode(helper%bra,helper%ket)
+  
+  ! Calculate the harmonic potential energy,
+  !    up to a factor of the frequency, w.
+  if (all(finite_overlaps)) then
+    output = sum(harmonic_potential_energy_mode(helper%bra, helper%ket))
+  elseif (count(.not.finite_overlaps)==1) then
+    i = first(.not.finite_overlaps)
+    output = harmonic_potential_energy_mode(helper%bra(i), helper%ket(i))
+  else
+    output = 0
+    return
   endif
   
   ! Multiply by w, and normalise by the number of primitive cells in the

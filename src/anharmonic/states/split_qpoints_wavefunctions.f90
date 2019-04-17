@@ -1,7 +1,7 @@
 ! ======================================================================
-! Wavefunctions spanning the full subspace.
+! Wavefunctions which treat q-points separately.
 ! ======================================================================
-module full_subspace_wavefunctions_module
+module split_qpoints_wavefunctions_module
   use common_module
   
   use subspace_wavefunctions_module
@@ -9,9 +9,11 @@ module full_subspace_wavefunctions_module
   
   private
   
-  public :: FullSubspaceWavefunctions
+  public :: startup_split_qpoints_wavefunctions
   
-  type, extends(SubspaceWavefunctions) :: FullSubspaceWavefunctions
+  public :: SplitQpointsWavefunctions
+  
+  type, extends(SubspaceWavefunctions) :: SplitQpointsWavefunctions
     integer                   :: subspace_id
     integer,      allocatable :: mode_ids(:)
     integer,      allocatable :: paired_mode_ids(:)
@@ -20,19 +22,31 @@ module full_subspace_wavefunctions_module
     integer,      allocatable :: degeneracies(:)
     type(String), allocatable :: wavefunctions(:)
   contains
-    procedure, public :: read  => read_FullSubspaceWavefunctions
-    procedure, public :: write => write_FullSubspaceWavefunctions
+    ! Type representation.
+    procedure, public, nopass :: representation => &
+                               & representation_SplitQpointsWavefunctions
+    
+    ! I/O.
+    procedure, public :: read  => read_SplitQpointsWavefunctions
+    procedure, public :: write => write_SplitQpointsWavefunctions
   end type
   
-  interface FullSubspaceWavefunctions
-    module procedure new_FullSubspaceWavefunctions
-    module procedure new_FullSubspaceWavefunctions_Strings
-    module procedure new_FullSubspaceWavefunctions_StringArray
+  interface SplitQpointsWavefunctions
+    module procedure new_SplitQpointsWavefunctions
+    module procedure new_SplitQpointsWavefunctions_Strings
+    module procedure new_SplitQpointsWavefunctions_StringArray
   end interface
-  
 contains
 
-function new_FullSubspaceWavefunctions(subspace_id,mode_ids,paired_mode_ids, &
+subroutine startup_split_qpoints_wavefunctions()
+  implicit none
+  
+  type(SplitQpointsWavefunctions) :: wavefunctions
+  
+  call wavefunctions%startup()
+end subroutine
+
+function new_SplitQpointsWavefunctions(subspace_id,mode_ids,paired_mode_ids, &
    & harmonic_ground_state,energies,degeneracies,wavefunctions) result(this)
   implicit none
     
@@ -43,7 +57,7 @@ function new_FullSubspaceWavefunctions(subspace_id,mode_ids,paired_mode_ids, &
   real(dp),     intent(in)        :: energies(:)
   integer,      intent(in)        :: degeneracies(:)
   type(String), intent(in)        :: wavefunctions(:)
-  type(FullSubspaceWavefunctions) :: this
+  type(SplitQpointsWavefunctions) :: this
   
   if (size(energies)/=size(degeneracies)) then
     call err()
@@ -60,13 +74,22 @@ function new_FullSubspaceWavefunctions(subspace_id,mode_ids,paired_mode_ids, &
   this%wavefunctions = wavefunctions
 end function
 
+impure elemental function representation_SplitQpointsWavefunctions() &
+   & result(output)
+  implicit none
+  
+  type(String) :: output
+  
+  output = 'split_qpoints'
+end function
+
 ! ----------------------------------------------------------------------
 ! I/O.
 ! ----------------------------------------------------------------------
-subroutine read_FullSubspaceWavefunctions(this,input)
+subroutine read_SplitQpointsWavefunctions(this,input)
   implicit none
   
-  class(FullSubspaceWavefunctions), intent(out) :: this
+  class(SplitQpointsWavefunctions), intent(out) :: this
   type(String),                     intent(in)  :: input(:)
   
   integer                   :: subspace_id
@@ -83,7 +106,7 @@ subroutine read_FullSubspaceWavefunctions(this,input)
   
   integer :: i,ialloc
   
-  select type(this); type is(FullSubspaceWavefunctions)
+  select type(this); type is(SplitQpointsWavefunctions)
     line = split_line(input(1))
     subspace_id = int(line(3))
     
@@ -112,7 +135,7 @@ subroutine read_FullSubspaceWavefunctions(this,input)
       wavefunctions(i) = join(line(3:))
     enddo
     
-    this = FullSubspaceWavefunctions( subspace_id,           &
+    this = SplitQpointsWavefunctions( subspace_id,           &
                                     & mode_ids,              &
                                     & paired_mode_ids,       &
                                     & harmonic_ground_state, &
@@ -124,15 +147,15 @@ subroutine read_FullSubspaceWavefunctions(this,input)
   end select
 end subroutine
 
-function write_FullSubspaceWavefunctions(this) result(output)
+function write_SplitQpointsWavefunctions(this) result(output)
   implicit none
   
-  class(FullSubspaceWavefunctions), intent(in) :: this
+  class(SplitQpointsWavefunctions), intent(in) :: this
   type(String), allocatable                    :: output(:)
   
   integer :: i
   
-  select type(this); type is(FullSubspaceWavefunctions)
+  select type(this); type is(SplitQpointsWavefunctions)
     output = [ 'Subspace                   : '//this%subspace_id,           &
              & 'Mode IDs                   : '//this%mode_ids,              &
              & 'Paired Mode Ids            : '//this%paired_mode_ids,       &
@@ -152,22 +175,22 @@ function write_FullSubspaceWavefunctions(this) result(output)
   end select
 end function
 
-function new_FullSubspaceWavefunctions_Strings(input) result(this)
+function new_SplitQpointsWavefunctions_Strings(input) result(this)
   implicit none
   
   type(String), intent(in)        :: input(:)
-  type(FullSubspaceWavefunctions) :: this
+  type(SplitQpointsWavefunctions) :: this
   
   call this%read(input)
 end function
 
-impure elemental function new_FullSubspaceWavefunctions_StringArray(input) &
+impure elemental function new_SplitQpointsWavefunctions_StringArray(input) &
    & result(this)
   implicit none
   
   type(StringArray), intent(in)   :: input
-  type(FullSubspaceWavefunctions) :: this
+  type(SplitQpointsWavefunctions) :: this
   
-  this = FullSubspaceWavefunctions(str(input))
+  this = SplitQpointsWavefunctions(str(input))
 end function
 end module

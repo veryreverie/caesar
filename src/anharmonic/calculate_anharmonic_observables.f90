@@ -31,6 +31,12 @@ subroutine startup_calculate_anharmonic_observables()
   mode%description = 'Calculates observables under the VSCF approximation. &
      &Should be run after calculate_potential.'
   mode%keywords = [                                                           &
+     & KeywordData( 'split_q-points',                                         &
+     &              'split_q-points specifies whether or not to split up VSCF &
+     &subspaces by q-point. Doing so makes the calculation somewhat less &
+     &accurate, but is required for reasonable calculation times if the &
+     &system contains large subspaces spread over multiple q-points.',        &
+     &              default_value='true'),                                    &
      & KeywordData( 'harmonic_frequency_convergence',                         &
      &              'harmonic_frequency_convergence is the precision to which &
      &frequencies will be converged when constructing the harmonic ground &
@@ -116,6 +122,7 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   ! Inputs.
   type(RandomReal)              :: random_generator
   integer                       :: random_generator_seed
+  logical                       :: split_qpoints
   real(dp)                      :: harmonic_frequency_convergence
   real(dp)                      :: energy_convergence
   integer                       :: no_converged_calculations_vscf
@@ -148,6 +155,10 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   type(DegenerateSubspace), allocatable :: subspaces(:)
   type(StructureData)                   :: supercell
   
+  ! Subspace variables.
+  type(ComplexMode), allocatable :: subspace_modes(:)
+  type(QpointData),  allocatable :: subspace_qpoints(:)
+  
   ! Anharmonic potential.
   type(PotentialPointer) :: potential
   
@@ -158,7 +169,7 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   type(InitialFrequencies) :: initial_frequencies
   
   ! Basis states.
-  type(FullSubspaceBasis), allocatable :: basis(:)
+  type(SubspaceBasisPointer), allocatable :: basis(:)
   
   ! VSCF ground states.
   type(VscfOutput),            allocatable :: vscf_output(:)
@@ -232,6 +243,7 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
     random_generator = RandomReal()
   endif
   random_generator_seed = random_generator%get_seed()
+  split_qpoints = lgcl(arguments%value('split_q-points'))
   harmonic_frequency_convergence = dble(                 &
      & arguments%value('harmonic_frequency_convergence') )
   energy_convergence = dble(arguments%value('energy_convergence'))
@@ -371,23 +383,39 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   
   ! Generate basis of states.
   call print_line('Generating basis for VSCF.')
-  allocate( basis(size(anharmonic_data%degenerate_subspaces)), &
-          & stat=ialloc); call err(ialloc)
+  allocate(basis(size(subspaces)), stat=ialloc); call err(ialloc)
   do i=1,size(basis)
-    call print_line( 'Generating basis in subspace '               // &
-                   & anharmonic_data%degenerate_subspaces(i)%id    // &
-                   & ', containing modes '                         // &
-                   & anharmonic_data%degenerate_subspaces(i)%mode_ids )
-    basis(i) = FullSubspaceBasis(                         &
-       & anharmonic_data%degenerate_subspaces(i),         &
-       & initial_frequencies%frequency(                   &
-       &    anharmonic_data%degenerate_subspaces(i)%id ), &
-       & anharmonic_data%complex_modes,                   &
-       & anharmonic_data%qpoints,                         &
-       & anharmonic_data%anharmonic_supercell,            &
-       & no_vscf_basis_states-1,                          &
-       & anharmonic_data%potential_expansion_order,       &
-       & anharmonic_data%structure%symmetries             )
+    subspace_modes = subspaces(i)%modes(modes)
+    subspace_qpoints = subspaces(i)%qpoints(modes,qpoints)
+    subspace_qpoints = subspace_qpoints(set(subspace_qpoints%id))
+    call print_line( 'Generating basis in subspace ' // &
+                   & subspaces(i)%id                 // &
+                   & ', containing '                 // &
+                   & size(subspace_modes)            // &
+                   & ' modes across '                // &
+                   & size(subspace_qpoints)          // &
+                   & ' q-points.'                       )
+    if (split_qpoints) then
+      basis(i) = SubspaceBasisPointer(SplitQpointsBasis(   &
+         & subspaces(i),                                   &
+         & initial_frequencies%frequency(subspaces(i)%id), &
+         & modes,                                          &
+         & qpoints,                                        &
+         & supercell,                                      &
+         & no_vscf_basis_states-1,                         &
+         & anharmonic_data%potential_expansion_order,      &
+         & anharmonic_data%structure%symmetries            ))
+    else
+      basis(i) = SubspaceBasisPointer(FullSubspaceBasis(   &
+         & subspaces(i),                                   &
+         & initial_frequencies%frequency(subspaces(i)%id), &
+         & modes,                                          &
+         & qpoints,                                        &
+         & supercell,                                      &
+         & no_vscf_basis_states-1,                         &
+         & anharmonic_data%potential_expansion_order,      &
+         & anharmonic_data%structure%symmetries            ))
+    endif
   enddo
   
   ! Run VSCF to generate single-subspace potentials and ground states.
