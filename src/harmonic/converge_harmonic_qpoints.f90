@@ -65,6 +65,7 @@ subroutine startup_converge_harmonic_qpoints()
   
   call mode%remove_keyword('q-point_grid')
   call mode%remove_keyword('supercells_to_run')
+  call mode%remove_keyword('calculations_to_run')
   call mode%remove_keyword('exit_on_error')
   
   call add_mode(mode)

@@ -492,6 +492,7 @@ function split_vscf(potential,subspace,basis,energy_convergence,          &
                               & anharmonic_data,             &
                               & basis%qpoint_modes(i)%qpoint )
   enddo
+  call initial_potential%zero_energy()
   
   input_potentials = [initial_potential]
   states = [SplitQpointsStates::]
@@ -515,6 +516,7 @@ function split_vscf(potential,subspace,basis,energy_convergence,          &
                                    & anharmonic_data,             &
                                    & basis%qpoint_modes(i)%qpoint )
     enddo
+    call output_potentials(i)%zero_energy()
     
     ! Check for convergence.
     if (i>no_converged_calculations) then

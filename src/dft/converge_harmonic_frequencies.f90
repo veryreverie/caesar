@@ -115,6 +115,7 @@ subroutine startup_converge_harmonic_frequencies()
   mode%main_subroutine => converge_harmonic_frequencies_subroutine
   
   call mode%remove_keyword('supercells_to_run')
+  call mode%remove_keyword('calculations_to_run')
   call mode%remove_keyword('exit_on_error')
   
   call add_mode(mode)
