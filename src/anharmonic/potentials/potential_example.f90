@@ -39,7 +39,8 @@ module potential_example_module
     procedure, public :: force_ComplexModeDisplacement => &
                        & force_ComplexModeDisplacement_PotentialDataExample
     
-    procedure, public :: braket => braket_PotentialDataExample
+    procedure, public :: braket_state  => braket_state_PotentialDataExample
+    procedure, public :: braket_states => braket_states_PotentialDataExample
     
     procedure, public :: harmonic_expectation => &
                        & harmonic_expectation_PotentialDataExample
@@ -216,23 +217,39 @@ impure elemental function force_ComplexModeDisplacement_PotentialDataExample( &
   ! Code to calculate forces at complex displacements goes here.
 end function
 
-function braket_PotentialDataExample(this,bra,ket,subspace,subspace_basis, &
-   & anharmonic_data,qpoint) result(output)
+subroutine braket_state_PotentialDataExample(this,bra,ket,subspace, &
+   & subspace_basis,anharmonic_data,qpoint)
   implicit none
   
-  class(PotentialDataExample), intent(in)           :: this
+  class(PotentialDataExample), intent(inout)        :: this
   class(SubspaceState),        intent(in)           :: bra
   class(SubspaceState),        intent(in), optional :: ket
   type(DegenerateSubspace),    intent(in)           :: subspace
   class(SubspaceBasis),        intent(in)           :: subspace_basis
   type(AnharmonicData),        intent(in)           :: anharmonic_data
   type(QpointData),            intent(in), optional :: qpoint
-  type(PotentialPointer)                            :: output
   
   call print_line('PotentialDataExample: evaluating <bra|potential|ket>.')
   
   ! Code to integrate this potential between <bra| and |ket> goes here.
-end function
+  ! This likely just involves calling braket on the constituent parts of this.
+end subroutine
+
+subroutine braket_states_PotentialDataExample(this,states,subspace, &
+   & subspace_basis,anharmonic_data)
+  implicit none
+  
+  class(PotentialDataExample), intent(inout) :: this
+  class(SubspaceStates),       intent(in)    :: states
+  type(DegenerateSubspace),    intent(in)    :: subspace
+  class(SubspaceBasis),        intent(in)    :: subspace_basis
+  type(AnharmonicData),        intent(in)    :: anharmonic_data
+  
+  call print_line('PotentialDataExample: evaluating <potential>.')
+  
+  ! Code to integrate this potential between the states goes here.
+  ! This likely just involves calling braket on the constituent parts of this.
+end subroutine
 
 function harmonic_expectation_PotentialDataExample(this,frequency, &
    & thermal_energy,no_states,subspace,anharmonic_data) result(output)
@@ -394,12 +411,11 @@ subroutine potential_example_subroutine()
   complex_force  = potential%force(complex_displacement)
   
   ! The potential can also be integrated between two states.
-  potential = braket( state_1,        &
-                    & potential,      &
-                    & state_2,        &
-                    & subspace,       &
-                    & subspace_basis, &
-                    & anharmonic_data )
+  call potential%braket( state_1,        &
+                       & state_2,        &
+                       & subspace,       &
+                       & subspace_basis, &
+                       & anharmonic_data )
   
   ! The potential can be written to and read from file using the potential
   !    pointer's methods.

@@ -83,10 +83,9 @@ module full_subspace_basis_and_states_module
     procedure, public, nopass :: representation => &
                                & representation_FullSubspaceState
     
-    procedure, public :: braket_SubspaceState => &
-                       & braket_SubspaceState_FullSubspaceState
-    procedure, public :: braket_ComplexUnivariate => &
-                       & braket_ComplexUnivariate_FullSubspaceState
+    procedure, public :: inner_product => &
+                       & inner_product_FullSubspaceState
+    
     procedure, public :: braket_ComplexMonomial => &
                        & braket_ComplexMonomial_FullSubspaceState
     procedure, public :: kinetic_energy => &
@@ -122,10 +121,8 @@ module full_subspace_basis_and_states_module
     
     procedure, public :: spectra => spectra_FullSubspaceStates
     procedure, public :: wavefunctions => wavefunctions_FullSubspaceStates
-    procedure, public :: integrate_potential => &
-                       & integrate_potential_FullSubspaceStates
-    procedure, public :: integrate_stress => &
-                       & integrate_stress_FullSubspaceStates
+    procedure, public :: braket_ComplexMonomial => &
+                       & braket_ComplexMonomial_FullSubspaceStates
     
     ! I/O.
     procedure, public :: read  => read_FullSubspaceStates
@@ -541,7 +538,7 @@ impure elemental function wavefunction_FullSubspaceState(this,basis, &
   output = '('//join(terms,' + ')//')|0>'
 end function
 
-impure elemental function braket_SubspaceState_FullSubspaceState(this, &
+impure elemental function inner_product_FullSubspaceState(this, &
    & ket,subspace,subspace_basis,anharmonic_data) result(output)
   implicit none
   
@@ -552,55 +549,15 @@ impure elemental function braket_SubspaceState_FullSubspaceState(this, &
   type(AnharmonicData),     intent(in)           :: anharmonic_data
   real(dp)                                       :: output
   
-  type(PolynomialState) :: bra_state
-  type(PolynomialState) :: ket_state
+  type(FullSubspaceState) :: full_ket
   
-  bra_state = PolynomialState(this,subspace_basis)
+  ! Harmonic states are orthonormal,
+  !    so the inner product is just the inner product of the coefficients.
   if (present(ket)) then
-    ket_state = PolynomialState(FullSubspaceState(ket), subspace_basis)
-    output = bra_state%braket( ket_state,      &
-                             & subspace,       &
-                             & subspace_basis, &
-                             & anharmonic_data )
+    full_ket = FullSubspaceState(ket)
+    output = vec(this%coefficients)*vec(full_ket%coefficients)
   else
-    output = bra_state%braket( subspace        = subspace,       &
-                             & subspace_basis  = subspace_basis, &
-                             & anharmonic_data = anharmonic_data )
-  endif
-end function
-
-impure elemental function braket_ComplexUnivariate_FullSubspaceState(    &
-   & this,univariate,ket,subspace,subspace_basis,anharmonic_data,qpoint) &
-   & result(output)
-  implicit none
-  
-  class(FullSubspaceState), intent(in)           :: this
-  type(ComplexUnivariate),  intent(in)           :: univariate
-  class(SubspaceState),     intent(in), optional :: ket
-  type(DegenerateSubspace), intent(in)           :: subspace
-  class(SubspaceBasis),     intent(in)           :: subspace_basis
-  type(AnharmonicData),     intent(in)           :: anharmonic_data
-  type(QpointData),         intent(in), optional :: qpoint
-  type(ComplexMonomial)                          :: output
-  
-  type(PolynomialState) :: bra_state
-  type(PolynomialState) :: ket_state
-  
-  bra_state = PolynomialState(this,subspace_basis)
-  if (present(ket)) then
-    ket_state = PolynomialState(FullSubspaceState(ket), subspace_basis)
-    output = bra_state%braket( univariate,      &
-                             & ket_state,       &
-                             & subspace,        &
-                             & subspace_basis,  &
-                             & anharmonic_data, &
-                             & qpoint           )
-  else
-    output = bra_state%braket( univariate      = univariate,      &
-                             & subspace        = subspace,        &
-                             & subspace_basis  = subspace_basis,  &
-                             & anharmonic_data = anharmonic_data, &
-                             & qpoint          = qpoint           )
+    output = vec(this%coefficients)*vec(this%coefficients)
   endif
 end function
 
@@ -640,7 +597,7 @@ impure elemental function braket_ComplexMonomial_FullSubspaceState(this, &
 end function
 
 impure elemental function kinetic_energy_FullSubspaceState(this,ket, &
-   & subspace,subspace_basis,anharmonic_data) result(output)
+   & subspace,subspace_basis,anharmonic_data,qpoint) result(output)
   implicit none
   
   class(FullSubspaceState), intent(in)           :: this
@@ -648,6 +605,7 @@ impure elemental function kinetic_energy_FullSubspaceState(this,ket, &
   type(DegenerateSubspace), intent(in)           :: subspace
   class(SubspaceBasis),     intent(in)           :: subspace_basis
   type(AnharmonicData),     intent(in)           :: anharmonic_data
+  type(QpointData),         intent(in), optional :: qpoint
   real(dp)                                       :: output
   
   type(PolynomialState) :: bra_state
@@ -656,14 +614,16 @@ impure elemental function kinetic_energy_FullSubspaceState(this,ket, &
   bra_state = PolynomialState(this,subspace_basis)
   if (present(ket)) then
     ket_state = PolynomialState(FullSubspaceState(ket), subspace_basis)
-    output = bra_state%kinetic_energy( ket_state,      &
-                                     & subspace,       &
-                                     & subspace_basis, &
-                                     & anharmonic_data )
+    output = bra_state%kinetic_energy( ket_state,       &
+                                     & subspace,        &
+                                     & subspace_basis,  &
+                                     & anharmonic_data, &
+                                     & qpoint           )
   else
-    output = bra_state%kinetic_energy( subspace        = subspace,       &
-                                     & subspace_basis  = subspace_basis, &
-                                     & anharmonic_data = anharmonic_data )
+    output = bra_state%kinetic_energy( subspace        = subspace,        &
+                                     & subspace_basis  = subspace_basis,  &
+                                     & anharmonic_data = anharmonic_data, &
+                                     & qpoint          = qpoint           )
   endif
 end function
 
@@ -845,54 +805,29 @@ impure elemental function wavefunctions_FullSubspaceStates(this,subspace, &
   output = SubspaceWavefunctionsPointer(wavefunctions)
 end function
 
-! Integrate a potential.
-impure elemental function integrate_potential_FullSubspaceStates(this, &
-   & potential,subspace,subspace_basis,anharmonic_data) result(output)
+! Integrate a monomial.
+impure elemental function braket_ComplexMonomial_FullSubspaceStates(this, &
+   & monomial,subspace,subspace_basis,anharmonic_data,qpoint) result(output)
   implicit none
   
-  class(FullSubspaceStates), intent(in) :: this
-  class(PotentialData),      intent(in) :: potential
-  type(DegenerateSubspace),  intent(in) :: subspace
-  class(SubspaceBasis),      intent(in) :: subspace_basis
-  type(AnharmonicData),      intent(in) :: anharmonic_data
-  type(PotentialPointer)                :: output
+  class(FullSubspaceStates), intent(in)           :: this
+  type(ComplexMonomial),     intent(in)           :: monomial
+  type(DegenerateSubspace),  intent(in)           :: subspace
+  class(SubspaceBasis),      intent(in)           :: subspace_basis
+  type(AnharmonicData),      intent(in)           :: anharmonic_data
+  type(QpointData),          intent(in), optional :: qpoint
+  type(ComplexMonomial)                           :: output
   
   type(FullSubspaceState) :: ground_state
   
   ! Identify the ground state.
   ground_state = this%vscf_states(minloc(this%vscf_states%energy,1))
   
-  ! Braket the potential between the ground state.
-  output = braket( ground_state,   &
-                 & potential,      &
-                 & subspace,       &
-                 & subspace_basis, &
-                 & anharmonic_data )
-end function
-
-! Integrate a stress.
-impure elemental function integrate_stress_FullSubspaceStates(this,stress, &
-   & subspace,subspace_basis,anharmonic_data) result(output)
-  implicit none
-  
-  class(FullSubspaceStates), intent(in) :: this
-  class(StressData),         intent(in) :: stress
-  type(DegenerateSubspace),  intent(in) :: subspace
-  class(SubspaceBasis),      intent(in) :: subspace_basis
-  type(AnharmonicData),      intent(in) :: anharmonic_data
-  type(StressPointer)                   :: output
-  
-  type(FullSubspaceState) :: ground_state
-  
-  ! Identify the ground state.
-  ground_state = this%vscf_states(minloc(this%vscf_states%energy,1))
-  
-  ! Braket the stress between the ground state.
-  output = braket( ground_state,   &
-                 & stress,         &
-                 & subspace,       &
-                 & subspace_basis, &
-                 & anharmonic_data )
+  ! Braket the monomial between the ground state.
+  output = ground_state%braket( monomial,                         &
+                              & subspace        = subspace,       &
+                              & subspace_basis  = subspace_basis, &
+                              & anharmonic_data = anharmonic_data )
 end function
 
 ! ----------------------------------------------------------------------

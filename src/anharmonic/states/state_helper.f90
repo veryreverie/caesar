@@ -17,7 +17,7 @@ module state_helper_module
     
     logical, allocatable :: bra_in_subspace(:)
     logical, allocatable :: ket_in_subspace(:)
-    logical, allocatable :: monomial_in_subspace(:)
+    logical, allocatable :: monomial_integrated(:)
   end type
   
   interface StateHelper
@@ -252,8 +252,9 @@ function new_StateHelper_bra_ket_subspace(bra,ket,monomial,subspace, &
   if (present(qpoint)) then
     subspace_qpoints = subspace%qpoints( anharmonic_data%complex_modes, &
                                        & anharmonic_data%qpoints        )
-    unique_modes = filter( subspace%mode_ids<=subspace%paired_ids .and. &
-                         & subspace_qpoints%id==qpoint%id               )
+    unique_modes = filter( subspace%mode_ids<=subspace%paired_ids .and.     &
+                         & ( subspace_qpoints%id==qpoint%id .or.            &
+                         &   subspace_qpoints%id==qpoint%paired_qpoint_id ) )
   else
     unique_modes = filter(subspace%mode_ids<=subspace%paired_ids)
   endif
@@ -277,11 +278,11 @@ function new_StateHelper_bra_ket_subspace(bra,ket,monomial,subspace, &
   endif
   
   if (present(monomial)) then
-    this%monomial_in_subspace = [(                             &
+    this%monomial_integrated = [(                              &
        & any(monomial%id(i)==subspace%mode_ids(unique_modes)), &
        & i=1,                                                  &
        & size(monomial)                                        )]
-    monomial_modes = monomial%modes(filter(this%monomial_in_subspace))
+    monomial_modes = monomial%modes(filter(this%monomial_integrated))
     allocate(this%monomial(size(unique_modes)), stat=ialloc); call err(ialloc)
   endif
   

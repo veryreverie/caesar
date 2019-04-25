@@ -232,48 +232,4 @@ impure elemental function steps_converged(this,that,energy_convergence) &
   
   output = all(converged(this%spectra, that%spectra, energy_convergence))
 end function
-
-! Appends a column to a spectra array.
-! output(i,:) = [old_spectra(i,:), new_spectra(i)].
-function append_spectra(old_spectra, new_spectra) result(output)
-  implicit none
-  
-  type(EnergySpectra), intent(in)  :: old_spectra(:,:)
-  type(EnergySpectra), intent(in)  :: new_spectra(:)
-  type(EnergySpectra), allocatable :: output(:,:)
-  
-  integer :: n,ialloc
-  
-  if (size(old_spectra,1)/=size(new_spectra)) then
-    call print_line(CODE_ERROR//': Incompatible sizes.')
-    call err()
-  endif
-  
-  n = size(old_spectra,2)
-  allocate(output(size(new_spectra), n+1), stat=ialloc); call err(ialloc)
-  output(:,:n) = old_spectra
-  output(:,n+1) = new_spectra
-end function
-
-! Appends a column to a potential array.
-! output(i,:) = [old_potentials(i,:), new_spectra(i)].
-function append_potentials(old_potentials, new_potentials) result(output)
-  implicit none
-  
-  type(PotentialPointer), intent(in)  :: old_potentials(:,:)
-  type(PotentialPointer), intent(in)  :: new_potentials(:)
-  type(PotentialPointer), allocatable :: output(:,:)
-  
-  integer :: n,ialloc
-  
-  if (size(old_potentials,1)/=size(new_potentials)) then
-    call print_line(CODE_ERROR//': Incompatible sizes.')
-    call err()
-  endif
-  
-  n = size(old_potentials,2)
-  allocate(output(size(new_potentials), n+1), stat=ialloc); call err(ialloc)
-  output(:,:n) = old_potentials
-  output(:,n+1) = new_potentials
-end function
 end module

@@ -27,7 +27,11 @@ module stress_basis_function_module
     procedure, private :: stress_RealModeDisplacement_StressBasisFunction
     procedure, private :: stress_ComplexModeDisplacement_StressBasisFunction
     
-    procedure, public :: braket => braket_StressBasisFunction
+    generic,   public :: braket =>     &
+                       & braket_state, &
+                       & braket_states
+    procedure, public :: braket_state  => braket_state_StressBasisFunction
+    procedure, public :: braket_states => braket_states_StressBasisFunction
     
     procedure, public :: harmonic_expectation => &
                        & harmonic_expectation_StressBasisFunction
@@ -356,8 +360,8 @@ end function
 ! ----------------------------------------------------------------------
 ! Integrate the basis function between two states.
 ! ----------------------------------------------------------------------
-subroutine braket_StressBasisFunction(this,bra,ket,subspace,subspace_basis, &
-   & anharmonic_data)
+subroutine braket_state_StressBasisFunction(this,bra,ket,subspace, &
+   & subspace_basis,anharmonic_data)
   implicit none
   
   class(StressBasisFunction), intent(inout)        :: this
@@ -368,6 +372,19 @@ subroutine braket_StressBasisFunction(this,bra,ket,subspace,subspace_basis, &
   type(AnharmonicData),       intent(in)           :: anharmonic_data
   
   call this%elements_%braket(bra,ket,subspace,subspace_basis,anharmonic_data)
+end subroutine
+
+subroutine braket_states_StressBasisFunction(this,states,subspace, &
+   & subspace_basis,anharmonic_data)
+  implicit none
+  
+  class(StressBasisFunction), intent(inout)        :: this
+  class(SubspaceStates),      intent(in)           :: states
+  type(DegenerateSubspace),   intent(in)           :: subspace
+  class(SubspaceBasis),       intent(in)           :: subspace_basis
+  type(AnharmonicData),       intent(in)           :: anharmonic_data
+  
+  call this%elements_%braket(states,subspace,subspace_basis,anharmonic_data)
 end subroutine
 
 ! ----------------------------------------------------------------------

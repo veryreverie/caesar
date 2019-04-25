@@ -18,7 +18,7 @@ module braket_module
   private
   
   public :: generate_subspace_potentials
-  public :: braket
+  public :: inner_product
   public :: kinetic_energy
   public :: harmonic_potential_energy
   public :: potential_energy
@@ -27,19 +27,9 @@ module braket_module
   public :: kinetic_stress
   public :: potential_stress
   
-  interface braket
-    module procedure braket_state
-    module procedure braket_state_state
-    module procedure braket_state_ComplexUnivariate
-    module procedure braket_state_ComplexUnivariate_state
-    module procedure braket_state_ComplexMonomial
-    module procedure braket_state_ComplexMonomial_state
-    module procedure braket_state_ComplexPolynomial
-    module procedure braket_state_ComplexPolynomial_state
-    module procedure braket_state_potential
-    module procedure braket_state_potential_state
-    module procedure braket_state_stress
-    module procedure braket_state_stress_state
+  interface inner_product
+    module procedure inner_product_state
+    module procedure inner_product_state_state
   end interface
   
   interface kinetic_energy
@@ -151,18 +141,16 @@ function generate_subspace_potentials(potential,subspaces,subspace_bases, &
         ! Integrate the first potential over all states in the second interval,
         !    and the second potential over all states in the first interval.
         do j=s,maxs_in(i)
-          output(mins_in(i)) = PotentialPointer(                   &
-             & subspace_states(j)%integrate( output(mins_in(i)),   &
-             &                               subspaces(j),         &
-             &                               subspace_bases(j),    &
-             &                               anharmonic_data     ) )
+          call output(mins_in(i))%braket( subspace_states(j), &
+                                        & subspaces(j),       &
+                                        & subspace_bases(j),  &
+                                        & anharmonic_data     )
         enddo
         do j=mins_in(i),s-1
-          output(s) = PotentialPointer(                           &
-             & subspace_states(j)%integrate( output(s),           &
-             &                               subspaces(j),        &
-             &                               subspace_bases(j),   &
-             &                               anharmonic_data    ) )
+          call output(s)%braket( subspace_states(j), &
+                               & subspaces(j),       &
+                               & subspace_bases(j),  &
+                               & anharmonic_data     )
         enddo
       endif
     enddo
@@ -181,7 +169,7 @@ end function
 ! <i|i> or <i|j>.
 ! ----------------------------------------------------------------------
 ! Calculates <state|state>.
-recursive function braket_state(state,subspace,subspace_basis, &
+recursive function inner_product_state(state,subspace,subspace_basis, &
    & anharmonic_data) result(output)
   implicit none
   
@@ -191,13 +179,13 @@ recursive function braket_state(state,subspace,subspace_basis, &
   type(AnharmonicData),     intent(in) :: anharmonic_data
   real(dp)                             :: output
   
-  output = state%braket( subspace        = subspace,       &
-                       & subspace_basis  = subspace_basis, &
-                       & anharmonic_data = anharmonic_data )
+  output = state%inner_product( subspace        = subspace,       &
+                              & subspace_basis  = subspace_basis, &
+                              & anharmonic_data = anharmonic_data )
 end function
 
 ! Calculates <bra|ket>.
-recursive function braket_state_state(bra,ket,subspace, &
+recursive function inner_product_state_state(bra,ket,subspace, &
    & subspace_basis,anharmonic_data) result(output)
   implicit none
   
@@ -208,265 +196,51 @@ recursive function braket_state_state(bra,ket,subspace, &
   type(AnharmonicData),     intent(in) :: anharmonic_data
   real(dp)                             :: output
   
-  output = bra%braket( ket             = ket,            &
-                     & subspace        = subspace,       &
-                     & subspace_basis  = subspace_basis, &
-                     & anharmonic_data = anharmonic_data )
-end function
-
-! ----------------------------------------------------------------------
-! <i|X|i> or <i|X|j>, where X is a potential energy type.
-! N.B. since |i> may only span a subset of dimensions, these functions return
-!    a partially integrated object. To get the total (scalar) integration,
-!    the function potential_energy should be used.
-! ----------------------------------------------------------------------
-! Calculates <state|V|state> for a complex univariate.
-recursive function braket_state_ComplexUnivariate(state,potential, &
-   & subspace,subspace_basis,anharmonic_data,qpoint) result(output)
-  implicit none
-  
-  class(SubspaceState),     intent(in)           :: state
-  type(ComplexUnivariate),  intent(in)           :: potential
-  type(DegenerateSubspace), intent(in)           :: subspace
-  class(SubspaceBasis),     intent(in)           :: subspace_basis
-  type(AnharmonicData),     intent(in)           :: anharmonic_data
-  type(QpointData),         intent(in), optional :: qpoint
-  type(ComplexMonomial)                          :: output
-  
-  output = state%braket( univariate      = potential,       &
-                       & subspace        = subspace,        &
-                       & subspace_basis  = subspace_basis,  &
-                       & anharmonic_data = anharmonic_data, &
-                       & qpoint          = qpoint           )
-end function
-
-! Calculates <bra|V|ket> for a complex univariate.
-recursive function braket_state_ComplexUnivariate_state(bra,potential,ket, &
-   & subspace,subspace_basis,anharmonic_data,qpoint) result(output)
-  implicit none
-  
-  class(SubspaceState),     intent(in)           :: bra
-  type(ComplexUnivariate),  intent(in)           :: potential
-  class(SubspaceState),     intent(in)           :: ket
-  type(DegenerateSubspace), intent(in)           :: subspace
-  class(SubspaceBasis),     intent(in)           :: subspace_basis
-  type(AnharmonicData),     intent(in)           :: anharmonic_data
-  type(QpointData),         intent(in), optional :: qpoint
-  type(ComplexMonomial)                          :: output
-  
-  output = bra%braket( univariate      = potential,       &
-                     & ket             = ket,             &
-                     & subspace        = subspace,        &
-                     & subspace_basis  = subspace_basis,  &
-                     & anharmonic_data = anharmonic_data, &
-                     & qpoint          = qpoint           )
-end function
-
-! Calculates <state|V|state> for a complex monomial.
-recursive function braket_state_ComplexMonomial(state,potential, &
-   & subspace,subspace_basis,anharmonic_data,qpoint) result(output)
-  implicit none
-  
-  class(SubspaceState),     intent(in)           :: state
-  type(ComplexMonomial),    intent(in)           :: potential
-  type(DegenerateSubspace), intent(in)           :: subspace
-  class(SubspaceBasis),     intent(in)           :: subspace_basis
-  type(AnharmonicData),     intent(in)           :: anharmonic_data
-  type(QpointData),         intent(in), optional :: qpoint
-  type(ComplexMonomial)                          :: output
-  
-  output = state%braket( monomial        = potential,       &
-                       & subspace        = subspace,        &
-                       & subspace_basis  = subspace_basis,  &
-                       & anharmonic_data = anharmonic_data, &
-                       & qpoint          = qpoint           )
-end function
-
-! Calculates <bra|V|ket> for a complex monomial.
-recursive function braket_state_ComplexMonomial_state(bra,potential,ket, &
-   & subspace,subspace_basis,anharmonic_data,qpoint) result(output)
-  implicit none
-  
-  class(SubspaceState),     intent(in)           :: bra
-  type(ComplexMonomial),    intent(in)           :: potential
-  class(SubspaceState),     intent(in)           :: ket
-  type(DegenerateSubspace), intent(in)           :: subspace
-  class(SubspaceBasis),     intent(in)           :: subspace_basis
-  type(AnharmonicData),     intent(in)           :: anharmonic_data
-  type(QpointData),         intent(in), optional :: qpoint
-  type(ComplexMonomial)                          :: output
-  
-  output = bra%braket( monomial        = potential,       &
-                     & ket             = ket,             &
-                     & subspace        = subspace,        &
-                     & subspace_basis  = subspace_basis,  &
-                     & anharmonic_data = anharmonic_data, &
-                     & qpoint          = qpoint           )
-end function
-
-! Calculates <state|V|state> for a complex polynomial.
-recursive function braket_state_ComplexPolynomial(state,potential, &
-   & subspace,subspace_basis,anharmonic_data,qpoint) result(output)
-  implicit none
-  
-  class(SubspaceState),     intent(in)           :: state
-  type(ComplexPolynomial),  intent(in)           :: potential
-  type(DegenerateSubspace), intent(in)           :: subspace
-  class(SubspaceBasis),     intent(in)           :: subspace_basis
-  type(AnharmonicData),     intent(in)           :: anharmonic_data
-  type(QpointData),         intent(in), optional :: qpoint
-  type(ComplexPolynomial)                        :: output
-  
-  output = state%braket( polynomial      = potential,       &
-                       & subspace        = subspace,        &
-                       & subspace_basis  = subspace_basis,  &
-                       & anharmonic_data = anharmonic_data, &
-                       & qpoint          = qpoint           )
-end function
-
-! Calculates <bra|V|ket> for a complex polynomial.
-recursive function braket_state_ComplexPolynomial_state(bra,potential,ket, &
-   & subspace,subspace_basis,anharmonic_data,qpoint) result(output)
-  implicit none
-  
-  class(SubspaceState),     intent(in)           :: bra
-  type(ComplexPolynomial),  intent(in)           :: potential
-  class(SubspaceState),     intent(in)           :: ket
-  type(DegenerateSubspace), intent(in)           :: subspace
-  class(SubspaceBasis),     intent(in)           :: subspace_basis
-  type(AnharmonicData),     intent(in)           :: anharmonic_data
-  type(QpointData),         intent(in), optional :: qpoint
-  type(ComplexPolynomial)                        :: output
-  
-  output = bra%braket( polynomial      = potential,       &
-                     & ket             = ket,             &
-                     & subspace        = subspace,        &
-                     & subspace_basis  = subspace_basis,  &
-                     & anharmonic_data = anharmonic_data, &
-                     & qpoint          = qpoint           )
-end function
-
-! Calculates <state|V|state> for a general potential.
-recursive function braket_state_potential(state,potential,subspace, &
-   & subspace_basis,anharmonic_data,qpoint) result(output)
-  implicit none
-  
-  class(SubspaceState),     intent(in)           :: state
-  class(PotentialData),     intent(in)           :: potential
-  type(DegenerateSubspace), intent(in)           :: subspace
-  class(SubspaceBasis),     intent(in)           :: subspace_basis
-  type(AnharmonicData),     intent(in)           :: anharmonic_data
-  type(QpointData),         intent(in), optional :: qpoint
-  type(PotentialPointer)                         :: output
-  
-  output = potential%braket( bra             = state,           &
-                           & subspace        = subspace,        &
-                           & subspace_basis  = subspace_basis,  &
-                           & anharmonic_data = anharmonic_data, &
-                           & qpoint          = qpoint           )
-end function
-
-! Calculates <bra|V|ket> for a general potential.
-recursive function braket_state_potential_state(bra,potential,ket, &
-   & subspace,subspace_basis,anharmonic_data,qpoint) result(output)
-  implicit none
-  
-  class(SubspaceState),     intent(in)           :: bra
-  class(PotentialData),     intent(in)           :: potential
-  class(SubspaceState),     intent(in)           :: ket
-  type(DegenerateSubspace), intent(in)           :: subspace
-  class(SubspaceBasis),     intent(in)           :: subspace_basis
-  type(AnharmonicData),     intent(in)           :: anharmonic_data
-  type(QpointData),         intent(in), optional :: qpoint
-  type(PotentialPointer)                         :: output
-  
-  output = potential%braket( bra             = bra,             &
-                           & ket             = ket,             &
-                           & subspace        = subspace,        &
-                           & subspace_basis  = subspace_basis,  &
-                           & anharmonic_data = anharmonic_data, &
-                           & qpoint          = qpoint           )
-end function
-
-! ----------------------------------------------------------------------
-! Calculates <i|X|i> or <i|X|j>, where X is a stress object.
-! As with the potential variant, this may only integrate across a subset
-!    of dimensions. potential_stress should be called instead if it is
-!    desired to integrate across all dimensions.
-! ----------------------------------------------------------------------
-! Calculates <state|stress|state>.
-recursive function braket_state_stress(state,stress,subspace, &
-   & subspace_basis,anharmonic_data) result(output)
-  implicit none
-  
-  class(SubspaceState),     intent(in) :: state
-  class(StressData),        intent(in) :: stress
-  type(DegenerateSubspace), intent(in) :: subspace
-  class(SubspaceBasis),     intent(in) :: subspace_basis
-  type(AnharmonicData),     intent(in) :: anharmonic_data
-  type(StressPointer)                  :: output
-  
-  output = stress%braket( bra             = state,          &
-                        & subspace        = subspace,       &
-                        & subspace_basis  = subspace_basis, &
-                        & anharmonic_data = anharmonic_data )
-end function
-
-! Calculates <bra|stress|ket>.
-recursive function braket_state_stress_state(bra,stress,ket, &
-   & subspace,subspace_basis,anharmonic_data) result(output)
-  implicit none
-  
-  class(SubspaceState),     intent(in) :: bra
-  class(StressData),        intent(in) :: stress
-  class(SubspaceState),     intent(in) :: ket
-  type(DegenerateSubspace), intent(in) :: subspace
-  class(SubspaceBasis),     intent(in) :: subspace_basis
-  type(AnharmonicData),     intent(in) :: anharmonic_data
-  type(StressPointer)                  :: output
-  
-  output = stress%braket( bra             = bra,            &
-                        & ket             = ket,            &
-                        & subspace        = subspace,       &
-                        & subspace_basis  = subspace_basis, &
-                        & anharmonic_data = anharmonic_data )
+  output = bra%inner_product( ket             = ket,            &
+                            & subspace        = subspace,       &
+                            & subspace_basis  = subspace_basis, &
+                            & anharmonic_data = anharmonic_data )
 end function
 
 ! ----------------------------------------------------------------------
 ! The bra-ket of the kinetic energy.
 ! ----------------------------------------------------------------------
 ! Calculates <state|T|state>.
-recursive function kinetic_energy_state(state,subspace, &
-   & subspace_basis,anharmonic_data) result(output)
+recursive function kinetic_energy_state(state,subspace,subspace_basis, &
+   & anharmonic_data,qpoint) result(output)
   implicit none
   
-  class(SubspaceState),     intent(in) :: state
-  type(DegenerateSubspace), intent(in) :: subspace
-  class(SubspaceBasis),     intent(in) :: subspace_basis
-  type(AnharmonicData),     intent(in) :: anharmonic_data
-  real(dp)                             :: output
+  class(SubspaceState),     intent(in)           :: state
+  type(DegenerateSubspace), intent(in)           :: subspace
+  class(SubspaceBasis),     intent(in)           :: subspace_basis
+  type(AnharmonicData),     intent(in)           :: anharmonic_data
+  type(QpointData),         intent(in), optional :: qpoint
+  real(dp)                                       :: output
   
-  output = state%kinetic_energy( subspace        = subspace,       &
-                               & subspace_basis  = subspace_basis, &
-                               & anharmonic_data = anharmonic_data )
+  output = state%kinetic_energy( subspace        = subspace,        &
+                               & subspace_basis  = subspace_basis,  &
+                               & anharmonic_data = anharmonic_data, &
+                               & qpoint          = qpoint           )
 end function
 
 ! Calculates <bra|T|ket>.
 recursive function kinetic_energy_state_state(bra,ket,subspace, &
-   & subspace_basis,anharmonic_data) result(output)
+   & subspace_basis,anharmonic_data,qpoint) result(output)
   implicit none
   
-  class(SubspaceState),     intent(in) :: bra
-  class(SubspaceState),     intent(in) :: ket
-  type(DegenerateSubspace), intent(in) :: subspace
-  class(SubspaceBasis),     intent(in) :: subspace_basis
-  type(AnharmonicData),     intent(in) :: anharmonic_data
-  real(dp)                             :: output
+  class(SubspaceState),     intent(in)           :: bra
+  class(SubspaceState),     intent(in)           :: ket
+  type(DegenerateSubspace), intent(in)           :: subspace
+  class(SubspaceBasis),     intent(in)           :: subspace_basis
+  type(AnharmonicData),     intent(in)           :: anharmonic_data
+  type(QpointData),         intent(in), optional :: qpoint
+  real(dp)                                       :: output
   
-  output = bra%kinetic_energy( ket             = ket,            &
-                             & subspace        = subspace,       &
-                             & subspace_basis  = subspace_basis, &
-                             & anharmonic_data = anharmonic_data )
+  output = bra%kinetic_energy( ket             = ket,             &
+                             & subspace        = subspace,        &
+                             & subspace_basis  = subspace_basis,  &
+                             & anharmonic_data = anharmonic_data, &
+                             & qpoint          = qpoint           )
 end function
 
 ! ----------------------------------------------------------------------
@@ -525,11 +299,11 @@ recursive function potential_energy_state(state,potential,subspace, &
   
   type(PotentialPointer), allocatable :: integrated_potential
   
-  integrated_potential = braket( state,          &
-                               & potential,      &
-                               & subspace,       &
-                               & subspace_basis, &
-                               & anharmonic_data )
+  integrated_potential = PotentialPointer(potential)
+  call integrated_potential%braket( state,                            &
+                                  & subspace        = subspace,       &
+                                  & subspace_basis  = subspace_basis, &
+                                  & anharmonic_data = anharmonic_data )
   output = integrated_potential%undisplaced_energy()
 end function
 
@@ -548,12 +322,12 @@ recursive function potential_energy_state_state(bra,potential,ket,subspace, &
   
   type(PotentialPointer), allocatable :: integrated_potential
   
-  integrated_potential = braket( bra,            &
-                               & potential,      &
-                               & ket,            &
-                               & subspace,       &
-                               & subspace_basis, &
-                               & anharmonic_data )
+  integrated_potential = PotentialPointer(potential)
+  call integrated_potential%braket( bra,            &
+                                  & ket,            &
+                                  & subspace,       &
+                                  & subspace_basis, &
+                                  & anharmonic_data )
   output = integrated_potential%undisplaced_energy()
 end function
 
@@ -621,18 +395,16 @@ function generate_subspace_stresses(stress,subspaces,subspace_bases, &
         ! Integrate the first stress over all states in the second interval,
         !    and the second stress over all states in the first interval.
         do j=s,maxs_in(i)
-          output(mins_in(i)) = StressPointer(                      &
-             & subspace_states(j)%integrate( output(mins_in(i)),   &
-             &                               subspaces(j),         &
-             &                               subspace_bases(j),    &
-             &                               anharmonic_data     ) )
+          call output(mins_in(i))%braket( subspace_states(j), &
+                                        & subspaces(j),       &
+                                        & subspace_bases(j),  &
+                                        & anharmonic_data     )
         enddo
         do j=mins_in(i),s-1
-          output(s) = StressPointer(                              &
-             & subspace_states(j)%integrate( output(s),           &
-             &                               subspaces(j),        &
-             &                               subspace_bases(j),   &
-             &                               anharmonic_data    ) )
+          call output(s)%braket( subspace_states(j), &
+                               & subspaces(j),       &
+                               & subspace_bases(j),  &
+                               & anharmonic_data     )
         enddo
       endif
     enddo
@@ -703,11 +475,11 @@ recursive function potential_stress_state(state,stress,subspace, &
   
   type(StressPointer), allocatable :: integrated_stress
   
-  integrated_stress = braket( state,          &
-                            & stress,         &
-                            & subspace,       &
-                            & subspace_basis, &
-                            & anharmonic_data )
+  integrated_stress = StressPointer(stress)
+  call integrated_stress%braket( state,                            &
+                               & subspace        = subspace,       &
+                               & subspace_basis  = subspace_basis, &
+                               & anharmonic_data = anharmonic_data )
   output = integrated_stress%undisplaced_stress()
 end function
 
@@ -726,12 +498,12 @@ recursive function potential_stress_state_state(bra,stress,ket,subspace, &
   
   type(StressPointer), allocatable :: integrated_stress
   
-  integrated_stress = braket( bra,            &
-                            & stress,         &
-                            & ket,            &
-                            & subspace,       &
-                            & subspace_basis, &
-                            & anharmonic_data )
+  integrated_stress = StressPointer(stress)
+  call integrated_stress%braket( bra,            &
+                               & ket,            &
+                               & subspace,       &
+                               & subspace_basis, &
+                               & anharmonic_data )
   output = integrated_stress%undisplaced_stress()
 end function
 end module

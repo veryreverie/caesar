@@ -52,7 +52,8 @@ module polynomial_potential_module
     procedure, public :: force_ComplexModeDisplacement => &
                        & force_ComplexModeDisplacement_PolynomialPotential
     
-    procedure, public :: braket => braket_PolynomialPotential
+    procedure, public :: braket_state  => braket_state_PolynomialPotential
+    procedure, public :: braket_states => braket_states_PolynomialPotential
     
     procedure, public :: harmonic_expectation => &
                        & harmonic_expectation_PolynomialPotential
@@ -713,44 +714,38 @@ impure elemental function force_ComplexModeDisplacement_PolynomialPotential( &
 end function
 
 ! Integrate the potential between two states.
-function braket_PolynomialPotential(this,bra,ket,subspace,subspace_basis, &
-   & anharmonic_data,qpoint) result(output)
+subroutine braket_state_PolynomialPotential(this,bra,ket,subspace, &
+   & subspace_basis,anharmonic_data,qpoint)
   implicit none
   
-  class(PolynomialPotential), intent(in)           :: this
+  class(PolynomialPotential), intent(inout)        :: this
   class(SubspaceState),       intent(in)           :: bra
   class(SubspaceState),       intent(in), optional :: ket
   type(DegenerateSubspace),   intent(in)           :: subspace
   class(SubspaceBasis),       intent(in)           :: subspace_basis
   type(AnharmonicData),       intent(in)           :: anharmonic_data
   type(QpointData),           intent(in), optional :: qpoint
-  type(PotentialPointer)                           :: output
-  
-  type(PolynomialPotential) :: potential
   
   logical, allocatable :: to_remove(:)
   
   integer :: i,j,k
   
-  potential = this
-  
   ! Integrate the reference energy (N.B. <i|e|j> = e<i|j> if e is a scalar.).
-  potential%reference_energy = potential%reference_energy &
-                           & * braket( bra,               &
-                           &           ket,               &
-                           &           subspace,          &
-                           &           subspace_basis,    &
-                           &           anharmonic_data    )
+  this%reference_energy = this%reference_energy          &
+                      & * inner_product( bra,            &
+                      &                  ket,            &
+                      &                  subspace,       &
+                      &                  subspace_basis, &
+                      &                  anharmonic_data )
   
   ! Integrate each basis function between the bra and the ket.
-  do i=1,size(potential%basis_functions_)
-    potential%basis_functions_(i) =  potential%basis_functions_(i)%braket( &
-                                                        & bra,             &
-                                                        & ket,             &
-                                                        & subspace,        &
-                                                        & subspace_basis,  &
-                                                        & anharmonic_data, &
-                                                        & qpoint           )
+  do i=1,size(this%basis_functions_)
+    call this%basis_functions_(i)%braket( bra,             &
+                                        & ket,             &
+                                        & subspace,        &
+                                        & subspace_basis,  &
+                                        & anharmonic_data, &
+                                        & qpoint           )
   enddo
   
   ! Check if the basis function is now a constant.
@@ -758,22 +753,22 @@ function braket_PolynomialPotential(this,bra,ket,subspace,subspace_basis, &
   !    and flag the term for removal.
   ! Then check if a coupling is now the same as a previous coupling.
   ! If so, combine the two and flag the duplicate term for removal.
-  to_remove = [(.false., i=1, size(potential%basis_functions_))]
-  do i=1,size(potential%basis_functions_)
-    if (size(potential%basis_functions_(i)%coupling)==0) then
-      potential%reference_energy =      &
-         &   potential%reference_energy &
-         & + potential%basis_functions_(i)%undisplaced_energy()
+  to_remove = [(.false., i=1, size(this%basis_functions_))]
+  do i=1,size(this%basis_functions_)
+    if (size(this%basis_functions_(i)%coupling)==0) then
+      this%reference_energy =      &
+         &   this%reference_energy &
+         & + this%basis_functions_(i)%undisplaced_energy()
       to_remove(i) = .true.
     else
       do j=1,i-1
-        if (    potential%basis_functions_(i)%coupling &
-           & == potential%basis_functions_(j)%coupling ) then
+        if (    this%basis_functions_(i)%coupling &
+           & == this%basis_functions_(j)%coupling ) then
           if (to_remove(j)) then
             call err()
           endif
-          call potential%basis_functions_(j)%append( &
-                     & potential%basis_functions_(i) )
+          call this%basis_functions_(j)%append( &
+                     & this%basis_functions_(i) )
           to_remove(i) = .true.
         endif
       enddo
@@ -781,11 +776,61 @@ function braket_PolynomialPotential(this,bra,ket,subspace,subspace_basis, &
   enddo
   
   ! Remove constant and duplicate terms.
-  potential%basis_functions_ = potential%basis_functions_( &
-                                  & filter(.not.to_remove) )
+  this%basis_functions_ = this%basis_functions_(filter(.not.to_remove) )
+end subroutine
+
+subroutine braket_states_PolynomialPotential(this,states,subspace, &
+   & subspace_basis,anharmonic_data)
+  implicit none
   
-  output = PotentialPointer(potential)
-end function
+  class(PolynomialPotential), intent(inout) :: this
+  class(SubspaceStates),      intent(in)    :: states
+  type(DegenerateSubspace),   intent(in)    :: subspace
+  class(SubspaceBasis),       intent(in)    :: subspace_basis
+  type(AnharmonicData),       intent(in)    :: anharmonic_data
+  
+  logical, allocatable :: to_remove(:)
+  
+  integer :: i,j,k
+  
+  ! Integrate each basis function between the bra and the ket.
+  do i=1,size(this%basis_functions_)
+    call this%basis_functions_(i)%braket( states,         &
+                                        & subspace,       &
+                                        & subspace_basis, &
+                                        & anharmonic_data )
+  enddo
+  
+  ! Check if the basis function is now a constant.
+  ! If so, add the constant energy to the potential's reference energy,
+  !    and flag the term for removal.
+  ! Then check if a coupling is now the same as a previous coupling.
+  ! If so, combine the two and flag the duplicate term for removal.
+  to_remove = [(.false., i=1, size(this%basis_functions_))]
+  do i=1,size(this%basis_functions_)
+    if (size(this%basis_functions_(i)%coupling)==0) then
+      this%reference_energy =      &
+         &   this%reference_energy &
+         & + this%basis_functions_(i)%undisplaced_energy()
+      to_remove(i) = .true.
+    else
+      do j=1,i-1
+        if (    this%basis_functions_(i)%coupling &
+           & == this%basis_functions_(j)%coupling ) then
+          if (to_remove(j)) then
+            call err()
+          endif
+          call this%basis_functions_(j)%append( &
+                     & this%basis_functions_(i) )
+          to_remove(i) = .true.
+        endif
+      enddo
+    endif
+  enddo
+  
+  ! Remove constant and duplicate terms.
+  this%basis_functions_ = this%basis_functions_(filter(.not.to_remove) )
+end subroutine
 
 ! Calculate the thermal expectation of the potential, <V>, for a set of
 !    harmonic states.

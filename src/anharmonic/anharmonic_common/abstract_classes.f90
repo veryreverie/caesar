@@ -91,18 +91,13 @@ module abstract_classes_module
        & representation
     procedure, public :: startup => startup_SubspaceState
     
+    ! If ket is not given, <this|this>, otherwise <this|ket>.
+    procedure(inner_product_SubspaceState), public, deferred :: inner_product
+    
     ! Integrals of the form <i|V|j>
     generic, public :: braket =>                 &
-                     & braket_SubspaceState,     &
-                     & braket_ComplexUnivariate, &
                      & braket_ComplexMonomial,   &
                      & braket_ComplexPolynomial
-    ! If ket is not given, <this|this>, otherwise <this|ket>.
-    procedure(braket_SubspaceState_SubspaceState), public, deferred :: &
-       & braket_SubspaceState
-    ! Either <this|V|this> or <this|V|ket>, where V is a ComplexUnivariate.
-    procedure(braket_ComplexUnivariate_SubspaceState), public, deferred :: &
-       & braket_ComplexUnivariate
     ! Either <this|V|this> or <this|V|ket>, where V is a ComplexMonomial.
     procedure(braket_ComplexMonomial_SubspaceState), public, deferred :: &
        & braket_ComplexMonomial
@@ -136,10 +131,9 @@ module abstract_classes_module
     
     procedure, public :: state => state_SubspaceStatePointer
     
-    procedure, public :: braket_SubspaceState => &
-                       & braket_SubspaceState_SubspaceStatePointer
-    procedure, public :: braket_ComplexUnivariate => &
-                       & braket_ComplexUnivariate_SubspaceStatePointer
+    procedure, public :: inner_product => &
+                       & inner_product_SubspaceStatePointer
+    
     procedure, public :: braket_ComplexMonomial => &
                        & braket_ComplexMonomial_SubspaceStatePointer
     procedure, public :: kinetic_energy => &
@@ -167,11 +161,13 @@ module abstract_classes_module
     procedure(spectra_SubspaceStates),       public, deferred :: spectra
     procedure(wavefunctions_SubspaceStates), public, deferred :: wavefunctions
     
-    generic, public :: integrate => integrate_potential, integrate_stress
-    procedure(integrate_potential_SubspaceStates), public, deferred :: &
-       & integrate_potential
-    procedure(integrate_stress_SubspaceStates), public, deferred :: &
-       & integrate_stress
+    generic, public :: braket =>               &
+                     & braket_ComplexMonomial, &
+                     & braket_ComplexPolynomial
+    procedure(braket_ComplexMonomial_SubspaceStates), public, deferred :: &
+       & braket_ComplexMonomial
+    procedure, public :: braket_ComplexPolynomial => &
+                       & braket_ComplexPolynomial_SubspaceStates
   end type
   
   type, extends(SubspaceStates) :: SubspaceStatesPointer
@@ -186,10 +182,8 @@ module abstract_classes_module
     procedure, public :: states => states_SubspaceStatesPointer
     procedure, public :: spectra => spectra_SubspaceStatesPointer
     procedure, public :: wavefunctions => wavefunctions_SubspaceStatesPointer
-    procedure, public :: integrate_potential => &
-                       & integrate_potential_SubspaceStatesPointer
-    procedure, public :: integrate_stress => &
-                       & integrate_stress_SubspaceStatesPointer
+    procedure, public :: braket_ComplexMonomial => &
+                       & braket_ComplexMonomial_SubspaceStatesPointer
     
     ! I/O.
     procedure, public :: read  => read_SubspaceStatesPointer
@@ -244,7 +238,10 @@ module abstract_classes_module
        & deferred :: force_ComplexModeDisplacement
     
     ! Evaluate <bra|potential|ket>.
-    procedure(braket_PotentialData), public, deferred :: braket
+    generic, public :: braket => braket_state, &
+                               & braket_states
+    procedure(braket_state_PotentialData),  public, deferred :: braket_state
+    procedure(braket_states_PotentialData), public, deferred :: braket_states
     
     ! Evaluate the thermal expectation of the potential for a set of harmonic
     !    states.
@@ -288,7 +285,8 @@ module abstract_classes_module
     procedure, public :: force_ComplexModeDisplacement => &
                        & force_ComplexModeDisplacement_PotentialPointer
     
-    procedure, public :: braket => braket_PotentialPointer
+    procedure, public :: braket_state  => braket_state_PotentialPointer
+    procedure, public :: braket_states => braket_states_PotentialPointer
     
     procedure, public :: harmonic_expectation => &
                        & harmonic_expectation_PotentialPointer
@@ -327,7 +325,10 @@ module abstract_classes_module
        & deferred :: stress_ComplexModeDisplacement
     
     ! Evaluate <bra|stress|ket>.
-    procedure(braket_StressData), public, deferred :: braket
+    generic, public :: braket => braket_state, &
+                               & braket_states
+    procedure(braket_state_StressData),  public, deferred :: braket_state
+    procedure(braket_states_StressData), public, deferred :: braket_states
     
     ! Evaluate the thermal expectation of the stress for a set of harmonic
     !    states.
@@ -351,7 +352,8 @@ module abstract_classes_module
     procedure, public :: stress_ComplexModeDisplacement => &
                        & stress_ComplexModeDisplacement_StressPointer
     
-    procedure, public :: braket => braket_StressPointer
+    procedure, public :: braket_state  => braket_state_StressPointer
+    procedure, public :: braket_states => braket_states_StressPointer
     
     procedure, public :: harmonic_expectation => &
                        & harmonic_expectation_StressPointer
@@ -423,7 +425,7 @@ module abstract_classes_module
       type(String) :: output
     end function
     
-    impure elemental function braket_SubspaceState_SubspaceState(this,ket, &
+    impure elemental function inner_product_SubspaceState(this,ket, &
        & subspace,subspace_basis,anharmonic_data) result(output)
       import SubspaceState
       import DegenerateSubspace
@@ -438,28 +440,6 @@ module abstract_classes_module
       class(SubspaceBasis),     intent(in)           :: subspace_basis
       type(AnharmonicData),     intent(in)           :: anharmonic_data
       real(dp)                                       :: output
-    end function
-    
-    impure elemental function braket_ComplexUnivariate_SubspaceState(this, &
-       & univariate,ket,subspace,subspace_basis,anharmonic_data,qpoint)    &
-       & result(output)
-      import SubspaceState
-      import ComplexUnivariate
-      import DegenerateSubspace
-      import SubspaceBasis
-      import AnharmonicData
-      import QpointData
-      import ComplexMonomial
-      implicit none
-      
-      class(SubspaceState),     intent(in)           :: this
-      type(ComplexUnivariate),  intent(in)           :: univariate
-      class(SubspaceState),     intent(in), optional :: ket
-      type(DegenerateSubspace), intent(in)           :: subspace
-      class(SubspaceBasis),     intent(in)           :: subspace_basis
-      type(AnharmonicData),     intent(in)           :: anharmonic_data
-      type(QpointData),         intent(in), optional :: qpoint
-      type(ComplexMonomial)                          :: output
     end function
     
     impure elemental function braket_ComplexMonomial_SubspaceState(this, &
@@ -484,11 +464,12 @@ module abstract_classes_module
     end function
     
     impure elemental function kinetic_energy_SubspaceState(this,ket, &
-       & subspace,subspace_basis,anharmonic_data) result(output)
+       & subspace,subspace_basis,anharmonic_data,qpoint) result(output)
       import SubspaceState
       import DegenerateSubspace
       import SubspaceBasis
       import AnharmonicData
+      import QpointData
       import dp
       implicit none
       
@@ -497,6 +478,7 @@ module abstract_classes_module
       type(DegenerateSubspace), intent(in)           :: subspace
       class(SubspaceBasis),     intent(in)           :: subspace_basis
       type(AnharmonicData),     intent(in)           :: anharmonic_data
+      type(QpointData),         intent(in), optional :: qpoint
       real(dp)                                       :: output
     end function
     
@@ -579,40 +561,24 @@ module abstract_classes_module
       type(SubspaceWavefunctionsPointer)   :: output
     end function
     
-    impure elemental function integrate_potential_SubspaceStates(this, &
-       & potential,subspace,subspace_basis,anharmonic_data) result(output)
+    impure elemental function braket_ComplexMonomial_SubspaceStates(this, &
+       & monomial,subspace,subspace_basis,anharmonic_data,qpoint)         &
+       & result(output)
       import SubspaceStates
-      import PotentialData
+      import ComplexMonomial
       import DegenerateSubspace
       import SubspaceBasis
+      import QpointData
       import AnharmonicData
-      import PotentialPointer
       implicit none
       
-      class(SubspaceStates),    intent(in) :: this
-      class(PotentialData),     intent(in) :: potential
-      type(DegenerateSubspace), intent(in) :: subspace
-      class(SubspaceBasis),     intent(in) :: subspace_basis
-      type(AnharmonicData),     intent(in) :: anharmonic_data
-      type(PotentialPointer)               :: output
-    end function
-    
-    impure elemental function integrate_stress_SubspaceStates(this,stress, &
-       & subspace,subspace_basis,anharmonic_data) result(output)
-      import SubspaceStates
-      import StressData
-      import DegenerateSubspace
-      import SubspaceBasis
-      import AnharmonicData
-      import StressPointer
-      implicit none
-      
-      class(SubspaceStates),    intent(in) :: this
-      class(StressData),        intent(in) :: stress
-      type(DegenerateSubspace), intent(in) :: subspace
-      class(SubspaceBasis),     intent(in) :: subspace_basis
-      type(AnharmonicData),     intent(in) :: anharmonic_data
-      type(StressPointer)                  :: output
+      class(SubspaceStates),    intent(in)           :: this
+      type(ComplexMonomial),    intent(in)           :: monomial
+      type(DegenerateSubspace), intent(in)           :: subspace
+      class(SubspaceBasis),     intent(in)           :: subspace_basis
+      type(AnharmonicData),     intent(in)           :: anharmonic_data
+      type(QpointData),         intent(in), optional :: qpoint
+      type(ComplexMonomial)                          :: output
     end function
     
     ! PotentialData procedures.
@@ -738,26 +704,40 @@ module abstract_classes_module
       type(ComplexModeForce)                    :: output
     end function
     
-    function braket_PotentialData(this,bra,ket,subspace,subspace_basis, &
-       & anharmonic_data,qpoint) result(output)
+    subroutine braket_state_PotentialData(this,bra,ket,subspace, &
+       & subspace_basis,anharmonic_data,qpoint)
       import PotentialData
       import SubspaceState
       import DegenerateSubspace
       import SubspaceBasis
       import AnharmonicData
       import QpointData
-      import PotentialPointer
       implicit none
       
-      class(PotentialData),     intent(in)           :: this
+      class(PotentialData),     intent(inout)        :: this
       class(SubspaceState),     intent(in)           :: bra
       class(SubspaceState),     intent(in), optional :: ket
       type(DegenerateSubspace), intent(in)           :: subspace
       class(SubspaceBasis),     intent(in)           :: subspace_basis
       type(AnharmonicData),     intent(in)           :: anharmonic_data
       type(QpointData),         intent(in), optional :: qpoint
-      type(PotentialPointer)                         :: output
-    end function
+    end subroutine
+    
+    subroutine braket_states_PotentialData(this,states,subspace, &
+       & subspace_basis,anharmonic_data)
+      import PotentialData
+      import SubspaceStates
+      import DegenerateSubspace
+      import SubspaceBasis
+      import AnharmonicData
+      implicit none
+      
+      class(PotentialData),     intent(inout) :: this
+      class(SubspaceStates),    intent(in)    :: states
+      type(DegenerateSubspace), intent(in)    :: subspace
+      class(SubspaceBasis),     intent(in)    :: subspace_basis
+      type(AnharmonicData),     intent(in)    :: anharmonic_data
+    end subroutine
     
     function harmonic_expectation_PotentialData(this,frequency, &
        & thermal_energy,no_states,subspace,anharmonic_data) result(output)
@@ -844,24 +824,38 @@ module abstract_classes_module
       type(ComplexMatrix)                       :: output
     end function
     
-    function braket_StressData(this,bra,ket,subspace,subspace_basis, &
-       & anharmonic_data) result(output)
+    subroutine braket_state_StressData(this,bra,ket,subspace,subspace_basis, &
+       & anharmonic_data)
       import StressData
       import SubspaceState
       import DegenerateSubspace
       import SubspaceBasis
       import AnharmonicData
-      import StressPointer
       implicit none
       
-      class(StressData),        intent(in)           :: this
+      class(StressData),        intent(inout)        :: this
       class(SubspaceState),     intent(in)           :: bra
       class(SubspaceState),     intent(in), optional :: ket
       type(DegenerateSubspace), intent(in)           :: subspace
       class(SubspaceBasis),     intent(in)           :: subspace_basis
       type(AnharmonicData),     intent(in)           :: anharmonic_data
-      type(StressPointer)                            :: output
-    end function
+    end subroutine
+    
+    subroutine braket_states_StressData(this,states,subspace,subspace_basis, &
+       & anharmonic_data)
+      import StressData
+      import SubspaceStates
+      import DegenerateSubspace
+      import SubspaceBasis
+      import AnharmonicData
+      implicit none
+      
+      class(StressData),        intent(inout) :: this
+      class(SubspaceStates),    intent(in)    :: states
+      type(DegenerateSubspace), intent(in)    :: subspace
+      class(SubspaceBasis),     intent(in)    :: subspace_basis
+      type(AnharmonicData),     intent(in)    :: anharmonic_data
+    end subroutine
     
     function harmonic_expectation_StressData(this,frequency, &
        & thermal_energy,no_states,subspace,anharmonic_data) result(output)
@@ -1222,7 +1216,7 @@ function state_SubspaceStatePointer(this) result(output)
   output = this%state_
 end function
 
-impure elemental function braket_SubspaceState_SubspaceStatePointer(this, &
+impure elemental function inner_product_SubspaceStatePointer(this, &
    & ket,subspace,subspace_basis,anharmonic_data) result(output)
   implicit none
   
@@ -1235,34 +1229,10 @@ impure elemental function braket_SubspaceState_SubspaceStatePointer(this, &
   
   call this%check()
   
-  output = this%state_%braket( ket,            &
-                             & subspace,       &
-                             & subspace_basis, &
-                             & anharmonic_data )
-end function
-
-impure elemental function braket_ComplexUnivariate_SubspaceStatePointer( &
-   & this,univariate,ket,subspace,subspace_basis,anharmonic_data,qpoint) &
-   & result(output)
-  implicit none
-  
-  class(SubspaceStatePointer), intent(in)           :: this
-  type(ComplexUnivariate),     intent(in)           :: univariate
-  class(SubspaceState),        intent(in), optional :: ket
-  type(DegenerateSubspace),    intent(in)           :: subspace
-  class(SubspaceBasis),        intent(in)           :: subspace_basis
-  type(AnharmonicData),        intent(in)           :: anharmonic_data
-  type(QpointData),            intent(in), optional :: qpoint
-  type(ComplexMonomial)                             :: output
-  
-  call this%check()
-  
-  output = this%state_%braket( univariate,      &
-                             & ket,             &
-                             & subspace,        &
-                             & subspace_basis,  &
-                             & anharmonic_data, &
-                             & qpoint           )
+  output = this%state_%inner_product( ket,            &
+                                    & subspace,       &
+                                    & subspace_basis, &
+                                    & anharmonic_data )
 end function
 
 impure elemental function braket_ComplexMonomial_SubspaceStatePointer(this, &
@@ -1290,7 +1260,7 @@ impure elemental function braket_ComplexMonomial_SubspaceStatePointer(this, &
 end function
 
 impure elemental function kinetic_energy_SubspaceStatePointer(this,ket, &
-   & subspace,subspace_basis,anharmonic_data) result(output)
+   & subspace,subspace_basis,anharmonic_data,qpoint) result(output)
   implicit none
   
   class(SubspaceStatePointer), intent(in)           :: this
@@ -1298,6 +1268,7 @@ impure elemental function kinetic_energy_SubspaceStatePointer(this,ket, &
   type(DegenerateSubspace),    intent(in)           :: subspace
   class(SubspaceBasis),        intent(in)           :: subspace_basis
   type(AnharmonicData),        intent(in)           :: anharmonic_data
+  type(QpointData),            intent(in), optional :: qpoint
   real(dp)                                          :: output
   
   call this%check()
@@ -1305,20 +1276,23 @@ impure elemental function kinetic_energy_SubspaceStatePointer(this,ket, &
   if (present(ket)) then
     select type(ket); type is(SubspaceStatePointer)
       call ket%check()
-      output = this%state_%kinetic_energy( ket%state_,     &
-                                         & subspace,       &
-                                         & subspace_basis, &
-                                         & anharmonic_data )
+      output = this%state_%kinetic_energy( ket%state_,      &
+                                         & subspace,        &
+                                         & subspace_basis,  &
+                                         & anharmonic_data, &
+                                         & qpoint           )
     class default
-      output = this%state_%kinetic_energy( ket,            &
-                                         & subspace,       &
-                                         & subspace_basis, &
-                                         & anharmonic_data )
+      output = this%state_%kinetic_energy( ket,             &
+                                         & subspace,        &
+                                         & subspace_basis,  &
+                                         & anharmonic_data, &
+                                         & qpoint           )
     end select
   else
-    output = this%state_%kinetic_energy( subspace        = subspace,       &
-                                       & subspace_basis  = subspace_basis, &
-                                       & anharmonic_data = anharmonic_data )
+    output = this%state_%kinetic_energy( subspace        = subspace,        &
+                                       & subspace_basis  = subspace_basis,  &
+                                       & anharmonic_data = anharmonic_data, &
+                                       & qpoint          = qpoint           )
   endif
 end function
 
@@ -1546,42 +1520,25 @@ impure elemental function wavefunctions_SubspaceStatesPointer(this,subspace, &
                                      & anharmonic_data )
 end function
 
-impure elemental function integrate_potential_SubspaceStatesPointer(this, &
-   & potential,subspace,subspace_basis,anharmonic_data) result(output)
+impure elemental function braket_ComplexMonomial_SubspaceStatesPointer(this, &
+   & monomial,subspace,subspace_basis,anharmonic_data,qpoint) result(output)
   implicit none
   
-  class(SubspaceStatesPointer), intent(in) :: this
-  class(PotentialData),         intent(in) :: potential
-  type(DegenerateSubspace),     intent(in) :: subspace
-  class(SubspaceBasis),         intent(in) :: subspace_basis
-  type(AnharmonicData),         intent(in) :: anharmonic_data
-  type(PotentialPointer)                   :: output
+  class(SubspaceStatesPointer), intent(in)          :: this
+  type(ComplexMonomial),       intent(in)           :: monomial
+  type(DegenerateSubspace),    intent(in)           :: subspace
+  class(SubspaceBasis),        intent(in)           :: subspace_basis
+  type(AnharmonicData),        intent(in)           :: anharmonic_data
+  type(QpointData),            intent(in), optional :: qpoint
+  type(ComplexMonomial)                             :: output
   
   call this%check()
   
-  output = this%states_%integrate( potential,      &
-                                 & subspace,       &
-                                 & subspace_basis, &
-                                 & anharmonic_data )
-end function
-
-impure elemental function integrate_stress_SubspaceStatesPointer(this, &
-   & stress,subspace,subspace_basis,anharmonic_data) result(output)
-  implicit none
-  
-  class(SubspaceStatesPointer), intent(in) :: this
-  class(StressData),            intent(in) :: stress
-  type(DegenerateSubspace),     intent(in) :: subspace
-  class(SubspaceBasis),         intent(in) :: subspace_basis
-  type(AnharmonicData),         intent(in) :: anharmonic_data
-  type(StressPointer)                      :: output
-  
-  call this%check()
-  
-  output = this%states_%integrate( stress,         &
-                                 & subspace,       &
-                                 & subspace_basis, &
-                                 & anharmonic_data )
+  output = this%states_%braket( monomial,        &
+                              & subspace,        &
+                              & subspace_basis,  &
+                              & anharmonic_data, &
+                              & qpoint           )
 end function
 
 ! I/O.
@@ -1828,28 +1785,45 @@ impure elemental function force_ComplexModeDisplacement_PotentialPointer( &
   output = this%potential_%force(displacement)
 end function
 
-function braket_PotentialPointer(this,bra,ket,subspace,subspace_basis, &
-   & anharmonic_data,qpoint) result(output)
+subroutine braket_state_PotentialPointer(this,bra,ket,subspace, &
+   & subspace_basis,anharmonic_data,qpoint)
   implicit none
   
-  class(PotentialPointer),  intent(in)           :: this
+  class(PotentialPointer),  intent(inout)        :: this
   class(SubspaceState),     intent(in)           :: bra
   class(SubspaceState),     intent(in), optional :: ket
   type(DegenerateSubspace), intent(in)           :: subspace
   class(SubspaceBasis),     intent(in)           :: subspace_basis
   type(AnharmonicData),     intent(in)           :: anharmonic_data
   type(QpointData),         intent(in), optional :: qpoint
-  type(PotentialPointer)                         :: output
   
   call this%check()
   
-  output = this%potential_%braket( bra,             &
-                                 & ket,             &
-                                 & subspace,        &
-                                 & subspace_basis,  &
-                                 & anharmonic_data, &
-                                 & qpoint           )
-end function
+  call this%potential_%braket( bra,             &
+                             & ket,             &
+                             & subspace,        &
+                             & subspace_basis,  &
+                             & anharmonic_data, &
+                             & qpoint           )
+end subroutine
+
+subroutine braket_states_PotentialPointer(this,states,subspace, &
+   & subspace_basis,anharmonic_data)
+  implicit none
+  
+  class(PotentialPointer),  intent(inout) :: this
+  class(SubspaceStates),    intent(in)    :: states
+  type(DegenerateSubspace), intent(in)    :: subspace
+  class(SubspaceBasis),     intent(in)    :: subspace_basis
+  type(AnharmonicData),     intent(in)    :: anharmonic_data
+  
+  call this%check()
+  
+  call this%potential_%braket( states,         &
+                             & subspace,       &
+                             & subspace_basis, &
+                             & anharmonic_data )
+end subroutine
 
 function harmonic_expectation_PotentialPointer(this,frequency, &
    & thermal_energy,no_states,subspace,anharmonic_data) result(output)
@@ -2058,26 +2032,43 @@ impure elemental function stress_ComplexModeDisplacement_StressPointer( &
   output = this%stress_%stress(displacement)
 end function
 
-function braket_StressPointer(this,bra,ket,subspace,subspace_basis, &
-   & anharmonic_data) result(output)
+subroutine braket_state_StressPointer(this,bra,ket,subspace,subspace_basis, &
+   & anharmonic_data)
   implicit none
   
-  class(StressPointer),     intent(in)           :: this
+  class(StressPointer),     intent(inout)        :: this
   class(SubspaceState),     intent(in)           :: bra
   class(SubspaceState),     intent(in), optional :: ket
   type(DegenerateSubspace), intent(in)           :: subspace
   class(SubspaceBasis),     intent(in)           :: subspace_basis
   type(AnharmonicData),     intent(in)           :: anharmonic_data
-  type(StressPointer)                            :: output
   
   call this%check()
   
-  output = this%stress_%braket( bra,            &
-                              & ket,            &
-                              & subspace,       &
-                              & subspace_basis, &
-                              & anharmonic_data )
-end function
+  call this%stress_%braket( bra,            &
+                          & ket,            &
+                          & subspace,       &
+                          & subspace_basis, &
+                          & anharmonic_data )
+end subroutine
+
+subroutine braket_states_StressPointer(this,states,subspace,subspace_basis, &
+   & anharmonic_data)
+  implicit none
+  
+  class(StressPointer),     intent(inout) :: this
+  class(SubspaceStates),    intent(in)    :: states
+  type(DegenerateSubspace), intent(in)    :: subspace
+  class(SubspaceBasis),     intent(in)    :: subspace_basis
+  type(AnharmonicData),     intent(in)    :: anharmonic_data
+  
+  call this%check()
+  
+  call this%stress_%braket( states,         &
+                          & subspace,       &
+                          & subspace_basis, &
+                          & anharmonic_data )
+end subroutine
 
 function harmonic_expectation_StressPointer(this,frequency, &
    & thermal_energy,no_states,subspace,anharmonic_data) result(output)
@@ -2184,6 +2175,30 @@ impure elemental function braket_ComplexPolynomial_SubspaceState(this, &
   
   monomials = this%braket( polynomial%terms, &
                          & ket,              &
+                         & subspace,         &
+                         & subspace_basis,   &
+                         & anharmonic_data,  &
+                         & qpoint            )
+  output = ComplexPolynomial(monomials)
+end function
+
+! SubspaceState methods.
+impure elemental function braket_ComplexPolynomial_SubspaceStates(this, &
+   & polynomial,subspace,subspace_basis,anharmonic_data,qpoint)         &
+   & result(output)
+  implicit none
+  
+  class(SubspaceStates),    intent(in)           :: this
+  type(ComplexPolynomial),  intent(in)           :: polynomial
+  type(DegenerateSubspace), intent(in)           :: subspace
+  class(SubspaceBasis),     intent(in)           :: subspace_basis
+  type(AnharmonicData),     intent(in)           :: anharmonic_data
+  type(QpointData),         intent(in), optional :: qpoint
+  type(ComplexPolynomial)                        :: output
+  
+  type(ComplexMonomial), allocatable :: monomials(:)
+  
+  monomials = this%braket( polynomial%terms, &
                          & subspace,         &
                          & subspace_basis,   &
                          & anharmonic_data,  &

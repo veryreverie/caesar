@@ -33,7 +33,13 @@ module coupling_stress_basis_functions_module
     procedure, private :: &
        & stress_ComplexModeDisplacement_CouplingStressBasisFunctions
     
-    procedure, public :: braket => braket_CouplingStressBasisFunctions
+    generic,   public :: braket =>     &
+                       & braket_state, &
+                       & braket_states
+    procedure, public :: braket_state => &
+                       & braket_state_CouplingStressBasisFunctions
+    procedure, public :: braket_states => &
+                       & braket_states_CouplingStressBasisFunctions
     
     procedure, public :: harmonic_expectation => &
                        & harmonic_expectation_CouplingStressBasisFunctions
@@ -126,40 +132,67 @@ impure elemental function                                              &
   endif
 end function
 
-impure elemental function braket_CouplingStressBasisFunctions(this,bra,ket, &
-   & subspace,subspace_basis,anharmonic_data) result(output)
+impure elemental subroutine braket_state_CouplingStressBasisFunctions(this, &
+   & bra,ket,subspace,subspace_basis,anharmonic_data)
   implicit none
   
-  class(CouplingStressBasisFunctions), intent(in)           :: this
+  class(CouplingStressBasisFunctions), intent(inout)        :: this
   class(SubspaceState),                intent(in)           :: bra
   class(SubspaceState),                intent(in), optional :: ket
   type(DegenerateSubspace),            intent(in)           :: subspace
   class(SubspaceBasis),                intent(in)           :: subspace_basis
   type(AnharmonicData),                intent(in)           :: anharmonic_data
-  type(CouplingStressBasisFunctions)                        :: output
   
   integer :: i,j
   
-  output = this
-  
-  i = first(output%coupling%ids==subspace%id, default=0)
+  i = first(this%coupling%ids==subspace%id, default=0)
   if (i/=0) then
-    do j=1,size(output)
-      call output%basis_functions_(j)%braket( bra,            &
-                                            & ket,            &
-                                            & subspace,       &
-                                            & subspace_basis, &
-                                            & anharmonic_data )
+    do j=1,size(this)
+      call this%basis_functions_(j)%braket( bra,            &
+                                          & ket,            &
+                                          & subspace,       &
+                                          & subspace_basis, &
+                                          & anharmonic_data )
     enddo
     
     ! Simplify the potential.
-    call output%basis_functions_%simplify()
+    call this%basis_functions_%simplify()
     
     ! Update the coupling to remove the integrated subspace.
-    output%coupling%ids = [ output%coupling%ids(:i-1), &
-                          & output%coupling%ids(i+1:)  ]
+    this%coupling%ids = [ this%coupling%ids(:i-1), &
+                        & this%coupling%ids(i+1:)  ]
   endif
-end function
+end subroutine
+
+impure elemental subroutine braket_states_CouplingStressBasisFunctions(this, &
+   & states,subspace,subspace_basis,anharmonic_data)
+  implicit none
+  
+  class(CouplingStressBasisFunctions), intent(inout) :: this
+  class(SubspaceStates),               intent(in)    :: states
+  type(DegenerateSubspace),            intent(in)    :: subspace
+  class(SubspaceBasis),                intent(in)    :: subspace_basis
+  type(AnharmonicData),                intent(in)    :: anharmonic_data
+  
+  integer :: i,j
+  
+  i = first(this%coupling%ids==subspace%id, default=0)
+  if (i/=0) then
+    do j=1,size(this)
+      call this%basis_functions_(j)%braket( states,         &
+                                          & subspace,       &
+                                          & subspace_basis, &
+                                          & anharmonic_data )
+    enddo
+    
+    ! Simplify the potential.
+    call this%basis_functions_%simplify()
+    
+    ! Update the coupling to remove the integrated subspace.
+    this%coupling%ids = [ this%coupling%ids(:i-1), &
+                        & this%coupling%ids(i+1:)  ]
+  endif
+end subroutine
 
 impure elemental function harmonic_expectation_CouplingStressBasisFunctions( &
    & this,frequency,thermal_energy,no_states,subspace,anharmonic_data)       &

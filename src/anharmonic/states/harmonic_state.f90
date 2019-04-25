@@ -1,7 +1,7 @@
 ! ======================================================================
 ! A state along each complex mode in a degenerate subspace,
-!    defined as a product of harmonic creation operators acting on |0>,
-!    where |0> is the harmonic ground state.
+!    defined as a (normalised) product of harmonic creation operators
+!    acting on |0>, where |0> is the harmonic ground state.
 ! ======================================================================
 ! N.B. compare with MonomialState:
 !    - harmonic states are orthonormal.
@@ -62,10 +62,9 @@ module harmonic_state_module
     procedure, public, nopass :: representation => &
                                & representation_HarmonicState
     
-    procedure, public :: braket_SubspaceState => &
-                       & braket_SubspaceState_HarmonicState
-    procedure, public :: braket_ComplexUnivariate => &
-                       & braket_ComplexUnivariate_HarmonicState
+    procedure, public :: inner_product => &
+                       & inner_product_HarmonicState
+    
     procedure, public :: braket_ComplexMonomial => &
                        & braket_ComplexMonomial_HarmonicState
     procedure, public :: kinetic_energy => &
@@ -367,7 +366,7 @@ end function
 ! ----------------------------------------------------------------------
 ! SubspaceState methods.
 ! ----------------------------------------------------------------------
-impure elemental function braket_SubspaceState_HarmonicState(this, &
+impure elemental function inner_product_HarmonicState(this, &
    & ket,subspace,subspace_basis,anharmonic_data) result(output)
   implicit none
   
@@ -389,38 +388,6 @@ impure elemental function braket_SubspaceState_HarmonicState(this, &
     endif
   else
     output = 1.0_dp
-  endif
-end function
-
-impure elemental function braket_ComplexUnivariate_HarmonicState(this, &
-   & univariate,ket,subspace,subspace_basis,anharmonic_data,qpoint)    &
-   & result(output)
-  implicit none
-  
-  class(HarmonicState),     intent(in)           :: this
-  type(ComplexUnivariate),  intent(in)           :: univariate
-  class(SubspaceState),     intent(in), optional :: ket
-  type(DegenerateSubspace), intent(in)           :: subspace
-  class(SubspaceBasis),     intent(in)           :: subspace_basis
-  type(AnharmonicData),     intent(in)           :: anharmonic_data
-  type(QpointData),         intent(in), optional :: qpoint
-  type(ComplexMonomial)                          :: output
-  
-  if (present(ket)) then
-    output = braket( this,                        &
-                   & ComplexMonomial(univariate), &
-                   & HarmonicState(ket),          &
-                   & subspace,                    &
-                   & subspace_basis,              &
-                   & anharmonic_data,             &
-                   & qpoint                       )
-  else
-    output = braket( this,                        &
-                   & ComplexMonomial(univariate), &
-                   & subspace,                    &
-                   & subspace_basis,              &
-                   & anharmonic_data,             &
-                   & qpoint                       )
   endif
 end function
 
@@ -464,8 +431,8 @@ impure elemental function braket_ComplexMonomial_HarmonicState(this,monomial, &
                         & qpoint           )
   endif
   
-  ! Extract the modes in the monomial which are not part of the subspace.
-  monomial_modes = monomial%modes(filter(.not.helper%monomial_in_subspace))
+  ! Extract the modes in the monomial which have not been integrated.
+  monomial_modes = monomial%modes(filter(.not.helper%monomial_integrated))
   
   ! Calculate the coefficient of the output.
   ! This is the input coefficient times the integral over all modes in the
@@ -490,7 +457,7 @@ impure elemental function braket_ComplexMonomial_HarmonicState(this,monomial, &
 end function
 
 impure elemental function kinetic_energy_HarmonicState(this,ket, &
-   & subspace,subspace_basis,anharmonic_data) result(output)
+   & subspace,subspace_basis,anharmonic_data,qpoint) result(output)
   implicit none
   
   class(HarmonicState),     intent(in)           :: this
@@ -498,6 +465,7 @@ impure elemental function kinetic_energy_HarmonicState(this,ket, &
   type(DegenerateSubspace), intent(in)           :: subspace
   class(SubspaceBasis),     intent(in)           :: subspace_basis
   type(AnharmonicData),     intent(in)           :: anharmonic_data
+  type(QpointData),         intent(in), optional :: qpoint
   real(dp)                                       :: output
   
   type(HarmonicState) :: harmonic_ket
@@ -510,16 +478,18 @@ impure elemental function kinetic_energy_HarmonicState(this,ket, &
   if (present(ket)) then
     ! Process the bra and ket.
     harmonic_ket = HarmonicState(ket)
-    helper = StateHelper( this%state_,                      &
-                        & harmonic_ket%state_,              &
-                        & subspace        = subspace,       &
-                        & anharmonic_data = anharmonic_data )
+    helper = StateHelper( this%state_,                       &
+                        & harmonic_ket%state_,               &
+                        & subspace        = subspace,        &
+                        & anharmonic_data = anharmonic_data, &
+                        & qpoint          = qpoint           )
   else
     ! Process the bra and ket.
-    helper = StateHelper( this%state_,                      &
-                        & this%state_,                      &
-                        & subspace        = subspace,       &
-                        & anharmonic_data = anharmonic_data )
+    helper = StateHelper( this%state_,                       &
+                        & this%state_,                       &
+                        & subspace        = subspace,        &
+                        & anharmonic_data = anharmonic_data, &
+                        & qpoint          = qpoint           )
   endif
   
   ! Calculate which single- and double-mode states have non-zero overlaps.

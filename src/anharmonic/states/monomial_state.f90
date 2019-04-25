@@ -59,10 +59,9 @@ module monomial_state_module
   contains
     procedure, public, nopass :: representation => representation_MonomialState
     
-    procedure, public :: braket_SubspaceState => &
-                       & braket_SubspaceState_MonomialState
-    procedure, public :: braket_ComplexUnivariate => &
-                       & braket_ComplexUnivariate_MonomialState
+    procedure, public :: inner_product => &
+                       & inner_product_MonomialState
+    
     procedure, public :: braket_ComplexMonomial => &
                        & braket_ComplexMonomial_MonomialState
     procedure, public :: kinetic_energy => &
@@ -303,7 +302,7 @@ end function
 ! ----------------------------------------------------------------------
 ! SubspaceState methods.
 ! ----------------------------------------------------------------------
-impure elemental function braket_SubspaceState_MonomialState(this, &
+impure elemental function inner_product_MonomialState(this, &
    & ket,subspace,subspace_basis,anharmonic_data) result(output)
   implicit none
   
@@ -325,39 +324,6 @@ impure elemental function braket_SubspaceState_MonomialState(this, &
   endif
   
   output = product(braket_mode(helper%bra, helper%ket))
-end function
-
-impure elemental function braket_ComplexUnivariate_MonomialState(this, &
-   & univariate,ket,subspace,subspace_basis,anharmonic_data,qpoint)    &
-   & result(output)
-  implicit none
-  
-  class(MonomialState),     intent(in)           :: this
-  type(ComplexUnivariate),  intent(in)           :: univariate
-  class(SubspaceState),     intent(in), optional :: ket
-  type(DegenerateSubspace), intent(in)           :: subspace
-  class(SubspaceBasis),     intent(in)           :: subspace_basis
-  type(AnharmonicData),     intent(in)           :: anharmonic_data
-  type(QpointData),         intent(in), optional :: qpoint
-  type(ComplexMonomial)                          :: output
-  
-  if (present(ket)) then
-    output = braket( this,                        &
-                   & ComplexMonomial(univariate), &
-                   & MonomialState(ket),          &
-                   & subspace,                    &
-                   & subspace_basis,              &
-                   & anharmonic_data,             &
-                   & qpoint                       )
-  else
-    output = braket( this,                        &
-                   & ComplexMonomial(univariate), &
-                   & this,                        &
-                   & subspace,                    &
-                   & subspace_basis,              &
-                   & anharmonic_data,             &
-                   & qpoint                       )
-  endif
 end function
 
 impure elemental function braket_ComplexMonomial_MonomialState(this,monomial, &
@@ -400,8 +366,8 @@ impure elemental function braket_ComplexMonomial_MonomialState(this,monomial, &
                         & qpoint           )
   endif
   
-  ! Extract the modes in the monomial which are not part of the subspace.
-  monomial_modes = monomial%modes(filter(.not.helper%monomial_in_subspace))
+  ! Extract the modes in the monomial which have not been integrated.
+  monomial_modes = monomial%modes(filter(.not.helper%monomial_integrated))
   
   ! Calculate the coefficient of the output.
   ! This is the input coefficient times the integral over all modes in the
@@ -426,7 +392,7 @@ impure elemental function braket_ComplexMonomial_MonomialState(this,monomial, &
 end function
 
 impure elemental function kinetic_energy_MonomialState(this,ket, &
-   & subspace,subspace_basis,anharmonic_data) result(output)
+   & subspace,subspace_basis,anharmonic_data,qpoint) result(output)
   implicit none
   
   class(MonomialState),     intent(in)           :: this
@@ -434,6 +400,7 @@ impure elemental function kinetic_energy_MonomialState(this,ket, &
   type(DegenerateSubspace), intent(in)           :: subspace
   class(SubspaceBasis),     intent(in)           :: subspace_basis
   type(AnharmonicData),     intent(in)           :: anharmonic_data
+  type(QpointData),         intent(in), optional :: qpoint
   real(dp)                                       :: output
   
   type(MonomialState) :: monomial_ket
@@ -446,16 +413,18 @@ impure elemental function kinetic_energy_MonomialState(this,ket, &
   if (present(ket)) then
     ! Process the bra and ket.
     monomial_ket = MonomialState(ket)
-    helper = StateHelper( this%state_,                      &
-                        & monomial_ket%state_,              &
-                        & subspace        = subspace,       &
-                        & anharmonic_data = anharmonic_data )
+    helper = StateHelper( this%state_,                       &
+                        & monomial_ket%state_,               &
+                        & subspace        = subspace,        &
+                        & anharmonic_data = anharmonic_data, &
+                        & qpoint          = qpoint           )
   else
     ! Process the bra and ket.
-    helper = StateHelper( this%state_,                      &
-                        & this%state_,                      &
-                        & subspace        = subspace,       &
-                        & anharmonic_data = anharmonic_data )
+    helper = StateHelper( this%state_,                       &
+                        & this%state_,                       &
+                        & subspace        = subspace,        &
+                        & anharmonic_data = anharmonic_data, &
+                        & qpoint          = qpoint           )
   endif
   
   if (all(finite_overlap_mode(helper%bra, helper%ket))) then
@@ -465,9 +434,9 @@ impure elemental function kinetic_energy_MonomialState(this,ket, &
     prefactor = sum(kinetic_energy_prefactor(helper%bra, helper%ket))
     ! Calculate output, multiply by w,
     !    and normalise by the number of primitive cells.
-    output = prefactor                                            &
-         & * braket(this,subspace,subspace_basis,anharmonic_data) &
-         & * this%frequency                                       &
+    output = prefactor                                                   &
+         & * inner_product(this,subspace,subspace_basis,anharmonic_data) &
+         & * this%frequency                                              &
          & / anharmonic_data%anharmonic_supercell%sc_size
   else
     ! If more than one single- or double-mode state has zero overlap,
@@ -515,8 +484,8 @@ impure elemental function harmonic_potential_energy_MonomialState( &
                                                      & this%frequency ))
   
   ! Calculate output, and normalise by the number of primitive cells.
-  output = prefactor                                            &
-       & * braket(this,subspace,subspace_basis,anharmonic_data) &
+  output = prefactor                                                   &
+       & * inner_product(this,subspace,subspace_basis,anharmonic_data) &
        & / anharmonic_data%anharmonic_supercell%sc_size
 end function
 

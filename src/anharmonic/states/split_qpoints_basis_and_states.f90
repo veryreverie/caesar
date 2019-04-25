@@ -102,10 +102,9 @@ module split_qpoints_basis_and_states_module
     procedure, public, nopass :: representation => &
                                & representation_SplitQpointsState
     
-    procedure, public :: braket_SubspaceState => &
-                       & braket_SubspaceState_SplitQpointsState
-    procedure, public :: braket_ComplexUnivariate => &
-                       & braket_ComplexUnivariate_SplitQpointsState
+    procedure, public :: inner_product => &
+                       & inner_product_SplitQpointsState
+    
     procedure, public :: braket_ComplexMonomial => &
                        & braket_ComplexMonomial_SplitQpointsState
     procedure, public :: kinetic_energy => &
@@ -141,10 +140,8 @@ module split_qpoints_basis_and_states_module
     
     procedure, public :: spectra => spectra_SplitQpointsStates
     procedure, public :: wavefunctions => wavefunctions_SplitQpointsStates
-    procedure, public :: integrate_potential => &
-                       & integrate_potential_SplitQpointsStates
-    procedure, public :: integrate_stress => &
-                       & integrate_stress_SplitQpointsStates
+    procedure, public :: braket_ComplexMonomial => &
+                       & braket_ComplexMonomial_SplitQpointsStates
     
     ! I/O.
     procedure, public :: read  => read_SplitQpointsStates
@@ -485,12 +482,12 @@ function split_vscf(potential,subspace,basis,energy_convergence,          &
      & minloc(initial_states%vscf_states%energy,1) )
   initial_potential = PotentialPointer(potential)
   do i=2,size(basis%qpoint_modes)
-    initial_potential = braket( initial_state,               &
-                              & initial_potential,           &
-                              & subspace,                    &
-                              & basis,                       &
-                              & anharmonic_data,             &
-                              & basis%qpoint_modes(i)%qpoint )
+    call initial_potential%braket(                      &
+       & initial_state,                                 &
+       & subspace        = subspace,                    &
+       & subspace_basis  = basis,                       &
+       & anharmonic_data = anharmonic_data,             &
+       & qpoint          = basis%qpoint_modes(i)%qpoint )
   enddo
   call initial_potential%zero_energy()
   
@@ -503,18 +500,19 @@ function split_vscf(potential,subspace,basis,energy_convergence,          &
     states = [ states,                                                    &
              & basis%calculate_split_states( subspace,                    &
              &                               input_potentials(i),         &
-             &                               anharmonic_data            ) ]
+             &                               anharmonic_data,             &
+             &                               basis%qpoint_modes(1)%qpoint ) ]
     state = states(i)%vscf_states(minloc(states(i)%vscf_states%energy,1))
     
     ! Use states to calculate new potential.
     output_potentials = [output_potentials, PotentialPointer(potential)]
     do j=2,size(basis%qpoint_modes)
-      output_potentials(i) = braket( state,                       &
-                                   & output_potentials(i),        &
-                                   & subspace,                    &
-                                   & basis,                       &
-                                   & anharmonic_data,             &
-                                   & basis%qpoint_modes(i)%qpoint )
+      call output_potentials(i)%braket(                   &
+         & state,                                         &
+         & subspace        = subspace,                    &
+         & subspace_basis  = basis,                       &
+         & anharmonic_data = anharmonic_data,             &
+         & qpoint          = basis%qpoint_modes(j)%qpoint )
     enddo
     call output_potentials(i)%zero_energy()
     
@@ -562,13 +560,14 @@ function split_vscf(potential,subspace,basis,energy_convergence,          &
 end function
 
 impure elemental function calculate_split_states_SplitQpointsBasis(this, &
-   & subspace,subspace_potential,anharmonic_data) result(output)
+   & subspace,subspace_potential,anharmonic_data,qpoint) result(output)
   implicit none
   
   class(SplitQpointsBasis), intent(in) :: this
   type(DegenerateSubspace), intent(in) :: subspace
   class(PotentialData),     intent(in) :: subspace_potential
   type(AnharmonicData),     intent(in) :: anharmonic_data
+  type(QpointData),         intent(in) :: qpoint
   type(SplitQpointsStates)             :: output
   
   ! Variables for constructing the basis.
@@ -604,13 +603,14 @@ impure elemental function calculate_split_states_SplitQpointsBasis(this, &
                        &                   ket,                  &
                        &                   subspace,             &
                        &                   this,                 &
-                       &                   anharmonic_data )     &
+                       &                   anharmonic_data,      &
+                       &                   qpoint           )    &
                        & + potential_energy( bra,                &
                        &                     subspace_potential, &
                        &                     ket,                &
                        &                     subspace,           &
                        &                     this,               &
-                       &                     anharmonic_data )
+                       &                     anharmonic_data     )
       enddo
     enddo
     
@@ -796,7 +796,7 @@ impure elemental function wavefunction_SplitQpointsState(this,basis, &
   output = '('//join(terms,' + ')//')|0>'
 end function
 
-impure elemental function braket_SubspaceState_SplitQpointsState(this, &
+impure elemental function inner_product_SplitQpointsState(this, &
    & ket,subspace,subspace_basis,anharmonic_data) result(output)
   implicit none
   
@@ -807,55 +807,15 @@ impure elemental function braket_SubspaceState_SplitQpointsState(this, &
   type(AnharmonicData),     intent(in)           :: anharmonic_data
   real(dp)                                       :: output
   
-  type(PolynomialState) :: bra_state
-  type(PolynomialState) :: ket_state
+  type(SplitQpointsState) :: split_ket
   
-  bra_state = PolynomialState(this,subspace_basis)
+  ! Harmonic states are orthonormal,
+  !    so the inner product is just the inner product of the coefficients.
   if (present(ket)) then
-    ket_state = PolynomialState(SplitQpointsState(ket), subspace_basis)
-    output = bra_state%braket( ket_state,      &
-                             & subspace,       &
-                             & subspace_basis, &
-                             & anharmonic_data )
+    split_ket = SplitQpointsState(ket)
+    output = vec(this%coefficients)*vec(split_ket%coefficients)
   else
-    output = bra_state%braket( subspace        = subspace,       &
-                             & subspace_basis  = subspace_basis, &
-                             & anharmonic_data = anharmonic_data )
-  endif
-end function
-
-impure elemental function braket_ComplexUnivariate_SplitQpointsState(    &
-   & this,univariate,ket,subspace,subspace_basis,anharmonic_data,qpoint) &
-   & result(output)
-  implicit none
-  
-  class(SplitQpointsState), intent(in)           :: this
-  type(ComplexUnivariate),  intent(in)           :: univariate
-  class(SubspaceState),     intent(in), optional :: ket
-  type(DegenerateSubspace), intent(in)           :: subspace
-  class(SubspaceBasis),     intent(in)           :: subspace_basis
-  type(AnharmonicData),     intent(in)           :: anharmonic_data
-  type(QpointData),         intent(in), optional :: qpoint
-  type(ComplexMonomial)                          :: output
-  
-  type(PolynomialState) :: bra_state
-  type(PolynomialState) :: ket_state
-  
-  bra_state = PolynomialState(this,subspace_basis,qpoint)
-  if (present(ket)) then
-    ket_state = PolynomialState(SplitQpointsState(ket),subspace_basis,qpoint)
-    output = bra_state%braket( univariate,      &
-                             & ket_state,       &
-                             & subspace,        &
-                             & subspace_basis,  &
-                             & anharmonic_data, &
-                             & qpoint           )
-  else
-    output = bra_state%braket( univariate      = univariate,      &
-                             & subspace        = subspace,        &
-                             & subspace_basis  = subspace_basis,  &
-                             & anharmonic_data = anharmonic_data, &
-                             & qpoint          = qpoint           )
+    output = vec(this%coefficients)*vec(this%coefficients)
   endif
 end function
 
@@ -895,7 +855,7 @@ impure elemental function braket_ComplexMonomial_SplitQpointsState(this, &
 end function
 
 impure elemental function kinetic_energy_SplitQpointsState(this,ket, &
-   & subspace,subspace_basis,anharmonic_data) result(output)
+   & subspace,subspace_basis,anharmonic_data,qpoint) result(output)
   implicit none
   
   class(SplitQpointsState), intent(in)           :: this
@@ -903,6 +863,7 @@ impure elemental function kinetic_energy_SplitQpointsState(this,ket, &
   type(DegenerateSubspace), intent(in)           :: subspace
   class(SubspaceBasis),     intent(in)           :: subspace_basis
   type(AnharmonicData),     intent(in)           :: anharmonic_data
+  type(QpointData),         intent(in), optional :: qpoint
   real(dp)                                       :: output
   
   type(PolynomialState) :: bra_state
@@ -911,14 +872,16 @@ impure elemental function kinetic_energy_SplitQpointsState(this,ket, &
   bra_state = PolynomialState(this,subspace_basis)
   if (present(ket)) then
     ket_state = PolynomialState(SplitQpointsState(ket), subspace_basis)
-    output = bra_state%kinetic_energy( ket_state,      &
-                                     & subspace,       &
-                                     & subspace_basis, &
-                                     & anharmonic_data )
+    output = bra_state%kinetic_energy( ket_state,       &
+                                     & subspace,        &
+                                     & subspace_basis,  &
+                                     & anharmonic_data, &
+                                     & qpoint           )
   else
-    output = bra_state%kinetic_energy( subspace        = subspace,       &
-                                     & subspace_basis  = subspace_basis, &
-                                     & anharmonic_data = anharmonic_data )
+    output = bra_state%kinetic_energy( subspace        = subspace,        &
+                                     & subspace_basis  = subspace_basis,  &
+                                     & anharmonic_data = anharmonic_data, &
+                                     & qpoint          = qpoint           )
   endif
 end function
 
@@ -1108,17 +1071,18 @@ impure elemental function wavefunctions_SplitQpointsStates(this,subspace, &
   output = SubspaceWavefunctionsPointer(wavefunctions)
 end function
 
-! Integrate a potential.
-impure elemental function integrate_potential_SplitQpointsStates(this, &
-   & potential,subspace,subspace_basis,anharmonic_data) result(output)
+! Integrate a monomial.
+impure elemental function braket_ComplexMonomial_SplitQpointsStates(this, &
+   & monomial,subspace,subspace_basis,anharmonic_data,qpoint) result(output)
   implicit none
   
-  class(SplitQpointsStates), intent(in) :: this
-  class(PotentialData),      intent(in) :: potential
-  type(DegenerateSubspace),  intent(in) :: subspace
-  class(SubspaceBasis),      intent(in) :: subspace_basis
-  type(AnharmonicData),      intent(in) :: anharmonic_data
-  type(PotentialPointer)                :: output
+  class(SplitQpointsStates), intent(in)           :: this
+  type(ComplexMonomial),     intent(in)           :: monomial
+  type(DegenerateSubspace),  intent(in)           :: subspace
+  class(SubspaceBasis),      intent(in)           :: subspace_basis
+  type(AnharmonicData),      intent(in)           :: anharmonic_data
+  type(QpointData),          intent(in), optional :: qpoint
+  type(ComplexMonomial)                           :: output
   
   type(SplitQpointsState) :: ground_state
   type(SplitQpointsBasis) :: split_basis
@@ -1130,43 +1094,14 @@ impure elemental function integrate_potential_SplitQpointsStates(this, &
   
   ! Braket the potential between the ground state.
   split_basis = SplitQpointsBasis(subspace_basis)
-  output = PotentialPointer(potential)
   do i=1,size(split_basis%qpoint_modes)
-    output = braket( ground_state,                      &
-                   & output,                            &
-                   & subspace,                          &
-                   & subspace_basis,                    &
-                   & anharmonic_data,                   &
-                   & split_basis%qpoint_modes(i)%qpoint )
+    output = ground_state%braket(                             &
+       & monomial,                                            &
+       & subspace        = subspace,                          &
+       & subspace_basis  = subspace_basis,                    &
+       & anharmonic_data = anharmonic_data,                   &
+       & qpoint          = split_basis%qpoint_modes(i)%qpoint )
   enddo
-end function
-
-! Integrate a stress.
-impure elemental function integrate_stress_SplitQpointsStates(this,stress, &
-   & subspace,subspace_basis,anharmonic_data) result(output)
-  implicit none
-  
-  class(SplitQpointsStates), intent(in) :: this
-  class(StressData),         intent(in) :: stress
-  type(DegenerateSubspace),  intent(in) :: subspace
-  class(SubspaceBasis),      intent(in) :: subspace_basis
-  type(AnharmonicData),      intent(in) :: anharmonic_data
-  type(StressPointer)                   :: output
-  
-  type(SplitQpointsState) :: ground_state
-  
-  ! TODO: include q-points.
-  ! MULTIPLE STATES
-  
-  ! Identify the ground state.
-  ground_state = this%vscf_states(minloc(this%vscf_states%energy,1))
-  
-  ! Braket the stress between the ground state.
-  output = braket( ground_state,   &
-                 & stress,         &
-                 & subspace,       &
-                 & subspace_basis, &
-                 & anharmonic_data )
 end function
 
 ! ----------------------------------------------------------------------

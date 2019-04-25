@@ -24,10 +24,9 @@ module polynomial_state_module
     procedure, public, nopass :: representation => &
                                & representation_PolynomialState
     
-    procedure, public :: braket_SubspaceState => &
-                       & braket_SubspaceState_PolynomialState
-    procedure, public :: braket_ComplexUnivariate => &
-                       & braket_ComplexUnivariate_PolynomialState
+    procedure, public :: inner_product => &
+                       & inner_product_PolynomialState
+    
     procedure, public :: braket_ComplexMonomial => &
                        & braket_ComplexMonomial_PolynomialState
     procedure, public :: kinetic_energy => &
@@ -125,7 +124,7 @@ end function
 ! ----------------------------------------------------------------------
 ! SubspaceState methods.
 ! ----------------------------------------------------------------------
-impure elemental function braket_SubspaceState_PolynomialState(this, &
+impure elemental function inner_product_PolynomialState(this, &
    & ket,subspace,subspace_basis,anharmonic_data) result(output)
   implicit none
   
@@ -145,13 +144,13 @@ impure elemental function braket_SubspaceState_PolynomialState(this, &
     output = 0.0_dp
     do i=1,size(this)
       do j=1,size(polynomial_ket)
-        output = output                            &
-             & + braket( this%states(i),           &
-             &           polynomial_ket%states(j), &
-             &           subspace,                 &
-             &           subspace_basis,           &
-             &           anharmonic_data )         &
-             & * this%coefficients(i)              &
+        output = output                                     &
+             & + inner_product( this%states(i),             &
+             &                  polynomial_ket%states(j),   &
+             &                  subspace,                   &
+             &                  subspace_basis,             &
+             &                  anharmonic_data           ) &
+             & * this%coefficients(i)                       &
              & * polynomial_ket%coefficients(j)
       enddo
     enddo
@@ -159,77 +158,14 @@ impure elemental function braket_SubspaceState_PolynomialState(this, &
     output = 0.0_dp
     do i=1,size(this)
       do j=1,size(this)
-        output = output                    &
-             & + braket( this%states(i),   &
-             &           this%states(j),   &
-             &           subspace,         &
-             &           subspace_basis,   &
-             &           anharmonic_data ) &
-             & * this%coefficients(i)      &
+        output = output                           &
+             & + inner_product( this%states(i),   &
+             &           this%states(j),          &
+             &           subspace,                &
+             &           subspace_basis,          &
+             &           anharmonic_data        ) &
+             & * this%coefficients(i)             &
              & * this%coefficients(j)
-      enddo
-    enddo
-  endif
-end function
-
-impure elemental function braket_ComplexUnivariate_PolynomialState(this, &
-   & univariate,ket,subspace,subspace_basis,anharmonic_data,qpoint)      &
-   & result(output)
-  implicit none
-  
-  class(PolynomialState),   intent(in)           :: this
-  type(ComplexUnivariate),  intent(in)           :: univariate
-  class(SubspaceState),     intent(in), optional :: ket
-  type(DegenerateSubspace), intent(in)           :: subspace
-  class(SubspaceBasis),     intent(in)           :: subspace_basis
-  type(AnharmonicData),     intent(in)           :: anharmonic_data
-  type(QpointData),         intent(in), optional :: qpoint
-  type(ComplexMonomial)                          :: output
-  
-  type(PolynomialState) :: polynomial_ket
-  type(ComplexMonomial) :: integrated_univariate
-  
-  integer :: i,j
-  
-  if (present(ket)) then
-    polynomial_ket = PolynomialState(ket)
-    do i=1,size(this)
-      do j=1,size(polynomial_ket)
-        integrated_univariate = braket( this%states(i),             &
-                           &            univariate,                 &
-                           &            polynomial_ket%states(j),   &
-                           &            subspace,                   &
-                           &            subspace_basis,             &
-                           &            anharmonic_data,            &
-                           &            qpoint                    ) &
-                           & * this%coefficients(i)                 &
-                           & * polynomial_ket%coefficients(j)
-        if (i==1 .and. j==1) then
-          output = integrated_univariate
-        else
-          output%coefficient = output%coefficient &
-                           & + integrated_univariate%coefficient
-        endif
-      enddo
-    enddo
-  else
-    do i=1,size(this)
-      do j=1,size(this)
-        integrated_univariate = braket( this%states(i),    &
-                           &            univariate,        &
-                           &            this%states(j),    &
-                           &            subspace,          &
-                           &            subspace_basis,    &
-                           &            anharmonic_data,   &
-                           &            qpoint           ) &
-                           & * this%coefficients(i)        &
-                           & * this%coefficients(j)
-        if (i==1 .and. j==1) then
-          output = integrated_univariate
-        else
-          output%coefficient = output%coefficient &
-                           & + integrated_univariate%coefficient
-        endif
       enddo
     enddo
   endif
@@ -258,14 +194,14 @@ impure elemental function braket_ComplexMonomial_PolynomialState(this, &
     polynomial_ket = PolynomialState(ket)
     do i=1,size(this)
       do j=1,size(polynomial_ket)
-        integrated_monomial = braket( this%states(i),             &
-                          &           monomial,                   &
-                          &           polynomial_ket%states(j),   &
-                          &           subspace,                   &
-                          &           subspace_basis,             &
-                          &           anharmonic_data,            &
-                          &           qpoint                    ) &
-                          & * this%coefficients(i)                &
+        integrated_monomial = this%states(i)%braket(         &
+                          &      monomial,                   &
+                          &      polynomial_ket%states(j),   &
+                          &      subspace,                   &
+                          &      subspace_basis,             &
+                          &      anharmonic_data,            &
+                          &      qpoint                    ) &
+                          & * this%coefficients(i)           &
                           & * polynomial_ket%coefficients(j)
         if (i==1 .and. j==1) then
           output = integrated_monomial
@@ -278,14 +214,13 @@ impure elemental function braket_ComplexMonomial_PolynomialState(this, &
   else
     do i=1,size(this)
       do j=1,size(this)
-        integrated_monomial = braket( this%states(i),    &
-                          &           monomial,          &
-                          &           this%states(j),    &
-                          &           subspace,          &
-                          &           subspace_basis,    &
-                          &           anharmonic_data,   &
-                          &           qpoint           ) &
-                          & * this%coefficients(i)       &
+        integrated_monomial = this%states(i)%braket( monomial,          &
+                          &                          this%states(j),    &
+                          &                          subspace,          &
+                          &                          subspace_basis,    &
+                          &                          anharmonic_data,   &
+                          &                          qpoint           ) &
+                          & * this%coefficients(i)                      &
                           & * this%coefficients(j)
         if (i==1 .and. j==1) then
           output = integrated_monomial
@@ -299,7 +234,7 @@ impure elemental function braket_ComplexMonomial_PolynomialState(this, &
 end function
 
 impure elemental function kinetic_energy_PolynomialState(this,ket, &
-   & subspace,subspace_basis,anharmonic_data) result(output)
+   & subspace,subspace_basis,anharmonic_data,qpoint) result(output)
   implicit none
   
   class(PolynomialState),   intent(in)           :: this
@@ -307,6 +242,7 @@ impure elemental function kinetic_energy_PolynomialState(this,ket, &
   type(DegenerateSubspace), intent(in)           :: subspace
   class(SubspaceBasis),     intent(in)           :: subspace_basis
   type(AnharmonicData),     intent(in)           :: anharmonic_data
+  type(QpointData),         intent(in), optional :: qpoint
   real(dp)                                       :: output
   
   type(PolynomialState) :: polynomial_ket
@@ -323,7 +259,8 @@ impure elemental function kinetic_energy_PolynomialState(this,ket, &
              &                   polynomial_ket%states(j),   &
              &                   subspace,                   &
              &                   subspace_basis,             &
-             &                   anharmonic_data           ) &
+             &                   anharmonic_data,            &
+             &                   qpoint                    ) &
              & * this%coefficients(i)                        &
              & * polynomial_ket%coefficients(j)
       enddo
@@ -332,13 +269,14 @@ impure elemental function kinetic_energy_PolynomialState(this,ket, &
     output = 0.0_dp
     do i=1,size(this)
       do j=1,size(this)
-        output = output                            &
-             & + kinetic_energy( this%states(i),   &
-             &                   this%states(j),   &
-             &                   subspace,         &
-             &                   subspace_basis,   &
-             &                   anharmonic_data ) &
-             & * this%coefficients(i)              &
+        output = output                             &
+             & + kinetic_energy( this%states(i),    &
+             &                   this%states(j),    &
+             &                   subspace,          &
+             &                   subspace_basis,    &
+             &                   anharmonic_data,   &
+             &                   qpoint           ) &
+             & * this%coefficients(i)               &
              & * this%coefficients(j)
       enddo
     enddo
