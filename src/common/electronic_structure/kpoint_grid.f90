@@ -82,9 +82,13 @@ function calculate_kpoint_grid(kpoint_spacing,recip_lattice) result(output)
   
   ! N.B. the -0.1 is to ensure that calculating a grid from a spacing which
   !    was in turn calculated from a grid will give the same answer.
-  output = KpointGrid(ceiling( [ l2_norm(a)/kpoint_spacing,             &
-                             &   l2_norm(b)/kpoint_spacing,             &
-                             &   l2_norm(c)/kpoint_spacing  ] - 0.1_dp  ))
+  ! The max(x,1) is to ensure the above correction does not lead to a k-point
+  !    grid with 0 k-points.
+  output = KpointGrid(max(                                  &
+     & ceiling( [ l2_norm(a)/kpoint_spacing,                &
+     &            l2_norm(b)/kpoint_spacing,                &
+     &            l2_norm(c)/kpoint_spacing  ] - 0.1_dp  ), &
+     & 1                                                    ))
 end function
 
 ! ----------------------------------------------------------------------

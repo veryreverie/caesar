@@ -22,8 +22,7 @@ contains
 !    given by the frequency of the effective potential Vh(w) whose states
 !    minimise the free energy of the VSCF Hamiltonian.
 function calculate_effective_frequency(potential,subspace,anharmonic_data,   &
-   & thermal_energy,initial_frequency,no_basis_states,frequency_convergence) &
-   & result(output)
+   & thermal_energy,initial_frequency,frequency_convergence) result(output)
   implicit none
   
   class(PotentialData),     intent(in) :: potential
@@ -31,7 +30,6 @@ function calculate_effective_frequency(potential,subspace,anharmonic_data,   &
   type(AnharmonicData),     intent(in) :: anharmonic_data
   real(dp),                 intent(in) :: thermal_energy
   real(dp),                 intent(in) :: initial_frequency
-  integer,                  intent(in) :: no_basis_states
   real(dp),                 intent(in) :: frequency_convergence
   real(dp)                             :: output
   
@@ -54,7 +52,6 @@ function calculate_effective_frequency(potential,subspace,anharmonic_data,   &
     free_energies = calculate_free_energy( potential,       &
                                          & frequencies,     &
                                          & thermal_energy,  &
-                                         & no_basis_states, &
                                          & subspace,        &
                                          & anharmonic_data  )
     
@@ -84,42 +81,40 @@ end function
 !
 ! -> Fv(h) = Fh(h) + sum_i(Ph_i <ih|Vv-Vh|ih>)
 impure elemental function calculate_free_energy(potential,frequency, &
-   & thermal_energy,no_states,subspace,anharmonic_data) result(output)
+   & thermal_energy,subspace,anharmonic_data) result(output)
   implicit none
   
   class(PotentialData),     intent(in) :: potential
   real(dp),                 intent(in) :: frequency
   real(dp),                 intent(in) :: thermal_energy
-  integer,                  intent(in) :: no_states
   type(DegenerateSubspace), intent(in) :: subspace
   type(AnharmonicData),     intent(in) :: anharmonic_data
   real(dp)                             :: output
   
-  type(StructureData)     :: supercell
+  real(dp)                :: supercell_size
   type(ThermodynamicData) :: harmonic_thermodynamics
   real(dp)                :: harmonic_free_energy
   real(dp)                :: harmonic_potential_energy_expectation
   real(dp)                :: anharmonic_potential_energy_expectation
   
-  supercell = anharmonic_data%anharmonic_supercell
+  supercell_size = anharmonic_data%anharmonic_supercell%sc_size
   
   ! Calculate the free energy per primitive cell
   !    of the harmonic system in the harmonic basis.
   harmonic_thermodynamics = ThermodynamicData(thermal_energy, frequency)
   harmonic_free_energy = harmonic_thermodynamics%free_energy &
                      & * size(subspace)                      &
-                     & / real(supercell%sc_size,dp)
+                     & / supercell_size
   
   ! Calculate <V> for the harmonic and anharmonic potentials.
   
   ! U = <V> + <T>. Under the harmonic approximation, <V>=<T>, so <V>=U/2.
   harmonic_potential_energy_expectation = harmonic_thermodynamics%energy &
                                       & * size(subspace)                 &
-                                      & / (2.0_dp * real(supercell%sc_size,dp))
+                                      & / (2.0_dp * supercell_size)
   anharmonic_potential_energy_expectation =            &
      & potential%harmonic_expectation( frequency,      &
      &                                 thermal_energy, &
-     &                                 no_states,      &
      &                                 subspace,       &
      &                                 anharmonic_data )
   

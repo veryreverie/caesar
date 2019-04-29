@@ -740,7 +740,7 @@ module abstract_classes_module
     end subroutine
     
     function harmonic_expectation_PotentialData(this,frequency, &
-       & thermal_energy,no_states,subspace,anharmonic_data) result(output)
+       & thermal_energy,subspace,anharmonic_data) result(output)
       import PotentialData
       import dp
       import DegenerateSubspace
@@ -750,7 +750,6 @@ module abstract_classes_module
       class(PotentialData),     intent(in) :: this
       real(dp),                 intent(in) :: frequency
       real(dp),                 intent(in) :: thermal_energy
-      integer,                  intent(in) :: no_states
       type(DegenerateSubspace), intent(in) :: subspace
       type(AnharmonicData),     intent(in) :: anharmonic_data
       real(dp)                             :: output
@@ -858,7 +857,7 @@ module abstract_classes_module
     end subroutine
     
     function harmonic_expectation_StressData(this,frequency, &
-       & thermal_energy,no_states,subspace,anharmonic_data) result(output)
+       & thermal_energy,subspace,anharmonic_data) result(output)
       import StressData
       import dp
       import DegenerateSubspace
@@ -869,7 +868,6 @@ module abstract_classes_module
       class(StressData),        intent(in) :: this
       real(dp),                 intent(in) :: frequency
       real(dp),                 intent(in) :: thermal_energy
-      integer,                  intent(in) :: no_states
       type(DegenerateSubspace), intent(in) :: subspace
       type(AnharmonicData),     intent(in) :: anharmonic_data
       type(RealMatrix)                     :: output
@@ -1826,13 +1824,12 @@ subroutine braket_states_PotentialPointer(this,states,subspace, &
 end subroutine
 
 function harmonic_expectation_PotentialPointer(this,frequency, &
-   & thermal_energy,no_states,subspace,anharmonic_data) result(output)
+   & thermal_energy,subspace,anharmonic_data) result(output)
   implicit none
   
   class(PotentialPointer),  intent(in) :: this
   real(dp),                 intent(in) :: frequency
   real(dp),                 intent(in) :: thermal_energy
-  integer,                  intent(in) :: no_states
   type(DegenerateSubspace), intent(in) :: subspace
   type(AnharmonicData),     intent(in) :: anharmonic_data
   real(dp)                             :: output
@@ -1841,7 +1838,6 @@ function harmonic_expectation_PotentialPointer(this,frequency, &
   
   output = this%potential_%harmonic_expectation( frequency,      &
                                                & thermal_energy, &
-                                               & no_states,      &
                                                & subspace,       &
                                                & anharmonic_data )
 end function
@@ -2071,13 +2067,12 @@ subroutine braket_states_StressPointer(this,states,subspace,subspace_basis, &
 end subroutine
 
 function harmonic_expectation_StressPointer(this,frequency, &
-   & thermal_energy,no_states,subspace,anharmonic_data) result(output)
+   & thermal_energy,subspace,anharmonic_data) result(output)
   implicit none
   
   class(StressPointer),     intent(in) :: this
   real(dp),                 intent(in) :: frequency
   real(dp),                 intent(in) :: thermal_energy
-  integer,                  intent(in) :: no_states
   type(DegenerateSubspace), intent(in) :: subspace
   type(AnharmonicData),     intent(in) :: anharmonic_data
   type(RealMatrix)                     :: output
@@ -2086,7 +2081,6 @@ function harmonic_expectation_StressPointer(this,frequency, &
   
   output = this%stress_%harmonic_expectation( frequency,      &
                                             & thermal_energy, &
-                                            & no_states,      &
                                             & subspace,       &
                                             & anharmonic_data )
 end function

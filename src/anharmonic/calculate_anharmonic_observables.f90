@@ -78,9 +78,6 @@ subroutine startup_calculate_anharmonic_observables()
      &              'no_temperature_steps is the number of temperatures at &
      &which thermodynamic quantities are calculated.',                        &
      &              default_value='0'),                                       &
-     & KeywordData( 'no_vscha_basis_states',                                  &
-     &              'no_vscha_basis_states is the number of states along each &
-     &mode in the basis used for the VSCHA calculation.'),                    &
      & KeywordData( 'frequency_convergence',                                  &
      &              'frequency_convergence is the precision to which &
      &self-consistent frequencies will be converged when constructing the &
@@ -132,7 +129,6 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   real(dp)                      :: min_temperature
   real(dp)                      :: max_temperature
   integer                       :: no_temperature_steps
-  integer                       :: no_vscha_basis_states
   real(dp)                      :: frequency_convergence
   integer                       :: no_vscf_basis_states
   real(dp)                      :: min_frequency
@@ -257,7 +253,6 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   no_temperature_steps = int(arguments%value('no_temperature_steps'))
   frequency_convergence = dble(arguments%value('frequency_convergence'))
   min_frequency = dble(arguments%value('min_frequency'))
-  no_vscha_basis_states = int(arguments%value('no_vscha_basis_states'))
   path_string = split_line(arguments%value('path'), ',')
   no_dos_samples = int(arguments%value('no_dos_samples'))
   no_vscf_basis_states = int(arguments%value('no_vscf_basis_states'))
@@ -523,7 +518,6 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
                                 & anharmonic_data,                &
                                 & thermal_energies(i),            &
                                 & frequencies(j),                 &
-                                & no_vscha_basis_states,          &
                                 & frequency_convergence           )
       call print_line('Self-consistent harmonic frequency in subspace '// &
          &subspaces(j)%id//': '//effective_frequencies(j,i)//' (Ha).')
@@ -650,7 +644,6 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
          & subspace_potentials(j)%harmonic_expectation( &
          &                  effective_frequencies(j,i), &
          &                  thermal_energies(i),        &
-         &                  no_vscha_basis_states,      &
          &                  subspaces(j),               &
          &                  anharmonic_data             )
       vscha2_thermodynamics(j,i)%energy =      &

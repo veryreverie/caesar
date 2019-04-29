@@ -502,31 +502,23 @@ end subroutine
 ! Returns the thermal expectation of the basis function.
 ! ----------------------------------------------------------------------
 impure elemental function harmonic_expectation_BasisFunction(this,frequency, &
-   & thermal_energy,no_states,subspace,anharmonic_data) result(output)
+   & thermal_energy,subspace,anharmonic_data) result(output)
   implicit none
   
   class(BasisFunction),     intent(in) :: this
   real(dp),                 intent(in) :: frequency
   real(dp),                 intent(in) :: thermal_energy
-  integer,                  intent(in) :: no_states
   type(DegenerateSubspace), intent(in) :: subspace
   type(AnharmonicData),     intent(in) :: anharmonic_data
   real(dp)                             :: output
   
   integer :: i
   
-  output = 0
-  do i=1,size(this%complex_representation_)
-    output = output                                                       &
-         & + harmonic_expectation( this%complex_representation_%terms(i), &
-         &                         frequency,                             &
-         &                         thermal_energy,                        &
-         &                         no_states,                             &
-         &                         subspace,                              &
-         &                         anharmonic_data%anharmonic_supercell,  &
-         &                         anharmonic_data                        )
-  enddo
-  output = output * this%coefficient_
+  output = this%coefficient_                                  &
+       & * this%complex_representation_%harmonic_expectation( &
+       &                 frequency,                           &
+       &                 thermal_energy,                      &
+       &                 anharmonic_data%anharmonic_supercell )
 end function
 
 ! ----------------------------------------------------------------------

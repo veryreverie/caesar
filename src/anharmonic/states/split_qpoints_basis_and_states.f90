@@ -476,6 +476,8 @@ function split_vscf(potential,subspace,basis,energy_convergence,          &
   
   integer :: i,j
   
+  call print_line( 'Running inter-subspace VSCF in subspace '// &
+                 & subspace%id//'.')
   initial_states = SplitQpointsStates(basis%initial_states( subspace,       &
                                                           & anharmonic_data ))
   initial_state = initial_states%vscf_states(      &

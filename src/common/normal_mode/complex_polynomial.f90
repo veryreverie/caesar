@@ -73,6 +73,9 @@ module complex_polynomial_module
     procedure, public :: energy => energy_ComplexUnivariate
     procedure, public :: force  => force_ComplexUnivariate
     
+    procedure, public :: harmonic_expectation => &
+                       & harmonic_expectation_ComplexUnivariate
+    
     procedure, public :: read  => read_ComplexUnivariate
     procedure, public :: write => write_ComplexUnivariate
   end type
@@ -113,6 +116,9 @@ module complex_polynomial_module
     procedure, public :: energy => energy_ComplexMonomial
     procedure, public :: force  => force_ComplexMonomial
     
+    procedure, public :: harmonic_expectation => &
+                       & harmonic_expectation_ComplexMonomial
+    
     procedure, public :: read  => read_ComplexMonomial
     procedure, public :: write => write_ComplexMonomial
   end type
@@ -136,6 +142,9 @@ module complex_polynomial_module
     
     procedure, public :: energy => energy_ComplexPolynomial
     procedure, public :: force  => force_ComplexPolynomial
+    
+    procedure, public :: harmonic_expectation => &
+                       & harmonic_expectation_ComplexPolynomial
     
     procedure, public :: read  => read_ComplexPolynomial
     procedure, public :: write => write_ComplexPolynomial
@@ -1013,6 +1022,191 @@ impure elemental function force_ComplexPolynomial(this,displacement) &
   else
     output = sum(this%terms%force(displacement))
   endif
+end function
+
+! The harmonic expectation of a monomial or polynomial.
+impure elemental function harmonic_expectation_ComplexPolynomial(this, &
+   & frequency,thermal_energy,supercell) result(output)
+  implicit none
+  
+  class(ComplexPolynomial), intent(in) :: this
+  real(dp),                 intent(in) :: frequency
+  real(dp),                 intent(in) :: thermal_energy
+  type(StructureData),      intent(in) :: supercell
+  real(dp)                             :: output
+  
+  output = sum(this%terms%harmonic_expectation( frequency,      &
+                                              & thermal_energy, &
+                                              & supercell       ))
+end function
+
+impure elemental function harmonic_expectation_ComplexMonomial(this, &
+   & frequency,thermal_energy,supercell) result(output)
+  implicit none
+  
+  class(ComplexMonomial), intent(in) :: this
+  real(dp),               intent(in) :: frequency
+  real(dp),               intent(in) :: thermal_energy
+  type(StructureData),    intent(in) :: supercell
+  real(dp)                           :: output
+  
+  output = this%coefficient                                          &
+       & * product(this%modes_%harmonic_expectation( frequency,      &
+       &                                             thermal_energy, &
+       &                                             supercell       ))
+end function
+
+impure elemental function harmonic_expectation_ComplexUnivariate(this, &
+   & frequency,thermal_energy,supercell) result(output)
+  implicit none
+  
+  class(ComplexUnivariate), intent(in) :: this
+  real(dp),                 intent(in) :: frequency
+  real(dp),                 intent(in) :: thermal_energy
+  type(StructureData),      intent(in) :: supercell
+  real(dp)                             :: output
+  
+  real(dp), allocatable, save :: a(:,:)
+  real(dp), allocatable, save :: b(:,:)
+  
+  real(dp), allocatable :: temp(:,:)
+  
+  integer :: n
+  integer :: old_n
+  
+  real(dp) :: z
+  
+  integer :: i,j,ialloc
+  
+  ! If the mode is its own conjugate, then
+  !    <u^(2n+1) = 0
+  !    <u^(2n)>  = sum_{i=0}^n [ a_{i,n} * z^i ] / (2Nw)^n
+  
+  ! If the mode is not its own conjugate, then
+  !    <u+^n+*u-^n-> = 0 if n+ /= n-
+  !    <(u+u-)^n>    = sum_{i=0}^n [ b_{i,n} * z^i ] / (2Nw)^n
+  
+  ! z = 1/(1-e^{w/T}) is the partition function.
+  
+  ! The coefficients a_{i,n} and b_{i,n} are calculated via
+  !    recurrence relations:
+  ! a_{i,0} = b_{i,0} = 1 if i=0.
+  !                   = 0 otherwise.
+  ! a_{i,n} = (2n-i-1)*a_{i,n-1} +  i   *a_{i-1,n-1}
+  ! b_{i,n} = ( n-i-1)*b_{i,n-1} + (i+1)*b_{i-1,n-1}
+  
+  ! Calculate n, and return if the answer is 0 or 1.
+  if (this%id==this%paired_id) then
+    if (modulo(this%power,2)==1) then
+      output = 0
+      return
+    endif
+    n = this%power/2
+  else
+    if (this%power/=this%paired_power) then
+      output = 0
+      return
+    endif
+    n = this%power
+  endif
+  
+  if (n==0) then
+    output = 1
+    return
+  endif
+  
+  ! Check if the coefficients need updating.
+  ! As ever, to handle zero-indexing,
+  !    a(i,j)=a_{i-1,j-1} and b(i,j)=b_{i-1,j-1}.
+  if (this%id==this%paired_id) then
+    if (.not. allocated(a)) then
+      allocate(a(n+1,n+1), stat=ialloc); call err(ialloc)
+      a(1,1) = 1
+      old_n = 0
+    elseif (size(a,1)<n+1) then
+      temp = a
+      old_n = size(a,1)-1
+      deallocate(a, stat=ialloc); call err(ialloc)
+      allocate(a(n+1,n+1), stat=ialloc); call err(ialloc)
+      a(:old_n+1,:old_n+1) = temp
+    else
+      old_n = n
+    endif
+    
+    if (old_n<n) then
+      do i=old_n+1,n
+        ! a_{0,i} = (2i-1)*a_{0,i-1}
+        a(1,i+1) = (2*i-1)*a(1,i)
+        do j=1,i
+          ! a_{j,i} = (2i-j-1)*a_{j,i-1} + j *a_{j-1,i-1}
+          a(j+1,i+1) = (2*i-j-1)*a(j+1,i) + j*a(j,i)
+        enddo
+      enddo
+    endif
+  else
+    if (.not. allocated(b)) then
+      allocate(b(n+1,n+1), stat=ialloc); call err(ialloc)
+      b(1,1) = 1
+      old_n = 0
+    elseif (size(b,1)<n+1) then
+      temp = b
+      old_n = size(b,1)-1
+      deallocate(b, stat=ialloc); call err(ialloc)
+      allocate(b(n+1,n+1), stat=ialloc); call err(ialloc)
+      b(:old_n+1,:old_n+1) = temp
+    else
+      old_n = n
+    endif
+    
+    if (old_n<n) then
+      do i=old_n+1,n
+        ! b_{0,i} = (i-1)*b_{0,i-1}
+        b(1,i+1) = (i-1)*b(1,i)
+        do j=1,i
+          ! b_{j,i} = (i-j-1)*b_{j,i-1} + (j+1)*b_{j-1,i-1}
+          b(j+1,i+1) = (i-j-1)*b(j+1,i) + (j+1)*b(j,i)
+        enddo
+      enddo
+    endif
+  endif
+  
+  ! Calculate the partition function.
+  if (frequency < 1e-20_dp*thermal_energy) then
+    ! High temperature regime (N.B. this is unbounded for w=0).
+    ! If T>>w, 1/(1-e^{-w/T}) = 1/(w/T - 0.5(w/T)^2 + O((w/T)^3))
+    !                         = T/w * 1/(1-0.5w/T+O((w/T)^2))
+    !                         = T/w * (1 + 0.5w/T + O((w/T)^2))
+    !                         = T/w + 0.5 + O(w/T)
+    z = thermal_energy/frequency + 0.5_dp
+  elseif (frequency < 23*thermal_energy) then
+    ! Normal temperature regime.
+    ! z = 1/(1-e^{-w/T}).
+    z = 1/(1-exp(-frequency/thermal_energy))
+  elseif (frequency < 690*thermal_energy) then
+    ! Low temperature regime. exp(-23)<1e-9, so O(exp(-2w/T)) < 1e-20.
+    ! if w>>T, 1/(1-e^{-w/T}) = 1 + e^{-w/T} + O(e^{-2w/T}).
+    z = 1+exp(-frequency/thermal_energy)
+  else
+    ! Very low temperature regime. exp(-690)<1e-300.
+    ! 1/(1-e^{-w/T}) = 1 + O(e^{-w/T}).
+    z = 1
+  endif
+  
+  ! Calculate (sum_{i=0}^n [ x_{i,n} z^i ]), using Horner's method.
+  if (this%id==this%paired_id) then
+    output = a(n+1,n+1)
+    do i=n-1,0,-1
+      output = output*z + a(i+1,n+1)
+    enddo
+  else
+    output = b(n+1,n+1)
+    do i=n-1,0,-1
+      output = output*z + b(i+1,n+1)
+    enddo
+  endif
+  
+  ! Divide by (2Nw)^n
+  output = output / (2.0_dp*supercell%sc_size*frequency) ** n
 end function
 
 ! Multiplication and division by scalars.

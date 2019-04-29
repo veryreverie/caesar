@@ -835,13 +835,12 @@ end subroutine
 ! Calculate the thermal expectation of the potential, <V>, for a set of
 !    harmonic states.
 function harmonic_expectation_PolynomialPotential(this,frequency, &
-   & thermal_energy,no_states,subspace,anharmonic_data) result(output)
+   & thermal_energy,subspace,anharmonic_data) result(output)
   implicit none
   
   class(PolynomialPotential), intent(in) :: this
   real(dp),                   intent(in) :: frequency
   real(dp),                   intent(in) :: thermal_energy
-  integer,                    intent(in) :: no_states
   type(DegenerateSubspace),   intent(in) :: subspace
   type(AnharmonicData),       intent(in) :: anharmonic_data
   real(dp)                               :: output
@@ -849,7 +848,6 @@ function harmonic_expectation_PolynomialPotential(this,frequency, &
   output = this%reference_energy                                           &
        & + sum(this%basis_functions_%harmonic_expectation( frequency,      &
        &                                                   thermal_energy, &
-       &                                                   no_states,      &
        &                                                   subspace,       &
        &                                                   anharmonic_data ))
 end function

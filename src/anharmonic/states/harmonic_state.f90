@@ -22,7 +22,6 @@ module harmonic_state_module
   
   public :: operator(*)
   public :: generate_harmonic_states
-  public :: harmonic_expectation
   
   ! A HarmonicState is a product of single-mode and double-mode states
   ! A state |n_1,n_2,n_3,...,n_> = |n_1>|n_2,n_3>...|n_>.
@@ -254,113 +253,6 @@ function wavevector_HarmonicState(this,modes,qpoints) result(output)
   type(QpointData)                 :: output
   
   output = this%state_%wavevector(modes,qpoints)
-end function
-
-! ----------------------------------------------------------------------
-! Calculates the thermal expectation of a monomial in a given harmonic
-!    basis.
-! ----------------------------------------------------------------------
-function harmonic_expectation(monomial,frequency,thermal_energy,no_states, &
-   & subspace,supercell,anharmonic_data) result(output)
-  implicit none
-  
-  type(ComplexMonomial),    intent(in) :: monomial
-  real(dp),                 intent(in) :: frequency
-  real(dp),                 intent(in) :: thermal_energy
-  integer,                  intent(in) :: no_states
-  type(DegenerateSubspace), intent(in) :: subspace
-  type(StructureData),      intent(in) :: supercell
-  type(AnharmonicData),     intent(in) :: anharmonic_data
-  real(dp)                             :: output
-  
-  type(StateHelper) :: helper
-  
-  ! Process the ground state and monomial.
-  helper = StateHelper( monomial        = monomial,       &
-                      & subspace        = subspace,       &
-                      & anharmonic_data = anharmonic_data )
-  
-  ! Calculate the harmonic expectation along each mode,
-  !    and multiply these together.
-  output = monomial%coefficient                                     &
-       & * product( harmonic_expectation_mode( helper%monomial,     &
-       &                                       frequency,           &
-       &                                       thermal_energy,      &
-       &                                       no_states,           &
-       &                                       subspace,            &
-       &                                       supercell        ) ) &
-       & / sqrt(2.0_dp * supercell%sc_size * frequency)             &
-       & ** monomial%total_power()
-end function
-
-impure elemental function harmonic_expectation_mode(univariate,frequency, &
-   & thermal_energy,no_states,subspace,supercell) result(output)
-  implicit none
-  
-  type(ComplexUnivariate),  intent(in) :: univariate
-  real(dp),                 intent(in) :: frequency
-  real(dp),                 intent(in) :: thermal_energy
-  integer,                  intent(in) :: no_states
-  type(DegenerateSubspace), intent(in) :: subspace
-  type(StructureData),      intent(in) :: supercell
-  real(dp)                             :: output
-  
-  type(ComplexUnivariate) :: state
-  
-  real(dp) :: thermal_weight
-  real(dp) :: sum_thermal_weights
-  
-  integer :: i,j
-  
-  output = 0.0_dp
-  sum_thermal_weights = 0.0_dp
-  
-  if (univariate%id==univariate%paired_id) then
-    do i=0,no_states
-      thermal_weight = calculate_state_weight( &
-                             & thermal_energy, &
-                             & frequency,      &
-                             & i,              &
-                             & 1               )
-      
-      state = ComplexUnivariate( id           = univariate%id, &
-                                 power        = i,             &
-                                 paired_id    = univariate%id, &
-                                 paired_power = i        )
-      
-      sum_thermal_weights = sum_thermal_weights + thermal_weight      
-      output = output + braket_mode_potential(state,state,univariate) &
-                    & * thermal_weight
-    enddo
-  else
-    do i=0,no_states
-      thermal_weight = calculate_state_weight( &
-                             & thermal_energy, &
-                             & frequency,      &
-                             & i,              &
-                             & 2               )
-      do j=0,i
-        state = ComplexUnivariate( id           = univariate%id,        &
-                                 & power        = i-j,                  &
-                                 & paired_id    = univariate%paired_id, &
-                                 & paired_power = j                     )
-        
-        sum_thermal_weights = sum_thermal_weights + thermal_weight      
-        output = output + braket_mode_potential(state,state,univariate) &
-                      & * thermal_weight
-      enddo
-    enddo
-  endif
-  
-  if (1-sum_thermal_weights>0.1_dp) then
-    call print_line(WARNING//': The sum across thermal weights is less than &
-       &1. This means that the basis is incomplete. Try increasing &
-       &no_vscha_basis_states.')
-    call print_line('Thermal weights: '//sum_thermal_weights)
-  elseif (sum_thermal_weights-1>0.1_dp) then
-    call print_line(WARNING//': The sum across weights is more than 1.')
-    call print_line('Thermal weights: '//sum_thermal_weights)
-  endif
 end function
 
 ! ----------------------------------------------------------------------
