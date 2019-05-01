@@ -1092,8 +1092,8 @@ impure elemental function harmonic_expectation_ComplexUnivariate(this, &
   !    recurrence relations:
   ! a_{i,0} = b_{i,0} = 1 if i=0.
   !                   = 0 otherwise.
-  ! a_{i,n} = (2n-i-1)*a_{i,n-1} +  i   *a_{i-1,n-1}
-  ! b_{i,n} = ( n-i-1)*b_{i,n-1} + (i+1)*b_{i-1,n-1}
+  ! a_{i,n} = (2n-2i-3)*a_{i,n-1} + 2i   *a_{i-1,n-1}
+  ! b_{i,n} = ( n- i-2)*b_{i,n-1} + (i+1)*b_{i-1,n-1}
   
   ! Calculate n, and return if the answer is 0 or 1.
   if (this%id==this%paired_id) then
@@ -1135,11 +1135,11 @@ impure elemental function harmonic_expectation_ComplexUnivariate(this, &
     
     if (old_n<n) then
       do i=old_n+1,n
-        ! a_{0,i} = (2i-1)*a_{0,i-1}
-        a(1,i+1) = (2*i-1)*a(1,i)
+        ! a_{0,i} = (2i-3)*a_{0,i-1}
+        a(1,i+1) = (2*i-3)*a(1,i)
         do j=1,i
-          ! a_{j,i} = (2i-j-1)*a_{j,i-1} + j *a_{j-1,i-1}
-          a(j+1,i+1) = (2*i-j-1)*a(j+1,i) + j*a(j,i)
+          ! a_{j,i} = (2i-2j-3)*a_{j,i-1} + 2j *a_{j-1,i-1}
+          a(j+1,i+1) = (2*i-2*j-3)*a(j+1,i) + 2*j*a(j,i)
         enddo
       enddo
     endif
@@ -1160,11 +1160,11 @@ impure elemental function harmonic_expectation_ComplexUnivariate(this, &
     
     if (old_n<n) then
       do i=old_n+1,n
-        ! b_{0,i} = (i-1)*b_{0,i-1}
-        b(1,i+1) = (i-1)*b(1,i)
+        ! b_{0,i} = (i-2)*b_{0,i-1}
+        b(1,i+1) = (i-2)*b(1,i)
         do j=1,i
-          ! b_{j,i} = (i-j-1)*b_{j,i-1} + (j+1)*b_{j-1,i-1}
-          b(j+1,i+1) = (i-j-1)*b(j+1,i) + (j+1)*b(j,i)
+          ! b_{j,i} = (i-j-2)*b_{j,i-1} + (j+1)*b_{j-1,i-1}
+          b(j+1,i+1) = (i-j-2)*b(j+1,i) + (j+1)*b(j,i)
         enddo
       enddo
     endif
