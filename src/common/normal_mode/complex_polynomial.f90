@@ -1137,10 +1137,12 @@ impure elemental function harmonic_expectation_ComplexUnivariate(this, &
       do i=old_n+1,n
         ! a_{0,i} = (2i-3)*a_{0,i-1}
         a(1,i+1) = (2*i-3)*a(1,i)
-        do j=1,i
-          ! a_{j,i} = (2i-2j-3)*a_{j,i-1} + 2j *a_{j-1,i-1}
+        do j=1,i-1
+          ! a_{j,i} = (2i-2j-3)*a_{j,i-1} + 2j*a_{j-1,i-1}
           a(j+1,i+1) = (2*i-2*j-3)*a(j+1,i) + 2*j*a(j,i)
         enddo
+        ! a_{i,i} = 2i*a_{i-1,i-1}
+        a(i+1,i+1) = 2*i*a(i,i)
       enddo
     endif
   else
@@ -1162,10 +1164,12 @@ impure elemental function harmonic_expectation_ComplexUnivariate(this, &
       do i=old_n+1,n
         ! b_{0,i} = (i-2)*b_{0,i-1}
         b(1,i+1) = (i-2)*b(1,i)
-        do j=1,i
+        do j=1,i-1
           ! b_{j,i} = (i-j-2)*b_{j,i-1} + (j+1)*b_{j-1,i-1}
           b(j+1,i+1) = (i-j-2)*b(j+1,i) + (j+1)*b(j,i)
         enddo
+        ! b_{i,i} = (i+1)*b_{i-1,i-1}
+        b(i+1,i+1) = (i+1)*b(i,i)
       enddo
     endif
   endif
