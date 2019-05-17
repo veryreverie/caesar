@@ -4,6 +4,8 @@
 module test_module
   use common_module
   
+  use anharmonic_module
+  
   implicit none
   
   private
@@ -21,15 +23,7 @@ subroutine startup_test()
   
   mode%mode_name = 'test'
   mode%description = 'Runs temporary code for testing purposes.'
-  mode%keywords = [ &
-     & KeywordData('a','a',exclusive_with=[str('b')]),          &
-     & KeywordData('b','b',exclusive_with=[str('a')]),          &
-     & KeywordData('c','c',exclusive_with=[str('d'),str('e'),str('f')]), &
-     & KeywordData('d','d',exclusive_with=[str('e'),str('f'),str('c')]), &
-     & KeywordData('e','e',exclusive_with=[str('c'),str('d'),str('f')]), &
-     & KeywordData('f','f',exclusive_with=[str('c'),str('d'),str('e')]), &
-     & KeywordData('g','g')                                     &
-     & ]
+  mode%keywords = [KeywordData::]
   mode%main_subroutine => test_subroutine
   mode%suppress_from_helptext = .true.
   
@@ -44,24 +38,13 @@ subroutine test_subroutine(arguments)
   
   type(Dictionary), intent(in) :: arguments
   
-  if (arguments%is_set('a')) then
-    call print_line('a: '//arguments%value('a'))
-  elseif (arguments%is_set('b')) then
-    call print_line('b: '//arguments%value('b'))
-  else
-    call print_line('a and b unset.')
-  endif
+  type(MonomialState1D) :: state1
+  type(MonomialState2D) :: state2
   
-  if (arguments%is_set('c')) then
-    call print_line('c: '//arguments%value('c'))
-  elseif (arguments%is_set('d')) then
-    call print_line('d: '//arguments%value('d'))
-  elseif (arguments%is_set('e')) then
-    call print_line('e: '//arguments%value('e'))
-  elseif (arguments%is_set('f')) then
-    call print_line('f: '//arguments%value('f'))
-  else
-    call print_line('c,d,e and f unset.')
-  endif
+  state1 = MonomialState1D(str('|u1^2>'))
+  call print_line(state1)
+  
+  state2 = MonomialState2D(str('|u1^2,u3^4>'))
+  call print_line(state2)
 end subroutine
 end module

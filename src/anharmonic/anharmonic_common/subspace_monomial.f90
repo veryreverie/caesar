@@ -383,11 +383,8 @@ contains
     class(*), intent(in) :: input
     logical              :: output
     
-    type(QpointData) :: wavevector
-    
     select type(input); type is(ComplexMonomial)
-      wavevector = input%wavevector(modes,qpoints)
-      output = wavevector%is_gvector()
+      output = input%wavevector(modes,qpoints)==fracvec(zeroes(3))
     end select
   end function
 end function

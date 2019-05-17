@@ -23,6 +23,7 @@ module abstract_classes_module
   use anharmonic_data_module
   use energy_spectrum_module
   use subspace_wavefunctions_module
+  use stress_prefactors_module
   implicit none
   
   private
@@ -500,10 +501,12 @@ module abstract_classes_module
     end function
     
     impure elemental function kinetic_stress_SubspaceState(this,ket, &
-       & subspace,subspace_basis,anharmonic_data) result(output)
+       & subspace,subspace_basis,stress_prefactors,anharmonic_data)  &
+       & result(output)
       import SubspaceState
       import DegenerateSubspace
       import SubspaceBasis
+      import StressPrefactors
       import AnharmonicData
       import RealMatrix
       implicit none
@@ -512,6 +515,7 @@ module abstract_classes_module
       class(SubspaceState),     intent(in), optional :: ket
       type(DegenerateSubspace), intent(in)           :: subspace
       class(SubspaceBasis),     intent(in)           :: subspace_basis
+      type(StressPrefactors),   intent(in)           :: stress_prefactors
       type(AnharmonicData),     intent(in)           :: anharmonic_data
       type(RealMatrix)                               :: output
     end function
@@ -524,14 +528,15 @@ module abstract_classes_module
       type(String) :: output
     end function
     
-    impure elemental function spectra_SubspaceStates(this,subspace,         &
-       & subspace_potential,subspace_stress,subspace_basis,anharmonic_data) &
-       & result(output)
+    impure elemental function spectra_SubspaceStates(this,subspace, &
+       & subspace_potential,subspace_stress,subspace_basis,         &
+       & stress_prefactors,anharmonic_data) result(output)
       import SubspaceStates
       import DegenerateSubspace
       import PotentialData
       import StressData
       import SubspaceBasis
+      import StressPrefactors
       import AnharmonicData
       import EnergySpectra
       implicit none
@@ -541,6 +546,7 @@ module abstract_classes_module
       class(PotentialData),     intent(in)           :: subspace_potential
       class(StressData),        intent(in), optional :: subspace_stress
       class(SubspaceBasis),     intent(in)           :: subspace_basis
+      type(StressPrefactors),   intent(in), optional :: stress_prefactors
       type(AnharmonicData),     intent(in)           :: anharmonic_data
       type(EnergySpectra)                            :: output
     end function
@@ -1329,13 +1335,14 @@ impure elemental function harmonic_potential_energy_SubspaceStatePointer( &
 end function
 
 impure elemental function kinetic_stress_SubspaceStatePointer(this,ket, &
-   & subspace,subspace_basis,anharmonic_data) result(output)
+   & subspace,subspace_basis,stress_prefactors,anharmonic_data) result(output)
   implicit none
   
   class(SubspaceStatePointer), intent(in)           :: this
   class(SubspaceState),        intent(in), optional :: ket
   type(DegenerateSubspace),    intent(in)           :: subspace
   class(SubspaceBasis),        intent(in)           :: subspace_basis
+  type(StressPrefactors),      intent(in)           :: stress_prefactors
   type(AnharmonicData),        intent(in)           :: anharmonic_data
   type(RealMatrix)                                  :: output
   
@@ -1344,20 +1351,24 @@ impure elemental function kinetic_stress_SubspaceStatePointer(this,ket, &
   if (present(ket)) then
     select type(ket); type is(SubspaceStatePointer)
       call ket%check()
-      output = this%state_%kinetic_stress( ket%state_,     &
-                                         & subspace,       &
-                                         & subspace_basis, &
-                                         & anharmonic_data )
+      output = this%state_%kinetic_stress( ket%state_,        &
+                                         & subspace,          &
+                                         & subspace_basis,    &
+                                         & stress_prefactors, &
+                                         & anharmonic_data    )
     class default
-      output = this%state_%kinetic_stress( ket,            &
-                                         & subspace,       &
-                                         & subspace_basis, &
-                                         & anharmonic_data )
+      output = this%state_%kinetic_stress( ket,               &
+                                         & subspace,          &
+                                         & subspace_basis,    &
+                                         & stress_prefactors, &
+                                         & anharmonic_data    )
     end select
   else
-    output = this%state_%kinetic_stress( subspace        = subspace,       &
-                                       & subspace_basis  = subspace_basis, &
-                                       & anharmonic_data = anharmonic_data )
+    output = this%state_%kinetic_stress(        &
+       & subspace          = subspace,          &
+       & subspace_basis    = subspace_basis,    &
+       & stress_prefactors = stress_prefactors, &
+       & anharmonic_data   = anharmonic_data    )
   endif
 end function
 
@@ -1479,9 +1490,9 @@ function states_SubspaceStatesPointer(this) result(output)
   output = this%states_
 end function
 
-impure elemental function spectra_SubspaceStatesPointer(this,subspace,  &
-   & subspace_potential,subspace_stress,subspace_basis,anharmonic_data) &
-   & result(output)
+impure elemental function spectra_SubspaceStatesPointer(this,subspace,    &
+   & subspace_potential,subspace_stress,subspace_basis,stress_prefactors, &
+   & anharmonic_data) result(output)
   implicit none
   
   class(SubspaceStatesPointer), intent(in)           :: this
@@ -1489,6 +1500,7 @@ impure elemental function spectra_SubspaceStatesPointer(this,subspace,  &
   class(PotentialData),         intent(in)           :: subspace_potential
   class(StressData),            intent(in), optional :: subspace_stress
   class(SubspaceBasis),         intent(in)           :: subspace_basis
+  type(StressPrefactors),       intent(in), optional :: stress_prefactors
   type(AnharmonicData),         intent(in)           :: anharmonic_data
   type(EnergySpectra)                                :: output
   
@@ -1498,6 +1510,7 @@ impure elemental function spectra_SubspaceStatesPointer(this,subspace,  &
                                & subspace_potential, &
                                & subspace_stress,    &
                                & subspace_basis,     &
+                               & stress_prefactors,  &
                                & anharmonic_data     )
 end function
 

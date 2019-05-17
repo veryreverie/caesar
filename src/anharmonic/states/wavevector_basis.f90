@@ -750,9 +750,7 @@ function split_by_wavevector(input,modes,qpoints,symmetries) result(output)
   type(SymmetryOperator), intent(in) :: symmetries(:)
   type(WavevectorBasis), allocatable :: output(:)
   
-  type(QpointData), allocatable :: wavevectors(:)
-  integer,          allocatable :: degeneracies(:)
-  logical,          allocatable :: is_first_equivalent(:)
+  type(FractionVector), allocatable :: wavevectors(:)
   
   integer, allocatable :: qpoint_set(:)
   integer, allocatable :: wavevector_states(:)
@@ -780,27 +778,9 @@ function split_by_wavevector(input,modes,qpoints,symmetries) result(output)
                  & i=1,                                                &
                  & size(input)                                         )]
   
-  qpoint_set = filter([(                                      &
-     & any(wavevectors%id==qpoints(i)%id), i=1, size(qpoints) )])
-  
-  degeneracies = [( 1, i=1, size(qpoint_set) )]
-  is_first_equivalent = [( .true., i=1, size(qpoint_set) )]
-  do i=1,size(qpoint_set)
-    if (.not. is_first_equivalent(i)) then
-      degeneracies(i) = 0
-    else
-      do j=i+1,size(qpoint_set)
-        if (any(                                                       &
-           & symmetries*qpoints(qpoint_set(i))==qpoints(qpoint_set(j)) )) then
-          degeneracies(i) = degeneracies(i)+1
-          is_first_equivalent(j) = .false.
-        endif
-      enddo
-    endif
-  enddo
-  
-  qpoint_set = qpoint_set(filter(is_first_equivalent))
-  degeneracies = degeneracies(filter(is_first_equivalent))
+  qpoint_set = filter([( any(wavevectors==qpoints(i)%qpoint), &
+                       & i=1,                                 &
+                       & size(qpoints)                        )])
   
   allocate(output(size(qpoint_set)), stat=ialloc); call err(ialloc)
   new_ids = [(0,i=1,size(input))]
@@ -813,8 +793,8 @@ function split_by_wavevector(input,modes,qpoints,symmetries) result(output)
     
     ! Identify the states at the given wavevector.
     wavevector = qpoints(qpoint_set(i))%qpoint
-    degeneracy = degeneracies(i)
-    wavevector_states = filter(wavevectors%qpoint==wavevector)
+    degeneracy = 1
+    wavevector_states = filter(wavevectors==wavevector)
     monomial_states = input%monomial_states(wavevector_states)
     harmonic_states = input%harmonic_states(wavevector_states)
     states_to_basis = input%states_to_basis_(wavevector_states)

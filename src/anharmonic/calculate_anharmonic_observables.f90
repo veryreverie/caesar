@@ -12,6 +12,7 @@ module calculate_anharmonic_observables_module
   use initial_frequencies_module
   use vscf_module
   use effective_frequency_module
+  use stress_prefactors_module
   implicit none
   
   private
@@ -152,8 +153,9 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   type(StructureData)                   :: supercell
   
   ! Subspace variables.
-  type(ComplexMode), allocatable :: subspace_modes(:)
-  type(QpointData),  allocatable :: subspace_qpoints(:)
+  type(ComplexMode),      allocatable :: subspace_modes(:)
+  type(QpointData),       allocatable :: subspace_qpoints(:)
+  type(StressPrefactors), allocatable :: stress_prefactors(:)
   
   ! Anharmonic potential.
   type(PotentialPointer) :: potential
@@ -222,7 +224,6 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   type(OFile)  :: vscha1_thermodynamic_file
   type(OFile)  :: vscha2_thermodynamic_file
   type(OFile)  :: vscf_thermodynamic_file
-  type(OFile)  :: thermodynamic_file
   type(OFile)  :: pdos_file
   
   ! Temporary variables.
@@ -320,6 +321,7 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   !    - thermal energies from temperature range.
   !    - dispersion path.
   !    - minimum image data.
+  !    - stress prefactors.
   ! --------------------------------------------------
   
   ! Generate thermal energies.
@@ -360,6 +362,11 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   
   ! Construct minimum image data.
   min_images = calculate_min_images(supercell)
+  
+  ! Calculate stress prefactors.
+  stress_prefactors = [( StressPrefactors(subspaces(i),modes), &
+                       & i=1,                                  &
+                       & size(subspaces)                       )]
   
   ! --------------------------------------------------
   ! Run VSCF on potential to generate single-subspace potentials.

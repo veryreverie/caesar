@@ -171,12 +171,13 @@ module complex_polynomial_module
       import ComplexPolynomialable
       import ComplexMode
       import QpointData
+      import FractionVector
       implicit none
       
       class(ComplexPolynomialable), intent(in) :: this
       type(ComplexMode),            intent(in) :: modes(:)
       type(QpointData),             intent(in) :: qpoints(:)
-      type(QpointData)                         :: output
+      type(FractionVector)                     :: output
     end function
     
     function to_ComplexMonomial_ComplexMonomialable(this) result(output)
@@ -700,7 +701,7 @@ function wavevector_ComplexUnivariate(this,modes,qpoints) result(output)
   class(ComplexUnivariate), intent(in) :: this
   type(ComplexMode),        intent(in) :: modes(:)
   type(QpointData),         intent(in) :: qpoints(:)
-  type(QpointData)                     :: output
+  type(FractionVector)                 :: output
   
   type(ComplexMode) :: mode
   type(QpointData)  :: qpoint
@@ -708,12 +709,12 @@ function wavevector_ComplexUnivariate(this,modes,qpoints) result(output)
   mode = modes(first(modes%id==this%id))
   qpoint = qpoints(first(qpoints%id==mode%qpoint_id))
   if (this%id==this%paired_id) then
-    qpoint%qpoint = qpoint%qpoint * this%power
+    output = qpoint%qpoint * this%power
   else
-    qpoint%qpoint = qpoint%qpoint * (this%power-this%paired_power)
+    output = qpoint%qpoint * (this%power-this%paired_power)
   endif
   
-  output = qpoints(first(qpoints==qpoint))
+  output = vec(modulo(frac(output),1))
 end function
 
 function wavevector_ComplexMonomial(this,modes,qpoints) result(output)
@@ -722,20 +723,18 @@ function wavevector_ComplexMonomial(this,modes,qpoints) result(output)
   class(ComplexMonomial), intent(in) :: this
   type(ComplexMode),      intent(in) :: modes(:)
   type(QpointData),       intent(in) :: qpoints(:)
-  type(QpointData)                   :: output
+  type(FractionVector)               :: output
   
-  type(QpointData) :: wavevector
   type(QpointData) :: mode_wavevector
   
   integer :: i
   
-  wavevector%qpoint = fracvec(zeroes(3))
+  output = fracvec(zeroes(3))
   do i=1,size(this%modes_)
-    mode_wavevector = this%modes_(i)%wavevector(modes,qpoints)
-    wavevector%qpoint = wavevector%qpoint + mode_wavevector%qpoint
+    output = output + this%modes_(i)%wavevector(modes,qpoints)
   enddo
   
-  output = qpoints(first(qpoints==wavevector))
+  output = vec(modulo(frac(output),1))
 end function
 
 function wavevector_ComplexPolynomial(this,modes,qpoints) result(output)
@@ -744,13 +743,12 @@ function wavevector_ComplexPolynomial(this,modes,qpoints) result(output)
   class(ComplexPolynomial), intent(in) :: this
   type(ComplexMode),        intent(in) :: modes(:)
   type(QpointData),         intent(in) :: qpoints(:)
-  type(QpointData)                     :: output
+  type(FractionVector)                 :: output
   
   integer :: i
   
   if (size(this)==0) then
-    output%qpoint = fracvec(zeroes(3))
-    output = qpoints(first(qpoints==output))
+    output = fracvec(zeroes(3))
   else
     output = this%terms(1)%wavevector(modes,qpoints)
     do i=2,size(this)

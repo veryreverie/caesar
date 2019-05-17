@@ -331,13 +331,14 @@ impure elemental function harmonic_potential_energy_PolynomialState( &
 end function
 
 impure elemental function kinetic_stress_PolynomialState(this,ket, &
-   & subspace,subspace_basis,anharmonic_data) result(output)
+   & subspace,subspace_basis,stress_prefactors,anharmonic_data) result(output)
   implicit none
   
   class(PolynomialState),   intent(in)           :: this
   class(SubspaceState),     intent(in), optional :: ket
   type(DegenerateSubspace), intent(in)           :: subspace
   class(SubspaceBasis),     intent(in)           :: subspace_basis
+  type(StressPrefactors),   intent(in)           :: stress_prefactors
   type(AnharmonicData),     intent(in)           :: anharmonic_data
   type(RealMatrix)                               :: output
   
@@ -350,13 +351,14 @@ impure elemental function kinetic_stress_PolynomialState(this,ket, &
     output = dblemat(zeroes(3,3))
     do i=1,size(this)
       do j=1,size(polynomial_ket)
-        output = output                                    &
-             & + kinetic_stress( this%states(i),           &
-             &                   polynomial_ket%states(j), &
-             &                   subspace,                 &
-             &                   subspace_basis,           &
-             &                   anharmonic_data )         &
-             & * this%coefficients(i)                      &
+        output = output                                      &
+             & + kinetic_stress( this%states(i),             &
+             &                   polynomial_ket%states(j),   &
+             &                   subspace,                   &
+             &                   subspace_basis,             &
+             &                   stress_prefactors,          &
+             &                   anharmonic_data           ) &
+             & * this%coefficients(i)                        &
              & * polynomial_ket%coefficients(j)
       enddo
     enddo
@@ -364,13 +366,14 @@ impure elemental function kinetic_stress_PolynomialState(this,ket, &
     output = dblemat(zeroes(3,3))
     do i=1,size(this)
       do j=1,size(this)
-        output = output                            &
-             & + kinetic_stress( this%states(i),   &
-             &                   this%states(j),   &
-             &                   subspace,         &
-             &                   subspace_basis,   &
-             &                   anharmonic_data ) &
-             & * this%coefficients(i)              &
+        output = output                               &
+             & + kinetic_stress( this%states(i),      &
+             &                   this%states(j),      &
+             &                   subspace,            &
+             &                   subspace_basis,      &
+             &                   stress_prefactors,   &
+             &                   anharmonic_data    ) &
+             & * this%coefficients(i)                 &
              & * this%coefficients(j)
       enddo
     enddo

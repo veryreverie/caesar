@@ -23,17 +23,19 @@ module monomial_state_module
   public :: operator(*)
   public :: generate_monomial_states
   
+  ! N.B. throughout, f(n) is the odd factorial of n, f(n) = (2n)!/(n! 2^n).
+  !
   ! A MonomialState is a product of single-mode and double-mode states.
   ! |n_1,n_2,n_3,...,n_> = |n_1>|n_2,n_3>...|n_>.
   !
   ! If a mode is its own conjugate, (u_i)* = u_i,
   !    then the single-mode states along mode u_i are:
-  ! |n_i> = prod_{k=1}^{n_i}[ sqrt(2Nw/(2k-1)) ] (u_i)^(n_i) |0_i>
+  ! |n_i> = sqrt((2Nw)^(n_i) / f(n_i)) (u_i)^(n_i) |0_i>
   ! |0_i> = sqrt(sqrt(m*w/pi)) exp(- 1/2 N w (u_i)^2 )
   !
   ! If a mode is not its own conjugate, (u_i)* = u_j,
   !    then the double-mode states along modes u_i and u_j are:
-  ! |n_i,n_j> = prod_{k=1}^{n_i+n_j}[ sqrt(4Nw/k) ] ui^ni uj^nj |0_i,0_j>
+  ! |n_i,n_j> = sqrt((2Nw)^(n_i+n_j) / (n_i+n_j)!) u_i^n_i u_j^n_j |0_i,0_j>
   ! |0_i,0_j> = sqrt(2*m*w/pi) exp(- N w |u_i|^2 )
   !
   ! In both cases, states are normalised (<n_i|n_i>=1, <n_i,n_j|n_i,n_j>=1),
@@ -49,10 +51,8 @@ module monomial_state_module
   !
   ! N.B. the coefficient of state_ is not used. Instead, states are implicitly
   !    normalised such that <state|state>=1. This removes the need to keep
-  !    track of the various factors of two, pi, m (the geometric mean of the
-  !    atomic masses, arising as a result of mass reduction) and N (the number
-  !    of primitive cells in the supercell) , and allows the frequency to be
-  !    changed without having to re-calculate coefficients.
+  !    track of the various factors of two, pi, m and N, and allows
+  !    the frequency to be changed without having to re-calculate coefficients.
   type, extends(SubspaceState) :: MonomialState
     real(dp)                       :: frequency
     type(ComplexMonomial), private :: state_
@@ -252,7 +252,7 @@ function wavevector_MonomialState(this,modes,qpoints) result(output)
   class(MonomialState), intent(in) :: this
   type(ComplexMode),    intent(in) :: modes(:)
   type(QpointData),     intent(in) :: qpoints(:)
-  type(QpointData)                 :: output
+  type(FractionVector)             :: output
   
   output = this%state_%wavevector(modes,qpoints)
 end function
@@ -285,9 +285,9 @@ impure elemental function wavefunction_MonomialState(this,frequency, &
         coefficient = coefficient * sqrt(2*supercell%sc_size*frequency/(2*k-1))
       enddo
     else
-      ! |n_i,n_j> = prod_{k=1}^{n_i+n_j}[ sqrt(4Nw/k) ] ui^ni uj^nj |0_i,0_j>
+      ! |n_i,n_j> = prod_{k=1}^{n_i+n_j}[ sqrt(2Nw/k) ] ui^ni uj^nj |0_i,0_j>
       do k=1,mode%power+mode%paired_power
-        coefficient = coefficient * sqrt(4*supercell%sc_size*frequency/k)
+        coefficient = coefficient * sqrt(2*supercell%sc_size*frequency/k)
       enddo
     endif
   enddo
@@ -490,13 +490,14 @@ impure elemental function harmonic_potential_energy_MonomialState( &
 end function
 
 impure elemental function kinetic_stress_MonomialState(this,ket, &
-   & subspace,subspace_basis,anharmonic_data) result(output)
+   & subspace,subspace_basis,stress_prefactors,anharmonic_data) result(output)
   implicit none
   
   class(MonomialState),     intent(in)           :: this
   class(SubspaceState),     intent(in), optional :: ket
   type(DegenerateSubspace), intent(in)           :: subspace
   class(SubspaceBasis),     intent(in)           :: subspace_basis
+  type(StressPrefactors),   intent(in)           :: stress_prefactors
   type(AnharmonicData),     intent(in)           :: anharmonic_data
   type(RealMatrix)                               :: output
   
@@ -554,14 +555,9 @@ impure elemental function finite_overlap_MonomialStates(bra,ket) result(output)
     call err()
   endif
   
+  ! Check that there is finite overlap along every mode.
   helper = StateHelper(bra%state_, ket%state_)
-  do i=1,size(helper)
-    if (.not. finite_overlap_mode(helper%bra(i),helper%ket(i))) then
-      output = .false.
-      return
-    endif
-  enddo
-  output = .true.
+  output = all(finite_overlap_mode(helper%bra,helper%ket))
 end function
 
 impure elemental function finite_overlap_mode(bra,ket) result(output)

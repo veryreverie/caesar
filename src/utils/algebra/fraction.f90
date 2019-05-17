@@ -712,6 +712,8 @@ subroutine read_IntFraction(this,input)
       call print_line('Error parsing fraction from string: '//input)
       call err()
     endif
+  class default
+    call err()
   end select
 end subroutine
 
@@ -727,6 +729,8 @@ function write_IntFraction(this) result(output)
     else
       output = pad_int_to_str(this%n_)//'/'//this%d_
     endif
+  class default
+    call err()
   end select
 end function
 

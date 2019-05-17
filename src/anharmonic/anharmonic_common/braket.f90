@@ -12,6 +12,7 @@ module braket_module
   use common_module
   
   use anharmonic_data_module
+  use stress_prefactors_module
   use abstract_classes_module
   implicit none
   
@@ -425,36 +426,40 @@ end function
 ! ----------------------------------------------------------------------
 ! Calculates <state|stress|state> for the kinetic stress.
 recursive function kinetic_stress_state(state,subspace, &
-   & subspace_basis,anharmonic_data) result(output)
+   & subspace_basis,stress_prefactors,anharmonic_data) result(output)
   implicit none
   
   class(SubspaceState),     intent(in) :: state
   type(DegenerateSubspace), intent(in) :: subspace
   class(SubspaceBasis),     intent(in) :: subspace_basis
+  type(StressPrefactors),   intent(in) :: stress_prefactors
   type(AnharmonicData),     intent(in) :: anharmonic_data
   type(RealMatrix)                     :: output
   
-  output = state%kinetic_stress( subspace        = subspace,       &
-                               & subspace_basis  = subspace_basis, &
-                               & anharmonic_data = anharmonic_data )
+  output = state%kinetic_stress( subspace          = subspace,          &
+                               & subspace_basis    = subspace_basis,    &
+                               & stress_prefactors = stress_prefactors, &
+                               & anharmonic_data   = anharmonic_data    )
 end function
 
 ! Calculates <bra|stress|ket> for the kinetic stress.
 recursive function kinetic_stress_state_state(bra,ket,subspace, &
-   & subspace_basis,anharmonic_data) result(output)
+   & subspace_basis,stress_prefactors,anharmonic_data) result(output)
   implicit none
   
   class(SubspaceState),     intent(in) :: bra
   class(SubspaceState),     intent(in) :: ket
   type(DegenerateSubspace), intent(in) :: subspace
   class(SubspaceBasis),     intent(in) :: subspace_basis
+  type(StressPrefactors),   intent(in) :: stress_prefactors
   type(AnharmonicData),     intent(in) :: anharmonic_data
   type(RealMatrix)                     :: output
   
-  output = bra%kinetic_stress( ket             = ket,            &
-                             & subspace        = subspace,       &
-                             & subspace_basis  = subspace_basis, &
-                             & anharmonic_data = anharmonic_data )
+  output = bra%kinetic_stress( ket               = ket,               &
+                             & subspace          = subspace,          &
+                             & subspace_basis    = subspace_basis,    &
+                             & stress_prefactors = stress_prefactors, &
+                             & anharmonic_data   = anharmonic_data    )
 end function
 
 ! ----------------------------------------------------------------------

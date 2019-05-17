@@ -250,7 +250,7 @@ function wavevector_HarmonicState(this,modes,qpoints) result(output)
   class(HarmonicState), intent(in) :: this
   type(ComplexMode),    intent(in) :: modes(:)
   type(QpointData),     intent(in) :: qpoints(:)
-  type(QpointData)                 :: output
+  type(FractionVector)             :: output
   
   output = this%state_%wavevector(modes,qpoints)
 end function
@@ -458,13 +458,14 @@ impure elemental function harmonic_potential_energy_HarmonicState(this,ket, &
 end function
 
 impure elemental function kinetic_stress_HarmonicState(this,ket, &
-   & subspace,subspace_basis,anharmonic_data) result(output)
+   & subspace,subspace_basis,stress_prefactors,anharmonic_data) result(output)
   implicit none
   
   class(HarmonicState),     intent(in)           :: this
   class(SubspaceState),     intent(in), optional :: ket
   type(DegenerateSubspace), intent(in)           :: subspace
   class(SubspaceBasis),     intent(in)           :: subspace_basis
+  type(StressPrefactors),   intent(in)           :: stress_prefactors
   type(AnharmonicData),     intent(in)           :: anharmonic_data
   type(RealMatrix)                               :: output
 
