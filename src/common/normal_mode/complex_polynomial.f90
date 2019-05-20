@@ -465,16 +465,109 @@ impure elemental function mode_ComplexMonomial(this,index) result(output)
   output = this%modes_(index)
 end function
 
-function modes_ComplexMonomial(this,indices) result(output)
+! Getter for modes. Has several run types:
+!    - If no arguments specified, returns all modes.
+!    - If indices specified, returns modes at specified indices.
+!    - If ids and paired_ids specified, returns modes with specified ids.
+!    - If exclude_ids specicified, returns all modes but those excluded.
+function modes_ComplexMonomial(this,indices,ids,paired_ids,exclude_ids) &
+   & result(output)
   implicit none
   
   class(ComplexMonomial), intent(in)           :: this
   integer,                intent(in), optional :: indices(:)
+  integer,                intent(in), optional :: ids(:)
+  integer,                intent(in), optional :: paired_ids(:)
+  integer,                intent(in), optional :: exclude_ids(:)
   type(ComplexUnivariate), allocatable         :: output(:)
   
+  integer, allocatable :: sort_key(:)
+  
+  integer :: i,j,k,ialloc
+  
+  if (count([present(indices),present(ids),present(exclude_ids)])>1) then
+    call print_line(CODE_ERROR//': too many optional arguments present.')
+    call err()
+  elseif (present(ids) .neqv. present(paired_ids)) then
+    call print_line(CODE_ERROR// &
+       & ': Only one of ids and paired_ids is present.')
+    call err()
+  endif
+  
   if (present(indices)) then
+    ! Return the modes with the specified indices.
     output = this%modes_(indices)
+  elseif (present(ids)) then
+    ! Return only modes with given ids, in the order of the ids specified.
+    ! If an id is not present in this monomial, instead include u^0.
+    sort_key = sort(ids)
+    allocate(output(size(ids)), stat=ialloc); call err(ialloc)
+    j = 1
+    ! Loop over the ids in ascending order (i.e. ids(sort_key)).
+    do i=1,size(ids)
+      ! Cycle through this%modes_ until the mode with id=ids(sort_key(i))
+      !    is found.
+      do
+        if (j>size(this%modes_)) then
+          exit
+        elseif (this%modes_(j)%id>=ids(sort_key(i))) then
+          exit
+        else
+          j = j+1
+        endif
+      enddo
+      
+      ! If such a mode exists, add it to the output.
+      if (j<=size(this%modes_)) then
+        if (this%modes_(j)%id == ids(sort_key(i))) then
+          output(sort_key(i)) = this%modes_(j)
+          continue
+        endif
+      endif
+      
+      ! If no such mode exists, add u^0 to the output.
+      output(sort_key(i)) = ComplexUnivariate(     &
+         & id           = ids(sort_key(i)),        &
+         & paired_id    = paired_ids(sort_key(i)), &
+         & power        = 0,                       &
+         & paired_power = 0                        )
+    enddo
+  elseif (present(exclude_ids)) then
+    ! Return all modes apart from those in exclude_ids.
+    sort_key = sort(exclude_ids)
+    
+    allocate(output(size(this%modes_)), stat=ialloc); call err(ialloc)
+    j = 1
+    k = 0
+    ! Loop over this%modes_.
+    do i=1,size(this%modes_)
+      ! Cycle through exclude_ids in ascending order
+      !    (i.e. exclude_ids(sort_key)) until
+      !    exculde_ids(j)=this%modes_(i)%id.
+      do
+        if (j>size(exclude_ids)) then
+          exit
+        elseif (exclude_ids(sort_key(j))>=this%modes_(i)%id) then
+          exit
+        else
+          j = j+1
+        endif
+      enddo
+      
+      ! If the mode is in exclude_ids, exclude it.
+      if (j<=size(exclude_ids)) then
+        if (exclude_ids(sort_key(j))==this%modes_(i)%id) then
+          cycle
+        endif
+      endif
+      
+      ! If the mode is not in exclude_ids, add it to the output.
+      k = k+1
+      output(k) = this%modes_(j)
+    enddo
+    output = output(:k)
   else
+    ! Return all modes in the monomial.
     output = this%modes_
   endif
 end function

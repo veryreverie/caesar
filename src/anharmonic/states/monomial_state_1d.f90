@@ -1,16 +1,17 @@
 ! ======================================================================
-! A state along a single mode at 2q=G.
+! A monomial state along a single mode at 2q=G,
+!    |p> ~ u^p|0>.
 ! ======================================================================
-! N.B. throughout, f(n) is the odd factorial of n, f(n) = (2n)!/(n! 2^n).
+! N.B. throughout, f(p) is the odd factorial of p, f(p) = (2p)!/(p! 2^p).
 ! N.B. for speed, any factors of (2Nw) are neglected here,
 !    and should be added elsewhere.
 !
 ! If a mode is its own conjugate, (u)* = u,
 !    then the single-mode states along mode u are:
-! |n> = sqrt((2Nw)^(n) / f(n)) (u)^(n) |0>
+! |p> = sqrt((2Nw)^(p) / f(p)) (u)^(p) |0>
 ! The wavefunction of |0> is sqrt(sqrt(m*w/pi)) exp(- 1/2 N w (u)^2 )
 !
-! States are normalised <n|n>=1,
+! States are normalised <p|p>=1,
 !    but are in general not orthogonal <p|q>/=0.
 !
 ! w is the effective frequency of the mode
@@ -34,8 +35,10 @@ module monomial_state_1d_module
     integer, private :: id_
     integer, private :: power_
   contains
-    procedure, public :: total_power => total_power_MonomialState1D
-    procedure, public :: wavevector  => wavevector_MonomialState1D
+    procedure, public :: id           => id_MonomialState1D
+    procedure, public :: power        => power_MonomialState1D
+    procedure, public :: total_power  => total_power_MonomialState1D
+    procedure, public :: wavevector   => wavevector_MonomialState1D
     
     ! ------------------------------
     ! Objects of the form <p|X|q>
@@ -79,6 +82,25 @@ impure elemental function new_MonomialState1D(id,power) result(this)
   
   this%id_    = id
   this%power_ = power
+end function
+
+! Getters.
+impure elemental function id_MonomialState1D(this) result(output)
+  implicit none
+  
+  class(MonomialState1D), intent(in) :: this
+  integer                            :: output
+  
+  output = this%id_
+end function
+
+impure elemental function power_MonomialState1D(this) result(output)
+  implicit none
+  
+  class(MonomialState1D), intent(in) :: this
+  integer                            :: output
+  
+  output = this%power_
 end function
 
 ! Returns the total power of the state.

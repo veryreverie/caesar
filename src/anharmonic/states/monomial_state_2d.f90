@@ -1,16 +1,17 @@
 ! ======================================================================
-! A state along a mode at q and its -q pair.
+! A monomial state along a mode at q and its -q pair,
+!    |p_i,p_j> ~ (u_i^p_i)(u_j^p_j)|0_i,0_j>.
 ! ======================================================================
-! N.B. throughout, f(n) is the odd factorial of n, f(n) = (2n)!/(n! 2^n).
+! N.B. throughout, f(p) is the odd factorial of p, f(p) = (2p)!/(p! 2^p).
 ! N.B. for speed, any factors of (2Nw) are neglected here,
 !    and should be added elsewhere.
 !
 ! If a mode is not its own conjugate, (u_i)* = u_j,
 !    then the double-mode states along modes u_i and u_j are:
-! |n_i,n_j> = sqrt((2Nw)^(n_i+n_j) / (n_i+n_j)!) u_i^n_i u_j^n_j |0_i,0_j>
+! |p_i,p_j> = sqrt((2Nw)^(p_i+p_j) / (p_i+p_j)!) u_i^p_i u_j^p_j |0_i,0_j>
 ! |0_i,0_j> = sqrt(2*m*w/pi) exp(- N w |u_i|^2 )
 !
-! States are normalised <n_i,n_j|n_i,n_j>=1,
+! States are normalised <p_i,p_j|p_i,p_j>=1,
 !    but are in general not orthogonal <p_i,p_j|q_i,q_j>/=0.
 !
 ! w is the effective frequency the pair of modes
@@ -36,8 +37,12 @@ module monomial_state_2d_module
     integer, private :: power_
     integer, private :: paired_power_
   contains
-    procedure, public :: total_power => total_power_MonomialState2D
-    procedure, public :: wavevector  => wavevector_MonomialState2D
+    procedure, public :: id           => id_MonomialState2D
+    procedure, public :: paired_id    => paired_id_MonomialState2D
+    procedure, public :: power        => power_MonomialState2D
+    procedure, public :: paired_power => paired_power_MonomialState2D
+    procedure, public :: total_power  => total_power_MonomialState2D
+    procedure, public :: wavevector   => wavevector_MonomialState2D
     
     ! ------------------------------
     ! Objects of the form <p_i,p_j|X|q_i,q_j>
@@ -94,6 +99,43 @@ impure elemental function new_MonomialState2D(id,paired_id,power, &
   this%paired_id_    = paired_id
   this%power_        = power
   this%paired_power_ = paired_power
+end function
+
+! Getters.
+impure elemental function id_MonomialState2D(this) result(output)
+  implicit none
+  
+  class(MonomialState2D), intent(in) :: this
+  integer                            :: output
+  
+  output = this%id_
+end function
+
+impure elemental function paired_id_MonomialState2D(this) result(output)
+  implicit none
+  
+  class(MonomialState2D), intent(in) :: this
+  integer                            :: output
+  
+  output = this%paired_id_
+end function
+
+impure elemental function power_MonomialState2D(this) result(output)
+  implicit none
+  
+  class(MonomialState2D), intent(in) :: this
+  integer                            :: output
+  
+  output = this%power_
+end function
+
+impure elemental function paired_power_MonomialState2D(this) result(output)
+  implicit none
+  
+  class(MonomialState2D), intent(in) :: this
+  integer                            :: output
+  
+  output = this%paired_power_
 end function
 
 ! Returns the total power of the state.

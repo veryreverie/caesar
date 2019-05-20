@@ -5,6 +5,8 @@
 module states_module
   use monomial_state_1d_module
   use monomial_state_2d_module
+  use harmonic_state_1d_module
+  use harmonic_state_2d_module
   use monomial_state_module
   use harmonic_state_module
   use polynomial_state_module
