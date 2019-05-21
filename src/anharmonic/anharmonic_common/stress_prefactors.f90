@@ -16,7 +16,11 @@ module stress_prefactors_module
     integer,          allocatable, private :: mode_ids_(:)
     type(RealMatrix), allocatable, private :: prefactors_(:,:)
   contains
-    procedure, public :: prefactor => prefactor_StressPrefactors
+    generic,   public  :: prefactor => &
+                        & prefactor_StressPrefactors_modes, &
+                        & prefactor_StressPrefactors_ids
+    procedure, private :: prefactor_StressPrefactors_modes
+    procedure, private :: prefactor_StressPrefactors_ids
   end type
   
   interface StressPrefactors
@@ -79,7 +83,7 @@ end function
 ! --------------------------------------------------
 ! Return the prefactor for a given pair of modes.
 ! --------------------------------------------------
-impure elemental function prefactor_StressPrefactors(this,mode1,mode2) &
+impure elemental function prefactor_StressPrefactors_modes(this,mode1,mode2) &
    & result(output)
   implicit none
   
@@ -90,5 +94,18 @@ impure elemental function prefactor_StressPrefactors(this,mode1,mode2) &
   
   output = this%prefactors_( first(this%mode_ids_==mode1%id), &
                            & first(this%mode_ids_==mode2%id)  )
+end function
+
+impure elemental function prefactor_StressPrefactors_ids(this,mode1,mode2) &
+   & result(output)
+  implicit none
+  
+  class(StressPrefactors), intent(in) :: this
+  integer,                 intent(in) :: mode1
+  integer,                 intent(in) :: mode2
+  type(RealMatrix)                    :: output
+  
+  output = this%prefactors_( first(this%mode_ids_==mode1), &
+                           & first(this%mode_ids_==mode2)  )
 end function
 end module

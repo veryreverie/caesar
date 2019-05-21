@@ -9,6 +9,8 @@ module initial_frequencies_module
   
   use anharmonic_common_module
   use potentials_module
+  
+  use generate_subspace_potentials_module
   implicit none
   
   private
@@ -292,15 +294,15 @@ impure elemental function optimise_frequency(potential,subspace,           &
     do i=1,3
       call new_basis%set_frequency(frequencies(i))
       new_state = PolynomialState(subspace_states%vscf_states(1), new_basis)
-      energies(i) = potential_energy( new_state,        &
-                &                     potential,        &
-                &                     subspace,         &
-                &                     new_basis,        &
-                &                     anharmonic_data ) &
-                & + kinetic_energy( new_state,          &
-                &                   subspace,           &
-                &                   new_basis,          &
-                &                   anharmonic_data )
+      energies(i) = potential_energy( new_state,         &
+                &                     potential,         &
+                &                     subspace,          &
+                &                     new_basis,         &
+                &                     anharmonic_data )  &
+                & + new_state%kinetic_energy(            &
+                &      subspace        = subspace,       &
+                &      subspace_basis  = new_basis,      &
+                &      anharmonic_data = anharmonic_data )
     enddo
     
     call solver%set_outputs(energies)

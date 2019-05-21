@@ -395,11 +395,10 @@ impure elemental function calculate_states_FullSubspaceBasis(this,subspace, &
         l = this%wavevectors(i)%harmonic_couplings(j)%id(k)
         ket = this%wavevectors(i)%harmonic_states(l)
         
-        hamiltonian(j,l) = kinetic_energy( bra,                  &
-                       &                   ket,                  &
-                       &                   subspace,             &
-                       &                   this,                 &
-                       &                   anharmonic_data )     &
+        hamiltonian(j,l) = bra%kinetic_energy( ket,              &
+                       &                       subspace,         &
+                       &                       this,             &
+                       &                       anharmonic_data ) &
                        & + potential_energy( bra,                &
                        &                     subspace_potential, &
                        &                     ket,                &
@@ -751,16 +750,16 @@ impure elemental function spectra_FullSubspaceStates(this,subspace,       &
   if (present(subspace_stress)) then
     allocate(stress(size(this%vscf_states)), stat=ialloc); call err(ialloc)
     do i=1,size(this%vscf_states)
-      stress(i) = potential_stress( this%vscf_states(i),   &
-              &                     subspace_stress,       &
-              &                     subspace,              &
-              &                     subspace_basis,        &
-              &                     anharmonic_data      ) &
-              & + kinetic_stress( this%vscf_states(i),     &
-              &                   subspace,                &
-              &                   subspace_basis,          &
-              &                   stress_prefactors,       &
-              &                   anharmonic_data      )
+      stress(i) = potential_stress( this%vscf_states(i),    &
+              &                     subspace_stress,        &
+              &                     subspace,               &
+              &                     subspace_basis,         &
+              &                     anharmonic_data      )  &
+              & + this%vscf_states(i)%kinetic_stress(       &
+              &      subspace          = subspace,          &
+              &      subspace_basis    = subspace_basis,    &
+              &      stress_prefactors = stress_prefactors, &
+              &      anharmonic_data   = anharmonic_data    )
     enddo
     output = EnergySpectra([EnergySpectrum( this%vscf_states%energy,     &
                                           & this%vscf_states%degeneracy, &

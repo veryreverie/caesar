@@ -434,9 +434,11 @@ impure elemental function kinetic_energy_MonomialState(this,ket, &
     prefactor = sum(kinetic_energy_prefactor(helper%bra, helper%ket))
     ! Calculate output, multiply by w,
     !    and normalise by the number of primitive cells.
-    output = prefactor                                                   &
-         & * inner_product(this,subspace,subspace_basis,anharmonic_data) &
-         & * this%frequency                                              &
+    output = prefactor                                               &
+         & * this%inner_product( subspace        = subspace,         &
+         &                       subspace_basis  = subspace_basis,   &
+         &                       anharmonic_data = anharmonic_data ) &
+         & * this%frequency                                          &
          & / anharmonic_data%anharmonic_supercell%sc_size
   else
     ! If more than one single- or double-mode state has zero overlap,
@@ -484,8 +486,10 @@ impure elemental function harmonic_potential_energy_MonomialState( &
                                                      & this%frequency ))
   
   ! Calculate output, and normalise by the number of primitive cells.
-  output = prefactor                                                   &
-       & * inner_product(this,subspace,subspace_basis,anharmonic_data) &
+  output = prefactor                                               &
+       & * this%inner_product( subspace        = subspace,         &
+       &                       subspace_basis  = subspace_basis,   &
+       &                       anharmonic_data = anharmonic_data ) &
        & / anharmonic_data%anharmonic_supercell%sc_size
 end function
 

@@ -144,13 +144,12 @@ impure elemental function inner_product_PolynomialState(this, &
     output = 0.0_dp
     do i=1,size(this)
       do j=1,size(polynomial_ket)
-        output = output                                     &
-             & + inner_product( this%states(i),             &
-             &                  polynomial_ket%states(j),   &
-             &                  subspace,                   &
-             &                  subspace_basis,             &
-             &                  anharmonic_data           ) &
-             & * this%coefficients(i)                       &
+        output = output                                                    &
+             & + this%states(i)%inner_product( polynomial_ket%states(j),   &
+             &                                 subspace,                   &
+             &                                 subspace_basis,             &
+             &                                 anharmonic_data           ) &
+             & * this%coefficients(i)                                      &
              & * polynomial_ket%coefficients(j)
       enddo
     enddo
@@ -158,13 +157,12 @@ impure elemental function inner_product_PolynomialState(this, &
     output = 0.0_dp
     do i=1,size(this)
       do j=1,size(this)
-        output = output                           &
-             & + inner_product( this%states(i),   &
-             &           this%states(j),          &
-             &           subspace,                &
-             &           subspace_basis,          &
-             &           anharmonic_data        ) &
-             & * this%coefficients(i)             &
+        output = output                                          &
+             & + this%states(i)%inner_product( this%states(j),   &
+             &                                 subspace,         &
+             &                                 subspace_basis,   &
+             &                                 anharmonic_data ) &
+             & * this%coefficients(i)                            &
              & * this%coefficients(j)
       enddo
     enddo
@@ -254,14 +252,13 @@ impure elemental function kinetic_energy_PolynomialState(this,ket, &
     output = 0.0_dp
     do i=1,size(this)
       do j=1,size(polynomial_ket)
-        output = output                                      &
-             & + kinetic_energy( this%states(i),             &
-             &                   polynomial_ket%states(j),   &
-             &                   subspace,                   &
-             &                   subspace_basis,             &
-             &                   anharmonic_data,            &
-             &                   qpoint                    ) &
-             & * this%coefficients(i)                        &
+        output = output                                                     &
+             & + this%states(i)%kinetic_energy( polynomial_ket%states(j),   &
+             &                                  subspace,                   &
+             &                                  subspace_basis,             &
+             &                                  anharmonic_data,            &
+             &                                  qpoint                    ) &
+             & * this%coefficients(i)                                       &
              & * polynomial_ket%coefficients(j)
       enddo
     enddo
@@ -269,14 +266,13 @@ impure elemental function kinetic_energy_PolynomialState(this,ket, &
     output = 0.0_dp
     do i=1,size(this)
       do j=1,size(this)
-        output = output                             &
-             & + kinetic_energy( this%states(i),    &
-             &                   this%states(j),    &
-             &                   subspace,          &
-             &                   subspace_basis,    &
-             &                   anharmonic_data,   &
-             &                   qpoint           ) &
-             & * this%coefficients(i)               &
+        output = output                                            &
+             & + this%states(i)%kinetic_energy( this%states(j),    &
+             &                                  subspace,          &
+             &                                  subspace_basis,    &
+             &                                  anharmonic_data,   &
+             &                                  qpoint           ) &
+             & * this%coefficients(i)                              &
              & * this%coefficients(j)
       enddo
     enddo
@@ -303,13 +299,13 @@ impure elemental function harmonic_potential_energy_PolynomialState( &
     output = 0.0_dp
     do i=1,size(this)
       do j=1,size(polynomial_ket)
-        output = output                                                 &
-             & + harmonic_potential_energy( this%states(i),             &
-             &                              polynomial_ket%states(j),   &
-             &                              subspace,                   &
-             &                              subspace_basis,             &
-             &                              anharmonic_data           ) &
-             & * this%coefficients(i)                                   &
+        output = output                                    &
+             & + this%states(i)%harmonic_potential_energy( &
+             &                 polynomial_ket%states(j),   &
+             &                 subspace,                   &
+             &                 subspace_basis,             &
+             &                 anharmonic_data           ) &
+             & * this%coefficients(i)                      &
              & * polynomial_ket%coefficients(j)
       enddo
     enddo
@@ -317,13 +313,13 @@ impure elemental function harmonic_potential_energy_PolynomialState( &
     output = 0.0_dp
     do i=1,size(this)
       do j=1,size(this)
-        output = output                                       &
-             & + harmonic_potential_energy( this%states(i),   &
-             &                              this%states(j),   &
-             &                              subspace,         &
-             &                              subspace_basis,   &
-             &                              anharmonic_data ) &
-             & * this%coefficients(i)                         &
+        output = output                                    &
+             & + this%states(i)%harmonic_potential_energy( &
+             &                           this%states(j),   &
+             &                           subspace,         &
+             &                           subspace_basis,   &
+             &                           anharmonic_data ) &
+             & * this%coefficients(i)                      &
              & * this%coefficients(j)
       enddo
     enddo
@@ -351,14 +347,13 @@ impure elemental function kinetic_stress_PolynomialState(this,ket, &
     output = dblemat(zeroes(3,3))
     do i=1,size(this)
       do j=1,size(polynomial_ket)
-        output = output                                      &
-             & + kinetic_stress( this%states(i),             &
-             &                   polynomial_ket%states(j),   &
-             &                   subspace,                   &
-             &                   subspace_basis,             &
-             &                   stress_prefactors,          &
-             &                   anharmonic_data           ) &
-             & * this%coefficients(i)                        &
+        output = output                                                     &
+             & + this%states(i)%kinetic_stress( polynomial_ket%states(j),   &
+             &                                  subspace,                   &
+             &                                  subspace_basis,             &
+             &                                  stress_prefactors,          &
+             &                                  anharmonic_data           ) &
+             & * this%coefficients(i)                                       &
              & * polynomial_ket%coefficients(j)
       enddo
     enddo
@@ -366,14 +361,13 @@ impure elemental function kinetic_stress_PolynomialState(this,ket, &
     output = dblemat(zeroes(3,3))
     do i=1,size(this)
       do j=1,size(this)
-        output = output                               &
-             & + kinetic_stress( this%states(i),      &
-             &                   this%states(j),      &
-             &                   subspace,            &
-             &                   subspace_basis,      &
-             &                   stress_prefactors,   &
-             &                   anharmonic_data    ) &
-             & * this%coefficients(i)                 &
+        output = output                                              &
+             & + this%states(i)%kinetic_stress( this%states(j),      &
+             &                                  subspace,            &
+             &                                  subspace_basis,      &
+             &                                  stress_prefactors,   &
+             &                                  anharmonic_data    ) &
+             & * this%coefficients(i)                                &
              & * this%coefficients(j)
       enddo
     enddo

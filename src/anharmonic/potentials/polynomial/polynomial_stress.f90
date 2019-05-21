@@ -138,12 +138,11 @@ subroutine braket_state_PolynomialStress(this,bra,ket,subspace, &
   integer :: i,j,k
   
   ! Integrate the reference stress (N.B. <i|e|j> = e<i|j> if e is a scalar.).
-  this%reference_stress_ = this%reference_stress_         &
-                       & * inner_product( bra,            &
-                       &                  ket,            &
-                       &                  subspace,       &
-                       &                  subspace_basis, &
-                       &                  anharmonic_data )
+  this%reference_stress_ = this%reference_stress_             &
+                       & * bra%inner_product( ket,            &
+                       &                      subspace,       &
+                       &                      subspace_basis, &
+                       &                      anharmonic_data )
   
   ! Integrate each basis function between the bra and the ket.
   do i=1,size(this%basis_functions_)

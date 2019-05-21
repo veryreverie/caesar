@@ -9,6 +9,7 @@ module calculate_anharmonic_observables_module
   use anharmonic_common_module
   use potentials_module
   
+  use generate_subspace_potentials_module
   use initial_frequencies_module
   use vscf_module
   use effective_frequency_module

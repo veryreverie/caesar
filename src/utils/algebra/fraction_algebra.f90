@@ -32,6 +32,7 @@ module fraction_algebra_module
   public :: operator(-)
   public :: operator(*)
   public :: operator(/)
+  public :: sum
   public :: exp_2pii
   public :: cos_2pi
   public :: sin_2pi
@@ -198,6 +199,12 @@ module fraction_algebra_module
     module procedure divide_FractionVector_IntFraction
     module procedure divide_FractionMatrix_integer
     module procedure divide_FractionMatrix_IntFraction
+  end interface
+  
+  ! Sum.
+  interface sum
+    module procedure sum_FractionVector
+    module procedure sum_FractionMatrix
   end interface
   
   ! exp(2*pi*i*input), cos(2*pi*input) and sin(2*pi*input)
@@ -1175,6 +1182,47 @@ impure elemental function divide_FractionMatrix_IntFraction(this,that) result(ou
   type(FractionMatrix)             :: output
   
   output = frac(this) / that
+end function
+
+! ----------------------------------------------------------------------
+! Sum.
+! ----------------------------------------------------------------------
+function sum_FractionVector(input) result(output)
+  implicit none
+  
+  type(FractionVector), intent(in) :: input(:)
+  type(FractionVector)             :: output
+  
+  integer :: i
+  
+  if (size(input)==0) then
+    call print_line(CODE_ERROR//': Trying to take the sum of an empty array.')
+    call err()
+  endif
+  
+  output = input(1)
+  do i=2,size(input)
+    output = output+input(i)
+  enddo
+end function
+
+function sum_FractionMatrix(input) result(output)
+  implicit none
+  
+  type(FractionMatrix), intent(in) :: input(:)
+  type(FractionMatrix)             :: output
+  
+  integer :: i
+  
+  if (size(input)==0) then
+    call print_line(CODE_ERROR//': Trying to take the sum of an empty array.')
+    call err()
+  endif
+  
+  output = input(1)
+  do i=2,size(input)
+    output = output+input(i)
+  enddo
 end function
 
 ! ----------------------------------------------------------------------

@@ -8,6 +8,8 @@ module vscf_module
   
   use anharmonic_common_module
   use potentials_module
+  
+  use generate_subspace_potentials_module
   implicit none
   
   private
